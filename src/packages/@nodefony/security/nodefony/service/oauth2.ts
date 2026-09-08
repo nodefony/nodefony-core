@@ -15,6 +15,69 @@ import { generateCodeVerifier, generateState } from "../src/oauth/oauth2Client";
 
 const serviceName = "oauth2";
 
+/**
+ * Sigles qui se lisent en capitales — les capitaliser mot à mot rendrait
+ * « Oidc », « Sso », qu'aucun utilisateur ne reconnaît comme la technologie.
+ */
+const ACRONYMS = new Set(["oidc", "sso", "saml", "ldap", "cas", "adfs", "iam"]);
+
+/**
+ * Marques dont la casse INTERNE ne se devine pas d'un nom en minuscules.
+ *
+ * Capitaliser la première lettre rendrait « Github », que la marque n'écrit
+ * jamais ainsi — et c'est précisément le nom que l'utilisateur cherche des yeux
+ * sur un bouton. Vu à l'écran, pas déduit : la première version de cette
+ * fonction affichait « Github » là où la console montrait « GitHub » avant.
+ */
+const CANONICAL_LABELS: Record<string, string> = {
+  github: "GitHub",
+  gitlab: "GitLab",
+  google: "Google",
+  keycloak: "Keycloak",
+  microsoft: "Microsoft",
+  auth0: "Auth0",
+  okta: "Okta",
+  linkedin: "LinkedIn",
+  paypal: "PayPal",
+  youtube: "YouTube",
+};
+
+/**
+ * Libellé affichable d'un fournisseur, quand sa configuration n'en donne pas.
+ *
+ * Un écran de connexion ne doit JAMAIS montrer un identifiant technique brut :
+ * `mon-idp-interne` sur un bouton ne dit rien à qui doit cliquer. À défaut de
+ * marque connue, le nom de la clé de configuration est ce qui s'en rapproche le
+ * plus — mais rendu lisible : séparateurs en espaces, initiales en capitales,
+ * sigles préservés.
+ *
+ * Fonction PURE, donc éprouvable sans boot ni réseau.
+ *
+ * @param name - nom du fournisseur, tel qu'il est écrit dans la configuration
+ * @returns le libellé à afficher sur le bouton
+ */
+export function oauthDisplayLabel(name: string): string {
+  const canonical = CANONICAL_LABELS[name.toLowerCase()];
+  if (canonical !== undefined) return canonical;
+  return name
+    .split(/[-_.\s]+/)
+    .filter((word) => word.length > 0)
+    .map((word) =>
+      ACRONYMS.has(word.toLowerCase())
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1),
+    )
+    .join(" ");
+}
+
+/** Un fournisseur tel que l'écran de connexion doit le présenter. */
+export interface IOAuthDisplayProvider {
+  /** Nom technique — celui que l'URL `/authorize` attend. */
+  readonly name: string;
+  /** Libellé du bouton : celui de la config, sinon dérivé du nom. */
+  readonly label: string;
+}
+
 /** Données à porter en session entre `authorize` et `callback` (anti-replay). */
 export interface IOAuthAuthorization {
   /** URL d'autorisation vers laquelle rediriger l'utilisateur. */
@@ -106,7 +169,15 @@ class OAuth2Service extends Service {
     return this.#ready;
   }
 
-  /** Noms des fournisseurs configurés ET connus du registre (UI : boutons à afficher). */
+  /**
+   * Noms des fournisseurs OPÉRATIONNELS — configurés ET connus du registre.
+   *
+   * 🔴 C'est la **garde d'autorisation** : `/authorize` refuse en 404 tout nom
+   * absent de cette liste. Elle répond donc à « ce flux peut-il s'ouvrir ? »,
+   * jamais à « ce bouton doit-il s'afficher ? » — pour l'écran, voir
+   * {@link listDisplayProviders}. Confondre les deux ferait d'un masquage une
+   * désactivation, et couperait les bancs qui exercent une fixture masquée.
+   */
   listProviders(): string[] {
     if (!this.#ready || this.#config === null) {
       return [];
@@ -115,6 +186,28 @@ class OAuth2Service extends Service {
     return Object.keys(this.#config.oauth2.providers).filter((n) =>
       known.has(n),
     );
+  }
+
+  /**
+   * Fournisseurs à MONTRER sur l'écran de connexion, libellés compris.
+   *
+   * Rend TOUT fournisseur opérationnel — y compris ceux dont le framework ne
+   * connaît pas la marque, qui sont précisément ceux qu'une application
+   * enregistre elle-même. Le seul retrait possible est explicite et se lit dans
+   * la configuration du fournisseur (`hidden: true`), à côté de la raison qui
+   * l'a motivé ; il ne désactive rien.
+   */
+  listDisplayProviders(): IOAuthDisplayProvider[] {
+    if (this.#config === null) {
+      return [];
+    }
+    const configured = this.#config.oauth2.providers;
+    return this.listProviders()
+      .filter((name) => configured[name]?.hidden !== true)
+      .map((name) => ({
+        name,
+        label: configured[name]?.label ?? oauthDisplayLabel(name),
+      }));
   }
 
   /**

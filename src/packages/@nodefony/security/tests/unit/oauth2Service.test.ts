@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import { Container } from "nodefony";
 import type { Module } from "nodefony";
 import type { IUser, IOAuthProfile } from "@nodefony/user";
-import { OAuth2Service } from "../../nodefony/service/oauth2";
+import {
+  OAuth2Service,
+  oauthDisplayLabel,
+} from "../../nodefony/service/oauth2";
 import { AuthenticationError } from "../../nodefony/errors/AuthenticationError";
 import type { IOAuthProvider } from "../../nodefony/contracts/IOAuthProvider";
 import { registerOAuthProvider } from "../../nodefony/src/oauth/oauthProviderRegistry";
@@ -267,5 +270,117 @@ describe("OAuth2Service — exchangeAndProvision (étape 2)", () => {
       () => svc.exchangeAndProvision("test-oidc", "code", "verifier", ISSUER),
       AuthenticationError,
     );
+  });
+});
+
+/**
+ * Ce que l'écran de connexion doit MONTRER — distinct de ce qui est autorisable.
+ *
+ * L'écran filtrait sur une table de marques écrite en dur (`google`, `github`) :
+ * Keycloak et l'entrée générique OIDC étaient configurables, opérationnels, et
+ * invisibles. Le registre de fournisseurs est extensible ; son affichage doit
+ * l'être aussi, sans quoi une application ne peut pas offrir SON fournisseur.
+ */
+describe("OAuth2Service — ce qui s'affiche, et ce qui reste autorisable", () => {
+  const configKeycloak = {
+    oauth2: {
+      enabled: true,
+      providers: {
+        "test-oidc": {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app/cb",
+          hidden: true,
+        },
+        keycloak: {
+          clientId: "id",
+          clientSecret: "sec",
+          redirectUri: "https://app/cb",
+          issuer: ISSUER,
+        },
+      },
+    },
+  };
+
+  it("montre un fournisseur qu'aucune table de marques ne connaît", () => {
+    const { svc, boot } = buildService(configKeycloak, makeUsers());
+    boot();
+    const affiches = svc.listDisplayProviders().map((p) => p.name);
+    assert.ok(affiches.includes("keycloak"), "keycloak doit être proposé");
+  });
+
+  // PIÈGE : c'est LA distinction qui fonde la correction. Retirer un
+  // fournisseur de `listProviders` pour le masquer le rendrait non
+  // autorisable — `/authorize` répondrait 404 et les bancs E2E qui exercent
+  // la fixture tomberaient, pour une raison purement cosmétique.
+  it("masquer n'est pas désactiver : `hidden` sort de l'écran, pas de la garde", () => {
+    const { svc, boot } = buildService(configKeycloak, makeUsers());
+    boot();
+    assert.deepEqual(
+      svc.listDisplayProviders().map((p) => p.name),
+      ["keycloak"],
+      "la fixture masquée ne doit pas être proposée",
+    );
+    assert.ok(
+      svc.listProviders().includes("test-oidc"),
+      "…mais son flux doit rester ouvert",
+    );
+  });
+
+  it("donne un libellé lisible, jamais un identifiant technique brut", () => {
+    const { svc, boot } = buildService(configKeycloak, makeUsers());
+    boot();
+    const keycloak = svc
+      .listDisplayProviders()
+      .find((p) => p.name === "keycloak");
+    assert.equal(keycloak?.label, "Keycloak");
+  });
+
+  it("le libellé de la configuration prime sur celui qu'on dérive", () => {
+    const { svc, boot } = buildService(
+      {
+        oauth2: {
+          enabled: true,
+          providers: {
+            keycloak: {
+              clientId: "id",
+              clientSecret: "sec",
+              redirectUri: "https://app/cb",
+              issuer: ISSUER,
+              label: "Annuaire interne",
+            },
+          },
+        },
+      },
+      makeUsers(),
+    );
+    boot();
+    assert.deepEqual(svc.listDisplayProviders(), [
+      { name: "keycloak", label: "Annuaire interne" },
+    ]);
+  });
+});
+
+describe("oauthDisplayLabel — rendre un nom de configuration lisible", () => {
+  it("capitalise, et coupe sur les séparateurs", () => {
+    assert.equal(oauthDisplayLabel("keycloak"), "Keycloak");
+    assert.equal(oauthDisplayLabel("mon-idp"), "Mon Idp");
+    assert.equal(oauthDisplayLabel("azure_ad.test"), "Azure Ad Test");
+  });
+
+  // PIÈGE : « Oidc » ou « Sso » ne se reconnaissent pas — un sigle se lit en
+  // capitales, sinon le bouton nomme une technologie que personne n'identifie.
+  it("préserve les sigles", () => {
+    assert.equal(oauthDisplayLabel("oidc"), "OIDC");
+    assert.equal(oauthDisplayLabel("sso-interne"), "SSO Interne");
+  });
+
+  // PIÈGE trouvé À L'ÉCRAN, pas au test : la capitalisation naïve rendait
+  // « Github », que la marque n'écrit jamais ainsi — et c'est ce mot que
+  // l'utilisateur cherche des yeux sur le bouton.
+  it("respecte la casse interne des marques", () => {
+    assert.equal(oauthDisplayLabel("github"), "GitHub");
+    assert.equal(oauthDisplayLabel("gitlab"), "GitLab");
+    assert.equal(oauthDisplayLabel("google"), "Google");
   });
 });

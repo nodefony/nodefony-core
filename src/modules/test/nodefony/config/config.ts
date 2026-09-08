@@ -169,6 +169,12 @@ export default {
           clientSecret: "test-secret",
           redirectUri:
             "https://127.0.0.1:5152/nodefony/security/api/oauth2/test-oidc/callback",
+          // Le flux reste OUVERT (les bancs E2E l'exercent de bout en bout),
+          // mais aucun bouton ne l'offre : l'émetteur est fictif
+          // (`test-idp.local`), donc le bouton serait mort pour un humain.
+          // C'est ICI que le masquage se déclare, à côté de sa raison — l'écran
+          // de connexion, lui, montre tout ce qu'on lui donne.
+          hidden: true,
         },
       },
     },

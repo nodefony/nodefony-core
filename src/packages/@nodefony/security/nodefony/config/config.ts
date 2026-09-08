@@ -1003,6 +1003,28 @@ const oauthProviderSchema = z
       .describe(
         "Rôles du Shadow User à la création — surcharge le global pour CE fournisseur.",
       ),
+    label: z
+      .string()
+      .min(1)
+      .optional()
+      .describe(
+        "Libellé du bouton sur l'écran de connexion. OMIS = dérivé du nom du " +
+          "fournisseur (`keycloak` → « Keycloak », `oidc` → « OIDC », " +
+          "`mon-idp` → « Mon Idp »). À poser quand la marque ne se devine pas " +
+          "du nom de la clé (« Connexion agent », « Annuaire interne »).",
+      ),
+    hidden: z
+      .boolean()
+      .default(false)
+      .describe(
+        "Retire le bouton de l'écran de connexion SANS désactiver le " +
+          "fournisseur : le flux `/authorize` reste ouvert et fonctionnel. " +
+          "C'est la seule différence avec le fait de ne pas le configurer. " +
+          "Deux usages : une FIXTURE de développement qui pointe vers un " +
+          "serveur fictif (bouton mort), et un fournisseur réservé à un " +
+          "point d'entrée particulier (lien direct, sous-domaine) plutôt " +
+          "qu'offert à tout visiteur.",
+      ),
   })
   .describe("Fournisseur OAuth/OIDC (secrets via env).");
 

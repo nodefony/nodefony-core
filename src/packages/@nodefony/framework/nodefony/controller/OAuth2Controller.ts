@@ -10,7 +10,15 @@ import Controller from "../src/Controller";
  */
 export interface IOAuth2Service {
   isEnabled(): boolean;
+  /** Fournisseurs OPÉRATIONNELS — la garde de `/authorize`, jamais l'affichage. */
   listProviders(): string[];
+  /**
+   * Fournisseurs à AFFICHER, libellés compris. Optionnel à dessein : le
+   * couplage à `@nodefony/security` se fait par NOM, sans liaison de build —
+   * une version du module qui ne l'expose pas encore doit dégrader, pas
+   * casser l'écran de connexion (repli sur {@link listProviders}).
+   */
+  listDisplayProviders?(): { name: string; label: string }[];
   getRedirects(provider?: string): { success: string; failure: string };
   createAuthorization(provider: string): Promise<{
     url: string;
@@ -84,13 +92,23 @@ class OAuth2Controller extends Controller {
   }
 
   /**
-   * Liste PUBLIQUE des fournisseurs activés (configurés ET connus du registre).
-   * Consommé par l'UI de login pour n'afficher QUE les boutons opérationnels —
-   * jamais de bouton mort. Aucun secret n'est exposé (uniquement les noms).
+   * Liste PUBLIQUE des fournisseurs à proposer à l'écran de connexion.
+   *
+   * Rend `{ name, label }` : le libellé vient du serveur, seul à connaître la
+   * configuration — un écran ne doit jamais avoir à deviner comment nommer un
+   * fournisseur, ni s'autoriser à en masquer un qu'il ne reconnaît pas. Un
+   * fournisseur déclaré `hidden` n'y figure pas, mais reste autorisable :
+   * masquer n'est pas désactiver. Aucun secret n'est exposé.
    */
   providers() {
     const svc = this.#service();
-    return this.renderJson({ providers: svc ? svc.listProviders() : [] });
+    if (!svc) {
+      return this.renderJson({ providers: [] });
+    }
+    const providers = svc.listDisplayProviders
+      ? svc.listDisplayProviders()
+      : svc.listProviders().map((name) => ({ name, label: name }));
+    return this.renderJson({ providers });
   }
 
   /** Démarre le flux : URL d'autorisation + état anti-replay en session, 302. */

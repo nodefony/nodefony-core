@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 818,
-    "symbols": 3944,
+    "symbols": 3946,
     "classes": 388,
-    "interfaces": 1071,
+    "interfaces": 1072,
     "types": 446,
     "enums": 4,
-    "functions": 1644,
+    "functions": 1645,
     "constants": 391
   },
   "symbols": {
@@ -20267,6 +20267,15 @@
       "decorators": [],
       "description": "**Social login OAuth 2.0** (P6 J9) — orchestrateur du flux *Authorization Code*. Posture OAuth 2.1 (RFC 9700) : Authorization Code uniquement (jamais implicit / ROPC), **PKCE S256** quand le fourni…"
     },
+    "IOAuthDisplayProvider": {
+      "name": "IOAuthDisplayProvider",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": null,
+      "description": "Un fournisseur tel que l'écran de connexion doit le présenter."
+    },
     "IOAuthAuthorization": {
       "name": "IOAuthAuthorization",
       "kind": "interface",
@@ -20275,6 +20284,14 @@
       "module": "@nodefony/security",
       "extends": null,
       "description": "Données à porter en session entre `authorize` et `callback` (anti-replay)."
+    },
+    "oauthDisplayLabel": {
+      "name": "oauthDisplayLabel",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Libellé affichable d'un fournisseur, quand sa configuration n'en donne pas. Un écran de connexion ne doit JAMAIS montrer un identifiant technique brut : `mon-idp-interne` sur un bouton ne dit rien …"
     },
     "SecurityHeaders": {
       "name": "SecurityHeaders",

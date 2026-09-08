@@ -252,7 +252,7 @@ curl -s -b /tmp/jar http://localhost:5151/nodefony/security/api/auth/me
 
 # 4) Ce que l'UI de login interroge pour n'afficher que des boutons vivants
 curl -s http://localhost:5151/nodefony/security/api/oauth2/providers
-# {"providers":["github"]}
+# {"providers":[{"name":"github","label":"GitHub"}]}
 ```
 
 Séquence identique prouvée de bout en bout sur serveur réel par `oauth2-flow.test.ts` (6 cas).
@@ -569,9 +569,31 @@ Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en 
 ## 📡 Observabilité — Studio
 
 L'écran de connexion de Studio consomme directement le data plane : il interroge
-`/nodefony/security/api/oauth2/providers` (`Login.tsx:341`) et n'affiche **que** les fournisseurs
-opérationnels — zéro bouton mort. Le clic déclenche la redirection vers `authorize`
-(`Login.tsx:84`).
+`/nodefony/security/api/oauth2/providers` et affiche **tout** ce que cette route lui rend — zéro
+bouton mort, et zéro fournisseur légitime masqué. Le clic déclenche la redirection vers `authorize`.
+
+C'est le SERVEUR qui décide de la liste et des libellés, parce qu'il est le seul à lire la
+configuration. L'écran ne connaît que des icônes de marque, pour l'esthétique : un fournisseur
+qu'il ne reconnaît pas reçoit une icône neutre et reste affiché. Filtrer côté écran sur une table
+de marques masquerait précisément les fournisseurs qu'une application enregistre elle-même —
+Keycloak, ou un OIDC d'entreprise.
+
+**Retirer un bouton sans fermer le flux** — `hidden: true` sur un fournisseur :
+
+```ts
+providers: {
+  "test-oidc": { /* … */ hidden: true },   // absent de l'écran…
+}
+```
+
+…mais `/authorize` continue de répondre `302` : **masquer n'est pas désactiver**. Les deux usages
+sont une fixture de développement qui pointe vers un serveur fictif (le bouton serait mort), et un
+fournisseur réservé à un point d'entrée particulier. Pour le désactiver vraiment, il faut le
+retirer de la configuration.
+
+**Le libellé** vient de `label`, sinon il est dérivé du nom de la clé (`keycloak` → « Keycloak »,
+`oidc` → « OIDC », `mon-idp` → « Mon Idp ») : un écran de connexion ne montre jamais un identifiant
+technique brut.
 
 Côté suivi, chaque login réussi produit un événement d'audit `auth` / `login.success` via
 `AuthFlow.establishSessionFor()` (`authFlow.ts:229-236`), consultable dans l'écran **Audit**. La

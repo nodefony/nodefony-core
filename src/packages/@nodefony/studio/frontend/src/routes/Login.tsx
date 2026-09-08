@@ -55,18 +55,41 @@ const STEP_LABEL: Record<ConnectionStep, string> = {
   done: "Prêt",
 };
 
+/** Un fournisseur de connexion, tel que le SERVEUR le présente. */
+type SocialProvider = { name: string; label: string };
+
 /**
- * Métadonnées d'affichage des fournisseurs sociaux connus (libellé + icône de
- * marque). Un fournisseur découvert hors de cette table (ex. `keycloak`) reste
- * affiché via un bouton générique — l'UI ne masque jamais un provider activé.
+ * Icônes des marques que l'on sait dessiner. Cette table ne DÉCIDE rien : elle
+ * embellit. Tout fournisseur absent reçoit une icône neutre et reste affiché —
+ * c'est le serveur, seul à lire la configuration, qui dit ce qui s'affiche.
+ *
+ * Le libellé n'est ici qu'un repli synchrone pour le « rebonjour », rendu avant
+ * que la liste du serveur ne soit arrivée.
  */
-const SOCIAL_META: Record<
+const BRAND_META: Record<
   string,
   { label: string; Icon: typeof IconBrandGoogle }
 > = {
   google: { label: "Google", Icon: IconBrandGoogle },
   github: { label: "GitHub", Icon: IconBrandGithub },
 };
+
+/** L'icône d'un fournisseur : sa marque si on la connaît, sinon une neutre. */
+function providerIcon(name: string): typeof IconBrandGoogle {
+  return BRAND_META[name]?.Icon ?? IconShieldLock;
+}
+
+/**
+ * Le dernier login s'est-il fait par un fournisseur externe ?
+ *
+ * Se répond sans aucune table : `rememberMethod` n'écrit que `password`,
+ * `passkey`, ou le NOM du fournisseur. Déduire cela d'une liste de marques
+ * connues ferait proposer un champ mot de passe à un compte Keycloak, qui n'en
+ * a pas — et la liste du serveur, elle, arrive trop tard pour le premier rendu.
+ */
+function isSocialMethod(method: string): boolean {
+  return method !== "" && method !== "password" && method !== "passkey";
+}
 
 /**
  * Démarre un flux social : navigation PLEINE PAGE vers `/authorize` (302 → le
@@ -105,12 +128,22 @@ function readLastMethod(): string {
  * COHÉRENTE avec la dernière méthode : un compte social/passkey ne se voit JAMAIS
  * proposer un champ mot de passe.
  */
-function loginMethodChip(method: string): {
+function loginMethodChip(
+  method: string,
+  providers: SocialProvider[],
+): {
   Icon: typeof IconUser;
   label: string;
 } {
-  const social = SOCIAL_META[method];
-  if (social) return { Icon: social.Icon, label: `via ${social.label}` };
+  if (isSocialMethod(method)) {
+    // Le libellé du serveur d'abord ; la marque connue tant qu'il n'est pas
+    // arrivé ; le nom brut en dernier recours plutôt qu'un « Compte » faux.
+    const label =
+      providers.find((p) => p.name === method)?.label ??
+      BRAND_META[method]?.label ??
+      method;
+    return { Icon: providerIcon(method), label: `via ${label}` };
+  }
   if (method === "passkey") return { Icon: IconFingerprint, label: "Passkey" };
   return { Icon: IconUser, label: "Compte" };
 }
@@ -196,7 +229,7 @@ function AltLoginMethods({
   disabled,
   exclude,
 }: {
-  social: string[];
+  social: SocialProvider[];
   onSocial: (provider: string) => void;
   onPasskey: () => void;
   busy: boolean;
@@ -204,25 +237,25 @@ function AltLoginMethods({
   /** Mode déjà proposé en action primaire (« rebonjour ») → masqué ici (0 doublon). */
   exclude?: string;
 }) {
-  // N'affiche QUE les fournisseurs « curés » (brandés dans SOCIAL_META) → exclut
-  // les fixtures de dev (ex. `test-oidc` du module test, qui pointe vers un IdP
-  // fictif `test-idp.local`) et tout provider non reconnu : 0 bouton mort.
+  // Affiche TOUT ce que le serveur envoie : lui seul lit la configuration, et
+  // c'est lui qui a déjà retiré les fournisseurs déclarés `hidden` (fixtures de
+  // développement, entrées réservées à un autre point d'entrée). Filtrer ici
+  // sur une table de marques masquerait précisément les fournisseurs qu'une
+  // application enregistre elle-même — Keycloak, un OIDC d'entreprise.
   // `exclude` retire le mode déjà mis en avant (action primaire du rebonjour).
-  const visible = social.filter((id) => SOCIAL_META[id] && id !== exclude);
+  const visible = social.filter((p) => p.name !== exclude);
   return (
     <>
       <Divider label="ou" labelPosition="center" my={4} />
-      {visible.map((id) => {
-        const meta = SOCIAL_META[id];
-        if (!meta) return null; // garde TS — filtré au-dessus
-        const { label, Icon } = meta;
+      {visible.map(({ name, label }) => {
+        const Icon = providerIcon(name);
         return (
           <Button
-            key={id}
+            key={name}
             size="md"
             fullWidth
             variant="default"
-            onClick={() => onSocial(id)}
+            onClick={() => onSocial(name)}
             disabled={disabled || busy}
             leftSection={<Icon size={18} />}
           >
@@ -333,17 +366,22 @@ export const Login = observer(() => {
   // Fournisseurs sociaux activés (OAuth 2.0), découverts côté serveur : l'UI
   // n'affiche QUE des boutons opérationnels (0 bouton mort). Échec/absence du
   // service = liste vide (non bloquant — login classique + Passkey restent).
-  const [social, setSocial] = useState<string[]>([]);
+  const [social, setSocial] = useState<SocialProvider[]>([]);
   useEffect(() => {
     let alive = true;
     void store.api
-      .getAbsolute<{ providers?: string[] }>(
+      .getAbsolute<{ providers?: SocialProvider[] }>(
         "/nodefony/security/api/oauth2/providers",
       )
-      .then(
-        (r) =>
-          alive && setSocial(Array.isArray(r?.providers) ? r.providers : []),
-      )
+      .then((r) => {
+        if (!alive) return;
+        // Une entrée sans nom ne mène nulle part : `/authorize` l'attend. On la
+        // laisse tomber plutôt que de peindre un bouton qui ne peut pas cliquer.
+        const received = Array.isArray(r?.providers) ? r.providers : [];
+        setSocial(
+          received.filter((p) => typeof p?.name === "string" && p.name),
+        );
+      })
       .catch(() => {
         /* social login indisponible → pas de boutons (non bloquant) */
       });
@@ -598,16 +636,21 @@ export const Login = observer(() => {
   // de passe (le passkey est une commodité EN PLUS, pas un remplacement) → le passkey
   // reste proposé dans les alternatives. Après « Changer », on repasse au mot de passe.
   const returningMethod = forcePassword ? "password" : lastMethod;
-  const returnSocial = SOCIAL_META[returningMethod];
+  // « Est-ce un compte social ? » se décide sur la MÉTHODE mémorisée, pas sur la
+  // liste des marques connues ni sur celle du serveur : la première ignorait
+  // Keycloak, la seconde arrive après le premier rendu. Se tromper ici affiche
+  // un champ mot de passe à un compte qui n'en possède aucun.
+  const isSocialReturn = isSocialMethod(returningMethod);
   const isPasskeyReturn = returningMethod === "passkey";
-  const returnChip = loginMethodChip(returningMethod);
+  const returnChip = loginMethodChip(returningMethod, social);
   const ReturnIcon = returnChip.Icon;
   // Champ mot de passe : par défaut (compte mot de passe) ; À LA DEMANDE pour un
   // compte passkey (qui possède aussi un mot de passe) ; JAMAIS pour un compte
   // social (il n'en a pas → bouton du fournisseur seulement).
-  const showPasswordField = !returnSocial && (!isPasskeyReturn || showPassword);
-  const socialLabel = returnSocial
-    ? `Continuer avec ${returnSocial.label}`
+  const showPasswordField =
+    !isSocialReturn && (!isPasskeyReturn || showPassword);
+  const socialLabel = isSocialReturn
+    ? `Continuer avec ${returnChip.label.replace(/^via /, "")}`
     : "";
 
   return (

@@ -949,7 +949,8 @@
       "recette",
       "relais",
       "tuile",
-      "voie"
+      "voie",
+      "recu"
     ],
     "modifiers": [
       "utile",
@@ -1117,7 +1118,8 @@
       "presente",
       "oui",
       "nulle",
-      "sauf"
+      "sauf",
+      "canonique"
     ]
   },
   "excludedHomographs": [
@@ -1813,6 +1815,7 @@
     "tuile": "tile",
     "voie": "lane",
     "deverrouille": "unlocked",
-    "deverrouiller": "unlock"
+    "deverrouiller": "unlock",
+    "canonique": "canonical"
   }
 }
