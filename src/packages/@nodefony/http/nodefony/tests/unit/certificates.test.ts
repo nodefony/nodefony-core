@@ -42,7 +42,7 @@ describe("certificates — conformité crypto de l'auto-signé", () => {
 
   beforeAll(async () => {
     const c = makeCert({
-      openssl: { attrs: [{ name: "commonName", value: "nodefony.com" }] },
+      selfSigned: { attrs: [{ name: "commonName", value: "nodefony.com" }] },
       san: { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1"] },
     });
     await c.loadForge();
@@ -106,7 +106,7 @@ describe("certificates — conformité crypto de l'auto-signé", () => {
   });
 
   it("respecte le hachage configuré (sha512)", async () => {
-    const c = makeCert({ openssl: { hash: "sha512" } });
+    const c = makeCert({ selfSigned: { hash: "sha512" } });
     await c.loadForge();
     c.keysPair = sharedKeys;
     c.certForge = c.createCertificate();

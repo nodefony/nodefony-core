@@ -51,7 +51,7 @@ en fin de fichier (`sessions-service.ts:886`).
 ## Choisir le backend — un seul réglage
 
 La clé `session.store` du module http sélectionne le stockage par son **nom**
-(`config.ts:774`) :
+(`config.ts:780`) :
 
 ```typescript
 // nodefony/config/modules/http-config.ts (surcharge applicative)

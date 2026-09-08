@@ -95,12 +95,12 @@ describe("@nodefony/http — sous-défauts (piège Zod 4 .default({}))", () => {
     ).to.equal(true);
   });
 
-  it("session.cookie + certificates.openssl ré-appliquent leurs sous-défauts", () => {
+  it("session.cookie + certificates.selfSigned ré-appliquent leurs sous-défauts", () => {
     expect(c.session.cookie.httpOnly).to.equal(true);
     expect(c.session.cookie.secure).to.equal(true);
     expect(c.session.cookie.signed).to.equal(false);
     expect(c.session.cookie.hostPrefix).to.equal("auto");
-    expect(c.certificates.openssl.size).to.equal(2048);
+    expect(c.certificates.selfSigned.size).to.equal(2048);
     expect(c.certificates.dev.useMkcert).to.equal(true);
     expect(c.statics.web.path).to.equal("public");
   });
@@ -223,7 +223,7 @@ describe("@nodefony/http — defineHttpConfig (défauts kernel)", () => {
       },
     );
     expect(c.upload.uploadDir).to.equal("/var/tmp/app");
-    const cn = c.certificates.openssl.attrs.find(
+    const cn = c.certificates.selfSigned.attrs.find(
       (a) => a.name === "commonName",
     );
     expect(cn?.value).to.equal("example.com");
@@ -232,7 +232,7 @@ describe("@nodefony/http — defineHttpConfig (défauts kernel)", () => {
   it("sans kernel : fallback /tmp + nodefony.com", () => {
     const c = defineHttpConfig({});
     expect(c.upload.uploadDir).to.equal("/tmp");
-    const cn = c.certificates.openssl.attrs.find(
+    const cn = c.certificates.selfSigned.attrs.find(
       (a) => a.name === "commonName",
     );
     expect(cn?.value).to.equal("nodefony.com");

@@ -20,7 +20,7 @@ export interface IKernelConfigDefaults {
  * Injecte les défauts dérivés du kernel APRÈS le parse (le schéma reste pur).
  *
  * - `upload.uploadDir` vide → répertoire temporaire du kernel (`kernel.tmpDir`).
- * - `certificates.openssl.attrs` vide → sujet du certificat dérivé du kernel
+ * - `certificates.selfSigned.attrs` vide → sujet du certificat dérivé du kernel
  *   (`commonName` ← `kernel.domain`, `organizationName` ← `kernel.projectName`).
  *   Sans ce remplissage, le certificat auto-signé n'aurait pas de commonName.
  * - `certificates.san` vide → Subject Alternative Name dérivé du kernel
@@ -45,8 +45,8 @@ function applyKernelDefaults(
     const p = kernel?.tmpDir?.path;
     config.upload.uploadDir = typeof p === "string" ? p : "/tmp";
   }
-  if (config.certificates.openssl.attrs.length === 0) {
-    config.certificates.openssl.attrs = [
+  if (config.certificates.selfSigned.attrs.length === 0) {
+    config.certificates.selfSigned.attrs = [
       { name: "commonName", value: kernel?.domain ?? "nodefony.com" },
       { name: "organizationName", value: kernel?.projectName ?? "" },
       { name: "organizationalUnitName", value: "Development" },

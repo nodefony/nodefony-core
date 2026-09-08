@@ -17080,13 +17080,14 @@
       "decorators": [],
       "description": "Service de fourniture du certificat TLS du serveur HTTPS/WSS. Trois stratégies : `explicit` (certificat fourni en config — le cas de PRODUCTION), `mkcert` (CA locale trustée, confort de dev) et `se…"
     },
-    "OpensslOptions": {
-      "name": "OpensslOptions",
+    "SelfSignedOptions": {
+      "name": "SelfSignedOptions",
       "kind": "interface",
       "file": "src/packages/@nodefony/http/nodefony/service/certificates.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "extends": null,
+      "description": "Options de génération du certificat AUTO-SIGNÉ (node-forge, JavaScript pur — aucun binaire externe n'est invoqué). ⚠️ Portée : ces réglages ne valent QUE pour la stratégie `selfsigned`. Sous `mkcer…"
     },
     "CertificateDevOptions": {
       "name": "CertificateDevOptions",

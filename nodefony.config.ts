@@ -161,7 +161,7 @@ export default defineConfig<Env>((ctx) => ({
           // PROD : décommenter pour fournir le vrai certificat (fail-fast si absent).
           // strategy: "explicit",
           // key: ctx.env.TLS_KEY, cert: ctx.env.TLS_CERT, ca: ctx.env.TLS_CA,
-          openssl: {
+          selfSigned: {
             size: 2048,
             // Hachage de signature — JAMAIS SHA-1 (interdit CA/B Forum, SHAttered 2017).
             hash: "sha256",

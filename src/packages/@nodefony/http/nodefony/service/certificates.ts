@@ -36,7 +36,16 @@ export type CertStrategyConfig = "auto" | "mkcert" | "selfsigned" | "explicit";
 /** Stratégie effective résolue au boot (`auto` est résolu vers l'une d'elles). */
 type CertStrategy = "explicit" | "mkcert" | "selfsigned";
 
-export interface OpensslOptions {
+/**
+ * Options de génération du certificat AUTO-SIGNÉ (node-forge, JavaScript pur —
+ * aucun binaire externe n'est invoqué).
+ *
+ * ⚠️ Portée : ces réglages ne valent QUE pour la stratégie `selfsigned`. Sous
+ * `mkcert` (le défaut en développement) ils sont ignorés — mkcert ne reçoit que
+ * les noms d'hôtes — et sous `strategy: "explicit"` le certificat est fourni,
+ * donc rien n'est généré.
+ */
+export interface SelfSignedOptions {
   /** Taille de la clé RSA (bits). */
   size: number;
   /** Algorithme de hachage de la signature (jamais SHA-1). */
@@ -77,7 +86,7 @@ export interface CertificateOptions {
    * (Let's Encrypt, ingress, reverse-proxy) : Nodefony n'est pas une CA.
    */
   strategy?: CertStrategyConfig;
-  openssl: OpensslOptions;
+  selfSigned: SelfSignedOptions;
   dev: CertificateDevOptions;
   san?: CertificateSanOptions;
   /** Permissions POSIX de la clé privée écrite (0600 = owner-only). */
@@ -129,7 +138,7 @@ const defaultOptions: CertificateOptions = {
     useMkcert: true,
   },
   san: { dns: [], ip: [] },
-  openssl: {
+  selfSigned: {
     size: 2048,
     hash: "sha256",
     validityDays: 365,
@@ -701,7 +710,9 @@ class Certificate extends Service {
 
   generateKeys(): pkg.pki.rsa.KeyPair {
     // Générer une paire de clés
-    return this.forgeLib.pki.rsa.generateKeyPair(this.certOptions.openssl.size);
+    return this.forgeLib.pki.rsa.generateKeyPair(
+      this.certOptions.selfSigned.size,
+    );
   }
   generatePrivateKeyPem(): Buffer {
     if (this.keysPair) {
@@ -729,7 +740,7 @@ class Certificate extends Service {
     if (!this.keysPair) {
       throw new Error(`KeyPair  not found`);
     }
-    const o = this.certOptions.openssl;
+    const o = this.certOptions.selfSigned;
     const cert = this.forgeLib.pki.createCertificate();
     cert.publicKey = this.keysPair.publicKey;
     // Série aléatoire unique (RFC 5280 §4.1.2.2) — plus de série fixe.
@@ -802,7 +813,7 @@ class Certificate extends Service {
     }
     this.certForge.sign(
       this.keysPair.privateKey,
-      this.digestFor(this.certOptions.openssl.hash),
+      this.digestFor(this.certOptions.selfSigned.hash),
     );
   }
 

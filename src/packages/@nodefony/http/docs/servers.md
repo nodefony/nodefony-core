@@ -133,7 +133,7 @@ session et du même firewall, et se ferme avec le même soin qu'une réponse HTT
 
 > [!NOTE]
 > Le serveur HTTP/3 (QUIC) est **réservé, pas implémenté** : la clé `http3` existe dans le schéma,
-> marquée `reserved` (`config.ts:1029`). Elle ne fait rien aujourd'hui.
+> marquée `reserved` (`config.ts:1035`). Elle ne fait rien aujourd'hui.
 
 ## 🚀 Démarrage rapide
 
@@ -400,7 +400,7 @@ C'est la distinction la plus utile de cette page, et celle qu'on rate le plus so
 | Question                                  | Où ça se règle                 | Source                                                    |
 | ----------------------------------------- | ------------------------------ | --------------------------------------------------------- |
 | **Quels** serveurs, sur **quels ports** ? | `servers` (config d'app)       | `serversSchema` (`src/nodefony/src/config/schema.ts:132`) |
-| **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:947`)                      |
+| **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:953`)                      |
 
 Autrement dit : la **topologie** est une propriété du déploiement (elle change entre le poste du dev,
 la CI et le cluster) ; le **réglage** est une propriété de l'application.
@@ -451,16 +451,16 @@ Depuis `http2Schema` (`config.ts:332`), appliqué seulement si défini
 
 ### Niveau 2 — WebSocket (`websocket` et `websocketSecure`)
 
-Depuis `websocketSchema` (`config.ts:490`). Les deux sections partagent la forme et les défauts ; le WSS
-lit `websocketSecure` (`config.ts:1037`).
+Depuis `websocketSchema` (`config.ts:496`). Les deux sections partagent la forme et les défauts ; le WSS
+lit `websocketSecure` (`config.ts:1043`).
 
 | Option                   | Type                | Défaut  | Effet                                                                              |
 | ------------------------ | ------------------- | ------- | ---------------------------------------------------------------------------------- |
 | `keepaliveInterval`      | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                             |
 | `keepaliveGracePeriod`   | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                         |
 | `closeTimeout`           | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                          |
-| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts:516`).       |
-| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts:525`).              |
+| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts:522`).       |
+| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts:531`).              |
 | `perMessageDeflate`      | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_. |
 | `skipUTF8Validation`     | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`. |
 | `autoPong`               | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.   |
@@ -537,12 +537,12 @@ serveur qui, lui, écoute très bien.
 **Générer un certificat est un confort de développement, pas une fonction de production.** Nodefony
 n'est pas une autorité de certification : en production, on fournit un vrai certificat (Let's Encrypt,
 ingress k8s, reverse-proxy). Le service crie un avertissement si ce n'est pas le cas
-(`Certificate.resolveStrategy()`, `certificates.ts:409`).
+(`Certificate.resolveStrategy()`, `certificates.ts:418`).
 
 ### Les quatre stratégies
 
-Réglées par `certificates.strategy` (`certificatesSchema`, `config.ts:448`), résolues par
-`Certificate.resolveStrategy()` (`certificates.ts:370`).
+Réglées par `certificates.strategy` (`certificatesSchema`, `config.ts:475`), résolues par
+`Certificate.resolveStrategy()` (`certificates.ts:379`).
 
 | Stratégie       | Quand l'utiliser                            | Ce qui se passe                                                             |
 | --------------- | ------------------------------------------- | --------------------------------------------------------------------------- |
@@ -572,13 +572,13 @@ export default defineConfig(() => ({
 > [!TIP]
 > Pour un HTTPS de développement **sans avertissement navigateur** (indispensable au HMR cross-origin
 > et au WSS) : `brew install mkcert nss && mkcert -install`. Nodefony le détecte tout seul, sinon il
-> l'annonce et retombe sur l'auto-signé (`certificates.ts:392`).
+> l'annonce et retombe sur l'auto-signé (`certificates.ts:401`).
 
 ### Ce que le chemin `explicit` évite
 
 `node-forge` est une grosse dépendance. Elle est chargée **paresseusement**, uniquement sur le chemin
-de génération (`Certificate.loadForge()`, `certificates.ts:218`) : en production avec un certificat
-fourni, elle n'entre jamais dans le processus (`certificates.ts:325`).
+de génération (`Certificate.loadForge()`, `certificates.ts:227`) : en production avec un certificat
+fourni, elle n'entre jamais dans le processus (`certificates.ts:334`).
 
 ### Conformité de l'auto-signé
 
@@ -587,16 +587,16 @@ invalid »). Celui de Nodefony respecte les règles qui comptent :
 
 | Exigence                                | Norme                | Mise en œuvre                                             |
 | --------------------------------------- | -------------------- | --------------------------------------------------------- |
-| Signature SHA-256, **jamais** SHA-1     | RFC 5280, CA/B Forum | `openssl.hash` par défaut `sha256` (`config.ts:379`)      |
-| Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:255`) |
-| Le SAN fait foi, pas le CN              | RFC 6125             | SAN dérivé du kernel si non fourni (`config.ts:415`)      |
-| `notBefore` reculé (décalage d'horloge) | pratique             | `openssl.backdateMinutes`, défaut 5 (`config.ts:394`)     |
-| Clé privée non lisible par tous         | hygiène              | `privateKeyMode` `0600` (`config.ts:472`)                 |
+| Signature SHA-256, **jamais** SHA-1     | RFC 5280, CA/B Forum | `selfSigned.hash` par défaut `sha256` (`config.ts:400`)   |
+| Numéro de série aléatoire 128 bits      | RFC 5280 §4.1.2.2    | `Certificate.generateSerialHex()` (`certificates.ts:264`) |
+| Le SAN fait foi, pas le CN              | RFC 6125             | SAN dérivé du kernel si non fourni (`config.ts:444`)      |
+| `notBefore` reculé (décalage d'horloge) | pratique             | `selfSigned.backdateMinutes`, défaut 5 (`config.ts:415`)  |
+| Clé privée non lisible par tous         | hygiène              | `privateKeyMode` `0600` (`config.ts:499`)                 |
 
 ### Régénération automatique
 
 Un certificat présent sur disque n'est pas forcément **adéquat**. `Certificate.isCertAdequate()`
-(`certificates.ts:533`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
+(`certificates.ts:542`) le régénère s'il est expiré, s'il est signé en SHA-1, ou si son SAN ne couvre
 plus les noms requis — le dernier cas est celui qui sauve : changer le domaine d'écoute sans ce
 contrôle laisserait un certificat obsolète en place indéfiniment.
 
@@ -608,7 +608,7 @@ Dès qu'un proxy est devant l'application, trois questions se posent — et troi
 
 Sans barrière, n'importe quel client peut envoyer `X-Forwarded-For: 1.2.3.4` et usurper son IP :
 contournement de rate-limit, journaux d'audit falsifiés. Le défaut est donc **`false` — ces en-têtes
-sont ignorés** (`config.ts:959`), et l'IP retenue est celle de la socket réelle, non falsifiable.
+sont ignorés** (`config.ts:965`), et l'IP retenue est celle de la socket réelle, non falsifiable.
 
 | Valeur                                       | Sens                                                               |
 | -------------------------------------------- | ------------------------------------------------------------------ |
@@ -628,7 +628,7 @@ Barrière testée **avant le routage**, contre l'injection d'en-tête `Host`. Le
 kernel est toujours accepté, plus le loopback en développement (`HttpKernel.compileAlias()`,
 `http-kernel.ts:936`). `false` (défaut) = ce socle seul ; une liste ajoute des vhosts (exact ou joker
 d'un seul niveau, `*.cdn.example.com`) ; `true` désactive la barrière — à réserver au cas où le proxy
-filtre déjà le `Host` (`config.ts:968`).
+filtre déjà le `Host` (`config.ts:974`).
 
 ### « Cette page a-t-elle le droit d'ouvrir un WebSocket ? » → `allowedOrigins`
 
@@ -664,7 +664,7 @@ rate-limit**. Un kubelet qui reçoit un `429` croit le pod mort → cascade de r
 
 | Option          | Type   | Défaut    | Effet                                                                  |
 | --------------- | ------ | --------- | ---------------------------------------------------------------------- |
-| `enabled`       | bool   | `true`    | Expose les probes (`healthSchema`, `config.ts:919`).                   |
+| `enabled`       | bool   | `true`    | Expose les probes (`healthSchema`, `config.ts:925`).                   |
 | `livenessPath`  | string | `/livez`  | Chemin de la sonde de vie (`livenessProbe.httpGet.path` k8s).          |
 | `readinessPath` | string | `/readyz` | Chemin de la sonde de disponibilité.                                   |
 | `shutdownDelay` | ms     | `0`       | Délai entre la bascule `503` et le début du drain (propagation du LB). |
@@ -790,7 +790,7 @@ est impossible → la connexion est fermée en **1013 « Try Again Later »**
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
-`wsMaxConnectionsPerIp` (`config.ts:1046`). En cloud-native, laisser `null` et déléguer à l'edge —
+`wsMaxConnectionsPerIp` (`config.ts:1052`). En cloud-native, laisser `null` et déléguer à l'edge —
 nginx `limit_conn`, HAProxy `sc_conn_cur` — qui voit tout le trafic, rejette avant le coût du
 descripteur et du TLS, et couvre tous les pods. Ne l'activer que sur une machine sans ingress.
 
@@ -817,7 +817,7 @@ par seconde. Les choix visibles dans le code :
 - **Fichiers statiques en repli** — depuis la bascule « router d'abord », une requête qui matche une
   route ne paie plus l'appel disque de `serve-static` (**+28 % de requêtes par seconde** mesurés en
   production mono-processus).
-- **`node-forge` jamais chargé en production** avec un certificat fourni (`certificates.ts:218`).
+- **`node-forge` jamais chargé en production** avec un certificat fourni (`certificates.ts:227`).
 
 Ordre de grandeur mesuré : un processus Node saturé sur un cœur tient environ 400 requêtes/s en
 boucle locale avec dégradation gracieuse (1600 connexions concurrentes, aucun crash) ; côté WebSocket,
@@ -838,15 +838,15 @@ demande le backplane realtime.
 | HTTP/2                                | RFC 9113           | `ServerHttps.createServerH2()` (`server-https.ts:174`)                     |
 | HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:334`)                                   |
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:25`)                                |
-| WebSocket — protocole                 | RFC 6455           | `ws@8` + options (`config.ts:490`)                                         |
+| WebSocket — protocole                 | RFC 6455           | `ws@8` + options (`config.ts:496`)                                         |
 | WebSocket — Close 1001 « Going Away » | RFC 6455 §7.4.1    | `Websocket.terminate()` (`server-websocket.ts:134`)                        |
-| WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:516`)                                             |
-| WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:596`)                                     |
-| WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:540`)                                      |
+| WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:522`)                                             |
+| WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:602`)                                     |
+| WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:546`)                                      |
 | CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:599`)                 |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                  |
-| Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:255`)                  |
-| Certificat — identité par le SAN      | RFC 6125           | `sanSchema` (`config.ts:415`)                                              |
+| Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:264`)                  |
+| Certificat — identité par le SAN      | RFC 6125           | `sanSchema` (`config.ts:442`)                                              |
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
@@ -863,7 +863,7 @@ demande le backplane realtime.
 | Cascade de redémarrages sous charge                             | Sonde de santé soumise au rate-limit                                       | Déjà géré : les probes court-circuitent avant le rate-limit (`http-kernel.ts:848`) |
 | `curl --http2` renvoie du HTTP/1.1                              | `servers.https.protocol: "1.1"`, ou client sans ALPN                       | Passer `protocol: "2.0"` (défaut) et vérifier le client                            |
 | Avertissement navigateur en HTTPS de développement              | Certificat auto-signé (mkcert absent)                                      | `brew install mkcert nss && mkcert -install`, puis redémarrer                      |
-| Le certificat n'est pas régénéré après un changement de domaine | On croit qu'un fichier présent suffit                                      | Déjà géré : le SAN est vérifié (`certificates.ts:546`)                             |
+| Le certificat n'est pas régénéré après un changement de domaine | On croit qu'un fichier présent suffit                                      | Déjà géré : le SAN est vérifié (`certificates.ts:555`)                             |
 | `strategy: "explicit"` fait échouer le boot                     | `key`/`cert` absents de la configuration                                   | Fournir les deux chemins — l'échec est volontaire, jamais un repli silencieux      |
 | Une IP falsifiée passe dans les journaux d'audit                | `trustProxy` accordé trop largement                                        | Restreindre à l'IP/CIDR du proxy, ou revenir à `false`                             |
 | Handshake WebSocket refusé en `1008`                            | `Origin` non autorisée (anti-CSWSH)                                        | Ajouter l'origine dans `websocket.allowedOrigins`                                  |
@@ -886,7 +886,7 @@ l'origine du transport.
 
 `proxy:generate` mérite un mot : la configuration nginx/HAProxy est **dérivée** des domaines de
 confiance, des ports effectifs et des dossiers statiques montés — donc elle ne diverge pas du code. Le
-résumé de certificat vient de `Certificate.describe()` (`certificates.ts:803`), source unique partagée
+résumé de certificat vient de `Certificate.describe()` (`certificates.ts:812`), source unique partagée
 par la commande, le boot et un futur écran d'administration.
 
 **Runtime.** `nodefony status` et `nodefony stop` lisent les ports effectifs publiés au boot ; ils

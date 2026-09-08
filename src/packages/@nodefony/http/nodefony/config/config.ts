@@ -58,7 +58,7 @@ import { z } from "zod";
  * Ce schéma reste PUR (pas de `Nodefony.getKernel()` ni `process.env`) → sa
  * sortie est déterministe et sérialisable en JSON Schema (`httpConfigJsonSchema`
  * dans `defineModuleConfig.ts`). Les défauts dérivés du kernel
- * (`upload.uploadDir` ← `kernel.tmpDir`, `certificates.openssl.attrs` ←
+ * (`upload.uploadDir` ← `kernel.tmpDir`, `certificates.selfSigned.attrs` ←
  * `kernel.domain`/`projectName`) sont injectés APRÈS le parse, dans le builder
  * (kernel disponible à `onKernelRegister`).
  *
@@ -379,7 +379,7 @@ const http3Schema = z.looseObject({});
 
 // ───────────────────────── certificates (strict) ────────────────────────────
 
-const opensslAttrSchema = z
+const selfSignedAttrSchema = z
   .looseObject({
     name: z.string().optional(),
     value: z.string().optional(),
@@ -387,7 +387,7 @@ const opensslAttrSchema = z
   })
   .describe("Champ de sujet/issuer node-forge (CertificateField).");
 
-const opensslSchema = z
+const selfSignedSchema = z
   .strictObject({
     size: z
       .number()
@@ -422,7 +422,7 @@ const opensslSchema = z
           "(évite « certificate not yet valid »).",
       ),
     attrs: z
-      .array(opensslAttrSchema)
+      .array(selfSignedAttrSchema)
       .default([])
       .meta({
         kernelDerived: true,
@@ -431,7 +431,13 @@ const opensslSchema = z
           "= dérivés du kernel par le builder (commonName ← domain).",
       }),
   })
-  .describe("Options de génération du certificat auto-signé (node-forge).");
+  .describe(
+    "Génération du certificat AUTO-SIGNÉ (node-forge, JavaScript pur — aucun " +
+      "binaire externe n'est invoqué). Ces réglages ne valent QUE pour la " +
+      "stratégie `selfsigned` : sous `mkcert` (défaut en développement) ils sont " +
+      "ignorés — mkcert ne reçoit que les noms d'hôtes — et sous " +
+      '`strategy: "explicit"` le certificat est fourni, donc rien n\'est généré.',
+  );
 
 const sanSchema = z
   .strictObject({
@@ -502,7 +508,7 @@ const certificatesSchema = z
       }),
     san: sanSchema.default(() => sanSchema.parse({})),
     dev: certDevSchema.default(() => certDevSchema.parse({})),
-    openssl: opensslSchema.default(() => opensslSchema.parse({})),
+    selfSigned: selfSignedSchema.default(() => selfSignedSchema.parse({})),
   })
   .describe("Certificats TLS du serveur HTTPS et WSS.");
 
