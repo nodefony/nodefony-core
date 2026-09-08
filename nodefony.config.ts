@@ -22,10 +22,22 @@
  */
 import { defineConfig, use } from "nodefony";
 import type { env } from "./env";
-import { oauth2Config } from "./config/oauth";
 
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
 type Env = typeof env;
+
+/**
+ * Redirections et rôles communs à tous les fournisseurs OAuth de CETTE app.
+ *
+ * Posés par fournisseur plutôt qu'en global : le module test garde ainsi ses
+ * propres valeurs pour le banc E2E `test-oidc`, sans collision. Ne dépend pas de
+ * `ctx`, donc hors de la fonction de config.
+ */
+const oauthPerProvider = {
+  successRedirect: "/nodefony",
+  failureRedirect: "/nodefony/login?error=oauth",
+  defaultRoles: ["ROLE_USER"],
+};
 
 export default defineConfig<Env>((ctx) => ({
   // ── Identité de l'application (affichée dans la CLI et les logs d'init) ──────
@@ -246,12 +258,49 @@ export default defineConfig<Env>((ctx) => ({
     // Les zones se déclarent au plus près de leurs routes : un module porte sa
     // zone via l'override `module-security` dans SA config (ex. la zone
     // `test-secure` du banc P6 vit dans src/modules/test/nodefony/config/config.ts).
-    // Social login OAuth 2.0 : config extraite dans `./config/oauth.ts`
-    // (providers + secrets via env). La racine reste lisible.
     use(
       "@nodefony/security",
       {
-        oauth2: oauth2Config(ctx),
+        // Social login OAuth 2.0 — un fournisseur n'est monté que si SES deux
+        // secrets sont présents (spread conditionnel) : pas de bouton mort sur
+        // l'écran de connexion. Les secrets viennent d'`env.ts`, seul lecteur de
+        // `process.env`, et ne sont JAMAIS journalisés.
+        //
+        // OAuth = AUTHENTIFICATION, JAMAIS autorisation : se connecter via
+        // Google/GitHub ne rend JAMAIS administrateur — ni en dev, ni en prod. Le
+        // compte social provisionné (JIT « Shadow User ») reçoit `ROLE_USER` seul.
+        // L'accès admin passe par un compte seedé (`provisionUsers`) ou une
+        // élévation explicite côté base.
+        //
+        // Les redirections et rôles sont posés PAR FOURNISSEUR : le module test
+        // garde ainsi ses propres valeurs globales pour le banc E2E `test-oidc`,
+        // sans collision. Pour retirer un bouton SANS fermer le flux (fixture,
+        // fournisseur réservé à un autre point d'entrée) : `hidden: true`.
+        oauth2: {
+          enabled: true,
+          providers: {
+            ...(ctx.env.GITHUB_CLIENT_ID && ctx.env.GITHUB_CLIENT_SECRET
+              ? {
+                  github: {
+                    clientId: ctx.env.GITHUB_CLIENT_ID,
+                    clientSecret: ctx.env.GITHUB_CLIENT_SECRET,
+                    redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
+                    ...oauthPerProvider,
+                  },
+                }
+              : {}),
+            ...(ctx.env.GOOGLE_CLIENT_ID && ctx.env.GOOGLE_CLIENT_SECRET
+              ? {
+                  google: {
+                    clientId: ctx.env.GOOGLE_CLIENT_ID,
+                    clientSecret: ctx.env.GOOGLE_CLIENT_SECRET,
+                    redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/google/callback`,
+                    ...oauthPerProvider,
+                  },
+                }
+              : {}),
+          },
+        },
         // Hiérarchie de rôles (RBAC, niveau A de l'autorisation) — ROLE_X hérite
         // des rôles listés (résolu au boot en DFS ; cycle → throw). Additif :
         // un rôle gagne les droits des rôles couverts, jamais l'inverse.
