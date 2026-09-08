@@ -49,7 +49,7 @@ export const <%= it.camel %>ConfigSchema = z.strictObject({
 });
 
 /** Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels. */
-export type <%= it.pascal %>ConfigInput = z.input<typeof <%= it.camel %>ConfigSchema>;
+export type I<%= it.pascal %>ConfigInput = z.input<typeof <%= it.camel %>ConfigSchema>;
 
 /** Config telle que le CODE la lit — défauts appliqués, rien d'optionnel. */
 export type <%= it.pascal %>Config = z.output<typeof <%= it.camel %>ConfigSchema>;

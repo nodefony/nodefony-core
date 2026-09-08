@@ -24,7 +24,7 @@ import {
 } from "./nodefony/config/defineModuleConfig";
 import type {
   DocumentationConfig,
-  DocumentationConfigInput,
+  IDocumentationConfigInput,
 } from "./nodefony/config/config";
 import DocumentationService from "./nodefony/service/DocumentationService";
 import DocumentationController from "./nodefony/controller/DocumentationController";
@@ -35,7 +35,7 @@ import DocumentationController from "./nodefony/controller/DocumentationControll
 // orthographiée est retirée par Zod au boot, sans un mot.
 declare module "nodefony" {
   interface NodefonyModuleConfig {
-    "@nodefony/documentation": DocumentationConfigInput;
+    "@nodefony/documentation": IDocumentationConfigInput;
   }
 }
 
@@ -107,7 +107,7 @@ export {
   // (`declare module "nodefony"` ci-dessus). Sans ré-export, une application ne
   // peut pas le nommer — donc pas charger l'augmentation — et
   // `use("@nodefony/documentation", { … })` accepte n'importe quelle clé.
-  type DocumentationConfigInput,
+  type IDocumentationConfigInput,
 } from "./nodefony/config/config";
 
 // Briques pures réutilisables (RAG / SSG futurs)

@@ -3837,7 +3837,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(builder, ".default(");
       const index = readFileSync(path.join(r.dest, "index.ts"), "utf8");
       assert.include(index, 'declare module "nodefony"');
-      assert.include(index, '"@mapp/blog": BlogConfigInput;');
+      // Le préfixe `I` fait partie de l'assertion : la convention du dépôt veut
+      // les interfaces préfixées, et ce nom est une surface PUBLIÉE — il entre
+      // dans les `.d.ts` du module et dans l'autocomplétion de qui l'installe.
+      assert.include(index, '"@mapp/blog": IBlogConfigInput;');
+      // …et il est ré-exporté, sinon le `nodefony.config.ts` de l'application
+      // ne peut pas le nommer pour faire entrer l'augmentation dans son programme.
+      assert.include(
+        index,
+        'export type { IBlogConfigInput } from "./nodefony/config/config";',
+      );
     });
 
     it("refuse un module qui existe déjà (sauf --force)", () => {

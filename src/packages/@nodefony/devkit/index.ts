@@ -1,6 +1,6 @@
 import { Kernel, Module, services } from "nodefony";
 import { controllers } from "@nodefony/framework";
-import config, { type DevkitConfigInput } from "./nodefony/config/config";
+import config, { type IDevkitConfigInput } from "./nodefony/config/config";
 import { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 import DevkitService from "./nodefony/service/DevkitService";
 import DevkitController from "./nodefony/controllers/DevkitController";
@@ -21,7 +21,7 @@ import McpController from "./nodefony/controllers/McpController";
  */
 declare module "nodefony" {
   interface NodefonyModuleConfig {
-    "@nodefony/devkit": DevkitConfigInput;
+    "@nodefony/devkit": IDevkitConfigInput;
   }
 }
 
@@ -55,7 +55,7 @@ class DevkitModule extends Module {
    */
   override async onKernelRegister(): Promise<this> {
     this.options = defineDevkitConfig(
-      (this.options as DevkitConfigInput) ?? {},
+      (this.options as IDevkitConfigInput) ?? {},
     );
     return this;
   }
@@ -82,7 +82,7 @@ export { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 export {
   devkitConfigSchema,
   type DevkitConfig,
-  type DevkitConfigInput,
+  type IDevkitConfigInput,
 } from "./nodefony/config/config";
 
 // Contrats publics

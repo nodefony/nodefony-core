@@ -217,7 +217,7 @@ describe("registre de config des modules — l'augmentation doit ENTRER dans le 
     const source = readFileSync(tplPath, "utf8");
     assert.include(
       source,
-      'export type { <%= it.pascal %>ConfigInput } from "./nodefony/config/config";',
+      'export type { I<%= it.pascal %>ConfigInput } from "./nodefony/config/config";',
       "un module généré enregistre sa config mais ne publie pas son type d'entrée : " +
         "le `nodefony.config.ts` de l'app ne peut pas le ré-exporter",
     );

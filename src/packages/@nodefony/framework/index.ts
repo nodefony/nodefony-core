@@ -15,7 +15,7 @@ import type { IIdempotencyStore } from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
 import type {
-  FrameworkConfigInput,
+  IFrameworkConfigInput,
   FrameworkConfig,
 } from "./nodefony/config/config";
 import {
@@ -167,7 +167,7 @@ registerIdempotencyStore("redis", (ctx) => {
 // orthographiée est retirée par Zod au boot, sans un mot.
 declare module "nodefony" {
   interface NodefonyModuleConfig {
-    "@nodefony/framework": FrameworkConfigInput;
+    "@nodefony/framework": IFrameworkConfigInput;
   }
 }
 
@@ -202,7 +202,7 @@ class Framework extends Module<FrameworkConfig> {
    */
   override async onKernelRegister(): Promise<this> {
     this.options = defineFrameworkConfig(
-      (this.options as FrameworkConfigInput) ?? {},
+      (this.options as IFrameworkConfigInput) ?? {},
     );
     return this;
   }
@@ -591,7 +591,7 @@ export type {
 } from "./nodefony/src/ResourceController";
 export type {
   FrameworkConfig,
-  FrameworkConfigInput,
+  IFrameworkConfigInput,
 } from "./nodefony/config/config";
 export {
   defineFrameworkConfig,

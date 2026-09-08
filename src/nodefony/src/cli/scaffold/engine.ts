@@ -1582,7 +1582,7 @@ export function wireModuleManifest(
  *
  * @param source - contenu de `nodefony.config.ts`, module déjà câblé.
  * @param pkgName - nom npm du module (`@app/blog`).
- * @param configInputType - nom du type d'entrée exporté (`BlogConfigInput`) ;
+ * @param configInputType - nom du type d'entrée exporté (`IBlogConfigInput`) ;
  *   absent, on ne touche à rien (le module ne publie pas de type).
  * @returns la source, ré-export inséré s'il a pu l'être sans ambiguïté.
  */
@@ -1967,7 +1967,7 @@ function runModuleScaffold(
     pkgName,
     writer,
     layout.createDir,
-    `${pascal}ConfigInput`,
+    `I${pascal}ConfigInput`,
   );
   notes.push(
     manifestNote ??

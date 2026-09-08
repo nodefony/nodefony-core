@@ -264,7 +264,7 @@ export const devkitConfigSchema = z.strictObject({
 });
 
 /** Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels. */
-export type DevkitConfigInput = z.input<typeof devkitConfigSchema>;
+export type IDevkitConfigInput = z.input<typeof devkitConfigSchema>;
 
 /** Config telle que le CODE la lit — défauts appliqués, rien d'optionnel. */
 export type DevkitConfig = z.output<typeof devkitConfigSchema>;

@@ -1,6 +1,6 @@
 import { Kernel, Module<% if (it.service) { %>, services<% } %> } from "nodefony";
 import { controllers } from "@nodefony/framework";
-import config, { type <%= it.pascal %>ConfigInput } from "./nodefony/config/config";
+import config, { type I<%= it.pascal %>ConfigInput } from "./nodefony/config/config";
 import { define<%= it.pascal %>Config } from "./nodefony/config/defineModuleConfig";
 <% if (it.service) { %>import <%= it.pascal %>Service from "./nodefony/service/<%= it.pascal %>Service";
 <% } %>
@@ -21,7 +21,7 @@ import { define<%= it.pascal %>Config } from "./nodefony/config/defineModuleConf
  */
 declare module "nodefony" {
   interface NodefonyModuleConfig {
-    "<%= it.pkgName %>": <%= it.pascal %>ConfigInput;
+    "<%= it.pkgName %>": I<%= it.pascal %>ConfigInput;
   }
 }
 
@@ -41,7 +41,7 @@ declare module "nodefony" {
    */
   override async onKernelRegister(): Promise<this> {
     this.options = define<%= it.pascal %>Config(
-      (this.options as <%= it.pascal %>ConfigInput) ?? {},
+      (this.options as I<%= it.pascal %>ConfigInput) ?? {},
     );
     return this;
   }
@@ -53,4 +53,4 @@ export default <%= it.pascal %>Module;
 // Sans ce ré-export, `nodefony.config.ts` ne peut pas le nommer, donc pas faire
 // entrer l'augmentation dans son programme : `use("<%= it.pkgName %>", { … })`
 // accepterait alors n'importe quelle clé, que Zod retirerait en silence au boot.
-export type { <%= it.pascal %>ConfigInput } from "./nodefony/config/config";
+export type { I<%= it.pascal %>ConfigInput } from "./nodefony/config/config";

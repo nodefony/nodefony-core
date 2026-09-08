@@ -241,7 +241,7 @@ Hooks notables : `onKernelRegister` valide la config (`defineHttpConfig` → ré
 `configSchema()` override → `httpConfigJsonSchema()`.
 
 Exports config : `defineHttpConfig`, `httpConfigSchema`, `httpConfigJsonSchema`, `meta`, types
-`IHttpConfig`/`IHttpConfigInput`/`HttpConfig`/`HttpConfigInput`/`INodefonyFieldMeta`.
+`IHttpConfig`/`IHttpConfigInput`/`INodefonyFieldMeta`.
 
 ### `HttpKernel` (orchestrateur)
 

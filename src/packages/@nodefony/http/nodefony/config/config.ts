@@ -1083,14 +1083,14 @@ export const httpConfigSchema = z
   .describe("Configuration de @nodefony/http.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type HttpConfig = z.infer<typeof httpConfigSchema>;
+export type IHttpConfig = z.infer<typeof httpConfigSchema>;
 /** Type d'entrée (toutes sections omissibles — défauts du schéma). */
-export type HttpConfigInput = z.input<typeof httpConfigSchema>;
+export type IHttpConfigInput = z.input<typeof httpConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: HttpConfig = httpConfigSchema.parse({});
+const config: IHttpConfig = httpConfigSchema.parse({});
 
 export default config;

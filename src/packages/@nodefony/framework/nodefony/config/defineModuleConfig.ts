@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { frameworkConfigSchema } from "./config";
-import type { FrameworkConfig, FrameworkConfigInput } from "./config";
+import type { FrameworkConfig, IFrameworkConfigInput } from "./config";
 import { parseModuleConfig } from "nodefony";
 
 /**
@@ -23,7 +23,7 @@ import { parseModuleConfig } from "nodefony";
  *   inconnue — le boot s'interrompt, en dev comme en prod.
  */
 export function defineFrameworkConfig(
-  config: FrameworkConfigInput = {},
+  config: IFrameworkConfigInput = {},
 ): FrameworkConfig {
   return parseModuleConfig(
     frameworkConfigSchema,

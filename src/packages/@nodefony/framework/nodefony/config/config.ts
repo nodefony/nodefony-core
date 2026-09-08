@@ -102,7 +102,7 @@ export const frameworkConfigSchema = z
 /** Type de sortie (config normalisée + défauts appliqués). */
 export type FrameworkConfig = z.infer<typeof frameworkConfigSchema>;
 /** Type d'entrée (toutes sections omissibles — défauts du schéma). */
-export type FrameworkConfigInput = z.input<typeof frameworkConfigSchema>;
+export type IFrameworkConfigInput = z.input<typeof frameworkConfigSchema>;
 
 // Config par défaut DÉRIVÉE du schéma Zod (source unique — jamais de défaut
 // écrit à la main, cf `feedback_config_validation_zod`). `parse({})` matérialise

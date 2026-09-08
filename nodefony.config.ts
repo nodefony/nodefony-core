@@ -41,15 +41,15 @@ import type { env } from "./env";
 //
 // Y AJOUTER une ligne en montant un module dont on configure les clés.
 export type { IHttpConfigInput } from "@nodefony/http";
-export type { FrameworkConfigInput } from "@nodefony/framework";
+export type { IFrameworkConfigInput } from "@nodefony/framework";
 export type { ISecurityConfigInput } from "@nodefony/security";
 export type { IDrizzleConfigInput } from "@nodefony/drizzle";
 export type { IRealtimeConfigInput } from "@nodefony/realtime";
 export type { IRedisConfigInput } from "@nodefony/redis";
 export type { IFrontendConfigInput } from "@nodefony/frontend";
-export type { DocumentationConfigInput } from "@nodefony/documentation";
+export type { IDocumentationConfigInput } from "@nodefony/documentation";
 export type { IStudioConfigInput } from "@nodefony/studio";
-export type { DevkitConfigInput } from "@nodefony/devkit";
+export type { IDevkitConfigInput } from "@nodefony/devkit";
 
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
 type Env = typeof env;

@@ -156,7 +156,7 @@ export type DocumentationConfig = z.infer<typeof documentationConfigSchema>;
  * `NodefonyModuleConfig`, jamais la sortie : exiger la forme normalisée
  * obligerait l'app à réécrire chaque défaut.
  */
-export type DocumentationConfigInput = z.input<
+export type IDocumentationConfigInput = z.input<
   typeof documentationConfigSchema
 >;
 

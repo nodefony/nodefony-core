@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { parseModuleConfig } from "nodefony";
 import { <%= it.camel %>ConfigSchema } from "./config";
-import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./config";
+import type { <%= it.pascal %>Config, I<%= it.pascal %>ConfigInput } from "./config";
 
 /**
  * <%= it.pkgName %> — LE COMMENT : builder PUR de la config.
@@ -39,7 +39,7 @@ import type { <%= it.pascal %>Config, <%= it.pascal %>ConfigInput } from "./conf
  *   erreurs Zod agrégées, par champ) — le boot s'interrompt, en dev comme en prod.
  */
 export function define<%= it.pascal %>Config(
-  config: <%= it.pascal %>ConfigInput = {},
+  config: I<%= it.pascal %>ConfigInput = {},
 ): <%= it.pascal %>Config {
   return Object.freeze(
     parseModuleConfig(<%= it.camel %>ConfigSchema, config, "<%= it.pkgName %>"),

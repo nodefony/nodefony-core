@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { devkitConfigSchema } from "./config";
-import type { DevkitConfig, DevkitConfigInput } from "./config";
+import type { DevkitConfig, IDevkitConfigInput } from "./config";
 import { parseModuleConfig } from "nodefony";
 
 /**
@@ -24,7 +24,7 @@ import { parseModuleConfig } from "nodefony";
  *   (anomalies Zod agrégées) — le boot s'interrompt, en dev comme en prod.
  */
 export function defineDevkitConfig(
-  config: DevkitConfigInput = {},
+  config: IDevkitConfigInput = {},
 ): DevkitConfig {
   return Object.freeze(
     parseModuleConfig(devkitConfigSchema, config, "@nodefony/devkit"),

@@ -165,11 +165,7 @@ export {
   defineHttpConfig,
   httpConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
-export {
-  httpConfigSchema,
-  type HttpConfig,
-  type HttpConfigInput,
-} from "./nodefony/config/config";
+export { httpConfigSchema } from "./nodefony/config/config";
 export type {
   IHttpConfig,
   IHttpConfigInput,

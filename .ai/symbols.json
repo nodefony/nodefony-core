@@ -3,10 +3,10 @@
   "repoRoot": ".",
   "stats": {
     "files": 820,
-    "symbols": 3953,
+    "symbols": 3951,
     "classes": 388,
     "interfaces": 1072,
-    "types": 449,
+    "types": 447,
     "enums": 4,
     "functions": 1648,
     "constants": 392
@@ -12899,8 +12899,8 @@
       "implements": [],
       "decorators": []
     },
-    "DevkitConfigInput": {
-      "name": "DevkitConfigInput",
+    "IDevkitConfigInput": {
+      "name": "IDevkitConfigInput",
       "kind": "type",
       "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
       "exported": true,
@@ -13035,8 +13035,8 @@
       "module": "@nodefony/documentation",
       "description": "Type de sortie (config normalisée + défauts appliqués)."
     },
-    "DocumentationConfigInput": {
-      "name": "DocumentationConfigInput",
+    "IDocumentationConfigInput": {
+      "name": "IDocumentationConfigInput",
       "kind": "type",
       "file": "src/packages/@nodefony/documentation/nodefony/config/config.ts",
       "exported": true,
@@ -14416,8 +14416,8 @@
       "module": "@nodefony/framework",
       "description": "Type de sortie (config normalisée + défauts appliqués)."
     },
-    "FrameworkConfigInput": {
-      "name": "FrameworkConfigInput",
+    "IFrameworkConfigInput": {
+      "name": "IFrameworkConfigInput",
       "kind": "type",
       "file": "src/packages/@nodefony/framework/nodefony/config/config.ts",
       "exported": true,
@@ -16587,16 +16587,16 @@
       "decorators": [],
       "description": "Commande CLI `proxy:generate <nginx|haproxy>` — génère une configuration reverse-proxy DÉRIVÉE de l'introspection Nodefony (domaines de confiance, dossiers statiques servis, ports). Évite d'écrire …"
     },
-    "HttpConfig": {
-      "name": "HttpConfig",
+    "IHttpConfig": {
+      "name": "IHttpConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/http",
       "description": "Type de sortie (config normalisée + défauts appliqués)."
     },
-    "HttpConfigInput": {
-      "name": "HttpConfigInput",
+    "IHttpConfigInput": {
+      "name": "IHttpConfigInput",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
       "exported": true,
@@ -16799,22 +16799,6 @@
       "module": "@nodefony/http",
       "extends": null,
       "description": "Unified error rendering contract — HTTP + WebSocket. The default implementation preserves the legacy Nodefony JSON error shape: { code, message, error: HttpError.toJSON(), nodefony: { requestId, sc…"
-    },
-    "IHttpConfig": {
-      "name": "IHttpConfig",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Configuration validée de `@nodefony/http` (sortie du parse Zod + défauts kernel appliqués par le builder). Source de vérité = `../config/config.ts`."
-    },
-    "IHttpConfigInput": {
-      "name": "IHttpConfigInput",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Configuration brute fournie par l'application (toutes sections optionnelles — les sections omises reçoivent leurs défauts). Entrée du builder {@link import(\"../config/defineModuleConfig\").defineHtt…"
     },
     "IHttpKernel": {
       "name": "IHttpKernel",
@@ -28602,7 +28586,7 @@
       "VueController": [
         "src/modules/test-frontend-vue/index.ts"
       ],
-      "DevkitConfigInput": [
+      "IDevkitConfigInput": [
         "src/packages/@nodefony/devkit/index.ts",
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
@@ -28634,7 +28618,7 @@
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
       ],
-      "DocumentationConfigInput": [
+      "IDocumentationConfigInput": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
       "DocumentationService": [
@@ -28785,7 +28769,7 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
-      "FrameworkConfigInput": [
+      "IFrameworkConfigInput": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts"
       ],
@@ -34567,12 +34551,6 @@
         "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
         "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "HttpConfig": [
-        "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
-      ],
-      "HttpConfigInput": [
-        "src/packages/@nodefony/http/nodefony/interfaces/IHttpConfig.ts"
       ],
       "ServerType": [
         "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
