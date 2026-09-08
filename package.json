@@ -20,6 +20,7 @@
   "scripts": {
     "board:snapshot": "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",
     "retex:seuil": "node .claude/skills/nodefony-session/scripts/retex-seuil.mjs",
+    "lessons:carriers": "node .claude/skills/nodefony-session/scripts/lessons-carriers.mjs",
     "build": "turbo run build && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "build:all": "npm run build && npm run build:front",
     "build:core": "npm run build --workspace=src/nodefony",

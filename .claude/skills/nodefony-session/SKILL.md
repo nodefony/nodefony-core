@@ -543,6 +543,27 @@ Déclencheurs : "consolide les retex", "plan d'amélioration IA".
 >    l'historique suit), et snapshoter `RETEX.md` AVANT coupe
 >    (`archive/RETEX-snapshot-<date>.md`). `RETEX.md` reste ~1 écran.
 > 4. **Nettoyer** : retirer de `RETEX.md` les frictions devenues obsolètes (corrigées dans le code/skill).
+> 5. **PORTER — la troisième sortie du cycle, et celle qu'on saute.** Le cycle n'a longtemps eu
+>    que deux sorties (friction → sas → mémoire), si bien qu'une leçon graduée ne protégeait que
+>    l'agent qui la relit : elle ne sortait JAMAIS du dépôt, et aucune application générée n'en
+>    profitait. Mesuré le 2026-09-08 : sur 115 leçons durables, **6 seulement sont portées par du
+>    code livré**, 28 par un automate, et **81 ne tiennent que si on y pense**.
+>
+>    ```bash
+>    node .claude/skills/nodefony-session/scripts/lessons-carriers.mjs --write   # + --inert, --dead
+>    ```
+>
+>    Il classe chaque leçon en PRODUIT / DÉPÔT / CONTEXTE / INERTE, écrit l'empreinte
+>    `.ai/LESSONS.md`, et surtout **nomme les ancres MORTES** — une mémoire qui prescrit un fichier
+>    disparu envoie chercher au mauvais endroit sans jamais lever d'erreur.
+>
+>    **La question à poser à CHAQUE graduation** : quel automate, quel code du produit, quel gabarit
+>    ou quel skill livré porte cette leçon ? Si la réponse est « aucun », l'écrire dans la mémoire
+>    et dire pourquoi — certaines n'ont légitimement pas d'automate possible. Une leçon sans porteur
+>    ni raison est une leçon qui se reperdra. → [[feedback_gate_must_run]]
+>
+>    ⚠️ **Cet outil n'a rien à faire au END.** Le END est déjà jugé trop long ; une commande de plus
+>    à chaque clôture coûte plus qu'elle ne rend. Ici, tous les 10-20 retex, elle se paie.
 
 ## 1. Compter les retex
 
