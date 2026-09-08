@@ -4,7 +4,11 @@ import {
   registerWebAuthnStore,
   getWebAuthnStoreFactory,
 } from "@nodefony/security";
-import type { Container } from "nodefony";
+import {
+  runNeedsExternalServices,
+  durableStoreRemedy,
+  type Container,
+} from "nodefony";
 import type RedisService from "./service/redis";
 import { RedisTokenStore } from "./src/RedisTokenStore";
 import { RedisWebAuthnCredentialStore } from "./src/RedisWebAuthnCredentialStore";
@@ -34,6 +38,28 @@ function resolveRedisService(
     throw new Error(
       `${store} : service "redis" introuvable — le module @nodefony/redis est-il ` +
         `chargé (manifeste "modules") ?`,
+    );
+  }
+  // 🔴 REFUSER, plutôt que dégrader. Le client est résolu LAZY par le store, ce
+  // qui est juste pendant la FENÊTRE de boot ou d'arrêt : le `null` y est
+  // transitoire. Quand le run ne déclare pas `externalServices`, il est
+  // PERMANENT — et un store durable sans client est fail-OPEN silencieux
+  // (`put()` rend la main sans écrire, `findById()` rend `null`), donc une
+  // denylist qui ne lit rien accepte un jeton révoqué. Le profil du run est connu
+  // dès le départ : ce refus ne dépend d'aucun ordre de boot, contrairement au
+  // `null` du getter. Sans kernel, il n'y a pas de run à interroger — l'appel est
+  // alors un ORDRE, et rien n'est gardé (même règle que `RedisService.init`).
+  // [[feedback_prod_brick_not_in_dev_module]]
+  // `service.module.kernel` : `Service.kernel` vaut `null` sur ce service (3ᵉ
+  // argument du constructeur) — la garde s'écrirait sur un champ toujours vide.
+  const kernel = service.module?.kernel ?? null;
+  if (kernel && !runNeedsExternalServices(kernel)) {
+    throw new Error(
+      `${store} : demandé EXPLICITEMENT dans un run qui n'ouvre aucune connexion. ` +
+        `Le store serait créé sans client Redis : ses écritures seraient perdues et ` +
+        `ses lectures rendraient vide, SANS erreur. ${durableStoreRemedy(false)} ` +
+        `Un store "auto" n'atteint jamais ce point — il bascule en mémoire, ` +
+        `véridiquement et avec sa raison ; seule une demande EXPLICITE arrive ici.`,
     );
   }
   return service;

@@ -28673,8 +28673,10 @@
       ],
       "runNeedsExternalServices": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
@@ -28684,6 +28686,7 @@
       ],
       "durableStoreRemedy": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",

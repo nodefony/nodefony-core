@@ -3,6 +3,7 @@ import {
   Container,
   Module,
   Service,
+  runNeedsExternalServices,
   type Severity,
   type Msgid,
   type Message,
@@ -119,11 +120,39 @@ class RedisService extends Service {
    * Ouvre toutes les connexions déclarées dans la config (si `enabled`).
    * Appelé par le cycle de vie du Module. Une connexion en échec est loguée
    * sans bloquer les autres (résilience boot).
+   *
+   * 🔴 **C'est le BOOT qui décide, pas `createConnection`.** Un run qui ne
+   * déclare pas `externalServices` — `nodefony inspect`, `build`, toute commande
+   * en ligne qui ne lit ni n'écrit de données — n'ouvre AUCUNE socket ici, même
+   * avec `NF_REDIS_URL` posé dans l'environnement d'un pod. Appelée
+   * explicitement, `createConnection` reste un ORDRE et n'est jamais gardée :
+   * la garder ferait échouer un appelant qui a précisément demandé la connexion.
+   * Symétrique de `DrizzleService`, qui interroge la même fonction au même
+   * moment de son cycle. [[feedback_single_source_rule]]
+   *
+   * **Sans kernel, la garde ne s'applique pas** : il n'y a alors PAS de boot —
+   * personne n'a de profil d'exécution —, donc `init()` n'est plus « ce que le
+   * boot fait de lui-même » mais un ORDRE, au même titre que `createConnection`.
+   * C'est le cas d'un service instancié à la main (banc, script, outil).
    */
   async init(): Promise<this> {
     const config = this.#resolveConfig();
     if (!config.enabled) {
       this.log("Module Redis désactivé (enabled=false) — 0 connexion", "INFO");
+      return this;
+    }
+    // 🔴 `this.module.kernel`, JAMAIS `this.kernel` : le constructeur passe `null`
+    // en 3ᵉ argument de `Service`, si bien que `this.kernel` est TOUJOURS nul
+    // ici — une garde écrite dessus ne garderait rien, en production comprise.
+    // (Trouvé par le banc, pas à la relecture.)
+    const kernel = this.module.kernel;
+    if (kernel && !runNeedsExternalServices(kernel)) {
+      this.log(
+        "Ce run ne déclare pas `externalServices` — 0 connexion Redis ouverte " +
+          "(une commande qui lit ou écrit des données le déclare via " +
+          "CONSOLE_DATA_RUN_PROFILE). La config, elle, n'est pas en cause.",
+        "INFO",
+      );
       return this;
     }
     for (const name in config.connections) {
