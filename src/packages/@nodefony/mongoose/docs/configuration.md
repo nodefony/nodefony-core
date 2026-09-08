@@ -267,7 +267,7 @@ ainsi qu'une application lit une base métier et écrit dans une base d'archives
 L'adresse se donne de deux façons, jamais les deux à la fois utilement :
 
 - **En pièces détachées** — `host`, `port`, `dbname` : lisible, adapté au développement. Le service
-  les assemble en `mongodb://hôte:port/base` (`MongooseService.buildUri()` (`MongooseService.ts:76`)).
+  les assemble en `mongodb://hôte:port/base` (`MongooseService.buildUri()` (`MongooseService.ts:94`)).
 - **En une URI** — `uri` (`config.ts:41`) : la seule forme capable d'exprimer un replica set, un
   `mongodb+srv`, des options de requête. **Dès qu'`uri` est présent, les trois autres champs ne sont
   plus lus du tout.**
@@ -320,7 +320,7 @@ description des options du driver.
 
 ### `debug` — voir passer les requêtes
 
-`debug` (`config.ts:85`) active la trace intégrée de Mongoose (`connectAll()` (`MongooseService.ts:63`)).
+`debug` (`config.ts:85`) active la trace intégrée de Mongoose (`connectAll()` (`MongooseService.ts:81`)).
 Chaque opération part sur la sortie standard, avec sa collection, son filtre et ses champs.
 
 C'est un **réglage de processus, pas de connecteur** : il vaut pour toutes les connexions à la fois.
@@ -405,7 +405,7 @@ NF__MONGOOSE__CONNECTORS__NODEFONY__DBNAME=recette    # champ imbriqué
 NF__MONGOOSE__CONNECTORS__NODEFONY__PORT=27018        # coercé en nombre
 ```
 
-Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1600`)) :
+Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1708`)) :
 une valeur aberrante est donc rejetée comme si tu l'avais écrite dans ton fichier. C'est voulu — un
 réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 
@@ -436,7 +436,7 @@ De la plus faible à la plus forte priorité :
 
 1. **Les défauts du schéma** — `localhost:27017/nodefony`, `debug: false`, `frameworkEntities: true`.
 2. **Ta config d'app** — `use("@nodefony/mongoose", { … })`, fusionnée en profondeur sous les défauts
-   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1150`)).
+   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1600`)).
 3. **Un override venu d'un autre module** — la clé `module-mongoose` dans la config d'un module tiers.
 4. **`NF__MONGOOSE__…`** — l'override générique d'environnement.
 5. **La validation Zod** — types, bornes, défauts des champs restés absents.
@@ -549,9 +549,9 @@ use("@nodefony/mongoose", {
 ```
 
 Les deux connexions s'ouvrent en série au démarrage, dans l'ordre de déclaration
-(`connectAll()` (`MongooseService.ts:63`)), et se ferment toutes à l'arrêt
-(`disconnectAll()` (`MongooseService.ts:134`)). Un service peut demander l'une ou l'autre par son nom
-(`getOrm()` (`MongooseService.ts:142`)), mais l'usage courant reste le registre d'ORM.
+(`connectAll()` (`MongooseService.ts:81`)), et se ferment toutes à l'arrêt
+(`disconnectAll()` (`MongooseService.ts:181`)). Un service peut demander l'une ou l'autre par son nom
+(`getOrm()` (`MongooseService.ts:189`)), mais l'usage courant reste le registre d'ORM.
 
 ## 🔐 Le secret de connexion
 
@@ -665,7 +665,7 @@ coûteux à diagnostiquer qu'un serveur qui refuse de démarrer.
 
 Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — conteneur pas encore prêt,
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
-politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:2665`)) :
+politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:2757`)) :
 
 | Environnement       | Ce qui se passe                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------- |

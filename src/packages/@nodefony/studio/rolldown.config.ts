@@ -7,6 +7,7 @@ export default defineNodefonyRolldownConfig({
     "@nodefony/framework",
     "@nodefony/frontend",
     "@nodefony/realtime",
+    "zod",
     "tslib",
   ],
 });

@@ -44,7 +44,8 @@
     "@nodefony/frontend": "^10.0.0-alpha.3",
     "@nodefony/http": "^10.0.0-alpha.3",
     "@nodefony/realtime": "^10.0.0-alpha.3",
-    "nodefony": "^10.0.0-alpha.3"
+    "nodefony": "^10.0.0-alpha.3",
+    "zod": "^4.4.3"
   },
   "devDependencies": {
     "@mantine/core": "9.6.0",
