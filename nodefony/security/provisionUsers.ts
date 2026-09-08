@@ -1,4 +1,9 @@
-import { Module, resolveAutoStore } from "nodefony";
+import {
+  Module,
+  resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
+} from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import {
   InMemoryUserRepository,
@@ -106,6 +111,7 @@ export async function provisionUsers(module: Module): Promise<void> {
       module.kernel?.infra ?? { database: null, cache: null, logs: null },
       ["drizzle", "mongoose", "memory"],
       "drizzle",
+      runNeedsExternalServices(module.kernel),
     );
     store = resolution.store;
     reason = `NF_USER_STORE=auto → "${store}" (${resolution.reason}).`;
@@ -119,8 +125,8 @@ export async function provisionUsers(module: Module): Promise<void> {
     if (module.kernel?.environment === "production") {
       module.log(
         `NF_USER_STORE=memory en PRODUCTION — annuaire utilisateurs volatil : comptes ` +
-          `perdus au redémarrage, non partagés entre pods. Déclarer une infra durable ` +
-          `(NF_DATABASE_URL).`,
+          `perdus au redémarrage, non partagés entre pods. ` +
+          durableStoreRemedy(runNeedsExternalServices(module.kernel)),
         "WARNING",
         LOG_CTX,
       );
@@ -165,8 +171,13 @@ export async function provisionUsers(module: Module): Promise<void> {
     return;
   }
 
-  // Drizzle : persistance SQL. Le DrizzleService a connecté l'ORM "default" à
-  // onBoot → il est présent au onKernelReady (phases de boot séquentielles).
+  // Drizzle : persistance SQL. ⚠️ Le commentaire d'origine affirmait que
+  // « le DrizzleService a connecté l'ORM à onBoot » — ce n'est PLUS vrai : un
+  // run qui ne déclare pas `externalServices` enregistre l'ORM SANS le
+  // connecter. `resolveAutoStore` ne rend donc « drizzle » que pour un run qui
+  // se connecte, ou sur demande EXPLICITE — et dans ce dernier cas l'échec ci-
+  // dessous est franc, ce qui est le comportement voulu (une demande non
+  // honorable ne se remplace pas en silence).
   const orm = ormRegistry.get("default") as DrizzleOrm;
   const users = new UserService(DrizzleUserRepository.from(orm), encoder);
   container.set("users", users);

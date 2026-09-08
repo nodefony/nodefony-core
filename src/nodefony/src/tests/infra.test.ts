@@ -256,6 +256,150 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
         }
       });
 
+      describe("run qui n'ouvre AUCUNE connexion (canOpenConnections=false)", () => {
+        // Le run déclare `externalServices` ou non ; s'il ne le déclare pas, aucun
+        // ORM n'est connecté. Choisir alors un backend connecté produisait un
+        // démarrage MORT : la fabrique du store exigeait un ORM connecté
+        // (`registerStores.ts:159`) et `nodefony inspect routes` sortait en 1 sans
+        // rien écrire sur la sortie d'erreur.
+
+        it("aucune infra déclarée → memory, pas le sqlite local", () => {
+          // Le cas exact de la panne : sans infra, la résolution préférait
+          // « drizzle local persistant » — parfait pour un serveur, fatal pour une
+          // commande qui ne connecte rien.
+          const r = resolveAutoStore(
+            "durable",
+            NO_ROLES,
+            ["memory", "drizzle"],
+            "memory",
+            false,
+          );
+          assert.strictEqual(r.store, "memory");
+        });
+
+        it("une infra DÉCLARÉE ne rouvre PAS la porte", () => {
+          // La tentation était de préserver l'infra écrite « pour que l'échec se
+          // voie ». Ce qu'on obtient n'est pas un signal : c'est un store qui
+          // lève au montage, ou qui dégrade EN SILENCE à l'usage
+          // (`DrizzleAuditStore.append` rend la main sans un mot). Fail-OPEN sur
+          // des JETONS : une denylist qui ne lit rien accepte un jeton révoqué.
+          // Le signal appartient au run qui DÉCLARE le besoin, où l'échec de
+          // connexion est fatal.
+          for (const infra of [DB_SQL, DB_MONGO]) {
+            const r = resolveAutoStore(
+              "durable",
+              infra,
+              ["memory", "drizzle", "mongoose"],
+              "memory",
+              false,
+            );
+            assert.strictEqual(r.store, "memory");
+          }
+        });
+
+        it("une infra cache déclarée n'impose pas redis non plus", () => {
+          const r = resolveAutoStore(
+            "ephemeral",
+            CACHE,
+            ["memory", "redis"],
+            "memory",
+            false,
+          );
+          assert.strictEqual(r.store, "memory");
+        });
+
+        it("un REPLI connecté est neutralisé (porte de derrière)", () => {
+          // `provisionUsers` demande `"drizzle"` en repli : sans neutralisation,
+          // le filtre ci-dessus serait contourné par le chemin du repli.
+          const r = resolveAutoStore(
+            "durable",
+            NO_ROLES,
+            ["memory"],
+            "drizzle",
+            false,
+          );
+          assert.strictEqual(r.store, "memory");
+        });
+
+        it("NF_STORE ne contourne pas la règle", () => {
+          // L'override est prioritaire sur les PRÉFÉRENCES, jamais sur une
+          // impossibilité : le backend forcé reste injoignable dans ce run. Un
+          // store explicitement demandé, lui, ne passe pas par ici — il échoue
+          // franchement à la fabrique, et c'est le comportement voulu.
+          const force = roles({ forceStore: "drizzle" });
+          const r = resolveAutoStore(
+            "durable",
+            force,
+            ["memory", "drizzle"],
+            "memory",
+            false,
+          );
+          assert.strictEqual(r.store, "memory");
+        });
+
+        it("la raison NOMME la cause ET le remède — pas seulement le repli", () => {
+          // Une raison qui dit « aucun backend persistant chargé » alors que
+          // drizzle EST chargé et vient d'être écarté est un mensonge : elle
+          // envoie chercher un module absent au lieu du profil du run.
+          const r = resolveAutoStore(
+            "durable",
+            NO_ROLES,
+            ["memory", "drizzle"],
+            "memory",
+            false,
+          );
+          assert.strictEqual(r.store, "memory");
+          assert.match(r.reason, /drizzle/, "le backend écarté est NOMMÉ");
+          assert.match(r.reason, /externalServices/, "la cause est nommée");
+          assert.match(
+            r.reason,
+            /CONSOLE_DATA_RUN_PROFILE/,
+            "le REMÈDE est nommé — sinon on corrige la mauvaise chose",
+          );
+        });
+
+        it("NON-RÉGRESSION : un run qui OUVRE des connexions est inchangé", () => {
+          // Le garde-fou qui compte. Un serveur déclare `externalServices: true`
+          // (`runtimeLauncher.ts:198`) : tout doit se comporter comme avant, sinon
+          // cette correction basculerait la PRODUCTION en mémoire volatile.
+          // Le défaut du paramètre vaut `true` — les deux formes sont vérifiées.
+          assert.strictEqual(
+            resolveAutoStore("durable", NO_ROLES, ["memory", "drizzle"]).store,
+            "drizzle",
+          );
+          assert.strictEqual(
+            resolveAutoStore(
+              "durable",
+              NO_ROLES,
+              ["memory", "drizzle"],
+              "memory",
+              true,
+            ).store,
+            "drizzle",
+          );
+          assert.strictEqual(
+            resolveAutoStore(
+              "durable",
+              DB_SQL,
+              ["memory", "drizzle"],
+              "memory",
+              true,
+            ).store,
+            "drizzle",
+          );
+          assert.strictEqual(
+            resolveAutoStore(
+              "ephemeral",
+              CACHE,
+              ["memory", "redis"],
+              "memory",
+              true,
+            ).store,
+            "redis",
+          );
+        });
+      });
+
       it("backend forcé ABSENT de la brique → ignoré, résolution normale (pas de crash)", () => {
         // La brique ne connaît pas "memory" (ex. session sans builtin) → on ignore
         // l'override et on résout normalement (ici drizzle local).

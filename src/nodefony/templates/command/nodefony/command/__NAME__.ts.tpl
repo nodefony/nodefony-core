@@ -12,6 +12,23 @@ import { Command, CliKernel, type OptionsCommandInterface } from "nodefony";
  *   parler à ses propres serveurs.
  */
 const options: OptionsCommandInterface = {
+  // 🔴 TA COMMANDE LIT OU ÉCRIT DES DONNÉES ? Elle doit le DÉCLARER :
+  //
+  //   import { CONSOLE_DATA_RUN_PROFILE } from "nodefony";
+  //   runProfile: CONSOLE_DATA_RUN_PROFILE,
+  //
+  // Sans cette ligne, le framework enregistre l'ORM mais NE SE CONNECTE PAS —
+  // et c'est voulu : une commande qui n'a pas besoin de base ne doit pas
+  // échouer parce qu'aucune base ne tourne (`nodefony inspect`, `build`, et le
+  // premier `npm run build` d'une application fraîche). Les stockages durables
+  // (jetons, audit, comptes) basculent alors en MÉMOIRE le temps du run, avec
+  // un avertissement qui le dit.
+  //
+  // Concrètement, la question à se poser : « si aucune base ne tourne, ma
+  // commande a-t-elle encore un sens ? » Oui → laisse tel quel. Non → déclare.
+  // Une commande qui déclare et dont la base est injoignable échoue FRANCHEMENT,
+  // ce qui est le comportement voulu : mieux vaut un refus net qu'un compte
+  // créé dans une mémoire qui disparaît à la fin du process.
   showBanner: false,
   kernelEvent: "<%= it.phase %>",
   // Le journal de cycle de vie n'est PAS la sortie d'une commande. Sans ceci,

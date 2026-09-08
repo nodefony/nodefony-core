@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 818,
-    "symbols": 3940,
+    "symbols": 3944,
     "classes": 388,
-    "interfaces": 1069,
+    "interfaces": 1071,
     "types": 446,
     "enums": 4,
-    "functions": 1642,
+    "functions": 1644,
     "constants": 391
   },
   "symbols": {
@@ -3027,6 +3027,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Résout les 3 infra déclarée depuis l'environnement. Fonction PURE (aucun kernel) : consommée par le Kernel (1 fois, mémoïsé), par le contexte `defineConfig` (`ctx.infra`) et par les builders de con…"
+    },
+    "durableStoreRemedy": {
+      "name": "durableStoreRemedy",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le REMÈDE à nommer quand une brique durable se retrouve en mémoire. Une seule implémentation, parce qu'il y a deux causes et qu'en nommer une seule envoie corriger la mauvaise chose : conseiller « …"
     },
     "resolveAutoStore": {
       "name": "resolveAutoStore",
@@ -8953,14 +8961,31 @@
       "extends": null,
       "description": "Ce que le contrôle a pu regarder — et ce qu'il n'a PAS pu."
     },
-    "IPortProbe": {
-      "name": "IPortProbe",
+    "IInfraProbe": {
+      "name": "IInfraProbe",
       "kind": "interface",
       "file": "src/nodefony/src/kernel/checks/readiness.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
       "description": "Le VERDICT d'une sonde de port, injecté — jamais mesuré ici. Une capacité se CONSTATE et se transmet ; la faire mesurer par la règle l'aurait rendue inéprouvable sans ouvrir de vrais ports, donc no…"
+    },
+    "IInfraTarget": {
+      "name": "IInfraTarget",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une infrastructure déclarée, telle que la sonde l'a lue."
+    },
+    "IPortProbe": {
+      "name": "IPortProbe",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/readiness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
     },
     "ITrackedEnvProbe": {
       "name": "ITrackedEnvProbe",
@@ -28646,6 +28671,25 @@
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
+      "runNeedsExternalServices": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "durableStoreRemedy": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
+      ],
       "readStoreLocation": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
@@ -30682,6 +30726,7 @@
       "resolveInfra": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/mongoose/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts"
@@ -31988,6 +32033,12 @@
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "resolveEnvCascade": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "IInfraProbe": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "IInfraTarget": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "checkReadiness": [
@@ -33440,10 +33491,6 @@
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/mysql.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/postgres.ts",
         "src/packages/@nodefony/drizzle/nodefony/migrations-schema/sqlite.ts"
-      ],
-      "runNeedsExternalServices": [
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
       "queryFlowMonitor": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",

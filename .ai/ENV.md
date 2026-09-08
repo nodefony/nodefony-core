@@ -147,7 +147,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | --- | --- |
 | `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2468` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:714` |
-| `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:461` |
+| `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:465` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2718` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2730` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |

@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-09-07
+updated: 2026-09-08
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -171,7 +171,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 739 | 4 | 10 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 469 | 2 | 7 | ✅ |
-| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 382 | 10 | 0 | ✅ |
+| [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 397 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 114 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 360 | 3 | 8 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 212 | 0 | 7 | ✅ |

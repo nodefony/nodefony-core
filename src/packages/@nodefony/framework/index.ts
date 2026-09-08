@@ -7,6 +7,8 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
   readStoreLocation,
 } from "nodefony";
 import type { IIdempotencyStore } from "nodefony";
@@ -239,6 +241,8 @@ class Framework extends Module<FrameworkConfig> {
         "ephemeral",
         this.kernel?.infra ?? EMPTY_INFRA,
         listIdempotencyBackends(),
+        "memory",
+        runNeedsExternalServices(this.kernel),
       );
       name = auto.store;
       reason = auto.reason;
@@ -251,7 +255,7 @@ class Framework extends Module<FrameworkConfig> {
         this.log(
           `idempotency.store "memory" en PRODUCTION — déduplication per-pod uniquement : ` +
             `un rejeu routé vers un autre pod n'est pas dédupliqué (double-effet possible). ` +
-            `Déclarer une infra partagée (NF_REDIS_URL ou NF_DATABASE_URL).`,
+            durableStoreRemedy(runNeedsExternalServices(this.kernel)),
           "WARNING",
         );
       }

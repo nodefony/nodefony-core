@@ -11,6 +11,8 @@
  * Même famille que `status`, `stop`, `create` et `--version`.
  */
 import path from "node:path";
+import net from "node:net";
+import { resolveInfra } from "../../config/infra";
 import { Spinner } from "../../cli/progress";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
@@ -21,6 +23,8 @@ import { findProjectRoot } from "../../cli/projectRoot";
 import { resolveEnvCascade } from "../../runtime/loadEnv";
 import type { ILastBoot } from "./lastBoot";
 import {
+  type IInfraProbe,
+  type IInfraTarget,
   checkReadiness,
   type IPortProbe,
   type IReadinessResult,
@@ -170,6 +174,112 @@ async function probeLocalPorts(projectRoot: string): Promise<IPortProbe> {
     ownedByUs: readRuntimeState(projectRoot) !== null,
   };
 }
+
+/**
+ * Les infrastructures DÉCLARÉES sont-elles joignables ? — CONSTATÉ, jamais déduit.
+ *
+ * Le trou que ceci ferme : depuis qu'un run déclare s'il ouvre des connexions,
+ * une commande console n'en ouvre aucune — et plus personne ne remarquait
+ * qu'une base déclarée était injoignable. Or on lance `doctor` PRÉCISÉMENT
+ * quand le serveur, lui, refuse de démarrer.
+ *
+ * La sonde ouvre une socket NUE (`node:net`) et la referme aussitôt : aucun
+ * pilote, aucun identifiant, aucune session applicative. Ce n'est donc pas une
+ * connexion « en douce » — c'est un diagnostic qui sonde à visage découvert, et
+ * le rapport annonce le nombre de cibles sondées.
+ *
+ * Le délai est court (1,5 s) et volontairement plus bas que celui d'un
+ * connecteur : un diagnostic doit répondre, pas attendre. Un hôte qui ne se
+ * résout pas échoue immédiatement.
+ *
+ * Les cibles viennent de `resolveInfra` — la MÊME lecture que le reste du
+ * cœur, jamais un second parseur d'URL.
+ *
+ * @param env - l'environnement à lire.
+ * @returns le verdict à injecter dans la règle `readiness`.
+ */
+async function probeDeclaredInfra(
+  env: NodeJS.ProcessEnv,
+): Promise<IInfraProbe> {
+  const infra = resolveInfra(env);
+  const targets: IInfraTarget[] = [];
+  const push = (
+    kind: "database" | "cache",
+    from: string,
+    url: string | undefined,
+  ): void => {
+    if (!url) return;
+    // Une URL de fichier (sqlite) ou en mémoire n'a pas d'hôte à joindre.
+    let parsed: URL;
+    try {
+      parsed = new URL(url);
+    } catch {
+      return;
+    }
+    if (!parsed.hostname) return;
+    const port = Number(parsed.port) || DEFAULT_INFRA_PORTS[parsed.protocol];
+    if (!port) return;
+    targets.push({
+      infra: kind,
+      from,
+      scheme: parsed.protocol.replace(":", ""),
+      host: parsed.hostname,
+      port,
+    });
+  };
+  push(
+    "database",
+    env.NF_DATABASE_URL ? "NF_DATABASE_URL" : "DATABASE_URL",
+    infra.database?.url,
+  );
+  push(
+    "cache",
+    env.NF_REDIS_URL ? "NF_REDIS_URL" : "REDIS_URL",
+    infra.cache?.url,
+  );
+
+  const unreachable: { target: IInfraTarget; cause: string }[] = [];
+  await Promise.all(
+    targets.map(
+      (target) =>
+        new Promise<void>((resolve) => {
+          const socket = net.connect({ host: target.host, port: target.port });
+          const fin = (cause?: string): void => {
+            socket.removeAllListeners();
+            socket.destroy();
+            if (cause) unreachable.push({ target, cause });
+            resolve();
+          };
+          socket.setTimeout(INFRA_PROBE_TIMEOUT_MS);
+          socket.once("connect", () => fin());
+          socket.once("timeout", () =>
+            fin(`pas de réponse en ${INFRA_PROBE_TIMEOUT_MS} ms`),
+          );
+          socket.once("error", (e: NodeJS.ErrnoException) =>
+            fin(e.code ?? e.message),
+          );
+        }),
+    ),
+  );
+  return { targets, unreachable };
+}
+
+/** Ports par défaut des schemes d'infra, quand l'URL n'en porte pas. */
+const DEFAULT_INFRA_PORTS: Record<string, number> = {
+  "postgres:": 5432,
+  "postgresql:": 5432,
+  "mysql:": 3306,
+  "mariadb:": 3306,
+  "mongodb:": 27017,
+  "redis:": 6379,
+  "rediss:": 6379,
+};
+
+/**
+ * Délai d'une sonde d'infra. Court À DESSEIN : un diagnostic répond, il
+ * n'attend pas. Un connecteur applicatif, lui, a le droit d'être patient.
+ */
+const INFRA_PROBE_TIMEOUT_MS = 1_500;
 
 /**
  * Les fichiers d'environnement LOCAUX que git suit — CONSTATÉ, jamais déduit.
@@ -813,6 +923,7 @@ export async function collectDoctorReport(
     ? await checkReadiness({
         projectRoot,
         probe: await probeLocalPorts(projectRoot),
+        infra: await probeDeclaredInfra(process.env),
         targetEnv,
         tracked: probeTrackedEnvFiles(projectRoot),
       })
@@ -820,6 +931,7 @@ export async function collectDoctorReport(
         findings: [],
         catalogUnreadable: false,
         portsProbed: [],
+        infraProbed: 0,
         trackedUnknown: null,
       };
 

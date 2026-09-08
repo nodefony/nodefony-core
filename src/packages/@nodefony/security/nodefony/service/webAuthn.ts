@@ -6,6 +6,8 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
 } from "nodefony";
@@ -161,6 +163,8 @@ class WebAuthnService extends Service {
           "durable",
           this.kernel?.infra ?? EMPTY_INFRA,
           listWebAuthnStores(),
+          "memory",
+          runNeedsExternalServices(this.kernel),
         );
         driver = auto.store;
         reason = auto.reason;
@@ -188,7 +192,8 @@ class WebAuthnService extends Service {
         this.log(
           `passkeys.store "memory" en PRODUCTION — credentials WebAuthn volatils : tous ` +
             `les passkeys enregistrés sont perdus au redémarrage (utilisateurs verrouillés ` +
-            `hors de leur compte). Déclarer une infra durable (NF_DATABASE_URL).`,
+            `hors de leur compte). ` +
+            durableStoreRemedy(runNeedsExternalServices(this.kernel)),
           "WARNING",
         );
       }

@@ -61,17 +61,32 @@ export async function provisionUsers(module: Module): Promise<void> {
     );
   }
 
-  // `get()` LÈVE sur un nom inconnu : interroger AVANT, sinon ce repli
-  // fail-soft — tout l'objet du bloc qui suit — ne s'exécute jamais et le
-  // boot casse là où il devait dégrader.
-  const orm = ormRegistry.has("default")
+  // 🔴 DEUX conditions, et deux causes DISTINCTES à nommer.
+  //
+  // 1. `get()` LÈVE sur un nom inconnu : interroger AVANT, sinon ce repli
+  //    fail-soft — tout l'objet du bloc qui suit — ne s'exécute jamais et le
+  //    boot casse là où il devait dégrader.
+  // 2. L'ORM peut EXISTER sans être CONNECTÉ : une commande en ligne
+  //    (`nodefony inspect`, `nodefony build`) ne déclare pas `externalServices`,
+  //    donc le framework enregistre l'ORM sans composer le numéro de la base.
+  //    Construire un dépôt sur cet ORM lève « no entity table registered » — les
+  //    tables ne sont peuplées qu'à la connexion — et tue le démarrage d'une
+  //    commande qui n'avait aucun besoin de la base.
+  const registered = ormRegistry.has("default")
     ? (ormRegistry.get("default") as DrizzleOrm)
     : undefined;
+  const orm = registered?.isConnected() ? registered : undefined;
   if (!orm) {
-    // Repli ANNONCÉ (jamais silencieux) : sans ORM, annuaire mémoire volatil.
+    // Repli ANNONCÉ (jamais silencieux), et le message nomme la cause RÉELLE :
+    // envoyer réinstaller un module présent ferait chercher là où il n'y a rien.
     module.log(
-      `ORM "default" absent (module @nodefony/drizzle retiré ?) → annuaire ` +
-        `utilisateurs EN MÉMOIRE : les comptes ne survivront pas au redémarrage.`,
+      registered
+        ? `ORM "default" enregistré mais NON CONNECTÉ — ce run n'a pas déclaré ` +
+            `\`externalServices\` (une commande qui lit ou écrit des données le ` +
+            `déclare via CONSOLE_DATA_RUN_PROFILE) → annuaire utilisateurs EN ` +
+            `MÉMOIRE le temps de ce run.`
+        : `ORM "default" absent (module @nodefony/drizzle retiré ?) → annuaire ` +
+            `utilisateurs EN MÉMOIRE : les comptes ne survivront pas au redémarrage.`,
       "WARNING",
       LOG_CTX,
     );

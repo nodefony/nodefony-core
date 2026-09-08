@@ -6,6 +6,8 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
   countFacets,
@@ -262,6 +264,8 @@ class WebhookService extends Service {
         "durable",
         this.kernel?.infra ?? EMPTY_INFRA,
         listWebhookStores(),
+        "memory",
+        runNeedsExternalServices(this.kernel),
       );
       driver = auto.store;
       reason = auto.reason;
@@ -285,8 +289,8 @@ class WebhookService extends Service {
     if (driver === "memory" && this.kernel?.environment === "production") {
       this.log(
         `webhooks.store "memory" en PRODUCTION — abonnements volatils et per-pod : ` +
-          `perdus au redémarrage, non partagés entre pods. Déclarer une infra durable ` +
-          `(NF_DATABASE_URL).`,
+          `perdus au redémarrage, non partagés entre pods. ` +
+          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
         "WARNING",
       );
     }

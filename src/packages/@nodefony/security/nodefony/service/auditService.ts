@@ -7,6 +7,8 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
   readStoreLocation,
   type IPage,
 } from "nodefony";
@@ -94,6 +96,8 @@ class AuditService extends Service implements IAuditSink {
         "durable",
         this.kernel?.infra ?? EMPTY_INFRA,
         listAuditStores(),
+        "memory",
+        runNeedsExternalServices(this.kernel),
       );
       storeName = auto.store;
       reason = auto.reason;
@@ -123,7 +127,8 @@ class AuditService extends Service implements IAuditSink {
       this.log(
         `audit.store "memory" en PRODUCTION — journal de sécurité volatil et per-pod : ` +
           `perdu au redémarrage, invisible des autres pods, rétention de conformité ` +
-          `impossible. Déclarer une infra durable (NF_DATABASE_URL).`,
+          `impossible. ` +
+          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
         "WARNING",
       );
     }

@@ -157,7 +157,11 @@ function resolveConnectedOrm(store: string, dialect: SqlDialect): DrizzleOrm {
   }
   if (!orm.isConnected()) {
     throw new Error(
-      `${store} : ORM "${FRAMEWORK_CONNECTOR}" non connecté au montage du store (ordre de boot).`,
+      `${store} : ORM "${FRAMEWORK_CONNECTOR}" enregistré mais NON CONNECTÉ. Deux causes ` +
+        `constatables : soit ce run n'a pas déclaré \`externalServices\` (une commande ` +
+        `qui lit ou écrit des données le déclare via CONSOLE_DATA_RUN_PROFILE), soit ` +
+        `le store a été demandé avant la connexion (ordre de boot). Un store "auto" ` +
+        `n'atteint jamais ce point : seule une demande EXPLICITE le fait.`,
     );
   }
   if (orm.dialect !== dialect) {

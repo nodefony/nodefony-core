@@ -6,6 +6,8 @@ import {
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
 } from "nodefony";
@@ -153,6 +155,8 @@ class TotpService extends Service {
         "durable",
         this.kernel?.infra ?? EMPTY_INFRA,
         listTotpStores(),
+        "memory",
+        runNeedsExternalServices(this.kernel),
       );
       driver = auto.store;
       reason = auto.reason;
@@ -175,8 +179,8 @@ class TotpService extends Service {
     if (driver === "memory" && this.kernel?.environment === "production") {
       this.log(
         `totp.store "memory" en PRODUCTION — secrets 2FA volatils : perdus au ` +
-          `redémarrage (utilisateurs verrouillés). Déclarer une infra durable ` +
-          `(NF_DATABASE_URL) ou charger @nodefony/drizzle.`,
+          `redémarrage (utilisateurs verrouillés). ` +
+          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
         "WARNING",
       );
     }

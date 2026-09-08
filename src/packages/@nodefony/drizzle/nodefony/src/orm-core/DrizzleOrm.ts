@@ -1453,7 +1453,22 @@ export class DrizzleOrm extends Orm {
 
   getRepository<T = unknown>(name: string): IRepository<T> {
     const table = this.#tables?.[name];
-    if (!table || !this.#db) {
+    // 🔴 DEUX causes, DEUX messages. Les confondre sous « no entity table »
+    // envoie chercher une entité manquante alors que la table est peut-être
+    // parfaitement déclarée — elle n'est simplement pas encore résolue, parce
+    // que `#tables` n'est peuplé qu'à la connexion. Vécu : une commande en
+    // ligne annonçait « no entity table registered under "User" » avec l'entité
+    // sous les yeux, et l'on a cherché du côté du schéma pendant que la cause
+    // était le profil du run.
+    if (!this.#db) {
+      throw new Error(
+        `DrizzleOrm "${this.name}": non connecté — impossible de rendre un ` +
+          `dépôt pour "${name}". Les tables ne sont résolues qu'à la connexion. ` +
+          `Si ce run est une commande en ligne, elle n'a pas déclaré ` +
+          `\`externalServices\` (CONSOLE_DATA_RUN_PROFILE).`,
+      );
+    }
+    if (!table) {
       throw new Error(
         `DrizzleOrm "${this.name}": no entity table registered under "${name}".`,
       );

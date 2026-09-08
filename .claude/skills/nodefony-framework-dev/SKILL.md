@@ -196,6 +196,21 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
 
 ### Pièges structurels du core
 
+- **🔴 Une commande qui LIT ou ÉCRIT des données déclare `runProfile: CONSOLE_DATA_RUN_PROFILE`.**
+  C'est un axe ORTHOGONAL à `kernelEvent` : celui-ci dit QUAND la commande s'exécute, celui-là si
+  le run ouvre des CONNEXIONS. Sans la déclaration, le framework enregistre l'ORM mais ne s'y
+  connecte pas — et c'est voulu : `nodefony inspect`, `build`, et le premier `npm run build` d'une
+  application fraîche ne doivent pas échouer faute d'une base qui ne tourne pas encore.
+  Conséquence à connaître : les stockages durables (jetons, audit, comptes, passkeys) basculent
+  alors en MÉMOIRE le temps du run, avec une raison qui nomme le profil. Le test qui tranche :
+  **« si aucune base ne tourne, ma commande a-t-elle encore un sens ? »** Oui → ne rien déclarer.
+  Non → déclarer, et l'échec de connexion sera alors FRANC (fatal en dev comme en prod), ce qui
+  est le comportement voulu.
+  ⚠️ Ne JAMAIS « rattraper » l'absence de connexion en gardant l'ORM côté consommateur
+  (`if (!orm.isConnected()) return`) : un store connecté rendu muet est **fail-OPEN** — une
+  denylist qui ne lit rien accepte un jeton révoqué, un audit qui n'écrit rien ne laisse aucune
+  trace, pendant que le registre affiche `resolved: "drizzle"`. Le choix du backend appartient à
+  `resolveAutoStore(…, runNeedsExternalServices(kernel))`, seul endroit où il se décide.
 - **Une commande CLI qui doit LIRE l'état de l'app se déclare `kernelEvent: "onPostReady"`, pas
   `"onReady"`.** Le plan d'administration (`adminBroker`) est peuplé PAR un écouteur de `onReady`
   (`Framework.onKernelReady`), et l'action d'une commande **intégrée** est branchée avant qu'un

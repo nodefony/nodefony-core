@@ -225,6 +225,40 @@ export interface IStoreResolution {
 }
 
 /**
+ * Le REMÈDE à nommer quand une brique durable se retrouve en mémoire.
+ *
+ * Une seule implémentation, parce qu'il y a deux causes et qu'en nommer une
+ * seule envoie corriger la mauvaise chose : conseiller « déclare
+ * `NF_DATABASE_URL` » à quelqu'un dont la base est parfaitement configurée le
+ * fait chercher là où il n'y a rien. Vécu sur une commande en ligne dont le
+ * seul tort était de ne pas déclarer son besoin de données.
+ *
+ * @param canOpenConnections - ce run ouvre-t-il des connexions externes ?
+ *   (`runNeedsExternalServices(kernel)` chez l'appelant).
+ * @returns la phrase de remède, à concaténer après la conséquence métier.
+ */
+export function durableStoreRemedy(canOpenConnections: boolean): string {
+  return canOpenConnections
+    ? `Déclarer une infra durable (NF_DATABASE_URL) ou un store persistant.`
+    : `Ce run n'ouvre aucune connexion : il n'a pas déclaré \`externalServices\`. ` +
+        `Une commande qui lit ou écrit des données le déclare via ` +
+        `CONSOLE_DATA_RUN_PROFILE — la base configurée, elle, n'est pas en cause.`;
+}
+
+/**
+ * Backends dont la fabrique de store OUVRE une connexion (ORM, serveur réseau).
+ * Un run qui ne déclare pas `externalServices` ne peut en recevoir aucun par le
+ * choix `auto` — sa fabrique exigerait une connexion qui n'existe pas, et le
+ * démarrage échouerait au montage du store plutôt qu'à l'usage.
+ * `memory` et les backends purement locaux n'y figurent pas.
+ */
+const CONNECTED_STORES: ReadonlySet<string> = new Set([
+  "drizzle",
+  "mongoose",
+  "redis",
+]);
+
+/**
  * Résout la sentinelle `"auto"` d'une brique en nom de backend, borné aux
  * backends RÉELLEMENT enregistrés (`available` = `listXStores()` du registre —
  * reflète l'auto-register des adapters chargés). Couverture partielle d'une infra
@@ -232,23 +266,70 @@ export interface IStoreResolution {
  * jamais d'échec : le principe « fallback annoncé, pas de dégradation
  * silencieuse » vit dans la raison retournée, que l'appelant DOIT logger.
  *
+ * 🔴 **Un backend qui ouvre une CONNEXION ne peut être choisi que si le run en
+ * ouvre.** `infra` dit quelle infrastructure est DÉCLARÉE ; elle ne dit pas si
+ * CE run s'y connecte — deux questions distinctes depuis que le profil de run
+ * porte `externalServices` (le run le déclare, cf `runNeedsExternalServices`).
+ * Les confondre choisissait `drizzle` pour une commande en ligne qui ne
+ * connecte aucun ORM : la fabrique du store exigeait ensuite un ORM connecté et
+ * le démarrage mourait, y compris pour `nodefony inspect routes`. Le verdict
+ * s'INJECTE (`canOpenConnections`), il ne se déduit pas ici : ce module est pur
+ * et ne connaît aucun kernel.
+ *
  * @param kind - nature de la donnée ({@link StoreKind}).
  * @param infra - infra résolue ({@link resolveInfra}).
  * @param available - backends enregistrés dans le registre de la brique.
  * @param fallback - backend de repli (défaut `"memory"` — c'est aussi ce que passe
  *   le service de session : aucun appelant ne demande un autre repli).
+ * @param canOpenConnections - ce run ouvre-t-il des connexions externes ?
+ *   `runNeedsExternalServices(kernel)` chez l'appelant. `false` écarte tout
+ *   backend connecté du choix `auto` — un store explicitement configuré, lui,
+ *   ne passe pas par ici et échoue franchement, comme il doit.
  */
 export function resolveAutoStore(
   kind: StoreKind,
   infra: IInfra,
   available: readonly string[],
   fallback = "memory",
+  canOpenConnections = true,
 ): IAutoStoreResolution {
+  // 🔴 Un run qui n'ouvre AUCUNE connexion ne reçoit AUCUN backend connecté —
+  // et le filtre s'applique PARTOUT, infra déclarée comprise.
+  //
+  // La tentation est de préserver l'infra que l'utilisateur a écrite, pour que
+  // sa base injoignable « se voie ». C'est un piège : ce qu'on obtient alors
+  // n'est pas un signal, c'est un store qui LÈVE au montage (fabrique) ou, pire,
+  // qui DÉGRADE EN SILENCE à l'usage (`DrizzleAuditStore.append` rend la main
+  // sans un mot quand l'ORM n'est pas connecté). Un store connecté « gardé » est
+  // fail-OPEN : une denylist qui ne lit rien accepte un jeton révoqué, un audit
+  // qui n'écrit rien ne laisse aucune trace — pendant que le registre affiche
+  // `resolved: "drizzle"` et un emplacement de fichier. `memory` est fail-CLOSED,
+  // véridique, et annoncé une fois avec sa raison.
+  //
+  // Le signal « base déclarée injoignable » n'est pas perdu pour autant : il
+  // appartient au run qui DÉCLARE en avoir besoin, où l'échec de connexion est
+  // fatal en développement comme en production (`DrizzleService`). Un run qui ne
+  // déclare rien n'a pas d'opinion sur la base — ce n'est pas un silence, c'est
+  // une non-question.
+  const usable = canOpenConnections
+    ? available
+    : available.filter((s) => !CONNECTED_STORES.has(s));
+  /** Un backend a-t-il été écarté par le profil du run ? Sert la VÉRACITÉ des raisons. */
+  const discarded = canOpenConnections
+    ? []
+    : available.filter((s) => CONNECTED_STORES.has(s));
+  const profileNote =
+    discarded.length > 0
+      ? ` ; ${discarded.join("/")} écarté(s) : ce run n'a pas déclaré ` +
+        `\`externalServices\` (une commande qui lit ou écrit des données le ` +
+        `déclare via CONSOLE_DATA_RUN_PROFILE)`
+      : "";
+
   // Override GLOBAL (`NF_STORE`) — PRIORITÉ MAX sur toute préférence d'infra : force
   // ce backend pour toute brique `auto` s'il est enregistré (banc de charge « tout en
   // memory » en 1 variable). Backend demandé mais absent de CETTE brique → on l'ignore
   // (jamais de crash) et on retombe sur la résolution normale.
-  if (infra.forceStore && available.includes(infra.forceStore)) {
+  if (infra.forceStore && usable.includes(infra.forceStore)) {
     return {
       store: infra.forceStore,
       reason: `NF_STORE=${infra.forceStore} (override global — banc de charge)`,
@@ -266,17 +347,22 @@ export function resolveAutoStore(
     });
   }
   for (const preference of preferences) {
-    if (available.includes(preference.store)) {
+    if (usable.includes(preference.store)) {
       return preference;
     }
   }
   if (preferences.length > 0) {
     const wanted = preferences.map((p) => p.store).join("/");
+    const fallbackStore =
+      CONNECTED_STORES.has(fallback) && !canOpenConnections
+        ? "memory"
+        : fallback;
     return {
-      store: fallback,
+      store: fallbackStore,
       reason:
         `backend d'infra ${wanted} indisponible sur cette brique ` +
-        `(enregistrés : ${available.join(", ") || "aucun"}) — repli "${fallback}"`,
+        `(enregistrés : ${available.join(", ") || "aucun"}) — repli "${fallbackStore}"` +
+        profileNote,
     };
   }
   // Aucune infra RÉSEAU déclarée : préférer un backend LOCAL PERSISTANT réellement
@@ -286,18 +372,24 @@ export function resolveAutoStore(
   // ne « sort » de sqlite qu'en déclarant une infra réseau (NF_DATABASE_URL) pour
   // scaler en multi-nœud. Ordre = même préférence que l'infra database (sql avant mongo).
   for (const local of ["drizzle", "mongoose"] as const) {
-    if (available.includes(local)) {
+    if (usable.includes(local)) {
       return {
         store: local,
         reason: `aucune infra déclarée — backend local persistant "${local}" (mono-nœud)`,
       };
     }
   }
+  // Le repli lui-même peut être connecté (`provisionUsers` demande `"drizzle"`) :
+  // sans cette borne, la porte de derrière rouvrirait ce que le filtre a fermé.
+  const finalFallback =
+    !canOpenConnections && CONNECTED_STORES.has(fallback) ? "memory" : fallback;
   return {
-    store: fallback,
+    store: finalFallback,
     reason:
-      `aucune infra déclarée, aucun backend persistant chargé — repli "${fallback}"` +
-      (fallback === "memory" ? " (volatil)" : ""),
+      `aucune infra déclarée, aucun backend persistant chargé — repli ` +
+      `"${finalFallback}"` +
+      (finalFallback === "memory" ? " (volatil)" : "") +
+      profileNote,
   };
 }
 

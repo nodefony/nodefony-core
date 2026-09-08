@@ -138,6 +138,62 @@ describe("check — état d'installation et environnement", () => {
     assert.include(r.findings[0].message, "nodefony status");
   });
 
+  it("une infra DÉCLARÉE et injoignable est SIGNALÉE, avec ses limites", async () => {
+    // Le trou que ce contrôle ferme : une commande qui ne déclare pas
+    // `externalServices` n'ouvre aucune connexion, donc plus personne ne
+    // remarquait qu'une base déclarée ne répondait pas. Or on lance le
+    // diagnostic PRÉCISÉMENT quand le serveur refuse de démarrer.
+    app({ name: "a" });
+    const cible = {
+      infra: "database" as const,
+      from: "NF_DATABASE_URL",
+      scheme: "postgres",
+      host: "base-absente.invalid",
+      port: 5432,
+    };
+    const r = await checkReadiness({
+      projectRoot: dir,
+      infra: {
+        targets: [cible],
+        unreachable: [{ target: cible, cause: "ENOTFOUND" }],
+      },
+    });
+    assert.deepEqual(kinds(r.findings), ["infra-unreachable"]);
+    assert.include(r.findings[0].message, "NF_DATABASE_URL");
+    assert.include(r.findings[0].message, "base-absente.invalid:5432");
+    assert.include(r.findings[0].message, "ENOTFOUND");
+    // Une sonde qui prétend plus qu'elle ne mesure ment : elle constate qu'un
+    // port répond, pas qu'on peut s'y authentifier.
+    assert.include(r.findings[0].message, "NON vérifiés");
+    assert.strictEqual(r.infraProbed, 1);
+  });
+
+  it("🔴 une infra JOIGNABLE ne dit RIEN — un contrôle qui crie toujours s'ignore", async () => {
+    app({ name: "a" });
+    const cible = {
+      infra: "cache" as const,
+      from: "NF_REDIS_URL",
+      scheme: "redis",
+      host: "127.0.0.1",
+      port: 6379,
+    };
+    const r = await checkReadiness({
+      projectRoot: dir,
+      infra: { targets: [cible], unreachable: [] },
+    });
+    assert.deepEqual(kinds(r.findings), []);
+    // La cible a bien été SONDÉE : le rapport peut le dire, et l'absence de
+    // signalement vaut alors quitus — au lieu d'un silence ambigu.
+    assert.strictEqual(r.infraProbed, 1);
+  });
+
+  it("aucune infra déclarée → rien de sondé, rien de signalé", async () => {
+    app({ name: "a" });
+    const r = await checkReadiness({ projectRoot: dir });
+    assert.deepEqual(kinds(r.findings), []);
+    assert.strictEqual(r.infraProbed, 0);
+  });
+
   it("⭐ DIT que les variables n'ont pas pu être contrôlées", async () => {
     // Le catalogue se lit dans le `dist/` de l'app : sur une app non construite
     // il est illisible, et le silence de la règle ne vaut PAS quitus. Une

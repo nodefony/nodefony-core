@@ -618,7 +618,18 @@ describe.skipIf(!fs.existsSync(DIST))(
     });
 
     it("base injoignable + --json → l'échec se lit sur la sortie d'erreur", async () => {
-      const r = await runCli(["inspect", "routes", "--json"], CLI_TIMEOUT_MS, {
+      // 🔴 La commande a CHANGÉ, et c'est le fond du sujet. `inspect routes` ne
+      // compose plus le numéro de la base : un run qui ne déclare pas
+      // `externalServices` enregistre l'ORM sans s'y connecter, donc une base
+      // injoignable ne le concerne plus — il rend ses routes et sort 0, ce qui
+      // est le comportement voulu (une commande qui n'a pas besoin de données
+      // ne doit pas échouer faute de base).
+      //
+      // La garantie que ce banc protège n'a pas disparu pour autant : elle
+      // appartient désormais à une commande qui DÉCLARE en avoir besoin.
+      // `security:user:list` lit des comptes (`CONSOLE_DATA_RUN_PROFILE`), donc
+      // l'échec de connexion y est fatal, et il doit rester LISIBLE.
+      const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS, {
         NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
       });
 
@@ -632,15 +643,18 @@ describe.skipIf(!fs.existsSync(DIST))(
         "MUET : boot en échec, et pas un octet sur la sortie d'erreur — " +
           "l'appelant ne peut pas distinguer « aucune route » de « rien n'a démarré »",
       );
+      // `ERROR|CRITIC` a été RETIRÉ du motif : ces mots apparaissent dans
+      // n'importe quelle ligne de journal, si bien que le banc passait sans
+      // que la panne soit nommée — vert pour la mauvaise raison.
       assert.match(
         r.stderr,
-        /ENOTFOUND|connecteur|ERROR|CRITIC/,
+        /ENOTFOUND|connecteur/,
         `la sortie d'erreur doit NOMMER la panne, pas seulement exister\n${r.stderr}`,
       );
     });
 
     it("l'échec ne pollue pas la sortie standard réservée aux données", async () => {
-      const r = await runCli(["inspect", "routes", "--json"], CLI_TIMEOUT_MS, {
+      const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS, {
         NF_DATABASE_URL: "postgres://app:pwd@base-absente.invalid:5432/app",
       });
 
@@ -721,9 +735,15 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
     // que `doctor` nu.
     it("⭐ boot MORT → le rapport statique est rendu quand même, étage 2 expliqué", async () => {
       const r = await runCli(["doctor", "--live"], CLI_TIMEOUT_MS, {
-        // Un hôte que le DNS ne résoudra jamais : le connecteur tombe à
-        // `onPreBoot`, donc bien avant `onPostReady` où l'étage 2 se branche.
-        NF_DATABASE_URL: "postgres://app:x@base-absente.invalid:5432/app",
+        // 🔴 Décor DÉTERMINISTE et SANS RÉSEAU : un scheme d'URL non supporté
+        // est refusé fail-loud à la résolution de l'infra (`config/infra.ts`),
+        // pendant le chargement du manifeste — donc bien avant l'étage 2.
+        //
+        // L'ancien décor (hôte `.invalid`) ne tue PLUS le boot : `doctor` ne
+        // déclare pas `externalServices`, il ne compose donc pas le numéro de
+        // la base et une adresse injoignable ne l'arrête plus. Le banc serait
+        // resté vert en apparence tout en ayant cessé de mesurer un boot mort.
+        NF_DATABASE_URL: "oracle://app:x@db:1521/app",
         NF_NO_COLOR: "1",
       });
       assert.ok(
@@ -737,6 +757,15 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
       assert.ok(
         !READY_RE.test(r.stdout + r.stderr),
         "un diagnostic ne monte aucun serveur",
+      );
+      // La CAUSE doit être nommée, pas seulement l'échec constaté : sans cette
+      // assertion, le banc se contentait d'un rapport qui dit « ça n'a pas
+      // démarré » sans jamais dire pourquoi — et c'est précisément ce que
+      // l'utilisateur vient chercher dans un diagnostic.
+      assert.match(
+        r.stdout + r.stderr,
+        /oracle/,
+        `le rapport doit NOMMER la cause du boot mort\n${r.stdout.slice(-800)}`,
       );
     });
 

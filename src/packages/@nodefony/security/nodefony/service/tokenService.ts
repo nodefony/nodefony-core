@@ -9,6 +9,8 @@ import {
   canonicalIssuer,
   refusedAdminScopes,
   resolveAutoStore,
+  runNeedsExternalServices,
+  durableStoreRemedy,
   readStoreLocation,
   type Severity,
 } from "nodefony";
@@ -123,6 +125,8 @@ class TokenService extends Service {
         "durable",
         this.kernel?.infra ?? EMPTY_INFRA,
         listTokenStores(),
+        "memory",
+        runNeedsExternalServices(this.kernel),
       );
       storeName = auto.store;
       reason = auto.reason;
@@ -148,7 +152,8 @@ class TokenService extends Service {
       this.log(
         `tokenStore "memory" en PRODUCTION — denylist JWT, refresh tokens et clés API ` +
           `per-pod et volatils : révocation non partagée entre pods, tout est perdu au ` +
-          `redémarrage. Déclarer une infra durable (NF_DATABASE_URL) ou un store persistant.`,
+          `redémarrage. ` +
+          durableStoreRemedy(runNeedsExternalServices(this.kernel)),
         "WARNING",
       );
     }

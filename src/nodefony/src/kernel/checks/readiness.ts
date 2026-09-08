@@ -43,7 +43,8 @@ export interface IReadinessFinding {
     | "env-file-tracked"
     | "module-not-installed"
     | "dep-not-installed"
-    | "port-busy";
+    | "port-busy"
+    | "infra-unreachable";
   /** Phrase actionnable : ce qui manque, et le geste qui le répare. */
   message: string;
   /** Fichier qui porte la déclaration, relatif à la racine (si pertinent). */
@@ -59,6 +60,8 @@ export interface IReadinessResult {
    * alors pas quitus, et le rapport doit le dire.
    */
   catalogUnreadable: boolean;
+  /** Infrastructures effectivement sondées (0 si aucune sonde fournie). */
+  infraProbed: number;
   /** Ports effectivement sondés (vide si aucune sonde n'a été fournie). */
   portsProbed: number[];
   /**
@@ -78,6 +81,41 @@ export interface IReadinessResult {
  * l'aurait rendue inéprouvable sans ouvrir de vrais ports, donc non testée sur
  * la seule branche qui compte (le port tenu par un tiers).
  */
+/**
+ * Le VERDICT de joignabilité des infrastructures DÉCLARÉES — injecté, comme la
+ * sonde de ports, et pour la même raison : une capacité se CONSTATE.
+ *
+ * Pourquoi ce contrôle existe. Une commande qui ne déclare pas
+ * `externalServices` n'ouvre aucune connexion — c'est voulu. Mais alors PLUS
+ * PERSONNE ne remarque qu'une base déclarée est injoignable : le diagnostic,
+ * dont c'est précisément le métier, passait à côté de la panne n°1. Le serveur,
+ * lui, refuse de démarrer — sauf qu'on lance justement `doctor` quand le
+ * serveur ne démarre pas.
+ *
+ * Ce que la sonde couvre, et ce qu'elle NE couvre PAS : elle constate qu'un nom
+ * se résout et qu'un port accepte une connexion. Elle ne vérifie ni les
+ * identifiants, ni l'existence de la base, ni TLS — c'est le serveur qui les
+ * éprouve au démarrage. Une sonde qui prétendrait davantage mentirait, et le
+ * message le dit à l'utilisateur.
+ */
+export interface IInfraProbe {
+  /** Cibles effectivement sondées (vide si rien n'est déclaré). */
+  targets: readonly IInfraTarget[];
+  /** Celles qui n'ont pas répondu, avec la cause CONSTATÉE. */
+  unreachable: readonly { target: IInfraTarget; cause: string }[];
+}
+
+/** Une infrastructure déclarée, telle que la sonde l'a lue. */
+export interface IInfraTarget {
+  /** Nature de l'infra — le vocabulaire du dépôt, jamais « rôle ». */
+  infra: "database" | "cache";
+  /** La variable RÉELLEMENT lue (l'alias de plateforme n'est pas `NF_*`). */
+  from: string;
+  scheme: string;
+  host: string;
+  port: number;
+}
+
 export interface IPortProbe {
   /** Ports effectivement sondés par l'appelant. */
   probed: readonly number[];
@@ -159,6 +197,8 @@ function isModuleResolvable(projectRoot: string, name: string): boolean {
 export async function checkReadiness(input: {
   projectRoot: string;
   probe?: IPortProbe | null;
+  /** Verdict de joignabilité des infras déclarées — `null` = non sondé. */
+  infra?: IInfraProbe | null;
   /**
    * Environnement à ÉVALUER, s'il n'est pas celui d'ici (`doctor --env
    * production`). Les valeurs restent celles de la machine.
@@ -296,5 +336,21 @@ export async function checkReadiness(input: {
     }
   }
 
-  return { findings, catalogUnreadable, portsProbed, trackedUnknown };
+  for (const { target, cause } of input.infra?.unreachable ?? []) {
+    findings.push({
+      kind: "infra-unreachable",
+      message:
+        `${target.from} déclare ${target.scheme} sur ${target.host}:${target.port} ` +
+        `— injoignable (${cause}). Démarrer l'infrastructure ou corriger l'URL ; ` +
+        `identifiants et nom de base NON vérifiés par cette sonde`,
+    });
+  }
+
+  return {
+    findings,
+    catalogUnreadable,
+    portsProbed,
+    infraProbed: input.infra?.targets.length ?? 0,
+    trackedUnknown,
+  };
 }

@@ -368,6 +368,7 @@ export type { IConfigFieldMeta } from "./config/configMeta";
 export {
   resolveInfra,
   resolveAutoStore,
+  durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
   parseDatabaseUrl,

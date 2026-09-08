@@ -62,6 +62,7 @@ const rapport = (patch: Partial<IDoctorReport> = {}): IDoctorReport => ({
     findings: [],
     catalogUnreadable: false,
     portsProbed: [],
+    infraProbed: 0,
     trackedUnknown: null,
   },
   freshness: { findings: [], notComparable: false },
