@@ -40,6 +40,7 @@ import { execFileSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { chooseNextTicket } from "./board-next.mjs";
 
 const ROOT = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -212,7 +213,12 @@ function renderMarkdown(live, generatedAt) {
     parJalon.get(clef).push(it);
   }
 
-  const prochain = ouverts.find((i) => i.ordre !== null) ?? ouverts[0] ?? null;
+  // Le prochain se choisit dans le JALON COURANT — l'ordre court à travers tous
+  // les jalons, si bien qu'un ticket d'une version ultérieure peut porter un rang
+  // plus petit et se faire annoncer comme la prochaine chose (vécu le 09-08).
+  const choix = chooseNextTicket(ouverts, live.milestones);
+  const prochain = choix?.ticket ?? null;
+  const jalonCourant = choix?.milestone ?? null;
 
   const lignes = [
     "<!-- GÉNÉRÉ par le skill `nodefony-session` (scripts/board-snapshot.mjs).",
@@ -264,6 +270,12 @@ function renderMarkdown(live, generatedAt) {
       `**#${prochain.number} — ${prochain.title}**`,
       "",
       `Ordre ${prochain.ordre ?? "—"} · ${prochain.priorite ?? "priorité non posée"} · ${prochain.jours ?? "—"} j · jalon ${prochain.milestone ?? "—"}`,
+      "",
+      jalonCourant
+        ? `> Choisi dans le **jalon courant \`${jalonCourant}\`**, qui a encore ${parJalon.get(jalonCourant)?.length ?? 0} tickets ouverts. ` +
+            "Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : " +
+            "l'ordre encode les dépendances, le jalon encode la livraison."
+        : "> Aucun jalon n'a de travail ouvert — ce ticket vient du backlog.",
       "",
       "> L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le",
       "> contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).",

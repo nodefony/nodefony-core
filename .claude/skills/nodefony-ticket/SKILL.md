@@ -596,12 +596,21 @@ Les deux fonctions pures qui portent une règle — `deriveOrdre` (l'ordre d'un 
 [`scripts/ticket-open.test.mjs`](scripts/ticket-open.test.mjs) et
 [`scripts/ticket-progress.test.mjs`](scripts/ticket-progress.test.mjs) ; celles du compte rendu
 (`fichiersDeTest`, `composer`) par [`scripts/ticket-close.test.mjs`](scripts/ticket-close.test.mjs).
-Toutes sont lancées par `npm run test:pilotage`, qui porte aussi le **gate qui interdit à ces
-scripts de décider sur `gh project item-list`** — la règle du piège ci-dessous était écrite, et un
-script la violait quand même : sur un tableau de plus de cent items, le parent d'une grappe
-disparaissait de la liste, l'ordre n'était pas dérivé, et la grappe entière tombait en fin de tri
-sans qu'aucune erreur ne le dise. Une règle en prose n'est appliquée que si un automate la relit ;
-cela vaut pour les outils du pilotage comme pour les tickets qu'ils gèrent.
+Toutes sont lancées par `npm run test:pilotage` (job « Statique + gates du dépôt » de la forge),
+qui porte aussi le **gate qui interdit de décider sur `gh project item-list`** —
+[`scripts/board-source.test.mjs`](scripts/board-source.test.mjs). La règle du piège ci-dessous était
+écrite, et un script la violait quand même : sur un tableau de plus de cent items, le parent d'une
+grappe disparaissait de la liste, l'ordre n'était pas dérivé, et la grappe entière tombait en fin de
+tri sans qu'aucune erreur ne le dise.
+
+Ce gate a d'abord balayé les seuls scripts de ce dossier — et **c'est ailleurs que la commande
+interdite a survécu** : dans un bloc de commande du skill `nodefony-session`, celui que l'agent
+exécute à chaque reprise. Le 2026-09-08, il a rendu 120 items sur 261 et fait annoncer au user un
+ticket de la `beta` alors que neuf tickets `alpha` restaient ouverts. Le gate balaye désormais TOUT
+`.claude/skills` — scripts `.mjs` **et blocs de code des pages** ; la prose reste libre de nommer la
+commande pour enseigner le piège, et une ligne portant `CONTRE-EXEMPLE` reste permise dans un bloc.
+Une règle en prose n'est appliquée que si un automate la relit — et un automate ne protège que le
+périmètre qu'il balaye.
 
 ## Références (chargées à la demande)
 

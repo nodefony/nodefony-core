@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-08 18:15** (UTC).
+> Empreinte prise le **2026-09-08 18:56** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -33,6 +33,8 @@
 **#274 — fix(gate): le contrôle de langue ne voit pas les identifiants des gabarits**
 
 Ordre 1.4 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
+
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 9 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).

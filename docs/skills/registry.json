@@ -5198,8 +5198,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 637,
-        "approxTokens": 8161
+        "bodyLines": 648,
+        "approxTokens": 8416
       },
       "requires": [],
       "resources": {
@@ -5209,6 +5209,24 @@
         ],
         "referenceFilesTotal": 2,
         "scripts": [
+          {
+            "path": "scripts/board-next.mjs",
+            "purpose": "Le choix du PROCHAIN ticket — la règle, isolée pour être éprouvable sans réseau.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/board-next.test.mjs",
+            "purpose": "Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
           {
             "path": "scripts/board-snapshot.mjs",
             "purpose": "Instantané du pilotage — projette les tickets GitHub DANS le dépôt.",
@@ -5371,7 +5389,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "637",
+            "detail": "648",
             "advisory": true
           }
         ]
@@ -6025,8 +6043,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\".",
       "cost": {
-        "bodyLines": 608,
-        "approxTokens": 11217
+        "bodyLines": 617,
+        "approxTokens": 11385
       },
       "requires": [
         "redis"
@@ -6125,6 +6143,20 @@
             "options": [
               {
                 "flag": "--grep",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/board-source.test.mjs",
+            "purpose": "Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--limit",
                 "help": ""
               }
             ],
@@ -6575,7 +6607,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "608",
+            "detail": "617",
             "advisory": true
           }
         ]

@@ -85,31 +85,37 @@ deux sessions. Un ticket, lui, a un état que personne n'oublie de changer.
 travaille hors ligne : conclure « rien n'a avancé » depuis un `gh` muet serait un faux verdict.
 
 ```bash
+# La VOIE NORMALE passe par l'EMPREINTE, jamais par le client de tableau de bord
+# en ligne de commande : il omet des lignes sans le dire (skill `nodefony-ticket`,
+# § Pièges vécus). L'empreinte, elle, est produite par GraphQL PAGINÉ.
 if gh api rate_limit --jq '.rate.remaining' >/dev/null 2>&1; then
-  echo "✅ GitHub joignable"
-  gh api repos/:owner/:repo/milestones \
-    --jq '.[] | "\(.title) — \(.open_issues) ouverts / \(.closed_issues) fermés — échéance \(.due_on[0:10] // "aucune")"'
+  echo "✅ GitHub joignable — on RAFRAÎCHIT l'empreinte avant de la lire"
+  npm run board:snapshot
   echo "--- fermés depuis la dernière session ---"
   gh issue list --state closed --limit 5 --json number,title,closedAt \
     --jq '.[] | "#\(.number) \(.closedAt[0:10]) \(.title)"'
-  echo "--- ce qui vient, dans l'ordre du tableau de bord ---"
-  gh project item-list 2 --owner nodefony --limit 80 --format json \
-    | jq -r '[.items[] | select(.status != "Done" and (.milestone.title // "") == "10.0.0")]
-             | sort_by(.ordre // 999) | .[:5] | .[]
-             | "  \(.ordre // "-")  \(.["priorité"] // "-")  \(.jours // "-") j  #\(.content.number)  \(.content.title)"'
 else
-  echo "⚠️ GitHub INJOIGNABLE — lire l'EMPREINTE commitée, et le dire au user :"
-  sed -n '1,40p' .ai/BOARD.md 2>/dev/null || echo "   (aucune empreinte — avancement NON vérifié)"
+  echo "⚠️ GitHub INJOIGNABLE — empreinte du dernier END : le DIRE au user, avec sa date"
 fi
+# Jalons + le prochain dans l'ordre + le premier jalon détaillé. Les bornes sont
+# STRUCTURELLES : un nom de jalon écrit ici se périmerait à la version suivante.
+awk '/^## Jalons/{p=1} /^## Jalon /{n++; if(n==2) exit} p' .ai/BOARD.md
 ```
 
 > **L'empreinte, c'est `.ai/BOARD.md` + `.ai/board.json`** — une projection des tickets
 > **générée** par [`scripts/board-snapshot.mjs`](scripts/board-snapshot.mjs) et commitée, sur le
-> modèle de `.ai/symbols.json`. Elle existe pour ce cas précis : reprendre quand le réseau ne
-> répond pas. **Elle ne s'édite JAMAIS à la main** — c'est ce qui la rend incapable de diverger de
-> sa source, et toute la différence avec un document de pilotage écrit à la main. Dire au user
-> qu'on lit une empreinte, et de QUAND elle date : trois jours d'écart, c'est trois jours de
-> travail qu'elle ignore.
+> modèle de `.ai/symbols.json`. **Ce n'est PAS un repli hors ligne : c'est LA voie de lecture**,
+> connectée comme déconnectée. La croire dégradée a coûté un faux verdict — le 2026-09-08, la
+> reprise a annoncé un ticket de la `beta` alors que neuf tickets `alpha` restaient ouverts, dont
+> un placé DEVANT lui : le client en ligne de commande avait rendu 120 items sur 261, et
+> l'empreinte, elle, nommait déjà le bon en toutes lettres sous « ➡️ Le prochain dans l'ordre ».
+> Le seul écart entre les deux situations est la FRAÎCHEUR : connecté on la régénère avant de la
+> lire, déconnecté on lit celle du dernier END **en disant au user de quand elle date** — trois
+> jours d'écart, c'est trois jours de travail qu'elle ignore.
+> **Elle ne s'édite JAMAIS à la main** — c'est ce qui la rend incapable de diverger de sa source,
+> et toute la différence avec un document de pilotage écrit à la main. La règle qui choisit le
+> prochain ticket vit à part, dans [`scripts/board-next.mjs`](scripts/board-next.mjs), pour être
+> éprouvable sans réseau (`npm run test:pilotage`).
 
 **Puis CONTRÔLER le tableau avant de s'en servir.** Un ordre de travail restitué depuis un tableau
 incohérent envoie travailler au mauvais endroit — et l'incohérence ne crie pas : un ticket hors
@@ -150,14 +156,19 @@ barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHA
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
-3. **➡️ Prochaine étape** : la « Priorité 1 » du Reste — **SAUF si le garde-fou §2 a détecté un
-   `_state` périmé** : alors la prochaine étape vient du **dernier commit + son kit**, et on dit au
-   user que le `_state` était périmé. ⚠️ L'ordre du tableau de bord dit les **dépendances**, pas le
-   moment : quand un ticket est petit et que son contexte vient d'être chargé, c'est **maintenant**
-   qu'il coûte le moins cher — le skill `nodefony-ticket` porte la règle et son test.
-4. **Avancement du jalon** : `N ouverts / M fermés`, échéance, et les 2-3 prochains tickets dans
-   l'ordre du tableau de bord — ou, si GitHub n'a pas répondu, la phrase « avancement non vérifié,
-   GitHub injoignable ». Ne jamais présenter un avancement déduit du seul `_state`.
+3. **➡️ Prochaine étape** : celle que l'empreinte nomme sous « ➡️ Le prochain dans l'ordre » —
+   **jamais une déduction personnelle sur une liste de tickets**. 🔴 Elle vient du **JALON
+   COURANT** : tant que la version en cours a des tickets ouverts, un ticket d'une version
+   ultérieure ne passe pas devant, même mieux classé. Restituer un ticket dont le jalon n'est pas
+   celui qui reste à finir est un faux verdict — vécu le 2026-09-08 : `beta` annoncée avec neuf
+   tickets `alpha` ouverts. Si le `_state` désigne un autre ticket que l'empreinte, **l'empreinte
+   gagne** et on dit au user que le `_state` était périmé (même raison qu'au §2 : ce qui est écrit
+   à la main se périme). ⚠️ L'ordre encode les **dépendances**, pas le moment : un ticket petit
+   dont le contexte vient d'être chargé se prend **maintenant** — skill `nodefony-ticket`.
+4. **Avancement du jalon COURANT en premier** : `N ouverts / M fermés`, échéance, puis les 2-3
+   suivants **de ce jalon**. Les jalons ultérieurs se citent en une ligne, jamais comme du travail
+   à prendre. Si GitHub n'a pas répondu : « avancement non vérifié, GitHub injoignable », plus la
+   DATE de l'empreinte. Ne jamais présenter un avancement déduit du seul `_state`.
 5. **Mini-état migration** (barres + encadré, via `references/migration-audit.md`) — si phase concernée
 6. **Branche git** + non commités (alerte si dist périmé probable)
 7. **Question** : « On reprend ça, ou autre chose ? »

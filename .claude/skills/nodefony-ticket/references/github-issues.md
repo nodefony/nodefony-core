@@ -66,9 +66,13 @@ Le scope OAuth `project` est requis (`gh auth refresh -h github.com -s project`)
 
 ## Pièges de ligne de commande
 
-- **`gh project item-list` tronque par défaut** (~30) : passer `--limit`. Sans lui, la recherche
-  d'un item par numéro d'issue rend une chaîne vide, et `item-edit` échoue sur
-  « Could not resolve to a node with the global id of '' ».
+- **`gh project item-list` ne sert à AUCUNE décision** — `--limit` n'y change rien. Il tronque à
+  ~30 par défaut, et **omet des lignes même avec un `--limit` large** : mesuré le 2026-09-08,
+  120 items rendus sur 261 demandés. Le symptôme visible est un `item-edit` qui échoue sur
+  « Could not resolve to a node with the global id of '' » ; le symptôme INVISIBLE est un ordre de
+  travail restitué depuis un inventaire amputé. Lire le tableau par **GraphQL paginé** — en
+  pratique, par l'empreinte `.ai/BOARD.md` que `board-snapshot.mjs` produit. Un gate le vérifie
+  (`npm run test:pilotage`), dans les scripts comme dans les blocs de commande des skills.
 - **Le champ `Ordre` ne trie aucune vue à lui seul** : il faut aussi ordonner physiquement, par
   `updateProjectV2ItemPosition`, sinon la grille garde l'ordre d'insertion.
 - **Un accent dans un nom de champ casse un filtre `jq`** : écrire `.["priorité"]`, jamais
