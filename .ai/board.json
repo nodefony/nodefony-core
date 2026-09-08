@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T21:48:39.815Z",
+  "generatedAt": "2026-09-08T22:11:26.213Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,17 +25,17 @@
       "title": "12.0.0"
     },
     {
-      "closed": 17,
+      "closed": 18,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 19,
+      "open": 18,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 24,
+      "open": 25,
       "title": "10.0.0-beta"
     },
     {
@@ -245,7 +245,7 @@
       "title": "build(release): cesser de réécrire les types au moment du publish",
       "url": "https://github.com/nodefony/nodefony-core/issues/293",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1584,6 +1584,20 @@
       ]
     },
     {
+      "number": 294,
+      "title": "test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun",
+      "url": "https://github.com/nodefony/nodefony-core/issues/294",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4.9,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 53,
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
@@ -1633,7 +1647,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 3,
+      "jours": 2.5,
       "ordre": 5,
       "labels": [
         "10.0.0-alpha"
@@ -1742,8 +1756,8 @@
       "number": 283,
       "title": "refactor(config)!: préfixer d'un I les types d'entrée de config",
       "url": "https://github.com/nodefony/nodefony-core/issues/283",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,

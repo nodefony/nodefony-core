@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-08 21:48** (UTC).
+> Empreinte prise le **2026-09-08 22:11** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████░░░░░` 47% | 17 | 19 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 8% | 2 | 24 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████░░░░░` 50% | 18 | 18 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 25 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -32,14 +32,14 @@
 
 **#288 — feat(config): rendre la config d'un module sûre et découvrable**
 
-Ordre 5 · P0 — bloque le reste · 3 j · jalon 10.0.0-alpha
+Ordre 5 · P0 — bloque le reste · 2.5 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 18 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 24 ouverts
+## Jalon 10.0.0-beta — 25 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -55,6 +55,7 @@ Ordre 5 · P0 — bloque le reste · 3 j · jalon 10.0.0-alpha
 | 4.5 | P1 — figé à la création | 0.5 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 4.6 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 4.8 | P1 — figé à la création | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
+| 4.9 | P1 — figé à la création | 2 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
 | 5 | P1 — figé à la création | 3.5 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 5.1 | P0 — bloque le reste | 2 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
 | 5.2 | P1 — figé à la création | 1 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
@@ -68,12 +69,11 @@ Ordre 5 · P0 — bloque le reste · 3 j · jalon 10.0.0-alpha
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 
-## Jalon 10.0.0-alpha — 19 ouverts
+## Jalon 10.0.0-alpha — 18 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 5 | P0 — bloque le reste | 3 | #288 | feat(config): rendre la config d'un module sûre et découvrable |
-| 5.2 | P2 — décision | 0.5 | #283 | refactor(config)!: préfixer d'un I les types d'entrée de config |
+| 5 | P0 — bloque le reste | 2.5 | #288 | feat(config): rendre la config d'un module sûre et découvrable |
 | 5.3 | P1 — figé à la création | 0.5 | #282 | refactor(http)!: renommer la clé de config openssl en selfSigned |
 | 5.4 | P1 — figé à la création | 1 | #287 | feat(cli): rendre découvrables les clés de config d'un module |
 | 5.5 | P1 — figé à la création | 0.5 | #280 | feat(cli): exposer le réglage du nombre de processus aux apps générées |
