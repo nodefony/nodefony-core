@@ -32,9 +32,73 @@
 
 > Gradué au CONSOLIDATE du 2026-09-07 — 6 frictions → **`feedback_destructive_needs_identity_scope`** : un refus doit nommer le GESTE de remplacement, pas le drapeau qui force. Ne PAS réécrire ici.
 
-## 🗄️ 📖 Ce qui est ÉCRIT ne protège que si on le relit — GRADUÉ
+## 📖 Ce qui est ÉCRIT ne protège que si on le relit AU MOMENT du geste
 
-> Gradué le 2026-09-08 — 10 frictions → **`feedback_written_rule_needs_reread`** : deux faces, l'écrit JUSTE qu'on ne relit pas au moment du geste, et l'écrit FAUX cru parce qu'il est PRÉCIS. Ne PAS réécrire ici.
+- [1× — 09-08] **Une doctrine écrite en commentaire affirmait une garde qui n'existait pas — et
+  tout un correctif s'est appuyé dessus.** `DrizzleService` déclarait, pour justifier de ne plus
+  connecter l'ORM : « un ORM enregistré mais non connecté dit la vérité sur lui-même
+  (`isConnected()` est faux, ET LES STORES LE GARDENT DÉJÀ) ». Vérifié : **trois** consommateurs
+  gardent, **sept** lèvent. La phrase n'avait jamais été confrontée au code, elle a survécu à sa
+  revue, et l'intégration continue en est restée rouge sur quatre systèmes. **Une affirmation
+  qui JUSTIFIE un changement doit être vérifiée AVANT le changement, pas relue après** — c'est
+  exactement le genre de phrase qu'on croit parce qu'elle est précise.
+
+- [1× — 09-07i] **J'ai recopié dans un skill une recette que le PRODUIT imprime déjà — et le skill
+  dit lui-même, en §1, qu'il n'exécute rien.** Après une release, j'ai versé dans
+  `nodefony-release` la séquence `--branch dev` puis les quatre poussées jusqu'au tag : or
+  `release.mjs:487` NOMME le drapeau manquant quand on se trompe, et `--write` imprime la séquence
+  complète. Le user l'a vu tout de suite (« le skill ne tient pas la release, c'est le produit »).
+  Une seconde source venait de naître, avec `dev` écrit en dur, une heure après que #257 ait changé
+  les branches. **Le test avant d'écrire dans un skill : cette phrase évite-t-elle une exploration,
+  ou décrit-elle ce que le produit dit déjà au moment utile ?** Ce qui reste au skill, c'est
+  l'ARBITRAGE — « la forge rejoue le smoke, ne pas le doubler » — jamais la recette.
+- [1× — 09-07i] **Une affirmation d'absence énoncée trois fois de suite, jamais vérifiée.** « Docker
+  Hub n'a pas d'archivage » — il en a un (`status_description = archived`), et le dépôt l'était
+  déjà. Le user l'avait sous les yeux pendant que je l'affirmais. Même famille que l'absence de
+  bancs OAuth la veille : **une absence se prouve par la commande qui la constate**, et l'API
+  publique répondait en une requête.
+- [1× — 09-07h] **J'ai conclu « pas de blocage » sur une mesure qui ne portait pas sur le cas
+  décrit — le user a dû le redire.** Il signalait `nodefony inspect config` SUSPENDUE ; j'ai mesuré
+  3,0 s et répondu « elle ne bloque pas, elle échoue ». Ma mesure était juste et hors sujet : je
+  tombais sur un refus IMMÉDIAT d'authentification, lui sur un serveur qui accepte le socket sans
+  répondre — cas où `pg-pool` attend SANS FIN (`connectionTimeoutMillis` à 0 par défaut). Vérifié
+  ensuite dans les deux sens : alpha.2 toujours bloquée à 60 s, code corrigé rendant la main en
+  13,8 s. **Quand le user REDIT la même chose, ce n'est pas qu'il n'a pas compris ma réponse : ma
+  réponse ne répondait pas à sa question.** Reproduire SON cas, pas un cas voisin.
+- [1× — 09-07f] **J'ai redéclaré une règle que le `MEMORY.md` du module INTERDIT en toutes lettres.**
+  Écrit un module de découverte RFC 8414 dans `@nodefony/security` alors que `security/MEMORY.md:119`
+  dit « RFC 8414 vit au CŒUR — security l'IMPORTE, **ne le redéclare pas** ». J'avais ÉDITÉ ce
+  fichier une heure plus tôt, deux zones ciblées, sans lire le reste. Les deux copies divergeaient
+  déjà sur quatre points (ordre des URL, canonisation de l'émetteur, schéma toléré, redirections) —
+  et c'est un audit délégué qui l'a vu, pas moi. Éditer un fichier n'est pas le lire.
+- [1× — 09-07f] **La même troncature vivait dans DEUX scripts, et je n'ai cherché que le premier.**
+  `items(first:100)` sur un tableau de 255 lignes : corrigé dans `ticket-open.mjs` le matin, laissé
+  dans `ticket-effort.mjs` jusqu'au soir — où il écartait 63 tickets sur 100 du calcul censé juger
+  les estimations. Corriger le cas vu n'est pas corriger la famille ; le geste manquant tient en un
+  `rg` sur le MOTIF, pas sur le fichier. Voir [[feedback_fix_the_family_not_the_instance]].
+- [1× — 09-07f] **Un script violait la règle écrite dans son PROPRE skill.** `ticket-open.mjs`
+  dérivait l'ordre d'un sous-ticket par `gh project item-list`, que le SKILL.md du même skill
+  interdit explicitement pour décider. Le remède n'est pas d'écrire la règle une troisième fois :
+  c'est le gate qui la relit (test qui refuse l'appel dans tous les scripts du dossier).
+- [1× — 09-07f] **Un outil disponible mais nommé NULLE PART n'est jamais employé.** Le serveur MCP
+  du dépôt : 0 occurrence dans `CLAUDE.md`, `AGENTS.md` et les skills `nodefony-inspect`/`-debug`,
+  contre 17 mentions de la commande équivalente — et 0 invocation, y compris pour des questions
+  auxquelles il répondait mieux (j'ai fait un `curl` sur le plan d'administration à la place). Même
+  mécanique que « un sous-agent n'ouvre jamais un skill de lui-même » : la disponibilité ne
+  déclenche rien, seule la mention à l'endroit où la règle vit le fait.
+- [1× — 09-07e] **Je suis tombé dans un piège que le skill du dépôt DOCUMENTE, à la ligne près.**
+  `items(first:100)` sur le tableau de bord tronque à 100 sans le dire ; le tableau en comptait 101,
+  et ma requête a rendu **1 ticket sur 7** avec toutes les apparences d'un inventaire complet. Le
+  skill `nodefony-ticket` porte ce piège en toutes lettres, avec son remède. Je l'avais chargé une
+  heure plus tôt — et je ne l'ai pas relu au moment d'écrire la requête. Un piège documenté ne
+  protège pas de l'avoir lu : il protège d'être relu quand on pose le geste qu'il vise.
+
+- [1× — 09-07e] **J'ai proposé trois remèdes AVANT d'avoir le message d'erreur.** `npm dist-tag`
+  échouait ; j'ai supposé une session absente, puis une clé mal enregistrée, puis envoyé chercher un
+  QR code qui n'existe pas dans cette configuration de compte. La cause tenait en une capture
+  d'écran que le user a fini par envoyer : sa 2FA était une clé de sécurité, qui ne produit AUCUN
+  code. Demander le message exact coûte un tour ; supposer en coûte trois, et fait chercher au
+  mauvais endroit — le symptôme est qu'on propose des remèdes qui s'excluent.
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
@@ -225,9 +289,83 @@
 
 > Gradué au CONSOLIDATE du 2026-09-07 — 9 frictions → **`feedback_error_message_names_all_causes`**, mémoire neuve : dire ce qu’on a CONSTATÉ, pas ce qu’on en déduit. Ne PAS réécrire ici.
 
-## 🗄️ 🕳️ Un gate rend un verdict RASSURANT sur son angle mort — GRADUÉ
+## 🕳️ Un gate rend un verdict RASSURANT sur son angle mort
 
-> Gradué le 2026-09-08 — 10 frictions → **`feedback_prove_the_target_not_the_verdict`** (§ « Le verdict RASSURANT sur l'angle mort ») : demander QUELLE BRANCHE, pas le verdict ; un run VIDE se présente comme vert ; le geste qui les attrape tous est de débrancher. Ne PAS réécrire ici.
+- [1× — 09-08] **Un run de tests a rendu « 14 sautés / 0 rouge » parce qu'un BUILD tournait en
+  même temps.** Trois `describe.skipIf(!fs.existsSync(DIST))` se taisent quand le dist du cœur
+  manque — et `npm run build` commence par `rimraf dist`. Pendant la fenêtre où le dossier
+  n'existait plus, 14 tests se sont désactivés et le run s'est présenté comme un succès. Le
+  compte des SAUTÉS était le seul indice, et il n'a de sens que comparé au run précédent (2).
+  **Deux mesures ne se chevauchent jamais** — pas seulement pour la justesse d'un chiffre de
+  perf : ici le banc n'était pas faux, il était VIDE.
+- [1× — 09-08] **Un dist périmé m'a fait accuser ma propre conception.** Après avoir branché un
+  helper neuf, les rouges d'origine sont revenus : j'ai failli conclure que la correction ne
+  marchait pas. La cause était `durableStoreRemedy is not defined` — le typecheck compile les
+  workspaces, mais l'application RACINE a son propre build. Le compte le disait avant moi
+  (1 occurrence dans le dist contre 2 dans la source) : **compter dans l'artefact, pas dans la
+  source**, quand on doute qu'une transformation a eu lieu.
+
+- [1× — 09-07i] **Un contrôle qui cherche des secrets sous des noms que personne ne pose est VERT
+  et n'a rien éprouvé — et j'en ai tiré une conclusion que j'ai annoncée au user.** Le job `docker`
+  du préflight lisait `DOCKERHUB_USERNAME`/`DOCKERHUB_TOKEN` quand la release lit
+  `NF_DOCKERHUB_USER`/`NF_DOCKERHUB_TOKEN` : deux noms pour une même notion. Les identifiants
+  venaient d'être posés ; le job est passé par la branche « absents », a émis son avertissement,
+  tiré l'image en anonyme, et fini VERT. J'ai dit « Docker Hub validé ». **Le tort n'est pas d'avoir
+  lu un vert, c'est de ne pas avoir demandé QUELLE BRANCHE il avait prise** — la sortie le disait
+  (aucun `Login Succeeded`, l'avertissement émis), il suffisait de la lire au lieu du verdict.
+  Corollaire déjà connu et re-payé : une même notion sous deux noms diverge en silence.
+- [1× — 09-07i] **Un flux de vérification qui n'est branché sur RIEN ne garde rien, même écrit,
+  testé et vert.** `release-preflight.yml` — dont le nom et l'en-tête disent « les accès existent
+  avant qu'on en ait besoin » — n'avait qu'un `workflow_dispatch` et un calendrier MENSUEL, et
+  aucun `uses:` nulle part. Un jeton restreint EXPIRE : la chaîne publiait les quinze paquets, seul
+  geste irréversible du lot, PUIS découvrait qu'un accès manquait. C'est le user qui a posé la
+  question (« il y a un préflight avant release ? »), pas un contrôle. **Un fichier de garde se
+  cherche par ses APPELANTS, jamais par son intention** : `grep -c 'uses:.*<le flux>'` rend 0 ou
+  plus, et zéro veut dire qu'il ne garde personne.
+- [1× — 09-07i] **Mon `echo` de confirmation s'exécutait après une commande en échec.**
+  `gh api -X DELETE …; echo "LTS supprimée"` — la branche était protégée, l'API a rendu 422, et
+  j'ai annoncé la suppression. Un compte rendu enchaîné par `;` ne constate rien ; il faut `&&`,
+  ou relire l'état après coup.
+- [1× — 09-07h] **J'ai affirmé une ABSENCE sur une recherche qui cherchait au mauvais endroit — et
+  je l'ai gravée dans un commit ET dans une fermeture de ticket.** « Aucun banc live n'exerce
+  OAuth » : deux existaient, sous `http/nodefony/tests/integration/` quand je regardais
+  `http/tests/`. Le user a demandé « on est sûr que tout va bien ? », et c'est cette question qui
+  l'a trouvé. **Une affirmation d'absence est la plus fragile qui soit : elle se prouve par une
+  commande qu'on montre (`rg -c` qui rend 0, sur un motif, pas sur un dossier), jamais par une
+  recherche qui n'a rien rendu.** Une recherche muette ne distingue pas « il n'y en a pas » de « je
+  n'ai pas cherché là ».
+- [1× — 09-07h] **QUATRE gardes rassuraient à tort dans la même journée, et c'est la même faute.**
+  `check:lang` rend vert sur un `DIALECTE` posé dans un gabarit qu'il LIT pourtant (vérifié en le
+  remettant) — l'identifiant est parti dans l'alpha.2 publiée. Le contrôle « Entités et dialecte »
+  du doctor était une garde MORTE : il ne reconnaissait qu'une forme d'entité que le gabarit
+  n'écrit plus, donc ne s'exerçait sur AUCUNE application générée, en affichant « aucune entité ».
+  « Fraîcheur du build » disait « sources et build alignés » sans jamais regarder le frontend, sur
+  une application dont `public/dist` était absent. Et `npx tsc --noEmit -p tsconfig.json` dans un
+  paquet rend **0** alors que trois écarts subsistent : ce tsconfig EXCLUT les tests, seul
+  `turbo run typecheck` les voit. **Le point commun : chacun rend un verdict VRAI sur un périmètre
+  qu'il ne dit pas.** Le geste qui les attrape tous : débrancher, et regarder si quelque chose
+  tombe — les quatre ont été trouvées comme ça, jamais en lisant leur sortie.
+- [1× — 09-07g] **Le `pre-push` a rendu EXIT 0 sur l'erreur qui a emporté cinq workflows — il
+  n'avait rien recompilé.** `turbo run build && npm run typecheck` : « 21/21 cached ». Le cœur
+  compile les SOURCES de cinq modules dont `exports["."].types` pointe `./index.ts`, mais il ne
+  peut pas les déclarer en dépendance (elles dépendent de lui). Ces fichiers étaient donc HORS de
+  ses `inputs` turbo : le hash était calculé sur un périmètre incomplet, et le cache servi. En CI
+  le cache est froid, donc la faute n'apparaissait QUE là — après le push. **Un gate qui met en
+  cache doit hacher tout ce qu'il LIT, pas ce qu'il possède ; sinon son vert ne parle que de lui.**
+- [1× — 09-07f] **Mon instrument mesurait la mauvaise unité, et écartait les cas les plus nets.**
+  `ticket-effort.mjs` rendait un « biais médian ×3,6 » sur 26 tickets : il comptait l'INTERVALLE
+  entre premier et dernier commit (39 h pour deux séances distantes de deux jours), écartait les
+  21 tickets clos par un commit unique — les plus nets — et lisait le tableau tronqué à 100 sur
+  255 lignes. Corrigé : 97 tickets mesurables, et le vrai constat apparaît, inverse du précédent —
+  **un ticket coûte UNE séance quelle que soit sa taille estimée**. Un instrument qui rend un
+  chiffre plausible n'invite personne à vérifier son unité.
+
+- [1× — 09-07f] **`anchor-check` a classé « ce n'est pas un défaut » une ancre FAUSSE.** Son verdict
+  `INDÉCIS` — « littéral, ou symbole prouvé par une ancre voisine », avec la consigne de ne pas la
+  corriger — portait sur une ancre qui pointait une ligne interne au lieu de la classe annoncée.
+  Le même run laissait passer 3 ancres périmées qu'un audit a trouvées ensuite. Un gate qui ne sait
+  pas conclure doit le DIRE comme un trou à combler à la main, pas comme une absence de défaut :
+  la formulation rassurante est ce qui empêche de vérifier.
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
 
@@ -260,9 +398,65 @@
   différent), je l'ai refait au `jq` et j'ai lu trois « chutes » qu'aucun changement n'expliquait.
   Refaire le calcul qu'une garde interdit, c'est reproduire l'erreur qu'elle empêche. `[1× — 08-22]`
 
-## 🗄️ 🎭 Un test de CARACTÉRISATION grave un défaut — GRADUÉ
+## 🎭 Un test de CARACTÉRISATION grave un défaut au lieu de le décrire
 
-> Gradué le 2026-09-08 — 9 frictions → **`feedback_test_discriminant_or_dead`** (§ « Le test qui GRAVE le défaut ») : le test discrimine, c'est son ATTENDU qui est faux ; trois intitulés qui doivent faire rouvrir un test. Ne PAS réécrire ici.
+- [1× — 09-07h] **Mon test rejetait pour la MAUVAISE raison, et passait donc pour un test.** Cas
+  « une redirection du point de jeton est REFUSÉE » : je redirigeais vers un hôte injoignable, si
+  bien que `fetch` rejetait de toute façon — le test restait vert avec `redirect: "error"` ET avec
+  `redirect: "follow"`, c'est-à-dire la garde désarmée. Vu SEULEMENT en la désarmant. Réécrit pour
+  que la cible RÉPONDE : suivre la redirection rendrait des jetons, donc le refus devient la seule
+  explication possible du rejet. **Un `assert.rejects` ne dit pas POURQUOI ça a rejeté — tant que le
+  cas nominal du chemin fautif n'est pas un SUCCÈS, l'assertion ne discrimine rien.**
+- [1× — 09-07h] **Mon banc appelait la fonction et pas le BRANCHEMENT — je l'ai vu en le
+  débranchant, pas en le relisant.** Six cas neufs sur `checkFrontendBuild`, tous verts ; j'ai
+  retiré son unique appel dans `checkFreshness` (le seul chemin qui alimente le rapport) et les six
+  sont restés verts. C'est le même défaut que la veille, une case plus loin : le premier banc
+  prouvait que la fonction est juste, aucun ne prouvait qu'elle SERT. Le remède tient en un test
+  qui passe par le producteur réel, et qui vérifie d'abord que le reste du rapport est vert —
+  sinon il pourrait rougir pour une autre raison et ne rien prouver.
+- [1× — 09-07g] **Mon test vérifiait mon INTENTION, pas sa conséquence — et le user a trouvé ce
+  qu'il ne voyait pas.** Ma garde `externalServices` sautait le hook de boot ; mon banc assertait
+  que `connectAll` n'était PAS appelé, c'est-à-dire exactement ce que je venais d'écrire. Vert. Or
+  le hook ne fait pas que connecter : il CRÉE l'ORM, qui publie le plan d'administration —
+  `doctor --live` est passé de « schéma et historique alignés » à « introuvable (404) ». Six mille
+  tests verts, zéro signal. **Un test écrit face à son propre diff décrit l'implémentation ; pour
+  qu'il décrive la RÈGLE, il faut nommer ce que le changement doit PRÉSERVER, pas ce qu'il fait.**
+- [1× — 09-07] **Le contrôle GRAVAIT le défaut comme résultat attendu.** Le cas de test de
+  `expliquerEchec` donnait une sortie portant `✗ 1 PROBLÈME 4 angles morts` — la ligne qui NOMME
+  le manquement — et son attendu écrit était `"nodefony doctor · bench-app 0.1.0"`, la bannière.
+  Le correctif précédent avait déplacé le défaut d’un cran (du bruit npm à la présentation de
+  l’outil) et le test avait figé le nouvel état comme correct. Dix rouges d’une nuit entière sans
+  cause exploitable. **Après un correctif, relire le TEST : il a peut-être appris le défaut.**
+- [1× — 09-07] **Ma preuve du correctif était VIDE, et son vert venait d’ailleurs.** Pour prouver
+  que la reconstruction du décor réparait le gate, j’ai lancé `--task 30 --runs 1` : vert. Or avec
+  UNE seule tâche la remise à zéro n’est jamais appelée — le `dist` venait du montage, mon code
+  n’avait pas tourné. Il a fallu `--runs 2` pour l’exercer. **Un vert ne prouve un correctif que
+  si le chemin corrigé a été EMPRUNTÉ** : le vérifier par une trace du code (ici la ligne
+  « application reconstruite »), jamais par le seul verdict.
+
+- [1× — 09-05c] **Un DÉCOR de test a fait accuser un fichier situé à l'autre bout du dépôt.** `scripts-audit.mjs` repère les scripts « jamais lancés » en cherchant leur NOM DE FICHIER dans les sources ; mon faux dépôt en mémoire contenait la chaîne `"src/mirror/schema.ts"`, et l'audit en a conclu qu'un `schema.ts` d'un skill était désormais lancé — acquittement « périmé », forge rouge. Un décor de test est du texte comme un autre pour un scanner : lui donner des noms que rien d'autre ne porte.
+- [1× — 09-05c] **Huit cas verts en local, rouges sous `CI=true`.** Le décor lisait le vrai `process.env`, et la règle neuve refusait d'animer en forge. Un décor qui interroge l'environnement doit le DÉCLARER (`animate: true`), sinon il éprouve la machine de son auteur. Contrôle qui a sauvé le push : rejouer la suite sous `CI=true` et `TERM=dumb` avant de commiter.
+
+- [1× — 08-29c] **Un test nommé « elle ne détourne jamais un connecteur SQLite » gravait un faux succès de déploiement.** Il décrivait exactement le comportement fautif — la variable de migration ignorée — avec l'assurance d'un contrat. Personne ne le relit en se demandant s'il a raison : un test vert est une preuve, pas une question. Il n'est tombé que parce que j'ai capturé les ÉCRANS RÉELS pour les faire valider, et qu'un écran annonçait « ✓ appliqué » sur la mauvaise base. **Un test dont le titre commence par « ne … jamais » mérite qu'on demande POURQUOI jamais.**
+
+- [1× — 08-27j] **Le test gravait le SILENCE, et son intitulé disait pourquoi c'était normal.**
+  « canal LIBRE non déclaré → autorisé mais 0 provider » avec `expect(denials).to.have.length(0)`
+  et le commentaire « pas refusé (canal applicatif libre) ». Il figeait exactement le trou que je
+  venais de fermer : un abonnement sans réponse, indiscernable d'un canal calme. Signal à
+  reconnaître, plus fin que « un intitulé sans pourquoi » : **un intitulé qui JUSTIFIE une absence**
+  (« pas de X, c'est normal parce que Y »). Ici la justification était vraie pour l'AUTORISATION et
+  fausse pour la RÉSOLUTION — deux étapes que le test confondait sans le dire.
+
+- « initSyslog 2x avec kernel → 2 listeners (**pas de deduplication**) » — aucune justification, un
+  simple constat figé. Il gardait un vrai bug : `listenWithConditions` AJOUTE un abonné, donc
+  reconfigurer le filtre ne servait à rien (l'ancien écrivait toujours) et chaque ligne acceptée par
+  plusieurs abonnés était écrite plusieurs fois. Signal à reconnaître : un intitulé qui **décrit un
+  comportement sans dire pourquoi il serait souhaitable**. `[1× — 08-21e]`
+- **Un renommage mécanique EMPORTE le témoin qui portait l'ancienne forme.** Le selftest du décor
+  posait `NODEFONY_DEV_PORTS` pour graver « l'ancienne forme échappe au filtre `NF_` » ; le
+  renommage global l'a transformée en `NF_DEV_PORTS`, donc correctement filtrée — et le test est
+  tombé **parce que la réalité s'était améliorée**. Signal : un test rouge dont l'intitulé commence
+  par « ⚠️ connue ». Le geste est de RETIRER la règle, pas de rafistoler le témoin. `[1× — 08-23c]`
 
 ## 🚪 Un fast-path standalone ne vaut QUE pour l'invocation directe
 

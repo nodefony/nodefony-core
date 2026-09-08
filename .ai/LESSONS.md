@@ -7,16 +7,18 @@
 
 | classe | leçons |
 | --- | ---: |
-| PRODUIT — du code livré la porte | 6 |
-| DÉPÔT — un gate ou un script la porte | 28 |
-| CONTEXTE — relue seulement | 81 |
+| PRODUIT — du code livré la porte | 8 |
+| DÉPÔT — un gate ou un script la porte | 30 |
+| CONTEXTE — relue seulement | 77 |
 | INERTE — rien ne la cite | 0 |
 
 ## PRODUIT
 
 - **feedback_ci_nodefony** — src/nodefony/package.json
 - **feedback_config_docs** — src/packages/@nodefony/http/nodefony/config/config.ts
+- **feedback_config_validation_zod** — src/packages/@nodefony/security/nodefony/config/config.ts
 - **feedback_prod_brick_not_in_dev_module** — src/nodefony/src/kernel/Kernel.ts · src/modules/test/nodefony/config/config.ts
+- **feedback_recharts_react19** — src/packages/@nodefony/studio/frontend/src/routes/DashboardSupervision.tsx
 - **feedback_service_options_delete** — src/nodefony/src/Service.ts
 - **feedback_studio_realtime_stats_mobx** — src/nodefony/src/client/realtime/RealtimeClient.ts · src/nodefony/src/client/index.ts · src/nodefony
 - **feedback_watch_rollup_pitfall** — src/nodefony/src/service/dev/DevSupervisor.ts
@@ -34,10 +36,11 @@
 - **feedback_gate_must_bite** — src/packages/@nodefony/studio/frontend
 - **feedback_git_index_lock** — scripts/safe-commit.sh
 - **feedback_load_tests_separation** — npm run test:integration
-- **feedback_module_docs_scaffold** — docs/index.md
+- **feedback_module_docs_scaffold** — docs/index.md · .claude/skills/nodefony-create-module/references/templates.md
 - **feedback_npm_tree_not_a_guarantee** — npm run build
+- **feedback_perf_tests_optin** — src/nodefony/src/tests/Tools.test.ts
 - **feedback_permission_autonomy** — .claude/settings.json
-- **feedback_prove_the_target_not_the_verdict** — .claude/skills
+- **feedback_prove_the_target_not_the_verdict** — .claude/skills · scripts/env-snapshot.ts
 - **feedback_refactor_grep_consumers** — src/modules/test
 - **feedback_root_dist_stale_modules** — src/modules/test
 - **feedback_server_kill_oneshot** — .claude/settings.local.json
@@ -51,6 +54,7 @@
 - **feedback_test_module_controllers** — src/modules/test
 - **feedback_test_strategy** — src/modules/test
 - **feedback_turbo_cache_stale_logs** — src/modules/test
+- **feedback_typed_events_conditional_pattern** — docs/session-retros/archive/2026-05-28-bf1f5dab.md
 
 ## CONTEXTE
 
@@ -68,7 +72,6 @@
 - **feedback_code_rewrite_mechanical_traps** — cité dans 2 artefact(s)
 - **feedback_commit_fr_apostrophes** — cité dans 2 artefact(s)
 - **feedback_comprehension_pacing** — cité dans 2 artefact(s)
-- **feedback_config_validation_zod** — cité dans 12 artefact(s)
 - **feedback_convention_frere** — cité dans 3 artefact(s)
 - **feedback_css_perf** — cité dans 1 artefact(s)
 - **feedback_debug_instrument_choke_point** — cité dans 2 artefact(s)
@@ -84,7 +87,7 @@
 - **feedback_env_var_nf_prefix** — cité dans 4 artefact(s)
 - **feedback_error_message_names_all_causes** — cité dans 2 artefact(s)
 - **feedback_fix_the_family_not_the_instance** — cité dans 2 artefact(s)
-- **feedback_gate_must_run** — cité dans 4 artefact(s)
+- **feedback_gate_must_run** — cité dans 5 artefact(s)
 - **feedback_gitignored_breaks_clone** — cité dans 2 artefact(s)
 - **feedback_green_covers_only_its_diff** — cité dans 2 artefact(s)
 - **feedback_inventory_needs_crosscheck** — cité dans 2 artefact(s)
@@ -104,9 +107,7 @@
 - **feedback_parallel_subagents** — cité dans 2 artefact(s)
 - **feedback_param_accepted_then_dropped** — cité dans 2 artefact(s)
 - **feedback_perf_memory_rule** — cité dans 4 artefact(s)
-- **feedback_perf_tests_optin** — cité dans 3 artefact(s)
 - **feedback_prove_on_received_artifact** — cité dans 3 artefact(s)
-- **feedback_recharts_react19** — cité dans 2 artefact(s)
 - **feedback_redteam_threat_first** — cité dans 2 artefact(s)
 - **feedback_repo_command_is_authority** — cité dans 2 artefact(s)
 - **feedback_rg_no_replace_flag** — cité dans 2 artefact(s)
@@ -130,7 +131,6 @@
 - **feedback_test_no_fixed_delay** — cité dans 2 artefact(s)
 - **feedback_tests** — cité dans 2 artefact(s)
 - **feedback_token_economy** — cité dans 3 artefact(s)
-- **feedback_typed_events_conditional_pattern** — cité dans 2 artefact(s)
 - **feedback_user_repeats_question** — cité dans 2 artefact(s)
 - **feedback_user_visibility** — cité dans 2 artefact(s)
 - **feedback_writing_tone_audience** — cité dans 2 artefact(s)
@@ -138,22 +138,3 @@
 
 ## INERTE
 
-
-## Ancres MORTES — le porteur cité n'existe plus
-
-- feedback_config_validation_zod → `src/packages/@nodefony/security/nodefony/config/defineSecurityConfig.ts`
-- feedback_convention_frere → `src/tests/perf-skip.cjs`
-- feedback_migration_status_for_ai → `docs/migration/phases-details.md`
-- feedback_module_docs_scaffold → `docs/architecture.md`
-- feedback_module_docs_scaffold → `.claude/skills/nodefony-create-module/reference/templates.md`
-- feedback_module_docs_scaffold → `docs/configuration.md`
-- feedback_module_docs_scaffold → `docs/cookbook.md`
-- feedback_module_docs_scaffold → `docs/etat-actuel.md`
-- feedback_module_docs_scaffold → `docs/vocabulaire.md`
-- feedback_perf_tests_optin → `src/nodefony/src/tests/perf-skip.cjs`
-- feedback_perf_tests_optin → `src/tests/Tools.test.ts`
-- feedback_prove_the_target_not_the_verdict → `scripts/gen-env-example.ts`
-- feedback_recharts_react19 → `src/packages/@nodefony/studio/frontend/src/routes/Dashboard.tsx`
-- feedback_skill_authoring → `docs/en/agents-and-tools/agent-skills/best-practices`
-- feedback_studio_layout_rigor → `src/components/ui/layout.ts`
-- feedback_typed_events_conditional_pattern → `docs/session-retros/2026-05-28-bf1f5dab.md`

@@ -104,7 +104,10 @@ export function memoryDir(cwd) {
  */
 export function citedPaths(text) {
   const found = new Set();
-  const re = /(?:src|scripts|docs|\.claude|\.github)\/[A-Za-z0-9_@./-]+/g;
+  // Une URL n'est pas un chemin de fichier : `platform.claude.com/docs/en/…` se
+  // lisait comme un `docs/` du dépôt, donc comme une ancre morte permanente.
+  const re =
+    /(?<![\w.:/])(?:src|scripts|docs|\.claude|\.github)\/[A-Za-z0-9_@./-]+/g;
   for (const raw of text.match(re) ?? []) {
     const clean = raw.replace(/[.,:;)]+$/, "");
     // Un gabarit d'exemple n'est pas une ancre : `src/.../`, `docs/adr/NNNN-titre.md`,
