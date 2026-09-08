@@ -571,6 +571,16 @@ Déclencheurs : "consolide les retex", "plan d'amélioration IA".
 >    automate rend sans jugement. Il annonce des « non résolus », jamais des « jamais créés » —
 >    le motif attrape aussi des tournures, et c'est au lecteur de trancher.
 >
+>    🔴 **Cette liste n'est PAS un backlog, et surtout pas un backlog de skills.** Une
+>    recommandation non suivie est le plus souvent un ARBITRAGE déjà pris, en mieux informé qu'au
+>    moment où elle a été écrite. Le dépôt porte **27 skills** et la mesure connue est que **11
+>    d'entre eux n'ont jamais été invoqués**, presque tous doublés par une règle du `CLAUDE.md` :
+>    en créer davantage DÉGRADE le dispositif au lieu de l'améliorer
+>    ([`docs/outillage-agents.md`](docs/outillage-agents.md)). Lire cette sortie comme une liste de
+>    travaux à faire serait le contresens exact. Elle sert à une seule chose : voir ce qui a été
+>    proposé puis **accepté par le silence**, et décider — le plus souvent, décider de ne rien faire
+>    et de le dire.
+>
 >    ⚠️ **Cet outil n'a rien à faire au END.** Le END est déjà jugé trop long ; une commande de plus
 >    à chaque clôture coûte plus qu'elle ne rend. Ici, tous les 10-20 retex, elle se paie.
 
