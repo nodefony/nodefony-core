@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T19:42:36.101Z",
+  "generatedAt": "2026-09-08T20:51:43.865Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 16,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 7,
+      "open": 15,
       "title": "10.0.0-alpha"
     },
     {
@@ -1612,6 +1612,20 @@
       ]
     },
     {
+      "number": 281,
+      "title": "fix(config): refuser une clé inconnue dans la config de chaque module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/281",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 5,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 24,
       "title": "docs(security): expliquer comment obtenir un jeton",
       "url": "https://github.com/nodefony/nodefony-core/issues/24",
@@ -1753,6 +1767,20 @@
       ]
     },
     {
+      "number": 283,
+      "title": "refactor(config)!: préfixer d'un I les types d'entrée de config",
+      "url": "https://github.com/nodefony/nodefony-core/issues/283",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.5,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 133,
       "title": "fix(studio): corriger les manquements d'accessibilité de l'écran des journaux",
       "url": "https://github.com/nodefony/nodefony-core/issues/133",
@@ -1767,6 +1795,20 @@
       ]
     },
     {
+      "number": 282,
+      "title": "refactor(http)!: renommer la clé de config openssl en selfSigned",
+      "url": "https://github.com/nodefony/nodefony-core/issues/282",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.6,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 134,
       "title": "feat(debugbar): rendre la barre de débogage manipulable et à jour du framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/134",
@@ -1778,6 +1820,20 @@
       "ordre": 5.7,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 287,
+      "title": "feat(cli): rendre découvrables les clés de config d'un module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/287",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.8,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2357,6 +2413,20 @@
       ]
     },
     {
+      "number": 280,
+      "title": "feat(cli): exposer le réglage du nombre de processus aux apps générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/280",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 15,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 40,
       "title": "docs(client): montrer la classe avant le raccourci shared()",
       "url": "https://github.com/nodefony/nodefony-core/issues/40",
@@ -2384,6 +2454,20 @@
       "labels": [
         "10.1.0",
         "arbitrage"
+      ]
+    },
+    {
+      "number": 284,
+      "title": "refactor(kernel): lire le manifeste par une seule fonction partagée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/284",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 16,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2416,6 +2500,20 @@
       ]
     },
     {
+      "number": 285,
+      "title": "refactor(config): extraire la config par module dans nodefony/config",
+      "url": "https://github.com/nodefony/nodefony-core/issues/285",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 17,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 49,
       "title": "docs: rendre conformes les 11 pages qui échouent au contrôle",
       "url": "https://github.com/nodefony/nodefony-core/issues/49",
@@ -2442,6 +2540,20 @@
       "ordre": 18,
       "labels": [
         "10.1.0"
+      ]
+    },
+    {
+      "number": 286,
+      "title": "docs(guides): corriger les renvois vers un dossier de config supprimé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/286",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 18,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
