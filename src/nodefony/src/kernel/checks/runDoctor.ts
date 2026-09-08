@@ -201,7 +201,19 @@ async function probeLocalPorts(projectRoot: string): Promise<IPortProbe> {
 async function probeDeclaredInfra(
   env: NodeJS.ProcessEnv,
 ): Promise<IInfraProbe> {
-  const infra = resolveInfra(env);
+  // 🔴 `resolveInfra` LÈVE sur un scheme non supporté — c'est voulu, et c'est
+  // même une des pannes que le diagnostic doit rapporter. Mais un DIAGNOSTIC ne
+  // meurt pas de ce qu'il observe : laisser remonter ce throw tuait `doctor`
+  // avant son rapport, exactement dans le cas où l'utilisateur en a le plus
+  // besoin. Vécu — le banc « boot MORT → le rapport est rendu quand même » est
+  // tombé sur les deux systèmes le jour où cette sonde est arrivée.
+  // Rien à sonder alors : le boot, lui, nomme déjà la cause.
+  let infra: ReturnType<typeof resolveInfra>;
+  try {
+    infra = resolveInfra(env);
+  } catch {
+    return { targets: [], unreachable: [] };
+  }
   const targets: IInfraTarget[] = [];
   const push = (
     kind: "database" | "cache",
