@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-07T21:44:37.092Z",
+  "generatedAt": "2026-09-08T00:58:06.244Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,14 +25,14 @@
       "title": "12.0.0"
     },
     {
-      "closed": 12,
+      "closed": 13,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 9,
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 0,
+      "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
       "open": 23,
@@ -67,6 +67,20 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 278,
+      "title": "fix(security): démarrer sans base quand le run ne la réclame pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/278",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 0.5,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2140,6 +2154,34 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.45,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 276,
+      "title": "fix(frontend): suivre l'adresse d'entrée du visiteur en dev déporté",
+      "url": "https://github.com/nodefony/nodefony-core/issues/276",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.47,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 277,
+      "title": "fix(frontend): rendre le rechargement à chaud joignable par un tunnel local",
+      "url": "https://github.com/nodefony/nodefony-core/issues/277",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 9.48,
       "labels": [
         "10.0.0-beta"
       ]
