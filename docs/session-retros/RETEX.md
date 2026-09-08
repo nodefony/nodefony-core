@@ -519,6 +519,26 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   du navigateur), sans aucun effet, et le user a trouvé le menu bloqué avant moi. Revert. **Ce qui
   marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
 
+## 🧾 Un RITUEL de pilotage qui coûte plus qu'il ne rend
+
+- [1× — 09-08] **Le user m'a arrêté sur un outil que j'allais brancher au END.** J'avais écrit un
+  script qui classe les leçons par porteur, et mon réflexe était de l'ajouter à la clôture — alors
+  que le END est déjà jugé trop long, ce qui avait déjà été dit en mai. Sa phrase : « il faut que le
+  jeu en vaille la chandelle ». Le script a fini au CONSOLIDATE (une fois tous les 10-20 retex), sa
+  sortie ramenée de 53 lignes à 6, les listes derrière un drapeau. **Un outil utile branché au
+  mauvais moment devient un coût récurrent** — et sa sortie longue s'apprend à ignorer, exactement
+  comme un rouge permanent.
+- [1× — 09-08] **J'allais ouvrir un ticket pour un travail déjà fait, testé et commité.** Le user :
+  « quel ticket tu veux ouvrir ? je ne comprends pas ». Le motif était « la note de reprise dit
+  qu'aucun ticket n'existe » — un rituel, pas un besoin : un ticket porte du travail À FAIRE, et la
+  trace d'un travail fait, c'est `git log`. Il l'a finalement voulu (l'ouvrir et le fermer donne un
+  compte rendu que le commit ne porte pas), mais la décision lui revenait, pas au réflexe.
+- [1× — 09-08] **Mon propre script a imprimé « ✓ » et le disque ne portait pas le changement.**
+  Une édition de `registerStores.ts` a disparu de l'arbre entre deux commandes ; je ne l'ai vu qu'en
+  lisant `git diff --stat`, pas en croyant la ligne de succès que j'avais moi-même écrite. Un `✓`
+  que j'imprime prouve que MON code a atteint sa dernière ligne — jamais l'état du disque. Le
+  contrôle qui vaut, après toute écriture qui compte : `git diff --stat`, ou un `grep` du motif posé.
+
 ## 🕶️ Faire relire EN AVEUGLE — puis seulement donner sa propre liste
 
 - [1× — 09-05] **Sur un outil, l'USAGE trouve ce que l'audit ne voit pas.** Deux audits `fable` de `doctor` avaient rendu 11 défauts. En une session à s'en SERVIR, six de plus sont tombés, tous plus graves — et les trois pires ont été trouvés par le user en lançant la commande. Le point commun : aucun n'est visible à la lecture. Un audit ne lance pas la commande, ne lit pas ce qu'elle imprime, ne suit pas le geste qu'elle prescrit, et ne voit pas un décor de test qui parle une autre langue que le produit. **Pour un outil en ligne de commande, budgéter l'usage réel avant un nouvel audit de lecture.**

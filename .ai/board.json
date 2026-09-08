@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T00:58:06.244Z",
+  "generatedAt": "2026-09-08T18:15:39.660Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,7 +25,7 @@
       "title": "12.0.0"
     },
     {
-      "closed": 13,
+      "closed": 14,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 9,
@@ -2212,6 +2212,20 @@
       "ordre": 9.5,
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 279,
+      "title": "fix(redis): ne pas se connecter quand le run ne déclare pas son besoin",
+      "url": "https://github.com/nodefony/nodefony-core/issues/279",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.7,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
