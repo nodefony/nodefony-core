@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T22:11:26.213Z",
+  "generatedAt": "2026-09-08T22:38:20.439Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,7 +25,7 @@
       "title": "12.0.0"
     },
     {
-      "closed": 18,
+      "closed": 19,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 18,
@@ -1588,7 +1588,7 @@
       "title": "test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun",
       "url": "https://github.com/nodefony/nodefony-core/issues/294",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -1904,6 +1904,20 @@
       "ordre": 5.7,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 295,
+      "title": "refactor(config)!: un seul nom, préfixé I, par type de config de module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/295",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.8,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
