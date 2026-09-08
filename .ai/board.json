@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T21:11:26.799Z",
+  "generatedAt": "2026-09-08T21:48:39.815Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,17 +25,17 @@
       "title": "12.0.0"
     },
     {
-      "closed": 16,
+      "closed": 17,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 20,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 23,
+      "open": 24,
       "title": "10.0.0-beta"
     },
     {
@@ -238,6 +238,20 @@
       "ordre": 1.6,
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 293,
+      "title": "build(release): cesser de réécrire les types au moment du publish",
+      "url": "https://github.com/nodefony/nodefony-core/issues/293",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 1.6,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
@@ -1619,7 +1633,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 4,
+      "jours": 3,
       "ordre": 5,
       "labels": [
         "10.0.0-alpha"
@@ -1672,8 +1686,8 @@
       "number": 281,
       "title": "fix(config): refuser une clé inconnue dans la config de chaque module",
       "url": "https://github.com/nodefony/nodefony-core/issues/281",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
