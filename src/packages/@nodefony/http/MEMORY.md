@@ -607,4 +607,4 @@ http = **2ᵉ producteur** du data plane admin Studio (1er = kernel). `createHtt
 - **Politique de pattern UNIQUE** (partagée avec `@Domain`) : string exact ancré (`.` littéral) /
   `*` wildcard un-label (RFC 6125) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
 - Exports publics : `compileDomainPattern(s)`, `compileTrustedHosts`, `isDomainAllowed`, types
-  `DomainPattern`/`TrustedHostsConfig` (réutilisés par `@nodefony/framework`).
+  `DomainPattern`/`ITrustedHostsConfig` (réutilisés par `@nodefony/framework`).

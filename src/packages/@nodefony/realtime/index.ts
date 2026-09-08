@@ -427,8 +427,6 @@ export {
   RealtimeService,
 };
 
-export type { RealtimeConfig } from "./nodefony/config/config";
-
 // Token anonyme (singleton gelé) — fallback Zero Trust quand aucun matcher capture.
 export { ANONYMOUS_REALTIME_TOKEN } from "./nodefony/src/server/AnonymousRealtimeToken";
 

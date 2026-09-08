@@ -52,9 +52,9 @@ export const <%= it.camel %>ConfigSchema = z.strictObject({
 export type I<%= it.pascal %>ConfigInput = z.input<typeof <%= it.camel %>ConfigSchema>;
 
 /** Config telle que le CODE la lit — défauts appliqués, rien d'optionnel. */
-export type <%= it.pascal %>Config = z.output<typeof <%= it.camel %>ConfigSchema>;
+export type I<%= it.pascal %>Config = z.output<typeof <%= it.camel %>ConfigSchema>;
 
 /** Défauts matérialisés (passés au `super()` du Module). */
-const defaults: <%= it.pascal %>Config = <%= it.camel %>ConfigSchema.parse({});
+const defaults: I<%= it.pascal %>Config = <%= it.camel %>ConfigSchema.parse({});
 
 export default defaults;

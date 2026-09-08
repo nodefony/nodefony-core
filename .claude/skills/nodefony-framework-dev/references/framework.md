@@ -114,7 +114,7 @@ container (`authorization`, `authFlow`, `tokenService`…).
 - **Config** : `frameworkConfigSchema`, `frameworkConfigJsonSchema`. `graphql` (façade @graphql-tools).
 - **Types** : `IController`, `IRoute`, `IResolver`, `IAdminBroker`, `IAdminRoute`, `IIdempotencyStore`,
   `IdempotencyOutcome`, `IdempotentResponse`, `IResourceService`, `ControllerScope`, `SecurityClause`,
-  `SecurityRequirement`, `CspDirectives`, `FrameworkConfig`, `IdempotencyStoreFactory`…
+  `SecurityRequirement`, `CspDirectives`, `IFrameworkConfig`, `IdempotencyStoreFactory`…
 
 > ⚠️ `Twig`/`Ejs` **n'existent plus** : moteur unique = `Eta` (cf [moteur de vues](#api--moteur-de-vues-eta)).
 > Les `module-level` `frameworkConfigSchema` et `MemoryIdempotencyStore` sont enregistrés via

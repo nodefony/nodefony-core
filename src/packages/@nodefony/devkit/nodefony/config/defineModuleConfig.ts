@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { devkitConfigSchema } from "./config";
-import type { DevkitConfig, IDevkitConfigInput } from "./config";
+import type { IDevkitConfig, IDevkitConfigInput } from "./config";
 import { parseModuleConfig } from "nodefony";
 
 /**
@@ -25,7 +25,7 @@ import { parseModuleConfig } from "nodefony";
  */
 export function defineDevkitConfig(
   config: IDevkitConfigInput = {},
-): DevkitConfig {
+): IDevkitConfig {
   return Object.freeze(
     parseModuleConfig(devkitConfigSchema, config, "@nodefony/devkit"),
   );

@@ -32,7 +32,7 @@ import {
   familyPortBlocks,
   PRIMARY_FAMILY,
 } from "../src/isolationGroups";
-import defaultConfig, { type FrontendConfig } from "../config/config";
+import defaultConfig, { type IFrontendConfig } from "../config/config";
 import { stripTrailingSlashes } from "nodefony";
 import path from "node:path";
 import {
@@ -79,7 +79,7 @@ const normalizePublicPath = (p: string): string => {
 @injectable()
 class FrontendService extends Service implements IFrontendService {
   module: Module;
-  private readonly cfg: FrontendConfig;
+  private readonly cfg: IFrontendConfig;
 
   private readonly builder = new ViteBuilder();
   private readonly entries: IResolvedFrontendEntry[] = [];
@@ -125,7 +125,7 @@ class FrontendService extends Service implements IFrontendService {
       {},
       defaultConfig,
       module.options ?? {},
-    ) as FrontendConfig;
+    ) as IFrontendConfig;
     super(
       "frontend",
       module.container as Container,

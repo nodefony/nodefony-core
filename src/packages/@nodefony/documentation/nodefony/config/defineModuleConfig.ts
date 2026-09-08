@@ -13,7 +13,7 @@
  * @see ./config.ts — source de vérité (types dérivés via z.infer)
  */
 import { z } from "zod";
-import { documentationConfigSchema, type DocumentationConfig } from "./config";
+import { documentationConfigSchema, type IDocumentationConfig } from "./config";
 import { parseModuleConfig } from "nodefony";
 
 /** Lit une variable d'env non vide, ou `undefined` si absente/vide. */
@@ -32,7 +32,7 @@ function env(name: string): string | undefined {
  */
 export function defineDocumentationConfig(
   input: unknown = {},
-): DocumentationConfig {
+): IDocumentationConfig {
   const parsed = parseModuleConfig(
     documentationConfigSchema,
     input ?? {},

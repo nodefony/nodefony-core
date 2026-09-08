@@ -6,7 +6,7 @@ import type {
   ICardVerb,
   IMcpToolDeps,
 } from "nodefony";
-import type { DevkitConfig } from "../config/config";
+import type { IDevkitConfig } from "../config/config";
 
 /**
  * Le contrat de la carte est celui du CŒUR — ces noms n'en sont que les alias,
@@ -58,7 +58,7 @@ export interface IDevkitService {
    * allowlist d'outils viennent d'ICI, jamais d'une seconde lecture de la
    * configuration — deux lectures divergent.
    */
-  mcpSettings(): DevkitConfig["mcp"];
+  mcpSettings(): IDevkitConfig["mcp"];
 
   /**
    * Ce dont les outils MCP intégrés ont besoin pour répondre.

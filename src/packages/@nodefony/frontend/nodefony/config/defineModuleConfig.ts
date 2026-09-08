@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { frontendConfigSchema, type FrontendConfig } from "./config";
+import { frontendConfigSchema, type IFrontendConfig } from "./config";
 import { parseModuleConfig } from "nodefony";
 
 /**
@@ -22,7 +22,7 @@ import { parseModuleConfig } from "nodefony";
  */
 export function defineFrontendConfig(
   config: IFrontendConfigInput = {},
-): FrontendConfig {
+): IFrontendConfig {
   return Object.freeze(
     parseModuleConfig(frontendConfigSchema, config, "@nodefony/frontend"),
   );
@@ -38,5 +38,3 @@ export function frontendConfigJsonSchema(): unknown {
 
 /** Entrée du builder (champs avec défaut optionnels). */
 export type IFrontendConfigInput = z.input<typeof frontendConfigSchema>;
-
-export type { FrontendConfig };

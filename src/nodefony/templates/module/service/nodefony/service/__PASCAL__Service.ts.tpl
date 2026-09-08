@@ -7,7 +7,7 @@ import {
   injectable,
 } from "nodefony";
 import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Service";
-import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
+import defaultConfig, { type I<%= it.pascal %>Config } from "../config/config";
 
 /**
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
@@ -68,7 +68,7 @@ import defaultConfig, { type <%= it.pascal %>Config } from "../config/config";
 @injectable()
 class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Service {
   module: Module;
-  private readonly cfg: <%= it.pascal %>Config;
+  private readonly cfg: I<%= it.pascal %>Config;
 
   constructor(module: Module) {
     const merged = extend(
@@ -76,7 +76,7 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
       {},
       defaultConfig,
       module.options ?? {},
-    ) as <%= it.pascal %>Config;
+    ) as I<%= it.pascal %>Config;
     super(
       "<%= it.name %>",
       module.container as Container,

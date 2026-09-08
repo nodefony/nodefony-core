@@ -109,7 +109,7 @@ Le schéma (`mongooseConfigSchema` (`config.ts:83`)) porte les valeurs d'usine s
 `.default(…)`, et chaque champ son `.describe(…)`. Les défauts effectifs du module ne sont pas
 retapés à la main : ils sont **matérialisés depuis le schéma lui-même**
 (`mongooseConfigSchema.parse({})` (`config.ts:122`)). Changer un défaut = changer le `.default()`,
-et nulle part ailleurs. Le type TypeScript suit le même chemin : `MongooseConfig` (`config.ts:116`)
+et nulle part ailleurs. Le type TypeScript suit le même chemin : `IMongooseConfig` (`config.ts:131`)
 est **inféré** du schéma, jamais redéclaré.
 
 Le builder (`defineMongooseConfig()` (`defineModuleConfig.ts:61`)) tient en trois gestes — valider,

@@ -81,7 +81,7 @@ export { buildCard } from "./nodefony/src/card";
 export { defineDevkitConfig } from "./nodefony/config/defineModuleConfig";
 export {
   devkitConfigSchema,
-  type DevkitConfig,
+  type IDevkitConfig,
   type IDevkitConfigInput,
 } from "./nodefony/config/config";
 

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { realtimeConfigSchema, type RealtimeConfig } from "./config";
+import { realtimeConfigSchema, type IRealtimeSchemaConfig } from "./config";
 import type { IBackplane } from "../interfaces/IBackplane";
 import { parseModuleConfig } from "nodefony";
 
@@ -79,6 +79,6 @@ export function realtimeConfigJsonSchema(): unknown {
 export type IRealtimeConfigInput = z.input<typeof realtimeConfigSchema>;
 
 /** Config normalisée et gelée (sortie du builder, lue par `RealtimeService`). */
-export type IRealtimeConfig = RealtimeConfig & {
-  backplane: RealtimeConfig["backplane"] & { instance?: IBackplane };
+export type IRealtimeConfig = IRealtimeSchemaConfig & {
+  backplane: IRealtimeSchemaConfig["backplane"] & { instance?: IBackplane };
 };

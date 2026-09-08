@@ -154,10 +154,7 @@ export default Studio;
 // n'est pas joignable depuis une application, et la parade qui charge cette
 // augmentation (`/// <reference types="@nodefony/studio" />`) n'a rien à viser.
 export { defineStudioConfig, studioConfigJsonSchema };
-export {
-  studioConfigSchema,
-  type StudioConfig,
-} from "./nodefony/config/config";
+export { studioConfigSchema } from "./nodefony/config/config";
 export type {
   IStudioConfig,
   IStudioConfigInput,

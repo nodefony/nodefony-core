@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { frameworkConfigSchema } from "./config";
-import type { FrameworkConfig, IFrameworkConfigInput } from "./config";
+import type { IFrameworkConfig, IFrameworkConfigInput } from "./config";
 import { parseModuleConfig } from "nodefony";
 
 /**
@@ -24,7 +24,7 @@ import { parseModuleConfig } from "nodefony";
  */
 export function defineFrameworkConfig(
   config: IFrameworkConfigInput = {},
-): FrameworkConfig {
+): IFrameworkConfig {
   return parseModuleConfig(
     frameworkConfigSchema,
     config,

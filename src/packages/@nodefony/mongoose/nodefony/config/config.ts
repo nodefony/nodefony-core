@@ -13,7 +13,7 @@ import { z } from "zod";
  * (`interfaces/IMongooseConfig.ts`) importent le schéma D'ICI (nœud bas : ce fichier
  * n'importe que `zod` → pas de cycle).
  *
- * Le type TS est dérivé via `z.infer<>` ({@link MongooseConfig}), et la config est
+ * Le type TS est dérivé via `z.infer<>` ({@link IMongooseConfig}), et la config est
  * validée au boot du Module class (hook `onKernelRegister`, via le builder
  * {@link defineMongooseConfig}) → plante propre avec messages clairs si la config
  * est invalide, plutôt qu'un `undefined.x` silencieux en runtime.
@@ -128,12 +128,12 @@ export const mongooseConfigSchema = z
   .describe("Configuration de @nodefony/mongoose.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type MongooseConfig = z.infer<typeof mongooseConfigSchema>;
+export type IMongooseConfig = z.infer<typeof mongooseConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: MongooseConfig = mongooseConfigSchema.parse({});
+const config: IMongooseConfig = mongooseConfigSchema.parse({});
 
 export default config;

@@ -32,7 +32,7 @@ export type DomainPattern = string | RegExp;
  *   filtre déjà le `Host`, cf doctrine cloud-native).
  * - `string` / `string[]` : patterns additionnels (exact ou `*`-wildcard).
  */
-export type TrustedHostsConfig = boolean | DomainPattern | DomainPattern[];
+export type ITrustedHostsConfig = boolean | DomainPattern | DomainPattern[];
 
 // Loopback ajouté au défaut en development (les 3 formes que `url.hostname`
 // produit : Node sérialise toute IPv6 loopback en `[::1]` canonique — WHATWG URL).
@@ -90,7 +90,7 @@ export function compileDomainPatterns(
  */
 export function compileTrustedHosts(
   domain: string,
-  trusted: TrustedHostsConfig | undefined,
+  trusted: ITrustedHostsConfig | undefined,
   isDev: boolean,
 ): RegExp[] {
   if (trusted === true) {

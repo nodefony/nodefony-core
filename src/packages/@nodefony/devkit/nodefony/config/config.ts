@@ -267,9 +267,9 @@ export const devkitConfigSchema = z.strictObject({
 export type IDevkitConfigInput = z.input<typeof devkitConfigSchema>;
 
 /** Config telle que le CODE la lit — défauts appliqués, rien d'optionnel. */
-export type DevkitConfig = z.output<typeof devkitConfigSchema>;
+export type IDevkitConfig = z.output<typeof devkitConfigSchema>;
 
 /** Défauts matérialisés (passés au `super()` du Module). */
-const defaults: DevkitConfig = devkitConfigSchema.parse({});
+const defaults: IDevkitConfig = devkitConfigSchema.parse({});
 
 export default defaults;

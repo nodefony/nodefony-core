@@ -101,7 +101,7 @@ Imports publics (`index.ts`) : `Frontend` (Module, default + nommé), `FrontendS
 `createFrontendAdminApi`/`buildFrontendStatus`, `ViteBuilder`, `ViteProcessSupervisor`,
 `ViteConfigGenerator`, `TemplateHelper`, les 4 presets, les erreurs, toutes les interfaces
 `I*`, et la config (`defineFrontendConfig`, `frontendConfigJsonSchema`, `frontendConfigSchema`,
-types `IFrontendConfigInput`/`FrontendConfig`).
+types `IFrontendConfigInput`/`IFrontendConfig`).
 
 ### 3.1 `FrontendService` (service injectable)
 

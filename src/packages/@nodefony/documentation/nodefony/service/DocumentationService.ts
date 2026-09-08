@@ -25,7 +25,7 @@ import {
   DocUnsafeSlugError,
 } from "../src/errors/DocumentationError";
 import { stripTrailingSlashes } from "nodefony";
-import type { DocumentationConfig } from "../config/config";
+import type { IDocumentationConfig } from "../config/config";
 import type {
   DocAudience,
   DocStatus,
@@ -158,8 +158,8 @@ class DocumentationService extends Service {
   }
 
   /** Config validée du module (réassignée à `module.options` au onKernelRegister). */
-  #config(): DocumentationConfig {
-    return this.module.options as unknown as DocumentationConfig;
+  #config(): IDocumentationConfig {
+    return this.module.options as unknown as IDocumentationConfig;
   }
 
   /** Racine du projet (où vit `docs/` transverse). */
@@ -574,4 +574,3 @@ function setGet<K>(map: Map<K, ScannedDoc[]>, key: K): ScannedDoc[] {
 }
 
 export default DocumentationService;
-export type { DocumentationConfig };

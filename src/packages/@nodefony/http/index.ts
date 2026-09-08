@@ -195,7 +195,7 @@ export {
 } from "./nodefony/src/context/domainMatcher";
 export type {
   DomainPattern,
-  TrustedHostsConfig,
+  ITrustedHostsConfig,
 } from "./nodefony/src/context/domainMatcher";
 
 // Rate-limit général par IP (P0.3) — store mémoire (fixed window) + contrat

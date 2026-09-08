@@ -23,7 +23,7 @@ import {
   documentationConfigJsonSchema,
 } from "./nodefony/config/defineModuleConfig";
 import type {
-  DocumentationConfig,
+  IDocumentationConfig,
   IDocumentationConfigInput,
 } from "./nodefony/config/config";
 import DocumentationService from "./nodefony/service/DocumentationService";
@@ -41,7 +41,7 @@ declare module "nodefony" {
 
 @services([DocumentationService])
 @controllers([DocumentationController])
-class Documentation extends Module<DocumentationConfig> {
+class Documentation extends Module<IDocumentationConfig> {
   /** Module optionnel : un échec de son boot ne tue jamais le process (résilience Ph.3). */
   static override critical = false;
 
@@ -102,7 +102,7 @@ export {
 } from "./nodefony/config/defineModuleConfig";
 export {
   documentationConfigSchema,
-  type DocumentationConfig,
+  type IDocumentationConfig,
   // Type d'ENTRÉE : c'est lui que le registre `NodefonyModuleConfig` enregistre
   // (`declare module "nodefony"` ci-dessus). Sans ré-export, une application ne
   // peut pas le nommer — donc pas charger l'augmentation — et

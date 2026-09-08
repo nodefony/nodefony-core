@@ -80,12 +80,12 @@ export const studioConfigSchema = z
   .describe("Configuration de @nodefony/studio.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type StudioConfig = z.infer<typeof studioConfigSchema>;
+export type IStudioConfig = z.infer<typeof studioConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: StudioConfig = studioConfigSchema.parse({});
+const config: IStudioConfig = studioConfigSchema.parse({});
 
 export default config;

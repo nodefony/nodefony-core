@@ -16,7 +16,7 @@ import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
 import config from "./nodefony/config/config";
 import type {
   IFrameworkConfigInput,
-  FrameworkConfig,
+  IFrameworkConfig,
 } from "./nodefony/config/config";
 import {
   defineFrameworkConfig,
@@ -172,7 +172,7 @@ declare module "nodefony" {
 }
 
 @services([Router, Eta, AdminBroker, MemoryIdempotencyStore])
-class Framework extends Module<FrameworkConfig> {
+class Framework extends Module<IFrameworkConfig> {
   /** Balayage périodique du store d'idempotence SQL (drizzle) — `null` sinon. */
   #idempotencyGc: GcScheduler | null = null;
   /**
@@ -228,7 +228,7 @@ class Framework extends Module<FrameworkConfig> {
    */
   override async onKernelBoot(): Promise<this> {
     const configured =
-      (this.options as FrameworkConfig)?.idempotency?.store ?? AUTO_STORE;
+      (this.options as IFrameworkConfig)?.idempotency?.store ?? AUTO_STORE;
     let name = configured;
     let reason = `store explicitement configuré ("${configured}")`;
     if (name === AUTO_STORE) {
@@ -281,7 +281,7 @@ class Framework extends Module<FrameworkConfig> {
       }
       const store = factory({
         module: this,
-        config: this.options as FrameworkConfig,
+        config: this.options as IFrameworkConfig,
       });
       this.set("idempotencyStore", store); // override du défaut mémoire (cross-pod)
       this.#idempotencyStore = store; // retenu pour rafraîchir `location` au onReady
@@ -304,7 +304,7 @@ class Framework extends Module<FrameworkConfig> {
       // hot-path. Corrige le « gc orphelin » : sans ça, les clés SQL expirées
       // s'accumulaient indéfiniment. Logique isolée dans `scheduleIdempotencyGc`
       // (testable sans booter un kernel).
-      const idem = (this.options as FrameworkConfig).idempotency;
+      const idem = (this.options as IFrameworkConfig).idempotency;
       this.#idempotencyGc = scheduleIdempotencyGc(store, {
         intervalS: idem.gcIntervalS,
         jitter: idem.gcJitter,
@@ -590,7 +590,7 @@ export type {
   IResourcePageQuery,
 } from "./nodefony/src/ResourceController";
 export type {
-  FrameworkConfig,
+  IFrameworkConfig,
   IFrameworkConfigInput,
 } from "./nodefony/config/config";
 export {

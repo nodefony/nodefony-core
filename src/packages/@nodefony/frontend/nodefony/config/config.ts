@@ -257,12 +257,12 @@ export const frontendConfigSchema = z
   );
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type FrontendConfig = z.infer<typeof frontendConfigSchema>;
+export type IFrontendConfig = z.infer<typeof frontendConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: FrontendConfig = frontendConfigSchema.parse({});
+const config: IFrontendConfig = frontendConfigSchema.parse({});
 
 export default config;

@@ -217,12 +217,12 @@ export const drizzleConfigSchema = z
   .describe("Configuration de @nodefony/drizzle.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type DrizzleConfig = z.infer<typeof drizzleConfigSchema>;
+export type IDrizzleConfig = z.infer<typeof drizzleConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: DrizzleConfig = drizzleConfigSchema.parse({});
+const config: IDrizzleConfig = drizzleConfigSchema.parse({});
 
 export default config;

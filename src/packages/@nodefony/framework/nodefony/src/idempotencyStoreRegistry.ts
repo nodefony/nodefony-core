@@ -1,5 +1,5 @@
 import type { Module, IIdempotencyStore } from "nodefony";
-import type { FrameworkConfig } from "../config/config";
+import type { IFrameworkConfig } from "../config/config";
 
 /**
  * Registre de **fabriques de stores d'idempotence DISTRIBUÉS** — résout le nom
@@ -31,7 +31,7 @@ export interface IIdempotencyStoreFactoryContext {
   /** Module framework (porte `kernel.container` pour résoudre `redis`, etc.). */
   readonly module: Module;
   /** Config framework validée + gelée. */
-  readonly config: FrameworkConfig;
+  readonly config: IFrameworkConfig;
 }
 
 /** Fabrique d'un store d'idempotence pour un nom donné. */

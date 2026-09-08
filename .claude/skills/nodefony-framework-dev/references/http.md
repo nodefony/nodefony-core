@@ -365,7 +365,7 @@ Per-instance (header `x-nodefony-instance`) — vue cluster = Redis.
 
 - `compileDomainPattern(pattern): RegExp` `:51`, `compileDomainPatterns(...)` `:68`,
   `compileTrustedHosts(...)` `:95`, `isDomainAllowed(regAlias, domain): boolean` `:124`.
-- Types : `DomainPattern = string \| RegExp` `:24`, `TrustedHostsConfig = boolean \| DomainPattern \| DomainPattern[]` `:33`.
+- Types : `DomainPattern = string \| RegExp` `:24`, `ITrustedHostsConfig = boolean \| DomainPattern \| DomainPattern[]` `:35`.
 - Politique de pattern UNIQUE (partagée kernel ↔ route) : string exact ancré (`.` littéral) / `*` wildcard
   un-label (RFC 6125) / `RegExp` libre. ReDoS-safe (`[^.]+`, ancré). ~40 ns/req, 0 alloc.
 

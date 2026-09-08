@@ -92,7 +92,7 @@ export { RedisService, redis };
 // L'export charge le fichier → son `registerStorage("redis", …)` s'exécute.
 export { default as RedisSessionStorage } from "./nodefony/src/SessionStorage";
 export { defineRedisConfig, redisConfigJsonSchema };
-export { redisConfigSchema, type RedisConfig } from "./nodefony/config/config";
+export { redisConfigSchema } from "./nodefony/config/config";
 export type {
   IRedisConfig,
   IRedisConfigInput,

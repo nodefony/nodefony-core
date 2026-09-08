@@ -128,10 +128,7 @@ class Mongoose extends Module<IMongooseConfig> {
 export default Mongoose;
 export { mongoose, MongooseService };
 export { defineMongooseConfig, mongooseConfigJsonSchema };
-export {
-  mongooseConfigSchema,
-  type MongooseConfig,
-} from "./nodefony/config/config";
+export { mongooseConfigSchema } from "./nodefony/config/config";
 export type {
   IMongooseConfig,
   IMongooseConfigInput,

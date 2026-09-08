@@ -277,12 +277,12 @@ export const realtimeConfigSchema = z
   .describe("Configuration de @nodefony/realtime.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type RealtimeConfig = z.infer<typeof realtimeConfigSchema>;
+export type IRealtimeSchemaConfig = z.infer<typeof realtimeConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: RealtimeConfig = realtimeConfigSchema.parse({});
+const config: IRealtimeSchemaConfig = realtimeConfigSchema.parse({});
 
 export default config;

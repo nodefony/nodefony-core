@@ -12907,8 +12907,8 @@
       "module": "@nodefony/devkit",
       "description": "Config telle que l'APP l'écrit dans `use()` — tous les champs optionnels."
     },
-    "DevkitConfig": {
-      "name": "DevkitConfig",
+    "IDevkitConfig": {
+      "name": "IDevkitConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/devkit/nodefony/config/config.ts",
       "exported": true,
@@ -13027,8 +13027,8 @@
       ],
       "description": "Service principal du module — la logique vit ici, pas dans les controllers (un controller traduit du HTTP/WS ; un service, lui, est réutilisable par la CLI, un job, un autre module). Cycle : `const…"
     },
-    "DocumentationConfig": {
-      "name": "DocumentationConfig",
+    "IDocumentationConfig": {
+      "name": "IDocumentationConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/documentation/nodefony/config/config.ts",
       "exported": true,
@@ -13469,8 +13469,8 @@
       "module": "@nodefony/drizzle",
       "description": "Conduite face à une base qui a divergé du schéma déclaré."
     },
-    "DrizzleConfig": {
-      "name": "DrizzleConfig",
+    "IDrizzleConfig": {
+      "name": "IDrizzleConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/drizzle/nodefony/config/config.ts",
       "exported": true,
@@ -14028,7 +14028,7 @@
       "module": "@nodefony/drizzle",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
-    "IDrizzleConfig": {
+    "@nodefony/drizzle:IDrizzleConfig": {
       "name": "IDrizzleConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts",
@@ -14408,8 +14408,8 @@
       "decorators": [],
       "description": "Stockage de session **Drizzle** (driver `better-sqlite3`), branché sur `@nodefony/orm-core`. Implémente le contrat {@link ISessionStorage} consommé par le `SessionsService` de `@nodefony/http` — st…"
     },
-    "FrameworkConfig": {
-      "name": "FrameworkConfig",
+    "IFrameworkConfig": {
+      "name": "IFrameworkConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/framework/nodefony/config/config.ts",
       "exported": true,
@@ -16174,8 +16174,8 @@
       "decorators": [],
       "description": "`nodefony frontend:status` — lit l'état du superviseur Vite. Utilisé par Vision (Phase 10) pour afficher l'état du builder dans son tableau de bord admin."
     },
-    "FrontendConfig": {
-      "name": "FrontendConfig",
+    "IFrontendConfig": {
+      "name": "IFrontendConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/frontend/nodefony/config/config.ts",
       "exported": true,
@@ -17627,8 +17627,8 @@
       "module": "@nodefony/memory",
       "extends": null
     },
-    "MongooseConfig": {
-      "name": "MongooseConfig",
+    "IMongooseConfig": {
+      "name": "IMongooseConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/mongoose/nodefony/config/config.ts",
       "exported": true,
@@ -17868,7 +17868,7 @@
       "module": "@nodefony/mongoose",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
-    "IMongooseConfig": {
+    "@nodefony/mongoose:IMongooseConfig": {
       "name": "IMongooseConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/mongoose/nodefony/interfaces/IMongooseConfig.ts",
@@ -18871,8 +18871,8 @@
       ],
       "decorators": []
     },
-    "RealtimeConfig": {
-      "name": "RealtimeConfig",
+    "IRealtimeSchemaConfig": {
+      "name": "IRealtimeSchemaConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/realtime/nodefony/config/config.ts",
       "exported": true,
@@ -19243,8 +19243,8 @@
       "module": "@nodefony/realtime",
       "description": "Monte un controller temps réel sur une fausse connexion et rend de quoi le piloter. La fabrique reçoit le contexte à passer au constructeur : c'est la seule chose que le harnais ne peut pas deviner…"
     },
-    "RedisConfig": {
-      "name": "RedisConfig",
+    "IRedisConfig": {
+      "name": "IRedisConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/redis/nodefony/config/config.ts",
       "exported": true,
@@ -19274,7 +19274,7 @@
       "module": "@nodefony/redis",
       "description": "JSON Schema introspectable de la config Redis — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
     },
-    "IRedisConfig": {
+    "@nodefony/redis:IRedisConfig": {
       "name": "IRedisConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/redis/nodefony/interfaces/IRedisConfig.ts",
@@ -20470,8 +20470,8 @@
       "module": "@nodefony/security",
       "description": "Résout l'identité portée par une session (l'identifiant stocké dans le blob) en utilisateur VIVANT — re-fetch systématique auprès du provider. C'est LE choix structurant de la session BFF : la sess…"
     },
-    "StudioConfig": {
-      "name": "StudioConfig",
+    "IStudioConfig": {
+      "name": "IStudioConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/studio/nodefony/config/config.ts",
       "exported": true,
@@ -20540,7 +20540,7 @@
       ],
       "description": "StudioRealtimeController — endpoint WebSocket temps réel permanent de Studio. Route : `WS /nodefony/studio/api/realtime`. Protocole : **JSON-RPC 2.0**. Dérive de {@link RealtimeController} (framewo…"
     },
-    "IStudioConfig": {
+    "@nodefony/studio:IStudioConfig": {
       "name": "IStudioConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/studio/nodefony/interfaces/IStudioConfig.ts",
@@ -23166,8 +23166,8 @@
       "module": "@nodefony/http",
       "description": "Un pattern de domaine : string (exact ou `*`-wildcard) ou `RegExp` (libre)."
     },
-    "TrustedHostsConfig": {
-      "name": "TrustedHostsConfig",
+    "ITrustedHostsConfig": {
+      "name": "ITrustedHostsConfig",
       "kind": "type",
       "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
       "exported": true,
@@ -28613,7 +28613,7 @@
       "documentationConfigJsonSchema": [
         "src/packages/@nodefony/documentation/index.ts"
       ],
-      "DocumentationConfig": [
+      "IDocumentationConfig": [
         "src/packages/@nodefony/documentation/index.ts",
         "src/packages/@nodefony/documentation/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts"
@@ -28773,7 +28773,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts"
       ],
-      "FrameworkConfig": [
+      "IFrameworkConfig": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/framework/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts"
@@ -29303,7 +29303,7 @@
       "IFrontendConfigInput": [
         "src/packages/@nodefony/frontend/index.ts"
       ],
-      "FrontendConfig": [
+      "IFrontendConfig": [
         "src/packages/@nodefony/frontend/index.ts",
         "src/packages/@nodefony/frontend/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
@@ -32953,7 +32953,7 @@
       "devkitConfigSchema": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts"
       ],
-      "DevkitConfig": [
+      "IDevkitConfig": [
         "src/packages/@nodefony/devkit/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
@@ -34637,7 +34637,7 @@
       "compileTrustedHosts": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
-      "TrustedHostsConfig": [
+      "ITrustedHostsConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "Statics": [
@@ -34970,7 +34970,7 @@
       "realtimeConfigSchema": [
         "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts"
       ],
-      "RealtimeConfig": [
+      "IRealtimeSchemaConfig": [
         "src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts"
       ],
       "RpcActionHandler": [

@@ -257,12 +257,12 @@ export const redisConfigSchema = z
   .describe("Configuration de @nodefony/redis.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type RedisConfig = z.infer<typeof redisConfigSchema>;
+export type IRedisConfig = z.infer<typeof redisConfigSchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: RedisConfig = redisConfigSchema.parse({});
+const config: IRedisConfig = redisConfigSchema.parse({});
 
 export default config;

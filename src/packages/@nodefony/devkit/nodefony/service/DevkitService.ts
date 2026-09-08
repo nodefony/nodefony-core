@@ -15,7 +15,7 @@ import type {
 } from "nodefony";
 import type { IDevkitCard, IDevkitService } from "../interfaces/IDevkitService";
 import { buildCard } from "../src/card";
-import defaultConfig, { type DevkitConfig } from "../config/config";
+import defaultConfig, { type IDevkitConfig } from "../config/config";
 
 /**
  * Réponse partagée quand la porte MCP n'est pas protégée — le cas par défaut.
@@ -71,7 +71,7 @@ const EMPTY_PROTECTED_RESOURCES: readonly IProtectedResourceInput[] =
 @injectable()
 class DevkitService extends Service implements IDevkitService {
   module: Module;
-  private readonly cfg: DevkitConfig;
+  private readonly cfg: IDevkitConfig;
 
   constructor(module: Module) {
     const merged = extend(
@@ -79,7 +79,7 @@ class DevkitService extends Service implements IDevkitService {
       {},
       defaultConfig,
       module.options ?? {},
-    ) as DevkitConfig;
+    ) as IDevkitConfig;
     super(
       "devkit",
       module.container as Container,
@@ -143,7 +143,7 @@ class DevkitService extends Service implements IDevkitService {
    * côté : les défauts du schéma sont déjà fusionnés avec ce que l'app a passé
    * dans `use()`, une seconde lecture finirait par diverger de celle-ci.
    */
-  mcpSettings(): DevkitConfig["mcp"] {
+  mcpSettings(): IDevkitConfig["mcp"] {
     return this.cfg.mcp;
   }
 

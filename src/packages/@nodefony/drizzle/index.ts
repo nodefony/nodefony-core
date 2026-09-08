@@ -136,10 +136,7 @@ class Drizzle extends Module<IDrizzleConfig> {
 export default Drizzle;
 export { DrizzleService };
 export { defineDrizzleConfig, drizzleConfigJsonSchema };
-export {
-  drizzleConfigSchema,
-  type DrizzleConfig,
-} from "./nodefony/config/config";
+export { drizzleConfigSchema } from "./nodefony/config/config";
 export type {
   IDrizzleConfig,
   IDrizzleConfigInput,

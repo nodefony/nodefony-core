@@ -100,7 +100,7 @@ export const frameworkConfigSchema = z
   .describe("Configuration de @nodefony/framework.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type FrameworkConfig = z.infer<typeof frameworkConfigSchema>;
+export type IFrameworkConfig = z.infer<typeof frameworkConfigSchema>;
 /** Type d'entrée (toutes sections omissibles — défauts du schéma). */
 export type IFrameworkConfigInput = z.input<typeof frameworkConfigSchema>;
 

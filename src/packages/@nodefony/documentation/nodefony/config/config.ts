@@ -148,7 +148,7 @@ export const documentationConfigSchema = z
   .describe("Configuration de @nodefony/documentation.");
 
 /** Type de sortie (config normalisée + défauts appliqués). */
-export type DocumentationConfig = z.infer<typeof documentationConfigSchema>;
+export type IDocumentationConfig = z.infer<typeof documentationConfigSchema>;
 
 /**
  * Type d'ENTRÉE (ce que l'utilisateur écrit dans `use()`, avant application des
@@ -164,6 +164,6 @@ export type IDocumentationConfigInput = z.input<
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours
  * valides par construction ; passés au `super(..., config)` du Module class.
  */
-const config: DocumentationConfig = documentationConfigSchema.parse({});
+const config: IDocumentationConfig = documentationConfigSchema.parse({});
 
 export default config;

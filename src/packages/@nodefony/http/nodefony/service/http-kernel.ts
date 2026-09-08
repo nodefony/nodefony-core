@@ -30,7 +30,7 @@ import {
   compileTrustedHosts,
   compileDomainPatterns,
   isDomainAllowed,
-  type TrustedHostsConfig,
+  type ITrustedHostsConfig,
 } from "../src/context/domainMatcher";
 import type { Profiler } from "../src/profiler/Profiler";
 import cluster from "node:cluster";
@@ -244,7 +244,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ca: string = "";
   serverStatic: Statics | null = null;
   domain: string = "";
-  trustedHosts?: TrustedHostsConfig;
+  trustedHosts?: ITrustedHostsConfig;
   domainCheck: boolean = false;
   regAlias: RegExp[] = [];
   module: Module;
@@ -387,7 +387,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     this._trustProxyChecker = null;
     this._wsOriginPolicy = Object.create(null);
     // trustedHosts + alias (compilés à onReady) → recompilés.
-    this.trustedHosts = (this.options as { trustedHosts?: TrustedHostsConfig })
+    this.trustedHosts = (this.options as { trustedHosts?: ITrustedHostsConfig })
       ?.trustedHosts;
     this.regAlias = this.compileAlias();
     // Rate-limit : enabled / windowS / max sont `runtimeMutable` → reconstruit le
@@ -491,7 +491,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.serverStatic = this.get("server-static");
       this.domain = this.kernel?.domain as string;
       this.trustedHosts = (
-        this.options as { trustedHosts?: TrustedHostsConfig }
+        this.options as { trustedHosts?: ITrustedHostsConfig }
       )?.trustedHosts;
       this.regAlias = this.compileAlias();
       this.sessionService = this.get<SessionsService>("sessions");
@@ -565,7 +565,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     let policy = this._wsOriginPolicy[cfgKey];
     if (!policy) {
       const raw = (
-        this.options[cfgKey] as { allowedOrigins?: TrustedHostsConfig }
+        this.options[cfgKey] as { allowedOrigins?: ITrustedHostsConfig }
       )?.allowedOrigins;
       if (raw === true) {
         policy = { disabled: true, extra: [] };
