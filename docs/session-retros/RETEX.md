@@ -48,6 +48,15 @@
   Le contrôle qui l'attrape : quand deux voies mènent à la même donnée, demander laquelle est
   PROUVÉE exhaustive, et faire de l'autre le repli — jamais l'inverse.
 
+- [1× — 09-09] **J'ai mesuré un artefact que la chaîne de publication ne produit PAS, et conclu
+  qu'une version publiée était cassée.** `npm pack --dry-run` sur `@nodefony/http` rend un tarball
+  où `exports["."].types` pointe `./index.ts`, absent des `files` : typechecké, il donne `TS7016`.
+  J'ai annoncé « le paquet publié n'a aucun type ». Faux — `pack-all.mjs:148` bascule le champ vers
+  les `.d.ts` AU MOMENT du pack, et `npm view` sur la version réellement publiée le confirmait en
+  une commande. La voie prouvée était le REGISTRE, pas ma reproduction locale. Le contrôle qui
+  l'attrape tient en une question : **cet artefact est-il celui que l'utilisateur reçoit, ou une
+  approximation que j'ai fabriquée ?** ↝ [[feedback_prove_on_received_artifact]]
+
 - [1× — 09-08c] **Un gate ne protège que le périmètre qu'il BALAYE.** Le gate qui interdit
   `item-list` existait, était vert, et couvrait les seuls scripts `.mjs` d'un dossier. La commande
   interdite avait survécu dans un BLOC DE COMMANDE d'un skill — celui que l'agent exécute à chaque
@@ -518,6 +527,22 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 > Gradué au CONSOLIDATE du 2026-09-07 — 6 frictions → **`feedback_shell_false_diagnostics`** : le réglage qui rend la mesure propre rend le diagnostic aveugle. Ne PAS réécrire ici.
 
 ## 👯 Un JUMEAU non vérifié n'est pas vérifié — « aligné » n'est pas « prouvé »
+
+- [1× — 09-09] **Un défaut porté par le module MODÈLE se recopie le jour même.** En écrivant la
+  configuration de `@nodefony/studio`, j'ai imité `@nodefony/redis` — et hérité de son doublon :
+  le même type publié sous DEUX noms (`StudioConfig` et `IStudioConfig`), l'un dans `config.ts`,
+  l'autre dans `nodefony/interfaces/`. Le relevé du lendemain a montré que cinq modules le
+  portaient. Personne ne relit un modèle avant de le copier : on copie ce qui MARCHE, défaut
+  compris. Corollaire pratique : quand un audit trouve un défaut de structure, la question suivante
+  n'est pas « où encore ? » mais **« quel module sert de modèle, et l'a-t-on corrigé LUI ? »** —
+  sinon le prochain module naît avec.
+
+- [1× — 09-09] **Le renommage a laissé DIX alias `IX as X` qui annulaient la rupture**, en deux
+  lots. Le skill le documente et dit où regarder : dans le barrel. Or deux d'entre eux vivaient
+  AILLEURS — `DocumentationService.ts:577` et `frontend/nodefony/config/defineModuleConfig.ts:42`,
+  des fichiers qu'aucune relecture d'`index.ts` n'ouvre. La consigne « chercher `as <ancienNom>`
+  dans le barrel » est trop étroite : c'est **tout le paquet** qu'il faut balayer, la
+  ré-exportation n'ayant aucune raison de vivre au seul endroit prévu.
 
 - [1× — 08-29c] **J'ai écrit un gabarit de test avec la convention du DÉPÔT, pas celle d'une application générée.** Le dépôt tourne en `globals: true` ; une application générée, non — ses tests importent leurs primitives. Le fichier a échoué sur `beforeAll is not defined`, dans l'application, à l'exécution. Même famille au cas suivant : le banc visait la base de DÉVELOPPEMENT et non celle de la suite, donc il rendait « en retard » — un verdict juste, sur la mauvaise base. **Un gabarit ne se relit pas, il se GÉNÈRE puis se LANCE** : les deux défauts étaient invisibles à la lecture et évidents à la première exécution.
 
