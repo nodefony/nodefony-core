@@ -36,6 +36,46 @@
 
 > Gradué le 2026-09-08 — 10 frictions → **`feedback_written_rule_needs_reread`** : deux faces, l'écrit JUSTE qu'on ne relit pas au moment du geste, et l'écrit FAUX cru parce qu'il est PRÉCIS. Ne PAS réécrire ici.
 
+## 🧭 La voie FIABLE reléguée en repli — la hiérarchie des lectures s'inverse en silence
+
+- [1× — 09-08c] **L'empreinte du pilotage était traitée comme un mode dégradé « hors ligne », et
+  la commande cassée comme la voie normale.** `gh project item-list --limit 120` rend 120 items sur
+  261 sans le dire ; l'empreinte `.ai/BOARD.md`, produite par GraphQL PAGINÉ, nommait déjà le bon
+  ticket en toutes lettres. Le skill lisait pourtant l'empreinte SEULEMENT si GitHub ne répondait
+  pas. Résultat : un ticket de la `beta` annoncé au user alors que neuf `alpha` restaient ouverts.
+  Le défaut n'était pas l'outil — la règle « item-list ne décide de rien » était écrite depuis des
+  semaines — mais la HIÉRARCHIE : le chemin sûr rangé en secours, le chemin faillible en principal.
+  Le contrôle qui l'attrape : quand deux voies mènent à la même donnée, demander laquelle est
+  PROUVÉE exhaustive, et faire de l'autre le repli — jamais l'inverse.
+
+- [1× — 09-08c] **Un gate ne protège que le périmètre qu'il BALAYE.** Le gate qui interdit
+  `item-list` existait, était vert, et couvrait les seuls scripts `.mjs` d'un dossier. La commande
+  interdite avait survécu dans un BLOC DE COMMANDE d'un skill — celui que l'agent exécute à chaque
+  reprise. Un gate écrit pour une famille d'artefacts (les scripts) laisse intacte l'autre famille
+  qui exécute la même chose (la prose exécutable). Étendre le balayage a nommé le coupable en un run.
+
+## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
+
+- [1× — 09-08c] **Un décor de démonstration posé dans un fichier qu'un sous-agent analysait.**
+  Pour montrer un bouton à l'écran, j'avais réintroduit une entrée de configuration factice dans le
+  fichier même que l'audit en vol devait juger. Rattrapé par un message au délégué (« ce bloc n'est
+  pas du code du dépôt, l'état de référence est HEAD »), mais le réflexe manquait : avant de salir
+  un fichier, se demander qui d'autre le lit EN CE MOMENT.
+
+- [1× — 09-08c] **La question du user reformulée de travers a produit un audit à côté.** « Mettre
+  la config dans un module » a été transmis comme « dans le paquet npm `@nodefony/security` », alors
+  que le user parlait de SA config d'application. L'audit a donc argumenté longuement contre une
+  option que personne ne proposait (secrets dans un paquet publié). Une reformulation n'est pas
+  neutre : c'est elle que le délégué prend pour la question. La relire en se demandant « est-ce
+  bien ce qu'on m'a demandé ? » coûte dix secondes, l'audit coûte des minutes et des tokens.
+
+- [1× — 09-08c] **Mon propre commit a périmé des ancres de doc, et je ne les ai pas recalées en
+  fermant.** L'ajout de deux clés au schéma a décalé une trentaine de lignes : quatre ancres
+  `fichier:ligne` d'une page publique pointent désormais un commentaire ou une parenthèse. J'avais
+  pourtant recalé la PROSE de cette page dans le même commit. Le protocole de fermeture nomme les
+  trois recalages (code, tickets voisins, documentation) — j'ai fait le troisième à moitié, et
+  c'est la moitié invisible qui a sauté. Voir [[feedback_anchor_expires_silently]].
+
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
 - [1× — 09-07f] **Repayé le jour même où je l'ai lu.** Un test qui importe `ticket-effort.mjs`
