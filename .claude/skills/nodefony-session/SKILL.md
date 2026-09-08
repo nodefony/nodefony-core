@@ -551,6 +551,7 @@ Déclencheurs : "consolide les retex", "plan d'amélioration IA".
 >
 >    ```bash
 >    node .claude/skills/nodefony-session/scripts/lessons-carriers.mjs --write   # + --inert, --dead
+>    npm run lessons:carriers -- --recos    # la boucle recommandation → action
 >    ```
 >
 >    Il classe chaque leçon en PRODUIT / DÉPÔT / CONTEXTE / INERTE, écrit l'empreinte
@@ -561,6 +562,14 @@ Déclencheurs : "consolide les retex", "plan d'amélioration IA".
 >    ou quel skill livré porte cette leçon ? Si la réponse est « aucun », l'écrire dans la mémoire
 >    et dire pourquoi — certaines n'ont légitimement pas d'automate possible. Une leçon sans porteur
 >    ni raison est une leçon qui se reperdra. → [[feedback_gate_must_run]]
+>
+>    **`--recos` ferme la boucle la plus ancienne**, celle que rien ne refermait : un retex
+>    archivé porte une section « Recommandations » que personne ne relit jamais. Mesuré :
+>    **937 recommandations dans 310 retex**, dont 30/36 mémoires nommées effectivement écrites
+>    et 16/27 skills créés — le reste est du travail proposé, accepté par le silence, et perdu.
+>    Le drapeau ne vérifie que ce qui NOMME un artefact (une mémoire, un skill) : c'est ce qu'un
+>    automate rend sans jugement. Il annonce des « non résolus », jamais des « jamais créés » —
+>    le motif attrape aussi des tournures, et c'est au lecteur de trancher.
 >
 >    ⚠️ **Cet outil n'a rien à faire au END.** Le END est déjà jugé trop long ; une commande de plus
 >    à chaque clôture coûte plus qu'elle ne rend. Ici, tous les 10-20 retex, elle se paie.

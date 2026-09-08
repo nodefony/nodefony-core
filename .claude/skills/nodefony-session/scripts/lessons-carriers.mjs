@@ -248,6 +248,91 @@ export function classify(root, dir) {
 }
 
 /**
+ * Les recommandations des retex ARCHIVÉS, et ce qu'elles sont devenues.
+ *
+ * Le sas ferme la boucle friction → mémoire ; le classement ci-dessus ferme
+ * mémoire → code. Restait la plus ancienne et la plus grosse : **recommandation
+ * → action**, que rien ne refermait. Mesuré le 2026-09-08 : **937
+ * recommandations dans 310 retex**, dont aucune n'a jamais reçu d'accusé de
+ * réception — un retex archivé n'est relu par personne.
+ *
+ * Seules celles qui NOMMENT un artefact se vérifient sans jugement : une mémoire
+ * `feedback_*` ou un skill. C'est peu, et c'est exactement ce qu'un automate rend
+ * gratuitement et sans angle mort ; le reste demande un lecteur.
+ *
+ * @param {string} root - la racine du dépôt.
+ * @param {string} dir - le dossier des mémoires.
+ * @returns {{memories: object[], skills: object[], total: number, files: number}}
+ */
+export function recommendations(root, dir) {
+  const roots = [
+    path.join(root, "docs", "archives", "session-retros"),
+    path.join(root, "docs", "session-retros"),
+    path.join(root, "docs", "session-retros", "archive"),
+  ];
+  let text = "";
+  let total = 0;
+  const files = new Set();
+  for (const base of roots) {
+    if (!existsSync(base)) continue;
+    for (const f of readdirSync(base)) {
+      if (!f.endsWith(".md") || f.includes("CONSOLIDATION") || f === "RETEX.md")
+        continue;
+      const full = path.join(base, f);
+      if (statSync(full).isDirectory()) continue;
+      const body = readFileSync(full, "utf8");
+      const block = body.split(/^## Recommandations/m)[1];
+      if (!block) continue;
+      const section = block.split(/^## /m)[0];
+      const items = section.split("\n").filter((l) => /^(\d+\.|- )/.test(l));
+      if (items.length === 0) continue;
+      files.add(full);
+      total += items.length;
+      text += section + "\n";
+    }
+  }
+
+  const memories = [...new Set(text.match(/feedback_[a-z0-9_]+/g) ?? [])]
+    .filter((m) => m.length > 12)
+    .map((m) => ({ name: m, done: existsSync(path.join(dir, `${m}.md`)) }));
+
+  // Un nom de skill porte un tiret : le filtre écarte « skill maison », « skill
+  // de mesure » et les autres tournures où le mot n'introduit pas un nom propre.
+  const skillNames = [
+    ...new Set(
+      (text.match(/skills? `?([a-z][a-z0-9-]{4,})`?/gi) ?? []).map((m) =>
+        m
+          .replace(/^skills? `?/i, "")
+          .replace(/`$/, "")
+          .toLowerCase(),
+      ),
+    ),
+  ].filter((n) => n.includes("-"));
+  // Un skill se reconnaît à ses MOTS, pas à leur ordre : « start-nodefony-server »
+  // et « nodefony-start-server » sont le même skill, et comparer les chaînes
+  // fabriquerait un manquant qui existe. Comparer les jetons triés.
+  const tokens = (n) => n.split("-").filter(Boolean).sort().join("-");
+  const installed = new Set(
+    existsSync(path.join(root, ".claude", "skills"))
+      ? readdirSync(path.join(root, ".claude", "skills")).flatMap((d) => [
+          d,
+          tokens(d),
+          tokens(`nodefony-${d}`),
+        ])
+      : [],
+  );
+  const skills = skillNames.map((n) => ({
+    name: n,
+    done:
+      installed.has(n) ||
+      installed.has(tokens(n)) ||
+      installed.has(tokens(`nodefony-${n}`)),
+  }));
+
+  return { memories, skills, total, files: files.size };
+}
+
+/**
  * Rend l'empreinte markdown, versionnée dans `.ai/`.
  *
  * @param {object[]} lessons - les leçons classées.
@@ -330,6 +415,27 @@ if (dead.length > 0) {
   );
   if (process.argv.includes("--dead"))
     for (const d of dead) console.log(`   ${d.slug} → ${d.target}`);
+}
+
+if (process.argv.includes("--recos")) {
+  const r = recommendations(root, dir);
+  const undoneM = r.memories.filter((m) => !m.done);
+  const undoneS = r.skills.filter((x) => !x.done);
+  console.log(
+    `\nRecommandations des retex archivés : ${r.total} dans ${r.files} retex`,
+  );
+  console.log(
+    `  mémoires nommées : ${r.memories.length - undoneM.length}/${r.memories.length} écrites`,
+  );
+  console.log(
+    `  skills nommés    : ${r.skills.length - undoneS.length}/${r.skills.length} créés`,
+  );
+  if (undoneM.length > 0)
+    console.log(`  jamais écrites : ${undoneM.map((m) => m.name).join(", ")}`);
+  // « non résolus » et non « jamais créés » : le motif attrape aussi des tournures
+  // (« un skill maison », « skills load-on-demand ») que seul un lecteur écarte.
+  if (undoneS.length > 0)
+    console.log(`  non résolus    : ${undoneS.map((x) => x.name).join(", ")}`);
 }
 
 if (process.argv.includes("--write")) {
