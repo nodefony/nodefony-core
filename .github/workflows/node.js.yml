@@ -328,7 +328,7 @@ jobs:
         # une commande qui tombe peut ne pas arrêter l'étape.
         shell: bash
         run: |
-          node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs
+          npm run check:lang:test
           npm run check:lang
 
       # Le graphe symbolique, confronté à ce que sa propre génération produit.

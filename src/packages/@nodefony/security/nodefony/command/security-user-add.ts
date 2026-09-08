@@ -95,9 +95,9 @@ class SecurityUserAdd extends Command {
         { roleHierarchy?: Record<string, string[]> } | undefined
     )?.roleHierarchy;
     const all = new Set<string>([ROLE_BASE]);
-    for (const [porteur, couverts] of Object.entries(hierarchy ?? {})) {
-      all.add(porteur);
-      for (const c of couverts) all.add(c);
+    for (const [role, covered] of Object.entries(hierarchy ?? {})) {
+      all.add(role);
+      for (const c of covered) all.add(c);
     }
     // `ROLE_USER` d'abord (le défaut), puis l'ordre déclaré : le premier choix
     // proposé doit être celui qu'on prend neuf fois sur dix.

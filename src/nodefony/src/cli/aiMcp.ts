@@ -521,7 +521,7 @@ export async function declareToAgents(
       { url: ctx.url, tokenEnv: MCP_TOKEN_ENV },
       ctx.remove,
     );
-    if (plan.voie !== "cli") {
+    if (plan.channel !== "cli") {
       results.push({ target: target, state: "fichier-projet", command: "" });
       continue;
     }
@@ -910,7 +910,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
                 { url: mcpUrl, tokenEnv: MCP_TOKEN_ENV },
                 parsed.remove,
               );
-              return p.voie === "cli"
+              return p.channel === "cli"
                 ? `      ${renderPlanShell(p)}\n`
                 : `      (${c.name} : rien — il lit ${MCP_CONFIG_FILE})\n`;
             })

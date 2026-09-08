@@ -177,7 +177,7 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
 
   it("Claude Code : rien à lancer, le fichier du projet PORTE déjà la déclaration", () => {
     const plan = planAgentDeclaration(cible("claude"), ctx);
-    expect(plan.voie).to.equal("fichier-projet");
+    expect(plan.channel).to.equal("fichier-projet");
     // Rien à recopier : il n'y a pas de commande, et prétendre le contraire
     // enverrait créer un doublon.
     expect(renderPlanShell(plan)).to.equal("");
@@ -185,7 +185,8 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
 
   it("Gemini : sa CLI, en portée PROJET — il ignore .mcp.json (constaté)", () => {
     const plan = planAgentDeclaration(cible("gemini"), ctx);
-    if (plan.voie !== "cli") throw new Error("Gemini doit passer par sa CLI");
+    if (plan.channel !== "cli")
+      throw new Error("Gemini doit passer par sa CLI");
     expect(plan.bin).to.equal("gemini");
     expect(plan.argv).to.contain(ctx.url);
     expect(plan.argv).to.contain("--scope");
@@ -202,7 +203,7 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
       const plan = planAgentDeclaration(agent, ctx);
       const rendu = JSON.stringify(plan);
       expect(rendu, agent.key).to.not.contain(JETON);
-      if (plan.voie === "cli") {
+      if (plan.channel === "cli") {
         // La variable est nommée — sous sa forme littérale `${VAR}` (Gemini,
         // qui la résout à la lecture) ou par son nom nu (Vibe, Codex, qui
         // prennent le NOM). Dans les deux cas, jamais la valeur.
@@ -216,7 +217,7 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
     // variable — et c'est voulu. Développée ici, elle graverait le jeton dans
     // un fichier de PROJET, qu'un `git add -A` emporterait.
     const plan = planAgentDeclaration(cible("gemini"), ctx);
-    if (plan.voie !== "cli") throw new Error("plan inattendu");
+    if (plan.channel !== "cli") throw new Error("plan inattendu");
     const entete = plan.argv[plan.argv.indexOf("--header") + 1];
     expect(entete).to.equal(`Authorization: Bearer \${${MCP_TOKEN_ENV}}`);
   });
@@ -226,7 +227,7 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
     // Retirer par l'URL laisserait une entrée morte après un changement de port.
     for (const agent of AGENT_TARGETS) {
       const plan = planAgentDeclaration(agent, ctx, true);
-      if (plan.voie !== "cli") continue;
+      if (plan.channel !== "cli") continue;
       expect(plan.argv, agent.key).to.contain("remove");
       expect(plan.argv, agent.key).to.contain(MCP_SERVER_KEY);
       expect(plan.argv.join(" "), agent.key).to.not.contain(ctx.url);
@@ -251,7 +252,9 @@ describe("ai:mcp --agent — déclarer la porte chez l'agent", () => {
       expect(agent.bin, agent.key).to.be.a("string");
       expect(agent.argvAdd, agent.key).to.be.a("function");
       expect(agent.argvRemove, agent.key).to.be.a("function");
-      expect(planAgentDeclaration(agent, ctx).voie, agent.key).to.equal("cli");
+      expect(planAgentDeclaration(agent, ctx).channel, agent.key).to.equal(
+        "cli",
+      );
     }
   });
 });

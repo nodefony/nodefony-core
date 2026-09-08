@@ -565,12 +565,12 @@ class SecurityToken extends Command {
         // relancer doit la mettre à jour SANS reposer la question — sinon
         // renouveler un jeton redevient un questionnaire, et c'est le geste le
         // plus fréquent. L'état n'est pas mémorisé : il est lu là où il vit.
-        const porteurs = presents.filter((c) =>
+        const carriers = presents.filter((c) =>
           alreadyHasKey(c.forme, this.#contentOf(c), MCP_TOKEN_ENV),
         );
-        const added = presents.filter((c) => !porteurs.includes(c));
-        targets = porteurs;
-        if (porteurs.length === 0 && added.length > 0 && process.stdin.isTTY) {
+        const added = presents.filter((c) => !carriers.includes(c));
+        targets = carriers;
+        if (carriers.length === 0 && added.length > 0 && process.stdin.isTTY) {
           // PREMIÈRE fois : écrire dans la configuration d'un autre outil est un
           // geste qui se voit et se refuse, donc on propose.
           // Par la porte du cœur : les questions en sortent ancrées sur l'event
@@ -585,7 +585,7 @@ class SecurityToken extends Command {
             })),
           })) as string[];
           targets = added.filter((c) => chosen.includes(c.key));
-        } else if (porteurs.length === 0) {
+        } else if (carriers.length === 0) {
           // Hors terminal : servir ce qui est détecté, sinon la commande ne
           // ferait rien du tout dans un script.
           targets = added;

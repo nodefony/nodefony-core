@@ -180,7 +180,7 @@ describe("ai:mcp — la porte visée est UNE", () => {
       url,
       tokenEnv: MCP_TOKEN_ENV,
     });
-    if (plan.voie !== "cli") throw new Error("plan inattendu");
+    if (plan.channel !== "cli") throw new Error("plan inattendu");
     expect(plan.argv).toContain(url);
     // Le contrôle qui mord : l'origine SEULE ne doit pas être ce qu'on déclare.
     expect(plan.argv).not.toContain("http://localhost:5151");

@@ -30,6 +30,8 @@
     "certificates": "bash bin/generateCertificates.sh",
     "check:filenames": "node scripts/check-portable-filenames.mjs",
     "check:lang": "node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.mjs",
+    "check:lang:test": "node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.test.mjs",
+    "check:lang:bench": "node .claude/skills/nodefony-identifiers/scripts/bench-identifier-language.mjs",
     "check:licenses": "node scripts/check-licenses.mjs",
     "check:nul": "node scripts/check-no-nul-bytes.mjs",
     "clean": "turbo run clean && rimraf dist",

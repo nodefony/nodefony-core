@@ -341,7 +341,11 @@ function sampleRepositoryFindings(sampleSize) {
   const all = [...result.findings].sort((a, b) =>
     a.file === b.file ? a.line - b.line : a.file < b.file ? -1 : 1,
   );
-  if (all.length === 0) return { total: 0, sample: [] };
+  // `scanned` DOIT accompagner le retour anticipé : ce chemin est celui du cas
+  // NOMINAL — dépôt propre, zéro constat — et l'omettre faisait afficher
+  // « 0 constat(s) sur undefined fichiers » à chaque run vert.
+  if (all.length === 0)
+    return { total: 0, scanned: result.scanned, sample: [] };
   const step = Math.max(1, Math.floor(all.length / sampleSize));
   const sample = [];
   for (let i = 0; i < all.length && sample.length < sampleSize; i += step)

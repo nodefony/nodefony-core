@@ -34,7 +34,7 @@ import { MCP_SERVER_KEY, MCP_TOKEN_ENV, MCP_CONFIG_FILE } from "./aiMcpReport";
  * `cli` : l'agent ignore `.mcp.json` (constaté) et tient sa propre
  * configuration — on lui parle par sa ligne de commande.
  */
-export type VoieDeclaration = "fichier-projet" | "cli";
+export type DeclarationChannel = "fichier-projet" | "cli";
 
 /**
  * Un agent de développement, et l'endroit où il lit ses variables.
@@ -78,7 +78,7 @@ export interface IAgentTarget {
    */
   home?: string;
   /** Par quelle voie sa configuration apprend l'existence de la porte MCP. */
-  declaration: VoieDeclaration;
+  declaration: DeclarationChannel;
   /** Exécutable de sa CLI — présent si et seulement si `declaration === "cli"`. */
   bin?: string;
   /**
@@ -385,12 +385,12 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
  */
 export type IDeclarationPlan =
   | {
-      voie: "fichier-projet";
+      channel: "fichier-projet";
       /** Le fichier qui porte DÉJÀ la déclaration — rien à lancer. */
       file: string;
     }
   | {
-      voie: "cli";
+      channel: "cli";
       /** Exécutable à chercher dans le `PATH`. */
       bin: string;
       /** Ses arguments. */
@@ -412,12 +412,12 @@ export function planAgentDeclaration(
   remove = false,
 ): IDeclarationPlan {
   if (target.declaration === "fichier-projet" || !target.bin) {
-    return { voie: "fichier-projet", file: MCP_CONFIG_FILE };
+    return { channel: "fichier-projet", file: MCP_CONFIG_FILE };
   }
   const argv = remove
     ? (target.argvRemove?.() ?? [])
     : (target.argvAdd?.({ ...ctx, name: MCP_SERVER_KEY }) ?? []);
-  return { voie: "cli", bin: target.bin, argv };
+  return { channel: "cli", bin: target.bin, argv };
 }
 
 /**
@@ -430,7 +430,7 @@ export function planAgentDeclaration(
  * @param plan - un plan de voie `cli` (les autres n'ont rien à recopier)
  */
 export function renderPlanShell(plan: IDeclarationPlan): string {
-  if (plan.voie !== "cli") return "";
+  if (plan.channel !== "cli") return "";
   return [
     plan.bin,
     ...plan.argv.map((a) => (/[\s"$]/u.test(a) ? `"${a}"` : a)),

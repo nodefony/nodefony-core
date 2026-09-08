@@ -1027,3 +1027,45 @@ describe("scanRepo — sur un dépôt fabriqué", () => {
     );
   });
 });
+
+/**
+ * Le défaut publié dans la `10.0.0-alpha.2` — `const DIALECTE: SqlDialect`.
+ *
+ * Il est parti dans une version publiée, au cœur du fichier que TOUTE
+ * application générée reçoit (`nodefony/entity/User.ts`), sans qu'aucun
+ * contrôle ne dise un mot. Le ticket #274 soupçonnait le suffixe `.tpl` —
+ * c'était FAUX, et le prouver a évité de réparer ce qui marchait : le gabarit
+ * était lu, `isProductionFile` l'accepte depuis toujours (cf le cas plus haut),
+ * et le même identifiant serait passé dans un `.ts` ordinaire.
+ *
+ * La cause est un TROU DE VOCABULAIRE : `dialecte` manquait au dictionnaire.
+ * Ce gate est un dictionnaire, pas une compréhension — son angle mort n'est pas
+ * un défaut d'implémentation, c'est sa nature, et il ne se referme qu'un mot à
+ * la fois, quand un cas réel le désigne.
+ */
+describe("`DIALECTE` — le trou de vocabulaire parti en release", () => {
+  it("connaît désormais le mot qui a traversé la chaîne entière", () => {
+    assert.equal(frenchWordOf("dialecte"), "dialecte");
+    assert.equal(judgeIdentifier("DIALECTE").suggestion, "DIALECT");
+  });
+
+  // PIÈGE : c'est ce test qui interdit de repartir chercher du côté du `.tpl`.
+  it("rend le MÊME verdict en `.ts` et en `.ts.tpl` — l'extension n'y est pour rien", () => {
+    const source = 'const DIALECTE = "sqlite";\nexport { DIALECTE };\n';
+    const noms = ["nodefony/entity/User.ts", "nodefony/entity/User.ts.tpl"];
+    const verdicts = noms.map((nom) =>
+      analyzeSource(source, nom).map((f) => f.identifier),
+    );
+    assert.deepEqual(verdicts[0], ["DIALECTE"]);
+    assert.deepEqual(verdicts[1], verdicts[0]);
+  });
+
+  // PIÈGE : `dialect` (anglais) et `dialecte` (français) ne diffèrent que d'un
+  // `e`. Une règle de flexion trop large ferait accuser le nom CORRECT — celui
+  // par lequel on remplace le fautif.
+  it("n'accuse pas l'anglais `dialect`, qui est le remplaçant", () => {
+    assert.equal(frenchWordOf("dialect"), null);
+    assert.deepEqual(judgeIdentifier("SQL_DIALECT").words, []);
+    assert.deepEqual(judgeIdentifier("dialectFor").words, []);
+  });
+});

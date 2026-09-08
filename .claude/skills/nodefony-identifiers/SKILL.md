@@ -44,12 +44,12 @@ au plan : `export function state(state: X)` compile parfaitement.
 
 ```bash
 npm run check:lang                                 # LA commande du dépôt — c'est elle que la forge lance
+npm run check:lang:test                            # ses 72 tests — la forge les joue AVANT le gate
+npm run check:lang:bench                           # ~53 s, HORS forge (cf plus bas)
 S=.claude/skills/nodefony-identifiers/scripts
 node $S/check-identifier-language.mjs              # le relevé : compte, fichier, ligne, traduction proposée
 node $S/check-identifier-language.mjs --json       # pour un autre outil
 node $S/check-identifier-language.mjs src/nodefony # un périmètre seulement
-node --test $S/check-identifier-language.test.mjs  # ses 66 tests
-node $S/bench-identifier-language.mjs              # 0 faux positif sur ~80 000 identifiants tiers
 ```
 
 > 🔴 **Ce gate a vécu DÉBRANCHÉ.** Écrit et testé, il n'était lancé par rien —
@@ -214,7 +214,7 @@ symboles, et ce compte vaut souvent 0 avant tout travail.
 | Script                                                                                       | Ce qu'il fait                                                                                                         |
 | -------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
 | [`scripts/check-identifier-language.mjs`](scripts/check-identifier-language.mjs)             | Le gate : relève les identifiants français, avec fichier, ligne, compte et traduction proposée. Exceptions déclarées. |
-| [`scripts/check-identifier-language.test.mjs`](scripts/check-identifier-language.test.mjs)   | Ses 66 tests.                                                                                                         |
+| [`scripts/check-identifier-language.test.mjs`](scripts/check-identifier-language.test.mjs)   | Ses 72 tests.                                                                                                         |
 | [`scripts/bench-identifier-language.mjs`](scripts/bench-identifier-language.mjs)             | Le passe sur du code tiers anglais : prouve qu'il n'accuse personne à tort.                                           |
 | [`scripts/identifier-language-dictionary.json`](scripts/identifier-language-dictionary.json) | Le dictionnaire, lu par le gate et par le banc.                                                                       |
 | [`scripts/rename-identifiers.mjs`](scripts/rename-identifiers.mjs)                           | Renomme par le LanguageService depuis la DÉCLARATION. Plan JSON, `--dry`, `"nom@512"` pour une ligne précise.         |
@@ -222,6 +222,13 @@ symboles, et ce compte vaut souvent 0 avant tout travail.
 | [`scripts/check-rename-drift.mjs`](scripts/check-rename-drift.mjs)                           | Confronte le résultat au plan, liaison par liaison.                                                                   |
 | [`scripts/check-literals-unchanged.mjs`](scripts/check-literals-unchanged.mjs)               | Prouve qu'aucune chaîne affichée n'a changé. `--except <fichier>` pour un cas justifié, nommé à l'appel.              |
 
-Aucun n'est câblé au `package.json` : ce sont des outils de chantier, lancés sciemment, dont le
-résultat n'a de sens qu'avec le protocole ci-dessus. Le jour où le chantier de langue se ferme, le
-skill part avec ses scripts, sans laisser de script npm orphelin derrière lui.
+Trois sont câblés au `package.json` — `check:lang`, `check:lang:test`, `check:lang:bench` — parce
+qu'un ticket, une page ou une forge doit pouvoir les NOMMER sans connaître ce dossier. Les autres
+restent des outils de chantier, lancés sciemment : leur résultat n'a de sens qu'avec le protocole
+ci-dessus.
+
+**Le banc ne tourne PAS sur la forge, et c'est délibéré.** Il balaye ~1 400 fichiers de
+`node_modules` en ~53 s : son corpus n'est pas versionné, il change au gré des versions installées.
+L'y mettre ferait rougir la forge sur un `npm update` sans rapport avec le dictionnaire — un gate
+qui accuse à tort finit ignoré. Il se lance à la main **après toute retouche du dictionnaire**,
+c'est là qu'il a un sens.

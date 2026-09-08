@@ -865,7 +865,7 @@ export type {
   IAgentTarget,
   IDeclarationContext,
   IDeclarationPlan,
-  VoieDeclaration,
+  DeclarationChannel,
 } from "./cli/agentTargets";
 
 // Hooks git natifs — composition PURE (contenu des hooks, plan, refus) et son

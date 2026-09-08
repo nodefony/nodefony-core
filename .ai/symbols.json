@@ -666,8 +666,8 @@
       "extends": null,
       "description": "Ce qu'il faut savoir pour composer la déclaration chez un agent."
     },
-    "VoieDeclaration": {
-      "name": "VoieDeclaration",
+    "DeclarationChannel": {
+      "name": "DeclarationChannel",
       "kind": "type",
       "file": "src/nodefony/src/cli/agentTargets.ts",
       "exported": true,
