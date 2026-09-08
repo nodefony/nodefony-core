@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T18:56:04.865Z",
+  "generatedAt": "2026-09-08T19:42:36.101Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 14,
+      "closed": 16,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 9,
+      "open": 7,
       "title": "10.0.0-alpha"
     },
     {
@@ -172,8 +172,8 @@
       "number": 274,
       "title": "fix(gate): le contrôle de langue ne voit pas les identifiants des gabarits",
       "url": "https://github.com/nodefony/nodefony-core/issues/274",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1283,8 +1283,8 @@
       "number": 271,
       "title": "feat(studio): afficher tout fournisseur de connexion configuré, pas seulement les marques connues",
       "url": "https://github.com/nodefony/nodefony-core/issues/271",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1605,7 +1605,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 4,
+      "jours": 3.5,
       "ordre": 5,
       "labels": [
         "10.0.0-beta"

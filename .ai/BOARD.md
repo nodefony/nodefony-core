@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-08 18:56** (UTC).
+> Empreinte prise le **2026-09-08 19:42** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████░░░░` 61% | 14 | 9 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 70% | 16 | 7 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 8% | 2 | 23 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
@@ -30,28 +30,14 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#274 — fix(gate): le contrôle de langue ne voit pas les identifiants des gabarits**
+**#138 — feat(orm): poser les contraintes d'intégrité des relations**
 
-Ordre 1.4 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
+Ordre 10 · P2 — décision · 1 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 9 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 7 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
-
-## Jalon 10.0.0-alpha — 9 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 1.4 | P1 — figé à la création | 0.5 | #274 | fix(gate): le contrôle de langue ne voit pas les identifiants des gabarits |
-| 4.3 | P1 — figé à la création | 0.5 | #271 | feat(studio): afficher tout fournisseur de connexion configuré, pas seulement les marques connues |
-| 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
-| 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
-| 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
-| 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
-| 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
-| 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.0.0-beta — 23 ouverts
 
@@ -68,7 +54,7 @@ Ordre 1.4 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 4.5 | P1 — figé à la création | 0.5 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 4.6 | P2 — décision | 0.5 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 4.8 | P1 — figé à la création | 2 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
-| 5 | P1 — figé à la création | 4 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
+| 5 | P1 — figé à la création | 3.5 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 5.1 | P0 — bloque le reste | 2 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
 | 5.2 | P1 — figé à la création | 1 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
 | 5.3 | P2 — décision | 0.5 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
@@ -80,6 +66,18 @@ Ordre 1.4 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha
 | 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
+
+## Jalon 10.0.0-alpha — 7 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
+| 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
+| 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
+| 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
+| 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
+| 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
+| 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.1.0 — 28 ouverts
 
