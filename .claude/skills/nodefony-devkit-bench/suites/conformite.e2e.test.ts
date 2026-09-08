@@ -24,6 +24,8 @@ let routes: RouteInspectee[] = [];
 
 /** L'en-tête `Cookie` d'une session d'administration, ou `null` si l'app n'a pas de firewall. */
 let cookieAdmin: string | null = null;
+/** Pourquoi aucune identité — un repli muet fait accuser l'application. */
+let raisonSansAdmin: string | null = null;
 
 /**
  * Une ressource REST générée : son chemin de collection et son chemin d'item.
@@ -57,16 +59,31 @@ beforeAll(async () => {
   }
 
   try {
+    // 🔴 Le NOM est le contrat, et il a déjà divergé une fois. Le gabarit
+    // exporte `adminLogin` (`templates/app/base/tests/e2e.setup.ts.tpl`, et les
+    // tests d'entité générés l'appellent sous ce nom) ; ce banc cherchait
+    // `connexionAdmin`. Un `typeof … === "function"` sur un nom absent ne lève
+    // pas : il rend `false`, `cookieAdmin` reste `null`, et la garde
+    // anti-suite-creuse tombe en accusant l'application. Deux rouges sur les
+    // quatre systèmes, pour un nom.
     const setup = (await import("../tests/e2e.setup")) as {
-      connexionAdmin?: () => Promise<string>;
+      adminLogin?: () => Promise<string>;
     };
-    if (typeof setup.connexionAdmin === "function") {
-      cookieAdmin = await setup.connexionAdmin();
+    if (typeof setup.adminLogin !== "function") {
+      // Un `catch` muet dirait « pas de firewall » là où le vrai fait est
+      // « ce nom n'existe plus ». La RAISON remonte donc jusqu'au message de
+      // la garde, au lieu d'être écrasée par un repli qui a l'air normal.
+      raisonSansAdmin = `tests/e2e.setup n'exporte pas \`adminLogin\` — exports vus : ${Object.keys(setup).join(", ") || "aucun"}`;
+    } else {
+      cookieAdmin = await setup.adminLogin();
     }
-  } catch {
+  } catch (e) {
     // Pas de firewall dans cette application : les cas qui exigent une identité
     // se déclarent eux-mêmes non applicables plutôt que d'échouer sur le décor.
+    // La cause est CONSERVÉE : « l'import a échoué » et « la connexion a été
+    // refusée » ne se corrigent pas au même endroit.
     cookieAdmin = null;
+    raisonSansAdmin = e instanceof Error ? e.message : String(e);
   }
 }, 240_000);
 
@@ -92,7 +109,7 @@ describe("e2e — le serveur répond, et c'est bien LUI", () => {
     // requête.
     expect(
       cookieAdmin,
-      "connexion admin impossible — les cas d'autorisation ne mesureraient rien",
+      `connexion admin impossible — les cas d'autorisation ne mesureraient rien. Cause : ${raisonSansAdmin ?? "inconnue"}`,
     ).not.toBeNull();
   });
 
