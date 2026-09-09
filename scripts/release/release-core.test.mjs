@@ -23,6 +23,7 @@ import {
   depreciationsAFaire,
   latestsRestesEnArriere,
   lireVueNpm,
+  paquetsNonServis,
   trierPourRecalage,
   messageDeDepreciation,
   refusDePublicationHorsBranche,
@@ -1330,6 +1331,49 @@ describe("trierPourRecalage", () => {
     );
     expect(aRecaler).toHaveLength(1);
     expect(absentes).toEqual([]);
+  });
+});
+
+describe("paquetsNonServis — ce que le registre ne sert pas ENCORE", () => {
+  it("un paquet dont la version est là n'est pas attendu", () => {
+    expect(
+      paquetsNonServis("10.0.0-alpha.4", {
+        nodefony: { versions: ["10.0.0-alpha.3", "10.0.0-alpha.4"] },
+      }),
+    ).toEqual([]);
+  });
+
+  it("🔴 un paquet ENCORE INTROUVABLE est attendu — c'est le cas vécu", () => {
+    // `npm view` ne rend rien tant que le registre n'a pas propagé : le lecteur
+    // rend `null`, et ce null ne doit surtout pas passer pour « servi ».
+    expect(
+      paquetsNonServis("10.0.0-alpha.4", {
+        nodefony: null,
+        "@nodefony/http": { versions: ["10.0.0-alpha.4"] },
+      }),
+    ).toEqual(["nodefony"]);
+  });
+
+  it("🔴 un paquet CONNU mais sans la version visée est attendu", () => {
+    // La propagation est indépendante par paquet : le document existe déjà,
+    // la version n'y est pas encore.
+    expect(
+      paquetsNonServis("10.0.0-alpha.4", {
+        "@nodefony/drizzle": { versions: ["10.0.0-alpha.3"] },
+      }),
+    ).toEqual(["@nodefony/drizzle"]);
+  });
+
+  it("l'ordre reçu est conservé, et un lot vide n'attend rien", () => {
+    expect(
+      paquetsNonServis("1.0.0", {
+        a: null,
+        b: { versions: ["1.0.0"] },
+        c: null,
+      }),
+    ).toEqual(["a", "c"]);
+    expect(paquetsNonServis("1.0.0", {})).toEqual([]);
+    expect(paquetsNonServis("1.0.0", null)).toEqual([]);
   });
 });
 

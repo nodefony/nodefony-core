@@ -1043,6 +1043,33 @@ export function lireVueNpm(brut) {
 }
 
 /**
+ * Les paquets que le registre ne SERT pas encore dans cette version.
+ *
+ * 🔴 Ce que ça évite : `npm publish` rend 0 dès que le registre a ACCEPTÉ le
+ * paquet, pas quand il le SERT. La propagation prend de quelques secondes à
+ * quelques minutes, et elle est indépendante par paquet. Tout ce qui installe
+ * depuis le registre juste derrière échoue alors sur un paquet au hasard —
+ * `ERESOLVE … nodefony@undefined`, `ETARGET … No matching version found for
+ * @nodefony/drizzle` —, un message qui accuse la dépendance alors que le lot
+ * est intact. Constaté sur la `10.0.0-alpha.4` : les deux jobs qui suivent la
+ * publication sont tombés à quarante secondes d'intervalle, sur deux paquets
+ * différents, pendant que le lot était complet et correct.
+ *
+ * La fonction est PURE : on lui donne ce que le registre a répondu, elle dit
+ * ce qui manque. L'attente et les appels vivent chez l'appelant.
+ *
+ * @param {string} version - la version publiée, telle qu'elle doit apparaître.
+ * @param {Record<string, {versions?: string[]} | null>} vues - par paquet, ce
+ *   que le registre rend (`null` = paquet encore introuvable).
+ * @returns {string[]} les noms encore non servis, dans l'ordre reçu.
+ */
+export function paquetsNonServis(version, vues) {
+  return Object.entries(vues ?? {})
+    .filter(([, vue]) => !(vue?.versions ?? []).includes(version))
+    .map(([nom]) => nom);
+}
+
+/**
  * Les paquets dont la dépréciation reste à poser — ou dont le message a changé.
  *
  * 🔴 Ce que ça évite : un mode de répétition qui rejoue sa liste à l'aveugle ne

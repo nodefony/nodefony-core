@@ -82,6 +82,7 @@ import {
   depreciationsAFaire,
   latestsRestesEnArriere,
   lireVueNpm,
+  paquetsNonServis,
   trierPourRecalage,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
@@ -1126,6 +1127,60 @@ if (PHASES.publier) {
     publies.push(nom);
   }
   dire(`✓ publication — ${publies.length} paquets en ${VERSION}`);
+
+  // ── Attendre que le registre SERVE ce qu'il vient d'accepter ─────────────
+  // `npm publish` rend 0 dès l'ACCEPTATION ; la mise à disposition suit, en
+  // quelques secondes à quelques minutes, INDÉPENDAMMENT par paquet. Tout ce
+  // qui installe derrière — ici les jobs `vitrine` et `image` — échoue alors
+  // sur un paquet au hasard, avec un message qui accuse la dépendance :
+  // `ERESOLVE … nodefony@undefined`, `ETARGET … No matching version found for
+  // @nodefony/drizzle`. Vécu sur la `10.0.0-alpha.4` : les deux jobs sont
+  // tombés à quarante secondes d'intervalle, sur deux paquets DIFFÉRENTS,
+  // alors que le lot était complet et correct — j'ai moi-même lu « absent »
+  // sur `nodefony` deux minutes avant de le voir apparaître.
+  //
+  // On n'ÉCHOUE jamais ici : les paquets sont en ligne, irréversiblement.
+  // Un rouge à ce stade ferait croire à une publication ratée. On attend, on
+  // DIT ce qui manque, et si l'attente expire on avertit — la suite décidera.
+  etape = "propagation";
+  {
+    const PAS_MS = 5_000;
+    const LIMITE_MS = 300_000;
+    const debut = Date.now();
+    let restants = publies;
+    while (restants.length > 0 && Date.now() - debut < LIMITE_MS) {
+      const vues = {};
+      for (const nom of restants) {
+        // `--prefer-online` : sans lui, npm répond depuis son cache local et
+        // l'attente ne mesurerait que sa propre mémoire.
+        const r = npm(["view", nom, "versions", "--json", "--prefer-online"]);
+        vues[nom] = r.status === 0 ? lireVueNpm(r.stdout) : null;
+      }
+      restants = paquetsNonServis(VERSION, vues);
+      if (restants.length === 0) break;
+      dire(
+        `  ⏳ registre — ${restants.length} paquet(s) pas encore servis : ${restants.join(", ")}`,
+      );
+      // Sommeil SYNCHRONE : tout ce script l'est (`spawnSync`), et une attente
+      // active brûlerait un cœur pour rien. `Atomics.wait` sur un tableau que
+      // personne ne réveille rend la main au bout du délai, sans consommer.
+      Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, PAS_MS);
+    }
+    const ecoule = Math.round((Date.now() - debut) / 1000);
+    if (restants.length === 0) {
+      dire(
+        `✓ registre — les ${publies.length} paquets sont servis (${ecoule}s)`,
+      );
+    } else {
+      alerter(
+        `le registre ne sert pas encore ${restants.length} paquet(s) après ${ecoule}s :\n` +
+          `    ${restants.join(", ")}\n` +
+          "  Les paquets SONT publiés — rien à reprendre côté npm. Ce qui installe\n" +
+          "  depuis le registre dans les minutes qui suivent peut encore échouer sur\n" +
+          "  `ERESOLVE`/`ETARGET` : relancer ces étapes plus tard, sans rien republier.",
+      );
+    }
+  }
 
   // ── `latest` resté en arrière ────────────────────────────────────────────
   // npm pose `latest` à la PREMIÈRE publication d'un paquet, quel que soit
