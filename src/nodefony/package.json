@@ -159,7 +159,7 @@
     "@angular/core": "^22.1.6",
     "@angular/platform-browser": "^22.1.6",
     "svelte": "^5.57.0",
-    "zod": "4.5.4"
+    "zod": "4.6.0"
   },
   "repository": {
     "type": "git",
