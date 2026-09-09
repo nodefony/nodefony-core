@@ -395,6 +395,14 @@ jobs:
           echo "corpus publié : $(wc -l < /tmp/pages-publiees.txt) pages"
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs
+          # Les KITS de développement aussi : ils ne sont dans le périmètre
+          # d'aucun contrôle, et une clé publique renommée (`certificates.openssl`
+          # → `selfSigned`) y a survécu à tout le balayage du produit (#300).
+          # Les corpus EXTERNES bundlés (`rfc/`, `specs/`) ne portent pas
+          # d'ancres vers ce dépôt : hors périmètre.
+          find .claude/skills -path '*/references/*.md' \
+            -not -path '*/rfc/*' -not -path '*/specs/*' -print0 \
+            | xargs -0 node .claude/skills/nodefony-documentation/scripts/anchor-check.mjs
 
       # La Definition of Done d'une page : frontmatter, sections obligatoires,
       # ancres de code, compteur de tests, liens vivants, zéro HTML brut.

@@ -234,9 +234,9 @@ orphelin → `EADDRINUSE` au restart) ; fallback `npx` si non résolu (`resolveV
 
 **Source de vérité = `config/schema.ts` (Zod)**. `config/config.ts` en dérive les défauts
 (`frontendConfigSchema.parse({})` `config.ts:24`). `defineFrontendConfig(input)` valide+gèle la
-fusion `défauts + module.options` au hook `onKernelRegister` (`index.ts:54`, plante propre si
+fusion `défauts + module.options` au hook `onKernelRegister` (`index.ts:55`, plante propre si
 invalide). `frontendConfigJsonSchema()` produit le JSON Schema introspectable (panneau config Studio,
-`index.ts:43`/`defineFrontendConfig.ts:27`).
+`index.ts:45`/`defineModuleConfig.ts:35`).
 
 Défauts (`schema.ts`) :
 

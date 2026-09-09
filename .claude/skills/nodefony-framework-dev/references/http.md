@@ -172,7 +172,7 @@ lancer à la main** pour un dev HTTPS standard. **3 stratégies** (`resolveStrat
 ```jsonc
 // config "module-http" : prod = fournir un vrai cert ; dev = laisser vide (auto)
 certificates: { ca: "/etc/ssl/ca.pem", key: "/etc/ssl/private.key", cert: "/etc/ssl/cert.pem",
-  dev: { useMkcert: true }, openssl: { size: 2048 } }   // size 4096 reco prod
+  dev: { useMkcert: true }, selfSigned: { size: 2048 } }   // size 4096 reco prod
 ```
 
 - **HTTPS dev sans erreur navigateur** : `brew install mkcert nss && mkcert -install` (détecté via `mkcert -CAROOT`).
@@ -538,16 +538,16 @@ services mutent `module.options`). `strict` (strip, attrape typos) pour **notre 
 <!-- prettier-ignore -->
 | Section (sous-schéma) | Ancre | Clés clés |
 | --- | --- | --- |
-| racine `httpConfigSchema` | `:744` | `watch` (reserved), `headerServer` (runtimeMutable, déf `"nodefony"`), `maxBodySize` (→413), `trustProxy`, `trustedHosts` |
-| `securityHeadersSchema` | `:75` | `contentTypeOptions`, `frameOptions`, `strictTransportSecurity` (maxAge/includeSubDomains/preload) |
-| `uploadSchema` | `:105` | `uploadDir` (kernelDerived ← `kernel.tmpDir`), `maxFileSize`, `maxTotalFileSize`, `maxFiles`, `hashAlgorithm` |
-| `queryStringSchema` | `:174` | `parameterLimit`, `delimiter`, `ignoreQueryPrefix` |
-| `httpServerSchema` / `httpsServerSchema` | `:200` / `:248` | `keepAliveTimeout`, `timeout`, `requestTimeout`, `responseTimeout`, `headers`, `rejectUnauthorized` (https) |
-| `http2Schema` | `:265` | `maxConcurrentStreams`, `maxSessionMemory` |
-| `certificatesSchema` | `:375` | `strategy` (auto/mkcert/selfsigned/explicit), `ca`/`key`/`cert`, `privateKeyMode` (0600), `san` ({dns,ip}), `dev.useMkcert`, `openssl` ({size, validityDays, backdateMinutes, attrs kernelDerived}) |
-| `websocketSchema` (+ `websocketSecure`) | `:413` | `keepaliveInterval`, `keepaliveGracePeriod`, `closeTimeout`, `maxPayload` (1 MiB), `allowedOrigins` (anti-CSWSH), `perMessageDeflate`, `autoPong`, `maxBackpressure` (4 MiB), `backpressurePolicy` (drop/close) |
-| `staticsSchema` | `:600` | `enabled` (déf true), `defaultOptions`, `web` ({path:"public"}), `cacheControl`, `maxAge` |
-| `sessionSchema` (+ `sessionCookieSchema` `:631`) | `:665` | `savePath`, `gcIntervalS`, `gcJitter`, `maxLifetimeS`, `absoluteTimeoutS`, `refererCheck`, `cookie` ({maxAge, httpOnly, secure, signed, hostPrefix}) |
+| racine `httpConfigSchema` | `http/nodefony/config/config.ts:989` | `watch` (reserved), `headerServer` (runtimeMutable, déf `"nodefony"`), `maxBodySize` (→413), `trustProxy`, `trustedHosts` |
+| `securityHeadersSchema` | `http/nodefony/config/config.ts:123` | `contentTypeOptions`, `frameOptions`, `strictTransportSecurity` (maxAge/includeSubDomains/preload) |
+| `uploadSchema` | `http/nodefony/config/config.ts:159` | `uploadDir` (kernelDerived ← `kernel.tmpDir`), `maxFileSize`, `maxTotalFileSize`, `maxFiles`, `hashAlgorithm` |
+| `queryStringSchema` | `http/nodefony/config/config.ts:246` | `parameterLimit`, `delimiter`, `ignoreQueryPrefix` |
+| `httpServerSchema` / `httpsServerSchema` | `http/nodefony/config/config.ts:272` / `http/nodefony/config/config.ts:336` | `keepAliveTimeout`, `timeout`, `requestTimeout`, `responseTimeout`, `headers`, `rejectUnauthorized` (https) |
+| `http2Schema` | `http/nodefony/config/config.ts:353` | `maxConcurrentStreams`, `maxSessionMemory` |
+| `certificatesSchema` | `http/nodefony/config/config.ts:475` | `strategy` (auto/mkcert/selfsigned/explicit), `ca`/`key`/`cert`, `privateKeyMode` (0600), `san` ({dns,ip}), `dev.useMkcert`, `selfSigned` ({size, hash, validityDays, backdateMinutes, attrs kernelDerived} — l'auto-signé est produit par `node-forge`, sans binaire externe) |
+| `websocketSchema` (+ `websocketSecure`) | `http/nodefony/config/config.ts:517` | `keepaliveInterval`, `keepaliveGracePeriod`, `closeTimeout`, `maxPayload` (1 MiB), `allowedOrigins` (anti-CSWSH), `perMessageDeflate`, `autoPong`, `maxBackpressure` (4 MiB), `backpressurePolicy` (drop/close) |
+| `staticsSchema` | `http/nodefony/config/config.ts:717` | `enabled` (déf true), `defaultOptions`, `web` ({path:"public"}), `cacheControl`, `maxAge` |
+| `sessionSchema` (+ `sessionCookieSchema` `http/nodefony/config/config.ts:748`) | `http/nodefony/config/config.ts:782` | `savePath`, `gcIntervalS`, `gcJitter`, `maxLifetimeS`, `absoluteTimeoutS`, `refererCheck`, `cookie` ({maxAge, httpOnly, secure, signed, hostPrefix}) |
 
 Flags `meta()` (`config/configMeta.ts`, helper `meta()`) : `reserved`/`runtimeMutable`/`kernelDerived`/`secret`
 → recopiés dans le JSON Schema (`httpConfigJsonSchema()` via `z.toJSONSchema`) pour Studio/doc. ⚠️ poser le

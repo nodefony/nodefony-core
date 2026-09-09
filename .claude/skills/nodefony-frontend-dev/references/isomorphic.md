@@ -247,7 +247,7 @@ this.realtime = RealtimeClient.shared({ /* url, token… */ });   // RootStore.t
 import { NodefonyProvider } from "nodefony/react";
 <NodefonyProvider client={rootStore.realtime}> … </NodefonyProvider>
 
-// auth/roles.ts:480 — RBAC isomorphe
+// auth/roles.ts:20 — RBAC isomorphe
 import { hasAnyRole, hasRole } from "nodefony/roles";
 ```
 
