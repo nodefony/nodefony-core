@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T21:44:40.840Z",
+  "generatedAt": "2026-09-09T23:25:45.234Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 43,
+      "closed": 44,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 10,
+      "open": 9,
       "title": "10.0.0-alpha"
     },
     {
@@ -258,8 +258,8 @@
       "number": 311,
       "title": "chore(release): publier la préversion 10.0.0-alpha.4",
       "url": "https://github.com/nodefony/nodefony-core/issues/311",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
