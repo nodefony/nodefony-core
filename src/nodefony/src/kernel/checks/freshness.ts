@@ -185,7 +185,12 @@ function declaredFrontendEntries(projectRoot: string): IFrontendEntry[] {
           );
     for (const file of files) {
       const full = path.join(projectRoot, file);
-      if (!statSync(full, { throwIfNoEntry: false })?.isFile()) continue;
+      // On OUVRE, on ne demande pas d'abord « est-ce un fichier ? » : entre la
+      // question et l'ouverture la réponse peut changer (CodeQL
+      // js/file-system-race), et c'était une syscall de plus par fichier
+      // exploré. L'échec de lecture trie aussi bien — un répertoire lève
+      // EISDIR, un fichier disparu ENOENT —, et il tranche sur l'état RÉEL au
+      // moment où l'on s'en sert.
       let code: string;
       try {
         code = withoutComments(readFileSync(full, "utf8"));

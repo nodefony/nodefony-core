@@ -159,6 +159,18 @@ describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est p
     );
   });
 
+  it("🔴 un RÉPERTOIRE nommé `*.ts` ne fait pas tomber le contrôle", () => {
+    // La lecture ne demande plus au disque « est-ce un fichier ? » avant
+    // d'ouvrir : entre la question et l'ouverture, la réponse peut changer
+    // (CodeQL js/file-system-race), et c'était une syscall par fichier exploré.
+    // C'est l'ÉCHEC DE LECTURE qui trie désormais — un répertoire lève EISDIR.
+    const racine = app();
+    const faux = path.join(racine, "nodefony", "Piege.ts");
+    mkdirSync(faux, { recursive: true });
+    utimesSync(faux, 2_000, 2_000);
+    assert.deepEqual(checkFreshness(racine).findings, []);
+  });
+
   it("🔴 un `*.test.ts` récent ne périme AUCUN build", () => {
     const racine = app();
     posterApresLeBuild(racine, "nodefony/Widget.test.ts");

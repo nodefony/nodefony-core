@@ -101,7 +101,14 @@ export interface IPortableSpawn {
  * refuse plutôt que de concaténer, ce qui est exactement le défaut fermé ici.
  */
 function quoteForCmd(arg: string): string {
-  if (/[\r\n"]/u.test(arg)) {
+  // Les guillemets N'ARRÊTENT PAS l'expansion : `cmd.exe` remplace `%NOM%` par
+  // la valeur de la variable au parsing de la ligne, y compris entre guillemets,
+  // et par du vide si elle n'existe pas. Citer ne protège que des
+  // métacaractères. `%%` n'échappe rien hors d'un fichier batch. Aucune forme
+  // sûre n'existe donc pour `%NOM%` — on refuse, comme pour le guillemet, plutôt
+  // que de laisser partir un argument qui n'est pas celui qu'on a écrit.
+  // Un pour-cent ISOLÉ (« remise-20% ») ne déclenche rien : il reste accepté.
+  if (/[\r\n"]/u.test(arg) || /%[^%\r\n]+%/u.test(arg)) {
     throw new Error(
       `[nodefony] argument impossible à transmettre à cmd.exe : ${JSON.stringify(arg)}`,
     );

@@ -112,6 +112,20 @@ describe("portableSpawn — lancer sans confier d'arguments à un shell", () => 
     expect(() => win("npm", ["a\nb"])).to.throw(/impossible à transmettre/u);
   });
 
+  it("un %VAR% est REFUSÉ : les guillemets n'arrêtent pas l'expansion de cmd.exe", () => {
+    // `cmd.exe` remplace `%NOM%` par la valeur de la variable AU PARSING, y
+    // compris entre guillemets — citer ne protège que des métacaractères, pas
+    // de l'expansion. Un chemin `C:\build\%BUILD_ID%\app` partirait donc
+    // transformé, ou vidé si la variable n'existe pas : l'argument reçu ne
+    // serait pas celui qu'on a écrit. Et `%%` n'échappe rien hors d'un fichier
+    // batch. Aucune forme sûre n'existe → on refuse, comme pour le guillemet.
+    expect(() => win("npm", ["C:\\build\\%BUILD_ID%\\app"])).to.throw(
+      /impossible à transmettre/u,
+    );
+    // Le pour-cent NU, lui, ne déclenche aucune expansion : rien à refuser.
+    expect(win("npm", ["remise-20%"]).args[3]).to.equal('"npm "remise-20%""');
+  });
+
   it("l'interpréteur vient de %ComSpec%, avec cmd.exe en repli", () => {
     // Vu ROUGE sur la forge Windows : `undefined` passé explicitement laisse
     // jouer le défaut (`process.env.ComSpec`), présent là-bas. Le repli se
