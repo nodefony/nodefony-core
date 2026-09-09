@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-09 13:14** (UTC).
+> Empreinte prise le **2026-09-09 13:46** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████░░░░░` 48% | 23 | 25 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████░░░░` 56% | 27 | 21 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 25 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
@@ -34,7 +34,7 @@
 
 Ordre 5 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 25 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -69,7 +69,7 @@ Ordre 5 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 
-## Jalon 10.0.0-alpha — 25 ouverts
+## Jalon 10.0.0-alpha — 21 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -81,10 +81,6 @@ Ordre 5 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha
 | 5.92 | P2 — décision | 0.5 | #299 | docs(config): lever l'ambiguite entre config d'application et config de module |
 | 5.93 | P1 — figé à la création | 0.5 | #300 | fix(skills): le kit de dev enseigne une cle de config supprimee |
 | 6 | P1 — figé à la création | 3.5 | #301 | fix(cli): nettoyer ce que npm create nodefony dit de faux ou de trop |
-| 6.2 | P1 — figé à la création | 1 | #302 | fix(cli): nommer la cause quand la base refuse migration et jeton |
-| 6.3 | P1 — figé à la création | 0.5 | #303 | fix(cli): corriger ce que ai:mcp dit des agents et de leurs jetons |
-| 6.4 | P1 — figé à la création | 1 | #304 | fix(kernel): lire le catalogue des variables depuis une autre instance |
-| 6.5 | P2 — décision | 0.5 | #305 | fix(scaffold): générer la configuration Svelte que Vite réclame |
 | 6.6 | P3 — fin de cycle | 0.5 | #306 | fix(kernel): ne journaliser qu'une fois une erreur de configuration |
 | 7 | P1 — figé à la création | 1.5 | #289 | refactor(config): trancher où vit la config d'une application |
 | 7.2 | P2 — décision | 1 | #285 | refactor(config): extraire la config par module dans nodefony/config |
