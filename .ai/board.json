@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T17:56:02.251Z",
+  "generatedAt": "2026-09-09T19:15:58.834Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 36,
+      "closed": 39,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 12,
+      "open": 9,
       "title": "10.0.0-alpha"
     },
     {
@@ -2400,8 +2400,8 @@
       "number": 289,
       "title": "refactor(config): trancher où vit la config d'une application",
       "url": "https://github.com/nodefony/nodefony-core/issues/289",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1.5,
@@ -2428,8 +2428,8 @@
       "number": 285,
       "title": "refactor(config): extraire la config par module dans nodefony/config",
       "url": "https://github.com/nodefony/nodefony-core/issues/285",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2442,8 +2442,8 @@
       "number": 296,
       "title": "feat(scaffold): montrer l'emplacement d'extraction de la config aux apps générées",
       "url": "https://github.com/nodefony/nodefony-core/issues/296",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,

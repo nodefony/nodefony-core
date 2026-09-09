@@ -237,6 +237,13 @@ Console Logs Studio = panneau P10 de facto livré.
 > `config.ts` (Zod commenté = **SEULE source des défauts**) + `defineXConfig.ts` (builder pur),
 > fusionner les `schema.ts` ; Studio = provenance par champ (défaut / surcharge / env).
 > `project_config_clarity_chantier_kit`
+>
+> **Où vit la config d'une APPLICATION (distinct du chantier ci-dessus, qui porte celle d'un
+> MODULE)** : `nodefony.config.ts` est l'INDEX ordonné des modules montés ; la configuration de
+> chaque module vit dans `nodefony/config/<module>.ts`, sous la forme
+> `(ctx) => ({ … }) satisfies I<Module>ConfigInput`. Le `satisfies` est GARDÉ par `nodefony doctor`
+> (constat `fragment-without-satisfies`) : sans lui, une clé inconnue compile et Zod la retire en
+> silence. Recette et pourquoi : [`docs/guides/configuration.md`](docs/guides/configuration.md).
 
 ---
 

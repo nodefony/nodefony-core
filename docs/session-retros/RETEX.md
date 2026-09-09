@@ -38,6 +38,28 @@
 
 ## 🧭 La voie FIABLE reléguée en repli — la hiérarchie des lectures s'inverse en silence
 
+- [1× — 09-09e] **Un lecteur qui vise UN chemin en dur devient aveugle le jour où la donnée
+  déménage — et il reste VERT.** La configuration des modules d'une application est partie dans
+  des fragments `nodefony/config/<module>.ts` ; trois lecteurs qui visaient `nodefony.config.ts`
+  ont alors cessé de voir ce qu'ils contrôlaient : un test du cœur (le témoin `keystore`), neuf
+  contrôles du banc de scaffold, et le banc de vérité de l'intégration continue — celui-ci a
+  accusé le générateur de n'avoir pas déclaré un rôle qu'il avait bel et bien écrit, sept jobs
+  rouges sur les trois systèmes. Aucun n'a dit « je n'ai pas pu lire » ; deux ont dit « absent ».
+  Le remède n'est pas de corriger le chemin : c'est d'appeler le LECTEUR du produit
+  (`readManifestCode`), pour que la règle de lecture existe en un seul endroit. Le contrôle qui
+  l'attrape avant : **quand une donnée peut vivre dans plusieurs fichiers, tout lecteur qui en
+  nomme UN est un futur aveugle.** ↝ [[feedback_prove_the_target_not_the_verdict]]
+
+- [1× — 09-09e] **Trois faux verdicts d'affilée parce que la commande que je lançais n'exécutait
+  pas mon code.** Sur une application générée, `doctor` ne voyait pas une zone ouverte, le
+  générateur refusait d'ancrer un rôle, le typecheck sortait rouge — j'ai failli conclure à trois
+  régressions de mon diff. En réalité `bin/nodefony` est un LANCEUR qui délègue au CLI installé
+  DANS l'application quand il en trouve un : il exécutait la version publiée `alpha.3`, antérieure
+  de plusieurs semaines. Le fait était écrit en toutes lettres dans l'en-tête du fichier, que je
+  n'avais pas lu. `import.meta.resolve('nodefony')` tranche en une commande, et je ne l'ai lancée
+  qu'après vingt minutes de diagnostic. **Sur un artefact qui embarque ses propres dépendances,
+  demander QUEL binaire s'exécute est le premier geste, pas le dernier.**
+
 - [1× — 09-08c] **L'empreinte du pilotage était traitée comme un mode dégradé « hors ligne », et
   la commande cassée comme la voie normale.** `gh project item-list --limit 120` rend 120 items sur
   261 sans le dire ; l'empreinte `.ai/BOARD.md`, produite par GraphQL PAGINÉ, nommait déjà le bon
@@ -147,6 +169,17 @@
 > Ne PAS réécrire ici.
 
 ## 🧑‍⚖️ Un AUDIT trouve ce qu'aucune suite verte ne voit — et ce qu'il doute mérite d'être tranché
+
+- [1× — 09-09e] **Deux défauts d'un même contrôle se cachaient l'un l'autre, et c'est un
+  changement SANS RAPPORT qui les a sortis.** Un test de conformité comparait les modules déclarés
+  au manifeste à ceux réellement chargés. Sa capture du bloc s'arrêtait au PREMIER crochet fermant
+  — celui d'une liste de rôles écrite dans la configuration en ligne d'un module —, donc elle ne
+  regardait que le début de la liste. Et le filtre des modules conditionnels que son commentaire
+  d'en-tête annonçait depuis le premier jour n'existait pas dans le code : il ne s'était jamais vu,
+  faute d'atteindre les modules concernés. Le premier défaut protégeait le second. **Un contrôle
+  dont le PÉRIMÈTRE est tronqué ne rend pas un verdict partiel : il rend un verdict FAUX, et tous
+  ses autres défauts dorment derrière.** Le contrôle qui l'attrape : quand un test lit un bloc
+  délimité, vérifier qu'il prend le délimiteur APPARIÉ, jamais le premier rencontré.
 
 - [1× — 09-09] **Quatre défauts réels sous 3862 tests verts, une CI 7/7 et quatre tickets fermés
   le soir même.** Un audit `fable` lancé après coup sur la grappe config a trouvé, entre autres :
