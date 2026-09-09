@@ -14,11 +14,9 @@
 
 import assert from "node:assert";
 import {
-  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
-  readdirSync,
   rmSync,
   writeFileSync,
 } from "node:fs";
@@ -26,7 +24,19 @@ import os from "node:os";
 import path from "node:path";
 import { describe, it, afterEach } from "vitest";
 import { checkSurface } from "../kernel/checks/surface";
-import { manifestFileWith } from "../kernel/checks/sourceText";
+import { checkWiring } from "../kernel/checks/wiring";
+import { checkReadiness } from "../kernel/checks/readiness";
+import {
+  diskManifestReader,
+  manifestFileWith,
+  readManifestCode,
+  readManifestSources,
+  withoutComments,
+} from "../kernel/checks/sourceText";
+import { getScaffoldContext } from "../cli/scaffold/engine";
+
+/** Racine de CE dépôt — lui-même une application Nodefony. */
+const REPO_ROOT = path.resolve(__dirname, "..", "..", "..", "..");
 
 const jetables: string[] = [];
 afterEach(() => {
@@ -46,17 +56,6 @@ function app(files: Record<string, string>): string {
   }
   return dir;
 }
-
-/** Un lecteur sur le disque réel — ce que le scaffold fournit autrement. */
-const disque = {
-  exists: (f: string) => existsSync(f),
-  read: (f: string) => readFileSync(f, "utf8"),
-  listDir: (d: string) =>
-    readdirSync(d, { withFileTypes: true }).map((e) => ({
-      name: e.name,
-      isDirectory: e.isDirectory(),
-    })),
-};
 
 /** La zone publique qui couvre TOUT — le manquement que le rapport doit crier. */
 const ZONE_TOUT = `areas: { app: { pattern: "^/.*", security: false } }`;
@@ -123,7 +122,7 @@ export default { modules: [use("@nodefony/security", security(ctx))] };`,
       "nodefony/config/security.ts": `export const security = () => ({ roleHierarchy: { ROLE_ADMIN: [] } });`,
     });
     assert.match(
-      manifestFileWith(root, disque, /roleHierarchy\s*:\s*\{/u),
+      manifestFileWith(root, diskManifestReader, /roleHierarchy\s*:\s*\{/u),
       /nodefony[/\\]config[/\\]security\.ts$/u,
     );
   });
@@ -133,8 +132,178 @@ export default { modules: [use("@nodefony/security", security(ctx))] };`,
     // inventé le ferait écrire dans un fichier qui n'existe pas.
     const root = app({ "nodefony.config.ts": `export default {};` });
     assert.equal(
-      manifestFileWith(root, disque, /roleHierarchy\s*:\s*\{/u),
+      manifestFileWith(root, diskManifestReader, /roleHierarchy\s*:\s*\{/u),
       path.join(root, "nodefony.config.ts"),
+    );
+  });
+});
+
+/*
+ *   #298 — les lecteurs cherchent dans le CODE, commentaires retirés, et par
+ *   tous leurs lecteurs. Le manifeste racine de ce dépôt porte un exemple
+ *   `mongoose` entièrement commenté qui contient `connectors: {` : sur le texte
+ *   brut, la racine « portait » le motif et gagnait toujours — le fragment qui
+ *   porte le VRAI bloc n'était jamais lu, et le scaffold lisait un connecteur
+ *   nommé `options`, tiré d'un commentaire.
+ */
+describe("les lecteurs du manifeste lisent le CODE, pas le texte brut (#298)", () => {
+  it("🔴 une ancre en COMMENTAIRE dans la racine ne l'emporte pas sur le vrai bloc d'un fragment", () => {
+    const root = app({
+      "nodefony.config.ts": `import { orm } from "./nodefony/config/orm";
+// Exemple :
+//   connectors: {
+//     options: { user, pass, maxPoolSize },
+//   },
+export default { modules: [use("@nodefony/drizzle", orm(ctx))] };`,
+      "nodefony/config/orm.ts": `export const orm = () => ({ connectors: { main: { dialect: "postgres" } } });`,
+    });
+    assert.match(
+      manifestFileWith(root, diskManifestReader, /\bconnectors\s*:\s*\{/u),
+      /nodefony[/\\]config[/\\]orm\.ts$/u,
+    );
+  });
+
+  it("le scaffold ne lit pas un connecteur dans un commentaire — liste vide plutôt qu'un nom inventé", () => {
+    const root = app({
+      "package.json": `{ "name": "x" }`,
+      "nodefony.config.ts": `//   connectors: {
+//     options: { user, pass },
+//   },
+export default { modules: [] };`,
+    });
+    const ctx = getScaffoldContext(root);
+    assert.ok(ctx, "le décor est une application");
+    // Aucun connecteur DÉCLARÉ : le scaffold expose celui que le module ORM
+    // fournit (`default`) — jamais un nom tiré d'un commentaire.
+    assert.deepEqual(
+      ctx.connectors.map((c) => c.name),
+      ["default"],
+    );
+  });
+
+  it("… et sur CE dépôt, l'exemple mongoose commenté ne produit plus de connecteur « options »", () => {
+    const ctx = getScaffoldContext(REPO_ROOT);
+    assert.ok(ctx, "le dépôt est une application");
+    assert.ok(
+      !ctx.connectors.some((c) => c.name === "options"),
+      JSON.stringify(ctx.connectors.map((c) => c.name)),
+    );
+  });
+
+  it("🔴 sans nodefony.config.ts, AUCUN fragment n'est un manifeste", () => {
+    // Un fragment ne vaut que parce que le manifeste le nomme. Dans un paquet
+    // de module lancé seul, `defineModuleConfig.ts`, `services.ts` et
+    // `routing.ts` passaient pour des fragments de manifeste.
+    const root = app({
+      "nodefony/config/config.ts": `export default {};`,
+      "nodefony/config/defineModuleConfig.ts": `export const x = 1;`,
+      "nodefony/config/services.ts": `export const services = [];`,
+      "nodefony/config/routing.ts": `export const routing = [];`,
+    });
+    assert.deepEqual(readManifestSources(root, diskManifestReader), []);
+  });
+
+  it("readManifestCode rend le code de TOUTES les sources, commentaires retirés", () => {
+    const root = app({
+      "nodefony.config.ts": `// use("@nodefony/redis")
+export default { modules: [use("@nodefony/http")] };`,
+      "nodefony/config/security.ts": `export const security = () => ({ jwt: { keystore: { dir: "var/keys" } } });`,
+    });
+    const code = readManifestCode(root, diskManifestReader);
+    assert.match(code, /keystore\s*:/u, "le fragment est lu");
+    assert.doesNotMatch(code, /@nodefony\/redis/u, "le commentaire est retiré");
+  });
+
+  it("readiness voit un use() déplacé dans un fragment", async () => {
+    const root = app({
+      "package.json": `{ "name": "a" }`,
+      "nodefony.config.ts": `import { extra } from "./nodefony/config/extra";
+export default { modules: [...extra] };`,
+      "nodefony/config/extra.ts": `export const extra = [use("@acme/absent")];`,
+    });
+    mkdirSync(path.join(root, "node_modules"), { recursive: true });
+    const r = await checkReadiness({ projectRoot: root });
+    assert.ok(
+      r.findings.some(
+        (f) =>
+          f.kind === "module-not-installed" &&
+          f.message.includes("@acme/absent"),
+      ),
+      JSON.stringify(r.findings),
+    );
+  });
+
+  it("wiring nomme le FRAGMENT qui porte une zone énumérée, pas le manifeste racine", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/security.ts": `export const security = () => ({
+  areas: {
+    compte: {
+      pattern: "^/api/account/(profile|invoices)",
+      authenticators: ["session"],
+    },
+  },
+});`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+    assert.match(f[0].file, /nodefony[/\\]config[/\\]security\.ts$/u);
+  });
+});
+
+/*
+ *   Le nettoyage des commentaires est la brique de TOUS ces lecteurs — et il
+ *   avait un trou : deux expressions régulières, les blocs retirés AVANT les
+ *   lignes, si bien qu'un `/*` écrit dans une ligne `//` ouvrait un faux bloc
+ *   refermé des centaines de lignes plus bas. Le manifeste de ce dépôt passait
+ *   de 31 000 à 2 800 caractères, `keystore` compris — et `security:secrets`
+ *   déclarait non câblé ce qui l'était.
+ */
+describe("withoutComments — le CODE, en une passe (#298)", () => {
+  it("🔴 un `/*` dans une ligne `//` n'ouvre aucun bloc", () => {
+    const code = withoutComments(`// consomme /api/*)
+const a = 1;
+/* bloc */
+const keystore: { dir: string } = { dir: "x" };
+`);
+    assert.match(code, /const a = 1/u, "le code qui suit la ligne survit");
+    assert.match(code, /keystore\s*:/u);
+    assert.doesNotMatch(
+      code,
+      /bloc|consomme/u,
+      "les commentaires sont retirés",
+    );
+  });
+
+  it("une chaîne est copiée telle quelle : URL, `//` et `/*` entre guillemets", () => {
+    const code = withoutComments(
+      `const u = "https://x.test/a/*"; const c = '// pas un commentaire'; // vrai commentaire`,
+    );
+    assert.match(code, /https:\/\/x\.test\/a\/\*/u);
+    assert.match(code, /'\/\/ pas un commentaire'/u);
+    assert.doesNotMatch(code, /vrai commentaire/u);
+  });
+
+  it("sur le manifeste de CE dépôt, le câblage du keystore survit au nettoyage", () => {
+    const raw = readFileSync(
+      path.join(REPO_ROOT, "nodefony.config.ts"),
+      "utf8",
+    );
+    const code = withoutComments(raw);
+    assert.match(code, /keystore\s*:/u);
+    // Un faux bloc ouvert avale tout ce qui suit : la DERNIÈRE ligne de code
+    // du fichier doit survivre, quelle qu'elle soit.
+    const lastCodeLine = raw
+      .split("\n")
+      .map((l) => l.trim())
+      .findLast(
+        (l) => l !== "" && !l.startsWith("//") && !l.startsWith("*"),
+      ) as string;
+    assert.ok(
+      code.includes(lastCodeLine),
+      `manifeste amputé (${code.length} caractères) : « ${lastCodeLine} » absent`,
     );
   });
 });

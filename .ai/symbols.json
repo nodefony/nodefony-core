@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3974,
+    "symbols": 3976,
     "classes": 388,
     "interfaces": 1078,
     "types": 447,
     "enums": 4,
-    "functions": 1665,
-    "constants": 392
+    "functions": 1666,
+    "constants": 393
   },
   "symbols": {
     "Cli": {
@@ -9567,6 +9567,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le fichier du manifeste qui porte un motif — celui qu'un ÉCRIVAIN doit modifier. Lire suffit à concaténer les sources ; écrire non. Le générateur ancre `roleHierarchy` et lit `connectors` : le jour…"
+    },
+    "readManifestCode": {
+      "name": "readManifestCode",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le CODE du manifeste entier — racine puis fragments, commentaires retirés, concaténés — pour les lecteurs qui cherchent un motif sans avoir à savoir quel fichier le porte (`security:secrets`, l'éta…"
+    },
+    "diskManifestReader": {
+      "name": "diskManifestReader",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "LE lecteur du disque — l'implémentation unique que les contrôles, le scaffold hors simulation et les bancs passent à {@link readManifestSources}. Il était recopié trois fois (`surface`, `wiring`, u…"
     },
     "IOpening": {
       "name": "IOpening",
@@ -31703,6 +31719,13 @@
       "manifestFileWith": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "withoutComments": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/checks/freshness.ts",
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -32112,12 +32135,6 @@
       "isTestFile": [
         "src/nodefony/src/kernel/checks/freshness.ts"
       ],
-      "withoutComments": [
-        "src/nodefony/src/kernel/checks/freshness.ts",
-        "src/nodefony/src/kernel/checks/readiness.ts",
-        "src/nodefony/src/kernel/checks/surface.ts",
-        "src/nodefony/src/kernel/checks/wiring.ts"
-      ],
       "IModuleGated": [
         "src/nodefony/src/kernel/checks/gating.ts",
         "src/nodefony/src/kernel/checks/live.ts"
@@ -32150,6 +32167,16 @@
       ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
+      ],
+      "readManifestCode": [
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
+      ],
+      "diskManifestReader": [
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
       ],
       "pluralize": [
         "src/nodefony/src/kernel/checks/renderReport.ts"

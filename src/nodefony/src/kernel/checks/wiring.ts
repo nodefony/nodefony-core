@@ -18,11 +18,15 @@
  * code analysé. Le contrôle doit répondre y compris sur une application qui ne
  * démarre plus — c'est précisément là qu'on le consulte.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 import { collectSources } from "./walk";
-import { readManifestSources, withoutComments } from "./sourceText";
+import {
+  readManifestSources,
+  withoutComments,
+  diskManifestReader,
+} from "./sourceText";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
 export interface IWiringFinding {
@@ -414,17 +418,8 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // conclure « brique installée mais jamais chargée » sur une application
   // parfaitement câblée.
   const manifestSources = projectRoot
-    ? readManifestSources(projectRoot, {
-        exists: (f) => existsSync(f),
-        read,
-        listDir: (d) =>
-          readdirSync(d, { withFileTypes: true }).map((e) => ({
-            name: e.name,
-            isDirectory: e.isDirectory(),
-          })),
-      })
+    ? readManifestSources(projectRoot, diskManifestReader)
     : [];
-  const manifestePath = manifestSources[0]?.path ?? "";
   const manifeste = manifestSources.map((m) => m.source).join("\n");
   // Le manifeste entre ici SANS ses commentaires, pour la raison inverse de
   // celle des sources : une brique CITÉE dans un commentaire (« décommente
@@ -442,14 +437,23 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // Les zones vivent au niveau du PROJET : le contrôle se fait une fois, hors de
   // la boucle des cibles, sinon le même manquement serait rendu autant de fois
   // qu'il y a de modules locaux.
-  const areasBlock = AREAS_BLOCK_RE.exec(withoutComments(manifeste))?.[1];
-  if (areasBlock) {
+  // Une source à la fois : le constat nomme le fichier qui PORTE la zone —
+  // pointer le manifeste racine pour un bloc `areas` extrait enverrait
+  // corriger là où il n'y a rien (même règle que le rapport de surface).
+  for (const {
+    path: manifestFile,
+    source: manifestSource,
+  } of manifestSources) {
+    const areasBlock = AREAS_BLOCK_RE.exec(
+      withoutComments(manifestSource),
+    )?.[1];
+    if (!areasBlock) continue;
     for (const [, pattern] of areasBlock.matchAll(AREA_PATTERN_RE)) {
       const prefix = zoneEnumere(pattern);
       if (!prefix) continue;
       findings.push({
         kind: "firewall-area-enumere",
-        file: path.relative(cwd, manifestePath),
+        file: path.relative(cwd, manifestFile),
         message:
           `la zone "${pattern}" énumère des routes au lieu de couvrir un espace — ` +
           `écris pattern: "^${prefix}". Tel quel, les routes visées sont bien ` +

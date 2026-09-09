@@ -59,7 +59,10 @@ import {
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
-import { manifestFileWith } from "../../kernel/checks/sourceText";
+import {
+  manifestFileWith,
+  withoutComments,
+} from "../../kernel/checks/sourceText";
 import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
@@ -2970,7 +2973,11 @@ function declaresDialect(
     /\bconnectors\s*:\s*\{/u,
   );
   if (!writer.exists(configPath)) return false;
-  const block = extractBlock(writer.read(configPath), "connectors");
+  // Le CODE, pas le texte brut : un exemple commenté satisfaisait la regex.
+  const block = extractBlock(
+    withoutComments(writer.read(configPath)),
+    "connectors",
+  );
   if (block === null) return false;
   const entry = /(\w+)\s*:\s*\{([^{}]*)\}/gu;
   let match: RegExpExecArray | null;
@@ -3100,7 +3107,9 @@ function readConnectors(
     /\bconnectors\s*:\s*\{/u,
   );
   if (!writer.exists(configPath)) return [];
-  const source = writer.read(configPath);
+  // Le CODE, pas le texte brut : le scaffold de ce dépôt lisait un connecteur
+  // nommé `options`, tiré d'un exemple mongoose commenté.
+  const source = withoutComments(writer.read(configPath));
   const asDialect = (value: string | undefined): TEntityDialect =>
     (ENTITY_DIALECTS as readonly string[]).includes(value ?? "")
       ? (value as TEntityDialect)

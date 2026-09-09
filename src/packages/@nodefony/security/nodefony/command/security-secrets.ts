@@ -3,7 +3,13 @@ import { spawnSync } from "node:child_process";
 import { appendFileSync } from "node:fs";
 import { readIfPresentSync } from "../src/token/secretFile.js";
 import path from "node:path";
-import { OptionsCommandInterface, CliKernel, Command } from "nodefony";
+import {
+  OptionsCommandInterface,
+  CliKernel,
+  Command,
+  readManifestCode,
+  diskManifestReader,
+} from "nodefony";
 
 const options: OptionsCommandInterface = {
   helpGroup: "COMPTES ET SECRETS",
@@ -142,7 +148,11 @@ class SecuritySecrets extends Command {
     const dotenvLocal = this.#read(".env.local");
     const dotenv = this.#read(".env") + "\n" + dotenvLocal;
     const envTs = this.#read("env.ts");
-    const cfgTs = this.#read("nodefony.config.ts");
+    // Le manifeste ET ses fragments, en CODE : la documentation donne `security`
+    // en exemple d'extraction — après ce geste, lire la seule racine faisait
+    // réclamer de coller un bloc déjà en place et déclarait `jwt.keystore`
+    // non câblé. Sur les secrets, un faux constat coûte cher.
+    const cfgTs = readManifestCode(this.#root(), diskManifestReader);
     const missingInDotenv = KEYS.filter(
       (k) => !new RegExp(`^\\s*${k}\\s*=`, "m").test(dotenv),
     );

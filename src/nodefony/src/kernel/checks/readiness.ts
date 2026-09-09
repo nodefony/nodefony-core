@@ -34,7 +34,11 @@
 import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { buildProjectEnvReport } from "../../cli/env";
-import { withoutComments } from "./sourceText";
+import {
+  withoutComments,
+  readManifestCode,
+  diskManifestReader,
+} from "./sourceText";
 
 /** Un manquement qui empêche — ou empêchera — l'application de démarrer. */
 export interface IReadinessFinding {
@@ -261,15 +265,11 @@ export async function checkReadiness(input: {
   }
 
   // ─── 2 & 3. Ce qui est DÉCLARÉ est-il INSTALLÉ ? ──────────────────────────
-  const manifeste = path.join(projectRoot, "nodefony.config.ts");
-  if (existsSync(manifeste)) {
-    let source = "";
-    try {
-      source = readFileSync(manifeste, "utf8");
-    } catch {
-      source = "";
-    }
-    for (const name of declaredModules(source)) {
+  // Le manifeste ET ses fragments : un `use()` extrait dans `nodefony/config/`
+  // doit être vu, sinon « brique déclarée mais non installée » se tait.
+  const manifestCode = readManifestCode(projectRoot, diskManifestReader);
+  if (manifestCode !== "") {
+    for (const name of declaredModules(manifestCode)) {
       if (isModuleResolvable(projectRoot, name)) continue;
       findings.push({
         kind: "module-not-installed",

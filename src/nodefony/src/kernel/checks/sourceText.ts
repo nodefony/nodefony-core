@@ -11,6 +11,7 @@
  *
  * @module
  */
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 
 /**
@@ -27,7 +28,8 @@ import path from "node:path";
  * Le `//` précédé d'un `:` est PRÉSERVÉ : c'est le séparateur d'une URL, pas
  * l'ouverture d'un commentaire. Sans cette réserve, `"https://exemple.test"`
  * devient `"https:` et tout motif qui lit cette valeur échoue sans expliquer
- * pourquoi.
+ * pourquoi. Une CHAÎNE (`"…"`, `'…'`, `` `…` ``) est copiée telle quelle :
+ * ce qu'elle contient n'ouvre ni ne ferme un commentaire.
  *
  * La lecture reste TEXTUELLE, et c'est assumé : ces contrôles diagnostiquent
  * une application qui ne démarre pas, donc rien ne s'évalue. On y perd les
@@ -38,9 +40,53 @@ import path from "node:path";
  * @returns le même texte, commentaires retirés.
  */
 export function withoutComments(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//gu, "")
-    .replace(/(^|[^:])\/\/.*$/gmu, "$1");
+  // Une seule passe, de gauche à droite. Les deux expressions régulières qui
+  // vivaient ici retiraient les blocs `/* … */` AVANT les lignes `// …` : un
+  // `/*` écrit DANS une ligne de commentaire (`// … /api/*)`) ouvrait alors un
+  // faux bloc, refermé des centaines de lignes plus bas — et le manifeste de
+  // ce dépôt passait de 31 000 à 2 800 caractères, `keystore` compris.
+  // Constaté par `security:secrets`, qui déclarait non câblé ce qui l'était.
+  // Une chaîne est copiée telle quelle : `"https://…"` et `'// pas un
+  // commentaire'` n'ouvrent rien.
+  const n = source.length;
+  let out = "";
+  let i = 0;
+  while (i < n) {
+    const c = source[i] as string;
+    const d = source[i + 1];
+    if (c === '"' || c === "'" || c === "`") {
+      let j = i + 1;
+      while (j < n) {
+        const e = source[j];
+        if (e === "\\") {
+          j += 2;
+          continue;
+        }
+        if (e === c) {
+          j += 1;
+          break;
+        }
+        if (e === "\n" && c !== "`") break;
+        j += 1;
+      }
+      out += source.slice(i, j);
+      i = j;
+      continue;
+    }
+    if (c === "/" && d === "*") {
+      const end = source.indexOf("*/", i + 2);
+      i = end < 0 ? n : end + 2;
+      continue;
+    }
+    if (c === "/" && d === "/" && source[i - 1] !== ":") {
+      const end = source.indexOf("\n", i);
+      i = end < 0 ? n : end;
+      continue;
+    }
+    out += c;
+    i += 1;
+  }
+  return out;
 }
 
 /**
@@ -61,6 +107,24 @@ export interface IManifestReader {
   /** Les entrées d'un dossier. */
   listDir(dir: string): { name: string; isDirectory: boolean }[];
 }
+
+/**
+ * LE lecteur du disque — l'implémentation unique que les contrôles, le
+ * scaffold hors simulation et les bancs passent à {@link readManifestSources}.
+ *
+ * Il était recopié trois fois (`surface`, `wiring`, un banc) : trois objets
+ * identiques aujourd'hui, trois façons de diverger demain — sur la lecture
+ * d'un lien symbolique, d'un dossier illisible, d'un encodage.
+ */
+export const diskManifestReader: IManifestReader = {
+  exists: (file) => existsSync(file),
+  read: (file) => readFileSync(file, "utf8"),
+  listDir: (dir) =>
+    readdirSync(dir, { withFileTypes: true }).map((e) => ({
+      name: e.name,
+      isDirectory: e.isDirectory(),
+    })),
+};
 
 /** Un fichier du manifeste, et son texte. */
 export interface IManifestSource {
@@ -119,10 +183,34 @@ function isExtractedManifest(name: string): boolean {
  * modules, et c'est lui qu'un écrivain doit choisir quand le motif ne se
  * trouve nulle part ailleurs.
  *
+ * ## La doctrine — écrite ICI une fois, et nulle part ailleurs
+ *
+ * - **Ce qu'un fragment porte** : des OPTIONS — le bloc de configuration d'un
+ *   module (`security`, `http`, `connectors`…), rendu par une fonction que le
+ *   manifeste racine importe et passe à `use()`.
+ * - **Ce qui reste dans la racine** : l'INDEX `modules`, c'est-à-dire les
+ *   `use()` eux-mêmes, dans leur ordre. C'est là que le générateur câble un
+ *   module neuf (`wireModuleManifest`), et là que `nodefony doctor` lit ce
+ *   qui est déclaré. Un `use()` déplacé dans un fragment n'est pas interdit,
+ *   mais il n'est pas la convention, et aucun outil ne l'y écrira.
+ * - **Pourquoi les lecteurs lisent tout de même l'ENSEMBLE** : un contrôle
+ *   qui ne lirait que la racine deviendrait aveugle le jour où un bloc est
+ *   extrait, sans un mot ; et un `use()` égaré dans un fragment doit être vu
+ *   plutôt que déclaré manquant. Lire large coûte trois fichiers ; se tromper
+ *   coûte un faux « tout va bien ».
+ * - **Un fragment ne vaut que parce que le manifeste le NOMME** : sans
+ *   `nodefony.config.ts`, rien n'est un fragment — un paquet de module lancé
+ *   seul porte `nodefony/config/defineModuleConfig.ts`, `services.ts`,
+ *   `routing.ts`, qui ne sont pas des morceaux d'un manifeste absent.
+ * - **La réserve de noms** : `config.ts` et `*.config.ts` appartiennent au
+ *   chargement d'un MODULE (voir {@link isExtractedManifest}) ; un fragment se
+ *   nomme `<module>.ts`. Un fragment au nom réservé est ignoré ici — et
+ *   `doctor` le signale (#299), parce qu'il ne serait chargé par personne.
+ *
  * @param projectRoot - racine de l'application (celle qui porte `nodefony.config.ts`).
- * @param reader - de quoi lire ; par défaut le disque.
- * @returns le manifeste puis ses fragments, chacun avec son chemin ; vide si
- *   l'application n'a pas de manifeste.
+ * @param reader - de quoi lire ; {@link diskManifestReader} hors simulation.
+ * @returns le manifeste puis ses fragments, chacun avec son chemin ; VIDE si
+ *   l'application n'a pas de manifeste racine — fragments compris.
  */
 export function readManifestSources(
   projectRoot: string,
@@ -130,9 +218,10 @@ export function readManifestSources(
 ): IManifestSource[] {
   const out: IManifestSource[] = [];
   const root = path.join(projectRoot, "nodefony.config.ts");
-  if (reader.exists(root)) {
-    out.push({ path: root, source: reader.read(root) });
+  if (!reader.exists(root)) {
+    return out;
   }
+  out.push({ path: root, source: reader.read(root) });
   const dir = path.join(projectRoot, ...EXTRACT_DIR);
   if (!reader.exists(dir)) {
     return out;
@@ -176,9 +265,16 @@ export function readManifestSources(
  * rendu : c'est l'index de l'application, l'endroit par défaut, et l'appelant
  * y trouvera l'absence d'ancre qu'il sait déjà signaler.
  *
+ * Le motif est cherché dans le CODE de chaque source, commentaires retirés.
+ * Sur le texte brut, le manifeste de ce dépôt — qui porte un exemple
+ * `mongoose` entièrement commenté contenant `connectors: {` — « portait » le
+ * motif et gagnait toujours : le fragment qui porte le vrai bloc n'était
+ * jamais lu, c'est-à-dire exactement la panne que cette fonction existe pour
+ * empêcher, réintroduite par elle-même.
+ *
  * @param projectRoot - racine de l'application.
  * @param reader - de quoi lire ; le scaffold passe son écrivain (simulation).
- * @param pattern - ce qu'on cherche, appliqué au texte BRUT de chaque source.
+ * @param pattern - ce qu'on cherche, appliqué au CODE de chaque source.
  * @returns le chemin du fichier porteur, ou celui du manifeste racine.
  */
 export function manifestFileWith(
@@ -191,10 +287,30 @@ export function manifestFileWith(
     // `lastIndex` d'une expression globale survit d'un appel à l'autre et
     // ferait sauter une source sur deux — on ne teste jamais l'objet reçu.
     if (
-      new RegExp(pattern.source, pattern.flags.replace("g", "")).test(source)
+      new RegExp(pattern.source, pattern.flags.replace("g", "")).test(
+        withoutComments(source),
+      )
     ) {
       return file;
     }
   }
   return path.join(projectRoot, "nodefony.config.ts");
+}
+
+/**
+ * Le CODE du manifeste entier — racine puis fragments, commentaires retirés,
+ * concaténés — pour les lecteurs qui cherchent un motif sans avoir à savoir
+ * quel fichier le porte (`security:secrets`, l'état d'installation).
+ *
+ * @param projectRoot - racine de l'application.
+ * @param reader - de quoi lire.
+ * @returns le code, ou la chaîne vide sans manifeste.
+ */
+export function readManifestCode(
+  projectRoot: string,
+  reader: IManifestReader,
+): string {
+  return readManifestSources(projectRoot, reader)
+    .map((m) => withoutComments(m.source))
+    .join("\n");
 }

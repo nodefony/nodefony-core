@@ -902,6 +902,21 @@ export {
   countCheckFindings,
 } from "./kernel/checks/runDoctor";
 export type { IDoctorReport } from "./kernel/checks/runDoctor";
+// Les lecteurs du MANIFESTE (racine + fragments de `nodefony/config/`) —
+// publiés parce qu'un module du framework (`security:secrets`) et un module
+// tiers lisent la configuration de l'application comme `doctor` la lit : une
+// règle, une implémentation, et le lecteur disque unique qui va avec.
+export {
+  readManifestSources,
+  readManifestCode,
+  manifestFileWith,
+  diskManifestReader,
+  withoutComments,
+} from "./kernel/checks/sourceText";
+export type {
+  IManifestReader,
+  IManifestSource,
+} from "./kernel/checks/sourceText";
 
 export { buildCard, renderCard } from "./cli/cardReport";
 export {

@@ -23,10 +23,14 @@
  * compris sur une application qui ne compile plus — c'est précisément là qu'on
  * le consulte.
  */
-import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { collectSources } from "./walk";
-import { readManifestSources, withoutComments } from "./sourceText";
+import {
+  readManifestSources,
+  withoutComments,
+  diskManifestReader,
+} from "./sourceText";
 
 /** Ce qui rend une route ou une zone atteignable sans authentification. */
 export type OpeningKind =
@@ -420,15 +424,7 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
   // rapport aveugle à une zone publique déplacée — zéro constat au lieu d'un
   // manquement, ce qui se lit « tout va bien ». C'est un rapport de SÉCURITÉ.
   const manifestSources = projectRoot
-    ? readManifestSources(projectRoot, {
-        exists: (f) => existsSync(f),
-        read,
-        listDir: (d) =>
-          readdirSync(d, { withFileTypes: true }).map((e) => ({
-            name: e.name,
-            isDirectory: e.isDirectory(),
-          })),
-      })
+    ? readManifestSources(projectRoot, diskManifestReader)
     : [];
 
   // Les zones vivent au niveau du PROJET : le relevé se fait une fois, hors de
