@@ -38,7 +38,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // absence et l'application meurt au premier accès.
   "better-sqlite3": "13.0.3",
   pg: "8.23.0",
-  mysql2: "3.24.3",
+  mysql2: "3.24.4",
   // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
   // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
   // à faire dans une image de production, qui APPLIQUE des migrations déjà

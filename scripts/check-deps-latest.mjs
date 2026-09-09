@@ -146,6 +146,43 @@ for (const rel of manifests) {
   }
 }
 
+// ── 1 ter. Le catalogue du SCAFFOLD — ce que reçoit une APPLICATION GÉNÉRÉE ──
+//
+// 🔴 L'angle mort de la récolte ci-dessus, et il est structurel : `git ls-files
+// "*package.json"` ne matche PAS `package.json.tpl`, et de toute façon le
+// gabarit ne porte aucune version — il interpole `it.pkg[…]`. Les versions que
+// reçoit une application générée vivent dans une table TypeScript écrite à la
+// main, `SCAFFOLD_VERSIONS`. Aucun automate ne la regardait : elle pouvait
+// diverger du dépôt indéfiniment, et le premier à s'en apercevoir aurait été
+// celui qui génère une application.
+//
+// Le catalogue se lit au TEXTE plutôt qu'à l'import : ce script tourne sans
+// build, et importer un module du cœur le ferait dépendre d'un `dist` à jour —
+// une dépendance que rien ne garantit ici, et qui rendrait le contrôle
+// silencieusement inopérant le jour où le build est en retard.
+const CATALOGUE_SCAFFOLD = "src/nodefony/src/cli/scaffold/versions.ts";
+try {
+  const src = fs.readFileSync(path.join(ROOT, CATALOGUE_SCAFFOLD), "utf8");
+  const corps = src.slice(src.indexOf("SCAFFOLD_VERSIONS"));
+  for (const m of corps.matchAll(
+    /^\s+"?([@a-zA-Z0-9/._-]+)"?:\s*"([^"]+)",?\s*$/gm,
+  )) {
+    const [, name, spec] = m;
+    if (IGNORED.has(name) || isLocal(spec) || isOpen(spec)) continue;
+    if (!wanted.has(name)) wanted.set(name, new Map());
+    const specs = wanted.get(name);
+    if (!specs.has(spec)) specs.set(spec, []);
+    specs.get(spec).push(`${CATALOGUE_SCAFFOLD}#SCAFFOLD_VERSIONS`);
+  }
+} catch {
+  // Le catalogue déplacé ou renommé ne fait pas tomber le rapport — mais il ne
+  // doit pas non plus disparaître en silence : le compte final le dira.
+  process.stderr.write(
+    `⚠️  catalogue du scaffold introuvable (${CATALOGUE_SCAFFOLD}) — ` +
+      `les versions d'une application GÉNÉRÉE ne sont pas contrôlées.\n`,
+  );
+}
+
 // ── 1 bis. Ce que le VERROU a réellement résolu ─────────────────────────────
 // `packages` indexe par chemin d'installation ; un même paquet peut y figurer
 // plusieurs fois (copies imbriquées, conflits de plages) — on les garde TOUTES,
