@@ -1187,16 +1187,16 @@ function lastStartup(
     // re-CONSTATER l'état (donc de redémarrer), et il faudrait recommencer pour
     // chaque verbe qui change quelque chose. Une règle, une implémentation :
     // c'est le LECTEUR qui sait d'où vient le bilan, et qui le dit.
-    const depuisConsole = entry.profile === "console";
+    const fromConsole = entry.profile === "console";
     lines.push(
       ...title(
-        depuisConsole
+        fromConsole
           ? `au démarrage de ${qui(entry)}, il MANQUAIT des briques (${age})`
           : `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
         p.warning,
       ),
     );
-    if (depuisConsole) {
+    if (fromConsole) {
       for (const l of wrap(
         "→ constat figé AVANT l'exécution de la commande : ce qu'elle a changé" +
           " n'y figure pas. `nodefony doctor --live` constate maintenant.",

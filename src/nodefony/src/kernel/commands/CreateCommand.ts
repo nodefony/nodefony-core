@@ -7,8 +7,8 @@ import { CREATE_TYPES, runCreateCommand } from "../../cli/create";
 import { FRONTEND_CHOICES, PRESET_CHOICES } from "../../cli/scaffold/spec";
 
 /** « none (default) | react | … » — le défaut annoncé sur le premier choix. */
-const choix = (valeurs: readonly string[]): string =>
-  valeurs.map((v, i) => (i === 0 ? `${v} (default)` : v)).join(" | ");
+const choices = (values: readonly string[]): string =>
+  values.map((v, i) => (i === 0 ? `${v} (default)` : v)).join(" | ");
 
 const options: OptionsCommandInterface = {
   helpGroup: "GÉNÉRER ET CONSTRUIRE",
@@ -42,8 +42,8 @@ class Create extends Command {
     this.addArgument("[name]", "project name (kebab-case — asked if omitted)");
     this.addOption("--dir <path>", "target directory (default: ./<name>)");
     this.addOption("-f, --force", "allow a non-empty target directory");
-    this.addOption("--preset <preset>", choix(PRESET_CHOICES));
-    this.addOption("--frontend <fw>", choix(FRONTEND_CHOICES));
+    this.addOption("--preset <preset>", choices(PRESET_CHOICES));
+    this.addOption("--frontend <fw>", choices(FRONTEND_CHOICES));
     this.addOption("-y, --yes", "accept spec defaults (skip interactive mode)");
     this.addOption(
       "--link",
