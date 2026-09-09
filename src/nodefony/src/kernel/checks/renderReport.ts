@@ -1173,12 +1173,39 @@ function lastStartup(
     }
   } else {
     // Le cas que personne ne diagnostique : ça DÉMARRE, donc ça a l'air sain.
+    //
+    // 🔴 Un bilan CONSOLE est figé au démarrage de la commande, donc AVANT que
+    // son verbe agisse. Au présent, le rapport contredisait alors ce que
+    // l'utilisateur venait de faire : `orm:migrate` appliquait deux migrations,
+    // et `doctor` répondait « no such table: User », « 2 migrations à
+    // appliquer ». Quelqu'un qui découvre le framework en conclut que sa base
+    // est cassée — et le constat disparaît au démarrage suivant, ce qui rend le
+    // doute plus coûteux encore.
+    //
+    // Le remède est le TEMPS du verbe, pas une réécriture du bilan par la
+    // commande : faire amender ce fichier par `orm:migrate` supposerait de
+    // re-CONSTATER l'état (donc de redémarrer), et il faudrait recommencer pour
+    // chaque verbe qui change quelque chose. Une règle, une implémentation :
+    // c'est le LECTEUR qui sait d'où vient le bilan, et qui le dit.
+    const depuisConsole = entry.profile === "console";
     lines.push(
       ...title(
-        `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
+        depuisConsole
+          ? `au démarrage de ${qui(entry)}, il MANQUAIT des briques (${age})`
+          : `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
         p.warning,
       ),
     );
+    if (depuisConsole) {
+      for (const l of wrap(
+        "→ constat figé AVANT l'exécution de la commande : ce qu'elle a changé" +
+          " n'y figure pas. `nodefony doctor --live` constate maintenant.",
+        width,
+        BODY,
+      )) {
+        lines.push(p.action(l));
+      }
+    }
     lines.push(...field("environnement", entry.environment));
     if (entry.healthy === false) {
       lines.push(

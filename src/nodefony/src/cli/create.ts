@@ -1466,8 +1466,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // Après `infra:up` : la commande démarre l'application, donc ouvre la
       // connexion — sans base joignable elle meurt avant d'écrire quoi que ce
       // soit.
+      //
+      // Les DEUX gestes, dans l'ordre qui marche : écrire la migration ne crée
+      // aucune table. N'annoncer que le premier laissait l'application à
+      // mi-chemin — précisément le défaut que le commentaire ci-dessus décrit,
+      // et que ce bloc était censé fermer.
       (!migrationWritten && appDeclareUnOrm(result.dest)
-        ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n`
+        ? `  npx nodefony orm:generate --name init   # écrit la migration de ta table User\n` +
+          `  npx nodefony orm:migrate                # l'APPLIQUE — sans elle, aucune table\n`
         : "") +
       // La console d'administration n'existe QUE si le préset l'a installée, et
       // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre

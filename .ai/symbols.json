@@ -30221,13 +30221,15 @@
         "src/nodefony/src/cli/create.ts"
       ],
       "FRONTEND_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "MODULE_CONTROLLER_CHOICES": [
         "src/nodefony/src/cli/create.ts"
       ],
       "PRESET_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "findPackageRoot": [
         "src/nodefony/src/cli/create.ts"

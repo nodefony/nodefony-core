@@ -216,6 +216,43 @@ describe("last-boot — le bilan du dernier démarrage", () => {
       assert.equal(code, 0);
     });
 
+    it("🔴 un bilan CONSOLE se lit à l'imparfait — il PRÉCÈDE le verbe qui l'a produit", async () => {
+      // Vécu sur une application neuve : `orm:migrate` applique DEUX migrations
+      // et crée les tables, puis `doctor` répond « no such table: User » et
+      // « 2 migrations à appliquer ». Le bilan est figé au démarrage de la
+      // commande, donc avant son effet — au présent, il contredit ce que
+      // l'utilisateur vient de faire, et il conclut que sa base est cassée.
+      writeLastBoot(
+        dir,
+        ok({
+          profile: "console",
+          command: "orm:migrate",
+          bricksSkipped: [{ module: "orm", reason: "no such table: User" }],
+        }),
+      );
+      const { out } = await capture(() => runDoctorCommand(["--no-strict"]));
+      assert.include(out, "il MANQUAIT des briques");
+      assert.notInclude(out, "a abouti mais il MANQUE des briques");
+      // Le temps du verbe ne suffit pas : le lecteur doit savoir POURQUOI ce
+      // constat est périmé, et par quel geste il obtient l'état courant.
+      assert.include(out, "AVANT l'exécution de la commande");
+      assert.include(out, "doctor --live");
+    });
+
+    it("un bilan SERVEUR reste au présent — rien ne s'est exécuté après lui", async () => {
+      writeLastBoot(
+        dir,
+        ok({
+          profile: "server",
+          command: "development",
+          bricksSkipped: [{ module: "redis", reason: "ECONNREFUSED" }],
+        }),
+      );
+      const { out } = await capture(() => runDoctorCommand(["--no-strict"]));
+      assert.include(out, "a abouti mais il MANQUE des briques");
+      assert.notInclude(out, "AVANT l'exécution de la commande");
+    });
+
     it("un profil serveur qui finit SANS serveur est nommé", async () => {
       writeLastBoot(dir, ok({ healthy: false }));
       const { out } = await capture(() => runDoctorCommand([]));
