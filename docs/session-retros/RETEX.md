@@ -348,6 +348,18 @@
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
 
+- [1× — 09-09c] **Mon e2e capturait le transcript ENTIER… dans le dossier que son `finally`
+  détruisait.** À la première assertion rouge (« contient `BootConfigurationError` »), le fichier
+  qui aurait dit LAQUELLE des lignes le portait n'existait plus ; j'ai dû rejouer 40 s de
+  génération pour lire ce que j'avais déjà mesuré. La capture d'une preuve va dans un chemin qui
+  SURVIT au test (`os.tmpdir()`, nommé dans le message d'assertion), jamais dans le décor nettoyé.
+
+- [1× — 09-09c] **« expected … to not include `\n    at ` » sur l'agent Windows de la forge : un
+  verdict binaire, et le transcript resté là-bas.** L'assertion savait exactement où était la
+  stack et n'en disait rien ; il a fallu un commit et un tour de CI (dix minutes) pour lui faire
+  rendre les lignes autour de la première occurrence. Sur un agent distant, le fichier qu'on
+  « peut relire » n'est pas relisible : le message d'assertion EST la seule preuve rapatriée.
+
 - [1× — 09-02] **Le FAIT et le JUGEMENT étaient figés ENSEMBLE, ce qui interdisait toute correction rétroactive.** La cause d'un rouge est mesurée pendant la tâche : elle appartient au run, elle reste. Son imputation est un classement : elle appartient à la table du jour, et elle se corrige. Le rapport gelait les deux, si bien qu'après avoir classé les causes manquantes, les runs déjà payés restaient « écartés, trou d'instrument » — il aurait fallu repayer des heures d'agent pour obtenir un verdict qu'un recalcul rendait en dix secondes. Séparés, le re-jugement a immédiatement changé trois verdicts sans relancer un seul agent.
 
 - [1× — 08-28k] **Le même gaspillage dans le PRODUIT, pas dans un banc — et c'est l'exploitant
@@ -451,6 +463,13 @@
   démarrer l'application — mais doit dire ce qu'il ne sait pas.
 
 ## 🖥️ L'interactif se prouve au PTY — et chaque couche peut salir la sortie
+
+- [1× — 09-09c] **Le défaut vécu par le user (jeton MCP tenté sur une base morte, trois stacks)
+  n'existe QU'EN TTY — et mon e2e ne pose aucune question.** `planTokenChaining` rend `null` hors
+  terminal : la voie qui a cassé est précisément celle que le banc ne peut pas emprunter. J'ai
+  fermé #302 en le disant (« prouvé qu'en non-TTY »), mais la preuve du chemin réel attend un PTY
+  ou la génération de l'alpha.4 par un humain. Un e2e qui passe là où le bug ne peut pas se
+  produire ne prouve rien du bug.
 
 - [1× — 09-05c] **La brique éprouvée, la chaîne jamais — et seul l'ÉCRAN l'a dit.** Un tourniquet neuf, 27 cas verts, branché sur `doctor --deep` : il peignait sa première image puis restait figé. Cause : `runNpmScript` appelait `spawnSync`, qui BLOQUE la boucle d'évènements — aucun `setInterval` ne s'y déclenche. Aucun test ne pouvait le voir (ils éprouvent l'objet isolément, avec des minuteurs simulés), et le user l'a vu du premier coup d'œil. **Une animation ne se prouve pas en testant l'animateur : elle se prouve en regardant la chaîne tourner.** Corollaire : corriger UN des deux `spawnSync` laissait l'autre figer trente secondes de plus.
 
@@ -653,6 +672,14 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
 
 ## 🧾 Un RITUEL de pilotage qui coûte plus qu'il ne rend
+
+- [1× — 09-09c] **Huit tickets « In Progress » que rien ne faisait avancer — posés par mes propres
+  commits d'EMPREINTE.** `post-commit` passe en cours tout ticket cité par un commit ; un
+  `chore(board): … #288 (#297 #298 #299 #300)` en cite cinq d'un coup. Le lint, lui, exclut les
+  commits de pilotage de son verdict — donc il ne voyait rien de faux, et le tableau affichait huit
+  chantiers ouverts pour zéro ligne de code. Deux règles pour la même question (« ce commit
+  est-il du travail ? ») dans deux automates qui ne se lisent pas ; le hook devrait porter la même
+  exclusion que le lint. Redescendus à la main au END, 21 items contrôlés un par un.
 
 - [1× — 09-08] **Le user m'a arrêté sur un outil que j'allais brancher au END.** J'avais écrit un
   script qui classe les leçons par porteur, et mon réflexe était de l'ajouter à la clôture — alors
