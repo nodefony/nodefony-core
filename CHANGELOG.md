@@ -8,6 +8,41 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.4 - 2026-09-09
+
+### Changed
+
+- **config (breaking):** renommer en `I…` les types d'entrée de configuration de module, un seul nom par type (c1661f48, 20739455)
+- **http (breaking):** renommer la clé de configuration `openssl` en `selfSigned` (dc8ca20b)
+- **config:** placer la configuration de chaque module dans son propre fichier `nodefony/config/<module>.ts`, gardé par un `satisfies` que `nodefony doctor` contrôle (43049bb4)
+
+### Added
+
+- **kernel:** exporter les lecteurs du manifeste d'application — `readManifestSources`, `readManifestCode`, `manifestFileWith`, `diskManifestReader` — pour qu'un module lise la configuration comme `doctor` la lit (f525f1e3, fd0af8d9)
+- **cli:** exposer aux applications générées le réglage du nombre de processus (b7cb649a)
+- **cli:** lister depuis la ligne de commande les clés de configuration d'un module (bbbe7094)
+- **studio:** afficher tout fournisseur de connexion configuré (6dda2c28)
+
+### Fixed
+
+- **studio:** faire entrer le registre de configuration dans le programme TypeScript, ce qui rend au paquet ses déclarations de types, absentes de l'`alpha.3` (cc7739a0)
+- **studio:** sortir zod du paquet publié (8b8481ab)
+- **scaffold:** rendre vert le premier `npm run verify` d'une application générée (32a2092b)
+- **cli:** lancer npm sous Windows sans confier d'arguments à un shell (6896a3ed)
+- **cli:** nommer la panne quand `npm create nodefony` ne joint pas la base de données (ccc8d9a7)
+- **cli:** annoncer tous les frontends servis par une application générée (636449c6)
+- **cli:** rendre vrai le catalogue des clés de configuration (ffbb9dbd)
+- **doctor:** ne plus contredire au diagnostic ce qu'une migration vient d'appliquer (fb48431f)
+- **doctor:** ne plus laisser une sonde d'infrastructure interrompre le diagnostic qu'elle sert (c68c51e1)
+- **kernel:** avertir quand un module écrase la configuration posée par l'application (abbc1acb)
+- **kernel:** ne journaliser qu'une fois une erreur de configuration au démarrage (4424040f)
+- **kernel:** reconnaître le catalogue des variables d'environnement entre deux instances de nodefony (0e1476a1)
+- **frontend:** laisser le socket de rechargement suivre le client (3fb551ec)
+- **frontend:** servir en local le client venu de la boucle locale (ff318901)
+- **security:** démarrer sans base de données quand le lancement ne la réclame pas (e9991905)
+- **redis:** n'ouvrir de connexion que lorsque le lancement déclare en avoir besoin (f8502a1c)
+- **devkit:** cesser d'envoyer l'agent configurer la sécurité au mauvais endroit (b3b17443)
+
 ## 10.0.0-alpha.3 - 2026-09-07
 
 ### Changed

@@ -1,6 +1,6 @@
 {
   "name": "create-nodefony",
-  "version": "10.0.0-alpha.3",
+  "version": "10.0.0-alpha.4",
   "description": "Créer une application Nodefony en une commande — npm create nodefony <nom> : squelette complet, base de données au choix, frontend optionnel",
   "type": "module",
   "license": "CECILL-B",
@@ -24,7 +24,7 @@
     "esm"
   ],
   "dependencies": {
-    "nodefony": "10.0.0-alpha.3"
+    "nodefony": "10.0.0-alpha.4"
   },
   "repository": {
     "type": "git",

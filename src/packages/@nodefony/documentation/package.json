@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/documentation",
-  "version": "10.0.0-alpha.3",
+  "version": "10.0.0-alpha.4",
   "description": "Plan de données de documentation de Nodefony : index des pages co-localisées dans chaque module, résolution des variables dynamiques, exposition en lecture pour la console d'administration",
   "contributors": [],
   "main": "./dist/index.js",
@@ -36,18 +36,18 @@
     "esm"
   ],
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.3",
-    "@nodefony/http": "^10.0.0-alpha.3",
+    "@nodefony/framework": "^10.0.0-alpha.4",
+    "@nodefony/http": "^10.0.0-alpha.4",
     "@types/node": "26.4.1",
     "@vitest/coverage-v8": "5.0.0",
-    "nodefony": "^10.0.0-alpha.3",
+    "nodefony": "^10.0.0-alpha.4",
     "rimraf": "6.1.3",
     "vitest": "5.0.0"
   },
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.3",
-    "@nodefony/http": "^10.0.0-alpha.3",
-    "nodefony": "^10.0.0-alpha.3",
+    "@nodefony/framework": "^10.0.0-alpha.4",
+    "@nodefony/http": "^10.0.0-alpha.4",
+    "nodefony": "^10.0.0-alpha.4",
     "zod": "^4.4.3"
   },
   "repository": {

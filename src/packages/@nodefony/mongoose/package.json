@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/mongoose",
-  "version": "10.0.0-alpha.3",
+  "version": "10.0.0-alpha.4",
   "description": "Moteur MongoDB de Nodefony sur Mongoose : dépôts typés conformes au contrat orm-core",
   "nodefony": {
     "storeKind": "durable",
@@ -52,22 +52,22 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
-    "@nodefony/http": "^10.0.0-alpha.3",
-    "@nodefony/orm-core": "^10.0.0-alpha.3",
-    "@nodefony/security": "^10.0.0-alpha.3",
-    "@nodefony/user": "^10.0.0-alpha.3",
+    "@nodefony/http": "^10.0.0-alpha.4",
+    "@nodefony/orm-core": "^10.0.0-alpha.4",
+    "@nodefony/security": "^10.0.0-alpha.4",
+    "@nodefony/user": "^10.0.0-alpha.4",
     "@types/node": "26.4.1",
     "mongodb-memory-server": "11.2.0",
-    "nodefony": "^10.0.0-alpha.3",
+    "nodefony": "^10.0.0-alpha.4",
     "rimraf": "6.1.3",
     "vitest": "5.0.0"
   },
   "peerDependencies": {
-    "@nodefony/http": "^10.0.0-alpha.3",
-    "@nodefony/orm-core": "^10.0.0-alpha.3",
-    "@nodefony/security": "^10.0.0-alpha.3",
-    "@nodefony/user": "^10.0.0-alpha.3",
-    "nodefony": "^10.0.0-alpha.3"
+    "@nodefony/http": "^10.0.0-alpha.4",
+    "@nodefony/orm-core": "^10.0.0-alpha.4",
+    "@nodefony/security": "^10.0.0-alpha.4",
+    "@nodefony/user": "^10.0.0-alpha.4",
+    "nodefony": "^10.0.0-alpha.4"
   },
   "repository": {
     "type": "git",

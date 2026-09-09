@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/studio",
-  "version": "10.0.0-alpha.3",
+  "version": "10.0.0-alpha.4",
   "description": "Console d'administration web de Nodefony : modules, routes, services, configuration effective, journaux et métriques en temps réel",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "type": "module",
@@ -40,11 +40,11 @@
     "esm"
   ],
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.3",
-    "@nodefony/frontend": "^10.0.0-alpha.3",
-    "@nodefony/http": "^10.0.0-alpha.3",
-    "@nodefony/realtime": "^10.0.0-alpha.3",
-    "nodefony": "^10.0.0-alpha.3",
+    "@nodefony/framework": "^10.0.0-alpha.4",
+    "@nodefony/frontend": "^10.0.0-alpha.4",
+    "@nodefony/http": "^10.0.0-alpha.4",
+    "@nodefony/realtime": "^10.0.0-alpha.4",
+    "nodefony": "^10.0.0-alpha.4",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -54,10 +54,10 @@
     "@mantine/hooks": "9.6.1",
     "@mantine/modals": "9.6.1",
     "@mantine/notifications": "9.6.1",
-    "@nodefony/framework": "^10.0.0-alpha.3",
-    "@nodefony/frontend": "^10.0.0-alpha.3",
-    "@nodefony/http": "^10.0.0-alpha.3",
-    "@nodefony/realtime": "^10.0.0-alpha.3",
+    "@nodefony/framework": "^10.0.0-alpha.4",
+    "@nodefony/frontend": "^10.0.0-alpha.4",
+    "@nodefony/http": "^10.0.0-alpha.4",
+    "@nodefony/realtime": "^10.0.0-alpha.4",
     "@simplewebauthn/browser": "14.0.0",
     "@tabler/icons-react": "3.46.0",
     "@tanstack/react-table": "9.2.4",
@@ -74,7 +74,7 @@
     "mermaid": "^11.17.2",
     "mobx": "^7.0.3",
     "mobx-react-lite": "^5.0.3",
-    "nodefony": "^10.0.0-alpha.3",
+    "nodefony": "^10.0.0-alpha.4",
     "qrcode.react": "4.2.0",
     "react": "19.3.0",
     "react-dom": "19.3.0",
