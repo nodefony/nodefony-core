@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T13:48:09.393Z",
+  "generatedAt": "2026-09-09T14:07:50.190Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 27,
+      "closed": 29,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 21,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
@@ -2036,8 +2036,8 @@
       "number": 301,
       "title": "fix(cli): nettoyer ce que npm create nodefony dit de faux ou de trop",
       "url": "https://github.com/nodefony/nodefony-core/issues/301",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2358,8 +2358,8 @@
       "number": 306,
       "title": "fix(kernel): ne journaliser qu'une fois une erreur de configuration",
       "url": "https://github.com/nodefony/nodefony-core/issues/306",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
