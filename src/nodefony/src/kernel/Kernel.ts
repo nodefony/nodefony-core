@@ -1609,9 +1609,9 @@ class Kernel extends Service implements IKernel {
         if (entry.config) {
           // Config colocalisée (`use(name, config)`) : deep-merge sous la config
           // DEFAULT du module fraîchement chargé, AVANT sa validation Zod
-          // (`onKernelRegister`). Même sémantique de merge que les overrides legacy
-          // `module-<nom>` (`extend(true, {}, …)`) — 1 seule recette de merge.
-          mod.options = extend(true, {}, mod.options, entry.config);
+          // (`onKernelRegister`), et RETENUE — c'est elle qu'un `module-<nom>`
+          // d'un autre module ne doit pas contredire en silence (#291).
+          mod.applyAppConfig(entry.config);
           this.log(`MODULE CONFIG (use) : ${entry.name}`, "DEBUG");
         }
       } catch (error) {

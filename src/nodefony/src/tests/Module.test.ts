@@ -305,6 +305,89 @@ describe("Module — readOverrideModuleConfig()", () => {
     assert.doesNotThrow(() => hostMod.readOverrideModuleConfig());
     assert.strictEqual((targetMod.options as any).injected, true);
   });
+
+  // #291 — la surcharge d'un module est appliquée APRÈS celle de l'application,
+  // donc c'est le module qui gagne, y compris un module de banc (`policy: "dev"`).
+  // Compléter reste silencieux ; écraser une feuille que l'application a POSÉE
+  // se signale, en nommant le module, le chemin, l'ancienne et la nouvelle valeur.
+  it("un module qui ÉCRASE une feuille posée par l'application le signale en WARNING", () => {
+    const kernel = makeKernelReal();
+    const targetMod = new Module("warn-target", kernel, PATH_FOR_NODEFONY_DIR, {
+      nested: { a: 0, keep: "x" },
+    });
+    kernel.modules["warn-target"] = targetMod;
+    // Ce que l'application a posé par `use("warn-target", { … })`.
+    targetMod.applyAppConfig({ nested: { a: 1 }, secretKey: "s3cr3t" });
+
+    const hostMod = new Module("warn-host", kernel, PATH_FOR_NODEFONY_DIR, {
+      "module-warn-target": {
+        nested: { a: 2, extra: true }, // `a` écrase l'app ; `extra` complète
+        secretKey: "other", // écrase, mais la valeur est un secret : rédigée
+        added: 3, // complète : silencieux
+      },
+    });
+    const pdus: import("../syslog/Pdu").default[] = [];
+    hostMod.syslog?.on("onLog", (p: import("../syslog/Pdu").default) =>
+      pdus.push(p),
+    );
+    hostMod.readOverrideModuleConfig();
+    hostMod.syslog?.removeAllListeners("onLog");
+
+    const warnings = pdus
+      .filter((p) => p.severityName === "WARNING")
+      .map((p) => String(p.payload));
+    assert.strictEqual(warnings.length, 2, warnings.join("\n"));
+    const a = warnings.find((w) => w.includes("nested.a")) ?? "";
+    const secret = warnings.find((w) => w.includes("secretKey")) ?? "";
+    assert.ok(a.includes("warn-host"), "le module qui écrase");
+    assert.ok(a.includes("warn-target"), "le module écrasé");
+    assert.match(a, /\b1\b.*\b2\b/su, "la valeur remplacée, puis la nouvelle");
+    assert.ok(secret.length > 0, "l'écrasement du secret est signalé");
+    assert.ok(
+      !secret.includes("s3cr3t"),
+      "un secret ne s'écrit pas dans le journal",
+    );
+    assert.ok(!secret.includes("other"));
+    // Le merge a bien eu lieu — le module gagne, c'est le comportement documenté.
+    assert.deepStrictEqual((targetMod.options as any).nested, {
+      a: 2,
+      keep: "x",
+      extra: true,
+    });
+    assert.strictEqual((targetMod.options as any).added, 3);
+    // Aucun avertissement pour ce qui COMPLÈTE.
+    assert.strictEqual(
+      warnings.some((w) => /extra|added/u.test(w)),
+      false,
+    );
+  });
+
+  it("sans configuration posée par l'application, une surcharge reste silencieuse (INFO)", () => {
+    const kernel = makeKernelReal();
+    const targetMod = new Module(
+      "quiet-target",
+      kernel,
+      PATH_FOR_NODEFONY_DIR,
+      {
+        nested: { a: 0 },
+      },
+    );
+    kernel.modules["quiet-target"] = targetMod;
+    const hostMod = new Module("quiet-host", kernel, PATH_FOR_NODEFONY_DIR, {
+      "module-quiet-target": { nested: { a: 9 } },
+    });
+    const pdus: import("../syslog/Pdu").default[] = [];
+    hostMod.syslog?.on("onLog", (p: import("../syslog/Pdu").default) =>
+      pdus.push(p),
+    );
+    hostMod.readOverrideModuleConfig();
+    hostMod.syslog?.removeAllListeners("onLog");
+    assert.strictEqual(
+      pdus.some((p) => p.severityName === "WARNING"),
+      false,
+    );
+    assert.strictEqual((targetMod.options as any).nested.a, 9);
+  });
 });
 
 // ─── 5. addService() ─────────────────────────────────────────────────────────

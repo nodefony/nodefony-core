@@ -1272,7 +1272,17 @@ describe("Kernel — BootReport (verdict de boot)", () => {
         throw new Error("Cannot find package @scope/bad");
       }
       loaded.push(name);
-      return { options: {} };
+      // Le faux porte ce que le Kernel appelle sur un module chargé : la config
+      // colocalisée `use()` passe par `applyAppConfig` (#291), pas par une
+      // affectation d'`options` — un faux sans elle tombait dans le filet
+      // par-entrée et comptait comme un module manquant.
+      return {
+        options: {},
+        applyAppConfig(config: Record<string, unknown>) {
+          this.options = config;
+          return this.options;
+        },
+      };
     };
     await (k as any).loadModulesFromManifest();
     // Les modules APRÈS le manquant ont bien été chargés (anti-masquage).

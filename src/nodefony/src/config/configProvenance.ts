@@ -185,3 +185,51 @@ export function findSetReservedKeys(
   walkReserved(props, resolved, "", out);
   return out;
 }
+
+/** Une feuille de configuration que `override` remplace dans `base`. */
+export interface IOverwrittenLeaf {
+  /** Chemin de la clé, segment par segment (`["nested", "a"]`). */
+  path: string[];
+  /** La valeur que `base` portait. */
+  before: unknown;
+  /** La valeur que `override` impose. */
+  after: unknown;
+}
+
+/**
+ * Les feuilles de `base` que `override` REMPLACE — jamais celles qu'il complète.
+ *
+ * Descend tant que les deux côtés sont des objets simples ; ailleurs, une clé
+ * présente des deux côtés avec deux valeurs différentes est un écrasement. Une
+ * clé absente de `base` est un complément, et ne figure pas dans le résultat.
+ * Sert au Kernel pour signaler qu'un module contredit une décision de
+ * l'application (#291) — la fusion, elle, reste celle d'`extend`.
+ *
+ * @param base - ce qui était posé (typiquement la config `use()` de l'application).
+ * @param override - ce qu'un module impose par-dessus (`module-<nom>`).
+ * @returns les écrasements, dans l'ordre des clés de `override`.
+ */
+export function findOverwrittenLeaves(
+  base: Record<string, unknown>,
+  override: Record<string, unknown>,
+): IOverwrittenLeaf[] {
+  const out: IOverwrittenLeaf[] = [];
+  const walkOver = (
+    b: Record<string, unknown>,
+    o: Record<string, unknown>,
+    prefix: string[],
+  ): void => {
+    for (const key of Object.keys(o)) {
+      if (!(key in b) || b[key] === undefined) continue;
+      const bv = b[key];
+      const ov = o[key];
+      if (isPlainObject(bv) && isPlainObject(ov)) {
+        walkOver(bv, ov, [...prefix, key]);
+      } else if (!valueEquals(bv, ov)) {
+        out.push({ path: [...prefix, key], before: bv, after: ov });
+      }
+    }
+  };
+  walkOver(base, override, []);
+  return out;
+}

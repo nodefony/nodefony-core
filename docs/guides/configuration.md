@@ -226,6 +226,17 @@ Policies : `mandatory` (socle, jamais gaté) · `optional` (défaut, gaté par `
 
 > Le manifeste **remplace** le décorateur `@modules` (retiré 2026-06-03) et les clés `module-<name>` à la racine.
 
+### Quand un MODULE configure un autre module — la précédence
+
+Un module peut porter, dans sa propre configuration, une clé `module-<nom>` adressée à un autre
+module (`@nodefony/framework` règle ainsi `@nodefony/security`). Elle est appliquée **après** la
+configuration de l'application, donc **c'est le module qui gagne** — y compris un module de banc
+(`policy: "dev"`). La règle : un module doit **compléter**, jamais **contredire**. Compléter est
+silencieux ; écraser une feuille que l'application a posée par `use()` est signalé en **WARNING**,
+avec le module, le chemin, la valeur remplacée et la nouvelle (un secret est rédigé). Le WARNING
+entre au bilan de boot : une décision explicite de l'application écrasée par une fixture ne se
+manifesterait autrement que par un comportement inexplicable.
+
 ## Typage par module — `use()` propose les bonnes clés
 
 Pour que `use("@nodefony/x", …)` auto-complète les clés du module x, **le module augmente le registre**

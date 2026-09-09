@@ -14,6 +14,8 @@ import Container from "../Container";
 import * as fs from "node:fs/promises";
 import CliKernel from "./CliKernel";
 import { extend } from "../Tools";
+import { findOverwrittenLeaves } from "../config/configProvenance";
+import { pathLooksSecret } from "../config/envOverride";
 import { tagListener } from "./lifecycleTags";
 import cluster from "node:cluster";
 import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
@@ -87,6 +89,13 @@ class Module<TConfig = Record<string, unknown>>
   package?: PackageJson;
   path: string = "";
   isApp: boolean = false;
+  /**
+   * Ce que l'APPLICATION a posé sur ce module par `use(name, config)` — et rien
+   * d'autre. `null` tant qu'elle n'a rien posé (le cas de la plupart des modules :
+   * aucune allocation). Sert à distinguer, quand un autre module surcharge ce
+   * module, ce qu'il COMPLÈTE de ce qu'il CONTREDIT (#291).
+   */
+  appOptions: DefaultOptionsService | null = null;
   /**
    * Noms des services enregistrés PAR ce module (via {@link addService},
    * y compris ceux du décorateur `@services`). Alloué au 1er ajout (lazy).
@@ -321,6 +330,50 @@ class Module<TConfig = Record<string, unknown>>
    * @param deep - merge profond (`true`, défaut) vs shallow (`false`).
    * @returns options du module courant, débarrassées des clés d'override consommées.
    */
+  /**
+   * Applique la configuration colocalisée de l'application (`use(name, config)`)
+   * sous les défauts du module, AVANT sa validation Zod — et la RETIENT.
+   *
+   * Même recette de fusion que les surcharges `module-<nom>` (`extend(true, …)`) :
+   * une seule sémantique de merge. La copie retenue est ce qui permet ensuite de
+   * dire qu'un module écrase une décision de l'application, et non un défaut.
+   *
+   * @param config - la configuration posée par l'application.
+   * @returns les options du module, fusionnées.
+   */
+  applyAppConfig(config: DefaultOptionsService): DefaultOptionsService {
+    this.appOptions = config;
+    this.options = extend(true, {}, this.options, config);
+    return this.options;
+  }
+
+  /**
+   * Signale chaque feuille que `override` remplace parmi celles que
+   * l'application a posées sur `target` — compléter reste silencieux.
+   *
+   * Un module est appliqué APRÈS l'application, donc il gagne, y compris un
+   * module de banc (`policy: "dev"`) : une décision explicite de l'application
+   * peut être écrasée par une fixture, et le seul témoin serait une ligne en
+   * INFO. Le WARNING nomme le module, le chemin, la valeur remplacée et la
+   * nouvelle ; un chemin qui ressemble à un secret est rédigé.
+   */
+  #warnOverwrittenAppConfig(
+    target: Module,
+    override: DefaultOptionsService,
+  ): void {
+    if (target.appOptions === null) return;
+    for (const leaf of findOverwrittenLeaves(target.appOptions, override)) {
+      const path = leaf.path.join(".");
+      const [before, after] = pathLooksSecret(leaf.path)
+        ? ["«secret»", "«secret»"]
+        : [JSON.stringify(leaf.before), JSON.stringify(leaf.after)];
+      this.log(
+        `Le module "${this.name}" écrase la configuration de "${target.name}" posée par l'application : ${path} = ${before} → ${after}. Un module doit compléter, pas contredire — retirer la clé de "module-${target.name}", ou l'assumer dans l'application.`,
+        "WARNING",
+      );
+    }
+  }
+
   readOverrideModuleConfig(deep: boolean = true): DefaultOptionsService {
     // Collectées puis supprimées APRÈS la boucle : muter l'objet qu'on itère est
     // permis en JS mais dépend d'un détail d'implémentation qu'aucun lecteur ne
@@ -353,6 +406,7 @@ class Module<TConfig = Record<string, unknown>>
         // ex. framework → security) : INFO. Le WARNING était compté dans le
         // journal du bilan de boot comme une anomalie à traiter — à tort.
         this.log(`Override Configuration Module: ${mod.name}`, "INFO");
+        this.#warnOverwrittenAppConfig(mod, override);
         if (deep) {
           mod.options = extend(true, {}, mod.options, override);
         } else {

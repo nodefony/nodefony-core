@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3971,
+    "symbols": 3973,
     "classes": 388,
-    "interfaces": 1077,
+    "interfaces": 1078,
     "types": 447,
     "enums": 4,
-    "functions": 1663,
+    "functions": 1664,
     "constants": 392
   },
   "symbols": {
@@ -2636,6 +2636,15 @@
       "extends": null,
       "description": "Une clé `reserved` que l'app (ou l'env) a posée à une valeur non-défaut."
     },
+    "IOverwrittenLeaf": {
+      "name": "IOverwrittenLeaf",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une feuille de configuration que `override` remplace dans `base`."
+    },
     "ConfigOrigin": {
       "name": "ConfigOrigin",
       "kind": "type",
@@ -2667,6 +2676,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Trouve les clés `reserved` du JSON Schema d'un module que la config résolue a fait DÉVIER de leur défaut — i.e. qu'une application a posées en croyant régler un comportement, alors qu'elles sont in…"
+    },
+    "findOverwrittenLeaves": {
+      "name": "findOverwrittenLeaves",
+      "kind": "function",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les feuilles de `base` que `override` REMPLACE — jamais celles qu'il complète. Descend tant que les deux côtés sont des objets simples ; ailleurs, une clé présente des deux côtés avec deux valeurs …"
     },
     "defaultAppConfig": {
       "name": "defaultAppConfig",
@@ -30270,7 +30287,8 @@
       "pathLooksSecret": [
         "src/nodefony/src/cli/envReport.ts",
         "src/nodefony/src/config/defineConfig.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts"
       ],
       "isEnvVarRequired": [
         "src/nodefony/src/cli/envReport.ts"
@@ -30998,6 +31016,9 @@
       "JSONObject": [
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/types/IModule.ts"
+      ],
+      "findOverwrittenLeaves": [
+        "src/nodefony/src/kernel/Module.ts"
       ],
       "tagListener": [
         "src/nodefony/src/kernel/Module.ts"
