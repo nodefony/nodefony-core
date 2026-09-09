@@ -120,6 +120,15 @@ ce dossier est dans l'`include` des deux `tsconfig` et dans le glob du bundler. 
 y reste au moins typechecké, quand un fichier racine serait invisible tant que personne ne
 l'importe.
 
+**Le nom est réservé, et la réserve ne crie pas.** `config.ts` et `*.config.ts` appartiennent au
+chargement d'un **module** (`<module>/nodefony/config/config.ts`, produit par `nodefony create
+module` et importé par l'`index.ts` du module) : dans `<app>/nodefony/config/`, les lecteurs du
+manifeste les **écartent** — sinon on ne saurait plus dire, à la lecture, si un fichier est chargé
+seul par le framework ou parce que le manifeste l'importe. Un fragment se nomme donc
+**`<module>.ts`** (`security.ts`, jamais `security.config.ts`) : mal nommé, il n'est lu par aucun
+contrôle **et chargé par personne** — `nodefony doctor` le signale (`reserved-fragment-name`).
+Seul le sous-dossier `cluster/` fait exception : il est lu par chemin par le process maître.
+
 > ⚠️ **Extraire SANS `satisfies` désarme le typage**, et le désarme en silence. Le contrôle des
 > propriétés en excès de TypeScript ne porte que sur un **littéral écrit au point où le type est
 > attendu** : dès que le bloc part dans une fonction, une clé mal orthographiée compile — puis Zod

@@ -81,6 +81,14 @@ describe("create app — le réglage du nombre de processus est DÉCOUVRABLE (#2
       /cluster\.config\.ts[^]*?pas généré[^]*?défaut/u,
       "le README dit que le fichier n'est pas généré, et pourquoi",
     );
+    // #299 — rien de ce que le gabarit produit sous `nodefony/config/` ne
+    // heurte la réserve de noms (`config.ts`, `*.config.ts`).
+    assert.deepEqual(
+      readdir(path.join(app, "nodefony", "config")).filter(
+        (n) => n === "config.ts" || n.endsWith(".config.ts"),
+      ),
+      [],
+    );
   });
 
   it("AGENTS.md nomme la variable à côté de la ligne de commande", () => {

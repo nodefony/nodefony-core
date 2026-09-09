@@ -911,6 +911,8 @@ export {
   readManifestCode,
   manifestFileWith,
   diskManifestReader,
+  isReservedFragmentName,
+  reservedFragmentFiles,
   withoutComments,
 } from "./kernel/checks/sourceText";
 export type {

@@ -26,6 +26,7 @@ import {
   readManifestSources,
   withoutComments,
   diskManifestReader,
+  reservedFragmentFiles,
 } from "./sourceText";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
@@ -39,7 +40,8 @@ export interface IWiringFinding {
     | "route-colon-param"
     | "reponse-a-la-main"
     | "firewall-area-enumere"
-    | "hook-lifecycle-inconnu";
+    | "hook-lifecycle-inconnu"
+    | "reserved-fragment-name";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier fautif, relatif à la racine analysée. */
@@ -413,10 +415,12 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // comptent, et pour des raisons différentes : `nodefony.config.ts` décide de
   // ce qui est CHARGÉ, `package.json` de ce qui est INSTALLÉ. Une brique
   // installée mais absente du manifeste ne s'exécute jamais.
-  // Le manifeste n'est plus forcément UN fichier : un `use()` déplacé dans
-  // `nodefony/config/` en fait partie. Lire le seul fichier racine ferait
-  // conclure « brique installée mais jamais chargée » sur une application
-  // parfaitement câblée.
+  // Le manifeste n'est plus forcément UN fichier : ses fragments de
+  // `nodefony/config/` en font partie. La doctrine — ce qu'un fragment porte,
+  // ce qui reste dans la racine, pourquoi on lit tout de même l'ensemble —
+  // est écrite UNE fois, dans la TSDoc de `readManifestSources`. Lire le seul
+  // fichier racine ferait conclure « brique installée mais jamais chargée »
+  // sur une application parfaitement câblée.
   const manifestSources = projectRoot
     ? readManifestSources(projectRoot, diskManifestReader)
     : [];
@@ -437,6 +441,27 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // Les zones vivent au niveau du PROJET : le contrôle se fait une fois, hors de
   // la boucle des cibles, sinon le même manquement serait rendu autant de fois
   // qu'il y a de modules locaux.
+  // Un fichier au nom RÉSERVÉ dans le dossier des fragments n'est lu par
+  // aucun contrôle ET chargé par personne : le taire serait la pire réponse.
+  if (projectRoot) {
+    for (const file of reservedFragmentFiles(projectRoot, diskManifestReader)) {
+      const base = path.basename(file);
+      const suggested =
+        base === "config.ts"
+          ? "<module>.ts"
+          : base.replace(/\.config\.ts$/u, ".ts");
+      findings.push({
+        kind: "reserved-fragment-name",
+        file: path.relative(cwd, file),
+        message:
+          `\`${base}\` porte un nom réservé au chargement d'un MODULE (\`config.ts\`, ` +
+          `\`*.config.ts\`) : dans \`nodefony/config/\` il est ignoré par les contrôles ` +
+          `du manifeste ET chargé par personne. Un fragment se nomme \`${suggested}\` ` +
+          `et s'importe depuis nodefony.config.ts`,
+      });
+    }
+  }
+
   // Une source à la fois : le constat nomme le fichier qui PORTE la zone —
   // pointer le manifeste racine pour un bloc `areas` extrait enverrait
   // corriger là où il n'y a rien (même règle que le rapport de surface).

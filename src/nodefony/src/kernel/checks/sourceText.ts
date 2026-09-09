@@ -157,8 +157,61 @@ const EXTRACT_DIR = ["nodefony", "config"] as const;
  */
 function isExtractedManifest(name: string): boolean {
   if (!name.endsWith(".ts") || name.endsWith(".d.ts")) return false;
-  if (name === "config.ts" || name.endsWith(".config.ts")) return false;
+  if (isReservedFragmentName(name)) return false;
   return true;
+}
+
+/**
+ * Le nom appartient-il au chargement d'un MODULE, et non à un fragment ?
+ *
+ * `config.ts` et `*.config.ts` sont ce qu'un module importe lui-même
+ * (`nodefony create module` les produit) ; un fragment de manifeste se nomme
+ * `<module>.ts`. C'est LA définition de la réserve — le lecteur l'applique
+ * pour écarter, `doctor` pour signaler.
+ *
+ * @param name - le nom de fichier, sans son dossier.
+ * @returns `true` si le nom est réservé.
+ */
+export function isReservedFragmentName(name: string): boolean {
+  return name === "config.ts" || name.endsWith(".config.ts");
+}
+
+/**
+ * Les fichiers de `<app>/nodefony/config/` qui portent un nom RÉSERVÉ — hors
+ * sous-dossiers, dont `cluster/`, lu par chemin par le process maître.
+ *
+ * Un tel fichier est ignoré par tous les lecteurs du manifeste ET chargé par
+ * personne : `<app>/nodefony/config/config.ts` n'est importé par aucune
+ * convention du cœur. Le silence est la pire des réponses ; `doctor` le
+ * signale (#299).
+ *
+ * @param projectRoot - racine de l'application.
+ * @param reader - de quoi lire.
+ * @returns les chemins absolus, triés — vide sans manifeste racine.
+ */
+export function reservedFragmentFiles(
+  projectRoot: string,
+  reader: IManifestReader,
+): string[] {
+  if (!reader.exists(path.join(projectRoot, "nodefony.config.ts"))) return [];
+  const dir = path.join(projectRoot, ...EXTRACT_DIR);
+  if (!reader.exists(dir)) return [];
+  let entries: { name: string; isDirectory: boolean }[];
+  try {
+    entries = reader.listDir(dir);
+  } catch {
+    return [];
+  }
+  return entries
+    .filter(
+      (e) =>
+        !e.isDirectory &&
+        e.name.endsWith(".ts") &&
+        !e.name.endsWith(".d.ts") &&
+        isReservedFragmentName(e.name),
+    )
+    .map((e) => path.join(dir, e.name))
+    .sort();
 }
 
 /**

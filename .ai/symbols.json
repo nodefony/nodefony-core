@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3976,
+    "symbols": 3978,
     "classes": 388,
     "interfaces": 1078,
     "types": 447,
     "enums": 4,
-    "functions": 1666,
+    "functions": 1668,
     "constants": 393
   },
   "symbols": {
@@ -9551,6 +9551,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le CODE d'une source : son texte privé de ses commentaires. Un contrôle qui lit le texte brut accuse la documentation qu'il croise. Le cas est vécu, et il n'est pas théorique : le contrôleur écrit …"
+    },
+    "isReservedFragmentName": {
+      "name": "isReservedFragmentName",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le nom appartient-il au chargement d'un MODULE, et non à un fragment ? `config.ts` et `*.config.ts` sont ce qu'un module importe lui-même (`nodefony create module` les produit) ; un fragment de man…"
+    },
+    "reservedFragmentFiles": {
+      "name": "reservedFragmentFiles",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les fichiers de `<app>/nodefony/config/` qui portent un nom RÉSERVÉ — hors sous-dossiers, dont `cluster/`, lu par chemin par le process maître. Un tel fichier est ignoré par tous les lecteurs du ma…"
     },
     "readManifestSources": {
       "name": "readManifestSources",
@@ -32336,6 +32352,9 @@
       ],
       "readManifestSources": [
         "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "reservedFragmentFiles": [
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "OptionsCommandInterface": [

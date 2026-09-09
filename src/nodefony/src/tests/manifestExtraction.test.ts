@@ -307,3 +307,47 @@ const keystore: { dir: string } = { dir: "x" };
     );
   });
 });
+
+/*
+ *   #299 — deux choses habitent un dossier du même nom : le fragment de
+ *   manifeste (`<app>/nodefony/config/<module>.ts`) et la configuration d'un
+ *   MODULE (`<module>/nodefony/config/config.ts`). Le lecteur écarte
+ *   `config.ts` et `*.config.ts` en silence : un fragment nommé
+ *   `security.config.ts` n'est lu par aucun contrôle ET chargé par personne.
+ */
+describe("un fragment au nom RÉSERVÉ est signalé par doctor (#299)", () => {
+  it("🔴 `nodefony/config/security.config.ts` : ignoré par les contrôles et chargé par personne → constat", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/security.config.ts": `export const security = () => ({});`,
+      "nodefony/config/config.ts": `export default {};`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    const f = r.findings.filter((x) => x.kind === "reserved-fragment-name");
+    assert.strictEqual(f.length, 2, JSON.stringify(r.findings));
+    const files = f.map((x) => x.file).sort();
+    assert.match(files[0], /nodefony[/\\]config[/\\]config\.ts$/u);
+    assert.match(files[1], /nodefony[/\\]config[/\\]security\.config\.ts$/u);
+    assert.match(
+      f[0].message,
+      /security\.ts|<module>\.ts/u,
+      "le geste : renommer",
+    );
+  });
+
+  it("`cluster/cluster.config.ts` et `security.ts` ne sont PAS signalés", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/security.ts": `export const security = () => ({});`,
+      "nodefony/config/cluster/cluster.config.ts": `export default { workers: 1 };`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    assert.deepEqual(
+      r.findings.filter((x) => x.kind === "reserved-fragment-name"),
+      [],
+      JSON.stringify(r.findings),
+    );
+  });
+});
