@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T05:53:59.312Z",
+  "generatedAt": "2026-09-09T13:14:22.295Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 23,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 19,
+      "open": 25,
       "title": "10.0.0-alpha"
     },
     {
@@ -1925,7 +1925,7 @@
       "title": "fix(cli): rendre vrai le catalogue des clés de configuration",
       "url": "https://github.com/nodefony/nodefony-core/issues/297",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1939,7 +1939,7 @@
       "title": "fix(kernel): lire le code du manifeste, et par tous ses lecteurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/298",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1953,7 +1953,7 @@
       "title": "docs(config): lever l'ambiguite entre config d'application et config de module",
       "url": "https://github.com/nodefony/nodefony-core/issues/299",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -1967,7 +1967,7 @@
       "title": "fix(skills): le kit de dev enseigne une cle de config supprimee",
       "url": "https://github.com/nodefony/nodefony-core/issues/300",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2030,6 +2030,20 @@
       "ordre": 6,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 301,
+      "title": "fix(cli): nettoyer ce que npm create nodefony dit de faux ou de trop",
+      "url": "https://github.com/nodefony/nodefony-core/issues/301",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 3.5,
+      "ordre": 6,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2131,6 +2145,20 @@
       ]
     },
     {
+      "number": 302,
+      "title": "fix(cli): nommer la cause quand la base refuse migration et jeton",
+      "url": "https://github.com/nodefony/nodefony-core/issues/302",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.2,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 182,
       "title": "feat(cli): doctor demande à l'application, pas seulement à ses fichiers",
       "url": "https://github.com/nodefony/nodefony-core/issues/182",
@@ -2170,6 +2198,20 @@
       "ordre": 6.3,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 303,
+      "title": "fix(cli): corriger ce que ai:mcp dit des agents et de leurs jetons",
+      "url": "https://github.com/nodefony/nodefony-core/issues/303",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.3,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2215,6 +2257,20 @@
       ]
     },
     {
+      "number": 304,
+      "title": "fix(kernel): lire le catalogue des variables depuis une autre instance",
+      "url": "https://github.com/nodefony/nodefony-core/issues/304",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.4,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 45,
       "title": "docs(guides): retirer « mocha + bun » et les pages fantômes",
       "url": "https://github.com/nodefony/nodefony-core/issues/45",
@@ -2257,6 +2313,20 @@
       ]
     },
     {
+      "number": 305,
+      "title": "fix(scaffold): générer la configuration Svelte que Vite réclame",
+      "url": "https://github.com/nodefony/nodefony-core/issues/305",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 6.5,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 46,
       "title": "docs(core): documenter l'outillage de test livré aux applications",
       "url": "https://github.com/nodefony/nodefony-core/issues/46",
@@ -2282,6 +2352,20 @@
       "ordre": 6.6,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 306,
+      "title": "fix(kernel): ne journaliser qu'une fois une erreur de configuration",
+      "url": "https://github.com/nodefony/nodefony-core/issues/306",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 6.6,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2313,6 +2397,20 @@
       ]
     },
     {
+      "number": 289,
+      "title": "refactor(config): trancher où vit la config d'une application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/289",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1.5,
+      "ordre": 7,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 223,
       "title": "docs(release): basculer l'accueil le jour de la publication",
       "url": "https://github.com/nodefony/nodefony-core/issues/223",
@@ -2324,6 +2422,34 @@
       "ordre": 7.1,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 285,
+      "title": "refactor(config): extraire la config par module dans nodefony/config",
+      "url": "https://github.com/nodefony/nodefony-core/issues/285",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 7.2,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 296,
+      "title": "feat(scaffold): montrer l'emplacement d'extraction de la config aux apps générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/296",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 7.5,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -2583,20 +2709,6 @@
       ]
     },
     {
-      "number": 289,
-      "title": "refactor(config): trancher où vit la config d'une application",
-      "url": "https://github.com/nodefony/nodefony-core/issues/289",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P1 — figé à la création",
-      "jours": 1.5,
-      "ordre": 16,
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
       "number": 284,
       "title": "refactor(kernel): lire le manifeste par une seule fonction partagée",
       "url": "https://github.com/nodefony/nodefony-core/issues/284",
@@ -2611,20 +2723,6 @@
       ]
     },
     {
-      "number": 285,
-      "title": "refactor(config): extraire la config par module dans nodefony/config",
-      "url": "https://github.com/nodefony/nodefony-core/issues/285",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 16.2,
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
       "number": 286,
       "title": "docs(guides): corriger les renvois vers un dossier de config supprimé",
       "url": "https://github.com/nodefony/nodefony-core/issues/286",
@@ -2634,20 +2732,6 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 16.3,
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
-      "number": 296,
-      "title": "feat(scaffold): montrer l'emplacement d'extraction de la config aux apps générées",
-      "url": "https://github.com/nodefony/nodefony-core/issues/296",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 16.5,
       "labels": [
         "10.0.0-alpha"
       ]
