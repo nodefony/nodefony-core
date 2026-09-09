@@ -59,6 +59,7 @@ import {
 import { pick, SCAFFOLD_VERSIONS } from "./versions";
 import { formatScaffoldOutput } from "./format.js";
 import { ScaffoldWriter, type IScaffoldChange } from "./writer";
+import { manifestFileWith } from "../../kernel/checks/sourceText";
 import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
@@ -2139,7 +2140,10 @@ function runControllerScaffold(
   const noteRole =
     role.length > 0
       ? wireRoleHierarchy(
-          path.join(projectRoot, "nodefony.config.ts"),
+          // Le bloc a pu être extrait dans `nodefony/config/` : écrire dans le
+          // manifeste racine y insérerait une ancre qui n'y est pas, ou
+          // n'ancrerait rien du tout — en silence.
+          manifestFileWith(projectRoot, writer, /roleHierarchy\s*:\s*\{/u),
           role,
           writer,
         )
@@ -2960,7 +2964,11 @@ function declaresDialect(
   writer: ScaffoldWriter,
   connector: string,
 ): boolean {
-  const configPath = path.join(projectRoot, "nodefony.config.ts");
+  const configPath = manifestFileWith(
+    projectRoot,
+    writer,
+    /\bconnectors\s*:\s*\{/u,
+  );
   if (!writer.exists(configPath)) return false;
   const block = extractBlock(writer.read(configPath), "connectors");
   if (block === null) return false;
@@ -3086,7 +3094,11 @@ function readConnectors(
   projectRoot: string,
   writer: ScaffoldWriter,
 ): IScaffoldConnector[] {
-  const configPath = path.join(projectRoot, "nodefony.config.ts");
+  const configPath = manifestFileWith(
+    projectRoot,
+    writer,
+    /\bconnectors\s*:\s*\{/u,
+  );
   if (!writer.exists(configPath)) return [];
   const source = writer.read(configPath);
   const asDialect = (value: string | undefined): TEntityDialect =>

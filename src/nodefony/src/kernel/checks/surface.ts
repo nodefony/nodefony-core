@@ -23,10 +23,10 @@
  * compris sur une application qui ne compile plus — c'est précisément là qu'on
  * le consulte.
  */
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { collectSources } from "./walk";
-import { withoutComments } from "./sourceText";
+import { readManifestSources, withoutComments } from "./sourceText";
 
 /** Ce qui rend une route ou une zone atteignable sans authentification. */
 export type OpeningKind =
@@ -415,32 +415,58 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
     }
   };
 
-  const manifestPath = projectRoot
-    ? path.join(projectRoot, "nodefony.config.ts")
-    : "";
-  const manifest = manifestPath ? read(manifestPath) : "";
+  // Le manifeste n'est plus forcément UN fichier : un bloc extrait dans
+  // `nodefony/config/` en fait partie. Lire le seul fichier racine rendrait ce
+  // rapport aveugle à une zone publique déplacée — zéro constat au lieu d'un
+  // manquement, ce qui se lit « tout va bien ». C'est un rapport de SÉCURITÉ.
+  const manifestSources = projectRoot
+    ? readManifestSources(projectRoot, {
+        exists: (f) => existsSync(f),
+        read,
+        listDir: (d) =>
+          readdirSync(d, { withFileTypes: true }).map((e) => ({
+            name: e.name,
+            isDirectory: e.isDirectory(),
+          })),
+      })
+    : [];
 
   // Les zones vivent au niveau du PROJET : le relevé se fait une fois, hors de
   // la boucle des cibles, sinon la même zone serait comptée autant de fois
-  // qu'il y a de modules locaux.
-  for (const zone of publicAreas(manifest)) {
-    openings.push({
-      kind: "public-area",
-      what: zone.pattern,
-      file: path.relative(cwd, manifestPath),
-    });
-    if (!coversEverything(zone.pattern)) continue;
-    findings.push({
-      kind: "public-area-covers-all",
-      file: path.relative(cwd, manifestPath),
-      message:
-        `la zone "${zone.pattern}" est publique (security: false) et couvre ` +
-        `TOUT l'espace : aucune route de l'application n'est protégée, et une ` +
-        `route ajoutée demain naîtra publique sans qu'aucun test ne le voie`,
-    });
+  // qu'il y a de modules locaux. Le fichier rapporté est celui où la zone a
+  // RÉELLEMENT été trouvée — pointer le manifeste racine pour une zone écrite
+  // ailleurs enverrait corriger au mauvais endroit.
+  for (const { path: file, source } of manifestSources) {
+    for (const zone of publicAreas(source)) {
+      openings.push({
+        kind: "public-area",
+        what: zone.pattern,
+        file: path.relative(cwd, file),
+      });
+      if (!coversEverything(zone.pattern)) continue;
+      findings.push({
+        kind: "public-area-covers-all",
+        file: path.relative(cwd, file),
+        message:
+          `la zone "${zone.pattern}" est publique (security: false) et couvre ` +
+          `TOUT l'espace : aucune route de l'application n'est protégée, et ` +
+          `une route ajoutée demain naîtra publique sans qu'aucun test ne le ` +
+          `voie`,
+      });
+    }
   }
 
-  const { dialect, from } = connectorDialect(manifest, env);
+  // Le dialecte se cherche dans TOUTES les sources, pour la même raison : un
+  // `connectors` extrait ne doit pas faire conclure « aucun dialecte déclaré ».
+  // Le texte est CONCATÉNÉ, jamais interrogé source par source : `connectorDialect`
+  // lit d'abord l'environnement et retombe sur un défaut explicite, si bien
+  // qu'une boucle « le premier qui répond gagne » ne l'appellerait JAMAIS sur une
+  // application sans manifeste — et lui ferait perdre son défaut sans un mot.
+  // Le manifeste racine passe en premier, donc il gagne en cas de doublon.
+  const { dialect, from } = connectorDialect(
+    manifestSources.map((m) => m.source).join("\n"),
+    env,
+  );
 
   // Un fichier n'est lu QU'UNE fois : les cibles se recouvrent (la racine du
   // projet contient ses `modules/*`), et sans cela le même manquement était

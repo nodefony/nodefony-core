@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3958,
+    "symbols": 3963,
     "classes": 388,
-    "interfaces": 1074,
+    "interfaces": 1076,
     "types": 447,
     "enums": 4,
-    "functions": 1653,
+    "functions": 1656,
     "constants": 392
   },
   "symbols": {
@@ -9460,13 +9460,47 @@
       "module": "@nodefony/core",
       "description": "Rend le rapport de `doctor` alors que l'application vient d'échouer à démarrer. 🔴 C'est le cas POUR lequel la commande existe. `--live` sort du fast-path et demande un boot : sans ce chemin, une a…"
     },
+    "IManifestReader": {
+      "name": "IManifestReader",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "De quoi lire une arborescence — le disque, ou ce qu'un scaffold s'apprête à écrire. L'injection n'est pas un confort de test : le générateur travaille sur des fichiers EN ATTENTE (`ScaffoldWriter`,…"
+    },
+    "IManifestSource": {
+      "name": "IManifestSource",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un fichier du manifeste, et son texte."
+    },
     "withoutComments": {
       "name": "withoutComments",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/sourceText.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Le texte d'une source, tel que les contrôles de `doctor` doivent le lire. 🔴 Cette règle était écrite TROIS fois — `surface`, `readiness`, `wiring` — et elle avait déjà divergé : deux copies coupai…"
+      "description": "Le CODE d'une source : son texte privé de ses commentaires. Un contrôle qui lit le texte brut accuse la documentation qu'il croise. Le cas est vécu, et il n'est pas théorique : le contrôleur écrit …"
+    },
+    "readManifestSources": {
+      "name": "readManifestSources",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend TOUS les textes qui composent le manifeste d'une application. ⭐ TL;DR : `nodefony.config.ts` d'abord, puis les fragments de `nodefony/config/*.ts`. Tout contrôle qui cherche un motif dans « la…"
+    },
+    "manifestFileWith": {
+      "name": "manifestFileWith",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le fichier du manifeste qui porte un motif — celui qu'un ÉCRIVAIN doit modifier. Lire suffit à concaténer les sources ; écrire non. Le générateur ancre `roleHierarchy` et lit `connectors` : le jour…"
     },
     "IOpening": {
       "name": "IOpening",
@@ -31596,6 +31630,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/format.ts"
       ],
+      "manifestFileWith": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -32199,6 +32236,10 @@
       ],
       "renderReport": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "readManifestSources": [
+        "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "OptionsCommandInterface": [
         "src/nodefony/src/kernel/commands/AiMcpCommand.ts",

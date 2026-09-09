@@ -18,11 +18,11 @@
  * code analysé. Le contrôle doit répondre y compris sur une application qui ne
  * démarre plus — c'est précisément là qu'on le consulte.
  */
-import { readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 import { collectSources } from "./walk";
-import { withoutComments } from "./sourceText";
+import { readManifestSources, withoutComments } from "./sourceText";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
 export interface IWiringFinding {
@@ -409,10 +409,23 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // comptent, et pour des raisons différentes : `nodefony.config.ts` décide de
   // ce qui est CHARGÉ, `package.json` de ce qui est INSTALLÉ. Une brique
   // installée mais absente du manifeste ne s'exécute jamais.
-  const manifestePath = projectRoot
-    ? path.join(projectRoot, "nodefony.config.ts")
-    : "";
-  const manifeste = manifestePath ? read(manifestePath) : "";
+  // Le manifeste n'est plus forcément UN fichier : un `use()` déplacé dans
+  // `nodefony/config/` en fait partie. Lire le seul fichier racine ferait
+  // conclure « brique installée mais jamais chargée » sur une application
+  // parfaitement câblée.
+  const manifestSources = projectRoot
+    ? readManifestSources(projectRoot, {
+        exists: (f) => existsSync(f),
+        read,
+        listDir: (d) =>
+          readdirSync(d, { withFileTypes: true }).map((e) => ({
+            name: e.name,
+            isDirectory: e.isDirectory(),
+          })),
+      })
+    : [];
+  const manifestePath = manifestSources[0]?.path ?? "";
+  const manifeste = manifestSources.map((m) => m.source).join("\n");
   // Le manifeste entre ici SANS ses commentaires, pour la raison inverse de
   // celle des sources : une brique CITÉE dans un commentaire (« décommente
   // ceci pour activer @nodefony/security ») passerait pour déclarée, et la
