@@ -41,10 +41,34 @@ import {
   malformedProbe,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
+import {
+  diskManifestReader,
+  manifestFileWith,
+  readManifestCode,
+} from "../kernel/checks/sourceText";
 import { askMissing } from "../cli/scaffold/interactive";
 import { SysExit } from "../cli/sysexits";
 
 const argv = (...words: string[]): string[] => ["node", "nodefony", ...words];
+
+/**
+ * Le CODE de TOUT le manifeste d'une app générée — racine ET fragments de
+ * `nodefony/config/`, commentaires retirés.
+ *
+ * Viser `nodefony.config.ts` en dur rendait ces contrôles aveugles dès qu'un
+ * bloc est extrait : ils cherchaient `roleHierarchy` dans l'index alors qu'il
+ * vit dans son fragment, et rendaient « absent » ce qui est simplement
+ * ailleurs. C'est la panne exacte que le lecteur partagé existe pour empêcher.
+ */
+const manifesteComplet = (dest: string): string =>
+  readManifestCode(dest, diskManifestReader);
+
+/** Le fichier qui PORTE un motif du manifeste — celui qu'un écrivain modifie. */
+const fichierPortant = (dest: string, motif: RegExp): string =>
+  manifestFileWith(dest, diskManifestReader, motif);
+
+/** L'ancre de la hiérarchie de rôles, telle que le générateur la cherche. */
+const ANCRE_ROLES = /roleHierarchy\s*:\s*\{/u;
 
 /** Rend le scaffold app dans un dossier de test avec réponses explicites. */
 const scaffold = (
@@ -490,10 +514,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(prov, "NF_ADMIN_PASSWORD");
       assert.include(prov, "ROLE_NODEFONY_ADMIN");
-      const config = readFileSync(
-        path.join(dest, "nodefony.config.ts"),
-        "utf8",
-      );
+      const config = manifesteComplet(dest);
       assert.include(config, "roleHierarchy");
       assert.include(config, "NF_CSRF_SECRET");
     });
@@ -1393,10 +1414,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // La hiérarchie GÉNÉRALISE : un administrateur accède à ce controller
       // sans porter le rôle, et il en ira de même de toute route future gardée
       // par lui. Une liste de rôles sur l'action ne ferait ni l'un ni l'autre.
-      const manifeste = readFileSync(
-        path.join(dest, "nodefony.config.ts"),
-        "utf8",
-      );
+      const manifeste = readFileSync(fichierPortant(dest, ANCRE_ROLES), "utf8");
       assert.match(
         manifeste,
         /ROLE_ADMIN\s*:\s*\[[^\]]*"ROLE_BILLING"[^\]]*\]/u,
@@ -1413,7 +1431,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("create controller sans --role : aucune garde, aucun import inutile, manifeste intact", () => {
       const dest = path.join(tmp, "nrctrl");
       scaffold(dest, { name: "nrctrl", preset: "complete", frontend: "none" });
-      const avant = readFileSync(path.join(dest, "nodefony.config.ts"), "utf8");
+      const porteur = fichierPortant(dest, ANCRE_ROLES);
+      const avant = readFileSync(porteur, "utf8");
       runScaffold(
         {
           type: "controller",
@@ -1433,9 +1452,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notMatch(src, /^@IsGranted\(/mu);
       assert.notInclude(src, "IsGranted,");
       assert.equal(
-        readFileSync(path.join(dest, "nodefony.config.ts"), "utf8"),
+        readFileSync(porteur, "utf8"),
         avant,
-        "sans --role, le manifeste de l'application ne doit pas bouger",
+        "sans --role, la configuration de l'application ne doit pas bouger",
       );
     });
 
@@ -1451,7 +1470,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "complete",
         frontend: "none",
       });
-      const cfg = path.join(dest, "nodefony.config.ts");
+      const cfg = fichierPortant(dest, ANCRE_ROLES);
       writeFileSync(
         cfg,
         readFileSync(cfg, "utf8").replace(
@@ -1495,10 +1514,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           version,
         );
       }
-      const manifeste = readFileSync(
-        path.join(dest, "nodefony.config.ts"),
-        "utf8",
-      );
+      const manifeste = manifesteComplet(dest);
       assert.equal(
         manifeste.split('"ROLE_BILLING"').length - 1,
         1,
@@ -2536,7 +2552,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // deux endroits où on le cherche — la config qu'on édite, et le fichier
       // que l'agent lit par défaut.
       const configGeneree = readFileSync(
-        path.join(dest, "nodefony.config.ts"),
+        fichierPortant(dest, /areas\s*:\s*\{/u),
         "utf8",
       );
       assert.include(
@@ -2635,10 +2651,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le bloc montré est fait pour être recopié dans `nodefony.config.ts`. S'il
       // perdait la clé `secret` que la config y pose, le recopier couperait le
       // token synchronizer — en silence, tests verts.
-      const config = readFileSync(
-        path.join(dest, "nodefony.config.ts"),
-        "utf8",
-      );
+      const config = manifesteComplet(dest);
       const bloc = (texte: string) =>
         /csrf:\s*\{[^}]*?secret:\s*([^,\n}]+)/u.exec(texte)?.[1].trim() ?? null;
       const secretConfig = bloc(config);

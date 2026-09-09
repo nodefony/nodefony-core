@@ -16,15 +16,26 @@
  *  3. Module dev/conditionnel   → `{ name, policy: "dev" }` ou `use(n, c, { when })`.
  *  4. Réglage par-env           → tester `ctx.isProd` / `ctx.isDev` (déjà utilisé ci-dessous).
  *  5. Lire une var d'env        → la déclarer dans `./env.ts`, lire `ctx.env.X` (jamais `process.env`).
- *  6. Extraire un domaine       → quand un bloc grossit : un fichier `nodefony/config/<module>.ts`
- *                                 exportant `(ctx) => ({ … }) satisfies I<Module>ConfigInput`.
+ *  6. Configurer un module      → un fichier `nodefony/config/<module>.ts` exportant
+ *                                 `(ctx) => ({ … }) satisfies I<Module>ConfigInput`, importé ici.
  *                                 Le `satisfies` n'est PAS décoratif : sans lui, une clé inconnue
- *                                 compile puis est retirée EN SILENCE au boot (choix, pas obligation).
+ *                                 compile puis est retirée EN SILENCE au boot — `nodefony doctor`
+ *                                 refuse un fragment qui s'en passe. Ce fichier-ci reste l'INDEX :
+ *                                 quels modules, dans quel ordre, sous quelle politique.
  *
  * Voir toutes les options + défauts : onglet Configuration de Studio (`/nodefony`).
  */
 import { defineConfig, use } from "nodefony";
 import type { env } from "./env";
+// Les blocs de configuration, un fichier par module — l'emplacement d'extraction
+// du framework (recette 6 ci-dessus). Ce fichier reste l'INDEX ordonné : ce qui
+// est monté, dans quel ordre, sous quelle politique.
+import { httpConfig } from "./nodefony/config/http";
+import { frameworkConfig } from "./nodefony/config/framework";
+import { realtimeConfig } from "./nodefony/config/realtime";
+import { securityConfig } from "./nodefony/config/security";
+import { studioConfig } from "./nodefony/config/studio";
+import { devkitConfig } from "./nodefony/config/devkit";
 
 // ── Registre de config des modules — À GARDER ────────────────────────────────
 // Ces ré-exports n'existent QUE pour faire entrer dans ce programme TypeScript
@@ -56,19 +67,6 @@ export type { IDevkitConfigInput } from "@nodefony/devkit";
 
 /** Type du catalogue d'env → `ctx.env` typé + auto-complété dans la fonction de config. */
 type Env = typeof env;
-
-/**
- * Redirections et rôles communs à tous les fournisseurs OAuth de CETTE app.
- *
- * Posés par fournisseur plutôt qu'en global : le module test garde ainsi ses
- * propres valeurs pour le banc E2E `test-oidc`, sans collision. Ne dépend pas de
- * `ctx`, donc hors de la fonction de config.
- */
-const oauthPerProvider = {
-  successRedirect: "/nodefony",
-  failureRedirect: "/nodefony/login?error=oauth",
-  defaultRoles: ["ROLE_USER"],
-};
 
 export default defineConfig<Env>((ctx) => ({
   // ── Identité de l'application (affichée dans la CLI et les logs d'init) ──────
@@ -146,307 +144,15 @@ export default defineConfig<Env>((ctx) => ({
     "@nodefony/drizzle",
 
     // ── Socle serveur — toujours présent (web + routing + sécurité).
-    use(
-      "@nodefony/http",
-      {
-        // Serveur HTTPS : en dev, accepte les certificats auto-signés (mkcert) ;
-        // en prod, rejette tout certificat TLS non valide (secure-by-default).
-        // ⚠️ Doit vivre sous `https` (httpsServerSchema) — au top-level la clé est
-        // silencieusement strippée au parse et la valeur n'est JAMAIS appliquée.
-        https: { rejectUnauthorized: !ctx.isDev },
-        // Certificat TLS (HTTPS/WSS). DEV : génération auto — mkcert (CA locale
-        // trustée → 0 warning navigateur, HMR Vite) si dispo, sinon auto-signé
-        // node-forge (SHA-256). PROD : fournir un VRAI certificat (Let's Encrypt,
-        // ingress k8s, reverse-proxy edge) — Nodefony n'est PAS une autorité de
-        // certification ; la génération reste un confort de DÉVELOPPEMENT.
-        // (Re)génération / inspection manuelle : `nodefony certificates [--force]`.
-        certificates: {
-          // PROD : décommenter pour fournir le vrai certificat (fail-fast si absent).
-          // strategy: "explicit",
-          // key: ctx.env.TLS_KEY, cert: ctx.env.TLS_CERT, ca: ctx.env.TLS_CA,
-          selfSigned: {
-            size: 2048,
-            // Hachage de signature — JAMAIS SHA-1 (interdit CA/B Forum, SHAttered 2017).
-            hash: "sha256",
-            validityDays: 365,
-            attrs: [
-              {
-                name: "commonName",
-                value: ctx.isProd ? "nodefony.com" : "localhost",
-              },
-              { name: "organizationName", value: "Nodefony Signing Authority" },
-              { name: "organizationalUnitName", value: "Development" },
-              { name: "countryName", value: "FR" },
-              { name: "stateOrProvinceName", value: "BDR" },
-              { name: "localityName", value: "Marseille" },
-            ],
-          },
-          // Subject Alternative Name — fait foi pour la vérification d'hôte
-          // (RFC 6125 : le commonName est ignoré). Vide = dérivé du kernel
-          // (localhost + domain ; une IP va en iPAddress). Banc reverse-proxy
-          // par domaine (NF_BIND_ALL) : couvrir `nodefony.com` pour permettre à
-          // haproxy `verify required` + `sni` de valider le cert backend.
-          san: ctx.env.NF_BIND_ALL
-            ? { dns: ["nodefony.com", "localhost"], ip: ["127.0.0.1", "::1"] }
-            : { dns: [], ip: [] },
-        },
-        // Barrière Host (consommée si `domainCheck: true` ci-dessus) : le domaine
-        // canonique est toujours accepté ; on liste localhost + 127.0.0.1 pour taper
-        // le serveur via les deux noms en dev/cluster local. `nodefony.com` permet
-        // l'accès par NOM DE DOMAINE — en dev via `/etc/hosts` (nodefony.com →
-        // 127.0.0.1), en prod via le vrai DNS. Le port est strippé avant le match
-        // (cf domainMatcher) → `nodefony.com:5151` matche `nodefony.com`.
-        //
-        // `host.docker.internal` : un navigateur qui tourne DANS un conteneur (le
-        // service `browser` de docker-compose.yml) ne peut pas dire « localhost »
-        // — ce nom y désigne le conteneur lui-même. Docker Desktop lui donne
-        // `host.docker.internal` pour joindre la machine hôte, et c'est ce nom qui
-        // arrive dans l'en-tête `Host` : sans lui dans l'allowlist, la barrière
-        // répond `421 Misdirected Request` alors que le réseau, lui, passe.
-        //
-        // 🔴 EXCEPTION ASSUMÉE, PROPRE À CE DÉPÔT — inconditionnelle, y compris en
-        // production. Elle était auparavant limitée au développement, ce qui
-        // paraissait plus sûr et rendait en fait le navigateur en conteneur
-        // INUTILISABLE là où l'on en a le plus besoin : les audits (Lighthouse,
-        // accessibilité, agentic) se mènent sur un runtime `production`, et le
-        // conteneur y recevait `421` dès la connexion — donc aucune page derrière
-        // authentification n'était observable, ni par un humain ni par un agent.
-        //
-        // Pourquoi c'est acceptable ICI : ce dépôt est le banc de développement du
-        // framework, jamais un déploiement exposé. `host.docker.internal` n'est
-        // d'ailleurs pas un nom résolvable publiquement — c'est une convention
-        // Docker Desktop, absente d'internet et des clusters. L'élargissement porte
-        // donc sur un nom que seul un conteneur local peut présenter.
-        //
-        // 🔴 CE QUI NE DOIT PAS ESSAIMER : le SCAFFOLD ne pose pas cette entrée, et
-        // ne doit jamais la poser. Une application générée n'a aucune raison de
-        // faire confiance à ce nom en production — ses gabarits ne mentionnent
-        // `host.docker.internal` que dans la marche à suivre pour observer un
-        // écran depuis un conteneur (`compose.yaml.tpl`, `AGENTS.md.tpl`), là où
-        // c'est un conseil de dev et non une règle de sécurité. Vérifié : aucun
-        // gabarit n'écrit `trustedHosts`. Si un jour l'un d'eux le fait, cette
-        // entrée reste conditionnée au développement CHEZ LUI.
-        //
-        // Cette liste porte AUSSI, depuis la dérivation d'origine par `Host`, la
-        // décision « quels noms le rendu a le droit de suivre » : y ajouter un
-        // hôte ouvre à la fois la barrière 421, l'allowlist Vite, le CSP et
-        // l'origine des assets. Une seule liste, quatre effets — c'est voulu.
-        trustedHosts: [
-          "localhost",
-          "127.0.0.1",
-          "nodefony.com",
-          "host.docker.internal",
-        ],
-        // trustProxy : n'honore les en-têtes forwarded que derrière un proxy de
-        // confiance. Activé via NF_BIND_ALL (banc reverse-proxy Docker : IP source
-        // des conteneurs = réseau privé 172.16/12, 192.168/16, 10/8). En prod,
-        // régler explicitement selon l'ingress. Défaut SÛR : false (0 confiance).
-        trustProxy: ctx.env.NF_BIND_ALL ? ["loopback", "uniquelocal"] : false,
-        // Stockage de session en `auto` : sans infra déclarée mais @nodefony/drizzle
-        // chargé → sqlite local (persistant) ; honore l'override global
-        // `NF_STORE=memory` (banc de charge). Le modèle NIST/OWASP (idle + absolute +
-        // touch sur activité HTTP/WS) vit dans @nodefony/http (défauts sains : idle
-        // 30 min, absolute 12 h). Multi-nœud → déclarer NF_DATABASE_URL / NF_REDIS_URL.
-        session: {
-          store: "auto",
-        },
-        // Upload multipart (moteur busboy). `uploadDir` = dossier de dépôt ;
-        // vide → résolu sur `kernel.tmpDir`. (Ex-clé `formidable` = moteur retiré.)
-        upload: { uploadDir: "./tmp/upload" },
-      },
-      { policy: "mandatory" },
-    ),
-    // Idempotence des mutations : `auto` (défaut) suit l'infra déclarée —
-    // NF_REDIS_URL → redis, sinon NF_DATABASE_URL → drizzle ; SANS infra réseau,
-    // un backend local persistant chargé (drizzle sqlite, puis mongoose) passe
-    // AVANT le repli `memory`. `NF_STORE` force tout cela d'un cran au-dessus. |
-    // `memory` (per-pod) | `redis` | `drizzle` (distribués cross-pod). Opt-in
-    // explicite `NF_IDEMPOTENCY_STORE`. Le framework résout le nom au boot
-    // (fail-loud si non enregistré). Cf `@Idempotent` (P6.8).
-    use(
-      "@nodefony/framework",
-      { idempotency: { store: ctx.env.NF_IDEMPOTENCY_STORE } },
-      { policy: "mandatory" },
-    ),
+    use("@nodefony/http", httpConfig(ctx), { policy: "mandatory" }),
+    // Routeur, contrôleurs, plan d'administration — socle, comme http.
+    use("@nodefony/framework", frameworkConfig(ctx), { policy: "mandatory" }),
 
-    // Realtime APRÈS framework. Backplane `cluster` (IPC intra-pod, master relay) par
-    // DÉFAUT : 0 dépendance externe. Mono-process → hub local ; cluster (`--workers N`)
-    // → fan-out IPC entre workers du même pod. Redis = OPT-IN cross-pod (voir plus bas).
-    use("@nodefony/realtime", {
-      backplane: { driver: "cluster" },
-      // #35 — accepte les journaux que les navigateurs remontent, et les
-      // réinjecte dans le journal du pod (origine forcée `browser`, débit et
-      // taille bornés par connexion). Ouvert ICI parce que ce dépôt est aussi
-      // l'application de développement du framework : c'est ce qui permet de
-      // voir, dans la console d'administration, une erreur de page et la requête
-      // qui l'a précédée sur la même ligne de temps. Fermé par défaut ailleurs.
-      clientLogs: { enabled: true },
-    }),
+    // Realtime APRÈS framework : il se greffe via l'AdminBroker avant `mountAll`.
+    use("@nodefony/realtime", realtimeConfig()),
 
     // Sécurité applicative (P6) — requise dès qu'on sert du trafic.
-    // Zones (firewall) : chaque zone = pattern d'URL + chaîne d'authenticators
-    // (validées Zod au boot — config invalide = firewall fail-closed, tout rejeté).
-    // Les zones se déclarent au plus près de leurs routes : un module porte sa
-    // zone via l'override `module-security` dans SA config (ex. la zone
-    // `test-secure` du banc P6 vit dans src/modules/test/nodefony/config/config.ts).
-    use(
-      "@nodefony/security",
-      {
-        // Social login OAuth 2.0 — un fournisseur n'est monté que si SES deux
-        // secrets sont présents (spread conditionnel) : pas de bouton mort sur
-        // l'écran de connexion. Les secrets viennent d'`env.ts`, seul lecteur de
-        // `process.env`, et ne sont JAMAIS journalisés.
-        //
-        // OAuth = AUTHENTIFICATION, JAMAIS autorisation : se connecter via
-        // Google/GitHub ne rend JAMAIS administrateur — ni en dev, ni en prod. Le
-        // compte social provisionné (JIT « Shadow User ») reçoit `ROLE_USER` seul.
-        // L'accès admin passe par un compte seedé (`provisionUsers`) ou une
-        // élévation explicite côté base.
-        //
-        // Les redirections et rôles sont posés PAR FOURNISSEUR : le module test
-        // garde ainsi ses propres valeurs globales pour le banc E2E `test-oidc`,
-        // sans collision. Pour retirer un bouton SANS fermer le flux (fixture,
-        // fournisseur réservé à un autre point d'entrée) : `hidden: true`.
-        oauth2: {
-          enabled: true,
-          providers: {
-            ...(ctx.env.GITHUB_CLIENT_ID && ctx.env.GITHUB_CLIENT_SECRET
-              ? {
-                  github: {
-                    clientId: ctx.env.GITHUB_CLIENT_ID,
-                    clientSecret: ctx.env.GITHUB_CLIENT_SECRET,
-                    redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
-                    ...oauthPerProvider,
-                  },
-                }
-              : {}),
-            ...(ctx.env.GOOGLE_CLIENT_ID && ctx.env.GOOGLE_CLIENT_SECRET
-              ? {
-                  google: {
-                    clientId: ctx.env.GOOGLE_CLIENT_ID,
-                    clientSecret: ctx.env.GOOGLE_CLIENT_SECRET,
-                    redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/google/callback`,
-                    ...oauthPerProvider,
-                  },
-                }
-              : {}),
-          },
-        },
-        // Hiérarchie de rôles (RBAC, niveau A de l'autorisation) — ROLE_X hérite
-        // des rôles listés (résolu au boot en DFS ; cycle → throw). Additif :
-        // un rôle gagne les droits des rôles couverts, jamais l'inverse.
-        // Surfacé dans Studio → /nodefony/roles (Hiérarchie + Graphe).
-        //
-        // DEUX ÉCHELLES — frontière = convention de NOM (multi-tenant-ready) :
-        //  • PLATEFORME `ROLE_NODEFONY_*` — l'OPÉRATEUR de l'instance (hébergeur
-        //    SaaS, le « landlord »). GLOBAL, cross-tenant, JAMAIS scopé ni
-        //    assigné à un client. Le SEUL à transcender l'isolation tenant
-        //    (opt-out du scope auto). NE confondez JAMAIS avec un « admin de
-        //    tenant » (= ROLE_ADMIN, scopé à son organisation).
-        //  • TENANT `ROLE_*` — exercés DANS le tenant de l'acteur. Mono-tenant
-        //    aujourd'hui = rôles plats (`user.roles`). En multi-tenant (P17), ils
-        //    viendront du membership user×tenant, PAS de `user.roles` global
-        //    (modif INTERNE de UserToken.getRoles, additive — cf
-        //    project_multitenant_chantier_kit §2bis). La hiérarchie ci-dessous
-        //    reste valable : seule la SOURCE des rôles tenant changera.
-        roleHierarchy: {
-          // PLATEFORME — couvre tous les rôles métier (et, transitivement, USER)
-          // → un seul rôle pour « voit/fait tout » sur l'instance entière.
-          ROLE_NODEFONY_ADMIN: [
-            "ROLE_ADMIN",
-            "ROLE_SECURITY_AUDITOR",
-            "ROLE_DEV",
-            "ROLE_SUPERVISOR",
-          ],
-          // TENANT (scopables) — chacun couvre l'utilisateur de base.
-          ROLE_ADMIN: ["ROLE_USER"], // admin applicatif (gestion des utilisateurs)
-          ROLE_SECURITY_AUDITOR: ["ROLE_USER"], // audit sécurité (journal, firewall lecture)
-          ROLE_DEV: ["ROLE_USER"], // développeur (ORM, modules, routes, doc technique)
-          ROLE_SUPERVISOR: ["ROLE_USER"], // exploitant / SRE (supervision, cluster, logs)
-        },
-        // Rôle ÉMETTEUR (RFC 8414) — l'URL publique sous laquelle cette app
-        // signe ses jetons. Elle ne se devine PAS (derrière un relais, `Host`
-        // vient du client) : c'est l'exploitant qui l'écrit. Renseignée, elle
-        // ouvre `/.well-known/oauth-authorization-server` et
-        // `/.well-known/jwks.json` — sans quoi aucun tiers ne peut vérifier une
-        // signature émise ici. En dev, l'adresse publique EST connue.
-        jwt: {
-          issuer:
-            ctx.env.NF_JWT_ISSUER ??
-            (ctx.isProd ? undefined : "https://localhost:5152"),
-          // Clés de signature PERSISTANTES (dossier gitignoré, chmod 600).
-          //
-          // 🔴 Sans elles, chaque process génère la sienne au démarrage : un
-          // jeton émis par la CLI (`nodefony security:token`) porte un `kid`
-          // que le serveur en marche ne connaît pas, et il est refusé en
-          // « autorisation requise ». Mesuré : trois `kid` distincts pour la
-          // même application, un par process et un de plus après redémarrage.
-          // Elles survivent aussi aux redémarrages — les jetons en vol ne sont
-          // plus invalidés à chaque rebuild du serveur de développement.
-          //
-          // En PRODUCTION, ce dossier n'a pas de sens (pods jetables, système
-          // de fichiers éphémère) : la clé y vient de l'environnement
-          // (`keySetJson`), partagée par tous les pods.
-          keystore: ctx.isProd ? {} : { dir: "var/keys" },
-          // Les ressources qu'un client peut NOMMER en demandant un jeton
-          // (`resource`, RFC 8707) — une liste BLANCHE, décidée par
-          // l'APPLICATION. La première est l'audience par défaut : garder
-          // l'émetteur en tête laisse inchangé tout jeton demandé sans
-          // `resource`.
-          //
-          // 🔴 Ces quatre lignes vivaient dans le module `test`, et c'était un
-          // défaut de placement aux conséquences invisibles : le dépôt savait
-          // émettre un jeton pour sa porte MCP grâce à un module de BANC, si
-          // bien qu'aucun essai ici ne pouvait montrer qu'une application
-          // générée, elle, se voyait refuser le jeton de sa propre porte.
-          audiences: ctx.isProd
-            ? []
-            : [
-                ctx.env.NF_JWT_ISSUER ?? "https://localhost:5152",
-                // Audience du banc : la zone `test-foreign-audience` du module
-                // `test` l'exige, pour prouver qu'un jeton n'ouvre QUE la porte
-                // pour laquelle il a été demandé.
-                "https://api.foreign.example/v1",
-                // La porte MCP, en clair et en TLS : la même ressource répond
-                // sur les deux serveurs, et un jeton demandé pour l'une était
-                // refusé sur l'autre — la liaison d'audience faisant son
-                // travail. Ces valeurs s'ÉCRIVENT, jamais ne se dérivent du
-                // `Host`.
-                "http://localhost:5151/nodefony/mcp",
-                "https://localhost:5152/nodefony/mcp",
-              ],
-        },
-        // 2FA TOTP (P6) — secret 2FA chiffré au repos (AES-256-GCM). Clé prod via
-        // env (absente en prod = 2FA OFF, fail-safe : un secret chiffré par une clé
-        // éphémère serait illisible après redémarrage / sur les autres pods ; dev =
-        // clé éphémère + warning). MÊME pont env que les webhooks.
-        totp: {
-          encryptionKey: ctx.env.NF_TOTP_KEY,
-        },
-        // Jetons anti-CSRF (synchronizer) — le secret DOIT être partagé entre
-        // les process : en cluster, un secret par pod ferait rejeter un jeton
-        // émis par un autre pod. Absent en dev = secret éphémère + warning,
-        // comme les deux clés voisines. `npx nodefony security:secrets`.
-        csrf: {
-          secret: ctx.env.NF_CSRF_SECRET,
-        },
-        // Webhooks sortants (P6.13) — secret de signature chiffré au repos. Clé
-        // prod via env (absente en prod = webhooks OFF, fail-safe ; dev = clé
-        // éphémère + warning). `enabled`/SSRF/livraison gardent leurs défauts.
-        webhooks: {
-          encryptionKey: ctx.env.NF_WEBHOOK_KEY,
-          // Backend du registre : memory (défaut) | drizzle (durable). Le câblage
-          // de la fabrique + l'entité vit dans `nodefony/security/webhookStore.ts`.
-          store: ctx.env.NF_WEBHOOK_STORE,
-          // DEV : autorise les cibles localhost + http:// pour le récepteur de
-          // test local (module test → /test/webhooks/sink). PROD : SSRF strict
-          // (défauts) — un webhook prod ne doit JAMAIS viser une IP privée/du http.
-          denyPrivateIps: ctx.isProd,
-          allowHttp: !ctx.isProd,
-        },
-      },
-      { policy: "mandatory" },
-    ),
+    use("@nodefony/security", securityConfig(ctx), { policy: "mandatory" }),
 
     // ── Démo / tests d'intégration — hors production.
     { name: "@nodefony/test", policy: "dev" },
@@ -469,15 +175,8 @@ export default defineConfig<Env>((ctx) => ({
     // ── Doc transverse AVANT Studio.
     "@nodefony/documentation",
 
-    // Studio admin — console d'administration du framework. `ui` reste sur `auto`
-    // (→ Vite/HMR dans ce dépôt) sauf décor contraire : `NF_STUDIO_UI=static` sert
-    // le pré-buildé, seul mode joignable depuis un navigateur en conteneur (le
-    // pourquoi est dans ./env.ts).
-    use(
-      "@nodefony/studio",
-      { ui: ctx.env.NF_STUDIO_UI },
-      { policy: "mandatory" },
-    ),
+    // Studio admin — console d'administration du framework.
+    use("@nodefony/studio", studioConfig(ctx), { policy: "mandatory" }),
 
     // ── Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
     //    `NF_REDIS_URL` présente ⇔ module chargé (un seul signal, pas de magie
@@ -511,60 +210,6 @@ export default defineConfig<Env>((ctx) => ({
      * à lancer) aide pendant le développement et n'est, en production, qu'une
      * divulgation. Un module non chargé n'est même pas importé : coût nul.
      */
-    use(
-      "@nodefony/devkit",
-      {
-        // ── Porte MCP PROTÉGÉE (P6.9) ──────────────────────────────────────
-        // Un seul réglage commande le rôle : `authorizationServers`. Vide, la
-        // porte est anonyme ; non vide, elle exige un jeton et publie où en
-        // obtenir un (RFC 9728).
-        //
-        // Ici l'émetteur, c'est CETTE application : elle signe ses propres
-        // jetons et publie ses clés (`/.well-known/jwks.json`), donc son
-        // vérificateur sait les relire — exactement comme il relirait ceux
-        // d'un Keycloak. C'est ce qui permet un MCP authentifié SANS monter
-        // le moindre serveur d'autorisation tiers.
-        mcp: {
-          authorization: {
-            authorizationServers: [
-              ctx.env.NF_JWT_ISSUER ?? "https://localhost:5152",
-            ],
-            // 🔴 L'audience attendue des jetons — elle s'ÉCRIT, jamais dérivée
-            // du `Host` : sinon un `Host` forgé obtiendrait un jeton d'audience
-            // arbitraire ET passerait la vérification, ce qui viderait la
-            // liaison d'audience de son unique raison d'être. C'est l'adresse
-            // par laquelle un client entre réellement (cf `.mcp.json`) ; en
-            // production, l'URL publique en https.
-            resource: "http://localhost:5151/nodefony/mcp",
-            // La même porte répond aussi en TLS, sur le second serveur. Sans
-            // cette ligne, un jeton demandé pour l'adresse https était refusé
-            // ici — la liaison d'audience faisant, à juste titre, son travail.
-            // Ces valeurs s'ÉCRIVENT, jamais ne se dérivent du `Host`.
-            additionalResources: ["https://localhost:5152/nodefony/mcp"],
-            resourceName: "Nodefony — outils de développement",
-            // 🔴 LES DEUX MODES À LA FOIS, et c'est un choix de DÉVELOPPEMENT.
-            //
-            // Un client MCP conforme qui reçoit un `401` veut obtenir un jeton
-            // TOUT SEUL : il suit le défi, lit les métadonnées, trouve notre
-            // émetteur — et y cherche un `authorization_endpoint` et un
-            // `token_endpoint` que cette application n'offre pas (elle n'est pas
-            // un serveur d'autorisation OAuth ; cf P6.9d). Il s'arrête donc là,
-            // et l'outil devient inutilisable pour qui ne sait pas coller un
-            // en-tête à la main.
-            //
-            // `true` : la porte SERT les outils publics sans jeton, et retient
-            // les outils réservés (`IMcpTool.scopes` / `requiresAuth`) tant
-            // qu'une identité n'est pas prouvée. L'authentification devient un
-            // GAIN, pas un péage — et la vérification de jeton, elle, reste
-            // entièrement exercée dès qu'un porteur en présente un.
-            //
-            // En production, ce drapeau s'écrit `false` : là, une porte ouverte
-            // n'a plus d'excuse.
-            anonymous: !ctx.isProd,
-          },
-        },
-      },
-      { policy: "dev" },
-    ),
+    use("@nodefony/devkit", devkitConfig(ctx), { policy: "dev" }),
   ],
 }));

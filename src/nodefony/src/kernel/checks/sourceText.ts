@@ -189,9 +189,25 @@ export function isReservedFragmentName(name: string): boolean {
  * @param reader - de quoi lire.
  * @returns les chemins absolus, triés — vide sans manifeste racine.
  */
-export function reservedFragmentFiles(
+/**
+ * Les fichiers `.ts` du dossier d'extraction qui passent un filtre — hors
+ * sous-dossiers, dont `cluster/`, lu par chemin par le process maître.
+ *
+ * UNE implémentation du parcours : trois lecteurs le faisaient chacun de leur
+ * côté (les fragments, les noms réservés, et maintenant la garde `satisfies`).
+ * Trois copies ne divergent jamais bruyamment — elles divergent sur le lien
+ * symbolique, le dossier illisible, l'ordre de tri, et chacune passe ses
+ * propres tests.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param reader - de quoi lire.
+ * @param keep - le filtre appliqué au NOM du fichier.
+ * @returns les chemins absolus, triés — vide sans manifeste racine.
+ */
+function fragmentDirFiles(
   projectRoot: string,
   reader: IManifestReader,
+  keep: (name: string) => boolean,
 ): string[] {
   if (!reader.exists(path.join(projectRoot, "nodefony.config.ts"))) return [];
   const dir = path.join(projectRoot, ...EXTRACT_DIR);
@@ -200,18 +216,97 @@ export function reservedFragmentFiles(
   try {
     entries = reader.listDir(dir);
   } catch {
+    // Dossier illisible : on rend ce qu'on a. Un contrôle amputé vaut mieux
+    // qu'un `doctor` qui refuse de répondre — il tourne précisément quand
+    // l'application ne va pas bien.
     return [];
   }
-  return entries
-    .filter(
-      (e) =>
-        !e.isDirectory &&
-        e.name.endsWith(".ts") &&
-        !e.name.endsWith(".d.ts") &&
-        isReservedFragmentName(e.name),
-    )
-    .map((e) => path.join(dir, e.name))
-    .sort();
+  return (
+    entries
+      .filter(
+        (e) =>
+          !e.isDirectory &&
+          e.name.endsWith(".ts") &&
+          !e.name.endsWith(".d.ts") &&
+          keep(e.name),
+      )
+      .map((e) => path.join(dir, e.name))
+      // Trié par nom : deux exécutions sur la même arborescence doivent rendre
+      // le même ordre, sinon un rapport diffère d'une machine à l'autre.
+      .sort()
+  );
+}
+
+/**
+ * Les fichiers de `<app>/nodefony/config/` qui portent un nom RÉSERVÉ — hors
+ * sous-dossiers, dont `cluster/`, lu par chemin par le process maître.
+ *
+ * Un tel fichier est ignoré par tous les lecteurs du manifeste ET chargé par
+ * personne : `<app>/nodefony/config/config.ts` n'est importé par aucune
+ * convention du cœur. Le silence est la pire des réponses ; `doctor` le
+ * signale (#299).
+ *
+ * @param projectRoot - racine de l'application.
+ * @param reader - de quoi lire.
+ * @returns les chemins absolus, triés — vide sans manifeste racine.
+ */
+export function reservedFragmentFiles(
+  projectRoot: string,
+  reader: IManifestReader,
+): string[] {
+  return fragmentDirFiles(projectRoot, reader, isReservedFragmentName);
+}
+
+/**
+ * Un fragment EXPORTE-t-il une fonction ? C'est ce qui en fait une config de
+ * module, plutôt qu'une constante partagée entre plusieurs fragments.
+ *
+ * Lecture textuelle, sur le CODE : ces contrôles répondent quand rien ne
+ * s'évalue.
+ */
+const EXPORTS_FUNCTION_RE =
+  /export\s+(?:default\s+)?(?:async\s+)?function\s|export\s+(?:const|let|var)\s+[A-Za-z_$][\w$]*(?:\s*:[^=]+)?\s*=\s*(?:async\s*)?(?:\(|function\b|[A-Za-z_$][\w$]*\s*=>)/u;
+
+/**
+ * Les fragments qui rendent une configuration SANS `satisfies`.
+ *
+ * ## Pourquoi cette garde existe
+ *
+ * Écrite dans le manifeste, `use("@nodefony/http", { … })` fait vérifier le
+ * littéral AU POINT D'APPEL : une clé inconnue est refusée par TypeScript
+ * (excess property check). Extraire ce bloc vers une fonction fait PERDRE ce
+ * contrôle sans que rien ne le dise — le typage contextuel du retour ne le
+ * déclenche jamais. La clé inconnue compile alors, puis Zod la retire EN
+ * SILENCE au boot, et le module démarre sur son défaut : c'est le défaut
+ * `trustProxi` en grand, et il est indétectable à la lecture.
+ *
+ * Aucune signature du cœur ne peut rattraper cela — seul `satisfies` sur le
+ * littéral rétablit le contrôle, et seul un contrôle TEXTUEL peut l'exiger.
+ * L'extraction n'ajoute donc pas de sûreté : elle en retire une, que
+ * `satisfies` rend. C'est la seule raison pour laquelle cette garde est ici.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param reader - de quoi lire.
+ * @returns les chemins absolus, triés — vide sans manifeste racine.
+ */
+export function fragmentsWithoutSatisfies(
+  projectRoot: string,
+  reader: IManifestReader,
+): string[] {
+  return fragmentDirFiles(projectRoot, reader, isExtractedManifest).filter(
+    (file) => {
+      let code: string;
+      try {
+        code = withoutComments(reader.read(file));
+      } catch {
+        // Fragment illisible : il est déjà signalé ailleurs, et accuser un
+        // fichier qu'on n'a pas lu enverrait corriger à l'aveugle.
+        return false;
+      }
+      if (!EXPORTS_FUNCTION_RE.test(code)) return false;
+      return !/\bsatisfies\b/u.test(code);
+    },
+  );
 }
 
 /**
@@ -275,27 +370,11 @@ export function readManifestSources(
     return out;
   }
   out.push({ path: root, source: reader.read(root) });
-  const dir = path.join(projectRoot, ...EXTRACT_DIR);
-  if (!reader.exists(dir)) {
-    return out;
-  }
-  let entries: { name: string; isDirectory: boolean }[];
-  try {
-    entries = reader.listDir(dir);
-  } catch {
-    // Dossier illisible : on rend ce qu'on a. Un contrôle amputé vaut mieux
-    // qu'un `doctor` qui refuse de répondre — il tourne précisément quand
-    // l'application ne va pas bien.
-    return out;
-  }
-  // Trié par nom : deux exécutions sur la même arborescence doivent rendre le
-  // même ordre, sinon un rapport diffère d'une machine à l'autre.
-  const names = entries
-    .filter((e) => !e.isDirectory && isExtractedManifest(e.name))
-    .map((e) => e.name)
-    .sort();
-  for (const name of names) {
-    const file = path.join(dir, name);
+  for (const file of fragmentDirFiles(
+    projectRoot,
+    reader,
+    isExtractedManifest,
+  )) {
     try {
       out.push({ path: file, source: reader.read(file) });
     } catch {

@@ -292,7 +292,15 @@ const keystore: { dir: string } = { dir: "x" };
       "utf8",
     );
     const code = withoutComments(raw);
-    assert.match(code, /keystore\s*:/u);
+    // Le témoin se cherche dans l'ENSEMBLE des sources, jamais dans le seul
+    // fichier racine : `keystore` vit dans le fragment `nodefony/config/
+    // security.ts` depuis #285, et un test qui viserait la racine en dur
+    // deviendrait aveugle — la panne exacte que le lecteur partagé existe
+    // pour empêcher.
+    assert.match(
+      readManifestCode(REPO_ROOT, diskManifestReader),
+      /keystore\s*:/u,
+    );
     // Un faux bloc ouvert avale tout ce qui suit : la DERNIÈRE ligne de code
     // du fichier doit survivre, quelle qu'elle soit.
     const lastCodeLine = raw
@@ -304,6 +312,21 @@ const keystore: { dir: string } = { dir: "x" };
     assert.ok(
       code.includes(lastCodeLine),
       `manifeste amputé (${code.length} caractères) : « ${lastCodeLine} » absent`,
+    );
+  });
+
+  it("le plus gros FRAGMENT survit aussi au nettoyage", () => {
+    // Le manifeste racine n'est plus le seul gros porteur de commentaires :
+    // depuis #285 les blocs vivent dans des fragments, et c'est là qu'un faux
+    // bloc ouvert avalerait désormais la configuration de la sécurité.
+    const file = path.join(REPO_ROOT, "nodefony", "config", "security.ts");
+    const raw = readFileSync(file, "utf8");
+    const code = withoutComments(raw);
+    assert.match(code, /roleHierarchy\s*:/u);
+    assert.match(code, /satisfies\s+ISecurityConfigInput/u);
+    assert.ok(
+      code.length > raw.length / 4,
+      `fragment amputé : ${code.length} caractères sur ${raw.length}`,
     );
   });
 });
@@ -348,6 +371,89 @@ describe("un fragment au nom RÉSERVÉ est signalé par doctor (#299)", () => {
       r.findings.filter((x) => x.kind === "reserved-fragment-name"),
       [],
       JSON.stringify(r.findings),
+    );
+  });
+});
+
+/*
+ *   #285 — extraire un bloc de config vers un fragment fait PERDRE une garde
+ *   que personne ne voit partir : dans `use("@nodefony/http", { … })`, le
+ *   littéral est vérifié au point d'appel (excess property check), et une clé
+ *   inconnue est refusée. Rendu par une fonction NON annotée, ce même objet
+ *   passe — puis Zod le retire EN SILENCE au boot, et le module démarre sur son
+ *   défaut. Aucune signature ne peut l'imposer : le typage contextuel de retour
+ *   ne déclenche jamais le contrôle. Seul `satisfies` sur le littéral le fait.
+ */
+describe("un fragment qui rend une config SANS `satisfies` est signalé (#285)", () => {
+  it("🔴 `nodefony/config/http.ts` sans `satisfies` : la clé inconnue passerait → constat", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/http.ts": `export const httpConfig = (ctx) => ({ trustProxi: true });`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    const f = r.findings.filter((x) => x.kind === "fragment-without-satisfies");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+    assert.match(f[0].file, /nodefony[/\\]config[/\\]http\.ts$/u);
+    assert.match(f[0].message, /satisfies/u, "le constat nomme le geste");
+  });
+
+  it("avec `satisfies`, rien n'est signalé", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/http.ts":
+        `export const httpConfig = (ctx) =>\n` +
+        `  ({ port: 1 }) satisfies IHttpConfigInput;`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    assert.deepEqual(
+      r.findings.filter((x) => x.kind === "fragment-without-satisfies"),
+      [],
+      JSON.stringify(r.findings),
+    );
+  });
+
+  it("un `satisfies` cité en COMMENTAIRE ne satisfait pas le contrôle", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/http.ts":
+        `// pense a ecrire satisfies IHttpConfigInput un jour\n` +
+        `export const httpConfig = (ctx) => ({ port: 1 });`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    assert.strictEqual(
+      r.findings.filter((x) => x.kind === "fragment-without-satisfies").length,
+      1,
+      "le controle lit le CODE, pas la prose",
+    );
+  });
+
+  it("un fragment qui n'exporte AUCUNE fonction n'est pas concerné", () => {
+    const root = app({
+      "index.ts": `class App extends Module {}`,
+      "nodefony.config.ts": `export default { modules: [] };`,
+      "nodefony/config/roles.ts": `export const ROLES = ["ROLE_USER"];`,
+    });
+    const r = checkWiring({ roots: [root], cwd: root, projectRoot: root });
+    assert.deepEqual(
+      r.findings.filter((x) => x.kind === "fragment-without-satisfies"),
+      [],
+      JSON.stringify(r.findings),
+    );
+  });
+
+  it("le dépôt lui-même passe son propre contrôle", () => {
+    const r = checkWiring({
+      roots: [REPO_ROOT],
+      cwd: REPO_ROOT,
+      projectRoot: REPO_ROOT,
+    });
+    assert.deepEqual(
+      r.findings.filter((x) => x.kind === "fragment-without-satisfies"),
+      [],
+      "les fragments de ce depot portent tous `satisfies`",
     );
   });
 });

@@ -128,9 +128,16 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 <% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
 <% } %><% if (it.hasStudio) { %>- **Console d'admin Studio (dev)** — `node_modules/@nodefony/studio/docs/` + http://127.0.0.1:5151/nodefony
 <% } %>
-La config de l'app vit dans `nodefony.config.ts` (modules chargés) et `env.ts`
-(variables d'environnement, seul lecteur de `process.env`) — pointe-les, ne les
-recopie pas.
+La config de l'app vit à trois endroits, et les confondre coûte une heure :
+`nodefony.config.ts` est l'INDEX ordonné des modules montés ; la configuration
+d'UN module va dans `nodefony/config/<module>.ts`, sous la forme
+`(ctx) => ({ … }) satisfies I<Module>ConfigInput` ; `env.ts` déclare les
+variables d'environnement et reste le seul lecteur de `process.env`.
+Pointe-les, ne les recopie pas.
+
+🔴 Le `satisfies` d'un fragment n'est pas décoratif : sans lui, une clé mal
+orthographiée COMPILE, puis Zod la retire en silence au boot et le module
+démarre sur son défaut. `npx nodefony doctor` refuse un fragment qui s'en passe.
 
 **Des skills d'agent sont posés dans `.agents/skills/`** — la marche à suivre
 complète pour les tâches courantes (`ls .agents/skills/` les liste ; leur

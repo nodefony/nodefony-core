@@ -110,9 +110,27 @@ export const env = defineEnv({
 3. **Module dev/conditionnel** → `{ name, policy: "dev" }` ou `use(name, config, { when: (c) => … })`.
 4. **Réglage par-env** → tester `ctx.isProd` / `ctx.isDev` dans la fonction.
 5. **Lire une variable d'env** → la déclarer dans `env.ts`, lire `ctx.env.X` (jamais `process.env`).
-6. **Extraire un domaine** quand un bloc grossit → un fichier sous `nodefony/config/` (un CHOIX, pas une obligation — voir juste en dessous).
+6. **Configurer un module** → un fichier `nodefony/config/<module>.ts` que le manifeste importe (voir juste en dessous). C'est la forme NORMALE, pas un recours quand un bloc grossit.
 
-### Extraire un bloc de config — l'emplacement, et la garde qui vient avec
+### Où vit la config d'un module — l'emplacement, et la garde qui vient avec
+
+Le manifeste reste l'**index ordonné** : quels modules, dans quel ordre, sous quelle politique.
+C'est la seule chose sur laquelle le Kernel décide, et la seule qu'un outil du produit y écrit. La
+configuration d'un module, elle, part dans son fichier.
+
+**Deux choses à ne pas confondre — l'une est gardée, l'autre est une convention.**
+
+- **Ce qu'un automate garde** : _si_ tu extrais, tu écris `satisfies`. `nodefony doctor` refuse un
+  fragment qui s'en passe (`fragment-without-satisfies`). C'est vérifiable sans jugement, donc
+  c'est une règle.
+- **Ce qui relève de la convention** : _quand_ extraire. Une application qui naît reçoit ses deux
+  gros blocs déjà extraits — c'est l'exemple sous les yeux —, et laisse en ligne un réglage d'une
+  clé. Ce dépôt, lui, applique la forme à **tous** ses modules configurés : il est mature, et la
+  prévisibilité y vaut plus que la concision.
+
+Aucun automate ne peut dire « tu aurais dû extraire ce bloc » : le seuil serait arbitraire et se
+rejugerait à chaque édition. Prétendre le contraire donnerait une règle que rien ne fait respecter,
+c'est-à-dire pas une règle.
 
 L'emplacement est **`nodefony/config/<module>.ts`**, jamais un dossier `config/` à la racine :
 tout le code d'une application vit déjà sous `nodefony/` (`controllers/`, `entity/`, `security/`),
@@ -135,6 +153,10 @@ Seul le sous-dossier `cluster/` fait exception : il est lu par chemin par le pro
 > la retire au boot sans un mot, et le module démarre sur son défaut. Aucun helper ne peut
 > rattraper ça : le typage contextuel du retour ne déclenche jamais le contrôle. **Seul `satisfies`
 > sur le littéral le fait.**
+>
+> C'est pourquoi `nodefony doctor` **refuse** un fragment qui rend une configuration sans
+> `satisfies` (constat `fragment-without-satisfies`) : extraire un bloc ne rend pas l'application
+> plus sûre, cela lui RETIRE une garde — et `satisfies` est ce qui la rend.
 
 ```typescript
 // nodefony/config/http.ts
@@ -178,6 +200,20 @@ servers: {
 
 Rien ne charge `nodefony/config/` tout seul : c'est un import ordinaire, et le fichier ne vaut que
 parce que `nodefony.config.ts` le nomme.
+
+**La fonction ne prend `ctx` que si elle s'en sert** : une configuration qui ne change pas avec
+l'environnement s'écrit `() => ({ … }) satisfies …`, et le manifeste l'appelle sans argument. Ce
+n'est pas un détail de style — `noUnusedParameters` refuse un paramètre inutilisé, et la signature
+dit ainsi, à la lecture, si ce bloc dépend ou non de l'environnement.
+
+**Ce dépôt s'applique la forme à lui-même** : il est une application Nodefony, et ses six modules
+configurés portent chacun leur fragment sous [`nodefony/config/`](../../nodefony/config/) —
+`http.ts`, `framework.ts`, `realtime.ts`, `security.ts`, `studio.ts`, `devkit.ts`. Son manifeste
+est passé de 570 à 215 lignes sans qu'aucune valeur effective ne bouge : `nodefony inspect config
+--json` rend le même objet, au caractère près, avant et après.
+
+Une application générée reçoit la même forme, sur les blocs qui la méritent :
+`nodefony/config/devkit.ts` partout, et `nodefony/config/security.ts` avec le preset complet.
 
 ## L'écoute : ports et TLS
 

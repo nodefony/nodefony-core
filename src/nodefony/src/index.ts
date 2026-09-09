@@ -913,6 +913,7 @@ export {
   diskManifestReader,
   isReservedFragmentName,
   reservedFragmentFiles,
+  fragmentsWithoutSatisfies,
   withoutComments,
 } from "./kernel/checks/sourceText";
 export type {

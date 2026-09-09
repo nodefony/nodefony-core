@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3978,
+    "symbols": 3980,
     "classes": 388,
     "interfaces": 1078,
     "types": 447,
     "enums": 4,
-    "functions": 1668,
+    "functions": 1670,
     "constants": 393
   },
   "symbols": {
@@ -9567,6 +9567,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les fichiers de `<app>/nodefony/config/` qui portent un nom RÉSERVÉ — hors sous-dossiers, dont `cluster/`, lu par chemin par le process maître. Un tel fichier est ignoré par tous les lecteurs du ma…"
+    },
+    "fragmentsWithoutSatisfies": {
+      "name": "fragmentsWithoutSatisfies",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/sourceText.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les fragments qui rendent une configuration SANS `satisfies`. ## Pourquoi cette garde existe Écrite dans le manifeste, `use(\"@nodefony/http\", { … })` fait vérifier le littéral AU POINT D'APPEL : un…"
     },
     "readManifestSources": {
       "name": "readManifestSources",
@@ -32355,6 +32363,9 @@
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "reservedFragmentFiles": [
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "fragmentsWithoutSatisfies": [
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "OptionsCommandInterface": [

@@ -27,6 +27,7 @@ import {
   withoutComments,
   diskManifestReader,
   reservedFragmentFiles,
+  fragmentsWithoutSatisfies,
 } from "./sourceText";
 
 /** Un câblage manquant, ou un nom qui dépossède un module du framework. */
@@ -41,7 +42,8 @@ export interface IWiringFinding {
     | "reponse-a-la-main"
     | "firewall-area-enumere"
     | "hook-lifecycle-inconnu"
-    | "reserved-fragment-name";
+    | "reserved-fragment-name"
+    | "fragment-without-satisfies";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
   /** Fichier fautif, relatif à la racine analysée. */
@@ -458,6 +460,25 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
           `\`*.config.ts\`) : dans \`nodefony/config/\` il est ignoré par les contrôles ` +
           `du manifeste ET chargé par personne. Un fragment se nomme \`${suggested}\` ` +
           `et s'importe depuis nodefony.config.ts`,
+      });
+    }
+    // Un bloc EXTRAIT perd l'excess property check que le manifeste lui
+    // donnait : sans `satisfies`, une clé inconnue compile puis Zod la retire
+    // en silence au boot. L'extraction ne retire cette garde qu'ici — donc
+    // c'est ici qu'on la redemande.
+    for (const file of fragmentsWithoutSatisfies(
+      projectRoot,
+      diskManifestReader,
+    )) {
+      findings.push({
+        kind: "fragment-without-satisfies",
+        file: path.relative(cwd, file),
+        message:
+          `\`${path.basename(file)}\` rend une configuration sans \`satisfies\` : ` +
+          `dans le manifeste, TypeScript refusait une clé inconnue au point d'appel ; ` +
+          `extraite, elle compile et Zod la retire EN SILENCE au boot — le module ` +
+          `démarre alors sur son défaut. Écrire ` +
+          `\`(ctx) => ({ … }) satisfies I<Module>ConfigInput\``,
       });
     }
   }
