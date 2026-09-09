@@ -16,8 +16,15 @@ import {
   planTokenChaining,
   tokenState,
   renderTokenState,
+  renderDeclarations,
+  targetsToDeclare,
+  agentTokenStates,
+  chainedTokenNote,
 } from "../cli/aiMcp";
-import { litVariable } from "../cli/agentTargets";
+import { litVariable, poseVariable } from "../cli/agentTargets";
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import os from "node:os";
+import path from "node:path";
 
 /**
  * Ce que cette suite garde : `ai:mcp` écrit dans un fichier que le projet
@@ -462,5 +469,144 @@ describe("ai:mcp — le RÔLE du jeton se choisit", () => {
       { projectRoot: "/x", isTTY: true },
     );
     expect(plan?.argv).to.deep.equal(["security:token", "--write"]);
+  });
+});
+
+describe("ai:mcp — ce que l'écran dit des agents et de leurs jetons (#303)", () => {
+  const parFichier = AGENT_TARGETS.find(
+    (c) => c.declaration === "fichier-projet",
+  )!;
+  const parCli = AGENT_TARGETS.find((c) => c.declaration === "cli" && c.home)!;
+  const PORTE = "http://localhost:5151/nodefony/mcp";
+  const AUTRE = "http://localhost:5252/nodefony/mcp";
+  /** Un JWT non signé : seule la charge utile compte ici. */
+  const jeton = (charge: Record<string, unknown>): string =>
+    `x.${Buffer.from(JSON.stringify(charge)).toString("base64url")}.y`;
+
+  it("🔴 --agent none avec un agent servi par le fichier : il est NOMMÉ, jamais « aucun agent »", () => {
+    // `create app` traduit « Claude Code » en `--agent none` (aucune CLI à
+    // lancer) ; l'écran disait alors « tu codes seul » à qui venait de le choisir.
+    const cibles = targetsToDeclare([], [parFichier, parCli]);
+    expect(cibles.map((c) => c.key)).to.deep.equal([parFichier.key]);
+    const rendu = renderDeclarations(
+      [{ target: parFichier, state: "fichier-projet", command: "" }],
+      false,
+    );
+    expect(rendu).to.contain(parFichier.name);
+    expect(rendu).to.contain("servi par");
+    expect(rendu).to.not.contain("tu codes seul");
+  });
+
+  it("un agent demandé garde sa place ; celui du fichier s'ajoute, sans doublon", () => {
+    expect(
+      targetsToDeclare([parCli], [parFichier, parCli]).map((c) => c.key),
+    ).to.deep.equal([parCli.key, parFichier.key]);
+    expect(
+      targetsToDeclare([parFichier], [parFichier, parCli]).map((c) => c.key),
+    ).to.deep.equal([parFichier.key]);
+    // Rien de détecté, rien demandé : vraiment personne.
+    expect(targetsToDeclare([], [])).to.deep.equal([]);
+  });
+
+  it("🔴 un jeton d'une AUTRE audience n'est jamais annoncé valide", () => {
+    const etranger = tokenState(
+      jeton({ exp: 100_000, scope: "admin:read", aud: AUTRE }),
+      0,
+    );
+    expect(etranger?.audience).to.deep.equal([AUTRE]);
+    const rendu = renderTokenState(etranger, PORTE);
+    expect(rendu).to.contain("autre");
+    expect(rendu).to.contain("5252");
+    expect(rendu).to.not.contain("valide encore");
+    // La bonne audience : l'échéance parle.
+    expect(
+      renderTokenState(
+        tokenState(jeton({ exp: 100_000, scope: "admin:read", aud: PORTE }), 0),
+        PORTE,
+      ),
+    ).to.contain("valide encore");
+    // `aud` en tableau (RFC 7519 l'autorise), et sans `aud` : aucun verdict d'audience.
+    expect(
+      tokenState(jeton({ exp: 1, aud: ["a", "b"] }), 0)?.audience,
+    ).to.deep.equal(["a", "b"]);
+    expect(tokenState(jeton({ exp: 1 }), 0)?.audience).to.equal(null);
+    expect(
+      renderTokenState(tokenState(jeton({ exp: 100_000 }), 0), PORTE),
+    ).to.contain("valide encore");
+  });
+
+  it("🔴 l'état du jeton se lit LÀ où la déclaration écrit : le projet avant le foyer", () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), "nf-mcp-proj-"));
+    const home = mkdtempSync(path.join(os.tmpdir(), "nf-mcp-home-"));
+    try {
+      const now = 1_000_000;
+      // Au foyer : le jeton d'une AUTRE application, encore valide — c'est
+      // exactement ce que l'écran annonçait « valide encore 22 jours ».
+      const auFoyer = path.join(home, parCli.marker, parCli.file);
+      mkdirSync(path.dirname(auFoyer), { recursive: true });
+      writeFileSync(
+        auFoyer,
+        poseVariable(
+          parCli.forme,
+          "",
+          MCP_TOKEN_ENV,
+          jeton({ exp: now + 22 * 86_400, aud: AUTRE }),
+        ) as string,
+      );
+      const ctx = { home, env: {}, expectedAudience: PORTE };
+      // Sans déclaration dans le projet : le foyer parle, et il dit « autre audience ».
+      expect(
+        agentTokenStates([parCli], root, now, ctx).get(parCli.key),
+      ).to.contain("autre");
+      // Déclaré dans le projet : c'est CE jeton qui compte.
+      const auProjet = path.join(root, parCli.marker, parCli.file);
+      mkdirSync(path.dirname(auProjet), { recursive: true });
+      writeFileSync(
+        auProjet,
+        poseVariable(
+          parCli.forme,
+          "",
+          MCP_TOKEN_ENV,
+          jeton({ exp: now + 10 * 86_400, aud: PORTE }),
+        ) as string,
+      );
+      const etat = agentTokenStates([parCli], root, now, ctx).get(parCli.key);
+      expect(etat).to.contain("10 jours");
+      expect(etat).to.not.contain("autre");
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+      rmSync(home, { recursive: true, force: true });
+    }
+  });
+
+  it("--no-token : la porte se câble, le jeton n'est pas enchaîné", () => {
+    const parsed = parseAiMcpArgv([
+      "node",
+      "nodefony",
+      "ai:mcp",
+      "--auth",
+      "--no-token",
+    ]);
+    expect("error" in parsed).toBe(false);
+    if ("error" in parsed) return;
+    expect(parsed.token).toBe(false);
+    expect(
+      planTokenChaining(
+        { auth: true, dryRun: false, json: false, token: false },
+        { projectRoot: "/p", isTTY: true },
+      ),
+    ).to.equal(null);
+    // Le défaut reste l'enchaînement.
+    const defaut = parseAiMcpArgv(["node", "nodefony", "ai:mcp", "--auth"]);
+    expect("error" in defaut ? undefined : defaut.token).toBe(true);
+  });
+
+  it("🔴 l'échec de security:token se DIT, il ne se lit pas dans une stack", () => {
+    expect(chainedTokenNote(0)).to.equal(null);
+    const note = chainedTokenNote(70);
+    expect(note).to.contain("NON posé");
+    expect(note).to.contain("70");
+    expect(note).to.contain("security:token --write");
+    expect(chainedTokenNote(null)).to.contain("NON posé");
   });
 });

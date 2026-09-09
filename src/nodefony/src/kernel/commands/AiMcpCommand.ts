@@ -52,6 +52,10 @@ class AiMcp extends Command {
       "Retire l'en-tête d'autorisation (sans option, le mode en place est CONSERVÉ)",
     );
     this.addOption(
+      "--no-token",
+      "Câble la porte sans enchaîner sur l'émission du jeton (security:token)",
+    );
+    this.addOption(
       "--url <origine>",
       "Origine forcée (ex. https://localhost:5152)",
     );
@@ -78,6 +82,8 @@ class AiMcp extends Command {
   override async generate(opts?: {
     auth?: boolean;
     noAuth?: boolean;
+    /** Commander pose `token: false` pour `--no-token` (option négative). */
+    token?: boolean;
     agent?: string;
     remove?: boolean;
     global?: boolean;
@@ -89,6 +95,7 @@ class AiMcp extends Command {
     const argv = ["node", "nodefony", "ai:mcp"];
     if (opts?.auth) argv.push("--auth");
     if (opts?.noAuth) argv.push("--no-auth");
+    if (opts?.token === false) argv.push("--no-token");
     if (opts?.agent) argv.push("--agent", opts.agent);
     if (opts?.remove) argv.push("--remove");
     if (opts?.global) argv.push("--global");

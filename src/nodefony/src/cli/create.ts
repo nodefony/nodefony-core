@@ -724,7 +724,7 @@ function appDeclareUnOrm(dest: string): boolean {
  */
 function runInitialMigration(
   dest: string,
-): { written: boolean; note: string } | null {
+): { written: boolean; note: string; databaseUnreachable: boolean } | null {
   // Ici on va EXÉCUTER : c'est donc l'installation qu'on constate, pas la
   // déclaration. Le manifeste dit l'intention, `node_modules` dit le moyen.
   if (!existsSync(path.join(dest, "node_modules", ORM_PACKAGE))) {
@@ -776,30 +776,78 @@ function runInitialMigration(
       },
     );
     if (applique.status === 0) {
-      return { written: true, note: "écrite et appliquée (migrations/)" };
+      return {
+        written: true,
+        databaseUnreachable: false,
+        note: "écrite et appliquée (migrations/)",
+      };
     }
     // L'écriture, elle, a bien eu lieu : le dire, plutôt que de laisser croire
     // que rien n'a été fait. Le geste qui reste est nommé — une base
     // injoignable au moment de la création est un cas parfaitement normal.
     return {
       written: true,
+      // L'écriture a EU LIEU, donc la base répondait : l'échec est ailleurs.
+      databaseUnreachable: false,
       note:
         "écrite (migrations/), NON appliquée — lance « nodefony orm:migrate » " +
         "quand ta base répond",
     };
   }
-  // Le motif court, pris sur ce que le processus a VRAIMENT dit : un message
-  // inventé ici enverrait chercher la panne ailleurs.
-  const output = `${r.stdout ?? ""}${r.stderr ?? ""}`;
-  const pattern = output.includes("ECONNREFUSED")
-    ? "base injoignable"
-    : `code ${String(r.status)}`;
+  const cause = migrationFailureCause(
+    `${r.stdout ?? ""}${r.stderr ?? ""}`,
+    r.status,
+  );
   return {
     written: false,
+    databaseUnreachable: cause.databaseUnreachable,
     note:
-      `NON écrite (${pattern}) — lance « nodefony orm:generate --name init » ` +
+      `NON écrite (${cause.pattern}) — lance « nodefony orm:generate --name init » ` +
       `puis « nodefony orm:migrate » quand ta base répond`,
   };
+}
+
+/**
+ * Ce qu'on dit d'un `orm:generate` qui a échoué — PURE, à partir de ce que le
+ * processus a VRAIMENT écrit.
+ *
+ * 🔴 Un message inventé ici enverrait chercher la panne ailleurs, et un code
+ * nu (« code 70 ») n'envoie chercher nulle part : sur un poste où un AUTRE
+ * PostgreSQL tenait le port, Drizzle avait composé la phrase exacte (« un
+ * serveur a RÉPONDU … puis a refusé (28P01) ») et `create` la jetait. On
+ * reprend son diagnostic, borné à la phrase — sans la stack, sans le conseil
+ * générique qui la suit.
+ *
+ * `databaseUnreachable` n'est affirmé que quand la sortie le PROUVE (refus de
+ * connexion, ou diagnostic de connexion de l'ORM) : c'est lui qui décide, plus
+ * loin, de ne pas tenter le jeton MCP sur une base morte.
+ *
+ * @param output - sortie standard + erreur du processus.
+ * @param status - son code de sortie (`null` si tué).
+ * @returns le motif court à afficher, et si la base est prouvée injoignable.
+ */
+export function migrationFailureCause(
+  output: string,
+  status: number | null,
+): { databaseUnreachable: boolean; pattern: string } {
+  if (output.includes("ECONNREFUSED")) {
+    return { databaseUnreachable: true, pattern: "base injoignable" };
+  }
+  // Le diagnostic de connexion de l'ORM : « … n'a pas pu se connecter — <ce
+  // qu'il a constaté> Si l'adresse est la bonne, … ». On garde le constat.
+  const marker = "n'a pas pu se connecter — ";
+  const at = output.indexOf(marker);
+  if (at >= 0) {
+    const rest = output.slice(at + marker.length);
+    const cut = [rest.indexOf(" Si l'adresse"), rest.indexOf("\n")]
+      .filter((i) => i >= 0)
+      .reduce((a, b) => Math.min(a, b), rest.length);
+    const explanation = rest.slice(0, cut).trim();
+    if (explanation.length > 0) {
+      return { databaseUnreachable: true, pattern: explanation };
+    }
+  }
+  return { databaseUnreachable: false, pattern: `code ${String(status)}` };
 }
 
 /**
@@ -889,7 +937,16 @@ export function mcpWiringPlan(ctx: {
   chosen: number;
   installed: boolean;
   built: boolean;
-}): { propose: true } | { propose: false; pattern: string } {
+  /**
+   * `true` quand `orm:generate` vient de CONSTATER que la base ne répond pas.
+   * `security:token` a besoin d'elle (il liste les comptes) : la porte se
+   * câble, le jeton n'est pas tenté, et le geste est nommé — au lieu de trois
+   * stacks pour une cause qu'on venait d'afficher.
+   */
+  databaseUnreachable?: boolean;
+}):
+  | { propose: true; token: boolean; pattern?: string }
+  | { propose: false; pattern: string } {
   if (ctx.chosen === 0) {
     return { propose: false, pattern: "aucun agent choisi" };
   }
@@ -901,7 +958,16 @@ export function mcpWiringPlan(ctx: {
         "l'émission du jeton démarre le kernel ; à rejouer : npx nodefony ai:mcp",
     };
   }
-  return { propose: true };
+  if (ctx.databaseUnreachable === true) {
+    return {
+      propose: true,
+      token: false,
+      pattern:
+        "jeton MCP NON émis : la base ne répond pas, et security:token en a " +
+        "besoin — après infra:up : npx nodefony security:token --write",
+    };
+  }
+  return { propose: true, token: true };
 }
 
 /**
@@ -913,9 +979,15 @@ export function mcpWiringPlan(ctx: {
  * de la porte. Une seule question, dans les mots de celui qui répond.
  *
  * Deux familles d'agents, une seule liste : ceux qui se déclarent par LEUR CLI
- * (`--agent <clés>`) et ceux qui lisent le `.mcp.json` du projet — pour ces
- * derniers, écrire le fichier EST la déclaration, d'où `none` plutôt que rien :
- * `--agent none` dit « n'appelle aucune CLI », pas « ne fais rien ».
+ * et ceux qui lisent le `.mcp.json` du projet. 🔴 Les deux partent TELS QUELS
+ * dans `--agent` : `ai:mcp` sait qu'il n'a aucune CLI à lancer pour le second,
+ * et le NOMME dans son compte rendu. Traduit en `none`, l'écran disait
+ * « tu codes seul » à qui venait de choisir Claude Code. `none` ne reste que
+ * pour un choix hors table (l'agent « standard », conforme, qu'on ne pilote
+ * pas) : il dit « n'appelle aucune CLI », pas « ne fais rien ».
+ *
+ * `token: false` débranche l'émission du jeton (`--no-token`) — quand la base
+ * vient d'être constatée injoignable, cf {@link mcpWiringPlan}.
  *
  * `--auth` : l'en-tête porte `${NF_MCP_TOKEN}`, jamais le jeton lui-même. Une
  * app neuve naît avec sa porte fermée ; l'ouvrir sans authentification serait un
@@ -931,18 +1003,20 @@ export function argvMcpWiring(
   chosen: readonly string[],
   detected: readonly IAgentTarget[],
   dest: string,
+  opts: { token?: boolean } = {},
 ): string[] | null {
   if (chosen.length === 0) return null;
-  const parCli = detected
-    .filter((c) => c.declaration === "cli" && chosen.includes(c.key))
+  const known = detected
+    .filter((c) => chosen.includes(c.key))
     .map((c) => c.key);
   return [
     "ai:mcp",
     "--cwd",
     dest,
     "--auth",
+    ...(opts.token === false ? ["--no-token"] : []),
     "--agent",
-    parCli.length > 0 ? parCli.join(",") : "none",
+    known.length > 0 ? known.join(",") : "none",
   ];
 }
 
@@ -1292,10 +1366,12 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // c'est un artefact de l'application, pas un produit de build. Elle suit le
   // build : la commande démarre l'application, qui charge `dist/`.
   let migrationWritten = false;
+  let databaseUnreachable = false;
   if (built) {
     const migration = runInitialMigration(result.dest);
     if (migration !== null) {
       migrationWritten = migration.written;
+      databaseUnreachable = migration.databaseUnreachable;
       process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
     }
   }
@@ -1319,10 +1395,16 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     chosen: chosen.length,
     installed,
     built,
+    databaseUnreachable,
   });
   let mcpNote = wiring.propose ? "" : wiring.pattern;
+  // Le jeton n'a PAS été posé — débranché sur base morte, ou l'émission a
+  // échoué : le geste suivant se nomme dans « Prochaines étapes ».
+  let tokenNote = "";
   if (wiring.propose) {
-    const mcpCall = argvMcpWiring(chosen, AGENT_TARGETS, result.dest);
+    const mcpCall = argvMcpWiring(chosen, AGENT_TARGETS, result.dest, {
+      token: wiring.token,
+    });
     if (mcpCall === null) {
       mcpNote = "aucun agent choisi";
     } else {
@@ -1330,11 +1412,21 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // recopiée : elle porte l'écriture du `.mcp.json`, la déclaration par la
       // CLI de chaque agent (jamais par son fichier), le constat plutôt que le
       // code de sortie, et l'émission du jeton avec sa durée et sa portée.
-      await runAiMcpCommand(mcpCall);
+      const code = await runAiMcpCommand(mcpCall);
+      if (!wiring.token) {
+        tokenNote = wiring.pattern ?? "";
+      } else if (code !== SysExit.OK) {
+        // `ai:mcp` a déjà dit pourquoi ; ici on retient que le geste reste à faire.
+        tokenNote =
+          "jeton MCP NON posé — relance : npx nodefony security:token --write";
+      }
     }
   }
   if (mcpNote !== "") {
     process.stdout.write(`🔌 agents IA : ${mcpNote}\n`);
+  }
+  if (tokenNote !== "") {
+    process.stdout.write(`🔌 agents IA : ${tokenNote}\n`);
   }
   const gitNote = parsed.git
     ? runGitInit(result.dest, String(answers.name), answers.gitHooks === true)
@@ -1380,6 +1472,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // n'existe pas.
       (mcpNote !== ""
         ? `  npx nodefony ai:mcp # câbler ton agent IA (porte MCP + jeton)\n`
+        : "") +
+      // Porte câblée, jeton NON posé : la commande qui l'émet, et sa condition
+      // — elle démarre l'application, donc ouvre la connexion à la base.
+      (tokenNote !== ""
+        ? `  npx nodefony security:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
         : ""),
   );
   // L'ÉTAT de ce qui vient d'être écrit, montré pendant que l'utilisateur

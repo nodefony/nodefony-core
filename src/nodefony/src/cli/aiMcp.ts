@@ -97,6 +97,10 @@ const PAGE: IUsagePage = {
     },
     { term: "--no-auth", text: "retire l'en-tête d'autorisation" },
     {
+      term: "--no-token",
+      text: "câble la porte sans enchaîner sur l'émission du jeton",
+    },
+    {
       term: "-u, --url <origine>",
       text: "origine forcée (ex. https://localhost:5152)",
     },
@@ -162,6 +166,14 @@ interface IAiMcpRequest {
    * qui n'ouvre jamais qu'un seul projet Nodefony, typiquement.
    */
   global: boolean;
+  /**
+   * Enchaîner sur l'émission du jeton (`security:token --write`) après le
+   * câblage. `false` (`--no-token`) quand l'appelant SAIT que l'émission
+   * échouerait : `create app` vient de constater que la base ne répond pas, et
+   * `security:token` a besoin d'elle — la porte se câble, le jeton est nommé
+   * comme geste suivant au lieu d'être tenté sur une base morte.
+   */
+  token: boolean;
   dryRun: boolean;
   json: boolean;
   cwd: string;
@@ -184,6 +196,7 @@ export function parseAiMcpArgv(
     agent: undefined,
     remove: false,
     global: false,
+    token: true,
     dryRun: false,
     json: false,
     cwd: process.cwd(),
@@ -209,6 +222,9 @@ export function parseAiMcpArgv(
       // ressemblent sur une lettre finissent par se confondre le jour où l'une
       // écrit chez un tiers.
       req.agent = rest[++i] ?? "";
+    } else if (word === "--no-token") {
+      // Le débranchement se NOMME : on ne devine pas qu'une base est morte.
+      req.token = false;
     } else if (word === "--global") {
       req.global = true;
     } else if (word === "--remove") {
@@ -237,6 +253,26 @@ export function parseAiMcpArgv(
 export function guessOrigin(cwd: string): string {
   const ports = defaultDevPorts(cwd);
   return `http://localhost:${ports[0] ?? 5151}`;
+}
+
+/**
+ * Ce qu'on dit quand `security:token`, enchaîné, n'a pas rendu 0 — ou `null`
+ * s'il a réussi.
+ *
+ * PURE : c'est la phrase que l'utilisateur lit à la place d'une stack trace.
+ * L'enfant a déjà dit POURQUOI (base injoignable, service absent…) ; ici on
+ * retient que le geste reste à faire, et lequel. Un `null` de statut est un
+ * process tué par un signal : il n'a pas réussi non plus.
+ *
+ * @param status - code de sortie de `security:token`, `null` si tué.
+ * @returns la note à afficher, ou `null` si le jeton est posé.
+ */
+export function chainedTokenNote(status: number | null): string | null {
+  if (status === 0) return null;
+  return (
+    `jeton NON posé — security:token a rendu le code ${String(status)} ; ` +
+    `à rejouer quand la cause est levée : nodefony security:token --write`
+  );
 }
 
 /** Ce qu'il faut lancer pour obtenir le jeton, ou `null` s'il n'y a rien à faire. */
@@ -289,6 +325,11 @@ export interface ITokenState {
   remainingSeconds: number | null;
   /** Scopes que le jeton porte, tels qu'il les déclare. */
   scopes: string[];
+  /**
+   * Audience(s) déclarée(s) (`aud`, RFC 7519 §4.1.3), ou `null` s'il n'en
+   * porte pas. Un jeton d'une autre porte n'est pas « valide » ici.
+   */
+  audience: string[] | null;
 }
 
 /**
@@ -308,12 +349,21 @@ export function tokenState(
   try {
     const charge = JSON.parse(
       Buffer.from(parts[1], "base64url").toString("utf8"),
-    ) as { exp?: unknown; scope?: unknown };
+    ) as { exp?: unknown; scope?: unknown; aud?: unknown };
     const scope = typeof charge.scope === "string" ? charge.scope : "";
+    // `aud` est une chaîne ou un tableau ; absent, on ne conclut rien — c'est
+    // la porte qui tranche, ceci n'est qu'un renseignement.
+    const audience =
+      typeof charge.aud === "string"
+        ? [charge.aud]
+        : Array.isArray(charge.aud)
+          ? charge.aud.filter((a): a is string => typeof a === "string")
+          : null;
     return {
       remainingSeconds:
         typeof charge.exp === "number" ? charge.exp - nowSeconds : null,
       scopes: scope.split(/\s+/u).filter((s) => s !== ""),
+      audience,
     };
   } catch {
     // Un contenu illisible n'est pas une panne : c'est un jeton qu'on ne sait
@@ -328,8 +378,25 @@ export function tokenState(
  * @param state - ce que {@link tokenState} a lu, ou `null` s'il n'y en a pas.
  * @returns la ligne à afficher.
  */
-export function renderTokenState(state: ITokenState | null): string {
+export function renderTokenState(
+  state: ITokenState | null,
+  expectedAudience?: string,
+): string {
   if (state === null) return "aucun jeton lisible n'est posé chez tes agents";
+  // 🔴 L'AUDIENCE avant l'échéance. Le jeton du foyer de l'utilisateur, émis
+  // par une AUTRE application (autre port, donc autre porte), était annoncé
+  // « valide encore 22 jours » : la porte d'ici le refuse (RFC 8707), et
+  // l'écran disait l'inverse de la vérité.
+  if (
+    expectedAudience !== undefined &&
+    state.audience !== null &&
+    !state.audience.some((a) => sameAudience(a, expectedAudience))
+  ) {
+    return (
+      `jeton émis pour une autre audience (${state.audience.join(", ")}) — ` +
+      `la porte déclarée ici est ${expectedAudience} ; il y sera refusé`
+    );
+  }
   const scopes =
     state.scopes.length > 0 ? state.scopes.join(" ") : "aucun scope déclaré";
   if (state.remainingSeconds === null) return `jeton sans échéance (${scopes})`;
@@ -345,6 +412,18 @@ export function renderTokenState(state: ITokenState | null): string {
         ? `${Math.round(hours)} heures`
         : `${Math.round(state.remainingSeconds / 60)} min`;
   return `jeton valide encore ${remainder} (${scopes})`;
+}
+
+/** Deux audiences sont les mêmes à une barre oblique finale près. */
+function sameAudience(a: string, b: string): boolean {
+  return trimTrailingSlashes(a) === trimTrailingSlashes(b);
+}
+
+/** Sans expression régulière : `/\/+$/` backtracke sur une suite de barres. */
+function trimTrailingSlashes(s: string): string {
+  let end = s.length;
+  while (end > 0 && s.charCodeAt(end - 1) === 47) end -= 1;
+  return s.slice(0, end);
 }
 
 /**
@@ -365,10 +444,31 @@ export function agentTokenStates(
   targets: readonly IAgentTarget[],
   projectRoot: string,
   nowSeconds: number,
+  ctx: {
+    /** Dossier de l'utilisateur, injecté pour le banc. */
+    home?: string;
+    /** Environnement (`CODEX_HOME`…), injecté pour le banc. */
+    env?: Record<string, string | undefined>;
+    /** Audience de la porte d'ICI : un jeton d'une autre porte n'est pas « valide ». */
+    expectedAudience?: string;
+  } = {},
 ): Map<string, string> {
   const states = new Map<string, string>();
   for (const target of targets) {
-    const file = path.resolve(agentRoot(target, { projectRoot }), target.file);
+    // 🔴 Lire LÀ où `declareToAgents` ÉCRIT. Pour les agents à dossier maison
+    // (Vibe, Codex), la déclaration dans le projet vit sous
+    // `<projet>/<marqueur>` ; le foyer ne parle que s'il n'y a rien là. Lu en
+    // premier, le foyer annonçait le jeton d'une autre application.
+    const inProject = target.home
+      ? path.join(projectRoot, target.marker, target.file)
+      : null;
+    const file =
+      inProject !== null && existsSync(inProject)
+        ? inProject
+        : path.resolve(
+            agentRoot(target, { projectRoot, home: ctx.home, env: ctx.env }),
+            target.file,
+          );
     let content = "";
     try {
       content = readFileSync(file, "utf8");
@@ -389,14 +489,15 @@ export function agentTokenStates(
       target.key,
       token === null
         ? "pas de jeton posé"
-        : renderTokenState(tokenState(token, nowSeconds)),
+        : renderTokenState(tokenState(token, nowSeconds), ctx.expectedAudience),
     );
   }
   return states;
 }
 
 export function planTokenChaining(
-  request: Pick<IAiMcpRequest, "auth" | "dryRun" | "json">,
+  request: Pick<IAiMcpRequest, "auth" | "dryRun" | "json"> &
+    Partial<Pick<IAiMcpRequest, "token">>,
   context: {
     projectRoot: string;
     isTTY: boolean;
@@ -421,6 +522,8 @@ export function planTokenChaining(
 ): IChainedToken | null {
   // Un jeton n'a de sens que si l'en-tête le RÉCLAME.
   if (request.auth !== true) return null;
+  // Débranché par l'appelant, qui SAIT que l'émission échouerait.
+  if (request.token === false) return null;
   // `--dry-run` ne doit rien produire ; `--json` part vers un script, qu'une
   // question romprait.
   if (request.dryRun || request.json) return null;
@@ -656,6 +759,32 @@ export async function declareToAgents(
 }
 
 /**
+ * Les agents dont le compte rendu doit PARLER, quand `--agent` a été donné.
+ *
+ * PURE. `--agent none` veut dire « aucune CLI à lancer », pas « personne » :
+ * l'agent servi par le fichier de projet (Claude Code lit le `.mcp.json` qu'on
+ * vient d'écrire) est ajouté aux agents demandés — sinon l'écran disait
+ * « tu codes seul » à qui venait précisément de le choisir. Sans doublon, et
+ * les demandés d'abord : ce sont eux qu'une CLI va servir.
+ *
+ * @param requested - agents nommés par `--agent` (vide pour `none`).
+ * @param detected - agents présents sur ce poste.
+ * @returns les agents à passer au compte rendu.
+ */
+export function targetsToDeclare(
+  requested: readonly IAgentTarget[],
+  detected: readonly IAgentTarget[],
+): IAgentTarget[] {
+  const out = [...requested];
+  for (const c of detected) {
+    if (c.declaration !== "fichier-projet") continue;
+    if (out.some((r) => r.key === c.key)) continue;
+    out.push(c);
+  }
+  return out;
+}
+
+/**
  * Rend le compte rendu des déclarations.
  *
  * PURE : c'est le texte que l'utilisateur lit, et il doit pouvoir être éprouvé
@@ -679,9 +808,11 @@ export function renderDeclarations(
   let out = "\n";
   for (const r of results) {
     if (r.state === "fichier-projet") {
+      // NOMMÉ, pas seulement « rien à faire » : dans une liste où l'agent
+      // principal manque, on lit « non géré ».
       out +=
-        `  • ${r.target.name} — rien à faire : il lit ${MCP_CONFIG_FILE}, ` +
-        `${remove ? "retiré par --no-auth ou à la main" : "déjà à jour"}.\n`;
+        `  • ${r.target.name} — servi par le ${MCP_CONFIG_FILE} de ce projet, ` +
+        `${remove ? "retiré par --no-auth ou à la main" : "déjà à jour"} (rien à lancer).\n`;
     } else if (r.state === "declare") {
       // 🔴 La PORTÉE se dit. Deux de ces agents n'ont pas de notion de projet :
       // ⚠️ La portée se lit sur le GESTE, jamais sur `target.scope` — celui-ci
@@ -921,9 +1052,19 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     // Le compte rendu n'est écrit que si la question a été posée ou si des
     // agents ont été demandés : une invocation qui ne parlait pas d'agents ne
     // doit pas se mettre à en parler.
+    //
+    // 🔴 `--agent none` = « aucune CLI à lancer », pas « personne » : l'agent
+    // servi par le fichier de projet entre dans le compte rendu.
+    const declared =
+      requests !== undefined
+        ? targetsToDeclare(
+            targets,
+            agentsPresents({ projectRoot, exists: existsSync }),
+          )
+        : targets;
     process.stdout.write(
       renderDeclarations(
-        await declareToAgents(targets, {
+        await declareToAgents(declared, {
           url: mcpUrl,
           remove: parsed.remove,
           projectRoot,
@@ -979,6 +1120,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       detectedForToken,
       projectRoot,
       Math.floor(Date.now() / 1000),
+      { expectedAudience: mcpUrl },
     );
     for (const target of detectedForToken) {
       process.stdout.write(`  ${target.name} : ${states.get(target.key)}\n`);
@@ -990,7 +1132,9 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       detectedForToken.length === 0 ||
       [...states.values()].some(
         (phrase) =>
-          phrase.includes("EXPIRÉ") || phrase.includes("pas de jeton"),
+          phrase.includes("EXPIRÉ") ||
+          phrase.includes("pas de jeton") ||
+          phrase.includes("autre audience"),
       );
     const now = await confirm({
       message: `${perime ? "Obtenir" : "Réémettre"} un jeton maintenant (${MCP_TOKEN_ENV}) ?`,
@@ -1043,11 +1187,23 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       const { spawnSync } = await import("node:child_process");
       // `stdio: "inherit"` — l'enfant hérite du TERMINAL, sans quoi il ne
       // pourrait poser aucune question (son `process.stdin.isTTY` serait faux).
-      spawnSync(process.execPath, [bin, ...(withDuration ?? chainage).argv], {
-        stdio: "inherit",
-        cwd: chainage.cwd,
-        env: chainage.env,
-      });
+      const r = spawnSync(
+        process.execPath,
+        [bin, ...(withDuration ?? chainage).argv],
+        {
+          stdio: "inherit",
+          cwd: chainage.cwd,
+          env: chainage.env,
+        },
+      );
+      // 🔴 Le verdict de l'enfant se LIT. Ignoré, `security:token` mourait sur
+      // une base injoignable en trois stacks, et cette commande rendait OK —
+      // l'appelant (`create app`) concluait « jeton posé ».
+      const note = chainedTokenNote(r.status);
+      if (note !== null) {
+        process.stdout.write(`\n  ⚠ ${note}\n`);
+        return SysExit.UNAVAILABLE;
+      }
     }
   }
   return SysExit.OK;

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3963,
+    "symbols": 3968,
     "classes": 388,
     "interfaces": 1076,
     "types": 447,
     "enums": 4,
-    "functions": 1656,
+    "functions": 1661,
     "constants": 392
   },
   "symbols": {
@@ -803,6 +803,14 @@
       "module": "@nodefony/core",
       "description": "Déduit l'origine du serveur de développement. ⚠️ **Le port en clair est préféré au port TLS**, et ce n'est pas une négligence : en développement le certificat est auto-signé, et un client MCP qui l…"
     },
+    "chainedTokenNote": {
+      "name": "chainedTokenNote",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'on dit quand `security:token`, enchaîné, n'a pas rendu 0 — ou `null` s'il a réussi. PURE : c'est la phrase que l'utilisateur lit à la place d'une stack trace. L'enfant a déjà dit POURQUOI (ba…"
+    },
     "tokenState": {
       "name": "tokenState",
       "kind": "function",
@@ -841,6 +849,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Déclare (ou retire) la porte MCP chez chaque agent, **par SA propre CLI**. ⭐ La règle qui gouverne cette fonction : **on n'écrit pas le fichier de configuration d'un outil tiers.** Son format lui a…"
+    },
+    "targetsToDeclare": {
+      "name": "targetsToDeclare",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcp.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les agents dont le compte rendu doit PARLER, quand `--agent` a été donné. PURE. `--agent none` veut dire « aucune CLI à lancer », pas « personne » : l'agent servi par le fichier de projet (Claude C…"
     },
     "renderDeclarations": {
       "name": "renderDeclarations",
@@ -1379,6 +1395,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le code de sortie de `create`, décidé à part — parce qu'il se teste. Le défaut qu'il ferme : la commande affichait « npm run build a échoué » puis rendait **0**. L'application existait bien, c'est …"
+    },
+    "migrationFailureCause": {
+      "name": "migrationFailureCause",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/create.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'on dit d'un `orm:generate` qui a échoué — PURE, à partir de ce que le processus a VRAIMENT écrit. 🔴 Un message inventé ici enverrait chercher la panne ailleurs, et un code nu (« code 70 ») n…"
     },
     "shouldAskForType": {
       "name": "shouldAskForType",

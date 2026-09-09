@@ -18,6 +18,7 @@ import { version } from "../../package.json";
 import {
   argvMcpWiring,
   createExitCode,
+  migrationFailureCause,
   shouldAskForType,
   parseCreateArgv,
   mcpWiringPlan,
@@ -1928,6 +1929,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "utf8",
       );
       assert.include(sentry, 'import { mount } from "svelte"');
+      // 🔴 Sans `svelte.config.js` à la racine Vite (`frontend/`), le plugin
+      // avertit à CHAQUE build (« no Svelte config found ») — un avertissement
+      // qu'on apprend à ignorer masque le prochain qui comptera (#305).
+      const sconfig = readFileSync(
+        path.join(sdest, "frontend", "svelte.config.js"),
+        "utf8",
+      );
+      assert.include(sconfig, "vitePreprocess");
       // Shim TS : sans lui, tsgo ne résout pas l'import ./App.svelte.
       assert.include(
         readFileSync(path.join(sdest, "frontend", "src", "env.d.ts"), "utf8"),
@@ -6686,7 +6695,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     ]);
   });
 
-  it("seulement un agent servi par le FICHIER → `none` : le .mcp.json est écrit, aucune CLI lancée", () => {
+  it("🔴 un agent servi par le FICHIER est PASSÉ tel quel — traduit en `none`, l'écran disait « aucun agent »", () => {
     assert.isAtLeast(
       parFichier.length,
       1,
@@ -6694,7 +6703,24 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     );
     const argv = argvMcpWiring([parFichier[0]!.key], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
-    assert.deepEqual(argv?.slice(-2), ["--agent", "none"]);
+    assert.deepEqual(argv?.slice(-2), ["--agent", parFichier[0]!.key]);
+    assert.notInclude(argv ?? [], "none");
+  });
+
+  it("le jeton se DÉBRANCHE par l'appel, et seulement sur demande", () => {
+    const cle = parFichier[0]!.key;
+    assert.include(
+      argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app", { token: false }) ?? [],
+      "--no-token",
+    );
+    assert.notInclude(
+      argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app") ?? [],
+      "--no-token",
+    );
+    assert.notInclude(
+      argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app", { token: true }) ?? [],
+      "--no-token",
+    );
   });
 
   it("le choix « standard » (norme AGENTS.md + MCP) écrit le fichier et ne lance AUCUNE CLI", () => {
@@ -6713,11 +6739,28 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.key);
   });
 
-  it("des agents choisis + app installée ET construite → on câble", () => {
+  it("des agents choisis + app installée ET construite → on câble, jeton compris", () => {
     assert.deepEqual(
       mcpWiringPlan({ chosen: 1, installed: true, built: true }),
-      { propose: true },
+      { propose: true, token: true },
     );
+  });
+
+  it("🔴 base INJOIGNABLE : la porte se câble, le jeton NON — et le geste est nommé", () => {
+    // `security:token` a besoin de la base (il liste les comptes) : le lancer
+    // quand `orm:generate` vient de prouver qu'elle ne répond pas, c'est offrir
+    // une stack trace à qui vient de lire « base injoignable ».
+    const plan = mcpWiringPlan({
+      chosen: 1,
+      installed: true,
+      built: true,
+      databaseUnreachable: true,
+    });
+    assert.isTrue(plan.propose);
+    if (!plan.propose) return;
+    assert.isFalse(plan.token);
+    assert.include(plan.pattern ?? "", "security:token --write");
+    assert.include(plan.pattern ?? "", "infra:up");
   });
 
   it("aucun agent choisi → rien n'est écrit, ici comme hors terminal", () => {
@@ -6892,4 +6935,143 @@ describe("create sans type — le menu propose, la commande doit DEMANDER", () =
   it("un type FAUTIF se corrige, il ne se remplace pas par une question", () => {
     assert.isFalse(shouldAskForType(FAUTE, { isTTY: true, yes: false }));
   });
+});
+
+describe("create app — quand la base ne répond pas, la cause se NOMME (#302)", () => {
+  it("🔴 la note de migration porte la cause constatée, pas « code 70 »", () => {
+    // Sortie RÉELLE d'`orm:generate` sur un poste où un AUTRE PostgreSQL tient
+    // le port : Drizzle avait déjà composé la phrase, `create` la jetait.
+    const sortie =
+      `14:12:39.608 ERROR   drizzle            : BootConfigurationError: Drizzle : le connecteur "default" ` +
+      `(postgres: postgres://app:***@127.0.0.1:5432/app) n'a pas pu se connecter — un serveur a RÉPONDU ` +
+      `sur 127.0.0.1:5432 puis a refusé (28P01) — donc quelque chose tient bien ce port. Ce peut être la ` +
+      `base attendue avec de mauvais identifiants, mais aussi UN AUTRE SERVEUR. Si l'adresse est la bonne, ` +
+      `vérifier l'infrastructure déclarée (NF_DATABASE_URL / connectors) et que les entités sont portées ` +
+      `sur ce dialecte, ou retirer le connecteur. Cause : password authentication failed for user "app"\n` +
+      `    at #connectOne (file:///app/node_modules/@nodefony/drizzle/dist/nodefony/service/DrizzleService.js:169:10)\n`;
+    const v = migrationFailureCause(sortie, 70);
+    assert.isTrue(v.databaseUnreachable);
+    assert.include(v.pattern, "un serveur a RÉPONDU");
+    assert.include(v.pattern, "28P01");
+    assert.notInclude(v.pattern, "Si l'adresse");
+    assert.notInclude(v.pattern, "code 70");
+    assert.notInclude(v.pattern, "\n");
+    assert.notInclude(v.pattern, "    at ");
+  });
+
+  it("ECONNREFUSED → base injoignable ; autre échec → le code, et rien n'est affirmé sur la base", () => {
+    assert.deepEqual(
+      migrationFailureCause("connect ECONNREFUSED 127.0.0.1:5432", 70),
+      {
+        databaseUnreachable: true,
+        pattern: "base injoignable",
+      },
+    );
+    assert.deepEqual(migrationFailureCause("TypeError: boom", 1), {
+      databaseUnreachable: false,
+      pattern: "code 1",
+    });
+    assert.deepEqual(migrationFailureCause("", null), {
+      databaseUnreachable: false,
+      pattern: "code null",
+    });
+  });
+
+  // E2E binaire réel (gate NF_RUN_CLI_BOOT) : l'application est INSTALLÉE et
+  // CONSTRUITE (`--link` : les paquets du checkout, jamais le registre), un
+  // agent est choisi, et la base déclarée ne répond pas — le décor exact où la
+  // génération d'alpha.3 a dit six choses fausses ou de trop (#301).
+  const describeBoot = process.env["NF_RUN_CLI_BOOT"]
+    ? describe
+    : describe.skip;
+  describeBoot(
+    "e2e create app — installée, construite, base injoignable",
+    () => {
+      it(
+        "le transcript ne ment pas et ne crie pas",
+        { timeout: 900_000 },
+        () => {
+          const here = path.dirname(fileURLToPath(import.meta.url));
+          const bin = path.resolve(here, "../../bin/nodefony");
+          const tmp = mkdtempSync(path.join(os.tmpdir(), "nf-e2e-hostile-"));
+          const dest = path.join(tmp, "hostile");
+          const claude = AGENT_TARGETS.find(
+            (c) => c.declaration === "fichier-projet",
+          )!;
+          try {
+            const r = spawnSync(
+              "node",
+              [
+                bin,
+                "create",
+                "app",
+                "hostile",
+                "--dir",
+                dest,
+                "--yes",
+                "--link",
+                "--preset",
+                "complete",
+                "--database",
+                "postgres",
+                "--frontend",
+                "none",
+                "--agents",
+                claude.key,
+                "--no-git",
+              ],
+              {
+                encoding: "utf8",
+                maxBuffer: 64 * 1024 * 1024,
+                // Port 1 : personne n'y écoute, sur aucune machine — ECONNREFUSED
+                // garanti, sans dépendre d'un conteneur qui tourne ou pas.
+                env: {
+                  ...process.env,
+                  NF_DATABASE_URL:
+                    "postgres://nobody:nobody@127.0.0.1:1/nobody",
+                },
+              },
+            );
+            const out = `${r.stdout ?? ""}${r.stderr ?? ""}`;
+            // Capturé EN ENTIER, HORS du dossier détruit en fin de test : c'est le
+            // fichier qu'on relit quand une assertion tombe, pas un `tail`.
+            const log = path.join(os.tmpdir(), "nf-e2e-hostile-transcript.log");
+            writeFileSync(log, out);
+            assert.equal(
+              r.status,
+              0,
+              `transcript : ${log}\n${out.slice(-4000)}`,
+            );
+            // 1. la migration dit POURQUOI, pas un code.
+            assert.notInclude(out, "code 70");
+            assert.include(out, "base injoignable");
+            // 2. l'agent choisi est nommé, servi par le fichier — jamais « aucun agent ».
+            assert.notInclude(out, "tu codes seul");
+            assert.include(out, claude.name);
+            assert.include(out, "servi par");
+            // 3. aucune stack trace : pas de jeton tenté sur une base morte. (Le
+            // doctor RELATE l'`orm:generate` échoué sous « DERNIER DÉMARRAGE », avec
+            // sa cause — c'est son rôle, et ce n'est pas une stack.)
+            assert.notInclude(out, "\n    at ", `stack trace dans ${log}`);
+            assert.notInclude(
+              out,
+              "CRITIC",
+              `boot fatal journalisé dans ${log}`,
+            );
+            // 4. le jeton est nommé comme geste suivant, avec sa condition.
+            assert.include(out, "security:token --write");
+            // 5. le doctor ne déclare pas illisible un catalogue qu'il peut lire.
+            assert.notInclude(out, "catalogue illisible");
+            // 6. la porte est bien écrite.
+            assert.isTrue(
+              existsSync(path.join(dest, ".mcp.json")),
+              "le .mcp.json n'a pas été écrit",
+            );
+          } finally {
+            rmSync(tmp, { recursive: true, force: true });
+          }
+        },
+      );
+    },
+  );
 });
