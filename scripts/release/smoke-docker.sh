@@ -567,8 +567,13 @@ const fs = require("node:fs");
 const f = process.argv[1] + "/nodefony.config.ts";
 const src = fs.readFileSync(f, "utf8");
 const lines = src.split("\n");
-const i = lines.findIndex((l) => l.includes("@nodefony/studio"));
-if (i < 0) { throw new Error("ligne @nodefony/studio introuvable dans le manifeste généré"); }
+// Le marqueur est `use("@nodefony/studio"`, PAS le seul nom du paquet : le
+// manifeste généré le mentionne aussi dans un `export type { … } from
+// "@nodefony/studio"`, placé AVANT la déclaration. Chercher le nom nu prenait
+// cette ligne-là et échouait en accusant la policy — un motif plausible qui
+// désigne la mauvaise ligne tout en semblant chercher la bonne.
+const i = lines.findIndex((l) => l.includes("use(\"@nodefony/studio\""));
+if (i < 0) { throw new Error("déclaration `use(\"@nodefony/studio\", …)` introuvable dans le manifeste généré"); }
 if (!lines[i].includes("policy: \"dev\"")) { throw new Error("policy attendue `dev` : " + lines[i].trim()); }
 lines[i] = lines[i].replace("policy: \"dev\"", "policy: \"mandatory\"");
 fs.writeFileSync(f, lines.join("\n"));
