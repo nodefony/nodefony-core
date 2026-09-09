@@ -170,6 +170,103 @@ describe("config/schema — le catalogue des clés qu'on a le droit d'écrire", 
     expect(res.body.available).to.include("@nodefony/http");
   });
 
+  // #297 — la provenance MENT sur les objets libres : `computeConfigProvenance`
+  // descend dans un objet quand les deux côtés en sont un, et produit
+  // `areas.nodefony-admin = "app"`, jamais `areas` ; or le catalogue fait
+  // d'`areas` une FEUILLE (pas de `properties`). Le lookup rate, `?? "default"`
+  // tranche à tort — sur le firewall et la hiérarchie des rôles.
+  it("la provenance d'un objet LIBRE agrège celle de ses sous-clés posées par l'app", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        areas: {
+          type: "object",
+          default: {},
+          description: "Zones du firewall — objet libre, une clé par zone.",
+        },
+        headerServer: { type: "string", default: "nodefony" },
+      },
+    };
+    const kernel = makeKernel({
+      security: {
+        getModuleName: () => "@nodefony/security",
+        isApp: false,
+        options: {
+          areas: { "nodefony-admin": { pattern: "^/nodefony" } },
+          headerServer: "nodefony",
+        },
+        configSchema: () => schema,
+      },
+    });
+    const rows = ask(kernel, "security") as Row[];
+    const areas = rows.find((r) => r.key === "areas");
+    expect(areas?.source, "objet libre peuplé par l'app").to.equal("app");
+    expect(areas?.effective).to.deep.equal({
+      "nodefony-admin": { pattern: "^/nodefony" },
+    });
+    expect(rows.find((r) => r.key === "headerServer")?.source).to.equal(
+      "default",
+    );
+  });
+
+  it("distingue « module inconnu » de « module chargé, schéma non publié », et dit quoi faire", () => {
+    // `inspect schema test` rendait « Unknown module » alors que `@nodefony/test`
+    // était chargé : le message disait exactement ce qu'il devait éviter.
+    const kernel = makeKernel({
+      http: makeHttpMod({ headerServer: "nodefony" }),
+      test: {
+        getModuleName: () => "@nodefony/test",
+        isApp: false,
+        options: {},
+        configSchema: () => null,
+      },
+    });
+    const res = ask(kernel, "test") as {
+      status: number;
+      body: { error: string; module: string; loaded: boolean; hint: string };
+    };
+    expect(res.status).to.equal(404);
+    expect(res.body.error).to.not.equal("Unknown module");
+    expect(res.body.loaded).to.equal(true);
+    expect(res.body.module).to.equal("@nodefony/test");
+    expect(res.body.hint).to.match(/configSchema/u);
+    // Un module réellement absent garde son refus, avec la liste des connus.
+    const absent = ask(kernel, "htp") as { body: { error: string } };
+    expect(absent.body.error).to.equal("Unknown module");
+  });
+
+  it("marque « secret » toute clé que la redaction masque, pas seulement celles annotées", () => {
+    const schema = {
+      type: "object",
+      properties: {
+        jwt: {
+          type: "object",
+          properties: {
+            secret: { type: "string", description: "Clé de signature." },
+            ttl: { type: "number", default: 60 },
+          },
+        },
+      },
+    };
+    const kernel = makeKernel({
+      security: {
+        getModuleName: () => "@nodefony/security",
+        isApp: false,
+        options: { jwt: { secret: "s3cr3t", ttl: 60 } },
+        configSchema: () => schema,
+      },
+    });
+    const rows = ask(kernel, "security") as Row[];
+    const secret = rows.find((r) => r.key === "jwt.secret");
+    expect(secret?.note).to.include("secret");
+    expect(secret?.effective, "jamais la valeur en clair").to.not.equal(
+      "s3cr3t",
+    );
+    expect(rows.find((r) => r.key === "jwt.ttl")?.note).to.not.include(
+      "secret",
+    );
+  });
+
   it("ignore un module SANS schéma plutôt que d'échouer sur lui", () => {
     // Un module non migré rend `null` : il ne doit pas priver les autres de
     // leur catalogue.

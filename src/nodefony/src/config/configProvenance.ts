@@ -233,3 +233,44 @@ export function findOverwrittenLeaves(
   walkOver(base, override, []);
   return out;
 }
+
+/** Rang d'une origine : la plus forte l'emporte quand une feuille en agrège plusieurs. */
+const ORIGIN_RANK: Record<string, number> = {
+  default: 0,
+  app: 1,
+  runtime: 2,
+  env: 3,
+};
+
+/**
+ * L'origine d'une clé du CATALOGUE, agrégée depuis la provenance par feuille.
+ *
+ * `computeConfigProvenance` descend dans un objet dès que les deux côtés en
+ * sont un : pour un objet LIBRE (`areas`, `roleHierarchy`, `oauth2.providers`)
+ * elle produit `areas.nodefony-admin = "app"`, jamais `areas`. Or le catalogue
+ * fait de cet objet une seule feuille. Chercher la clé exacte et conclure
+ * « défaut » quand elle manque affirmait le contraire de la vérité — sur le
+ * firewall et la hiérarchie des rôles. Ici, la clé exacte gagne si elle
+ * existe ; sinon l'origine la plus forte de ses sous-clés (`env` > `runtime` >
+ * `app` > `default`) ; sinon `default`.
+ *
+ * @param provenance - la map par feuille, ou `null` sans schéma.
+ * @param key - le chemin pointé de la clé du catalogue.
+ * @returns l'origine agrégée.
+ */
+export function aggregateProvenance(
+  provenance: Record<string, string> | null | undefined,
+  key: string,
+): string {
+  if (!provenance) return "default";
+  const exact = provenance[key];
+  if (exact !== undefined) return exact;
+  const prefix = `${key}.`;
+  let best = "default";
+  for (const path of Object.keys(provenance)) {
+    if (!path.startsWith(prefix)) continue;
+    const origin = provenance[path];
+    if ((ORIGIN_RANK[origin] ?? 0) > (ORIGIN_RANK[best] ?? 0)) best = origin;
+  }
+  return best;
+}

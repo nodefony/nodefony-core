@@ -360,6 +360,7 @@ export { flattenConfigSchema } from "./config/schemaCatalog";
 export type { ISchemaLeaf } from "./config/schemaCatalog";
 export {
   computeConfigProvenance,
+  aggregateProvenance,
   extractJsonSchemaDefaults,
 } from "./config/configProvenance";
 export type { ConfigOrigin } from "./config/configProvenance";

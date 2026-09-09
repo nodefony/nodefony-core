@@ -10,6 +10,7 @@ import {
   collectDevStatus,
   parseNfEnvOverrides,
   computeConfigProvenance,
+  aggregateProvenance,
   extractJsonSchemaDefaults,
   flattenConfigSchema,
   readResolvedPath,
@@ -1022,25 +1023,49 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const filter = typeof wanted === "string" ? wanted.toLowerCase() : null;
         const rows: ISchemaCatalogRow[] = [];
         const entries = buildConfigEntries();
-        // Un filtre qui ne désigne AUCUN module se dit, avec les noms
-        // acceptés. Sans ça, une faute de frappe (`htp`) rend un catalogue
-        // vide, et le vide se lit « ce module n'a pas de configuration » —
-        // exactement la conclusion inverse de la vérité.
-        if (
-          filter !== null &&
-          !entries.some(
-            (e) =>
-              e.name.toLowerCase() === filter || e.key.toLowerCase() === filter,
-          )
-        ) {
-          return {
-            status: 404,
-            body: {
-              error: "Unknown module",
-              module: wanted,
-              available: entries.map((e) => e.name),
-            },
-          };
+        const matches = (name: string, key: string): boolean =>
+          name.toLowerCase() === filter || key.toLowerCase() === filter;
+        if (filter !== null) {
+          const entry = entries.find((e) => matches(e.name, e.key));
+          // Deux silences pour une même situation, et un mensonge : un module
+          // CHARGÉ sans schéma publié rendait « Unknown module » (s'il n'a pas
+          // d'options) ou un catalogue vide (s'il en a). Le lecteur ne pouvait
+          // pas distinguer « absent » de « chargé, schéma non publié ». On
+          // regarde les modules du Kernel, pas seulement les entrées porteuses
+          // de config — et on nomme le geste qui manque.
+          if (!entry || entry.configSchema == null) {
+            const modules = kernel.getModules();
+            const nameOf = (k: string): string =>
+              (modules[k] as unknown as ConfigModuleLike).getModuleName?.() ??
+              k;
+            const loadedKey = Object.keys(modules).find((k) =>
+              matches(nameOf(k), k),
+            );
+            if (loadedKey !== undefined) {
+              const name = nameOf(loadedKey);
+              return {
+                status: 404,
+                body: {
+                  error: "Schema not published",
+                  module: name,
+                  loaded: true,
+                  hint: `Le module ${name} est chargé mais ne publie pas son schéma de configuration : ajouter dans son index.ts \`override configSchema(): unknown { return z.toJSONSchema(schema); }\` (schéma Zod de nodefony/config/config.ts). Sans lui, ses clés sont indécouvrables ici.`,
+                },
+              };
+            }
+            // Un filtre qui ne désigne AUCUN module se dit, avec les noms
+            // acceptés. Sans ça, une faute de frappe (`htp`) rend un catalogue
+            // vide, et le vide se lit « ce module n'a pas de configuration » —
+            // exactement la conclusion inverse de la vérité.
+            return {
+              status: 404,
+              body: {
+                error: "Unknown module",
+                module: wanted,
+                available: entries.map((e) => e.name),
+              },
+            };
+          }
         }
         for (const entry of entries) {
           // Le filtre accepte le nom de paquet (`@nodefony/http`) comme le
@@ -1055,6 +1080,14 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           }
           for (const leaf of flattenConfigSchema(entry.configSchema)) {
             const path = leaf.key.split(".");
+            // La note « secret » suit la REDACTION, pas la seule annotation
+            // `.meta({ secret: true })` — une clé masquée dans `effective` sans
+            // être marquée laissait croire à une valeur vide.
+            const secret = SECRET_KEY.test(path[path.length - 1] as string);
+            const note =
+              secret && !leaf.note.includes("secret")
+                ? [leaf.note, "secret"].filter(Boolean).join(", ")
+                : leaf.note;
             rows.push({
               key: leaf.key,
               module: entry.name,
@@ -1064,8 +1097,10 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
               // ce catalogue n'ouvre donc aucune porte qu'un secret pourrait
               // franchir, et il n'a pas à le savoir.
               effective: readResolvedPath(entry.config, path),
-              source: entry.provenance?.[leaf.key] ?? "default",
-              note: leaf.note,
+              // Une feuille du catalogue peut être un objet LIBRE que la
+              // provenance a traversé : son origine s'agrège sur ses sous-clés.
+              source: aggregateProvenance(entry.provenance, leaf.key),
+              note,
               description: leaf.description,
             });
           }

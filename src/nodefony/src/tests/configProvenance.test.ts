@@ -1,6 +1,7 @@
 import assert from "node:assert";
 
 import {
+  aggregateProvenance,
   computeConfigProvenance,
   extractJsonSchemaDefaults,
   findSetReservedKeys,
@@ -212,5 +213,46 @@ describe("configProvenance — findSetReservedKeys (filet clé réservée au boo
       immutable: true,
     };
     assert.deepStrictEqual(findSetReservedKeys(RESERVED_SCHEMA, resolved), []);
+  });
+});
+
+// #297 — la provenance d'une clé du CATALOGUE se lit sur ses sous-clés quand
+// la feuille du schéma est un objet libre que la provenance a traversé.
+describe("aggregateProvenance — l'origine d'une feuille de catalogue", () => {
+  it("la clé exacte gagne quand elle existe", () => {
+    assert.strictEqual(
+      aggregateProvenance({ areas: "runtime", "areas.x": "app" }, "areas"),
+      "runtime",
+    );
+  });
+
+  it("sinon, l'origine la plus forte de ses sous-clés : env > runtime > app > default", () => {
+    assert.strictEqual(
+      aggregateProvenance({ "areas.a": "default", "areas.b": "app" }, "areas"),
+      "app",
+    );
+    assert.strictEqual(
+      aggregateProvenance({ "areas.a": "app", "areas.b.c": "env" }, "areas"),
+      "env",
+    );
+    assert.strictEqual(
+      aggregateProvenance({ "areas.a": "runtime", "areas.b": "app" }, "areas"),
+      "runtime",
+    );
+  });
+
+  it("un préfixe ne mord que sur un segment ENTIER — `areas` n'agrège pas `areasBis.x`", () => {
+    assert.strictEqual(
+      aggregateProvenance({ "areasBis.x": "env" }, "areas"),
+      "default",
+    );
+  });
+
+  it("sans provenance, ou sans aucune sous-clé, c'est le défaut", () => {
+    assert.strictEqual(aggregateProvenance(null, "areas"), "default");
+    assert.strictEqual(
+      aggregateProvenance({ other: "app" }, "areas"),
+      "default",
+    );
   });
 });

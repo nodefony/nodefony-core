@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3973,
+    "symbols": 3974,
     "classes": 388,
     "interfaces": 1078,
     "types": 447,
     "enums": 4,
-    "functions": 1664,
+    "functions": 1665,
     "constants": 392
   },
   "symbols": {
@@ -2684,6 +2684,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les feuilles de `base` que `override` REMPLACE — jamais celles qu'il complète. Descend tant que les deux côtés sont des objets simples ; ailleurs, une clé présente des deux côtés avec deux valeurs …"
+    },
+    "aggregateProvenance": {
+      "name": "aggregateProvenance",
+      "kind": "function",
+      "file": "src/nodefony/src/config/configProvenance.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'origine d'une clé du CATALOGUE, agrégée depuis la provenance par feuille. `computeConfigProvenance` descend dans un objet dès que les deux côtés en sont un : pour un objet LIBRE (`areas`, `roleHi…"
     },
     "defaultAppConfig": {
       "name": "defaultAppConfig",
@@ -34393,6 +34401,9 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "computeConfigProvenance": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "aggregateProvenance": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "extractJsonSchemaDefaults": [

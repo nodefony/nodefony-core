@@ -1,4 +1,4 @@
-import { Module<% if (it.complete) { %>, services<% } %> } from "nodefony";
+import { Module, appConfigJsonSchema<% if (it.complete) { %>, services<% } %> } from "nodefony";
 import type { Kernel } from "nodefony";
 import { controllers } from "@nodefony/framework";
 <% if (it.complete) { %>import AppInfoService from "./nodefony/service/AppInfoService";
@@ -38,6 +38,16 @@ export { env } from "./env";
 class App extends Module {
   constructor(kernel: Kernel) {
     super("app", kernel, import.meta.url, config);
+  }
+
+  /**
+   * Publie le schéma de la configuration de l'application : c'est ce qui rend
+   * `npx nodefony inspect schema app` capable d'en donner le catalogue —
+   * `servers`, `domain`, `log`… avec défauts et descriptions. Sans lui, les
+   * clés de l'application sont indécouvrables là où elles servent.
+   */
+  override configSchema(): unknown {
+    return appConfigJsonSchema();
   }
 <% if (it.complete) { %>
   /**

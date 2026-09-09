@@ -21,6 +21,7 @@ export { parseNfEnvOverrides } from "./envOverride";
 export type { NfEnvOverride } from "./envOverride";
 export {
   computeConfigProvenance,
+  aggregateProvenance,
   extractJsonSchemaDefaults,
 } from "./configProvenance";
 export type { ConfigOrigin } from "./configProvenance";
