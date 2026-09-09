@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3968,
+    "symbols": 3971,
     "classes": 388,
-    "interfaces": 1076,
+    "interfaces": 1077,
     "types": 447,
     "enums": 4,
-    "functions": 1661,
+    "functions": 1663,
     "constants": 392
   },
   "symbols": {
@@ -1544,6 +1544,15 @@
       "module": "@nodefony/core",
       "description": "Construit le rapport d'environnement."
     },
+    "IPortableSpawn": {
+      "name": "IPortableSpawn",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/execPortable.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'il faut donner à `spawn`/`spawnSync` pour lancer `command args…` sur ce système — SANS jamais confier des arguments à un shell. ## Le défaut que `needsShell` seul a laissé passer `spawnSync(\"…"
+    },
     "needsShell": {
       "name": "needsShell",
       "kind": "function",
@@ -1551,6 +1560,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lancer un exécutable de l'écosystème npm, sur les trois systèmes. ## Le défaut, et pourquoi il ne se voit jamais sur un poste de développement Sous Windows, `npm`, `npx`, `prettier` et compagnie ne…"
+    },
+    "portableSpawn": {
+      "name": "portableSpawn",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/execPortable.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose la commande portable — voir {@link IPortableSpawn}. La plateforme, la grammaire de chemins et l'interpréteur sont INJECTÉS pour la même raison que dans {@link needsShell} : la branche Windo…"
     },
     "parseGitHooksArgv": {
       "name": "parseGitHooksArgv",
@@ -30114,7 +30131,7 @@
       "OPTION_SUGGESTIONS": [
         "src/nodefony/src/cli/completion.ts"
       ],
-      "needsShell": [
+      "portableSpawn": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",

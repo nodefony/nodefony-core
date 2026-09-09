@@ -1,5 +1,5 @@
 import { spawn } from "node:child_process";
-import { needsShell } from "../../cli/execPortable";
+import { portableSpawn } from "../../cli/execPortable";
 import Command, { OptionsCommandInterface } from "../../command/Command";
 import CliKernel from "../CliKernel";
 
@@ -38,10 +38,11 @@ class Build extends Command {
     if (force) turboArgs.push("--force");
     this.log(`build : npx ${turboArgs.join(" ")}`, "INFO");
     const code = await new Promise<number>((res) => {
-      const p = spawn("npx", turboArgs, {
+      const cmd = portableSpawn("npx", turboArgs);
+      const p = spawn(cmd.file, cmd.args, {
         cwd: process.cwd(),
         stdio: "inherit",
-        shell: needsShell("npx"),
+        windowsVerbatimArguments: cmd.windowsVerbatimArguments,
       });
       p.once("exit", (c) => res(c ?? 1));
       p.once("error", () => res(1));

@@ -1,7 +1,8 @@
 import { describe, it } from "vitest";
 import { expect } from "chai";
 import path from "node:path";
-import { needsShell } from "../cli/execPortable";
+import { spawnSync } from "node:child_process";
+import { needsShell, portableSpawn } from "../cli/execPortable";
 
 /**
  * SPEC — « ce qui empêche Node de lancer la chose n'est pas OÙ elle est, c'est ce
@@ -45,5 +46,88 @@ describe("needsShell — la règle du shell Windows", () => {
     // `…\cmd.js` porte « cmd » sans être un script batch : le confondre ferait
     // passer par le shell un argument qui n'a rien demandé.
     expect(win("D:\\app\\bin\\cmd.js")).to.equal(false);
+  });
+});
+
+/**
+ * SPEC — « des arguments ne se confient JAMAIS à un shell ».
+ *
+ * `shell: true` avec des arguments est la forme que Node déprécie (DEP0190) et
+ * qu'il annonce à l'exécution — Nodefony relayant chaque avertissement avec sa
+ * pile, `nodefony create app` imprimait une stack sous Windows. La branche
+ * Windows se vérifie ici par injection ; le cas réel, en bas, tourne dans le
+ * job de CHAQUE plateforme, et c'est là qu'il mord.
+ */
+describe("portableSpawn — lancer sans confier d'arguments à un shell", () => {
+  const win = (cmd: string, args: string[]) =>
+    portableSpawn(
+      cmd,
+      args,
+      "win32",
+      path.win32,
+      "C:\\Windows\\system32\\cmd.exe",
+    );
+
+  it("hors Windows, la commande part telle quelle, arguments intacts", () => {
+    const r = portableSpawn("npm", ["install"], "linux", path.posix);
+    expect(r).to.deep.equal({
+      file: "npm",
+      args: ["install"],
+      windowsVerbatimArguments: false,
+    });
+  });
+
+  it("sous Windows, un script batch passe par cmd.exe — la ligne, pas l'option shell", () => {
+    // Exactement ce que Node compose derrière `shell: true`, sans l'option.
+    expect(win("npm", ["run", "build"])).to.deep.equal({
+      file: "C:\\Windows\\system32\\cmd.exe",
+      args: ["/d", "/s", "/c", '"npm run build"'],
+      windowsVerbatimArguments: true,
+    });
+  });
+
+  it("sous Windows, un vrai exécutable ne passe PAS par cmd.exe", () => {
+    const r = win("C:\\Program Files\\nodejs\\node.exe", ["-v"]);
+    expect(r.file).to.equal("C:\\Program Files\\nodejs\\node.exe");
+    expect(r.windowsVerbatimArguments).to.equal(false);
+  });
+
+  it("un argument portant un blanc ou un métacaractère est quoté, pas concaténé", () => {
+    const r = win("npm", [
+      "run",
+      "build",
+      "--",
+      "C:\\Users\\Jane Doe\\app",
+      "a&b",
+    ]);
+    expect(r.args[3]).to.equal(
+      '"npm run build -- "C:\\Users\\Jane Doe\\app" "a&b""',
+    );
+  });
+
+  it("un argument sans forme sûre pour cmd.exe est REFUSÉ, jamais bricolé", () => {
+    expect(() => win("npm", ['say "hi"'])).to.throw(
+      /impossible à transmettre/u,
+    );
+    expect(() => win("npm", ["a\nb"])).to.throw(/impossible à transmettre/u);
+  });
+
+  it("l'interpréteur vient de %ComSpec%, avec cmd.exe en repli", () => {
+    expect(
+      portableSpawn("npm", [], "win32", path.win32, undefined).file,
+    ).to.equal("cmd.exe");
+  });
+
+  it("CAS RÉEL — `npm --version` par la voie portable ne rend AUCUN avertissement", () => {
+    // Tourne dans le job de chaque plateforme : sous Windows, c'est la branche
+    // cmd.exe qui s'exécute ici. Un `shell: true` rendrait DEP0190 sur stderr.
+    const cmd = portableSpawn("npm", ["--version"]);
+    const r = spawnSync(cmd.file, cmd.args, {
+      windowsVerbatimArguments: cmd.windowsVerbatimArguments,
+      encoding: "utf8",
+    });
+    expect(r.status, r.stderr).to.equal(0);
+    expect(r.stdout.trim()).to.match(/^\d+\.\d+\.\d+/u);
+    expect(r.stderr).to.not.match(/DeprecationWarning|DEP0190/u);
   });
 });

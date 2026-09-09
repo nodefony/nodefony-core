@@ -13,7 +13,7 @@ import {
   planMenuAction,
 } from "../../cli/startMenu";
 import { readCliManifest } from "../../cli/completion";
-import { needsShell } from "../../cli/execPortable";
+import { portableSpawn } from "../../cli/execPortable";
 import { INSPECT_SUBJECTS } from "../inspect/adminSubjects";
 import { resolveColorEnabled } from "../../syslog/logColor";
 
@@ -317,9 +317,10 @@ class Menu extends Command {
       Boolean(this.cli?.getCommand(name)),
     );
     if (plan.kind === "npm") {
-      const r = spawnSync("npm", ["run", plan.script], {
+      const cmd = portableSpawn("npm", ["run", plan.script]);
+      const r = spawnSync(cmd.file, cmd.args, {
         stdio: "inherit",
-        shell: needsShell("npm"),
+        windowsVerbatimArguments: cmd.windowsVerbatimArguments,
       });
       this.terminate(r.status ?? 1);
       return this;

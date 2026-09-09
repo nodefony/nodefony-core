@@ -55,7 +55,8 @@ export type {
 export { askPasswordMasked } from "./cli/promptPassword";
 // La règle du shell Windows — publiée parce que ce sont les CONSOMMATEURS du
 // framework (modules, bancs, outillage) qui la subissent autant que lui.
-export { needsShell } from "./cli/execPortable";
+export { needsShell, portableSpawn } from "./cli/execPortable";
+export type { IPortableSpawn } from "./cli/execPortable";
 // Le chemin du lanceur, résolu par le MANIFESTE — même motif : un shim
 // `create-*`, un banc ou un script de déploiement ne doivent jamais deviner
 // `node_modules/.bin/nodefony`, qui n'existe pas sous Windows.

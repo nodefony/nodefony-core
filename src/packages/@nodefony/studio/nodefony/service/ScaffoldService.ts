@@ -12,7 +12,7 @@ import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   Service,
-  needsShell,
+  portableSpawn,
   argvMcpWiring,
   AGENT_TARGETS,
   runScaffold,
@@ -759,13 +759,15 @@ class ScaffoldService extends Service {
   #spawnNodefony(job: IJob, argv: string[], cwd: string): Promise<boolean> {
     this.#emit(job, "info", `$ npx nodefony ${argv.join(" ")}`);
     return new Promise<boolean>((resolve) => {
-      const child = spawn("npx", ["--no-install", "nodefony", ...argv], {
+      // `npx` est un `.cmd` sous Windows : lancé nu, Node rend « ENOENT », qui
+      // se lit « npx n'est pas installé » ; lancé par `shell: true`, il imprime
+      // une dépréciation avec sa pile. Règle UNIQUE, portée par le core.
+      const cmd = portableSpawn("npx", ["--no-install", "nodefony", ...argv]);
+      const child = spawn(cmd.file, cmd.args, {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
-        // `npx` est un `.cmd` sous Windows : lancé nu, Node rend « ENOENT », qui
-        // se lit « npx n'est pas installé ». Règle UNIQUE, portée par le core.
-        shell: needsShell("npx"),
+        windowsVerbatimArguments: cmd.windowsVerbatimArguments,
       });
       job.child = child;
       const pipe = (
@@ -815,11 +817,12 @@ class ScaffoldService extends Service {
     this.#emit(job, "info", `$ npm ${args.join(" ")}`);
 
     return new Promise<boolean>((resolve) => {
-      const child = spawn("npm", [...args], {
+      const cmd = portableSpawn("npm", args);
+      const child = spawn(cmd.file, cmd.args, {
         cwd,
         env: process.env,
         stdio: ["ignore", "pipe", "pipe"],
-        shell: needsShell("npm"),
+        windowsVerbatimArguments: cmd.windowsVerbatimArguments,
       });
       job.child = child;
 

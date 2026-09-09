@@ -61,3 +61,82 @@ export function needsShell(
   if (plateforme !== "win32") return false;
   return !grammar.isAbsolute(command) || /\.(cmd|bat)$/iu.test(command);
 }
+
+/**
+ * Ce qu'il faut donner à `spawn`/`spawnSync` pour lancer `command args…` sur
+ * ce système — SANS jamais confier des arguments à un shell.
+ *
+ * ## Le défaut que `needsShell` seul a laissé passer
+ *
+ * `spawnSync("npm", ["install"], { shell: true })` est la forme que Node
+ * déprécie (DEP0190, avertissement à l'exécution depuis Node 26) : les
+ * arguments n'y sont pas échappés, seulement concaténés. Et Nodefony relaie
+ * chaque avertissement du process dans son journal, avec sa pile — si bien que
+ * sous Windows, chaque `npm …` lancé par `nodefony create app` imprimait une
+ * stack trace dans le transcript d'une commande qui avait réussi. Constaté sur
+ * l'intégration continue, jamais sur un poste de ce projet.
+ *
+ * ## Le geste
+ *
+ * Reproduire ce que Node fait lui-même derrière `shell: true` sous Windows —
+ * `cmd.exe /d /s /c "<ligne>"`, ligne transmise VERBATIM — mais en le faisant
+ * NOUS, avec les arguments quotés, et sans l'option `shell`. Ailleurs, la
+ * commande se lance telle quelle. Un seul point de code pour les trois
+ * systèmes ; l'appelant recopie les trois champs et n'a rien à décider.
+ */
+export interface IPortableSpawn {
+  /** Le programme à lancer : la commande, ou `cmd.exe` quand elle est un script batch. */
+  file: string;
+  /** Ses arguments, prêts pour `spawn` — jamais à retoucher. */
+  args: string[];
+  /** À recopier dans les options de `spawn` : `cmd.exe` reçoit sa ligne verbatim. */
+  windowsVerbatimArguments: boolean;
+}
+
+/**
+ * Un argument tel que `cmd.exe` le transmettra intact au script batch.
+ *
+ * Les blancs et les métacaractères de `cmd.exe` exigent des guillemets ; un
+ * guillemet ou un saut de ligne DANS l'argument n'a pas de forme sûre — on
+ * refuse plutôt que de concaténer, ce qui est exactement le défaut fermé ici.
+ */
+function quoteForCmd(arg: string): string {
+  if (/[\r\n"]/u.test(arg)) {
+    throw new Error(
+      `[nodefony] argument impossible à transmettre à cmd.exe : ${JSON.stringify(arg)}`,
+    );
+  }
+  return /[\s&|<>^()%!]/u.test(arg) || arg === "" ? `"${arg}"` : arg;
+}
+
+/**
+ * Compose la commande portable — voir {@link IPortableSpawn}.
+ *
+ * La plateforme, la grammaire de chemins et l'interpréteur sont INJECTÉS pour
+ * la même raison que dans {@link needsShell} : la branche Windows s'éprouve
+ * depuis n'importe quel poste.
+ *
+ * @param command - ce qu'on s'apprête à lancer (`npm`, `npx`, un chemin).
+ * @param args - ses arguments, un par élément.
+ * @param platform - le système, injectable pour l'épreuve.
+ * @param grammar - `path.win32` ou `path.posix`, idem.
+ * @param comSpec - l'interpréteur Windows (`%ComSpec%`), idem.
+ * @returns les trois champs à donner à `spawn`/`spawnSync`.
+ */
+export function portableSpawn(
+  command: string,
+  args: readonly string[],
+  platform: NodeJS.Platform = process.platform,
+  grammar: Pick<typeof path, "isAbsolute"> = path,
+  comSpec: string | undefined = process.env.ComSpec,
+): IPortableSpawn {
+  if (!needsShell(command, platform, grammar)) {
+    return { file: command, args: [...args], windowsVerbatimArguments: false };
+  }
+  const line = [command, ...args].map(quoteForCmd).join(" ");
+  return {
+    file: comSpec ?? "cmd.exe",
+    args: ["/d", "/s", "/c", `"${line}"`],
+    windowsVerbatimArguments: true,
+  };
+}

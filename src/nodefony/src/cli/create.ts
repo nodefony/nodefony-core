@@ -2,7 +2,7 @@ import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { existsSync, readFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import { needsShell } from "./execPortable";
+import { portableSpawn } from "./execPortable";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 import {
@@ -547,13 +547,16 @@ export function renderDryRun(
  */
 function runInstall(dest: string): boolean {
   process.stdout.write(`\n⏳ npm install (${path.basename(dest)})…\n`);
-  // `shell` sous Windows : `npm` y est un `.cmd`, que Node refuse de lancer nu.
-  // Sans lui, le workspace n'est jamais lié et le module devient introuvable au
-  // boot — visible seulement en 404 sur toutes ses routes.
-  const r = spawnSync("npm", ["install"], {
+  // Sous Windows, `npm` est un `.cmd` que Node refuse de lancer nu — et le
+  // lancer par `shell: true` avec des arguments imprime une dépréciation
+  // (DEP0190) avec sa pile dans le transcript. `portableSpawn` compose la
+  // ligne pour `cmd.exe` lui-même ; sans lui, le workspace n'est jamais lié et
+  // le module devient introuvable au boot — visible seulement en 404.
+  const cmd = portableSpawn("npm", ["install"]);
+  const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
-    shell: needsShell("npm"),
+    windowsVerbatimArguments: cmd.windowsVerbatimArguments,
   });
   return r.status === 0;
 }
@@ -639,10 +642,11 @@ export type CreateStepOutcome = "skipped" | "succeeded" | "failed";
  */
 function runBuild(dest: string): boolean {
   process.stdout.write(`\n⏳ npm run build (${path.basename(dest)})…\n`);
-  const r = spawnSync("npm", ["run", "build"], {
+  const cmd = portableSpawn("npm", ["run", "build"]);
+  const r = spawnSync(cmd.file, cmd.args, {
     cwd: dest,
     stdio: "inherit",
-    shell: needsShell("npm"),
+    windowsVerbatimArguments: cmd.windowsVerbatimArguments,
   });
   return r.status === 0;
 }
@@ -732,25 +736,29 @@ function runInitialMigration(
     return null;
   }
   process.stdout.write(`\n⏳ migration initiale (orm:generate)…\n`);
-  const r = spawnSync(
-    "npm",
-    ["exec", "--", "nodefony", "orm:generate", "--name", "init"],
-    {
-      cwd: dest,
-      encoding: "utf8",
-      shell: needsShell("npm"),
-      // 🔴 Le décor MINIMAL sans lequel la commande se mord la queue. Elle
-      // démarre l'application, et un démarrage en développement DÉRIVE le
-      // schéma du code : la base se retrouve peuplée par la commande
-      // elle-même, qui refuse alors d'écrire une première migration puisque
-      // « la base porte déjà toutes les tables déclarées » (constaté).
-      // `production` donne le mode `none` : le démarrage ne fabrique rien.
-      // `NF_STORE=memory` empêche le démarrage de LIRE une base qui n'a pas
-      // encore sa table — le provisionnement d'un annuaire y mourrait avant
-      // que le verbe ne s'exécute.
-      env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
-    },
-  );
+  const generate = portableSpawn("npm", [
+    "exec",
+    "--",
+    "nodefony",
+    "orm:generate",
+    "--name",
+    "init",
+  ]);
+  const r = spawnSync(generate.file, generate.args, {
+    cwd: dest,
+    encoding: "utf8",
+    windowsVerbatimArguments: generate.windowsVerbatimArguments,
+    // 🔴 Le décor MINIMAL sans lequel la commande se mord la queue. Elle
+    // démarre l'application, et un démarrage en développement DÉRIVE le
+    // schéma du code : la base se retrouve peuplée par la commande
+    // elle-même, qui refuse alors d'écrire une première migration puisque
+    // « la base porte déjà toutes les tables déclarées » (constaté).
+    // `production` donne le mode `none` : le démarrage ne fabrique rien.
+    // `NF_STORE=memory` empêche le démarrage de LIRE une base qui n'a pas
+    // encore sa table — le provisionnement d'un annuaire y mourrait avant
+    // que le verbe ne s'exécute.
+    env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+  });
   if (r.status === 0) {
     // 🔴 ÉCRITE ne veut pas dire APPLIQUÉE, et l'application naissait à
     // mi-chemin : ses fichiers de migration étaient là, sa base ne les avait
@@ -765,16 +773,18 @@ function runInitialMigration(
     // décor que l'écriture (`production` + `NF_STORE=memory`) : le mode `none`
     // empêche le démarrage de fabriquer quoi que ce soit, et c'est bien la
     // MIGRATION qui crée les tables.
-    const applique = spawnSync(
-      "npm",
-      ["exec", "--", "nodefony", "orm:migrate"],
-      {
-        cwd: dest,
-        encoding: "utf8",
-        shell: needsShell("npm"),
-        env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
-      },
-    );
+    const migrate = portableSpawn("npm", [
+      "exec",
+      "--",
+      "nodefony",
+      "orm:migrate",
+    ]);
+    const applique = spawnSync(migrate.file, migrate.args, {
+      cwd: dest,
+      encoding: "utf8",
+      windowsVerbatimArguments: migrate.windowsVerbatimArguments,
+      env: { ...process.env, NODE_ENV: "production", NF_STORE: "memory" },
+    });
     if (applique.status === 0) {
       return {
         written: true,
