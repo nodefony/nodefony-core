@@ -1,4 +1,4 @@
-import { defineEnv, envEnum, envNumber<% if (it.complete || it.front) { %>, envString<% } %> } from "nodefony";
+import { defineEnv, envEnum, envNumber, envString } from "nodefony";
 
 /**
  * Catalogue typé des variables d'environnement — SEUL lecteur de `process.env`.
@@ -43,6 +43,25 @@ export const env = defineEnv({
 
   NF_LOG_DRIVER: envEnum(["stdout", "file", "null"] as const, {
     default: "stdout",
+  }),
+
+  /**
+   * Nombre de processus Node lancés par `nodefony production` / `cluster`.
+   * Trois formes : `1` — le défaut, un process par pod, la mise à l'échelle
+   * est le travail de l'orchestrateur ; `"auto"` — un worker par cœur ALLOUÉ
+   * (quota cgroup du conteneur, jamais `os.cpus()`) ; ou un nombre explicite.
+   * Trois voies, de la plus forte à la plus faible : `--workers <n|auto>` sur
+   * la ligne de commande > cette variable > le fichier
+   * `nodefony/config/cluster/cluster.config.ts` (non généré : sa valeur serait
+   * le défaut — à créer si la topologie doit vivre en git, voir le README).
+   * Lue par le maître AVANT le boot : déclarée ici pour le catalogue
+   * (`npx nodefony env`), pas pour être lue par l'application. `npm run dev`
+   * l'ignore — le développement est toujours mono-process.
+   */
+  NF_WORKERS: envString({
+    optional: true,
+    description:
+      "Processus Node à lancer : 1 (défaut, un par pod) | auto (cœurs alloués, cgroup) | <n>.",
   }),
 <% if (it.complete) { %>
   /**

@@ -201,6 +201,26 @@ Si tu l'as retirée et que l'installation casse : remets-la, supprime
 npm run build        # backend (rolldown)<% if (it.front) { %> + frontend (vite → public/dist, fingerprinté)<% } %>
 npm start            # nodefony production — bind 0.0.0.0, logs stdout, probes /livez /readyz
 ```
+
+**Plusieurs processus.** Par défaut, un seul process Node par pod : la mise à
+l'échelle est le travail de l'orchestrateur. Sur une machine dédiée, trois voies
+règlent le nombre de workers, de la plus forte à la plus faible :
+`npx nodefony production --workers <n|auto>` (ou `npx nodefony cluster`) >
+`NF_WORKERS=<n|auto>` (déclarée dans `env.ts`) >
+`nodefony/config/cluster/cluster.config.ts`. Ce fichier n'est **pas généré** : sa
+valeur serait le défaut (`workers: 1`), et chaque application porterait un
+fichier qui ne dit rien. Crée-le si la topologie doit vivre en git :
+
+```ts
+// nodefony/config/cluster/cluster.config.ts — lu par le maître AVANT le boot,
+// donc sans le moindre import du kernel.
+import type { IClusterConfig } from "nodefony";
+export default { workers: "auto" } satisfies IClusterConfig;
+```
+
+`auto` = un worker par cœur **alloué** (quota cgroup du conteneur), jamais
+`os.cpus()`. `npm run dev` ignore ce réglage : le développement est toujours
+mono-process.
 <% if (it.front) { %>
 > Le front de production est un build Vite figé (`public/dist/`), servi en
 > statics par Nodefony — `npm run build` le produit (il chaîne

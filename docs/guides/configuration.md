@@ -280,6 +280,13 @@ l'onglet **Configuration** de Studio, lequel badge chaque champ `🔥 à chaud` 
 le lit **standalone, AVANT de booter le moindre Kernel**, pour décider du nombre de workers. Ne PAS le
 mettre dans `nodefony.config.ts`. Override runtime : CLI `--workers` > `NF_WORKERS` > ce fichier.
 
+`nodefony create app` **ne génère pas ce fichier** : sa valeur serait le défaut (`workers: 1`, un
+process par pod), et chaque application porterait un fichier qui ne dit rien. Les deux voies
+d'exécution suffisent à un déploiement ; le fichier ne sert que si la topologie doit vivre en git —
+trois lignes, kernel-free, dont le README généré donne la forme. `NF_WORKERS` est en revanche
+déclarée dans l'`env.ts` généré, avec ses trois formes (`1`, `"auto"`, `<n>`) : c'est là qu'on
+cherche une variable, et c'est ce que `npx nodefony env` cataloguera.
+
 ## Quand la config est invalide
 
 Le boot **échoue proprement** (il ne peut pas deviner vos ports/modules) : un diagnostic clair

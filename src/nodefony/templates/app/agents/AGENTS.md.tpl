@@ -191,7 +191,7 @@ Celles qu'on n'invente pas — faute de savoir qu'elles existent :
 - **Repartir d'une base vierge EN DÉVELOPPEMENT** — `npx nodefony orm:reset [-c <connecteur>] [-y]` — refusée partout ailleurs, et **elle DÉTRUIT les données** : ce n'est jamais la façon d'éprouver une migration, ni la réponse à une migration qui refuse
 <% } %>- **Dépendances en retard (agrégées, pas le brut de npm)** — `npx nodefony outdated [-j] [-a]`
 - **Cohérence du projet (classe non câblée, route qui répondra 404)** — `npx nodefony doctor [--json]` — depuis n'importe quel sous-dossier
-- **Plusieurs processus, un cœur chacun** — `npx nodefony production -w <n>` · `npx nodefony cluster -w <n>`
+- **Plusieurs processus, un cœur chacun** — `npx nodefony production -w <n|auto>` · `npx nodefony cluster -w <n|auto>` · `NF_WORKERS=<n|auto>` (déclarée dans `env.ts`) — la ligne de commande gagne, puis la variable, puis `nodefony/config/cluster/cluster.config.ts`
 - **Construire l'image de container** — `docker build -t <%= it.appName %> .` — le `Dockerfile` est DÉJÀ là, ne le réécris pas
 <% if (it.hasMigrateRecipe) { %>- **Migrer le schéma avant un déploiement** — `deploy/migrate-job.yaml` est DÉJÀ rendu au nom de cette app (travail Kubernetes, même image, secret DDL séparé) — son mode d'emploi est en tête du fichier, ne le réécris pas
 <% } %>
