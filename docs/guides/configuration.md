@@ -110,7 +110,65 @@ export const env = defineEnv({
 3. **Module dev/conditionnel** → `{ name, policy: "dev" }` ou `use(name, config, { when: (c) => … })`.
 4. **Réglage par-env** → tester `ctx.isProd` / `ctx.isDev` dans la fonction.
 5. **Lire une variable d'env** → la déclarer dans `env.ts`, lire `ctx.env.X` (jamais `process.env`).
-6. **Extraire un domaine** quand un bloc grossit → `import { servers } from "./config/servers"` (un CHOIX, pas une obligation).
+6. **Extraire un domaine** quand un bloc grossit → un fichier sous `nodefony/config/` (un CHOIX, pas une obligation — voir juste en dessous).
+
+### Extraire un bloc de config — l'emplacement, et la garde qui vient avec
+
+L'emplacement est **`nodefony/config/<module>.ts`**, jamais un dossier `config/` à la racine :
+tout le code d'une application vit déjà sous `nodefony/` (`controllers/`, `entity/`, `security/`),
+ce dossier est dans l'`include` des deux `tsconfig` et dans le glob du bundler. Un fichier oublié
+y reste au moins typechecké, quand un fichier racine serait invisible tant que personne ne
+l'importe.
+
+> ⚠️ **Extraire SANS `satisfies` désarme le typage**, et le désarme en silence. Le contrôle des
+> propriétés en excès de TypeScript ne porte que sur un **littéral écrit au point où le type est
+> attendu** : dès que le bloc part dans une fonction, une clé mal orthographiée compile — puis Zod
+> la retire au boot sans un mot, et le module démarre sur son défaut. Aucun helper ne peut
+> rattraper ça : le typage contextuel du retour ne déclenche jamais le contrôle. **Seul `satisfies`
+> sur le littéral le fait.**
+
+```typescript
+// nodefony/config/http.ts
+// Le type d'ENTRÉE vient du MODULE, jamais du cœur : `nodefony` n'exporte pas
+// `IHttpConfigInput`.
+import type { ConfigContext } from "nodefony";
+import type { IHttpConfigInput } from "@nodefony/http";
+import type { env } from "../../env";
+
+export const http = (ctx: ConfigContext<typeof env>) =>
+  ({
+    headerServer: ctx.isProd ? null : "nodefony",
+    upload: { maxFileSize: 1_048_576 },
+  }) satisfies IHttpConfigInput;
+```
+
+```typescript
+// nodefony.config.ts — garde les use(), qui restent l'index ordonné des modules
+import { http } from "./nodefony/config/http";
+
+export default defineConfig((ctx) => ({
+  modules: [use("@nodefony/http", http(ctx))],
+}));
+```
+
+Ce que le `satisfies` attrape, vérifié sur ce dépôt :
+
+```typescript
+// ❌ TS2561 — « trustProxi n'existe pas… vouliez-vous écrire trustProxy ? »
+//    Sans `satisfies`, ce MÊME fichier compile, et Zod retire la clé au boot.
+trustProxi: true;
+
+// ❌ TS2353 — `servers` appartient à la config de l'APPLICATION, pas au module.
+//    La confusion des deux niveaux est la faute la plus facile à faire ici.
+servers: {
+  http: {
+    port: 5151;
+  }
+}
+```
+
+Rien ne charge `nodefony/config/` tout seul : c'est un import ordinaire, et le fichier ne vaut que
+parce que `nodefony.config.ts` le nomme.
 
 ## L'écoute : ports et TLS
 

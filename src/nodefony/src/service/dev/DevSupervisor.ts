@@ -304,7 +304,11 @@ export class DevSupervisor {
     // Inclut les fichiers de config racine `nodefony.config.ts` + `env.ts` (modèle
     // defineConfig, Lot 5) : un changement déclenche un rebuild root (`rolldown -c` via
     // resolveWorkspace → null) puis le restart → la config éditée est appliquée en dev.
-    // `config` = dossier d'extraction optionnel (recette « grandir », cf docs/guides/configuration.md).
+    // `nodefony` couvre AUSSI `nodefony/config/`, l'emplacement d'extraction en
+    // vigueur (recette « grandir », cf docs/guides/configuration.md). `config`
+    // racine reste dans la liste pour les applications qui l'ont héritée de
+    // Nodefony 7 : `existsSync` le filtre partout ailleurs, donc il ne coûte
+    // rien — mais ce n'est plus une convention, et rien ne doit y renvoyer.
     const wanted = options.paths ?? [
       "src",
       "nodefony",
@@ -645,6 +649,8 @@ export class DevSupervisor {
     if (stale || !this.#standalone) {
       return stale;
     }
+    // Même liste, même raison qu'au constructeur : `nodefony` porte
+    // `nodefony/config/`, et `config` racine n'est gardé que pour l'existant.
     for (const dirName of ["nodefony", "config", "modules"]) {
       const dir = path.join(this.#cwd, dirName);
       if (!existsSync(dir)) continue;

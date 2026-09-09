@@ -1,6 +1,6 @@
 /**
  * ┌──────────────────────────────────────────────────────────────────────────┐
- * │  nodefony.config.ts — CONFIGURATION DE L'APPLICATION (fichier unique)       │
+ * │  nodefony.config.ts — CONFIGURATION DE L'APPLICATION (le point d'entrée)   │
  * └──────────────────────────────────────────────────────────────────────────┘
  *
  * Tout ce qui n'est PAS écrit ici prend le défaut du framework (`defaultAppConfig`,
@@ -16,7 +16,10 @@
  *  3. Module dev/conditionnel   → `{ name, policy: "dev" }` ou `use(n, c, { when })`.
  *  4. Réglage par-env           → tester `ctx.isProd` / `ctx.isDev` (déjà utilisé ci-dessous).
  *  5. Lire une var d'env        → la déclarer dans `./env.ts`, lire `ctx.env.X` (jamais `process.env`).
- *  6. Extraire un domaine       → quand un bloc grossit : `import { servers } from "./config/servers"` (choix, pas obligation).
+ *  6. Extraire un domaine       → quand un bloc grossit : un fichier `nodefony/config/<module>.ts`
+ *                                 exportant `(ctx) => ({ … }) satisfies I<Module>ConfigInput`.
+ *                                 Le `satisfies` n'est PAS décoratif : sans lui, une clé inconnue
+ *                                 compile puis est retirée EN SILENCE au boot (choix, pas obligation).
  *
  * Voir toutes les options + défauts : onglet Configuration de Studio (`/nodefony`).
  */
