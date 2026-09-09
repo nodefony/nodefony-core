@@ -70,7 +70,7 @@
     "@types/pg": "8.23.1",
     "better-sqlite3": "13.0.3",
     "drizzle-kit": "0.31.10",
-    "mysql2": "3.24.3",
+    "mysql2": "3.24.4",
     "nodefony": "^10.0.0-alpha.3",
     "pg": "8.23.0",
     "rimraf": "6.1.3"

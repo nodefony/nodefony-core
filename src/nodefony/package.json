@@ -97,7 +97,7 @@
     "build:types": "tsgo -p tsconfig.declarations.json && tsgo -p tsconfigClient.json --emitDeclarationOnly"
   },
   "dependencies": {
-    "@inquirer/prompts": "8.7.1",
+    "@inquirer/prompts": "8.7.2",
     "chokidar": "5.0.0",
     "cli-table3": "0.6.5",
     "commander": "15.0.0",
@@ -155,9 +155,9 @@
     "typedoc-plugin-markdown": "4.13.0",
     "vitest": "5.0.0",
     "vue": "^3.5.42",
-    "@angular/compiler": "^22.1.5",
-    "@angular/core": "^22.1.5",
-    "@angular/platform-browser": "^22.1.5",
+    "@angular/compiler": "^22.1.6",
+    "@angular/core": "^22.1.6",
+    "@angular/platform-browser": "^22.1.6",
     "svelte": "^5.57.0",
     "zod": "4.5.4"
   },
