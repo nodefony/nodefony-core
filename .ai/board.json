@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-08T22:51:29.820Z",
+  "generatedAt": "2026-09-09T00:52:00.346Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,10 +25,10 @@
       "title": "12.0.0"
     },
     {
-      "closed": 19,
+      "closed": 23,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 18,
+      "open": 15,
       "title": "10.0.0-alpha"
     },
     {
@@ -1647,7 +1647,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 2.5,
+      "jours": 1,
       "ordre": 5,
       "labels": [
         "10.0.0-alpha"
@@ -1798,8 +1798,8 @@
       "number": 282,
       "title": "refactor(http)!: renommer la clé de config openssl en selfSigned",
       "url": "https://github.com/nodefony/nodefony-core/issues/282",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1826,8 +1826,8 @@
       "number": 287,
       "title": "feat(cli): rendre découvrables les clés de config d'un module",
       "url": "https://github.com/nodefony/nodefony-core/issues/287",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2534,7 +2534,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 2.5,
+      "jours": 1.5,
       "ordre": 16,
       "labels": [
         "10.0.0-alpha"
@@ -2544,8 +2544,8 @@
       "number": 284,
       "title": "refactor(kernel): lire le manifeste par une seule fonction partagée",
       "url": "https://github.com/nodefony/nodefony-core/issues/284",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2559,7 +2559,7 @@
       "title": "refactor(config): extraire la config par module dans nodefony/config",
       "url": "https://github.com/nodefony/nodefony-core/issues/285",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2572,12 +2572,26 @@
       "number": 286,
       "title": "docs(guides): corriger les renvois vers un dossier de config supprimé",
       "url": "https://github.com/nodefony/nodefony-core/issues/286",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 16.3,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 296,
+      "title": "feat(scaffold): montrer l'emplacement d'extraction de la config aux apps générées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/296",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 16.5,
       "labels": [
         "10.0.0-alpha"
       ]

@@ -63,6 +63,17 @@
   reprise. Un gate écrit pour une famille d'artefacts (les scripts) laisse intacte l'autre famille
   qui exécute la même chose (la prose exécutable). Étendre le balayage a nommé le coupable en un run.
 
+- [1× — 09-09] **Mon guetteur de CI a rendu un FAUX VERT deux fois d'affilée, et la seconde fois
+  c'était ma correction de la première.** `gh run list --commit <sha>` rend parfois une liste VIDE
+  (les jobs existent, la requête ne les voit pas) : ma boucle a lu « aucun job en cours » = « tout
+  est fini », et j'ai annoncé la CI terminée alors que cinq jobs tournaient. Corrigé avec
+  `.conclusion // "EN_COURS"` — sauf que `conclusion` rend une **chaîne vide**, pas `null`, et que
+  `//` en jq ne remplace que `null`/`false` : second verdict complet, tout aussi faux. La voie
+  exhaustive était `repos/:o/:r/commits/<sha>/check-suites`, qui rend `status` ET `conclusion` par
+  suite, sans dépendre d'une liste paginée. Le motif : **un guetteur dont le mode d'échec est de
+  conclure POSITIVEMENT ne se remarque jamais** — il faut lui faire dire ce qu'il a compté, et
+  refuser un verdict quand le compte est nul. ↝ [[feedback_suspect_instrument_and_own_diff]]
+
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
 - [1× — 09-08c] **Un décor de démonstration posé dans un fichier qu'un sous-agent analysait.**
@@ -121,6 +132,27 @@
 > **`feedback_fix_the_family_not_the_instance`** : corriger la RÈGLE et pas l’instance,
 > vérifier que le remède n’est pas exposé au défaut qu’il corrige, et que le geste est ENTIER.
 > Ne PAS réécrire ici.
+
+## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
+
+- [1× — 09-09] **J'allais extraire un bloc de config et casser le générateur EN SILENCE ; c'est une
+  question du user qui m'a arrêté, pas ma lecture du ticket.** #285 portait « Dépend de : rien », et
+  j'ai pris ça pour un feu vert. La dépendance était pourtant écrite à DEUX endroits que je n'avais
+  pas croisés : le champ `Ordre` du tableau (16.1 pour #284, 16.2 pour #285 — l'ordre encode les
+  dépendances, c'est sa définition), et une section du corps intitulée « Ce qui n'est PAS dans ce
+  ticket », qui nommait la raison exacte (« rendrait `doctor` aveugle tant que les lecteurs textuels
+  du manifeste ne partagent pas une fonction unique »). Le terrain a confirmé : `roleHierarchy`
+  vivait l.352, en plein dans le bloc que je déplaçais, et le scaffold l'ancre à l'expression
+  régulière — zéro erreur, zéro constat, un rapport de surface qui se lit « tout va bien ».
+  Le contrôle qui l'attrape avant d'écrire une ligne : **lire le champ `Ordre` ET la section « ce
+  qui n'est pas dans ce ticket » du ticket VOISIN**, pas seulement `Dépend de` du sien.
+
+- [1× — 09-09] **Un ticket peut partir de prémisses devenues fausses, et sa taille change alors du
+  tout au tout.** #287 affirmait « seuls deux modules exposent leur schéma » et « aucune description
+  n'est atteignable » : mesuré avant d'écrire, **neuf modules sur dix** le rendaient déjà, avec
+  429 descriptions, et la provenance par champ existait. Le travail n'était pas la plomberie
+  annoncée mais un RENDU. Mesurer les trois affirmations a coûté deux commandes ; les croire aurait
+  coûté une refonte inutile. ↝ [[feedback_anchor_expires_silently]]
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
@@ -277,6 +309,17 @@
 ## 🗄️ 🕳️ Un gate rend un verdict RASSURANT sur son angle mort — GRADUÉ
 
 > Gradué le 2026-09-08 — 10 frictions → **`feedback_prove_the_target_not_the_verdict`** (§ « Le verdict RASSURANT sur l'angle mort ») : demander QUELLE BRANCHE, pas le verdict ; un run VIDE se présente comme vert ; le geste qui les attrape tous est de débrancher. Ne PAS réécrire ici.
+
+## 🧪 Un exemple de DOC qu'aucun gate ne compile est une affirmation, pas un fait
+
+- [1× — 09-09] **L'exemple que j'écrivais dans une page publiée ne compilait pas, DEUX fois, et
+  aucune barrière du dépôt ne l'aurait dit.** `code-check.mjs` ne compile que la section
+  « Démarrage rapide » ; une recette écrite ailleurs dans la même page n'est vérifiée par personne.
+  Les deux fautes étaient exactement celles qu'un lecteur ferait : importer le type d'entrée depuis
+  `nodefony` (il vient du MODULE), puis régler `servers` dans la config d'un module (il appartient à
+  celle de l'APPLICATION). Écrire le fichier pour de vrai et le typechecker a pris deux minutes ; la
+  seconde faute est devenue un contre-exemple de la page. **Un bloc de code publié se COMPILE, même
+  quand aucun gate ne le demande** — surtout quand la page prétend enseigner une garde de typage.
 
 ## 📐 Le verdict BINAIRE d'un banc gaspille ce qu'il a déjà mesuré
 
