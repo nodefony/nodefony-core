@@ -22,7 +22,7 @@ _Une action de contrôleur. Deux transports. La même session, la même sécurit
 > pare-feu, pas une passerelle à côté. Et l'application se décrit à un agent — générateurs
 > pilotables, catalogue, `AGENTS.md` dérivé du projet — au lieu d'être devinée.
 
-**État** — version `10.0.0` · **préversion `10.0.0-alpha.3` en ligne**, sous le canal `alpha`
+**État** — version `10.0.0` · **préversion `10.0.0-alpha.4` en ligne**, sous le canal `alpha`
 uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le fera jusqu'à la
 sortie stable · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
 l'infrastructure répond (`npm run test:all`).
@@ -200,7 +200,7 @@ rejouable, et ses échecs sont publics. C'est cette place-là que le framework o
 
 ## Démarrage
 
-Une préversion `10.0.0-alpha.3` est en ligne sous le canal `alpha` — sans garantie de stabilité ni
+Une préversion `10.0.0-alpha.4` est en ligne sous le canal `alpha` — sans garantie de stabilité ni
 de compatibilité entre deux alphas. Elle s'installe en nommant ce canal :
 
 ```bash
