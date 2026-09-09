@@ -135,7 +135,8 @@ export function portableSpawn(
   }
   const line = [command, ...args].map(quoteForCmd).join(" ");
   return {
-    file: comSpec ?? "cmd.exe",
+    // Un `%ComSpec%` vide vaut absent : `cmd.exe` se résout par le PATH.
+    file: comSpec || "cmd.exe",
     args: ["/d", "/s", "/c", `"${line}"`],
     windowsVerbatimArguments: true,
   };

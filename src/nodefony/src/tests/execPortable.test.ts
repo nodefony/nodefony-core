@@ -113,9 +113,12 @@ describe("portableSpawn — lancer sans confier d'arguments à un shell", () => 
   });
 
   it("l'interpréteur vient de %ComSpec%, avec cmd.exe en repli", () => {
-    expect(
-      portableSpawn("npm", [], "win32", path.win32, undefined).file,
-    ).to.equal("cmd.exe");
+    // Vu ROUGE sur la forge Windows : `undefined` passé explicitement laisse
+    // jouer le défaut (`process.env.ComSpec`), présent là-bas. Le repli se
+    // prouve avec une valeur VIDE, qui vaut absente pour le produit.
+    expect(portableSpawn("npm", [], "win32", path.win32, "").file).to.equal(
+      "cmd.exe",
+    );
   });
 
   it("CAS RÉEL — `npm --version` par la voie portable ne rend AUCUN avertissement", () => {
