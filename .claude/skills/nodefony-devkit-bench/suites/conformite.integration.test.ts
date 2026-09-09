@@ -71,17 +71,61 @@ describe("intégration — l'application boote et se laisse lire", () => {
     // module est simplement absent, en silence. On compare donc ce qui est
     // écrit à ce qui est monté.
     const cfg = readFileSync(path.join(APP, "nodefony.config.ts"), "utf8");
-    const bloc = cfg.match(/modules\s*:\s*\[([\s\S]*?)\]/);
-    if (bloc === null) return;
-    // Deux formes, et DEUX SEULEMENT : `use("@nodefony/x", { … })` et l'entrée
-    // nue `"@nodefony/x",`. Ramasser toutes les chaînes du bloc attrape les
-    // VALEURS de configuration passées à `use` — au premier run, le
-    // `driver: "cluster"` du backplane a été compté comme un module absent, et
-    // l'assertion accusait le manifeste d'un manquement inventé.
-    const declares = [
-      ...bloc[1].matchAll(/use\(\s*["']([^"']+)["']/g),
-      ...bloc[1].matchAll(/^\s*["']([^"']+)["']\s*,/gm),
-    ].map((m) => m[1]);
+    // 🔴 Le bloc se prend jusqu'à son crochet APPARIÉ, jamais au premier
+    // rencontré. Une capture non gourmande s'arrêtait au premier `]` du
+    // contenu — celui d'une liste de rôles ou d'audiences écrite dans la
+    // configuration en ligne d'un module — et la comparaison ne portait donc
+    // que sur les premiers modules déclarés. Elle était VERTE parce qu'elle
+    // ne regardait pas la fin de la liste : le jour où les configurations
+    // sont parties dans leurs fragments, trois modules sont apparus d'un
+    // coup. Un test qui rétrécit en silence son propre périmètre est pire
+    // qu'un test absent.
+    const debut = cfg.search(/modules\s*:\s*\[/u);
+    if (debut === -1) return;
+    let profondeur = 0;
+    let fin = -1;
+    for (let i = cfg.indexOf("[", debut); i < cfg.length; i++) {
+      if (cfg[i] === "[") profondeur++;
+      else if (cfg[i] === "]") {
+        profondeur--;
+        if (profondeur === 0) {
+          fin = i;
+          break;
+        }
+      }
+    }
+    if (fin === -1) return;
+    const bloc = [null, cfg.slice(cfg.indexOf("[", debut) + 1, fin)];
+    // Chaque DÉCLARATION est prise ENTIÈRE — l'appel `use(…)` jusqu'à sa
+    // parenthèse appariée, ou l'entrée nue `"@nodefony/x",`. C'est cet
+    // ensemble qui porte le gating, et le lire en entier est la seule façon
+    // de savoir si un module a le DROIT d'être absent.
+    //
+    // Un module GATÉ a ce droit, et c'est même sa raison d'être :
+    // `policy: "dev"` le retire en production, `when` le conditionne à une
+    // infrastructure déclarée. Le commentaire d'en-tête l'annonce depuis le
+    // premier jour ; le code, lui, ne le faisait pas — et personne ne s'en
+    // apercevait, parce que la capture tronquée ci-dessus n'atteignait jamais
+    // les modules concernés. Deux défauts qui se cachaient l'un l'autre.
+    const texte = bloc[1]!;
+    const declarations: { nom: string; source: string }[] = [];
+    for (const m of texte.matchAll(/use\(\s*["']([^"']+)["']/gu)) {
+      let profondeur = 0;
+      let j = texte.indexOf("(", m.index!);
+      const depart = j;
+      for (; j < texte.length; j++) {
+        if (texte[j] === "(") profondeur++;
+        else if (texte[j] === ")") {
+          profondeur--;
+          if (profondeur === 0) break;
+        }
+      }
+      declarations.push({ nom: m[1]!, source: texte.slice(depart, j + 1) });
+    }
+    for (const m of texte.matchAll(/^\s*["']([^"']+)["']\s*,/gmu)) {
+      declarations.push({ nom: m[1]!, source: m[0]! });
+    }
+    const declares = declarations.map((d) => d.nom);
     // L'introspection rend DEUX identités par module : la `key` courte
     // (`drizzle`) et le `name` du paquet (`@nodefony/drizzle`). Le manifeste
     // écrit l'une ou l'autre selon la ligne ; comparer à une seule fabrique un
@@ -92,10 +136,19 @@ describe("intégration — l'application boote et se laisse lire", () => {
       if (typeof m.key === "string") charges.add(m.key);
       if (typeof m.name === "string") {
         charges.add(m.name);
-        charges.add(m.name.replace(/^@nodefony\//, ""));
+        charges.add(m.name.replace(/^@nodefony\//u, ""));
       }
     }
-    const manquants = declares.filter((n) => !charges.has(n));
+    const gates = new Set(
+      declarations
+        .filter(
+          (d) =>
+            /policy\s*:\s*["']dev["']/u.test(d.source) ||
+            /\bwhen\s*:/u.test(d.source),
+        )
+        .map((d) => d.nom),
+    );
+    const manquants = declares.filter((n) => !charges.has(n) && !gates.has(n));
     expect(manquants).toEqual([]);
   });
 });

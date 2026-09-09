@@ -55,6 +55,32 @@ import {
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec } from "./lib/extrait-echec.mjs";
+import { createRequire } from "node:module";
+
+/**
+ * Le CODE de TOUT le manifeste de l'application témoin — racine ET fragments
+ * de `nodefony/config/`.
+ *
+ * 🔴 Ce banc lisait `nodefony.config.ts` en dur, et il est devenu aveugle le
+ * jour où la configuration d'un module est partie dans son fragment : le
+ * générateur écrivait bien `ROLE_ADMIN: [… "ROLE_COFFRE"]` dans
+ * `nodefony/config/security.ts`, et le banc déclarait le rôle absent. Un banc
+ * qui accuse un générateur qui a fait son travail est pire qu'un banc absent.
+ *
+ * La règle de lecture n'est PAS recopiée ici : on appelle celle du produit,
+ * depuis le paquet que l'application a REÇU. Le banc éprouve ainsi, au
+ * passage, que ce lecteur est bien exposé par le paquet publié.
+ */
+function manifesteComplet() {
+  // SYNCHRONE, et ce n'est pas un détail de style : `step()` appelle son
+  // corps sans l'attendre. Une étape rendue asynchrone verrait son erreur
+  // avalée et passerait pour VERTE — un faux vert dans le banc qui existe
+  // pour empêcher les faux verts. `require()` d'un module ESM est disponible
+  // sans drapeau depuis Node 22.12, et le plancher du dépôt est Node 24.
+  const require = createRequire(path.join(APP, "package.json"));
+  const { readManifestCode, diskManifestReader } = require("nodefony");
+  return readManifestCode(APP, diskManifestReader);
+}
 
 /**
  * Racine du dépôt, trouvée en REMONTANT plutôt qu'en comptant les « .. ».
@@ -621,10 +647,7 @@ step(
     }
     // La hiérarchie vit dans le manifeste de l'APPLICATION : sans elle,
     // l'administrateur devrait porter le rôle, et la garde ne généralise pas.
-    const manifeste = readFileSync(
-      path.join(APP, "nodefony.config.ts"),
-      "utf8",
-    );
+    const manifeste = manifesteComplet();
     if (
       !new RegExp(`ROLE_ADMIN\\s*:\\s*\\[[^\\]]*"${ROLE_GARDE}"`, "u").test(
         manifeste,
@@ -727,7 +750,7 @@ step(
       throw new Error(
         "le module n'a pas de package.json — ce n'est pas un paquet",
       );
-    const config = readFileSync(path.join(APP, "nodefony.config.ts"), "utf8");
+    const config = manifesteComplet();
     if (!config.includes(MODULE_PKG))
       throw new Error(
         `${MODULE_PKG} absent du manifeste \`modules\` — le Kernel ne le chargera pas`,
