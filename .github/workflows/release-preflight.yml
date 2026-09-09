@@ -278,9 +278,32 @@ jobs:
             echo "::error title=Identifiants Docker Hub refusés::Jeton expiré, révoqué, ou identifiant erroné."
             exit 1
           fi
-          docker system info --format '{{.Username}}' | grep -q . \
-            && echo "✓ authentifié auprès de Docker Hub : $(docker system info --format '{{.Username}}')" \
-            || { echo "::error title=Login sans identité::docker login a rendu 0 sans enregistrer d'identité."; exit 1; }
+          # Constater l'identité sur le fichier que `docker login` ÉCRIT, et non
+          # par `docker system info --format` : le CLI ne renseigne `UserName`
+          # que sur le chemin d'affichage PAR DÉFAUT — `if opts.format == "" {
+          # info.UserName = dockerCli.ConfigFile().AuthConfigs[registry.IndexServer]
+          # .Username }` (docker/cli, cli/command/system/info.go, fonction
+          # `runInfo`). Passer `--format` court-circuite l'affectation : le champ
+          # est TOUJOURS vide, quelle que soit son orthographe. Le gabarit écrit
+          # ici disait `.Username` et échouait — « can't evaluate field Username
+          # in type system.dockerInfo » — juste après un « Login Succeeded » ; en
+          # corrigeant la casse on obtient une chaîne vide, donc le même refus.
+          # On lit donc la MÊME source que le CLI. Les trois formes valent :
+          # entrée `auths` en clair (le cas des runners hébergés), magasin
+          # d'identifiants global, ou assistant déclaré pour ce registre — les
+          # refuser rendrait la sonde fausse sur tout poste qui chiffre.
+          config="${DOCKER_CONFIG:-$HOME/.docker}/config.json"
+          enregistre=$(jq -r '
+            ((.auths // {}) | keys | map(select(test("docker\\.io"))) | length)
+            + (if (.credsStore // "") == "" then 0 else 1 end)
+            + ((.credHelpers // {}) | keys | map(select(test("docker\\.io"))) | length)
+          ' "${config}" 2>/dev/null || echo 0)
+          if [ "${enregistre:-0}" -gt 0 ]; then
+            echo "✓ authentifié auprès de Docker Hub : ${IDENTIFIANT} (identité enregistrée dans ${config})"
+          else
+            echo "::error title=Login sans identité::docker login a rendu 0 sans enregistrer d'identité dans ${config}."
+            exit 1
+          fi
 
       # L'image que le gabarit d'application utilise réellement. Un pull qui
       # échoue ici, c'est un `smoke-docker.sh` qui échouera pour une raison sans
