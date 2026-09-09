@@ -191,16 +191,26 @@ for (const w of workspaces) {
     if (mutated) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
     }
-    // `--silent` fait taire NPM, pas les scripts qu'il déclenche : un paquet
-    // dont le `prepack` construit un frontend déverse tout son build sur la
-    // sortie standard, et le nom du tarball se retrouve noyé dedans. Seule la
+    // `--ignore-scripts` : le tarball se prépare ICI — bascule des `exports.types`
+    // et extension des specifiers `.d.ts` juste au-dessus. Un `prepack` qui
+    // reconstruit (`rimraf dist && … && tsgo`) EFFACE cette préparation, et le
+    // paquet part avec des specifiers relatifs nus, illégaux en node16/ESM. Le
+    // défaut est resté invisible tant que le paquet concerné ne publiait aucun
+    // type : personne n'avait de quoi le contrôler. Le tarball reflète donc le
+    // `dist` bâti AVANT — comme pour tous les autres paquets, qui n'ont aucun
+    // hook. Corollaire : `release:pack` exige un build à jour, il n'en fait pas.
+    //
+    // `--silent` fait taire NPM, pas les scripts qu'il déclenche : seule la
     // DERNIÈRE ligne non vide est le nom de fichier — le prendre en entier
     // écrivait un pavé de plusieurs kilo-octets comme valeur dans le manifeste,
     // et l'installation suivante échouait sur un `ENAMETOOLONG` incompréhensible.
-    const out = execSync(`npm pack --silent --pack-destination "${OUT}"`, {
-      cwd: dir,
-      encoding: "utf8",
-    });
+    const out = execSync(
+      `npm pack --silent --ignore-scripts --pack-destination "${OUT}"`,
+      {
+        cwd: dir,
+        encoding: "utf8",
+      },
+    );
     // `findLast` et non `filter(Boolean).at(-1)` : c'est la DERNIÈRE ligne non
     // vide qui porte le nom d'archive, npm écrivant ses avertissements avant.
     const tgz = out
