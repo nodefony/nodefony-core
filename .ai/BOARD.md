@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-09 19:36** (UTC).
+> Empreinte prise le **2026-09-09 20:55** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 74% | 39 | 14 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 81% | 43 | 10 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 25 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
@@ -30,33 +30,14 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#307 — fix(scaffold): rendre vert le premier verify d'une application générée**
+**#311 — chore(release): publier la préversion 10.0.0-alpha.4**
 
-Ordre 1 · P0 — bloque le reste · 0.5 j · jalon 10.0.0-alpha
+Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 14 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 10 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
-
-## Jalon 10.0.0-alpha — 14 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 1 | P0 — bloque le reste | 0.5 | #307 | fix(scaffold): rendre vert le premier verify d'une application générée |
-| 1.1 | P1 — figé à la création | 0.5 | #308 | fix(devkit): cesser d'envoyer l'agent configurer la sécurité au mauvais endroit |
-| 1.5 | P0 — bloque le reste | 0.5 | #311 | chore(release): publier la préversion 10.0.0-alpha.4 |
-| 1.6 | P1 — figé à la création | 0.5 | #309 | fix(cli): ne plus contredire au diagnostic ce que la migration vient de faire |
-| 1.7 | P2 — décision | 0.5 | #310 | fix(cli): annoncer tous les frontends servis, et livrer un test de config qui teste |
-| 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
-| 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
-| 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
-| 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
-| 19 | P2 — décision | 0.5 | #290 | docs(security): recaler les ancres périmées de la page social login |
-| 20 | P2 — décision | 0.5 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
-| 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
-| 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
-| 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.0.0-beta — 25 ouverts
 
@@ -87,6 +68,21 @@ Ordre 1 · P0 — bloque le reste · 0.5 j · jalon 10.0.0-alpha
 | 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
+
+## Jalon 10.0.0-alpha — 10 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 1.5 | P0 — bloque le reste | 0.5 | #311 | chore(release): publier la préversion 10.0.0-alpha.4 |
+| 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
+| 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
+| 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
+| 14 | P1 — figé à la création | 0.5 | #21 | feat(cli): ajouter la commande de changement de mot de passe |
+| 19 | P2 — décision | 0.5 | #290 | docs(security): recaler les ancres périmées de la page social login |
+| 20 | P2 — décision | 0.5 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
+| 22 | P3 — fin de cycle | 0.5 | #23 | feat(cli): générer la page de signalement de faille des apps |
+| 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
+| 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.1.0 — 28 ouverts
 
