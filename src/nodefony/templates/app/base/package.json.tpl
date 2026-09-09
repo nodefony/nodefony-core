@@ -71,5 +71,10 @@
 <% if (it.front) { for (const [n, v] of Object.entries(it.front.devDeps)) { %>    "<%= n %>": "<%= v %>",
 <% } } %>    "typescript": "<%= it.pkg["typescript"] %>",
     "vitest": "<%= it.pkg["vitest"] %>"
+  },
+  "overrides": {
+    "@esbuild-kit/core-utils": {
+      "esbuild": "<%= it.pkg["esbuild"] %>"
+    }
   }
 }

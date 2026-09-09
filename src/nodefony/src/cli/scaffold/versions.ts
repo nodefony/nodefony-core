@@ -46,6 +46,18 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // porte les ruptures, et le format du journal qu'il écrit est lu par
   // l'applicateur du framework.
   "drizzle-kit": "0.31.10",
+  // 🔴 Pas une dépendance de l'application : la cible d'un `overrides`.
+  // `drizzle-kit` traîne `@esbuild-kit/esm-loader`, DÉPRÉCIÉ (fusionné dans
+  // `tsx`) et épinglé sur `esbuild ~0.18.20` — la branche où le serveur de
+  // développement accepte les requêtes de n'importe quel site. Résultat : une
+  // application FRAÎCHEMENT générée annonce quatre vulnérabilités à sa première
+  // installation, sans une ligne d'explication, et c'est sa première impression.
+  // Le paquet n'est JAMAIS chargé — `drizzle-kit` a migré vers `tsx`, son
+  // binaire charge `tsx/dist/…` et `@esbuild-kit` ne subsiste que dans son
+  // manifeste. Remonter esbuild dans cette seule branche fait tomber les quatre
+  // sans toucher aux esbuild sains des autres outils. À retirer le jour où
+  // `drizzle-kit` cesse de déclarer ce résidu.
+  esbuild: "^0.28.2",
   // Le binding natif du hachage de mots de passe. `@nodefony/user` le déclare
   // en peerDependency OPTIONNELLE — et il a raison : son code l'importe
   // dynamiquement, une app qui ne hache jamais rien n'en a pas besoin. Mais le
