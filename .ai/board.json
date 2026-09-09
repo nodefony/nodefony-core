@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T00:52:00.346Z",
+  "generatedAt": "2026-09-09T05:53:59.312Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 23,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 15,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
@@ -1647,7 +1647,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 1,
+      "jours": 4,
       "ordre": 5,
       "labels": [
         "10.0.0-alpha"
@@ -1916,6 +1916,62 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.8,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 297,
+      "title": "fix(cli): rendre vrai le catalogue des clés de configuration",
+      "url": "https://github.com/nodefony/nodefony-core/issues/297",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.9,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 298,
+      "title": "fix(kernel): lire le code du manifeste, et par tous ses lecteurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/298",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.91,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 299,
+      "title": "docs(config): lever l'ambiguite entre config d'application et config de module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/299",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.92,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 300,
+      "title": "fix(skills): le kit de dev enseigne une cle de config supprimee",
+      "url": "https://github.com/nodefony/nodefony-core/issues/300",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 5.93,
       "labels": [
         "10.0.0-alpha"
       ]
