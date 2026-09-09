@@ -31741,7 +31741,8 @@
         "src/nodefony/src/cli/scaffold/format.ts"
       ],
       "manifestFileWith": [
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
       ],
       "withoutComments": [
         "src/nodefony/src/cli/scaffold/engine.ts",

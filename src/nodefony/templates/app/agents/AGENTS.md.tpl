@@ -229,7 +229,7 @@ et il fait foi le jour où les deux divergent.
   n'importe quel autre site** : la route cesse de distinguer qui que ce soit,
   c'est-à-dire exactement l'attaque que la défense arrêtait. La réponse est une
   ligne de configuration — ajoute l'origine au bloc `csrf` déjà présent dans
-  `use("@nodefony/security", …)`, `nodefony.config.ts` :
+  `securityConfig`, `nodefony/config/security.ts` :
 
   ```ts
   csrf: {
@@ -352,7 +352,7 @@ et il fait foi le jour où les deux divergent.
   AVANT de coder », plus haut) ; le geste détaillé et ses pièges vivent dans le
   skill **`nodefony-protect-route`** :
   - **protéger un ESPACE de routes** (tout ce qui commence par un préfixe) :
-    une zone de firewall dans `nodefony.config.ts`, dont le `pattern` est le
+    une zone de firewall dans `nodefony/config/security.ts`, dont le `pattern` est le
     PRÉFIXE lui-même — `pattern: "^/api/account"`, **jamais** la liste des
     routes du jour (`"^/api/account/(profile|invoices)"`). Énumérer marche à
     l'essai, passe la revue, et laisse la route sœur ajoutée ensuite NAÎTRE
@@ -387,7 +387,7 @@ et il fait foi le jour où les deux divergent.
     Ne fabrique pas d'utilisateur en insérant directement dans la base — le mot
     de passe passe par l'encodeur du framework.
   - **ouvrir une API à un PROGRAMME** (service partenaire, script, agent — pas
-    un navigateur) : cette zone est **déjà posée** dans `nodefony.config.ts` —
+    un navigateur) : cette zone est **déjà posée** dans `nodefony/config/security.ts` —
 
     ```ts
     machine: {
@@ -511,7 +511,7 @@ désigne jamais la cause : c'est ce qui les rend chers.
 - **L'app démarre, et pourtant une brique manque** (base injoignable, module absent) — une brique peut tomber en fail-soft, ou être écartée par sa `policy` : le boot CONTINUE, et le journal ne le dit qu'une fois, dans le terminal de celui qui a lancé → `npm run doctor` — il lit `var/last-boot.json` et nomme chaque brique absente AVEC sa raison
 - **L'app ne démarre plus et tu n'as pas la sortie** (démarrage détaché, conteneur, CI) — le journal est parti avec le terminal → `npm run doctor` n'exécute rien : il rapporte la phase atteinte et la cause du dernier démarrage
 - **Ça marche en dev, c'est mort en production** — les modules `policy: dev` sont RETIRÉS en production — ce qu'ils portaient disparaît avec eux → avant de livrer, UN boot `npx nodefony production --detach --wait` et rejoue tes vérifications
-- **Un réglage de `nodefony.config.ts` ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur ; et AVANT d'écrire la clé, `npx nodefony inspect schema <module>` dit celles qui existent, avec leur type et ce qu'elles font — n'invente jamais un nom de clé
+- **Un réglage de configuration ne change rien** — clé inconnue ou mal placée : retirée EN SILENCE à la validation → `npx nodefony inspect config --json` — la config effective et la provenance de chaque valeur ; et AVANT d'écrire la clé, `npx nodefony inspect schema <module>` dit celles qui existent, avec leur type et ce qu'elles font — n'invente jamais un nom de clé
 - **Une variable d'environnement « ne prend pas »** — mal orthographiée (ignorée en silence) ou masquée par un rang supérieur → `npx nodefony env` — il montre la valeur EFFECTIVE et sa provenance
 - **Après un échec au milieu d'une chaîne `&&`, tout ment** — rien d'aval n'a tourné : tu mesures l'état d'AVANT → après tout échec, considère que la suite n'a pas eu lieu — revérifie que l'artefact mesuré a été régénéré
 - **Les tests passent, `npm run typecheck` échoue** — le runner efface les types : un test vert ne typecheck rien → lance les DEUX avant de conclure

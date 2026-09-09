@@ -20,10 +20,10 @@ description: >
 
 ## Deux étages, et ils ne font pas la même chose
 
-| Étage                | Où                                      | Ce qu'il protège                          |
-| -------------------- | --------------------------------------- | ----------------------------------------- |
-| **zone du pare-feu** | `nodefony.config.ts`, `firewalls.areas` | un **espace** : `pattern: "^/api/secure"` |
-| **garde par route**  | `@IsGranted("ROLE_X")` sur l'action     | **une** route précise                     |
+| Étage                | Où                                     | Ce qu'il protège                          |
+| -------------------- | -------------------------------------- | ----------------------------------------- |
+| **zone du pare-feu** | `nodefony/config/security.ts`, `areas` | un **espace** : `pattern: "^/api/secure"` |
+| **garde par route**  | `@IsGranted("ROLE_X")` sur l'action    | **une** route précise                     |
 
 Les deux se combinent : la zone décide **qui entre**, la garde décide **qui fait**.
 
@@ -134,7 +134,7 @@ d'appartenance à écrire dans l'action.
 ## Une API pour un PROGRAMME, pas pour un navigateur
 
 Un service partenaire, un script, un agent ne stockent aucun cookie. **La zone est déjà posée**
-dans le `nodefony.config.ts` généré :
+dans le `nodefony/config/security.ts` généré :
 
 ```ts
 machine: {

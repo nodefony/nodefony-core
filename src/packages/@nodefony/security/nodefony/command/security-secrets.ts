@@ -8,6 +8,7 @@ import {
   CliKernel,
   Command,
   readManifestCode,
+  manifestFileWith,
   diskManifestReader,
 } from "nodefony";
 
@@ -153,6 +154,27 @@ class SecuritySecrets extends Command {
     // réclamer de coller un bloc déjà en place et déclarait `jwt.keystore`
     // non câblé. Sur les secrets, un faux constat coûte cher.
     const cfgTs = readManifestCode(this.#root(), diskManifestReader);
+    // QUEL fichier porte cette configuration — le fragment
+    // `nodefony/config/security.ts` depuis son extraction, la racine dans une
+    // application qui n'a pas extrait. Le nommer en dur envoie ouvrir un
+    // fichier où la clé n'est pas : on ne la trouve pas, et on invente. Le
+    // motif est le `satisfies` du bloc, et RIEN d'autre : le nom du module
+    // figure dans l'index racine (le `use(…)`), et le type d'entrée y figure
+    // AUSSI — le manifeste le re-exporte pour ses fragments. L'un comme
+    // l'autre auraient désigné la racine, qui est testée en premier, et la
+    // commande aurait continué de nommer le mauvais fichier en ayant l'air
+    // de le chercher. Une application qui n'a pas extrait n'a pas ce motif :
+    // le repli sur la racine est alors le bon fichier.
+    const cfgFile = manifestFileWith(
+      this.#root(),
+      diskManifestReader,
+      /satisfies\s+ISecurityConfigInput/,
+    );
+    const cfgRel = path
+      .relative(this.#root(), cfgFile)
+      .split(path.sep)
+      .join("/");
+    const cfgIsFragment = cfgRel !== "nodefony.config.ts";
     const missingInDotenv = KEYS.filter(
       (k) => !new RegExp(`^\\s*${k}\\s*=`, "m").test(dotenv),
     );
@@ -261,12 +283,18 @@ class SecuritySecrets extends Command {
       );
     }
 
-    // ── 3. nodefony.config.ts : le CÂBLAGE ───────────────────────────────────
+    // ── 3. La configuration du module : le CÂBLAGE ───────────────────────────
     w(
-      `${BOLD}3. Fichier ${CYAN}nodefony.config.ts${RESET}${BOLD} — le câblage vers le module security${RESET}\n`,
+      `${BOLD}3. Fichier ${CYAN}${cfgRel}${RESET}${BOLD} — le câblage vers le module security${RESET}\n`,
     );
     if (missingInCfg.length === 0) {
       w(`   ${GREEN}✓ déjà câblées${RESET}\n\n`);
+    } else if (cfgIsFragment) {
+      w(
+        `   complète le descripteur ${CYAN}securityConfig${RESET} :\n\n` +
+          missingInCfg.map((k) => WIRING[k]).join("\n") +
+          `\n\n`,
+      );
     } else {
       w(
         `   complète l'entrée security du manifeste modules :\n\n` +
