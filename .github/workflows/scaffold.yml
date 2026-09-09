@@ -178,6 +178,25 @@ jobs:
       - name: Générer le graphe symbolique (absent d'un checkout frais)
         run: npm run generate-symbols
 
+      # Le FORMAT de ce que le scaffold produit. Ce gate existait, sortait en 1,
+      # et n'était lancé par PERSONNE — ni forge, ni hook — donc son verdict
+      # n'avait jamais été lu. Il disait pourtant, depuis des semaines, que le
+      # premier `npm run verify` d'une application `complete` est ROUGE : la
+      # création formate AVANT d'écrire la migration initiale, et `drizzle-kit`
+      # pose ensuite des métadonnées que rien ne reformate.
+      #
+      # Ubuntu SEULEMENT, et c'est délibéré : il génère cinq applications, dont
+      # quatre avec une installation npm réelle. Le format d'un fichier ne
+      # dépend pas du système ; payer ce prix trois fois n'apprendrait rien de
+      # plus. La portabilité, elle, est le sujet des étapes suivantes.
+      #
+      # Le pre-commit joue déjà `--raw` (le rendu brut, ~3 s) : ce qui reste ici
+      # est le seul régime que le poste ne peut pas se permettre — celui qui
+      # installe, bâtit, et voit donc ce qui s'écrit APRÈS le formatage.
+      - name: Gate — le code généré est-il au format qu'il exige de son auteur ?
+        if: matrix.os == 'ubuntu-latest'
+        run: npm run format:scaffold
+
       # Le banc, en décor ISOLÉ (pas de `--link` : le mode lié laisse la
       # résolution de modules remonter au monorepo et rend invisible toute la
       # famille « dépendance manquante du gabarit »).

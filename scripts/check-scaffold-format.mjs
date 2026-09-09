@@ -23,6 +23,7 @@
  *   node scripts/check-scaffold-format.mjs            # les variantes par défaut
  *   node scripts/check-scaffold-format.mjs --keep     # conserve les apps générées
  *   node scripts/check-scaffold-format.mjs --diff     # montre ce que prettier changerait
+ *   node scripts/check-scaffold-format.mjs --raw      # le seul régime sans installation (~5 s)
  */
 import { mkdtempSync, rmSync, mkdirSync, readFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -34,6 +35,10 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const PRETTIER = path.join(ROOT, "node_modules", ".bin", "prettier");
 const KEEP = process.argv.includes("--keep");
 const SHOW_DIFF = process.argv.includes("--diff");
+// `--raw` ne retient que le régime SANS installation : quelques secondes au lieu
+// de deux minutes, parce qu'aucun `npm install` n'a lieu. C'est ce que lance le
+// pre-commit quand un gabarit est staged — la forge, elle, joue tout.
+const RAW_ONLY = process.argv.includes("--raw");
 
 /**
  * Les DEUX extrêmes, et pas une matrice.
@@ -87,10 +92,36 @@ const VARIANTS = [
       "postgres",
     ],
   },
+  // 🔴 Le SEUL régime qui juge la forme RENDUE des gabarits À BALISES.
+  //
+  // Les variantes ci-dessus INSTALLENT, et `create` formate alors ce qu'il vient
+  // d'écrire avec le prettier du projet : leur `--check` ne peut plus rien voir
+  // du rendu, il ne voit que ce qui s'écrit APRÈS le formatage — la migration
+  // initiale. La phrase « ce gate garde la forme des gabarits eux-mêmes », plus
+  // haut, était donc devenue fausse : il ne gardait plus que cette fenêtre-là.
+  //
+  // Sans installation, aucun formatage n'a lieu : le fichier reste tel que le
+  // gabarit l'a écrit — et c'est exactement ce que reçoit qui génère hors ligne
+  // ou avec `--no-install`. Deux défauts réels sont sortis de ce seul régime
+  // (une ternaire éclatée pour rien, un `assert.equal` trop long), invisibles
+  // partout ailleurs.
+  //
+  // `format:templates` ne le remplace pas : il ne traite QUE les gabarits SANS
+  // balise, et ce sont précisément les autres qui sont en cause ici. Il ne coûte
+  // rien : sans installation ni build, la variante se génère en quelques
+  // secondes.
+  {
+    name: "complete+react (rendu brut, sans installation)",
+    app: "probe",
+    answers: ["--preset", "complete", "--frontend", "react", "--no-install"],
+  },
 ];
 
 let failed = 0;
-for (const variant of VARIANTS) {
+const RETENUES = RAW_ONLY
+  ? VARIANTS.filter((v) => v.answers.includes("--no-install"))
+  : VARIANTS;
+for (const variant of RETENUES) {
   const dir = mkdtempSync(path.join(tmpdir(), "nf-scaffold-fmt-"));
   const dest = path.join(dir, "app");
   mkdirSync(dest, { recursive: true });
@@ -143,7 +174,8 @@ for (const variant of VARIANTS) {
   // n'a vus — livrés tels quels à qui générait une application. Ces cas-là sont
   // désormais résolus ailleurs, et mieux : `create` formate ce qu'il produit
   // avec le prettier DU PROJET, après l'installation. Ce gate garde ce qui lui
-  // reste à garder — la forme des GABARITS eux-mêmes.
+  // reste à garder — la forme des GABARITS eux-mêmes, que seule la variante
+  // « rendu brut » ci-dessus lui rend encore visible.
   const pascal = variant.app
     .split(/[^a-zA-Z0-9]+/u)
     .filter(Boolean)

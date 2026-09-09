@@ -22,3 +22,12 @@ tmp/
 package-lock.json
 **/*.min.js
 **/*.min.css
+
+# Métadonnées de migration — écrites par `drizzle-kit`, jamais à la main.
+#
+# Le formateur et le générateur se disputeraient le fichier : `orm:generate`
+# réécrit `_journal.json` et les instantanés ENTIÈREMENT à sa forme, qui n'est
+# pas celle de prettier. Sans cette ligne, `npm run verify` sort ROUGE au
+# lendemain de chaque migration — dont la toute première, écrite par
+# `nodefony create app`. Ces fichiers ne se relisent pas : ils se régénèrent.
+**/migrations/**/meta/**

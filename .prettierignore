@@ -43,3 +43,12 @@ public/**
 
 # Legacy (non migré)
 src/nodefony/src/service/babel/**
+
+# Métadonnées de migration — écrites par `drizzle-kit`, jamais à la main. Même
+# motif que `baseline.json` ci-dessus : le formateur et le générateur se
+# disputeraient le fichier. `orm:generate` réécrit `_journal.json` et les
+# instantanés ENTIÈREMENT à sa forme, donc `format:check` sort rouge au
+# lendemain de chaque migration. Ces fichiers se régénèrent, ils ne se relisent
+# pas. La même ligne vit dans `templates/app/base/prettierignore.tpl`, pour
+# l'application générée — la frontière de paquets l'impose.
+**/migrations/**/meta/**

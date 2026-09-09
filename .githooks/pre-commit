@@ -58,6 +58,35 @@ if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^\.claude/skills
   fi
 fi
 
+# Le FORMAT de ce que le scaffold produit — deux gates qui ne se recouvrent pas,
+# et qui n'étaient lancés par personne.
+#
+# `prettier` ne connaît pas l'extension `.tpl` : ni `lint-staged` ci-dessus, ni
+# le `format:check` de la forge ne voient un gabarit. Deux d'entre eux étaient
+# donc hors format depuis leur écriture, et une application générée hors ligne
+# les recevait tels quels.
+#
+#  · `format:templates --check` juge la SOURCE des gabarits sans balise (pour
+#    ceux-là, source et rendu sont le même texte).
+#  · `--raw` juge le RENDU, gabarits à balises compris, sans installer : c'est le
+#    seul régime où le formatage post-installation de `create` ne masque pas la
+#    forme rendue. Les variantes qui installent coûtent deux minutes et restent
+#    à la forge (`npm run format:scaffold`).
+#
+# ~5 s, et seulement quand un gabarit est staged.
+if git diff --cached --name-only --diff-filter=ACMR | grep -qE '^src/nodefony/templates/'; then
+  if ! npm run --silent format:templates -- --check; then
+    echo "❌ un gabarit n'est pas au format — commit annulé"
+    echo "   → npm run format:templates   puis  git add src/nodefony/templates"
+    exit 1
+  fi
+  if ! node scripts/check-scaffold-format.mjs --raw; then
+    echo "❌ le RENDU d'un gabarit n'est pas au format — commit annulé"
+    echo "   → la correction va dans le GABARIT : npm run format:scaffold -- --raw --diff"
+    exit 1
+  fi
+fi
+
 # Les JUGES du banc devkit, éprouvés — mais SEULEMENT quand on touche au banc.
 #
 # Le cas qui a fait écrire ces lignes : `6f2c2c53` a renommé la définition d'une

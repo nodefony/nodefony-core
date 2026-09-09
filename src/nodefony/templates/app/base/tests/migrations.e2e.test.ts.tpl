@@ -526,7 +526,11 @@ describe("migrations — générer, retenir le trafic, constater une dérive", (
       // suppression de colonne ne se rattrape que par une restauration de la
       // base — c'est-à-dire une interruption de service et une décision.
       const refusal = await cli(["orm:migrate", "--json"], fixture.env);
-      assert.equal(refusal.code, 1, "une migration destructive est passée seule");
+      assert.equal(
+        refusal.code,
+        1,
+        "une migration destructive est passée seule",
+      );
       const error = (json(refusal.stdout).error ?? {}) as {
         code?: string;
         nextActions?: { command?: string }[];
