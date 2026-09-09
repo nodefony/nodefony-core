@@ -24,6 +24,8 @@ import {
   latestsRestesEnArriere,
   lireVueNpm,
   paquetsNonServis,
+  validerOtp,
+  estRefusOtp,
   trierPourRecalage,
   messageDeDepreciation,
   refusDePublicationHorsBranche,
@@ -1331,6 +1333,56 @@ describe("trierPourRecalage", () => {
     );
     expect(aRecaler).toHaveLength(1);
     expect(absentes).toEqual([]);
+  });
+});
+
+describe("estRefusOtp — reconnaître un code expiré au milieu d'un lot", () => {
+  it("🔴 les trois formes que npm emploie sont reconnues", () => {
+    expect(estRefusOtp("npm error code EOTP")).toBe(true);
+    expect(estRefusOtp("This operation requires a one-time password")).toBe(
+      true,
+    );
+    expect(estRefusOtp("npm ERR! Invalid one-time password")).toBe(true);
+  });
+
+  it("🔴 un refus SANS rapport ne doit pas déclencher de nouvelle saisie", () => {
+    // Redemander un code sur un 403 ou un 404 ferait taper l'opérateur pour
+    // rien, puis échouerait pareil — en lui laissant croire au second facteur.
+    expect(
+      estRefusOtp("npm error 403 Forbidden - you do not have permission"),
+    ).toBe(false);
+    expect(estRefusOtp("npm error code E404 Not found")).toBe(false);
+    expect(estRefusOtp("")).toBe(false);
+    expect(estRefusOtp(null)).toBe(false);
+  });
+});
+
+describe("validerOtp — six chiffres, ou l'on nomme la confusion", () => {
+  it("un code d'application passe, blancs de bord compris", () => {
+    expect(validerOtp("123456")).toEqual({ ok: true, code: "123456" });
+    expect(validerOtp("  654321 ")).toEqual({ ok: true, code: "654321" });
+  });
+
+  it("🔴 le NOM d'une clé de sécurité est refusé, et la raison le NOMME", () => {
+    // Le piège vécu : une clé ne produit AUCUN code — npm valide par le
+    // navigateur —, mais on lui donne souvent un nom, parfois numérique. Envoyé
+    // en `--otp`, il fait échouer npm sur un message qui ne parle ni de clé ni
+    // d'application.
+    const r = validerOtp("MacBook-2024");
+    expect(r.ok).toBe(false);
+    expect(r.raison).toMatch(/clé de sécurité/u);
+  });
+
+  it("un nombre de chiffres INATTENDU passe, mais prévient", () => {
+    const r = validerOtp("12345678");
+    expect(r.ok).toBe(true);
+    expect(r.alerte).toMatch(/npm en attend 6/u);
+  });
+
+  it("une saisie vide est refusée — l'appelant en fait un choix explicite", () => {
+    expect(validerOtp("").ok).toBe(false);
+    expect(validerOtp("   ").ok).toBe(false);
+    expect(validerOtp(null).ok).toBe(false);
   });
 });
 

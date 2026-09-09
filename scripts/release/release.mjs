@@ -30,9 +30,17 @@
  *   npm run release -- --dist-tags                           # `latest` restés en arrière
  *   npm run release -- --dist-tags --publish                 # …et les recaler
  *
- * `--otp <code>` accompagne `--deprecate --publish` et `--dist-tags --publish` :
- * les seuls gestes que le trusted publishing ne couvre pas. Sans lui, npm
- * réclame le code une fois par paquet.
+ * Le second facteur, sur `--deprecate --publish` et `--dist-tags --publish` —
+ * les seuls gestes que le trusted publishing ne couvre pas. Rien à passer : le
+ * code est DEMANDÉ une fois sur l'entrée standard, et il ne traîne alors ni
+ * dans l'historique du shell ni dans `ps`, contrairement à un argument.
+ * Un code TOTP vit une trentaine de secondes et le lot en dure autant : s'il
+ * expire en cours de route, le refus est RECONNU, un code frais est demandé, et
+ * seul le paquet en cours est rejoué. Répondre vide laisse npm réclamer
+ * lui-même, une fois par paquet — la voie des clés de sécurité, qui ne
+ * produisent aucun code.
+ * `--otp <code>` reste accepté pour les usages sans terminal ; il ne peut pas
+ * se rafraîchir, donc aucune reprise n'est tentée avec lui.
  *
  * `--from` ne sert QU AUX trois premières : la publication saute le changelog,
  * qui a été écrit, relu et commité avant. Le passer là ne fait rien — et un
@@ -65,7 +73,7 @@
  * `exports.types` et le post-traitement des déclarations.
  */
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, readSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import process from "node:process";
 import {
@@ -83,6 +91,8 @@ import {
   latestsRestesEnArriere,
   lireVueNpm,
   paquetsNonServis,
+  validerOtp,
+  estRefusOtp,
   trierPourRecalage,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
@@ -122,8 +132,88 @@ const drapeau = (nom) => process.argv.includes(`--${nom}`);
 // fois PAR PAQUET, soit trente saisies pour un lot. Un même code TOTP reste
 // valable une trentaine de secondes : il passe donc sur tout le lot, à
 // condition de ne pas traîner. Absent, le comportement interactif est conservé.
-const OTP = arg("otp");
-const avecOtp = (args) => (OTP ? [...args, `--otp=${OTP}`] : args);
+const OTP_ARG = arg("otp");
+
+/**
+ * Le code à deux facteurs, DEMANDÉ UNE FOIS sur l'entrée standard.
+ *
+ * 🔴 Pourquoi ne pas se contenter de `--otp <code>` : un argument de ligne de
+ * commande atterrit dans l'historique du shell ET reste lisible dans `ps` par
+ * tout compte de la machine, le temps du lot. Un code TOTP n'est valable qu'une
+ * trentaine de secondes, mais le laisser traîner en clair n'apporte rien.
+ * Le demander ici le garde en mémoire du seul processus.
+ *
+ * Sans terminal (intégration continue), on ne demande RIEN : le comportement
+ * d'origine est conservé, npm réclamera lui-même ce dont il a besoin.
+ */
+let otpMemo = null;
+const otpCourant = () => {
+  if (OTP_ARG) return OTP_ARG;
+  if (otpMemo !== null) return otpMemo;
+  if (!process.stdin.isTTY) {
+    otpMemo = "";
+    return otpMemo;
+  }
+  for (;;) {
+    const saisie = lireLigne(
+      "  Code à deux facteurs — le taper FRAÎCHEMENT généré, il vit ~30 s\n" +
+        "  (vide = laisser npm le demander, paquet par paquet) : ",
+    );
+    if (saisie === "") {
+      // Choix explicite : clé de sécurité, ou envie de répondre à npm
+      // paquet par paquet. On n'insiste pas.
+      alerter(
+        "aucun code fourni — npm le réclamera lui-même, une fois PAR PAQUET.",
+      );
+      otpMemo = "";
+      return otpMemo;
+    }
+    const verdict = validerOtp(saisie);
+    if (!verdict.ok) {
+      alerter(verdict.raison);
+      continue;
+    }
+    if (verdict.alerte) alerter(verdict.alerte);
+    otpMemo = verdict.code;
+    return otpMemo;
+  }
+};
+
+/**
+ * Une ligne lue sur l'entrée standard, sans dépendance ni asynchronisme.
+ *
+ * Tout ce script est synchrone (`spawnSync`) : une lecture asynchrone
+ * obligerait à colorer d'`async` toute la chaîne d'appel pour une seule saisie.
+ *
+ * @param {string} invite - ce qu'on affiche avant de lire.
+ * @returns {string} la ligne, sans son saut de ligne ni ses blancs de bord.
+ */
+function lireLigne(invite) {
+  process.stdout.write(invite);
+  const octet = Buffer.alloc(1);
+  let ligne = "";
+  for (;;) {
+    let lus;
+    try {
+      lus = readSync(0, octet, 0, 1, null);
+    } catch (e) {
+      // Un terminal en mode non bloquant rend EAGAIN tant que rien n'est tapé.
+      if (e.code === "EAGAIN") continue;
+      throw e;
+    }
+    if (lus === 0) break;
+    const c = octet.toString("utf8");
+    if (c === "\n") break;
+    if (c === "\r") continue;
+    ligne += c;
+  }
+  return ligne.trim();
+}
+
+const avecOtp = (args) => {
+  const code = otpCourant();
+  return code ? [...args, `--otp=${code}`] : args;
+};
 
 if (drapeau("help") || process.argv.length === 2) {
   dire(
@@ -388,14 +478,53 @@ if (drapeau("dist-tags")) {
     process.exit(0);
   }
 
+  /**
+   * Pose un `latest`, en capturant la sortie SEULEMENT si l'on a un code.
+   *
+   * @param {{nom: string, vers: string}} r - le paquet et la version visée.
+   * @returns {{status: number, sortie: string}} le verdict et ce que npm a dit.
+   */
+  const poserDistTag = (r) => {
+    const code = otpCourant();
+    const args = avecOtp(["dist-tag", "add", `${r.nom}@${r.vers}`, "latest"]);
+    if (!code) {
+      // Sans code, npm doit pouvoir RÉCLAMER sur le terminal : on ne capture
+      // rien, et il n'y a alors pas d'expiration à rattraper.
+      const res = npm(args, { stdio: "inherit" });
+      return { status: res.status, sortie: "" };
+    }
+    const res = npm(args);
+    const sortie = `${res.stdout ?? ""}\n${res.stderr ?? ""}`;
+    if (sortie.trim()) process.stderr.write(sortie);
+    return { status: res.status, sortie };
+  };
+
   const echecs = [];
   for (const r of aRecaler) {
     dire(`  → ${r.nom} : ${r.de} ⇒ ${r.vers}`);
-    // `stdio: inherit` : npm demande le code à deux facteurs sur le terminal.
-    const res = npm(
-      avecOtp(["dist-tag", "add", `${r.nom}@${r.vers}`, "latest"]),
-      { stdio: "inherit" },
-    );
+    // 🔴 Un code TOTP vit une trentaine de secondes ; ce lot en dure autant.
+    // Le refus tombe donc au milieu, sur un paquet quelconque, et rien ne le
+    // distingue d'un vrai échec de paquet. On le reconnaît, on redemande un
+    // code FRAIS, et l'on rejoue CE paquet — sans reprendre ceux qui sont
+    // passés, un dist-tag posé n'ayant pas à l'être deux fois.
+    //
+    // La sortie n'est capturée que si l'on DÉTIENT un code : sans lui, c'est
+    // npm qui doit pouvoir dialoguer avec le terminal, donc `inherit`.
+    let res = poserDistTag(r);
+    // `--otp` sur la ligne de commande ne se rafraîchit pas, et sans terminal
+    // on n'a personne à qui demander : dans ces deux cas on ne tente rien.
+    if (
+      res.status !== 0 &&
+      estRefusOtp(res.sortie) &&
+      !OTP_ARG &&
+      process.stdin.isTTY
+    ) {
+      alerter(
+        "code à deux facteurs refusé ou EXPIRÉ en cours de lot — il en faut un frais.",
+      );
+      otpMemo = null;
+      res = poserDistTag(r);
+    }
     // Un échec n'ARRÊTE PAS le lot, à l'inverse de la publication : un dist-tag
     // est indépendant des autres et se repose autant de fois qu'on veut.
     // S'arrêter au premier raté laisserait treize paquets périmés pour un seul

@@ -1043,6 +1043,66 @@ export function lireVueNpm(brut) {
 }
 
 /**
+ * npm a-t-il refusé pour cause de code à deux facteurs — absent, faux, EXPIRÉ ?
+ *
+ * 🔴 Ce que ça évite : un code TOTP vit une trentaine de secondes. Un lot de
+ * quatorze `dist-tag add`, à une ou deux secondes chacun, frôle cette limite —
+ * et le temps de LIRE puis de TAPER le code en a déjà consommé une part. Le
+ * refus tombe alors au milieu du lot, sur un paquet quelconque. Sans le
+ * reconnaître, on le prendrait pour un échec du paquet et l'on relancerait tout
+ * le lot ; en le reconnaissant, on redemande un code frais et l'on reprend là
+ * où l'on en était.
+ *
+ * @param {string} sortie - ce que npm a écrit (sortie standard et d'erreur).
+ * @returns {boolean} vrai si le motif du refus est le second facteur.
+ */
+export function estRefusOtp(sortie) {
+  return /\bEOTP\b|one[- ]time pass|otp required|invalid one[- ]time/iu.test(
+    String(sortie ?? ""),
+  );
+}
+
+/**
+ * Ce qu'on a tapé est-il un code à deux facteurs utilisable ?
+ *
+ * 🔴 Ce que ça évite : `--otp` attend un code d'APPLICATION D'AUTHENTIFICATION,
+ * six chiffres, valable une trentaine de secondes. Une clé de sécurité n'en
+ * produit aucun — npm valide alors par le navigateur. Or le NOM qu'on donne à
+ * une clé est souvent numérique : il se prend pour un code, npm refuse, et
+ * l'erreur qui suit ne parle ni de clé ni d'application. On tranche donc AVANT
+ * d'envoyer quoi que ce soit, en nommant les deux cas.
+ *
+ * @param {string} saisie - ce que l'opérateur a tapé.
+ * @returns {{ok: true, code: string, alerte?: string} | {ok: false, raison: string}}
+ */
+export function validerOtp(saisie) {
+  const code = String(saisie ?? "").trim();
+  if (code === "") {
+    return { ok: false, raison: "aucun code saisi." };
+  }
+  if (/^\d{6}$/u.test(code)) {
+    return { ok: true, code };
+  }
+  if (/^\d+$/u.test(code)) {
+    return {
+      ok: true,
+      code,
+      alerte:
+        `${code.length} chiffres — npm en attend 6. Si c'est le NOM d'une clé ` +
+        "de sécurité et non un code d'application, npm refusera : une clé ne " +
+        "produit pas de code, elle valide par le navigateur.",
+    };
+  }
+  return {
+    ok: false,
+    raison:
+      `« ${code} » n'est pas un code à deux facteurs (six chiffres attendus).\n` +
+      "  Une clé de sécurité n'en produit AUCUN — laisser vide et répondre dans\n" +
+      "  le navigateur, ou lire le code de l'application d'authentification.",
+  };
+}
+
+/**
  * Les paquets que le registre ne SERT pas encore dans cette version.
  *
  * 🔴 Ce que ça évite : `npm publish` rend 0 dès que le registre a ACCEPTÉ le
