@@ -52,12 +52,9 @@ class MongooseService extends Service {
       queryFlowMonitor.setEnabled(resolveOrmFlowEnabled(this.kernel));
       // Même règle que l'ORM SQL : c'est le HOOK qui décide. `connectAll`
       // appelée explicitement reste un ORDRE de connexion.
-      await this.connectAll(runNeedsExternalServices(this.kernel)).catch(
-        (e: Error) => {
-          this.log(e, "ERROR");
-          throw e;
-        },
-      );
+      // Pas de `log` avant de relancer : le cycle de vie du kernel journalise
+      // l'échec, UNE fois, avec le module et la sanction (cf DrizzleService).
+      await this.connectAll(runNeedsExternalServices(this.kernel));
     });
     this.kernel?.once("onTerminate", async () => {
       await this.disconnectAll().catch(() => {

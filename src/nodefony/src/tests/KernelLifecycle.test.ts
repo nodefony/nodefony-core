@@ -1021,6 +1021,42 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
     );
   });
 
+  it("🔴 une BootConfigurationError fatale est journalisée UNE fois, et marquée `presented` pour les catch suivants (#306)", async () => {
+    // Vécu sous `security:token` : la même erreur imprimée TROIS fois — par le
+    // service (log + throw), par le cycle de vie, puis en CRITIC avec sa stack
+    // par le catch de `start()`. Le cycle de vie journalise (module, phase,
+    // sanction) ; les catch d'aval relisent le marqueur, comme pour
+    // `bootConfigError`.
+    const k = mkKernel("development");
+    const cap = captureLogs(k);
+    k.on("onBoot", () => {
+      throw new BootConfigurationError("connecteur injoignable (#306)");
+    });
+    let caught: unknown;
+    try {
+      await k.fireLifecycle("onBoot", k);
+    } catch (e) {
+      caught = e;
+    } finally {
+      cap.stop();
+    }
+    assert.ok(caught instanceof BootConfigurationError, "le boot doit rejeter");
+    assert.strictEqual(
+      (caught as { presented?: boolean }).presented,
+      true,
+      "le catch de start() et celui de la CLI relisent ce marqueur",
+    );
+    const hits = cap.messages.filter((m) =>
+      m.includes("connecteur injoignable (#306)"),
+    );
+    assert.strictEqual(
+      hits.length,
+      1,
+      `journalisée ${hits.length} fois :\n${hits.join("\n")}`,
+    );
+    assert.ok(hits[0]?.includes("boot interrompu"), hits[0]);
+  });
+
   // Le pendant qui borne la décision : une erreur ORDINAIRE d'un module optionnel
   // reste fail-soft. C'est par là qu'arrive une infra absente (Redis éteint), et
   // c'est ce qui rend le durcissement ci-dessus sûr — sans ce cas, on ne saurait

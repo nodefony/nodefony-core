@@ -7067,6 +7067,41 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
               existsSync(path.join(dest, ".mcp.json")),
               "le .mcp.json n'a pas été écrit",
             );
+            // 7. (#306) l'échec de boot d'une commande console se journalise
+            //    UNE fois : `orm:generate` rejoué dans l'app, même décor, et
+            //    on COMPTE. Le binaire du dépôt, cwd = l'app : l'ORM chargé
+            //    est celui que l'app lie (`--link`), sans npm ni shell.
+            const gen = spawnSync(
+              "node",
+              [bin, "orm:generate", "--name", "init"],
+              {
+                cwd: dest,
+                encoding: "utf8",
+                maxBuffer: 64 * 1024 * 1024,
+                env: {
+                  ...process.env,
+                  NODE_ENV: "production",
+                  NF_STORE: "memory",
+                  NF_DATABASE_URL:
+                    "postgres://nobody:nobody@127.0.0.1:1/nobody",
+                },
+              },
+            );
+            const genOut = `${gen.stdout ?? ""}${gen.stderr ?? ""}`;
+            const genLog = `${log}.orm-generate.log`;
+            writeFileSync(genLog, genOut);
+            assert.notEqual(
+              gen.status,
+              0,
+              `orm:generate devait échouer — ${genLog}`,
+            );
+            const hits = genOut.split("n'a pas pu se connecter").length - 1;
+            assert.equal(
+              hits,
+              1,
+              `cause journalisée ${hits} fois (attendu 1) — ${genLog}`,
+            );
+            assert.notInclude(genOut, "\n    at ", `stack trace — ${genLog}`);
           } finally {
             rmSync(tmp, { recursive: true, force: true });
           }

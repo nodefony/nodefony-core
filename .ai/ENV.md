@@ -145,11 +145,11 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2468` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2473` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:714` |
 | `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:465` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2718` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2730` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2723` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2735` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:89` |

@@ -1031,7 +1031,12 @@ class Kernel extends Service implements IKernel {
           return this.preRegister();
         })
         .catch((e) => {
-          if (e.message !== "(outputHelp)") {
+          // Déjà PRÉSENTÉE — erreur de configuration journalisée par le cycle
+          // de vie, ou par `bootConfigError` : pas de stack par-dessus.
+          if (
+            e.message !== "(outputHelp)" &&
+            !(e as { presented?: boolean }).presented
+          ) {
             this.log(e, "CRITIC");
           }
           throw e;
@@ -2818,6 +2823,15 @@ class Kernel extends Service implements IKernel {
     );
     if (this.debug && error instanceof Error && error.stack) {
       this.log(error.stack, "DEBUG");
+    }
+    // 🔴 Journalisée ICI, une fois — avec le module, la phase et la sanction.
+    // L'erreur remonte ensuite jusqu'au `catch` de `start()` puis à celui de
+    // la CLI : marquée `presented`, ils ne la re-journalisent pas (même
+    // marqueur que `bootConfigError`). Vécu sous `security:token` : la même
+    // BootConfigurationError imprimée TROIS fois, dont deux avec sa stack —
+    // par le service, par ce handler, puis en CRITIC.
+    if (fatal && error instanceof Error) {
+      (error as { presented?: boolean }).presented = true;
     }
     // Le développement ANNONCE la sanction de production. Sans cela, le même
     // code a deux comportements — toléré ici, boot interrompu là-bas — et

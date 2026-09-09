@@ -137,12 +137,10 @@ class DrizzleService extends Service {
       // cette méthode est un ORDRE de connexion — la garder ferait échouer un
       // appelant qui a justement demandé la connexion. Le profil d'exécution ne
       // gouverne QUE ce que le boot fait de lui-même.
-      await this.connectAll(runNeedsExternalServices(this.kernel)).catch(
-        (e: Error) => {
-          this.log(e, "ERROR");
-          throw e;
-        },
-      );
+      // Pas de `log` avant de relancer : c'est le cycle de vie du kernel qui
+      // journalise l'échec, UNE fois, avec le module et la sanction. Le faire
+      // aussi ici imprimait la même erreur trois fois (dont deux stacks).
+      await this.connectAll(runNeedsExternalServices(this.kernel));
     });
     this.kernel?.once("onTerminate", async () => {
       // Les minuteurs d'abord : un tour qui partirait pendant la fermeture
