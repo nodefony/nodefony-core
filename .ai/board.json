@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T13:46:57.859Z",
+  "generatedAt": "2026-09-09T13:48:09.393Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2040,7 +2040,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 3.5,
+      "jours": 0.5,
       "ordre": 6,
       "labels": [
         "10.0.0-alpha"

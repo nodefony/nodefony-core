@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-09 13:46** (UTC).
+> Empreinte prise le **2026-09-09 13:48** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -80,7 +80,7 @@ Ordre 5 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha
 | 5.91 | P1 — figé à la création | 1 | #298 | fix(kernel): lire le code du manifeste, et par tous ses lecteurs |
 | 5.92 | P2 — décision | 0.5 | #299 | docs(config): lever l'ambiguite entre config d'application et config de module |
 | 5.93 | P1 — figé à la création | 0.5 | #300 | fix(skills): le kit de dev enseigne une cle de config supprimee |
-| 6 | P1 — figé à la création | 3.5 | #301 | fix(cli): nettoyer ce que npm create nodefony dit de faux ou de trop |
+| 6 | P1 — figé à la création | 0.5 | #301 | fix(cli): nettoyer ce que npm create nodefony dit de faux ou de trop |
 | 6.6 | P3 — fin de cycle | 0.5 | #306 | fix(kernel): ne journaliser qu'une fois une erreur de configuration |
 | 7 | P1 — figé à la création | 1.5 | #289 | refactor(config): trancher où vit la config d'une application |
 | 7.2 | P2 — décision | 1 | #285 | refactor(config): extraire la config par module dans nodefony/config |
