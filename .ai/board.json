@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T20:55:43.813Z",
+  "generatedAt": "2026-09-09T21:41:09.676Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 25,
+      "open": 26,
       "title": "10.0.0-beta"
     },
     {
@@ -422,6 +422,21 @@
       "ordre": 1.8,
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 312,
+      "title": "chore(release): rendre le lot de publication annulable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/312",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 1.8,
+      "labels": [
+        "arbitrage",
+        "10.0.0-beta"
       ]
     },
     {

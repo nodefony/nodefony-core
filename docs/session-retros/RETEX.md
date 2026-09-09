@@ -38,6 +38,15 @@
 
 ## 🧭 La voie FIABLE reléguée en repli — la hiérarchie des lectures s'inverse en silence
 
+- [1× — 09-09f] **J'ai réécrit un outil que le dépôt avait déjà — et j'y ai reproduit un défaut
+  qu'il avait résolu.** Pour confronter le catalogue de versions du scaffold au registre, un
+  script jetable de dix lignes : il a annoncé `@types/node` « en retard » sur `22.20.2` alors que
+  `26.5.1` existe — les paquets `@types/*` publient par ligne majeure, et leur dist-tag `latest`
+  ne désigne pas la dernière version. `npm run deps:check`, l'automate du dépôt, ne s'y trompe
+  pas : son en-tête raconte les trois fois où `npm outdated` l'a fait sous-compter. Le réflexe
+  juste n'était pas d'écrire un outil à côté, c'était d'ÉTENDRE celui qui porte déjà le
+  raisonnement — ce qui a été fait ensuite, et a trouvé une divergence dans la minute.
+
 - [1× — 09-09e] **Un lecteur qui vise UN chemin en dur devient aveugle le jour où la donnée
   déménage — et il reste VERT.** La configuration des modules d'une application est partie dans
   des fragments `nodefony/config/<module>.ts` ; trois lecteurs qui visaient `nodefony.config.ts`
@@ -108,6 +117,21 @@
   disait autre chose : l'e2e visé (« le transcript ne ment pas ») était PASSÉ (215 s), c'est un
   test unitaire à moi qui tombait. Sans lire le journal, j'aurais cherché dans le produit. Et
   c'est le user qui a demandé « ci rouge non ? » : j'avais poussé et continué sans guetteur.
+
+## 🪟 Un contrôle VERT qui ne POUVAIT rien voir — le régime de mesure rend l'objet invisible
+
+> Distinct de « le gate n'est pas lancé » et de « le gate a un angle mort » : ici il tourne, il
+> est vert, et son RÉGIME de mesure lui interdit par construction de voir ce qu'il prétend garder.
+> La question à poser à tout gate vert : _qu'est-ce qu'il aurait vu si le défaut avait été là ?_
+
+- [3× — 09-09f] **Trois fois dans la même séance.** (1) Le gate de format du code généré fabrique
+  ses applications témoins AVEC installation — or `create app` formate ce qu'il produit juste
+  après l'installation : ses quatre variantes ne pouvaient RIEN voir du rendu des gabarits, alors
+  que son commentaire affirmait garder « la forme des gabarits eux-mêmes ». Un régime `--raw`
+  (sans installation) a sorti deux défauts réels, invisibles partout ailleurs. (2) L'inventaire
+  des dépendances ne voyait pas le catalogue du scaffold, faute de périmètre. (3) `oxlint` 1.82.0
+  ne rend plus AUCUN résumé quand tout est propre — sortie identique à celle d'un linter qui n'a
+  rien lu ; il a fallu une sonde `debugger` pour distinguer les deux.
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
@@ -675,6 +699,14 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 > Gradué au CONSOLIDATE du 2026-09-07 — 6 frictions → **`feedback_shell_false_diagnostics`** : le réglage qui rend la mesure propre rend le diagnostic aveugle. Ne PAS réécrire ici.
 
 ## 👯 Un JUMEAU non vérifié n'est pas vérifié — « aligné » n'est pas « prouvé »
+
+- [1× — 09-09f] **Les versions que reçoit une application GÉNÉRÉE sont un jumeau du dépôt, et
+  rien ne les confrontait.** Le gabarit `package.json.tpl` ne porte aucune version : il interpole
+  une table TypeScript écrite à la main, `SCAFFOLD_VERSIONS`. L'inventaire des dépendances, lui,
+  lit `git ls-files "*package.json"` — qui ne matche pas un `.tpl`, et de toute façon n'aurait
+  rien trouvé dedans. La table pouvait donc diverger du dépôt indéfiniment, et le premier à s'en
+  apercevoir aurait été celui qui génère une application. Constaté en étendant l'inventaire :
+  `mysql2` divergeait déjà, dix minutes après la montée qui l'avait créée.
 
 - [1× — 09-09] **Un défaut porté par le module MODÈLE se recopie le jour même.** En écrivant la
   configuration de `@nodefony/studio`, j'ai imité `@nodefony/redis` — et hérité de son doublon :

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-09 20:55** (UTC).
+> Empreinte prise le **2026-09-09 21:41** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 81% | 43 | 10 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 25 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 26 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -39,13 +39,14 @@ Ordre 1.5 · P0 — bloque le reste · 0.5 j · jalon 10.0.0-alpha
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 25 ouverts
+## Jalon 10.0.0-beta — 26 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 1.5 | P1 — figé à la création | 0.5 | #255 | test(release): contrôler les README publiés avant chaque publication |
 | 1.6 | P1 — figé à la création | 1 | #293 | build(release): cesser de réécrire les types au moment du publish |
 | 1.7 | P2 — décision | 0.5 | #275 | fix(release): écarter du changelog les commits qui n'atteignent aucun installeur |
+| 1.8 | P2 — décision | 1 | #312 | chore(release): rendre le lot de publication annulable |
 | 2 | P0 — bloque le reste | 1 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
 | 3 | P2 — décision | 0.5 | #259 | ci(release): publier l'image sur le registre de GitHub, sans aucun secret |
 | 4 | P1 — figé à la création | 2 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
