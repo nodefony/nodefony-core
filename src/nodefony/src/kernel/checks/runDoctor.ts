@@ -1034,10 +1034,15 @@ export async function collectDoctorReport(
         : readiness.catalogUnreadable
           ? {
               ran: false,
+              // Ce qui est CONSTATÉ, pas une cause déduite : « pas construite »
+              // était affirmé après un build réussi (le catalogue venait d'une
+              // autre instance de `nodefony`), et l'utilisateur relançait un
+              // build qui ne changeait rien.
               reason:
-                "le catalogue des variables déclarées se lit dans le `dist/` " +
-                "de l'application, qui n'est pas construite : le silence de la " +
-                "règle « variable requise » ne vaut pas quitus",
+                "aucune variable déclarée n'a pu être lue — ni depuis `env.ts` " +
+                "(import direct), ni depuis `dist/index.js` (application non " +
+                "construite ?) : le silence de la règle « variable requise » " +
+                "ne vaut pas quitus",
               short: "catalogue illisible",
               unlock: "`npm run build`",
             }

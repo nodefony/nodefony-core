@@ -70,10 +70,17 @@ export interface NamedEnvVarMeta extends EnvVarMeta {
   readonly name: string;
 }
 
+// 🔴 `Symbol.for`, jamais `Symbol()` : ces clés doivent être reconnues ENTRE
+// DEUX INSTANCES du module. `npm create nodefony` tourne dans le `nodefony` du
+// cache npx, et l'`env.ts` de l'application importe le `nodefony` de
+// l'application ; avec un symbole local, le catalogue construit par l'une était
+// invisible de l'autre — zéro variable lue, et un doctor qui accusait un build
+// absent alors qu'il venait de réussir. Le registre global des symboles est
+// partagé par tout le processus, quel que soit le chemin du module.
 /** Clé non-énumérable des métadonnées posées sur un schéma d'env. */
-const ENV_META: unique symbol = Symbol("nodefony.envVarMeta");
+const ENV_META: unique symbol = Symbol.for("nodefony.envVarMeta");
 /** Clé non-énumérable du catalogue agrégé posé sur l'objet `env` retourné. */
-const ENV_CATALOG: unique symbol = Symbol("nodefony.envCatalog");
+const ENV_CATALOG: unique symbol = Symbol.for("nodefony.envCatalog");
 
 /** Attache `meta` à `schema` (non-énumérable → invisible pour Zod/sérialisation). */
 function tagMeta<S extends z.ZodTypeAny>(schema: S, meta: EnvVarMeta): S {

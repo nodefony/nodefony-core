@@ -1,4 +1,5 @@
 import assert from "node:assert";
+import { vi } from "vitest";
 
 import {
   defineEnv,
@@ -242,5 +243,26 @@ describe("env --example — en-tête curé du projet (.env.example.head)", () =>
     } finally {
       rmSync(root, { recursive: true, force: true });
     }
+  });
+});
+
+describe("catalogue d'env — reconnu entre DEUX instances de nodefony (#304)", () => {
+  it("🔴 un env construit par une autre instance du module est lu", async () => {
+    // `npm create nodefony` tourne dans l'instance du cache npx ; l'`env.ts` de
+    // l'app importe le `nodefony` de l'app. Deux instances, deux `Symbol()` :
+    // zéro variable, et un doctor qui accuse un build absent.
+    vi.resetModules();
+    const autre = await import("../config/defineEnv");
+    assert.notStrictEqual(
+      autre.defineEnv,
+      defineEnv,
+      "le décor exige deux instances",
+    );
+    const env = autre.defineEnv(
+      { NF_X: autre.envString({ default: "1", description: "x" }) },
+      {},
+    );
+    assert.strictEqual(getEnvCatalog(env).length, 1);
+    assert.strictEqual(getEnvCatalog(env)[0]?.name, "NF_X");
   });
 });
