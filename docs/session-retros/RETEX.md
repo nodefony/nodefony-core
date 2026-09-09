@@ -133,6 +133,31 @@
 > vérifier que le remède n’est pas exposé au défaut qu’il corrige, et que le geste est ENTIER.
 > Ne PAS réécrire ici.
 
+## 🧑‍⚖️ Un AUDIT trouve ce qu'aucune suite verte ne voit — et ce qu'il doute mérite d'être tranché
+
+- [1× — 09-09] **Quatre défauts réels sous 3862 tests verts, une CI 7/7 et quatre tickets fermés
+  le soir même.** Un audit `fable` lancé après coup sur la grappe config a trouvé, entre autres :
+  une colonne de provenance qui annonce « défaut du framework » sur le FIREWALL que l'application
+  pose (la provenance descend dans les objets, le catalogue traite le nœud comme une feuille, le
+  lookup rate et le `?? "default"` tranche à tort) ; un mécanisme anti-régression **neutralisable
+  par un commentaire** (les motifs sont cherchés dans le texte brut, donc un exemple commenté du
+  manifeste « porte » le motif et gagne toujours — le générateur lit déjà un connecteur fantôme
+  nommé `options`) ; et une commande de SECRETS rendue aveugle par le geste que la documentation
+  enseigne. Aucun de ces défauts n'est visible d'un test : ils demandent de juger si l'ensemble se
+  tient. Le déclencheur qui vaut d'être retenu : **après une grappe de tickets qui se répondent,
+  l'audit n'est pas un luxe — c'est la seule passe qui regarde les JOINTURES**, et chacun de ses
+  constats se recontrôle soi-même avant d'être répercuté (deux ancres sur trois étaient à ±3
+  lignes, une omettait un second site).
+
+- [1× — 09-09] **J'ai écrit « non prouvé » dans un commit et un ticket pour une limite qui était
+  celle de MON client, pas du produit.** Le serveur MCP publiait bien le nouveau sujet ; c'est la
+  définition d'outil en cache dans ma session qui datait d'avant le redémarrage. Trois appels ont
+  suffi à trancher — et surtout un CONTRÔLE sans lequel la preuve n'en aurait pas été une :
+  vérifier qu'un sujet INEXISTANT rend un message DIFFÉRENT d'un sujet reconnu mais refusé. Sans
+  ça, un refus d'autorisation uniforme aurait aussi bien masqué un sujet absent. **Avant d'inscrire
+  « non prouvé » quelque part, se demander si l'obstacle est dans le produit ou dans l'outil qui
+  l'observe** — le second se contourne en trois commandes.
+
 ## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
 
 - [1× — 09-09] **J'allais extraire un bloc de config et casser le générateur EN SILENCE ; c'est une
