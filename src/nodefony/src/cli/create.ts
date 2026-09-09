@@ -313,7 +313,7 @@ const PAR_TYPE =
   `  service    : [--inject <AutreService>] [--description "…"] [--module <nom>]\n` +
   `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
   `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +
-  `  front      : [--frontend <react|vue|angular|svelte>] [--route </page>] [--module <nom>]\n` +
+  `  front      : [--frontend <${FRONTEND_CHOICES.filter((f) => f !== "none").join("|")}>] [--route </page>] [--module <nom>]\n` +
   `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
   `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
   `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
