@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T19:33:12.185Z",
+  "generatedAt": "2026-09-09T19:36:30.436Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 39,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 13,
+      "open": 14,
       "title": "10.0.0-alpha"
     },
     {
@@ -197,34 +197,6 @@
       ]
     },
     {
-      "number": 309,
-      "title": "fix(cli): ne plus contredire au diagnostic ce que la migration vient de faire",
-      "url": "https://github.com/nodefony/nodefony-core/issues/309",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 1.2,
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
-      "number": 310,
-      "title": "fix(cli): annoncer tous les frontends servis, et livrer un test de config qui teste",
-      "url": "https://github.com/nodefony/nodefony-core/issues/310",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 1.3,
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
       "number": 274,
       "title": "fix(gate): le contrôle de langue ne voit pas les identifiants des gabarits",
       "url": "https://github.com/nodefony/nodefony-core/issues/274",
@@ -283,6 +255,20 @@
       ]
     },
     {
+      "number": 311,
+      "title": "chore(release): publier la préversion 10.0.0-alpha.4",
+      "url": "https://github.com/nodefony/nodefony-core/issues/311",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 1.5,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 263,
       "title": "fix(kernel): construire une application sans exiger sa base de données",
       "url": "https://github.com/nodefony/nodefony-core/issues/263",
@@ -308,6 +294,20 @@
       "ordre": 1.6,
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 309,
+      "title": "fix(cli): ne plus contredire au diagnostic ce que la migration vient de faire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/309",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1.6,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -380,6 +380,20 @@
       "ordre": 1.7,
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 310,
+      "title": "fix(cli): annoncer tous les frontends servis, et livrer un test de config qui teste",
+      "url": "https://github.com/nodefony/nodefony-core/issues/310",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 1.7,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
