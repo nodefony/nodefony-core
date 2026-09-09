@@ -74,6 +74,19 @@
   conclure POSITIVEMENT ne se remarque jamais** — il faut lui faire dire ce qu'il a compté, et
   refuser un verdict quand le compte est nul. ↝ [[feedback_suspect_instrument_and_own_diff]]
 
+- [2× — 09-09d] **Un gate ne protège que le périmètre qu'il BALAYE — et, dedans, que ce qu'il
+  PARSE.** La table des sous-schémas du kit `http.md` portait dix ancres `:NNN` sans fichier :
+  `anchor-check` en reconnaissait UNE sur treize, et les dix étaient périmées de 48 à 245 lignes.
+  Étendre le gate aux kits (#300) n'aurait rien attrapé là : il a fallu réécrire les ancres dans la
+  forme que l'outil lit (`http/nodefony/config/config.ts:475`) pour que le périmètre déclaré
+  devienne le périmètre contrôlé. Même famille que le bloc de commande hors des scripts.
+
+- [1× — 09-09d] **Un job rouge n'est pas LE test rouge — et j'ai poussé un fix sans lire son
+  verdict.** « Filet CLI (windows) : failure » sur le commit du fix DEP0190 ; le journal ENTIER
+  disait autre chose : l'e2e visé (« le transcript ne ment pas ») était PASSÉ (215 s), c'est un
+  test unitaire à moi qui tombait. Sans lire le journal, j'aurais cherché dans le produit. Et
+  c'est le user qui a demandé « ci rouge non ? » : j'avais poussé et continué sans guetteur.
+
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
 - [1× — 09-08c] **Un décor de démonstration posé dans un fichier qu'un sous-agent analysait.**
@@ -157,6 +170,15 @@
   ça, un refus d'autorisation uniforme aurait aussi bien masqué un sujet absent. **Avant d'inscrire
   « non prouvé » quelque part, se demander si l'obstacle est dans le produit ou dans l'outil qui
   l'observe** — le second se contourne en trois commandes.
+
+- [1× — 09-09d] **Une règle UNIQUE porte aussi son défaut unique à tous ses lecteurs — et aucun ne le
+  crie.** `withoutComments` (la règle « 1 impl » des contrôles `doctor`) retirait les blocs AVANT
+  les lignes : un `/*` dans une ligne `//` du manifeste ouvrait un faux bloc, et le manifeste de ce
+  dépôt passait de 31 568 à 2 823 caractères. `surface`, `wiring`, `readiness`, `freshness`
+  rendaient tous un verdict sur un manifeste amputé, verts, pendant des semaines. Le défaut n'est
+  sorti que parce qu'un NOUVEAU lecteur (`security:secrets`, #298) rendait un ○ visible sur une clé
+  qu'on savait câblée. Le contrôle qui l'attrape : après tout nettoyage de source, vérifier que la
+  DERNIÈRE ligne de code survit — un test le verrouille désormais.
 
 ## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
 
@@ -269,6 +291,12 @@
   même défaut, non encore poussé. [1× — 08-22f]
 
 - [1× — 08-29f] **Un filtre appliqué au chemin ABSOLU rend le watch aveugle, sans un mot.** Exclure les dossiers de travail (`tmp`, `var`) du watch de développement est juste — mais `ignored` reçoit un chemin absolu, et `TMPDIR` vaut `/var/folders/…` sur macOS, là où nos propres bancs de scaffold créent l'application. Chaque entrée aurait été rejetée. La règle ne vaut que DANS le projet : relativiser AVANT de filtrer (axiome de portabilité n°2), et le prouver en débranchant la seule relativisation.
+
+- [1× — 09-09d] **Passer `undefined` à un paramètre par défaut ne teste pas l'ABSENCE : il
+  déclenche le défaut.** `portableSpawn(…, undefined)` devait prouver le repli `cmd.exe` ; le
+  défaut `process.env.ComSpec` s'est appliqué, vide sur mon poste, rempli sur la forge Windows —
+  trois jobs rouges pour un test, pas pour le produit. Prouver un repli exige d'exercer le MÊME
+  chemin que le produit face à l'absence : ici une valeur VIDE, que le produit traite comme absente.
 
 ## 🗄️ 🚧 Ajouter une EXIGENCE sans regarder qui PRODUIT — GRADUÉ
 

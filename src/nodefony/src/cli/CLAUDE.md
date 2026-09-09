@@ -350,13 +350,15 @@ départ de la remontée, comme pour `env`.
 voit pas parmi les intégrées avant le chargement des modules → dispatch différé → boot, exactement
 ce que le raccourci évite.
 
-**Neuf règles**, en deux familles :
+**Dix règles**, en deux familles :
 
-- **Câblage** (`kernel/checks/wiring.ts`, 6) — `orphan-entity` / `orphan-controller` /
+- **Câblage** (`kernel/checks/wiring.ts`, 7) — `orphan-entity` / `orphan-controller` /
   `orphan-service` (classe écrite que rien n'enregistre : ni la compilation ni un test ne le
   voient) · `reserved-entity` · `missing-brick` · `route-colon-param` (un segment `/api/x/:id`
   compile, se monte, s'affiche dans `inspect routes` — et ne correspond à AUCUNE URL, Nodefony
-  écrit `{id}`).
+  écrit `{id}`) · `reserved-fragment-name` (un `config.ts` ou `*.config.ts` dans
+  `<app>/nodefony/config/` : nom réservé au chargement d'un module, donc ignoré par les lecteurs
+  du manifeste ET chargé par personne — un fragment se nomme `<module>.ts`).
 - **Dépendances** (`kernel/checks/packageDeps.ts`, 3) — `undeclared-import` (paquet importé sans
   être déclaré) · `unreachable-types` · `stale-exception` (une exception de la liste qui ne
   correspond plus à rien — la liste se périme, donc elle se contrôle).
