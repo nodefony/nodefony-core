@@ -6937,6 +6937,17 @@ describe("create sans type — le menu propose, la commande doit DEMANDER", () =
   });
 });
 
+/**
+ * Les lignes autour de la première ligne de stack (`    at …`) d'un
+ * transcript, ou `null` s'il n'en contient aucune. C'est le CONTEXTE qu'une
+ * assertion doit rendre : « contient une stack » ne dit pas laquelle.
+ */
+function stackContext(out: string): string | null {
+  const at = out.indexOf("\n    at ");
+  if (at < 0) return null;
+  return out.slice(Math.max(0, at - 800), Math.min(out.length, at + 400));
+}
+
 describe("create app — quand la base ne répond pas, la cause se NOMME (#302)", () => {
   it("🔴 la note de migration porte la cause constatée, pas « code 70 »", () => {
     // Sortie RÉELLE d'`orm:generate` sur un poste où un AUTRE PostgreSQL tient
@@ -7052,7 +7063,14 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
             // 3. aucune stack trace : pas de jeton tenté sur une base morte. (Le
             // doctor RELATE l'`orm:generate` échoué sous « DERNIER DÉMARRAGE », avec
             // sa cause — c'est son rôle, et ce n'est pas une stack.)
-            assert.notInclude(out, "\n    at ", `stack trace dans ${log}`);
+            // Le message NOMME ce qu'il a trouvé : sur un agent distant, le
+            // fichier de transcript n'est pas rapatrié, et « contient une
+            // stack » n'envoie chercher nulle part.
+            assert.equal(
+              stackContext(out),
+              null,
+              `stack trace dans ${log} :\n${stackContext(out) ?? ""}`,
+            );
             assert.notInclude(
               out,
               "CRITIC",
@@ -7101,7 +7119,11 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
               1,
               `cause journalisée ${hits} fois (attendu 1) — ${genLog}`,
             );
-            assert.notInclude(genOut, "\n    at ", `stack trace — ${genLog}`);
+            assert.equal(
+              stackContext(genOut),
+              null,
+              `stack trace — ${genLog} :\n${stackContext(genOut) ?? ""}`,
+            );
           } finally {
             rmSync(tmp, { recursive: true, force: true });
           }
