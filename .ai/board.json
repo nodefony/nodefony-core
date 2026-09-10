@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T12:29:40.273Z",
+  "generatedAt": "2026-09-10T14:25:03.119Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,7 +25,7 @@
       "title": "12.0.0"
     },
     {
-      "closed": 48,
+      "closed": 50,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 19,
@@ -2727,7 +2727,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 10,
+      "jours": 9.5,
       "ordre": 9.91,
       "labels": [
         "10.0.0-alpha"
@@ -2765,8 +2765,8 @@
       "number": 319,
       "title": "fix(http): rendre proxy:generate opérant dans une app générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/319",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -2855,6 +2855,34 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.995,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 329,
+      "title": "fix(devkit-bench): le décor lié fabrique deux exemplaires d'une dépendance de pair",
+      "url": "https://github.com/nodefony/nodefony-core/issues/329",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.996,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 330,
+      "title": "ci(deps): faire échouer la forge sur une divergence de version non déclarée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/330",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.997,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3875,9 +3903,7 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 137,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 194,
@@ -3931,7 +3957,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 141,
-      "labels": []
+      "labels": [
+        "10.1.0"
+      ]
     },
     {
       "number": 221,
@@ -3958,7 +3986,7 @@
       "jours": 5,
       "ordre": 142,
       "labels": [
-        "10.0.0"
+        "10.2.0"
       ]
     },
     {
@@ -3971,7 +3999,9 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 142,
-      "labels": []
+      "labels": [
+        "10.1.0"
+      ]
     },
     {
       "number": 224,
@@ -4081,7 +4111,9 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 150,
-      "labels": []
+      "labels": [
+        "10.1.0"
+      ]
     },
     {
       "number": 231,
