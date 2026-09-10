@@ -89,7 +89,7 @@
     "echarts": "6.1.0",
     "fast-glob": "3.3.3",
     "lighthouse": "13.4.1",
-    "lint-staged": "17.5.0",
+    "lint-staged": "17.5.1",
     "markdown-it": "15.0.1",
     "nodemon": "3.1.14",
     "oxlint": "1.82.0",
@@ -147,7 +147,7 @@
     "@angular/compiler-cli": "22.1.6",
     "@vitejs/plugin-react": "6.1.1",
     "@vitejs/plugin-vue": "6.0.8",
-    "vite": "8.2.2"
+    "vite": "8.3.0"
   },
   "overrides": {
     "brace-expansion": "^5.0.8",

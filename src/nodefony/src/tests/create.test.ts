@@ -6431,11 +6431,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("linkLocalDeps : réécrit le scope nodefony, laisse le public", () => {
       const dest = path.join(tmp, "linked");
+      // Version du DÉCOR, pas du catalogue : ce cas vérifie qu'une dépendance
+      // publique traverse `linkLocalDeps` INTACTE. La comparer au catalogue
+      // testerait le scaffold, qui n'intervient pas ici.
+      const zodDuDecor = "^4.4.3";
       mkdirSync(dest, { recursive: true });
       writeFileSync(
         path.join(dest, "package.json"),
         JSON.stringify({
-          dependencies: { nodefony: "^10.0.0", zod: "^4.4.3" },
+          dependencies: { nodefony: "^10.0.0", zod: zodDuDecor },
           devDependencies: { "@nodefony/http": "^10.0.0", rolldown: "^1.1.5" },
         }),
       );
@@ -6452,16 +6456,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.deepEqual(linked, ["@nodefony/http", "nodefony"]);
       const pkg = readJson(path.join(dest, "package.json"));
       assert.equal(pkg["dependencies"]["nodefony"], "file:/repo/src/nodefony");
-      assert.equal(pkg["dependencies"]["zod"], "^4.4.3");
+      assert.equal(pkg["dependencies"]["zod"], zodDuDecor);
     });
 
-    it("runScaffold link:true : app câblée sur le checkout", () => {
+    it("runScaffold link:true : app câblée sur le checkout", async () => {
       const dest = path.join(tmp, "linked-app");
       const r = scaffold(dest, { name: "linked-app", link: true });
       assert.isNotEmpty(r.linked);
       const pkg = readJson(path.join(dest, "package.json"));
       assert.match(pkg["dependencies"]["nodefony"], /^file:.*src\/nodefony$/);
-      assert.equal(pkg["dependencies"]["zod"], "^4.4.3");
+      // La version se LIT au catalogue, elle ne se recopie pas : littéralisée,
+      // cette assertion tombe à chaque montée de dépendance et fait passer une
+      // maintenance de routine pour une régression du scaffold.
+      assert.equal(
+        pkg["dependencies"]["zod"],
+        (await import("../cli/scaffold/versions")).SCAFFOLD_VERSIONS["zod"],
+      );
     });
   });
 

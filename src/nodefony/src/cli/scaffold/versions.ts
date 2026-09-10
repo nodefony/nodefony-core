@@ -11,7 +11,7 @@
  */
 export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // ── Backend / outillage (template package.json de l'app) ──
-  zod: "^4.4.3",
+  zod: "^4.6.1",
   // Runtime des helpers TypeScript (`importHelpers`) — dépendance d'un paquet
   // PUBLIABLE : un module local d'application ne l'émet pas, son bundler inline.
   tslib: "2.8.1",
@@ -67,31 +67,31 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // Sans cette ligne, une application fraîchement générée démarre en
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
-  "@node-rs/argon2": "^2.0.2",
-  "@types/node": "^26.4.0",
-  "@typescript/native-preview": "^7.0.0-dev.0",
-  oxlint: "^1.75.0",
-  prettier: "^3.9.5",
-  rolldown: "^1.2.7",
+  "@node-rs/argon2": "^2.2.1",
+  "@types/node": "^26.4.1",
+  "@typescript/native-preview": "^7.0.0-dev.20260707.2",
+  oxlint: "^1.82.0",
+  prettier: "^3.9.6",
+  rolldown: "^1.2.8",
   typescript: "^6.0.3",
   vitest: "^5.0.0",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
-  vite: "^8.1.4",
-  react: "^19.2.7",
-  "react-dom": "^19.2.7",
-  "@vitejs/plugin-react": "^6.0.3",
-  "@types/react": "^19.2.17",
-  "@types/react-dom": "^19.2.3",
-  vue: "^3.5.39",
-  "@vitejs/plugin-vue": "^6.0.7",
-  svelte: "^5.56.8",
+  vite: "^8.3.0",
+  react: "^19.3.0",
+  "react-dom": "^19.3.0",
+  "@vitejs/plugin-react": "^6.1.1",
+  "@types/react": "^19.3.0",
+  "@types/react-dom": "^19.3.0",
+  vue: "^3.5.42",
+  "@vitejs/plugin-vue": "^6.0.8",
+  svelte: "^5.57.0",
   "@sveltejs/vite-plugin-svelte": "^7.3.0",
   "@angular/core": "^22.1.5",
   "@angular/common": "^22.1.5",
   "@angular/platform-browser": "^22.1.5",
-  "@analogjs/vite-plugin-angular": "^2.7.1",
+  "@analogjs/vite-plugin-angular": "^2.7.2",
   "@angular/build": "^22.1.7",
-  "@angular/compiler-cli": "^22.1.5",
+  "@angular/compiler-cli": "^22.1.6",
 };
 
 /** Sous-ensemble du catalogue (helper des tables par framework). */
