@@ -320,6 +320,52 @@ services:
           cpus: "2.0"
           memory: 2g
 
+  # --- L'APPLICATION elle-même, en image (profil `app`) ---
+  #
+  # Hors profil par défaut, et c'est délibéré : en développement l'app tourne sur
+  # l'HÔTE (HMR, débogueur, redémarrage à chaud) et joint cette infra par
+  # 127.0.0.1. Ce service sert à éprouver l'IMAGE — celle qu'on déploie — sans
+  # remonter un décor à part :
+  #
+  #   docker compose --profile app up -d --build
+  #
+  # ⚠️ Les ports diffèrent de ceux de l'app sur l'hôte : les deux doivent pouvoir
+  # tourner en même temps, sinon on éprouve l'image en s'interdisant de coder.
+  app:
+    build:
+      context: .
+      args:
+        VCS_REF: ${VCS_REF:-}
+        BUILD_DATE: ${BUILD_DATE:-}
+    image: <%= it.appName %>:local
+    container_name: <%= it.appName %>-app
+    restart: unless-stopped
+    profiles: ["app"]
+    networks: [<%= it.appName %>]
+    ports:
+      - "127.0.0.1:${APP_PORT:-5251}:5151"
+    environment:
+      # Le nom du service, jamais 127.0.0.1 : depuis un conteneur, la boucle
+      # locale est celle du CONTENEUR, et la base est ailleurs.
+<% if (it.db) { %>      NF_DATABASE_URL: "<%= it.db.url.replace("127.0.0.1", it.db.service) %>"
+<% } %>      NF_REDIS_URL: "redis://:${REDIS_PASSWORD:-<%= it.appName %>-dev}@redis:6379"
+    volumes:
+      # 🔴 LA PERSISTANCE. Sans ce volume, la base sqlite vit dans la couche
+      # inscriptible du conteneur : `docker compose down` emporte comptes,
+      # sessions, jetons et passkeys, sans un mot. Le dossier `/app/var` existe
+      # dans l'image et appartient à 1000:1000 — c'est ce qui fait qu'un volume
+      # NEUF hérite des bons droits au lieu de naître `root:root`.
+      - <%= it.appName %>-var:/app/var
+    # 🔴 AU-DESSUS du `shutdownDeadline` (15 s) : compose n'attend que 10 s par
+    # défaut, et le drain serait coupé par un SIGKILL — requêtes en vol perdues à
+    # chaque déploiement, sans erreur ni trace.
+    stop_grace_period: 20s
+    depends_on:
+      redis:
+        condition: service_healthy
+<% if (it.db) { %>      <%= it.db.service %>:
+        condition: service_healthy
+<% } %>
 # Bridge nommé explicite : résolution DNS par nom de service, isolation des autres
 # projets compose, nettoyage propre au down. Pas de sous-réseau figé (anti-collision).
 networks:
@@ -333,3 +379,9 @@ volumes:
 <% } %>  redisinsight-data:
   loki-data:
   grafana-data:
+  # Les données de l'app en image (profil `app`) : `var/`, dont la base sqlite.
+  # ⚠️ Tant que la base est sqlite, UNE SEULE réplique : c'est un fichier, pas un
+  # serveur. Deux conteneurs sur ce volume se corrompent ; sur deux volumes, ils
+  # divergent en silence. Pour répliquer, poser `NF_DATABASE_URL` sur une vraie
+  # base — l'ORM déduit le dialecte du scheme, rien d'autre ne change dans l'app.
+  <%= it.appName %>-var:

@@ -233,19 +233,35 @@ mono-process.
 ### Image de container
 
 `Dockerfile` et `.dockerignore` sont générés avec l'app ; la doctrine y est
-commentée ligne à ligne (multi-stage, `USER node`, sonde sur `/readyz`, forme
-exec du `CMD`).
+commentée ligne à ligne (multi-stage, `USER 1000:1000`, sonde sur `/readyz`,
+forme exec du `CMD`).
 
 ```bash
 docker build -t <%= it.appName %> .
-docker run -p 5151:5151 <%= it.appName %>
+docker run -p 5151:5151 -v <%= it.appName %>-var:/app/var <%= it.appName %>
 docker stop -t 20 <container>   # SIGTERM → drain → exit 0
 ```
+
+> 🔴 **Le `-v` n'est pas optionnel si tu veux garder tes données.** L'app
+> persiste par défaut en sqlite, dans `var/databases/` : sans volume, comptes,
+> sessions, jetons et passkeys disparaissent au premier `docker rm`, **sans
+> aucun message**. Le volume nommé les met hors du conteneur.
+>
+> Et tant que la base est sqlite, **une seule réplique** : c'est un fichier, pas
+> un serveur. Deux conteneurs sur le même volume se corrompent mutuellement ;
+> deux conteneurs sur deux volumes travaillent sur deux bases divergentes, ce
+> que rien ne signale. Pour répliquer, passer à PostgreSQL ou MySQL — il suffit
+> de poser `NF_DATABASE_URL`, l'ORM déduit le dialecte du scheme et rien d'autre
+> ne change dans l'app.
 
 > ⚠️ **La période de grâce doit rester au-dessus de `shutdownDeadline`** (15 s
 > par défaut) : `docker stop` n'attend que 10 s sans `-t`, et k8s 30 s. En
 > dessous, le drain est coupé par un SIGKILL et les requêtes en vol meurent —
 > sans erreur ni trace, à chaque déploiement.
+
+Le code de l'image appartient à `root` et le processus tourne en `1000:1000` :
+l'application ne peut pas réécrire son propre `dist/`. Seuls `tmp/` et `var/`
+lui appartiennent, ce qui est exactement ce dont elle a besoin pour écrire.
 
 #### Si tu PUBLIES cette image
 

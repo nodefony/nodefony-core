@@ -1322,8 +1322,45 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.match(dockerfile, /^CMD \["/mu);
         assert.notMatch(dockerfile, /^CMD [^[]/mu);
 
-        // Jamais root — les ports Nodefony n'exigent aucun privilège.
-        assert.match(dockerfile, /^USER node$/mu);
+        // Jamais root — les ports Nodefony n'exigent aucun privilège. Et
+        // NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand
+        // l'image ne déclare qu'un nom d'utilisateur, qu'il ne sait pas résoudre.
+        assert.match(dockerfile, /^USER 1000:1000$/mu);
+
+        // Ces deux dossiers doivent EXISTER et appartenir au processus AVANT
+        // tout montage : un volume nommé neuf hérite du propriétaire du dossier
+        // qu'il recouvre. Sans eux, `docker run -v <vol>:/app/var` naît
+        // `root:root` et le premier `mkdir` de l'application meurt en EACCES —
+        // sur un message qui ne parle ni de volume ni de droits.
+        assert.match(
+          dockerfile,
+          /^RUN mkdir -p \/app\/tmp \/app\/var && chown 1000:1000 \/app\/tmp \/app\/var$/mu,
+        );
+
+        // Le code appartient à root : une application qui peut réécrire son
+        // propre `dist/` offre à une exécution de code un moyen de PERSISTER.
+        assert.notMatch(dockerfile, /^COPY --from=build --chown=/mu);
+
+        // Reproductibilité : `npm ci` installe l'arbre EXACT du verrou et refuse
+        // un manifeste désaccordé, là où `npm install` réécrit le verrou et peut
+        // résoudre autrement d'un jour à l'autre. Le repli est nécessaire : une
+        // application fraîchement créée n'a pas encore de verrou.
+        assert.include(dockerfile, "npm ci --ignore-scripts");
+        assert.include(dockerfile, "if [ -f package-lock.json ]");
+
+        // Étiquettes OCI : remonter d'une image en production au commit qui l'a
+        // produite. Les valeurs viennent de la chaîne de construction.
+        assert.match(dockerfile, /^ARG VCS_REF=/mu);
+        assert.include(dockerfile, "org.opencontainers.image.revision");
+        // JAMAIS de licence : ce gabarit ne connaît pas celle de l'application,
+        // et y apposer celle du framework serait une déclaration légale fausse.
+        // Le motif exclut les lignes de COMMENTAIRE — le gabarit explique
+        // justement pourquoi cette étiquette est absente, et une recherche de
+        // sous-chaîne se ferait mordre par son propre texte.
+        assert.notMatch(
+          dockerfile,
+          /^[^#\n]*org\.opencontainers\.image\.licenses/mu,
+        );
 
         // La sonde de l'orchestrateur passe par la route NATIVE du framework.
         assert.match(dockerfile, /^HEALTHCHECK /mu);

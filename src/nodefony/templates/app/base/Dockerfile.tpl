@@ -52,7 +52,20 @@ COPY . ./
 # scripts). Et c'est un durcissement : un script d'installation est le vecteur
 # des compromissions de chaîne d'approvisionnement, et une image de production
 # n'a aucune raison d'en exécuter.
-RUN --mount=type=cache,target=/root/.npm npm install --ignore-scripts --no-audit --no-fund
+#
+# `npm ci` DÈS QU'UN VERROU EST LÀ, et c'est ce qui rend l'image reproductible :
+# il installe l'arbre EXACT du verrou et REFUSE un `package.json` désaccordé,
+# là où `npm install` réécrit le verrou et peut résoudre autrement d'un jour à
+# l'autre — deux constructions du même commit, deux arbres de dépendances,
+# dans une image qu'on publie. Le repli n'est pas une commodité : un gabarit ne
+# peut pas supposer le verrou, qui naît du premier `npm install` du développeur
+# et n'existe donc pas dans une application fraîchement créée.
+RUN --mount=type=cache,target=/root/.npm \
+    if [ -f package-lock.json ]; then \
+      npm ci --ignore-scripts --no-audit --no-fund; \
+    else \
+      npm install --ignore-scripts --no-audit --no-fund; \
+    fi
 
 # Le build passe par le script de l'application (`rolldown`, plus le build du
 # frontend quand il y en a un) : ce Dockerfile n'a donc jamais à connaître la
@@ -72,17 +85,52 @@ FROM node:24-slim
 ENV NODE_ENV=production
 WORKDIR /app
 
-# `/app` doit appartenir à `node` : le démarrage écrit (tmp/, journaux, var/).
-RUN chown node:node /app
+# Étiquettes OCI — ce qui permet de remonter d'une image en production au commit
+# qui l'a produite. Sans elles, `docker inspect` ne dit rien de son origine, et
+# un scanner de vulnérabilités n'a pas de version à laquelle rattacher son
+# verdict. Les valeurs viennent de la chaîne de construction, jamais du gabarit :
+#   docker build --build-arg VCS_REF=$(git rev-parse HEAD) \
+#                --build-arg BUILD_DATE=$(date -u +%Y-%m-%dT%H:%M:%SZ) \
+#                --build-arg VERSION=$(node -p "require('./package.json').version") .
+#
+# Pas d'`org.opencontainers.image.licenses` : cette application est la TIENNE et
+# ce gabarit ne connaît pas sa licence. L'ajouter d'après celle du framework
+# apposerait sur ton image une déclaration légale qui n'est pas la tienne.
+ARG VCS_REF=""
+ARG BUILD_DATE=""
+ARG VERSION="0.1.0"
+LABEL org.opencontainers.image.title="<%= it.appName %>" \
+      org.opencontainers.image.description="<%= it.appName %> — application Nodefony" \
+      org.opencontainers.image.version="$VERSION" \
+      org.opencontainers.image.revision="$VCS_REF" \
+      org.opencontainers.image.created="$BUILD_DATE"
 
 # Un seul COPY, et c'est délibéré : il emporte `dist/`, les `node_modules`
 # élagués, les assets du frontend et les workspaces `modules/*` — dont
 # l'existence n'est pas connue au moment où ce fichier est généré. Nommer les
 # chemins un à un ferait échouer la construction sur le premier dossier absent.
-COPY --from=build --chown=node:node /app ./
+#
+# SANS `--chown` : le code appartient à `root`, le processus tourne en 1000. Une
+# application qui peut réécrire son propre `dist/` offre à une faille d'exécution
+# de code un moyen de PERSISTER d'un redémarrage à l'autre. Seules les données
+# lui appartiennent, et c'est le `RUN` ci-dessous qui le décide.
+COPY --from=build /app ./
+
+# 🔴 Ces deux dossiers doivent EXISTER dans l'image, avant tout montage.
+# `var/` et `tmp/` sont écrits au démarrage et exclus du contexte de
+# construction (`.dockerignore`) : sans ce `mkdir`, Docker crée le point de
+# montage d'un `-v <app>-var:/app/var` en `root:root`, et le premier `mkdir` de
+# l'application meurt en `EACCES` — sur un message qui ne parle ni de volume ni
+# de droits. Un volume nommé neuf HÉRITE du propriétaire du dossier qu'il
+# recouvre : c'est ce qui fait que la persistance marche du premier coup.
+# En Kubernetes, c'est aussi ce que `fsGroup` prend pour base.
+RUN mkdir -p /app/tmp /app/var && chown 1000:1000 /app/tmp /app/var
 
 # Jamais root : les ports de Nodefony (5151, 5152) n'exigent aucun privilège.
-USER node
+# NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand l'image
+# ne déclare qu'un NOM d'utilisateur, qu'il ne sait pas résoudre en identifiant.
+# Constaté sur `node:24-slim` : `node` vaut exactement `1000:1000`.
+USER 1000:1000
 EXPOSE 5151
 
 # Sonde de Docker / compose / Swarm sur `/readyz`, la route native du framework.
