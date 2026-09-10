@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T10:24:57.617Z",
+  "generatedAt": "2026-09-10T12:05:42.563Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 48,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 18,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
@@ -2727,7 +2727,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 9,
+      "jours": 10,
       "ordre": 9.91,
       "labels": [
         "10.0.0-alpha"
@@ -2841,6 +2841,20 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.99,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 328,
+      "title": "fix(log): écrire un horodatage que les outils savent lire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/328",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.995,
       "labels": [
         "10.0.0-alpha"
       ]

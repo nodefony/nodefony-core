@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-10 10:24** (UTC).
+> Empreinte prise le **2026-09-10 12:05** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 73% | 48 | 18 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 72% | 48 | 19 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
@@ -32,9 +32,9 @@
 
 **#316 — feat(scaffold): rendre l'application générée déployable en production**
 
-Ordre 9.91 · P1 — figé à la création · 9 j · jalon 10.0.0-alpha
+Ordre 9.91 · P1 — figé à la création · 10 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 18 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -72,11 +72,11 @@ Ordre 9.91 · P1 — figé à la création · 9 j · jalon 10.0.0-alpha
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 
-## Jalon 10.0.0-alpha — 18 ouverts
+## Jalon 10.0.0-alpha — 19 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 9.91 | P1 — figé à la création | 9 | #316 | feat(scaffold): rendre l'application générée déployable en production |
+| 9.91 | P1 — figé à la création | 10 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.92 | P1 — figé à la création | 0.5 | #317 | test(release): refuser une image qui embarque une clé privée |
 | 9.93 | P1 — figé à la création | 1 | #318 | fix(docker): réparer droits, persistance et reproductibilité |
 | 9.94 | P0 — bloque le reste | 0.5 | #319 | fix(http): rendre proxy:generate opérant dans une app générée |
@@ -85,6 +85,7 @@ Ordre 9.91 · P1 — figé à la création · 9 j · jalon 10.0.0-alpha
 | 9.97 | P1 — figé à la création | 2 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |
 | 9.98 | P2 — décision | 0.5 | #323 | feat(scaffold): livrer les licences des dépendances |
 | 9.99 | P2 — décision | 1 | #327 | test(log): éprouver les transports contre de vrais serveurs |
+| 9.995 | P2 — décision | 1 | #328 | fix(log): écrire un horodatage que les outils savent lire |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
