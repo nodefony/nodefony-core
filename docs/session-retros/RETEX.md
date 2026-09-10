@@ -64,6 +64,18 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   ([[feedback_written_rule_needs_reread]]). Le départage ne vient pas de l'écran : il vient
   d'interroger la source SANS l'interface.
 
+- **[1× — 09-10d] Le SYMÉTRIQUE, et il coûte autant : un contrôle ROUGE que son décor fabrique.**
+  Le banc devkit en décor lié rendait un `TS2322` sur une application générée. J'ai remonté la piste
+  jusqu'à une divergence de versions et j'étais à deux doigts de faire réécrire quinze manifestes —
+  le décor `--link` installait simplement DEUX exemplaires d'une dépendance de pair (npm ne hisse
+  pas à travers un lien `file:`). Le même banc en décor isolé : 21 étapes sur 21 vertes. Le décor
+  annonçait lui-même son verdict « AMPUTÉ », et je l'ai lu après. **Avant d'imputer un rouge au
+  produit, rejouer dans le décor le plus proche de l'utilisateur** — ici, celui qui installe depuis
+  les tarballs.
+- **[1× — 09-10d] Et il bloque plus que lui-même** : le banc s'arrête au premier échec, donc ce rouge
+  étranger empêchait de prouver quoi que ce soit d'AUTRE. Une étape neuve n'a pu être jouée qu'en la
+  remontant en tête d'une copie du script.
+
 ## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
 
 > Le symptôme est l'inverse de [[feedback_capability_unreachable_is_absent]] : là-bas une capacité
@@ -82,6 +94,14 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   `NF_GATES_ALLOW`, la liste des absences AUTORISÉES — la forge déclare noir sur blanc qu'elle ne
   les exerce pas. **Sur ce dépôt, ce qui manque n'est presque jamais le code : c'est son
   exécution.** Chercher d'abord ce qui existe déjà change la question posée.
+
+- **[1× — 09-10d] J'allais écrire un gate que le dépôt possédait déjà, et c'est le user qui l'a
+  nommé.** Sur une divergence de versions, j'ai conçu un contrôle dans `create.test.ts` — alors que
+  `scripts/check-deps-latest.mjs` lisait DÉJÀ le catalogue du scaffold, résolvait le verrou et
+  rangeait le paquet en `[DIVERGENT]`. Le vrai défaut n'était pas l'absence de détection mais
+  l'absence d'APPEL : aucun flux d'intégration, aucun crochet, et un code de sortie 0 quoi qu'il
+  trouve. Le test avant de concevoir un contrôle : _quel script existant produit déjà ce verdict, et
+  qui le lance ?_ Un gate ajouté à côté d'un gate aveugle en crée deux.
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 

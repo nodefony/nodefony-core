@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T14:25:03.119Z",
+  "generatedAt": "2026-09-10T15:03:54.773Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,7 +25,7 @@
       "title": "12.0.0"
     },
     {
-      "closed": 50,
+      "closed": 51,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 19,
@@ -2883,6 +2883,20 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.997,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 331,
+      "title": "fix(frontend): dédupliquer le runtime Svelte au build de production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/331",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.998,
       "labels": [
         "10.0.0-alpha"
       ]
