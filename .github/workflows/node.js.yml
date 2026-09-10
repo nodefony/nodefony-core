@@ -220,6 +220,32 @@ jobs:
       # l'arbre résolu par `npm ci`.
       #
       # Une seule plateforme suffit : une licence ne dépend pas du système.
+      # Dépendances INCONCILIABLES — deux spécifications qu'aucune version ne
+      # satisfait à la fois. npm installe alors DEUX exemplaires, sans un mot, et
+      # deux copies d'une bibliothèque de types ne s'unifient pas, deux copies
+      # d'un registre à état global ne se voient pas l'une l'autre.
+      #
+      # Le contrôle existait déjà — `check-deps-latest.mjs` nommait ces
+      # divergences depuis des mois — mais il n'était appelé par RIEN : ni forge,
+      # ni crochet git, ni `test:all`, et il rendait 0 quoi qu'il trouve. Un
+      # excellent contrôle que personne ne lance ne garde rien ; c'est `--gate`
+      # qui en fait une garde, et cette ligne qui la fait exister.
+      #
+      # Ce qui fait échouer se limite à ce qui CASSE un arbre d'installation :
+      # une divergence que npm sait dédoublonner ne dit rien et n'échoue pas —
+      # sans quoi la forge crierait sur `zod`, déclaré de trois façons ici et
+      # parfaitement sain (une application générée compile, mesuré au banc).
+      #
+      # Une seule plateforme suffit : une résolution de version ne dépend pas du
+      # système. Et un registre muet ne rend pas cette garde verte — le verdict
+      # se calcule sur le verrou, la version publiée n'ajoute qu'un candidat.
+      - name: Gate — dépendances inconciliables
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          npm run test:deps-gate
+          npm run deps:gate
+
       - name: Gate — licences des dépendances de production
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash

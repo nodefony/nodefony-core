@@ -32,11 +32,20 @@
  * opinion), et le paquet `nodefony` lui-même — le registre publie un v7 public
  * quand ce monorepo EST nodefony 10 en développement.
  *
+ * Deux usages, et il faut les distinguer : ce fichier est un RAPPORT que l'on
+ * consulte, et — sous `--gate` — une GARDE que la forge exécute. La garde
+ * n'échoue que sur ce qui casse un arbre d'installation (`INCONCILIABLE`,
+ * `PEER-EXACT`), jamais sur ce qui est seulement inélégant : une divergence que
+ * npm sait dédoublonner ne fait rien échouer. Sans cette retenue, la garde
+ * crierait sur `zod` — déclaré de trois façons ici, et parfaitement sain —, et
+ * un contrôle qui crie sur ce qui va bien finit désarmé.
+ *
  * Usage :
  *   node scripts/check-deps-latest.mjs            # écarts RÉELS (lock à l'appui)
  *   node scripts/check-deps-latest.mjs --strict   # + plages déjà satisfaites
  *   node scripts/check-deps-latest.mjs --all      # + les pins déjà à jour
  *   node scripts/check-deps-latest.mjs --json     # sortie machine
+ *   node scripts/check-deps-latest.mjs --gate     # GARDE : code non nul si l'arbre se dédoublerait
  */
 
 import { execFileSync } from "node:child_process";
@@ -44,6 +53,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import semver from "semver";
+import { reconcilie } from "./lib/reconcile-versions.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ARGS = new Set(process.argv.slice(2));
@@ -444,6 +454,29 @@ for (const r of majeurs) {
 // Une divergence peer-plancher vs dev-exact (`>=6.0.0` / `^6.1.0`) est en
 // revanche le pattern JUSTE : elle n'est signalée qu'en `--strict`.
 const PEER = "#peerDependencies";
+
+/**
+ * Rassemble les versions CONCRÈTES à essayer pour réconcilier les
+ * spécifications d'un paquet : celles du verrou, celle que le registre sert
+ * aujourd'hui, et les bases des spécifications elles-mêmes. Inutile d'énumérer
+ * tout le catalogue publié — si aucune version en circulation ne convient,
+ * l'arbre se dédouble ici et maintenant.
+ *
+ * @param entries - les spécifications relevées, avec leurs sites.
+ * @param name - nom du paquet (pour lire le verrou et la version publiée).
+ * @returns l'ensemble des versions candidates.
+ */
+function candidatsPour(entries, name) {
+  const candidats = new Set(installed.get(name)?.all ?? []);
+  const publiee = latest.get(name);
+  if (publiee) candidats.add(publiee);
+  for (const e of entries) {
+    const base = baseVersion(e.spec);
+    if (base) candidats.add(base);
+  }
+  return candidats;
+}
+
 const divergent = [];
 for (const [name, specs] of wanted) {
   if (specs.size < 2) continue;
@@ -459,8 +492,13 @@ for (const [name, specs] of wanted) {
   // même version, les signaler serait le bruit qui fait cesser de lire le
   // rapport. Seule une base différente est une divergence.
   const ownedSpecs = new Set(owned.map((e) => baseVersion(e.spec) ?? e.spec));
+  const conciliable = reconcilie(
+    entries.map((e) => e.spec),
+    candidatsPour(entries, name),
+  );
   let severity = null;
-  if (exactPeer.length) severity = "PEER-EXACT";
+  if (!conciliable) severity = "INCONCILIABLE";
+  else if (exactPeer.length) severity = "PEER-EXACT";
   else if (ownedSpecs.size > 1) severity = "DIVERGENT";
   else if (STRICT) severity = "peer/dev";
   if (severity) divergent.push({ name, severity, entries });
@@ -485,6 +523,14 @@ if (divergent.length) {
         "  Figé à une version, il casse l'installation dès qu'un autre site monte.\n",
     );
   }
+  if (bad.some((d) => d.severity === "INCONCILIABLE")) {
+    process.stdout.write(
+      "\n  INCONCILIABLE : AUCUNE version en circulation ne satisfait toutes ces\n" +
+        "  spécifications. npm en installera donc plusieurs exemplaires, et rien ne le\n" +
+        "  dira — deux copies d'une bibliothèque de types ne s'unifient pas, deux copies\n" +
+        "  d'un registre (ORM, greffons) ne se voient pas l'une l'autre.\n",
+    );
+  }
   if (!STRICT) {
     process.stdout.write(
       "\n  Les couples peer-plancher / dev-exact (le pattern juste) sont masqués — `--strict` pour les voir.\n",
@@ -495,5 +541,51 @@ if (divergent.length) {
 if (failed.length) {
   process.stderr.write(
     `\n⚠️ ${failed.length} paquets non résolus (privés, retirés, ou réseau) :\n  ${failed.join("\n  ")}\n`,
+  );
+}
+
+// ── 5. Le VERDICT — sous `--gate` seulement ─────────────────────────────────
+//
+// 🔴 Pourquoi un drapeau plutôt qu'un échec par défaut : ce script est d'abord
+// un RAPPORT que l'on consulte, et un rapport qui sort en erreur devient une
+// commande qu'on hésite à lancer. Sous `--gate` il devient une garde, et c'est
+// cette forme-là que la forge exécute — sans quoi il resterait ce qu'il était :
+// un excellent contrôle que personne ne lançait, dans aucun flux d'intégration
+// continue, aucun crochet git, et rendant 0 quoi qu'il trouve.
+//
+// Ce qui fait ÉCHOUER se limite à ce qui casse un arbre d'installation, jamais
+// à ce qui est seulement inélégant :
+//  - INCONCILIABLE : npm installera plusieurs exemplaires.
+//  - PEER-EXACT    : un peer figé fait échouer l'installation d'un tiers.
+// Une divergence CONCILIABLE ne fait rien échouer : npm dédoublonne, et crier
+// dessus rendrait le contrôle assez bruyant pour être désarmé.
+//
+// 🔴 Un registre muet ne rend PAS cette garde verte, et c'est ce qui permet de
+// ne pas la faire échouer dessus. Le verdict se calcule sur les spécifications
+// et sur le VERROU ; la version publiée n'ajoute qu'un candidat de plus à la
+// réconciliation. Sans elle, la garde est donc plus STRICTE, jamais plus
+// clémente — elle ne peut pas passer au vert par accident de réseau. Faire
+// échouer sur une requête ratée n'aurait rien gardé de plus, et aurait appris à
+// relancer la forge jusqu'à ce qu'elle passe : le meilleur moyen de désarmer un
+// contrôle est de le rendre capricieux.
+if (ARGS.has("--gate")) {
+  const fatals = divergent.filter(
+    (d) => d.severity === "INCONCILIABLE" || d.severity === "PEER-EXACT",
+  );
+  if (failed.length) {
+    process.stdout.write(
+      `\n  ${failed.length} paquet(s) non résolus par le registre — le verdict tient` +
+        ` sur le verrou, il en est seulement plus strict.\n`,
+    );
+  }
+  if (fatals.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${fatals.length} paquet(s) à réconcilier\n` +
+        `   ${fatals.map((d) => `${d.name} [${d.severity}]`).join("\n   ")}\n`,
+    );
+    process.exit(1);
+  }
+  process.stdout.write(
+    `\n✅ garde des dépendances : ${wanted.size} paquets, aucune déclaration inconciliable.\n`,
   );
 }
