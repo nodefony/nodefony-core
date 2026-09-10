@@ -376,12 +376,16 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
     }
   });
 
-  it("AVERTIT sans bloquer sur un script de cycle de vie", () => {
+  it("AVERTIT sans bloquer sur un script de cycle de vie, en le disant INERTE", () => {
     const r = audit([
       { ...ok, pkg: { ...ok.pkg, scripts: { prepack: "npm run build" } } },
     ]);
     expect(r.bloquants).toEqual([]);
-    expect(r.avertissements.join()).toMatch(/prepack.*PENDANT le pack/);
+    // Le libellé porte le FAIT, pas la peur : le pack passe `--ignore-scripts`,
+    // donc le hook ne tourne pas. Annoncer qu'il « s'exécutera » envoyait
+    // chercher une cause là où il n'y a rien — et laissait croire à un filet.
+    expect(r.avertissements.join()).toMatch(/prepack.*INERTE/);
+    expect(r.avertissements.join()).not.toMatch(/PENDANT le pack/);
   });
 
   it("accumule les défauts de PLUSIEURS paquets — un rapport partiel ferait relancer N fois", () => {

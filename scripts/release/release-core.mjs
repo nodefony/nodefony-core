@@ -289,10 +289,14 @@ export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
 
     for (const s of ["prepack", "prepare", "prepublishOnly"]) {
       if (p.pkg.scripts?.[s]) {
-        // Pas un défaut : un fait. Ce qui est empaqueté n'est alors plus ce
-        // qu'on a bâti et mesuré, et le taire laisse croire le contraire.
+        // La chaîne empaquette avec `--ignore-scripts` (voir `pack-all.mjs`),
+        // parce qu'un `prepack` qui reconstruit EFFACE la préparation du
+        // tarball. Ces hooks ne s'exécutent donc PAS : ils sont inertes, et
+        // c'est précisément le danger — ils se lisent comme un filet qui
+        // garantirait un `dist` frais, alors que rien ne tourne. Le dire, pour
+        // que personne ne s'appuie dessus.
         avertissements.push(
-          `${p.nom} : \`${s}\` = « ${p.pkg.scripts[s]} » s'exécutera PENDANT le pack`,
+          `${p.nom} : \`${s}\` = « ${p.pkg.scripts[s]} » est INERTE — le pack passe \`--ignore-scripts\`, ce hook ne s'exécute jamais et fait croire à un filet qui n'existe pas ; le retirer`,
         );
       }
     }

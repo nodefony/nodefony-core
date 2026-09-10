@@ -225,7 +225,11 @@ path.join(this.path, "dist", "frontend") }).mount(container, kernel)` + exposer
    sinon flux `frontendService.renderDocument` (§2.4).
 4. **Build publish** : `frontend/vite.config.publish.mts` (app-mode, `base` = publicPath,
    `outDir: ../dist/frontend`) ; script `build:ui` ENCHAÎNÉ dans `build` (l'UI vit dans
-   `dist/` → le `rimraf dist` du build backend l'emporte sinon) + `prepack` en filet.
+   `dist/` → le `rimraf dist` du build backend l'emporte sinon). **Aucun `prepack`** :
+   la chaîne de publication empaquette avec `--ignore-scripts` (un hook qui reconstruit
+   EFFACERAIT la préparation du tarball), donc il ne s'exécuterait jamais — un filet qui
+   n'existe pas est pire que pas de filet. Le `dist` doit être frais AVANT `release:pack`,
+   et l'UI manquante est dite au boot (`resolveUiDelivery` → mode `none`, log ERROR).
 5. **Preuve** : app générée `--link` en `production` sans @nodefony/frontend → route UI 200,
    asset hashé 200, CSP sans origine Vite (vécu : rebuild backend seul → `none` fail-loud).
 
