@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect } from "chai";
 import ViteBuilder from "../../src/builders/ViteBuilder.js";
 import type { IResolvedFrontendEntry } from "../../interfaces/IFrontBuilder.js";
@@ -54,6 +55,51 @@ describe("ViteBuilder — resolve.dedupe (un seul runtime par framework)", () =>
       "production",
     );
     expect(cfg.resolve).to.deep.equal({ dedupe: ["react", "react-dom"] });
+  });
+
+  // 🔴 Svelte manquait ICI et nulle part ailleurs : la liste du DÉVELOPPEMENT
+  // (`ViteConfigGenerator`) le portait, celle du build de PRODUCTION non — deux
+  // copies qui se déclarent « la MÊME règle » et qui avaient divergé. Le symptôme
+  // est le même que celui décrit pour React : deux runtimes dans le bundle, et un
+  // état réactif scindé en deux mondes qui ne se voient pas. Invisible en
+  // développement, où le prébundle unifie.
+  it("svelte5 : dedupe svelte (le dev le faisait, le build de prod l'oubliait)", async () => {
+    const cfg = await builder.buildViteConfig(
+      [{ ...entry, type: "svelte5", entryFile: "src/main.ts" }],
+      "production",
+    );
+    expect(cfg.resolve).to.deep.equal({ dedupe: ["svelte"] });
+  });
+
+  // La duplication est GARDÉE, pas seulement corrigée : deux listes qui se
+  // déclarent identiques ont déjà divergé une fois. Ce cas compare les deux
+  // sources, préréglage par préréglage — il tombe au prochain écart, quel qu'il
+  // soit, sans qu'il faille penser à ajouter un cas.
+  it("les deux listes — développement et production — disent la MÊME chose", async () => {
+    const source = readFileSync(
+      new URL("../../service/ViteConfigGenerator.ts", import.meta.url),
+      "utf8",
+    );
+    for (const preset of ["react19", "vue3", "svelte5", "angular"] as const) {
+      const cfg = await builder.buildViteConfig(
+        [{ ...entry, type: preset, entryFile: "src/main.ts" }],
+        "production",
+      );
+      const prod =
+        (cfg.resolve as { dedupe?: string[] } | undefined)?.dedupe ?? [];
+      // Ce que la configuration de DÉVELOPPEMENT pousse pour ce préréglage,
+      // lu au source : la seule façon de comparer sans recopier la liste ici —
+      // une troisième copie serait le défaut qu'on ferme.
+      const ligne = new RegExp(
+        `usedTypes\\.has\\("${preset}"\\)\\)?\\s*\\n?\\s*dedupe\\.push\\(([^)]*)\\)`,
+        "u",
+      ).exec(source);
+      const dev = (ligne?.[1] ?? "")
+        .split(",")
+        .map((m) => m.trim().replace(/^"|"$/gu, ""))
+        .filter(Boolean);
+      expect(prod, `dedupe divergent pour ${preset}`).to.deep.equal(dev);
+    }
   });
 
   it("vanilla : aucun resolve (rien à dédupliquer)", async () => {

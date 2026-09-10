@@ -92,6 +92,7 @@ export class ViteBuilder implements IFrontBuilder {
     const dedupe: string[] = [];
     if (usedPresets.has("react19")) dedupe.push("react", "react-dom");
     if (usedPresets.has("vue3")) dedupe.push("vue");
+    if (usedPresets.has("svelte5")) dedupe.push("svelte");
     if (usedPresets.has("angular"))
       dedupe.push(
         "@angular/core",
