@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T17:36:40.658Z",
+  "generatedAt": "2026-09-10T17:50:32.092Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -23,6 +23,13 @@
       "number": 5,
       "open": 8,
       "title": "12.0.0"
+    },
+    {
+      "closed": 0,
+      "dueOn": null,
+      "number": 8,
+      "open": 3,
+      "title": "outillage-agents"
     },
     {
       "closed": 51,
@@ -152,6 +159,20 @@
       "ordre": 1,
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 333,
+      "title": "fix(skills): réparer l'en-tête YAML que le contrôle ne voit pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/333",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "outillage-agents",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 1,
+      "labels": [
+        "outillage-agents"
       ]
     },
     {
@@ -538,6 +559,20 @@
       "labels": [
         "irrattrapable",
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 334,
+      "title": "test(agents): mesurer ce que les skills changent pour un agent seul",
+      "url": "https://github.com/nodefony/nodefony-core/issues/334",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "outillage-agents",
+      "priorite": "P2 — décision",
+      "jours": 3,
+      "ordre": 2,
+      "labels": [
+        "outillage-agents"
       ]
     },
     {
@@ -3561,7 +3596,7 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/205",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": null,
+      "milestone": "outillage-agents",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 90,

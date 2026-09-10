@@ -62,6 +62,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "1008",
@@ -148,6 +154,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -244,6 +256,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "750",
@@ -330,6 +348,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -425,6 +449,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -542,6 +572,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "990",
@@ -600,7 +636,7 @@
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
         "bodyLines": 739,
-        "approxTokens": 12544
+        "approxTokens": 12550
       },
       "requires": [
         "serveur UP",
@@ -1677,6 +1713,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "1016",
@@ -1758,7 +1800,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 469,
-        "approxTokens": 7924
+        "approxTokens": 7930
       },
       "requires": [],
       "resources": {
@@ -1919,6 +1961,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "877",
@@ -2044,6 +2092,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "980",
@@ -2161,6 +2215,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -2440,6 +2500,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "1000",
@@ -2713,6 +2779,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "965",
@@ -2808,6 +2880,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -4257,6 +4335,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "878",
@@ -4344,6 +4428,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -4715,6 +4805,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "988",
@@ -4833,6 +4929,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "1013",
@@ -4928,6 +5030,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -5029,6 +5137,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "812",
@@ -5119,6 +5233,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -5355,6 +5475,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "960",
@@ -5529,6 +5655,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "991",
@@ -5679,6 +5811,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "525",
@@ -5787,6 +5925,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "935",
@@ -5868,6 +6012,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -5970,6 +6120,12 @@
             "advisory": false
           },
           {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
             "detail": "894",
@@ -6048,7 +6204,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\".",
       "cost": {
         "bodyLines": 617,
-        "approxTokens": 11385
+        "approxTokens": 11391
       },
       "requires": [
         "redis"
@@ -6568,6 +6724,12 @@
         "checks": [
           {
             "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
             "ok": true,
             "detail": null,
             "advisory": false

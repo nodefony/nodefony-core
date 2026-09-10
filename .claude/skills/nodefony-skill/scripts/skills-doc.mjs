@@ -25,6 +25,7 @@ import {
   statSync,
 } from "node:fs";
 import { join } from "node:path";
+import YAML from "yaml";
 
 const SKILLS_DIR = ".claude/skills";
 const OUT_DIR = "docs/skills";
@@ -60,7 +61,11 @@ const STANDARD = {
 const STAMP =
   process.env.SKILLS_DOC_DATE || new Date().toISOString().slice(0, 10);
 
-/** Découpe le frontmatter YAML sans dépendance : suffisant pour les champs plats du standard. */
+/**
+ * Découpe le frontmatter à la main : tolérant par construction, c'est ce qui permet d'EXTRAIRE les
+ * champs même d'un en-tête bancal pour le décrire dans la fiche. Il ne dit donc RIEN de la validité
+ * — le verdict revient à `yamlError`, qui passe le même texte à un vrai parseur.
+ */
 function parseFrontmatter(src) {
   const m = src.match(/^---\n([\s\S]*?)\n---\n?([\s\S]*)$/);
   if (!m) return { fields: {}, raw: "", body: src };
@@ -88,6 +93,27 @@ function parseFrontmatter(src) {
   }
   const version = (raw.match(/^\s+version: *(.+)$/m) || [])[1]?.trim() || null;
   return { fields, raw, body: m[2], description, version };
+}
+
+/**
+ * Rend le message d'erreur d'un en-tête que YAML refuse, ou `null` s'il est valide.
+ *
+ * Le découpage maison ci-dessus accepte tout, et le parseur de l'agent est lui aussi tolérant : une
+ * faute d'en-tête ne se manifeste donc JAMAIS en session — elle apparaît chez qui lit le fichier
+ * avec un vrai parseur, GitHub en tête, qui refuse alors de rendre la page. Le cas vécu est une
+ * description en scalaire plain contenant « : » (deux-points suivi d'une espace), que YAML lit comme
+ * l'ouverture d'un second mapping ; la parade est le bloc plié `description: >`, où il est légal.
+ *
+ * @param raw - le texte de l'en-tête, entre les deux `---`
+ * @returns le message du parseur, ou `null` si l'en-tête est du YAML valide
+ */
+function yamlError(raw) {
+  try {
+    YAML.parse(raw);
+    return null;
+  } catch (e) {
+    return String(e.message).split("\n")[0];
+  }
 }
 
 /**
@@ -397,6 +423,7 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
   const src = readFileSync(file, "utf8");
   const { fields, raw, body, description, version } = parseFrontmatter(src);
 
+  const yamlErr = yamlError(raw);
   const topLevelFields = [...raw.matchAll(/^([a-zA-Z-]+):/gm)].map((m) => m[1]);
   const unknown = topLevelFields.filter((f) => !ALLOWED_FIELDS.has(f));
   const bodyLines = body.split("\n").length;
@@ -443,6 +470,13 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
         fields.name === name,
       nature: "normatif",
       ref: "spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier",
+    },
+    {
+      key: "en-tête analysable par un vrai parseur YAML",
+      ok: yamlErr === null,
+      detail: yamlErr ?? "",
+      nature: "normatif",
+      ref: "spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot",
     },
     {
       key: `description de 1 à ${MAX_DESC} caractères`,

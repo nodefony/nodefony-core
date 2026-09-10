@@ -2,7 +2,18 @@
 name: nodefony-ticket
 metadata:
   version: 1.7.0
-description: Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée un ticket", "ouvre une issue", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "ce ticket est trop vague", "quels tickets parlent de ce que j'ai changé ?", "dater les tickets", "la roadmap du projet est vide", "recaler les estimations".
+description: >
+  Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et
+  compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une
+  preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau
+  dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait
+  dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes,
+  pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : "crée un ticket", "ouvre une
+  issue", "corrige les tickets", "ce titre est incompréhensible", "renomme cette issue", "ticket
+  parent", "découper cette issue", "estimer un ticket", "priorité d'un ticket", "ce ticket est-il
+  encore vrai ?", "ferme ce ticket", "quel ticket prendre maintenant ?", "ce ticket est trop vague",
+  "quels tickets parlent de ce que j'ai changé ?", "dater les tickets", "la roadmap du projet est
+  vide", "recaler les estimations".
 ---
 
 # nodefony-ticket — écrire un ticket qu'on comprend en dix secondes

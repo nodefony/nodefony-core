@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-10 17:36** (UTC).
+> Empreinte prise le **2026-09-10 17:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -27,6 +27,7 @@
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
+| **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -38,6 +39,14 @@ Ordre 9.91 · P1 — figé à la création · 9.5 j · jalon 10.0.0-alpha
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
+
+## Jalon outillage-agents — 3 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 1 | P1 — figé à la création | 0.5 | #333 | fix(skills): réparer l'en-tête YAML que le contrôle ne voit pas |
+| 2 | P2 — décision | 3 | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
+| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
 ## Jalon 10.0.0-beta — 28 ouverts
 
@@ -136,12 +145,6 @@ Ordre 9.91 · P1 — figé à la création · 9.5 j · jalon 10.0.0-alpha
 | --- | --- | ---: | --- | --- |
 | 59 | P1 — figé à la création | 0.5 | #47 | docs(release): faire suivre à l'accueil ce qui est réellement publié |
 | 60 | P3 — fin de cycle | 1.5 | #27 | chore(release): publier les paquets de la version 10 sur npm |
-
-## Backlog — aucune date promise · 1 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
 ## Jalon 10.2.0 — 27 ouverts
 
