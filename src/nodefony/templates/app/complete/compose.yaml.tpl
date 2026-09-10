@@ -41,7 +41,12 @@ services:
   # --- Redis (défaut — sessions, idempotence, backplane realtime) ---
   # Auth obligatoire même en dev (Zero Trust). AOF : survit au restart du conteneur.
   redis:
-    image: redis:7-alpine
+    # 🔴 `8`, pas `7` : Redis 7.4 est la SEULE fenêtre non libre de la gamme
+    # (RSALv2/SSPL seuls). La 8 est tri-licenciée — RSALv2, SSPLv1 ou AGPLv3 AU
+    # CHOIX du licencié —, donc libre, et la 7.2 et antérieures restent BSD-3.
+    # L'image officielle est conservée : un fork (valkey) coûterait la revue et
+    # les correctifs de sécurité pilotés par Docker, pour le même service.
+    image: redis:8-alpine
     container_name: <%= it.appName %>-redis
     restart: unless-stopped
     networks: [<%= it.appName %>]
