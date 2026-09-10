@@ -106,6 +106,28 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   plus haute ne fait donc pas conflit — elle fait une copie IMBRIQUÉE, que la règle déclarait
   conciliable en toute bonne foi. Le verrou tranche sans réseau ; la question juste est _le dépôt
   recevra-t-il plusieurs exemplaires ?_
+- **[1× — 09-10f] Un motif qui s'arrête aux LETTRES est aveugle à un nom qui porte un chiffre.**
+  `argv.selftest.mjs` existe pour confronter les drapeaux qu'un banc LIT à ceux qu'il DÉCLARE. Il
+  annonçait « verify-generated.mjs — 4 lus, 4 accordés » sur un fichier qui en lit **5** : son
+  motif s'arrêtait à `[a-z-]+`, et `--no-e2e` porte un `2`. Conséquence en aval : le banc REFUSAIT
+  `--no-e2e` (lu mais non déclaré) et rendait son usage en sortant 64, sans que rien ne le
+  signale. Même faute que le compteur du sas la veille — c'est la FORME du motif qui décide de ce
+  qu'on voit, et un compte affiché donne le change.
+- **[1× — 09-10f] Une assertion de contenu se fait mordre par le texte qui EXPLIQUE la règle.**
+  `assert.notInclude(dockerfile, "org.opencontainers.image.licenses")` a échoué sur le
+  **commentaire du gabarit** qui justifie précisément l'absence de cette étiquette. Le test avait
+  raison de mordre, sur la mauvaise cible : une assertion doit viser la DIRECTIVE (`^[^#\n]*…`),
+  pas la chaîne. Un contrôle qui ne distingue pas le code de son commentaire ne juge pas ce qu'il
+  croit — variante de [[feedback_prove_the_target_not_the_verdict]].
+- **[3× — 09-10f] Trois instruments faux en une séance, tous du même geste : lire un code de
+  sortie qui n'est pas celui qu'on croit.** (a) une commande de fond terminée par `echo "exit=$?"`
+  fait rapporter au harness le code de l'`echo`, pas celui du programme — conclu « banc vert »
+  sur un banc qui n'avait RIEN lancé ; (b) `${PIPESTATUS[0]}` est vide en zsh (c'est
+  `$pipestatus[1]`), donc `npm … | grep …; echo $?` rend le code du `grep` — un gate rouge lu
+  comme vert ; (c) une boucle de sonde `for i in $(seq 1 40)` **sans `sleep`** a fait quarante
+  requêtes en 0,2 s, et conclu à un échec de démarrage sur un conteneur qui bootait normalement.
+  Le remède est le même dans les trois cas : écrire le code de sortie DANS UN FICHIER, et ne
+  lire que lui. → [[feedback_shell_false_diagnostics]]
 
 ## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
 
