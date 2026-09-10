@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T20:55:00.666Z",
+  "generatedAt": "2026-09-10T22:04:54.976Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 54,
+      "closed": 55,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 17,
+      "open": 18,
       "title": "10.0.0-alpha"
     },
     {
@@ -53,10 +53,10 @@
       "title": "10.0.0"
     },
     {
-      "closed": 2,
+      "closed": 3,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 28,
+      "open": 27,
       "title": "10.1.0"
     }
   ],
@@ -2804,7 +2804,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 8.5,
+      "jours": 6.5,
       "ordre": 9.91,
       "labels": [
         "10.0.0-alpha"
@@ -2839,6 +2839,20 @@
       ]
     },
     {
+      "number": 338,
+      "title": "fix(testing): rendre le port réellement en écoute, pas celui qui était demandé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/338",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.93,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 319,
       "title": "fix(http): rendre proxy:generate opérant dans une app générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/319",
@@ -2853,11 +2867,25 @@
       ]
     },
     {
+      "number": 339,
+      "title": "test(release): éprouver la topologie avec frontal sur une image réellement construite",
+      "url": "https://github.com/nodefony/nodefony-core/issues/339",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.94,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 320,
       "title": "feat(scaffold): produire la topologie avec un frontal nginx",
       "url": "https://github.com/nodefony/nodefony-core/issues/320",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 2,
@@ -3988,8 +4016,8 @@
       "number": 173,
       "title": "feat(scaffold): servir l'application derrière un proxy inverse dans le compose",
       "url": "https://github.com/nodefony/nodefony-core/issues/173",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1,

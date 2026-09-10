@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-10 20:55** (UTC).
+> Empreinte prise le **2026-09-10 22:04** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,10 +20,10 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 76% | 54 | 17 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 75% | 55 | 18 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 27 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
@@ -33,9 +33,9 @@
 
 **#316 — feat(scaffold): rendre l'application générée déployable en production**
 
-Ordre 9.91 · P1 — figé à la création · 8.5 j · jalon 10.0.0-alpha
+Ordre 9.91 · P1 — figé à la création · 6.5 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 17 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 18 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -80,13 +80,14 @@ Ordre 9.91 · P1 — figé à la création · 8.5 j · jalon 10.0.0-alpha
 | 2 | P2 — décision | 3 | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 17 ouverts
+## Jalon 10.0.0-alpha — 18 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
-| 9.91 | P1 — figé à la création | 8.5 | #316 | feat(scaffold): rendre l'application générée déployable en production |
+| 9.91 | P1 — figé à la création | 6.5 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.92 | P1 — figé à la création | 0.5 | #317 | test(release): refuser une image qui embarque une clé privée |
-| 9.95 | P1 — figé à la création | 2 | #320 | feat(scaffold): produire la topologie avec un frontal nginx |
+| 9.93 | P1 — figé à la création | 0.5 | #338 | fix(testing): rendre le port réellement en écoute, pas celui qui était demandé |
+| 9.94 | P1 — figé à la création | 1 | #339 | test(release): éprouver la topologie avec frontal sur une image réellement construite |
 | 9.96 | P2 — décision | 1.5 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 9.97 | P1 — figé à la création | 2 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |
 | 9.98 | P2 — décision | 0.5 | #323 | feat(scaffold): livrer les licences des dépendances |
@@ -102,7 +103,7 @@ Ordre 9.91 · P1 — figé à la création · 8.5 j · jalon 10.0.0-alpha
 | 26 | P1 — figé à la création | 0.5 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
 | 55 | P3 — fin de cycle | 3 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
-## Jalon 10.1.0 — 28 ouverts
+## Jalon 10.1.0 — 27 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -122,7 +123,6 @@ Ordre 9.91 · P1 — figé à la création · 8.5 j · jalon 10.0.0-alpha
 | 121 | P3 — fin de cycle | 0.5 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 134 | P2 — décision | 0.5 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
 | 135 | P2 — décision | 0.5 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
-| 136 | P3 — fin de cycle | 1 | #173 | feat(scaffold): servir l'application derrière un proxy inverse dans le compose |
 | 139 | P3 — fin de cycle | 0.5 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
 | 140 | P2 — décision | 0.5 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
 | 141 | P3 — fin de cycle | 1 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |
