@@ -169,7 +169,7 @@ services:
 
 <% } %>  # --- RedisInsight (profile tools — UI de debug Redis, jamais en prod) ---
   redisinsight:
-    image: redis/redisinsight:latest
+    image: redis/redisinsight:3.8.0
     container_name: <%= it.appName %>-redisinsight
     restart: unless-stopped
     profiles: ["tools"]
@@ -204,8 +204,10 @@ services:
 
   # --- Grafana (profile loki — visualisation des logs, datasource auto-provisionnée) ---
   # Anonyme + rôle Admin pour un dev sans friction (JAMAIS en prod).
+  # Épinglé comme Loki : un décor de mesure qui se met à jour tout seul change de
+  # comportement entre deux runs sans qu'on l'ait demandé.
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.1
     container_name: <%= it.appName %>-grafana
     restart: unless-stopped
     profiles: ["loki"]

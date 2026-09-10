@@ -204,7 +204,7 @@ services:
 
   # --- RedisInsight (profile tools — UI de debug, jamais en prod) ---
   redisinsight:
-    image: redis/redisinsight:latest
+    image: redis/redisinsight:3.8.0
     container_name: nodefony-redisinsight
     restart: unless-stopped
     profiles: ["tools"]
@@ -270,7 +270,7 @@ services:
   # Datasource Loki auto-provisionnée (docker/grafana/provisioning) → ouvre sur Loki prêt,
   # 0 setup manuel. Anonyme + rôle Admin pour un dev sans friction (JAMAIS en prod).
   grafana:
-    image: grafana/grafana:latest
+    image: grafana/grafana:13.2.1
     container_name: nodefony-grafana
     restart: unless-stopped
     profiles: ["loki"]
