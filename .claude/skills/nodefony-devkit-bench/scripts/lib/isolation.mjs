@@ -255,3 +255,180 @@ export function assertIsolated(repo, app) {
 
   return { ok, facts };
 }
+
+/**
+ * Les dépendances de PAIR des paquets du framework, et l'exemplaire que chacun
+ * voit — la sonde du décor LIÉ.
+ *
+ * npm ne hisse pas les dépendances d'un paquet atteint par un lien `file:`.
+ * L'application installe donc `zod` depuis SA plage, pendant que les paquets du
+ * framework, symlinkés vers le dépôt, résolvent celui du dépôt. Deux exemplaires,
+ * deux jeux de déclarations, et des types qui ne s'unifient plus :
+ * `parseModuleConfig<T>(schema, …)` cesse d'inférer `T` et le typecheck de
+ * l'application tombe sur un `TS2322` qui accuse `undefined` sans que rien ne
+ * soit `undefined`.
+ *
+ * **Ce n'est PAS un défaut du produit**, et c'est ce qui rend ce rouge coûteux :
+ * il a l'air d'un défaut de gabarit, il envoie corriger des versions, et il n'y
+ * a rien à corriger. Chez un utilisateur, la dépendance de pair fait hisser un
+ * seul exemplaire. D'où cette sonde, dont le seul travail est d'attribuer la
+ * faute au bon maillon — le décor — avant que la compilation ne l'impute au
+ * code généré.
+ *
+ * **Ce qu'elle juge est la DIVERGENCE de version, pas la duplication.** Deux
+ * copies physiques de la même version compilent — TypeScript est structurel, et
+ * deux jeux de déclarations identiques produisent des types identiques ; exiger
+ * un exemplaire unique rendrait ce contrôle rouge en permanence, et un rouge
+ * permanent finit par cacher les vrais. Ce qui rend la coïncidence de version
+ * FIABLE, ce n'est pas cette sonde : c'est l'`overrides` dérivé que le banc pose
+ * avant d'installer (voir `peerOverrides`). La sonde ne fait que constater que
+ * l'épinglage a tenu — un `overrides` peut être écarté par npm sans un mot.
+ *
+ * @param repo - la racine du dépôt Nodefony
+ * @param app - la racine de l'application témoin
+ * @returns `{ ok, facts, doublons }` — `doublons` nomme chaque pair divergente
+ */
+export function assertPeerUnique(repo, app) {
+  const facts = [];
+  const doublons = [];
+
+  const lire = (manifeste) => {
+    try {
+      return JSON.parse(readFileSync(manifeste, "utf8"));
+    } catch {
+      return null;
+    }
+  };
+
+  // Les paquets du framework tels que l'application les voit — jamais une liste
+  // écrite à la main, dont l'oubli serait silencieux.
+  const scopeDir = path.join(app, "node_modules", "@nodefony");
+  const paquets = [
+    path.join(app, "node_modules", "nodefony"),
+    ...(existsSync(scopeDir)
+      ? readdirSync(scopeDir).map((n) => path.join(scopeDir, n))
+      : []),
+  ].filter((p) => existsSync(path.join(p, "package.json")));
+
+  const pairs = new Set();
+  for (const p of paquets) {
+    const pkg = lire(path.join(p, "package.json"));
+    for (const nom of Object.keys(pkg?.peerDependencies ?? {})) pairs.add(nom);
+  }
+
+  for (const nom of [...pairs].sort()) {
+    const cheminApp = path.join(app, "node_modules", nom, "package.json");
+    const cheminRepo = path.join(repo, "node_modules", nom, "package.json");
+    if (!existsSync(cheminApp) || !existsSync(cheminRepo)) continue;
+    // Un exemplaire unique atteint par deux chemins est le cas idéal, et il ne
+    // se voit qu'au `realpath` : un lien rend les chemins différents à
+    // l'écriture et identiques à l'usage.
+    if (realpathSync(cheminApp) === realpathSync(cheminRepo)) continue;
+    const versionApp = lire(cheminApp)?.version ?? "?";
+    const versionRepo = lire(cheminRepo)?.version ?? "?";
+    // Deux copies de la MÊME version s'unifient : c'est ce que l'épinglage vise,
+    // et ce n'est pas un défaut.
+    if (versionApp === versionRepo && versionApp !== "?") continue;
+    doublons.push({ nom, app: versionApp, repo: versionRepo });
+  }
+
+  const ok = doublons.length === 0;
+  facts.push(
+    ok
+      ? `✅ dépendances de pair accordées avec le dépôt (${pairs.size} examinée(s))`
+      : `❌ DÉCOR : ${doublons.length} dépendance(s) de pair DIVERGENTE(s) — ` +
+          doublons
+            .map((d) => `${d.nom} (app ${d.app} ≠ dépôt ${d.repo})`)
+            .join(", "),
+  );
+  return { ok, facts, doublons };
+}
+
+/**
+ * Les versions EXACTES, dans le dépôt, des dépendances de pair du framework.
+ *
+ * Sert à épingler l'application témoin du décor lié sur l'exemplaire du dépôt.
+ * Les versions sont LUES, jamais énumérées : une liste écrite à la main se
+ * périme au premier relèvement, en silence, et c'est précisément le silence
+ * qu'on cherche à supprimer.
+ *
+ * @param repo - la racine du dépôt Nodefony
+ * @param manifestes - les `package.json` des paquets publiables du framework
+ * @returns une table `{ <pair>: "<version exacte> }` bonne pour `overrides`
+ */
+export function peerOverrides(repo, manifestes) {
+  const lus = [];
+  for (const manifeste of manifestes) {
+    try {
+      lus.push(JSON.parse(readFileSync(manifeste, "utf8")));
+    } catch {
+      // Un manifeste illisible ne s'épingle pas — et ne s'avale pas non plus :
+      // la sonde d'accord le nommera si la divergence compte.
+    }
+  }
+
+  // 🔴 Les paquets DE CE DÉPÔT sont exclus, et c'est structurel : en décor lié
+  // ils sont atteints par un chemin `file:`, et npm REFUSE un `overrides` qui
+  // contredit une dépendance directe — `EOVERRIDE: Override for
+  // nodefony@file:… conflicts with direct dependency`, l'installation entière
+  // échoue. Ils se déclarent en pair entre eux ; les épingler sur une version
+  // du registre annulerait précisément ce que `--link` sert à éprouver.
+  // La liste est DÉRIVÉE des manifestes reçus, jamais d'un préfixe de nom : un
+  // paquet du dépôt qui ne s'appellerait pas `@nodefony/*` resterait couvert.
+  const internes = new Set(lus.map((p) => p.name).filter(Boolean));
+
+  const overrides = {};
+  for (const pkg of lus) {
+    for (const nom of Object.keys(pkg.peerDependencies ?? {})) {
+      if (internes.has(nom)) continue;
+      const installe = path.join(repo, "node_modules", nom, "package.json");
+      if (!existsSync(installe)) continue;
+      try {
+        overrides[nom] = JSON.parse(readFileSync(installe, "utf8")).version;
+      } catch {
+        // idem : illisible ⇒ non épinglé, la sonde tranchera.
+      }
+    }
+  }
+  return overrides;
+}
+
+/**
+ * Écrit l'épinglage dans le manifeste de l'application témoin.
+ *
+ * Deux emplacements, et le choix n'est pas cosmétique : **npm REFUSE un
+ * `overrides` qui contredit une dépendance DIRECTE** (`EOVERRIDE: Override for
+ * @node-rs/argon2@^2.2.1 conflicts with direct dependency`), et l'installation
+ * entière échoue. Une pair que l'application déclare elle-même se contraint donc
+ * en réécrivant SA plage ; les autres passent par `overrides`, qui est le seul
+ * moyen d'atteindre une dépendance transitive.
+ *
+ * @param app - la racine de l'application témoin
+ * @param versions - `{ <pair>: "<version exacte>" }`, issu de `peerOverrides`
+ * @returns `{ directes, indirectes }` — les noms traités par chaque voie
+ */
+export function epinglerPairs(app, versions) {
+  const manifeste = path.join(app, "package.json");
+  const pkg = JSON.parse(readFileSync(manifeste, "utf8"));
+  const directes = [];
+  const indirectes = [];
+
+  for (const [nom, version] of Object.entries(versions)) {
+    const champ = [
+      "dependencies",
+      "devDependencies",
+      "optionalDependencies",
+    ].find((c) => pkg[c]?.[nom] !== undefined);
+    if (champ) {
+      pkg[champ][nom] = version;
+      directes.push(nom);
+    } else {
+      pkg.overrides = pkg.overrides ?? {};
+      pkg.overrides[nom] = version;
+      indirectes.push(nom);
+    }
+  }
+
+  writeFileSync(manifeste, `${JSON.stringify(pkg, null, 2)}\n`);
+  return { directes, indirectes };
+}

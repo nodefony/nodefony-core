@@ -129,15 +129,15 @@ const lancer = (fichier, args) =>
  * apprend à passer outre.
  */
 const LECTURES = [
-  /\bargs\.includes\("(--[a-z-]+)"\)/g,
-  /\bargv\.includes\("(--[a-z-]+)"\)/g,
-  /\bprocess\.argv\.includes\("(--[a-z-]+)"\)/g,
-  /\bargs\.indexOf\("(--[a-z-]+)"\)/g,
-  /\bargv\.indexOf\("(--[a-z-]+)"\)/g,
-  /\bprocess\.argv\.indexOf\("(--[a-z-]+)"\)/g,
-  /\barg\("(--[a-z-]+)"\)/g,
-  /\boption\("(--[a-z-]+)"/g,
-  /\bvaleurDe\("(--[a-z-]+)"\)/g,
+  /\bargs\.includes\("(--[a-z0-9-]+)"\)/g,
+  /\bargv\.includes\("(--[a-z0-9-]+)"\)/g,
+  /\bprocess\.argv\.includes\("(--[a-z0-9-]+)"\)/g,
+  /\bargs\.indexOf\("(--[a-z0-9-]+)"\)/g,
+  /\bargv\.indexOf\("(--[a-z0-9-]+)"\)/g,
+  /\bprocess\.argv\.indexOf\("(--[a-z0-9-]+)"\)/g,
+  /\barg\("(--[a-z0-9-]+)"\)/g,
+  /\boption\("(--[a-z0-9-]+)"/g,
+  /\bvaleurDe\("(--[a-z0-9-]+)"\)/g,
 ];
 
 for (const banc of [

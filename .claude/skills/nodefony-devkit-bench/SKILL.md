@@ -714,6 +714,17 @@ avant de suspecter le code généré :
 - **Le typecheck échoue sur `drizzle-orm` introuvable.** Artefact du mode
   `--link` : npm symlinke les paquets du framework sans hisser leurs
   dépendances. Sans rapport avec le code généré.
+- **Le typecheck tombe sur un `TS2322` qui accuse `undefined` sans que rien ne
+  soit `undefined`** — typiquement `parseModuleConfig<T>` qui cesse d'inférer
+  `T`. Même famille, en pire : la dépendance existe **en deux exemplaires**, un
+  par côté du lien, et TypeScript refuse de les unifier. `--link` épingle
+  désormais les pairs sur l'exemplaire du dépôt et le CONSTATE avant de
+  compiler ; si la sonde parle de « DÉCOR », l'échec ne dit rien du code généré.
+  Deux façons de l'écrire, et npm n'en accepte qu'une par cas : une pair que
+  l'application déclare se contraint sur SA plage (un `overrides` y serait
+  refusé, `EOVERRIDE`), les autres passent par `overrides`. Les paquets du
+  dépôt, eux, ne s'épinglent jamais — ils sont atteints en `file:`, et c'est
+  précisément ce que `--link` sert à éprouver.
 - **`drizzle-kit` réclame « install either 'better-sqlite3' or '@libsql/client' »**
   et l'étape des migrations tombe en `NF_MIGRATE_UNAVAILABLE`. **Même cause que
   ci-dessus**, et elle mérite sa ligne parce que le message accuse la BASE : le

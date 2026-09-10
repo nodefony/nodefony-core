@@ -39,6 +39,7 @@ import {
   rmSync,
   existsSync,
   readFileSync,
+  readdirSync,
   writeFileSync,
   copyFileSync,
   statSync,
@@ -49,8 +50,11 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
   assertIsolated,
+  assertPeerUnique,
+  epinglerPairs,
   installFromTarballs,
   packTarballs,
+  peerOverrides,
 } from "./lib/isolation.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
@@ -106,7 +110,7 @@ function findRepoRoot(from) {
 // implémentation.
 garderDrapeaux({
   args: process.argv.slice(2),
-  connus: ["--database", "--keep", "--link", "--repack"],
+  connus: ["--database", "--keep", "--link", "--no-e2e", "--repack"],
   aValeur: ["--database"],
   usage: [
     "Banc de vérité du code généré — compile-t-il, teste-t-il, répond-il ?",
@@ -116,6 +120,7 @@ garderDrapeaux({
     "",
     "  --link    décor lié au dépôt : boucle courte, verdict AMPUTÉ",
     "  --keep    conserve le décor à la fin (pour inspecter)",
+    "  --no-e2e  saute le boot réel et les requêtes HTTP (plus rapide)",
     "  --repack  refabrique les tarballs même s'ils paraissent à jour",
     "",
     "Sorties : 0 toutes les étapes passent · 1 une étape a échoué · 64 usage",
@@ -499,7 +504,44 @@ step(
       // dépendances dans l'app : `drizzle-orm` peut manquer, et le typecheck
       // d'une entité échoue sur un import introuvable. Ce n'est pas un défaut du
       // code généré — on le neutralise pour mesurer ce qu'on veut mesurer.
+      //
+      // Les dépendances de PAIR ne se rattrapent pas ainsi : elles s'installent
+      // des DEUX côtés du lien, en deux exemplaires que TypeScript refuse
+      // d'unifier. On les épingle donc sur l'exemplaire du dépôt, par un
+      // `overrides` DÉRIVÉ de ce qui y est installé — jamais d'une liste écrite
+      // à la main, qui se périmerait au premier relèvement sans rien dire.
+      const manifestesFramework = [
+        path.join(REPO, "src/nodefony/package.json"),
+        ...(existsSync(path.join(REPO, "src/packages/@nodefony"))
+          ? readdirSync(path.join(REPO, "src/packages/@nodefony")).map((n) =>
+              path.join(REPO, "src/packages/@nodefony", n, "package.json"),
+            )
+          : []),
+      ].filter((p) => existsSync(p));
+      const versions = peerOverrides(REPO, manifestesFramework);
+      if (Object.keys(versions).length > 0) {
+        const { directes, indirectes } = epinglerPairs(APP, versions);
+        process.stdout.write(
+          `   décor lié : ${Object.keys(versions).length} pair(s) épinglée(s) sur le dépôt ` +
+            `(${directes.length} déclarée(s) par l'app, ${indirectes.length} en overrides)\n`,
+        );
+      }
       run("npm", ["install", "drizzle-orm@0.45.2", "--no-audit", "--no-fund"]);
+
+      // 🔴 CONSTATER, pas supposer. L'épinglage ci-dessus peut échouer sans un
+      // mot — une pair déclarée par un paquet non lié, un `overrides` qu'npm
+      // écarte. Sans cette sonde, l'échec se manifesterait douze étapes plus
+      // loin, à la compilation, sous les traits d'un défaut du code GÉNÉRÉ.
+      const pairs = assertPeerUnique(REPO, APP);
+      for (const f of pairs.facts) process.stdout.write(`   ${f}\n`);
+      if (!pairs.ok) {
+        throw new Error(
+          "décor LIÉ défaillant : une dépendance de pair existe en deux " +
+            "exemplaires. Ce n'est PAS un défaut du code généré — npm ne hisse " +
+            "pas les dépendances des paquets atteints par un lien `file:`. " +
+            "Rejouer en décor ISOLÉ (sans --link) pour obtenir un verdict.",
+        );
+      }
     } else {
       installFromTarballs(
         APP,
