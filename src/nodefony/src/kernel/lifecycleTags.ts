@@ -16,7 +16,7 @@
 interface TaggedListener {
   __nodefony_owner?: string;
   __nodefony_critical?: boolean;
-  __nodefony_unbounded?: boolean;
+  __nodefony_command_action?: boolean;
   /** Présent sur le wrapper interne créé par `EventEmitter.once`. */
   listener?: TaggedListener;
 }
@@ -58,43 +58,55 @@ export function tagListener<F extends object>(
 }
 
 /**
- * Marque un listener comme n'étant PAS soumis à la borne de temps du boot.
+ * Marque un listener comme étant l'**action d'une commande** — le travail
+ * demandé — et non un hook de boot. Deux conséquences, qui découlent du même
+ * fait et ne se séparent pas : il échappe à la borne de temps du démarrage, et
+ * son échec est **toujours fatal**.
  *
- * 🔴 Vécu, et c'est le pire mode de panne qui soit : l'action d'une commande est
- * câblée comme un écouteur de cycle de vie (`Command.setEvents`), donc bornée
- * comme un hook de module. Passé vingt secondes, la garde abandonnait
- * l'écouteur en fail-soft, le boot enchaînait sur `finishOrPark(0)` et le
- * processus sortait en **0 au milieu du travail**, sans un mot — `doctor
- * --deep` rendait ainsi un succès muet en plein `npm run test`.
+ * 🔴 Vécu deux fois, et c'est le pire mode de panne qui soit — dans les deux cas
+ * la commande sortait en **0 sans avoir rien fait**, sans un mot :
  *
- * La distinction est de NATURE, pas de durée : la borne existe pour qu'un module
- * qui se fige ne gèle pas le DÉMARRAGE. Une commande, elle, EST le programme —
- * une migration, une construction, une suite de tests ou une question posée à
- * l'utilisateur dépassent vingt secondes sans rien avoir d'anormal.
+ * - **La borne de temps.** Passé vingt secondes, la garde abandonnait
+ *   l'écouteur en fail-soft, le boot enchaînait sur `finishOrPark(0)` et le
+ *   processus sortait en 0 au milieu du travail — `doctor --deep` rendait ainsi
+ *   un succès muet en plein `npm run test`.
+ * - **La criticité.** Une exception levée par l'action était traitée comme
+ *   l'échec d'un hook de module : fail-soft hors production, WARNING dans le
+ *   journal, sortie 0. `proxy:generate nginx` ne rendait donc RIEN dans une
+ *   application générée — ni configuration, ni erreur, ni code de sortie — sur
+ *   un simple `domains.filter is not a function`. Une commande publiée,
+ *   documentée, et inopérante chez l'utilisateur sans que rien ne le dise.
+ *
+ * La distinction est de NATURE : la résilience de boot existe pour qu'un module
+ * optionnel cassé ou figé ne gèle pas le DÉMARRAGE de l'application. Une
+ * commande, elle, EST le programme — une migration, une construction, une suite
+ * de tests ou une question posée à l'utilisateur dépassent couramment vingt
+ * secondes sans rien avoir d'anormal, et si elle échoue, il n'y a rien d'autre à
+ * poursuivre : celui qui l'a lancée doit l'apprendre par un code de sortie.
  *
  * @typeParam F - type de la fonction (préservé).
  * @param fn - le listener à marquer.
  * @returns la même fonction `fn`, marquée.
  */
-export function tagUnboundedListener<F extends object>(fn: F): F {
-  (fn as TaggedListener).__nodefony_unbounded = true;
+export function tagCommandAction<F extends object>(fn: F): F {
+  (fn as TaggedListener).__nodefony_command_action = true;
   return fn;
 }
 
 /**
- * Dit si un listener a été marqué par {@link tagUnboundedListener}.
+ * Dit si un listener a été marqué par {@link tagCommandAction}.
  *
  * **Déballe le wrapper `once`** pour la même raison que {@link readListenerTags} :
  * les actions de commande sont câblées via `kernel.once(...)`, et lire le
  * marquage sur le wrapper interne de Node rendrait toujours `false`.
  *
  * @param fn - listener (wrapper `once` ou fonction directe).
- * @returns `true` si ce listener échappe à la borne de temps du boot.
+ * @returns `true` si ce listener porte le travail d'une commande.
  */
-export function isUnboundedListener(fn: unknown): boolean {
+export function isCommandAction(fn: unknown): boolean {
   if (fn == null) return false;
   const wrapper = fn as TaggedListener;
-  return (wrapper.listener ?? wrapper).__nodefony_unbounded === true;
+  return (wrapper.listener ?? wrapper).__nodefony_command_action === true;
 }
 
 /**

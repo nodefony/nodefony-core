@@ -78,7 +78,7 @@ import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
-import { isUnboundedListener, readListenerTags } from "./lifecycleTags";
+import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
 import type {
   IBootReport,
@@ -3438,11 +3438,36 @@ class Kernel extends Service implements IKernel {
         // borner faisait sortir le processus en **0 au milieu du travail** dès
         // qu'une commande dépassait vingt secondes : `doctor --deep` s'arrêtait
         // en plein `npm run test`, sans rapport et sans erreur.
-        timeoutMs: (listener) =>
-          isUnboundedListener(listener) ? 0 : bootTimeout,
+        timeoutMs: (listener) => (isCommandAction(listener) ? 0 : bootTimeout),
         warnMs,
         onListenerError: (error: unknown, info: IGuardedListenerInfo) => {
           const { owner, critical, name } = readListenerTags(info.listener);
+          // 🔴 L'échec de l'action d'une COMMANDE est toujours fatal — le
+          // fail-soft ne la concerne pas, pour la même raison que la borne de
+          // temps : elle n'est pas un module optionnel, elle est le programme.
+          // Traitée comme un hook, une exception la faisait sortir en 0 sans
+          // rien produire (`proxy:generate` muet chez l'utilisateur, sur un
+          // simple `domains.filter is not a function`). Cf {@link tagCommandAction}.
+          if (isCommandAction(info.listener)) {
+            // Le nom vient de la commande COURANTE : le tag du listener ne
+            // rendrait que « bound action », le nom que `Function.prototype.bind`
+            // fabrique — il ne désigne personne pour qui lit le message.
+            this.log(
+              `commande "${this.command?.name ?? name ?? owner ?? "(anonyme)"}"${
+                info.timedOut ? " [timeout]" : ""
+              } — ${error instanceof Error ? error.message : String(error)}`,
+              "ERROR",
+            );
+            if (this.debug && error instanceof Error && error.stack) {
+              this.log(error.stack, "DEBUG");
+            }
+            if (error instanceof Error) {
+              (error as { presented?: boolean }).presented = true;
+            }
+            fatalError = error;
+            hasFatal = true;
+            return true;
+          }
           if (
             this.isBootErrorFatal(
               error,

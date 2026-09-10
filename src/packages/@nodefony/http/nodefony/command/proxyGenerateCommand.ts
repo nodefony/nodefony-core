@@ -6,6 +6,10 @@ import {
   defaultIntrospection,
   type ProxyIntrospection,
 } from "../src/proxy/generateProxyConfig";
+import {
+  resolveTrustedHostNames,
+  type ITrustedHostsConfig,
+} from "../src/context/domainMatcher";
 
 const options: OptionsCommandInterface = {
   helpGroup: "FRONT ET RÉSEAU",
@@ -60,11 +64,10 @@ class ProxyGenerate extends Command {
     },
   ): Promise<this> {
     if (target !== "nginx" && target !== "haproxy") {
-      this.log(
-        `Cible inconnue '${target}' — attendu: nginx | haproxy.`,
-        "ERROR",
-      );
-      return this;
+      // LEVER, pas journaliser : une cible inconnue est un échec d'usage, et une
+      // commande qui se plaint en rendant 0 laisse un script d'intégration
+      // continuer sur une configuration qui n'existe pas.
+      throw new Error(`Cible inconnue '${target}' — attendu: nginx | haproxy.`);
     }
     const intro = this.buildIntrospection(opts);
     const conf =
@@ -74,7 +77,13 @@ class ProxyGenerate extends Command {
 
     if (opts.out) {
       await fs.writeFile(opts.out, conf, "utf8");
-      this.log(`Configuration ${target} écrite → ${opts.out}`, "INFO");
+      // Sur la sortie standard, pas dans le journal : une commande de module
+      // boote en mode silencieux (`CliKernel.dispatchModuleCommand` pose
+      // `quietBoot`), qui coupe tout ce qui est au-dessus d'ERROR. La
+      // confirmation d'écriture partait donc dans le vide — le fichier
+      // apparaissait sans qu'un mot ne le dise. La sortie standard est libre
+      // ici, puisque la configuration est allée dans le fichier.
+      process.stdout.write(`Configuration ${target} écrite → ${opts.out}\n`);
     } else {
       process.stdout.write(conf);
     }
@@ -92,8 +101,12 @@ class ProxyGenerate extends Command {
     // les siens en silence : la taille de corps acceptée (nginx coupe à 1 Mo par
     // défaut) et le battement du heartbeat WebSocket (d'où se dérive le délai
     // d'inactivité, faute de quoi le proxy tranche des sockets vivantes).
+    // 🔴 `trustedHosts` n'est PAS une liste : son type est
+    // `boolean | string | string[]`, et son DÉFAUT est `false` — la valeur que
+    // porte toute application générée. Le lire comme un tableau faisait lever
+    // `domains.filter is not a function` au premier appel chez un utilisateur.
     const httpOpts = (module?.options ?? {}) as {
-      trustedHosts?: string[];
+      trustedHosts?: ITrustedHostsConfig;
       maxBodySize?: number;
       websocket?: { keepaliveInterval?: number };
     };
@@ -119,7 +132,13 @@ class ProxyGenerate extends Command {
 
     return {
       ...defaultIntrospection,
-      domains: httpOpts.trustedHosts ?? [],
+      // La barrière accepte TOUJOURS le domaine canonique, en plus des hôtes
+      // déclarés : le `server_name` généré doit donc dire la même chose qu'elle,
+      // sous peine de décrire un déploiement que le serveur refuserait.
+      domains: resolveTrustedHostNames(
+        this.kernel?.domain ?? "",
+        httpOpts.trustedHosts,
+      ),
       backendHost: opts.backend ?? "127.0.0.1",
       httpPort: Number(servers?.http?.port) || defaultIntrospection.httpPort,
       httpsPort: Number(servers?.https?.port) || defaultIntrospection.httpsPort,

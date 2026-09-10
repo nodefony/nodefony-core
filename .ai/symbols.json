@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3980,
+    "symbols": 3981,
     "classes": 388,
     "interfaces": 1078,
     "types": 447,
     "enums": 4,
-    "functions": 1670,
+    "functions": 1671,
     "constants": 393
   },
   "symbols": {
@@ -3722,21 +3722,21 @@
       "module": "@nodefony/core",
       "description": "Pose `owner` + `critical` sur une fonction listener, **en place**, et la renvoie."
     },
-    "tagUnboundedListener": {
-      "name": "tagUnboundedListener",
+    "tagCommandAction": {
+      "name": "tagCommandAction",
       "kind": "function",
       "file": "src/nodefony/src/kernel/lifecycleTags.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Marque un listener comme n'étant PAS soumis à la borne de temps du boot. 🔴 Vécu, et c'est le pire mode de panne qui soit : l'action d'une commande est câblée comme un écouteur de cycle de vie (`Co…"
+      "description": "Marque un listener comme étant l'**action d'une commande** — le travail demandé — et non un hook de boot. Deux conséquences, qui découlent du même fait et ne se séparent pas : il échappe à la borne…"
     },
-    "isUnboundedListener": {
-      "name": "isUnboundedListener",
+    "isCommandAction": {
+      "name": "isCommandAction",
       "kind": "function",
       "file": "src/nodefony/src/kernel/lifecycleTags.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Dit si un listener a été marqué par {@link tagUnboundedListener}. **Déballe le wrapper `once`** pour la même raison que {@link readListenerTags} : les actions de commande sont câblées via `kernel.o…"
+      "description": "Dit si un listener a été marqué par {@link tagCommandAction}. **Déballe le wrapper `once`** pour la même raison que {@link readListenerTags} : les actions de commande sont câblées via `kernel.once(…"
     },
     "readListenerTags": {
       "name": "readListenerTags",
@@ -23365,6 +23365,14 @@
       "module": "@nodefony/http",
       "description": "Construit la liste `RegExp` de la barrière `trustedHosts` (kernel, avant routing). Toujours : le domaine canonique (`kernel.domain`). En development : + loopback (`localhost`/`127.0.0.1`/`[::1]`) p…"
     },
+    "resolveTrustedHostNames": {
+      "name": "resolveTrustedHostNames",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/domainMatcher.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Rend les NOMS d'hôtes que la barrière `trustedHosts` accepte — la même politique que {@link compileTrustedHosts}, mais lisible par un humain ou par un générateur de configuration (`server_name` ngi…"
+    },
     "isDomainAllowed": {
       "name": "isDomainAllowed",
       "kind": "function",
@@ -30619,7 +30627,7 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
-      "tagUnboundedListener": [
+      "tagCommandAction": [
         "src/nodefony/src/command/Command.ts"
       ],
       "ResolvedAppConfig": [
@@ -31006,7 +31014,7 @@
       "TimeoutError": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
-      "isUnboundedListener": [
+      "isCommandAction": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readListenerTags": [
@@ -34733,6 +34741,13 @@
       "ProxyIntrospection": [
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
+      "resolveTrustedHostNames": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
+      ],
+      "ITrustedHostsConfig": [
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
       "httpConfigSchema": [
         "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
       ],
@@ -34840,9 +34855,6 @@
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "compileTrustedHosts": [
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
-      ],
-      "ITrustedHostsConfig": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "Statics": [

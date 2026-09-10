@@ -17,7 +17,7 @@ import Builder from "./Builder";
 import { extend } from "../Tools";
 import type { KernelEventKey, RunLifetime } from "../types/ICommand";
 import type { IRunProfile } from "../kernel/Kernel";
-import { tagUnboundedListener } from "../kernel/lifecycleTags";
+import { tagCommandAction } from "../kernel/lifecycleTags";
 
 interface OptionsCommandInterface extends DefaultOptionsService {
   showBanner?: boolean;
@@ -243,17 +243,15 @@ class Command extends Service {
           this.onKernelTerminate.bind(this, ...args),
         );
       }
-      // 🔴 MARQUÉE non bornée : l'action est le TRAVAIL demandé, pas un hook de
-      // boot. `Kernel.fireLifecycle` borne chaque écouteur par le délai de
-      // démarrage (20 s en développement) pour qu'un module figé ne gèle pas le
-      // boot — appliqué ici, ce garde abandonnait la commande en fail-soft, le
-      // kernel enchaînait sur `finishOrPark(0)` et le processus sortait en **0
-      // au milieu du travail**, sans un mot. Une construction, une migration,
-      // une suite de tests ou une question posée à l'utilisateur dépassent
-      // couramment cette borne sans rien avoir d'anormal.
+      // 🔴 MARQUÉE comme action de commande : c'est le TRAVAIL demandé, pas un
+      // hook de boot — donc ni bornée par le délai de démarrage, ni soumise au
+      // fail-soft de la résilience de boot. Sans ce marquage, `fireLifecycle`
+      // traitait la commande comme un module optionnel cassé : elle sortait en
+      // **0 sans avoir rien fait**, timeout comme exception. Le raisonnement
+      // complet vit sur {@link tagCommandAction}.
       this.kernel.once(
         this.kernelEvent as string,
-        tagUnboundedListener(this.action.bind(this, ...args)),
+        tagCommandAction(this.action.bind(this, ...args)),
       );
     }
   }

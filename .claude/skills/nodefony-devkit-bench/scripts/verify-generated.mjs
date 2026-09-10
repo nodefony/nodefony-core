@@ -1559,6 +1559,73 @@ step(
 );
 
 step(
+  "l'app sait ENGENDRER la configuration de son reverse-proxy",
+  "`proxy:generate` est publiée et documentée — elle ne rendait RIEN dans une application générée.",
+  () => {
+    // 🔴 Le défaut que cette étape ferme, et pourquoi il a survécu si longtemps :
+    // la commande marchait dans le DÉPÔT, dont la configuration pose
+    // `trustedHosts` en liste. Toute application générée garde le défaut du
+    // schéma — `false` — et la commande, qui lisait cette clé comme un tableau,
+    // levait `domains.filter is not a function`. L'exception partait dans le
+    // fail-soft du démarrage : sortie vide, code 0, pas un mot. Aucune assertion
+    // de chaîne ne pouvait le voir : il fallait EXÉCUTER la commande dans une
+    // application générée, ce que rien ne faisait.
+    const conf = run(process.execPath, [BIN, "proxy:generate", "nginx"]);
+    if (conf.trim() === "") {
+      throw new Error(
+        "sortie VIDE — la commande n'a rien produit (exception avalée ?)",
+      );
+    }
+    // Ce que la configuration doit porter pour décrire CETTE application, et
+    // pas un gabarit : le tunnel WebSocket, la borne de corps du serveur, et le
+    // repli nommé vers le backend qui sert les statiques multi-modules.
+    for (const attendu of [
+      "map $http_upgrade",
+      "client_max_body_size",
+      "upstream nodefony",
+      "location @nodefony",
+      "server_name",
+    ]) {
+      if (!conf.includes(attendu)) {
+        throw new Error(`configuration incomplète — « ${attendu} » absent`);
+      }
+    }
+
+    // `--out` écrit le fichier ET le DIT : la confirmation partait dans un
+    // journal que le boot silencieux d'une commande de module coupe.
+    const cible = path.join(ROOT, "nginx-genere.conf");
+    const dit = run(process.execPath, [
+      BIN,
+      "proxy:generate",
+      "nginx",
+      "--out",
+      cible,
+    ]);
+    if (!existsSync(cible)) {
+      throw new Error("`--out` n'a créé aucun fichier");
+    }
+    if (!dit.includes(cible)) {
+      throw new Error(
+        `\`--out\` n'annonce pas le fichier écrit — sortie : « ${dit.trim()} »`,
+      );
+    }
+
+    // Et l'échec se VOIT : une commande qui se plaint en rendant 0 laisse un
+    // script d'intégration continuer sur une configuration qui n'existe pas.
+    const rate = spawnSync(
+      process.execPath,
+      [BIN, "proxy:generate", "cible-qui-nexiste-pas"],
+      { cwd: APP, encoding: "utf8", timeout: 600_000, env: envDecor(PORTS) },
+    );
+    if (rate.status === 0) {
+      throw new Error(
+        "une cible inconnue rend un SUCCÈS — l'échec d'une commande doit sortir en code non nul",
+      );
+    }
+  },
+);
+
+step(
   "l'app sait émettre le JETON de sa propre porte MCP",
   "Sans audience déclarée, l'émetteur refuse (`invalid_target`) et `ai:mcp --auth` livre une porte que rien n'ouvre.",
   () => {

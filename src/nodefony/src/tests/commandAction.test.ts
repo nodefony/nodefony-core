@@ -7,9 +7,9 @@ import { expect } from "chai";
 import { EventEmitter } from "node:events";
 import Event from "../Event";
 import {
-  isUnboundedListener,
+  isCommandAction,
   tagListener,
-  tagUnboundedListener,
+  tagCommandAction,
 } from "../kernel/lifecycleTags";
 
 /**
@@ -31,8 +31,8 @@ import {
 describe("Une commande n'est pas un hook de boot — borne de temps", () => {
   it("marque puis relit — et le marquage traverse le wrapper `once`", () => {
     const action = (): void => {};
-    expect(tagUnboundedListener(action)).to.equal(action); // marqué EN PLACE
-    expect(isUnboundedListener(action)).to.equal(true);
+    expect(tagCommandAction(action)).to.equal(action); // marqué EN PLACE
+    expect(isCommandAction(action)).to.equal(true);
 
     // Câblage réel d'une commande : `kernel.once(...)`. `rawListeners` rend le
     // wrapper interne de Node, sur lequel le marquage est invisible sans
@@ -41,17 +41,17 @@ describe("Une commande n'est pas un hook de boot — borne de temps", () => {
     bus.once("onPostReady", action);
     const [wrapper] = bus.rawListeners("onPostReady");
     expect(wrapper).to.not.equal(action);
-    expect(isUnboundedListener(wrapper)).to.equal(true);
+    expect(isCommandAction(wrapper)).to.equal(true);
   });
 
   it("un listener NON marqué reste borné", () => {
     const hook = (): void => {};
-    expect(isUnboundedListener(hook)).to.equal(false);
-    expect(isUnboundedListener(tagListener(hook, "un-module", true))).to.equal(
+    expect(isCommandAction(hook)).to.equal(false);
+    expect(isCommandAction(tagListener(hook, "un-module", true))).to.equal(
       false,
     );
-    expect(isUnboundedListener(null)).to.equal(false);
-    expect(isUnboundedListener(undefined)).to.equal(false);
+    expect(isCommandAction(null)).to.equal(false);
+    expect(isCommandAction(undefined)).to.equal(false);
   });
 
   it("la garde décide PAR écouteur : le hook tombe, l'action va au bout", async () => {
@@ -62,7 +62,7 @@ describe("Une commande n'est pas un hook de boot — borne de temps", () => {
       acheve.push("hook");
       return "hook";
     };
-    const action = tagUnboundedListener(async (): Promise<string> => {
+    const action = tagCommandAction(async (): Promise<string> => {
       await new Promise((r) => setTimeout(r, 60));
       acheve.push("action");
       return "action";
@@ -73,7 +73,7 @@ describe("Une commande n'est pas un hook de boot — borne de temps", () => {
     const r = await ev.emitAsyncGuarded(
       "onPostReady",
       // La politique du Kernel, à l'identique : borné, SAUF ce qui est marqué.
-      { timeoutMs: (l) => (isUnboundedListener(l) ? 0 : 10) },
+      { timeoutMs: (l) => (isCommandAction(l) ? 0 : 10) },
     );
 
     // Le hook est bien abandonné par la borne — la garde de boot fait son
@@ -89,7 +89,7 @@ describe("Une commande n'est pas un hook de boot — borne de temps", () => {
     const ev = new Event();
     ev.once(
       "e",
-      tagUnboundedListener(async () => {
+      tagCommandAction(async () => {
         await new Promise((r) => setTimeout(r, 60));
         return "trop tard";
       }),
@@ -129,10 +129,10 @@ describe("Command.setEvents — l'action câblée porte le marquage", () => {
     expect(action, "l'action doit être câblée sur kernelEvent").to.not.equal(
       undefined,
     );
-    expect(isUnboundedListener(action)).to.equal(true);
+    expect(isCommandAction(action)).to.equal(true);
 
     const [hook] = bus.rawListeners("onReady");
     expect(hook).to.not.equal(undefined);
-    expect(isUnboundedListener(hook)).to.equal(false);
+    expect(isCommandAction(hook)).to.equal(false);
   });
 });

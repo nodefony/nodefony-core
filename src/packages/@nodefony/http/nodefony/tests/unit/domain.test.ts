@@ -5,6 +5,7 @@ import {
   compileDomainPatterns,
   compileTrustedHosts,
   isDomainAllowed,
+  resolveTrustedHostNames,
 } from "../../src/context/domainMatcher.js";
 
 // Matching de domaine (Host) — fonctions pures. Politique UNIQUE : string exact
@@ -113,5 +114,44 @@ describe("domainMatcher", () => {
       const regs = compileDomainPatterns(["a.com", "b.com"]);
       expect(isDomainAllowed(regs, "a.com")).to.equal(true);
     });
+  });
+});
+
+// La MÊME politique, rendue en noms d'hôtes plutôt qu'en `RegExp` — ce que
+// consomme un générateur de configuration reverse-proxy (`server_name`).
+describe("resolveTrustedHostNames — la barrière, lisible par un proxy", () => {
+  it("le domaine canonique en fait TOUJOURS partie, hôtes déclarés ou non", () => {
+    // Le cas de toute application générée : `trustedHosts` au défaut (`false`).
+    expect(resolveTrustedHostNames("app.example.com", false)).to.deep.equal([
+      "app.example.com",
+    ]);
+    expect(resolveTrustedHostNames("app.example.com", undefined)).to.deep.equal(
+      ["app.example.com"],
+    );
+  });
+
+  it("accepte les TROIS formes de la config — pas seulement le tableau", () => {
+    // 🔴 Le défaut qui rendait `proxy:generate` muet chez l'utilisateur : la
+    // commande supposait `string[]`, et `domains.filter` levait sur `false`.
+    expect(resolveTrustedHostNames("app.fr", "marseille.fr")).to.deep.equal([
+      "app.fr",
+      "marseille.fr",
+    ]);
+    expect(
+      resolveTrustedHostNames("app.fr", ["marseille.fr", "*.cdn.app.fr"]),
+    ).to.deep.equal(["app.fr", "marseille.fr", "*.cdn.app.fr"]);
+  });
+
+  it("bypass (`true`) → AUCUN nom : le proxy filtre déjà le Host", () => {
+    expect(resolveTrustedHostNames("app.fr", true)).to.deep.equal([]);
+  });
+
+  it("écarte les doublons et les motifs non exprimables en nom d'hôte", () => {
+    expect(resolveTrustedHostNames("app.fr", ["app.fr", ""])).to.deep.equal([
+      "app.fr",
+    ]);
+    expect(
+      resolveTrustedHostNames("app.fr", [/^.*\.app\.fr$/u, "b.fr"]),
+    ).to.deep.equal(["app.fr", "b.fr"]);
   });
 });

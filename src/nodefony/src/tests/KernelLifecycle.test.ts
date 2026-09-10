@@ -15,7 +15,7 @@ import Service from "../Service";
 import Container from "../Container";
 import CliKernel from "../kernel/CliKernel";
 import type { PackageJson } from "../types/IModule";
-import { readListenerTags } from "../kernel/lifecycleTags";
+import { readListenerTags, tagCommandAction } from "../kernel/lifecycleTags";
 import { BootConfigurationError } from "../kernel/BootConfigurationError";
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
@@ -771,6 +771,32 @@ describe("Kernel lifecycle — résilience de boot (Phase 3, fireLifecycle)", ()
       if (prev === undefined) delete process.env.NF_BOOT_TIMEOUT_MS;
       else process.env.NF_BOOT_TIMEOUT_MS = prev;
     }
+  });
+
+  // ── L'ACTION D'UNE COMMANDE N'EST PAS UN HOOK DE BOOT ──────────────────────
+  // 🔴 Le fail-soft de développement absorbait l'exception de l'action : la
+  // commande sortait en 0 SANS RIEN PRODUIRE, avec un WARNING pour seule trace.
+  // `proxy:generate nginx` ne rendait ainsi aucune configuration dans une
+  // application générée — une commande publiée, documentée et inopérante.
+  it("dev: l'action d'une COMMANDE qui throw → fireLifecycle rejette (jamais fail-soft)", async () => {
+    const k = mkKernel("development");
+    k.once(
+      "onReady",
+      tagCommandAction(() => {
+        throw new Error("boom commande");
+      }),
+    );
+    await assert.rejects(() => k.fireLifecycle("onReady", k), /boom commande/);
+  });
+
+  it("dev: un hook ORDINAIRE reste fail-soft — la résilience de boot est intacte", async () => {
+    const k = mkKernel("development");
+    k.once("onReady", () => {
+      throw new Error("boom hook");
+    });
+    const r = await k.fireLifecycle("onReady", k);
+    assert.strictEqual(r.errors.length, 1);
+    assert.strictEqual(r.stopped, false);
   });
 
   // ── PRODUCTION : un module CRITIQUE qui échoue propage (pod crashe → restart) ──

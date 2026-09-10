@@ -111,6 +111,52 @@ export function compileTrustedHosts(
 }
 
 /**
+ * Rend les NOMS d'hôtes que la barrière `trustedHosts` accepte — la même
+ * politique que {@link compileTrustedHosts}, mais lisible par un humain ou par
+ * un générateur de configuration (`server_name` nginx, `hdr(host)` haproxy).
+ *
+ * Pourquoi une seconde lecture de la même règle : une `RegExp` ne se réécrit pas
+ * en nom d'hôte. La commande `proxy:generate` lisait donc `trustedHosts` à sa
+ * façon, en le supposant TOUJOURS `string[]` — alors que sa valeur par DÉFAUT
+ * est `false`, celle de toute application générée. Une politique lue à deux
+ * endroits finit par diverger : ici les deux fonctions partent de la même
+ * valeur, et la règle « le domaine canonique est toujours accepté » n'est
+ * écrite qu'une fois.
+ *
+ * Le loopback de développement n'en fait volontairement pas partie : une
+ * configuration de proxy décrit un déploiement, pas la machine de l'auteur.
+ *
+ * @param domain - domaine canonique du serveur (`kernel.domain`).
+ * @param trusted - config `http.trustedHosts` (optionnelle).
+ * @returns les noms acceptés, sans doublon. **Vide** si `trusted === true`
+ *   (bypass : le proxy filtre déjà le `Host`, aucun nom n'est à imposer) ; les
+ *   motifs `RegExp` sont écartés, faute d'être exprimables en nom d'hôte.
+ */
+export function resolveTrustedHostNames(
+  domain: string,
+  trusted: ITrustedHostsConfig | undefined,
+): string[] {
+  if (trusted === true) {
+    return [];
+  }
+  const patterns: DomainPattern[] = [domain];
+  if (trusted) {
+    if (Array.isArray(trusted)) {
+      patterns.push(...trusted);
+    } else {
+      patterns.push(trusted);
+    }
+  }
+  const names: string[] = [];
+  for (const p of patterns) {
+    if (typeof p === "string" && p && !names.includes(p)) {
+      names.push(p);
+    }
+  }
+  return names;
+}
+
+/**
  * Teste un `Host` entrant contre une liste de `RegExp` pré-compilée.
  *
  * @param regAlias - sortie de {@link compileTrustedHosts} ou {@link compileDomainPatterns}.
