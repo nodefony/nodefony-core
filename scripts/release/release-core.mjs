@@ -685,6 +685,61 @@ export function detecterSuspects(fichiers) {
 }
 
 /**
+ * La MÊME règle, appliquée à l'inventaire d'une image de conteneur.
+ *
+ * L'image publiée était le seul artefact que rien ne regardait : la
+ * `10.0.0-alpha.4` embarquait `nodefony/config/certificates/server/privkey.pem`,
+ * une clé RSA que tous ses déploiements auraient partagée. Deux correctifs ont
+ * fermé le chemin connu — le `.dockerignore` généré exclut la matière
+ * cryptographique, et l'application n'en fabrique plus en production —, mais
+ * aucun ne REGARDE ce qui part. Un fichier ajouté au gabarit, un `.dockerignore`
+ * amputé, et le défaut revient sans que personne le voie.
+ *
+ * Le motif est celui des tarballs, sciemment : une seule liste de ce qui ne doit
+ * pas sortir, deux artefacts à garder. Deux tolérances l'en séparent, et chacune
+ * évite un rouge que le lecteur apprendrait à ignorer :
+ *
+ * - **`node_modules/`** — un `.pem` y est une donnée de test de la dépendance
+ *   qui l'apporte. Le `.npmrc` de npm lui-même vit sous
+ *   `usr/local/lib/node_modules/npm/`, dans l'image de base.
+ * - **`.env` NU, et lui seul** — c'est une convention du framework : ce fichier
+ *   est commité, il porte le catalogue des variables et des défauts non
+ *   secrets ; les secrets vivent dans `.env.local`, que le `.gitignore` et le
+ *   `.dockerignore` écartent tous deux. `.env.local`, `.env.production` et
+ *   toute autre forme suffixée restent fatals. Qu'aucun secret n'entre dans le
+ *   `.env` du gabarit est la charge de `gitleaks` (`secrets.yml`), qui lit
+ *   l'arbre : cette règle-ci garde l'IMAGE, elle ne dédouble pas ce scan.
+ * - **les magasins de certificats PUBLICS du système** — `etc/ssl/cert.pem` sur
+ *   Alpine, `etc/ssl/certs/*` sur Debian : ce sont les autorités de
+ *   certification apportées par l'image de base, et les signaler apprendrait à
+ *   ignorer l'alerte le jour où elle vaut. La tolérance est bornée deux fois,
+ *   parce qu'un magasin voisin porte l'inverse : elle ne couvre que les
+ *   répertoires de CERTIFICATS — jamais `etc/ssl/private/`, qui est très
+ *   exactement l'endroit où une clé privée de serveur se range —, et seulement
+ *   les extensions d'un certificat. Une `.key` sous `etc/ssl/certs/` reste
+ *   fatale : elle n'a rien à y faire.
+ *
+ * @param fichiers - tous les chemins de toutes les COUCHES, sans `/` initial
+ * @returns les chemins qui interdisent la publication
+ */
+export function detecterSuspectsImage(fichiers) {
+  const DEPENDANCE = /(^|\/)node_modules\//;
+  const ENV_NU = /(^|\/)\.env$/;
+  // `ssl[^/]*` couvre le `ssl1.1` d'Alpine sans ouvrir `etc/ssl/private/`.
+  const MAGASIN_PUBLIC =
+    /^(etc\/ssl[^/]*\/(certs?\.pem|certs\/)|etc\/pki\/tls\/certs\/|etc\/ca-certificates\/|usr\/(local\/)?share\/ca-certificates\/|usr\/lib\/ssl\/certs\/)/;
+  const CERTIFICAT = /\.(pem|crt|cer)$/i;
+  return detecterSuspects(
+    fichiers.filter(
+      (f) =>
+        !DEPENDANCE.test(f) &&
+        !ENV_NU.test(f) &&
+        !(MAGASIN_PUBLIC.test(f) && CERTIFICAT.test(f)),
+    ),
+  );
+}
+
+/**
  * Ce que la passe fait vraiment, à partir des seuls drapeaux.
  *
  * 🔴 PUBLIER N'IMPLIQUE PAS ÉCRIRE. Préparer et publier sont deux gestes, à

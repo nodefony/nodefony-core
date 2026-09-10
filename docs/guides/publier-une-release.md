@@ -61,12 +61,13 @@ le premier `publish`, jamais entre deux.**
 Publier est un geste **du dépôt**. Les outils lui appartiennent donc, et les commandes npm font
 autorité :
 
-| Commande                                        | Fichier                                 | Rôle                              |
-| ----------------------------------------------- | --------------------------------------- | --------------------------------- |
-| `npm run release -- --version <v> --from <ref>` | `scripts/release/release.mjs`           | prépare et **refuse**             |
-| `npm run release:pack`                          | `scripts/release/pack-all.mjs`          | fabrique les tarballs             |
-| `npm run release:smoke`                         | `scripts/release/smoke-docker.sh`       | prouve l'installation **vierge**  |
-| `npm run test:release`                          | `scripts/release/release-core.test.mjs` | 107 tests sur le raisonnement pur |
+| Commande                                        | Fichier                                                    | Rôle                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------- | -------------------------------------------------------- |
+| `npm run release -- --version <v> --from <ref>` | `scripts/release/release.mjs`                              | prépare et **refuse**                                    |
+| `npm run release:pack`                          | `scripts/release/pack-all.mjs`                             | fabrique les tarballs                                    |
+| `npm run release:smoke`                         | `scripts/release/smoke-docker.sh`                          | prouve l'installation **vierge**                         |
+| `npm run test:release`                          | `scripts/release/release-core.test.mjs`                    | 197 tests sur le raisonnement pur                        |
+| `npm run release:image-gate -- <image>`         | `scripts/release/image-gate.mjs` (+ `image-gate.test.mjs`) | refuse une image porteuse d'un secret, couche par couche |
 
 Trois autres endroits, qu'il ne faut pas confondre :
 
@@ -96,6 +97,7 @@ Le mode par défaut est une **répétition** : il ne touche aucun fichier et dit
 | Version libre sur le registre                 | découvrir la collision au huitième paquet, donc brûler les sept précédents                                                    |
 | Lot déjà estampillé (publication)             | publier des tarballs dont la version ne correspond pas au tag qui les a déclenchés                                            |
 | Contenu des tarballs                          | un secret publié est public à la seconde où il est en ligne — bien avant la fenêtre de 72 h                                   |
+| **Contenu de l'image**, couche par couche     | la `10.0.0-alpha.4` est partie avec une clé privée TLS ; une couche reste lisible même effacée par la suivante                |
 | Répétition `--dry-run` sur le lot entier      | la seule parade au lot partiel, puisque npm n'a pas de transaction                                                            |
 
 L'inventaire des publiables vient de `npm query .workspace` filtré sur `private` — jamais d'une
@@ -339,6 +341,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
 | Unitaires (chaîne) | `scripts/release/release-core.test.mjs` | l'ordre topologique, les métadonnées exigées, le figeage des références de version |
+| Unitaires (image) | `scripts/release/image-gate.test.mjs` | la lecture des couches d'un `docker save` — dont un fichier qu'une couche suivante EFFACE, et les trois façons d'écrire un nom long |
 | Unitaires (bundle) | `scripts/check-externals.test.mjs` | la liste des dépendances laissées externes ne dérive pas des `peerDependencies` |
 | Unitaires (surface) | `nodefony` `packageDeps.test.ts`, `clientSubpathSurface.types.test.ts` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe |
 

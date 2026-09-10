@@ -195,6 +195,12 @@ process.exit(pkg.dependencies?.["@nodefony/drizzle"] ? 0 : 1);
 build_image() { # dir tag
   docker build -t "$2" "$1" || fail "docker build ($2)"
   ok "image $2 construite (npm install vierge depuis les tarballs)"
+  # C'est ICI que le contrôle mord le plus tôt : les trois scénarios couvrent
+  # les trois presets, donc trois `.dockerignore` rendus, alors que la chaîne de
+  # publication n'en bâtit qu'un. La `10.0.0-alpha.4` est partie avec la clé
+  # privée du poste faute d'un regard à ce moment précis.
+  node "$ROOT/scripts/release/image-gate.mjs" "$2" \
+    || fail "matière sensible dans l'image $2 (voir ci-dessus)"
 }
 
 # Attend que /readyz réponde 200. Rend la main en échec APRÈS avoir versé les

@@ -444,6 +444,20 @@ jobs:
           cd /tmp/image/demo
           V="${VERSION#v}"
           docker build -t "nodefony/nodefony:${V}" .
+
+          # 🔴 ENTRE le build et le push, et jamais après : une image poussée
+          # est publique, et une couche reste lisible même effacée par une
+          # couche suivante. La `10.0.0-alpha.4` est partie avec la clé privée
+          # TLS du poste de construction — `.dockerignore` amputé, `COPY . ./`
+          # qui emporte tout — sans qu'aucune étape ne regarde ce qui sortait.
+          # Le contrôle sort en 2 s'il n'a PAS PU regarder : `!= 0` refuse dans
+          # les deux cas, ce qui est le comportement voulu.
+          node "$GITHUB_WORKSPACE/scripts/release/image-gate.mjs" \
+            "nodefony/nodefony:${V}" || {
+            echo "::error::l'image embarque de la matière sensible — publication refusée"
+            exit 1
+          }
+
           docker push "nodefony/nodefony:${V}"
 
           # L'ÉTIQUETTE MOBILE se dérive du canal, exactement comme le dist-tag

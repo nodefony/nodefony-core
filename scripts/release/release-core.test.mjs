@@ -36,6 +36,7 @@ import {
   FICHIERS_LICENCE,
   comparerVersions,
   detecterSuspects,
+  detecterSuspectsImage,
   phasesDeLaPasse,
   fusionnerChangelog,
   ordreTopologique,
@@ -815,6 +816,59 @@ describe("detecterSuspects — un secret publié est public pour toujours", () =
 
   it("rend une liste vide sur un tarball sain", () => {
     expect(detecterSuspects(["p/dist/index.js", "p/package.json"])).toEqual([]);
+  });
+});
+
+describe("detecterSuspectsImage — la même règle, sur une image publiée", () => {
+  it.each([
+    "app/nodefony/config/certificates/server/privkey.pem",
+    "app/nodefony/config/certificates/server/cert.pem",
+    "app/tls/serveur.key",
+    "app/.env.local",
+    "app/.env.production",
+    "app/.npmrc",
+    "root/.ssh/id_rsa",
+    "etc/ssl/private/serveur.key",
+    "etc/ssl/certs/glisse-ici.key",
+  ])("refuse %s", (f) => {
+    expect(detecterSuspectsImage([f])).toEqual([f]);
+  });
+
+  it.each([
+    // Données de test d'une dépendance : ce n'est pas notre fuite, et le
+    // signaler apprendrait à ignorer l'alerte.
+    "app/node_modules/selfsigned/test/fixture.pem",
+    "usr/local/lib/node_modules/npm/.npmrc",
+    // Convention du framework : `.env` est commité et ne porte aucun secret ;
+    // ceux-ci vivent dans `.env.local`, écarté du `.gitignore` ET du
+    // `.dockerignore` (et refusé ci-dessus).
+    "app/.env",
+    // Autorités de certification de l'image de base — publiques par nature.
+    "etc/ssl/cert.pem",
+    "etc/ssl1.1/cert.pem",
+    "etc/ssl/certs/ca-cert-GLOBALTRUST.crt",
+    "usr/share/ca-certificates/mozilla/Amazon_Root_CA_1.crt",
+    // Pièges de nom déjà couverts par la règle des tarballs.
+    "app/src/keyboard.js",
+    "app/docs/environment.md",
+  ])("PIÈGE — ne refuse PAS %s", (f) => {
+    expect(detecterSuspectsImage([f])).toEqual([]);
+  });
+
+  it("rend l'inventaire RÉEL de l'image 10.0.0-alpha.4 fautive", () => {
+    // Les cinq fichiers constatés dans l'image publiée le 2026-09-09, plus le
+    // `.env` qui l'accompagne et qui, lui, est légitime.
+    expect(
+      detecterSuspectsImage([
+        "app/index.js",
+        "app/.env",
+        "app/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem",
+        "app/nodefony/config/certificates/server/cert.pem",
+        "app/nodefony/config/certificates/server/fullchain.pem",
+        "app/nodefony/config/certificates/server/privkey.pem",
+        "app/nodefony/config/certificates/server/publickey.pem",
+      ]),
+    ).toHaveLength(5);
   });
 });
 

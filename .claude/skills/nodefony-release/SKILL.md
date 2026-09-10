@@ -46,6 +46,7 @@ derrière les commandes npm qui font autorité :
 | `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, éprouvé sans publier |
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
+| `npm run release:image-gate -- <image>` | `scripts/release/image-gate.mjs` | REFUSE une image porteuse d'un secret, couche par couche |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
 | `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |
 
@@ -171,6 +172,7 @@ sans bruit au prochain changement de branches — c'est exactement ce que #257 v
 | Métadonnées (`repository`, `access`, `files`) | des défauts INVISIBLES dans le dépôt : npm ne valide rien à l'enregistrement du publieur de confiance, l'erreur ne sort qu'au `publish` |
 | Version libre sur le registre | découvrir la collision au huitième paquet, donc brûler les sept précédents |
 | Contenu des tarballs | un secret publié est public à la seconde où il est en ligne, bien avant la fenêtre de 72 h |
+| **Contenu de l'image, par COUCHES** | la `10.0.0-alpha.4` a été publiée avec une clé privée TLS. Le contrôle lit `docker save`, jamais `docker export` : l'export rend l'arborescence APLATIE, où un `COPY secret` suivi d'un `RUN rm` ne laisse rien voir — alors que la couche reste lisible par qui télécharge. Il tourne **entre** le build et le push (`release.yml`) et après chaque `build_image` du smoke (les trois presets, donc trois `.dockerignore` rendus). Sortie **2** = il n'a pas pu regarder, ce qui refuse aussi |
 | Répétition `--dry-run` sur **le lot entier** | la seule parade au lot partiel, puisque npm n'a pas de transaction |
 
 L'inventaire des publiables vient de `npm query .workspace` filtré sur `private` — jamais d'une

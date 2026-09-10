@@ -54,6 +54,7 @@
     "scripts/check-package-deps.mjs",
     "scripts/check-platform-channels.mjs",
     "scripts/realtime-coverage-map.mjs",
+    "scripts/release/image-gate.test.mjs",
     "scripts/release/release-core.test.mjs",
     "scripts/safe-commit.sh"
   ]
