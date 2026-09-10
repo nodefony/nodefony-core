@@ -1330,6 +1330,33 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // du stage et l'image partirait avec le code de la veille.
         assert.match(ignore, /^\*\*\/dist$/mu);
 
+        // 🔴 MATIÈRE CRYPTOGRAPHIQUE — l'asymétrie qui a existé ici est le
+        // mode de défaillance le plus coûteux du lot : le `.gitignore` voisin
+        // exclut `*.key`, `privkey*.pem` et `*-key.pem` en écrivant « la clé
+        // qui va avec, jamais », et ce fichier-ci ne le faisait pas. Or le
+        // Dockerfile fait `COPY . ./` et l'image, elle, est PUBLIÉE : tout
+        // développeur ayant lancé son application en développement expédiait
+        // la clé privée de son poste dans un dépôt d'images, sans le savoir et
+        // sans qu'aucune couche suivante puisse l'effacer. On garde donc la
+        // paire des deux fichiers sous surveillance, en lignes entières.
+        for (const motif of [
+          /^nodefony\/config\/certificates$/mu, // là où le framework écrit la sienne
+          /^\*\*\/\*\.key$/mu,
+          /^\*\*\/\*\.pem$/mu,
+          /^\*\*\/\*\.crt$/mu,
+        ]) {
+          assert.match(
+            ignore,
+            motif,
+            `.dockerignore laisse entrer de la matière cryptographique (${String(motif)}) — le COPY . ./ l'emporterait dans une image publiée`,
+          );
+        }
+        // Ce qui n'est d'aucun usage à `npm run build` et donnerait de la
+        // surface à lire dans une image publique.
+        for (const motif of [/^tests$/mu, /^tmp$/mu, /^\.github$/mu]) {
+          assert.match(ignore, motif, `.dockerignore n'exclut pas ${motif}`);
+        }
+
         // Un agent qui ignore que ce fichier existe en écrit un de mémoire —
         // sans multi-stage, en root, en forme shell. La capacité doit donc
         // être nommée là où il lit AVANT d'agir, pas seulement exister.
