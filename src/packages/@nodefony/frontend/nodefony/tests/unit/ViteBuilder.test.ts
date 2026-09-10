@@ -100,7 +100,13 @@ describe("ViteBuilder — resolve.dedupe (un seul runtime par framework)", () =>
         .filter(Boolean);
       expect(prod, `dedupe divergent pour ${preset}`).to.deep.equal(dev);
     }
-  });
+    // Budget de temps EXPLICITE : ce cas construit la configuration des QUATRE
+    // préréglages, donc charge quatre chaînes d'outils Vite — celle d'Angular
+    // pèse à elle seule plus que les trois autres. 1,2 s ici, 7,5 s sur un
+    // exécuteur macOS de la forge, où le défaut de 5 s le faisait tomber. Ce
+    // n'est PAS un seuil de performance qu'on relâche : rien n'est mesuré ici,
+    // c'est le coût d'import de dépendances tierces.
+  }, 30_000);
 
   it("vanilla : aucun resolve (rien à dédupliquer)", async () => {
     const cfg = await builder.buildViteConfig([entry], "production");
