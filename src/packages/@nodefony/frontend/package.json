@@ -45,7 +45,7 @@
     "@nodefony/framework": "^10.0.0-alpha.4",
     "@nodefony/http": "^10.0.0-alpha.4",
     "@types/chai": "5.2.3",
-    "@types/node": "26.4.1",
+    "@types/node": "26.5.1",
     "@vitest/coverage-v8": "5.0.0",
     "chai": "6.2.2",
     "nodefony": "^10.0.0-alpha.4",

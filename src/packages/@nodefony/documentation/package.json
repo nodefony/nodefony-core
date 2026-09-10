@@ -38,7 +38,7 @@
   "devDependencies": {
     "@nodefony/framework": "^10.0.0-alpha.4",
     "@nodefony/http": "^10.0.0-alpha.4",
-    "@types/node": "26.4.1",
+    "@types/node": "26.5.1",
     "@vitest/coverage-v8": "5.0.0",
     "nodefony": "^10.0.0-alpha.4",
     "rimraf": "6.1.3",

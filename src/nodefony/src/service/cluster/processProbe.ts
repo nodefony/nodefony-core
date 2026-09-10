@@ -1,7 +1,9 @@
 import {
   performance,
   monitorEventLoopDelay,
-  type IntervalHistogram,
+  // `ELDHistogram` depuis @types/node 26.5.1, qui a retiré `IntervalHistogram` : c'est le type
+  // que rend `monitorEventLoopDelay()`, mêmes membres (`enable`/`disable`/`mean`/`reset`).
+  type ELDHistogram,
   type EventLoopUtilization,
 } from "node:perf_hooks";
 import v8 from "node:v8";
@@ -57,7 +59,7 @@ export class ProcessProbe {
   #prevCpu: NodeJS.CpuUsage = process.cpuUsage();
   #prevTs: number = Date.now();
   #prevElu: EventLoopUtilization = performance.eventLoopUtilization();
-  readonly #eld: IntervalHistogram = monitorEventLoopDelay({ resolution: 20 });
+  readonly #eld: ELDHistogram = monitorEventLoopDelay({ resolution: 20 });
   #enabled = false;
 
   /**

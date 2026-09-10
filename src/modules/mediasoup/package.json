@@ -42,7 +42,7 @@
     "@nodefony/frontend": "*",
     "@nodefony/http": "*",
     "@nodefony/orm-core": "*",
-    "@types/node": "26.4.1",
+    "@types/node": "26.5.1",
     "@vitejs/plugin-vue": "^6.0.8",
     "@vitest/coverage-v8": "5.0.0",
     "nodefony": "*",
