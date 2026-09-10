@@ -118,6 +118,15 @@
   test unitaire à moi qui tombait. Sans lire le journal, j'aurais cherché dans le produit. Et
   c'est le user qui a demandé « ci rouge non ? » : j'avais poussé et continué sans guetteur.
 
+- [1× — 09-10] **Le piège était ÉCRIT, je venais de le lire, il m'a mordu quand même.**
+  `npm view <p> <champ> --json` ENVELOPPE sa réponse dans un tableau — c'est écrit noir sur blanc
+  dans le skill `nodefony-release`, que j'avais chargé une heure plus tôt, et le cœur du produit
+  porte `lireVueNpm` exprès pour ça. J'ai quand même écrit un `Object.keys()` direct dans une
+  sonde jetable : il a lu des INDICES au lieu de noms, et m'a fait annoncer que `drizzle-kit` ne
+  dépendait plus de `@esbuild-kit` — l'inverse de la vérité, que son manifeste installé disait en
+  une ligne. Deux réflexes manquants, et c'est le même : ne pas réécrire ce que le cœur porte, et
+  CROISER une affirmation surprenante avant de la servir. ↝ [[feedback_written_rule_needs_reread]]
+
 ## 🪟 Un contrôle VERT qui ne POUVAIT rien voir — le régime de mesure rend l'objet invisible
 
 > Distinct de « le gate n'est pas lancé » et de « le gate a un angle mort » : ici il tourne, il
@@ -132,6 +141,25 @@
   des dépendances ne voyait pas le catalogue du scaffold, faute de périmètre. (3) `oxlint` 1.82.0
   ne rend plus AUCUN résumé quand tout est propre — sortie identique à celle d'un linter qui n'a
   rien lu ; il a fallu une sonde `debugger` pour distinguer les deux.
+
+- [1× — 09-10] **J'ai annoncé une PUBLICATION PARTIELLE sur une lecture unique — et c'était
+  faux.** `npm publish` avait rendu `+ nodefony@10.0.0-alpha.4`, mais ni `npm view` ni un `curl`
+  au registre ne voyaient la version : j'ai alerté le user d'un lot partiel, le pire scénario
+  d'une release en lockstep. Deux minutes plus tard, elle était là. Le registre ACCEPTE avant de
+  SERVIR, et la propagation est indépendante par paquet — une lecture instantanée ne peut pas
+  décrire un système en cours de propagation. La même cause a fait tomber les deux jobs qui
+  suivent la publication, sur deux paquets DIFFÉRENTS, avec des messages qui accusaient la
+  dépendance. Le geste manquant tient en un mot : RETESTER avant d'alerter, surtout quand
+  l'observation contredit ce que l'outil vient de confirmer. ↝ [[feedback_suspect_instrument_and_own_diff]]
+
+- [1× — 09-10] **Ma SONDE ne cherchait pas le bon marqueur — et son vert a failli condamner
+  le bon code.** Pour prouver que `doctor` lit la configuration extraite en fragments, j'ai posé
+  une zone firewall `authenticators: ["anonymous"]` : verdict `rien d'ouvert sans
+authentification`. J'allais conclure que le lecteur était aveugle au fragment. Le contrôle
+  cherche `security: false` (`kernel/checks/surface.ts:263`) — ma zone n'était pas « ouverte » à
+  ses yeux. Avec le bon marqueur, il crie `zone publique ^/sonde` depuis le fragment. La question
+  ne suffit donc pas telle qu'écrite : avant de dire « il n'a rien vu », il faut savoir CE QU'IL
+  CHERCHE — sinon on impute au contrôle ce qui est un défaut de la sonde.
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 

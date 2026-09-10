@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-09T23:25:45.234Z",
+  "generatedAt": "2026-09-10T07:30:23.461Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 26,
+      "open": 28,
       "title": "10.0.0-beta"
     },
     {
@@ -2622,6 +2622,20 @@
       ]
     },
     {
+      "number": 313,
+      "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
+      "url": "https://github.com/nodefony/nodefony-core/issues/313",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.6,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 279,
       "title": "fix(redis): ne pas se connecter quand le run ne déclare pas son besoin",
       "url": "https://github.com/nodefony/nodefony-core/issues/279",
@@ -2633,6 +2647,20 @@
       "ordre": 9.7,
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 314,
+      "title": "fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/314",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.7,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
