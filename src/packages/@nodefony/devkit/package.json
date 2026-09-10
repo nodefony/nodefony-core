@@ -28,7 +28,7 @@
     "@nodefony/framework": "^10.0.0-alpha.4",
     "@nodefony/http": "^10.0.0-alpha.4",
     "nodefony": "^10.0.0-alpha.4",
-    "zod": "^4.4.3",
+    "zod": "^4.6.1",
     "playwright": "^1.50.0",
     "lighthouse": "^13.0.0"
   },

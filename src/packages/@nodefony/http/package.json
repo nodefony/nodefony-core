@@ -85,7 +85,7 @@
   "contributors": [],
   "peerDependencies": {
     "nodefony": "^10.0.0-alpha.4",
-    "zod": "^4.4.3"
+    "zod": "^4.6.1"
   },
   "files": [
     "dist",

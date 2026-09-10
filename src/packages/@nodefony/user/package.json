@@ -52,7 +52,7 @@
     }
   },
   "devDependencies": {
-    "@node-rs/argon2": "^2.1.0",
+    "@node-rs/argon2": "^2.2.1",
     "@node-rs/bcrypt": "^1.10.8",
     "@nodefony/orm-core": "^10.0.0-alpha.4",
     "@types/node": "26.5.1",
