@@ -1293,6 +1293,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         scaffold(dest, { name: `docker-${preset}`, preset });
         const dockerfile = readFileSync(path.join(dest, "Dockerfile"), "utf8");
 
+        // 🔴 L'image ne FABRIQUE pas de TLS. Sans la coupure explicite en
+        // production, le défaut du cœur (5152) s'applique dans le conteneur :
+        // stratégie `auto` → auto-signé, une clé RSA écrite à CHAQUE démarrage
+        // de CHAQUE exemplaire, sous `nodefony/config/certificates`, pour un
+        // certificat que rien ne reconnaît (`CN=0.0.0.0`, SAN `localhost`).
+        // Du TLS qui n'en a que le nom, une écriture disque qui interdit
+        // `readOnlyRootFilesystem`, et un port que `EXPOSE` ne publie même pas.
+        // Contrôlé ici, à côté du Dockerfile, parce que c'est l'IMAGE que ça
+        // abîme — la configuration seule ne le dirait à personne.
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        assert.match(
+          config,
+          /ctx\.isProd\s*\n?\s*\?\s*\{\s*https:\s*false as const\s*\}/u,
+          "la production doit couper l'écoute TLS tant qu'aucun port HTTPS n'est demandé",
+        );
+
         // Multi-stage : la chaîne de compilation ne descend pas en production.
         assert.match(dockerfile, /^FROM \S+ AS build$/mu);
         assert.equal(dockerfile.match(/^FROM /gmu)?.length, 2);

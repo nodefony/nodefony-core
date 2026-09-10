@@ -68,7 +68,18 @@ export default defineConfig<typeof env>((ctx) => ({
    * via **mkcert** s'il est installé (autorité locale de confiance, zéro
    * avertissement navigateur), sinon auto-signé.
    *
-   * - Ne garder qu'un port, en clair (TLS terminé à l'ingress) : `https: false`.
+   * 🔴 En PRODUCTION, l'écoute TLS est COUPÉE tant qu'aucun port HTTPS n'est
+   * demandé — et ce n'est pas un raccourci de configuration. Sans cela, le
+   * défaut du framework (5152) s'applique dans le conteneur : la stratégie
+   * `auto` retombe sur l'auto-signé, une clé RSA est FABRIQUÉE À CHAQUE
+   * DÉMARRAGE de chaque exemplaire, écrite sous `nodefony/config/certificates`,
+   * pour un certificat que rien ne reconnaît (`CN=0.0.0.0`, SAN `localhost`).
+   * Trois conséquences : du TLS qui ne protège rien mais en a l'air, une
+   * écriture disque qui interdit `readOnlyRootFilesystem` en Kubernetes, et un
+   * port que le `EXPOSE` de l'image ne publie même pas.
+   * En cloud-native le TLS se termine à l'ingress ou au proxy frontal. Qui en
+   * veut vraiment DANS le conteneur pose `NF_PORT_HTTPS` et fournit un vrai
+   * certificat (`certificates.strategy: "explicit"`), il n'est pas empêché.
    * - Inspecter ou regénérer le certificat : `npx nodefony http:certificates`.
    */
   servers: {
@@ -77,7 +88,9 @@ export default defineConfig<typeof env>((ctx) => ({
       : {}),
     ...(ctx.env.NF_PORT_HTTPS
       ? { https: { port: ctx.env.NF_PORT_HTTPS } }
-      : {}),
+      : ctx.isProd
+        ? { https: false as const }
+        : {}),
   },
 
   log: {
