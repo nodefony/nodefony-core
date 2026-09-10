@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T09:56:17.152Z",
+  "generatedAt": "2026-09-10T10:24:57.617Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,17 +25,17 @@
       "title": "12.0.0"
     },
     {
-      "closed": 44,
+      "closed": 48,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 10,
+      "open": 18,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 28,
       "title": "10.0.0-beta"
     },
     {
@@ -1626,76 +1626,6 @@
       ]
     },
     {
-      "number": 316,
-      "title": "feat(scaffold): rendre l'application générée déployable en production",
-      "url": "https://github.com/nodefony/nodefony-core/issues/316",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 8,
-      "ordre": 4.7,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 317,
-      "title": "test(release): refuser une image qui embarque une clé privée",
-      "url": "https://github.com/nodefony/nodefony-core/issues/317",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.71,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 318,
-      "title": "fix(docker): réparer droits, persistance et reproductibilité",
-      "url": "https://github.com/nodefony/nodefony-core/issues/318",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.72,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 319,
-      "title": "fix(http): rendre proxy:generate opérant dans une app générée",
-      "url": "https://github.com/nodefony/nodefony-core/issues/319",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P0 — bloque le reste",
-      "jours": 0.5,
-      "ordre": 4.73,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 320,
-      "title": "feat(scaffold): produire la topologie avec un frontal nginx",
-      "url": "https://github.com/nodefony/nodefony-core/issues/320",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 2,
-      "ordre": 4.74,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
       "number": 254,
       "title": "test(bench): donner au banc de coupure sa propre base",
       "url": "https://github.com/nodefony/nodefony-core/issues/254",
@@ -1707,48 +1637,6 @@
       "ordre": 4.75,
       "labels": [
         "10.0.0"
-      ]
-    },
-    {
-      "number": 321,
-      "title": "feat(scaffold): rendre l'application déployable en Kubernetes",
-      "url": "https://github.com/nodefony/nodefony-core/issues/321",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1.5,
-      "ordre": 4.75,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 322,
-      "title": "feat(ci): faire prouver par la vitrine ce que nul n'éprouve",
-      "url": "https://github.com/nodefony/nodefony-core/issues/322",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 2,
-      "ordre": 4.76,
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 323,
-      "title": "feat(scaffold): livrer les licences des dépendances",
-      "url": "https://github.com/nodefony/nodefony-core/issues/323",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 4.77,
-      "labels": [
-        "10.0.0-beta"
       ]
     },
     {
@@ -2776,15 +2664,183 @@
       ]
     },
     {
+      "number": 324,
+      "title": "fix(docker): cesser de prescrire une version non libre de Redis",
+      "url": "https://github.com/nodefony/nodefony-core/issues/324",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.85,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 325,
+      "title": "fix(docker): tenir les clés privées hors du contexte d'image",
+      "url": "https://github.com/nodefony/nodefony-core/issues/325",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.86,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 326,
+      "title": "fix(scaffold): ne plus fabriquer de TLS auto-signé en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/326",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.87,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 315,
       "title": "fix(ci): construire l'application avant de la contrôler",
       "url": "https://github.com/nodefony/nodefony-core/issues/315",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.9,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 316,
+      "title": "feat(scaffold): rendre l'application générée déployable en production",
+      "url": "https://github.com/nodefony/nodefony-core/issues/316",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 9,
+      "ordre": 9.91,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 317,
+      "title": "test(release): refuser une image qui embarque une clé privée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/317",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.92,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 318,
+      "title": "fix(docker): réparer droits, persistance et reproductibilité",
+      "url": "https://github.com/nodefony/nodefony-core/issues/318",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.93,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 319,
+      "title": "fix(http): rendre proxy:generate opérant dans une app générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/319",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 9.94,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 320,
+      "title": "feat(scaffold): produire la topologie avec un frontal nginx",
+      "url": "https://github.com/nodefony/nodefony-core/issues/320",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 9.95,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 321,
+      "title": "feat(scaffold): rendre l'application déployable en Kubernetes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/321",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1.5,
+      "ordre": 9.96,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 322,
+      "title": "feat(ci): faire prouver par la vitrine ce que nul n'éprouve",
+      "url": "https://github.com/nodefony/nodefony-core/issues/322",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 9.97,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 323,
+      "title": "feat(scaffold): livrer les licences des dépendances",
+      "url": "https://github.com/nodefony/nodefony-core/issues/323",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.98,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 327,
+      "title": "test(log): éprouver les transports contre de vrais serveurs",
+      "url": "https://github.com/nodefony/nodefony-core/issues/327",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.99,
       "labels": [
         "10.0.0-alpha"
       ]
