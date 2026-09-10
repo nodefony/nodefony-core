@@ -48,3 +48,29 @@ export function reconcilie(specs, candidats) {
   if (versions.length === 0) return true;
   return versions.some((v) => plages.every((p) => semver.satisfies(v, p)));
 }
+
+/**
+ * La plus haute version PUBLIÉE qu'une plage accepte — ce que recevrait un
+ * `npm install` aujourd'hui.
+ *
+ * 🔴 Pourquoi cette question EXISTE, alors que `dist-tags.latest` semble y
+ * répondre : `latest` n'est pas « la dernière version », c'est ce que le
+ * mainteneur a choisi de servir par défaut. `@types/node` publie ses versions
+ * par LIGNE DE TYPESCRIPT (`ts6.0` → 26.5.1) et laisse `latest` sur **22.20.2**,
+ * la ligne compatible avec les vieux compilateurs. Un dépôt en 26.4.1 apparaît
+ * donc « en avance sur latest » tout en accumulant du retard sur sa propre
+ * ligne, et aucun outil ne le dit — ni `npm outdated`, ni ce rapport avant.
+ *
+ * Pas de `includePrerelease` : `npm install` ne sert jamais une préversion à une
+ * plage ordinaire. L'activer faisait annoncer `@angular/core` en retard sur un
+ * `22.2.0-next.7` que personne ne recevra. Une plage qui porte elle-même une
+ * préversion (`^7.0.0-dev.x`) reste servie par semver.
+ *
+ * @param versions - les versions publiées, telles que le registre les rend.
+ * @param spec - la plage déclarée dans un manifeste.
+ * @returns la version, ou `null` si la plage est illisible ou qu'aucune ne convient.
+ */
+export function plusHauteSatisfaisante(versions, spec) {
+  if (!versions || semver.validRange(spec) === null) return null;
+  return semver.maxSatisfying([...versions], spec);
+}

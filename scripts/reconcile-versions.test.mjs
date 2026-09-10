@@ -12,7 +12,10 @@
  * Les cas marqués « PIÈGE » sont ceux où une implémentation plausible se trompe.
  */
 import { describe, expect, it } from "vitest";
-import { reconcilie } from "./lib/reconcile-versions.mjs";
+import {
+  reconcilie,
+  plusHauteSatisfaisante,
+} from "./lib/reconcile-versions.mjs";
 
 describe("reconcilie — une seule version peut-elle satisfaire tout le monde ?", () => {
   it("PIÈGE — des spécifications DIFFÉRENTES mais conciliables ne sont pas un défaut", () => {
@@ -65,5 +68,39 @@ describe("reconcilie — une seule version peut-elle satisfaire tout le monde ?"
     expect(
       reconcilie(["^7.0.0", "7.0.0-dev.20260707.2"], ["7.0.0-dev.20260707.2"]),
     ).toBe(false);
+  });
+});
+
+describe("plusHauteSatisfaisante — le retard dans sa PROPRE ligne", () => {
+  // Le cas réel qui a révélé l'angle mort : `@types/node` publie par ligne de
+  // TypeScript et laisse `dist-tags.latest` sur 22.20.2, alors que la ligne 26
+  // est à 26.5.1. Comparer à `latest` fait passer un dépôt en 26.4.1 pour « en
+  // avance », alors qu'il a un cran de retard que personne ne voit.
+  const typesNode = ["22.20.2", "24.1.0", "26.4.1", "26.5.1"];
+
+  it("rend la plus haute de la LIGNE, pas le tag latest", () => {
+    expect(plusHauteSatisfaisante(typesNode, "^26.4.0")).toBe("26.5.1");
+    expect(plusHauteSatisfaisante(typesNode, "^22.0.0")).toBe("22.20.2");
+  });
+
+  it("PIÈGE — une préversion ne satisfait PAS une plage ordinaire", () => {
+    // `npm install` ne sert jamais `22.2.0-next.7` à `^22.1.5`. Le contraire
+    // faisait annoncer tout Angular « en retard » sur des versions que personne
+    // ne recevra.
+    const angular = ["22.1.6", "22.1.8", "22.2.0-next.7"];
+    expect(plusHauteSatisfaisante(angular, "^22.1.5")).toBe("22.1.8");
+  });
+
+  it("une plage qui porte ELLE-MÊME une préversion en reçoit une", () => {
+    const preview = ["7.0.0-dev.1", "7.0.0-dev.20260707.2"];
+    expect(plusHauteSatisfaisante(preview, "^7.0.0-dev.1")).toBe(
+      "7.0.0-dev.20260707.2",
+    );
+  });
+
+  it("ne conclut à rien sans matière", () => {
+    expect(plusHauteSatisfaisante(undefined, "^1.0.0")).toBe(null);
+    expect(plusHauteSatisfaisante(["1.0.0"], "workspace:*")).toBe(null);
+    expect(plusHauteSatisfaisante(["1.0.0"], "^2.0.0")).toBe(null);
   });
 });

@@ -21,6 +21,11 @@
  *    montera seule au prochain `npm install`, rien à faire.
  *  - `RANGE!` — plage QUE la dernière version ne satisfait plus (typiquement
  *    une majeure) : invisible à l'install, c'est une décision à prendre.
+ *  - `LIGNE`  — retard DANS SA PROPRE LIGNE : une version plus haute satisfait
+ *    déjà la plage déclarée, mais le verrou ne l'a pas prise. Le seul mode que la
+ *    comparaison à `dist-tags.latest` ne peut PAS voir — et le seul qui compte
+ *    pour un paquet dont `latest` ne désigne pas la dernière version, comme
+ *    `@types/node` (cf `fetchOne`). La colonne LATEST affiche alors les deux.
  *
  * ⚠️ Un pin n'est pas ce qui est INSTALLÉ. Une plage `^19.2.7` reste écrite
  * telle quelle alors que le verrou porte déjà 19.2.8 : la signaler comme un
@@ -53,7 +58,10 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import semver from "semver";
-import { reconcilie } from "./lib/reconcile-versions.mjs";
+import {
+  reconcilie,
+  plusHauteSatisfaisante,
+} from "./lib/reconcile-versions.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const ARGS = new Set(process.argv.slice(2));
@@ -239,25 +247,64 @@ if (!AS_JSON) {
 }
 
 const latest = new Map();
+/** pkg → toutes les versions publiées (pour résoudre une plage sans deviner). */
+const published = new Map();
 const failed = [];
 const CONCURRENCY = 16;
 
+/**
+ * 🔴 `dist-tags.latest` N'EST PAS « la dernière version » — c'est ce que le
+ * mainteneur a décidé de servir par défaut, et certains s'en servent pour autre
+ * chose. Le cas qui a révélé l'angle mort : `@types/node` publie ses versions
+ * par LIGNE DE TYPESCRIPT (`ts5.9`, `ts6.0` → 26.5.1) et laisse `latest` sur
+ * **22.20.2**, la ligne compatible avec les vieux compilateurs. Ce dépôt est en
+ * 26.4.1 : `npm outdated` comme ce rapport affichaient donc un « latest »
+ * INFÉRIEUR au courant, et surtout ne voyaient pas qu'une 26.5.1 existe.
+ *
+ * D'où la seconde question, la seule qui dise vraiment si l'on est à jour :
+ * **quelle est la plus haute version qui satisfait la plage déclarée ?** C'est
+ * elle que reçoit celui qui installe. Le document abrégé du registre
+ * (`application/vnd.npm.install-v1+json`) suffit à la calculer et pèse une
+ * fraction du document complet — il ne porte que les versions et les tags.
+ *
+ * `latest` reste utile, et n'est pas remplacé : c'est lui qui dit qu'une MAJEURE
+ * existe, donc qu'il y a une décision à prendre. Les deux se lisent ensemble.
+ *
+ * @param name - nom du paquet.
+ */
 async function fetchOne(name) {
   // `replaceAll` et non `replace` : ce dernier ne remplace que la PREMIERE
   // occurrence. Un nom scopé n'en porte qu'une, mais un encodage partiel
   // reste un encodage faux — et rien ne le dirait.
-  const url = `https://registry.npmjs.org/${name.replaceAll("/", "%2F")}/latest`;
+  const url = `https://registry.npmjs.org/${name.replaceAll("/", "%2F")}`;
   try {
-    const res = await fetch(url, { headers: { accept: "application/json" } });
+    const res = await fetch(url, {
+      headers: { accept: "application/vnd.npm.install-v1+json" },
+    });
     if (!res.ok) {
       failed.push(`${name}: HTTP ${res.status}`);
       return;
     }
     const body = await res.json();
-    if (body?.version) latest.set(name, body.version);
+    const tag = body?.["dist-tags"]?.latest;
+    if (tag) latest.set(name, tag);
+    if (body?.versions) published.set(name, Object.keys(body.versions));
   } catch (e) {
     failed.push(`${name}: ${e.message}`);
   }
+}
+
+/**
+ * La plus haute version publiée que cette plage accepte, pour CE paquet.
+ * Enveloppe locale de {@link plusHauteSatisfaisante}, qui porte la règle et son
+ * raisonnement — elle vit à part pour être éprouvable sans lancer ce script.
+ *
+ * @param name - nom du paquet.
+ * @param spec - plage déclarée dans un manifeste.
+ * @returns la version, ou `null` quand le registre n'a pas répondu.
+ */
+function resolvedByRange(name, spec) {
+  return plusHauteSatisfaisante(published.get(name), spec);
 }
 
 for (let i = 0; i < names.length; i += CONCURRENCY) {
@@ -285,27 +332,55 @@ for (const name of names) {
       continue;
     }
     const behind = cmp(base, cur) < 0;
-    if (!behind && !SHOW_ALL) continue;
     const exact = isExactPin(spec);
     const accepts = rangeAccepts(spec, cur);
-    const mode = !behind
-      ? "OK"
-      : exact
-        ? "EXACT"
-        : accepts
-          ? "RANGE"
-          : "RANGE!";
     const lock = resolvedInstall(name);
+    // 🔴 Le retard DANS SA PROPRE LIGNE, que la comparaison à `latest` ne voit
+    // pas : la plus haute version publiée que cette plage accepte. Pour
+    // `@types/node` en `^26.4.0`, c'est 26.5.1 — alors que `latest` vaut 22.20.2
+    // (ce paquet publie par ligne de TypeScript, cf `fetchOne`). Sans cette
+    // seconde question, un dépôt en avance sur `latest` passait pour à jour tout
+    // en accumulant du retard, et rien ne le disait.
+    const enLigne = resolvedByRange(name, spec);
+    // La plus haute version PRÉSENTE au verrou, et non celle qui est hissée : la
+    // hissée peut appartenir à un AUTRE consommateur. Vécu ici — `@nodefony/http`
+    // déclare `ws: 8.21.3`, la copie de tête est une 7.5.13 tirée par un tiers,
+    // et comparer à elle faisait annoncer un retard majeur qui n'existe pas.
+    const auVerrou = [...(installed.get(name)?.all ?? [])].sort(cmp).at(-1);
+    const retardEnLigne =
+      enLigne != null && auVerrou != null && cmp(auVerrou, enLigne) < 0;
+    if (!behind && !retardEnLigne && !SHOW_ALL) continue;
+    const mode = retardEnLigne
+      ? "LIGNE"
+      : !behind
+        ? "OK"
+        : exact
+          ? "EXACT"
+          : accepts
+            ? "RANGE"
+            : "RANGE!";
     // Une plage que le verrou a DÉJÀ hissée à la dernière version n'est pas un
     // retard : le manifeste dit un plancher, pas une version.
-    const settled = mode === "RANGE" && lock != null && cmp(lock, cur) >= 0;
+    // 🔴 `lock` peut porter un suffixe de comptage (`"4.6.1 (+1)"`, plusieurs
+    // copies au verrou) que `cmp` ne sait pas lire : `Number("1 (+1)")` rend
+    // NaN, la comparaison échoue silencieusement et la ligne est signalée comme
+    // un retard alors que le verrou est à jour. Comparer sur la version NUE.
+    const settled =
+      mode === "RANGE" &&
+      !retardEnLigne &&
+      auVerrou != null &&
+      cmp(auVerrou, cur) >= 0;
     if (settled && !STRICT) continue;
     rows.push({
       name,
       spec,
-      latest: cur,
+      latest: retardEnLigne ? `${cur} (ligne ${enLigne})` : cur,
       lock: lock ?? "—",
-      kind: behind ? bumpKind(base, cur) : "—",
+      kind: retardEnLigne
+        ? bumpKind(auVerrou, enLigne)
+        : behind
+          ? bumpKind(base, cur)
+          : "—",
       mode: settled ? "RANGE✓" : mode,
       sites,
     });
