@@ -54,6 +54,35 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   ne suffit donc pas telle qu'écrite : avant de dire « il n'a rien vu », il faut savoir CE QU'IL
   CHERCHE — sinon on impute au contrôle ce qui est un défaut de la sonde.
 
+- [1× — 09-10c] **Une requête qui répond 200 et un panneau qui reste VIDE.** En bâtissant un
+  tableau de bord Grafana sur les journaux, deux panneaux n'affichaient rien. Interrogée
+  directement, leur requête rendait `200` avec les bonnes colonnes : le défaut était un
+  `format: "table"` manquant côté panneau. Aucun message, aucune erreur de console — le succès de
+  la requête MASQUE l'échec du rendu. Et j'ai d'abord accusé la lenteur : deux autres panneaux,
+  eux, étaient effectivement seulement lents, et j'avais capturé l'écran trop tôt — le piège que
+  le skill `nodefony-browser` documente en toutes lettres, lu une heure plus tôt
+  ([[feedback_written_rule_needs_reread]]). Le départage ne vient pas de l'écran : il vient
+  d'interroger la source SANS l'interface.
+
+## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
+
+> Le symptôme est l'inverse de [[feedback_capability_unreachable_is_absent]] : là-bas une capacité
+> livrée était déclarée « non implémentée » ; ici c'est MOI qui affirme une absence, sans l'avoir
+> cherchée. Le test qui tranche avant de parler : _ai-je lancé un motif qui aurait TROUVÉ la chose
+> si elle existait ?_ Un `ls` d'un dossier voisin, un `grep` sur le CONCEPT et pas sur le nom.
+
+- [3× — 09-10c] **Trois affirmations d'absence, trois démentis, dans la même heure.** (1) « Il
+  faudrait un collecteur en plus pour envoyer les journaux vers OpenSearch » — faux :
+  `syslog/transports/OpenSearchTransport.ts` existe, avec son pilote de relecture et sa clé de
+  configuration. (2) « Aucun décor ne le fait tourner contre un vrai serveur » — faux : le compose
+  du dépôt a un profil `opensearch` complet, Dashboards compris. (3) « Il n'y a pas de garde-fou
+  d'environnement pour ça » — faux : `OPENSEARCH_GATE` ET `PROXY_GATE` sont dans `vitest.gates.ts`.
+  À chaque fois le user a demandé « tu es sûr ? », à chaque fois le terrain l'a démenti. Le vrai
+  trou était ailleurs, et bien plus intéressant : `node.js.yml:524` liste ces variables dans
+  `NF_GATES_ALLOW`, la liste des absences AUTORISÉES — la forge déclare noir sur blanc qu'elle ne
+  les exerce pas. **Sur ce dépôt, ce qui manque n'est presque jamais le code : c'est son
+  exécution.** Chercher d'abord ce qui existe déjà change la question posée.
+
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
 - [1× — 09-08c] **Un décor de démonstration posé dans un fichier qu'un sous-agent analysait.**
@@ -75,6 +104,16 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   pourtant recalé la PROSE de cette page dans le même commit. Le protocole de fermeture nomme les
   trois recalages (code, tickets voisins, documentation) — j'ai fait le troisième à moitié, et
   c'est la moitié invisible qui a sauté. Voir [[feedback_anchor_expires_silently]].
+
+- [1× — 09-10c] **Le juge s'est trompé sur le point qui décidait de tout — et il avait l'air
+  sûr.** Un audit délégué en `fable` (image de conteneur, volumes, réseau) a rendu un travail
+  excellent, ancré `fichier:ligne`, avec UNE affirmation fausse : « il manque un réglage produit
+  absent — aucun moyen de désactiver le service de fichiers statiques ». Or `statics.enabled`
+  existe, et sa propre description prescrit exactement l'usage visé. C'est la seule affirmation
+  qui conditionnait le verdict d'un chantier entier. Elle a été rattrapée parce que je vérifie les
+  affirmations graves avant de les répercuter — pas parce qu'elle détonnait. Le rapport a été versé
+  au ticket AVEC sa réserve en tête, plutôt que corrigé en silence : le lecteur doit savoir qu'un
+  passage est faux, pas découvrir un texte retouché.
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
