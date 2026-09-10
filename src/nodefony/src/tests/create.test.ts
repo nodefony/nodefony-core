@@ -864,6 +864,42 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(ci, "npm run verify");
       assert.include(ci, "npm run test:e2e");
+      // 🔴 `verify` CONSTRUIT avant d'appeler le docteur, et l'ordre est le
+      // fait à prouver — pas la seule présence des deux mots. `nodefony
+      // doctor` refuse une application non construite (`dist/index.js`
+      // absent ⇒ 404 sur toutes les routes) : sans cette construction, la CI
+      // de toute application générée échoue à son PREMIER envoi, et le même
+      // `npm run verify` échoue sur le poste du développeur. C'est ce qui est
+      // arrivé à la vitrine — huit exécutions, huit échecs.
+      const scripts = JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ).scripts as Record<string, string>;
+      assert.isBelow(
+        scripts.verify.indexOf("npm run build"),
+        scripts.verify.indexOf("npm run doctor"),
+        "verify doit CONSTRUIRE avant d'appeler le docteur",
+      );
+      assert.notEqual(
+        scripts.verify.indexOf("npm run build"),
+        -1,
+        "verify ne construit rien : le docteur refusera l'application",
+      );
+      // La forge ne rattrape pas ce que le script ne fait pas : aucune étape
+      // de construction n'est écrite dans le workflow, elle vit dans `verify`.
+      assert.notInclude(ci, "run: npm run build");
+      // Une étiquette ne rejoue pas la chaîne d'un commit déjà éprouvé — la
+      // vitrine payait DEUX exécutions identiques par publication.
+      assert.match(ci, /\n {4}branches: \["\*\*"\]\n/u);
+      assert.match(ci, /\nconcurrency:\n/u);
+      assert.match(ci, /\npermissions:\n {2}contents: read\n/u);
+      assert.match(ci, /\n {4}timeout-minutes: \d+\n/u);
+      // Un démarrage raté en forge doit laisser quelque chose à lire.
+      assert.include(ci, "actions/upload-artifact");
+      // Le pendant GitLab : même filet, et pas d'exécution sur étiquette.
+      assert.match(
+        readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8"),
+        /\n {4}- if: \$CI_COMMIT_TAG\n {6}when: never\n/u,
+      );
       // Le YAML garde sa STRUCTURE : le piège eta « tag en fin de ligne avale
       // le saut de ligne » recollerait `steps:` au bloc précédent — un yml qui
       // parse encore, et un job qui n'a plus d'étapes.

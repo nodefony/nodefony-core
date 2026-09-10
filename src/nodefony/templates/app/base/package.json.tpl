@@ -23,7 +23,7 @@
     "coverage": "vitest run --coverage",
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
-    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run doctor",
+    "verify": "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run doctor",
     "doctor": "nodefony doctor",
     "inspect": "nodefony inspect",
     "ai:sync": "nodefony ai:sync",
