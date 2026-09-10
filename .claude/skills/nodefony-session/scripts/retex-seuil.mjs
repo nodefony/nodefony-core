@@ -37,7 +37,14 @@ const SAS = path.join("docs", "session-retros", "RETEX.md");
  * Les thèmes du sas et leur nombre de frictions.
  *
  * Un thème est un titre de niveau 2 ; une friction est une puce de premier
- * niveau ouvrant sur `[` (la forme `- [1× — 09-07] **…**`). Les thèmes déjà
+ * niveau dont le libellé ouvre sur `[` — que le gras vienne avant ou après le
+ * crochet (`- [1× — 09-07] **…**` comme `- **[1× — 09-07] …**`).
+ *
+ * 🔴 Les deux formes sont écrites dans le sas, et n'accepter que la première
+ * rendait le compteur AVEUGLE à une friction sur cinq : 9 puces sur 46 le
+ * 09-10e, jamais comptées, donc un seuil systématiquement sous-évalué. Un
+ * compteur qui impose une forme que personne ne retient ne compte pas — il
+ * échantillonne. Les thèmes déjà
  * gradués portent le préfixe 🗄️ et ne comptent plus : leur contenu vit dans une
  * mémoire, et le renvoi qui reste n'est pas une friction.
  *
@@ -50,7 +57,7 @@ export function themes(texte) {
     if (ligne.startsWith("## ")) {
       const titre = ligne.slice(3).trim();
       out.push({ titre, frictions: 0, gradue: titre.startsWith("🗄️") });
-    } else if (ligne.startsWith("- [") && out.length > 0) {
+    } else if (/^- (?:\*\*)?\[/.test(ligne) && out.length > 0) {
       out[out.length - 1].frictions += 1;
     }
   }

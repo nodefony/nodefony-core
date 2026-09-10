@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-10 17:50** (UTC).
+> Empreinte prise le **2026-09-10 19:15** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,14 +20,14 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 72% | 51 | 20 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 73% | 52 | 19 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 7% | 2 | 28 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
-| **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
+| **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 67% | 4 | 2 | — |
 
 ## ➡️ Le prochain dans l'ordre
 
@@ -35,18 +35,10 @@
 
 Ordre 9.91 · P1 — figé à la création · 9.5 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
-
-## Jalon outillage-agents — 3 ouverts
-
-| Ordre | Prio | Jours | Ticket | Titre |
-| --- | --- | ---: | --- | --- |
-| 1 | P1 — figé à la création | 0.5 | #333 | fix(skills): réparer l'en-tête YAML que le contrôle ne voit pas |
-| 2 | P2 — décision | 3 | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
-| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
 ## Jalon 10.0.0-beta — 28 ouverts
 
@@ -81,7 +73,14 @@ Ordre 9.91 · P1 — figé à la création · 9.5 j · jalon 10.0.0-alpha
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 
-## Jalon 10.0.0-alpha — 20 ouverts
+## Jalon outillage-agents — 2 ouverts
+
+| Ordre | Prio | Jours | Ticket | Titre |
+| --- | --- | ---: | --- | --- |
+| 2 | P2 — décision | 3 | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
+| 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
+
+## Jalon 10.0.0-alpha — 19 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -95,7 +94,6 @@ Ordre 9.91 · P1 — figé à la création · 9.5 j · jalon 10.0.0-alpha
 | 9.99 | P2 — décision | 1 | #327 | test(log): éprouver les transports contre de vrais serveurs |
 | 9.995 | P2 — décision | 1 | #328 | fix(log): écrire un horodatage que les outils savent lire |
 | 9.996 | P1 — figé à la création | 0.5 | #329 | fix(devkit-bench): le décor lié fabrique deux exemplaires d'une dépendance de pair |
-| 9.999 | P2 — décision | 0.5 | #332 | chore(deps): monter @types/node et @angular/build sur leur ligne |
 | 10 | P2 — décision | 1 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 12 | P1 — figé à la création | 1 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 13 | P1 — figé à la création | 1 | #60 | fix(studio): lire la liste des rôles depuis le serveur |

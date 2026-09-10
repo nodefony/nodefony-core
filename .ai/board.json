@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T17:50:32.092Z",
+  "generatedAt": "2026-09-10T19:15:29.873Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -25,17 +25,17 @@
       "title": "12.0.0"
     },
     {
-      "closed": 0,
+      "closed": 4,
       "dueOn": null,
       "number": 8,
-      "open": 3,
+      "open": 2,
       "title": "outillage-agents"
     },
     {
-      "closed": 51,
+      "closed": 52,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 20,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
@@ -165,8 +165,8 @@
       "number": 333,
       "title": "fix(skills): réparer l'en-tête YAML que le contrôle ne voit pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/333",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "outillage-agents",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1148,6 +1148,20 @@
       ]
     },
     {
+      "number": 335,
+      "title": "fix(deps): cesser de rendre un vert sur ce que la garde n'a pas vu",
+      "url": "https://github.com/nodefony/nodefony-core/issues/335",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "outillage-agents",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3,
+      "labels": [
+        "outillage-agents"
+      ]
+    },
+    {
       "number": 140,
       "title": "feat(user): publier le contrat de colonnes de l'utilisateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/140",
@@ -1369,6 +1383,20 @@
       "ordre": 4,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 336,
+      "title": "fix(deps): trancher sur le verrou, pas sur une intersection",
+      "url": "https://github.com/nodefony/nodefony-core/issues/336",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "outillage-agents",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 4,
+      "labels": [
+        "outillage-agents"
       ]
     },
     {
@@ -1771,6 +1799,20 @@
       "ordre": 5,
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 337,
+      "title": "fix(deps): cesser d'accuser à tort dans le rapport de versions",
+      "url": "https://github.com/nodefony/nodefony-core/issues/337",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "outillage-agents",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5,
+      "labels": [
+        "outillage-agents"
       ]
     },
     {
@@ -2940,8 +2982,8 @@
       "number": 332,
       "title": "chore(deps): monter @types/node et @angular/build sur leur ligne",
       "url": "https://github.com/nodefony/nodefony-core/issues/332",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3601,7 +3643,7 @@
       "jours": 1,
       "ordre": 90,
       "labels": [
-        "backlog"
+        "outillage-agents"
       ]
     },
     {

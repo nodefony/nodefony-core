@@ -87,6 +87,25 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   double-runtime vécu pour React, sans vérifier : le plugin officiel Svelte pose déjà son
   `resolve.dedupe`, le bundle est identique à l'octet près avec et sans notre ligne. Le mécanisme se
   ressemblait ; la conclusion était fausse. Un défaut ANALOGUE n'est pas un défaut constaté.
+- **[1× — 09-10e] Le gate des skills tournait en intégration continue et NE POUVAIT PAS voir une
+  faute d'en-tête YAML** : il découpe le frontmatter à la main, « sans dépendance ». Trois
+  `SKILL.md` sur vingt-sept portaient un `:` dans un scalaire plain — invalide en YAML. GitHub
+  refusait de rendre la page ; le parseur de l'agent, tolérant, l'acceptait ; donc rien ne le
+  signalait jamais en séance. Un audit extérieur en a vu UN, par hasard, en ouvrant la page. Le
+  remède n'était pas de mieux découper, c'était de donner le même texte à un VRAI parseur.
+- **[1× — 09-10e] Quatre zones muettes dans la garde des dépendances, toutes du même genre.**
+  `--json` imprimait puis `exit(0)` AVANT le calcul du verdict (donc `--json --gate` absolvait
+  n'importe quoi) ; un manifeste illisible était avalé par un `catch` muet tout en restant compté
+  dans le total annoncé ; une entrée du catalogue du scaffold disparaissait si la ligne portait un
+  commentaire ; les `overrides` n'étaient pas lus. Aucune n'avait d'instance vivante — c'est
+  exactement ce qui les rendait invisibles. **Un contrôle ne se juge pas sur les défauts qu'il
+  trouve, mais sur ceux qu'il laisserait passer.**
+- **[1× — 09-10e] Et la règle elle-même posait la mauvaise question.** « Existe-t-il une version
+  qui satisfait toutes les spécifications ? » n'est pas ce que npm FAIT : il ne remplace une copie
+  posée que par une version supérieure ou égale. Une spécification exacte dominée par une plage
+  plus haute ne fait donc pas conflit — elle fait une copie IMBRIQUÉE, que la règle déclarait
+  conciliable en toute bonne foi. Le verrou tranche sans réseau ; la question juste est _le dépôt
+  recevra-t-il plusieurs exemplaires ?_
 
 ## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
 
