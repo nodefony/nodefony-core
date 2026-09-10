@@ -9,7 +9,7 @@
 | --- | ---: |
 | PRODUIT — du code livré la porte | 8 |
 | DÉPÔT — un gate ou un script la porte | 30 |
-| CONTEXTE — relue seulement | 77 |
+| CONTEXTE — relue seulement | 81 |
 | INERTE — rien ne la cite | 0 |
 
 ## PRODUIT
@@ -104,11 +104,13 @@
 - **feedback_observability_no_prod_impact** — cité dans 2 artefact(s)
 - **feedback_orm_bancs_vitest_migration** — cité dans 2 artefact(s)
 - **feedback_orm_default_first** — cité dans 3 artefact(s)
+- **feedback_outside_look_finds_what_green_hides** — cité dans 1 artefact(s)
 - **feedback_parallel_subagents** — cité dans 2 artefact(s)
 - **feedback_param_accepted_then_dropped** — cité dans 2 artefact(s)
 - **feedback_perf_memory_rule** — cité dans 4 artefact(s)
 - **feedback_prove_on_received_artifact** — cité dans 3 artefact(s)
 - **feedback_redteam_threat_first** — cité dans 2 artefact(s)
+- **feedback_reliable_path_demoted_to_fallback** — cité dans 1 artefact(s)
 - **feedback_repo_command_is_authority** — cité dans 2 artefact(s)
 - **feedback_rg_no_replace_flag** — cité dans 2 artefact(s)
 - **feedback_security_audit_surface_matrix** — cité dans 2 artefact(s)
@@ -117,7 +119,7 @@
 - **feedback_session_resume_workflow** — cité dans 1 artefact(s)
 - **feedback_session_retros_purpose** — cité dans 2 artefact(s)
 - **feedback_shell_no_unquoted_multipath** — cité dans 2 artefact(s)
-- **feedback_single_source_rule** — cité dans 3 artefact(s)
+- **feedback_single_source_rule** — cité dans 4 artefact(s)
 - **feedback_skill_authoring** — cité dans 4 artefact(s)
 - **feedback_source_over_memory** — cité dans 2 artefact(s)
 - **feedback_spa_fallback_literal** — cité dans 2 artefact(s)
@@ -131,10 +133,12 @@
 - **feedback_test_no_fixed_delay** — cité dans 2 artefact(s)
 - **feedback_tests** — cité dans 2 artefact(s)
 - **feedback_token_economy** — cité dans 3 artefact(s)
+- **feedback_twin_alignment_unproven** — cité dans 1 artefact(s)
 - **feedback_user_repeats_question** — cité dans 2 artefact(s)
 - **feedback_user_visibility** — cité dans 2 artefact(s)
+- **feedback_verdict_discards_its_evidence** — cité dans 1 artefact(s)
 - **feedback_writing_tone_audience** — cité dans 2 artefact(s)
-- **feedback_written_rule_needs_reread** — cité dans 1 artefact(s)
+- **feedback_written_rule_needs_reread** — cité dans 2 artefact(s)
 
 ## INERTE
 
