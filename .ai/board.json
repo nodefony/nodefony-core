@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T15:03:54.773Z",
+  "generatedAt": "2026-09-10T17:36:40.658Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -28,7 +28,7 @@
       "closed": 51,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 19,
+      "open": 20,
       "title": "10.0.0-alpha"
     },
     {
@@ -2897,6 +2897,20 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.998,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 332,
+      "title": "chore(deps): monter @types/node et @angular/build sur leur ligne",
+      "url": "https://github.com/nodefony/nodefony-core/issues/332",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.999,
       "labels": [
         "10.0.0-alpha"
       ]

@@ -76,6 +76,18 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   étranger empêchait de prouver quoi que ce soit d'AUTRE. Une étape neuve n'a pu être jouée qu'en la
   remontant en tête d'une copie du script.
 
+- **[1× — 09-10d] Un outil qui pose la MAUVAISE question rend un verdict juste et inutile.**
+  `npm outdated` et notre `deps:check` comparaient à `dist-tags.latest` — qui n'est pas « la
+  dernière version » mais ce que le mainteneur sert par défaut. `@types/node` publie par ligne de
+  TypeScript et laisse `latest` sur une ligne ANTÉRIEURE : le dépôt paraissait en avance tout en
+  accumulant du retard. La bonne question était _quelle est la plus haute version que ma PLAGE
+  accepte ?_. Corollaire : un rapport dont les chiffres semblent bizarres (« latest inférieur au
+  courant ») dit quelque chose sur l'OUTIL, pas seulement sur les données.
+- **[1× — 09-10d] Et j'ai déduit un symptôme au lieu de le mesurer.** J'ai transposé à Svelte le
+  double-runtime vécu pour React, sans vérifier : le plugin officiel Svelte pose déjà son
+  `resolve.dedupe`, le bundle est identique à l'octet près avec et sans notre ligne. Le mécanisme se
+  ressemblait ; la conclusion était fausse. Un défaut ANALOGUE n'est pas un défaut constaté.
+
 ## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
 
 > Le symptôme est l'inverse de [[feedback_capability_unreachable_is_absent]] : là-bas une capacité
@@ -102,6 +114,14 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   l'absence d'APPEL : aucun flux d'intégration, aucun crochet, et un code de sortie 0 quoi qu'il
   trouve. Le test avant de concevoir un contrôle : _quel script existant produit déjà ce verdict, et
   qui le lance ?_ Un gate ajouté à côté d'un gate aveugle en crée deux.
+
+- **[1× — 09-10d] RECULER n'est pas corriger — le user a dû me le dire.** Une majeure (`mermaid 12`)
+  introduisait deux failles « high » par une dépendance transitive épinglée ; j'ai redescendu la
+  majeure pour débloquer la forge. La vraie correction était deux crans plus bas : `lodash-es`
+  **avait déjà publié** la version corrigée, et un `overrides` suffisait. Le réflexe « annuler le
+  changement qui a rendu rouge » traite le symptôme et abandonne le gain. Le test : _la correction
+  existe-t-elle en AMONT, et puis-je l'atteindre ?_ — avec sa contrepartie, vérifier que la version
+  corrigée n'a pas RETIRÉ ce que le consommateur utilise (ici `template`/`unset`/`omit`, présents).
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
