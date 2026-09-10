@@ -26,6 +26,28 @@
 > est vert, et son RÉGIME de mesure lui interdit par construction de voir ce qu'il prétend garder.
 > La question à poser à tout gate vert : _qu'est-ce qu'il aurait vu si le défaut avait été là ?_
 
+- [4× — 09-10g] **Quatre fois dans la même séance, sur des instruments différents.** (1) Le gate
+  mémoire de `@nodefony/http` a rendu `NaN MB` sur ses huit mesures : il TAPE un serveur qu'il ne
+  démarre pas, et celui qui tournait n'avait pas `--expose-gc` — un rouge qui n'accusait rien, et
+  qui aurait pu être un vert si les seuils avaient comparé autrement. (2) `nginx -t` s'est arrêté
+  sur l'upstream ligne 10 : il n'avait jamais LU le bloc TLS que je croyais valider — un backend
+  résoluble a été nécessaire pour que le contrôle atteigne sa cible. (3) Le motif du test « tout
+  volume monté est déclaré » ne voyait que 6 espaces d'indentation, aveugle aux ancres YAML de
+  premier niveau que je venais d'introduire : il serait resté vert en ne regardant plus rien.
+  (4) Mon propre cas neuf, bâti sur l'attribut `Secure` du cookie, restait VERT avec `trustProxy`
+  RETIRÉ — `Secure` vaut `true` par défaut en configuration, il est donc posé même quand le
+  serveur se croit en clair. Réécrit sur le préfixe `__Host-`, qui se DÉRIVE du scheme constaté :
+  vert avec, rouge sans. Sans le réflexe « débrancher et regarder tomber », j'aurais livré un
+  test décoratif en croyant tenir le critère du ticket.
+
+- [1× — 09-10g] **Une clé ABSENTE d'un défaut rend sa surcharge silencieusement inopérante.**
+  `NF__APP__DOMAINCHECK=true` était accepté sans effet : les surcharges génériques n'écrivent que
+  sur des chemins DÉJÀ PRÉSENTS, et `domainCheck` n'était dans aucun défaut. La barrière `Host`
+  — soignée par ailleurs, testée, documentée — était donc inatteignable pour qui déploie par
+  variables d'environnement, c'est-à-dire derrière un frontal, là où elle sert. Le piège était
+  DÉJÀ écrit, en commentaire, à six lignes de là (`timing.enabled`) : il n'a pas mordu parce que
+  personne ne relit un commentaire au moment où il compte. → [[feedback_capability_unreachable_is_absent]]
+
 - [3× — 09-09f] **Trois fois dans la même séance.** (1) Le gate de format du code généré fabrique
   ses applications témoins AVEC installation — or `create app` formate ce qu'il produit juste
   après l'installation : ses quatre variantes ne pouvaient RIEN voir du rendu des gabarits, alors

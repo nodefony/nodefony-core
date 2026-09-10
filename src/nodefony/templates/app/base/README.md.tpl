@@ -98,7 +98,38 @@ docker compose --profile loki up -d       # + Loki + Grafana (logs centralisés)
 npm run infra:down                        # arrêt (les volumes survivent)
 ```
 
-Câblage côté app — une variable, tout le reste se dérive (`store: "auto"`) :
+<% if (it.complete) { %>### Éprouver la topologie de PRODUCTION — l'app derrière son frontal
+
+En production ton application vit derrière un proxy, et c'est lui qui décide de
+l'adresse cliente retenue, du protocole annoncé et du sort d'une WebSocket
+silencieuse. Le profil `edge` monte cette topologie en local — l'application en
+image, **sans aucun port publié**, et un frontal nginx devant :
+
+```bash
+npx nodefony http:certificates            # une fois — le certificat de développement
+docker compose --profile edge up -d --build
+curl -k https://localhost:8443/api/hello
+```
+
+La configuration du frontal n'est pas écrite : elle est **dérivée de ton
+application** à la construction de l'image (`nodefony proxy:generate nginx`),
+avec tes hôtes de confiance, tes fichiers statiques, ta taille de corps acceptée
+et le battement de tes WebSockets. Tu changes l'application, tu reconstruis : la
+configuration suit.
+
+Rejouer ta suite de bout en bout **à travers le proxy**, sans la modifier :
+
+```bash
+NF_E2E_BASE_URL=https://localhost:8443 \
+NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem \
+  npm run test:e2e
+```
+
+> Le certificat est **monté**, jamais gravé dans l'image : une clé privée dans
+> une image reste lisible par qui la télécharge, même effacée par une couche
+> suivante. En production, c'est ton hébergeur ou ton ingress qui le fournit.
+
+<% } %>Câblage côté app — une variable, tout le reste se dérive (`store: "auto"`) :
 
 ```bash
 NF_REDIS_URL="redis://:<%= it.appName %>-dev@127.0.0.1:6379"   # dans .env
