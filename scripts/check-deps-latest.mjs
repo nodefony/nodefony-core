@@ -59,11 +59,23 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import semver from "semver";
 import {
+  dedouble,
   reconcilie,
   plusHauteSatisfaisante,
 } from "./lib/reconcile-versions.mjs";
 
-const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+// 🔴 Deux points d'injection, et ils n'existent que pour une raison : SANS eux,
+// rien de ce contrôle ne se teste. Le script déduit sa racine de son propre
+// emplacement et parle au registre public en dur — donc on ne pouvait ni le
+// lâcher sur un dépôt fabriqué, ni le voir ÉCHOUER sur un cas construit. Une
+// garde qu'on n'a jamais vue mordre ne garde rien. Hors test, les deux valeurs
+// sont celles qu'elles ont toujours eues.
+const ROOT =
+  process.env.NF_DEPS_ROOT ??
+  path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
+const REGISTRY = (
+  process.env.NF_DEPS_REGISTRY ?? "https://registry.npmjs.org"
+).replace(/\/$/, "");
 const ARGS = new Set(process.argv.slice(2));
 const SHOW_ALL = ARGS.has("--all");
 const STRICT = ARGS.has("--strict") || SHOW_ALL;
@@ -78,6 +90,21 @@ const DEP_FIELDS = [
   "peerDependencies",
   "optionalDependencies",
 ];
+
+// `overrides` n'est pas une déclaration comme les autres — il IMPOSE une version
+// à tout l'arbre. npm refuse d'installer (`EOVERRIDE`) quand il contredit une
+// dépendance directe du même manifeste : c'est une panne d'installation que le
+// contrôle ne voyait pas, faute de lire ce champ. Seules les valeurs chaîne sont
+// des versions ; la forme imbriquée (`{ "@x/y": { "z": "1" } }`) cible les
+// dépendances d'un tiers et sort du périmètre des déclarations possédées.
+function overridesDeLaRacine(json) {
+  const out = [];
+  for (const [name, val] of Object.entries(json.overrides ?? {})) {
+    if (typeof val !== "string" || val.startsWith("$")) continue;
+    out.push([name, val]);
+  }
+  return out;
+}
 
 /** Un spécificateur qu'on ne sait pas comparer à une version publiée. */
 const isLocal = (spec) =>
@@ -125,7 +152,10 @@ function rangeAccepts(spec, to) {
   const [ba, bb] = base.split("-")[0].split(".").map(Number);
   const [ta, tb] = to.split("-")[0].split(".").map(Number);
   if (s.startsWith("^")) {
-    // ^0.x.y verrouille la mineure (règle semver des versions 0).
+    // ^0.x.y verrouille la mineure, et ^0.0.z le PATCH : en série 0, semver
+    // tient chaque cran pour cassant, d'autant plus bas qu'on approche de zéro.
+    // `^0.0.3` n'accepte donc que `0.0.3` — pas `0.0.9`.
+    if (ba === 0 && bb === 0) return cmp(to, base) === 0;
     if (ba === 0) return ta === 0 && tb === bb;
     return ta === ba;
   }
@@ -145,15 +175,30 @@ const manifests = execFileSync("git", ["ls-files", "*package.json"], {
 /** pkg → { specs: Map<spec, sites[]> } */
 const wanted = new Map();
 
+/** Manifestes que le contrôle n'a PAS pu lire — comptés, jamais tus. */
+const illisibles = [];
+
+// Un gabarit de scaffold porte des jetons d'interpolation à la place des
+// valeurs : il n'est pas du JSON, et c'est normal. Tout autre manifeste
+// illisible est un trou dans le périmètre — le taire laisserait ses
+// déclarations hors du contrôle pendant que la garde reste verte.
+const estGabarit = (rel) =>
+  rel.includes("/templates/") || rel.includes("/scaffold/");
+
 for (const rel of manifests) {
   let json;
   try {
     json = JSON.parse(fs.readFileSync(path.join(ROOT, rel), "utf8"));
   } catch {
-    continue; // un gabarit de scaffold peut porter des jetons non-JSON
+    if (!estGabarit(rel)) illisibles.push(rel);
+    continue;
   }
-  for (const field of DEP_FIELDS) {
-    for (const [name, spec] of Object.entries(json[field] ?? {})) {
+  const champs = DEP_FIELDS.map((f) => [f, Object.entries(json[f] ?? {})]);
+  if (rel === "package.json") {
+    champs.push(["overrides", overridesDeLaRacine(json)]);
+  }
+  for (const [field, paires] of champs) {
+    for (const [name, spec] of paires) {
       if (typeof spec !== "string") continue;
       if (IGNORED.has(name) || isLocal(spec) || isOpen(spec)) continue;
       if (!wanted.has(name)) wanted.set(name, new Map());
@@ -182,15 +227,30 @@ const CATALOGUE_SCAFFOLD = "src/nodefony/src/cli/scaffold/versions.ts";
 try {
   const src = fs.readFileSync(path.join(ROOT, CATALOGUE_SCAFFOLD), "utf8");
   const corps = src.slice(src.indexOf("SCAFFOLD_VERSIONS"));
+  let entreesCatalogue = 0;
+  // Le nom ne peut pas COMMENCER par `/`, sinon `//paquet: "^9"` — une entrée
+  // mise en commentaire — est récoltée comme un paquet nommé `//paquet`. Et la
+  // ligne peut finir par un commentaire : l'exiger nue faisait DISPARAÎTRE
+  // l'entrée, sans un mot, du contrôle des versions d'une application générée.
   for (const m of corps.matchAll(
-    /^\s+"?([@a-zA-Z0-9/._-]+)"?:\s*"([^"]+)",?\s*$/gm,
+    /^\s+"?(@?[a-zA-Z0-9][@a-zA-Z0-9/._-]*)"?:\s*"([^"]+)",?\s*(?:\/\/.*)?$/gm,
   )) {
     const [, name, spec] = m;
+    entreesCatalogue++;
     if (IGNORED.has(name) || isLocal(spec) || isOpen(spec)) continue;
     if (!wanted.has(name)) wanted.set(name, new Map());
     const specs = wanted.get(name);
     if (!specs.has(spec)) specs.set(spec, []);
     specs.get(spec).push(`${CATALOGUE_SCAFFOLD}#SCAFFOLD_VERSIONS`);
+  }
+  // Un catalogue présent mais dont RIEN n'est ressorti est le même trou que le
+  // catalogue absent, en plus silencieux : le fichier existe, la lecture réussit,
+  // et le contrôle ne voit aucune version d'application générée.
+  if (entreesCatalogue === 0) {
+    process.stderr.write(
+      `⚠️  catalogue du scaffold ILLISIBLE (${CATALOGUE_SCAFFOLD}) — 0 entrée ` +
+        `reconnue : les versions d'une application GÉNÉRÉE ne sont pas contrôlées.\n`,
+    );
   }
 } catch {
   // Le catalogue déplacé ou renommé ne fait pas tomber le rapport — mais il ne
@@ -206,7 +266,7 @@ try {
 // plusieurs fois (copies imbriquées, conflits de plages) — on les garde TOUTES,
 // une seule copie en retard suffit à faire mentir « c'est à jour ».
 
-/** pkg → { hoisted: version|null, all: Set<version> } */
+/** pkg → { hoisted: version|null, all: Set<version>, owned: Set<version> } */
 const installed = new Map();
 try {
   const lock = JSON.parse(
@@ -217,9 +277,15 @@ try {
     if (entry.link) continue; // lien vers un workspace : version locale
     const name = where.slice(where.lastIndexOf("node_modules/") + 13);
     if (!installed.has(name))
-      installed.set(name, { hoisted: null, all: new Set() });
+      installed.set(name, { hoisted: null, all: new Set(), owned: new Set() });
     const rec = installed.get(name);
     rec.all.add(entry.version);
+    // POSSÉDÉ = installé à un emplacement du dépôt : la racine, ou le
+    // `node_modules` d'un workspace. Un seul segment `node_modules/` dans le
+    // chemin le dit. Deux segments ou plus, la copie est rangée SOUS un paquet
+    // tiers : elle lui appartient, et nous l'imputer ferait accuser le dépôt du
+    // dédoublement d'autrui.
+    if (where.split("node_modules/").length === 2) rec.owned.add(entry.version);
     // La copie REMONTÉE en tête d'arbre est celle que résout un `import` du
     // dépôt ; les copies imbriquées appartiennent à d'autres dépendances et
     // les confondre fait accuser un paquet du retard d'un tiers.
@@ -276,7 +342,7 @@ async function fetchOne(name) {
   // `replaceAll` et non `replace` : ce dernier ne remplace que la PREMIERE
   // occurrence. Un nom scopé n'en porte qu'une, mais un encodage partiel
   // reste un encodage faux — et rien ne le dirait.
-  const url = `https://registry.npmjs.org/${name.replaceAll("/", "%2F")}`;
+  const url = `${REGISTRY}/${name.replaceAll("/", "%2F")}`;
   try {
     const res = await fetch(url, {
       headers: { accept: "application/vnd.npm.install-v1+json" },
@@ -320,10 +386,17 @@ for (const name of names) {
   for (const [spec, sites] of wanted.get(name)) {
     const base = baseVersion(spec);
     if (!base) {
+      // Une plage complexe (`>=18`, `8 || 9`) ne se compare à aucune version :
+      // la pousser à chaque passage ajoute des lignes « ? » PERMANENTES au
+      // compte d'« écarts à décider », alors qu'il n'y a rien à décider. Du
+      // bruit dans un rapport, c'est ce qui apprend à ne plus le lire.
+      if (!SHOW_ALL) continue;
       rows.push({
         name,
         spec,
         latest: cur,
+        target: cur,
+        enLigne: null,
         lock: resolvedInstall(name) ?? "—",
         kind: "?",
         mode: "COMPLEX",
@@ -374,7 +447,15 @@ for (const name of names) {
     rows.push({
       name,
       spec,
-      latest: retardEnLigne ? `${cur} (ligne ${enLigne})` : cur,
+      latest: cur,
+      // 🔴 La version VISÉE, toujours nue : c'est elle qui part en comparaison
+      // semver (§3bis). L'écriture précédente composait ICI la chaîne
+      // d'affichage `22.20.2 (ligne 26.5.1)` — que `semver.satisfies` ne sait
+      // pas lire, donc qui rendait toujours faux, donc qui accusait TOUT pair
+      // installé de bloquer la montée. Un champ qui sert au calcul ne porte
+      // jamais de mise en forme.
+      target: retardEnLigne ? enLigne : cur,
+      enLigne: retardEnLigne ? enLigne : null,
       lock: lock ?? "—",
       kind: retardEnLigne
         ? bumpKind(auVerrou, enLigne)
@@ -395,15 +476,14 @@ rows.sort(
   (a, b) => ORDER[a.kind] - ORDER[b.kind] || a.name.localeCompare(b.name),
 );
 
-if (AS_JSON) {
-  process.stdout.write(
-    `${JSON.stringify({ rows, failed, scanned: names.length }, null, 2)}\n`,
-  );
-  process.exit(0);
-}
-
 const behindRows = rows.filter((r) => r.mode !== "OK");
-if (behindRows.length === 0) {
+// 🔴 La sortie lisible se tait sous `--json`, mais le script ne SORT PAS ici :
+// l'écriture précédente imprimait le JSON puis `process.exit(0)` AVANT le calcul
+// du verdict — `--json --gate` rendait donc 0 sur un lot inconciliable, et le
+// document ne portait même pas de quoi s'en apercevoir.
+if (AS_JSON) {
+  // rien à afficher : le document final porte tout
+} else if (behindRows.length === 0) {
   process.stdout.write("Tous les pins sont à jour.\n");
 } else {
   const w = (s, n) => String(s).padEnd(n);
@@ -413,8 +493,9 @@ if (behindRows.length === 0) {
   process.stdout.write(`${"─".repeat(118)}\n`);
   for (const r of behindRows) {
     const sites = r.sites.length === 1 ? r.sites[0] : `${r.sites.length} sites`;
+    const vue = r.enLigne ? `${r.latest} (ligne ${r.enLigne})` : r.latest;
     process.stdout.write(
-      `${w(r.kind, 6)}${w(r.mode, 8)}${w(r.name, 38)}${w(r.spec, 14)}${w(r.lock, 14)}${w(r.latest, 14)}${sites}\n`,
+      `${w(r.kind, 6)}${w(r.mode, 8)}${w(r.name, 38)}${w(r.spec, 14)}${w(r.lock, 14)}${w(vue, 14)}${sites}\n`,
     );
   }
   const by = (k) => behindRows.filter((r) => r.kind === k).length;
@@ -476,7 +557,7 @@ if (majeurs.length) {
         for (const cible of cibles) {
           const plage = peers[cible];
           if (!plage) continue;
-          const visee = majeurs.find((r) => r.name === cible)?.latest;
+          const visee = majeurs.find((r) => r.name === cible)?.target;
           if (!visee || semver.satisfies(visee, plage)) continue;
           if (!blocages.has(cible)) blocages.set(cible, []);
           blocages.get(cible).push({
@@ -488,17 +569,21 @@ if (majeurs.length) {
     }
   }
 }
-for (const r of majeurs) {
+// Un paquet déclaré par plusieurs spécificateurs porte plusieurs lignes
+// majeures : sans ce dédoublonnage, le bloc d'explication sortait une fois PAR
+// LIGNE — constaté sur le rapport réel, `typescript` annoncé deux fois.
+const majeursUniques = [...new Map(majeurs.map((r) => [r.name, r])).values()];
+for (const r of AS_JSON ? [] : majeursUniques) {
   const qui = blocages.get(r.name);
   if (!qui || qui.length === 0) {
     process.stdout.write(
-      `\n✅ ${r.name} ${r.latest} : AUCUN pair installé ne s'y oppose — la montée majeure est jouable.\n`,
+      `\n✅ ${r.name} ${r.target} : AUCUN pair installé ne s'y oppose — la montée majeure est jouable.\n`,
     );
     continue;
   }
   const uniques = [...new Map(qui.map((q) => [q.par, q])).values()];
   process.stdout.write(
-    `\n⛔ ${r.name} ${r.latest} est BLOQUÉ EN AMONT — \`npm ci\` échouerait avant tout test :\n`,
+    `\n⛔ ${r.name} ${r.target} est BLOQUÉ EN AMONT — \`npm ci\` échouerait avant tout test :\n`,
   );
   for (const q of uniques.slice(0, 8)) {
     process.stdout.write(`     ${q.par} exige ${r.name} ${q.plage}\n`);
@@ -545,6 +630,11 @@ function candidatsPour(entries, name) {
   const candidats = new Set(installed.get(name)?.all ?? []);
   const publiee = latest.get(name);
   if (publiee) candidats.add(publiee);
+  // Le CATALOGUE publié, pas seulement le tag `latest` : deux plages qui se
+  // croisent sur une version que ni le verrou ni `latest` ne portent étaient
+  // déclarées inconciliables à tort — la version existe, elle n'était juste pas
+  // dans la poignée de candidates qu'on essayait.
+  for (const v of published.get(name) ?? []) candidats.add(v);
   for (const e of entries) {
     const base = baseVersion(e.spec);
     if (base) candidats.add(base);
@@ -571,15 +661,24 @@ for (const [name, specs] of wanted) {
     entries.map((e) => e.spec),
     candidatsPour(entries, name),
   );
+  // Conciliable ne veut pas dire UNIFIÉ : npm ne redescend pas une copie déjà
+  // posée (sauf arête de pair), donc une spécification exacte dominée par une
+  // plage plus haute donne DEUX exemplaires — que `reconcilie` juge conciliables
+  // en toute bonne foi. Le verrou le dit sans réseau ni installation.
+  const estDedouble = dedouble(
+    installed.get(name)?.owned ?? [],
+    owned.map((e) => e.spec),
+  );
   let severity = null;
   if (!conciliable) severity = "INCONCILIABLE";
+  else if (estDedouble) severity = "DÉDOUBLÉ";
   else if (exactPeer.length) severity = "PEER-EXACT";
   else if (ownedSpecs.size > 1) severity = "DIVERGENT";
   else if (STRICT) severity = "peer/dev";
   if (severity) divergent.push({ name, severity, entries });
 }
 
-if (divergent.length) {
+if (divergent.length && !AS_JSON) {
   const bad = divergent.filter((d) => d.severity !== "peer/dev");
   process.stdout.write(
     `\n${bad.length ? "⚠️  " : ""}${divergent.length} paquet(s) déclaré(s) de plusieurs façons :\n`,
@@ -596,6 +695,14 @@ if (divergent.length) {
     process.stdout.write(
       "\n  PEER-EXACT : un peerDependency exprime un PLANCHER (`>=x.y.z`).\n" +
         "  Figé à une version, il casse l'installation dès qu'un autre site monte.\n",
+    );
+  }
+  if (bad.some((d) => d.severity === "DÉDOUBLÉ")) {
+    process.stdout.write(
+      "\n  DÉDOUBLÉ : le verrou porte DÉJÀ plusieurs exemplaires de ce paquet aux\n" +
+        "  emplacements du dépôt. Une version exacte dominée par une plage plus haute\n" +
+        "  suffit : npm ne redescend pas une copie déjà posée (sauf arête de pair), il\n" +
+        "  l'imbrique. Conciliable sur le papier n'est donc pas unifié dans l'arbre.\n",
     );
   }
   if (bad.some((d) => d.severity === "INCONCILIABLE")) {
@@ -619,6 +726,19 @@ if (failed.length) {
   );
 }
 
+// Le document lisible par une machine porte MAINTENANT le verdict : `divergent`
+// est ce qui décide de l'échec sous `--gate`, l'omettre obligeait son lecteur à
+// rejouer le rapport pour savoir s'il devait s'inquiéter.
+if (AS_JSON) {
+  process.stdout.write(
+    `${JSON.stringify(
+      { rows, divergent, illisibles, failed, scanned: names.length },
+      null,
+      2,
+    )}\n`,
+  );
+}
+
 // ── 5. Le VERDICT — sous `--gate` seulement ─────────────────────────────────
 //
 // 🔴 Pourquoi un drapeau plutôt qu'un échec par défaut : ce script est d'abord
@@ -631,6 +751,9 @@ if (failed.length) {
 // Ce qui fait ÉCHOUER se limite à ce qui casse un arbre d'installation, jamais
 // à ce qui est seulement inélégant :
 //  - INCONCILIABLE : npm installera plusieurs exemplaires.
+//  - DÉDOUBLÉ      : il en installe DÉJÀ plusieurs, aux emplacements du dépôt —
+//                    conciliable sur le papier ne veut pas dire unifié dans
+//                    l'arbre : npm ne redescend pas une copie déjà posée.
 //  - PEER-EXACT    : un peer figé fait échouer l'installation d'un tiers.
 // Une divergence CONCILIABLE ne fait rien échouer : npm dédoublonne, et crier
 // dessus rendrait le contrôle assez bruyant pour être désarmé.
@@ -645,9 +768,22 @@ if (failed.length) {
 // contrôle est de le rendre capricieux.
 if (ARGS.has("--gate")) {
   const fatals = divergent.filter(
-    (d) => d.severity === "INCONCILIABLE" || d.severity === "PEER-EXACT",
+    (d) =>
+      d.severity === "INCONCILIABLE" ||
+      d.severity === "DÉDOUBLÉ" ||
+      d.severity === "PEER-EXACT",
   );
-  if (failed.length) {
+  // Un manifeste que le contrôle n'a pas su lire n'est pas un détail : ses
+  // déclarations sont absentes du verdict, qui porte alors sur un périmètre
+  // amputé. `npm ci` échouerait de toute façon dessus — autant le dire ici.
+  if (illisibles.length) {
+    process.stderr.write(
+      `\n❌ garde des dépendances : ${illisibles.length} manifeste(s) illisible(s)` +
+        ` — périmètre amputé\n   ${illisibles.join("\n   ")}\n`,
+    );
+    process.exit(1);
+  }
+  if (failed.length && !AS_JSON) {
     process.stdout.write(
       `\n  ${failed.length} paquet(s) non résolus par le registre — le verdict tient` +
         ` sur le verrou, il en est seulement plus strict.\n`,
@@ -660,7 +796,9 @@ if (ARGS.has("--gate")) {
     );
     process.exit(1);
   }
-  process.stdout.write(
-    `\n✅ garde des dépendances : ${wanted.size} paquets, aucune déclaration inconciliable.\n`,
-  );
+  if (!AS_JSON) {
+    process.stdout.write(
+      `\n✅ garde des dépendances : ${wanted.size} paquets, aucune déclaration inconciliable.\n`,
+    );
+  }
 }

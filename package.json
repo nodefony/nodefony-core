@@ -62,7 +62,7 @@
     "test:all": "tsx scripts/test-all.ts",
     "test:boot": "turbo run build && turbo run test:boot --continue",
     "test:externals": "vitest run scripts/check-externals.test.mjs",
-    "test:deps-gate": "vitest run scripts/reconcile-versions.test.mjs",
+    "test:deps-gate": "vitest run scripts/reconcile-versions.test.mjs scripts/deps-gate.test.mjs",
     "test:integration": "turbo run build && turbo run test:integration --continue",
     "test:load": "turbo run build && turbo run test:load",
     "test:memory": "turbo run build && turbo run test:memory",

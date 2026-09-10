@@ -51,10 +51,23 @@ describe("reconcilie — une seule version peut-elle satisfaire tout le monde ?"
     );
   });
 
-  it("PIÈGE — sans candidate, on ne conclut à RIEN", () => {
+  it("PIÈGE — sans candidate, on ne conclut à rien SAUF si les plages sont disjointes", () => {
     // Un paquet privé que le registre ne résout pas et qui n'est pas au verrou :
     // accuser sans preuve ferait échouer la forge sur un incident de réseau.
-    expect(reconcilie(["^3.0.0", "^4.0.0"], [])).toBe(true);
+    expect(reconcilie(["^4.0.0", ">=4.1.0"], [])).toBe(true);
+
+    // 🔴 Mais l'abstention avait un bord dangereux, et c'était le seul endroit où
+    // la garde pouvait devenir plus CLÉMENTE hors ligne : `^3.0.0` et `^4.0.0`
+    // n'ont aucune intersection, et cela se démontre SANS connaître une seule
+    // version publiée. Rendre `true` ici, c'était laisser passer une disjonction
+    // certaine au motif que le réseau n'avait rien dit — avec le registre, la
+    // même paire tombait à `false`. Un verdict ne doit pas dépendre du réseau
+    // dans le sens qui absout.
+    expect(reconcilie(["^3.0.0", "^4.0.0"], [])).toBe(false);
+
+    // La borne : une plage qui porte une préversion est laissée à l'écart du
+    // test d'intersection, que `semver.intersects` rend faux dans les deux sens.
+    expect(reconcilie(["^1.0.0-alpha.1", "1.0.0-alpha.3"], [])).toBe(true);
   });
 
   it("une seule spécification ne peut pas diverger d'elle-même", () => {

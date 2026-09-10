@@ -44,9 +44,58 @@ import semver from "semver";
 export function reconcilie(specs, candidats) {
   const plages = [...specs].filter((s) => semver.validRange(s) !== null);
   if (plages.length < 2) return true;
+  // 🔴 La disjonction se PROUVE sans réseau, et il faut la prouver là : sinon un
+  // paquet absent du verrou et déclaré par deux plages complexes (`>=1 <2` et
+  // `>=2 <3`) n'a AUCUNE candidate, « aucune candidate » vaut conciliable, et la
+  // garde devient plus CLÉMENTE quand le registre se tait — exactement l'inverse
+  // de ce qu'elle promet. Deux plages sans intersection ne se concilient jamais,
+  // quelles que soient les versions publiées.
+  //
+  // Bornée aux plages SANS préversion : `semver.intersects` se trompe dans les
+  // deux sens dès qu'un `-` apparaît (`^1.0.0-alpha.1` et `1.0.0-alpha.3` sont
+  // rendus disjoints alors qu'ils se concilient), et un contrôle qui crie sur du
+  // sain finit désarmé.
+  const sansPre = plages.filter((p) => !p.includes("-"));
+  for (let i = 0; i < sansPre.length; i++) {
+    for (let j = i + 1; j < sansPre.length; j++) {
+      if (!semver.intersects(sansPre[i], sansPre[j])) return false;
+    }
+  }
   const versions = [...candidats].filter((v) => semver.valid(v));
   if (versions.length === 0) return true;
   return versions.some((v) => plages.every((p) => semver.satisfies(v, p)));
+}
+
+/**
+ * Dit si le dépôt recevra PLUSIEURS exemplaires d'un paquet, en ne regardant que
+ * ce qu'il possède.
+ *
+ * 🔴 Pourquoi cette question s'ajoute à `reconcilie` : npm ne cherche pas « la
+ * version qui satisfait tout le monde ». Il ne remplace une copie déjà posée que
+ * par une version SUPÉRIEURE ou égale ; redescendre n'est autorisé que pour les
+ * arêtes de pair. Une spécification EXACTE dominée par une plage plus haute ne
+ * produit donc pas un conflit — elle produit une copie IMBRIQUÉE, et
+ * `reconcilie` la déclare conciliable en toute bonne foi : la version exacte
+ * satisfait bien les deux, elle n'est simplement pas celle que npm posera.
+ *
+ * Le verrou tranche sans réseau et sans installation : si plusieurs versions
+ * coexistent aux emplacements que le dépôt POSSÈDE, l'arbre est déjà dédoublé.
+ * Les copies rangées sous un paquet tiers ne comptent pas — elles appartiennent
+ * à ce tiers, pas à nous.
+ *
+ * @param versionsPossedees - versions du paquet aux emplacements du dépôt.
+ * @param specsPossedees - spécifications déclarées par le dépôt (hors pair).
+ * @returns `true` si l'arbre est, ou sera, dédoublé.
+ */
+export function dedouble(versionsPossedees, specsPossedees) {
+  const versions = [...versionsPossedees].filter((v) => semver.valid(v));
+  if (versions.length > 1) return true;
+  if (versions.length === 0) return false;
+  const plages = [...specsPossedees].filter(
+    (s) => semver.validRange(s) !== null,
+  );
+  if (plages.length < 2) return false;
+  return !plages.every((p) => semver.satisfies(versions[0], p));
 }
 
 /**
