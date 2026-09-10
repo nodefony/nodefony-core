@@ -108,6 +108,15 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
 
 ## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
 
+- [1× — 09-10] **Retirer un mécanisme oblige à corriger ce qui le PRESCRIT et ce qui le
+  DÉCRIT — et ni l'un ni l'autre ne vit dans son fichier.** Le `prepack` de `@nodefony/studio`
+  était rattaché au reste par deux liens qu'aucun `grep package.json` ne visite : un message du
+  préflight de release qui annonçait « s'exécutera PENDANT le pack » (faux depuis que le pack
+  passe `--ignore-scripts`, donc un message exact-mais-périmé qui envoie chercher là où il n'y a
+  rien), et un gabarit de skill qui le PRESCRIVAIT « en filet ». Le contrôle qui les trouve n'est
+  pas de chercher le nom du mécanisme dans le code, c'est de le chercher dans la PROSE exécutable
+  et dans les gabarits — là où il est recommandé, pas là où il est déclaré.
+
 - [1× — 09-09] **J'allais extraire un bloc de config et casser le générateur EN SILENCE ; c'est une
   question du user qui m'a arrêté, pas ma lecture du ticket.** #285 portait « Dépend de : rien », et
   j'ai pris ça pour un feu vert. La dépendance était pourtant écrite à DEUX endroits que je n'avais

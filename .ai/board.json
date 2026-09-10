@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T07:37:01.752Z",
+  "generatedAt": "2026-09-10T08:31:54.260Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -530,7 +530,7 @@
       "title": "chore(release): publier la beta depuis la forge, pas à la main",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -3112,7 +3112,7 @@
       "title": "chore(pilotage): confronter au code les cases de la feuille de route",
       "url": "https://github.com/nodefony/nodefony-core/issues/80",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -3350,7 +3350,7 @@
       "title": "test(bancs): rendre chaque banc indépendant du décor partagé",
       "url": "https://github.com/nodefony/nodefony-core/issues/63",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1.5,
