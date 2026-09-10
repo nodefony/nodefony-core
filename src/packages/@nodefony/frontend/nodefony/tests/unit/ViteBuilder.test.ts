@@ -57,12 +57,16 @@ describe("ViteBuilder — resolve.dedupe (un seul runtime par framework)", () =>
     expect(cfg.resolve).to.deep.equal({ dedupe: ["react", "react-dom"] });
   });
 
-  // 🔴 Svelte manquait ICI et nulle part ailleurs : la liste du DÉVELOPPEMENT
+  // Svelte manquait ICI et nulle part ailleurs : la liste du DÉVELOPPEMENT
   // (`ViteConfigGenerator`) le portait, celle du build de PRODUCTION non — deux
-  // copies qui se déclarent « la MÊME règle » et qui avaient divergé. Le symptôme
-  // est le même que celui décrit pour React : deux runtimes dans le bundle, et un
-  // état réactif scindé en deux mondes qui ne se voient pas. Invisible en
-  // développement, où le prébundle unifie.
+  // copies qui se déclarent « la MÊME règle » et qui avaient divergé.
+  //
+  // ⚠️ Ce que ce cas garde n'est PAS un double runtime Svelte : mesuré sur une
+  // application générée en `--link`, avec deux `node_modules/svelte` réellement
+  // présents, le bundle est identique à l'octet près avec et sans cette ligne.
+  // `@sveltejs/vite-plugin-svelte` pose son propre `resolve.dedupe`. Ce qui est
+  // gardé, c'est la SYMÉTRIE des deux listes et notre indépendance vis-à-vis
+  // d'un détail de plugin tiers — pas un défaut observable aujourd'hui.
   it("svelte5 : dedupe svelte (le dev le faisait, le build de prod l'oubliait)", async () => {
     const cfg = await builder.buildViteConfig(
       [{ ...entry, type: "svelte5", entryFile: "src/main.ts" }],

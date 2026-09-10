@@ -89,6 +89,20 @@ export class ViteBuilder implements IFrontBuilder {
     // (« Cannot read properties of null (reading 'useContext') » au mount —
     // vécu ; le dev ne le voyait pas : le prébundle unifie). `resolve.dedupe`
     // force une seule résolution, celle du root Vite.
+    //
+    // Ce que chaque préréglage doit VRAIMENT à cette liste, mesuré dans les
+    // plugins installés — parce que la moitié d'entre eux le font déjà :
+    //   • react   : `@vitejs/plugin-react` ne pose AUCUN dedupe → notre ligne
+    //     est la seule protection, et c'est bien celle dont l'absence a été
+    //     vécue en production ;
+    //   • angular : `@analogjs/vite-plugin-angular` non plus ;
+    //   • vue     : `@vitejs/plugin-vue` pose `resolve: { dedupe: ["vue"] }` ;
+    //   • svelte  : `@sveltejs/vite-plugin-svelte` pose `SVELTE_DEDUPED_IMPORTS`,
+    //     qui couvre `svelte` ET ses sous-chemins.
+    // Les deux derniers sont donc une DÉFENSE EN PROFONDEUR, pas un correctif :
+    // ils gardent cette liste symétrique de celle du développement, et nous
+    // rendent indépendants d'un détail d'implémentation de plugin tiers qui
+    // peut disparaître à une majeure sans que personne ne le remarque.
     const dedupe: string[] = [];
     if (usedPresets.has("react19")) dedupe.push("react", "react-dom");
     if (usedPresets.has("vue3")) dedupe.push("vue");
