@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T19:33:46.054Z",
+  "generatedAt": "2026-09-10T20:42:06.826Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 52,
+      "closed": 54,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 19,
+      "open": 17,
       "title": "10.0.0-alpha"
     },
     {
@@ -2804,7 +2804,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 9.5,
+      "jours": 8.5,
       "ordre": 9.91,
       "labels": [
         "10.0.0-alpha"
@@ -2815,7 +2815,7 @@
       "title": "test(release): refuser une image qui embarque une clé privée",
       "url": "https://github.com/nodefony/nodefony-core/issues/317",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2828,8 +2828,8 @@
       "number": 318,
       "title": "fix(docker): réparer droits, persistance et reproductibilité",
       "url": "https://github.com/nodefony/nodefony-core/issues/318",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2940,8 +2940,8 @@
       "number": 329,
       "title": "fix(devkit-bench): le décor lié fabrique deux exemplaires d'une dépendance de pair",
       "url": "https://github.com/nodefony/nodefony-core/issues/329",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

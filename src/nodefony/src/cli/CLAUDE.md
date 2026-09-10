@@ -750,10 +750,14 @@ question posée si checkout ; API/flags : `--link`).
 **L'image de container naît avec l'app** (`base/`, donc les DEUX presets — la doctrine
 cloud-native n'est pas une option de la vitrine). Ce que ces lignes tiennent ne produit
 aucune erreur quand il disparaît : **forme EXEC** du `CMD` (sinon `/bin/sh` est PID 1, ne
-transmet pas le SIGTERM, et chaque déploiement tue les requêtes en vol), `USER node`,
-sonde sur `/readyz`, et un `.dockerignore` qui écarte `*.local` — un secret entré dans une
-couche y reste, même effacé par la suivante. Un test de FORME les contrôle en ligne entière
-(un `include` se serait contenté de `**/*.local` pour prouver `*.local`).
+transmet pas le SIGTERM, et chaque déploiement tue les requêtes en vol), `USER 1000:1000`
+(NUMÉRIQUE : le kubelet refuse `runAsNonRoot: true` sur un simple nom d'utilisateur), le
+`mkdir` propriétaire de `tmp/` et `var/` — sans lui un volume nommé naît `root:root` et le
+boot meurt en `EACCES` —, `npm ci` quand un verrou est là (reproductibilité), le code laissé
+à `root` pour que l'application ne réécrive pas son propre `dist/`, la sonde sur `/readyz`,
+et un `.dockerignore` qui écarte `*.local` et la matière cryptographique — un secret entré
+dans une couche y reste, même effacé par la suivante. Un test de FORME les contrôle en ligne
+entière (un `include` se serait contenté de `**/*.local` pour prouver `*.local`).
 
 ⚠️ **Le `COPY . ./` précède l'installation**, contre le patron canonique du monde Node. Une
 dépendance ici peut être LOCALE — workspaces `modules/*`, archive `file:` avant publication —
