@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3981,
+    "symbols": 3983,
     "classes": 388,
-    "interfaces": 1078,
+    "interfaces": 1079,
     "types": 447,
     "enums": 4,
-    "functions": 1671,
+    "functions": 1672,
     "constants": 393
   },
   "symbols": {
@@ -23668,6 +23668,15 @@
       "extends": null,
       "description": "Générateurs de configuration reverse-proxy (nginx / haproxy) DÉRIVÉE de l'introspection Nodefony — fonctions PURES (aucun accès kernel/fs), testables et sérialisables. Le câblage (lecture des servi…"
     },
+    "ProxyTlsTermination": {
+      "name": "ProxyTlsTermination",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/proxy/generateProxyConfig.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Terminaison TLS au frontal — **nginx uniquement**. Les chemins sont ceux vus par le PROXY à l'exécution, jamais ceux de la machine qui a généré la configuration : une clé privée n'entre pas dans un…"
+    },
     "ProxyIntrospection": {
       "name": "ProxyIntrospection",
       "kind": "interface",
@@ -34721,7 +34730,8 @@
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "planAssetPublish": [
-        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts"
+        "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts",
+        "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts"
       ],
       "AssetSource": [
         "src/packages/@nodefony/http/nodefony/command/assetsPublishCommand.ts"

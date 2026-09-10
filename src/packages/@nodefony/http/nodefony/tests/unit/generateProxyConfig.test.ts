@@ -90,6 +90,84 @@ describe("generateProxyConfig — nginx", () => {
       "proxy_set_header X-Forwarded-For   $remote_addr;",
     );
   });
+
+  it("sans terminaison TLS : une seule écoute, aucun certificat", () => {
+    const c = generateNginxConfig(intro({ tls: null }));
+    expect(c).to.not.include("ssl_certificate");
+    expect(c).to.not.include("listen 443 ssl;");
+    expect(c.match(/^  server \{$/gm)?.length).to.equal(1);
+  });
+
+  it("terminaison TLS : un SECOND vhost, http2, et les chemins du proxy", () => {
+    const c = generateNginxConfig(
+      intro({
+        listen: 8080,
+        tls: {
+          certPath: "/etc/nginx/certs/fullchain.pem",
+          keyPath: "/etc/nginx/certs/privkey.pem",
+          listen: 8443,
+        },
+      }),
+    );
+    expect(c).to.include("listen 8080;");
+    expect(c).to.include("listen 8443 ssl;");
+    expect(c).to.include("http2 on;");
+    expect(c).to.include("ssl_certificate     /etc/nginx/certs/fullchain.pem;");
+    expect(c).to.include("ssl_certificate_key /etc/nginx/certs/privkey.pem;");
+    expect(c).to.include("ssl_protocols TLSv1.2 TLSv1.3;");
+    // Deux vhosts, un seul `http {}` : la limite de corps et l'upstream restent
+    // déclarés UNE fois, sinon nginx refuse de démarrer sur un doublon.
+    expect(c.match(/^  server \{$/gm)?.length).to.equal(2);
+    expect(c.match(/upstream nodefony/g)?.length).to.equal(1);
+  });
+
+  it("le vhost TLS sert EXACTEMENT le même corps que celui en clair", () => {
+    // Ce qui tient le cookie `Secure` derrière le frontal, c'est `$scheme` — que
+    // nginx CONSTATE sur la connexion entrante. Un corps qui divergerait entre
+    // les deux écoutes ferait mentir l'une des deux sans qu'aucun test ne le voie.
+    const c = generateNginxConfig(
+      intro({
+        listen: 8080,
+        staticRoots: ["/srv/assets"],
+        mounts: [{ prefix: "/_assets/app/", dir: "/srv/assets/_assets/app" }],
+        tls: {
+          certPath: "/etc/nginx/certs/fullchain.pem",
+          keyPath: "/etc/nginx/certs/privkey.pem",
+          listen: 8443,
+        },
+      }),
+    );
+    const blocks = c.split(/^  server \{$/m).slice(1);
+    expect(blocks.length).to.equal(2);
+    // Borné à la fermeture du `server` : le DERNIER bloc emporte sinon celle du
+    // `http {}` englobant, et la comparaison échouerait sur une accolade.
+    const body = (b: string) => {
+      const rows = b.split("\n");
+      const start = rows.findIndex((l) => l.startsWith("    location"));
+      const end = rows.findIndex((l, i) => i > start && l === "  }");
+      return rows.slice(start, end).join(" ").replace(/\s+/g, " ").trim();
+    };
+    expect(body(blocks[0])).to.equal(body(blocks[1]));
+    expect(body(blocks[0])).to.include(
+      "proxy_set_header X-Forwarded-Proto $scheme;",
+    );
+  });
+
+  it("assets-root : un seul root sert le favicon ET les préfixés (try_files, 0 chaîne)", () => {
+    // La forme que produit `--assets-root` : l'arbre publié est UN dossier, et
+    // les préfixes y sont des sous-dossiers. Plus de `@r1`, donc plus de trou
+    // entre deux racines — c'est ce qui met `/favicon.ico` devant Node.
+    const c = generateNginxConfig(
+      intro({
+        staticRoots: ["/srv/assets"],
+        mounts: [{ prefix: "/_assets/app/", dir: "/srv/assets/_assets/app" }],
+      }),
+    );
+    expect(c).to.include("root /srv/assets;");
+    expect(c).to.include("try_files $uri @nodefony;");
+    expect(c).to.not.include("@r1");
+    expect(c).to.include("alias /srv/assets/_assets/app/;");
+  });
 });
 
 describe("generateProxyConfig — haproxy", () => {

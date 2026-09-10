@@ -46,6 +46,11 @@ const GOLDEN_DEFAULTS = {
   // Deadline globale du shutdown (0.7) — filet anti-listener-pendu de terminate.
   shutdownDeadline: 15_000,
   domain: "localhost",
+  // Changement VOULU : `false` ne change RIEN au comportement (la barrière
+  // `Host` reste opt-in), mais la clé doit EXISTER pour qu'un déploiement
+  // puisse l'allumer par `NF__APP__DOMAINCHECK` — les surcharges génériques
+  // n'écrivent que sur des chemins déjà présents.
+  domainCheck: false,
   servers: {
     statics: true,
     http: { port: 5151 },

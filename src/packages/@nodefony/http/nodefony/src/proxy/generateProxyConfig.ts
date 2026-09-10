@@ -18,6 +18,23 @@ export interface ProxyStaticMount {
   dir: string;
 }
 
+/**
+ * Terminaison TLS au frontal — **nginx uniquement**.
+ *
+ * Les chemins sont ceux vus par le PROXY à l'exécution, jamais ceux de la
+ * machine qui a généré la configuration : une clé privée n'entre pas dans une
+ * image (une couche reste lisible même effacée plus loin), elle se MONTE au
+ * déploiement — volume compose, secret Kubernetes.
+ */
+export interface ProxyTlsTermination {
+  /** Chaîne de certificats servie au client (`fullchain.pem`). */
+  certPath: string;
+  /** Clé privée correspondante (`privkey.pem`). */
+  keyPath: string;
+  /** Port d'écoute TLS du proxy. */
+  listen: number;
+}
+
 /** Modèle d'introspection consommé par les générateurs. */
 export interface ProxyIntrospection {
   /** `server_name` (hôtes de confiance, IP exclues). Vide → `_` (catch-all). */
@@ -57,6 +74,14 @@ export interface ProxyIntrospection {
    * saines.
    */
   keepaliveIntervalMs: number;
+  /**
+   * Terminaison TLS au frontal, ou `null` pour n'écouter qu'en clair.
+   *
+   * **nginx seulement** : haproxy exige un PEM COMBINÉ (certificat + clé dans
+   * un même fichier), que Nodefony ne fabrique pas — la commande REFUSE donc
+   * l'option sur cette cible plutôt que de l'accepter et de la jeter.
+   */
+  tls: ProxyTlsTermination | null;
 }
 
 /** Valeurs par défaut d'un modèle d'introspection (complété par la commande). */
@@ -71,6 +96,7 @@ export const defaultIntrospection: ProxyIntrospection = {
   reencrypt: false,
   maxBodyBytes: 0,
   keepaliveIntervalMs: 0,
+  tls: null,
 };
 
 /**
@@ -161,11 +187,62 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     );
   }
 
-  lines.push(
-    "  server {",
-    `    listen ${intro.listen};`,
-    `    server_name ${serverNames(intro.domains)};`,
-  );
+  lines.push(...nginxServerBlock(intro, scheme, idleSeconds, null));
+
+  // Le MÊME vhost, écouté une seconde fois en TLS. Deux blocs plutôt qu'un
+  // `listen … ssl` ajouté au premier : nginx appliquerait alors le certificat
+  // aux deux écoutes, et le port en clair cesserait de répondre en clair.
+  if (intro.tls) {
+    lines.push("", ...nginxServerBlock(intro, scheme, idleSeconds, intro.tls));
+  }
+
+  lines.push("}", "");
+  return lines.join("\n");
+}
+
+/**
+ * Un bloc `server {}` nginx — corps IDENTIQUE en clair et en TLS.
+ *
+ * Le scheme annoncé au backend reste `$scheme`, que nginx CONSTATE sur la
+ * connexion entrante : le même corps sert donc les deux écoutes sans qu'aucune
+ * n'ait à savoir laquelle elle est. C'est ce qui fait qu'un cookie `Secure`
+ * tient derrière le frontal alors que le lien interne est en clair.
+ *
+ * @param intro - modèle d'introspection Nodefony.
+ * @param scheme - `http` ou `https` vers le BACKEND (re-chiffrement).
+ * @param idleSeconds - inactivité tolérée, dérivée du heartbeat WebSocket.
+ * @param tls - terminaison TLS de CE bloc, ou `null` pour une écoute en clair.
+ * @returns les lignes du bloc `server`.
+ */
+function nginxServerBlock(
+  intro: ProxyIntrospection,
+  scheme: string,
+  idleSeconds: number,
+  tls: ProxyTlsTermination | null,
+): string[] {
+  const lines: string[] = ["  server {"];
+
+  if (tls) {
+    lines.push(
+      `    listen ${tls.listen} ssl;`,
+      "    http2 on;",
+      `    server_name ${serverNames(intro.domains)};`,
+      "",
+      "    # Terminaison TLS au frontal. Ces chemins sont ceux d'un MONTAGE, à",
+      "    # pourvoir au déploiement (volume compose, secret k8s) : une clé privée",
+      "    # n'entre pas dans une image, où la couche reste lisible même effacée.",
+      `    ssl_certificate     ${tls.certPath};`,
+      `    ssl_certificate_key ${tls.keyPath};`,
+      "    ssl_protocols TLSv1.2 TLSv1.3;",
+      "    ssl_session_cache shared:SSL:10m;",
+      "    ssl_session_timeout 1h;",
+    );
+  } else {
+    lines.push(
+      `    listen ${intro.listen};`,
+      `    server_name ${serverNames(intro.domains)};`,
+    );
+  }
 
   if (intro.reencrypt) {
     lines.push(
@@ -211,8 +288,11 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     const roots = intro.staticRoots;
     lines.push(
       "",
-      "    # Statiques multi-dossiers (racine app + modules) : chaîne try_files,",
-      "    # fallback vers le backend Nodefony si aucun fichier ne matche.",
+      roots.length > 1
+        ? "    # Statiques multi-dossiers (racine app + modules) : chaîne try_files,\n" +
+            "    # fallback vers le backend Nodefony si aucun fichier ne matche."
+        : "    # Statiques servis par le frontal ; fallback vers le backend\n" +
+            "    # Nodefony si aucun fichier ne correspond.",
       "    location / {",
       `      root ${roots[0]};`,
       `      try_files $uri ${roots.length > 1 ? "@r1" : "@nodefony"};`,
@@ -229,8 +309,8 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     }
   }
 
-  lines.push("  }", "}", "");
-  return lines.join("\n");
+  lines.push("  }");
+  return lines;
 }
 
 /**

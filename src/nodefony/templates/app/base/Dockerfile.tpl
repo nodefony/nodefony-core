@@ -80,6 +80,91 @@ RUN --mount=type=cache,target=/root/.npm \
 # façon dont `@nodefony/frontend` déclare Vite.
 RUN npm run build && npm prune --omit=dev
 
+# ── Frontal nginx (profil `edge`) — DEUX étages qui ne descendent JAMAIS dans
+#    l'image de l'application ─────────────────────────────────────────────────
+#
+# Ils ne sont construits QUE si on les demande (`--target edge`) : BuildKit ne
+# bâtit que le graphe nécessaire à la cible, donc un `docker build .` ordinaire
+# ne paie rien de ce qui suit.
+#
+#   docker build --target edge -t <%= it.appName %>-edge .
+#   docker compose --profile edge up -d --build
+#
+# POURQUOI un frontal, et pourquoi généré : en production l'application vit
+# derrière un proxy, et c'est lui qui décide de l'adresse cliente, du scheme
+# annoncé, de la taille de corps acceptée et du sort d'une WebSocket silencieuse.
+# Une configuration écrite à la main diverge du serveur qu'elle sert — ici elle
+# est DÉRIVÉE de l'application par `proxy:generate`, à partir de ses hôtes de
+# confiance, ses montages statiques réels, son `maxBodySize` et son battement
+# WebSocket. Change l'application, refais l'image : la configuration suit.
+FROM build AS proxyconf
+
+# 🔴 En PRODUCTION, comme le serveur qu'elle décrit. La configuration se dérive
+# de la configuration effective : générée en développement, elle porterait les
+# valeurs du développement (hôtes, limites, statiques) et décrirait un
+# déploiement qui n'existe pas.
+ENV NODE_ENV=production
+
+# Ce que le frontal doit savoir de son déploiement. Tout le reste vient de
+# l'application. `EDGE_BACKEND` est le nom du service qui porte l'application
+# sur le réseau du proxy (compose : le service ; Kubernetes : le Service).
+ARG EDGE_BACKEND=app
+ARG EDGE_HOSTS=localhost
+ARG EDGE_HTTP_PORT=8080
+ARG EDGE_TLS_PORT=8443
+
+# La barrière `Host` du serveur et le `server_name` du frontal doivent dire la
+# MÊME chose, sinon la configuration décrit un déploiement que le serveur
+# refuserait. Une seule valeur les pose tous les deux (le compose passe la même
+# à l'exécution de l'application).
+ENV NF__HTTP__TRUSTEDHOSTS=$EDGE_HOSTS
+
+# Le `grep` final n'est pas un ornement : sans lui, une commande qui écrirait un
+# fichier VIDE laisserait construire une image de frontal qui ne route rien, et
+# la panne n'apparaîtrait qu'au premier client. Le constat se fait ici.
+#
+# `assets:publish` assemble un arbre MIROIR des préfixes d'URL — les `public/`
+# des modules sous `/<module>/`, les bundles Vite sous `/_assets/<nom>/`. Il ne
+# prend PAS le `public/` de l'application, servi lui à la racine : on le verse
+# donc dans le même arbre, et le frontal sert alors `/favicon.ico` comme le
+# reste, sans jamais joindre Node.
+RUN mkdir -p /srv/assets \
+ && node_modules/.bin/nodefony assets:publish --out /srv/assets \
+ && if [ -d public ]; then cp -R public/. /srv/assets/; fi \
+ && node_modules/.bin/nodefony proxy:generate nginx \
+      --backend "$EDGE_BACKEND" \
+      --listen "$EDGE_HTTP_PORT" \
+      --assets-root /srv/assets \
+      --tls-cert /etc/nginx/certs/fullchain.pem \
+      --tls-key /etc/nginx/certs/privkey.pem \
+      --tls-listen "$EDGE_TLS_PORT" \
+      --out /srv/nginx.conf \
+ && grep -q "upstream nodefony" /srv/nginx.conf
+
+FROM nginx:1.27-alpine AS edge
+
+# Les chemins sont les MÊMES que dans l'étage qui a généré la configuration :
+# elle nomme `/srv/assets`, c'est donc là que l'arbre doit atterrir.
+COPY --from=proxyconf /srv/nginx.conf /etc/nginx/nginx.conf
+COPY --from=proxyconf /srv/assets /srv/assets
+
+# 🔴 AUCUN certificat ici, et c'est délibéré. Une clé privée gravée dans une
+# image reste lisible par quiconque la télécharge, même effacée par une couche
+# suivante — le contrôle de publication du framework refuse une image qui en
+# porte une. La configuration générée pointe `/etc/nginx/certs/` : c'est un
+# MONTAGE, à pourvoir au déploiement (volume compose, secret Kubernetes).
+# En développement, le certificat auto-signé de l'application fait l'affaire :
+#   npx nodefony http:certificates      # écrit nodefony/config/certificates/
+#
+# Le master nginx reste root — c'est le comportement de l'image officielle, qui
+# fait tourner ses workers sous l'utilisateur `nginx`. Pour un frontal non-root
+# de bout en bout : `nginxinc/nginx-unprivileged` (ports 8080/8443 déjà, comme
+# ici — ils sont au-dessus de 1024, donc joignables sans privilège).
+EXPOSE 8080 8443
+
+HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
+  CMD ["wget", "-q", "--spider", "http://127.0.0.1:8080/livez"]
+
 # ── Étape d'exécution : minimale, non-root ───────────────────────────────────
 FROM node:24-slim
 ENV NODE_ENV=production

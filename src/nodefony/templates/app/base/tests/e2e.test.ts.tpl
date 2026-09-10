@@ -1,4 +1,4 @@
-import { runningAppPort } from "nodefony/testing";
+import { appBaseUrl, isExternalTarget } from "./e2e.setup";
 import { readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
@@ -28,9 +28,13 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     // Le serveur est PRÊT (le setup global n'est sorti qu'après la readiness) :
     // ses ports sont publiés. Le premier est celui du serveur en clair (une app
     // TLS-only adaptera ces deux lignes).
-    const port = runningAppPort();
-    BASE = `http://127.0.0.1:${port}`;
-    WS_BASE = `ws://127.0.0.1:${port}`;
+    // Une seule règle d'adresse, portée par le décor (`appBaseUrl`) : la
+    // recomposer ici ferait interroger le serveur local pendant qu'on croit
+    // mesurer le déploiement visé.
+    BASE = appBaseUrl();
+    // `ws`/`wss` se DÉRIVE du scheme : viser `ws://` sur un frontal en TLS
+    // échoue à la poignée de main, et l'erreur accuse la route.
+    WS_BASE = BASE.replace(/^http/u, "ws");
   });
 
   it("GET /api/hello → 200 + payload JSON", async () => {
@@ -102,4 +106,45 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       live.disconnect();
     }
   }, 15_000);
+<% } %><% if (it.hasSecurity) { %>
+  // ── Derrière un frontal SEULEMENT (`NF_E2E_BASE_URL`) ──────────────────────
+  // Ce que ce cas éprouve n'existe pas en direct : il faut un proxy qui termine
+  // le TLS et annonce `X-Forwarded-Proto`, et un serveur qui le CROIT
+  // (`trustProxy`). Sauté sinon — sauter ici est juste ; le taire ne le serait pas.
+  it.skipIf(!isExternalTarget)(
+    "derrière le frontal : le cookie de session porte `__Host-`, donc le scheme du CLIENT",
+    async () => {
+      // 🔴 LE piège de la mise derrière un proxy, et il ne se voit pas en direct :
+      // le serveur parle en CLAIR au frontal. S'il en déduisait le scheme, il se
+      // croirait en http alors que le navigateur est en https — et le préfixe
+      // `__Host-` (RFC 6265bis §4.1.3, anti session-fixation cross-subdomain)
+      // serait omis SANS UN MOT. C'est `X-Forwarded-Proto`, cru parce que le
+      // socket vient d'un pair de confiance (`trustProxy`), qui rétablit la
+      // vérité.
+      //
+      // Pourquoi le préfixe et non l'attribut `Secure` : `Secure` vaut `true`
+      // par défaut en configuration, il est donc posé MÊME quand le serveur se
+      // croit en clair — un cas bâti dessus resterait vert sans `trustProxy` et
+      // ne prouverait rien (mesuré). Le préfixe, lui, se DÉRIVE du scheme
+      // constaté : il tombe dès que la confiance au proxy est retirée.
+      const res = await fetch(
+        `${appBaseUrl()}/nodefony/security/api/auth/login`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            username: "admin",
+            password: process.env.NF_ADMIN_PASSWORD ?? "",
+          }),
+        },
+      );
+      expect(res.status).toBe(200);
+      const cookies = res.headers.getSetCookie?.() ?? [];
+      expect(cookies.length).toBeGreaterThan(0);
+      const session =
+        cookies.find((c) => /^(__Host-)?nodefony=/u.test(c)) ?? cookies[0];
+      expect(session).toMatch(/^__Host-/u);
+      expect(session).toMatch(/;\s*Secure/iu);
+    },
+  );
 <% } %>});

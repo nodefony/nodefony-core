@@ -20,6 +20,32 @@ import { nodefonyBin, runningAppPort, startSpareApp } from "nodefony/testing";
 import { afterAll, beforeAll, describe, it } from "vitest";
 import { E2E_BASE_URL } from "./e2e.setup";
 
+/**
+ * Ces épreuves interrogent la base LOCALE par la ligne de commande, et lancent
+ * des exemplaires de rechange sur cette machine. Quand la suite vise une
+ * application servie AILLEURS (`NF_E2E_BASE_URL` — derrière son frontal, sur une
+ * recette), elles ne mesurent plus la cible : elles mesurent le poste qui teste.
+ *
+ * Un test qui change d'objet sans le dire est pire qu'un test absent — il rend
+ * un verdict sur autre chose que ce qu'on croit lire. On les saute donc, et la
+ * raison s'affiche : un saut muet se lit comme un vert.
+ */
+const EXTERNAL_TARGET = Boolean(process.env.NF_E2E_BASE_URL);
+/**
+ * Le `describe` de ces suites — sauté quand la cible est externe.
+ *
+ * Court à dessein : `describe.skipIf(…)("titre…", …)` dépasse la largeur du
+ * formateur, qui casse alors l'appel et ré-indente TOUT le corps. Un alias
+ * garde le fichier lisible en diff.
+ */
+const dbSuite = EXTERNAL_TARGET ? describe.skip : describe;
+if (EXTERNAL_TARGET) {
+  process.stdout.write(
+    "migrations : SAUTÉES — `NF_E2E_BASE_URL` vise une application externe, " +
+      "et ces épreuves portent sur la base locale de cette machine.\n",
+  );
+}
+
 const run = promisify(execFile);
 const bin = nodefonyBin();
 
@@ -161,7 +187,7 @@ afterAll(() => {
   rmSync(spareDatabase.dir, { recursive: true, force: true });
 });
 
-describe("migrations — la base de cette application", () => {
+dbSuite("migrations — la base de cette application", () => {
   it("est à jour : `orm:migrate:status` rend 0 et le dit", async () => {
     // Le décor de la suite (`tests/e2e.setup.ts`) a appliqué les migrations
     // avant de démarrer, comme le ferait un orchestrateur avant de lancer vos
@@ -344,7 +370,7 @@ function spareFixture(withExisting = true): {
   };
 }
 
-describe("migrations — générer, retenir le trafic, constater une dérive", () => {
+dbSuite("migrations — générer, retenir le trafic, constater une dérive", () => {
   it("🔴 `orm:generate` écrit les migrations des entités de CETTE application", async () => {
     // Le geste du développeur juste après avoir créé une entité. Ce qu'il
     // produit est vérifié sur le MOTEUR de cette application — pas sur SQLite

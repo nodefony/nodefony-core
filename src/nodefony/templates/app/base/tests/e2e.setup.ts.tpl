@@ -93,18 +93,14 @@ export const ADMIN_PASSWORD = "e2e-admin-jetable";
  * m'authentifier » qu'un test qui conclut « accès refusé » sur un décor cassé.
  */
 export async function adminLogin(): Promise<string> {
-  const port = runningAppPort();
-  const res = await fetch(
-    `http://127.0.0.1:${port}/nodefony/security/api/auth/login`,
-    {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({
-        username: "admin",
-        password: ADMIN_PASSWORD,
-      }),
-    },
-  );
+  const res = await fetch(`${appBaseUrl()}/nodefony/security/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      username: "admin",
+      password: ADMIN_PASSWORD,
+    }),
+  });
   if (res.status !== 200) {
     throw new Error(
       `connexion admin impossible (${res.status}) — le décor de test, pas la route mesurée`,
@@ -114,7 +110,51 @@ export async function adminLogin(): Promise<string> {
   return cookies.map((c) => c.split(";")[0]).join("; ");
 }
 <% } %>
+/**
+ * Adresse EXTERNE à laquelle l'application est déjà servie, s'il y en a une.
+ *
+ * Posée (`NF_E2E_BASE_URL=https://localhost:8443`), elle change la NATURE du
+ * run : l'application ne tourne plus ici, elle tourne derrière son frontal — le
+ * profil `edge` du compose, un déploiement de recette, une chaîne d'intégration.
+ * Ce fichier ne démarre alors rien, n'arrête rien et ne touche à aucune base :
+ * ce serait agir sur une machine qui n'est pas celle qui sert. C'est à qui pose
+ * la variable d'avoir préparé le décor.
+ *
+ * Ce que cela achète : les MÊMES tests, joués à travers le proxy. C'est le seul
+ * moment où l'on constate ce qu'un `fetch` direct ne peut pas voir — l'adresse
+ * réelle du client dans l'audit, le cookie `Secure` posé alors que le lien
+ * interne est en clair, la barrière `Host`, la montée WebSocket au travers.
+ *
+ * ⚠️ Certificat auto-signé (celui du développement) : le donner à Node une fois
+ * pour toutes plutôt que de désarmer la validation —
+ * `NODE_EXTRA_CA_CERTS=nodefony/config/certificates/ca/nodefony-root-ca.crt.pem`.
+ * L'ignorer ferait passer la suite contre n'importe quel certificat, y compris
+ * celui d'un autre.
+ */
+const EXTERNAL_BASE_URL = process.env.NF_E2E_BASE_URL ?? "";
+
+/**
+ * L'adresse de base de l'application POUR CE RUN — une seule règle, un seul
+ * endroit. Chaque fichier de test la demande ici plutôt que de la recomposer :
+ * deux recompositions divergeraient, et l'une des deux interrogerait le serveur
+ * local pendant qu'on croit mesurer le déploiement visé.
+ */
+export function appBaseUrl(): string {
+  if (EXTERNAL_BASE_URL) return EXTERNAL_BASE_URL.replace(/\/+$/u, "");
+  return `http://127.0.0.1:${runningAppPort()}`;
+}
+
+/** Vrai quand l'application visée est servie ailleurs (typiquement : un frontal). */
+export const isExternalTarget = Boolean(EXTERNAL_BASE_URL);
+
 export async function setup(): Promise<void> {
+  if (EXTERNAL_BASE_URL) {
+    process.stdout.write(
+      `e2e : application visée à l'externe (${EXTERNAL_BASE_URL}) — ` +
+        "aucun démarrage, aucune base touchée ici.\n",
+    );
+    return;
+  }
   // Repartir d'une base VIERGE : une suite dont le verdict dépend de ce qu'un
   // run précédent a laissé n'est pas reproductible.
 <% if (it.db) { %>  //
@@ -172,6 +212,9 @@ export async function setup(): Promise<void> {
 }
 
 export async function teardown(): Promise<void> {
+  // Rien à arrêter : cette suite n'a rien démarré (cf `EXTERNAL_BASE_URL`), et
+  // un `stop` ici tuerait un runtime local sans rapport avec ce qu'on mesure.
+  if (EXTERNAL_BASE_URL) return;
   // Jamais de serveur laissé derrière : un runtime orphelin tient les ports et
   // fait échouer le run suivant sur une erreur qui ne parle pas de lui.
   execFileSync(process.execPath, [bin, "stop"], {

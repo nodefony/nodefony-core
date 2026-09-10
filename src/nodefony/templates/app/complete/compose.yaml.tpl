@@ -12,6 +12,8 @@
 #   docker compose --profile tools up -d          # + RedisInsight (UI Redis)
 #   docker compose --profile loki up -d           # + Loki + Grafana (logs)
 #   docker compose --profile browser up -d        # + navigateur jetable (voir tes écrans)
+#   docker compose --profile app up -d --build    # + l'app EN IMAGE (éprouver l'image)
+#   docker compose --profile edge up -d --build   # + l'app DERRIÈRE son frontal nginx
 #   docker compose down                           # arrêt (volumes conservés)
 #   docker compose down -v                        # arrêt + PURGE des données
 #
@@ -37,6 +39,42 @@
 
 name: <%= it.appName %>
 
+# Ancres partagées par les DEUX façons d'exécuter l'image de l'application —
+# seule, pour l'éprouver (profil `app`), ou derrière son frontal (profil `edge`).
+# Ce qui est commun n'est écrit qu'une fois : deux copies divergeraient, et
+# chacune marcherait de son côté jusqu'au jour où l'une des deux ment.
+x-app-env: &app-env
+  # Le nom du service, jamais 127.0.0.1 : depuis un conteneur, la boucle locale
+  # est celle du CONTENEUR, et la base est ailleurs.
+<% if (it.db) { %>  NF_DATABASE_URL: "<%= it.db.url.replace("127.0.0.1", it.db.service) %>"
+<% } %>  NF_REDIS_URL: "redis://:${REDIS_PASSWORD:-<%= it.appName %>-dev}@redis:6379"
+
+x-app-service: &app-service
+  build:
+    context: .
+    args:
+      VCS_REF: ${VCS_REF:-}
+      BUILD_DATE: ${BUILD_DATE:-}
+  image: <%= it.appName %>:local
+  restart: unless-stopped
+  networks: [<%= it.appName %>]
+  volumes:
+    # 🔴 LA PERSISTANCE. Sans ce volume, la base sqlite vit dans la couche
+    # inscriptible du conteneur : `docker compose down` emporte comptes,
+    # sessions, jetons et passkeys, sans un mot. Le dossier `/app/var` existe
+    # dans l'image et appartient à 1000:1000 — c'est ce qui fait qu'un volume
+    # NEUF hérite des bons droits au lieu de naître `root:root`.
+    - <%= it.appName %>-var:/app/var
+  # 🔴 AU-DESSUS du `shutdownDeadline` (15 s) : compose n'attend que 10 s par
+  # défaut, et le drain serait coupé par un SIGKILL — requêtes en vol perdues à
+  # chaque déploiement, sans erreur ni trace.
+  stop_grace_period: 20s
+  depends_on:
+    redis:
+      condition: service_healthy
+<% if (it.db) { %>    <%= it.db.service %>:
+      condition: service_healthy
+<% } %>
 services:
   # --- Redis (défaut — sessions, idempotence, backplane realtime) ---
   # Auth obligatoire même en dev (Zero Trust). AOF : survit au restart du conteneur.
@@ -332,40 +370,90 @@ services:
   # ⚠️ Les ports diffèrent de ceux de l'app sur l'hôte : les deux doivent pouvoir
   # tourner en même temps, sinon on éprouve l'image en s'interdisant de coder.
   app:
-    build:
-      context: .
-      args:
-        VCS_REF: ${VCS_REF:-}
-        BUILD_DATE: ${BUILD_DATE:-}
-    image: <%= it.appName %>:local
+    <<: *app-service
     container_name: <%= it.appName %>-app
-    restart: unless-stopped
     profiles: ["app"]
-    networks: [<%= it.appName %>]
     ports:
       - "127.0.0.1:${APP_PORT:-5251}:5151"
     environment:
-      # Le nom du service, jamais 127.0.0.1 : depuis un conteneur, la boucle
-      # locale est celle du CONTENEUR, et la base est ailleurs.
-<% if (it.db) { %>      NF_DATABASE_URL: "<%= it.db.url.replace("127.0.0.1", it.db.service) %>"
-<% } %>      NF_REDIS_URL: "redis://:${REDIS_PASSWORD:-<%= it.appName %>-dev}@redis:6379"
+      <<: *app-env
+
+  # --- LA TOPOLOGIE DE PRODUCTION (profil `edge`) : l'app DERRIÈRE son frontal ---
+  #
+  #   npx nodefony http:certificates          # une fois — le certificat de dev
+  #   docker compose --profile edge up -d --build
+  #   curl -k https://localhost:${EDGE_TLS_PORT:-8443}/
+  #
+  # C'est la seule façon d'exercer la moitié applicative du contrat de proxy :
+  # `trustProxy` et l'adresse RÉELLE du client dans l'audit, la session et le
+  # rate-limit ; le cookie `Secure` posé alors que le lien interne est en clair ;
+  # la barrière `Host` ; la montée WebSocket ; la taille de corps acceptée. En
+  # direct, rien de tout cela n'est joué — et une application qui n'a jamais vu
+  # de proxy le découvre en production.
+  app-edge:
+    <<: *app-service
+    container_name: <%= it.appName %>-app-edge
+    profiles: ["edge"]
+    # 🔴 AUCUN port publié, et c'est CE qui rend `uniquelocal` sûr : la confiance
+    # est accordée aux adresses privées, donc elle ne vaut que si le seul chemin
+    # vers l'application passe par le frontal. Publier un port ici rouvrirait la
+    # porte à un client capable de forger ses propres `X-Forwarded-*`.
+    environment:
+      <<: *app-env
+      # Les en-têtes du frontal ne sont crus que si le socket vient d'une adresse
+      # privée — le réseau du compose. Jamais `true`, qui croirait n'importe qui.
+      NF__HTTP__TRUSTPROXY: uniquelocal
+      # La barrière `Host` et le `server_name` du frontal disent la MÊME chose :
+      # une seule valeur les pose tous les deux (cf `args` du service `edge`).
+      NF__HTTP__TRUSTEDHOSTS: ${EDGE_HOSTS:-localhost}
+      # 🔴 Sans CE commutateur, `trustedHosts` ne sert à rien : la barrière est
+      # opt-in, et un `Host` étranger traverse le frontal jusqu'à l'application.
+      # Elle n'est allumée QUE derrière un proxy — en direct, elle refuserait
+      # tout ce qui n'est pas le nom déclaré, y compris l'adresse de boucle.
+      NF__APP__DOMAINCHECK: "true"
+      # Le serveur de fichiers de Node s'éteint : c'est nginx qui sert. N.B. il
+      # ne gate PAS les montages programmatiques (`/_assets/…` de Vite) — ceux-là
+      # sont servis avant Node par le `try_files` du frontal, pas contournés.
+      NF__HTTP__STATICS__ENABLED: "false"
+
+  # --- Le frontal nginx (profil `edge`) ---
+  # Sa configuration n'est pas écrite : elle est DÉRIVÉE de l'application à la
+  # construction (`proxy:generate`, étage `proxyconf` du Dockerfile), avec ses
+  # hôtes de confiance, ses statiques réels, son `maxBodySize` et son battement
+  # WebSocket. Change l'application, reconstruis : la configuration suit.
+  edge:
+    build:
+      context: .
+      target: edge
+      args:
+        # Le nom du SERVICE qui porte l'application sur ce réseau.
+        EDGE_BACKEND: app-edge
+        EDGE_HOSTS: ${EDGE_HOSTS:-localhost}
+        EDGE_HTTP_PORT: ${EDGE_HTTP_PORT:-8080}
+        EDGE_TLS_PORT: ${EDGE_TLS_PORT:-8443}
+    image: <%= it.appName %>-edge:local
+    container_name: <%= it.appName %>-edge
+    restart: unless-stopped
+    profiles: ["edge"]
+    networks: [<%= it.appName %>]
+    ports:
+      # Au-dessus de 1024 : joignables sous Podman sans privilèges, et ils ne
+      # heurtent pas un serveur de développement déjà posé sur 80/443.
+      - "127.0.0.1:${EDGE_HTTP_PORT:-8080}:8080"
+      - "127.0.0.1:${EDGE_TLS_PORT:-8443}:8443"
     volumes:
-      # 🔴 LA PERSISTANCE. Sans ce volume, la base sqlite vit dans la couche
-      # inscriptible du conteneur : `docker compose down` emporte comptes,
-      # sessions, jetons et passkeys, sans un mot. Le dossier `/app/var` existe
-      # dans l'image et appartient à 1000:1000 — c'est ce qui fait qu'un volume
-      # NEUF hérite des bons droits au lieu de naître `root:root`.
-      - <%= it.appName %>-var:/app/var
-    # 🔴 AU-DESSUS du `shutdownDeadline` (15 s) : compose n'attend que 10 s par
-    # défaut, et le drain serait coupé par un SIGKILL — requêtes en vol perdues à
-    # chaque déploiement, sans erreur ni trace.
-    stop_grace_period: 20s
+      # 🔴 Le certificat est MONTÉ, jamais gravé : une clé privée dans une image
+      # reste lisible par qui la télécharge, même effacée par une couche suivante.
+      # Ici, celui que l'application fabrique pour le développement :
+      #   npx nodefony http:certificates
+      # En production, c'est l'hébergeur ou l'ingress qui pourvoit ce montage.
+      - ./nodefony/config/certificates/server:/etc/nginx/certs:ro
     depends_on:
-      redis:
+      # Le frontal ne route pas vers une application qui boote : `service_healthy`
+      # attend la sonde `/readyz` de l'image, pas le simple démarrage du conteneur.
+      app-edge:
         condition: service_healthy
-<% if (it.db) { %>      <%= it.db.service %>:
-        condition: service_healthy
-<% } %>
+
 # Bridge nommé explicite : résolution DNS par nom de service, isolation des autres
 # projets compose, nettoyage propre au down. Pas de sous-réseau figé (anti-collision).
 networks:

@@ -950,6 +950,124 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
+  describe("topologie de production : l'app derrière son frontal (profil `edge`)", () => {
+    /**
+     * Ce que ces contrôles tiennent : la moitié APPLICATIVE du contrat de proxy
+     * (`trustProxy`, l'adresse réelle du client, le cookie `Secure` sur un lien
+     * interne en clair, la barrière `Host`) n'existe que si un frontal est là
+     * pour l'exercer. Le générateur en produit un — et ces assertions gardent
+     * les trois propriétés qui le rendent SÛR, dont aucune ne se voit à l'usage :
+     * l'application injoignable autrement que par le proxy, aucune clé privée
+     * dans l'image, et un frontal qui vise un service qui existe.
+     */
+    const dossierEdge = () => {
+      const dest = path.join(tmp, "edge-topologie");
+      scaffold(dest, {
+        name: "edge",
+        preset: "complete",
+        frontend: "none",
+        database: "postgres",
+      });
+      return dest;
+    };
+
+    it("les étages du frontal ne changent PAS la cible par défaut du Dockerfile", () => {
+      // 🔴 Docker construit le DERNIER étage quand aucune cible n'est demandée.
+      // Poser `edge` en fin de fichier ferait produire une image nginx à qui
+      // tape `docker build .` — l'application, elle, aurait disparu, et l'erreur
+      // n'apparaîtrait qu'au démarrage du conteneur.
+      const dockerfile = readFileSync(
+        path.join(dossierEdge(), "Dockerfile"),
+        "utf8",
+      );
+      const etages = [
+        ...dockerfile.matchAll(/^FROM\s+(\S+)(?:\s+AS\s+(\S+))?/gmu),
+      ];
+      assert.isAtLeast(etages.length, 4, "les étages du frontal ont disparu");
+      const dernier = etages[etages.length - 1];
+      assert.isUndefined(
+        dernier[2],
+        `le dernier étage est nommé « ${dernier[2]} » : "docker build ." ne produirait plus l'image de l'application`,
+      );
+      assert.include(dernier[1], "node:", "le dernier étage n'est plus Node");
+      assert.include(dockerfile, "AS proxyconf");
+      assert.include(dockerfile, "AS edge");
+    });
+
+    it("aucun certificat n'entre dans l'image du frontal — il se MONTE", () => {
+      // Une clé privée gravée dans une image reste lisible par qui la télécharge,
+      // même effacée par une couche suivante : c'est ce que le contrôle de
+      // publication du framework refuse. La configuration générée nomme donc un
+      // chemin de MONTAGE, et le compose le pourvoit depuis l'hôte.
+      const dest = dossierEdge();
+      const dockerfile = readFileSync(path.join(dest, "Dockerfile"), "utf8");
+      const directives = dockerfile
+        .split("\n")
+        .filter((l) => /^\s*(COPY|ADD)\s/u.test(l));
+      for (const d of directives) {
+        assert.notMatch(
+          d,
+          /\.pem|\.key|certificates/u,
+          `« ${d.trim()} » ferait descendre du matériel de chiffrement dans une image`,
+        );
+      }
+      const compose = readFileSync(path.join(dest, "compose.yaml"), "utf8");
+      assert.include(compose, "certificates/server:/etc/nginx/certs:ro");
+    });
+
+    it("le service applicatif du profil `edge` ne publie AUCUN port", () => {
+      // 🔴 C'est CE qui rend `trustProxy: uniquelocal` sûr : la confiance est
+      // accordée aux adresses privées, donc elle ne vaut que si le seul chemin
+      // vers l'application passe par le frontal. Un port publié ici rouvrirait
+      // la porte à un client qui forge ses propres `X-Forwarded-*`, et tout ce
+      // que le proxy garantit tomberait sans qu'aucun test ne rougisse.
+      const compose = readFileSync(
+        path.join(dossierEdge(), "compose.yaml"),
+        "utf8",
+      );
+      const bloc = compose.slice(
+        compose.indexOf("\n  app-edge:"),
+        compose.indexOf("\n  edge:"),
+      );
+      assert.isNotEmpty(bloc, "service `app-edge` introuvable dans le compose");
+      assert.notInclude(bloc, "ports:");
+      assert.include(bloc, "NF__HTTP__TRUSTPROXY: uniquelocal");
+      assert.include(bloc, 'NF__HTTP__STATICS__ENABLED: "false"');
+      // 🔴 `trustedHosts` sans `domainCheck` ne barre RIEN : la barrière est
+      // opt-in côté kernel, et l'oublier laisse un `Host` étranger traverser le
+      // frontal jusqu'à l'application — mesuré, 200 au lieu de 421.
+      assert.include(bloc, 'NF__APP__DOMAINCHECK: "true"');
+    });
+
+    it("le frontal vise un service qui EXISTE, et attend qu'il soit prêt", () => {
+      // Une jointure entre deux endroits du fichier : `EDGE_BACKEND` devient le
+      // nom d'hôte de l'`upstream` nginx. S'il ne nomme aucun service, la
+      // résolution DNS échoue au démarrage du frontal — sur un message qui parle
+      // de nginx, jamais du compose.
+      const compose = readFileSync(
+        path.join(dossierEdge(), "compose.yaml"),
+        "utf8",
+      );
+      const backend = /EDGE_BACKEND:\s*(\S+)/u.exec(compose)?.[1];
+      assert.isString(backend, "`EDGE_BACKEND` absent du service `edge`");
+      assert.include(compose, `\n  ${backend}:\n`);
+      // Le fait, pas la mise en page : le bloc du frontal doit porter, APRÈS son
+      // `depends_on`, le nom du service applicatif et la condition de santé.
+      const blocEdge = compose.slice(compose.indexOf("\n  edge:"));
+      const apresDepends = blocEdge.slice(blocEdge.indexOf("depends_on:"));
+      assert.isAtLeast(
+        apresDepends.length,
+        1,
+        "le frontal n'a pas de `depends_on`",
+      );
+      assert.match(
+        apresDepends.slice(0, apresDepends.indexOf("\nnetworks:")),
+        new RegExp(`${backend}:[\\s\\S]*condition: service_healthy`, "u"),
+        "le frontal ne conditionne pas son démarrage à la santé de l'application",
+      );
+    });
+  });
+
   describe("base SQL retenue à la création (compose ↔ .env ↔ README)", () => {
     /**
      * Ce que ces contrôles tiennent : le générateur CONNAÎT le dialecte, donc
@@ -979,8 +1097,12 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const compose = composeOf(dest);
       // Les volumes NOMMÉS montés par un service — un chemin d'hôte (`./x:/y`)
       // n'a rien à déclarer, d'où l'exigence d'un premier caractère de nom.
+      // 4 à 6 espaces, et ce n'est pas une largesse : un service imbrique ses
+      // volumes à 6, une ANCRE de premier niveau (`x-app-service`) à 4. Un motif
+      // qui ne verrait que 6 laisserait passer tout volume déclaré dans une
+      // ancre — le contrôle resterait vert en ne regardant plus rien.
       const montes = new Set(
-        [...compose.matchAll(/^ {6}- ([A-Za-z][\w.-]*):\S/gmu)].map(
+        [...compose.matchAll(/^ {4,6}- ([A-Za-z][\w.-]*):\S/gmu)].map(
           (m) => m[1],
         ),
       );
@@ -1314,7 +1436,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
         // Multi-stage : la chaîne de compilation ne descend pas en production.
         assert.match(dockerfile, /^FROM \S+ AS build$/mu);
-        assert.equal(dockerfile.match(/^FROM /gmu)?.length, 2);
+        // Le FAIT à tenir n'est pas un COMPTE d'étages — le fichier en porte
+        // d'autres, nommés, que BuildKit ne bâtit que sur demande (`--target`,
+        // le frontal). C'est qu'il existe exactement UN étage ANONYME : celui
+        // que `docker build .` produit, l'image de l'application. Deux
+        // anonymes, et la cible par défaut deviendrait le dernier écrit.
+        const etages = [
+          ...dockerfile.matchAll(/^FROM\s+(\S+)(?:\s+AS\s+(\S+))?/gmu),
+        ];
+        const anonymes = etages.filter((e) => !e[2]);
+        assert.equal(
+          anonymes.length,
+          1,
+          `${anonymes.length} étages sans nom — "docker build ." ne produirait plus l'image attendue`,
+        );
+        assert.match(anonymes[0][1], /^node:/u);
 
         // Forme EXEC obligatoire. En forme shell, /bin/sh devient PID 1 et ne
         // transmet PAS le SIGTERM de `docker stop` : plus jamais de drain,

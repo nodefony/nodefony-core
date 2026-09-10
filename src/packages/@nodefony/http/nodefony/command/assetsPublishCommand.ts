@@ -78,17 +78,27 @@ class AssetsPublish extends Command {
       : join(process.cwd(), "dist-assets");
 
     const sources = this.collectSources();
+    // 🔴 « Rien à publier » est un RÉSULTAT, pas une raison de ne rien faire.
+    // Une application sans front ni module à `public/` est parfaitement valide
+    // — et c'est le cas de toute application dont la console d'administration
+    // est gatée en production. La commande sortait alors sans écrire ni dire :
+    // le WARNING part dans le vide (le boot d'une commande de module coupe tout
+    // ce qui est au-dessus d'ERROR), et le code de sortie restait 0. Un étage de
+    // construction qui l'enchaînait ne pouvait donc pas distinguer « arbre vide »
+    // de « la commande n'a pas tourné ». On écrit l'arbre, fût-il vide, et on le
+    // DIT sur la sortie standard — c'est ce qui rend le résultat constatable.
     if (sources.length === 0) {
-      this.log(
-        "Aucune source d'assets (0 mount natif, 0 bundle frontend) — rien à publier.",
-        "WARNING",
+      process.stdout.write(
+        `Aucune source d'assets (0 mount natif, 0 bundle frontend) — arbre vide → ${outDir}\n`,
       );
-      return this;
     }
 
     if (opts.clean && existsSync(outDir)) {
       await fs.rm(outDir, { recursive: true, force: true });
     }
+    // La racine AVANT la boucle : sans source, aucun `p.target` ne la crée, et
+    // l'écriture du manifeste plus bas échouerait sur un dossier absent.
+    await fs.mkdir(outDir, { recursive: true });
     const plan = planAssetPublish(sources, outDir);
     const manifest: {
       generatedAt: string;

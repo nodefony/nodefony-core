@@ -49,6 +49,14 @@ export const defaultAppConfig: ResolvedAppConfig = {
   // `domain` = adresse d'écoute (Kernel.setDomain). La validation Host
   // (`domainCheck`/`domainAlias` vs `http.trustedHosts`) est opt-in app/sécu.
   domain: "localhost",
+  // `false` = comportement INCHANGÉ (la barrière `Host` reste opt-in), mais la
+  // clé EXISTE — et c'est tout l'objet de cette ligne : les surcharges
+  // `NF__APP__*` n'écrivent que sur des chemins déjà présents. Sans elle,
+  // `NF__APP__DOMAINCHECK=true` était accepté sans effet, et la barrière
+  // `trustedHosts` restait inatteignable pour qui déploie par variables
+  // d'environnement — c'est-à-dire derrière un frontal, là où elle sert.
+  // Même raison que `timing.enabled` plus bas.
+  domainCheck: false,
   servers: {
     statics: true,
     http: { port: 5151 },
