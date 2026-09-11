@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-11 13:46** (UTC).
+> Empreinte prise le **2026-09-11 14:51** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 75% | 57 | 19 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 70% | 57 | 25 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 5% | 2 | 37 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 28 | 2026-12-15 |
@@ -33,9 +33,9 @@
 
 **#316 — feat(scaffold): rendre l'application générée déployable en production**
 
-Ordre 9.91 · P1 — figé à la création · 6.5 j · jalon 10.0.0-alpha · frise 2026-09-11 → 09-11
+Ordre 9.91 · P1 — figé à la création · 10 j · jalon 10.0.0-alpha · frise 2026-09-11 → 09-11
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 25 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -89,15 +89,21 @@ Ordre 9.91 · P1 — figé à la création · 6.5 j · jalon 10.0.0-alpha · fri
 | 2 | P2 — décision | 3 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 19 ouverts
+## Jalon 10.0.0-alpha — 25 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 9.91 | P1 — figé à la création | 6.5 | 2026-09-11 → 09-11 | #316 | feat(scaffold): rendre l'application générée déployable en production |
+| 9.91 | P1 — figé à la création | 10 | 2026-09-11 → 09-11 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.92 | P1 — figé à la création | 0.5 | 2026-09-14 → 09-14 | #317 | test(release): refuser une image qui embarque une clé privée |
+| 9.925 | P0 — bloque le reste | 0.5 | 2026-09-12 → 09-12 | #353 | test(release): rendre au banc la capacité d'éprouver un front absent |
+| 9.93 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #354 | fix(release): estampiller l'image officielle avec sa vraie version |
+| 9.94 | P2 — décision | 0.5 | 2026-09-16 → 09-17 | #355 | test(release): jouer la topologie avec frontal dans le banc de la forge |
 | 9.941 | P0 — bloque le reste | 1 | 2026-09-17 → 09-17 | #347 | fix(cli): nommer le client temps réel du moteur front choisi |
 | 9.942 | P0 — bloque le reste | 2 | 2026-09-18 → 09-18 | #344 | feat(cli): créer une identité pour essayer une route protégée |
 | 9.943 | P1 — figé à la création | 1 | 2026-09-21 → 09-21 | #350 | feat(cli): poser les instructions lues par Copilot et Cursor |
+| 9.945 | P2 — décision | 0.5 | 2026-09-17 → 09-17 | #356 | fix(scaffold): corriger trois commentaires du Dockerfile devenus faux |
+| 9.95 | P2 — décision | 0.5 | 2026-09-17 → 09-17 | #357 | fix(security): avertir quand le trousseau JWT sort du dossier nettoyé |
+| 9.955 | P1 — figé à la création | 1 | 2026-09-15 → 09-16 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
 | 9.96 | P2 — décision | 1.5 | 2026-09-22 → 09-22 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 9.97 | P1 — figé à la création | 2 | 2026-09-23 → 09-23 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |
 | 9.98 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #323 | feat(scaffold): livrer les licences des dépendances |

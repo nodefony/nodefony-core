@@ -52,6 +52,14 @@
   au ticket AVEC sa réserve en tête, plutôt que corrigé en silence : le lecteur doit savoir qu'un
   passage est faux, pas découvrir un texte retouché.
 
+- [1× — 09-11d] **J'ai donné au délégué une prémisse FAUSSE, et c'est lui qui l'a corrigée.**
+  L'audit devait comparer le `Dockerfile` du dépôt à celui des gabarits — « les jumeaux ». Le dépôt
+  n'a PAS de Dockerfile : la source est unique, et le workflow de publication le dit en toutes
+  lettres. Le rapport s'ouvre donc sur « prémisse de Q4 fausse », suivi du `ls` qui le montre. Bien
+  rendu, mais c'est un quart de question payé pour rien, et le risque était qu'un modèle moins
+  regardant fabrique une comparaison plausible entre deux objets dont l'un n'existe pas. Une
+  question posée dans un prompt affirme ; ce qu'elle affirme se vérifie comme une ancre.
+
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
 - [1× — 09-11] **Un `grep` sans correspondance TUE un script sous `set -euo pipefail`, sans un
@@ -120,6 +128,26 @@
   annoncée mais un RENDU. Mesurer les trois affirmations a coûté deux commandes ; les croire aurait
   coûté une refonte inutile. ↝ [[feedback_anchor_expires_silently]]
 
+## 🧊 Un banc qui s'arrête au premier échec CACHE tout ce qui vient après
+
+- [1× — 09-11d] **Le défaut corrigé a révélé le suivant, au même endroit.** Le banc de publication
+  refusait l'image du scénario à frontend (clé privée). Corrigé, le scénario va PLUS LOIN et tombe
+  sur une étape qui n'avait jamais pu s'exécuter : elle efface `public/dist` dans le conteneur, ce
+  que le durcissement des droits a rendu impossible — le code appartient à `root`, le processus
+  tourne en 1000, le `rm` échoue, la chaîne `&&` coupe, le serveur n'est jamais lancé. Le banc
+  attendait alors 90 s un `/readyz` qui ne viendrait pas. Corollaire : après avoir réparé un banc
+  rouge, ne jamais annoncer « c'est vert » — annoncer « il va plus loin », et relancer.
+
+- [1× — 09-11d] **Un durcissement légitime du produit casse un banc, et rien ne le dit tant que le
+  banc n'est pas rejoué.** Les droits ont été durcis quatre jours plus tôt ; le banc n'avait pas
+  tourné depuis, et sa dernière passe verte datait d'une autre branche. Un banc hebdomadaire vert
+  sur `main` ne dit RIEN du travail en cours sur `dev` — et c'est précisément quand on durcit
+  quelque chose qu'il faut le rejouer.
+
+- [1× — 09-11d] **La dernière passe verte d'un banc portait sur une autre branche, et je l'ai
+  d'abord lue comme un acquittement.** « Verte le 07-09 » — sur `main`, donc sans quatre jours de
+  travail. La date d'une passe ne dit pas ce qu'elle a exercé ; la BRANCHE, si.
+
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
 
 - [1× — 09-07g] **Une garde posée trop HAUT retire tout ce qui vivait sous elle.** « Ne pas
@@ -171,6 +199,23 @@
 - **Rediriger le home d'un agent y fait déposer ses fichiers de TRAVAIL** (`trusted_folders.toml`,
   `.codex/tmp/`). Un `.gitignore` qui ne versionne que la DÉCLARATION — dans le dépôt ET dans le
   gabarit d'app générée, sinon chaque app naît avec ces artefacts. `[1× — 08-23c]`
+
+## ⌨️ Une commande que je fais TAPER au user s'exécute dans SON terminal, pas dans le mien
+
+- [2× — 09-11d] **Deux commandes proposées au user ont BLOQUÉ son terminal, pour deux causes
+  différentes.** D'abord un `read -rsp` — une saisie interactive dont le stdin n'est pas branché :
+  il attend indéfiniment, et `-s` masque même l'absence d'écho, donc rien ne signale l'attente.
+  Ensuite une boucle `for` dont le `;` est arrivé échappé (`\;`) au collage : le shell ne voit
+  jamais la fin de la commande et reste en attente de la suite (`for>`). Dans les deux cas le user
+  a dû interrompre, et dans les deux cas j'avais écrit une commande que je n'avais PAS exécutée.
+  Règles qui en sortent : jamais d'interactif (`read`, un éditeur, une invite) dans une commande
+  destinée à un autre terminal ; jamais de boucle ni de `;` quand trois lignes indépendantes font
+  le même travail — une ligne qui échoue se rejoue seule, et rien ne peut rester ouvert.
+
+- [1× — 09-11d] **Et le mauvais identifiant.** Le namespace du dépôt d'images (`nodefony`) n'est
+  pas le compte qui s'y authentifie (`ccamensuli`). J'avais pris le premier pour le second. Un
+  identifiant se DEMANDE ou se CONSTATE — `docker login` l'affiche —, il ne se déduit pas du nom
+  de l'organisation.
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
 
