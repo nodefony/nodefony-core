@@ -634,7 +634,7 @@ async function measurePage(args) {
       const r = el.getBoundingClientRect();
       const px = parseFloat(cs.fontSize);
       const bold = Number(cs.fontWeight) >= 700;
-      const commun = {
+      const common = {
         label,
         text: (el.textContent ?? "").trim().slice(0, 40),
         color: cs.color,
@@ -654,14 +654,14 @@ async function measurePage(args) {
           background,
         );
         return {
-          ...commun,
+          ...common,
           background,
           contrast,
           wcag: verdictWcag(contrast, px, bold),
         };
       } catch (e) {
         return {
-          ...commun,
+          ...common,
           contrast: null,
           wcag: "NON MESURÉ",
           unmeasured: e instanceof Error ? e.message : String(e),
