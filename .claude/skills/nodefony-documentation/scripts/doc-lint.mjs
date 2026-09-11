@@ -2,8 +2,9 @@
 // doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.
 // Une page ne peut être marquée ✅ que si elle PASSE ce linter.
 // Usage : node doc-lint.mjs /tmp/corpus/*.md
-import { readFileSync, existsSync } from "node:fs";
+import fs, { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
+import { resoudreCorpus } from "./corpus.mjs";
 
 // Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/doc-work/.
 import { execSync } from "node:child_process";
@@ -11,9 +12,15 @@ const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
 const COVERAGE = path.join(REPO, "tmp/doc-work/coverage");
-const files = process.argv.slice(2);
+const cibles = process.argv.slice(2);
+if (!cibles.length) {
+  console.error("usage: node doc-lint.mjs <fichier.md|dossier ...>");
+  process.exit(2);
+}
+
+const files = resoudreCorpus(cibles);
 if (!files.length) {
-  console.error("usage: node doc-lint.mjs <fichier.md ...>");
+  console.error(`aucune page .md sous : ${cibles.join(", ")}`);
   process.exit(2);
 }
 

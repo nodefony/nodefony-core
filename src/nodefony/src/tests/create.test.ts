@@ -2866,6 +2866,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
      * voit aucune adresse ouvre une issue publique, ce que la page existe
      * précisément pour éviter.
      */
+    /**
+     * Les deux gestes d'AVANT-DÉPLOIEMENT que l'application ne portait pas.
+     *
+     * Ils sont vérifiés sur le `package.json` RENDU, pas sur le gabarit : c'est
+     * ce fichier-là que l'utilisateur reçoit, et un gabarit juste qui se rend
+     * mal ne se voit nulle part ailleurs. Le menu interactif les propose dès
+     * qu'ils existent — c'est son filtre par présence qui décide, pas une
+     * liste écrite à la main.
+     */
+    it("l'app générée porte doctor:live et audit:deps", () => {
+      const dest = path.join(tmp, "gestes");
+      scaffold(dest, { name: "gestes", preset: "minimal", frontend: "none" });
+      const pkg = readJson(path.join(dest, "package.json"));
+      // Le diagnostic qui INTERROGE l'app (migrations, zones) — celui qui ne
+      // lit pas que des fichiers.
+      assert.include(pkg.scripts["doctor:live"], "--live");
+      // `npm audit` borné à la PRODUCTION : les outils de développement ne
+      // partent pas dans l'image, leurs alertes n'y atteignent personne.
+      assert.include(pkg.scripts["audit:deps"], "--omit=dev");
+    });
+
     it("l'app naît avec un SECURITY.md dont la zone contact est VISIBLE", () => {
       const dest = path.join(tmp, "secmd");
       scaffold(dest, { name: "secmd", preset: "minimal", frontend: "none" });

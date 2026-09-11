@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
-import { NPM_SCRIPT_CATALOG } from "../cli/startMenu";
+import { NPM_SCRIPT_CATALOG, buildStartMenu } from "../cli/startMenu";
 
 const CORE = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -51,6 +51,53 @@ function scriptsDuDepot(): Set<string> {
   ) as { scripts?: Record<string, string> };
   return new Set(Object.keys(pkg.scripts ?? {}));
 }
+
+/**
+ * Ce que ce contrôle garde : le menu d'une APPLICATION GÉNÉRÉE n'affiche que
+ * ce qu'elle possède.
+ *
+ * Le catalogue porte aussi des gestes propres au dépôt du framework
+ * (`check:lang`, `ticket:lint`, `doc:anchors`). Une application ne les a pas —
+ * et un séparateur suivi de rien, ou pire une entrée qui lance un script
+ * absent, transforme le menu en promesse fausse. C'est le filtre par PRÉSENCE
+ * qui l'évite ; ce test le tient.
+ */
+describe("menu d'une application générée — ni entrée ni section fantôme", () => {
+  const gabarit = scriptsDuGabarit();
+
+  it("ne propose aucun script que l'app n'a pas, et aucune section vide", () => {
+    const menu = buildStartMenu({
+      inProject: true,
+      describe: () => null,
+      npmScripts: [...gabarit],
+      projectName: "mon-app",
+    });
+    const proposes = menu.items
+      .filter((i) => i.kind === "choice" && i.value.startsWith("npm:"))
+      .map((i) => (i.kind === "choice" ? i.value.slice("npm:".length) : ""));
+    expect(proposes.length).toBeGreaterThan(3);
+    for (const script of proposes) {
+      expect(
+        gabarit.has(script),
+        `le menu d'une app propose « ${script} », absent de son package.json`,
+      ).toBe(true);
+    }
+    // Les gestes du DÉPÔT ne fuient pas chez l'utilisateur.
+    for (const duDepot of ["check:lang", "ticket:lint", "doc:anchors"]) {
+      expect(proposes).not.toContain(duDepot);
+    }
+    // Aucun séparateur sans entrée sous lui : une section vide est une
+    // promesse que le menu ne tient pas.
+    menu.items.forEach((item, i) => {
+      if (item.kind !== "separator") return;
+      const suivant = menu.items[i + 1];
+      expect(
+        suivant !== undefined && suivant.kind === "choice",
+        `section « ${item.label} » sans aucune entrée`,
+      ).toBe(true);
+    });
+  });
+});
 
 describe("catalogue npm du menu — aucune entrée morte", () => {
   const gabarit = scriptsDuGabarit();

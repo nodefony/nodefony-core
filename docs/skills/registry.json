@@ -1889,6 +1889,15 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/corpus.mjs",
+            "purpose": "Dossiers qu'on ne descend jamais.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/doc-lint.mjs",
             "purpose": "doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony.",
             "usage": [

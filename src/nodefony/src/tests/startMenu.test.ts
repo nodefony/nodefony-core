@@ -266,7 +266,10 @@ describe("startMenu — composition pure du menu interactif", () => {
     const labels = separators(items).map((s) =>
       s.kind === "separator" ? s.label : "",
     );
-    assert.include(labels, "Qualité (npm run)");
+    // Le groupe « Qualité » est SECTIONNÉ : dix-neuf gestes sous un seul titre
+    // ne se lisent plus — on cherche celui qu'on connaît déjà au lieu de
+    // découvrir ceux qu'on ignore.
+    assert.include(labels, "Qualité — la passe (npm run)");
     assert.include(labels, "Infra (docker)");
   });
 

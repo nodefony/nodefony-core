@@ -14,14 +14,21 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { resoudreCorpus } from "./corpus.mjs";
 import { execSync } from "node:child_process";
 
 const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
-const args = process.argv.slice(2);
+const cibles = process.argv.slice(2);
+if (!cibles.length) {
+  console.error("usage: node anchor-check.mjs <page.md|dossier> [...]");
+  process.exit(2);
+}
+
+const args = resoudreCorpus(cibles);
 if (!args.length) {
-  console.error("usage: node anchor-check.mjs <page.md> [...]");
+  console.error(`aucune page .md sous : ${cibles.join(", ")}`);
   process.exit(2);
 }
 
