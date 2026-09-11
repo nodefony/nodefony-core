@@ -3,7 +3,7 @@
 Merci de regarder ce projet.
 
 Nodefony est un logiciel libre développé bénévolement par une seule personne, sous licence
-[CeCILL-B](LICENSE.txt). Il n'y a ni entreprise derrière, ni obligation de réponse sous 24 h — mais
+[Apache 2.0](LICENSE.txt). Il n'y a ni entreprise derrière, ni obligation de réponse sous 24 h — mais
 toute contribution est lue, et les règles ci-dessous existent pour qu'elle puisse être intégrée sans
 que j'aie à la réécrire.
 
@@ -117,4 +117,5 @@ Elles ne sont pas des goûts : chacune a été payée par un défaut réel.
 ## Licence
 
 En contribuant, vous acceptez que votre contribution soit distribuée sous la licence
-[CeCILL-B](LICENSE.txt), compatible avec les licences libres permissives de type BSD.
+[Apache 2.0](LICENSE.txt) — permissive, et elle concède en plus une licence de brevet
+sur ce que chaque contributeur apporte.

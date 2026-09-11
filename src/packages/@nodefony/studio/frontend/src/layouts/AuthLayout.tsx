@@ -137,7 +137,7 @@ export function AuthLayout({ children }: { children: ReactNode }) {
 
           <Group justify="space-between">
             <Text size="xs" c="rgba(255,255,255,0.65)">
-              Nodefony 10 · licence CeCILL-B
+              Nodefony 10 · licence Apache 2.0
             </Text>
             <Anchor
               href="https://github.com/nodefony/nodefony-core"

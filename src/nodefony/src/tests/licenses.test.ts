@@ -60,7 +60,7 @@ function releve(
 
 describe("licences — la liste d'acceptation REFUSE, sinon elle ne garde rien", () => {
   it("un copyleft fort est refusé", () => {
-    // Le cas qui fonde la règle : redistribuer sous CeCILL-B ce qui exige d'être
+    // Le cas qui fonde la règle : redistribuer sous Apache-2.0 ce qui exige d'être
     // redistribué sous GPL est contradictoire.
     for (const licence of ["GPL-3.0", "AGPL-3.0", "SSPL-1.0", "GPL-2.0"]) {
       assert.strictEqual(accept(licence), null, `${licence} doit être refusée`);

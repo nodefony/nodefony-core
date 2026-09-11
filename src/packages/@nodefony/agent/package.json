@@ -9,7 +9,7 @@
     "@nodefony/memory": "*",
     "@nodefony/rag": "*"
   },
-  "license": "CECILL-B",
+  "license": "Apache-2.0",
   "private": true,
   "devDependencies": {},
   "repository": {

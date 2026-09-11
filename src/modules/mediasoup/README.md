@@ -186,4 +186,4 @@ Restent (non implémentés) :
 - Adapter par défaut : [`@nodefony/drizzle`](../../packages/@nodefony/drizzle/README.md)
 - Builder front : [`@nodefony/frontend`](../../packages/@nodefony/frontend/README.md)
 - Legacy de référence : `/repository/nodefony-mediasoup` (JS)
-- Licence : CeCILL-B
+- Licence : Apache 2.0

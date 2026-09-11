@@ -8,7 +8,7 @@
 
 _Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
 
-[![Licence CeCILL-B](https://img.shields.io/badge/licence-CeCILL--B-blue.svg?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt)
+[![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg?style=flat-square)](https://github.com/nodefony/nodefony-core/blob/main/LICENSE.txt)
 [![Node ≥ 24](https://img.shields.io/badge/Node.js-%E2%89%A5%2024-green?style=flat-square)](https://nodejs.org/)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](https://www.typescriptlang.org/)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](https://nodejs.org/api/esm.html)

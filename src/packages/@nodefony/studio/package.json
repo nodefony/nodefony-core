@@ -85,7 +85,7 @@
     "vite": "8.3.0",
     "vitest": "5.0.0"
   },
-  "license": "CECILL-B",
+  "license": "Apache-2.0",
   "files": [
     "dist",
     "public",

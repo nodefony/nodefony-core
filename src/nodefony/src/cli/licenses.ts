@@ -6,9 +6,10 @@
  * écrire le relevé de ce qu'elle redistribue. Recopier la règle dans un gabarit
  * ferait diverger les deux en silence, chacune passant ses propres contrôles.
  *
- * Nodefony se distribue sous CeCILL-B, une licence permissive de type BSD. Elle
+ * Nodefony se distribue sous Apache-2.0, une licence permissive qui concède en
+ * plus une licence de BREVET sur ce que ses contributeurs apportent. Elle
  * autorise l'incorporation de code permissif, et INTERDIT en pratique de dépendre
- * d'un copyleft fort (GPL, AGPL, SSPL) : redistribuer sous CeCILL-B ce qui exige
+ * d'un copyleft fort (GPL, AGPL, SSPL) : redistribuer sous Apache-2.0 ce qui exige
  * d'être redistribué sous GPL est contradictoire.
  *
  * Le risque n'est pas d'écrire une telle dépendance à la main — personne ne le
@@ -66,6 +67,7 @@ export const ALLOWED: ReadonlySet<string> = new Set([
   "0BSD",
   "BSD-2-Clause",
   "BSD-3-Clause",
+  // La nôtre depuis la 10.0.0.
   "Apache-2.0",
   "BlueOak-1.0.0",
   "Unlicense",
@@ -78,7 +80,8 @@ export const ALLOWED: ReadonlySet<string> = new Set([
   "CC0-1.0",
   "CC-BY-4.0",
   "CC-BY-3.0",
-  // La nôtre.
+  // La nôtre AVANT la 10.0.0 : des paquets publiés la portent encore, et
+  // une licence EXAMINÉE ne se retire pas d'une liste d'acceptation.
   "CECILL-B",
 ]);
 

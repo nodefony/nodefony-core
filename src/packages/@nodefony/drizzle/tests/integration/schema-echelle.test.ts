@@ -21,7 +21,7 @@ import type { DrizzleDb } from "../../nodefony/src/orm-core/index";
  *   · le VOLUME des données — des dizaines de milliers de lignes, pas dix.
  *
  * Elles étaient éprouvées, mais par un banc adossé au schéma d'un ERP tiers sous
- * GPLv3, que ce dépôt (CeCILL-B) exclut de son suivi de version : il ne pouvait
+ * GPLv3, que ce dépôt (Apache 2.0) exclut de son suivi de version : il ne pouvait
  * donc tourner que sur la machine qui possède la fixture. Rien de ce qui est
  * mesuré ici n'exigeait ce schéma. Un modèle de facturation générique — un tiers,
  * ses factures, leurs lignes, leurs règlements — porte la même requête et le même

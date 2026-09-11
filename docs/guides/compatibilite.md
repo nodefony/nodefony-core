@@ -119,7 +119,7 @@ Ce que ça implique pour vous :
 
 - **Prévoyez la montée de majeure** comme une tâche récurrente, pas comme un imprévu.
 - Les majeures ne sortent pas au hasard : une rupture est toujours motivée et documentée.
-- Si vous devez rester sur une version ancienne, la licence [CeCILL-B](https://cecill.info/) vous
+- Si vous devez rester sur une version ancienne, la licence [Apache 2.0](https://www.apache.org/licenses/LICENSE-2.0) vous
   autorise pleinement à la maintenir vous-même — le code est là, et les correctifs sont publics.
 
 ## Signaler une rupture non annoncée

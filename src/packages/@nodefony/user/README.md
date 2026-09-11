@@ -117,4 +117,4 @@ npm run build --workspace=src/packages/@nodefony/user
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

@@ -227,8 +227,8 @@ export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
     // n'inclut d'office que les fichiers de licence posés à la racine du
     // PAQUET. Les deux ne sont pas au même endroit, et rien ne le signale :
     // mesuré sur l'artefact reçu, le tarball `@nodefony/http@10.0.0` porte
-    // 154 fichiers et ZÉRO licence, tout en déclarant `license: "CECILL-B"`.
-    // Les licences libres — CeCILL-B comme MIT ou BSD — exigent que leur texte
+    // 154 fichiers et ZÉRO licence, tout en déclarant `license: "Apache-2.0"`.
+    // Les licences libres — Apache 2.0 comme MIT ou BSD — exigent que leur texte
     // accompagne la distribution : le paquet publié ne remplit donc pas la
     // condition sous laquelle il autorise sa propre réutilisation.
     //

@@ -110,7 +110,7 @@ interface LiveEvent {
 
         <div style="display:flex; justify-content:space-between; position:relative">
           <span style="font-size:12px; color:rgba(255,255,255,.65)">
-            Nodefony 10 · licence CeCILL-B
+            Nodefony 10 · licence Apache 2.0
           </span>
           <a
             href="https://github.com/nodefony/nodefony-core"

@@ -242,7 +242,7 @@
           <span class="badge">Node.js ≥ 24</span>
           <span class="badge">TypeScript strict</span>
           <span class="badge">ESM only</span>
-          <span class="badge">Licence CeCILL-B</span>
+          <span class="badge">Licence Apache 2.0</span>
         </div>
         <div class="install" role="img" aria-label="Commande d'installation : npx nodefony create app">
           <span class="p">$</span><span>npx nodefony create app</span>
@@ -413,7 +413,7 @@
           </a>
         </div>
         <div class="foot-note">
-          <span>Propulsé par <a href="https://nodefony.net" target="_blank" rel="noreferrer noopener">nodefony.net</a> — licence CeCILL-B, open source depuis 2017.</span>
+          <span>Propulsé par <a href="https://nodefony.net" target="_blank" rel="noreferrer noopener">nodefony.net</a> — licence Apache 2.0, open source depuis 2017.</span>
           <span>v<%= nodefony.version %></span>
         </div>
       </footer>

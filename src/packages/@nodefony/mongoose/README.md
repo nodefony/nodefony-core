@@ -94,4 +94,4 @@ Pour une CI / Docker, exportez `NF_MONGO_TEST_URI=mongodb://localhost:27017` (co
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

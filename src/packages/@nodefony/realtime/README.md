@@ -204,4 +204,4 @@ expect(h.denials().map((d) => d.channel)).toEqual(["chat:admin"]); // refusé
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

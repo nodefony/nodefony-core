@@ -33,7 +33,7 @@ Deux canaux privés :
 
 ## À quoi vous attendre
 
-Nodefony est un projet **libre, développé bénévolement par une seule personne** (licence CeCILL-B).
+Nodefony est un projet **libre, développé bénévolement par une seule personne** (licence Apache 2.0).
 Autant l'annoncer franchement plutôt que promettre des délais d'éditeur :
 
 | Étape                                    | Objectif                                                              |

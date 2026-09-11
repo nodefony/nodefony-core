@@ -9,7 +9,7 @@ celle-ci naît d'ailleurs `"private": true` et `"license": "UNLICENSED"` dans so
 `package.json`.
 
 Si ce logiciel doit être partagé ou publié, REMPLACE ce fichier par le texte de
-la licence retenue (MIT, Apache-2.0, CeCILL-B…) et aligne le champ `license` du
+la licence retenue (MIT, Apache-2.0, BSD-3-Clause, GPL-3.0…) et aligne le champ `license` du
 `package.json` sur son identifiant SPDX. Les deux doivent dire la même chose :
 le champ est ce que lisent les outils, le fichier est ce que lisent les humains.
 

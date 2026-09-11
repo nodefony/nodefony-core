@@ -11,7 +11,7 @@ import { oxcDecorators } from "../../../vitest.oxc";
  * ⚠️ `--passWithNoTests` (côté script npm) n'est PAS une commodité, c'est une
  * contrainte de LICENCE. Les bancs du gros schéma Dolibarr vivent sous
  * `nodefony/entity/dolibarr/`, que `.gitignore` exclut sciemment : ce schéma est
- * dérivé GPLv3 et le dépôt est publié sous CeCILL-B. Ce dossier est donc ABSENT
+ * dérivé GPLv3 et le dépôt est publié sous Apache 2.0. Ce dossier est donc ABSENT
  * de tout clone — sans ce drapeau, `vitest` y sort en code 1 (« No test files
  * found ») et rendrait `npm test` rouge partout sauf sur la machine qui possède
  * la fixture. C'est très exactement le rouge que ce `.gitignore` raconte avoir

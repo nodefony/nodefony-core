@@ -8,7 +8,7 @@
 
 _Une action de contrôleur. Deux transports. La même session, la même sécurité, le même code._
 
-[![Licence CeCILL-B](https://img.shields.io/badge/licence-CeCILL--B-blue.svg?style=flat-square)](LICENSE.txt)
+[![Licence Apache 2.0](https://img.shields.io/badge/licence-Apache--2.0-blue.svg?style=flat-square)](LICENSE.txt)
 [![Node ≥ 24](https://img.shields.io/badge/Node.js-%E2%89%A5%2024-green?style=flat-square)](package.json)
 [![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 [![ESM](https://img.shields.io/badge/ESM-only-orange?style=flat-square)](package.json)
@@ -342,7 +342,7 @@ s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est tran
 Ce qu'il faut savoir avant de bâtir dessus : les versions JavaScript historiques (≤ 7.x) ne
 reçoivent plus de correctifs. Projet libre, développé bénévolement par une seule personne.
 
-Licence [CeCILL-B](LICENSE.txt) — libre de droit français, compatible BSD.
+Licence [Apache 2.0](LICENSE.txt) — permissive, avec concession de brevet explicite.
 **Christophe Camensuli** · [ccamensuli@gmail.com](mailto:ccamensuli@gmail.com)
 
 ---

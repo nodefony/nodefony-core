@@ -414,7 +414,7 @@ La doc externe (RFC) et la phase future P12 (couche IA) sont **déchargées dans
 ## Contexte du projet
 
 Framework Node.js fullstack open source — migration vers TypeScript.
-Auteur : Christophe CAMENSULI — projet libre CeCILL-B.
+Auteur : Christophe CAMENSULI — projet libre Apache 2.0.
 
 **Repo** : https://github.com/nodefony/nodefony-core
 **Branches** : `main` porte la dernière publication (elle n'avance qu'aux releases) · `dev` porte le développement (branches `refactor/*` fusionnées dedans)

@@ -48,4 +48,4 @@ perdu — l'application générée a besoin de ce même paquet.
 
 ## Licence
 
-CeCILL-B — © Christophe CAMENSULI
+Apache 2.0 — © Christophe CAMENSULI

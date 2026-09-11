@@ -165,4 +165,4 @@ npm run build       # rolldown + tsgo → dist/ + dist/types
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

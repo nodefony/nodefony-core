@@ -185,7 +185,7 @@ requis).
 ## Alternatives écartées
 
 - **Chinook / Sakila / Dolibarr** comme banc de test : génériques (pas de
-  dividende P15) ; Dolibarr est **GPL** (contamination d'un repo CeCILL-B).
+  dividende P15) ; Dolibarr est **GPL** (contamination d'un dépôt sous Apache-2.0).
 - **PK string naturelle** (legacy `username`/`room.name`) : fragile en cluster et
   au renommage des FK.
 - **Persister les stats QoS live en SQL** : volume ingérable, viole la règle perf.

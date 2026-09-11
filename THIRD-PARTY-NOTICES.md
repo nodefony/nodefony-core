@@ -12,10 +12,9 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | Licence       | Paquets | Ce qu'elle impose                                                                         |
 | ------------- | ------: | ----------------------------------------------------------------------------------------- |
 | MIT           |     429 | garder la notice et le texte de la licence                                                |
-| Apache-2.0    |      45 | garder la notice et le fichier NOTICE ; signaler les fichiers modifiés (brevets concédés) |
+| Apache-2.0    |      60 | garder la notice et le fichier NOTICE ; signaler les fichiers modifiés (brevets concédés) |
 | ISC           |      22 | garder la notice et le texte de la licence                                                |
 | BSD-3-Clause  |      17 | garder la notice ; ne pas invoquer le nom des auteurs pour promouvoir                     |
-| CECILL-B      |      15 | garder la notice et CITER les auteurs (BSD de droit français)                             |
 | BSD-2-Clause  |      13 | garder la notice et le texte de la licence                                                |
 | MPL-2.0       |       3 | copyleft de FICHIER : un fichier MPL modifié reste MPL ; le reste du produit est libre    |
 | MIT-0         |       2 | rien — attribution non exigée                                                             |
@@ -123,19 +122,19 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `@napi-rs/nice-darwin-x64`                        | 1.1.1          | MIT                       |
 | `@node-rs/argon2`                                 | 2.2.1          | MIT                       |
 | `@node-rs/bcrypt`                                 | 1.10.9         | MIT                       |
-| `@nodefony/devkit`                                | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/documentation`                         | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/drizzle`                               | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/framework`                             | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/frontend`                              | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/http`                                  | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/mongoose`                              | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/orm-core`                              | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/realtime`                              | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/redis`                                 | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/security`                              | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/studio`                                | 10.0.0-alpha.4 | CECILL-B                  |
-| `@nodefony/user`                                  | 10.0.0-alpha.4 | CECILL-B                  |
+| `@nodefony/devkit`                                | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/documentation`                         | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/drizzle`                               | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/framework`                             | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/frontend`                              | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/http`                                  | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/mongoose`                              | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/orm-core`                              | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/realtime`                              | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/redis`                                 | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/security`                              | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/studio`                                | 10.0.0-alpha.4 | Apache-2.0                |
+| `@nodefony/user`                                  | 10.0.0-alpha.4 | Apache-2.0                |
 | `@opentelemetry/api`                              | 1.9.1          | Apache-2.0                |
 | `@opentelemetry/api-logs`                         | 0.220.0        | Apache-2.0                |
 | `@opentelemetry/core`                             | 2.10.0         | Apache-2.0                |
@@ -268,7 +267,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `convert-source-map`                              | 2.0.0          | MIT                       |
 | `convert-source-map`                              | 1.9.0          | MIT                       |
 | `cookie`                                          | 2.0.1          | MIT                       |
-| `create-nodefony`                                 | 10.0.0-alpha.4 | CECILL-B                  |
+| `create-nodefony`                                 | 10.0.0-alpha.4 | Apache-2.0                |
 | `cross-inspect`                                   | 1.0.1          | MIT                       |
 | `csp_evaluator`                                   | 1.1.8          | Apache-2.0                |
 | `css-select`                                      | 6.0.0          | BSD-2-Clause              |
@@ -424,7 +423,7 @@ texte de leur licence : npm les installe avec chaque paquet, sous `node_modules`
 | `node-forge`                                      | 1.4.0          | (BSD-3-Clause OR GPL-2.0) |
 | `node-gyp-build-optional-packages`                | 5.2.2          | MIT                       |
 | `node-releases`                                   | 2.0.53         | MIT                       |
-| `nodefony`                                        | 10.0.0-alpha.4 | CECILL-B                  |
+| `nodefony`                                        | 10.0.0-alpha.4 | Apache-2.0                |
 | `nth-check`                                       | 2.1.1          | BSD-2-Clause              |
 | `object-inspect`                                  | 1.13.4         | MIT                       |
 | `obug`                                            | 2.1.4          | MIT                       |

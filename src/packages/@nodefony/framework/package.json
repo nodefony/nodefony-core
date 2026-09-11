@@ -61,7 +61,7 @@
     "tsx": "4.23.13",
     "vitest": "5.0.0"
   },
-  "license": "CECILL-B",
+  "license": "Apache-2.0",
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {

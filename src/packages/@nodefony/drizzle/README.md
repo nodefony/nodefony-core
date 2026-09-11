@@ -159,4 +159,4 @@ const rows = db.all(sql`SELECT ... JOIN ...`);
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

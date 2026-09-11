@@ -220,7 +220,7 @@ const suites = inventaireTests();
  *   - l'en-tête centré (logo, titre, badges d'images distantes) est retiré : le
  *     chrome de la page porte déjà la marque, et ces badges sont des images
  *     servies par un tiers — une page publiée n'a pas à dépendre d'un service
- *     extérieur pour afficher « licence CeCILL-B » ;
+ *     extérieur pour afficher « licence Apache 2.0 » ;
  *   - les images du dépôt sont servies depuis GitHub, faute d'être copiées dans
  *     le site ;
  *   - les liens relatifs mènent au dépôt, ou à la documentation quand la cible y
@@ -913,7 +913,7 @@ const html = doc({
         {
           k: "Code",
           v: '<a href="https://github.com/nodefony/nodefony-core">Le dépôt</a>',
-          sub: "sources, suivi, licence CeCILL-B",
+          sub: "sources, suivi, licence Apache 2.0",
         },
       ]),
     ),

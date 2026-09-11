@@ -18,7 +18,7 @@ HTTP et WebSocket partagent la même route, la même session et le même pare-fe
 | **Branche par défaut** | `main` — elle porte la **dernière publication** et n'avance qu'aux releases                                                                                                                                   |
 | **Branche de travail** | `dev` — **c'est là que vit le code courant** ; `main` ne le reçoit qu'à la publication suivante                                                                                                               |
 | **Tests**              | ~7 700 quand toute l'infrastructure répond (`npm run test:all`)                                                                                                                                               |
-| **Licence**            | CeCILL-B — projet libre, développé bénévolement par une seule personne                                                                                                                                        |
+| **Licence**            | Apache 2.0 — projet libre, développé bénévolement par une seule personne                                                                                                                                      |
 
 > ⚠️ **Lire `dev`, pas `main`**, pour toute question sur le code actuel. Le
 > constater plutôt que le croire : `git rev-list --count origin/main..origin/dev`.

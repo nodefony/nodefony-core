@@ -40,7 +40,7 @@ services:
     # 🔴 `8`, pas `7` : Redis 7.4 est la SEULE fenêtre non libre de la gamme
     # (RSALv2/SSPL seuls). La 8 est tri-licenciée — RSALv2, SSPLv1 ou AGPLv3 AU
     # CHOIX du licencié —, donc libre, et la 7.2 et antérieures restent BSD-3.
-    # Un projet CeCILL-B ne prescrit pas un composant non libre par défaut.
+    # Un projet Apache 2.0 ne prescrit pas un composant non libre par défaut.
     image: redis:8-alpine
     container_name: nodefony-redis
     restart: unless-stopped

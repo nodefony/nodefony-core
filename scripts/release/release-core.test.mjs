@@ -198,7 +198,7 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
       },
       publishConfig: { access: "public" },
       files: ["dist"],
-      license: "CECILL-B",
+      license: "Apache-2.0",
       // Une description RÉELLE, pas un remplissage : le décor doit satisfaire
       // le gate pour la même raison qu'un vrai paquet — sinon « conforme » ne
       // veut plus rien dire.

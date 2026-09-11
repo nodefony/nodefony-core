@@ -74,4 +74,4 @@ npm run test:memory      # GATE mémoire (memory.test.ts) — AVANT tout commit 
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

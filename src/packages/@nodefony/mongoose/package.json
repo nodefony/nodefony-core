@@ -74,11 +74,11 @@
     "url": "git+https://github.com/nodefony/nodefony-core.git",
     "directory": "src/packages/@nodefony/mongoose"
   },
-  "license": "CECILL-B",
+  "license": "Apache-2.0",
   "licenses": [
     {
-      "type": "CECILL-B",
-      "url": "http://www.cecill.info/licences/Licence_CeCILL-B_V1-en.html"
+      "type": "Apache-2.0",
+      "url": "https://www.apache.org/licenses/LICENSE-2.0"
     }
   ],
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",

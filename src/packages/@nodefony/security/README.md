@@ -179,4 +179,4 @@ Un **secret n'entre jamais** dans un événement — seule sa _présence_ est tr
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

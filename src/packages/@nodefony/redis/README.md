@@ -107,4 +107,4 @@ NF_REDIS_PASSWORD=nodefony-dev npx vitest run
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

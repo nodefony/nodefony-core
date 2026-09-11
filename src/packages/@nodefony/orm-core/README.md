@@ -128,4 +128,4 @@ vérité ; REST, WebSocket, GraphQL et CLI n'en sont que des adaptateurs minces.
 
 ## Licence
 
-CeCILL-B — Christophe CAMENSULI.
+Apache 2.0 — Christophe CAMENSULI.

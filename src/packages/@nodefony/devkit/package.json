@@ -61,7 +61,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "license": "CECILL-B",
+  "license": "Apache-2.0",
   "keywords": [
     "nodefony",
     "devkit",

@@ -6,7 +6,7 @@ version: 0.1 (brouillon)
 audience: ingénieurs et chercheurs en IA, décideurs techniques
 auteur: Christophe Camensuli
 date: 2026-05-29
-licence: CeCILL-B (open source)
+licence: Apache 2.0 (open source)
 ---
 
 # Livre blanc — Nodefony : une couche IA agentique souveraine, par construction
@@ -383,7 +383,7 @@ La boucle de travail est un **Red-Green-Refactor** : l'agent édite, lance le ba
 mémoire/CPU, **rejette son propre code si un seuil régresse**, puis présente une _pull
 request_ avec un rapport avant/après. Garde-fous non négociables : **aucun _merge_ sans
 relecture humaine** ; le framework reste conçu et architecturé par un humain (licence
-CeCILL-B). À noter : la majorité de ces outils existent déjà sous forme de _skills_ — la
+Apache 2.0). À noter : la majorité de ces outils existent déjà sous forme de _skills_ — la
 Phase 12 consiste à les exposer en MCP, non à les inventer.
 
 > Aboutissement : **Nodefony comme référence du développement classique et agentique** —
@@ -400,4 +400,4 @@ réelle — avec le streaming, l'orchestration et la **gouvernance des données*
 et un **mode souverain** atteignable de bout en bout. Le socle est mûr ; la couche IA est
 à concevoir. C'est une invitation à le faire avec rigueur, sur des bases saines.
 
-_Projet open source sous licence CeCILL-B — [github.com/nodefony/nodefony-core](https://github.com/nodefony/nodefony-core). Contributions et échanges bienvenus : ccamensuli@gmail.com._
+_Projet open source sous licence Apache 2.0 — [github.com/nodefony/nodefony-core](https://github.com/nodefony/nodefony-core). Contributions et échanges bienvenus : ccamensuli@gmail.com._
