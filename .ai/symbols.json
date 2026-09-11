@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3991,
+    "symbols": 3992,
     "classes": 388,
     "interfaces": 1081,
     "types": 447,
     "enums": 4,
-    "functions": 1677,
+    "functions": 1678,
     "constants": 394
   },
   "symbols": {
@@ -25611,6 +25611,14 @@
       ],
       "decorators": [],
       "description": "Keystore Ed25519 — implémentation de référence d'{@link IJwtKeystore}. Résout la clé de signature selon une **priorité** (jamais d'auto-génération en clair « par défaut » en prod) : 1. **env** — `c…"
+    },
+    "avertissementTrousseauDansImage": {
+      "name": "avertissementTrousseauDansImage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "Le trousseau va-t-il partir dans l'image de conteneur ? ⭐ **Pourquoi cet avertissement existe.** Le trousseau est une clé privée Ed25519. Elle ne sort pas de l'image aujourd'hui pour UNE seule rais…"
     },
     "IJwtRuntime": {
       "name": "IJwtRuntime",

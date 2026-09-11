@@ -23,6 +23,52 @@ interface KeystoreSource {
   readonly dir?: string;
 }
 
+/**
+ * Dossiers que le `Dockerfile` généré EFFACE à l'étage de construction.
+ *
+ * La liste est ici parce que c'est ici qu'on s'en sert ; elle est tenue honnête
+ * par le test qui la confronte au gabarit — deux copies d'une même règle
+ * divergent en silence, et c'est une clé privée qui paierait la dérive.
+ */
+const DOSSIERS_NETTOYES = ["var", "tmp"];
+
+/**
+ * Le trousseau va-t-il partir dans l'image de conteneur ?
+ *
+ * ⭐ **Pourquoi cet avertissement existe.** Le trousseau est une clé privée
+ * Ed25519. Elle ne sort pas de l'image aujourd'hui pour UNE seule raison : le
+ * gabarit a choisi `var/keys`, et le `Dockerfile` généré efface `var/`. Rien
+ * n'attache cette sécurité à la configuration — un utilisateur qui écrit
+ * `keystore: { dir: "nodefony/config/keys" }`, chemin parfaitement raisonnable,
+ * publie sa clé privée sans qu'aucun signal n'existe. C'est exactement le
+ * chemin par lequel une clé TLS est déjà partie dans une image publiée.
+ *
+ * ⚠️ **Les chemins ABSOLUS ne sont pas jugés**, et c'est délibéré : `/etc/…` ou
+ * un point de montage sont des choix d'exploitation qui sortent du contexte de
+ * construction, et prétendre les évaluer ferait crier ce contrôle sur la
+ * pratique la plus saine. Un contrôle qui crie faux apprend à passer outre.
+ *
+ * @param dir - la valeur de `jwt.keystore.dir`, telle que configurée.
+ * @returns le message à journaliser, ou `null` quand le dossier est nettoyé.
+ */
+export function avertissementTrousseauDansImage(dir: string): string | null {
+  // Normalisé en `/` avant de comparer : un filtre écrit en `/` ne mord pas sur
+  // `var\keys`, et la faute serait alors INVISIBLE — l'avertissement
+  // manquerait précisément sur la plateforme où on l'a oublié.
+  const normalise = dir.replace(/\\/gu, "/").replace(/^\.\//u, "");
+  if (normalise.startsWith("/") || /^[A-Za-z]:/u.test(normalise)) return null;
+  const premier = normalise.split("/")[0];
+  if (DOSSIERS_NETTOYES.includes(premier)) return null;
+  return (
+    `JWT keystore: « ${dir} » n'est PAS sous ${DOSSIERS_NETTOYES.map((d) => `\`${d}/\``).join(" ni ")}, ` +
+    `les seuls dossiers que le Dockerfile généré efface avant de fabriquer l'image. ` +
+    `La clé privée de signature partira donc dans ton image de conteneur, où elle ` +
+    `reste lisible par quiconque la télécharge — même effacée par une couche suivante. ` +
+    `Deux issues : déplacer le dossier sous \`var/\` (ex. \`var/keys\`), ou injecter la ` +
+    `clé par jwt.keystore.keySetJson depuis l'environnement, ce qui est la voie de production.`
+  );
+}
+
 /** Clé telle que persistée : JWK privé (avec `d`) + métadonnées. */
 interface StoredKey extends JWK {
   kid: string;
@@ -114,6 +160,10 @@ export class JwtKeystore implements IJwtKeystore {
     }
     // 2. fichier — opt-in dev/VPS (généré si absent).
     if (this.#source.dir) {
+      // AVANT toute écriture : si le dossier part dans l'image, le dire pendant
+      // qu'il est encore temps de changer d'avis. Après, la clé existe.
+      const risque = avertissementTrousseauDansImage(this.#source.dir);
+      if (risque) this.#log(risque, "WARNING");
       const file = join(this.#source.dir, "keyset.json");
       const existing = await this.#readFile(file);
       if (existing) {

@@ -9,7 +9,10 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { calculateJwkThumbprint } from "jose";
-import { JwtKeystore } from "../../nodefony/src/token/JwtKeystore";
+import {
+  JwtKeystore,
+  avertissementTrousseauDansImage,
+} from "../../nodefony/src/token/JwtKeystore";
 
 /**
  * Keystore Ed25519 — gates :
@@ -180,5 +183,99 @@ describe("JwtKeystore — env (keySetJson) + erreurs", () => {
         ).getSigningKey(),
       /malformé/,
     );
+  });
+});
+
+/**
+ * Un trousseau qui part dans l'image — le seul défaut de ce fichier qui ne se
+ * voit NULLE PART au démarrage, et qui publie une clé privée.
+ */
+describe("avertissement — le trousseau part-il dans l'image ?", () => {
+  it("se tait pour les dossiers que le Dockerfile généré efface", () => {
+    for (const dir of ["var/keys", "var", "tmp/keys", "./var/keys"]) {
+      assert.equal(avertissementTrousseauDansImage(dir), null, dir);
+    }
+  });
+
+  it("🔴 AVERTIT pour un chemin raisonnable mais qui entre dans l'image", () => {
+    // Exactement le chemin qu'un utilisateur écrit sans y penser.
+    const message = avertissementTrousseauDansImage("nodefony/config/keys");
+    assert.ok(message, "aucun avertissement");
+    // Le message doit porter la CAUSE, la CONSÉQUENCE et le GESTE — un message
+    // qui n'énonce que le constat envoie chercher au mauvais endroit.
+    assert.match(message, /nodefony\/config\/keys/u);
+    assert.match(message, /image/u);
+    assert.match(message, /var\//u);
+    assert.match(message, /keySetJson/u);
+  });
+
+  it("normalise les séparateurs AVANT de comparer", () => {
+    // Un filtre écrit en `/` ne mord pas sur `var\keys` : la faute serait
+    // invisible précisément sur la plateforme où on l'a oubliée.
+    assert.equal(avertissementTrousseauDansImage("var\\keys"), null);
+    assert.ok(avertissementTrousseauDansImage("nodefony\\config\\keys"));
+  });
+
+  it("ne juge PAS un chemin absolu — un montage est un choix d'exploitation", () => {
+    assert.equal(avertissementTrousseauDansImage("/etc/nodefony/keys"), null);
+    assert.equal(avertissementTrousseauDansImage("C:/secrets/keys"), null);
+  });
+
+  it("🔴 AVERTIT au CHARGEMENT, avant d'avoir écrit la clé", async () => {
+    // La fonction pure ne prouve pas que quelqu'un l'appelle. Ici on charge
+    // vraiment le trousseau, avec un dossier RELATIF dangereux — le cas de
+    // l'utilisateur — et on regarde ce qui sort du journal.
+    const racine = mkdtempSync(join(tmpdir(), "nf-jwt-img-"));
+    const avant = process.cwd();
+    try {
+      process.chdir(racine);
+      const warns: string[] = [];
+      const ks = new JwtKeystore({ dir: "nodefony/config/keys" }, (m, s) => {
+        if (s === "WARNING") warns.push(m);
+      });
+      await ks.getSigningKey();
+      const dit = warns.filter((w) => /image/u.test(w));
+      assert.equal(
+        dit.length,
+        1,
+        `attendu 1 avertissement, reçu ${warns.length}`,
+      );
+      assert.match(dit[0]!, /nodefony\/config\/keys/u);
+    } finally {
+      process.chdir(avant);
+      rmSync(racine, { recursive: true, force: true });
+    }
+  });
+
+  it("🔴 la liste des dossiers nettoyés dit la MÊME chose que le gabarit", () => {
+    // Deux copies d'une règle divergent en silence, et c'est une clé privée qui
+    // paierait la dérive : on confronte au Dockerfile réellement distribué.
+    const gabarit = readFileSync(
+      join(
+        import.meta.dirname,
+        "..",
+        "..",
+        "..",
+        "..",
+        "..",
+        "nodefony",
+        "templates",
+        "app",
+        "base",
+        "Dockerfile.tpl",
+      ),
+      "utf8",
+    );
+    const ligne = gabarit
+      .split("\n")
+      .find((l) => l.includes("rm -rf") && l.includes("var"));
+    assert.ok(ligne, "ligne de nettoyage introuvable dans le gabarit");
+    // Chaque dossier dont on se tait DOIT être effacé par le gabarit.
+    for (const d of ["var", "tmp"]) {
+      assert.ok(
+        new RegExp(`(^|\\s)${d}(\\s|$)`, "u").test(ligne),
+        `le gabarit n'efface plus « ${d} » : l'avertissement se tait à tort`,
+      );
+    }
   });
 });
