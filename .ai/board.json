@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T22:07:56.887Z",
+  "generatedAt": "2026-09-11T22:38:32.352Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 73,
+      "closed": 74,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 14,
+      "open": 13,
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 3,
+      "closed": 4,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 33,
       "title": "10.0.0-beta"
     },
     {
@@ -3252,14 +3252,14 @@
       "number": 361,
       "title": "docs(cli): retirer d'AGENTS.md ce qu'un skill livré porte déjà",
       "url": "https://github.com/nodefony/nodefony-core/issues/361",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.92,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3400,7 +3400,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 4,
+      "jours": 2.5,
       "ordre": 9.9405,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
@@ -4286,11 +4286,11 @@
       "number": 342,
       "title": "docs(cli): dire à l'agent quelles briques l'application n'a PAS",
       "url": "https://github.com/nodefony/nodefony-core/issues/342",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 1.5,
+      "jours": 0.5,
       "ordre": 45.3,
       "debut": "2026-11-23",
       "cible": "2026-11-23",
