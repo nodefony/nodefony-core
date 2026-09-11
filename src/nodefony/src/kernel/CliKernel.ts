@@ -18,6 +18,7 @@ import Prod from "./commands/ProdCommand";
 import Cluster from "./commands/ClusterCommand";
 import Install from "./commands/InstallCommand";
 import Outdated from "./commands/OutdatedCommand";
+import Licenses from "./commands/LicensesCommand";
 import Status from "./commands/StatusCommand";
 import Check from "./commands/DoctorCommand";
 import Inspect from "./commands/InspectCommand";
@@ -514,6 +515,7 @@ class CliKernel extends Cli {
     this.addCommand(Build);
     this.addCommand(Install);
     this.addCommand(Outdated);
+    this.addCommand(Licenses);
     this.addCommand(Menu);
     this.addCommand(Status);
     this.addCommand(Stop);

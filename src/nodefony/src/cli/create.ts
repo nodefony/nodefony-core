@@ -1,6 +1,6 @@
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { portableSpawn } from "./execPortable";
 import { SysExit } from "./sysexits";
@@ -28,6 +28,12 @@ import { formatFilesOnDisk } from "./scaffold/format";
 import { diffLines, type IScaffoldChange } from "./scaffold/writer";
 import { askMissing, confirm } from "./scaffold/interactive";
 import { syncSkillPointers } from "./aiSync";
+import {
+  LicenseInventoryError,
+  NOTICES_FILE,
+  renderNotices,
+  surveyLicenses,
+} from "./licenses";
 import { runAiMcpCommand } from "./aiMcp";
 import { AGENT_TARGETS, type IAgentTarget } from "./agentTargets";
 import { chargePrompts } from "./prompts";
@@ -538,6 +544,45 @@ export function renderDryRun(
     out += `\nCe que l'exécution dirait :\n${notes.map((n) => `  ${n}`).join("\n")}\n`;
   }
   return out;
+}
+
+/**
+ * Écrit le relevé des licences tierces de l'app générée.
+ *
+ * Les licences permissives (MIT, BSD, Apache-2.0) imposent toutes de conserver
+ * la notice de copyright dans les distributions. Une application ne peut pas
+ * tenir cette obligation si elle ne sait pas ce qu'elle embarque — et une
+ * cinquantaine de paquets entrent dès la première installation.
+ *
+ * Le relevé est GÉNÉRÉ ici et REGÉNÉRABLE par `npm run licenses:write` : un
+ * inventaire figé dans un gabarit se périmerait au premier ajout de dépendance,
+ * et mentirait d'autant plus qu'il aurait l'air officiel.
+ *
+ * @param dest - racine de l'app générée.
+ * @param installed - vrai si `npm install` a réussi ; sans arbre installé, npm
+ *   ne peut rien inventorier et le relevé n'est pas écrit.
+ * @returns la note à afficher. Ne lève JAMAIS : une application entièrement
+ *   générée ne s'annule pas parce qu'un relevé n'a pas pu être composé.
+ */
+function poseThirdPartyNotices(dest: string, installed: boolean): string {
+  if (!installed) {
+    return `non écrit (rien d'installé) → npm install puis npm run licenses:write`;
+  }
+  try {
+    const survey = surveyLicenses(dest);
+    writeFileSync(path.join(dest, NOTICES_FILE), renderNotices(survey), "utf8");
+    const refus =
+      survey.refused.length > 0
+        ? ` — ⚠ ${survey.refused.length} licence(s) hors liste, cf npm run licenses`
+        : "";
+    return `${NOTICES_FILE} — ${survey.packages.length} paquets${refus}`;
+  } catch (e) {
+    const cause =
+      e instanceof LicenseInventoryError
+        ? "npm n'a pas pu inventorier l'arbre"
+        : (e as Error).message;
+    return `non écrit (${cause}) → npm run licenses:write`;
+  }
 }
 
 /**
@@ -1385,6 +1430,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       process.stdout.write(`\n🗄️ migration initiale : ${migration.note}\n`);
     }
   }
+  // AVANT git : le relevé entre dans le commit initial, comme le lockfile — il
+  // décrit ce que l'application redistribue, donc il appartient à son dépôt.
+  process.stdout.write(
+    `\n⚖️ licences tierces : ${poseThirdPartyNotices(result.dest, installed)}\n`,
+  );
   // AVANT git : ces pointeurs entrent dans le premier commit, comme le lockfile.
   process.stdout.write(
     `\n🤖 skills d'agent : ${poseSkillPointers(result.dest)}\n`,

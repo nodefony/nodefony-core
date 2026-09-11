@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 823,
-    "symbols": 3997,
-    "classes": 389,
-    "interfaces": 1082,
+    "files": 825,
+    "symbols": 4018,
+    "classes": 391,
+    "interfaces": 1085,
     "types": 447,
     "enums": 4,
-    "functions": 1680,
-    "constants": 395
+    "functions": 1692,
+    "constants": 399
   },
   "symbols": {
     "Cli": {
@@ -1806,6 +1806,139 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le libellé de chaque intention DANS LE MENU interactif. 🔴 Une seule taxonomie, deux rendus. Le menu s'adresse à quelqu'un qui hésite (phrase, minuscules) et l'aide à quelqu'un qui balaie (titre, c…"
+    },
+    "LicenseInventoryError": {
+      "name": "LicenseInventoryError",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Levée quand npm refuse d'inventorier l'arbre — porte le remède, pas une trace."
+    },
+    "ILicensedPackage": {
+      "name": "ILicensedPackage",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un paquet du relevé : ce qu'on redistribue, et sous quelle licence."
+    },
+    "ILicenseSurvey": {
+      "name": "ILicenseSurvey",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le relevé complet — ce que rendent {@link surveyLicenses} et le mode `--json`."
+    },
+    "accept": {
+      "name": "accept",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décide si une licence déclarée est acceptable, et sous quel terme."
+    },
+    "normalizeLicense": {
+      "name": "normalizeLicense",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le champ `license` d'un manifeste sous forme d'expression SPDX."
+    },
+    "templateRuntimeDeps": {
+      "name": "templateRuntimeDeps",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les dépendances de production que le gabarit d'application peut poser. Le fichier est un modèle `eta` : ses clés sont lisibles telles quelles, ses valeurs non. On ne lit donc que les NOMS, dans le …"
+    },
+    "publishableWorkspaces": {
+      "name": "publishableWorkspaces",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les paquets dont l'arbre de production doit être contrôlé. Dans le dépôt du framework, ce sont les espaces de travail qui partent sur npm — un espace `private` n'est jamais distribué, ses dépendanc…"
+    },
+    "peerPackages": {
+      "name": "peerPackages",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les dépendances de pair déclarées par les paquets contrôlés, au premier niveau. Elles n'apparaissent dans AUCUN inventaire `npm sbom` — npm ne les installe pas, l'utilisateur le fait. C'est justeme…"
+    },
+    "collect": {
+      "name": "collect",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Relève l'inventaire SPDX de production et le réduit à `nom → licence`."
+    },
+    "surveyLicenses": {
+      "name": "surveyLicenses",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le relevé complet d'une racine — c'est l'unique porte d'entrée."
+    },
+    "renderReport": {
+      "name": "renderReport",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le relevé rendu en texte, pour un humain qui lit un terminal."
+    },
+    "renderNotices": {
+      "name": "renderNotices",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le relevé rendu en Markdown — le `THIRD-PARTY-NOTICES.md` d'une application. Les licences permissives (MIT, BSD, Apache-2.0) imposent toutes de conserver la notice de copyright et le texte de la li…"
+    },
+    "ALLOWED": {
+      "name": "ALLOWED",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Licences acceptées dans l'arbre de production, par famille. Cette liste est la DÉCISION du projet, pas un constat : une licence absente n'est pas « inconnue », elle est refusée tant que personne ne…"
+    },
+    "ALLOWED_EXPRESSIONS": {
+      "name": "ALLOWED_EXPRESSIONS",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Expressions SPDX composées que nous acceptons, avec le terme retenu. Une double licence laisse le CHOIX au redistributeur : `(BSD-3-Clause OR GPL-2.0)` est acceptable parce que nous retenons BSD-3-…"
+    },
+    "APP_TEMPLATE": {
+      "name": "APP_TEMPLATE",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le gabarit d'application, dont les dépendances de production atteignent l'utilisateur sans passer par nos `package.json`. Contrôler une application une bonne fois serait une photo : elle se périmer…"
+    },
+    "NOTICES_FILE": {
+      "name": "NOTICES_FILE",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le nom du relevé posé à la racine d'une application."
     },
     "escapeRoff": {
       "name": "escapeRoff",
@@ -9169,7 +9302,7 @@
       "module": "@nodefony/core",
       "description": "Regroupe les contrôles sautés qui partagent la MÊME raison. Hors d'une application, quatre familles sont sautées pour un seul et même motif. Les énumérer une par une répète quatre fois la même phra…"
     },
-    "renderReport": {
+    "@nodefony/core:renderReport": {
       "name": "renderReport",
       "kind": "function",
       "file": "src/nodefony/src/kernel/checks/renderReport.ts",
@@ -9979,6 +10112,17 @@
       "extends": "Command",
       "implements": [],
       "decorators": []
+    },
+    "Licenses": {
+      "name": "Licenses",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/LicensesCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony licenses` — ce que l'application redistribue, et sous quelle licence. Les licences permissives (MIT, BSD, Apache-2.0) imposent toutes de conserver la notice de copyright et le te…"
     },
     "Menu": {
       "name": "Menu",
@@ -27280,6 +27424,7 @@
       ],
       "Error": [
         "nodefonyError",
+        "LicenseInventoryError",
         "BootConfigurationError",
         "RpcError",
         "TimeoutError",
@@ -27412,6 +27557,7 @@
         "GitHooks",
         "Inspect",
         "Install",
+        "Licenses",
         "Menu",
         "Outdated",
         "Prod",
@@ -28014,6 +28160,7 @@
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -28334,6 +28481,7 @@
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
         "src/nodefony/src/kernel/commands/DevCommand.ts",
         "src/nodefony/src/kernel/commands/DoctorCommand.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
@@ -30176,6 +30324,7 @@
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
@@ -30311,6 +30460,7 @@
       ],
       "portableSpawn": [
         "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/licenses.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
@@ -30388,6 +30538,22 @@
       ],
       "syncSkillPointers": [
         "src/nodefony/src/cli/create.ts"
+      ],
+      "LicenseInventoryError": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts"
+      ],
+      "NOTICES_FILE": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts"
+      ],
+      "renderNotices": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts"
+      ],
+      "surveyLicenses": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts"
       ],
       "runAiMcpCommand": [
         "src/nodefony/src/cli/create.ts",
@@ -30690,6 +30856,7 @@
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -30831,6 +30998,9 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Outdated": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Licenses": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "Status": [
@@ -32476,7 +32646,8 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "renderReport": [
-        "src/nodefony/src/kernel/checks/runDoctor.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts"
       ],
       "readManifestSources": [
         "src/nodefony/src/kernel/checks/surface.ts",
@@ -32502,6 +32673,7 @@
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
@@ -32578,6 +32750,9 @@
       ],
       "TableRow": [
         "src/nodefony/src/kernel/commands/InspectCommand.ts"
+      ],
+      "ILicenseSurvey": [
+        "src/nodefony/src/kernel/commands/LicensesCommand.ts"
       ],
       "buildStartMenu": [
         "src/nodefony/src/kernel/commands/MenuCommand.ts"

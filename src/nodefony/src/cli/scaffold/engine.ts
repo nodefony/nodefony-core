@@ -1268,6 +1268,10 @@ function dispatchScaffold(
   );
   const data = {
     appName: answers.name,
+    // L'année du fichier LICENSE. Elle vaut pour la notice de copyright d'une
+    // app NEUVE, et rien d'autre : le fichier est fait pour être remplacé dès
+    // qu'une licence est retenue.
+    year: new Date().getFullYear(),
     // Dialecte SQL de l'entité que l'application POSSÈDE (`User`) — le choix de
     // base fait à la création. `mariadb` et `mysql` parlent le même dialecte
     // Drizzle ; l'entité le redéduit au démarrage si une URL d'infra est posée.

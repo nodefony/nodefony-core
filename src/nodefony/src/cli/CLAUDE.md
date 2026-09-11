@@ -142,9 +142,15 @@ Elle a **trois lecteurs** qui la mettent tous en colonne : l'aide, le menu inter
 
 Ce qui ne tient pas là va dans le `--help` de la commande, jamais dans sa description.
 
-⚠️ **Le gate `tests/commandDescriptions.test.ts` ne couvre QUE les commandes du framework** :
-les vingt qu'apporte une application vivent hors du workspace `nodefony`, que le cœur ne peut pas
-lire. Pour elles, la règle ci-dessus est tout ce qui existe.
+✅ **Le gate `tests/commandDescriptions.test.ts` couvre les DEUX populations** — les commandes du
+framework, mesurées sur le manifeste, et les vingt et une qu'apportent les modules, lues dans leur
+source. La place se calcule sur leur UNION : la colonne des noms est unique pour toute la page,
+donc un nom long apporté par un module rétrécit la place de toutes les autres.
+
+⚠️ **Une commande de module se reconnaît à son `super(nom, description, …)`, pas au nom de son
+parent.** Un filtre écrit sur `extends Command` écarte en silence les sept commandes ORM, qui
+héritent d'une base intermédiaire — le gate passait alors au vert sur une population amputée de
+moitié, `orm:generate` (qui débordait) compris.
 
 ## Pattern d'usage CLI Nodefony
 
