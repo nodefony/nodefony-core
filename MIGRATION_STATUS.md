@@ -146,6 +146,22 @@ chez l'utilisateur. Au passage : la passe principale était **rouge depuis 20 ex
 personne ne la lise (`bd7485c0`), et le graphe symbolique, gitignoré, manquait à tout checkout frais
 (`8a1fad04` — `release-smoke.yml` portait le même trou).
 
+**Ce que le générateur PRODUIT est désormais exécuté, et la topologie de production avec**
+(`bf821f25`, `17e2523c`). Le banc de publication n'avait pas de scénario pour le profil `edge` : la
+topologie livrée par #320 n'avait été prouvée que par ses morceaux. Montée pour de vrai — le geste
+que l'utilisateur tape, `docker compose --profile edge up -d --build` — elle ne démarrait chez
+personne, et **aucune image d'application ne bootait plus** depuis le durcissement des droits
+(`33c1f5c5`, la veille). Neuf défauts, dont trois classes qu'aucun test de chaîne ne pouvait voir :
+un hook de certificats armé même sans écoute TLS (`EACCES` dans une image dont le code appartient à
+root), des secrets de service exigés d'un run qui ne SERT pas (l'étage `proxyconf` boote
+l'application pour dériver la configuration du frontal — il mourait faute d'un secret qui n'a pas le
+droit d'entrer dans une image), et une configuration nginx sans `mime.types` qui servait tout en
+`text/plain` : **écran noir pendant que les assets rendent 200**. Le compose ignorait aussi les
+migrations, si bien que `/readyz` restait à 503 et que le frontal n'était jamais créé. Le scénario
+`edge` du smoke prouve maintenant la chaîne entière : `trustProxy: uniquelocal` SEUL cru, cookie
+`__Host-`, suite e2e générée jouée À TRAVERS le frontal, statiques servis application ÉTEINTE, et la
+garde vue mordre. Reste à le faire tourner en intégration continue, pas seulement avant publication.
+
 **Le 404 des routes d'un module local sous Windows est FERMÉ** (`e0d4b55e`), et sa cause dépassait le
 symptôme : `nodefony create module` lance le `npm install` qui pose le lien de workspace sans lequel
 le Kernel ne peut pas importer le module par son nom, et sous Windows `npm` est un `npm.cmd` que Node

@@ -74,6 +74,23 @@ describe("generateProxyConfig — nginx", () => {
     expect(c).to.include("server_tokens off;");
   });
 
+  it("une requête en CLAIR sur le port TLS est redirigée, pas refusée", () => {
+    // nginx en fait un code interne 497 (« a regular request has been sent to
+    // the HTTPS port ») et rend sinon un « 400 Bad Request » NU, qui ne dit ni
+    // que le port est chiffré, ni quoi taper à la place. Vécu deux fois de
+    // suite sur la même URL, par la même personne.
+    const c = generateNginxConfig(
+      intro({ tls: { certPath: "/c.pem", keyPath: "/k.pem", listen: 8443 } }),
+    );
+    expect(c).to.include("error_page 497");
+    // Vers l'adresse que le CLIENT a composée. `$server_port` est le port
+    // interne du conteneur (8443), pas celui du mapping (18443) : mesuré, la
+    // redirection renvoyait vers un port inexistant côté client. Et `$host`
+    // retire le port. Seul `$http_host` porte l'en-tête brut.
+    expect(c).to.include("https://$http_host$request_uri");
+    expect(c).to.not.include("$server_port$request_uri");
+  });
+
   it("la limite de corps du SERVEUR est imposée au proxy (sinon nginx coupe à 1 Mo)", () => {
     const c = generateNginxConfig(intro({ maxBodyBytes: 8_388_608 }));
     expect(c).to.include("client_max_body_size 8388608;");

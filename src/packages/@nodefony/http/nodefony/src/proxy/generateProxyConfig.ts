@@ -278,6 +278,23 @@ function nginxServerBlock(
       "    ssl_protocols TLSv1.2 TLSv1.3;",
       "    ssl_session_cache shared:SSL:10m;",
       "    ssl_session_timeout 1h;",
+      "",
+      // Une requête EN CLAIR arrivée sur le port TLS : nginx en fait un code
+      // interne 497 (« a regular request has been sent to the HTTPS port »,
+      // module ngx_http_ssl_module) et rend, sans cette ligne, un « 400 Bad
+      // Request » nu — qui ne dit ni que le port est chiffré, ni quoi taper.
+      // Vécu deux fois de suite sur la même URL. On redirige vers la MÊME
+      // adresse en https : l'erreur de frappe se corrige toute seule, et le
+      // navigateur affiche la page au lieu d'un refus.
+      //
+      // 🔴 `$http_host`, jamais `$host:$server_port`. `$server_port` est le port
+      // sur lequel nginx écoute DANS le conteneur (8443) — pas celui que le
+      // client a composé (18443 derrière un mapping). Mesuré : la redirection
+      // renvoyait vers un port qui n'existe pas côté client. `$host`, lui,
+      // RETIRE le port (documentation du module core) ; `$http_host` est
+      // l'en-tête `Host` brut, port compris — donc exactement ce que le client
+      // a tapé, ce qui est la seule adresse où on peut le renvoyer.
+      "    error_page 497 =301 https://$http_host$request_uri;",
     );
   } else {
     lines.push(

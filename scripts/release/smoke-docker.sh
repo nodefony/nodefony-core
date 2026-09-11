@@ -836,27 +836,37 @@ YML
   # La preuve que le frontal sert SEUL : on éteint l'application. Un asset qui
   # répond encore n'a pas pu passer par Node. C'est binaire, et ça ne dépend
   # d'aucun compteur.
+  # 🔴 Un 200 ne dit PAS que la page marche, et c'est le piège de ce frontal.
+  # Sa configuration REMPLACE le `nginx.conf` de l'image : sans `mime.types`,
+  # nginx sert TOUT en `text/plain`, le navigateur REFUSE un module ES à ce type
+  # (« Strict MIME type checking is enforced for module scripts ») et ignore la
+  # feuille de style. Les assets répondaient 200, ce scénario était VERT, et
+  # l'écran était noir. On vérifie donc le TYPE, pendant que la page est servie.
+  step "[edge] les assets sont servis avec le BON type (un 200 ne suffit pas)"
+  PAGE=$(curl -sk "$EDGE_URL/" || true)
+  # `|| true` sur CHAQUE grep : sans correspondance il rend 1, et sous
+  # `set -euo pipefail` cela tue le banc SANS message ni nettoyage — vécu.
+  JS=$(printf '%s' "$PAGE" | grep -o '/_assets/[^"]*\.js' | head -1 || true)
+  CSS=$(printf '%s' "$PAGE" | grep -o '/_assets/[^"]*\.css' | head -1 || true)
+  [ -n "$JS" ] || { printf '%s' "$PAGE" | head -20; fail "aucun module JS dans la page — l'arbre d'assets n'a pas été publié"; }
+  for couple in "$JS|javascript" "$CSS|css"; do
+    url="${couple%%|*}"; attendu="${couple##*|}"
+    [ -n "$url" ] || continue
+    typ=$(curl -sk -o /dev/null -w "%{content_type}" "$EDGE_URL$url" || true)
+    case "$typ" in
+      *"$attendu"*) ok "$(basename "$url") servi en « $typ »" ;;
+      *) fail "$(basename "$url") servi en « $typ » (attendu : $attendu) — le navigateur le REFUSE, écran blanc" ;;
+    esac
+  done
+
   step "[edge] /_assets/… servi par le frontal SANS joindre Node"
-  ASSET=$(curl -sk "$EDGE_URL/" | grep -o '/_assets/[^"]*\.\(js\|css\)' | head -1)
-  [ -n "$ASSET" ] || { curl -sk "$EDGE_URL/" | head -20; fail "aucun /_assets/… dans la page — l'arbre d'assets n'a pas été publié"; }
+  ASSET="$JS"
   (cd "$EAPP" && docker compose --profile edge stop app-edge) > /dev/null 2>&1 \
     || fail "arrêt de app-edge"
   ACODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL$ASSET" || true)
   [ "$ACODE" = "200" ] || fail "$ASSET → $ACODE application ÉTEINTE : le frontal ne sert pas les statiques"
   ok "$ASSET → 200 application éteinte (nginx sert, Node n'est pas joint)"
 
-  # 🔴 Un 200 ne dit PAS que la page marche. Ce fichier remplace le `nginx.conf`
-  # de l'image : sans `mime.types`, nginx sert TOUT en `text/plain` — et le
-  # navigateur REFUSE un module ES à ce type (« Strict MIME type checking is
-  # enforced for module scripts »), comme il ignore une feuille de style. Les
-  # assets répondaient 200, ce cas était VERT, et l'écran était noir.
-  JS=$(curl -sk "$EDGE_URL/" | grep -o '/_assets/[^"]*\.js' | head -1)
-  [ -n "$JS" ] || fail "aucun module JS dans la page — rien à typer"
-  JSTYPE=$(curl -sk -o /dev/null -w "%{content_type}" "$EDGE_URL$JS" || true)
-  case "$JSTYPE" in
-    *javascript*) ok "$JS servi en « $JSTYPE » (un module ES est ACCEPTÉ)" ;;
-    *) fail "$JS servi en « $JSTYPE » — le navigateur refusera le module, écran blanc" ;;
-  esac
   # Et le contrôle négatif : une route applicative, elle, DOIT tomber — sinon on
   # aurait prouvé que l'application était encore là, pas que nginx sert seul.
   DEADCODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL/api/whoami" || true)

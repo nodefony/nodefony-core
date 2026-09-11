@@ -294,8 +294,11 @@ const doSay = () =>
           (<code>^/api</code>, session → anonymous, jamais bloquante) et
           <code>secure</code> (<code>^/api/secure</code>, session SEULE —
           pattern plus spécifique, il gagne le match ; sans session le
-          firewall répond 401). Connecte-toi (compte dev seedé
-          <code>admin / admin</code>) : la carte 1 bascule sur
+          firewall répond 401). Connecte-toi : le compte <code>admin</code> a
+          pour mot de passe <code>admin</code> en développement, et celui de
+          <code>NF_ADMIN_PASSWORD</code> en production — où il est EXIGÉ, car une
+          application ne naît jamais en ligne avec un secret connu. Alors la
+          carte 1 bascule sur
           <code>GET /api/secure/hello</code> → « Bonjour admin ».
         </p>
         <template v-if="data?.who && data.who !== 'anonyme'">

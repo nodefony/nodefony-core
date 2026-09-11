@@ -26,6 +26,27 @@
 > est vert, et son RÉGIME de mesure lui interdit par construction de voir ce qu'il prétend garder.
 > La question à poser à tout gate vert : _qu'est-ce qu'il aurait vu si le défaut avait été là ?_
 
+- [1× — 09-11] **Un `200` sur un asset laissait passer un écran NOIR.** La configuration nginx
+  générée n'incluait pas `mime.types` : elle REMPLACE celle de l'image, donc nginx servait tout en
+  `text/plain` et le navigateur REFUSAIT le module ES. Le cas du scénario vérifiait le CODE DE
+  RETOUR, jamais le TYPE — il était vert, l'application inutilisable. Le contrôle porte désormais
+  sur `content_type`. La question qui l'aurait attrapé : « ce 200 prouve-t-il que le client peut
+  s'en servir ? »
+- [1× — 09-11] **Un cas de test qui ne tourne JAMAIS ne peut pas échouer.** Le cas `__Host-` de la
+  suite générée est `skipIf(!isExternalTarget)` : il n'existe que derrière un frontal, décor que
+  rien ne montait. Il lisait `process.env.NF_ADMIN_PASSWORD` du RUNNER au lieu de la constante du
+  décor — une erreur qui l'aurait fait rougir dès la première exécution, restée invisible parce
+  qu'il n'y en a jamais eu. Un `skipIf` sans décor qui l'active est un test mort.
+- [1× — 09-11] **Une assertion sur le TEXTE d'un gabarit reste verte pendant que le rendu ne
+  démarre pas.** `create.test.ts` figeait la ligne `RUN mkdir -p /app/tmp /app/var && chown …` du
+  Dockerfile — vert, exact, et inutile : `chown` n'étant pas récursif, `var/databases` restait à
+  root et l'image mourait en `SQLITE_CANTOPEN`. Une assertion de chaîne prouve la FORME, jamais le
+  comportement ; il faut un banc qui EXÉCUTE l'artefact.
+- [1× — 09-11] **Un défaut invisible tant qu'on garde les valeurs par défaut.** Le compose passait
+  le port d'HÔTE comme port INTERNE au build du frontal : avec 8080/8443 les deux coïncidaient, et
+  rien ne se voyait. C'est le décalage de ports de mon banc (imposé par un Redis déjà pris) qui l'a
+  révélé. Corollaire : un banc qui rejoue exactement le décor nominal ne peut pas voir les défauts
+  que seule une variation expose.
 - [1× — 09-11] **Le banc de découvrabilité ne POUVAIT voir aucun des deux murs d'un essai réel de
   89 minutes.** Il fabrique lui-même son app témoin en `--preset complete`
   (`bench-discoverability.mjs:4444`), donc il ne joue jamais le contenu « Minimal » — celui que
@@ -237,6 +258,14 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
   passage est faux, pas découvrir un texte retouché.
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
+
+- [1× — 09-11] **Un `grep` sans correspondance TUE un script sous `set -euo pipefail`, sans un
+  mot.** Ajouté un contrôle au banc de publication ; son `grep -o` ne trouvait rien (l'application
+  était éteinte à cet endroit), a rendu 1, et `set -e` a arrêté le script — donc sans passer par
+  `fail`, donc sans message d'échec ET sans nettoyage : quatre conteneurs laissés debout, et un
+  journal qui s'interrompt au milieu sans rien dire. Le script documentait déjà le piège JUMEAU
+  (`grep -q` qui ferme le tuyau et rend 141). Tout `grep` en substitution de commande y prend
+  `|| true`.
 
 - [1× — 09-07f] **Repayé le jour même où je l'ai lu.** Un test qui importe `ticket-effort.mjs`
   pour éprouver deux fonctions pures relançait tout le script : appels réseau, lecture de git,
