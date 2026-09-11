@@ -78,7 +78,25 @@ RUN --mount=type=cache,target=/root/.npm \
 # n'y change rien — le `package-lock.json` l'a figé, et c'est mesuré : 161 Mo
 # dans les deux cas. Le jour où cela se corrige, ce sera en amont, dans la
 # façon dont `@nodefony/frontend` déclare Vite.
-RUN npm run build && npm prune --omit=dev
+#
+# 🔴 Et le build NETTOIE ce qu'il a écrit, ICI — dans l'étage de construction,
+# jamais après le `COPY`. `npm run build` BOOTE l'application : le service de
+# certificats fabrique alors une clé privée TLS de développement
+# (`certificates.ts`, sur `onBoot`, dès qu'un port HTTPS est configuré), et
+# l'ORM crée sa base sous `var/`. Aucun des deux n'a de raison de voyager.
+#
+# `.dockerignore` ne peut RIEN contre eux : il filtre le CONTEXTE, pas ce que
+# la construction FABRIQUE. Et un `rm` placé après `COPY --from=build` ne les
+# retire pas non plus — la couche du `COPY` reste lisible par qui télécharge
+# l'image, même recouverte. Vécu : la `10.0.0-alpha.4` a été publiée avec
+# `nodefony/config/certificates/server/privkey.pem`, et le banc de release a
+# repris le même chemin sur le scénario à frontend — le seul dont le build
+# boote le noyau.
+#
+# Effacer ici fonctionne parce que les couches de cet étage ne descendent PAS
+# dans l'image finale : seul l'état final de `/app` est copié.
+RUN npm run build && npm prune --omit=dev \
+ && rm -rf nodefony/config/certificates var tmp
 
 # ── Frontal nginx (profil `edge`) — DEUX étages qui ne descendent JAMAIS dans
 #    l'image de l'application ─────────────────────────────────────────────────
@@ -210,21 +228,20 @@ COPY --from=build /app ./
 # recouvre : c'est ce qui fait que la persistance marche du premier coup.
 # En Kubernetes, c'est aussi ce que `fsGroup` prend pour base.
 #
-# 🔴 Et ils naissent VIDES — d'où le `rm -rf`, qui n'est pas une précaution de
-# style. L'étage de construction tourne en `root` et lance `npm run build`, qui
-# BOOTE l'application : l'ORM y crée `var/databases/` au passage, en root. Le
-# `COPY --from=build` l'emporte tel quel, et un `chown` NON RÉCURSIF ne le
-# rattrape pas — `/app/var` appartient bien à 1000, `/app/var/databases` reste à
-# root. L'application démarre alors, puis meurt en `SQLITE_CANTOPEN` sur sa
-# propre base : « unable to open database file », un message qui envoie chercher
-# du côté de la configuration alors que la cause est un bit de permission.
-# Constaté sur une application générée, avec ET sans volume — la persistance
-# n'était pas en cause, elle ne faisait que révéler le défaut plus tôt.
-# Le `rm -rf` ferme au passage la porte de la même famille que la clé privée de
-# l'image publiée : rien de ce que le BUILD écrit dans `var/` (une base, un
-# journal) n'a de raison de voyager jusqu'en production.
-RUN rm -rf /app/tmp /app/var \
- && mkdir -p /app/tmp /app/var \
+# 🔴 Et ils naissent VIDES. L'étage de construction tourne en `root` et lance
+# `npm run build`, qui BOOTE l'application : l'ORM y crée `var/databases/` au
+# passage, en root. Le `COPY --from=build` l'emporterait tel quel, et un `chown`
+# NON RÉCURSIF ne le rattrape pas — `/app/var` appartiendrait bien à 1000,
+# `/app/var/databases` resterait à root. L'application démarre alors, puis meurt
+# en `SQLITE_CANTOPEN` sur sa propre base : « unable to open database file », un
+# message qui envoie chercher du côté de la configuration alors que la cause est
+# un bit de permission. Constaté sur une application générée, avec ET sans volume.
+#
+# C'est l'étage de CONSTRUCTION qui les efface (voir plus haut), et pas ce `RUN` :
+# un `rm` posé ICI laisserait la couche du `COPY` lisible par qui télécharge
+# l'image. Ce `RUN` ne fait donc que ce qu'il est seul à pouvoir faire — créer
+# les points de montage et les donner à l'utilisateur qui tourne.
+RUN mkdir -p /app/tmp /app/var \
  && chown 1000:1000 /app/tmp /app/var
 
 # Jamais root : les ports de Nodefony (5151, 5152) n'exigent aucun privilège.

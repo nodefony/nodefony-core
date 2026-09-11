@@ -1535,12 +1535,34 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
         // 🔴 Et ils naissent VIDES. L'étage de construction tourne en `root` et
         // BOOTE l'application (`npm run build`) : l'ORM y crée `var/databases/`
-        // au passage, en root. Le `COPY --from=build` l'emporte, et un `chown`
-        // NON RÉCURSIF ne le rattrape pas — `/app/var` appartient à 1000,
-        // `/app/var/databases` reste à root. L'application meurt alors sur sa
-        // propre base (`SQLITE_CANTOPEN`), avec ET sans volume. Mesuré sur une
-        // application générée, pas déduit.
-        assert.match(dockerfile, /rm -rf \/app\/tmp \/app\/var/u);
+        // au passage, en root, et le service de certificats fabrique une clé
+        // privée TLS de développement sous `nodefony/config/certificates`. Un
+        // `chown` NON RÉCURSIF ne rattrape pas le premier — l'application meurt
+        // sur sa propre base (`SQLITE_CANTOPEN`) —, et RIEN ne rattrape le
+        // second : la `10.0.0-alpha.4` a été publiée avec `privkey.pem`.
+        //
+        // 🔴 Le nettoyage se fait donc DANS l'étage de construction, et sa
+        // POSITION est le fait à tenir. `.dockerignore` filtre le CONTEXTE, pas
+        // ce que la construction FABRIQUE ; et un `rm` placé après le
+        // `COPY --from=build` n'efface rien — la couche du COPY reste lisible
+        // par qui télécharge l'image, même recouverte. C'est exactement par là
+        // que le banc de release a repris la clé privée sur le scénario à
+        // frontend, le seul dont le build boote le noyau.
+        const iNettoyage = dockerfile.search(
+          /rm -rf nodefony\/config\/certificates var tmp/u,
+        );
+        const iCopie = dockerfile.search(/^COPY --from=build /mu);
+        assert.notEqual(
+          iNettoyage,
+          -1,
+          "l'étage de construction doit effacer la matière cryptographique et les données qu'il a fabriquées",
+        );
+        assert.notEqual(iCopie, -1, "COPY --from=build introuvable");
+        assert.isBelow(
+          iNettoyage,
+          iCopie,
+          "le nettoyage doit précéder le COPY : après lui, la couche copiée reste lisible dans l'image publiée",
+        );
 
         // Le code appartient à root : une application qui peut réécrire son
         // propre `dist/` offre à une exécution de code un moyen de PERSISTER.
