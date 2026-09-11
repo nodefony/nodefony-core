@@ -678,6 +678,13 @@ if runs edge; then
   EAPP="$WORK/edge"
   EHTTP=18080
   ETLS=18443
+  # Les deux images que `docker compose --build` bâtit. Les noms viennent du
+  # gabarit `compose.yaml.tpl` (`<app>:local` et `<app>-edge:local`) : les
+  # composer ici plutôt que de les littéraliser garde le lien avec le nom de
+  # l'application scaffoldée juste en dessous.
+  EDGE_APP_NAME="smokeedge"
+  EDGE_APP_IMAGE="$EDGE_APP_NAME:local"
+  EDGE_PROXY_IMAGE="$EDGE_APP_NAME-edge:local"
   # Le mot de passe se LIT dans la suite générée, il ne se redonne pas ici : la
   # suite e2e porte sa propre constante (`ADMIN_PASSWORD`) et s'en sert pour
   # s'authentifier. Deux valeurs écrites séparément divergent au premier
@@ -686,7 +693,7 @@ if runs edge; then
   EDGE_ADMIN_PASSWORD=""
 
   step "[edge] create app — preset complet + front React (pour l'arbre d'assets)"
-  scaffold_app "smokeedge" "$EAPP" "complete" "react"
+  scaffold_app "$EDGE_APP_NAME" "$EAPP" "complete" "react"
 
   # Ce que l'application CROIT du client — la seule façon de constater que la
   # confiance au proxy s'applique. Même geste qu'au scénario `base` : la commande
@@ -790,6 +797,23 @@ YML
   (cd "$EAPP" && docker compose --profile edge up -d --build) > "$WORK/.edge-up.out" 2>&1 \
     || { tail -40 "$WORK/.edge-up.out"; fail "docker compose --profile edge up"; }
   ok "topologie levée : l'étage proxyconf a bâti la configuration du frontal"
+
+  # 🔴 La garde de matière sensible, sur les DEUX images que compose vient de
+  # bâtir — #317. Les scénarios `base`, `front` et `studio` passent par
+  # `build_image`, qui la lance ; `edge`, lui, construit par `docker compose
+  # --build` et y échappait. C'était le trou le plus coûteux des quatre : c'est
+  # ICI qu'un certificat est en jeu (le frontal en MONTE un), et c'est la
+  # topologie la plus proche de la production. Une clé privée est déjà partie
+  # dans une image publiée faute d'un regard à ce moment précis.
+  #
+  # Le frontal est contrôlé au même titre que l'application : il LIT le
+  # certificat par un montage, il ne doit pas l'embarquer.
+  step "[edge] matière sensible dans les images bâties par compose"
+  for IMAGE in "$EDGE_APP_IMAGE" "$EDGE_PROXY_IMAGE"; do
+    node "$ROOT/scripts/release/image-gate.mjs" "$IMAGE" \
+      || fail "matière sensible dans l'image $IMAGE (voir ci-dessus)"
+  done
+  ok "aucune matière sensible dans $EDGE_APP_IMAGE ni $EDGE_PROXY_IMAGE"
 
   # `docker compose up` rend la main dès que les conteneurs sont créés, pas
   # quand ils servent. Le frontal dépend de `app-edge: service_healthy`, donc
