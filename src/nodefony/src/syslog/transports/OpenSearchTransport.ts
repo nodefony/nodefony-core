@@ -5,7 +5,10 @@ import { resolveFetch, fetchWithTimeout } from "../httpFetch";
 import type { FetchLike } from "../httpFetch";
 import {
   basicAuthHeader,
+  buildIndexTemplate,
   DEFAULT_OPENSEARCH_INDEX,
+  OPENSEARCH_TEMPLATE_NAME,
+  toOpenSearchDocument,
 } from "../drivers/opensearchShared";
 import { stripTrailingSlashes } from "../../Tools";
 import type Pdu from "../Pdu";
@@ -48,10 +51,20 @@ export class OpenSearchTransport extends BatchingHttpTransport {
   readonly #headers: Record<string, string>;
   readonly #timeoutMs: number;
   readonly #fetch: FetchLike;
+  readonly #baseUrl: string;
+  /**
+   * La pose du modèle d'index, tentée UNE fois.
+   *
+   * `null` tant que rien n'a été tenté — allocation paresseuse, comme tout ce qui
+   * ne sert pas à chaque envoi. La promesse est mémorisée plutôt que rejouée :
+   * deux lots partis de front poseraient sinon le même modèle deux fois.
+   */
+  #templatePosed: Promise<void> | null = null;
 
   constructor(options: OpenSearchTransportOptions) {
     super(options);
-    this.#bulkUrl = stripTrailingSlashes(options.url) + "/_bulk";
+    this.#baseUrl = stripTrailingSlashes(options.url);
+    this.#bulkUrl = this.#baseUrl + "/_bulk";
     this.#index = options.index ?? DEFAULT_OPENSEARCH_INDEX;
     this.#headers = {
       "content-type": "application/x-ndjson",
@@ -62,12 +75,55 @@ export class OpenSearchTransport extends BatchingHttpTransport {
     this.#fetch = resolveFetch(options.fetchImpl);
   }
 
+  /**
+   * Pose le modèle d'index, au premier envoi et une seule fois.
+   *
+   * Au PREMIER ENVOI, pas au constructeur : un transport se construit à chaque
+   * démarrage, y compris quand rien ne sera jamais journalisé vers OpenSearch, et
+   * une requête réseau posée « au cas où » est exactement ce que la règle de
+   * coût interdit. Au premier document, en revanche, le serveur est joignable par
+   * construction — on est en train de lui écrire.
+   *
+   * Best-effort, comme le reste de ce transport : un modèle refusé (droits
+   * insuffisants, serveur d'une autre famille) ne doit pas faire perdre des
+   * journaux. Le document part quand même — il portera `@timestamp`, et c'est le
+   * mapping dynamique qui décidera de son type.
+   */
+  async #ensureIndexTemplate(): Promise<void> {
+    this.#templatePosed ??= (async () => {
+      try {
+        await fetchWithTimeout(
+          this.#fetch,
+          `${this.#baseUrl}/_index_template/${OPENSEARCH_TEMPLATE_NAME}`,
+          {
+            method: "PUT",
+            headers: {
+              ...this.#headers,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify(buildIndexTemplate(this.#index)),
+          },
+          this.#timeoutMs,
+        );
+      } catch {
+        // Silencieux par nécessité : journaliser l'échec d'un transport de
+        // journaux depuis ce transport tournerait en rond.
+      }
+    })();
+    return this.#templatePosed;
+  }
+
   protected async flushBatch(batch: Pdu[]): Promise<void> {
+    await this.#ensureIndexTemplate();
     // NDJSON : action line + source line par document, terminé par un newline.
     const action = `{"index":{"_index":"${this.#index}"}}`;
     let body = "";
     for (const pdu of batch) {
-      body += action + "\n" + JSON.stringify(pduToRecord(pdu)) + "\n";
+      body +=
+        action +
+        "\n" +
+        JSON.stringify(toOpenSearchDocument(pduToRecord(pdu))) +
+        "\n";
     }
 
     const res = await fetchWithTimeout(

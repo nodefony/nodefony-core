@@ -243,18 +243,119 @@ describe("Log Backplane (LB.4) — OpenSearchTransport (bulk batché)", () => {
     await t.send(mk("a", "INFO", "AUTH", "", 1000));
     await t.send(mk("b", "ERROR", "HTTP", "", 2000));
     await t.close();
-    assert.strictEqual(calls.length, 1);
-    assert.match(calls[0]!.url, /\/_bulk$/);
+    // Deux appels : la pose du modèle d'index, puis le bulk.
+    const bulk = calls.find((c) => c.url.endsWith("/_bulk"));
+    assert.ok(
+      bulk,
+      `aucun appel /_bulk — reçus : ${calls.map((c) => c.url).join(", ")}`,
+    );
     assert.strictEqual(
-      calls[0]!.init!.headers!["content-type"],
+      bulk!.init!.headers!["content-type"],
       "application/x-ndjson",
     );
-    const body = String(calls[0]!.init!.body);
+    const body = String(bulk!.init!.body);
     assert.ok(body.endsWith("\n"), "le corps bulk DOIT finir par un newline");
     const lines = body.split("\n").filter((l) => l.length > 0);
     assert.strictEqual(lines.length, 4); // 2 action + 2 doc
     assert.deepStrictEqual(JSON.parse(lines[0]!), {
       index: { _index: "nodefony-logs" },
     });
+  });
+
+  /**
+   * 🔴 Un horodatage que les outils savent lire — #328.
+   *
+   * Le défaut ne se voyait NI à l'écriture (elle réussit), NI à la relecture par
+   * le pilote du framework (il trie un entier). Il n'apparaissait qu'au moment
+   * où un outil tiers ouvre l'index — donc quand l'utilisateur veut enfin
+   * regarder ses journaux. Ces cas le rendent visible ICI.
+   */
+  it("chaque document porte @timestamp en ISO 8601, et GARDE timeStamp", async () => {
+    const { fn, calls } = mockFetch(() => ({
+      body: { took: 1, errors: false, items: [] },
+    }));
+    const t = new OpenSearchTransport({
+      url: "http://opensearch:9200",
+      fetchImpl: fn,
+      batchSize: 100,
+    });
+    await t.send(mk("a", "INFO", "AUTH", "", 1_780_270_122_919));
+    await t.close();
+
+    const bulk = calls.find((c) => c.url.endsWith("/_bulk"))!;
+    const lignes = String(bulk.init!.body)
+      .split("\n")
+      .filter((l) => l.length > 0);
+    const doc = JSON.parse(lignes[1]!) as Record<string, unknown>;
+    assert.strictEqual(
+      doc["@timestamp"],
+      // Valeur vérifiée par un calcul INDÉPENDANT (python : datetime.utcfromtimestamp),
+      // pas par un `new Date(…).toISOString()` qui rejouerait le code sous test.
+      "2026-05-31T23:28:42.919Z",
+      "sans un champ de type date, aucune vue chronologique n'existe",
+    );
+    // Le champ numérique RESTE : c'est lui que le pilote de relecture filtre et
+    // trie. Réparer un outil tiers en cassant le nôtre ne serait pas réparer.
+    assert.strictEqual(doc["timeStamp"], 1_780_270_122_919);
+  });
+
+  it("pose le modèle d'index UNE fois, et déclare @timestamp de type date", async () => {
+    const { fn, calls } = mockFetch(() => ({
+      body: { took: 1, errors: false, items: [] },
+    }));
+    const t = new OpenSearchTransport({
+      url: "http://opensearch:9200",
+      fetchImpl: fn,
+      batchSize: 1,
+    });
+    await t.send(mk("a", "INFO", "AUTH", "", 1000));
+    await t.send(mk("b", "INFO", "AUTH", "", 2000));
+    await t.close();
+
+    const modeles = calls.filter((c) => c.url.includes("/_index_template/"));
+    // Deux lots, UN seul modèle : la promesse est mémorisée, pas rejouée.
+    assert.strictEqual(
+      modeles.length,
+      1,
+      `le modèle doit être posé une seule fois (reçu ${modeles.length})`,
+    );
+    assert.strictEqual(modeles[0]!.init!.method, "PUT");
+    const corps = JSON.parse(String(modeles[0]!.init!.body)) as {
+      index_patterns: string[];
+      template: { mappings: { properties: Record<string, { type: string }> } };
+    };
+    assert.deepStrictEqual(corps.index_patterns, ["nodefony-logs*"]);
+    // Sans ce type, un index créé À NEUF retomberait sur le mapping deviné —
+    // et personne ne repasse derrière sur un déploiement vierge.
+    assert.strictEqual(
+      corps.template.mappings.properties["@timestamp"]?.type,
+      "date",
+    );
+    assert.strictEqual(
+      corps.template.mappings.properties["timeStamp"]?.type,
+      "long",
+    );
+  });
+
+  it("un modèle REFUSÉ ne fait pas perdre les journaux", async () => {
+    // Droits insuffisants, serveur d'une autre famille : le document part quand
+    // même. Un transport de journaux qui bloque sur sa propre configuration
+    // transforme un défaut d'observabilité en perte de données.
+    const { fn, calls } = mockFetch((url) =>
+      url.includes("/_index_template/")
+        ? { status: 403, body: { error: "forbidden" } }
+        : { body: { took: 1, errors: false, items: [] } },
+    );
+    const t = new OpenSearchTransport({
+      url: "http://opensearch:9200",
+      fetchImpl: fn,
+      batchSize: 100,
+    });
+    await t.send(mk("a", "INFO", "AUTH", "", 1000));
+    await t.close();
+    assert.ok(
+      calls.some((c) => c.url.endsWith("/_bulk")),
+      "le bulk doit partir malgré le refus du modèle",
+    );
   });
 });

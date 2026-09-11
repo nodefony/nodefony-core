@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 825,
-    "symbols": 4018,
+    "symbols": 4022,
     "classes": 391,
     "interfaces": 1085,
     "types": 447,
     "enums": 4,
-    "functions": 1692,
-    "constants": 399
+    "functions": 1694,
+    "constants": 401
   },
   "symbols": {
     "Cli": {
@@ -12043,6 +12043,22 @@
       "module": "@nodefony/core",
       "description": "Construit l'en-tête `Authorization: Basic …` si un utilisateur est fourni — sinon objet vide (dev = plugin sécurité désactivé, HTTP sans auth). Node-only (`Buffer`)."
     },
+    "toOpenSearchDocument": {
+      "name": "toOpenSearchDocument",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/opensearchShared.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le document indexé : l'enregistrement wire, plus `@timestamp` en ISO 8601. `timeStamp` (entier) est CONSERVÉ : c'est lui que le pilote de relecture du framework filtre et trie, et le retirer répare…"
+    },
+    "buildIndexTemplate": {
+      "name": "buildIndexTemplate",
+      "kind": "function",
+      "file": "src/nodefony/src/syslog/drivers/opensearchShared.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le modèle d'index qui DÉCLARE le type des champs, au lieu de le laisser deviner. Sans lui, le correctif du transport ne tient que sur les index qui existent déjà : un déploiement vierge crée son in…"
+    },
     "DEFAULT_OPENSEARCH_INDEX": {
       "name": "DEFAULT_OPENSEARCH_INDEX",
       "kind": "const",
@@ -12050,6 +12066,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Index OpenSearch par défaut des logs Nodefony (write transport ↔ read driver)."
+    },
+    "OPENSEARCH_TIMESTAMP_FIELD": {
+      "name": "OPENSEARCH_TIMESTAMP_FIELD",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/drivers/opensearchShared.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le champ temporel que TOUT l'écosystème attend — Grafana, les tableaux de bord OpenSearch, les motifs d'index. 🔴 Ce n'est pas une préférence de nommage, c'est une condition d'existence de la vue c…"
+    },
+    "OPENSEARCH_TEMPLATE_NAME": {
+      "name": "OPENSEARCH_TEMPLATE_NAME",
+      "kind": "const",
+      "file": "src/nodefony/src/syslog/drivers/opensearchShared.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom du modèle d'index posé par le transport."
     },
     "FlowStepMeta": {
       "name": "FlowStepMeta",
@@ -33159,6 +33191,15 @@
       ],
       "BatchTransportOptions": [
         "src/nodefony/src/syslog/transports/LokiTransport.ts",
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "buildIndexTemplate": [
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "OPENSEARCH_TEMPLATE_NAME": [
+        "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "toOpenSearchDocument": [
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
       ],
       "IEntity": [
