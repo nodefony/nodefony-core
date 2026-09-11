@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T21:18:34.935Z",
+  "generatedAt": "2026-09-11T21:43:42.755Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 73,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 13,
+      "open": 14,
       "title": "10.0.0-alpha"
     },
     {
@@ -3249,6 +3249,22 @@
       ]
     },
     {
+      "number": 361,
+      "title": "docs(cli): retirer d'AGENTS.md ce qu'un skill livré porte déjà",
+      "url": "https://github.com/nodefony/nodefony-core/issues/361",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.92,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 353,
       "title": "test(release): rendre au banc la capacité d'éprouver un front absent",
       "url": "https://github.com/nodefony/nodefony-core/issues/353",
@@ -4093,7 +4109,7 @@
       "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
