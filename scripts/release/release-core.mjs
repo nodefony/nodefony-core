@@ -676,10 +676,16 @@ export function fusionnerChangelog(ancien, section, version) {
  * Le motif vise des noms de fichiers ENTIERS, pas des fragments : une page de
  * documentation nommée `environment.md` ou un module `keys.js` sont légitimes,
  * et les signaler entraînerait l'habitude d'ignorer cette alerte.
+ *
+ * 🔴 `keyset.json` est dans la liste parce qu'un secret ne se reconnaît PAS à
+ * son extension. C'est le trousseau JWT que `JwtKeystore` écrit sous
+ * `var/keys/` hors production — une clé privée Ed25519 dans un fichier qui a
+ * l'air d'une configuration. Toute la liste dit la même chose : ce sont des
+ * NOMS connus du produit, pas une heuristique sur les suffixes.
  */
 export function detecterSuspects(fichiers) {
   const SUSPECT =
-    /(^|\/)(\.env(\.[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
+    /(^|\/)(\.env(\.[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|keyset\.json|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
   const GIT = /(^|\/)\.git\//;
   return fichiers.filter((f) => SUSPECT.test(f) || GIT.test(f));
 }
@@ -724,7 +730,14 @@ export function detecterSuspects(fichiers) {
  */
 export function detecterSuspectsImage(fichiers) {
   const DEPENDANCE = /(^|\/)node_modules\//;
-  const ENV_NU = /(^|\/)\.env$/;
+  // Le `.env` de l'application est commité sans secret, par convention, et lu
+  // au démarrage du conteneur : le refuser serait faux. Mais la tolérance ne
+  // vaut que pour LUI — à la racine de l'image ou du répertoire de travail,
+  // pas à n'importe quelle profondeur. Sans cette borne, elle couvrait
+  // `app/.gemini/.env`, où `nodefony ai:mcp` écrit le JETON PORTEUR du serveur
+  // MCP : le contrôle laissait donc passer le secret le plus facile à publier
+  // d'une application Nodefony, au nom d'un fichier qui n'en porte aucun.
+  const ENV_NU = /^([^/]+\/)?\.env$/;
   // `ssl[^/]*` couvre le `ssl1.1` d'Alpine sans ouvrir `etc/ssl/private/`.
   const MAGASIN_PUBLIC =
     /^(etc\/ssl[^/]*\/(certs?\.pem|certs\/)|etc\/pki\/tls\/certs\/|etc\/ca-certificates\/|usr\/(local\/)?share\/ca-certificates\/|usr\/lib\/ssl\/certs\/)/;

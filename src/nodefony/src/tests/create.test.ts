@@ -1634,9 +1634,63 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             `.dockerignore laisse entrer de la matière cryptographique (${String(motif)}) — le COPY . ./ l'emporterait dans une image publiée`,
           );
         }
+        // 🔴 JETONS D'ACCÈS — la même famille que la clé privée, et tout
+        // aussi facile à publier : ce sont les jetons du POSTE. `.npmrc` porte
+        // un `_authToken` dès qu'un registre privé est en jeu, et les agents
+        // câblés par `nodefony ai:mcp` gardent le jeton porteur du serveur MCP
+        // dans le projet, chacun dans son dossier (`.gemini/.env`, et les
+        // homes redirigés de Vibe et de Codex).
+        for (const motif of [
+          /^\.npmrc$/mu,
+          /^\*\*\/\.npmrc$/mu,
+          /^\.netrc$/mu,
+          /^\.gemini$/mu,
+          /^\.vibe$/mu,
+          /^\.codex$/mu,
+        ]) {
+          assert.match(
+            ignore,
+            motif,
+            `.dockerignore laisse entrer un jeton d'accès (${String(motif)}) — publié avec l'image`,
+          );
+        }
+
+        // 🔴 Les journaux FICHIER ne vont PAS sous `var/` : le driver `file`
+        // écrit dans `log.dir`, dont le défaut est `logs/`. Et un motif sans
+        // `**/` est ancré à la RACINE du contexte — contrairement à
+        // `.gitignore`, où il vaut à toute profondeur. Un `*.log` seul ne
+        // voyait donc aucun journal, et ils portent requêtes, adresses et
+        // identifiants de session.
+        for (const motif of [
+          /^logs$/mu,
+          /^\*\*\/\*\.log$/mu,
+          /^\*\*\/\*\.jsonl$/mu,
+        ]) {
+          assert.match(
+            ignore,
+            motif,
+            `.dockerignore laisse entrer des journaux (${String(motif)})`,
+          );
+        }
+
+        // 🔴 `.env` et `.env.<environnement>` doivent RESTER admis : commités,
+        // sans secret par convention, et lus au démarrage DANS le conteneur.
+        // Les exclure casserait la configuration de l'application — c'est le
+        // seul cas de ce fichier où ajouter une ligne serait la faute.
+        assert.notMatch(ignore, /^\.env$/mu);
+        assert.notMatch(ignore, /^\*\*\/\.env$/mu);
+
         // Ce qui n'est d'aucun usage à `npm run build` et donnerait de la
-        // surface à lire dans une image publique.
-        for (const motif of [/^tests$/mu, /^tmp$/mu, /^\.github$/mu]) {
+        // surface à lire dans une image publique. `compose*` en motif large :
+        // `compose.override.yaml` est le point d'injection des secrets
+        // d'exploitation, et seul `compose.yaml` était nommé.
+        for (const motif of [
+          /^tests$/mu,
+          /^tmp$/mu,
+          /^\.github$/mu,
+          /^coverage$/mu,
+          /^compose\*\.y\*ml$/mu,
+        ]) {
           assert.match(ignore, motif, `.dockerignore n'exclut pas ${motif}`);
         }
 

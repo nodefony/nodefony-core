@@ -7,9 +7,15 @@
 **/node_modules
 **/dist
 
-# Écritures du runtime (journaux, pid, sockets) — propres à une machine.
+# Écritures du runtime — propres à une machine, et sans valeur dans une image.
+# ⚠️ Les journaux FICHIER ne vont PAS sous `var/` : le driver `file` écrit dans
+# `log.dir`, dont le défaut est `logs/` (`Kernel.ts`). Et un motif sans `**/`
+# est ancré à la RACINE du contexte — contrairement à `.gitignore`, où il vaut
+# à toute profondeur. `*.log` seul ne voyait donc aucun journal.
 var
-*.log
+logs
+**/*.log
+**/*.jsonl
 
 # Secrets — convention B : `*.local` n'est jamais commité, et n'entre pas
 # davantage dans une image. Les couches d'une image sont lisibles par qui la
@@ -36,20 +42,53 @@ nodefony/config/certificates
 **/*.p12
 **/*.pfx
 
+# 🔴 JETONS D'ACCÈS. Aucun n'est un secret « de production » : ce sont ceux du
+# POSTE, et c'est précisément ce qui les rend faciles à publier sans y penser.
+#
+#  - `.npmrc` porte une ligne `//registre/:_authToken=…` dès qu'un registre
+#    privé est en jeu — le cas courant en entreprise. Un registre privé se sert
+#    par un MONTAGE de secret, jamais par le contexte de construction :
+#      RUN --mount=type=secret,id=npmrc,target=/root/.npmrc npm ci …
+#      docker build --secret id=npmrc,src=$HOME/.npmrc .
+#  - Les agents câblés par `nodefony ai:mcp` gardent le jeton porteur du serveur
+#    MCP dans le projet, chacun dans son dossier : `.gemini/.env`, et les homes
+#    redirigés de Vibe et de Codex (`.vibe/.env`, `.codex/.env`).
+.npmrc
+**/.npmrc
+.netrc
+.gemini
+.vibe
+.codex
+.mcp.json
+
+# `.env` et `.env.<environnement>` ENTRENT, et c'est voulu : ils sont commités,
+# ne portent aucun secret par convention, et sont lus au démarrage DANS le
+# conteneur. Les secrets vivent dans `*.local`, exclu plus haut, et viennent de
+# l'orchestrateur. Ne pas les ajouter ici : l'application ne démarrerait plus
+# avec sa configuration.
+
 # Rien de tout ceci ne sert à `npm run build`, et tout se retrouverait dans une
 # image publique : bancs d'essai, artefacts jetables, chaînes d'intégration,
 # décor de développement et consignes d'agents. Ce n'est pas que du poids —
 # c'est de la surface qu'on donne à lire.
 tests
 tmp
+.vitest
+coverage
 .github
 .gitlab-ci.yml
 .claude
 .agents
 AGENTS.md
-compose.yaml
+.cursor
+.vscode
+.idea
 docker
 deploy
+# TOUT compose, pas seulement `compose.yaml` : `compose.override.yaml` est le
+# point d'injection standard des valeurs d'exploitation, donc des secrets.
+compose*.y*ml
+docker-compose*.y*ml
 
 # Bruit — sans effet sur l'exécution, mais chaque octet du contexte est envoyé
 # au démon Docker à chaque construction.
@@ -57,4 +96,5 @@ deploy
 .gitignore
 Dockerfile
 .dockerignore
-.DS_Store
+**/.DS_Store
+**/Thumbs.db

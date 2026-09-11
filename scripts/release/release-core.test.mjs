@@ -830,6 +830,21 @@ describe("detecterSuspectsImage — la même règle, sur une image publiée", ()
     "root/.ssh/id_rsa",
     "etc/ssl/private/serveur.key",
     "etc/ssl/certs/glisse-ici.key",
+    // 🔴 Les DEUX secrets les plus probables d'une application Nodefony, et le
+    // contrôle les laissait passer tous les deux.
+    //
+    // Le trousseau JWT : une clé privée Ed25519, écrite par `JwtKeystore` sous
+    // `var/keys/` dès que l'application n'est pas en production — donc à
+    // l'étage de construction, qui n'a pas `NODE_ENV`. Son nom ne porte
+    // AUCUNE des extensions surveillées.
+    "app/var/keys/keyset.json",
+    // Le jeton porteur du serveur MCP, que `nodefony ai:mcp` pose dans le
+    // dossier de l'agent (`agentTargets.ts:268`). C'est un `.env` NU, et la
+    // tolérance accordée au `.env` de l'application le couvrait — elle valait
+    // pour N'IMPORTE QUEL dossier, à n'importe quelle profondeur.
+    "app/.gemini/.env",
+    "app/.vibe/.env",
+    "app/.codex/.env",
   ])("refuse %s", (f) => {
     expect(detecterSuspectsImage([f])).toEqual([f]);
   });
