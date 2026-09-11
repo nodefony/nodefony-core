@@ -31,6 +31,23 @@ const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN"];
 const ROLE_BASE = "ROLE_USER";
 
 /**
+ * La route qui échange un compte contre une SESSION — le geste qui manquait.
+ *
+ * Créer un compte ne sert à rien tant qu'on ne sait pas s'en servir : mesuré,
+ * 33 minutes d'un essai réel se sont passées entre un premier refus et
+ * l'abandon, faute de savoir quoi appeler. La commande dit donc l'étape
+ * suivante au moment où elle a un sens.
+ *
+ * ⚠️ La route est MONTÉE ailleurs — `mountSessionAuthRoutes` du module
+ * framework — et ce paquet ne peut pas l'importer pour la lire (le montage est
+ * conditionné au service `authFlow`, et la valeur ne vit dans aucune constante
+ * exportée). La copie est donc assumée, et un test la CONFRONTE à la table du
+ * controller : deux copies qui divergent en silence, c'est précisément ce
+ * qu'on refuse.
+ */
+export const AUTH_LOGIN_PATH = "/nodefony/security/api/auth/login";
+
+/**
  * `nodefony security:user:add [identifier]` — crée un compte utilisateur via le
  * service applicatif `users` (hash Argon2id fait par `UserService.createUser`,
  * jamais de mot de passe stocké en clair).
@@ -211,6 +228,11 @@ class SecurityUserAdd extends Command {
         (opts.admin
           ? `  ${DIM}accès console Studio : /nodefony${RESET}\n`
           : "") +
+        // Le geste SUIVANT, dit ici et pas ailleurs : un compte sans moyen de
+        // s'en servir laisse une route gardée intestable.
+        `  ${DIM}pour t'authentifier : POST ${AUTH_LOGIN_PATH}${RESET}\n` +
+        `  ${DIM}  body JSON {"username","password"} → cookie de session ; ` +
+        `l'identité courante se relit sur GET /nodefony/security/api/auth/me${RESET}\n` +
         (opts.password
           ? `  ${YELLOW}⚠ mot de passe passé en argument — pense à purger l'historique shell${RESET}\n`
           : ""),

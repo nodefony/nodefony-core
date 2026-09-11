@@ -583,6 +583,15 @@ describe("E2E — le détail d'un refus, de bout en bout", () => {
       "string",
     );
     expect(denials[0]!.detail).to.contain("admin:metrics");
+    // …et il dit le GESTE, pas seulement le diagnostic : sans identité à
+    // présenter, il n'y a RIEN à vérifier dans les rôles du jeton. Ce décor
+    // monte un kernel sans module d'identité — le geste est donc celui-là, et
+    // surtout pas une commande que cette application n'a pas.
+    expect(
+      denials[0]!.detail,
+      "le refus dit comment obtenir une identité",
+    ).to.contain("identité");
+    expect(denials[0]!.detail).to.contain("@nodefony/security");
     client.disconnect();
   });
 

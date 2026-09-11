@@ -57,6 +57,8 @@ function makeResolver(opts: {
     subject?: unknown,
   ) => Promise<boolean>;
   variables?: { names: string[]; values: unknown[] };
+  /** Le kernel vu par la requête — décide si un refus dit le GESTE (dev seul). */
+  kernel?: { environment: string; modules: Record<string, unknown> };
 }): Resolver {
   const r = Object.create(Resolver.prototype) as Resolver;
   const container = new Container();
@@ -66,6 +68,7 @@ function makeResolver(opts: {
   r.context = {
     container,
     response: undefined,
+    kernel: opts.kernel,
   } as unknown as ContextType;
   r.route = {
     variables: opts.variables?.names ?? [],
@@ -81,12 +84,14 @@ function makeResolver(opts: {
   return r;
 }
 
-async function caught(p: Promise<unknown>): Promise<{ code?: number } | null> {
+async function caught(
+  p: Promise<unknown>,
+): Promise<{ code?: number; message?: string } | null> {
   try {
     await p;
     return null;
   } catch (e) {
-    return e as { code?: number };
+    return e as { code?: number; message?: string };
   }
 }
 
@@ -100,6 +105,55 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
       caught(r.executeAction()),
     );
     expect(err?.code).to.equal(403);
+  });
+
+  /**
+   * Refuser correctement ne suffit pas : celui qui vient d'écrire la route
+   * n'avait, sans cela, aucun moyen de l'ESSAYER — mesuré, 33 minutes sur 89
+   * dans un essai réel, entre le premier 403 et l'abandon. Le geste est dit en
+   * développement, et seulement là : la même phrase renseignerait l'attaquant.
+   */
+  it("dev : le 403 dit la cause ET le geste qui donne une identité", async () => {
+    const r = makeResolver({
+      security: ROLE_CLAUSE,
+      decide: async () => false,
+      kernel: { environment: "development", modules: { security: {} } },
+    });
+    const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
+      caught(r.executeAction()),
+    );
+    expect(err?.code).to.equal(403);
+    expect(err?.message).to.contain("@IsGranted");
+    expect(err?.message).to.contain("security:user:add");
+  });
+
+  it("dev, aucune identité résolue : le 403 nomme CETTE cause-là", async () => {
+    const r = makeResolver({
+      security: ROLE_CLAUSE,
+      decide: async () => true,
+      kernel: { environment: "development", modules: { security: {} } },
+    });
+    // RequestContext sans `token` : ce n'est pas un manque de droits, c'est
+    // qu'aucune identité n'a été résolue — deux pannes distinctes, deux phrases.
+    const err = await RequestContext.run({ requestId: "t" }, () =>
+      caught(r.executeAction()),
+    );
+    expect(err?.code).to.equal(403);
+    expect(err?.message).to.contain("identité");
+    expect(err?.message).to.contain("firewall");
+  });
+
+  it("production : le 403 reste NU — aucune cause, aucun geste", async () => {
+    const r = makeResolver({
+      security: ROLE_CLAUSE,
+      decide: async () => false,
+      kernel: { environment: "production", modules: { security: {} } },
+    });
+    const err = await RequestContext.run({ requestId: "t", token: {} }, () =>
+      caught(r.executeAction()),
+    );
+    expect(err?.code).to.equal(403);
+    expect(err?.message).to.equal("Access denied");
   });
 
   it("GRANT → l'action s'exécute (la garde a laissé passer)", async () => {

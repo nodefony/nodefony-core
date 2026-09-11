@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 821,
-    "symbols": 3994,
+    "files": 822,
+    "symbols": 3996,
     "classes": 388,
     "interfaces": 1082,
     "types": 447,
     "enums": 4,
-    "functions": 1679,
-    "constants": 394
+    "functions": 1680,
+    "constants": 395
   },
   "symbols": {
     "Cli": {
@@ -4980,6 +4980,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ordonnanceur de **maintenance périodique** (« garbage collection ») exécutée HORS du chemin d'une requête — pattern unifié du framework pour purger des entrées expirées d'un store (sessions, jetons…"
+    },
+    "identityHint": {
+      "name": "identityHint",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/identityHint.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le geste qui donne une IDENTITÉ dans cette application — ou `null`. Protéger une route est immédiat : un décorateur, et le générateur le pose. L'APPELER ensuite ne l'est pas, et c'est le trou qu'on…"
     },
     "ILoadEnvOptions": {
       "name": "ILoadEnvOptions",
@@ -19674,6 +19682,14 @@
       "decorators": [],
       "description": "`nodefony security:user:add [identifier]` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). I…"
     },
+    "AUTH_LOGIN_PATH": {
+      "name": "AUTH_LOGIN_PATH",
+      "kind": "const",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "description": "La route qui échange un compte contre une SESSION — le geste qui manquait. Créer un compte ne sert à rien tant qu'on ne sait pas s'en servir : mesuré, 33 minutes d'un essai réel se sont passées ent…"
+    },
     "SecurityUserDelete": {
       "name": "SecurityUserDelete",
       "kind": "class",
@@ -28472,6 +28488,7 @@
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
+        "src/nodefony/src/runtime/identityHint.ts",
         "src/nodefony/src/types/IModule.ts",
         "src/nodefony/src/types/IService.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
@@ -34637,6 +34654,10 @@
       "extractActionScopes": [
         "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts"
+      ],
+      "identityHint": [
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "IResolver": [
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"

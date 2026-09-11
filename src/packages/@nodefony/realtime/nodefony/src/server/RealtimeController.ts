@@ -4,6 +4,7 @@ import {
   RpcError,
   RpcEnvelope,
   RequestContext,
+  identityHint,
   type RpcActionHandler,
   type JsonRpcPeerOptions,
   type IRealtimeWelcome,
@@ -466,6 +467,9 @@ export abstract class RealtimeController<
               ? f.method
               : undefined;
         if (channel !== undefined) {
+          // Cold path (refus rare) : le geste ne se compose qu'ici, jamais sur
+          // le trajet d'une frame acceptée.
+          const hint = identityHint(this.kernel);
           // Type de PROTOCOLE isomorphe (core) : un seul contrat, garanti par le
           // compilateur des deux bouts (serveur émet ⇄ client `ingestDenied`).
           const denied: IRealtimeDenied = {
@@ -481,7 +485,11 @@ export abstract class RealtimeController<
                 `identité : vérifie les rôles ou scopes exigés par le canal ` +
                 `(décorateur \`@RealtimeChannel(nom, { roles })\` ou clé ` +
                 `\`realtimeChannels\` de la configuration de sécurité), et ceux ` +
-                `que porte le jeton — le \`realtime:welcome\` te les rend`,
+                `que porte le jeton — le \`realtime:welcome\` te les rend` +
+                // Le diagnostic ne suffit pas : sans identité à présenter, il
+                // n'y a RIEN à vérifier. Le geste est donc joint au détail, qui
+                // ne franchit déjà pas la production.
+                (hint === null ? "" : `. ${hint}`),
             ),
           };
           auditedPeer.notify("realtime:denied", denied);

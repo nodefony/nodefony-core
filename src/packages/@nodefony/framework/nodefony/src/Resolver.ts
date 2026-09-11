@@ -7,6 +7,7 @@ import {
   Module,
   RequestContext,
   nodefonyError,
+  identityHint,
   //inject,
 } from "nodefony";
 import type { IIdempotencyStore } from "nodefony";
@@ -582,7 +583,15 @@ class Resolver implements IResolver {
     // Fail-closed : route gardée mais moteur d'autz absent (module security non
     // chargé) ou aucune identité résolue (pas de zone firewall) → refus.
     if (!authz || token === undefined) {
-      throw new nodefonyError("Access denied", 403);
+      throw new nodefonyError(
+        this._accessDenied(
+          !authz
+            ? `aucun moteur d'autorisation n'est posé sur cette requête`
+            : `aucune identité n'est résolue sur cette requête — la route ` +
+                `est-elle couverte par une zone du firewall ?`,
+        ),
+        403,
+      );
     }
     const clauses = req.clauses;
     for (let i = 0; i < clauses.length; i++) {
@@ -602,9 +611,35 @@ class Resolver implements IResolver {
       }
       // AND : une clause non satisfaite → refus immédiat.
       if (!ok) {
-        throw new nodefonyError("Access denied", 403);
+        throw new nodefonyError(
+          this._accessDenied(
+            `l'identité de cette requête ne porte pas les droits exigés par ` +
+              `la route (\`@IsGranted\`)`,
+          ),
+          403,
+        );
       }
     }
+  }
+
+  /**
+   * Le message d'un refus d'autorisation — augmenté du GESTE en développement.
+   *
+   * Refuser correctement ne suffit pas : celui qui vient d'écrire une route
+   * gardée n'a, sans cela, aucun moyen de l'essayer — mesuré, c'est le premier
+   * poste de coût d'un essai réel. La cause et le geste ne franchissent jamais
+   * la production ({@link identityHint} rend `null` hors développement) : le
+   * message y reste le `Access denied` nu qu'il a toujours été, puisque ces
+   * phrases y renseigneraient l'attaquant autant que le développeur.
+   *
+   * @param cause - ce qui a fait échouer l'autorisation, en clair.
+   * @returns le message à porter par l'erreur 403.
+   */
+  private _accessDenied(cause: string): string {
+    const hint = identityHint(this.context.kernel);
+    return hint === null
+      ? "Access denied"
+      : `Access denied — ${cause}. ${hint}`;
   }
 
   /**
