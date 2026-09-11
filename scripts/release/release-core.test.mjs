@@ -30,6 +30,8 @@ import {
   messageDeDepreciation,
   refusDePublicationHorsBranche,
   avisDeBranche,
+  verdictCiDuCommit,
+  WORKFLOWS_NON_BLOQUANTS,
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
@@ -1381,6 +1383,122 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
     });
     expect(avis).toMatch(/\(HEAD détaché\)/);
     expect(avis).not.toMatch(/« null »/);
+  });
+});
+
+describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
+  const run = (nom, statut, conclusion = null, id = nom) => ({
+    nom,
+    statut,
+    conclusion,
+    id,
+  });
+
+  it("VERT quand tout est terminé et réussi", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "success"),
+        run("CodeQL", "completed", "success"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("vert");
+  });
+
+  it("ROUGE, en NOMMANT le workflow fautif et sa conclusion", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "failure"),
+        run("CodeQL", "completed", "success"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("rouge");
+    expect(v.motif).toMatch(/nodefony-core — failure/);
+    // Le motif doit dire POURQUOI c'est fatal ici et pas ailleurs.
+    expect(v.motif).toMatch(/ne se reprend jamais/);
+  });
+
+  it("ATTENDRE tant qu'une exécution court — jamais un vert par impatience", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "success"),
+        run("Preuves e2e autonomes", "in_progress"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("attendre");
+    expect(v.enCours.map((r) => r.nom)).toEqual(["Preuves e2e autonomes"]);
+  });
+
+  it("ne s'attend JAMAIS elle-même — sinon la garde se bloque sur son propre run", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("Release (publication npm)", "in_progress", null, "42"),
+        run("nodefony-core", "completed", "success"),
+      ],
+      moiMeme: "42",
+    });
+    expect(v.verdict).toBe("vert");
+  });
+
+  it("PIÈGE — zéro exécution ne vaut pas VERT : la garde ne se désarme pas", () => {
+    // Une garde qui passe quand elle ne sait rien ne garde rien. Le cas arrive
+    // si l'on tague un commit que la branche n'a jamais porté.
+    const v = verdictCiDuCommit({ runs: [], moiMeme: "release" });
+    expect(v.verdict).toBe("rouge");
+    expect(v.motif).toMatch(/aucune exécution de CI/);
+  });
+
+  it("`cancelled` et `timed_out` sont ROUGES — ils ne disent pas que le code va bien", () => {
+    for (const conclusion of ["cancelled", "timed_out"]) {
+      const v = verdictCiDuCommit({
+        runs: [run("nodefony-core", "completed", conclusion)],
+        moiMeme: "release",
+      });
+      expect(v.verdict, conclusion).toBe("rouge");
+    }
+  });
+
+  it("`skipped` et `neutral` sont VERTS — des filtres de chemin n'ont rien vu passer", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("Code généré (3 systèmes)", "completed", "skipped"),
+        run("nodefony-core", "completed", "neutral"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("vert");
+  });
+
+  it("les EXCLUSIONS ne bloquent pas, même rouges — et chacune porte son motif", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "success"),
+        run("Tenue dans la durée (soak RSS)", "completed", "failure"),
+        run("Site — documentation et mesures", "in_progress"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("vert");
+    // Une exclusion sans motif se recopie sans qu'on sache si elle tient encore.
+    for (const e of WORKFLOWS_NON_BLOQUANTS) {
+      expect(e.motif, e.nom).toBeTruthy();
+    }
+  });
+
+  it("un workflow NEUF bloque par défaut — la liste est d'EXCLUSIONS, pas d'inclusions", () => {
+    // C'est ce qui distingue cette garde d'une liste « des workflows qui
+    // comptent » : celle-là laisse passer en silence tout ce qu'on ajoute.
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "success"),
+        run("Un banc ajouté demain", "completed", "failure"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("rouge");
+    expect(v.motif).toMatch(/Un banc ajouté demain/);
   });
 });
 

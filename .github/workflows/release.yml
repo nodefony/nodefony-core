@@ -157,9 +157,37 @@ jobs:
       exiger_vitrine: ${{ vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_VITRINE == 'true' }}
       exiger_image: ${{ vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_IMAGE == 'true' }}
 
+  # 🔴 LA GARDE QUI MANQUAIT — le tag et le push de la branche déclenchent des
+  # workflows SÉPARÉS, qui courent en parallèle et s'ignorent. Ce fichier
+  # n'exerce que le build, le cœur du script et l'installation vierge : les
+  # suites unitaires et d'intégration, le typecheck, les gates du dépôt,
+  # l'analyse de sécurité et le code généré vivent dans les workflows de la
+  # BRANCHE. Sans ce job, une CI rouge n'empêchait RIEN — les quinze paquets
+  # partaient, et npm ne reprend jamais une version publiée.
+  #
+  # Il tourne en PARALLÈLE de l'épreuve (rien ne dépend de lui avant `publier`),
+  # donc il ne rallonge la publication que s'il est le dernier à finir.
+  garde-main:
+    name: Garde — la CI de ce commit est-elle VERTE ?
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 50
+    permissions:
+      contents: read
+      actions: read # lire les exécutions du même commit
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+      - name: Attendre — et REFUSER si la CI du commit n'est pas verte
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/attendre-ci.mjs --timeout-min 45
+
   publier:
     name: Publication npm (lockstep, ${{ github.ref_name }})
-    needs: [epreuve, acces]
+    needs: [epreuve, acces, garde-main]
     # Le canal est calculé ICI et nulle part ailleurs : l'image le consomme au
     # lieu de le recalculer. Deux dérivations du même fait divergeraient en
     # silence — chacune passant ses propres contrôles.
@@ -611,7 +639,7 @@ jobs:
   # ═════════════════════════════════════════════════════════════════════════
   bilan:
     name: Bilan — ce qui a tourné, et ce qui a été sauté
-    needs: [epreuve, acces, publier, vitrine, image, annonce]
+    needs: [epreuve, acces, garde-main, publier, vitrine, image, annonce]
     if: always() && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 5

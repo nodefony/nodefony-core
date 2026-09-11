@@ -1086,6 +1086,97 @@ export function avisDeBranche({
 }
 
 /**
+ * Les workflows du commit tagué qui NE bloquent PAS la publication.
+ *
+ * 🔴 Liste d'EXCLUSIONS, jamais liste d'inclusions : un workflow neuf doit
+ * bloquer par défaut. Une liste de « ceux qui comptent » laisse passer en
+ * silence tout ce qu'on ajoute ensuite — et personne ne s'en aperçoit avant
+ * d'avoir publié sur un rouge.
+ *
+ * Chaque entrée porte son MOTIF : sans lui, l'exclusion suivante se copie sur
+ * la précédente sans qu'on sache si elle est encore fondée.
+ */
+export const WORKFLOWS_NON_BLOQUANTS = [
+  {
+    nom: "Site — documentation et mesures",
+    motif:
+      "publie le site public, ne juge aucun code ; il est de toute façon republié par le job d'annonce",
+  },
+  {
+    nom: "Tenue dans la durée (soak RSS)",
+    motif:
+      "mesure longue (plusieurs heures) : l'attendre ferait expirer la publication, et son verdict est une TENDANCE, pas une régression franche",
+  },
+];
+
+/**
+ * Le verdict de la CI du commit qu'on s'apprête à publier.
+ *
+ * 🔴 Le trou qu'elle bouche : le tag et le push de la branche déclenchent des
+ * workflows SÉPARÉS, qui courent en parallèle et s'ignorent. `release.yml`
+ * n'exerce que le build, le cœur du script et l'installation vierge — les
+ * suites unitaires et d'intégration, le typecheck, les gates du dépôt et
+ * l'analyse de sécurité vivent dans les workflows de la BRANCHE. Sans cette
+ * garde, une CI rouge n'empêche rien : les paquets partent, et npm ne reprend
+ * jamais une version.
+ *
+ * Rendre `attendre` plutôt que de dormir ici garde la fonction PURE : c'est
+ * l'appelant qui boucle, et le raisonnement s'éprouve sans réseau ni horloge.
+ *
+ * @param runs - les exécutions du même commit : `{nom, statut, conclusion, id}`
+ * @param moiMeme - l'id de l'exécution courante, à ne jamais s'attendre soi-même
+ * @param exclusions - les workflows non bloquants (défaut : {@link WORKFLOWS_NON_BLOQUANTS})
+ * @returns `{verdict}` — `vert`, `rouge` (avec `motif`) ou `attendre` (avec `enCours`)
+ */
+export function verdictCiDuCommit({
+  runs,
+  moiMeme,
+  exclusions = WORKFLOWS_NON_BLOQUANTS,
+}) {
+  const exclus = new Set(exclusions.map((e) => e.nom));
+  const juges = (runs ?? []).filter(
+    (r) => String(r.id) !== String(moiMeme) && !exclus.has(r.nom),
+  );
+
+  // Aucun run : la garde ne se DÉSARME pas quand elle ne sait rien — c'est
+  // exactement là qu'elle devrait mordre. Le cas arrive si l'on tague un
+  // commit que la branche n'a jamais porté.
+  if (juges.length === 0) {
+    return {
+      verdict: "rouge",
+      motif:
+        "aucune exécution de CI trouvée pour ce commit.\n" +
+        "  Le tag porte-t-il bien un commit poussé sur la branche de publication ?\n" +
+        "  Publier sans qu'aucune suite ne se soit prononcée sur ce code exact\n" +
+        "  reviendrait à publier sur une question ouverte.",
+    };
+  }
+
+  // `skipped` est un SUCCÈS : un workflow dont les filtres de chemin n'ont rien
+  // vu passer n'a rien à reprocher. `cancelled` et `timed_out`, eux, ne disent
+  // PAS que le code va bien — ils disent qu'on ne sait pas.
+  const rouges = juges.filter(
+    (r) =>
+      r.statut === "completed" &&
+      !["success", "skipped", "neutral"].includes(r.conclusion),
+  );
+  if (rouges.length > 0) {
+    return {
+      verdict: "rouge",
+      motif:
+        "la CI de ce commit n'est pas verte :\n" +
+        rouges.map((r) => `    ✗ ${r.nom} — ${r.conclusion}`).join("\n") +
+        "\n  Une version npm ne se reprend jamais : on ne publie pas sur un rouge.",
+      rouges,
+    };
+  }
+
+  const enCours = juges.filter((r) => r.statut !== "completed");
+  if (enCours.length > 0) return { verdict: "attendre", enCours };
+  return { verdict: "vert", juges };
+}
+
+/**
  * Les paquets dont le dist-tag `latest` est resté sur une préversion PÉRIMÉE.
  *
  * 🔴 Le piège qu'elle nomme, constaté sur la `10.0.0-alpha.2` : npm pose

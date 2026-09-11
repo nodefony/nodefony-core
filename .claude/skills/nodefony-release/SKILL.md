@@ -86,7 +86,7 @@ c'est le tag `v10.*` poussé à la main qui déclenche la publication. Inverser 
 l'auteur le seul point où il relit ce qui sortira sous son nom.
 
 **Ce que le tag déclenche, dans l'ordre** (`release.yml`) : `epreuve` (les trois scénarios de smoke
-en matrice) → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
+en matrice) **et** `garde-main` en parallèle → `publier` (les 15 paquets par OIDC) → `vitrine` · `image` → `annonce`, qui crée la
 Release GitHub — `--prerelease` déduit de semver — **et republie le site public** en appelant
 `pages.yml` sur `main`. Puis `bilan`, qui dit ce qui a été SAUTÉ. Compter une bonne dizaine de
 minutes avant le premier `publish` : le smoke bâtit des conteneurs.
@@ -184,6 +184,7 @@ constante, lui, se retrouve au `grep`.
 | Contenu des tarballs | un secret publié est public à la seconde où il est en ligne, bien avant la fenêtre de 72 h |
 | **Contenu de l'image, par COUCHES** | la `10.0.0-alpha.4` a été publiée avec une clé privée TLS. Le contrôle lit `docker save`, jamais `docker export` : l'export rend l'arborescence APLATIE, où un `COPY secret` suivi d'un `RUN rm` ne laisse rien voir — alors que la couche reste lisible par qui télécharge. Il tourne **entre** le build et le push (`release.yml`) et après chaque `build_image` du smoke (les trois presets, donc trois `.dockerignore` rendus). Sortie **2** = il n'a pas pu regarder, ce qui refuse aussi |
 | Répétition `--dry-run` sur **le lot entier** | la seule parade au lot partiel, puisque npm n'a pas de transaction |
+| **La CI du commit tagué, exigée VERTE** (`garde-main`) | publier sur un rouge. Le tag et le push de la branche déclenchent des workflows SÉPARÉS qui s'ignorent : `release.yml` n'exerce que le build, le cœur du script et l'installation vierge — les suites unitaires et d'intégration, le typecheck, les gates et l'analyse de sécurité vivent dans les workflows de la BRANCHE. Liste d'EXCLUSIONS, jamais d'inclusions : un workflow neuf bloque par défaut. Zéro exécution vaut ROUGE — une garde qui passe quand elle ne sait rien ne garde rien |
 
 L'inventaire des publiables vient de `npm query .workspace` filtré sur `private` — jamais d'une
 liste écrite à la main, dont l'oubli serait silencieux.
