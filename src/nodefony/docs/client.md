@@ -31,8 +31,9 @@ source: "src/nodefony/docs/client.md"
 # Le client isomorphe — Nodefony dans le navigateur
 
 > Le paquet `nodefony` ne s'arrête pas au serveur : une partie de son code est **compilée pour le
-> navigateur** et publiée sous quatre points d'entrée (`nodefony/client`, `nodefony/react`,
-> `nodefony/roles`, `nodefony/debugbar`). Ton front n'importe donc pas une bibliothèque cliente
+> navigateur** et publiée sous plusieurs points d'entrée : le socle (`nodefony/client`,
+> `nodefony/roles`, `nodefony/debugbar`) et **une liaison par moteur front** — `nodefony/react`,
+> `nodefony/vue`, `nodefony/svelte`, `nodefony/angular`. Ton front n'importe donc pas une bibliothèque cliente
 > « compagnon » qu'il faudrait tenir à jour en parallèle du back — il importe **le même paquet**, avec
 > les mêmes types, le même protocole et les mêmes règles de rôles. Ancré sur `src/nodefony/src/client/`.
 
@@ -55,7 +56,7 @@ flowchart TD
   SRC --> CB["bundle navigateur<br/>dist/client/"]
   NB --> SERV["Serveur<br/>Kernel · Module · Controller"]
   CB --> C1["nodefony/client<br/>RealtimeClient · notices · cadence"]
-  CB --> C2["nodefony/react<br/>hooks useNodefony*"]
+  CB --> C2["une liaison par moteur<br/>nodefony/react · vue · svelte · angular"]
   CB --> C3["nodefony/roles<br/>RBAC d'affichage"]
   CB --> C4["nodefony/debugbar<br/>barre de debug dev"]
   C1 -->|"WebSocket · JSON-RPC 2.0"| SERV
@@ -133,11 +134,14 @@ navigateur, plus une condition `browser` sur l'entrée principale.
 | --------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- |
 | `nodefony/client`     | Le client temps réel, les notices, la cadence adaptative, `Syslog`/`Pdu` | Toujours — c'est le point d'entrée de référence     |
 | `nodefony/react`      | Les hooks `useNodefony*` (peer optionnelle `react`)                      | App React qui consomme des canaux                   |
+| `nodefony/vue`        | Le plugin `nodefonyVue` et les composables `useNodefony*`                | App Vue 3 qui consomme des canaux                   |
+| `nodefony/svelte`     | `configureNodefony` et des sources réactives lues `.current`             | App Svelte 5 qui consomme des canaux                |
+| `nodefony/angular`    | `provideNodefony` et les fonctions `injectNodefony*` (signals)           | App Angular qui consomme des canaux                 |
 | `nodefony/roles`      | `hasRole` & co, `RoleSet`, `RoleRegistry`                                | Afficher/masquer selon les rôles                    |
 | `nodefony/debugbar`   | La barre de debug de développement + son modèle pur                      | Dev, ou réutiliser le calcul de cascade             |
 | `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`      | Code partagé front/back ; sinon préfère l'explicite |
 
-Ces quatre entrées sont produites par une compilation dédiée — `clientConfig`
+Ces entrées navigateur sont produites par une compilation dédiée — `clientConfig`
 (`rolldown.config.ts:100`) déclare exactement ces quatre fichiers d'entrée, en conservant la structure
 des modules pour que le client temps réel ne soit émis **qu'une fois** même s'il est tiré par deux
 subpaths.
@@ -285,8 +289,9 @@ première connexion. Le client distingue « je me connecte » de « je me reconn
 afficherait un message de rétablissement au chargement.
 
 > [!TIP]
-> En React, ne câble rien à la main : les hooks du subpath `nodefony/react` font l'abonnement, le
-> désabonnement et le re-rendu pour toi. Voir [Hooks React](react-hooks.md).
+> Ne câble rien à la main : la liaison de ton moteur front fait l'abonnement, le désabonnement et
+> la mise à jour de la vue pour toi. Voir [Hooks React](react-hooks.md), [composables Vue](vue-composables.md),
+> [réactivité Svelte](svelte-reactivite.md) ou [services Angular](angular-services.md).
 
 ## 🔌 `RealtimeClient` — la socket vue du navigateur
 
@@ -387,7 +392,7 @@ Un onglet ouvert huit heures ne pardonne pas les allocations gratuites. Les choi
 
 - **Le journal de protocole est différé.** Chaque trame est poussée dans un anneau borné à 300
   entrées sous forme de **référence brute** ; la mise en forme et le masquage des secrets ne sont
-  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/RealtimeClient.ts:1308`). Un
+  faits qu'à la **lecture** — `recordFrame()` (`client/realtime/RealtimeClient.ts:1333`). Un
   inspecteur qu'on n'ouvre jamais ne coûte donc presque rien.
 - **Les secrets ne transitent pas en clair dans l'inspecteur.** `redactFrame()`
   (`client/realtime/RealtimeClient.ts:157`) remplace toute clé ressemblant à un jeton, un mot de
@@ -606,7 +611,8 @@ vitest, jamais figés ici.
 ## 🔗 Pour aller plus loin
 
 - ⬆️ **Retour au hub** : [@nodefony/core — vue d'ensemble](index.md) · [Toute la documentation](../../../docs/index.md)
-- 🧭 **Pages sœurs** : [Hooks React `nodefony/react`](react-hooks.md) — les bindings qui câblent tout
+- 🧭 **Pages sœurs** : la liaison de ton moteur — [Hooks React](react-hooks.md) · [composables Vue](vue-composables.md) ·
+  [réactivité Svelte](svelte-reactivite.md) · [services Angular](angular-services.md) — les bindings qui câblent tout
   ça dans un composant · [Service et événements](service.md) — la classe de base, isomorphe elle
   aussi · [Journalisation](syslog.md) — le `Syslog` qui tourne aussi dans l'onglet
 - Le serveur en face : [la socket Nodefony](../../../src/packages/@nodefony/realtime/docs/index.md) ·

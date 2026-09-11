@@ -112,7 +112,7 @@ La référence est INSTALLÉE avec les paquets — lis CIBLÉ, jamais tout le do
 - **Variables d'environnement** : cascade des `.env`, précédence, `NF__`, **et dans quel MODE tourne une commande** — `node_modules/nodefony/docs/environnement.md`
 - **Kernel, cycle de vie, CLI** — `node_modules/nodefony/docs/kernel.md` + `cli.md`
 - **Service, DI, container, scopes** — `node_modules/nodefony/docs/service.md`
-- **Client isomorphe (navigateur), hooks React** — `node_modules/nodefony/docs/client.md` + `react-hooks.md`
+- **Client isomorphe (navigateur)<% if (it.client) { %>, liaison `<%= it.client.subpath %>`<% } %>** — `node_modules/nodefony/docs/client.md`<% if (it.client) { %> + `<%= it.client.doc %>`<% } %>
 - **Serveurs, sessions, cookies, upload, rate-limit** — `node_modules/@nodefony/http/docs/`
 - **Recevoir un FICHIER** (formulaire multipart, `@UploadedFile`, où le ranger sans laisser le client choisir) — `node_modules/@nodefony/http/docs/upload.md`
 - **Journaliser, corréler, tracer une requête** (identifiant de requête, trace) — `node_modules/@nodefony/http/docs/observabilite.md`
@@ -259,10 +259,13 @@ et il fait foi le jour où les deux divergent.
 - **Le cœur `nodefony` est ISOMORPHE** : le même paquet se charge côté Node
   ET navigateur. La porte client EXPLICITE est le subpath `nodefony/client`
   (`RealtimeClient`, notices, rôles — résolu à l'identique par Vite, Node et
-  le typecheck) ; les hooks React vivent dans `nodefony/react`. Ne réécris
+  le typecheck)<% if (it.client) { %>, et le moteur front de CE projet a la sienne :
+  `<%= it.client.subpath %>`<% } %>. Ne réécris
   JAMAIS un client WebSocket/JSON-RPC, ne duplique JAMAIS un type entre front
   et back : un seul contrat, vérifié par le compilateur des deux bouts.
-
+<% if (it.client) { %>
+<%~ it.client.snippet %>
+<% } %>
 - **Une commande ne tourne PAS dans le mode du serveur que tu as lancé — DEMANDE-le.**
   Chaque commande démarre son propre noyau. Sans `NODE_ENV` dans ton shell, elle
   part en `development` ; avec `NODE_ENV=production`, elle lit une AUTRE

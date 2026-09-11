@@ -66,7 +66,15 @@ const fichiersPrescripteurs = (): string[] => {
     "devkit",
     "skills",
   );
-  const liste = readdirSync(agents).map((f) => path.join(agents, f));
+  // Descente d'UN niveau : les fragments d'exemple par moteur front vivent
+  // dans `agents/client/`, et ils prescrivent autant que le guide lui-même.
+  const liste: string[] = [];
+  for (const entree of readdirSync(agents, { withFileTypes: true })) {
+    const abs = path.join(agents, entree.name);
+    if (entree.isDirectory())
+      liste.push(...readdirSync(abs).map((f) => path.join(abs, f)));
+    else liste.push(abs);
+  }
   for (const skill of readdirSync(skills)) {
     const fiche = path.join(skills, skill, "SKILL.md");
     if (existsSync(fiche)) liste.push(fiche);

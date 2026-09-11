@@ -43,8 +43,10 @@ l'app. Config invalide → boot FATAL, champ nommé.
   mécanisme. Réf : `node_modules/nodefony/docs/service.md`.
 - **Isomorphisme** : pour tout code NAVIGATEUR de ce module, le client temps
   réel et les types du protocole s'importent du cœur (`nodefony`,
-  `nodefony/client`, `nodefony/react`) — jamais un client WS à la main, jamais
-  un type dupliqué front/back. Réf : `node_modules/nodefony/docs/client.md`.
+  `nodefony/client`<% const port = it.front ? it.front.client : it.appClient; if (port) { %>, et la liaison de ton moteur front :
+  `<%= port.subpath %>`<% } %>) — jamais un client WS à la main, jamais
+  un type dupliqué front/back. Réf : `node_modules/nodefony/docs/client.md`<% if (port) { %> +
+  `<%= port.doc %>`<% } %>.
 - **WS métier = socket Nodefony** : `nodefony create controller <nom>
   --kind realtime --module <%= it.name %>` (canaux + actions RPC + policies) —
   l'echo WS brut des exemples est une démo du pipeline, pas un modèle.

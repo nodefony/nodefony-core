@@ -39,6 +39,7 @@ import {
   findModuleClassAnchor,
   filterProbe,
   malformedProbe,
+  FRONTEND_PARAMS,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
 import {
@@ -2779,6 +2780,82 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       ]) {
         assert.notInclude(claude, recopie);
         assert.include(agents, recopie);
+      }
+    });
+
+    /**
+     * Ce que ce contrôle garde : le différenciateur du framework — un client
+     * temps réel isomorphe, une liaison IDIOMATIQUE par moteur — n'existe pour
+     * un agent que s'il est NOMMÉ dans le guide de SON application. Une
+     * application Svelte recevait un guide qui parlait de React et ne
+     * mentionnait Svelte nulle part : l'agent a réécrit un client WebSocket à
+     * la main, et c'est l'humain qui a dû le détromper, en deux messages.
+     *
+     * La liste des moteurs n'est PAS écrite ici — elle se lit dans
+     * `FRONTEND_PARAMS`, la source que le générateur consomme. Un moteur ajouté
+     * demain entre donc dans ce contrôle sans que personne y pense ; et sans
+     * son fragment d'exemple, la génération elle-même échoue.
+     */
+    it("chaque moteur front proposé voit SA porte cliente nommée dans AGENTS.md", () => {
+      const exports = Object.keys(
+        (
+          JSON.parse(
+            readFileSync(path.join(findPackageRoot(), "package.json"), "utf8"),
+          ) as { exports: Record<string, unknown> }
+        ).exports,
+      );
+      const moteurs = Object.keys(
+        FRONTEND_PARAMS,
+      ) as (keyof typeof FRONTEND_PARAMS)[];
+      assert.isAtLeast(
+        moteurs.length,
+        2,
+        "table des moteurs vide ou non captée",
+      );
+      for (const moteur of moteurs) {
+        const porte = FRONTEND_PARAMS[moteur].client;
+        // Prescrire un subpath que le paquet n'ouvre pas enverrait l'agent sur
+        // un `ERR_PACKAGE_PATH_NOT_EXPORTED` — et il conclurait que la liaison
+        // n'existe pas.
+        assert.include(
+          exports,
+          porte.subpath.replace(/^nodefony/u, "."),
+          `${porte.subpath} n'est pas un subpath exporté par le paquet nodefony`,
+        );
+        const dest = path.join(tmp, `porte-${moteur}`);
+        scaffold(dest, {
+          name: `porte${moteur}`,
+          preset: "complete",
+          frontend: moteur,
+        });
+        const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+        assert.include(
+          agents,
+          porte.subpath,
+          `app ${moteur} : AGENTS.md ne nomme jamais ${porte.subpath}`,
+        );
+        assert.include(
+          agents,
+          porte.doc,
+          `app ${moteur} : AGENTS.md n'envoie vers aucune doc de la liaison ${moteur}`,
+        );
+        // …et SEULEMENT la sienne. Une énumération des quatre liaisons
+        // satisferait la lettre du contrôle sans rien apprendre à l'agent :
+        // c'est précisément ce qu'il lisait — une application Svelte à qui on
+        // parlait de React. Ce volet est ce qui fait mordre le reste.
+        for (const autre of moteurs.filter((m) => m !== moteur)) {
+          const etrangere = FRONTEND_PARAMS[autre].client;
+          assert.notInclude(
+            agents,
+            etrangere.subpath,
+            `app ${moteur} : AGENTS.md parle de ${etrangere.subpath}, la liaison d'un moteur qu'elle n'a pas`,
+          );
+          assert.notInclude(
+            agents,
+            etrangere.doc,
+            `app ${moteur} : AGENTS.md envoie vers ${etrangere.doc}, la doc d'un autre moteur`,
+          );
+        }
       }
     });
 

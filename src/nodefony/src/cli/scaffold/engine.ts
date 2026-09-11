@@ -183,6 +183,34 @@ const DIR_RENAMES: Record<string, string> = {
 };
 
 /**
+ * La porte cliente que le paquet `nodefony` ouvre pour UN moteur front.
+ *
+ * Le différenciateur du framework — un client temps réel isomorphe, une liaison
+ * par moteur — n'existe pour un agent que s'il est NOMMÉ dans le guide livré
+ * avec l'application. Tant qu'une seule liaison y était écrite en dur, une
+ * application Svelte recevait une documentation qui parlait de React : l'agent
+ * réécrivait un client WebSocket à la main faute de savoir que le sien existait.
+ *
+ * Ces trois champs sont donc lus au RENDU du guide, jamais recopiés dans un
+ * gabarit : ajouter un moteur à {@link FRONTEND_PARAMS} suffit à le faire
+ * apparaître, et le test qui l'exige tombe si le fragment d'exemple manque.
+ */
+interface IFrontendClientPort {
+  /** Subpath à importer — `nodefony/react`, `nodefony/svelte`… */
+  subpath: string;
+  /** Page livrée dans `node_modules/nodefony/docs/` qui la documente. */
+  doc: string;
+  /**
+   * Paquet npm qui SIGNE ce moteur dans le manifeste d'une application.
+   *
+   * Sert à la régénération (`create module`), qui ne reçoit aucune réponse :
+   * le moteur s'y CONSTATE dans les dépendances, il ne se déduit pas d'un
+   * choix que personne n'a rejoué.
+   */
+  marker: string;
+}
+
+/**
  * Paramètres frontend par framework — type registerEntry, entry, nœud de
  * montage, ET les dépendances npm (SOURCE UNIQUE : consommée par le
  * `package.json.tpl` de `create app` ET par `create front` qui les ajoute au
@@ -213,6 +241,7 @@ export const FRONTEND_PARAMS: Record<
     mountNode: string;
     deps: Record<string, string>;
     devDeps: Record<string, string>;
+    client: IFrontendClientPort;
   }
 > = {
   react: {
@@ -228,6 +257,11 @@ export const FRONTEND_PARAMS: Record<
       "@types/react",
       "@types/react-dom",
     ),
+    client: {
+      subpath: "nodefony/react",
+      doc: "react-hooks.md",
+      marker: "react",
+    },
   },
   vue: {
     type: "vue3",
@@ -235,6 +269,11 @@ export const FRONTEND_PARAMS: Record<
     mountNode: '<div id="app"></div>',
     deps: {},
     devDeps: pick("vue", "vite", "@vitejs/plugin-vue"),
+    client: {
+      subpath: "nodefony/vue",
+      doc: "vue-composables.md",
+      marker: "vue",
+    },
   },
   angular: {
     type: "angular",
@@ -250,6 +289,11 @@ export const FRONTEND_PARAMS: Record<
       "@angular/build",
       "@angular/compiler-cli",
     ),
+    client: {
+      subpath: "nodefony/angular",
+      doc: "angular-services.md",
+      marker: "@angular/core",
+    },
   },
   svelte: {
     type: "svelte5",
@@ -257,6 +301,11 @@ export const FRONTEND_PARAMS: Record<
     mountNode: '<div id="app"></div>',
     deps: {},
     devDeps: pick("svelte", "vite", "@sveltejs/vite-plugin-svelte"),
+    client: {
+      subpath: "nodefony/svelte",
+      doc: "svelte-reactivite.md",
+      marker: "svelte",
+    },
   },
 };
 
@@ -616,6 +665,15 @@ interface IAgentsData {
   hasStudio: boolean;
   front: boolean;
   /**
+   * Moteur front du projet, ou `null` s'il n'en a aucun.
+   *
+   * Décide de la porte cliente NOMMÉE dans le guide — `nodefony/svelte` pour
+   * une application Svelte, jamais la liaison d'un autre moteur : un agent qui
+   * lit un exemple React dans une application Svelte réécrit un client
+   * WebSocket à la main.
+   */
+  clientEngine: Exclude<TFrontendChoice, "none"> | null;
+  /**
    * `deploy/migrate-job.yaml` est-il là ? Se CONSTATE (le fichier), ne se
    * déduit pas d'un choix : un agent qu'on envoie vers une recette absente
    * cherche pendant que l'application, elle, n'a rien à migrer (sqlite).
@@ -658,9 +716,23 @@ function renderProjectAgents(
 ): void {
   const tplDir = path.join(packageRoot, "templates", "app", "agents");
   const agentsPath = path.join(projectRoot, "AGENTS.md");
+  // La porte cliente du moteur CHOISI, et son exemple. Le fragment est du
+  // markdown pur (pas un `.tpl`) : il entre tel quel, et le contrôle de tag
+  // résiduel juste en dessous reste vrai. Le fichier manquant lève ici —
+  // ajouter un moteur à `FRONTEND_PARAMS` sans son exemple ne passe pas.
+  const client =
+    data.clientEngine === null
+      ? null
+      : {
+          ...FRONTEND_PARAMS[data.clientEngine].client,
+          snippet: readFileSync(
+            path.join(tplDir, "client", `${data.clientEngine}.md`),
+            "utf8",
+          ).trimEnd(),
+        };
   let rendered = eta.renderString(
     readFileSync(path.join(tplDir, "AGENTS.md.tpl"), "utf8"),
-    data as unknown as Record<string, unknown>,
+    { ...data, client } as unknown as Record<string, unknown>,
   );
   if (rendered.includes("<%")) {
     throw new Error("tag eta résiduel dans AGENTS.md");
@@ -1430,6 +1502,7 @@ function dispatchScaffold(
       hasRealtime: preset === "complete",
       hasStudio: preset === "complete",
       front: front !== null,
+      clientEngine: frontend === "none" ? null : frontend,
       hasMigrateRecipe: writer.exists(
         path.join(dest, "deploy", "migrate-job.yaml"),
       ),
@@ -1730,6 +1803,27 @@ export function wireRoleHierarchy(
  * @returns l'ensemble des noms déclarés — jamais les versions, seule la présence
  *   est une information ici.
  */
+/**
+ * Le moteur front d'une application, CONSTATÉ dans ses dépendances.
+ *
+ * La régénération d'`AGENTS.md` (`create module`) ne rejoue aucune question :
+ * elle décrit l'état RÉEL du projet. Le moteur s'y lit donc au paquet qui le
+ * signe ({@link IFrontendClientPort.marker}), jamais à une réponse que personne
+ * n'a redonnée — une capacité se constate.
+ *
+ * @param deps - noms des dépendances de l'app (prod ET dev confondues).
+ * @returns le moteur, ou `null` si aucun n'est installé.
+ */
+function detectFrontendEngine(
+  deps: Set<string>,
+): Exclude<TFrontendChoice, "none"> | null {
+  for (const [engine, params] of Object.entries(FRONTEND_PARAMS)) {
+    if (deps.has(params.client.marker))
+      return engine as Exclude<TFrontendChoice, "none">;
+  }
+  return null;
+}
+
 function readAppDependencyNames(
   projectRoot: string,
   writer: ScaffoldWriter,
@@ -1833,6 +1927,14 @@ function runModuleScaffold(
     needsRealtime: controller === "realtime" || controller === "duplex",
     frontend,
     front: frontend !== "none" ? FRONTEND_PARAMS[frontend] : null,
+    // La porte cliente du moteur de l'APPLICATION, constatée dans ses
+    // dépendances : le module peut n'avoir aucun front et servir malgré tout
+    // du code navigateur. Son guide doit alors nommer la liaison que l'app
+    // utilise, pas celle d'un moteur qu'elle n'a pas installé.
+    appClient: (() => {
+      const engine = detectFrontendEngine(appDeps);
+      return engine === null ? null : FRONTEND_PARAMS[engine].client;
+    })(),
     /**
      * Le module naît-il paquet PUBLIABLE (surface npm : `exports`, `types`,
      * `files`, peerDependencies, `.d.ts` générés) ou module local privé ?
@@ -2012,6 +2114,7 @@ function runModuleScaffold(
         hasRealtime: appDeps.has("@nodefony/realtime"),
         hasStudio: appDeps.has("@nodefony/studio"),
         front: appDeps.has("@nodefony/frontend"),
+        clientEngine: detectFrontendEngine(appDeps),
         hasMigrateRecipe: writer.exists(
           path.join(projectRoot, "deploy", "migrate-job.yaml"),
         ),
