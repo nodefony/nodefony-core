@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T08:56:09.247Z",
+  "generatedAt": "2026-09-11T12:37:54.579Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 55,
+      "closed": 57,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 21,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -2741,6 +2741,20 @@
       ]
     },
     {
+      "number": 352,
+      "title": "fix(http): empêcher un frontal de retenir un flux d'événements",
+      "url": "https://github.com/nodefony/nodefony-core/issues/352",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.8,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 324,
       "title": "fix(docker): cesser de prescrire une version non libre de Redis",
       "url": "https://github.com/nodefony/nodefony-core/issues/324",
@@ -2842,8 +2856,8 @@
       "number": 338,
       "title": "fix(testing): rendre le port réellement en écoute, pas celui qui était demandé",
       "url": "https://github.com/nodefony/nodefony-core/issues/338",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2870,8 +2884,8 @@
       "number": 339,
       "title": "test(release): éprouver la topologie avec frontal sur une image réellement construite",
       "url": "https://github.com/nodefony/nodefony-core/issues/339",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3570,7 +3584,7 @@
       "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
-      "jours": 6,
+      "jours": 9,
       "ordre": 45,
       "labels": [
         "10.0.0-beta"

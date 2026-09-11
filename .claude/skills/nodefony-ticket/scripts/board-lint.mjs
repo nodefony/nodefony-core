@@ -269,6 +269,15 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
       // Un P0 précédé de ses PRÉREQUIS est normal — l'ordre encode les dépendances.
       // Seule « fin de cycle » avant « bloque le reste » est une contradiction franche.
       if (niveau(tries[j].prio) !== 3) continue;
+      // 🔴 …et seulement DANS UN MÊME JALON. Le jalon encode la livraison,
+      // l'ordre encode les dépendances À L'INTÉRIEUR : un P0 de la beta placé
+      // après un P3 de l'alpha n'est pas une contradiction, c'est le
+      // fonctionnement normal — l'alpha sort d'abord, quoi qu'il arrive.
+      // Sans cette borne, le contrôle criait faux à chaque fois (mesuré : trois
+      // avertissements permanents sur #340, #341, #348), et un contrôle qui crie
+      // faux apprend à passer outre — ce qui le rend pire qu'absent.
+      if ((tries[i].milestone ?? null) !== (tries[j].milestone ?? null))
+        continue;
       add(
         "avertissement",
         "PRIORITE-ORDRE",

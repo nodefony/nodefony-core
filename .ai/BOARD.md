@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-11 08:56** (UTC).
+> Empreinte prise le **2026-09-11 12:37** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `███████░░░` 72% | 55 | 21 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 5% | 2 | 36 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 75% | 57 | 19 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 5% | 2 | 37 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 28 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -35,12 +35,12 @@
 
 Ordre 9.91 · P1 — figé à la création · 6.5 j · jalon 10.0.0-alpha
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 19 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 36 ouverts
+## Jalon 10.0.0-beta — 37 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
@@ -67,12 +67,13 @@ Ordre 9.91 · P1 — figé à la création · 6.5 j · jalon 10.0.0-alpha
 | 9.5 | P2 — décision | 0.5 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 9.6 | P1 — figé à la création | 0.5 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
 | 9.7 | P1 — figé à la création | 1 | #314 | fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas |
+| 9.8 | P2 — décision | 0.5 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
 | 11 | P2 — décision | 0.5 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 | 28 | P1 — figé à la création | 0.5 | #154 | fix(frontend): stabiliser le décalage de port sur les agents macOS |
 | 29 | P2 — décision | 0.5 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 30 | P2 — décision | 0.5 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
-| 45 | P0 — bloque le reste | 6 | #340 | feat(cli): guider l'agent au-delà de la génération |
+| 45 | P0 — bloque le reste | 9 | #340 | feat(cli): guider l'agent au-delà de la génération |
 | 45.2 | P0 — bloque le reste | 1 | #341 | feat(cli): laisser un exemple de chaque geste en « Minimal » |
 | 45.3 | P1 — figé à la création | 1.5 | #342 | docs(cli): réduire AGENTS.md et y dire les briques absentes |
 | 45.4 | P1 — figé à la création | 0.5 | #343 | feat(cli): annoncer ce que le contenu « Minimal » retire |
@@ -88,14 +89,12 @@ Ordre 9.91 · P1 — figé à la création · 6.5 j · jalon 10.0.0-alpha
 | 2 | P2 — décision | 3 | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 21 ouverts
+## Jalon 10.0.0-alpha — 19 ouverts
 
 | Ordre | Prio | Jours | Ticket | Titre |
 | --- | --- | ---: | --- | --- |
 | 9.91 | P1 — figé à la création | 6.5 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.92 | P1 — figé à la création | 0.5 | #317 | test(release): refuser une image qui embarque une clé privée |
-| 9.93 | P1 — figé à la création | 0.5 | #338 | fix(testing): rendre le port réellement en écoute, pas celui qui était demandé |
-| 9.94 | P1 — figé à la création | 1 | #339 | test(release): éprouver la topologie avec frontal sur une image réellement construite |
 | 9.941 | P0 — bloque le reste | 1 | #347 | fix(cli): nommer le client temps réel du moteur front choisi |
 | 9.942 | P0 — bloque le reste | 2 | #344 | feat(cli): créer une identité pour essayer une route protégée |
 | 9.943 | P1 — figé à la création | 1 | #350 | feat(cli): poser les instructions lues par Copilot et Cursor |
