@@ -25,7 +25,7 @@
 #            et les statiques servis sans que Node soit joint
 #
 # Usage (racine repo) :
-#   npm run release:smoke -- [--scenario all|base|front|studio]
+#   npm run release:smoke -- [--scenario all|base|front|studio|edge]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 

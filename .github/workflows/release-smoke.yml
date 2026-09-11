@@ -36,7 +36,7 @@ on:
         description: "Scénario à jouer"
         type: choice
         default: all
-        options: [all, base, front, studio]
+        options: [all, base, front, studio, edge]
   # Et une passe hebdomadaire : un gate qu'on ne lance que « quand on y pense »
   # est un gate qui pourrit — celui-ci éprouve une surface qui dérive sans
   # qu'aucun test du dépôt ne s'en aperçoive.
@@ -61,9 +61,14 @@ jobs:
       fail-fast: false
       matrix:
         # Matrice dynamique : un `workflow_dispatch` ciblé ne joue QUE le
-        # scénario demandé ; `all` et la passe programmée les jouent tous les
-        # trois, en parallèle plutôt qu'en série — le pack se refait par job et
-        # coûte des secondes, là où `docker build` coûte des minutes.
+        # scénario demandé ; `all` et la passe programmée les jouent TOUS, en
+        # parallèle plutôt qu'en série — le pack se refait par job et coûte des
+        # secondes, là où `docker build` coûte des minutes.
+        #
+        # 🔴 `edge` en fait partie, et c'est tout l'objet de #355 : le script
+        # savait le jouer depuis #320, aucun déclencheur ne le demandait jamais.
+        # Une capacité que rien n'atteint n'existe pas — le jour où un étage du
+        # frontal casse, personne ne l'apprend avant qu'un utilisateur déploie.
         #
         # ⚠️ Les parenthèses ne sont pas décoratives. `&&` lie plus fort que
         # `||` (table des opérateurs de la doc GitHub), donc sans elles
@@ -77,7 +82,7 @@ jobs:
         scenario: >-
           ${{ fromJSON(
             (github.event.inputs.scenario == null || github.event.inputs.scenario == 'all')
-              && '["base","front","studio"]'
+              && '["base","front","studio","edge"]'
               || format('["{0}"]', github.event.inputs.scenario)
           ) }}
     steps:
