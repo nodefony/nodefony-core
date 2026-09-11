@@ -1053,6 +1053,13 @@ export function avisDeBranche({
 }) {
   // Déjà dedans : la préparation ne prépare aucune surprise.
   if (contenue) return null;
+  // 🔴 On EST sur la branche de publication, et l'appartenance est constatée
+  // contre la référence DISTANTE — qui est en retard tant qu'on n'a pas
+  // poussé. C'est le cas NORMAL de l'estampillage : on vient d'avancer `main`
+  // en local, le distant suivra au push, et le tag partira avec. Avertir ici
+  // rendrait un message absurde (« HEAD « main » n'appartient PAS à « main » »)
+  // — et un avis absurde décrédibilise les avis justes du même script.
+  if (branche === branchePublication) return null;
   // Sans la référence, on ne sait rien — et un avis inventé serait pire que
   // le silence. Le refus de publication, lui, mordra le moment venu.
   if (!brancheTrouvee) {

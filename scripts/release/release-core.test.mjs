@@ -1342,6 +1342,24 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
     expect(avis).toMatch(/--branch dev/);
   });
 
+  it("PIÈGE — sur la branche de publication ELLE-MÊME, il se tait", () => {
+    // L'appartenance se constate contre la référence DISTANTE, en retard tant
+    // qu'on n'a pas poussé : au moment de l'estampillage on vient d'avancer
+    // `main` en local, donc `contenue` est FAUX alors que tout est en ordre.
+    // Sans ce cas, le script imprimait « HEAD « main » n'appartient PAS à
+    // « main » (101 commits d'avance) » — absurde, et un avis absurde
+    // décrédibilise les avis justes du même script.
+    expect(
+      avisDeBranche({
+        branche: "main",
+        branchePublication: "main",
+        brancheTrouvee: true,
+        contenue: false,
+        avance: 101,
+      }),
+    ).toBeNull();
+  });
+
   it("PIÈGE — sans la référence, il ne DEVINE pas : il renvoie au refus", () => {
     const avis = avisDeBranche({
       branche: "dev",
