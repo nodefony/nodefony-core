@@ -20,50 +20,6 @@
 
 ---
 
-## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
-
-> Le symptôme est l'inverse de [[feedback_capability_unreachable_is_absent]] : là-bas une capacité
-> livrée était déclarée « non implémentée » ; ici c'est MOI qui affirme une absence, sans l'avoir
-> cherchée. Le test qui tranche avant de parler : _ai-je lancé un motif qui aurait TROUVÉ la chose
-> si elle existait ?_ Un `ls` d'un dossier voisin, un `grep` sur le CONCEPT et pas sur le nom.
-
-- [1× — 09-11] **Trois diagnostics rendus au user AVANT d'ouvrir la source, les trois faux.**
-  « Le compagnon a improvisé », puis « les générateurs lui ont résisté », puis « le document
-  d'instructions est trop long ». Le transcript complet — 2 112 événements,
-  `~/.copilot/session-state/<id>/events.jsonl` — était sur le disque depuis le début et dit
-  l'inverse : 4 skills chargés spontanément, 83 commandes sur 107 citant `nodefony`, et 3 refus de
-  générateur corrigés du premier coup en 25 secondes. Je n'avais pas cherché la source ; c'est le
-  user qui a demandé « tu as le transcript ? ». Le réflexe manquant n'est pas d'analyser mieux,
-  c'est de **demander où vit la trace avant d'interpréter le récit** — un agent laisse toujours un
-  journal quelque part.
-- [3× — 09-10c] **Trois affirmations d'absence, trois démentis, dans la même heure.** (1) « Il
-  faudrait un collecteur en plus pour envoyer les journaux vers OpenSearch » — faux :
-  `syslog/transports/OpenSearchTransport.ts` existe, avec son pilote de relecture et sa clé de
-  configuration. (2) « Aucun décor ne le fait tourner contre un vrai serveur » — faux : le compose
-  du dépôt a un profil `opensearch` complet, Dashboards compris. (3) « Il n'y a pas de garde-fou
-  d'environnement pour ça » — faux : `OPENSEARCH_GATE` ET `PROXY_GATE` sont dans `vitest.gates.ts`.
-  À chaque fois le user a demandé « tu es sûr ? », à chaque fois le terrain l'a démenti. Le vrai
-  trou était ailleurs, et bien plus intéressant : `node.js.yml:524` liste ces variables dans
-  `NF_GATES_ALLOW`, la liste des absences AUTORISÉES — la forge déclare noir sur blanc qu'elle ne
-  les exerce pas. **Sur ce dépôt, ce qui manque n'est presque jamais le code : c'est son
-  exécution.** Chercher d'abord ce qui existe déjà change la question posée.
-
-- **[1× — 09-10d] J'allais écrire un gate que le dépôt possédait déjà, et c'est le user qui l'a
-  nommé.** Sur une divergence de versions, j'ai conçu un contrôle dans `create.test.ts` — alors que
-  `scripts/check-deps-latest.mjs` lisait DÉJÀ le catalogue du scaffold, résolvait le verrou et
-  rangeait le paquet en `[DIVERGENT]`. Le vrai défaut n'était pas l'absence de détection mais
-  l'absence d'APPEL : aucun flux d'intégration, aucun crochet, et un code de sortie 0 quoi qu'il
-  trouve. Le test avant de concevoir un contrôle : _quel script existant produit déjà ce verdict, et
-  qui le lance ?_ Un gate ajouté à côté d'un gate aveugle en crée deux.
-
-- **[1× — 09-10d] RECULER n'est pas corriger — le user a dû me le dire.** Une majeure (`mermaid 12`)
-  introduisait deux failles « high » par une dépendance transitive épinglée ; j'ai redescendu la
-  majeure pour débloquer la forge. La vraie correction était deux crans plus bas : `lodash-es`
-  **avait déjà publié** la version corrigée, et un `overrides` suffisait. Le réflexe « annuler le
-  changement qui a rendu rouge » traite le symptôme et abandonne le gain. Le test : _la correction
-  existe-t-elle en AMONT, et puis-je l'atteindre ?_ — avec sa contrepartie, vérifier que la version
-  corrigée n'a pas RETIRÉ ce que le consommateur utilise (ici `template`/`unset`/`omit`, présents).
-
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
 - [1× — 09-08c] **Un décor de démonstration posé dans un fichier qu'un sous-agent analysait.**
@@ -217,6 +173,14 @@
   gabarit d'app générée, sinon chaque app naît avec ces artefacts. `[1× — 08-23c]`
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
+
+- [1× — 09-11] **Découper un format à NIVEAUX avec `indexOf` d'une chaîne qui vit à tous les
+  niveaux.** Un test découpait le bloc `app:` d'un compose jusqu'au prochain `"\n  "` — or les
+  lignes DU bloc sont indentées de quatre espaces et contiennent ce motif : le bloc s'arrêtait
+  ~40 caractères après son titre, avant `depends_on`, et l'assertion rougissait sur un gabarit
+  CORRECT. Huit jobs de la forge (deux suites × trois plateformes × deux lignes de Node) sur ce
+  seul cas. Un bloc court jusqu'au prochain frère de MÊME niveau : `search(/\n {2}\S/)`. La
+  frontière d'un format structuré se compose avec sa grammaire, jamais avec une sous-chaîne.
 
 - [1× — 08-30] **La forge a vu ce qu'aucun poste ne pouvait voir, et la doctrine d'injection l'a
   rendu éprouvable ici.** Un chemin publié dans un rapport sortait en `var\db.sqlite` sous Windows
@@ -395,6 +359,7 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
 | 🪟 Un contrôle VERT qui ne POUVAIT rien voir (21)             | `feedback_gate_must_bite`                    |
 | 🧾 Un RITUEL de pilotage qui coûte plus qu'il ne rend (5)     | `feedback_ritual_must_earn_its_keep`         |
 | 🚪 Un fast-path standalone n'hérite de RIEN (2)               | `feedback_single_source_rule`                |
+| 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché (5)               | `feedback_capability_unreachable_is_absent`  |
 | 🧪 Vérifier que la transformation a EU LIEU (57)              | `feedback_prove_on_received_artifact`        |
 | 🧰 Un GATE excellent que personne ne lance ne garde rien (47) | `feedback_gate_must_run`                     |
 | 🎯 Une ancre PLAUSIBLE et fausse (27)                         | `feedback_anchor_expires_silently`           |
@@ -489,13 +454,3 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
-
-## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — suite
-
-- [1× — 09-11] **J'ai nommé deux trous de pilotage dans le rapport même où je graduais la leçon
-  voisine, et les deux étaient déjà comblés.** `board-lint.mjs` porte E6 `STATUT-MENTEUR` depuis
-  le début, et l'exclusion des commits de pilotage vit dans un module PARTAGÉ
-  (`commit-kind.mjs`), lu par le lint ET par `ticket-progress.mjs` — avec un test qui exige
-  précisément qu'ils lisent la même règle. Écrire « ne voit pas X » coûte deux `grep` de moins que
-  de le vérifier, et se paie en travail inventé. Le seul trou réel était la frise (dates jamais
-  lues par le lint), désormais comblé.

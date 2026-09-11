@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T12:48:02.814Z",
+  "generatedAt": "2026-09-11T13:35:35.274Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -2745,7 +2745,7 @@
       "title": "fix(http): empêcher un frontal de retenir un flux d'événements",
       "url": "https://github.com/nodefony/nodefony-core/issues/352",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3679,7 +3679,7 @@
       "title": "feat(cli): ajouter une brique à une application déjà générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/349",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 2,
