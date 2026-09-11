@@ -922,10 +922,20 @@ class Kernel extends Service implements IKernel {
       // CI, orchestrateur), prompter est absurde (le prompt crashe « User
       // force closed ») → erreur claire + exit 1, diagnosticable en logs.
       if (!this.isTTY) {
+        // Les trois causes sont NOMMÉES, parce qu'une seule d'entre elles
+        // envoyait chercher au bon endroit : un agent a passé six minutes sur
+        // ce message, dans un worktree où il ne manquait qu'une installation.
+        // Un message qui n'énonce qu'une cause est cru — et fait chercher là
+        // où il n'y a rien.
         this.log(
           `Pas de projet Nodefony ici (${this.path}) : aucune entrée d'app ` +
-            `résolue (package.json \`main\`, dist/index.js ou index.js). ` +
-            `Vérifie le répertoire de travail et le build (dist/).`,
+            `résolue (package.json \`main\`, dist/index.js ou index.js).\n` +
+            `Trois causes possibles :\n` +
+            `  · ce dossier n'est pas une application Nodefony — vérifie le ` +
+            `répertoire de travail, ou crée-en une : npx nodefony create app <nom>\n` +
+            `  · c'est une application, mais son package.json ne déclare pas ` +
+            `la dépendance \`nodefony\`\n` +
+            `  · elle n'est pas CONSTRUITE : npm install puis npm run build`,
           "CRITIC",
         );
         return (await this.terminate(1)) as this;
@@ -2267,6 +2277,41 @@ class Kernel extends Service implements IKernel {
    * @returns le message actionnable à logger CRITIC, ou `null` si ce dossier
    *   n'est pas un projet Nodefony (le flux hors-projet reste inchangé)
    */
+  /**
+   * Racine du dépôt PRINCIPAL quand ce dossier est un worktree git — sinon `null`.
+   *
+   * Se CONSTATE sur le disque, sans lancer `git` : dans un worktree, `.git` est
+   * un FICHIER qui porte `gitdir: <dépôt>/.git/worktrees/<nom>`. Remonter de
+   * deux niveaux depuis ce dossier rend le `.git` du dépôt principal, dont le
+   * parent est sa racine de travail.
+   *
+   * Lancer `git` aurait fait dépendre un message d'erreur de la présence d'un
+   * binaire et d'un sous-processus, au moment précis où l'on cherche pourquoi
+   * rien ne marche.
+   *
+   * @returns la racine du dépôt principal, ou `null` (pas un worktree, ou
+   *   pointeur illisible — dans le doute on ne dit rien).
+   */
+  mainWorktreeRoot(): string | null {
+    const dotGit = path.resolve(this.path, ".git");
+    let pointer: string;
+    try {
+      if (!fs.statSync(dotGit).isFile()) return null;
+      pointer = fs.readFileSync(dotGit, "utf8");
+    } catch {
+      return null;
+    }
+    const gitDir = /^gitdir:\s*(.+)$/mu.exec(pointer)?.[1]?.trim();
+    if (!gitDir) return null;
+    // `<dépôt>/.git/worktrees/<nom>` → `<dépôt>`. Toute autre forme (un
+    // sous-module, par exemple) ne remonte à rien qu'on sache nommer.
+    const parts = path.resolve(this.path, gitDir).split(path.sep);
+    const at = parts.lastIndexOf("worktrees");
+    if (at < 2 || parts[at - 1] !== ".git") return null;
+    const root = parts.slice(0, at - 1).join(path.sep);
+    return root === "" ? null : root;
+  }
+
   diagnoseUnbootableProject(): string | null {
     let pkg: {
       dependencies?: Record<string, string>;
@@ -2289,6 +2334,25 @@ class Kernel extends Service implements IKernel {
       return null;
     }
     if (!fs.existsSync(path.resolve(this.path, "node_modules"))) {
+      // Le cas qui a coûté six minutes et une intervention humaine : un agent
+      // travaillait dans un WORKTREE git créé par son propre outil, où rien
+      // n'est installé — et toutes ses commandes échouaient sur un message qui
+      // parlait d'autre chose. Un worktree n'est pas un projet à moitié cassé,
+      // c'est une copie de travail qui n'a jamais eu de `node_modules` : le
+      // dire évite de chercher une panne là où il n'y en a pas.
+      const main = this.mainWorktreeRoot();
+      if (main !== null && fs.existsSync(path.resolve(main, "node_modules"))) {
+        return (
+          `Projet Nodefony détecté (${this.path}) mais dépendances NON INSTALLÉES ` +
+          `— ce dossier est un WORKTREE git.\n` +
+          `Le dépôt principal (${main}) est installé, lui : un worktree ne partage ` +
+          `PAS son node_modules.\n` +
+          `Lance ICI :\n` +
+          `  npm install\n` +
+          `  npm run build\n` +
+          `puis relance ta commande.`
+        );
+      }
       return (
         `Projet Nodefony détecté (${this.path}) mais dépendances NON INSTALLÉES.\n` +
         `Lance :\n` +

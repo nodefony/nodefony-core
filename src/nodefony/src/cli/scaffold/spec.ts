@@ -166,8 +166,19 @@ const APP_SPEC: IScaffoldTypeSpec = {
         },
         {
           value: "minimal",
+          // Ce que ce choix RETIRE, nommé — le libellé d'avant (« la base
+          // saine, à faire grandir ») était vrai et n'aidait personne : il
+          // laissait décider en deux secondes, sans dire qu'on décidait de
+          // pouvoir authentifier quelqu'un ou persister une donnée. Le coût
+          // est asymétrique — le choix prend deux secondes, sa réparation une
+          // séance. La marche pour ajouter une brique ensuite vit dans
+          // l'`AGENTS.md` de l'application générée, pas ici : la recopier la
+          // ferait diverger.
           label: "Minimal",
-          hint: "http + framework seulement — la base saine, à faire grandir",
+          hint:
+            "http + framework seulement — SANS base de données, SANS " +
+            "authentification ni rôles, SANS temps réel, SANS console " +
+            "d'administration (ajout manuel ensuite : voir AGENTS.md)",
         },
       ],
       default: "complete",

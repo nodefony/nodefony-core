@@ -6466,6 +6466,52 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(doc.usage, "answers");
     });
 
+    /**
+     * Ce que ce contrôle garde : un choix de contenu dit ce qu'il RETIRE.
+     *
+     * « la base saine, à faire grandir » était vrai et n'aidait personne. Le
+     * coût est asymétrique : le choix se fait en deux secondes, sa réparation
+     * prend une séance — celui qui découvre le framework doit savoir qu'il
+     * vient de décider s'il pourra authentifier quelqu'un ou persister une
+     * donnée.
+     *
+     * Le contrôle passe par la porte MACHINE (`--describe-json`) : c'est celle
+     * qu'un agent lit, et elle rend l'indication telle qu'elle sera affichée.
+     */
+    it("--describe-json : « Minimal » NOMME les briques qu'il retire", async () => {
+      const [code, out] = await capture("app", "--describe-json");
+      assert.equal(code, SysExit.OK);
+      const doc = JSON.parse(out) as {
+        types: {
+          type: string;
+          questions: {
+            key: string;
+            choices?: { value: string; hint?: string }[];
+          }[];
+        }[];
+      };
+      const hint = doc.types
+        .find((t) => t.type === "app")
+        ?.questions.find((q) => q.key === "preset")
+        ?.choices?.find((c) => c.value === "minimal")?.hint;
+      assert.isString(hint, "indication du contenu « minimal » absente");
+      for (const brique of [
+        "base de données",
+        "authentification",
+        "temps réel",
+        "administration",
+      ]) {
+        assert.include(
+          (hint ?? "").toLowerCase(),
+          brique,
+          `« minimal » ne dit pas qu'il retire : ${brique}`,
+        );
+      }
+      // …et il dit où trouver la marche pour l'ajouter ensuite, plutôt que de
+      // promettre un geste qui n'existe pas (« à faire grandir »).
+      assert.include(hint ?? "", "AGENTS.md");
+    });
+
     it("--describe-json <type> : ce type seul", async () => {
       const [, out] = await capture("controller", "--describe-json");
       const doc = JSON.parse(out) as { types: { type: string }[] };

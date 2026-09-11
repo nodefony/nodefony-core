@@ -1506,6 +1506,58 @@ describe("Kernel — resolveAppEntry() / isTrunk()", () => {
       );
     });
 
+    /**
+     * Le cas qui a coûté six minutes et une intervention humaine : un agent
+     * travaillait dans un worktree git créé par son propre outil, où rien n'est
+     * installé, et TOUTES ses commandes échouaient sur un message qui parlait
+     * d'autre chose. Un worktree n'a jamais de `node_modules` — ce n'est pas
+     * une panne, et le dire évite de chercher là où il n'y a rien.
+     */
+    it("WORKTREE git sans node_modules, dépôt principal installé → le message le NOMME", () => {
+      const principal = fs.mkdtempSync(nodePath.join(os.tmpdir(), "nf-main-"));
+      fs.mkdirSync(nodePath.join(principal, "node_modules"), {
+        recursive: true,
+      });
+      fs.mkdirSync(nodePath.join(principal, ".git", "worktrees", "wt"), {
+        recursive: true,
+      });
+      try {
+        const k = fixture({
+          "package.json": JSON.stringify({
+            main: "dist/index.js",
+            dependencies: { nodefony: "^10.0.0" },
+          }),
+          // Dans un worktree, `.git` est un FICHIER qui pointe le dépôt.
+          ".git": `gitdir: ${nodePath.join(principal, ".git", "worktrees", "wt")}\n`,
+        });
+        const message = k.diagnoseUnbootableProject() ?? "";
+        assert.match(message, /WORKTREE git/u);
+        // Il nomme le dépôt principal : c'est ce qui distingue « rien n'est
+        // installé ici » de « rien n'est installé nulle part ».
+        assert.ok(
+          message.includes(principal),
+          "le message ne nomme pas le dépôt principal",
+        );
+        assert.match(message, /npm install/u);
+      } finally {
+        fs.rmSync(principal, { recursive: true, force: true });
+      }
+    });
+
+    it("hors worktree : le message reste celui de l'installation simple", () => {
+      const k = fixture({
+        "package.json": JSON.stringify({
+          main: "dist/index.js",
+          dependencies: { nodefony: "^10.0.0" },
+        }),
+        // Un dépôt ORDINAIRE a un `.git` dossier — jamais un pointeur.
+        ".git/HEAD": "ref: refs/heads/main\n",
+      });
+      const message = k.diagnoseUnbootableProject() ?? "";
+      assert.match(message, /NON INSTALLÉES/u);
+      assert.doesNotMatch(message, /WORKTREE/u);
+    });
+
     it("deps installées mais AUCUNE entrée d'app → message npm run build", () => {
       const k = fixture(
         {
