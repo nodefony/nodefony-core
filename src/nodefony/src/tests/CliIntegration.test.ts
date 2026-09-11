@@ -671,6 +671,137 @@ describe.skipIf(!fs.existsSync(DIST))(
   },
 );
 
+/**
+ * Le cycle de vie d'un compte, joué par le VRAI binaire.
+ *
+ * `security:user:add`, `:password` et `:delete` sont éprouvées en unitaire avec
+ * un faux service et un proxy de prototype : cela prouve leur logique, et rien
+ * de ce qui les entoure — le câblage commander (argument optionnel, option
+ * `--password`), le profil de run `CONSOLE_DATA_RUN_PROFILE` qui réclame la
+ * base, et l'ordre des phases du kernel (`onPostReady`, sans lequel le service
+ * « users » n'est pas encore posé quand la commande s'exécute). Trois choses qui
+ * ne tombent qu'au spawn, et qu'un « identique à `user:add` » ne prouve pas.
+ *
+ * Le compte est JETABLE, son nom porte le pid — deux runs concurrents ne se
+ * marchent pas dessus — et `afterAll` le retire même quand un cas échoue : un
+ * banc qui laisse un compte derrière lui pollue l'annuaire que
+ * `security:user:list` présente ensuite à l'utilisateur comme le sien.
+ *
+ * Le décor est celui du dépôt (une application réelle). Si son annuaire ne
+ * répond pas, les cas se SAUTENT en le disant : un échec de décor ne doit pas se
+ * lire comme une régression de la commande.
+ */
+describe.skipIf(!fs.existsSync(DIST))(
+  "CLI integration — cycle de vie d'un compte par la ligne de commande",
+  () => {
+    vi.setConfig({
+      testTimeout: CLI_TIMEOUT_MS + 10_000,
+      hookTimeout: CLI_TIMEOUT_MS + 10_000,
+    });
+
+    const LOGIN = `nf-cli-pwd-${process.pid}`;
+    const PASSWORD_INITIAL = "Xk9!vaLid-Probe7";
+    const PASSWORD_NOUVEAU = "Zq4@autreValeur-Probe1";
+    let annuaireJoignable = false;
+
+    beforeAll(async () => {
+      const r = await runCli(["security:user:list", "--json"], CLI_TIMEOUT_MS);
+      annuaireJoignable = r.code === 0;
+    });
+
+    afterAll(async () => {
+      if (!annuaireJoignable) return;
+      await runCli(["security:user:delete", LOGIN, "--yes"], CLI_TIMEOUT_MS);
+    });
+
+    beforeEach((ctx) => {
+      if (!annuaireJoignable) ctx.skip();
+    });
+
+    it("add → password → delete : le cycle complet sort en 0", async () => {
+      const ajout = await runCli(
+        ["security:user:add", LOGIN, "--password", PASSWORD_INITIAL],
+        CLI_TIMEOUT_MS,
+      );
+      assert.strictEqual(
+        ajout.code,
+        0,
+        `création du compte jetable\nstdout: ${ajout.stdout}\nstderr: ${ajout.stderr}`,
+      );
+      assert.match(
+        ajout.stdout,
+        new RegExp(LOGIN),
+        "la création nomme le compte",
+      );
+
+      // Le compte existe VRAIMENT dans l'annuaire — un exit 0 ne le prouve pas.
+      const liste = await runCli(
+        ["security:user:list", "--json"],
+        CLI_TIMEOUT_MS,
+      );
+      assert.strictEqual(liste.code, 0, `liste des comptes\n${liste.stderr}`);
+      assert.ok(
+        liste.stdout.includes(LOGIN),
+        `le compte créé doit figurer dans la liste\n${liste.stdout.slice(0, 600)}`,
+      );
+
+      const motDePasse = await runCli(
+        ["security:user:password", LOGIN, "--password", PASSWORD_NOUVEAU],
+        CLI_TIMEOUT_MS,
+      );
+      assert.strictEqual(
+        motDePasse.code,
+        0,
+        `changement du mot de passe\nstdout: ${motDePasse.stdout}\nstderr: ${motDePasse.stderr}`,
+      );
+      // La révocation n'est pas une option : elle doit être DITE à l'exploitant,
+      // sinon il croit ses sessions intactes.
+      assert.match(
+        motDePasse.stdout,
+        /révoqu/i,
+        `le changement doit annoncer la révocation des sessions et jetons\n${motDePasse.stdout}`,
+      );
+
+      const suppression = await runCli(
+        ["security:user:delete", LOGIN, "--yes"],
+        CLI_TIMEOUT_MS,
+      );
+      assert.strictEqual(
+        suppression.code,
+        0,
+        `suppression du compte jetable\nstdout: ${suppression.stdout}\nstderr: ${suppression.stderr}`,
+      );
+    });
+
+    it("compte inconnu → exit non nul, et la sortie d'erreur NOMME le compte et le geste", async () => {
+      const r = await runCli(
+        [
+          "security:user:password",
+          "nf-compte-qui-nexiste-pas",
+          "--password",
+          PASSWORD_NOUVEAU,
+        ],
+        CLI_TIMEOUT_MS,
+      );
+      assert.notStrictEqual(
+        r.code,
+        0,
+        `un compte inconnu doit sortir en code non nul\nstdout: ${r.stdout}`,
+      );
+      assert.match(
+        r.stderr,
+        /nf-compte-qui-nexiste-pas/,
+        `l'erreur doit nommer le compte cherché\n${r.stderr}`,
+      );
+      assert.match(
+        r.stderr,
+        /security:user:list/,
+        `l'erreur doit donner le geste qui liste les comptes\n${r.stderr}`,
+      );
+    });
+  },
+);
+
 // Skip hors NF_RUN_CLI_BOOT ou sans dist (conditions sync). « Serveur déjà up » est
 // une condition ASYNC → vérifiée par beforeEach via ctx.skip().
 describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
