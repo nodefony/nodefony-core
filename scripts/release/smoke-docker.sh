@@ -547,10 +547,16 @@ if runs front; then
 
   step "[front] (b2) front non construit, vite absent → ERREUR nommée, API vivante"
   docker rm -f "$FCTN" >/dev/null 2>&1 || true
-  # `public/dist` effacé DANS le conteneur : on reproduit une image bâtie sans
-  # build front, sans avoir à en construire une seconde.
-  docker run -d --name "$FCTN" -p "$FPORT:5151" --entrypoint sh "$FIMG" \
-    -c 'rm -rf public/dist && exec node_modules/.bin/nodefony production' >/dev/null
+  # `public/dist` MASQUÉ par un montage vide : on reproduit une image bâtie sans
+  # build front, sans avoir à en construire une seconde. Un `rm -rf` dans le
+  # conteneur ne le peut PAS — le code appartient à root et le processus tourne
+  # en 1000 (durcissement volontaire du gabarit : une application qui peut
+  # réécrire son propre `dist/` offre à une faille un moyen de PERSISTER).
+  # Le montage n'exige aucun droit, et le décor est plus fidèle : le dossier
+  # existe et il est vide, comme après un `COPY` sans build. Surtout, l'image
+  # garde son ENTRYPOINT et son CMD — on mesure celle qu'on publie, pas un
+  # `sh -c` de circonstance.
+  docker run -d --name "$FCTN" -p "$FPORT:5151" --tmpfs /app/public/dist "$FIMG" >/dev/null
   migrate_in "$FCTN"
   wait_ready "$FCTN" "$FPORT"
   # Le message est émis pendant le BOOT, donc il est écrit quand `/readyz`
