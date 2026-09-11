@@ -36,6 +36,7 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 
 ## Entrées
 
+- **SSE** (detect: SSE|Server-Sent Events) — _Server-Sent Events_ : un flux HTTP que le serveur garde ouvert pour pousser des événements au navigateur au fil de l'eau, dans un seul sens (l'aller-retour, lui, est le rôle du WebSocket).
 - **DDL** (detect: DDL) — _Data Definition Language_ : la partie du SQL qui crée et modifie la structure des tables (`CREATE TABLE`, `ALTER TABLE`), par opposition à celle qui manipule les données.
 - **migration** (detect: migration de schéma|migrations de schéma) — un fichier de SQL versionné qui fait passer une base d'une version du schéma à la suivante, et qui garde trace de son passage.
 - **TOTP** (detect: TOTP|totp) — _Time-based One-Time Password_ : le code à six chiffres qui change toutes les trente secondes, second facteur d'authentification.

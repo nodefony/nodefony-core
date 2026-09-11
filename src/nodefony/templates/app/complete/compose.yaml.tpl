@@ -358,6 +358,31 @@ services:
           cpus: "2.0"
           memory: 2g
 
+  # --- LES MIGRATIONS, avant tout trafic (profils `app` et `edge`) ---
+  #
+  # 🔴 Sans ce service, la topologie ne démarre PAS — et le symptôme n'accuse
+  # personne. En production le schéma appartient aux migrations (`ddl: none`,
+  # délibéré : plusieurs exemplaires partent ensemble, aucun ne doit toucher aux
+  # tables). Un exemplaire dont le schéma est en retard REFUSE le trafic :
+  # `/readyz` rend 503, la sonde de l'image le déclare `unhealthy`, et le frontal
+  # — qui attend `service_healthy` — n'est jamais créé. Compose s'arrête alors
+  # sur « dependency failed to start », qui ne dit pas un mot des migrations.
+  #
+  # Le patron est celui de la production, pas un artifice de compose : les
+  # migrations passent dans une étape À PART, qui se termine, AVANT que les
+  # exemplaires ne démarrent (un Job Kubernetes, une tâche ponctuelle ECS, une
+  # étape de la chaîne d'intégration). `service_completed_successfully` dit
+  # exactement cela : on attend qu'il ait FINI, et bien fini.
+  migrate:
+    <<: *app-service
+    container_name: <%= it.appName %>-migrate
+    profiles: ["app", "edge"]
+    # Une tâche, pas un service : elle se termine, et elle ne se relance pas.
+    restart: "no"
+    command: ["node_modules/.bin/nodefony", "orm:migrate"]
+    environment:
+      <<: *app-env
+
   # --- L'APPLICATION elle-même, en image (profil `app`) ---
   #
   # Hors profil par défaut, et c'est délibéré : en développement l'app tourne sur
@@ -377,6 +402,15 @@ services:
       - "127.0.0.1:${APP_PORT:-5251}:5151"
     environment:
       <<: *app-env
+    depends_on:
+      # L'ancre pose déjà redis (et la base) ; ici on AJOUTE l'attente des
+      # migrations — un `depends_on` ne se fusionne pas, il se réécrit.
+      redis:
+        condition: service_healthy
+<% if (it.db) { %>      <%= it.db.service %>:
+        condition: service_healthy
+<% } %>      migrate:
+        condition: service_completed_successfully
 
   # --- LA TOPOLOGIE DE PRODUCTION (profil `edge`) : l'app DERRIÈRE son frontal ---
   #
@@ -415,6 +449,15 @@ services:
       # ne gate PAS les montages programmatiques (`/_assets/…` de Vite) — ceux-là
       # sont servis avant Node par le `try_files` du frontal, pas contournés.
       NF__HTTP__STATICS__ENABLED: "false"
+    depends_on:
+      # L'ancre pose déjà redis (et la base) ; ici on AJOUTE l'attente des
+      # migrations — un `depends_on` ne se fusionne pas, il se réécrit.
+      redis:
+        condition: service_healthy
+<% if (it.db) { %>      <%= it.db.service %>:
+        condition: service_healthy
+<% } %>      migrate:
+        condition: service_completed_successfully
 
   # --- Le frontal nginx (profil `edge`) ---
   # Sa configuration n'est pas écrite : elle est DÉRIVÉE de l'application à la
@@ -429,8 +472,17 @@ services:
         # Le nom du SERVICE qui porte l'application sur ce réseau.
         EDGE_BACKEND: app-edge
         EDGE_HOSTS: ${EDGE_HOSTS:-localhost}
-        EDGE_HTTP_PORT: ${EDGE_HTTP_PORT:-8080}
-        EDGE_TLS_PORT: ${EDGE_TLS_PORT:-8443}
+        # 🔴 Les ports INTERNES du conteneur, jamais ceux publiés sur l'hôte.
+        # Ce sont eux que la configuration nginx écoute, que le `EXPOSE` déclare
+        # et que le `HEALTHCHECK` de l'image sonde (`127.0.0.1:8080`, en dur —
+        # une sonde interne n'a aucune raison de suivre un port d'hôte). Y passer
+        # `${EDGE_HTTP_PORT}` faisait écouter nginx sur le port de PUBLICATION :
+        # tant qu'on gardait les défauts, les deux coïncidaient et personne ne le
+        # voyait ; à la première surcharge, le mapping visait 8080 quand nginx
+        # écoutait ailleurs — plus rien ne répondait, et la sonde déclarait le
+        # frontal « unhealthy » sans dire pourquoi.
+        EDGE_HTTP_PORT: 8080
+        EDGE_TLS_PORT: 8443
     image: <%= it.appName %>-edge:local
     container_name: <%= it.appName %>-edge
     restart: unless-stopped

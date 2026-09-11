@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-10
+updated: 2026-09-11
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/dates.md` | Les dates du tableau de bord — poser, régler, recaler | 69 |
 | `references/economie.md` | Le ticket comme instrument d'économie — le détail | 149 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
-| `references/lexique.md` | Lexique des tickets — source unique | 124 |
+| `references/lexique.md` | Lexique des tickets — source unique | 125 |
 
 
 ## Scripts embarqués

@@ -168,6 +168,48 @@ export function generateNginxConfig(intro: ProxyIntrospection): string {
     "events { worker_connections 1024; }",
     "",
     "http {",
+    // 🔴 La table des types MIME, sans laquelle le frontal CASSE la page.
+    //
+    // Ce fichier REMPLACE le `nginx.conf` de l'image : ce qu'il n'inclut pas
+    // n'existe pas. Sans `mime.types`, nginx sert TOUT avec son type par défaut
+    // (`text/plain`) — et un navigateur REFUSE un module ES servi en text/plain
+    // (« Strict MIME type checking is enforced for module scripts per HTML
+    // spec »), tout comme il ignore une feuille de style au mauvais type.
+    //
+    // Le symptôme est le pire qui soit : les assets répondent **200**, donc
+    // toute sonde qui ne regarde que le code de retour est verte — et l'écran
+    // est BLANC. Mesuré sur une application générée servie derrière son frontal.
+    "  include /etc/nginx/mime.types;",
+    "  default_type application/octet-stream;",
+    "",
+    // Ne pas annoncer sa version dans chaque réponse ni dans les pages
+    // d'erreur : c'est du renseignement gratuit pour qui cherche une faille
+    // connue, et cela ne sert à personne d'autre.
+    "  server_tokens off;",
+    "",
+    // Service de fichiers : `sendfile` évite la copie par l'espace utilisateur,
+    // `tcp_nopush` regroupe l'en-tête et le début du corps dans un seul segment,
+    // `tcp_nodelay` rend la main tout de suite sur les petites écritures — dont
+    // les trames WebSocket, qu'un algorithme de Nagle retarderait.
+    "  sendfile on;",
+    "  tcp_nopush on;",
+    "  tcp_nodelay on;",
+    "",
+    // Compression des réponses TEXTUELLES. Mesuré sur le bundle d'une
+    // application générée : 255 kB → 85 kB. `gzip_vary` ajoute `Vary:
+    // Accept-Encoding`, sans quoi un cache intermédiaire sert du contenu
+    // compressé à un client qui ne l'a pas demandé.
+    //
+    // Jamais sur les images ni les archives : déjà compressées, on dépenserait
+    // du processeur pour grossir. La liste ci-dessous ne contient donc que du
+    // texte — `text/html` est toujours inclus par nginx, on ne le répète pas.
+    "  gzip on;",
+    "  gzip_vary on;",
+    "  gzip_min_length 1024;",
+    "  gzip_proxied any;",
+    "  gzip_types text/plain text/css text/xml application/javascript " +
+      "application/json application/xml image/svg+xml application/manifest+json;",
+    "",
     "  # Upgrade WebSocket — HTTP et WS co-habitent sur le même port Nodefony.",
     "  map $http_upgrade $connection_upgrade { default upgrade; '' close; }",
     "",
@@ -254,11 +296,32 @@ function nginxServerBlock(
 
   // Montages préfixés : servis directement (alias), sans toucher au backend.
   for (const m of intro.mounts) {
+    const prefix = ensureTrailingSlash(m.prefix);
+    const dir = ensureTrailingSlash(m.dir);
+    // Le sous-dossier que le bundler EMPREINTE (`assets/`, défaut de Vite) se
+    // met en cache pour un an : son nom contient déjà l'empreinte du contenu,
+    // donc une version différente porte une URL différente — il n'y a rien à
+    // revalider, jamais. `immutable` dit au navigateur de ne même pas demander
+    // (RFC 8246), ce qu'un simple `expires` n'obtient pas : sans lui, un
+    // rechargement de page renvoie une conditionnelle par fichier.
+    //
+    // Une location au préfixe PLUS LONG l'emporte chez nginx : elle passe donc
+    // devant celle du montage, sans la remplacer. Absente du disque, elle ne
+    // matche rien — le cas d'un bundler qui n'empreinte pas est inoffensif.
     lines.push(
       "",
-      `    location ${m.prefix} {`,
-      `      alias ${ensureTrailingSlash(m.dir)};`,
+      `    location ${prefix}assets/ {`,
+      `      alias ${dir}assets/;`,
       "      access_log off;",
+      "      expires 1y;",
+      '      add_header Cache-Control "public, immutable";',
+      "    }",
+      "",
+      `    location ${prefix} {`,
+      `      alias ${dir};`,
+      "      access_log off;",
+      // Le reste du montage (le `public/` d'un module) n'est PAS empreint :
+      // un cache long y servirait une version périmée après un déploiement.
       "      expires 1h;",
       "    }",
     );

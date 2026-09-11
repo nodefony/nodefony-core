@@ -1,4 +1,4 @@
-import { appBaseUrl, isExternalTarget } from "./e2e.setup";
+<% if (it.hasSecurity) { %>import { ADMIN_PASSWORD, appBaseUrl, isExternalTarget } from "./e2e.setup";<% } else { %>import { appBaseUrl, isExternalTarget } from "./e2e.setup";<% } %>
 import { readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
@@ -134,7 +134,13 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
           headers: { "content-type": "application/json" },
           body: JSON.stringify({
             username: "admin",
-            password: process.env.NF_ADMIN_PASSWORD ?? "",
+            // La constante du DÉCOR, pas `process.env` : c'est elle que le
+            // décor pose sur le serveur (`NF_ADMIN_PASSWORD`), et le serveur
+            // tourne AILLEURS — dans un conteneur, ou sur une autre machine.
+            // Lire l'environnement du RUNNER rendait la chaîne vide, donc un
+            // `401` que ce cas imputait au cookie qu'il mesure. Une seule
+            // source pour l'identité, et elle vit dans `e2e.setup`.
+            password: ADMIN_PASSWORD,
           }),
         },
       );

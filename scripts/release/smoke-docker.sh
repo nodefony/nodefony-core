@@ -19,6 +19,10 @@
 #            est là ; ERROR nommée + API toujours servie quand il ne l'est pas)
 #   studio — preset complet, Studio en `mandatory` : l'UI pré-buildée du paquet
 #            est servie (un 404 ici = `dist/frontend` absent du tarball)
+#   edge   — la TOPOLOGIE de production, montée par `docker compose --profile
+#            edge up -d --build` : l'app derrière son frontal nginx, jointe par
+#            son NOM de service, `trustProxy: uniquelocal` éprouvé pour de vrai,
+#            et les statiques servis sans que Node soit joint
 #
 # Usage (racine repo) :
 #   npm run release:smoke -- [--scenario all|base|front|studio]
@@ -46,7 +50,7 @@ while [[ $# -gt 0 ]]; do
     *) echo "option inconnue : $1" >&2; exit 64 ;;
   esac
 done
-case "$SCENARIO" in all|base|front|studio) ;; *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;; esac
+case "$SCENARIO" in all|base|front|studio|edge) ;; *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;; esac
 runs() { [[ "$SCENARIO" == "all" || "$SCENARIO" == "$1" ]]; }
 
 # Quatre niveaux : scripts → nodefony-release → skills → .claude → racine.
@@ -67,8 +71,16 @@ SCAFFOLDER="$WORK/scaffolder"   # le paquet `nodefony` installé DEPUIS son tarb
 #    la panne dans les tarballs pendant que le générateur est en cause.
 STEP="init"
 CONTAINERS=""
+# Le scénario `edge` ne lance pas des conteneurs, il lève une TOPOLOGIE : réseau,
+# volumes, services liés. `docker rm -f` en laisserait la moitié derrière — d'où
+# un défaisage qui lui est propre, posé dès que le compose est monté.
+COMPOSE_DIR=""
 step() { STEP="$1"; echo ""; echo "── $1 ──────────────────────────────────────"; }
-cleanup() { for c in $CONTAINERS; do docker rm -f "$c" >/dev/null 2>&1 || true; done; }
+cleanup() {
+  for c in $CONTAINERS; do docker rm -f "$c" >/dev/null 2>&1 || true; done
+  [ -n "$COMPOSE_DIR" ] && (cd "$COMPOSE_DIR" && docker compose --profile edge down -v >/dev/null 2>&1 || true)
+  return 0
+}
 fail() { echo "" >&2; echo "✗ ÉCHEC à l'étape « $STEP » : $1" >&2; cleanup; exit 1; }
 ok() { echo "✓ $1"; }
 
@@ -625,6 +637,270 @@ process.stdout.write("studio → mandatory\n");
   [ "$ACODE" = "200" ] || fail "asset $ASSET → $ACODE (dist/frontend absent du tarball studio ?)"
   ok "asset $ASSET → 200 (UI pré-buildée présente dans le paquet publié)"
   docker rm -f "$SCTN" >/dev/null 2>&1 || true
+fi
+
+# ═══ SCÉNARIO « edge » — la TOPOLOGIE de production, pas ses morceaux ═══════
+#
+# Ce que #320 a produit (frontal nginx dérivé de l'application) n'avait été
+# prouvé que par pièces détachées : une application en production SUR L'HÔTE
+# avec un nginx en conteneur devant elle. Même contrat applicatif, topologie
+# différente — et c'est la topologie qui portait les inconnues :
+#
+#   - l'étage `proxyconf` BOOTE l'application en production pour dériver la
+#     configuration du frontal. Sans base, sans Redis, sans secret. S'il échoue,
+#     l'image du frontal ne se construit pas, et personne ne le sait avant
+#     d'essayer. Ici, `docker build` le constate ;
+#   - l'application est-elle jointe par son NOM DE SERVICE sur le réseau du
+#     compose, et non par une adresse de boucle qui, dans un conteneur, désigne
+#     le conteneur lui-même ;
+#   - `trustProxy: uniquelocal` mord-il RÉELLEMENT ? Sur le banc de #320, le
+#     frontal joignait l'hôte depuis une source de BOUCLE (`127.0.0.1`) — pas une
+#     adresse privée — et il avait fallu `loopback,uniquelocal`. Dans le compose
+#     les deux services sont sur le même pont (172.x) et `uniquelocal` DOIT
+#     suffire. C'est ce que le gabarit pose, et rien ne le vérifiait ;
+#   - `/_assets/…` servi par le frontal SANS que Node soit joint — invérifiable
+#     au banc de #320, dont l'application témoin n'avait pas de frontal
+#     applicatif et donc pas d'arbre d'assets.
+#
+# Le discriminant de `trustProxy` n'est pas l'adresse (les deux candidates sont
+# en 172.x, on ne prouverait rien de net) : c'est le SCHÉMA. Le lien interne est
+# en clair, l'arrivée est en TLS. `scheme === "https"` côté application signifie
+# exactement « le `X-Forwarded-Proto` du frontal a été CRU » — et il ne l'est que
+# si la confiance s'applique à l'adresse du socket.
+
+if runs edge; then
+  EAPP="$WORK/edge"
+  EHTTP=18080
+  ETLS=18443
+  # Le mot de passe se LIT dans la suite générée, il ne se redonne pas ici : la
+  # suite e2e porte sa propre constante (`ADMIN_PASSWORD`) et s'en sert pour
+  # s'authentifier. Deux valeurs écrites séparément divergent au premier
+  # changement de gabarit — et le symptôme est un `401` que le banc impute à la
+  # route mesurée. Renseigné après le scaffold (cf plus bas).
+  EDGE_ADMIN_PASSWORD=""
+
+  step "[edge] create app — preset complet + front React (pour l'arbre d'assets)"
+  scaffold_app "smokeedge" "$EAPP" "complete" "react"
+
+  # Ce que l'application CROIT du client — la seule façon de constater que la
+  # confiance au proxy s'applique. Même geste qu'au scénario `base` : la commande
+  # pose le câblage, le corps est réécrit en entier (aucune ancre à maintenir).
+  step "[edge] décor — route /api/whoami (ce que l'app croit du client)"
+  (cd "$EAPP" && "$NODEFONY_BIN" create controller whoami --kind hello --route /api) \
+    > "$WORK/.edge-controller.out" 2>&1 \
+    || { tail -20 "$WORK/.edge-controller.out"; fail "nodefony create controller (edge)"; }
+  WHO_FILE="$EAPP/nodefony/controllers/WhoamiController.ts"
+  [[ -f "$WHO_FILE" ]] || fail "WhoamiController.ts non produit par create controller"
+  grep -q "WhoamiController" "$EAPP/index.ts" || fail "WhoamiController non câblé dans index.ts"
+  cat > "$WHO_FILE" <<'TS'
+import { route, controller, Controller } from "@nodefony/framework";
+import type { ContextType } from "@nodefony/http";
+
+/**
+ * DÉCOR DU SMOKE — ce que l'application croit du client qui l'appelle.
+ *
+ * `scheme` est le témoin de `trustProxy` : le lien interne entre le frontal et
+ * l'application est en CLAIR, donc `https` ne peut venir que d'un
+ * `X-Forwarded-Proto` qui a été CRU.
+ */
+@controller("/api")
+class WhoamiController extends Controller {
+  constructor(context: ContextType) {
+    super("whoami", context);
+  }
+
+  @route("whoami-index", { path: "/whoami", method: "GET" })
+  index() {
+    return this.renderJson({
+      scheme: this.context.scheme,
+      ip: this.context.remoteAddress ?? null,
+    });
+  }
+}
+
+export default WhoamiController;
+TS
+  ok "route /api/whoami posée et câblée"
+
+  # L'identité que la suite générée présentera — lue dans SON fichier, pas
+  # redonnée ici (cf `EDGE_ADMIN_PASSWORD` plus haut).
+  EDGE_ADMIN_PASSWORD=$(sed -n 's/^export const ADMIN_PASSWORD = "\(.*\)";$/\1/p' \
+    "$EAPP/tests/e2e.setup.ts")
+  [ -n "$EDGE_ADMIN_PASSWORD" ] \
+    || fail "ADMIN_PASSWORD introuvable dans la suite e2e générée — le banc ne peut pas fournir l'identité qu'elle attend"
+  ok "identité de la suite lue dans son propre fichier"
+
+  step "[edge] deps + migration initiale (installe et bâtit côté hôte)"
+  rewrite_deps "$EAPP"
+  write_initial_migration "$EAPP"
+
+  # 🔴 Le certificat est MONTÉ par le frontal, jamais gravé dans son image — le
+  # compose monte `nodefony/config/certificates/server`. Sans ce fichier, nginx
+  # ne démarre pas, et l'échec parle d'un chemin, pas d'un certificat manquant.
+  # C'est la commande que le compose prescrit en toutes lettres.
+  step "[edge] certificat de développement (MONTÉ par le frontal, jamais gravé)"
+  (cd "$EAPP" && node_modules/.bin/nodefony http:certificates) \
+    > "$WORK/.edge-certs.out" 2>&1 \
+    || { tail -20 "$WORK/.edge-certs.out"; fail "nodefony http:certificates"; }
+  for pem in fullchain.pem privkey.pem; do
+    [[ -f "$EAPP/nodefony/config/certificates/server/$pem" ]] \
+      || fail "certificat absent : nodefony/config/certificates/server/$pem"
+  done
+  ok "fullchain.pem + privkey.pem présents (le montage du frontal a de quoi lire)"
+
+  # Ports décalés pour cohabiter avec le poste de développement — le compose
+  # généré publie sur la boucle locale à des ports CONVENTIONNELS (6379 pour
+  # Redis), et ce banc tourne sur une machine qui fait déjà tourner les siens.
+  # Chaque valeur est interpolée par le compose (`${REDIS_PORT:-6379}`) : c'est
+  # le mécanisme que le gabarit documente, pas un contournement.
+  #
+  # Vécu : sans `REDIS_PORT`, les deux images se construisaient parfaitement puis
+  # le `up` mourait sur « port is already allocated » — un échec de DÉCOR qui
+  # s'affiche à l'étape du produit, et qu'on impute au produit.
+  export EDGE_HTTP_PORT="$EHTTP" EDGE_TLS_PORT="$ETLS" REDIS_PORT=16379
+  COMPOSE_DIR="$EAPP"
+
+  # Les SECRETS que la production exige, posés comme un exploitant le ferait :
+  # par l'environnement du service, jamais dans l'image (`.dockerignore` exclut
+  # `*.local`, et une couche reste lisible même effacée). Le compte
+  # d'administration en fait partie — sans lui, aucune identité n'existe en
+  # production, et le cas du cookie `__Host-` n'aurait rien à observer.
+  # `compose.override.yaml` est lu AUTOMATIQUEMENT par compose : c'est le point
+  # d'injection que le gabarit laisse à qui déploie.
+  cat > "$EAPP/compose.override.yaml" <<YML
+services:
+  migrate:
+    environment:
+      NF_CSRF_SECRET: "$SMOKE_SECRET"
+      NF_SESSION_SECRET: "$SMOKE_SECRET"
+  app-edge:
+    environment:
+      NF_CSRF_SECRET: "$SMOKE_SECRET"
+      NF_SESSION_SECRET: "$SMOKE_SECRET"
+      NF_ADMIN_PASSWORD: "$EDGE_ADMIN_PASSWORD"
+YML
+
+  step "[edge] docker compose --profile edge up -d --build (le geste de l'utilisateur)"
+  (cd "$EAPP" && docker compose --profile edge up -d --build) > "$WORK/.edge-up.out" 2>&1 \
+    || { tail -40 "$WORK/.edge-up.out"; fail "docker compose --profile edge up"; }
+  ok "topologie levée : l'étage proxyconf a bâti la configuration du frontal"
+
+  # `docker compose up` rend la main dès que les conteneurs sont créés, pas
+  # quand ils servent. Le frontal dépend de `app-edge: service_healthy`, donc
+  # sa présence prouve déjà le boot de l'application — mais nginx, lui, met
+  # encore un instant à accepter du TLS.
+  step "[edge] readiness du frontal"
+  EDGE_URL="https://localhost:$ETLS"
+  ECODE=""
+  for _ in $(seq 1 60); do
+    ECODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL/livez" || true)
+    [ "$ECODE" = "200" ] && break
+    sleep 1
+  done
+  if [ "$ECODE" != "200" ]; then
+    (cd "$EAPP" && docker compose --profile edge logs --tail 40) 2>&1 | tail -60
+    fail "$EDGE_URL/livez jamais 200 (reçu: $ECODE)"
+  fi
+  ok "$EDGE_URL/livez → 200 (l'app est jointe par son NOM de service, app-edge)"
+
+  step "[edge] trustProxy: uniquelocal SEUL — le frontal est-il cru ?"
+  WHO=$(curl -sk "$EDGE_URL/api/whoami")
+  contient "$WHO" '"scheme":"https"' \
+    || { echo "$WHO"; fail "l'app voit du http À TRAVERS un frontal TLS — uniquelocal ne mord pas (il avait fallu loopback au banc de #320)"; }
+  ok "/api/whoami → $WHO (X-Forwarded-Proto CRU sur une adresse privée)"
+
+  # Le cookie `__Host-` DÉRIVE du schéma constaté : le préfixe exige `Secure`, et
+  # `Secure` ne se pose que si l'application se sait servie en TLS. C'est donc le
+  # témoin OBSERVABLE de la chaîne complète, du `proxy_set_header` du frontal
+  # jusqu'au cookie que le navigateur recevra.
+  step "[edge] le préfixe __Host- sur le cookie de session"
+  LOGIN_HDRS=$(curl -sk -D - -o /dev/null -X POST "$EDGE_URL/nodefony/security/api/auth/login" \
+    -H "content-type: application/json" -d "{\"username\":\"admin\",\"password\":\"$EDGE_ADMIN_PASSWORD\"}" || true)
+  contient "$LOGIN_HDRS" "__Host-" \
+    || { echo "$LOGIN_HDRS" | grep -i "set-cookie" || echo "(aucun Set-Cookie)"; \
+         fail "aucun cookie __Host- — l'app ne se sait pas servie en TLS"; }
+  ok "cookie __Host- posé (le préfixe dérive du schéma constaté)"
+
+  step "[edge] la suite de bout en bout générée, JOUÉE À TRAVERS le frontal"
+  # `NF_E2E_BASE_URL` : la suite ne démarre alors rien et ne touche aucune base —
+  # elle mesure le déploiement qui tourne. C'est le seul moment où l'on constate
+  # ce qu'un `fetch` direct ne peut pas voir.
+  # Le certificat est auto-signé : on le DONNE à Node plutôt que de désarmer la
+  # validation, qui ferait passer la suite contre n'importe quel certificat.
+  (cd "$EAPP" && NF_E2E_BASE_URL="$EDGE_URL" \
+    NODE_EXTRA_CA_CERTS="$EAPP/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem" \
+    npm run test:e2e) > "$WORK/.edge-e2e.out" 2>&1 \
+    || { tail -40 "$WORK/.edge-e2e.out"; fail "suite e2e générée À TRAVERS le frontal"; }
+  ok "suite e2e verte à travers le frontal (mêmes tests, autre topologie)"
+
+  # La preuve que le frontal sert SEUL : on éteint l'application. Un asset qui
+  # répond encore n'a pas pu passer par Node. C'est binaire, et ça ne dépend
+  # d'aucun compteur.
+  step "[edge] /_assets/… servi par le frontal SANS joindre Node"
+  ASSET=$(curl -sk "$EDGE_URL/" | grep -o '/_assets/[^"]*\.\(js\|css\)' | head -1)
+  [ -n "$ASSET" ] || { curl -sk "$EDGE_URL/" | head -20; fail "aucun /_assets/… dans la page — l'arbre d'assets n'a pas été publié"; }
+  (cd "$EAPP" && docker compose --profile edge stop app-edge) > /dev/null 2>&1 \
+    || fail "arrêt de app-edge"
+  ACODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL$ASSET" || true)
+  [ "$ACODE" = "200" ] || fail "$ASSET → $ACODE application ÉTEINTE : le frontal ne sert pas les statiques"
+  ok "$ASSET → 200 application éteinte (nginx sert, Node n'est pas joint)"
+
+  # 🔴 Un 200 ne dit PAS que la page marche. Ce fichier remplace le `nginx.conf`
+  # de l'image : sans `mime.types`, nginx sert TOUT en `text/plain` — et le
+  # navigateur REFUSE un module ES à ce type (« Strict MIME type checking is
+  # enforced for module scripts »), comme il ignore une feuille de style. Les
+  # assets répondaient 200, ce cas était VERT, et l'écran était noir.
+  JS=$(curl -sk "$EDGE_URL/" | grep -o '/_assets/[^"]*\.js' | head -1)
+  [ -n "$JS" ] || fail "aucun module JS dans la page — rien à typer"
+  JSTYPE=$(curl -sk -o /dev/null -w "%{content_type}" "$EDGE_URL$JS" || true)
+  case "$JSTYPE" in
+    *javascript*) ok "$JS servi en « $JSTYPE » (un module ES est ACCEPTÉ)" ;;
+    *) fail "$JS servi en « $JSTYPE » — le navigateur refusera le module, écran blanc" ;;
+  esac
+  # Et le contrôle négatif : une route applicative, elle, DOIT tomber — sinon on
+  # aurait prouvé que l'application était encore là, pas que nginx sert seul.
+  DEADCODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL/api/whoami" || true)
+  [ "$DEADCODE" = "200" ] && fail "l'application répond alors qu'elle est arrêtée — la preuve précédente ne prouve rien"
+  ok "/api/whoami → $DEADCODE (l'application est bien éteinte : la preuve tient)"
+
+  # ── LA GARDE, VUE MORDRE ──────────────────────────────────────────────────
+  # Un contrôle qu'on n'a jamais vu échouer ne garde rien. On retire la seule
+  # ligne qui accorde la confiance et on constate que le cookie perd son préfixe :
+  # l'application, ne croyant plus le frontal, se croit servie en clair.
+  step "[edge] garde vue mordre — sans NF__HTTP__TRUSTPROXY, __Host- tombe"
+  cat > "$EAPP/compose.degraded.yaml" <<'YML'
+# Débranchement DÉLIBÉRÉ du banc : la confiance au frontal est retirée.
+services:
+  app-edge:
+    environment:
+      NF__HTTP__TRUSTPROXY: ""
+YML
+  (cd "$EAPP" && docker compose -f compose.yaml -f compose.override.yaml \
+      -f compose.degraded.yaml --profile edge up -d --force-recreate app-edge) \
+    > "$WORK/.edge-degraded.out" 2>&1 \
+    || { tail -30 "$WORK/.edge-degraded.out"; fail "recréation de app-edge sans trustProxy"; }
+  DCODE=""
+  for _ in $(seq 1 60); do
+    DCODE=$(curl -sk -o /dev/null -w "%{http_code}" "$EDGE_URL/livez" || true)
+    [ "$DCODE" = "200" ] && break
+    sleep 1
+  done
+  [ "$DCODE" = "200" ] || { (cd "$EAPP" && docker compose --profile edge logs --tail 30 app-edge) 2>&1 | tail -40; \
+    fail "l'app sans trustProxy ne répond pas — le débranchement mesure autre chose"; }
+  DEGRADED=$(curl -sk -D - -o /dev/null -X POST "$EDGE_URL/nodefony/security/api/auth/login" \
+    -H "content-type: application/json" -d "{\"username\":\"admin\",\"password\":\"$EDGE_ADMIN_PASSWORD\"}" || true)
+  contient "$DEGRADED" "__Host-" \
+    && fail "__Host- posé SANS trustProxy — le cas ne prouvait rien, il passait de toute façon"
+  ok "__Host- absent sans trustProxy : la garde MORD (le cas précédent avait un sens)"
+  rm -f "$EAPP/compose.degraded.yaml"
+
+  step "[edge] docker compose --profile edge down — le drain n'est pas coupé"
+  (cd "$EAPP" && docker compose --profile edge up -d --force-recreate app-edge) > /dev/null 2>&1 \
+    || fail "remise en état de app-edge avant l'arrêt propre"
+  (cd "$EAPP" && docker compose --profile edge down) > "$WORK/.edge-down.out" 2>&1 \
+    || { tail -20 "$WORK/.edge-down.out"; fail "docker compose --profile edge down n'a pas rendu 0"; }
+  ok "down → 0 (stop_grace_period au-dessus du shutdownDeadline)"
+  COMPOSE_DIR=""
 fi
 
 cleanup

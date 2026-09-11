@@ -12,6 +12,68 @@ function intro(over: Partial<ProxyIntrospection> = {}): ProxyIntrospection {
 }
 
 describe("generateProxyConfig — nginx", () => {
+  // 🔴 Ce fichier REMPLACE le `nginx.conf` de l'image : ce qu'il n'inclut pas
+  // n'existe pas. Sans la table des types, nginx sert TOUT en `text/plain` —
+  // et un navigateur REFUSE un module ES à ce type (« Strict MIME type checking
+  // is enforced for module scripts »), comme il ignore une feuille de style.
+  //
+  // Le symptôme est le pire qui soit : les assets répondent **200**, donc toute
+  // sonde qui ne regarde que le code de retour reste VERTE, et l'écran est
+  // blanc. Mesuré sur une application générée servie derrière son frontal.
+  it("la table des types MIME est incluse — sinon tout part en text/plain", () => {
+    const c = generateNginxConfig(intro());
+    expect(c).to.match(/^\s*include\s+\/etc\/nginx\/mime\.types;/mu);
+    expect(c).to.match(/^\s*default_type\s+application\/octet-stream;/mu);
+    // Dans le bloc `http`, pas ailleurs : posée dans un `server`, la directive
+    // ne vaudrait que pour lui.
+    const http = c.slice(c.indexOf("http {"), c.indexOf("server {"));
+    expect(http).to.include("mime.types");
+  });
+
+  it("les assets EMPREINTS sont immuables, le reste du montage non", () => {
+    const c = generateNginxConfig(
+      intro({ mounts: [{ prefix: "/_assets/app/", dir: "/srv/assets/app" }] }),
+    );
+    // Le sous-dossier empreint par le bundler : rien à revalider, jamais.
+    expect(c).to.include("location /_assets/app/assets/ {");
+    expect(c).to.include('add_header Cache-Control "public, immutable"');
+    // Et le montage lui-même reste court : le `public/` d'un module n'est PAS
+    // empreint, un cache long y servirait une version périmée après déploiement.
+    const montage = c.slice(c.indexOf("location /_assets/app/ {"));
+    expect(montage.slice(0, 200)).to.include("expires 1h;");
+    expect(montage.slice(0, 200)).to.not.include("immutable");
+  });
+
+  it("compression des réponses TEXTUELLES seulement", () => {
+    const c = generateNginxConfig(intro());
+    expect(c).to.include("gzip on;");
+    // `Vary: Accept-Encoding`, sans quoi un cache intermédiaire sert du
+    // compressé à un client qui ne l'a pas demandé.
+    expect(c).to.include("gzip_vary on;");
+    expect(c).to.include("application/javascript");
+    // Jamais sur ce qui est DÉJÀ compressé : on dépenserait du processeur pour
+    // grossir le contenu. On regarde la LISTE, pas le fichier entier — un type
+    // d'image peut légitimement apparaître ailleurs (`mime.types`).
+    const types = c.slice(
+      c.indexOf("gzip_types"),
+      c.indexOf(";", c.indexOf("gzip_types")),
+    );
+    for (const deja of [
+      "image/png",
+      "image/jpeg",
+      "application/zip",
+      "video/",
+    ]) {
+      expect(types, `gzip_types ne doit pas porter ${deja}`).to.not.include(
+        deja,
+      );
+    }
+    // …mais le SVG, lui, est du texte : il se compresse très bien.
+    expect(types).to.include("image/svg+xml");
+    // Et la version du serveur ne s'annonce pas.
+    expect(c).to.include("server_tokens off;");
+  });
+
   it("la limite de corps du SERVEUR est imposée au proxy (sinon nginx coupe à 1 Mo)", () => {
     const c = generateNginxConfig(intro({ maxBodyBytes: 8_388_608 }));
     expect(c).to.include("client_max_body_size 8388608;");
