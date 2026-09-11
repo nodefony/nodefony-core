@@ -244,7 +244,7 @@ curl -s http://localhost:5151/api/catalog
 
 > [!TIP]
 > Le controller, lui, est **neuf à chaque requête** (défaut `"request"`,
-> `Controller.scope`, `Controller.ts:119`). C'est voulu : il porte l'état de la requête. Le service
+> `Controller.scope`, `Controller.ts:196`). C'est voulu : il porte l'état de la requête. Le service
 > injecté, lui, est partagé. Deux portées différentes dans le même appel — c'est normal.
 
 ## ⚙️ Les portées — mises en situation
@@ -424,7 +424,7 @@ seulement à la **construction**.
 
 La solution est un apprentissage : au moment où le service est **posé** au container, le couple
 (classe, clé) est enfin connu — il est mémorisé (`Injector.rememberContainerKey()`, `injector.ts:88`)
-depuis `Module.addService()` (`Module.ts:365`) et `Kernel.addKernelService()` (`Kernel.ts:1319`).
+depuis `Module.addService()` (`Module.ts:441`) et `Kernel.addKernelService()` (`Kernel.ts:1443`).
 
 Toute résolution ultérieure passe donc par la **classe**. Sans ce relais, `@inject("Router")`
 interrogeait le container avec `"Router"` là où l'instance est rangée sous `"router"` : réponse

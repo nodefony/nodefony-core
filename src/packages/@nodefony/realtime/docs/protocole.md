@@ -347,7 +347,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 > [!TIP]
 > **L'accueil est ta carte du territoire.** `methods` et `channels` sont construits à partir de ce
-> que l'endpoint expose réellement (`RealtimeController.ts:566`) : un client peut activer ou griser
+> que l'endpoint expose réellement (`RealtimeController.ts:641`) : un client peut activer ou griser
 > ses commandes sans rien coder en dur. Côté navigateur, ils se lisent en `socket.serverMethods` et
 > `socket.serverChannels`.
 

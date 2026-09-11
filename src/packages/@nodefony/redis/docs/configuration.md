@@ -437,7 +437,7 @@ et prouvée par `config.test.ts:128`.
 ### Le double effet de l'URL d'infra
 
 `NF_REDIS_URL` n'est pas seulement la cible de ce module : c'est la déclaration d'une **infra de
-cache** pour le framework entier. `resolveAutoStore()` (`infra.ts:241`) s'en sert pour les briques
+cache** pour le framework entier. `resolveAutoStore()` (`infra.ts:289`) s'en sert pour les briques
 dont le store vaut `auto` :
 
 | Brique                    | Nature de la donnée | Avec une infra de cache déclarée |

@@ -423,16 +423,16 @@ Le JavaScript du navigateur ne passe **pas** par rolldown : il est bâti par **V
 
 ### En production — `nodefony frontend:build`
 
-`ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:41`) assemble la configuration Vite depuis les
+`ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:95`) assemble la configuration Vite depuis les
 entrées déclarées par les modules. Trois réglages font tout le travail :
 
-- **`manifest: true`** (`ViteBuilder.ts:111`) : Vite écrit un `manifest.json` qui associe chaque entrée
+- **`manifest: true`** (`ViteBuilder.ts:147`) : Vite écrit un `manifest.json` qui associe chaque entrée
   source à son fichier hashé. C'est lui que le rendu HTML relit — sans lui, aucune balise `<script>`
   ne peut être écrite correctement.
-- **`base`** (`ViteBuilder.ts:79`) : en production seulement, préfixé par le `publicPath` (et par
+- **`base`** (`ViteBuilder.ts:133`) : en production seulement, préfixé par le `publicPath` (et par
   l'URL du CDN si elle est configurée). C'est ce qui aligne les URLs émises dans le HTML sur ce que
   sert réellement le serveur de fichiers statiques.
-- **`rollupOptions.input`** (`ViteBuilder.ts:66`) : une carte d'entrées, donc plusieurs bundles dans
+- **`rollupOptions.input`** (`ViteBuilder.ts:118`) : une carte d'entrées, donc plusieurs bundles dans
   une seule passe.
 
 La commande (`frontend-build.ts:22`) est faite pour un pipeline d'intégration :

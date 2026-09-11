@@ -284,8 +284,8 @@ posé pendant la **phase HTTP** qui précède l'upgrade. La forme d'un cookie d�
 
 Les cookies **applicatifs** ne se configurent pas par schéma : on les construit dans le code, avec les
 défauts sûrs de `cookieDefaultSettings` (`cookie.ts:43`). Le seul cookie **piloté par la config** est celui
-de la **session** — bloc Zod `sessionCookieSchema` (`config.ts:727`), avec notamment `hostPrefix`
-(`config.ts:730`) qui décide du préfixe `__Host-`. Tout cela est documenté dans [Sessions](session.md) :
+de la **session** — bloc Zod `sessionCookieSchema` (`config.ts:748`), avec notamment `hostPrefix`
+(`config.ts:770`) qui décide du préfixe `__Host-`. Tout cela est documenté dans [Sessions](session.md) :
 cette page ne le duplique pas.
 
 Le nom effectif du cookie de session (avec ou sans `__Host-` selon le transport) est calculé par

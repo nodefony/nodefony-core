@@ -293,7 +293,7 @@ Prenons une lecture de session. Elle traverse exactement quatre gestes :
    `RedisSessionStorage.#client()` (`SessionStorage.ts:96`) mémorise le service puis demande
    `getClient("main")` à chaque appel. La résolution tardive est nécessaire — l'ordre de démarrage
    des modules n'est pas garanti, le store est construit avant que Redis soit prêt.
-2. `RedisService.getClient()` (`redis.ts:191`) rend le client de la connexion nommée, ou `null`.
+2. `RedisService.getClient()` (`redis.ts:220`) rend le client de la connexion nommée, ou `null`.
 3. Le store teste `null` et décide de son repli.
 4. La commande part sur le socket.
 
@@ -450,7 +450,7 @@ muet ne l'est pas. Voici ce que le code fait réellement, moment par moment.
 ### Moment 1 — Redis est absent au démarrage
 
 Le module est déclaré non critique (`index.ts:36`), et l'initialisation du service est **bornée dans
-le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3369`) enveloppe l'appel dans un délai maximal de
+le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3651`) enveloppe l'appel dans un délai maximal de
 démarrage. Un `init()` qui pend ne gèle donc pas le boot ; l'échec est agrégé au rapport de démarrage,
 qui fait dire « démarrage DÉGRADÉ » au superviseur au lieu de mentir sur un état sain.
 
@@ -485,7 +485,7 @@ Tous les stores commencent par le même geste : demander le client, et se replie
 garde ne se déclenche que dans deux situations exactes :
 
 - **avant** l'initialisation du service — la carte des connexions vaut encore `null` ;
-- **après** `RedisService.closeConnections()` (`redis.ts:218`), qui remet la carte à `null`.
+- **après** `RedisService.closeConnections()` (`redis.ts:247`), qui remet la carte à `null`.
 
 Il ne se déclenche **pas** après un `connect()` raté. Puisque la connexion est inscrite dans
 `#connections` avant d'être ouverte (`redis.ts:114`) et que `Connection.create()` affecte son client

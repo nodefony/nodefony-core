@@ -358,7 +358,7 @@ Trois propriétés en découlent, et elles valent d'être nommées :
 - **Rien n'est appliqué deux fois.** L'historique (`nodefony_migrations`, `types.ts:23`) est écrit
   dans la même transaction que le DDL, là où le moteur le permet.
 - **Un pod en retard ne reçoit pas de trafic.** En `none` comme en `migrate`, l'état du schéma est
-  publié à la sonde de disponibilité (`#publishReadiness()`, `DrizzleService.ts:345`) : `/readyz`
+  publié à la sonde de disponibilité (`#publishReadiness()`, `DrizzleService.ts:445`) : `/readyz`
   répond 503, l'orchestrateur sort l'exemplaire du répartiteur de charge, et l'ancien continue de
   servir. `/livez` n'est jamais touché — un schéma en retard n'est pas un processus malade, et le
   redémarrer ne réparerait rien. La vérification est rejouée toutes les 15 secondes : dès que le

@@ -617,7 +617,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
 | Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1593`)          | oui (`MongooseOrm.ts:558`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1495`)          | oui (`MongooseOrm.ts:529`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1614`)          | oui (`MongooseOrm.ts:529`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :

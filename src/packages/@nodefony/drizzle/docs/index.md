@@ -113,7 +113,7 @@ loin, et ces deux pas expliquent la taille de cette page.
 
 **1. Il porte le framework, pas seulement ton métier.** Les huit briques durables (session, users,
 jetons, passkeys, TOTP, audit, webhooks, idempotence) ont leurs tables **dans le module**, déclarées
-au démarrage par `registerDrizzleFrameworkStores()` (`registerStores.ts:149`). Aucune application
+au démarrage par `registerDrizzleFrameworkStores()` (`registerStores.ts:184`). Aucune application
 n'écrit de `registerXStore(...)`.
 
 **2. Il reconstruit la portabilité que Drizzle n'offre pas.** Drizzle est schema-as-code
@@ -417,7 +417,7 @@ la piste à vérifier.
 
 Pour les dialectes réseau, la connexion fait un **ping réel** au démarrage : les pools `pg` et `mysql2`
 sont paresseux, sans ce `SELECT 1` une base morte « se connecterait » et n'échouerait qu'à la première
-requête métier (`#connectPostgres()`, `DrizzleOrm.ts:597` · `#connectMysql()`, `DrizzleOrm.ts:1200`).
+requête métier (`#connectPostgres()`, `DrizzleOrm.ts:998` · `#connectMysql()`, `DrizzleOrm.ts:1296`).
 
 ## Dialectes — une base par déploiement, un seul code
 
@@ -510,7 +510,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
 | `buildFrameworkTable`  | une spécification logique → la table du dialecte demandé               | `colKit.ts:543`                                              |
 | `queryKit` (interne)   | le SQL brut des entités framework, émis **et exécuté** par dialecte    | `findUserIdBySocialProvider()` (`queryKit.ts:76`)            |
-| `registerStores`       | l'auto-enregistrement des huit briques                                 | `registerDrizzleFrameworkStores()` (`registerStores.ts:149`) |
+| `registerStores`       | l'auto-enregistrement des huit briques                                 | `registerDrizzleFrameworkStores()` (`registerStores.ts:184`) |
 
 ### Le DDL dérivé — comment les tables apparaissent
 
@@ -624,7 +624,7 @@ const rows = await db.all(sql`
 `);
 ```
 
-C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1405`) : CTE,
+C'est l'**anti-blocage** du modèle Repository (`getNativeConnection()`, `DrizzleOrm.ts:1524`) : CTE,
 fonctions de fenêtre, sous-requêtes corrélées, jointures arbitraires. Deux contreparties assumées :
 ce SQL n'est plus portable entre dialectes, et il **ne passe pas** par la sonde de profilage des
 requêtes.
@@ -678,12 +678,12 @@ use("@nodefony/security", {
 > **Les TSDoc de deux fichiers du module décrivent une « approche B » où l'application câblerait
 > elle-même la fabrique et l'entité d'idempotence** (`DrizzleIdempotencyStore.ts:97` ·
 > `idempotencyEntity.ts:32`). Ce n'est plus le comportement : le module inscrit lui-même la fabrique
-> via `registerIdempotencyStore()` (`registerStores.ts:316`). **Le code exécuté fait autorité** —
+> via `registerIdempotencyStore()` (`registerStores.ts:356`). **Le code exécuté fait autorité** —
 > ces commentaires sont périmés.
 
 ### Le mécanisme, et comment garder la main
 
-`registerDrizzleFrameworkStores()` (`registerStores.ts:149`) est appelé à l'enregistrement du module,
+`registerDrizzleFrameworkStores()` (`registerStores.ts:184`) est appelé à l'enregistrement du module,
 avec le dialecte du connecteur `default`. Pour chaque brique, il déclare l'entité puis inscrit la
 fabrique du store dans le registre de son propriétaire (`http`, `security` ou `framework`). Deux
 garde-fous préservent ta liberté :
@@ -696,7 +696,7 @@ Et deux garde-fous protègent de l'incohérence :
 - une brique **non portée** sur le dialecte configuré n'est ni déclarée ni fabricable — la
   sélectionner échoue franchement au démarrage plutôt que de produire une table fantôme ;
 - la fabrique **capture le dialecte** de son enregistrement : elle refuse un ORM d'un autre dialecte
-  (`resolveConnectedOrm()`, `registerStores.ts:112`).
+  (`resolveConnectedOrm()`, `registerStores.ts:143`).
 
 Pour tout couper — module « données seulement », aucune entité ni fabrique framework :
 
@@ -831,7 +831,7 @@ faire lui-même).
 Côté écrans : **Database**, **ORM (vue d'ensemble et par entité)** et **Stores** — ce dernier répond à
 la question « où sont écrites mes données ? » pour chaque brique.
 
-La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1495`) :
+La sonde d'un connecteur s'adapte au dialecte (`probe()`, `DrizzleOrm.ts:1614`) :
 
 - **SQLite** → `storage` : taille du fichier, mode de journal, pages libres (lus par `PRAGMA`) ;
 - **PostgreSQL / MySQL** → `pool` : taille, connexions libres, empruntées, en attente — **compteurs en
@@ -843,7 +843,7 @@ que promettre en silence — c'est le principe « superviser sans peser sur la p
 
 Chaque store expose aussi son **emplacement physique** pour l'écran Stores : le chemin du fichier
 SQLite, relativisé (anti-fuite d'information), et `undefined` pour un backend réseau — dont
-l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:372`).
+l'emplacement **est** l'infra déclarée, déjà affichée ailleurs (`location`, `DrizzleOrm.ts:415`).
 
 ## ⚡ Performance & mémoire
 

@@ -286,7 +286,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `requestId`       | le serveur HTTP/WS      | corrélation des logs, en-tête de réponse, suivi de requête                  |
 | `scheme`          | le serveur HTTP/WS      | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
 | `traceparent`     | le serveur HTTP/WS      | trace distribuée W3C, honorée si le client l'envoie                         |
-| `user` / `userId` | le firewall après auth  | identité résolue — `firewall.ts:873`                                        |
+| `user` / `userId` | le firewall après auth  | identité résolue — `firewall.ts:889`                                        |
 | `token`           | le firewall après auth  | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:759`        |
 | `context`         | le serveur HTTP/WS      | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
 | `queries`         | le serveur, en dev seul | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
@@ -313,9 +313,9 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1258`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1549`) | poignée de main, firewall, **et toutes les trames** |
-| WebSocket — trame RPC | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:818`) | **une** invocation : corps, clé d'idempotence, profil |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1301`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1592`) | poignée de main, firewall, **et toutes les trames** |
+| WebSocket — trame RPC | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:878`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:459`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
 Deux points méritent d'être connus.
@@ -336,7 +336,7 @@ problème par construction.
 C'est l'usage le plus subtil du payload, et le patron à copier pour tout observateur.
 
 Le serveur alloue `queries` (`RequestContext.ts:57`) **uniquement quand le profiler est actif**,
-c'est-à-dire en développement (`http-kernel.ts:1297`). En production, la clé est simplement absente.
+c'est-à-dire en développement (`http-kernel.ts:1340`). En production, la clé est simplement absente.
 Cette absence **est** le signal : les adapters ORM n'ont aucun réglage à lire.
 
 ```mermaid

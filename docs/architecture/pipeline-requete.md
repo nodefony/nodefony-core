@@ -266,21 +266,21 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 2   | probes de santé        | `HttpKernel.#respondHealth()` (`http-kernel.ts:473`)         | `/livez` et `/readyz` répondent **sans** entrer dans le pipeline |
 | 3   | rate-limit par IP      | `http-kernel.ts:865`                                         | un flood est rejeté en 429, **sans** contexte ni scope           |
 | 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:721`)                 | le **scope DI « request »** est ouvert                           |
-| 5   | `createHttpContext()`  | `http-kernel.ts:1218`                                        | le contexte existe ; le teardown est armé (`once("close")`)      |
+| 5   | `createHttpContext()`  | `http-kernel.ts:1253`                                        | le contexte existe ; le teardown est armé (`once("close")`)      |
 | 6   | `traceparent`          | `http-kernel.ts:1304`                                        | la trace W3C est résolue (héritée ou générée)                    |
 | 7   | `RequestContext.run()` | `http-kernel.ts:431`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
-| 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:991`)                  | un **preflight** répond 204 et **sort** du pipeline              |
+| 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:1007`)                 | un **preflight** répond 204 et **sort** du pipeline              |
 | 9   | routage                | `Router.resolve()` (`router.ts:230`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1029`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
 | 11  | fallback statique      | `serverStatic` (`http-kernel.ts:241`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
 | 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1224`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
 | 13  | `onRequestEnd()`       | `http-kernel.ts:1399`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
 | 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:767`) | la route est **matchée** ; rien n'est instancié encore           |
-| 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:932`)                 | une mutation cross-site est refusée (403)                        |
+| 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:948`)                 | une mutation cross-site est refusée (403)                        |
 | 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1139`)          | `context.session` existe **si** la route ou un cookie l'exige    |
 | 17  | firewall               | `Firewall.handleSecurity()` (`firewall.ts:738`)              | `context.user` est résolu — ou 401/403                           |
 | 18  | action                 | `HttpContext.handle()` (`HttpContext.ts:206`)                | **ton code s'exécute**, la valeur retournée est rendue           |
-| 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1163`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
+| 19  | teardown               | `HttpKernel.teardownHttp()` (`http-kernel.ts:1198`)          | log, profil, hooks d'après-réponse, **scope libéré**             |
 
 ### Trois ordres qui surprennent (et pourquoi ils sont ainsi)
 
@@ -350,11 +350,11 @@ sequenceDiagram
 
 | #   | Étape                  | Ancrage                                                        | Ce qui devient vrai                                    |
 | --- | ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
-| 1   | `onWebsocketRequest()` | `http-kernel.ts:1505`                                          | rate-limit du handshake (close **1013**) et cap par IP |
-| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1467`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
+| 1   | `onWebsocketRequest()` | `http-kernel.ts:1540`                                          | rate-limit du handshake (close **1013**) et cap par IP |
+| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1502`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
 | 3   | bulle ALS              | `http-kernel.ts:1438`                                          | ouverte pour le handshake **et** toutes les trames     |
 | 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:599`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
-| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:1667`)               | route et protocole vérifiés **avant** l'accept         |
+| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:1702`)               | route et protocole vérifiés **avant** l'accept         |
 | 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP              |
 | 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:230`)       | listeners `close`/`error`/`message` branchés           |
 | 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                    |
@@ -555,7 +555,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |
 | Contexte de trace distribuée | W3C Trace Context | `http-kernel.ts:1136` · `Response.ts:386`               |
 | Réponse au-delà du quota     | RFC 6585 (429)    | `http-kernel.ts:881`                                    |
-| Preflight cross-origine      | Fetch Standard    | `Firewall.handleCors()` (`firewall.ts:991`)             |
+| Preflight cross-origine      | Fetch Standard    | `Firewall.handleCors()` (`firewall.ts:1007`)            |
 
 ## ⚡ Performance & mémoire
 

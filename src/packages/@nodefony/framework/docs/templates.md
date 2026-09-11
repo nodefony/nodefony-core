@@ -44,7 +44,7 @@ flowchart LR
 Deux idées à retenir :
 
 1. **Le contrôleur lit le fichier, le moteur ne fait que rendre une chaîne.** `renderView()` résout le
-   chemin, lit l'octet, puis passe la **source** à Eta (`Controller.renderView()`, `Controller.ts:308`).
+   chemin, lit l'octet, puis passe la **source** à Eta (`Controller.renderView()`, `Controller.ts:410`).
    Il n'y a **pas** de dossier `views/` magique connu du moteur.
 2. **L'échappement est automatique.** Une donnée interpolée par `<%= %>` est neutralisée (`<` devient
    `&lt;`) avant d'entrer dans le HTML — c'est la protection XSS, active par défaut
@@ -187,7 +187,7 @@ curl -s 'http://localhost:5151/hello/%3Cb%3Ex%3C%2Fb%3E'
 > [!TIP]
 > Tu n'as écrit **aucun** appel d'envoi (`send`, `res.end`). `renderView()` produit le corps **et**
 > l'envoie. Pour piloter l'envoi toi-même, retourne plutôt une chaîne via `render()`
-> (`Controller.render()`, `Controller.ts:290`).
+> (`Controller.render()`, `Controller.ts:377`).
 
 ## 🏗️ Architecture interne — le parcours d'un `renderView()`
 
@@ -218,9 +218,9 @@ sequenceDiagram
 
 | #   | Étape                                        | Où                                                            |
 | --- | -------------------------------------------- | ------------------------------------------------------------- |
-| 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts:316`)         |
-| 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts:322`)                  |
-| 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:345`)                  |
+| 1   | Résolution + lecture async du fichier        | `FileClass` dans `renderView()` (`Controller.ts:410`)         |
+| 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts:377`)                  |
+| 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:448`)                  |
 | 4   | Rendu de la source par le moteur             | `Eta.render()` → `renderStringAsync` (`Eta.ts:51`)            |
 | 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:331`) |
 
@@ -269,7 +269,7 @@ scaffold). Les deux sont **asynchrones** (I/O non bloquante).
 | Helper                              | Pour…                                                   | Ancre               |
 | ----------------------------------- | ------------------------------------------------------- | ------------------- |
 | `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts:308` |
-| `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:273` |
+| `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:377` |
 | `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:392` |
 
 Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — jamais recopiées ici.
@@ -318,13 +318,13 @@ Le rendu de vue est la partie **réellement coûteuse** d'une réponse (lecture 
 template), et le framework l'isole pour ça :
 
 - **Phase dédiée** : `renderView()` chronomètre le rendu sous la phase `render`
-  (`phaseStart("render")`, `Controller.ts:322`) — distincte de `action` et de `send`. On voit ainsi si
+  (`phaseStart("render")`, `Controller.ts:410`) — distincte de `action` et de `send`. On voit ainsi si
   le temps part dans le moteur ou dans l'écriture réseau.
 - **Cache en prod** : les templates sont compilés une fois (`cache` vrai en production,
   `Template.ts:20`) ; le coût de parsing n'est payé qu'au premier rendu.
 - **Lecture non bloquante** : le fichier est lu en async (`FileClass.readAsync()` côté `renderView`,
   `readFile` côté `renderFile`, `Eta.ts:71`) — l'event loop n'est jamais gelé par un `readFileSync`.
-- **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts:345`) ne construit les
+- **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts:448`) ne construit les
   fonctions `frontendTags`/`asset` que si le service `frontend` répond — sinon il rend les locals tels
   quels, zéro allocation superflue.
 
@@ -344,7 +344,7 @@ template), et le framework l'isole pour ça :
 | `<%= it.name %>` requis alors qu'on attend `<%= name %>` | `useWith` mal compris — Nodefony l'active (`Eta.ts:17`), les locals sont nus       | Écrire `<%= name %>` directement                                           |
 | Modif de template ignorée en prod                        | `cache: true` en production (`Template.ts:20`)                                     | Redémarrer le pod ; en dev le cache est off, recompile à chaud             |
 | La réponse d'erreur n'est pas ma vue Eta                 | Les erreurs rendent du JSON, pas un template (`error-renderer.ts:109`)             | Pour une page d'erreur HTML, rendre explicitement une vue dans un handler  |
-| `renderView()` rejette et logge une ERROR                | Fichier introuvable ou template invalide (le `catch` re-lève, `Controller.ts:333`) | Vérifier le chemin résolu (`resolve(module.path, …)`)                      |
+| `renderView()` rejette et logge une ERROR                | Fichier introuvable ou template invalide (le `catch` re-lève, `Controller.ts:410`) | Vérifier le chemin résolu (`resolve(module.path, …)`)                      |
 
 ## 🧪 Tests et couverture
 

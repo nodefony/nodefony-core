@@ -144,7 +144,7 @@ seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1391`) et `HttpKernel.onConnect()` (`http-kernel.ts:1659`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1434`) et `HttpKernel.onConnect()` (`http-kernel.ts:1702`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -278,12 +278,12 @@ faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:714`).
 
 ## ⚙️ Configuration
 
-Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:761`) et son sous-schéma
-`sessionCookieSchema` (`config.ts:727`).
+Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:782`) et son sous-schéma
+`sessionCookieSchema` (`config.ts:748`).
 
 | Option              | Type    | Défaut       | Effet                                                                             |
 | ------------------- | ------- | ------------ | --------------------------------------------------------------------------------- |
-| `store`             | string  | `"auto"`     | Backend de persistance — voir la résolution ci-dessous (`config.ts:755`).         |
+| `store`             | string  | `"auto"`     | Backend de persistance — voir la résolution ci-dessous (`config.ts:795`).         |
 | `name`              | string  | `"nodefony"` | Nom du cookie, préfixé `__Host-` selon `cookie.hostPrefix` (`config.ts:750`).     |
 | `strictMode`        | bool    | `true`       | Un identifiant inconnu du store est rejeté → session neuve (anti-fixation).       |
 | `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:796`). |
@@ -498,7 +498,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1391`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1659`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1434`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1702`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
 | Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1185`) |
@@ -561,13 +561,13 @@ Trois barrières superposées :
    **liste blanche** : `ref`, `user`, `authenticated`, `ip`, `ua`, dates. Jamais un `delete` après coup.
 3. La `ref` elle-même est un HMAC tronqué non réversible (`computeSessionRef()`,
    `sessions-service.ts:100`) ; la clé est dérivée du certificat au boot et n'est jamais sérialisée
-   (`SessionsService.sessionRef()`, `sessions-service.ts:511`).
+   (`SessionsService.sessionRef()`, `sessions-service.ts:528`).
 
 ### Récapitulatif des défenses actives par défaut
 
 | Menace                            | Défense                                           | Ancrage                                            |
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
-| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:718`)            |
+| Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:748`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:714`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `defaultCookieOptions` (`cookie.ts:48`)            |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:189`)              |
@@ -582,7 +582,7 @@ Trois barrières superposées :
 
 Les signatures vivent dans `.ai/symbols.json` (jamais recopiées ici). Voici les usages réels.
 
-**Depuis un contrôleur** — `this.session` est un getter sur le contexte (`Controller.ts:229`) ; un
+**Depuis un contrôleur** — `this.session` est un getter sur le contexte (`Controller.ts:279`) ; un
 paramètre `@Session()` suffit à déclarer l'intent.
 
 | Besoin                           | Appel                                | Effet                                                   |

@@ -359,7 +359,7 @@ donc réservée, quoi qu'en dise son décorateur. À savoir avant de nommer une 
 
 Pour exiger un rôle sur tes propres actions, on déclare une règle de préfixe dans la
 configuration de sécurité — la même liste que pour les canaux
-(`realtimeChannels`, `security/nodefony/config/config.ts:1093`) :
+(`realtimeChannels`, `security/nodefony/config/config.ts:1124`) :
 
 ```ts ignore
 use("@nodefony/security", {
@@ -509,7 +509,7 @@ il sera conçu avec son premier consommateur réel.
 Un cas particulier mérite d'être connu avant d'écrire une action : **elle existe peut-être déjà en
 HTTP**. Le pont API expose la méthode `api.request`, qui rejoue une route de contrôleur sur la
 socket, avec la même garde et le même résultat qu'en REST — `invokeApiRequest()`
-(`RealtimeController.ts:818`). Il est **désactivé par défaut** et s'active en surchargeant
+(`RealtimeController.ts:878`). Il est **désactivé par défaut** et s'active en surchargeant
 `realtimeApiRequest()` (`RealtimeController.ts:219`).
 
 ```ts ignore

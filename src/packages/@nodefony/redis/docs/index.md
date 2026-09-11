@@ -100,7 +100,7 @@ pour quoi il est bon. Redis se déclare de nature `cache` et annonce quatre briq
 
 La nuance décisive n'est pas « couvert / pas couvert », c'est **qui choisit**. Chaque brique déclare
 la nature de sa donnée (`StoreKind`, `infra.ts:176`), et la résolution automatique ne propose Redis
-que pour les natures non durables (`resolveAutoStore()`, `infra.ts:241`).
+que pour les natures non durables (`resolveAutoStore()`, `infra.ts:289`).
 
 <!-- prettier-ignore -->
 | Brique | Nature | Implémentation | Choisi par `auto` ? | Où on l'allume explicitement |
@@ -227,7 +227,7 @@ injoignable au démarrage n'empêche pas l'application de monter.
 `RedisTokenStore`, `RedisWebAuthnCredentialStore` —, le builder `defineRedisConfig` avec son schéma,
 et un ré-export de la bibliothèque `redis` elle-même pour qui a besoin de ses types.
 
-Charger le module suffit : `registerRedisFrameworkStores()` (`registerStores.ts:46`) inscrit les
+Charger le module suffit : `registerRedisFrameworkStores()` (`registerStores.ts:72`) inscrit les
 fabriques `redis` dans les registres de `@nodefony/security`, et le store de session s'auto-déclare
 (`SessionStorage.ts:323`). Aucun câblage applicatif — il ne reste qu'à nommer le store, ou à laisser
 `auto` faire.

@@ -74,7 +74,7 @@ C'est une différence de nature. Un agent — ou un développeur pressé — qui
 un fichier existant reproduit ce que cet exemple avait de particulier, y compris
 ce qui a vieilli. Un appel, lui, part de la spec courante : `getScaffoldSpec()`
 (`spec.ts:899`) décrit les types, leurs questions et leurs valeurs permises, et
-`resolveAnswers()` (`engine.ts:464`) refuse tout ce qui sort de cette
+`resolveAnswers()` (`engine.ts:529`) refuse tout ce qui sort de cette
 description. Le générateur peut donc dire ce qu'il attend, et l'appelant n'a rien
 à deviner.
 
@@ -215,7 +215,7 @@ npx nodefony create entity Article title:string
 ```
 
 La garantie tient à la transaction, pas à la position des vérifications dans le
-code : `runScaffold()` (`engine.ts:1034`) ouvre la transaction, chaque étape y
+code : `runScaffold()` (`engine.ts:1195`) ouvre la transaction, chaque étape y
 écrit, et le versement n'a lieu qu'après la dernière. Une garde ajoutée demain
 est automatiquement sûre, où qu'elle soit placée.
 
@@ -254,7 +254,7 @@ le drapeau est la retouche de l'appel.
 > `resolveAnswers()` ne conserve que les clés déclarées : un `"prest"` écrit à la
 > place de `"preset"` produirait un projet différent de celui demandé, sans un
 > mot. Une personne relit le résultat ; un appelant automatique, non
-> (`readAnswersJson()`, `create.ts:364`).
+> (`readAnswersJson()`, `create.ts:458`).
 
 Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décrire
 (`--describe-json`), proposer (`--answers-json … --dry-run`), puis exécuter.

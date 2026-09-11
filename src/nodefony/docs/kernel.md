@@ -110,7 +110,7 @@ sait en plus se charger et s'accrocher au cycle de vie.
 
 **2. Le kernel s'enregistre lui-même, une fois.** Son constructeur (`Kernel.ts:489`) appelle
 `Nodefony.setKernel(this)` (`Kernel.ts:629`) et se pose au container sous la clé `kernel`
-(`Kernel.ts:629`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
+(`Kernel.ts:389`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
 façade pour le reste.
 
 **3. Le CLI n'est pas le noyau.** `CliKernel` (`CliKernel.ts:84`) étend `Cli`, **pas** `Kernel` : il
@@ -250,7 +250,7 @@ MODULE billing   100 HT → 105.5 EUR       # msgid = « MODULE <nom> », automa
 ```
 
 Le `msgid` de la dernière ligne est `MODULE billing` sans qu'on l'ait écrit : `Module.log()`
-(`Module.ts:651`) le remplit par défaut, là où un `Service` nu emploie son seul nom. Le taux appliqué
+(`Module.ts:727`) le remplit par défaut, là où un `Service` nu emploie son seul nom. Le taux appliqué
 est **0.055** et non 0.2 — la config du manifeste a écrasé le défaut du constructeur.
 
 Et la commande est là :
@@ -335,16 +335,16 @@ Deux chemins, un seul recommandé.
 | Geste                        | Ancre           | Quand                                                       |
 | ---------------------------- | --------------- | ----------------------------------------------------------- |
 | `@services([A, B])`          | —               | **Le cas normal.** Construits à `onPreBoot`, ordre calculé. |
-| `Module.addService(Ctor, …)` | `Module.ts:365` | Ajout conditionnel, décidé à l'exécution.                   |
-| `Module.loadService(chemin)` | `Module.ts:405` | Service optionnel chargé par `import()` dynamique.          |
-| `Module.getServiceNames()`   | `Module.ts:445` | Introspection — ce que **ce** module a posé au container.   |
+| `Module.addService(Ctor, …)` | `Module.ts:441` | Ajout conditionnel, décidé à l'exécution.                   |
+| `Module.loadService(chemin)` | `Module.ts:533` | Service optionnel chargé par `import()` dynamique.          |
+| `Module.getServiceNames()`   | `Module.ts:521` | Introspection — ce que **ce** module a posé au container.   |
 
 L'ordre écrit dans `@services([…])` n'a **pas** d'importance : il est recalculé depuis les
 dépendances déclarées. Détail du tri et des portées :
 [Injection & portées](../../../docs/architecture/injection-portees.md).
 
 `addService()` fait plus que construire : il initialise le service **sous garde** —
-`Kernel.guardServiceInitialize()` (`Module.ts:350`) —, apprend au registre DI le lien entre la classe
+`Kernel.guardServiceInitialize()` (`Module.ts:441`) —, apprend au registre DI le lien entre la classe
 et sa clé de container, puis range l'instance. C'est
 la raison pour laquelle on ne fait jamais un `new` manuel — un service construit à la main n'est
 connu de personne.
@@ -358,7 +358,7 @@ connu de personne.
 
 ### Ajouter une commande CLI
 
-`Module.addCommand()` (`Module.ts:560`) enregistre une commande rattachée au module — c'est ainsi
+`Module.addCommand()` (`Module.ts:636`) enregistre une commande rattachée au module — c'est ainsi
 que `frontend:build`, `security:user:add` ou `network` existent. Convention de nom :
 `<module>:<action>`.
 
@@ -386,13 +386,13 @@ Le registre des controllers est global au process mais **indexé par module** �
 
 | Appel                | Ancre           | Rend                                                       |
 | -------------------- | --------------- | ---------------------------------------------------------- |
-| `getController("X")` | `Module.ts:473` | le constructeur, ou **lève** si absent de **ce** module    |
+| `getController("X")` | `Module.ts:564` | le constructeur, ou **lève** si absent de **ce** module    |
 | `getControllers()`   | `Module.ts:488` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
 
 ### Surcharger la config d'un autre module
 
 Une clé `Module-<nom>` dans la config d'un module reconfigure **un autre** module, sans toucher à son
-code — `Module.readOverrideModuleConfig()` (`Module.ts:310`), appliqué par le kernel entre le
+code — `Module.readOverrideModuleConfig()` (`Module.ts:377`), appliqué par le kernel entre le
 chargement et la validation.
 
 ```typescript ignore
@@ -423,9 +423,9 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1502` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1578` | la table complète, **par référence** (ne pas la muter) |
-| `modules`        | `Kernel.ts:494`  | le même objet, en accès direct                         |
+| `getModule(nom)` | `Kernel.ts:1683` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1686` | la table complète, **par référence** (ne pas la muter) |
+| `modules`        | `Kernel.ts:584`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
 `undefined`, pas une erreur. Le tester est donc à ta charge — c'est aussi le bon moyen de rendre une
@@ -438,7 +438,7 @@ un conteneur neuf ou un premier boot ne les ont pas.
 
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
-| `path`   | `Kernel.ts:461` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
+| `path`   | `Kernel.ts:549` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
 | `varDir` | `Kernel.ts:518` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
 | `tmpDir` | `Kernel.ts:512` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
@@ -454,10 +454,10 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | Membre                      | Ancre            | Note                                                                   |
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
-| `environment`               | `Kernel.ts:325`  | Le mode **moteur** : `"development"` ou `"production"`.                |
-| `domain`                    | `Kernel.ts:520`  | Le nom d'hôte retenu, résolu au boot.                                  |
+| `environment`               | `Kernel.ts:395`  | Le mode **moteur** : `"development"` ou `"production"`.                |
+| `domain`                    | `Kernel.ts:593`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:2817` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:3029` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -559,11 +559,11 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 | Membre                  | Ancre              | Rôle                                                                  |
 | ----------------------- | ------------------ | --------------------------------------------------------------------- |
 | `runProfile`            | `CliKernel.ts:101` | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
-| `setRunProfile(profil)` | `CliKernel.ts:784` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
+| `setRunProfile(profil)` | `CliKernel.ts:895` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
 | `packageManager`        | `CliKernel.ts:103` | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
 | `addCommand(Ctor)`      | `CliKernel.ts:670` | Enregistre une commande intégrée (les modules passent par `Module`).  |
 | `quietBoot`             | `CliKernel.ts:111` | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
-| `parseCommand(argv?)`   | `CliKernel.ts:143` | Analyse Commander synchrone.                                          |
+| `parseCommand(argv?)`   | `CliKernel.ts:169` | Analyse Commander synchrone.                                          |
 
 Le défaut de `runProfile` est **console pur** : `{ servers: false, lifetime: "oneshot" }`. Une
 commande n'ouvre donc aucun port tant qu'elle ne le demande pas — un `nodefony build` ne démarre

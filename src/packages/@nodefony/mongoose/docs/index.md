@@ -481,7 +481,7 @@ le même processus.
 
 Le service orchestre ce cycle de bout en bout : il ouvre une connexion par connecteur déclaré au
 démarrage (`MongooseService.connectAll()` (`MongooseService.ts:63`)) et referme tout à l'arrêt
-(`MongooseService.disconnectAll()` (`MongooseService.ts:134`)). Le module se déclare **non critique**
+(`MongooseService.disconnectAll()` (`MongooseService.ts:178`)). Le module se déclare **non critique**
 (`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le processus —
 l'application monte quand même, l'échec est journalisé, et c'est l'orchestrateur qui relèvera Mongo.
 
@@ -659,7 +659,7 @@ pas des documents nus. Deux recherches lui sont propres :
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
-Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:328`))
+Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:354`))
 compte côté serveur — c'est le garde-fou qui empêche de supprimer le dernier administrateur.
 
 ### Jetons

@@ -1598,19 +1598,19 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Ce que tu as utilisé | Où c'est écrit |
 | --- | --- |
 | Les trois décorateurs | `RealtimeAction()` (`realtimeDecorators.ts:101`), `RealtimeChannel()` (`realtimeDecorators.ts:142`), `RealtimeInbound()` (`realtimeDecorators.ts:182`) |
-| La porte WebSocket | `RealtimeController.handleRealtime()` (`RealtimeController.ts:233`) |
+| La porte WebSocket | `RealtimeController.handleRealtime()` (`RealtimeController.ts:249`) |
 | Le pont HTTP ⇄ WebSocket | `RealtimeController.realtimeApiRequest()` (`RealtimeController.ts:219`) |
-| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:388`), `RealtimeController.startChannel()` (`RealtimeController.ts:618`) |
-| La publication et le fan-out | `RealtimeHub.publish()` (`RealtimeHub.ts:530`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:549`) |
+| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:388`), `RealtimeController.startChannel()` (`RealtimeController.ts:746`) |
+| La publication et le fan-out | `RealtimeHub.publish()` (`RealtimeHub.ts:604`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:549`) |
 | Les canaux diffusables | `RealtimeBroadcast` (`realtimeDecorators.ts:342`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:594`) |
-| Le branchement du backplane | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:640`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`) |
+| Le branchement du backplane | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`) |
 | Les politiques de canal | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1037`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1037`) |
 | Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:253`) |
 | Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:228`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`) |
-| La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:736`) |
+| La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:810`) |
 | Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`RealtimeHub.ts:63`) |
-| Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:910`) |
-| L'accueil et l'identité | `IRealtimeWelcome` (`RealtimeEventMap.ts:204`) |
+| Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:984`) |
+| L'accueil et l'identité | `IRealtimeWelcome` (`RealtimeEventMap.ts:231`) |
 | La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:775`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |
 | Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:91`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
 | Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:200`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |

@@ -128,7 +128,7 @@ Nodefony crée un serveur HTTP/2 sécurisé avec `allowHTTP1: true` (`ServerHttp
 
 **Le WebSocket n'est jamais un citoyen de seconde zone.** Il est adossé au serveur HTTP porteur
 (`server-websocket.ts:80`), passe par le **même** rate-limit d'IP que les requêtes HTTP — un upgrade
-_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1497`) —, hérite de la même
+_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1540`) —, hérite de la même
 session et du même firewall, et se ferme avec le même soin qu'une réponse HTTP.
 
 > [!NOTE]
@@ -249,7 +249,7 @@ export default PingController;
 
 ### 4. Ce qu'on observe au boot
 
-Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1090`), puis affiche les URL réellement
+Le kernel démarre les serveurs à la phase `onReady` (`Kernel.ts:1214`), puis affiche les URL réellement
 en écoute — le récap de développement liste HTTP, HTTP/2, WS et WSS dans cet ordre
 (`BootReporter.ts:389`) :
 
@@ -264,7 +264,7 @@ en écoute — le récap de développement liste HTTP, HTTP/2, WS et WSS dans ce
 ```
 
 Hors écran animé (production, CI, `--debug`), ce sont les bannières par serveur qui sortent
-(`ServerHttp.showBanner()`, `server-http.ts:226`, appelées par le kernel — `Kernel.ts:457`) :
+(`ServerHttp.showBanner()`, `server-http.ts:226`, appelées par le kernel — `Kernel.ts:545`) :
 
 ```text
 Server Listen on http://127.0.0.1:5151 Family: IPv4 Protocol : 1.1
@@ -399,7 +399,7 @@ C'est la distinction la plus utile de cette page, et celle qu'on rate le plus so
 
 | Question                                  | Où ça se règle                 | Source                                                    |
 | ----------------------------------------- | ------------------------------ | --------------------------------------------------------- |
-| **Quels** serveurs, sur **quels ports** ? | `servers` (config d'app)       | `serversSchema` (`src/nodefony/src/config/schema.ts:132`) |
+| **Quels** serveurs, sur **quels ports** ? | `servers` (config d'app)       | `serversSchema` (`src/nodefony/src/config/schema.ts:149`) |
 | **Comment** ces serveurs se comportent ?  | `use("@nodefony/http", { … })` | `httpConfigSchema` (`config.ts:953`)                      |
 
 Autrement dit : la **topologie** est une propriété du déploiement (elle change entre le poste du dev,
@@ -422,7 +422,7 @@ Défauts matérialisés dans `defaultAppConfig` (`src/nodefony/src/config/defaul
 ### Niveau 2 — le transport HTTP / HTTPS
 
 Table dérivée de `httpServerSchema` (`config.ts:257`) ; la section `https` reprend les mêmes clés et en
-ajoute une (`httpsServerSchema`, `config.ts:315`).
+ajoute une (`httpsServerSchema`, `config.ts:336`).
 
 | Option                       | Type  | Défaut   | Effet                                                                            |
 | ---------------------------- | ----- | -------- | -------------------------------------------------------------------------------- |
@@ -441,7 +441,7 @@ quelle à Node. C'est délibéré — un schéma strict effacerait silencieuseme
 
 ### Niveau 2 — HTTP/2
 
-Depuis `http2Schema` (`config.ts:332`), appliqué seulement si défini
+Depuis `http2Schema` (`config.ts:353`), appliqué seulement si défini
 (`maxSessionMemory`, `server-https.ts:197`).
 
 | Option                 | Type | Défaut | Effet                                                                         |
@@ -451,7 +451,7 @@ Depuis `http2Schema` (`config.ts:332`), appliqué seulement si défini
 
 ### Niveau 2 — WebSocket (`websocket` et `websocketSecure`)
 
-Depuis `websocketSchema` (`config.ts:496`). Les deux sections partagent la forme et les défauts ; le WSS
+Depuis `websocketSchema` (`config.ts:517`). Les deux sections partagent la forme et les défauts ; le WSS
 lit `websocketSecure` (`config.ts:1043`).
 
 | Option                   | Type                | Défaut  | Effet                                                                              |
@@ -459,8 +459,8 @@ lit `websocketSecure` (`config.ts:1043`).
 | `keepaliveInterval`      | ms                  | `20000` | Intervalle des pings — détecte les connexions zombies.                             |
 | `keepaliveGracePeriod`   | ms                  | `10000` | Délai de grâce après un ping sans réponse avant fermeture.                         |
 | `closeTimeout`           | ms                  | `5000`  | Délai de fermeture propre avant destruction de la socket.                          |
-| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts:522`).       |
-| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts:531`).              |
+| `maxPayload`             | octets              | `1 MiB` | Taille max d'un message entrant → au-delà, **close 1009** (`config.ts:543`).       |
+| `allowedOrigins`         | bool \| str \| list | `false` | Allowlist d'`Origin` au handshake — **anti-CSWSH** (`config.ts:552`).              |
 | `perMessageDeflate`      | bool \| objet       | `false` | Compression RFC 7692. Désactivée par défaut : coût CPU/RAM + risque de _zip bomb_. |
 | `skipUTF8Validation`     | bool                | `false` | Désactive la validation UTF-8 des frames texte (RFC 6455 §8.1). À laisser `false`. |
 | `autoPong`               | bool                | `true`  | Répond automatiquement aux pings entrants (RFC 6455 §5.5.2-3). À laisser `true`.   |
@@ -578,7 +578,7 @@ export default defineConfig(() => ({
 
 `node-forge` est une grosse dépendance. Elle est chargée **paresseusement**, uniquement sur le chemin
 de génération (`Certificate.loadForge()`, `certificates.ts:227`) : en production avec un certificat
-fourni, elle n'entre jamais dans le processus (`certificates.ts:334`).
+fourni, elle n'entre jamais dans le processus (`certificates.ts:227`).
 
 ### Conformité de l'auto-signé
 
@@ -784,7 +784,7 @@ processus à l'arrêt.
 
 L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** compteur de rate-limit par
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
-(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1497`). Le `101` étant déjà émis par `ws`, un `429`
+(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1540`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
 (`rateLimiter`, `http-kernel.ts:287`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
@@ -836,13 +836,13 @@ demande le backplane realtime.
 | ------------------------------------- | ------------------ | -------------------------------------------------------------------------- |
 | HTTP/1.1 (sémantique, message)        | RFC 9110, 9112     | `node:http` + pipeline `HttpKernel.onHttpRequest()` (`http-kernel.ts:819`) |
 | HTTP/2                                | RFC 9113           | `ServerHttps.createServerH2()` (`server-https.ts:174`)                     |
-| HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:334`)                                   |
+| HTTP/2 Rapid Reset                    | CVE-2023-44487     | `maxConcurrentStreams` (`config.ts:355`)                                   |
 | En-têtes trop volumineux → 431        | RFC 6585 §5        | `handleClientError()` (`clientError.ts:25`)                                |
 | WebSocket — protocole                 | RFC 6455           | `ws@8` + options (`config.ts:496`)                                         |
 | WebSocket — Close 1001 « Going Away » | RFC 6455 §7.4.1    | `Websocket.terminate()` (`server-websocket.ts:134`)                        |
-| WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:522`)                                             |
-| WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:602`)                                     |
-| WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:546`)                                      |
+| WebSocket — 1009 « Message Too Big »  | RFC 6455 §7.4.1    | `maxPayload` (`config.ts:543`)                                             |
+| WebSocket — validation UTF-8          | RFC 6455 §8.1      | `skipUTF8Validation` (`config.ts:623`)                                     |
+| WebSocket — compression               | RFC 7692           | `perMessageDeflate` (`config.ts:567`)                                      |
 | CSWSH (Origin au handshake)           | OWASP WSTG-CLNT-10 | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:599`)                 |
 | En-têtes forwarded                    | RFC 7239           | `resolveForwarded()` (`forwarded.ts:253`)                                  |
 | Certificat — série, SAN, extensions   | RFC 5280           | `Certificate.generateSerialHex()` (`certificates.ts:264`)                  |
@@ -886,7 +886,7 @@ l'origine du transport.
 
 `proxy:generate` mérite un mot : la configuration nginx/HAProxy est **dérivée** des domaines de
 confiance, des ports effectifs et des dossiers statiques montés — donc elle ne diverge pas du code. Le
-résumé de certificat vient de `Certificate.describe()` (`certificates.ts:812`), source unique partagée
+résumé de certificat vient de `Certificate.describe()` (`certificates.ts:853`), source unique partagée
 par la commande, le boot et un futur écran d'administration.
 
 **Runtime.** `nodefony status` et `nodefony stop` lisent les ports effectifs publiés au boot ; ils

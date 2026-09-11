@@ -298,7 +298,7 @@ d'écriture (`routerDecorators.ts:281`) — sinon un attrape-tout masquerait les
 **`@Scope("singleton")` est un contrat, pas une optimisation.** L'instance étant partagée, l'action
 ne doit lire ni écrire **aucun** état de requête sur `this` : tout passe par les arguments décorés et
 les accesseurs, qui retrouvent la requête courante via l'ALS. Le défaut reste `"request"` — une
-instance par requête (`ControllerScope`, `Controller.ts:110`).
+instance par requête (`ControllerScope`, `Controller.ts:144`).
 
 > [!NOTE]
 > Le core `nodefony` exporte lui aussi un `Scope` (les portées du conteneur d'injection). Celui des
@@ -455,12 +455,12 @@ ne s'auto-promeut pas.
 | `@Header("X-Foo", "bar")` | méthode | Ajoute un en-tête ; **s'empile** (plusieurs `@Header` cumulent, `routerDecorators.ts:580`) | `@Header("Cache-Control","no-store")` |
 | `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:589`)         | `@Redirect("/login", 302)`            |
 
-Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:650`) **avant**
+Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:687`) **avant**
 l'appel de l'action : ton code peut donc les écraser ensuite (`this.renderJson(data, 202)` gagne).
 
 `@Redirect` a une subtilité utile : si l'action **retourne un objet** portant `url` (et
 éventuellement `statusCode`), cet objet **prend le dessus** sur les valeurs du décorateur
-(`Resolver._handleRedirect()`, `Resolver.ts:666`) — la cible peut donc être calculée à l'exécution :
+(`Resolver._handleRedirect()`, `Resolver.ts:703`) — la cible peut donc être calculée à l'exécution :
 
 ```typescript
 @Get("/go")
@@ -620,7 +620,7 @@ Trois faits à retenir :
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
   `resolveParamArg()` (`routerDecorators.ts:1283`), et `@Query` lit la query du chemin **invoqué**,
-  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:637`).
+  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:656`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le
   transport.
@@ -708,7 +708,7 @@ Le `Resolver` consomme ce snapshot dans un ordre qui a du sens sécurité :
 **garde d'abord, instanciation ensuite**. `security !== null` déclenche
 `_enforceSecurity()` (`Resolver.ts:576`) **avant** `newController()` — un `403` n'instancie pas le
 contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
-(`_buildParamArgs()`, `Resolver.ts:619`), les métadonnées de réponse
+(`_buildParamArgs()`, `Resolver.ts:656`), les métadonnées de réponse
 (`_applyResponseMeta()`, `Resolver.ts:650`), l'action, et enfin la redirection éventuelle.
 
 Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1476`) parcourt

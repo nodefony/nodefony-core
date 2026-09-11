@@ -58,7 +58,7 @@ parfois le pire : cette table n'est pas une table comme les autres.
 **La table des utilisateurs est relue à chaque requête portant une session authentifiée.** Ce n'est
 pas un détail d'implémentation, c'est le cœur du modèle : une session ne transporte qu'un
 identifiant, jamais l'utilisateur lui-même. À chaque requête, `SessionAuthenticator.authenticate()`
-(`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts:63`) redemande
+(`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts:96`) redemande
 l'identité vivante — `resolveSessionIdentity`
 (`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts:70`) — pour que
 la désactivation d'un compte, un changement de rôle ou un verrouillage prennent effet

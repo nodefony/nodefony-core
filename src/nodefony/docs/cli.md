@@ -55,7 +55,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:462`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:507`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -166,7 +166,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:462`). La
+Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:507`). La
 colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -220,7 +220,7 @@ un pointeur que plus aucun paquet ne livre est **nommé**, jamais supprimé — 
 
 ### Les commandes de module
 
-Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:560`),
+Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:636`),
 sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme les intégrées :
 
 | Commande            | Ce qu'elle fait                                        | Classe                       |
@@ -254,7 +254,7 @@ nodefony create command import --phase onReady                    # commande CLI
 > marche, et elle reste **invisible au conteneur**. Sans générateur de commande, il n'a aucun
 > modèle et invente. Un type de scaffold manquant ne se voit pas — il se paie en code inventé.
 
-Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:875`),
+Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:910`),
 partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline), et un futur formulaire
 Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 
@@ -287,7 +287,7 @@ Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers
 **`generate()` est l'action.** On la surcharge (`command/Command.ts:389`) ; elle reçoit les arguments
 positionnels déclarés par `addArgument()`, et l'instance Commander en dernier paramètre. Les hooks de
 cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la demande par `setEvents()`
-(`command/Command.ts:165`), idempotent.
+(`command/Command.ts:191`), idempotent.
 
 **`kernelEvent` = jusqu'où booter.** C'est le choix structurant :
 
@@ -297,15 +297,15 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 - `onRegister` (défaut) — les modules sont enregistrés (ex. build, install).
 - `onStart` — rien n'est chargé : pour le vrai standalone.
 
-**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:545`) —
+**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:636`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:560`). Hors module, un
-outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:714`). Dans les deux cas,
+outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:756`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.
 
 ## ⚙️ La complétion shell
 
 `nodefony completion <bash|zsh|fish>` imprime un script à sourcer (`renderCompletionScript()`,
-`completion.ts:261` ; shells supportés `COMPLETION_SHELLS`, `completion.ts:253`) :
+`completion.ts:356` ; shells supportés `COMPLETION_SHELLS`, `completion.ts:309`) :
 
 ```bash
 source <(nodefony completion zsh)     # essai immédiat (zsh)
@@ -314,7 +314,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:495`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:540`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie

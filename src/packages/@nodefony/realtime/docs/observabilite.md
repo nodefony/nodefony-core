@@ -265,7 +265,7 @@ Le contrat est `IRealtimeProbe` (`IRealtimeProbe.ts:61`). Quatre familles, un di
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------ |
 | `publishTotal`         | Appels à `publish`. **Ce que le serveur a voulu envoyer.**                                                         |
 | `fanoutTotal`          | Livraisons effectives (`publish` × abonnés). **Ce que ça a réellement coûté.**                                     |
-| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:764`). |
+| `inboundTotal`         | Frames poussées par les clients sur les canaux entrants, via `RealtimeHub.recordInbound()` (`RealtimeHub.ts:838`). |
 | `ingressRejectedTotal` | Messages venus du **backplane** et jetés parce que leur canal n'est pas déclaré diffusable.                        |
 
 Le rapport `fanoutTotal / publishTotal` est la mesure la plus parlante de la page : c'est la **taille

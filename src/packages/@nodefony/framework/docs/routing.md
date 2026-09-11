@@ -114,7 +114,7 @@ mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
 jamais le `stat` du serveur de fichiers : le repli statique n'est tenté que si la résolution a échoué
-(`serverStatic.handle()`, `http-kernel.ts:1200`).
+(`serverStatic.handle()`, `http-kernel.ts:725`).
 
 > [!NOTE]
 > **Le routage n'a aucune option de configuration.** Le schéma Zod du module n'expose qu'un sac
@@ -569,7 +569,7 @@ alloué par requête.
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:298`) |
 | 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:605`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1697`)                    |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1740`)                    |
 | Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:649`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 

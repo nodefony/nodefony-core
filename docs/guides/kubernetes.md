@@ -216,7 +216,7 @@ déploiement ne démarre que s'il a réussi.
 
 Et si un pod démarre avec un schéma en retard, il peut **retenir sa mise en service** plutôt que de
 servir des erreurs : `kernel.setReadiness("schema", false, "3 migrations en attente")`
-(`Kernel.ts:2999`) fait répondre
+(`Kernel.ts:3149`) fait répondre
 `503` à `/readyz` sans redéploiement, et l'ancien exemplaire continue de servir. Le geste complet et
 ses règles vivent dans [servers](../../src/packages/@nodefony/http/docs/servers.md).
 

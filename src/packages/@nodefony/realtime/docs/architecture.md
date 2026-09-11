@@ -126,7 +126,7 @@ Nodefony étiquette avec **JSON-RPC 2.0**, une norme publique plutôt qu'un form
 Le point remarquable : le **même** moteur de protocole tourne des deux côtés du fil. La
 classe `JsonRpcPeer` (`JsonRpcPeer.ts:271`) est du code isomorphe du cœur — le navigateur
 l'exécute dans `RealtimeClient`, le serveur l'instancie une fois par connexion dans
-`RealtimeController.onHandshake()` (`RealtimeController.ts:312`). Le serveur peut donc
+`RealtimeController.onHandshake()` (`RealtimeController.ts:328`). Le serveur peut donc
 appeler le client, pas seulement l'inverse : c'est du vrai duplex, pas un aller-retour
 déguisé.
 
@@ -141,7 +141,7 @@ Trois partis pris distinguent cette pile d'un simple « serveur WebSocket ».
 et explicite : `ServerRealtimeSocket.request()` (`ServerRealtimeSocket.ts:131`) **rejette
 toujours** — un handle posé sur le hub n'a pas d'interlocuteur unique, puisque le hub est
 multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion :
-`RealtimeController.requestClient()` (`RealtimeController.ts:263`).
+`RealtimeController.requestClient()` (`RealtimeController.ts:279`).
 
 **Un provider par canal, pas un par client.** Si mille onglets s'abonnent au même canal de
 santé, le calcul ne doit tourner qu'une fois. Le hub crée le producteur au **premier**
@@ -154,7 +154,7 @@ chaîne de caractères. Passer de mono-process à multi-pods ne touche aucune li
 
 **Le compromis, dit franchement** : un canal **ne franchit PAS** la frontière du process
 tant que tu ne l'as pas déclaré. Le défaut est l'isolement (`RealtimeHub.publish()`,
-`RealtimeHub.ts:530`) — un choix de sûreté détaillé plus bas.
+`RealtimeHub.ts:604`) — un choix de sûreté détaillé plus bas.
 
 ## 🚀 Démarrage rapide
 
@@ -388,7 +388,7 @@ Le schéma ci-dessous rend ces étages vivants : active le temps réel et il res
 
 ## 🔌 Le cycle de vie d'une connexion
 
-Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:312`), appelé
+Tout se joue dans `RealtimeController.onHandshake()` (`RealtimeController.ts:328`), appelé
 une seule fois par connexion, en chemin froid.
 
 ```mermaid
@@ -419,15 +419,15 @@ sequenceDiagram
 
 Les étapes, dans l'ordre exact du code :
 
-1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:896`). Refus →
+1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:970`). Refus →
    fermeture `4003`. La politique vient de la configuration ; sans politique, tout passe.
 2. **Résolution de l'identité** — `RealtimeHub.resolveAuthenticator()`
-   (`RealtimeHub.ts:871`) parcourt les authentificateurs enregistrés : **le premier motif
+   (`RealtimeHub.ts:945`) parcourt les authentificateurs enregistrés : **le premier motif
    qui correspond capture**. Aucun ne correspond ? Le jeton anonyme gelé est posé
    (`ANONYMOUS_REALTIME_TOKEN`) — la lecture d'identité ne rend donc jamais `null`. Un
    échec d'authentification ferme en `4001`.
 3. **Création du peer et du transport**, puis association `peer → jeton`
-   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:928`), stockée dans une `WeakMap` : le
+   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:1002`), stockée dans une `WeakMap` : le
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
@@ -459,13 +459,13 @@ déconnexion.
 La seconde mérite une explication. Le verrou de frame est synchrone et lit une identité
 figée au handshake : il ne peut donc pas voir une session qui meurt en cours de route (une
 déconnexion HTTP, par exemple). Un minuteur — démarré au premier inscrit, arrêté dès que le
-registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:704`) — relit
+registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:778`) — relit
 périodiquement ces identités et coupe les sockets orphelines. Seules les identités
 **révocables** y entrent : un visiteur anonyme ne coûte rien.
 
 ## Le hub — canaux partagés et fan-out
 
-Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1255`). Il ne
+Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1435`). Il ne
 dépend de rien : ce sont les fabriques fournies par les contrôleurs qui portent les
 dépendances.
 
@@ -478,10 +478,10 @@ dépendances.
    paquet du producteur atteigne bien ce premier abonné.
 3. La fabrique du contrôleur rend `null` (canal inconnu de lui) ? Dernier recours : le
    registre des **canaux système** (`RealtimeHub.registerSystemChannel()`,
-   `RealtimeHub.ts:1117`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
+   `RealtimeHub.ts:1281`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
    l'abonnement est refusé et rien n'est alloué.
 
-Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:502`) appelle le
+Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:576`) appelle le
 `dispose` du producteur et retire le canal. Un producteur fautif qui lève une exception ne
 bloque pas le nettoyage.
 
@@ -496,12 +496,12 @@ Deux méthodes qui se ressemblent et ne font pas du tout la même chose :
 
 | Méthode                                 | Fan-out local |   Propagation aux autres process   | Qui l'appelle                       |
 | --------------------------------------- | :-----------: | :--------------------------------: | ----------------------------------- |
-| `publish()` (`RealtimeHub.ts:530`)      |      oui      | oui, **si** le canal est broadcast | producteurs, contrôleurs, services  |
-| `publishLocal()` (`RealtimeHub.ts:549`) |      oui      |             **jamais**             | l'arrivée d'un message du backplane |
+| `publish()` (`RealtimeHub.ts:604`)      |      oui      | oui, **si** le canal est broadcast | producteurs, contrôleurs, services  |
+| `publishLocal()` (`RealtimeHub.ts:623`) |      oui      |             **jamais**             | l'arrivée d'un message du backplane |
 
 C'est **la** règle qui empêche la tempête : un message reçu d'un pair est réinjecté
 localement et **ne repart pas**. Le câblage se fait une fois pour toutes dans
-`RealtimeHub.setBackplane()` (`RealtimeHub.ts:640`), qui branche l'arrivée du backplane
+`RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`), qui branche l'arrivée du backplane
 directement sur `publishLocal`.
 
 Le fan-out lui-même (`RealtimeHub.ts:340`) est **isolé** : chaque livraison est protégée,
@@ -743,13 +743,13 @@ Deux propriétés architecturales méritent d'être notées ici, parce qu'elles 
 choix de conception visibles partout dans le module :
 
 **Coût nul quand la sécurité est absente.** Le verrou de frame n'est branché sur le peer que
-si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:961`, testé une
+si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:1042`, testé une
 fois au handshake). Sans module de sécurité, `beforeDispatch` reste indéfini et le chemin
 chaud ne paie **rien** du tout.
 
 **Échec bruyant plutôt que faux sentiment de sécurité.** Si des canaux déclarent une
 politique sans qu'aucun décideur ne soit câblé, `hasUnenforcedChannelPolicies()`
-(`RealtimeHub.ts:1020`) le détecte et un avertissement est émis une fois par process
+(`RealtimeHub.ts:1101`) le détecte et un avertissement est émis une fois par process
 (`RealtimeController.ts:487`). Un canal qui **se croit** gardé alors qu'il est ouvert est
 bien plus dangereux qu'un canal ouvertement public.
 
@@ -808,7 +808,7 @@ révocables, authentificateurs, politiques de canal, association peer→jeton : 
 `null`. Un process sans abonné n'alloue **rien** (`RealtimeHub.ts:141` et suivants).
 
 **Aucun minuteur au repos.** Le tick de révocation démarre au premier inscrit et s'arrête
-dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:719`).
+dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:793`).
 Les minuteurs sont détachés de la boucle d'événements : ils ne retiennent jamais l'arrêt du
 process.
 

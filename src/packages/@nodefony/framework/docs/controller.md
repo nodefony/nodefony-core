@@ -310,7 +310,7 @@ action se tromperait d'objet.
 > frame 2 — pratique pour un état de conversation, piège si tu comptais sur une instance neuve. En
 > HTTP, l'inverse : chaque requête repart d'une instance vierge.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1659`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1702`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
 (`http-kernel.ts:1131`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
@@ -326,11 +326,11 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 | `this.route`     | La route matchée                                   | `Controller.ts:158` |
 | `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts:162` |
 | `this.response`  | La réponse du transport                            | `Controller.ts:169` |
-| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:178` |
-| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:187` |
-| `this.queryPost` | Le corps parsé                                     | `Controller.ts:214` |
-| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:229` |
-| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:205` |
+| `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:212` |
+| `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:221` |
+| `this.queryPost` | Le corps parsé                                     | `Controller.ts:248` |
+| `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:248` |
+| `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:239` |
 | `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts:229` |
 
 Pourquoi des accesseurs plutôt que des champs recopiés au constructeur : **la fraîcheur et le coût**.
@@ -349,16 +349,16 @@ n'est créée** — donc aucun coût de stockage.
 Deux corollaires :
 
 - Dans `initialize()`, `this.session` vaut `null` (l'activation vient plus tard — étape 6 du cycle).
-- `this.getSession()` (`Controller.ts:394`) ne « démarre » rien : il retourne la session existante,
+- `this.getSession()` (`Controller.ts:496`) ne « démarre » rien : il retourne la session existante,
   ou `undefined`.
 
-Les messages flash s'appuient dessus : `setFlashBag()`/`addFlash()` (`Controller.ts:420`) et
-`getFlashBag()` (`Controller.ts:412`) journalisent une **erreur** et retournent `null` si aucune
+Les messages flash s'appuient dessus : `setFlashBag()`/`addFlash()` (`Controller.ts:530`) et
+`getFlashBag()` (`Controller.ts:514`) journalisent une **erreur** et retournent `null` si aucune
 session n'est active — pas de crash, mais rien n'est mémorisé.
 
 ### Contrôleur `singleton` — quand `this` n'est plus à toi
 
-Par défaut, `Controller.scope` vaut `"request"` (`Controller.ts:119`). Un contrôleur **sans état**
+Par défaut, `Controller.scope` vaut `"request"` (`Controller.ts:196`). Un contrôleur **sans état**
 peut passer en instance unique partagée :
 
 ```typescript
@@ -399,14 +399,14 @@ de ce que tu as retourné :
 | Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734` |
 | Un `Buffer` | Envoyé brut | `Resolver.ts:723` |
 | Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:716` |
-| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:798`) |
+| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:855`) |
 | `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:801` |
 | Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:770-777` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
 > répondrai moi-même » et attend — jusqu'au timeout. La distinction se fait sur le **statut** :
-> `NO_BODY_STATUS` (`Resolver.ts:817`) contient 204, 205 et 304. Donc un `@Delete` qui fait
+> `NO_BODY_STATUS` (`Resolver.ts:855`) contient 204, 205 et 304. Donc un `@Delete` qui fait
 > `@HttpCode(204)` puis `return null` répond bien 204 vide ; le même `return null` sans `@HttpCode`
 > laisse la requête pendue.
 
@@ -420,19 +420,19 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 | Helper                                       | Pour…                                                    | Ancre               |
 | -------------------------------------------- | -------------------------------------------------------- | ------------------- |
 | `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:379` |
-| `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:273` |
-| `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:308` |
-| `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:290` |
+| `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:377` |
+| `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:410` |
+| `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:392` |
 | `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:382` |
 | `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:432` |
-| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:282` |
+| `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:319` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
 (`frontendTags`, `frontendDocument`, `asset`) dans les variables du template
-(`withFrontendLocals()`, `Controller.ts:345`) — tes propres valeurs restent prioritaires.
+(`withFrontendLocals()`, `Controller.ts:448`) — tes propres valeurs restent prioritaires.
 
 `forward()` re-résout un contrôleur sur le **même** contexte et rappelle son action
-(`Controller.ts:445`) : c'est une délégation interne, la requête cliente reste unique.
+(`Controller.ts:534`) : c'est une délégation interne, la requête cliente reste unique.
 
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
@@ -448,7 +448,7 @@ Deux besoins distincts, deux helpers.
 
 `renderFileDownload(file, options?, headers?)` (`Controller.ts:473`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
-de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:497`) ;
+de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:586`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
 et gèle le process le temps du stat.
 
@@ -465,12 +465,12 @@ plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le fl
 | Plage hors fichier                            | **416** + `Content-Range: bytes */<taille>` (RFC 9110 §15.5.17) |
 | Syntaxe invalide, multi-plage, unité inconnue | En-tête **ignoré** → 200 complet (jamais un 500)                |
 
-La logique est isolée dans une fonction pure exportée, `parseByteRange()` (`Controller.ts:73`) —
+La logique est isolée dans une fonction pure exportée, `parseByteRange()` (`Controller.ts:107`) —
 donc testable sans serveur.
 
 ### Ce que `streamFile()` garantit
 
-`streamFile()` (`Controller.ts:580`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
+`streamFile()` (`Controller.ts:669`) est le moteur commun. Sa subtilité n'est pas le pipe, c'est le
 **nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
 téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
 écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
@@ -578,9 +578,9 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 | Domaine                          | Norme                    | Comment le code s'y conforme                                   |
 | -------------------------------- | ------------------------ | -------------------------------------------------------------- |
-| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:817`)                           |
-| Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:73`)                        |
-| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:304`)              |
+| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:855`)                           |
+| Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                       |
+| Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:392`)              |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:760`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
@@ -610,7 +610,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée par toute la connexion (`Resolver.ts:262`) | Réinitialiser l'état en tête d'action, ou le porter par message |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |
 | Contrôleur `singleton` : données d'un autre utilisateur | Champ mutable per-requête sur une instance partagée | Retirer `@Scope("singleton")`, ou passer par les arguments décorés |
-| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:457`) | Utiliser `getFileAsync()` (`Controller.ts:472`) |
+| Event loop figé sur une route de fichier | `getFile()` synchrone (`lstatSync`, `Controller.ts:546`) | Utiliser `getFileAsync()` (`Controller.ts:586`) |
 
 ## 🧪 Tests & couverture
 

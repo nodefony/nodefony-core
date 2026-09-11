@@ -240,7 +240,7 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1380`) puis
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1504`) puis
 chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1508`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
@@ -325,17 +325,17 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
 (`Events`, `Kernel.ts:283`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:548`), `Kernel.boot()` (`Kernel.ts:799`), `Kernel.onReady()`
+`Kernel.start()` (`Kernel.ts:742`), `Kernel.boot()` (`Kernel.ts:799`), `Kernel.onReady()`
 (`Kernel.ts:829`) et `Kernel.initServers()` (`Kernel.ts:916`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
-`onKernelReady` : `Module.setEvents()` (`Module.ts:206`) les attache, et n'attache **que** ceux qui
+`onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3254`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3503`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:2771`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:2983`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
@@ -402,7 +402,7 @@ Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 Le pare-feu applicatif de `@nodefony/security` raisonne par **zones** : un motif d'URL, une politique.
 `Firewall.matchPath()` (`firewall.ts:529`) rattache la requête à la zone dont le motif est le plus
 spécifique ; `Firewall.isSecure()` (`firewall.ts:705`) répond « protégée ou non » sur le chemin chaud ;
-`Firewall.handleSecurity()` (`firewall.ts:738`) ne travaille que sur zone protégée.
+`Firewall.handleSecurity()` (`firewall.ts:754`) ne travaille que sur zone protégée.
 
 ```mermaid
 flowchart TD
@@ -503,13 +503,13 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
 | Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:298`)                          |
-| Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:738`)           |
+| Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:754`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:55`)              |
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1312`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1283`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:114`) · `Service.log()` (`Service.ts:209`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1266`)         |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1301`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -518,7 +518,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:101`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1293`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1328`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.

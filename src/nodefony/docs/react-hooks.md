@@ -313,7 +313,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1400`), qui
+Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1425`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -321,7 +321,7 @@ C'est le hook des badges de connexion et des écrans dégradés (« temps réel 
 ### `useNodefonyIdentity()` — qui est cette connexion
 
 Rend l'identité **annoncée par le serveur** dans la trame d'accueil : `authenticated`,
-`userIdentifier`, `roles`, `scopes` (`RealtimeEventMap.ts:185`). `null` tant qu'aucun accueil n'a été
+`userIdentifier`, `roles`, `scopes` (`RealtimeEventMap.ts:222`). `null` tant qu'aucun accueil n'a été
 reçu ; une fois reçu, un visiteur anonyme vaut `authenticated: false` — jamais `null`.
 
 Elle est rafraîchie à chaque (re)connexion par `ingestWelcome()`
@@ -420,7 +420,7 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
 trames reçues (`getChannelStats()`, `client/realtime/RealtimeClient.ts:975`). La série glisse sur 32
 points — `STATS_SERIES_POINTS` (`client/realtime/RealtimeClient.ts:131`) —, échantillonnés une fois par seconde par
-`startStatsSampler()` (`client/realtime/RealtimeClient.ts:1139`).
+`startStatsSampler()` (`client/realtime/RealtimeClient.ts:1164`).
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même

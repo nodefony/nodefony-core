@@ -327,7 +327,7 @@ trentaine de saisies pour les deux lots.
 - **`npm whoami` ne montre rien en publication OIDC**, et c'est normal : aucun jeton n'existe. Le
   lire comme un échec envoie chercher une panne inexistante.
 - **Ce qui est vérifié avant de publier vit dans le code, pas dans le script** :
-  `checkPackageDeps()` (`packageDeps.ts:285`) refuse un import non déclaré, et
+  `checkPackageDeps()` (`packageDeps.ts:262`) refuse un import non déclaré, et
   `defineNodefonyRolldownConfig()` (`bundler/index.ts:135`) décide ce que chaque paquet embarque,
   en s'appuyant sur `nodefonyExternalMatcher()` (`bundler/index.ts:68`) pour trancher ce qui reste
   hors du bundle — une dépendance qui devait rester externe et se retrouve avalée casse à

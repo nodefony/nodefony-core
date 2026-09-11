@@ -370,7 +370,7 @@ JSON Schema pour l'écran de configuration de Studio.
 > **`backendPort` n'est pas forcément le port écouté.** Avec une politique de port automatique, un
 > 5151 occupé fait glisser l'écoute sur 5153. Un proxy figé enverrait alors les appels de ton
 > interface vers le serveur d'une **autre** application. Le module lit donc le port réel sur le
-> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:455`) et journalise
+> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:471`) et journalise
 > l'écart.
 
 ### Le build de production
@@ -490,8 +490,8 @@ intermittent, apparaissant seulement quand le navigateur est plus rapide que le 
 | ----------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------- |
 | `FrontendService`       | l'orchestrateur : entrées, familles, cycle de vie, rendu           | `FrontendService.ts:70`                                     |
 | `ViteProcessSupervisor` | lance, surveille, relance et arrête **un** processus Vite          | `ViteProcessSupervisor.ts:215`                              |
-| `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts:80`) |
-| `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:41`)       |
+| `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts:69`) |
+| `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:95`)       |
 | `TemplateHelper`        | produit les balises (dev) ou lit le manifeste (prod)               | `TemplateHelper.ts:36`                                      |
 | `isolationGroups`       | à quelle famille appartient un preset, et sur quel bloc de ports   | `isolationGroup()` (`isolationGroups.ts:39`)                |
 | `FrontendAdminApi`      | la vue sûre de l'état, pour Studio                                 | `buildFrontendStatus()` (`FrontendAdminApi.ts:139`)         |
@@ -597,7 +597,7 @@ et dans les types du paquet — jamais recopiées ici, où elles se périmeraien
 
 ### `registerEntry` — la déclaration d'une interface
 
-`FrontendService.registerEntry()` (`FrontendService.ts:221`) est appelée par le module consommateur,
+`FrontendService.registerEntry()` (`FrontendService.ts:243`) est appelée par le module consommateur,
 dans son `onKernelBoot()`. Elle résout les chemins relatifs, calcule le préfixe public et renvoie
 l'entrée résolue (`IResolvedFrontendEntry`, `IFrontBuilder.ts:40`).
 
@@ -637,7 +637,7 @@ const tags = frontend.renderTags("shop", context.cspNonce);
 const html = frontend.renderDocument("shop", context.cspNonce);
 ```
 
-`renderDocument` (`FrontendService.ts:876`) lit l'`index.html` **de ton module**, retire le `<script>`
+`renderDocument` (`FrontendService.ts:904`) lit l'`index.html` **de ton module**, retire le `<script>`
 d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvoie le document.
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
@@ -650,7 +650,7 @@ Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `Templa
 3. ton entrée, servie par son **chemin absolu** (`/@fs/…`) plutôt que relatif — c'est ce qui permet à
    deux modules d'avoir chacun leur `frontend/src/main.tsx` sans collision ;
 4. un pont qui relaie les événements de rechargement vers la barre de débogage, **sans ouvrir de
-   seconde connexion** (`hmrBridgeTag()`, `TemplateHelper.ts:226`) ;
+   seconde connexion** (`hmrBridgeTag()`, `TemplateHelper.ts:267`) ;
 5. la barre de débogage elle-même, résolue une fois et servie via Vite (`debugBarTag()`,
    `TemplateHelper.ts:252`).
 
@@ -660,7 +660,7 @@ l'état. Une page dégradée reste une page.
 ### Les helpers de vue
 
 Si tu rends une vue Eta plutôt qu'une chaîne, trois helpers sont déjà dans tes variables locales
-(`Controller.withFrontendLocals()`, `Controller.ts:345`) — inspirés des helpers d'assets de Symfony :
+(`Controller.withFrontendLocals()`, `Controller.ts:448`) — inspirés des helpers d'assets de Symfony :
 
 ```html
 <%~ frontendDocument("shop") %>
@@ -699,7 +699,7 @@ Quatre comportements à connaître :
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
 - **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
-  (`FrontendService.ts:655`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  (`FrontendService.ts:683`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
   Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
   tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
   `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
@@ -735,7 +735,7 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:655`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:683`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
@@ -765,7 +765,7 @@ Deux points d'attention avant de se lancer :
 
 - le preset alimente le build en processus (`ViteBuilder`), mais la configuration du **serveur de
   développement** est écrite par le générateur, qui possède sa propre correspondance type → greffon
-  (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts:80`). Un nouveau type doit être ajouté aux
+  (`ViteConfigGenerator.toMjs()`, `ViteConfigGenerator.ts:69`). Un nouveau type doit être ajouté aux
   **deux** endroits, sinon il lève `FrontendPresetUnknownError` (`FrontendError.ts:19`) ;
 - si le nouveau framework transforme des fichiers qui ne lui appartiennent pas, il lui faut sa propre
   famille d'isolation — c'est la leçon d'Angular.
@@ -782,10 +782,10 @@ origine. Or en développement, tes modules viennent du port 5173 alors que ta pa
 
 La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**. Une fois Vite prêt
 (donc ses ports réellement connus), le service déclare ses origines au pare-feu
-(`#registerCsp()`, `FrontendService.ts:948`), qui émet **un seul** en-tête, origines fusionnées et
+(`#registerCsp()`, `FrontendService.ts:990`), qui émet **un seul** en-tête, origines fusionnées et
 nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
 
-Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:909`) mérite deux explications, parce
+Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:1012`) mérite deux explications, parce
 qu'elles piègent tout le monde :
 
 - **`'self'` est répété dans chaque directive.** `connect-src`, `style-src`, `img-src` et `font-src`

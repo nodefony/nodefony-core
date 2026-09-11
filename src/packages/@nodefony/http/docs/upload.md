@@ -126,7 +126,7 @@ champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public 
 **métadonnée** (`filename`), pas dans le chemin.
 
 **Deux budgets, secure-by-default.** Le corps non-multipart est plafonné à **1 MiB** par défaut
-(`maxBodySize`, `http/nodefony/config/config.ts:1005`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
+(`maxBodySize`, `http/nodefony/config/config.ts:1026`) — un `POST` JSON géant est rejeté avant d'être bufferisé. Le
 multipart, lui, a ses propres bornes busboy (par fichier, cumul, nombre) qui coupent le flux et
 nettoient les temporaires déjà posés au moindre dépassement (`context/http/Request.ts:481`).
 
@@ -321,8 +321,8 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1178`)             |
 | `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1178`)                       |
 | `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1227`)               |
-| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:205`) |
-| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:214`) |
+| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:239`) |
+| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:248`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
 (`routerDecorators.ts:1240`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
