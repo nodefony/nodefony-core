@@ -20,6 +20,167 @@
 
 ---
 
+## 🪟 Un contrôle VERT qui ne POUVAIT rien voir — le régime de mesure rend l'objet invisible
+
+> Distinct de « le gate n'est pas lancé » et de « le gate a un angle mort » : ici il tourne, il
+> est vert, et son RÉGIME de mesure lui interdit par construction de voir ce qu'il prétend garder.
+> La question à poser à tout gate vert : _qu'est-ce qu'il aurait vu si le défaut avait été là ?_
+
+- [1× — 09-11] **Un `200` sur un asset laissait passer un écran NOIR.** La configuration nginx
+  générée n'incluait pas `mime.types` : elle REMPLACE celle de l'image, donc nginx servait tout en
+  `text/plain` et le navigateur REFUSAIT le module ES. Le cas du scénario vérifiait le CODE DE
+  RETOUR, jamais le TYPE — il était vert, l'application inutilisable. Le contrôle porte désormais
+  sur `content_type`. La question qui l'aurait attrapé : « ce 200 prouve-t-il que le client peut
+  s'en servir ? »
+- [1× — 09-11] **Un cas de test qui ne tourne JAMAIS ne peut pas échouer.** Le cas `__Host-` de la
+  suite générée est `skipIf(!isExternalTarget)` : il n'existe que derrière un frontal, décor que
+  rien ne montait. Il lisait `process.env.NF_ADMIN_PASSWORD` du RUNNER au lieu de la constante du
+  décor — une erreur qui l'aurait fait rougir dès la première exécution, restée invisible parce
+  qu'il n'y en a jamais eu. Un `skipIf` sans décor qui l'active est un test mort.
+- [1× — 09-11] **Une assertion sur le TEXTE d'un gabarit reste verte pendant que le rendu ne
+  démarre pas.** `create.test.ts` figeait la ligne `RUN mkdir -p /app/tmp /app/var && chown …` du
+  Dockerfile — vert, exact, et inutile : `chown` n'étant pas récursif, `var/databases` restait à
+  root et l'image mourait en `SQLITE_CANTOPEN`. Une assertion de chaîne prouve la FORME, jamais le
+  comportement ; il faut un banc qui EXÉCUTE l'artefact.
+- [1× — 09-11] **Un défaut invisible tant qu'on garde les valeurs par défaut.** Le compose passait
+  le port d'HÔTE comme port INTERNE au build du frontal : avec 8080/8443 les deux coïncidaient, et
+  rien ne se voyait. C'est le décalage de ports de mon banc (imposé par un Redis déjà pris) qui l'a
+  révélé. Corollaire : un banc qui rejoue exactement le décor nominal ne peut pas voir les défauts
+  que seule une variation expose.
+- [1× — 09-11] **Le banc de découvrabilité ne POUVAIT voir aucun des deux murs d'un essai réel de
+  89 minutes.** Il fabrique lui-même son app témoin en `--preset complete`
+  (`bench-discoverability.mjs:4444`), donc il ne joue jamais le contenu « Minimal » — celui que
+  choisit un découvreur, et où il n'y a ni identité ni exemple à copier. Pire, sa tâche 3 juge déjà
+  « la façade isomorphe est montrée » mais l'écrit `RealtimeClient / nodefony/react` : sur une
+  application Svelte il rendrait un VERT avec un critère qui ne désigne pas la porte du moteur
+  choisi — et le gabarit d'instructions a le même angle mort (react `3` mentions, vue `2`,
+  angular `1`, **svelte `0`**). Un banc qui monte lui-même le décor favorable ne mesure pas le
+  premier contact, il mesure sa propre mise en scène.
+- [4× — 09-10g] **Quatre fois dans la même séance, sur des instruments différents.** (1) Le gate
+  mémoire de `@nodefony/http` a rendu `NaN MB` sur ses huit mesures : il TAPE un serveur qu'il ne
+  démarre pas, et celui qui tournait n'avait pas `--expose-gc` — un rouge qui n'accusait rien, et
+  qui aurait pu être un vert si les seuils avaient comparé autrement. (2) `nginx -t` s'est arrêté
+  sur l'upstream ligne 10 : il n'avait jamais LU le bloc TLS que je croyais valider — un backend
+  résoluble a été nécessaire pour que le contrôle atteigne sa cible. (3) Le motif du test « tout
+  volume monté est déclaré » ne voyait que 6 espaces d'indentation, aveugle aux ancres YAML de
+  premier niveau que je venais d'introduire : il serait resté vert en ne regardant plus rien.
+  (4) Mon propre cas neuf, bâti sur l'attribut `Secure` du cookie, restait VERT avec `trustProxy`
+  RETIRÉ — `Secure` vaut `true` par défaut en configuration, il est donc posé même quand le
+  serveur se croit en clair. Réécrit sur le préfixe `__Host-`, qui se DÉRIVE du scheme constaté :
+  vert avec, rouge sans. Sans le réflexe « débrancher et regarder tomber », j'aurais livré un
+  test décoratif en croyant tenir le critère du ticket.
+
+- [1× — 09-10g] **Une clé ABSENTE d'un défaut rend sa surcharge silencieusement inopérante.**
+  `NF__APP__DOMAINCHECK=true` était accepté sans effet : les surcharges génériques n'écrivent que
+  sur des chemins DÉJÀ PRÉSENTS, et `domainCheck` n'était dans aucun défaut. La barrière `Host`
+  — soignée par ailleurs, testée, documentée — était donc inatteignable pour qui déploie par
+  variables d'environnement, c'est-à-dire derrière un frontal, là où elle sert. Le piège était
+  DÉJÀ écrit, en commentaire, à six lignes de là (`timing.enabled`) : il n'a pas mordu parce que
+  personne ne relit un commentaire au moment où il compte. → [[feedback_capability_unreachable_is_absent]]
+
+- [3× — 09-09f] **Trois fois dans la même séance.** (1) Le gate de format du code généré fabrique
+  ses applications témoins AVEC installation — or `create app` formate ce qu'il produit juste
+  après l'installation : ses quatre variantes ne pouvaient RIEN voir du rendu des gabarits, alors
+  que son commentaire affirmait garder « la forme des gabarits eux-mêmes ». Un régime `--raw`
+  (sans installation) a sorti deux défauts réels, invisibles partout ailleurs. (2) L'inventaire
+  des dépendances ne voyait pas le catalogue du scaffold, faute de périmètre. (3) `oxlint` 1.82.0
+  ne rend plus AUCUN résumé quand tout est propre — sortie identique à celle d'un linter qui n'a
+  rien lu ; il a fallu une sonde `debugger` pour distinguer les deux.
+
+- [1× — 09-10] **J'ai annoncé une PUBLICATION PARTIELLE sur une lecture unique — et c'était
+  faux.** `npm publish` avait rendu `+ nodefony@10.0.0-alpha.4`, mais ni `npm view` ni un `curl`
+  au registre ne voyaient la version : j'ai alerté le user d'un lot partiel, le pire scénario
+  d'une release en lockstep. Deux minutes plus tard, elle était là. Le registre ACCEPTE avant de
+  SERVIR, et la propagation est indépendante par paquet — une lecture instantanée ne peut pas
+  décrire un système en cours de propagation. La même cause a fait tomber les deux jobs qui
+  suivent la publication, sur deux paquets DIFFÉRENTS, avec des messages qui accusaient la
+  dépendance. Le geste manquant tient en un mot : RETESTER avant d'alerter, surtout quand
+  l'observation contredit ce que l'outil vient de confirmer. ↝ [[feedback_suspect_instrument_and_own_diff]]
+
+- [1× — 09-10] **Ma SONDE ne cherchait pas le bon marqueur — et son vert a failli condamner
+  le bon code.** Pour prouver que `doctor` lit la configuration extraite en fragments, j'ai posé
+  une zone firewall `authenticators: ["anonymous"]` : verdict `rien d'ouvert sans
+authentification`. J'allais conclure que le lecteur était aveugle au fragment. Le contrôle
+  cherche `security: false` (`kernel/checks/surface.ts:263`) — ma zone n'était pas « ouverte » à
+  ses yeux. Avec le bon marqueur, il crie `zone publique ^/sonde` depuis le fragment. La question
+  ne suffit donc pas telle qu'écrite : avant de dire « il n'a rien vu », il faut savoir CE QU'IL
+  CHERCHE — sinon on impute au contrôle ce qui est un défaut de la sonde.
+
+- [1× — 09-10c] **Une requête qui répond 200 et un panneau qui reste VIDE.** En bâtissant un
+  tableau de bord Grafana sur les journaux, deux panneaux n'affichaient rien. Interrogée
+  directement, leur requête rendait `200` avec les bonnes colonnes : le défaut était un
+  `format: "table"` manquant côté panneau. Aucun message, aucune erreur de console — le succès de
+  la requête MASQUE l'échec du rendu. Et j'ai d'abord accusé la lenteur : deux autres panneaux,
+  eux, étaient effectivement seulement lents, et j'avais capturé l'écran trop tôt — le piège que
+  le skill `nodefony-browser` documente en toutes lettres, lu une heure plus tôt
+  ([[feedback_written_rule_needs_reread]]). Le départage ne vient pas de l'écran : il vient
+  d'interroger la source SANS l'interface.
+
+- **[1× — 09-10d] Le SYMÉTRIQUE, et il coûte autant : un contrôle ROUGE que son décor fabrique.**
+  Le banc devkit en décor lié rendait un `TS2322` sur une application générée. J'ai remonté la piste
+  jusqu'à une divergence de versions et j'étais à deux doigts de faire réécrire quinze manifestes —
+  le décor `--link` installait simplement DEUX exemplaires d'une dépendance de pair (npm ne hisse
+  pas à travers un lien `file:`). Le même banc en décor isolé : 21 étapes sur 21 vertes. Le décor
+  annonçait lui-même son verdict « AMPUTÉ », et je l'ai lu après. **Avant d'imputer un rouge au
+  produit, rejouer dans le décor le plus proche de l'utilisateur** — ici, celui qui installe depuis
+  les tarballs.
+- **[1× — 09-10d] Et il bloque plus que lui-même** : le banc s'arrête au premier échec, donc ce rouge
+  étranger empêchait de prouver quoi que ce soit d'AUTRE. Une étape neuve n'a pu être jouée qu'en la
+  remontant en tête d'une copie du script.
+
+- **[1× — 09-10d] Un outil qui pose la MAUVAISE question rend un verdict juste et inutile.**
+  `npm outdated` et notre `deps:check` comparaient à `dist-tags.latest` — qui n'est pas « la
+  dernière version » mais ce que le mainteneur sert par défaut. `@types/node` publie par ligne de
+  TypeScript et laisse `latest` sur une ligne ANTÉRIEURE : le dépôt paraissait en avance tout en
+  accumulant du retard. La bonne question était _quelle est la plus haute version que ma PLAGE
+  accepte ?_. Corollaire : un rapport dont les chiffres semblent bizarres (« latest inférieur au
+  courant ») dit quelque chose sur l'OUTIL, pas seulement sur les données.
+- **[1× — 09-10d] Et j'ai déduit un symptôme au lieu de le mesurer.** J'ai transposé à Svelte le
+  double-runtime vécu pour React, sans vérifier : le plugin officiel Svelte pose déjà son
+  `resolve.dedupe`, le bundle est identique à l'octet près avec et sans notre ligne. Le mécanisme se
+  ressemblait ; la conclusion était fausse. Un défaut ANALOGUE n'est pas un défaut constaté.
+- **[1× — 09-10e] Le gate des skills tournait en intégration continue et NE POUVAIT PAS voir une
+  faute d'en-tête YAML** : il découpe le frontmatter à la main, « sans dépendance ». Trois
+  `SKILL.md` sur vingt-sept portaient un `:` dans un scalaire plain — invalide en YAML. GitHub
+  refusait de rendre la page ; le parseur de l'agent, tolérant, l'acceptait ; donc rien ne le
+  signalait jamais en séance. Un audit extérieur en a vu UN, par hasard, en ouvrant la page. Le
+  remède n'était pas de mieux découper, c'était de donner le même texte à un VRAI parseur.
+- **[1× — 09-10e] Quatre zones muettes dans la garde des dépendances, toutes du même genre.**
+  `--json` imprimait puis `exit(0)` AVANT le calcul du verdict (donc `--json --gate` absolvait
+  n'importe quoi) ; un manifeste illisible était avalé par un `catch` muet tout en restant compté
+  dans le total annoncé ; une entrée du catalogue du scaffold disparaissait si la ligne portait un
+  commentaire ; les `overrides` n'étaient pas lus. Aucune n'avait d'instance vivante — c'est
+  exactement ce qui les rendait invisibles. **Un contrôle ne se juge pas sur les défauts qu'il
+  trouve, mais sur ceux qu'il laisserait passer.**
+- **[1× — 09-10e] Et la règle elle-même posait la mauvaise question.** « Existe-t-il une version
+  qui satisfait toutes les spécifications ? » n'est pas ce que npm FAIT : il ne remplace une copie
+  posée que par une version supérieure ou égale. Une spécification exacte dominée par une plage
+  plus haute ne fait donc pas conflit — elle fait une copie IMBRIQUÉE, que la règle déclarait
+  conciliable en toute bonne foi. Le verrou tranche sans réseau ; la question juste est _le dépôt
+  recevra-t-il plusieurs exemplaires ?_
+- **[1× — 09-10f] Un motif qui s'arrête aux LETTRES est aveugle à un nom qui porte un chiffre.**
+  `argv.selftest.mjs` existe pour confronter les drapeaux qu'un banc LIT à ceux qu'il DÉCLARE. Il
+  annonçait « verify-generated.mjs — 4 lus, 4 accordés » sur un fichier qui en lit **5** : son
+  motif s'arrêtait à `[a-z-]+`, et `--no-e2e` porte un `2`. Conséquence en aval : le banc REFUSAIT
+  `--no-e2e` (lu mais non déclaré) et rendait son usage en sortant 64, sans que rien ne le
+  signale. Même faute que le compteur du sas la veille — c'est la FORME du motif qui décide de ce
+  qu'on voit, et un compte affiché donne le change.
+- **[1× — 09-10f] Une assertion de contenu se fait mordre par le texte qui EXPLIQUE la règle.**
+  `assert.notInclude(dockerfile, "org.opencontainers.image.licenses")` a échoué sur le
+  **commentaire du gabarit** qui justifie précisément l'absence de cette étiquette. Le test avait
+  raison de mordre, sur la mauvaise cible : une assertion doit viser la DIRECTIVE (`^[^#\n]*…`),
+  pas la chaîne. Un contrôle qui ne distingue pas le code de son commentaire ne juge pas ce qu'il
+  croit — variante de [[feedback_prove_the_target_not_the_verdict]].
+- **[3× — 09-10f] Trois instruments faux en une séance, tous du même geste : lire un code de
+  sortie qui n'est pas celui qu'on croit.** (a) une commande de fond terminée par `echo "exit=$?"`
+  fait rapporter au harness le code de l'`echo`, pas celui du programme — conclu « banc vert »
+  sur un banc qui n'avait RIEN lancé ; (b) `${PIPESTATUS[0]}` est vide en zsh (c'est
+  `$pipestatus[1]`), donc `npm … | grep …; echo $?` rend le code du `grep` — un gate rouge lu
+  comme vert ; (c) une boucle de sonde `for i in $(seq 1 40)` **sans `sleep`** a fait quarante
+  requêtes en 0,2 s, et conclu à un échec de démarrage sur un conteneur qui bootait normalement.
+  Le remède est le même dans les trois cas : écrire le code de sortie DANS UN FICHIER, et ne
+  lire que lui. → [[feedback_shell_false_diagnostics]]
+
 ## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — sur ce dépôt, la capacité existe presque toujours
 
 > Le symptôme est l'inverse de [[feedback_capability_unreachable_is_absent]] : là-bas une capacité
@@ -292,6 +453,16 @@
   seconde faute est devenue un contre-exemple de la page. **Un bloc de code publié se COMPILE, même
   quand aucun gate ne le demande** — surtout quand la page prétend enseigner une garde de typage.
 
+## 🚪 Un fast-path standalone ne vaut QUE pour l'invocation directe
+
+- [1× — 09-05d] **L'aide PROMET, la commande REFUSE — et rien ne dit qui a raison.** `nodefony create app --interactive` répondait « option inconnue », alors que `nodefony --help` annonce `-i, --interactive` deux lignes plus haut. Cause : ces options sont posées sur commander pour tout le CLI, et SEPT commandes répondent par le raccourci autonome, qui lit `process.argv` lui-même — précisément pour répondre sans démarrer l'application. Aucune ne cassait ; toutes démentaient l'aide, sur la toute première commande qu'on tape en découvrant le framework. Le raccourci n'hérite de RIEN : ce que la couche court-circuitée offrait doit être réoffert explicitement, à UN endroit (`cli/globalFlags.ts`), sinon la huitième commande autonome rouvre le trou sans que personne le voie.
+
+- `card`, `check`, `env`, `symbols`, `ai:sync`, `ai:mcp`, `git:hooks` : lancées depuis le MENU, le
+  kernel tourne déjà, elles passent par commander et **BOOTENT** — leur sortie arrivait sous dix à
+  trente lignes de « MODULE ADD ». Même piège pour les capacités déclarées : `CliKernel.start()` les
+  applique d'après la commande DEMANDÉE, or depuis le menu c'est `menu`. Toute règle posée « au
+  démarrage d'après argv » a un angle mort : le choix différé. `[1× — 08-21e]`
+
 ## 🗄️ 🧨 DÉCLARATION qui désarme + 💾 CACHE à demi écrit — VERSÉS
 
 > Versés le 2026-09-10 dans **`feedback_destructive_needs_identity_scope`** (§ « Détruire SANS EN AVOIR L'AIR ») : une déclaration, un nettoyage de décor ou une écriture de cache détruisent sans l'annoncer. Ne PAS réécrire ici.
@@ -365,11 +536,46 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   du navigateur), sans aucun effet, et le user a trouvé le menu bloqué avant moi. Revert. **Ce qui
   marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
 
+## 🧾 Un RITUEL de pilotage qui coûte plus qu'il ne rend
+
+- [1× — 09-11] **Les dates du tableau démarraient au 21 septembre, un 11 septembre.** Posées lors
+  d'une session passée, jamais reparties, et 28 tickets sur 57 n'en portaient aucune : une frise à
+  moitié remplie et décalée de dix jours ne se lit plus — verdict du user, « on comprend plus rien ».
+  Reposées en une passe (un jour ouvré par ticket, dans l'`Ordre`, alpha puis beta ; 57/57 relues
+  sur le tableau). Mais **rien ne les fera repartir la prochaine fois** : une date posée à la main
+  se périme exactement comme tout ce qui s'écrit à la main, et aucun contrôle du dépôt ne signale
+  une frise dont le départ est dans le passé.
+- [1× — 09-09c] **Huit tickets « In Progress » que rien ne faisait avancer — posés par mes propres
+  commits d'EMPREINTE.** `post-commit` passe en cours tout ticket cité par un commit ; un
+  `chore(board): … #288 (#297 #298 #299 #300)` en cite cinq d'un coup. Le lint, lui, exclut les
+  commits de pilotage de son verdict — donc il ne voyait rien de faux, et le tableau affichait huit
+  chantiers ouverts pour zéro ligne de code. Deux règles pour la même question (« ce commit
+  est-il du travail ? ») dans deux automates qui ne se lisent pas ; le hook devrait porter la même
+  exclusion que le lint. Redescendus à la main au END, 21 items contrôlés un par un.
+
+- [1× — 09-08] **Le user m'a arrêté sur un outil que j'allais brancher au END.** J'avais écrit un
+  script qui classe les leçons par porteur, et mon réflexe était de l'ajouter à la clôture — alors
+  que le END est déjà jugé trop long, ce qui avait déjà été dit en mai. Sa phrase : « il faut que le
+  jeu en vaille la chandelle ». Le script a fini au CONSOLIDATE (une fois tous les 10-20 retex), sa
+  sortie ramenée de 53 lignes à 6, les listes derrière un drapeau. **Un outil utile branché au
+  mauvais moment devient un coût récurrent** — et sa sortie longue s'apprend à ignorer, exactement
+  comme un rouge permanent.
+- [1× — 09-08] **J'allais ouvrir un ticket pour un travail déjà fait, testé et commité.** Le user :
+  « quel ticket tu veux ouvrir ? je ne comprends pas ». Le motif était « la note de reprise dit
+  qu'aucun ticket n'existe » — un rituel, pas un besoin : un ticket porte du travail À FAIRE, et la
+  trace d'un travail fait, c'est `git log`. Il l'a finalement voulu (l'ouvrir et le fermer donne un
+  compte rendu que le commit ne porte pas), mais la décision lui revenait, pas au réflexe.
+- [1× — 09-08] **Mon propre script a imprimé « ✓ » et le disque ne portait pas le changement.**
+  Une édition de `registerStores.ts` a disparu de l'arbre entre deux commandes ; je ne l'ai vu qu'en
+  lisant `git diff --stat`, pas en croyant la ligne de succès que j'avais moi-même écrite. Un `✓`
+  que j'imprime prouve que MON code a atteint sa dernière ligne — jamais l'état du disque. Le
+  contrôle qui vaut, après toute écriture qui compte : `git diff --stat`, ou un `grep` du motif posé.
+
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
 Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrire ici.
 
-**Gradué au fil de l'eau, jusqu'au CONSOLIDATE 2026-09-11 :**
+**Gradué au fil de l'eau, jusqu'au CONSOLIDATE 2026-09-10 :**
 
 | Thème (frictions)                                             | Destination                                  |
 | ------------------------------------------------------------- | -------------------------------------------- |
@@ -392,9 +598,6 @@ Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrir
 | 🕳️ Un gate rend un verdict RASSURANT sur son angle mort (10)  | `feedback_prove_the_target_not_the_verdict`  |
 | 📐 Le verdict BINAIRE d'un banc (5)                           | `feedback_verdict_discards_its_evidence`     |
 | 🎭 Un test de CARACTÉRISATION grave un défaut (9)             | `feedback_test_discriminant_or_dead`         |
-| 🪟 Un contrôle VERT qui ne POUVAIT rien voir (21)             | `feedback_gate_must_bite`                    |
-| 🧾 Un RITUEL de pilotage qui coûte plus qu'il ne rend (5)     | `feedback_ritual_must_earn_its_keep`         |
-| 🚪 Un fast-path standalone n'hérite de RIEN (2)               | `feedback_single_source_rule`                |
 | 🧪 Vérifier que la transformation a EU LIEU (57)              | `feedback_prove_on_received_artifact`        |
 | 🧰 Un GATE excellent que personne ne lance ne garde rien (47) | `feedback_gate_must_run`                     |
 | 🎯 Une ancre PLAUSIBLE et fausse (27)                         | `feedback_anchor_expires_silently`           |
