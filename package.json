@@ -67,7 +67,7 @@
     "test:integration": "turbo run build && turbo run test:integration --continue",
     "test:load": "turbo run build && turbo run test:load",
     "test:memory": "turbo run build && turbo run test:memory",
-    "test:pilotage": "vitest run .claude/skills/nodefony-ticket/scripts/ticket-progress.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-open.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-close.test.mjs .claude/skills/nodefony-ticket/scripts/board-lint.test.mjs .claude/skills/nodefony-ticket/scripts/board-source.test.mjs .claude/skills/nodefony-session/scripts/board-next.test.mjs",
+    "test:pilotage": "vitest run .claude/skills/nodefony-ticket/scripts/ticket-progress.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-open.test.mjs .claude/skills/nodefony-ticket/scripts/ticket-close.test.mjs .claude/skills/nodefony-ticket/scripts/board-lint.test.mjs .claude/skills/nodefony-ticket/scripts/board-source.test.mjs .claude/skills/nodefony-session/scripts/board-next.test.mjs .claude/skills/nodefony-session/scripts/board-snapshot.test.mjs",
     "test:release": "vitest run scripts/release/",
     "ticket:lint": "node .claude/skills/nodefony-ticket/scripts/board-lint.mjs",
     "ticket:open": "node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs",

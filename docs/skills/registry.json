@@ -5395,6 +5395,15 @@
             "selfDocumented": true
           },
           {
+            "path": "scripts/board-snapshot.test.mjs",
+            "purpose": "Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/lessons-carriers.mjs",
             "purpose": "Qui PORTE chaque leçon durable — le chaînon manquant du cycle des retex.",
             "usage": [],

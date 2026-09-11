@@ -66,6 +66,33 @@ const args = new Set(process.argv.slice(2));
 const CHECK = args.has("--check");
 const FORCE = args.has("--force");
 
+export const ITEMS_QUERY = `query($org:String!, $number:Int!, $after:String) {
+    organization(login:$org) {
+      projectV2(number:$number) {
+        items(first:100, after:$after) {
+          pageInfo { hasNextPage endCursor }
+          nodes {
+            fieldValues(first:20) {
+              nodes {
+                __typename
+                ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
+                ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
+                ... on ProjectV2ItemFieldDateValue { date field { ... on ProjectV2FieldCommon { name } } }
+              }
+            }
+            content {
+              ... on Issue {
+                number title url state
+                milestone { title }
+                labels(first:20) { nodes { name } }
+              }
+            }
+          }
+        }
+      }
+    }
+  }`;
+
 /** Lance une commande et rend sa sortie ; les erreurs remontent telles quelles. */
 function sh(cmd, argv) {
   return execFileSync(cmd, argv, {
@@ -99,31 +126,7 @@ function fetchLive() {
   // ligne de commande rendait 39 items là où l'API en comptait 40 — un ticket
   // ajouté à la minute était ABSENT de sa sortie, sans le moindre avertissement.
   // Un instrument qui perd une ligne en silence est pire qu'un instrument muet.
-  const QUERY = `query($org:String!, $number:Int!, $after:String) {
-    organization(login:$org) {
-      projectV2(number:$number) {
-        items(first:100, after:$after) {
-          pageInfo { hasNextPage endCursor }
-          nodes {
-            fieldValues(first:20) {
-              nodes {
-                __typename
-                ... on ProjectV2ItemFieldNumberValue { number field { ... on ProjectV2FieldCommon { name } } }
-                ... on ProjectV2ItemFieldSingleSelectValue { name field { ... on ProjectV2FieldCommon { name } } }
-              }
-            }
-            content {
-              ... on Issue {
-                number title url state
-                milestone { title }
-                labels(first:20) { nodes { name } }
-              }
-            }
-          }
-        }
-      }
-    }
-  }`;
+  const QUERY = ITEMS_QUERY;
 
   const noeuds = [];
   let after = null;
@@ -145,21 +148,42 @@ function fetchLive() {
     after = page.pageInfo.endCursor;
   }
 
-  /** Les valeurs de champ arrivent en liste : on les indexe par NOM de champ. */
-  const champs = (n) => {
-    const out = Object.create(null);
-    for (const v of n.fieldValues?.nodes ?? []) {
-      const nom = v.field?.name;
-      if (!nom) continue;
-      out[nom] = v.number ?? v.name ?? null;
-    }
-    return out;
-  };
+  return { milestones, items: projectItems(noeuds) };
+}
 
+/**
+ * Indexe par NOM les valeurs de champ d'un item — elles arrivent en liste plate,
+ * et chaque type de champ porte sa valeur sous une clef différente.
+ *
+ * @param n - un nœud d'item du tableau de bord
+ * @returns un objet `{ [nom du champ]: valeur }`
+ */
+export function indexFieldValues(n) {
+  const out = Object.create(null);
+  for (const v of n.fieldValues?.nodes ?? []) {
+    const nom = v.field?.name;
+    if (!nom) continue;
+    // ⚠️ `?? v.date` n'est pas décoratif : une valeur de DATE n'arrive ni sous
+    // `number` ni sous `name`. Sans elle la frise se lit `null` sans une erreur.
+    out[nom] = v.number ?? v.name ?? v.date ?? null;
+  }
+  return out;
+}
+
+/**
+ * Projette les nœuds bruts du tableau de bord en items d'empreinte, triés.
+ *
+ * Pure et exportée : c'est le maillon où une donnée peut disparaître en
+ * silence, donc celui qui doit s'éprouver sans réseau.
+ *
+ * @param noeuds - les nœuds d'items rendus par GraphQL
+ * @returns les items projetés, triés par ordre puis par numéro
+ */
+export function projectItems(noeuds) {
   const items = noeuds
     .filter((n) => n.content?.number)
     .map((n) => {
-      const f = champs(n);
+      const f = indexFieldValues(n);
       return {
         number: n.content.number,
         // Le titre vient du CONTENU de l'issue, jamais du champ recopié par le
@@ -172,6 +196,13 @@ function fetchLive() {
         priorite: f["Priorité"] ?? null,
         jours: typeof f.Jours === "number" ? f.Jours : null,
         ordre: typeof f.Ordre === "number" ? f.Ordre : null,
+        // La FRISE. Sans elle, un décalage de planification n'existe que dans
+        // `ticket:lint`, qui exige le réseau : hors ligne on relisait un ordre
+        // de travail sans jamais pouvoir constater que son calendrier avait
+        // glissé de dix jours. La donnée voyage ici ; le VERDICT reste au lint,
+        // seul endroit d'où l'on peut reposer les dates (1 règle = 1 implémentation).
+        debut: f["Début"] ?? null,
+        cible: f.Cible ?? null,
         labels: (n.content.labels?.nodes ?? []).map((l) => l.name),
       };
     })
@@ -179,7 +210,7 @@ function fetchLive() {
       (a, b) => (a.ordre ?? 9999) - (b.ordre ?? 9999) || a.number - b.number,
     );
 
-  return { milestones, items };
+  return items;
 }
 
 /** Garde n° 2 — une chute brutale trahit la source, pas le projet. */
@@ -202,6 +233,25 @@ function snapshot(live, generatedAt) {
 
 function renderJson(live, generatedAt) {
   return `${JSON.stringify(snapshot(live, generatedAt), null, 2)}\n`;
+}
+
+/**
+ * Rend la frise d'un ticket en une cellule lisible côte à côte avec la date de
+ * l'empreinte — c'est cette juxtaposition qui rend un décalage VISIBLE hors
+ * ligne : une frise qui démarre après le jour où l'empreinte a été prise n'a
+ * jamais commencé, et rien d'autre ici ne le dirait.
+ *
+ * @param it - l'item du tableau de bord
+ * @returns `2026-09-11 → 09-19`, `2026-09-11 → ?`, ou `—` si rien n'est daté
+ */
+export function renderFrise(it) {
+  if (!it.debut && !it.cible) return "—";
+  const fin = it.cible
+    ? it.cible.slice(0, 4) === (it.debut ?? "").slice(0, 4)
+      ? it.cible.slice(5)
+      : it.cible
+    : "?";
+  return `${it.debut ?? "?"} → ${fin}`;
 }
 
 function renderMarkdown(live, generatedAt) {
@@ -269,7 +319,7 @@ function renderMarkdown(live, generatedAt) {
       "",
       `**#${prochain.number} — ${prochain.title}**`,
       "",
-      `Ordre ${prochain.ordre ?? "—"} · ${prochain.priorite ?? "priorité non posée"} · ${prochain.jours ?? "—"} j · jalon ${prochain.milestone ?? "—"}`,
+      `Ordre ${prochain.ordre ?? "—"} · ${prochain.priorite ?? "priorité non posée"} · ${prochain.jours ?? "—"} j · jalon ${prochain.milestone ?? "—"} · frise ${renderFrise(prochain)}`,
       "",
       jalonCourant
         ? `> Choisi dans le **jalon courant \`${jalonCourant}\`**, qui a encore ${parJalon.get(jalonCourant)?.length ?? 0} tickets ouverts. ` +
@@ -292,12 +342,12 @@ function renderMarkdown(live, generatedAt) {
         : `## Jalon ${jalon} — ${items.length} ouverts`;
     lignes.push(titre, "");
     lignes.push(
-      "| Ordre | Prio | Jours | Ticket | Titre |",
-      "| --- | --- | ---: | --- | --- |",
+      "| Ordre | Prio | Jours | Frise | Ticket | Titre |",
+      "| --- | --- | ---: | --- | --- | --- |",
     );
     for (const it of items) {
       lignes.push(
-        `| ${it.ordre ?? "—"} | ${it.priorite ?? "—"} | ${it.jours ?? "—"} | #${it.number} | ${it.title} |`,
+        `| ${it.ordre ?? "—"} | ${it.priorite ?? "—"} | ${it.jours ?? "—"} | ${renderFrise(it)} | #${it.number} | ${it.title} |`,
       );
     }
     lignes.push("");
@@ -321,52 +371,64 @@ function memeContenu(a, b) {
   return nettoie(a) === nettoie(b);
 }
 
-const ancien = lireAncien();
-const live = fetchLive();
+// ─────────────────────────────────────────── point d'entrée
+// Sans cette garde, un simple `import` de ce fichier interrogerait GitHub et
+// RÉÉCRIRAIT l'empreinte — les fonctions pures ci-dessus seraient donc
+// inéprouvables, et c'est exactement là que la donnée disparaissait en silence.
+if (!process.argv[1]?.endsWith("board-snapshot.mjs")) {
+  // Importé (test) : on n'exécute rien.
+} else {
+  main();
+}
 
-if (!live) {
-  if (CHECK) {
+function main() {
+  const ancien = lireAncien();
+  const live = fetchLive();
+
+  if (!live) {
+    if (CHECK) {
+      console.error(
+        "⚠️  GitHub injoignable — dérive NON vérifiée (ce n'est pas un verdict vert).",
+      );
+      process.exit(2);
+    }
     console.error(
-      "⚠️  GitHub injoignable — dérive NON vérifiée (ce n'est pas un verdict vert).",
+      "⚠️  GitHub injoignable — l'instantané existant est CONSERVÉ tel quel.\n" +
+        "   Un échec d'appel ne doit jamais se traduire par un fichier vide : on\n" +
+        "   perdrait le filet au moment précis où il sert.",
     );
-    process.exit(2);
+    process.exit(1);
   }
-  console.error(
-    "⚠️  GitHub injoignable — l'instantané existant est CONSERVÉ tel quel.\n" +
-      "   Un échec d'appel ne doit jamais se traduire par un fichier vide : on\n" +
-      "   perdrait le filet au moment précis où il sert.",
-  );
-  process.exit(1);
-}
 
-if (!FORCE && !plausible(live, ancien)) {
-  console.error(
-    `❌ Refus d'écrire : ${live.items.length} items rendus contre ${ancien.items.length} dans l'instantané.\n` +
-      "   Une telle chute trahit la source (jeton restreint, panne partielle) plus\n" +
-      "   souvent que le projet. Relancer avec --force si la chute est réelle.",
-  );
-  process.exit(1);
-}
-
-const generatedAt = new Date().toISOString();
-
-if (CHECK) {
-  const aJour = memeContenu(snapshot(live, generatedAt), ancien);
-  if (aJour) {
-    console.log(`✅ Instantané à jour — ${live.items.length} items.`);
-    process.exit(0);
+  if (!FORCE && !plausible(live, ancien)) {
+    console.error(
+      `❌ Refus d'écrire : ${live.items.length} items rendus contre ${ancien.items.length} dans l'instantané.\n` +
+        "   Une telle chute trahit la source (jeton restreint, panne partielle) plus\n" +
+        "   souvent que le projet. Relancer avec --force si la chute est réelle.",
+    );
+    process.exit(1);
   }
-  console.error(
-    "❌ L'instantané a dérivé du tableau de bord. Régénérer : `npm run board:snapshot`.",
+
+  const generatedAt = new Date().toISOString();
+
+  if (CHECK) {
+    const aJour = memeContenu(snapshot(live, generatedAt), ancien);
+    if (aJour) {
+      console.log(`✅ Instantané à jour — ${live.items.length} items.`);
+      process.exit(0);
+    }
+    console.error(
+      "❌ L'instantané a dérivé du tableau de bord. Régénérer : `npm run board:snapshot`.",
+    );
+    process.exit(1);
+  }
+
+  fs.mkdirSync(path.dirname(JSON_OUT), { recursive: true });
+  fs.writeFileSync(JSON_OUT, renderJson(live, generatedAt));
+  fs.writeFileSync(MD_OUT, renderMarkdown(live, generatedAt));
+
+  const ouverts = live.items.filter((i) => i.status !== "Done").length;
+  console.log(
+    `✅ Empreinte écrite — ${live.items.length} items (${ouverts} ouverts) → .ai/board.json + .ai/BOARD.md`,
   );
-  process.exit(1);
 }
-
-fs.mkdirSync(path.dirname(JSON_OUT), { recursive: true });
-fs.writeFileSync(JSON_OUT, renderJson(live, generatedAt));
-fs.writeFileSync(MD_OUT, renderMarkdown(live, generatedAt));
-
-const ouverts = live.items.filter((i) => i.status !== "Done").length;
-console.log(
-  `✅ Empreinte écrite — ${live.items.length} items (${ouverts} ouverts) → .ai/board.json + .ai/BOARD.md`,
-);

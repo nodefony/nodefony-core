@@ -399,6 +399,44 @@ describe("lintBoard — la frise", () => {
     expect(trous[0].message).toContain("10.0.0");
     expect(trous[0].message).toContain("#2");
   });
+
+  // Frise et estimation sont posées SÉPARÉMENT dans le tableau de bord : rien ne
+  // les rapproche, si bien qu'un ticket de 6,5 jours pouvait porter une fenêtre
+  // d'un seul jour sans que personne ne le voie (mesuré : 13 items sur 86).
+  // Un plan qui promet moins de temps qu'il n'en a estimé ne tient pas.
+  it("FRISE-TROP-COURTE : une fenêtre qui ne couvre pas l'estimation", () => {
+    const findings = lintBoard({
+      items: [
+        sain(1, { debut: "2026-09-03", cible: "2026-09-03", jours: 6.5 }),
+        sain(2, { debut: "2026-09-04", cible: "2026-09-04", jours: 2 }),
+      ],
+      issues: [issueSaine(1), issueSaine(2)],
+      now: MAINTENANT,
+    });
+    const courts = findings.filter((x) => x.code === "FRISE-TROP-COURTE");
+    // UN seul constat, porté par le plus gros écart : treize avertissements pour
+    // une seule cause apprendraient à passer outre (même raison que FRISE-DECALEE).
+    expect(courts).toHaveLength(1);
+    expect(courts[0].n).toBe(1);
+    expect(courts[0].severity).toBe("avertissement");
+    expect(courts[0].message).toContain("6.5");
+  });
+
+  it("une fenêtre qui couvre l'estimation, week-end compris, se tait", () => {
+    const findings = lintBoard({
+      items: [
+        // 4 jours calendaires de fenêtre pour 2 jours estimés.
+        sain(1, { debut: "2026-09-03", cible: "2026-09-06", jours: 2 }),
+        // Un ticket d'un jour tenant dans une fenêtre d'un jour : exact, donc muet.
+        sain(2, { debut: "2026-09-04", cible: "2026-09-04", jours: 1 }),
+        // Ni date ni estimation : rien à confronter.
+        sain(3, { jours: 9 }),
+      ],
+      issues: [issueSaine(1), issueSaine(2), issueSaine(3)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("FRISE-TROP-COURTE");
+  });
 });
 
 describe("lintBoard — les erreurs sortent avant les avertissements", () => {

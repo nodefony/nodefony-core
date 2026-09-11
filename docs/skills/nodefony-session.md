@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | Description | 960 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 6 |
+| Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -102,6 +102,7 @@ script, donc toujours à jour après régénération.
 | `scripts/board-next.mjs` | Le choix du PROCHAIN ticket — la règle, isolée pour être éprouvable sans réseau. | — | — |
 | `scripts/board-next.test.mjs` | Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le | — | — |
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
+| `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS | — | — |
 | `scripts/lessons-carriers.mjs` | Qui PORTE chaque leçon durable — le chaînon manquant du cycle des retex. | `--dead` `--inert` `--recos` `--strict` `--write` | — |
 | `scripts/retex-seuil.mjs` | Les thèmes de `RETEX.md` qui ont atteint le seuil de graduation. | `--all` | `SAS` `SEUIL` |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |

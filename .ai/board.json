@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T13:35:35.274Z",
+  "generatedAt": "2026-09-11T13:46:31.453Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -71,6 +71,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 0.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -86,6 +88,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 0.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -100,6 +104,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -115,6 +121,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0,
       "ordre": 1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "arbitrage"
       ]
@@ -129,6 +137,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -143,6 +153,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -157,6 +169,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -171,6 +185,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "outillage-agents"
       ]
@@ -185,6 +201,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 1.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -199,6 +217,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -213,6 +233,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 1.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -227,6 +249,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -241,6 +265,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 1.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -256,6 +282,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.5,
+      "debut": "2026-10-12",
+      "cible": "2026-10-12",
       "labels": [
         "10.0.0-beta"
       ]
@@ -270,6 +298,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 1.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "irrattrapable",
         "10.0.0-alpha"
@@ -285,6 +315,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 1.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -299,6 +331,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 1.6,
+      "debut": "2026-09-09",
+      "cible": "2026-09-09",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -313,6 +347,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 1.6,
+      "debut": "2026-10-13",
+      "cible": "2026-10-13",
       "labels": [
         "10.0.0-beta"
       ]
@@ -327,6 +363,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -341,6 +379,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.65,
+      "debut": "2026-09-10",
+      "cible": "2026-09-10",
       "labels": [
         "10.0.0"
       ]
@@ -355,6 +395,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "documentation",
         "10.0.0",
@@ -371,6 +413,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -385,6 +429,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.7,
+      "debut": "2026-09-11",
+      "cible": "2026-09-11",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -399,6 +445,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 1.7,
+      "debut": "2026-10-14",
+      "cible": "2026-10-14",
       "labels": [
         "10.0.0-beta"
       ]
@@ -413,6 +461,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 1.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -427,6 +477,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 1.8,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -441,6 +493,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.8,
+      "debut": "2026-09-14",
+      "cible": "2026-09-14",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -455,6 +509,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 1.8,
+      "debut": "2026-10-15",
+      "cible": "2026-10-15",
       "labels": [
         "arbitrage",
         "10.0.0-beta"
@@ -470,6 +526,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.85,
+      "debut": "2026-09-15",
+      "cible": "2026-09-15",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -484,6 +542,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 1.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "arbitrage"
@@ -499,6 +559,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.9,
+      "debut": "2026-09-16",
+      "cible": "2026-09-16",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -513,6 +575,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.95,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -528,6 +592,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 2.5,
       "ordre": 2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -542,6 +608,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -556,6 +624,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2,
+      "debut": "2026-10-16",
+      "cible": "2026-10-16",
       "labels": [
         "irrattrapable",
         "10.0.0-beta"
@@ -571,6 +641,8 @@
       "priorite": "P2 — décision",
       "jours": 3,
       "ordre": 2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "outillage-agents"
       ]
@@ -585,6 +657,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 2.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -599,6 +673,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 2.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -613,6 +689,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -627,6 +705,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.35,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -641,6 +721,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -655,6 +737,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -669,6 +753,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.45,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -683,6 +769,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.45,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -697,6 +785,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 2.46,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -711,6 +801,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1.5,
       "ordre": 2.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -725,6 +817,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -739,6 +833,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -753,6 +849,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 2.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "arbitrage"
@@ -768,6 +866,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.51,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
@@ -780,6 +880,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.52,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
@@ -792,6 +894,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 2.55,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -806,6 +910,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.55,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -820,6 +926,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 2.56,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -834,6 +942,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.56,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -848,6 +958,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.57,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -862,6 +974,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -876,6 +990,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -890,6 +1006,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 2.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -904,6 +1022,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -918,6 +1038,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -932,6 +1054,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 2.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -947,6 +1071,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.8,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -961,6 +1087,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.8,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -975,6 +1103,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.85,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -989,6 +1119,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1003,6 +1135,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 2.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1017,6 +1151,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.91,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1031,6 +1167,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.92,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1045,6 +1183,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 2.95,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -1059,6 +1199,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.95,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1073,6 +1215,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.97,
+      "debut": null,
+      "cible": null,
       "labels": [
         "backlog"
       ]
@@ -1087,6 +1231,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 2.98,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1101,6 +1247,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 2.99,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1115,6 +1263,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 7.5,
       "ordre": 3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1129,6 +1279,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1143,6 +1295,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 3,
+      "debut": "2026-10-19",
+      "cible": "2026-10-19",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1157,6 +1311,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "outillage-agents"
       ]
@@ -1171,6 +1327,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 3.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1185,6 +1343,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 3.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1199,6 +1359,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 3.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1213,6 +1375,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 3.34,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1227,6 +1391,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 3.35,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1241,6 +1407,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 3.36,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1255,6 +1423,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 3.37,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1269,6 +1439,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1.5,
       "ordre": 3.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1283,6 +1455,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.75,
       "ordre": 3.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1297,6 +1471,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 3.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1311,6 +1487,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.75,
       "ordre": 3.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1325,6 +1503,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1339,6 +1519,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 3.8,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1353,6 +1535,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 3.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1367,6 +1551,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4,
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1381,6 +1567,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1395,6 +1583,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "outillage-agents"
       ]
@@ -1409,6 +1599,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1423,6 +1615,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.2,
+      "debut": "2026-10-21",
+      "cible": "2026-10-21",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1437,6 +1631,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.3,
+      "debut": "2026-10-22",
+      "cible": "2026-10-22",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1451,6 +1647,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.3,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -1465,6 +1663,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.4,
+      "debut": "2026-10-23",
+      "cible": "2026-10-23",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1479,6 +1679,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -1494,6 +1696,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.5,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
@@ -1506,6 +1710,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.5,
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1520,6 +1726,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.51,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1535,6 +1743,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.52,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1550,6 +1760,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.53,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1565,6 +1777,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.54,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1580,6 +1794,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.55,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1595,6 +1811,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.56,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1610,6 +1828,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -1625,6 +1845,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 4.6,
+      "debut": "2026-10-27",
+      "cible": "2026-10-27",
       "labels": [
         "rattrapable",
         "10.0.0-beta"
@@ -1640,6 +1862,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -1655,6 +1879,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1669,6 +1895,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1683,6 +1911,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 4.7,
+      "debut": "2026-09-18",
+      "cible": "2026-09-18",
       "labels": [
         "irrattrapable",
         "10.0.0-alpha"
@@ -1698,6 +1928,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 4.75,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1712,6 +1944,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4.8,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1726,6 +1960,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"
@@ -1741,6 +1977,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4.9,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1755,6 +1993,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 5.5,
       "ordre": 5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1769,6 +2009,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 11.5,
       "ordre": 5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1783,6 +2025,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3.5,
       "ordre": 5,
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1797,6 +2041,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 4,
       "ordre": 5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -1811,6 +2057,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "outillage-agents"
       ]
@@ -1825,6 +2073,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 5.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -1840,6 +2090,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 5.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1854,6 +2106,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 2,
       "ordre": 5.1,
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1868,6 +2122,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 5.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -1882,6 +2138,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 5.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1896,6 +2154,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 5.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1910,6 +2170,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.2,
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1924,6 +2186,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 5.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -1938,6 +2202,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 5,
       "ordre": 5.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1952,6 +2218,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 5.3,
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1966,6 +2234,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 5.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -1980,6 +2250,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 5.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -1994,6 +2266,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2008,6 +2282,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 5.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2022,6 +2298,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 5.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2036,6 +2314,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 5.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2050,6 +2330,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 5.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2064,6 +2346,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 5.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2078,6 +2362,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.8,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2092,6 +2378,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2106,6 +2394,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.91,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2120,6 +2410,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 5.92,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2134,6 +2426,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 5.93,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2148,6 +2442,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2162,6 +2458,8 @@
       "priorite": "P2 — décision",
       "jours": 2.5,
       "ordre": 6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2176,6 +2474,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2190,6 +2490,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2204,6 +2506,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2218,6 +2522,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2232,6 +2538,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2246,6 +2554,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2260,6 +2570,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2274,6 +2586,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2288,6 +2602,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2302,6 +2618,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2316,6 +2634,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2330,6 +2650,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 6.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2344,6 +2666,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 6.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2358,6 +2682,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2372,6 +2698,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2386,6 +2714,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2400,6 +2730,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2414,6 +2746,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 6.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2428,6 +2762,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2442,6 +2778,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2456,6 +2794,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2470,6 +2810,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 6.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2484,6 +2826,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 6.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2498,6 +2842,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 6.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2512,6 +2858,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 6.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2526,6 +2874,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 6.6,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2540,6 +2890,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 6.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2554,6 +2906,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 6.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2568,6 +2922,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1.5,
       "ordre": 7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2582,6 +2938,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 7.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2596,6 +2954,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 7.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2610,6 +2970,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 7.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2624,6 +2986,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.4,
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2638,6 +3002,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.45,
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2652,6 +3018,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.47,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-beta"
       ]
@@ -2666,6 +3034,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 9.48,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-beta"
       ]
@@ -2680,6 +3050,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -2694,6 +3066,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.5,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2708,6 +3082,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.6,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2722,6 +3098,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2736,6 +3114,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.7,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2750,6 +3130,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.8,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2764,6 +3146,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.85,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2778,6 +3162,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.86,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2792,6 +3178,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.87,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2806,6 +3194,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.9,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2820,6 +3210,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 6.5,
       "ordre": 9.91,
+      "debut": "2026-09-11",
+      "cible": "2026-09-11",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2834,6 +3226,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.92,
+      "debut": "2026-09-14",
+      "cible": "2026-09-14",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2848,6 +3242,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.93,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2862,6 +3258,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.93,
+      "debut": "2026-09-15",
+      "cible": "2026-09-15",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2876,6 +3274,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 9.94,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2890,6 +3290,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.94,
+      "debut": "2026-09-16",
+      "cible": "2026-09-16",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2904,6 +3306,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 9.941,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2918,6 +3322,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 2,
       "ordre": 9.942,
+      "debut": "2026-09-18",
+      "cible": "2026-09-18",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2932,6 +3338,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.943,
+      "debut": "2026-09-21",
+      "cible": "2026-09-21",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2946,6 +3354,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 9.95,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2960,6 +3370,8 @@
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 9.96,
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2974,6 +3386,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 9.97,
+      "debut": "2026-09-23",
+      "cible": "2026-09-23",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -2988,6 +3402,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.98,
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3002,6 +3418,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.99,
+      "debut": "2026-09-25",
+      "cible": "2026-09-25",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3016,6 +3434,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.995,
+      "debut": "2026-09-28",
+      "cible": "2026-09-28",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3030,6 +3450,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.996,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3044,6 +3466,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.997,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3058,6 +3482,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.998,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3072,6 +3498,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.999,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3086,6 +3514,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 10,
+      "debut": "2026-09-29",
+      "cible": "2026-09-29",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3100,6 +3530,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 11,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3114,6 +3546,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 11.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3128,6 +3562,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 12,
+      "debut": "2026-09-30",
+      "cible": "2026-09-30",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3142,6 +3578,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 12.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -3157,6 +3595,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 12.7,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3171,6 +3611,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 13,
+      "debut": "2026-10-01",
+      "cible": "2026-10-01",
       "labels": [
         "rattrapable",
         "10.0.0-alpha"
@@ -3186,6 +3628,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 14,
+      "debut": "2026-10-02",
+      "cible": "2026-10-02",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3200,6 +3644,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 5,
       "ordre": 15,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3214,6 +3660,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 16,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -3229,6 +3677,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 16,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0",
         "arbitrage"
@@ -3244,6 +3694,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 16.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3258,6 +3710,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 16.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3272,6 +3726,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 17,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -3287,6 +3743,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 17,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3301,6 +3759,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 18,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "rattrapable"
@@ -3316,6 +3776,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 18,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3330,6 +3792,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 19,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3344,6 +3808,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 19,
+      "debut": "2026-10-05",
+      "cible": "2026-10-05",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3358,6 +3824,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 20,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3372,6 +3840,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 20,
+      "debut": "2026-10-06",
+      "cible": "2026-10-06",
       "labels": [
         "arbitrage",
         "10.0.0-alpha"
@@ -3387,6 +3857,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
       "ordre": 21,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -3401,6 +3873,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 21,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3415,6 +3889,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 22,
+      "debut": "2026-10-07",
+      "cible": "2026-10-07",
       "labels": [
         "rattrapable",
         "10.0.0-alpha"
@@ -3430,6 +3906,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 26,
+      "debut": "2026-10-08",
+      "cible": "2026-10-08",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3444,6 +3922,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 28,
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
       "labels": [
         "rattrapable",
         "10.0.0-beta"
@@ -3459,6 +3939,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 29,
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
       "labels": [
         "rattrapable",
         "10.0.0-beta"
@@ -3474,6 +3956,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 30,
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3488,6 +3972,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 30,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3502,6 +3988,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 31,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3516,6 +4004,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
       "ordre": 32,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3530,6 +4020,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 32,
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3544,6 +4036,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 33,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3558,6 +4052,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
       "ordre": 34,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3572,6 +4068,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 39,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3586,6 +4084,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 9,
       "ordre": 45,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3600,6 +4100,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 45.2,
+      "debut": "2026-11-20",
+      "cible": "2026-11-20",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3614,6 +4116,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1.5,
       "ordre": 45.3,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3628,6 +4132,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 45.4,
+      "debut": "2026-11-24",
+      "cible": "2026-11-24",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3642,6 +4148,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 45.6,
+      "debut": "2026-11-25",
+      "cible": "2026-11-25",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3656,6 +4164,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 45.7,
+      "debut": "2026-11-26",
+      "cible": "2026-11-26",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3670,6 +4180,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1.5,
       "ordre": 45.9,
+      "debut": "2026-11-27",
+      "cible": "2026-11-27",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3684,6 +4196,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 46,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3698,6 +4212,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 48,
+      "debut": "2026-11-30",
+      "cible": "2026-11-30",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3712,6 +4228,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 55,
+      "debut": "2026-10-09",
+      "cible": "2026-10-09",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3726,6 +4244,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 59,
+      "debut": "2026-09-08",
+      "cible": "2026-09-08",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3740,6 +4260,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
       "ordre": 60,
+      "debut": "2026-10-15",
+      "cible": "2026-11-15",
       "labels": [
         "10.0.0"
       ]
@@ -3754,6 +4276,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 60.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3768,6 +4292,8 @@
       "priorite": "P2 — décision",
       "jours": 2.5,
       "ordre": 70,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3782,6 +4308,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 70.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3796,6 +4324,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 70.2,
+      "debut": null,
+      "cible": null,
       "labels": [
         "backlog"
       ]
@@ -3810,6 +4340,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 70.3,
+      "debut": null,
+      "cible": null,
       "labels": [
         "backlog"
       ]
@@ -3824,6 +4356,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 70.4,
+      "debut": null,
+      "cible": null,
       "labels": [
         "backlog"
       ]
@@ -3838,6 +4372,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 70.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "backlog"
       ]
@@ -3852,6 +4388,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 90,
+      "debut": null,
+      "cible": null,
       "labels": [
         "outillage-agents"
       ]
@@ -3866,6 +4404,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 100,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3880,6 +4420,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 101,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -3894,6 +4436,8 @@
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 110,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3908,6 +4452,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 110.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -3922,6 +4468,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 111,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -3936,6 +4484,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 112,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -3950,6 +4500,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 113,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3964,6 +4516,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 114,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -3978,6 +4532,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 115,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -3992,6 +4548,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 116,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4006,6 +4564,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 117,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0",
         "backlog"
@@ -4021,6 +4581,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 118,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4035,6 +4597,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 119,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4049,6 +4613,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 120,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4063,6 +4629,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 121,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4077,6 +4645,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 122,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0",
         "arbitrage"
@@ -4092,6 +4662,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 123,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4106,6 +4678,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 124,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4120,6 +4694,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 2,
       "ordre": 130,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4134,6 +4710,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 131,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4148,6 +4726,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 132,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4162,6 +4742,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 133,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4176,6 +4758,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 134,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4190,6 +4774,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 135,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4204,6 +4790,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 136,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4218,6 +4806,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 137,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
@@ -4230,6 +4820,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 138,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0"
       ]
@@ -4244,6 +4836,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 139,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4258,6 +4852,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 140,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4272,6 +4868,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 141,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4286,6 +4884,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 141,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.1.0"
       ]
@@ -4300,6 +4900,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 5,
       "ordre": 142,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4314,6 +4916,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 142,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4328,6 +4932,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 143,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4342,6 +4948,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 144,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4356,6 +4964,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 145,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4370,6 +4980,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 146,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4384,6 +4996,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 147,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4398,6 +5012,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 148,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4412,6 +5028,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 149,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4426,6 +5044,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 150,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4440,6 +5060,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 151,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4454,6 +5076,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 152,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4468,6 +5092,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 153,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4482,6 +5108,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 154,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4496,6 +5124,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 155,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
       "labels": [
         "10.1.0"
       ]
@@ -4510,6 +5140,8 @@
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 156,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4524,6 +5156,8 @@
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 157,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4538,6 +5172,8 @@
       "priorite": "P2 — décision",
       "jours": 2,
       "ordre": 158,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4552,6 +5188,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 159,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4566,6 +5204,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 160,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4580,6 +5220,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 161,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.2.0"
       ]
@@ -4594,6 +5236,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 162,
+      "debut": null,
+      "cible": null,
       "labels": [
         "11.0.0"
       ]
@@ -4608,6 +5252,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 163,
+      "debut": null,
+      "cible": null,
       "labels": [
         "11.0.0"
       ]
@@ -4622,6 +5268,8 @@
       "priorite": "P2 — décision",
       "jours": 5,
       "ordre": 164,
+      "debut": null,
+      "cible": null,
       "labels": [
         "11.0.0"
       ]
@@ -4636,6 +5284,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3,
       "ordre": 165,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4650,6 +5300,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 166,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4664,6 +5316,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 167,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4678,6 +5332,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 168,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4692,6 +5348,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 169,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4706,6 +5364,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 170,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4720,6 +5380,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 171,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4734,6 +5396,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 172,
+      "debut": null,
+      "cible": null,
       "labels": [
         "12.0.0"
       ]
@@ -4748,6 +5412,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 900,
+      "debut": null,
+      "cible": null,
       "labels": [
         "backlog"
       ]
@@ -4762,6 +5428,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": null,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0",
         "irrattrapable"

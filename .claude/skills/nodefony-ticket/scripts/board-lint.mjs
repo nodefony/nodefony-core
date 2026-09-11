@@ -259,6 +259,35 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
     );
   }
 
+  // A6 — la frise et l'estimation sont posées SÉPARÉMENT, et rien ne les
+  // rapproche : un ticket estimé 6,5 jours portait une fenêtre d'UN jour, et le
+  // tableau affichait les deux côte à côte sans rien dire (mesuré : 13 items sur
+  // 86 datés et estimés). Un plan qui s'accorde moins de temps qu'il n'en a
+  // estimé ne tient pas — c'est l'un des deux chiffres qui est faux.
+  // UN seul constat, porté par le plus gros écart : même raison qu'en E7.
+  const trop = items
+    .filter((i) => i.debut && i.cible && typeof i.jours === "number")
+    .map((i) => ({
+      item: i,
+      // Fenêtre CALENDAIRE, bornes incluses : un ticket qui commence et finit le
+      // même jour dispose d'un jour, pas de zéro.
+      fenetre: (jourDe(i.cible) - jourDe(i.debut)) / 86400000 + 1,
+    }))
+    .filter(({ item, fenetre }) => fenetre < item.jours)
+    .sort((a, b) => b.item.jours - b.fenetre - (a.item.jours - a.fenetre));
+  if (trop.length) {
+    const { item, fenetre } = trop[0];
+    add(
+      "avertissement",
+      "FRISE-TROP-COURTE",
+      item.n,
+      `${item.jours} j estimés pour une fenêtre de ${fenetre} j (${item.debut} → ${item.cible})` +
+        `${trop.length > 1 ? ` — et ${trop.length - 1} autre(s) ticket(s) dans le même cas` : ""}` +
+        " : l'un des deux chiffres est faux",
+      "élargir la Cible, ou corriger l'estimation",
+    );
+  }
+
   // A5 — une frise À TROUS ne se lit pas davantage. Ne mord QUE dans un jalon déjà
   // daté : un jalon sans aucune date n'est pas en retard, il n'est pas encore planifié.
   const parJalon = new Map();
