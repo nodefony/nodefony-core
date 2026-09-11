@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T18:17:12.213Z",
+  "generatedAt": "2026-09-11T19:23:53.414Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 69,
+      "closed": 71,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 17,
+      "open": 15,
       "title": "10.0.0-alpha"
     },
     {
@@ -3364,8 +3364,8 @@
       "number": 355,
       "title": "test(release): jouer la topologie avec frontal dans le banc de la forge",
       "url": "https://github.com/nodefony/nodefony-core/issues/355",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3573,7 +3573,7 @@
       "title": "feat(scaffold): livrer les licences des dépendances",
       "url": "https://github.com/nodefony/nodefony-core/issues/323",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3604,8 +3604,8 @@
       "number": 328,
       "title": "fix(log): écrire un horodatage que les outils savent lire",
       "url": "https://github.com/nodefony/nodefony-core/issues/328",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
