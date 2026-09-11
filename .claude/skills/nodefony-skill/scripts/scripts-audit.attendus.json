@@ -10,7 +10,6 @@
     ".claude/skills/nodefony-html-report/scripts/formats.selftest.mjs",
     ".claude/skills/nodefony-identifiers/scripts/check-literals-unchanged.mjs",
     ".claude/skills/nodefony-identifiers/scripts/check-rename-drift.mjs",
-    ".claude/skills/nodefony-identifiers/scripts/rename-identifiers.test.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/bare.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/express-drizzle.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/express-fair-drizzle.mjs",
@@ -54,8 +53,6 @@
     "scripts/check-package-deps.mjs",
     "scripts/check-platform-channels.mjs",
     "scripts/realtime-coverage-map.mjs",
-    "scripts/release/image-gate.test.mjs",
-    "scripts/release/release-core.test.mjs",
     "scripts/safe-commit.sh"
   ]
 }

@@ -283,6 +283,25 @@ function automateQuiLance(p) {
     return "un script npm";
   if (forgeText.includes(k) || forgeText.includes(base))
     return "un étage de forge";
+  // 🔴 Un runner de tests prend un DOSSIER, pas une liste de fichiers.
+  // `vitest run scripts/release/` lance tout ce qui s'y termine en `.test.*` —
+  // et ce contrôle, qui cherchait un nom de fichier, déclarait ces tests
+  // « exécutés par aucun automate ». Trois l'étaient à tort, dont deux depuis
+  // des semaines : un faux orphelin fait retirer ou recâbler du code vivant, et
+  // surtout il apprend à ne plus croire la liste.
+  //
+  // La reconnaissance est BORNÉE aux fichiers de test, et c'est ce qui la rend
+  // sûre : une cible-dossier ne blanchit pas les outils qui vivent à côté
+  // (`pack-all.mjs`, `fix-dts-extensions.mjs`), qu'aucun runner ne ramasse.
+  if (/\.test\.[cm]?[jt]sx?$/u.test(base)) {
+    const dossier = k.slice(0, k.lastIndexOf("/") + 1);
+    if (dossier && scriptsNpm.includes(dossier)) {
+      return "un script npm (cible-dossier)";
+    }
+    if (dossier && forgeText.includes(dossier)) {
+      return "un étage de forge (cible-dossier)";
+    }
+  }
   // Le nom précédé d'un séparateur ou d'un délimiteur de chaîne : sans cette
   // frontière, `index.mjs` se croit appelé par tout le dépôt.
   for (const [autre, src] of sourcesNettoyees) {
