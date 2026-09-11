@@ -277,24 +277,25 @@ la victime est déconnectée (signal visible) au lieu d'un vol silencieux indéf
 
 ## 🔐 Le keystore Ed25519 — la clé ne fuit pas, pas de secret « par défaut » en prod
 
-`JwtKeystore.#load()` résout la source de clé par **priorité** (`JwtKeystore.ts:97-128`), pensée
+`JwtKeystore.#load()` résout la source de clé par **priorité** (`JwtKeystore.ts:151-187`), pensée
 pour ne jamais auto-générer une clé en clair silencieusement en prod :
 
 1. **env** — `keySetJson` (JWK Set injecté depuis le catalogue d'env) : prod cloud, secret géré
-   hors-app, même clé sur tous les pods (`JwtKeystore.ts:100-106`).
+   hors-app, même clé sur tous les pods (`JwtKeystore.ts:154-160`).
 2. **fichier** — `dir/keyset.json`, généré si absent, écriture atomique tmp+rename en mode 600 —
-   `#writeAtomic()` (`JwtKeystore.ts:208-217`) : opt-in dev/VPS mono-machine.
+   `#writeAtomic()` (`JwtKeystore.ts:272-280`) : opt-in dev/VPS mono-machine.
 3. **mémoire** — aucune source → clé **éphémère + WARNING** explicite : perdue au redémarrage =
-   refresh invalidés, incohérente en cluster (`JwtKeystore.ts:121-127`).
+   refresh invalidés, incohérente en cluster (`JwtKeystore.ts:179-186`).
 
-Le JWKS servi par `getPublicJWKS()` (`JwtKeystore.ts:87-90`) est **public** : la composante privée
-`d` est retirée à l'import par `#importKeyset()` (`JwtKeystore.ts:156-158`, RFC 8037/7517) — c'est
-lui qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:174`), jamais
-une clé venue du token. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:93-95`).
+Le JWKS servi par `getPublicJWKS()` est **public** — `JwtKeystore.ts:141-145`.
+La composante privée `d` en est retirée à l'import, par liste BLANCHE de paramètres
+(`#importKeyset()`, `JwtKeystore.ts:206-228`, RFC 8037/7517).
+C'est ce JWKS qu'utilise le vérificateur local (`createLocalJWKSet`, `JwtAuthenticator.ts:174`),
+jamais une clé venue du jeton. Le chargement est mémoïsé — `#ensureLoaded()` (`JwtKeystore.ts:147-149`).
 
 > [!WARNING]
 > **Race au 1ᵉʳ boot d'un cluster sans clé pré-provisionnée** : deux workers peuvent générer des
-> clés différentes — le dernier `rename` gagne (`JwtKeystore.ts:61-64`). En prod, provisionner
+> clés différentes — le dernier `rename` gagne (`JwtKeystore.ts:272-280`). En prod, provisionner
 > `keySetJson` hors-bande élimine ce cas : c'est la source recommandée.
 
 ## 🧩 Le store pluggable — durable par défaut, jamais de faux durable silencieux

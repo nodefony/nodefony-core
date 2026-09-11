@@ -618,7 +618,7 @@ pour les migrations de production ; en dev et en test, le DDL dérivé les ignor
 filtrage, jamais de sémantique.
 
 L'entité et la fabrique sont enregistrées automatiquement par l'adapter au démarrage
-(`registerStores.ts:241`, entité via `registerAuditEntities()`, `auditEventEntity.ts:141`). Côté
+(`registerStores.ts:276`, entité via `registerAuditEntities()`, `auditEventEntity.ts:141`). Côté
 implémentation, `DrizzleAuditStore` (`DrizzleAuditStore.ts:64`) résout son handle de base **à chaque
 appel**, pas à la construction : l'ordre de démarrage n'est pas garanti, et l'ORM se déconnecte au
 `onTerminate` avant le drain des serveurs.

@@ -153,7 +153,7 @@ le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les ac
 ### Comment le front obtient — puis rejoue — le token
 
 1. **Obtenir** : une requête **sûre** (GET) vers n'importe quelle route `@CsrfProtect` sème le token
-   (`firewall.ts:753-757`) ; la réponse pose le cookie **lisible** `csrf-token` — non `HttpOnly`
+   (`firewall.ts:958-964`) ; la réponse pose le cookie **lisible** `csrf-token` — non `HttpOnly`
    exprès, `SameSite=Strict`, `Secure` en HTTPS (`HttpContext.writeHead()`, `HttpContext.ts:419-432`).
 2. **Rejouer** : le SPA lit le cookie et renvoie sa valeur **à l'identique** dans l'en-tête
    `x-csrf-token` sur chaque mutation.
@@ -301,7 +301,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 3. `Firewall.enforceCsrf()` (`firewall.ts:948`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
    `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
-   (`firewall.ts:743-745`), les `@CsrfExempt` sortent après la barrière méthode sûre
+   (`firewall.ts:950-953`), les `@CsrfExempt` sortent après la barrière méthode sûre
    (`firewall.ts:951`).
 4. `HttpContext.writeHead()` matérialise `context.csrfToken` en cookie `csrf-token` — flush groupé
    avec le cookie de session (`HttpContext.ts:419-432`).

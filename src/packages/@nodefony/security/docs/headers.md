@@ -539,7 +539,7 @@ Le coût est concentré au boot, par construction :
   protège en plus les chemins internes qui n'atteignent jamais le firewall.
 - **Merge CSP** : jamais dans le chemin chaud. Le fragment d'un module est fusionné à
   l'enregistrement (`firewall.ts:1067`) ; celui d'une route ne coûte que sur les routes `@Csp`.
-- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:1334`), avec
+- **Socle transport** : trois `setHeader` sur des chaînes précalculées (`http-kernel.ts:958-966`), avec
   un test `!== null` qui annule le coût des en-têtes désactivés.
 
 Le module n'attache aucun écouteur d'événement et ne conserve aucun état par requête : il n'entre pas

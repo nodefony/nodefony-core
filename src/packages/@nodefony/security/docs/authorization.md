@@ -302,7 +302,7 @@ Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`auth
 
 **Contre-exemple piégeux** : le veto ne traverse **pas** une clause OR. Dans
 `@IsGranted(["ROLE_ADMIN", "doc.edit"])`, chaque attribut est un **jury séparé**
-(`Resolver.ts:592-600`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
+(`Resolver.ts:587-607`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
 consulté. Un interdit absolu se porte en clause **AND** : empiler `@IsGranted("ROLE_ADMIN")` puis
 `@IsGranted("doc.edit", { subject: "id" })`.
 

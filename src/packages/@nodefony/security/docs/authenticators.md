@@ -264,7 +264,7 @@ Credential = l'**identifiant** posé dans le blob de session, jamais un secret.
   (`SessionAuthenticator.ts:91`) → rôles frais, révocation immédiate. Les contrôles d'état sont
   partagés avec `AuthFlow.me()` : `isLocked()`/`isActive()` → rejet (`sessionIdentity.ts:40`).
 - `onSuccess()` pose l'identifiant sur le contexte — la persistance de session lie le blob au
-  principal courant (`SessionAuthenticator.ts:78-80`).
+  principal courant (`SessionAuthenticator.ts:110-116`).
 - **Pas de `challenge()`** : session absente = 401 nu → le front redirige vers son écran de login,
   jamais une popup Basic (`SessionAuthenticator.ts:25-27`).
 
