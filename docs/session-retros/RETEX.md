@@ -174,6 +174,14 @@
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
 
+- [1× — 09-11h] **Le coût invoqué pour prioriser un ticket n'existait pas.** « Cet échec de CI me
+  fait perdre de l'argent » a fait remonter #154 en tête — motif que personne, moi compris, n'a
+  vérifié avant d'agir. `GET /actions/runs/<id>/timing` rend **0 minute facturée**, macOS compris :
+  le dépôt est PUBLIC, et GitHub Actions y est gratuit. Le coût réel du flake est le DOUTE qu'il
+  jette sur chaque passe et les tokens du diagnostic qu'il déclenche — c'est une bonne raison de le
+  corriger, ce n'est pas celle qu'on croyait. Deux minutes d'appel d'API auraient recadré la
+  décision avant six relances. → [[feedback_prove_the_target_not_the_verdict]]
+
 - [1× — 09-11h] **npm MASQUE les chemins qu'il rend.** `npm ls --parseable` et `npm query`
   passent leur sortie au masquage de secrets : tout segment ressemblant à un jeton est remplacé
   par `***`. Un chemin d'application qui en contient un — c'était le cas du dossier de travail,
