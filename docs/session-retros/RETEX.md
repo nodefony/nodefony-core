@@ -60,6 +60,27 @@
   regardant fabrique une comparaison plausible entre deux objets dont l'un n'existe pas. Une
   question posée dans un prompt affirme ; ce qu'elle affirme se vérifie comme une ancre.
 
+## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
+
+- [1× — 09-11] **Un test prenait un NOM RÉEL comme contre-exemple, et le nom est devenu réel.**
+  `agentTargets.test.ts` vérifiait le refus d'une clé inconnue avec `requestedAgents("claude,cursor")`.
+  Le jour où `cursor` est entré dans la table, le test est passé au VERT en prouvant l'exact
+  contraire de ce qu'il affirme — aucun signal, il ne rougit pas. Un contre-exemple se choisit
+  parmi ce qui ne peut PAS exister (`agent-qui-nexiste-pas`), jamais parmi ce qui n'existe pas
+  ENCORE.
+
+- [1× — 09-11] **`flag: "wx"` lève ENOENT — qui n'est pas EEXIST — quand le dossier parent manque.**
+  Tous les pointeurs d'instructions vivaient à la racine ; le premier posé en SOUS-DOSSIER
+  (`.github/copilot-instructions.md`) sortait du `catch (EEXIST)` et faisait échouer la création de
+  l'application ENTIÈRE pour un fichier d'appoint. La forme d'une valeur (un chemin à un segment)
+  était une hypothèse tacite du code qui la consommait.
+
+- [1× — 09-11] **Une garde inoffensive le reste tant que personne n'ÉCRIT.** `targetsToDeclare`
+  faisait entrer tout agent détecté dont le canal n'était pas `cli` — sans danger, ces agents-là
+  n'écrivaient rien. Le canal neuf, lui, ÉCRIT : la même ligne aurait posé un fichier chez un outil
+  que personne n'a nommé, sur la seule foi d'un `.vscode/` présent. Élargir un ensemble, c'est
+  relire ce que chacun de ses lecteurs en FAIT — pas seulement ce qu'il en lit.
+
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
 - [1× — 09-11] **Un `grep` sans correspondance TUE un script sous `set -euo pipefail`, sans un
@@ -219,6 +240,12 @@
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
 
+- [1× — 09-11] **`path.relative` avait donné la réponse, je l'ai recomptée à la main — deux fois
+  faux.** Un test remontait de `tests/unit` vers les gabarits : l'outil disait cinq `..`, j'en ai
+  écrit six (ENOENT), puis quatre en « corrigeant » (ENOENT ailleurs). La profondeur d'un chemin
+  se CALCULE et se recopie ; la recompter de tête est un pari qu'on perd sans s'en apercevoir,
+  parce que les deux erreurs rendent le même message.
+
 - [1× — 09-11] **Découper un format à NIVEAUX avec `indexOf` d'une chaîne qui vit à tous les
   niveaux.** Un test découpait le bloc `app:` d'un compose jusqu'au prochain `"\n  "` — or les
   lignes DU bloc sont indentées de quatre espaces et contiennent ce motif : le bloc s'arrêtait
@@ -258,6 +285,13 @@
   le plus étroit se durcit tout seul dans le bon sens. [1× — 08-22e]
 
 ## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
+
+- [1× — 09-11] **Une clé privée ne restait hors de l'image que par COÏNCIDENCE de chemins.** Le
+  trousseau JWT vit sous `var/keys` et le Dockerfile généré efface `var/` : rien n'attachait la
+  sécurité à la configuration. Un utilisateur écrivant `keystore: { dir: "nodefony/config/keys" }`
+  — chemin parfaitement raisonnable — publiait sa clé privée, sans aucun signal. Quand une garantie
+  tient à deux valeurs posées dans deux fichiers différents, ce n'est pas une garantie : c'est une
+  coïncidence, et elle se contrôle par un test qui CONFRONTE les deux.
 
 - [1× — 09-05f] **Un FAUX secret dans un dépôt public est refusé exactement comme un vrai, et
   c'est correct.** `SMOKE_SECRET="0123456789abcdef…"` — 32 hexadécimaux, valeur jetable d'un banc
