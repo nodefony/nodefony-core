@@ -2800,6 +2800,29 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le serveur de test doit recevoir une base dédiée, jamais celle du développement",
       );
       assert.include(e2eSetup, "NF_E2E_DATABASE_URL");
+      // Le serveur de test prend un port ATTRIBUÉ PAR LE NOYAU, jamais la
+      // convention. Sur un poste où un autre projet tient déjà `127.0.0.1:5151`,
+      // cette application (qui écoute sur `0.0.0.0` en production) peut s'y lier
+      // QUAND MÊME sous macOS : le bind réussit, rien ne glisse, et le trafic de
+      // la boucle locale va au voisin. La suite mesurait alors son serveur et
+      // rendait des 404 qui accusaient les routes d'ici. `0` supprime la
+      // question — le noyau donne un port dont personne d'autre ne dispose.
+      assert.match(
+        e2eSetup,
+        /NF_PORT:\s*"0"/u,
+        "le serveur de test doit prendre un port libre du noyau, jamais 5151",
+      );
+      // Et le descripteur doit le LAISSER PASSER : `0` est falsy, un test de
+      // vérité le jetterait et retomberait sur 5151 — le port qu'on fuyait.
+      const configPorts = readFileSync(
+        path.join(dest, "nodefony.config.ts"),
+        "utf8",
+      );
+      assert.match(
+        configPorts,
+        /NF_PORT\s*!==\s*undefined/u,
+        "un NF_PORT à 0 doit atteindre la config, pas être avalé comme falsy",
+      );
       // Le mot `stateless` n'existait NULLE PART dans une application générée.
       // Un agent à qui on demande une API pour un programme n'avait donc aucun
       // chemin vers la troisième nature de zone : il posait une zone à session,

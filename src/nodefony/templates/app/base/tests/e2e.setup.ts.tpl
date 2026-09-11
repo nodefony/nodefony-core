@@ -203,6 +203,21 @@ export async function setup(): Promise<void> {
       ...process.env,
       // La suite ne touche JAMAIS la base de développement — cf `E2E_BASE_URL`.
       NF_DATABASE_URL: E2E_BASE_URL,
+      // Port ATTRIBUÉ PAR LE NOYAU, jamais celui de la convention.
+      //
+      // Cette suite tourne sur un poste où d'AUTRES choses écoutent — un autre
+      // projet, une session de développement, un conteneur. Prendre 5151 y est
+      // une loterie, et elle se perd en silence : sur macOS un serveur lié à
+      // `127.0.0.1:5151` n'empêche pas cette app de prendre `0.0.0.0:5151` (le
+      // `domain` de production), si bien que le bind RÉUSSIT, que rien ne
+      // glisse, et que `http://127.0.0.1:5151` continue d'aller chez le voisin.
+      // La suite mesure alors un serveur qui n'est pas le sien et rend des 404
+      // qui accusent les routes de cette application.
+      //
+      // `0` supprime la question : le noyau donne un port dont personne d'autre
+      // ne dispose, l'application le publie, et `runningAppPort()` le lit. Aucun
+      // port n'est écrit nulle part — il n'y a rien à tenir à jour.
+      NF_PORT: "0",
 <% if (it.hasSecurity) { %>      // Sans cette variable, la production ne sème AUCUN compte : les tests des
       // routes protégées n'auraient aucune identité à présenter, et échoueraient
       // en accusant la garde plutôt que le décor.

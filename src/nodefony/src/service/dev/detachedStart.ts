@@ -399,7 +399,9 @@ export async function launchDetached(
     foreignBusy = true;
     progress(
       `ports ${busy.map((p) => p.port).join(", ")} déjà pris${who}\n` +
-        `   → cette app prendra les premiers ports libres (servers.portPolicy: "auto")`,
+        `   → si sa politique l'autorise (servers.portPolicy: "auto", défaut hors ` +
+        `production) cette app glissera sur les premiers ports libres ; sinon le ` +
+        `démarrage sera refusé`,
     );
   }
   // Le state file d'un run précédent ne doit pas signer la readiness du nôtre.
@@ -460,6 +462,54 @@ export async function launchDetached(
     const state = readRuntimeState(cwd);
     const published = state !== null && state.ports.length > 0;
     if (published) watched = state.ports;
+    // 🔴 L'enfant écoute-t-il sur un port qu'un AUTRE serveur servait DÉJÀ ?
+    //
+    // « Le port est pris » et « le bind échoue » ne sont pas la même chose, et
+    // c'est le piège : un serveur lié à `127.0.0.1:P` n'empêche pas, sur les
+    // noyaux BSD (macOS), un second de prendre `0.0.0.0:P` — le bind RÉUSSIT,
+    // donc il n'y a ni `EADDRINUSE`, ni glissement, ni refus de `portPolicy:
+    // "strict"`. Les deux écoutent, et c'est le socket le PLUS SPÉCIFIQUE qui
+    // reçoit le trafic de la boucle locale : notre enfant, publié « en écoute
+    // sur P », est injoignable là où tout le monde l'appellera.
+    //
+    // Vécu, et coûteux : la suite de bout en bout d'une application générée a
+    // interrogé le serveur du voisin et rendu trois `404` qui accusaient les
+    // routes mesurées. Un faux READY qui parle de code, pas de décor.
+    //
+    // On ne peut pas départager deux serveurs par une sonde TCP — elle dit
+    // « quelqu'un répond », jamais « qui ». Ce qu'on SAIT en revanche, c'est
+    // qu'un port publié par l'enfant figurait déjà parmi les ports occupés
+    // AVANT son spawn : l'ambiguïté est établie, et on refuse plutôt que de
+    // certifier. Le refus est franc et récupérable (relancer une fois le voisin
+    // arrêté) ; le faux READY, lui, envoie chercher un défaut qui n'existe pas.
+    const contested = published
+      ? state.ports.filter((p) => busy.some((b) => b.port === p))
+      : [];
+    if (contested.length > 0) {
+      if (child.pid) {
+        try {
+          signalProcessGroup(child.pid, "SIGKILL");
+        } catch {
+          /* déjà mort */
+        }
+      }
+      return {
+        ok: false,
+        pid: child.pid ?? null,
+        exitCode: SysExit.UNAVAILABLE,
+        ports: await probePorts(watched),
+        logFile,
+        reason:
+          `port(s) ${contested.join(", ")} SERVIS PAR DEUX serveurs — un autre ` +
+          `programme les écoutait déjà avant ce démarrage, et cette app a pu s'y ` +
+          `lier quand même (adresses d'écoute différentes : boucle locale contre ` +
+          `toutes interfaces). Le trafic local irait à l'autre : cette app serait ` +
+          `injoignable là où on l'appelle.\n` +
+          `  → libérer le port (nodefony status · nodefony stop), OU donner le sien ` +
+          `à cette app (NF_PORT), OU la laisser en prendre un libre (NF_PORT=0)`,
+        logTail: tailLog(logFile),
+      };
+    }
     const states = await probePorts(watched);
     const up = states.filter((p) => p.listening).length;
     // Un port qui écoute ne prouve rien tant qu'un AUTRE projet en tient : ce

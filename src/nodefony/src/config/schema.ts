@@ -14,13 +14,30 @@
  */
 import { z } from "zod";
 
+/**
+ * Bornes d'un port d'écoute — **`0` compris**.
+ *
+ * `0` n'est pas une valeur vide : POSIX en fait une DEMANDE, « attribue-m'en un
+ * libre », et le noyau rend alors un port dont personne d'autre ne dispose.
+ * C'est la seule façon de démarrer sans risquer la moindre collision, ce dont
+ * une suite de tests a besoin sur un poste où d'autres serveurs tournent.
+ *
+ * Le moteur le savait déjà — `bindWithFallback` traite `desired === 0` à part
+ * (aucun repli : un port que le noyau attribue ne peut pas être « déjà pris ») —
+ * et l'application le publie ensuite dans son état d'exécution. Seule cette
+ * porte d'entrée le refusait, avec un message (« expected number to be >0 ») qui
+ * envoyait chercher une faute de frappe. Une capacité que le cœur porte et que
+ * son schéma interdit n'existe pour personne.
+ */
+const portSchema = z.number().int().min(0).max(65535);
+
 const serverSchema = z.object({
-  port: z
-    .number()
-    .int()
-    .positive()
+  port: portSchema
     .optional()
-    .describe("Port d'écoute du serveur HTTP en clair. Défaut : 5151."),
+    .describe(
+      "Port d'écoute du serveur HTTP en clair. Défaut : 5151. " +
+        "`0` = port libre attribué par le noyau (lire l'effectif : nodefony status).",
+    ),
 });
 
 const logSchema = z
@@ -145,12 +162,12 @@ const serversSchema = z
     https: z
       .union([
         z.object({
-          port: z
-            .number()
-            .int()
-            .positive()
+          port: portSchema
             .optional()
-            .describe("Port d'écoute HTTPS. Défaut : 5152."),
+            .describe(
+              "Port d'écoute HTTPS. Défaut : 5152. " +
+                "`0` = port libre attribué par le noyau (cf `servers.http.port`).",
+            ),
           protocol: z
             .enum(["1.1", "2.0"])
             .optional()

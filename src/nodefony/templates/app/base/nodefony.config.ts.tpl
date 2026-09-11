@@ -83,10 +83,15 @@ export default defineConfig<typeof env>((ctx) => ({
    * - Inspecter ou regénérer le certificat : `npx nodefony http:certificates`.
    */
   servers: {
-    ...((ctx.env.NF_PORT ?? ctx.env.PORT)
+    // `!== undefined`, jamais un test de vérité : `0` est un port LÉGITIME — il
+    // demande au noyau d'en attribuer un libre, et c'est la seule façon de
+    // démarrer sans risquer la moindre collision (ce que fait la suite de bout
+    // en bout). Un `NF_PORT=0` avalé par un test truthy retomberait sur 5151 en
+    // silence, c'est-à-dire exactement le port qu'on cherchait à éviter.
+    ...(ctx.env.NF_PORT !== undefined || ctx.env.PORT !== undefined
       ? { http: { port: ctx.env.NF_PORT ?? ctx.env.PORT } }
       : {}),
-    ...(ctx.env.NF_PORT_HTTPS
+    ...(ctx.env.NF_PORT_HTTPS !== undefined
       ? { https: { port: ctx.env.NF_PORT_HTTPS } }
       : ctx.isProd
         ? { https: false as const }

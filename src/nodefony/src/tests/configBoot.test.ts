@@ -222,6 +222,52 @@ describe("config — câblage Kernel boot (Lot 4 : loadApp + defineConfig)", () 
       assert.match(txt, /eta/);
     });
 
+    it("port 0 ACCEPTÉ — c'est « attribue-m'en un libre », pas une valeur vide", () => {
+      // `0` est un port POSIX légitime : le noyau en attribue un dont personne
+      // d'autre ne dispose. Le moteur le savait (`bindWithFallback` traite
+      // `desired === 0` à part) et l'état d'exécution publie ensuite l'effectif ;
+      // seul le schéma le refusait, en parlant de « nombre trop petit ». C'est la
+      // seule façon de démarrer sans risquer une collision — ce dont la suite de
+      // bout en bout d'une application générée dépend.
+      const k = makeKernelReal();
+      const ok = defineConfig({
+        servers: { http: { port: 0 }, https: { port: 0 } },
+      });
+      const resolved = (
+        k as unknown as {
+          resolveAppOptions: (raw: unknown, ctx: ConfigContext) => unknown;
+        }
+      ).resolveAppOptions(ok, ctxOf()) as {
+        options: {
+          servers: { http: { port: number }; https: { port: number } };
+        };
+      };
+      assert.strictEqual(resolved.options.servers.http.port, 0);
+      assert.strictEqual(resolved.options.servers.https.port, 0);
+    });
+
+    it("port hors bornes REFUSÉ — 0 ouvert ne veut pas dire tout ouvert", () => {
+      const k = makeKernelReal();
+      for (const port of [-1, 65536]) {
+        assert.throws(
+          () =>
+            (
+              k as unknown as {
+                resolveAppOptions: (
+                  raw: unknown,
+                  ctx: ConfigContext,
+                ) => unknown;
+              }
+            ).resolveAppOptions(
+              defineConfig({ servers: { http: { port } } }),
+              ctxOf(),
+            ),
+          /invalide.*port/s,
+          `port ${port} aurait dû être refusé`,
+        );
+      }
+    });
+
     it("descripteur avec config Zod-invalide → throw message clair (champ nommé)", () => {
       const k = makeKernelReal();
       const bad = defineConfig({

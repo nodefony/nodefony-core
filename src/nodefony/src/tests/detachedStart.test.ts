@@ -390,6 +390,87 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     }
   });
 
+  it("port DÉJÀ tenu par un tiers et publié quand même par le child → refus, jamais READY", async () => {
+    // Le frère du cas précédent, et le plus vicieux : le child écoute POUR DE
+    // BON, publie son état, la sonde répond — tout est vert, et pourtant ce
+    // n'est pas lui qu'on joindra.
+    //
+    // Sur les noyaux BSD (macOS), un serveur lié à `127.0.0.1:P` n'empêche pas
+    // un second de prendre `0.0.0.0:P` : le bind RÉUSSIT, donc ni `EADDRINUSE`,
+    // ni glissement, ni refus de `portPolicy: "strict"`. Les deux écoutent, et
+    // le socket le plus SPÉCIFIQUE reçoit le trafic de la boucle locale. Le
+    // nôtre est publié « en écoute sur P » et injoignable là où on l'appelle —
+    // vécu : la suite de bout en bout d'une application générée a rendu trois
+    // `404` qui accusaient les routes mesurées.
+    //
+    // Le décor ne REJOUE pas ce double bind — il dépendrait du noyau (Linux
+    // refuse) et ce banc ne mesurerait plus la même chose selon la plateforme.
+    // Ce qui est éprouvé ici est la règle, qui elle est portable : un port
+    // publié par le child figurait DÉJÀ parmi les ports occupés avant son
+    // spawn ⇒ l'ambiguïté est établie ⇒ on refuse plutôt que de certifier.
+    const contested = await freePort();
+    const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "nodefony-detach-dual-"));
+    const log = tmpLog("dualbind");
+    const squatteur = net.createServer().listen(contested, "127.0.0.1");
+    let childPid: number | undefined;
+    try {
+      const stateFile = path.join(
+        cwd,
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "runtime.json",
+      );
+      // Child vivant qui PUBLIE le port contesté, comme le ferait
+      // `HttpKernel.publishRuntimePorts` après un bind wildcard réussi.
+      const script = `
+        const fs = require("node:fs");
+        const path = require("node:path");
+        setTimeout(() => {
+          fs.mkdirSync(path.dirname(${JSON.stringify(stateFile)}), { recursive: true });
+          fs.writeFileSync(${JSON.stringify(stateFile)}, JSON.stringify({
+            pid: process.pid, ports: [${contested}], desiredPorts: [${contested}], ts: Date.now(),
+          }));
+        }, 300);
+        setInterval(() => {}, 1 << 30);
+      `;
+      const r = await launchDetached({
+        spawnCmd: process.execPath,
+        spawnArgs: ["-e", script],
+        logFile: log,
+        cwd,
+        ports: [contested],
+        waitSec: 15,
+      });
+      childPid = r.pid as number;
+      assert.strictEqual(
+        r.ok,
+        false,
+        `attendu un REFUS — un port servi par deux serveurs ne se certifie pas`,
+      );
+      // Le refus NOMME le port en cause : sans lui, « ça ne démarre pas » envoie
+      // chercher partout ailleurs.
+      assert.match(r.reason ?? "", new RegExp(String(contested), "u"));
+      assert.match(r.reason ?? "", /DEUX serveurs/u);
+      // Et il donne les trois sorties, dont celle qui ne demande rien à
+      // personne (`NF_PORT=0`, le port que le noyau attribue).
+      assert.match(r.reason ?? "", /NF_PORT=0/u);
+      // Pas de runtime laissé à moitié debout : l'appelant a reçu un échec, il
+      // n'appellera pas l'arrêt (même geste que le boot dégradé).
+      const survivants = await waitAllDead([childPid], 5000);
+      assert.deepStrictEqual(
+        survivants,
+        [],
+        "le child refusé doit être tué, pas laissé derrière",
+      );
+    } finally {
+      await killDetached(childPid);
+      squatteur.close();
+      fs.rmSync(log, { force: true });
+      removeWorkDir(cwd);
+    }
+  });
+
   // Plafond PROPRE, plus large que les 30 s du fichier de configuration.
   // Ce cas ne mesure aucune durée : il attend qu'une readiness REFUSE de
   // conclure. Nominalement ~2 s (`waitSec: 2`), mais il fabrique un décor à
