@@ -72,12 +72,17 @@ RUN --mount=type=cache,target=/root/.npm \
 # forme de la compilation. `prune` retire ensuite ce qui n'est que du
 # développement — la toolchain a fini son travail.
 #
-# ⚠️ Une application à FRONTEND garde malgré tout Vite : son plugin est une
-# devDependency, et `prune` ne retire pas ce qui satisfait la dépendance de
-# pair (optionnelle) d'un paquet de production. Refaire l'arbre depuis zéro
-# n'y change rien — le `package-lock.json` l'a figé, et c'est mesuré : 161 Mo
-# dans les deux cas. Le jour où cela se corrige, ce sera en amont, dans la
-# façon dont `@nodefony/frontend` déclare Vite.
+# ⚠️ La toolchain front ne descend PAS dans l'image, et c'est une promesse
+# qu'un contrôle tient : `@nodefony/frontend` ne déclare Vite ni en dépendance,
+# ni en pair, ni en optionnel — tout y passe par `await import()`. C'est ce qui
+# permet à `prune` de l'emporter. Une seule ligne de manifeste suffirait à faire
+# revenir la régression, et rien ne la signalerait : l'image marcherait, en
+# pesant beaucoup plus. Le banc de publication le constate donc à chaque passe
+# (`vite`, `vue`, `typescript` absents de l'image).
+#
+# Corollaire à ne pas rater : Vite n'est pas disponible à l'EXÉCUTION. Un front
+# non construit ne peut pas se rattraper au démarrage ici — l'application le dit
+# alors en clair, et continue de servir son API.
 #
 # 🔴 Et le build NETTOIE ce qu'il a écrit, ICI — dans l'étage de construction,
 # jamais après le `COPY`. `npm run build` BOOTE l'application : le service de
@@ -106,6 +111,12 @@ RUN npm run build && npm prune --omit=dev \
 # ne paie rien de ce qui suit.
 #
 #   docker build --target edge -t <%= it.appName %>-edge .
+#
+# Et si ton application a été générée avec le contenu COMPLET, le compose la
+# monte avec son frontal en une commande (le fichier n'existe que dans ce
+# contenu-là ; ailleurs, cette commande répondrait « no configuration file
+# provided ») :
+#
 #   docker compose --profile edge up -d --build
 #
 # POURQUOI un frontal, et pourquoi généré : en production l'application vit
@@ -168,8 +179,16 @@ COPY --from=proxyconf /srv/assets /srv/assets
 
 # 🔴 AUCUN certificat ici, et c'est délibéré. Une clé privée gravée dans une
 # image reste lisible par quiconque la télécharge, même effacée par une couche
-# suivante — le contrôle de publication du framework refuse une image qui en
-# porte une. La configuration générée pointe `/etc/nginx/certs/` : c'est un
+# suivante : `COPY` puis `RM` laisse le secret dans la couche du `COPY`.
+#
+# ⚠️ Ne compte pas sur un contrôle : celui qui garde les images du framework
+# vit dans le dépôt de Nodefony, il n'est pas publié — TON image n'est
+# contrôlée par personne aujourd'hui. C'est l'objet du ticket #358, qui donnera
+# la même garde aux applications. En attendant, la seule protection est de ne
+# jamais faire entrer de matière cryptographique dans le contexte de
+# construction ni dans ce que le build FABRIQUE.
+#
+# La configuration générée pointe `/etc/nginx/certs/` : c'est un
 # MONTAGE, à pourvoir au déploiement (volume compose, secret Kubernetes).
 # En développement, le certificat auto-signé de l'application fait l'affaire :
 #   npx nodefony http:certificates      # écrit nodefony/config/certificates/

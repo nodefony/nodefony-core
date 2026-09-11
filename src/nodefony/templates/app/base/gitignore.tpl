@@ -9,6 +9,12 @@ public/dist/
 # une application fraîche naît avec un dossier non suivi que rien n'explique.
 .vitest/
 
+# Configuration Vite ÉCRITE par le superviseur de développement, à côté de
+# l'`index.html` de chaque frontend. Elle est dérivée de la config de
+# l'application à chaque démarrage : la versionner ferait suivre un fichier que
+# personne n'édite et qui change tout seul.
+vite.config.generated.mjs
+
 # Artefacts jetables — captures d'écran, journaux de console et arbres produits
 # par le navigateur du compose (`--profile browser`). Ce sont des PHOTOS d'un
 # instant : elles se refont, elles ne se versionnent pas.

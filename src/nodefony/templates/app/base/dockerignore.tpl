@@ -74,6 +74,12 @@ nodefony/config/certificates
 tests
 tmp
 .vitest
+
+# Configuration Vite ÉCRITE par le superviseur de développement, à côté de
+# l'`index.html` de chaque frontend. Elle est dérivée de la config de
+# l'application à chaque démarrage : la versionner ferait suivre un fichier que
+# personne n'édite et qui change tout seul.
+vite.config.generated.mjs
 coverage
 .github
 .gitlab-ci.yml
