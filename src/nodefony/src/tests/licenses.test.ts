@@ -6,10 +6,13 @@ import assert from "node:assert";
 
 import {
   accept,
+  collect,
   ALLOWED,
   normalizeLicense,
   renderNotices,
   renderReport,
+  LicenseInventoryError,
+  surveyLicenses,
   templateRuntimeDeps,
   type ILicenseSurvey,
 } from "../cli/licenses";
@@ -187,5 +190,97 @@ describe("licences — le relevé écrit dans une application", () => {
     assert.match(md, /\| `zod` \| 4\.0\.0 \| MIT \|/);
     // L'angle mort s'énonce plutôt que de laisser croire à une couverture totale.
     assert.match(md, /transitif des dépendances de pair/);
+  });
+});
+
+describe("licences — l'INVENTAIRE, et le piège qui l'avait vidé", () => {
+  /**
+   * Le décor qui reproduit le défaut, en quatre fichiers et sans réseau.
+   *
+   * `a` est une dépendance de PRODUCTION. `d` est un outil de développement qui
+   * PRESCRIT `a` en dépendance de pair — exactement ce que fait
+   * `@nodefony/devkit` dans une application générée. Arborist marque alors `a`
+   * comme joignable par un chemin de développement, et `npm sbom --omit=dev`,
+   * dont le sélecteur porte `:not(.dev)`, le fait disparaître : mesuré, son
+   * inventaire tombait au seul paquet racine, sans erreur ni code non nul.
+   */
+  function decorMinimal(): string {
+    const racine = fs.mkdtempSync(path.join(os.tmpdir(), "nf-licenses-"));
+    fs.writeFileSync(
+      path.join(racine, "package.json"),
+      JSON.stringify({
+        name: "sonde",
+        version: "1.0.0",
+        private: true,
+        dependencies: { a: "1.0.0" },
+        devDependencies: { d: "1.0.0" },
+      }),
+    );
+    const poser = (nom: string, manifeste: object): void => {
+      const dir = path.join(racine, "node_modules", nom);
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, "package.json"),
+        JSON.stringify(manifeste),
+      );
+    };
+    poser("a", { name: "a", version: "1.0.0", license: "MIT" });
+    poser("d", {
+      name: "d",
+      version: "1.0.0",
+      license: "MIT",
+      peerDependencies: { a: "1.0.0" },
+    });
+    return racine;
+  }
+
+  it("relève une dépendance de production qu'un outil de dev prescrit AUSSI", () => {
+    const racine = decorMinimal();
+    try {
+      const inventaire = collect(racine);
+      const noms = inventaire.map((pkg) => pkg.name);
+      // Le cas qui a bloqué la publication : `a` part chez l'utilisateur, donc
+      // il doit être relevé — que `d` le prescrive ou non n'y change rien.
+      assert.ok(
+        noms.includes("a"),
+        `la dépendance de production est absente de l'inventaire : ${noms.join(", ")}`,
+      );
+      // L'outil de développement, lui, ne part nulle part.
+      assert.ok(
+        !noms.includes("d"),
+        "un outil de développement n'est pas redistribué",
+      );
+      // Et sa licence est lue, pas devinée.
+      assert.strictEqual(
+        inventaire.find((pkg) => pkg.name === "a")?.license,
+        "MIT",
+      );
+    } finally {
+      fs.rmSync(racine, { recursive: true, force: true });
+    }
+  });
+
+  it("REFUSE un inventaire que le manifeste contredit, plutôt que d'écrire un relevé amputé", () => {
+    const racine = decorMinimal();
+    try {
+      // L'arbre est retiré sous les pieds de la commande : npm répond sans
+      // erreur, et son résultat ne contient plus la dépendance déclarée.
+      fs.rmSync(path.join(racine, "node_modules"), {
+        recursive: true,
+        force: true,
+      });
+      assert.throws(
+        () => surveyLicenses(racine),
+        (erreur: unknown) => {
+          assert.ok(erreur instanceof LicenseInventoryError);
+          // Le message NOMME ce qui manque — un relevé vide se lirait comme un
+          // verdict, et « on ne redistribue rien » serait un mensonge.
+          assert.match((erreur as Error).message, /\ba\b/);
+          return true;
+        },
+      );
+    } finally {
+      fs.rmSync(racine, { recursive: true, force: true });
+    }
   });
 });

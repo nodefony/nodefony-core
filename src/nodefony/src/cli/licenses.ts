@@ -18,10 +18,31 @@
  * une version suivante retire la dépendance, elle ne retire pas les installations
  * faites entre-temps.
  *
- * **La source est `npm sbom`, pas une lecture de `node_modules`.** L'inventaire
- * SPDX est produit par npm lui-même à partir de l'arbre résolu : il connaît les
- * dépendances optionnelles, les recouvrements d'espace de travail et les paquets
+ * **La source est `npm query .prod`, pas une lecture de `node_modules`.**
+ * L'arbre est celui qu'Arborist résout : il connaît les dépendances
+ * optionnelles, les recouvrements d'espace de travail et les paquets
  * dédupliqués, qu'un parcours de dossiers manque ou compte deux fois.
+ *
+ * **Pourquoi PAS `npm sbom --omit=dev`, qui semblait fait pour ça.** Il compose
+ * le sélecteur `:root, :root *:not(.dev), :extraneous`, et `.dev` d'Arborist est
+ * vrai dès qu'UN chemin de développement mène au paquet — même s'il est aussi,
+ * et d'abord, une dépendance de production. Une `devDependency` qui déclare en
+ * `peerDependencies` les paquets de production de l'application suffit donc à
+ * les faire tous disparaître : mesuré sur une application générée, dont
+ * `@nodefony/devkit` (outil de dev) prescrit `nodefony`, `@nodefony/http`,
+ * `@nodefony/framework` et `zod`. L'inventaire tombait à un seul paquet — la
+ * racine —, sans erreur et avec un code de sortie nul.
+ *
+ * `.prod` est l'autre prédicat, et c'est le juste : il rend `!node.dev`, où
+ * `node.dev` signifie « joignable UNIQUEMENT par du développement »
+ * (`@npmcli/arborist/lib/query-selector-all.js`, `depTypes`). C'est exactement
+ * la question posée ici — ce paquet part-il chez l'utilisateur ?
+ *
+ * ⚠️ Ne rien fonder sur les CHEMINS que npm rend : `npm query` comme `npm ls`
+ * passent leur sortie au masquage de secrets, qui remplace par `***` tout
+ * segment ressemblant à un jeton. Un chemin d'application ayant la malchance
+ * d'en contenir un devient inouvrable — constaté. Seuls `name`, `version` et
+ * `license` sont lus ici.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -129,7 +150,7 @@ export interface ILicenseSurvey {
 /**
  * Décide si une licence déclarée est acceptable, et sous quel terme.
  *
- * @param declared - la chaîne SPDX du champ `licenseDeclared`.
+ * @param declared - l'expression SPDX déclarée par le paquet.
  * @returns le terme retenu, ou `null` si la licence est refusée.
  */
 export function accept(declared: string): string | null {
@@ -268,7 +289,7 @@ export function publishableWorkspaces(root: string): {
 /**
  * Les dépendances de pair déclarées par les paquets contrôlés, au premier niveau.
  *
- * Elles n'apparaissent dans AUCUN inventaire `npm sbom` — npm ne les installe
+ * Elles n'apparaissent dans AUCUN inventaire de npm — il ne les installe
  * pas, l'utilisateur le fait. C'est justement pourquoi elles engagent : nous les
  * lui prescrivons. Mesuré sur ce dépôt, `pg`, `mysql2`, `better-sqlite3`, `zod`,
  * `react` et `vue` étaient absents d'un relevé pourtant vert. Leur licence se lit
@@ -320,20 +341,23 @@ export function peerPackages(
 export class LicenseInventoryError extends Error {}
 
 /**
- * Relève l'inventaire SPDX de production et le réduit à `nom → licence`.
+ * Relève l'arbre de production et le réduit à `nom → licence`.
+ *
+ * La portée est la RACINE inspectée, sans restriction aux espaces de travail :
+ * `.prod` est un fait global de l'arbre (« ce paquet sert-il ailleurs qu'au
+ * développement ? »), qu'un sélecteur de sous-arbre ne restreint pas. Composer
+ * les deux mêlerait une structure locale à un drapeau global — c'est ce mélange
+ * qui a produit un inventaire vide. Dans le dépôt du framework, la portée
+ * couvre donc aussi les dépendances de production de l'application de
+ * développement : un sur-ensemble, jamais un relevé amputé.
  *
  * @param root - la racine inspectée.
- * @param workspaces - les espaces à couvrir ; vide = l'arbre du paquet courant.
  * @returns un paquet par entrée, dédupliqué par npm lui-même.
  * @throws LicenseInventoryError Si npm échoue — un inventaire partiel serait pire
  *   qu'aucun, puisqu'il se lirait comme un verdict.
  */
-export function collect(
-  root: string,
-  workspaces: readonly string[],
-): ILicensedPackage[] {
-  const args = ["sbom", "--sbom-format", "spdx", "--omit=dev"];
-  for (const name of workspaces) args.push("-w", name);
+export function collect(root: string): ILicensedPackage[] {
+  const args = ["query", ".prod"];
   // `npm` se résout en `npm.cmd` sous Windows, que Node refuse de lancer
   // directement depuis CVE-2024-27980 : la composition portable est la règle du
   // dépôt, jamais un `shell: true` posé ici.
@@ -348,10 +372,9 @@ export function collect(
     windowsVerbatimArguments: portable.windowsVerbatimArguments,
   });
   if (run.error !== undefined || run.status !== 0) {
-    // npm REFUSE d'inventorier un arbre incohérent (`ESBOMPROBLEMS`), et il a
-    // raison : un inventaire partiel se lirait comme un verdict. Le dire en
-    // clair, avec le remède — une trace d'exception ferait chercher le défaut
-    // dans ce code, où il n'est pas.
+    // Un inventaire partiel se lirait comme un verdict. Le dire en clair, avec
+    // le remède — une trace d'exception ferait chercher le défaut dans ce code,
+    // où il n'est pas.
     const detail = String(run.stderr ?? run.error?.message ?? "")
       .split("\n")
       .filter((line) => line.trim() !== "")
@@ -360,43 +383,46 @@ export function collect(
     throw new LicenseInventoryError(
       `npm n'a pas pu inventorier l'arbre de ${root} :\n\n${detail}\n\n` +
         `Un arbre incohérent ne se contourne pas — l'inventaire serait partiel et\n` +
-        `se lirait comme un verdict. Réparer l'arbre (« npm install »), puis relancer.\n` +
-        `Cas connu : une application liée au dépôt du framework (« --link ») voit les\n` +
-        `paquets du monorepo comme « extraneous » — c'est le décor, pas l'application.`,
+        `se lirait comme un verdict. Réparer l'arbre (« npm install »), puis relancer.`,
     );
   }
-  const raw = run.stdout;
-  const sbom = JSON.parse(raw) as {
-    packages?: Array<{
-      name?: string;
-      versionInfo?: string;
-      licenseDeclared?: string;
-    }>;
-  };
-  return (sbom.packages ?? []).map((pkg) => ({
-    name: pkg.name ?? "?",
-    version: pkg.versionInfo ?? "-",
-    license: pkg.licenseDeclared ?? "NOASSERTION",
-  }));
+  // Chaque nœud porte son manifeste : `license` peut donc être une chaîne, un
+  // objet ou absent, exactement comme dans un `package.json`.
+  const nodes = JSON.parse(run.stdout) as IManifest[];
+  return (
+    nodes
+      // Un paquet `private` n'est JAMAIS redistribué — npm refuse de le publier.
+      // Dans un dépôt en espaces de travail, ce sont les paquets internes : les
+      // relever reviendrait à refuser la publication parce qu'un banc d'essai ne
+      // déclare pas de licence. Leurs propres dépendances, elles, restent dans
+      // l'arbre et donc dans le relevé.
+      .filter((node) => node.private !== true)
+      .map((node) => ({
+        name: node.name ?? "?",
+        version: node.version ?? "-",
+        license: normalizeLicense(node),
+      }))
+  );
 }
 
 /**
- * Refuse un inventaire VIDE que le manifeste contredit.
+ * Refuse un inventaire que le manifeste contredit.
  *
  * 🔴 Constaté sur une application fraîchement générée : `npm sbom --omit=dev` y
- * rend le seul paquet racine — SANS erreur et SANS code de sortie non nul —
- * alors que `npm ls --omit=dev` liste bien ses quatre dépendances de production.
+ * rendait le seul paquet racine — SANS erreur et SANS code de sortie non nul.
  * Le relevé s'écrivait donc « 0 paquets », ce qui est pire qu'une panne : un
- * document d'apparence officielle qui affirme qu'on ne redistribue rien.
+ * document d'apparence officielle qui affirme qu'on ne redistribue rien. La
+ * cause est nommée en tête de fichier, et la source a changé ; la garde reste,
+ * parce qu'elle ne coûte rien et qu'elle a MORDU.
  *
- * Un inventaire qu'on ne peut pas croire ne se rend pas. La garde compare ce que
- * npm a rendu à ce que le manifeste DÉCLARE — deux sources indépendantes — et
- * lève quand elles se contredisent.
+ * Elle porte aussi ce que `npm query` ne fait plus : refuser un arbre à moitié
+ * installé. Chaque dépendance de production DÉCLARÉE doit se retrouver dans
+ * l'inventaire — deux sources indépendantes, le manifeste et l'arbre résolu.
  *
  * @param root - la racine inspectée.
  * @param packages - ce que npm a inventorié.
- * @throws LicenseInventoryError Quand le manifeste déclare des dépendances de
- *   production et que l'inventaire n'en contient aucune.
+ * @throws LicenseInventoryError Quand une dépendance de production déclarée est
+ *   absente de l'inventaire.
  */
 function assertInventoryPlausible(
   root: string,
@@ -408,16 +434,19 @@ function assertInventoryPlausible(
       ?.dependencies ?? {},
   );
   if (declared.length === 0) return;
-  const rootName = manifest?.name ?? "";
-  if (packages.some((pkg) => pkg.name !== rootName)) return;
+  const inventoried = new Set(packages.map((pkg) => pkg.name));
+  const missing = declared.filter((name) => !inventoried.has(name));
+  if (missing.length === 0) return;
   throw new LicenseInventoryError(
-    `l'inventaire de ${root} est VIDE alors que son « package.json » déclare ` +
-      `${declared.length} dépendance(s) de production (${declared.join(", ")}).\n\n` +
-      `npm a répondu sans erreur, et n'a rendu que le paquet racine : son résultat\n` +
-      `contredit le manifeste, donc il ne peut pas servir de relevé. Écrire\n` +
-      `« 0 paquet » serait affirmer qu'on ne redistribue rien.\n\n` +
+    `l'inventaire de ${root} ne contient pas ${missing.length} des ` +
+      `${declared.length} dépendance(s) de production que son « package.json »\n` +
+      `déclare : ${missing.join(", ")}.\n\n` +
+      `npm a répondu sans erreur, et son résultat contredit le manifeste : il ne\n` +
+      `peut donc pas servir de relevé. Écrire un inventaire amputé serait affirmer\n` +
+      `qu'on ne redistribue pas ce qu'on redistribue.\n\n` +
       `À constater : « npm ls --omit=dev --depth=0 » (l'arbre réel) et\n` +
-      `« npm sbom --sbom-format spdx --omit=dev » (ce que lit cette commande).`,
+      `« npm query .prod » (ce que lit cette commande). Un arbre non installé se\n` +
+      `répare par « npm install ».`,
   );
 }
 
@@ -432,7 +461,7 @@ export function surveyLicenses(root: string): ILicenseSurvey {
   const rootManifest = readManifest(path.join(root, "package.json"));
   const rootName = rootManifest?.name ?? "";
   const { names: workspaces, dirs } = publishableWorkspaces(root);
-  const inventory = collect(root, workspaces);
+  const inventory = collect(root);
   // Avant toute composition : un inventaire que le manifeste contredit ne doit
   // pas devenir un document.
   assertInventoryPlausible(root, inventory);

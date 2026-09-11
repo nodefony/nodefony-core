@@ -1874,7 +1874,7 @@
       "file": "src/nodefony/src/cli/licenses.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Les dépendances de pair déclarées par les paquets contrôlés, au premier niveau. Elles n'apparaissent dans AUCUN inventaire `npm sbom` — npm ne les installe pas, l'utilisateur le fait. C'est justeme…"
+      "description": "Les dépendances de pair déclarées par les paquets contrôlés, au premier niveau. Elles n'apparaissent dans AUCUN inventaire de npm — il ne les installe pas, l'utilisateur le fait. C'est justement po…"
     },
     "collect": {
       "name": "collect",
@@ -1882,7 +1882,7 @@
       "file": "src/nodefony/src/cli/licenses.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Relève l'inventaire SPDX de production et le réduit à `nom → licence`."
+      "description": "Relève l'arbre de production et le réduit à `nom → licence`. La portée est la RACINE inspectée, sans restriction aux espaces de travail : `.prod` est un fait global de l'arbre (« ce paquet sert-il …"
     },
     "surveyLicenses": {
       "name": "surveyLicenses",
