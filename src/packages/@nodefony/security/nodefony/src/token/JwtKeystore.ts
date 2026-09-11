@@ -30,7 +30,7 @@ interface KeystoreSource {
  * par le test qui la confronte au gabarit — deux copies d'une même règle
  * divergent en silence, et c'est une clé privée qui paierait la dérive.
  */
-const DOSSIERS_NETTOYES = ["var", "tmp"];
+const CLEANED_DIRS = ["var", "tmp"];
 
 /**
  * Le trousseau va-t-il partir dans l'image de conteneur ?
@@ -51,16 +51,16 @@ const DOSSIERS_NETTOYES = ["var", "tmp"];
  * @param dir - la valeur de `jwt.keystore.dir`, telle que configurée.
  * @returns le message à journaliser, ou `null` quand le dossier est nettoyé.
  */
-export function avertissementTrousseauDansImage(dir: string): string | null {
+export function keystoreLeaksIntoImage(dir: string): string | null {
   // Normalisé en `/` avant de comparer : un filtre écrit en `/` ne mord pas sur
   // `var\keys`, et la faute serait alors INVISIBLE — l'avertissement
   // manquerait précisément sur la plateforme où on l'a oublié.
-  const normalise = dir.replace(/\\/gu, "/").replace(/^\.\//u, "");
-  if (normalise.startsWith("/") || /^[A-Za-z]:/u.test(normalise)) return null;
-  const premier = normalise.split("/")[0];
-  if (DOSSIERS_NETTOYES.includes(premier)) return null;
+  const normalized = dir.replace(/\\/gu, "/").replace(/^\.\//u, "");
+  if (normalized.startsWith("/") || /^[A-Za-z]:/u.test(normalized)) return null;
+  const first = normalized.split("/")[0];
+  if (CLEANED_DIRS.includes(first)) return null;
   return (
-    `JWT keystore: « ${dir} » n'est PAS sous ${DOSSIERS_NETTOYES.map((d) => `\`${d}/\``).join(" ni ")}, ` +
+    `JWT keystore: « ${dir} » n'est PAS sous ${CLEANED_DIRS.map((d) => `\`${d}/\``).join(" ni ")}, ` +
     `les seuls dossiers que le Dockerfile généré efface avant de fabriquer l'image. ` +
     `La clé privée de signature partira donc dans ton image de conteneur, où elle ` +
     `reste lisible par quiconque la télécharge — même effacée par une couche suivante. ` +
@@ -162,8 +162,8 @@ export class JwtKeystore implements IJwtKeystore {
     if (this.#source.dir) {
       // AVANT toute écriture : si le dossier part dans l'image, le dire pendant
       // qu'il est encore temps de changer d'avis. Après, la clé existe.
-      const risque = avertissementTrousseauDansImage(this.#source.dir);
-      if (risque) this.#log(risque, "WARNING");
+      const risk = keystoreLeaksIntoImage(this.#source.dir);
+      if (risk) this.#log(risk, "WARNING");
       const file = join(this.#source.dir, "keyset.json");
       const existing = await this.#readFile(file);
       if (existing) {

@@ -11,7 +11,7 @@ import { join } from "node:path";
 import { calculateJwkThumbprint } from "jose";
 import {
   JwtKeystore,
-  avertissementTrousseauDansImage,
+  keystoreLeaksIntoImage,
 } from "../../nodefony/src/token/JwtKeystore";
 
 /**
@@ -193,13 +193,13 @@ describe("JwtKeystore — env (keySetJson) + erreurs", () => {
 describe("avertissement — le trousseau part-il dans l'image ?", () => {
   it("se tait pour les dossiers que le Dockerfile généré efface", () => {
     for (const dir of ["var/keys", "var", "tmp/keys", "./var/keys"]) {
-      assert.equal(avertissementTrousseauDansImage(dir), null, dir);
+      assert.equal(keystoreLeaksIntoImage(dir), null, dir);
     }
   });
 
   it("🔴 AVERTIT pour un chemin raisonnable mais qui entre dans l'image", () => {
     // Exactement le chemin qu'un utilisateur écrit sans y penser.
-    const message = avertissementTrousseauDansImage("nodefony/config/keys");
+    const message = keystoreLeaksIntoImage("nodefony/config/keys");
     assert.ok(message, "aucun avertissement");
     // Le message doit porter la CAUSE, la CONSÉQUENCE et le GESTE — un message
     // qui n'énonce que le constat envoie chercher au mauvais endroit.
@@ -212,13 +212,13 @@ describe("avertissement — le trousseau part-il dans l'image ?", () => {
   it("normalise les séparateurs AVANT de comparer", () => {
     // Un filtre écrit en `/` ne mord pas sur `var\keys` : la faute serait
     // invisible précisément sur la plateforme où on l'a oubliée.
-    assert.equal(avertissementTrousseauDansImage("var\\keys"), null);
-    assert.ok(avertissementTrousseauDansImage("nodefony\\config\\keys"));
+    assert.equal(keystoreLeaksIntoImage("var\\keys"), null);
+    assert.ok(keystoreLeaksIntoImage("nodefony\\config\\keys"));
   });
 
   it("ne juge PAS un chemin absolu — un montage est un choix d'exploitation", () => {
-    assert.equal(avertissementTrousseauDansImage("/etc/nodefony/keys"), null);
-    assert.equal(avertissementTrousseauDansImage("C:/secrets/keys"), null);
+    assert.equal(keystoreLeaksIntoImage("/etc/nodefony/keys"), null);
+    assert.equal(keystoreLeaksIntoImage("C:/secrets/keys"), null);
   });
 
   it("🔴 AVERTIT au CHARGEMENT, avant d'avoir écrit la clé", async () => {

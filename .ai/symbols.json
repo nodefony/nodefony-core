@@ -934,8 +934,8 @@
       "module": "@nodefony/core",
       "description": "Ce que la commande a décidé de faire."
     },
-    "serveursDe": {
-      "name": "serveursDe",
+    "serversOf": {
+      "name": "serversOf",
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcpReport.ts",
       "exported": true,
@@ -25612,8 +25612,8 @@
       "decorators": [],
       "description": "Keystore Ed25519 — implémentation de référence d'{@link IJwtKeystore}. Résout la clé de signature selon une **priorité** (jamais d'auto-génération en clair « par défaut » en prod) : 1. **env** — `c…"
     },
-    "avertissementTrousseauDansImage": {
-      "name": "avertissementTrousseauDansImage",
+    "keystoreLeaksIntoImage": {
+      "name": "keystoreLeaksIntoImage",
       "kind": "function",
       "file": "src/packages/@nodefony/security/nodefony/src/token/JwtKeystore.ts",
       "exported": true,
@@ -30181,7 +30181,7 @@
       "renderMcpPlan": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
-      "serveursDe": [
+      "serversOf": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "IMcpConfigDocument": [

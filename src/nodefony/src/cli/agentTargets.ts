@@ -64,7 +64,7 @@ export interface IAgentMcpFile {
    */
   file: string;
   /** Clé racine du document JSON. */
-  racine: "servers" | "mcpServers";
+  root: "servers" | "mcpServers";
   /**
    * Comment SA configuration référence une variable d'environnement.
    *
@@ -444,7 +444,7 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
       file: ".vscode/mcp.json",
       // ⚠️ `servers`, PAS `mcpServers` : la grammaire de VS Code n'est pas celle
       // de `.mcp.json`. Un document recopié est accepté et ignoré.
-      racine: "servers",
+      root: "servers",
       refVariable: (env) => `\${env:${env}}`,
     },
     noteAfter:
@@ -471,7 +471,7 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     declaration: "fichier-agent",
     mcpFile: {
       file: ".cursor/mcp.json",
-      racine: "mcpServers",
+      root: "mcpServers",
       refVariable: (env) => `\${env:${env}}`,
     },
     // 🔴 Signalé chez eux : l'interpolation `${env:…}` fonctionne pour les

@@ -74,7 +74,7 @@ export interface IMcpConfigDocument {
  */
 export interface IMcpGrammar {
   /** Clé racine qui porte les serveurs. */
-  racine: "servers" | "mcpServers";
+  root: "servers" | "mcpServers";
   /** Comment ce format référence une variable d'environnement. */
   refVariable: (env: string) => string;
 }
@@ -86,7 +86,7 @@ export interface IMcpGrammar {
  * `${env:VAR}` que VS Code et Cursor attendent.
  */
 export const MCP_GRAMMAR: IMcpGrammar = {
-  racine: "mcpServers",
+  root: "mcpServers",
   refVariable: (env) => `\${${env}}`,
 };
 
@@ -100,11 +100,11 @@ export const MCP_GRAMMAR: IMcpGrammar = {
  * @param racine - la clé à lire (défaut : celle de `.mcp.json`)
  * @returns les serveurs, ou un objet vide — jamais `undefined`
  */
-export function serveursDe(
+export function serversOf(
   document: IMcpConfigDocument | null,
-  racine: IMcpGrammar["racine"] = MCP_GRAMMAR.racine,
+  root: IMcpGrammar["root"] = MCP_GRAMMAR.root,
 ): Record<string, IMcpServerEntry> {
-  return document?.[racine] ?? {};
+  return document?.[root] ?? {};
 }
 
 /** Ce que la commande a décidé de faire. */
@@ -165,23 +165,23 @@ export function buildMcpUrl(origin: string, endpointPath: string): string {
 export function planMcpConfig(
   existing: IMcpConfigDocument | null,
   url: string,
-  options: { auth?: boolean; grammaire?: IMcpGrammar } = {},
+  options: { auth?: boolean; grammar?: IMcpGrammar } = {},
 ): IMcpConfigPlan {
   // 🔴 UNE implémentation pour les trois formats. La décision — conserver
   // l'autorisation trouvée, préserver les autres serveurs, rendre `inchange`
   // quand rien ne bouge — est la MÊME partout ; seules la clé racine et la
   // façon de nommer une variable changent. Recopier cette fonction par
   // grammaire aurait fait diverger les règles, chacune passant ses tests.
-  const grammaire = options.grammaire ?? MCP_GRAMMAR;
-  const { racine } = grammaire;
-  const serveurs: Record<string, IMcpServerEntry> = {
-    ...serveursDe(existing, racine),
+  const grammar = options.grammar ?? MCP_GRAMMAR;
+  const { root } = grammar;
+  const servers: Record<string, IMcpServerEntry> = {
+    ...serversOf(existing, root),
   };
   const base: IMcpConfigDocument = existing
-    ? { ...existing, [racine]: serveurs }
-    : { [racine]: serveurs };
+    ? { ...existing, [root]: servers }
+    : { [root]: servers };
 
-  const previous = serveurs[MCP_SERVER_KEY];
+  const previous = servers[MCP_SERVER_KEY];
   // 🔴 Le mode d'autorisation se CONSERVE par défaut.
   //
   // Il était réinitialisé : relancer `ai:mcp` pour rafraîchir une URL retirait
@@ -201,11 +201,11 @@ export function planMcpConfig(
         type: "http",
         url,
         headers: {
-          Authorization: `Bearer ${grammaire.refVariable(MCP_TOKEN_ENV)}`,
+          Authorization: `Bearer ${grammar.refVariable(MCP_TOKEN_ENV)}`,
         },
       }
     : { type: "http", url };
-  serveurs[MCP_SERVER_KEY] = entry;
+  servers[MCP_SERVER_KEY] = entry;
 
   const authRemoved =
     Boolean(previous?.headers?.Authorization) && !entry.headers?.Authorization;

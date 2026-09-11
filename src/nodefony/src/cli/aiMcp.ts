@@ -14,7 +14,7 @@ import {
   buildMcpUrl,
   planMcpConfig,
   renderMcpPlan,
-  serveursDe,
+  serversOf,
   MCP_CONFIG_FILE,
   MCP_SERVER_KEY,
   MCP_TOKEN_ENV,
@@ -634,7 +634,7 @@ export interface IDeclarationResult {
  * @returns le verdict — jamais d'exception : un agent qui refuse ne doit pas
  *          empêcher de servir les suivants
  */
-function ecrireFichierAgent(
+function writeAgentFile(
   target: IAgentTarget,
   mcpFile: IAgentMcpFile,
   ctx: {
@@ -646,19 +646,19 @@ function ecrireFichierAgent(
 ): IDeclarationResult {
   // `path.join` sur un chemin écrit en `/` : il VOYAGE dans la table, on
   // l'OUVRE ici — axiome de portabilité.
-  const cible = path.join(ctx.projectRoot, ...mcpFile.file.split("/"));
-  const existant = readMcpConfig(cible);
+  const filePath = path.join(ctx.projectRoot, ...mcpFile.file.split("/"));
+  const existing = readMcpConfig(filePath);
   if (ctx.remove) {
-    const serveurs = { ...serveursDe(existant, mcpFile.racine) };
-    if (!existant || !(MCP_SERVER_KEY in serveurs)) {
+    const servers = { ...serversOf(existing, mcpFile.root) };
+    if (!existing || !(MCP_SERVER_KEY in servers)) {
       // Rien à retirer : le dire, plutôt qu'annoncer un retrait qui n'a rien
       // retiré — c'est le défaut mesuré chez un agent piloté par CLI.
       return { target, state: "sans-effet", command: mcpFile.file };
     }
-    delete serveurs[MCP_SERVER_KEY];
-    const document = { ...existant, [mcpFile.racine]: serveurs };
+    delete servers[MCP_SERVER_KEY];
+    const document = { ...existing, [mcpFile.root]: servers };
     try {
-      writeFileSync(cible, `${JSON.stringify(document, null, 2)}\n`);
+      writeFileSync(filePath, `${JSON.stringify(document, null, 2)}\n`);
     } catch (error) {
       return {
         target,
@@ -670,17 +670,17 @@ function ecrireFichierAgent(
     return { target, state: "retire", command: mcpFile.file, inProject: true };
   }
 
-  const plan = planMcpConfig(existant, ctx.url, {
+  const plan = planMcpConfig(existing, ctx.url, {
     ...(ctx.auth === undefined ? {} : { auth: ctx.auth }),
-    grammaire: mcpFile,
+    grammar: mcpFile,
   });
   // Idempotence au sens FORT, comme `.mcp.json` : une porte déjà juste n'est pas
   // réécrite, l'horodatage ne bouge pas, et l'arbre reste propre — une commande
   // de synchronisation qui salit l'arbre est une commande qu'on hésite à lancer.
   if (plan.action !== "inchange") {
     try {
-      mkdirSync(path.dirname(cible), { recursive: true });
-      writeFileSync(cible, `${JSON.stringify(plan.document, null, 2)}\n`);
+      mkdirSync(path.dirname(filePath), { recursive: true });
+      writeFileSync(filePath, `${JSON.stringify(plan.document, null, 2)}\n`);
     } catch (error) {
       return {
         target,
@@ -729,7 +729,7 @@ export async function declareToAgents(
     );
     if (plan.channel === "fichier-agent") {
       results.push(
-        ecrireFichierAgent(target, plan.mcpFile, {
+        writeAgentFile(target, plan.mcpFile, {
           projectRoot: ctx.projectRoot,
           url: ctx.url,
           remove: ctx.remove,

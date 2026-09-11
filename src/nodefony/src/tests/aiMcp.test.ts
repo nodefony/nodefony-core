@@ -9,7 +9,7 @@ import {
   buildMcpUrl,
   planMcpConfig,
   renderMcpPlan,
-  serveursDe,
+  serversOf,
   MCP_SERVER_KEY,
   type IMcpConfigDocument,
 } from "../cli/aiMcpReport";
@@ -59,7 +59,7 @@ describe("ai:mcp — le plan d'écriture", () => {
   it("pose l'entrée quand aucun fichier n'existe", () => {
     const plan = planMcpConfig(null, url);
     expect(plan.action).toBe("pose");
-    expect(serveursDe(plan.document)[MCP_SERVER_KEY]).toEqual({
+    expect(serversOf(plan.document)[MCP_SERVER_KEY]).toEqual({
       type: "http",
       url,
     });
@@ -75,7 +75,7 @@ describe("ai:mcp — le plan d'écriture", () => {
       },
     } as unknown as IMcpConfigDocument;
     const plan = planMcpConfig(existing, url);
-    expect(Object.keys(serveursDe(plan.document)).sort()).toEqual([
+    expect(Object.keys(serversOf(plan.document)).sort()).toEqual([
       "github",
       "nodefony",
     ]);
@@ -233,7 +233,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     const plan = planMcpConfig(null, "http://localhost:5151/nodefony/mcp", {
       auth: true,
     });
-    const entree = serveursDe(plan.document)[MCP_SERVER_KEY];
+    const entree = serversOf(plan.document)[MCP_SERVER_KEY];
     expect(entree.headers?.Authorization).toBe("Bearer ${NF_MCP_TOKEN}");
     const texte = JSON.stringify(plan.document);
     expect(texte).not.toMatch(/eyJ|Bearer [A-Za-z0-9._-]{20,}/u);
@@ -254,7 +254,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     };
     const plan = planMcpConfig(existing, "http://localhost:5151/nodefony/mcp");
     expect(
-      serveursDe(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+      serversOf(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
     ).toBe("Bearer ${NF_MCP_TOKEN}");
     expect(plan.action).toBe("inchange");
   });
@@ -274,7 +274,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     });
     // Repasser en anonyme est un choix qui doit PRENDRE : laisser l'en-tête
     // ferait échouer la connexion avec un jeton expiré, sans dire pourquoi.
-    expect(serveursDe(plan.document)[MCP_SERVER_KEY].headers).toBeUndefined();
+    expect(serversOf(plan.document)[MCP_SERVER_KEY].headers).toBeUndefined();
     expect(plan.action).toBe("remplace");
   });
 
@@ -631,8 +631,8 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
     expect(cursor?.declaration).toBe("fichier-agent");
     // ⚠️ Les racines DIFFÈRENT, et c'est tout l'objet du canal : un document
     // recopié de l'un à l'autre est accepté sans broncher, puis ignoré.
-    expect(copilot?.mcpFile?.racine).toBe("servers");
-    expect(cursor?.mcpFile?.racine).toBe("mcpServers");
+    expect(copilot?.mcpFile?.root).toBe("servers");
+    expect(cursor?.mcpFile?.root).toBe("mcpServers");
     expect(copilot?.mcpFile?.file).toBe(".vscode/mcp.json");
     expect(cursor?.mcpFile?.file).toBe(".cursor/mcp.json");
   });
@@ -654,9 +654,9 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
     if (!copilot?.mcpFile) throw new Error("grammaire copilot absente");
     const plan = planMcpConfig(null, url, {
       auth: true,
-      grammaire: copilot.mcpFile,
+      grammar: copilot.mcpFile,
     });
-    expect(serveursDe(plan.document, "servers")[MCP_SERVER_KEY]).toEqual({
+    expect(serversOf(plan.document, "servers")[MCP_SERVER_KEY]).toEqual({
       type: "http",
       url,
       headers: { Authorization: "Bearer ${env:NF_MCP_TOKEN}" },
@@ -670,19 +670,19 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
     if (!cursor?.mcpFile) throw new Error("grammaire cursor absente");
     const plan = planMcpConfig(null, url, {
       auth: true,
-      grammaire: cursor.mcpFile,
+      grammar: cursor.mcpFile,
     });
     // Même racine que `.mcp.json`, mais PAS la même forme de variable : `${VAR}`
     // y serait pris à la lettre.
     expect(
-      serveursDe(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+      serversOf(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
     ).toBe("Bearer ${env:NF_MCP_TOKEN}");
   });
 
   it("🔴 .mcp.json garde sa forme historique — la grammaire par défaut ne bouge pas", () => {
     const plan = planMcpConfig(null, url, { auth: true });
     expect(
-      serveursDe(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+      serversOf(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
     ).toBe("Bearer ${NF_MCP_TOKEN}");
   });
 
@@ -692,8 +692,8 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
       servers: { github: { type: "http", url: "https://exemple/mcp" } },
       inputs: [{ id: "jeton", type: "promptString" }],
     } as unknown as IMcpConfigDocument;
-    const plan = planMcpConfig(existing, url, { grammaire: copilot.mcpFile });
-    expect(Object.keys(serveursDe(plan.document, "servers")).sort()).toEqual([
+    const plan = planMcpConfig(existing, url, { grammar: copilot.mcpFile });
+    expect(Object.keys(serversOf(plan.document, "servers")).sort()).toEqual([
       "github",
       "nodefony",
     ]);
@@ -703,9 +703,9 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
 
   it("est idempotent au sens FORT : une porte déjà juste ne se réécrit pas", () => {
     if (!cursor?.mcpFile) throw new Error("grammaire cursor absente");
-    const premier = planMcpConfig(null, url, { grammaire: cursor.mcpFile });
+    const premier = planMcpConfig(null, url, { grammar: cursor.mcpFile });
     const second = planMcpConfig(premier.document, url, {
-      grammaire: cursor.mcpFile,
+      grammar: cursor.mcpFile,
     });
     expect(second.action).toBe("inchange");
   });
@@ -739,7 +739,7 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
       const ecrit = JSON.parse(
         readFileSync(path.join(racine, ".vscode", "mcp.json"), "utf8"),
       ) as IMcpConfigDocument;
-      expect(serveursDe(ecrit, "servers")[MCP_SERVER_KEY]?.url).toBe(url);
+      expect(serversOf(ecrit, "servers")[MCP_SERVER_KEY]?.url).toBe(url);
     } finally {
       rmSync(racine, { recursive: true, force: true });
     }
