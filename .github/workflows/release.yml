@@ -461,6 +461,7 @@ jobs:
             --label org.opencontainers.image.title="Nodefony" \
             --label org.opencontainers.image.description="Application Nodefony de démonstration, générée par « nodefony create app --preset complete » au tag ${V}" \
             --label org.opencontainers.image.source="https://github.com/nodefony/nodefony-core" \
+            --label org.opencontainers.image.licenses="Apache-2.0" \
             -t "nodefony/nodefony:${V}" .
 
           # AVANT le push, comme le contrôle de matière sensible : une image

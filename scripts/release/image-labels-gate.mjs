@@ -63,7 +63,22 @@ const REVISION = /^[0-9a-f]{40}$/;
  * `0.1.0` — il le refuse quand l'attendu dit autre chose, ce qui est le seul cas
  * où il ment.
  */
-const ATTENDUS_REQUIS = ["version", "revision", "created"];
+const ATTENDUS_REQUIS = ["version", "revision", "created", "licenses"];
+
+/**
+ * La licence sous laquelle l'image officielle est distribuée.
+ *
+ * Une image publiée voyage sans son dépôt : c'est cette étiquette, et rien
+ * d'autre, qui dit à un outil d'audit — ou à la personne qui l'inspecte — sous
+ * quels termes elle peut être employée. L'absence ne se lit pas « permissive »,
+ * elle se lit « inconnue », et une licence inconnue est refusée par toute
+ * politique d'entreprise.
+ *
+ * Le gabarit d'application n'en porte AUCUNE, et c'est délibéré : l'image d'un
+ * utilisateur est la sienne, nous ne choisissons pas sa licence. Celle-ci est
+ * la NÔTRE.
+ */
+const LICENCE_ATTENDUE = "Apache-2.0";
 
 /**
  * Confronte les étiquettes d'une image à ce que la chaîne de construction
@@ -116,6 +131,15 @@ function controlerEtiquettes(labels, attendu = {}) {
   if (created && created.trim() !== "" && Number.isNaN(Date.parse(created))) {
     ecarts.push(
       `${OCI}.created = « ${created} » : date illisible (ISO 8601 attendu)`,
+    );
+  }
+
+  const licenses = lu("licenses");
+  if (licenses && licenses.trim() !== "" && licenses !== LICENCE_ATTENDUE) {
+    ecarts.push(
+      `${OCI}.licenses = « ${licenses} » alors que le projet se distribue sous ` +
+        `« ${LICENCE_ATTENDUE} » — une étiquette de licence FAUSSE est pire ` +
+        `qu'absente : elle est crue sans être vérifiée`,
     );
   }
 

@@ -22,6 +22,7 @@ const justes = {
   [`${OCI}.version`]: "10.0.0-alpha.5",
   [`${OCI}.revision`]: SHA,
   [`${OCI}.created`]: "2026-09-11T15:04:05Z",
+  [`${OCI}.licenses`]: "Apache-2.0",
 };
 
 const attendu = {
@@ -45,9 +46,11 @@ describe("controlerEtiquettes", () => {
       },
       attendu,
     );
-    // Quatre familles à la fois : deux vides, une version qui ment, un titre
-    // qui est celui de l'application témoin.
-    expect(ecarts).toHaveLength(4);
+    // Cinq familles à la fois : deux vides, une ABSENTE (la licence — cette
+    // image-là est partie sans le dire), une version qui ment, et un titre qui
+    // est celui de l'application témoin.
+    expect(ecarts).toHaveLength(5);
+    expect(ecarts.join("\n")).toMatch(/licenses : étiquette ABSENTE/);
     expect(ecarts.join("\n")).toMatch(/revision : étiquette VIDE/);
     expect(ecarts.join("\n")).toMatch(/created : étiquette VIDE/);
     expect(ecarts.join("\n")).toMatch(/0\.1\.0.*10\.0\.0-alpha\.5/s);
@@ -56,9 +59,9 @@ describe("controlerEtiquettes", () => {
 
   it("refuse une image SANS la moindre étiquette", () => {
     // `docker inspect` rend `null` dans ce cas ; l'appelant le traduit en `{}`
-    // pour que les trois absences soient NOMMÉES au lieu d'un « aveugle ».
+    // pour que les quatre absences soient NOMMÉES au lieu d'un « aveugle ».
     const ecarts = controlerEtiquettes({}, attendu);
-    expect(ecarts).toHaveLength(3);
+    expect(ecarts).toHaveLength(4);
     expect(ecarts.every((e) => /ABSENTE/.test(e))).toBe(true);
   });
 
@@ -112,6 +115,32 @@ describe("controlerEtiquettes", () => {
     // `docker inspect` peut rendre `null` : l'appelant le normalise, mais la
     // fonction ne doit pas lever si on l'appelle nue.
     expect(() => controlerEtiquettes(null, attendu)).not.toThrow();
-    expect(controlerEtiquettes(null, attendu)).toHaveLength(3);
+    expect(controlerEtiquettes(null, attendu)).toHaveLength(4);
+  });
+});
+
+describe("controlerEtiquettes — la licence de l'image publiée", () => {
+  it("refuse une image qui ne dit pas sous quelle licence elle est", () => {
+    // Une image voyage sans son dépôt : cette étiquette est la SEULE chose qui
+    // le dise à un outil d'audit. L'absence ne se lit pas « permissive », elle
+    // se lit « inconnue » — et une licence inconnue est refusée partout.
+    // L'image 10.0.0-alpha.4 est partie sans elle.
+    const sansLicence = { ...justes };
+    delete sansLicence[`${OCI}.licenses`];
+    expect(controlerEtiquettes(sansLicence, attendu).join("\n")).toMatch(
+      /licenses : étiquette ABSENTE/,
+    );
+  });
+
+  it("refuse une licence FAUSSE — elle est crue sans être vérifiée", () => {
+    // Le cas que la bascule vers Apache-2.0 rend possible : une étiquette
+    // restée sur l'ancienne valeur. Elle a l'air d'une information, et elle
+    // envoie l'auditeur lire le mauvais texte.
+    const ecarts = controlerEtiquettes(
+      { ...justes, [`${OCI}.licenses`]: "CECILL-B" },
+      attendu,
+    );
+    expect(ecarts.join("\n")).toMatch(/licenses = « CECILL-B »/);
+    expect(ecarts.join("\n")).toMatch(/Apache-2\.0/);
   });
 });
