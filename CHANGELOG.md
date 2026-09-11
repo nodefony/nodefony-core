@@ -8,6 +8,41 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.5 - 2026-09-12
+
+### Changed
+
+- **licence :** passer l'ensemble du framework de CeCILL-B à Apache-2.0, concession de brevet comprise (70b5413c)
+- **scaffold :** produire une topologie de production complète — frontal nginx, migrations, secrets séparés (52a88140)
+- **docker :** cesser de prescrire `redis:7-alpine`, seul cran non libre de la gamme, dans le décor généré (0c026ee1)
+
+### Added
+
+- **cli :** livrer `nodefony licenses` et écrire `THIRD-PARTY-NOTICES.md` à la création d'une application (f59df9bb)
+- **cli :** ajouter `security:user:password`, qui change un mot de passe depuis le terminal — le seul recours quand on l'a perdu (04b99066)
+- **orm :** ajouter `create service --entity`, qui rend un service CRUD branché sur le dépôt d'une entité (4bf346b0)
+- **cli :** poser dans l'application générée les fichiers d'instructions que VS Code, Copilot et Cursor lisent (608e8d8b)
+- **cli :** sectionner le menu interactif, qui listait ses commandes à plat (a268ff18)
+
+### Fixed
+
+- **docker :** cesser d'emporter la clé privée TLS du poste dans l'image publiée (d4568516)
+- **scaffold :** cesser de fabriquer en production un certificat que rien ne reconnaît (99b69485)
+- **security :** avertir quand le trousseau JWT sortira dans l'image construite (43d9ab41)
+- **cli :** refuser un argument Windows que `cmd.exe` développerait malgré ses guillemets (`%NOM%`), et fermer une course de fichier (2eaa882a)
+- **scaffold :** réparer le démarrage de l'image générée — droits, persistance, reproductibilité (bf821f25, 33c1f5c5)
+- **scaffold :** ne plus annoncer quatre vulnérabilités à la première installation (44b3a819)
+- **scaffold :** corriger le contraste des vitrines générées en thème sombre (cab83127)
+- **http :** rediriger une requête en clair arrivée sur le port TLS, au lieu de la laisser échouer (7d395d69)
+- **http :** rendre `proxy:generate` opérant dans une application générée (05ca5459)
+- **frontend :** dédupliquer le runtime Svelte au build de production (aaae540d)
+- **log :** écrire un horodatage que les outils d'exploitation savent lire (b71b5e52)
+- **cli :** nommer les causes d'un échec hors application, dont le cas des copies de travail git (f5a5d59b)
+- **cli :** nommer la liaison cliente propre au moteur front choisi (f8424136)
+- **cli :** dire, au moment du refus, comment obtenir une identité pour appeler une route protégée (d9e96c2a)
+- **deps :** corriger deux failles « high » de `lodash-es` à leur source plutôt que reculer mermaid (b009586a)
+- **release :** estampiller l'image officielle avec sa version et sa licence (782442f1, d61ce66b)
+
 ## 10.0.0-alpha.4 - 2026-09-09
 
 ### Changed
