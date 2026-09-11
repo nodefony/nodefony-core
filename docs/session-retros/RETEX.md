@@ -489,3 +489,13 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
+
+## 🕳️ Déclarer ABSENT ce qu'on n'a pas cherché — suite
+
+- [1× — 09-11] **J'ai nommé deux trous de pilotage dans le rapport même où je graduais la leçon
+  voisine, et les deux étaient déjà comblés.** `board-lint.mjs` porte E6 `STATUT-MENTEUR` depuis
+  le début, et l'exclusion des commits de pilotage vit dans un module PARTAGÉ
+  (`commit-kind.mjs`), lu par le lint ET par `ticket-progress.mjs` — avec un test qui exige
+  précisément qu'ils lisent la même règle. Écrire « ne voit pas X » coûte deux `grep` de moins que
+  de le vérifier, et se paie en travail inventé. Le seul trou réel était la frise (dates jamais
+  lues par le lint), désormais comblé.

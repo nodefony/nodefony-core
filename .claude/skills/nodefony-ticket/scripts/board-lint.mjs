@@ -38,6 +38,9 @@ const PROJECT = 2;
 
 /** Au-delà, un statut « en cours » ne s'adosse plus à rien d'observable. */
 const JOURS_EN_COURS = 14;
+// Tolérance du départ de frise, en jours. Assez large pour qu'un week-end ou deux
+// jours d'avance ne crient pas ; assez serrée pour voir un décalage de dix jours.
+const TOLERANCE_FRISE = 5;
 
 const sh = (cmd, args) => execFileSync(cmd, args, { encoding: "utf8" }).trim();
 
@@ -217,6 +220,69 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
     );
   }
 
+  // E7 — une frise posée À LA MAIN ne repart jamais toute seule. Elle se périme
+  // dans les DEUX sens : un départ resté dans le passé (le travail a glissé) comme
+  // un départ jamais atteint dans le futur (posé « pour demain » lors d'une passe
+  // antérieure). Vécu : la frise démarrait au 21 septembre, un 11 septembre — « on
+  // comprend plus rien ». Un SEUL constat, porté par le ticket le plus ancien : 57
+  // avertissements pour une seule cause apprendraient à passer outre.
+  const jourDe = (iso) => Date.parse(`${iso}T00:00:00Z`);
+  const aujourdhui = jourDe(new Date(now).toISOString().slice(0, 10));
+  const dates = items
+    .filter((i) => i.debut)
+    .map((i) => ({ n: i.n, d: i.debut }));
+  if (dates.length) {
+    const depart = dates.reduce((a, b) => (jourDe(b.d) < jourDe(a.d) ? b : a));
+    const ecart = Math.round((jourDe(depart.d) - aujourdhui) / 86400000);
+    if (Math.abs(ecart) > TOLERANCE_FRISE)
+      add(
+        "erreur",
+        "FRISE-DECALEE",
+        depart.n,
+        `la frise démarre le ${depart.d}, ${
+          ecart > 0 ? `dans ${ecart} jours` : `il y a ${-ecart} jours`
+        } — une frise décalée ne se lit plus, et rien ne la fait repartir`,
+        "reposer Début/Cible depuis aujourd'hui, dans l'Ordre (un jour ouvré par ticket)",
+      );
+  }
+
+  // E8 — une cible antérieure à son départ : la ligne du ticket part à l'envers.
+  for (const item of items) {
+    if (!item.debut || !item.cible) continue;
+    if (jourDe(item.cible) >= jourDe(item.debut)) continue;
+    add(
+      "erreur",
+      "CIBLE-AVANT-DEBUT",
+      item.n,
+      `Cible ${item.cible} antérieure à Début ${item.debut} — la barre part à l'envers`,
+      "corriger l'une des deux dates",
+    );
+  }
+
+  // A5 — une frise À TROUS ne se lit pas davantage. Ne mord QUE dans un jalon déjà
+  // daté : un jalon sans aucune date n'est pas en retard, il n'est pas encore planifié.
+  const parJalon = new Map();
+  for (const item of items) {
+    const cle = item.milestone ?? "(sans jalon)";
+    parJalon.set(cle, [...(parJalon.get(cle) ?? []), item]);
+  }
+  for (const [jalon, lot] of parJalon) {
+    const datés = lot.filter((i) => i.debut);
+    if (!datés.length) continue;
+    const nus = lot.filter((i) => !i.debut);
+    if (!nus.length) continue;
+    add(
+      "avertissement",
+      "FRISE-A-TROUS",
+      nus[0].n,
+      `« ${jalon} » : ${nus.length} ticket(s) sans date alors que ${datés.length} en portent — ${nus
+        .slice(0, 6)
+        .map((i) => `#${i.n}`)
+        .join(", ")}${nus.length > 6 ? "…" : ""}`,
+      "dater tout le jalon, ou aucun",
+    );
+  }
+
   // A1/A2 — un item sans estimation ni priorité ne se trie pas, donc ne se prend pas.
   for (const item of items) {
     if (typeof item.jours !== "number")
@@ -308,7 +374,8 @@ query($endCursor:String){
           content{ ... on Issue { number title state milestone{title} parent{number} } }
           fieldValues(first:20){ nodes{
             ... on ProjectV2ItemFieldNumberValue{ number field{... on ProjectV2FieldCommon{name}} }
-            ... on ProjectV2ItemFieldSingleSelectValue{ name field{... on ProjectV2FieldCommon{name}} } } }
+            ... on ProjectV2ItemFieldSingleSelectValue{ name field{... on ProjectV2FieldCommon{name}} }
+            ... on ProjectV2ItemFieldDateValue{ date field{... on ProjectV2FieldCommon{name}} } } }
         }
       }
     }
@@ -340,7 +407,7 @@ function readItems() {
       const f = Object.fromEntries(
         node.fieldValues.nodes
           .filter((v) => v.field?.name)
-          .map((v) => [v.field.name, v.number ?? v.name]),
+          .map((v) => [v.field.name, v.number ?? v.name ?? v.date]),
       );
       return {
         n: node.content.number,
@@ -351,6 +418,8 @@ function readItems() {
         jours: typeof f.Jours === "number" ? f.Jours : undefined,
         prio: f["Priorité"] ?? null,
         status: f.Status ?? null,
+        debut: f["Début"] ?? null,
+        cible: f.Cible ?? null,
       };
     });
 }

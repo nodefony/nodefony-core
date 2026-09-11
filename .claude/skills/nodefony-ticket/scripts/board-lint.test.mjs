@@ -324,6 +324,83 @@ describe("lintBoard — chaque incohérence est vue", () => {
   });
 });
 
+describe("lintBoard — la frise", () => {
+  // MAINTENANT = 2026-09-04. La frise se périme dans les DEUX sens : le vécu qui
+  // fonde ce contrôle était un départ dans le FUTUR (frise au 21 septembre lue un
+  // 11 septembre), la dérive symétrique est un départ resté dans le passé.
+  it("FRISE-DECALEE : un départ dans le futur au-delà de la tolérance", () => {
+    const findings = lintBoard({
+      items: [
+        sain(1, { debut: "2026-09-21", cible: "2026-09-22" }),
+        sain(2, { debut: "2026-09-22", cible: "2026-09-23" }),
+      ],
+      issues: [issueSaine(1), issueSaine(2)],
+      now: MAINTENANT,
+    });
+    const f = findings.find((x) => x.code === "FRISE-DECALEE");
+    expect(f).toBeDefined();
+    expect(f.n).toBe(1); // porté par le ticket le plus ancien, une seule fois
+    expect(f.message).toContain("dans 17 jours");
+    expect(findings.filter((x) => x.code === "FRISE-DECALEE")).toHaveLength(1);
+  });
+
+  it("FRISE-DECALEE : un départ resté dans le passé", () => {
+    const findings = lintBoard({
+      items: [sain(1, { debut: "2026-08-20" })],
+      issues: [issueSaine(1)],
+      now: MAINTENANT,
+    });
+    const f = findings.find((x) => x.code === "FRISE-DECALEE");
+    expect(f.message).toContain("il y a 15 jours");
+  });
+
+  it("reste muet dans la tolérance, et quand aucune date n'est posée", () => {
+    const proche = lintBoard({
+      items: [sain(1, { debut: "2026-09-07" })],
+      issues: [issueSaine(1)],
+      now: MAINTENANT,
+    });
+    expect(codes(proche)).not.toContain("FRISE-DECALEE");
+    const sansDate = lintBoard({
+      items: [sain(1), sain(2)],
+      issues: [issueSaine(1), issueSaine(2)],
+      now: MAINTENANT,
+    });
+    expect(sansDate).toEqual([]);
+  });
+
+  it("CIBLE-AVANT-DEBUT : la barre part à l'envers", () => {
+    const findings = lintBoard({
+      items: [sain(1, { debut: "2026-09-03", cible: "2026-09-01" })],
+      issues: [issueSaine(1)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).toContain("CIBLE-AVANT-DEBUT");
+  });
+
+  it("FRISE-A-TROUS : un jalon daté à moitié — mais pas un jalon non planifié", () => {
+    const findings = lintBoard({
+      items: [
+        sain(1, { debut: "2026-09-03" }),
+        sain(2),
+        sain(3, { milestone: "10.2.0" }),
+        sain(4, { milestone: "10.2.0" }),
+      ],
+      issues: [
+        issueSaine(1),
+        issueSaine(2),
+        issueSaine(3, { milestone: "10.2.0" }),
+        issueSaine(4, { milestone: "10.2.0" }),
+      ],
+      now: MAINTENANT,
+    });
+    const trous = findings.filter((x) => x.code === "FRISE-A-TROUS");
+    expect(trous).toHaveLength(1); // 10.2.0 n'est pas daté du tout : il se tait
+    expect(trous[0].message).toContain("10.0.0");
+    expect(trous[0].message).toContain("#2");
+  });
+});
+
 describe("lintBoard — les erreurs sortent avant les avertissements", () => {
   it("trie par gravité, puis par numéro", () => {
     const findings = lintBoard({

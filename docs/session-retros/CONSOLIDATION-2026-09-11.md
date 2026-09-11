@@ -36,9 +36,11 @@ instantanée d'un système en propagation, le code de sortie qui n'est pas le si
 - 🪟 : aucun automate ne peut répondre « qu'aurait-il vu ? » — geste de méthode. Deux porteurs
   partiels : `argv.selftest.mjs` et le régime `--raw` du gate de format. **Règle qui en sort** :
   tout banc neuf qui monte lui-même son décor doit exposer un régime qui NE le monte pas.
-- 🧾 : `ticket:lint` tient la cohérence du tableau mais **ne voit ni une frise démarrée dans le
-  passé, ni un « In Progress » sans commit récent** ; et `.githooks/post-commit` ne porte pas la
-  même exclusion de commits de pilotage que le lint. Deux trous nommés, non comblés cette passe.
+- 🧾 : `ticket:lint` (`.claude/skills/nodefony-ticket/scripts/board-lint.mjs`) porte désormais la
+  frise — contrôles **FRISE-DECALEE** (le départ s'éloigne d'aujourd'hui dans un sens ou dans
+  l'autre, au-delà de 5 jours), **CIBLE-AVANT-DEBUT** et **FRISE-A-TROUS** (un jalon daté à
+  moitié ; muet sur un jalon pas encore planifié). Vus rouges par débranchement, puis lancés sur le
+  vrai tableau : deux tickets non datés trouvés (#349, #352) et datés.
 
 L'outil a mordu sur du **neuf** : il a nommé une ancre MORTE dans la mémoire écrite dix minutes
 plus tôt (`scripts/board-lint.mjs` — le fichier vit sous `.claude/skills/nodefony-ticket/`).
@@ -61,5 +63,11 @@ Cette liste n'est pas un backlog : elle sert à voir ce qui a été accepté par
 - Les 14 thèmes restants sont sous le seuil. Famille encore candidate à réunion au prochain
   passage : « ce qui ne traverse pas une frontière de process » (📐 assertion de chemin 3 +
   🧵 trois choses 1 = 4) — toujours insuffisante.
-- Les deux trous de porteur nommés ci-dessus (frise dans le passé, `In Progress` fossile) ne sont
-  pas comblés : ce sont des tickets à ouvrir, pas une maintenance de mémoire.
+- ⚠️ **Deux des « trous » annoncés par cette passe n'existaient pas.** Le contrôle du statut
+  menteur (`STATUT-MENTEUR`, E6) et l'exclusion partagée des commits de pilotage
+  (`commit-kind.mjs`, lue par le lint ET par `ticket-progress.mjs`, avec un test qui l'exige)
+  étaient là depuis le début — je les ai déclarés absents sans les avoir cherchés, dans le rapport
+  même où je graduais la leçon voisine. Friction versée au thème 🕳️ du sas, qui atteint le seuil
+  de 5 : à graduer au prochain passage.
+- L'empreinte hors ligne (`.ai/board.json`) ne porte PAS les dates : une frise décalée reste
+  invisible à qui lit le tableau sans réseau. Non comblé.
