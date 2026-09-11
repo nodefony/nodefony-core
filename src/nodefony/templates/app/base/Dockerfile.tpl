@@ -209,7 +209,23 @@ COPY --from=build /app ./
 # de droits. Un volume nommé neuf HÉRITE du propriétaire du dossier qu'il
 # recouvre : c'est ce qui fait que la persistance marche du premier coup.
 # En Kubernetes, c'est aussi ce que `fsGroup` prend pour base.
-RUN mkdir -p /app/tmp /app/var && chown 1000:1000 /app/tmp /app/var
+#
+# 🔴 Et ils naissent VIDES — d'où le `rm -rf`, qui n'est pas une précaution de
+# style. L'étage de construction tourne en `root` et lance `npm run build`, qui
+# BOOTE l'application : l'ORM y crée `var/databases/` au passage, en root. Le
+# `COPY --from=build` l'emporte tel quel, et un `chown` NON RÉCURSIF ne le
+# rattrape pas — `/app/var` appartient bien à 1000, `/app/var/databases` reste à
+# root. L'application démarre alors, puis meurt en `SQLITE_CANTOPEN` sur sa
+# propre base : « unable to open database file », un message qui envoie chercher
+# du côté de la configuration alors que la cause est un bit de permission.
+# Constaté sur une application générée, avec ET sans volume — la persistance
+# n'était pas en cause, elle ne faisait que révéler le défaut plus tôt.
+# Le `rm -rf` ferme au passage la porte de la même famille que la clé privée de
+# l'image publiée : rien de ce que le BUILD écrit dans `var/` (une base, un
+# journal) n'a de raison de voyager jusqu'en production.
+RUN rm -rf /app/tmp /app/var \
+ && mkdir -p /app/tmp /app/var \
+ && chown 1000:1000 /app/tmp /app/var
 
 # Jamais root : les ports de Nodefony (5151, 5152) n'exigent aucun privilège.
 # NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand l'image

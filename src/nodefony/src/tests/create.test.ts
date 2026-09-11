@@ -1039,6 +1039,67 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(bloc, 'NF__APP__DOMAINCHECK: "true"');
     });
 
+    it("les migrations passent AVANT le trafic, sinon rien ne démarre", () => {
+      // 🔴 Sans étape de migration, la topologie ne se lève PAS — et le symptôme
+      // n'accuse personne. En production le schéma appartient aux migrations
+      // (`ddl: none`) : un exemplaire au schéma en retard REFUSE le trafic,
+      // `/readyz` rend 503, la sonde de l'image le déclare `unhealthy`, et le
+      // frontal — qui attend `service_healthy` — n'est jamais créé. Compose
+      // s'arrête alors sur « dependency failed to start », qui ne dit pas un mot
+      // des migrations. Mesuré sur une application générée, pas déduit.
+      const compose = readFileSync(
+        path.join(dossierEdge(), "compose.yaml"),
+        "utf8",
+      );
+      const migrate = compose.slice(
+        compose.indexOf("\n  migrate:"),
+        compose.indexOf("\n  app:"),
+      );
+      assert.isNotEmpty(migrate, "service `migrate` absent du compose");
+      assert.include(migrate, "orm:migrate");
+      // Une TÂCHE, pas un service : elle se termine, et ne se relance pas.
+      assert.include(migrate, 'restart: "no"');
+      // Et les deux façons d'exécuter l'image l'attendent — pas seulement l'une.
+      for (const service of ["\n  app:", "\n  app-edge:"]) {
+        const bloc = compose.slice(
+          compose.indexOf(service),
+          compose.indexOf(
+            "\n  ",
+            compose.indexOf(service) + service.length + 40,
+          ),
+        );
+        assert.include(
+          bloc,
+          "service_completed_successfully",
+          `${service.trim()} ne dépend pas de la fin des migrations`,
+        );
+      }
+    });
+
+    it("le frontal est bâti sur ses ports INTERNES, jamais ceux publiés", () => {
+      // 🔴 Les `args` de construction nourrissent la configuration nginx : ce
+      // sont les ports que le frontal ÉCOUTE dans le conteneur. Le `EXPOSE` de
+      // l'image et son `HEALTHCHECK` (`127.0.0.1:8080`, en dur — une sonde
+      // interne n'a aucune raison de suivre un port d'hôte) disent les mêmes.
+      // Y passer `${EDGE_HTTP_PORT}` faisait écouter nginx sur le port de
+      // PUBLICATION : tant qu'on gardait les défauts les deux coïncidaient et
+      // personne ne le voyait ; à la première surcharge, le mapping visait 8080
+      // quand nginx écoutait ailleurs — plus rien ne répondait, et la sonde
+      // déclarait le frontal `unhealthy` sans dire pourquoi.
+      const compose = readFileSync(
+        path.join(dossierEdge(), "compose.yaml"),
+        "utf8",
+      );
+      const edge = compose.slice(compose.indexOf("\n  edge:"));
+      const args = edge.slice(edge.indexOf("args:"), edge.indexOf("image:"));
+      assert.match(args, /EDGE_HTTP_PORT:\s*8080\s/u);
+      assert.match(args, /EDGE_TLS_PORT:\s*8443\s/u);
+      // La partie GAUCHE du mapping, elle, reste surchargeable — c'est le port
+      // de l'hôte, et deux applications côte à côte en ont besoin.
+      assert.include(edge, '"127.0.0.1:${EDGE_HTTP_PORT:-8080}:8080"');
+      assert.include(edge, '"127.0.0.1:${EDGE_TLS_PORT:-8443}:8443"');
+    });
+
     it("le frontal vise un service qui EXISTE, et attend qu'il soit prêt", () => {
       // Une jointure entre deux endroits du fichier : `EDGE_BACKEND` devient le
       // nom d'hôte de l'`upstream` nginx. S'il ne nomme aucun service, la
@@ -1468,10 +1529,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // qu'il recouvre. Sans eux, `docker run -v <vol>:/app/var` naît
         // `root:root` et le premier `mkdir` de l'application meurt en EACCES —
         // sur un message qui ne parle ni de volume ni de droits.
-        assert.match(
-          dockerfile,
-          /^RUN mkdir -p \/app\/tmp \/app\/var && chown 1000:1000 \/app\/tmp \/app\/var$/mu,
-        );
+        assert.match(dockerfile, /mkdir -p \/app\/tmp \/app\/var/u);
+        assert.match(dockerfile, /chown 1000:1000 \/app\/tmp \/app\/var/u);
+
+        // 🔴 Et ils naissent VIDES. L'étage de construction tourne en `root` et
+        // BOOTE l'application (`npm run build`) : l'ORM y crée `var/databases/`
+        // au passage, en root. Le `COPY --from=build` l'emporte, et un `chown`
+        // NON RÉCURSIF ne le rattrape pas — `/app/var` appartient à 1000,
+        // `/app/var/databases` reste à root. L'application meurt alors sur sa
+        // propre base (`SQLITE_CANTOPEN`), avec ET sans volume. Mesuré sur une
+        // application générée, pas déduit.
+        assert.match(dockerfile, /rm -rf \/app\/tmp \/app\/var/u);
 
         // Le code appartient à root : une application qui peut réécrire son
         // propre `dist/` offre à une exécution de code un moyen de PERSISTER.

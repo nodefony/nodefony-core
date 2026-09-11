@@ -327,6 +327,44 @@ export function resolveEnvStages(
 }
 
 /**
+ * Clé globale du fait « ce run SERT du trafic ».
+ *
+ * `globalThis` + `Symbol.for`, jamais une variable de module — même raison que
+ * {@link ENV_META} : le Kernel qui pose le fait est celui du CLI, et le
+ * `defineEnv` qui le lit est celui de l'application. Deux instances du même
+ * paquet, invisibles l'une de l'autre par toute autre voie.
+ *
+ * Et surtout PAS une variable d'environnement : elle relâche une garde de
+ * sécurité, donc elle ne doit pas pouvoir être posée à la main dans un pod.
+ */
+const RUN_SERVES_TRAFFIC = Symbol.for("nodefony.runServesTraffic");
+
+/**
+ * Déclare si le run en cours sert du trafic — appelé par le Kernel, et par lui seul.
+ *
+ * @param serves - `false` pour une commande qui n'ouvre aucun serveur ; `null`
+ *   rétablit le défaut, c'est-à-dire la garde ARMÉE.
+ */
+export function setRunServesTraffic(serves: boolean | null): void {
+  (globalThis as unknown as Record<symbol, unknown>)[RUN_SERVES_TRAFFIC] =
+    serves;
+}
+
+/**
+ * Le run en cours sert-il du trafic ?
+ *
+ * Défaut `true` : tant que personne n'a déclaré le contraire, la garde mord.
+ * Un défaut inverse ferait taire l'exigence partout où le fait n'est pas posé —
+ * c'est-à-dire, le jour d'un refactor, en production.
+ */
+function runServesTraffic(): boolean {
+  return (
+    (globalThis as unknown as Record<symbol, unknown>)[RUN_SERVES_TRAFFIC] !==
+    false
+  );
+}
+
+/**
  * `true` si la variable est REQUISE dans l'environnement décrit par `stages`.
  *
  * Le « ou » est volontaire : une variable sans défaut et non optionnelle est
@@ -394,13 +432,35 @@ export function defineEnv<M extends Record<string, z.ZodTypeAny>>(
   // construction, donc le schéma ne peut pas porter cette règle — et un
   // déploiement amputé de son secret doit s'arrêter ICI, pas trois écrans plus
   // loin quand un pod refusera le jeton d'un autre.
+  //
+  // 🔴 …mais seulement pour un run qui SERT. Un secret de service protège du
+  // trafic ; une commande qui n'ouvre aucun serveur — dériver la configuration
+  // d'un frontal, publier les statiques, lister les routes — n'en a aucun
+  // usage, et l'exiger d'elle rend l'application inutilisable là où elle est
+  // le plus légitime : dans une IMAGE, où le secret n'entre justement PAS
+  // (`.dockerignore` exclut `*.local`, une couche restant lisible même
+  // effacée). Vécu, et bloquant : l'étage `proxyconf` du Dockerfile généré
+  // boote l'application en production pour en dériver la configuration nginx —
+  // il mourait en `EX_CONFIG`, et le profil `edge` du compose était
+  // INCONSTRUISIBLE pour toute application générée. Le secret ne pouvait pas
+  // davantage être passé en argument de construction : il serait gravé dans
+  // l'historique de l'image.
+  //
+  // C'est le MÊME raisonnement que `runNeedsExternalServices` pour la base de
+  // données (`Kernel.ts`) : la question n'est pas « est-ce fatal ? » mais « ce
+  // run en a-t-il besoin ? ». Un `nodefony production` déclare `servers: true`
+  // et reste donc gardé, en développement comme en production.
   const stages = resolveEnvStages(source);
-  const missing = Object.keys(catalog).filter((key) => {
-    const meta = readMeta(catalog[key]);
-    return (
-      isAbsent(input[key]) && meta !== null && isRequiredByStage(meta, stages)
-    );
-  });
+  const missing = !runServesTraffic()
+    ? []
+    : Object.keys(catalog).filter((key) => {
+        const meta = readMeta(catalog[key]);
+        return (
+          isAbsent(input[key]) &&
+          meta !== null &&
+          isRequiredByStage(meta, stages)
+        );
+      });
   if (missing.length > 0) {
     throw new Error(
       `[nodefony] Variables d'environnement requises en ${stages.join("/")} et ABSENTES : ` +

@@ -62,6 +62,7 @@ import {
   readAppEnvOverrideReport,
 } from "../config/defineConfig";
 import { defaultAppConfig } from "../config/defaults";
+import { setRunServesTraffic } from "../config/defineEnv";
 import {
   parseNfEnvOverrides,
   applyResolvedPath,
@@ -2079,6 +2080,18 @@ class Kernel extends Service implements IKernel {
     // Entrée résolue depuis le package.json de l'app (main, fallback legacy) —
     // même résolution que isTrunk (mémoïsée), ICI a lieu l'unique import réel.
     const appEntry = this.resolveAppEntry() ?? `${this.path}/dist/index.js`;
+    // Le `env.ts` de l'application s'évalue À L'IMPORT, et sa garde `requiredIn`
+    // exige les secrets de service. Elle ne doit mordre que pour un run qui SERT
+    // — sinon `assets:publish`, `proxy:generate` ou `inspect` réclament dans une
+    // image un secret que l'image n'a pas le droit de porter. On lui donne donc
+    // le fait, juste le temps de l'import.
+    //
+    // Le profil se lit sur le CLI, pas sur `this` : le kernel ne recopie
+    // `cli.runProfile` qu'à `onStart`, APRÈS ce chargement — s'en remettre à
+    // `this.runProfile` rendrait `servers: false` pour TOUT run, `production`
+    // compris, et désarmerait la garde partout sans un mot.
+    const serves = (this.cli?.runProfile ?? this.runProfile)?.servers === true;
+    setRunServesTraffic(serves);
     try {
       this.app = await this.loadModule(appEntry);
     } catch (e) {
@@ -2091,6 +2104,10 @@ class Kernel extends Service implements IKernel {
           "Un fichier de config déréférence le kernel au top-level (résolu à l'import) → différer en getter/lazy.",
         ],
       );
+    } finally {
+      // Le fait ne vaut QUE pour cet import. Le laisser posé désarmerait la
+      // garde pour tout `defineEnv` appelé ensuite — un module, un rechargement.
+      setRunServesTraffic(null);
     }
     this.app.isApp = true;
     // Catalogue env optionnel exposé par l'app (`export const env = defineEnv(…)`)

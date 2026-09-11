@@ -243,7 +243,35 @@ class Certificate extends Service {
     return this.forge;
   }
 
+  /**
+   * Fabrique-t-on un certificat au démarrage ?
+   *
+   * 🔴 Seulement si un serveur TLS est ACTIF. Sans cette question, le hook
+   * ci-dessous écrit dans `nodefony/config/certificates` à CHAQUE boot — y
+   * compris celui d'une application qui a coupé son écoute TLS, et y compris un
+   * run de console qui n'ouvre aucun port.
+   *
+   * Ce qu'il en coûtait, mesuré sur une image générée : le code d'une image
+   * appartient à `root` et le processus tourne en `1000` (c'est voulu — une
+   * application qui peut réécrire son propre `dist/` offre à une faille un moyen
+   * de PERSISTER). Le `mkdir` mourait donc en `EACCES`, le hook de boot était
+   * « critique », et l'application ne démarrait PAS — quel que soit son préset.
+   * L'erreur nommait un dossier de certificats sur une application qui n'en veut
+   * aucun : elle envoyait chercher du côté du TLS un défaut de permission.
+   *
+   * C'est aussi ce que le gabarit d'application promet en toutes lettres : en
+   * production, l'écoute TLS est coupée tant qu'aucun port HTTPS n'est demandé,
+   * précisément pour ne PAS fabriquer une clé RSA à chaque démarrage de chaque
+   * exemplaire. La promesse était écrite ; rien ne la tenait.
+   */
+  private get tlsWanted(): boolean {
+    return !!this.module.kernel?.options?.servers?.https;
+  }
+
   async init(): Promise<this> {
+    if (!this.tlsWanted) {
+      return this;
+    }
     this.kernel?.once("onBoot", async () => {
       this.options = extend(
         true,

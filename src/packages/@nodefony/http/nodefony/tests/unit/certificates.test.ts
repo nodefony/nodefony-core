@@ -264,3 +264,60 @@ describe("certificates — écriture sécurisée + stratégies", () => {
     // aucune assertion n'a été touchée pour autant.
   }, 60_000);
 });
+
+/**
+ * Fabriquer un certificat est une ÉCRITURE DISQUE. Elle n'a de sens que si un
+ * serveur TLS existe — et elle est refusée là où l'application n'a pas le droit
+ * d'écrire, c'est-à-dire dans son image, dont le code appartient à `root` quand
+ * le processus tourne en `1000`.
+ *
+ * Vécu, et bloquant : le hook `onBoot` s'armait INCONDITIONNELLEMENT. Dans une
+ * image générée, il mourait en `EACCES` sur `nodefony/config/certificates`, le
+ * hook était « critique », et l'application ne démarrait pas — quel que soit son
+ * préset, et alors même que la production coupe son écoute TLS exprès.
+ */
+describe("certificates — on ne fabrique QUE ce dont un serveur TLS a besoin", () => {
+  /** Le service, avec la config serveur que le kernel lui exposerait. */
+  function certAvecServeurs(servers: unknown): Certificate {
+    const hooks: string[] = [];
+    const fakeModule = {
+      container: null,
+      notificationsCenter: false,
+      options: { certificates: {} },
+      kernel: {
+        options: { servers },
+        once: (event: string) => hooks.push(event),
+      },
+    };
+    const c = new Certificate(fakeModule as unknown as Module);
+    // Le service prend son kernel dans le CONTENEUR (`Service.ts`), que ce décor
+    // n'a pas : on le pose à la main, sinon `this.kernel?.once` ne ferait rien et
+    // le cas positif passerait pour une raison qui n'est pas la sienne.
+    (c as unknown as { kernel: unknown }).kernel = fakeModule.kernel;
+    (c as unknown as { hooksPoses: string[] }).hooksPoses = hooks;
+    return c;
+  }
+
+  const hooksDe = (c: Certificate): string[] =>
+    (c as unknown as { hooksPoses: string[] }).hooksPoses;
+
+  it("aucun hook de boot quand l'écoute TLS est COUPÉE (`https: false`)", async () => {
+    const c = certAvecServeurs({ http: { port: 5151 }, https: false });
+    await c.init();
+    expect(hooksDe(c)).to.deep.equal([]);
+  });
+
+  it("aucun hook de boot quand aucun serveur n'est déclaré", async () => {
+    const c = certAvecServeurs({});
+    await c.init();
+    expect(hooksDe(c)).to.deep.equal([]);
+  });
+
+  // Le pendant, sans lequel le cas précédent ne prouverait rien : un serveur TLS
+  // déclaré DOIT encore obtenir son certificat (le développement en dépend).
+  it("le hook est posé dès qu'un serveur TLS est déclaré", async () => {
+    const c = certAvecServeurs({ https: { port: 5152 } });
+    await c.init();
+    expect(hooksDe(c)).to.deep.equal(["onBoot"]);
+  });
+});

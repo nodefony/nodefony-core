@@ -145,11 +145,11 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2473` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2490` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:714` |
 | `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:465` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2723` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2735` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2740` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2752` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:89` |
@@ -185,14 +185,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:53` |
 | `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:77` |
 | `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
-| `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:959` |
+| `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:960` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:579` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:91` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |
-| `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:691` |
+| `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:692` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:62` |
 | `NF_MONGODB_DEBUG` | `src/packages/@nodefony/mongoose/tests/unit/config.test.ts:132` |
-| `NF_NO_TTY` | `src/nodefony/src/kernel/Kernel.ts:559` |
+| `NF_NO_TTY` | `src/nodefony/src/kernel/Kernel.ts:560` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:98` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:22` |
 | `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:138` |
@@ -206,7 +206,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:81` |
-| `NF_START` | `src/nodefony/src/kernel/Kernel.ts:578` |
+| `NF_START` | `src/nodefony/src/kernel/Kernel.ts:579` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:87` |
 | `NF_X` | `scripts/env-snapshot.ts:123` |

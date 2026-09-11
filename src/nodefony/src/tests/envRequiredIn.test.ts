@@ -22,6 +22,7 @@ import {
   isEnvVarRequired,
   isRequiredByStage,
   resolveEnvStages,
+  setRunServesTraffic,
 } from "../config/defineEnv";
 
 describe("resolveEnvStages — les étiquettes de l'environnement", () => {
@@ -117,6 +118,38 @@ describe("defineEnv — le BOOT refuse ce qui manquera là où on va", () => {
         e.message.includes("NF_CSRF_SECRET") &&
         e.message.includes("production"),
     );
+  });
+
+  // Un secret de service protège du TRAFIC. Une commande qui n'ouvre aucun
+  // serveur — dériver la configuration d'un frontal, publier les statiques,
+  // lister les routes — n'en a aucun usage, et l'exiger d'elle rend
+  // l'application inutilisable là où le secret n'a JUSTEMENT pas le droit
+  // d'être : dans une image. Vécu : l'étage `proxyconf` du Dockerfile généré
+  // mourait en EX_CONFIG, et le profil `edge` du compose était inconstruisible
+  // pour toute application générée.
+  describe("un run qui ne SERT pas n'a pas besoin des secrets de service", () => {
+    afterEach(() => {
+      setRunServesTraffic(null);
+    });
+
+    it("ne lève PAS quand le run est déclaré sans serveur", () => {
+      setRunServesTraffic(false);
+      const env = defineEnv(catalog, { NODE_ENV: "production" });
+      assert.strictEqual(env.NF_CSRF_SECRET, undefined);
+    });
+
+    it("LÈVE de nouveau dès que le run SERT", () => {
+      setRunServesTraffic(true);
+      assert.throws(() => defineEnv(catalog, { NODE_ENV: "production" }));
+    });
+
+    // 🔴 Le défaut doit être la garde ARMÉE : un défaut inverse ferait taire
+    // l'exigence partout où le fait n'est pas posé — c'est-à-dire, le jour d'un
+    // refactor, en production.
+    it("garde ARMÉE quand personne n'a rien déclaré", () => {
+      setRunServesTraffic(null);
+      assert.throws(() => defineEnv(catalog, { NODE_ENV: "production" }));
+    });
   });
 
   it("une chaîne VIDE ne satisfait pas l'exigence", () => {

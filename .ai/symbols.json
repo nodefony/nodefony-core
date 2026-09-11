@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3983,
+    "symbols": 3985,
     "classes": 388,
     "interfaces": 1079,
     "types": 447,
     "enums": 4,
-    "functions": 1672,
+    "functions": 1674,
     "constants": 393
   },
   "symbols": {
@@ -2821,6 +2821,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les ÉTIQUETTES de l'environnement décrit par une source de variables. Deux notions cohabitent et ne se confondent pas : le MODE d'exécution (`NODE_ENV`, que Node et les outils lisent) et l'environn…"
+    },
+    "setRunServesTraffic": {
+      "name": "setRunServesTraffic",
+      "kind": "function",
+      "file": "src/nodefony/src/config/defineEnv.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Déclare si le run en cours sert du trafic — appelé par le Kernel, et par lui seul."
     },
     "isEnvVarRequired": {
       "name": "isEnvVarRequired",
@@ -30967,6 +30975,9 @@
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readAppEnvOverrideReport": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "setRunServesTraffic": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "readResolvedPath": [
