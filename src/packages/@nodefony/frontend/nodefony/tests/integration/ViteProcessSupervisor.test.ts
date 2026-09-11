@@ -189,6 +189,30 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
       // Un banc qui ne nomme pas sa cause se relance au lieu d'être instruit,
       // et son rouge finit par emporter le prochain vrai rouge avec lui.
       if (status.port === port) {
+        // 🔴 QUI tient RÉELLEMENT le port, au moment où l'on juge. Le compteur
+        // de replis dit d'où vient le défaut ; ce PID dit ce qui s'est passé,
+        // et les deux ensemble épuisent le champ des explications. Sans lui,
+        // `portRetries === 0` laissait encore deux lectures incompatibles —
+        // « Vite n'a pas obtenu le port mais l'annonce » et « Vite l'a obtenu
+        // alors qu'il était pris » — et l'on relançait le banc au lieu de
+        // l'instruire.
+        const tenantDuPort = pidListeningOn(port);
+        const pidPremiere = first.status().pid;
+        const pidSeconde = status.pid;
+        const qui =
+          tenantDuPort === null
+            ? "PERSONNE n'écoute sur ce port au moment du verdict — la prémisse " +
+              "est tombée ENTRE la vérification et ici, le cas ne juge rien"
+            : tenantDuPort === pidPremiere
+              ? "c'est la 1ʳᵉ instance qui tient le port : la 2ᵉ n'écoute NULLE PART " +
+                "et annonce pourtant ce numéro — le défaut est dans ce que le " +
+                "superviseur retient comme port RÉEL, pas dans la liaison"
+              : tenantDuPort === pidSeconde
+                ? "c'est la 2ᵉ instance qui tient le port : les deux coexistent sur " +
+                  "ce numéro — familles d'adresses distinctes, ou `SO_REUSEADDR` " +
+                  "accepté par le noyau ; le défaut est dans la LIAISON"
+                : "un TIERS tient le port — ni la 1ʳᵉ ni la 2ᵉ instance : l'agent " +
+                  "est partagé et le port a été pris entre-temps";
         expect.fail(
           `la 2ᵉ instance annonce le port de la 1ʳᵉ (${port}) — ` +
             `replis tentés : ${status.portRetries}. ` +
@@ -196,7 +220,10 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
               ? "AUCUN repli : le conflit n'a pas été dénoncé sous une forme reconnue " +
                 "(`isPortInUseMessage`), ou il l'a été après le délai de démarrage."
               : "le repli a eu lieu et Vite a fini sur le MÊME port : `strictPort` " +
-                "n'a pas tenu, ou deux sockets coexistent sur ce numéro."),
+                "n'a pas tenu, ou deux sockets coexistent sur ce numéro.") +
+            `\n  écoute réelle : PID ${tenantDuPort ?? "aucun"} ` +
+            `(1ʳᵉ = ${pidPremiere ?? "?"}, 2ᵉ = ${pidSeconde ?? "?"}) → ${qui}.` +
+            `\n  dernière erreur retenue par la 2ᵉ : ${status.lastError ?? "aucune"}`,
         );
       }
       // Décalé — et le port annoncé est le port RÉEL, pas celui demandé : c'est
