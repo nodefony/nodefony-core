@@ -49,7 +49,7 @@ flowchart TD
   S --> CTRL["→ autorisation → contrôleur"]
 ```
 
-C'est `Firewall.#authenticate()` (`firewall.ts:1112`) qui déroule ce cycle pour chaque maillon de la
+C'est `Firewall.#authenticate()` (`firewall.ts:1128`) qui déroule ce cycle pour chaque maillon de la
 zone, dans l'ordre déclaré. Le succès pose l'identité dans l'ALS ; l'échec remonte au firewall qui
 pose le 401 et son challenge — l'authenticator, lui, ne touche jamais à la réponse.
 
@@ -105,7 +105,7 @@ totalement agnostique de la stratégie :
 ### Le registre pluggable
 
 Les authenticators sont résolus par **nom** : `Firewall.#instantiateAuthenticators()`
-(`firewall.ts:402`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
+(`firewall.ts:429`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
 un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggable ».
 
 - Les **cinq builtins HTTP** (`anonymous`, `userpassword`, `session`, `jwt`, `apikey`)
@@ -116,7 +116,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
 - Un nom inconnu en config = boot **fail-closed** — `#configError` posé + log CRITIC
-  (`firewall.ts:419`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
+  (`firewall.ts:582`) : jamais de zone « protégée » silencieusement ouverte à cause d'une
   faute de frappe.
 
 ## 🚀 Démarrage rapide
@@ -261,7 +261,7 @@ Credential = l'**identifiant** posé dans le blob de session, jamais un secret.
   d'un utilisateur (`SessionAuthenticator.ts:43-46`) — le pipeline http démarre la session _avant_
   le firewall ; c'est `AuthFlow.login()` qui ouvre et régénère l'ID (anti-fixation).
 - **L'identité est re-résolue à CHAQUE requête** via `resolveSessionIdentity`
-  (`SessionAuthenticator.ts:70`) → rôles frais, révocation immédiate. Les contrôles d'état sont
+  (`SessionAuthenticator.ts:91`) → rôles frais, révocation immédiate. Les contrôles d'état sont
   partagés avec `AuthFlow.me()` : `isLocked()`/`isActive()` → rejet (`sessionIdentity.ts:40`).
 - `onSuccess()` pose l'identifiant sur le contexte — la persistance de session lie le blob au
   principal courant (`SessionAuthenticator.ts:78-80`).
@@ -353,12 +353,12 @@ Deux preuves différentes, mêmes routes — c'est la config du Démarrage rapid
 de lecture :
 
 - un maillon dont `supports()` est faux est simplement **sauté** en mode `first`
-  (`firewall.ts:1128`) ;
+  (`firewall.ts:1114`) ;
 - un credential **présenté mais invalide échoue immédiatement** — l'échec d'`authenticate()`
-  remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:1112`). Une clé
+  remonte, jamais de fallback silencieux vers le maillon suivant (`firewall.ts:1128`). Une clé
   API révoquée donne un 401 direct, même si un autre maillon aurait pu réussir.
 - aucune preuve présentée sur toute la chaîne → `handleSecurity()` lève l'`AuthenticationError`
-  Zero Trust (`firewall.ts:738`).
+  Zero Trust (`firewall.ts:754`).
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
 
@@ -397,7 +397,7 @@ paresse : c'est une **défense anti-énumération / anti-oracle**.
 Distinguer « compte inconnu » de « mot de passe faux », ou « token expiré » de « signature
 invalide », donnerait à un attaquant une sonde. La cause fine part **toujours** en log d'audit ; le
 client n'obtient qu'un 401 + son challenge — posé par le firewall, premier maillon de la zone qui
-en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1191`).
+en déclare un (`Firewall.#setChallenge()`, `firewall.ts:1207`).
 
 ## 🧩 Ajouter un authenticator maison
 
@@ -423,7 +423,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 <!-- prettier-ignore -->
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
-| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1191`) |
+| Challenge d'auth (401) | RFC 7235 | `Firewall.#setChallenge()` (`firewall.ts:1207`) |
 | Bearer | RFC 6750 | `readBearerHeader()` (`runtime/bearer.ts:68`, cœur) — une porte UNIQUE au cœur, plus une constante par authenticator |
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |

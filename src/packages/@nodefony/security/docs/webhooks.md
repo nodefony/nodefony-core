@@ -824,7 +824,7 @@ mention.
 | `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:468` |
 | `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:456` |
 | `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:510` |
-| `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:414` |
+| `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:458` |
 | `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:542` |
 | `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:553` |
 | `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:572` |

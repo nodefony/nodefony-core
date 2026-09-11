@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 822,
-    "symbols": 3996,
-    "classes": 388,
+    "files": 823,
+    "symbols": 3997,
+    "classes": 389,
     "interfaces": 1082,
     "types": 447,
     "enums": 4,
@@ -19712,6 +19712,17 @@
       "decorators": [],
       "description": "`nodefony security:user:list` — qui a un compte dans cette application. **Lister n'est pas une fuite, et c'était la question.** Cette commande s'exécute sur la machine qui possède déjà la base : el…"
     },
+    "SecurityUserPassword": {
+      "name": "SecurityUserPassword",
+      "kind": "class",
+      "file": "src/packages/@nodefony/security/nodefony/command/security-user-password.ts",
+      "exported": true,
+      "module": "@nodefony/security",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "`nodefony security:user:password [identifiant]` — change le mot de passe d'un compte. Le geste d'exploitation qui manquait : `user:add`, `user:list` et `user:delete` existaient, mais un mot de pass…"
+    },
     "ISecurityConfigInput": {
       "name": "ISecurityConfigInput",
       "kind": "type",
@@ -27421,7 +27432,8 @@
         "SecurityToken",
         "SecurityUserAdd",
         "SecurityUserDelete",
-        "SecurityUserList"
+        "SecurityUserList",
+        "SecurityUserPassword"
       ],
       "IClusterMessage": [
         "IClusterProbeCtl",
@@ -28022,7 +28034,8 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
       ],
       "ColorFn": [
         "src/nodefony/src/Cli.ts"
@@ -29996,6 +30009,9 @@
       "SecurityUserDelete": [
         "src/packages/@nodefony/security/index.ts"
       ],
+      "SecurityUserPassword": [
+        "src/packages/@nodefony/security/index.ts"
+      ],
       "SecurityToken": [
         "src/packages/@nodefony/security/index.ts"
       ],
@@ -30701,7 +30717,8 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
       ],
       "Builder": [
         "src/nodefony/src/command/Command.ts"
@@ -32510,7 +32527,8 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
       ],
       "resolveTopology": [
         "src/nodefony/src/kernel/commands/ClusterCommand.ts",
@@ -33225,6 +33243,7 @@
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "recordInitializeRun": [
@@ -33433,7 +33452,8 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-delete.ts",
-        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-user-list.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
       ],
       "DrizzleMigrator": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
@@ -35399,7 +35419,12 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "askPasswordMasked": [
-        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts"
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
+      ],
+      "USER_REVOKED_EVENT": [
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts",
+        "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
       ],
       "securityConfigSchema": [
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts"
@@ -36608,9 +36633,6 @@
       ],
       "webhookAdminEndpoints": [
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts"
-      ],
-      "USER_REVOKED_EVENT": [
-        "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
       ],
       "IUserRevokedEvent": [
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"

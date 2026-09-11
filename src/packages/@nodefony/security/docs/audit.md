@@ -383,7 +383,7 @@ Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recor
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:794`) ;
 - `auth.denied` / `no_credentials` — Zero Trust : rien n'a été présenté sur une zone protégée
   (`firewall.ts:811`) ;
-- `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:638`).
+- `auth.denied` / `unauthenticated` — un jeton non promu hors `anonymous` (`firewall.ts:850`).
 
 Le parcours de login BFF émet en parallèle son propre vocabulaire depuis `AuthFlow` :
 `login.failure` sur identité inconnue (`authFlow.ts:125`) ou mot de passe faux (`authFlow.ts:153`),
@@ -458,7 +458,7 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:884`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:341`).
+(`firewall.ts:900`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:341`).
 Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:324`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
@@ -484,7 +484,7 @@ jamais faire tomber ce qu'on supervise.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `auditSchema` (`config.ts:877`), rattaché à la racine sous la clé `audit`
-(`config.ts:1121`).
+(`config.ts:1152`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -503,7 +503,7 @@ Table dérivée du schéma Zod `auditSchema` (`config.ts:877`), rattaché à la 
 ### Comment `store: "auto"` décide
 
 Le défaut ne suppose rien : il **suit l'infrastructure déclarée**, borné aux backends réellement
-enregistrés (`auditService.ts:92`, logique `resolveAutoStore()` dans `infra.ts:241`).
+enregistrés (`auditService.ts:92`, logique `resolveAutoStore()` dans `infra.ts:289`).
 
 1. `NF_STORE` posée et le backend est enregistré pour l'audit → il gagne (levier de banc de charge) ;
 2. sinon, une base est déclarée (`NF_DATABASE_URL`) → `drizzle`, ou `mongoose` selon la famille ;

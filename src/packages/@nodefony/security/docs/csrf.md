@@ -93,7 +93,7 @@ contrôleur** : l'attaque meurt sans avoir touché ton code.
 - **Vérifier la provenance d'abord** (OWASP 2025, modèle Go 1.25 `CrossOriginProtection`) : la
   couche 1 est la défense **par défaut**, `csrf.enabled: true` (`config.ts:151-156`).
 - **Globale, pas liée aux zones** : toute mutation cross-site est refusée, route publique ou non —
-  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1427`) arrive **après** le
+  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1470`) arrive **après** le
   resolve (les marqueurs de route sont lisibles) et **avant** la session (rejet précoce : un
   attaquant ne coûte ni lecture de session ni authentification).
 - **Logique pure** : la classe `Csrf` est synchrone, sans I/O ni allocation sur le hot-path —
@@ -298,7 +298,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 2. Au match de la route, `Resolver.match()` recopie les marqueurs sur le contexte
    (`Resolver.ts:152-153`) — champs portés par le `Context` de base, HTTP comme WS
    (`Context.ts:181-183`).
-3. `Firewall.enforceCsrf()` (`firewall.ts:932`) fait les trois rôles : **émission** du token sur
+3. `Firewall.enforceCsrf()` (`firewall.ts:948`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si
    `@CsrfProtect`. Les routes `bypassFirewall` (callbacks OAuth) sont exemptées
    (`firewall.ts:743-745`), les `@CsrfExempt` sortent après la barrière méthode sûre
@@ -346,7 +346,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 L'écran **Firewall** de Studio expose la défense dans son onglet Défenses (`FirewallDefenses`,
 `Firewall.tsx:313-314`). La projection est **sans secret par construction** :
 `Firewall.#describeDefenses()` (`firewall.ts:575`) publie la config résolue, et `synchronizerToken`
-n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:557`).
+n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:601`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

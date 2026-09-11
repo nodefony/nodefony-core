@@ -33,8 +33,8 @@ source: "src/packages/@nodefony/security/docs/oauth2.md"
 > connecté à **ton** application. Nodefony orchestre ce voyage avec la posture **OAuth 2.1**
 > (RFC 9700) : Authorization Code, PKCE, `state` anti-CSRF, `iss` anti-mix-up. Point clé :
 > **aucun jeton n'atteint le navigateur** — le retour produit une **session BFF**, exactement la même
-> qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:55`) et le controller BFF
-> `OAuth2Controller` (`OAuth2Controller.ts:81`).
+> qu'un login par mot de passe. Ancré sur `OAuth2Service` (`oauth2.ts:116`) et le controller BFF
+> `OAuth2Controller` (`OAuth2Controller.ts:89`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **OAuth2**
 
@@ -146,7 +146,7 @@ c'est l'authenticator `session` qui identifie chaque requête, comme après un m
 **Coût nul quand on ne s'en sert pas.** Aucune dépendance tierce : le client OAuth 2.0 est écrit
 dans le module (`oauth2Client.ts:207`), et `jose` — seul recours externe, pour lire les claims de
 l'ID token — est importé **paresseusement**. Les fournisseurs sont construits au premier login puis
-mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:190`) : c'est là, une seule fois par
+mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:290`) : c'est là, une seule fois par
 processus, que les points d'entrée d'un émetteur OIDC sont découverts. Les routes ne sont montées
 que si le service existe (`framework/index.ts:379`) : sans social login configuré, la surface HTTP
 est **404**, pas « désactivée ».
@@ -207,8 +207,8 @@ export default defineConfig<typeof env>((ctx) => ({
 
 ### Les routes sont FOURNIES — tu n'écris aucun controller
 
-`mountOAuth2Routes()` (`OAuth2Controller.ts:208`) monte trois routes sous
-`/nodefony/security/api/oauth2` (`OAuth2Controller.ts:187`), et **seulement si** le service `oauth2`
+`mountOAuth2Routes()` (`OAuth2Controller.ts:234`) monte trois routes sous
+`/nodefony/security/api/oauth2` (`OAuth2Controller.ts:234`), et **seulement si** le service `oauth2`
 est présent (`framework/index.ts:379`) :
 
 | Route                        | Rôle                                                                  |
@@ -261,7 +261,7 @@ Séquence identique prouvée de bout en bout sur serveur réel par `oauth2-flow.
 
 ### Étape 1 — `createAuthorization(provider)`
 
-`OAuth2Service.createAuthorization()` (`oauth2.ts:139`) fabrique trois choses :
+`OAuth2Service.createAuthorization()` (`oauth2.ts:232`) fabrique trois choses :
 
 1. un **`state`** aléatoire (anti-CSRF) ;
 2. un **`code_verifier`** — **seulement si** le fournisseur pratique PKCE (`usesPkce`,
@@ -274,7 +274,7 @@ mémoire, `OAuth2Controller.ts:105-108`), puis redirige en 302.
 
 ### Étape 2 — le retour, validé avant tout appel réseau
 
-`OAuth2Controller.callback()` (`OAuth2Controller.ts:132`) travaille dans cet ordre, et l'ordre est la
+`OAuth2Controller.callback()` (`OAuth2Controller.ts:150`) travaille dans cet ordre, et l'ordre est la
 défense :
 
 1. **lire l'état de session, puis l'invalider immédiatement** (`OAuth2Controller.ts:126-129`) — le
@@ -286,13 +286,13 @@ défense :
 
 ### Étape 3 — `exchangeAndProvision(provider, code, verifier, iss)`
 
-`OAuth2Service.exchangeAndProvision()` (`oauth2.ts:162`) enchaîne :
+`OAuth2Service.exchangeAndProvision()` (`oauth2.ts:254`) enchaîne :
 
 1. **anti-mix-up** — si le fournisseur annonce un émetteur attendu, l'`iss` reçu doit correspondre,
    et un `iss` **absent** est un rejet, pas une tolérance (`oauth2.ts:170-174`) ;
 2. **échange** du `code` sur le canal serveur, avec le `code_verifier`
-   (`validateAuthorizationCode`, `oauth2.ts:181`), puis lecture du profil (`fetchProfile`,
-   `oauth2.ts:176`) ;
+   (`validateAuthorizationCode`, `oauth2.ts:256`), puis lecture du profil (`fetchProfile`,
+   `oauth2.ts:275`) ;
 3. **provisionnement** du Shadow User avec la politique effective — rôles par défaut surchargeables
    **par fournisseur** (`oauth2.ts:180-181`), `allowSignup` global (`oauth2.ts:182-185`).
 
@@ -337,7 +337,7 @@ préfixée `provider:providerId` — jamais de collision entre fournisseurs (`Us
 `defaultRoles` s'applique **au moment du `create`** (`UserService.ts:348`). Un second login
 n'écrase rien : promouvoir quelqu'un dans ta base reste effectif, et modifier `defaultRoles` en
 config ne repeint pas les comptes existants. C'est la traduction de la règle « OAuth =
-authentification, pas autorisation » (`oauth2.ts:178-181`, `config.ts:822-827`).
+authentification, pas autorisation » (`oauth2.ts:279-283`, `config.ts:1042-1046`).
 
 > [!TIP]
 > Un fournisseur social ne doit **jamais** figurer dans le chemin d'obtention d'un rôle privilégié.
@@ -478,17 +478,17 @@ que le mapping du profil. Exemple sans réseau dans le dépôt :
 
 ## ⚙️ Configuration
 
-Section `oauth2` du schéma Zod (`config.ts:990`), branchée sur la config du module
-(`config.ts:990`). Table dérivée du schéma — les défauts sont ceux du code.
+Section `oauth2` du schéma Zod (`config.ts:1034`), branchée sur la config du module
+(`config.ts:1149`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut          | Effet                                                      |
 | ----------------- | -------------------- | --------------- | ---------------------------------------------------------- |
 | `enabled`         | booléen              | `true`          | Coupe le social login ; les routes ne montent pas.         |
-| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:989`).  |
-| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1015`). |
+| `defaultRoles`    | liste de rôles       | `["ROLE_USER"]` | Rôles du Shadow User **à la création** (`config.ts:1042`). |
+| `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1048`). |
 | `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                     |
 | `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).         |
-| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1031`).                   |
+| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1064`).                   |
 
 Par fournisseur (`oauthProviderSchema`, `config.ts:948`) :
 
@@ -556,7 +556,7 @@ ou détruire les sessions), pas chez le fournisseur.
 | --------------------------------- | ------------------------ | --------------------------------------------------------------------- |
 | Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:85`) |
 | PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:58`) · `oidc.ts:104-111`               |
-| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:56`) · `oauth2Schema` (`config.ts:1001`)  |
+| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:116`) · `oauth2Schema` (`config.ts:1034`) |
 | Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:61`) · `oauth2.ts:170-181`         |
 | Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:958`)                                       |
 | Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                   |

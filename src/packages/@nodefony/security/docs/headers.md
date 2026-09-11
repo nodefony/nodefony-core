@@ -39,7 +39,7 @@ source: "src/packages/@nodefony/security/docs/headers.md"
 > (`@nodefony/http`, dès l'entrée brute — couvre aussi les fichiers statiques et les erreurs) et la
 > couche **applicative** (`@nodefony/security`, dans le pipeline — CSP, Referrer-Policy, isolation
 > cross-origin). Ancré sur `SecurityHeaders` (`securityHeaders.ts:42`) et
-> `Firewall.applySecurityHeaders()` (`firewall.ts:1029`).
+> `Firewall.applySecurityHeaders()` (`firewall.ts:1045`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **En-têtes de sécurité**
 
@@ -287,7 +287,7 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:1334`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts:963`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
 (`security-headers.test.ts:38`).
 
@@ -452,7 +452,7 @@ rester imprévisible, jamais pilotable par le client — contrairement au `reque
 une corrélation entrante.
 
 **Placement dans le pipeline** : `applySecurityHeaders` est appelé **après le resolve** et **avant**
-le repli statique et le `writeHead` (`http-kernel.ts:1334`). Cet ordre n'est pas cosmétique : il
+le repli statique et le `writeHead` (`http-kernel.ts:1372`). Cet ordre n'est pas cosmétique : il
 faut que le routeur ait posé les directives `@Csp` de la route pour pouvoir les fusionner, et il faut
 être avant l'écriture des en-têtes pour pouvoir en poser.
 
@@ -510,7 +510,7 @@ Trois propriétés à retenir :
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
 origines du serveur Vite et `'unsafe-eval'` (exigé par le Fast Refresh de React) via
-`FrontendService.#viteCspFragment()` (`FrontendService.ts:909`) — ce qui explique qu'un CSP observé
+`FrontendService.#viteCspFragment()` (`FrontendService.ts:1012`) — ce qui explique qu'un CSP observé
 en dev soit plus large qu'en production, où ce fragment n'existe pas.
 
 ## 📜 Normes appliquées
@@ -523,7 +523,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Champ structuré booléen              | RFC 8941                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:239`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:1334`)              |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:963`)               |
 | Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:330`)       |
 
 ## ⚡ Performance & mémoire
@@ -550,7 +550,7 @@ dans le périmètre du gate mémoire, qu'il ne peut structurellement pas dégrad
 L'écran **Firewall** de Studio affiche la section « En-têtes de sécurité » — pilotée par
 `headers.enabled` (`FirewallDefenses.tsx:219`) — avec le CSP effectif, l'état du nonce par requête, la
 Referrer-Policy et les valeurs d'isolation. Les données
-viennent de `Firewall.describe()` (`firewall.ts:505`), qui projette la config **sans aucun secret**,
+viennent de `Firewall.describe()` (`firewall.ts:549`), qui projette la config **sans aucun secret**,
 exposée par `GET /nodefony/security/api/firewall`.
 
 L'onglet **Configuration** de Studio rend les mêmes options depuis le schéma Zod — chaque champ y

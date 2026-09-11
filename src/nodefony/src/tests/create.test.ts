@@ -2859,6 +2859,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       }
     });
 
+    /**
+     * Un gabarit est du code FIGÉ à la création : une application née sans
+     * `SECURITY.md` n'en aura jamais. Et une politique de sécurité sans canal
+     * de signalement ne protège personne — celui qui trouve une faille et ne
+     * voit aucune adresse ouvre une issue publique, ce que la page existe
+     * précisément pour éviter.
+     */
+    it("l'app naît avec un SECURITY.md dont la zone contact est VISIBLE", () => {
+      const dest = path.join(tmp, "secmd");
+      scaffold(dest, { name: "secmd", preset: "minimal", frontend: "none" });
+      const page = readFileSync(path.join(dest, "SECURITY.md"), "utf8");
+      // La zone à remplir se voit — un gabarit dont le contact resterait
+      // discret serait publié tel quel.
+      assert.include(page, "À REMPLIR");
+      assert.include(page, "security@exemple.tld");
+      assert.include(page, "Délai de première réponse");
+      // Ce que la page doit dire, et que personne ne devine : ne pas publier
+      // avant correctif, et où va une faille du FRAMEWORK.
+      assert.include(page, "N'ouvrez pas d'issue publique");
+      assert.include(page, "nodefony/nodefony-core/security");
+      // Le nom de l'app est rendu : un gabarit non substitué se verrait ici.
+      assert.include(page, "secmd");
+      assert.notInclude(page, "<%");
+    });
+
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
       const dest = path.join(tmp, "amin");
       scaffold(dest, { name: "amin", preset: "minimal", frontend: "none" });

@@ -342,7 +342,7 @@ Ce qui se passe, requête par requête :
 | --- | --- | --- |
 | le cookie de session | `session` | identifié, `apikey` jamais consulté |
 | `Authorization: Bearer nf_…` | `apikey` | identifié (session ne matche pas, on passe) |
-| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:1112`) |
+| une clé **révoquée** `nf_…` | `apikey` | **401 direct** — l'échec d'`authenticate()` remonte, pas de fallback (`firewall.ts:1128`) |
 | rien | aucun | **401** (Zero Trust) |
 
 ### Situation 2 — le piège de l'ordre (`anonymous` toujours EN DERNIER)
@@ -377,7 +377,7 @@ Basic …`). Une seule manque → 401. Le **dernier** token de la chaîne porte 
 
 > [!TIP]
 > Un nom d'authenticator inconnu en config **fait échouer le boot** —
-> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:402`) : jamais de zone
+> `Firewall.#instantiateAuthenticators()` est fail-closed (`firewall.ts:429`) : jamais de zone
 > « protégée » silencieusement ouverte à cause d'une faute de frappe.
 
 ## 🧑‍⚖️ Autorisation — rôles, scopes, voters (« as-tu le droit ? »)
@@ -470,10 +470,10 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 
-- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1029`) : CSP, Referrer-Policy, COOP/COEP/CORP
-  au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:855`) :
+- **`Firewall.applySecurityHeaders()`** (`firewall.ts:1045`) : CSP, Referrer-Policy, COOP/COEP/CORP
+  au-dessus du socle transport de `@nodefony/http`. **Nonce CSP paresseux** (`hasNonce`, `firewall.ts:1045`) :
   alloué seulement si une directive en a besoin.
-- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:932`) : Fetch Metadata
+- **`Firewall.enforceCsrf()`** (défense en profondeur, `firewall.ts:948`) : Fetch Metadata
   (`Sec-Fetch-Site`) + garde `Origin` (`firewall.ts:764`), puis double-submit `x-csrf-token` ≡
   cookie + HMAC (`firewall.ts:778`).
 - **`Firewall.handleCors()`** : preflight `OPTIONS` → 204 (`firewall.ts:991`).
@@ -482,13 +482,13 @@ Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setCh
 
 | Domaine                | Norme           | Ancrage                                                |
 | ---------------------- | --------------- | ------------------------------------------------------ |
-| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1191`)        |
+| Challenge d'auth (401) | RFC 7235        | `Firewall.#setChallenge()` (`firewall.ts:1207`)        |
 | Bearer                 | RFC 6750        | `JwtAuthenticator.ts:13` · `ApiKeyAuthenticator.ts:11` |
 | JWT (BCP)              | RFC 7519, 8725  | `JwtAuthenticator.ts:33-44,104-108`                    |
 | HTTP Basic             | RFC 7617        | `UserPasswordAuthenticator.ts:10-28`                   |
 | Rate limit (429)       | RFC 6585        | 429 + `Retry-After` (`firewall.ts:764`)                |
 | Backoff de login       | NIST SP 800-63B | `UserPasswordAuthenticator.ts:43-46,101-104`           |
-| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:932`)           |
+| CSRF                   | Fetch Metadata  | `Firewall.enforceCsrf()` (`firewall.ts:948`)           |
 | Modèle                 | Zero Trust      | `firewall.ts:611` (aucune preuve → 401)                |
 
 ## ⚡ Performance & mémoire

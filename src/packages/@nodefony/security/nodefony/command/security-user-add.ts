@@ -157,7 +157,7 @@ class SecurityUserAdd extends Command {
         `le compte « ${identifier} » existe déjà.\n` +
           `  · le voir       : nodefony security:user:list -q ${identifier}\n` +
           `  · le supprimer  : nodefony security:user:delete ${identifier}\n` +
-          `  · mot de passe oublié : par Studio (/nodefony) — la commande n'existe pas encore.`,
+          `  · mot de passe oublié : nodefony security:user:password ${identifier}`,
         "ERROR",
       );
       process.exitCode = 1;

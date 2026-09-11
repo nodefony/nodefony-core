@@ -227,7 +227,17 @@ export interface IUserRevokedEvent {
   id: string;
   identifier: string;
   tenantId: string | null;
-  reason: "deleted" | "disabled" | "locked";
+  /**
+   * Ce qui a coupé l'accès du porteur.
+   *
+   * `password_changed` n'est pas une révocation de COMPTE — le compte reste
+   * actif — mais c'en est une de ses ACCÈS EN COURS : on change un mot de passe
+   * parce qu'il est perdu ou compromis, et laisser vivre les sessions ouvertes
+   * laisserait l'accès à qui l'a volé. La cascade est la même, et c'est le
+   * but : un seul canal, les abonnés futurs (webhooks) n'ont rien à savoir de
+   * la cause.
+   */
+  reason: "deleted" | "disabled" | "locked" | "password_changed";
 }
 
 interface KernelEmitterLike {

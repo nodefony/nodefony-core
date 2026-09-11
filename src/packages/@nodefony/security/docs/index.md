@@ -138,6 +138,30 @@ Services `Firewall`, `AuthFlow`, `TokenService`, `ApiKeyService`, `Authorization
 Les signatures exactes vivent dans le graphe généré — `jq '.symbols.Firewall' .ai/symbols.json` —
 jamais recopiées ici (elles divergeraient).
 
+## 🛠️ Gérer les comptes en exploitation
+
+Sur un serveur, la console d'administration suppose d'y être déjà entré — ce qui est précisément
+impossible quand on a perdu le mot de passe. Ces commandes sont l'autre porte, et elles s'exécutent
+sans ouvrir de port (profil console) :
+
+<!-- prettier-ignore -->
+| Commande | Ce qu'elle fait |
+| --- | --- |
+| `nodefony security:user:add <id> [--admin]` | crée un compte, puis dit comment s'authentifier |
+| `nodefony security:user:list [-q <motif>]` | identifiant, rôles, état |
+| `nodefony security:user:password <id>` | change le mot de passe — **et révoque sessions et jetons** |
+| `nodefony security:user:delete <id>` | supprime, après confirmation ; refuse le dernier administrateur |
+| `nodefony security:secrets [--write]` | engendre les clés attendues et guide leur câblage |
+| `nodefony security:token` | émet un jeton d'accès pour la porte MCP |
+
+En terminal, le mot de passe est **demandé masqué** et confirmé ; pour un script, `--password <pwd>`
+l'accepte en argument — au prix de l'historique du shell, que la commande rappelle.
+
+Deux garde-fous qui se constatent plutôt qu'ils ne se supposent : le **dernier administrateur actif
+ne se supprime pas** (`security-user-delete.ts:101`), et un changement de mot de passe **éjecte les
+accès en cours** par la même cascade que la suppression (`userRevocationCascade.ts:37`) — on change
+un mot de passe parce qu'il est perdu ou compromis.
+
 ## ⚙️ Configuration
 
 Un seul point d'entrée : `use("@nodefony/security", { … })` dans `nodefony.config.ts`, validé par Zod

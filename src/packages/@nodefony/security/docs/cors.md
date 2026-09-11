@@ -323,7 +323,7 @@ sequenceDiagram
 ```
 
 `Firewall.handleCors()` (`firewall.ts:991`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1258`), à la ligne `http-kernel.ts:1258` — **avant le routing**. La raison est
+(`http-kernel.ts:1301`), à la ligne `http-kernel.ts:1301` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -338,7 +338,7 @@ Quatre sorties en no-op, dans cet ordre (`firewall.ts:797`) :
    court-circuité en 204 (`firewall.ts:822`).
 
 **La détection du preflight est stricte** : méthode `OPTIONS` **et** présence de
-`Access-Control-Request-Method` (`firewall.ts:808`). Un `OPTIONS` nu — celui d'un client qui interroge
+`Access-Control-Request-Method` (`firewall.ts:999`). Un `OPTIONS` nu — celui d'un client qui interroge
 les méthodes supportées d'une route — est donc traité comme une requête réelle et continue le pipeline.
 
 ### Ce que chaque moment pose
@@ -384,7 +384,7 @@ origine (`config.ts:180`). Ajouter une origine à `cors.origins` est **plus** pe
 **Les navigateurs n'appliquent pas CORS aux WebSockets.** Une page tierce peut ouvrir un
 `new WebSocket("wss://api.example.com/…")` et le handshake partira **avec le cookie de session de la
 victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un contexte WS
-(`firewall.ts:991`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
+(`firewall.ts:1007`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
 (`http-kernel.ts:599`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
@@ -428,7 +428,7 @@ Le coût par requête est donc :
 ## 📡 Observabilité — Studio
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
-`Firewall.describe()` (`firewall.ts:505`), qui délègue à `Firewall.#describeDefenses()`
+`Firewall.describe()` (`firewall.ts:549`), qui délègue à `Firewall.#describeDefenses()`
 (`firewall.ts:575`). La projection CORS y expose `origins`, `credentials`, `methods`,
 `allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:594`) — aucun secret ne transite par
 cette surface.

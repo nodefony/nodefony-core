@@ -409,6 +409,20 @@ timeoutMs:5000, cooldownMs:30000, cacheMaxAgeMs:600000, clockToleranceS:5}`. `is
   Le retour console one-shot à onPostReady = `Kernel.finishOrPark` (fix : avant, le
   process ne se terminait jamais) ; erreurs métier via `process.exitCode = 1` (préservé).
   Le login HTTP attend `{ username, password }` (pas `identifier`).
+- `security:user:password <identifier>` (`--password`) : change le mot de passe via
+  `UserService.changePassword(user.id, clair)` — vise l'id INTERNE (deux comptes peuvent
+  partager un identifiant), hash Argon2id, liste d'interdits appliquée (`WeakPasswordError`
+  → message, jamais de pile). Prompt MASQUÉ + confirmation en TTY ; hors TTY, `--password`
+  exigé. **Émet `USER_REVOKED_EVENT` avec `reason: "password_changed"`** → la cascade
+  (`userRevocationCascade.ts`) éjecte sessions et jetons : ce n'est PAS une option, un mot
+  de passe change parce qu'il est perdu ou compromis. L'union `reason` du contrat
+  `IUserRevokedEvent` porte donc quatre valeurs (`deleted`/`disabled`/`locked`/
+  `password_changed`) ; la cascade ne la lit pas — elle est pour les abonnés (webhooks).
+  ⚠️ `onPasswordChanged` (émis par `UserService`) n'est écouté par PERSONNE : ce n'est pas
+  lui qui révoque, et s'y fier laisserait les sessions ouvertes.
+- `security:user:list` / `security:user:delete` : liste et suppression. La suppression
+  REFUSE le dernier administrateur actif (`countActiveAdmins`) — sans lui, plus personne
+  n'administre l'app et le seul recours est une écriture directe en base.
 
 ## Behaviors
 

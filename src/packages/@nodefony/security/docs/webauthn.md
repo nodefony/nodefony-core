@@ -121,7 +121,7 @@ Trois partis pris assumés :
 
 ### 1. Les passkeys sont déjà actives — la config utile
 
-`passkeys.enabled` vaut `true` par défaut (`config.ts:1106`). Ce que tu déclares vraiment, c'est **ton
+`passkeys.enabled` vaut `true` par défaut (`config.ts:1137`). Ce que tu déclares vraiment, c'est **ton
 domaine** : sans `rpId`, le service prend le domaine de l'app, et bascule sur `localhost` si c'est une
 adresse IP (un navigateur refuse une IP comme `rpId`, `webAuthn.ts:134`).
 
@@ -285,7 +285,7 @@ sequenceDiagram
 
 `WebAuthnService.generateRegistrationOptions()` (`webAuthn.ts:276`) construit le défi et les
 contraintes. **`excludeCredentials`** y liste les passkeys déjà enrôlées (`webAuthn.ts:291`) : le même
-authenticator ne peut pas s'inscrire deux fois. Dans `authenticatorSelection` (`webAuthn.ts:261`),
+authenticator ne peut pas s'inscrire deux fois. Dans `authenticatorSelection` (`webAuthn.ts:299`),
 `authenticatorAttachment` n'est transmis **que** s'il vaut autre chose que `"any"` — `"any"` rend la
 main au navigateur, téléphone par QR compris.
 
@@ -354,7 +354,7 @@ exactement les porteurs à risque de verrouillage.
 ## ⚙️ Configuration
 
 Table dérivée du schéma Zod `passkeysSchema` (`config.ts:447`), monté sous la clé `passkeys`
-(`config.ts:1106`).
+(`config.ts:1137`).
 
 | Option                    | Type                                       | Défaut       | Effet                                                                          |
 | ------------------------- | ------------------------------------------ | ------------ | ------------------------------------------------------------------------------ |
