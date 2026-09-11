@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T17:44:52.358Z",
+  "generatedAt": "2026-09-11T18:17:12.213Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 69,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 16,
+      "open": 17,
       "title": "10.0.0-alpha"
     },
     {
@@ -2981,7 +2981,7 @@
       "title": "docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé",
       "url": "https://github.com/nodefony/nodefony-core/issues/359",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -3308,6 +3308,22 @@
       "ordre": 9.93,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 360,
+      "title": "feat(user): refuser les mots de passe manifestement faibles",
+      "url": "https://github.com/nodefony/nodefony-core/issues/360",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.93,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
