@@ -213,6 +213,15 @@ app-root {
 a {
   color: #0a6ec2;
 }
+/* 🔴 Et le MÊME lien en thème SOMBRE, où #0a6ec2 tombe à 3,48:1 sur le fond
+   #12161c. La correction précédente n'avait regardé que le thème clair : c'est
+   la même faute que pour l'encre de la pastille, au même endroit du fichier.
+   Un bleu plus clair, mesuré : 4,80:1. */
+@media (prefers-color-scheme: dark) {
+  a {
+    color: #3688cd;
+  }
+}
 
 @media (max-width: 920px) {
   .nf-split {

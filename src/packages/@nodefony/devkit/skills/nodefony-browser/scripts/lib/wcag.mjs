@@ -19,14 +19,63 @@
  * expression régulière donne une couleur presque noire là où il y a du bleu —
  * un contraste faux, et des échecs inventés qui noient les vrais.
  *
- * @param {string} color - couleur telle que rendue par `getComputedStyle`.
+ * Une TROISIÈME notation compte, bien que `getComputedStyle` ne la rende
+ * jamais : l'hexadécimal. Ce module est publié dans le devkit, et qui veut
+ * vérifier une palette AVANT de l'écrire appelle avec ses propres couleurs,
+ * donc en `#rrggbb`. L'expression régulière ci-dessous n'y voit qu'un ou deux
+ * nombres — `#149eca` donne « 149 » — et rendait du noir : un contraste de
+ * 1,24 au lieu de 4,68, sans un mot.
+ *
+ * Et ce qui reste ILLISIBLE lève. Rendre du noir opaque sur une entrée
+ * incomprise fabrique un verdict plausible et FAUX, ce qui est pire qu'une
+ * absence de verdict : on croit avoir mesuré. Les noms CSS (`chartreuse`) sont
+ * dans ce cas — les résoudre demanderait la table des 148 mots-clés, que la
+ * page, elle, rend déjà en `rgb()`.
+ *
+ * @param {string} color - couleur telle que rendue par `getComputedStyle`, ou
+ *   écrite à la main en hexadécimal.
  * @returns {{ r: number, g: number, b: number, a: number }} canaux 0–255 et
- *   alpha 0–1 ; noir opaque si la notation est illisible.
+ *   alpha 0–1.
+ * @throws {Error} si la notation n'est pas reconnue.
  */
 export function parseColor(color) {
   const s = String(color).trim();
+  // `transparent` est le SEUL mot-clé que les navigateurs rendent parfois tel
+  // quel, et il a une valeur définie : `rgba(0, 0, 0, 0)`. Le refuser serait
+  // faux — un fond non peint est un cas courant, pas une erreur de mesure.
+  if (/^transparent$/i.test(s)) return { r: 0, g: 0, b: 0, a: 0 };
+  // Hexadécimal — 3, 4, 6 ou 8 quartets. Les formes courtes DOUBLENT chaque
+  // quartet (`#0af` → `#00aaff`) : c'est la règle de la spécification, pas une
+  // approximation.
+  const hex = /^#([0-9a-f]{3,8})$/i.exec(s);
+  if (hex) {
+    const d = hex[1];
+    if (d.length === 3 || d.length === 4) {
+      const q = [...d].map((c) => parseInt(c + c, 16));
+      return {
+        r: q[0],
+        g: q[1],
+        b: q[2],
+        a: q[3] === undefined ? 1 : q[3] / 255,
+      };
+    }
+    if (d.length === 6 || d.length === 8) {
+      const o = [0, 2, 4, 6].map((i) => d.slice(i, i + 2));
+      return {
+        r: parseInt(o[0], 16),
+        g: parseInt(o[1], 16),
+        b: parseInt(o[2], 16),
+        a: o[3] === "" ? 1 : parseInt(o[3], 16) / 255,
+      };
+    }
+    throw new Error(`couleur hexadécimale de longueur invalide : ${s}`);
+  }
   const numbers = s.match(/-?\d*\.?\d+(?:e-?\d+)?%?/gi);
-  if (!numbers || numbers.length < 3) return { r: 0, g: 0, b: 0, a: 1 };
+  if (!numbers || numbers.length < 3)
+    throw new Error(
+      `notation de couleur non reconnue : ${JSON.stringify(String(color))} — ` +
+        "attendu rgb()/rgba(), color(srgb …) ou #rrggbb",
+    );
   // `color(srgb …)` et `color(display-p3 …)` : canaux en 0–1. Le pourcentage
   // est explicite dans les deux familles et se ramène toujours à 0–1.
   const modern = /^color\(/i.test(s);

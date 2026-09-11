@@ -23,6 +23,17 @@
   --nf-accent-line: rgba(221, 0, 49, 0.3);
   --nf-logo-anim: nf-pulse 4s ease-in-out infinite;
 }
+/* 🔴 L'encre du THÈME SOMBRE. La correction d'origine n'avait couvert qu'un
+   seul des deux thèmes : sur fond sombre, le lavis devient foncé et cette
+   encre-là, choisie pour être lue sur du clair, tombait à 2,15:1 — bien
+   plus bas que le 2,78:1 qui avait motivé sa création. Mesuré sur une
+   application générée, pas déduit du CSS.
+   Sur un fond sombre il faut une encre CLAIRE : #e84f71 → 4,82:1. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --nf-accent-ink: #e84f71;
+  }
+}
 @keyframes nf-pulse {
   0%,
   100% {

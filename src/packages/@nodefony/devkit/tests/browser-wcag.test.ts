@@ -37,6 +37,54 @@ const verdictWcag = fonctionDe<
 >(wcag, "verdictWcag");
 const sourceWcag = fonctionDe<() => string>(wcag, "sourceWcag");
 
+const parseColor = fonctionDe<
+  (c: string) => { r: number; g: number; b: number; a: number }
+>(wcag, "parseColor");
+
+/**
+ * L'HEXADÉCIMAL — la notation que tout auteur de CSS écrit, et que ces
+ * fonctions recevaient en rendant du NOIR.
+ *
+ * `getComputedStyle` ne rend jamais d'hexadécimal, ce qui a laissé le trou
+ * invisible côté sondes. Mais ce module est PUBLIÉ dans le devkit : quiconque
+ * veut vérifier une palette avant de l'écrire appelle `contrastRatio` avec ses
+ * propres couleurs, donc en `#rrggbb`. Il obtenait alors 1.24 au lieu de 4.68,
+ * sans un mot — un verdict faux, qui est pire qu'une absence de verdict.
+ */
+describe("wcag — l'hexadécimal, notation de l'auteur", () => {
+  it("lit #rrggbb", () => {
+    expect(parseColor("#149eca")).toEqual({ r: 20, g: 158, b: 202, a: 1 });
+  });
+
+  it("lit la forme courte #rgb en doublant chaque quartet", () => {
+    expect(parseColor("#0af")).toEqual({ r: 0, g: 170, b: 255, a: 1 });
+  });
+
+  it("lit l'alpha des formes #rrggbbaa et #rgba", () => {
+    expect(parseColor("#00000080").a).toBeCloseTo(0.502, 3);
+    expect(parseColor("#0008").a).toBeCloseTo(0.533, 3);
+  });
+
+  it("ignore la casse", () => {
+    expect(parseColor("#FFFFFF")).toEqual(parseColor("#ffffff"));
+  });
+
+  it("rend le MÊME contraste qu'en notation rgb() — sinon un verdict est faux", () => {
+    expect(contrastRatio("#ffffff", "#000000")).toBe(21);
+    expect(contrastRatio("#149eca", "#0e1f23")).toBe(
+      contrastRatio("rgb(20, 158, 202)", "rgb(14, 31, 35)"),
+    );
+  });
+
+  it("REFUSE une notation illisible au lieu de rendre du noir", () => {
+    // Rendre `{0,0,0}` sur une entrée incomprise fabrique un contraste
+    // plausible et faux. Une mesure qu'on ne peut pas faire se DIT.
+    expect(() => parseColor("papayawhip")).toThrow(/papayawhip/u);
+    expect(() => parseColor("")).toThrow();
+    expect(() => contrastRatio("#149eca", "chartreuse")).toThrow();
+  });
+});
+
 describe("wcag — luminance et contraste", () => {
   it("noir sur blanc rend 21, la borne haute de la norme", () => {
     expect(contrastRatio("rgb(255, 255, 255)", "rgb(0, 0, 0)")).toBe(21);
@@ -59,7 +107,12 @@ describe("wcag — luminance et contraste", () => {
     expect(ratio).toBeLessThan(4.6);
   });
 
-  it("une couleur illisible rend une luminance 0, jamais NaN", () => {
+  // `transparent` n'est pas une notation ILLISIBLE : c'est une valeur CSS
+  // définie (`rgba(0, 0, 0, 0)`), et un fond non peint est un cas courant. Elle
+  // se lit donc, et sa luminance vaut 0 — l'alpha étant ignoré à ce stade, par
+  // construction : une couche translucide doit avoir été composée AVANT.
+  it("`transparent` se lit comme du noir à alpha nul, et ne rend jamais NaN", () => {
+    expect(parseColor("transparent")).toEqual({ r: 0, g: 0, b: 0, a: 0 });
     expect(srgbLuminance("transparent")).toBe(0);
     expect(Number.isNaN(contrastRatio("transparent", "rgb(0,0,0)"))).toBe(
       false,

@@ -631,21 +631,42 @@ async function measurePage(args) {
       const el = document.querySelector(sel);
       if (!el) return { label, absent: true, selector: sel };
       const cs = getComputedStyle(el);
-      const background = effectiveBackground(el);
       const r = el.getBoundingClientRect();
-      const contrast = contrastRatio(compose(cs.color, background), background);
       const px = parseFloat(cs.fontSize);
       const bold = Number(cs.fontWeight) >= 700;
-      return {
+      const commun = {
         label,
         text: (el.textContent ?? "").trim().slice(0, 40),
         color: cs.color,
-        background,
-        contrast,
         font: `${cs.fontSize}${bold ? " gras" : ""}`,
-        wcag: verdictWcag(contrast, px, bold),
         size: `${Math.round(r.width)}×${Math.round(r.height)}`,
       };
+      // `parseColor` REFUSE une notation qu'il ne sait pas lire, au lieu de
+      // rendre du noir et un contraste plausible et faux. Certains moteurs
+      // sérialisent `oklch()`, `lab()` ou `color-mix()` tels quels dans
+      // `getComputedStyle` : la sonde le DIT alors pour cette sonde-là, et les
+      // autres mesures de la page restent rendues. Laisser l'exception
+      // remonter ferait perdre l'écran entier pour une seule couleur.
+      try {
+        const background = effectiveBackground(el);
+        const contrast = contrastRatio(
+          compose(cs.color, background),
+          background,
+        );
+        return {
+          ...commun,
+          background,
+          contrast,
+          wcag: verdictWcag(contrast, px, bold),
+        };
+      } catch (e) {
+        return {
+          ...commun,
+          contrast: null,
+          wcag: "NON MESURÉ",
+          unmeasured: e instanceof Error ? e.message : String(e),
+        };
+      }
     }),
     violationsCSP: window.__nfCsp ?? [],
   };
