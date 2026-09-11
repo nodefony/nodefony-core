@@ -205,6 +205,11 @@ export function parseCreateArgv(
       // cible, sinon le scaffold refuse avant d'écrire.
     } else if (word === "--inject") {
       answers.inject = rest[++i];
+      // Brancher le service sur une entité existante. Le geste que le banc a
+      // mesuré ROUGE : pour LIRE des données, l'agent a fouillé les sources du
+      // framework en vingt commandes, faute de voir le patron quelque part.
+    } else if (word === "--entity") {
+      answers.entity = rest[++i];
       // ─── `create entity` ────────────────────────────────────────────────────
       // `--controller` est déjà un flag À VALEUR (`create module --controller hello`) :
       // pour une entité, le booléen s'exprime donc par sa négation, jamais par
@@ -316,7 +321,9 @@ const PAR_TYPE =
   `               [--role ROLE_X] — réserve TOUT le controller à cette habilitation\n` +
   `                 (@IsGranted de classe) et déclare le rôle dans roleHierarchy :\n` +
   `                 l'administrateur en hérite, sans qu'on ait à le lui attribuer\n` +
-  `  service    : [--inject <AutreService>] [--description "…"] [--module <nom>]\n` +
+  `  service    : [--inject <AutreService>] [--entity <Entité>] [--description "…"] [--module <nom>]\n` +
+  `               --entity : branche le service sur une entité — lecture et écriture par le patron\n` +
+  `                 du framework (AbstractCrudService + repository au constructeur), pas de registre à la main\n` +
   `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
   `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +
   `  front      : [--frontend <${FRONTEND_CHOICES.filter((f) => f !== "none").join("|")}>] [--route </page>] [--module <nom>]\n` +
@@ -571,11 +578,11 @@ function poseThirdPartyNotices(dest: string, installed: boolean): string {
   try {
     const survey = surveyLicenses(dest);
     writeFileSync(path.join(dest, NOTICES_FILE), renderNotices(survey), "utf8");
-    const refus =
+    const refusal =
       survey.refused.length > 0
         ? ` — ⚠ ${survey.refused.length} licence(s) hors liste, cf npm run licenses`
         : "";
-    return `${NOTICES_FILE} — ${survey.packages.length} paquets${refus}`;
+    return `${NOTICES_FILE} — ${survey.packages.length} paquets${refusal}`;
   } catch (e) {
     const cause =
       e instanceof LicenseInventoryError

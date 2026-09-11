@@ -446,6 +446,20 @@ const SERVICE_SPEC: IScaffoldTypeSpec = {
         "nom d'un service de la cible (nodefony/service/<Nom>Service.ts) ou vide",
     },
     {
+      // Le geste que le banc a mesuré ROUGE une seconde fois : LIRE des données
+      // depuis un service. L'agent a fouillé `node_modules` puis les sources du
+      // framework — vingt commandes — pour finir par appeler le registre ORM à
+      // la main. Le patron existait, il n'était visible NULLE PART dans une
+      // application : on ne prend que la voie qu'on a VUE.
+      key: "entity",
+      label: "Brancher le service sur une entité existante (accès aux données)",
+      type: "string",
+      default: "",
+      pattern: "^$|^[A-Za-z][A-Za-z0-9-]*$",
+      patternHint:
+        "nom d'une entité de la cible (nodefony/entity/<Nom>.ts) ou vide",
+    },
+    {
       key: "module",
       label: "Cible (vide = app racine, sinon nom d'un module du projet)",
       type: "string",

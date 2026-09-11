@@ -2349,6 +2349,20 @@ function runServiceScaffold(
   const nameClass = `${pascal}Service`;
   const camel = pascal[0].toLowerCase() + pascal.slice(1);
 
+  // La combinaison se refuse AVANT toute résolution : un service d'accès aux
+  // données reçoit son dépôt par le constructeur, il n'y a pas de place pour
+  // une seconde dépendance injectée. Refuser plus bas laisserait parler la
+  // garde de `--inject`, qui dirait autre chose — « ce service n'expose aucune
+  // méthode appelable » — et enverrait chercher au mauvais endroit.
+  const entityName = String(answers.entity ?? "").trim();
+  if (entityName !== "" && String(answers.inject ?? "").trim() !== "") {
+    throw new Error(
+      "--entity et --inject ne se combinent pas : un service d'accès aux données " +
+        "reçoit son repository par le constructeur.\n" +
+        `  → génère les deux séparément, puis appelle get${nameClass}() depuis l'autre service`,
+    );
+  }
+
   // Les services DÉJÀ présents dans la cible : ils décident de deux choses —
   // ce que `--inject` peut viser, et la note qui apprend le geste à qui ne l'a
   // pas demandé.
@@ -2400,6 +2414,15 @@ function runServiceScaffold(
 
   const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
+  if (entityName !== "") {
+    return runDataServiceScaffold(
+      { projectRoot, target, pascal, camel, nameClass },
+      entityName,
+      eta,
+      packageRoot,
+      writer,
+    );
+  }
   renderLayer(
     eta,
     path.join(packageRoot, "templates", "service"),
@@ -2463,6 +2486,162 @@ function runServiceScaffold(
  * @param source - le contenu du fichier.
  * @returns la même source, commentaires blanchis.
  */
+/**
+ * `create service <Nom> --entity <Entité>` — le service qui ACCÈDE aux données.
+ *
+ * Pourquoi une branche plutôt qu'un gabarit de plus : le patron d'accès aux
+ * données existe déjà, c'est celui que `create entity` produit. Le recopier ici
+ * en donnerait deux, qui divergeraient au premier réglage — chacun vert sur ses
+ * propres tests. On rend donc LA MÊME couche, sous un autre nom de classe.
+ *
+ * Ce que ça répare, mesuré au banc : pour lire des données depuis un service,
+ * un agent a lancé vingt commandes de recherche dans `node_modules` puis dans
+ * les sources du framework, avant d'appeler le registre ORM à la main. Le
+ * patron n'était visible nulle part dans une application — et on ne prend que
+ * la voie qu'on a VUE.
+ *
+ * @param context - la cible résolue et les noms déjà normalisés par l'appelant.
+ * @param entityName - le nom d'entité demandé, tel que tapé.
+ * @param eta - le moteur de gabarits déjà construit.
+ * @param packageRoot - la racine du paquet qui porte les gabarits.
+ * @param writer - l'écrivain (réel ou simulé).
+ * @returns les fichiers écrits et les notes à afficher.
+ * @throws Error Quand l'entité, ses schémas ou l'ORM manquent — AVANT écriture.
+ */
+function runDataServiceScaffold(
+  context: {
+    projectRoot: string;
+    target: { dir: string; name: string; kind: string };
+    pascal: string;
+    camel: string;
+    nameClass: string;
+  },
+  entityName: string,
+  eta: Eta,
+  packageRoot: string,
+  writer: ScaffoldWriter,
+): IScaffoldResult {
+  const { projectRoot, target, camel, nameClass } = context;
+  const depsOf = (dir: string): Set<string> => {
+    const file = path.join(dir, "package.json");
+    if (!writer.exists(file)) return new Set();
+    const pkg = JSON.parse(writer.read(file)) as Record<
+      string,
+      Record<string, string>
+    >;
+    return new Set(
+      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+        Object.keys(pkg[b] ?? {}),
+      ),
+    );
+  };
+  // Même garde que `create entity`, et pour la même raison : la brique se
+  // cherche dans l'APP autant que dans la cible — un module est un workspace
+  // qui déclare les paquets Nodefony en peerDependencies, c'est l'app qui les
+  // installe.
+  if (
+    !depsOf(target.dir).has("@nodefony/drizzle") &&
+    !depsOf(projectRoot).has("@nodefony/drizzle")
+  ) {
+    throw new Error(
+      `--entity : @nodefony/drizzle absent de ${target.name} — ajoute la dep + ` +
+        `use("@nodefony/drizzle") au manifeste modules de nodefony.config.ts, puis relance`,
+    );
+  }
+
+  const entityPascal = toPascalCase(entityName.replace(/[-_]?[Ee]ntity$/u, ""));
+  const entityDir = path.join(target.dir, "nodefony", "entity");
+  const entityFile = path.join(entityDir, `${entityPascal}.ts`);
+  if (!writer.exists(entityFile)) {
+    // Refus AVANT écriture, en NOMMANT ce qui existe : un import vers une
+    // entité absente laisserait un projet qui ne compile plus, sur une erreur
+    // qui ne parle pas du scaffold.
+    const known = writer.exists(entityDir)
+      ? readdirSync(entityDir)
+          .filter((f) => f.endsWith(".ts") && !f.endsWith(".schema.ts"))
+          .map((f) => f.replace(/\.ts$/u, ""))
+          .join(" · ")
+      : "";
+    throw new Error(
+      `--entity : « ${entityPascal} » introuvable dans ${target.name} ` +
+        `(entités de la cible : ${known || "aucune"})\n` +
+        `  → nodefony create entity ${entityPascal} <champs…>`,
+    );
+  }
+  const schemaFile = path.join(entityDir, `${entityPascal}.schema.ts`);
+  if (!writer.exists(schemaFile)) {
+    // Le service valide ses entrées contre les schémas Zod de l'entité — c'est
+    // ce qui fait profiter TOUS les transports de la même validation. Sans eux
+    // le fichier rendu ne compilerait pas ; le dire, plutôt que de l'écrire.
+    throw new Error(
+      `--entity : ${entityPascal}.schema.ts introuvable à côté de ${entityPascal}.ts — ` +
+        `le service valide ses entrées contre les schémas Zod de l'entité.\n` +
+        `  → écris create${entityPascal}Schema et update${entityPascal}Schema, ou ` +
+        `régénère l'entité par « nodefony create entity ${entityPascal} »`,
+    );
+  }
+
+  const serviceFile = path.join(
+    target.dir,
+    "nodefony",
+    "service",
+    `${nameClass}.ts`,
+  );
+  if (writer.exists(serviceFile)) {
+    throw new Error(
+      `${nameClass} existe déjà dans ${target.name} — choisis un autre nom, ` +
+        "ou édite le fichier existant",
+    );
+  }
+
+  const connector = readConnectors(projectRoot, writer)[0]?.name ?? "default";
+  const written: string[] = [];
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "entity", "service"),
+    target.dir,
+    {
+      // `pascal` reste l'ENTITÉ : c'est elle qui nomme la ligne, ses schémas et
+      // son dépôt. Seule la classe porte le nom demandé.
+      pascal: entityPascal,
+      serviceClass: nameClass,
+      serviceKey: `${camel}Service`,
+      connector,
+    },
+    written,
+    writer,
+    { __PASCAL__: context.pascal },
+  );
+  // Le test va AVEC le service, comme pour `create service` sans entité : c'est
+  // le seul générateur qui en produisait un, et l'agent copie ce qu'il voit —
+  // sans exemple, il écrit un test de bout en bout là où un test d'unité suffit.
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "dataservice"),
+    target.dir,
+    {
+      pascal: entityPascal,
+      serviceClass: nameClass,
+      kebab: toKebabCase(entityPascal),
+    },
+    written,
+    writer,
+    { __PASCAL__: context.pascal },
+  );
+  return {
+    dest: target.dir,
+    files: written.sort(),
+    linked: [],
+    notes: [
+      `DATA get${nameClass}() construit le service au PREMIER usage — le connecteur ` +
+        "ORM n'est ouvert qu'à la phase onBoot",
+      `DATA le repository arrive par le CONSTRUCTEUR (AbstractCrudService) : ` +
+        "le service se teste sans base, avec un dépôt en mémoire",
+      `DATA import { get${nameClass} } from "./nodefony/service/${nameClass}"`,
+    ],
+  };
+}
+
 function stripComments(source: string): string {
   return source
     .replace(/\/\*[\s\S]*?\*\//gu, "")
@@ -3721,6 +3900,11 @@ function runEntityScaffold(
     route,
     connector,
     dialect,
+    // Le gabarit de service sépare le nom de la CLASSE de celui de l'ENTITÉ :
+    // `create service <Nom> --entity <Entité>` rend le même fichier sous un
+    // autre nom. Ici les deux coïncident — c'est le service de l'entité.
+    serviceClass: `${pascal}Service`,
+    serviceKey: `${camel}Service`,
     moduleName: target.kind === "app" ? "app" : String(target.name),
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,

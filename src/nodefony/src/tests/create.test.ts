@@ -4714,6 +4714,105 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       return dest;
     };
 
+    describe("create service --entity — le patron d'accès aux données", () => {
+      /** Scaffold service depuis `from`, avec les réponses données. */
+      const svc = (from: string, answers: Record<string, string | boolean>) =>
+        runScaffold(
+          { type: "service", answers, dir: from, force: false },
+          version,
+        );
+
+      it("rend un service qui étend AbstractCrudService, et son test", () => {
+        // 🔴 Mesuré au banc : pour LIRE des données depuis un service, l'agent a
+        // lancé vingt commandes de recherche dans `node_modules` puis dans les
+        // sources du framework, avant d'appeler le registre ORM à la main. Le
+        // patron n'était visible NULLE PART dans une application — et on ne
+        // prend que la voie qu'on a VUE.
+        const dest = app("svcdata");
+        entity(dest, { name: "Message", fields: "body:text" });
+        const r = svc(dest, { name: "moderation", entity: "Message" });
+
+        const file = path.join(
+          dest,
+          "nodefony",
+          "service",
+          "ModerationService.ts",
+        );
+        assert.isTrue(existsSync(file), "aucun service généré");
+        const src = readFileSync(file, "utf8");
+        // Le critère de fin du ticket, mot pour mot.
+        assert.include(
+          src,
+          "export class ModerationService extends AbstractCrudService<MessageRow>",
+        );
+        // Le dépôt arrive par le CONSTRUCTEUR — c'est ce qui rend le service
+        // testable sans base, et c'est l'argument du patron.
+        assert.include(src, "repository: IRepository<MessageRow>");
+        // La clé d'instance suit le service, pas l'entité.
+        assert.include(src, 'super("moderationService", repository)');
+        // Construction au PREMIER usage : le connecteur n'est ouvert qu'à onBoot.
+        assert.include(src, "export function getModerationService()");
+        // Et le TSDoc NOMME le patron — sinon il faut aller le chercher.
+        assert.include(src, "LE PATRON D'ACCÈS AUX DONNÉES");
+        // Le test va avec : `create service` est le seul générateur qui en
+        // produisait un, et l'agent copie ce qu'il voit.
+        assert.include(
+          r.files,
+          path.join("tests", "ModerationService.test.ts"),
+        );
+        assertNoEtaResidue(dest);
+      });
+
+      it("ne change RIEN à ce que `create entity` produit", () => {
+        // Le gabarit est partagé : `create service --entity` rend la MÊME
+        // couche sous un autre nom de classe. Si le paramétrage avait fui, le
+        // service de l'entité changerait de nom ou de clé — en silence.
+        const dest = app("svcdataentity");
+        entity(dest, { name: "Article", fields: "title:string!" });
+        const src = readFileSync(
+          path.join(dest, "nodefony", "service", "ArticleService.ts"),
+          "utf8",
+        );
+        assert.include(
+          src,
+          "export class ArticleService extends AbstractCrudService<ArticleRow>",
+        );
+        assert.include(src, 'super("articleService", repository)');
+        assert.include(src, "export function getArticleService()");
+      });
+
+      it("REFUSE avant d'écrire : entité absente, doublon, et --inject", () => {
+        const dest = app("svcdatarefus");
+        entity(dest, { name: "Message", fields: "body:text" });
+
+        // Une entité qu'on ne trouve pas : un import vers elle laisserait un
+        // projet qui ne compile plus, sur une erreur qui ne parle pas du
+        // scaffold. Le refus NOMME ce qui existe.
+        assert.throws(
+          () => svc(dest, { name: "audit", entity: "Inconnue" }),
+          /introuvable.*Message/su,
+        );
+        // Deux services du même nom : le second écraserait le premier.
+        svc(dest, { name: "audit", entity: "Message" });
+        assert.throws(
+          () => svc(dest, { name: "audit", entity: "Message" }),
+          /existe déjà/u,
+        );
+        // Le service de données reçoit son dépôt par le constructeur : il n'y a
+        // pas de place pour une seconde dépendance injectée, et en produire une
+        // donnerait un fichier qui ne compile pas.
+        assert.throws(
+          () =>
+            svc(dest, {
+              name: "autre",
+              entity: "Message",
+              inject: "AuditService",
+            }),
+          /ne se combinent pas/u,
+        );
+      });
+    });
+
     /**
      * Rend `@nodefony/user` résolvable depuis une app de fixture.
      *

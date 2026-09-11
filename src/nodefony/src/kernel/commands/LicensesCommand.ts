@@ -92,9 +92,9 @@ class Licenses extends Command {
     }
 
     if (opts?.write === true) {
-      const cible = path.join(root, NOTICES_FILE);
-      fs.writeFileSync(cible, renderNotices(survey), "utf8");
-      this.log(`relevé écrit : ${cible} (${survey.packages.length} paquets)`);
+      const file = path.join(root, NOTICES_FILE);
+      fs.writeFileSync(file, renderNotices(survey), "utf8");
+      this.log(`relevé écrit : ${file} (${survey.packages.length} paquets)`);
     }
 
     if (opts?.json === true) {

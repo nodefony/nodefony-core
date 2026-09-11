@@ -191,12 +191,12 @@ export const LICENSE_REFUSAL: ReadonlyMap<string, string> = new Map([
  * @returns la raison, ou `null` si la famille n'est pas répertoriée.
  */
 export function refusalReason(license: string): string | null {
-  for (const [famille, raison] of LICENSE_REFUSAL) {
+  for (const [family, reason] of LICENSE_REFUSAL) {
     // `AGPL` avant `GPL` : un simple `startsWith` ferait lire « AGPL-3.0 »
     // comme de la GPL si l'ordre s'inversait. On teste donc le nom de famille
     // entier, borné — jamais un fragment au milieu d'un mot.
-    const re = new RegExp(`(^|[^A-Za-z])${famille}([^A-Za-z]|$)`, "u");
-    if (re.test(license)) return raison;
+    const re = new RegExp(`(^|[^A-Za-z])${family}([^A-Za-z]|$)`, "u");
+    if (re.test(license)) return reason;
   }
   return null;
 }
@@ -679,13 +679,13 @@ export function renderReport(survey: ILicenseSurvey): string {
   // évite d'ouvrir quinze textes de licence pour savoir laquelle mérite qu'on
   // s'y arrête — c'est la seule différence utile entre elles, puisqu'elles
   // autorisent toutes l'usage commercial et la redistribution propriétaire.
-  const largeur = Math.max(
+  const width = Math.max(
     ...[...survey.tally.keys()].map((license) => license.length),
   );
   for (const [license, count] of survey.tally) {
     const mark = accept(license) === null ? "❌" : "  ";
     out.push(
-      `${mark} ${String(count).padStart(4)}  ${license.padEnd(largeur)}  ${duty(license)}`,
+      `${mark} ${String(count).padStart(4)}  ${license.padEnd(width)}  ${duty(license)}`,
     );
   }
   out.push(
@@ -747,7 +747,7 @@ export function renderReport(survey: ILicenseSurvey): string {
  * @returns le contenu du fichier.
  */
 export function renderNotices(survey: ILicenseSurvey): string {
-  const lignes = [
+  const lines = [
     `# Licences des dépendances`,
     ``,
     `> Fichier **généré** — ne pas l'éditer à la main : \`npx nodefony licenses --write\`.`,
@@ -766,9 +766,9 @@ export function renderNotices(survey: ILicenseSurvey): string {
     `| --- | ---: | --- |`,
   ];
   for (const [license, count] of survey.tally) {
-    lignes.push(`| ${license} | ${count} | ${duty(license)} |`);
+    lines.push(`| ${license} | ${count} | ${duty(license)} |`);
   }
-  lignes.push(
+  lines.push(
     ``,
     `> Toutes ces licences autorisent l'usage commercial, la modification et la`,
     `> redistribution dans un produit propriétaire — elles ne diffèrent que par ce`,
@@ -776,7 +776,7 @@ export function renderNotices(survey: ILicenseSurvey): string {
     `> juridique et ne remplace pas le texte de la licence, qui voyage avec chaque`,
     `> paquet sous \`node_modules\`.`,
   );
-  lignes.push(
+  lines.push(
     ``,
     `## Par paquet`,
     ``,
@@ -786,9 +786,9 @@ export function renderNotices(survey: ILicenseSurvey): string {
   for (const pkg of [...survey.packages].sort((a, b) =>
     a.name.localeCompare(b.name),
   )) {
-    lignes.push(`| \`${pkg.name}\` | ${pkg.version} | ${pkg.license} |`);
+    lines.push(`| \`${pkg.name}\` | ${pkg.version} | ${pkg.license} |`);
   }
-  lignes.push(
+  lines.push(
     ``,
     `## Ce que ce relevé ne couvre pas`,
     ``,
@@ -798,7 +798,7 @@ export function renderNotices(survey: ILicenseSurvey): string {
     `entraînent à leur tour.`,
     ``,
   );
-  return lignes.join("\n");
+  return lines.join("\n");
 }
 
 /** Le nom du relevé posé à la racine d'une application. */

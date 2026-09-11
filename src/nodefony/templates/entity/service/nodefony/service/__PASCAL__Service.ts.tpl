@@ -10,8 +10,9 @@ import {
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
  *
  * ```bash
- * npx nodefony create service <Nom>                  # la classe + sa déclaration
- * npx nodefony create service <Nom> --inject <Autre> # + la dépendance écrite
+ * npx nodefony create service <Nom>                   # la classe + sa déclaration
+ * npx nodefony create service <Nom> --inject <Autre>  # + la dépendance écrite
+ * npx nodefony create service <Nom> --entity <Entité> # + l'accès aux données
  * ```
  *
  * Le générateur écrit la version COURANTE du framework et déclare le service sur
@@ -27,6 +28,18 @@ import {
  * résolveur GraphQL et une commande CLI. Écrire le CRUD dans un controller
  * obligerait à le réécrire pour chacun d'eux.
  *
+ * **LE PATRON D'ACCÈS AUX DONNÉES, et il n'y en a qu'un** : un service étend
+ * `AbstractCrudService<Row>` et reçoit un `IRepository<Row>` par son constructeur.
+ * Rien d'autre n'est à chercher — ni décorateur de dépôt, ni fonction
+ * `getRepository` appelée depuis le corps d'une méthode. Le repository est un
+ * champ (`this.repository`), figé à la construction.
+ *
+ * Pourquoi celui-là : le repository est la SEULE dépendance qui change entre
+ * deux dialectes SQL, et la recevoir par le constructeur laisse le service
+ * testable sans base — un dépôt en mémoire suffit (cf le test généré à côté).
+ * Aller chercher le connecteur depuis chaque méthode rendrait l'inverse vrai :
+ * plus rien ne serait éprouvable sans infrastructure.
+ *
  * `AbstractCrudService` fournit `find` / `findOne` / `findById` / `count` (délégation
  * directe, sans surcoût), `findPage` (une page — `limit` obligatoire) et `create` /
  * `updateOne` / `delete` (encadrés par des points d'extension et suivis d'événements
@@ -40,9 +53,9 @@ import {
  * `this.quelqueChose = …` pendant le traitement d'une requête — l'utilisateur courant
  * ou la transaction voyagent dans le contexte, jamais sur l'instance.
  */
-export class <%= it.pascal %>Service extends AbstractCrudService<<%= it.pascal %>Row> {
+export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>Row> {
   constructor(repository: IRepository<<%= it.pascal %>Row>) {
-    super("<%= it.camel %>Service", repository);
+    super("<%= it.serviceKey %>", repository);
   }
 
   /**
@@ -104,21 +117,21 @@ export class <%= it.pascal %>Service extends AbstractCrudService<<%= it.pascal %
  * se reproduisent pas en test. Au premier appel entrant, tout est démarré : plus
  * aucune question d'ordre.
  */
-let instance: <%= it.pascal %>Service | null = null;
+let instance: <%= it.serviceClass %> | null = null;
 
 /** Récupère le service (le construit au premier appel). */
-export function get<%= it.pascal %>Service(): <%= it.pascal %>Service {
+export function get<%= it.serviceClass %>(): <%= it.serviceClass %> {
   if (instance === null) {
     // `ormRegistry.get()` LÈVE quand le nom est inconnu — un `if (!orm)` posé
     // après lui ne s'exécute jamais. On demande donc d'abord, pour que le
     // message qui suit (celui qui dit QUOI FAIRE) soit bien celui qu'on lit.
     if (!ormRegistry.has("<%= it.connector %>")) {
       throw new Error(
-        `<%= it.pascal %>Service : aucun connecteur « <%= it.connector %> » — vérifie que @nodefony/drizzle est dans le manifeste modules de nodefony.config.ts`,
+        `<%= it.serviceClass %> : aucun connecteur « <%= it.connector %> » — vérifie que @nodefony/drizzle est dans le manifeste modules de nodefony.config.ts`,
       );
     }
     const orm = ormRegistry.get("<%= it.connector %>");
-    instance = new <%= it.pascal %>Service(
+    instance = new <%= it.serviceClass %>(
       orm.getRepository<<%= it.pascal %>Row>("<%= it.pascal %>"),
     );
   }
