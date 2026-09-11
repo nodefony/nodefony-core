@@ -1,4 +1,10 @@
-import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readdirSync,
+  readFileSync,
+  writeFileSync,
+} from "node:fs";
 import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { pointeursInstructions } from "../agentTargets";
@@ -716,6 +722,12 @@ export function writeAgentPointers(
   const written: string[] = [];
   for (const { file, agents } of pointeurs) {
     const target = path.join(projectRoot, file);
+    // 🔴 Le dossier parent d'abord. Tous les pointeurs vivaient à la racine
+    // jusqu'à celui de Copilot, qui est le premier en SOUS-DOSSIER
+    // (`.github/copilot-instructions.md`) : sans ce `mkdir`, `wx` lève ENOENT —
+    // qui n'est pas EEXIST, donc n'est pas rattrapé, donc fait échouer la
+    // création de l'application entière pour un fichier d'appoint.
+    mkdirSync(path.dirname(target), { recursive: true });
     // `wx` : créer OU échouer, en une seule opération du système de fichiers.
     // Un `existsSync` suivi d'un `writeFileSync` laisse une fenêtre entre les
     // deux — un fichier apparu entre-temps était ÉCRASÉ, alors que l'intention

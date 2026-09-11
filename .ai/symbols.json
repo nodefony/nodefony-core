@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3986,
+    "symbols": 3991,
     "classes": 388,
-    "interfaces": 1079,
+    "interfaces": 1081,
     "types": 447,
     "enums": 4,
-    "functions": 1675,
-    "constants": 393
+    "functions": 1677,
+    "constants": 394
   },
   "symbols": {
     "Cli": {
@@ -648,6 +648,15 @@
       "module": "@nodefony/core",
       "description": "Treeshake commun : les externes sont sans effet de bord (équivalent `no-external`) SAUF `reflect-metadata`, dont le side-effect doit survivre."
     },
+    "IAgentMcpFile": {
+      "name": "IAgentMcpFile",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/agentTargets.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Où et comment écrire la porte chez un agent de canal `fichier-agent`. ⭐ **Les trois champs existent parce que les deux grammaires constatées diffèrent sur les trois.** VS Code nomme sa racine `serv…"
+    },
     "IAgentTarget": {
       "name": "IAgentTarget",
       "kind": "interface",
@@ -847,8 +856,7 @@
       "kind": "function",
       "file": "src/nodefony/src/cli/aiMcp.ts",
       "exported": true,
-      "module": "@nodefony/core",
-      "description": "Déclare (ou retire) la porte MCP chez chaque agent, **par SA propre CLI**. ⭐ La règle qui gouverne cette fonction : **on n'écrit pas le fichier de configuration d'un outil tiers.** Son format lui a…"
+      "module": "@nodefony/core"
     },
     "targetsToDeclare": {
       "name": "targetsToDeclare",
@@ -898,7 +906,16 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Le document `.mcp.json` dans son entier."
+      "description": "Un fichier de configuration MCP dans son entier — `.mcp.json` ou celui d'un agent qui tient le sien. ⚠️ **Les deux racines sont optionnelles parce qu'un document n'en porte jamais qu'UNE.** VS Code…"
+    },
+    "IMcpGrammar": {
+      "name": "IMcpGrammar",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Grammaire d'un fichier de configuration MCP. Injectée plutôt que déduite : c'est elle qui a valu l'existence du canal `fichier-agent` — deux outils qui parlent le même protocole n'écrivent pas le m…"
     },
     "IMcpConfigPlan": {
       "name": "IMcpConfigPlan",
@@ -916,6 +933,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce que la commande a décidé de faire."
+    },
+    "serveursDe": {
+      "name": "serveursDe",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les serveurs déclarés dans un document, quelle que soit sa racine. Exposé pour qu'aucun appelant n'ait à deviner la clé : c'est le seul endroit où l'on sait que `servers` et `mcpServers` désignent …"
     },
     "buildMcpUrl": {
       "name": "buildMcpUrl",
@@ -972,6 +997,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nom de la variable d'environnement qui porte le jeton de la porte MCP. 🔴 C'est la VARIABLE qui s'écrit dans `.mcp.json`, jamais le jeton : ce fichier est un fichier de projet, suivi par git. Les c…"
+    },
+    "MCP_GRAMMAR": {
+      "name": "MCP_GRAMMAR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/aiMcpReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La grammaire de `.mcp.json` — celle que Claude Code lit, et notre défaut. `${VAR}` nu : c'est la forme historique du format, et elle diffère du `${env:VAR}` que VS Code et Cursor attendent."
     },
     "readSkillHeader": {
       "name": "readSkillHeader",
@@ -30140,6 +30173,9 @@
       "renderMcpPlan": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
+      "serveursDe": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
       "IMcpConfigDocument": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
@@ -30169,6 +30205,9 @@
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "renderPlanShell": [
+        "src/nodefony/src/cli/aiMcp.ts"
+      ],
+      "IAgentMcpFile": [
         "src/nodefony/src/cli/aiMcp.ts"
       ],
       "IAgentTarget": [

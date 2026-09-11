@@ -2,12 +2,14 @@ import { describe, it, expect } from "vitest";
 import {
   AGENT_TARGETS,
   planAgentDeclaration,
+  pointeursInstructions,
   MCP_TOKEN_ENV,
 } from "../cli/agentTargets";
 import {
   buildMcpUrl,
   planMcpConfig,
   renderMcpPlan,
+  serveursDe,
   MCP_SERVER_KEY,
   type IMcpConfigDocument,
 } from "../cli/aiMcpReport";
@@ -20,9 +22,17 @@ import {
   targetsToDeclare,
   agentTokenStates,
   chainedTokenNote,
+  declareToAgents,
 } from "../cli/aiMcp";
 import { litVariable, poseVariable } from "../cli/agentTargets";
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from "node:fs";
+import { writeAgentPointers } from "../cli/scaffold/engine";
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+  rmSync,
+} from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
@@ -49,7 +59,7 @@ describe("ai:mcp — le plan d'écriture", () => {
   it("pose l'entrée quand aucun fichier n'existe", () => {
     const plan = planMcpConfig(null, url);
     expect(plan.action).toBe("pose");
-    expect(plan.document.mcpServers[MCP_SERVER_KEY]).toEqual({
+    expect(serveursDe(plan.document)[MCP_SERVER_KEY]).toEqual({
       type: "http",
       url,
     });
@@ -65,7 +75,7 @@ describe("ai:mcp — le plan d'écriture", () => {
       },
     } as unknown as IMcpConfigDocument;
     const plan = planMcpConfig(existing, url);
-    expect(Object.keys(plan.document.mcpServers).sort()).toEqual([
+    expect(Object.keys(serveursDe(plan.document)).sort()).toEqual([
       "github",
       "nodefony",
     ]);
@@ -223,7 +233,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     const plan = planMcpConfig(null, "http://localhost:5151/nodefony/mcp", {
       auth: true,
     });
-    const entree = plan.document.mcpServers[MCP_SERVER_KEY];
+    const entree = serveursDe(plan.document)[MCP_SERVER_KEY];
     expect(entree.headers?.Authorization).toBe("Bearer ${NF_MCP_TOKEN}");
     const texte = JSON.stringify(plan.document);
     expect(texte).not.toMatch(/eyJ|Bearer [A-Za-z0-9._-]{20,}/u);
@@ -244,7 +254,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     };
     const plan = planMcpConfig(existing, "http://localhost:5151/nodefony/mcp");
     expect(
-      plan.document.mcpServers[MCP_SERVER_KEY].headers?.Authorization,
+      serveursDe(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
     ).toBe("Bearer ${NF_MCP_TOKEN}");
     expect(plan.action).toBe("inchange");
   });
@@ -264,7 +274,7 @@ describe("ai:mcp — le mode AUTHENTIFIÉ", () => {
     });
     // Repasser en anonyme est un choix qui doit PRENDRE : laisser l'en-tête
     // ferait échouer la connexion avec un jeton expiré, sans dire pourquoi.
-    expect(plan.document.mcpServers[MCP_SERVER_KEY].headers).toBeUndefined();
+    expect(serveursDe(plan.document)[MCP_SERVER_KEY].headers).toBeUndefined();
     expect(plan.action).toBe("remplace");
   });
 
@@ -608,5 +618,180 @@ describe("ai:mcp — ce que l'écran dit des agents et de leurs jetons (#303)", 
     expect(note).to.contain("70");
     expect(note).to.contain("security:token --write");
     expect(chainedTokenNote(null)).to.contain("NON posé");
+  });
+});
+
+describe("agents qui lisent LEUR propre fichier de projet", () => {
+  const url = "http://localhost:5151/nodefony/mcp";
+  const copilot = AGENT_TARGETS.find((t) => t.key === "copilot");
+  const cursor = AGENT_TARGETS.find((t) => t.key === "cursor");
+
+  it("les deux cibles existent et portent leur grammaire", () => {
+    expect(copilot?.declaration).toBe("fichier-agent");
+    expect(cursor?.declaration).toBe("fichier-agent");
+    // ⚠️ Les racines DIFFÈRENT, et c'est tout l'objet du canal : un document
+    // recopié de l'un à l'autre est accepté sans broncher, puis ignoré.
+    expect(copilot?.mcpFile?.racine).toBe("servers");
+    expect(cursor?.mcpFile?.racine).toBe("mcpServers");
+    expect(copilot?.mcpFile?.file).toBe(".vscode/mcp.json");
+    expect(cursor?.mcpFile?.file).toBe(".cursor/mcp.json");
+  });
+
+  it("🔴 le plan NOMME leur fichier, jamais .mcp.json", () => {
+    if (!copilot) throw new Error("cible copilot absente");
+    const plan = planAgentDeclaration(copilot, {
+      url,
+      tokenEnv: MCP_TOKEN_ENV,
+    });
+    expect(plan.channel).toBe("fichier-agent");
+    // Annoncer `.mcp.json` à qui ne l'ouvre jamais est le défaut que ce canal
+    // ferme : VS Code lit `.vscode/mcp.json`, et lui seul.
+    if (plan.channel !== "fichier-agent") return;
+    expect(plan.file).toBe(".vscode/mcp.json");
+  });
+
+  it("écrit sous la racine de VS Code, avec SA syntaxe de variable", () => {
+    if (!copilot?.mcpFile) throw new Error("grammaire copilot absente");
+    const plan = planMcpConfig(null, url, {
+      auth: true,
+      grammaire: copilot.mcpFile,
+    });
+    expect(serveursDe(plan.document, "servers")[MCP_SERVER_KEY]).toEqual({
+      type: "http",
+      url,
+      headers: { Authorization: "Bearer ${env:NF_MCP_TOKEN}" },
+    });
+    // `mcpServers` ne doit PAS apparaître : une clé qu'aucun outil ne lit
+    // vieillit sans que personne la relise.
+    expect(plan.document.mcpServers).toBeUndefined();
+  });
+
+  it("écrit sous la racine de Cursor, avec SA syntaxe de variable", () => {
+    if (!cursor?.mcpFile) throw new Error("grammaire cursor absente");
+    const plan = planMcpConfig(null, url, {
+      auth: true,
+      grammaire: cursor.mcpFile,
+    });
+    // Même racine que `.mcp.json`, mais PAS la même forme de variable : `${VAR}`
+    // y serait pris à la lettre.
+    expect(
+      serveursDe(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+    ).toBe("Bearer ${env:NF_MCP_TOKEN}");
+  });
+
+  it("🔴 .mcp.json garde sa forme historique — la grammaire par défaut ne bouge pas", () => {
+    const plan = planMcpConfig(null, url, { auth: true });
+    expect(
+      serveursDe(plan.document)[MCP_SERVER_KEY].headers?.Authorization,
+    ).toBe("Bearer ${NF_MCP_TOKEN}");
+  });
+
+  it("préserve les serveurs que le projet avait déjà déclarés chez l'agent", () => {
+    if (!copilot?.mcpFile) throw new Error("grammaire copilot absente");
+    const existing = {
+      servers: { github: { type: "http", url: "https://exemple/mcp" } },
+      inputs: [{ id: "jeton", type: "promptString" }],
+    } as unknown as IMcpConfigDocument;
+    const plan = planMcpConfig(existing, url, { grammaire: copilot.mcpFile });
+    expect(Object.keys(serveursDe(plan.document, "servers")).sort()).toEqual([
+      "github",
+      "nodefony",
+    ]);
+    // Tout le reste du document survit — `inputs` porte les secrets de VS Code.
+    expect(plan.document.inputs).toBeDefined();
+  });
+
+  it("est idempotent au sens FORT : une porte déjà juste ne se réécrit pas", () => {
+    if (!cursor?.mcpFile) throw new Error("grammaire cursor absente");
+    const premier = planMcpConfig(null, url, { grammaire: cursor.mcpFile });
+    const second = planMcpConfig(premier.document, url, {
+      grammaire: cursor.mcpFile,
+    });
+    expect(second.action).toBe("inchange");
+  });
+
+  it("🔴 Copilot reçoit un POINTEUR d'instructions, Cursor non", () => {
+    // La seule porte d'instructions de VS Code qui ne dépende d'AUCUN réglage.
+    expect(copilot?.instructions.file).toBe(".github/copilot-instructions.md");
+    expect(copilot?.instructions.natif).toBe(false);
+    // Cursor lit AGENTS.md nativement : lui poser un fichier serait du vide qui
+    // divergerait.
+    expect(cursor?.instructions.natif).toBe(true);
+    const fichiers = pointeursInstructions(["copilot", "cursor"]).map(
+      (p) => p.file,
+    );
+    expect(fichiers).toContain(".github/copilot-instructions.md");
+    expect(fichiers).not.toContain("AGENTS.md");
+  });
+
+  it("écrit vraiment le fichier, dans le projet", async () => {
+    if (!copilot) throw new Error("cible copilot absente");
+    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-agentfile-"));
+    try {
+      const [verdict] = await declareToAgents([copilot], {
+        url,
+        remove: false,
+        projectRoot: racine,
+        auth: true,
+      });
+      expect(verdict.state).toBe("fichier-agent");
+      expect(verdict.inProject).toBe(true);
+      const ecrit = JSON.parse(
+        readFileSync(path.join(racine, ".vscode", "mcp.json"), "utf8"),
+      ) as IMcpConfigDocument;
+      expect(serveursDe(ecrit, "servers")[MCP_SERVER_KEY]?.url).toBe(url);
+    } finally {
+      rmSync(racine, { recursive: true, force: true });
+    }
+  });
+
+  it("🔴 un agent DÉTECTÉ mais non demandé n'est jamais ÉCRIT", () => {
+    if (!copilot || !cursor) throw new Error("cibles absentes");
+    const claude = AGENT_TARGETS.find((t) => t.key === "claude");
+    if (!claude) throw new Error("cible claude absente");
+    // Un `.vscode/` dans un projet est le dossier le plus banal qui soit.
+    // L'entrée de `targetsToDeclare` vaut ÉCRITURE : y faire entrer un agent
+    // sur la seule foi de sa présence poserait un fichier chez un outil que
+    // personne n'a nommé. Seul `fichier-projet` y entre — il n'écrit rien.
+    const declared = targetsToDeclare([], [copilot, cursor, claude]);
+    expect(declared.map((t) => t.key)).toEqual(["claude"]);
+  });
+
+  it("🔴 pose le pointeur Copilot, qui vit dans un SOUS-DOSSIER", () => {
+    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-pointeur-"));
+    try {
+      // Tous les pointeurs vivaient à la racine jusqu'à celui-ci. `flag: "wx"`
+      // lève ENOENT quand le dossier parent manque — et ENOENT n'est pas
+      // EEXIST, donc n'est pas rattrapé : la création de l'application entière
+      // échouait pour un fichier d'appoint.
+      const poses = writeAgentPointers(racine, ["copilot"], "demo");
+      expect(poses).toEqual([".github/copilot-instructions.md"]);
+      const contenu = readFileSync(
+        path.join(racine, ".github", "copilot-instructions.md"),
+        "utf8",
+      );
+      expect(contenu).toContain("AGENTS.md");
+      // Un POINTEUR, pas une copie : ce qu'on recopierait divergerait.
+      expect(contenu.length).toBeLessThan(1200);
+    } finally {
+      rmSync(racine, { recursive: true, force: true });
+    }
+  });
+
+  it("retirer ce qui n'a jamais été posé rend « sans-effet », pas « retiré »", async () => {
+    if (!cursor) throw new Error("cible cursor absente");
+    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-agentfile-"));
+    try {
+      const [verdict] = await declareToAgents([cursor], {
+        url,
+        remove: true,
+        projectRoot: racine,
+      });
+      // Annoncer un retrait qui n'a rien retiré est le défaut mesuré chez un
+      // agent piloté par CLI : on ne le reproduit pas ici.
+      expect(verdict.state).toBe("sans-effet");
+    } finally {
+      rmSync(racine, { recursive: true, force: true });
+    }
   });
 });

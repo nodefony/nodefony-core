@@ -31,10 +31,49 @@ import { MCP_SERVER_KEY, MCP_TOKEN_ENV, MCP_CONFIG_FILE } from "./aiMcpReport";
  * il n'y a rien de plus à faire, et le refaire par sa CLI créerait une SECONDE
  * déclaration, dans une autre portée, que plus rien ne tiendrait à jour.
  *
+ * `fichier-agent` : l'agent ignore `.mcp.json` mais lit un fichier de projet À
+ * LUI, dont la grammaire est connue et STABLE (`.vscode/mcp.json`,
+ * `.cursor/mcp.json`). On l'écrit donc nous-mêmes — il n'y a pas de CLI à
+ * appeler, et le fichier vit dans le dépôt, où il se relit et se corrige.
+ *
+ * ⚠️ Ce canal ne se confond pas avec `fichier-projet` : celui-là dit « rien à
+ * faire, c'est déjà écrit », celui-ci dit « il y a un SECOND fichier à écrire,
+ * dans une autre grammaire ». Les traiter pareil poserait un `.mcp.json` que
+ * VS Code n'ouvre jamais, et annoncerait la porte servie.
+ *
  * `cli` : l'agent ignore `.mcp.json` (constaté) et tient sa propre
  * configuration — on lui parle par sa ligne de commande.
  */
-export type DeclarationChannel = "fichier-projet" | "cli";
+export type DeclarationChannel = "fichier-projet" | "fichier-agent" | "cli";
+
+/**
+ * Où et comment écrire la porte chez un agent de canal `fichier-agent`.
+ *
+ * ⭐ **Les trois champs existent parce que les deux grammaires constatées
+ * diffèrent sur les trois.** VS Code nomme sa racine `servers`, Cursor
+ * `mcpServers` ; et tous deux référencent une variable par `${env:NOM}` là où
+ * `.mcp.json` s'écrit `${NOM}`. Un document recopié d'un outil à l'autre est
+ * accepté sans broncher, puis ignoré — le pire retour possible.
+ */
+export interface IAgentMcpFile {
+  /**
+   * Chemin relatif à la racine du projet, écrit en `/`.
+   *
+   * Il VOYAGE (table, compte rendu, documentation) ; c'est l'appelant qui le
+   * `path.join` pour l'ouvrir — axiome de portabilité.
+   */
+  file: string;
+  /** Clé racine du document JSON. */
+  racine: "servers" | "mcpServers";
+  /**
+   * Comment SA configuration référence une variable d'environnement.
+   *
+   * Rendu par une fonction plutôt que par un gabarit à trous : rien ne garantit
+   * que le prochain outil emploie la même forme, et un `replace` sur une chaîne
+   * commune les déformerait tous.
+   */
+  refVariable: (env: string) => string;
+}
 
 /**
  * Un agent de développement, et l'endroit où il lit ses variables.
@@ -79,6 +118,8 @@ export interface IAgentTarget {
   home?: string;
   /** Par quelle voie sa configuration apprend l'existence de la porte MCP. */
   declaration: DeclarationChannel;
+  /** Présent si et seulement si `declaration === "fichier-agent"`. */
+  mcpFile?: IAgentMcpFile;
   /** Exécutable de sa CLI — présent si et seulement si `declaration === "cli"`. */
   bin?: string;
   /**
@@ -374,6 +415,77 @@ export const AGENT_TARGETS: readonly IAgentTarget[] = [
     argvRemove: () => ["mcp", "remove", MCP_SERVER_KEY],
     argvList: () => ["mcp", "list"],
   },
+  {
+    key: "copilot",
+    name: "GitHub Copilot (VS Code)",
+    scope: "projet",
+    marker: ".vscode",
+    // Le secret ne se pose PAS ici : VS Code résout `${env:…}` dans
+    // l'environnement du poste, et son `.vscode/` est très souvent commité.
+    // Le fichier reste déclaré parce que la table l'exige, et le compte rendu
+    // dit où poser la variable.
+    file: ".vscode/mcp.json",
+    forme: "json-env",
+    instructions: {
+      // ⭐ La SEULE porte d'instructions de tout ce tableau qui ne dépende
+      // d'aucun réglage. VS Code détecte aussi `AGENTS.md` et `CLAUDE.md` —
+      // tous deux déjà posés par le scaffold — mais sous `chat.useAgentsMdFile`
+      // et `chat.useClaudeMdFile` : SOUVENT lus, jamais garantis. Un pointeur
+      // ici coûte quelques lignes et ne dépend de personne.
+      file: ".github/copilot-instructions.md",
+      natif: false,
+      proof:
+        "code.visualstudio.com/docs/copilot/customization/custom-instructions " +
+        "— « automatically detects .github/copilot-instructions.md », sans réglage " +
+        "(AGENTS.md et CLAUDE.md y sont sous chat.useAgentsMdFile / chat.useClaudeMdFile)",
+    },
+    declaration: "fichier-agent",
+    mcpFile: {
+      file: ".vscode/mcp.json",
+      // ⚠️ `servers`, PAS `mcpServers` : la grammaire de VS Code n'est pas celle
+      // de `.mcp.json`. Un document recopié est accepté et ignoré.
+      racine: "servers",
+      refVariable: (env) => `\${env:${env}}`,
+    },
+    noteAfter:
+      "VS Code résout `${env:…}` dans l'environnement du POSTE, pas dans le " +
+      "`.env` de l'application : exporte la variable dans ton shell (ou lance " +
+      "`code` depuis un terminal qui la porte), sinon l'en-tête part non " +
+      "substitué et la porte répond 401 en accusant le jeton.",
+  },
+  {
+    key: "cursor",
+    name: "Cursor",
+    scope: "projet",
+    marker: ".cursor",
+    file: ".cursor/mcp.json",
+    forme: "json-env",
+    instructions: {
+      file: "AGENTS.md",
+      natif: true,
+      proof:
+        "cursor.com/docs/context/rules — AGENTS.md racine donné comme " +
+        "l'alternative officielle à .cursor/rules (où un .md NU est ignoré, " +
+        "le frontmatter .mdc étant exigé)",
+    },
+    declaration: "fichier-agent",
+    mcpFile: {
+      file: ".cursor/mcp.json",
+      racine: "mcpServers",
+      refVariable: (env) => `\${env:${env}}`,
+    },
+    // 🔴 Signalé chez eux : l'interpolation `${env:…}` fonctionne pour les
+    // serveurs LOCAUX et pas pour les serveurs HTTP distants — la chaîne part
+    // littérale. C'est exactement le symptôme qui a déjà coûté une heure de
+    // diagnostic ici (un 401 qui accuse le jeton), alors on l'ÉNONCE : graver
+    // le jeton à la place serait mettre un secret dans un fichier de dépôt.
+    noteAfter:
+      "Cursor documente `${env:…}` dans `headers`, mais un défaut signalé le " +
+      "laisse NON substitué pour les serveurs HTTP distants — c'est notre cas. " +
+      "Si la porte répond 401, ce n'est pas le jeton : regarde ce que Cursor " +
+      "envoie réellement. Ne remplace pas la variable par sa valeur — ce " +
+      "fichier vit dans le dépôt.",
+  },
 ];
 
 /**
@@ -388,6 +500,13 @@ export type IDeclarationPlan =
       channel: "fichier-projet";
       /** Le fichier qui porte DÉJÀ la déclaration — rien à lancer. */
       file: string;
+    }
+  | {
+      channel: "fichier-agent";
+      /** Le fichier PROPRE à l'agent, à écrire dans sa grammaire. */
+      file: string;
+      /** Sa grammaire, pour que l'écriture n'ait rien à deviner. */
+      mcpFile: IAgentMcpFile;
     }
   | {
       channel: "cli";
@@ -411,6 +530,16 @@ export function planAgentDeclaration(
   ctx: Pick<IDeclarationContext, "url" | "tokenEnv">,
   remove = false,
 ): IDeclarationPlan {
+  // Le canal PROPRE se teste en premier : sans cela, une cible `fichier-agent`
+  // (qui n'a pas de `bin`) tomberait dans le repli ci-dessous et l'on
+  // annoncerait `.mcp.json` — un fichier que VS Code n'ouvre jamais.
+  if (target.declaration === "fichier-agent" && target.mcpFile) {
+    return {
+      channel: "fichier-agent",
+      file: target.mcpFile.file,
+      mcpFile: target.mcpFile,
+    };
+  }
   if (target.declaration === "fichier-projet" || !target.bin) {
     return { channel: "fichier-projet", file: MCP_CONFIG_FILE };
   }

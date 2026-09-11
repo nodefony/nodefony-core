@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { writeAgentPointers } from "./scaffold/engine";
@@ -14,6 +14,7 @@ import {
   buildMcpUrl,
   planMcpConfig,
   renderMcpPlan,
+  serveursDe,
   MCP_CONFIG_FILE,
   MCP_SERVER_KEY,
   MCP_TOKEN_ENV,
@@ -27,6 +28,7 @@ import {
   planAgentDeclaration,
   agentRoot,
   renderPlanShell,
+  type IAgentMcpFile,
   type IAgentTarget,
 } from "./agentTargets";
 
@@ -560,6 +562,9 @@ export interface IDeclarationResult {
    * il est possible. `sans-effet` : elle a répondu OK, mais la porte est encore
    * là (ou toujours absente) — mesuré chez l'un d'eux, et invisible autrement.
    * `fichier-projet` : il lit déjà le `.mcp.json`, il n'y avait rien à lancer.
+   * `fichier-agent` : il lit un fichier À LUI, dans SA grammaire — on vient de
+   * l'écrire, et `command` porte son chemin. Distinct de `fichier-projet` parce
+   * que le geste n'est pas le même : là on ne fait rien, ici on écrit.
    * `cli-absente` : l'outil n'est pas installé — la commande est rendue pour le
    * jour où il le sera. `echec` : sa CLI a refusé, et c'est ELLE qui dit pourquoi.
    */
@@ -567,6 +572,7 @@ export interface IDeclarationResult {
     | "declare"
     | "retire"
     | "fichier-projet"
+    | "fichier-agent"
     | "cli-absente"
     | "echec"
     | "sans-effet";
@@ -605,6 +611,93 @@ export interface IDeclarationResult {
  * @returns un verdict par agent — jamais une exception : un agent qui refuse
  *          n'empêche pas de servir les suivants
  */
+/**
+ * Écrit la porte dans le fichier PROPRE à un agent, dans SA grammaire.
+ *
+ * ⭐ **Pourquoi on écrit ce fichier-là, alors qu'on refuse d'écrire celui d'un
+ * agent piloté par CLI.** La frontière du module est « l'agent possède le format
+ * de sa déclaration » — et elle vaut tant que l'agent offre une commande pour
+ * l'écrire. VS Code et Cursor n'en offrent aucune : leur configuration MCP de
+ * projet est un fichier JSON documenté, versionné, que l'utilisateur édite à la
+ * main. Ne rien faire l'obligerait à recopier une URL et une syntaxe de variable
+ * qu'il n'a aucune raison de connaître — et c'est exactement ce que cette
+ * commande existe pour éviter.
+ *
+ * Le document existant est PRÉSERVÉ, comme pour `.mcp.json` : un projet y déclare
+ * ses autres serveurs, et une commande de câblage qui les emporterait serait une
+ * commande qu'on n'ose plus lancer.
+ *
+ * @param target - l'agent visé
+ * @param mcpFile - sa grammaire : où écrire, sous quelle racine, avec quelle
+ *                  forme de variable
+ * @param ctx - racine du projet, URL de la porte, sens du geste, mode d'autorisation
+ * @returns le verdict — jamais d'exception : un agent qui refuse ne doit pas
+ *          empêcher de servir les suivants
+ */
+function ecrireFichierAgent(
+  target: IAgentTarget,
+  mcpFile: IAgentMcpFile,
+  ctx: {
+    projectRoot: string;
+    url: string;
+    remove: boolean;
+    auth?: boolean;
+  },
+): IDeclarationResult {
+  // `path.join` sur un chemin écrit en `/` : il VOYAGE dans la table, on
+  // l'OUVRE ici — axiome de portabilité.
+  const cible = path.join(ctx.projectRoot, ...mcpFile.file.split("/"));
+  const existant = readMcpConfig(cible);
+  if (ctx.remove) {
+    const serveurs = { ...serveursDe(existant, mcpFile.racine) };
+    if (!existant || !(MCP_SERVER_KEY in serveurs)) {
+      // Rien à retirer : le dire, plutôt qu'annoncer un retrait qui n'a rien
+      // retiré — c'est le défaut mesuré chez un agent piloté par CLI.
+      return { target, state: "sans-effet", command: mcpFile.file };
+    }
+    delete serveurs[MCP_SERVER_KEY];
+    const document = { ...existant, [mcpFile.racine]: serveurs };
+    try {
+      writeFileSync(cible, `${JSON.stringify(document, null, 2)}\n`);
+    } catch (error) {
+      return {
+        target,
+        state: "echec",
+        command: mcpFile.file,
+        detail: (error as Error).message,
+      };
+    }
+    return { target, state: "retire", command: mcpFile.file, inProject: true };
+  }
+
+  const plan = planMcpConfig(existant, ctx.url, {
+    ...(ctx.auth === undefined ? {} : { auth: ctx.auth }),
+    grammaire: mcpFile,
+  });
+  // Idempotence au sens FORT, comme `.mcp.json` : une porte déjà juste n'est pas
+  // réécrite, l'horodatage ne bouge pas, et l'arbre reste propre — une commande
+  // de synchronisation qui salit l'arbre est une commande qu'on hésite à lancer.
+  if (plan.action !== "inchange") {
+    try {
+      mkdirSync(path.dirname(cible), { recursive: true });
+      writeFileSync(cible, `${JSON.stringify(plan.document, null, 2)}\n`);
+    } catch (error) {
+      return {
+        target,
+        state: "echec",
+        command: mcpFile.file,
+        detail: (error as Error).message,
+      };
+    }
+  }
+  return {
+    target,
+    state: "fichier-agent",
+    command: mcpFile.file,
+    inProject: true,
+  };
+}
+
 export async function declareToAgents(
   targets: readonly IAgentTarget[],
   ctx: {
@@ -613,10 +706,20 @@ export async function declareToAgents(
     projectRoot: string;
     /** Écrire dans le foyer de l'utilisateur au lieu du projet. */
     global?: boolean;
+    /**
+     * Mode d'autorisation retenu pour `.mcp.json`.
+     *
+     * Passé plutôt que recalculé : les fichiers d'agents doivent porter LA MÊME
+     * décision que le fichier principal. Deux calculs auraient produit une porte
+     * authentifiée chez l'un et anonyme chez l'autre, sans que rien ne le dise.
+     */
+    auth?: boolean;
   },
 ): Promise<IDeclarationResult[]> {
   const { spawnSync } = await import("node:child_process");
-  const { mkdirSync } = await import("node:fs");
+  // `mkdirSync` vient de l'import STATIQUE : `node:fs` est déjà chargé en tête
+  // de ce fichier (`existsSync`, `writeFileSync`), un second import dynamique
+  // n'économisait rien et masquait le nom du premier.
   const results: IDeclarationResult[] = [];
   for (const target of targets) {
     const plan = planAgentDeclaration(
@@ -624,6 +727,17 @@ export async function declareToAgents(
       { url: ctx.url, tokenEnv: MCP_TOKEN_ENV },
       ctx.remove,
     );
+    if (plan.channel === "fichier-agent") {
+      results.push(
+        ecrireFichierAgent(target, plan.mcpFile, {
+          projectRoot: ctx.projectRoot,
+          url: ctx.url,
+          remove: ctx.remove,
+          auth: ctx.auth,
+        }),
+      );
+      continue;
+    }
     if (plan.channel !== "cli") {
       results.push({ target: target, state: "fichier-projet", command: "" });
       continue;
@@ -777,6 +891,14 @@ export function targetsToDeclare(
 ): IAgentTarget[] {
   const out = [...requested];
   for (const c of detected) {
+    // 🔴 SEUL `fichier-projet` entre sans avoir été demandé, et la raison est
+    // qu'il n'écrit RIEN : il est déjà servi, on ne fait que le NOMMER pour
+    // qu'une liste où l'agent principal manque ne se lise pas « non géré ».
+    //
+    // `fichier-agent`, lui, ÉCRIT. L'ajouter ici sur la seule foi d'un `.vscode/`
+    // présent — le dossier le plus banal qui soit — poserait un fichier chez un
+    // outil que personne n'a nommé. Écrire dans la configuration d'un tiers est
+    // un geste VOULU : il passe par `--agent`, ou par la case à cocher.
     if (c.declaration !== "fichier-projet") continue;
     if (out.some((r) => r.key === c.key)) continue;
     out.push(c);
@@ -813,6 +935,16 @@ export function renderDeclarations(
       out +=
         `  • ${r.target.name} — servi par le ${MCP_CONFIG_FILE} de ce projet, ` +
         `${remove ? "retiré par --no-auth ou à la main" : "déjà à jour"} (rien à lancer).\n`;
+    } else if (r.state === "fichier-agent") {
+      // Le fichier est NOMMÉ : c'est celui que l'utilisateur ouvrira si la porte
+      // ne répond pas, et il n'a aucune raison de deviner que VS Code lit
+      // `.vscode/mcp.json` quand tout le reste du projet parle de `.mcp.json`.
+      out +=
+        `  • ${r.target.name} — ${remove ? "retiré de" : "écrit dans"} ` +
+        `${r.command} (son propre format, dans ce projet).\n`;
+      if (!remove && r.target.noteAfter) {
+        out += `      ⚠️ ${r.target.noteAfter}\n`;
+      }
     } else if (r.state === "declare") {
       // 🔴 La PORTÉE se dit. Deux de ces agents n'ont pas de notion de projet :
       // ⚠️ La portée se lit sur le GESTE, jamais sur `target.scope` — celui-ci
@@ -971,7 +1103,11 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
       projectRoot,
       exists: existsSync,
     });
-    const presents = detected.filter((c) => c.declaration === "cli");
+    // Cochables = ceux qui ont un GESTE à faire : lancer leur CLI, ou recevoir
+    // le fichier qu'ils lisent. Les seconds étaient absents de cette liste, donc
+    // impossibles à choisir en dialogue — la case à cocher est le seul chemin
+    // quand on ne connaît pas le nom de la clé `--agent`.
+    const presents = detected.filter((c) => c.declaration !== "fichier-projet");
     // ⚠️ Un agent DÉTECTÉ mais absent de la liste doit être EXPLIQUÉ. Ceux qui
     // lisent le fichier de projet — Claude Code lit le `.mcp.json` qu'on vient
     // d'écrire — n'ont aucune commande à lancer : leur proposer une case à
@@ -998,7 +1134,13 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
             disabled: "déjà à jour, rien à lancer",
           })),
           ...presents.map((c) => ({
-            name: `${c.name} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
+            // Le libellé dit le GESTE réel. Écrit sur le seul `c.bin`, il
+            // rendait « undefined mcp add » pour un agent sans CLI — une ligne
+            // qui fait douter de tout le reste de la liste.
+            name:
+              c.declaration === "fichier-agent"
+                ? `${c.name} — ${parsed.remove ? "retirer de" : "écrire"} ${c.mcpFile?.file}`
+                : `${c.name} — ${c.bin} mcp ${parsed.remove ? "remove" : "add"}`,
             value: c.key,
             checked: false,
           })),
@@ -1041,9 +1183,13 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
                 { url: mcpUrl, tokenEnv: MCP_TOKEN_ENV },
                 parsed.remove,
               );
-              return p.channel === "cli"
-                ? `      ${renderPlanShell(p)}\n`
-                : `      (${c.name} : rien — il lit ${MCP_CONFIG_FILE})\n`;
+              if (p.channel === "cli") return `      ${renderPlanShell(p)}\n`;
+              // Nommer SON fichier : annoncer `.mcp.json` à qui ne l'ouvre
+              // jamais est le défaut que ce canal existe pour fermer.
+              if (p.channel === "fichier-agent") {
+                return `      (${c.name} : écriture de ${p.file})\n`;
+              }
+              return `      (${c.name} : rien — il lit ${MCP_CONFIG_FILE})\n`;
             })
             .join(""),
       );
@@ -1069,6 +1215,9 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
           remove: parsed.remove,
           projectRoot,
           global: parsed.global,
+          // LA décision du fichier principal, pas une seconde : une porte
+          // authentifiée chez l'un et anonyme chez l'autre ne se verrait pas.
+          ...(plan.auth === undefined ? {} : { auth: plan.auth }),
         }),
         parsed.remove,
       ),

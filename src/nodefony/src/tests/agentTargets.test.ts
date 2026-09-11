@@ -108,10 +108,14 @@ describe("agents --agent — choisir qui est servi", () => {
   });
 
   it("🔴 REFUSE une clé inconnue en nommant celles qui existent", () => {
-    const verdict = requestedAgents("claude,cursor");
+    // ⚠️ L'exemple était `cursor`, jusqu'au jour où cursor est devenu une cible
+    // RÉELLE : le test passait alors au vert en prouvant l'inverse de ce qu'il
+    // affirme. Un nom d'outil ne fait pas un bon contre-exemple — celui-ci n'en
+    // sera jamais un.
+    const verdict = requestedAgents("claude,agent-qui-nexiste-pas");
     expect(verdict).to.be.instanceOf(Error);
     // Le message doit servir à corriger, pas seulement à constater.
-    expect((verdict as Error).message).to.contain("cursor");
+    expect((verdict as Error).message).to.contain("agent-qui-nexiste-pas");
     expect((verdict as Error).message).to.contain("claude");
   });
 });

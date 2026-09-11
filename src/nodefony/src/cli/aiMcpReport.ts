@@ -45,11 +45,66 @@ export interface IMcpServerEntry {
   headers?: Record<string, string>;
 }
 
-/** Le document `.mcp.json` dans son entier. */
+/**
+ * Un fichier de configuration MCP dans son entier — `.mcp.json` ou celui d'un
+ * agent qui tient le sien.
+ *
+ * ⚠️ **Les deux racines sont optionnelles parce qu'un document n'en porte
+ * jamais qu'UNE.** VS Code nomme la sienne `servers`, tous les autres
+ * `mcpServers` ; écrire les deux poserait chez chacun une clé qu'il ignore, et
+ * qui vieillirait sans que personne la relise. La racine à lire se demande à la
+ * grammaire — {@link serveursDe}.
+ */
 export interface IMcpConfigDocument {
-  mcpServers: Record<string, IMcpServerEntry>;
+  /** Racine de `.mcp.json` et de Cursor. */
+  mcpServers?: Record<string, IMcpServerEntry>;
+  /** Racine de VS Code. */
+  servers?: Record<string, IMcpServerEntry>;
   /** Tout ce que le projet y avait déjà mis est conservé tel quel. */
   [key: string]: unknown;
+}
+
+/**
+ * Grammaire d'un fichier de configuration MCP.
+ *
+ * Injectée plutôt que déduite : c'est elle qui a valu l'existence du canal
+ * `fichier-agent` — deux outils qui parlent le même protocole n'écrivent pas le
+ * même fichier, et un document recopié de l'un à l'autre est accepté puis
+ * ignoré.
+ */
+export interface IMcpGrammar {
+  /** Clé racine qui porte les serveurs. */
+  racine: "servers" | "mcpServers";
+  /** Comment ce format référence une variable d'environnement. */
+  refVariable: (env: string) => string;
+}
+
+/**
+ * La grammaire de `.mcp.json` — celle que Claude Code lit, et notre défaut.
+ *
+ * `${VAR}` nu : c'est la forme historique du format, et elle diffère du
+ * `${env:VAR}` que VS Code et Cursor attendent.
+ */
+export const MCP_GRAMMAR: IMcpGrammar = {
+  racine: "mcpServers",
+  refVariable: (env) => `\${${env}}`,
+};
+
+/**
+ * Les serveurs déclarés dans un document, quelle que soit sa racine.
+ *
+ * Exposé pour qu'aucun appelant n'ait à deviner la clé : c'est le seul endroit
+ * où l'on sait que `servers` et `mcpServers` désignent la même chose.
+ *
+ * @param document - le document lu, ou `null`
+ * @param racine - la clé à lire (défaut : celle de `.mcp.json`)
+ * @returns les serveurs, ou un objet vide — jamais `undefined`
+ */
+export function serveursDe(
+  document: IMcpConfigDocument | null,
+  racine: IMcpGrammar["racine"] = MCP_GRAMMAR.racine,
+): Record<string, IMcpServerEntry> {
+  return document?.[racine] ?? {};
 }
 
 /** Ce que la commande a décidé de faire. */
@@ -110,13 +165,23 @@ export function buildMcpUrl(origin: string, endpointPath: string): string {
 export function planMcpConfig(
   existing: IMcpConfigDocument | null,
   url: string,
-  options: { auth?: boolean } = {},
+  options: { auth?: boolean; grammaire?: IMcpGrammar } = {},
 ): IMcpConfigPlan {
+  // 🔴 UNE implémentation pour les trois formats. La décision — conserver
+  // l'autorisation trouvée, préserver les autres serveurs, rendre `inchange`
+  // quand rien ne bouge — est la MÊME partout ; seules la clé racine et la
+  // façon de nommer une variable changent. Recopier cette fonction par
+  // grammaire aurait fait diverger les règles, chacune passant ses tests.
+  const grammaire = options.grammaire ?? MCP_GRAMMAR;
+  const { racine } = grammaire;
+  const serveurs: Record<string, IMcpServerEntry> = {
+    ...serveursDe(existing, racine),
+  };
   const base: IMcpConfigDocument = existing
-    ? { ...existing, mcpServers: { ...existing.mcpServers } }
-    : { mcpServers: {} };
+    ? { ...existing, [racine]: serveurs }
+    : { [racine]: serveurs };
 
-  const previous = base.mcpServers[MCP_SERVER_KEY];
+  const previous = serveurs[MCP_SERVER_KEY];
   // 🔴 Le mode d'autorisation se CONSERVE par défaut.
   //
   // Il était réinitialisé : relancer `ai:mcp` pour rafraîchir une URL retirait
@@ -135,10 +200,12 @@ export function planMcpConfig(
     ? {
         type: "http",
         url,
-        headers: { Authorization: `Bearer \${${MCP_TOKEN_ENV}}` },
+        headers: {
+          Authorization: `Bearer ${grammaire.refVariable(MCP_TOKEN_ENV)}`,
+        },
       }
     : { type: "http", url };
-  base.mcpServers[MCP_SERVER_KEY] = entry;
+  serveurs[MCP_SERVER_KEY] = entry;
 
   const authRemoved =
     Boolean(previous?.headers?.Authorization) && !entry.headers?.Authorization;
