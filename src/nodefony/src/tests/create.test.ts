@@ -1061,13 +1061,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(migrate, 'restart: "no"');
       // Et les deux façons d'exécuter l'image l'attendent — pas seulement l'une.
       for (const service of ["\n  app:", "\n  app-edge:"]) {
-        const bloc = compose.slice(
-          compose.indexOf(service),
-          compose.indexOf(
-            "\n  ",
-            compose.indexOf(service) + service.length + 40,
-          ),
-        );
+        // Un bloc de service court jusqu'au PROCHAIN service, c'est-à-dire la
+        // prochaine ligne à DEUX espaces exactement. Découper sur `"\n  "` coupait
+        // en plein milieu : les lignes du bloc sont indentées de quatre espaces, et
+        // contiennent donc ce motif — le bloc s'arrêtait avant `depends_on`, et
+        // l'assertion échouait sur un gabarit correct.
+        const suite = compose.slice(compose.indexOf(service) + service.length);
+        const finBloc = suite.search(/\n {2}\S/);
+        const bloc = finBloc === -1 ? suite : suite.slice(0, finBloc);
         assert.include(
           bloc,
           "service_completed_successfully",
