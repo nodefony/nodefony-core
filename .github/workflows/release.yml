@@ -443,7 +443,34 @@ jobs:
           set -euo pipefail
           cd /tmp/image/demo
           V="${VERSION#v}"
-          docker build -t "nodefony/nodefony:${V}" .
+
+          # Les `ARG` du gabarit existaient déjà, mais RIEN ne les passait : la
+          # `10.0.0-alpha.4` est partie avec `version="0.1.0"`, `revision=""` et
+          # `created=""`. Une étiquette FAUSSE est pire qu'absente — une
+          # supervision affiche la mauvaise version et personne ne cherche plus
+          # loin.
+          #
+          # `--label` (et non un `ARG` de plus) pour le titre et la source :
+          # l'application témoin s'appelle « demo », et c'est juste pour ELLE.
+          # C'est l'IMAGE PUBLIÉE qui ne doit pas porter ce nom, donc la
+          # décision appartient à la forge, pas au gabarit distribué.
+          docker build \
+            --build-arg VERSION="${V}" \
+            --build-arg VCS_REF="${GITHUB_SHA}" \
+            --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+            --label org.opencontainers.image.title="Nodefony" \
+            --label org.opencontainers.image.description="Application Nodefony de démonstration, générée par « nodefony create app --preset complete » au tag ${V}" \
+            --label org.opencontainers.image.source="https://github.com/nodefony/nodefony-core" \
+            -t "nodefony/nodefony:${V}" .
+
+          # AVANT le push, comme le contrôle de matière sensible : une image
+          # poussée est publique, et ses étiquettes voyagent avec elle.
+          node "$GITHUB_WORKSPACE/scripts/release/image-labels-gate.mjs" \
+            "nodefony/nodefony:${V}" \
+            --version "${V}" --revision "${GITHUB_SHA}" --titre-interdit demo || {
+            echo "::error::étiquettes OCI fausses — publication refusée"
+            exit 1
+          }
 
           # 🔴 ENTRE le build et le push, et jamais après : une image poussée
           # est publique, et une couche reste lisible même effacée par une
