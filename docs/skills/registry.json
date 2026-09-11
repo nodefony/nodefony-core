@@ -104,6 +104,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "416",
@@ -196,6 +202,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -298,6 +310,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "84",
@@ -390,6 +408,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -491,6 +515,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -609,6 +639,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -1755,6 +1791,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": false,
             "detail": "750",
@@ -2012,6 +2054,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "469",
@@ -2143,6 +2191,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "397",
@@ -2266,6 +2320,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -2551,6 +2611,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "360",
@@ -2830,6 +2896,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "219",
@@ -2931,6 +3003,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -4386,6 +4464,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "359",
@@ -4479,6 +4563,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -4856,6 +4946,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "143",
@@ -4902,8 +4998,8 @@
       ],
       "description": "Conduire une publication npm de Nodefony (N paquets verrouillés sur la même version) : quelle commande lancer, dans quel ordre, ce que chaque garde refuse, comment lire un échec. La chaîne appartient au PRODUIT (`npm run release`, `release:pack`, `release:smoke`) ; ce skill porte le raisonnement — une version publiée est BRÛLÉE, npm ne connaît pas la transaction, et ce qu'un dépôt voit de lui-même n'est pas ce qu'un installeur reçoit. À charger AVANT de publier ou de toucher à la surface publiée (`exports`, `files`, `peerDependencies`, gabarits d'application). Plan : `docs/release/nodefony-10.md`. Déclencheurs : \"publier sur npm\", \"faire une release\", \"préparer la publication\", \"puis-je publier ?\", \"estampiller la version\", \"changelog de la release\", \"ordre de publication\", \"packager les paquets\", \"smoke test release\", \"tester l'installation depuis les tarballs\", \"est-ce que le paquet publié marche ?\", \"surface npm\", \"types publiés\", \"tarball\", \"trusted publishing\", \"ENEEDAUTH\", \"avant de publier\".",
       "cost": {
-        "bodyLines": 311,
-        "approxTokens": 5958
+        "bodyLines": 321,
+        "approxTokens": 6158
       },
       "requires": [],
       "resources": {
@@ -4980,9 +5076,15 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "311",
+            "detail": "321",
             "advisory": true
           }
         ]
@@ -5081,6 +5183,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -5188,6 +5296,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "117",
@@ -5284,6 +5398,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false
@@ -5535,6 +5655,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": false,
             "detail": "655",
@@ -5715,6 +5841,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "298",
@@ -5871,6 +6003,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "270",
@@ -5985,6 +6123,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "145",
@@ -6077,6 +6221,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "84",
@@ -6110,7 +6260,7 @@
       "description": "Conduit une passe de test COMPLÈTE du dépôt Nodefony — toutes les suites, tous les interrupteurs, tous les bancs — dans l'ordre où chacune ne fausse pas la suivante, et rend un verdict qui distingue une régression du produit d'un artefact de décor. Porte la matrice des étages, le décor de chacun, ce qu'un run vert ne prouve PAS, l'arbre de décision qui instruit un rouge avant de l'imputer au code, et le rapport HTML qui clôt la campagne. À charger AVANT la première commande : l'ordre des étages EST le protocole, et un lot joué à l'envers fabrique des rouges qui n'appartiennent à personne. Déclencheurs : \"campagne de test\", \"passe de test complète\", \"lance tous les tests\", \"tous les bancs\", \"on teste tout\", \"qu'est-ce qui n'a pas été testé ?\", \"ce rouge est-il une régression ?\", \"tests verts en isolé rouges en suite\", \"combien de tests sont sautés\", \"rapport de la campagne de test\".",
       "cost": {
         "bodyLines": 187,
-        "approxTokens": 3617
+        "approxTokens": 3615
       },
       "requires": [],
       "resources": {
@@ -6180,6 +6330,12 @@
             "advisory": false
           },
           {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
             "key": "corps < 500 lignes",
             "ok": true,
             "detail": "187",
@@ -6222,7 +6378,7 @@
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\".",
       "cost": {
         "bodyLines": 617,
-        "approxTokens": 11391
+        "approxTokens": 11392
       },
       "requires": [
         "redis"
@@ -6784,6 +6940,12 @@
           },
           {
             "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
             "ok": true,
             "detail": null,
             "advisory": false

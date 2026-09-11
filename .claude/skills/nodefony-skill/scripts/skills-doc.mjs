@@ -458,6 +458,28 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
   // que rien ne le signale.
   const deadResourceRefs = deadResourceRefsOf(dir);
 
+  // 🔴 Les numéros d'issue — un POINTEUR MORT dès que le ticket se ferme ou
+  // se renomme, et un skill n'a aucune raison d'en porter : l'avancement vit
+  // dans les tickets, l'histoire dans `git log`, la règle ici. C'est la règle
+  // anti-journal du CLAUDE.md, qui vaut explicitement pour les skills.
+  // On ne regarde que la PROSE : un bloc de code peut légitimement montrer
+  // `gh issue close 95` ou un `--grep '#N'`, et une ancre markdown (`](#3-…`)
+  // ne désigne aucun ticket.
+  // ⚠️ Borné à DEUX chiffres et plus, délibérément : les skills numérotent
+  // leurs pièges et leurs étapes (« PIÈGE Vite glob #1 », « #2 »), et un gate
+  // qui crie faux s'apprend à être ignoré — on préfère laisser passer un
+  // hypothétique `#9` que rougir sur quatre skills irréprochables.
+  const proseSansCode = body
+    .replace(/```[\s\S]*?```/g, "")
+    .replace(/`[^`\n]*`/g, "");
+  const ticketRefs = [
+    ...new Set(
+      [...proseSansCode.matchAll(/(?<![\w([])#(\d{2,4})\b/g)].map(
+        (m) => `#${m[1]}`,
+      ),
+    ),
+  ];
+
   const compat = fields.compatibility || "";
   // `nature` : normatif = MUST du standard · recommandé = SHOULD (best-practices) · projet =
   // contrôle propre à Nodefony. `ref` = la règle citée, pour qu'un lecteur voie d'où sort le contrôle.
@@ -518,6 +540,13 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
       detail: deadResourceRefs.join(", "),
       nature: "projet",
       ref: "Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide",
+    },
+    {
+      key: "aucun numéro de ticket dans la prose",
+      ok: ticketRefs.length === 0,
+      detail: ticketRefs.join(", "),
+      nature: "projet",
+      ref: "Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal)",
     },
     {
       key: `corps < ${MAX_BODY_LINES} lignes`,

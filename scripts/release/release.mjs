@@ -96,6 +96,7 @@ import {
   trierPourRecalage,
   phasesDeLaPasse,
   refusDePublicationHorsBranche,
+  avisDeBranche,
   referencesFigees,
   rendreChangelog,
   validerVersion,
@@ -621,10 +622,19 @@ if (branche !== BRANCHE_ATTENDUE && ECRIRE) {
   );
 }
 
-// À la PUBLICATION, la branche courante ne dit rien (HEAD détaché) : c'est
-// l'APPARTENANCE du commit publié à la branche de publication qui se constate.
-// Le verdict est calculé ici, la règle est ailleurs et pure.
-if (PUBLIER) {
+/**
+ * Le commit courant appartient-il à la branche de publication ?
+ *
+ * 🔴 UNE seule implémentation, DEUX lecteurs : l'avis de préparation
+ * ci-dessous et le refus de publication plus bas. Deux constatations
+ * séparées auraient divergé — l'une aurait fini par dire « prêt » là où
+ * l'autre refuse, et c'est précisément le défaut qu'on répare ici.
+ *
+ * La référence DISTANTE passe en premier : un `main` local en retard est le
+ * cas courant (`push dev:main` avance le distant et laisse le local), et
+ * l'interroger ferait mentir le verdict.
+ */
+const constaterAppartenance = () => {
   const refExiste = (r) => {
     try {
       git("rev-parse", "--verify", "--quiet", r);
@@ -638,6 +648,7 @@ if (PUBLIER) {
     `refs/heads/${BRANCHE_PUBLICATION}`,
   ].find(refExiste);
   let contenue = false;
+  let avance = null;
   if (ref) {
     try {
       git("merge-base", "--is-ancestor", "HEAD", ref);
@@ -645,7 +656,39 @@ if (PUBLIER) {
     } catch {
       contenue = false;
     }
+    if (!contenue) {
+      try {
+        avance = Number(git("rev-list", "--count", `${ref}..HEAD`).trim());
+      } catch {
+        avance = null;
+      }
+    }
   }
+  return { ref, refExiste, contenue, avance };
+};
+
+// 🔴 L'AVIS, dès la RÉPÉTITION. Sans lui, répéter depuis la branche de
+// développement rend un rapport tout vert, et la contrainte de branche ne se
+// découvre qu'après avoir estampillé quinze manifestes. Un avis, pas un
+// refus : préparer d'ici est le cas normal de ce dépôt.
+if (!PUBLIER) {
+  const etat = constaterAppartenance();
+  const avis = avisDeBranche({
+    branche: branche === "(HEAD détaché)" ? null : branche,
+    branchePublication: BRANCHE_PUBLICATION,
+    brancheTrouvee: Boolean(etat.ref),
+    contenue: etat.contenue,
+    avance: etat.avance,
+  });
+  if (avis) alerter(avis);
+}
+
+// À la PUBLICATION, la branche courante ne dit rien (HEAD détaché) : c'est
+// l'APPARTENANCE du commit publié à la branche de publication qui se constate.
+// Le verdict est calculé ici, la règle est ailleurs et pure.
+if (PUBLIER) {
+  // La MÊME constatation que l'avis de préparation — cf `constaterAppartenance`.
+  const { ref, refExiste, contenue } = constaterAppartenance();
   // Un `main` LOCAL en retard sur le distant est le piège d'après : il naît du
   // geste même qui fait avancer la branche de publication (`push dev:main`
   // avance le DISTANT et laisse le local où il était), et il fait ensuite

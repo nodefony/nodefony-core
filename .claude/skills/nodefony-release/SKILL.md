@@ -153,13 +153,23 @@ npm run release -- --version 10.0.0 --from <ref> --publish        # publication 
 
 ### Deux branches, et le produit dit laquelle — ne pas recopier sa séquence ici
 
-`--branch` dit d'où l'on PRÉPARE, `--publish-branch` quelle branche PORTE les publications
-(`release.mjs:141-144`) : préparer depuis `dev` est normal, publier depuis `dev` ne l'est pas. Se
-tromper n'est pas un risque — le refus **nomme le drapeau à ajouter** (`:487`), et `--write` imprime
-en clair la séquence de fin, tag compris.
+Deux constantes de `release.mjs`, toutes deux à `main` par défaut : **`BRANCHE_ATTENDUE`**
+(`--branch`) dit d'où l'on PRÉPARE, **`BRANCHE_PUBLICATION`** (`--publish-branch`) quelle branche
+PORTE les publications. Sur ce dépôt, `main` n'avance QU'AUX publications : préparer depuis `dev`
+est donc le cas normal, publier depuis `dev` ne l'est pas.
+
+**La répétition le DIT maintenant, et c'est le produit qui le dit.** Lancée hors de la branche de
+publication, elle rend l'avis avant tout geste — « HEAD « dev » n'appartient PAS à « main »
+(N commits d'avance) » — avec la commande exacte (`git checkout main && git merge --ff-only dev`).
+C'est un avis, pas un refus : préparer d'ici est légitime, le découvrir après avoir estampillé
+quinze manifestes ne l'est pas. Auparavant les deux gardes ne parlaient qu'au moment d'AGIR, si
+bien qu'une répétition sur `dev` rendait un rapport tout vert et laissait croire la publication
+prête (`avisDeBranche`, éprouvée dans `release-core.test.mjs`).
 
 **Donc : lire sa sortie, ne pas réciter une séquence apprise.** Une recette recopiée ici vieillirait
-sans bruit au prochain changement de branches — c'est exactement ce que #257 vient de faire.
+sans bruit au prochain changement de branches. Et n'ancrer sur aucun numéro de ligne : les deux qui
+vivaient ici pointaient, l'une le code à deux facteurs, l'autre la pose d'un dist-tag. Un nom de
+constante, lui, se retrouve au `grep`.
 
 <!-- prettier-ignore -->
 | Garde | Ce qu'elle évite |

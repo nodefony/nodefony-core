@@ -54,7 +54,7 @@ parallèle, ce sont deux mesures fausses et des rouges de saturation à instruir
 > 🔴 **Arrêter le serveur de développement avant A, B, C et F.** Deux applications Nodefony
 > peuvent écouter le MÊME port sur macOS et les BSD (`127.0.0.1:5151` et `*:5151` sont deux
 > liaisons distinctes) : le noyau ne lève jamais, la seconde se dit prête, et tout le trafic va à
-> la première. Un banc interroge alors le serveur du VOISIN et son verdict porte sur lui — #214.
+> la première. Un banc interroge alors le serveur du VOISIN et son verdict porte sur lui.
 > `npx nodefony stop`, puis `lsof -nP -iTCP:5151,5152 -sTCP:LISTEN` pour le CONSTATER.
 
 ## Ce qu'un run vert ne prouve pas

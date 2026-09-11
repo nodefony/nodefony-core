@@ -314,7 +314,7 @@ immédiatement → **[`references/dates.md`](references/dates.md)**.
 
 Tout ce qui précède est de la prose, et **une règle en prose n'est appliquée que si quelqu'un y
 pense au bon moment.** Personne n'y pense en relisant un tableau de soixante-dix lignes. La preuve
-tient en deux numéros : **#82 puis #187**, à deux mois d'écart, ont reçu un jalon sans jamais être
+est vécue : **deux tickets, à deux mois d'écart**, ont reçu un jalon sans jamais être
 inscrits au tableau — aucun compteur ne les voyait, et rien ne l'a dit.
 
 ```bash
@@ -328,7 +328,7 @@ arbitrage sans bonne réponse mécanique :
 
 | Code                           | Ce qu'il attrape                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur (#82, #187)               |
+| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                           |
 | `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                       |
 | `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                             |
 | `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                        |
@@ -412,7 +412,7 @@ la preuve, le critère de fin et la trace — le faire dans la foulée n'autoris
 
 > 🔴 **`gh issue create` n'inscrit PAS le ticket au tableau de bord.** L'issue existe, et elle
 > n'entre dans aucun compteur d'avancement : ni l'ordre de travail, ni le reste-à-faire, ni
-> l'empreinte hors ligne. Vécu sur #82, resté invisible du pilotage jusqu'à un contrôle manuel — un
+> l'empreinte hors ligne. Vécu : un ticket resté invisible du pilotage jusqu'à un contrôle manuel — un
 > oubli qui ne crie pas est pire qu'une erreur. **Ouvrir par la commande du dépôt**, qui fait
 > création, inscription et pose des champs d'un seul geste :
 
@@ -438,7 +438,7 @@ d'un enfant, c'est sa place dans la chaîne des dépendances : le socle avant ce
 la veille avant ce qu'elle tranche, le confort avant le chantier de fond s'il a été jugé
 prioritaire.
 
-> **Le remplissage mécanique ressemble à un arbitrage et n'en est pas un.** Vécu sur la grappe #54 :
+> **Le remplissage mécanique ressemble à un arbitrage et n'en est pas un.** Vécu sur une grappe :
 > sept sous-tickets rangés à `ordre = numéro d'issue − 4`. Conséquences invisibles à la lecture —
 > le socle commun aux quatre fronts passait **après** les trois liaisons qui en dépendent, le bus de
 > journalisation déclaré « première brique » passait **après** la brique qu'il fonde, le seul ticket
@@ -468,8 +468,8 @@ coûteux du pilotage par tickets, parce qu'il ne fait aucun bruit : le travail e
 fermé, et deux documents plus loin une phrase continue d'affirmer l'état d'avant. Personne ne la
 relit — on la croit, on estime dessus, on planifie dessus.
 
-Vécu sur #41 : le retrait d'un contrat de la surface publiée a rendu faux, du même coup, le bloc
-« ✅ ce qui est déjà fait » de **#34**, trois passages d'un **ADR**, une **page de doc publique** et
+Vécu : le retrait d'un contrat de la surface publiée a rendu faux, du même coup, le bloc
+« ✅ ce qui est déjà fait » d'un **ticket voisin**, trois passages d'un **ADR**, une **page de doc publique** et
 une entrée du **journal de publication**. Aucun n'aurait été trouvé sans y penser.
 
 Donc, avant de fermer, trois recalages — dans cet ordre, parce que chacun révèle le suivant :
@@ -549,7 +549,7 @@ L'automate, lui, ne demande à personne d'y penser. Il ne juge rien non plus —
 citent les fichiers du diff, et l'humain tranche. Deux limites à connaître, parce qu'un outil dont on
 ignore les bords rend des verdicts qu'on croit exhaustifs :
 
-- **Une ancre juste ne rend pas un ticket vrai.** #34 pointait des lignes qui existaient toujours et
+- **Une ancre juste ne rend pas un ticket vrai.** Vécu : un ticket pointait des lignes qui existaient toujours et
   affirmait au-dessus un état devenu faux. C'est le mode `--touched-by` qui l'attrape, pas la
   résolution d'ancres.
 - **Un fichier que tout le monde cite n'est pas un indice.** Le journal de publication est cité par
@@ -573,7 +573,7 @@ ignore les bords rend des verdicts qu'on croit exhaustifs :
 - **🔴 Le remède GraphQL a SON propre bord : `items(first:100)` s'arrête à 100 SANS le dire.** Le
   tableau compte aujourd'hui plus de cent items ; une requête écrite « en grand » rend donc une
   liste tronquée qui a toutes les apparences d'un inventaire complet. Vécu deux fois de suite dans
-  la même session : #163 et #164 déclarés « absents du tableau », puis « pas en cours » — ils
+  la même session : deux tickets déclarés « absents du tableau », puis « pas en cours » — ils
   étaient inscrits, et en cours. **Toute lecture de `projectV2.items` qui NOURRIT UNE DÉCISION se
   pagine** (`--paginate` + `pageInfo{hasNextPage endCursor}` et `$endCursor` en variable), ou se
   contrôle contre `items(first:1){totalCount}`. Interroger un ticket PRÉCIS n'a pas ce défaut :

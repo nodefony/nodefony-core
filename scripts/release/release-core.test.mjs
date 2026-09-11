@@ -29,6 +29,7 @@ import {
   trierPourRecalage,
   messageDeDepreciation,
   refusDePublicationHorsBranche,
+  avisDeBranche,
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
@@ -1293,6 +1294,75 @@ describe("branche de publication", () => {
     });
     expect(refus).toMatch(/introuvable/);
     expect(refus).toMatch(/fetch-depth: 0/);
+  });
+});
+
+describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampiller", () => {
+  it("se tait quand le commit appartient déjà à la branche de publication", () => {
+    expect(
+      avisDeBranche({
+        branche: "main",
+        branchePublication: "main",
+        brancheTrouvee: true,
+        contenue: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("AVERTIT depuis la branche de développement, et nomme le geste exact", () => {
+    // Le cas vécu : la répétition depuis `dev` imprimait « ✓ gardes … branche
+    // dev » et un rapport tout vert. La contrainte de branche ne se découvrait
+    // qu'au `--publish`, c'est-à-dire après avoir estampillé quinze manifestes.
+    const avis = avisDeBranche({
+      branche: "dev",
+      branchePublication: "main",
+      brancheTrouvee: true,
+      contenue: false,
+      avance: 100,
+    });
+    expect(avis).toMatch(/n'appartient PAS à « main »/);
+    expect(avis).toMatch(/100 commits d'avance/);
+    // Un avertissement qui laisse chercher se contourne : il DOIT porter la
+    // commande, et dire que le tag se pose sur la branche de publication.
+    expect(avis).toMatch(/git checkout main && git merge --ff-only dev/);
+    expect(avis).toMatch(/le tag doit être posé SUR main/);
+  });
+
+  it("reste un AVIS, jamais un refus — préparer hors de main est légitime", () => {
+    // La distinction porte tout le correctif : `main` n'avance qu'aux
+    // publications, donc préparer depuis `dev` est le cas NORMAL. Transformer
+    // cet avis en garde casserait l'usage courant du dépôt.
+    const avis = avisDeBranche({
+      branche: "dev",
+      branchePublication: "main",
+      brancheTrouvee: true,
+      contenue: false,
+    });
+    expect(avis).toMatch(/reste légitime/);
+    expect(avis).toMatch(/--branch dev/);
+  });
+
+  it("PIÈGE — sans la référence, il ne DEVINE pas : il renvoie au refus", () => {
+    const avis = avisDeBranche({
+      branche: "dev",
+      branchePublication: "main",
+      brancheTrouvee: false,
+      contenue: false,
+    });
+    expect(avis).toMatch(/introuvable/);
+    expect(avis).toMatch(/REFUSERA/);
+    expect(avis).toMatch(/git fetch origin main/);
+  });
+
+  it("sur un HEAD détaché, l'avis ne prétend pas connaître de branche", () => {
+    const avis = avisDeBranche({
+      branche: null,
+      branchePublication: "main",
+      brancheTrouvee: true,
+      contenue: false,
+    });
+    expect(avis).toMatch(/\(HEAD détaché\)/);
+    expect(avis).not.toMatch(/« null »/);
   });
 });
 

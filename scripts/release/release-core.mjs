@@ -1017,6 +1017,68 @@ export function refusDePublicationHorsBranche({
 }
 
 /**
+ * L'AVIS de branche à la préparation — ce que les deux gardes ne disent pas
+ * encore.
+ *
+ * 🔴 Le trou qu'elle bouche : les deux gardes de branche ne s'expriment qu'au
+ * moment d'AGIR. `--write` refuse hors de la branche de préparation, et
+ * `--publish` refuse un commit qui n'appartient pas à la branche de
+ * publication. La RÉPÉTITION, elle, ne dit rien — elle imprime
+ * « ✓ gardes … branche dev » et déroule un rapport entièrement vert. On en
+ * conclut que la publication est prête, alors qu'elle sera refusée deux gestes
+ * plus loin ; et l'on ne découvre la contrainte qu'APRÈS avoir estampillé
+ * quinze manifestes, c'est-à-dire au pire moment.
+ *
+ * C'est un AVIS, jamais un refus : préparer depuis la branche de développement
+ * est le cas NORMAL de ce dépôt (`main` n'avance qu'aux publications). Ce qui
+ * ne l'est pas, c'est de le découvrir trop tard — donc on le DIT tôt, avec le
+ * geste exact, plutôt que d'ajouter une garde qui bloquerait un usage légitime.
+ *
+ * Pure, donc éprouvable sans fabriquer un dépôt : l'appartenance est INJECTÉE,
+ * comme pour {@link refusDePublicationHorsBranche}.
+ *
+ * @param branche - la branche courante, ou `null` sur un HEAD détaché
+ * @param branchePublication - celle qui porte les publications (`main`)
+ * @param brancheTrouvee - la référence existe-t-elle dans ce checkout ?
+ * @param contenue - HEAD appartient-il déjà à la branche de publication ?
+ * @param avance - combien de commits HEAD a d'avance sur elle (ou `null`)
+ * @returns le texte de l'avis, ou `null` s'il n'y a rien à dire
+ */
+export function avisDeBranche({
+  branche,
+  branchePublication,
+  brancheTrouvee,
+  contenue,
+  avance = null,
+}) {
+  // Déjà dedans : la préparation ne prépare aucune surprise.
+  if (contenue) return null;
+  // Sans la référence, on ne sait rien — et un avis inventé serait pire que
+  // le silence. Le refus de publication, lui, mordra le moment venu.
+  if (!brancheTrouvee) {
+    return (
+      `branche de publication « ${branchePublication} » introuvable dans ce checkout —\n` +
+      "  impossible de dire ici si le commit y sera contenu. La garde de publication,\n" +
+      `  elle, REFUSERA. En local : git fetch origin ${branchePublication}`
+    );
+  }
+  const ou = branche ? `« ${branche} »` : "(HEAD détaché)";
+  const ecart =
+    typeof avance === "number" && avance > 0
+      ? ` (${avance} commit${avance > 1 ? "s" : ""} d'avance)`
+      : "";
+  return (
+    `HEAD ${ou} n'appartient PAS à « ${branchePublication} »${ecart} —\n` +
+    `  la publication l'exigera, et le tag doit être posé SUR ${branchePublication}.\n` +
+    `  Avant d'estampiller :  git checkout ${branchePublication} && ` +
+    `git merge --ff-only ${branche ?? "<branche>"}\n` +
+    `  Préparer d'ici reste légitime — mais l'estampille demandera alors ` +
+    `\`--branch ${branche ?? "<branche>"}\`,\n` +
+    `  et le commit devra REJOINDRE ${branchePublication} avant le tag.`
+  );
+}
+
+/**
  * Les paquets dont le dist-tag `latest` est resté sur une préversion PÉRIMÉE.
  *
  * 🔴 Le piège qu'elle nomme, constaté sur la `10.0.0-alpha.2` : npm pose
