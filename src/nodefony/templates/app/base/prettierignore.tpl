@@ -31,3 +31,12 @@ package-lock.json
 # lendemain de chaque migration — dont la toute première, écrite par
 # `nodefony create app`. Ces fichiers ne se relisent pas : ils se régénèrent.
 **/migrations/**/meta/**
+
+# Relevé de licences — ÉCRIT par `npx nodefony licenses --write`, jamais à la main.
+#
+# Même dispute que les métadonnées de migration ci-dessus : le générateur rend
+# des tables markdown non alignées, prettier les ALIGNE, et la régénération
+# suivante les désaligne. Sans cette ligne, une application neuve échoue son
+# PROPRE `npm run verify` dès la création — sur le seul fichier qu'elle porte
+# en disant « ne pas l'éditer à la main ».
+THIRD-PARTY-NOTICES.md

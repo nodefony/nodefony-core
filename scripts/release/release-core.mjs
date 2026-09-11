@@ -1103,6 +1103,11 @@ export const WORKFLOWS_NON_BLOQUANTS = [
       "publie le site public, ne juge aucun code ; il est de toute façon republié par le job d'annonce",
   },
   {
+    nom: "Code généré (3 systèmes)",
+    motif:
+      "il installe l'application générée DEPUIS le registre npm : sur un commit d'estampillage, la version qu'il cherche (`^10.0.0-alpha.N`) n'existe pas encore — c'est la publication que ce tag déclenche qui la crée. L'exiger vert serait un INTERBLOCAGE : le workflow attend les paquets, les paquets attendent le workflow. Constaté sur les commits de release alpha.3, alpha.4 et alpha.5, tous rouges pour ce seul motif. Le jour où le banc s'éprouvera sur les tarballs locaux (comme le smoke), cette exclusion tombera",
+  },
+  {
     nom: "Tenue dans la durée (soak RSS)",
     motif:
       "mesure longue (plusieurs heures) : l'attendre ferait expirer la publication, et son verdict est une TENDANCE, pas une régression franche",
@@ -1266,11 +1271,23 @@ export function lireVueNpm(brut) {
   } catch {
     return null;
   }
-  const vues = [doc].flat().filter((v) => v && typeof v === "object");
-  if (vues.length === 0) return null;
+  const plat = [doc].flat();
+  // 🔴 `npm view <nom> versions --json` rend un TABLEAU DE CHAÎNES, pas un
+  // objet : filtrer sur `typeof === "object"` le vidait entièrement, la
+  // fonction rendait `null`, et l'attente de propagation concluait « aucun
+  // paquet servi » À CHAQUE TOUR. Mesuré sur la 10.0.0-alpha.5 : 32 tours,
+  // 302 s — la limite entière — pendant que les quinze paquets étaient
+  // servis depuis plusieurs minutes. Une sonde qui ne peut JAMAIS rendre un
+  // vert n'attend pas : elle brûle son délai puis laisse passer.
+  const versionsNues = plat.filter((v) => typeof v === "string");
+  const vues = plat.filter((v) => v && typeof v === "object");
+  if (vues.length === 0 && versionsNues.length === 0) return null;
   return {
-    latest: vues[0]["dist-tags"]?.latest ?? null,
-    versions: vues.flatMap((v) => [v.versions ?? []].flat()),
+    latest: vues[0]?.["dist-tags"]?.latest ?? null,
+    versions: [
+      ...versionsNues,
+      ...vues.flatMap((v) => [v.versions ?? []].flat()),
+    ],
   };
 }
 

@@ -52,3 +52,12 @@ src/nodefony/src/service/babel/**
 # pas. La même ligne vit dans `templates/app/base/prettierignore.tpl`, pour
 # l'application générée — la frontière de paquets l'impose.
 **/migrations/**/meta/**
+
+# Relevé de licences — ÉCRIT par `npx nodefony licenses --write`, jamais à la main.
+#
+# Même dispute que les métadonnées de migration ci-dessus : le générateur rend
+# des tables markdown non alignées, prettier les ALIGNE, et la régénération
+# suivante les désaligne. Sans cette ligne, une application neuve échoue son
+# PROPRE `npm run verify` dès la création — sur le seul fichier qu'elle porte
+# en disant « ne pas l'éditer à la main ».
+THIRD-PARTY-NOTICES.md

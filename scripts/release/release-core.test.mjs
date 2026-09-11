@@ -1386,6 +1386,36 @@ describe("avis de branche — ce que la RÉPÉTITION doit dire avant d'estampill
   });
 });
 
+describe("lecture d'une vue npm — la forme change avec la question posée", () => {
+  it("PIÈGE — `npm view <nom> versions --json` rend un TABLEAU DE CHAÎNES", () => {
+    // Le défaut vécu sur la 10.0.0-alpha.5 : la lecture ne gardait que les
+    // ENTRÉES OBJET, donc cette forme rendait `null`, et l'attente de
+    // propagation concluait « aucun paquet servi » à chaque tour — 32 tours,
+    // 302 s, la limite entière, pendant que les quinze étaient servis.
+    const vue = lireVueNpm(JSON.stringify(["9.0.0", "10.0.0-alpha.5"]));
+    expect(vue).not.toBeNull();
+    expect(vue.versions).toContain("10.0.0-alpha.5");
+    expect(paquetsNonServis("10.0.0-alpha.5", { nodefony: vue })).toEqual([]);
+    expect(paquetsNonServis("10.0.0-alpha.6", { nodefony: vue })).toEqual([
+      "nodefony",
+    ]);
+  });
+
+  it("garde la forme OBJET, et le tableau d'objets qu'npm enveloppe", () => {
+    const objet = lireVueNpm(
+      JSON.stringify({ "dist-tags": { latest: "7.0.2" }, versions: ["7.0.2"] }),
+    );
+    expect(objet.latest).toBe("7.0.2");
+    expect(objet.versions).toEqual(["7.0.2"]);
+    const enveloppe = lireVueNpm(
+      JSON.stringify([
+        { "dist-tags": { latest: "1.0.0" }, versions: ["1.0.0"] },
+      ]),
+    );
+    expect(enveloppe.latest).toBe("1.0.0");
+  });
+});
+
 describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
   const run = (nom, statut, conclusion = null, id = nom) => ({
     nom,
@@ -1485,6 +1515,23 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
     for (const e of WORKFLOWS_NON_BLOQUANTS) {
       expect(e.motif, e.nom).toBeTruthy();
     }
+  });
+
+  it("PIÈGE — l'exclusion qui évite un INTERBLOCAGE de publication", () => {
+    // Le banc de code généré installe l'application DEPUIS le registre npm :
+    // sur un commit d'estampillage, `^10.0.0-alpha.N` n'existe pas encore —
+    // c'est la publication que le tag déclenche qui la crée. L'exiger vert
+    // bloquerait TOUTES les publications : le workflow attend les paquets, les
+    // paquets attendent le workflow. Constaté rouge sur les commits de release
+    // alpha.3, alpha.4 et alpha.5, pour ce seul motif.
+    const v = verdictCiDuCommit({
+      runs: [
+        run("nodefony-core", "completed", "success"),
+        run("Code généré (3 systèmes)", "completed", "failure"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("vert");
   });
 
   it("un workflow NEUF bloque par défaut — la liste est d'EXCLUSIONS, pas d'inclusions", () => {
