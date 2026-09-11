@@ -34,9 +34,15 @@ if (!args.length) {
 
 // Index de tous les .ts/.mjs/.tsx du repo (hors dist/node_modules) pour la
 // résolution par suffixe/basename.
+//
+// `scripts` EN FAIT PARTIE : le corpus cite l'outillage du dépôt (chaîne de
+// publication, gates, bancs) au même titre que le produit. Sans lui, une ancre
+// JUSTE vers `scripts/release/release-core.mjs` sortait FILE_NOT_FOUND, et le
+// réflexe est alors de « corriger » la doc — c'est l'instrument qu'il fallait
+// corriger.
 const allFiles = execSync(
   `find src docs bin . -maxdepth 1 -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) 2>/dev/null ; ` +
-    `find src docs bin -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) ` +
+    `find src docs bin scripts -type f \\( -name '*.ts' -o -name '*.mjs' -o -name '*.tsx' \\) ` +
     `-not -path '*/dist/*' -not -path '*/node_modules/*' 2>/dev/null`,
   { cwd: REPO, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
 )
