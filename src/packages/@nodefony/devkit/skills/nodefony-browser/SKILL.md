@@ -29,10 +29,12 @@ description: >
 ## Le geste — sur ta machine
 
 ```bash
-npm i -D playwright
-npx playwright install chromium
+npm run see:setup    # dans une application générée — pose `playwright` et `axe-core`
 node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
 ```
+
+Hors d'une application générée, le premier pas s'écrit en toutes lettres : `npm i -D playwright
+axe-core`, puis `npx playwright install chromium` si aucun navigateur n'est déjà là (§ suivant).
 
 C'est tout. Les sondes **constatent** où elles s'exécutent : sur ta machine elles visent
 `https://127.0.0.1:5152` et déposent leurs captures dans `tmp/browser/`. Rien à configurer tant que
@@ -273,6 +275,14 @@ Lighthouse complet, y compris **derrière une authentification** — ce que l'ex
 ne sait pas faire sur une application protégée.
 
 ```bash
+npm run audit:setup                      # pose `lighthouse` — SÉPARÉ de `see:setup` : une vingtaine
+                                         # de mégaoctets, que tu ne paies que si tu audites
+npm run audit:web -- /tableau-de-bord
+```
+
+Hors d'une application générée, ou pour passer des identifiants :
+
+```bash
 npm i -D lighthouse
 NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret node .../scripts/audit.mjs /tableau-de-bord
 ```
@@ -384,11 +394,16 @@ réglage durable gagne toujours sur une déduction.
   Attends un **texte discriminant de la page visée** — pas un texte présent aussi sur l'écran de
   connexion (le nom de l'application aboutit dans les deux cas : il ne prouve rien).
 - **🔴 Le bundle servi n'est pas toujours celui que tu as bâti.** À contrôler AVANT d'accuser ton
-  code, sinon tu débogues une génération précédente. Le champ **`scripts`** rendu par `inspect.mjs`
-  donne les fichiers réellement servis à la page : compare-les à ceux que désigne l'`index.html`
-  produit dans `dist/frontend/` de ton module. Deux valeurs différentes ⇒ rebâtis, **redémarre le
-  serveur** (le service d'assets lit son `index.html` au démarrage), puis redémarre le conteneur —
-  son cache HTTP survit à un simple rechargement.
+  code, sinon tu débogues une génération précédente. **Trois** mécanismes indépendants le
+  produisent, en front pré-bâti : un build partiel qui ne PURGE pas sa sortie (deux générations de
+  chunks cohabitent, et l'`index.html` peut désigner l'ancienne), un cache de build qui RESTAURE un
+  `dist` précédent par-dessus le tien, et le service d'assets qui lit l'`index.html` **au démarrage
+  seulement**. Le symptôme est traître : l'écran montre un composant que tu as déjà remplacé.
+  Le champ **`scripts`** rendu par `inspect.mjs` donne les fichiers réellement servis à la page :
+  compare-les à ceux que désigne l'`index.html` produit dans `dist/frontend/` de ton module. Deux
+  valeurs différentes ⇒ rebâtis **en forçant** (cache invalidé), **redémarre le serveur**, PUIS
+  redémarre le conteneur — son cache HTTP survit à un simple rechargement. Aucun des trois pas
+  n'est facultatif.
 - **Les erreurs de console d'un parcours de connexion ne sont pas des défauts.** Se connecter
   produit des `401` sur la vérification d'identité ; ils disparaissent dès que l'état
   d'authentification est réutilisé.
@@ -404,7 +419,13 @@ réglage durable gagne toujours sur une déduction.
 ## L'autre voie : le serveur MCP du conteneur
 
 La même image expose un serveur MCP (`http://127.0.0.1:3001/mcp`) auquel un agent se branche pour
-**explorer** une page interactivement. Prends-le pour cela — et le pilotage direct ci-dessus pour
+**explorer** une page interactivement :
+
+```bash
+claude mcp add --transport http browser http://127.0.0.1:3001/mcp
+```
+
+Prends-le pour cela — et le pilotage direct ci-dessus pour
 tout le reste : une commande, un JSON, un code de retour, quelques secondes. Le protocole
 intermédiaire coûte plusieurs fois ce temps, ne rend pas de valeur exploitable par un script, et
 sa session peut tomber sous toi.

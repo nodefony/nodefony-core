@@ -2678,7 +2678,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // fermé par défaut — sinon il croit à une panne et contourne.
         'scopes: ["shop:read", "shop:billing"]',
         "inappelable en le nommant",
-        "n'authentifie PERSONNE",
+        // La POSTURE de la porte — une seule clé la commande, et l'agent doit
+        // savoir qu'un outil muet n'est pas une panne. ⚠️ Ce gate a déjà figé
+        // une phrase PÉRIMÉE (« cette porte n'authentifie PERSONNE »), restée
+        // verte trois semaines après que la porte a gagné le défi RFC 9728 :
+        // ancrer sur la CLÉ et sur l'enseignement, jamais sur un état du jour.
+        "authorizationServers",
+        "resource_metadata",
+        "n'est **pas** une panne",
       ]) {
         assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
       }
@@ -2916,8 +2923,52 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // n'a ni `@IsGranted` ni `security:user:add`. Promettre un décorateur qui
       // n'existe pas ici enverrait l'agent droit dans une erreur d'import.
       assert.notInclude(agents, "Utilisateurs et droits");
-      assert.notInclude(agents, "security:user:add");
+      // ⚠️ `security:user:add` est LÉGITIME dans la section « Ce que cette app
+      // n'a PAS » — elle y est donnée comme la marche à suivre APRÈS avoir
+      // installé le module, pas comme un geste disponible. Ce qui reste
+      // interdit, c'est de la présenter comme utilisable ici : on retire donc
+      // cette section avant d'asserter, plutôt que de relâcher le contrôle.
+      const horsSectionAbsentes = agents.split(
+        "## Ce que cette app n'a PAS",
+      )[0];
+      assert.notInclude(horsSectionAbsentes, "security:user:add");
+      assert.notInclude(horsSectionAbsentes, "@IsGranted");
       assert.include(agents, "@nodefony/framework/docs");
+    });
+
+    it("minimal : le fichier NOMME les briques absentes et le geste qui les pose", () => {
+      const dest = path.join(tmp, "aabs");
+      scaffold(dest, { name: "aabs", preset: "minimal", frontend: "none" });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      // Le contenu est conditionné aux briques PRÉSENTES : sans branche
+      // « sinon », une app minimale ne lit rien sur ce qui lui manque, et
+      // l'agent qui la découvre en conclut que le framework n'en a pas.
+      const i = agents.indexOf("## Ce que cette app n'a PAS");
+      assert.isAbove(i, -1, "la section des briques absentes manque");
+      const section = agents.slice(i);
+      // Chaque brique est NOMMÉE — et avec elle le geste exact qui la pose,
+      // sinon la section ne fait qu'énoncer un manque.
+      for (const [brique, geste] of [
+        ["n'a PAS d'ORM", "npm i @nodefony/orm-core @nodefony/drizzle"],
+        ["n'a PAS de firewall", "npm i @nodefony/security @nodefony/user"],
+        ["n'a PAS de socket", "npm i @nodefony/realtime"],
+        ["n'a PAS d'interface à elle", "npx nodefony create front"],
+      ] as const) {
+        assert.include(section, brique);
+        assert.include(section, geste);
+      }
+      // La grappe data/identité ne s'ajoute pas par morceaux : `user` déclare
+      // `orm-core` en pair et `drizzle` déclare `security` + `user`. Taire ce
+      // lien ferait poser la sécurité sans base, donc sans comptes.
+      assert.include(section, "forment une grappe");
+    });
+
+    it("vitrine complète : AUCUNE phrase d'absence — ce qui est là ne s'annonce pas manquant", () => {
+      const dest = path.join(tmp, "avit");
+      scaffold(dest, { name: "avit", preset: "complete", frontend: "react" });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.notInclude(agents, "## Ce que cette app n'a PAS");
+      assert.notInclude(agents, "n'a PAS");
     });
 
     it("régénération BORNÉE : create module réécrit l'inventaire, préserve notes et CLAUDE.md", () => {

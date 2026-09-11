@@ -162,7 +162,68 @@ lui-même, que `npx nodefony security:token --write` émet à part. ⚠️ La po
 une ROUTE : elle n'existe que serveur démarré, et un client MCP qui la trouve
 éteinte la marque en échec pour toute sa session.
 
-## Les commandes de l'app — demande la liste, ne la devine pas
+<% if (!it.hasOrm || !it.hasSecurity || !it.hasRealtime || !it.front) { %>## Ce que cette app n'a PAS — et le geste exact pour l'ajouter
+
+Tout ce qui précède décrit les briques **installées ici**. Celles-ci manquent : le
+framework les porte, cette application ne les a pas. N'en conclus pas qu'elles
+n'existent pas, et n'en réécris **aucune** à la main.
+
+<% if (!it.hasOrm) { %>- **Base de données — cette app n'a PAS d'ORM.** Aucune entité, aucun dépôt,
+  aucune migration : `npx nodefony create entity` n'aurait nulle part où écrire.
+  Pose-le, puis seulement génère :
+
+  ```bash
+  npm i @nodefony/orm-core @nodefony/drizzle drizzle-orm better-sqlite3
+  # puis, dans nodefony.config.ts, ajoute "@nodefony/drizzle" au tableau `modules`
+  npx nodefony create entity Produit nom:string prix:float
+  npx nodefony orm:generate && npx nodefony orm:migrate
+  ```
+
+  Sans `NF_DATABASE_URL`, c'est un fichier **sqlite local** — aucun service à
+  lancer. Cette variable, renseignée (`postgres://…`, `mysql://…`), suffit à
+  viser une vraie base ; remplace alors `better-sqlite3` par `pg` ou `mysql2`.
+
+<% } %><% if (!it.hasSecurity) { %>- **Sécurité — cette app n'a PAS de firewall, ni de comptes, ni de sessions.**
+  Toute route est ouverte, `@IsGranted` n'a personne à qui refuser l'accès, et il
+  n'existe aucune identité à présenter :
+
+  ```bash
+  npm i @nodefony/security @nodefony/user @node-rs/argon2
+  # puis, dans nodefony.config.ts : use("@nodefony/security", { … })
+  npx nodefony security:secrets -w      # clés de chiffrement, écrites dans l'env local
+  npx nodefony security:user:add        # le premier compte
+  ```
+
+  ⚠️ **Elle ne s'ajoute pas seule** : comptes, sessions et jetons se PERSISTENT.
+  `@nodefony/user` déclare `@nodefony/orm-core` en pair, et `@nodefony/drizzle`
+  déclare `security` et `user` — ces briques forment une grappe, pose-les ensemble.
+
+<% } %><% if (!it.hasRealtime) { %>- **Temps réel — cette app n'a PAS de socket.** Pas de canal, pas de diffusion
+  du serveur vers le navigateur : un client qui ouvre un WebSocket n'obtient rien.
+
+  ```bash
+  npm i @nodefony/realtime
+  # puis : use("@nodefony/realtime", { backplane: { driver: "cluster" } })
+  ```
+
+  `cluster` reste intra-pod et n'ajoute **aucune** dépendance externe ; `redis`
+  ne sert qu'à diffuser entre plusieurs pods.
+
+<% } %><% if (!it.front) { %>- **Front applicatif — cette app n'a PAS d'interface à elle.** Elle répond en
+  JSON : aucun build Vite applicatif, aucun rechargement à chaud, rien à regarder
+  dans un navigateur.<% if (it.hasStudio) { %> La console d'administration sert bien
+  des écrans, mais ce sont les SIENS — ils ne deviennent pas ton interface.<% } %>
+  `npx nodefony create front <nom>` pose un front (React, Vue ou Angular) et câble
+  `@nodefony/frontend` — ne compose pas ce câblage à la main.
+
+<% } %>Chaque brique ajoutée apporte AUSSI ses commandes, ses docs et parfois ses skills
+d'agent : après l'avoir posée, redemande `npx nodefony --help` et lance
+`npx nodefony ai:sync` (il pose les skills des paquets présents dans
+`.agents/skills/`). ⚠️ **Ce fichier, lui, ne se régénère pas tout seul** : il est
+réécrit au prochain `npx nodefony create module`, et la zone « Notes de cette app »
+y survit. Tant qu'il ne l'est pas, il continue de décrire l'inventaire d'avant.
+
+<% } %>## Les commandes de l'app — demande la liste, ne la devine pas
 
 ```bash
 npx nodefony --help              # TOUTES les commandes, celles des modules installés comprises
@@ -568,47 +629,29 @@ npm run test:e2e      # boot RÉEL + HTTP/WS (build inclus) — HORS `verify` : 
 
 ### `doctor` — le premier réflexe quand quelque chose ne va pas
 
-**Avant de chercher, demande.** `npx nodefony doctor` (ou `npm run doctor`) est
-la commande de diagnostic : elle répond depuis n'importe quel sous-dossier, elle
-n'exécute RIEN de ton application, et `--json` la rend exploitable par un script.
-`check` en est un alias historique — le nom à retenir est `doctor`.
+**Avant de chercher, demande.** `npx nodefony doctor` (ou `npm run doctor`) LIT ton
+app sans rien en exécuter — donc il répond même quand elle ne démarre plus — depuis
+n'importe quel sous-dossier, et `--json` le rend exploitable par un script. `check`
+en est un alias historique ; le nom à retenir est `doctor`.
 
-Ce qu'elle t'épargne : une demi-heure à chercher pourquoi une route répond 404,
-pourquoi un service est introuvable, ou pourquoi l'app « marche » sans faire ce
-qu'on lui demande. Elle ne devine pas — elle LIT, et elle nomme le geste.
+Il imprime lui-même ses familles de contrôles, ce qu'il n'a **pas** contrôlé et le
+geste à taper ensuite : ne paraphrase pas sa sortie, lis-la. Trois choses qu'elle ne
+peut pas t'apprendre d'avance :
 
-```bash
-npx nodefony doctor           # sortie lisible ; sort en erreur s'il manque quelque chose
-npx nodefony doctor --json    # même chose, pour un script ou un agent
-```
+- il ne montre un contrôle **que s'il a quelque chose à en dire** — sur une app saine,
+  « Câblage » tient en une ligne et ne détaille rien ;
+- il nomme la **classe écrite que rien ne déclare** (entité hors `@entities([…])`,
+  controller hors `@controllers([…])`) : elle compile, ses tests passent, et la panne
+  n'arrive qu'au démarrage suivant — table jamais créée, route en 404. C'est le mode
+  d'échec de la COPIE, celui qu'on fait en recopiant le voisin au lieu d'appeler le
+  générateur ;
+- il relit le bilan du **dernier démarrage** (`var/last-boot.json`), seule façon
+  d'apprendre APRÈS COUP qu'une app a démarré **amputée** — base injoignable, module
+  écarté par sa `policy`. Tout a l'air sain, et une brique manque.
 
-**`doctor` nomme d'abord ce qui empêche de DÉMARRER**, et il le fait sans rien
-exécuter — donc il répond sur une app qui ne se lance plus :
-
-- une **variable REQUISE** sans valeur ;
-- un module que le manifeste charge mais qui n'est **pas installé** ;
-- une dépendance déclarée **absente de `node_modules`** ;
-- un **port déjà tenu** par un autre programme (le tien ne compte pas).
-
-Il nomme aussi une **classe écrite que rien ne déclare** — une entité hors de
-`@entities([…])`, un controller hors de `@controllers([…])`. Elle compile, les
-tests qui l'importent passent, et la panne n'arrive qu'au démarrage suivant :
-une table jamais créée, une route qui répond 404 sans que rien ne l'explique.
-C'est le mode d'échec de la COPIE, celui qu'on fait en recopiant le voisin au
-lieu d'appeler le générateur.
-
-**`doctor` te dit aussi ce qui s'est passé au dernier démarrage**, et c'est la
-seule façon de l'apprendre après coup : l'app écrit son bilan dans
-`var/last-boot.json` à chaque boot. Deux cas que tu ne peux pas voir autrement :
-
-- **elle ne démarre plus** — `doctor` n'exécute rien, donc il répond quand même,
-  et il nomme la phase atteinte et la cause ;
-- **elle démarre mais AMPUTÉE** — c'est le cas piégeux : tout a l'air sain, et
-  une brique manque (base injoignable, module écarté par sa `policy`). Le
-  journal l'a dit une fois, au terminal de celui qui a lancé. `doctor` te le
-  redit, avec la RAISON de chaque brique absente.
-
-Sur une app saine il n'en parle pas. S'il en parle, lis avant de coder.
+`--live` ajoute ce qui exige une app qui tourne (migrations, cohérence du firewall,
+écart avec l'environnement visé) ; `--deep` LANCE les gardes du projet et interroge
+le registre npm. Sans eux, ces lignes sortent en « non demandé » — pas en « bon ».
 
 ## Piloter le serveur — et l'ARRÊTER
 
@@ -664,116 +707,35 @@ croira vraie.
 ## Voir un écran toi-même — un navigateur, pas un `curl`
 
 Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. Le
-devkit porte des sondes prêtes à l'emploi, qui s'exécutent de deux façons.
-
-**Sur cette machine** — le plus court :
+devkit porte des sondes prêtes à l'emploi :
 
 ```bash
 npm run see:setup
 node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
 ```
 
-`see:setup` n'installe **rien de lourd par défaut** : le pilote pèse quelques
-mégaoctets, et il essaie d'abord les navigateurs **déjà présents** sur la machine —
-Chrome, puis Edge, qui est préinstallé sur tout Windows. Le navigateur complet
-n'est téléchargé que si aucun ne répond, une seule fois par machine (cache
-utilisateur partagé par tous tes projets, jamais dans `node_modules`) :
+Tu obtiens un JSON : le titre, la langue, le thème, les **scripts réellement servis**,
+les erreurs de console, une capture horodatée — et surtout des **mesures** qu'aucune
+capture ne donne : la couleur, le fond effectif, le **contraste calculé** et la taille
+de chaque élément que tu sondes (`NF_BROWSER_PROBES`). C'est la différence entre « ça
+me paraît lisible » et « 7,39:1, donc AAA ».
 
-```bash
-npx playwright install chromium
-```
-
-Le champ `navigateur` de la sortie dit lequel a servi — deux mesures faites avec
-des navigateurs différents ne se comparent pas.
-
-**En conteneur** — quand tu veux une mesure **comparable** dans le temps (image
-épinglée, donc version figée), de l'**isolation** (le navigateur ne voit ni ton
-disque ni ton réseau), ou que tu ne veux **rien** installer :
-
-```bash
-docker compose --profile browser up -d
-docker cp node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/. <%= it.appName %>-browser:/app/see-screen
-docker exec <%= it.appName %>-browser node /app/see-screen/inspect.mjs /
-```
-
-Le **`/.`** de la copie n'est pas décoratif : sans lui, une seconde copie imbrique
-un dossier de plus au lieu de remplacer, et tu relances une version périmée des
-sondes sans le moindre message.
-
-Tu obtiens un JSON : le titre, la langue, le thème, les **scripts réellement
-servis**, les erreurs de console, une capture horodatée — et surtout des **mesures**
-que ni une capture ni un `curl` ne donnent : la couleur, le fond effectif, le
-**contraste calculé** (luminances WCAG) et la taille de chaque élément que tu
-sondes (`-e "NF_BROWSER_PROBES=libellé=sélecteur,…"`). C'est la différence entre
-« ça me paraît lisible » et « 7,39:1, donc AAA ».
-
-`watch.mjs`, à côté, regarde le temps qui coule plutôt qu'un instant : frames
-WebSocket horodatées dans les deux sens, réponses ≥ 400, erreurs de console. C'est
-la seule façon de voir une frame qui n'arrive pas ou une reconnexion en boucle.
-Il s'arrête sur une **condition applicative** (`NF_BROWSER_UNTIL`) plutôt que sur
-une durée — mais **éprouve toute condition d'arrêt avec une condition IMPOSSIBLE**
-avant de lui faire confiance : tant qu'elle n'a pas échoué une fois, rien ne dit
-qu'elle discrimine.
-
-### Auditer, pas seulement regarder
+À côté : `watch.mjs` regarde le temps qui coule plutôt qu'un instant (frames WebSocket
+horodatées, réponses ≥ 400, reconnexions en boucle), `socket.mjs` pilote le socket
+depuis la page avec ses cookies, et Lighthouse s'exécute **sur une page authentifiée**
+— ce que l'extension du navigateur ne sait pas faire :
 
 ```bash
 npm run audit:setup
 npm run audit:web -- /tableau-de-bord
 ```
 
-Lighthouse complet **sur une page authentifiée** — ce que l'extension du navigateur
-ne sait pas faire. Cinq catégories, dont **`agentic-browsing`** : ce qu'un agent
-d'intelligence artificielle trouve en arrivant sur ta page (arbre d'accessibilité,
-stabilité visuelle, annotations WebMCP de tes formulaires, `llms.txt`).
-
-`audit:setup` est **séparé** de `see:setup` parce que Lighthouse pèse une
-vingtaine de mégaoctets : tu ne le paies que si tu audites.
-
-⚠️ **Ne juge pas la note de performance sur le serveur de développement** :
-modules servis un par un, sources non minifiées, rechargement à chaud. Elle
-s'effondre pour des raisons qui n'existent pas en production. Cette catégorie
-ne se mesure que sur une version bâtie.
-
-Le mode d'emploi complet est le skill **`nodefony-browser`** du devkit (`ai:sync` en pose
-le pointeur dans `.agents/skills/`).
-
-**Quatre règles, sinon tu diagnostiqueras le vide** :
-
-| Règle                                                                | Pourquoi                                                                                                                                                                                                                                                                                                                                                                                                              |
-| -------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Joins l'app par **`host.docker.internal`**                           | `localhost` désigne le conteneur, pas ta machine. Si tu as activé `domainCheck`, ajoute ce nom aux `trustedHosts` en développement, sinon la barrière répond `421`.                                                                                                                                                                                                                                                   |
-| Passe par **HTTPS**                                                  | Le cookie de session est `secure` : sur une origine `http://` non-`localhost` le navigateur le **jette**, et tout revient en `401` — on croit alors que le login rate.                                                                                                                                                                                                                                                |
-| **Rien à poser** pour rendre Vite joignable                          | L'origine des assets se dérive du `Host` de ta requête : arriver par `host.docker.internal` suffit, l'allowlist Vite et le WebSocket du HMR suivent le même nom, et le poste reste servi sur `127.0.0.1` en même temps. Si la page annonce quand même `127.0.0.1:5173` depuis le conteneur, c'est que le nom ne franchit pas `trustedHosts`, ou qu'une `publicOrigin` explicite est configurée (elle gagne toujours). |
-| **Attends un texte propre à l'écran visé** avant de lire ou capturer | Le SPA se monte APRÈS la navigation. Et attendre un texte présent aussi sur la page de connexion (le nom de l'app…) aboutit dans les deux cas : ça ne prouve rien.                                                                                                                                                                                                                                                    |
-
-Une capture **n'écrase pas** un fichier existant : réutiliser un nom te fait relire
-une image périmée pendant que l'appel répond « OK ». Nom neuf, ou vérifie la date.
-
-**🔴 AVANT d'accuser ton code : le bundle SERVI est-il celui que tu as bâti ?** En
-front pré-bâti, trois mécanismes indépendants te font observer du code que la source
-ne contient plus — un build partiel qui ne purge pas la sortie (deux générations de
-chunks, l'`index.html` pouvant désigner l'ancienne), un cache de build qui RESTAURE
-un ancien `dist` par-dessus le tien, et le service d'assets qui lit l'`index.html`
-au démarrage seulement. Le symptôme est traître : l'écran montre un composant que tu
-as remplacé.
-
-Le champ **`scripts`** rendu par `inspect.mjs` liste les fichiers servis à la page :
-compare-les à ceux que désigne l'`index.html` produit dans `<module>/dist/frontend/`.
-Deux valeurs différentes ⇒ le défaut n'est pas dans ton code. Rebâtis en forçant
-(cache invalidé), redémarre le serveur, PUIS redémarre le conteneur navigateur —
-son cache HTTP survit à un simple rechargement. Aucun de ces trois pas n'est
-facultatif.
-
-**L'autre voie — le serveur MCP.** Le même conteneur expose un serveur MCP
-(`claude mcp add --transport http browser http://127.0.0.1:3001/mcp`) : prends-le
-pour **explorer** une page interactivement, et les sondes ci-dessus pour tout le
-reste. Le protocole intermédiaire coûte plusieurs fois le temps d'un appel direct,
-ne rend rien qu'un script puisse exploiter, et sa session peut tomber sous toi.
-
-Ce que ce navigateur ne remplace pas : le rechargement à chaud, l'animation et le
-rendu fin — ça se juge dans un vrai navigateur. Lui répond à « l'écran se monte-t-il,
-s'alimente-t-il, et crie-t-il dans la console ? ».
+🔴 **Le mode d'emploi est le skill `nodefony-browser`**, installé avec le devkit et
+pointé dans `.agents/skills/` par `ai:sync`. Charge-le AVANT de conclure quoi que ce
+soit d'un écran : il porte le décor en conteneur, les variables de chaque sonde, et
+les pièges qui font conclure FAUX — mesurer avant que l'écran soit peuplé, viser le
+mauvais hôte, juger la performance sur un serveur de développement, et observer un
+bundle qui n'est pas celui que tu as bâti.
 
 ## Demander à l'app, plutôt que déduire du code
 
@@ -909,11 +871,23 @@ catalogue filtré dont les outils cachés répondent quand même ne serait qu'un
 rideau. Le refus dit « outil inconnu », jamais « interdit » : son existence même
 n'est pas révélée.
 
-⚠️ **Aujourd'hui cette porte n'authentifie PERSONNE** — elle ne valide aucun
-jeton. Un outil qui exige des scopes est donc, ici et maintenant, **invisible
-pour toujours**. C'est voulu (fermé par défaut), mais retiens-en la conséquence
-pratique : tant que l'authentification n'est pas branchée, n'attends pas d'un
-outil protégé qu'il réponde — c'est le comportement normal, pas une panne.
+⚠️ **Cette porte n'authentifie que si on lui en donne les moyens — et un seul
+réglage commande la posture** : `authorizationServers` (config du module devkit).
+Laissé vide, c'est le défaut : la porte reste anonyme, bornée par son périmètre
+(`policy: "dev"`) et ses gardes de transport, et tout outil exigeant des scopes
+reste **invisible** — absent de `tools/list` ET inappelable en le nommant.
+
+Renseigné, elle refuse l'appelant non identifié en citant `resource_metadata`
+(RFC 9728) — l'en-tête qui apprend au client OÙ obtenir un jeton — puis lit les
+scopes de celui qu'on lui présente. Le geste, côté client :
+
+```bash
+npx nodefony ai:mcp --auth            # l'en-tête porte ${NF_MCP_TOKEN}, jamais le jeton
+npx nodefony security:token --write   # émet le jeton et le pose chez tes agents
+```
+
+Donc un outil protégé qui ne répond pas n'est **pas** une panne : c'est la posture
+fermée par défaut, ou un jeton absent, ou un jeton sans le scope exigé.
 
 ⚠️ Et pour les outils publics : avant d'exposer une donnée, demande-toi si elle
 supporterait d'être lue **sans identification** par qui a accès à la machine.

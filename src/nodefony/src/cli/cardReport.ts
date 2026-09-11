@@ -163,8 +163,8 @@ export function buildCard(input: ICardInput): ICard {
       why: "l'entité, son service CRUD, son controller REST et ses tests. N'écris jamais à la main ce qu'un générateur produit.",
     },
     {
-      command: "npm test",
-      why: "le premier diagnostic — avant de lire quoi que ce soit.",
+      command: "npm run verify",
+      why: "LE gate avant de dire « fait » : typecheck, lint, format, tests, build et doctor dans cet ordre. Il s'arrête au premier rouge, et ce rouge est ta tâche suivante.",
     },
   ];
 
