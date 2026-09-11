@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 825,
-    "symbols": 4022,
+    "symbols": 4027,
     "classes": 391,
     "interfaces": 1085,
     "types": 447,
     "enums": 4,
-    "functions": 1694,
-    "constants": 401
+    "functions": 1697,
+    "constants": 403
   },
   "symbols": {
     "Cli": {
@@ -1836,6 +1836,22 @@
       "extends": null,
       "description": "Le relevé complet — ce que rendent {@link surveyLicenses} et le mode `--json`."
     },
+    "refusalReason": {
+      "name": "refusalReason",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La raison d'un refus, quand la famille est connue. Le rapprochement se fait sur le PRÉFIXE de l'expression SPDX : `GPL-3.0`, `GPL-3.0-only` et `GPL-2.0-or-later` sont la même famille et appellent l…"
+    },
+    "duty": {
+      "name": "duty",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'impose une licence relevée, ou le constat qu'elle n'a pas été examinée."
+    },
     "accept": {
       "name": "accept",
       "kind": "function",
@@ -1915,6 +1931,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Licences acceptées dans l'arbre de production, par famille. Cette liste est la DÉCISION du projet, pas un constat : une licence absente n'est pas « inconnue », elle est refusée tant que personne ne…"
+    },
+    "LICENSE_DUTY": {
+      "name": "LICENSE_DUTY",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce que chaque licence acceptée IMPOSE, en une ligne. Toutes celles de {@link ALLOWED} autorisent l'usage commercial, la modification et la redistribution dans un produit propriétaire — c'est ce qui…"
+    },
+    "LICENSE_REFUSAL": {
+      "name": "LICENSE_REFUSAL",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/licenses.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les licences qu'on REFUSE, et la raison — celles qui arriveront un jour. Un refus qui dit seulement « hors liste » envoie chercher : l'utilisateur ouvre un texte de licence pour découvrir ce que le…"
     },
     "ALLOWED_EXPRESSIONS": {
       "name": "ALLOWED_EXPRESSIONS",

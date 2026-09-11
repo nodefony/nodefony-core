@@ -8,7 +8,11 @@ import {
   accept,
   collect,
   ALLOWED,
+  ALLOWED_EXPRESSIONS,
+  duty,
+  LICENSE_DUTY,
   normalizeLicense,
+  refusalReason,
   renderNotices,
   renderReport,
   LicenseInventoryError,
@@ -282,5 +286,129 @@ describe("licences — l'INVENTAIRE, et le piège qui l'avait vidé", () => {
     } finally {
       fs.rmSync(racine, { recursive: true, force: true });
     }
+  });
+});
+
+describe("licences — un paquet installé N fois est UNE obligation, pas N", () => {
+  it("dédoublonne par nom@version, et garde deux versions distinctes", () => {
+    // `npm query` rend un nœud par EMPLACEMENT : un paquet que npm n'a pas pu
+    // hisser est physiquement présent plusieurs fois. Mesuré sur ce dépôt,
+    // `@inquirer/core@12.0.3` sortait dix fois.
+    const racine = fs.mkdtempSync(path.join(os.tmpdir(), "nf-licenses-dup-"));
+    try {
+      fs.writeFileSync(
+        path.join(racine, "package.json"),
+        JSON.stringify({
+          name: "sonde-doublons",
+          version: "1.0.0",
+          private: true,
+          dependencies: { haut: "1.0.0", bas: "1.0.0" },
+        }),
+      );
+      const poser = (rel: string, manifeste: object): void => {
+        const dir = path.join(racine, ...rel.split("/"));
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(
+          path.join(dir, "package.json"),
+          JSON.stringify(manifeste),
+        );
+      };
+      // Deux parents, chacun avec SA copie physique du même `commun@1.0.0` :
+      // c'est cet arbre-là qui produit les doublons, et Arborist résout bien
+      // chaque parent vers sa copie imbriquée. Un exemplaire hissé à la racine
+      // ne conviendrait pas — personne ne l'atteindrait, donc `.prod` l'ignore.
+      poser("node_modules/haut", {
+        name: "haut",
+        version: "1.0.0",
+        license: "MIT",
+        dependencies: { commun: "1.0.0", autre: "2.0.0" },
+      });
+      poser("node_modules/bas", {
+        name: "bas",
+        version: "1.0.0",
+        license: "MIT",
+        dependencies: { commun: "1.0.0" },
+      });
+      poser("node_modules/haut/node_modules/commun", {
+        name: "commun",
+        version: "1.0.0",
+        license: "MIT",
+      });
+      poser("node_modules/bas/node_modules/commun", {
+        name: "commun",
+        version: "1.0.0",
+        license: "MIT",
+      });
+      // Et une SECONDE version du même nom : ce n'est PAS un doublon — deux
+      // paquets distincts, chacun redistribué avec sa propre notice.
+      poser("node_modules/haut/node_modules/autre", {
+        name: "commun",
+        version: "2.0.0",
+        license: "MIT",
+      });
+
+      const inventaire = collect(racine);
+      const communs = inventaire.filter((pkg) => pkg.name === "commun");
+      assert.deepStrictEqual(
+        communs.map((pkg) => pkg.version).sort(),
+        ["1.0.0", "2.0.0"],
+        `les deux VERSIONS restent, les copies physiques fusionnent : ${JSON.stringify(communs)}`,
+      );
+    } finally {
+      fs.rmSync(racine, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("licences — ce que chacune impose, à côté de son décompte", () => {
+  it("chaque licence ACCEPTÉE porte son obligation — une case vide dans un document complet", () => {
+    // Le décompte seul n'est pas actionnable : il dit combien, jamais quoi
+    // faire. Une licence ajoutée à la liste sans son obligation laisserait une
+    // ligne muette dans un tableau qui a l'air exhaustif.
+    const sans = [...ALLOWED].filter((licence) => !LICENSE_DUTY.has(licence));
+    assert.deepStrictEqual(
+      sans,
+      [],
+      `licences acceptées sans obligation renseignée : ${sans.join(", ")}`,
+    );
+    // Et le terme RETENU d'une expression composée doit l'être aussi, sinon
+    // « (MIT OR CC0-1.0) » rendrait une case vide.
+    for (const retenu of ALLOWED_EXPRESSIONS.values()) {
+      assert.ok(
+        LICENSE_DUTY.has(retenu),
+        `le terme retenu « ${retenu} » n'a pas d'obligation renseignée`,
+      );
+    }
+  });
+
+  it("une licence hors liste dit qu'elle n'a pas été examinée, pas qu'elle est libre", () => {
+    // Famille connue : la raison prime sur le « à examiner » générique.
+    assert.match(duty("GPL-3.0"), /copyleft FORT/);
+    // Famille inconnue : on ne prétend rien.
+    assert.match(duty("Licence-Interne-1.0"), /EXAMINER/);
+    assert.match(duty("MPL-2.0"), /copyleft de FICHIER/);
+    // Une expression composée hérite de l'obligation du terme retenu.
+    assert.strictEqual(duty("(MIT OR CC0-1.0)"), duty("MIT"));
+  });
+});
+
+describe("licences — un refus qui EXPLIQUE, pour les familles qui reviendront", () => {
+  it("nomme la raison, et ne confond pas AGPL avec GPL", () => {
+    // Le piège d'un rapprochement par préfixe : « AGPL-3.0 » contient « GPL ».
+    // Les deux obligations sont pourtant très différentes — l'une se déclenche
+    // à la distribution, l'autre au simple fait de SERVIR l'application.
+    assert.match(duty("AGPL-3.0"), /RÉSEAU/);
+    assert.match(duty("GPL-3.0-only"), /copyleft FORT/);
+    assert.match(duty("LGPL-2.1"), /BIBLIOTHÈQUE/);
+    assert.match(duty("SSPL-1.0"), /infrastructure/);
+    // Pas de licence déclarée n'est PAS « libre par défaut » — c'est l'inverse.
+    assert.match(duty("NOASSERTION"), /tous droits réservés/);
+  });
+
+  it("une famille inconnue reste refusée, et le DIT sans inventer de raison", () => {
+    assert.match(duty("Licence-Maison-2.0"), /à EXAMINER/);
+    assert.strictEqual(refusalReason("Licence-Maison-2.0"), null);
+    // Et une licence ACCEPTÉE ne passe jamais par la table des refus.
+    assert.strictEqual(refusalReason("MIT"), null);
   });
 });

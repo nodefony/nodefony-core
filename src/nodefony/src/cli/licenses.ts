@@ -83,6 +83,141 @@ export const ALLOWED: ReadonlySet<string> = new Set([
 ]);
 
 /**
+ * Ce que chaque licence acceptée IMPOSE, en une ligne.
+ *
+ * Toutes celles de {@link ALLOWED} autorisent l'usage commercial, la
+ * modification et la redistribution dans un produit propriétaire — c'est ce qui
+ * les rend acceptables ici. Elles ne se distinguent donc que par ce qu'elles
+ * EXIGENT en retour, et c'est la seule chose utile à lire en face d'un
+ * décompte : personne ne relit quinze textes de licence.
+ *
+ * ⚠️ Ce n'est pas un avis juridique, et ça ne remplace pas le texte de la
+ * licence — c'est un repère pour savoir laquelle mérite qu'on l'ouvre. Le texte
+ * de chaque paquet voyage avec lui, sous `node_modules`.
+ *
+ * Le gate `licenses.test.ts` exige une entrée pour chaque licence acceptée :
+ * une licence ajoutée sans son obligation laisserait une case vide dans un
+ * document qui a l'air complet.
+ */
+export const LICENSE_DUTY: ReadonlyMap<string, string> = new Map([
+  ["MIT", "garder la notice et le texte de la licence"],
+  ["MIT-0", "rien — attribution non exigée"],
+  ["ISC", "garder la notice et le texte de la licence"],
+  ["0BSD", "rien — attribution non exigée"],
+  ["BSD-2-Clause", "garder la notice et le texte de la licence"],
+  [
+    "BSD-3-Clause",
+    "garder la notice ; ne pas invoquer le nom des auteurs pour promouvoir",
+  ],
+  [
+    "Apache-2.0",
+    "garder la notice et le fichier NOTICE ; signaler les fichiers modifiés (brevets concédés)",
+  ],
+  ["BlueOak-1.0.0", "garder la notice et le texte de la licence"],
+  ["Unlicense", "rien — domaine public"],
+  ["Python-2.0", "garder la notice et le texte de la licence"],
+  [
+    "MPL-2.0",
+    "copyleft de FICHIER : un fichier MPL modifié reste MPL ; le reste du produit est libre",
+  ],
+  ["CC0-1.0", "rien — domaine public"],
+  ["CC-BY-4.0", "créditer l'auteur (donnée, pas code)"],
+  ["CC-BY-3.0", "créditer l'auteur (donnée, pas code)"],
+  ["CECILL-B", "garder la notice et CITER les auteurs (BSD de droit français)"],
+]);
+
+/**
+ * Les licences qu'on REFUSE, et la raison — celles qui arriveront un jour.
+ *
+ * Un refus qui dit seulement « hors liste » envoie chercher : l'utilisateur
+ * ouvre un texte de licence pour découvrir ce que le relevé savait déjà. Ces
+ * familles-là reviennent, elles sont connues, et la raison tient en une ligne.
+ *
+ * Elles ne sont PAS acceptées pour autant : cette table explique un refus, elle
+ * ne l'assouplit pas. Une licence absente des DEUX tables reste refusée avec
+ * « à EXAMINER » — c'est la règle de {@link ALLOWED}, et c'est ce qui la rend
+ * utile : une liste qui s'étend toute seule à ce qu'elle rencontre ne garde rien.
+ */
+export const LICENSE_REFUSAL: ReadonlyMap<string, string> = new Map([
+  [
+    "GPL",
+    "copyleft FORT : tout produit qui l'incorpore doit être publié sous GPL",
+  ],
+  [
+    "LGPL",
+    "copyleft de BIBLIOTHÈQUE : liaison dynamique tolérée, incorporation non",
+  ],
+  [
+    "AGPL",
+    "copyleft RÉSEAU : servir l'application par HTTP oblige à en publier la source",
+  ],
+  [
+    "SSPL",
+    "non libre : impose de publier toute l'infrastructure qui sert le logiciel",
+  ],
+  ["BUSL", "source disponible, PAS libre : usage en production restreint"],
+  [
+    "Elastic",
+    "source disponible, PAS libre : revente et service managé interdits",
+  ],
+  ["CDDL", "copyleft de fichier, réputé incompatible avec la GPL"],
+  ["EPL", "copyleft de fichier, avec clause de brevet et juridiction imposée"],
+  ["CC-BY-SA", "partage à l'identique : l'œuvre dérivée hérite de la licence"],
+  ["CC-BY-NC", "usage COMMERCIAL interdit"],
+  ["CC-BY-ND", "œuvres dérivées interdites"],
+  ["Commons-Clause", "non libre : la vente du logiciel est interdite"],
+  [
+    "JSON",
+    "clause « Good, not Evil » — non libre, et refusée par plusieurs juristes",
+  ],
+  [
+    "WTFPL",
+    "validité juridique contestée — aucune garantie pour le redistributeur",
+  ],
+  [
+    "NOASSERTION",
+    "AUCUNE licence déclarée : par défaut, tous droits réservés — redistribuer est interdit",
+  ],
+]);
+
+/**
+ * La raison d'un refus, quand la famille est connue.
+ *
+ * Le rapprochement se fait sur le PRÉFIXE de l'expression SPDX : `GPL-3.0`,
+ * `GPL-3.0-only` et `GPL-2.0-or-later` sont la même famille et appellent la
+ * même phrase. Une correspondance exacte serait à refaire à chaque variante.
+ *
+ * @param license - l'expression telle qu'elle sort du relevé.
+ * @returns la raison, ou `null` si la famille n'est pas répertoriée.
+ */
+export function refusalReason(license: string): string | null {
+  for (const [famille, raison] of LICENSE_REFUSAL) {
+    // `AGPL` avant `GPL` : un simple `startsWith` ferait lire « AGPL-3.0 »
+    // comme de la GPL si l'ordre s'inversait. On teste donc le nom de famille
+    // entier, borné — jamais un fragment au milieu d'un mot.
+    const re = new RegExp(`(^|[^A-Za-z])${famille}([^A-Za-z]|$)`, "u");
+    if (re.test(license)) return raison;
+  }
+  return null;
+}
+
+/**
+ * Ce qu'impose une licence relevée, ou le constat qu'elle n'a pas été examinée.
+ *
+ * @param license - l'expression telle qu'elle sort du relevé.
+ * @returns l'obligation en une ligne.
+ */
+export function duty(license: string): string {
+  const retained = accept(license);
+  if (retained === null) {
+    return (
+      refusalReason(license) ?? "hors liste — à EXAMINER avant de redistribuer"
+    );
+  }
+  return LICENSE_DUTY.get(retained) ?? "acceptée, obligation non renseignée";
+}
+
+/**
  * Expressions SPDX composées que nous acceptons, avec le terme retenu.
  *
  * Une double licence laisse le CHOIX au redistributeur : `(BSD-3-Clause OR
@@ -351,8 +486,18 @@ export class LicenseInventoryError extends Error {}
  * couvre donc aussi les dépendances de production de l'application de
  * développement : un sur-ensemble, jamais un relevé amputé.
  *
+ * ⚠️ **`npm query` rend un nœud par EMPLACEMENT, pas par paquet.** Un même
+ * `nom@version` installé à plusieurs endroits de `node_modules` — ce que npm
+ * fait dès qu'une contrainte de version empêche le hissage — sort autant de
+ * fois qu'il est physiquement présent : mesuré ici, `@inquirer/core@12.0.3`
+ * dix fois. C'est le même code sous la même licence, donc UNE obligation : le
+ * relever dix fois gonflerait le décompte, ferait apparaître dix fois le même
+ * refus, et rendrait le document incomparable d'une version à l'autre. La
+ * déduplication porte donc sur `nom@version`, et sur rien de plus large — deux
+ * versions d'un paquet sont deux paquets, chacun redistribué avec sa notice.
+ *
  * @param root - la racine inspectée.
- * @returns un paquet par entrée, dédupliqué par npm lui-même.
+ * @returns un paquet par `nom@version`, dans l'ordre de première rencontre.
  * @throws LicenseInventoryError Si npm échoue — un inventaire partiel serait pire
  *   qu'aucun, puisqu'il se lirait comme un verdict.
  */
@@ -389,20 +534,23 @@ export function collect(root: string): ILicensedPackage[] {
   // Chaque nœud porte son manifeste : `license` peut donc être une chaîne, un
   // objet ou absent, exactement comme dans un `package.json`.
   const nodes = JSON.parse(run.stdout) as IManifest[];
-  return (
-    nodes
-      // Un paquet `private` n'est JAMAIS redistribué — npm refuse de le publier.
-      // Dans un dépôt en espaces de travail, ce sont les paquets internes : les
-      // relever reviendrait à refuser la publication parce qu'un banc d'essai ne
-      // déclare pas de licence. Leurs propres dépendances, elles, restent dans
-      // l'arbre et donc dans le relevé.
-      .filter((node) => node.private !== true)
-      .map((node) => ({
-        name: node.name ?? "?",
-        version: node.version ?? "-",
-        license: normalizeLicense(node),
-      }))
-  );
+  const seen = new Map<string, ILicensedPackage>();
+  for (const node of nodes) {
+    // Un paquet `private` n'est JAMAIS redistribué — npm refuse de le publier.
+    // Dans un dépôt en espaces de travail, ce sont les paquets internes : les
+    // relever reviendrait à refuser la publication parce qu'un banc d'essai ne
+    // déclare pas de licence. Leurs propres dépendances, elles, restent dans
+    // l'arbre et donc dans le relevé.
+    if (node.private === true) continue;
+    const pkg: ILicensedPackage = {
+      name: node.name ?? "?",
+      version: node.version ?? "-",
+      license: normalizeLicense(node),
+    };
+    const key = `${pkg.name}@${pkg.version}`;
+    if (!seen.has(key)) seen.set(key, pkg);
+  }
+  return [...seen.values()];
 }
 
 /**
@@ -527,9 +675,18 @@ export function renderReport(survey: ILicenseSurvey): string {
     `Licences — ${survey.packages.length} paquets dans ${scope}` +
       ` (dont ${survey.peerCount} dépendance(s) de pair)\n`,
   ];
+  // Le décompte seul ne dit pas ce qu'il FAUT FAIRE. La colonne d'obligation
+  // évite d'ouvrir quinze textes de licence pour savoir laquelle mérite qu'on
+  // s'y arrête — c'est la seule différence utile entre elles, puisqu'elles
+  // autorisent toutes l'usage commercial et la redistribution propriétaire.
+  const largeur = Math.max(
+    ...[...survey.tally.keys()].map((license) => license.length),
+  );
   for (const [license, count] of survey.tally) {
     const mark = accept(license) === null ? "❌" : "  ";
-    out.push(`${mark} ${String(count).padStart(4)}  ${license}`);
+    out.push(
+      `${mark} ${String(count).padStart(4)}  ${license.padEnd(largeur)}  ${duty(license)}`,
+    );
   }
   out.push(
     `\nNon couvert : l'arbre transitif des dépendances de pair — npm l'installe` +
@@ -596,18 +753,29 @@ export function renderNotices(survey: ILicenseSurvey): string {
     `> Fichier **généré** — ne pas l'éditer à la main : \`npx nodefony licenses --write\`.`,
     `> Un inventaire écrit à la main se périme au premier \`npm install\`.`,
     ``,
-    `Cette application redistribue ${survey.packages.length} paquets tiers. Les licences`,
+    // Le même relevé sert deux sujets : une application, et le dépôt du
+    // framework. Lui faire dire « cette application » dans le second cas serait
+    // faux dès la première ligne — et c'est la ligne qu'on lit.
+    `${survey.workspaces.length === 0 ? "Cette application redistribue" : `Ce dépôt redistribue`} ${survey.packages.length} paquets tiers. Les licences`,
     `permissives qu'ils emploient imposent de conserver leur notice de copyright et le`,
     `texte de leur licence : npm les installe avec chaque paquet, sous \`node_modules\`.`,
     ``,
     `## Par licence`,
     ``,
-    `| Licence | Paquets |`,
-    `| --- | ---: |`,
+    `| Licence | Paquets | Ce qu'elle impose |`,
+    `| --- | ---: | --- |`,
   ];
   for (const [license, count] of survey.tally) {
-    lignes.push(`| ${license} | ${count} |`);
+    lignes.push(`| ${license} | ${count} | ${duty(license)} |`);
   }
+  lignes.push(
+    ``,
+    `> Toutes ces licences autorisent l'usage commercial, la modification et la`,
+    `> redistribution dans un produit propriétaire — elles ne diffèrent que par ce`,
+    `> qu'elles exigent en retour, résumé ci-dessus. Ce résumé n'est pas un avis`,
+    `> juridique et ne remplace pas le texte de la licence, qui voyage avec chaque`,
+    `> paquet sous \`node_modules\`.`,
+  );
   lignes.push(
     ``,
     `## Par paquet`,
