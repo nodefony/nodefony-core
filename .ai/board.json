@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T19:40:03.471Z",
+  "generatedAt": "2026-09-11T21:18:34.935Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 72,
+      "closed": 73,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 14,
+      "open": 13,
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 2,
+      "closed": 3,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 34,
       "title": "10.0.0-beta"
     },
     {
@@ -3224,7 +3224,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 6,
+      "jours": 5.5,
       "ordre": 9.91,
       "debut": "2026-09-11",
       "cible": "2026-09-11",
@@ -3384,7 +3384,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 5,
+      "jours": 4,
       "ordre": 9.9405,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
@@ -3572,8 +3572,8 @@
       "number": 323,
       "title": "feat(scaffold): livrer les licences des dépendances",
       "url": "https://github.com/nodefony/nodefony-core/issues/323",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -4268,7 +4268,7 @@
     },
     {
       "number": 342,
-      "title": "docs(cli): réduire AGENTS.md et y dire les briques absentes",
+      "title": "docs(cli): dire à l'agent quelles briques l'application n'a PAS",
       "url": "https://github.com/nodefony/nodefony-core/issues/342",
       "state": "OPEN",
       "status": "Todo",
@@ -4286,8 +4286,8 @@
       "number": 345,
       "title": "feat(orm): rendre atteignable le patron d'accès aux données",
       "url": "https://github.com/nodefony/nodefony-core/issues/345",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,

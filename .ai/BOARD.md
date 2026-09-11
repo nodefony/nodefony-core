@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-11 19:40** (UTC).
+> Empreinte prise le **2026-09-11 21:18** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 84% | 72 | 14 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 5% | 2 | 35 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 85% | 73 | 13 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 8% | 3 | 34 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 28 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -33,14 +33,14 @@
 
 **#316 — feat(scaffold): rendre l'application générée déployable en production**
 
-Ordre 9.91 · P1 — figé à la création · 6 j · jalon 10.0.0-alpha · frise 2026-09-11 → 09-11
+Ordre 9.91 · P1 — figé à la création · 5.5 j · jalon 10.0.0-alpha · frise 2026-09-11 → 09-11
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 14 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 13 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 35 ouverts
+## Jalon 10.0.0-beta — 34 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -75,8 +75,7 @@ Ordre 9.91 · P1 — figé à la création · 6 j · jalon 10.0.0-alpha · frise
 | 30 | P2 — décision | 0.5 | 2026-11-17 → 11-17 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | 2026-11-18 → 11-18 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 | 45.2 | P0 — bloque le reste | 1 | 2026-11-20 → 11-20 | #341 | feat(cli): laisser un exemple de chaque geste en « Minimal » |
-| 45.3 | P1 — figé à la création | 1.5 | 2026-11-23 → 11-23 | #342 | docs(cli): réduire AGENTS.md et y dire les briques absentes |
-| 45.6 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #345 | feat(orm): rendre atteignable le patron d'accès aux données |
+| 45.3 | P1 — figé à la création | 1.5 | 2026-11-23 → 11-23 | #342 | docs(cli): dire à l'agent quelles briques l'application n'a PAS |
 | 45.9 | P0 — bloque le reste | 1.5 | 2026-11-27 → 11-27 | #348 | test(devkit-bench): faire créer l'application par l'agent |
 | 48 | P1 — figé à la création | 1 | 2026-11-30 → 11-30 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
 
@@ -87,17 +86,16 @@ Ordre 9.91 · P1 — figé à la création · 6 j · jalon 10.0.0-alpha · frise
 | 2 | P2 — décision | 3 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 14 ouverts
+## Jalon 10.0.0-alpha — 13 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 9.91 | P1 — figé à la création | 6 | 2026-09-11 → 09-11 | #316 | feat(scaffold): rendre l'application générée déployable en production |
+| 9.91 | P1 — figé à la création | 5.5 | 2026-09-11 → 09-11 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.93 | P1 — figé à la création | 1 | 2026-09-15 → 09-15 | #360 | feat(user): refuser les mots de passe manifestement faibles |
-| 9.9405 | P0 — bloque le reste | 5 | 2026-11-19 → 11-19 | #340 | feat(cli): guider l'agent au-delà de la génération |
+| 9.9405 | P0 — bloque le reste | 4 | 2026-11-19 → 11-19 | #340 | feat(cli): guider l'agent au-delà de la génération |
 | 9.955 | P1 — figé à la création | 1 | 2026-09-15 → 09-16 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
 | 9.96 | P2 — décision | 1.5 | 2026-09-22 → 09-22 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 9.97 | P1 — figé à la création | 2 | 2026-09-23 → 09-23 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |
-| 9.98 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #323 | feat(scaffold): livrer les licences des dépendances |
 | 9.99 | P2 — décision | 1 | 2026-09-25 → 09-25 | #327 | test(log): éprouver les transports contre de vrais serveurs |
 | 10 | P2 — décision | 1 | 2026-09-29 → 09-29 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 12 | P1 — figé à la création | 1 | 2026-09-30 → 09-30 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |

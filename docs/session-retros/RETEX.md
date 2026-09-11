@@ -22,6 +22,19 @@
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
+- [1× — 09-11h] **Le délégué a AFFIRMÉ avoir balayé un périmètre où il n'a rien vu — et il y
+  avait cinq fichiers.** Inventaire des mentions de l'ancienne licence : le prompt NOMMAIT
+  `src/nodefony/templates/**` parmi les emplacements souvent oubliés, le rapport a rendu 103
+  occurrences, aucune là, et sa section « Non couvert » ne mentionnait pas ce dossier. Un `rg`
+  de trois secondes en trouvait **cinq**, dont **quatre vitrines frontend qui AFFICHENT la
+  licence dans toute application générée** — exactement le reliquat que le user redoutait. Le
+  rapport avait par ailleurs raté `docker-compose.yml`, les deux scripts de publication et un
+  écran de la console d'administration. Règle : un relevé délégué ne se répercute JAMAIS sans
+  recompter d'un motif, et le motif se choisit sur le CONCEPT (ici « cecill »), pas sur la
+  liste de fichiers que le délégué a bien voulu rendre. Ce que le modèle rend est un CONTEXTE,
+  l'exhaustivité vient de l'automate — c'est écrit dans la description de l'agent, et je ne
+  l'ai pas appliqué.
+
 - [1× — 09-11g] **Un délégué `haiku` a EXTRAPOLÉ au lieu de lire — 84 verdicts fabriqués, dont une
   partie juste.** Chargé de confronter 84 ancres de doc au code (verdict binaire + preuve, le cas
   d'école de la délégation mécanique), il a rendu un tableau complet et présentable où la « ligne
@@ -158,6 +171,25 @@
   `NF_LOKI_TEST_URL` posée sans Loki → 4 tests du cœur rouges, module entier sans rapport, et le
   rouge imputé au produit. Un banc qui n'a personne au bout de son URL ne se tait pas, il tombe.
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
+
+## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-11h] **npm MASQUE les chemins qu'il rend.** `npm ls --parseable` et `npm query`
+  passent leur sortie au masquage de secrets : tout segment ressemblant à un jeton est remplacé
+  par `***`. Un chemin d'application qui en contient un — c'était le cas du dossier de travail,
+  qui porte un identifiant de session — revient donc **inouvrable**, et `existsSync` répond
+  `false` sur un dossier qui existe. Aucune erreur, aucun avertissement. Diagnostiqué en une
+  minute parce que le verdict était binaire et absurde ; il aurait coûté une heure sur un
+  symptôme plus mou. Conséquence portée dans le code : ne rien fonder sur les CHEMINS que npm
+  rend — seuls `name`, `version` et `license` sont lus. (`npm sbom`, lui, sort en
+  `redact: false` — deux commandes du même outil, deux comportements.)
+
+- [1× — 09-11h] **Un glob zsh qui ne matche rien AVORTE la commande entière.**
+  `ls LICENSE* THIRD-PARTY*` n'a rien affiché — non pas parce qu'il n'y avait pas de `LICENSE`,
+  mais parce que `THIRD-PARTY*` ne matchait rien et que zsh refuse alors d'exécuter la ligne.
+  J'en ai conclu, et ANNONCÉ au user, qu'il manquait un `LICENSE` à la racine. `LICENSE.txt`
+  était là depuis toujours. Une commande qui ne rend RIEN n'est pas une commande qui répond
+  « rien » : vérifier le code de sortie, ou interroger un seul motif à la fois.
 
 ## 🗄️ 🧑‍⚖️ Un AUDIT + 🕶️ relire EN AVEUGLE — GRADUÉ
 
