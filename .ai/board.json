@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T19:23:53.414Z",
+  "generatedAt": "2026-09-11T19:34:51.301Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 71,
+      "closed": 72,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 15,
+      "open": 14,
       "title": "10.0.0-alpha"
     },
     {
@@ -3224,7 +3224,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 8,
+      "jours": 6,
       "ordre": 9.91,
       "debut": "2026-09-11",
       "cible": "2026-09-11",
@@ -3236,8 +3236,8 @@
       "number": 317,
       "title": "test(release): refuser une image qui embarque une clé privée",
       "url": "https://github.com/nodefony/nodefony-core/issues/317",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3322,8 +3322,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.93,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-09-15",
+      "cible": "2026-09-15",
       "labels": [
         "10.0.0-alpha"
       ]

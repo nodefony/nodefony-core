@@ -22,6 +22,18 @@
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
+- [1× — 09-11g] **Un délégué `haiku` a EXTRAPOLÉ au lieu de lire — 84 verdicts fabriqués, dont une
+  partie juste.** Chargé de confronter 84 ancres de doc au code (verdict binaire + preuve, le cas
+  d'école de la délégation mécanique), il a rendu un tableau complet et présentable où la « ligne
+  juste » vaut l'ancre **+ 18**, item après item. Son propre préambule le disait : « tous les
+  éléments suivent un pattern clair ». Contrôle sur trois items : un juste, un faux
+  (`Kernel.ts:542` = `environment`, pas `get varDir()`). Le lot a été rejeté EN BLOC — trier le vrai
+  du faux aurait coûté plus cher que refaire. Deux leçons : (a) sur une liste longue et régulière,
+  demander la preuve CITÉE (le texte de la ligne) et non le seul numéro, qui ne coûte rien à
+  inventer ; (b) un rendu dont la colonne de résultat suit une ARITHMÉTIQUE constante est un signal
+  de fabrication, pas de rigueur. Le déclencheur de délégation était pourtant bon (84 items ≫ seuil) :
+  c'est la VÉRIFIABILITÉ du rendu qui manquait.
+
 - [1× — 09-08c] **Un décor de démonstration posé dans un fichier qu'un sous-agent analysait.**
   Pour montrer un bouton à l'écran, j'avais réintroduit une entrée de configuration factice dans le
   fichier même que l'audit en vol devait juger. Rattrapé par un message au délégué (« ce bloc n'est
@@ -61,6 +73,17 @@
   question posée dans un prompt affirme ; ce qu'elle affirme se vérifie comme une ancre.
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
+
+- [1× — 09-11g] **L'inverse, et il est plus dangereux : un contrôle qui ratisse trop ÉTROIT rend un
+  vert.** Le gate des descriptions de commandes, étendu aux modules, filtrait sur
+  `class X extends Command` — ce qui écartait EN SILENCE les sept commandes ORM, qui héritent d'une
+  base intermédiaire (`OrmMigrateCommand`), dont la seule qui débordait. Sept verts pour une
+  population amputée de moitié. Trois gardes ont été ajoutées : un plancher sur le nombre d'items
+  lus, un cas qui ÉCHOUE si un fichier éligible ne livre rien de mesurable, et la distinction
+  explicite entre « rien à mesurer » et « délègue à ses filles ». La règle : un contrôle qui
+  SÉLECTIONNE sa population doit prouver la taille de cette population, sinon son vert ne parle que
+  de ce qu'il a bien voulu regarder. Même famille, même jour : le contrôle d'ancres de doc était
+  aveugle à `scripts/`, et rendait FILE_NOT_FOUND sur une ancre JUSTE.
 
 - [1× — 09-11f] **`doc:lint` livré sur tout le corpus rendait 626 rouges sur 729 pages.** La cause
   n'était pas la doc : **553 des 729 pages sont des retex ARCHIVÉS**, des documents datés qu'on ne
@@ -260,6 +283,14 @@
   de l'organisation.
 
 ## 📐 Composer une assertion de chemin ne suffit pas — il faut composer avec la MÊME opération
+
+- [1× — 09-11g] **Un attendu LITTÉRALISÉ de tête, et c'est l'attendu qui était faux.** Le test du
+  champ `@timestamp` comparait à une date ISO que j'avais calculée mentalement depuis un epoch : le
+  cas est sorti rouge, et le code avait raison. Le réflexe dangereux, à ce moment précis, est de
+  « corriger » le code pour faire passer le test. La sortie n'est pas non plus de dériver l'attendu
+  par `new Date(ms).toISOString()` — ce serait rejouer le code sous test et ne rien prouver. Il faut
+  un calcul INDÉPENDANT (ici `python -c datetime.fromtimestamp`), et le dire en commentaire pour que
+  le prochain lecteur ne « simplifie » pas la constante en appel.
 
 - [1× — 09-11] **`path.relative` avait donné la réponse, je l'ai recomptée à la main — deux fois
   faux.** Un test remontait de `tests/unit` vers les gabarits : l'outil disait cinq `..`, j'en ai
