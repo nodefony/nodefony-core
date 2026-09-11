@@ -60,6 +60,27 @@
   regardant fabrique une comparaison plausible entre deux objets dont l'un n'existe pas. Une
   question posée dans un prompt affirme ; ce qu'elle affirme se vérifie comme une ancre.
 
+## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
+
+- [1× — 09-11f] **`doc:lint` livré sur tout le corpus rendait 626 rouges sur 729 pages.** La cause
+  n'était pas la doc : **553 des 729 pages sont des retex ARCHIVÉS**, des documents datés qu'on ne
+  republie jamais, jugés au standard d'une page de référence. Un contrôle dans cet état n'est pas
+  sévère, il est inutilisable — et le jour où il a raison, personne ne le lit. Le périmètre d'un
+  gate se BORNE avant de le livrer, et le bornage est une décision à écrire (ici : ce qui vit sous
+  un dossier `docs`, archives exclues).
+
+- [1× — 09-11f] **Le gate d'ancres a signalé une ancre JUSTE.** `webauthn.md:647` → `AuthStore.ts:209`
+  est exacte ; le gate cherchait `nodefony` et `profile` parce que la phrase cite le chemin d'URL
+  `/nodefony/profile` — il a pris un chemin pour un symbole. « Corriger » l'ancre pour faire taire
+  le contrôle aurait fabriqué une ancre fausse à partir d'une vraie. Un verdict d'outil se LIT avant
+  d'être suivi, surtout quand l'outil dit lui-même qu'il a des angles morts.
+
+- [1× — 09-11f] **Un gate neuf est resté VERT en satisfaisant la LETTRE.** Le contrôle exigeait que
+  le guide d'une app nomme la liaison cliente de son moteur front ; une énumération des quatre
+  liaisons le satisfaisait — donc une page qui n'apprend RIEN à l'agent passait. Ce qui l'a fait
+  mordre est le volet inverse : exiger l'ABSENCE des trois autres. Quand un gate passe du premier
+  coup sur un défaut réel, c'est l'assertion qu'il faut suspecter, pas le code.
+
 ## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
 
 - [1× — 09-11] **Un test prenait un NOM RÉEL comme contre-exemple, et le nom est devenu réel.**
