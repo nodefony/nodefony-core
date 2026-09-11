@@ -12,6 +12,58 @@ import vanillaPreset from "../presets/vanilla-vite";
 import svelte5Preset from "../presets/svelte5-vite";
 
 /**
+ * Les paquets à dédupliquer pour un lot de préréglages — la règle, isolée.
+ *
+ * Pure et exportée pour DEUX raisons. Elle ne dépend que des préréglages
+ * utilisés : la faire passer par `buildViteConfig` obligeait son test à charger
+ * réellement les plugins Vite depuis le disque, et sous la contention d'une
+ * passe complète ce chargement a dépassé le budget de temps par défaut — un
+ * rouge qui ne disait rien du produit. Et c'est la règle même qui avait divergé
+ * de son jumeau du développement : elle mérite d'être nommée.
+ *
+ * MÊME règle que le fichier dev généré (ViteConfigGenerator) : dans une app
+ * liée (`--link`), un import `react` émis par la façade `nodefony/react`
+ * (réelpathée HORS de l'app, dans le checkout) se résout dans le
+ * node_modules du framework pendant qu'`App.tsx` résout celui de l'app →
+ * DEUX runtimes React dans le bundle prod, hooks au dispatcher null
+ * (« Cannot read properties of null (reading 'useContext') » au mount —
+ * vécu ; le dev ne le voyait pas : le prébundle unifie). `resolve.dedupe`
+ * force une seule résolution, celle du root Vite.
+ *
+ * Ce que chaque préréglage doit VRAIMENT à cette liste, mesuré dans les
+ * plugins installés — parce que la moitié d'entre eux le font déjà :
+ *   • react   : `@vitejs/plugin-react` ne pose AUCUN dedupe → notre ligne
+ *     est la seule protection, et c'est bien celle dont l'absence a été
+ *     vécue en production ;
+ *   • angular : `@analogjs/vite-plugin-angular` non plus ;
+ *   • vue     : `@vitejs/plugin-vue` pose `resolve: { dedupe: ["vue"] }` ;
+ *   • svelte  : `@sveltejs/vite-plugin-svelte` pose `SVELTE_DEDUPED_IMPORTS`,
+ *     qui couvre `svelte` ET ses sous-chemins.
+ * Les deux derniers sont donc une DÉFENSE EN PROFONDEUR, pas un correctif :
+ * ils gardent cette liste symétrique de celle du développement, et nous
+ * rendent indépendants d'un détail d'implémentation de plugin tiers qui
+ * peut disparaître à une majeure sans que personne ne le remarque.
+ *
+ * @param usedPresets - les préréglages effectivement présents dans les entrées
+ * @returns les spécificateurs à passer à `resolve.dedupe`, dans l'ordre
+ */
+export function resolveDedupe(
+  usedPresets: ReadonlySet<IFrontPreset["type"]>,
+): string[] {
+  const dedupe: string[] = [];
+  if (usedPresets.has("react19")) dedupe.push("react", "react-dom");
+  if (usedPresets.has("vue3")) dedupe.push("vue");
+  if (usedPresets.has("svelte5")) dedupe.push("svelte");
+  if (usedPresets.has("angular"))
+    dedupe.push(
+      "@angular/core",
+      "@angular/common",
+      "@angular/platform-browser",
+    );
+  return dedupe;
+}
+
+/**
  * Construit la config Vite finale à partir des entrées résolues et des presets.
  *
  * Le builder ne lance JAMAIS Vite — il fournit uniquement la config. Le
@@ -81,38 +133,7 @@ export class ViteBuilder implements IFrontBuilder {
     const base =
       mode === "production" ? assetBaseUrl + entries[0]!.publicPath : undefined;
 
-    // MÊME règle que le fichier dev généré (ViteConfigGenerator) : dans une app
-    // liée (`--link`), un import `react` émis par la façade `nodefony/react`
-    // (réelpathée HORS de l'app, dans le checkout) se résout dans le
-    // node_modules du framework pendant qu'`App.tsx` résout celui de l'app →
-    // DEUX runtimes React dans le bundle prod, hooks au dispatcher null
-    // (« Cannot read properties of null (reading 'useContext') » au mount —
-    // vécu ; le dev ne le voyait pas : le prébundle unifie). `resolve.dedupe`
-    // force une seule résolution, celle du root Vite.
-    //
-    // Ce que chaque préréglage doit VRAIMENT à cette liste, mesuré dans les
-    // plugins installés — parce que la moitié d'entre eux le font déjà :
-    //   • react   : `@vitejs/plugin-react` ne pose AUCUN dedupe → notre ligne
-    //     est la seule protection, et c'est bien celle dont l'absence a été
-    //     vécue en production ;
-    //   • angular : `@analogjs/vite-plugin-angular` non plus ;
-    //   • vue     : `@vitejs/plugin-vue` pose `resolve: { dedupe: ["vue"] }` ;
-    //   • svelte  : `@sveltejs/vite-plugin-svelte` pose `SVELTE_DEDUPED_IMPORTS`,
-    //     qui couvre `svelte` ET ses sous-chemins.
-    // Les deux derniers sont donc une DÉFENSE EN PROFONDEUR, pas un correctif :
-    // ils gardent cette liste symétrique de celle du développement, et nous
-    // rendent indépendants d'un détail d'implémentation de plugin tiers qui
-    // peut disparaître à une majeure sans que personne ne le remarque.
-    const dedupe: string[] = [];
-    if (usedPresets.has("react19")) dedupe.push("react", "react-dom");
-    if (usedPresets.has("vue3")) dedupe.push("vue");
-    if (usedPresets.has("svelte5")) dedupe.push("svelte");
-    if (usedPresets.has("angular"))
-      dedupe.push(
-        "@angular/core",
-        "@angular/common",
-        "@angular/platform-browser",
-      );
+    const dedupe = resolveDedupe(usedPresets);
 
     return {
       mode,

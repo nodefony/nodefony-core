@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 821,
-    "symbols": 3985,
+    "symbols": 3986,
     "classes": 388,
     "interfaces": 1079,
     "types": 447,
     "enums": 4,
-    "functions": 1674,
+    "functions": 1675,
     "constants": 393
   },
   "symbols": {
@@ -22939,6 +22939,14 @@
       ],
       "decorators": [],
       "description": "Construit la config Vite finale à partir des entrées résolues et des presets. Le builder ne lance JAMAIS Vite — il fournit uniquement la config. Le démarrage est délégué au superviseur (child_proce…"
+    },
+    "resolveDedupe": {
+      "name": "resolveDedupe",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Les paquets à dédupliquer pour un lot de préréglages — la règle, isolée. Pure et exportée pour DEUX raisons. Elle ne dépend que des préréglages utilisés : la faire passer par `buildViteConfig` obli…"
     },
     "FrontendError": {
       "name": "FrontendError",
