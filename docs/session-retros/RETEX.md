@@ -26,6 +26,15 @@
 > est vert, et son RÉGIME de mesure lui interdit par construction de voir ce qu'il prétend garder.
 > La question à poser à tout gate vert : _qu'est-ce qu'il aurait vu si le défaut avait été là ?_
 
+- [1× — 09-11] **Le banc de découvrabilité ne POUVAIT voir aucun des deux murs d'un essai réel de
+  89 minutes.** Il fabrique lui-même son app témoin en `--preset complete`
+  (`bench-discoverability.mjs:4444`), donc il ne joue jamais le contenu « Minimal » — celui que
+  choisit un découvreur, et où il n'y a ni identité ni exemple à copier. Pire, sa tâche 3 juge déjà
+  « la façade isomorphe est montrée » mais l'écrit `RealtimeClient / nodefony/react` : sur une
+  application Svelte il rendrait un VERT avec un critère qui ne désigne pas la porte du moteur
+  choisi — et le gabarit d'instructions a le même angle mort (react `3` mentions, vue `2`,
+  angular `1`, **svelte `0`**). Un banc qui monte lui-même le décor favorable ne mesure pas le
+  premier contact, il mesure sa propre mise en scène.
 - [4× — 09-10g] **Quatre fois dans la même séance, sur des instruments différents.** (1) Le gate
   mémoire de `@nodefony/http` a rendu `NaN MB` sur ses huit mesures : il TAPE un serveur qu'il ne
   démarre pas, et celui qui tournait n'avait pas `--expose-gc` — un rouge qui n'accusait rien, et
@@ -158,6 +167,15 @@ authentification`. J'allais conclure que le lecteur était aveugle au fragment. 
 > cherchée. Le test qui tranche avant de parler : _ai-je lancé un motif qui aurait TROUVÉ la chose
 > si elle existait ?_ Un `ls` d'un dossier voisin, un `grep` sur le CONCEPT et pas sur le nom.
 
+- [1× — 09-11] **Trois diagnostics rendus au user AVANT d'ouvrir la source, les trois faux.**
+  « Le compagnon a improvisé », puis « les générateurs lui ont résisté », puis « le document
+  d'instructions est trop long ». Le transcript complet — 2 112 événements,
+  `~/.copilot/session-state/<id>/events.jsonl` — était sur le disque depuis le début et dit
+  l'inverse : 4 skills chargés spontanément, 83 commandes sur 107 citant `nodefony`, et 3 refus de
+  générateur corrigés du premier coup en 25 secondes. Je n'avais pas cherché la source ; c'est le
+  user qui a demandé « tu as le transcript ? ». Le réflexe manquant n'est pas d'analyser mieux,
+  c'est de **demander où vit la trace avant d'interpréter le récit** — un agent laisse toujours un
+  journal quelque part.
 - [3× — 09-10c] **Trois affirmations d'absence, trois démentis, dans la même heure.** (1) « Il
   faudrait un collecteur en plus pour envoyer les journaux vers OpenSearch » — faux :
   `syslog/transports/OpenSearchTransport.ts` existe, avec son pilote de relecture et sa clé de
@@ -491,6 +509,13 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
 
 ## 🧾 Un RITUEL de pilotage qui coûte plus qu'il ne rend
 
+- [1× — 09-11] **Les dates du tableau démarraient au 21 septembre, un 11 septembre.** Posées lors
+  d'une session passée, jamais reparties, et 28 tickets sur 57 n'en portaient aucune : une frise à
+  moitié remplie et décalée de dix jours ne se lit plus — verdict du user, « on comprend plus rien ».
+  Reposées en une passe (un jour ouvré par ticket, dans l'`Ordre`, alpha puis beta ; 57/57 relues
+  sur le tableau). Mais **rien ne les fera repartir la prochaine fois** : une date posée à la main
+  se périme exactement comme tout ce qui s'écrit à la main, et aucun contrôle du dépôt ne signale
+  une frise dont le départ est dans le passé.
 - [1× — 09-09c] **Huit tickets « In Progress » que rien ne faisait avancer — posés par mes propres
   commits d'EMPREINTE.** `post-commit` passe en cours tout ticket cité par un commit ; un
   `chore(board): … #288 (#297 #298 #299 #300)` en cite cinq d'un coup. Le lint, lui, exclut les

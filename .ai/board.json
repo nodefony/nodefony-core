@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-10T22:04:54.976Z",
+  "generatedAt": "2026-09-11T07:28:37.698Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,14 +35,14 @@
       "closed": 55,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 18,
+      "open": 21,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 2,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 28,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 3,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 27,
+      "open": 28,
       "title": "10.1.0"
     }
   ],
@@ -2881,6 +2881,48 @@
       ]
     },
     {
+      "number": 347,
+      "title": "fix(cli): nommer le client temps réel du moteur front choisi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/347",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 9.941,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 344,
+      "title": "feat(cli): créer une identité pour essayer une route protégée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/344",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 2,
+      "ordre": 9.942,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 350,
+      "title": "feat(cli): poser les instructions lues par Copilot et Cursor",
+      "url": "https://github.com/nodefony/nodefony-core/issues/350",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.943,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 320,
       "title": "feat(scaffold): produire la topologie avec un frontal nginx",
       "url": "https://github.com/nodefony/nodefony-core/issues/320",
@@ -3518,6 +3560,132 @@
       "ordre": 39,
       "labels": [
         "10.0.0"
+      ]
+    },
+    {
+      "number": 340,
+      "title": "feat(cli): guider l'agent au-delà de la génération",
+      "url": "https://github.com/nodefony/nodefony-core/issues/340",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 6,
+      "ordre": 45,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 341,
+      "title": "feat(cli): laisser un exemple de chaque geste en « Minimal »",
+      "url": "https://github.com/nodefony/nodefony-core/issues/341",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 45.2,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 342,
+      "title": "docs(cli): réduire AGENTS.md et y dire les briques absentes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/342",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1.5,
+      "ordre": 45.3,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 343,
+      "title": "feat(cli): annoncer ce que le contenu « Minimal » retire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/343",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 45.4,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 345,
+      "title": "feat(orm): rendre atteignable le patron d'accès aux données",
+      "url": "https://github.com/nodefony/nodefony-core/issues/345",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 45.6,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 346,
+      "title": "fix(cli): dire pourquoi nodefony ne répond pas hors de l'app",
+      "url": "https://github.com/nodefony/nodefony-core/issues/346",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 45.7,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 348,
+      "title": "test(devkit-bench): faire créer l'application par l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/348",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1.5,
+      "ordre": 45.9,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 349,
+      "title": "feat(cli): ajouter une brique à une application déjà générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/349",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 46,
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 351,
+      "title": "fix(bundler): garder le framework hors du bundle d'un module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/351",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 48,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
