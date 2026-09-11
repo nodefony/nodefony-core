@@ -517,7 +517,10 @@ Puis **ajouter/MAJ la ligne pointeur** dans `MEMORY.md` (l'index auto-chargé) :
 
 La mémoire IA vit dans `~/.claude/projects/-Users-cci-repository-nodefony-core/memory/` — **HORS
 du repo nodefony** (non versionnée par le repo projet). Elle est sauvegardée dans un **repo git
-PRIVÉ dédié** `ccamensuli/nodefony-ai-memory` (mis en place 2026-05-24). **À CHAQUE fin de session**,
+PRIVÉ** `ccamensuli/nodefony-ai-memory`, dont la racine de travail est **`~/.claude` tout entier** :
+le `CLAUDE.md` global, `settings.json`, la ligne d'état et `backup/` partent avec la mémoire.
+`git add -A` porte sur TOUT le dépôt même lancé depuis le dossier de mémoire — le geste ci-dessous
+est donc inchangé, il sauvegarde simplement davantage. **À CHAQUE fin de session**,
 après avoir écrit le retex + l'état de reprise + MAJ `MEMORY.md`, **commit + push** ce repo, sinon
 le backup se périme et un crash perd le travail :
 
@@ -529,8 +532,12 @@ git -C "$MEM" -c user.name="Christophe CAMENSULI" -c user.email="ccamensuli@gmai
 git -C "$MEM" log --oneline -1
 ```
 
-> Restauration sur un nouveau PC (même chemin projet) :
-> `git clone git@github.com:ccamensuli/nodefony-ai-memory.git ~/.claude/projects/-Users-cci-repository-nodefony-core/memory`.
+> **Restauration sur un poste neuf : la procédure vit dans `~/.claude/README.md`** (sauvegardé
+> avec le reste), et elle remonte le POSTE, pas seulement la mémoire — outillage système relevé sur
+> la machine (Homebrew, nvm + Node, bun/pnpm/yarn, Docker, `wrk`, `gitleaks`, `mkcert`), les deux
+> dépôts à cloner, l'infra docker de test, et les secrets à reposer à la main. Ne pas la recopier
+> ici : elle divergerait. ⚠️ Le dossier de mémoire encode le CHEMIN ABSOLU du projet — un poste
+> qui range le dépôt ailleurs ne voit plus aucune mémoire, sans le dire.
 > Le mode **RESUME** peut faire `git -C "$MEM" pull -q` au début pour récupérer une session faite ailleurs.
 
 ---
