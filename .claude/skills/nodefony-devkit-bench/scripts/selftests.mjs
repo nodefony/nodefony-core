@@ -92,6 +92,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-media-range.selftest.mjs",
   "lib/gate-migration.selftest.mjs",
   "lib/gate-module-local.selftest.mjs",
+  "lib/gate-porte-client.selftest.mjs",
   "lib/gate-prefix-firewall.selftest.mjs",
   "lib/gate-realtime-channel.selftest.mjs",
   "lib/gate-role-hierarchy.selftest.mjs",

@@ -446,11 +446,27 @@ mais inappelable · **fait ce qu'on demandait ET cassé l'existant** · n'a pas 
 La troisième est celle qu'on n'aurait pas vue : fermer la zone `/api` en entier, geste
 que le gabarit RECOMMANDE, emporte les dix tests de bout en bout livrés.
 
+Son décor est un **dossier vide**, créé par répétition et conservé après : la remise à
+zéro ordinaire (`git clean -xdf` + `npm prune` + reconstruction) suppose une application
+déjà là et ne s'applique à rien ici. Le montage du décor témoin est d'ailleurs **sauté**
+quand toutes les tâches demandées sont en décor vide — il coûte une installation
+complète dont la tâche 0 n'a aucun usage, et c'est ce qui la rend jouable seule.
+
+Le dossier que l'agent a créé se **RÉSOUT**, il ne se suppose pas — et la base du diff
+est le **premier commit**, celui que `create app` pose lui-même : une frontière exacte
+entre « produit par le générateur » et « ajouté par l'agent », que le banc n'a pas eu à
+fabriquer.
+
+Le **critère client suit le moteur RÉELLEMENT choisi** (`scripts/lib/gate-porte-client.mjs`) :
+le moteur se lit dans le manifeste, et c'est SA porte qui est exigée — `nodefony/svelte`,
+`/vue`, `/angular`, `/react`. L'ancien critère était écrit en dur pour React, ce qui
+rendait le banc React-centré exactement comme le gabarit qu'il éprouve.
+
 **Le mode d'emploi complet est déporté** — le registre et ses trois régimes, la porte
 machine du CLI (la mesure la plus intéressante de la tâche, et gratuite), les quatre
-issues avec leurs codes, les deux pièges qui font un faux verdict, et la référence
-concurrente qui donne une échelle aux tours :
-**[`references/tache-zero.md`](references/tache-zero.md)**.
+issues avec leurs codes, ce que `decor: "vide"` débranche dans le lanceur, les deux
+pièges qui font un faux verdict, et la référence concurrente qui donne une échelle aux
+tours : **[`references/tache-zero.md`](references/tache-zero.md)**.
 
 > ⚠️ **On n'édite pas un `gate-*.mjs` ni un `prepare-*.mjs` EXISTANT pendant qu'un run
 > tourne.** `empreinteTache` les relit **sur disque** au moment d'écrire la référence :

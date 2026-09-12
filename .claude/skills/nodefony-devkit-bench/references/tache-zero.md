@@ -151,12 +151,55 @@ première version de ces auto-contrôles réimplémentait la règle pour l'amput
 « prouvait » donc un code qui n'était pas celui qu'on exécute. Neuf mutations au total,
 toutes vues tomber.
 
+## Le décor VIDE — ce qui change dans le lanceur
+
+La tâche porte `decor: "vide"`, et ce seul champ débranche toute la machinerie qui
+suppose une application déjà là :
+
+| Étape ordinaire                                                 | En décor vide                                               |
+| --------------------------------------------------------------- | ----------------------------------------------------------- |
+| remise à zéro (`git clean -xdf` + `npm prune` + reconstruction) | **rien** — un dossier neuf est CRÉÉ par répétition          |
+| prémisse de l'énoncé, commit de décor                           | aucune : c'est tout l'objet de la tâche                     |
+| constat de la porte MCP, démarrage préalable                    | sautés — l'application n'existe pas encore                  |
+| commit de la passe                                              | posé dans l'application que l'AGENT a créée                 |
+| base du diff                                                    | le **premier commit**, celui que `create app` pose lui-même |
+
+Le dossier est `<runDir>/tache-0/`, **conservé** après le run : c'est lui que les
+sondes inspectent, et c'est en lui qu'on entre pour instruire un rouge.
+
+🔴 **Le montage du décor témoin est SAUTÉ** quand toutes les tâches demandées sont en
+décor vide. Il coûte une installation complète — plusieurs minutes — et la tâche 0
+n'en a aucun usage : elle fabrique son décor et installe depuis le registre public.
+C'est ce qui rend `--task 0` jouable seul, alors qu'il est déjà le poste le plus lourd
+du catalogue.
+
+## Le critère CLIENT suit le moteur choisi
+
+Le juge `scripts/lib/gate-porte-client.mjs` lit le moteur front dans le **manifeste** de
+l'application — `FRONTEND_PARAMS[…].client.marker`, le mot du produit — puis exige SA
+porte : `nodefony/svelte`, `/vue`, `/angular`, `/react`, ou `nodefony/client` sans
+moteur front. `RealtimeClient` reste accepté partout : c'est la façade elle-même.
+
+**Pourquoi ce n'est pas un détail** : l'ancien critère était écrit en dur pour React.
+Le banc était donc React-centré exactement comme le gabarit qu'il éprouve — et l'agent
+du premier essai réel a choisi **Svelte**. Sur cette application, le critère recalait un
+travail juste et ne pouvait rien voir du trou que #347 a fermé.
+
+Deux moteurs signés, ou pas de manifeste lisible ⇒ **verdict non rendu**, imputé à
+l'INSTRUMENT. Mieux vaut une sonde non opposable qu'un verdict rendu sur le mauvais
+critère.
+
+⚠️ **La table des portes est une COPIE** — sa source vit dans le produit, en
+TypeScript, derrière une frontière de paquets qu'un banc en JavaScript pur ne franchit
+pas. Son auto-contrôle la **confronte** au source (`engine.ts`) plutôt que de la
+relire : ajouter un moteur au produit sans l'ajouter ici fait TOMBER le contrôle.
+
+⚠️ **Ce changement touche aussi la tâche 3**, dont c'était la sonde `code` statique :
+son empreinte change, donc le dépistage REFUSERA de la comparer à la référence tant
+qu'elle n'aura pas été rejouée. C'est le prix du critère juste, et il est nommé.
+
 ## Ce qui reste à faire
 
-- **Le branchement `decor: "vide"`** dans le lanceur : `runTask(app, …)` prend son
-  répertoire en paramètre, donc le changement est circonscrit — mais toute la remise à
-  zéro actuelle (`git clean -xdf` + `npm prune` + commit + reconstruction) suppose une
-  application déjà là et ne s'applique pas.
 - **Le point 4 du « Fini quand » de #348** — voir la tâche ROUGE avant les correctifs
   de #340, VERTE après — demande de vrais runs d'agent : il n'est pas prouvé.
 - **Factoriser le contraste à trois identités** avec `gate-secure-route.mjs`, qui le

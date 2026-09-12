@@ -117,3 +117,8 @@ vite.config.generated.mjs
 # Graphe symbolique publie par le paquet nodefony — GENERE (npm run generate-symbols),
 # comme dist/ : il part dans le tarball, il ne se versionne pas (le .ai/ RACINE, lui, est commite).
 src/nodefony/.ai/
+
+# Copies MUTÉES par les `--prove` du banc devkit. Elles vivent à côté de leur
+# module — seul endroit où leurs imports relatifs résolvent — et sont retirées
+# juste après leur verdict ; cette ligne couvre l'interruption.
+.claude/skills/nodefony-devkit-bench/scripts/**/.prove-*

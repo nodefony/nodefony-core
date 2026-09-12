@@ -177,6 +177,20 @@ if (PROVE) {
   const source = readFileSync(path.join(ici, "gate-tache-zero.mjs"), "utf8");
   const mutations = [
     {
+      // 🔴 LA LIGNE TÉMOIN — elle ne change RIEN, et le contrôle doit rester
+      // VERT. Sans elle, une mutation qui « tombe » ne prouve pas qu'elle est
+      // tombée pour SA règle : un module copié hors de son dossier ne résout
+      // plus ses imports relatifs, sort en `ERR_MODULE_NOT_FOUND`, et TOUTES
+      // les mutations passent alors pour probantes. C'est arrivé au jumeau de
+      // ce fichier (`tache-zero.selftest.mjs`), qui annonçait « 9 mutations,
+      // toutes vues tomber » alors qu'aucune ne prouvait sa règle. Ce contrôle
+      // est celui qui manquait pour le dire.
+      regle: "TÉMOIN — une mutation inoffensive ne fait tomber personne",
+      de: " * @module",
+      vers: " * @module (témoin)",
+      temoin: true,
+    },
+    {
       // Sans cette priorité, une application amputée de ses tests livrés sort
       // VERTE dès que la route de l'agent est correcte.
       regle: "l'issue C se juge AVANT la protection",
@@ -224,12 +238,26 @@ if (PROVE) {
       encoding: "utf8",
     });
     spawnSync("rm", ["-f", voisine]);
-    if (r.status === 0) {
+    // Le TÉMOIN attend l'inverse : rester vert. Un contrôle qui tombe sur une
+    // mutation inoffensive tombe pour une autre raison que la règle qu'on croit
+    // éprouver, et ses autres verdicts ne valent alors plus rien.
+    const attenduVert = m.temoin === true;
+    if ((r.status === 0) === attenduVert) {
+      verts += 1;
+      console.log(
+        `  ✅ ${m.regle} — ${attenduVert ? "le contrôle reste vert" : "le contrôle tombe"}`,
+      );
+    } else if (attenduVert) {
+      rouges.push(
+        `[--prove] TÉMOIN tombé : les mutations ne prouvent PAS leur règle ` +
+          `(${(r.stderr ?? "").split("\n")[0] || `exit ${r.status}`})`,
+      );
+      console.log(
+        `  ❌ ${m.regle} — il tombe sans raison, les autres verdicts sont NULS`,
+      );
+    } else {
       rouges.push(`[--prove] « ${m.regle} » mutée : RIEN n'est tombé`);
       console.log(`  ❌ ${m.regle} — le contrôle reste vert, il ne garde rien`);
-    } else {
-      verts += 1;
-      console.log(`  ✅ ${m.regle} — le contrôle tombe`);
     }
   }
 }

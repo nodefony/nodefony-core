@@ -179,6 +179,11 @@ import {
   specifieur,
   registreLocalRequis,
 } from "./lib/decor-source.mjs";
+import {
+  commandeCreation,
+  resoudreAppGeneree,
+  versionInstallee,
+} from "./lib/tache-zero.mjs";
 
 /**
  * D'OÙ vient ce que le décor installe, et QUELLE version — voir
@@ -560,6 +565,28 @@ const JUGE_PREFIXE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "lib",
   "gate-prefix-firewall.mjs",
+);
+
+/**
+ * Juge de la TÂCHE 0 — il TROUVE l'application avant de la juger, et sépare les
+ * quatre issues que rien d'autre ne distingue (conforme · juste mais
+ * inappelable · fait ET cassé l'existant · pas abouti).
+ */
+const JUGE_TACHE_ZERO = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-tache-zero.mjs",
+);
+
+/**
+ * Juge de la PORTE CLIENTE — il lit le moteur front dans le manifeste et exige
+ * SA façade. Remplace un critère écrit en dur pour React, qui recalait toute
+ * application non-React sur un travail juste.
+ */
+const JUGE_PORTE_CLIENT = path.join(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "lib",
+  "gate-porte-client.mjs",
 );
 
 /** Juge « un rôle en implique un autre » — hiérarchie déclarée, ou liste locale. */
@@ -1261,6 +1288,91 @@ export const sondesDe = (task) => [...task.probes, ...SONDES_QUALITE];
  */
 export const TASKS = [
   {
+    // ─── TÂCHE 0 — l'agent CRÉE l'application, dans un dossier vide ──────────
+    //
+    // Toutes les autres tâches démarrent dans une application que le décor a
+    // fabriquée, toujours en « Vitrine complète » : l'étage du dessous n'est
+    // jamais joué. Or c'est le premier contact d'un découvreur, et c'est là que
+    // l'essai réel du 2026-09-10 a cassé — contenu choisi sans en connaître le
+    // prix, cinq `npm install` à la main, 33 minutes sur une route protégée
+    // qu'aucune identité ne pouvait appeler.
+    //
+    // 🔴 Elle ne mesure PAS la même chose que les autres : `npm create
+    // nodefony@<canal>` installe depuis le registre PUBLIC, quand tout le reste
+    // du banc est monté en décor isolé depuis les tarballs. Elle éprouve donc
+    // la chaîne PUBLIÉE. La version RÉELLEMENT installée entre dans l'empreinte
+    // du décor — sans quoi deux runs séparés par une publication seraient
+    // comparés comme s'ils avaient joué le même décor.
+    id: 0,
+    name: "créer l'application (dossier vide)",
+    decor: "vide",
+    prompt:
+      "Ce dossier est vide. Crée une application Nodefony pour un service de chat, " +
+      `avec \`${commandeCreation(CANAL)}\`. Elle doit exposer une ressource REST ` +
+      "« message », un canal temps réel pour recevoir les messages en direct, et la " +
+      "ressource ne doit être accessible qu'à un utilisateur authentifié. Termine en " +
+      "prouvant que l'application démarre et que ses tests passent — montre les " +
+      "commandes et leurs réponses, pas une description.",
+    probes: [
+      {
+        // 🔴 LA mesure que la tâche révèle et qu'aucune autre ne voit, et elle
+        // est GRATUITE : elle se lit dans le transcript. Le CLI a une porte
+        // MACHINE (`--describe-json`, `--answers-json`, `-y`), annoncée dans
+        // son aide sous « Mode machine (agents, scripts) ». Un agent n'a pas de
+        // terminal interactif : ou bien il la trouve, ou bien il reste bloqué
+        // sur un questionnaire qui attend une frappe.
+        //
+        // OBSERVATION, jamais jugement : plusieurs voies mènent à une
+        // application créée, et sanctionner le chemin mesurerait un style. Ce
+        // que le verdict juge est l'application, pas la façon d'y arriver.
+        kind: "transcript",
+        name: "a trouvé la porte MACHINE du CLI (--yes / --answers-json / --describe-json)",
+        pattern: /--describe-json|--answers-json|\s-y\b|--yes\b/u,
+        observe: true,
+      },
+      sondeLecture("a lu AGENTS.md", /AGENTS\.md/u),
+      {
+        // Le générateur, pas la recomposition à la main. Observation aussi :
+        // c'est l'énoncé qui donne la commande de création, le reste est à lui.
+        kind: "transcript",
+        name: "a lancé les générateurs plutôt que d'écrire à la main",
+        pattern: commandeQuiContient(
+          "create\\s+(?:entity|controller|service)\\b",
+        ),
+        observe: true,
+      },
+      {
+        kind: "code",
+        name: "pas de client WS recomposé à la main (new WebSocket)",
+        pattern: /new\s+WebSocket\(/u,
+        where: "added",
+        invert: true,
+      },
+      {
+        // 🔴 LE juge des quatre issues. Il TROUVE d'abord l'application — le
+        // dossier se RÉSOUT, il ne se suppose pas — puis lance les tests
+        // LIVRÉS par le générateur séparément de ceux que l'agent a écrits.
+        kind: "gate",
+        name: "l'application tient : elle démarre, ses tests livrés passent, la ressource est protégée",
+        cmd: [
+          "sh",
+          "-c",
+          `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+            `node ${JUGE_TACHE_ZERO}; CODE=$?; ` +
+            `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
+        ],
+      },
+      {
+        // Le critère client suit le moteur RÉELLEMENT choisi — l'agent est
+        // libre de prendre Svelte, Vue ou Angular, et c'est une information,
+        // pas un écart.
+        kind: "gate",
+        name: "la façade cliente employée est celle du moteur CHOISI",
+        cmd: ["node", JUGE_PORTE_CLIENT],
+      },
+    ],
+  },
+  {
     id: 1,
     name: "CRUD produit",
     prompt:
@@ -1414,6 +1526,18 @@ export const TASKS = [
       // (la façade isomorphe est montrée) + sonde négative (pas de client WS
       // recomposé à la main) — une négative seule passe aussi par abandon.
       {
+        // ⚠️ Ce critère est écrit pour la façade, pas pour un moteur — et c'est
+        // JUSTE ICI, parce que l'application témoin naît en `--frontend none` :
+        // aucun moteur front n'y est installé, donc aucun agent ne peut en
+        // choisir un, et `RealtimeClient` est bien la porte attendue.
+        //
+        // Le critère qui suit le moteur CHOISI vit dans `gate-porte-client.mjs`
+        // et sert la TÂCHE 0, seule tâche où l'agent crée l'application — donc
+        // seule tâche où un moteur est choisi. L'y brancher ici ferait un FAUX
+        // VERT : le juge lit toutes les sources de l'application, et la vitrine
+        // livrée mentionne déjà la façade — la sonde passerait sans que l'agent
+        // ait rien montré. Une sonde `code` sur `where: "content"` ne lit, elle,
+        // que les fichiers qu'il a TOUCHÉS.
         kind: "code",
         name: "côté client : la façade isomorphe est montrée (RealtimeClient / nodefony/react)",
         pattern: /RealtimeClient|nodefony\/react/u,
@@ -5104,6 +5228,73 @@ export function reinitialiserDecor(app, runDir, id) {
   );
 }
 
+/**
+ * Les accès disque de `resoudreAppGeneree` — l'injection sert ses auto-contrôles.
+ */
+const IO_DECOR_VIDE = {
+  listerDossiers: (d) => {
+    try {
+      return readdirSync(d).filter((e) => {
+        try {
+          return statSync(path.join(d, e)).isDirectory();
+        } catch {
+          return false;
+        }
+      });
+    } catch {
+      return [];
+    }
+  },
+  lirePackage: (d) => {
+    const f = path.join(d, "package.json");
+    if (!existsSync(f)) return null;
+    try {
+      return JSON.parse(readFileSync(f, "utf8"));
+    } catch {
+      return null;
+    }
+  },
+};
+
+/**
+ * Le décor d'une tâche `decor: "vide"` — un dossier, et rien dedans.
+ *
+ * Toute la remise à zéro ordinaire (`git clean -xdf` + `npm prune` + commit +
+ * reconstruction) suppose une application déjà là : rien ne s'y applique. Le
+ * dossier est CRÉÉ par répétition et CONSERVÉ après — c'est lui que les sondes
+ * inspecteront, et c'est en lui que l'agent devra tout faire naître.
+ *
+ * @param {string} runDir - le répertoire de la répétition.
+ * @param {{id: number}} task - la tâche.
+ * @returns {string} le dossier vide confié à l'agent.
+ */
+function preparerDecorVide(runDir, task) {
+  const rep = path.join(runDir, `tache-${task.id}`);
+  // Une répétition ne doit RIEN hériter de la précédente : c'est le sens même
+  // d'un dossier vide, et un reste d'application y ferait juger l'agent sur le
+  // travail d'un autre.
+  rmSync(rep, { recursive: true, force: true });
+  mkdirSync(rep, { recursive: true });
+  console.log(`  · décor VIDE : ${rep} (l'agent crée tout, y compris l'app)`);
+  return rep;
+}
+
+/**
+ * L'application que l'agent a créée dans un décor vide — elle se RÉSOUT.
+ *
+ * `--dir` existe et le défaut est `./<nom>` : l'agent génère où il veut, sous un
+ * nom qu'il invente. Un juge qui attendrait `<vide>/<nom-attendu>/` rendrait
+ * « n'a pas abouti » sur un travail réussi — le faux rouge le plus cher du lot,
+ * puisqu'il accuse l'agent d'un échec qui est le nôtre.
+ *
+ * @param {string} racine - le dossier confié à l'agent.
+ * @returns {string|null} le dossier de l'application, ou `null` si indécidable.
+ */
+function appDuDecorVide(racine) {
+  const r = resoudreAppGeneree(racine, IO_DECOR_VIDE);
+  return r.ok ? r.dir : null;
+}
+
 /** Déroule UNE tâche : agent headless dans l'app, transcript + diff capturés. */
 function runTask(app, runDir, task) {
   console.log(`\n━━ tâche ${task.id} — ${task.name}`);
@@ -5117,7 +5308,10 @@ function runTask(app, runDir, task) {
   //
   // `eteindreApplication` est idempotent et sans effet quand rien ne tourne :
   // l'armer trop tôt ne coûte rien, ne pas l'armer coûte un run entier.
-  APP_A_ETEINDRE = app;
+  //
+  // En décor VIDE, l'application n'existe pas encore : le filet se pose sur
+  // celle que l'agent aura créée, une fois qu'on l'aura RÉSOLUE.
+  APP_A_ETEINDRE = task.decor === "vide" ? null : app;
   // ─── La PRÉMISSE de l'énoncé, posée avant l'agent ────────────────────────
   // Une tâche peut DÉCRIRE une situation au lieu de la demander : « ses envois
   // sont rejetés en 403 » suppose une route déjà montée. Si le décor ne la
@@ -5131,7 +5325,11 @@ function runTask(app, runDir, task) {
   // que pour les identités des juges — et se COMMITE avant l'agent : sans ce
   // commit séparé, les sondes qui lisent les lignes AJOUTÉES prendraient le
   // décor pour son travail, et le déclareraient coupable de l'avoir écrit.
-  if (task.prepare) {
+  // Une tâche en décor VIDE n'a ni prémisse, ni porte à constater, ni commit de
+  // décor : il n'y a RIEN — c'est tout son objet. Les blocs qui suivent
+  // supposent tous une application, et un `git` lancé dans un dossier vide
+  // échouerait sur un message qui ne dirait pas pourquoi.
+  if (task.decor !== "vide" && task.prepare) {
     // 🔴 `set -e` — la garde ci-dessous ne vaut que si l'interprète PROPAGE
     // l'échec. `sh -c "a; b; c"` rend le statut de la DERNIÈRE commande : un
     // décor dont l'étape centrale a échoué se présente comme posé, et la tâche
@@ -5175,7 +5373,7 @@ function runTask(app, runDir, task) {
   // son client MCP se connecte tôt, et une porte injoignable le reste pour
   // toute la session. Après la prémisse (qui a pu la démarrer elle-même) et
   // seulement si personne n'écoute : on ne double pas un serveur qui tourne.
-  if (MCP_REGIME === "auth") {
+  if (task.decor !== "vide" && MCP_REGIME === "auth") {
     spawnSync(
       "npx",
       ["--no-install", "nodefony", "development", "--detach", "--wait"],
@@ -5189,7 +5387,7 @@ function runTask(app, runDir, task) {
   // sans que rien ne le signale : la tâche 9 démarre l'application par son
   // `prepare`, et le banc affirmait le contraire depuis le montage. Ce que ce
   // régime sépare est donc l'IDENTITÉ (anonyme vs jeton), pas l'allumage.
-  if (MCP_REGIME !== "off") {
+  if (task.decor !== "vide" && MCP_REGIME !== "off") {
     // 🔴 Le VERDICT se CONSTATE, il ne se déduit pas du code de sortie. Une
     // prémisse peut avoir démarré l'application avant nous : notre commande
     // sort alors en 69 (« port occupé ») et l'on annoncerait une porte morte
@@ -5306,6 +5504,50 @@ function runTask(app, runDir, task) {
         `   \`--analyze-only <run>\` re-juge sans redérouler les agents.`,
     );
     process.exit(2);
+  }
+  // ─── Décor VIDE : le dépôt à committer est celui que l'AGENT a créé ──────
+  //
+  // `create app` pose lui-même un dépôt git et un premier commit — c'est un
+  // cadeau du produit : la frontière « ce que le générateur a produit » contre
+  // « ce que l'agent a ajouté » est EXACTE, et le banc n'a pas eu à la
+  // fabriquer. On commite donc dans l'application résolue, jamais dans le
+  // dossier vide, qui n'est pas un dépôt.
+  //
+  // Les gates visent eux aussi l'application : le juge de la tâche 0 sait la
+  // retrouver seul (il part du dossier confié), mais celui de la porte cliente
+  // lit un `package.json` — depuis le dossier vide, il ne jugerait rien.
+  if (task.decor === "vide") {
+    const appAgent = appDuDecorVide(app);
+    if (appAgent) {
+      APP_A_ETEINDRE = appAgent;
+      git(appAgent, "add", "-A");
+      git(
+        appAgent,
+        "-c",
+        "user.name=bench",
+        "-c",
+        "user.email=bench@local",
+        "commit",
+        "-qm",
+        `tâche ${task.id}`,
+        "--allow-empty",
+      );
+      const version = versionInstallee(appAgent, IO_DECOR_VIDE);
+      console.log(
+        `  · application résolue : ${path.relative(app, appAgent) || "."} ` +
+          `(nodefony ${version ?? "version illisible"})`,
+      );
+    } else {
+      // Pas d'application, ou deux candidats : le juge le dira et NOMMERA sa
+      // cause — « aucune-application » est opposable à l'agent, « ambiguë » ne
+      // l'est pas. On ne tranche pas ici, on laisse le juge le faire.
+      console.log(
+        "  ⚠️ aucune application résolue dans le décor vide — le juge dira " +
+          "s'il s'agit d'un échec de l'agent ou d'une ambiguïté de l'instrument",
+      );
+    }
+    runGates(appAgent ?? app, runDir, task);
+    return;
   }
   git(app, "add", "-A");
   // Un agent qui n'a RIEN écrit est déjà un verdict — commit vide autorisé.
@@ -5916,7 +6158,77 @@ export function lireEffort(transcriptPath) {
  *   trois runs d'apparence indépendante, un seul jugement — et un « 3/3 » qui
  *   ne prouverait rien.
  */
+/**
+ * Le PREMIER commit d'un dépôt — celui que `create app` pose lui-même.
+ *
+ * C'est la frontière « livré par le générateur » / « ajouté par l'agent », et
+ * elle est EXACTE : le produit la pose, le banc n'a pas eu à l'inventer.
+ *
+ * @param {string} dir - le dépôt.
+ * @returns {string|null} le sha, ou `null` si le dépôt n'en a pas.
+ */
+function premierCommit(dir) {
+  try {
+    const sha = git(dir, "rev-list", "--max-parents=0", "HEAD")
+      .trim()
+      .split("\n")[0];
+    return sha || null;
+  } catch {
+    return null;
+  }
+}
+
 function judgeTask(app, runDir, task, occurrence = null) {
+  // ─── Décor VIDE : ni la même application, ni la même base de diff ─────────
+  //
+  // L'application n'est pas celle du run — c'est celle que l'AGENT a créée, et
+  // elle se RÉSOUT (le dossier ne se suppose jamais, `--dir` existe). Et sa
+  // base de diff n'est pas un commit de harnais : c'est le PREMIER commit,
+  // celui que `create app` pose lui-même. Cette frontière est exacte et n'a pas
+  // eu à être fabriquée — elle sépare précisément ce que le générateur a
+  // produit de ce que l'agent a ajouté.
+  //
+  // Une application non résolue ne fabrique PAS un FAIL ici : c'est au juge de
+  // nommer sa cause et de dire à qui elle est opposable. On rend la tâche non
+  // jugeable côté sondes, et ses gates ont déjà parlé.
+  let baseImposee = null;
+  if (task.decor === "vide") {
+    const racine = path.join(runDir, `tache-${task.id}`);
+    const r = existsSync(racine)
+      ? resoudreAppGeneree(racine, IO_DECOR_VIDE)
+      : { ok: false, cause: "aucune-application", detail: "décor absent" };
+    // 🔴 Les deux causes ne valent PAS pareil, et les confondre ferait perdre
+    // l'issue D. « Aucune application » est le travail de l'agent qu'on juge —
+    // l'énoncé lui donne la commande de création, ne rien produire est un
+    // ÉCHEC. « Deux candidats » est une panne de l'instrument : on refuse de
+    // deviner lequel juger, et un run se perd plutôt qu'un verdict soit rendu
+    // sur le mauvais dossier.
+    if (!r.ok && r.cause === "application-ambigue") {
+      console.log(
+        `  ⁉️  ${r.detail} — run ÉCARTÉ, aucune sonde n'est opposable`,
+      );
+      return {
+        id: task.id,
+        name: task.name,
+        verdict: NON_JUGEABLE,
+        guessed: 0,
+        observed: 0,
+        probes: [],
+      };
+    }
+    if (!r.ok) {
+      console.log(`  ❌ ${r.detail} — l'agent n'a pas abouti (issue D)`);
+      return {
+        id: task.id,
+        name: task.name,
+        verdict: "FAIL",
+        guessed: task.probes.length,
+        probes: [],
+      };
+    }
+    app = r.dir;
+    baseImposee = premierCommit(app);
+  }
   const transcript = sansTexteAffiche(
     existsSync(path.join(runDir, `task-${task.id}.transcript.jsonl`))
       ? readFileSync(
@@ -5974,10 +6286,12 @@ function judgeTask(app, runDir, task, occurrence = null) {
     };
   }
   const hash = log[idx].split(" ")[0];
-  const base = log
-    .slice(idx + 1)
-    .find((l) => /tâche \d+$|état initial$/u.test(l))
-    ?.split(" ")[0];
+  const base =
+    baseImposee ??
+    log
+      .slice(idx + 1)
+      .find((l) => /tâche \d+$|état initial$/u.test(l))
+      ?.split(" ")[0];
   const files = git(app, "diff", "--name-only", `${base ?? `${hash}~1`}`, hash)
     .split("\n")
     .filter(Boolean);
@@ -6769,7 +7083,21 @@ function main() {
     // connu qu'ici (tâches demandées × passes), et c'est ici qu'il se décide.
     TTL_JETON_MIN = ttlJetonMinutes(tasks.length, runs);
     empecherLaVeilleMachine();
-    setup(runDir);
+    // 🔴 Le montage de l'application témoin coûte une installation COMPLÈTE —
+    // plusieurs minutes. Une passe qui ne demande que des tâches en décor vide
+    // n'en a aucun usage : elles fabriquent leur propre décor, et l'agent y
+    // installe depuis le registre public. La payer serait la payer pour rien,
+    // et `--task 0` doit rester jouable seul (c'est déjà le poste le plus lourd
+    // du catalogue).
+    const toutEnDecorVide = tasks.every((t) => t.decor === "vide");
+    if (toutEnDecorVide) {
+      mkdirSync(runDir, { recursive: true });
+      console.log(
+        "• décor témoin NON monté — toutes les tâches demandées fabriquent le leur",
+      );
+    } else {
+      setup(runDir);
+    }
     if (args.includes("--setup-only")) {
       console.log(`\napp témoin prête : ${app}`);
       return;
@@ -6812,6 +7140,14 @@ function main() {
         }
       }
       for (const [i, task] of tasks.entries()) {
+        // Une tâche en décor VIDE ne remet rien à zéro : son décor se FABRIQUE
+        // (un dossier neuf, et rien dedans), il ne se restaure pas. Elle ne
+        // salit pas non plus l'application témoin — elle n'y touche jamais —
+        // donc elle ne dispense pas la tâche suivante de sa remise à zéro.
+        if (task.decor === "vide") {
+          runTask(preparerDecorVide(dir, task), dir, task);
+          continue;
+        }
         if (rep > 0 || i > 0) reinitialiserDecor(app, runDir, task.id);
         runTask(app, dir, task);
       }
@@ -6821,21 +7157,27 @@ function main() {
     // quel que soit le régime, et la laisser tourner ferait croire au run
     // suivant qu'il interroge la sienne. Le filet de sortie (`process.on`)
     // couvre les interruptions ; ceci couvre la fin normale, et le DIT.
-    eteindreApplication(app);
-    const restant = spawnSync("npx", ["--no-install", "nodefony", "status"], {
-      shell: needsShell("npx"),
-      cwd: app,
-      encoding: "utf8",
-      env: APP_ENV,
-      timeout: 30_000,
-    });
-    // Le verdict se CONSTATE : `stop` peut sortir en 0 sans avoir tout tué.
-    console.log(
-      restant.status === 0 && /\b(5371|5372)\b/u.test(restant.stdout ?? "")
-        ? `\n⚠️ un serveur RÉPOND ENCORE sur les ports du banc — le run suivant ` +
-            `interrogerait une application qui n'est pas la sienne`
-        : "\n• application arrêtée (décor rendu)",
-    );
+    // Rien à éteindre si rien n'a été monté : le filet des tâches en décor vide
+    // s'est posé sur l'application que l'AGENT a créée, et `runTask` l'a déjà
+    // armé. Appeler ceci sur un dossier qui n'existe pas ferait une erreur qui
+    // ne dirait pas pourquoi.
+    if (!toutEnDecorVide) {
+      eteindreApplication(app);
+      const restant = spawnSync("npx", ["--no-install", "nodefony", "status"], {
+        shell: needsShell("npx"),
+        cwd: app,
+        encoding: "utf8",
+        env: APP_ENV,
+        timeout: 30_000,
+      });
+      // Le verdict se CONSTATE : `stop` peut sortir en 0 sans avoir tout tué.
+      console.log(
+        restant.status === 0 && /\b(5371|5372)\b/u.test(restant.stdout ?? "")
+          ? `\n⚠️ un serveur RÉPOND ENCORE sur les ports du banc — le run suivant ` +
+              `interrogerait une application qui n'est pas la sienne`
+          : "\n• application arrêtée (décor rendu)",
+      );
+    }
   }
 
   // Une tâche ne se juge que dans les passes qui l'ont RÉELLEMENT jouée : trois

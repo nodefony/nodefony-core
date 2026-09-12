@@ -198,3 +198,116 @@ export function situerTours(tours) {
     lecture: `${lecture} (${REFERENCE_CONCURRENTE.reserve})`,
   };
 }
+
+/**
+ * Les portes CLIENTES du framework, par moteur front — `marker` → `subpath`.
+ *
+ * 🔴 **Cette table est une COPIE**, et elle est assumée comme telle. Sa source
+ * unique vit dans le produit (`FRONTEND_PARAMS[<moteur>].client`,
+ * `src/nodefony/src/cli/scaffold/engine.ts`), en TypeScript, derrière une
+ * frontière de paquets qu'un banc en JavaScript pur ne franchit pas : le
+ * décor isolé n'a ni le checkout ni un `dist` à importer.
+ *
+ * Deux copies d'une règle divergent en silence — chacune passant ses propres
+ * tests. C'est pourquoi l'auto-contrôle CONFRONTE celle-ci au source du
+ * produit plutôt que de la relire : ajouter un moteur côté produit sans
+ * l'ajouter ici fait TOMBER le contrôle, au lieu de laisser le banc juger une
+ * application Vue avec un critère qu'il ne connaît pas.
+ *
+ * `marker` est le paquet qui SIGNE le moteur dans le manifeste — le moteur se
+ * CONSTATE dans les dépendances, il ne se déduit pas d'un choix que personne
+ * n'a rejoué. C'est le mot du produit, et le motif est le même que pour le
+ * dossier de l'application : on ne suppose pas, on lit.
+ */
+export const PORTES_CLIENT = Object.freeze([
+  Object.freeze({
+    moteur: "react",
+    marker: "react",
+    subpath: "nodefony/react",
+  }),
+  Object.freeze({ moteur: "vue", marker: "vue", subpath: "nodefony/vue" }),
+  Object.freeze({
+    moteur: "angular",
+    marker: "@angular/core",
+    subpath: "nodefony/angular",
+  }),
+  Object.freeze({
+    moteur: "svelte",
+    marker: "svelte",
+    subpath: "nodefony/svelte",
+  }),
+]);
+
+/**
+ * La porte cliente d'une application — celle de son moteur RÉELLEMENT choisi.
+ *
+ * 🔴 Le critère client ne peut pas être écrit pour un seul moteur. Le banc
+ * était React-centré exactement comme le gabarit qu'il éprouve : sa sonde
+ * cherchait `RealtimeClient|nodefony/react`, si bien qu'une application Svelte
+ * — moteur que le premier essai réel a effectivement choisi — aurait rendu un
+ * FAUX ROUGE sur un travail juste, et un FAUX VERT sur le trou que #347 a
+ * fermé. Ce qui se mesure est « l'agent a-t-il employé LA façade de SON
+ * moteur », jamais « a-t-il employé celle de React ».
+ *
+ * Sans moteur front (`--frontend none`), la porte est la façade isomorphe de
+ * base, `nodefony/client` : c'est elle que le framework offre alors de plus
+ * haut niveau, et ne rien exiger laisserait passer un `new WebSocket`.
+ *
+ * Plusieurs moteurs signés ⇒ on ne tranche PAS. Même règle que pour le dossier
+ * de l'application : mieux vaut une sonde non opposable qu'un verdict rendu
+ * sur le mauvais critère.
+ *
+ * @param {object|null} pkg - le `package.json` de l'application générée.
+ * @returns {{ok: true, moteur: string, subpath: string}
+ *   | {ok: false, cause: string, detail: string}}
+ */
+export function porteClientDe(pkg) {
+  if (!pkg || typeof pkg !== "object") {
+    return {
+      ok: false,
+      cause: "manifeste-illisible",
+      detail:
+        "pas de package.json lisible — le moteur front se CONSTATE dans les " +
+        "dépendances, il ne se suppose pas",
+    };
+  }
+  const deps = { ...pkg.dependencies, ...pkg.devDependencies };
+  const signes = PORTES_CLIENT.filter((p) =>
+    Object.prototype.hasOwnProperty.call(deps, p.marker),
+  );
+  if (signes.length > 1) {
+    return {
+      ok: false,
+      cause: "moteur-front-ambigu",
+      detail:
+        `${signes.length} moteurs signés dans le manifeste ` +
+        `(${signes.map((s) => s.moteur).join(", ")}) : on ne devine pas ` +
+        "lequel juger — sonde non opposable",
+    };
+  }
+  if (signes.length === 0) {
+    // `--frontend none` : pas un échec, un choix. La façade isomorphe de base
+    // reste ce que le framework offre de plus haut niveau côté client.
+    return { ok: true, moteur: "none", subpath: "nodefony/client" };
+  }
+  return { ok: true, moteur: signes[0].moteur, subpath: signes[0].subpath };
+}
+
+/**
+ * Le motif qui constate l'emploi d'une porte cliente donnée.
+ *
+ * `RealtimeClient` est accepté partout : c'est la façade isomorphe elle-même,
+ * exportée par `nodefony/client`, et l'employer directement est légitime quel
+ * que soit le moteur. Ce qu'on refuse est le WebSocket recomposé à la main —
+ * et cela se mesure par la sonde négative jumelle, pas par celle-ci.
+ *
+ * Le subpath est échappé : `nodefony/react` porte une barre oblique, et un
+ * point mal placé ferait mordre le motif sur autre chose.
+ *
+ * @param {string} subpath - la porte attendue (`nodefony/svelte`…).
+ * @returns {RegExp} le motif, prêt pour une sonde `code`.
+ */
+export function motifPorteClient(subpath) {
+  const echappe = subpath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
+  return new RegExp(`RealtimeClient|${echappe}`, "u");
+}

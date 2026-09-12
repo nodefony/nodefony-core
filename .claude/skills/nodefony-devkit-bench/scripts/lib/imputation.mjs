@@ -97,6 +97,11 @@ export const IMPUTATIONS = Object.freeze({
   // Imputer ce cas à l'agent serait l'accuser d'une panne du banc — mode de
   // défaillance n° 1 de ce banc, et il a déjà frappé cinq fois.
   "application-ambigue": INDETERMINE,
+  // PORTE CLIENTE — deux moteurs signés dans le manifeste, ou pas de manifeste
+  // lisible : le juge refuse de deviner sur quel critère il exige. Imputer cela
+  // à l'agent l'accuserait d'une panne du banc.
+  "moteur-front-ambigu": INDETERMINE,
+  "manifeste-illisible": INDETERMINE,
   "aucune-reponse": INDETERMINE,
   "aucune-reponse-admin": INDETERMINE,
   "aucune-reponse-anonyme": INDETERMINE,
@@ -173,6 +178,11 @@ export const IMPUTATIONS = Object.freeze({
   // ─── TÂCHE 0 — l'agent part d'un dossier VIDE ──────────────────────────────
   // Il n'a produit aucune application : l'issue « n'a pas abouti ». C'est bien
   // son travail qu'on juge — l'énoncé lui donne la commande de création.
+  // La façade cliente de SON moteur n'est employée nulle part : le client a été
+  // recomposé à la main alors que le framework en offre une. C'est le trou que
+  // #347 a fermé côté produit — l'ancien critère, écrit pour React, ne pouvait
+  // ni le voir sur une application Svelte ni y juger quoi que ce soit de juste.
+  "porte-client-absente": AGENT,
   "aucune-application": AGENT,
   // L'application existe et ne démarre pas : même issue, plus loin sur le chemin.
   "application-ne-demarre-pas": AGENT,

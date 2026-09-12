@@ -671,8 +671,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 832,
-        "approxTokens": 13980
+        "bodyLines": 848,
+        "approxTokens": 14254
       },
       "requires": [
         "serveur UP",
@@ -713,6 +713,10 @@
               },
               {
                 "flag": "--ancien-args",
+                "help": ""
+              },
+              {
+                "flag": "--answers-json",
                 "help": ""
               },
               {
@@ -801,6 +805,10 @@
               },
               {
                 "flag": "--link",
+                "help": ""
+              },
+              {
+                "flag": "--max-parents",
                 "help": ""
               },
               {
@@ -1018,6 +1026,10 @@
                 "help": ""
               },
               {
+                "name": "JUGE_TACHE_ZERO",
+                "help": ""
+              },
+              {
                 "name": "JUGE_THROTTLE",
                 "help": ""
               },
@@ -1162,6 +1174,10 @@
             "options": [
               {
                 "flag": "--analyze-only",
+                "help": ""
+              },
+              {
+                "flag": "--answers-json",
                 "help": ""
               },
               {
@@ -1800,7 +1816,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "832",
+            "detail": "848",
             "advisory": true
           }
         ]

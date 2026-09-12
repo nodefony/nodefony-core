@@ -362,6 +362,31 @@ const EMPTY = {
  * `unless`, où le motif interdit est présent ET la voie correcte aussi.
  */
 const SAMPLES = {
+  // ── T0 — l'agent crée l'application, dans un dossier vide ─────────────────
+  "0 :: a trouvé la porte MACHINE du CLI (--yes / --answers-json / --describe-json)":
+    {
+      pass: {
+        transcript: `{"command":"npm create nodefony@alpha -- chat --yes"}`,
+      },
+      // Un agent sans terminal interactif qui lance la commande NUE reste sur
+      // le questionnaire : c'est précisément ce que la sonde observe.
+      fail: { transcript: `{"command":"npm create nodefony@alpha"}` },
+    },
+  "0 :: a lu AGENTS.md": {
+    pass: { transcript: `{"file_path":"/vide/chat/AGENTS.md"}` },
+    fail: { transcript: `{"file_path":"/vide/chat/README.md"}` },
+  },
+  "0 :: a lancé les générateurs plutôt que d'écrire à la main": {
+    pass: { transcript: `{"command":"npx nodefony create entity Message"}` },
+    fail: {
+      transcript: `{"text":"je crée nodefony/entity/Message.ts à la main"}`,
+    },
+  },
+  "0 :: pas de client WS recomposé à la main (new WebSocket)": {
+    pass: { added: `import { useChannel } from "nodefony/svelte";` },
+    fail: { added: `const ws = new WebSocket("wss://localhost:5371/chat");` },
+  },
+
   // ── T1 ────────────────────────────────────────────────────────────────────
   "1 :: a lancé create entity": {
     pass: { transcript: `{"command":"npx nodefony create entity Product"}` },
