@@ -17,52 +17,32 @@
  */
 
 /**
- * Le canal d'installation — une VARIABLE, jamais une constante en dur.
- *
- * `alpha` tant que la 10.0.0 n'est pas publiée, `latest` ensuite. Le jour de la
- * bascule, c'est un défaut qui change, pas une tâche à réécrire — et réécrire
- * l'énoncé ferait refuser la comparaison avec toute la référence
- * (`empreinteTache` couvre le `prompt`).
- *
- * `local` est réservé au régime « registre interposé », qui mesure le DÉPÔT au
- * lieu de la version publiée. Il n'est pas encore câblé ; la valeur existe pour
- * que le jour où il l'est, l'empreinte du décor sache déjà le distinguer.
+ * Le canal et la source vivent dans `decor-source.mjs` — ils valent pour TOUTES
+ * les tâches, pas seulement pour celle-ci. Les réexporter ici plutôt que de les
+ * recopier : deux copies d'une règle divergent en silence, chacune passant ses
+ * propres tests.
  */
-export const CANAUX = ["alpha", "latest", "local"];
+export {
+  ETIQUETTES,
+  canalDe,
+  registreLocalRequis,
+  specifieur,
+} from "./decor-source.mjs";
+import { specifieur as specifieurInterne } from "./decor-source.mjs";
 
 /**
- * Le canal effectif de ce run.
- *
- * @param {Record<string, string|undefined>} env - l'environnement.
- * @returns {string} le canal, `alpha` par défaut.
- * @throws {Error} si la valeur n'est pas un canal connu — un canal mal
- *   orthographié servirait silencieusement la version 7 depuis npm.
- */
-export function canalDe(env = process.env) {
-  const brut = env.NF_DEVKIT_BENCH_CANAL || "alpha";
-  if (!CANAUX.includes(brut)) {
-    throw new Error(
-      `NF_DEVKIT_BENCH_CANAL="${brut}" inconnu — attendus : ${CANAUX.join(", ")}`,
-    );
-  }
-  return brut;
-}
-
-/**
- * La commande que l'ÉNONCÉ donne à l'agent.
+ * La commande que l'ÉNONCÉ de la tâche 0 donne à l'agent.
  *
  * Elle fait partie de l'énoncé parce qu'un agent dans un dossier vide ne peut
- * pas la deviner : aucun fichier ne porte le canal, et `npm create nodefony`
- * nu sert la version 7. Ce qu'on mesure n'est pas sa capacité à deviner un
+ * pas la deviner : aucun fichier ne porte le canal, et `npm create nodefony` nu
+ * sert la **version 7**. Ce qu'on mesure n'est pas sa capacité à deviner un
  * canal npm, c'est ce qu'il fait ENSUITE.
  *
- * @param {string} canal - le canal (voir {@link canalDe}).
+ * @param {string} canal - le canal (voir `canalDe`).
  * @returns {string} la commande, telle qu'elle apparaît dans l'énoncé.
  */
 export function commandeCreation(canal) {
-  return canal === "local"
-    ? "npm create nodefony@alpha"
-    : `npm create nodefony@${canal}`;
+  return `npm create ${specifieurInterne("nodefony", canal)}`;
 }
 
 /**

@@ -26,6 +26,7 @@ const MODULE =
 const {
   canalDe,
   commandeCreation,
+  registreLocalRequis,
   resoudreAppGeneree,
   versionInstallee,
   situerTours,
@@ -64,6 +65,42 @@ cas(
   "canal explicite respecté",
   canalDe({ NF_DEVKIT_BENCH_CANAL: "latest" }) === "latest",
 );
+// Une campagne doit pouvoir se rejouer sur CHAQUE version installable.
+for (const e of ["alpha", "beta", "latest", "local"]) {
+  cas(
+    `étiquette « ${e} » acceptée`,
+    canalDe({ NF_DEVKIT_BENCH_CANAL: e }) === e,
+  );
+}
+// La version EXACTE est la seule forme REJOUABLE : `latest` d'aujourd'hui n'est
+// pas celui du mois prochain, et une mesure qui ne cite qu'une étiquette ne se
+// rejoue pas.
+for (const v of ["10.0.0", "10.0.0-alpha.5", "10.1.0-beta.2"]) {
+  cas(
+    `version exacte « ${v} » acceptée`,
+    canalDe({ NF_DEVKIT_BENCH_CANAL: v }) === v,
+  );
+}
+cas(
+  "la commande porte la version exacte",
+  commandeCreation("10.0.0-alpha.5") === "npm create nodefony@10.0.0-alpha.5",
+);
+cas(
+  "seul « local » exige un registre interposé",
+  registreLocalRequis("local") === true &&
+    registreLocalRequis("alpha") === false &&
+    registreLocalRequis("10.0.0") === false,
+);
+{
+  // Une version mal formée doit LEVER : npm servirait sinon autre chose.
+  let leve = false;
+  try {
+    canalDe({ NF_DEVKIT_BENCH_CANAL: "10.0" });
+  } catch {
+    leve = true;
+  }
+  cas("une version tronquée LÈVE", leve);
+}
 {
   // Un canal mal orthographié servirait la version 7 depuis npm, en silence.
   let leve = false;
@@ -232,12 +269,6 @@ if (PROVE) {
       vers: "  if (false) {",
     },
     {
-      // Un canal mal orthographié sert la version 7 depuis npm, en silence.
-      regle: "validation du canal",
-      de: "  if (!CANAUX.includes(brut)) {",
-      vers: "  if (false) {",
-    },
-    {
       // Lire la plage du manifeste au lieu de la version résolue ferait
       // comparer deux runs séparés par une publication.
       regle: "version RÉSOLUE, pas la plage déclarée",
@@ -253,6 +284,10 @@ if (PROVE) {
     },
   ];
 
+  // Les règles du CANAL et de la SOURCE ne sont plus mutées ici : elles ont
+  // déménagé dans `decor-source.mjs`, qui porte son propre auto-contrôle. Muter
+  // un module qui ne les porte plus rendrait une « mutation MORTE » — ce que ce
+  // contrôle a signalé au moment du déménagement, au lieu de se taire.
   console.log(
     "\n━━ --prove : mutation de chaque règle (le contrôle doit TOMBER)",
   );

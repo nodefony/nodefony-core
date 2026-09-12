@@ -26,11 +26,26 @@ défaut — c'est le seul étage qui éprouve ce qu'un découvreur reçoit vraim
 faut le savoir, sinon on croira dépister une régression du dépôt en mesurant une
 version figée il y a trois jours.
 
-| `NF_DEVKIT_BENCH_CANAL` | Ce que l'agent tape          | Ce qu'on mesure           |
-| ----------------------- | ---------------------------- | ------------------------- |
-| `alpha` (défaut)        | `npm create nodefony@alpha`  | la préversion PUBLIÉE     |
-| `latest`                | `npm create nodefony@latest` | la version stable PUBLIÉE |
-| `local`                 | idem, registre interposé     | **le dépôt** (non câblé)  |
+**Une campagne se rejoue sur CHAQUE version qu'on peut réellement installer** :
+
+| `NF_DEVKIT_BENCH_CANAL` | Ce que l'agent tape                  | Ce qu'on mesure          |
+| ----------------------- | ------------------------------------ | ------------------------ |
+| `alpha` (défaut)        | `npm create nodefony@alpha`          | la préversion PUBLIÉE    |
+| `beta`                  | `npm create nodefony@beta`           | la beta PUBLIÉE          |
+| `latest`                | `npm create nodefony@latest`         | la stable PUBLIÉE        |
+| `10.0.0-alpha.5`        | `npm create nodefony@10.0.0-alpha.5` | **cette version-là**     |
+| `local`                 | idem, **registre interposé**         | **le dépôt** (non câblé) |
+
+🔴 **La version EXACTE est la seule forme REJOUABLE.** `latest` d'aujourd'hui n'est pas
+celui du mois prochain : une mesure qui ne cite qu'une étiquette ne se rejoue pas, et
+deux runs séparés par une publication porteraient la même étiquette en ayant joué deux
+décors. C'est pourquoi la version RÉSOLUE entre de toute façon dans l'empreinte, quelle
+que soit la forme demandée.
+
+⚠️ **`local` n'est PAS câblé**, et `registreLocalRequis` existe pour que l'appelant
+REFUSE de jouer plutôt que de replier sur le registre public. Un repli silencieux
+mesurerait la version publiée en croyant mesurer le dépôt — le faux verdict le plus
+coûteux du lot, puisqu'il ne se voit nulle part.
 
 **La version RÉELLEMENT installée entre dans l'empreinte du décor** (`versionInstallee`,
 lue dans `node_modules/nodefony/package.json`, jamais la plage du manifeste). Sans

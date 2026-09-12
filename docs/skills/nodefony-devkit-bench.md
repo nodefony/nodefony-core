@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 785 lignes |
-| Coût d'activation | ~13 292 tokens (le corps est chargé à l'invocation) |
+| Corps | 832 lignes |
+| Coût d'activation | ~13 980 tokens (le corps est chargé à l'invocation) |
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 5 page(s) |
@@ -73,7 +73,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/banc-decouvrabilite-lecons.md` | Banc de découvrabilité — leçons et études de cas | 607 |
 | `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
-| `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 157 |
+| `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 172 |
 
 
 ## Scripts embarqués
@@ -126,7 +126,7 @@ node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étape
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 785 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 832 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

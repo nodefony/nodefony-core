@@ -172,6 +172,26 @@ function findRepoRoot(from) {
 }
 
 const REPO = findRepoRoot(path.dirname(fileURLToPath(import.meta.url)));
+import {
+  sourceDe,
+  canalDe,
+  libelleDecor,
+  specifieur,
+  registreLocalRequis,
+} from "./lib/decor-source.mjs";
+
+/**
+ * D'OÙ vient ce que le décor installe, et QUELLE version — voir
+ * `lib/decor-source.mjs`, qui porte la règle pour les trois bancs.
+ *
+ * `depot` (défaut) éprouve le checkout : c'est ce qui fait du banc un instrument
+ * de non-régression. `registre` éprouve ce qu'un utilisateur reçoit vraiment,
+ * sur TOUTES les tâches — seul régime qui voie un défaut d'EMPAQUETAGE (fichier
+ * absent de `files`, type non publié, dépendance rangée en devDependencies).
+ */
+const SOURCE = sourceDe();
+const CANAL = canalDe();
+
 const BIN = path.join(REPO, "src", "nodefony", "bin", "nodefony");
 /**
  * Ce script, tel qu'on le rappelle. Le dépistage rend une commande à COPIER :
@@ -4432,6 +4452,48 @@ function setup(runDir) {
  * @param {string} app - l'application témoin.
  */
 function monterDecor(runDir, app) {
+  // 🔴 Le régime `local` exige un registre interposé, qui n'est pas monté.
+  // REFUSER plutôt que replier sur le registre public : un repli silencieux
+  // mesurerait la version publiée en croyant mesurer le dépôt, et ce faux
+  // verdict ne se verrait nulle part.
+  if (registreLocalRequis(CANAL)) {
+    console.error(
+      "NF_DEVKIT_BENCH_CANAL=local exige un registre npm interposé, qui n'est " +
+        "pas encore monté. Rien n'a été mesuré — on ne replie pas sur le " +
+        "registre public, cela mesurerait autre chose en silence.",
+    );
+    process.exit(78);
+  }
+
+  // ─── Le décor depuis le REGISTRE — toutes les tâches, pas seulement la 0 ───
+  //
+  // Le générateur lui-même vient de npm : mesurer une version publiée avec le
+  // CLI du checkout ferait un décor hybride, dont aucune moitié ne correspond à
+  // ce qu'un utilisateur reçoit. `npm create` installe le générateur ET génère.
+  if (SOURCE === "registre") {
+    console.log(
+      `• app témoin depuis le REGISTRE (${specifieur("nodefony", CANAL)})…`,
+    );
+    sh("npm", [
+      "create",
+      specifieur("nodefony", CANAL),
+      "--yes",
+      "--",
+      NOM_APP_TEMOIN,
+      "--dir",
+      app,
+      "--preset",
+      "complete",
+      "--frontend",
+      "none",
+      "--yes",
+    ]);
+    // Pas de tarballs ici, et c'est tout l'intérêt : les dépendances sont celles
+    // que le registre sert. `create app` a donc pu installer, formater, bâtir et
+    // migrer lui-même — le rattrapage qui suit n'a rien à faire.
+    return;
+  }
+
   console.log(
     `• app témoin (create app --preset complete${LINKED ? " --link" : ""})…`,
   );
@@ -6290,7 +6352,7 @@ function runsComparables(limite) {
  * qui décide seul de rejouer dépense sans qu'on l'ait voulu, et la seule chose
  * qu'on regarde ensuite est la facture.
  */
-function restituerDepistage(bilan, invocation) {
+function restituerDepistage(bilan, invocation, decors) {
   const ligne = (l, icone, quoi) => {
     if (!l.length) return;
     console.log(
@@ -6298,6 +6360,21 @@ function restituerDepistage(bilan, invocation) {
     );
   };
   console.log("\n━━ dépistage");
+  // 🔴 SUR QUOI on compare, avant CE QU'on compare.
+  //
+  // Le banc sait désormais jouer sur le dépôt comme sur une version publiée :
+  // lire « 3 chutes » sans savoir qu'on oppose `alpha` à `beta` serait prendre
+  // un changement de décor pour une régression du produit. La garde refuse déjà
+  // les décors incompatibles (sortie 78) — mais ce qu'elle laisse passer doit
+  // être LISIBLE, sinon on croit comparer deux mesures du même objet.
+  if (decors) {
+    const { reference, run } = decors;
+    console.log(`  décor   référence : ${reference ?? "inconnu"}`);
+    console.log(
+      `          run       : ${run ?? "inconnu"}` +
+        (reference && run && reference === run ? "  (identique)" : ""),
+    );
+  }
   ligne(bilan.stables, "✅", "conformes à la référence");
   ligne(bilan.chutes, "🔻", "CHUTE — la référence les donnait PASS");
   ligne(bilan.remontees, "🔺", "REMONTÉE — la référence les donnait FAIL");
@@ -6539,7 +6616,7 @@ function main() {
     "  --link     décor lié au dépôt : boucle courte, verdict AMPUTÉ",
     "  --repack   refabrique les tarballs même s'ils paraissent à jour",
     "",
-    "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP",
+    "Décor (variables) : NF_DEVKIT_BENCH_AGENT · NF_DEVKIT_BENCH_MODEL · NF_DEVKIT_BENCH_MCP\n                    NF_DEVKIT_BENCH_SOURCE  depot (défaut) | registre\n                    NF_DEVKIT_BENCH_CANAL   alpha | beta | latest | local | <version>\n                      (le canal ne vaut QUE pour la source registre)",
     "Sorties : 0 rien à signaler · 1 des tâches ont échoué · 3 des tâches attendent 3 runs",
     "          64 usage · 78 refus (décor différent de la référence, ou dépistage sans run)",
   ].join("\n");
@@ -6823,11 +6900,20 @@ function main() {
     // Le décor est une VARIABLE de la mesure, au même titre que le modèle :
     // deux runs de décors différents ne se comparent pas. Il s'enregistre, il
     // ne se déduit pas du chemin.
-    decor:
-      (LINKED ? "lié au checkout (--link)" : "isolé (tarballs, hors dépôt)") +
-      (MCP_ATTEIGNABLE
+    // La SOURCE et le CANAL sont des variables de la mesure au même titre que le
+    // modèle : un run joué sur la préversion publiée ne se compare pas à une
+    // référence mesurée sur le dépôt. Le libellé est composé par
+    // `lib/decor-source.mjs` — une règle, une implémentation — et il préserve
+    // mot pour mot la forme historique en source `depot`, sans quoi TOUTES les
+    // références déjà payées deviendraient incomparables d'un coup.
+    decor: libelleDecor({
+      source: SOURCE,
+      canal: CANAL,
+      lie: LINKED,
+      mcp: MCP_ATTEIGNABLE
         ? ` · MCP ${MCP_REGIME}${mcpAuthentifie() ? " (token posé)" : ""}`
-        : " · MCP non atteint"),
+        : " · MCP non atteint",
+    }),
     agent: AGENT,
     // Le commit MESURÉ — la seule variable qu'on veut voir différer entre la
     // référence et le run. Re-juger un run ANCIEN ne le mesure pas au commit
@@ -6880,7 +6966,10 @@ function main() {
       process.exit(78);
     }
     const bilan = depistageOuRefus(reference, report);
-    restituerDepistage(bilan, "node " + path.relative(REPO, INVOCATION));
+    restituerDepistage(bilan, "node " + path.relative(REPO, INVOCATION), {
+      reference: reference?.decor,
+      run: report?.decor,
+    });
     aRejouer = bilan.aRejouer.length;
   }
   if (enregistrer) {

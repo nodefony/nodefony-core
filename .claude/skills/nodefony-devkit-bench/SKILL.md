@@ -457,6 +457,53 @@ concurrente qui donne une échelle aux tours :
 > les verdicts seraient rendus par l'ancien juge et l'empreinte calculée sur le nouveau.
 > Ajouter des fichiers NEUFS et une tâche neuve, en revanche, ne touche aucune empreinte.
 
+### Jouer une campagne sur une VERSION — dépôt ou registre
+
+Le banc éprouve par défaut le **checkout** : le CLI vient de `src/nodefony/bin`, les
+paquets de tarballs fabriqués localement. C'est ce qui en fait un instrument de
+non-régression. Mais une campagne doit aussi pouvoir se jouer sur ce qu'un
+**utilisateur reçoit** — et sur la version de son choix.
+
+Deux réglages, orthogonaux, valables pour **TOUTES les tâches** :
+
+```bash
+B=.claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs
+
+node $B                                                   # depot (défaut) — le checkout
+NF_DEVKIT_BENCH_SOURCE=registre node $B                   # la préversion publiée
+NF_DEVKIT_BENCH_SOURCE=registre NF_DEVKIT_BENCH_CANAL=beta node $B
+NF_DEVKIT_BENCH_SOURCE=registre NF_DEVKIT_BENCH_CANAL=10.0.0-alpha.5 node $B
+```
+
+| Réglage                  | Valeurs                                         | Ce qu'il décide            |
+| ------------------------ | ----------------------------------------------- | -------------------------- |
+| `NF_DEVKIT_BENCH_SOURCE` | `depot` (défaut) · `registre`                   | **ce qu'on éprouve**       |
+| `NF_DEVKIT_BENCH_CANAL`  | `alpha` · `beta` · `latest` · `local` · version | **quelle version publiée** |
+
+En source `registre`, le générateur lui-même vient de npm (`npm create nodefony@<canal>`) :
+mesurer une version publiée avec le CLI du checkout ferait un décor hybride dont aucune
+moitié ne correspond à ce qu'un utilisateur reçoit. C'est aussi le **seul régime qui voie
+un défaut d'EMPAQUETAGE** — un fichier absent de `files`, un type non publié, une
+dépendance rangée en `devDependencies`.
+
+🔴 **La version EXACTE est la seule forme REJOUABLE.** `latest` d'aujourd'hui n'est pas
+celui du mois prochain : une campagne qui ne cite qu'une étiquette ne se rejoue pas.
+
+🔴 **Les deux entrent dans l'empreinte du décor**, et le dépistage AFFICHE désormais les
+deux décors comparés avant tout verdict — lire « 3 chutes » sans savoir qu'on oppose
+`alpha` à `beta`, ce serait prendre un changement de décor pour une régression.
+La forme historique est préservée **mot pour mot** en source `depot`
+(`isolé (tarballs, hors dépôt) · …`) : la changer aurait rendu incomparables, d'un
+seul coup, toutes les références déjà payées.
+
+⚠️ `local` (registre interposé) **n'est pas monté** : le banc REFUSE en `78` plutôt que
+de replier sur le registre public — un repli silencieux mesurerait la version publiée en
+croyant mesurer le dépôt, et ce faux verdict ne se verrait nulle part.
+
+La règle vit dans [`scripts/lib/decor-source.mjs`](scripts/lib/decor-source.mjs), une
+seule fois pour les trois bancs, et son auto-contrôle
+(`scripts/lib/decor-source.selftest.mjs --prove`) mute chacune de ses cinq règles.
+
 ### Le DÉCOR d'un run : quel agent, et quelle porte MCP
 
 Deux réglages indépendants décident de ce qu'un run mesure — **qui** travaille, et **ce qu'il
