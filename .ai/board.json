@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T10:16:08.392Z",
+  "generatedAt": "2026-09-12T13:13:12.714Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 4,
+      "closed": 5,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 32,
+      "open": 31,
       "title": "10.0.0-beta"
     },
     {
@@ -4462,8 +4462,8 @@
       "number": 348,
       "title": "test(devkit-bench): faire créer l'application par l'agent",
       "url": "https://github.com/nodefony/nodefony-core/issues/348",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1.5,

@@ -143,6 +143,14 @@
 
 ## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
 
+- [1× — 09-12c] **Une garde rangée dans une branche ne garde que cette branche.** Le banc
+  refuse (exit 78) un canal `local` qui exigerait un registre interposé — mais ce refus
+  vivait dans la fonction de montage du décor. En ajoutant un décor VIDE qui saute ce
+  montage, j'ai rendu la garde inatteignable **sans la toucher** : `--task 0` partait jouer
+  sur un canal que npm ne sert pas. Un chemin neuf ne contourne pas seulement du code, il
+  contourne les gardes que ce code portait ; la garde remonte donc dans le lanceur, où elle
+  vaut pour tous les chemins. Vue mordre après coup.
+
 - [1× — 09-11] **Un test prenait un NOM RÉEL comme contre-exemple, et le nom est devenu réel.**
   `agentTargets.test.ts` vérifiait le refus d'une clé inconnue avec `requestedAgents("claude,cursor")`.
   Le jour où `cursor` est entré dans la table, le test est passé au VERT en prouvant l'exact
@@ -207,6 +215,28 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-12c] **Neuf mutations « toutes vues tomber » tombaient sur un import non résolu.**
+  Le `--prove` d'un auto-contrôle copiait le module muté dans `/tmp` ; depuis qu'un voisin
+  en avait été extrait, ce module l'importait en relatif — Node sortait en
+  `ERR_MODULE_NOT_FOUND`, code non nul, et le lot comptait « le contrôle tombe » pour
+  CHAQUE mutation, y compris une mutation **inoffensive**. Le commit qui l'a introduit
+  annonçait « 9 mutations, toutes vues tomber » : elles tombaient, pas pour leur règle.
+  Le remède n'est pas le déplacement du fichier mais la **ligne TÉMOIN** — une mutation qui
+  ne change rien et doit rester VERTE. Posée, elle a immédiatement révélé qu'une de mes
+  mutations neuves ne prouvait rien non plus (elle mutait un libellé, la règle comparait
+  une clé). Un contrôle qui tombe n'apprend rien tant qu'on n'a pas montré qu'il sait aussi
+  ne PAS tomber.
+
+- [1× — 09-12c] **Quatre fichiers de test demandés, deux joués, « 2 passed » affiché.** Un
+  juge lançait `vitest run <4 fichiers livrés>` : le gabarit range le bout en bout sous
+  `vitest.e2e.config.ts`, que la config ordinaire EXCLUT. Les deux absents étaient
+  précisément ceux qui frappent le serveur en anonyme — les seuls que le défaut cherché
+  fait tomber. Le rapport ne les mentionne ni comme réussis ni comme sautés : ils
+  n'existent pas. Et le contournement a son propre piège : avec un serveur déjà sur les
+  ports, la suite e2e rend « No test files found » et sort en 1 **sans jouer une ligne** —
+  deux verdicts opposés pour la même application. Ce qu'une suite a JOUÉ se relève sur SA
+  sortie, jamais sur la concaténation des suites.
 
 - [1× — 09-12b] **`lint-staged` a RESTAURÉ ma correction, et j'ai cru avoir mal édité.** Le
   commit refusé par le lint, je corrige la ligne fautive, je relance — même erreur, même
@@ -314,6 +344,21 @@
   travail. La date d'une passe ne dit pas ce qu'elle a exercé ; la BRANCHE, si.
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
+
+- [1× — 09-12c] **Le PATH du POSTE a scaffoldé l'application d'un banc censé éprouver la
+  chaîne PUBLIÉE.** La tâche 0 lâche un agent dans un dossier vide avec
+  `npm create nodefony@10.0.0-alpha.4`. Ses drapeaux inventés ont échoué, il s'est rabattu
+  sur `npm install -g nodefony@…` puis `nodefony create app` — et le PATH a résolu
+  `~/.local/bin/nodefony`, un lien vers le CHECKOUT du dépôt. L'application a donc été
+  générée par le code en cours de développement, sur une mesure dont toute la valeur est
+  de porter sur ce qu'un utilisateur reçoit. **Rien ne criait** : le décor enregistré
+  annonçait la version demandée, et seule la version RÉSOLUE (`node_modules/nodefony`) a
+  révélé l'écart. Deux leçons : un décor « isolé » qui hérite du PATH n'est pas isolé, et
+  l'agent a **modifié la machine du user** (paquet global) sans qu'aucune garde ne le voie.
+  Remède : un LEURRE en tête de PATH, qui rend ce qu'obtient un découvreur (commande
+  absente, 127). ⚠️ Le premier remède — RETIRER les entrées fautives du PATH — était une
+  faute : ces dossiers portent aussi `node`, `npm` et l'agent lui-même, qui n'a plus
+  démarré du tout. On MASQUE un binaire, on n'ampute pas un PATH.
 
 - [1× — 09-12b] **Le décor du banc est isolé en RÉSOLUTION, pas en ÉCRITURE — un agent a
   reformaté le `~/.claude/CLAUDE.md` du poste.** L'isolation est constatée avant chaque

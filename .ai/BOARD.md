@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-12 10:16** (UTC).
+> Empreinte prise le **2026-09-12 13:13** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 75% | 74 | 25 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 11% | 4 | 32 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 28 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -40,7 +40,7 @@ Ordre 9.45 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-1
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 32 ouverts
+## Jalon 10.0.0-beta — 31 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -72,7 +72,6 @@ Ordre 9.45 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-1
 | 29 | P2 — décision | 0.5 | 2026-11-16 → 11-16 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 30 | P2 — décision | 0.5 | 2026-11-17 → 11-17 | #25 | ci(tests): remettre au vert le test de tenue dans la durée |
 | 32 | P2 — décision | 1 | 2026-11-18 → 11-18 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
-| 45.9 | P0 — bloque le reste | 1.5 | 2026-11-27 → 11-27 | #348 | test(devkit-bench): faire créer l'application par l'agent |
 | 46.1 | P1 — figé à la création | 0.5 | 2026-10-30 → 10-30 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
 | 46.2 | P0 — bloque le reste | 0.5 | 2026-10-30 → 10-30 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
 | 48 | P1 — figé à la création | 1 | 2026-11-30 → 11-30 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
