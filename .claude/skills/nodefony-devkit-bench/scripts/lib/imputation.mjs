@@ -93,6 +93,10 @@ export const IMPUTATIONS = Object.freeze({
   // --detach --wait`) : un code que l'agent vient de casser rend exactement la
   // même absence de réponse qu'un décor éteint. La gate de compilation, jouée
   // sur la même tâche, tranche le plus souvent.
+  // TÂCHE 0 — plusieurs dossiers candidats : on refuse de deviner lequel juger.
+  // Imputer ce cas à l'agent serait l'accuser d'une panne du banc — mode de
+  // défaillance n° 1 de ce banc, et il a déjà frappé cinq fois.
+  "application-ambigue": INDETERMINE,
   "aucune-reponse": INDETERMINE,
   "aucune-reponse-admin": INDETERMINE,
   "aucune-reponse-anonyme": INDETERMINE,
@@ -166,6 +170,24 @@ export const IMPUTATIONS = Object.freeze({
   // Rien n'a été monté là où l'énoncé le demandait.
   "route-absente": AGENT,
   "ressource-absente": AGENT,
+  // ─── TÂCHE 0 — l'agent part d'un dossier VIDE ──────────────────────────────
+  // Il n'a produit aucune application : l'issue « n'a pas abouti ». C'est bien
+  // son travail qu'on juge — l'énoncé lui donne la commande de création.
+  "aucune-application": AGENT,
+  // L'application existe et ne démarre pas : même issue, plus loin sur le chemin.
+  "application-ne-demarre-pas": AGENT,
+  // 🔴 L'issue qu'aucune autre tâche ne voit : il a fait ce qu'on demandait ET
+  // cassé l'existant. Vécu le 2026-09-12 — zone `/api` fermée en entier, geste
+  // que le gabarit RECOMMANDE, emportant les dix tests de bout en bout livrés
+  // avec l'application ; ni réparés, ni mentionnés dans son compte rendu. Le
+  // rouge lui est opposable : la suite livrée faisait partie de ce qu'il a reçu.
+  "tests-livres-casses": AGENT,
+  // La ressource refuse AUSSI le porteur du rôle — code juste, inatteignable.
+  // C'est l'échec du 2026-09-10 : 33 minutes sur une route protégée qu'aucune
+  // identité ne pouvait appeler.
+  "ressource-inappelable": AGENT,
+  // Rien ne protège la ressource que l'énoncé demandait de protéger.
+  "ressource-ouverte-a-l-anonyme": AGENT,
   "page-absente": AGENT,
   "repere-de-zone-absent": AGENT,
   // Le repère du préfixe est posé par le générateur AVANT l'agent et commité à

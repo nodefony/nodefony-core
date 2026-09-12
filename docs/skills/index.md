@@ -5,7 +5,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-09-11
+updated: 2026-09-12
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -146,7 +146,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 10 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 10 scripts · 📎 5 réf" },
   { "icon": "🔧", "title": "identifiers", "href": "nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },
@@ -169,7 +169,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 254 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 750 | 4 | 10 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 785 | 5 | 10 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 469 | 2 | 8 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 397 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 114 | 6 | 0 | ✅ |

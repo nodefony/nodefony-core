@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-11",
+  "generatedAt": "2026-09-12",
   "count": 27,
   "conformant": 27,
   "skills": [
@@ -671,8 +671,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 750,
-        "approxTokens": 12754
+        "bodyLines": 785,
+        "approxTokens": 13292
       },
       "requires": [
         "serveur UP",
@@ -685,9 +685,10 @@
           "agents-et-porte-mcp.md",
           "banc-decouvrabilite-lecons.md",
           "banc-schema-etudes-de-cas.md",
-          "methode-de-mesure.md"
+          "methode-de-mesure.md",
+          "tache-zero.md"
         ],
-        "referenceFilesTotal": 4,
+        "referenceFilesTotal": 5,
         "scripts": [
           {
             "path": "scripts/bench-discoverability.mjs",
@@ -1799,7 +1800,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "750",
+            "detail": "785",
             "advisory": true
           }
         ]

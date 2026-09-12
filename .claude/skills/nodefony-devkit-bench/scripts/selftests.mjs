@@ -98,6 +98,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-routes-count.selftest.mjs",
   "lib/gate-secure-route.selftest.mjs",
   "lib/gate-session-csrf.selftest.mjs",
+  "lib/gate-tache-zero.selftest.mjs",
   "lib/gate-upload.selftest.mjs",
   "lib/gate-user-field.selftest.mjs",
   "lib/gate-zone-firewall.selftest.mjs",
@@ -105,6 +106,7 @@ const LOT_ATTENDU = new Set([
   "lib/juges-collecte.selftest.mjs",
   "lib/passes.selftest.mjs",
   "lib/reference.selftest.mjs",
+  "lib/tache-zero.selftest.mjs",
 ]);
 
 /** Les contrôles, des deux dossiers, dans un ordre stable. */

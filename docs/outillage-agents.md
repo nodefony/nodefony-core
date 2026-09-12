@@ -183,7 +183,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "skills/nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 10 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 10 scripts · 📎 5 réf" },
   { "icon": "🔧", "title": "identifiers", "href": "skills/nodefony-identifiers.md",
     "desc": "Les identifiants du code Nodefony, de bout en bout : le gate de langue qui dit LESQUELS sont français (dictionnaire, banc anti-faux-positif, exceptions déclarées), puis le renommage en masse par le LanguageService TypeScript — jamais par regex — avec la preuve qu'aucun symbole n'a dérivé ni…",
     "meta": "🟢 conforme v1.0.0 · ⚙️ 7 scripts" },

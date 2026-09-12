@@ -28,6 +28,27 @@ import { join } from "node:path";
 import YAML from "yaml";
 
 const SKILLS_DIR = ".claude/skills";
+
+/**
+ * Les skills LIVRÉS aux applications, par le paquet npm `@nodefony/devkit`.
+ *
+ * Ils sont de vrais skills — ils partent chez l'utilisateur, dans
+ * `.agents/skills/` de son application — mais ils ne vivent pas dans
+ * `.claude/skills`, qui ne porte que ceux du dépôt. Sans ce second emplacement,
+ * le contrôle « aucun renvoi vers un skill inexistant » déclare MORT tout renvoi
+ * vers eux : un skill du dépôt ne pouvait pas nommer ce que le produit livre,
+ * et l'exception se serait posée à la main, une par une, en se périmant.
+ */
+const SKILLS_LIVRES_DIR = "src/packages/@nodefony/devkit/skills";
+
+/**
+ * Un nom désigne-t-il un skill RÉEL — du dépôt, ou livré par npm ?
+ *
+ * @param {string} nom - le nom cité entre accents graves.
+ * @returns {boolean}
+ */
+const estUnSkill = (nom) =>
+  existsSync(join(SKILLS_DIR, nom)) || existsSync(join(SKILLS_LIVRES_DIR, nom));
 const OUT_DIR = "docs/skills";
 const CHECK_ONLY = process.argv.includes("--check");
 // Champs de frontmatter autorisés par le standard Agent Skills. Source :
@@ -445,12 +466,7 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
     .filter((n) => n !== name && existsSync(join(SKILLS_DIR, n)))
     .sort();
   const deadSkillRefs = [...cited]
-    .filter(
-      (n) =>
-        n !== name &&
-        !existsSync(join(SKILLS_DIR, n)) &&
-        !NON_SKILL_TERMS.has(n),
-    )
+    .filter((n) => n !== name && !estUnSkill(n) && !NON_SKILL_TERMS.has(n))
     .sort();
 
   // Même règle appliquée aux RESSOURCES : un renvoi « le détail est dans

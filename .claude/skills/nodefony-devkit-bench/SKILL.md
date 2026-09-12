@@ -423,6 +423,40 @@ node .claude/skills/nodefony-devkit-bench/scripts/bench-discoverability.mjs --ta
 > suffisait pas : c'est la FORME écrite qui décidait de ce qu'on voyait, et le
 > compte affiché (« 86 émises, 85 classées ») donnait le change.
 
+### La TÂCHE 0 — l'agent crée lui-même l'application, dans le vide
+
+Toutes les autres tâches démarrent dans une application que le décor a fabriquée,
+toujours en « Vitrine complète » : **l'agent ne crée jamais l'application**. La tâche 0
+le fait partir d'un dossier VIDE, avec la commande de création dans l'énoncé et rien
+d'autre — c'est le premier contact d'un découvreur.
+
+```bash
+node $B --task 0                                 # canal par défaut : alpha
+NF_DEVKIT_BENCH_CANAL=latest node $B --task 0    # après la 10.0.0
+```
+
+🔴 **Elle ne mesure PAS la même chose que les autres** : `npm create nodefony@alpha`
+installe depuis le **registre public**, quand tout le reste du banc est monté en décor
+isolé depuis les tarballs. Elle éprouve donc la chaîne PUBLIÉE, pas le dépôt — et la
+version réellement installée entre dans l'empreinte du décor, sans quoi deux runs
+séparés par une publication seraient comparés comme s'ils avaient joué le même décor.
+
+Elle sépare **quatre issues** qu'aucune autre tâche ne distingue — ça marche · juste
+mais inappelable · **fait ce qu'on demandait ET cassé l'existant** · n'a pas abouti.
+La troisième est celle qu'on n'aurait pas vue : fermer la zone `/api` en entier, geste
+que le gabarit RECOMMANDE, emporte les dix tests de bout en bout livrés.
+
+**Le mode d'emploi complet est déporté** — le registre et ses trois régimes, la porte
+machine du CLI (la mesure la plus intéressante de la tâche, et gratuite), les quatre
+issues avec leurs codes, les deux pièges qui font un faux verdict, et la référence
+concurrente qui donne une échelle aux tours :
+**[`references/tache-zero.md`](references/tache-zero.md)**.
+
+> ⚠️ **On n'édite pas un `gate-*.mjs` ni un `prepare-*.mjs` EXISTANT pendant qu'un run
+> tourne.** `empreinteTache` les relit **sur disque** au moment d'écrire la référence :
+> les verdicts seraient rendus par l'ancien juge et l'empreinte calculée sur le nouveau.
+> Ajouter des fichiers NEUFS et une tâche neuve, en revanche, ne touche aucune empreinte.
+
 ### Le DÉCOR d'un run : quel agent, et quelle porte MCP
 
 Deux réglages indépendants décident de ce qu'un run mesure — **qui** travaille, et **ce qu'il
@@ -763,4 +797,5 @@ un message qui parle de colonne inconnue. Nommer autrement dans un banc.
 - `references/methode-de-mesure.md` — variance d'un run unique, modèle par défaut, générateur qui abaisse le modèle nécessaire
 - `references/banc-decouvrabilite-lecons.md` — dix leçons du banc de découvrabilité, chacune payée par un défaut réel
 - `references/banc-schema-etudes-de-cas.md` — pourquoi le décor et le juge PostgreSQL du banc de schéma s'éprouvent avant de juger
+- `references/tache-zero.md` — la tâche 0 : registre public contre décor isolé, porte machine du CLI, les quatre issues, la référence concurrente
 - `references/agents-et-porte-mcp.md` — le décor d'un run : régimes de porte MCP, drapeaux par agent, foyer jetable, et les pièges qui font mesurer autre chose que ce qu'on croit
