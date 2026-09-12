@@ -3,6 +3,12 @@ import type { SqlDialect } from "../config/config";
 import { openMigrationDriver } from "../src/migrator/drivers/index";
 import type { IMigrationDriver } from "../src/migrator/types";
 import { MIGRATION_FORMAT_VERSION, action } from "../src/migrator/explain";
+import { readHistory } from "../src/migrator/history";
+import {
+  identityTablesAmong,
+  rowsWorthKeeping,
+  type IIdentityTableFound,
+} from "../src/migrator/identityTables";
 import { readMigrationEnv, resetAllowed } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
 
@@ -15,6 +21,7 @@ const options: OptionsCommandInterface = {
 /** Options propres à la remise à zéro d'une base de développement. */
 interface IResetOptions extends IMigrateSharedOptions {
   yes?: boolean;
+  dropAccounts?: boolean;
 }
 
 /**
@@ -78,10 +85,23 @@ function quoteIdent(name: string, dialect: SqlDialect): string {
  * production : lui laisser désigner la cible d'un effacement serait offrir la
  * seule combinaison qu'il ne faut jamais rendre possible.
  *
+ * ## Ce que `--yes` ne suffit PAS à faire
+ *
+ * Une base qui porte des comptes, des passkeys ou des seconds facteurs n'est pas
+ * une base jetable, et `--yes` ne l'efface pas : la commande refuse, nomme
+ * chaque table avec son nombre de lignes, et demande `--drop-accounts` en plus.
+ * Vécu : un agent a lu un refus de migration qui proposait `orm:migrate:repair`,
+ * puis a tapé `orm:reset -y` — la seule voie qui détruit. Un refus bien rédigé
+ * ne suffit pas : la prose informe, seule la commande contraint.
+ *
+ * Une base VIDE n'est pas gênée, et c'est voulu : une garde qui se lève sur le
+ * cas normal s'apprend à être contournée avant le jour où elle a raison.
+ *
  * @example
  * ```bash
- * nodefony orm:reset            # demande confirmation en terminal
- * nodefony orm:reset --yes      # sans question (script)
+ * nodefony orm:reset                     # demande confirmation en terminal
+ * nodefony orm:reset --yes               # sans question (script)
+ * nodefony orm:reset --yes --drop-accounts  # ... comptes et passkeys compris
  * ```
  */
 class OrmReset extends OrmMigrateCommand {
@@ -96,6 +116,10 @@ class OrmReset extends OrmMigrateCommand {
     this.addOption(
       "-y, --yes",
       "ne pose pas la question — pour un script ; hors terminal, l'option est obligatoire",
+    );
+    this.addOption(
+      "--drop-accounts",
+      "accepte d'effacer des comptes, des passkeys et des seconds facteurs — sans ce drapeau, `--yes` ne le fait pas",
     );
   }
 
@@ -166,6 +190,80 @@ class OrmReset extends OrmMigrateCommand {
           opts.json,
         );
         return this;
+      }
+
+      // 🔴 CE QUI NE SE RECONSTITUE PAS SE CONSTATE — `--yes` n'y suffit plus.
+      // Vécu : un agent a lu un refus de migration exemplaire, qui proposait
+      // `orm:migrate:repair`, puis a tapé `orm:reset -y` — la seule voie qui
+      // détruit, et celle que le refus ne nommait pas. Douze tables, dont les
+      // comptes. Le geste n'était pas absurde : sur une base jetable il est
+      // légitime, et rien ici ne distinguait une base jetable d'une base qui
+      // porte des comptes. La prose informe, seule la commande contraint.
+      const identity = identityTablesAmong(tables);
+      if (identity.length > 0 && opts.dropAccounts !== true) {
+        const counted: (IIdentityTableFound & { rows: number })[] = [];
+        for (const entry of identity) {
+          const countRows = await driver.query<{ n: unknown }>(
+            `SELECT COUNT(*) AS n FROM ${quoteIdent(entry.table, resolution.dialect)}`,
+          );
+          counted.push({ ...entry, rows: Number(countRows[0]?.n ?? 0) });
+        }
+        // Le SEUIL, et non « au moins une ligne » : une application fraîche
+        // porte toujours le compte d'administration que son semis repose à
+        // chaque démarrage, donc il n'y a rien à perdre. Crier là rendrait la
+        // garde inutile — on apprendrait à taper les deux drapeaux par réflexe,
+        // avant le jour où elle a raison.
+        const atRisk = counted.filter((c) => rowsWorthKeeping(c, c.rows));
+        if (atRisk.length > 0) {
+          // Un marqueur d'échec de migration change la réponse : c'est le SEUL
+          // moment où l'on sait que la voie non destructrice s'applique, et
+          // c'est précisément la situation qui a mené à l'accident.
+          let repairable = false;
+          try {
+            repairable = (await readHistory(driver)).some(
+              (row) => !row.success || row.finishedAt === null,
+            );
+          } catch {
+            // Pas d'historique lisible (base d'avant les migrations) : le
+            // refus reste valable, il n'a simplement rien à proposer de plus.
+          }
+          const connectorArg =
+            resolution.connector === "default"
+              ? ""
+              : ` --connector ${resolution.connector}`;
+          this.fail(
+            resolution.connector,
+            "NF_MIGRATE_RESET_HAS_ACCOUNTS",
+            `Cette base porte des données qui ne se reconstituent pas : ` +
+              `${atRisk.map((c) => `${c.table} (${c.rows})`).join(", ")}.`,
+            `${atRisk.map((c) => `  · ${c.table} — ${c.holds}`).join("\n")}\n\n` +
+              (repairable
+                ? `Une migration a échoué et son marqueur est posé : c'est ` +
+                  `probablement ce que tu cherches à débloquer. \`orm:migrate:repair\` ` +
+                  `lève le marqueur SANS rien effacer, et écrire la migration ` +
+                  `suivante vaut toujours mieux que défaire ce qui est appliqué.\n\n`
+                : "") +
+              `Si ces données ne comptent pour personne — base d'essai, ` +
+              `exemplaire jetable —, relance avec \`--drop-accounts\` en plus de ` +
+              `\`--yes\` : le drapeau dit que tu as vu la liste ci-dessus.`,
+            // 🔴 `nextActions[0]` est exécuté par un agent SANS lire la prose
+            // (contrat de cette famille de commandes) : le premier geste ne peut
+            // donc JAMAIS être la destruction. Ici, une réparation ou une lecture.
+            repairable
+              ? [
+                  action(`nodefony orm:migrate:repair${connectorArg}`),
+                  action(`nodefony orm:migrate:status${connectorArg} --json`),
+                ]
+              : [action(`nodefony orm:migrate:status${connectorArg} --json`)],
+            opts.json,
+            // `actionRequired`, pas `error` : la commande a parfaitement
+            // travaillé — elle a constaté, et elle attend une décision humaine.
+            // Le 2 voudrait dire « je n'ai pas pu », et un script qui distingue
+            // les deux conclurait à une panne de base.
+            1,
+          );
+          return this;
+        }
       }
 
       // 🔴 IDENTITÉ PROUVÉE, PÉRIMÈTRE BORNÉ — l'utilisateur voit la base visée

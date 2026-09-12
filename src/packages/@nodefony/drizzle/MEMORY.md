@@ -310,6 +310,18 @@ introspect` → renomme le tag (l'outil le tire au hasard, `--name` ignoré) →
 
 ## Gotchas
 
+- **`orm:reset --yes` n'efface PAS ce qui ne se reconstitue pas.** `identityTables.ts` porte la
+  liste (`User`, `webauthn_credential`, `totp_secret`) et le SEUIL de chacune : `reseededRows`
+  = lignes qu'un semis d'application repose au prochain démarrage (`User: 1`, les autres `0`).
+  Au-delà, refus `NF_MIGRATE_RESET_HAS_ACCOUNTS` (exit **1** = `actionRequired`, pas 2), qui nomme
+  table + nombre de lignes, et exige `--drop-accounts`. Ce qui se refait par un login n'y est PAS
+  (`session`, `access_token`) : une garde qui crie sur le cas normal s'apprend à être contournée.
+  Un marqueur d'échec de migration en base change `nextActions[0]` en `orm:migrate:repair` — le
+  PREMIER geste ne doit jamais être destructeur, un agent l'exécute sans lire la prose. La liste est
+  une COPIE de `cli/scaffold/reservedEntities.ts` (frontière de paquets) et
+  `tests/unit/identityTables.test.ts` confronte les deux : un renommage côté cœur ferait taire la
+  garde en silence.
+
 - `ADD COLUMN … NOT NULL` sans défaut sur table PEUPLÉE : sqlite et PostgreSQL REFUSENT
   (« Cannot add a NOT NULL column with default value NULL » / « contains null values ») ;
   MySQL/MariaDB ACCEPTE et remplit de `''`, mode strict compris. Banc :

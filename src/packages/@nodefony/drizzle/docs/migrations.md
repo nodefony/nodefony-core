@@ -106,6 +106,9 @@ nodefony orm:migrate:repair
 
 # Développement seulement : supprime et recrée la base du connecteur.
 nodefony orm:reset
+
+# … et si la base porte des comptes, des passkeys ou des seconds facteurs :
+nodefony orm:reset --yes --drop-accounts
 ```
 
 Toutes acceptent `--connector <nom>` (défaut : `default`) et `--json`. Le flux `--json` est **pur** :
@@ -507,6 +510,23 @@ conforme, la clé est ABSENTE** (jamais un objet vide) : `.divergence == null` s
 
 L'écran lisible en dit autant : le résumé nomme les trois premières entrées de chaque famille, et la
 liste complète ne se déroule que lorsqu'elle ne tient plus dans la phrase.
+
+### Ce que `--yes` ne suffit pas à effacer
+
+`orm:reset` **refuse** sur une base qui porte de l'irremplaçable, et nomme ce qu'elle allait
+supprimer avec le nombre de lignes : des comptes au-delà de celui que votre semis repose, des
+passkeys (liées à l'appareil — personne ne peut les réémettre), des seconds facteurs. Il faut alors
+`--drop-accounts` en plus de `--yes` : le drapeau dit que vous avez vu la liste.
+
+Ce qui se reconstitue ne déclenche rien — une session et un jeton se refont par un login, une trace
+d'audit est une trace. Et **une application fraîche n'est pas gênée** : le compte d'administration
+que son semis repose à chaque démarrage ne compte pas comme une perte. Une garde qui se lève sur le
+cas normal s'apprend à être contournée avant le jour où elle a raison.
+
+Quand une migration a échoué et que son marqueur est posé, le refus nomme d'abord
+`orm:migrate:repair` — qui lève le marqueur **sans rien effacer**. C'est le seul moment où l'on sait
+que la voie non destructrice s'applique, et c'est exactement la situation où l'on est tenté de tout
+remettre à zéro.
 
 Les gestes proposés suivent **l'environnement** : `orm:reset` efface, elle n'est acceptée qu'en
 développement, et elle n'est donc proposée que là. Ailleurs, la sortie renvoie vers l'écriture d'une

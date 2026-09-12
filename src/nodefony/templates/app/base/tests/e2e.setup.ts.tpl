@@ -167,7 +167,11 @@ export async function setup(): Promise<void> {
   // Sur un moteur serveur, une base ne s'EFFACE pas — on retire ses tables.
   // `orm:reset` est le geste que le framework prévoit pour ça, et il n'existe
   // qu'en développement : cette base-ci n'a pas d'autre usage que la suite.
-  execFileSync(process.execPath, [bin, "orm:reset", "--yes"], {
+  //
+  // `--drop-accounts` est délibéré : la commande refuse d'effacer des comptes,
+  // des passkeys ou des seconds facteurs sur un simple `--yes`. Ici ils
+  // appartiennent à la suite et à personne d'autre — le drapeau dit qu'on l'a vu.
+  execFileSync(process.execPath, [bin, "orm:reset", "--yes", "--drop-accounts"], {
     stdio: "inherit",
     timeout: 120_000,
     env: {

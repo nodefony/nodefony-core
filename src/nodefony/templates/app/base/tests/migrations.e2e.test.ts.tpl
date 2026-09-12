@@ -162,7 +162,9 @@ const SPARE_URL =
  */
 function freshDatabase(dir: string): string {
 <% if (it.db) { %>  void dir; // aucun fichier à poser : la base vit sur le serveur.
-  execFileSync(process.execPath, [bin, "orm:reset", "--yes"], {
+  // `--drop-accounts` : cf le décor de `e2e.setup` — la garde qui protège les
+  // comptes n'a pas à être contournée en silence, elle se lève explicitement.
+  execFileSync(process.execPath, [bin, "orm:reset", "--yes", "--drop-accounts"], {
     stdio: "ignore",
     timeout: 120_000,
     env: {

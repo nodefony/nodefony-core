@@ -39,6 +39,8 @@ export type CommandFailureCode =
   | "NF_MIGRATE_UNAVAILABLE"
   /** Confirmation requise et non donnée. */
   | "NF_MIGRATE_CONFIRM_REQUIRED"
+  /** La base porte des comptes : `--yes` ne suffit pas à les effacer. */
+  | "NF_MIGRATE_RESET_HAS_ACCOUNTS"
   /** Des migrations en attente SUPPRIMENT des données, hors développement. */
   | "NF_MIGRATE_DESTRUCTIVE"
   /** Adopter TOUT graverait une affirmation fausse : la base ne suit pas. */

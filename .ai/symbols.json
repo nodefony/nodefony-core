@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 828,
-    "symbols": 4041,
+    "files": 829,
+    "symbols": 4046,
     "classes": 392,
-    "interfaces": 1087,
+    "interfaces": 1089,
     "types": 448,
     "enums": 4,
-    "functions": 1704,
-    "constants": 406
+    "functions": 1706,
+    "constants": 407
   },
   "symbols": {
     "Cli": {
@@ -22438,6 +22438,47 @@
       "module": "@nodefony/drizzle",
       "description": "Étapes d'amorçage postérieures au format d'origine. **Vide dans cette version** — l'étape 0 est le `CREATE` lui-même. Ce tableau est le point d'extension : ajouter une colonne à l'historique, aujou…"
     },
+    "IIdentityTable": {
+      "name": "IIdentityTable",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/identityTables.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Tables dont la perte n'est PAS rattrapable — et le seuil à partir duquel elle ne l'est plus. ## Pourquoi une liste, et pas « toutes les tables » Vider une base de développement est un geste normal …"
+    },
+    "IIdentityTableFound": {
+      "name": "IIdentityTableFound",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/identityTables.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une table d'identité trouvée en base, avec son nom RÉEL et son seuil."
+    },
+    "identityTablesAmong": {
+      "name": "identityTablesAmong",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/identityTables.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Les tables d'identité PRÉSENTES parmi celles qu'on s'apprête à supprimer. La comparaison ignore la casse : sqlite conserve `User` tel quel, d'autres moteurs replient en minuscules, et une garde sen…"
+    },
+    "rowsWorthKeeping": {
+      "name": "rowsWorthKeeping",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/identityTables.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Y a-t-il quelque chose à PERDRE dans cette table ?"
+    },
+    "IDENTITY_TABLES": {
+      "name": "IDENTITY_TABLES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/identityTables.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle"
+    },
     "IAuditRule": {
       "name": "IAuditRule",
       "kind": "interface",
@@ -34093,6 +34134,19 @@
       "checkDataAdvice": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts"
       ],
+      "readHistory": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
+      ],
+      "identityTablesAmong": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
+      "rowsWorthKeeping": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
+      "IIdentityTableFound": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts"
+      ],
       "resetAllowed": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -36493,9 +36547,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "insertHistory": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
-      ],
-      "readHistory": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "MIGRATE_URL_ENV": [
