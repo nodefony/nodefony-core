@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T19:56:43.243Z",
+  "generatedAt": "2026-09-12T21:14:44.984Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 79,
+      "closed": 81,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 22,
@@ -3400,7 +3400,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 3,
+      "jours": 2.5,
       "ordre": 9.94,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
@@ -3476,8 +3476,8 @@
       "number": 365,
       "title": "fix(orm): avertir au démarrage qu'une migration attend",
       "url": "https://github.com/nodefony/nodefony-core/issues/365",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3564,6 +3564,54 @@
       "ordre": 9.9414,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 374,
+      "title": "fix(orm): écrire une migration sqlite qui n'attend pas la colonne ajoutée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/374",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.9415,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 375,
+      "title": "fix(scaffold): ne pas perdre les champs d'une entité qu'on complète",
+      "url": "https://github.com/nodefony/nodefony-core/issues/375",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.9416,
+      "debut": "2026-09-13",
+      "cible": "2026-09-13",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 376,
+      "title": "fix(orm): nommer ce qui a arrêté la génération d'une migration",
+      "url": "https://github.com/nodefony/nodefony-core/issues/376",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.9417,
+      "debut": "2026-09-13",
+      "cible": "2026-09-13",
       "labels": [
         "10.0.0-alpha"
       ]

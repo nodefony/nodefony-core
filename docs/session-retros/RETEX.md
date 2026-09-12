@@ -22,6 +22,16 @@
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
+- [1× — 09-12e] **La piste que j'avais moi-même déposée dans un ticket était FAUSSE, et je l'ai
+  suivie avant de regarder le terrain.** Le commentaire de #365 concluait, d'une observation faite
+  en production, que le trou était « borné à l'environnement où le schéma se dérive du code ». En
+  appariant commandes et sorties du transcript qui a motivé le ticket, l'application tournait en
+  fait dans l'autre mode — et le défaut était DOUBLE, pas simple. Un ticket est cru sans être relu,
+  y compris par celui qui l'a écrit : sa piste est une hypothèse datée, pas un acquis. Elle se
+  vérifie comme une ancre, au moment où l'on s'en sert. Corollaire mesuré ici : le décor d'un banc
+  n'est pas le décor par DÉFAUT — conclure du premier au second m'aurait fait corriger la moitié
+  du défaut en croyant l'avoir fermé.
+
 - [1× — 09-11h] **Le délégué a AFFIRMÉ avoir balayé un périmètre où il n'a rien vu — et il y
   avait cinq fichiers.** Inventaire des mentions de l'ancienne licence : le prompt NOMMAIT
   `src/nodefony/templates/**` parmi les emplacements souvent oubliés, le rapport a rendu 103
@@ -225,6 +235,16 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-12e] **`>/dev/null 2>&1` sur un maillon d'une chaîne `&&` fait passer un ÉCHEC pour un
+  succès silencieux.** En voulant abréger une séquence de preuve, j'ai écrit
+  `create entity … >/dev/null && orm:generate … >/dev/null && cat le-fichier` : la génération
+  refusait, la chaîne s'arrêtait, et les deux commandes suivantes n'ont RIEN affiché. J'ai lu ce
+  vide comme « le fichier est vide », pas comme « rien n'a tourné » — le diagnostic est parti dans
+  la mauvaise direction jusqu'à ce que je relance sans masque. La règle vaut au-delà du `>/dev/null` :
+  **une chaîne `&&` dont un maillon est muet ne distingue plus « a échoué » de « n'a rien produit »**.
+  Masquer une sortie est acceptable pour du bruit connu, jamais pour la commande dont on va lire le
+  résultat.
 
 - [1× — 09-12d] **`sed -i '' 's/\bmot\b/autre/'` ne remplace RIEN sur macOS, et sort 0.** Le
   `\b` de GNU n'existe pas dans le `sed` BSD : la commande réussit, le fichier est inchangé, et
