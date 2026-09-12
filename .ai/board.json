@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T00:16:42.007Z",
+  "generatedAt": "2026-09-12T00:31:27.137Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 74,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 15,
+      "open": 16,
       "title": "10.0.0-alpha"
     },
     {
@@ -3400,7 +3400,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 3.5,
+      "jours": 4,
       "ordre": 9.9405,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
@@ -3434,6 +3434,22 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.9407,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 364,
+      "title": "fix(cli): borner le verdict de doctor à ce qui a été contrôlé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/364",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.9408,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
       "labels": [
