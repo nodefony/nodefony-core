@@ -18,6 +18,7 @@ import {
   firstUsefulLine,
   readOutdated,
   runVerifySteps,
+  verifyChainSteps,
 } from "../kernel/checks/deep";
 
 /** Un projet jetable dont le manifeste déclare les scripts qu'on lui donne. */
@@ -212,5 +213,79 @@ describe("doctor --deep — ce qu'il IMPLIQUE", () => {
 
   it("sans rien, aucun des deux étages coûteux ne s'allume", () => {
     assert.deepEqual(lire(["doctor"]), { live: false, deep: false });
+  });
+});
+
+/**
+ * Ce que `--deep` lance vient de la chaîne `verify` du PROJET.
+ *
+ * Le défaut que ces cas ferment : la liste était écrite dans le framework
+ * (`typecheck`, `lint`, `test`), la chaîne du gabarit en enchaîne six — si bien
+ * que `--deep` annonçait lancer « les gardes du projet » et sautait
+ * `format:check`, c'est-à-dire précisément celle qui échouait. Un vert rendu sur
+ * un projet dont `verify` sort en 1 n'est pas un angle mort déclaré : c'est un
+ * faux vert.
+ */
+describe("verifyChainSteps — les gardes que le projet DÉCLARE", () => {
+  it("lit la chaîne entière, dans l'ordre, `npm test` compris", () => {
+    const racine = projetAvec({
+      verify:
+        "npm run typecheck && npm run lint && npm run format:check && npm test && npm run build && npm run doctor",
+    });
+    assert.deepEqual(verifyChainSteps(racine), {
+      steps: ["typecheck", "lint", "format:check", "test", "build"],
+      unhandled: [],
+    });
+  });
+
+  it("écarte `doctor`, y compris appelé par le CHEMIN de son binaire", () => {
+    // C'est la forme de ce dépôt. La ranger dans les non-lançables la ferait
+    // compter comme un angle mort alors qu'elle est en train de s'exécuter.
+    const racine = projetAvec({
+      verify:
+        "npm run typecheck && npm test && node src/nodefony/bin/nodefony doctor",
+    });
+    assert.deepEqual(verifyChainSteps(racine), {
+      steps: ["typecheck", "test"],
+      unhandled: [],
+    });
+  });
+
+  it("NOMME ce qu'il ne sait pas lancer, au lieu de le taire", () => {
+    // Un morceau écrit en dur ne se borne pas et son verdict ne se lit pas.
+    // Le taire rendrait « au vert » plus large que ce qui a été contrôlé.
+    const racine = projetAvec({
+      verify: "npm run lint && node scripts/maison.js --strict",
+    });
+    assert.deepEqual(verifyChainSteps(racine), {
+      steps: ["lint"],
+      unhandled: ["node scripts/maison.js --strict"],
+    });
+  });
+
+  it("sans chaîne `verify`, ne rend RIEN — l'appelant se replie", () => {
+    assert.deepEqual(verifyChainSteps(projetAvec({ test: "vitest" })), {
+      steps: [],
+      unhandled: [],
+    });
+  });
+
+  it("un manifeste absent ou illisible ne lève pas", () => {
+    const vide = mkdtempSync(path.join(tmpdir(), "nf-chain-vide-"));
+    assert.deepEqual(verifyChainSteps(vide), { steps: [], unhandled: [] });
+    writeFileSync(path.join(vide, "package.json"), "{ pas du json", "utf8");
+    assert.deepEqual(verifyChainSteps(vide), { steps: [], unhandled: [] });
+  });
+
+  it("ne répète pas un script que la chaîne nomme deux fois", () => {
+    const racine = projetAvec({ verify: "npm run lint && npm run lint" });
+    assert.deepEqual(verifyChainSteps(racine).steps, ["lint"]);
+  });
+
+  it("accepte pnpm et yarn — la chaîne n'est pas toujours écrite pour npm", () => {
+    const racine = projetAvec({
+      verify: "pnpm run typecheck && yarn test",
+    });
+    assert.deepEqual(verifyChainSteps(racine).steps, ["typecheck", "test"]);
   });
 });

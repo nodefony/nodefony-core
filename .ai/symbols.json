@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 829,
-    "symbols": 4046,
+    "symbols": 4047,
     "classes": 392,
     "interfaces": 1089,
     "types": 448,
     "enums": 4,
-    "functions": 1706,
+    "functions": 1707,
     "constants": 407
   },
   "symbols": {
@@ -8841,6 +8841,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Les scripts que le manifeste déclare, parmi ceux qu'on sait lancer. On ne lance QUE ce que le projet déclare : inventer une commande qu'il n'a pas (`npx tsc`, par exemple) reviendrait à juger une a…"
+    },
+    "verifyChainSteps": {
+      "name": "verifyChainSteps",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/deep.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les gardes que le projet DÉCLARE, lues dans sa chaîne `verify`. ## Pourquoi lire le manifeste au lieu d'une liste écrite ici Une liste en dur dérive de ce que le projet garde réellement, et la déri…"
     },
     "firstUsefulLine": {
       "name": "firstUsefulLine",
@@ -32811,6 +32819,9 @@
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "runVerifySteps": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "verifyChainSteps": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "DeepReporter": [

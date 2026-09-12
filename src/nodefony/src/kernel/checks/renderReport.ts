@@ -360,9 +360,16 @@ function bandeau(
       ),
     ];
   }
+  // 🔴 Un verdict qui ne dit pas son PÉRIMÈTRE se lit comme un verdict
+  // d'ensemble. Vécu : un évaluateur a lu « ✓ RIEN À SIGNALER » à la seconde où
+  // `npm run verify` sortait en 1 sur la même application — le rapport déclarait
+  // bien ses angles morts juste en dessous, mais c'est le bandeau qu'on retient.
+  // Tant qu'il reste quelque chose de non contrôlé, le bandeau le porte.
   return [
     skipped.length > 0
-      ? p.ok(`  ${stateSymbol("ok")}  ${p.strong("RIEN À SIGNALER")}`) +
+      ? p.ok(
+          `  ${stateSymbol("ok")}  ${p.strong("RIEN À SIGNALER PARMI CE QUI A ÉTÉ CONTRÔLÉ")}`,
+        ) +
         p.warning(
           `  (${pluralize(skipped.length, "angle mort", "angles morts")})`,
         )
@@ -780,9 +787,17 @@ function renderSummary(
             " interrompu(s) par la borne — NON CONTRÔLÉ, pas en échec"
           );
         const passes = steps.filter((s) => s.outcome === "passed");
+        // Ce que la chaîne `verify` contient et qu'on n'a pas su lancer (un
+        // `node mon-script.js` écrit en dur) se DIT : sans cela, « au vert »
+        // couvrirait un morceau que personne n'a exécuté.
+        const outOfReach = report.deep?.unhandledVerifySteps ?? [];
+        const reserve =
+          outOfReach.length > 0
+            ? ` — non lancé(s) : ${outOfReach.join(" · ")}`
+            : "";
         return passes.length > 0
-          ? `${passes.map((s) => s.step).join(", ")} au vert`
-          : "aucun script à lancer";
+          ? `${passes.map((s) => s.step).join(", ")} au vert${reserve}`
+          : `aucun script à lancer${reserve}`;
       })(),
     },
     // 🔴 `outdated` ne compte JAMAIS de manquement : un paquet en retard n'est

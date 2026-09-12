@@ -460,6 +460,41 @@ describe("doctor — le rendu répond dans l'ordre des questions", () => {
     assert.notEqual(rang(lignes, "RIEN À SIGNALER"), -1);
     assert.equal(rang(lignes, "PROBLÈMES"), -1, "aucune section de problèmes");
   });
+
+  it("🔴 le bandeau PORTE sa borne tant qu'il reste un angle mort", () => {
+    // Vécu : un évaluateur a lu « ✓ RIEN À SIGNALER » à la seconde où
+    // `npm run verify` sortait en 1 sur la même application. Le rapport
+    // déclarait bien ses angles morts juste en dessous — mais c'est le bandeau
+    // qu'on retient, et un verdict qui ne dit pas son PÉRIMÈTRE se lit comme un
+    // verdict d'ensemble.
+    // Aucun manquement, mais une famille non lancée : c'est EXACTEMENT le cas
+    // vécu — `--live` et `--deep` rendaient un quitus pendant que `verify`
+    // sortait en 1.
+    const r = rapport({
+      execution: {
+        ...rapport().execution,
+        migrations: { ran: false, reason: "non demandé", onDemand: true },
+      },
+    });
+    const lignes = renderReport(r, options()).map(nu);
+    const bandeau =
+      lignes.find((l) => l.includes("RIEN À SIGNALER") && !l.includes("─")) ??
+      "";
+    assert.include(bandeau, "angle mort");
+    assert.include(
+      bandeau,
+      "PARMI CE QUI A ÉTÉ CONTRÔLÉ",
+      "un « rien à signaler » NU se lit comme un quitus d'ensemble",
+    );
+
+    // Et l'inverse : sans angle mort, le verdict reste NET — une réserve
+    // permanente ne voudrait plus rien dire.
+    const net =
+      renderReport(rapport(), options())
+        .map(nu)
+        .find((l) => l.includes("RIEN À SIGNALER") && !l.includes("─")) ?? "";
+    assert.notInclude(net, "PARMI CE QUI A ÉTÉ CONTRÔLÉ");
+  });
 });
 
 describe("doctor — les gestes, dédoublonnés et copiables", () => {

@@ -128,6 +128,14 @@ export interface IDeepResult {
   outdated: IOutdatedSummary | null;
   /** Pourquoi le registre n'a rien dit — vide quand il a répondu. */
   outdatedReason: string;
+  /**
+   * Les morceaux de la chaîne `verify` qu'on n'a PAS su lancer.
+   *
+   * Un `node mon-script.js` écrit en dur dans la chaîne ne se borne pas et son
+   * verdict ne se lit pas. Les taire rendrait le « rien à signaler » plus large
+   * que ce qui a réellement été contrôlé.
+   */
+  unhandledVerifySteps?: readonly string[];
 }
 
 /**
@@ -165,6 +173,73 @@ export function declaredSteps(
     else missing.push(s);
   }
   return { present, missing };
+}
+
+/**
+ * Les gardes que le projet DÉCLARE, lues dans sa chaîne `verify`.
+ *
+ * ## Pourquoi lire le manifeste au lieu d'une liste écrite ici
+ *
+ * Une liste en dur dérive de ce que le projet garde réellement, et la dérive ne
+ * se voit pas : mesuré, `--deep` annonçait lancer « les gardes du projet » et en
+ * lançait trois sur les cinq que `verify` enchaîne — dont il sautait précisément
+ * `format:check`, la seule qui échouait. Un mode dont la raison d'être est
+ * d'exécuter les gardes rendait donc un VERT sur un projet dont `verify` sortait
+ * en erreur. Ce n'est pas un angle mort déclaré, c'est un faux vert.
+ *
+ * En lisant la chaîne, une garde ajoutée à `verify` est lancée sans que personne
+ * n'ait à y penser — et c'est la seule forme de cette règle qui ne se périme pas.
+ *
+ * ## Ce qui est écarté, et pourquoi
+ *
+ * - `doctor` : c'est NOUS. Le relancer depuis `--deep` partirait en boucle.
+ * - ce qui n'est pas un script npm (un `node …` écrit en dur dans la chaîne) :
+ *   on ne sait pas le borner ni en lire le verdict, et l'inventer serait pire
+ *   que de l'ignorer. Ces morceaux sont RENDUS pour que le rapport les nomme.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns les scripts à lancer dans l'ordre, et les morceaux non lançables.
+ */
+export function verifyChainSteps(projectRoot: string): {
+  steps: string[];
+  unhandled: string[];
+} {
+  const manifeste = path.join(projectRoot, "package.json");
+  if (!existsSync(manifeste)) return { steps: [], unhandled: [] };
+  let chain = "";
+  try {
+    const pkg = JSON.parse(readFileSync(manifeste, "utf8")) as {
+      scripts?: Record<string, unknown>;
+    };
+    const verify = pkg.scripts?.verify;
+    chain = typeof verify === "string" ? verify : "";
+  } catch {
+    return { steps: [], unhandled: [] };
+  }
+  if (chain.length === 0) return { steps: [], unhandled: [] };
+  const steps: string[] = [];
+  const unhandled: string[] = [];
+  for (const raw of chain.split("&&")) {
+    const piece = raw.trim();
+    if (piece.length === 0) continue;
+    // `npm run <x>`, `npm test`, et leurs variantes pnpm/yarn : même grammaire.
+    const named = /^(?:npm|pnpm|yarn)\s+run\s+([\w:.-]+)/u.exec(piece);
+    const shorthand = /^(?:npm|pnpm|yarn)\s+(test|start)\b/u.exec(piece);
+    const step = named?.[1] ?? shorthand?.[1];
+    if (step === undefined) {
+      // `doctor`, c'est NOUS — y compris appelé par le chemin de son binaire,
+      // ce que fait ce dépôt (`node src/nodefony/bin/nodefony doctor`). Le
+      // ranger dans les non-lançables le ferait compter comme un angle mort
+      // alors qu'il est en train de s'exécuter.
+      if (/\bnodefony\b[^&]*\bdoctor\b/u.test(piece)) continue;
+      unhandled.push(piece);
+      continue;
+    }
+    // `doctor`, c'est nous.
+    if (step === "doctor") continue;
+    if (!steps.includes(step)) steps.push(step);
+  }
+  return { steps, unhandled };
 }
 
 /**

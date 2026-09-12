@@ -463,6 +463,20 @@ export interface ICountableReport {
    * module ne veut rien savoir d'autre de la forme des trouvailles.
    */
   live?: { findings: readonly { kind: string }[] } | undefined;
+  /**
+   * L'étage 3 — les gardes du projet, LANCÉES.
+   *
+   * 🔴 Elles comptent. Sans elles, `doctor --deep` exécutait `format:check`, le
+   * voyait échouer, l'affichait dans les problèmes… et rendait un verdict
+   * « rien à signaler » avec un code de sortie 0. C'est le faux vert dans sa
+   * forme la plus pure : la commande SAVAIT, et son verdict disait l'inverse.
+   *
+   * Seul `failed` compte. `timeout` ne dit rien du projet — il dit que NOTRE
+   * borne était trop courte, et l'imputer au mesuré est la meilleure façon
+   * d'apprendre à ne plus croire un rapport. `absent` non plus : un script non
+   * déclaré est l'affaire de `guards`, qui répond de sa présence.
+   */
+  deep?: { steps: readonly { outcome: string }[] } | null | undefined;
 }
 
 /**
@@ -488,7 +502,12 @@ export function countFindings(report: ICountableReport): number {
     // de celle qui casse : il faudrait pouvoir déclarer qu'un service est
     // requis là-bas, et rien ne le permet. Il informait donc en accusant, et
     // `doctor --env production` sortait en 1 sur une application saine.
-    (report.live?.findings.filter((f) => f.kind !== "service-lost").length ?? 0)
+    (report.live?.findings.filter((f) => f.kind !== "service-lost").length ??
+      0) +
+    // L'étage 3, au même titre : une garde du projet qui échoue est un
+    // manquement du projet — c'est même le plus direct de tous, puisque c'est
+    // celui que son auteur a lui-même déclaré vouloir tenir.
+    (report.deep?.steps.filter((s) => s.outcome === "failed").length ?? 0)
   );
 }
 

@@ -36,6 +36,7 @@ import { checkGuards, VERIFY_STEPS, type IGuardResult } from "./guards";
 import {
   readOutdated,
   runVerifySteps,
+  verifyChainSteps,
   type DeepReporter,
   type IDeepProgress,
   type IDeepResult,
@@ -890,9 +891,14 @@ export async function collectDoctorReport(
   const deep: IDeepResult | null =
     deepRequested && projectRoot
       ? await (async () => {
+          // Les gardes que le PROJET déclare, pas une liste écrite dans le
+          // framework : `--deep` annonce les lancer, il doit donc les lancer
+          // toutes. Repli sur le minimum exigé quand aucune chaîne `verify`
+          // n'existe — sans elle, il n'y a rien à lire.
+          const declared = verifyChainSteps(projectRoot);
           const steps = await runVerifySteps(
             projectRoot,
-            VERIFY_STEPS,
+            declared.steps.length > 0 ? declared.steps : VERIFY_STEPS,
             undefined,
             report,
           );
@@ -901,7 +907,16 @@ export async function collectDoctorReport(
             undefined,
             report,
           );
-          return { steps, outdated: summary, outdatedReason: reason };
+          return {
+            steps,
+            outdated: summary,
+            outdatedReason: reason,
+            // Ce qu'on n'a PAS su lancer se dit : un morceau de chaîne écrit en
+            // dur (`node mon-script.js`) ne se borne pas et son verdict ne se
+            // lit pas. Le taire rendrait le « rien à signaler » plus large que
+            // ce qui a été contrôlé.
+            unhandledVerifySteps: declared.unhandled,
+          };
         })()
       : null;
   const lastBoots = readLastBoots(cwd);
