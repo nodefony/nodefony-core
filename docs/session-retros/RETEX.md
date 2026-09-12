@@ -87,6 +87,16 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- [1× — 09-12] **La garde que j'ai écrite aurait INTERBLOQUÉ toutes les publications.** Pour
+  qu'un tag ne publie pas sur une CI rouge, j'ai exigé le vert de TOUS les workflows du commit,
+  exclusions nommées à part. Or l'un d'eux (`Code généré`) installe l'application générée DEPUIS
+  le registre npm : sur un commit d'estampillage, `^10.0.0-alpha.N` n'existe pas encore — c'est la
+  publication que le tag déclenche qui la crée. Il est donc rouge par CONSTRUCTION sur tout commit
+  de release (vérifié sur alpha.3, alpha.4, alpha.5), et exiger son vert bloquait la seule action
+  capable de le rendre vert. Le défaut ne s'est vu qu'en confrontant la garde à l'HISTORIQUE des
+  runs, pas en la relisant. Règle : avant d'exiger le vert d'un contrôle, se demander si l'action
+  gardée est ce qui le rend vert — une garde circulaire a l'air d'une garde rigoureuse.
+
 - [1× — 09-11g] **L'inverse, et il est plus dangereux : un contrôle qui ratisse trop ÉTROIT rend un
   vert.** Le gate des descriptions de commandes, étendu aux modules, filtrait sur
   `class X extends Command` — ce qui écartait EN SILENCE les sept commandes ORM, qui héritent d'une
@@ -173,6 +183,23 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-12] **`cmd > log 2>&1; echo "EXIT=$?"` en tâche de fond rend le code du `echo`.** Le
+  harness a rapporté « exit code 0 » pour un `test:all` qui avait SIX tests rouges, et j'ai failli
+  enchaîner sur la publication. Ce qu'il faut écrire : `{ cmd; echo "EXIT=$?"; } > log 2>&1`, pour
+  que le code parte DANS le journal — puis le relire là, jamais dans le verdict du lanceur.
+
+- [1× — 09-12] **Une sonde qui ne peut JAMAIS rendre un vert n'attend pas : elle brûle son délai,
+  puis laisse passer.** L'attente de propagation npm lisait `npm view <nom> versions --json`, qui
+  rend un TABLEAU DE CHAÎNES, avec un filtre qui ne gardait que les entrées OBJET : verdict
+  « aucun paquet servi » à chaque tour. Mesuré : 32 tours, 302 s — la limite entière — pendant que
+  les quinze paquets étaient servis depuis plusieurs minutes. Le symptôme qui trahit : un compteur
+  qui ne DIMINUE jamais (15/15 à chaque passage) ; une propagation réelle décroît.
+
+- [1× — 09-12] **`gh run list --commit <sha>` rend une liste VIDE, et mon « 0 restant » est
+  devenu « CI terminée ».** Faux verdict en deux minutes sur une CI qui tournait encore. Corrigé
+  en filtrant `--branch` sur `headSha`, ET en exigeant un total NON NUL avant de conclure : zéro
+  ligne ne prouve rien — ni que c'est fini, ni que ça n'a pas commencé.
 
 - [1× — 09-11h] **Le coût invoqué pour prioriser un ticket n'existait pas.** « Cet échec de CI me
   fait perdre de l'argent » a fait remonter #154 en tête — motif que personne, moi compris, n'a
