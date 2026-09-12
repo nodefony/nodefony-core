@@ -26,6 +26,17 @@ let routes: RouteInspectee[] = [];
 let cookieAdmin: string | null = null;
 /** Pourquoi aucune identité — un repli muet fait accuser l'application. */
 let raisonSansAdmin: string | null = null;
+/**
+ * Le mot de passe du compte témoin, LU au décor et jamais recopié.
+ *
+ * 🔴 Il l'était, et il a divergé : le gabarit l'a changé (la politique de mot de
+ * passe refuse une valeur qui reprend l'identifiant du compte), cette suite a
+ * gardé l'ancienne, et le cas du cookie a rendu « 0 cookie posé » sur les quatre
+ * systèmes — en accusant l'application d'un défaut de Set-Cookie. C'est le même
+ * accident que le nom `adminLogin` ci-dessous : une valeur du décor recopiée ici
+ * est une valeur qui se périmera.
+ */
+let motDePasseAdmin: string | null = null;
 
 /**
  * Une ressource REST générée : son chemin de collection et son chemin d'item.
@@ -68,7 +79,10 @@ beforeAll(async () => {
     // quatre systèmes, pour un nom.
     const setup = (await import("../tests/e2e.setup")) as {
       adminLogin?: () => Promise<string>;
+      ADMIN_PASSWORD?: string;
     };
+    motDePasseAdmin =
+      typeof setup.ADMIN_PASSWORD === "string" ? setup.ADMIN_PASSWORD : null;
     if (typeof setup.adminLogin !== "function") {
       // Un `catch` muet dirait « pas de firewall » là où le vrai fait est
       // « ce nom n'existe plus ». La RAISON remonte donc jusqu'au message de
@@ -362,12 +376,18 @@ describe("e2e — ce que le navigateur reçoit", () => {
 
   it("le cookie de session est inaccessible au script et lié au site", async () => {
     if (cookieAdmin === null) return;
+    // Sans la constante du décor, ce cas ne peut pas ouvrir de session : le
+    // DIRE plutôt que de comparer un 0 à un 0 et d'accuser l'application.
+    expect(
+      motDePasseAdmin,
+      "tests/e2e.setup n'exporte pas ADMIN_PASSWORD — ce cas a besoin du mot de passe du décor, il ne le recopie pas",
+    ).toBeTypeOf("string");
     const res = await fetch(`${BASE}/nodefony/security/api/auth/login`, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({
         username: "admin",
-        password: "e2e-admin-jetable",
+        password: motDePasseAdmin,
       }),
     });
     const poses = res.headers.getSetCookie?.() ?? [];

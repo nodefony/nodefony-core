@@ -721,7 +721,15 @@ jobs:
             // d'hier : le serveur répondait correctement à des tests qui parlaient
             // d'un autre monde. Sans risque : ce runtime est éphémère, il vit le
             // temps d'une tâche et n'est joignable que depuis elle.
-            'NF_ADMIN_PASSWORD=secret',
+            //
+            // ⚠️ Il doit PASSER la politique de mot de passe (`PasswordPolicy`,
+            // posée d'office sur `UserService`) : 10 caractères au moins, et il ne
+            // reprend pas l'identifiant du compte. Un semis refusé n'est pas un
+            // test rouge — en production c'est un échec CRITIQUE qui tue le boot,
+            // la readiness n'est jamais atteinte, et toutes les tâches
+            // d'intégration tombent sur un message qui parle d'un mot de passe.
+            // Vécu : `secret` (6 caractères) a fait rougir les six tâches.
+            'NF_ADMIN_PASSWORD=secret-de-dev-42',
             '',
           ];
           require('node:fs').writeFileSync('.env.local', lines.join('\n'));
@@ -757,11 +765,16 @@ jobs:
       # framework — la commande qu'un exploitant utiliserait. Avant le démarrage
       # du serveur : la commande boot son propre kernel (qui seede `admin`),
       # donc aucune écriture concurrente sur la base.
+      #
+      # Le mot de passe passe la politique (cf l'étape des clés) : sous 10
+      # caractères, `security:user:add` sort en code non nul et cette étape
+      # échoue — ce qui est le comportement voulu, mais ici ce serait le décor
+      # qui est fautif, pas le produit.
       - name: Créer le second compte du banc (production)
         if: matrix.mode == 'production'
         env:
           NODE_ENV: production
-        run: node node_modules/nodefony/bin/nodefony security:user:add user --password secret --roles ROLE_USER
+        run: node node_modules/nodefony/bin/nodefony security:user:add user --password secret-de-dev-42 --roles ROLE_USER
 
       # `--no-watch` : mode développement SANS superviseur ni rechargement. Un rebuild
       # déclenché au milieu du run couperait les connexions sous les tests, et le rouge

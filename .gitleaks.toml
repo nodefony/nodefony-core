@@ -53,6 +53,13 @@ paths = [
   # (`npx nodefony http:certificates`). L'exclusion est NOMINATIVE : tout autre
   # `.pem` du dépôt reste surveillé.
   '''src/packages/@nodefony/http/nodefony/config/certificates/''',
+  # La table des empreintes de mots de passe courants — fichier GÉNÉRÉ
+  # (`scripts/generate-password-blocklist.mjs`), dont le contenu EST du base64 à
+  # forte entropie par construction : 40 Ko de SHA-1 tronqués. Ce n'est pas un
+  # secret, c'est l'inverse — une liste publique de ce qu'il faut REFUSER, et le
+  # clair n'y est ni présent ni reconstructible. L'exclusion est NOMINATIVE sur
+  # ce seul fichier ; tout autre base64 du dépôt reste surveillé.
+  '''src/packages/@nodefony/user/nodefony/src/password/commonPasswordHashes\.ts$''',
 ]
 
 regexes = [
@@ -67,6 +74,17 @@ regexes = [
   # ⚠️ ANCRÉS. Sans `^…$`, « app-dev » ignorerait tout secret qui CONTIENT cette
   # sous-chaîne — un mot de passe de décor ne doit acquitter que lui-même.
   '''^(app-dev|nodefony-dev|banc-verite-admin|changeme)$''',
+  # Mots de passe des FIXTURES des tests unitaires de `@nodefony/user`. Ils sont
+  # longs parce que la politique de mot de passe les refuserait courts — et c'est
+  # précisément ce qui les fait ressembler à des secrets pour le scanner. Ils
+  # n'ouvrent rien : ils vivent dans un dépôt en mémoire, détruit à la fin du cas.
+  '''^(s3cret-valise-42|autre-s3cret-valise-42|bon-mot-valise-42|ancien-mot-valise-42|nouveau-mot-valise-42)$''',
+  # Mots de passe des comptes de DÉVELOPPEMENT : celui du dépôt, celui qu'une
+  # application générée sème, celui de son banc de bout en bout, et la valeur
+  # d'exemple de `.env.local`. Tous sont écrits dans le dépôt à dessein — un
+  # compte de développement qui n'est joignable que depuis la machine qui l'a
+  # créé — et la politique de mot de passe interdit qu'ils soient plus courts.
+  '''^(secret-de-dev-42|nodefony-dev-42|e2e-compte-jetable-42|a-changer-avant-la-mise-en-ligne)$''',
   # Jeton JOUET du contrôle d'isolation du décor : sa charge utile est le texte
   # « jeton-du-depot », il n'est signé par rien.
   '''eyJhbGciOiJFZERTQSJ9\.jeton-du-depot''',

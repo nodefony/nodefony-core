@@ -52,6 +52,7 @@
     ".claude/skills/nodefony-ticket/scripts/ticket-verify.mjs",
     "scripts/check-package-deps.mjs",
     "scripts/check-platform-channels.mjs",
+    "scripts/generate-password-blocklist.mjs",
     "scripts/realtime-coverage-map.mjs",
     "scripts/safe-commit.sh"
   ]
