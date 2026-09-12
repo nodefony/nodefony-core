@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T00:31:27.137Z",
+  "generatedAt": "2026-09-12T07:32:41.481Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,14 +35,14 @@
       "closed": 74,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 16,
+      "open": 23,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 4,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 31,
       "title": "10.0.0-beta"
     },
     {
@@ -3014,14 +3014,14 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/214",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.45,
-      "debut": "2026-11-06",
-      "cible": "2026-11-06",
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
       "labels": [
-        "10.0.0-beta"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -3393,6 +3393,22 @@
       ]
     },
     {
+      "number": 369,
+      "title": "chore(release): publier la préversion 10.0.0-alpha.6",
+      "url": "https://github.com/nodefony/nodefony-core/issues/369",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 2.5,
+      "ordre": 9.94,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 340,
       "title": "feat(cli): guider l'agent au-delà de la génération",
       "url": "https://github.com/nodefony/nodefony-core/issues/340",
@@ -3457,6 +3473,22 @@
       ]
     },
     {
+      "number": 365,
+      "title": "fix(orm): avertir au démarrage qu'une migration attend",
+      "url": "https://github.com/nodefony/nodefony-core/issues/365",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.9409,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 347,
       "title": "fix(cli): nommer le client temps réel du moteur front choisi",
       "url": "https://github.com/nodefony/nodefony-core/issues/347",
@@ -3468,6 +3500,54 @@
       "ordre": 9.941,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 366,
+      "title": "test(devkit-bench): constater l'identité admin avant de juger",
+      "url": "https://github.com/nodefony/nodefony-core/issues/366",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.9411,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 367,
+      "title": "fix(cli): rendre vert le rapport d'une application neuve",
+      "url": "https://github.com/nodefony/nodefony-core/issues/367",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.9412,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 368,
+      "title": "feat(cli): soigner le premier contact avec le framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/368",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.9413,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4158,15 +4238,15 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
       "state": "OPEN",
       "status": "In Progress",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 28,
-      "debut": "2026-11-13",
-      "cible": "2026-11-13",
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
       "labels": [
         "rattrapable",
-        "10.0.0-beta"
+        "10.0.0-alpha"
       ]
     },
     {
