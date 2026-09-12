@@ -87,6 +87,16 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- [1× — 09-12d] **Ma garde anti-destruction refusait sur une application FRAÎCHE** — donc sur le
+  cas normal. Première version : « une table d'identité porte au moins une ligne ⇒ refus ». Or une
+  application générée porte TOUJOURS le compte d'administration que son semis repose à chaque
+  démarrage : il n'y a rien à perdre, et l'on aurait appris à taper les deux drapeaux par réflexe.
+  Le remède n'est pas de relâcher le refus mais de lui donner un SEUIL qui dit ce que la perte
+  coûte vraiment (`reseededRows` : ce qu'un semis repose tout seul). Le cas vécu qui fonde la
+  garde avait trois comptes, dont deux créés à la main — le seuil mord là, et se tait avant.
+  Corollaire : j'ai aussi dû RETIRER `access_token` de la liste (un jeton se réémet par un login) ;
+  le garder faisait crier la garde sur toute base un peu utilisée, soit toujours.
+
 - [1× — 09-12b] **La sonde regardait le bon motif dans le mauvais FICHIER — trois passes
   d'agent payées pour un faux rouge, et il est GRAVÉ dans la référence.** Tâche 17 du
   banc devkit, `PASS 3/3` → `FAIL 0/3` : la sonde cherche une zone de firewall dans
@@ -215,6 +225,18 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-12d] **`sed -i '' 's/\bmot\b/autre/'` ne remplace RIEN sur macOS, et sort 0.** Le
+  `\b` de GNU n'existe pas dans le `sed` BSD : la commande réussit, le fichier est inchangé, et
+  l'étape suivante (`check:lang`) est passée au vert — elle ne voyait pas le barbarisme resté en
+  place parce que ce n'était pas un mot français. J'ai donc cru un renommage fait, deux fois, et
+  c'est un `grep` de contrôle qui l'a dit. Règle : après un remplacement en masse, RECOMPTER les
+  occurrences restantes ; un code de sortie 0 d'un `sed` ne prouve aucune substitution.
+- [1× — 09-12d] **Un build en ÉCHEC a laissé mesurer l'ancien `dist`.** `turbo run build` sort en
+  2 sur une erreur TS, et la commande suivante du même appel a tourné sur l'artefact précédent —
+  concluant que la garde que je venais d'écrire « ne mordait pas ». Le chaînage sans `&&` est le
+  coupable, mais la leçon est plus large : AVANT de mesurer, constater que la transformation a eu
+  lieu (code de sortie du build, ou empreinte de l'artefact).
 
 - [1× — 09-12c] **Neuf mutations « toutes vues tomber » tombaient sur un import non résolu.**
   Le `--prove` d'un auto-contrôle copiait le module muté dans `/tmp` ; depuis qu'un voisin

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-12 13:19** (UTC).
+> Empreinte prise le **2026-09-12 16:00** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 75% | 74 | 25 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 79% | 79 | 21 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 28 | 2026-12-15 |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#214 — fix(http): glisser de port si une autre app l'écoute déjà**
+**#316 — feat(scaffold): rendre l'application générée déployable en production**
 
-Ordre 9.45 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-12 → 09-12
+Ordre 9.91 · P1 — figé à la création · 5.5 j · jalon 10.0.0-alpha · frise 2026-09-11 → 09-11
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 25 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -83,22 +83,18 @@ Ordre 9.45 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-1
 | 2 | P2 — décision | 3 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 25 ouverts
+## Jalon 10.0.0-alpha — 21 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 9.45 | P2 — décision | 0.5 | 2026-09-12 → 09-12 | #214 | fix(http): glisser de port si une autre app l'écoute déjà |
 | 9.91 | P1 — figé à la création | 5.5 | 2026-09-11 → 09-11 | #316 | feat(scaffold): rendre l'application générée déployable en production |
-| 9.93 | P1 — figé à la création | 1 | 2026-09-15 → 09-15 | #360 | feat(user): refuser les mots de passe manifestement faibles |
 | 9.94 | P0 — bloque le reste | 3 | 2026-09-12 → 09-12 | #369 | chore(release): publier la préversion 10.0.0-alpha.6 |
-| 9.9405 | P0 — bloque le reste | 4 | 2026-11-19 → 11-19 | #340 | feat(cli): guider l'agent au-delà de la génération |
-| 9.9406 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #362 | fix(scaffold): dire ce que fermer la zone /api coupe aussi |
-| 9.9407 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #363 | fix(orm): ne pas détruire des comptes sur un simple -y |
-| 9.9408 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #364 | fix(cli): borner le verdict de doctor à ce qui a été contrôlé |
+| 9.9405 | P0 — bloque le reste | 1 | 2026-11-19 → 11-19 | #340 | feat(cli): guider l'agent au-delà de la génération |
 | 9.9409 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #365 | fix(orm): avertir au démarrage qu'une migration attend |
 | 9.9411 | P2 — décision | 0.5 | 2026-09-12 → 09-12 | #366 | test(devkit-bench): constater l'identité admin avant de juger |
 | 9.9412 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #367 | fix(cli): rendre vert le rapport d'une application neuve |
 | 9.9413 | P1 — figé à la création | 1 | 2026-09-12 → 09-12 | #368 | feat(cli): soigner le premier contact avec le framework |
+| 9.9414 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #373 | fix(scaffold): dire quel compte n'a pas été semé, et pourquoi |
 | 9.955 | P1 — figé à la création | 1 | 2026-09-15 → 09-16 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
 | 9.96 | P2 — décision | 1.5 | 2026-09-22 → 09-22 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 9.97 | P1 — figé à la création | 2 | 2026-09-23 → 09-23 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |
