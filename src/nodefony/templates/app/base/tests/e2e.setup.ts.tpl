@@ -77,8 +77,14 @@ export const E2E_BASE_URL =
  * avec des identifiants connus. Les tests, eux, ont besoin d'une identité pour
  * éprouver les routes protégées (la suppression, notamment), d'où cette valeur
  * jetable, posée dans l'environnement du serveur de test et nulle part ailleurs.
+ *
+ * ⚠️ Elle doit passer la POLITIQUE de mot de passe (`PasswordPolicy`) : 10
+ * caractères au moins, et surtout **elle ne reprend pas l'identifiant du
+ * compte** (`admin`). Un seed refusé n'est pas un test rouge — il fait échouer
+ * le BOOT, et la suite entière s'arrête sur « aucun fichier de test trouvé »,
+ * message qui n'a aucun rapport avec la cause.
  */
-export const ADMIN_PASSWORD = "e2e-admin-jetable";
+export const ADMIN_PASSWORD = "e2e-compte-jetable-42";
 
 /**
  * Ouvre une session d'administration et rend l'en-tête `Cookie` à rejouer.

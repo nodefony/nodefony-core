@@ -66,6 +66,46 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      * Hors zone, l'identité n'est JAMAIS résolue.
      *
      * - EXIGER le login sur `/api` : retire `"anonymous"` de `main`.
+     *   ⚠️ **Ce geste ferme AUSSI la démonstration livrée avec l'application**,
+     *   et rien ne fera le lien à ta place — `nodefony doctor` comptera même
+     *   « rien d'ouvert sans authentification » comme un ✓. Ce qui tombe :
+     *     · `GET /api/hello` et le WebSocket `/api/echo` (`HelloController`) ;
+     *     · le canal temps réel `/api/live/realtime` (`LiveController`), d'où
+     *       les vitrines frontend tirent leur flux ;
+     *     · **les tests de bout en bout FOURNIS** — `tests/e2e.test.ts` appelle
+     *       ces trois surfaces SANS identité. `npm run test:e2e` passe alors au
+     *       rouge sur des cas que tu n'as pas écrits : `expected 401 to be 200`
+     *       sur `/api/hello`, et un DÉLAI DÉPASSÉ sur chaque WebSocket — un
+     *       refus d'ouverture ne lève pas d'erreur côté client, il ne répond
+     *       jamais. Une entité générée (`nodefony create entity`) livre ses
+     *       propres cas e2e sous `/api/<entité>` : eux aussi tombent, en 401
+     *       sur la lecture et 403 sur l'écriture.
+     *   Si tu fermes quand même, c'est assumé : supprime les cas de
+     *   démonstration de `tests/` au lieu de les laisser rouges — un banc rouge
+     *   qu'on apprend à ignorer emporte le prochain vrai rouge avec lui.
+     *
+     * - **GARDER la démonstration joignable ET fermer le reste** — le geste à
+     *   préférer, parce qu'il n'exige de renoncer à rien. Laisse `main` FERMÉE
+     *   (sans `"anonymous"`) et rends publiques les seules routes qui doivent
+     *   l'être, par une zone au pattern ÉNUMÉRÉ : le firewall trie par longueur
+     *   de pattern, donc `^/api/(hello|echo|live)` l'emporte sur `^/api`.
+     *
+     *   ```ts
+     *   main: { pattern: "^/api", authenticators: ["session"] },
+     *   demo: {
+     *     pattern: "^/api/(hello|echo|live)(/|$)",
+     *     authenticators: ["session", "anonymous"],
+     *   },
+     *   ```
+     *
+     *   Énumérer est le point : `"anonymous"` sur une zone ouvre TOUTES ses
+     *   routes, et une zone au pattern large redeviendrait le trou qu'on vient
+     *   de fermer. Le `(/|$)` final n'est pas une coquetterie — un pattern est
+     *   un PRÉFIXE : sans lui, `^/api/(hello|echo|live)` ouvrirait aussi
+     *   `/api/hellofacture`, et la prochaine route dont le nom commence par
+     *   `hello` naîtrait publique sans que personne l'ait voulu.
+     *   Quand tu retires la démonstration, retire la zone avec elle.
+     *
      * - Protéger plus large : élargis le pattern (ex. `"^/(api|compte)"`).
      *
      * Le firewall trie par longueur de pattern : `/api/secure/*` tombe donc
@@ -107,7 +147,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
      * Le bon pattern est `"^/api/account"`.
      *
      * La zone retenue est celle dont le pattern est le plus LONG parmi
-     * celles qui correspondent (`firewall.ts:245`) — pas la première
+     * celles qui correspondent (`firewall.ts:257`) — pas la première
      * déclarée. C'est ainsi que `^/api/secure` l'emporte sur `^/api`
      * ci-dessous. Un pattern énuméré gagne donc lui aussi sur ses propres
      * routes, ce qui rend l'erreur silencieuse : ce qu'on teste marche.
