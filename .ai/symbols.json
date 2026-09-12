@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 830,
-    "symbols": 4054,
+    "symbols": 4058,
     "classes": 392,
     "interfaces": 1090,
     "types": 448,
     "enums": 4,
-    "functions": 1713,
+    "functions": 1717,
     "constants": 407
   },
   "symbols": {
@@ -22736,6 +22736,38 @@
       "module": "@nodefony/drizzle",
       "description": "L'outil qui ÉCRIT les migrations n'est pas installé. Refus À PART, et c'est tout son intérêt : sans lui, cette cause tombait dans le fourre-tout des commandes de migration, qui habille toute except…"
     },
+    "formatToolOutput": {
+      "name": "formatToolOutput",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Sortie d'un outil tiers, prête à être citée dans une explication. Elle est indentée pour se distinguer de la prose qui l'entoure, et BORNÉE par la fin : une pile d'appels se termine par ce qui a ca…"
+    },
+    "generationNeedsAnswer": {
+      "name": "generationNeedsAnswer",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'outil de génération pose une QUESTION, et aucun terminal n'y répond. C'est le cas d'une colonne qui disparaît pendant qu'une autre apparaît : renommage (les données suivent) ou suppression puis a…"
+    },
+    "generationFailed": {
+      "name": "generationFailed",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'outil de génération s'est arrêté, et ce qu'il a dit est remonté TEL QUEL. 🔴 Ne JAMAIS remplacer sa sortie par une hypothèse. Le fourre-tout des commandes de migration explique tout par une base …"
+    },
+    "introspectFailed": {
+      "name": "introspectFailed",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "La lecture du schéma d'une base existante a échoué. Contrairement à la génération, celle-ci INTERROGE la base : une base muette ou des droits insuffisants sont ici des explications légitimes."
+    },
     "moduleAbsent": {
       "name": "moduleAbsent",
       "kind": "function",
@@ -36655,7 +36687,16 @@
       "ISchemaGap": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
       ],
+      "generationFailed": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
+      "generationNeedsAnswer": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
       "generationToolMissing": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
+      "introspectFailed": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "knownConnectors": [

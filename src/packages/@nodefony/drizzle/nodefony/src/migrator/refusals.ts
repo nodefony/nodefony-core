@@ -57,6 +57,12 @@ export type CommandFailureCode =
   | "NF_GENERATE_DATABASE_BEHIND"
   /** L'outil qui ÉCRIT les migrations n'est pas installé. */
   | "NF_GENERATE_TOOL_MISSING"
+  /** L'outil de génération pose une question, et il n'y a pas de terminal. */
+  | "NF_GENERATE_NEEDS_ANSWER"
+  /** L'outil de génération s'est arrêté ; ce qu'il a dit est remonté tel quel. */
+  | "NF_GENERATE_TOOL_FAILED"
+  /** La lecture du schéma d'une base existante a échoué. */
+  | "NF_INTROSPECT_FAILED"
   /** Le schéma initial serait écrit sur une base qui porte DÉJÀ ces tables. */
   | "NF_GENERATE_DATABASE_NOT_ADOPTED"
   /** L'adoption par lecture de la base, demandée alors qu'il existe déjà des migrations. */
@@ -155,6 +161,129 @@ export function generationToolMissing(): IResolutionRefusal {
       action("npm install"),
       action("npm install --save-dev drizzle-kit"),
     ],
+    exitCode: 2,
+  };
+}
+
+/**
+ * Sortie d'un outil tiers, prête à être citée dans une explication.
+ *
+ * Elle est indentée pour se distinguer de la prose qui l'entoure, et BORNÉE par
+ * la fin : une pile d'appels se termine par ce qui a cassé, jamais par ce qui a
+ * démarré. La troncature s'ANNONCE — une sortie coupée en silence fait chercher
+ * une cause dans la moitié qu'on n'a pas montrée.
+ *
+ * @param output - sortie complète de l'outil (standard puis erreur).
+ * @param maxLines - nombre de lignes conservées, depuis la fin.
+ * @returns le bloc cité, ou une phrase disant qu'il n'y avait rien.
+ */
+export function formatToolOutput(output: string, maxLines = 40): string {
+  const lines = output
+    .split("\n")
+    .map((line) => line.trimEnd())
+    .filter((line) => line.length > 0);
+  if (lines.length === 0) {
+    return "  (l'outil n'a rien écrit du tout)";
+  }
+  const kept = lines.slice(-maxLines);
+  const head =
+    kept.length < lines.length
+      ? [`  […] ${lines.length - kept.length} ligne(s) plus haut, non citées`]
+      : [];
+  return [...head, ...kept.map((line) => `  ${line}`)].join("\n");
+}
+
+/**
+ * L'outil de génération pose une QUESTION, et aucun terminal n'y répond.
+ *
+ * C'est le cas d'une colonne qui disparaît pendant qu'une autre apparaît :
+ * renommage (les données suivent) ou suppression puis ajout (les données sont
+ * perdues) — l'outil ne peut pas le deviner, et il a raison de demander.
+ *
+ * @param label - ce qui était généré, tel qu'on le cite à l'utilisateur.
+ * @param replay - la commande à rejouer dans un terminal interactif.
+ * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
+ */
+export function generationNeedsAnswer(
+  label: string,
+  replay: string,
+): IResolutionRefusal {
+  return {
+    code: "NF_GENERATE_NEEDS_ANSWER",
+    summary: `Un RENOMMAGE probable a été détecté sur ${label}, et il faut trancher — rien n'a été écrit.`,
+    meaning:
+      "Une colonne disparaît et une autre apparaît : c'est soit un renommage — les données SUIVENT —, " +
+      "soit une suppression puis un ajout — les données sont PERDUES. L'outil ne peut pas deviner " +
+      "l'intention, il pose donc la question, et il n'y a pas de terminal ici pour y répondre. " +
+      "La base n'est pas en cause : elle n'a même pas été interrogée. " +
+      "⚠️ Après avoir répondu « renamed », RELIRE le fichier produit : quand une colonne est renommée " +
+      "ET que son type change, l'outil n'écrit que le renommage et oublie le changement de type " +
+      "(drizzle-orm#3826).",
+    nextActions: [action(replay)],
+    exitCode: 2,
+  };
+}
+
+/**
+ * L'outil de génération s'est arrêté, et ce qu'il a dit est remonté TEL QUEL.
+ *
+ * 🔴 Ne JAMAIS remplacer sa sortie par une hypothèse. Le fourre-tout des
+ * commandes de migration explique tout par une base injoignable ou des droits
+ * manquants : sur un schéma qui retire une colonne, les deux sont FAUX, et ils
+ * envoient vérifier une base qui répond très bien pendant que la cause est dans
+ * le fichier d'entité qu'on vient d'éditer. Un message d'erreur est cru PARCE
+ * QU'il est précis.
+ *
+ * @param label - ce qui était généré, tel qu'on le cite à l'utilisateur.
+ * @param status - code de sortie observé (il vaut `0` même en échec).
+ * @param output - sortie complète de l'outil.
+ * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
+ */
+export function generationFailed(
+  label: string,
+  status: number | null,
+  output: string,
+): IResolutionRefusal {
+  return {
+    code: "NF_GENERATE_TOOL_FAILED",
+    summary: `La génération n'a pas eu lieu sur ${label} — rien n'a été écrit.`,
+    meaning:
+      `Ne rien conclure du code de sortie : l'outil rend 0 même en échec (observé : ${status ?? "aucun"}). ` +
+      `Ce qu'il a dit, mot pour mot :\n\n${formatToolOutput(output)}\n\n` +
+      "La base n'est PAS en cause, et ce n'est pas une question de droits : écrire une migration ne " +
+      "l'interroge pas. La comparaison se fait entre les ENTITÉS déclarées et les instantanés des " +
+      "migrations déjà écrites — c'est donc du côté du schéma déclaré qu'il faut regarder.",
+    nextActions: [action("nodefony inspect entities")],
+    exitCode: 2,
+  };
+}
+
+/**
+ * La lecture du schéma d'une base existante a échoué.
+ *
+ * Contrairement à la génération, celle-ci INTERROGE la base : une base muette
+ * ou des droits insuffisants sont ici des explications légitimes.
+ *
+ * @param label - ce qui était lu, tel qu'on le cite à l'utilisateur.
+ * @param status - code de sortie observé.
+ * @param output - sortie complète de l'outil.
+ * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
+ */
+export function introspectFailed(
+  label: string,
+  status: number | null,
+  output: string,
+): IResolutionRefusal {
+  return {
+    code: "NF_INTROSPECT_FAILED",
+    summary: `La lecture du schéma de ${label} a échoué — rien n'a été écrit.`,
+    meaning:
+      `Code de sortie : ${status ?? "aucun"}. Ce que l'outil a dit, mot pour mot :\n\n` +
+      `${formatToolOutput(output)}\n\n` +
+      "Cette étape-ci, contrairement à la génération, INTERROGE la base : une base qui ne répond pas, " +
+      "ou un compte sans le droit de lire le catalogue, sont des explications plausibles — la sortie " +
+      "ci-dessus tranche.",
+    nextActions: [action("nodefony inspect config --json")],
     exitCode: 2,
   };
 }

@@ -21,7 +21,13 @@ import { spawnSync } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
-import { MigrationToolError, generationToolMissing } from "./refusals";
+import {
+  MigrationToolError,
+  generationFailed,
+  generationNeedsAnswer,
+  generationToolMissing,
+  introspectFailed,
+} from "./refusals";
 
 /** Ce qu'une règle d'audit rend quand elle reconnaît une instruction. */
 export interface IAuditRule {
@@ -104,8 +110,9 @@ export function resolveDrizzleKitBin(from: string): string {
  *   relatif à `cwd`), `name` (nom imposé de la migration), `label` (ce qui est
  *   cité dans l'erreur).
  * @returns la sortie complète de l'outil (sortie standard puis sortie d'erreur).
- * @throws Error si le code est non nul, ou si rien ne prouve que la génération a
- *   eu lieu — l'absence de preuve n'est JAMAIS lue comme « rien à faire ».
+ * @throws MigrationToolError si le code est non nul, ou si rien ne prouve que la
+ *   génération a eu lieu — l'absence de preuve n'est JAMAIS lue comme « rien à
+ *   faire ». Le refus porte la sortie de l'outil, jamais une hypothèse.
  */
 export function runGenerate({
   cwd,
@@ -133,27 +140,23 @@ export function runGenerate({
   );
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (result.status !== 0 || !generationHappened(output)) {
+    // 🔴 Un refus TYPÉ, jamais une `Error` nue. Une exception nue tombe dans le
+    // fourre-tout des commandes de migration, qui explique TOUT par une base
+    // injoignable ou des droits manquants : deux affirmations fausses ici — la
+    // génération n'interroge pas la base — et qui envoient chercher là où il
+    // n'y a rien, pendant que la cause est dans le fichier d'entité qu'on vient
+    // d'éditer. La règle valait déjà pour l'outil absent (cf
+    // `resolveDrizzleKitBin`) ; elle ne couvrait pas la famille.
     if (isInteractivePromptFailure(output)) {
-      const replay =
-        regenerateCommand ?? `nodefony orm:generate --name ${name}`;
-      throw new Error(
-        `Un RENOMMAGE probable a été détecté sur ${label}, et il faut trancher.\n\n` +
-          `  drizzle-kit ne peut pas deviner votre intention : une colonne qui\n` +
-          `  disparaît et une autre qui apparaît, c'est soit un renommage — les\n` +
-          `  données SUIVENT —, soit une suppression puis un ajout — les données\n` +
-          `  sont PERDUES. Il pose donc la question, et il n'y a pas de terminal\n` +
-          `  ici pour y répondre.\n\n` +
-          `  Rejouer la commande dans un terminal interactif :\n` +
-          `    ${replay}\n\n` +
-          `  ⚠️ Après avoir répondu « renamed », RELIRE le fichier produit : quand\n` +
-          `  une colonne est renommée ET que son type change, l'outil n'écrit que\n` +
-          `  le renommage et OUBLIE le changement de type (drizzle-orm#3826).`,
+      throw new MigrationToolError(
+        generationNeedsAnswer(
+          label,
+          regenerateCommand ?? `nodefony orm:generate --name ${name}`,
+        ),
       );
     }
-    throw new Error(
-      `La génération n'a pas eu lieu sur ${label} (code ${result.status}). ` +
-        `Ne rien conclure de ce silence : l'outil rend 0 même en échec.\n` +
-        output.trim(),
+    throw new MigrationToolError(
+      generationFailed(label, result.status, output),
     );
   }
   return output;
@@ -177,7 +180,7 @@ export function runGenerate({
  *   (configuration, chemin relatif à `cwd`), `label` (ce qui est cité en cas
  *   d'échec).
  * @returns la sortie complète de l'outil.
- * @throws Error si le code est non nul.
+ * @throws MigrationToolError si le code est non nul.
  */
 export function runIntrospect({
   cwd,
@@ -195,9 +198,12 @@ export function runIntrospect({
   );
   const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
   if (result.status !== 0) {
-    throw new Error(
-      `La lecture du schéma de ${label} a échoué (code ${result.status}).\n` +
-        output.trim(),
+    // Même règle qu'à la génération : un refus TYPÉ, pour que la sortie de
+    // l'outil atteigne l'utilisateur au lieu d'être remplacée par une
+    // hypothèse. Cette étape-ci, elle, interroge VRAIMENT la base — son refus
+    // le dit, et c'est ce qui le distingue du précédent.
+    throw new MigrationToolError(
+      introspectFailed(label, result.status, output),
     );
   }
   return output;
