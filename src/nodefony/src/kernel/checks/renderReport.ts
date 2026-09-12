@@ -147,6 +147,51 @@ export function worthReporting(entry: ILastBoot): boolean {
 }
 
 /**
+ * Ce bilan est-il CONTREDIT par les contrôles de ce même rapport ?
+ *
+ * Le cas vécu tient en un écran : le générateur écrit la migration initiale ET
+ * l'applique, mais le bilan figé au démarrage de `orm:migrate` porte encore
+ * « no such table: User ». Le rapport affichait alors un `!` orange trois
+ * lignes au-dessus d'un bandeau vert — et ce qui se retient d'un premier
+ * contact, ce n'est pas un temps de conjugaison, c'est le symbole d'alerte.
+ *
+ * Deux faits ne se rétrogradent JAMAIS, parce qu'aucun contrôle de `doctor` ne
+ * les réexamine — les taire serait une garde qui se tait sur le cas fautif :
+ * un démarrage ABANDONNÉ, et un profil serveur qui a fini sans serveur en
+ * écoute. Le reste (briques ignorées, journal chargé) décrit un état que les
+ * familles de ce rapport viennent de constater à neuf.
+ *
+ * @param entry - le bilan du démarrage lu sur le disque.
+ * @param report - le diagnostic de MAINTENANT.
+ * @returns `true` si le bilan n'appelle plus aucun geste.
+ */
+export function supersededByCurrentChecks(
+  entry: ILastBoot,
+  report: IDoctorReport,
+): boolean {
+  if (entry.status === "failed" || entry.healthy === false) return false;
+  return reportIsClear(report);
+}
+
+/**
+ * Le rapport dit-il « rien à signaler » — VRAIMENT ?
+ *
+ * 🔴 Zéro manquement ne suffit pas : hors d'une application, toutes les
+ * familles sont sautées et le compte est zéro lui aussi. Le bandeau connaît la
+ * distinction depuis toujours (« AUCUN CONTRÔLE N'A PU ÊTRE FAIT ICI ») ; ce
+ * prédicat existe pour qu'elle ne soit pas réécrite ailleurs, au risque qu'une
+ * des deux copies l'oublie. Vécu, par ce fichier même : un bilan de démarrage
+ * amputé passait en simple information dans un décor où RIEN n'avait été
+ * regardé — et c'est exactement là qu'il fallait le croire.
+ *
+ * @param report - le diagnostic collecté.
+ * @returns `true` si des contrôles ont tourné et n'ont rien trouvé.
+ */
+export function reportIsClear(report: IDoctorReport): boolean {
+  return countFindings(report) === 0 && passedCheckCount(report) > 0;
+}
+
+/**
  * Regroupe les contrôles sautés qui partagent la MÊME raison.
  *
  * Hors d'une application, quatre familles sont sautées pour un seul et même
@@ -290,15 +335,22 @@ export function renderReport(
     // APRÈS les problèmes, et c'est un choix : un démarrage passé n'est pas un
     // manquement du code — c'est une trace. Placé avant, il repoussait le
     // premier vrai problème quarante lignes plus bas.
+    // La teinte du TITRE suit le plus sévère des bilans : une section neutre
+    // au-dessus d'un démarrage abandonné le rendrait anodin.
+    const superseded = tellingSummaries.map((s) =>
+      supersededByCurrentChecks(s, report),
+    );
     section(
       tellingSummaries.length > 1 ? "DERNIERS DÉMARRAGES" : "DERNIER DÉMARRAGE",
-      p.warning,
+      superseded.every(Boolean) ? p.dim : p.warning,
     );
     let premier = true;
-    for (const startup of tellingSummaries) {
+    for (const [i, startup] of tellingSummaries.entries()) {
       if (!premier) lines.push("");
       premier = false;
-      lines.push(...lastStartup(startup, now, p, width));
+      lines.push(
+        ...lastStartup(startup, now, p, width, superseded[i] ?? false),
+      );
     }
   }
 
@@ -1130,11 +1182,16 @@ function lastStartup(
   now: number,
   p: IPalette,
   width: number,
+  superseded: boolean,
 ): string[] {
   const lines: string[] = [];
   const age = formatAge(entry.timestamp, now);
   const state: SectionState =
-    entry.status === "failed" ? "echec" : "avertissement";
+    entry.status === "failed"
+      ? "echec"
+      : superseded
+        ? "information"
+        : "avertissement";
   /**
    * Un couple « libellé — valeur », la valeur repliée SOUS elle-même.
    *
@@ -1202,23 +1259,49 @@ function lastStartup(
     // re-CONSTATER l'état (donc de redémarrer), et il faudrait recommencer pour
     // chaque verbe qui change quelque chose. Une règle, une implémentation :
     // c'est le LECTEUR qui sait d'où vient le bilan, et qui le dit.
+    //
+    // 🔴 Et le temps du verbe NE SUFFIT PAS quand les contrôles d'aujourd'hui
+    // disent le contraire : deux affirmations opposées dans le même écran ne se
+    // départagent pas par une conjugaison. Le bilan devient alors une trace, et
+    // le dit — cf {@link supersededByCurrentChecks}.
     const fromConsole = entry.profile === "console";
-    lines.push(
-      ...title(
-        fromConsole
-          ? `au démarrage de ${qui(entry)}, il MANQUAIT des briques (${age})`
-          : `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
-        p.warning,
-      ),
-    );
-    if (fromConsole) {
+    if (superseded) {
+      lines.push(
+        ...title(
+          `${qui(entry)} — trace d'un démarrage dégradé (${age})`,
+          p.dim,
+        ),
+      );
       for (const l of wrap(
-        "→ constat figé AVANT l'exécution de la commande : ce qu'elle a changé" +
-          " n'y figure pas. `nodefony doctor --live` constate maintenant.",
+        (fromConsole
+          ? "→ constat figé AVANT l'exécution de la commande, et les contrôles"
+          : "→ les contrôles") +
+          " de ce rapport ne retrouvent rien de tel : conservé pour mémoire," +
+          " aucun geste attendu.",
         width,
         BODY,
       )) {
-        lines.push(p.action(l));
+        lines.push(p.dim(l));
+      }
+    } else {
+      lines.push(
+        ...title(
+          fromConsole
+            ? `au démarrage de ${qui(entry)}, il MANQUAIT des briques (${age})`
+            : `${qui(entry)} a abouti mais il MANQUE des briques (${age})`,
+          p.warning,
+        ),
+      );
+      if (fromConsole) {
+        for (const l of wrap(
+          "→ constat figé AVANT l'exécution de la commande : ce qu'elle a" +
+            " changé n'y figure pas. `nodefony doctor --live` constate" +
+            " maintenant.",
+          width,
+          BODY,
+        )) {
+          lines.push(p.action(l));
+        }
       }
     }
     lines.push(...field("environnement", entry.environment));

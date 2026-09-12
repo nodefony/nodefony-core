@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 830,
-    "symbols": 4058,
+    "symbols": 4060,
     "classes": 392,
     "interfaces": 1090,
     "types": 448,
     "enums": 4,
-    "functions": 1717,
+    "functions": 1719,
     "constants": 407
   },
   "symbols": {
@@ -9350,6 +9350,22 @@
       "module": "@nodefony/core",
       "description": "Un bilan de démarrage mérite d'être rapporté quand il porte une MAUVAISE nouvelle. Un démarrage abouti, complet et sans brique manquante ne se commente pas : l'afficher à chaque contrôle serait du …"
     },
+    "supersededByCurrentChecks": {
+      "name": "supersededByCurrentChecks",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce bilan est-il CONTREDIT par les contrôles de ce même rapport ? Le cas vécu tient en un écran : le générateur écrit la migration initiale ET l'applique, mais le bilan figé au démarrage de `orm:mig…"
+    },
+    "reportIsClear": {
+      "name": "reportIsClear",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/renderReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le rapport dit-il « rien à signaler » — VRAIMENT ? 🔴 Zéro manquement ne suffit pas : hors d'une application, toutes les familles sont sautées et le compte est zéro lui aussi. Le bandeau connaît la…"
+    },
     "groupByReason": {
       "name": "groupByReason",
       "kind": "function",
@@ -9442,7 +9458,7 @@
       "file": "src/nodefony/src/kernel/checks/report.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Le verdict d'une famille de contrôles, tel qu'il s'affiche."
+      "description": "Le verdict d'une famille de contrôles, tel qu'il s'affiche. `\"information\"` n'est PAS un demi-avertissement : c'est un constat qui ne demande aucun geste — typiquement un fait d'exécution que les c…"
     },
     "DoctorFamily": {
       "name": "DoctorFamily",

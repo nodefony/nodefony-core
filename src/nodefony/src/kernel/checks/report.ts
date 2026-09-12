@@ -15,8 +15,16 @@
  */
 import clc from "../../colors";
 
-/** Le verdict d'une famille de contrôles, tel qu'il s'affiche. */
-export type SectionState = "ok" | "echec" | "avertissement" | "non-controle";
+/**
+ * Le verdict d'une famille de contrôles, tel qu'il s'affiche.
+ *
+ * `"information"` n'est PAS un demi-avertissement : c'est un constat qui ne
+ * demande aucun geste — typiquement un fait d'exécution que les contrôles de ce
+ * même rapport contredisent. Sans lui, un écran pouvait porter un `!` orange et
+ * un bandeau vert : l'un des deux est alors cru, jamais les deux.
+ */
+export type SectionState =
+  "ok" | "echec" | "avertissement" | "information" | "non-controle";
 
 /** Une famille de contrôles, résumée en une ligne du sommaire. */
 export interface ISummaryLine {
@@ -536,6 +544,8 @@ export function stateSymbol(state: SectionState): string {
       return "✗";
     case "avertissement":
       return "!";
+    case "information":
+      return "ℹ";
     case "non-controle":
       return "—";
   }

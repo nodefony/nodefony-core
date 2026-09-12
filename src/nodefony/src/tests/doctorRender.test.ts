@@ -797,3 +797,125 @@ describe("À FAIRE ENSUITE — un geste long garde ce qu'il répare", () => {
     }
   });
 });
+
+describe("doctor — un démarrage passé ne contredit pas les contrôles d'aujourd'hui", () => {
+  /**
+   * Un bilan de démarrage DÉGRADÉ mais abouti — le cas de `orm:migrate`, dont
+   * le constat est figé AVANT que la commande n'applique la migration.
+   */
+  const demarrageDegrade = (
+    patch: Record<string, unknown> = {},
+  ): IDoctorReport["lastBoots"] =>
+    [
+      {
+        status: "ok",
+        timestamp: "2026-09-04T11:00:00.000Z",
+        profile: "console",
+        command: "orm:migrate",
+        environment: "development",
+        pid: 1,
+        node: "v26.0.0",
+        bricksSkipped: [
+          {
+            module: "app",
+            phase: "lifecycle",
+            reason: "no such table: User",
+          },
+        ],
+        warnings: 10,
+        errors: 2,
+        ...patch,
+      },
+    ] as IDoctorReport["lastBoots"];
+
+  /**
+   * Le symbole d'état porté par le titre du bloc — c'est LUI qui distingue les
+   * deux lectures, et lui seul survit au retrait de la couleur.
+   */
+  const symboleDuBloc = (lignes: string[]): string => {
+    const titre = lignes.map(nu).find((l) => /orm:migrate`/u.test(l)) ?? "";
+    return titre.trim().slice(0, 1);
+  };
+
+  it("🔴 reste un AVERTISSEMENT tant que les contrôles trouvent quelque chose", () => {
+    const lignes = renderReport(
+      rapport({
+        lastBoots: demarrageDegrade(),
+        wiring: {
+          scanned: 12,
+          findings: [
+            {
+              kind: "missing-brick",
+              message: "un service manque à l'appel",
+              file: "src/app.ts",
+            },
+          ],
+        } as IDoctorReport["wiring"],
+      }),
+      options(),
+    );
+    assert.equal(symboleDuBloc(lignes), "!");
+  });
+
+  it("🔴 devient une INFORMATION quand plus rien n'est signalé aujourd'hui", () => {
+    const lignes = renderReport(
+      rapport({ lastBoots: demarrageDegrade() }),
+      options(),
+    );
+    // Le bandeau est vert : le même écran ne peut pas porter un avertissement
+    // qui le contredit.
+    assert.include(lignes.map(nu).join("\n"), "RIEN À SIGNALER");
+    assert.notEqual(symboleDuBloc(lignes), "!");
+    assert.equal(symboleDuBloc(lignes), "ℹ");
+    // Et il DIT pourquoi il est conservé — sinon il se lit comme un problème
+    // qu'on aurait cherché à cacher.
+    assert.include(lignes.map(nu).join("\n"), "ne retrouvent rien de tel");
+    // La phrase est neuve : un décor qui n'est éprouvé qu'à 80 colonnes laisse
+    // passer un débordement sur les terminaux étroits.
+    for (const largeur of [48, 60, 80]) {
+      for (const l of renderReport(
+        rapport({ lastBoots: demarrageDegrade() }),
+        options({ width: largeur }),
+      )) {
+        const vue = nu(l);
+        if (/^\s*\S+$/u.test(vue)) continue;
+        assert.isAtMost(vue.length, largeur, `ligne trop longue : ${vue}`);
+      }
+    }
+  });
+
+  it("🔴 un démarrage réellement en ÉCHEC reste signalé, rapport vert ou non", () => {
+    const lignes = renderReport(
+      rapport({
+        lastBoots: demarrageDegrade({
+          status: "failed",
+          phase: "onPreBoot",
+          error: { name: "BootError", message: "base introuvable" },
+        }),
+      }),
+      options(),
+    );
+    assert.equal(symboleDuBloc(lignes), "✗");
+  });
+
+  it("🔴 zéro manquement ne suffit pas : encore faut-il avoir REGARDÉ", () => {
+    // Hors d'une application, tout est sauté et le compte de manquements vaut
+    // zéro lui aussi — c'est précisément le décor où un bilan de démarrage
+    // amputé est la SEULE chose qu'on sache, donc le dernier à rétrograder.
+    const horsApp = horsApplication();
+    const lignes = renderReport(
+      { ...horsApp, lastBoots: demarrageDegrade() },
+      options(),
+    );
+    assert.include(lignes.map(nu).join("\n"), "AUCUN CONTRÔLE N'A PU");
+    assert.equal(symboleDuBloc(lignes), "!");
+  });
+
+  it("🔴 un profil serveur sans serveur en écoute reste un avertissement", () => {
+    const lignes = renderReport(
+      rapport({ lastBoots: demarrageDegrade({ healthy: false }) }),
+      options(),
+    );
+    assert.equal(symboleDuBloc(lignes), "!");
+  });
+});
