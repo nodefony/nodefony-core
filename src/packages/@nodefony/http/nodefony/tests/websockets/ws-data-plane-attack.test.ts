@@ -238,7 +238,7 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
   // doit refuser sur la seule Origin, AVANT que le cookie ne compte (sinon CSWSH).
 
   it("O1 Origin cross-site (https://evil.example) + cookie admin → REFUS 1008", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const { welcomed, code } = await observeHandshake(
       cookie,
       "https://evil.example",
@@ -251,7 +251,7 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
   });
 
   it("O2 Origin suffixe (https://127.0.0.1.evil.example) + cookie → REFUS 1008", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const { welcomed, code } = await observeHandshake(
       cookie,
       "https://127.0.0.1.evil.example",
@@ -262,7 +262,7 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
   });
 
   it("O3 Origin userinfo (https://127.0.0.1@evil.example) + cookie → REFUS 1008", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const { welcomed, code } = await observeHandshake(
       cookie,
       "https://127.0.0.1@evil.example",
@@ -273,7 +273,7 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
   });
 
   it("O4 Origin opaque (null) + cookie → REFUS 1008", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const { welcomed, code } = await observeHandshake(cookie, "null");
     // "null" n'est pas une URL valide → originHost null → jamais same-origin.
     expect(welcomed).to.equal(false);
@@ -281,7 +281,7 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
   });
 
   it("O5 contrôle positif : Origin same-origin (https://127.0.0.1:5152) + cookie → WELCOME", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const { welcomed } = await observeHandshake(
       cookie,
       "https://127.0.0.1:5152",
@@ -294,7 +294,7 @@ describe("P6 RED-TEAM — anti-CSWSH au handshake WS (requires server)", () => {
 
 describe("P6 RED-TEAM — identité figée à l'ALS, 0 re-trust par frame (requires server)", () => {
   it("B1 user + roles ROLE_ADMIN forgés dans les params api.request → 403 (params ignorés)", async () => {
-    const cookie = await loginCookie("user", "secret");
+    const cookie = await loginCookie("user", "secret-de-dev-42");
     const hub = await connect(cookie);
     const reply = await hub.call({
       path: GUARDED,
@@ -316,7 +316,7 @@ describe("P6 RED-TEAM — identité figée à l'ALS, 0 re-trust par frame (requi
   });
 
   it("B2 user + token/sub forgés dans les params api.request → 403", async () => {
-    const cookie = await loginCookie("user", "secret");
+    const cookie = await loginCookie("user", "secret-de-dev-42");
     const hub = await connect(cookie);
     const reply = await hub.call({
       path: GUARDED,
@@ -334,7 +334,7 @@ describe("P6 RED-TEAM — identité figée à l'ALS, 0 re-trust par frame (requi
   });
 
   it("B0 contrôle positif : admin (ALS) → GRANT même sans champ d'identité dans la frame", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await connect(cookie);
     const reply = await hub.call({ path: GUARDED });
     hub.close();
@@ -347,7 +347,7 @@ describe("P6 RED-TEAM — identité figée à l'ALS, 0 re-trust par frame (requi
 
 describe("P6 RED-TEAM — api.request confiné à la zone data plane (requires server)", () => {
   it("C1 path HORS data plane (/nodefony/test/index, pas /api/) → REFUS", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await connect(cookie);
     const reply = await hub.call({ path: "/nodefony/test/index" });
     hub.close();
@@ -363,7 +363,7 @@ describe("P6 RED-TEAM — api.request confiné à la zone data plane (requires s
   });
 
   it("C2 traversée '..' pour sortir de la zone (/nodefony/studio/api/../../test/index) → REFUS", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await connect(cookie);
     const reply = await hub.call({
       path: "/nodefony/studio/api/../../test/index",
@@ -379,7 +379,7 @@ describe("P6 RED-TEAM — api.request confiné à la zone data plane (requires s
   });
 
   it("C3 path malformé (number) → -32602 invalid params (avant toute résolution)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await connect(cookie);
     const reply = await hub.call({ path: 123 });
     hub.close();

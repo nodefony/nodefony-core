@@ -99,7 +99,7 @@ function sessionCookieOf(res: Res): string | null {
 async function loginAdmin(): Promise<string> {
   const login = await post(`${AUTH}/login`, {
     username: "admin",
-    password: "secret",
+    password: "secret-de-dev-42",
   });
   expect(login.status, "login admin").to.equal(200);
   const cookie = sessionCookieOf(login);

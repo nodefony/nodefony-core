@@ -113,7 +113,7 @@ async function seedAdmin(users: UserService, module: Module): Promise<void> {
     return;
   }
   const isProd = module.kernel?.environment === "production";
-  const password = env.NF_ADMIN_PASSWORD ?? (isProd ? null : "admin");
+  const password = env.NF_ADMIN_PASSWORD ?? (isProd ? null : "nodefony-dev-42");
   if (!password) {
     module.log(
       `Aucun admin et NF_ADMIN_PASSWORD non défini → aucun compte seedé en ` +
@@ -132,7 +132,7 @@ async function seedAdmin(users: UserService, module: Module): Promise<void> {
   module.log(
     isProd
       ? `Compte admin seedé (mot de passe : NF_ADMIN_PASSWORD).`
-      : `Compte admin seedé — connexion : admin / ${env.NF_ADMIN_PASSWORD ? "(NF_ADMIN_PASSWORD)" : "admin"} (Studio : /nodefony).`,
+      : `Compte admin seedé — connexion : admin / ${env.NF_ADMIN_PASSWORD ? "(NF_ADMIN_PASSWORD)" : "nodefony-dev-42"} (Studio : /nodefony).`,
     "INFO",
     LOG_CTX,
   );

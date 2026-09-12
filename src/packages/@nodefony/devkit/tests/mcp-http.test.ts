@@ -214,7 +214,7 @@ async function jetonPourLaPorte(
     const reponse = await poster(
       {
         username: "admin",
-        password: "secret",
+        password: "secret-de-dev-42",
         resource: doc.resource,
         // 🔴 Le scope se DEMANDE. La porte protégée exige désormais un scope
         // d'administration : un jeton d'audience valide qui n'en porte aucun
@@ -554,7 +554,7 @@ describe.skipIf(raison !== null)(
       // `401` d'une porte FERMÉE, lui, est éprouvé au cœur
       // (`oauthProtectedResource.test.ts`).
       const autre = await poster(
-        { username: "admin", password: "secret" }, // sans `resource` ⇒ audience par défaut
+        { username: "admin", password: "secret-de-dev-42" }, // sans `resource` ⇒ audience par défaut
         {},
         "/nodefony/security/api/token",
       );

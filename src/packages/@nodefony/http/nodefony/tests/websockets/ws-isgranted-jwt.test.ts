@@ -145,7 +145,7 @@ function hubConnectBearer(token: string): Promise<{
 
 describe("P6 J8 volet b — garde @IsGranted via api.request sur hub JWT (requires server)", () => {
   it("admin (ROLE_ADMIN, JWT Bearer) → GRANT : { granted:true, identifier:'admin' }", async () => {
-    const token = await accessToken("admin", "secret");
+    const token = await accessToken("admin", "secret-de-dev-42");
     const hub = await hubConnectBearer(token);
     const reply = await hub.request(GUARDED);
     hub.close();
@@ -156,7 +156,7 @@ describe("P6 J8 volet b — garde @IsGranted via api.request sur hub JWT (requir
   });
 
   it("user (ROLE_USER, JWT Bearer : authentifié mais SANS le rôle) → 403 exposé", async () => {
-    const token = await accessToken("user", "secret");
+    const token = await accessToken("user", "secret-de-dev-42");
     const hub = await hubConnectBearer(token);
     const reply = await hub.request(GUARDED);
     hub.close();

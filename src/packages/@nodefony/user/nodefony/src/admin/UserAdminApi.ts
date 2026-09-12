@@ -12,6 +12,7 @@ import type { IUser, ISocialProvider } from "../../contracts/IUser";
 import type { IUserProfile } from "../../contracts/IUserProfile";
 import type { UserService } from "../../service/UserService";
 import { WeakPasswordError } from "../../errors/WeakPasswordError";
+import { DEFAULT_PASSWORD_POLICY } from "../password/passwordPolicy";
 import { listUserStores } from "../userStoreRegistry";
 import {
   USER_FILTERS,
@@ -30,8 +31,15 @@ import {
  * Les garde-fous anti-lockout protègent **ce** rôle (jamais déchoir le dernier).
  */
 const ADMIN_ROLE = "ROLE_NODEFONY_ADMIN";
-/** Longueur minimale d'un mot de passe self-service (OWASP ASVS V2.1.1 — plancher). */
-const MIN_PASSWORD_LENGTH = 8;
+/**
+ * Longueur minimale d'un mot de passe self-service.
+ *
+ * DÉRIVÉE de la politique, jamais écrite ici : un plancher recopié devient un
+ * plancher qui diverge, et c'est alors la porte la plus laxiste qui fait loi.
+ * Ce contrôle ne remplace pas la politique — il rend seulement un 400 lisible
+ * AVANT de toucher au service (le refus complet, lui, vient de `changePassword`).
+ */
+const MIN_PASSWORD_LENGTH = DEFAULT_PASSWORD_POLICY.minLength;
 
 /**
  * Projection **publique** d'un utilisateur pour l'ADMINISTRATION (Studio, P6.15).

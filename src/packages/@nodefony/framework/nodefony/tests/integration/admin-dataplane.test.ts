@@ -79,7 +79,7 @@ beforeAll(async () => {
     "POST",
     "/nodefony/security/api/auth/login",
     {},
-    { username: "admin", password: "secret" },
+    { username: "admin", password: "secret-de-dev-42" },
   );
   const setCookie = res.headers["set-cookie"];
   const first = Array.isArray(setCookie) ? setCookie[0] : setCookie;
@@ -183,7 +183,7 @@ describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () 
   ];
 
   it("compte `user` (ROLE_USER) franchit le firewall mais est refusé au RBAC", async () => {
-    const userCookie = await loginCookie("user", "secret");
+    const userCookie = await loginCookie("user", "secret-de-dev-42");
     expect(
       userCookie,
       "login user/secret doit réussir (fixture dev)",
@@ -478,7 +478,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
   });
 
   it("ROLE_USER → 200 sur /sessions/mine MAIS 403 sur l'admin /sessions/list", async () => {
-    const userCookie = await loginCookie("user", "secret");
+    const userCookie = await loginCookie("user", "secret-de-dev-42");
     expect(userCookie, "login user/secret (fixture dev)").to.not.equal("");
     const mine = await req("GET", "/nodefony/http/api/sessions/mine", {
       cookie: userCookie,
@@ -491,7 +491,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
   });
 
   it("ne renvoie QUE mes sessions + DTO redacté (jamais id/Attributes)", async () => {
-    const userCookie = await loginCookie("user", "secret");
+    const userCookie = await loginCookie("user", "secret-de-dev-42");
     const items = await allMySessions(userCookie);
     expect(items.length, "au moins la session courante").to.be.greaterThan(0);
     items.forEach((s) => {
@@ -520,7 +520,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
     const adminRef = adminItems[0]!.ref;
     // user présente le ref d'admin (qui EXISTE) → hors de SON périmètre → 404
     // (pas 403 : la ressource est simplement introuvable dans son scope).
-    const userCookie = await loginCookie("user", "secret");
+    const userCookie = await loginCookie("user", "secret-de-dev-42");
     const attempt = await req(
       "POST",
       `/nodefony/http/api/sessions/mine/${adminRef}/revoke`,
@@ -616,7 +616,7 @@ describe("Admin data plane — user self-service /me (profil)", () => {
   });
 
   it("ROLE_USER → 200, MON profil redacté (identifier = moi, jamais de hash)", async () => {
-    const c = await loginCookie("user", "secret");
+    const c = await loginCookie("user", "secret-de-dev-42");
     expect(c, "login user/secret (fixture dev)").to.not.equal("");
     const r = await req("GET", "/nodefony/user/api/me", { cookie: c });
     expect(r.status).to.equal(200);

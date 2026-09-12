@@ -288,7 +288,7 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
   });
 
   it("handshake AUTHENTIFIÉ (cookie) → welcome + api.request annoncé + identité résolue (L2)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     expect(hub.welcome.methods).to.include("api.request");
     // L2 — le welcome porte l'identité RÉSOLUE par le firewall
@@ -307,7 +307,7 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
   });
 
   it("api.request authentifié ≡ GET REST authentifié (duplex préservé après le verrou)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const rest = await get("/nodefony/kernel/api/modules", { cookie });
     expect(rest.status, "GET REST authentifié 200").to.equal(200);
     const hub = await hubConnect(cookie);
@@ -321,7 +321,7 @@ describe("P6 J3b Étape 3 — verrou WS data plane (requires server)", () => {
   });
 
   it("param de route {name} : api.request authentifié == GET REST", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const rest = await get("/nodefony/kernel/api/module/http", { cookie });
     const hub = await hubConnect(cookie);
     const ws = await hub.request("/nodefony/kernel/api/module/http");
@@ -346,7 +346,7 @@ describe("P6 J8 — garde @IsGranted via api.request (requires server)", () => {
   const GUARDED = "/nodefony/test/api/admin-guarded";
 
   it("admin (ROLE_ADMIN) → GRANT : { granted:true, identifier } + @CurrentUser WS", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const reply = await hub.request(GUARDED);
     hub.close();
@@ -359,7 +359,7 @@ describe("P6 J8 — garde @IsGranted via api.request (requires server)", () => {
   });
 
   it("user (ROLE_USER : authentifié mais SANS le rôle) → 403 exposé (pas un -32603 opaque)", async () => {
-    const cookie = await loginCookie("user", "secret");
+    const cookie = await loginCookie("user", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const reply = await hub.request(GUARDED);
     hub.close();
@@ -408,7 +408,7 @@ function statusOf(reply: JsonRpcReply): number {
 
 describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   it("mutation WS (POST + clé) → exécute + identité résolue + corps transporté", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const reply = await hub.mutate(PROBE, {
       method: "POST",
@@ -432,7 +432,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("REJEU même clé → réponse MÉMORISÉE (compteur stable = anti double-effet)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const key = randomUUID();
     const first = await hub.mutate(PROBE, {
@@ -452,7 +452,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("clé DIFFÉRENTE → ré-exécute (nouvelle intention → le compteur avance)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const a = await hub.mutate(PROBE, {
       method: "POST",
@@ -467,7 +467,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("même clé, PAYLOAD DIFFÉRENT → 422 (draft §2.7 : réutilisation interdite)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const key = randomUUID();
     const first = await hub.mutate(PROBE, {
@@ -488,7 +488,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("clé ABSENTE sur une mutation WS → 400 (la socket rejoue : garde-fou requis)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const reply = await hub.mutate(PROBE, { method: "POST" }); // pas de clé
     hub.close();
@@ -497,7 +497,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("clé ABUSIVE (>255 car) → 400 (anti-DoS : ne gonfle pas le cache borné)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const reply = await hub.mutate(PROBE, {
       method: "POST",
@@ -509,7 +509,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("IN-FLIGHT : deux mutations concurrentes même clé → un 200, un 409", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const key = randomUUID();
     // `delayMs` ouvre la fenêtre : la 2ᵉ frame arrive pendant que la 1ʳᵉ est
@@ -531,8 +531,8 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("SCOPE par identité : `user` rejouant la clé d'`admin` ne lit PAS sa réponse", async () => {
-    const adminCookie = await loginCookie("admin", "secret");
-    const userCookie = await loginCookie("user", "secret");
+    const adminCookie = await loginCookie("admin", "secret-de-dev-42");
+    const userCookie = await loginCookie("user", "secret-de-dev-42");
     const key = randomUUID();
     const adminHub = await hubConnect(adminCookie);
     const adminReply = await adminHub.mutate(PROBE, {
@@ -560,7 +560,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("désambiguïsation de méthode : DELETE sur une route POST-only → 405", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     const reply = await hub.mutate(PROBE, {
       method: "DELETE",
@@ -572,7 +572,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("mutation HTTP (en-tête Idempotency-Key honoré) ≡ même action", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const res = await request(
       PROBE,
       "POST",
@@ -584,7 +584,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("REJEU HTTP même Idempotency-Key → réponse mémorisée (compteur stable)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const key = randomUUID();
     const first = await request(
       PROBE,
@@ -603,7 +603,7 @@ describe("P6.8 — mutations socket idempotentes (requires server)", () => {
   });
 
   it("mutation HTTP SANS clé → exécute (rétro-compat : HTTP ne rejoue pas seul)", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const res = await request(PROBE, "POST", { cookie }, { a: 4 });
     expect(res.status).to.equal(200);
     expect(countOf(res.body)).to.be.greaterThan(0);

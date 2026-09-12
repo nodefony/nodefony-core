@@ -5,7 +5,10 @@ export type {
   IPasswordAuthenticatedUser,
   ISocialProvider,
 } from "./IUser";
-export type { IPasswordBlocklist } from "./IPasswordBlocklist";
+export type {
+  IPasswordBlocklist,
+  IPasswordSubjectHint,
+} from "./IPasswordBlocklist";
 export type { IPasswordEncoder } from "./IPasswordEncoder";
 export type { IPasswordVerifier } from "./IPasswordVerifier";
 export type { IUserProvider } from "./IUserProvider";

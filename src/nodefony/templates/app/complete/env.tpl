@@ -48,6 +48,6 @@ NF_DATABASE_URL=<%= it.db.url %>
 # NF_CSRF_SECRET=     → .env.local (jetons anti-CSRF, partagé en cluster)
 
 # ── Compte admin (seedé au premier boot — nodefony/security/provisionUsers.ts)
-# DEV : défaut admin / admin (local). PROD : OBLIGATOIRE, sans lui aucun compte
+# DEV : défaut admin / nodefony-dev-42 (local). PROD : OBLIGATOIRE, sans lui aucun compte
 # n'est créé (le définir via le secret-manager, pas dans un fichier commité).
 # NF_ADMIN_PASSWORD=

@@ -183,7 +183,7 @@ curl -si http://localhost:5151/api/v1/whoami | grep -E "^(HTTP|WWW)"
 # HTTP/1.1 401 Unauthorized
 # WWW-Authenticate: Bearer
 
-# 2) Web — login BFF (compte dev seedé admin/admin) → cookie de session
+# 2) Web — login BFF (compte dev seedé admin/nodefony-dev-42) → cookie de session
 curl -si -c /tmp/jar -H 'Content-Type: application/json' \
   -d '{"username":"admin","password":"admin"}' \
   http://localhost:5151/nodefony/security/api/auth/login | head -1

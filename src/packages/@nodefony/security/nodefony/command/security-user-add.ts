@@ -5,6 +5,7 @@ import {
   Command,
   askPasswordMasked,
 } from "nodefony";
+import { WeakPasswordError } from "@nodefony/user";
 import type { UserService } from "@nodefony/user";
 
 const options: OptionsCommandInterface = {
@@ -63,6 +64,13 @@ export const AUTH_LOGIN_PATH = "/nodefony/security/api/auth/login";
  *
  * Le service `users` est posé par l'APPLICATION (cf `provisionUsers` du
  * template d'app) — absent = message actionnable, pas de stack.
+ *
+ * **Le mot de passe est soumis à la politique** (`PasswordPolicy`, posée d'office
+ * sur `UserService`) : longueur minimale (10 par défaut), mot de passe qui
+ * reprend l'identifiant du compte, motif répété de bout en bout, suite de
+ * touches, liste de l'application, et les ~10 000 mots de passe les plus
+ * courants. Un refus sort en **code non nul**, NOMME la règle enfreinte, et ne
+ * crée aucun compte — `--password abc` échoue, là où il réussissait.
  */
 class SecurityUserAdd extends Command {
   constructor(cli: CliKernel) {
@@ -216,11 +224,30 @@ class SecurityUserAdd extends Command {
     } else {
       roles = [ROLE_BASE];
     }
-    const user = await users.createUser({
-      identifier,
-      plainPassword: password,
-      roles,
-    });
+    let user;
+    try {
+      user = await users.createUser({
+        identifier,
+        plainPassword: password,
+        roles,
+      });
+    } catch (e) {
+      // Mot de passe refusé par la politique : c'est une DÉCISION du service,
+      // pas une panne. Un message qui nomme la règle et le geste, jamais une
+      // pile d'appels — et le même traitement que `security:user:password`,
+      // sinon la même faute rendrait deux sorties différentes selon la porte.
+      if (e instanceof WeakPasswordError) {
+        this.log(
+          `${e.message}\n  la politique se règle à l'application : ` +
+            `\`new PasswordPolicy({ minLength, blocklist })\` posée sur ` +
+            `\`users.passwordBlocklist\`.`,
+          "ERROR",
+        );
+        process.exitCode = 1;
+        return this;
+      }
+      throw e;
+    }
     process.stdout.write(
       `\n${GREEN}✓ compte créé${RESET} — ${BOLD}${user.identifier}${RESET} ` +
         `${DIM}(id ${user.id})${RESET}\n` +

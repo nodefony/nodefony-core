@@ -22,8 +22,8 @@ import https from "node:https";
  * écrit par `SecureController.initialize()` et lu par une route publique — la
  * seule lisible depuis un banc anonyme.
  *
- * Requiert : serveur 5152 + comptes `admin/secret` (ROLE_ADMIN) et
- * `user/secret` (ROLE_USER) du module test. Start : /start-server
+ * Requiert : serveur 5152 + comptes `admin/secret-de-dev-42` (ROLE_ADMIN) et
+ * `user/secret-de-dev-42` (ROLE_USER) du module test. Start : /start-server
  */
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
@@ -76,7 +76,7 @@ describe("Pipeline — `initialize()` ne tourne pas pour une requête rejetée",
     await resetProbe();
     const ok = await get(
       "/nodefony/test/secure/ping",
-      basic("admin", "secret"),
+      basic("admin", "secret-de-dev-42"),
     );
     expect(ok.status, "credential valide → 200").to.equal(200);
 
@@ -109,7 +109,7 @@ describe("Pipeline — `initialize()` ne tourne pas pour une requête rejetée",
     await resetProbe();
     const denied = await get(
       "/nodefony/test/secure/admin-only",
-      basic("user", "secret"),
+      basic("user", "secret-de-dev-42"),
     );
     expect(denied.status, "authentifié mais sans le rôle → 403").to.equal(403);
 

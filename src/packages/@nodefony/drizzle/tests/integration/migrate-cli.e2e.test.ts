@@ -331,7 +331,7 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
       // Et le geste suivant d'un exploitant passe : la rétention est LEVÉE, pas
       // seulement contournée.
       const compte = await cli(
-        ["security:user:add", "banc", "--password", "secret"],
+        ["security:user:add", "banc", "--password", "secret-de-dev-42"],
         env,
       );
       assert.equal(compte.code, 0, compte.stderr.slice(-800));

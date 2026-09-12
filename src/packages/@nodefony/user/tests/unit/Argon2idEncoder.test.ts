@@ -40,14 +40,14 @@ describe("Argon2idEncoder (P6 J2)", () => {
 
   describe("hash / verify", () => {
     it("produit un hash PHC argon2id avec les coûts demandés", async () => {
-      const hash = await new Argon2idEncoder(FAST).hash("s3cret");
+      const hash = await new Argon2idEncoder(FAST).hash("s3cret-valise-42");
       assert.match(hash, /^\$argon2id\$v=19\$m=64,t=1,p=1\$/);
     });
 
     it("verify true pour le bon mot de passe, false sinon", async () => {
       const enc = new Argon2idEncoder(FAST);
-      const hash = await enc.hash("s3cret");
-      assert.equal(await enc.verify("s3cret", hash), true);
+      const hash = await enc.hash("s3cret-valise-42");
+      assert.equal(await enc.verify("s3cret-valise-42", hash), true);
       assert.equal(await enc.verify("wrong", hash), false);
     });
 
@@ -58,9 +58,9 @@ describe("Argon2idEncoder (P6 J2)", () => {
     });
 
     it("verify lit les coûts DANS le hash (vieux hash vérifiable par encoder fort)", async () => {
-      const old = await new Argon2idEncoder(FAST).hash("s3cret");
+      const old = await new Argon2idEncoder(FAST).hash("s3cret-valise-42");
       const strong = new Argon2idEncoder({ ...FAST, timeCost: 2 });
-      assert.equal(await strong.verify("s3cret", old), true);
+      assert.equal(await strong.verify("s3cret-valise-42", old), true);
     });
   });
 

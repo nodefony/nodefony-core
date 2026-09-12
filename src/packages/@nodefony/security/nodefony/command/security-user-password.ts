@@ -38,8 +38,11 @@ const RESET = "\x1b[0m";
  * Mot de passe : `--password` (visible dans l'historique shell — accepté pour
  * les scripts) ou PROMPT MASQUÉ en TTY, demandé deux fois. Le hachage est celui
  * du service (`UserService.changePassword` → Argon2id) : jamais de clair
- * persisté, et la liste de mots de passe interdits s'applique comme à la
- * création.
+ * persisté, et la POLITIQUE de mot de passe s'applique comme à la création —
+ * longueur minimale (10 par défaut), mot de passe qui reprend l'identifiant du
+ * compte, motif répété, suite de touches, liste de l'application, et les ~10 000
+ * mots de passe les plus courants. Un refus sort en code non nul et NOMME la
+ * règle enfreinte ; il ne crée ni ne modifie rien.
  *
  * 🔒 **Les sessions et les jetons du compte sont RÉVOQUÉS**, et ce n'est pas une
  * option : on change un mot de passe parce qu'il est compromis ou perdu, et

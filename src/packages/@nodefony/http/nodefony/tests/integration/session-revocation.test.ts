@@ -205,7 +205,7 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   // Sentinelle : le logout volontaire passe par `session.destroy()` (objet en
   // mémoire neutralisé) → déjà sain. Verrouille qu'il le reste.
   it("0. logout volontaire → /me 401 (sentinelle)", async () => {
-    const cookie = await loginAs("user", "secret");
+    const cookie = await loginAs("user", "secret-de-dev-42");
     expect(await meStatus(cookie), "loggé avant").to.equal(200);
     const out = await post(LOGOUT, { cookie });
     expect(out.status, "logout 200 (idempotent)").to.equal(200);
@@ -215,8 +215,12 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   // LE bug : l'admin révoque SA PROPRE session. L'autosave de la requête de
   // révocation NE DOIT PAS la ressusciter.
   it("1. révoquer MA session (admin self) → /me 401", async () => {
-    const viewer = await loginAs("admin", "secret"); // 2ᵉ session admin (lister)
-    const { cookie, ref } = await loginAndIsolate(viewer, "admin", "secret");
+    const viewer = await loginAs("admin", "secret-de-dev-42"); // 2ᵉ session admin (lister)
+    const { cookie, ref } = await loginAndIsolate(
+      viewer,
+      "admin",
+      "secret-de-dev-42",
+    );
     expect(await meStatus(cookie), "admin loggé avant").to.equal(200);
     const rev = await post(revokeRefPath(ref), { cookie }); // je révoque MA session
     expect(rev.status, "revoke 200").to.equal(200);
@@ -224,11 +228,11 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   });
 
   it("2. révoquer la session d'un AUTRE → la victime tombe, l'admin reste", async () => {
-    const admin = await loginAs("admin", "secret");
+    const admin = await loginAs("admin", "secret-de-dev-42");
     const { cookie: victim, ref } = await loginAndIsolate(
       admin,
       "user",
-      "secret",
+      "secret-de-dev-42",
     );
     const rev = await post(revokeRefPath(ref), { cookie: admin });
     expect(rev.status).to.equal(200);
@@ -239,7 +243,7 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
   it("3. déconnecter TOUT un user (logout everywhere) → toutes 401 + count > 0", async () => {
     // Compte JETABLE : ce cas révoque EN MASSE, il ne peut pas viser un compte
     // que d'autres fichiers utilisent au même moment. Cf `assurerCompteJetable`.
-    const admin = await loginAs("admin", "secret");
+    const admin = await loginAs("admin", "secret-de-dev-42");
     await assurerCompteJetable(admin);
     const u1 = await loginAs(JETABLE, JETABLE_MDP);
     const u2 = await loginAs(JETABLE, JETABLE_MDP);
@@ -267,7 +271,7 @@ describe("Révocation de session — cycle de vie (3 chemins admin + logout)", (
 // immédiate, le test reste inoffensif.
 describe("Pagination à curseur du listing de sessions", () => {
   it("le curseur AVANCE et la pagination se TERMINE", async () => {
-    const admin = await loginAs("admin", "secret");
+    const admin = await loginAs("admin", "secret-de-dev-42");
     const seen = new Set<string>();
     let cursor: string | undefined;
     let pages = 0;
@@ -295,7 +299,7 @@ describe("Pagination à curseur du listing de sessions", () => {
   });
 
   it("le curseur de /sessions/mine AVANCE aussi (même exigence, autre handler)", async () => {
-    const cookie = await loginAs("user", "secret");
+    const cookie = await loginAs("user", "secret-de-dev-42");
     const seen = new Set<string>();
     let cursor: string | undefined;
     let pages = 0;
@@ -324,7 +328,7 @@ describe("Pagination à curseur du listing de sessions", () => {
 
 describe("Provenance de session — ip/ua capturés au login (console Sessions)", () => {
   it("login avec un User-Agent connu → surfacé dans sessions/list (+ ip)", async () => {
-    const admin = await loginAs("admin", "secret");
+    const admin = await loginAs("admin", "secret-de-dev-42");
     const before = new Set(await refsOf(admin, "user"));
     const UA = "nodefony-provenance-probe/1.0";
     // node:https n'émet PAS de User-Agent par défaut → on l'impose explicitement
@@ -332,7 +336,7 @@ describe("Provenance de session — ip/ua capturés au login (console Sessions)"
     const res = await post(
       LOGIN,
       { "user-agent": UA },
-      { username: "user", password: "secret" },
+      { username: "user", password: "secret-de-dev-42" },
     );
     expect(res.status, "login user").to.equal(200);
     const cookie = sessionCookieOf(res);

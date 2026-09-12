@@ -22,6 +22,7 @@ export type {
   IPasswordAuthenticatedUser,
   ISocialProvider,
   IPasswordBlocklist,
+  IPasswordSubjectHint,
   IPasswordEncoder,
   IPasswordVerifier,
   IUserProvider,
@@ -88,6 +89,17 @@ export type {
   ICreateUserInput,
   AuthFailureReason,
 } from "./nodefony/service/UserService";
+
+// ─── Politique de mot de passe ───────────────────────────────────────────────
+// Posée par défaut sur `UserService.passwordBlocklist` ; exportée pour qu'une
+// application la durcisse (`new PasswordPolicy({ minLength: 14 })`) ou la
+// compose dans sa propre implémentation du contrat.
+export {
+  PasswordPolicy,
+  DEFAULT_PASSWORD_POLICY,
+} from "./nodefony/src/password/passwordPolicy";
+export type { IPasswordPolicyOptions } from "./nodefony/src/password/passwordPolicy";
+export { truncatedPasswordHash } from "./nodefony/src/password/passwordHash";
 
 // ─── Erreurs (P6 S0, J2) ─────────────────────────────────────────────────────
 export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";

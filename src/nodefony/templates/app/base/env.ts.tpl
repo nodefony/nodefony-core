@@ -126,7 +126,7 @@ export const env = defineEnv({
 
   /**
    * Mot de passe du compte admin seedé au premier boot (voir
-   * `nodefony/security/users.ts`). DEV : défaut `admin` (compte admin/admin,
+   * `nodefony/security/users.ts`). DEV : défaut `nodefony-dev-42` (compte admin/nodefony-dev-42,
    * comme Grafana — pratique, LOCAL uniquement). PROD : OBLIGATOIRE — sans lui
    * le seed refuse (jamais de mot de passe par défaut en production).
    *

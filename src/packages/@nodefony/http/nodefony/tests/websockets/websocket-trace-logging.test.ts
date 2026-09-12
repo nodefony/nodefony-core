@@ -36,7 +36,7 @@ let cookie = "";
 function login(): Promise<void> {
   return new Promise((resolve, reject) => {
     const data = Buffer.from(
-      JSON.stringify({ username: "admin", password: "secret" }),
+      JSON.stringify({ username: "admin", password: "secret-de-dev-42" }),
     );
     const req = https.request(
       {

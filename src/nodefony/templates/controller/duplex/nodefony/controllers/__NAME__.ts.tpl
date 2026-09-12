@@ -159,7 +159,7 @@ interface IItem {
    * Suppression PROTÉGÉE par rôle — la MÊME garde pour les DEUX portes : en
    * HTTP `@IsGranted` refuse (403) AVANT l'action ; par la socket, le pont
    * `api.request` re-traverse le MÊME pipeline (le token du handshake voyage
-   * dans l'ALS) → même refus. En dev, `admin/admin` a le rôle.
+   * dans l'ALS) → même refus. En dev, `admin/nodefony-dev-42` a le rôle.
    */
   @route("<%= it.kebab %>-delete", {
     path: "/{id}",

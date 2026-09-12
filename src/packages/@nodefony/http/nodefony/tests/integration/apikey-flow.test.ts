@@ -116,12 +116,12 @@ async function revokeExistingKeys(cookie: string): Promise<void> {
 describe("API Keys (PAT) — P6.12 e2e", () => {
   beforeAll(async () => {
     for (const user of ["admin", "user"]) {
-      await revokeExistingKeys(await loginAs(user, "secret"));
+      await revokeExistingKeys(await loginAs(user, "secret-de-dev-42"));
     }
   });
 
   it("1. login → create → la clé authentifie /m2m/whoami (200, identité = porteur)", async () => {
-    const cookie = await loginAs("admin", "secret");
+    const cookie = await loginAs("admin", "secret-de-dev-42");
     const created = await createKey(cookie, {
       name: "ci-deploy",
       scopes: ["orders:read"],
@@ -135,7 +135,7 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
   });
 
   it("2. listing : la clé apparaît SANS secret ni hash", async () => {
-    const cookie = await loginAs("admin", "secret");
+    const cookie = await loginAs("admin", "secret-de-dev-42");
     const created = await createKey(cookie, { name: "listed" });
     const list = await get(KEYS, { cookie });
     expect(list.status).to.equal(200);
@@ -147,7 +147,7 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
   });
 
   it("2bis. la trace d'usage est inscrite APRÈS un appel réel (date + agent)", async () => {
-    const cookie = await loginAs("admin", "secret");
+    const cookie = await loginAs("admin", "secret-de-dev-42");
     const created = await createKey(cookie, { name: "traced" });
 
     const before = (
@@ -180,7 +180,7 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
   });
 
   it("3. révocation → la clé ne passe plus (401)", async () => {
-    const cookie = await loginAs("admin", "secret");
+    const cookie = await loginAs("admin", "secret-de-dev-42");
     const created = await createKey(cookie, { name: "revoke-me" });
     const auth = { authorization: `Bearer ${created.token}` };
     expect((await get(WHOAMI, auth)).status, "avant révocation").to.equal(200);
@@ -207,10 +207,10 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
   });
 
   it("7. attaque IDOR : un autre porteur ne voit ni ne révoque ma clé", async () => {
-    const adminCookie = await loginAs("admin", "secret");
+    const adminCookie = await loginAs("admin", "secret-de-dev-42");
     const created = await createKey(adminCookie, { name: "admin-private" });
 
-    const userCookie = await loginAs("user", "secret");
+    const userCookie = await loginAs("user", "secret-de-dev-42");
     const userList = await get(KEYS, { cookie: userCookie });
     const leaked = (userList.body as { keys: Array<{ id: string }> }).keys.find(
       (k) => k.id === created.id,
@@ -235,7 +235,7 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
     const tok = await post(
       TOKEN,
       {},
-      { username: "admin", password: "secret" },
+      { username: "admin", password: "secret-de-dev-42" },
     );
     expect(tok.status, "émission JWT").to.equal(200);
     const jwt = (tok.body as { access_token: string }).access_token;
@@ -245,7 +245,7 @@ describe("API Keys (PAT) — P6.12 e2e", () => {
     ).to.equal(200);
 
     // PAT (préfixe nf_) sur la MÊME route.
-    const cookie = await loginAs("admin", "secret");
+    const cookie = await loginAs("admin", "secret-de-dev-42");
     const created = await createKey(cookie, { name: "coexist" });
     expect(
       (await get(WHOAMI, { authorization: `Bearer ${created.token}` })).status,

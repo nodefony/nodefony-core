@@ -188,7 +188,7 @@ function hubConnect(cookie: string): Promise<{
 
 describe("Pont api.request — action RENDUE (renderJson) (requires server)", () => {
   it("api.request sur une action renderJson → result = payload JSON ≡ GET REST, zéro frame nue", async () => {
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
 
     // Contrôle positif — le GET REST sert le payload rendu.
     const rest = await request(RENDERED_PATH, "GET", { cookie });
@@ -220,7 +220,7 @@ describe("Pont api.request — action RENDUE (renderJson) (requires server)", ()
     // utilisable — avant le fix, la chaîne cassait (unhandledRejection) et le
     // client restait en timeout. Ici on prouve la continuité de service : un
     // appel rendu, puis un appel nu, sur la MÊME connexion.
-    const cookie = await loginCookie("admin", "secret");
+    const cookie = await loginCookie("admin", "secret-de-dev-42");
     const hub = await hubConnect(cookie);
     try {
       const first = await hub.request(RENDERED_PATH);

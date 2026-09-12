@@ -63,7 +63,7 @@ const wsLog = ref<string[]>([]);
 let ws: WebSocket | null = null;
 <% } %>
 <% if (it.complete) { %>const username = ref("admin");
-const password = ref("admin");
+const password = ref("nodefony-dev-42");
 const authMsg = ref<string | null>(null);
 const secureData = ref<SecureData | null>(null);
 <% } %>

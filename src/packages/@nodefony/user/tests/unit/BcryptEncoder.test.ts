@@ -21,15 +21,15 @@ describe("BcryptEncoder (P5.6)", () => {
 
   describe("hash / verify", () => {
     it("produit un hash bcrypt au coût demandé", async () => {
-      const hash = await new BcryptEncoder(FAST).hash("s3cret");
+      const hash = await new BcryptEncoder(FAST).hash("s3cret-valise-42");
       assert.match(hash, /^\$2[aby]\$04\$/);
       assert.equal(hash.length, 60);
     });
 
     it("verify true pour le bon mot de passe, false sinon", async () => {
       const enc = new BcryptEncoder(FAST);
-      const hash = await enc.hash("s3cret");
-      assert.equal(await enc.verify("s3cret", hash), true);
+      const hash = await enc.hash("s3cret-valise-42");
+      assert.equal(await enc.verify("s3cret-valise-42", hash), true);
       assert.equal(await enc.verify("wrong", hash), false);
     });
 

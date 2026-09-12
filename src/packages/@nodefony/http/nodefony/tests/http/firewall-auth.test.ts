@@ -6,7 +6,7 @@ import https from "node:https";
  * P6 J1 — zone protégée `test-secure` (firewall + UserPasswordAuthenticator).
  *
  * Banc : module test `nodefony/secure/` (routes `/nodefony/test/secure/*`,
- * comptes admin/secret + user/secret en annuaire in-memory). Gates :
+ * comptes admin/secret-de-dev-42 + user/secret-de-dev-42 en annuaire in-memory). Gates :
  * - Zero Trust : aucune preuve → 401 + `WWW-Authenticate` (RFC 7235) ;
  * - credential invalide → 401 au message UNIFORME (anti-énumération) ;
  * - credential valide → 200, identité propagée dans l'ALS (`/whoami`) ;
@@ -87,7 +87,10 @@ const throttleOn = process.env.NF__SECURITY__RATELIMIT__ENABLED === "true";
  */
 async function forgetThrottle(identifier: string): Promise<void> {
   try {
-    await get("/nodefony/test/secure/ping", basic(identifier, "secret"));
+    await get(
+      "/nodefony/test/secure/ping",
+      basic(identifier, "secret-de-dev-42"),
+    );
   } catch {
     /* le test qui suit dira ce qui ne va pas — pas ce nettoyage */
   }
@@ -157,7 +160,7 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
     // `:secret` (identifiant vide) → 401 uniforme également.
     const emptyIdentifier = await get(
       "/nodefony/test/secure/ping",
-      basic("", "secret"),
+      basic("", "secret-de-dev-42"),
     );
     expect(emptyIdentifier.status).to.equal(401);
   });
@@ -165,7 +168,7 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
   it("credential valide → 200 (zone franchie)", async () => {
     const { status, body } = await get(
       "/nodefony/test/secure/ping",
-      basic("admin", "secret"),
+      basic("admin", "secret-de-dev-42"),
     );
     expect(status).to.equal(200);
     expect(body).to.deep.equal({ pong: true, secure: true });
@@ -174,17 +177,17 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
   it("identité propagée dans l'ALS : /whoami rend l'utilisateur du firewall", async () => {
     const { status, body } = await get(
       "/nodefony/test/secure/whoami",
-      basic("admin", "secret"),
+      basic("admin", "secret-de-dev-42"),
     );
     expect(status).to.equal(200);
     expect((body as { identifier: string }).identifier).to.equal("admin");
     expect((body as { roles: string[] }).roles).to.include("ROLE_ADMIN");
   });
 
-  it("second compte du banc : user/secret → ROLE_USER", async () => {
+  it("second compte du banc : user/secret-de-dev-42 → ROLE_USER", async () => {
     const { body } = await get(
       "/nodefony/test/secure/whoami",
-      basic("user", "secret"),
+      basic("user", "secret-de-dev-42"),
     );
     expect((body as { identifier: string }).identifier).to.equal("user");
     expect((body as { roles: string[] }).roles).to.include("ROLE_USER");
@@ -196,7 +199,7 @@ describe("Firewall — zone protégée test-secure (requires server)", () => {
   });
 
   it("scheme case-insensitive (RFC 7235) : `basic` minuscule accepté", async () => {
-    const header = basic("admin", "secret").authorization.replace(
+    const header = basic("admin", "secret-de-dev-42").authorization.replace(
       "Basic",
       "basic",
     );
@@ -211,10 +214,10 @@ describe("P6 J2 — Argon2id + throttling NIST (requires server)", () => {
   it("migration transparente : après login, le hash stocké est au format argon2id", async () => {
     // Les comptes du banc naissent en bcrypt (in-memory) ; le login réussi
     // ci-dessus ou celui-ci déclenche le re-hash MigratingEncoder → argon2id.
-    await get("/nodefony/test/secure/ping", basic("user", "secret"));
+    await get("/nodefony/test/secure/ping", basic("user", "secret-de-dev-42"));
     const { status, body } = await get(
       "/nodefony/test/secure/encoder",
-      basic("user", "secret"),
+      basic("user", "secret-de-dev-42"),
     );
     expect(status).to.equal(200);
     expect((body as { format: string }).format).to.equal("argon2id");
@@ -256,7 +259,7 @@ describe("P6 J2 — Argon2id + throttling NIST (requires server)", () => {
   it("le throttle d'un identifiant martelé ne bloque pas les autres comptes", async () => {
     const { status } = await get(
       "/nodefony/test/secure/whoami",
-      basic("admin", "secret"),
+      basic("admin", "secret-de-dev-42"),
     );
     expect(status).to.equal(200);
   });

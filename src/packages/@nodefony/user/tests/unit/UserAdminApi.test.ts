@@ -493,7 +493,11 @@ describe("UserAdminApi — CRUD + audit", () => {
     const api = createUserAdminApi(container(makeUsers([])));
     const { status, body } = await call(api, "POST", "users", {
       user: { id: "a1" } as unknown,
-      body: { identifier: "new@x", plainPassword: "pw", roles: ["ROLE_USER"] },
+      body: {
+        identifier: "new@x",
+        plainPassword: "nouveau-mot-valise-42",
+        roles: ["ROLE_USER"],
+      },
     });
     assert.equal(status, 201);
     assert.equal((body as IUserSummary).identifier, "new@x");

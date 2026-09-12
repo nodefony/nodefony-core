@@ -99,7 +99,10 @@ function getJson(
 
 /** Fixture dev : admin/secret (ROLE_NODEFONY_ADMIN) — cf provisionUsers. */
 async function loginAsAdmin(): Promise<string> {
-  const payload = JSON.stringify({ username: "admin", password: "secret" });
+  const payload = JSON.stringify({
+    username: "admin",
+    password: "secret-de-dev-42",
+  });
   const cookie = await new Promise<string>((resolve, reject) => {
     const r = https.request(
       {

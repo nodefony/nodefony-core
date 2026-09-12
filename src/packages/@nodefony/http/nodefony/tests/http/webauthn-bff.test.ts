@@ -111,7 +111,7 @@ describe("P6 J9 — WebAuthn ceremonies (câblage)", () => {
   it("login → register/options renvoie challenge + RP + attachment 'platform' (pas de QR)", async () => {
     const login = await post(`${AUTH}/login`, {
       username: "admin",
-      password: "secret",
+      password: "secret-de-dev-42",
     });
     expect(login.status).to.equal(200);
     const cookie = sessionCookieOf(login);

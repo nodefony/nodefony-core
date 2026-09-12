@@ -24,7 +24,7 @@ status: stable
 updated: 2026-07-19
 source: "src/packages/@nodefony/user/docs/index.md"
 coverageModule: user
-coverageFiles: UserService.ts,BaseUser.ts,AnonymousUser.ts,InMemoryUserRepository.ts,userProfile.ts,UserAdminApi.ts,Argon2idEncoder.ts,BcryptEncoder.ts,MigratingEncoder.ts,encoderFromConfig.ts
+coverageFiles: UserService.ts,passwordPolicy.ts,BaseUser.ts,AnonymousUser.ts,InMemoryUserRepository.ts,userProfile.ts,UserAdminApi.ts,Argon2idEncoder.ts,BcryptEncoder.ts,MigratingEncoder.ts,encoderFromConfig.ts
 ---
 
 # @nodefony/user — l'identité, socle de toute la sécurité
@@ -464,7 +464,7 @@ lieu au seul moment où le mot de passe en clair existe côté serveur, un login
 ### L'ordre des vérifications
 
 `locked` → `disabled` → `no_password` → `bad_credentials`. Cet ordre est fixé
-(`UserService.ts:212`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
+(`UserService.ts:270`), mais il n'est pas observable de l'extérieur : la valeur de retour est `null`
 dans tous les cas, et la raison précise part dans l'événement `onAuthenticationFailure` — donc dans
 l'audit serveur, jamais dans la réponse.
 
@@ -536,7 +536,7 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 | `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:301` |
 | `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:317` |
 | `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:331` |
-| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:306` |
+| `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:363` |
 | `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:83`  |
 
 **La distinction à retenir** : `loadUserByOAuth()` **lit** (et lève si le lien est inconnu) ;
@@ -670,7 +670,7 @@ flowchart TD
 
 Le compte local est le **Shadow User** : ton application garde sa propre ligne, avec ses propres
 rôles, son propre état actif/verrouillé. Le fournisseur n'est qu'une façon de prouver qu'on est bien
-la personne rattachée à cette ligne (`UserService.ts:306`).
+la personne rattachée à cette ligne (`UserService.ts:363`).
 
 ### Trois invariants, et pourquoi ils existent
 
@@ -749,23 +749,93 @@ d'identité est un échec explicite, pas une valeur.
 Si tu veux seulement valider un couple identifiant/mot de passe contre un système externe, le contrat
 plus étroit `IPasswordVerifier` suffit (`IPasswordVerifier.ts:15`).
 
-### Sa liste de mots de passe compromis
+### La politique de mot de passe — posée par défaut, et remplaçable
 
-Le NIST (SP 800-63B §5.1.1.2) recommande de refuser les mots de passe connus des fuites. Le framework
-fournit le **point d'extension**, pas la liste : la source (top 10 000 embarqué, fichier
-d'exploitation, API k-anonymity) est une décision de déploiement.
+Le NIST (SP 800-63B §5.1.1.2) recommande de refuser les mots de passe prévisibles — et de NE PAS
+exiger de composition (majuscules, chiffres, caractères spéciaux), qui produit `Password1!` sans
+ajouter d'entropie réelle. Nodefony suit cette lecture : ce qui est mesuré, c'est la
+**prévisibilité**.
+
+**La politique est posée d'office** sur tout `UserService` : rien à brancher, et c'est le point —
+un point d'extension que personne ne remplit ne protège personne. Elle est consultée à la
+**création** et au **changement**, jamais au login : là, le clair n'est plus jugeable, et refuser
+une connexion existante enfermerait l'utilisateur dehors.
+
+Six règles, dans cet ordre — les gratuites d'abord, la liste en dernier :
+
+| #   | Ce qui est refusé                                        | Exemple refusé               |
+| --- | -------------------------------------------------------- | ---------------------------- |
+| 1   | plus court que `minLength` (défaut **10**)               | `abc`, `motdepas`            |
+| 2   | contient l'identifiant du compte                         | `marie.dupont-2026`          |
+| 3   | répète un même motif de bout en bout                     | `aaaaaaaaaa`, `abababababab` |
+| 4   | contient une suite de touches ou de chiffres             | `azertyuiop`, `0123456789`   |
+| 5   | figure dans la liste de l'application                    | ce que tu y mets             |
+| 6   | figure parmi les ~10 000 mots de passe les plus courants | `basketball`, `password123`  |
+
+Le refus **nomme la règle** : `Mot de passe refusé : figure parmi les mots de passe les plus
+courants`. C'est ce que rendent `security:user:add` et `security:user:password` (code de sortie non
+nul), et ce que la console d'administration renvoie en 400.
+
+#### Régler la politique
 
 ```ts ignore
+import { PasswordPolicy } from "@nodefony/user";
+
+users.passwordBlocklist = new PasswordPolicy({
+  minLength: 14, // durcir
+  blocklist: ["MaSociete2026", "NomDuProduit"], // quelques mots métier
+  blocklistFile: "var/mots-de-passe-interdits.txt", // une politique maintenue à part
+});
+```
+
+| Option                 | Défaut | Ce qu'elle fait                                             |
+| ---------------------- | ------ | ----------------------------------------------------------- |
+| `minLength`            | `10`   | longueur minimale                                           |
+| `blocklist`            | `[]`   | valeurs refusées, comparaison insensible à la casse         |
+| `blocklistFile`        | `null` | fichier UTF-8, une valeur par ligne, lu au premier contrôle |
+| `checkCommonPasswords` | `true` | consulter la liste embarquée                                |
+
+Un **fichier introuvable fait échouer le contrôle**, il ne le rend pas muet : une politique qu'on
+croit en place et qui n'a rien lu est pire qu'une politique absente.
+
+#### Brancher sa propre source
+
+`IPasswordBlocklist` reste le point d'extension — pour un annuaire d'entreprise, une base maison, ou
+une API k-anonymity (type Have I Been Pwned, qui n'envoie que cinq caractères du hash). Elle
+s'appelle en plus de la politique, pas à sa place :
+
+```ts ignore
+const politique = new PasswordPolicy();
 users.passwordBlocklist = {
-  async isBlocked(plain) {
-    return TOP_10K.has(plain.toLowerCase());
-  },
+  isBlocked: async (plain, subject) =>
+    (await politique.isBlocked(plain, subject)) ||
+    (await maSource.connu(plain)),
+  violation: async (plain, subject) =>
+    (await politique.violation(plain, subject)) ??
+    ((await maSource.connu(plain))
+      ? "figure dans notre annuaire de fuites"
+      : null),
 };
 ```
 
-Consultée à la **création** et au **changement**, jamais au login (`UserService.ts:359`) : au login,
-le clair n'est plus jugeable contre une politique, et refuser une connexion existante enfermerait
-l'utilisateur dehors. Un refus lève `WeakPasswordError` (400), avec un message générique.
+Mettre `users.passwordBlocklist = null` désactive tout contrôle. C'est permis — une application qui
+juge les mots de passe en amont n'a pas à payer deux fois — mais c'est alors un **geste explicite**,
+plus un défaut qu'on ne voit pas.
+
+#### La liste embarquée, et ce qu'elle coûte
+
+~10 000 empreintes de 4 octets (`Uint32Array` trié, recherche binaire) : **40 Ko**, et le module qui
+les porte est chargé par un `import()` dynamique au premier contrôle — une application qui ne crée
+aucun compte ne le lit jamais. Le clair n'est pas embarqué : seules les empreintes le sont, et elles
+ne sont pas réversibles. La troncature rend une collision possible (~2,3 × 10⁻⁶ par test) ; elle
+**refuse** alors un mot de passe sain, ce qui tombe du bon côté.
+
+Le corpus vient de [SecLists](https://github.com/danielmiessler/SecLists) (licence MIT, attribution
+portée dans l'artefact). Regénérer l'artefact :
+
+```bash
+node scripts/generate-password-blocklist.mjs <fichier-source>
+```
 
 ### Son propre provisionnement OAuth
 
@@ -939,7 +1009,7 @@ Une erreur d'administration ne doit pas fermer la porte définitivement. Cinq ga
 | supprimer ou désactiver le dernier admin actif | 409                                         |
 
 Le comptage passe par `countActiveAdmins()`, un `COUNT` natif au store — jamais un chargement complet
-en mémoire (`UserService.ts:154`).
+en mémoire (`UserService.ts:174`).
 
 ### Cascade de révocation
 

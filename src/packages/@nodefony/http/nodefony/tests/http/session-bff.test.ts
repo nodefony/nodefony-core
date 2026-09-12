@@ -108,7 +108,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
   // nettoyage ne doit jamais masquer l'échec qu'il suit.
   afterEach(async () => {
     try {
-      await login("admin", "secret");
+      await login("admin", "secret-de-dev-42");
     } catch {
       /* le cas suivant dira ce qui ne va pas */
     }
@@ -125,7 +125,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
   });
 
   it("login valide → 200 {user} (jamais de hash) + cookie de session HttpOnly", async () => {
-    const res = await login("admin", "secret");
+    const res = await login("admin", "secret-de-dev-42");
     expect(res.status).to.equal(200);
     const user = (res.body as { user: { username: string; roles: string[] } })
       .user;
@@ -139,7 +139,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
   });
 
   it("me : la session re-résout l'identité (rôles frais) ; sans cookie → 401", async () => {
-    const logged = await login("user", "secret");
+    const logged = await login("user", "secret-de-dev-42");
     const cookie = sessionCookieOf(logged);
     expect(cookie).to.be.a("string");
     const me = await get(`${AUTH}/me`, { cookie: cookie! });
@@ -160,7 +160,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     // Login en PRÉSENTANT le cookie pré-posé : l'ID doit être régénéré.
     const logged = await post(
       `${AUTH}/login`,
-      { username: "admin", password: "secret" },
+      { username: "admin", password: "secret-de-dev-42" },
       { cookie: fixated! },
     );
     expect(logged.status).to.equal(200);
@@ -180,7 +180,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
     // détruit du storage (destroy(oldId)). L'attaquant conserve la valeur pré-login.
     const logged = await post(
       `${AUTH}/login`,
-      { username: "admin", password: "secret" },
+      { username: "admin", password: "secret-de-dev-42" },
       { cookie: attackerCookie! },
     );
     expect(logged.status).to.equal(200);
@@ -199,7 +199,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
 
   it("RED-TEAM session id forgé (jamais émis par le serveur) → 401, aucune session ne se matérialise", async () => {
     // Découvre le NOM réel du cookie de session (préfixe __Host- sur TLS).
-    const real = sessionCookieOf(await login("admin", "secret"))!;
+    const real = sessionCookieOf(await login("admin", "secret-de-dev-42"))!;
     const forged = `${cookieName(real)}=forged-${Date.now()}`;
     const zone = await get("/nodefony/test/secure/ping", { cookie: forged });
     expect(zone.status).to.equal(401);
@@ -208,7 +208,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
   });
 
   it("le cookie de session SEUL franchit la zone protégée (SessionAuthenticator)", async () => {
-    const logged = await login("admin", "secret");
+    const logged = await login("admin", "secret-de-dev-42");
     const cookie = sessionCookieOf(logged)!;
     const ping = await get("/nodefony/test/secure/ping", { cookie });
     expect(ping.status).to.equal(200);
@@ -222,7 +222,7 @@ describe("P6 J3 — session BFF login/logout/me (requires server)", () => {
   });
 
   it("logout : session détruite — le cookie ne donne plus rien (idempotent)", async () => {
-    const logged = await login("admin", "secret");
+    const logged = await login("admin", "secret-de-dev-42");
     const cookie = sessionCookieOf(logged)!;
     const out = await post(`${AUTH}/logout`, undefined, { cookie });
     expect(out.status).to.equal(200);

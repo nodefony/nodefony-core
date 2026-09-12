@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 825,
-    "symbols": 4031,
-    "classes": 391,
-    "interfaces": 1085,
+    "files": 828,
+    "symbols": 4041,
+    "classes": 392,
+    "interfaces": 1087,
     "types": 448,
     "enums": 4,
-    "functions": 1700,
-    "constants": 403
+    "functions": 1704,
+    "constants": 406
   },
   "symbols": {
     "Cli": {
@@ -21224,6 +21224,15 @@
       "extends": null,
       "description": "Contrat de **liste de blocage de mots de passe compromis** (NIST SP 800-63B §5.1.1.2) — consulté à la CRÉATION et au CHANGEMENT de mot de passe, jamais au login (le hash stocké ne permet plus de ju…"
     },
+    "IPasswordSubjectHint": {
+      "name": "IPasswordSubjectHint",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/contracts/IPasswordBlocklist.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Ce qu'un appelant peut dire du compte visé — tout est optionnel."
+    },
     "IPasswordEncoder": {
       "name": "IPasswordEncoder",
       "kind": "interface",
@@ -26946,6 +26955,60 @@
       "decorators": [],
       "description": "Encodeur composite de **migration d'algorithme** — accepte les hashs legacy à la vérification, ne produit que des hashs au format courant. Une base existante (ex. bcrypt) ne peut pas être convertie…"
     },
+    "COMMON_PASSWORD_HASHES_BASE64": {
+      "name": "COMMON_PASSWORD_HASHES_BASE64",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/commonPasswordHashes.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Empreintes des mots de passe les plus courants — **fichier GÉNÉRÉ, ne pas éditer**. Regénérer : `node scripts/generate-password-blocklist.mjs <fichier-source>` Contenu : les 4 premiers octets du SH…"
+    },
+    "COMMON_PASSWORD_HASH_COUNT": {
+      "name": "COMMON_PASSWORD_HASH_COUNT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/commonPasswordHashes.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Nombre d'empreintes — sert de contrôle au décodage."
+    },
+    "truncatedPasswordHash": {
+      "name": "truncatedPasswordHash",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/passwordHash.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Les 4 premiers octets du SHA-1, en entier non signé."
+    },
+    "PasswordPolicy": {
+      "name": "PasswordPolicy",
+      "kind": "class",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/passwordPolicy.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "implements": [
+        "IPasswordBlocklist"
+      ],
+      "decorators": [],
+      "description": "Politique par défaut : six règles, de la moins chère à la plus chère. Implémente {@link IPasswordBlocklist} — donc remplaçable par l'application, et composable (une implémentation maison peut l'app…"
+    },
+    "IPasswordPolicyOptions": {
+      "name": "IPasswordPolicyOptions",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/passwordPolicy.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Réglages d'une politique — tout est optionnel, les défauts sont sains."
+    },
+    "DEFAULT_PASSWORD_POLICY": {
+      "name": "DEFAULT_PASSWORD_POLICY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/passwordPolicy.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Défauts de la politique — source unique, relue par les tests."
+    },
     "IMigrationTarget": {
       "name": "IMigrationTarget",
       "kind": "interface",
@@ -28113,6 +28176,9 @@
         "Argon2idEncoder",
         "BcryptEncoder",
         "MigratingEncoder"
+      ],
+      "IPasswordBlocklist": [
+        "PasswordPolicy"
       ],
       "IMigrationDriver": [
         "MysqlMigrationDriver",
@@ -35694,6 +35760,11 @@
         "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
         "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
       ],
+      "WeakPasswordError": [
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "USER_REVOKED_EVENT": [
         "src/packages/@nodefony/security/nodefony/command/security-user-password.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/userRevocationCascade.ts"
@@ -36301,6 +36372,10 @@
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "IPasswordBlocklist": [
+        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
+        "src/packages/@nodefony/user/nodefony/src/password/passwordPolicy.ts"
+      ],
+      "PasswordPolicy": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
       ],
       "IPasswordEncoder": [
@@ -36312,10 +36387,6 @@
       ],
       "IOAuthProvisionPolicy": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
-      ],
-      "WeakPasswordError": [
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
-        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
       "profileFromClaims": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"
@@ -37082,6 +37153,9 @@
       "MemoryWebhookStore": [
         "src/packages/@nodefony/security/nodefony/src/webhook/webhookStoreRegistry.ts"
       ],
+      "DEFAULT_PASSWORD_POLICY": [
+        "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
+      ],
       "listUserStores": [
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
       ],
@@ -37108,6 +37182,12 @@
       ],
       "MigratingEncoder": [
         "src/packages/@nodefony/user/nodefony/src/encoders/encoderFromConfig.ts"
+      ],
+      "IPasswordSubjectHint": [
+        "src/packages/@nodefony/user/nodefony/src/password/passwordPolicy.ts"
+      ],
+      "truncatedPasswordHash": [
+        "src/packages/@nodefony/user/nodefony/src/password/passwordPolicy.ts"
       ],
       "MysqlMigrationDriver": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/index.ts"

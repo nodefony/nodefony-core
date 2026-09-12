@@ -71,16 +71,16 @@ async function setup(): Promise<Harness> {
 
   await service.createUser({
     identifier: "active@x.io",
-    plainPassword: "good",
+    plainPassword: "bon-mot-valise-42",
   });
   const locked = await service.createUser({
     identifier: "locked@x.io",
-    plainPassword: "good",
+    plainPassword: "bon-mot-valise-42",
   });
   (locked as BaseUser).lock();
   const disabled = await service.createUser({
     identifier: "disabled@x.io",
-    plainPassword: "good",
+    plainPassword: "bon-mot-valise-42",
   });
   (disabled as BaseUser).disable();
   await service.createUser({ identifier: "oauth@x.io" }); // password null
@@ -105,13 +105,13 @@ const FAILURE_PATHS: Array<{
   {
     label: "compte verrouillé",
     identifier: "locked@x.io",
-    password: "good",
+    password: "bon-mot-valise-42",
     reason: "locked",
   },
   {
     label: "compte désactivé",
     identifier: "disabled@x.io",
-    password: "good",
+    password: "bon-mot-valise-42",
     reason: "disabled",
   },
   {
@@ -158,7 +158,10 @@ describe("RED-TEAM Password — UserService.authenticate (anti-énumération par
     it("le succès consomme aussi 1 verify (indistinguable d'un échec)", async () => {
       const { service, encoder } = await setup();
       const before = encoder.verifies;
-      const user = await service.authenticate("active@x.io", "good");
+      const user = await service.authenticate(
+        "active@x.io",
+        "bon-mot-valise-42",
+      );
       assert.equal(
         (user as IPasswordAuthenticatedUser).identifier,
         "active@x.io",

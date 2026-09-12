@@ -78,7 +78,7 @@ async function loginAsAdmin(): Promise<string> {
     {},
     {
       username: "admin",
-      password: "secret",
+      password: "secret-de-dev-42",
     },
   );
   expect(res.status, "login admin").to.equal(200);

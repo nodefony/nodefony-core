@@ -136,7 +136,7 @@ interface IItem {
 
 <% if (it.hasSecurity) { %>  /**
    * `DELETE <%= it.route %>/{id}` — protégée par rôle : `@IsGranted` refuse
-   * (403) AVANT d'entrer dans l'action. En dev, `admin/admin` a le rôle.
+   * (403) AVANT d'entrer dans l'action. En dev, `admin/nodefony-dev-42` a le rôle.
    */
   @Delete("/{id}")
   @IsGranted("ROLE_ADMIN")

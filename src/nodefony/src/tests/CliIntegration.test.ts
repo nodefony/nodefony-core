@@ -799,6 +799,65 @@ describe.skipIf(!fs.existsSync(DIST))(
         `l'erreur doit donner le geste qui liste les comptes\n${r.stderr}`,
       );
     });
+
+    // ─── La politique de mot de passe, éprouvée par les DEUX portes (#360) ────
+    // Le mécanisme existait entièrement — contrat, erreur, appel sur les deux
+    // chemins d'écriture — et personne ne posait d'implémentation : le champ
+    // valait `null`, donc `--password abc` sortait en 0. Un test unitaire ne
+    // l'aurait pas vu : ce qui manquait était le CÂBLAGE, et il ne se constate
+    // qu'au spawn du binaire réel.
+    it("un mot de passe trop court est REFUSÉ à la création, en nommant la règle", async () => {
+      const r = await runCli(
+        ["security:user:add", `${LOGIN}-faible`, "--password", "abc"],
+        CLI_TIMEOUT_MS,
+      );
+      assert.notStrictEqual(
+        r.code,
+        0,
+        `un mot de passe de 3 caractères doit sortir en code non nul\nstdout: ${r.stdout}`,
+      );
+      assert.match(
+        `${r.stdout}${r.stderr}`,
+        /trop court/i,
+        `le refus doit NOMMER la règle enfreinte, pas dire « refusé »\n${r.stderr}`,
+      );
+      // Et le compte ne doit pas exister : un refus qui crée quand même serait
+      // le pire des deux mondes.
+      const liste = await runCli(
+        ["security:user:list", "--json"],
+        CLI_TIMEOUT_MS,
+      );
+      assert.ok(
+        !liste.stdout.includes(`${LOGIN}-faible`),
+        `un compte refusé ne doit pas figurer dans l'annuaire`,
+      );
+    });
+
+    it("un mot de passe COURANT est refusé au changement (la liste embarquée mord)", async () => {
+      // `basketball` fait 10 caractères, ne répète aucun motif et ne contient
+      // aucune suite de touches : seule la liste des mots de passe les plus
+      // courants peut l'attraper. Le cas est donc discriminant — il passe au
+      // vert uniquement si la liste est réellement consultée.
+      const ajout = await runCli(
+        ["security:user:add", LOGIN, "--password", PASSWORD_INITIAL],
+        CLI_TIMEOUT_MS,
+      );
+      assert.strictEqual(ajout.code, 0, `décor : création\n${ajout.stderr}`);
+      const r = await runCli(
+        ["security:user:password", LOGIN, "--password", "basketball"],
+        CLI_TIMEOUT_MS,
+      );
+      assert.notStrictEqual(
+        r.code,
+        0,
+        `un mot de passe du top-10k doit sortir en code non nul\nstdout: ${r.stdout}`,
+      );
+      assert.match(
+        `${r.stdout}${r.stderr}`,
+        /les plus courants/i,
+        `le refus doit nommer la liste\n${r.stderr}`,
+      );
+    });
   },
 );
 

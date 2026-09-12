@@ -308,7 +308,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
 <% if (it.hasSecurity) { %>   * **Réservée à `ROLE_ADMIN`** : `@IsGranted` refuse AVANT même d'entrer dans
    * l'action. C'est la seule route de ce contrôleur qui DÉTRUISE — la laisser
    * ouverte reviendrait à livrer une application où n'importe qui efface les
-   * données d'autrui. En développement, `admin/admin` porte ce rôle.
+   * données d'autrui. En développement, `admin/nodefony-dev-42` porte ce rôle.
    *
    * Pour ouvrir davantage (une équipe, un rôle métier), change le rôle ici, ou
    * déclare une zone dans `security.areas` qui couvre `<%= it.route %>` — les

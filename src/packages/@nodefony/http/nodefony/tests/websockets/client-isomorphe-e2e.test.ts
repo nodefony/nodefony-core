@@ -114,7 +114,7 @@ async function loginCookie(): Promise<string> {
     {},
     {
       username: "admin",
-      password: "secret",
+      password: "secret-de-dev-42",
     },
   );
   expect(res.status, "login attendu 200").toBe(200);

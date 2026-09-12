@@ -64,7 +64,7 @@
   let ws: WebSocket | null = null;
 <% } %>
 <% if (it.complete) { %>  let username = $state("admin");
-  let password = $state("admin");
+  let password = $state("nodefony-dev-42");
   let authMsg = $state<string | null>(null);
   let secureData = $state<SecureData | null>(null);
 <% } %>

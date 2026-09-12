@@ -10,6 +10,7 @@ import type {
 } from "../contracts/IUser";
 import type { IUserListQuery } from "../contracts/IUserRepository";
 import type { IPasswordBlocklist } from "../contracts/IPasswordBlocklist";
+import { PasswordPolicy } from "../src/password/passwordPolicy";
 import type { IPasswordEncoder } from "../contracts/IPasswordEncoder";
 import type { IPasswordVerifier } from "../contracts/IPasswordVerifier";
 import type { IUserProvider } from "../contracts/IUserProvider";
@@ -77,12 +78,16 @@ export class UserService
   #dummyHash: string | null = null;
 
   /**
-   * Liste de blocage des mots de passe compromis (NIST SP 800-63B §5.1.1.2) —
-   * hook opt-in consulté à la création/changement (jamais au login). `null`
-   * par défaut : le framework fournit le point d'extension, l'application
-   * branche sa source (top-10k, fichier, API k-anonymity).
+   * Politique de mot de passe (NIST SP 800-63B §5.1.1.2) — consultée à la
+   * création et au changement, jamais au login.
+   *
+   * **Posée PAR DÉFAUT**, et c'est le point : un défaut `null` ne se voit pas,
+   * et personne ne l'écrasait — `security:user:add compta --password abc`
+   * réussissait. L'application REMPLACE cet objet pour durcir ou pour brancher
+   * sa propre source ; la mettre à `null` désactive tout contrôle, et c'est
+   * alors un geste explicite, pas un oubli.
    */
-  passwordBlocklist: IPasswordBlocklist | null = null;
+  passwordBlocklist: IPasswordBlocklist | null = new PasswordPolicy();
 
   /**
    * @param repository - source de persistance des utilisateurs (credential inclus).
@@ -109,7 +114,7 @@ export class UserService
     input: ICreateUserInput,
   ): Promise<IPasswordAuthenticatedUser> {
     if (input.plainPassword != null) {
-      await this.#assertNotBlocked(input.plainPassword);
+      await this.#assertNotBlocked(input.plainPassword, input.identifier);
     }
     const password =
       input.plainPassword != null
@@ -214,7 +219,13 @@ export class UserService
     id: string,
     plainPassword: string,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    await this.#assertNotBlocked(plainPassword);
+    // On charge AVANT de juger : la politique doit pouvoir refuser un mot de
+    // passe qui répète l'identifiant, comme elle le fait à la création — sinon
+    // les deux portes d'écriture n'appliquent pas la même loi. Effet de bord
+    // heureux : un id inconnu ne paie plus un hachage pour rien.
+    const target = await this.findById(id);
+    if (target === null) return null;
+    await this.#assertNotBlocked(plainPassword, target.identifier);
     const password = await this.encoder.hash(plainPassword);
     const updated = await this.repository.updateOne(
       { id } as Criteria<IPasswordAuthenticatedUser>,
@@ -401,10 +412,27 @@ export class UserService
     return this.create(data);
   }
 
-  // Refuse un candidat connu-compromis si une blocklist est branchée (no-op sinon).
-  async #assertNotBlocked(plain: string): Promise<void> {
-    if (this.passwordBlocklist === null) return;
-    if (await this.passwordBlocklist.isBlocked(plain)) {
+  /**
+   * Refuse un candidat que la politique écarte — et NOMME la règle enfreinte
+   * quand la politique sait la dire (`violation`, membre optionnel du contrat).
+   *
+   * `null` = aucune politique branchée : l'application l'a retiré sciemment.
+   *
+   * @param plain - mot de passe candidat.
+   * @param identifier - identifiant du compte visé, quand l'appelant le connaît :
+   *   sans lui, la règle « le mot de passe répète l'identifiant » ne peut pas
+   *   mordre, et les deux portes d'écriture n'appliqueraient pas la même loi.
+   */
+  async #assertNotBlocked(plain: string, identifier?: string): Promise<void> {
+    const policy = this.passwordBlocklist;
+    if (policy === null) return;
+    const subject = identifier != null ? { identifier } : undefined;
+    if (policy.violation !== undefined) {
+      const violation = await policy.violation(plain, subject);
+      if (violation !== null) throw new WeakPasswordError(violation);
+      return;
+    }
+    if (await policy.isBlocked(plain, subject)) {
       throw new WeakPasswordError();
     }
   }

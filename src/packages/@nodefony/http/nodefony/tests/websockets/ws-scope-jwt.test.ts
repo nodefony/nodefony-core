@@ -172,7 +172,7 @@ function statusOf(reply: JsonRpcReply): number | undefined {
 
 describe("P6.8 — downscoping d'un agent JWT sur la socket (requires server)", () => {
   it("agent PORTANT le scope → la route scopée passe", async () => {
-    const token = await accessToken("admin", "secret", "m2m:read");
+    const token = await accessToken("admin", "secret-de-dev-42", "m2m:read");
     const hub = await hubConnectBearer(token);
     try {
       const reply = await hub.request(SCOPED_READ);
@@ -190,7 +190,7 @@ describe("P6.8 — downscoping d'un agent JWT sur la socket (requires server)", 
     // realtime s'annonçait `session`, donc le voter le tenait pour un humain et
     // n'exigeait plus rien. Un agent obtenait par sa socket ce que la même clé ne
     // pouvait pas obtenir en HTTP.
-    const token = await accessToken("admin", "secret", "m2m:read");
+    const token = await accessToken("admin", "secret-de-dev-42", "m2m:read");
     const hub = await hubConnectBearer(token);
     try {
       const reply = await hub.request(SCOPED_WRITE);
@@ -205,7 +205,7 @@ describe("P6.8 — downscoping d'un agent JWT sur la socket (requires server)", 
   });
 
   it("agent SANS AUCUN scope → toute route scopée est refusée", async () => {
-    const token = await accessToken("admin", "secret");
+    const token = await accessToken("admin", "secret-de-dev-42");
     const hub = await hubConnectBearer(token);
     try {
       expect(statusOf(await hub.request(SCOPED_READ))).to.equal(403);
@@ -219,7 +219,7 @@ describe("P6.8 — downscoping d'un agent JWT sur la socket (requires server)", 
     // Sans ce contre-test, un « 403 partout » (socket cassée, zone fermée) se
     // lirait comme une défense qui marche. C'est ce tir-là qui prouve que le
     // refus ci-dessus vient du scope, et non de la connexion.
-    const token = await accessToken("admin", "secret");
+    const token = await accessToken("admin", "secret-de-dev-42");
     const hub = await hubConnectBearer(token);
     try {
       const reply = await hub.request(UNSCOPED);
@@ -234,7 +234,7 @@ describe("P6.8 — downscoping d'un agent JWT sur la socket (requires server)", 
     // Régression F84 : une socket authentifiée par JWT était révoquée au motif
     // qu'elle n'avait pas de session BFF à relire. Deux requêtes espacées
     // prouvent que la connexion vit au-delà du handshake.
-    const token = await accessToken("admin", "secret");
+    const token = await accessToken("admin", "secret-de-dev-42");
     const hub = await hubConnectBearer(token);
     try {
       expect((await hub.request(UNSCOPED)).error).to.equal(undefined);

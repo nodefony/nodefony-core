@@ -126,7 +126,7 @@ function LiveCard() {
   const ws = useRef<WebSocket | null>(null);
 <% } %>
 <% if (it.complete) { %>  const [username, setUsername] = useState("admin");
-  const [password, setPassword] = useState("admin");
+  const [password, setPassword] = useState("nodefony-dev-42");
   const [authMsg, setAuthMsg] = useState<string | null>(null);
   const [secureData, setSecureData] = useState<SecureData | null>(null);
 <% } %>

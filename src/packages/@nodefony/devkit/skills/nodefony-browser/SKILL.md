@@ -116,13 +116,13 @@ continuation : elles passent telles quelles dans un terminal Linux, macOS, Power
 ## Ce que la sonde rend, et qu'une capture ne dit pas
 
 ```bash
-NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret NF_BROWSER_PROBES="bouton principal=button[type=submit],titre=h1" node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=nodefony-dev-42 NF_BROWSER_PROBES="bouton principal=button[type=submit],titre=h1" node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
 
 <details><summary>La même chose en conteneur (dernier recours)</summary>
 
 ```bash
-docker exec -e NF_BROWSER_LOGIN=/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret -e "NF_BROWSER_PROBES=bouton principal=button[type=submit],titre=h1" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
+docker exec -e NF_BROWSER_LOGIN=/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=nodefony-dev-42 -e "NF_BROWSER_PROBES=bouton principal=button[type=submit],titre=h1" mon-app-browser node /app/see-screen/inspect.mjs /tableau-de-bord "Chiffre d affaires"
 ```
 
 </details>
@@ -284,7 +284,7 @@ Hors d'une application générée, ou pour passer des identifiants :
 
 ```bash
 npm i -D lighthouse
-NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret node .../scripts/audit.mjs /tableau-de-bord
+NF_BROWSER_LOGIN=/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=nodefony-dev-42 node .../scripts/audit.mjs /tableau-de-bord
 ```
 
 Il rend les scores des cinq catégories — dont **`agentic-browsing`**, qui note ce qu'un agent

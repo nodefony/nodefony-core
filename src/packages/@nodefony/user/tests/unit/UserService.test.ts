@@ -243,13 +243,13 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
 
       const user = await service.createUser({
         identifier: "jane@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
         roles: ["ROLE_USER"],
       });
 
       assert.equal(user.identifier, "jane@x.io");
       assert.ok(user.id.length > 0);
-      assert.notEqual(user.password, "s3cret"); // jamais en clair
+      assert.notEqual(user.password, "s3cret-valise-42"); // jamais en clair
       assert.match(user.password as string, /^\$2[aby]\$/);
       assert.equal(user.hasRole("ROLE_USER"), true);
       assert.equal(fired, user);
@@ -308,14 +308,17 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const { service } = makeService();
       const created = await service.createUser({
         identifier: "a@x.io",
-        plainPassword: "old",
+        plainPassword: "ancien-mot-valise-42",
       });
       const oldHash = created.password;
       let pwdFired = false;
       let updFired = false;
       service.on("onPasswordChanged", () => (pwdFired = true));
       service.on("onUpdated", () => (updFired = true));
-      const updated = await service.changePassword(created.id, "new");
+      const updated = await service.changePassword(
+        created.id,
+        "nouveau-mot-valise-42",
+      );
       assert.notEqual(updated?.password, oldHash);
       assert.equal(pwdFired, true);
       assert.equal(updFired, false);
@@ -327,13 +330,13 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const { service } = makeService();
       const created = await service.createUser({
         identifier: "a@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
       });
       let ok = false;
       service.on("onAuthenticated", () => {
         ok = true;
       });
-      const user = await service.authenticate("a@x.io", "s3cret");
+      const user = await service.authenticate("a@x.io", "s3cret-valise-42");
       assert.equal(user?.id, created.id);
       assert.equal(ok, true);
     });
@@ -342,7 +345,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const { service } = makeService();
       await service.createUser({
         identifier: "a@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
       });
       let reason = "";
       service.on("onAuthenticationFailure", (_id, r) => {
@@ -377,14 +380,17 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const { service, repo } = makeService();
       const u = await service.createUser({
         identifier: "a@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
       });
       repo.store.get(u.id)?.lock();
       let reason = "";
       service.on("onAuthenticationFailure", (_id, r) => {
         reason = r as string;
       });
-      assert.equal(await service.authenticate("a@x.io", "s3cret"), null);
+      assert.equal(
+        await service.authenticate("a@x.io", "s3cret-valise-42"),
+        null,
+      );
       assert.equal(reason, "locked");
     });
 
@@ -392,14 +398,17 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const { service, repo } = makeService();
       const u = await service.createUser({
         identifier: "a@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
       });
       repo.store.get(u.id)?.disable();
       let reason = "";
       service.on("onAuthenticationFailure", (_id, r) => {
         reason = r as string;
       });
-      assert.equal(await service.authenticate("a@x.io", "s3cret"), null);
+      assert.equal(
+        await service.authenticate("a@x.io", "s3cret-valise-42"),
+        null,
+      );
       assert.equal(reason, "disabled");
     });
 
@@ -408,7 +417,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const weak = new UserService(repo, new BcryptEncoder(4));
       const created = await weak.createUser({
         identifier: "a@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
       });
       const oldHash = created.password;
 
@@ -417,7 +426,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       strong.on("onPasswordChanged", () => {
         rehashed = true;
       });
-      const user = await strong.authenticate("a@x.io", "s3cret");
+      const user = await strong.authenticate("a@x.io", "s3cret-valise-42");
       assert.equal(user?.id, created.id);
       assert.equal(rehashed, true);
       assert.notEqual(repo.store.get(created.id)?.password, oldHash);
@@ -433,7 +442,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
       const legacy = new UserService(repo, new BcryptEncoder(4));
       const created = await legacy.createUser({
         identifier: "a@x.io",
-        plainPassword: "s3cret",
+        plainPassword: "s3cret-valise-42",
       });
       assert.match(created.password as string, /^\$2[aby]\$/);
 
@@ -445,7 +454,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
           [new BcryptEncoder(4)],
         ),
       );
-      const user = await migrating.authenticate("a@x.io", "s3cret");
+      const user = await migrating.authenticate("a@x.io", "s3cret-valise-42");
       assert.equal(user?.id, created.id);
       // Le hash stocké a été modernisé au seul moment où le clair existait.
       assert.match(
@@ -458,7 +467,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
         rehashedAgain = true;
       });
       assert.equal(
-        (await migrating.authenticate("a@x.io", "s3cret"))?.id,
+        (await migrating.authenticate("a@x.io", "s3cret-valise-42"))?.id,
         created.id,
       );
       assert.equal(rehashedAgain, false);
@@ -505,21 +514,72 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
         WeakPasswordError,
       );
       assert.notEqual(
-        await service.changePassword(user.id, "autre-s3cret"),
+        await service.changePassword(user.id, "autre-s3cret-valise-42"),
         null,
       );
     });
 
-    it("sans blocklist branchée : aucun contrôle (hook opt-in)", async () => {
+    it("une politique RETIRÉE (null) ne contrôle plus rien — geste explicite", async () => {
+      // Le défaut n'est plus `null` : la retirer est désormais une décision,
+      // plus un oubli. C'est le cas d'une application qui branche son propre
+      // contrôle en amont (annuaire d'entreprise, fournisseur externe).
       const service = new UserService(
         new MemoryUserRepo(),
         new BcryptEncoder(4),
       );
+      service.passwordBlocklist = null;
       const ok = await service.createUser({
         identifier: "a@x.io",
         plainPassword: "password123",
       });
       assert.equal(ok.identifier, "a@x.io");
+    });
+
+    it("la politique est posée PAR DÉFAUT — c'est tout l'objet de #360", async () => {
+      // Le défaut `null` ne se voyait pas, et personne ne l'écrasait :
+      // `security:user:add compta --password abc` réussissait.
+      const service = new UserService(
+        new MemoryUserRepo(),
+        new BcryptEncoder(4),
+      );
+      assert.ok(service.passwordBlocklist !== null);
+      await assert.rejects(
+        service.createUser({ identifier: "compta", plainPassword: "abc" }),
+        (erreur: unknown) =>
+          erreur instanceof WeakPasswordError &&
+          /trop court/.test(erreur.message),
+      );
+    });
+
+    it("les deux portes d'écriture appliquent la MÊME loi (identifiant répété)", async () => {
+      // À la création l'identifiant est sous la main ; au changement il fallait
+      // aller le chercher. Sans ça, un utilisateur contournait la règle en deux
+      // gestes : créer avec un mot de passe sain, puis le remplacer par son nom.
+      const service = new UserService(
+        new MemoryUserRepo(),
+        new BcryptEncoder(4),
+      );
+      const user = await service.createUser({
+        identifier: "marie.dupont",
+        plainPassword: "s3cret-valise-42",
+      });
+      await assert.rejects(
+        service.changePassword(user.id, "marie.dupont-2026"),
+        (erreur: unknown) =>
+          erreur instanceof WeakPasswordError &&
+          /identifiant du compte/.test(erreur.message),
+      );
+    });
+
+    it("changePassword sur un id inconnu rend null SANS hacher", async () => {
+      const service = new UserService(
+        new MemoryUserRepo(),
+        new BcryptEncoder(4),
+      );
+      assert.equal(
+        await service.changePassword("inconnu", "s3cret-valise-42"),
+        null,
+      );
     });
   });
 });

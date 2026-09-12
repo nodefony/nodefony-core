@@ -93,7 +93,7 @@ let publishToChannel: RealtimePublish | null = null;
    * Action PROTÉGÉE par rôle (policy inline) : vue d'exploitation réservée —
    * sans `ROLE_ADMIN`, le voter refuse la frame AVANT d'entrer ici et
    * l'appelant reçoit une erreur JSON-RPC générique, jamais le détail
-   * (Zero Trust). En dev, le compte seedé `admin/admin` a le rôle.
+   * (Zero Trust). En dev, le compte seedé `admin/nodefony-dev-42` a le rôle.
    */
   @RealtimeAction("<%= it.channel %>:snapshot", { roles: ["ROLE_ADMIN"] })
   snapshot() {

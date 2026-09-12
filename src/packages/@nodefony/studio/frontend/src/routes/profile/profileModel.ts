@@ -66,8 +66,17 @@ export interface ChangePasswordInput {
   newPassword: string;
 }
 
-/** Longueur minimale d'un mot de passe (miroir du back, OWASP ASVS V2.1.1). */
-export const MIN_PASSWORD_LENGTH = 8;
+/**
+ * Longueur minimale d'un mot de passe — **miroir de `DEFAULT_PASSWORD_POLICY`**
+ * (`@nodefony/user`, `nodefony/src/password/passwordPolicy.ts`).
+ *
+ * La copie est inévitable : la politique importe `node:fs` et `node:crypto`, donc
+ * elle ne traverse pas vers le navigateur. Elle n'est donc pas laissée à la bonne
+ * volonté — `passwordPolicy.test.ts` confronte les deux valeurs et tombe si
+ * elles divergent. Sans ce test, l'écran annoncerait un plancher que le serveur
+ * refuse, et l'utilisateur verrait un 400 après avoir respecté la consigne.
+ */
+export const MIN_PASSWORD_LENGTH = 10;
 
 /** Version de la doc de cette surface (badge des fiches `DocHint`). */
 export const PROFILE_DOC = "v1.0";

@@ -53,7 +53,7 @@ const PATH = "/nodefony/test/secure/admin-only"; // @IsGranted("ROLE_ADMIN") + @
 describe("P6 J7 — @IsGranted bout-en-bout (zone test-secure)", () => {
   it("admin (ROLE_ADMIN) → 200, @CurrentUser injecte l'identité", async () => {
     const res = await req("GET", PATH, {
-      Authorization: basic("admin", "secret"),
+      Authorization: basic("admin", "secret-de-dev-42"),
     });
     expect(res.status).to.equal(200);
     expect(res.body).to.deep.include({ granted: true, identifier: "admin" });
@@ -61,7 +61,7 @@ describe("P6 J7 — @IsGranted bout-en-bout (zone test-secure)", () => {
 
   it("user (ROLE_USER : authentifié mais SANS le rôle) → 403 (pas 401)", async () => {
     const res = await req("GET", PATH, {
-      Authorization: basic("user", "secret"),
+      Authorization: basic("user", "secret-de-dev-42"),
     });
     expect(res.status).to.equal(403); // autz refuse APRÈS l'authn réussie
   });

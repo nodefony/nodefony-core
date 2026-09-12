@@ -42,7 +42,7 @@ const SCOPED = "/nodefony/test/self-external/scoped/read";
 const FOREIGN = "/nodefony/test/foreign-audience/whoami";
 /** Émetteur de développement, déclaré par `nodefony.config.ts`. */
 const ISSUER = "https://localhost:5152";
-const ADMIN = { username: "admin", password: "secret" };
+const ADMIN = { username: "admin", password: "secret-de-dev-42" };
 const TIMEOUT = 10_000;
 
 type Res = {

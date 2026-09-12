@@ -7,5 +7,5 @@
 
 # Clés de chiffrement au repos (32 octets aléatoires, base64) :
 <%= Object.entries(it.secrets).map(([k, v]) => k + "=" + v).join("\n") + "\n" %>
-# Compte admin local : admin / admin par défaut — décommente pour changer :
+# Compte admin local : admin / nodefony-dev-42 par défaut — décommente pour changer :
 # NF_ADMIN_PASSWORD=change-me

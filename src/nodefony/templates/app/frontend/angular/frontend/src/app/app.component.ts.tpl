@@ -185,7 +185,7 @@ interface LiveEvent {
             <input
               #pass
               type="password"
-              value="admin"
+              value="nodefony-dev-42"
               autocomplete="current-password"
               aria-label="mot de passe"
               (keydown.enter)="doLogin(user.value, pass.value)"

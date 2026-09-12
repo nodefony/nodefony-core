@@ -13,7 +13,7 @@ const composite = () =>
 describe("MigratingEncoder (P6 J2)", () => {
   describe("hash", () => {
     it("produit TOUJOURS le format du principal (jamais legacy)", async () => {
-      const hash = await composite().hash("s3cret");
+      const hash = await composite().hash("s3cret-valise-42");
       assert.match(hash, /^\$argon2id\$/);
     });
   });
@@ -21,22 +21,24 @@ describe("MigratingEncoder (P6 J2)", () => {
   describe("verify — routage par format", () => {
     it("vérifie un hash au format principal (argon2id)", async () => {
       const enc = composite();
-      const hash = await enc.hash("s3cret");
-      assert.equal(await enc.verify("s3cret", hash), true);
+      const hash = await enc.hash("s3cret-valise-42");
+      assert.equal(await enc.verify("s3cret-valise-42", hash), true);
       assert.equal(await enc.verify("wrong", hash), false);
     });
 
     it("vérifie un hash legacy (bcrypt) pendant la migration", async () => {
-      const legacyHash = await new BcryptEncoder(FAST_BCRYPT).hash("s3cret");
+      const legacyHash = await new BcryptEncoder(FAST_BCRYPT).hash(
+        "s3cret-valise-42",
+      );
       const enc = composite();
-      assert.equal(await enc.verify("s3cret", legacyHash), true);
+      assert.equal(await enc.verify("s3cret-valise-42", legacyHash), true);
       assert.equal(await enc.verify("wrong", legacyHash), false);
     });
 
     it("false (sans throw) pour un format inconnu de tous", async () => {
       const enc = composite();
-      assert.equal(await enc.verify("s3cret", "plaintext"), false);
-      assert.equal(await enc.verify("s3cret", ""), false);
+      assert.equal(await enc.verify("s3cret-valise-42", "plaintext"), false);
+      assert.equal(await enc.verify("s3cret-valise-42", ""), false);
     });
   });
 

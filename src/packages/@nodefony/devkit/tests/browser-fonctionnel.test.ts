@@ -66,7 +66,7 @@ const BASE_CONTENEUR =
 const CONTENEUR = process.env.NF_BROWSER_TEST_CONTAINER ?? "nodefony-browser";
 const LOGIN = process.env.NF_BROWSER_TEST_LOGIN ?? "/nodefony/login";
 const USER = process.env.NF_BROWSER_TEST_USER ?? "admin";
-const PASSWORD = process.env.NF_BROWSER_TEST_PASSWORD ?? "secret";
+const PASSWORD = process.env.NF_BROWSER_TEST_PASSWORD ?? "secret-de-dev-42";
 const PAGE_PROTEGEE =
   process.env.NF_BROWSER_TEST_PAGE ?? "/nodefony/supervision";
 const TEXTE_ATTENDU =
@@ -106,7 +106,8 @@ const ACTION = process.env.NF_BROWSER_TEST_ACTION ?? "";
 const CANAL_REFUSE =
   process.env.NF_BROWSER_TEST_CHANNEL_REFUSE ?? "nodefony:syslog";
 const USER_REFUSE = process.env.NF_BROWSER_TEST_USER_REFUSE ?? "user";
-const PASSWORD_REFUSE = process.env.NF_BROWSER_TEST_PASSWORD_REFUSE ?? "secret";
+const PASSWORD_REFUSE =
+  process.env.NF_BROWSER_TEST_PASSWORD_REFUSE ?? "secret-de-dev-42";
 
 /** Identifiants passés aux sondes qui ouvrent une page protégée. */
 const ENV_AUTH: Record<string, string> = {

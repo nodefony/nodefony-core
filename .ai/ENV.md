@@ -145,11 +145,11 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2490` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2554` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:714` |
 | `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:465` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2740` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2752` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2804` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2816` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:89` |
@@ -185,7 +185,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:53` |
 | `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:77` |
 | `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
-| `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:960` |
+| `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:970` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:579` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:91` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |

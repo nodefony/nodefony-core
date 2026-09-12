@@ -209,7 +209,7 @@ describe.skipIf(IS_PROD_TARGET)(
   "Pont api.request — radiographie PAR FRAME (requires server)",
   () => {
     it("la réponse porte meta.requestId, et ce profil est un kind ws complet", async () => {
-      const cookie = await loginCookie("admin", "secret");
+      const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
         const reply = await hub.request(MODULES_PATH);
@@ -242,7 +242,7 @@ describe.skipIf(IS_PROD_TARGET)(
     });
 
     it("deux frames de la MÊME socket → deux profils distincts (aucun cumul de phases)", async () => {
-      const cookie = await loginCookie("admin", "secret");
+      const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
         const first = await hub.request(MODULES_PATH);
@@ -271,7 +271,7 @@ describe.skipIf(IS_PROD_TARGET)(
     });
 
     it("un refus (404) est profilé, et son id voyage dans error.data", async () => {
-      const cookie = await loginCookie("admin", "secret");
+      const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
         const reply = await hub.request(GHOST_PATH);
@@ -300,7 +300,7 @@ describe.runIf(IS_PROD_TARGET)(
   "Pont api.request — en production, le pont répond SANS radiographie",
   () => {
     it("result nu, aucun meta.requestId (profil par frame non alloué)", async () => {
-      const cookie = await loginCookie("admin", "secret");
+      const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
         const reply = await hub.request(MODULES_PATH);
@@ -316,7 +316,7 @@ describe.runIf(IS_PROD_TARGET)(
     });
 
     it("un refus reste un refus (404 exposé), sans id de profil", async () => {
-      const cookie = await loginCookie("admin", "secret");
+      const cookie = await loginCookie("admin", "secret-de-dev-42");
       const hub = await hubConnect(cookie);
       try {
         const reply = await hub.request(GHOST_PATH);

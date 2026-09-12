@@ -91,7 +91,7 @@ beforeAll(async () => {
     "POST",
     LOGIN,
     {},
-    { username: "admin", password: "secret" },
+    { username: "admin", password: "secret-de-dev-42" },
   );
   const setCookie = res.headers["set-cookie"];
   const first = Array.isArray(setCookie) ? setCookie[0] : setCookie;

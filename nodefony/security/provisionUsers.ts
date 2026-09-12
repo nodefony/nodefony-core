@@ -235,8 +235,8 @@ async function seedPersistentUsers(
   }
 
   // DEV — comptes de fixture (idempotents : créés seulement si absents).
-  const adminPwd = env.NF_ADMIN_PASSWORD ?? "secret";
-  const userPwd = env.NF_USER_PASSWORD ?? "secret";
+  const adminPwd = env.NF_ADMIN_PASSWORD ?? "secret-de-dev-42";
+  const userPwd = env.NF_USER_PASSWORD ?? "secret-de-dev-42";
   if (!(await users.findByIdentifier(ADMIN_IDENTIFIER))) {
     await users.createUser({
       identifier: ADMIN_IDENTIFIER,

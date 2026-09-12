@@ -80,7 +80,7 @@ async function sessionCookie(): Promise<string> {
     "POST",
     LOGIN,
     {},
-    { username: "user", password: "secret" },
+    { username: "user", password: "secret-de-dev-42" },
   );
   expect(res.status, "login").to.equal(200);
   const cookie = setCookiesOf(res)[0]?.split(";")[0];
