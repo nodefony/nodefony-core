@@ -6,6 +6,8 @@ import type { AddressInfo } from "node:net";
 import {
   bindWithFallback,
   buildBindPlan,
+  conflictProbeTargets,
+  detectPortConflict,
   resolvePortPolicy,
   DEFAULT_PORT_RETRY_ATTEMPTS,
   type Listenable,
@@ -420,5 +422,174 @@ describe("bindWithFallback — sur de VRAIS ports occupés", () => {
     expect(r1.address.port).to.not.equal(r2.address.port);
     expect(s1.listening).to.equal(true);
     expect(s2.listening).to.equal(true);
+  });
+});
+
+/**
+ * Le conflit que le noyau ne signale JAMAIS.
+ *
+ * Mesuré sur macOS 24.6 : lier `0.0.0.0:P` alors que `127.0.0.1:P` est déjà tenu
+ * RÉUSSIT — deux liaisons distinctes. Les connexions locales partent à la plus
+ * spécifique, donc la seconde application annonce `READY`, publie ses ports, et
+ * ne reçoit rien. Le même piège vaut entre familles (`::1` / `0.0.0.0`), et là
+ * même linux l'accepte.
+ *
+ * Ces tests occupent de VRAIS ports : c'est le comportement du noyau qui est en
+ * cause, un mock prouverait seulement que le mock fait ce que je crois.
+ */
+describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
+  /** Occupe `port` sur une adresse PRÉCISE (le helper global vise 127.0.0.1). */
+  function occupyOn(host: string, port = 0): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const srv = net.createServer();
+      opened.push(srv);
+      srv.once("error", reject);
+      srv.listen(port, host, () => {
+        resolve((srv.address() as AddressInfo).port);
+      });
+    });
+  }
+
+  it("un port servi en loopback fait GLISSER l'écoute demandée sur toutes les interfaces", async () => {
+    const taken = await occupy(0); // 127.0.0.1:taken
+    const srv = fresh();
+    const res = await bindWithFallback(
+      srv as unknown as Listenable,
+      "0.0.0.0",
+      {
+        desired: taken,
+        reserved: [],
+        attempts: 5,
+      },
+    );
+    expect(res.shiftedFrom).to.equal(taken);
+    expect(res.address.port).to.not.equal(taken);
+  });
+
+  it("en STRICT, le même conflit REFUSE le démarrage au lieu d'écouter dans le vide", async () => {
+    // C'est le pire des deux mondes qu'on ferme ici : un pod déclaré sain que
+    // personne n'atteint. En strict le port est un contrat, donc on échoue.
+    const taken = await occupy(0);
+    const srv = fresh();
+    let code: string | undefined;
+    await bindWithFallback(srv as unknown as Listenable, "0.0.0.0", {
+      desired: taken,
+      reserved: [],
+      attempts: 0,
+    }).catch((error: NodeJS.ErrnoException) => {
+      code = error.code;
+    });
+    expect(code).to.equal("EADDRINUSE");
+    expect(srv.listening).to.equal(false);
+  });
+
+  it("le conflit se voit aussi entre FAMILLES d'adresses (`::1` tenu, v4 demandée)", async () => {
+    let taken: number;
+    try {
+      taken = await occupyOn("::1", 0);
+    } catch {
+      return; // pas d'IPv6 sur cette machine : la capacité se CONSTATE
+    }
+    const srv = fresh();
+    const res = await bindWithFallback(
+      srv as unknown as Listenable,
+      "0.0.0.0",
+      {
+        desired: taken,
+        reserved: [],
+        attempts: 5,
+      },
+    );
+    expect(res.shiftedFrom).to.equal(taken);
+  });
+
+  it("un port libre n'invente AUCUN conflit (pas de glissement fantôme)", async () => {
+    const free = await occupy(0); // puis libéré juste après
+    await new Promise<void>((r) => opened.pop()?.close(() => r()));
+    const srv = fresh();
+    const res = await bindWithFallback(
+      srv as unknown as Listenable,
+      "0.0.0.0",
+      {
+        desired: free,
+        reserved: [],
+        attempts: 5,
+      },
+    );
+    expect(res.shiftedFrom).to.equal(null);
+    expect(res.address.port).to.equal(free);
+  });
+});
+
+/**
+ * La règle du TRAFIC, éprouvée SANS ouvrir un socket : c'est elle qui évite le
+ * faux positif coûteux — refuser un pod parce qu'un voisin de conteneur écoute
+ * en boucle locale, alors que notre liaison n'a jamais croisé la sienne.
+ */
+describe("conflictProbeTargets — ce que notre liaison va recevoir", () => {
+  it("toutes les interfaces → les deux boucles locales (un wildcard n'est pas une destination)", () => {
+    for (const host of ["0.0.0.0", "::", "[::]", "*", "", "  "]) {
+      expect(conflictProbeTargets(host)).to.deep.equal(["127.0.0.1", "::1"]);
+    }
+    expect(conflictProbeTargets(undefined)).to.deep.equal(["127.0.0.1", "::1"]);
+  });
+
+  it("la boucle locale → les DEUX familles (`localhost` ne résout pas la même partout)", () => {
+    for (const host of ["localhost", "LocalHost", "127.0.0.1", "::1"]) {
+      expect(conflictProbeTargets(host)).to.deep.equal(["127.0.0.1", "::1"]);
+    }
+  });
+
+  it("une adresse d'interface précise → elle SEULE, jamais la boucle locale", () => {
+    // Une connexion vers elle atteint le tiers qu'il ait lié cette adresse ou
+    // le wildcard : une cible suffit. Y ajouter 127.0.0.1 ferait refuser un pod
+    // à cause d'un sidecar qui n'est en conflit avec personne.
+    expect(conflictProbeTargets("10.0.0.5")).to.deep.equal(["10.0.0.5"]);
+    expect(conflictProbeTargets("example.test")).to.deep.equal([
+      "example.test",
+    ]);
+  });
+});
+
+describe("detectPortConflict — la première adresse qui répond", () => {
+  it("rend l'adresse en conflit, et s'arrête dès qu'elle répond", async () => {
+    const asked: string[] = [];
+    const conflict = await detectPortConflict(5151, "0.0.0.0", (_p, host) => {
+      asked.push(host);
+      return Promise.resolve(host === "127.0.0.1");
+    });
+    expect(conflict).to.equal("127.0.0.1");
+    expect(asked).to.deep.equal(["127.0.0.1"]);
+  });
+
+  it("voie libre → `null`, après avoir interrogé TOUTES les cibles", async () => {
+    const asked: string[] = [];
+    const conflict = await detectPortConflict(5151, "localhost", (_p, host) => {
+      asked.push(host);
+      return Promise.resolve(false);
+    });
+    expect(conflict).to.equal(null);
+    expect(asked).to.deep.equal(["127.0.0.1", "::1"]);
+  });
+
+  it("le port 0 n'est JAMAIS sondé — le noyau alloue, rien n'est revendiqué", async () => {
+    let calls = 0;
+    const srv = fresh();
+    const res = await bindWithFallback(
+      srv as unknown as Listenable,
+      HOST,
+      {
+        desired: 0,
+        reserved: [],
+        attempts: 5,
+      },
+      () => {
+        calls += 1;
+        return Promise.resolve(true);
+      },
+    );
+    expect(calls).to.equal(0);
+    expect(res.shiftedFrom).to.equal(null);
+    expect(res.address.port).to.be.greaterThan(0);
   });
 });

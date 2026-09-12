@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 825,
-    "symbols": 4027,
+    "symbols": 4031,
     "classes": 391,
     "interfaces": 1085,
-    "types": 447,
+    "types": 448,
     "enums": 4,
-    "functions": 1697,
+    "functions": 1700,
     "constants": 403
   },
   "symbols": {
@@ -24113,6 +24113,14 @@
       "module": "@nodefony/http",
       "description": "Que faire si le port désiré est occupé."
     },
+    "PortListeningProbe": {
+      "name": "PortListeningProbe",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Sonde « un serveur répond-il déjà ici ? ». Injectable pour que le banc éprouve la DÉCISION sans dépendre d'un décor réseau ; le défaut est `isPortListening`, exposé par le cœur pour ne pas être rec…"
+    },
     "resolvePortPolicy": {
       "name": "resolvePortPolicy",
       "kind": "function",
@@ -24128,6 +24136,22 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Compose le plan de bind d'un serveur depuis la config du kernel — source UNIQUE (les deux serveurs l'appellent ; la politique n'est décidée qu'ici)."
+    },
+    "conflictProbeTargets": {
+      "name": "conflictProbeTargets",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Adresses à interroger pour savoir si notre future liaison chevauche déjà un serveur vivant. La règle est celle du TRAFIC, pas celle du noyau : on sonde ce que notre liaison va RECEVOIR. - Écouter s…"
+    },
+    "detectPortConflict": {
+      "name": "detectPortConflict",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Première adresse où un serveur répond DÉJÀ sur ce port, `null` si la voie est libre."
     },
     "bindWithFallback": {
       "name": "bindWithFallback",
@@ -36673,6 +36697,9 @@
       ],
       "RateLimitVerdict": [
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
+      "isPortListening": [
+        "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts"
       ],
       "CookieOptionsType": [
         "src/packages/@nodefony/http/nodefony/src/session/session.ts"
