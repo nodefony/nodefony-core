@@ -5027,6 +5027,147 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
     });
 
+    describe("compléter une entité existante — rien ne disparaît en silence", () => {
+      /** Scaffold entité en ASSUMANT le remplacement (`--force`). */
+      const entityForce = (
+        from: string,
+        answers: Record<string, string | boolean>,
+      ) =>
+        runScaffold(
+          { type: "entity", answers, dir: from, force: true },
+          version,
+        );
+
+      it("REFUSE un second appel qui ferait disparaître un champ, en le NOMMANT", () => {
+        const dest = app("ecumul");
+        entity(dest, { name: "Article", fields: "title:string! body:text?" });
+        try {
+          entity(dest, { name: "Article", fields: "views:int=0" });
+          assert.fail("le second create entity aurait dû être refusé");
+        } catch (e) {
+          const message = (e as Error).message;
+          // Les champs perdus, NOMMÉS — sans eux le refus n'apprend rien.
+          assert.include(message, "title");
+          assert.include(message, "body");
+          // Et les trois sorties : éditer à la main, tout re-lister, ou assumer.
+          assert.include(message, "orm:generate");
+          assert.include(message, "TOUS les champs");
+          assert.include(message, "--force");
+        }
+        // Le fichier n'a pas bougé : la transaction n'a rien commité.
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", "Article.ts"),
+          "utf8",
+        );
+        assert.include(src, "title:");
+        assert.include(src, "body:");
+        assert.notInclude(src, "views:");
+      });
+
+      it("ACCEPTE le geste qu'il prescrit : redonner TOUS les champs", () => {
+        // Un refus qui propose un geste impossible envoie dans le mur. Le
+        // câblage de l'entité ET de son controller doit donc tolérer la
+        // régénération sous le même nom — c'est ce que ce cas éprouve.
+        const dest = app("ecumul2");
+        entity(dest, { name: "Article", fields: "title:string! body:text?" });
+        entity(dest, {
+          name: "Article",
+          fields: "title:string! body:text? views:int=0",
+        });
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", "Article.ts"),
+          "utf8",
+        );
+        for (const champ of ["title:", "body:", "views:"]) {
+          assert.include(src, champ, `${champ} absent après régénération`);
+        }
+        // Une SEULE entrée dans le décorateur : une seconde ferait échouer le
+        // boot sur un doublon de registre.
+        const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+        assert.strictEqual(
+          index.split("ArticleEntity").length - 1,
+          2,
+          "ArticleEntity doit apparaître deux fois (import + décorateur)",
+        );
+        assertNoEtaResidue(dest);
+      });
+
+      it("`--force` assume le remplacement", () => {
+        const dest = app("ecumul3");
+        entity(dest, { name: "Article", fields: "title:string!" });
+        entityForce(dest, { name: "Article", fields: "views:int=0" });
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", "Article.ts"),
+          "utf8",
+        );
+        assert.include(src, "views:");
+        assert.notInclude(src, "title:");
+      });
+
+      it("REFUSE d'écraser une entité dont il ne sait plus lire les champs", () => {
+        const dest = app("ecumul4");
+        entity(dest, { name: "Article", fields: "title:string!" });
+        const file = path.join(dest, "nodefony", "entity", "Article.ts");
+        // Une main humaine a posé un type imbriqué — forme légitime, que la
+        // grammaire de la garde ne lit pas. Refuser vaut mieux que conclure
+        // « aucun champ perdu » : le fichier est réécrit EN ENTIER.
+        writeFileSync(
+          file,
+          readFileSync(file, "utf8").replace(
+            "title: string;",
+            "title: { raw: string };",
+          ),
+        );
+        assert.throws(
+          () => entity(dest, { name: "Article", fields: "views:int=0" }),
+          /sa forme n'est plus celle du générateur/u,
+        );
+      });
+
+      it("l'UTILISATEUR : le second appel ne perd pas le champ du premier", () => {
+        // Le cas qui a motivé la garde. L'entité de l'utilisateur échappait à
+        // la garde de câblage (son décorateur est posé dès la naissance de
+        // l'application), donc rien ne la protégeait : le second appel
+        // remplaçait `department` par `team`, sans un mot — et la migration
+        // suivante échouait sur une suppression de colonne.
+        const dest = app("ecumuser");
+        lierModuleUtilisateur(dest);
+        entity(dest, { name: "User", fields: "department:string?" });
+        try {
+          entity(dest, { name: "User", fields: "team:string?" });
+          assert.fail("le second create entity User aurait dû être refusé");
+        } catch (e) {
+          const message = (e as Error).message;
+          assert.include(message, "department");
+          // Les colonnes du CONTRAT ne sont pas perdues : elles sont relues à
+          // la même source. Les nommer ferait chercher un problème inexistant.
+          assert.notInclude(message, "identifier");
+          assert.notInclude(message, "roles");
+        }
+      });
+
+      it("l'UTILISATEUR : le PREMIER appel remplace la fabrique du framework", () => {
+        // Non-régression du geste normal : l'application naît avec une entité
+        // `User` qui délègue à `createUserTable`. Elle n'a aucune colonne à
+        // elle, donc rien ne peut s'y perdre — la prendre en possession est ce
+        // que son propre TSDoc prescrit.
+        const dest = app("ecumuser2");
+        lierModuleUtilisateur(dest);
+        const livree = readFileSync(
+          path.join(dest, "nodefony", "entity", "User.ts"),
+          "utf8",
+        );
+        assert.include(livree, "createUserTable(");
+        entity(dest, { name: "User", fields: "department:string?" });
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", "User.ts"),
+          "utf8",
+        );
+        assert.include(src, "department:");
+        assert.include(src, "identifier:");
+      });
+    });
+
     it("pose la chaîne complète : entité, schémas, service, controller, tests", () => {
       const dest = app("eapp");
       const r = entity(dest, {
@@ -6258,10 +6399,21 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // L'empreinte est prise APRÈS le premier scaffold : c'est le travail de
         // l'utilisateur que le second appel ne doit pas effleurer.
         const before = snapshotTree(dest);
+        // Le refus porte sur ce que le second appel FERAIT DISPARAÎTRE — la
+        // commande ré-décrit l'entité en entier, elle ne cumule pas. Viser
+        // « déjà référencé » (la garde de câblage) ne prouvait rien de ce
+        // qu'un utilisateur perd : elle tombe après, et elle lui disait de
+        // choisir un autre nom alors qu'il veut compléter son entité.
         assert.throws(
           () => entity(dest, { name: "Post", fields: "other:string" }),
-          /déjà référencé/u,
+          /RETIRERAIT/u,
         );
+        try {
+          entity(dest, { name: "Post", fields: "other:string" });
+          assert.fail("le second create entity aurait dû être refusé");
+        } catch (e) {
+          assert.include((e as Error).message, "title");
+        }
         assertTreeUnchanged(before, dest);
       });
 

@@ -1083,3 +1083,60 @@ export function buildEntityCodegen(
     idType: pk.tsType,
   };
 }
+
+/**
+ * Noms des propriétés d'un bloc d'interface de ligne — `id`, les champs, les
+ * horodatages : exactement l'ensemble des colonnes que porte la table.
+ *
+ * Rend `null` dès qu'une ligne n'a pas la forme `nom: type;`, et c'est tout
+ * l'intérêt : l'appelant s'en sert pour savoir s'il COMPREND l'entité qu'il
+ * s'apprête à remplacer. Une forme inconnue — type imbriqué écrit à la main,
+ * accolade ouverte sur la ligne — doit conduire à refuser l'écrasement, jamais
+ * à conclure « aucun champ perdu ».
+ *
+ * @param block - corps de l'interface, une propriété par ligne
+ * @returns les noms, dans l'ordre, ou `null` si la forme n'est pas comprise
+ */
+export function parseRowFieldNames(block: string): string[] | null {
+  const names: string[] = [];
+  for (const raw of block.split("\n")) {
+    const line = raw.trim();
+    // Lignes vides et commentaires : sautés. On ne devine rien, on ignore ce
+    // qui ne déclare pas de propriété.
+    if (
+      line.length === 0 ||
+      line.startsWith("//") ||
+      line.startsWith("/*") ||
+      line.startsWith("*")
+    ) {
+      continue;
+    }
+    const match = /^([A-Za-z_$][\w$]*)\??:\s*[^;{}]+;$/u.exec(line);
+    if (!match) return null;
+    names.push(match[1] as string);
+  }
+  return names;
+}
+
+/**
+ * Corps de `export interface <Pascal>Row { … }` dans une entité déjà rendue.
+ *
+ * C'est le MIROIR PLAT des colonnes : le bloc Drizzle, lui, porte des appels
+ * imbriqués, des options en objet et des commentaires de fin de ligne qu'aucune
+ * grammaire simple ne lit sans se tromper. Un développeur qui ajoute une colonne
+ * à la main ajoute la propriété ici aussi — sans elle, son code ne verrait pas
+ * la colonne.
+ *
+ * @param source - contenu du fichier d'entité
+ * @param pascal - nom de l'entité (`Post` → `PostRow`)
+ * @returns le corps de l'interface, ou `null` si elle est absente ou non close
+ */
+export function extractRowBlock(source: string, pascal: string): string | null {
+  const header = `export interface ${pascal}Row {`;
+  const start = source.indexOf(header);
+  if (start === -1) return null;
+  const body = source.slice(start + header.length);
+  const end = body.indexOf("\n}");
+  if (end === -1) return null;
+  return body.slice(0, end);
+}

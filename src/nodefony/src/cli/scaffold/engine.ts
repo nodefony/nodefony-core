@@ -45,6 +45,8 @@ import {
   parseEntityFields,
   parseEntityIndexes,
   buildEntityCodegen,
+  parseRowFieldNames,
+  extractRowBlock,
   describeColumnTypes,
   toSnakeCase,
   COLUMN_CASES,
@@ -1106,9 +1108,16 @@ export function wireDecoratorList(
   className: string,
   importPath: string,
   writer: ScaffoldWriter,
+  alreadyWiredIsNormal = false,
 ): void {
   const source = writer.read(indexPath);
   if (new RegExp(`\\b${className}\\b`, "u").test(source)) {
+    if (alreadyWiredIsNormal) {
+      // Rien à faire : l'entrée et l'import sont déjà là, et ce sont les MÊMES
+      // — le fichier vient d'être réécrit sous le même nom. En ajouter une
+      // seconde ferait échouer le boot sur un doublon.
+      return;
+    }
     throw new Error(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom`,
     );
@@ -3780,6 +3789,81 @@ function runEntityScaffold(
     idName,
   });
 
+  // 🔴 `create entity` RÉ-DÉCRIT l'entité en entier — il ne CUMULE pas avec ce
+  // qui existe déjà. Sur une entité présente, un second appel qui ne rappelle
+  // pas les champs du premier les fait DISPARAÎTRE, sans un mot. Le geste est
+  // pourtant le plus naturel qui soit : on ajoute un champ, puis un autre
+  // quelques jours plus tard. Et la perte ne se voit qu'à la migration
+  // suivante, sous la forme d'une colonne supprimée — donc un refus destructif,
+  // ou une génération qui échoue sans pouvoir nommer sa cause.
+  //
+  // On REFUSE plutôt que de fusionner, pour trois raisons :
+  //  - la commande réécrit AUSSI le schéma Zod, le service, le controller et les
+  //    tests ; conserver les seules colonnes annoncerait « rien perdu » en ayant
+  //    écrasé le reste — une conservation partielle est CRUE, donc pire ;
+  //  - le fichier d'entité est fait pour être édité à la main (son propre TSDoc
+  //    le dit : c'est du Drizzle ordinaire) ; le reconstruire depuis des noms
+  //    re-parsés effacerait ces éditions en prétendant les préserver ;
+  //  - `create app` et `create module` refusent déjà sur un existant et offrent
+  //    `--force`. Un troisième générateur ne peut pas avoir sa propre doctrine.
+  //
+  // Le référentiel est l'interface de LIGNE, des deux côtés : une seule
+  // grammaire, donc rien qui puisse diverger.
+  const entityFile = path.join(
+    target.dir,
+    "nodefony",
+    "entity",
+    `${pascal}.ts`,
+  );
+  const entityExisted = writer.exists(entityFile);
+  // L'entité que le GABARIT livre n'a pas de colonnes à elle : elle délègue à la
+  // fabrique du framework (`createUserTable`), dont les colonnes SONT celles du
+  // contrat — que ce rendu reproduit toutes, puisqu'il les lit à la même source.
+  // Rien ne peut s'y perdre, et la remplacer est exactement le geste que son
+  // propre TSDoc prescrit : prendre l'entité en possession.
+  const replacesFrameworkFactory =
+    isUserEntity &&
+    entityExisted &&
+    writer.read(entityFile).includes("createUserTable(");
+  if (!request.force && entityExisted && !replacesFrameworkFactory) {
+    const shown = path.relative(projectRoot, entityFile);
+    const rendered = parseRowFieldNames(codegen.rowProps);
+    if (rendered === null) {
+      // Notre PROPRE rendu échappe à notre propre grammaire : le gabarit a
+      // changé de forme sans que cette garde suive. Le dire franchement, plutôt
+      // que de laisser passer un écrasement que plus rien ne contrôle.
+      throw new Error(
+        `create entity ${pascal} : l'interface de ligne produite n'est plus lisible ` +
+          `par la garde anti-écrasement — le rendu a changé de forme sans elle. ` +
+          `Corrige parseRowFieldNames avant de continuer.`,
+      );
+    }
+    const block = extractRowBlock(writer.read(entityFile), pascal);
+    const existing = block === null ? null : parseRowFieldNames(block);
+    if (existing === null) {
+      throw new Error(
+        `create entity ${pascal} : ${shown} existe déjà, et sa forme n'est plus celle ` +
+          `du générateur — impossible de dire quels champs seraient perdus. Or cette ` +
+          `commande réécrit le fichier EN ENTIER.\n` +
+          `  → relis l'entité, puis relance avec « --force » pour assumer le remplacement`,
+      );
+    }
+    const lost = existing.filter((name) => !rendered.includes(name));
+    if (lost.length > 0) {
+      throw new Error(
+        `create entity ${pascal} : l'entité existe déjà, et ce rendu RETIRERAIT ` +
+          `${lost.length > 1 ? "des champs" : "un champ"} — ${lost.join(", ")}. ` +
+          `La commande ré-décrit l'entité en entier, elle ne cumule pas : tout champ ` +
+          `non rappelé disparaît, et la prochaine migration y verrait une suppression ` +
+          `de colonnes, donc une perte de données.\n` +
+          `  → ajoute le champ à la main dans ${shown} (c'est du Drizzle ordinaire), ` +
+          `puis « nodefony orm:generate »\n` +
+          `  → ou relance en redonnant TOUS les champs de l'entité, celui-ci compris\n` +
+          `  → ou assume le remplacement avec « --force »`,
+      );
+    }
+  }
+
   // Colonnes qu'un client a le droit de trier. Une allowlist, pas la liste des
   // champs : un tri libre laisse le client nommer n'importe quelle colonne, et
   // l'ORM lève sur un nom inconnu — un 500 offert à qui tape au hasard. Le JSON
@@ -4041,10 +4125,14 @@ function runEntityScaffold(
     `${pascal}Entity`,
     `./nodefony/entity/${pascal}`,
     writer,
-    // Régénérer l'utilisateur est le geste que son propre fichier prescrit :
-    // il est câblé depuis la naissance de l'application, et le retrouver là
-    // n'est pas un doublon.
-    isUserEntity,
+    // Régénérer une entité DÉJÀ posée n'est pas une collision de nom : le
+    // fichier vient d'être réécrit sous le même nom, et le décorateur porte
+    // déjà la bonne entrée. C'est le geste que la garde ci-dessus PRESCRIT
+    // (« relance en redonnant tous les champs ») — le refuser ici enverrait
+    // dans le mur celui qui la suit. L'utilisateur est le cas particulier de
+    // cette règle générale : son entité est câblée dès la naissance de
+    // l'application, avant tout `create entity`.
+    isUserEntity || entityExisted,
   );
   if (controller) {
     wireDecoratorList(
@@ -4053,6 +4141,9 @@ function runEntityScaffold(
       `${pascal}Controller`,
       `./nodefony/controllers/${pascal}Controller`,
       writer,
+      // Même raison que pour l'entité : sa ressource REST est régénérée avec
+      // elle, sous le même nom.
+      entityExisted,
     );
   }
   written.push("index.ts");

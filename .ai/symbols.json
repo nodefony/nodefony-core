@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 830,
-    "symbols": 4052,
+    "symbols": 4054,
     "classes": 392,
     "interfaces": 1090,
     "types": 448,
     "enums": 4,
-    "functions": 1711,
+    "functions": 1713,
     "constants": 407
   },
   "symbols": {
@@ -6653,6 +6653,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Produit le code des colonnes, de l'interface de ligne et du schéma Zod. Les horodatages sont posés **côté JS** (`$defaultFn`/`$onUpdateFn`) et non en SQL : le DDL dérivé du mode dev n'émet pas les …"
+    },
+    "parseRowFieldNames": {
+      "name": "parseRowFieldNames",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Noms des propriétés d'un bloc d'interface de ligne — `id`, les champs, les horodatages : exactement l'ensemble des colonnes que porte la table. Rend `null` dès qu'une ligne n'a pas la forme `nom: t…"
+    },
+    "extractRowBlock": {
+      "name": "extractRowBlock",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Corps de `export interface <Pascal>Row { … }` dans une entité déjà rendue. C'est le MIROIR PLAT des colonnes : le bloc Drizzle, lui, porte des appels imbriqués, des options en objet et des commenta…"
     },
     "ENTITY_DIALECTS": {
       "name": "ENTITY_DIALECTS",
@@ -32199,6 +32215,12 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "buildEntityCodegen": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "parseRowFieldNames": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "extractRowBlock": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "describeColumnTypes": [
