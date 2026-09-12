@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-11T22:38:32.352Z",
+  "generatedAt": "2026-09-12T00:16:42.007Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 74,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 13,
+      "open": 15,
       "title": "10.0.0-alpha"
     },
     {
@@ -3400,12 +3400,44 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 2.5,
+      "jours": 3.5,
       "ordre": 9.9405,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 362,
+      "title": "fix(scaffold): dire ce que fermer la zone /api coupe aussi",
+      "url": "https://github.com/nodefony/nodefony-core/issues/362",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.9406,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 363,
+      "title": "fix(orm): ne pas détruire des comptes sur un simple -y",
+      "url": "https://github.com/nodefony/nodefony-core/issues/363",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.9407,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
