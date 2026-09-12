@@ -87,6 +87,20 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- [1× — 09-12b] **La sonde regardait le bon motif dans le mauvais FICHIER — trois passes
+  d'agent payées pour un faux rouge, et il est GRAVÉ dans la référence.** Tâche 17 du
+  banc devkit, `PASS 3/3` → `FAIL 0/3` : la sonde cherche une zone de firewall dans
+  `nodefony.config.ts`, or elles vivent dans `nodefony/config/security.ts` depuis que la
+  configuration est extraite en fragments. Le commentaire de la sonde AFFIRMAIT la règle
+  périmée — « une zone vit dans le manifeste, et nulle part ailleurs » — ce qui a figé
+  l'erreur mieux que le code. Deux signes qui auraient dû alerter plus tôt : **tous les
+  gates de la tâche étaient verts**, seule la sonde de code tombait ; et l'agent avait
+  fait exactement ce que le gabarit lui montre en exemple. Règle : un ancrage `file:`
+  dans une sonde se rejoue contre une app RÉELLE (`grep -c` dans les deux emplacements)
+  à chaque fois que la structure du produit bouge — et une phrase d'exclusivité dans un
+  commentaire (« et nulle part ailleurs ») est une date de péremption qui ne se voit pas.
+  [[feedback_bench_probe_false_verdicts]]
+
 - [1× — 09-12] **La garde que j'ai écrite aurait INTERBLOQUÉ toutes les publications.** Pour
   qu'un tag ne publie pas sur une CI rouge, j'ai exigé le vert de TOUS les workflows du commit,
   exclusions nommées à part. Or l'un d'eux (`Code généré`) installe l'application générée DEPUIS
@@ -150,6 +164,16 @@
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
+- [1× — 09-12b] **Déplacer une règle dans un autre module rend MUETTES les mutations qui
+  la visaient.** En sortant `canalDe` et `VERSION_EXACTE` vers un module partagé, deux
+  mutations `--prove` du selftest d'origine ont perdu leur ancre : elles ne mutaient plus
+  rien. Le contrôle l'a DIT (« ancre introuvable — mutation MORTE ») au lieu de rendre un
+  vert tranquille, et c'est la seule raison pour laquelle ça s'est vu. Règle : après tout
+  déplacement de règle, relancer les `--prove` **avant** de croire au vert — un test de
+  mutation dont l'ancre a bougé passe silencieusement de « garde » à « décor ». Corollaire
+  de conception : une mutation doit ÉCHOUER bruyamment quand sa cible disparaît, jamais
+  être ignorée.
+
 - [1× — 09-11] **Un `grep` sans correspondance TUE un script sous `set -euo pipefail`, sans un
   mot.** Ajouté un contrôle au banc de publication ; son `grep -o` ne trouvait rien (l'application
   était éteinte à cet endroit), a rendu 1, et `set -e` a arrêté le script — donc sans passer par
@@ -183,6 +207,15 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-12b] **`lint-staged` a RESTAURÉ ma correction, et j'ai cru avoir mal édité.** Le
+  commit refusé par le lint, je corrige la ligne fautive, je relance — même erreur, même
+  ligne. Deuxième correction, même refus. La cause n'était pas mon édition : à chaque
+  échec, `lint-staged` affiche « Reverting to original state » et **remet les fichiers
+  stagés dans l'état d'avant**, ma correction comprise. Le message est pourtant à
+  l'écran, en clair. Règle : quand une correction « ne prend pas » deux fois de suite,
+  **relire ce que l'outil dit AVOIR FAIT** avant de suspecter son propre diff — et
+  vérifier le fichier sur le disque (`sed -n '<n>p'`), pas la mémoire de ce qu'on a écrit.
 
 - [1× — 09-12] **`cmd > log 2>&1; echo "EXIT=$?"` en tâche de fond rend le code du `echo`.** Le
   harness a rapporté « exit code 0 » pour un `test:all` qui avait SIX tests rouges, et j'ai failli
@@ -281,6 +314,16 @@
   travail. La date d'une passe ne dit pas ce qu'elle a exercé ; la BRANCHE, si.
 
 ## 🌍 Une portée GLOBALE n'est pas « un peu intrusive » — elle est FAUSSE
+
+- [1× — 09-12b] **Le décor du banc est isolé en RÉSOLUTION, pas en ÉCRITURE — un agent a
+  reformaté le `~/.claude/CLAUDE.md` du poste.** L'isolation est constatée avant chaque
+  campagne, et elle est réelle : elle empêche l'application témoin de résoudre un paquet
+  qu'elle ne déclare pas. Elle n'empêche rien du tout en écriture. Un agent qui cherchait
+  des `CLAUDE.md` à reformater (parce que `npm run verify` était rouge) en a trouvé un de
+  plus que prévu, hors dépôt et hors décor. Dégât bénin — six lignes vides — mais aucune
+  garde n'a rien vu, et la même commande aurait pu viser autre chose. Règle : une
+  isolation se qualifie par ce qu'elle COUVRE (« isolé en résolution de modules ») et non
+  par le mot « isolé », qui laisse croire à une étanchéité générale. → #371
 
 - [1× — 09-07g] **Une garde posée trop HAUT retire tout ce qui vivait sous elle.** « Ne pas
   connecter » a été écrit à l'entrée du hook `onBoot` — donc l'ORM n'était plus créé, plus

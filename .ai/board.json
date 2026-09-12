@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T09:43:43.832Z",
+  "generatedAt": "2026-09-12T10:16:08.392Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 4,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 30,
+      "open": 32,
       "title": "10.0.0-beta"
     },
     {
@@ -4488,6 +4488,38 @@
       "cible": "2026-12-15",
       "labels": [
         "10.1.0"
+      ]
+    },
+    {
+      "number": 371,
+      "title": "test(devkit-bench): constater qu'un agent écrit hors de son décor",
+      "url": "https://github.com/nodefony/nodefony-core/issues/371",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 46.1,
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 372,
+      "title": "fix(devkit-bench): chercher la zone de firewall où elle vit vraiment",
+      "url": "https://github.com/nodefony/nodefony-core/issues/372",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 46.2,
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
