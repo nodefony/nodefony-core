@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T07:32:41.481Z",
+  "generatedAt": "2026-09-12T08:34:11.799Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 74,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 23,
+      "open": 24,
       "title": "10.0.0-alpha"
     },
     {
@@ -3400,7 +3400,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 2.5,
+      "jours": 3,
       "ordre": 9.94,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
@@ -3836,6 +3836,22 @@
       "ordre": 10,
       "debut": "2026-09-29",
       "cible": "2026-09-29",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 370,
+      "title": "feat(cli): donner un critère pour choisir le moteur frontend",
+      "url": "https://github.com/nodefony/nodefony-core/issues/370",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 10.5,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
       "labels": [
         "10.0.0-alpha"
       ]
