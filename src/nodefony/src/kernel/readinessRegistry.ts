@@ -56,6 +56,18 @@ export interface IReadinessContributor {
    * le deviner.
    */
   readonly blocking?: boolean;
+  /**
+   * Le geste qui lèverait ce verdict, prêt à taper (`"nodefony orm:migrate"`).
+   *
+   * Une cause sans geste laisse chercher : c'est le défaut qui a coûté une base
+   * de développement — un agent voyait « colonne inconnue », en déduisait une
+   * base incohérente, et la supprimait. Le contributeur SAIT ce qui le lèverait ;
+   * il le dit ici plutôt que de laisser le lecteur le deviner.
+   *
+   * Absent quand le contributeur est prêt, ou quand aucun geste ne s'applique
+   * (un service tiers muet ne se répare pas depuis cette machine).
+   */
+  readonly action?: string;
 }
 
 /**
@@ -68,6 +80,8 @@ interface ReadinessEntry {
   reason: string | undefined;
   /** `false` : l'état est publié, mais ne compte pas dans {@link ReadinessRegistry.blocked}. */
   blocking: boolean;
+  /** Le geste qui lèverait le verdict — même cycle de vie que `reason`. */
+  action: string | undefined;
 }
 
 /**
@@ -103,6 +117,8 @@ export class ReadinessRegistry {
    * @param blocking - `false` pour PUBLIER l'état sans retenir le trafic ; le
    *   contributeur apparaît alors au diagnostic (et le noyau sait qu'un état
    *   externe est en cours), mais `/readyz` continue de répondre 200.
+   * @param action - le geste qui lèverait le verdict, prêt à taper — ignoré
+   *   quand `ready` est vrai, comme `reason`.
    * @returns `true` si le verdict AGRÉGÉ a basculé (retenu ⇄ disponible)
    */
   set(
@@ -110,6 +126,7 @@ export class ReadinessRegistry {
     ready: boolean,
     reason?: string,
     blocking: boolean = true,
+    action?: string,
   ): boolean {
     const wasBlocked = this.notReady > 0;
     const entry = this.entries[name];
@@ -119,7 +136,12 @@ export class ReadinessRegistry {
     const weighs = (e: { ready: boolean; blocking: boolean }): boolean =>
       !e.ready && e.blocking;
     if (entry === undefined) {
-      const neuf = { ready, reason: ready ? undefined : reason, blocking };
+      const neuf = {
+        ready,
+        reason: ready ? undefined : reason,
+        blocking,
+        action: ready ? undefined : action,
+      };
       this.entries[name] = neuf;
       this.tracked += 1;
       if (weighs(neuf)) {
@@ -130,6 +152,7 @@ export class ReadinessRegistry {
       entry.ready = ready;
       entry.blocking = blocking;
       entry.reason = ready ? undefined : reason;
+      entry.action = ready ? undefined : action;
       const weighsNow = weighs(entry);
       if (weighedBefore !== weighsNow) {
         this.notReady += weighsNow ? 1 : -1;
@@ -179,6 +202,7 @@ export class ReadinessRegistry {
         ...base,
         ...(entry.reason === undefined ? {} : { reason: entry.reason }),
         ...(entry.blocking ? {} : { blocking: false }),
+        ...(entry.action === undefined ? {} : { action: entry.action }),
       });
     }
     return out;

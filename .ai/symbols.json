@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 829,
-    "symbols": 4047,
+    "symbols": 4048,
     "classes": 392,
     "interfaces": 1089,
     "types": 448,
     "enums": 4,
-    "functions": 1707,
+    "functions": 1708,
     "constants": 407
   },
   "symbols": {
@@ -10923,6 +10923,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Tableau ANSI des zones firewall (ZONE/MODULE/PATTERN/AUTH/ACCÈS) — même gabarit que le tableau process du bilan (`renderProcessTable`). MODULE = qui déclare l'aire (`framework` pour le data plane `…"
+    },
+    "renderPendingLines": {
+      "name": "renderPendingLines",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/BootReporter.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose le bloc « Attente » du bilan : ce qui n'est PAS prêt, nommé, avec le geste qui le lèverait. 🔴 Le silence ici a déjà coûté une base de développement. Un schéma en retard produit un WARNING …"
     },
     "IReadinessProbe": {
       "name": "IReadinessProbe",
@@ -31529,7 +31537,8 @@
       ],
       "IReadinessContributor": [
         "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/types/IKernel.ts"
+        "src/nodefony/src/types/IKernel.ts",
+        "src/nodefony/src/service/dev/BootReporter.ts"
       ],
       "clearReadinessState": [
         "src/nodefony/src/kernel/Kernel.ts"

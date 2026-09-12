@@ -235,6 +235,36 @@ describe("Kernel — le registre naît au premier inscrit et meurt avec le derni
     expect(kernel.readinessBlocked).to.equal(0);
   });
 
+  it("le GESTE voyage avec la cause, et disparaît avec elle", () => {
+    // Une cause sans geste laisse chercher — et c'est en cherchant qu'on
+    // supprime une base pour « repartir propre ». Le contributeur SAIT ce qui
+    // le lèverait ; il le dit, plutôt que de laisser deviner.
+    const kernel = mkKernel();
+    kernel.setReadiness(
+      "drizzle:schema",
+      false,
+      "1 migration à appliquer",
+      false,
+      "nodefony orm:migrate",
+    );
+    expect(kernel.readinessReport()).to.deep.equal([
+      {
+        name: "drizzle:schema",
+        ready: false,
+        reason: "1 migration à appliquer",
+        blocking: false,
+        action: "nodefony orm:migrate",
+      },
+    ]);
+
+    // Prêt ⇒ plus de cause, donc plus de geste : un geste survivant enverrait
+    // taper une commande qui n'a plus lieu d'être.
+    kernel.setReadiness("drizzle:schema", true);
+    expect(kernel.readinessReport()).to.deep.equal([
+      { name: "drizzle:schema", ready: true },
+    ]);
+  });
+
   it("10 cycles inscription/retrait n'empilent RIEN — le registre est libéré", () => {
     const kernel = mkKernel();
     for (let i = 0; i < 10; i++) {

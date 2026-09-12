@@ -3145,12 +3145,18 @@ class Kernel extends Service implements IKernel {
    * @param name - nom du contributeur, qui apparaîtra au journal (`"drizzle:schema"`)
    * @param ready - `false` retient la mise en service, `true` la libère
    * @param reason - ce qui retient, en clair (journalisé ; ignoré si `ready`)
+   * @param blocking - `false` publie l'état sans retenir le trafic
+   * @param action - le geste qui lèverait ce verdict, prêt à taper
+   *   (`"nodefony orm:migrate"`) — affiché au démarrage à côté de la cause.
+   *   Une cause sans geste laisse chercher, et c'est ainsi qu'on détruit une
+   *   base en croyant la réparer.
    */
   setReadiness(
     name: string,
     ready: boolean,
     reason?: string,
     blocking: boolean = true,
+    action?: string,
   ): void {
     if (this.readiness === null) {
       // Personne ne s'était inscrit : le registre naît ICI, jamais au boot — y
@@ -3158,7 +3164,7 @@ class Kernel extends Service implements IKernel {
       // contributeur qui dira plus tard « plus prêt ».
       this.readiness = new ReadinessRegistry();
     }
-    const flipped = this.readiness.set(name, ready, reason, blocking);
+    const flipped = this.readiness.set(name, ready, reason, blocking, action);
     if (flipped) {
       this.logReadinessFlip();
     }

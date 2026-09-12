@@ -164,8 +164,18 @@ export interface IKernel extends IService {
    * Pose le verdict de disponibilité d'un composant nommé (schéma en retard,
    * cache froid…). Un seul `false` suffit à faire rendre 503 à `/readyz` ;
    * `/livez` reste 200 — un état externe ne se répare pas par un redémarrage.
+   *
+   * `blocking: false` publie l'état SANS retenir le trafic ; `action` porte le
+   * geste qui lèverait le verdict, prêt à taper — le démarrage l'affiche à côté
+   * de la cause, parce qu'une cause sans geste laisse chercher.
    */
-  setReadiness(name: string, ready: boolean, reason?: string): void;
+  setReadiness(
+    name: string,
+    ready: boolean,
+    reason?: string,
+    blocking?: boolean,
+    action?: string,
+  ): void;
   /** Retire un contributeur : sa voix ne retient plus rien. */
   clearReadiness(name: string): void;
   /** État de chaque contributeur — pour un diagnostic, jamais pour la sonde. */

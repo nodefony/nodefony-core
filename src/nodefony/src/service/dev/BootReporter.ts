@@ -8,6 +8,7 @@ import {
   type DevProcessInfo,
 } from "./devProcess";
 import { renderProcessTable } from "./devStatusReport";
+import type { IReadinessContributor } from "../../kernel/readinessRegistry";
 
 /**
  * Vue minimale d'une zone du firewall (`firewall.describe().zones`), résolue
@@ -101,6 +102,66 @@ const CYAN = "\x1b[36m";
 const DIM = "\x1b[2m";
 const BOLD = "\x1b[1m";
 const RESET = "\x1b[0m";
+
+/**
+ * Compose le bloc « Attente » du bilan : ce qui n'est PAS prêt, nommé, avec le
+ * geste qui le lèverait.
+ *
+ * 🔴 Le silence ici a déjà coûté une base de développement. Un schéma en retard
+ * produit un WARNING que le bilan RÉSUME (« 1 WARNING, détail : --debug ») sans
+ * jamais le nommer, pendant que l'écran conclut « Prêt » : mesuré sur un agent
+ * qui, faute de ce signal, a lu « colonne inconnue », en a déduit une base
+ * incohérente et l'a SUPPRIMÉE — trois comptes perdus. Le compte d'un journal
+ * n'est pas un diagnostic.
+ *
+ * Rien n'est recalculé : le verdict de chaque contributeur est déjà posé
+ * ({@link Kernel.setReadiness}), et c'est exactement celui que sert `/readyz`.
+ * Générique par construction — un cache froid ou un service tiers muet
+ * s'affiche ici sans une ligne de plus.
+ *
+ * **Muet quand tout est prêt** : un bandeau qui parle sur le cas normal
+ * s'apprend à être ignoré, et c'est le cas normal qui domine.
+ *
+ * Fonction PURE pour être éprouvable sans démarrer un noyau ni capturer une
+ * sortie standard.
+ *
+ * @param contributors - l'état de chaque contributeur ({@link Kernel.readinessReport}).
+ * @returns les lignes à écrire, sauts de ligne compris ; vide si tout est prêt.
+ */
+export function renderPendingLines(
+  contributors: readonly IReadinessContributor[],
+): string[] {
+  const pending = contributors.filter((contributor) => !contributor.ready);
+  if (pending.length === 0) {
+    return [];
+  }
+  // `blocking` n'est absent que dans le cas courant « non prêt ⇒ retient »
+  // (cf `ReadinessRegistry.report`) : l'absence vaut donc `true`.
+  const held = pending.some((c) => c.blocking !== false);
+  const plural = pending.length > 1 ? "s" : "";
+  const heading =
+    `     ${GREEN}➜${RESET}  ${BOLD}${"Attente".padEnd(9)}${RESET}` +
+    `${YELLOW}${pending.length} composant${plural} pas prêt${plural}${RESET}` +
+    (held
+      ? ` ${DIM}·${RESET} ${RED}trafic retenu (/readyz 503)${RESET}`
+      : ` ${DIM}·${RESET} ${DIM}le trafic passe quand même${RESET}`) +
+    "\n";
+  // Le saut ouvre le bloc : il ne colle pas au précédent.
+  const lines: string[] = ["\n", heading];
+  for (const contributor of pending) {
+    lines.push(
+      `        ${YELLOW}·${RESET} ${contributor.name}` +
+        (contributor.reason ? ` ${DIM}— ${contributor.reason}${RESET}` : "") +
+        "\n",
+    );
+    if (contributor.action) {
+      lines.push(
+        `          ${GREEN}→${RESET} ${BOLD}${contributor.action}${RESET}\n`,
+      );
+    }
+  }
+  return lines;
+}
 
 /** Une phase de boot = l'event Kernel qui la CLÔT + son libellé affiché. */
 interface BootPhase {
@@ -464,6 +525,7 @@ class BootReporter {
     }
     this.#renderProcessRow();
     this.#renderFirewallRow();
+    this.#renderPendingRow();
     process.stdout.write("\n"); // aère le bilan (un bloc = un paragraphe)
     const journal =
       !report.warnings && !report.errors
@@ -477,6 +539,17 @@ class BootReporter {
             .filter(Boolean)
             .join(` ${DIM}·${RESET} `) + ` ${DIM}(détail : --debug)${RESET}`;
     this.#verdictRow("Journal", journal);
+  }
+
+  /**
+   * Écrit le bloc « Attente » du bilan — composition dans
+   * {@link renderPendingLines}, qui porte la règle et se teste seule.
+   */
+  #renderPendingRow(): void {
+    const lines = renderPendingLines(this.#kernel.readinessReport());
+    for (const line of lines) {
+      process.stdout.write(line);
+    }
   }
 
   /** Ligne du bilan `➜  LABEL  valeur` (même gabarit que les lignes serveurs). */

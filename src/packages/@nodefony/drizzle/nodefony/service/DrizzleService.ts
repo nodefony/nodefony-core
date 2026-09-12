@@ -348,15 +348,24 @@ class DrizzleService extends Service {
     dialect: string,
     filename: string | undefined,
   ): Promise<void> {
-    if (ddl === "auto") {
-      return;
-    }
     const kernel = this.kernel as Kernel | null;
     const config = this.#config();
-    const check = resolveCheckMode(
-      config.migrations?.check,
-      readMigrationEnv(kernel),
-    );
+    const env = readMigrationEnv(kernel);
+    const check = resolveCheckMode(config.migrations?.check, env);
+    // 🔴 `auto` ne se tait plus. Le schéma y est dérivé du code, donc rien
+    // n'est en panne — mais une migration ENREGISTRÉE que personne n'a
+    // appliquée reste invisible, et c'est ce silence qui a coûté une base :
+    // l'application marche, puis une requête tombe sur une colonne inconnue,
+    // et le développeur (ou l'agent) en déduit une base incohérente qu'il
+    // supprime. On ÉNONCE donc l'écart, sans jamais retenir le trafic — en
+    // `auto` la base suit le code, il n'y a rien à opposer au trafic.
+    //
+    // Borné au DÉVELOPPEMENT : c'est là que le bilan de démarrage le rend
+    // lisible, et une suite de tests ne paie ainsi aucune lecture d'historique.
+    const adviseOnly = ddl === "auto";
+    if (adviseOnly && (check === "off" || env.runtime !== "development")) {
+      return;
+    }
     const target = { dialect, filename, url: cfg.url } as {
       dialect: "sqlite" | "postgres" | "mysql";
       filename?: string;
@@ -372,6 +381,15 @@ class DrizzleService extends Service {
       sources,
       lockTimeoutMs: config.migrations?.lockTimeoutMs,
     });
+
+    if (adviseOnly) {
+      // `"warn"` en dur, et non le `check` du projet : en `auto`, un réglage
+      // `fail` sortirait du service un processus dont la base suit pourtant le
+      // code. La surveillance périodique n'est pas armée non plus — il n'y a
+      // pas de rétention à lever, et le prochain démarrage recalculera.
+      await this.#publishReadiness(name, migrator, ddl, "warn");
+      return;
+    }
 
     if (ddl === "migrate") {
       try {
@@ -485,11 +503,15 @@ class DrizzleService extends Service {
       // signale un état externe, et sans inscription il n'y en avait plus —
       // un module qui tombait sur une table absente redevenait fatal, et la
       // commande qui répare inatteignable. Publier sans bloquer sépare les deux.
+      // Le GESTE part avec la cause : c'est `nextActions[0]`, celui-là même que
+      // la commande propose — jamais une chaîne réécrite ici, qui promettrait
+      // un geste que l'autre porte n'accepte pas (cf `resetAllowed`).
       kernel.setReadiness(
         readinessName(name),
         ok,
         report.summary,
         check === "fail",
+        report.nextActions[0]?.command,
       );
       if (enAvance) {
         // Ni CRITIC ni geste à taper : il n'y a rien à réparer, et l'action que
