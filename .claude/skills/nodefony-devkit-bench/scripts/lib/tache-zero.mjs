@@ -311,3 +311,90 @@ export function motifPorteClient(subpath) {
   const echappe = subpath.replace(/[.*+?^${}()|[\]\\]/gu, "\\$&");
   return new RegExp(`RealtimeClient|${echappe}`, "u");
 }
+
+/**
+ * Les entrées de PATH qui fournissent DÉJÀ un `nodefony` sur le poste.
+ *
+ * 🔴 **Le trou que ceci ferme a produit une mesure entièrement fausse.** Lors du
+ * premier run réel de la tâche 0, l'agent a tapé la commande de l'énoncé, ses
+ * drapeaux inventés ont échoué, et il s'est rabattu sur `npm install -g
+ * nodefony@<version>` puis `nodefony create app`. Le PATH du poste résolvait
+ * alors un lien vers le CHECKOUT du dépôt : l'application a été générée par le
+ * code en cours de développement, sur une tâche dont la raison d'être est
+ * d'éprouver la chaîne PUBLIÉE. Le décor enregistré annonçait une version, le
+ * manifeste en portait une autre, et seule la version RÉSOLUE l'a dit.
+ *
+ * Ce n'est pas un accident d'agent : c'est la définition même du décor. « Un
+ * dossier vide » veut dire qu'aucun outil du framework n'est déjà là — sinon on
+ * ne mesure pas un premier contact, on mesure le poste de celui qui lance le
+ * banc, et deux machines rendent deux verdicts.
+ *
+ * ⚠️ **Cette fonction NOMME, elle ne retire pas.** Retirer l'entrée du PATH a
+ * été essayé et c'est une faute : ces dossiers sont ceux d'un gestionnaire de
+ * versions (`~/.nvm/versions/node/<v>/bin`) et d'un `~/.local/bin` — ils
+ * fournissent aussi `node`, `npm`, `git`, et l'agent lui-même. Les amputer rend
+ * le décor inutilisable, pas vierge. C'est le binaire qu'on MASQUE, par un
+ * leurre placé en tête (voir `leurreNodefony`), jamais le dossier.
+ *
+ * Fonction PURE, grammaire de chemins injectée : une règle qui lit
+ * `process.platform` ne s'éprouve que là où elle tourne.
+ *
+ * @param {string} chemin - la valeur de `PATH`.
+ * @param {{existe: (f: string) => boolean}} io - test d'existence, injecté.
+ * @param {{delimiter: string, join: (a: string, b: string) => string}} [grammaire]
+ *   - la grammaire de chemins (défaut : POSIX ; `path.win32` pour Windows).
+ * @returns {string[]} les entrées qui fournissent un `nodefony`, sans doublon.
+ */
+export function entreesQuiFournissentNodefony(chemin, io, grammaire) {
+  const g = grammaire ?? { delimiter: ":", join: (a, b) => `${a}/${b}` };
+  const trouvees = [];
+  for (const dir of String(chemin ?? "")
+    .split(g.delimiter)
+    .filter((e) => e.length > 0)) {
+    // Les deux noms qu'npm pose pour un binaire : l'un sous Unix, l'autre le
+    // lanceur de Windows. Chercher le seul `nodefony` laisserait passer un
+    // poste Windows entier.
+    const fournit =
+      io.existe(g.join(dir, "nodefony")) ||
+      io.existe(g.join(dir, "nodefony.cmd"));
+    if (fournit && !trouvees.includes(dir)) trouvees.push(dir);
+  }
+  return trouvees;
+}
+
+/**
+ * Le corps du LEURRE qui masque un `nodefony` déjà installé sur le poste.
+ *
+ * Il imite ce qu'un découvreur obtient vraiment — une commande introuvable —
+ * mais en le DISANT, parce qu'un agent qui lit « command not found » cherchera
+ * à installer le framework globalement, et c'est précisément le contournement
+ * qui fausse la version mesurée. Le message le renvoie à la commande de
+ * l'énoncé.
+ *
+ * Le code `127` est celui d'un shell pour une commande absente : le choisir
+ * plutôt qu'un `1` fait que tout outil qui interprète les codes de sortie lit
+ * la même chose qu'en l'absence réelle du binaire.
+ *
+ * @returns {string} le script du leurre (shell POSIX).
+ */
+export function leurreNodefony() {
+  return [
+    "#!/bin/sh",
+    // Aucun accent grave, commentaires compris : le contrôle porte sur le
+    // fichier ENTIER, et un shell qui interpréterait un commentaire autrement
+    // n'aurait pas à être découvert ici.
+    "# Leurre du banc devkit — la tache 0 mesure un PREMIER CONTACT : aucun",
+    "# framework n'est installe sur le poste. Ce fichier masque un nodefony",
+    "# qui trainait dans le PATH et qui aurait scaffolde a la place de la",
+    "# version demandee.",
+    // 🔴 Guillemets SIMPLES, et aucun accent grave. En double, le shell
+    // substituerait une commande entre accents graves — donc `nodefony`
+    // lui-même, c'est-à-dire ce leurre : une récursion, dans le fichier écrit
+    // pour empêcher exactement cet appel.
+    "echo 'nodefony : aucun framework installe sur ce poste.' >&2",
+    "echo \"Cree l'application avec la commande de l'enonce ; nodefony sera\" >&2",
+    'echo "ensuite disponible DANS l\'application, via npx." >&2',
+    "exit 127",
+    "",
+  ].join("\n");
+}

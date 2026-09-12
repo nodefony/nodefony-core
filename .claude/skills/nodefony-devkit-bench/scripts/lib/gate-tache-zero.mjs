@@ -36,6 +36,8 @@
  * |    `2` | application-ambigue           | l'INSTRUMENT — verdict non rendu    |
  * |    `3` | application-ne-demarre-pas    | l'AGENT (issue D)                   |
  * |    `4` | aucune-reponse                | le DÉCOR — l'app ne répond pas      |
+ * |      | (rendu AUSSI quand la ressource ne répond pas du tout : une requête
+ * |      | qui échoue n'est pas une route absente — voir `classerIssue`)      |
  * |    `5` | tests-livres-casses           | l'AGENT (issue C)                   |
  * |    `6` | ressource-absente             | l'AGENT (issue D partielle)         |
  * |    `7` | identite-admin-indisponible   | le DÉCOR — verdict non rendu        |
@@ -57,7 +59,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 import { spawnSync } from "node:child_process";
-import { request, exit } from "./http-probe.mjs";
+import { CookieJar, request, exit } from "./http-probe.mjs";
 import {
   estRefus,
   estSucces,
@@ -206,6 +208,21 @@ export function classerIssue(faits) {
   // 🔴 L'issue C se juge AVANT la protection : un agent qui a cassé la suite
   // livrée a échoué, même si sa propre route est impeccable. L'inverse
   // laisserait passer un vert sur une application amputée.
+  // Un fichier livré qu'AUCUNE suite n'a joué ne dit rien — ni vert, ni rouge.
+  // Le taire reviendrait à compter un skip pour une preuve, exactement ce que
+  // ce dépôt paie depuis longtemps ailleurs.
+  if (testsLivres && testsLivres.lances && testsLivres.nonJoues?.length) {
+    return {
+      code: 2,
+      cause: "tests-livres-non-joues",
+      issue: "instrument",
+      detail:
+        `${testsLivres.nonJoues.length} test(s) LIVRÉS n'ont été joués par aucune ` +
+        `suite (${testsLivres.nonJoues.join(", ")}) : l'issue C n'est pas ` +
+        "mesurable, et un fichier non joué ne vaut pas un fichier vert",
+    };
+  }
+
   if (testsLivres && testsLivres.lances && !testsLivres.verts) {
     return {
       code: 5,
@@ -218,12 +235,32 @@ export function classerIssue(faits) {
     };
   }
 
-  if (statutAnonyme === null || statutAnonyme === 404) {
+  // 🔴 « Rien n'a répondu » et « la route n'existe pas » ne valent PAS pareil,
+  // et les confondre fabrique un rouge OPPOSABLE à l'agent pour une panne de
+  // décor. Vécu ici : le juge a rendu « /api/messages ne répond pas (404) — la
+  // ressource n'a pas été montée » sur une application où `inspect routes`
+  // montre bien `/api/messages`, et où un curl rend 401. La requête avait
+  // échoué (`null`), le message affichait « 404 », et l'agent était accusé.
+  //
+  // C'est le mode de défaillance n°1 de ce banc, et il vient de frapper dans le
+  // juge écrit POUR le séparer en quatre issues.
+  if (statutAnonyme === null) {
+    return {
+      code: 4,
+      cause: "aucune-reponse",
+      issue: "decor",
+      detail:
+        `aucune réponse sur ${CIBLE} — l'application ne répond pas, ou pas sur ` +
+        "ce port. Rien n'a été mesuré ; ce n'est PAS un verdict sur l'agent.",
+    };
+  }
+
+  if (statutAnonyme === 404) {
     return {
       code: 6,
       cause: "ressource-absente",
       issue: "D",
-      detail: `${CIBLE} ne répond pas (404) — la ressource demandée n'a pas été montée`,
+      detail: `${CIBLE} rend 404 — la ressource demandée n'a pas été montée`,
     };
   }
 
@@ -261,6 +298,69 @@ export function classerIssue(faits) {
 }
 
 /**
+ * Joue les tests LIVRÉS avec la configuration que l'application leur destine.
+ *
+ * Le gabarit sépare deux suites : `vitest.config.ts` pour l'ordinaire,
+ * `vitest.e2e.config.ts` pour le bout en bout — et la première EXCLUT la
+ * seconde. Un fichier e2e passé à un `vitest run` nu n'est pas joué, et rien ne
+ * le dit : le rapport ne le mentionne ni comme réussi ni comme sauté.
+ *
+ * On lance donc les deux suites, et l'on CONSTATE, pour chaque fichier demandé,
+ * qu'il apparaît dans une sortie. Ce qui n'apparaît nulle part est rendu dans
+ * `nonJoues` — un fichier dont on ne sait rien ne vaut pas un fichier vert.
+ *
+ * @param {string} appDir - le dossier de l'application.
+ * @param {string[]} fichiers - les tests livrés au premier commit.
+ * @returns {{verts: boolean, sortie: string, nonJoues: string[]}}
+ */
+export function lancerTestsLivres(appDir, fichiers) {
+  // 🔴 ARRÊTER le serveur d'abord. La suite de bout en bout livrée démarre le
+  // SIEN ; tant que celui de la gate tient les ports, elle rend « No test files
+  // found » et sort en 1 sans avoir joué une ligne. Mesuré : les mêmes tests
+  // rendent 3 ÉCHECS une fois les ports rendus, et 0 test joué quand ils sont
+  // pris — deux verdicts opposés pour la même application. Les statuts HTTP
+  // ayant déjà été collectés, l'arrêt ne coûte rien.
+  spawnSync("npx", ["--no-install", "nodefony", "stop"], {
+    cwd: appDir,
+    encoding: "utf8",
+    shell: needsShell("npx"),
+    timeout: 60 * 1000,
+  });
+
+  const configs = [null, "vitest.e2e.config.ts"];
+  let sortie = "";
+  let rouge = false;
+  const joues = new Set();
+  for (const config of configs) {
+    if (config && !existsSync(path.join(appDir, config))) continue;
+    const args = ["vitest", "run"];
+    if (config) args.push("-c", config);
+    const r = spawnSync("npx", [...args, ...fichiers], {
+      cwd: appDir,
+      encoding: "utf8",
+      shell: needsShell("npx"),
+      timeout: 10 * 60 * 1000,
+    });
+    const texte = `${r.stderr ?? ""}\n${r.stdout ?? ""}`.trim();
+    sortie += `${texte}\n`;
+    // 🔴 Ce qu'une suite a JOUÉ se relève SUR SA PROPRE sortie, jamais sur la
+    // concaténation : un fichier joué par la suite ordinaire masquait sinon son
+    // absence de la suite e2e, et `nonJoues` revenait vide alors que rien
+    // n'avait tourné.
+    for (const f of fichiers) {
+      if (texte.includes(path.basename(f))) joues.add(f);
+    }
+    // Une suite qui ne trouve AUCUN de ses fichiers sort en échec sans qu'un
+    // test ait failli : ce n'est pas un rouge du code. Ce n'est pas un vert non
+    // plus — les fichiers qu'elle devait jouer restent alors « non joués », et
+    // c'est `nonJoues` qui le porte.
+    if (r.status !== 0 && !/No test files found/iu.test(texte)) rouge = true;
+  }
+  const nonJoues = fichiers.filter((f) => !joues.has(f));
+  return { verts: !rouge, sortie: sortie.trim(), nonJoues };
+}
+
+/**
  * Collecte les faits et rend le verdict.
  *
  * @returns {Promise<void>}
@@ -281,21 +381,54 @@ async function main() {
 
   const appDir = resolution.dir;
 
+  // 🔴 L'ORDRE DE COLLECTE n'est PAS l'ordre de CLASSEMENT.
+  //
+  // Les statuts se mesurent D'ABORD, parce que la suite de bout en bout livrée
+  // gère son PROPRE serveur : elle démarre le sien, puis l'arrête — emportant
+  // celui que la gate venait de lancer. Mesuré : le juge, ayant appris à jouer
+  // les e2e, s'est retrouvé face à un `ECONNREFUSED` et a rendu « aucune
+  // réponse » sur une application parfaitement saine.
+  //
+  // Le classement, lui, garde son ordre : l'issue C se juge AVANT la
+  // protection (voir `classerIssue`). Collecter et classer sont deux gestes.
+  // Les identités — sortent en 4 / 7 / 9 si le DÉCOR n'a pas pu les donner.
+  const { admin } = await etablirIdentites();
+  // 🔴 Un jar VIDE, jamais `null` : `request` fait `jar.header()`, et un `null`
+  // y lève une exception que le `catch` transforme en « aucune réponse ». Le
+  // juge accusait alors le décor d'une panne qui était la sienne, sur une
+  // application qui répondait parfaitement — mesuré, 401 au curl au même
+  // instant. C'est le patron de `gate-secure-route.mjs`, repris à l'identique.
+  const anonyme = await request("GET", CIBLE, new CookieJar()).catch(
+    () => null,
+  );
+  const avecRole = await request("GET", CIBLE, admin).catch(() => null);
+
   // Les tests LIVRÉS — issue C. Lancés SÉPARÉMENT de ceux de l'agent.
   const livres = testsLivresDuPremierCommit(appDir);
   let testsLivres = null;
   if (livres.ok && livres.fichiers.length > 0) {
-    const r = spawnSync("npx", ["vitest", "run", ...livres.fichiers], {
-      cwd: appDir,
-      encoding: "utf8",
-      shell: needsShell("npx"),
-      timeout: 5 * 60 * 1000,
-    });
+    // 🔴 Chaque fichier avec LA configuration que l'application lui destine.
+    //
+    // Un `vitest run <fichiers>` nu ne joue que ceux que la config PAR DÉFAUT
+    // accepte : le gabarit range les tests de bout en bout sous
+    // `vitest.e2e.config.ts` (script `test:e2e`), et la config ordinaire les
+    // EXCLUT. Mesuré ici : quatre fichiers livrés demandés, **deux exécutés**,
+    // et les deux absents étaient précisément les e2e — ceux qui frappent le
+    // serveur en anonyme, donc les seuls que l'issue C fait tomber. Le juge
+    // concluait « tests livrés intacts » sur une application dont la zone
+    // `/api` venait d'être fermée en entier : le cas RÉEL du 2026-09-12,
+    // invisible à celui qui existe pour le voir.
+    //
+    // Un fichier non exécuté n'est donc pas un fichier vert : c'est un fichier
+    // dont on ne sait rien, et le juge le DIT plutôt que de compter un skip
+    // pour une preuve.
+    const r = lancerTestsLivres(appDir, livres.fichiers);
     testsLivres = {
       lances: true,
-      verts: r.status === 0,
+      verts: r.verts,
       nb: livres.fichiers.length,
-      sortie: `${r.stderr ?? ""}\n${r.stdout ?? ""}`.trim(),
+      sortie: r.sortie,
+      nonJoues: r.nonJoues,
     };
   } else {
     // Ne PAS inventer un verdict : si la frontière livré/ajouté n'est pas
@@ -303,12 +436,6 @@ async function main() {
     // compter verte. Un contrôle qui ne peut pas mesurer doit se taire.
     testsLivres = { lances: false, verts: true, nb: 0, sortie: livres.motif };
   }
-
-  // Les identités — sortent en 4 / 7 / 9 si le DÉCOR n'a pas pu les donner.
-  const { admin } = await etablirIdentites();
-
-  const anonyme = await request("GET", CIBLE, null).catch(() => null);
-  const avecRole = await request("GET", CIBLE, admin).catch(() => null);
 
   const verdict = classerIssue({
     resolution,

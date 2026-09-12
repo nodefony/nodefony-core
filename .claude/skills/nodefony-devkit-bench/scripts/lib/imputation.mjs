@@ -100,6 +100,10 @@ export const IMPUTATIONS = Object.freeze({
   // PORTE CLIENTE — deux moteurs signés dans le manifeste, ou pas de manifeste
   // lisible : le juge refuse de deviner sur quel critère il exige. Imputer cela
   // à l'agent l'accuserait d'une panne du banc.
+  // TÂCHE 0 — des tests LIVRÉS qu'aucune suite n'a joués : l'issue C n'est pas
+  // mesurable. Un fichier non joué ne vaut pas un fichier vert, et l'imputer à
+  // l'agent l'accuserait d'un filtre de configuration.
+  "tests-livres-non-joues": INDETERMINE,
   "moteur-front-ambigu": INDETERMINE,
   "manifeste-illisible": INDETERMINE,
   "aucune-reponse": INDETERMINE,

@@ -33,6 +33,8 @@ const {
   PORTES_CLIENT,
   porteClientDe,
   motifPorteClient,
+  entreesQuiFournissentNodefony,
+  leurreNodefony,
 } = await import(MODULE);
 
 const PROVE = process.argv.includes("--prove") && MODULE === "./tache-zero.mjs";
@@ -302,6 +304,79 @@ cas(
   motifPorteClient("nodefony/vue").test("new RealtimeClient({ url })"),
 );
 
+// ── Le poste ne doit pas fuir dans le décor ────────────────────────────────
+// Vécu au premier run réel : l'agent s'est rabattu sur `nodefony create app`, le
+// PATH a résolu un lien vers le CHECKOUT du dépôt, et une tâche dont la raison
+// d'être est d'éprouver la chaîne PUBLIÉE a mesuré le code en développement.
+{
+  const win = { delimiter: ";", join: (a, b) => `${a}\\${b}` };
+  const io = (presents) => ({ existe: (f) => presents.includes(f) });
+
+  cas(
+    "l'entrée qui fournit nodefony est NOMMÉE",
+    (() => {
+      const r = entreesQuiFournissentNodefony(
+        "/usr/bin:/home/moi/.local/bin",
+        io(["/home/moi/.local/bin/nodefony"]),
+      );
+      return r.length === 1 && r[0] === "/home/moi/.local/bin";
+    })(),
+  );
+
+  // 🔴 Ce que la première version faisait, et qui était une faute : retirer
+  // l'entrée. Ces dossiers portent aussi `node`, `npm` et l'agent — les amputer
+  // rend le décor inutilisable, pas vierge. La règle NOMME, elle ne retire pas.
+  cas(
+    "un PATH sans nodefony ne nomme RIEN (aucune entrée n'est à masquer)",
+    entreesQuiFournissentNodefony("/usr/bin:/bin", io([])).length === 0,
+  );
+
+  cas(
+    "plusieurs fournisseurs sont tous nommés",
+    entreesQuiFournissentNodefony(
+      "/a:/b:/c",
+      io(["/a/nodefony", "/c/nodefony"]),
+    ).length === 2,
+  );
+
+  cas(
+    "une entrée répétée n'est nommée qu'une fois",
+    entreesQuiFournissentNodefony("/a:/a:/a", io(["/a/nodefony"])).length === 1,
+  );
+
+  // Sous Windows npm pose un lanceur `.cmd` : ne chercher que `nodefony`
+  // laisserait passer un poste entier, et la règle ne mordrait que chez nous.
+  cas(
+    "le lanceur Windows (.cmd) est reconnu",
+    entreesQuiFournissentNodefony(
+      "C:\\bin;C:\\outils",
+      io(["C:\\outils\\nodefony.cmd"]),
+      win,
+    ).length === 1,
+  );
+
+  cas(
+    "un PATH vide ne fait pas tomber la règle",
+    entreesQuiFournissentNodefony("", io([])).length === 0,
+  );
+
+  // 🔴 Le leurre s'exécute dans un shell : un accent grave y substituerait une
+  // commande — donc `nodefony`, c'est-à-dire lui-même. Une récursion, dans le
+  // fichier écrit pour empêcher exactement cet appel.
+  cas(
+    "le leurre ne porte AUCUN accent grave (substitution de commande)",
+    !leurreNodefony().includes("`"),
+  );
+  cas(
+    "le leurre sort en 127, comme une commande absente",
+    leurreNodefony().includes("exit 127"),
+  );
+  cas(
+    "le leurre RENVOIE à la commande de l'énoncé",
+    /enonce|énoncé/u.test(leurreNodefony()),
+  );
+}
+
 // ── La table est une COPIE : la CONFRONTER au source du produit ─────────────
 // Deux copies d'une règle divergent en silence, chacune passant ses propres
 // tests. Ajouter un moteur à `FRONTEND_PARAMS` sans l'ajouter ici ferait juger
@@ -413,6 +488,27 @@ if (PROVE) {
       // libellé `moteur` ne faisait rien tomber, et la ligne témoin l'a dit.
       de: '    moteur: "svelte",\n    marker: "svelte",',
       vers: '    moteur: "svelte",\n    marker: "sveltejs",',
+    },
+    {
+      // Sans la détection, le poste de celui qui lance le banc décide du
+      // résultat : deux machines rendraient deux verdicts.
+      regle: "un nodefony déjà sur le PATH est DÉTECTÉ",
+      de: "    if (fournit && !trouvees.includes(dir)) trouvees.push(dir);",
+      vers: "    if (false) trouvees.push(dir);",
+    },
+    {
+      // Le lanceur Windows : ne chercher que `nodefony` rend la règle muette
+      // sur toute une plateforme, sans que rien ne le dise.
+      regle: "le lanceur Windows (.cmd) est reconnu",
+      de: '      io.existe(g.join(dir, "nodefony.cmd"));',
+      vers: "      false;",
+    },
+    {
+      // L'accent grave ferait exécuter `nodefony` DANS le leurre écrit pour
+      // l'empêcher — une récursion silencieuse.
+      regle: "le leurre ne porte aucun accent grave",
+      de: "    \"echo 'nodefony : aucun framework installe sur ce poste.' >&2\",",
+      vers: '    "echo \\"`nodefony` absent\\" >&2",',
     },
     {
       // Deviner entre deux moteurs, c'est juger sur le mauvais critère.

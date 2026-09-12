@@ -181,6 +181,8 @@ import {
 } from "./lib/decor-source.mjs";
 import {
   commandeCreation,
+  entreesQuiFournissentNodefony,
+  leurreNodefony,
   resoudreAppGeneree,
   versionInstallee,
 } from "./lib/tache-zero.mjs";
@@ -1357,7 +1359,21 @@ export const TASKS = [
         cmd: [
           "sh",
           "-c",
-          `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
+          // 🔴 Le compte TÉMOIN se crée AVANT le boot, par la commande du
+          // framework, avec les arguments que le juge lui-même dicte
+          // (`--temoin-args`) : une seule source pour cette identité. Sans
+          // cette ligne, `etablirIdentites` ne trouve personne et le juge sort
+          // en 9 — cause de DÉCOR, run écarté — si bien que le verdict des
+          // QUATRE issues n'est JAMAIS rendu. Mesuré : deux runs payés
+          // (18 min, 0,95 $ l'un) pour un « verdict non rendu ».
+          //
+          // `npm run build` d'abord : le runtime charge `dist/`, et l'agent
+          // peut avoir laissé un build périmé — c'est le patron des autres
+          // tâches à identités, repris à l'identique plutôt que réinventé.
+          `npm run build >/dev/null 2>&1; ` +
+            `NODE_ENV=development npx --no-install nodefony security:user:add ` +
+            `$(node ${JUGE_TACHE_ZERO} --temoin-args) >/dev/null 2>&1; ` +
+            `npx --no-install nodefony development --detach --wait >/dev/null 2>&1; ` +
             `node ${JUGE_TACHE_ZERO}; CODE=$?; ` +
             `npx --no-install nodefony stop >/dev/null 2>&1; exit $CODE`,
         ],
@@ -5426,11 +5442,66 @@ function runTask(app, runDir, task) {
     );
   }
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
+  // 🔴 En décor VIDE, aucun `.mcp.json` n'existe — l'application non plus.
+  // `--mcp-config .mcp.json` est résolu relativement au cwd de l'agent : sur un
+  // dossier vide, le CLI refuse de démarrer et rend un transcript de ZÉRO octet.
+  // Le banc l'annonce alors comme « l'agent n'a rendu aucun tour », c'est-à-dire
+  // un défaut d'authentification ou de quota — un diagnostic parfaitement faux,
+  // pour une cause qui est la nôtre. La porte MCP n'a de toute façon aucun sens
+  // ici : elle est une ROUTE de l'application que l'agent doit encore créer.
+  const argsMcp = task.decor === "vide" ? [] : MCP_ARGS;
+  // 🔴 Le décor vide EXIGE un poste sans framework — c'est ce que « premier
+  // contact » veut dire. Sans ce retrait, un `nodefony` déjà sur le PATH
+  // scaffolde à la place de la version demandée : vécu au premier run réel, un
+  // lien vers le CHECKOUT du dépôt a généré l'application d'une tâche dont la
+  // raison d'être est d'éprouver la chaîne PUBLIÉE. Le décor est alors celui du
+  // POSTE, et deux machines rendent deux verdicts.
+  let envTache = APP_ENV;
+  if (task.decor === "vide") {
+    // 🔴 On MASQUE le binaire du poste, on ne retire pas son dossier.
+    //
+    // Retirer l'entrée a été essayé, et c'est une faute : ces dossiers sont
+    // ceux d'un gestionnaire de versions et d'un `~/.local/bin` — ils
+    // fournissent aussi `node`, `npm`, `git`, et l'agent lui-même. Les amputer
+    // rend le décor inutilisable, pas vierge : l'agent n'a plus démarré du
+    // tout, et le banc l'a annoncé comme un défaut d'authentification.
+    //
+    // Un leurre placé EN TÊTE du PATH règle les deux : le reste du poste
+    // demeure joignable, et `nodefony` rend ce qu'un découvreur obtient — une
+    // commande absente — en renvoyant à la commande de l'énoncé.
+    const fournisseurs = entreesQuiFournissentNodefony(
+      APP_ENV.PATH ?? process.env.PATH ?? "",
+      { existe: (f) => existsSync(f) },
+    );
+    if (fournisseurs.length > 0) {
+      const masque = path.join(runDir, `masque-tache-${task.id}`);
+      mkdirSync(masque, { recursive: true });
+      const leurre = path.join(masque, "nodefony");
+      writeFileSync(leurre, leurreNodefony());
+      chmodSync(leurre, 0o755);
+      envTache = {
+        ...APP_ENV,
+        PATH: `${masque}${path.delimiter}${APP_ENV.PATH ?? process.env.PATH ?? ""}`,
+      };
+      console.log(
+        `  · ${fournisseurs.length} entrée(s) du PATH fournissaient DÉJÀ nodefony ` +
+          `(${fournisseurs.join(", ")})\n    → masquées par un leurre : l'agent ` +
+          `part d'un poste sans framework`,
+      );
+    } else {
+      console.log("  · PATH sans nodefony — l'agent part d'un poste vierge");
+    }
+  }
+  if (task.decor === "vide" && MCP_ARGS.length > 0) {
+    console.log(
+      "  · porte MCP NON déclarée — le décor est vide, l'application reste à créer",
+    );
+  }
   const res = spawnSync(
     AGENT,
     [
       ...AGENT_ARGS,
-      ...MCP_ARGS,
+      ...argsMcp,
       ...(MODEL ? ["--model", MODEL] : []),
       task.prompt,
     ],
@@ -5446,7 +5517,7 @@ function runTask(app, runDir, task) {
       // Les ports dédiés sont hérités par TOUT ce que l'agent lance — serveur
       // compris : c'est ce qui rend la tâche 5 mesurable sans dépendre de ce
       // qui tourne par ailleurs sur la machine.
-      env: APP_ENV,
+      env: envTache,
     },
   );
   writeFileSync(transcriptPath, res.stdout ?? "");
@@ -7089,6 +7160,20 @@ function main() {
     // installe depuis le registre public. La payer serait la payer pour rien,
     // et `--task 0` doit rester jouable seul (c'est déjà le poste le plus lourd
     // du catalogue).
+    // 🔴 Le régime `local` exige un registre interposé, qui n'est pas monté —
+    // et ce refus doit jouer QUEL QUE SOIT le chemin. Il vivait dans
+    // `monterDecor`, que le décor vide saute : `--task 0` partait alors jouer,
+    // et son énoncé aurait porté une version que npm ne sert pas. Une garde
+    // rangée dans une branche ne garde que cette branche — c'est précisément
+    // ce que le décor vide a révélé en la contournant.
+    if (registreLocalRequis(CANAL)) {
+      console.error(
+        "NF_DEVKIT_BENCH_CANAL=local exige un registre npm interposé, qui n'est " +
+          "pas encore monté. Rien n'a été mesuré — on ne replie pas sur le " +
+          "registre public, cela mesurerait autre chose en silence.",
+      );
+      process.exit(78);
+    }
     const toutEnDecorVide = tasks.every((t) => t.decor === "vide");
     if (toutEnDecorVide) {
       mkdirSync(runDir, { recursive: true });

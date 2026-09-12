@@ -105,6 +105,18 @@ situation(
   { code: 6, cause: "ressource-absente", issue: "D" },
 );
 
+// 🔴 « Rien n'a répondu » n'est PAS « la route n'existe pas ». Vécu : le juge a
+// rendu « /api/messages ne répond pas (404) — la ressource n'a pas été montée »
+// sur une application où `inspect routes` la montre et où un curl rend 401. La
+// requête avait échoué, le message affichait « 404 », et le rouge était
+// opposable à l'AGENT. C'est le mode de défaillance n°1 du banc, tombé dans le
+// juge écrit pour séparer les issues.
+situation(
+  "aucune réponse : c'est le DÉCOR, jamais un verdict sur l'agent",
+  { statutAnonyme: null },
+  { code: 4, cause: "aucune-reponse", issue: "decor" },
+);
+
 // ── Issue C — a fait ce qu'on demandait ET cassé l'existant ──────────────────
 // 🔴 LE cas qui justifie ce juge. Le 2026-09-12 : zone /api fermée en entier,
 // dix tests livrés emportés, aucune mention dans le compte rendu de l'agent.
@@ -176,6 +188,12 @@ if (PROVE) {
   const ici = path.dirname(fileURLToPath(import.meta.url));
   const source = readFileSync(path.join(ici, "gate-tache-zero.mjs"), "utf8");
   const mutations = [
+    {
+      // Reconfondre les deux, c'est accuser l'agent d'une panne de décor.
+      regle: "aucune réponse n'est pas une ressource absente",
+      de: "  if (statutAnonyme === null) {",
+      vers: "  if (false) {",
+    },
     {
       // 🔴 LA LIGNE TÉMOIN — elle ne change RIEN, et le contrôle doit rester
       // VERT. Sans elle, une mutation qui « tombe » ne prouve pas qu'elle est
