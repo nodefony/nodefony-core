@@ -309,10 +309,19 @@ export async function bindWithFallback(
 
   for (;;) {
     // Le conflit que le noyau n'exprime JAMAIS (cf en-tête) : constaté avant le
-    // bind, puis traité comme un `EADDRINUSE`. Rien à constater sur le port 0,
-    // où aucune adresse n'est revendiquée.
+    // bind, puis traité comme un `EADDRINUSE`.
+    //
+    // 🔴 Sur le port DÉSIRÉ seulement, et c'est une MESURE qui l'impose. Sondé à
+    // chaque candidat, ce contrôle épuisait les essais sur un agent Windows —
+    // onze ports de repli successifs déclarés « servis », puis un refus — là où
+    // le bind, lui, aurait réussi. La sonde n'a d'ailleurs de valeur que là : un
+    // port de repli n'a été promis à personne et le noyau y est seul juge, quand
+    // le port désiré est celui où l'on ATTEND le serveur, celui que l'état
+    // publié annonce, et celui du cas vécu (5151).
+    //
+    // Rien à constater sur le port 0 : aucune adresse n'y est revendiquée.
     const conflict =
-      plan.desired === 0
+      plan.desired === 0 || candidate !== plan.desired
         ? null
         : await detectPortConflict(candidate, host, probe);
     const failure: (Error & { code?: string }) | null = conflict

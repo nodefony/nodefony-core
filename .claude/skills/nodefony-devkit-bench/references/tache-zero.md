@@ -18,8 +18,12 @@ NF_DEVKIT_BENCH_CANAL=latest node $B --task 0   # après la 10.0.0
 
 `npm create nodefony@alpha` installe depuis le **registre public**. Tout le reste du
 banc est monté en décor ISOLÉ, depuis les tarballs du dépôt, et c'est délibéré
-(`bench-discoverability.mjs:4449` : « ses deps `@nodefony/*` ne sont publiées nulle
-part et son `npm install` part sur le registre »).
+(le lanceur le dit en toutes lettres là où il écarte ce cas : « ses deps
+`@nodefony/*` ne sont publiées nulle part et son `npm install` part sur le
+registre »). L'ancre `fichier:ligne` est volontairement absente : le contrôle
+d'ancres n'indexe que `src`, `docs`, `bin` et `scripts`, donc une ancre vers un
+script de skill est INVÉRIFIABLE — et une ancre qu'aucun gate ne relit finit par
+mentir. Le motif se retrouve d'un `rg` sur la citation.
 
 **La tâche 0 éprouve donc la chaîne PUBLIÉE, pas le code du dépôt.** Ce n'est pas un
 défaut — c'est le seul étage qui éprouve ce qu'un découvreur reçoit vraiment — mais il
