@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 830,
-    "symbols": 4060,
+    "symbols": 4063,
     "classes": 392,
     "interfaces": 1090,
     "types": 448,
     "enums": 4,
-    "functions": 1719,
+    "functions": 1722,
     "constants": 407
   },
   "symbols": {
@@ -6734,6 +6734,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Met en forme les écritures en attente, dans la transaction. Appelée par {@link runScaffold} AVANT la bifurcation dry-run / vidage, pour que le plan annoncé et le résultat écrit soient le même texte."
+    },
+    "loadRichPrompts": {
+      "name": "loadRichPrompts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/interactive.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le rendu RICHE, quand le terminal le permet — sinon `null`, sans un mot. Trois conditions, et chacune a coûté quelque chose ailleurs : 1. **les flux sont ceux du process** — un banc injecte des flu…"
+    },
+    "askRich": {
+      "name": "askRich",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/interactive.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une question rendue par `@inquirer/prompts` — la voie normale d'un terminal. Le DÉFAUT est marqué dans le libellé et non seulement par la position du curseur : une fois qu'on a bougé, plus rien ne …"
     },
     "confirm": {
       "name": "confirm",
@@ -30626,6 +30642,7 @@
         "src/nodefony/src/cli/aiMcp.ts",
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/cli/scaffold/interactive.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
       "ADMIN_SCOPE_READ": [
@@ -32362,6 +32379,9 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "anchorEventLoop": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "IPrompts": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "IScaffoldCaps": [

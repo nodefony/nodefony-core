@@ -47,7 +47,13 @@ import {
   manifestFileWith,
   readManifestCode,
 } from "../kernel/checks/sourceText";
-import { askMissing } from "../cli/scaffold/interactive";
+import {
+  askMissing,
+  askRich,
+  loadRichPrompts,
+} from "../cli/scaffold/interactive";
+import type { IPrompts } from "../cli/prompts";
+import type { IScaffoldTypeSpec } from "../cli/scaffold/spec";
 import { SysExit } from "../cli/sysexits";
 
 const argv = (...words: string[]): string[] => ["node", "nodefony", ...words];
@@ -8048,4 +8054,233 @@ describe("create app — quand la base ne répond pas, la cause se NOMME (#302)"
       );
     },
   );
+});
+
+describe("create app — le dialogue d'un vrai terminal", () => {
+  /** Ce que le double a reçu — c'est la QUESTION posée qu'on éprouve. */
+  interface IAppel {
+    kind: "confirm" | "select" | "checkbox" | "input";
+    message: string;
+    choices: { name: string; value: string; description?: string }[];
+  }
+
+  /**
+   * Un double de la porte à questions : il n'affiche rien, il enregistre.
+   *
+   * Le VRAI `@inquirer/prompts` exige un terminal ; l'éprouver ici mesurerait
+   * la bibliothèque, pas ce que le scaffold lui demande.
+   */
+  const doubleInvites = (
+    reponses: Record<string, unknown>,
+  ): { prompts: IPrompts; appels: IAppel[] } => {
+    const appels: IAppel[] = [];
+    const note = (
+      kind: IAppel["kind"],
+      config: { message: string; choices?: readonly unknown[] },
+    ): void => {
+      appels.push({
+        kind,
+        message: config.message,
+        choices: (config.choices ?? []) as IAppel["choices"],
+      });
+    };
+    const prompts: IPrompts = {
+      confirm: async (c) => {
+        note("confirm", c);
+        return reponses.confirm as boolean;
+      },
+      select: async <T>(c: {
+        message: string;
+        choices: readonly unknown[];
+      }) => {
+        note("select", c);
+        return reponses.select as T;
+      },
+      checkbox: async (c) => {
+        note("checkbox", c);
+        return reponses.checkbox as unknown[];
+      },
+      input: async (c) => {
+        note("input", c);
+        return reponses.input as string;
+      },
+    };
+    return { prompts, appels };
+  };
+
+  const question = (cle: string): IScaffoldTypeSpec["questions"][number] => {
+    const [spec] = getScaffoldSpec("app");
+    const q = spec.questions.find((x) => x.key === cle);
+    assert.isDefined(q, `question ${cle} absente de la spec`);
+    return q!;
+  };
+
+  it("🔴 un choix MULTIPLE se coche — on ne compose plus « 2,5,7 »", async () => {
+    const { prompts, appels } = doubleInvites({
+      checkbox: ["claude-code", "cursor"],
+    });
+    const reponse = await askRich(prompts, question("agents"));
+    // Deux agents cochés ressortent ENTIERS, chacun sa valeur : c'est ce qui
+    // permet à la génération d'en câbler deux.
+    assert.deepEqual(reponse, ["claude-code", "cursor"]);
+    assert.lengthOf(appels, 1);
+    assert.equal(appels[0].kind, "checkbox");
+    // Et rien n'est coché d'avance : câbler un agent écrit dans la
+    // configuration d'un autre outil.
+    assert.isTrue(
+      appels[0].choices.every(
+        (c) => (c as { checked?: boolean }).checked !== true,
+      ),
+    );
+  });
+
+  it("🔴 un choix unique montre son DÉFAUT, pas seulement sa position", async () => {
+    const { prompts, appels } = doubleInvites({ select: "sqlite" });
+    await askRich(prompts, question("database"));
+    assert.equal(appels[0].kind, "select");
+    const parDefaut = appels[0].choices.filter((c) =>
+      c.name.includes("défaut"),
+    );
+    // UN seul, et c'est celui que la spec déclare : marquer deux lignes ne
+    // dirait plus rien.
+    assert.lengthOf(parDefaut, 1);
+    assert.include(parDefaut[0].name, "sqlite");
+    // Le `hint` passe en description — il cesse d'allonger chaque ligne.
+    assert.isTrue(appels[0].choices.some((c) => Boolean(c.description)));
+  });
+
+  it("🔴 la validation de la spec vaut AUSSI dans le terminal riche", async () => {
+    // « Mon App » ne satisfait pas le kebab-case : la question est REPOSÉE.
+    let tours = 0;
+    const prompts: IPrompts = {
+      confirm: async () => false,
+      select: async <T>() => "" as T,
+      checkbox: async () => [],
+      input: async () => (++tours === 1 ? "Mon App" : "mon-app"),
+    };
+    assert.equal(await askRich(prompts, question("name")), "mon-app");
+    assert.equal(tours, 2);
+  });
+
+  it("🔴 des flux INJECTÉS retombent sur le readline — un banc ne se bloque pas", async () => {
+    // 🔴 Le terminal est FEINT : sans cela, l'absence de TTY suffirait à rendre
+    // `null` et ce contrôle passerait pour une raison qui n'est pas la sienne —
+    // la garde d'identité des flux ne serait jamais éprouvée.
+    const tty = process.stdin.isTTY;
+    Object.defineProperty(process.stdin, "isTTY", {
+      value: true,
+      configurable: true,
+    });
+    try {
+      assert.isNull(
+        await loadRichPrompts(new PassThrough(), new PassThrough()),
+      );
+    } finally {
+      Object.defineProperty(process.stdin, "isTTY", {
+        value: tty,
+        configurable: true,
+      });
+    }
+  });
+});
+
+describe("create app — ce qu'un agent emporte de la génération", () => {
+  let racine = "";
+
+  beforeEach(() => {
+    racine = mkdtempSync(path.join(os.tmpdir(), "nf-agent-ctx-"));
+  });
+
+  afterEach(() => {
+    rmSync(racine, { recursive: true, force: true });
+  });
+
+  /** Capture la sortie standard d'une génération — c'est elle qu'un agent lit. */
+  const sortieDe = async (dest: string): Promise<string> => {
+    const morceaux: string[] = [];
+    const vrai = process.stdout.write.bind(process.stdout);
+    process.stdout.write = ((chunk: unknown) => {
+      morceaux.push(String(chunk));
+      return true;
+    }) as typeof process.stdout.write;
+    try {
+      await runCreateCommand(
+        argv(
+          "create",
+          "app",
+          "ctx-app",
+          "--dir",
+          dest,
+          "--force",
+          "--no-install",
+          "--no-git",
+        ),
+      );
+    } finally {
+      process.stdout.write = vrai;
+    }
+    return morceaux.join("");
+  };
+
+  it("🔴 la SORTIE nomme ce qu'il ne doit pas écrire à la main, et où demander", async () => {
+    const out = await sortieDe(path.join(racine, "ctx-app"));
+    // Ce qui est rangé ailleurs n'agit pas : le fichier existe déjà et dit
+    // tout — encore faut-il que la commande qu'il vient de lancer le nomme.
+    assert.include(out, "AGENTS.md");
+    assert.include(out, "create --describe-json");
+    assert.include(out, "inspect routes --json");
+    // Et le geste que ces lignes rendent inutile est NOMMÉ : sans lui, la
+    // liste se lit comme trois pointeurs de documentation de plus.
+    assert.match(out, /avant d'écrire/iu);
+  });
+});
+
+describe("create app — choisir un moteur frontend sans oracle", () => {
+  const questionFrontend = (): IScaffoldTypeSpec["questions"][number] => {
+    const [spec] = getScaffoldSpec("app");
+    const q = spec.questions.find((x) => x.key === "frontend");
+    assert.isDefined(q);
+    return q!;
+  };
+
+  it("🔴 chaque moteur porte un CRITÈRE, jamais son détail de câblage", () => {
+    const q = questionFrontend();
+    const moteurs = (q.choices ?? []).filter((c) => c.value !== "none");
+    assert.lengthOf(moteurs, 4);
+    for (const c of moteurs) {
+      const hint = c.hint ?? "";
+      // « entry Vite + HMR », « SFC + HMR », « via AnalogJS » disaient tous la
+      // même chose : « ça marche ». Le mot de plomberie est le signe le plus
+      // sûr qu'on décrit le câblage au lieu d'aider à trancher.
+      assert.notMatch(
+        hint,
+        /\bHMR\b|\bVite\b|AnalogJS|fast-refresh|plugin officiel/u,
+        `« ${c.value} » décrit son câblage, pas ce qui le distingue : ${hint}`,
+      );
+      assert.isAtLeast(hint.length, 40, `critère trop court pour ${c.value}`);
+    }
+    // Et les quatre critères DIFFÈRENT : quatre phrases interchangeables ne
+    // départagent pas davantage que quatre « ça marche ».
+    assert.equal(new Set(moteurs.map((c) => c.hint)).size, 4);
+  });
+
+  it("🔴 la question DIT que le choix se change, et quoi faire si rien ne tranche", () => {
+    const note = questionFrontend().note ?? "";
+    assert.match(note, /se change/u);
+    assert.include(note, "create front");
+    // La phrase qu'aucun outil ne dit jamais — sans elle, un agent tranche sur
+    // son biais et motive après coup.
+    assert.match(note, /rien ne départage|aucun critère/u);
+    assert.match(note, /le défaut/u);
+  });
+
+  it("🔴 la porte MACHINE la porte aussi — un agent ne lit pas le terminal", () => {
+    const [spec] = getScaffoldSpec("app");
+    const json = JSON.parse(JSON.stringify({ types: [spec] })) as {
+      types: IScaffoldTypeSpec[];
+    };
+    const q = json.types[0].questions.find((x) => x.key === "frontend");
+    assert.isDefined(q?.note);
+    assert.match(q!.note!, /se change/u);
+  });
 });

@@ -36,6 +36,19 @@ export interface IScaffoldQuestion {
   /** Choix ordonnés (type "choice") — le premier N'est PAS forcément le défaut. */
   choices?: { value: string; label: string; hint?: string }[];
   default: string | boolean | string[];
+  /**
+   * Ce que l'outil DIT au moment où il pose la question — jamais dans une page
+   * annexe.
+   *
+   * Réservé à ce qu'un `hint` de choix ne peut pas porter : ce qui vaut pour la
+   * question ENTIÈRE. Typiquement, dire qu'un choix se change — un choix
+   * réversible n'a pas besoin d'oracle, encore faut-il que quelqu'un le dise.
+   *
+   * 🔴 Sans elle, un agent devant quatre options équivalentes tranche quand
+   * même, sur son biais d'entraînement, et fabrique une justification après
+   * coup : un choix arbitraire présenté comme motivé, le pire des deux mondes.
+   */
+  note?: string;
   /** Regex source (sans flags) que la valeur string doit satisfaire. */
   pattern?: string;
   /** Message d'aide affiché si la validation échoue. */
@@ -218,29 +231,64 @@ const APP_SPEC: IScaffoldTypeSpec = {
       key: "frontend",
       label: "Framework frontend de l'app",
       type: "choice",
+      // ⭐ Chaque indication porte un CRITÈRE DE CHOIX, jamais le détail de
+      // câblage. Les quatre disaient « entry Vite + HMR », « SFC + HMR »,
+      // « via AnalogJS » — c'est-à-dire, quatre fois, « ça marche ». Devant
+      // quatre options qui se valent, on ne tranche pas : on tire, puis on
+      // motive après coup.
+      //
+      // ⚠️ Et surtout PAS une table « si spécification X → moteur Y » : pour
+      // une application métier ordinaire, les quatre font le travail, et ce qui
+      // décide n'est presque jamais dans la spécification — c'est ce que
+      // l'équipe connaît, l'existant à intégrer, le système de design imposé,
+      // le recrutement. Une correspondance donnerait une fausse autorité, qu'un
+      // agent appliquerait avec l'aplomb d'une mesure.
       choices: [
         {
           value: "none",
           label: "Aucun",
-          hint: "API/backend seulement (ajoutable plus tard)",
+          hint: "l'app ne sert que des API — `create front` en ajoute un plus tard",
         },
         {
           value: "react",
           label: "React 19",
-          hint: "entry Vite + HMR fast-refresh",
+          hint:
+            "le plus grand vivier de bibliothèques et de profils — le choix " +
+            "par défaut d'une équipe qui n'a pas de préférence",
         },
-        { value: "vue", label: "Vue 3", hint: "SFC <script setup> + HMR" },
+        {
+          value: "vue",
+          label: "Vue 3",
+          hint:
+            "la prise en main la plus rapide — un composant tient dans un " +
+            "fichier lisible sans connaître l'outillage",
+        },
         {
           value: "angular",
           label: "Angular (standalone, zoneless)",
-          hint: "via AnalogJS",
+          hint:
+            "le plus prescriptif : il IMPOSE une structure — un appui pour " +
+            "une grosse équipe, un poids pour une petite",
         },
         {
           value: "svelte",
           label: "Svelte 5",
-          hint: "runes + HMR (plugin officiel)",
+          hint:
+            "le plus petit bundle et le moins de code à l'exécution — " +
+            "écosystème plus mince, à peser si tu dépends de briques toutes faites",
         },
       ],
+      // 🔴 LA phrase qu'aucun outil ne dit jamais, et la plus importante des
+      // deux : ce choix se CHANGE. Dans Nodefony le code métier ne dépend pas
+      // du moteur — la façade cliente est isomorphe (`nodefony/react`, `/vue`,
+      // `/svelte`, `/angular`), le data plane est le même, et `create front`
+      // ajoute un moteur après coup.
+      note:
+        "Ce choix se change : le code métier ne dépend pas du moteur (façade " +
+        "cliente isomorphe, même data plane), et `nodefony create front " +
+        "--frontend <moteur>` en ajoute un après coup. Si rien ne départage — " +
+        "ce que l'équipe connaît, l'existant, un système de design imposé — " +
+        "aucun critère ne tranche ici : prends le défaut.",
       default: "none",
     },
     {

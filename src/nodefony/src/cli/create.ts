@@ -1552,6 +1552,26 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
         ? `  npx nodefony security:token --write   # jeton MCP — la base doit répondre (après infra:up)\n`
         : ""),
   );
+  // ⭐ Ce qu'un AGENT emporte, placé LÀ OÙ IL PASSE — la sortie de la commande
+  // qu'il vient de lancer. Deux faits mesurés le veulent ici plutôt que dans
+  // une page : le gain de 89 min à 20 min entre deux essais de découverte est
+  // venu d'un TSDoc lu incidemment, pas d'une documentation ; et un agent en
+  // évaluation a lancé `doctor --live` puis `--deep` parce que la SORTIE de
+  // `doctor` les nommait, sans que son fichier d'instructions les connaisse.
+  // Ce qui est rangé ailleurs — même écrit, même juste — n'agit pas.
+  //
+  // TROIS lignes, et pas une de plus : un pavé en fin de génération se saute
+  // comme une bannière. Chacune répond à une question distincte — ce que le
+  // générateur produit déjà (donc ce qu'il ne faut pas écrire), où le demander
+  // en JSON, et où lire l'état RÉEL plutôt que de déduire des sources.
+  process.stdout.write(
+    `\nPour ton agent :\n` +
+      `  AGENTS.md            à lire AVANT d'écrire le moindre fichier — il dit\n` +
+      `                       ce que le générateur pose déjà (entité, service,\n` +
+      `                       controller, front, commande)\n` +
+      `  nodefony create --describe-json   les générateurs de CETTE version, en JSON\n` +
+      `  nodefony inspect routes --json    l'état RÉEL de l'app, jamais ses sources\n`,
+  );
   // L'ÉTAT de ce qui vient d'être écrit, montré pendant que l'utilisateur
   // regarde encore l'écran. Le framework porte déjà l'outil, il lit des
   // fichiers sans rien démarrer — donc il répond même quand la base est
