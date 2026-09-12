@@ -175,6 +175,51 @@ describe("scaffold — code des colonnes", () => {
     assert.match(c.columns, /body: text\("body"\),/u);
   });
 
+  it("un défaut de colonne ORDINAIRE s'écrit en SQL ET côté JS", () => {
+    // Le `DEFAULT` SQL est le seul qui compte quand la colonne est AJOUTÉE à
+    // une table déjà peuplée : un `ADD COLUMN … NOT NULL` sans lui est refusé.
+    const c = buildEntityCodegen(parseEntityFields("statut:string=neuf"), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "posts",
+    });
+    assert.match(c.columns, /\.default\("neuf"\)\.\$defaultFn\(/u);
+  });
+
+  it("un défaut REPRIS d'un contrat framework reste côté JS — jamais en SQL", () => {
+    // 🔴 Ces colonnes REMPLACENT celles d'une fabrique du framework, qui n'émet
+    // aucun `DEFAULT` SQL. En émettre un fait voir à l'outil de migration des
+    // colonnes MODIFIÉES que personne n'a touchées : il recrée alors la table
+    // entière, et sa recopie lit la colonne neuve dans la table source, où elle
+    // n'existe pas encore — `no such column`, migration morte, marqueur posé.
+    const repris: IEntityField[] = [
+      {
+        name: "roles",
+        type: "json",
+        nullable: false,
+        unique: false,
+        indexed: false,
+        defaultValue: "[]",
+        defaultJsOnly: true,
+      },
+    ];
+    const c = buildEntityCodegen(repris, {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "User",
+    });
+    assert.match(c.columns, /roles: .*\.\$defaultFn\(\(\) => \[\]\)/u);
+    assert.doesNotMatch(
+      c.columns,
+      /roles: .*\.default\(/u,
+      "un DEFAULT SQL sur une colonne du contrat recrée la table à la migration",
+    );
+  });
+
   it("postgres : jsonb (pas json) et timestamptz", () => {
     const c = buildEntityCodegen(fields, {
       dialect: "postgres",

@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 829,
-    "symbols": 4048,
+    "files": 830,
+    "symbols": 4052,
     "classes": 392,
-    "interfaces": 1089,
+    "interfaces": 1090,
     "types": 448,
     "enums": 4,
-    "functions": 1708,
+    "functions": 1711,
     "constants": 407
   },
   "symbols": {
@@ -22649,6 +22649,23 @@
       "module": "@nodefony/drizzle",
       "description": "Rang de la source application : dernière appliquée, toujours. Les entités d'une application peuvent référencer les tables du framework et celles des modules ; l'inverse n'arrive jamais."
     },
+    "IRebuildCopyRepair": {
+      "name": "IRebuildCopyRepair",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/rebuildCopy.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ce que la réparation a changé, pour pouvoir le DIRE plutôt que le taire."
+    },
+    "repairRebuildCopy": {
+      "name": "repairRebuildCopy",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/rebuildCopy.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Retire de la recopie les colonnes que la table de départ ne porte pas."
+    },
     "MigrationToolError": {
       "name": "MigrationToolError",
       "kind": "class",
@@ -34031,6 +34048,9 @@
       "gapAgainstDeclared": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
+      ],
+      "repairRebuildCopy": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "readJournal": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",

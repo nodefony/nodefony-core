@@ -166,6 +166,12 @@ export function userContractFields(
       const value = column.makeDefault();
       field.defaultValue =
         typeof value === "string" ? value : JSON.stringify(value);
+      // 🔴 Côté JS SEULEMENT : ces colonnes REMPLACENT celles de la fabrique du
+      // framework, qui n'émet aucun `DEFAULT` SQL. En émettre un ferait voir à
+      // l'outil de migration des colonnes modifiées que personne n'a touchées —
+      // et la table serait recréée, ce qui casse la migration (cf
+      // `IEntityField.defaultJsOnly`).
+      field.defaultJsOnly = true;
     }
     fields.push(field);
   }

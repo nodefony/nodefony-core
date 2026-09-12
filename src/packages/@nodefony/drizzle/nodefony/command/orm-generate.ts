@@ -27,6 +27,7 @@ import {
 import { checkMigrationName } from "../src/migrator/name";
 import type { IDiscoveryFacts } from "../src/migrator/refusals";
 import { gapAgainstDeclared } from "../src/migrator/divergence";
+import { repairRebuildCopy } from "../src/migrator/rebuildCopy";
 import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
 import { appMigrationsDir } from "../src/migrator/resolve";
@@ -565,7 +566,31 @@ class OrmGenerate extends OrmMigrateCommand {
     for (const tag of added) {
       const file = path.join(outDir, `${tag}.sql`);
       written.push(relative(file));
-      const audit = auditMigrationSql(await fs.readFile(file, "utf8"), dialect);
+      let sql = await fs.readFile(file, "utf8");
+      // 🔴 Réparer AVANT d'auditer : une recréation de table dont la recopie lit
+      // une colonne encore absente de la table de départ échoue à
+      // l'application, pose un marqueur, et bloque tous les passages suivants.
+      // L'audit doit voir le SQL qui sera VRAIMENT joué, pas celui que l'outil
+      // a écrit.
+      const repair = repairRebuildCopy(
+        sql,
+        await this.#columnsBeforeMigration(outDir, tag),
+      );
+      if (repair.dropped.length > 0) {
+        await fs.writeFile(file, repair.sql, "utf8");
+        sql = repair.sql;
+        if (opts.json !== true) {
+          this.log(
+            `Recopie corrigée dans ${relative(file)} — ${repair.dropped.join(", ")} ` +
+              `ne peu${repair.dropped.length > 1 ? "vent" : "t"} pas être lue${repair.dropped.length > 1 ? "s" : ""} ` +
+              `dans la table de départ, qui ne la${repair.dropped.length > 1 ? "s" : ""} porte pas encore. ` +
+              `Ces colonnes recevront ce que leur « CREATE TABLE » leur donne (un défaut, ou vide) — ` +
+              `c'est ce qu'aurait fait un « ADD COLUMN ». Le reste du fichier est intact.`,
+            "WARNING",
+          );
+        }
+      }
+      const audit = auditMigrationSql(sql, dialect);
       destructive.push(...audit.destructive);
       warnings.push(...audit.blocking);
     }
@@ -742,6 +767,57 @@ class OrmGenerate extends OrmMigrateCommand {
   async #tags(outDir: string): Promise<string[]> {
     const journal = await readJournal(outDir);
     return (journal?.entries ?? []).map((e) => e.tag);
+  }
+
+  /**
+   * Les colonnes que chaque table portait AVANT la migration qu'on vient
+   * d'écrire — lues dans le cliché qui la précède.
+   *
+   * C'est la même référence que celle sur laquelle l'outil de génération a
+   * calculé son écart : le cliché d'indice `N-1` décrit l'état d'arrivée de la
+   * migration précédente, donc l'état de DÉPART de celle-ci.
+   *
+   * Rend une fonction qui répond `null` pour toute table inconnue — absence de
+   * cliché, première migration, format inattendu. C'est ce `null` qui garantit
+   * qu'on ne réécrit jamais un SQL sur une supposition.
+   *
+   * @param outDir - dossier des migrations du dialecte.
+   * @param tag - étiquette de la migration écrite (`0004_ajout_du_titre`).
+   * @returns un lecteur de colonnes par nom de table.
+   */
+  async #columnsBeforeMigration(
+    outDir: string,
+    tag: string,
+  ): Promise<(table: string) => readonly string[] | null> {
+    const index = Number.parseInt(tag.slice(0, 4), 10);
+    if (!Number.isFinite(index) || index <= 0) {
+      return () => null;
+    }
+    const file = path.join(
+      outDir,
+      "meta",
+      `${String(index - 1).padStart(4, "0")}_snapshot.json`,
+    );
+    let snapshot: { tables?: Record<string, { columns?: object }> };
+    try {
+      snapshot = JSON.parse(await fs.readFile(file, "utf8")) as typeof snapshot;
+    } catch {
+      // Cliché absent ou illisible : on ne sait pas, donc on ne touche à rien.
+      return () => null;
+    }
+    const tables = snapshot.tables;
+    if (tables === undefined || tables === null) {
+      return () => null;
+    }
+    // Le nom peut être qualifié par son schéma (`public.User` en PostgreSQL) :
+    // on indexe sur le dernier segment, seul nom que le SQL emploie.
+    const byName = new Map<string, readonly string[]>();
+    for (const [key, table] of Object.entries(tables)) {
+      const columns = table?.columns;
+      if (columns === undefined || columns === null) continue;
+      byName.set(key.split(".").pop() as string, Object.keys(columns));
+    }
+    return (name: string) => byName.get(name) ?? null;
   }
 
   /**

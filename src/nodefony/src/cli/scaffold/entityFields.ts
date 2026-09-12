@@ -81,6 +81,23 @@ export interface IEntityField {
   defaultNow?: boolean;
   /** Horodatage RÉÉCRIT à chaque mise à jour (`$onUpdateFn`). */
   refreshedOnWrite?: boolean;
+  /**
+   * Ce défaut se pose côté JavaScript SEULEMENT — aucun `DEFAULT` SQL émis.
+   *
+   * 🔴 Posé sur les colonnes REPRISES d'un contrat du framework, et sur elles
+   * seules. La fabrique que ces colonnes remplacent (`createUserTable`) n'émet
+   * pas de `DEFAULT` SQL — c'est la règle du colKit —, si bien qu'en émettre un
+   * ici change le schéma de colonnes que personne n'a demandé à changer :
+   * l'outil de migration y voit des colonnes MODIFIÉES, recrée la table entière
+   * (sqlite ne sait pas faire autrement) et sa recopie inclut la colonne neuve,
+   * qui n'existe pas encore dans la table source. La migration échoue alors sur
+   * `no such column`, et laisse un marqueur qui bloque les passages suivants.
+   *
+   * Ces colonnes naissent AVEC la table, jamais par un `ADD COLUMN` sur une
+   * table peuplée — le seul cas où un défaut SQL est indispensable. Même
+   * raisonnement que `defaultNow`, dont la parité était déjà tenue.
+   */
+  defaultJsOnly?: boolean;
 }
 
 /**
@@ -950,7 +967,13 @@ export function buildEntityCodegen(
       // `$defaultFn` (côté JS) reste nécessaire en développement : le DDL
       // dérivé du code n'émet PAS les `DEFAULT`, donc sans lui une insertion
       // qui omet la colonne échouerait sur la contrainte NOT NULL.
-      col += `.default(${defaultLiteral(field)}).$defaultFn(() => ${defaultLiteral(field)})`;
+      //
+      // …SAUF pour une colonne reprise d'un contrat du framework, qui doit
+      // REPRODUIRE le DDL de la fabrique qu'elle remplace — sans quoi la
+      // migration suivante recrée la table et échoue (cf `defaultJsOnly`).
+      col += field.defaultJsOnly
+        ? `.$defaultFn(() => ${defaultLiteral(field)})`
+        : `.default(${defaultLiteral(field)}).$defaultFn(() => ${defaultLiteral(field)})`;
     }
     columns.push(`${field.name}: ${col},`);
 
