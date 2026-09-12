@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-12 21:21** (UTC).
+> Empreinte prise le **2026-09-12 21:49** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 79% | 81 | 22 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 81% | 83 | 20 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 10% | 3 | 28 | 2026-12-15 |
@@ -35,7 +35,7 @@
 
 Ordre 9.91 · P1 — figé à la création · 5.5 j · jalon 10.0.0-alpha · frise 2026-09-11 → 09-11
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 22 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -83,7 +83,7 @@ Ordre 9.91 · P1 — figé à la création · 5.5 j · jalon 10.0.0-alpha · fri
 | 2 | P2 — décision | 3 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 22 ouverts
+## Jalon 10.0.0-alpha — 20 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -94,8 +94,6 @@ Ordre 9.91 · P1 — figé à la création · 5.5 j · jalon 10.0.0-alpha · fri
 | 9.9412 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #367 | fix(cli): rendre vert le rapport d'une application neuve |
 | 9.9413 | P1 — figé à la création | 1 | 2026-09-12 → 09-12 | #368 | feat(cli): soigner le premier contact avec le framework |
 | 9.9414 | P1 — figé à la création | 0.5 | 2026-09-12 → 09-12 | #373 | fix(scaffold): dire quel compte n'a pas été semé, et pourquoi |
-| 9.9416 | P1 — figé à la création | 0.5 | 2026-09-13 → 09-13 | #375 | fix(scaffold): ne pas perdre les champs d'une entité qu'on complète |
-| 9.9417 | P2 — décision | 0.5 | 2026-09-13 → 09-13 | #376 | fix(orm): nommer ce qui a arrêté la génération d'une migration |
 | 9.955 | P1 — figé à la création | 1 | 2026-09-15 → 09-16 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
 | 9.96 | P2 — décision | 1.5 | 2026-09-22 → 09-22 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 9.97 | P1 — figé à la création | 2 | 2026-09-23 → 09-23 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |

@@ -97,6 +97,14 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- [1× — 09-12f] **Mon assertion visait un MOT là où le fait porte sur une AFFIRMATION — et une
+  négation contient le mot qu'elle nie.** Le refus corrigé devait cesser d'accuser « les droits »
+  et « la base qui n'a pas répondu » ; j'ai écrit `doesNotMatch(/droits|n'a pas répondu/)`, et il
+  est tombé rouge sur ma propre phrase « ce n'est PAS une question de droits » — celle qui prouve
+  justement que le défaut est corrigé. Le contrôle juste vise ce qui DISTINGUE les deux états :
+  ici le code de refus (`NF_GENERATE_TOOL_FAILED` contre `NF_MIGRATE_UNAVAILABLE`) et la
+  formulation du fourre-tout, pas un mot du vocabulaire commun aux deux.
+
 - [1× — 09-12d] **Ma garde anti-destruction refusait sur une application FRAÎCHE** — donc sur le
   cas normal. Première version : « une table d'identité porte au moins une ligne ⇒ refus ». Or une
   application générée porte TOUJOURS le compte d'administration que son semis repose à chaque
@@ -573,7 +581,17 @@
 
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
-## 🧪 Un exemple de DOC qu'aucun gate ne compile est une affirmation, pas un fait
+## 🧪 Une instruction qu'on PUBLIE sans l'exécuter est une affirmation, pas un fait
+
+- [1× — 09-12f] **Mon propre refus prescrivait un geste qui ne marchait pas — et je ne l'ai vu
+  qu'en écrivant le test.** La garde neuve de `create entity` refuse quand un second appel ferait
+  disparaître des champs, et propose trois sorties dont « relance en redonnant TOUS les champs ».
+  Ce geste-là tombait aussitôt sur une autre garde, plus ancienne, qui refuse de recâbler une
+  entité déjà déclarée (« choisis un autre nom ») : mon remède envoyait dans le mur exactement
+  comme le message que je corrigeais. Le geste PRESCRIT par un refus est du même bois qu'un
+  exemple de documentation — il se JOUE, sinon on publie une affirmation. Le cas est devenu un
+  test à part entière (« ACCEPTE le geste qu'il prescrit »), et il tombe rouge si la tolérance de
+  recâblage saute.
 
 - [1× — 09-09] **L'exemple que j'écrivais dans une page publiée ne compilait pas, DEUX fois, et
   aucune barrière du dépôt ne l'aurait dit.** `code-check.mjs` ne compile que la section

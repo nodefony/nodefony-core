@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T21:21:41.958Z",
+  "generatedAt": "2026-09-12T21:49:53.063Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 81,
+      "closed": 83,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 22,
+      "open": 20,
       "title": "10.0.0-alpha"
     },
     {
@@ -3588,8 +3588,8 @@
       "number": 375,
       "title": "fix(scaffold): ne pas perdre les champs d'une entité qu'on complète",
       "url": "https://github.com/nodefony/nodefony-core/issues/375",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3604,8 +3604,8 @@
       "number": 376,
       "title": "fix(orm): nommer ce qui a arrêté la génération d'une migration",
       "url": "https://github.com/nodefony/nodefony-core/issues/376",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
