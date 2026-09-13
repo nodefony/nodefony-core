@@ -21,9 +21,9 @@
  * de publication. Inverser les deux enlève à l'auteur le seul point où il relit
  * ce qui va sortir sous son nom.
  *
- *   npm run release -- --version 10.0.0 --from <ref>            # répétition
- *   npm run release -- --version 10.0.0 --from <ref> --write
- *   npm run release -- --version 10.0.0 --from <ref> --write --pack
+ *   npm run release -- --version 10.0.0 --npm-tag alpha      # répétition
+ *   npm run release -- --version 10.0.0 --npm-tag alpha --write
+ *   npm run release -- --version 10.0.0 --npm-tag alpha --write --pack
  *   npm run release -- --version 10.0.0 --publish            # MANUEL
  *   npm run release -- --deprecate                           # les paquets historiques
  *   npm run release -- --deprecate --publish                 # …et les déprécier
@@ -42,7 +42,15 @@
  * `--otp <code>` reste accepté pour les usages sans terminal ; il ne peut pas
  * se rafraîchir, donc aucune reprise n'est tentée avec lui.
  *
- * `--from` ne sert QU AUX trois premières : la publication saute le changelog,
+ * **`--from` ne se passe PAS dans le cas normal** : sans lui, la borne du
+ * changelog est le dernier tag `v[0-9]*` du dépôt — c'est-à-dire la publication
+ * précédente, la seule borne juste. Le réserver au cas où l'on veut remonter
+ * AILLEURS (reprendre une borne manquée, repartir du premier commit d'une
+ * majeure). Il a longtemps figuré dans les trois exemples ci-dessus, si bien
+ * qu'on cherchait quel tag écrire avant chaque répétition — une question à
+ * laquelle le script répondait déjà tout seul.
+ *
+ * Il ne sert QU'AUX trois premières formes : la publication saute le changelog,
  * qui a été écrit, relu et commité avant. Le passer là ne fait rien — et un
  * drapeau qui ne fait rien se recopie sans être compris, sur la seule commande
  * du lot qui ne se rattrape pas.
@@ -875,7 +883,7 @@ if (PUBLIER && !ECRIRE) {
         "\n\n  La publication ne CORRIGE pas : elle publierait alors du code qui n'existe\n" +
         "  dans aucun commit, sous un tag qui promet autre chose. C'est le commit de\n" +
         "  release qui estampille, et il se relit AVANT que le tag ne soit posé :\n" +
-        `       npm run release -- --version ${VERSION} --from <ref> --write\n` +
+        `       npm run release -- --version ${VERSION}${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write\n` +
         `       git commit -am "chore(release): ${VERSION}" && git tag v${VERSION}`,
     );
   }
@@ -990,7 +998,7 @@ if (tropLarges.length) {
         "\n\n  Publier ainsi met en ligne un paquet qui, installé seul, tire la version\n" +
         "  `latest` du cœur — une autre majeure, en silence, chez l'utilisateur.\n" +
         "  C'est la préparation qui borne, et son diff se relit avant le tag :\n" +
-        `       npm run release -- --version ${VERSION} --from <ref> --write`,
+        `       npm run release -- --version ${VERSION}${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write`,
     );
   }
   alerter(
@@ -1011,7 +1019,7 @@ if (PHASES.publier && !PHASES.estampiller) {
     echouer(
       `la page de manuel annonce « ${posee ?? "illisible"} », le lot part en ${VERSION}.\n` +
         "  Elle est GÉNÉRÉE et publiée : c'est la préparation qui la régénère.\n" +
-        `       npm run release -- --version ${VERSION} --from <ref> --write`,
+        `       npm run release -- --version ${VERSION}${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write`,
     );
   }
   dire(`✓ page de manuel — annonce bien ${VERSION}`);
@@ -1033,7 +1041,7 @@ if (figees.length) {
         "\n\n  Publier ainsi mettrait en ligne un paquet dont la dépendance n'existe\n" +
         "  pas sur le registre — `ETARGET` chez qui installe, et la version brûlée.\n" +
         "  C'est la préparation qui aligne, et son diff se relit avant le tag :\n" +
-        `       npm run release -- --version ${VERSION} --from <ref> --write`,
+        `       npm run release -- --version ${VERSION}${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write`,
     );
   }
   alerter(

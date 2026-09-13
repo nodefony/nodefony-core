@@ -42,7 +42,7 @@ derrière les commandes npm qui font autorité :
 <!-- prettier-ignore -->
 | Commande | Ce qu'elle lance | Rôle |
 | --- | --- | --- |
-| `npm run release -- --version <v> --from <ref>` | `scripts/release/release.mjs` | PRÉPARE et REFUSE. Sans drapeau, ne touche aucun fichier |
+| `npm run release -- --version <v> --npm-tag <tag>` | `scripts/release/release.mjs` | PRÉPARE et REFUSE. Sans drapeau, ne touche aucun fichier |
 | `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, éprouvé sans publier |
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
@@ -145,11 +145,17 @@ moissonnait les jetons npm sur les exécuteurs d'intégration. Ordre complet et 
 ## 3. PRÉPARER — ce que `release.mjs` refuse, et ce que chaque refus évite
 
 ```bash
-npm run release -- --version 10.0.0 --from <ref>                  # RÉPÉTITION (défaut)
-npm run release -- --version 10.0.0 --from <ref> --write          # estampille + changelog
-npm run release -- --version 10.0.0 --from <ref> --write --pack   # + tarballs
-npm run release -- --version 10.0.0 --from <ref> --publish        # publication MANUELLE
+npm run release -- --version 10.0.0-alpha.6 --npm-tag alpha                 # RÉPÉTITION (défaut)
+npm run release -- --version 10.0.0-alpha.6 --npm-tag alpha --write         # estampille + changelog
+npm run release -- --version 10.0.0-alpha.6 --npm-tag alpha --write --pack  # + tarballs
+npm run release -- --version 10.0.0 --publish                               # publication MANUELLE
 ```
+
+**Ne pas chercher quelle `--from` passer** — c'est du temps dépensé pour rien, et ça s'est
+reperdu deux fois. Sans elle, la borne du changelog est le **dernier tag `v[0-9]*`**, donc la
+publication précédente : la seule borne juste. Elle ne se passe que pour remonter AILLEURS (une
+borne manquée, le premier commit d'une majeure). Le drapeau qui compte est **`--npm-tag`** : son
+absence sur une préversion fait échouer la garde — et sans la garde, npm publierait sous `latest`.
 
 ### Deux branches, et le produit dit laquelle — ne pas recopier sa séquence ici
 
@@ -174,6 +180,7 @@ constante, lui, se retrouve au `grep`.
 <!-- prettier-ignore -->
 | Garde | Ce qu'elle évite |
 | --- | --- |
+| **L'accueil annonce ce que npm SERT** (`accueil-gate.mjs`, 1ʳᵉ ligne de la sortie) | publier un cran de plus sur une page restée au cran précédent. Vécu : README et AGENTS.md ont annoncé l'`alpha.4` pendant que le registre servait l'`alpha.5` — l'accueil était la SEULE surface en retard, les quinze manifestes étant déjà à jour. L'étape 6 du « RESTE À FAIRE » le demandait pourtant : un rappel imprimé ne mord pas. La bascule des VERSIONS est désormais faite par la chaîne (`--basculer`, après le `publish`) ; ce qui reste refusé est ce qui demande une main — une commande sans `@canal`, une surface devenue muette |
 | Version semver 2.0.0 valide | `01.2.3` accepté par une regex naïve, refusé par le registre au milieu du lot |
 | **Préversion sans `--npm-tag`** | npm la publierait sous `latest` : tout `npm i` recevrait une bêta, et redéplacer le tag ne rattrape pas les installations parties |
 | Arbre propre + branche attendue | du code en ligne qui n'existe dans AUCUN commit — plus personne ne peut auditer ce qui a été publié |
