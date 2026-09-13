@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T14:05:18.254Z",
+  "generatedAt": "2026-09-13T20:15:01.245Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 91,
+      "closed": 92,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 14,
@@ -3377,6 +3377,22 @@
       ]
     },
     {
+      "number": 386,
+      "title": "fix(cli): faire repartir le serveur de dev sur le paquet de l'app",
+      "url": "https://github.com/nodefony/nodefony-core/issues/386",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 9.93,
+      "debut": "2026-09-16",
+      "cible": "2026-09-16",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 319,
       "title": "fix(http): rendre proxy:generate opérant dans une app générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/319",
@@ -3428,8 +3444,8 @@
       "number": 369,
       "title": "chore(release): publier la préversion 10.0.0-alpha.6",
       "url": "https://github.com/nodefony/nodefony-core/issues/369",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,

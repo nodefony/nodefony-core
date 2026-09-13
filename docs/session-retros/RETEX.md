@@ -20,7 +20,33 @@
 
 ---
 
+## 🪞 Le remède écrit pour corriger un message trompeur était lui-même FAUX
+
+- [1× — 09-13e] 🔴 **J'ai failli livrer, dans le correctif d'un diagnostic menteur, une
+  affirmation fausse du même genre.** Le défaut corrigé : un boot qui échoue en accusant
+  `nodefony.config`, alors que ce fichier est juste. Mon nouveau message expliquait la vraie cause
+  — « un fichier JavaScript vide est valide et son export par défaut vaut `undefined` ». Mesuré
+  juste avant de commiter : c'est FAUX. Un fichier réellement vide fait lever ESM
+  (`does not provide an export named 'default'`) ; le silence vient d'un export PRÉSENT mais vide
+  (`export default {}`). Le message aurait envoyé chercher un `dist` tronqué qui n'existe pas —
+  exactement le défaut que le correctif existe pour supprimer. **Une explication écrite dans un
+  message d'erreur est une AFFIRMATION sur le runtime : elle se vérifie en l'exécutant, au même
+  titre que le code.** Voisin gradué : [[feedback_fix_the_family_not_the_instance]] (le remède
+  exposé au défaut qu'il corrige).
+
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
+
+- [1× — 09-13e] 🔴 **J'ai sali le terrain du USER, puis j'ai diagnostiqué mon propre sabotage
+  comme un bug du produit.** Pour « observer » sa panne, j'ai lancé `npm run dev` dans SON dossier
+  pendant qu'il y travaillait, puis tué le process au SIGTERM : le superviseur de dev reconstruit
+  au démarrage, et l'arrêt brutal a laissé le `dist` amputé. Quinze secondes plus tard, son
+  lancement échouait — et j'ai présenté cet échec comme la confirmation de ma théorie. J'ai aussi
+  injecté dans son `node_modules` un `dist` bâti AVANT ma dernière correction, et ne l'ai vu qu'en
+  comptant les occurrences dans l'artefact reçu (`0`). **Le terrain d'autrui ne s'emprunte pas
+  pour mesurer : on reproduit sur une copie à soi.** Le thème vaut donc au-delà du délégué — il
+  vaut pour tout décor PARTAGÉ, et le user en est le premier propriétaire.
+  Voisins déjà gradués : [[feedback_stale_decor_poisons_verdicts]],
+  [[feedback_prove_on_received_artifact]].
 
 - [1× — 09-13c] **Le délégué a déclaré MORTES trois ancres parfaitement justes.** Chargé de
   confronter 14 tickets au code, il a rendu « aucun `GOOGLE_CLIENT_ID` dans `env.ts` — fichier
@@ -569,6 +595,17 @@
   gabarit d'app générée, sinon chaque app naît avec ces artefacts. `[1× — 08-23c]`
 
 ## ⌨️ Une commande que je fais TAPER au user s'exécute dans SON terminal, pas dans le mien
+
+- [1× — 09-13e] 🔴 **La variable qui expliquait TOUT était dans la commande du user, et je ne la
+  lui ai demandée qu'au bout de deux heures.** Son serveur de dev ne démarrait pas (« manifeste :
+  0 module(s) déclaré(s) », sortie 69) ; le mien démarrait, même dossier, même `dist`, même
+  environnement. J'ai successivement accusé un `dist` en cours d'écriture, une course entre le
+  build et le boot, des instances concurrentes, puis son environnement — quatre causes annoncées
+  avec assurance, quatre fois fausses. Il lançait `nodefony dev` (binaire du PATH, lié vers le
+  dépôt) ; je lançais `npm run dev` (binaire local). C'était TOUTE la différence, et elle n'était
+  écrite nulle part dans le code. **Quand un symptôme n'est pas reproductible, la première
+  question n'est pas "qu'est-ce qui diffère dans le code ?" mais "quelle commande EXACTE
+  tapes-tu ?"** — la réponse tient en une ligne et elle a coûté une session.
 
 - [2× — 09-11d] **Deux commandes proposées au user ont BLOQUÉ son terminal, pour deux causes
   différentes.** D'abord un `read -rsp` — une saisie interactive dont le stdin n'est pas branché :

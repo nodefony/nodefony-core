@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-13 14:05** (UTC).
+> Empreinte prise le **2026-09-13 20:15** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 87% | 91 | 14 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 87% | 92 | 14 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 18% | 7 | 31 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 3 | 30 | 2026-12-15 |
@@ -88,7 +88,7 @@ Ordre 9.91 · P1 — figé à la création · 4 j · jalon 10.0.0-alpha · frise
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 9.91 | P1 — figé à la création | 4 | 2026-09-15 → 09-18 | #316 | feat(scaffold): rendre l'application générée déployable en production |
-| 9.94 | P0 — bloque le reste | 1 | 2026-09-16 → 09-16 | #369 | chore(release): publier la préversion 10.0.0-alpha.6 |
+| 9.93 | P0 — bloque le reste | 1 | 2026-09-16 → 09-16 | #386 | fix(cli): faire repartir le serveur de dev sur le paquet de l'app |
 | 9.95 | P3 — fin de cycle | 1 | 2026-09-17 → 09-17 | #382 | refactor(scaffold): faire rédiger le message du semis par le framework |
 | 9.955 | P1 — figé à la création | 1 | 2026-09-18 → 09-18 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
 | 9.96 | P2 — décision | 1 | 2026-09-21 → 09-21 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
