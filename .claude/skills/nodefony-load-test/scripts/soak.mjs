@@ -289,15 +289,47 @@ if (!head || head.status !== 200) {
 // une route qui lève (500). La boucle de mesure, elle, nomme déjà ce qui l'arrête
 // — le correctif n'avait couvert que le cas VU. Un banc programmé la nuit est lu
 // le lendemain sur son seul journal : ce qu'il ne dit pas est perdu.
-const probe0 = await fetch(PROBE, {
-  signal: AbortSignal.timeout(10_000),
-}).catch((e) => e);
+//
+// 🔴 Et il faut ATTENDRE, pas seulement demander une fois. Un port ouvert ne
+// veut pas dire une application prête : en production elle BÂTIT ses paquets
+// frontend pendant son démarrage (constaté dans le journal du banc — plusieurs
+// rendus Vite, puis seulement la bannière). Une question unique, patiente de dix
+// secondes, tombait donc sur un serveur encore en train de monter, et le banc
+// concluait « pas de réponse » sur une application parfaitement saine — rouge
+// depuis le 09-06. On redemande donc jusqu'à ce qu'elle réponde, et le message
+// d'échec DIT combien de temps on a attendu : sans ce chiffre, « pas de réponse
+// en 10s » laisse croire à un figement alors qu'on n'a pas laissé le temps.
+//
+// Question DISTINCTE de celle de `sonder()` : celle-ci demande « est-ce prêt ? »
+// et se paie une fois au démarrage ; l'autre demande « donne-moi la mesure » et
+// doit échouer vite pour ne pas fausser la fenêtre. Deux questions, deux
+// patiences — les confondre rendrait l'une des deux fausse.
+const ATTENTE_SONDE_MS = 180_000;
+const debutAttente = Date.now();
+let probe0 = null;
+let essaisSonde = 0;
+for (;;) {
+  essaisSonde += 1;
+  probe0 = await fetch(PROBE, {
+    signal: AbortSignal.timeout(10_000),
+  }).catch((e) => e);
+  if (probe0 instanceof Response && probe0.ok) break;
+  if (Date.now() - debutAttente >= ATTENTE_SONDE_MS) break;
+  await sleep(2000);
+}
+const attenduSonde = Math.round((Date.now() - debutAttente) / 1000);
+if (probe0 instanceof Response && probe0.ok && essaisSonde > 1) {
+  console.log(
+    `   sonde mémoire prête après ${attenduSonde}s (${essaisSonde} demandes) — ` +
+      "l'application finissait de démarrer.",
+  );
+}
 if (!(probe0 instanceof Response) || !probe0.ok) {
   const quoi =
     probe0 instanceof Response
       ? `HTTP ${probe0.status}`
       : probe0?.name === "TimeoutError"
-        ? "pas de réponse en 10s"
+        ? "pas de réponse"
         : (probe0?.cause?.code ??
           probe0?.code ??
           probe0?.name ??
@@ -310,6 +342,7 @@ if (!(probe0 instanceof Response) || !probe0.ok) {
       : "";
   console.error(
     `❌ sonde mémoire ${PROBE} → ${quoi} (attendu 200) — rien à mesurer.` +
+      `\n   ${essaisSonde} demande(s) sur ${attenduSonde}s : ce n'est donc pas un démarrage lent.` +
       (corps ? `\n   réponse : ${corps}` : "") +
       `\n   404 = la route n'est pas montée (module test construit ? \`npm run build --workspace=src/modules/test\`).` +
       `\n   500 = elle lève ; 200 attendu sur ${URL} vient d'être obtenu, donc le serveur répond.` +
