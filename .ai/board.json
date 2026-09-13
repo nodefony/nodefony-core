@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-12T21:55:29.073Z",
+  "generatedAt": "2026-09-13T08:14:14.909Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 1,
       "dueOn": null,
       "number": 3,
-      "open": 27,
+      "open": 28,
       "title": "10.2.0"
     },
     {
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 83,
+      "closed": 88,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 20,
+      "open": 16,
       "title": "10.0.0-alpha"
     },
     {
@@ -56,7 +56,7 @@
       "closed": 3,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 28,
+      "open": 29,
       "title": "10.1.0"
     }
   ],
@@ -3265,6 +3265,22 @@
       ]
     },
     {
+      "number": 377,
+      "title": "docs(cli): donner à chaque type de create sa propre page d'aide",
+      "url": "https://github.com/nodefony/nodefony-core/issues/377",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.92,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 353,
       "title": "test(release): rendre au banc la capacité d'éprouver un front absent",
       "url": "https://github.com/nodefony/nodefony-core/issues/353",
@@ -3400,7 +3416,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 2.5,
+      "jours": 2,
       "ordre": 9.94,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
@@ -3412,8 +3428,8 @@
       "number": 340,
       "title": "feat(cli): guider l'agent au-delà de la génération",
       "url": "https://github.com/nodefony/nodefony-core/issues/340",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -3524,8 +3540,8 @@
       "number": 367,
       "title": "fix(cli): rendre vert le rapport d'une application neuve",
       "url": "https://github.com/nodefony/nodefony-core/issues/367",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3540,8 +3556,8 @@
       "number": 368,
       "title": "feat(cli): soigner le premier contact avec le framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/368",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3596,6 +3612,22 @@
       "ordre": 9.9416,
       "debut": "2026-09-13",
       "cible": "2026-09-13",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 341,
+      "title": "feat(cli): laisser un exemple de chaque geste en « Minimal »",
+      "url": "https://github.com/nodefony/nodefony-core/issues/341",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 9.9417,
+      "debut": "2026-09-12",
+      "cible": "2026-09-12",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3908,8 +3940,8 @@
       "number": 370,
       "title": "feat(cli): donner un critère pour choisir le moteur frontend",
       "url": "https://github.com/nodefony/nodefony-core/issues/370",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3966,6 +3998,38 @@
       "cible": "2026-09-30",
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 378,
+      "title": "feat(core): rendre traduisibles les textes du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/378",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 5,
+      "ordre": 12,
+      "debut": "2026-11-24",
+      "cible": "2026-11-28",
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 379,
+      "title": "feat(core): servir une application dans la langue du visiteur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/379",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.2.0",
+      "priorite": "P2 — décision",
+      "jours": 8,
+      "ordre": 12,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.2.0"
       ]
     },
     {
@@ -4317,7 +4381,7 @@
       "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -4475,22 +4539,6 @@
       ]
     },
     {
-      "number": 341,
-      "title": "feat(cli): laisser un exemple de chaque geste en « Minimal »",
-      "url": "https://github.com/nodefony/nodefony-core/issues/341",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P0 — bloque le reste",
-      "jours": 1,
-      "ordre": 45.2,
-      "debut": "2026-09-12",
-      "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
       "number": 342,
       "title": "docs(cli): dire à l'agent quelles briques l'application n'a PAS",
       "url": "https://github.com/nodefony/nodefony-core/issues/342",
@@ -4623,7 +4671,7 @@
       "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
       "url": "https://github.com/nodefony/nodefony-core/issues/47",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -4639,7 +4687,7 @@
       "title": "chore(release): publier les paquets de la version 10 sur npm",
       "url": "https://github.com/nodefony/nodefony-core/issues/27",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0",
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,

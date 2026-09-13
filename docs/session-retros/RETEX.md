@@ -97,6 +97,15 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- [1× — 09-13] **Mon contrôle passait par une AUTRE garde que celle qu'il annonçait — vert, et
+  complaisant.** « Des flux injectés retombent sur le readline » devait éprouver la garde
+  d'identité des flux (`input !== process.stdin`). Il passait — mais par la garde TTY, un banc
+  vitest n'ayant pas de terminal : retirer la garde d'identité ne le faisait PAS tomber. Le
+  débranchement l'a révélé, pas la lecture. Remède : **feindre l'autre condition**
+  (`process.stdin.isTTY` forcé à `true`) pour que le contrôle ne puisse plus être satisfait que
+  par ce qu'il nomme. La leçon générale : quand deux gardes protègent le même cas, un contrôle
+  écrit sur l'une est vert grâce à l'autre — et seul le débranchement de LA garde visée le dit.
+
 - [1× — 09-12f] **Mon assertion visait un MOT là où le fait porte sur une AFFIRMATION — et une
   négation contient le mot qu'elle nie.** Le refus corrigé devait cesser d'accuser « les droits »
   et « la base qui n'a pas répondu » ; j'ai écrit `doesNotMatch(/droits|n'a pas répondu/)`, et il
@@ -243,6 +252,34 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-13] **Citer un ticket dans le CORPS d'un commit le fait passer « en cours » — je l'ai
+  fait à quatre tickets sans les toucher.** Mon message de #367 disait « les 2 problèmes de ports
+  relèvent de #62, #214 et #154 » — une phrase d'orientation, pas de travail. Le hook post-commit
+  (`ticket-progress.mjs`) ne lit pas l'intention : il voit `#N` sans fermeture et monte le statut.
+  Résultat : #62 et #154 affichés « en cours » alors que rien ne les avance, et le seul commit
+  « de travail » que `git log --grep` leur trouve est le mien, qui parle d'autre chose. Le user l'a
+  vu avant moi (« pourquoi 154 n'est pas fermé ? »). Deux conduites : **nommer un ticket voisin en
+  COMMENTAIRE d'issue plutôt que dans un message de commit** — c'est là que ça se lit — et ne pas
+  sauter l'étape 4 du END, seule à faire redescendre un statut que rien ne fait descendre tout seul.
+
+- [1× — 09-13] **Un compte BRUT n'est pas le compte utile — facteur 16 sur un chiffre de
+  ticket.** Pour dimensionner un ticket d'internationalisation, mon premier relevé donnait
+  « 3 222 lignes françaises dans les gabarits d'application ». Trié, c'est **203 chaînes
+  affichables** dans 38 fichiers : les 2 256 autres étaient des lignes de COMMENTAIRE du code
+  généré, qui ne se traduisent pas. Écrit tel quel, le chiffre aurait fait dériver l'estimation
+  d'un ordre de grandeur — exactement le défaut que le skill `nodefony-ticket` cite déjà
+  (« 437 ancres » qui valaient 108). **Avant qu'un chiffre entre dans un ticket, dire ce qu'il
+  COMPTE** — ici « chaîne affichable », pas « ligne portant un accent ».
+
+- [1× — 09-13] **`awk '{ if (length($0) > 80) … }'` compte des OCTETS, pas des caractères — et
+  tout corpus accentué « déborde ».** En contrôlant la largeur des pages d'aide du CLI, j'ai
+  annoncé au user trois lignes trop longues : `--agents … développement …` mesurait « 81 » pour
+  79 caractères réels, et les titres de section « 214 » à cause des `─` (3 octets chacun). Les
+  trois étaient FAUX. Rejoué en Python (`len(ligne)`), zéro débordement — et les vrais, eux,
+  existaient ailleurs. La règle : **une largeur d'affichage se mesure en caractères** ; `awk`,
+  `wc -c` et `cut -c` mentent sur du français, donc sur tout ce dépôt. Corollaire, plus dur : un
+  faux positif de mesure fait « corriger » du texte qui allait bien.
 
 - [1× — 09-12e] **`>/dev/null 2>&1` sur un maillon d'une chaîne `&&` fait passer un ÉCHEC pour un
   succès silencieux.** En voulant abréger une séquence de preuve, j'ai écrit
