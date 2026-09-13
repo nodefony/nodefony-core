@@ -114,7 +114,10 @@ const sansServiceExemple = (dest: string): void => {
     // L'import du décorateur devient inutilisé — `noUnusedLocals` le refuserait
     // au typecheck de l'app générée, et un décor qui ne compile pas n'éprouve
     // rien.
-    .replace(/^import \{ Module, appConfigJsonSchema, services \}/mu, "import { Module, appConfigJsonSchema }");
+    .replace(
+      /^import \{ Module, appConfigJsonSchema, services \}/mu,
+      "import { Module, appConfigJsonSchema }",
+    );
   writeFileSync(indexPath, purge);
 };
 
