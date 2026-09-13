@@ -22,6 +22,16 @@
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
+- [1× — 09-13c] **Le délégué a déclaré MORTES trois ancres parfaitement justes.** Chargé de
+  confronter 14 tickets au code, il a rendu « aucun `GOOGLE_CLIENT_ID` dans `env.ts` — fichier
+  inexistant ou corrigé » ; le fichier est à la RACINE du dépôt et porte les trois variables aux
+  lignes exactes que le ticket annonce. Sur les deux autres ancres qu'il disait dérivées, il avait
+  raison. Le rapport était donc **juste à 13/14, et faux là où un verdict "MORTE" aurait fait
+  réécrire un ticket sain**. Ce qui se généralise : un délégué se trompe surtout sur les preuves
+  d'ABSENCE — il ne trouve pas, donc il conclut que ça n'existe pas, alors qu'il a cherché au
+  mauvais endroit. **Toute absence affirmée par un délégué se recontrôle d'un `rg` avant d'entrer
+  dans une décision** ; une présence affirmée, non.
+
 - [1× — 09-13b] **DEUX sessions ont écrit la même implémentation du même ticket, à cinq minutes
   d'écart, et git ne pouvait pas le dire.** Isolé dans un worktree créé à 11 h 09, j'ai commité #366
   à 11 h 46 ; l'autre session a commité le sien à 11 h 51, directement sur `dev`. Aucune des deux ne
@@ -118,6 +128,17 @@
   question posée dans un prompt affirme ; ce qu'elle affirme se vérifie comme une ancre.
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
+
+- [1× — 09-13c] **J'ai prédit qu'une issue-instrument serait invisible du contrôle de pilotage :
+  elle ne l'était pas.** L'issue épinglée qui porte l'avancement n'a ni jalon ni rang — j'en avais
+  conclu, à voix haute, que `ticket:lint` ne la verrait pas, puisqu'il annonce « N items du tableau
+  contrôlés ». Faux : il lit TOUTES les issues ouvertes du dépôt, et il l'a refusée au premier run
+  (`NI-JALON-NI-BACKLOG`). La sortie facile était de lui coller `backlog` pour le faire taire —
+  précisément le mensonge commode que ce gate existe pour empêcher. Le remède juste est d'apprendre
+  au gate la DISTINCTION qui lui manquait (une issue-instrument n'est pas un ticket), par un label,
+  avec son motif écrit dans le code. Et de le voir mordre : label retiré → signalée ; label remis →
+  vert. Ce qui se généralise : **le périmètre d'un contrôle se CONSTATE en le lançant, jamais en
+  lisant la phrase qu'il affiche** — « 117 items contrôlés » ne dit pas ce qu'il a lu pour le dire.
 
 - [1× — 09-13] **Mon contrôle passait par une AUTRE garde que celle qu'il annonçait — vert, et
   complaisant.** « Des flux injectés retombent sur le readline » devait éprouver la garde
@@ -274,6 +295,14 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-13c] **Une suite de tests lancée en fond a rendu VERT un fichier que je corrigeais
+  pendant qu'elle tournait.** Le lot complet des auto-contrôles a affiché `gate-upload ✅` alors
+  que ce même contrôle sortait en 1 dix minutes plus tôt : la suite l'a atteint APRÈS mon
+  correctif. Le vert était vrai, mais il ne prouvait rien — il ne portait pas sur l'état que je
+  croyais mesurer. Ce qui se généralise : **une mesure lancée en fond date de son EXÉCUTION, pas de
+  son lancement** ; éditer le code pendant qu'elle tourne rend son verdict inexploitable, dans les
+  deux sens. Le verdict qui compte est celui du lancement ISOLÉ, après.
 
 - [1× — 09-13] **Citer un ticket dans le CORPS d'un commit le fait passer « en cours » — je l'ai
   fait à quatre tickets sans les toucher.** Mon message de #367 disait « les 2 problèmes de ports
