@@ -88,6 +88,36 @@ const scaffold = (
   force = false,
 ) => runScaffold({ type: "app", answers, dir, force }, version);
 
+/**
+ * Retire d'une app générée le service d'EXEMPLE et sa déclaration.
+ *
+ * Une cible sans le moindre service reste un cas RÉEL — un module créé
+ * `--no-service`, une application antérieure à cet exemple — et c'est celui que
+ * les tests ci-dessous éprouvent : `create service` doit alors CRÉER la liste
+ * `@services([…])`, pas seulement y ajouter un nom. Depuis que « Minimal » pose
+ * un exemple, ce décor ne naît plus tout seul : il se construit, explicitement,
+ * plutôt que de laisser quatre tests changer de sujet sans le dire.
+ */
+const sansServiceExemple = (dest: string): void => {
+  for (const relatif of [
+    ["nodefony", "service", "GreetingService.ts"],
+    ["nodefony", "interfaces", "IGreetingService.ts"],
+    ["tests", "GreetingService.test.ts"],
+  ]) {
+    const file = path.join(dest, ...relatif);
+    if (existsSync(file)) rmSync(file);
+  }
+  const indexPath = path.join(dest, "index.ts");
+  const purge = readFileSync(indexPath, "utf8")
+    .replace(/^import GreetingService from "[^"]+";\n/mu, "")
+    .replace(/^@services\(\[GreetingService\]\)\n/mu, "")
+    // L'import du décorateur devient inutilisé — `noUnusedLocals` le refuserait
+    // au typecheck de l'app générée, et un décor qui ne compile pas n'éprouve
+    // rien.
+    .replace(/^import \{ Module, appConfigJsonSchema, services \}/mu, "import { Module, appConfigJsonSchema }");
+  writeFileSync(indexPath, purge);
+};
+
 const readJson = (p: string): Record<string, Record<string, string>> =>
   JSON.parse(readFileSync(p, "utf8")) as Record<string, Record<string, string>>;
 
@@ -1467,6 +1497,48 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           path.join(dest, "nodefony", "controllers", "LiveController.ts"),
         ),
       );
+      assertNoEtaResidue(dest);
+    });
+
+    it("laisse un exemple de chaque geste : service, interface, test — et la commande qui les régénère", () => {
+      // « Minimal » ne retirait pas que des briques, il retirait les EXEMPLES :
+      // restait un controller, et plus rien à imiter pour le reste. Or c'est le
+      // seul canal de découverte qui ne dépend de personne — un fichier voisin
+      // est ouvert FORCÉMENT par qui vient écrire du code à côté.
+      const dest = path.join(tmp, "mini-exemples");
+      scaffold(dest, { name: "miniex", preset: "minimal" });
+
+      const service = path.join(
+        dest,
+        "nodefony",
+        "service",
+        "GreetingService.ts",
+      );
+      assert.isTrue(existsSync(service), "le service d'exemple");
+      assert.isTrue(
+        existsSync(
+          path.join(dest, "nodefony", "interfaces", "IGreetingService.ts"),
+        ),
+        "son interface",
+      );
+      assert.isTrue(
+        existsSync(path.join(dest, "tests", "GreetingService.test.ts")),
+        "son test",
+      );
+
+      // Écrire la classe ne suffit pas : `@services([…])` est ce qui la fait
+      // EXISTER pour le conteneur. Un exemple non déclaré apprendrait la moitié
+      // du geste — celle qui ne marche pas.
+      const index = readFileSync(path.join(dest, "index.ts"), "utf8");
+      assert.include(index, "@services([GreetingService])");
+      assert.include(
+        index,
+        'import GreetingService from "./nodefony/service/GreetingService"',
+      );
+
+      // Critère du ticket : le fichier dit qu'il se GÉNÈRE. Sans cette ligne,
+      // l'exemple s'enseigne comme un fichier à recopier à la main.
+      assert.include(readFileSync(service, "utf8"), "nodefony create service");
       assertNoEtaResidue(dest);
     });
   });
@@ -3746,12 +3818,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
 
     it("app racine SANS @services([...]) : le décorateur est CRÉÉ, pas refusé", () => {
-      // Le gabarit `app/base` ne rend JAMAIS @services([...]) — c'est le cas
-      // nominal du bug rapporté (un agent ne trouve @injectable nulle part).
+      // Une cible sans la moindre liste `@services([…])` — un module créé
+      // `--no-service`, une application antérieure à l'exemple que « Minimal »
+      // pose désormais. Le décor se construit donc explicitement : c'est LA
+      // condition du cas éprouvé ici, et le laisser dépendre d'un défaut du
+      // générateur a fait changer ce test de sujet sans un mot.
       const dest = path.join(tmp, "svcapp");
       scaffold(dest, { name: "svcapp", preset: "minimal" });
+      sansServiceExemple(dest);
       const indexBefore = readFileSync(path.join(dest, "index.ts"), "utf8");
-      assert.notInclude(indexBefore, "@services");
+      // Le DÉCORATEUR, pas la prose : le TSDoc au-dessus de la classe CITE
+      // `@services([…])` pour expliquer à quoi sert la liste — un `include` sur
+      // la chaîne nue confondrait le commentaire avec le code, exactement le
+      // piège que le test « un TSDoc qui CITE @services » éprouve plus bas.
+      assert.notMatch(indexBefore, /^@services\(/mu);
       const r = service(dest, {
         name: "billing",
         description: "Facturation de démonstration",
@@ -3852,6 +3932,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // personne n'ouvre.
       const dest = path.join(tmp, "svcnote");
       scaffold(dest, { name: "svcnote", preset: "minimal" });
+      // Cible VIERGE : la note ne doit rien proposer tant qu'il n'y a personne
+      // à injecter. C'est la moitié du contrat, et elle exige l'absence.
+      sansServiceExemple(dest);
       const first = service(dest, { name: "billing" });
       assert.notInclude((first.notes ?? []).join("\n"), "--inject");
       const second = service(dest, { name: "invoice" });
@@ -3883,6 +3966,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // scaffold refusait un projet parfaitement valide.
       const dest = path.join(tmp, "svcexport");
       scaffold(dest, { name: "svcexport", preset: "minimal" });
+      // Le décorateur doit être CRÉÉ devant la classe exportée : le cas exige
+      // qu'aucune liste `@services([…])` ne préexiste.
+      sansServiceExemple(dest);
       const indexPath = path.join(dest, "index.ts");
       const before = readFileSync(indexPath, "utf8").replace(
         /^class App extends Module\b/mu,
@@ -3939,6 +4025,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // un commentaire ne compile pas.
       const dest = path.join(tmp, "svctsdoc");
       scaffold(dest, { name: "svctsdoc", preset: "minimal" });
+      // Sans liste préexistante, le décorateur doit être CRÉÉ — et c'est
+      // exactement la passe où la prose risquait d'être prise pour le code.
+      sansServiceExemple(dest);
       const indexPath = path.join(dest, "index.ts");
       const prose = " * ⚠️ `@services([…])` fait EXISTER un service.";
       writeFileSync(
@@ -6675,8 +6764,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "ligne de TSDoc recollée — tag eta en fin de ligne",
       );
       assert.match(src, /as BlogService \| undefined;/u);
-      // L'app racine n'a pas de service : produire l'appel ne compilerait pas —
-      // on refuse AVANT d'écrire plutôt que de livrer du code cassé.
+      // Une cible SANS service : produire l'appel ne compilerait pas — on refuse
+      // AVANT d'écrire plutôt que de livrer du code cassé. L'app racine en porte
+      // un depuis que « Minimal » pose son exemple, alors le décor l'ôte : c'est
+      // l'absence qui est éprouvée, elle doit donc être posée.
+      sansServiceExemple(dest);
       assert.throws(
         () => command(dest, { name: "greet", service: true }),
         /aucun service appelable/u,

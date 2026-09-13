@@ -34,6 +34,16 @@ const ETA_OPTIONS = {
   autoEscape: false,
   autoTrim: false,
 } as const;
+
+/**
+ * Nom du service d'exemple posé dans une application sans vitrine.
+ *
+ * Une seule déclaration : le moteur le rend, le gabarit `index.ts` le déclare,
+ * et le test du dépôt le cherche. Trois écritures du même nom divergeraient au
+ * premier renommage — et la seule à le dire serait l'utilisateur, devant une
+ * application qui ne compile pas.
+ */
+const EXAMPLE_SERVICE = "Greeting";
 import { findProjectRoot } from "../projectRoot";
 // L'infra déclarée et l'ordre de la cascade `.env` ont chacun UNE
 // implémentation, celle qu'exécute le kernel. Le scaffold les emprunte : une
@@ -1299,6 +1309,10 @@ function dispatchScaffold(
     pkg: SCAFFOLD_VERSIONS,
     preset,
     complete: preset === "complete",
+    // Le service d'exemple d'une app sans vitrine — même nom que celui rendu
+    // plus bas, pris à la même constante : l'import et la liste `@services`
+    // écrits par ce gabarit doivent désigner le fichier qui existe.
+    exampleService: EXAMPLE_SERVICE,
     // Clé DISTINCTE de `complete`, et lue sous le MÊME nom par le gabarit
     // d'entité : les deux sont rendus à des moments différents (l'app à sa
     // création, l'entité plus tard), et le test e2e généré pour une entité
@@ -1368,6 +1382,40 @@ function dispatchScaffold(
     writer,
     { __NAME__: "HelloController" },
   );
+  if (preset !== "complete") {
+    // « Minimal » ne retirait pas que des briques : il retirait les EXEMPLES.
+    // Restait un controller, et rien d'autre — donc aucun patron à imiter pour
+    // le reste. C'est le seul canal de découverte qui ne dépend de personne : un
+    // document est lu PEUT-ÊTRE, une commande est lancée PEUT-ÊTRE, mais un
+    // fichier voisin est ouvert FORCÉMENT par qui vient écrire du code à côté.
+    //
+    // Rendu par le gabarit de `create service`, jamais par une copie propre à
+    // l'app : l'exemple qu'on lit est celui que la commande régénérera, et le
+    // corriger le corrige aux deux endroits. La vitrine `complete`, elle, porte
+    // déjà ses propres services (AppInfoService, AppBannerService) — en ajouter
+    // un troisième ne montrerait rien de neuf.
+    //
+    // Pas d'ENTITÉ ici, et c'est délibéré : `create entity` refuse AVANT
+    // d'écrire quand l'ORM manque (`runEntityScaffold`, garde ORM), parce
+    // qu'une entité sans ORM « produirait du code mort qui ne compile même
+    // pas ». Poser en Minimal ce que la commande refuse d'y générer
+    // apprendrait le mauvais patron, et donnerait un exemple que le premier
+    // `npm run build` de l'utilisateur casserait.
+    renderLayer(
+      eta,
+      path.join(packageRoot, "templates", "service"),
+      dest,
+      {
+        pascal: EXAMPLE_SERVICE,
+        camel: EXAMPLE_SERVICE[0].toLowerCase() + EXAMPLE_SERVICE.slice(1),
+        inject: null,
+        description: `Service ${EXAMPLE_SERVICE} de ${answers.name}`,
+      },
+      written,
+      writer,
+      { __PASCAL__: EXAMPLE_SERVICE },
+    );
+  }
   if (preset === "complete") {
     renderLayer(
       eta,
