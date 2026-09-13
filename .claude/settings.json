@@ -82,5 +82,10 @@
       "Bash(docker exec:*)",
       "Bash(docker logs:*)"
     ]
+  },
+  "env": {
+    "NO_COLOR": "1",
+    "FORCE_COLOR": "0",
+    "TURBO_UI": "false"
   }
 }

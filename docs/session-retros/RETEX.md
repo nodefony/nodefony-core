@@ -129,6 +129,16 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- [1× — 09-13d] **J'ai déclaré une garde ABSENTE sans l'avoir cherchée dans le code.** Devant
+  un workflow rouge sur `dev`, j'ai annoncé au user que la publication en serait bloquée et
+  qu'« aucun ticket ne le porte » — il a réagi (« il ne faut pas que ce soit bloqueur ! »).
+  La garde existait depuis trois publications : `release-core.mjs:1099`, une liste
+  d'EXCLUSIONS motivées où ce workflow figure nommément, avec le raisonnement complet
+  (interblocage) et la condition pour la retirer. Un `grep` sur le CONCEPT dans la chaîne de
+  publication répondait en dix secondes. La leçon n'est pas « chercher plus » : c'est que le
+  rouge d'un contrôle ne dit RIEN de ce que la chaîne en fait — les deux questions sont
+  distinctes, et j'ai répondu à la seconde sans la poser.
+
 - [1× — 09-13c] **J'ai prédit qu'une issue-instrument serait invisible du contrôle de pilotage :
   elle ne l'était pas.** L'issue épinglée qui porte l'avancement n'a ni jalon ni rang — j'en avais
   conclu, à voix haute, que `ticket:lint` ne la verrait pas, puisqu'il annonce « N items du tableau
@@ -724,6 +734,20 @@
   `[1× — 08-21e]`
 
 ## 🖥️ L'interactif se prouve au PTY — et chaque couche peut salir la sortie
+
+- [1× — 09-13] **Les couleurs de MES commandes ont rendu le terminal du user illisible,
+  deux fois dans la séance — et aucune commande lancée depuis l'agent ne peut le réparer.**
+  `turbo`, `vitest` et `npm` émettent leurs séquences ANSI ; le harnais CAPTURE cette sortie,
+  si bien qu'un `reset`, un `clear` ou un `printf '\033c'` lancé par l'agent s'affiche en
+  TEXTE au lieu d'agir (et `reset` échoue en plus sur « Inappropriate ioctl for device »,
+  faute de TTY). Deux gestes, dans cet ordre : **couper l'émission** (`NO_COLOR=1`,
+  `FORCE_COLOR=0`, `TURBO_UI=false` — posés dans `env` de `.claude/settings.json`, effectifs
+  au prochain démarrage), et si l'écran est déjà abîmé, écrire directement sur le terminal du
+  process : `ps -o tty= -p $PPID` donne `ttysNNN`, puis `printf … > /dev/ttysNNN`. Ce qui a
+  manqué au premier essai : le soft reset (`\033[!p`) répare le CORPS mais pas l'interface,
+  qui se redessine depuis la palette — il faut `OSC 104` (palette) et `OSC 110/111/112`
+  (couleurs par défaut). ⚠️ Ne JAMAIS enchaîner sur un `RIS` (`\033c`) sans accord : il
+  efface le défilement, et c'est ce geste qui avait « mis la panique » une première fois.
 
 - [1× — 09-09c] **Le défaut vécu par le user (jeton MCP tenté sur une base morte, trois stacks)
   n'existe QU'EN TTY — et mon e2e ne pose aucune question.** `planTokenChaining` rend `null` hors
