@@ -19,6 +19,7 @@
   ],
   "scripts": {
     "board:snapshot": "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",
+    "board:readme": "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --readme",
     "retex:seuil": "node .claude/skills/nodefony-session/scripts/retex-seuil.mjs",
     "lessons:carriers": "node .claude/skills/nodefony-session/scripts/lessons-carriers.mjs",
     "build": "turbo run build && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",

@@ -367,6 +367,38 @@ Elle est **commitée avec le reste** (§11). Si le script refuse d'écrire, le l
 soit « GitHub muet » (l'ancienne empreinte est conservée, c'est voulu), soit « chute suspecte du
 nombre de tickets » — dans les deux cas on ne force pas sans avoir compris.
 
+5 ter. **Republier l'avancement dans le README du tableau de bord** — la même empreinte, mais
+rendue là où on la REGARDE :
+
+```bash
+npm run board:readme                     # publie
+npm run board:readme -- --dry-run        # montre ce qui partirait, sans rien écrire
+```
+
+**Pourquoi le README et pas un graphique.** GitHub n'expose **aucune mutation** pour les _Insights_
+de Projects v2 — vérifié par introspection du schéma : pas un champ `*Insight*` ni `*Chart*` dans
+`mutationType`. Leur configuration ne vit que dans l'interface web, donc elle ne se versionne pas,
+ne se régénère pas, et personne ne saura dire de quand elle date. Le `readme` du projet, lui, est un
+champ de `updateProjectV2` : c'est **la seule surface visuelle du projet qu'un script puisse tenir à
+jour**. Même famille que le groupement d'une vue (skill `nodefony-ticket`, §5) — ne pas chercher une
+commande là où il n'y en a pas.
+
+**Ce que le script ne touche PAS.** Le README porte deux natures : le **POURQUOI** du périmètre,
+écrit à la main et durable, et l'**ÉTAT**, qui se périme en un jour. La zone générée vit entre
+`<!-- BOARD:AUTO:DEBUT -->` et `<!-- BOARD:AUTO:FIN -->` ; tout ce qui est hors marqueurs est
+préservé mot pour mot, et à la première pose la zone est AJOUTÉE à la fin plutôt qu'en tête — pour
+qu'aucune ligne écrite à la main ne bouge sans qu'on l'ait voulu.
+
+> ⚠️ **Ce qui est hors marqueurs ne se régénère pas — donc il se périme, et personne ne le voit.**
+> Mesuré à la première pose : le README annonçait « 45 jours-homme », nommait comme premier ticket
+> un arbitrage tranché de longue date, et affirmait « le board ne montre que 15 entrées racine »
+> quand le tableau en portait plus de cent ouvertes, dans un tout autre ordre. C'est l'argument entier de la zone générée : ce qui se compte doit être CALCULÉ, et
+> ce qui s'arbitre doit rester écrit à la main — jamais l'inverse.
+
+La comparaison qui décide de republier **ignore l'horodatage** : sinon le script annoncerait
+« republié » à chaque passage, y compris quand rien n'a bougé — et un instrument qui crie sans
+raison finit par ne plus être lu.
+
 6. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
 7. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 

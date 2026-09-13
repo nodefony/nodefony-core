@@ -65,6 +65,9 @@ const CHUTE_TOLEREE = 0.5;
 const args = new Set(process.argv.slice(2));
 const CHECK = args.has("--check");
 const FORCE = args.has("--force");
+const README = args.has("--readme");
+/** Montre ce qui PARTIRAIT chez GitHub, sans rien y écrire. */
+const DRY = args.has("--dry-run");
 
 export const ITEMS_QUERY = `query($org:String!, $number:Int!, $after:String) {
     organization(login:$org) {
@@ -356,6 +359,173 @@ function renderMarkdown(live, generatedAt) {
   return `${lignes.join("\n")}\n`;
 }
 
+/**
+ * Marqueurs de la zone GÉNÉRÉE du README du projet GitHub.
+ *
+ * Le README porte deux natures qu'il ne faut surtout pas confondre : le
+ * POURQUOI du périmètre, écrit à la main et durable, et l'ÉTAT d'avancement,
+ * qui se périme en un jour. Les marqueurs permettent de régénérer le second
+ * sans jamais toucher au premier — sans eux, publier reviendrait à écraser
+ * l'éditorial à chaque passage.
+ */
+const README_DEBUT =
+  "<!-- BOARD:AUTO:DEBUT — généré par board-snapshot.mjs, ne pas éditer à la main -->";
+const README_FIN = "<!-- BOARD:AUTO:FIN -->";
+
+/**
+ * Rend la zone générée du README du projet : avancement par jalon et prochain
+ * ticket dans l'ordre.
+ *
+ * Pourquoi ici plutôt que dans un graphique du tableau de bord : GitHub
+ * n'expose AUCUNE mutation pour les Insights de Projects v2 (vérifié par
+ * introspection du schéma — aucun champ `*Insight*` ni `*Chart*` dans
+ * `mutationType`). Leur configuration ne vit que dans l'interface web, donc
+ * elle ne se versionne pas et ne se régénère pas. Le README, lui, est un champ
+ * de `updateProjectV2` : c'est la SEULE surface visuelle du projet qu'un
+ * script puisse tenir à jour.
+ *
+ * @param live - l'état rendu par `fetchLive`
+ * @param generatedAt - l'horodatage ISO de l'empreinte
+ * @returns le bloc Markdown, marqueurs compris
+ */
+function renderProjectReadme(live, generatedAt) {
+  const ouverts = live.items.filter((i) => i.status !== "Done");
+  const choix = chooseNextTicket(ouverts, live.milestones);
+
+  const jalons = [...live.milestones]
+    .filter((m) => m.open + m.closed > 0)
+    .sort(
+      (a, b) =>
+        (a.dueOn ?? "9999").localeCompare(b.dueOn ?? "9999") ||
+        a.title.localeCompare(b.title),
+    );
+
+  const lignes = [
+    README_DEBUT,
+    "",
+    "## 📊 Avancement — régénéré, jamais saisi",
+    "",
+    `> Photo du **${generatedAt.slice(0, 16).replace("T", " ")}** UTC, prise par`,
+    "> `npm run board:snapshot -- --readme`. Ce qui est au-dessus de ce trait est",
+    "> écrit à la main et dit le POURQUOI ; ce qui est en dessous est CALCULÉ et",
+    "> dit l'état. Éditer cette zone à la main la ferait diverger au prochain",
+    "> passage — et une carte qui ment coûte plus qu'une carte absente.",
+    "",
+    "```",
+  ];
+
+  const largeur = Math.max(...jalons.map((m) => m.title.length));
+  for (const m of jalons) {
+    const total = m.open + m.closed;
+    const pct = total ? Math.round((m.closed / total) * 100) : 0;
+    const pleins = Math.round(pct / 10);
+    const barre = "█".repeat(pleins) + "░".repeat(10 - pleins);
+    const ech = m.dueOn ? m.dueOn.slice(0, 10) : "—";
+    lignes.push(
+      ` ${m.title.padEnd(largeur)}  ${barre} ${String(pct).padStart(3)}%  ` +
+        `${String(m.closed).padStart(3)}✅ ${String(m.open).padStart(3)}⬜   ${ech}`,
+    );
+  }
+  lignes.push("```", "");
+
+  // Le reste-à-faire se compte en TICKETS, pas en jours : mesuré sur 96 tickets
+  // fermés, le travail médian est d'UNE séance quelle que soit la taille estimée.
+  lignes.push(
+    `**${ouverts.length} tickets ouverts.** C'est ce nombre qui prédit le reste-à-faire —`,
+    "pas une somme de jours : le travail médian constaté est d'**une séance par",
+    "ticket**, quelle que soit la taille estimée (`ticket-effort.mjs`, 96 tickets",
+    "fermés). Le champ `Jours` ne sert qu'au tri.",
+    "",
+  );
+
+  if (choix?.ticket) {
+    const t = choix.ticket;
+    lignes.push(
+      "### ➡️ Le prochain dans l'ordre",
+      "",
+      `**[#${t.number}](${t.url}) — ${t.title}**`,
+      "",
+      `Ordre ${t.ordre} · ${t.priorite ?? "sans priorité"} · jalon \`${choix.milestone ?? "sans jalon"}\``,
+      "",
+      "> Choisi dans le **jalon courant** : un ticket d'un jalon ultérieur ne passe",
+      "> jamais devant, même mieux classé. L'ordre encode les dépendances, le jalon",
+      "> encode la livraison.",
+      "",
+    );
+  }
+
+  lignes.push(README_FIN);
+  return lignes.join("\n");
+}
+
+/**
+ * Republie la zone générée dans le README du projet GitHub, en PRÉSERVANT tout
+ * ce qui vit hors des marqueurs.
+ *
+ * À la première pose, les marqueurs n'existent pas : la zone est ajoutée à la
+ * fin plutôt qu'en tête, pour qu'aucune ligne écrite à la main ne se retrouve
+ * déplacée sans qu'on l'ait voulu.
+ *
+ * @param live - l'état rendu par `fetchLive`
+ * @param generatedAt - l'horodatage ISO de l'empreinte
+ */
+function pushProjectReadme(live, generatedAt) {
+  const pid = JSON.parse(
+    sh("gh", [
+      "api",
+      "graphql",
+      "-f",
+      `query={organization(login:"${PROJECT_OWNER}"){projectV2(number:${PROJECT_NUMBER}){id readme}}}`,
+    ]),
+  ).data.organization.projectV2;
+
+  const bloc = renderProjectReadme(live, generatedAt);
+  const actuel = pid.readme ?? "";
+  if (DRY) {
+    console.log("\n───── APERÇU de la zone générée (rien n'est écrit) ─────\n");
+    console.log(bloc);
+    console.log(
+      `\n───── fin ─────\n${actuel.includes(README_DEBUT) ? "Les marqueurs EXISTENT : seule cette zone serait remplacée." : "Marqueurs ABSENTS : la zone serait AJOUTÉE à la fin, l'éditorial intact."}`,
+    );
+    return;
+  }
+  const i = actuel.indexOf(README_DEBUT);
+  const j = actuel.indexOf(README_FIN);
+
+  let suivant;
+  if (i !== -1 && j !== -1 && j > i) {
+    suivant = actuel.slice(0, i) + bloc + actuel.slice(j + README_FIN.length);
+  } else {
+    suivant = (actuel.trimEnd() + "\n\n---\n\n" + bloc + "\n").trimStart();
+  }
+
+  // Comparer SANS l'horodatage : il change à chaque minute, si bien qu'une
+  // égalité littérale ne serait jamais vraie et que le script annoncerait
+  // « republié » à chaque passage, y compris quand rien n'a bougé. Un
+  // instrument qui crie sans raison finit par ne plus être lu.
+  const sansDate = (t) => t.replace(/^> Photo du .*$/m, "");
+  if (sansDate(suivant) === sansDate(actuel)) {
+    console.log(
+      "✅ README du projet déjà à jour — rien à publier (comparé hors horodatage).",
+    );
+    return;
+  }
+
+  sh("gh", [
+    "api",
+    "graphql",
+    "-f",
+    "query=mutation($p:ID!,$r:String!){updateProjectV2(input:{projectId:$p,readme:$r}){projectV2{id}}}",
+    "-f",
+    `p=${pid.id}`,
+    "-f",
+    `r=${suivant}`,
+  ]);
+  console.log(
+    `✅ README du projet republié — ${i === -1 ? "marqueurs POSÉS (première fois)" : "zone générée remplacée"}.`,
+  );
+}
+
 function lireAncien() {
   try {
     return JSON.parse(fs.readFileSync(JSON_OUT, "utf8"));
@@ -431,4 +601,9 @@ function main() {
   console.log(
     `✅ Empreinte écrite — ${live.items.length} items (${ouverts} ouverts) → .ai/board.json + .ai/BOARD.md`,
   );
+
+  // Le README du projet n'est republié QUE sur demande : il part chez GitHub,
+  // hors du dépôt, et une écriture distante ne doit jamais être un effet de
+  // bord d'une commande qu'on lance à chaque reprise de session.
+  if (README) pushProjectReadme(live, generatedAt);
 }
