@@ -81,6 +81,12 @@ import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
+import {
+  diagnoseEmptyManifest,
+  isForeignDescriptor,
+  foreignPackageWarning,
+  type AppConfigOrigin,
+} from "./bootConfigDiagnosis";
 import type {
   IBootReport,
   IBootFailure,
@@ -645,6 +651,15 @@ class Kernel extends Service implements IKernel {
   private bootServers: IBootServerInfo[] | null = null;
   /** Horodatage (`Date.now()`) du début de `start()` — base de `durationMs`. */
   private bootStartedAt: number = 0;
+  /**
+   * Provenance de la configuration d'application effectivement lue au boot.
+   *
+   * Retenue UNIQUEMENT pour le diagnostic : un manifeste vide a trois causes
+   * distinctes — aucun export (`dist/` vide ou en construction), un objet sans
+   * la marque `defineConfig`, ou un `modules: []` assumé — et rien d'autre ne
+   * permet de les séparer une fois la config résolue.
+   */
+  private appConfigOrigin: AppConfigOrigin = "descriptor";
   /**
    * Lignes de détail de boot par phase (canal NEUTRE) : un module pousse via
    * {@link reportBootLine} ce qu'il veut voir RACONTÉ sous sa phase (ex. un
@@ -1988,24 +2003,83 @@ class Kernel extends Service implements IKernel {
   private resolveAppOptions(
     raw: unknown,
     ctx: ConfigContext,
-  ): { options: TypeKernelOptions; wasDescriptor: boolean } {
+  ): {
+    options: TypeKernelOptions;
+    wasDescriptor: boolean;
+    origin: AppConfigOrigin;
+  } {
     if (isConfigDescriptor(raw)) {
       // Descripteur : merge défauts framework + validation Zod DANS resolve (Lot 1).
       const options = raw.resolve(ctx) as TypeKernelOptions;
       this.surfaceAppEnvOverrides(options);
-      return { options, wasDescriptor: true };
+      return { options, wasDescriptor: true, origin: "descriptor" };
+    }
+
+    // 🔴 DESCRIPTEUR ÉTRANGER — on DÉMARRE, on ne refuse pas.
+    //
+    // Deux paquets `nodefony` dans le process : la marque posée par l'un est
+    // illisible à l'autre. Mais l'objet EST un descripteur — il porte son
+    // `resolve(ctx)` —, et la seule chose qui manquait était de le reconnaître.
+    // Le refuser reviendrait à empêcher une application parfaitement valide de
+    // démarrer pour un détail d'identité de symbole : c'est la panne que ce code
+    // existe pour éviter, pas à reproduire poliment.
+    //
+    // Ce qu'on perd en l'acceptant, et pourquoi c'est tolérable : `resolve` vient
+    // de l'AUTRE copie, donc ses défauts et son schéma Zod sont ceux de SA
+    // version. Entre deux versions proches c'est sans effet ; entre deux versions
+    // éloignées, un champ peut manquer ou être validé autrement. D'où
+    // l'AVERTISSEMENT à l'appelant (jamais un silence) — la règle du dépôt est
+    // fail-soft sur la disponibilité, fail-loud sur la dégradation.
+    if (isForeignDescriptor(raw) && typeof raw === "object" && raw !== null) {
+      const foreignResolve = (raw as { resolve?: unknown }).resolve;
+      if (typeof foreignResolve === "function") {
+        const options = (
+          raw as { resolve: (c: ConfigContext) => unknown }
+        ).resolve(ctx) as TypeKernelOptions;
+        this.surfaceAppEnvOverrides(options);
+        return {
+          options,
+          wasDescriptor: true,
+          origin: "foreign-descriptor",
+        };
+      }
     }
     // App legacy / config absente : merge SOUS les défauts framework (RÉSILIENCE — la
     // config reste complète ; tout champ omis prend son défaut EXPLICITE) via la même
     // recette `extend(true,{},…)` que le descripteur. La validation reste celle de
     // l'app (export `validateConfig`). Une app vide boote ainsi sur defaultAppConfig.
+    //
+    // 🔴 La RÉSILIENCE ci-dessus est voulue, mais elle RECOUVRE un cas qui n'a rien
+    // d'une app legacy : l'export par défaut ABSENT. Un `dist/nodefony.config.js`
+    // vide ou en cours d'écriture est du JavaScript VALIDE — `import()` réussit et
+    // `default` vaut `undefined` —, si bien que le manifeste tombe à `[]` sans
+    // qu'une seule erreur ne soit levée. On RETIENT donc la provenance ici : c'est
+    // la seule information qui permette, plus tard, de nommer la vraie cause au
+    // lieu d'accuser `nodefony.config` (cf `diagnoseEmptyManifest`).
+    // Un descripteur étranger EXPLOITABLE a déjà été traité plus haut (on démarre
+    // avec). Ne reste ici qu'un objet qui porte la marque sans `resolve` — cassé,
+    // donc traité comme legacy, mais nommé pour ce qu'il est.
+    const foreign = isForeignDescriptor(raw);
+    const absent =
+      !foreign &&
+      (raw === null ||
+        raw === undefined ||
+        (typeof raw === "object" && Object.keys(raw as object).length === 0));
     const options = extend(
       true,
       {},
       defaultAppConfig,
       raw ?? {},
     ) as TypeKernelOptions;
-    return { options, wasDescriptor: false };
+    return {
+      options,
+      wasDescriptor: false,
+      origin: foreign
+        ? "foreign-descriptor"
+        : absent
+          ? "absent"
+          : "legacy-object",
+    };
   }
 
   /**
@@ -2136,6 +2210,16 @@ class Kernel extends Service implements IKernel {
       const resolved = this.resolveAppOptions(this.app.options, ctx);
       this.app.options = resolved.options;
       wasDescriptor = resolved.wasDescriptor;
+      // Retenu pour le diagnostic de boot : un manifeste vide recouvre plusieurs
+      // causes sans rapport, et seule la provenance permet de les séparer.
+      this.appConfigOrigin = resolved.origin;
+      // Deux paquets `nodefony` : l'application DÉMARRE (la config a été résolue
+      // par l'autre copie), mais ce décor est anormal et se règle. Le dire une
+      // fois, fort, au lieu de laisser découvrir l'écart au premier
+      // comportement inexplicable.
+      if (resolved.origin === "foreign-descriptor") {
+        this.log(foreignPackageWarning(), "WARNING");
+      }
     } catch (e) {
       throw this.bootConfigError(
         "Configuration de l'application invalide",
@@ -3398,13 +3482,12 @@ class Kernel extends Service implements IKernel {
     manifestEntries: number,
     serversExpected: boolean,
   ): string | null {
-    if (serversExpected && manifestEntries === 0) {
-      return (
-        "la configuration LUE ne déclare aucun module (`modules: []`) ⇒ " +
-        "vérifier `nodefony.config` et l'exécutable employé " +
-        "(`nodefony inspect config` dit la config effective et sa provenance)"
-      );
-    }
+    const emptyManifest = diagnoseEmptyManifest({
+      serversExpected,
+      manifestEntries,
+      origin: this.appConfigOrigin,
+    });
+    if (emptyManifest) return emptyManifest;
     const moduleNotFound = skipped.some((f) =>
       /Cannot find package|Cannot find module|ERR_MODULE_NOT_FOUND/i.test(
         f.reason,

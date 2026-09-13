@@ -48,8 +48,18 @@ export interface AppEnvOverrideReport {
   readonly warnings: string[];
 }
 
-/** Clé non-énumérable où le rapport d'override app est rangé sur la config résolue. */
-const APP_ENV_REPORT: unique symbol = Symbol("nodefony.appEnvOverrideReport");
+/**
+ * Clé non-énumérable où le rapport d'override app est rangé sur la config résolue.
+ *
+ * `Symbol.for` et non `Symbol` : le rapport est POSÉ par l'instance du module qui
+ * résout la config, et LU par celle qui exécute le Kernel. Ces deux instances ne
+ * sont pas toujours la même (cf `CONFIG_DESCRIPTOR`) ; un symbole privé ferait
+ * alors disparaître le rapport en silence, et les overrides `NF__APP__*`
+ * appliqués ne seraient plus journalisés — on croirait n'avoir rien surchargé.
+ */
+const APP_ENV_REPORT: unique symbol = Symbol.for(
+  "nodefony.appEnvOverrideReport",
+) as typeof APP_ENV_REPORT;
 
 /**
  * Applique les overrides `NF__APP__<CHEMIN…>` sur la config APP **fusionnée**,
@@ -105,11 +115,29 @@ export function readAppEnvOverrideReport(
 }
 
 /**
- * Marque de marque (brand) interne d'un descripteur de config. Symbole privé au
- * module : non exporté → un objet quelconque ne peut pas se faire passer pour un
- * descripteur, et le type public {@link AppConfigDescriptor} reste propre.
+ * Marque (brand) d'un descripteur de config. Non exportée → un objet quelconque
+ * ne peut pas se faire passer pour un descripteur, et le type public
+ * {@link AppConfigDescriptor} reste propre.
+ *
+ * 🔴 `Symbol.for` — REGISTRE GLOBAL — et surtout PAS `Symbol()`. La marque est
+ * posée par le module qui évalue `nodefony.config` et RELUE par celui qui
+ * exécute le Kernel, et rien ne garantit que ce soit la même instance : un lien
+ * global (`npm link`, un binaire de développement lié vers le dépôt), deux
+ * versions dans un arbre npm, un monorepo, suffisent à en charger deux. Avec un
+ * symbole privé, la relecture échoue alors SANS ERREUR : le Kernel prend le
+ * descripteur pour une configuration historique, applique `defaultAppConfig`
+ * dont `modules` est vide, ne monte aucun module, n'ouvre aucun serveur, et sort
+ * en 69 — en accusant une configuration parfaitement juste.
+ *
+ * Vécu le 2026-09-13 : `nodefony dev` (binaire lié vers le dépôt) échouait
+ * systématiquement là où `npm run dev` (binaire local) réussissait, sur la MÊME
+ * application. Deux heures de recherche dans la config, qui était saine.
+ * Le registre global est partagé par tout le process : c'est ce qui rend la
+ * marque lisible d'une instance à l'autre.
  */
-const CONFIG_DESCRIPTOR: unique symbol = Symbol("nodefony.configDescriptor");
+const CONFIG_DESCRIPTOR: unique symbol = Symbol.for(
+  "nodefony.configDescriptor",
+) as typeof CONFIG_DESCRIPTOR;
 
 /** Descripteur brandé réellement produit (forme interne). */
 interface BrandedDescriptor {

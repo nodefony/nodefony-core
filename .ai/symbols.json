@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 832,
-    "symbols": 4076,
+    "files": 833,
+    "symbols": 4082,
     "classes": 392,
-    "interfaces": 1092,
-    "types": 449,
+    "interfaces": 1093,
+    "types": 450,
     "enums": 4,
-    "functions": 1732,
+    "functions": 1736,
     "constants": 407
   },
   "symbols": {
@@ -583,6 +583,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Décision du lanceur : exécuter soi-même, ou passer la main au CLI de l'app."
+    },
+    "alignArgvWithDelegate": {
+      "name": "alignArgvWithDelegate",
+      "kind": "function",
+      "file": "src/nodefony/src/bin/resolveLocalCli.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Aligne `argv[1]` sur le CLI RÉELLEMENT exécuté après une délégation. 🔴 POURQUOI C'EST NÉCESSAIRE, et ce que ça a coûté de ne pas le faire. La délégation charge le CLI de l'application par `import(…"
     },
     "resolveLocalCli": {
       "name": "resolveLocalCli",
@@ -3674,6 +3682,47 @@
       "extends": "Array",
       "implements": [],
       "decorators": []
+    },
+    "IEmptyManifestFacts": {
+      "name": "IEmptyManifestFacts",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/bootConfigDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Entrée du diagnostic — les trois faits constatés au boot."
+    },
+    "AppConfigOrigin": {
+      "name": "AppConfigOrigin",
+      "kind": "type",
+      "file": "src/nodefony/src/kernel/bootConfigDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Diagnostic d'un manifeste de modules VIDE au boot. Un manifeste vide sous profil serveur produit toujours le même symptôme — aucun module monté, aucun serveur en écoute, sortie 69 — alors qu'il rec…"
+    },
+    "isForeignDescriptor": {
+      "name": "isForeignDescriptor",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/bootConfigDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Détecte un descripteur produit par une AUTRE instance du module `nodefony`. 🔴 CE QUE CETTE GARDE RATTRAPE, et pourquoi elle ne peut pas être un test. Deux copies du module `nodefony` chargées dans…"
+    },
+    "foreignPackageWarning": {
+      "name": "foreignPackageWarning",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/bootConfigDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Avertissement émis quand l'application a démarré AVEC une configuration résolue par une autre copie du framework. Ce n'est pas un échec — le boot réussit, et c'est voulu : refuser de démarrer une a…"
+    },
+    "diagnoseEmptyManifest": {
+      "name": "diagnoseEmptyManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/bootConfigDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nomme la cause probable d'un manifeste vide, ou `null` s'il n'y a rien à dire. Ne parle QUE sous profil serveur : une commande console ou un test qui boote sans manifeste est un cas nominal, et une…"
     },
     "BootConfigurationError": {
       "name": "BootConfigurationError",
@@ -30589,6 +30638,9 @@
       "resolveLocalCli": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
+      "alignArgvWithDelegate": [
+        "src/nodefony/src/bin/nodefony.ts"
+      ],
       "DEBUG_ENV": [
         "src/nodefony/src/bin/nodefony.ts"
       ],
@@ -31655,6 +31707,18 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
+      ],
+      "diagnoseEmptyManifest": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isForeignDescriptor": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "foreignPackageWarning": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "AppConfigOrigin": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "IBootReport": [
         "src/nodefony/src/kernel/Kernel.ts",

@@ -11,7 +11,11 @@ import assert from "node:assert";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { resolveLocalCli, DELEGATED_ENV } from "../bin/resolveLocalCli";
+import {
+  resolveLocalCli,
+  alignArgvWithDelegate,
+  DELEGATED_ENV,
+} from "../bin/resolveLocalCli";
 
 /** Écrit un `package.json` (crée l'arborescence au passage). */
 function writeJson(dir: string, data: unknown): void {
@@ -140,5 +144,53 @@ describe("bin — resolveLocalCli (le CLI de l'app prime sur le global)", () => 
 
     const d = resolveLocalCli({ cwd: proj, selfDir: globalPkg });
     assert.strictEqual(d.delegate, path.join(pkgDir, "cli.js"));
+  });
+});
+
+/*
+ *   Ce que la délégation NE suffisait pas à réparer : `argv[1]`.
+ *
+ *   La délégation charge le CLI de l'app par `import()` dans le MÊME process, si
+ *   bien que `process.argv[1]` continuait de désigner le binaire tapé. Tout code
+ *   qui relance « la même commande » à partir d'`argv` repartait donc sur l'autre
+ *   paquet — `DevSupervisor` le fait à chaque (re)démarrage du serveur de dev.
+ *
+ *   Vécu le 2026-09-13 : avec un `nodefony` lié globalement vers un dépôt de
+ *   développement, `nodefony dev` faisait tourner le Kernel du DÉPÔT sur une
+ *   application dont la config importait `nodefony` depuis son `node_modules`.
+ *   Deux instances du module, la marque de `defineConfig` perdue, `modules: []`,
+ *   aucun serveur, sortie 69 — et un diagnostic qui accusait une config saine.
+ *   `npm run dev` était vert à tous les coups : son `argv[1]` est déjà le local.
+ */
+describe("alignArgvWithDelegate — argv[1] désigne le CLI qui s'exécute VRAIMENT", () => {
+  const delegate = "/app/node_modules/nodefony/bin/nodefony";
+
+  it("remplace le script tapé par le CLI délégué", () => {
+    const sortie = alignArgvWithDelegate(
+      ["/usr/bin/node", "/home/moi/.local/bin/nodefony", "dev"],
+      delegate,
+    );
+    assert.strictEqual(sortie[1], delegate);
+  });
+
+  it("laisse l'exécutable Node et les arguments INTACTS", () => {
+    const sortie = alignArgvWithDelegate(
+      ["/usr/bin/node", "/global/nodefony", "dev", "--workers", "2"],
+      delegate,
+    );
+    assert.strictEqual(sortie[0], "/usr/bin/node");
+    assert.deepStrictEqual(sortie.slice(2), ["dev", "--workers", "2"]);
+  });
+
+  it("ne mute pas l'argv d'entrée", () => {
+    const entrée = ["/usr/bin/node", "/global/nodefony", "dev"];
+    alignArgvWithDelegate(entrée, delegate);
+    assert.strictEqual(entrée[1], "/global/nodefony");
+  });
+
+  it("argv tronqué (aucun script) : rend une copie, sans inventer d'entrée", () => {
+    assert.deepStrictEqual(alignArgvWithDelegate(["/usr/bin/node"], delegate), [
+      "/usr/bin/node",
+    ]);
   });
 });

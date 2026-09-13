@@ -4,6 +4,7 @@ import { exit } from "node:process";
 import type { EnvironmentType } from "nodefony";
 import {
   resolveLocalCli,
+  alignArgvWithDelegate,
   DEBUG_ENV,
   DELEGATED_ENV,
   type TLocalCliDecision,
@@ -141,6 +142,11 @@ let kernel: unknown;
 if (decision.delegate) {
   // La garde empêche le CLI de l'app de re-déléguer en boucle.
   process.env[DELEGATED_ENV] = "1";
+  // `argv[1]` doit désigner le CLI qui s'exécute VRAIMENT — sinon tout ce qui
+  // relance « la même commande » (le superviseur de dev en tête) repart sur le
+  // binaire tapé, donc sur un AUTRE paquet `nodefony` que celui de l'app.
+  // Le détail de ce que ça casse : `alignArgvWithDelegate`.
+  process.argv = alignArgvWithDelegate(process.argv, decision.delegate);
   kernel = await import(pathToFileURL(decision.delegate).href);
 } else {
   kernel = await runSelf();

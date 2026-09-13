@@ -37,6 +37,45 @@ export type TLocalCliDecision =
       detail: string;
     };
 
+/**
+ * Aligne `argv[1]` sur le CLI RÉELLEMENT exécuté après une délégation.
+ *
+ * 🔴 POURQUOI C'EST NÉCESSAIRE, et ce que ça a coûté de ne pas le faire. La
+ * délégation charge le CLI de l'application par `import()` **dans le même
+ * process** : `process.argv[1]` continue donc de désigner le binaire qu'on a
+ * TAPÉ — un lien global vers un autre paquet, le plus souvent. Tout code qui
+ * relance ensuite « la même commande » à partir d'`argv` repart alors sur le
+ * MAUVAIS paquet, et personne ne le voit.
+ *
+ * Vécu le 2026-09-13 : `DevSupervisor` relance le serveur par
+ * `spawn(process.execPath, process.argv.slice(1))`. Avec un `nodefony` lié
+ * globalement vers un dépôt de développement, l'enfant exécutait le Kernel du
+ * DÉPÔT pendant que la configuration de l'application importait `nodefony`
+ * depuis son propre `node_modules` — deux instances du module dans un seul
+ * process. La marque de `defineConfig` (un symbole) ne traversait pas, le Kernel
+ * prenait la config pour une configuration historique, `modules` tombait à `[]`,
+ * aucun serveur ne montait, et le diagnostic accusait une configuration saine.
+ * `npm run dev` n'a jamais eu le défaut : son `argv[1]` est déjà le CLI local.
+ *
+ * Corriger ICI plutôt que dans le superviseur : `argv[1]` est censé désigner le
+ * script qui s'exécute, et d'autres consommateurs le liront (respawn, cluster,
+ * messages d'aide). Une rustine posée chez un seul appelant laisserait les
+ * autres faux.
+ *
+ * @param argv - `process.argv` d'origine.
+ * @param delegate - chemin absolu du CLI vers lequel on délègue.
+ * @returns un `argv` dont l'entrée 1 désigne le CLI délégué.
+ */
+export function alignArgvWithDelegate(
+  argv: readonly string[],
+  delegate: string,
+): string[] {
+  const next = [...argv];
+  // `argv[0]` est l'exécutable Node, `argv[1]` le script : seul ce dernier ment.
+  if (next.length >= 2) next[1] = delegate;
+  return next;
+}
+
 /** Lit un `package.json` — `null` si absent ou illisible (jamais de throw). */
 function readPackageJson(dir: string): Record<string, unknown> | null {
   try {
