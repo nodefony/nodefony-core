@@ -29,8 +29,9 @@
  * singleton mais {@link Service}, qui teste `container instanceof Container` :
  * le test échoue d'une copie à l'autre, le service JETTE le container qu'on lui
  * passe et s'en fabrique un vide — donc plus de kernel, plus de journal, plus
- * d'injection. C'est pourquoi la dualité est refusée en production : ce qui
- * disparaît en silence est exactement ce dont dépend la sécurité.
+ * d'injection, et pas un hook attaché. C'est pourquoi la dualité est refusée
+ * hors développement : ce qui disparaît en silence est exactement ce dont
+ * dépend la sécurité.
  */
 
 /** Case partagée par toutes les copies : seul le registre global les réunit. */
@@ -105,11 +106,16 @@ export function packageDualityReport(): string | null {
     `${copies.length} copies du paquet \`nodefony\` sont chargées dans ce ` +
     `process :\n${list}\n` +
     "Chacune a ses propres classes, son contexte de requête et ses registres " +
-    "d'injection : les modules chargés par l'une sont invisibles à l'autre, " +
-    "et un service construit à la frontière perd son container SANS erreur. " +
+    "d'injection. Un module construit par le noyau d'une copie avec les " +
+    "classes de l'autre perd son container SANS la moindre erreur : plus de " +
+    "kernel, plus de journal, plus d'injection, et aucun hook de cycle de vie " +
+    "attaché — il figure dans la liste des modules et ne fait rien. " +
     "Causes usuelles : un binaire `nodefony` lié globalement vers un autre " +
     "dossier (`npm link`, un lien dans `~/.local/bin`), deux versions dans " +
     "l'arbre npm, un monorepo dont deux paquets ne partagent pas leur " +
-    "dépendance. `NF_CLI_DEBUG=1 nodefony --version` dit quel CLI s'exécute."
+    "dépendance. Pour trancher : `npm ls nodefony` (ou `pnpm why nodefony`) " +
+    "liste les copies installées et qui les réclame — c'est la commande pour " +
+    "les deux dernières causes ; `NF_CLI_DEBUG=1 nodefony --version` dit quel " +
+    "CLI s'exécute, ce qui ne répond qu'à la première."
   );
 }

@@ -1,3 +1,5 @@
+import { SysExit } from "../cli/sysexits";
+
 /**
  * Erreur de **configuration** détectée pendant le boot — TOUJOURS fatale, dans
  * TOUS les environnements et pour TOUT module, là où un échec de boot ordinaire
@@ -39,6 +41,19 @@
  */
 export class BootConfigurationError extends Error {
   override name = "BootConfigurationError";
+
+  /**
+   * Code de sortie du process — `EX_CONFIG` (78), pas le `EX_SOFTWARE` (70) par
+   * défaut. Une faute de CONFIGURATION n'est pas une erreur interne : un script
+   * appelant, un orchestrateur ou une chaîne d'intégration doivent pouvoir les
+   * distinguer sans lire un journal. Les autres refus de configuration du boot
+   * rendaient déjà ce code (cf `Kernel.bootConfigError`) — le porter ICI évite
+   * qu'un refus sorte en 78 et son voisin en 70 selon le producteur.
+   *
+   * Lu par duck-typing (`(e as { exitCode?: number }).exitCode`) sur le chemin
+   * d'abandon du boot, comme pour `nodefonyError`.
+   */
+  exitCode: number = SysExit.CONFIG;
 
   /**
    * Type guard TOLÉRANT aux copies multiples du package (dual-package /

@@ -114,23 +114,34 @@ describe("isForeignDescriptor — la garde reconnaît une marque venue d'ailleur
   });
 
   it("un descripteur étranger reste EXPLOITABLE — il porte son resolve", () => {
-    // C'est ce qui permet de DÉMARRER au lieu de refuser : la seule chose qui
-    // manquait était de reconnaître la marque, pas la capacité à résoudre.
+    // C'est ce qui permet de démarrer EN DÉVELOPPEMENT au lieu de refuser
+    // partout : la seule chose qui manquait était de reconnaître la marque, pas
+    // la capacité à résoudre. Le verdict, lui, appartient au Kernel.
     const résolu = (venuDUneAutreCopie as { resolve: () => unknown }).resolve();
     expect(résolu).to.be.an("object");
   });
 
-  it("l'avertissement dit que l'app DÉMARRE, et ce que ça coûte", () => {
+  it("le constat ne PROMET plus un démarrage — c'est le Kernel qui tranche", () => {
     const dit = foreignPackageWarning();
     expect(dit).to.match(/DEUX paquets/);
-    // La règle du dépôt : fail-soft sur la disponibilité…
-    expect(dit, "l'avertissement doit dire que l'app démarre").to.match(
-      /DÉMARRE/,
-    );
-    // …fail-loud sur la dégradation : dire ce qui peut différer.
+    // 🔴 Ce texte a longtemps affirmé « L'application DÉMARRE ». C'est devenu
+    // FAUX le jour où la production a commencé à refuser (`packageDualityVerdict`)
+    // : promettre un démarrage à qui vient de lire un refus est pire que se
+    // taire. Le constat DÉCRIT, il ne décide pas.
+    expect(
+      dit,
+      "le constat ne doit plus promettre que l'application démarre",
+    ).to.not.match(/DÉMARRE/);
+    // Fail-loud sur la dégradation : dire ce qui peut différer…
     expect(dit).to.match(/défauts et la validation/);
-    // Et donner le geste qui tranche en une commande.
+    // …y compris le fait qui coûte le plus cher, et qu'il taisait.
+    expect(dit).to.match(/perdent leur container/);
+    // Et donner les gestes qui tranchent — un par famille de cause.
     expect(dit).to.match(/NF_CLI_DEBUG/);
+    expect(
+      dit,
+      "`npm ls` est le seul geste pour un doublon d'arbre npm",
+    ).to.match(/npm ls nodefony/);
   });
 
   it("le diagnostic de manifeste vide ne parle plus d'un boot REFUSÉ", () => {

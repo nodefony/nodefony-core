@@ -80,33 +80,38 @@ export function isForeignDescriptor(raw: unknown): boolean {
 }
 
 /**
- * Avertissement émis quand l'application a démarré AVEC une configuration
- * résolue par une autre copie du framework.
+ * Constat émis quand la configuration de l'application a été résolue par une
+ * AUTRE copie du framework — c'est-à-dire quand deux paquets `nodefony`
+ * tournent dans ce process, et que la copie fautive est trop ancienne pour
+ * s'être inscrite au registre d'instances.
  *
- * Ce n'est pas un échec — le boot réussit, et c'est voulu : refuser de démarrer
- * une application valide pour une identité de symbole serait exactement la panne
- * qu'on cherche à éviter. Mais le décor est anormal, et il a une conséquence
- * réelle : les défauts et le schéma de validation appliqués sont ceux de
- * l'AUTRE version. Entre deux versions proches c'est sans effet ; entre deux
- * versions éloignées, un champ peut manquer ou être validé autrement, et cela
- * se manifesterait par un comportement inexplicable, jamais par une erreur.
+ * ⚠️ Ce texte est un CONSTAT, pas un verdict : c'est `Kernel` qui décide
+ * (`packageDualityVerdict`) — avertissement en développement, refus de
+ * démarrer partout ailleurs. Il a d'abord affirmé « l'application DÉMARRE »,
+ * ce qui est devenu FAUX le jour où la production a commencé à refuser : un
+ * message qui promet un démarrage à qui vient de lire un refus est pire que
+ * pas de message.
  *
- * D'où un avertissement UNIQUE, au boot, qui nomme le décor et donne le geste —
- * plutôt qu'un silence dont on paierait le prix des heures plus tard.
+ * Pourquoi ce décor n'est pas anodin : les défauts et le schéma de validation
+ * appliqués sont ceux de l'AUTRE version. Entre deux versions proches c'est
+ * sans effet ; entre deux versions éloignées, un champ peut manquer ou être
+ * validé autrement, et cela se manifesterait par un comportement inexplicable,
+ * jamais par une erreur.
  *
- * @returns le texte de l'avertissement (français, destiné à un humain).
+ * @returns le texte du constat (français, destiné à un humain).
  */
 export function foreignPackageWarning(): string {
   return (
     "DEUX paquets `nodefony` différents tournent dans ce process : la " +
     "configuration a été écrite avec `defineConfig(…)` d'une copie, et ce noyau " +
-    "vient d'une autre. L'application DÉMARRE — la configuration a été résolue " +
-    "par la copie qui l'a produite — mais les défauts et la validation " +
-    "appliqués sont ceux de SA version, ce qui peut différer si les deux " +
-    "versions s'éloignent. Causes usuelles : un binaire `nodefony` lié " +
-    "globalement vers un autre dossier (`npm link`, un lien dans " +
-    "`~/.local/bin`), deux versions dans l'arbre npm, un monorepo. " +
-    "`NF_CLI_DEBUG=1 nodefony --version` dit quel CLI s'exécute."
+    "vient d'une autre. La configuration a pu être résolue — c'est la copie qui " +
+    "l'a produite qui s'en est chargée — mais les défauts et la validation " +
+    "appliqués sont ceux de SA version, et les modules construits à la " +
+    "frontière perdent leur container sans la moindre erreur. Causes usuelles : " +
+    "un binaire `nodefony` lié globalement vers un autre dossier (`npm link`, " +
+    "un lien dans `~/.local/bin`), deux versions dans l'arbre npm, un monorepo. " +
+    "Pour trancher : `npm ls nodefony` liste les copies installées et qui les " +
+    "réclame ; `NF_CLI_DEBUG=1 nodefony --version` dit quel CLI s'exécute."
   );
 }
 

@@ -182,3 +182,69 @@ describe("verdict du Kernel — avertir en dev, REFUSER en production", () => {
     expect(dit).to.contain("file:///b/dist/Nodefony.js");
   });
 });
+
+/**
+ * 🔴 CE QUI MANQUAIT — les tests ci-dessus appellent la garde DIRECTEMENT :
+ * retirer ses points d'appel dans le Kernel les laisserait tous verts. Un gate
+ * qu'on peut débrancher sans qu'un test tombe ne garde rien. Ces deux-ci
+ * gardent le CÂBLAGE : ils passent par les méthodes du cycle de vie.
+ */
+describe("câblage — la garde est réellement CONSULTÉE pendant le boot", () => {
+  let singletonSauvé: Kernel | null = null;
+  let nodeEnvSauvé: string | undefined;
+  beforeEach(() => {
+    singletonSauvé = Nodefony.getKernel();
+    nodeEnvSauvé = process.env.NODE_ENV;
+  });
+  afterEach(() => {
+    if (singletonSauvé) Nodefony.setKernel(singletonSauvé);
+    if (nodeEnvSauvé === undefined) delete process.env.NODE_ENV;
+    else process.env.NODE_ENV = nodeEnvSauvé;
+  });
+
+  it("preRegister() REFUSE quand une copie est apparue avec les modules", async () => {
+    // Le second point de contrôle existe pour ce cas précis : les modules du
+    // manifeste sont chargés par un `once("onPreRegister")`, donc APRÈS le
+    // contrôle de `loadApp`. Une copie apportée par un module — deux versions
+    // dans l'arbre npm, monorepo — n'apparaît qu'ici. Débrancher l'appel dans
+    // `preRegister` fait tomber ce test, et lui seul.
+    registerPackageInstance("file:///app/dist/Nodefony.js", "10.0.0");
+    registerPackageInstance(
+      "file:///un-module/node_modules/nodefony/Nodefony.js",
+      "9.0.0",
+    );
+    process.env.NODE_ENV = "production";
+    const k = new Kernel("production", null, { log: { active: false } });
+    let levée: unknown = null;
+    try {
+      await k.preRegister();
+    } catch (e) {
+      levée = e;
+    }
+    expect(
+      BootConfigurationError.is(levée),
+      "un module qui apporte une seconde copie doit être refusé, pas ignoré",
+    ).to.equal(true);
+    expect((levée as Error).message).to.contain("un-module");
+  });
+
+  it("le verdict ne se répète pas quand rien n'a changé entre les deux points", () => {
+    // Deux points de contrôle, une seule dualité : en développement, le même
+    // avertissement émis deux fois cesse d'être lu.
+    registerPackageInstance("file:///a/dist/Nodefony.js", "10.0.0");
+    registerPackageInstance("file:///b/dist/Nodefony.js", "10.0.0");
+    process.env.NODE_ENV = "development";
+    const k = new Kernel("development", null, { log: { active: false } });
+    const dits: string[] = [];
+    (k as unknown as { log: (m: unknown, s?: string) => void }).log = (m) => {
+      dits.push(String(m));
+    };
+    const garde = (k as unknown as { assertSinglePackageInstance: () => void })
+      .assertSinglePackageInstance;
+    garde.call(k);
+    garde.call(k);
+    expect(dits.filter((d) => d.includes("copies du paquet"))).to.have.lengthOf(
+      1,
+    );
+  });
+});

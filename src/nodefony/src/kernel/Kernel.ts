@@ -83,6 +83,7 @@ import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
 import {
   isPackageDuplicated,
+  listPackageInstances,
   packageDualityReport,
 } from "../runtime/packageInstances";
 import {
@@ -665,6 +666,13 @@ class Kernel extends Service implements IKernel {
    */
   private appConfigOrigin: AppConfigOrigin = "descriptor";
   /**
+   * Nombre de copies du paquet déjà SIGNALÉES. La garde de dualité est
+   * consultée à deux instants du boot (import de l'app, puis chargement des
+   * modules) : sans ce compteur, une même dualité serait annoncée deux fois en
+   * développement — et un avertissement qui se répète cesse d'être lu.
+   */
+  private reportedPackageInstances = 1;
+  /**
    * Lignes de détail de boot par phase (canal NEUTRE) : un module pousse via
    * {@link reportBootLine} ce qu'il veut voir RACONTÉ sous sa phase (ex. un
    * adapter ORM : « drizzle → sqlite »). Le core reste agnostique du contenu.
@@ -1085,6 +1093,15 @@ class Kernel extends Service implements IKernel {
     // GARDÉ (Phase 3) : un module qui throw/se fige en pré-registration ne gèle
     // plus le boot ; fireLifecycle logge + propage selon criticité (prod).
     await this.fireLifecycle("onPreRegister", this);
+
+    // SECOND point de contrôle de la dualité de paquet. Les modules du manifeste
+    // sont chargés par un écouteur `once("onPreRegister")` posé dans `loadApp`
+    // (cf `loadModulesFromManifest`) : une copie apportée par un MODULE — deux
+    // versions dans l'arbre npm, monorepo, résolution imbriquée — n'existe donc
+    // pas encore au premier contrôle. Sans cette ligne, le refus ne couvrait que
+    // la copie apportée par l'application, soit une cause sur les trois que le
+    // message nomme. Idempotent sur le nombre de copies vues.
+    this.assertSinglePackageInstance();
 
     // Manifest de complétion shell : ICI (et pas avant) les commandes de MODULE sont
     // posées dans commander → dump complet pour le fast-path `__complete` (0 boot au
@@ -1995,7 +2012,18 @@ class Kernel extends Service implements IKernel {
 
   /**
    * Tranche le cas « deux paquets `nodefony` dans ce process » : AVERTIT en
-   * développement, REFUSE de démarrer en production.
+   * développement, REFUSE de démarrer PARTOUT AILLEURS — `production`, mais
+   * aussi `test` et `staging`, que {@link resolveRuntimeEnv} collapse sur le
+   * même mode moteur.
+   *
+   * Appelée à DEUX instants, parce qu'une copie surnuméraire peut arriver par
+   * deux chemins distincts : l'APPLICATION l'apporte à son import
+   * ({@link loadApp}), ou un MODULE du manifeste l'apporte au sien
+   * (`onPreRegister`, plus tard) — ce second cas couvre « deux versions dans
+   * l'arbre npm » et « monorepo », soit deux des trois causes que le message
+   * nomme. Un seul point de contrôle les laissait passer. L'appel est
+   * idempotent sur le NOMBRE de copies vues : le second passage ne réémet rien
+   * si rien n'a changé.
    *
    * 🔴 POURQUOI CE N'EST PAS LE MÊME ARBITRAGE DES DEUX CÔTÉS. La règle du
    * dépôt est fail-soft sur la DISPONIBILITÉ, fail-loud sur la DÉGRADATION —
@@ -2018,14 +2046,37 @@ class Kernel extends Service implements IKernel {
    * requête reste invisible à la moitié des modules — une dégradation plus
    * difficile à voir que celle qu'on aurait corrigée. On détecte et on dit.
    *
-   * @throws {BootConfigurationError} en production, quand le process porte
-   *   plus d'une copie du paquet.
+   * @throws {BootConfigurationError} hors développement (`test` et `staging`
+   *   compris), quand le process porte plus d'une copie du paquet.
    */
   private assertSinglePackageInstance(): void {
     // Chemin normal (une seule copie) : un test de longueur, rien d'alloué.
-    if (!isPackageDuplicated()) return;
+    const seen = listPackageInstances().length;
+    if (seen <= this.reportedPackageInstances) return;
+    this.reportedPackageInstances = seen;
     const report = packageDualityReport();
     if (!report) return;
+    this.packageDualityVerdict(report);
+  }
+
+  /**
+   * Applique le verdict de dualité à un constat déjà établi : AVERTIR en
+   * développement, REFUSER partout ailleurs.
+   *
+   * Extrait de {@link assertSinglePackageInstance} parce que la dualité se
+   * constate par DEUX voies qui ne se recouvrent pas. Le registre d'instances
+   * compte les copies — mais une copie ANTÉRIEURE à son introduction ne s'y
+   * inscrit pas, et reste donc invisible. Pour celle-là, le seul signal est un
+   * descripteur de configuration portant une marque étrangère
+   * ({@link isForeignDescriptor}). Les deux constats méritent le même verdict :
+   * sans cela, une copie ancienne côté application démarrerait en production
+   * quand une copie récente y serait refusée — l'arbitrage dépendrait de la
+   * version de ce qui casse, ce qui n'a aucun sens.
+   *
+   * @param report - le constat, destiné à un humain, à faire porter au verdict.
+   * @throws {BootConfigurationError} hors développement.
+   */
+  private packageDualityVerdict(report: string): void {
     const mode = this.resolveRuntimeEnv(this.cli?.environment);
     if (mode === "development") {
       this.log(report, "WARNING");
@@ -2239,11 +2290,25 @@ class Kernel extends Service implements IKernel {
     try {
       this.app = await this.loadModule(appEntry);
     } catch (e) {
+      // Le module de l'APPLICATION est construit ici, donc À LA FRONTIÈRE entre
+      // les deux copies, AVANT que le registre n'ait pu être consulté. Si son
+      // constructeur touche au kernel — ce que `nodefony create command` câble
+      // par défaut (`this.addCommand(…)` juste après le `super()`, cf
+      // `cli/scaffold/engine.ts`) —, il tombe ICI avec « Kernel not ready »,
+      // parce que `Service` a jeté le container venu de l'autre copie. Sans le
+      // contrôle ci-dessous, le diagnostic accuserait le build : ce serait la
+      // QUATRIÈME fois que ce même incident se fait raconter de travers.
+      this.assertSinglePackageInstance();
       throw this.bootConfigError(
         "Chargement de l'application impossible",
         `Le point d'entrée \`${appEntry}\` n'a pas pu être importé/évalué.`,
         e,
         [
+          ...(isPackageDuplicated()
+            ? [
+                "DEUX paquets `nodefony` dans ce process (avertissement ci-dessus) : le module de l'application a été construit avec les classes de l'autre copie, donc sans container ni kernel. Régler la dualité AVANT de suspecter le build.",
+              ]
+            : []),
           "Build périmé ou absent → `npm run clean && npm run build`.",
           "Un fichier de config déréférence le kernel au top-level (résolu à l'import) → différer en getter/lazy.",
         ],
@@ -2253,9 +2318,12 @@ class Kernel extends Service implements IKernel {
       // garde pour tout `defineEnv` appelé ensuite — un module, un rechargement.
       setRunServesTraffic(null);
     }
-    // L'application vient d'importer SON `nodefony` : c'est le premier instant
-    // où une seconde copie du paquet, s'il y en a une, est inscrite. On tranche
-    // ici, avant que le moindre module ne soit construit à la frontière.
+    // L'application vient d'importer SON `nodefony` : premier instant où une
+    // seconde copie, s'il y en a une, est inscrite. On tranche ici — avant les
+    // modules du MANIFESTE, qui sont chargés plus tard (`onPreRegister`, second
+    // point de contrôle). Le module de l'application, lui, a déjà été construit
+    // juste au-dessus : s'il est tombé à la frontière, c'est le `catch` de son
+    // import qui a rendu le verdict.
     this.assertSinglePackageInstance();
     this.app.isApp = true;
     // Catalogue env optionnel exposé par l'app (`export const env = defineEnv(…)`)
@@ -2277,13 +2345,6 @@ class Kernel extends Service implements IKernel {
       // Retenu pour le diagnostic de boot : un manifeste vide recouvre plusieurs
       // causes sans rapport, et seule la provenance permet de les séparer.
       this.appConfigOrigin = resolved.origin;
-      // Deux paquets `nodefony` : l'application DÉMARRE (la config a été résolue
-      // par l'autre copie), mais ce décor est anormal et se règle. Le dire une
-      // fois, fort, au lieu de laisser découvrir l'écart au premier
-      // comportement inexplicable.
-      if (resolved.origin === "foreign-descriptor") {
-        this.log(foreignPackageWarning(), "WARNING");
-      }
     } catch (e) {
       throw this.bootConfigError(
         "Configuration de l'application invalide",
@@ -2294,6 +2355,14 @@ class Kernel extends Service implements IKernel {
           "Une fonction `defineConfig((ctx) => …)` qui lève → corrige la logique par-env.",
         ],
       );
+    }
+    // Descripteur marqué par une AUTRE copie : c'est une dualité que le registre
+    // ne peut PAS voir — la copie productrice est antérieure au registre, donc
+    // elle ne s'y inscrit pas. Même constat, donc même verdict, hors du `try`
+    // ci-dessus dont le `catch` réécrirait le message en « configuration
+    // invalide » et masquerait la vraie cause.
+    if (this.appConfigOrigin === "foreign-descriptor") {
+      this.packageDualityVerdict(foreignPackageWarning());
     }
     this.options = this.readConfig(extend(this.app.options, config));
     // Validation fail-fast AVANT initializeLog. Inutile pour une app moderne (le

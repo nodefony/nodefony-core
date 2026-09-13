@@ -3714,7 +3714,7 @@
       "file": "src/nodefony/src/kernel/bootConfigDiagnosis.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Avertissement émis quand l'application a démarré AVEC une configuration résolue par une autre copie du framework. Ce n'est pas un échec — le boot réussit, et c'est voulu : refuser de démarrer une a…"
+      "description": "Constat émis quand la configuration de l'application a été résolue par une AUTRE copie du framework — c'est-à-dire quand deux paquets `nodefony` tournent dans ce process, et que la copie fautive es…"
     },
     "diagnoseEmptyManifest": {
       "name": "diagnoseEmptyManifest",
@@ -30783,6 +30783,7 @@
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/kernel/BootConfigurationError.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
@@ -31753,6 +31754,9 @@
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
       ],
       "isPackageDuplicated": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "listPackageInstances": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "packageDualityReport": [
