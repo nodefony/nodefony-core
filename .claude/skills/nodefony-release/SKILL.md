@@ -47,6 +47,7 @@ derrière les commandes npm qui font autorité :
 | `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 | `npm run release:image-gate -- <image>` | `scripts/release/image-gate.mjs` | REFUSE une image porteuse d'un secret, couche par couche |
+| `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les QUATRE gestes mécaniques entre l'estampille et le tag. Ne tague jamais |
 | `npm run release -- --deprecate [--publish]` | `scripts/release/release.mjs` | Les paquets historiques, APRÈS la publication |
 | `npm run release -- --dist-tags [--publish]` | `scripts/release/release.mjs` | Le `latest` resté sur la préversion précédente |
 
@@ -95,6 +96,18 @@ Le changelog est un **brouillon**, marqué comme tel dans le fichier. L'automate
 matière — sans lui on oublie des changements ; l'humain écrit — sans lui on publie un mur que
 personne ne lit. _« Don't take the easy way out with full automation. This results in poor
 changelogs, defeating their purpose. »_ (Common Changelog)
+
+### Le vert qui compte est celui du commit TAGUÉ — pas celui de la branche
+
+`garde-main` juge la CI **du commit que le tag désigne**, c'est-à-dire le commit d'estampille.
+Il n'existe pas encore quand on pousse le travail : **attendre le vert de la branche avant
+d'estampiller est donc une attente sur un commit qui ne sera jamais publié.** La faute a été
+commise, et elle coûte un cycle de forge entier.
+
+L'ordre juste est : estampiller → relire le changelog → `--promouvoir`, qui commite, pousse,
+fait avancer la branche de publication et attend le verdict **sur ce commit-là**. Une seule
+attente, au seul endroit où elle prouve quelque chose. Ne pas retaper ces gestes à la main :
+leur ORDRE est ce qui compte, et c'est précisément ce qu'une consigne écrite ne garantit pas.
 
 ### Le format est [Common Changelog](https://common-changelog.org/), pas Keep a Changelog
 

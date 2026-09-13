@@ -255,6 +255,7 @@ const PUBLIER = drapeau("publish");
 // section déjà présente — un rouge sans aucun rapport avec la publication.
 const ECRIRE = drapeau("write");
 const HORS_LIGNE = drapeau("offline");
+const PROMOUVOIR = drapeau("promouvoir");
 
 // Les modes ne se déduisent pas au fil du fichier : la règle est PURE et
 // éprouvée (`phasesDeLaPasse`). Une condition de mode écrite inline avait déjà
@@ -569,6 +570,128 @@ const git = (...args) =>
     // Le journal complet dépasse le défaut de 1 Mio — cf `MAX_BUFFER_GIT`.
     maxBuffer: MAX_BUFFER_GIT,
   }).trim();
+
+// ═══════════════════════════════════════════════════════════════════════════
+// --promouvoir — les quatre gestes mécaniques entre l'estampille et le tag
+// ═══════════════════════════════════════════════════════════════════════════
+//
+// 🔴 POURQUOI CE MODE EXISTE. Le « RESTE À FAIRE » dictait six étapes qu'un
+// humain — ou un agent — retapait à la main, alors que QUATRE d'entre elles sont
+// purement mécaniques : commiter l'estampille, pousser la branche de travail,
+// faire avancer la branche de publication, et attendre le verdict de la forge.
+// Leur ORDRE est critique, et c'est précisément ce que des instructions écrites
+// ne garantissent pas : la garde `garde-main` juge la CI du commit TAGUÉ, donc
+// attendre le vert de la branche AVANT d'estampiller est une attente inutile sur
+// un commit qui ne sera jamais publié. Cette faute a été commise ; elle ne
+// pouvait pas l'être par un script.
+//
+// CE QU'IL NE FAIT PAS, ET NE FERA JAMAIS : poser le tag. C'est le tag qui
+// déclenche la publication, et il reste le seul point où l'auteur relit ce qui
+// sortira sous son nom. Ce mode s'arrête juste avant, et rend la commande exacte.
+// Il ne réécrit rien non plus : l'estampille et le changelog ont été relus.
+//
+// Idempotent : relancé après un commit d'estampille déjà fait, il le CONSTATE au
+// lieu d'en créer un second — la reprise après une CI rouge est le cas normal.
+if (PROMOUVOIR) {
+  etape = "promotion";
+  if (!VERSION) {
+    echouer(
+      "`--promouvoir` a besoin de la version qu'il promeut.\n" +
+        "  → --version <v>   (celle qui vient d'être estampillée)",
+    );
+  }
+
+  // (1) L'estampille EST-ELLE en place ? On le CONSTATE sur le manifeste, jamais
+  // sur la foi de l'argument : promouvoir une version que les fichiers ne
+  // portent pas produirait un tag qui ne désigne pas ce qu'il annonce.
+  const manifesteRacine = JSON.parse(
+    readFileSync(path.join(ROOT, "src/nodefony/package.json"), "utf8"),
+  );
+  if (manifesteRacine.version !== VERSION) {
+    echouer(
+      `le paquet « nodefony » porte ${manifesteRacine.version}, pas ${VERSION}.\n` +
+        "  L'estampille n'a pas eu lieu — la faire d'abord, et RELIRE le changelog :\n" +
+        `       npm run release -- --version ${VERSION}` +
+        `${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --write`,
+    );
+  }
+
+  const branche = git("rev-parse", "--abbrev-ref", "HEAD");
+
+  // (2) Commiter — ou constater. Un arbre sale APRÈS une estampille relue est
+  // l'état normal ; un arbre propre dont le dernier commit ne nomme pas la
+  // version est en revanche suspect, et on le DIT sans rien décider à sa place.
+  const sale = git("status", "--porcelain");
+  if (sale) {
+    git("commit", "-am", `chore(release): ${VERSION}`);
+    dire(`✓ estampille commitée — chore(release): ${VERSION}`);
+  } else {
+    const sujet = git("log", "-1", "--format=%s");
+    if (sujet.includes(VERSION)) {
+      dire(`· estampille déjà commitée (${sujet}) — rien à commiter`);
+    } else {
+      alerter(
+        `arbre propre, mais le dernier commit ne nomme pas ${VERSION} :\n` +
+          `    ${sujet}\n` +
+          "  La promotion continue — vérifier que ce commit porte bien l'estampille.",
+      );
+    }
+  }
+
+  const sha = git("rev-parse", "HEAD");
+
+  // (3) et (4) La branche de travail, PUIS la branche de publication. L'ordre
+  // compte : pousser d'abord la branche de travail laisse une trace auditable
+  // même si la suite échoue.
+  git("push", "origin", branche);
+  dire(`✓ ${branche} poussée — ${sha.slice(0, 8)}`);
+
+  if (branche !== BRANCHE_PUBLICATION) {
+    git("push", "origin", `${branche}:${BRANCHE_PUBLICATION}`);
+    // Pousser `<branche>:<pub>` avance la branche DISTANTE et laisse la locale
+    // où elle était. Un `main` local en retard fait ensuite mentir tout ce qui
+    // l'interroge — d'où ce rapatriement, qui n'est pas du rangement.
+    git("fetch", "origin", `${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}`);
+    dire(`✓ ${BRANCHE_PUBLICATION} avancée sur ${sha.slice(0, 8)}`);
+  } else {
+    dire(`· déjà sur ${BRANCHE_PUBLICATION} — rien à avancer`);
+  }
+
+  // (5) Le verdict de la forge, sur CE commit — celui que le tag désignera.
+  // La règle et l'attente vivent dans `attendre-ci.mjs`, que `release.yml`
+  // appelle déjà : une seconde implémentation divergerait en silence.
+  etape = "verdict de la forge";
+  dire(
+    `\n  Attente du verdict de la forge sur ${sha.slice(0, 8)} — c'est CE commit que\n` +
+      "  le tag désignera, et c'est son vert que la garde `garde-main` exigera.\n" +
+      "  Rien à attendre avant ce point : le vert d'un commit antérieur ne prouve rien\n" +
+      "  sur celui-ci.\n",
+  );
+  const ci = spawnSync(
+    "node",
+    ["scripts/release/attendre-ci.mjs", "--sha", sha, "--timeout-min", "45"],
+    { cwd: ROOT, stdio: "inherit", env: { ...process.env } },
+  );
+  if (ci.status !== 0) {
+    echouer(
+      "la forge n'est PAS verte sur ce commit — voir ci-dessus ce qui a échoué.\n" +
+        "  Corriger, recommiter, puis relancer `--promouvoir`. NE PAS taguer :\n" +
+        "  les quinze paquets partiraient sur un rouge, et npm ne reprend jamais\n" +
+        "  une version publiée.",
+    );
+  }
+
+  // (6) Le tag reste à l'auteur. On rend la commande EXACTE, sur le sha constaté.
+  dire(
+    `\n── PRÊT À TAGUER ──\n` +
+      `  La forge est verte sur ${sha.slice(0, 8)} (${BRANCHE_PUBLICATION}).\n` +
+      `  Le tag déclenche la publication des paquets, et elle ne se reprend pas :\n\n` +
+      `       git tag v${VERSION} ${sha} && git push origin v${VERSION}\n\n` +
+      "  Ce script ne le pose pas, délibérément : c'est le dernier point où l'on relit\n" +
+      "  ce qui sortira sous son nom.",
+  );
+  process.exit(0);
+}
 
 // ═══════════════════════════════════════════════════════════════════════════
 etape = "gardes préalables";
@@ -1471,24 +1594,19 @@ if (PHASES.publier) {
 dire(
   "\n── RESTE À FAIRE, DANS CET ORDRE ──\n" +
     "  1. RELIRE le brouillon de CHANGELOG.md et le réécrire pour un lecteur\n" +
-    `  2. relire le diff (${aChanger.length} package.json + CHANGELOG.md), puis :\n` +
-    `       git commit -am "chore(release): ${VERSION}"\n` +
-    "  3. pousser le COMMIT, puis SEULEMENT ENSUITE le tag :\n" +
-    `       git push origin ${branche}\n` +
-    "     Une poussée de branche réveille toute l'intégration continue, bancs de charge\n" +
-    "     compris : la publication attendra un exécuteur derrière elle — mesuré, quinze\n" +
-    "     minutes. C'est normal, et il n'y a RIEN à attendre pour autant : sur ce dépôt,\n" +
-    "     la forge n'est jamais au repos. Ce qui compte est l'ORDRE, pas le calme.\n" +
-    `  4. faire avancer ${BRANCHE_PUBLICATION} — un tag de publication s'y pose, et nulle\n` +
-    "     part ailleurs : c'est cette branche que décrivent le site public et les liens\n" +
-    "     des README publiés.\n" +
-    `       git push origin ${branche}:${BRANCHE_PUBLICATION}\n` +
-    `       git fetch origin ${BRANCHE_PUBLICATION}:${BRANCHE_PUBLICATION}\n` +
-    `     La seconde ligne n'est pas du rangement : pousser \`${branche}:${BRANCHE_PUBLICATION}\` avance\n` +
-    `     la branche DISTANTE et laisse la locale où elle était. Un \`${BRANCHE_PUBLICATION}\` local en\n` +
-    "     retard fait ensuite mentir tout ce qui l'interroge.\n" +
-    "  5. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
-    `       git tag v${VERSION} <commit de ${BRANCHE_PUBLICATION}> && git push origin v${VERSION}\n` +
+    `  2. relire le diff (${aChanger.length} package.json + CHANGELOG.md)\n` +
+    "  3. laisser la CHAÎNE faire les quatre gestes mécaniques — commiter, pousser,\n" +
+    `     faire avancer ${BRANCHE_PUBLICATION}, et attendre le verdict de la forge :\n` +
+    `       npm run release -- --version ${VERSION}` +
+    `${TAG_NPM ? ` --npm-tag ${TAG_NPM}` : ""} --promouvoir\n` +
+    "     Ces quatre gestes étaient dictés ici, et retapés à la main. Leur ORDRE est ce\n" +
+    "     qui compte, et c'est exactement ce qu'une consigne écrite ne garantit pas : la\n" +
+    "     garde `garde-main` juge la CI du commit TAGUÉ, si bien qu'attendre le vert\n" +
+    "     AVANT d'estampiller est une attente sur un commit qui ne sera jamais publié.\n" +
+    "     Le mode s'arrête juste avant le tag et rend la commande exacte.\n" +
+    "  4. poser le tag — c'est LUI qui déclenche la publication, et il reste à l'auteur :\n" +
+    "     le dernier point où l'on relit ce qui sortira sous son nom. La commande exacte,\n" +
+    "     avec le sha constaté, est rendue par l'étape précédente.\n" +
     "  6. RELIRE la bascule d'accueil — les VERSIONS ont déjà été réécrites par\n" +
     "     `accueil-gate.mjs --basculer`, et le contrôle est passé derrière. Ce qui\n" +
     "     n'est PAS automatisable, parce que c'est de la prose à décider :\n" +
