@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 830,
-    "symbols": 4063,
+    "files": 831,
+    "symbols": 4073,
     "classes": 392,
-    "interfaces": 1090,
-    "types": 448,
+    "interfaces": 1091,
+    "types": 449,
     "enums": 4,
-    "functions": 1722,
+    "functions": 1730,
     "constants": 407
   },
   "symbols": {
@@ -6735,6 +6735,38 @@
       "module": "@nodefony/core",
       "description": "Met en forme les écritures en attente, dans la transaction. Appelée par {@link runScaffold} AVANT la bifurcation dry-run / vidage, pour que le plan annoncé et le résultat écrit soient le même texte."
     },
+    "TScaffoldType": {
+      "name": "TScaffoldType",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/help.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les types que `nodefony create` sait engendrer."
+    },
+    "optionsFor": {
+      "name": "optionsFor",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/help.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les options d'un type, DÉRIVÉES de sa spec — jamais recopiées. `name` est écarté : c'est un positionnel (`create app mon-app`), le sujet de la commande et non une option. C'est la seule exemption, …"
+    },
+    "usagePageFor": {
+      "name": "usagePageFor",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/help.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La page d'aide d'UN type de scaffold."
+    },
+    "usageCatalog": {
+      "name": "usageCatalog",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/help.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le CATALOGUE — `nodefony create --help`, sans type. Il ne redit PAS les options de chaque type : il nomme les sept, dit ce que chacun produit en une ligne, et renvoie à sa page. Une page catalogue …"
+    },
     "loadRichPrompts": {
       "name": "loadRichPrompts",
       "kind": "function",
@@ -6882,6 +6914,14 @@
       "file": "src/nodefony/src/cli/scaffold/spec.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "flagFor": {
+      "name": "flagFor",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le drapeau de ligne de commande qui sert une question. La convention est `maClé` → `--ma-cle` ; {@link IScaffoldQuestion.flag} la surcharge quand le drapeau dit l'inverse (`--no-timestamps`) ou por…"
     },
     "getScaffoldSpec": {
       "name": "getScaffoldSpec",
@@ -30615,6 +30655,7 @@
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/cli/scaffold/help.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "writeAgentPointers": [
@@ -30767,6 +30808,12 @@
       "OPTION_SUGGESTIONS": [
         "src/nodefony/src/cli/completion.ts"
       ],
+      "usageCatalog": [
+        "src/nodefony/src/cli/create.ts"
+      ],
+      "usagePageFor": [
+        "src/nodefony/src/cli/create.ts"
+      ],
       "portableSpawn": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/licenses.ts",
@@ -30777,31 +30824,8 @@
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/help.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
-      ],
-      "COMMAND_PHASE_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
-      ],
-      "CONTROLLER_KIND_CHOICES": [
-        "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/cli/scaffold/engine.ts"
-      ],
-      "DATABASE_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
-      ],
-      "ENTITY_ID_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
-      ],
-      "FRONTEND_CHOICES": [
-        "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/kernel/commands/CreateCommand.ts"
-      ],
-      "MODULE_CONTROLLER_CHOICES": [
-        "src/nodefony/src/cli/create.ts"
-      ],
-      "PRESET_CHOICES": [
-        "src/nodefony/src/cli/create.ts",
-        "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "findPackageRoot": [
         "src/nodefony/src/cli/create.ts"
@@ -32356,6 +32380,9 @@
         "src/nodefony/src/kernel/checks/surface.ts",
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
+      "CONTROLLER_KIND_CHOICES": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -32377,6 +32404,18 @@
       ],
       "TPresetChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "flagFor": [
+        "src/nodefony/src/cli/scaffold/help.ts"
+      ],
+      "IScaffoldQuestion": [
+        "src/nodefony/src/cli/scaffold/help.ts"
+      ],
+      "IUsageEntry": [
+        "src/nodefony/src/cli/scaffold/help.ts"
+      ],
+      "IUsageSection": [
+        "src/nodefony/src/cli/scaffold/help.ts"
       ],
       "anchorEventLoop": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
@@ -33040,6 +33079,12 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "CREATE_TYPES": [
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
+      ],
+      "FRONTEND_CHOICES": [
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
+      ],
+      "PRESET_CHOICES": [
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "BootReporter": [

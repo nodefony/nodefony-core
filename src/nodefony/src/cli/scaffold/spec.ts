@@ -116,6 +116,29 @@ export interface IScaffoldQuestion {
   flag?: string;
 }
 
+/**
+ * Le drapeau de ligne de commande qui sert une question.
+ *
+ * La convention est `maClé` → `--ma-cle` ; {@link IScaffoldQuestion.flag} la
+ * surcharge quand le drapeau dit l'inverse (`--no-timestamps`) ou porte un
+ * autre mot (`--unique`).
+ *
+ * 🔴 Cette règle vivait dans le BANC, pas dans le produit — écrite dans le
+ * contrôle « une question qu'aucun flag ne sert est inatteignable ». Un banc
+ * qui porte une règle rend le banc juste et le produit muet : l'aide de
+ * `create` recopiait donc les drapeaux à la main, et rien ne l'obligeait à
+ * suivre la spec.
+ *
+ * @param question - la question déclarée par la spec.
+ * @returns le drapeau, tiret double compris.
+ */
+export function flagFor(question: IScaffoldQuestion): string {
+  return (
+    question.flag ??
+    `--${question.key.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`)}`
+  );
+}
+
 /** Spec d'un type de scaffold (`app` aujourd'hui ; `module`/`controller`/`entity` suivent). */
 export interface IScaffoldTypeSpec {
   type: string;
@@ -647,6 +670,12 @@ const MODULE_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "service",
+      // Le drapeau CANONIQUE est celui qui change quelque chose : le défaut
+      // étant vrai, seul le retrait se nomme. `--service` reste accepté par
+      // l'analyse (dire oui explicitement est légitime) — mais c'est
+      // `--no-service` que l'aide doit montrer, sous peine d'annoncer un
+      // drapeau qui ne fait rien.
+      flag: "--no-service",
       label: "Service injectable principal (la logique du module) ?",
       type: "boolean",
       default: true,
@@ -844,6 +873,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "controller",
+      flag: "--no-controller",
       label: "Controller REST + WebSocket",
       type: "boolean",
       default: true,
@@ -860,6 +890,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     // les proposer et que le moteur les valide.
     {
       key: "service",
+      flag: "--no-service",
       label: "Service CRUD",
       type: "boolean",
       default: true,

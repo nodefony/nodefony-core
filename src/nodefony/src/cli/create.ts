@@ -1,20 +1,14 @@
 import path from "node:path";
 import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
+import { usageCatalog, usagePageFor } from "./scaffold/help";
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { portableSpawn } from "./execPortable";
 import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
-import {
-  getScaffoldSpec,
-  COMMAND_PHASE_CHOICES,
-  CONTROLLER_KIND_CHOICES,
-  DATABASE_CHOICES,
-  ENTITY_ID_CHOICES,
-  FRONTEND_CHOICES,
-  MODULE_CONTROLLER_CHOICES,
-  PRESET_CHOICES,
-} from "./scaffold/spec";
+// Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
+// l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
+import { getScaffoldSpec } from "./scaffold/spec";
 import {
   findPackageRoot,
   findProjectRoot,
@@ -263,7 +257,24 @@ export function parseCreateArgv(
   // rendre la page, pas « type requis ». On demande l'aide précisément parce
   // qu'on ne sait pas encore quel type existe.
   if (help) {
-    return { help, answers, force, yes, install, git, dryRun, describeJson };
+    return {
+      help,
+      // 🔴 Le type voyage AVEC la demande d'aide : `create app --help` doit
+      // rendre la page d'`app`, pas le catalogue. Il n'est pas VALIDÉ ici — ce
+      // court-circuit existe pour répondre à qui ne sait pas encore quels types
+      // existent — donc un mot inconnu retombe sur le catalogue, qui est
+      // exactement la bonne réponse dans ce cas.
+      type: (CREATE_TYPES as readonly string[]).includes(type ?? "")
+        ? (type as TCreateType)
+        : undefined,
+      answers,
+      force,
+      yes,
+      install,
+      git,
+      dryRun,
+      describeJson,
+    };
   }
   // Le type est obligatoire pour AGIR, facultatif pour se DÉCRIRE : un agent
   // qui découvre l'outil demande le catalogue entier avant de savoir quel type
@@ -310,102 +321,40 @@ export function parseCreateArgv(
   };
 }
 
-const PAR_TYPE =
-  `  app        : [--preset <${PRESET_CHOICES.join("|")}>] [--frontend <${FRONTEND_CHOICES.join("|")}>]\n` +
-  `               [--agents <liste|none>] — agents de dev à câbler (défaut : aucun)\n` +
-  `               [--database <${DATABASE_CHOICES.join("|")}>] — le compose ne porte QUE ce service\n` +
-  `               [--link|--no-link] [--no-install] [--no-git] [--git-hooks]\n` +
-  `  module     : [--controller <${MODULE_CONTROLLER_CHOICES.join("|")}>] [--no-service] [--command]\n` +
-  `               [--frontend <${FRONTEND_CHOICES.join("|")}>] [--description "…"] [--no-install]\n` +
-  `  controller : [--kind <${CONTROLLER_KIND_CHOICES.join("|")}>] [--route </api/x>] [--module <nom>]\n` +
-  `               [--role ROLE_X] — réserve TOUT le controller à cette habilitation\n` +
-  `                 (@IsGranted de classe) et déclare le rôle dans roleHierarchy :\n` +
-  `                 l'administrateur en hérite, sans qu'on ait à le lui attribuer\n` +
-  `  service    : [--inject <AutreService>] [--entity <Entité>] [--description "…"] [--module <nom>]\n` +
-  `               --entity : branche le service sur une entité — lecture et écriture par le patron\n` +
-  `                 du framework (AbstractCrudService + repository au constructeur), pas de registre à la main\n` +
-  `               classe @injectable, sans dépendance à un config.ts — pour la découvrir, imite-la\n` +
-  `               --inject : dépendance déclarée au CONSTRUCTEUR (@inject + appel), pas container.get\n` +
-  `  front      : [--frontend <${FRONTEND_CHOICES.filter((f) => f !== "none").join("|")}>] [--route </page>] [--module <nom>]\n` +
-  `  entity     : [champs…] [--id <${ENTITY_ID_CHOICES.join("|")}>] [--soft-delete] [--no-timestamps]\n` +
-  `               [--no-controller] [--no-service] [--no-tests] [--route </api/x>] [--module <nom>]\n` +
-  `               [--connector <nom>] [--dialect <sqlite|postgres|mysql>]\n` +
-  `               [--index "colA,colB"] [--unique "colA,colB"] — répétables, un par index\n` +
-  `               [--table <nom_sql>] [--column-case <camel|snake>] [--id-name <colonne>]\n` +
-  `                 — pour épouser une table EXISTANTE ; les propriétés TS ne changent pas\n` +
-  `               ex : nodefony create entity Website name:string domain:string \\\n` +
-  `                      --table website --column-case snake --id-name website_id\n` +
-  `               champs : nom:type[?|!][:index] — types : string(n) text int float bool json date uuid char(n) decimal(p,s) ref:<Entité>\n` +
-  `               ex : nodefony create entity Post title:string! content:text views:int author:ref:User\n` +
-  `               ex : nodefony create entity Event siteId:uuid path:string --index "siteId,createdAt"\n` +
-  `  command    : [--phase <${COMMAND_PHASE_CHOICES.join("|")}>] [--description "…"] [--service] [--module <nom>]\n` +
-  `               nom = l'ACTION ; la commande vaut <module>:<action> (ex : blog:publish)\n` +
-  `               (types controller/service/front/entity/command : dans un projet existant — app racine ou module)\n` +
-  `  Sans flags dans un terminal → mode interactif (questions + récap).\n` +
-  `  Mode machine (agents, scripts) :\n` +
-  `    --describe-json                  types, questions, valeurs permises et cibles du projet, en JSON\n` +
-  `    --answers-json <fichier|->       réponses en JSON (- = entrée standard) ; les flags l'emportent\n` +
-  `    --dry-run                        le plan (fichiers créés + diff des réécritures), sans rien écrire\n`;
+/**
+ * Le type demandé, LU DANS L'ARGV — y compris quand l'analyse a échoué.
+ *
+ * Un refus (« option inconnue : --xyz ») doit rendre la page du type qu'on
+ * essayait d'engendrer, pas le catalogue : c'est là que se trouvent les options
+ * qu'on cherchait. `parseCreateArgv` ne rend rien d'autre que son message dans
+ * ce cas — d'où cette lecture, volontairement bête.
+ *
+ * @param argv - la ligne de commande complète.
+ * @returns le type reconnu, ou rien.
+ */
+function typeFromArgv(argv: readonly string[]): TCreateType | undefined {
+  const at = argv.indexOf("create");
+  if (at === -1) return undefined;
+  return argv
+    .slice(at + 1)
+    .find((w) => (CREATE_TYPES as readonly string[]).includes(w)) as
+    TCreateType | undefined;
+}
 
-/** La page d'aide — `nodefony create --help`, et le rappel après un refus. */
-const PAGE: IUsagePage = {
-  command: "nodefony create",
-  tagline:
-    "engendre du code conforme au framework : une application, un module, " +
-    "un controller, un service, un front, une entité, une commande",
-  synopsis: [
-    `nodefony create <${CREATE_TYPES.join("|")}> [nom] [options]`,
-    "nodefony create --describe-json",
-  ],
-  sections: [
-    {
-      title: "CE QUE CHAQUE TYPE ACCEPTE",
-      lines: PAR_TYPE.split("\n").filter((l) => l !== ""),
-    },
-  ],
-  options: [
-    { term: "--dir <chemin>", text: "dossier cible (défaut : ./<nom>)" },
-    { term: "-f, --force", text: "accepte un dossier cible non vide" },
-    {
-      term: "-y, --yes",
-      text: "prend les défauts de la spec (saute l'interactif)",
-    },
-    { term: "-n, --dry-run", text: "le plan, sans rien écrire" },
-    {
-      term: "--describe-json",
-      text:
-        "types, questions, valeurs permises et cibles du projet, en JSON — " +
-        "la porte MACHINE, pour un agent ou un script",
-    },
-    {
-      term: "--answers-json <f>",
-      text: "réponses en JSON (`-` = entrée standard) ; les drapeaux l'emportent",
-    },
-  ],
-  examples: [
-    {
-      term: "nodefony create app mon-app",
-      text: "une application neuve, hors de tout projet",
-    },
-    {
-      term: "nodefony create entity Post title:string content:text",
-      text: "une entité, son repository, son controller et ses tests",
-    },
-    {
-      term: "nodefony create --describe-json | jq .",
-      text: "ce que le générateur sait faire, pour un agent",
-    },
-  ],
-  exitCodes: [
-    {
-      term: "73",
-      text: "le dossier cible ne peut pas être créé (EX_CANTCREAT)",
-    },
-  ],
-  footer:
-    "Sans drapeau dans un terminal, elle passe en mode interactif : les " +
-    "questions de la spec, puis un récapitulatif avant d'écrire.",
-};
+/**
+ * La page d'aide du type demandé — ou le catalogue quand il n'y en a pas.
+ *
+ * 🔴 `create app --help` rendait la page de `create` EN ENTIER : sept types,
+ * dont six ne concernent pas la demande. Une page par type n'est pas un confort
+ * de présentation — c'est la première commande qu'on tape, et son aide était la
+ * plus pauvre du CLI.
+ *
+ * @param type - le type demandé, s'il a été reconnu.
+ * @returns la page à rendre.
+ */
+function pageFor(type: TCreateType | undefined): IUsagePage {
+  return type === undefined ? usageCatalog() : usagePageFor(type);
+}
 
 /**
  * Décrit le scaffold en JSON — la porte MACHINE de `nodefony create`.
@@ -1185,10 +1134,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     parsed = parseCreateArgv(fullName);
   }
   if ("error" in parsed) {
-    return printUsageError(PAGE, parsed.error);
+    return printUsageError(pageFor(typeFromArgv(argv)), parsed.error);
   }
   if (parsed.help) {
-    return printUsage(PAGE);
+    return printUsage(pageFor(parsed.type));
   }
   if (parsed.describeJson) {
     // Avant tout le reste : se décrire ne dépend d'aucune réponse, et doit
@@ -1269,7 +1218,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     answers.link = false;
   }
   if (answers.name === undefined || answers.name === "") {
-    return printUsageError(PAGE, "nom requis");
+    return printUsageError(pageFor(type), "nom requis");
   }
   // app = dossier NEUF ./<name> ; types in-project = détection racine depuis le cwd.
   const dir =
@@ -1288,7 +1237,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.CANTCREAT;
     }
     if (message.includes("invalide")) {
-      return printUsageError(PAGE, message);
+      return printUsageError(pageFor(type), message);
     }
     return SysExit.SOFTWARE;
   }

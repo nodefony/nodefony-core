@@ -532,7 +532,13 @@ const WIDTH_MAX = 96;
  */
 export function usableWidth(columns: number | undefined): number {
   if (!columns || !Number.isFinite(columns)) return 80;
-  return Math.max(WIDTH_MIN, Math.min(WIDTH_MAX, Math.floor(columns)));
+  // 🔴 On n'écrit JAMAIS dans la DERNIÈRE colonne, et c'est une règle Windows.
+  // La console `conhost` fait passer le curseur à la ligne dès que la dernière
+  // colonne est écrite ; le `\n` qui suit en ajoute alors une seconde. Une page
+  // dont les lignes remplissent la largeur y sort donc à double interligne — et
+  // ce défaut ne se voit JAMAIS depuis un poste Unix, où la même sortie est
+  // parfaite. Le remède coûte un caractère, sur les trois plateformes.
+  return Math.max(WIDTH_MIN, Math.min(WIDTH_MAX, Math.floor(columns) - 1));
 }
 
 /** Le symbole d'un état — la seule chose qui reste quand la couleur est ôtée. */

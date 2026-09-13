@@ -27,7 +27,7 @@ import {
   type ICreateRequest,
 } from "../cli/create";
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
-import { getScaffoldSpec } from "../cli/scaffold/spec";
+import { getScaffoldSpec, flagFor } from "../cli/scaffold/spec";
 import {
   findPackageRoot,
   resolveLocalWorkspaces,
@@ -7798,10 +7798,6 @@ describe("create app --agents — la troisième voie de la même question", () =
 });
 
 describe("spec ⇄ flags — une question qu'aucun flag ne sert est INATTEIGNABLE", () => {
-  /** `gitHooks` → `--git-hooks` : la convention du CLI, appliquée une fois. */
-  const enKebab = (cle: string): string =>
-    `--${cle.replace(/[A-Z]/gu, (c) => `-${c.toLowerCase()}`)}`;
-
   it("chaque question de chaque type est atteignable par un flag", () => {
     // 🔴 Le gate qui manquait. L'en-tête de la spec promet « ajouter un choix =
     // ajouter UNE entrée » — la voie interactive et Studio la tiennent (ils
@@ -7816,7 +7812,9 @@ describe("spec ⇄ flags — une question qu'aucun flag ne sert est INATTEIGNABL
     for (const spec of getScaffoldSpec()) {
       for (const q of spec.questions) {
         if (positionnelles.has(q.key)) continue;
-        const flag = q.flag ?? enKebab(q.key);
+        // La règle vit dans le PRODUIT : la recopier ici rendrait ce
+        // contrôle juste et l'aide fausse — c'est ce qui était arrivé.
+        const flag = flagFor(q);
         const parsed = parseCreateArgv([
           "node",
           "nodefony",

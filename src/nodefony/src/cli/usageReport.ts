@@ -49,8 +49,16 @@ export interface IUsageSection {
   title: string;
   /** Un paragraphe, replié à la largeur. */
   paragraph?: string;
-  /** Des lignes déjà composées (une énumération, par exemple). */
+  /** Des lignes déjà composées, rendues TELLES QUELLES (une grammaire, un gabarit). */
   lines?: readonly string[];
+  /**
+   * Des intentions à énumérer, repliées PAR LE RENDU.
+   *
+   * Distinct de `lines`, et la distinction se paie autrement : replier soi-même
+   * exige de connaître la largeur, que l'appelant n'a pas — un helper qui la
+   * devine (« 70 caractères ») tient à 80 colonnes et déborde à 60.
+   */
+  bullets?: readonly string[];
   /** Des entrées à deux colonnes. */
   entries?: readonly IUsageEntry[];
 }
@@ -108,7 +116,19 @@ export function renderUsage(
   // largeur figée offrait par accident — et « --cwd <chemin> point de départ »
   // se lisait comme un seul mot.
   const entry = (term: string, text: string, column: number): void => {
+    // 🔴 La borne protégeait la COLONNE, pas la LIGNE : `padEnd` ne tronque
+    // rien, si bien qu'un terme plus long que la borne poussait sa glose
+    // au-delà du terminal et repliait la page sur la marge — le défaut exact
+    // que la borne existe pour empêcher. Un terme trop long prend donc sa
+    // ligne, et sa glose passe dessous, comme le font déjà les exemples.
     const margin = " ".repeat(column + 4);
+    if (term.length > column) {
+      out.push(`  ${p.action(term)}`);
+      for (const line of wrap(text, width - margin.length, "")) {
+        out.push(`${margin}${line}`);
+      }
+      return;
+    }
     const [first, ...rest] = wrap(text, width - margin.length, "");
     out.push(`  ${p.action(term.padEnd(column, " "))}  ${first ?? ""}`);
     for (const line of rest) out.push(`${margin}${line}`);
@@ -145,9 +165,16 @@ export function renderUsage(
     }
   }
 
+  const bullet = (text: string): void => {
+    const [first, ...rest] = wrap(text, width - 6, "");
+    out.push(`  · ${first ?? ""}`);
+    for (const l of rest) out.push(`    ${l}`);
+  };
+
   for (const s of page.sections ?? []) {
     section(s.title);
     if (s.paragraph) paragraph(s.paragraph);
+    for (const b of s.bullets ?? []) bullet(b);
     for (const line of s.lines ?? []) out.push(`  ${line}`);
     for (const e of s.entries ?? []) entry(e.term, e.text, TERM_COLUMN);
   }

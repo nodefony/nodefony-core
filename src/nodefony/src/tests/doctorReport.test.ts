@@ -22,10 +22,22 @@ describe("doctor — mise en forme du rapport", () => {
     // envoie l'œil chercher le détail à l'autre bout de l'écran.
     assert.equal(usableWidth(20), 48);
     assert.equal(usableWidth(300), 96);
-    assert.equal(usableWidth(80), 80);
     // Sortie redirigée : pas de terminal, donc pas de largeur annoncée.
     assert.equal(usableWidth(undefined), 80);
     assert.equal(usableWidth(Number.NaN), 80);
+  });
+
+  it("🔴 la DERNIÈRE colonne du terminal reste vide — règle Windows", () => {
+    // La console `conhost` fait passer le curseur à la ligne dès que la
+    // dernière colonne est ÉCRITE ; le `\n` qui suit en ajoute une seconde. Une
+    // page qui remplit la largeur y sort à double interligne — et ce défaut est
+    // INVISIBLE depuis un poste Unix, où la même sortie est parfaite.
+    assert.equal(usableWidth(80), 79);
+    assert.equal(usableWidth(90), 89);
+    // La borne haute gagne : à 300 colonnes, on s'arrête bien avant la fin.
+    assert.equal(usableWidth(300), 96);
+    // La borne basse aussi : on ne descend pas sous le lisible pour une marge.
+    assert.equal(usableWidth(48), 48);
   });
 
   it("chaque état garde un SYMBOLE distinct, sans couleur", () => {
