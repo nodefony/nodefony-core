@@ -8,6 +8,34 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.6 - 2026-09-13
+
+### Changed
+
+- **security:** refuser à l'inscription et au changement les mots de passe manifestement faibles (#360) (7b4d9e85)
+- **cli:** demander les modules par cases à cocher, et nommer le critère de choix de chaque moteur frontend (#368, #370) (8180a4b2)
+
+### Added
+
+- **scaffold:** livrer en préréglage « Minimal » un exemple de chaque geste — service, contrôleur, entité (#341) (d5c178e7)
+
+### Fixed
+
+- **scaffold:** réparer une application générée qui ne démarrait pas (#373) (be821921)
+- **scaffold:** conserver les champs d'une entité que l'on complète, au lieu de les perdre (#375) (b598d265)
+- **scaffold:** nommer le compte qui n'a pas été semé, et pourquoi (#373) (64940ea7)
+- **scaffold:** dire ce que la fermeture de la zone `/api` coupe également (#362) (f271eb2d)
+- **scaffold:** rendre vert le `npm run verify` d'une application neuve, que le relevé de licences faisait échouer (41f3e2fe)
+- **orm:** annoncer au démarrage qu'une migration attend, avec le geste qui l'applique (#365) (dd8f95e2)
+- **orm:** nommer la cause qui a arrêté la génération d'une migration (#376) (960e76a9)
+- **orm:** générer une migration sqlite qui n'attend pas la colonne qu'elle ajoute (#374) (a1067a1e)
+- **orm:** ne plus détruire de comptes sur un simple `-y` (#363) (3b4bf240)
+- **http:** ne sonder le conflit de port que sur le port désiré (#214) (417aa40e)
+- **http:** glisser de port quand un autre serveur occupe déjà la boucle locale (#214) (d01b2f51)
+- **cli:** borner le verdict de `doctor` à ce qui a réellement été contrôlé (#364) (1b1cef3a)
+- **cli:** ne plus contredire un bilan vert par un démarrage antérieur (#367) (a57065d7)
+- **kernel:** fermer la course entre le contrôle d'un `.git` et sa lecture (cf039a4e)
+
 ## 10.0.0-alpha.5 - 2026-09-12
 
 ### Changed
