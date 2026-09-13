@@ -100,6 +100,8 @@ export {
 } from "./nodefony/src/password/passwordPolicy";
 export type { IPasswordPolicyOptions } from "./nodefony/src/password/passwordPolicy";
 export { truncatedPasswordHash } from "./nodefony/src/password/passwordHash";
+export { describeSeedFailure } from "./nodefony/src/password/seedFailure";
+export type { ISeedFailureContext } from "./nodefony/src/password/seedFailure";
 
 // ─── Erreurs (P6 S0, J2) ─────────────────────────────────────────────────────
 export { UserNotFoundError } from "./nodefony/errors/UserNotFoundError";

@@ -6,6 +6,7 @@ import {
 } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
 import {
+  describeSeedFailure,
   InMemoryUserRepository,
   UserService,
   listUserStores,
@@ -221,34 +222,45 @@ async function seedPersistentUsers(
       );
       return;
     }
-    await users.createUser({
-      identifier: ADMIN_IDENTIFIER,
-      plainPassword: adminPwd,
-      roles: ADMIN_PROD_ROLES,
-    });
-    module.log(
-      `Admin de production seedé (mot de passe via NF_ADMIN_PASSWORD).`,
-      "INFO",
-      LOG_CTX,
-    );
+    if (
+      await seedOne(users, module, {
+        identifier: ADMIN_IDENTIFIER,
+        plainPassword: adminPwd,
+        roles: ADMIN_PROD_ROLES,
+        envVar: "NF_ADMIN_PASSWORD",
+        fromEnv: true,
+        admin: true,
+      })
+    ) {
+      module.log(
+        `Admin de production seedé (mot de passe via NF_ADMIN_PASSWORD).`,
+        "INFO",
+        LOG_CTX,
+      );
+    }
     return;
   }
 
   // DEV — comptes de fixture (idempotents : créés seulement si absents).
-  const adminPwd = env.NF_ADMIN_PASSWORD ?? "secret-de-dev-42";
-  const userPwd = env.NF_USER_PASSWORD ?? "secret-de-dev-42";
+  const adminPwd = env.NF_ADMIN_PASSWORD ?? DEV_FIXTURE_PASSWORD;
+  const userPwd = env.NF_USER_PASSWORD ?? DEV_FIXTURE_PASSWORD;
   if (!(await users.findByIdentifier(ADMIN_IDENTIFIER))) {
-    await users.createUser({
+    await seedOne(users, module, {
       identifier: ADMIN_IDENTIFIER,
       plainPassword: adminPwd,
       roles: ADMIN_DEV_ROLES,
+      envVar: "NF_ADMIN_PASSWORD",
+      fromEnv: env.NF_ADMIN_PASSWORD != null,
+      admin: true,
     });
   }
   if (!(await users.findByIdentifier(USER_IDENTIFIER))) {
-    await users.createUser({
+    await seedOne(users, module, {
       identifier: USER_IDENTIFIER,
       plainPassword: userPwd,
       roles: USER_ROLES,
+      envVar: "NF_USER_PASSWORD",
+      fromEnv: env.NF_USER_PASSWORD != null,
     });
   }
   module.log(
@@ -256,4 +268,64 @@ async function seedPersistentUsers(
     "INFO",
     LOG_CTX,
   );
+}
+
+/**
+ * Mot de passe des comptes de fixture en DÉVELOPPEMENT.
+ *
+ * Il doit passer la politique de `@nodefony/user` — `passwordPolicy.test.ts` le
+ * relit ici même et le confronte à la politique. Sans ce contrôle, le dépôt
+ * échouerait son propre semis au premier durcissement de la règle : c'est
+ * exactement ce qui est arrivé à l'application générée, dont le défaut était
+ * `admin`, refusé parce qu'il contient l'identifiant du compte.
+ */
+export const DEV_FIXTURE_PASSWORD = "secret-de-dev-42";
+
+/** Ce qu'il faut pour semer un compte, et pour EXPLIQUER si ça rate. */
+interface ISeedRequest {
+  /** Identifiant du compte. */
+  identifier: string;
+  /** Mot de passe en clair (haché par `createUser`). */
+  plainPassword: string;
+  /** Rôles à plat. */
+  roles: string[];
+  /** Variable d'environnement qui porte ce mot de passe. */
+  envVar: string;
+  /** La valeur vient-elle de cette variable, ou du défaut de ce fichier ? */
+  fromEnv: boolean;
+  /** Compte d'administration (décide du `--admin` du remède). */
+  admin?: boolean;
+}
+
+/**
+ * Sème un compte — et si ça rate, le DIT sans tuer le démarrage.
+ *
+ * **Tranché, pas laissé au hasard d'un `try` absent** : amorcer un compte est un
+ * confort de première minute ; une application sans compte démarre parfaitement,
+ * et l'exploitant en crée un par `nodefony security:user:add`. La dégradation,
+ * elle, est bruyante — un `ERROR` au boot est compté dans le bilan du dernier
+ * démarrage (`var/last-boot.json`), donc relisible par `nodefony doctor` bien
+ * après que le terminal qui l'a vu passer a été fermé.
+ *
+ * @param users - service utilisateur branché sur son dépôt.
+ * @param module - module applicatif (logs).
+ * @param request - le compte à semer, et de quoi expliquer un refus.
+ * @returns `true` si le compte a été créé, `false` si le semis a échoué.
+ */
+async function seedOne(
+  users: UserService,
+  module: Module,
+  request: ISeedRequest,
+): Promise<boolean> {
+  try {
+    await users.createUser({
+      identifier: request.identifier,
+      plainPassword: request.plainPassword,
+      roles: request.roles,
+    });
+    return true;
+  } catch (e) {
+    module.log(describeSeedFailure(e, request), "ERROR", LOG_CTX);
+    return false;
+  }
 }

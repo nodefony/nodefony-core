@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 831,
-    "symbols": 4073,
+    "files": 832,
+    "symbols": 4076,
     "classes": 392,
-    "interfaces": 1091,
+    "interfaces": 1092,
     "types": 449,
     "enums": 4,
-    "functions": 1730,
+    "functions": 1732,
     "constants": 407
   },
   "symbols": {
@@ -27202,6 +27202,23 @@
       "exported": true,
       "module": "@nodefony/user",
       "description": "Défauts de la politique — source unique, relue par les tests."
+    },
+    "ISeedFailureContext": {
+      "name": "ISeedFailureContext",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/seedFailure.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "extends": null,
+      "description": "Le message d'un **semis de compte qui a échoué** — celui que l'erreur, seule, ne peut pas écrire. Le problème est un partage d'information, pas un défaut de code. {@link WeakPasswordError} nomme la…"
+    },
+    "describeSeedFailure": {
+      "name": "describeSeedFailure",
+      "kind": "function",
+      "file": "src/packages/@nodefony/user/nodefony/src/password/seedFailure.ts",
+      "exported": true,
+      "module": "@nodefony/user",
+      "description": "Rédige le message d'un semis raté : QUEL compte, QUELLE règle, QUEL geste. Les trois sont indissociables. Un message qui nomme la règle sans le compte laisse chercher lequel ; un message qui nomme …"
     },
     "IMigrationTarget": {
       "name": "IMigrationTarget",

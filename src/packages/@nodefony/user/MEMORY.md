@@ -47,10 +47,22 @@ User Core. `IUser` + base classes + encoders + `UserService`. Séparé de @nodef
   profil de la console (`studio/frontend/.../profileModel.ts`) en garde une COPIE — la politique
   importe `node:fs`, elle ne traverse pas vers le navigateur — et `passwordPolicy.test.ts` confronte
   les deux valeurs. Sans ce test, l'écran annoncerait un minimum que le serveur refuse.
-- **Les mots de passe de fixture passent la politique.** Dépôt : `secret-de-dev-42`
-  (`nodefony/security/provisionUsers.ts`, `NF_ADMIN_PASSWORD`/`NF_USER_PASSWORD`). Application
-  générée : `nodefony-dev-42` — `admin` était refusé par la règle de l'identifiant, une app neuve
-  échouait son propre seed ; les 4 vitrines frontend pré-remplissent cette valeur.
+- **Les mots de passe de fixture passent la politique — et un test le PROUVE.** Dépôt :
+  `DEV_FIXTURE_PASSWORD` (`nodefony/security/provisionUsers.ts`,
+  `NF_ADMIN_PASSWORD`/`NF_USER_PASSWORD`). Application générée : `DEV_ADMIN_PASSWORD` =
+  `nodefony-dev-42` — `admin` était refusé par la règle de l'identifiant, une app neuve échouait
+  son propre seed ; les 4 vitrines frontend pré-remplissent cette valeur.
+  `seedFailure.test.ts` relit les deux constantes DANS leur fichier (jamais une copie) et les
+  confronte à `PasswordPolicy` : un durcissement de la règle tombe ici, pas chez l'utilisateur.
+- **`describeSeedFailure(cause, ctx)` — le message d'un semis raté.** L'information est coupée en
+  deux : `WeakPasswordError` porte la règle et RIEN d'autre (elle finit dans un journal), l'appelant
+  seul sait quel compte et d'où venait la valeur. Cette fonction les réunit — compte, règle, geste,
+  plus « le démarrage continue ». Un semis raté n'interrompt JAMAIS le boot (un compte d'amorçage
+  est un confort) mais part en `ERROR`, donc compté dans `var/last-boot.json` → relisible par
+  `nodefony doctor`. ⚠️ La règle se lit sur la PROPRIÉTÉ `violation`, jamais par `instanceof` : deux
+  copies du paquet dans un arbre npm feraient perdre la seule information utile.
+  ⚠️ Un échec de hook n'est fatal qu'en PRODUCTION (`Kernel.ts:2889`) — en développement il était
+  déjà fail-soft, avec un message technique que rien ne reliait à un compte.
 
 - `assertUserContract(present, origin, expected?)` : refuse une entité qui ne porte pas les colonnes
   du contrat, en nommant colonne + `readers` + remède (`orm:generate`). `expected` par défaut =
