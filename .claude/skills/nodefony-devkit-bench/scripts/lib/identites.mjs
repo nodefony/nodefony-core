@@ -29,10 +29,31 @@ export const LOGIN = "/nodefony/security/api/auth/login";
 /** Qui suis-je : prouve qu'un cookie porte bien une identité établie. */
 export const MOI = "/nodefony/security/api/auth/me";
 
+/**
+ * Mot de passe du compte administrateur d'une application générée, en
+ * DÉVELOPPEMENT et sans `NF_ADMIN_PASSWORD`.
+ *
+ * 🔴 **Recopié du gabarit, et le selftest le prouve.** La valeur vit dans
+ * `templates/app/complete/nodefony/security/provisionUsers.ts.tpl`
+ * (`DEV_ADMIN_PASSWORD`) — de l'autre côté de la frontière npm : le banc mesure
+ * une application installée depuis des tarballs, il ne peut rien importer du
+ * dépôt. La duplication est donc inévitable ; ce qui ne l'est pas, c'est
+ * qu'elle dérive en silence, d'où `identites.selftest.mjs`, qui relit le
+ * gabarit et compare.
+ *
+ * Ce que valait l'ancien repli, `"admin"` : plus rien. Depuis que la politique
+ * de mots de passe refuse un secret contenant l'identifiant du compte, `admin`
+ * / `admin` ne peut PLUS exister — et comme `envDecor` écarte toute variable
+ * `NF_*` du poste, aucune surcharge ne venait le sauver. Les huit juges qui
+ * ouvrent une session d'administration auraient tous rendu
+ * `identite-admin-indisponible`, c'est-à-dire un run entier non concluant.
+ */
+export const MOT_DE_PASSE_ADMIN_DEV = "nodefony-dev-42";
+
 /** Compte administrateur semé au premier démarrage par le preset `complete`. */
 export const ADMIN = {
   username: "admin",
-  password: process.env.NF_ADMIN_PASSWORD || "admin",
+  password: process.env.NF_ADMIN_PASSWORD || MOT_DE_PASSE_ADMIN_DEV,
 };
 
 /**

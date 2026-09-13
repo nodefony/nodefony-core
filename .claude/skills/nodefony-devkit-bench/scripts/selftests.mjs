@@ -104,6 +104,7 @@ const LOT_ATTENDU = new Set([
   "lib/gate-upload.selftest.mjs",
   "lib/gate-user-field.selftest.mjs",
   "lib/gate-zone-firewall.selftest.mjs",
+  "lib/identites.selftest.mjs",
   "lib/imputation.selftest.mjs",
   "lib/juges-collecte.selftest.mjs",
   "lib/passes.selftest.mjs",
