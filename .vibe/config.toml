@@ -6,3 +6,134 @@ transport = "streamable-http"
 [mcp_servers.auth]
 api_key_env = "NF_MCP_TOKEN"
 type = "static"
+
+# Socle de commandes auto-approuvées, ALIGNÉ sur `.claude/settings.json` : les
+# deux agents qui travaillent sur ce dépôt approuvent les mêmes gestes, sinon
+# l'un s'arrête là où l'autre passe.
+#
+# 🔴 La grammaire de vibe est un PRÉFIXE LITTÉRAL, jamais un motif — au source,
+# `_matches_pattern` (vibe/core/tools/builtins/bash.py) rend
+# `command == pattern or command.startswith(pattern + " ")`. Trois conséquences :
+#   1. `npm` couvre `npm run build` ; `npm *` ne couvrirait RIEN.
+#   2. Un préfixe plus court rend le plus long inutile — d'où l'absence de
+#      `npm run`, `git log` ou `kill -9` sous `npm`, `git` et `kill`.
+#   3. Une permission Claude dont le `*` est au MILIEU n'a PAS d'équivalent et
+#      n'est donc pas reprise : `curl -s http://127.0.0.1*`, `rm -f /tmp/*`,
+#      `bash .claude/skills/*`. Les écrire sans leur borne (`curl`, `rm`)
+#      ouvrirait tout le réseau et tout le disque — vibe demandera
+#      l'autorisation, c'est le bon défaut.
+
+[tools.bash]
+allowlist = [
+    "awk",
+    "basename",
+    "cat",
+    "cd",
+    "comm",
+    "cut",
+    "date",
+    "diff",
+    "dirname",
+    "docker compose",
+    "docker exec",
+    "docker logs",
+    "docker ps",
+    "du",
+    "echo",
+    "file",
+    "find",
+    "fmt",
+    "fold",
+    "gh run",
+    "git",
+    "grep",
+    "head",
+    "join",
+    "jq",
+    "kill",
+    "less",
+    "ls",
+    "lsof",
+    "md5sum",
+    "mkdir",
+    "more",
+    "nl",
+    "node",
+    "node_modules/.bin/tsc",
+    "npm",
+    "npx mcr",
+    "npx mocha",
+    "npx ncu",
+    "npx nodefony",
+    "npx rollup",
+    "npx tsc",
+    "npx tsx",
+    "npx turbo",
+    "npx vitest",
+    "od",
+    "paste",
+    "pgrep",
+    "pkill",
+    "ps",
+    "pwd",
+    "readlink",
+    "rm -f .git/index.lock",
+    "rm -f /tmp/nodefony-server.log",
+    "rm -f /tmp/srv.pid",
+    "sed",
+    "sha1sum",
+    "sha256sum",
+    "shasum",
+    "sleep",
+    "sort",
+    "stat",
+    "sum",
+    "tac",
+    "tail",
+    "top",
+    "tr",
+    "tree",
+    "uname",
+    "uniq",
+    "vibe",
+    "wc",
+    "which",
+    "whoami",
+]
+
+# 🔴 `git` figure en allowlist (comme côté Claude), ce qui couvrirait aussi
+# `git reset --hard` et `git stash`. Côté Claude un garde-fou du dépôt REFUSE
+# ces gestes sur un arbre sale — vibe n'a pas ce garde-fou, et « la même
+# autorisation » signifie le même risque EFFECTIF, pas la même liste. D'où ce
+# refus explicite : la denylist est FINALE, elle prime sur l'allowlist
+# (`_resolve_guardrail_permission`). Motif, écrit une fois pour toutes : un
+# agent ne voit pas le travail en cours de l'autre, il ne voit qu'un arbre à
+# ranger — une heure de code non commité a déjà disparu comme ça.
+#
+# ⚠️ Déclarer cette clé REMPLACE les défauts de vibe : les siens
+# (`_get_default_denylist`, éditeurs interactifs et débogueurs) sont donc
+# recopiés ici. Les retirer rouvrirait un `vim` qui bloque la session.
+denylist = [
+    "bash -i",
+    "dash -i",
+    "emacs",
+    "fish -i",
+    "gdb",
+    "git checkout",
+    "git clean",
+    "git push --force",
+    "git push -f",
+    "git rebase",
+    "git reset",
+    "git restore",
+    "git stash",
+    "nano",
+    "passwd",
+    "pdb",
+    "screen",
+    "sh -i",
+    "tmux",
+    "vi",
+    "vim",
+    "zsh -i",
+]
