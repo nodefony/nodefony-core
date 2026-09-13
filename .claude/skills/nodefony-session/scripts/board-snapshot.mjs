@@ -66,6 +66,7 @@ const args = new Set(process.argv.slice(2));
 const CHECK = args.has("--check");
 const FORCE = args.has("--force");
 const README = args.has("--readme");
+const ISSUE = args.has("--issue");
 /** Montre ce qui PARTIRAIT chez GitHub, sans rien y écrire. */
 const DRY = args.has("--dry-run");
 
@@ -389,6 +390,27 @@ const README_FIN = "<!-- BOARD:AUTO:FIN -->";
  * @returns le bloc Markdown, marqueurs compris
  */
 function renderProjectReadme(live, generatedAt) {
+  return [
+    README_DEBUT,
+    "",
+    renderAvancement(live, generatedAt),
+    README_FIN,
+  ].join("\n");
+}
+
+/**
+ * Le corps du tableau d'avancement, sans enveloppe : barres par jalon, nombre
+ * de tickets ouverts, prochain dans l'ordre.
+ *
+ * Une seule écriture pour DEUX surfaces (le README du projet et l'issue
+ * épinglée) : deux rendus séparés se ressembleraient aujourd'hui et
+ * divergeraient au premier ajout, sans que rien ne le dise.
+ *
+ * @param live - l'état rendu par `fetchLive`
+ * @param generatedAt - l'horodatage ISO de l'empreinte
+ * @returns le bloc Markdown nu
+ */
+function renderAvancement(live, generatedAt) {
   const ouverts = live.items.filter((i) => i.status !== "Done");
   const choix = chooseNextTicket(ouverts, live.milestones);
 
@@ -401,8 +423,6 @@ function renderProjectReadme(live, generatedAt) {
     );
 
   const lignes = [
-    README_DEBUT,
-    "",
     "## 📊 Avancement — régénéré, jamais saisi",
     "",
     `> Photo du **${generatedAt.slice(0, 16).replace("T", " ")}** UTC, prise par`,
@@ -454,7 +474,6 @@ function renderProjectReadme(live, generatedAt) {
     );
   }
 
-  lignes.push(README_FIN);
   return lignes.join("\n");
 }
 
@@ -524,6 +543,122 @@ function pushProjectReadme(live, generatedAt) {
   console.log(
     `✅ README du projet republié — ${i === -1 ? "marqueurs POSÉS (première fois)" : "zone générée remplacée"}.`,
   );
+}
+
+/**
+ * Le label qui IDENTIFIE l'issue-tableau, et la retrouve d'un passage à l'autre.
+ *
+ * Un label plutôt qu'un titre ou un numéro en dur : le titre se renomme, un
+ * numéro écrit dans un script est un fait gravé qu'aucun automate ne recalcule.
+ * Le label, lui, survit aux deux.
+ */
+const LABEL_TABLEAU = "tableau-de-bord";
+const TITRE_TABLEAU = "📊 Où en est la version 10";
+
+/**
+ * Republie — et au premier passage CRÉE puis ÉPINGLE — l'issue qui porte
+ * l'avancement, là où on la voit : en tête de l'onglet Issues.
+ *
+ * Cette issue reste délibérément **hors du tableau de bord et sans jalon**.
+ * Elle n'est pas du travail : l'inscrire en ferait un ticket de plus dans tous
+ * les compteurs, et `ticket:lint` la réclamerait comme un item mal renseigné.
+ *
+ * @param live - l'état rendu par `fetchLive`
+ * @param generatedAt - l'horodatage ISO de l'empreinte
+ */
+function pushDashboardIssue(live, generatedAt) {
+  const corps =
+    "<!-- GÉNÉRÉ par le skill `nodefony-session` (scripts/board-snapshot.mjs).\n" +
+    "     NE PAS ÉDITER À LA MAIN : la source est le tableau de bord GitHub,\n" +
+    "     et toute retouche ici serait écrasée au passage suivant. -->\n\n" +
+    renderAvancement(live, generatedAt) +
+    "\n---\n\n" +
+    "_Cette issue n'est pas du travail : elle ne porte ni jalon ni rang, et ne compte_\n" +
+    "_dans aucun reste-à-faire. Elle est régénérée par `npm run board:issue`._\n";
+
+  const trouve = JSON.parse(
+    sh("gh", [
+      "issue",
+      "list",
+      "--label",
+      LABEL_TABLEAU,
+      "--state",
+      "open",
+      "--limit",
+      "1",
+      "--json",
+      "number,id",
+    ]),
+  );
+
+  if (DRY) {
+    console.log("\n───── APERÇU de l'issue (rien n'est écrit) ─────\n");
+    console.log(corps);
+    console.log(
+      `───── fin ─────\n${trouve.length ? `L'issue #${trouve[0].number} serait MISE À JOUR.` : "Une issue serait CRÉÉE puis ÉPINGLÉE."}`,
+    );
+    return;
+  }
+
+  if (trouve.length) {
+    const n = trouve[0].number;
+    const actuel = JSON.parse(
+      sh("gh", ["issue", "view", String(n), "--json", "body"]),
+    ).body;
+    // Même raison qu'au README : l'horodatage seul ne justifie pas une
+    // republication, qui notifierait les abonnés pour rien.
+    const sansDate = (t) => t.replace(/^> Photo du .*$/m, "");
+    if (sansDate(actuel) === sansDate(corps)) {
+      console.log(
+        `✅ Issue #${n} déjà à jour — rien à publier (comparé hors horodatage).`,
+      );
+      return;
+    }
+    sh("gh", ["issue", "edit", String(n), "--body", corps]);
+    console.log(
+      `✅ Issue #${n} republiée — ${live.items.filter((i) => i.status !== "Done").length} tickets ouverts.`,
+    );
+    return;
+  }
+
+  // Première fois : le label peut ne pas exister, et `gh issue create` échoue
+  // sur un label inconnu — le créer d'abord, sans faire de son existence une
+  // erreur si un passage précédent l'a déjà posé.
+  try {
+    sh("gh", [
+      "label",
+      "create",
+      LABEL_TABLEAU,
+      "--description",
+      "Issue régénérée qui porte l'avancement — pas du travail",
+      "--color",
+      "0E8A16",
+    ]);
+  } catch {
+    /* le label existe déjà : c'est le cas nominal au deuxième passage */
+  }
+
+  const url = sh("gh", [
+    "issue",
+    "create",
+    "--title",
+    TITRE_TABLEAU,
+    "--body",
+    corps,
+    "--label",
+    LABEL_TABLEAU,
+  ]).trim();
+  const num = url.split("/").pop();
+  const id = JSON.parse(sh("gh", ["issue", "view", num, "--json", "id"])).id;
+  sh("gh", [
+    "api",
+    "graphql",
+    "-f",
+    "query=mutation($i:ID!){pinIssue(input:{issueId:$i}){issue{number}}}",
+    "-f",
+    `i=${id}`,
+  ]);
+  console.log(`✅ Issue #${num} CRÉÉE et ÉPINGLÉE → ${url}`);
 }
 
 function lireAncien() {
@@ -606,4 +741,5 @@ function main() {
   // hors du dépôt, et une écriture distante ne doit jamais être un effet de
   // bord d'une commande qu'on lance à chaque reprise de session.
   if (README) pushProjectReadme(live, generatedAt);
+  if (ISSUE) pushDashboardIssue(live, generatedAt);
 }

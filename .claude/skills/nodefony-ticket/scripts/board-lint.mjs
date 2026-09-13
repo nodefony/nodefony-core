@@ -559,7 +559,15 @@ if (estAppelDirect) {
   const filtre = msIdx >= 0 ? args[msIdx + 1] : null;
 
   let items = readItems();
-  let issues = readIssues();
+  // Une issue-INSTRUMENT n'est pas un ticket : elle ne porte aucun travail, ne
+  // promet aucune date et n'entre dans aucun reste-à-faire — c'est une SURFACE
+  // d'affichage, régénérée par un script. Lui réclamer un jalon ou un rang
+  // reviendrait à la compter comme du travail, ce qu'elle n'est pas ; et lui
+  // poser `backlog` pour faire taire le contrôle serait un mensonge commode,
+  // exactement ce que ce gate existe pour empêcher.
+  let issues = readIssues().filter(
+    (i) => !i.labels?.includes("tableau-de-bord"),
+  );
   if (filtre) {
     items = items.filter((i) => i.milestone === filtre);
     issues = issues.filter((i) => i.milestone === filtre);

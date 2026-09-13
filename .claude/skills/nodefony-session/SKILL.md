@@ -399,6 +399,28 @@ La comparaison qui décide de republier **ignore l'horodatage** : sinon le scrip
 « republié » à chaque passage, y compris quand rien n'a bougé — et un instrument qui crie sans
 raison finit par ne plus être lu.
 
+5 quater. **L'issue ÉPINGLÉE — la surface qu'on voit vraiment.** Le README d'un projet v2 ne
+s'affiche que dans ses réglages : il se tient à jour, mais personne ne passe devant. L'issue
+épinglée, elle, est en tête de l'onglet Issues.
+
+```bash
+npm run board:issue                      # crée au premier passage, puis republie
+npm run board:issue -- --dry-run         # montre le corps, sans rien écrire
+```
+
+Le MÊME rendu nourrit les deux surfaces (`renderAvancement`) : deux rendus séparés se
+ressembleraient aujourd'hui et divergeraient au premier ajout, sans que rien ne le dise. L'issue se
+retrouve d'un passage à l'autre par son **label** `tableau-de-bord`, jamais par son titre (qui se
+renomme) ni par un numéro écrit en dur (qu'aucun automate ne recalcule).
+
+> 🔴 **Cette issue reste HORS du tableau de bord et SANS jalon** — elle n'est pas du travail.
+> `ticket:lint` contrôle **toutes les issues ouvertes**, pas seulement les items du tableau : il l'a
+> donc refusée d'emblée (`NI-JALON-NI-BACKLOG`). La réponse n'est pas de lui poser `backlog` pour
+> faire taire le contrôle — ce serait le mensonge commode que ce gate existe pour empêcher — mais
+> d'apprendre au gate qu'une issue-INSTRUMENT n'est pas un ticket. L'exception est portée par le
+> label, dans `board-lint.mjs`, et elle a été **vue mordre** : label retiré, l'issue est signalée ;
+> label remis, le tableau est vert.
+
 6. **`_state` de reprise** (§10) + **MAJ pointeur `MEMORY.md`**.
 7. **Commit + push mémoire IA** (§11) **+ push du repo projet** (les commits feature + `docs/`).
 
