@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-11
+updated: 2026-09-13
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---
@@ -121,7 +121,7 @@ script, donc toujours à jour après régénération.
 | `scripts/route-scan-cost.mjs` | route-scan-cost — ce que la RÉSOLUTION DE ROUTE coûte à une application, et | `--diagnostic` `--json` `--measure` `--reps` `--routes` `--scale` `--target` | `JSON_OUT` |
 | `scripts/run.sh` | Wrapper unique du skill load-test. Route vers les suites vitest VERSIONNÉES | `--config` `--rupture` | — |
 | `scripts/scaffold-ws-probe.mjs` | Sonde : prouve que le job de scaffold est bien streamé sur la socket Nodefony. | — | `NF_STEPS` `NF_WAIT` |
-| `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--show-toplevel` `--skip` `--url` `--version` | `ATTENDRE_CHARGE` `COEURS` `CONN` `MINUTES` `MIN_AMPLITUDE_MB` `MIN_MINUTES` `OUT` `PROBE` `SKIP` `SONDE_ESSAIS` `SONDE_TIMEOUT_MS` `THREADS` `TRANCHE` `TTL_DEROGATION_MIN` `URL` `VCPU_VIRTUALISES` `WINDOW` `WINDOWS` |
+| `scripts/soak.mjs` | soak.mjs — TENUE DANS LA DURÉE d'un process Nodefony sous trafic continu. | `--attendre-charge` `--conn` `--force-charge` `--format` `--latency` `--minutes` `--show-toplevel` `--skip` `--url` `--version` `--workspace` | `ATTENDRE_CHARGE` `COEURS` `CONN` `MINUTES` `MIN_AMPLITUDE_MB` `MIN_MINUTES` `OUT` `PROBE` `SKIP` `SONDE_ESSAIS` `SONDE_TIMEOUT_MS` `THREADS` `TRANCHE` `TTL_DEROGATION_MIN` `URL` `VCPU_VIRTUALISES` `WINDOW` `WINDOWS` |
 | `scripts/supervision-stress.mjs` | STRESS COMBINÉ « supervision » — pousse SIMULTANÉMENT 3 lanes (HTTP + WebSocket | — | `BATCH` `ERR_RUPTURE` `HOST` `HTTP_PATH` `HTTP_STEP` `MSG_HZ` `ORM_PATH` `ORM_STEP` `PORT` `STAGES` `STAGE_MS` `WS_PATH` `WS_STEP` |
 | `scripts/totp-mfa-attack-e2e.mjs` | Banc ADVERSARIAL 2FA TOTP (P6.17) — red team / blue team, VRAI serveur. | — | — |
 | `scripts/totp-mfa-e2e.mjs` | Banc e2e 2FA TOTP step-up (P6.17) — VRAI serveur, sans navigateur. | — | — |

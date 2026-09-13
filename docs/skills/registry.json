@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-12",
+  "generatedAt": "2026-09-13",
   "count": 27,
   "conformant": 27,
   "skills": [
@@ -4069,6 +4069,10 @@
               },
               {
                 "flag": "--version",
+                "help": ""
+              },
+              {
+                "flag": "--workspace",
                 "help": ""
               }
             ],

@@ -284,9 +284,37 @@ if (!head || head.status !== 200) {
   stop();
   process.exit(1);
 }
-const probe0 = await fetch(PROBE).catch(() => null);
-if (!probe0 || probe0.status !== 200) {
-  console.error(`❌ sonde mémoire ${PROBE} injoignable — rien à mesurer.`);
+// « Injoignable » était le SEUL mot rendu ici, pour trois pannes qui n'ont ni la
+// même cause ni le même remède : rien au bout du fil, une route absente (404) et
+// une route qui lève (500). La boucle de mesure, elle, nomme déjà ce qui l'arrête
+// — le correctif n'avait couvert que le cas VU. Un banc programmé la nuit est lu
+// le lendemain sur son seul journal : ce qu'il ne dit pas est perdu.
+const probe0 = await fetch(PROBE, {
+  signal: AbortSignal.timeout(10_000),
+}).catch((e) => e);
+if (!(probe0 instanceof Response) || !probe0.ok) {
+  const quoi =
+    probe0 instanceof Response
+      ? `HTTP ${probe0.status}`
+      : probe0?.name === "TimeoutError"
+        ? "pas de réponse en 10s"
+        : (probe0?.cause?.code ??
+          probe0?.code ??
+          probe0?.name ??
+          String(probe0));
+  // Le CORPS tranche à lui seul entre « route absente » et « route qui lève » :
+  // Nodefony y écrit son message. Borné — un banc ne déverse pas une page.
+  const corps =
+    probe0 instanceof Response
+      ? (await probe0.text().catch(() => "")).slice(0, 300).trim()
+      : "";
+  console.error(
+    `❌ sonde mémoire ${PROBE} → ${quoi} (attendu 200) — rien à mesurer.` +
+      (corps ? `\n   réponse : ${corps}` : "") +
+      `\n   404 = la route n'est pas montée (module test construit ? \`npm run build --workspace=src/modules/test\`).` +
+      `\n   500 = elle lève ; 200 attendu sur ${URL} vient d'être obtenu, donc le serveur répond.` +
+      `\n   Journal du serveur : /tmp/nf-soak.log`,
+  );
   stop();
   process.exit(1);
 }
