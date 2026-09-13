@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T11:07:00.175Z",
+  "generatedAt": "2026-09-13T11:47:46.051Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 90,
+      "closed": 91,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 15,
+      "open": 14,
       "title": "10.0.0-alpha"
     },
     {
@@ -282,8 +282,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 1.5,
-      "debut": "2026-10-12",
-      "cible": "2026-10-12",
+      "debut": "2026-10-05",
+      "cible": "2026-10-05",
       "labels": [
         "10.0.0-beta"
       ]
@@ -347,8 +347,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 1.6,
-      "debut": "2026-10-13",
-      "cible": "2026-10-13",
+      "debut": "2026-10-06",
+      "cible": "2026-10-06",
       "labels": [
         "10.0.0-beta"
       ]
@@ -445,8 +445,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 1.7,
-      "debut": "2026-10-14",
-      "cible": "2026-10-14",
+      "debut": "2026-10-07",
+      "cible": "2026-10-07",
       "labels": [
         "10.0.0-beta"
       ]
@@ -509,8 +509,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 1.8,
-      "debut": "2026-10-15",
-      "cible": "2026-10-15",
+      "debut": "2026-10-08",
+      "cible": "2026-10-08",
       "labels": [
         "arbitrage",
         "10.0.0-beta"
@@ -624,8 +624,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 2,
-      "debut": "2026-10-16",
-      "cible": "2026-10-16",
+      "debut": "2026-10-09",
+      "cible": "2026-10-09",
       "labels": [
         "irrattrapable",
         "10.0.0-beta"
@@ -1295,8 +1295,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 3,
-      "debut": "2026-10-19",
-      "cible": "2026-10-19",
+      "debut": "2026-10-12",
+      "cible": "2026-10-12",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1551,8 +1551,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4,
-      "debut": "2026-10-20",
-      "cible": "2026-10-20",
+      "debut": "2026-10-13",
+      "cible": "2026-10-13",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1615,8 +1615,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.2,
-      "debut": "2026-10-21",
-      "cible": "2026-10-21",
+      "debut": "2026-10-14",
+      "cible": "2026-10-14",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1631,8 +1631,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.3,
-      "debut": "2026-10-22",
-      "cible": "2026-10-22",
+      "debut": "2026-10-15",
+      "cible": "2026-10-15",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1663,8 +1663,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.4,
-      "debut": "2026-10-23",
-      "cible": "2026-10-23",
+      "debut": "2026-10-16",
+      "cible": "2026-10-16",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1710,8 +1710,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 4.5,
-      "debut": "2026-10-26",
-      "cible": "2026-10-26",
+      "debut": "2026-10-19",
+      "cible": "2026-10-19",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1845,8 +1845,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 4.6,
-      "debut": "2026-10-27",
-      "cible": "2026-10-27",
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
       "labels": [
         "rattrapable",
         "10.0.0-beta"
@@ -1944,8 +1944,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4.8,
-      "debut": "2026-10-28",
-      "cible": "2026-10-28",
+      "debut": "2026-10-21",
+      "cible": "2026-10-21",
       "labels": [
         "10.0.0-beta"
       ]
@@ -1977,8 +1977,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 4.9,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
+      "debut": "2026-10-22",
+      "cible": "2026-10-22",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2025,8 +2025,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 3.5,
       "ordre": 5,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
+      "debut": "2026-10-23",
+      "cible": "2026-10-23",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2106,8 +2106,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 2,
       "ordre": 5.1,
-      "debut": "2026-11-02",
-      "cible": "2026-11-02",
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2170,8 +2170,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 5.2,
-      "debut": "2026-11-03",
-      "cible": "2026-11-03",
+      "debut": "2026-10-27",
+      "cible": "2026-10-27",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2218,8 +2218,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 5.3,
-      "debut": "2026-11-04",
-      "cible": "2026-11-04",
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
       "labels": [
         "10.0.0-beta"
       ]
@@ -2986,8 +2986,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.3,
-      "debut": "2026-10-19",
-      "cible": "2026-10-19",
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3002,8 +3002,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.4,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3082,8 +3082,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.5,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3098,8 +3098,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.6,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3130,8 +3130,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.7,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3146,8 +3146,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 9.8,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
       "labels": [
         "10.0.0-beta"
       ]
@@ -3226,8 +3226,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 5.5,
       "ordre": 9.91,
-      "debut": "2026-09-11",
-      "cible": "2026-09-11",
+      "debut": "2026-09-15",
+      "cible": "2026-09-15",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3418,8 +3418,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 2,
       "ordre": 9.94,
-      "debut": "2026-09-12",
-      "cible": "2026-09-12",
+      "debut": "2026-09-16",
+      "cible": "2026-09-16",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3620,8 +3620,8 @@
       "number": 341,
       "title": "feat(cli): laisser un exemple de chaque geste en « Minimal »",
       "url": "https://github.com/nodefony/nodefony-core/issues/341",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -3738,8 +3738,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 0.5,
       "ordre": 9.95,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3786,8 +3786,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 9.955,
-      "debut": "2026-09-15",
-      "cible": "2026-09-16",
+      "debut": "2026-09-18",
+      "cible": "2026-09-18",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3802,8 +3802,8 @@
       "priorite": "P2 — décision",
       "jours": 1.5,
       "ordre": 9.96,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-21",
+      "cible": "2026-09-21",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3818,8 +3818,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 2,
       "ordre": 9.97,
-      "debut": "2026-09-23",
-      "cible": "2026-09-23",
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3850,8 +3850,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 9.99,
-      "debut": "2026-09-25",
-      "cible": "2026-09-25",
+      "debut": "2026-09-23",
+      "cible": "2026-09-23",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3946,8 +3946,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 10,
-      "debut": "2026-09-29",
-      "cible": "2026-09-29",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3978,8 +3978,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 11,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4010,8 +4010,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 12,
-      "debut": "2026-09-30",
-      "cible": "2026-09-30",
+      "debut": "2026-09-25",
+      "cible": "2026-09-25",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4091,8 +4091,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 13,
-      "debut": "2026-10-01",
-      "cible": "2026-10-01",
+      "debut": "2026-09-28",
+      "cible": "2026-09-28",
       "labels": [
         "rattrapable",
         "10.0.0-alpha"
@@ -4320,8 +4320,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 20,
-      "debut": "2026-10-06",
-      "cible": "2026-10-06",
+      "debut": "2026-09-29",
+      "cible": "2026-09-29",
       "labels": [
         "arbitrage",
         "10.0.0-alpha"
@@ -4386,8 +4386,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 26,
-      "debut": "2026-10-08",
-      "cible": "2026-10-08",
+      "debut": "2026-09-30",
+      "cible": "2026-09-30",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4402,8 +4402,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 28,
-      "debut": "2026-09-12",
-      "cible": "2026-09-12",
+      "debut": "2026-10-01",
+      "cible": "2026-10-01",
       "labels": [
         "rattrapable",
         "10.0.0-alpha"
@@ -4419,8 +4419,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 29,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
       "labels": [
         "rattrapable",
         "10.0.0-beta"
@@ -4436,8 +4436,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 29.5,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4452,8 +4452,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 30,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4516,8 +4516,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 32,
-      "debut": "2026-11-18",
-      "cible": "2026-11-18",
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4644,8 +4644,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 46.1,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4660,8 +4660,8 @@
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 46.2,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4676,8 +4676,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 48,
-      "debut": "2026-11-30",
-      "cible": "2026-11-30",
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4692,8 +4692,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 3,
       "ordre": 55,
-      "debut": "2026-10-09",
-      "cible": "2026-10-09",
+      "debut": "2026-10-02",
+      "cible": "2026-10-02",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4708,8 +4708,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 59,
-      "debut": "2026-09-08",
-      "cible": "2026-09-08",
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4724,8 +4724,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1.5,
       "ordre": 60,
-      "debut": "2026-10-15",
-      "cible": "2026-11-15",
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
       "labels": [
         "10.0.0"
       ]
