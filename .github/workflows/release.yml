@@ -527,6 +527,28 @@ jobs:
           docker push "nodefony/nodefony:${MOBILE}"
           echo "::notice::image poussée — ${V} et ${MOBILE}"
 
+      # LA PAGE DE L'IMAGE — Docker Hub affichait « Repository overview:
+      # INCOMPLETE », c'est-à-dire rien : ni ce que l'image contient, ni comment
+      # la lancer, ni le fait qu'elle n'est PAS le framework mais une application
+      # de démonstration générée. Une image sans page est une image qu'on ne tire
+      # pas, et la page ne se remplit pas toute seule : elle vit dans un champ du
+      # dépôt d'images, hors du dépôt de code.
+      #
+      # La source est versionnée (`docker/hub-overview.md`) et sa version annoncée
+      # est maintenue par `accueil-gate.mjs`, qui la compte parmi ses surfaces.
+      #
+      # `continue-on-error` : à ce point, les paquets npm et l'image sont DÉJÀ
+      # publiés — gestes irréversibles. Faire échouer le lot sur une page de
+      # présentation donnerait un run rouge pour une publication réussie, et
+      # c'est la lecture du verdict qu'on abîmerait. Le pas suivant (« bilan »)
+      # rapporte l'état de ce job.
+      - name: Publier la page de l'image sur Docker Hub
+        continue-on-error: true
+        env:
+          NF_DOCKERHUB_USER: ${{ secrets.NF_DOCKERHUB_USER }}
+          NF_DOCKERHUB_TOKEN: ${{ secrets.NF_DOCKERHUB_TOKEN }}
+        run: node "$GITHUB_WORKSPACE/scripts/release/hub-description.mjs"
+
   # ═════════════════════════════════════════════════════════════════════════
   # 5. ANNONCE — la release GitHub, à partir du changelog RELU
   # ═════════════════════════════════════════════════════════════════════════

@@ -15,7 +15,7 @@
 | Infrastructure | 10 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 36 |
-| Runtime produit | 65 |
+| Runtime produit | 74 |
 
 ## Décor de banc
 
@@ -137,7 +137,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (65)
+## Runtime produit (74)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -145,11 +145,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2554` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2558` |
+| `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:87` |
+| `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
+| `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
 | `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:714` |
 | `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:465` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2804` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2816` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:2808` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:2820` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:89` |
@@ -187,7 +190,13 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:970` |
 | `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:579` |
+| `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:209` |
+| `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:208` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:91` |
+| `NF_HUB_API` | `scripts/release/hub-description.mjs:54` |
+| `NF_HUB_DEPOT` | `scripts/release/hub-description.mjs:60` |
+| `NF_HUB_ROOT` | `scripts/release/hub-description.mjs:50` |
+| `NF_HUB_SOURCE` | `scripts/release/hub-description.mjs:63` |
 | `NF_INSTANCE_ID` | `src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts:38` |
 | `NF_KERNEL_TRACE_FILE` | `src/nodefony/src/kernel/Kernel.ts:692` |
 | `NF_MODE_START` | `src/nodefony/src/kernel/commands/ClusterCommand.ts:62` |

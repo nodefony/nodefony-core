@@ -177,6 +177,63 @@ jobs:
             echo "Un publieur de confiance **par paquet** — un seul autorisé à la fois."
           } >> "$GITHUB_STEP_SUMMARY"
 
+  # ═════════════════════════════════════════════════════════════════════════
+  # L'ACCUEIL DIT-IL CE QUE npm SERT ?
+  # ═════════════════════════════════════════════════════════════════════════
+  # Ce contrôle manquait, et son absence s'est vue : le `README.md` et
+  # l'`AGENTS.md` ont annoncé la `10.0.0-alpha.4` pendant que le registre servait
+  # l'alpha.5 — les quinze `package.json` du dépôt, eux, portaient déjà l'alpha.5.
+  # L'accueil était la SEULE surface en retard, et rien n'échouait.
+  #
+  # L'étape était pourtant ÉCRITE : « RESTE À FAIRE », étape 6 de `release.mjs`,
+  # nommant les trois endroits. Elle a été affichée, lue, puis oubliée. C'est tout
+  # l'argument de ce job : un rappel imprimé en fin de publication ne mord pas.
+  #
+  # Place ici, et pas dans `node.js.yml` : c'est une propriété de la PUBLICATION,
+  # pas du code. Ce flux est appelé avant `publier` ET tourne au cron mensuel —
+  # donc la dérive est bornée même sans release. La bascule elle-même est
+  # désormais faite par `release.mjs` juste après avoir publié ; ce job est le
+  # filet qui constate qu'elle a bien eu lieu.
+  #
+  # Le code 2 (registre injoignable) n'échoue PAS ici : ce n'est pas une faute du
+  # dépôt, et une garde qui crie sur le réseau finit désarmée. Le refus sur un
+  # « je n'ai pas pu regarder » appartient à `release.mjs`, devant le geste
+  # irréversible.
+  accueil:
+    name: Accueil — annonce-t-il la version que npm sert ?
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+
+      # `shell: bash` pose `-eo pipefail` : le script MOURRAIT sur le code 1 avant
+      # d'avoir lu `$?`, et le message expliquant quoi faire ne serait jamais
+      # émis. `set +e` n'est donc pas du relâchement — c'est la condition pour
+      # distinguer un écart (1) d'un contrôle aveugle (2), qui n'appellent pas la
+      # même conduite.
+      - name: README.md et AGENTS.md face aux dist-tags du registre
+        shell: bash
+        run: |
+          set +e
+          node scripts/release/accueil-gate.mjs
+          code=$?
+          set -e
+          if [ "$code" = "1" ]; then
+            echo "::error title=Accueil périmé::Le README ou l'AGENTS.md n'annonce pas la version que npm sert. C'est la première impression du jour de l'annonce, et elle ne se rattrape pas. Corriger, ou lancer « node scripts/release/accueil-gate.mjs --basculer »."
+            exit 1
+          fi
+          if [ "$code" != "0" ]; then
+            echo "::warning title=Accueil NON vérifié::Le registre n'a rendu aucun dist-tag (code ${code}). Sans conséquence sur ce run : ce n'est pas une faute du dépôt. La publication, elle, refuse de passer sur ce code."
+          fi
+          # Le contrôle lui-même est éprouvé par `npm run test:release`
+          # (`vitest run scripts/release/`), que `release.yml` et
+          # `release-smoke.yml` lancent déjà : le rejouer ici coûterait un
+          # `npm ci` complet pour un verdict qu'on a par ailleurs.
+
   outils:
     name: Outils — versions minimales exigées par trusted publishing
     runs-on: ubuntu-latest

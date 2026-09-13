@@ -596,6 +596,41 @@ if (!prerelease && TAG_NPM && TAG_NPM !== "latest") {
   );
 }
 
+// L'ACCUEIL DU CRAN PRÉCÉDENT — la dette se solde AVANT d'en créer une nouvelle.
+//
+// L'étape 6 du « RESTE À FAIRE » demandait cette bascule ; elle a été AFFICHÉE à
+// l'alpha.5 et oubliée, si bien que la page annonçait l'alpha.4 pendant que le
+// registre servait l'alpha.5. Un rappel imprimé ne mord pas — ce refus, oui.
+//
+// Le contrôle vit ICI, avant l'estampillage : à ce moment l'accueil doit encore
+// dire ce que npm SERT. Après, les manifestes portent la version SUIVANTE et la
+// confrontation n'aurait plus de sens.
+//
+// Hors publication, un registre muet n'est qu'un avertissement : bloquer une
+// répétition parce que le réseau manque ferait crier la garde sur ce qui va bien.
+{
+  const r = spawnSync("node", ["scripts/release/accueil-gate.mjs"], {
+    cwd: ROOT,
+    stdio: "inherit",
+  });
+  if (r.status === 1) {
+    echouer(
+      "l'accueil du dépôt n'annonce pas ce que npm sert — voir les écarts ci-dessus.\n" +
+        "  C'est la bascule du cran PRÉCÉDENT qui n'a pas été faite. La refaire, puis relancer.",
+    );
+  } else if (r.status !== 0) {
+    const msg =
+      "accueil NON vérifié — registre injoignable ou surface absente (code " +
+      `${r.status ?? "?"}).`;
+    if (PHASES.publier) {
+      echouer(
+        `${msg}\n  Avant un geste irréversible, ne pas savoir regarder n'est pas un verdict favorable.`,
+      );
+    }
+    alerter(msg);
+  }
+}
+
 const sale = git("status", "--porcelain");
 if (sale && (ECRIRE || PUBLIER)) {
   echouer(
@@ -1392,6 +1427,34 @@ if (PHASES.publier) {
           .join("\n"),
     );
   }
+
+  // LA BASCULE D'ACCUEIL, FAITE PLUTÔT QUE RAPPELÉE.
+  //
+  // C'était l'étape 6 du « RESTE À FAIRE » : trois endroits à rééditer à la
+  // main. Elle a été AFFICHÉE à l'alpha.5 et oubliée — la page annonçait
+  // l'alpha.4 pendant que le registre servait l'alpha.5. Un rappel imprimé en
+  // fin de publication ne mord pas, et la garde préalable ne ferait que déplacer
+  // la dette d'un cran : entre deux publications, la page resterait fausse.
+  //
+  // Le remplacement de la VERSION est mécanique, donc il se fait ici, à chaud,
+  // pendant que le registre vient d'être mis à jour. Ce qui relève de la prose —
+  // requalifier le `git clone`, dire ce qu'une préversion ne promet pas — reste
+  // à la main, et le contrôle intégré au mode `--basculer` le REFUSE tant que ce
+  // n'est pas fait : rien n'est déclaré bon sans avoir été constaté.
+  etape = "bascule de l'accueil";
+  {
+    const r = spawnSync(
+      "node",
+      ["scripts/release/accueil-gate.mjs", "--basculer"],
+      { cwd: ROOT, stdio: "inherit" },
+    );
+    if (r.status !== 0) {
+      alerter(
+        "l'accueil n'est PAS d'aplomb après bascule — les écarts ci-dessus demandent une\n" +
+          "  main (formulation, canal d'une commande). À solder avant de pousser le commit.",
+      );
+    }
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -1418,16 +1481,17 @@ dire(
     "     retard fait ensuite mentir tout ce qui l'interroge.\n" +
     "  5. poser le tag — c'est LUI qui déclenche la publication par la forge :\n" +
     `       git tag v${VERSION} <commit de ${BRANCHE_PUBLICATION}> && git push origin v${VERSION}\n` +
-    "  6. BASCULER l'accueil sur ce qui est désormais publié — TROIS endroits, et\n" +
-    "     aucun automate ne les surveille :\n" +
-    "       README.md  — le bloc « État », puis la section « Démarrage »\n" +
-    "       AGENTS.md  — la ligne « Publication npm » de la table d'état\n" +
-    "     C'est la première impression du jour de l'annonce, et elle ne se rattrape\n" +
-    "     pas. Deux règles, tant que `latest` n'est pas la version stable : la\n" +
-    "     commande annoncée NOMME son canal — une forme nue sert `nodefony@7.0.2`,\n" +
-    "     une version JavaScript sans rapport avec ce que la page décrit — et le\n" +
-    "     `git clone` ne se supprime jamais, il se requalifie « contribuer au\n" +
-    "     framework », seule voie pour travailler sur le framework lui-même.\n" +
+    "  6. RELIRE la bascule d'accueil — les VERSIONS ont déjà été réécrites par\n" +
+    "     `accueil-gate.mjs --basculer`, et le contrôle est passé derrière. Ce qui\n" +
+    "     n'est PAS automatisable, parce que c'est de la prose à décider :\n" +
+    "       · au cran beta   — dire ce que la préversion ne promet pas\n" +
+    "       · au cran stable — `npm create nodefony@latest` en tête, et le\n" +
+    "         `git clone` REQUALIFIÉ « contribuer au framework » (jamais supprimé :\n" +
+    "         c'est la seule voie pour travailler sur le framework lui-même)\n" +
+    "     Tant que `latest` n'est pas la version stable, toute commande annoncée\n" +
+    "     NOMME son canal — une forme nue sert `nodefony@7.0.2`, une version\n" +
+    "     JavaScript sans rapport avec ce que la page décrit. Le gate refuse une\n" +
+    "     commande nue dans un bloc de code ; il ne peut pas écrire la phrase.\n" +
     (PUBLIER
       ? `  7. déclarer le publieur de confiance sur les ${ordre.length} paquets (npmjs.com) :\n` +
         "     même dépôt, même NOM DE FICHIER de workflow, extension comprise — tous les\n" +
