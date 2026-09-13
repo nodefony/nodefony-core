@@ -549,6 +549,43 @@ verdict, l'ordre des drapeaux de Vibe, le foyer jetable qui doit emporter la cl�
 qui comptait ROUGE un agent utilisant le MCP : **`references/agents-et-porte-mcp.md`** — à lire
 AVANT de câbler un agent de plus (Codex et Gemini y ont leur ligne, à établir).
 
+### La PRÉMISSE d'identité — ne pas payer un agent pour un verdict impossible
+
+Neuf tâches font mesurer une protection depuis une session `admin`. Sans ce
+compte, leur juge rend un rouge de DÉCOR : la bonne conduite, mais après coup —
+la tâche a été jouée et l'agent payé pour un verdict qu'on savait ne pas pouvoir
+rendre. Le lanceur CONSTATE donc l'identité avant de lancer l'agent
+(`scripts/lib/premisse-identite.mjs`), par le geste que le juge fera — ouvrir une
+session, jamais lire une ligne en base. Prémisse absente ⇒ la tâche n'est pas
+jouée, et le run le dit.
+
+Le décor est rendu dans l'état où la garde l'a trouvé : l'application n'est
+arrêtée que si c'est la garde qui l'a démarrée — en régime `eteint`, l'agent
+doit trouver une application à l'arrêt.
+
+> 🔴 **Le mot de passe du compte `admin` ne se recopie JAMAIS dans le banc.** Il
+> se lit là où il est posé : `NF_ADMIN_PASSWORD` si l'exploitant l'a posée,
+> sinon la constante du SEMIS de l'application témoin — pas celle du gabarit du
+> dépôt, qui n'est pas forcément celle d'une application rendue en source
+> `registre`. **Aucun repli en dur** : ne pas savoir est une information.
+>
+> Ce que ça a coûté : la valeur vivait ici en dur (« admin ») pendant que le
+> gabarit la changeait pour `nodefony-dev-42`. La politique de mot de passe par
+> défaut refusant l'ancienne, plus aucune session ne s'ouvrait — les neuf juges
+> rendaient « identité indisponible » sur TOUTES leurs tâches, pas sur la tâche
+> isolée qu'on croyait. Chaque moitié du jumeau restait cohérente avec
+> elle-même ; c'est l'écart que personne ne regardait.
+>
+> `scripts/lib/identites.selftest.mjs` confronte donc au juge du PRODUIT les valeurs que
+> les bancs posent eux-mêmes (`MOT_DE_PASSE_POSE`, `MOT_DE_PASSE_SONDE`) : un
+> durcissement de la politique tombe là, plus trois semaines plus tard sur un
+> décor qui ne sème plus rien.
+
+**La liste des tâches concernées se DÉRIVE du code des juges**, jamais d'une
+liste écrite à la main : `scripts/lib/premisse-identite.selftest.mjs` relit quels juges
+emploient l'identité partagée et exige que leur tâche porte la garde. C'est
+ainsi qu'une neuvième tâche est apparue, absente du relevé fait au `rg`.
+
 ## Banc de conformité — l'application tient-elle les promesses du framework ?
 
 ```bash

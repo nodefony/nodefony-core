@@ -88,7 +88,16 @@ const stable = (texte) =>
     .join("/")
     // La lettre de lecteur fait partie du préfixe à couper : sans elle,
     // `D:/a/x/.claude/…` garde son `D:` et Windows rend une TROISIÈME empreinte.
-    .replace(/(?:[A-Za-z]:)?\/[^\s"'`]*?(\.claude\/)/gu, "<repo>/$1")
+    //
+    // 🔴 Le repère se prend au DERNIER `.claude/`, pas au premier — le motif
+    // est GOURMAND délibérément. Un dépôt peut vivre SOUS un `.claude/` : c'est
+    // exactement le cas d'un worktree d'agent (`.claude/worktrees/<nom>/`), où
+    // le chemin en porte deux. Coupé au premier, il reste
+    // `<repo>/.claude/worktrees<repo>/.claude/…` et quatre tâches passent pour
+    // « réécrites » alors que rien n'a bougé — vécu en préparant cette garde.
+    // Sur un chemin qui n'en porte qu'un, gourmand et paresseux rendent le
+    // MÊME texte : aucune empreinte déjà payée ne change.
+    .replace(/(?:[A-Za-z]:)?\/[^\s"'`]*(\.claude\/)/gu, "<repo>/$1")
     .split(RACINE_DEPOT.split(path.sep).join("/"))
     .join("<repo>")
     .replace(/\s+/gu, " ")

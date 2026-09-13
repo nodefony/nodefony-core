@@ -23,6 +23,7 @@ import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { portLibre } from "./http-probe.mjs";
+import { MOT_DE_PASSE_SONDE } from "./identites.mjs";
 
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -46,7 +47,11 @@ const IDENTIFIANT = "0192f3aa-7c1d-7000-8000-000000000001";
 const run = (args) =>
   new Promise((resolve) => {
     const p = spawn("node", args, {
-      env: { ...process.env, NF_PORT: PORT, NF_ADMIN_PASSWORD: "" },
+      env: {
+        ...process.env,
+        NF_PORT: PORT,
+        NF_ADMIN_PASSWORD: MOT_DE_PASSE_SONDE,
+      },
     });
     let out = "";
     let err = "";

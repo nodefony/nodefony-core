@@ -382,7 +382,7 @@ if (process.argv.includes("--prove") && MODULE === "./reference.mjs") {
       // Sans la coupe au repère `.claude/`, l'empreinte porte la racine de la
       // machine — et un dépôt cloné ailleurs voit toutes ses tâches « réécrites ».
       regle: "l'empreinte ne dépend pas de la racine du dépôt",
-      de: '.replace(/(?:[A-Za-z]:)?\\/[^\\s"\'`]*?(\\.claude\\/)/gu, "<repo>/$1")',
+      de: '.replace(/(?:[A-Za-z]:)?\\/[^\\s"\'`]*(\\.claude\\/)/gu, "<repo>/$1")',
       vers: "",
     },
     {
@@ -540,11 +540,17 @@ console.log("\n• empreinte — le CODE du juge en fait partie");
     "/Users/qui/repo/.claude/skills/s/scripts/lib/prep.mjs",
     "/home/runner/work/repo/repo/.claude/skills/s/scripts/lib/prep.mjs",
     "D:\\a\\repo\\.claude\\skills\\s\\scripts\\lib\\prep.mjs",
+    // 🔴 Un dépôt peut vivre SOUS un `.claude/` : c'est le cas d'un worktree
+    // d'agent (`.claude/worktrees/<nom>/`), où le chemin en porte DEUX. Coupé
+    // au premier, il reste `<repo>/.claude/worktrees<repo>/.claude/…` — mesuré,
+    // quatre tâches passaient pour « réécrites » alors que rien n'avait bougé.
+    "/Users/qui/repo/.claude/worktrees/t/.claude/skills/s/scripts/lib/prep.mjs",
   ].map((r) => empreinteTache(mk(r)));
   if (new Set(racines).size !== 1)
     echec(
       `l'empreinte dépend de la racine du dépôt : ${racines.join(" ≠ ")} — ` +
-        "une référence versionnée doit valoir sur les trois plateformes",
+        "une référence versionnée doit valoir sur les trois plateformes, " +
+        "et depuis un worktree",
     );
 
   // Et le SOURCE d'une sonde de lecture compte : deux `observe` différents sous
@@ -564,7 +570,7 @@ console.log("\n• empreinte — le CODE du juge en fait partie");
   if (defauts === 0)
     console.log(
       "  ✓ juge touché → empreinte changée · restauré → revenue · " +
-        "3 racines → 1 empreinte · `observe` distingué",
+        "4 racines (dont un worktree) → 1 empreinte · `observe` distingué",
     );
 }
 

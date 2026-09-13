@@ -59,6 +59,7 @@ import {
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { extraitEchec } from "./lib/extrait-echec.mjs";
+import { MOT_DE_PASSE_POSE } from "./lib/identites.mjs";
 import { createRequire } from "node:module";
 
 /**
@@ -1544,7 +1545,7 @@ step(
   "Le mode que les autres étapes n'exercent jamais — un défaut de dépendance " +
     "n'y apparaît qu'au déploiement, quand plus personne ne regarde.",
   () => {
-    const env = { NF_ADMIN_PASSWORD: "banc-verite-admin" };
+    const env = { NF_ADMIN_PASSWORD: MOT_DE_PASSE_POSE };
     run(process.execPath, [BIN, "production", "--detach", "--wait"], APP, env);
     try {
       // `--wait` dit que le serveur écoute ; il ne dit pas qu'il RÉPOND. Le

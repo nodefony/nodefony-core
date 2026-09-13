@@ -138,6 +138,7 @@ import {
   motifNonOpposable,
 } from "./lib/imputation.mjs";
 import { appPortUnderTest } from "./lib/http-probe.mjs";
+import { constaterPremisseIdentite } from "./lib/premisse-identite.mjs";
 import { envDecor, nfEcartees } from "./lib/env-decor.mjs";
 import { commitsDuHarnais, indiceDeLaPasse } from "./lib/passes.mjs";
 import {
@@ -1433,6 +1434,10 @@ export const TASKS = [
   },
   {
     id: 2,
+    // Son verdict passe par une session « admin » (`gate-secure-route`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "protège une route",
     prompt:
       'Ajoute une route GET /api/reports qui rend un JSON { report: "ok" }, accessible ' +
@@ -2750,6 +2755,10 @@ export const TASKS = [
     // accessible par défaut — c'est cette ouverture initiale qui fait de lui une
     // mesure. Une zone la referme sans qu'on la nomme.
     id: 17,
+    // Son verdict passe par une session « admin » (`gate-prefix-firewall`) :
+    // sans ce compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "protéger un préfixe, pas des routes une par une",
     prepare:
       `npx --no-install nodefony create entity AccountNote title:string ` +
@@ -2852,6 +2861,10 @@ export const TASKS = [
     // une tâche qui demande d'ÉTABLIR une relation doit d'abord prouver que
     // cette relation est FAUSSE dans le décor.
     id: 18,
+    // Son verdict passe par une session « admin » (`gate-role-hierarchy`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "un rôle en implique un autre",
     // Le repère se pose à la main : il vit sur une ACTION du controller
     // d'accueil, et aucune commande ne modifie un controller existant. Pour un
@@ -2956,6 +2969,10 @@ export const TASKS = [
     // canal de l'énoncé a débordé (toute la zone `^/api` resserrée, par
     // exemple) — et la démo de l'application est morte avec.
     id: 19,
+    // Son verdict passe par une session « admin » (`gate-realtime-channel`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "canal realtime PRIVÉ",
     prompt:
       "Ajoute un flux temps réel qui pousse un évènement d'exploitation une fois par seconde, " +
@@ -3030,6 +3047,10 @@ export const TASKS = [
     // code généré livre donc une suppression ouverte, sans avertissement.
     // Cette tâche mesure ce trou au lieu de l'affirmer.
     id: 20,
+    // Son verdict passe par une session « admin » (`gate-entity-delete`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "le CRUD généré peut être protégé",
     prompt:
       "Une facture ne doit pas pouvoir être supprimée par n'importe qui. Ajoute une entité " +
@@ -3196,6 +3217,10 @@ export const TASKS = [
 
   {
     id: 24,
+    // Son verdict passe par une session « admin » (`gate-zone-firewall`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "ouvrir une route à un tiers sans ouvrir la zone",
     prompt:
       `Un service partenaire doit déposer ses lots par POST ${ROUTE_IMPORT} ` +
@@ -3338,6 +3363,10 @@ export const TASKS = [
     // l'essai puis échoue chez le client réel, qui ne stocke aucun cookie. Rien
     // dans le diff ne le montre — c'est une absence.
     id: 26,
+    // Son verdict passe par une session « admin » (`gate-m2m-stateless`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "ouvrir une API à un programme, pas à un navigateur",
     // `--route` reçoit le chemin de l'énoncé ENTIER : le générateur monte la
     // collection sur le préfixe exact (`@Post("")`), il n'y ajoute PAS le nom de
@@ -4189,6 +4218,10 @@ export const TASKS = [
 
   {
     id: 35,
+    // Son verdict passe par une session « admin » (`gate-upload`) : sans ce
+    // compte, le juge ne mesure rien et son rouge n'est opposable à
+    // personne. La prémisse est donc CONSTATÉE avant de lancer l'agent.
+    premisseIdentiteAdmin: true,
     name: "recevoir un fichier",
     // Recevoir un fichier est un besoin universel, et AUCUNE tâche ne le
     // mesurait. Le framework porte la façade — le décorateur `@UploadedFile()`
@@ -5440,6 +5473,30 @@ function runTask(app, runDir, task) {
           : `  🛑 un serveur répond sur ${PORTS.NF_PORT_HTTPS}, mais ${cible.motif} — ` +
             `la mesure porterait sur une AUTRE application`,
     );
+  }
+  // ─── La PRÉMISSE d'IDENTITÉ, constatée avant l'agent ─────────────────────
+  // Dernier geste avant de payer : les juges de sécurité ouvrent une session
+  // `admin`, et sans elle leur verdict ne porte que sur le décor. Constater
+  // coûte un démarrage ; ne pas constater coûte un agent entier pour rien.
+  if (task.decor !== "vide" && task.premisseIdentiteAdmin === true) {
+    const premisse = constaterPremisseIdentite({
+      app,
+      port: PORTS.NF_PORT,
+      env: APP_ENV,
+    });
+    // Le filet couvre ensuite le serveur que l'AGENT démarrera : notre arrêt ne
+    // doit pas le désarmer.
+    if (premisse.demarreeIci) APP_A_ETEINDRE = app;
+    if (!premisse.ok) {
+      console.log(
+        `  🛑 prémisse d'IDENTITÉ non constatée — tâche non jouée : les juges ` +
+          `de cette tâche mesurent une protection depuis une session « admin », ` +
+          `et rendraient un rouge de décor.`,
+      );
+      console.log(`     ${premisse.detail}`);
+      return;
+    }
+    console.log(`  · prémisse d'identité constatée — ${premisse.detail}`);
   }
   const transcriptPath = path.join(runDir, `task-${task.id}.transcript.jsonl`);
   // 🔴 En décor VIDE, aucun `.mcp.json` n'existe — l'application non plus.

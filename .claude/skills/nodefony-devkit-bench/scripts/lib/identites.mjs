@@ -21,6 +21,9 @@
  *
  * @module
  */
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
+
 import { CookieJar, request, exit } from "./http-probe.mjs";
 
 /** Point d'entrée d'authentification du framework — jamais écrit par l'agent. */
@@ -29,10 +32,119 @@ export const LOGIN = "/nodefony/security/api/auth/login";
 /** Qui suis-je : prouve qu'un cookie porte bien une identité établie. */
 export const MOI = "/nodefony/security/api/auth/me";
 
-/** Compte administrateur semé au premier démarrage par le preset `complete`. */
+/**
+ * Le mot de passe qu'un banc POSE quand il commande lui-même le semis.
+ *
+ * Un banc qui démarre en production doit fournir `NF_ADMIN_PASSWORD` — le
+ * gabarit n'y applique aucun défaut, délibérément. La valeur vit ICI parce
+ * qu'elle est soumise à la politique de mot de passe du produit, exactement
+ * comme celle d'un utilisateur : écrite dans le banc qui l'emploie, elle a déjà
+ * été rendue INVALIDE par un durcissement de la politique sans que rien ne le
+ * dise — le compte n'était plus semé, et l'étape restait verte parce qu'elle ne
+ * s'en servait pas. `identites.selftest.mjs` la confronte à la politique.
+ */
+export const MOT_DE_PASSE_POSE = "banc-verite-42";
+
+/**
+ * Ce qu'un AUTO-CONTRÔLE pose pour que le juge FRAPPE son faux serveur.
+ *
+ * Ces contrôles montent un serveur de pacotille et vérifient que le juge sait
+ * distinguer ses causes. Il leur faut donc une valeur — n'importe laquelle,
+ * mais une VRAIE : sans elle, la résolution part chercher le semis d'une
+ * application qui n'existe pas ici, le juge refuse de frapper, et les dix cas
+ * rendent la même cause « identité indisponible ». Une chaîne vide tenait ce
+ * rôle tant qu'un repli en dur existait ; elle ne le tient plus.
+ */
+export const MOT_DE_PASSE_SONDE = "sonde-selftest-42x";
+
+/** Où l'application témoin écrit son semis — le RENDU du gabarit `complete`. */
+const SEMIS = path.join("nodefony", "security", "provisionUsers.ts");
+
+/** La constante que ce fichier déclare pour le mot de passe de développement. */
+const CONSTANTE_SEMIS = "DEV_ADMIN_PASSWORD";
+
+/** Résolution mémoïsée — le fichier ne change pas pendant la vie d'un juge. */
+let resolution = null;
+
+/**
+ * Le mot de passe du compte administrateur, LU là où il est posé.
+ *
+ * 🔴 Cette valeur ne se recopie JAMAIS. Elle a vécu ici en dur (« admin »)
+ * pendant que le gabarit du framework la changeait pour `nodefony-dev-42` : la
+ * politique de mot de passe par défaut refuse désormais l'ancienne (trop
+ * courte), donc plus aucune session ne s'ouvrait — et les huit juges de
+ * sécurité rendaient « décor absent » sur TOUTES leurs tâches, au lieu de la
+ * tâche isolée qu'on croyait. Un jumeau non vérifié ne se voit pas : chaque
+ * moitié reste cohérente avec elle-même.
+ *
+ * Deux sources, dans cet ordre, et rien d'autre :
+ *
+ * 1. `NF_ADMIN_PASSWORD` s'il est POSÉ — c'est le geste de l'exploitant, et le
+ *    gabarit lui donne la priorité ; le banc doit lire la même priorité.
+ * 2. sinon la constante du SEMIS de l'application témoin — pas celle du
+ *    gabarit du dépôt : en source `registre`, l'application est rendue par un
+ *    générateur venu de npm, dont le défaut peut différer du checkout.
+ *
+ * Rien de plus : **aucun repli en dur**. Ne pas savoir est une information, et
+ * la taire derrière une valeur plausible est précisément ce qui a coûté les
+ * runs ci-dessus.
+ *
+ * @param {string} [racine] - la racine de l'application témoin (défaut : cwd —
+ *   les juges s'exécutent DANS l'application, jamais dans le dépôt).
+ * @returns {{password: string, source: string}|{echec: string}} la valeur et sa
+ *   provenance, ou le motif pour lequel on ne la connaît pas.
+ */
+export function motDePasseAdmin(racine = process.cwd()) {
+  const pose = process.env.NF_ADMIN_PASSWORD;
+  if (typeof pose === "string" && pose.length > 0) {
+    return { password: pose, source: "NF_ADMIN_PASSWORD" };
+  }
+  const fichier = path.join(racine, SEMIS);
+  if (!existsSync(fichier)) {
+    return {
+      echec:
+        `ni NF_ADMIN_PASSWORD posé, ni ${SEMIS} lisible depuis ${racine} — ` +
+        "impossible de savoir avec quel mot de passe le compte a été semé",
+    };
+  }
+  const trouve = new RegExp(`${CONSTANTE_SEMIS} = "([^"]*)"`, "u").exec(
+    readFileSync(fichier, "utf8"),
+  );
+  if (trouve === null || trouve[1].length === 0) {
+    return {
+      echec:
+        `${CONSTANTE_SEMIS} introuvable dans ${SEMIS} — le gabarit a changé de ` +
+        "forme, ou l'application a été rendue par un autre preset. Recaler " +
+        "cette lecture, ne pas remettre une valeur en dur",
+    };
+  }
+  return { password: trouve[1], source: SEMIS };
+}
+
+/**
+ * Compte administrateur semé au premier démarrage par le preset `complete`.
+ *
+ * Le mot de passe est un ACCESSEUR : il se résout au premier usage, dans le
+ * répertoire de l'application témoin. À l'import, ce répertoire n'est pas
+ * forcément celui d'une application — les auto-contrôles chargent ce module
+ * depuis le dépôt.
+ */
 export const ADMIN = {
   username: "admin",
-  password: process.env.NF_ADMIN_PASSWORD || "admin",
+  get password() {
+    resolution ??= motDePasseAdmin();
+    return resolution.password ?? "";
+  },
+  /** Le motif pour lequel le mot de passe est INCONNU, ou `undefined`. */
+  get echec() {
+    resolution ??= motDePasseAdmin();
+    return resolution.echec;
+  },
+  /** D'où vient la valeur employée — pour le DIRE dans le journal du banc. */
+  get source() {
+    resolution ??= motDePasseAdmin();
+    return resolution.source;
+  },
 };
 
 /**
@@ -84,6 +196,12 @@ export const repondreArgsTemoin = () => {
  * @returns {Promise<{jar?: CookieJar, echec?: string, injoignable?: string}>} jar, ou motif.
  */
 export const ouvrirSession = async (identite) => {
+  // Ne pas FRAPPER avec un mot de passe qu'on ne connaît pas : l'échec
+  // ressemblerait à « ce compte n'existe pas » et enverrait chercher un défaut
+  // de semis, alors que c'est le banc qui ne sait pas quoi présenter.
+  if (identite.echec !== undefined) {
+    return { echec: `mot de passe inconnu du banc — ${identite.echec}` };
+  }
   const jar = new CookieJar();
   const r = await request("POST", LOGIN, jar, { body: identite });
   if (r.error) return { injoignable: r.error };
@@ -151,3 +269,54 @@ export const etablirIdentites = async () => {
 
   return { admin: admin.jar, temoin: temoin.jar };
 };
+
+/**
+ * `--constater` : la PRÉMISSE d'identité, éprouvée AVANT que l'agent arrive.
+ *
+ * Huit juges ouvrent une session `ADMIN` pour mesurer une protection. Quand ce
+ * compte n'est pas joignable, ils rendent un rouge de DÉCOR — la bonne conduite,
+ * mais trop tard : la tâche a été jouée, l'agent payé, et le run est
+ * inutilisable pour cette tâche. On aura payé un verdict qu'on savait d'avance
+ * ne pas pouvoir rendre.
+ *
+ * Ce mode fait le MÊME geste que le juge fera — ouvrir une session, pas lire une
+ * ligne en base : un compte présent dont le mot de passe diffère de celui que le
+ * banc présente est exactement le cas qui a vidé les huit juges, et aucune
+ * lecture de table ne l'aurait vu. Il ne crée rien, ne migre rien, ne touche à
+ * rien : ce que la prémisse constate ne doit pas modifier ce que l'agent
+ * trouvera.
+ *
+ * Sorties : `0` la prémisse tient · `1` elle manque, et le motif la nomme.
+ *
+ * @returns {Promise<void>} sort du processus si le drapeau est présent.
+ */
+export const constaterIdentiteAdmin = async () => {
+  if (!process.argv.includes("--constater")) return;
+  const session = await ouvrirSession(ADMIN);
+  if (session.injoignable) {
+    exit(
+      1,
+      `DECOR=ABSENT — l'application ne répond pas sur ${LOGIN} : ` +
+        `${session.injoignable}. Elle n'a pas démarré, ou pas sur ce port.`,
+    );
+  }
+  if (session.echec) {
+    exit(
+      1,
+      `DECOR=ABSENT — le compte « ${ADMIN.username} » n'ouvre pas de session : ` +
+        `${session.echec}. Il est semé au premier démarrage par le preset ` +
+        `complete ; sans lui les juges de sécurité ne mesurent rien.`,
+    );
+  }
+  exit(
+    0,
+    `DECOR=pose — session « ${ADMIN.username} » ouverte et cookie rejoué ` +
+      `(mot de passe : ${ADMIN.source}).`,
+  );
+};
+
+// Ne s'exécute QUE lancé directement : les juges importent ce module pour ses
+// identités, sans vouloir constater quoi que ce soit.
+if (process.argv[1]?.endsWith("identites.mjs")) {
+  await constaterIdentiteAdmin();
+}

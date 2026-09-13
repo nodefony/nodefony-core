@@ -38,6 +38,7 @@ import {
   CHEMIN_REALTIME_OPS,
 } from "./enonces.mjs";
 import { portLibre } from "./http-probe.mjs";
+import { MOT_DE_PASSE_SONDE } from "./identites.mjs";
 
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -59,7 +60,11 @@ const MOI = "/nodefony/security/api/auth/me";
 const run = (args) =>
   new Promise((resolve) => {
     const p = spawn("node", args, {
-      env: { ...process.env, NF_PORT: PORT, NF_ADMIN_PASSWORD: "" },
+      env: {
+        ...process.env,
+        NF_PORT: PORT,
+        NF_ADMIN_PASSWORD: MOT_DE_PASSE_SONDE,
+      },
     });
     let out = "";
     let err = "";
