@@ -29,6 +29,7 @@ import assert from "node:assert/strict";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { MOT_DE_PASSE_SONDE } from "./identites.mjs";
 import {
   judge,
   chercherHorsDepot,
@@ -281,7 +282,11 @@ for (const c of cas) {
     new Promise((resolve) => {
       const p = spawn(process.execPath, [JUGE], {
         cwd: racine,
-        env: { ...process.env, NF_PORT: PORT_JOUET },
+        env: {
+          ...process.env,
+          NF_PORT: PORT_JOUET,
+          NF_ADMIN_PASSWORD: MOT_DE_PASSE_SONDE,
+        },
         encoding: "utf8",
       });
       let out = "";
