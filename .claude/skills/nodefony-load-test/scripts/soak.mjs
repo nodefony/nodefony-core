@@ -241,6 +241,27 @@ const srv = spawn(
       NF_LOG_DRIVER: "null",
       NF_BENCH_ROUTE: "1",
       NF_WITH_DEV_MODULES: "1",
+      // 🔴 Le store de session en MÉMOIRE, et ce n'est pas un raccourci de
+      // confort : c'est l'usage que le produit prévoit pour un banc de charge
+      // (`infra.ts` — « `memory` pour un banc de CHARGE, mesurer le framework
+      // sans le goulot sqlite/disque »). Le dépôt configure `session.store:
+      // "auto"`, qui retombe sur sqlite dès que l'ORM est chargé ; sur un
+      // exécuteur d'intégration la base n'a reçu aucune migration, la table
+      // `session` n'existe pas, et les routes qui touchent la session
+      // N'ABOUTISSENT JAMAIS — elles ne rendent ni 500 ni 404, elles PENDENT.
+      //
+      // C'est ce qui tenait ce banc rouge depuis le 09-06, et le diagnostic mis
+      // en place ici l'a nommé : route volontairement absente → 404 (le routeur
+      // répond), sonde mémoire ET sa voisine `/nodefony/test/context` → délai
+      // dépassé. Deux routes du même controller muettes pendant que les
+      // absences répondent : ce n'est ni un démarrage lent, ni un controller
+      // manquant, ni le ramasse-miettes (mesuré à 306 ms sur 295 MB).
+      //
+      // ⚠️ Qu'une table absente fasse PENDRE une requête plutôt qu'échouer est
+      // un défaut du PRODUIT, pas du banc — il vaut pour toute application dont
+      // les migrations n'ont pas été appliquées. Posé en ticket à part : le
+      // banc n'est pas l'endroit où on le corrige.
+      NF_STORE: "memory",
       // 🔴 La dérogation aux modules `dev` est MINUTÉE et jamais désarmable : à
       // son échéance, le runtime s'arrête TOUT SEUL. Une marge fixe de 30 min
       // sur la durée DEMANDÉE ne suffit pas — une fenêtre de N secondes coûte
