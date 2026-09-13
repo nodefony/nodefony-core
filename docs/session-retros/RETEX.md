@@ -22,6 +22,28 @@
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
+- [1× — 09-13b] **DEUX sessions ont écrit la même implémentation du même ticket, à cinq minutes
+  d'écart, et git ne pouvait pas le dire.** Isolé dans un worktree créé à 11 h 09, j'ai commité #366
+  à 11 h 46 ; l'autre session a commité le sien à 11 h 51, directement sur `dev`. Aucune des deux ne
+  pouvait voir l'autre : au moment où j'ai écrit, il n'y avait RIEN à voir. Le résultat est deux
+  modules de prémisse concurrents (`premisse-admin.mjs` / `premisse-identite.mjs`) et deux
+  auto-contrôles homonymes — exactement la duplication que « 1 RÈGLE = 1 implémentation » interdit,
+  produite sans qu'aucune règle soit enfreinte. Ce que ça enseigne : **l'isolation par worktree
+  protège des collisions de FICHIERS, pas des collisions de SUJET.** Le seul point de coordination
+  qui existe est le ticket lui-même — un `gh issue view` juste avant d'écrire, et un `git fetch`
+  juste avant de commiter, auraient rattrapé le second cas sinon le premier. Corollaire : quand
+  deux travaux se recouvrent, comparer les DEUX et garder le meilleur (ici celui de `dev`, qui LIT
+  le mot de passe dans le semis au lieu de le recopier) coûte moins cher que de fusionner les deux.
+
+- [1× — 09-13b] **Un worktree sans `node_modules` fabrique des rouges qu'on impute à son propre
+  diff.** 8 tests d'entité ont échoué ; j'ai d'abord conclu « c'est mon changement » après les avoir
+  vus verts sur le dépôt principal — inférence FAUSSE, puisque le principal différait par DEUX
+  choses (le diff **et** le build). La cause était le `dist` du module `user` absent du worktree. Un
+  `npm run build` ciblé les a tous rendus verts d'un coup, et 4 rouges restants disaient « aucune
+  entrée d'app résolue », c'est-à-dire encore le décor. Le contrôle qui tranche ne coûte rien :
+  **mes commits touchent-ils seulement les fichiers concernés ?** (`git diff --name-only`) — c'est
+  ce qui a prouvé, plus tard dans la même session, qu'un rouge du banc devkit ne venait pas de moi.
+
 - [1× — 09-12e] **La piste que j'avais moi-même déposée dans un ticket était FAUSSE, et je l'ai
   suivie avant de regarder le terrain.** Le commentaire de #365 concluait, d'une observation faite
   en production, que le trou était « borné à l'environnement où le schéma se dérive du code ». En
@@ -619,6 +641,17 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🧪 Une instruction qu'on PUBLIE sans l'exécuter est une affirmation, pas un fait
+
+- [1× — 09-13b] **`node --check` passe sur un code qui lève à la première exécution.** Le
+  diagnostic ajouté à `soak.mjs` mourait sur `new URL(PROBE)` — « URL is not a constructor » —
+  parce que ce script tient déjà une constante `URL` (la cible de la charge, `soak.mjs:55`) qui
+  MASQUE le constructeur global. La syntaxe est valable ; c'est la RÉSOLUTION du nom qui est
+  fausse, et elle ne se manifeste que sur le chemin d'ÉCHEC — donc jamais en fonctionnement
+  nominal. J'ai perdu un aller-retour de CI entier à l'endroit précis où j'étais venu chercher
+  une réponse. Deux leçons : un contrôle de syntaxe ne dit RIEN d'un identifiant global qu'un
+  module redéfinit, et **du code qui ne s'exécute qu'en cas de panne doit être éprouvé
+  séparément** — ici un `node -e` de trois lignes sur l'extraction d'origine aurait suffi, et
+  c'est ce que j'ai fait pour le correctif.
 
 - [1× — 09-12f] **Mon propre refus prescrivait un geste qui ne marchait pas — et je ne l'ai vu
   qu'en écrivant le test.** La garde neuve de `create entity` refuse quand un second appel ferait
