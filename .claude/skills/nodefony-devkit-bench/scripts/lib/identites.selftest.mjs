@@ -51,6 +51,11 @@ const {
   ouvrirSession,
 } = await import(MODULE);
 
+/** Le module SOUS TEST, en chemin de fichier — c'est LUI qu'on relance. */
+const CHEMIN_MODULE = MODULE.startsWith(".")
+  ? path.join(path.dirname(fileURLToPath(import.meta.url)), "identites.mjs")
+  : MODULE;
+
 /** Racine du dépôt, trouvée en REMONTANT — ce contrôle vit dans un skill. */
 function racineDepot(depuis) {
   let dir = depuis;
@@ -155,6 +160,31 @@ delete process.env.NF_ADMIN_PASSWORD;
   );
 }
 
+// ── 2 bis. La prémisse n'est pas un JUGE ───────────────────────────────────
+// `exit` avertit qu'une sortie rouge ne nomme pas sa cause — règle des juges,
+// dont le rouge est imputé à un agent. Une prémisse est lue AVANT que l'agent
+// existe : l'avertissement annonce alors un défaut d'instrument qui n'existe
+// pas, et le premier run réel l'a affiché. On le CONSTATE en lançant le mode
+// pour de vrai, hors de toute application : il tombe, et doit se taire.
+{
+  const r = spawnSync(process.execPath, [CHEMIN_MODULE, "--constater"], {
+    cwd: VIDE,
+    encoding: "utf8",
+    env: { ...envOriginal, NF_ADMIN_PASSWORD: "" },
+  });
+  const dit = `${r.stderr ?? ""}${r.stdout ?? ""}`;
+  verifier(
+    r.status === 1 && dit.includes("DECOR=ABSENT"),
+    "hors d'une application, la prémisse TOMBE en le disant",
+    `code ${r.status} — ${dit.trim().slice(0, 120)}`,
+  );
+  verifier(
+    !dit.includes("SANS nommer sa cause"),
+    "…et ne se présente PAS comme un juge (aucune cause à imputer)",
+    dit.trim().slice(0, 160),
+  );
+}
+
 // ── 3. La politique du PRODUIT accepte-t-elle ce que les bancs posent ? ─────
 // C'est la règle qui manquait : le garde-fou du produit couvre les fixtures du
 // produit (gabarit, dépôt) ; les valeurs des BANCS n'étaient confrontées à
@@ -252,6 +282,11 @@ if (process.argv.includes("--prove")) {
       regle: "on FRAPPE avec un mot de passe inconnu",
       de: "  if (identite.echec !== undefined) {",
       vers: "  if (false) {",
+    },
+    {
+      regle: "la prémisse ressort par `exit` (elle se présente en juge)",
+      de: "const rendreVerdictDecor = (code, message) => {\n  console.error(message);\n  process.exit(code);\n};",
+      vers: "const rendreVerdictDecor = (code, message) => exit(code, message);",
     },
     {
       regle:

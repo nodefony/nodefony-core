@@ -23,6 +23,7 @@
  */
 import { existsSync, readFileSync } from "node:fs";
 import path from "node:path";
+import { pathToFileURL } from "node:url";
 
 import { CookieJar, request, exit } from "./http-probe.mjs";
 
@@ -271,6 +272,28 @@ export const etablirIdentites = async () => {
 };
 
 /**
+ * Rend le verdict de la PRÉMISSE — sans passer par `exit`, délibérément.
+ *
+ * `exit` est fait pour un JUGE : il avertit qu'une sortie rouge ne nomme pas sa
+ * cause (`CAUSE=<nom>`), parce que le banc s'en sert pour dire à QUI le rouge
+ * est opposable. Une prémisse ne juge personne — elle est lue par le lanceur
+ * AVANT que l'agent existe, et rien ne lui sera jamais imputé. Constaté sur une
+ * application réelle : la sortie s'accompagnait de « ce juge sort en erreur SANS
+ * nommer sa cause », un défaut d'instrument annoncé là où il n'y en a pas.
+ * Émettre une `CAUSE=` pour faire taire l'avertissement aurait été pire : le
+ * classement des causes ne connaît pas celle-là, et il aurait fallu l'y ranger
+ * comme si un agent pouvait en répondre.
+ *
+ * @param {number} code - `0` la prémisse tient, `1` elle manque.
+ * @param {string} message - ce que le lanceur affichera.
+ * @returns {never}
+ */
+const rendreVerdictDecor = (code, message) => {
+  console.error(message);
+  process.exit(code);
+};
+
+/**
  * `--constater` : la PRÉMISSE d'identité, éprouvée AVANT que l'agent arrive.
  *
  * Huit juges ouvrent une session `ADMIN` pour mesurer une protection. Quand ce
@@ -294,21 +317,21 @@ export const constaterIdentiteAdmin = async () => {
   if (!process.argv.includes("--constater")) return;
   const session = await ouvrirSession(ADMIN);
   if (session.injoignable) {
-    exit(
+    rendreVerdictDecor(
       1,
       `DECOR=ABSENT — l'application ne répond pas sur ${LOGIN} : ` +
         `${session.injoignable}. Elle n'a pas démarré, ou pas sur ce port.`,
     );
   }
   if (session.echec) {
-    exit(
+    rendreVerdictDecor(
       1,
       `DECOR=ABSENT — le compte « ${ADMIN.username} » n'ouvre pas de session : ` +
         `${session.echec}. Il est semé au premier démarrage par le preset ` +
         `complete ; sans lui les juges de sécurité ne mesurent rien.`,
     );
   }
-  exit(
+  rendreVerdictDecor(
     0,
     `DECOR=pose — session « ${ADMIN.username} » ouverte et cookie rejoué ` +
       `(mot de passe : ${ADMIN.source}).`,
@@ -317,6 +340,13 @@ export const constaterIdentiteAdmin = async () => {
 
 // Ne s'exécute QUE lancé directement : les juges importent ce module pour ses
 // identités, sans vouloir constater quoi que ce soit.
-if (process.argv[1]?.endsWith("identites.mjs")) {
+//
+// La comparaison porte sur l'URL du module, pas sur son NOM de fichier : une
+// copie mutée s'appelle autrement, et une garde écrite en `endsWith` la rendrait
+// inerte — le débranchement passerait alors pour vert sans avoir rien exercé.
+if (
+  process.argv[1] !== undefined &&
+  pathToFileURL(process.argv[1]).href === import.meta.url
+) {
   await constaterIdentiteAdmin();
 }
