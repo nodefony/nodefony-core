@@ -357,9 +357,14 @@ if (!(probe0 instanceof Response) || !probe0.ok) {
   // qu'interpréter, et l'interprétation a déjà coûté deux hypothèses fausses :
   // un démarrage lent, puis un ramasse-miettes coûteux (mesuré à 306 ms sur
   // 295 MB retenus — il n'explique rien).
-  const voisine = new URL(PROBE);
-  const racineControleur = `${voisine.origin}/nodefony/test/context`;
-  const inexistante = `${voisine.origin}/nodefony/test/route-absente-du-banc`;
+  // ⚠️ PAS de `new URL(...)` ici : ce script tient déjà une constante `URL` —
+  // la cible de la charge — qui MASQUE le constructeur global. `new URL(PROBE)`
+  // y lève « URL is not a constructor », et l'on perd le diagnostic à l'endroit
+  // précis où on en avait besoin (vécu, run 34750101513). L'origine se découpe
+  // donc à la main, ce qui ne suppose rien du reste.
+  const origine = /^[a-z]+:\/\/[^/]+/iu.exec(PROBE)?.[0] ?? "";
+  const racineControleur = `${origine}/nodefony/test/context`;
+  const inexistante = `${origine}/nodefony/test/route-absente-du-banc`;
   const interroger = async (u) => {
     const r = await fetch(u, { signal: AbortSignal.timeout(10_000) }).catch(
       (e) => e,
