@@ -340,10 +340,46 @@ if (!(probe0 instanceof Response) || !probe0.ok) {
     probe0 instanceof Response
       ? (await probe0.text().catch(() => "")).slice(0, 300).trim()
       : "";
+
+  // 🔴 Quand la sonde n'obtient AUCUNE réponse, le corps est vide et les deux
+  // explications ci-dessous s'annulent : on ne sait dire ni « absente » ni
+  // « elle lève ». Deux voisines tranchent, et elles ne coûtent rien puisqu'on
+  // est déjà en train d'échouer.
+  //
+  //  · une route SŒUR du même controller : si elle répond, le controller est
+  //    monté et c'est la sonde SEULE qui pend ;
+  //  · une route volontairement INEXISTANTE sous le même préfixe : si elle rend
+  //    404 on sait que les absences répondent, et si elle expire AUSSI c'est le
+  //    traitement des routes inconnues qui ne rend jamais la main — auquel cas
+  //    la sonde n'est probablement pas montée du tout.
+  //
+  // Sans ces deux lignes, le banc rend un « pas de réponse » qu'on ne peut
+  // qu'interpréter, et l'interprétation a déjà coûté deux hypothèses fausses :
+  // un démarrage lent, puis un ramasse-miettes coûteux (mesuré à 306 ms sur
+  // 295 MB retenus — il n'explique rien).
+  const voisine = new URL(PROBE);
+  const racineControleur = `${voisine.origin}/nodefony/test/context`;
+  const inexistante = `${voisine.origin}/nodefony/test/route-absente-du-banc`;
+  const interroger = async (u) => {
+    const r = await fetch(u, { signal: AbortSignal.timeout(10_000) }).catch(
+      (e) => e,
+    );
+    return r instanceof Response
+      ? `HTTP ${r.status}`
+      : (r?.name ?? r?.cause?.code ?? String(r));
+  };
+  const [etatVoisine, etatInexistante] = await Promise.all([
+    interroger(racineControleur),
+    interroger(inexistante),
+  ]);
   console.error(
     `❌ sonde mémoire ${PROBE} → ${quoi} (attendu 200) — rien à mesurer.` +
       `\n   ${essaisSonde} demande(s) sur ${attenduSonde}s : ce n'est donc pas un démarrage lent.` +
       (corps ? `\n   réponse : ${corps}` : "") +
+      `\n   voisine du MÊME controller  ${racineControleur} → ${etatVoisine}` +
+      `\n   route volontairement absente ${inexistante} → ${etatInexistante}` +
+      `\n   (voisine OK + absente en 404 ⇒ la sonde seule pend ; les deux muettes ⇒ le` +
+      `\n    controller n'est pas monté et les absences ne répondent pas)` +
       `\n   404 = la route n'est pas montée (module test construit ? \`npm run build --workspace=src/modules/test\`).` +
       `\n   500 = elle lève ; 200 attendu sur ${URL} vient d'être obtenu, donc le serveur répond.` +
       `\n   Journal du serveur : /tmp/nf-soak.log`,
