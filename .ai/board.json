@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T08:14:14.909Z",
+  "generatedAt": "2026-09-13T11:07:00.175Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 88,
+      "closed": 90,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 16,
+      "open": 15,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 5,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 31,
+      "open": 32,
       "title": "10.0.0-beta"
     },
     {
@@ -3524,8 +3524,8 @@
       "number": 366,
       "title": "test(devkit-bench): constater l'identité admin avant de juger",
       "url": "https://github.com/nodefony/nodefony-core/issues/366",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3572,8 +3572,8 @@
       "number": 373,
       "title": "fix(scaffold): dire quel compte n'a pas été semé, et pourquoi",
       "url": "https://github.com/nodefony/nodefony-core/issues/373",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3621,7 +3621,7 @@
       "title": "feat(cli): laisser un exemple de chaque geste en « Minimal »",
       "url": "https://github.com/nodefony/nodefony-core/issues/341",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -3724,6 +3724,22 @@
       "ordre": 9.95,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 382,
+      "title": "refactor(scaffold): faire rédiger le message du semis par le framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/382",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P3 — fin de cycle",
+      "jours": 0.5,
+      "ordre": 9.95,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4411,11 +4427,27 @@
       ]
     },
     {
+      "number": 381,
+      "title": "fix(http): ne pas laisser pendre une requête quand la session échoue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/381",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 29.5,
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 25,
       "title": "ci(tests): remettre au vert le test de tenue dans la durée",
       "url": "https://github.com/nodefony/nodefony-core/issues/25",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
