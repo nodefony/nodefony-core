@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T12:11:45.740Z",
+  "generatedAt": "2026-09-13T12:38:05.169Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 6,
+      "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
       "open": 31,
@@ -56,7 +56,7 @@
       "closed": 3,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 29,
+      "open": 30,
       "title": "10.1.0"
     }
   ],
@@ -1916,6 +1916,22 @@
       "labels": [
         "irrattrapable",
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 385,
+      "title": "fix(securite): instruire les dix alertes d'analyse de code restées sans verdict",
+      "url": "https://github.com/nodefony/nodefony-core/issues/385",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.7,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
@@ -5252,6 +5268,22 @@
       "status": "Done",
       "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 136,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 384,
+      "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/384",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 136,
       "debut": "2026-11-16",
