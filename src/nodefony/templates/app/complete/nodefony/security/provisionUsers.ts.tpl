@@ -1,10 +1,6 @@
 import type { Module } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
-import {
-  describeSeedFailure,
-  InMemoryUserRepository,
-  UserService,
-} from "@nodefony/user";
+import { InMemoryUserRepository, UserService } from "@nodefony/user";
 import type { IPasswordEncoder } from "@nodefony/user";
 import { DrizzleUserRepository } from "@nodefony/drizzle";
 import type { DrizzleOrm } from "@nodefony/drizzle";
@@ -160,13 +156,41 @@ async function seedAdmin(users: UserService, module: Module): Promise<void> {
     // au moment de la génération, et une copie ne se corrige plus. Le semis
     // est un confort ; l'expliquer est un service, et celui-là se met à jour
     // avec `@nodefony/user`.
+    // 🔴 Ce message se compose ICI, et PAS par `describeSeedFailure`
+    // (@nodefony/user) — qui le rédige pourtant mieux, et une seule fois pour
+    // tout le monde. Motif : ce fichier est un GABARIT, donc du code DISTRIBUÉ.
+    // L'application qui le reçoit installe le framework depuis npm, et ne peut
+    // employer que ce que la version PUBLIÉE expose. L'import nommé d'un
+    // symbole ajouté après la dernière publication ne dégrade rien : il TUE le
+    // démarrage (`does not provide an export named …`) — vécu, sur toute
+    // application générée. Rebasculer sur la fonction du produit quand le
+    // plancher de version du gabarit l'aura dépassée.
+    // La règle enfreinte se lit sur la PROPRIÉTÉ `violation`, jamais par
+    // `instanceof` : une application qui se retrouve avec deux copies de
+    // `@nodefony/user` (hissage npm, lien local, monorepo) verrait le test de
+    // classe échouer et perdrait la seule information utile — au pire endroit,
+    // celui où l'on explique un échec.
+    const violation = (e as { violation?: unknown } | null)?.violation;
+    const why =
+      typeof violation === "string" && violation.length > 0
+        ? `mot de passe refusé (${violation})`
+        : e instanceof Error
+          ? e.message
+          : String(e);
+    // Le remède n'est pas le même geste selon d'où vient la valeur : envoyer
+    // corriger une variable que personne n'a posée fait chercher là où il n'y a
+    // rien.
+    const remedy =
+      fromEnv != null
+        ? "Corrige NF_ADMIN_PASSWORD"
+        : "Ce mot de passe est le défaut écrit dans le code de cette " +
+          "application — pose NF_ADMIN_PASSWORD (`.env.local`, gestionnaire " +
+          "de secrets)";
     module.log(
-      describeSeedFailure(e, {
-        identifier: ADMIN_IDENTIFIER,
-        envVar: "NF_ADMIN_PASSWORD",
-        fromEnv: fromEnv != null,
-        admin: true,
-      }),
+      `Le compte "${ADMIN_IDENTIFIER}" n'a PAS été semé : ${why}. ${remedy}, ` +
+        `ou crée le compte à la main : \`npx nodefony security:user:add ` +
+        `${ADMIN_IDENTIFIER} --admin\`. Le démarrage continue — l'application ` +
+        `tourne, sans ce compte.`,
       "ERROR",
       LOG_CTX,
     );
