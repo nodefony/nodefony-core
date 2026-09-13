@@ -82,6 +82,10 @@ import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
 import {
+  isPackageDuplicated,
+  packageDualityReport,
+} from "../runtime/packageInstances";
+import {
   diagnoseEmptyManifest,
   isForeignDescriptor,
   foreignPackageWarning,
@@ -1990,6 +1994,62 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
+   * Tranche le cas « deux paquets `nodefony` dans ce process » : AVERTIT en
+   * développement, REFUSE de démarrer en production.
+   *
+   * 🔴 POURQUOI CE N'EST PAS LE MÊME ARBITRAGE DES DEUX CÔTÉS. La règle du
+   * dépôt est fail-soft sur la DISPONIBILITÉ, fail-loud sur la DÉGRADATION —
+   * et sous dualité c'est la dégradation qui l'emporte, silencieusement. Chaque
+   * copie a ses classes, son contexte de requête ({@link RequestContext}) et
+   * ses registres d'injection ; {@link Service} teste `container instanceof
+   * Container`, test qui échoue d'une copie à l'autre, si bien qu'un service
+   * construit à la frontière JETTE le container reçu et s'en fabrique un vide.
+   * Mesuré sur ce dépôt : 11 modules sur 17 chargés, 5 écartés en fail-soft
+   * — dont `@nodefony/http` (aucun serveur ne monte) et `@nodefony/security`
+   * (l'application sert alors SANS pare-feu, et rien ne le dit).
+   *
+   * En développement, celui qui lance lit son journal et a besoin de son
+   * serveur : on démarre, en nommant les deux chemins. En production, personne
+   * ne lit les avertissements et ce qui tombe est la sécurité : démarrer
+   * reviendrait à servir du trafic sur une application amputée en silence.
+   *
+   * Ce que ce refus ne fait PAS : recoller les deux copies. Partager le kernel
+   * par le registre global ferait démarrer une application dont l'identité de
+   * requête reste invisible à la moitié des modules — une dégradation plus
+   * difficile à voir que celle qu'on aurait corrigée. On détecte et on dit.
+   *
+   * @throws {BootConfigurationError} en production, quand le process porte
+   *   plus d'une copie du paquet.
+   */
+  private assertSinglePackageInstance(): void {
+    // Chemin normal (une seule copie) : un test de longueur, rien d'alloué.
+    if (!isPackageDuplicated()) return;
+    const report = packageDualityReport();
+    if (!report) return;
+    const mode = this.resolveRuntimeEnv(this.cli?.environment);
+    if (mode === "development") {
+      this.log(report, "WARNING");
+      return;
+    }
+    // Le mode nommé DOIT être celui qu'on a constaté, pas « production » écrit
+    // d'avance : `resolveRuntimeEnv` fait un COLLAPSE (tout ce qui n'est pas
+    // « dev » tourne comme la production — `staging`, et `test` aussi). Un
+    // message qui annonce « en production » à qui lançait sa suite de tests
+    // envoie chercher un déploiement qui n'existe pas.
+    const nodeEnv = process.env.NODE_ENV;
+    const finding = nodeEnv
+      ? `mode runtime \`${mode}\` (NODE_ENV=${nodeEnv})`
+      : `mode runtime \`${mode}\``;
+    throw new BootConfigurationError(
+      `Démarrage refusé — ${finding} — ${report}\n` +
+        "En développement l'application démarrerait avec un avertissement. " +
+        "Ici elle servirait du trafic — ou rendrait des tests verts — en ayant " +
+        "silencieusement écarté des modules, le pare-feu compris. Corriger le " +
+        "décor, pas le message.",
+    );
+  }
+
+  /**
    * Résout les options brutes de l'app. App moderne (`export default defineConfig(…)`)
    * → `raw` est un descripteur {@link AppConfigDescriptor} (le symbole de marque
    * survit au spread d'options de `Service`) → résolu avec `ctx` (deep-merge des
@@ -2193,6 +2253,10 @@ class Kernel extends Service implements IKernel {
       // garde pour tout `defineEnv` appelé ensuite — un module, un rechargement.
       setRunServesTraffic(null);
     }
+    // L'application vient d'importer SON `nodefony` : c'est le premier instant
+    // où une seconde copie du paquet, s'il y en a une, est inscrite. On tranche
+    // ici, avant que le moindre module ne soit construit à la frontière.
+    this.assertSinglePackageInstance();
     this.app.isApp = true;
     // Catalogue env optionnel exposé par l'app (`export const env = defineEnv(…)`)
     // → alimente `ctx.env` ; absent (app legacy) → `process.env`. Import en cache

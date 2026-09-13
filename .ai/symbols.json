@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 833,
-    "symbols": 4082,
+    "files": 834,
+    "symbols": 4088,
     "classes": 392,
-    "interfaces": 1093,
-    "types": 450,
+    "interfaces": 1094,
+    "types": 451,
     "enums": 4,
-    "functions": 1736,
+    "functions": 1740,
     "constants": 407
   },
   "symbols": {
@@ -5234,6 +5234,47 @@
       "file": "src/nodefony/src/runtime/loadEnv.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "INodefonyPackageInstance": {
+      "name": "INodefonyPackageInstance",
+      "kind": "interface",
+      "file": "src/nodefony/src/runtime/packageInstances.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une copie du paquet `nodefony` évaluée dans ce process."
+    },
+    "registerPackageInstance": {
+      "name": "registerPackageInstance",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/packageInstances.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Inscrit la copie courante. Appelé UNE fois, à l'évaluation de `Nodefony.ts`. Idempotent par URL : un même module réévalué (rechargement de test, double import par deux spécificateurs qui résolvent …"
+    },
+    "listPackageInstances": {
+      "name": "listPackageInstances",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/packageInstances.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les copies inscrites, dans leur ordre d'évaluation."
+    },
+    "isPackageDuplicated": {
+      "name": "isPackageDuplicated",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/packageInstances.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Y a-t-il plus d'une copie du paquet dans ce process ?"
+    },
+    "packageDualityReport": {
+      "name": "packageDualityReport",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/packageInstances.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Texte destiné à un humain décrivant la dualité constatée — les chemins des copies d'abord, parce que c'est la seule information qui permette d'agir. Le geste proposé n'est pas décoratif : sans lui,…"
     },
     "FacetCount": {
       "name": "FacetCount",
@@ -29051,6 +29092,9 @@
         "src/nodefony/src/Event.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "registerPackageInstance": [
+        "src/nodefony/src/Nodefony.ts"
+      ],
       "IService": [
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/types/IKernel.ts",
@@ -31707,6 +31751,12 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
+      ],
+      "isPackageDuplicated": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "packageDualityReport": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "diagnoseEmptyManifest": [
         "src/nodefony/src/kernel/Kernel.ts"

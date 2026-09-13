@@ -1,6 +1,13 @@
 import type Kernel from "./kernel/Kernel";
 import { version as pkgVersion } from "../package.json";
 import { randomUUID, randomUUIDv7 } from "node:crypto";
+import { registerPackageInstance } from "./runtime/packageInstances";
+
+// Inscription de CETTE copie du paquet, à l'évaluation du module — le seul
+// instant où l'on sait qu'un `nodefony` vient d'être chargé, et le seul
+// endroit d'où l'on connaisse son chemin. Deux copies dans un process, c'est
+// deux runtimes qui se dégradent en silence : voir `runtime/packageInstances`.
+registerPackageInstance(import.meta.url, pkgVersion);
 
 /**
  * Façade statique du framework — point d'entrée global remplaçant le singleton JS legacy.
