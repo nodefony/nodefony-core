@@ -2296,7 +2296,11 @@ class Kernel extends Service implements IKernel {
     const dotGit = path.resolve(this.path, ".git");
     let pointer: string;
     try {
-      if (!fs.statSync(dotGit).isFile()) return null;
+      // UN seul accès, pas deux. Contrôler le type puis lire laisse une fenêtre
+      // pendant laquelle le fichier peut changer — et sur un `.git` qui est un
+      // DOSSIER dans le cas courant (dépôt normal, pas un worktree), la lecture
+      // lève `EISDIR` : le type se CONSTATE donc par l'échec de la lecture,
+      // au lieu d'être vérifié séparément.
       pointer = fs.readFileSync(dotGit, "utf8");
     } catch {
       return null;
