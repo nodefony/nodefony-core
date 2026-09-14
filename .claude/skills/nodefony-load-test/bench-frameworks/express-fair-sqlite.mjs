@@ -165,6 +165,20 @@ app.get(BENCH_PATH, (_req, res) => {
   res.json({ lus: rows.length, seq, maj: maj ? 1 : 0 });
 });
 
+// ── Décomposition du budget — miroirs EXACTS des routes de `BenchOrmController`
+// La seule façon de dire où passe un écart est de le mesurer étage par étage :
+// `/read-lean` (SQL seul), `/read` (+ sérialisation des 20 lignes), `/read-write`
+// (+ l'écriture). Sans ces trois points, on ne peut qu'attribuer un écart de tête.
+app.get(BENCH_PATH.replace("/read-write", "/read"), (_req, res) => {
+  const rows = lire.all();
+  res.json({ n: rows.length, rows });
+});
+
+app.get(BENCH_PATH.replace("/read-write", "/read-lean"), (_req, res) => {
+  const rows = lire.all();
+  res.json({ n: rows.length });
+});
+
 for (const p of after)
   app.get(p, (req, res) => res.json({ id: req.params.id }));
 

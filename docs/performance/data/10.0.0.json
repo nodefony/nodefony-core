@@ -245,11 +245,11 @@
         "même base : copie BINAIRE du même seed, une par camp puisque les deux écrivent",
         "mêmes PRAGMA constatés par le pilote lui-même : journal WAL, synchronous NORMAL des deux côtés",
         "même travail rendu : réponse identique {\"lus\":20,\"seq\":N,\"maj\":1}, vérifiée par requête sur chaque camp",
-        "même écriture : UPDATE (jamais INSERT) avec RETURNING des deux côtés"
+        "même écriture : UPDATE (jamais INSERT) avec RETURNING des deux côtés",
+        "même OBJET rendu : /read renvoie 74 champs, mêmes types et mêmes valeurs des deux côtés — vérifié par requête"
       ],
       "decor": "llx_facture — 10 000 factures, 74 colonnes, AUCUN index : le plan est un SCAN complet. C'est ce qui porte le budget (3 à 4 ms par requête), identiquement pour les deux camps."
     },
-    "causeNonEtablie": "L'écart est reproductible et survit à l'absence de concurrence — 3,09 ms contre 4,08 ms sur une requête unique, sans charge. Mais sa CAUSE n'est pas établie : aucune des différences vérifiées ci-dessus ne l'explique. Le chiffre est une mesure que personne n'a encore réfutée, pas une conclusion sur le pipeline.",
     "frameworks": {
       "express-fair-sqlite": {
         "label": "express-fair-sqlite",
@@ -315,6 +315,24 @@
           }
         ]
       }
+    },
+    "cause": {
+      "methode": "Profil CPU (--cpu-prof) des deux camps sous la charge du banc (25 connexions, 15 s), self-time agrégé par paquet puis par fonction.",
+      "constat": "À travail rendu STRICTEMENT identique, le camp témoin dépense 11 723 ms dans drizzle-orm quand Nodefony en dépense 6 921 ms, sur ~18 s de CPU échantillonné de part et d'autre.",
+      "ou": {
+        "is (contrôle de type interne de drizzle)": "témoin 5 739 ms · Nodefony 2 442 ms — écart 3 297 ms",
+        "mapResultRow (mise en objet des lignes)": "témoin 1 296 ms · Nodefony 193 ms — écart 1 103 ms",
+        "pipeline Nodefony": "3 439 ms que le camp témoin ne paie pas"
+      },
+      "conclusion": "L'écart ne vient ni du SQL (même plan, même table sans index), ni du pilote (mêmes PRAGMA, même version), ni du parallélisme (un seul process des deux côtés), ni de la sérialisation, ni de l'écriture : il vient de la façon dont chaque camp APPELLE drizzle. Nodefony paie bien son pipeline — 3 439 ms — mais en économise 4 802 dans l'ORM. Le solde est en sa faveur.",
+      "hypothesesRefutees": [
+        "PRAGMA journal/synchronous différents — constatés identiques PAR LE PILOTE (WAL, NORMAL)",
+        "versions d'ORM ou de pilote divergentes — identiques (drizzle 0.45.2, better-sqlite3 13.0.3)",
+        "Nodefony servant en cluster face à un témoin mono-process — un seul process de chaque côté, vérifié pendant le service",
+        "la requête préparée du témoin le pénaliserait — mesuré : sans .prepare() il tombe à 530 rps au lieu de 714, elle l'AIDE",
+        "Nodefony rendrait des lignes moins converties — mêmes 74 champs, mêmes types"
+      ],
+      "resteAEtablir": "Le mécanisme PRÉCIS par lequel le repository de Nodefony sollicite moins `is` et `mapResultRow` n'est pas lu dans le code : le profil dit OÙ va le temps, pas POURQUOI cette voie en consomme moins."
     }
   }
 }
