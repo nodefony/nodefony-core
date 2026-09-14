@@ -82,6 +82,7 @@
 import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { garderDrapeaux } from "./lib/argv.mjs";
+import { lireReleve } from "./lib/transcript-dialectes.mjs";
 import {
   chmodSync,
   copyFileSync,
@@ -6133,147 +6134,24 @@ export function lireEffort(transcriptPath) {
   if (!existsSync(transcriptPath)) {
     return null;
   }
-  let tours = 0;
-  let dureeMs = 0;
-  let coutUsd = 0;
-  let mcpCalls = 0;
-  let vu = false;
-  for (const ligne of readFileSync(transcriptPath, "utf8").split("\n")) {
-    // Appels MCP RÉELS : des blocs `tool_use` des tours d'assistant, jamais un
-    // grep du texte — l'agent ÉCRIT volontiers `mcp__nodefony__…` dans du code
-    // ou de la prose, et un compte qui lit le texte mesurerait ce qu'il DIT,
-    // pas ce qu'il FAIT (même piège que `sansTexteAffiche` pour les sondes).
-    if (ligne.includes('"type":"assistant"') && ligne.includes('"tool_use"')) {
-      try {
-        const blocs = JSON.parse(ligne)?.message?.content;
-        if (Array.isArray(blocs)) {
-          for (const b of blocs) {
-            if (b?.type === "tool_use" && String(b.name).startsWith("mcp__")) {
-              mcpCalls += 1;
-            }
-          }
-        }
-      } catch {
-        // Ligne tronquée : même politique que ci-dessous.
-      }
-    }
-    // 🔴 Les DEUX autres grammaires. Sans elles ce compteur rend zéro chez
-    // Codex et chez Gemini — et « zéro appel MCP » est très exactement le
-    // symptôme que ce banc apprend à lire comme « l'agent n'a jamais eu la
-    // porte ». Un compteur muet fabriquerait donc un diagnostic FAUX, pas une
-    // absence de mesure. Formes établies au source de chaque agent (cf
-    // {@link appelOutilMcp}).
-    else if (ligne.includes('"mcp_tool_call"')) {
-      // Codex : un item par appel, et l'item est répété au fil de son cycle
-      // (`item.started` puis `item.completed`). On ne compte QUE l'achèvement,
-      // sinon un même appel vaudrait deux.
-      try {
-        const evt = JSON.parse(ligne);
-        if (
-          evt?.type === "item.completed" &&
-          evt?.item?.type === "mcp_tool_call"
-        ) {
-          mcpCalls += 1;
-        }
-      } catch {
-        /* ligne tronquée */
-      }
-    } else if (ligne.includes('"tool_use"') && ligne.includes('"tool_name"')) {
-      // Gemini : le nom qualifié est `<serveur>_<outil>` ; le serveur du décor
-      // s'appelle `nodefony`, et ses outils portent déjà ce préfixe.
-      try {
-        const evt = JSON.parse(ligne);
-        if (
-          evt?.type === "tool_use" &&
-          String(evt.tool_name ?? "").startsWith(`${MCP_SERVER_NOM}_`)
-        ) {
-          mcpCalls += 1;
-        }
-      } catch {
-        /* ligne tronquée */
-      }
-    }
-    // Antigravity (`agy`) : sa clé d'enveloppe est `event`, pas `type` — un
-    // quatrième dialecte, constaté en le lançant. Son `result` porte `num_turns`
-    // comme Claude, mais une durée en SECONDES, et son tour d'agent est un
-    // `step_update` de `step_type: "agent_response"`.
-    if (ligne.includes('"event"')) {
-      try {
-        const evt = JSON.parse(ligne);
-        if (evt?.event === "result" && evt.result) {
-          tours += Number(evt.result.num_turns) || 0;
-          dureeMs += Math.round(
-            (Number(evt.result.duration_seconds) || 0) * 1000,
-          );
-          vu = true;
-          continue;
-        }
-        // 🛑 `agy` NE SERA PAS une cible du banc — décision prise, ne pas
-        // rouvrir. L'authentifier exigerait d'écrire la VALEUR du jeton en
-        // clair dans son foyer utilisateur : mesuré avec une porte espionne, il
-        // n'expanse aucune variable et envoie `Bearer ${NF_MCP_TOKEN}` LITTÉRAL
-        // sur le réseau. Or la table du cœur ne transporte que `tokenEnv` — le
-        // NOM de la variable, jamais le secret. Le servir demanderait de casser
-        // cette règle pour un seul agent.
-        //
-        // Ce qui reste ici est la seule chose qui vaille : LIRE sa grammaire.
-        // Un transcript `agy` qu'on ne saurait pas lire rendrait « 0 tour, 0
-        // appel MCP » — le diagnostic faux que ce compteur existe pour ne plus
-        // produire. La forme d'un APPEL MCP chez lui n'est, elle, pas observée
-        // (il expose `call_mcp_tool`, aucun appel réussi enregistré) : deviner
-        // un motif serait inventer une mesure.
-        if (evt?.event === "step_update") continue;
-      } catch {
-        /* ligne tronquée */
-      }
-    }
-    // Codex : un tour d'agent s'achève sur `turn.completed`. Ni durée ni coût
-    // dans son flux — les compter à zéro serait plus faux que de ne rien dire,
-    // donc on ne renseigne que ce qui est ÉMIS.
-    if (ligne.includes('"turn.completed"')) {
-      try {
-        if (JSON.parse(ligne)?.type === "turn.completed") {
-          tours += 1;
-          vu = true;
-        }
-      } catch {
-        /* ligne tronquée */
-      }
-      continue;
-    }
-    if (!ligne.includes('"type":"result"')) {
-      continue;
-    }
-    try {
-      const r = JSON.parse(ligne);
-      // Gemini : son `result` porte des `stats`, jamais un `num_turns`. Sa
-      // durée est mesurée par lui, ce qui vaut mieux que de la chronométrer du
-      // dehors — le décor compte alors le boot de la CLI dans la réflexion.
-      if (r.stats && typeof r.stats === "object") {
-        dureeMs += r.stats.duration_ms ?? 0;
-        vu = true;
-        continue;
-      }
-      if (typeof r.num_turns !== "number") {
-        continue;
-      }
-      tours += r.num_turns;
-      dureeMs += r.duration_ms ?? 0;
-      coutUsd += r.total_cost_usd ?? 0;
-      vu = true;
-    } catch {
-      // Ligne tronquée (agent tué en plein écrit) : ce n'est pas une erreur du
-      // banc. On garde ce qui a été lu avant elle plutôt que de tout jeter —
-      // un effort partiel reste plus informatif qu'aucun.
-    }
+  const r = lireReleve(readFileSync(transcriptPath, "utf8"), {
+    mcp: MCP_SERVER_NOM,
+  });
+  if (!r) {
+    return null;
   }
-  // 🔴 Un appel MCP compté EST une observation, et il vaut à lui seul un relevé.
-  // Sinon un agent tué en cours de route — quota épuisé, délai, échec après son
-  // premier outil — n'émet aucun tour achevé, `lireEffort` rend `null`, et le
-  // rapport affiche « aucun appel MCP » à propos d'un agent qui venait
-  // précisément de s'en servir. Le compteur d'effort se tairait ; celui des
-  // appels, lui, a bien vu quelque chose.
-  return vu || mcpCalls > 0 ? { tours, dureeMs, coutUsd, mcpCalls } : null;
+  // Le banc compte en NOMBRES depuis toujours, et son rapport les formate
+  // (`.toFixed`, `Math.round`) : on rend donc 0 là où l agent n emet rien,
+  // exactement comme avant. La distinction `null` = « non emis » vit dans le
+  // module de grammaires et s affiche dans `analyse-transcript` — la porter
+  // jusqu ici demanderait de revoir le rapport entier, et ce n est pas le
+  // meme geste.
+  return {
+    tours: r.tours ?? 0,
+    dureeMs: r.dureeMs ?? 0,
+    coutUsd: r.coutUsd ?? 0,
+    mcpCalls: r.mcpCalls,
+  };
 }
 
 /**

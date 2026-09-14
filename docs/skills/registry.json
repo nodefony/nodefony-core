@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-13",
+  "generatedAt": "2026-09-14",
   "count": 27,
   "conformant": 27,
   "skills": [
@@ -671,8 +671,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 885,
-        "approxTokens": 14801
+        "bodyLines": 900,
+        "approxTokens": 15053
       },
       "requires": [
         "serveur UP",
@@ -690,6 +690,51 @@
         ],
         "referenceFilesTotal": 5,
         "scripts": [
+          {
+            "path": "scripts/analyse-transcript.mjs",
+            "purpose": "Dépouille le transcript d'un agent — d'où qu'il vienne.",
+            "usage": [
+              "node analyse-transcript.mjs <fichier> [--timeline] [--echecs] [--outils]"
+            ],
+            "options": [
+              {
+                "flag": "--dialecte",
+                "help": ""
+              },
+              {
+                "flag": "--echecs",
+                "help": ""
+              },
+              {
+                "flag": "--grep",
+                "help": ""
+              },
+              {
+                "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--large",
+                "help": ""
+              },
+              {
+                "flag": "--outils",
+                "help": ""
+              },
+              {
+                "flag": "--timeline",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "USAGE",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
           {
             "path": "scripts/bench-discoverability.mjs",
             "purpose": "Banc de DÉCOUVRABILITÉ du devkit — le gate de la release 10.0.0.",
@@ -1051,10 +1096,6 @@
               },
               {
                 "name": "MCP_REGIME",
-                "help": ""
-              },
-              {
-                "name": "MCP_SERVER_NOM",
                 "help": ""
               },
               {
@@ -1816,7 +1857,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "885",
+            "detail": "900",
             "advisory": true
           }
         ]

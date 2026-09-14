@@ -35,13 +35,28 @@ abandonner l'outil pour écrire à la main. Le nombre de tours n'est donc pas un
 métrique de confort, c'est **le même défaut vu par l'autre bout** : ce que l'agent
 ne trouve pas du premier coup, il le cherche — ou il l'invente.
 
-Chaque tâche le mesure déjà, sans rien à instrumenter : le transcript porte un
-enregistrement final.
+Chaque tâche le mesure déjà, sans rien à instrumenter — et la même commande lit
+le transcript de **n'importe lequel** des six agents, pas seulement celui du CLI
+de Claude :
 
 ```bash
-jq -r 'select(.type=="result") | {num_turns, duration_ms, total_cost_usd}' \
-  <runDir>/task-<n>.transcript.jsonl
+node scripts/analyse-transcript.mjs <runDir>/task-<n>.transcript.jsonl
+node scripts/analyse-transcript.mjs <fichier> --timeline   # le déroulé, commande par commande
+node scripts/analyse-transcript.mjs <fichier> --json       # pour rechaîner
 ```
+
+Elle rend le relevé (tours, durée, coût, appels MCP), la répartition des outils,
+les gestes qui ont ÉCHOUÉ, et le déroulé apparié. Un tiret signifie « cet agent
+ne l'émet pas » — jamais zéro, qui se comparerait à tort au run d'un autre.
+
+> 🔴 **Elle vaut aussi pour une session que le banc n'a PAS lancée.** Copilot et
+> vibe écrivent leur journal chez l'utilisateur (`~/.copilot/session-state/…`,
+> `~/.vibe/logs/session/…`) : un essai réel du framework se dépouille donc en une
+> commande, là où il fallait une heure de `jq`. C'est le matériau le plus
+> instructif du dispositif, et il était le seul à n'être pas outillé. Les
+> grammaires vivent dans
+> [`scripts/lib/transcript-dialectes.mjs`](scripts/lib/transcript-dialectes.mjs),
+> **source unique** : le banc les consomme au lieu d'en garder une copie.
 
 **Détail : [`references/methode-de-mesure.md`](references/methode-de-mesure.md)** — trois
 résultats mesurés, valables pour les trois bancs : la variance écrase l'écart d'un run à

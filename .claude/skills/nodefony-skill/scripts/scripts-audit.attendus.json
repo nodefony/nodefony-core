@@ -2,6 +2,7 @@
   "_pourquoi": "Scripts nommes par une page mais lances par aucun automate (ni script npm, ni etage de forge, ni autre script). Ce n'est pas une faute en soi : un banc de charge se tape a la main. Cette liste fige l'etat connu pour que scripts-audit --strict morde sur l'ECART -- un script neuf qui y entre sans etre remarque, ou un acquittement qui survit au cablage qu'il attendait.",
   "_geste": "Un script qu'on cable (npm, forge, autre script) doit SORTIR de cette liste. Un script neuf documente sans etre lance doit y ENTRER, sciemment.",
   "documentes-jamais-lances": [
+    ".claude/skills/nodefony-devkit-bench/scripts/analyse-transcript.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/build-devkit-report.mjs",
     ".claude/skills/nodefony-devkit-bench/suites/harness.ts",
     ".claude/skills/nodefony-documentation/scripts/code-check.mjs",
