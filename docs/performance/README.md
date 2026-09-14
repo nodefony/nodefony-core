@@ -21,19 +21,16 @@ optimisation a rendu, ce qu'un choix d'architecture coûte — et ce qui n'a pas
 
 ## Le dossier
 
-| Page                                           | Sujet                                                                 |
-| ---------------------------------------------- | --------------------------------------------------------------------- |
-| [`index.md`](index.md)                         | **Hub** — parcours de lecture, synthèse, comment rejouer une mesure   |
-| [`methode.md`](methode.md)                     | Protocole, décor, contrôles de validité, lexique                      |
-| [`pipeline-http.md`](pipeline-http.md)         | Profilage, lots livrés, lot rejeté, routeur, non-régression WebSocket |
-| [`boucle-evenements.md`](boucle-evenements.md) | Blocage et latence : ce qui plafonne réellement un processus          |
-| [`orm.md`](orm.md)                             | Escalier ORM, profilage par couche, lot de requêtes préparées         |
-| [`comparaisons.md`](comparaisons.md)           | Face à `node:http` nu, Fastify, Express — à trois niveaux d'équité    |
-| [`dimensionnement.md`](dimensionnement.md)     | Constantes d'un pod, concurrence, plafonds WebSocket, saturation      |
-| [`ouvertures.md`](ouvertures.md)               | Trous de mesure, pistes écartées, limites assumées                    |
+| Page                         | Sujet                                                                                                         |
+| ---------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| [`index.md`](index.md)       | **Hub** — les chiffres, leur décor, les réserves qui les bornent, comment rejouer                             |
+| [`methode.md`](methode.md)   | Protocole, décor, contrôles de validité, les instruments qui ont menti, lexique                               |
+| [`analyses.md`](analyses.md) | Où part le temps — pipeline HTTP, comparaisons à trois niveaux d'équité, escalier ORM, et ce qui reste ouvert |
 
-Archive : [rapport du 23 juillet](2026-07-23-pipeline-http-vs-express-fastify.md) — **remplacé**,
-conservé comme point de départ du chantier.
+Le dossier tenait autrefois en onze pages. Il en tient trois : les chiffres vivent dans
+[`data/`](data/) et les pages les racontent, au lieu que chaque page porte sa propre génération de
+chiffres — trois valeurs pour un même débit y coexistaient. L'historique des pages retirées est
+dans `git log`.
 
 ## Ce qu'un rapport doit porter
 

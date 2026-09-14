@@ -66,16 +66,17 @@ const dataset = DATA ? readJson(DATA) : null;
 if (DATA && !dataset) throw new Error(`jeu de mesures introuvable : ${DATA}`);
 
 // ── 1. comparatif ──────────────────────────────────────────────────────────
+// 🔴 Fastify est HORS PÉRIMÈTRE, et c'est une décision, pas une mesure manquante.
+// Il sature à ~41 000 req/s ce que cette machine mesure proprement : trois paires
+// tentées, trois INCONCLUSIVES. Surtout, il n'informe pas la question de ce dossier —
+// Nodefony se compare à ce qu'un développeur écrirait pour rendre le MÊME service,
+// et ce camp-là s'appelle `express-fair`. Le banc `bench-frameworks/fastify.mjs`
+// reste disponible pour qui voudra le rejouer sur une machine plus rapide.
 const FRAMEWORKS = [
   {
     id: "bare",
     label: "node:http nu",
     note: "aucun framework — plancher théorique",
-  },
-  {
-    id: "fastify",
-    label: "Fastify",
-    note: "routing + sérialisation schématisée",
   },
   {
     id: "express",

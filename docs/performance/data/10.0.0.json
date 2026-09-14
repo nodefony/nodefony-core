@@ -225,7 +225,7 @@
   "notMeasured": [
     {
       "quoi": "fastify",
-      "pourquoi": "Trois paires tentées, trois INCONCLUSIVES : à ~41 000 req/s ce camp sature ce que la machine mesure proprement. La série 2 est reproductiblement parfaite (0,4 %), la série 1 flotte — deux fois par effondrement du 3e run sur un palier à ~34 500, une fois à 3,3 % de dispersion. Aucune valeur n'est publiée : une paire incomplète ne se compare pas."
+      "pourquoi": "HORS PÉRIMÈTRE — décision, pas échec de mesure. Trois paires tentées, trois inconclusives : à ~41 000 req/s ce camp sature ce que la machine mesure proprement (la série 2 est reproductiblement parfaite à 0,4 %, la série 1 flotte — deux fois par effondrement du 3e run sur un palier à ~34 500, une fois à 3,3 % de dispersion). Mais le motif du retrait n'est pas la difficulté : ce camp n'informe pas la question posée ici. Nodefony se compare à ce qu'un développeur écrirait pour rendre le MÊME service, et ce camp s'appelle `express-fair`. Le banc reste disponible pour qui voudra le rejouer."
     },
     {
       "quoi": "soak",
