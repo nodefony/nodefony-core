@@ -333,6 +333,28 @@
         "Nodefony rendrait des lignes moins converties — mêmes 74 champs, mêmes types"
       ],
       "resteAEtablir": "Le mécanisme PRÉCIS par lequel le repository de Nodefony sollicite moins `is` et `mapResultRow` n'est pas lu dans le code : le profil dit OÙ va le temps, pas POURQUOI cette voie en consomme moins."
+    },
+    "equiteEprouvee": {
+      "principe": "Une équité ne se démontre pas par le raisonnement : elle s'éprouve en tentant d'AMÉLIORER le camp adverse. Tant qu'une variante plus rapide du témoin existe, l'écart mesuré est celui de son écriture, pas celui des frameworks.",
+      "variantes": [
+        {
+          "quoi": "prepare() à valeur figée + .all() — la variante EN PLACE",
+          "rps": 714,
+          "verdict": "la meilleure des trois"
+        },
+        {
+          "quoi": "prepare() + sql.placeholder() + params, la méthode même de Nodefony",
+          "rps": 670,
+          "verdict": "DÉGRADE le témoin de 6 %"
+        },
+        {
+          "quoi": "aucune préparation, requête reconstruite à chaque appel",
+          "rps": 530,
+          "verdict": "dégrade de 26 %"
+        }
+      ],
+      "conclusion": "Le camp témoin est déjà dans sa meilleure configuration connue. Adopter la méthode d'appel de Nodefony le rend PLUS LENT : l'écart ne vient donc pas d'une écriture naïve du témoin.",
+      "cequeCeNestPas": "Ce n'est pas un défaut d'Express : le profil lui attribue 0,7 % du temps (118 ms) et 0,6 % à son routeur. Le poste dominant des deux côtés est drizzle-orm, dans la MÊME version."
     }
   }
 }
