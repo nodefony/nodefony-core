@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 834,
-    "symbols": 4089,
+    "symbols": 4090,
     "classes": 392,
     "interfaces": 1094,
     "types": 451,
     "enums": 4,
-    "functions": 1740,
+    "functions": 1741,
     "constants": 408
   },
   "symbols": {
@@ -254,8 +254,7 @@
       "implements": [
         "IService"
       ],
-      "decorators": [],
-      "description": "Brique de base de tout composant Nodefony — câble un nom, un {@link Container} DI, un {@link Syslog} et un bus d'événements {@link Event} (notificationsCenter). Tous les services, modules, kernels …"
+      "decorators": []
     },
     "isArray": {
       "name": "isArray",
@@ -29126,6 +29125,10 @@
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts"
       ],
+      "isPackageDuplicated": [
+        "src/nodefony/src/Service.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "EventDefaultInterface": [
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/types/IService.ts"
@@ -31763,9 +31766,6 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
-      ],
-      "isPackageDuplicated": [
-        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "listPackageInstances": [
         "src/nodefony/src/kernel/Kernel.ts"

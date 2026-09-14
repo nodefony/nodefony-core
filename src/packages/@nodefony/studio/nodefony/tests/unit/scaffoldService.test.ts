@@ -30,7 +30,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { runScaffold } from "nodefony";
+import { Container, runScaffold } from "nodefony";
 import ScaffoldService from "../../service/ScaffoldService";
 
 /**
@@ -42,7 +42,10 @@ function fakeModule(projectDir: string, environment: string) {
   const noop = () => undefined;
   return {
     kernel: { environment, path: projectDir, version: "10.0.0" },
-    container: { get: () => undefined, set: noop },
+    // Un VRAI `Container`, pas un objet qui lui ressemble : `Service` refuse
+    // désormais ce qui n'en est pas un, au lieu de le jeter en silence. Un
+    // container vide suffit — rien n'est résolu par injection sur ce chemin.
+    container: new Container(),
     notificationsCenter: { on: noop, fire: noop, removeListener: noop },
     options: {},
     log: noop,

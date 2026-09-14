@@ -6,6 +6,7 @@ import type {
 } from "./types/IService";
 import type { IKernel } from "./types/IKernel";
 import Container, { DynamicParam } from "./Container";
+import { isPackageDuplicated } from "./runtime/packageInstances";
 import Event, { EventDefaultInterface } from "./Event";
 import type { IGuardedEmitOptions, IGuardedEmitResult } from "./Event";
 import Pdu, { Severity, Msgid, Message, Pci } from "./syslog/Pdu";
@@ -58,6 +59,20 @@ const defaultSyslogSettings: SyslogDefaultSettings = {
  * @remarks Si `notificationsCenter === false`, le service est créé sans bus
  *   d'événements — utile pour des services purement utilitaires.
  */
+/**
+ * Nomme ce qui a été reçu à la place d'un `Container`, pour que le refus dise
+ * l'objet fautif et non seulement qu'il est fautif.
+ *
+ * @param value - la valeur reçue, non nulle.
+ * @returns le nom du constructeur, ou le type primitif.
+ */
+function describeReceived(value: unknown): string {
+  const ctor = (value as { constructor?: { name?: string } } | null)
+    ?.constructor?.name;
+  if (ctor && ctor !== "Object") return `une instance de ${ctor}`;
+  return `un ${typeof value} littéral`;
+}
+
 class Service implements IService {
   public name: string;
   public options: DefaultOptionsService;
@@ -121,11 +136,24 @@ class Service implements IService {
       this.container = container;
     } else {
       if (container != null) {
+        // Le refus couvre DEUX situations que `instanceof` ne distingue pas, et
+        // qui n'appellent pas le même geste : un Container venu d'une autre
+        // copie du paquet (le cas qui a motivé ce garde), et un objet qui n'est
+        // pas un Container du tout — une erreur d'appel, ou un décor de test.
+        // Un message qui n'énonce que la première envoie chercher une dualité
+        // qui n'existe pas : le registre des copies est interrogé ICI, dans une
+        // branche froide qui se termine par un `throw`, donc à coût nul.
         throw new Error(
-          `${name} : le container reçu n'est pas un Container de CE paquet ` +
-            "`nodefony` — deux copies du paquet tournent dans ce process. " +
-            "`npm ls nodefony` les liste ; l'avertissement de boot nomme leurs " +
-            "chemins. Un service ne peut pas être construit à cette frontière.",
+          isPackageDuplicated()
+            ? `${name} : le container reçu n'est pas un Container de CE paquet ` +
+                "`nodefony` — deux copies du paquet tournent dans ce process. " +
+                "`npm ls nodefony` les liste ; l'avertissement de boot nomme leurs " +
+                "chemins. Un service ne peut pas être construit à cette frontière."
+            : `${name} : le container reçu n'est pas un \`Container\` (reçu : ` +
+                `${describeReceived(container)}). Une seule copie du paquet ` +
+                "`nodefony` tourne dans ce process — ce n'est donc pas une " +
+                "dualité de paquet, mais un objet qui n'en est pas un. Passer le " +
+                "container du module (`module.container`), ou `new Container()`.",
         );
       }
       this.container = new Container();

@@ -271,23 +271,67 @@ describe("Service — un container REFUSÉ n'est pas un container ABSENT", () =>
     expect(svc.container).to.be.an("object");
   });
 
-  it("un container d'une AUTRE copie → erreur qui NOMME la cause", () => {
-    // Le type n'admet que `Container | undefined` : un objet qui échoue à
-    // `instanceof` ne peut venir que d'ailleurs. On le dit, au lieu de
-    // fabriquer un service mutilé qui se découvrira trois heures plus tard.
-    const venuDAilleurs = { get: () => null } as unknown as Container;
+  /**
+   * 🔴 `instanceof` échoue pour DEUX raisons que rien ne distingue à cet
+   * endroit, et qui n'appellent pas le même geste. Le premier message ne
+   * connaissait que la seconde : un appelant qui s'était simplement trompé
+   * d'objet partait lancer `npm ls nodefony` et ne trouvait qu'une copie.
+   * Vécu — six tests de `@nodefony/studio` passaient un module factice.
+   */
+  const refusDe = (nom: string, valeur: unknown): string => {
     let levée: unknown = null;
     try {
-      new Service("venu-d-ailleurs", venuDAilleurs);
+      new Service(nom, valeur as Container);
     } catch (e) {
       levée = e;
     }
-    expect(levée, "le container étranger doit être REFUSÉ").to.not.equal(null);
-    const dit = (levée as Error).message;
-    expect(dit).to.contain("venu-d-ailleurs");
-    expect(dit, "le message doit nommer la cause, pas le symptôme").to.contain(
-      "deux copies du paquet",
+    expect(levée, "le container non conforme doit être REFUSÉ").to.not.equal(
+      null,
     );
-    expect(dit, "et donner le geste").to.contain("npm ls nodefony");
+    return (levée as Error).message;
+  };
+
+  it("pas un Container, une SEULE copie → le message ne parle pas de dualité", () => {
+    const dit = refusDe("objet-quelconque", { get: () => null });
+    expect(dit).to.contain("objet-quelconque");
+    expect(dit, "il doit dire ce qui ne va pas").to.contain(
+      "n'est pas un `Container`",
+    );
+    expect(dit, "et NOMMER ce qu'il a reçu").to.contain("littéral");
+    expect(dit, "et donner le geste utile").to.contain("module.container");
+    expect(
+      dit,
+      "surtout PAS envoyer chercher une dualité qui n'existe pas",
+    ).to.not.contain("npm ls nodefony");
+  });
+
+  it("pas un Container, DEUX copies → le message nomme la dualité", () => {
+    // On pose une seconde copie dans le registre partagé — le seul endroit où
+    // la dualité se constate. Retirée dans le `finally` : ce registre est
+    // global au process, et le laisser sale contaminerait toute la suite.
+    const clé = Symbol.for("nodefony.packageInstances");
+    const portée = globalThis as typeof globalThis & {
+      [clé]?: { url: string; version: string }[];
+    };
+    // DEUX entrées posées en clair, jamais « l'existant + une » : le
+    // `beforeEach` de ce fichier VIDE le registre, si bien qu'un ajout relatif
+    // n'en produirait qu'une — et le test passerait par la mauvaise branche
+    // tout en ayant l'air de tester la bonne.
+    const avant = portée[clé];
+    portée[clé] = [
+      { url: "file:///ici/nodefony/dist/Nodefony.js", version: "10.0.0" },
+      { url: "file:///ailleurs/nodefony/dist/Nodefony.js", version: "10.0.0" },
+    ];
+    try {
+      const dit = refusDe("venu-d-ailleurs", { get: () => null });
+      expect(dit).to.contain("venu-d-ailleurs");
+      expect(
+        dit,
+        "le message doit nommer la cause, pas le symptôme",
+      ).to.contain("deux copies du paquet");
+      expect(dit, "et donner le geste").to.contain("npm ls nodefony");
+    } finally {
+      portée[clé] = avant;
+    }
   });
 });
