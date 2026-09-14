@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T08:11:33.803Z",
+  "generatedAt": "2026-09-14T08:57:04.713Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 93,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 13,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
@@ -2993,6 +2993,38 @@
       ]
     },
     {
+      "number": 388,
+      "title": "chore(release): publier la préversion 10.0.0-alpha.7",
+      "url": "https://github.com/nodefony/nodefony-core/issues/388",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 4,
+      "ordre": 9,
+      "debut": "2026-09-15",
+      "cible": "2026-09-22",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 389,
+      "title": "docs(scaffold): rendre les instructions d'agent lisibles par tout outil",
+      "url": "https://github.com/nodefony/nodefony-core/issues/389",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 9.2,
+      "debut": "2026-09-15",
+      "cible": "2026-09-15",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 359,
       "title": "docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé",
       "url": "https://github.com/nodefony/nodefony-core/issues/359",
@@ -3009,6 +3041,22 @@
       ]
     },
     {
+      "number": 390,
+      "title": "fix(frontend): dire au démarrage qu'aucune interface web n'est posée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/390",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.3,
+      "debut": "2026-09-16",
+      "cible": "2026-09-16",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 213,
       "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
       "url": "https://github.com/nodefony/nodefony-core/issues/213",
@@ -3022,6 +3070,22 @@
       "cible": "2026-10-30",
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 391,
+      "title": "fix(cli): annoncer l'adresse servie quand le port est décalé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/391",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.4,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -3105,6 +3169,22 @@
       ]
     },
     {
+      "number": 392,
+      "title": "fix(cli): montrer la forme complète de la commande de création",
+      "url": "https://github.com/nodefony/nodefony-core/issues/392",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.5,
+      "debut": "2026-09-18",
+      "cible": "2026-09-18",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 313,
       "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
       "url": "https://github.com/nodefony/nodefony-core/issues/313",
@@ -3118,6 +3198,23 @@
       "cible": "2026-11-03",
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 393,
+      "title": "feat(scaffold): poser une interface web en mode non interactif",
+      "url": "https://github.com/nodefony/nodefony-core/issues/393",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.6,
+      "debut": "2026-09-19",
+      "cible": "2026-09-19",
+      "labels": [
+        "arbitrage",
+        "10.0.0-alpha"
       ]
     },
     {
