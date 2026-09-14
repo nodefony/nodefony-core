@@ -14,9 +14,17 @@ import helmet from "helmet";
 import cors from "cors";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-import { drizzle } from "drizzle-orm/node-postgres";
-import { eq } from "drizzle-orm";
-import { Pool } from "pg";
+// ⚖️ L'ORM et le pilote viennent de la PASSERELLE, jamais d'un spécificateur nu
+// écrit ici : ce dossier a son propre `node_modules`, un `import "drizzle-orm"`
+// y atteindrait une SECONDE instance de drizzle, distincte de celle dont vient
+// le schéma. Le pourquoi et le coût mesuré : `../repo-drizzle-sqlite.mjs`.
+import {
+  drizzle,
+  eq,
+  Pool,
+  Column,
+  getTableColumns,
+} from "../repo-drizzle-pg.mjs";
 import { dummyRoutes } from "./payload.mjs";
 
 const MODE = process.env.DRIZZLE_MODE ?? "prepared";
@@ -33,6 +41,26 @@ const { llx_facture } = await import(
     import.meta.url,
   ).href
 );
+
+// ⚖️ GARDE D'ÉQUITÉ — UNE SEULE instance de drizzle dans ce process.
+// Elle contrôle une IDENTITÉ, pas une version : les colonnes du schéma sont-elles
+// des instances de la classe `Column` que ce camp exécute ? Si non, `is()` retombe
+// sur la remontée de prototypes à chaque colonne de chaque ligne, et ce camp mesure
+// une résolution de modules au lieu d'un ORM (#402).
+{
+  const colonnes = Object.values(getTableColumns(llx_facture));
+  const temoin = colonnes[0];
+  if (!(temoin instanceof Column)) {
+    console.error(
+      "❌ ÉQUITÉ ROMPUE — deux instances de drizzle-orm dans ce process.\n" +
+        `   Les colonnes du schéma (${temoin?.constructor?.name}) ne sont pas des\n` +
+        "   instances de la classe Column que ce camp exécute.\n" +
+        "   → importer l'ORM depuis `../repo-drizzle-pg.mjs`, jamais par un\n" +
+        "     spécificateur nu écrit dans `bench-frameworks/`.",
+    );
+    process.exit(2);
+  }
+}
 
 const pool = new Pool({ connectionString: url });
 const db = drizzle(pool);

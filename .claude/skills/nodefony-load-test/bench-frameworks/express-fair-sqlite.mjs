@@ -54,9 +54,17 @@ import helmet from "helmet";
 import cors from "cors";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { randomUUID } from "node:crypto";
-import { drizzle } from "drizzle-orm/better-sqlite3";
-import { eq } from "drizzle-orm";
-import Database from "better-sqlite3";
+// ⚖️ L'ORM et le pilote viennent de la PASSERELLE, jamais d'un spécificateur nu
+// écrit ici : ce dossier a son propre `node_modules`, un `import "drizzle-orm"`
+// y atteindrait une SECONDE instance de drizzle, distincte de celle dont vient
+// le schéma. Le pourquoi et le coût mesuré sont dans `../repo-drizzle-sqlite.mjs`.
+import {
+  drizzle,
+  eq,
+  Database,
+  Column,
+  getTableColumns,
+} from "../repo-drizzle-sqlite.mjs";
 import { dummyRoutes } from "./payload.mjs";
 
 const DB_FILE = process.env.NF_BENCH_SQLITE_DB;
@@ -78,6 +86,34 @@ const { llx_facture } = await import(
     import.meta.url,
   ).href
 );
+
+// ⚖️ GARDE D'ÉQUITÉ — UNE SEULE instance de drizzle dans ce process.
+//
+// Elle ne contrôle pas une version (la garde « installé == déclaré » de
+// `bench.sh` le fait déjà) mais une IDENTITÉ : les colonnes du schéma sont-elles
+// des instances de la classe `Column` que ce camp exécute ? Si non, deux copies
+// de drizzle coexistent, `is()` perd son chemin rapide sur chacun des ~4 660
+// tests de type d'une requête, et ce camp mesure une résolution de modules au
+// lieu d'un ORM. C'est le défaut qui a fait publier +46 % en notre faveur (#402).
+//
+// Ce contrôle est DANS le camp, pas dans le lanceur : c'est ici que le
+// spécificateur est écrit, donc ici que la faute se commet.
+{
+  const colonnes = Object.values(getTableColumns(llx_facture));
+  const temoin = colonnes[0];
+  if (!(temoin instanceof Column)) {
+    console.error(
+      "❌ ÉQUITÉ ROMPUE — deux instances de drizzle-orm dans ce process.\n" +
+        `   Les colonnes du schéma (${temoin?.constructor?.name}) ne sont pas des\n` +
+        "   instances de la classe Column que ce camp exécute. `is()` retombe alors\n" +
+        "   sur la remontée de prototypes : ×7,6 sur ~4 660 appels par requête,\n" +
+        "   soit ~0,5 ms/req imputés à tort au framework.\n" +
+        "   → importer l'ORM depuis `../repo-drizzle-sqlite.mjs`, jamais par un\n" +
+        "     spécificateur nu écrit dans `bench-frameworks/`.",
+    );
+    process.exit(2);
+  }
+}
 
 const sqlite = new Database(DB_FILE);
 const db = drizzle(sqlite);
