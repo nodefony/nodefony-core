@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T13:38:32.205Z",
+  "generatedAt": "2026-09-14T13:52:56.566Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,14 +35,14 @@
       "closed": 93,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 20,
+      "open": 23,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 34,
       "title": "10.0.0-beta"
     },
     {
@@ -3000,10 +3000,10 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 11.5,
+      "jours": 13.5,
       "ordre": 9,
       "debut": "2026-09-15",
-      "cible": "2026-09-28",
+      "cible": "2026-09-30",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3038,6 +3038,38 @@
       "cible": "2026-09-15",
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 397,
+      "title": "perf(http): donner le corps au end() pour regagner un tick par réponse",
+      "url": "https://github.com/nodefony/nodefony-core/issues/397",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.26,
+      "debut": "2026-09-16",
+      "cible": "2026-09-16",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 398,
+      "title": "test(perf): établir la référence de mesure rejouable de la version 10",
+      "url": "https://github.com/nodefony/nodefony-core/issues/398",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.27,
+      "debut": "2026-09-17",
+      "cible": "2026-09-18",
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
@@ -3138,6 +3170,22 @@
       ]
     },
     {
+      "number": 395,
+      "title": "fix(cli): rendre l'échec de démarrage visible à qui lance en fond",
+      "url": "https://github.com/nodefony/nodefony-core/issues/395",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.45,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 276,
       "title": "fix(frontend): suivre l'adresse d'entrée du visiteur en dev déporté",
       "url": "https://github.com/nodefony/nodefony-core/issues/276",
@@ -3229,38 +3277,6 @@
       "ordre": 9.55,
       "debut": "2026-11-02",
       "cible": "2026-11-02",
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 397,
-      "title": "perf(http): donner le corps au end() pour regagner un tick par réponse",
-      "url": "https://github.com/nodefony/nodefony-core/issues/397",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 9.56,
-      "debut": "2026-11-03",
-      "cible": "2026-11-03",
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 398,
-      "title": "test(perf): établir la référence de mesure rejouable de la version 10",
-      "url": "https://github.com/nodefony/nodefony-core/issues/398",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 9.57,
-      "debut": "2026-11-04",
-      "cible": "2026-11-04",
       "labels": [
         "10.0.0-beta"
       ]
@@ -4663,22 +4679,6 @@
       "ordre": 29.5,
       "debut": "2026-11-10",
       "cible": "2026-11-10",
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 395,
-      "title": "fix(cli): rendre l'échec de démarrage visible à qui lance en fond",
-      "url": "https://github.com/nodefony/nodefony-core/issues/395",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 29.6,
-      "debut": "2026-11-11",
-      "cible": "2026-11-11",
       "labels": [
         "10.0.0-beta"
       ]
