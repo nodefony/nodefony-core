@@ -122,3 +122,8 @@ src/nodefony/.ai/
 # module — seul endroit où leurs imports relatifs résolvent — et sont retirées
 # juste après leur verdict ; cette ligne couvre l'interruption.
 .claude/skills/nodefony-devkit-bench/scripts/**/.prove-*
+
+# Archives de mesures brutes — produites par `bench-ab-mono.sh purge`.
+# Ce sont des PHOTOS (cf docs/performance/README.md) : elles se refabriquent,
+# et seul le jeu retenu entre dans `docs/performance/data/`.
+tmp/bench-archive/

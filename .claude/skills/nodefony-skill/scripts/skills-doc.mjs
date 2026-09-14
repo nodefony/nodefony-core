@@ -344,6 +344,7 @@ const NON_SKILL_TERMS = new Set([
   "nodefony-admin", // service back de Studio
   "nodefony-cards", // bloc de mise en page du portail doc
   "nodefony-dev-server", // titre de processus du superviseur de dev
+  "nodefony-orm", // camp du banc comparatif (bench-pairs.sh), pas un skill
 ]);
 
 /**

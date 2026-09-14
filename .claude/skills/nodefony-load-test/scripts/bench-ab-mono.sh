@@ -66,6 +66,19 @@ EXTRA_ENV="$*"
 # purge : à lancer ENTRE deux lots — aucun .med/.json d'un lot précédent ne doit
 # survivre dans une comparaison qui ne le concerne pas.
 if [ "$LABEL" = "purge" ]; then
+  # ARCHIVER avant de purger — une purge qui DÉTRUIT les données brutes fait
+  # perdre la seule façon de recalculer une médiane ou de publier des
+  # percentiles. Vécu deux fois dans ce dépôt : les échantillons d'un soak
+  # emportés par un ménage de `tmp/`, puis les quatre séries d'une paire VALIDE
+  # effacées avant le lot suivant — il a fallu rejouer douze minutes de mesure
+  # pour récupérer des chiffres qu'on avait déjà. La purge doit protéger la
+  # comparaison SUIVANTE, pas détruire la précédente.
+  ARCHIVE="$ROOT/tmp/bench-archive/$(date +%Y%m%d-%H%M%S)"
+  if ls /tmp/nf-bench-*.json >/dev/null 2>&1; then
+    mkdir -p "$ARCHIVE"
+    cp /tmp/nf-bench-*.json /tmp/nf-bench-*.med "$ARCHIVE/" 2>/dev/null
+    echo "archivé: $(ls "$ARCHIVE" | wc -l | tr -d ' ') fichier(s) → $ARCHIVE"
+  fi
   rm -f /tmp/nf-bench-*.med /tmp/nf-bench-*.json
   echo "purge: /tmp/nf-bench-*.{med,json} supprimés"
   exit 0

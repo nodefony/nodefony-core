@@ -4,7 +4,9 @@
   "description": "Banc comparatif Nodefony vs Express/Fastify/node nu — sandbox isolé, ne touche PAS aux workspaces",
   "type": "module",
   "dependencies": {
+    "better-sqlite3": "13.0.3",
     "cors": "2.8.6",
+    "drizzle-orm": "0.45.2",
     "express": "^5.2.1",
     "fastify": "^5.12.4",
     "helmet": "8.3.0"

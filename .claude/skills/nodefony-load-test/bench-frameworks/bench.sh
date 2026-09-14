@@ -13,7 +13,11 @@ export LC_ALL=C   # locale fr : « 4,1 » casse la comparaison de dispersion et 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 APP="${1:?bare|express|fastify}"; PORT="${2:-5161}"; shift 2 2>/dev/null || shift $#
 EXTRA="$*"
-URL="http://127.0.0.1:$PORT/nodefony/test/als-test/state"
+# Cible paramétrable : le banc sert deux familles de camps — la route triviale
+# (coût du pipeline seul) et la route applicative du banc ORM (lecture + écriture).
+# Le défaut reste la route triviale : un camp qui ne dit rien mesure ce qu'il a
+# toujours mesuré.
+URL="http://127.0.0.1:$PORT${BENCH_PATH:-/nodefony/test/als-test/state}"
 DUR="${BENCH_DUR:-10}"; CONN="${BENCH_CONN:-128}"; THREADS="${BENCH_THREADS:-4}"
 LABEL="$APP${EXTRA:+-$(echo "$EXTRA" | tr ' =' '--')}"
 
@@ -35,7 +39,10 @@ node -e "const net=require('net');const t0=Date.now();(function p(){const s=net.
 
 # sanity : la route répond bien 200 + JSON attendu
 BODY=$(curl -s "$URL")
-echo "$BODY" | grep -q "wsHookFireCount" || { echo "❌ $LABEL: payload inattendu: $BODY"; kill -9 "$PID"; exit 1; }
+# Le contrôle porte sur un champ ATTENDU du corps, pas seulement sur un code 200 :
+# une route qui répond 200 avec un corps vide (table absente, filtre qui ne rend
+# rien) se mesurerait comme un succès, et plus vite qu'un vrai travail.
+echo "$BODY" | grep -q "${BENCH_EXPECT:-wsHookFireCount}" || { echo "❌ $LABEL: payload inattendu (attendu « ${BENCH_EXPECT:-wsHookFireCount} ») : $BODY"; kill -9 "$PID"; exit 1; }
 
 echo "=== $LABEL (port $PORT, wrk -t$THREADS -c$CONN -d${DUR}s) ==="
 

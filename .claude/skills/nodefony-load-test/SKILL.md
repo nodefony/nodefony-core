@@ -167,6 +167,30 @@ deux séries d'un camp encadrent celles de l'autre, sinon « DANS LE BRUIT » et
 `package.json` annonce (mesuré : `fastify` 5.8.5 servi contre `^5.12.4` déclaré, **29 % d'écart**
 entre ces deux versions, imputé à tort à la machine).
 
+**`express-fair-sqlite.mjs` — le cas APPLICATIF (lecture + écriture).** Une route triviale mesure
+le framework à 100 % du budget ; dès qu'une base entre dans la boucle, il en devient une fraction
+(mesuré : ~61 µs/req contre ~1 050). Ce camp exerce donc ce que fait un vrai service — 20 lignes
+lues, puis l'**UPDATE de la ligne lue** — face à `nodefony-orm`
+(`/nodefony/test/bench-orm/read-write`). Quatre exigences le rendent opposable, et aucune n'est
+négociable : **même ORM et même pilote aux versions du dépôt** (la garde du banc refuse de mesurer
+sinon), **schéma importé** du `dist` du module test et jamais recopié, **`RETURNING` des deux
+côtés** (`updateOne` rend la ligne persistée — sans cela le camp témoin travaille moins), et
+**UPDATE plutôt qu'INSERT** (un insert gonflerait la table d'un ordre de grandeur pendant la
+mesure). Chaque camp a **sa** base, copie du même seed : ils écrivent tous les deux.
+
+```bash
+# décor : seeder une fois (NF_BENCH_ORM=1), puis copier la base pour le camp témoin
+cp var/databases/nodefony-drizzle.db /tmp/bench-express.db
+BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
+  NF_BENCH_SQLITE_DB=/tmp/bench-express.db BENCH_CONN=25 BENCH_DUR=30 BENCH_WARMUP=20 \
+  bash $S/bench-pairs.sh express-fair-sqlite nodefony-orm 5167
+```
+
+⚠️ **25 connexions et des runs de 30 s**, pas 128 et 10 s : un pilote synchrone sérialise (au-delà
+de la saturation on mesure une file), et chaque requête écrit sur disque — la journalisation de
+SQLite pose ses points de reprise à des instants imprévisibles, qu'une fenêtre courte capte au
+hasard. On allonge la fenêtre, **jamais** le seuil de dispersion.
+
 **`express-fair-endchunk.mjs` / `express-fair-writeend.mjs`** isolent la FORME d'écriture —
 `res.end(corps)` contre `res.write(corps)` puis `res.end()` vide. Une seule ligne de différence,
 `res.json` retiré des deux (il pose un ETag, donc un hachage du corps, qui masquerait l'écart).

@@ -99,6 +99,14 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
       bash "$DIR/../scripts/bench-ab-mono.sh" nodefony \
       NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN="${NODEFONY_TTL_MIN:-120}" \
       >/dev/null 2>&1
+  elif [ "$camp" = "nodefony-orm" ]; then
+    # Le cas APPLICATIF : une lecture et une écriture par requête, sur le corpus
+    # seedé (`NF_BENCH_ORM=1`). Même route, même travail que `express-fair-sqlite`.
+    BENCH_URL="http://127.0.0.1:5151/nodefony/test/bench-orm/read-write" \
+      bash "$DIR/../scripts/bench-ab-mono.sh" nodefony-orm \
+      NF_BENCH_ORM=1 NF_WITH_DEV_MODULES=1 \
+      NF_WITH_DEV_MODULES_TTL_MIN="${NODEFONY_TTL_MIN:-120}" \
+      >/dev/null 2>&1
   else
     bash "$DIR/bench.sh" "$camp" "$PORT" >/dev/null 2>&1
   fi

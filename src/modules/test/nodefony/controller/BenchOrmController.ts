@@ -73,6 +73,50 @@ class BenchOrmController extends Controller {
     });
   }
 
+  /**
+   * Le cas APPLICATIF : une lecture **et** une écriture dans la même requête.
+   *
+   * Pourquoi cette route existe à côté de `/read` et `/write`. Prises isolément,
+   * ces deux-là mesurent chacune un mécanisme ; aucune ne ressemble à ce que fait
+   * un logiciel réel, qui lit un état puis l'écrit. C'est pourtant sur CE profil
+   * que la part du framework dans le budget d'une requête devient lisible : sur
+   * une route triviale, le framework est 100 % du coût ; dès qu'une base entre
+   * dans la boucle, il en devient une fraction, et c'est la fraction qui informe
+   * un lecteur qui choisit une pile.
+   *
+   * 🔴 L'écriture est un `UPDATE` de la ligne LUE, jamais un `INSERT`, et c'est
+   * une contrainte de PROTOCOLE avant d'être un choix de réalisme. À quelques
+   * milliers de requêtes par seconde, un insert ferait grossir la table d'un
+   * ordre de grandeur pendant la mesure elle-même : les derniers runs d'une série
+   * ne mesureraient plus la même base que les premiers, et deux séries ne se
+   * compareraient plus. Le cas « création » reste couvert par `/write`, qui a son
+   * `/reset`.
+   *
+   * L'écriture dépend de la lecture — on met à jour la ligne qu'on vient de lire.
+   * Sans ce lien, un moteur pourrait paralléliser les deux et l'on ne mesurerait
+   * plus une séquence applicative mais deux requêtes concurrentes.
+   */
+  @Get("/read-write")
+  async readWrite() {
+    const rows = await repo("llx_facture").find(
+      { fk_user_author: BENCH_READ_USER },
+      { limit: 20 },
+    );
+    const seq = ++writeSeq;
+    const cible = rows[0] as { rowid?: number } | undefined;
+    const maj = cible?.rowid
+      ? await repo("llx_facture").updateOne(
+          { rowid: cible.rowid },
+          { total_ht: 100 + (seq % 100), total_ttc: 120 + (seq % 100) },
+        )
+      : null;
+    return this.renderJson({
+      lus: rows.length,
+      seq,
+      maj: maj ? 1 : 0,
+    });
+  }
+
   /** Vide les écritures du banc (`BENCH-%`) — à appeler AVANT chaque run d'écriture. */
   @Get("/reset")
   async reset() {

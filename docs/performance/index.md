@@ -1,156 +1,227 @@
 ---
-title: "Performance — mesures, méthode, et ce qu'on n'a pas mesuré"
+title: "Performance — les chiffres, et ce qu'ils valent"
 lang: fr
 module: "global"
 topic: perf-index
 section: "Performance"
 audience: [developer, devops]
-tags: [performance, benchmark, mesure, methode, orm, express]
+tags: [performance, benchmark, mesure, comparaison, dimensionnement]
 status: stable
-updated: "2026-08-24"
 source: "docs/performance/"
 ---
 
 📍 [Documentation](../index.md) › **Performance**
 
 > 📊 **Les mesures de la version courante se lisent en ligne :**
-> [peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/) — comparatif, tenue dans la durée,
-> dimensionnement d'un pod, calculateur. Une page par version publiée ; les données qui la
-> nourrissent sont versionnées dans [`data/`](data/README.md).
+> [peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/) —
+> comparatif, tenue dans la durée, dimensionnement d'un pod, calculateur. Une page par version
+> publiée ; les données qui la nourrissent sont versionnées dans [`data/`](data/README.md).
 
-> Ce dossier rassemble treize sessions de mesure sur le pipeline HTTP, l'ORM et les WebSockets de
-> Nodefony : ce qui a été profilé, ce qui a été gagné, **ce qui a été annulé après avoir été
-> écrit**, et les instruments qui ont menti avant qu'on s'en aperçoive. Il est écrit pour être
-> contesté : chaque chiffre porte son décor, son protocole et le script qui le rejoue.
+> Ce dossier tient en **trois pages**. Celle-ci porte les **chiffres** et ce qu'ils valent.
+> [Méthode de mesure](methode.md) dit comment un nombre devient une mesure — et raconte les
+> instruments qui ont menti. [Où part le temps](analyses.md) décompose le budget d'une requête,
+> dans le pipeline, face aux autres frameworks, et dans les bases de données.
+>
+> Il est écrit pour être **contesté** : chaque chiffre porte son décor, son protocole et la
+> commande qui le rejoue.
 
-> 🔴 **Dossier en `draft` — défaut connu, à corriger avant toute publication.** Les chiffres
-> viennent de fenêtres de mesure prises sur des **états de code différents**, et ce rattachement
-> n'est pas porté par chaque tableau. Conséquence : un « avant/après » ne peut pas être vérifié
-> par le lecteur. La chronologie de ce qui est rattaché — et de ce qui ne l'est pas — est en tête
-> de [Méthode de mesure](methode.md#-chronologie-des-mesures--à-quel-état-du-code-correspond-chaque-chiffre).
-> **Ne pas citer un chiffre de ce dossier avant que son bloc porte son commit.**
+> ### ⚖️ Un chiffre n'est pas une vérité — c'est une mesure que personne n'a encore réfutée
+>
+> Aucune mesure de ce dossier ne **prouve** quoi que ce soit. Chacune dit : « dans ce décor, avec
+> ce protocole, voilà ce qui a été observé » — et elle tient jusqu'à ce qu'une observation la
+> contredise. C'est la seule posture tenable, et elle a déjà servi plus d'une fois ici : une
+> référence entière a été invalidée parce qu'elle n'enregistrait pas sa version de Node, un lot de
+> code a été annulé par sa propre mesure, une analyse de départ a été contredite par le profilage,
+> et un rapport entre deux camps s'est déplacé quand on a éteint une machine virtuelle.
+>
+> Ce qui s'écrit ici doit donc rester **réfutable** : un chiffre sans son décor, sans son
+> protocole et sans la commande qui le rejoue n'est pas un résultat, c'est une opinion. Si une
+> affirmation de ce dossier ne peut pas être mise en défaut par une mesure, c'est qu'elle n'a rien
+> à y faire.
+>
+> **Réfuter un chiffre d'ici est la contribution la plus utile qu'on puisse apporter à ce dossier.**
+> La marche à suivre est dans [Où part le temps](analyses.md#ce-qui-reste-ouvert).
 
-## Par où commencer
+## Le chiffre qu'il faut regarder en premier
 
-Trois parcours, selon ce que vous cherchez.
+**Un framework ne coûte pas la même chose selon ce que l'application fait.** C'est la seule
+manière lisible de présenter un écart, et c'est l'inverse de ce que fait un classement.
 
-### « Je veux savoir ce que ça vaut »
+Sur une route qui ne fait **rien** — pas de base, pas de session, juste le trajet complet du
+pipeline — le framework est **100 % du budget** de la requête. C'est le pire cas possible pour
+Nodefony, et c'est celui que mesurent la plupart des comparatifs publiés :
 
-1. [Face aux autres](comparaisons.md) — l'écart avec Express passe de ×1,61 à **×1,07** selon ce
-   que l'application fait réellement. Commencez par là : c'est le chiffre le plus honnête.
-2. [Dimensionnement](dimensionnement.md) — ce que tient un pod, et comment en déduire un nombre de
-   pods.
-3. [Ce qui reste ouvert](ouvertures.md) — ce que ces chiffres ne disent pas.
+| Camp               |   Débit médian | Écart inter-séries | Rapport / Express équipé |
+| ------------------ | -------------: | -----------------: | -----------------------: |
+| Express « équipé » | **16 456 rps** |              0,1 % |                    100 % |
+| **Nodefony**       | **14 522 rps** |              2,2 % |               **88,3 %** |
 
-### « Je veux comprendre où part le temps »
+> Séparation **nette** — les deux séries de chaque camp encadrent celles de l'autre, donc le
+> classement tient. Sans cette séparation, un écart de médianes ne classerait rien.
 
-1. [Le pipeline HTTP](pipeline-http.md) — profilage, huit lots livrés, un lot rejeté par sa propre
-   mesure.
-2. [ORM et bases de données](orm.md) — l'escalier complet : le framework coûte 86 µs, une lecture
-   en coûte 936.
-3. [La boucle d'événements](boucle-evenements.md) — pourquoi la base la plus lente n'est pas celle
-   qui plafonne le serveur.
+Dès qu'une application fait le travail pour lequel elle existe — lire une base, l'écrire —, le
+framework devient une **fraction** du budget, et l'écart s'écrase. C'est le chiffre qu'il faut
+regarder pour choisir une pile, et il est plus bas dans cette page.
 
-### « Je veux mesurer moi-même »
+## Le décor, sans lequel ces chiffres ne valent rien
 
-1. [Méthode de mesure](methode.md) — le protocole, les gardes, le lexique.
-2. [Le décor ment plus souvent que le code](instruments.md) — les pièges à connaître **avant** de
-   lancer un banc.
-3. L'outillage versionné : `.claude/skills/nodefony-load-test/` — bancs, scripts et protocoles.
+|                      |                                                                                |
+| -------------------- | ------------------------------------------------------------------------------ |
+| Processeur           | Intel Core i9-8950HK @ 2,90 GHz — 6 cœurs physiques, 12 logiques               |
+| Mémoire              | 32 Go                                                                          |
+| Système              | macOS 15.7.7 (Darwin 24.6)                                                     |
+| **Node**             | **v26.8.1**                                                                    |
+| Régime CPU           | secteur, mode basse consommation **désactivé** (`AC Power/lpm=0`)              |
+| **Hyperviseur**      | **éteint** — aucune machine virtuelle ne réserve de cœur                       |
+| Serveur              | mono-processus, `NODE_ENV=production`, boucle locale, journalisation coupée    |
+| Générateur de charge | `wrk` 4.2.0, `-t4`, échauffement 15 s non compté, 3 runs, médiane              |
+| Protocole            | **paires alternées** `A₁ B₁ A₂ B₂`, série refusée au-delà de 3 % de dispersion |
 
-## Ce que ce dossier établit
+🔴 **La version de Node fait partie du décor, au même titre que la machine.** Entre Node 26.7.0 et
+26.8.1, sur un code identique, le débit d'Express a progressé de **+62 %** et le nôtre de **+37 %**.
+Un jeu de mesures qui n'enregistre pas sa version de Node ne se compare donc à rien — c'est le
+défaut qui a fait invalider la référence précédente.
 
-| Question                                                 | Réponse mesurée                                                           |
-| -------------------------------------------------------- | ------------------------------------------------------------------------- |
-| Le framework est-il le goulot d'une application réelle ? | **Non** — sa couche ORM pèse moins de 2,5 % du CPU d'une route de lecture |
-| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi           |
-| L'écart avec Express, à travail et ORM égaux ?           | **×1,07**                                                                 |
-| Le ramasse-miettes est-il le problème ?                  | **Non** — 0,93 à 1,3 % selon l'instrument, trois mesures concordantes     |
-| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle, jamais la latence                            |
-| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau** de Docker Desktop, pas la base               |
-
-## Les pages
-
-### [`methode`](methode.md) — Méthode de mesure
-
-Ce qu'on mesure et pourquoi, le décor exact, les contrôles de validité, le protocole A/B et ses
-trois issues, le lexique. **À lire avant tout le reste** si vous comptez rejouer une mesure ou
-contester un chiffre.
-
-### [`pipeline-http`](pipeline-http.md) — Le pipeline HTTP
-
-Le profilage runtime et ce qu'il a réfuté de l'analyse statique. Les lots livrés — en-têtes,
-entropie amortie, promesses à vide, URL analysée une fois — pour **+8,9 %** puis ~+14 % de plus.
-Le lot **annulé après implémentation** parce que son A/B rendait du bruit. Le routeur, qui divise
-par neuf le nombre de motifs exécutés **sans revendiquer un gain de débit**. Et la preuve que rien
-n'a régressé côté WebSocket.
-
-### [`boucle-evenements`](boucle-evenements.md) — La boucle d'événements
-
-Le chapitre le plus utile pour choisir un magasin de données. Une base répond en 22 µs, l'autre en
-1 232 — et c'est la **première** qui bloque le serveur. La démonstration par le rappel armé, le
-coût CPU réel d'un pilote, et pourquoi un pilote synchrone s'effondre au 99ᵉ centile.
-
-### [`orm`](orm.md) — ORM et bases de données
-
-L'escalier marche par marche, le profilage qui **innocente** la couche du framework, et le lot de
-mémoïsation des requêtes préparées : **+86 et +96 %** sur SQLite, **+61 et +59 %** sur PostgreSQL.
-Y compris l'attribution fausse qu'on avait d'abord publiée, et pourquoi elle est retirée.
-
-### [`comparaisons`](comparaisons.md) — Face aux autres
-
-`node:http` nu, Fastify, Express, Express équipé du même travail, Express avec le même ORM. Trois
-niveaux de comparaison, du plus flatteur pour la concurrence au plus honnête — avec la **preuve
-d'équité** qui montre que la cible Nodefony ne traîne aucun travail dormant.
-
-### [`instruments`](instruments.md) — Le décor ment plus souvent que le code
-
-Quatre instruments faux sur une seule question, deux explications réfutées dont notre propre
-correction, un processeur bridé qui fausse d'un facteur 1,62, un indexeur système, une locale qui
-rend une garde muette. **Aucun verdict faux de ce chantier ne venait d'une erreur sur le code.**
-
-### [`dimensionnement`](dimensionnement.md) — Dimensionnement
-
-Les constantes d'un pod, l'escalier de concurrence, le calcul du nombre de pods, les plafonds
-WebSocket, et ce que fait le serveur quand il ne suit plus : il **dégrade, il ne tombe pas**.
-
-### [`ouvertures`](ouvertures.md) — Ce qui reste ouvert
-
-Les trous de mesure, les absolus non transposables, les pistes écartées **avec leur condition de
-réouverture**, et ce qui relève d'un choix d'architecture plutôt que d'une optimisation.
+🔴 **L'hyperviseur aussi.** Arrêter les conteneurs ne suffit pas : la machine virtuelle qui les
+héberge continue de réserver ses cœurs. La même paire mesurée machine virtuelle allumée rend
+89,8 % au lieu de 88,3 % — un décor sale ne déplace pas seulement les absolus, il déplace le
+**rapport**.
 
 ## Comment lire les chiffres absolus
 
-Les mesures sont produites sur une machine de développement, générateur de charge **co-localisé**
-avec le serveur. Les valeurs absolues sont donc basses pour tout le monde, y compris pour les
-points de comparaison. **Seuls les rapports entre eux sont exploitables**, à décor identique et
-dans la même fenêtre. Un chiffre de ce dossier ne se cite pas hors de son contexte.
+Le générateur de charge tourne sur la **même machine** que le serveur. Les valeurs absolues sont
+donc basses pour tout le monde, points de comparaison compris. **Seuls les rapports sont
+exploitables**, à décor identique et dans la même fenêtre de mesure. Un chiffre de ce dossier ne
+se cite pas hors de son contexte.
 
-Les mesures impliquant PostgreSQL portent une réserve supplémentaire : elles sont prises derrière
-une virtualisation réseau qui coûte un facteur 3,7 sur le chemin de la base. Les A/B restent
-valides, **les absolus ne se transposent pas**.
+Deux repères utiles pour situer un absolu, mesurés dans la même fenêtre :
+
+| Repère                     |      Débit | Ce qu'il dit                                         |
+| -------------------------- | ---------: | ---------------------------------------------------- |
+| `node:http` nu, 186 routes | 37 471 rps | le plafond de la machine pour ce payload             |
+| Express « équipé »         | 16 456 rps | le prix du service rendu, quel que soit le framework |
+
+> ⚠️ **Un camp plus rapide que le serveur nu est un signal d'alarme, pas un exploit.** Au-delà de
+> ~35 000 rps sur cette machine, le générateur de charge entre en concurrence avec le serveur sur
+> les mêmes cœurs : c'est lui qu'on mesure. Un camp mesuré au-dessus de ce seuil a rendu 41 082 puis
+> 33 695 rps sur deux séries — 22 % d'écart, donc rien de publiable.
+
+## Le cas applicatif — une lecture et une écriture par requête
+
+Une route qui ne fait rien ne ressemble à aucun logiciel. Le banc applicatif exerce donc ce que
+fait un vrai service : **lire un état, puis l'écrire** — 20 lignes lues avec leurs clés
+étrangères, puis la mise à jour de la ligne lue, sur un corpus de 10 000 factures.
+
+Le premier chiffre à regarder n'est pas un rapport entre camps, c'est le **budget d'une requête** :
+
+| Route                      | Budget par requête | Ce qui domine               |
+| -------------------------- | -----------------: | --------------------------- |
+| triviale (pipeline seul)   |         **~61 µs** | le framework, à 100 %       |
+| lecture + écriture en base |      **~1 050 µs** | la **base**, à plus de 90 % |
+
+**Un facteur 17.** C'est la mesure qui répond à la question « le framework est-il mon goulot ? » :
+dès qu'une application fait le travail pour lequel elle existe, le choix du framework devient une
+fraction de son budget. Une comparaison faite sur une route triviale mesure donc ce qui compte le
+moins.
+
+### Le protocole de ce banc, et pourquoi il est plus exigeant
+
+| Choix                                 | Raison                                                                                                                                                                                                                   |
+| ------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| **UPDATE**, jamais INSERT             | à quelques milliers de requêtes par seconde, un insert gonflerait la table d'un ordre de grandeur **pendant** la mesure : les derniers runs ne mesureraient plus la même base que les premiers                           |
+| écriture **dépendante** de la lecture | sans ce lien, un moteur pourrait paralléliser les deux, et l'on ne mesurerait plus une séquence applicative                                                                                                              |
+| **SQLite**, pas PostgreSQL            | une base en conteneur fait mesurer la virtualisation réseau — facteur 3,7 sur ce dépôt. SQLite vit dans le processus : plus de chemin virtualisé, et un chiffre qu'un tiers peut reproduire                              |
+| **25 connexions**, pas 128            | un pilote synchrone sérialise : au-delà de la saturation, la concurrence produit une file d'attente, pas du débit                                                                                                        |
+| bases **séparées**, même seed         | les deux camps écrivent ; partager un fichier ferait subir à l'un les écritures de l'autre, et l'ordre de passage déciderait du résultat                                                                                 |
+| runs de **30 s**                      | chaque requête écrit sur disque, et la journalisation de SQLite pose ses points de reprise à des instants imprévisibles. Un run court capte ce bruit ; on allonge la fenêtre plutôt que d'élargir le seuil de dispersion |
+
+### Ce que le banc compare exactement
+
+Les deux camps utilisent **le même ORM à la même version** et **le même pilote à la même
+version** — la garde du banc refuse de mesurer si l'installé ne correspond pas au déclaré. Ils
+rendent le **même résultat** (la ligne persistée). Ce qui diffère est la **couche d'accès** :
+
+|                          | Camp témoin                       | Nodefony                                                                                       |
+| ------------------------ | --------------------------------- | ---------------------------------------------------------------------------------------------- |
+| ORM                      | drizzle, accédé **directement**   | drizzle, accédé **via le repository** d'`orm-core`                                             |
+| Le `WHERE` de l'écriture | écrit par le développeur          | composé pour garantir « au plus une ligne » **portablement** entre SQLite, PostgreSQL et MySQL |
+| SQL émis                 | `UPDATE … WHERE pk = ? RETURNING` | `UPDATE … WHERE pk IN (SELECT … LIMIT 1) RETURNING`                                            |
+
+Ce que ce banc mesure n'est donc pas « un ORM contre du SQL écrit à la main », mais **le prix de
+l'abstraction portable** : ce que coûte une API générique qui doit rendre le même contrat sur
+trois dialectes.
+
+> 🔬 **Le rapport entre les deux camps n'est pas encore publié.** Les premières séries placent
+> Nodefony au niveau du camp témoin, voire devant — mais trois séries sur quatre ont été
+> **refusées** par le banc pour dispersion, et une paire incomplète ne se compare pas. Le chiffre
+> entrera ici quand une paire complète aura passé le critère de séparation, pas avant.
+
+> ⚠️ **Ce banc n'est pas encore reproductible par un tiers** : son corpus est généré localement et
+> n'est pas versionné (schéma issu d'un logiciel sous licence GPLv3). C'est le défaut même que
+> cette version corrige pour les autres chiffres, et il est ouvert pour celui-ci.
+
+## Ce que ce dossier établit
+
+| Question                                                 | Réponse mesurée                                                                                     |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture |
+| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                     |
+| L'écart avec Express sur une route qui ne fait rien ?    | **×1,13** — le pire cas pour nous                                                                   |
+| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes             |
+| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                       |
+| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                             |
+| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport** : 89,8 % contre 88,3 % sur la même paire                          |
+
+## Les trois pages
+
+### [`index`](index.md) — les chiffres et ce qu'ils valent
+
+Cette page. Les mesures de référence, leur décor, et les réserves qui les bornent.
+
+### [`methode`](methode.md) — comment un chiffre devient une mesure
+
+Ce qu'on mesure et pourquoi, le décor exact, les contrôles de validité, le protocole des paires
+alternées et ses trois issues, le lexique. Elle porte aussi **les instruments qui ont menti** —
+quatre sur une seule question, deux explications réfutées — et **les deux grandeurs qu'on
+confond**, latence et blocage. **À lire avant tout le reste** si vous comptez rejouer une mesure
+ou contester un chiffre.
+
+### [`analyses`](analyses.md) — où part le temps
+
+Le pipeline HTTP (profilage, lots livrés, un lot **rejeté par sa propre mesure**), la comparaison
+aux autres frameworks à trois niveaux d'équité, l'escalier ORM, l'analyse initiale et ce qu'elle
+avait faux, et **ce qui reste ouvert** — trous de mesure, pistes écartées avec leur condition de
+réouverture.
 
 ## Rejouer une mesure
 
+Tout ce qui suit est versionné dans `.claude/skills/nodefony-load-test/`.
+
 ```bash
-# Nodefony, mono-processus production, cible de banc du framework
-BENCH_DUR=10 BENCH_URL=http://127.0.0.1:5151/nodefony/kernel/bench \
-  bash .claude/skills/nodefony-load-test/scripts/bench-ab-mono.sh <label> NF_BENCH_ROUTE=1
+# 0. Le décor AVANT tout : l'hyperviseur doit être éteint (0 = éteint)
+docker info --format '{{.NCPU}}'
 
-# Points de comparaison (mêmes routes, même charge utile)
-BENCH_DUR=10 bash .claude/skills/nodefony-load-test/bench-frameworks/bench.sh fastify 5163
+# 1. Comparatif en PAIRES ALTERNÉES — le seul protocole qui classe deux camps
+BENCH_CONN=64 BENCH_WARMUP=15 \
+  bash .claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh express-fair nodefony
 
-# Ce qu'un pilote de base coûte à la boucle d'événements
-node .claude/skills/nodefony-load-test/scripts/db-backend-cost.mjs --prove
+# 2. Le cas applicatif : une lecture ET une écriture par requête, à ORM et pilote égaux
+BENCH_PATH=/nodefony/test/bench-orm/read-write BENCH_EXPECT=lus \
+  NF_BENCH_SQLITE_DB=/tmp/bench-express.db BENCH_CONN=25 BENCH_WARMUP=15 \
+  bash .claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh \
+    express-fair-sqlite nodefony-orm 5167
+
+# 3. Tenue dans la durée — une PENTE, jamais un delta début/fin
+node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 90 --window 60 --skip 3
 ```
 
-La cible `/nodefony/kernel/bench` n'existe **que** sous `NF_BENCH_ROUTE=1` : aucune surface n'est
-ajoutée en production par défaut.
+Le banc **refuse de conclure** plutôt que de rendre un chiffre douteux : série au-delà de 3 % de
+dispersion rejetée, séries qui se chevauchent déclarées « dans le bruit », et refus de mesurer si
+les versions installées ne correspondent pas à celles déclarées.
 
 ## Pour aller plus loin
 
 - 📚 [Toute la documentation](../index.md)
+- 📐 [Méthode de mesure](methode.md) — le protocole et les instruments qui ont menti
+- 🔬 [Où part le temps](analyses.md) — le budget d'une requête, décomposé
 - 🧰 Outillage de mesure : `.claude/skills/nodefony-load-test/`
-- 📄 [Rapport du 23 juillet](2026-07-23-pipeline-http-vs-express-fastify.md) — **remplacé** :
-  l'analyse statique qui a ouvert le chantier, conservée parce que la mesure l'a en partie
-  contredite. Ses chiffres ne sont plus une référence.
