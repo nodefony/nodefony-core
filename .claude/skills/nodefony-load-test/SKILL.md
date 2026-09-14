@@ -191,6 +191,45 @@ de la saturation on mesure une file), et chaque requête écrit sur disque — l
 SQLite pose ses points de reprise à des instants imprévisibles, qu'une fenêtre courte capte au
 hasard. On allonge la fenêtre, **jamais** le seuil de dispersion.
 
+🔴 **UNE SEULE INSTANCE DE L'ORM PAR CAMP — la garde « même version » ne suffit pas.**
+Les camps ORM importaient `drizzle-orm` par spécificateur nu, donc depuis le `node_modules` de
+`bench-frameworks/` ; le schéma, lui, vient du `dist` du module test, donc de celui de la RACINE.
+Même version, **deux instances** — et `is()`, qui teste `valeur instanceof type` en premier, échoue
+alors systématiquement et se rabat sur la remontée de la chaîne de prototypes. Comme `entityKind`
+est un `Symbol.for`, le résultat reste JUSTE : aucune erreur, aucun avertissement, seulement le
+chemin lent, sur chaque colonne de chaque ligne.
+
+Ce que ça coûtait au camp témoin, **mesuré camp contre lui-même en paires alternées** :
+
+| Banc                                    | deux instances | une instance | effet       |
+| --------------------------------------- | -------------: | -----------: | ----------- |
+| SQLite, `read-write` (lecture+écriture) |          713,8 |      1 133,7 | **+58,8 %** |
+| PostgreSQL, `read-lean`                 |          983,2 |      1 802,9 | **+83,4 %** |
+
+Le banc publiait donc Nodefony à 146 % sur SQLite (en réalité **90,9 %**) et le rapport
+PostgreSQL a dû être RETIRÉ. Deux conséquences pour qui touche à ces camps :
+
+- **importer l'ORM par la passerelle** `../repo-drizzle-sqlite.mjs` ou `../repo-drizzle-pg.mjs`,
+  jamais par un spécificateur nu écrit dans `bench-frameworks/` — ces passerelles vivent un cran
+  au-dessus, dans un dossier sans `node_modules`, donc leurs imports remontent à la racine comme
+  le fait le schéma ;
+- chaque camp porte une **garde d'identité** (`colonne instanceof Column`) et refuse de servir en
+  code 2 sinon. Elle contrôle une IDENTITÉ là où `verifier_versions` ne contrôle qu'une VERSION.
+
+Le biais reste **rejouable** : `express-fair-drizzle-2copies.mjs` reproduit la faute à dessein et
+refuse de démarrer sans `NF_BENCH_BIAIS=1`.
+
+```bash
+NF_BENCH_BIAIS=1 BENCH_PATH=/nodefony/test/bench-orm/read-lean BENCH_EXPECT='"n":' \
+  BENCH_CONN=25 BENCH_DUR=30 BENCH_WARMUP=40 \
+  bash $S/bench-pairs.sh express-fair-drizzle express-fair-drizzle-2copies 5166
+```
+
+> La leçon générale dépasse ce banc : **une comparaison ne se contrôle pas seulement sur ce que
+> chaque camp ÉCRIT, mais sur ce que chaque camp CHARGE.** Quatre écritures SQL du camp témoin
+> avaient été mesurées pour éprouver l'équité ; toutes partageaient le même défaut de résolution,
+> donc aucune ne pouvait le révéler.
+
 **`express-fair-endchunk.mjs` / `express-fair-writeend.mjs`** isolent la FORME d'écriture —
 `res.end(corps)` contre `res.write(corps)` puis `res.end()` vide. Une seule ligne de différence,
 `res.json` retiré des deux (il pose un ETag, donc un hachage du corps, qui masquerait l'écart).

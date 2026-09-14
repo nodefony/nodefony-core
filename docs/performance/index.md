@@ -179,15 +179,15 @@ reste une part à peu près constante du budget.
 
 ## Ce que ce dossier établit
 
-| Question                                                 | Réponse mesurée                                                                                                         |
-| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
-| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                     |
-| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                         |
-| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                    |
-| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                 |
-| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                           |
-| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                 |
-| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport**, de 1,5 point sur une même paire ; et une double instance de module l'a déplacé de 55 |
+| Question                                                 | Réponse mesurée                                                                                                                                                                |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                                                                            |
+| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                                                                                |
+| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                                                                           |
+| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                                                                        |
+| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                                                  |
+| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                                                        |
+| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Un décor sale : 1,5 point. Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL** |
 
 ## Les trois pages
 

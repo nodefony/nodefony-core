@@ -14,6 +14,7 @@
     ".claude/skills/nodefony-load-test/bench-frameworks/bare.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/bench-pairs.sh",
     ".claude/skills/nodefony-load-test/bench-frameworks/express-drizzle.mjs",
+    ".claude/skills/nodefony-load-test/bench-frameworks/express-fair-drizzle-2copies.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/express-fair-drizzle.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/express-fair-endchunk.mjs",
     ".claude/skills/nodefony-load-test/bench-frameworks/express-fair-proof.mjs",

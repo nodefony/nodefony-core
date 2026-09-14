@@ -176,7 +176,7 @@ source: "docs/skills/index.md"
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 360 | 3 | 8 | ✅ |
 | [`nodefony-identifiers`](nodefony-identifiers.md) | 1.0.0 | 219 | 0 | 7 | ✅ |
 | [`nodefony-inspect`](nodefony-inspect.md) | 1.0.0 | 287 | 0 | 0 | ✅ |
-| [`nodefony-load-test`](nodefony-load-test.md) | — | 429 | 4 | 44 | ✅ |
+| [`nodefony-load-test`](nodefony-load-test.md) | — | 468 | 4 | 44 | ✅ |
 | [`nodefony-migrate-schema`](nodefony-migrate-schema.md) | — | 15 | 0 | 0 | ✅ |
 | [`nodefony-multipod-bench`](nodefony-multipod-bench.md) | — | 143 | 2 | 12 | ✅ |
 | [`nodefony-release`](nodefony-release.md) | 2.0.0 | 342 | 0 | 1 | ✅ |

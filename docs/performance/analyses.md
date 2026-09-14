@@ -473,10 +473,12 @@ code idiomatique de l'ORM) et **préparé** (la requête est mémoïsée — ce 
 
 Les verdicts, dans l'ordre où ils comptent :
 
-- **À parité de travail et d'ORM : ×1,07.** Nodefony rendrait ~93 % du débit d'un Express équipé du
-  même service. ⚠️ **Chiffre SUSPENDU** : le camp témoin de ce banc chargeait deux instances de
-  `drizzle-orm` (voir « Le banc SQLite » plus bas), ce qui le pénalise et surévalue ce rapport **en
-  faveur de Nodefony**. Le camp est réparé ; la mesure reste à rejouer (#403). Ne pas le citer.
+- **À parité de travail et d'ORM : ×1,07.** ⚠️ **Chiffre RETIRÉ, pas seulement suspendu.** Le camp
+  témoin de ce banc chargeait deux instances de `drizzle-orm` (voir « Le banc SQLite » plus bas).
+  L'effet a été **mesuré sur ce camp précis** : corrigé, il rend **+83,4 %** (1 802,9 contre 983,2
+  req/s, séparation nette) — il tournait donc à **54,5 % de son vrai débit**. Un rapport établi
+  contre un adversaire amputé de moitié ne se corrige pas d'une note : il ne veut rien dire. La
+  mesure est à refaire entièrement (#403).
 - **À parité d'ORM mais sans aucun middleware Express : ~90 %** d'un Express nu — c'est-à-dire
   d'un serveur qui ne rend ni pare-feu, ni session, ni audit, ni corrélation.
 - **Le prix des middlewares Express sur une route ORM n'est plus que de −2,4 %** (1 801 nu contre
@@ -592,11 +594,23 @@ distingue pas.** Le tableau précédent annonçait ×1,61 → ×1,29 → ×1,07,
 ses trois marches venaient de fenêtres et de décors différents, et sa dernière était portée par le
 banc PostgreSQL, dont le camp témoin souffrait du défaut décrit plus haut.
 
-> ⚠️ **Le ×1,07 (≈ 93 %) plus haut dans cette page n'a PAS été rejoué.** Son camp témoin
-> (`express-fair-drizzle.mjs`) chargeait lui aussi deux instances de drizzle ; il est donc
-> surévalué **en faveur de Nodefony**, dans les mêmes proportions. Le camp est réparé, mais le duel
-> demande un camp Nodefony PostgreSQL qui n'existe pas encore — c'est l'objet du ticket #403. Tant
-> qu'il n'a pas eu lieu, ce chiffre ne doit pas être cité.
+> ⚠️ **Le ×1,07 (≈ 93 %) plus haut dans cette page est RETIRÉ.** Son camp témoin
+> (`express-fair-drizzle.mjs`) chargeait lui aussi deux instances de drizzle — et l'effet y est
+> **plus grand que sur SQLite**, parce que la route PostgreSQL rend `{n}` (le SQL y pèse moins,
+> donc la mise en objet des lignes pèse davantage) et que son pilote, asynchrone, ne bloque pas la
+> boucle : tout le CPU reste disponible pour le surcoût.
+>
+> | Camp témoin PostgreSQL, `read-lean` | Médiane de 2 séries | Écart inter-séries |
+> | ----------------------------------- | ------------------: | -----------------: |
+> | une seule instance de drizzle       |         **1 802,9** |              0,1 % |
+> | deux instances (l'état publié)      |               983,2 |              1,5 % |
+> | **effet de la correction**          |         **+83,4 %** |   séparation nette |
+>
+> Le camp témoin tournait donc à **54,5 % de son vrai débit**. Le duel reste à refaire : il demande
+> un camp Nodefony PostgreSQL qui n'existe pas encore (#403). **Aucune valeur corrigée n'est
+> avancée ici** — les chiffres publiés viennent d'une autre fenêtre, d'une autre version de Node et
+> de paramètres qui ne sont plus connus ; les rapporter à ce biais donnerait un nombre d'allure
+> précise que rien ne mesure.
 
 **Ce qui n'est pas revendiqué, et ne le sera pas** : Nodefony n'est pas « plus performant » en
 absolu. Sur une route qui ne fait rien, il est plus lent, et le dossier le publie en première

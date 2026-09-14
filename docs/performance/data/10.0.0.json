@@ -345,6 +345,29 @@
         "is": "témoin 5 739 ms · Nodefony 2 442 ms",
         "mapResultRow": "témoin 1 296 ms · Nodefony 193 ms",
         "pipelineNodefony": "3 439 ms que le camp témoin ne paie pas"
+      },
+      "biaisMesureParCamp": {
+        "quoi": "Effet de la correction sur le SEUL camp témoin, mesuré en paires alternées entre ses deux états (une instance contre deux), même fenêtre, 25 connexions, runs de 30 s, warmup 40 s.",
+        "sqlite": {
+          "route": "/nodefony/test/bench-orm/read-write",
+          "deuxInstances": 713.82,
+          "uneInstance": 1133.65,
+          "gainPct": 58.8,
+          "debitReelServi": "54,5 % … 62,9 % selon le camp — voir postgres"
+        },
+        "postgres": {
+          "route": "/nodefony/test/bench-orm/read-lean",
+          "deuxInstances": 983.19,
+          "uneInstance": 1802.92,
+          "gainPct": 83.4,
+          "interSeriesPct": {
+            "uneInstance": 0.1,
+            "deuxInstances": 1.5
+          },
+          "separation": "nette",
+          "pourquoiPlusGrandQueSqlite": "la route rend `{n}` — le SQL pèse moins dans le budget, donc la mise en objet des lignes y pèse davantage ; et le pilote PostgreSQL, asynchrone, ne bloque pas la boucle : tout le CPU reste disponible pour le surcoût.",
+          "consequence": "Le camp témoin du banc PostgreSQL tournait à 54,5 % de son vrai débit. Le rapport publié (~93 %, ×1,07) est RETIRÉ et non corrigé : les chiffres d'origine viennent d'une autre fenêtre, d'une autre version de Node et de paramètres qui ne sont plus connus. La mesure est à refaire entièrement (#403)."
+        }
       }
     },
     "equiteEprouvee": {
