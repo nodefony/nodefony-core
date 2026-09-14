@@ -311,12 +311,12 @@ l'orchestrateur, et les journaux partent sur la sortie standard.
 
 ## Où aller ensuite
 
-- [Par où commencer](docs/demarrer.md) — quatre parcours selon ce que vous venez faire
-- [Documentation](docs/index.md) · [Guides](docs/guides/README.md) · [Première application](docs/tutoriels/premiere-application.md)
-- [L'architecture en vue d'ensemble](docs/architecture/vue-ensemble.md) — ce que le framework est, et ce que ses partis pris coûtent
-- [Performance](docs/performance/index.md) — ce qui a été mesuré, avec quel protocole, et ce que
-  ces chiffres ne permettent pas de conclure ; les mesures de chaque version publiée sont sur
-  [la page dédiée](https://nodefony.github.io/nodefony-core/performance/latest/)
+- [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/) — quatre parcours selon ce que vous venez faire
+- [Documentation](https://nodefony.github.io/nodefony-core/docs/) · [Guides](https://nodefony.github.io/nodefony-core/docs/guides/) · [Première application](https://nodefony.github.io/nodefony-core/docs/tutoriels/premiere-application/)
+- [L'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/) — ce que le framework est, et ce que ses partis pris coûtent
+- [Performance](https://nodefony.github.io/nodefony-core/performance/) — ce qui a été mesuré, avec quel
+  protocole, et ce que ces chiffres ne permettent pas de conclure ; une page par version publiée,
+  dont [la version courante](https://nodefony.github.io/nodefony-core/performance/latest/)
 - [Décisions d'architecture](docs/adr/) — les choix structurants et leur pourquoi
 - [Signaler une faille](SECURITY.md) — canal privé, jamais en ticket public
 - Contribuer : ouvrez une issue avant toute contribution substantielle. Le dépôt impose les
@@ -335,7 +335,7 @@ des mêmes intergiciels** (12 226 requêtes/s, p99 9,57 ms sur la machine de ré
 minutes de charge continue laissent le tas plat. La page de mesures de la version courante —
 **[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
-chiffres **ne** prouvent pas. Le dossier [Performance](docs/performance/index.md) donne le
+chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](docs/performance/index.md) donne le
 protocole, les scripts qui rejouent chaque chiffre et les instruments qui ont menti avant qu'on
 s'en aperçoive — aucun absolu pris derrière un chemin virtualisé n'est transposable.
 

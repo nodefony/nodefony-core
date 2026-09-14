@@ -147,6 +147,32 @@ runs/dispersion/thermal pour le rapport). `bench-ab-mono.sh purge` entre deux lo
 survivant entre dans une comparaison qui ne le concerne pas. Toggles A/B = env vars passées au
 serveur (`KEY=VAL`), à lire **1× au boot** côté code (jamais `process.env` dans le hot path).
 
+### Comparer DEUX camps — `bench-frameworks/bench-pairs.sh`
+
+`bench.sh` et `bench-ab-mono.sh` mesurent UN camp. Comparer deux camps demande des
+**paires alternées** — méthode qui était écrite dans l'en-tête de `bench-ab-mono.sh` et que
+personne n'appliquait, parce qu'il fallait taper soi-même `A1 ; B1 ; A2 ; B2` puis comparer
+les médianes à l'œil. Vécu le 2026-09-14 : cinq camps mesurés en séries séquentielles sur une
+heure, chacune propre (dispersion ≤ 3 %), et le **rapport** entre deux camps sans valeur.
+
+```bash
+S=.claude/skills/nodefony-load-test/bench-frameworks
+BENCH_CONN=64 BENCH_WARMUP=10 bash $S/bench-pairs.sh express-fair nodefony
+```
+
+Il ajoute trois choses, et rien d'autre : l'**alternance** (la dérive thermique porte alors
+également sur les deux camps) ; un verdict de **SÉPARATION** — un écart n'est retenu que si les
+deux séries d'un camp encadrent celles de l'autre, sinon « DANS LE BRUIT » et code 3 ; et la garde
+**installé == déclaré**, qui refuse de mesurer si `node_modules` ne sert pas ce que
+`package.json` annonce (mesuré : `fastify` 5.8.5 servi contre `^5.12.4` déclaré, **29 % d'écart**
+entre ces deux versions, imputé à tort à la machine).
+
+**`express-fair-endchunk.mjs` / `express-fair-writeend.mjs`** isolent la FORME d'écriture —
+`res.end(corps)` contre `res.write(corps)` puis `res.end()` vide. Une seule ligne de différence,
+`res.json` retiré des deux (il pose un ETag, donc un hachage du corps, qui masquerait l'écart).
+Ils chiffrent [nodejs/node#65466](https://github.com/nodejs/node/pull/65466) **de l'extérieur**,
+sans toucher au produit — c'est ce qui a désigné le correctif du chemin d'écriture de `Response.send`.
+
 **Détail : [`references/ab-perf-mono-prod.md`](references/ab-perf-mono-prod.md)** — la cible de
 banc dédiée (`/nodefony/kernel/bench`) et ce qu'il ne faut pas lui substituer, la méthode du diff
 structurel sans toggle env, les pré-requis du banc, les résultats déjà engrangés, la matrice de
