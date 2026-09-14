@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { spawn } from "node:child_process";
 import { fileURLToPath } from "node:url";
+import { toImportSpecifier } from "../kernel/resolveModuleEntry";
 
 /**
  * SPEC e2e — « le refus de dualité est réellement CÂBLÉ dans le boot ».
@@ -88,14 +89,17 @@ function monterAppEnDualite(): string {
   // croit hors d'une application et ne boote pas.
   fs.writeFileSync(path.join(dir, "nodefony.config.ts"), "export default {};");
   fs.mkdirSync(path.join(dir, "dist"), { recursive: true });
-  // Le paquet est atteint par chemin ABSOLU : l'app jetable n'a pas de
-  // `node_modules`. L'import s'évalue AVANT le push (hoisting), donc la vraie
-  // copie s'inscrit d'abord et la fantôme ensuite — deux entrées, l'ordre que
-  // le boot rencontrerait.
+  // Le paquet est atteint par son URL `file://` — l'app jetable n'a pas de
+  // `node_modules`, et un spécificateur d'import VOYAGE : écrit en chemin natif,
+  // `C:\…` part chez le chargeur ESM comme le protocole `c:` (axiome 3, vu
+  // rouge sur les trois jobs Windows du run 34852052728). D'où `toImportSpecifier`,
+  // l'unique implémentation de cette conversion — jamais un `pathToFileURL` recopié.
+  // L'import s'évalue AVANT le push (hoisting), donc la vraie copie s'inscrit
+  // d'abord et la fantôme ensuite — deux entrées, l'ordre que le boot rencontrerait.
   fs.writeFileSync(
     path.join(dir, "dist", "index.js"),
     [
-      `import { Module, defineConfig } from ${JSON.stringify(DIST)};`,
+      `import { Module, defineConfig } from ${JSON.stringify(toImportSpecifier(DIST))};`,
       `(globalThis[Symbol.for("nodefony.packageInstances")] ??= []).push(`,
       `  { url: ${JSON.stringify(COPIE_FANTOME)}, version: "0.0.1" },`,
       `);`,
@@ -107,6 +111,16 @@ function monterAppEnDualite(): string {
       `}`,
       ``,
     ].join("\n"),
+  );
+  // Le spécificateur doit être une URL, sur TOUTE plateforme. Sans cette
+  // ligne, un chemin natif passe inaperçu sur macOS et Linux — où il est
+  // absolu donc toléré — et ne tombe que dans le job Windows, à distance du
+  // geste qui l'a écrit. L'assertion se COMPOSE (axiome 10) : on ne littéralise
+  // ni séparateur ni lettre de lecteur.
+  const ecrit = fs.readFileSync(path.join(dir, "dist", "index.js"), "utf8");
+  assert.ok(
+    ecrit.startsWith('import { Module, defineConfig } from "file://'),
+    `le paquet doit être importé par URL \`file://\`, pas par chemin natif :\n${ecrit.split("\n")[0]}`,
   );
   return dir;
 }
