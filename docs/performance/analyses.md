@@ -490,6 +490,73 @@ engagée **avant** la mesure — « naïf ≈ avant, préparé ≈ après, écar
 s'est vérifiée. C'est ce recoupement croisé qui donne confiance dans l'A/B PostgreSQL : un gain
 qui se reproduit à l'identique chez un tiers n'est pas un artefact de banc.
 
+### Le banc SQLite — un renversement, et l'enquête qu'il a demandée
+
+Le banc PostgreSQL ci-dessus donne Nodefony à **93 %** d'un Express à parité. Le banc applicatif
+SQLite — vingt lignes lues puis l'`UPDATE` de la ligne lue — donne **146 %** : 1 041 req/s contre
+714, séparation nette, dispersions inter-séries de 0,3 % et 0,5 %.
+
+Les deux mesures ne se contredisent pas, elles ne portent pas sur le même décor : PostgreSQL a un
+pilote **asynchrone** qui rend la main, SQLite un pilote **synchrone** dont la latence EST son
+blocage. Mais un renversement de cette ampleur ne se publie pas sans l'avoir instruit.
+
+#### L'équité, éprouvée plutôt qu'affirmée
+
+Une équité ne se démontre pas par le raisonnement : elle s'éprouve en tentant d'**améliorer le camp
+adverse** jusqu'à échouer. Quatre écritures du camp témoin ont été mesurées :
+
+| Écriture du camp Express                                  |     RPS |
+| --------------------------------------------------------- | ------: |
+| `prepare()` à valeur figée puis `.all()` — celle en place | **714** |
+| `prepare()` + `sql.placeholder()` + paramètres liés       |     670 |
+| `.execute()`, l'entrée même qu'emprunte Nodefony          |     663 |
+| aucune préparation, requête reconstruite à chaque appel   |     530 |
+
+La variante en place est la meilleure, et adopter la méthode d'appel de Nodefony **dégrade** le
+témoin. L'écart ne vient donc pas d'un adversaire mal écrit. S'y ajoutent les contrôles de décor :
+même ORM et même pilote aux versions du dépôt, schéma importé du `dist` et jamais recopié, base en
+copie binaire du même seed, PRAGMA constatés **par le pilote** (WAL, `synchronous` NORMAL), et le
+même objet rendu — 74 champs, mêmes types, vérifiés par requête sur chaque camp.
+
+#### Où part le temps
+
+Profil CPU des deux camps sous la charge du banc, self-time agrégé :
+
+| Poste                                                                      |    Témoin | Nodefony |
+| -------------------------------------------------------------------------- | --------: | -------: |
+| `drizzle-orm`, total                                                       | 11 723 ms | 6 921 ms |
+| dont `is` via `mapResultRow`                                               |  4 055 ms | 1 092 ms |
+| dont `mapResultRow` lui-même                                               |  1 399 ms |   193 ms |
+| construction des requêtes (`buildSelection`, `buildQueryFromSourceParams`) | ~1 040 ms |  ~845 ms |
+| pipeline Nodefony                                                          |         — | 3 439 ms |
+| `express` et son routeur                                                   |    222 ms |        — |
+
+Nodefony **paie bien son pipeline** — 3 439 ms que le témoin n'a pas — mais en économise 4 802 dans
+l'ORM. Le solde est en sa faveur. Et **ce n'est pas un défaut d'Express** : le profil lui attribue
+0,7 % du temps.
+
+#### Le fait qui reste sans explication
+
+Le volume de travail est **strictement identique**, mesuré et non déduit : **21 appels** à
+`mapResultRow` par requête de chaque côté, environ 74 colonnes par appel. Rapporté aux requêtes
+réellement servies, le même code coûte **25,3 µs par appel au témoin contre 4,6 µs à Nodefony**.
+
+Dix hypothèses ont été **réfutées par la mesure** : Express lui-même, les PRAGMA, les versions
+d'ORM et de pilote, le schéma, la base, le plan SQL, un éventuel cluster face à un mono-process,
+l'écriture, la sérialisation, la déoptimisation V8 — `--trace-deopt` ne montre aucune
+déoptimisation sur le chemin de service — et les quatre écritures du camp témoin.
+
+Il reste une seule famille d'explications : **le même code ne s'exécute pas à la même vitesse selon
+le site d'appel**, `is()` effectuant trois tests de type par colonne, soit environ 4 600 tests par
+requête. L'instrument qui trancherait est `--trace-ic`. Tant qu'il n'a pas parlé, ce paragraphe
+énonce un fait mesuré et une piste, jamais une conclusion.
+
+#### Ce que cela vaut pour Nodefony
+
+Rien à gagner : notre chemin est déjà le rapide. Le bénéfice est **défensif et chiffré** — le site
+d'appel de `find()` vaut **0,44 ms par requête**. Une évolution qui le rendrait polymorphe coûterait
+près de 30 % du débit applicatif **sans qu'aucun test ne le voie**.
+
 ### Ce que ces trois niveaux disent
 
 **L'écart fond à mesure que l'application grandit.**
