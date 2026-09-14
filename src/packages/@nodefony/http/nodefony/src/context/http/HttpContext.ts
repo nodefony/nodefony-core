@@ -512,6 +512,12 @@ class HttpContext extends Context implements IHttpContextInterface {
       await this.fireAsync("onClose", this);
     }
     // END REQUEST
+    // `send()` termine désormais la réponse UNIQUE d'un seul `end(corps)` (cf
+    // Response.send) : rappeler `end()` ici poserait un second appel sur un flux
+    // déjà terminé. Node l'ignore, mais il coûte le tick que le correctif vient
+    // d'économiser. Le chemin chunké (`flush()`), lui, n'a pas terminé : il
+    // passe toujours par ici.
+    if (this.response?.response?.writableEnded) return this.response;
     return this.response
       .end()
       .then(() => this.response)

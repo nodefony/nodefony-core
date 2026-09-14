@@ -519,6 +519,22 @@ class HttpResponse {
     // Le listener `'drain'` n'est attaché QUE sous pression (rare) et est
     // `once` (auto-détaché au fire) + retiré explicitement en cas d'erreur.
     const res = this.response as http.ServerResponse;
+    // ── Réponse UNIQUE : terminer d'un SEUL appel `end(corps)` ───────────────
+    // Node 26.8 (nodejs/node#65466) attache la finalisation à cette écriture
+    // quand le corps lui est donné AU `end()` : `maybePrepareFinalChunk` accepte
+    // une chaîne OU un Uint8Array (donc un Buffer), et évite alors « a separate
+    // send() & tick step ». En écrivant par `write(corps)` puis `end()` VIDE, on
+    // sortait de ce chemin et l'on payait un tick de boucle d'événements par
+    // réponse — mesuré de l'extérieur : Express encaissait 40,9 µs du passage à
+    // 26.8 quand nous n'en encaissions que 32,9.
+    //
+    // La contre-pression n'est pas perdue : elle n'a de sens que pour le
+    // streaming chunké (`flush()`, 1 écriture = 1 chunk), qui garde `write` +
+    // `drain` ci-dessous. Une réponse unique n'a rien à écrire ensuite.
+    if (!_flush && !this.flushing && !res.writableEnded) {
+      res.end(this.body, encoding || this.encoding);
+      return this;
+    }
     return new Promise((resolve) => {
       let settled = false;
       const done = () => {
