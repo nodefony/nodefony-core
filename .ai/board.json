@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T20:03:42.975Z",
+  "generatedAt": "2026-09-14T21:38:40.558Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -53,10 +53,10 @@
       "title": "10.0.0"
     },
     {
-      "closed": 3,
+      "closed": 4,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 32,
+      "open": 31,
       "title": "10.1.0"
     }
   ],
@@ -5791,8 +5791,8 @@
       "number": 402,
       "title": "perf(orm): expliquer le surcoût de mise en objet des lignes, et protéger le chemin rapide",
       "url": "https://github.com/nodefony/nodefony-core/issues/402",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5808,7 +5808,7 @@
       "title": "test(perf): mesurer le banc ORM applicatif sur les trois dialectes",
       "url": "https://github.com/nodefony/nodefony-core/issues/403",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
