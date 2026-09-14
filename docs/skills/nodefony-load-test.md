@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 409 lignes |
-| Coût d'activation | ~6 839 tokens (le corps est chargé à l'invocation) |
+| Corps | 429 lignes |
+| Coût d'activation | ~7 128 tokens (le corps est chargé à l'invocation) |
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 4 page(s) |
@@ -63,6 +63,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Repères empiriques (loopback, machine 32 GB) — pour situer un résultat
 - 🚨 RÈGLE N°1 — aucun chiffre sans contrôle de validité
 - 🚨 RÈGLE N°1 bis — LATENCE et BLOCAGE sont deux grandeurs ; une seule plafonne un process
+- 🚨 RÈGLE N°1 ter — la machine doit être CALME, et le thermal ne suffit pas
 - 🚨 RÈGLE N°2 — un banc e2e a un DÉCOR ; décor manquant ≠ échec
 - Chercher une FUITE : une PENTE, jamais un delta — `scripts/soak.mjs`
 - Publier les résultats (HTML) — et la question à poser AVANT
@@ -91,7 +92,7 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/aimd-demo.mjs` | aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD). | — | `DIST` |
 | `scripts/app-download-probe.mjs` | — | — | — |
-| `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_HEADER` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` |
+| `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_HEADER` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` |
 | `scripts/bench-report.mjs` | Rapport HTML d'un (ou plusieurs) résultats de banc — pour un HUMAIN qui décide. | — | `OUT` |
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que | `--workers` | — |
 | `scripts/boot-profile.mjs` | boot-profile.mjs — AUDIT fin du boot Nodefony. Capture la sortie horodatée d'un boot | `--workers` | — |
@@ -177,7 +178,7 @@ bash .claude/skills/nodefony-start-server/start.sh
 node .claude/skills/load-test/scripts/ws-messages.mjs
 ```
 
-**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL`
+**Toutes les variables lues par ce skill** : `ATTENDRE_CHARGE` · `BASE` · `BATCH` · `BENCH_CONN` · `BENCH_DUR` · `BENCH_HEADER` · `BENCH_INDEX_TARGET` · `BENCH_ROLE` · `BENCH_THERM_TARGET` · `BENCH_THREADS` · `BENCH_URL` · `BENCH_WARMUP` · `BODY` · `BOOT_TIMEOUT_MS` · `BURST` · `BURSTS` · `CAP` · `CHANNEL` · `CLIENTS` · `COEURS` · `CONC` · `CONN` · `DATA` · `DIR` · `DIST` · `DURATION` · `E2E_ROLE` · `ERR_RUPTURE` · `FAIL_TIMEOUT_MS` · `HEAP_URL` · `HOLD` · `HOLD_MS` · `HOST` · `HTTPS_PORT` · `HTTP_PATH` · `HTTP_PORT` · `HTTP_RPS` · `HTTP_SLOW_URL` · `HTTP_STEP` · `HTTP_URL` · `JSON_OUT` · `LIMIT` · `LINES` · `MAX` · `METHOD` · `MINUTES` · `MIN_AMPLITUDE_MB` · `MIN_MINUTES` · `MODE` · `MSG_HZ` · `NF_ADMIN_PASSWORD` · `NF_ADMIN_USER` · `NF_DATABASE_URL` · `NF_HOST` · `NF_PG_URL` · `NF_PORT` · `NF_PORT_HTTPS` · `NF_STEPS` · `NF_WAIT` · `NODE_TLS_REJECT_UNAUTHORIZED` · `ONLY` · `ORM_PATH` · `ORM_STEP` · `OUT` · `PAYLOAD` · `PCLR` · `PG_CONTAINER` · `PG_URL` · `PORT` · `PROBE` · `PTLS` · `RATE` · `REPEAT` · `REPS` · `RL_URL` · `ROUNDS` · `ROUTE` · `ROWS` · `RUNS` · `SEC` · `SERIES` · `SETTLE` · `SKIP` · `SOAK` · `SONDE_ESSAIS` · `SONDE_TIMEOUT_MS` · `STAGES` · `STAGE_MS` · `STEP` · `THREADS` · `TIMEOUT_MS` · `TRANCHE` · `TTL_DEROGATION_MIN` · `URL` · `URL_STR` · `VARIANT` · `VCPU_VIRTUALISES` · `WARMUP` · `WID` · `WINDOW` · `WINDOWS` · `WORKERS` · `WS_PATH` · `WS_STEP` · `WS_URL`
 
 ## Conformité au standard Agent Skills
 
@@ -198,7 +199,7 @@ node .claude/skills/load-test/scripts/ws-messages.mjs
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 409 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 429 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

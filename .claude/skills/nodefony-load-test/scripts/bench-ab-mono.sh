@@ -112,18 +112,20 @@ warn_if_throttled() {
 # 08-06, mesures refusées). Repartir de 35 AVEC des runs plus courts a rendu
 # 0,9 % et 0,4 % sur la même machine : `BENCH_THERM_TARGET=35 BENCH_DUR=7`.
 THERM_TARGET="${BENCH_THERM_TARGET:-45}"
+IDX_TARGET="${BENCH_INDEX_TARGET:-2}"
 COOLED=0
+# DOUBLE garde, par l'implémentation UNIQUE de machine-regime.sh : le niveau
+# thermique NE VOIT PAS l'indexeur de recherche, qui réindexe par vagues de 11 à
+# 22 % de CPU — trois séries refusées sur sept à thermal parfait. Deux copies de
+# cette attente divergeraient ; il n'y en a qu'une, et les deux camps l'appellent.
 cooldown() {
-  local t; t=$(therm); [ "$t" = "n/a" ] && return 0
-  local waited=0
-  while [ "$t" -gt "$THERM_TARGET" ] && [ "$waited" -lt 180 ]; do
-    sleep 10; waited=$((waited+10)); t=$(therm)
-  done
-  if [ "$waited" -gt 0 ]; then
-    echo "  (cooldown ${waited}s → thermal $t)"
-    COOLED=1   # la pause a endormi le serveur → le warmup devra absorber le réveil
-  fi
-  return 0
+  local avant; avant=$(therm)
+  attendre_machine_calme "$THERM_TARGET" "$IDX_TARGET" 300
+  local code=$?
+  # La pause a-t-elle endormi le serveur détaché ? La garde attend au minimum
+  # 30 s (deux constats espacés) : le warmup doit toujours absorber le réveil.
+  COOLED=1
+  return $code
 }
 # 🎯 UNE SEULE CIBLE DE BANC APPLICATIF : `/nodefony/kernel/bench`
 # (`BenchController`, module `@nodefony/framework`), qui n'existe que sous
@@ -316,12 +318,12 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
 fi
 echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","indexeurPct":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
   "$MIN" "$MED" "$MAX" "$DISP" \
   "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
   "$MED50" "$MED99" "$MAX99" \
-  "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" "$HYPERVISEUR" \
+  "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" "$HYPERVISEUR" "$INDEXEUR_PCT" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)

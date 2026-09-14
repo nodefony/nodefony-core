@@ -69,3 +69,65 @@ hyperviseur() {
   n=$(vcpu_virtualises)
   [ "$n" -gt 0 ] 2>/dev/null && echo "oui/${n}vCPU" || echo "non"
 }
+
+# ── L'INDEXEUR de recherche macOS — des vagues invisibles au thermal ─────────
+#
+# Cette garde a été DÉCRITE dans `docs/performance/methode.md` (« la garde attend
+# un niveau thermique acceptable ET un indexeur sous 2 % sur deux contrôles
+# espacés de trente secondes ») alors qu'aucun script ne la portait. Vécu le
+# 09-14 : deux séries sur quatre refusées pour dispersion, `spotlightknowledged`
+# à 99,3 % de CPU, niveau thermique parfait — et la doc affirmait une protection
+# qui n'existait pas. Une garde qui ne vit que dans une page ne garde rien.
+#
+# L'indexeur réindexe PAR VAGUES : un relevé ponctuel sous le seuil ne prouve
+# rien, d'où les DEUX constats espacés. `LC_ALL=C` est obligatoire — en locale
+# française `ps` rend « 99,3 » et awk s'arrête à la virgule, sous-estimant la
+# vague d'un facteur arbitraire.
+indexeur_pct() {
+  # Sous-shell : la locale C doit couvrir `ps` ET `awk` (sinon awk lit « 18.4 »
+  # comme 18 et une somme de petits processus est comptée 0), sans pour autant
+  # imposer sa locale au banc qui appelle.
+  (
+    export LC_ALL=C
+    ps -Ao pcpu,comm -r 2>/dev/null | awk '
+      NR > 1 && $2 ~ /spotlightknowledged|mdworker|mds_stores|corespotlightd|mdsyncd|mds$/ { s += $1 }
+      END { printf "%.0f", s + 0 }'
+  )
+}
+
+# Dernier relevé de la garde — à écrire dans le décor de la mesure, comme le
+# régime CPU et l'hyperviseur. Un chiffre publié sans lui n'est pas réfutable.
+INDEXEUR_PCT="n/a"
+
+# Attendre que la machine soit CALME : thermal sous la cible ET indexeur sous le
+# seuil, CONSTATÉS DEUX FOIS à 30 s d'intervalle. Rend 0 si le calme est atteint,
+# 1 si le plafond d'attente expire — l'appelant DIT alors qu'il mesure sous
+# réserve, il ne se tait pas. La garde de dispersion reste le filet final.
+attendre_machine_calme() {
+  local cible_therm="${1:-45}" cible_idx="${2:-2}" plafond="${3:-300}"
+  local attendu=0 stables=0 t idx therm_ok
+  while :; do
+    t=$(therm)
+    idx=$(indexeur_pct)
+    INDEXEUR_PCT="$idx"
+    therm_ok=0
+    { [ "$t" = "n/a" ] || [ "$t" -le "$cible_therm" ] 2>/dev/null; } && therm_ok=1
+    if [ "$therm_ok" = "1" ] && [ "$idx" -le "$cible_idx" ] 2>/dev/null; then
+      stables=$((stables + 1))
+      [ "$stables" -ge 2 ] && break
+      [ "$attendu" -ge "$plafond" ] && break
+      sleep 30
+      attendu=$((attendu + 30))
+    else
+      stables=0
+      if [ "$attendu" -ge "$plafond" ]; then
+        echo "  ⚠ machine NON calme après ${attendu}s (thermal $t, indexeur ${idx} %) — mesure SOUS RÉSERVE"
+        return 1
+      fi
+      sleep 10
+      attendu=$((attendu + 10))
+    fi
+  done
+  [ "$attendu" -gt 0 ] && echo "  (machine calme après ${attendu}s → thermal $t, indexeur ${idx} %)"
+  return 0
+}

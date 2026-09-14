@@ -51,13 +51,12 @@ echo "=== $LABEL (port $PORT, wrk -t$THREADS -c$CONN -d${DUR}s) ==="
 # un camp et muet pour l'autre ne compose pas un jeu de référence rejouable.
 . "$(dirname "${BASH_SOURCE[0]}")/../scripts/machine-regime.sh"
 THERM_TARGET="${BENCH_THERM_TARGET:-45}"
-T=$(therm); WAITED=0
-if [ "$T" != "n/a" ]; then
-  while [ "$T" -gt "$THERM_TARGET" ] && [ "$WAITED" -lt 180 ]; do
-    sleep 10; WAITED=$((WAITED+10)); T=$(therm)
-  done
-  [ "$WAITED" -gt 0 ] && echo "  (cooldown ${WAITED}s → thermal $T)"
-fi
+IDX_TARGET="${BENCH_INDEX_TARGET:-2}"
+# DOUBLE garde — thermique ET indexeur — par la MÊME implémentation que le camp
+# produit. Une garde posée d'un seul côté laisse mesurer le camp témoin sous une
+# vague d'indexation et le nôtre au calme : l'écart publié serait celui du décor.
+attendre_machine_calme "$THERM_TARGET" "$IDX_TARGET" 300
+WAITED=30   # la garde attend au minimum deux constats espacés → warmup doublé
 THERM_BEFORE=$(therm); CPU_REGIME=$(cpu_regime); HYPERVISEUR=$(hyperviseur)
 WARMUP="${BENCH_WARMUP:-5}"
 [ "$WAITED" -gt 0 ] && WARMUP=$((WARMUP * 2))   # la pause endort le process idle
@@ -124,12 +123,12 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
 fi
 echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (payload vérifié, 0 erreur sous charge, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","indexeurPct":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
   "$MIN" "$MED" "$MAX" "$DISP" \
   "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
   "$MED50" "$MED99" "$MAX99" \
-  "$THERM_BEFORE" "$THERM_AFTER" "$CPU_REGIME" "$HYPERVISEUR" \
+  "$THERM_BEFORE" "$THERM_AFTER" "$CPU_REGIME" "$HYPERVISEUR" "$INDEXEUR_PCT" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 kill -9 "$PID" 2>/dev/null

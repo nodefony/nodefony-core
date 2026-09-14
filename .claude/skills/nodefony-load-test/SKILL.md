@@ -290,6 +290,26 @@ chemin virtualisé** (VM ~685 % côté hôte, proxy `com.docker.backend` ~152 %,
 transposable.** Les A/B intra-fenêtre restent valides (même décor des deux côtés) ; les comparaisons
 entre moteurs, non.
 
+## 🚨 RÈGLE N°1 ter — la machine doit être CALME, et le thermal ne suffit pas
+
+Le niveau thermique **ne voit pas** l'indexeur de recherche macOS, qui réindexe par vagues de
+11 à 22 % de CPU : trois séries refusées sur sept à thermal parfait, puis deux sur quatre le
+09-14 avec `spotlightknowledged` à 99,3 %. La garde attend donc **deux** conditions —
+thermal sous cible ET indexeur sous seuil — **constatées DEUX FOIS à 30 s d'intervalle**,
+parce qu'une vague repart d'un coup et qu'un relevé ponctuel ne prouve rien.
+
+Elle vit dans `scripts/machine-regime.sh` (`attendre_machine_calme`), implémentation **unique**
+appelée par `bench.sh` et `bench-ab-mono.sh` : une garde posée d'un seul côté laisserait mesurer
+le camp témoin sous une vague et le nôtre au calme — l'écart publié serait celui du décor.
+
+```bash
+BENCH_THERM_TARGET=35 BENCH_INDEX_TARGET=2 bash …/bench-pairs.sh express-fair nodefony
+```
+
+Le relevé part dans le décor de la mesure (`indexeurPct`), comme le régime CPU et l'hyperviseur.
+Quand la garde renonce (plafond de 300 s), elle le **DIT** — « mesure SOUS RÉSERVE » — elle ne se
+tait pas ; la garde de dispersion reste le filet final.
+
 ## 🚨 RÈGLE N°2 — un banc e2e a un DÉCOR ; décor manquant ≠ échec
 
 Les bancs de la famille 2 ne partagent PAS un décor unique. Les lancer en boucle naïve
