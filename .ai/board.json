@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T17:07:12.848Z",
+  "generatedAt": "2026-09-14T20:03:42.975Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -56,7 +56,7 @@
       "closed": 3,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 30,
+      "open": 32,
       "title": "10.1.0"
     }
   ],
@@ -5781,6 +5781,38 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 150,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 402,
+      "title": "perf(orm): expliquer le surcoût de mise en objet des lignes, et protéger le chemin rapide",
+      "url": "https://github.com/nodefony/nodefony-core/issues/402",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 150.5,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 403,
+      "title": "test(perf): mesurer le banc ORM applicatif sur les trois dialectes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/403",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 150.6,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
       "labels": [

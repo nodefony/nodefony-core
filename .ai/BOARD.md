@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-14 17:07** (UTC).
+> Empreinte prise le **2026-09-14 20:03** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -23,7 +23,7 @@
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 80% | 93 | 23 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 17% | 7 | 35 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
-| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 3 | 30 | 2026-12-15 |
+| **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 3 | 32 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
@@ -115,7 +115,7 @@ Ordre 9 · P0 — bloque le reste · 13.5 j · jalon 10.0.0-alpha · frise 2026-
 | 20 | P2 — décision | 1 | 2026-09-29 → 09-29 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
 | 55 | P3 — fin de cycle | 1 | 2026-10-02 → 10-02 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
-## Jalon 10.1.0 — 30 ouverts
+## Jalon 10.1.0 — 32 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -147,6 +147,8 @@ Ordre 9 · P0 — bloque le reste · 13.5 j · jalon 10.0.0-alpha · frise 2026-
 | 145 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #226 | feat(kernel): avertir quand l'arrêt gracieux ne pourra pas se faire |
 | 146 | P2 — décision | 1 | 2026-11-16 → 12-15 | #227 | docs(site): publier la liste des variables d'environnement |
 | 150 | P2 — décision | 1 | 2026-11-16 → 12-15 | #218 | test(http): caractériser la hausse du RSS d'un pod sous charge |
+| 150.5 | P2 — décision | 1 | 2026-11-16 → 12-15 | #402 | perf(orm): expliquer le surcoût de mise en objet des lignes, et protéger le chemin rapide |
+| 150.6 | P2 — décision | 1 | 2026-11-16 → 12-15 | #403 | test(perf): mesurer le banc ORM applicatif sur les trois dialectes |
 | 154 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 

@@ -531,6 +531,15 @@
   au premier ménage » — mais elle vivait dans une page, pas dans l'outil. Corrigé : la purge
   ARCHIVE puis supprime, vu mordre par ligne témoin.
 
+- [2× — 09-14e] 🔴 **Deux instruments rendant « 0 » à une heure d'intervalle, pour deux raisons
+  différentes — et « 0 » ressemble à un résultat.** (a) `curl -w '%{time_total}' | awk` en locale
+  française : `0,004083` avec une virgule, awk s'arrête dessus → « médiane 0,00 ms » sur trois
+  routes. C'est le piège que je VENAIS de corriger dans la garde d'indexeur, reproduit vingt
+  minutes plus tard. (b) Une sonde posée avec un garde `if (globalThis.__SPY_ON)` que je n'ai
+  jamais armé → « 0 appel au pilote », lu comme une découverte sur le code. Un instrument neuf se
+  vérifie sur une LIGNE TÉMOIN dont on connaît la réponse, avant de lui faire dire quoi que ce soit
+  du produit. `LC_ALL=C` doit couvrir TOUT le tube, pas seulement sa première commande.
+
 ## 🗄️ 🧑‍⚖️ Un AUDIT + 🕶️ relire EN AVEUGLE — GRADUÉ
 
 > Gradué le 2026-09-10 — 7 frictions RÉUNIES → **`feedback_outside_look_finds_what_green_hides`** : le regard extérieur (audit des jointures, USAGE réel, relecture en aveugle privée de mes conclusions) trouve ce qu'une suite verte ne peut pas voir. Ne PAS réécrire ici.
@@ -923,6 +932,16 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   critère d'arrêt continue de tourner. Le contrôle d'un décor propre doit énumérer les ENFANTS,
   pas seulement les écouteurs.
 
+- [1× — 09-14e] 🔴 **Le symétrique : il ÉCOUTE, mais son NOM a changé — et c'est lui qui répondait
+  à mes mesures.** Nodefony renomme son process (`setProcessTitle` → `nodefony server`), si bien
+  que mes `pkill -f "bin/nodefony production"` échouaient **en silence** depuis une heure. Un
+  serveur résiduel orphelin (`PPID 1`) tenait le port 5151 et servait toutes mes vérifications
+  manuelles — trois instruments l'ont dit sans que je l'entende : une sonde SQL muette, un profil
+  CPU ne contenant que du boot, et zéro `prepare()` pendant une requête. Le banc VERSIONNÉ, lui,
+  était sain : il purge **par port** (`kill_listeners`), ce qui attrape un process renommé, puis
+  attend la libération. Le geste : avant toute mesure à la main, reprendre la purge de l'outil —
+  et **vérifier que le PID qu'on a lancé est celui qui écoute** (`lsof -t` comparé à `$!`).
+
 ## 🧱 Remplacer un mécanisme du NAVIGATEUR par du code à soi, c'est en devenir responsable
 
 - [1× — 09-01d] Pour rendre le titre d'une section cliquable, j'ai troqué `<details>/<summary>` —
@@ -1078,6 +1097,14 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   (`"node": null`, déduite après coup par son propre caveat) alors que ce seul facteur vaut
   **+62 %** sur un camp témoin. Un décor incomplet ne se voit pas : il rend plausible une
   comparaison entre deux fenêtres qui n'ont rien à voir.
+
+- [1× — 09-14e] ⚖️ **Une équité ne s'affirme pas, elle s'ÉPROUVE en tentant d'améliorer le camp
+  adverse jusqu'à échouer.** Devant un écart de +46 % en NOTRE faveur — le sens le plus dangereux à
+  publier — quatre écritures du camp témoin ont été mesurées : la meilleure était celle déjà en
+  place (714 contre 670, 663, 530), et adopter notre propre méthode d'appel le DÉGRADE. Sans ces
+  quatre mesures, le chiffre restait une affirmation. Corollaire : la garde « installé == déclaré »
+  du banc contrôle chaque camp contre SON `package.json`, jamais les deux camps entre eux — ici
+  les versions coïncidaient, mais rien ne l'imposait.
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
