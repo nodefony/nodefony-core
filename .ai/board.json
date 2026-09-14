@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T13:57:04.493Z",
+  "generatedAt": "2026-09-14T17:03:26.272Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -3061,7 +3061,7 @@
       "title": "test(perf): établir la référence de mesure rejouable de la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/398",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3277,6 +3277,22 @@
       "ordre": 9.55,
       "debut": "2026-11-02",
       "cible": "2026-11-02",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 401,
+      "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/401",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.56,
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
       "labels": [
         "10.0.0-beta"
       ]

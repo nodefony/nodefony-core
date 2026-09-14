@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-14 13:57** (UTC).
+> Empreinte prise le **2026-09-14 17:03** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 80% | 93 | 23 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 17% | 7 | 34 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 17% | 7 | 35 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 9% | 3 | 30 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -40,7 +40,7 @@ Ordre 9 · P0 — bloque le reste · 13.5 j · jalon 10.0.0-alpha · frise 2026-
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 34 ouverts
+## Jalon 10.0.0-beta — 35 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -66,6 +66,7 @@ Ordre 9 · P0 — bloque le reste · 13.5 j · jalon 10.0.0-alpha · frise 2026-
 | 9.4 | P2 — décision | 1 | 2026-10-30 → 10-30 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
 | 9.5 | P2 — décision | 1 | 2026-11-02 → 11-02 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 9.55 | P2 — décision | 0.5 | 2026-11-02 → 11-02 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
+| 9.56 | P1 — figé à la création | 0.5 | 2026-11-06 → 11-06 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
 | 9.58 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
 | 9.59 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
 | 9.6 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |

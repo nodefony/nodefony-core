@@ -278,6 +278,14 @@
   mordre est le volet inverse : exiger l'ABSENCE des trois autres. Quand un gate passe du premier
   coup sur un défaut réel, c'est l'assertion qu'il faut suspecter, pas le code.
 
+- [1× — 09-14d] **Mon propre nom de camp a fait crier un gate — et le gate avait une porte
+  prévue pour ça.** `skills-doc` lit tout `nodefony-xxx` cité entre accents graves comme un renvoi
+  vers un skill ; mon camp de banc `nodefony-orm` a donc été déclaré « renvoi vers un skill
+  inexistant ». Le réflexe aurait été de renommer le camp pour faire taire le contrôle — c'est-à-dire
+  d'abîmer le code pour l'outil. La bonne réponse était dans le script : `NON_SKILL_TERMS`, une
+  liste qui existe précisément pour les noms en `nodefony-…` qui ne sont pas des skills. Avant de
+  contourner un gate, lire s'il porte déjà l'exception.
+
 ## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
 
 - [1× — 09-12c] **Une garde rangée dans une branche ne garde que cette branche.** Le banc
@@ -514,6 +522,15 @@
   était là depuis toujours. Une commande qui ne rend RIEN n'est pas une commande qui répond
   « rien » : vérifier le code de sortie, ou interroger un seul motif à la fois.
 
+- [1× — 09-14d] 🔴 **La purge d'un banc DÉTRUISAIT les données brutes qu'elle était censée
+  protéger.** `bench-ab-mono.sh purge` existe pour qu'un résultat d'un lot précédent n'entre pas
+  dans une comparaison qui ne le concerne pas — règle juste. Mais il `rm`. J'ai donc effacé les
+  quatre JSON d'une paire VALIDE (runs bruts, percentiles, décor) juste avant le lot suivant, et il
+  a fallu rejouer douze minutes de mesure pour des chiffres qu'on avait déjà. La leçon était
+  ÉCRITE dans `docs/performance/data/README.md` — « les échantillons rangés dans `tmp/`, emportés
+  au premier ménage » — mais elle vivait dans une page, pas dans l'outil. Corrigé : la purge
+  ARCHIVE puis supprime, vu mordre par ligne témoin.
+
 ## 🗄️ 🧑‍⚖️ Un AUDIT + 🕶️ relire EN AVEUGLE — GRADUÉ
 
 > Gradué le 2026-09-10 — 7 frictions RÉUNIES → **`feedback_outside_look_finds_what_green_hides`** : le regard extérieur (audit des jointures, USAGE réel, relecture en aveugle privée de mes conclusions) trouve ce qu'une suite verte ne peut pas voir. Ne PAS réécrire ici.
@@ -718,6 +735,14 @@
   trois jobs rouges pour un test, pas pour le produit. Prouver un repli exige d'exercer le MÊME
   chemin que le produit face à l'absence : ici une valeur VIDE, que le produit traite comme absente.
 
+- [1× — 09-14d] **J'ai RECALCULÉ un slug d'ancre au lieu de le DEMANDER au module qui le pose.**
+  Fusion de pages de doc, renvois à recaler en ancres internes : j'ai réimplémenté la règle de
+  slug (accents, tiret cadratin, ponctuation) « comme GitHub ». Le gate a mordu — mon slug avalait
+  le double tiret que produit un tiret cadratin entouré d'espaces. Le dépôt a pourtant une
+  implémentation UNIQUE, `slugifyHeading`, dont l'en-tête dit qu'elle doit rester identique à celle
+  qui pose les `id` côté rendu. Un `node -e` de trois lignes lui a demandé la réponse exacte. Même
+  geste que composer avec la MÊME opération : ne pas RE-dériver ce qu'un module du dépôt rend.
+
 ## ⏳ Un défaut « pratique » grave un pouvoir pour le jour où la distinction deviendra réelle
 
 - **`admin:read admin:write` par défaut n'avait aucun effet** — le plan d'administration n'a qu'un
@@ -889,6 +914,14 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   démarrage en production (garde qui déduisait la collision d'une présence au lieu de la constater),
   et il **ressuscitait** le serveur au milieu d'une mesure. Un décor de banc se remet à zéro par
   l'arrêt PROPRE de l'outil (`nodefony stop`), la purge par port n'étant que le filet.
+
+- [1× — 09-14d] 🔴 **Tuer un process ne tue pas son arbre : un `wrk` orphelin à 308 % de CPU.**
+  J'ai arrêté un banc de tenue par un signal à SON process ; le générateur de charge qu'il avait
+  lancé a survécu et a continué de saturer trois cœurs. Découvert par hasard en lisant un `ps`
+  pour autre chose — rien ne le signalait, et toute mesure lancée ensuite aurait été fausse sans
+  qu'aucun compteur ne bronche. Même famille que le superviseur sans port : ce qui échappe au
+  critère d'arrêt continue de tourner. Le contrôle d'un décor propre doit énumérer les ENFANTS,
+  pas seulement les écouteurs.
 
 ## 🧱 Remplacer un mécanisme du NAVIGATEUR par du code à soi, c'est en devenir responsable
 
