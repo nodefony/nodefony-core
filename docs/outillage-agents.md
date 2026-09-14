@@ -119,7 +119,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.1.0" },
   { "icon": "📈", "title": "load-test", "href": "skills/nodefony-load-test.md",
     "desc": "Charge, stress et DIMENSIONNEMENT HTTP/WebSocket de Nodefony : suites Vitest versionnées (non-régression, sondes de rupture derrière un flag) et une trentaine de scripts autonomes (plafond de connexions WS, débit, RPS et percentiles, capacité d'un pod, e2e cluster).",
-    "meta": "🟢 conforme · ⚙️ 43 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme · ⚙️ 44 scripts · 📎 4 réf" },
   { "icon": "🛰️", "title": "multipod-bench", "href": "skills/nodefony-multipod-bench.md",
     "desc": "Monte un banc MULTI-PODS réel — plusieurs applications partageant un bus Redis — pour prouver un comportement cluster invisible aux tests unitaires : fan-out cross-pod, cloisonnement entre applications, injection depuis le bus, latence et débit de bout en bout.",
     "meta": "🟢 conforme · ⚙️ 12 scripts · 📎 2 réf" },

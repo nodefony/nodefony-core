@@ -3825,6 +3825,20 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/machine-regime.sh",
+            "purpose": "RÉGIME MACHINE — l'état du processeur au moment d'une mesure.",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--format",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/perf-dossier-report.mjs",
             "purpose": "Rapport HTML de synthèse — dossier Performance de Nodefony.",
             "usage": [

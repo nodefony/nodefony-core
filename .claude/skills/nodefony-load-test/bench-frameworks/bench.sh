@@ -39,8 +39,10 @@ echo "$BODY" | grep -q "wsHookFireCount" || { echo "❌ $LABEL: payload inattend
 
 echo "=== $LABEL (port $PORT, wrk -t$THREADS -c$CONN -d${DUR}s) ==="
 
-# mêmes gardes que bench-ab-mono.sh (équité inter-frameworks)
-therm() { sysctl -n machdep.xcpm.cpu_thermal_level 2>/dev/null || echo "n/a"; }
+# mêmes gardes que bench-ab-mono.sh (équité inter-frameworks) — et le MÊME
+# relevé de régime machine, par la même implémentation : un décor renseigné pour
+# un camp et muet pour l'autre ne compose pas un jeu de référence rejouable.
+. "$(dirname "${BASH_SOURCE[0]}")/../scripts/machine-regime.sh"
 THERM_TARGET="${BENCH_THERM_TARGET:-45}"
 T=$(therm); WAITED=0
 if [ "$T" != "n/a" ]; then
@@ -49,11 +51,11 @@ if [ "$T" != "n/a" ]; then
   done
   [ "$WAITED" -gt 0 ] && echo "  (cooldown ${WAITED}s → thermal $T)"
 fi
-THERM_BEFORE=$(therm)
+THERM_BEFORE=$(therm); CPU_REGIME=$(cpu_regime); HYPERVISEUR=$(hyperviseur)
 WARMUP="${BENCH_WARMUP:-5}"
 [ "$WAITED" -gt 0 ] && WARMUP=$((WARMUP * 2))   # la pause endort le process idle
 wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" "$URL" >/dev/null 2>&1
-echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE"
+echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $CPU_REGIME · hyperviseur: $HYPERVISEUR"
 # Le sanity ci-dessus prouve la cible AVANT la charge ; il ne dit rien de ce qui se
 # passe PENDANT. Un serveur peut répondre 200 à froid puis partir en 500 sous 128
 # connexions (pool épuisé, OOM) — et wrk compte ces 500 dans `Requests/sec`, alors
@@ -115,12 +117,12 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
 fi
 echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (payload vérifié, 0 erreur sous charge, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
   "$MIN" "$MED" "$MAX" "$DISP" \
   "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
   "$MED50" "$MED99" "$MAX99" \
-  "$THERM_BEFORE" "$THERM_AFTER" \
+  "$THERM_BEFORE" "$THERM_AFTER" "$CPU_REGIME" "$HYPERVISEUR" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 kill -9 "$PID" 2>/dev/null

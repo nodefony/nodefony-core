@@ -82,9 +82,26 @@ echo "  ✓ node_modules conforme au package.json"
 echo ""
 
 # ── Les quatre séries, ALTERNÉES ─────────────────────────────────────────────
+# `nodefony` n'est pas un `.mjs` de ce dossier : c'est le VRAI serveur, et il se
+# lance par `bench-ab-mono.sh`. Sans ce routage, `bench-pairs.sh express-fair
+# nodefony` — l'exemple même que le skill documente, et la comparaison qui motive
+# le banc — mourait au spawn sur un `nodefony.mjs` qui n'existe pas. L'alternance
+# était donc imposée à tous les camps SAUF à celui qu'on mesure.
+#
+# ÉQUITÉ : les deux camps doivent taper la MÊME route. Les apps `.mjs` répliquent
+# `/nodefony/test/als-test/state` ; côté produit cette route vient d'un module
+# `policy:"dev"`, absent en production — d'où la dérogation, MINUTÉE par le
+# framework (TTL), qu'on règle assez large pour couvrir les quatre séries.
 mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
   local camp="$1" rang="$2"
-  bash "$DIR/bench.sh" "$camp" "$PORT" >/dev/null 2>&1
+  if [ "$camp" = "nodefony" ]; then
+    BENCH_URL="${NODEFONY_URL:-http://127.0.0.1:5151/nodefony/test/als-test/state}" \
+      bash "$DIR/../scripts/bench-ab-mono.sh" nodefony \
+      NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN="${NODEFONY_TTL_MIN:-120}" \
+      >/dev/null 2>&1
+  else
+    bash "$DIR/bench.sh" "$camp" "$PORT" >/dev/null 2>&1
+  fi
   local med="/tmp/nf-bench-$camp.med"
   if [ -f "$med" ]; then
     cat "$med"

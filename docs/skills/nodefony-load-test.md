@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-load-test/SKILL.md"
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 4 page(s) |
-| Scripts | 43 |
+| Scripts | 44 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -113,6 +113,7 @@ script, donc toujours à jour après régénération.
 | `scripts/idempotency-userland-e2e.mjs` | Banc e2e USERLAND @Idempotent contre un VRAI Redis (single-pod, P6.8) — sans navigateur. | — | — |
 | `scripts/kill-guard.sh` | Garde de mise à mort des bancs — À SOURCER, jamais à exécuter. | — | — |
 | `scripts/log-sink-contention.mjs` | Microbench ISOLÉ du driver de sink de log (LB.W / axe W2). | — | `DIR` `JSON_OUT` `LINES` `ONLY` `RUNS` `VARIANT` `WARMUP` `WID` `WORKERS` |
+| `scripts/machine-regime.sh` | RÉGIME MACHINE — l'état du processeur au moment d'une mesure. | `--format` | — |
 | `scripts/perf-dossier-report.mjs` | Rapport HTML de synthèse — dossier Performance de Nodefony. | `--data` `--prove` | `OUT` |
 | `scripts/poc-bench.mjs` | POC bench — mesure la latence p50/p95/p99 du backend Nodefony | `--concurrency` `--duration` `--label` `--touch` `--touch-delay` `--url` | — |
 | `scripts/poc-hmr-perf.mjs` | POC HMR perf — mesure le délai end-to-end entre : | `--file` `--gap-ms` `--iterations` `--vite-url` | — |

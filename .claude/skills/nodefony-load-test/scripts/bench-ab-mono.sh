@@ -73,31 +73,10 @@ fi
 
 # thermal level macOS (n/a ailleurs) — l'absolu d'un i9 mobile varie de 30 %
 # selon l'état thermique ; noter AVANT/APRÈS rend la fenêtre comparable ou non.
-therm() { sysctl -n machdep.xcpm.cpu_thermal_level 2>/dev/null || echo "n/a"; }
-
-# ⚡ RÉGIME CPU — le thermal ne dit RIEN du plafond de fréquence, et c'est le
-# piège le plus coûteux du banc : macOS active `lowpowermode` TOUT SEUL sur
-# batterie (`pmset -g custom`), ce qui bride le Turbo Boost. Mesuré le 08-06 sur
-# un code IDENTIQUE : 7 800 RPS sur batterie contre 12 600 sur secteur, soit
-# ×1,62 — avec des dispersions intra-série PARFAITES des deux côtés (0,4 % et
-# 1,6 %). Un CPU bridé tient un plafond bas sans effort : la fenêtre la plus
-# STABLE était la plus FAUSSE, et aucune garde existante ne la voyait.
-#
-# Le régime est donc noté dans le JSON compagnon, et un run lancé bridé
-# l'ANNONCE — ses absolus ne se comparent à aucune fenêtre débridée. On lit
-# `lowpowermode` et pas seulement la prise : il peut être forcé à la main SUR
-# secteur, auquel cas la source d'alimentation seule mentirait.
-power_source() {
-  pmset -g ps 2>/dev/null | head -1 | grep -o "AC Power\|Battery Power" || echo "n/a"
-}
-low_power() { pmset -g 2>/dev/null | awk '/lowpowermode/{print $2}'; }
-# Régime compact « AC Power/lpm=0 » — à comparer entre DEUX labels d'un même
-# A/B : s'ils diffèrent, les médianes ne sont pas comparables (cf en-tête A/B).
-cpu_regime() {
-  local p l; p=$(power_source); l=$(low_power)
-  [ "$p" = "n/a" ] && { echo "n/a"; return 0; }
-  echo "$p/lpm=${l:-?}"
-}
+# Régime machine (thermal + alimentation + lowpowermode) — implémentation
+# UNIQUE, partagée avec `bench-frameworks/bench.sh` : un décor relevé
+# différemment selon le camp ne se compare pas.
+. "$(dirname "${BASH_SOURCE[0]}")/machine-regime.sh"
 warn_if_throttled() {
   local p l; p=$(power_source); l=$(low_power)
   if [ "$p" = "Battery Power" ] || [ "$l" = "1" ]; then
@@ -241,6 +220,7 @@ fi
 echo "=== $LABEL ($EXTRA_ENV) ==="
 cooldown
 THERM_BEFORE=$(therm)
+HYPERVISEUR=$(hyperviseur)
 REGIME=$(cpu_regime)
 warn_if_throttled
 
@@ -323,12 +303,12 @@ if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
 fi
 echo "  MÉDIANE: $MED RPS · p99 ${MED99}ms  (cible vérifiée 200, 0 erreur, dispersion ≤ 3 %)"
 echo "$MED" > "/tmp/nf-bench-$LABEL.med"
-printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
+printf '{"label":"%s","env":"%s","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"p50Ms":[%s],"p99Ms":[%s],"medP50Ms":%s,"medP99Ms":%s,"maxP99Ms":%s,"thermalBefore":"%s","thermalAfter":"%s","cpuRegime":"%s","hyperviseur":"%s","warmupSec":%s,"durSec":%s,"conn":%s,"threads":%s,"url":"%s"}\n' \
   "$LABEL" "$EXTRA_ENV" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
   "$MIN" "$MED" "$MAX" "$DISP" \
   "$(printf '%s,' "${P50[@]}" | sed 's/,$//')" "$(printf '%s,' "${P99[@]}" | sed 's/,$//')" \
   "$MED50" "$MED99" "$MAX99" \
-  "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" \
+  "$THERM_BEFORE" "$THERM_AFTER" "$REGIME" "$HYPERVISEUR" \
   "$WARMUP" "$DUR" "$CONN" "$THREADS" "$URL" > "/tmp/nf-bench-$LABEL.json"
 
 # 5. arrêt gracieux (flush + libère les ports)
