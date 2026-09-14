@@ -36,6 +36,27 @@
 
 ## 🤝 Le terrain qu'on donne à un délégué — le salir ou le décrire de travers coûte un audit
 
+- [1× — 09-14] 🔴 **J'ai saboté MON PROPRE run de tests, puis lu 53 rouges comme un verdict sur mon
+  diff.** L'intégration HTTP tournait contre le serveur de développement ; pendant ce temps
+  j'éditais des sources `.ts` — le superviseur a reconstruit et redémarré **quatorze fois**, les
+  connexions sont tombées, et la suite a rendu 53 échecs en `ECONNREFUSED`. Rejouée sans toucher à
+  rien : **679 verts**. Le piège était ÉCRIT, en toutes lettres, dans le skill que j'avais chargé
+  une heure plus tôt (« ne lance jamais une construction pendant qu'une suite interroge le
+  serveur »). Ce qui se généralise au-delà du délégué : **un décor partagé n'a pas besoin d'un
+  second acteur pour être sali — il suffit d'oublier qu'on est soi-même le second acteur.** Le
+  contrôle qui tranche coûte une commande : avant d'imputer un lot de rouges à son diff, regarder si
+  le décor a bougé PENDANT (`grep "↻ changement" /tmp/nodefony-server.log`).
+  Voisin déjà gradué : [[feedback_stale_decor_poisons_verdicts]].
+
+- [1× — 09-14] **J'ai demandé au user l'autorisation de tuer « son » serveur — qui n'était pas le
+  sien.** Un process tenait un port depuis onze heures ; je l'ai présenté comme son serveur de
+  développement et j'ai posé une question dont les trois options tournaient autour de ce fait faux.
+  C'était le runtime d'une AUTRE application du poste, laissée par un banc. Le produit, lui, l'a su
+  tout de suite : `start.sh` a refusé de le tuer et a NOMMÉ le projet propriétaire. **Demander une
+  autorisation sur un fait non vérifié est pire que ne pas demander : le user accorde ce qu'on lui
+  décrit, pas ce qui va se passer.** Ici l'outil savait ; il suffisait de le lancer AVANT de poser
+  la question.
+
 - [1× — 09-13e] 🔴 **J'ai sali le terrain du USER, puis j'ai diagnostiqué mon propre sabotage
   comme un bug du produit.** Pour « observer » sa panne, j'ai lancé `npm run dev` dans SON dossier
   pendant qu'il y travaillait, puis tué le process au SIGTERM : le superviseur de dev reconstruit
@@ -331,6 +352,17 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- [1× — 09-14] **Deux instruments faux dans la même séance, tous deux ANNONCÉS au user avant
+  d'être recontrôlés.** (1) Un `git cat-file -e "<tag>:<chemin>"` a rendu « fichier ABSENT » pour
+  trois versions publiées — j'en ai conclu, à voix haute, que la délégation au CLI local n'existait
+  pas avant l'alpha.6. Un `git ls-tree -r --name-only` sur les mêmes tags la montre présente **dès
+  l'alpha.1**. (2) Un extracteur JSON écrit à la volée (`match(/\[\s*\{[\s\S]*\}\s*\]/)`) a
+  déclaré « JSON CASSÉ » sur un hub de documentation qui contient **quatre** blocs de cartes : la
+  regex les avalait tous en un seul. Le fichier était valide. Ce qui les rapproche : dans les deux
+  cas l'outil rend un verdict NÉGATIF (« absent », « cassé »), et un verdict négatif ne se distingue
+  pas d'un instrument qui regarde au mauvais endroit. **Une ABSENCE rendue par un outil écrit sur le
+  moment se recontrôle avec un SECOND outil avant d'être dite** — une présence, non.
 
 - [1× — 09-13c] **Une suite de tests lancée en fond a rendu VERT un fichier que je corrigeais
   pendant qu'elle tournait.** Le lot complet des auto-contrôles a affiché `gate-upload ✅` alors

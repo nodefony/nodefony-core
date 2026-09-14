@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-13T20:21:32.371Z",
+  "generatedAt": "2026-09-14T08:11:33.803Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 92,
+      "closed": 93,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 14,
+      "open": 13,
       "title": "10.0.0-alpha"
     },
     {
@@ -3380,8 +3380,8 @@
       "number": 386,
       "title": "fix(cli): faire repartir le serveur de dev sur le paquet de l'app",
       "url": "https://github.com/nodefony/nodefony-core/issues/386",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -5924,6 +5924,22 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 900,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 387,
+      "title": "fix(test): sonder les deux ports avant de lancer le banc de démarrage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/387",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 901,
       "debut": null,
       "cible": null,
       "labels": [
