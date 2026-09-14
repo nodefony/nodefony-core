@@ -103,10 +103,10 @@ class BenchOrmController extends Controller {
       { limit: 20 },
     );
     const seq = ++writeSeq;
-    const cible = rows[0] as { rowid?: number } | undefined;
-    const maj = cible?.rowid
+    const target = rows[0] as { rowid?: number } | undefined;
+    const maj = target?.rowid
       ? await repo("llx_facture").updateOne(
-          { rowid: cible.rowid },
+          { rowid: target.rowid },
           { total_ht: 100 + (seq % 100), total_ttc: 120 + (seq % 100) },
         )
       : null;
