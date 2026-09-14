@@ -132,9 +132,14 @@ export const DETACH_CHILD_ENV = "NF_DETACH_CHILD";
  * du process COURANT, pas une intention à propager.
  *
  * La transmettre au child était une panne silencieuse, et coûteuse à lire : le
- * child est relancé sur le binaire d'ENTRÉE (`argv[1]`, le CLI global), et la
- * garde héritée lui interdit précisément la délégation qui l'aurait renvoyé
- * vers le CLI de l'application. Le framework du CLI global bootait alors
+ * child était relancé sur le binaire d'ENTRÉE — `argv[1]` désignait alors le
+ * CLI global — et la garde héritée lui interdisait précisément la délégation
+ * qui l'aurait renvoyé vers le CLI de l'application. Depuis
+ * `alignArgvWithDelegate`, `argv[1]` désigne le CLI RÉELLEMENT exécuté, donc
+ * celui de l'application : le child repart au bon endroit même si la garde
+ * voyage. Les deux protections restent, et ce n'est pas de la ceinture et des
+ * bretelles — un `argv[1]` aligné ne sert à rien si la garde interdit la
+ * délégation, et l'inverse est vrai aussi. Le framework du CLI global bootait alors
  * l'application locale. Mesuré sur une application installée depuis les
  * tarballs : **un seul module chargé sur huit**, puis « profil serveur mais
  * aucun serveur en écoute » — un diagnostic qui ne parle jamais de délégation.

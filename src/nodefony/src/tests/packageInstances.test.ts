@@ -8,6 +8,8 @@ import {
   packageDualityReport,
 } from "../runtime/packageInstances";
 import Kernel from "../kernel/Kernel";
+import Service from "../Service";
+import Container from "../Container";
 import { BootConfigurationError } from "../kernel/BootConfigurationError";
 import { Nodefony } from "../Nodefony";
 
@@ -246,5 +248,46 @@ describe("câblage — la garde est réellement CONSULTÉE pendant le boot", () 
     expect(dits.filter((d) => d.includes("copies du paquet"))).to.have.lengthOf(
       1,
     );
+  });
+});
+
+/**
+ * 🔴 LA CAUSE RACINE, et la seule ligne de défense qui vaut pour TOUT service.
+ *
+ * `Service` recevait un container, testait `instanceof Container`, et quand le
+ * test échouait — ce qui, d'une copie du paquet à l'autre, arrive toujours — il
+ * JETAIT le container reçu pour s'en fabriquer un vide. Sans un mot. Le service
+ * perdait alors son kernel, son journal et son injection, et n'attachait aucun
+ * hook : il figurait dans la liste des modules et ne faisait rien. C'est ce
+ * silence qui a produit « Kernel not ready », puis envoyé chercher du côté du
+ * build.
+ */
+describe("Service — un container REFUSÉ n'est pas un container ABSENT", () => {
+  it("aucun container → container neuf, comme avant", () => {
+    // Cas légitime et fréquent (Kernel, Cli, services autonomes) : il ne doit
+    // surtout pas devenir une erreur, sinon la moitié du framework ne démarre
+    // plus.
+    const svc = new Service("sans-container");
+    expect(svc.container).to.be.an("object");
+  });
+
+  it("un container d'une AUTRE copie → erreur qui NOMME la cause", () => {
+    // Le type n'admet que `Container | undefined` : un objet qui échoue à
+    // `instanceof` ne peut venir que d'ailleurs. On le dit, au lieu de
+    // fabriquer un service mutilé qui se découvrira trois heures plus tard.
+    const venuDAilleurs = { get: () => null } as unknown as Container;
+    let levée: unknown = null;
+    try {
+      new Service("venu-d-ailleurs", venuDAilleurs);
+    } catch (e) {
+      levée = e;
+    }
+    expect(levée, "le container étranger doit être REFUSÉ").to.not.equal(null);
+    const dit = (levée as Error).message;
+    expect(dit).to.contain("venu-d-ailleurs");
+    expect(dit, "le message doit nommer la cause, pas le symptôme").to.contain(
+      "deux copies du paquet",
+    );
+    expect(dit, "et donner le geste").to.contain("npm ls nodefony");
   });
 });

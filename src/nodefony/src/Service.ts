@@ -105,8 +105,31 @@ class Service implements IService {
   ) {
     if (PERF_PROBE_SUB) perfMark("svcStartNs");
     this.name = name;
-    this.container =
-      container instanceof Container ? container : new Container();
+    // 🔴 UN CONTAINER FOURNI MAIS REFUSÉ N'EST PAS UN CONTAINER ABSENT, et les
+    // confondre a coûté une panne entière. Le type n'admet que
+    // `Container | undefined` : un objet qui échoue à `instanceof` ne peut donc
+    // venir que d'une AUTRE copie du paquet `nodefony` chargée dans ce process
+    // (ou d'un cast de test). L'avaler en silence fabriquait un service sans
+    // kernel, sans journal et sans injection, dont aucun hook de cycle de vie ne
+    // s'attache — il figure dans la liste des modules et ne fait rien. C'est la
+    // racine du « Kernel not ready » qui envoyait chercher du côté du build.
+    //
+    // Ce n'est pas du duck-typing : c'est PLUS strict qu'avant. Le chemin chaud
+    // (une `Context` par requête) est inchangé — seule la branche froide, celle
+    // qui allouait déjà un container neuf, gagne un test de nullité.
+    if (container instanceof Container) {
+      this.container = container;
+    } else {
+      if (container != null) {
+        throw new Error(
+          `${name} : le container reçu n'est pas un Container de CE paquet ` +
+            "`nodefony` — deux copies du paquet tournent dans ce process. " +
+            "`npm ls nodefony` les liste ; l'avertissement de boot nomme leurs " +
+            "chemins. Un service ne peut pas être construit à cette frontière.",
+        );
+      }
+      this.container = new Container();
+    }
     // `events` ne rejoint JAMAIS this.options : server-static.ts:initStaticFiles
     // itère `for (... in this.options)` et appelle `.path` sur chaque valeur
     // (il suppose la clé `events` absente après ctor). L'écarter ICI par

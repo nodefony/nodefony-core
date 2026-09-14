@@ -47,7 +47,7 @@ export type TLocalCliDecision =
  * relance ensuite « la même commande » à partir d'`argv` repart alors sur le
  * MAUVAIS paquet, et personne ne le voit.
  *
- * Vécu le 2026-09-13 : `DevSupervisor` relance le serveur par
+ * Le cas qui l'impose : `DevSupervisor` relance le serveur par
  * `spawn(process.execPath, process.argv.slice(1))`. Avec un `nodefony` lié
  * globalement vers un dépôt de développement, l'enfant exécutait le Kernel du
  * DÉPÔT pendant que la configuration de l'application importait `nodefony`

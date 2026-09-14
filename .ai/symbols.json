@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 834,
-    "symbols": 4088,
+    "symbols": 4089,
     "classes": 392,
     "interfaces": 1094,
     "types": 451,
     "enums": 4,
     "functions": 1740,
-    "constants": 407
+    "constants": 408
   },
   "symbols": {
     "Cli": {
@@ -2956,6 +2956,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Garde de type : `value` est-il un descripteur produit par {@link defineConfig} ? Utilisé par le Kernel (`loadApp`, Lot 4) pour distinguer une app moderne (`export default defineConfig(…)`) d'une co…"
+    },
+    "CONFIG_DESCRIPTOR_KEY": {
+      "name": "CONFIG_DESCRIPTOR_KEY",
+      "kind": "const",
+      "file": "src/nodefony/src/config/defineConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Marque (brand) d'un descripteur de config. Non exportée → un objet quelconque ne peut pas se faire passer pour un descripteur, et le type public {@link AppConfigDescriptor} reste propre. 🔴 `Symbol…"
     },
     "EnvVarMeta": {
       "name": "EnvVarMeta",
@@ -31407,6 +31415,9 @@
       "Result": [
         "src/nodefony/src/finder/FileResult.ts",
         "src/nodefony/src/finder/Finder.ts"
+      ],
+      "CONFIG_DESCRIPTOR_KEY": [
+        "src/nodefony/src/kernel/bootConfigDiagnosis.ts"
       ],
       "toImportSpecifier": [
         "src/nodefony/src/kernel/CliKernel.ts",

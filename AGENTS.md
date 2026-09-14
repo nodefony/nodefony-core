@@ -73,18 +73,19 @@ erreurs qui n'ont aucun rapport avec le code lu.
 Un fichier écrit à la main vieillit ; un fichier généré ne le peut pas. La colonne de
 droite dit à quelle **question** chacun répond.
 
-| Fichier                                      | La question                                                                               |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| [`docs/index.md`](docs/index.md)             | par où entrer dans la documentation ?                                                     |
-| [`MIGRATION_STATUS.md`](MIGRATION_STATUS.md) | quelles phases du chantier sont faites, laquelle est en cours ?                           |
-| [`.ai/BOARD.md`](.ai/BOARD.md)               | _(généré)_ quels tickets sont ouverts, dans quel ordre ?                                  |
-| [`.ai/ENV.md`](.ai/ENV.md)                   | _(généré)_ quelle variable pose ce décor — et **que se passe-t-il si elle est absente ?** |
-| [`.ai/symbols.json`](.ai/symbols.json)       | _(généré)_ qui étend, implémente ou importe ce symbole ? Où est-il défini ?               |
-| `npx nodefony inspect schema <module>`       | _(exécuté)_ quelles clés de configuration existent, de quel type, et que font-elles ?     |
-| `npx nodefony inspect config`                | _(exécuté)_ quelle valeur est POSÉE aujourd'hui, et d'où vient-elle ?                     |
-| [`docs/lexique.md`](docs/lexique.md)         | que veut dire ce terme dans ce dépôt ?                                                    |
-| [`CONTRIBUTING.md`](CONTRIBUTING.md)         | comment proposer un changement ?                                                          |
-| [`SECURITY.md`](SECURITY.md)                 | comment signaler une faille — jamais en ticket public                                     |
+| Fichier                                                                        | La question                                                                               |
+| ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
+| [`docs/index.md`](docs/index.md)                                               | par où entrer dans la documentation ?                                                     |
+| [`MIGRATION_STATUS.md`](MIGRATION_STATUS.md)                                   | quelles phases du chantier sont faites, laquelle est en cours ?                           |
+| [`.ai/BOARD.md`](.ai/BOARD.md)                                                 | _(généré)_ quels tickets sont ouverts, dans quel ordre ?                                  |
+| [`.ai/ENV.md`](.ai/ENV.md)                                                     | _(généré)_ quelle variable pose ce décor — et **que se passe-t-il si elle est absente ?** |
+| [`.ai/symbols.json`](.ai/symbols.json)                                         | _(généré)_ qui étend, implémente ou importe ce symbole ? Où est-il défini ?               |
+| `npx nodefony inspect schema <module>`                                         | _(exécuté)_ quelles clés de configuration existent, de quel type, et que font-elles ?     |
+| `npx nodefony inspect config`                                                  | _(exécuté)_ quelle valeur est POSÉE aujourd'hui, et d'où vient-elle ?                     |
+| [`docs/lexique.md`](docs/lexique.md)                                           | que veut dire ce terme dans ce dépôt ?                                                    |
+| [`docs/guides/deux-paquets-nodefony.md`](docs/guides/deux-paquets-nodefony.md) | pourquoi `nodefony <cmd>` échoue là où `npm run dev` réussit, sur la MÊME app ?           |
+| [`CONTRIBUTING.md`](CONTRIBUTING.md)                                           | comment proposer un changement ?                                                          |
+| [`SECURITY.md`](SECURITY.md)                                                   | comment signaler une faille — jamais en ticket public                                     |
 
 > 🔴 **Sur ce dépôt, un décor absent ne lève presque jamais : il fait sauter un banc, et
 > un banc sauté compte comme vert.** Avant de conclure « les tests passent », lire ce

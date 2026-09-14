@@ -129,14 +129,25 @@ export function readAppEnvOverrideReport(
  * dont `modules` est vide, ne monte aucun module, n'ouvre aucun serveur, et sort
  * en 69 — en accusant une configuration parfaitement juste.
  *
- * Vécu le 2026-09-13 : `nodefony dev` (binaire lié vers le dépôt) échouait
- * systématiquement là où `npm run dev` (binaire local) réussissait, sur la MÊME
- * application. Deux heures de recherche dans la config, qui était saine.
+ * Le cas qui l'impose : un binaire `nodefony` lié vers un autre dossier fait
+ * échouer `nodefony dev` là où `npm run dev` réussit, sur la MÊME application —
+ * et la recherche part dans la configuration, qui est saine.
  * Le registre global est partagé par tout le process : c'est ce qui rend la
  * marque lisible d'une instance à l'autre.
  */
+/**
+ * Nom de la marque, dans le registre GLOBAL de symboles.
+ *
+ * Exporté parce qu'un second lecteur en a besoin sans pouvoir lire le symbole
+ * lui-même : la garde de dualité (`isForeignDescriptor`) cherche une marque à
+ * ce NOM mais d'identité étrangère — importer notre symbole ne lui servirait à
+ * rien, puisque c'est précisément celui qui ne correspond pas. Elle recopiait
+ * donc le littéral, et un renommage l'aurait rendue aveugle sans un mot.
+ */
+export const CONFIG_DESCRIPTOR_KEY = "nodefony.configDescriptor";
+
 const CONFIG_DESCRIPTOR: unique symbol = Symbol.for(
-  "nodefony.configDescriptor",
+  CONFIG_DESCRIPTOR_KEY,
 ) as typeof CONFIG_DESCRIPTOR;
 
 /** Descripteur brandé réellement produit (forme interne). */

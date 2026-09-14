@@ -1,3 +1,4 @@
+import { CONFIG_DESCRIPTOR_KEY } from "../config/defineConfig";
 /**
  * Diagnostic d'un manifeste de modules VIDE au boot.
  *
@@ -30,11 +31,11 @@
  *
  * - `descriptor` — `export default defineConfig(…)`, la forme moderne attendue.
  * - `legacy-object` — un objet nu, sans la marque de `defineConfig`.
- * - `absent` — aucun export par défaut : `dist/` vide, absent, ou en cours
+ * - `empty` — l'export par défaut EXISTE et s'évalue en objet vide
  *   d'écriture au moment de l'import.
  */
 export type AppConfigOrigin =
-  "descriptor" | "legacy-object" | "absent" | "foreign-descriptor";
+  "descriptor" | "legacy-object" | "empty" | "foreign-descriptor";
 
 /**
  * Nom de la marque d'un descripteur de config, tel qu'il apparaît dans la
@@ -48,7 +49,10 @@ export type AppConfigOrigin =
  * instances partagent. Un gate confronte les deux littéraux
  * (`configDescriptorCrossInstance.test.ts`).
  */
-const CONFIG_DESCRIPTOR_NAME = "nodefony.configDescriptor";
+// Importé de sa SOURCE : recopier le littéral rendait la garde aveugle en
+// silence au premier renommage — elle ne peut pas importer le SYMBOLE (qui
+// est justement celui qui ne correspond pas), mais elle peut importer son NOM.
+const CONFIG_DESCRIPTOR_NAME = CONFIG_DESCRIPTOR_KEY;
 
 /**
  * Détecte un descripteur produit par une AUTRE instance du module `nodefony`.
@@ -141,15 +145,18 @@ export function diagnoseEmptyManifest(
   if (!facts.serversExpected || facts.manifestEntries > 0) return null;
 
   switch (facts.origin) {
-    case "absent":
+    case "empty":
       return (
-        "`nodefony.config` n'exporte AUCUNE configuration exploitable — son " +
-        "export par défaut est vide ou absent, si bien que le manifeste tombe à " +
-        "`[]` SANS qu'une erreur soit levée. Vérifier dans cet ordre : (1) le " +
-        "`dist/` chargé correspond-il aux sources (`npm run build`, puis " +
-        "relancer) ; (2) `nodefony.config.ts` porte-t-il bien " +
-        "`export default defineConfig(…)`. `nodefony inspect config` dit la " +
-        "config effective et sa provenance"
+        "`nodefony.config` exporte bien quelque chose, mais qui s'évalue en " +
+        "objet VIDE — le manifeste tombe donc à `[]` sans qu'une erreur soit " +
+        "levée. ⚠️ Un fichier réellement vide ou absent ne produit PAS ce " +
+        "cas : le Kernel importe `dist/index.js`, qui importe la config " +
+        "STATIQUEMENT, et un tel import LÈVE (`ERR_MODULE_NOT_FOUND` ou " +
+        "`SyntaxError`) — on tombe alors dans « Chargement de l'application " +
+        "impossible ». Ici, chercher plutôt un `export default {}`, un objet " +
+        "construit par une condition qui n'a rien rendu, ou un `defineConfig` " +
+        "appelé sans argument. `nodefony inspect config` dit la config " +
+        "effective et sa provenance"
       );
     case "legacy-object":
       return (

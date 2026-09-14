@@ -21,7 +21,7 @@ describe("diagnoseEmptyManifest — nommer la cause, pas accuser au hasard", () 
     const dit = diagnoseEmptyManifest({
       serversExpected: true,
       manifestEntries: 0,
-      origin: "absent",
+      origin: "empty",
     });
     expect(dit).to.be.a("string");
     // Ce que l'ancien message ne disait JAMAIS, et qui est la première chose à
@@ -52,7 +52,7 @@ describe("diagnoseEmptyManifest — nommer la cause, pas accuser au hasard", () 
   });
 
   it("HORS profil serveur → se TAIT (console, test, build : cas nominal)", () => {
-    for (const origin of ["absent", "legacy-object", "descriptor"] as const) {
+    for (const origin of ["empty", "legacy-object", "descriptor"] as const) {
       expect(
         diagnoseEmptyManifest({
           serversExpected: false,
@@ -75,7 +75,7 @@ describe("diagnoseEmptyManifest — nommer la cause, pas accuser au hasard", () 
   });
 
   it("les trois causes rendent trois messages DISTINCTS", () => {
-    const messages = (["absent", "legacy-object", "descriptor"] as const).map(
+    const messages = (["empty", "legacy-object", "descriptor"] as const).map(
       (origin) =>
         diagnoseEmptyManifest({
           serversExpected: true,

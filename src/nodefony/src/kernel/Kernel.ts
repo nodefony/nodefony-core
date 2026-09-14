@@ -2188,7 +2188,7 @@ class Kernel extends Service implements IKernel {
       origin: foreign
         ? "foreign-descriptor"
         : absent
-          ? "absent"
+          ? "empty"
           : "legacy-object",
     };
   }
