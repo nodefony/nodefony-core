@@ -53,15 +53,19 @@ Nodefony, et c'est celui que mesurent la plupart des comparatifs publiés :
 
 | Camp               |   Débit médian | Écart inter-séries | Rapport / Express équipé |
 | ------------------ | -------------: | -----------------: | -----------------------: |
-| Express « équipé » | **16 456 rps** |              0,1 % |                    100 % |
-| **Nodefony**       | **14 522 rps** |              2,2 % |               **88,3 %** |
+| Express « équipé » | **16 098 rps** |              0,3 % |                    100 % |
+| **Nodefony**       | **14 508 rps** |              1,3 % |               **90,1 %** |
 
 > Séparation **nette** — les deux séries de chaque camp encadrent celles de l'autre, donc le
 > classement tient. Sans cette séparation, un écart de médianes ne classerait rien.
 
 Dès qu'une application fait le travail pour lequel elle existe — lire une base, l'écrire —, le
-framework devient une **fraction** du budget, et l'écart s'écrase. C'est le chiffre qu'il faut
-regarder pour choisir une pile, et il est plus bas dans cette page.
+framework devient une **fraction** du budget : d'environ 61 µs sur ~970 µs, soit moins de 7 %.
+C'est la mesure qui répond à « le framework sera-t-il mon goulot ? ».
+
+**Le rapport entre camps, lui, ne bouge pas pour autant** — il reste autour de 90 % dans les deux
+cas, et cette page l'énonce plus bas sans l'arrondir en sa faveur. Le framework pèse peu dans le
+budget d'une requête réelle ; il n'en devient pas gratuit.
 
 ## Le décor, sans lequel ces chiffres ne valent rien
 
@@ -151,10 +155,23 @@ Ce que ce banc mesure n'est donc pas « un ORM contre du SQL écrit à la main �
 l'abstraction portable** : ce que coûte une API générique qui doit rendre le même contrat sur
 trois dialectes.
 
-> 🔬 **Le rapport entre les deux camps n'est pas encore publié.** Les premières séries placent
-> Nodefony au niveau du camp témoin, voire devant — mais trois séries sur quatre ont été
-> **refusées** par le banc pour dispersion, et une paire incomplète ne se compare pas. Le chiffre
-> entrera ici quand une paire complète aura passé le critère de séparation, pas avant.
+Le rapport entre les deux camps, paire complète et séparation nette :
+
+| Camp                         |  Débit médian | Écart inter-séries | Rapport / Express équipé |
+| ---------------------------- | ------------: | -----------------: | -----------------------: |
+| Express « équipé » + drizzle | **1 134 rps** |              3,3 % |                    100 % |
+| **Nodefony** + `orm-core`    | **1 031 rps** |              0,2 % |               **90,9 %** |
+
+**Quasiment le même rapport que sur une route qui ne fait rien** (90,1 %). Le coût du framework ne
+se dilue donc pas dans le travail utile, contrairement à ce que ce dossier a d'abord annoncé : il
+reste une part à peu près constante du budget.
+
+> 🔬 **Une première campagne avait publié 145,9 %** — Nodefony devant. Ce renversement était un
+> **défaut du banc**, pas un résultat : le camp témoin chargeait deux instances distinctes de
+> `drizzle-orm`, ce qui privait son contrôle de type interne de son chemin rapide sur chaque
+> colonne de chaque ligne. Corrigé, ce camp gagne **+58,8 %** ; le camp Nodefony, lui, n'a pas
+> bougé. Le mécanisme, sa mesure et la garde qui l'empêche de revenir sont dans
+> [`analyses`](analyses.md#le-banc-sqlite--et-ce-quun-banc-peut-mesurer-à-la-place-dun-framework).
 
 > ⚠️ **Ce banc n'est pas encore reproductible par un tiers** : son corpus est généré localement et
 > n'est pas versionné (schéma issu d'un logiciel sous licence GPLv3). C'est le défaut même que
@@ -162,15 +179,15 @@ trois dialectes.
 
 ## Ce que ce dossier établit
 
-| Question                                                 | Réponse mesurée                                                                                     |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture |
-| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                     |
-| L'écart avec Express sur une route qui ne fait rien ?    | **×1,13** — le pire cas pour nous                                                                   |
-| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes             |
-| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                       |
-| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                             |
-| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport** : 89,8 % contre 88,3 % sur la même paire                          |
+| Question                                                 | Réponse mesurée                                                                                                         |
+| -------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- |
+| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                     |
+| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                         |
+| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                    |
+| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                 |
+| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                           |
+| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                 |
+| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport**, de 1,5 point sur une même paire ; et une double instance de module l'a déplacé de 55 |
 
 ## Les trois pages
 

@@ -236,11 +236,12 @@
     "quoi": "Le cas APPLICATIF : 20 lignes lues puis UPDATE de la ligne lue, à chaque requête. Une route triviale mesure le framework à 100 % du budget ; dès qu'une base entre dans la boucle, il n'en est plus qu'une fraction.",
     "reference": "express-fair-sqlite",
     "subject": "nodefony-orm",
-    "rapportPct": 145.9,
+    "rapportPct": 90.9,
     "separation": "nette",
     "equite": {
       "verifie": [
-        "même ORM (drizzle) et même pilote (better-sqlite3 13.0.3) — la garde du banc refuse de mesurer si l'installé ne correspond pas au déclaré",
+        "UNE SEULE instance de drizzle-orm par process — contrôlée dans le camp lui-même (`colonne instanceof Column`), pas seulement la version : deux copies de la MÊME version suffisent à faire perdre à `is()` son chemin rapide",
+        "même ORM (drizzle 0.45.2) et même pilote (better-sqlite3 13.0.3), servis depuis le node_modules de la RACINE des deux côtés via `repo-drizzle-sqlite.mjs` — la garde du banc refuse par ailleurs de mesurer si l'installé ne correspond pas au déclaré",
         "même SCHÉMA : le camp témoin importe llx_facture depuis le `dist` du module test, jamais une copie",
         "même base : copie BINAIRE du même seed, une par camp puisque les deux écrivent",
         "mêmes PRAGMA constatés par le pilote lui-même : journal WAL, synchronous NORMAL des deux côtés",
@@ -253,86 +254,98 @@
     "frameworks": {
       "express-fair-sqlite": {
         "label": "express-fair-sqlite",
-        "rps": [712.6, 715.58, 717.09, 709.45, 712.06, 715.54],
-        "min": 709.45,
-        "med": 713.82,
-        "max": 717.09,
-        "dispersionPct": 0.9,
-        "interSeriesPct": 0.5,
-        "medP50Ms": 32.415,
-        "medP99Ms": 65.805,
-        "thermalBefore": "0",
-        "thermalAfter": "81",
+        "rps": [1125.15, 1115.12, 1111.69, 1153.02, 1152.19, 1148.12],
+        "min": 1111.69,
+        "med": 1133.65,
+        "max": 1153.02,
+        "dispersionPct": 1.2,
+        "interSeriesPct": 3.3,
+        "medP50Ms": 20.32,
+        "medP99Ms": 41.445,
+        "thermalBefore": "19",
+        "thermalAfter": "69",
         "cpuRegime": "AC Power/lpm=0",
         "hyperviseur": "non",
-        "warmupSec": 40,
+        "indexeurPct": "0",
+        "warmupSec": 80,
         "durSec": 30,
         "conn": 25,
         "threads": 4,
         "url": "http://127.0.0.1:5167/nodefony/test/bench-orm/read-write",
         "series": [
           {
-            "rps": [712.6, 715.58, 717.09],
-            "med": 715.58,
-            "dispersionPct": 0.6
+            "rps": [1125.15, 1115.12, 1111.69],
+            "med": 1115.12,
+            "dispersionPct": 1.2
           },
           {
-            "rps": [709.45, 712.06, 715.54],
-            "med": 712.06,
-            "dispersionPct": 0.9
+            "rps": [1153.02, 1152.19, 1148.12],
+            "med": 1152.19,
+            "dispersionPct": 0.4
           }
         ]
       },
       "nodefony-orm": {
         "label": "nodefony-orm",
-        "rps": [1041.0, 1040.08, 1036.16, 1038.53, 1043.2, 1042.71],
-        "min": 1036.16,
-        "med": 1041.39,
-        "max": 1043.2,
-        "dispersionPct": 0.5,
-        "interSeriesPct": 0.3,
-        "medP50Ms": 22.215,
-        "medP99Ms": 45.26,
-        "thermalBefore": "1",
-        "thermalAfter": "63",
+        "env": "NF_BENCH_ORM=1 NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=120",
+        "rps": [1044.26, 1029.2, 1029.51, 1030.82, 1031.57, 1035.47],
+        "min": 1029.2,
+        "med": 1030.54,
+        "max": 1044.26,
+        "dispersionPct": 1.5,
+        "interSeriesPct": 0.2,
+        "medP50Ms": 22.35,
+        "medP99Ms": 45.685,
+        "thermalBefore": "35",
+        "thermalAfter": "66",
         "cpuRegime": "AC Power/lpm=0",
         "hyperviseur": "non",
-        "warmupSec": 40,
+        "indexeurPct": "0",
+        "warmupSec": 80,
         "durSec": 30,
         "conn": 25,
         "threads": 4,
         "url": "http://127.0.0.1:5151/nodefony/test/bench-orm/read-write",
         "series": [
           {
-            "rps": [1041.0, 1040.08, 1036.16],
-            "med": 1040.08,
-            "dispersionPct": 0.5
+            "rps": [1044.26, 1029.2, 1029.51],
+            "med": 1029.51,
+            "dispersionPct": 1.5
           },
           {
-            "rps": [1038.53, 1043.2, 1042.71],
-            "med": 1042.71,
-            "dispersionPct": 0.4
+            "rps": [1030.82, 1031.57, 1035.47],
+            "med": 1031.57,
+            "dispersionPct": 0.5
           }
         ]
       }
     },
     "cause": {
-      "methode": "Profil CPU (--cpu-prof) des deux camps sous la charge du banc (25 connexions, 15 s), self-time agrégé par paquet puis par fonction.",
-      "constat": "À travail rendu STRICTEMENT identique, le camp témoin dépense 11 723 ms dans drizzle-orm quand Nodefony en dépense 6 921 ms, sur ~18 s de CPU échantillonné de part et d'autre.",
-      "ou": {
-        "is (contrôle de type interne de drizzle)": "témoin 5 739 ms · Nodefony 2 442 ms — écart 3 297 ms",
-        "mapResultRow (mise en objet des lignes)": "témoin 1 296 ms · Nodefony 193 ms — écart 1 103 ms",
-        "pipeline Nodefony": "3 439 ms que le camp témoin ne paie pas"
-      },
-      "conclusion": "L'écart ne vient ni du SQL (même plan, même table sans index), ni du pilote (mêmes PRAGMA, même version), ni du parallélisme (un seul process des deux côtés), ni de la sérialisation, ni de l'écriture : il vient de la façon dont chaque camp APPELLE drizzle. Nodefony paie bien son pipeline — 3 439 ms — mais en économise 4 802 dans l'ORM. Le solde est en sa faveur.",
+      "etablie": true,
+      "quoi": "Deux instances distinctes de drizzle-orm dans le process du camp témoin. `is(valeur, type)` teste `valeur instanceof type` en premier ; à travers deux copies ce test échoue TOUJOURS, et la fonction se rabat sur la remontée de la chaîne de prototypes en comparant `entityKind`. Comme `entityKind` est un `Symbol.for` — donc partagé par le registre global — le RÉSULTAT reste correct : aucune erreur, aucun avertissement, seulement le chemin lent.",
+      "preuve": [
+        "identité d'objets : `Column` de la copie du banc !== `Column` de la copie racine",
+        "`colonneDuSchema instanceof ColumnDuBanc` → false ; `instanceof ColumnRacine` → true",
+        "micro-mesure de `is()` : 0,019 µs/appel sur une seule copie contre 0,143 µs à travers deux — ×7,6",
+        "source : node_modules/drizzle-orm/entity.js, fonction `is`",
+        "mesure de bout en bout : le camp témoin corrigé passe de 713,8 à 1 133,7 req/s, soit +58,8 %"
+      ],
+      "effetSurLeClassement": "Le camp Nodefony n'a pas bougé (1 041,4 avant, 1 030,5 après — deux fenêtres différentes). Le rapport passe de 145,9 % à 90,9 % : ce n'est pas une régression du produit, c'est la correction de la mesure de l'adversaire.",
+      "garde": "Chaque camp ORM contrôle désormais l'identité au démarrage et REFUSE de servir (code 2) si les colonnes du schéma ne sont pas des instances de la classe `Column` qu'il exécute. Garde vue mordre sur les deux familles, SQLite et PostgreSQL.",
       "hypothesesRefutees": [
         "PRAGMA journal/synchronous différents — constatés identiques PAR LE PILOTE (WAL, NORMAL)",
         "versions d'ORM ou de pilote divergentes — identiques (drizzle 0.45.2, better-sqlite3 13.0.3)",
         "Nodefony servant en cluster face à un témoin mono-process — un seul process de chaque côté, vérifié pendant le service",
         "la requête préparée du témoin le pénaliserait — mesuré : sans .prepare() il tombe à 530 rps au lieu de 714, elle l'AIDE",
-        "Nodefony rendrait des lignes moins converties — mêmes 74 champs, mêmes types"
+        "Nodefony rendrait des lignes moins converties — mêmes 74 champs, mêmes types",
+        "un site d'appel polymorphe ou une déoptimisation V8 — piste retenue tant que la double instance n'était pas vue ; `--trace-deopt` ne montrait déjà rien, et la cause réelle ne relève pas du JIT"
       ],
-      "resteAEtablir": "Le mécanisme PRÉCIS par lequel le repository de Nodefony sollicite moins `is` et `mapResultRow` n'est pas lu dans le code : le profil dit OÙ va le temps, pas POURQUOI cette voie en consomme moins."
+      "profilAnterieur": {
+        "note": "Le profil CPU du 14/09 reste exact dans ce qu'il MESURE (le témoin dépensait 11 723 ms dans drizzle contre 6 921 ms), mais son interprétation était fausse : ce n'était pas « le même code appelé autrement », c'était un AUTRE code — l'autre copie, privée de son chemin rapide.",
+        "is": "témoin 5 739 ms · Nodefony 2 442 ms",
+        "mapResultRow": "témoin 1 296 ms · Nodefony 193 ms",
+        "pipelineNodefony": "3 439 ms que le camp témoin ne paie pas"
+      }
     },
     "equiteEprouvee": {
       "principe": "Une équité ne se démontre pas par le raisonnement : elle s'éprouve en tentant d'AMÉLIORER le camp adverse. Tant qu'une variante plus rapide du témoin existe, l'écart mesuré est celui de son écriture, pas celui des frameworks.",
@@ -355,6 +368,11 @@
       ],
       "conclusion": "Le camp témoin est déjà dans sa meilleure configuration connue. Adopter la méthode d'appel de Nodefony le rend PLUS LENT : l'écart ne vient donc pas d'une écriture naïve du témoin.",
       "cequeCeNestPas": "Ce n'est pas un défaut d'Express : le profil lui attribue 0,7 % du temps (118 ms) et 0,6 % à son routeur. Le poste dominant des deux côtés est drizzle-orm, dans la MÊME version."
+    },
+    "mesureInvalidee": {
+      "rapportPct": 145.9,
+      "motif": "Le camp témoin chargeait DEUX instances distinctes de drizzle-orm 0.45.2 : ses propres `import \"drizzle-orm\"` se résolvaient dans `bench-frameworks/node_modules`, tandis que le schéma, importé du `dist` du module test, venait du node_modules de la racine. Le chiffre mesurait donc en partie une résolution de modules, pas un ORM.",
+      "aQuiProfitait": "à Nodefony — le sens le plus dangereux à publier, et celui qu'on ne cherche pas à réfuter"
     }
   }
 }

@@ -473,8 +473,10 @@ code idiomatique de l'ORM) et **préparé** (la requête est mémoïsée — ce 
 
 Les verdicts, dans l'ordre où ils comptent :
 
-- **À parité de travail et d'ORM : ×1,07.** Nodefony rend ~93 % du débit d'un Express équipé du
-  même service. C'est le chiffre le plus honnête du dossier.
+- **À parité de travail et d'ORM : ×1,07.** Nodefony rendrait ~93 % du débit d'un Express équipé du
+  même service. ⚠️ **Chiffre SUSPENDU** : le camp témoin de ce banc chargeait deux instances de
+  `drizzle-orm` (voir « Le banc SQLite » plus bas), ce qui le pénalise et surévalue ce rapport **en
+  faveur de Nodefony**. Le camp est réparé ; la mesure reste à rejouer (#403). Ne pas le citer.
 - **À parité d'ORM mais sans aucun middleware Express : ~90 %** d'un Express nu — c'est-à-dire
   d'un serveur qui ne rend ni pare-feu, ni session, ni audit, ni corrélation.
 - **Le prix des middlewares Express sur une route ORM n'est plus que de −2,4 %** (1 801 nu contre
@@ -490,85 +492,111 @@ engagée **avant** la mesure — « naïf ≈ avant, préparé ≈ après, écar
 s'est vérifiée. C'est ce recoupement croisé qui donne confiance dans l'A/B PostgreSQL : un gain
 qui se reproduit à l'identique chez un tiers n'est pas un artefact de banc.
 
-### Le banc SQLite — un renversement, et l'enquête qu'il a demandée
+### Le banc SQLite — et ce qu'un banc peut mesurer à la place d'un framework
 
-Le banc PostgreSQL ci-dessus donne Nodefony à **93 %** d'un Express à parité. Le banc applicatif
-SQLite — vingt lignes lues puis l'`UPDATE` de la ligne lue — donne **146 %** : 1 041 req/s contre
-714, séparation nette, dispersions inter-séries de 0,3 % et 0,5 %.
+Le banc applicatif SQLite — vingt lignes lues, puis l'`UPDATE` de la ligne lue — donne Nodefony à
+**90,9 %** du débit d'un Express équipé du même ORM : **1 030,5 req/s contre 1 133,7**, séparation
+nette, dispersions de série entre 0,4 % et 1,5 %.
 
-Les deux mesures ne se contredisent pas, elles ne portent pas sur le même décor : PostgreSQL a un
-pilote **asynchrone** qui rend la main, SQLite un pilote **synchrone** dont la latence EST son
-blocage. Mais un renversement de cette ampleur ne se publie pas sans l'avoir instruit.
+Ce chiffre en remplace un autre. Une première campagne avait publié **145,9 %** — le seul point du
+dossier où le classement s'inversait. Ce renversement n'existe pas : c'était un défaut du banc, et
+il jouait en notre faveur.
 
-#### L'équité, éprouvée plutôt qu'affirmée
+#### Ce que le banc mesurait à la place d'un ORM
 
-Une équité ne se démontre pas par le raisonnement : elle s'éprouve en tentant d'**améliorer le camp
-adverse** jusqu'à échouer. Quatre écritures du camp témoin ont été mesurées :
+Le camp témoin chargeait **deux instances distinctes de `drizzle-orm`**, à la même version. Ses
+propres `import "drizzle-orm"` se résolvaient dans le `node_modules` de son dossier ; le schéma,
+lui, était importé du `dist` du module test — une exigence d'équité, précisément — et venait donc
+du `node_modules` de la racine.
 
-| Écriture du camp Express                                  |     RPS |
-| --------------------------------------------------------- | ------: |
-| `prepare()` à valeur figée puis `.all()` — celle en place | **714** |
-| `prepare()` + `sql.placeholder()` + paramètres liés       |     670 |
-| `.execute()`, l'entrée même qu'emprunte Nodefony          |     663 |
-| aucune préparation, requête reconstruite à chaque appel   |     530 |
+Drizzle en souffre sans le dire. Son contrôle de type interne s'écrit :
 
-La variante en place est la meilleure, et adopter la méthode d'appel de Nodefony **dégrade** le
-témoin. L'écart ne vient donc pas d'un adversaire mal écrit. S'y ajoutent les contrôles de décor :
-même ORM et même pilote aux versions du dépôt, schéma importé du `dist` et jamais recopié, base en
-copie binaire du même seed, PRAGMA constatés **par le pilote** (WAL, `synchronous` NORMAL), et le
-même objet rendu — 74 champs, mêmes types, vérifiés par requête sur chaque camp.
+```js
+function is(value, type) {
+  if (value instanceof type) return true; // ← le chemin rapide
+  // …sinon : remonter la chaîne de prototypes en comparant `entityKind`
+}
+```
 
-#### Où part le temps
+À travers deux copies, `value instanceof type` échoue **toujours** : les classes ne sont pas les
+mêmes objets. La fonction se rabat sur la remontée de prototypes — et comme `entityKind` est un
+`Symbol.for`, donc partagé par le registre global, elle finit par rendre **le bon résultat**. Aucune
+erreur, aucun avertissement : seulement le chemin lent, sur chaque colonne de chaque ligne.
 
-Profil CPU des deux camps sous la charge du banc, self-time agrégé :
+| Mesure                                         | Valeur         |
+| ---------------------------------------------- | -------------- |
+| `is()` sur une seule copie                     | 0,019 µs/appel |
+| `is()` à travers deux copies                   | 0,143 µs/appel |
+| rapport                                        | **×7,6**       |
+| débit du camp témoin, avant correction         | 713,8 req/s    |
+| débit du camp témoin, une seule instance       | **1 133,7**    |
+| effet de la correction sur le seul camp témoin | **+58,8 %**    |
 
-| Poste                                                                      |    Témoin | Nodefony |
-| -------------------------------------------------------------------------- | --------: | -------: |
-| `drizzle-orm`, total                                                       | 11 723 ms | 6 921 ms |
-| dont `is` via `mapResultRow`                                               |  4 055 ms | 1 092 ms |
-| dont `mapResultRow` lui-même                                               |  1 399 ms |   193 ms |
-| construction des requêtes (`buildSelection`, `buildQueryFromSourceParams`) | ~1 040 ms |  ~845 ms |
-| pipeline Nodefony                                                          |         — | 3 439 ms |
-| `express` et son routeur                                                   |    222 ms |        — |
+**Le camp Nodefony, lui, n'a pas bougé** — 1 041,4 avant, 1 030,5 après, dans deux fenêtres
+différentes. Ce n'est pas une régression du produit : c'est la correction de la mesure de
+l'adversaire.
 
-Nodefony **paie bien son pipeline** — 3 439 ms que le témoin n'a pas — mais en économise 4 802 dans
-l'ORM. Le solde est en sa faveur. Et **ce n'est pas un défaut d'Express** : le profil lui attribue
-0,7 % du temps.
+#### Pourquoi l'épreuve d'équité ne l'a pas vu
 
-#### Le fait qui reste sans explication
+L'équité avait pourtant été éprouvée plutôt qu'affirmée : quatre écritures du camp témoin avaient
+été mesurées — `prepare()` à valeur figée puis `.all()` (714, la meilleure, celle retenue),
+`sql.placeholder()` et paramètres liés (670), `.execute()` (663), aucune préparation (530) — et
+adopter la méthode d'appel de Nodefony **dégradait** le témoin.
 
-Le volume de travail est **strictement identique**, mesuré et non déduit : **21 appels** à
-`mapResultRow` par requête de chaque côté, environ 74 colonnes par appel. Rapporté aux requêtes
-réellement servies, le même code coûte **25,3 µs par appel au témoin contre 4,6 µs à Nodefony**.
+Ce travail était juste, et il ne pouvait rien trouver : les quatre variantes partageaient le même
+défaut de résolution. **L'épreuve portait sur le CODE du camp témoin, jamais sur son DÉCOR.** Une
+comparaison ne se contrôle pas seulement sur ce que chaque camp écrit, mais sur ce que chaque camp
+CHARGE.
 
-Dix hypothèses ont été **réfutées par la mesure** : Express lui-même, les PRAGMA, les versions
-d'ORM et de pilote, le schéma, la base, le plan SQL, un éventuel cluster face à un mono-process,
-l'écriture, la sérialisation, la déoptimisation V8 — `--trace-deopt` ne montre aucune
-déoptimisation sur le chemin de service — et les quatre écritures du camp témoin.
+Le profil CPU désignait d'ailleurs la réponse, à condition de lui poser la bonne question. Il
+disait : _le même code coûte 25,3 µs par appel ici, 4,6 µs là_. On a cherché pourquoi ce code
+était lent — site d'appel, polymorphisme, déoptimisation V8, dix hypothèses réfutées. La question
+qu'il fallait poser est plus courte : **est-ce vraiment le même code ?** Au sens de la même
+instance chargée en mémoire. La réponse était non.
 
-Il reste une seule famille d'explications : **le même code ne s'exécute pas à la même vitesse selon
-le site d'appel**, `is()` effectuant trois tests de type par colonne, soit environ 4 600 tests par
-requête. L'instrument qui trancherait est `--trace-ic`. Tant qu'il n'a pas parlé, ce paragraphe
-énonce un fait mesuré et une piste, jamais une conclusion.
+#### La garde qui l'empêche de revenir
 
-#### Ce que cela vaut pour Nodefony
+Chaque camp ORM contrôle désormais l'identité au démarrage et **refuse de servir** (code 2) si les
+colonnes du schéma ne sont pas des instances de la classe `Column` qu'il exécute :
 
-Rien à gagner : notre chemin est déjà le rapide. Le bénéfice est **défensif et chiffré** — le site
-d'appel de `find()` vaut **0,44 ms par requête**. Une évolution qui le rendrait polymorphe coûterait
-près de 30 % du débit applicatif **sans qu'aucun test ne le voie**.
+```js
+if (!(colonnes[0] instanceof Column)) {
+  /* ÉQUITÉ ROMPUE — deux instances de drizzle-orm dans ce process */
+}
+```
+
+Elle porte sur une **identité**, là où la garde préexistante du banc ne portait que sur une
+**version** : deux copies de la même version suffisent à fausser la mesure. Elle vit dans le camp
+lui-même et non dans le lanceur — c'est là que le spécificateur d'import est écrit, donc là que la
+faute se commet. Vue mordre sur les deux familles, SQLite et PostgreSQL.
+
+Les camps sont servis par une passerelle (`repo-drizzle-sqlite.mjs`, `repo-drizzle-pg.mjs`) placée
+un cran au-dessus du dossier des camps : n'ayant pas de `node_modules` propre, ses spécificateurs
+nus remontent jusqu'à la racine, exactement comme le fait le schéma.
 
 ### Ce que ces trois niveaux disent
 
-**L'écart fond à mesure que l'application grandit.**
+**L'écart est STABLE autour de 10 %, que la route travaille ou non.** C'est une thèse plus
+modeste que celle que ce dossier a portée, et c'est celle que les mesures soutiennent.
 
-| Ce que fait l'application                | Écart avec un Express à service comparable |
-| ---------------------------------------- | -----------------------------------------: |
-| Rien (objet constant)                    |                                      ×1,61 |
-| Le même travail par requête              |                                      ×1,29 |
-| Le même travail **et** une vraie requête |                                  **×1,07** |
+Les deux seuls points mesurés sous le protocole courant — paires alternées, gardes thermique et
+d'indexeur, Node 26.8 — se lisent ensemble :
 
-La lecture est simple : le coût fixe du framework se dilue dans le travail utile. Sur une
-application qui interroge une base — c'est-à-dire toutes — il devient marginal.
+| Ce que fait l'application                           | Nodefony / Express équipé | Écart |
+| --------------------------------------------------- | ------------------------: | ----: |
+| Route triviale (aucune base)                        |                    90,1 % | ×1,11 |
+| Cycle applicatif complet (20 lectures + 1 écriture) |                **90,9 %** | ×1,10 |
+
+**Le coût du framework ne se dilue pas dans le travail utile — ou si peu que la mesure ne le
+distingue pas.** Le tableau précédent annonçait ×1,61 → ×1,29 → ×1,07, un escalier descendant ;
+ses trois marches venaient de fenêtres et de décors différents, et sa dernière était portée par le
+banc PostgreSQL, dont le camp témoin souffrait du défaut décrit plus haut.
+
+> ⚠️ **Le ×1,07 (≈ 93 %) plus haut dans cette page n'a PAS été rejoué.** Son camp témoin
+> (`express-fair-drizzle.mjs`) chargeait lui aussi deux instances de drizzle ; il est donc
+> surévalué **en faveur de Nodefony**, dans les mêmes proportions. Le camp est réparé, mais le duel
+> demande un camp Nodefony PostgreSQL qui n'existe pas encore — c'est l'objet du ticket #403. Tant
+> qu'il n'a pas eu lieu, ce chiffre ne doit pas être cité.
 
 **Ce qui n'est pas revendiqué, et ne le sera pas** : Nodefony n'est pas « plus performant » en
 absolu. Sur une route qui ne fait rien, il est plus lent, et le dossier le publie en première
