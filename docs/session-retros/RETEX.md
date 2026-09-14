@@ -309,6 +309,19 @@
 
 ## ⚙️ Réutiliser du code d'un SCRIPT, c'est le RELANCER
 
+- [1× — 09-14] **La capacité que je m'apprêtais à écrire existait DÉJÀ — enfouie dans une fonction
+  d'un fichier de 6 300 lignes.** Les six grammaires de transcript d'agent étaient écrites, justes
+  et éprouvées, au milieu de `bench-discoverability.mjs`, mêlées à son décor. Rien ne pouvait les
+  atteindre : j'ai dépouillé un transcript à la main, au `jq`, pendant une heure, avant de m'en
+  apercevoir. **Le dépôt s'inflige exactement le défaut qu'il corrige dans le produit le même
+  jour** — le ticket #389 dit qu'un fichier d'instructions de 953 lignes est refusé par les outils
+  de lecture, donc inexistant ; un module de 6 300 lignes l'est tout autant pour qui cherche une
+  fonction à réutiliser. Le geste qui a payé : EXTRAIRE avant d'ajouter (158 lignes rendues au
+  banc, source unique, selftest propre) plutôt qu'écrire une septième copie. Le signe avant-coureur
+  à reconnaître : **« je dépouille ça à la main pour la deuxième fois » est le symptôme d'un
+  automate qui manque — ou qui existe et qu'on n'atteint pas.**
+  Voisin gradué : [[feedback_capability_unreachable_is_absent]].
+
 - [1× — 09-12b] **Déplacer une règle dans un autre module rend MUETTES les mutations qui
   la visaient.** En sortant `canalDe` et `VERSION_EXACTE` vers un module partagé, deux
   mutations `--prove` du selftest d'origine ont perdu leur ancre : elles ne mutaient plus
@@ -749,6 +762,18 @@
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
 
 ## 🧪 Une instruction qu'on PUBLIE sans l'exécuter est une affirmation, pas un fait
+
+- [1× — 09-14] 🔴 **J'ai écrit une preuve d'ABSENCE dans un ticket, puis je l'ai lancée : elle
+  était fausse, et le ticket entier tombait avec elle.** Le corps affirmait « le gabarit ne livre
+  aucune page de connexion » avec, à l'appui, `rg -c 'login' src/nodefony/templates/app`. Lancée,
+  la commande rend **cinq fichiers** — les gabarits react, vue et svelte livrent une page de
+  connexion complète ET le client temps réel. Le ticket n'a jamais été ouvert ; il a été réécrit
+  en arbitrage. Ce qui m'a sauvé n'est pas ma vigilance, c'est une règle ÉCRITE du skill
+  (« une preuve d'absence s'écrit comme une COMMANDE qui rend 0 ») : formuler l'absence en
+  commande m'a obligé à la lancer. **Une affirmation négative est la plus facile à écrire et la
+  plus coûteuse à croire** — elle ne se contredit jamais toute seule, puisqu'on ne trouve rien
+  quand on cherche au mauvais endroit. Corollaire pour tout ticket : l'absence se prouve AVANT
+  d'écrire la phrase, jamais après. Voisin gradué : [[feedback_anchor_expires_silently]].
 
 - [1× — 09-13b] **`node --check` passe sur un code qui lève à la première exécution.** Le
   diagnostic ajouté à `soak.mjs` mourait sur `new URL(PROBE)` — « URL is not a constructor » —
