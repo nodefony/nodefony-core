@@ -1,4 +1,5 @@
 import path from "node:path";
+import { toImportSpecifier } from "../../kernel/resolveModuleEntry";
 import { resolveWorkerCount } from "./cpuQuota";
 
 /**
@@ -116,7 +117,12 @@ export async function loadClusterConfig(
       appPath,
       "dist/nodefony/config/cluster/cluster.config.js",
     );
-    const mod = (await import(file)) as {
+    // `import()` prend une URL, pas un chemin (axiome 3) : sous Windows
+    // `C:\…` part au chargeur ESM comme le protocole `c:`, il lève, et le
+    // `catch` ci-dessous rend `null` — la configuration de grappe d'une
+    // application serait alors IGNORÉE en silence, la topologie retombant sur
+    // CLI/env/défaut sans qu'aucun message ne le dise.
+    const mod = (await import(toImportSpecifier(file))) as {
       default?: IClusterConfig;
     };
     const workers = mod.default?.workers;
