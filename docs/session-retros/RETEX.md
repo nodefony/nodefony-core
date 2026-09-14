@@ -366,6 +366,12 @@
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
 
+- [1× — 09-14c] 🔴 **La notification de tâche de fond a annoncé « exit code 0 » sur DEUX runs
+  ROUGES d'affilée.** `npm run test:all` rendait 1 ; seule la ligne `EXIT=$?` que j'avais écrite
+  DANS le fichier de capture disait vrai. Sans elle je concluais « tout vert » sur 9 puis 1 échec.
+  Le protocole l'écrit (« le code de sortie se lit SANS pipe ») mais il vise le `| tee` — pas le
+  rapport du harness, qui ment de la même façon et qu'on croit sur parole.
+
 - [1× — 09-14] **Deux instruments faux dans la même séance, tous deux ANNONCÉS au user avant
   d'être recontrôlés.** (1) Un `git cat-file -e "<tag>:<chemin>"` a rendu « fichier ABSENT » pour
   trois versions publiées — j'en ai conclu, à voix haute, que la délégation au CLI local n'existait
@@ -1017,3 +1023,34 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 ## 🗄️ Archivé au CONSOLIDATE du 2026-07-30 — 59 thèmes, 190 frictions
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
+
+## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
+
+- [1× — 09-14c] 🔴 **Trois lectures, trois vérités, et j'allais conclure sur la mauvaise.** Le
+  changelog de Node annonçait « improve performance with known-length calls to `end()` » ; le titre
+  du PR disait « known-length **string** », d'où ma crainte que notre `Buffer` soit exclu ; le
+  **code** dit `typeof chunk === 'string' || isUint8Array(chunk)`, donc Buffer accepté. Le détour
+  par `gh api repos/nodejs/node/pulls/<n>/files` coûte dix secondes et a renversé la conclusion.
+  Voisin gradué : [[feedback_source_over_memory]] — ici la MÊME règle, appliquée à une dépendance
+  externe et non à notre code.
+
+## 🧪 Un banc COMPARATIF dont les concurrents dérivent impute au produit ce qui ne lui appartient pas
+
+- [1× — 09-14c] 🔴 **Le sandbox servait `fastify` 5.8.5 quand son `package.json` déclarait
+  `^5.12.4`** — `npm install` n'avait pas été rejoué depuis le commit qui a monté la déclaration.
+  Ces deux versions sont séparées de **29 % de débit**, et j'avais imputé l'écart à la machine.
+  Garde écrite depuis, mais la leçon dépasse ce banc : **tout instrument comparatif doit prouver
+  son décor avant de rendre un chiffre**, au même titre qu'il prouve que la cible répond 200.
+- [1× — 09-14c] Le jeu de référence publié **n'enregistrait pas la version de Node**
+  (`"node": null`, déduite après coup par son propre caveat) alors que ce seul facteur vaut
+  **+62 %** sur un camp témoin. Un décor incomplet ne se voit pas : il rend plausible une
+  comparaison entre deux fenêtres qui n'ont rien à voir.
+
+## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
+
+- [1× — 09-14c] 🔴 **J'ai mesuré cinq camps en séries séquentielles alors que les paires alternées
+  sont documentées** dans l'en-tête de `bench-ab-mono.sh` ET dans le skill que je venais de
+  charger. Rien ne les imposait : il fallait taper `A1 ; B1 ; A2 ; B2` soi-même. Chaque série était
+  propre (dispersion ≤ 3 %) et le RAPPORT entre deux camps ne valait rien — c'est l'audit délégué
+  qui me l'a fait remarquer, pas moi. Même famille que [[feedback_gate_must_run]], côté mesure :
+  ce qu'aucun script n'orchestre n'est pas appliqué.
