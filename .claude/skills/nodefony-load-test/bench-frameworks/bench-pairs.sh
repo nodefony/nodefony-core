@@ -110,6 +110,10 @@ mesurer() { # camp, rang → rend la médiane, ou vide si le banc a refusé
   else
     bash "$DIR/bench.sh" "$camp" "$PORT" >/dev/null 2>&1
   fi
+  # La preuve d'un refus se range comme une mesure : sans rang, la série 2
+  # écraserait le diagnostic de la série 1 et on rejouerait sans rien savoir.
+  [ -f "/tmp/nf-bench-$camp.refused.json" ] &&
+    mv "/tmp/nf-bench-$camp.refused.json" "/tmp/nf-bench-$camp-p$rang.refused.json"
   local med="/tmp/nf-bench-$camp.med"
   if [ -f "$med" ]; then
     cat "$med"

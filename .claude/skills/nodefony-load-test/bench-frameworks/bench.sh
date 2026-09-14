@@ -83,7 +83,13 @@ lat_pct() { printf '%s' "$1" | awk -v p="$2" '$1 == p"%" {print $2; exit}'; }
 
 RPS=(); P50=(); P99=(); BAD=0
 for i in 1 2 3; do
-  [ "$i" -gt 1 ] && sleep 10
+# Le run 1 enchaînait DIRECTEMENT après le warmup, quand les runs 2 et 3 étaient
+# précédés d'une pause de 10 s : les trois runs ne partaient pas du même état, et
+# le run 1 décrochait — 5 à 8 % sur le camp le plus rapide (`bare`, ~38 000 rps),
+# systématiquement le plus bas, série après série. Allonger le warmup ne changeait
+# rien (40 s : même motif), ce qui écarte le rodage du JIT. La MÊME pause pour les
+# trois runs est la seule façon de comparer trois mesures comparables.
+  sleep 10
   OUT=$(wrk -t"$THREADS" -c"$CONN" -d"${DUR}s" --latency "$URL" 2>/dev/null)
   R=$(printf '%s' "$OUT" | grep "Requests/sec" | awk '{print $2}')
   L50=$(lat_ms "$(lat_pct "$OUT" 50)")
@@ -117,6 +123,14 @@ echo "  min/méd/max: $MIN / $MED / $MAX RPS · dispersion ${DISP} % · thermal 
 echo "  latence (médiane des 3 runs) : p50 ${MED50}ms · p99 ${MED99}ms · pire p99 ${MAX99}ms"
 if awk -v d="$DISP" 'BEGIN{exit !(d > 3)}'; then
   echo "  ✖ $LABEL: dispersion ${DISP} % > 3 % — fenêtre instable, mesure NON enregistrée."
+  # Une série refusée EFFACÉE ne s'explique pas : on rejoue à l'aveugle, sans
+  # savoir si elle a manqué de 0,2 point ou de 10. Le verdict reste un refus —
+  # le `.med`, seul signal d'acceptation, disparaît — mais la PREUVE est gardée.
+  printf '{"label":"%s","refused":true,"reason":"dispersion","rps":[%s],"min":%s,"med":%s,"max":%s,"dispersionPct":%s,"thermalBefore":"%s","thermalAfter":"%s","indexeurPct":"%s","cpuRegime":"%s","conn":%s,"durSec":%s}\n' \
+    "$LABEL" "$(printf '%s,' "${RPS[@]}" | sed 's/,$//')" \
+    "$MIN" "$MED" "$MAX" "$DISP" \
+    "$THERM_BEFORE" "$THERM_AFTER" "$INDEXEUR_PCT" "$CPU_REGIME" \
+    "$CONN" "$DUR" > "/tmp/nf-bench-$LABEL.refused.json"
   rm -f "/tmp/nf-bench-$LABEL.med" "/tmp/nf-bench-$LABEL.json"
   kill -9 "$PID" 2>/dev/null
   exit 1
