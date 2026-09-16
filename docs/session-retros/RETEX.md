@@ -176,6 +176,22 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- **[1× — 09-16] Une page qui injecte un document ENTIER et écrit aussi ses propres sections dit
+  tout deux fois — et aucun gate ne le voit.** La page d'accueil du site publié rendait le README
+  complet plus quinze sections calculées : **sept sujets en double**, dont un au titre identique,
+  captures comprises. Trouvé par un LECTEUR, pas par un contrôle. Le remède n'est pas une liste
+  blanche (une section neuve disparaîtrait en silence) ni une liste noire (elle reviendrait en
+  double) : **les deux, et un titre inconnu fait ÉCHOUER la génération**.
+- **[1× — 09-16] Une fonctionnalité conditionnée à des données absentes est livrée INVISIBLE.**
+  Les deux figures qui portaient toute la démonstration ne se rendaient que si chaque échantillon
+  portait l'empreinte — ce que le jeu publié n'avait pas. Le code était juste, le commit vert, et
+  le user ouvrait une page où il ne trouvait rien. **Un rendu conditionnel doit dire ce qu'il
+  n'affiche pas**, ou la condition doit être satisfaite avant de livrer.
+- **[1× — 09-16] Découper une page en cinq sans suivre le copieur : cinq liens morts.**
+  `latest/` recopiait `index.html` seul ; depuis le découpage, sa navigation pointait vers quatre
+  pages absentes. **Invisible depuis le générateur**, qui rend chaque page correctement — le
+  défaut naît de ce qui les ASSEMBLE.
+
 - **[1× — 09-16] Donner une consigne à un automate sans lire SA borne : 60 minutes perdues.**
   Lancé `gh workflow run soak.yml -f minutes=90` sur un job qui porte `timeout-minutes: 60` —
   tué à 60 min 17 s, conclusion `cancelled`, aucun artefact. Le défaut de l'entrée est à 30 min
@@ -386,6 +402,25 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- **[2× — 09-16] Des accents graves dans un commentaire CSS, à l'intérieur d'un littéral de
+  gabarit, ferment la chaîne.** Deux fois dans la même séance, à une heure d'intervalle, sur deux
+  fichiers différents : `` `max-width:none` `` et `` `ch` `` écrits dans un `/* … */` qui vit dans
+  une chaîne `` ` … ` ``. Le second cas est le plus cher : la première fois avait déjà coûté le
+  diagnostic, et **la leçon n'a pas tenu une heure**. Règle : dans un gabarit, un nom de propriété
+  ou d'unité se cite sans accent grave.
+- **[1× — 09-16] `2>&1` sur un générateur a masqué son échec — j'ai mesuré l'ancien fichier.**
+  `node scripts/readme-html.mjs … >/dev/null 2>&1` a rendu 0 visible, la page servie était la
+  précédente, et j'ai conclu « ma CSS ne mord pas » en cherchant la faute dans le sélecteur. Le
+  fichier de sortie portait une date RÉCENTE, ce qui achevait de tromper. **Avant de juger un
+  effet, prouver que la transformation a EU LIEU** — et ne jamais rediriger la sortie d'erreur
+  d'une étape dont on va lire le produit.
+- **[1× — 09-16] Une empreinte TRONQUÉE a rendu un faux doublon.** Pour vérifier que des images
+  n'étaient plus dupliquées, j'ai haché les **4 000 premiers caractères** de chaque data-URI :
+  deux copies d'écran de la même console partagent leur préfixe, d'où « 2 distinctes × 2 » et un
+  verdict « toujours doublées » annoncé au user. Sur le contenu ENTIER : 3 distinctes, aucun
+  doublon. **Une empreinte calculée sur un extrait n'identifie rien** — elle groupe ce qui se
+  ressemble au début.
 
 - **[1× — 09-16] Un `rg` sur UN fichier ne prouve pas une absence dans une CHAÎNE.** J'ai cherché
   `soak` dans `build-perf-site.mjs`, trouvé quatre occurrences toutes dans une carte de chiffre
