@@ -25,7 +25,7 @@ import {
   readFileSync,
   mkdirSync,
   writeFileSync,
-  copyFileSync,
+  cpSync,
   existsSync,
 } from "node:fs";
 import path from "node:path";
@@ -156,11 +156,13 @@ try {
 }
 
 const latest = rendered[0];
-mkdirSync(path.join(OUT, "latest"), { recursive: true });
-copyFileSync(
-  path.join(OUT, latest.version, "index.html"),
-  path.join(OUT, "latest", "index.html"),
-);
+// `latest` recopie TOUT le dossier de la version, pas seulement sa page d'accueil.
+// Depuis que le rapport se découpe en plusieurs pages, ne copier `index.html`
+// laissait une page dont chaque lien de navigation tombait en 404 — et un lien
+// mort sur la page la plus lue du dossier ne se voit pas depuis le générateur.
+cpSync(path.join(OUT, latest.version), path.join(OUT, "latest"), {
+  recursive: true,
+});
 
 const rows = rendered.map((r) => [
   `<a href="./${esc(r.version)}/">Nodefony ${esc(r.version)}</a>${
@@ -490,7 +492,16 @@ writeFileSync(
     style:
       STYLE_GRAPHES +
       `
-.wrap { max-width:none; padding:26px 34px 80px; }
+/* Deux largeurs, pas une. La PAGE porte des cartes, des tableaux et des figures
+   qui gagnent à respirer ; le TEXTE COURANT, lui, se lit sur une mesure bornée —
+   une ligne de 170 caractères ne se suit pas. Constaté au navigateur sur la page
+   d'accueil, qui portait le même max-width:none — 1372 px de titre sur 1440. */
+.wrap { max-width:1240px; margin-inline:auto; padding:30px 34px 88px; }
+.wrap p, .wrap li, .wrap blockquote { max-width:74ch; }
+.wrap td p, .wrap th p, .wrap td li, .wrap th li,
+.wrap figure p, .wrap figcaption, .wrap .card p, .wrap .card li { max-width:none; }
+.wrap h1, .wrap h2, .wrap h3 { text-wrap:pretty; max-width:34ch; }
+@media (min-width:1500px) { .wrap { max-width:1320px; } }
 @media (max-width:820px) { .wrap { padding:20px 18px 60px; } }
 .badge-latest { font-size:11.5px; padding:2px 9px; border-radius:20px; margin-left:8px;
   border:1px solid var(--accent); color:var(--accent); }`,

@@ -22,7 +22,8 @@
  *   node ... prod-readiness-report.mjs --soak tmp/soak-20min.json --out tmp/rapport.html
  *   node ... prod-readiness-report.mjs --data docs/performance/data/10.0.0.json --out tmp/rapport.html
  */
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import path from "node:path";
 import { execFileSync } from "node:child_process";
 import {
   doc,
@@ -174,9 +175,9 @@ const fuiteSub = tasMonte
   : empreinteMonte
     ? `tas stable mais empreinte système +${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.footprintR2, 2)}) sur ${soak.minutes} min`
     : !aEmpreinte && rssMonte
-      ? `run ancien : seul \`rss\` relevé (+${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h), or il inclut les pages déjà rendues au noyau — l'empreinte système n'a pas été mesurée`
+      ? `run ancien : seul <code>rss</code> relevé (+${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h), or il inclut les pages déjà rendues au noyau — l'empreinte système n'a pas été mesurée`
       : artefact
-        ? `${soak.minutes} min de trafic continu · empreinte plate (+${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h) ; le \`rss\` monte de ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, dont ${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} % de pages réutilisables`
+        ? `${soak.minutes} min de trafic continu · empreinte plate (+${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h) ; le <code>rss</code> monte de ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, dont ${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} % de pages réutilisables`
         : `${soak.minutes} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`;
 
 const kept = soak.samples.slice(soak.skipped);
@@ -279,7 +280,7 @@ const verdict = section(
       sub: aEmpreinte
         ? `parti de ${fmt.dec(kept[0].footprintMb, 0)} MB${
             artefact
-              ? ` · le \`rss\` affiche ${fmt.dec(kept[kept.length - 1].rssMb, 0)} MB, pages réutilisables comprises`
+              ? ` · le <code>rss</code> affiche ${fmt.dec(kept[kept.length - 1].rssMb, 0)} MB, pages réutilisables comprises`
               : ""
           }`
         : `parti de ${fmt.dec(kept[0].rssMb, 0)} MB — empreinte système non relevée sur ce run`,
@@ -333,7 +334,7 @@ const verdict = section(
 );
 
 const comparatif = section(
-  "1 · Où se situe Nodefony",
+  "Le débit, camp par camp",
   `<p>Même route, même charge utile, même protocole de mesure, même concurrence (c${nf.conn}),
    <code>NODE_ENV=production</code>. Chaque valeur est la <strong>médiane de 3 tirs</strong>, une série
    étant refusée au-delà de 3 % de dispersion.</p>` +
@@ -387,7 +388,7 @@ const comparatif = section(
 );
 
 const tenue = section(
-  "2 · La tenue dans la durée",
+  "Ce que la durée révèle",
   `<p>${soak.minutes} minutes de trafic continu, ${kept.length} fenêtres retenues sur
    ${soak.samples.length} (les premières sont écartées : un tas monte jusqu'à son régime). Ce banc
    cherche une <strong>pente</strong>, pas un écart entre deux mesures bruitées.</p>` +
@@ -616,7 +617,7 @@ const tenue = section(
 );
 
 const capacite = section(
-  "3 · Dimensionner un pod",
+  "Les constantes d'un pod",
   `<p>Constantes relevées par <code>capacity.mjs</code> en <strong>${CAP.env}</strong> — le profileur et
    le chronométrage y sont actifs, donc ces chiffres sont une <strong>borne basse</strong> : en
    production ils montent.</p>` +
@@ -779,28 +780,140 @@ node .claude/skills/nodefony-load-test/scripts/capacity.mjs
 node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code></pre>`,
 );
 
-const html = doc({
-  style: STYLE_GRAPHES,
-  title: "Nodefony peut-il partir en production ?",
-  subtitle:
-    "Trois mesures — débit à travail égal, tenue dans la durée, dimensionnement d'un pod — et ce qu'elles ne prouvent pas.",
-  sections: [
-    printButton() + deckControls(),
-    verdict,
-    comparatif,
-    tenue,
-    capacite,
-    `<a id="limites"></a>` + limites,
-    decor,
-  ],
-  footer:
-    // Publiée sous `/performance/<version>/`, cette page n'a pas la
-    // navigation du site de documentation : sans ce retour, elle est un
-    // cul-de-sac. Le lien est relatif — le site vit dans un sous-chemin.
-    `<a href="../">← Toutes les versions</a> · <a href="../../">Documentation</a>` +
-    ` — généré par <code>node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code> — Node ${node}`,
-  data: { comparatif: bench, soak, capacite: CAP },
-});
+/* ── Découpage en PAGES ───────────────────────────────────────────────────
+ *
+ * 🔴 UNE SEULE PAGE NOYAIT SON LECTEUR. Elle empilait le verdict, le comparatif,
+ * quatre figures de tenue dans la durée, un calculateur de dimensionnement, les
+ * limites et le décor — plusieurs milliers de pixels de haut, sans autre repère
+ * qu'une barre de défilement. Constaté sur un lecteur réel : il a trouvé la page,
+ * et n'y a pas trouvé les graphes.
+ *
+ * Le découpage suit les QUESTIONS, pas la structure du script : « où se
+ * situe-t-il ? », « est-ce que ça tient ? », « combien de pods ? », « comment
+ * l'avez-vous mesuré ? ». L'accueil répond en trente secondes et renvoie ; chaque
+ * page répond à une seule chose, et porte la navigation vers les autres.
+ *
+ * Les données restent EMBARQUÉES sur l'accueil, à un seul endroit : les répliquer
+ * sur cinq pages multiplierait le poids sans rien ajouter, et deux copies d'un
+ * jeu de mesures finissent par diverger.
+ */
+const PAGES = [
+  { slug: "", titre: "Le verdict", quoi: "la réponse en trente secondes" },
+  {
+    slug: "comparatif",
+    titre: "Où se situe Nodefony",
+    quoi: "le débit face à un Express qui fait le même travail",
+  },
+  {
+    slug: "duree",
+    titre: "La tenue dans la durée",
+    quoi: "mémoire et débit sous charge continue",
+  },
+  {
+    slug: "dimensionner",
+    titre: "Dimensionner un pod",
+    quoi: "combien d'exemplaires pour votre trafic",
+  },
+  {
+    slug: "methode",
+    titre: "Méthode et décor",
+    quoi: "la machine, le protocole, et les commandes qui rejouent chaque chiffre",
+  },
+];
 
-writeFileSync(OUT, html);
-console.log(`rapport écrit : ${OUT} (${(html.length / 1024).toFixed(0)} Ko)`);
+/** La navigation, rendue du point de vue de la page COURANTE. */
+const nav = (courant) =>
+  `<nav class="perf-nav" aria-label="Sections du dossier">` +
+  PAGES.map((x) => {
+    const href =
+      courant === x.slug ? null : x.slug === "" ? "../" : `../${x.slug}/`;
+    const cible = courant === "" && x.slug !== "" ? `./${x.slug}/` : href;
+    return cible === null
+      ? `<span aria-current="page">${x.titre}</span>`
+      : `<a href="${cible}">${x.titre}</a>`;
+  }).join("") +
+  `</nav>`;
+
+const STYLE_NAV = `
+.perf-nav { display:flex; flex-wrap:wrap; gap:.35rem .5rem; margin:0 0 1.6rem;
+  padding:.55rem .7rem; border:1px solid rgba(128,128,128,.28); border-radius:10px;
+  font-size:13.5px; max-width:none; }
+.perf-nav a, .perf-nav span { padding:.2rem .5rem; border-radius:6px; text-decoration:none; }
+.perf-nav a:hover { background:rgba(128,128,128,.14); }
+.perf-nav [aria-current="page"] { font-weight:650; background:rgba(128,128,128,.16); }`;
+
+const pied = (courant) =>
+  (courant === ""
+    ? `<a href="../">← Toutes les versions</a> · <a href="../../">Documentation</a>`
+    : `<a href="../">← Le verdict</a> · <a href="../../">Toutes les versions</a>`) +
+  ` — généré par <code>node .claude/skills/nodefony-load-test/scripts/prod-readiness-report.mjs</code> — Node ${node}`;
+
+/**
+ * L'accueil ne répète pas les sections : il les ANNONCE. Trois cartes qui disent
+ * ce qu'on trouve derrière chaque lien — un sommaire qui n'énonce que des titres
+ * oblige à ouvrir pour savoir, et c'est exactement ce qu'on cherche à éviter.
+ */
+const sommaire = section(
+  "Le dossier, en quatre pages",
+  cards(
+    PAGES.filter((x) => x.slug !== "").map((x) => ({
+      k: x.titre,
+      v: `<a href="./${x.slug}/"><strong>Ouvrir</strong></a>`,
+      sub: x.quoi,
+    })),
+  ),
+);
+
+const corps = {
+  "": [printButton() + deckControls(), verdict, sommaire, limites],
+  comparatif: [comparatif],
+  duree: [tenue],
+  dimensionner: [capacite],
+  methode: [decor],
+};
+
+const titres = {
+  "": "Nodefony peut-il partir en production ?",
+  comparatif: "Où se situe Nodefony",
+  duree: "La tenue dans la durée",
+  dimensionner: "Dimensionner un pod",
+  methode: "Méthode et décor",
+};
+
+const soustitres = {
+  "": "Trois mesures — débit à travail égal, tenue dans la durée, dimensionnement d'un pod — et ce qu'elles ne prouvent pas.",
+  comparatif:
+    "Le débit, face à un serveur nu et face à un Express muni des mêmes garanties.",
+  duree:
+    "Ce qu'un banc de dix secondes ne peut pas voir : la mémoire et le débit sur la durée.",
+  dimensionner:
+    "Des constantes mesurées, un calculateur, et ce que le modèle suppose.",
+  methode:
+    "La machine, le protocole, les commandes qui rejouent chaque chiffre — et ce qu'un décor sale déplace.",
+};
+
+const dossierOut = path.dirname(OUT);
+let ecrites = 0;
+for (const page of PAGES) {
+  const html = doc({
+    style: STYLE_GRAPHES + STYLE_NAV,
+    title: titres[page.slug],
+    subtitle: soustitres[page.slug],
+    sections: [nav(page.slug), ...corps[page.slug]],
+    footer: pied(page.slug),
+    // Les données ne sont embarquées QUE sur l'accueil (cf le commentaire
+    // ci-dessus) : cinq copies pèseraient cinq fois et divergeraient un jour.
+    ...(page.slug === ""
+      ? { data: { comparatif: bench, soak, capacite: CAP } }
+      : {}),
+  });
+  const cible =
+    page.slug === "" ? OUT : path.join(dossierOut, page.slug, "index.html");
+  mkdirSync(path.dirname(cible), { recursive: true });
+  writeFileSync(cible, html);
+  ecrites++;
+  console.log(
+    `  ${page.slug === "" ? "(accueil)" : page.slug} — ${(html.length / 1024).toFixed(0)} Ko`,
+  );
+}
+console.log(`rapport écrit : ${ecrites} pages sous ${dossierOut}`);
