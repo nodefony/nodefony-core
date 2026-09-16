@@ -44,7 +44,15 @@ import {
   barChart,
   lineChart,
 } from "../../nodefony-html-report/lib/report-echarts.mjs";
-import { STYLE_GRAPHES } from "../../nodefony-html-report/lib/echarts.mjs";
+// La cascade et les boîtes n'ont pas d'adaptateur dans `report-echarts.mjs` :
+// on prend le moteur directement, et `couple`/`figure` rendent les deux thèmes.
+import {
+  STYLE_GRAPHES,
+  cascade,
+  boxplot,
+  couple,
+  figure,
+} from "../../nodefony-html-report/lib/echarts.mjs";
 
 const arg = (n, d) => {
   const i = process.argv.indexOf(`--${n}`);
@@ -137,20 +145,39 @@ if (!soak)
 // (R² 0,99, SANS plateau) et −6,4 % de débit — la page l'aurait publié sous
 // « aucune fuite » et « palier atteint », c'est-à-dire l'inverse exact de sa donnée.
 // Un rapport qui affirme ce qu'il n'a pas lu n'est pas un rapport.
+// 🔴 ET CE QUI SE LIT DOIT ÊTRE LE BON COMPTEUR.
+// La correction ci-dessus a fait dériver les phrases de la donnée — mais la donnée
+// lue était `rss`, et sous macOS `rss` COMPTE les pages que l'allocateur a déjà
+// rendues au noyau. Cette page a donc publié trois semaines durant « RSS en hausse,
+// sans plateau » sur un processus dont l'empreinte réelle n'avait pas bougé de 2 MB.
+// Le verdict porte désormais sur `phys_footprint` (Darwin) / `VmRSS` (Linux), et un
+// run qui ne l'a PAS relevé ne conclut rien — il le dit, au lieu d'accuser.
+const aEmpreinte = typeof soak.footprintSlopeMbPerHour === "number";
+const empreinteMonte =
+  aEmpreinte &&
+  soak.footprintSlopeMbPerHour > 20 &&
+  (soak.footprintR2 ?? 0) > 0.7;
+const artefact = soak.artefactComptage === true;
 const rssMonte =
   soak.rssPlateau === false && (soak.rssSlopeMbPerHour ?? 0) > 20;
 const tasMonte = soak.verdict === "leak";
 const debitErode = (soak.rpsDriftPct ?? 0) < -3;
 const fuiteLabel = tasMonte
   ? "tas en hausse"
-  : rssMonte
-    ? "RSS en hausse"
-    : "aucune";
+  : empreinteMonte
+    ? "empreinte en hausse"
+    : !aEmpreinte && rssMonte
+      ? "non conclusif"
+      : "aucune";
 const fuiteSub = tasMonte
   ? `tas +${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.heapR2, 2)}) sur ${soak.minutes} min`
-  : rssMonte
-    ? `tas stable (R² ${fmt.dec(soak.heapR2, 2)}) mais RSS +${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, R² ${fmt.dec(soak.rssR2, 2)}, sans plateau`
-    : `${soak.minutes} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`;
+  : empreinteMonte
+    ? `tas stable mais empreinte système +${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.footprintR2, 2)}) sur ${soak.minutes} min`
+    : !aEmpreinte && rssMonte
+      ? `run ancien : seul \`rss\` relevé (+${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h), or il inclut les pages déjà rendues au noyau — l'empreinte système n'a pas été mesurée`
+      : artefact
+        ? `${soak.minutes} min de trafic continu · empreinte plate (+${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h) ; le \`rss\` monte de ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, dont ${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} % de pages réutilisables`
+        : `${soak.minutes} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`;
 
 const kept = soak.samples.slice(soak.skipped);
 const p99s = kept.map((s) => s.p99Ms).sort((a, b) => a - b);
@@ -238,12 +265,24 @@ const verdict = section(
       sub: fuiteSub,
     },
     {
-      k: rssMonte ? "RSS en fin de run" : "RSS d'un pod en régime",
-      v: fmt.dec(kept[kept.length - 1].rssMb, 0),
+      // L'empreinte est ce qu'un orchestrateur regarde pour évincer. Quand elle
+      // a été relevée, c'est ELLE qu'on affiche ; `rss` reste en sous-titre,
+      // parce que l'écart entre les deux est lui-même l'information.
+      k: aEmpreinte ? "Empreinte d'un pod en régime" : "RSS en fin de run",
+      v: fmt.dec(
+        aEmpreinte
+          ? kept[kept.length - 1].footprintMb
+          : kept[kept.length - 1].rssMb,
+        0,
+      ),
       unit: "MB",
-      sub: rssMonte
-        ? `parti de ${fmt.dec(kept[0].rssMb, 0)} MB — une RAMPE, pas un palier`
-        : "palier atteint, pas une rampe",
+      sub: aEmpreinte
+        ? `parti de ${fmt.dec(kept[0].footprintMb, 0)} MB${
+            artefact
+              ? ` · le \`rss\` affiche ${fmt.dec(kept[kept.length - 1].rssMb, 0)} MB, pages réutilisables comprises`
+              : ""
+          }`
+        : `parti de ${fmt.dec(kept[0].rssMb, 0)} MB — empreinte système non relevée sur ce run`,
     },
   ]) +
     `<p><strong>La performance n'est pas le point faible de Nodefony.</strong> À travail égal — c'est-à-dire
@@ -257,22 +296,37 @@ const verdict = section(
          ? `le tas monte de ${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h`
          : "le tas ne monte pas"
      }${
-       rssMonte
-         ? ` — mais la mémoire du processus (RSS), elle, monte de <strong>${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h</strong>
-     de façon régulière (R² ${fmt.dec(soak.rssR2, 2)}) et <strong>sans atteindre de palier</strong>. La hausse est à
-     ${fmt.dec(soak.resteDeltaMb ?? 0, 0)} MB hors V8 : fragmentation de l'allocateur, piles, ou natif non rattaché`
-         : ""
+       empreinteMonte
+         ? ` — mais l'<strong>empreinte système</strong> du processus, elle, monte de
+     <strong>${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h</strong> de façon régulière
+     (R² ${fmt.dec(soak.footprintR2, 2)}) : c'est ce qu'un orchestrateur compte pour évincer un pod`
+         : artefact
+           ? ` — et l'<strong>empreinte système</strong> non plus (${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h,
+     R² ${fmt.dec(soak.footprintR2, 2)}). Le <code>rss</code> affiché, lui, monte de
+     ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, mais
+     <strong>${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} %</strong>
+     de cette hausse est du résident que l'allocateur a déjà rendu au noyau — sous macOS, ce compteur
+     les inclut, et <code>phys_footprint</code> les exclut`
+           : !aEmpreinte && rssMonte
+             ? ` — le <code>rss</code> monte de <strong>${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h</strong>,
+     mais ce run n'a pas relevé l'empreinte système : <strong>il ne permet pas de conclure</strong>,
+     car sous macOS <code>rss</code> compte aussi les pages déjà rendues au noyau`
+             : ""
      }${
        debitErode
          ? `, et le débit s'érode de ${fmt.dec(Math.abs(soak.rpsDriftPct), 1)} %`
          : " et le débit ne s'érode pas"
      }.
      ${
-       rssMonte
+       empreinteMonte
          ? `<strong>C'est un point ouvert, pas un acquis</strong> — rapporté à la charge servie, cela fait
-     ${fmt.dec(soak.rssMbPerMillionReq ?? 0, 2)} MB par million de requêtes, soit une projection de
-     ${fmt.dec(((soak.rssSlopeMbPerHour ?? 0) * 72) / 1024, 1)} Go sur trois jours.`
-         : `Le risque résiduel d'un passage en production n'est donc pas la performance —
+     ${fmt.dec(soak.footprintMbPerMillionReq ?? 0, 2)} MB par million de requêtes, soit une projection de
+     ${fmt.dec(((soak.footprintSlopeMbPerHour ?? 0) * 72) / 1024, 1)} Go sur trois jours.`
+         : !aEmpreinte && rssMonte
+           ? `<strong>Ce point reste à trancher sur ce run</strong> : il faut le rejouer avec un banc qui
+     relève l'empreinte du noyau, faute de quoi on ne sait pas distinguer une mémoire consommée d'un
+     résident déjà rendu.`
+           : `Le risque résiduel d'un passage en production n'est donc pas la performance —
      <a href="#limites">il est nommé plus bas</a>.`
      }</p>`,
   { break: "avoid" },
@@ -337,21 +391,177 @@ const tenue = section(
   `<p>${soak.minutes} minutes de trafic continu, ${kept.length} fenêtres retenues sur
    ${soak.samples.length} (les premières sont écartées : un tas monte jusqu'à son régime). Ce banc
    cherche une <strong>pente</strong>, pas un écart entre deux mesures bruitées.</p>` +
+    // ── DE QUOI la mémoire résidente est-elle FAITE ? ────────────────────
+    //
+    // Deux courbes superposées — `rss` et le tas — laissaient le lecteur devant
+    // une pente montante sans lui dire ce qui monte, et la conclusion qu'il en
+    // tirait (« ça fuit ») était fausse. Une pile répond à la question posée :
+    // la couche qui grossit est celle que l'allocateur a DÉJÀ rendue au noyau.
+    // La courbe `rss` reste tracée PAR-DESSUS (`outsideStack`) pour montrer que
+    // la somme des couches le rejoint — une décomposition qui ne referme pas
+    // son total ne prouve rien.
+    (kept.every((s) => typeof s.footprintMb === "number")
+      ? lineChart(
+          [
+            {
+              label: "empreinte système (ce que le noyau compte)",
+              color: COLORS.blue,
+              points: kept.map((s) => ({ x: s.atSec / 60, y: s.footprintMb })),
+            },
+            ...(kept.every((s) => typeof s.cleanMb === "number")
+              ? [
+                  {
+                    label: "mappé partageable (code, non modifiable)",
+                    color: COLORS.grey,
+                    points: kept.map((s) => ({
+                      x: s.atSec / 60,
+                      y: s.cleanMb,
+                    })),
+                  },
+                ]
+              : []),
+            {
+              label: "pages réutilisables (déjà rendues au noyau)",
+              color: COLORS.amber,
+              points: kept.map((s) => ({
+                x: s.atSec / 60,
+                y: s.reclaimableMb ?? 0,
+              })),
+            },
+            {
+              label: "rss affiché",
+              color: COLORS.red,
+              outsideStack: true,
+              dashed: true,
+              points: kept.map((s) => ({ x: s.atSec / 60, y: s.rssMb })),
+            },
+          ],
+          {
+            xLabel: "minutes",
+            // Pas de titre d'axe Y ici : le moteur le place en haut à gauche,
+            // où il chevauche le sous-titre. L'unité vit donc dans le
+            // sous-titre, qui est lu de toute façon.
+            stacked: true,
+            title: "De quoi la mémoire résidente est faite",
+            desc: "en MB — seule la couche du bas coûte quelque chose au système",
+          },
+        )
+      : "") +
+    // Le tas SEUL, sur sa propre échelle. Le tracer avec le `rss` écrasait une
+    // courbe à 45 MB sous une courbe à 250 : on ne voyait plus rien de celle
+    // qui répond à la question « y a-t-il une fuite JavaScript ? ». Et quand la
+    // figure empilée est là, le `rss` y est déjà, mieux dit.
     lineChart(
       [
         {
-          label: "tas (heap) MB",
+          label: "tas (heap)",
           color: COLORS.green,
           points: kept.map((s) => ({ x: s.atSec / 60, y: s.heapUsedMb })),
         },
-        {
-          label: "RSS MB",
-          color: COLORS.blue,
-          points: kept.map((s) => ({ x: s.atSec / 60, y: s.rssMb })),
-        },
+        ...(kept.every((s) => typeof s.footprintMb === "number")
+          ? []
+          : [
+              {
+                label: "RSS",
+                color: COLORS.blue,
+                points: kept.map((s) => ({ x: s.atSec / 60, y: s.rssMb })),
+              },
+            ]),
       ],
-      { xLabel: "minutes", yLabel: "MB" },
+      {
+        xLabel: "minutes",
+        title: "Le tas JavaScript",
+        desc: "en MB — sur sa propre échelle, sinon il disparaît sous le rss",
+      },
     ) +
+    // ── OÙ SONT PASSÉS LES MÉGAOCTETS ? ──────────────────────────────────
+    //
+    // Une pente dit COMBIEN, jamais OÙ. La cascade décompose la hausse du
+    // `rss` en postes qui envoient chacun chercher à un endroit DIFFÉRENT —
+    // et rend visible en une seconde que le poste dominant est celui qui ne
+    // coûte rien. C'est la figure qui aurait évité trois semaines d'erreur.
+    (kept.every((s) => typeof s.reclaimableMb === "number")
+      ? figure(
+          couple(cascade, {
+            // Partir de ZÉRO, pas du `rss` initial : avec un départ à 233 MB,
+            // l'axe s'étire jusqu'au sommet et les postes — qui valent quelques
+            // mégaoctets — deviennent des traits invisibles. On décompose la
+            // VARIATION, qui est la question posée ; le niveau absolu est déjà
+            // sur la figure précédente.
+            depart: 0,
+            // Même raison qu'au-dessus : le titre d'axe chevauche le sous-titre.
+            titre: "Où sont passés les mégaoctets",
+            sousTitre: `en MB — la hausse du rss (${fmt.dec(kept[0].rssMb, 0)} → ${fmt.dec(kept[kept.length - 1].rssMb, 0)} MB), poste par poste`,
+            postes: [
+              {
+                nom: "tas réservé par V8",
+                delta: +(
+                  kept[kept.length - 1].heapTotalMb - kept[0].heapTotalMb
+                ).toFixed(1),
+              },
+              {
+                nom: "mémoire externe",
+                delta: +(
+                  kept[kept.length - 1].externalMb - kept[0].externalMb
+                ).toFixed(1),
+              },
+              {
+                nom: "pages réutilisables",
+                delta: +(
+                  kept[kept.length - 1].reclaimableMb - kept[0].reclaimableMb
+                ).toFixed(1),
+              },
+              {
+                nom: "empreinte système",
+                delta: +(
+                  kept[kept.length - 1].footprintMb - kept[0].footprintMb
+                ).toFixed(1),
+              },
+            ],
+          }),
+          {},
+        )
+      : "") +
+    // ── LE DÉBIT S'ÉRODE-T-IL ? ──────────────────────────────────────────
+    //
+    // Une courbe de débit se lit mal : elle bruite, et l'œil y voit la pente
+    // qu'on lui a annoncée. Trois boîtes disent la DISPERSION — si elles se
+    // recouvrent, il ne se passe rien, et aucun commentaire ne peut prétendre
+    // le contraire. Cette page a publié « le débit s'érode de 6,4 % » parce
+    // qu'elle comparait deux points ; trois boîtes l'auraient démentie.
+    (kept.length >= 9
+      ? figure(
+          couple(boxplot, {
+            axeValeur: "req/s",
+            titre: "Le débit tient-il ? — la distribution, pas deux points",
+            sousTitre: "un tiers du run par boîte",
+            data: [
+              {
+                label: "1ᵉʳ tiers",
+                valeurs: kept
+                  .slice(0, Math.floor(kept.length / 3))
+                  .map((s) => s.rps),
+              },
+              {
+                label: "2ᵉ tiers",
+                valeurs: kept
+                  .slice(
+                    Math.floor(kept.length / 3),
+                    Math.floor((kept.length * 2) / 3),
+                  )
+                  .map((s) => s.rps),
+              },
+              {
+                label: "3ᵉ tiers",
+                valeurs: kept
+                  .slice(Math.floor((kept.length * 2) / 3))
+                  .map((s) => s.rps),
+              },
+            ],
+          }),
+          {},
+        )
+      : "") +
     lineChart(
       [
         {

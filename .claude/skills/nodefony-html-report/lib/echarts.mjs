@@ -664,6 +664,12 @@ export function lines(o) {
     axeYDroite = "",
     log = false,
     aire = false,
+    // Empiler des aires répond à une question que des courbes superposées ne
+    // posent même pas : « de quoi ce total est-il FAIT, et quelle couche
+    // grossit ? ». Une mémoire résidente se décompose ainsi — une couche qui
+    // coûte, une couche qui ne coûte plus — et deux courbes côte à côte
+    // laisseraient le lecteur faire la soustraction de tête.
+    empile = false,
     lisse = true,
     largeur = 640,
     hauteur = 340,
@@ -750,6 +756,10 @@ export function lines(o) {
         smooth: lisse,
         symbolSize: 6,
         yAxisIndex: serie.droite && aDroite ? 1 : 0,
+        // Une série peut rester HORS de la pile (`horsPile`) : c'est ce qui
+        // permet de tracer le total mesuré par-dessus les couches, et de
+        // montrer que la somme des couches le rejoint — ou ne le rejoint pas.
+        stack: empile && !serie.horsPile ? "pile" : undefined,
         data: serie.points.map((p) => (categoriel ? p[1] : p)),
         lineStyle: {
           width: 2,
@@ -757,7 +767,14 @@ export function lines(o) {
           type: serie.pointille ? "dashed" : "solid",
         },
         itemStyle: { color: serie.couleur ?? PALETTE[i % PALETTE.length] },
-        areaStyle: aire ? { opacity: 0.12 } : undefined,
+        // Une aire EMPILÉE doit être lisible comme une couche : à 12 %
+        // d'opacité les strates se confondent avec la grille.
+        areaStyle:
+          empile && !serie.horsPile
+            ? { opacity: 0.75 }
+            : aire
+              ? { opacity: 0.12 }
+              : undefined,
       })),
     },
     { largeur, hauteur, theme, titre, desc },

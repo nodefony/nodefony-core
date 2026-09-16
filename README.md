@@ -333,8 +333,8 @@ opposables à chaque exécution.
 en-têtes de sécurité, même protection CSRF — un processus rend **~90 % du débit d'un Express muni
 des mêmes intergiciels** (14 508 requêtes/s, p99 6,75 ms sur la machine de référence), et cet écart
 reste le même sur une route qui interroge une base. Quatre-vingt-dix minutes de charge continue
-laissent le tas plat — **mais la mémoire du processus, elle, monte sans atteindre de palier
-(+108,6 MB/h)** : c'est un point ouvert, publié comme tel. La page de mesures de la version courante —
+laissent **le tas et l'empreinte mémoire plats** — le `rss` affiché par macOS monte, mais 93 % de
+sa hausse est du résident que l'allocateur a déjà rendu au noyau, et sous Linux il ne monte pas. La page de mesures de la version courante —
 **[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
 chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](docs/performance/index.md) donne le

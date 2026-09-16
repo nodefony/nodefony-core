@@ -83,6 +83,10 @@ export const lineChart = (seriesList, o = {}) => {
     yLabel = "",
     title = "",
     desc = "",
+    // `stacked` empile les aires : la figure montre alors de QUOI un total est
+    // fait. Une série portant `outsideStack` reste tracée par-dessus, ce qui
+    // permet de superposer le total MESURÉ à la somme des couches.
+    stacked = false,
   } = o;
   const svgs = couple(lines, {
     titre: title || undefined,
@@ -91,9 +95,12 @@ export const lineChart = (seriesList, o = {}) => {
     axeY: yLabel,
     largeur: width,
     hauteur: Math.max(240, height),
+    empile: stacked,
     series: seriesList.map((s) => ({
       nom: s.label,
       couleur: s.color,
+      horsPile: s.outsideStack,
+      pointille: s.dashed,
       points: s.points.map((p) => [p.x, p.y]),
     })),
   });

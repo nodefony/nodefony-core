@@ -902,7 +902,7 @@
       "r2": 0.99,
       "tas": "plat (+0,4 MB)",
       "handles": "stables",
-      "verdict": "INDÉTERMINÉ (< 10 min)"
+      "verdict": "INDÉTERMINÉ (< 10 min) — et empreinte système non mesurée"
     },
     {
       "run": "run2",
@@ -912,7 +912,7 @@
       "r2": 1,
       "tas": "plat (+0,5 MB)",
       "handles": "stables",
-      "verdict": "hausse soutenue, sans plateau"
+      "verdict": "hausse du `rss` seul — NON CONCLUSIF : l'empreinte système n'a pas été relevée"
     },
     {
       "run": "run3",
@@ -922,7 +922,7 @@
       "r2": null,
       "tas": "plat (44,2 MB constant)",
       "handles": "stables",
-      "verdict": "RSS 255 → 371 MB monotone ; serveur arrêté à la fenêtre 35 (échéance de dérogation) — le PLATEAU annoncé est un artefact"
+      "verdict": "`rss` 255 → 371 MB ; serveur arrêté à la fenêtre 35 (échéance de dérogation) — NON CONCLUSIF, et le « plateau » annoncé est un artefact"
     }
   ],
   "nonEprouve": [

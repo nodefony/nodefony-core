@@ -284,9 +284,15 @@ function rendre(d) {
       "Tenue dans la durée — la pente que le nombre cache",
       note(
         "Trois runs, trois décors. Le <strong>tas V8 reste plat</strong> et les handles ne bougent pas : " +
-          "ce n'est donc pas une fuite d'objets. Le <strong>RSS</strong>, lui, monte sans plateau — 97 à 105 % hors V8.",
+          "ce n'est pas une fuite d'objets. Le <strong>RSS</strong> monte, mais ce compteur est trompeur sous macOS — " +
+          "il inclut les pages que l'allocateur a déjà rendues au noyau. Mesurée à part, " +
+          "l'<strong>empreinte système</strong> reste plate (164 → 164 MB sur 29 fenêtres), et " +
+          "<code>leaks</code> ne trouve que 3 Ko sur 20,7 millions de requêtes.",
       ) +
-        lineChart(sRss, { xLabel: "fenêtre", yLabel: "RSS (MB)" }) +
+        lineChart(sRss, {
+          xLabel: "fenêtre",
+          yLabel: "mémoire résidente `rss` (MB)",
+        }) +
         lineChart(sHeap, { xLabel: "fenêtre", yLabel: "tas V8 (MB)" }) +
         table(
           [
@@ -308,9 +314,14 @@ function rendre(d) {
           { id: "soak" },
         ) +
         warn(
-          "La chute finale du troisième run n'est PAS une mesure : le serveur s'est arrêté à l'échéance de sa " +
-            "dérogation aux modules de développement, et le banc a moyenné cette mort dans sa régression. " +
-            "C'est ce qui a produit un « plateau » qui n'existe pas.",
+          "Deux réserves, et la seconde annule la conclusion que ces courbes semblaient porter. " +
+            "<strong>(1)</strong> La chute finale du troisième run n'est PAS une mesure : le serveur s'est arrêté à " +
+            "l'échéance de sa dérogation aux modules de développement, et le banc a moyenné cette mort dans sa " +
+            "régression — d'où un « plateau » qui n'existe pas. " +
+            "<strong>(2)</strong> Ces trois runs n'ont relevé que <code>rss</code>. Sous macOS, ce compteur inclut " +
+            "les pages que l'allocateur a déjà rendues au noyau ; mesuré depuis sur le même décor, il s'agit de " +
+            "<strong>93 % de la hausse</strong>. L'empreinte réelle du processus, elle, ne bouge pas. " +
+            "Ces courbes montrent donc un compteur qui monte, pas une mémoire qui se consomme.",
         ),
     ),
   );

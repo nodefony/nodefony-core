@@ -228,8 +228,19 @@ connexions.</p>` +
             },
             soak && {
               k: "Tenue dans le temps",
-              v: soak.verdict === "clean" ? "aucune fuite" : soak.verdict,
-              sub: `${soak.minutes} min sous charge — tas JS à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h`,
+              // Le verdict se lit sur l'EMPREINTE SYSTÈME quand le run l'a
+              // relevée. Un run qui ne l'a pas relevée ne peut ni acquitter ni
+              // condamner : il le DIT, au lieu de publier le verdict d'un
+              // compteur qui, sous macOS, inclut les pages déjà rendues au noyau.
+              v:
+                soak.verdict === "clean"
+                  ? "aucune fuite"
+                  : soak.verdict === "non-conclusif"
+                    ? "non conclusif"
+                    : soak.verdict,
+              sub: soak.empreinteSource
+                ? `${soak.minutes} min sous charge — empreinte à ${nb(soak.footprintSlopeMbPerHour, 2)} Mo/h, tas JS à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h`
+                : `${soak.minutes} min sous charge — tas JS plat à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h ; empreinte système non relevée sur ce run`,
             },
           ].filter(Boolean),
         ),

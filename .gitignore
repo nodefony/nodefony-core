@@ -127,3 +127,5 @@ src/nodefony/.ai/
 # Ce sont des PHOTOS (cf docs/performance/README.md) : elles se refabriquent,
 # et seul le jeu retenu entre dans `docs/performance/data/`.
 tmp/bench-archive/
+dist-qualite-site/
+dist-apercu/

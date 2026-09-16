@@ -177,46 +177,59 @@ reste une part à peu près constante du budget.
 > n'est pas versionné (schéma issu d'un logiciel sous licence GPLv3). C'est le défaut même que
 > cette version corrige pour les autres chiffres, et il est ouvert pour celui-ci.
 
-## La tenue dans la durée — un point OUVERT
+## La tenue dans la durée — et le compteur qu'il ne faut pas lire
 
 Un banc de dix secondes ne voit pas une fuite lente. Celui-ci a tourné **90 minutes** sous trafic
 continu, dans le décor de cette campagne (hyperviseur éteint, Node v26.8.1), pour 62,9 millions de
-requêtes servies.
+requêtes servies. Le processus n'accumule rien.
 
-| Grandeur                          | Mesure                                       | Lecture                               |
-| --------------------------------- | -------------------------------------------- | ------------------------------------- |
-| Tas JS (`heapUsed`)               | 44,2 → 45,7 MB · pente +0,6 MB/h (R² 0,39)   | **plat** — aucune fuite JS            |
-| Mémoire du processus (RSS)        | 242,1 → 407,1 MB · **+108,6 MB/h** (R² 0,99) | 🔴 **une rampe, sans plateau**        |
-| dont hors V8 (« reste »)          | +161,1 MB sur +165                           | **98 %** — ni tas réservé, ni externe |
-| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                  | rien ne s'accumule                    |
-| Débit sur le run                  | 12 782 → 11 960 rps                          | s'érode de **6,4 %**                  |
+| Grandeur                          | Mesure                                         | Lecture                               |
+| --------------------------------- | ---------------------------------------------- | ------------------------------------- |
+| Tas JS (`heapUsed`)               | 44,2 → 45,7 MB · pente +0,6 MB/h (R² 0,39)     | **plat** — aucune fuite JS            |
+| **Empreinte système** (macOS)     | **164 → 164 MB** · pente +5,1 MB/h (R² 0,49)   | **plate** — rien n'est retenu         |
+| dont pages **réutilisables**      | 33 → 76 MB · +73,6 MB/h (R² 0,97)              | **93 % de ce que `rss` affiche**      |
+| Mémoire résidente (`rss`)         | 242,1 → 407,1 MB · +108,6 MB/h                 | ⚠️ **compte les pages réutilisables** |
+| Blocs natifs injoignables         | 37 blocs, **3 216 octets** sur 20,7 M requêtes | rien                                  |
+| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                    | rien ne s'accumule                    |
+| Empreinte système (Linux)         | 23,6 M requêtes → **+1,5 MB** (R² 0,28)        | **plate** — aucune tendance           |
 
-**Ce que cela veut dire, et ce que cela ne veut pas dire.** Le ramasse-miettes fait son travail :
-rien ne s'accumule côté JavaScript, et aucun descripteur ne fuit. La hausse est ailleurs —
-fragmentation de l'allocateur, piles, ou natif non rattaché — et elle n'a pas atteint de palier au
-bout de 90 minutes.
+**Pourquoi deux chiffres pour une seule mémoire.** Sous macOS, `process.memoryUsage().rss` rend
+`resident_size`, qui **compte les pages que l'allocateur a déjà rendues au noyau** par
+`MADV_FREE_REUSABLE` : elles restent physiquement présentes tant qu'aucune pression mémoire ne les
+réclame, mais elles n'appartiennent plus au processus. `phys_footprint` — le compteur que le noyau
+utilise pour décider d'évincer — les exclut. C'est lui qui dit la consommation réelle, et il ne
+bouge pas.
 
-Rapportée à la charge, elle vaut **2,62 MB par million de requêtes** : c'est la grandeur qui se
-transpose d'une machine à l'autre, contrairement aux MB/h, qui suivent le débit. À ce rythme, un
-processus prend environ 2,6 Go par jour.
+La ventilation le nomme sans ambiguïté : la hausse tient entièrement dans la colonne
+_Reclaimable_ de la zone `MALLOC_MEDIUM`, pendant que la mémoire sale de l'allocateur reste fixe à
+40 MB et que toutes les autres zones sont plates.
 
-> 🔬 **Ce point est en cours d'instruction et il est publié tel quel.** Un dossier de performance
-> qui ne publierait que ce qui l'arrange ne vaudrait rien. Ce qui est établi : la hausse est réelle,
-> régulière, hors du tas, et elle n'a pas de palier connu. Ce qui ne l'est pas : sa cause, et si un
-> palier existe au-delà de 90 minutes. Le banc se rejoue en une commande — elle est plus bas.
+Rapportée à la charge, la consommation réelle vaut **0,12 MB par million de requêtes** sous macOS
+et **0,06 sous Linux** — c'est la grandeur qui se transpose d'une machine à l'autre, contrairement
+aux MB/h, qui suivent le débit.
+
+> 🔬 **Ce dossier a publié l'inverse pendant trois semaines, et le dit.** Le banc ne relevait que
+> `rss` : il a conclu à une rampe de +108,6 MB/h « sans plateau », un ticket P0 a été ouvert
+> dessus, et la mesure qui tranche — l'empreinte du noyau — n'avait jamais été prise. Elle l'est
+> désormais à chaque fenêtre, et c'est elle qui fonde le verdict ; `rss` reste publié à côté, parce
+> que l'écart entre les deux est lui-même une information.
+>
+> Ce qui reste hors de portée de ce banc : le comportement au-delà de 90 minutes, et la raison pour
+> laquelle le stock de pages réutilisables varie d'une version de Node à l'autre — sans effet sur
+> la consommation, donc sans conséquence connue.
 
 ## Ce que ce dossier établit
 
-| Question                                                 | Réponse mesurée                                                                                                                                                                                                                         |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                                                                                                                                     |
-| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                                                                                                                                         |
-| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                                                                                                                                    |
-| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                                                                                                                                 |
-| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                                                                                                           |
-| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                                                                                                                 |
-| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Un décor sale : 1,5 point. Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL**                                                          |
-| **Le processus tient-il dans la durée ?**                | 🔴 **Le tas oui, la mémoire du processus NON** — 90 min de charge continue laissent le tas plat (44,2 → 45,7 MB) mais le RSS monte de **+108,6 MB/h**, régulier (R² 0,99) et **sans plateau**. C'est un **point ouvert**, pas un acquis |
+| Question                                                 | Réponse mesurée                                                                                                                                                                                                                                                                      |
+| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                                                                                                                                                                                  |
+| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                                                                                                                                                                                      |
+| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                                                                                                                                                                                 |
+| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                                                                                                                                                                              |
+| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                                                                                                                                                        |
+| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                                                                                                                                                              |
+| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Un décor sale : 1,5 point. Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL**                                                                                                       |
+| **Le processus tient-il dans la durée ?**                | **Oui** — 90 min de charge laissent le tas plat (44,2 → 45,7 MB) ET l'empreinte système plate (164 → 164 MB). Le `rss` monte, mais **93 % de sa hausse est du résident déjà rendu au noyau** ; `leaks` ne trouve que 3 Ko sur 20,7 M de requêtes, et Linux ne montre aucune tendance |
 
 ## Les trois pages
 

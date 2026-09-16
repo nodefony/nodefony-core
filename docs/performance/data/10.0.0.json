@@ -37,7 +37,7 @@
       {
         "paire": "express-fair ↔ nodefony",
         "source": "paire1",
-        "rapportPct": 111.0,
+        "rapportPct": 111,
         "express-fairMed": 16098.36,
         "nodefonyMed": 14508.33,
         "separation": "nette"
@@ -66,7 +66,7 @@
         "min": 15842.85,
         "med": 16098.36,
         "max": 16169.7,
-        "dispersionPct": 2.0,
+        "dispersionPct": 2,
         "interSeriesPct": 0.3,
         "p50Ms": [3.9, 3.87],
         "p99Ms": [5.39, 5.53],
@@ -94,7 +94,7 @@
           {
             "rps": [16122.87, 16169.7, 15842.85],
             "med": 16122.87,
-            "dispersionPct": 2.0,
+            "dispersionPct": 2,
             "thermalBefore": "4",
             "thermalAfter": "57"
           }
@@ -146,7 +146,7 @@
         "min": 38595.82,
         "med": 39136.9,
         "max": 39763.24,
-        "dispersionPct": 1.0,
+        "dispersionPct": 1,
         "interSeriesPct": 2.4,
         "p50Ms": [1.6, 1.58],
         "p99Ms": [2.34, 2.25],
@@ -167,14 +167,14 @@
           {
             "rps": [38595.82, 38671.15, 38984.38],
             "med": 38671.15,
-            "dispersionPct": 1.0,
+            "dispersionPct": 1,
             "thermalBefore": "0",
             "thermalAfter": "81"
           },
           {
             "rps": [39386.8, 39763.24, 39602.65],
             "med": 39602.65,
-            "dispersionPct": 1.0,
+            "dispersionPct": 1,
             "thermalBefore": "0",
             "thermalAfter": "81"
           }
@@ -2146,7 +2146,7 @@
     "heapTotalDeltaMb": 3.8,
     "externalDeltaMb": 0.1,
     "resteDeltaMb": 161.1,
-    "rpsDriftPct": -6.4,
+    "rpsDriftPct": -1.9,
     "rpsMedian": 12150,
     "chargeInitiale": 2.73,
     "chargeMax": 6.17,
@@ -2161,7 +2161,12 @@
     "rssMbPerMillionReq": 2.622,
     "observedMinutes": 86.3,
     "amplitudeMb": 1.5,
-    "verdict": "rss-growth",
-    "verdictNote": "Recalculé sous la règle corrigée du banc : le run a été produit par la version qui ne faisait entrer que le TAS dans son verdict et rendait `clean`. Les données sont inchangées — seul le verdict l'est, et le basculement a été vérifié sur ces mêmes échantillons (leaking=false, rssSuspect=true)."
+    "verdict": "non-conclusif",
+    "verdictNote": "Recalculé sous la règle corrigée du banc : le run a été produit par la version qui ne faisait entrer que le TAS dans son verdict et rendait `clean`. Les données sont inchangées — seul le verdict l'est, et le basculement a été vérifié sur ces mêmes échantillons (leaking=false, rssSuspect=true).",
+    "rpsDriftMethode": "médianes du 1er et du 3e tiers des fenêtres retenues",
+    "verdictMotif": "Seul `rss` a été relevé. Sous macOS il compte les pages rendues au noyau par MADV_FREE_REUSABLE : mesuré depuis sur le même décor, 93 % de la hausse est de ce résident déjà rendu, l'empreinte système (`phys_footprint`) reste plate et `leaks` ne trouve que 3 216 octets sur 20,7 M de requêtes. Ce run est conservé pour ses mesures brutes ; son verdict mémoire ne vaut pas.",
+    "empreinteSource": null,
+    "footprintSlopeMbPerHour": null,
+    "footprintMbPerMillionReq": null
   }
 }

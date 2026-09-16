@@ -33,7 +33,7 @@
  *   node ... soak.mjs --url http://127.0.0.1:5151/nodefony/kernel/bench
  */
 import { spawn, spawnSync, execFileSync } from "node:child_process";
-import { mkdirSync, openSync, writeFileSync } from "node:fs";
+import { mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
@@ -99,6 +99,93 @@ function slope(points) {
   const a = sxx === 0 ? 0 : sxy / sxx;
   const r2 = sxx === 0 || syy === 0 ? 0 : (sxy * sxy) / (sxx * syy);
   return { perHour: a * 3600, r2, n }; // x est en secondes → pente par heure
+}
+
+/**
+ * L'empreinte que le SYSTÈME compte — la seule grandeur qui fasse évincer un pod.
+ *
+ * 🔴 `process.memoryUsage().rss` N'EST PAS cette grandeur sous macOS. Il rend
+ * `resident_size`, qui COMPTE les pages que l'allocateur a déjà rendues au noyau
+ * par `MADV_FREE_REUSABLE` : elles restent résidentes tant qu'aucune pression
+ * mémoire ne les réclame, et elles ne coûtent rien à personne. `phys_footprint`,
+ * ce que le noyau utilise pour décider d'évincer, les EXCLUT.
+ *
+ * Mesuré sur 29 fenêtres : `rss` +78,9 MB/h avec un R² de 0,98 pendant que
+ * `phys_footprint` restait à 164 MB et que la colonne « Reclaimable » de
+ * `MALLOC_MEDIUM` montait de 33 à 76 MB — soit 93 % de la hausse. Ce banc a
+ * publié trois semaines durant une « fuite » qui était cette colonne, et un
+ * ticket P0 a été ouvert dessus. D'où cette fonction : tant qu'elle n'existait
+ * pas, aucun run ne POUVAIT distinguer mémoire perdue de mémoire récupérable.
+ *
+ * Sous Linux, glibc rend ses pages par `MADV_DONTNEED` : elles quittent le RSS
+ * pour de bon, `VmRSS` EST donc l'empreinte réelle et le réutilisable vaut zéro.
+ * La distinction est propre à Darwin — ne pas la porter partout.
+ *
+ * La capacité se CONSTATE (axiome 4) : `footprint` peut manquer, et `null` dit
+ * « non mesuré », jamais « zéro ».
+ *
+ * @param pid - le process MESURÉ, pas celui du banc.
+ * @returns `{ footprintMb, reclaimableMb, source }` — champs `null` si non constatable.
+ */
+function empreinteSysteme(pid) {
+  const vide = {
+    footprintMb: null,
+    cleanMb: null,
+    reclaimableMb: null,
+    source: null,
+  };
+  if (!pid) return vide;
+  const UNITE = { B: 1 / 1048576, KB: 1 / 1024, MB: 1, GB: 1024 };
+
+  if (process.platform === "darwin") {
+    const r = spawnSync("footprint", ["--pid", String(pid)], {
+      encoding: "utf8",
+      timeout: 20_000,
+    });
+    const txt = r.stdout ?? "";
+    // « Auxiliary data: phys_footprint: 164 MB » — l'ancre la plus stable de la
+    // sortie : un champ NOMMÉ, pas une colonne dont la position peut bouger.
+    const f = /^\s*phys_footprint:\s+([\d.]+)\s*(B|KB|MB|GB)/m.exec(txt);
+    if (!f) return vide;
+    // La ligne TOTAL : « 164 MB   44 MB   76 MB   2262   TOTAL »
+    //                    Dirty    Clean   Reclaimable  Regions
+    //
+    // Les TROIS colonnes sont prises, pas seulement la troisième : c'est leur
+    // SOMME qui referme le `rss`, et une décomposition dont il manque une
+    // couche laisse un écart inexpliqué que le lecteur mettra sur le dos du
+    // produit. `Dirty` est ce que rend `phys_footprint` (vérifié sur la sortie
+    // réelle) ; `Clean` est du mappé partageable (code, `__LINKEDIT`), qui ne
+    // bouge pas ; `Reclaimable` est ce que l'allocateur a déjà rendu.
+    const t =
+      /^\s*([\d.]+)\s*(B|KB|MB|GB)\s+([\d.]+)\s*(B|KB|MB|GB)\s+([\d.]+)\s*(B|KB|MB|GB)\s+\d+\s+TOTAL\s*$/m.exec(
+        txt,
+      );
+    return {
+      footprintMb: +(Number(f[1]) * UNITE[f[2]]).toFixed(1),
+      cleanMb: t ? +(Number(t[3]) * UNITE[t[4]]).toFixed(1) : null,
+      reclaimableMb: t ? +(Number(t[5]) * UNITE[t[6]]).toFixed(1) : null,
+      source: "phys_footprint",
+    };
+  }
+
+  if (process.platform === "linux") {
+    try {
+      const st = readFileSync(`/proc/${pid}/status`, "utf8");
+      const m = /^VmRSS:\s+(\d+)\s+kB/m.exec(st);
+      if (!m) return vide;
+      return {
+        footprintMb: +(Number(m[1]) / 1024).toFixed(1),
+        // glibc rend ses pages : ce qui reste résident est réellement occupé.
+        cleanMb: null,
+        reclaimableMb: 0,
+        source: "VmRSS",
+      };
+    } catch {
+      return vide;
+    }
+  }
+
+  return vide;
 }
 
 // ── 0. le GÉNÉRATEUR DE CHARGE existe-t-il ? ───────────────────────────────
@@ -295,6 +382,38 @@ if (!(await waitPort(5151, 40_000))) {
   stop();
   process.exit(1);
 }
+
+// ── Le process à INTERROGER, résolu par le PORT ───────────────────────────
+//
+// `srv.pid` est le process que ce banc a lancé ; celui qui ÉCOUTE peut être un
+// autre (superviseur, relance). Le port est ce qui reçoit la charge : c'est donc
+// lui qui désigne la cible, ici comme pour la purge d'un résidu.
+const pidMesure = (() => {
+  const r = spawnSync("lsof", ["-nP", "-iTCP:5151", "-sTCP:LISTEN", "-t"], {
+    encoding: "utf8",
+    timeout: 8000,
+  });
+  return Number((r.stdout ?? "").trim().split("\n")[0]) || srv?.pid || null;
+})();
+
+// Le runtime du SERVEUR, pas celui du banc. Ce fichier gravait `process.version`
+// — la version du process qui MESURE — et les deux ne coïncident que tant qu'on
+// ne fait pas varier le runtime, c'est-à-dire tant qu'on ne cherche rien.
+const nodeServeur = (() => {
+  const r = spawnSync("node", ["-v"], { encoding: "utf8", timeout: 5000 });
+  return (r.stdout ?? "").trim() || null;
+})();
+
+// L'empreinte système est-elle CONSTATABLE ? Le dire au démarrage, pas à la fin :
+// un run de 90 minutes qui découvre à la dernière ligne qu'il n'a pas pu mesurer
+// la seule grandeur qui tranche est un run perdu.
+const empreinte0 = empreinteSysteme(pidMesure);
+console.log(
+  empreinte0.source
+    ? `  empreinte système : ${empreinte0.source} lisible sur le pid ${pidMesure} (${empreinte0.footprintMb} MB au départ)`
+    : `  ⚠ empreinte système NON constatable (${process.platform}) — le verdict retombera sur \`rss\`,` +
+        ` qui sous macOS compte les pages réutilisables et surestime la consommation.`,
+);
 
 // ── 3. la cible répond-elle VRAIMENT ? (une erreur répond plus vite) ───────
 const head = await fetch(URL).catch(() => null);
@@ -531,12 +650,21 @@ for (let w = 1; w <= WINDOWS; w++) {
     }
     break;
   }
+  // L'empreinte que le noyau compte, relevée SUR LA MÊME FENÊTRE que le reste :
+  // comparer un `rss` de la fenêtre 40 à un `footprint` pris à la fin ferait
+  // porter à l'écart la dérive du temps, et c'est précisément l'écart qu'on juge.
+  const empFenetre = empreinteSysteme(pidMesure);
   const s = {
     window: w,
     atSec: Math.round((Date.now() - t0) / 1000),
     rps,
     p99Ms: p99,
     rssMb: +MB(mem.rss).toFixed(1),
+    // 🔴 La grandeur qui DÉCIDE. `rssMb` reste mesuré et publié — il est utile
+    // pour voir l'écart — mais il ne juge plus rien à lui seul sous Darwin.
+    footprintMb: empFenetre.footprintMb,
+    cleanMb: empFenetre.cleanMb,
+    reclaimableMb: empFenetre.reclaimableMb,
     heapUsedMb: +MB(mem.heapUsed).toFixed(1),
     // La sonde rendait DÉJÀ ces deux-là, et le banc les jetait. Ce sont
     // pourtant les seules grandeurs qui permettent de DÉCOMPOSER une hausse du
@@ -601,9 +729,24 @@ if (rpsMedian <= 0) {
 const reqTotal = kept.reduce((n, s) => n + s.rps * WINDOW, 0);
 const heap = slope(kept.map((s) => ({ x: s.atSec, y: s.heapUsedMb })));
 const rss = slope(kept.map((s) => ({ x: s.atSec, y: s.rssMb })));
-const rpsFirst = kept[0].rps;
-const rpsLast = kept[kept.length - 1].rps;
-const drift = ((rpsLast - rpsFirst) / rpsFirst) * 100;
+// L'ÉROSION du débit, sur des TIERS et non sur deux points.
+//
+// 🔴 Ce fichier ouvre en expliquant qu'« un delta est une différence de deux
+// mesures bruitées » — puis calculait l'érosion du débit exactement comme ça.
+// Vécu : la première fenêtre RETENUE d'un run de 90 minutes se trouvait être le
+// MAXIMUM du run ; le banc a publié « le débit s'érode de 6,4 % », un ticket l'a
+// repris, et l'érosion a servi d'argument pour un GC qui travaillerait davantage.
+// Les tiers de ce même run : 11 968 / 12 177 / 12 036 rps — il ne se passait rien.
+const mediane = (xs) => {
+  const t = [...xs].sort((a, b) => a - b);
+  return t.length % 2
+    ? t[(t.length - 1) / 2]
+    : (t[t.length / 2 - 1] + t[t.length / 2]) / 2;
+};
+const tiers = Math.max(1, Math.floor(kept.length / 3));
+const rpsFirst = mediane(kept.slice(0, tiers).map((s) => s.rps));
+const rpsLast = mediane(kept.slice(-tiers).map((s) => s.rps));
+const drift = rpsFirst > 0 ? ((rpsLast - rpsFirst) / rpsFirst) * 100 : 0;
 // Les erreurs ne comptent que dans les fenêtres RETENUES : celles de la montée en
 // régime sont écartées du verdict, et douter d'un run à cause de données qu'on a
 // soi-même jetées, c'est inventer un défaut — la sonde doit couvrir exactement ce
@@ -639,7 +782,7 @@ console.log(
       : ""),
 );
 console.log(
-  `  débit  : ${Math.round(rpsFirst)} → ${Math.round(rpsLast)} rps (${drift >= 0 ? "+" : ""}${drift.toFixed(1)} %)` +
+  `  débit  : ${Math.round(rpsFirst)} → ${Math.round(rpsLast)} rps (${drift >= 0 ? "+" : ""}${drift.toFixed(1)} %, médianes du 1ᵉʳ et du 3ᵉ tiers)` +
     // Le RÉGIME de charge qualifie tout ce qui précède : « RSS plat » sous
     // 400 rps et « RSS plat » sous 10 000 rps ne disent pas la même chose, et
     // un banc qui tait son débit laisse lire le premier comme le second.
@@ -791,17 +934,75 @@ const decomposition =
             : "→ dominante RESTE : hors V8 — fragmentation de l'allocateur, piles, ou natif non rattaché."
       }`
     : "Ventilation indisponible (échantillons sans heapTotal/external).";
+// ── 🔴 CE QUI MONTE EST-IL SEULEMENT RÉSIDENT, OU RÉELLEMENT OCCUPÉ ? ──────
+//
+// Toute la section ci-dessus juge `rss`. Sous macOS, `rss` compte les pages que
+// l'allocateur a déjà rendues au noyau : elles gonflent le chiffre sans coûter
+// un octet à personne. Le verdict doit donc porter sur l'EMPREINTE SYSTÈME
+// (`phys_footprint` / `VmRSS`), et `rss` redevient ce qu'il est — un indicateur.
+//
+// Ce n'est pas une précaution théorique : sans cette bascule, ce banc a tenu
+// trois semaines une hausse de 165 MB pour une fuite, alors que l'empreinte
+// n'avait pas bougé de 2 MB et que `leaks` ne trouvait que 3 Ko.
+const avecEmpreinte = kept.every((s) => typeof s.footprintMb === "number");
+const emp = avecEmpreinte
+  ? slope(kept.map((s) => ({ x: s.atSec, y: s.footprintMb })))
+  : null;
+const empAmplitude = avecEmpreinte
+  ? Math.abs(kept[kept.length - 1].footprintMb - kept[0].footprintMb)
+  : null;
+const recl =
+  avecEmpreinte && kept.every((s) => typeof s.reclaimableMb === "number")
+    ? slope(kept.map((s) => ({ x: s.atSec, y: s.reclaimableMb })))
+    : null;
+
+// L'écart entre les deux pentes EST le diagnostic. Le nommer ici évite de
+// rejouer un run de 90 minutes pour reposer la même question.
+const artefactComptage =
+  avecEmpreinte &&
+  rss.perHour > 20 &&
+  rss.r2 > 0.7 &&
+  emp.perHour < rss.perHour / 4;
+if (avecEmpreinte) {
+  console.log(
+    `  empreinte : ${kept[0].footprintMb} → ${kept[kept.length - 1].footprintMb} MB` +
+      ` · pente ${emp.perHour >= 0 ? "+" : ""}${emp.perHour.toFixed(1)} MB/h (R² ${emp.r2.toFixed(2)})` +
+      ` — ${empreinte0.source}, ce que le noyau compte pour évincer` +
+      (recl
+        ? `\n  réutilis. : ${kept[0].reclaimableMb} → ${kept[kept.length - 1].reclaimableMb} MB` +
+          ` · pente ${recl.perHour >= 0 ? "+" : ""}${recl.perHour.toFixed(1)} MB/h (R² ${recl.r2.toFixed(2)})` +
+          ` — résident mais déjà rendu au noyau`
+        : ""),
+  );
+  if (artefactComptage) {
+    console.log(
+      `\n  ⓘ ARTEFACT DE COMPTAGE — \`rss\` monte de ${rss.perHour.toFixed(1)} MB/h pendant que` +
+        ` l'empreinte réelle tient à ${emp.perHour.toFixed(1)} MB/h.` +
+        (recl
+          ? `\n    Les pages réutilisables expliquent ${((recl.perHour / rss.perHour) * 100).toFixed(0)} % de la hausse.`
+          : "") +
+        `\n    Ce n'est PAS une consommation : ces pages reviennent au système dès qu'il les réclame.` +
+        `\n    Ne pas ouvrir de chasse à la fuite là-dessus — regarder l'empreinte.`,
+    );
+  }
+}
+
+// La hausse SUSPECTE se juge désormais sur l'empreinte quand elle est
+// constatable, et seulement à défaut sur `rss` — avec le mot « repli » dit.
+const jugeMb = avecEmpreinte ? emp : rss;
+const jugeAmplitude = avecEmpreinte ? empAmplitude : rssAmplitude;
 const rssSuspect =
   !tooShort &&
   !plateau &&
-  rss.perHour > 20 &&
-  rss.r2 > 0.7 &&
-  rssAmplitude >= MIN_AMPLITUDE_MB;
+  jugeMb.perHour > 20 &&
+  jugeMb.r2 > 0.7 &&
+  jugeAmplitude >= MIN_AMPLITUDE_MB;
 if (rssSuspect) {
   console.log(
-    `\n  ⚠ RSS EN HAUSSE SOUTENUE — +${rssAmplitude.toFixed(1)} MB en ${observedMin.toFixed(0)} min,` +
-      ` régulier (R² ${rss.r2.toFixed(2)}) et SANS plateau ⇒ ${rss.perHour.toFixed(1)} MB/h.` +
-      `\n    Projection : ~${(rss.perHour * 24).toFixed(0)} MB/jour, ~${((rss.perHour * 72) / 1024).toFixed(1)} Go sur 3 jours.` +
+    `\n  ⚠ ${avecEmpreinte ? "EMPREINTE SYSTÈME" : "RSS (repli, empreinte non constatable)"}` +
+      ` EN HAUSSE SOUTENUE — +${jugeAmplitude.toFixed(1)} MB en ${observedMin.toFixed(0)} min,` +
+      ` régulier (R² ${jugeMb.r2.toFixed(2)}) et SANS plateau ⇒ ${jugeMb.perHour.toFixed(1)} MB/h.` +
+      `\n    Projection : ~${(jugeMb.perHour * 24).toFixed(0)} MB/jour, ~${((jugeMb.perHour * 72) / 1024).toFixed(1)} Go sur 3 jours.` +
       `\n    Le TAS est ${leaking ? "lui aussi en hausse" : "stable"}.` +
       `\n    ${decomposition}` +
       `\n    Relancer plus long (--minutes 90) tranche entre montée vers un palier et hausse sans fin.`,
@@ -955,7 +1156,11 @@ writeFileSync(
       windowSec: WINDOW,
       conn: CONN,
       skipped: SKIP,
+      // Le runtime du BANC. Il a longtemps été le seul enregistré, et un tableau
+      // de quatre runs a été lu comme une dérive du produit alors que le serveur
+      // avait changé de version de Node entre deux lignes.
       node: process.version,
+      nodeServeur: nodeServeur,
       // Le décor VIRTUALISÉ, constaté et non déduit : une VM d'hyperviseur qui
       // réserve des vCPU ne se voit PAS dans `loadavg`, et fait pourtant chuter
       // le débit de dizaines de pour cent. Sans ce champ, deux runs de la même
@@ -975,6 +1180,28 @@ writeFileSync(
       rssR2: +rss.r2.toFixed(3),
       rssSlopeLateMbPerHour: +rssLate.perHour.toFixed(2),
       rssPlateau: plateau,
+      // 🔴 L'EMPREINTE SYSTÈME — la grandeur sur laquelle le verdict porte quand
+      // elle est constatable. `null` dit « non mesurée », jamais « zéro » : un
+      // run sans ces champs est un run dont le verdict retombe sur `rss`, et son
+      // lecteur doit pouvoir le savoir sans relire le journal.
+      empreinteSource: avecEmpreinte ? empreinte0.source : null,
+      footprintFirstMb: avecEmpreinte ? kept[0].footprintMb : null,
+      footprintLastMb: avecEmpreinte ? kept[kept.length - 1].footprintMb : null,
+      footprintSlopeMbPerHour: avecEmpreinte ? +emp.perHour.toFixed(2) : null,
+      footprintR2: avecEmpreinte ? +emp.r2.toFixed(3) : null,
+      footprintMbPerMillionReq:
+        avecEmpreinte && !tooShort && reqTotal > 0
+          ? +(
+              (kept[kept.length - 1].footprintMb - kept[0].footprintMb) /
+              (reqTotal / 1e6)
+            ).toFixed(3)
+          : null,
+      reclaimableFirstMb: recl ? kept[0].reclaimableMb : null,
+      reclaimableLastMb: recl ? kept[kept.length - 1].reclaimableMb : null,
+      reclaimableSlopeMbPerHour: recl ? +recl.perHour.toFixed(2) : null,
+      // Vrai quand `rss` monte franchement alors que l'empreinte tient : la
+      // hausse est du RÉSIDENT DÉJÀ RENDU, pas de la consommation.
+      artefactComptage: avecEmpreinte ? artefactComptage : null,
       // La ventilation, pour qu'un run puisse être RELU sans être rejoué.
       rssDeltaMb: +dRss.toFixed(1),
       heapTotalDeltaMb: +dHeapTotal.toFixed(1),
