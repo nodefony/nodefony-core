@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T17:40:48.442Z",
+  "generatedAt": "2026-09-16T20:00:54.866Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 95,
+      "closed": 96,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 24,
+      "open": 23,
       "title": "10.0.0-alpha"
     },
     {
@@ -2980,8 +2980,8 @@
       "number": 218,
       "title": "test(http): caractériser la hausse du RSS d'un pod sous charge",
       "url": "https://github.com/nodefony/nodefony-core/issues/218",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,

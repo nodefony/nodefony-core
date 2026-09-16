@@ -176,6 +176,19 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- **[1× — 09-16] Donner une consigne à un automate sans lire SA borne : 60 minutes perdues.**
+  Lancé `gh workflow run soak.yml -f minutes=90` sur un job qui porte `timeout-minutes: 60` —
+  tué à 60 min 17 s, conclusion `cancelled`, aucun artefact. Le défaut de l'entrée est à 30 min
+  précisément parce que le plafond est à 60 : la valeur par défaut PORTAIT la contrainte, et je
+  l'ai écrasée sans la lire. **Un paramètre qu'on surcharge se vérifie contre la borne de l'outil,
+  pas contre son propre besoin.**
+- **[1× — 09-16] Une mesure existait depuis des semaines et personne ne l'avait regardée.**
+  `soak.yml` tourne sur ubuntu et dépose un artefact à chaque run ; quatre runs disaient que le
+  RSS est PLAT sous Linux (0,064 contre 2,622 MB/Mreq). Le ticket P0 en cours cherchait une fuite
+  « qui menace les pods », et les pods sont Linux. **Un automate qui produit sans que personne
+  lise ne garde rien** — même famille que le gate qu'on ne lance pas, une case plus loin :
+  ici il tourne, il rend, et sa sortie n'atteint aucune décision.
+
 - [1× — 09-13d] **J'ai déclaré une garde ABSENTE sans l'avoir cherchée dans le code.** Devant
   un workflow rouge sur `dev`, j'ai annoncé au user que la publication en serait bloquée et
   qu'« aucun ticket ne le porte » — il a réagi (« il ne faut pas que ce soit bloqueur ! »).
@@ -373,6 +386,19 @@
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
+
+- **[1× — 09-16] Un `rg` sur UN fichier ne prouve pas une absence dans une CHAÎNE.** J'ai cherché
+  `soak` dans `build-perf-site.mjs`, trouvé quatre occurrences toutes dans une carte de chiffre
+  clé, et annoncé au user « les 90 échantillons ne sont dessinés nulle part ». Faux : la page est
+  rendue par `prod-readiness-report.mjs`, que ce générateur appelle, et elle TRACE la courbe. Le
+  périmètre du motif n'était pas celui de la question. **Chercher dans le fichier qu'on soupçonne
+  ne dit rien de ce qu'il DÉLÈGUE** — c'est la sortie RENDUE qu'il faut interroger, pas la source
+  d'une étape.
+- **[1× — 09-16] Un chiffre annoncé sans le périmètre sur lequel il est calculé se corrige tout
+  seul dix minutes plus tard.** Dit au user « pas d'érosion, 11 968 / 12 177 / 12 036 » — calculé
+  sur les 90 fenêtres. Le banc, lui, juge sur les fenêtres RETENUES (skip 3), où les tiers donnent
+  12 295 → 12 066, soit **−1,9 %**. Les deux sont vrais et ne répondent pas à la même question.
+  Nommer le périmètre AVEC le chiffre, toujours.
 
 - [1× — 09-14c] 🔴 **La notification de tâche de fond a annoncé « exit code 0 » sur DEUX runs
   ROUGES d'affilée.** `npm run test:all` rendait 1 ; seule la ligne `EXIT=$?` que j'avais écrite
@@ -1108,6 +1134,17 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   externe et non à notre code.
 
 ## 🧪 Un banc COMPARATIF dont les concurrents dérivent impute au produit ce qui ne lui appartient pas
+
+- **[1× — 09-16] Le compteur mesuré portait un nom qui ne décrivait pas ce qu'il compte.**
+  Le banc de tenue relevait `process.memoryUsage().rss` et publiait « +108,6 MB/h, sans plateau,
+  une fuite ». Sous macOS, `rss` rend `resident_size`, qui COMPTE les pages que l'allocateur a
+  déjà rendues au noyau (`MADV_FREE_REUSABLE`) ; `phys_footprint`, ce que le noyau utilise pour
+  évincer, les EXCLUT. Mesuré : 93 % de la hausse était ce résident déjà rendu, l'empreinte réelle
+  n'a pas bougé de 2 MB, et `leaks` rend 3 216 octets sur 20,7 M de requêtes. Trois semaines de
+  publication, un ticket P0, et cinq runs — aucun n'avait relevé le second compteur. **La sonde
+  n'était pas cassée : elle mesurait fidèlement une grandeur qui ne répondait pas à la question.**
+  Le contrôle qui l'aurait attrapé tient en une question : _ce nombre est-il celui que le
+  DÉCIDEUR regarde ?_ Ici le décideur est l'orchestrateur, et il lit l'empreinte.
 
 - **[1× — 09-15] Le camp témoin chargeait DEUX instances du même ORM, à la même version, et le banc
   publiait +46 % en NOTRE faveur.** Un spécificateur nu (`import "drizzle-orm"`) écrit dans le

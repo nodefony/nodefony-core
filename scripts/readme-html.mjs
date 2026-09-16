@@ -33,6 +33,7 @@ import {
   mkdirSync,
 } from "node:fs";
 import MarkdownIt from "markdown-it";
+import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -231,7 +232,12 @@ function readmeEnHtml() {
   const sansEntete = brut
     .replace(/^<div align="center">[\s\S]*?<\/div>\s*\n(-{3,}\s*\n)?/, "")
     .trim();
-  const md = new MarkdownIt({ html: true, linkify: true, typographer: true });
+  const md = new MarkdownIt({
+    html: true,
+    linkify: true,
+    typographer: true,
+    highlight,
+  });
   let html = md.render(sansEntete);
   const BLOB = "https://github.com/nodefony/nodefony-core/blob/main/";
   const RAW = "https://raw.githubusercontent.com/nodefony/nodefony-core/main/";
@@ -874,12 +880,46 @@ const html = doc({
     `un serveur HTTP/HTTP2 et un serveur WebSocket qui partagent le même contexte de contrôleur, ` +
     `une injection de dépendances, un noyau de modules et une couche de sécurité complète.">\n` +
     `<link rel="icon" href="./favicon.png">`,
-  // Cette page est la porte d'entrée du site publié, pas un rapport qu'on
-  // imprime : elle occupe toute la largeur, comme la documentation à côté. La
-  // colonne centrée du moteur convient à un document qu'on lit d'un trait, pas
-  // à un tableau de bord de présentation.
+  // 🔴 NI une colonne étroite, NI toute la largeur — les deux sont faux ici.
+  //
+  // Cette page a d'abord été publiée en pleine largeur, au motif qu'une porte
+  // d'entrée n'est pas un document qu'on lit d'un trait. Mesuré au navigateur :
+  // le `h1` faisait 1372 px sur une fenêtre de 1440, soit des lignes de ~170
+  // caractères — deux fois et demie ce que l'œil suit sans se perdre (45 à 75,
+  // la mesure typographique classique). Et la page fait 16 500 px de haut :
+  // c'est de la PROSE longue, quoi qu'on veuille en faire.
+  //
+  // La réponse n'est pas de tout rétrécir : les cartes, les tableaux et les
+  // figures, eux, gagnent à respirer. D'où deux largeurs — une PAGE bornée et
+  // centrée, et dedans une COLONNE DE LECTURE plus étroite dont seul le texte
+  // courant hérite. Tout ce qui n'est pas de la prose s'en échappe de lui-même.
   style: `
-.wrap { max-width:none; padding:26px 34px 80px; }
+.wrap {
+  max-width:1240px;
+  margin-inline:auto;
+  padding:34px 36px 96px;
+}
+/* La mesure de lecture. Elle ne s'applique qu'au texte COURANT : un tableau,
+   une carte ou une figure garde la largeur de la page. l'unité ch suit la police,
+   donc la mesure reste juste si la taille du texte change. */
+.wrap p, .wrap li, .wrap blockquote { max-width:74ch; }
+/* Ce qui est DÉJÀ contraint par sa boîte s'en exempte : une cellule de tableau,
+   une carte ou une légende de figure a sa propre largeur, et lui imposer la
+   mesure de lecture la ferait se replier au milieu de sa colonne. */
+.wrap td p, .wrap th p, .wrap td li, .wrap th li,
+.wrap figure p, .wrap figcaption, .wrap .card p, .wrap .card li,
+.wrap summary p { max-width:none; }
+/* Un titre plus court que sa colonne se casse mieux en fin de ligne qu'au
+   milieu d'un mot-clé ; text-wrap:pretty évite aussi le mot orphelin sur la dernière. */
+.wrap h1, .wrap h2, .wrap h3 { text-wrap:pretty; max-width:34ch; }
+.wrap h1 { max-width:24ch; }
+/* Le souffle vertical : sans lui, une page de 16 500 px se lit comme un mur.
+   Les sections se séparent à l'œil, pas au trait. */
+.wrap > section { margin-block:2.6rem; }
+.wrap > section > h2 { margin-block:0 .9rem; }
+.wrap > section > p { line-height:1.68; }
+@media (min-width:1500px) { .wrap { max-width:1320px; } }
+${STYLE_CODE}
 /* Verdicts du tableau de couverture. Une teinte qui tient 4,5:1 sur blanc est
    trop sombre sur fond noir — d'où deux jeux, jamais une couleur unique. */
 :root { --ok:#0a7a52; --mid:#8a6200; --ko:#c0322a; }

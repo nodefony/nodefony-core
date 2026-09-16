@@ -49,6 +49,7 @@ import path from "node:path";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import MarkdownIt from "markdown-it";
+import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 
 // Le module est consommé par sa SURFACE PUBLIÉE, pas par ses sources : ce
 // générateur voit exactement ce que voit une application qui l'installe. En
@@ -391,7 +392,12 @@ async function collect() {
    3. RENDU D'UNE PAGE
    ════════════════════════════════════════════════════════════════════════════ */
 
-const md = new MarkdownIt({ html: false, linkify: true, typographer: true });
+const md = new MarkdownIt({
+  html: false,
+  linkify: true,
+  typographer: true,
+  highlight,
+});
 
 /** Rendu des cards déclaratives (`nodefony-cards`) — le catalogue d'un hub. */
 function renderCards(json) {
@@ -1209,7 +1215,8 @@ pre.raw { white-space:pre-wrap; }
 .livegraph .lg-t { margin:0 0 4px; font-weight:650; }
 .livegraph .lg-hint { margin:0 0 6px; font-size:13.5px; }
 .livegraph .lg-note { margin:0; color:var(--dim); font-size:12.5px; }
-`;
+
+${STYLE_CODE}`;
 
 /* ════════════════════════════════════════════════════════════════════════════
    6. ASSEMBLAGE

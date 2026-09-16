@@ -399,6 +399,42 @@ dans la même fenêtre, sont exploitables.`,
 }
 
 const sections = [
+  // 🔴 LA PORTE D'ABORD, LES CHIFFRES ENSUITE.
+  //
+  // Ce sommaire résumait les mesures en cartes, puis listait les versions dans
+  // un tableau dont la première colonne était un NUMÉRO. Résultat constaté sur
+  // un lecteur réel : il arrive, voit un seul graphe, et ne trouve pas la page
+  // qui porte les autres — `latest/` n'était lié NULLE PART, et « 10.0.0 » ne
+  // dit pas qu'il y a des courbes derrière. Un sommaire qui ne conduit pas est
+  // un cul-de-sac, quelle que soit la qualité de ce qu'il résume.
+  ...(latest
+    ? [
+        section(
+          "Où aller",
+          cards([
+            {
+              k: "Les mesures",
+              v: `<a href="./latest/"><strong>Toutes les mesures</strong></a>`,
+              sub: "comparatif, courbes de tenue dans la durée, décomposition de la mémoire, dimensionnement d'un pod, calculateur",
+            },
+            ...(dossier
+              ? [
+                  {
+                    k: "Le raisonnement",
+                    v: `<a href="./dossier/"><strong>Où part le temps</strong></a>`,
+                    sub: "le profilage, le lot annulé par son propre A/B, et les instruments qui ont menti",
+                  },
+                ]
+              : []),
+            {
+              k: "La méthode",
+              v: `<a href="https://github.com/nodefony/nodefony-core/tree/main/docs/performance"><strong>Protocole et données</strong></a>`,
+              sub: "les jeux versionnés, et la commande qui rejoue chaque chiffre",
+            },
+          ]),
+        ),
+      ]
+    : []),
   ...chiffresCles(latest?.data),
   section(
     "Une page par version publiée",
