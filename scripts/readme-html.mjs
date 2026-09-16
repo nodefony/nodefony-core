@@ -259,7 +259,74 @@ function readmeEnHtml() {
   return html;
 }
 
-const readme = section("Ce qu'est Nodefony", readmeEnHtml());
+/**
+ * 🔴 CETTE PAGE DISAIT PRESQUE TOUT DEUX FOIS.
+ *
+ * Elle injecte le README ENTIER, et écrit par ailleurs quinze sections
+ * CALCULÉES depuis le dépôt. Sept sujets s'y retrouvaient donc en double, dans
+ * deux voix différentes — et l'un d'eux portait le même titre des deux côtés,
+ * captures comprises : « Le framework se regarde tourner », deux fois, images
+ * répétées. Constaté par un lecteur, pas par un contrôle.
+ *
+ * On garde du README ce que la page ne calcule PAS — le démarrage, l'inventaire,
+ * l'état du projet — et on retire ce qu'une section calculée dit déjà mieux,
+ * puisqu'elle le dit avec les chiffres du dépôt au moment de la génération.
+ *
+ * 🔴 Un titre de README INCONNU de ces deux listes fait ÉCHOUER la génération.
+ * C'est voulu : filtrer par liste blanche laisserait disparaître en silence une
+ * section nouvellement écrite, et filtrer par liste noire la laisserait
+ * réapparaître en double. Le jour où le README bouge, cette page doit choisir —
+ * pas deviner.
+ */
+const README_DOUBLONS = new Set([
+  "D'où ça vient",
+  "Une action, deux transports",
+  "Un seul langage, du serveur au navigateur",
+  "Prêt pour les agents — ce que ça veut dire ici",
+  "Le framework se regarde tourner",
+  "La sécurité, fermée par défaut",
+  "Où aller ensuite",
+]);
+const README_GARDES = new Set([
+  "Démarrage",
+  "Ce qu'il y a dans la boîte",
+  "État du projet",
+]);
+
+/** Découpe le README rendu sur ses `h2`, et ne garde que ce qui n'est pas dit ailleurs. */
+function readmeSansDoublons() {
+  const html = readmeEnHtml();
+  const morceaux = html.split(/(?=<h2)/);
+  // `typographer` remplace l'apostrophe droite par la courbe : comparer les
+  // titres bruts ferait rater « D'où ça vient » et personne ne saurait pourquoi.
+  const norme = (t) =>
+    t
+      .replace(/[\u2018\u2019]/g, "'")
+      .replace(/\s+/g, " ")
+      .trim();
+  const titre = (bloc) => {
+    const m = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(bloc);
+    return m ? norme(m[1].replace(/<[^>]+>/g, "")) : null;
+  };
+  const inconnus = [];
+  const gardes = morceaux.filter((bloc) => {
+    const t = titre(bloc);
+    if (t === null) return true; // le préambule, avant le premier h2
+    if (README_DOUBLONS.has(t)) return false;
+    if (README_GARDES.has(t)) return true;
+    inconnus.push(t);
+    return true;
+  });
+  if (inconnus.length)
+    throw new Error(
+      `README : section(s) non arbitrée(s) — ${inconnus.map((t) => `« ${t} »`).join(", ")}.\n` +
+        `  Cette page écrit ses propres sections calculées : dire si chacune fait DOUBLON\n` +
+        `  (README_DOUBLONS) ou doit être GARDÉE (README_GARDES) dans scripts/readme-html.mjs.`,
+    );
+  return gardes.join("");
+}
+
+const readme = section("Ce qu'est Nodefony", readmeSansDoublons());
 const flux = existsSync(join(ROOT, ".github", "workflows"))
   ? readdirSync(join(ROOT, ".github", "workflows")).filter((f) =>
       /\.ya?ml$/.test(f),
@@ -957,8 +1024,12 @@ ${STYLE_CODE}
         },
       ]),
     ),
-    readme,
+    // Le reste du README (démarrage, inventaire, état) vient APRÈS l'accroche :
+    // un lecteur qui arrive veut d'abord savoir de quoi il s'agit, pas comment
+    // l'installer. L'ordre inverse le faisait tomber sur les restes d'un fichier
+    // écrit pour GitHub avant d'avoir lu une seule phrase de cette page.
     intro,
+    readme,
     cheminement,
     pari,
     isomorphisme,
