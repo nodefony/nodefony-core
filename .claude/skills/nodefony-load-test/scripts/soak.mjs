@@ -37,6 +37,10 @@ import { mkdirSync, openSync, readFileSync, writeFileSync } from "node:fs";
 import net from "node:net";
 import os from "node:os";
 import path from "node:path";
+// La sonde de PORT vient du FRAMEWORK, jamais d'un outil système : `lsof`
+// n'existe pas sous Windows, où il rend « personne n'écoute » pendant que le
+// serveur écoute — et le banc accuse alors le produit d'un défaut qui est le sien.
+import { readRuntimeState } from "nodefony";
 
 const ROOT = execFileSync("git", ["rev-parse", "--show-toplevel"], {
   encoding: "utf8",
@@ -389,11 +393,22 @@ if (!(await waitPort(5151, 40_000))) {
 // autre (superviseur, relance). Le port est ce qui reçoit la charge : c'est donc
 // lui qui désigne la cible, ici comme pour la purge d'un résidu.
 const pidMesure = (() => {
-  const r = spawnSync("lsof", ["-nP", "-iTCP:5151", "-sTCP:LISTEN", "-t"], {
-    encoding: "utf8",
-    timeout: 8000,
-  });
-  return Number((r.stdout ?? "").trim().split("\n")[0]) || srv?.pid || null;
+  // Le fichier d'état publié par le runtime, et non une observation de l'OS : il
+  // porte le PID de QUI ÉCOUTE, il est déjà purgé quand le process est mort, et
+  // il répond à l'identique sur les trois systèmes.
+  const runtime = readRuntimeState(ROOT);
+  if (runtime && runtime.pid > 0) return runtime.pid;
+  // Repli NOMMÉ, jamais silencieux : à défaut d'état publié, on mesure le
+  // process que ce banc a lancé. C'est le bon dans le cas simple, et c'est faux
+  // dès qu'un superviseur a relancé le serveur — le dire ici évite d'attribuer
+  // plus tard une empreinte plate à un process qui ne reçoit plus rien.
+  if (srv?.pid) {
+    console.log(
+      `  ⚠ aucun état runtime publié sous ${ROOT} — mesure du process lancé par ce banc (pid ${srv.pid}).`,
+    );
+    return srv.pid;
+  }
+  return null;
 })();
 
 // Le runtime du SERVEUR, pas celui du banc. Ce fichier gravait `process.version`
