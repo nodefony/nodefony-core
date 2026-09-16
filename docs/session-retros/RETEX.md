@@ -176,6 +176,27 @@
 
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
+- **[1× — 09-16] Un contrôle qui lit du HTML à l'expression régulière prend le TEXTE d'un bloc de
+  code pour du balisage.** `check-site-links.mjs` cherche `href="…"`/`src="…"` sur le fichier brut
+  et suppose que toute occurrence est un attribut. Un guide montrant
+  `grep -o 'src="http[^"]*"'` l'a mis en défaut : la forge est passée au rouge sur « 1 lien cassé
+  sur 11 496 » qui n'était pas un lien. **Le défaut dormait depuis toujours** et ne s'est déclaré
+  qu'en changeant AUTRE CHOSE — le colorateur a cessé d'échapper ces guillemets. Remède : retirer
+  les `<pre>` avant de lire, plutôt que relâcher le motif. Deux leçons : _un faux positif se
+  supprime par la SOURCE, pas par un seuil_, et _un gate peut être faux depuis des mois sans que
+  rien ne le dise, jusqu'à ce qu'un changement voisin le réveille_.
+- **[1× — 09-16] J'ai failli corriger un défaut de SITE en modifiant le PRODUIT.** Pour publier
+  deux pages, j'ai commencé par lever une exclusion dans le générateur de doc — puis constaté que
+  la liste des groupes publiés vit dans `@nodefony/documentation` et **pilote aussi le menu de la
+  console d'administration**. Défait avant commit ; les pages sont rendues par le site qui les
+  concerne. **La portée d'un correctif doit être celle du défaut** : un problème de publication ne
+  se règle pas dans la navigation d'un produit livré.
+- **[1× — 09-16] Une garde du dépôt m'a protégé de moi-même, et elle avait raison.** `git checkout`
+  sur un fichier a été REFUSÉ parce que l'arbre portait deux modifications non commitées — dont un
+  correctif que je venais d'écrire et de vérifier. J'ai défait l'édition à la main. La garde est
+  écrite pour les sous-agents ; elle vaut pour l'agent principal, qui oublie aussi ce qu'il n'a
+  pas encore commité.
+
 - **[1× — 09-16] Une page qui injecte un document ENTIER et écrit aussi ses propres sections dit
   tout deux fois — et aucun gate ne le voit.** La page d'accueil du site publié rendait le README
   complet plus quinze sections calculées : **sept sujets en double**, dont un au titre identique,
