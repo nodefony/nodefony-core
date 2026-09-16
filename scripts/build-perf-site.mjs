@@ -48,6 +48,8 @@ import {
   esc,
   calculator,
 } from "../.claude/skills/nodefony-html-report/lib/report.mjs";
+import MarkdownIt from "markdown-it";
+import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const arg = (n, d) => {
@@ -163,6 +165,98 @@ const latest = rendered[0];
 cpSync(path.join(OUT, latest.version), path.join(OUT, "latest"), {
   recursive: true,
 });
+
+/* ── La PROSE du dossier ──────────────────────────────────────────────────
+ *
+ * 🔴 DEUX PAGES ÉCRITES, MAINTENUES, ET PUBLIÉES NULLE PART.
+ *
+ * Le site de documentation exclut `docs/performance/` au motif qu'il est
+ * « publié par son propre site ». C'est vrai des MESURES — ce script les rend
+ * depuis les jeux versionnés — et faux de la méthode et des analyses, qu'aucun
+ * générateur ne lisait. Le lien « protocole » du sommaire devait donc sortir
+ * vers GitHub : on demandait au lecteur de quitter le site pour savoir comment
+ * les chiffres qu'on lui montre ont été obtenus.
+ *
+ * Elles sont rendues ICI, sous `/performance/`, parce que c'est là qu'un lecteur
+ * les cherche — et non dans la documentation, dont les groupes racine sont
+ * définis par le PRODUIT et pilotent aussi le menu de la console d'administration.
+ */
+const md = new MarkdownIt({
+  html: true,
+  linkify: true,
+  typographer: true,
+  highlight,
+});
+
+/** Retire le frontmatter YAML et rend le corps. */
+function rendreMarkdown(fichier) {
+  const brut = readFileSync(fichier, "utf8").replace(
+    /^---\n[\s\S]*?\n---\n/,
+    "",
+  );
+  const BLOB = "https://github.com/nodefony/nodefony-core/blob/main/";
+  // Les liens RELATIFS d'un fichier de `docs/performance/` visent des cibles qui,
+  // ici, n'ont plus la même place. Ce qui a une page sur ce site y pointe ; le
+  // reste part vers le dépôt, où il existe vraiment. Une cible inventée passerait
+  // le gate de liens tant qu'elle est absolue — d'où la liste EXPLICITE.
+  const CIBLES = {
+    "index.md": "../",
+    "methode.md": "../protocole/",
+    "analyses.md": "../analyses/",
+    "README.md": "../",
+  };
+  return md
+    .render(brut)
+    .replace(/href="(?!https?:|#|mailto:)([^"]+)"/g, (_, href) => {
+      const [chemin, ancre] = href.split("#");
+      const connu = CIBLES[chemin];
+      if (connu) return `href="${connu}${ancre ? `#${ancre}` : ""}"`;
+      return `href="${BLOB}docs/performance/${chemin}${ancre ? `#${ancre}` : ""}"`;
+    })
+    .replace(
+      /src="(?!https?:|data:)([^"]+)"/g,
+      (_, p) =>
+        `src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/performance/${p}"`,
+    );
+}
+
+const PROSE = [
+  {
+    slug: "protocole",
+    source: "methode.md",
+    titre: "Méthode de mesure",
+    sous: "Comment un chiffre devient une mesure — et les instruments qui ont menti avant qu'on s'en aperçoive.",
+  },
+  {
+    slug: "analyses",
+    source: "analyses.md",
+    titre: "Où part le temps",
+    sous: "Le budget d'une requête, décomposé : le pipeline, les autres frameworks, les bases de données.",
+  },
+];
+
+const prose = [];
+for (const page of PROSE) {
+  const src = path.join(ROOT, "docs", "performance", page.source);
+  if (!existsSync(src)) {
+    console.warn(`⚠ prose absente, page non rendue : ${page.source}`);
+    continue;
+  }
+  const dir = path.join(OUT, page.slug);
+  mkdirSync(dir, { recursive: true });
+  writeFileSync(
+    path.join(dir, "index.html"),
+    doc({
+      style: STYLE_CODE,
+      title: page.titre,
+      subtitle: page.sous,
+      sections: [rendreMarkdown(src)],
+      footer: `<a href="../">← Performance</a> · <a href="../../">Documentation</a> — source <code>docs/performance/${page.source}</code>`,
+    }),
+  );
+  prose.push(page);
+  console.log(`✓ ${page.slug}`);
+}
 
 const rows = rendered.map((r) => [
   `<a href="./${esc(r.version)}/">Nodefony ${esc(r.version)}</a>${
@@ -422,17 +516,34 @@ const sections = [
             ...(dossier
               ? [
                   {
-                    k: "Le raisonnement",
-                    v: `<a href="./dossier/"><strong>Où part le temps</strong></a>`,
+                    k: "Le chantier",
+                    v: `<a href="./dossier/"><strong>Comment on l'a su</strong></a>`,
                     sub: "le profilage, le lot annulé par son propre A/B, et les instruments qui ont menti",
                   },
                 ]
               : []),
-            {
-              k: "La méthode",
-              v: `<a href="https://github.com/nodefony/nodefony-core/tree/main/docs/performance"><strong>Protocole et données</strong></a>`,
-              sub: "les jeux versionnés, et la commande qui rejoue chaque chiffre",
-            },
+            // La méthode vit SUR le site depuis qu'on la rend (voir la prose
+            // ci-dessus) : envoyer le lecteur sur GitHub pour savoir comment un
+            // chiffre a été obtenu, c'est lui demander de quitter le dossier au
+            // moment précis où il cherche à le juger.
+            ...(prose.some((x) => x.slug === "protocole")
+              ? [
+                  {
+                    k: "La méthode",
+                    v: `<a href="./protocole/"><strong>Comment on mesure</strong></a>`,
+                    sub: "le protocole, le décor, et les instruments qui ont menti avant qu'on s'en aperçoive",
+                  },
+                ]
+              : []),
+            ...(prose.some((x) => x.slug === "analyses")
+              ? [
+                  {
+                    k: "Le budget d'une requête",
+                    v: `<a href="./analyses/"><strong>Où part le temps</strong></a>`,
+                    sub: "le pipeline, les autres frameworks, et les bases de données",
+                  },
+                ]
+              : []),
           ]),
         ),
       ]

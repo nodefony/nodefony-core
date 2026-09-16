@@ -57,7 +57,25 @@ const broken = [];
 let checked = 0;
 
 for (const file of found) {
-  const html = readFileSync(file, "utf8");
+  // 🔴 LE CONTENU D'UN BLOC DE CODE N'EST PAS DU BALISAGE.
+  //
+  // Ce contrôle cherche `href="…"` et `src="…"` par expression régulière sur le
+  // HTML brut : il suppose que toute occurrence est un ATTRIBUT. Un guide qui
+  // montre une commande shell la dément —
+  //     curl -s http://… | grep -o 'src="http[^"]*"'
+  // — dont le texte contient littéralement `src="http[^"`. Les guillemets n'ont
+  // pas à être échappés dans le contenu d'un élément : le HTML est valide, c'est
+  // la LECTURE qui est fautive. Le défaut ne s'est déclaré qu'une fois les blocs
+  // colorés, parce que le rendu précédent échappait ces guillemets ; il dormait
+  // dans la méthode depuis le début.
+  //
+  // Les blocs de code ne portent jamais de lien à vérifier : on les retire avant
+  // de lire. Retirer un faux positif vaut mieux que de relâcher le motif — un
+  // contrôle qui crie faux finit par ne plus être lu.
+  const html = readFileSync(file, "utf8").replace(
+    /<pre\b[\s\S]*?<\/pre>/gi,
+    "",
+  );
   const fromDir = path.dirname(file);
   for (const m of html.matchAll(HREF)) {
     const href = m[1];
