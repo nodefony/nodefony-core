@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-14T21:38:40.558Z",
+  "generatedAt": "2026-09-16T17:01:26.640Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 93,
+      "closed": 94,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 23,
+      "open": 22,
       "title": "10.0.0-alpha"
     },
     {
@@ -3000,7 +3000,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 13.5,
+      "jours": 13,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3044,8 +3044,8 @@
       "number": 397,
       "title": "perf(http): donner le corps au end() pour regagner un tick par réponse",
       "url": "https://github.com/nodefony/nodefony-core/issues/397",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,

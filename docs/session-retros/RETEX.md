@@ -803,6 +803,27 @@
 
 ## 🧪 Une instruction qu'on PUBLIE sans l'exécuter est une affirmation, pas un fait
 
+- **[1× — 09-15] Un rapport AFFIRMAIT trois choses que sa propre donnée démentait.** « Fuite
+  mémoire : aucune », « le débit ne s'érode pas », « palier atteint, pas une rampe » étaient
+  écrites EN DUR dans le générateur. Le soak a rendu +108,6 MB/h de RSS (R² 0,99, `rssPlateau:
+false`) et −6,4 % de débit : la page aurait publié l'inverse exact de sa mesure, et la CI serait
+  passée au vert dessus. **Une phrase de rapport se DÉRIVE des données ou elle se périme en
+  silence** — elle était vraie le jour où on l'a écrite, et rien ne la relit.
+- **[1× — 09-15] Le banc calculait le bon signal, l'affichait, puis le JETAIT.** `rssSuspect`
+  existait dans `soak.mjs` — même forme que `leaking`, mais sur le RSS — et n'entrait pas dans le
+  verdict : seul le TAS comptait. D'où `verdict: "clean"` sur un run qui fuit hors V8. Le défaut
+  était **déjà nommé dans les données** du jeu (« son verdict clean ne juge que le tas JS quand le
+  RSS monte à 71 MB/h ») et jamais corrigé dans l'instrument. Nommer un défaut dans une donnée ne
+  le corrige pas dans l'outil qui le produit.
+- **[3× — 09-15] Réduire ou recaler un corpus ne suffit pas : ses surfaces PÉRIPHÉRIQUES gardent
+  l'ancien chiffre, et personne ne les relit.** Trois occurrences dans la même session, toutes
+  trouvées par hasard : le hub affichait **88,3 %** quand le jeu versionné disait 90,1 % ; le
+  `README.md` du dossier listait **8 pages dont 6 supprimées** par le travail qui l'a réduit ; le
+  README **racine** (surface npm publique) annonce encore « ~92 % » et « vingt minutes laissent le
+  tas plat ». Aucun gate ne les attrape — `doc:anchors` vérifie les ancres `fichier:ligne`, pas les
+  liens entre pages ni les chiffres recopiés. **Après un recalage, la liste des surfaces à relire
+  fait partie du travail**, et elle se compose au `rg` sur le CHIFFRE, pas de mémoire.
+
 - [1× — 09-14] 🔴 **J'ai écrit une preuve d'ABSENCE dans un ticket, puis je l'ai lancée : elle
   était fausse, et le ticket entier tombait avec elle.** Le corps affirmait « le gabarit ne livre
   aucune page de connexion » avec, à l'appui, `rg -c 'login' src/nodefony/templates/app`. Lancée,
@@ -1087,6 +1108,31 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   externe et non à notre code.
 
 ## 🧪 Un banc COMPARATIF dont les concurrents dérivent impute au produit ce qui ne lui appartient pas
+
+- **[1× — 09-15] Le camp témoin chargeait DEUX instances du même ORM, à la même version, et le banc
+  publiait +46 % en NOTRE faveur.** Un spécificateur nu (`import "drizzle-orm"`) écrit dans le
+  dossier des camps atteint le `node_modules` de CE dossier ; le schéma, importé du `dist` du
+  module test **par exigence d'équité**, venait de la racine. `is(v, T)` teste `v instanceof T`
+  d'abord : à travers deux copies ce test échoue toujours et la fonction se rabat sur la remontée
+  de prototypes — mais `entityKind` étant un `Symbol.for`, le résultat reste JUSTE. Aucune erreur,
+  aucun avertissement, ×7,6 sur chaque colonne de chaque ligne. Corrigé : +58,8 % au témoin SQLite,
+  **+83,4 % au témoin PostgreSQL**. Le rapport publié tombe de 145,9 % à 90,9 %, et le ×1,07
+  PostgreSQL a dû être RETIRÉ (son témoin tournait à 54,5 % de son débit).
+  **La règle : une comparaison ne se contrôle pas seulement sur ce que chaque camp ÉCRIT, mais sur
+  ce que chaque camp CHARGE.** L'équité avait pourtant été éprouvée — quatre écritures SQL du
+  témoin mesurées, la meilleure retenue — mais toutes partageaient le même défaut de résolution :
+  l'épreuve portait sur le CODE, jamais sur le DÉCOR.
+- **[1× — 09-15] Le profil désignait la réponse, à condition de lui poser la bonne question.** Il
+  disait « le même code coûte 25,3 µs ici, 4,6 µs là ». On a cherché POURQUOI ce code était lent —
+  site d'appel, polymorphisme, déoptimisation V8, dix hypothèses réfutées. La question qui
+  tranchait est plus courte : **est-ce vraiment le MÊME code ?**, au sens de la même instance
+  chargée. Un écart de vitesse inexpliqué sur du code identique doit faire suspecter l'IDENTITÉ
+  avant le JIT.
+- **[1× — 09-15] Un commentaire AFFIRMAIT l'équité qui manquait, et c'est lui qui a endormi la
+  vigilance** : « son import remonte au node_modules racine, **donc même instance que ci-dessus** ».
+  Vrai pour le schéma, faux pour le camp — l'auteur avait vu la moitié du mécanisme. Un commentaire
+  qui conclut « donc X » sur une mécanique de résolution se vérifie par identité d'objets
+  (`A.Column === B.Column`), jamais par raisonnement.
 
 - [1× — 09-14c] 🔴 **Le sandbox servait `fastify` 5.8.5 quand son `package.json` déclarait
   `^5.12.4`** — `npm install` n'avait pas été rejoué depuis le commit qui a monté la déclaration.
