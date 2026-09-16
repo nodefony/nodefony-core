@@ -192,12 +192,35 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
     for (const cible of issue.before ?? []) {
       const aval = parItem.get(cible);
       if (!aval || typeof aval.ordre !== "number") continue;
+      // 🔴 DEUX ORDRES DE JALONS DIFFÉRENTS NE SE COMPARENT PAS.
+      // Le tri réel choisit d'abord le JALON (cf `board-next.mjs`), l'ordre ne
+      // départage qu'à l'intérieur de l'un d'eux — et E4, juste au-dessus, scope
+      // déjà ses doublons par `milestone@ordre`. Comparer les nombres bruts a fait
+      // crier ce contrôle à tort dès qu'un ticket a MONTÉ de jalon : #255, passé de
+      // la beta à l'alpha, y gagnait un ordre plus grand que sa cible restée en
+      // beta — donc « inversé » selon le nombre, alors qu'il passe des semaines
+      // avant selon la livraison. Un contrôle qui crie faux s'apprend à être ignoré.
+      if ((moi.milestone ?? null) !== (aval.milestone ?? null)) {
+        const a = moi.echeance ? Date.parse(moi.echeance) : null;
+        const b = aval.echeance ? Date.parse(aval.echeance) : null;
+        // Sans les deux échéances, on ne peut pas trancher : se TAIRE plutôt que
+        // deviner — ce contrôle ne juge jamais d'une priorisation.
+        if (a === null || b === null || a <= b) continue;
+        add(
+          "erreur",
+          "CONTRAINTE-INVERSEE",
+          issue.n,
+          `doit passer AVANT #${cible}, mais son jalon « ${moi.milestone} » est livré APRÈS « ${aval.milestone} »`,
+          `déplacer #${issue.n} dans « ${aval.milestone} » ou plus tôt`,
+        );
+        continue;
+      }
       if (moi.ordre < aval.ordre) continue;
       add(
         "erreur",
         "CONTRAINTE-INVERSEE",
         issue.n,
-        `doit passer AVANT #${cible}, mais est rangé après (ordre ${moi.ordre} > ${aval.ordre})`,
+        `doit passer AVANT #${cible}, mais est rangé après dans le même jalon (ordre ${moi.ordre} > ${aval.ordre})`,
         `remonter #${issue.n} avant l'ordre ${aval.ordre}`,
       );
     }
@@ -400,7 +423,7 @@ query($endCursor:String){
         totalCount
         pageInfo{ hasNextPage endCursor }
         nodes{
-          content{ ... on Issue { number title state milestone{title} parent{number} } }
+          content{ ... on Issue { number title state milestone{title dueOn} parent{number} } }
           fieldValues(first:20){ nodes{
             ... on ProjectV2ItemFieldNumberValue{ number field{... on ProjectV2FieldCommon{name}} }
             ... on ProjectV2ItemFieldSingleSelectValue{ name field{... on ProjectV2FieldCommon{name}} }
@@ -442,6 +465,7 @@ function readItems() {
         n: node.content.number,
         title: node.content.title,
         milestone: node.content.milestone?.title ?? null,
+        echeance: node.content.milestone?.dueOn ?? null,
         parent: node.content.parent?.number ?? null,
         ordre: typeof f.Ordre === "number" ? f.Ordre : undefined,
         jours: typeof f.Jours === "number" ? f.Jours : undefined,

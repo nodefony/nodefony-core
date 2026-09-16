@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T17:16:23.864Z",
+  "generatedAt": "2026-09-16T17:27:10.318Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,14 +35,14 @@
       "closed": 95,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 22,
+      "open": 24,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 33,
       "title": "10.0.0-beta"
     },
     {
@@ -270,22 +270,6 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 255,
-      "title": "test(release): contrôler les README publiés avant chaque publication",
-      "url": "https://github.com/nodefony/nodefony-core/issues/255",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 1.5,
-      "debut": "2026-10-05",
-      "cible": "2026-10-05",
-      "labels": [
-        "10.0.0-beta"
       ]
     },
     {
@@ -3009,6 +2993,38 @@
       ]
     },
     {
+      "number": 255,
+      "title": "test(release): contrôler les README publiés avant chaque publication",
+      "url": "https://github.com/nodefony/nodefony-core/issues/255",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.5,
+      "debut": "2026-09-18",
+      "cible": "2026-09-18",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 381,
+      "title": "fix(http): ne pas laisser pendre une requête quand la session échoue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/381",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 8.7,
+      "debut": "2026-09-18",
+      "cible": "2026-09-19",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 388,
       "title": "chore(release): publier la préversion 10.0.0-alpha.7",
       "url": "https://github.com/nodefony/nodefony-core/issues/388",
@@ -3440,22 +3456,6 @@
       "cible": "2026-11-05",
       "labels": [
         "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 382,
-      "title": "refactor(scaffold): faire rédiger le message du semis par le framework",
-      "url": "https://github.com/nodefony/nodefony-core/issues/382",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P3 — fin de cycle",
-      "jours": 1,
-      "ordre": 9.8,
-      "debut": "2026-09-19",
-      "cible": "2026-09-19",
-      "labels": [
-        "10.0.0-alpha"
       ]
     },
     {
@@ -4115,6 +4115,22 @@
       ]
     },
     {
+      "number": 382,
+      "title": "refactor(scaffold): faire rédiger le message du semis par le framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/382",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 9.95,
+      "debut": "2026-09-29",
+      "cible": "2026-09-29",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 346,
       "title": "fix(cli): dire pourquoi nodefony ne répond pas hors de l'app",
       "url": "https://github.com/nodefony/nodefony-core/issues/346",
@@ -4696,22 +4712,6 @@
       "cible": "2026-11-09",
       "labels": [
         "rattrapable",
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 381,
-      "title": "fix(http): ne pas laisser pendre une requête quand la session échoue",
-      "url": "https://github.com/nodefony/nodefony-core/issues/381",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 29.5,
-      "debut": "2026-11-10",
-      "cible": "2026-11-10",
-      "labels": [
         "10.0.0-beta"
       ]
     },

@@ -198,6 +198,50 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(codes(findings)).not.toContain("CONTRAINTE-INVERSEE");
   });
 
+  // 🔴 DEUX ORDRES DE JALONS DIFFÉRENTS NE SE COMPARENT PAS. Le tri réel choisit
+  // d'abord le jalon ; l'ordre ne départage qu'à l'intérieur de l'un d'eux. Sans
+  // ces trois cas, faire MONTER un ticket de jalon rendait le contrôle rouge à
+  // tort — vécu sur #255, passé de la beta à l'alpha, donc livré des semaines
+  // AVANT sa cible tout en portant un ordre plus grand.
+  const ALPHA = "2026-09-19T00:00:00Z";
+  const BETA = "2026-10-14T00:00:00Z";
+
+  it("jalon livré AVANT la cible : l'ordre plus grand ne dit rien", () => {
+    const findings = lintBoard({
+      items: [
+        sain(255, { milestone: "10.0.0-alpha", echeance: ALPHA, ordre: 8.5 }),
+        sain(175, { milestone: "10.0.0-beta", echeance: BETA, ordre: 2 }),
+      ],
+      issues: [issueSaine(255, { before: [175] }), issueSaine(175)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("CONTRAINTE-INVERSEE");
+  });
+
+  it("jalon livré APRÈS la cible : le contrôle MORD, ordre favorable ou non", () => {
+    const findings = lintBoard({
+      items: [
+        sain(255, { milestone: "10.0.0-beta", echeance: BETA, ordre: 1 }),
+        sain(175, { milestone: "10.0.0-alpha", echeance: ALPHA, ordre: 9 }),
+      ],
+      issues: [issueSaine(255, { before: [175] }), issueSaine(175)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).toContain("CONTRAINTE-INVERSEE");
+  });
+
+  it("jalon sans échéance : se TAIRE plutôt que deviner", () => {
+    const findings = lintBoard({
+      items: [
+        sain(255, { milestone: "backlog", echeance: null, ordre: 9 }),
+        sain(175, { milestone: "10.0.0-alpha", echeance: ALPHA, ordre: 2 }),
+      ],
+      issues: [issueSaine(255, { before: [175] }), issueSaine(175)],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("CONTRAINTE-INVERSEE");
+  });
+
   it("STATUT-MENTEUR : « en cours » sans aucun commit de travail", () => {
     const findings = lintBoard({
       items: [sain(172, { status: "In Progress" })],
