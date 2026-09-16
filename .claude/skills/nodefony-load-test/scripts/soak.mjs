@@ -997,13 +997,28 @@ writeFileSync(
       amplitudeMb: +amplitude.toFixed(1),
       // `tronque` PRIME sur tout le reste : on ne peut pas acquitter (ni
       // condamner) sur un run qui n'a pas eu lieu.
+      //
+      // 🔴 `rssSuspect` ENTRE dans le verdict — il en était absent, et ce trou a
+      // coûté deux fois. Le banc mesurait la pente du RSS, l'affichait en ⚠️, puis
+      // rendait `clean` parce que seul le TAS entrait dans `leaking` : un verdict
+      // binaire qui jette ce qu'il vient de mesurer. Vécu deux fois sur ce dépôt —
+      // un relevé à +71 MB/h puis un à +108,6 MB/h (R² 0,99, sans plateau, tas
+      // stable) ont tous deux été rendus « clean », et le second a failli être
+      // publié tel quel dans le dossier de performance.
+      //
+      // Une fuite HORS TAS est une fuite : fragmentation de l'allocateur, piles,
+      // natif non rattaché. Elle tue un pod exactement comme une fuite de tas, et
+      // `clean` ne peut pas la nommer. D'où un verdict PROPRE — `rss-growth` — au
+      // lieu de la ranger sous `leak` (qui désigne le tas) ou de la taire.
       verdict: tronque
         ? "incomplet"
         : tooShort
           ? "indeterminate"
           : leaking
             ? "leak"
-            : "clean",
+            : rssSuspect
+              ? "rss-growth"
+              : "clean",
     },
     null,
     2,

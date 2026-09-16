@@ -226,10 +226,6 @@
     {
       "quoi": "fastify",
       "pourquoi": "HORS PÉRIMÈTRE — décision, pas échec de mesure. Trois paires tentées, trois inconclusives : à ~41 000 req/s ce camp sature ce que la machine mesure proprement (la série 2 est reproductiblement parfaite à 0,4 %, la série 1 flotte — deux fois par effondrement du 3e run sur un palier à ~34 500, une fois à 3,3 % de dispersion). Mais le motif du retrait n'est pas la difficulté : ce camp n'informe pas la question posée ici. Nodefony se compare à ce qu'un développeur écrirait pour rendre le MÊME service, et ce camp s'appelle `express-fair`. Le banc reste disponible pour qui voudra le rejouer."
-    },
-    {
-      "quoi": "soak",
-      "pourquoi": "Le seul relevé disponible date d'une AUTRE fenêtre que cette campagne, et son verdict `clean` ne juge que le tas JS (1,2 Mo/h) : le RSS, lui, monte à 71 Mo/h. Publier « aucune fuite » sur cette base serait faux. À remesurer dans le décor de cette campagne."
     }
   ],
   "applicative": {
@@ -397,5 +393,1775 @@
       "motif": "Le camp témoin chargeait DEUX instances distinctes de drizzle-orm 0.45.2 : ses propres `import \"drizzle-orm\"` se résolvaient dans `bench-frameworks/node_modules`, tandis que le schéma, importé du `dist` du module test, venait du node_modules de la racine. Le chiffre mesurait donc en partie une résolution de modules, pas un ORM.",
       "aQuiProfitait": "à Nodefony — le sens le plus dangereux à publier, et celui qu'on ne cherche pas à réfuter"
     }
+  },
+  "soak": {
+    "url": "http://127.0.0.1:5151/nodefony/test/als-test/state",
+    "minutes": 90,
+    "windowsDemandees": 90,
+    "windowsObservees": 90,
+    "tronque": false,
+    "windowSec": 60,
+    "conn": 64,
+    "skipped": 3,
+    "node": "v26.8.1",
+    "vcpuVirtualises": null,
+    "samples": [
+      {
+        "window": 1,
+        "atSec": 60,
+        "rps": 12520.68,
+        "p99Ms": 7.74,
+        "rssMb": 231.6,
+        "heapUsedMb": 43.9,
+        "heapTotalMb": 120.9,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 2.9,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 2,
+        "atSec": 120,
+        "rps": 11958.67,
+        "p99Ms": 7.45,
+        "rssMb": 235.6,
+        "heapUsedMb": 44.2,
+        "heapTotalMb": 119.9,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.55,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 3,
+        "atSec": 181,
+        "rps": 12219.26,
+        "p99Ms": 11.75,
+        "rssMb": 238.7,
+        "heapUsedMb": 44.2,
+        "heapTotalMb": 115.6,
+        "externalMb": 5.8,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.4,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 4,
+        "atSec": 241,
+        "rps": 12782.3,
+        "p99Ms": 6.84,
+        "rssMb": 242.1,
+        "heapUsedMb": 44.2,
+        "heapTotalMb": 119.1,
+        "externalMb": 5.6,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.24,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 5,
+        "atSec": 301,
+        "rps": 12674.94,
+        "p99Ms": 6.97,
+        "rssMb": 248.1,
+        "heapUsedMb": 44.3,
+        "heapTotalMb": 121.1,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.33,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 6,
+        "atSec": 361,
+        "rps": 12459.08,
+        "p99Ms": 6.93,
+        "rssMb": 249.2,
+        "heapUsedMb": 44.3,
+        "heapTotalMb": 119.1,
+        "externalMb": 5.8,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.79,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 7,
+        "atSec": 422,
+        "rps": 12579.11,
+        "p99Ms": 6.7,
+        "rssMb": 249.3,
+        "heapUsedMb": 44.3,
+        "heapTotalMb": 120.4,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.98,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 8,
+        "atSec": 482,
+        "rps": 12598.75,
+        "p99Ms": 6.96,
+        "rssMb": 252.4,
+        "heapUsedMb": 44.4,
+        "heapTotalMb": 120.1,
+        "externalMb": 5.6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.54,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 9,
+        "atSec": 542,
+        "rps": 12656.52,
+        "p99Ms": 6.79,
+        "rssMb": 253.7,
+        "heapUsedMb": 44.4,
+        "heapTotalMb": 119.9,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.45,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 10,
+        "atSec": 602,
+        "rps": 12675.08,
+        "p99Ms": 6.86,
+        "rssMb": 256.2,
+        "heapUsedMb": 44.4,
+        "heapTotalMb": 119.4,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.72,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 11,
+        "atSec": 662,
+        "rps": 12733.65,
+        "p99Ms": 6.86,
+        "rssMb": 255,
+        "heapUsedMb": 44.5,
+        "heapTotalMb": 118.1,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.39,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 12,
+        "atSec": 723,
+        "rps": 12436.75,
+        "p99Ms": 7.43,
+        "rssMb": 258.5,
+        "heapUsedMb": 44.6,
+        "heapTotalMb": 117.6,
+        "externalMb": 5.6,
+        "handlesTotal": 12,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 9
+        },
+        "charge": 3.29,
+        "sockets": 9,
+        "errors": false
+      },
+      {
+        "window": 13,
+        "atSec": 783,
+        "rps": 10334.73,
+        "p99Ms": 217.29,
+        "rssMb": 263,
+        "heapUsedMb": 44.4,
+        "heapTotalMb": 119.4,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 6.17,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 14,
+        "atSec": 843,
+        "rps": 10617.66,
+        "p99Ms": 14.85,
+        "rssMb": 264.1,
+        "heapUsedMb": 44.5,
+        "heapTotalMb": 119.6,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 5.24,
+        "sockets": 2,
+        "errors": true
+      },
+      {
+        "window": 15,
+        "atSec": 903,
+        "rps": 10657.56,
+        "p99Ms": 15.32,
+        "rssMb": 269.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.1,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 4.34,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 16,
+        "atSec": 963,
+        "rps": 10116.1,
+        "p99Ms": 12.88,
+        "rssMb": 273.1,
+        "heapUsedMb": 45.5,
+        "heapTotalMb": 119.4,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.84,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 17,
+        "atSec": 1024,
+        "rps": 10311.79,
+        "p99Ms": 12.51,
+        "rssMb": 274.2,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.9,
+        "externalMb": 5.7,
+        "handlesTotal": 7,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 4
+        },
+        "charge": 4.56,
+        "sockets": 4,
+        "errors": false
+      },
+      {
+        "window": 18,
+        "atSec": 1084,
+        "rps": 11411.45,
+        "p99Ms": 9.63,
+        "rssMb": 278.9,
+        "heapUsedMb": 45.5,
+        "heapTotalMb": 121.9,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.74,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 19,
+        "atSec": 1144,
+        "rps": 12399.68,
+        "p99Ms": 7.91,
+        "rssMb": 280.1,
+        "heapUsedMb": 45.5,
+        "heapTotalMb": 120.1,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.35,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 20,
+        "atSec": 1204,
+        "rps": 12478.36,
+        "p99Ms": 7.19,
+        "rssMb": 282.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.4,
+        "externalMb": 6,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.35,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 21,
+        "atSec": 1264,
+        "rps": 12521.16,
+        "p99Ms": 7.02,
+        "rssMb": 284.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.1,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.2,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 22,
+        "atSec": 1325,
+        "rps": 12295.12,
+        "p99Ms": 7.02,
+        "rssMb": 284.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.4,
+        "externalMb": 5.5,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.1,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 23,
+        "atSec": 1385,
+        "rps": 12244.44,
+        "p99Ms": 7.04,
+        "rssMb": 286.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 117.9,
+        "externalMb": 5.5,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.49,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 24,
+        "atSec": 1445,
+        "rps": 11719.17,
+        "p99Ms": 7.46,
+        "rssMb": 288.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.4,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.65,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 25,
+        "atSec": 1505,
+        "rps": 11681.76,
+        "p99Ms": 7.23,
+        "rssMb": 290.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.6,
+        "externalMb": 5.7,
+        "handlesTotal": 10,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 7
+        },
+        "charge": 3.79,
+        "sockets": 7,
+        "errors": false
+      },
+      {
+        "window": 26,
+        "atSec": 1566,
+        "rps": 11589.94,
+        "p99Ms": 7.28,
+        "rssMb": 293.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.4,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.32,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 27,
+        "atSec": 1626,
+        "rps": 11825.66,
+        "p99Ms": 7.18,
+        "rssMb": 295.4,
+        "heapUsedMb": 45.9,
+        "heapTotalMb": 119.9,
+        "externalMb": 5.7,
+        "handlesTotal": 25,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 22
+        },
+        "charge": 3.45,
+        "sockets": 22,
+        "errors": false
+      },
+      {
+        "window": 28,
+        "atSec": 1686,
+        "rps": 12140.65,
+        "p99Ms": 7.02,
+        "rssMb": 296.1,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.6,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.22,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 29,
+        "atSec": 1746,
+        "rps": 12203.75,
+        "p99Ms": 7.18,
+        "rssMb": 299.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 122.4,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.27,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 30,
+        "atSec": 1806,
+        "rps": 12203.04,
+        "p99Ms": 7.11,
+        "rssMb": 301.7,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 117.1,
+        "externalMb": 4.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.18,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 31,
+        "atSec": 1867,
+        "rps": 12295.67,
+        "p99Ms": 7.09,
+        "rssMb": 302.2,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 118.9,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.25,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 32,
+        "atSec": 1927,
+        "rps": 12304.67,
+        "p99Ms": 7.08,
+        "rssMb": 305.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 117.4,
+        "externalMb": 4.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.22,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 33,
+        "atSec": 1987,
+        "rps": 12209.39,
+        "p99Ms": 7.08,
+        "rssMb": 311.5,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.6,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.26,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 34,
+        "atSec": 2047,
+        "rps": 12274.17,
+        "p99Ms": 7.14,
+        "rssMb": 314.2,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.4,
+        "externalMb": 5.6,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.2,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 35,
+        "atSec": 2107,
+        "rps": 12160.26,
+        "p99Ms": 7.14,
+        "rssMb": 316.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.6,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.18,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 36,
+        "atSec": 2168,
+        "rps": 12238.37,
+        "p99Ms": 7,
+        "rssMb": 317.5,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.1,
+        "externalMb": 5.5,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 2.99,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 37,
+        "atSec": 2228,
+        "rps": 12250.88,
+        "p99Ms": 7.07,
+        "rssMb": 318.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 118.6,
+        "externalMb": 5.5,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.23,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 38,
+        "atSec": 2288,
+        "rps": 12351.54,
+        "p99Ms": 7.04,
+        "rssMb": 323,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.6,
+        "externalMb": 6,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.38,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 39,
+        "atSec": 2348,
+        "rps": 12283.64,
+        "p99Ms": 7.11,
+        "rssMb": 324.5,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.4,
+        "externalMb": 6.1,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.19,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 40,
+        "atSec": 2409,
+        "rps": 12192.46,
+        "p99Ms": 7.08,
+        "rssMb": 324.3,
+        "heapUsedMb": 45.9,
+        "heapTotalMb": 120.4,
+        "externalMb": 5.7,
+        "handlesTotal": 20,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 17
+        },
+        "charge": 3.04,
+        "sockets": 17,
+        "errors": false
+      },
+      {
+        "window": 41,
+        "atSec": 2469,
+        "rps": 12137.26,
+        "p99Ms": 7.2,
+        "rssMb": 327.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.6,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.33,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 42,
+        "atSec": 2529,
+        "rps": 12161.9,
+        "p99Ms": 7.09,
+        "rssMb": 328.1,
+        "heapUsedMb": 45.8,
+        "heapTotalMb": 122.4,
+        "externalMb": 5.7,
+        "handlesTotal": 15,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 12
+        },
+        "charge": 3.24,
+        "sockets": 12,
+        "errors": false
+      },
+      {
+        "window": 43,
+        "atSec": 2589,
+        "rps": 12127.25,
+        "p99Ms": 7.03,
+        "rssMb": 330.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.1,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.13,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 44,
+        "atSec": 2649,
+        "rps": 12218.09,
+        "p99Ms": 7.16,
+        "rssMb": 331.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.9,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.05,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 45,
+        "atSec": 2710,
+        "rps": 12164.52,
+        "p99Ms": 7.08,
+        "rssMb": 332.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.4,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.16,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 46,
+        "atSec": 2770,
+        "rps": 12155.27,
+        "p99Ms": 7.08,
+        "rssMb": 334.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.9,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.06,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 47,
+        "atSec": 2830,
+        "rps": 12136.84,
+        "p99Ms": 7.11,
+        "rssMb": 334.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 122.4,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 3
+        },
+        "charge": 3.01,
+        "sockets": 3,
+        "errors": false
+      },
+      {
+        "window": 48,
+        "atSec": 2890,
+        "rps": 12157.51,
+        "p99Ms": 7.08,
+        "rssMb": 335.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.6,
+        "externalMb": 6.1,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.07,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 49,
+        "atSec": 2950,
+        "rps": 12297.63,
+        "p99Ms": 7.1,
+        "rssMb": 340.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.1,
+        "externalMb": 5.4,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.25,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 50,
+        "atSec": 3011,
+        "rps": 12182.65,
+        "p99Ms": 7.09,
+        "rssMb": 341.1,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.9,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.85,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 51,
+        "atSec": 3071,
+        "rps": 12149.03,
+        "p99Ms": 7.37,
+        "rssMb": 342.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 122.1,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.65,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 52,
+        "atSec": 3131,
+        "rps": 12225.07,
+        "p99Ms": 7.09,
+        "rssMb": 343.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.9,
+        "externalMb": 6.1,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.5,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 53,
+        "atSec": 3191,
+        "rps": 12120.69,
+        "p99Ms": 7.1,
+        "rssMb": 342.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.4,
+        "externalMb": 6.1,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 4.11,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 54,
+        "atSec": 3252,
+        "rps": 12106.11,
+        "p99Ms": 7.04,
+        "rssMb": 345.1,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.9,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.58,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 55,
+        "atSec": 3312,
+        "rps": 12186.03,
+        "p99Ms": 7.14,
+        "rssMb": 345.7,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.9,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.26,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 56,
+        "atSec": 3372,
+        "rps": 12156.77,
+        "p99Ms": 7.02,
+        "rssMb": 346.2,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 122.4,
+        "externalMb": 5.8,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.38,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 57,
+        "atSec": 3432,
+        "rps": 12016.08,
+        "p99Ms": 7.11,
+        "rssMb": 345.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.6,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.23,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 58,
+        "atSec": 3492,
+        "rps": 11906.48,
+        "p99Ms": 7.75,
+        "rssMb": 348.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.4,
+        "externalMb": 5.8,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.88,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 59,
+        "atSec": 3553,
+        "rps": 12022.18,
+        "p99Ms": 7.28,
+        "rssMb": 350.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.6,
+        "externalMb": 5.8,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.54,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 60,
+        "atSec": 3613,
+        "rps": 12119.23,
+        "p99Ms": 7.1,
+        "rssMb": 353.9,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 122.1,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.35,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 61,
+        "atSec": 3673,
+        "rps": 12129.74,
+        "p99Ms": 7.05,
+        "rssMb": 357.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.4,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.94,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 62,
+        "atSec": 3733,
+        "rps": 12160.38,
+        "p99Ms": 7.05,
+        "rssMb": 359.3,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 124.4,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.46,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 63,
+        "atSec": 3794,
+        "rps": 12235.88,
+        "p99Ms": 6.96,
+        "rssMb": 358.7,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.6,
+        "externalMb": 5.7,
+        "handlesTotal": 7,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 4
+        },
+        "charge": 3.68,
+        "sockets": 4,
+        "errors": false
+      },
+      {
+        "window": 64,
+        "atSec": 3854,
+        "rps": 12178.5,
+        "p99Ms": 7.09,
+        "rssMb": 358.4,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.6,
+        "externalMb": 6.1,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.37,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 65,
+        "atSec": 3914,
+        "rps": 12162.54,
+        "p99Ms": 7.1,
+        "rssMb": 361.5,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.9,
+        "externalMb": 6.1,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.37,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 66,
+        "atSec": 3974,
+        "rps": 12249.79,
+        "p99Ms": 7,
+        "rssMb": 362.2,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.1,
+        "externalMb": 5.4,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.27,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 67,
+        "atSec": 4035,
+        "rps": 12169,
+        "p99Ms": 7.1,
+        "rssMb": 363.1,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 121.1,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.17,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 68,
+        "atSec": 4095,
+        "rps": 12199.54,
+        "p99Ms": 7.04,
+        "rssMb": 365.1,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 120.6,
+        "externalMb": 6.1,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.27,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 69,
+        "atSec": 4155,
+        "rps": 11809.13,
+        "p99Ms": 7.86,
+        "rssMb": 368,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.6,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.34,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 70,
+        "atSec": 4215,
+        "rps": 12125.23,
+        "p99Ms": 7.14,
+        "rssMb": 367.2,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 119.6,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.32,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 71,
+        "atSec": 4275,
+        "rps": 12092.44,
+        "p99Ms": 7.05,
+        "rssMb": 368.7,
+        "heapUsedMb": 45.8,
+        "heapTotalMb": 119.9,
+        "externalMb": 5.7,
+        "handlesTotal": 16,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 12,
+          "Immediate": 1
+        },
+        "charge": 3.17,
+        "sockets": 12,
+        "errors": false
+      },
+      {
+        "window": 72,
+        "atSec": 4336,
+        "rps": 11640.76,
+        "p99Ms": 13.44,
+        "rssMb": 368,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 117.1,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.48,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 73,
+        "atSec": 4396,
+        "rps": 11429.53,
+        "p99Ms": 47.96,
+        "rssMb": 368.7,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 118.6,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 5.82,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 74,
+        "atSec": 4456,
+        "rps": 12149.97,
+        "p99Ms": 7.14,
+        "rssMb": 369.7,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 118.1,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 4.11,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 75,
+        "atSec": 4516,
+        "rps": 12089.31,
+        "p99Ms": 7.16,
+        "rssMb": 374.8,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 117.4,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.59,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 76,
+        "atSec": 4576,
+        "rps": 12081.94,
+        "p99Ms": 7.08,
+        "rssMb": 378,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 120.4,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.3,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 77,
+        "atSec": 4637,
+        "rps": 12023.62,
+        "p99Ms": 7.11,
+        "rssMb": 382.3,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 122.6,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.57,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 78,
+        "atSec": 4697,
+        "rps": 12101.37,
+        "p99Ms": 7.12,
+        "rssMb": 384.6,
+        "heapUsedMb": 45.6,
+        "heapTotalMb": 123.4,
+        "externalMb": 5.7,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.28,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 79,
+        "atSec": 4757,
+        "rps": 12066.23,
+        "p99Ms": 6.98,
+        "rssMb": 387,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 122.9,
+        "externalMb": 5.9,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.21,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 80,
+        "atSec": 4817,
+        "rps": 12087.49,
+        "p99Ms": 7.18,
+        "rssMb": 391.3,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 124.1,
+        "externalMb": 5.8,
+        "handlesTotal": 6,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2,
+          "Immediate": 1
+        },
+        "charge": 3.31,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 81,
+        "atSec": 4877,
+        "rps": 12013.2,
+        "p99Ms": 7.01,
+        "rssMb": 392.9,
+        "heapUsedMb": 45.8,
+        "heapTotalMb": 123.6,
+        "externalMb": 5.9,
+        "handlesTotal": 13,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 9,
+          "Immediate": 1
+        },
+        "charge": 3.22,
+        "sockets": 9,
+        "errors": false
+      },
+      {
+        "window": 82,
+        "atSec": 4938,
+        "rps": 11980.41,
+        "p99Ms": 7.24,
+        "rssMb": 395.7,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 124.4,
+        "externalMb": 5.8,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.41,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 83,
+        "atSec": 4998,
+        "rps": 11974.14,
+        "p99Ms": 7.22,
+        "rssMb": 398.3,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 123.4,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.29,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 84,
+        "atSec": 5058,
+        "rps": 12002.47,
+        "p99Ms": 7.12,
+        "rssMb": 397.3,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 122.1,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.14,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 85,
+        "atSec": 5118,
+        "rps": 11934.36,
+        "p99Ms": 7.01,
+        "rssMb": 397.1,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 121.9,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.15,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 86,
+        "atSec": 5179,
+        "rps": 11935.3,
+        "p99Ms": 7.14,
+        "rssMb": 399.8,
+        "heapUsedMb": 46,
+        "heapTotalMb": 121.9,
+        "externalMb": 5.6,
+        "handlesTotal": 22,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 19
+        },
+        "charge": 3.06,
+        "sockets": 19,
+        "errors": false
+      },
+      {
+        "window": 87,
+        "atSec": 5239,
+        "rps": 12025.55,
+        "p99Ms": 7.13,
+        "rssMb": 396.6,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 118.6,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.6,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 88,
+        "atSec": 5299,
+        "rps": 12060.93,
+        "p99Ms": 7.02,
+        "rssMb": 400.3,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 119.9,
+        "externalMb": 5.9,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.17,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 89,
+        "atSec": 5359,
+        "rps": 12022.47,
+        "p99Ms": 7.04,
+        "rssMb": 403.3,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 121.4,
+        "externalMb": 6,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.19,
+        "sockets": 2,
+        "errors": false
+      },
+      {
+        "window": 90,
+        "atSec": 5420,
+        "rps": 11960.43,
+        "p99Ms": 7.06,
+        "rssMb": 407.1,
+        "heapUsedMb": 45.7,
+        "heapTotalMb": 122.9,
+        "externalMb": 5.7,
+        "handlesTotal": 5,
+        "handlesByType": {
+          "IntervalHistogram": 1,
+          "TCPServerWrap": 2,
+          "TCPSocketWrap": 2
+        },
+        "charge": 3.25,
+        "sockets": 2,
+        "errors": false
+      }
+    ],
+    "heapSlopeMbPerHour": 0.63,
+    "heapR2": 0.395,
+    "rssSlopeMbPerHour": 108.58,
+    "rssKeptFirstMb": 242.1,
+    "rssKeptLastMb": 407.1,
+    "rssR2": 0.989,
+    "rssSlopeLateMbPerHour": 99.37,
+    "rssPlateau": false,
+    "rssDeltaMb": 165,
+    "heapTotalDeltaMb": 3.8,
+    "externalDeltaMb": 0.1,
+    "resteDeltaMb": 161.1,
+    "rpsDriftPct": -6.4,
+    "rpsMedian": 12150,
+    "chargeInitiale": 2.73,
+    "chargeMax": 6.17,
+    "socketsMax": 22,
+    "coeurs": 12,
+    "decorTenu": true,
+    "requestsTotal": 62924849,
+    "handlesFirst": 5,
+    "handlesLast": 5,
+    "handlesDelta": 0,
+    "handlesGrowthByType": {},
+    "rssMbPerMillionReq": 2.622,
+    "observedMinutes": 86.3,
+    "amplitudeMb": 1.5,
+    "verdict": "rss-growth",
+    "verdictNote": "Recalculé sous la règle corrigée du banc : le run a été produit par la version qui ne faisait entrer que le TAS dans son verdict et rendait `clean`. Les données sont inchangées — seul le verdict l'est, et le basculement a été vérifié sur ces mêmes échantillons (leaking=false, rssSuspect=true)."
   }
 }

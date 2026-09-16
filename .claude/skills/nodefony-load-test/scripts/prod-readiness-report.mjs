@@ -129,6 +129,29 @@ if (!soak)
           `jamais depuis un résumé).`
       : `soak manquant : ${SOAK}`,
   );
+// 🔴 CE QUI SUIT SE LIT, IL NE S'AFFIRME PAS.
+// Trois phrases de cette page étaient écrites EN DUR : « Fuite mémoire : aucune »,
+// « le débit ne s'érode pas » et « palier atteint, pas une rampe ». Elles disaient
+// vrai le jour où elles ont été écrites, et la page a continué de les servir quand
+// la mesure a cessé de les soutenir : un soak de 90 min a rendu +108,6 MB/h de RSS
+// (R² 0,99, SANS plateau) et −6,4 % de débit — la page l'aurait publié sous
+// « aucune fuite » et « palier atteint », c'est-à-dire l'inverse exact de sa donnée.
+// Un rapport qui affirme ce qu'il n'a pas lu n'est pas un rapport.
+const rssMonte =
+  soak.rssPlateau === false && (soak.rssSlopeMbPerHour ?? 0) > 20;
+const tasMonte = soak.verdict === "leak";
+const debitErode = (soak.rpsDriftPct ?? 0) < -3;
+const fuiteLabel = tasMonte
+  ? "tas en hausse"
+  : rssMonte
+    ? "RSS en hausse"
+    : "aucune";
+const fuiteSub = tasMonte
+  ? `tas +${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.heapR2, 2)}) sur ${soak.minutes} min`
+  : rssMonte
+    ? `tas stable (R² ${fmt.dec(soak.heapR2, 2)}) mais RSS +${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, R² ${fmt.dec(soak.rssR2, 2)}, sans plateau`
+    : `${soak.minutes} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`;
+
 const kept = soak.samples.slice(soak.skipped);
 const p99s = kept.map((s) => s.p99Ms).sort((a, b) => a - b);
 
@@ -211,14 +234,16 @@ const verdict = section(
     },
     {
       k: "Fuite mémoire",
-      v: "aucune",
-      sub: `${soak.minutes} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`,
+      v: fuiteLabel,
+      sub: fuiteSub,
     },
     {
-      k: "RSS d'un pod en régime",
+      k: rssMonte ? "RSS en fin de run" : "RSS d'un pod en régime",
       v: fmt.dec(kept[kept.length - 1].rssMb, 0),
       unit: "MB",
-      sub: "palier atteint, pas une rampe",
+      sub: rssMonte
+        ? `parti de ${fmt.dec(kept[0].rssMb, 0)} MB — une RAMPE, pas un palier`
+        : "palier atteint, pas une rampe",
     },
   ]) +
     `<p><strong>La performance n'est pas le point faible de Nodefony.</strong> À travail égal — c'est-à-dire
@@ -227,9 +252,29 @@ const verdict = section(
      <strong>${fmt.dec(ratioRps, 0)} %</strong> du débit pour <strong>+${fmt.dec(deltaP99, 2)} ms</strong>
      de p99. L'écart avec un serveur nu ne mesure pas une lenteur : il mesure le travail que le serveur nu
      ne fait pas.</p>
-     <p>Sur ${soak.minutes} minutes de charge continue, le tas ne monte pas et le débit ne s'érode pas.
-     Le risque résiduel d'un passage en production n'est donc pas la performance —
-     <a href="#limites">il est nommé plus bas</a>.</p>`,
+     <p>Sur ${soak.minutes} minutes de charge continue, ${
+       tasMonte
+         ? `le tas monte de ${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h`
+         : "le tas ne monte pas"
+     }${
+       rssMonte
+         ? ` — mais la mémoire du processus (RSS), elle, monte de <strong>${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h</strong>
+     de façon régulière (R² ${fmt.dec(soak.rssR2, 2)}) et <strong>sans atteindre de palier</strong>. La hausse est à
+     ${fmt.dec(soak.resteDeltaMb ?? 0, 0)} MB hors V8 : fragmentation de l'allocateur, piles, ou natif non rattaché`
+         : ""
+     }${
+       debitErode
+         ? `, et le débit s'érode de ${fmt.dec(Math.abs(soak.rpsDriftPct), 1)} %`
+         : " et le débit ne s'érode pas"
+     }.
+     ${
+       rssMonte
+         ? `<strong>C'est un point ouvert, pas un acquis</strong> — rapporté à la charge servie, cela fait
+     ${fmt.dec(soak.rssMbPerMillionReq ?? 0, 2)} MB par million de requêtes, soit une projection de
+     ${fmt.dec(((soak.rssSlopeMbPerHour ?? 0) * 72) / 1024, 1)} Go sur trois jours.`
+         : `Le risque résiduel d'un passage en production n'est donc pas la performance —
+     <a href="#limites">il est nommé plus bas</a>.`
+     }</p>`,
   { break: "avoid" },
 );
 
