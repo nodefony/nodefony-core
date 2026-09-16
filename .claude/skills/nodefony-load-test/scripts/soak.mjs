@@ -348,10 +348,14 @@ const srv = spawn(
       // absences répondent : ce n'est ni un démarrage lent, ni un controller
       // manquant, ni le ramasse-miettes (mesuré à 306 ms sur 295 MB).
       //
-      // ⚠️ Qu'une table absente fasse PENDRE une requête plutôt qu'échouer est
-      // un défaut du PRODUIT, pas du banc — il vaut pour toute application dont
-      // les migrations n'ont pas été appliquées. Posé en ticket à part : le
-      // banc n'est pas l'endroit où on le corrige.
+      // ✅ Le défaut du PRODUIT est CORRIGÉ : une table absente rend désormais
+      // un 500 immédiat dont le journal nomme la cause et les migrations
+      // (`HttpContext.#doSend` → `describeSessionStoreFailure`). Ce banc n'a
+      // donc plus besoin du store en mémoire pour ÉVITER une panne.
+      //
+      // Il le garde pour ce qu'il MESURE, et pour cette seule raison : un banc
+      // de charge mesure le framework, pas le goulot du disque — c'est l'usage
+      // que le produit prévoit (`infra.ts`). Le motif a changé ; la valeur non.
       NF_STORE: "memory",
       // 🔴 La dérogation aux modules `dev` est MINUTÉE et jamais désarmable : à
       // son échéance, le runtime s'arrête TOUT SEUL. Une marge fixe de 30 min
