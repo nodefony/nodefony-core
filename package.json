@@ -58,6 +58,7 @@
     "release": "node scripts/release/release.mjs",
     "release:pack": "node scripts/release/pack-all.mjs",
     "release:smoke": "bash scripts/release/smoke-docker.sh",
+    "readme:gate": "node scripts/release/readme-gate.mjs",
     "release:image-gate": "node scripts/release/image-gate.mjs",
     "size:check": "node scripts/size-check.mjs",
     "skills:check": "node .claude/skills/nodefony-skill/scripts/skills-doc.mjs --check && node .claude/skills/nodefony-skill/scripts/trigger-bench.mjs && node .claude/skills/nodefony-skill/scripts/scripts-audit.mjs --strict",

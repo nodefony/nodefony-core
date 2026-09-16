@@ -251,6 +251,33 @@ jobs:
         shell: bash
         run: npm run check:licenses
 
+      # Les README des quinze paquets publiables — la seule surface du dépôt dont
+      # la faute coûte un CRAN de version : la page npm est figée à la
+      # publication, un lien mort ou un `npm install` en E404 ne s'y rattrape
+      # qu'en republiant. Le contrôle vit AUSSI dans `release.mjs`, devant le
+      # geste irréversible ; ici, il dit la faute le jour où elle s'écrit plutôt
+      # que le jour de l'annonce.
+      #
+      # `set +e` n'est pas du relâchement : sous `shell: bash` (`-eo pipefail`)
+      # le script mourrait sur le code 1 avant qu'on ait lu `$?`, et on ne
+      # pourrait plus distinguer un écart CONSTATÉ (1) d'une lecture incomplète
+      # (2) — un registre muet n'est pas une faute du dépôt.
+      - name: Gate — les README publiés disent-ils vrai ?
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          set +e
+          npm run readme:gate
+          code=$?
+          set -e
+          if [ "$code" = "1" ]; then
+            echo "::error title=README publié faux::Une page npm porte un lien mort, une commande introuvable ou un import qui n'existe pas. Elle est FIGÉE pour la version publiée : la corriger avant la publication, ou republier un cran pour rien."
+            exit 1
+          fi
+          if [ "$code" != "0" ]; then
+            echo "::warning title=README NON vérifiés::Le contrôle n'a pas pu tout regarder (code ${code}). Sans conséquence sur ce run ; la publication, elle, refuse de passer sur ce code."
+          fi
+
       # Formatage — bloquant, au même titre que le lint et pour le même motif.
       #
       # Le hook `pre-commit` formate déjà les fichiers STAGÉS, ce qui suffit tant

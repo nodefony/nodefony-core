@@ -15,7 +15,7 @@
 | Infrastructure | 10 |
 | Interrupteur de coût | 5 |
 | Décor de banc | 36 |
-| Runtime produit | 74 |
+| Runtime produit | 75 |
 
 ## Décor de banc
 
@@ -137,7 +137,7 @@ déclarée n'a pas été exercée.
 | `NF_RUN_PERF` | micro-bancs de performance (seuils non déterministes) |
 | `NF_RUN_WS_RUPTURE` | sondes de rupture WebSocket (épuisent les ports) |
 
-## Runtime produit (74)
+## Runtime produit (75)
 
 Lues par le produit : leur vérité est le TSDoc de leur site de lecture, et
 c'est là qu'elle doit rester — la recopier ici en ferait une seconde vérité.
@@ -208,6 +208,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
 | `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:591` |
 | `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:591` |
+| `NF_README_ROOT` | `scripts/release/readme-gate.mjs:97` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |
 | `NF_REALTIME_DRIVER` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:46` |
@@ -217,6 +218,6 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:81` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:590` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
-| `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:87` |
+| `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:88` |
 | `NF_X` | `scripts/env-snapshot.ts:123` |
 

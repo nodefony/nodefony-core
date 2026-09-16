@@ -621,6 +621,37 @@ if (PROMOUVOIR) {
   // (2) Commiter — ou constater. Un arbre sale APRÈS une estampille relue est
   // l'état normal ; un arbre propre dont le dernier commit ne nomme pas la
   // version est en revanche suspect, et on le DIT sans rien décider à sa place.
+  // LES README PUBLIÉS — la seule surface dont la faute coûte un CRAN de version.
+  //
+  // Le README d'un paquet EST sa page npmjs.com, et il est figé pour la version
+  // publiée : un lien mort, une commande E404 ou un import qui n'existe pas ne se
+  // rattrapent qu'en republiant. La passe de la veille de l'alpha avait corrigé
+  // huit affirmations fausses et quatorze liens morts — à la main, sans qu'aucun
+  // contrôle ne garde le résultat.
+  //
+  // Ici et pas seulement dans la forge : la forge dit qu'une page ment, la
+  // publication doit REFUSER de la graver.
+  {
+    const r = spawnSync("node", ["scripts/release/readme-gate.mjs"], {
+      cwd: ROOT,
+      stdio: "inherit",
+    });
+    if (r.status === 1) {
+      echouer(
+        "un README publié ment — voir les écarts ci-dessus.\n" +
+          "  Ces pages sont FIGÉES pour la version publiée : les corriger maintenant, ou republier un cran pour rien.",
+      );
+    } else if (r.status !== 0) {
+      const msg = `README NON vérifiés (code ${r.status ?? "?"}).`;
+      if (PHASES.publier) {
+        echouer(
+          `${msg}\n  Avant un geste irréversible, ne pas savoir regarder n'est pas un verdict favorable.`,
+        );
+      }
+      alerter(msg);
+    }
+  }
+
   const sale = git("status", "--porcelain");
   if (sale) {
     git("commit", "-am", `chore(release): ${VERSION}`);

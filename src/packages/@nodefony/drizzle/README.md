@@ -11,7 +11,7 @@ Adapter [Drizzle ORM](https://orm.drizzle.team/) pour Nodefony, branché sur
 ## Installation
 
 ```bash
-npm install @nodefony/drizzle drizzle-orm better-sqlite3
+npm install @nodefony/drizzle@alpha drizzle-orm better-sqlite3
 ```
 
 ## Utilisation comme module Nodefony (bootable)

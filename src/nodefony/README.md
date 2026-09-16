@@ -149,7 +149,6 @@ import {
   inject,
   injectable,
   services,
-  entities,
   extend,
   typeOf,
   isArray,

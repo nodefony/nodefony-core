@@ -495,6 +495,8 @@ export {
   basculerVersions,
   comparer,
   zonesDeCode,
+  ligneDe,
   lireDistTags,
+  COMMANDE,
   SURFACES,
 };

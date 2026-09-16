@@ -112,7 +112,7 @@ Module de l'espace de travail `nodefony-core`. Dépendances de pair : `nodefony`
 `BcryptEncoder`).
 
 ```bash
-npm run build --workspace=src/packages/@nodefony/user
+npm install @nodefony/user@alpha
 ```
 
 ## Licence
