@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T17:01:26.640Z",
+  "generatedAt": "2026-09-16T17:16:23.864Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 94,
+      "closed": 95,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 22,
@@ -56,7 +56,7 @@
       "closed": 4,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 31,
+      "open": 30,
       "title": "10.1.0"
     }
   ],
@@ -2993,6 +2993,22 @@
       ]
     },
     {
+      "number": 218,
+      "title": "test(http): caractériser la hausse du RSS d'un pod sous charge",
+      "url": "https://github.com/nodefony/nodefony-core/issues/218",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 8,
+      "debut": "2026-09-16",
+      "cible": "2026-09-18",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 388,
       "title": "chore(release): publier la préversion 10.0.0-alpha.7",
       "url": "https://github.com/nodefony/nodefony-core/issues/388",
@@ -3000,7 +3016,7 @@
       "status": "Todo",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 13,
+      "jours": 12,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3060,8 +3076,8 @@
       "number": 398,
       "title": "test(perf): établir la référence de mesure rejouable de la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/398",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -5769,22 +5785,6 @@
       "cible": null,
       "labels": [
         "10.2.0"
-      ]
-    },
-    {
-      "number": 218,
-      "title": "test(http): caractériser la hausse du RSS d'un pod sous charge",
-      "url": "https://github.com/nodefony/nodefony-core/issues/218",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 150,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
       ]
     },
     {
