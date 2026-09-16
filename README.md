@@ -330,9 +330,11 @@ réelle (`npm run test:all`), et le dépôt versionne des seuils de fuite mémoi
 opposables à chaque exécution.
 
 **Ce que ça donne en charge.** À travail égal — mêmes journaux, même contexte de requête, mêmes
-en-têtes de sécurité, même protection CSRF — un processus rend **~92 % du débit d'un Express muni
-des mêmes intergiciels** (12 226 requêtes/s, p99 9,57 ms sur la machine de référence), et vingt
-minutes de charge continue laissent le tas plat. La page de mesures de la version courante —
+en-têtes de sécurité, même protection CSRF — un processus rend **~90 % du débit d'un Express muni
+des mêmes intergiciels** (14 508 requêtes/s, p99 6,75 ms sur la machine de référence), et cet écart
+reste le même sur une route qui interroge une base. Quatre-vingt-dix minutes de charge continue
+laissent le tas plat — **mais la mémoire du processus, elle, monte sans atteindre de palier
+(+108,6 MB/h)** : c'est un point ouvert, publié comme tel. La page de mesures de la version courante —
 **[peut-on partir en production ?](https://nodefony.github.io/nodefony-core/performance/latest/)** — porte le comparatif, la
 tenue dans la durée, le dimensionnement d'un pod et un calculateur ; elle nomme aussi ce que ces
 chiffres **ne** prouvent pas. Le dossier [`docs/performance/`](docs/performance/index.md) donne le

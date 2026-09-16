@@ -177,17 +177,46 @@ reste une part à peu près constante du budget.
 > n'est pas versionné (schéma issu d'un logiciel sous licence GPLv3). C'est le défaut même que
 > cette version corrige pour les autres chiffres, et il est ouvert pour celui-ci.
 
+## La tenue dans la durée — un point OUVERT
+
+Un banc de dix secondes ne voit pas une fuite lente. Celui-ci a tourné **90 minutes** sous trafic
+continu, dans le décor de cette campagne (hyperviseur éteint, Node v26.8.1), pour 62,9 millions de
+requêtes servies.
+
+| Grandeur                          | Mesure                                       | Lecture                               |
+| --------------------------------- | -------------------------------------------- | ------------------------------------- |
+| Tas JS (`heapUsed`)               | 44,2 → 45,7 MB · pente +0,6 MB/h (R² 0,39)   | **plat** — aucune fuite JS            |
+| Mémoire du processus (RSS)        | 242,1 → 407,1 MB · **+108,6 MB/h** (R² 0,99) | 🔴 **une rampe, sans plateau**        |
+| dont hors V8 (« reste »)          | +161,1 MB sur +165                           | **98 %** — ni tas réservé, ni externe |
+| Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                  | rien ne s'accumule                    |
+| Débit sur le run                  | 12 782 → 11 960 rps                          | s'érode de **6,4 %**                  |
+
+**Ce que cela veut dire, et ce que cela ne veut pas dire.** Le ramasse-miettes fait son travail :
+rien ne s'accumule côté JavaScript, et aucun descripteur ne fuit. La hausse est ailleurs —
+fragmentation de l'allocateur, piles, ou natif non rattaché — et elle n'a pas atteint de palier au
+bout de 90 minutes.
+
+Rapportée à la charge, elle vaut **2,62 MB par million de requêtes** : c'est la grandeur qui se
+transpose d'une machine à l'autre, contrairement aux MB/h, qui suivent le débit. À ce rythme, un
+processus prend environ 2,6 Go par jour.
+
+> 🔬 **Ce point est en cours d'instruction et il est publié tel quel.** Un dossier de performance
+> qui ne publierait que ce qui l'arrange ne vaudrait rien. Ce qui est établi : la hausse est réelle,
+> régulière, hors du tas, et elle n'a pas de palier connu. Ce qui ne l'est pas : sa cause, et si un
+> palier existe au-delà de 90 minutes. Le banc se rejoue en une commande — elle est plus bas.
+
 ## Ce que ce dossier établit
 
-| Question                                                 | Réponse mesurée                                                                                                                                                                |
-| -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                                                                            |
-| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                                                                                |
-| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                                                                           |
-| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                                                                        |
-| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                                                  |
-| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                                                        |
-| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Un décor sale : 1,5 point. Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL** |
+| Question                                                 | Réponse mesurée                                                                                                                                                                                                                         |
+| -------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Le framework est-il le goulot d'une application réelle ? | **Aucune mesure ne l'a montré** — sa couche ORM est restée sous 2,5 % du CPU d'une route de lecture                                                                                                                                     |
+| Combien coûte le service rendu par requête ?             | −19,5 % de débit pour Express quand on le lui fait rendre aussi                                                                                                                                                                         |
+| L'écart avec Express sur une route qui ne fait rien ?    | **×1,11** — et il reste le même sur une route qui interroge une base                                                                                                                                                                    |
+| Le ramasse-miettes est-il le problème ?                  | **Rien ne l'indique** — 0,93 à 1,3 % selon l'instrument, sur trois mesures concordantes                                                                                                                                                 |
+| Qu'est-ce qui plafonne un processus ?                    | Le **blocage** de la boucle — la latence seule n'a jamais suffi à l'expliquer                                                                                                                                                           |
+| Qu'est-ce qui plafonnait les mesures PostgreSQL ?        | La **virtualisation réseau**, pas la base — facteur 3,7                                                                                                                                                                                 |
+| Un décor sale déplace-t-il seulement les absolus ?       | **Non — il a déplacé le rapport.** Un décor sale : 1,5 point. Une double instance de module dans le camp adverse : **+58,8 % de son débit sur SQLite, +83,4 % sur PostgreSQL**                                                          |
+| **Le processus tient-il dans la durée ?**                | 🔴 **Le tas oui, la mémoire du processus NON** — 90 min de charge continue laissent le tas plat (44,2 → 45,7 MB) mais le RSS monte de **+108,6 MB/h**, régulier (R² 0,99) et **sans plateau**. C'est un **point ouvert**, pas un acquis |
 
 ## Les trois pages
 
