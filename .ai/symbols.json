@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 834,
-    "symbols": 4090,
+    "files": 835,
+    "symbols": 4093,
     "classes": 392,
-    "interfaces": 1094,
+    "interfaces": 1095,
     "types": 451,
     "enums": 4,
-    "functions": 1741,
+    "functions": 1743,
     "constants": 408
   },
   "symbols": {
@@ -24490,6 +24490,23 @@
       "module": "@nodefony/http",
       "description": "Options d'une session (sous-ensemble de `module.options.session`). Cookie-only : plus de `use_trans_sid`/`use_only_cookies` — un identifiant de session ne voyage JAMAIS dans l'URL (OWASP Session Ma…"
     },
+    "ISessionStoreFailure": {
+      "name": "ISessionStoreFailure",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/sessionStoreFailure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce qu'on répond quand le stockage de session est inutilisable. Une requête doit TOUJOURS recevoir une réponse. La sauvegarde de session a lieu juste avant l'écriture des en-têtes : une exception qu…"
+    },
+    "describeSessionStoreFailure": {
+      "name": "describeSessionStoreFailure",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/session/sessionStoreFailure.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Compose la réponse et le journal d'une panne du stockage de session."
+    },
     "MongooseOrm": {
       "name": "MongooseOrm",
       "kind": "class",
@@ -37583,6 +37600,9 @@
       "sanitizeRequestId": [
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "describeSessionStoreFailure": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
       ],
       "Cookies": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"

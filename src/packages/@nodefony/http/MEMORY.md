@@ -45,6 +45,22 @@ Compteurs sur la socket : `_nfDrops` (cumul, sonde) · `_nfDropStreak` (solde co
 Tests : `unit/wsBackpressure.test.ts` (16) · realtime `unit/backpressureConfig.test.ts` (7)
 · banc réel `ws-backpressure-e2e.mjs` (skill `nodefony-load-test`).
 
+## Store de session en PANNE — la requête répond, jamais elle ne pend
+
+`#doSend` sauve la session **avant** `writeHead()` : une exception qui remonte de là laisse la
+socket ouverte — ni 500, ni 503, le client attend son propre délai et rien ne nomme la cause.
+C'est le mode de défaillance d'une app déployée **sans ses migrations** (`session.store: "auto"`
+retombe sur sqlite dès que l'ORM est chargé). `describeSessionStoreFailure`
+(`src/session/sessionStoreFailure.ts`) compose la conduite : **500** + journal `CRITIC` nommant la
+cause ET le remède (`orm:migrate`) ; le corps servi ne divulgue pas le moteur. `end()` fait de
+même, mais journalise seulement — ses en-têtes sont déjà décidés.
+
+**500 et pas 200** : une session non persistée est une DÉGRADATION, pas une indisponibilité
+passagère — servir 200 laisserait croire que la connexion a été retenue.
+La reconnaissance « table absente » couvre les trois dialectes (aucun code d'erreur commun :
+`no such table` / `does not exist` / `doesn't exist`). Preuve bout-en-bout :
+`tests/integration/session-store-down.test.ts` (route `/nodefony/test/session-rt/broken-store`).
+
 ## Ports — repli automatique (`servers.portPolicy`)
 
 - **Les ports NE sont PAS dans le Zod de ce module** : ils vivent dans la config d'APP (core `config/schema.ts` → `servers.http.port` 5151 / `servers.https.port` 5152, défauts `config/defaults.ts`). Ce module ne fait que les LIRE (`kernel.options.servers`).

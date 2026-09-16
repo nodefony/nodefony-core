@@ -36,6 +36,33 @@ class SessionRuntimeController extends Controller {
     return this.renderJson({ hasSession: this.session != null });
   }
 
+  // ── Stockage en PANNE — la requête doit répondre, jamais pendre ─────────────
+
+  /**
+   * Session ouverte, mais dont la persistance ÉCHOUE — le décor d'une
+   * application déployée sans ses migrations.
+   *
+   * La panne est injectée au point EXACT où elle se produit en vrai : la
+   * sauvegarde, que le pipeline appelle juste avant d'écrire les en-têtes. La
+   * surcharge porte sur CE contexte seulement, donc aucune requête voisine
+   * n'est affectée — remplacer le stockage du service serait un état global.
+   *
+   * Ce qu'on garde ici : une réponse part. Avant le correctif, l'exception
+   * remontait sans que rien ne soit écrit, et le client attendait son propre
+   * délai sans qu'aucun journal ne nomme la cause.
+   */
+  @Get("/broken-store")
+  @UseSession()
+  brokenStore() {
+    const context = this.context as Context & {
+      saveSession: () => Promise<never>;
+    };
+    context.saveSession = () => {
+      return Promise.reject(new Error("SQLITE_ERROR: no such table: session"));
+    };
+    return this.renderJson({ persisted: false });
+  }
+
   // ── Activation par intent déclaré ───────────────────────────────────────────
 
   /** `@UseSession()` simple → session active, identifiant opaque présent. */

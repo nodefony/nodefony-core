@@ -78,6 +78,7 @@ const PERF_PROBE_SUB = process.env.NF_PERF_PROBE === "1";
 type PerfSubMarks = { t0: bigint; uploadNs: number; reqResNs: number };
 
 import type { IHttpContext as IHttpContextInterface } from "../../../interfaces/IContext";
+import { describeSessionStoreFailure } from "../../session/sessionStoreFailure";
 
 class HttpContext extends Context implements IHttpContextInterface {
   //url: string;
@@ -373,11 +374,24 @@ class HttpContext extends Context implements IHttpContextInterface {
     //http.ServerResponse<http.IncomingMessage> | http2.ServerHttp2Stream
     Http2Response | HttpResponse
   > {
-    return this.saveSession().then(async (_session: Session | null) => {
-      return this.close().catch((e) => {
-        throw e;
+    // Même invariant que `send()` : une session qu'on ne sait pas persister ne
+    // doit pas empêcher la réponse de partir. Ici les en-têtes sont déjà
+    // décidés — on ne peut plus basculer en 500 —, donc on JOURNALISE et on
+    // ferme : une réponse servie vaut mieux qu'une socket abandonnée.
+    return this.saveSession()
+      .catch((e) => {
+        this.log(
+          describeSessionStoreFailure(e).message,
+          "CRITIC",
+          "SESSION-STORE",
+        );
+        return null;
+      })
+      .then(async (_session: Session | null) => {
+        return this.close().catch((e) => {
+          throw e;
+        });
       });
-    });
   }
 
   async send(
@@ -424,11 +438,25 @@ class HttpContext extends Context implements IHttpContextInterface {
       // service (2 Promises/req sur le chemin anonyme). Le service refait le
       // même check (`sessions-service.ts` saveSession) — lui reste la source
       // de la logique dirty/touch, ici on évite seulement l'appel à vide.
+      let body = chunk;
       if (this.session != null) {
-        await this.saveSession();
+        try {
+          await this.saveSession();
+        } catch (e) {
+          // 🔴 Une requête reçoit TOUJOURS une réponse. La sauvegarde a lieu
+          // juste avant `writeHead()` : relancer ici — ce que faisait le
+          // `catch` englobant — laissait la socket ouverte, et le client
+          // attendait son propre délai sans qu'aucun journal ne nomme la
+          // cause. C'est le pire mode de défaillance possible pour une
+          // application déployée : l'exploitant cherche du côté du réseau.
+          const failure = describeSessionStoreFailure(e);
+          this.log(failure.message, "CRITIC", "SESSION-STORE");
+          this.response.statusCode = failure.statusCode;
+          body = failure.body;
+        }
       }
-      if (chunk) {
-        this.response?.setBody(chunk);
+      if (body) {
+        this.response?.setBody(body);
       }
       // Hook utilisateur — aucun listener dans le cas nominal : le check évite
       // l'appel async lui-même (fireAsync + emitAsync = 2 Promises), pas
@@ -444,7 +472,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       if (this.isRedirect) {
         return await this.close();
       }
-      return await this.write(chunk, encoding);
+      return await this.write(body, encoding);
     } catch (error) {
       this.log(error, "ERROR");
       throw error;
@@ -512,7 +540,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       await this.fireAsync("onClose", this);
     }
     // END REQUEST
-    // `send()` termine désormais la réponse UNIQUE d'un seul `end(corps)` (cf
+    // `send()` termine désormais la réponse UNIQUE d'un seul `end(body)` (cf
     // Response.send) : rappeler `end()` ici poserait un second appel sur un flux
     // déjà terminé. Node l'ignore, mais il coûte le tick que le correctif vient
     // d'économiser. Le chemin chunké (`flush()`), lui, n'a pas terminé : il
