@@ -10,6 +10,11 @@ import { transformCache } from "../../../../vitest.perf.ts";
  */
 export default defineConfig({
   test: {
+    // Les fichiers se partagent le processus de travail : 20 processus étaient
+    // créés, ~5,95 s de démarrage chacun. Mesuré 4,25 s → 3,50 s, avec 3 runs
+    // verts consécutifs ET un run en ordre aléatoire vert — c'est ce dernier
+    // qui révèle une dépendance à l'état d'un autre fichier.
+    isolate: false,
     ...transformCache,
     globals: true,
     include: ["tests/unit/**/*.test.ts"],

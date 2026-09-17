@@ -16,6 +16,14 @@ import { transformCache } from "../../../../vitest.perf.ts";
  */
 export default defineConfig({
   test: {
+    // 492 modules étaient évalués 792 fois — 58 % du temps de la suite.
+    // Mesuré 35,27 s → 20,77 s (-41 %), 3 runs verts consécutifs.
+    //
+    // ⚠️ La suite tombe en ordre ALÉATOIRE (`--sequence.shuffle`), mais elle y
+    // tombait DÉJÀ avec isolation — 22 échecs contre 13 : la dépendance à
+    // l'ordre des fichiers préexiste et ne vient pas du partage. Elle a son
+    // propre ticket ; ne pas la lui imputer en relisant ceci.
+    isolate: false,
     ...transformCache,
     globals: true,
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
