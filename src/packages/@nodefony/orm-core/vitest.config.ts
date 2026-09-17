@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * vitest + coverage-v8 pour @nodefony/orm-core.
@@ -14,6 +15,7 @@ import { oxcDecorators } from "../../../../vitest.oxc";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["tests/unit/**/*.test.ts"],
     coverage: {

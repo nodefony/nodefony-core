@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
 import { fileURLToPath } from "node:url";
+import { transformCache } from "../../../../vitest.perf";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -15,6 +16,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["nodefony/tests/integration/**/*.test.ts"],
     testTimeout: 10_000,

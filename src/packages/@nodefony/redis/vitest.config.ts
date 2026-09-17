@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * vitest + coverage-v8 pour @nodefony/redis.
@@ -12,6 +13,7 @@ import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     // Deux variables gouvernent l'accès au serveur réel (`REDIS_URL` pour les
     // bancs de pagination, `NF_REDIS_TEST_URL` pour le banc comportemental) : en

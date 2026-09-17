@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
 import { gateReporter, MONGO_GATE } from "../../../../vitest.gates";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * vitest pour @nodefony/mongoose (convention-frère @nodefony/orm-core).
@@ -15,6 +16,7 @@ import { gateReporter, MONGO_GATE } from "../../../../vitest.gates";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["tests/unit/**/*.test.ts", "tests/integration/**/*.test.ts"],
     // UN SEUL mongod partagé pour TOUS les bancs d'intégration (provisionné 1×)

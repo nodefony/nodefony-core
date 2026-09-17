@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * vitest + coverage-v8 pour @nodefony/security.
@@ -8,6 +9,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["tests/unit/**/*.test.ts"],
     coverage: {

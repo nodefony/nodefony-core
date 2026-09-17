@@ -2,6 +2,7 @@ import { defineConfig, configDefaults } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { gateReporter } from "../../../../vitest.gates";
 import type { GateExpectation } from "../../../../vitest.gates";
+import { transformCache } from "../../../../vitest.perf";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -67,6 +68,7 @@ function modeExpectations(): GateExpectation[] {
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     // Aucune cible d'INFRA n'est déclarée ici : cette suite parle à un serveur
     // local, pas à une base. Ce que le rapporteur exige, c'est que les cas

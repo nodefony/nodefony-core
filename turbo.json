@@ -1,6 +1,6 @@
 {
   "$schema": "https://turbo.build/schema.json",
-  "globalDependencies": ["vitest.gates.ts", "vitest.oxc.ts"],
+  "globalDependencies": ["vitest.gates.ts", "vitest.oxc.ts", "vitest.perf.ts"],
   "tasks": {
     "build": {
       "dependsOn": ["^build"],

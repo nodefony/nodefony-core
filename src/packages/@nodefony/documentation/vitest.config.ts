@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * Vitest config — @nodefony/documentation.
@@ -9,6 +10,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     include: ["nodefony/tests/**/*.test.ts"],
     environment: "node",
   },

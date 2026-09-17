@@ -1,5 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../vitest.oxc";
+import { transformCache } from "../../../vitest.perf";
 
 /**
  * vitest pour le module `test`.
@@ -22,6 +23,7 @@ import { oxcDecorators } from "../../../vitest.oxc";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["nodefony/**/*.test.ts"],
     // Le banc de charge sème ~2 000 sociétés et leurs factures avant le premier

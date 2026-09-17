@@ -2,6 +2,7 @@ import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { oxcDecorators } from "../../vitest.oxc";
+import { transformCache } from "../../vitest.perf";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -24,6 +25,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["src/tests/**/*.test.ts"],
     setupFiles: [r("./src/tests/vitest.setup.ts")],

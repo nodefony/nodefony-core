@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * Config Vitest du module — suite UNITAIRE, qui ne frappe jamais le réseau.
@@ -18,6 +19,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     include: ["tests/**/*.test.ts"],
     exclude: ["**/node_modules/**", "**/dist/**", "tests/**/*.e2e.test.ts"],
   },

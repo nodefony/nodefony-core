@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
 import { oxcDecorators } from "../../../../vitest.oxc";
+import { transformCache } from "../../../../vitest.perf";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -22,6 +23,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     // Un worker par FICHIER coûtait la moitié de la suite (spawn + réévaluation du
     // graphe) : `vitest doctor` mesure −40 à −50 % avec des workers partagés, et

@@ -1,6 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc";
 import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
+import { transformCache } from "../../../../vitest.perf";
 
 /**
  * vitest + coverage-v8 pour @nodefony/realtime.
@@ -22,6 +23,7 @@ import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     reporters: [
       "default",

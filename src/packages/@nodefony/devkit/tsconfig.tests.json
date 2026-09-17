@@ -2,6 +2,13 @@
   "extends": "./tsconfig.json",
   "compilerOptions": {
     "noEmit": true,
+    // `rootDir` est hérité à `./` du tsconfig de BUILD, où il borne la structure
+    // de sortie. Ici il n'y a pas de sortie (`noEmit`) : il ne sert plus qu'à
+    // lever `TS6059` dès que `vitest.config.ts` importe un socle de la racine du
+    // dépôt (`vitest.oxc.ts`, `vitest.perf.ts`). Remonté à la racine pour que ce
+    // paquet — le SEUL à typechecker sa configuration Vitest — puisse continuer
+    // de le faire.
+    "rootDir": "../../../..",
     "types": ["node", "vitest/globals"],
     "noUnusedLocals": false,
     "noUnusedParameters": false
