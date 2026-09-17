@@ -765,7 +765,14 @@ describe("agents qui lisent LEUR propre fichier de projet", () => {
       // EEXIST, donc n'est pas rattrapé : la création de l'application entière
       // échouait pour un fichier d'appoint.
       const poses = writeAgentPointers(racine, ["copilot"], "demo");
-      expect(poses).toEqual([".github/copilot-instructions.md"]);
+      // 🔴 Le chemin RENDU se COMPOSE, il ne se littéralise pas. `file` est
+      // DÉCLARÉ en `/` dans la table des agents — c'est un nom que la
+      // documentation de l'éditeur fixe, donc un chemin qui voyage. Ce que cette
+      // fonction RETOURNE, en revanche, est une liste de fichiers posés sur le
+      // disque : elle suit la grammaire de la plateforme, comme toutes les
+      // autres listes du scaffold. Écrit en dur, l'attendu passait sous Linux et
+      // tombait sous Windows — le défaut que ce test existe pour attraper.
+      expect(poses).toEqual([path.join(".github", "copilot-instructions.md")]);
       const contenu = readFileSync(
         path.join(racine, ".github", "copilot-instructions.md"),
         "utf8",
