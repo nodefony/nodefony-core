@@ -7272,6 +7272,22 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         changes.map((c) => path.relative(dest, c.path)),
         r.files,
       );
+      // Et il le porte dans UNE SEULE grammaire de chemin. Deux entrées sur une
+      // quarantaine étaient écrites en `/` littéral pendant que le reste passait
+      // par `path.join` : sous Linux les deux coïncident et rien ne se voit,
+      // sous Windows le plan cesse de correspondre à ce qui est écrit. Cette
+      // garde ne peut donc MORDRE que sur un exécuteur Windows — c'est la forge
+      // qui la voit, et c'est assumé ; la règle elle-même est éprouvée sur les
+      // deux grammaires par `scaffoldCheminsNatifs.test.ts`, sans machine
+      // Windows.
+      const etranger = path.sep === "/" ? "\\" : "/";
+      for (const f of r.files) {
+        assert.notInclude(
+          f,
+          etranger,
+          `« ${f} » mélange les grammaires de chemin (séparateur attendu : « ${path.sep} »)`,
+        );
+      }
       assert.isTrue(changes.every((c) => c.kind === "create"));
       // Le contenu est celui qui SERAIT écrit : il est rendu, pas promis.
       const index = changes.find((c) => c.path.endsWith("index.ts"));

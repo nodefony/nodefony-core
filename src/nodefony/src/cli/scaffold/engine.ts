@@ -753,6 +753,35 @@ const AGENT_ANNEXES: readonly {
 /** Dossier des annexes, relatif à la racine du projet — visible d'un `ls`. */
 const ANNEX_DIR = path.join("agents", "nodefony");
 
+/**
+ * Un chemin DÉCLARÉ en `/` ramené à la grammaire de la plateforme.
+ *
+ * Certains chemins du scaffold sont écrits en `/` à leur source, et c'est
+ * juste : `.github/copilot-instructions.md` est un nom que la documentation de
+ * l'éditeur fixe, `agents/nodefony/` est cité dans l'index d'`AGENTS.md` que
+ * des agents lisent. Ce sont des chemins qui VOYAGENT.
+ *
+ * La liste des fichiers écrits, elle, ne voyage pas : elle est comparée à des
+ * chemins que le disque a rendus, et affichée à quelqu'un qui va les ouvrir.
+ * Tout le reste y arrive par `path.join`, donc en natif. Les deux grammaires se
+ * confondent sous Linux et se séparent sous Windows — c'est exactement ainsi
+ * que le plan du `dry-run` a cessé de correspondre à ce qu'il écrivait, sur les
+ * seuls exécuteurs Windows, pendant que les autres restaient verts.
+ *
+ * La grammaire est un PARAMÈTRE pour que la règle s'éprouve sans machine
+ * Windows : `path.win32` la rend observable depuis n'importe quel poste.
+ *
+ * @param published - le chemin tel qu'il est déclaré, en `/`.
+ * @param grammar - la grammaire de chemins à appliquer (défaut : la plateforme).
+ * @returns le même chemin, composé avec le séparateur de cette grammaire.
+ */
+export function toNativeRelativePath(
+  published: string,
+  grammar: typeof path = path,
+): string {
+  return grammar.join(...published.split("/"));
+}
+
 /** Ce que le template `AGENTS.md` de l'app a besoin de savoir du projet. */
 interface IAgentsData {
   appName: string;
@@ -858,10 +887,12 @@ function renderProjectAgents(
     if (content.includes("<%")) {
       throw new Error(`tag eta résiduel dans l'annexe ${slug}`);
     }
-    // Le chemin PUBLIÉ s'écrit en `/` (il est cité dans l'index de la porte,
-    // que des agents lisent) ; le chemin OUVERT se compose en natif.
-    const relatif = `${ANNEX_DIR.split(path.sep).join("/")}/${slug}.md`;
-    writer.write(path.join(projectRoot, ANNEX_DIR, `${slug}.md`), content);
+    // Le chemin PUBLIÉ s'écrit en `/` — il est cité dans l'index de la porte,
+    // que des agents lisent. Celui qu'on INSCRIT dans la liste des fichiers
+    // écrits se compose en natif, comme tous les autres : cette liste est
+    // confrontée à ce que le disque rend, elle ne voyage nulle part.
+    const relatif = path.join(ANNEX_DIR, `${slug}.md`);
+    writer.write(path.join(projectRoot, relatif), content);
     written.push(relatif);
   }
   // Un pointeur par DIALECTE — dérivé de la table des agents, jamais listé à la
@@ -879,7 +910,11 @@ function renderProjectAgents(
       agents: agents.join(" et "),
     });
     writer.write(target, pointer);
-    written.push(file);
+    // `file` est déclaré en `/` (`.github/copilot-instructions.md` est un nom
+    // que l'éditeur fixe) : il s'OUVRE tel quel, Node acceptant les deux
+    // séparateurs, mais il s'INSCRIT en natif — la liste doit avoir une seule
+    // grammaire, sans quoi elle ne correspond plus à ce que le disque rend.
+    written.push(toNativeRelativePath(file));
   }
 }
 
@@ -948,7 +983,9 @@ export function writeAgentPointers(
       if ((err as NodeJS.ErrnoException).code === "EEXIST") continue;
       throw err;
     }
-    written.push(file);
+    // Même grammaire que partout ailleurs — cette liste est AFFICHÉE à qui va
+    // ouvrir les fichiers, et un chemin natif est celui qu'il peut recopier.
+    written.push(toNativeRelativePath(file));
   }
   return written;
 }

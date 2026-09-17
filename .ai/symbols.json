@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 835,
-    "symbols": 4094,
+    "symbols": 4095,
     "classes": 392,
     "interfaces": 1095,
     "types": 451,
     "enums": 4,
-    "functions": 1744,
+    "functions": 1745,
     "constants": 408
   },
   "symbols": {
@@ -6479,6 +6479,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Complète et VALIDE des réponses partielles contre la spec d'un type : défauts appliqués, patterns vérifiés, choix contraints à leur liste. Le contexte des templates est donc complet PAR CONSTRUCTIO…"
+    },
+    "toNativeRelativePath": {
+      "name": "toNativeRelativePath",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un chemin DÉCLARÉ en `/` ramené à la grammaire de la plateforme. Certains chemins du scaffold sont écrits en `/` à leur source, et c'est juste : `.github/copilot-instructions.md` est un nom que la …"
     },
     "writeAgentPointers": {
       "name": "writeAgentPointers",
