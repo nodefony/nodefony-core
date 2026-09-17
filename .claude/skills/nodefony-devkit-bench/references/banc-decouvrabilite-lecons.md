@@ -21,6 +21,7 @@
 - [Nommer la cause ne suffisait pas : il faut dire À QUI elle est opposable](#nommer-la-cause-ne-suffisait-pas--il-faut-dire-à-qui-elle-est-opposable)
 - [La sécurité ne se juge pas sur une présence de texte](#la-sécurité-ne-se-juge-pas-sur-une-présence-de-texte)
 - [Mesurer qu'on POSE une garde ne dit rien sur celle qu'on RETIRE](#mesurer-quon-pose-une-garde-ne-dit-rien-sur-celle-quon-retire)
+- [Un contenu PRÉSENT peut être inatteignable — et le fichier n'appartient pas au framework](#un-contenu-présent-peut-être-inatteignable--et-le-fichier-nappartient-pas-au-framework)
 - [La matière d'une sonde n'est pas un DIFF — le marqueur `+` a coûté trois passes](#la-matière-dune-sonde-nest-pas-un-diff--le-marqueur--a-coûté-trois-passes)
 
 ### Les sondes s'éprouvent AVANT de juger
@@ -604,3 +605,50 @@ Le correctif fige aussi les deux cas de terrain : **un commentaire du gabarit
 citant `process.argv` est accepté**, un `const args = process.argv.slice(2)`
 reste refusé. Sans cette paire, rien n'empêcherait de « corriger » la sonde en
 la désarmant.
+
+### Un contenu PRÉSENT peut être inatteignable — et le fichier n'appartient pas au framework
+
+**Ce banc a mesuré pendant des semaines la présence d'un contenu que des outils
+réels refusaient d'ouvrir.** Le fichier d'instructions posé dans l'application
+(`AGENTS.md`) est passé de 52,9 à 66,7 Ko en vingt-quatre jours, ~575 octets par
+jour, chaque ajout payé par une tâche de banc et un avant/après chiffré. Le banc
+voyait donc juste : le contenu est là, et il rapporte — 86 % de réussite à
+fichier lu contre 73 % sinon.
+
+Sauf que dans une session réelle, deux agents sur deux ont rendu
+« File too large to read at once (59.3 KB) » et **aucun n'a réessayé**, ni par
+motif, ni par tranches. Les deux phrases les plus rentables du fichier — appeler
+un générateur plutôt qu'écrire à la main — n'ont jamais été lues, et l'agent a
+écrit à la main exactement ces deux choses.
+
+**La leçon pour ce banc** : une sonde qui cherche une chaîne dans un fichier
+rendu prouve que le contenu EXISTE, jamais qu'un agent l'ATTEINDRA. Ce sont deux
+questions, et seule la seconde décide du résultat. Toute sonde qui juge une
+instruction doit donc dire lequel des deux elle mesure — et pour l'atteignabilité,
+le seul juge est un vrai agent sur un vrai fichier.
+
+**La leçon pour le produit**, qui précède la précédente : `AGENTS.md` appartient à
+l'**application**, pas au framework. Nodefony y écrivait 99,4 % — 430 octets sur
+66 689 laissés à l'utilisateur, dans une zone préservée en fin de page. Un
+framework qui remplit le fichier d'instructions de son utilisateur lui prend sa
+place, et se condamne à arbitrer sans fin entre « ce contenu est payé » et « ce
+fichier est trop gros ». La frontière juste n'est pas un seuil : c'est la
+propriété. Les instructions du framework vivent dans SON dossier, régénérable en
+bloc ; `AGENTS.md` reste court et revient à qui de droit.
+
+**Ce que le banc doit garder quand ce découpage arrive** (ticket #389) :
+
+- **Le taux de réussite prime sur la taille.** Le seuil est le 86 % mesuré à
+  fichier lu. Un découpage qui le fait chuter est un mauvais découpage — c'est
+  lui qu'on jette, jamais le contenu.
+- **Mesurer l'annexe OUVERTE, pas l'annexe POSÉE.** Un fichier d'annexe que
+  personne n'ouvre est exactement le défaut qu'on vient de corriger, déplacé d'un
+  cran. La sonde doit constater une LECTURE dans le transcript, pas l'existence du
+  fichier sur le disque.
+- **L'index nomme le DÉCLENCHEUR, pas le fichier.** « Tu touches à la sécurité →
+  `agents/nodefony/verites-securite.md` » se suit ; « les vérités sont dans X » ne
+  se suit pas. C'est vérifiable sur le rendu, et ça vaut d'être gardé.
+- **Ce qui reste dans la porte est ce dont l'agent ignore avoir besoin.** Les
+  anti-préjugés (« le container DI est PROTOTYPAL ») ne se déportent pas : un
+  agent qui les ignore écrit du faux avec confiance et ne cherchera jamais
+  l'annexe qui le concerne.

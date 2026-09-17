@@ -335,8 +335,8 @@ connexions.</p>` +
                     ? "non conclusif"
                     : soak.verdict,
               sub: soak.empreinteSource
-                ? `${soak.minutes} min sous charge — empreinte à ${nb(soak.footprintSlopeMbPerHour, 2)} Mo/h, tas JS à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h`
-                : `${soak.minutes} min sous charge — tas JS plat à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h ; empreinte système non relevée sur ce run`,
+                ? `${Math.round(soak.observedMinutes ?? soak.minutes)} min sous charge — empreinte à ${nb(soak.footprintSlopeMbPerHour, 2)} Mo/h, tas JS à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h`
+                : `${Math.round(soak.observedMinutes ?? soak.minutes)} min sous charge — tas JS plat à ${nb(soak.heapSlopeMbPerHour, 2)} Mo/h ; empreinte système non relevée sur ce run`,
             },
           ].filter(Boolean),
         ),

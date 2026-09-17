@@ -171,14 +171,14 @@ const fuiteLabel = tasMonte
       ? "non conclusif"
       : "aucune";
 const fuiteSub = tasMonte
-  ? `tas +${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.heapR2, 2)}) sur ${soak.minutes} min`
+  ? `tas +${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.heapR2, 2)}) sur ${Math.round(soak.observedMinutes ?? soak.minutes)} min`
   : empreinteMonte
-    ? `tas stable mais empreinte système +${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.footprintR2, 2)}) sur ${soak.minutes} min`
+    ? `tas stable mais empreinte système +${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h (R² ${fmt.dec(soak.footprintR2, 2)}) sur ${Math.round(soak.observedMinutes ?? soak.minutes)} min`
     : !aEmpreinte && rssMonte
       ? `run ancien : seul <code>rss</code> relevé (+${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h), or il inclut les pages déjà rendues au noyau — l'empreinte système n'a pas été mesurée`
       : artefact
-        ? `${soak.minutes} min de trafic continu · empreinte plate (+${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h) ; le <code>rss</code> monte de ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, dont ${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} % de pages réutilisables`
-        : `${soak.minutes} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`;
+        ? `${Math.round(soak.observedMinutes ?? soak.minutes)} min de trafic continu · empreinte plate (+${fmt.dec(soak.footprintSlopeMbPerHour, 1)} MB/h) ; le <code>rss</code> monte de ${fmt.dec(soak.rssSlopeMbPerHour, 1)} MB/h, dont ${fmt.dec((soak.reclaimableSlopeMbPerHour / soak.rssSlopeMbPerHour) * 100, 0)} % de pages réutilisables`
+        : `${Math.round(soak.observedMinutes ?? soak.minutes)} min de trafic continu · tas sans tendance (R² ${fmt.dec(soak.heapR2, 2)})`;
 
 const kept = soak.samples.slice(soak.skipped);
 const p99s = kept.map((s) => s.p99Ms).sort((a, b) => a - b);
@@ -292,7 +292,7 @@ const verdict = section(
      <strong>${fmt.dec(ratioRps, 0)} %</strong> du débit pour <strong>+${fmt.dec(deltaP99, 2)} ms</strong>
      de p99. L'écart avec un serveur nu ne mesure pas une lenteur : il mesure le travail que le serveur nu
      ne fait pas.</p>
-     <p>Sur ${soak.minutes} minutes de charge continue, ${
+     <p>Sur ${Math.round(soak.observedMinutes ?? soak.minutes)} minutes de charge continue, ${
        tasMonte
          ? `le tas monte de ${fmt.dec(soak.heapSlopeMbPerHour, 1)} MB/h`
          : "le tas ne monte pas"
@@ -389,7 +389,7 @@ const comparatif = section(
 
 const tenue = section(
   "Ce que la durée révèle",
-  `<p>${soak.minutes} minutes de trafic continu, ${kept.length} fenêtres retenues sur
+  `<p>${Math.round(soak.observedMinutes ?? soak.minutes)} minutes de trafic continu, ${kept.length} fenêtres retenues sur
    ${soak.samples.length} (les premières sont écartées : un tas monte jusqu'à son régime). Ce banc
    cherche une <strong>pente</strong>, pas un écart entre deux mesures bruitées.</p>` +
     // ── DE QUOI la mémoire résidente est-elle FAITE ? ────────────────────
@@ -723,7 +723,7 @@ const limites = section(
     `<p>Un rapport qui ne montre que ses bons résultats rassure au lieu d'aider à décider. Les limites
      de cette campagne, nommées :</p>
      <ul>
-       <li><strong>${soak.minutes} minutes ne sont pas trois jours.</strong> Ce soak élimine les fuites
+       <li><strong>${Math.round(soak.observedMinutes ?? soak.minutes)} minutes ne sont pas trois jours.</strong> Ce soak élimine les fuites
            grossières. Une fuite lente — quelques mégaoctets par heure — resterait invisible ici et
            tuerait un pod au bout d'une semaine.</li>
        <li><strong>Aucune valeur ABSOLUE n'est transposable.</strong> Poste de développement, macOS,

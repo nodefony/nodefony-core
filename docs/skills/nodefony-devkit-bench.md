@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-14
+updated: 2026-09-17
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -70,7 +70,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/agents-et-porte-mcp.md` | Décor d'un run : quel AGENT, et quelle PORTE MCP | 376 |
-| `references/banc-decouvrabilite-lecons.md` | Banc de découvrabilité — leçons et études de cas | 607 |
+| `references/banc-decouvrabilite-lecons.md` | Banc de découvrabilité — leçons et études de cas | 655 |
 | `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
 | `references/tache-zero.md` | La TÂCHE 0 du banc de découvrabilité — l'agent crée l'application | 219 |

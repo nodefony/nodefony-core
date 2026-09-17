@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-16T20:48:41.072Z",
+  "generatedAt": "2026-09-17T05:17:52.626Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 96,
+      "closed": 98,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 23,
+      "open": 21,
       "title": "10.0.0-alpha"
     },
     {
@@ -2996,8 +2996,8 @@
       "number": 255,
       "title": "test(release): contrôler les README publiés avant chaque publication",
       "url": "https://github.com/nodefony/nodefony-core/issues/255",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3012,8 +3012,8 @@
       "number": 381,
       "title": "fix(http): ne pas laisser pendre une requête quand la session échoue",
       "url": "https://github.com/nodefony/nodefony-core/issues/381",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,

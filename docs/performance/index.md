@@ -179,18 +179,24 @@ reste une part à peu près constante du budget.
 
 ## La tenue dans la durée — et le compteur qu'il ne faut pas lire
 
-Un banc de dix secondes ne voit pas une fuite lente. Celui-ci a tourné **90 minutes** sous trafic
-continu, dans le décor de cette campagne (hyperviseur éteint, Node v26.8.1), pour 62,9 millions de
+Un banc de dix secondes ne voit pas une fuite lente. Celui-ci a tourné **88 minutes** sous trafic
+continu, dans le décor de cette campagne (hyperviseur éteint, Node v26.8.1), pour 64,3 millions de
 requêtes servies. Le processus n'accumule rien.
+
+Toutes les lignes du tableau viennent **d'un seul run** : durée, empreinte, descripteurs et
+ventilation. La version précédente de cette page composait la durée d'une campagne avec l'empreinte
+d'une autre — les deux disaient vrai, mais une composition n'est pas une mesure, et rien sur la page
+ne disait où passait la couture.
 
 | Grandeur                          | Mesure                                         | Lecture                               |
 | --------------------------------- | ---------------------------------------------- | ------------------------------------- |
-| Tas JS (`heapUsed`)               | 44,2 → 45,7 MB · pente +0,6 MB/h (R² 0,39)     | **plat** — aucune fuite JS            |
-| **Empreinte système** (macOS)     | **164 → 164 MB** · pente +5,1 MB/h (R² 0,49)   | **plate** — rien n'est retenu         |
-| dont pages **réutilisables**      | 33 → 76 MB · +73,6 MB/h (R² 0,97)              | **93 % de ce que `rss` affiche**      |
-| Mémoire résidente (`rss`)         | 242,1 → 407,1 MB · +108,6 MB/h                 | ⚠️ **compte les pages réutilisables** |
+| Tas JS (`heapUsed`)               | 43,9 → 44,7 MB · pente +0,2 MB/h (R² 0,41)     | **plat** — aucune fuite JS            |
+| **Empreinte système** (macOS)     | **162 → 166 MB** · pente +3,8 MB/h (R² 0,67)   | **plate** — rien n'est retenu         |
+| dont pages **réutilisables**      | 37 → 177 MB · +84,1 MB/h (R² 0,98)             | **96 % de ce que `rss` affiche**      |
+| Mémoire résidente (`rss`)         | 245,3 → 389,9 MB · +87,8 MB/h (R² 0,98)        | ⚠️ **compte les pages réutilisables** |
 | Blocs natifs injoignables         | 37 blocs, **3 216 octets** sur 20,7 M requêtes | rien                                  |
 | Descripteurs (sockets, minuteurs) | 5 → 5, aucun type en hausse                    | rien ne s'accumule                    |
+| Débit                             | 11 964 → 12 458 rps (**+4,1 %**)               | aucune érosion — le débit MONTE       |
 | Empreinte système (Linux)         | 23,6 M requêtes → **+1,5 MB** (R² 0,28)        | **plate** — aucune tendance           |
 
 **Pourquoi deux chiffres pour une seule mémoire.** Sous macOS, `process.memoryUsage().rss` rend
@@ -202,11 +208,18 @@ bouge pas.
 
 La ventilation le nomme sans ambiguïté : la hausse tient entièrement dans la colonne
 _Reclaimable_ de la zone `MALLOC_MEDIUM`, pendant que la mémoire sale de l'allocateur reste fixe à
-40 MB et que toutes les autres zones sont plates.
+40 MB et que toutes les autres zones sont plates. Le résident **propre** — pages mappées et
+partageables — ne bouge pas non plus : 44 MB au début, 44 MB à la fin.
 
-Rapportée à la charge, la consommation réelle vaut **0,12 MB par million de requêtes** sous macOS
-et **0,06 sous Linux** — c'est la grandeur qui se transpose d'une machine à l'autre, contrairement
-aux MB/h, qui suivent le débit.
+Rapportée à la charge, la consommation réelle vaut **0,062 MB par million de requêtes** sous macOS
+et **0,064 sous Linux** — c'est la grandeur qui se transpose d'une machine à l'autre, contrairement
+aux MB/h, qui suivent le débit. Les deux systèmes consomment donc la **même** chose ; seul le
+compteur `rss` les sépare, et il ne mesure pas une consommation.
+
+Le même rapport calculé sur `rss` vaut 2,25 MB par million de requêtes. C'est l'ordre de grandeur
+qu'ont rendu les trois campagnes successives — 2,05, 2,25 et 2,62 — dont la dernière avait été lue
+comme une régression d'un facteur 4,8. Elle n'en était pas une : c'est le régime normal de ce
+compteur sur macOS, et sa variance.
 
 > 🔬 **Ce dossier a publié l'inverse pendant trois semaines, et le dit.** Le banc ne relevait que
 > `rss` : il a conclu à une rampe de +108,6 MB/h « sans plateau », un ticket P0 a été ouvert

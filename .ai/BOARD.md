@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-16 20:48** (UTC).
+> Empreinte prise le **2026-09-17 05:17** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 81% | 96 | 23 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 82% | 98 | 21 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 18% | 7 | 33 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 4 | 30 | 2026-12-15 |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#255 — test(release): contrôler les README publiés avant chaque publication**
+**#388 — chore(release): publier la préversion 10.0.0-alpha.7**
 
-Ordre 8.5 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-18 → 09-18
+Ordre 9 · P0 — bloque le reste · 12 j · jalon 10.0.0-alpha · frise 2026-09-15 → 09-30
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 23 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -85,12 +85,10 @@ Ordre 8.5 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 23 ouverts
+## Jalon 10.0.0-alpha — 21 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 8.5 | P1 — figé à la création | 1 | 2026-09-18 → 09-18 | #255 | test(release): contrôler les README publiés avant chaque publication |
-| 8.7 | P1 — figé à la création | 1 | 2026-09-18 → 09-19 | #381 | fix(http): ne pas laisser pendre une requête quand la session échoue |
 | 9 | P0 — bloque le reste | 12 | 2026-09-15 → 09-30 | #388 | chore(release): publier la préversion 10.0.0-alpha.7 |
 | 9.2 | P0 — bloque le reste | 1 | 2026-09-15 → 09-15 | #389 | docs(scaffold): rendre les instructions d'agent lisibles par tout outil |
 | 9.25 | P0 — bloque le reste | 0.5 | 2026-09-15 → 09-15 | #394 | fix(cli): faire filtrer inspect routes par l'argument annoncé |

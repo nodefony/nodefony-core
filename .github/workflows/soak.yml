@@ -67,7 +67,7 @@ on:
   workflow_dispatch:
     inputs:
       minutes:
-        description: "Durée de charge en minutes (sous 10, le verdict est INDÉTERMINÉ par construction)"
+        description: "Durée de charge en minutes — entre 10 et 150 (sous 10 le verdict est INDÉTERMINÉ ; au-delà de 150 la forge ne peut plus tenir le job)"
         required: false
         default: "30"
       conn:
@@ -129,9 +129,40 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-    timeout-minutes: 60
+    # 🔴 Le plafond SUIT la durée demandée — il était écrit en dur à 60, si bien
+    # qu'un `minutes=90` partait, se faisait annuler à 60 min 17 s, et ne rendait
+    # AUCUN artefact : deux heures de forge pour rien, et rien pour le dire.
+    #
+    # Le facteur 2 n'est pas une marge de confort : une fenêtre de N secondes
+    # coûte bien plus que N secondes (sondes, rafales wrk, GC forcé, attente de
+    # retombée de la charge). Mesuré sur ce banc : 90 minutes demandées ont pris
+    # 153 minutes de mur. Les 40 minutes fixes couvrent le checkout, le build et
+    # la remontée des artefacts.
+    #
+    # L'entrée est bornée à 150 en tête de job : 150 × 2 + 40 = 340, sous le
+    # plafond de 360 minutes des exécuteurs hébergés. Accepter davantage
+    # reproduirait le défaut un cran plus loin.
+    timeout-minutes: ${{ fromJSON(github.event.inputs.minutes || '30') * 2 + 40 }}
 
     steps:
+      # Une consigne qu'on ne peut pas tenir se REFUSE au départ, elle ne se
+      # découvre pas à l'annulation. Ce contrôle ne coûte rien et rend la borne
+      # OBSERVABLE : sans lui, la seule trace d'un dépassement est un job tué
+      # sans artefact, que rien n'explique.
+      - name: La durée demandée est-elle tenable ?
+        shell: bash
+        env:
+          NF_SOAK_MINUTES: ${{ github.event.inputs.minutes || '30' }}
+        run: |
+          if [ "$NF_SOAK_MINUTES" -gt 150 ] 2>/dev/null; then
+            echo "::error title=Durée intenable::${NF_SOAK_MINUTES} min demandées. Le job est plafonné à ${NF_SOAK_MINUTES}×2+40 minutes, au-delà de ce qu'un exécuteur hébergé tient (360). Demander 150 au plus, ou découper la campagne."
+            exit 1
+          fi
+          if [ "$NF_SOAK_MINUTES" -lt 10 ] 2>/dev/null; then
+            echo "::warning title=Verdict INDÉTERMINÉ::${NF_SOAK_MINUTES} min : sous 10 minutes le banc ne conclut pas, par construction. Le run ira au bout, son verdict ne dira rien."
+          fi
+          echo "durée demandée : ${NF_SOAK_MINUTES} min · plafond du job : $((NF_SOAK_MINUTES * 2 + 40)) min"
+
       - name: Checkout
         uses: actions/checkout@v7
 
