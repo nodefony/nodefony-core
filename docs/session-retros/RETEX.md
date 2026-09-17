@@ -90,6 +90,16 @@ shell : la notification de tâche de fond qui annonce « exit code 0 » sur un r
 calculée sur un extrait, `awk` qui compte des octets, la mesure lancée en fond qui date de son
 exécution.
 
+- [3× — 09-17b] 🔴 **Cinq instruments faux en une séance, et quatre fois le même geste : une sortie
+  tronquée ou une erreur masquée, lue comme une réponse.** (1) `grep -l $(liste de 1020 fichiers)`
+  dépassait `ARG_MAX` et `2>/dev/null` avalait « argument list too long » → « 0 transcript »
+  parfaitement faux ; (2) `xargs -a` n'existe pas sur BSD, même masque, même zéro ; (3) `grep -E`
+  avec `\|` cherche le PIPE littéral → quatre comptages à 0 sur un corpus plein ; (4) `timeout`
+  n'existe pas sur macOS → trois modèles déclarés « sans réponse » sans qu'aucun appel ait eu lieu ;
+  (5) `head -6` a coupé la sortie d'un agent juste après ses avertissements → conclusion « il ne
+  répond pas » démentie par le user. **La règle qui les couvre tous : ne jamais rediriger stderr
+  quand on interprète un compte, et ne jamais conclure sur une sortie qu'on a tronquée soi-même.**
+
 ## 🗄️ 🧑‍⚖️ Un AUDIT + 🕶️ relire EN AVEUGLE — GRADUÉ
 
 > Gradué le 2026-09-10 — 7 frictions RÉUNIES → **`feedback_outside_look_finds_what_green_hides`** : le regard extérieur (audit des jointures, USAGE réel, relecture en aveugle privée de mes conclusions) trouve ce qu'une suite verte ne peut pas voir. Ne PAS réécrire ici.
@@ -474,11 +484,27 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   Voisin gradué : [[feedback_source_over_memory]] — ici la MÊME règle, appliquée à une dépendance
   externe et non à notre code.
 
+- [1× — 09-17b] **Un fait sur un client TIERS se périme sans prévenir, et rien dans le dépôt ne le
+  signale.** Notre table affirmait « codex : pas de skills », sourcée « rien dans son paquet
+  (0.149.0) » — exact à la date de l'écriture, faux deux versions plus tard : le binaire 0.154 porte
+  191 occurrences de `SKILL.md`, un validateur de frontmatter, et les chemins `~/.codex/skills` ET
+  `.agents/skills`. Ces lignes se relisent quand on met un agent à jour, **jamais quand on édite le
+  fichier qui les porte** — donc jamais. Le user l'a flairé sur une intuition (« c'est bizarre »),
+  pas moi sur une relecture.
+
 ## 🧪 Un banc comparatif dont les camps dérivent — GRADUÉ
 
 → [[feedback_measure_method]] (7 frictions) : contrôler ce que chaque camp CHARGE et pas seulement
 ce qu'il écrit (deux instances du même ORM = +46 % faux), et se demander si la grandeur mesurée est
 celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
+
+- [1× — 09-17b] 🔴 **J'ai comparé deux mécanismes qui n'avaient pas la même FENÊTRE D'EXISTENCE, et
+  j'ai failli en tirer une décision d'architecture.** « Les `references/` et les annexes sont à zéro
+  sur 1020 transcripts » : vrai pour les premières (présentes depuis le 08-08), vide de sens pour les
+  secondes, créées la VEILLE — elles n'avaient que 2 transcripts pour exister. C'est le user qui l'a
+  relevé. Le contrôle qui manquait tient en une commande : `git log --diff-filter=A` sur chaque
+  brique comparée, AVANT de mettre deux chiffres dans la même colonne. Corollaire : trois tâches
+  plus tard, les trois mécanismes avaient servi au moins une fois chacun.
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
@@ -492,6 +518,15 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   sur un job plafonné en dur à 60 : le run partait, mourait à 60 min 17 s, et ne rendait AUCUN artefact — la
   seule trace était un job tué sans explication. Le plafond dérive maintenant de l'entrée, et une garde refuse
   au-delà de ce que la forge tient. Un défaut par ACCEPTATION est plus coûteux qu'un refus.
+
+- [1× — 09-17b] 🔴 **J'ai REPRODUIT, le lendemain, le faux vert que j'avais corrigé la veille.** La
+  sonde « a ouvert une annexe » avait été réparée le 09-17 pour exiger un APPEL D'OUTIL, avec le
+  motif écrit en quinze lignes de commentaire juste au-dessus. Le jour suivant, j'ai écrit la sonde
+  voisine (`docs.mjs`) sur le CHEMIN NU — elle a rendu vert sur deux runs où le script n'avait jamais
+  tourné, les correspondances venant de la ligne d'`AGENTS.md` que l'agent venait de lire. Avoir
+  NOMMÉ le piège, et l'avoir nommé à cet endroit précis, n'a pas protégé : seul un cas de contrôle
+  l'aurait fait. C'est l'argument entier du selftest — il a d'ailleurs refusé le motif dès qu'on
+  le lui a donné.
 
 ## 🧹 Entretenir le SAS est un geste qui se rate comme un autre
 
