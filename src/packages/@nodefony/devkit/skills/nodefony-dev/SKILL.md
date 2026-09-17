@@ -234,3 +234,24 @@ npm run test:e2e      # boot réel + HTTP/WS — le gate LENT, hors `verify`
 Puis, en une phrase : **nomme ce que tu n'as PAS lancé.** Un vert ne couvre que le diff qui l'a
 produit, et un banc sauté faute de son décor compte comme vert. Dire « e2e non lancé » coûte
 cinq mots ; le taire coûte la confiance dans tout le reste.
+
+Quatre règles de plus, chacune payée par une conclusion fausse qu'on a crue. Elles ne parlent
+pas de ce framework en particulier — elles parlent de la façon dont une preuve se fabrique.
+
+- 🔴 **Ta preuve porte sur l'artefact qu'on REÇOIT, pas sur ce que tu viens d'écrire.** Le
+  runtime charge `dist/`, une image embarque ce que le `Dockerfile` a copié, un paquet publié
+  contient ce que `files` laisse passer. Et avant de mesurer, vérifie que la transformation a
+  bien EU LIEU (date, empreinte) : dans une chaîne `a && b && c`, un maillon qui échoue laisse
+  mesurer l'ancienne version — et « prouver » qu'un correctif ne change rien.
+- 🔴 **Un test que tu n'as jamais vu ROUGE ne prouve rien.** Écris-le, puis casse exprès ce
+  qu'il garde : retire le correctif, débranche le câblage. S'il reste vert, il ne mesure pas ce
+  que tu crois. Remets, et alors seulement crois-le. Un test écrit face au code déjà corrigé est
+  complaisant par construction.
+- **Un décor SALE fabrique des verdicts faux** : un serveur resté ouvert sur le port, une base
+  jamais purgée, une variable d'environnement absente. Avant d'accuser ton code, qualifie le
+  rouge sur un décor NEUF — sinon tu corriges un problème qui n'existe pas, et tu laisses
+  intact celui qui existe.
+- **Suspecte ton instrument avant de suspecter le code.** Une commande qui rend « 0 résultat »,
+  un compteur à zéro, un journal vide : demande-toi d'abord si l'outil regarde au bon endroit.
+  Une sortie tronquée, un filtre trop étroit, un chemin qui n'existe plus ne s'annoncent jamais
+  — ils rendent un silence qui ressemble à une réponse.
