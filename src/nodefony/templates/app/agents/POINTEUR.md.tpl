@@ -10,3 +10,8 @@
 > d'écrire un fichier, vérifie qu'un générateur ne le produit pas**
 > (`npx nodefony create --help`) — et **avant de dire « fait »,
 > `npm run verify`** : un `npm test` vert ne typecheck RIEN.
+>
+> **Et charge le skill `nodefony-dev`** : il porte la conduite d'une tâche dans
+> ce framework et dit lequel des skills spécialisés prendre. Si ton outil ne
+> charge pas les skills, lis
+> `node_modules/@nodefony/devkit/skills/nodefony-dev/SKILL.md`.

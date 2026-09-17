@@ -15,6 +15,15 @@ description: >
 
 # protect-route — la garde vient du framework, jamais de l'action
 
+> 🧭 **Tu es arrivé ici directement ? Charge aussi `nodefony-dev`** — il porte la conduite
+> commune (par où commencer, comment prouver que c'est fait) et les pièges qui coûtent une heure,
+> serveur comme front. Cette page-ci ne couvre QUE son geste.
+>
+> Et si une réponse te manque, elle est probablement INSTALLÉE : `rg` ne descend pas dans
+> `node_modules`, donc 70 pages de documentation y paraissent absentes. Une commande les lit, avec
+> la ligne exacte :
+> `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
+
 > ⚖️ **La confiance n'exclut pas le contrôle.** Une route qui « répond 403 quand je teste » n'est
 > pas une route protégée. Le seul juge est un appel avec **trois identités**.
 

@@ -20,6 +20,15 @@ metadata:
 
 # Faire évoluer un schéma, et le porter en production
 
+> 🧭 **Tu es arrivé ici directement ? Charge aussi `nodefony-dev`** — il porte la conduite
+> commune (par où commencer, comment prouver que c'est fait) et les pièges qui coûtent une heure,
+> serveur comme front. Cette page-ci ne couvre QUE son geste.
+>
+> Et si une réponse te manque, elle est probablement INSTALLÉE : `rg` ne descend pas dans
+> `node_modules`, donc 70 pages de documentation y paraissent absentes. Une commande les lit, avec
+> la ligne exacte :
+> `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
+
 ## 1. La seule chose à savoir avant tout le reste
 
 **En développement, il n'y a rien à faire.** La base suit le code : la table naît au démarrage, et

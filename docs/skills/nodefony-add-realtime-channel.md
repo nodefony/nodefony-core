@@ -27,8 +27,8 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKIL
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Autres |
-| Corps | 84 lignes |
-| Coût d'activation | ~984 tokens (le corps est chargé à l'invocation) |
+| Corps | 93 lignes |
+| Coût d'activation | ~1 121 tokens (le corps est chargé à l'invocation) |
 | Description | 702 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s) |
@@ -74,7 +74,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 84 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 93 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

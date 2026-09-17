@@ -2528,6 +2528,42 @@ const SAMPLES = {
       },
     ],
   },
+  "qualité :: a chargé UN skill du framework": {
+    pass: {
+      transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"nodefony-protect-route"}}`,
+    },
+    fail: {
+      transcript: `{"type":"text","text":"je vais écrire le controller à la main"}`,
+    },
+    extra: [
+      {
+        // Le cas qui a fait naître cette sonde : un SPÉCIALISTE chargé sans
+        // passer par le généraliste est une RÉUSSITE de découvrabilité, pas un
+        // manque — la sonde du seul `nodefony-dev` la comptait rouge.
+        label: "un spécialiste pris directement",
+        matter: {
+          transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"nodefony-add-crud"}}`,
+        },
+        expect: true,
+      },
+      {
+        // Un skill qui n'est pas du framework ne compte pas.
+        label: "un skill étranger au framework",
+        matter: {
+          transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"git-helper"}}`,
+        },
+        expect: false,
+      },
+      {
+        // Le nom cité par la porte reste une citation, pas un chargement.
+        label: "le nom cité, jamais chargé",
+        matter: {
+          transcript: `{"type":"text","text":"charge le skill nodefony-dev avant de coder"}`,
+        },
+        expect: false,
+      },
+    ],
+  },
   "qualité :: a chargé le skill nodefony-dev": {
     pass: {
       transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"nodefony-dev"}}`,

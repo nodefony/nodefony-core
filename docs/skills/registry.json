@@ -7092,8 +7092,8 @@
       ],
       "description": "Crée une ressource complète dans une application Nodefony — table, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, au lieu de l'écrire à la main. Porte la grammaire de champs (types, relations, index simples et composites), les réglages pour épouser une table SQL existante, et les trois vérités qu'on découvre autrement en production : la table naît au démarrage, un champ ajouté n'est rattrapé que s'il accepte le vide, et la production s'applique par des migrations — dont le cycle complet vit dans le skill `nodefony-migrate-schema`. À charger AVANT d'écrire une entité, un repository ou un controller de ressource. Déclencheurs : \"ajoute une entité\", \"crée un CRUD\", \"nouvelle table\", \"modèle de données\", \"ressource REST\", \"endpoint CRUD\", \"je veux stocker des articles/commandes/utilisateurs\", \"comment définir un champ\", \"une relation entre deux entités\", \"index composite\", \"épouser une table existante\", \"renommer les colonnes en snake_case\".",
       "cost": {
-        "bodyLines": 184,
-        "approxTokens": 2500
+        "bodyLines": 193,
+        "approxTokens": 2637
       },
       "requires": [],
       "resources": {
@@ -7164,7 +7164,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "184",
+            "detail": "193",
             "advisory": true
           }
         ]
@@ -7199,8 +7199,8 @@
       ],
       "description": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main. Porte la façon de fermer un canal à certains rôles, le piège du canal public par défaut, celui du canal dont le nom est calculé, et la façade cliente à employer côté navigateur. À charger AVANT d'écrire du code WebSocket, un canal, ou un abonnement client. Déclencheurs : \"flux temps réel\", \"websocket\", \"canal\", \"push\", \"notifications en direct\", \"abonnement\", \"RealtimeController\", \"@RealtimeChannel\", \"socket client\", \"temps réel privé\", \"réserver un canal à un rôle\", \"mon canal est public\", \"diffuser à plusieurs onglets\".",
       "cost": {
-        "bodyLines": 84,
-        "approxTokens": 984
+        "bodyLines": 93,
+        "approxTokens": 1121
       },
       "requires": [],
       "resources": {
@@ -7269,7 +7269,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "84",
+            "detail": "93",
             "advisory": true
           }
         ]
@@ -7302,8 +7302,8 @@
       ],
       "description": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au constructeur ou `container.get` à l'usage), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre. Déclencheurs : \"crée un service\", \"un service métier\", \"logique métier partagée\", \"injecter une dépendance\", \"container.get\", \"@injectable\", \"@services\", \"appeler un service depuis un autre\", \"mon service est undefined\", \"le conteneur ne trouve pas mon service\".",
       "cost": {
-        "bodyLines": 78,
-        "approxTokens": 983
+        "bodyLines": 87,
+        "approxTokens": 1120
       },
       "requires": [],
       "resources": {
@@ -7372,7 +7372,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "78",
+            "detail": "87",
             "advisory": true
           }
         ]
@@ -7405,8 +7405,8 @@
       ],
       "description": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur jetable. Porte les sondes prêtes à l'emploi, le thème clair ou sombre — un défaut d'affichage n'existe souvent que dans l'un des deux —, et les pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, ou observer un bundle qui n'est plus celui du code. Sait aussi piloter un socket temps réel de bout en bout. À charger AVANT de conclure quoi que ce soit sur un écran. Déclencheurs : \"regarde l'écran\", \"vérifie l'affichage\", \"est-ce que ça s'affiche ?\", \"lis la console\", \"y a-t-il des erreurs JS ?\", \"mesure le contraste\", \"capture d'écran\", \"vérifie l'accessibilité\", \"audit WCAG\", \"en mode sombre\", \"la page est-elle rapide ?\", \"quelles requêtes fait la page ?\", \"teste le socket\".",
       "cost": {
-        "bodyLines": 416,
-        "approxTokens": 6285
+        "bodyLines": 425,
+        "approxTokens": 6422
       },
       "requires": [
         "serveur UP",
@@ -7667,7 +7667,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "416",
+            "detail": "425",
             "advisory": true
           }
         ]
@@ -7681,7 +7681,7 @@
       "name": "nodefony-dev",
       "summary": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche.",
       "family": "Autres",
-      "version": "1.0.0",
+      "version": "1.1.0",
       "keywords": [],
       "triggers": [
         "je veux ajouter une fonctionnalité",
@@ -7689,20 +7689,20 @@
         "par où je commence",
         "où est la doc de ça",
         "comment ça marche ici",
-        "quelle est la bonne façon de faire",
-        "je dois modifier cette application",
         "avant de coder",
         "est-ce que j'écris ça à la main",
-        "où lire avant de toucher au code",
         "comment vérifier que c'est bon",
         "mon changement est-il fini",
         "je ne trouve rien sur ce sujet",
-        "ce n'est pas documenté"
+        "ce n'est pas documenté",
+        "je touche au frontend",
+        "mon composant charge des données",
+        "mon écran n'affiche rien"
       ],
-      "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"quelle est la bonne façon de faire\", \"je dois modifier cette application\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"où lire avant de toucher au code\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\".",
+      "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 129,
-        "approxTokens": 2236
+        "bodyLines": 219,
+        "approxTokens": 3705
       },
       "requires": [],
       "resources": {
@@ -7776,7 +7776,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1005",
+            "detail": "1018",
             "advisory": false
           },
           {
@@ -7818,7 +7818,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "129",
+            "detail": "219",
             "advisory": true
           }
         ]
@@ -7857,8 +7857,8 @@
       ],
       "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\".",
       "cost": {
-        "bodyLines": 338,
-        "approxTokens": 5508
+        "bodyLines": 347,
+        "approxTokens": 5646
       },
       "requires": [],
       "resources": {
@@ -7929,7 +7929,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "338",
+            "detail": "347",
             "advisory": true
           }
         ]
@@ -7965,8 +7965,8 @@
       ],
       "description": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon d'ouvrir une route à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la configuration de sécurité. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"zone protégée\", \"403\", \"401\", \"un rôle qui en implique un autre\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"origine refusée\", \"@CsrfExempt\", \"API pour un programme\", \"clé d'API\", \"désactiver la sécurité pour tester\".",
       "cost": {
-        "bodyLines": 182,
-        "approxTokens": 2255
+        "bodyLines": 191,
+        "approxTokens": 2392
       },
       "requires": [],
       "resources": {
@@ -8035,7 +8035,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "182",
+            "detail": "191",
             "advisory": true
           }
         ]

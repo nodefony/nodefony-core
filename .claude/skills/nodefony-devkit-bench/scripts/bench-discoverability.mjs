@@ -1297,6 +1297,24 @@ export const SONDES_QUALITE = [
     observe: true,
   },
   {
+    // 🔴 LA question de découvrabilité, et la sonde suivante ne la posait pas.
+    // Mesuré sur trois tâches : l'agent a chargé `nodefony-dev` deux fois, et
+    // la troisième il a pris `nodefony-protect-route` — LE spécialiste exact de
+    // sa tâche, sans passer par le généraliste. Compté sur le seul
+    // `nodefony-dev`, ce run ressortait « 2/3 » ; il vaut 3/3, et le cas
+    // « manqué » était le meilleur comportement des trois.
+    //
+    // Ce relevé mesure donc ce qui compte : l'agent a-t-il trouvé UN skill du
+    // framework plutôt que d'improviser ? Savoir LEQUEL appartient aux sondes
+    // de la tâche, qui exigent déjà le bon geste — générateur appelé, garde du
+    // framework posée.
+    kind: "transcript",
+    name: "a chargé UN skill du framework",
+    pattern:
+      /"skill"\s*:\s*"nodefony-[a-z-]+"|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-[a-z-]+\/SKILL\.md"/u,
+    observe: true,
+  },
+  {
     // Le skill GÉNÉRALISTE livré aux applications — celui qui répond à « comment
     // développe-t-on ici ? ». Deux gestes le rendent atteignable, et ce relevé
     // ne fait pas la différence entre eux : l'INVOCATION par l'outil de skills

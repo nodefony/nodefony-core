@@ -207,7 +207,7 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme · ⚙️ 4 scripts · 📎 2 réf" },
   { "icon": "🔧", "title": "dev", "href": "skills/nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "protect-route", "href": "skills/nodefony-protect-route.md",
     "desc": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon…",
     "meta": "🟢 conforme" }

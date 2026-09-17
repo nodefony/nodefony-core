@@ -13,6 +13,15 @@ description: >
 
 # add-realtime-channel — le temps réel par sa couche
 
+> 🧭 **Tu es arrivé ici directement ? Charge aussi `nodefony-dev`** — il porte la conduite
+> commune (par où commencer, comment prouver que c'est fait) et les pièges qui coûtent une heure,
+> serveur comme front. Cette page-ci ne couvre QUE son geste.
+>
+> Et si une réponse te manque, elle est probablement INSTALLÉE : `rg` ne descend pas dans
+> `node_modules`, donc 70 pages de documentation y paraissent absentes. Une commande les lit, avec
+> la ligne exacte :
+> `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
+
 > ⚖️ **La confiance n'exclut pas le contrôle.** Un canal sans politique est **public par
 > construction** — c'est le comportement voulu du framework, pas un oubli. Ce qui n'est pas
 > déclaré fermé est ouvert.
