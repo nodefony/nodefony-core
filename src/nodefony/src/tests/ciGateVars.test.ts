@@ -130,16 +130,21 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
 
     for (const bloc of blocs) {
       const texte = bloc.join("\n");
-      const paquet =
-        /working-directory:\s*src\/packages\/@nodefony\/([\w-]+)/.exec(
+      // Le CŒUR est un espace de travail comme un autre, et il porte lui aussi
+      // un `gateReporter` (Loki, OpenSearch). Le motif ne regardait que
+      // `src/packages/@nodefony/…` : une passe filtrée du cœur échappait donc à
+      // cette règle, alors que c'est exactement la même — et c'est le genre
+      // d'angle mort qu'on ne découvre qu'en rendant la forge rouge.
+      const espace =
+        /working-directory:\s*(src\/packages\/@nodefony\/[\w-]+|src\/nodefony)\s*$/m.exec(
           texte,
         )?.[1];
       const filtree = /vitest run\s+\S*\.test\.ts/.test(texte);
-      if (!paquet || !filtree) continue;
+      if (!espace || !filtree) continue;
 
-      // Le paquet impose-t-il des preuves ? (un `gateReporter` dans sa config)
+      // Cet espace impose-t-il des preuves ? (un `gateReporter` dans sa config)
       const configs = ["vitest.config.ts", "vitest.integration.config.ts"]
-        .map((c) => path.join(REPO_ROOT, "src/packages/@nodefony", paquet, c))
+        .map((c) => path.join(REPO_ROOT, espace, c))
         .filter((p) => existsSync(p));
       const garde = configs.some((p) =>
         readFileSync(p, "utf8").includes("gateReporter"),
@@ -147,12 +152,12 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
       if (!garde) continue;
 
       const nom = STEPS.exec(bloc[0] as string)?.[1] ?? "?";
-      it(`${file} — « ${nom} » (@nodefony/${paquet})`, () => {
+      it(`${file} — « ${nom} » (${espace})`, () => {
         assert.include(
           texte,
           "NF_GATES_ALLOW",
-          `ce step ne joue que certains fichiers de @nodefony/${paquet}, dont ` +
-            `le gateReporter attend les preuves de la suite ENTIÈRE. Sans ` +
+          `ce step ne joue que certains fichiers de ${espace}, dont le ` +
+            `gateReporter attend les preuves de la suite ENTIÈRE. Sans ` +
             `NF_GATES_ALLOW, la passe échouera en réclamant des bancs qu'elle ` +
             `ne joue pas — énoncer l'absence, elle ne s'oublie pas.`,
         );

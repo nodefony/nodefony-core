@@ -52,6 +52,8 @@ import {
   MYSQL_GATE,
   REDIS_GATE,
   MONGO_GATE,
+  LOKI_GATE,
+  OPENSEARCH_GATE,
   MYSQL_COMMUNITY_GATE,
   gateEnv,
   gateUpCommand,
@@ -61,7 +63,19 @@ import {
 } from "../vitest.gates";
 
 const ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
-const GATES: readonly EnvGate[] = [PG_GATE, MYSQL_GATE, REDIS_GATE, MONGO_GATE];
+// Loki et OpenSearch sont ici pour la même raison que les bases : le cœur
+// DÉCLARE désormais les attendre (`src/nodefony/vitest.config.ts`), donc une
+// passe qui ne les lève pas laisse quatre cas muets et le dit. Les omettre
+// ferait de cette commande — celle qu'on tape sans réfléchir — la seule qui ne
+// sache pas satisfaire une exigence du dépôt.
+const GATES: readonly EnvGate[] = [
+  PG_GATE,
+  MYSQL_GATE,
+  REDIS_GATE,
+  MONGO_GATE,
+  LOKI_GATE,
+  OPENSEARCH_GATE,
+];
 
 // ── Présentation ────────────────────────────────────────────────────────────
 const C = {
@@ -136,6 +150,21 @@ function dockerAvailable(): boolean {
  * base distante, un port inhabituel, un serveur managé. Le script ne l'écrase
  * jamais.
  */
+/**
+ * L'URL répond-elle ? `false` sur tout refus, jamais une exception.
+ *
+ * Un serveur qui démarre refuse la connexion, puis répond 503, puis 200 : les
+ * trois sont des états NORMAUX de l'attente, pas des erreurs à propager.
+ */
+async function respond(url: string): Promise<boolean> {
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(2000) });
+    return res.ok;
+  } catch {
+    return false;
+  }
+}
+
 async function prepare(
   gate: EnvGate,
   useDocker: boolean,
@@ -183,6 +212,22 @@ async function prepare(
     if (!containerHealthy(gate.service.name)) {
       process.stdout.write(`${C.red("pas sain")}\n`);
       return { gate, ready: false, reason: "conteneur jamais devenu sain" };
+    }
+    process.stdout.write(`${C.green("prêt")}\n`);
+  }
+
+  // Sonde côté HÔTE, quand l'image ne peut pas en porter (cf `EnvGate.readyUrl`).
+  // Un conteneur distroless est « sain » dès qu'il tourne : sans cette attente,
+  // Loki reçoit son premier envoi pendant qu'il rend encore 503.
+  if (gate.readyUrl && !(await respond(gate.readyUrl))) {
+    process.stdout.write(`  ${C.dim("→")} attente ${gate.label}… `);
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline && !(await respond(gate.readyUrl))) {
+      await new Promise((r) => setTimeout(r, 1000));
+    }
+    if (!(await respond(gate.readyUrl))) {
+      process.stdout.write(`${C.red("muet")}\n`);
+      return { gate, ready: false, reason: "serveur jamais devenu joignable" };
     }
     process.stdout.write(`${C.green("prêt")}\n`);
   }

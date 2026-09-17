@@ -111,6 +111,16 @@ export interface EnvGate {
    * de l'appel. Rien n'est donc lu tant qu'on n'en a pas besoin.
    */
   values: () => Record<string, string>;
+  /**
+   * URL à interroger sur l'HÔTE pour savoir que le serveur est prêt.
+   *
+   * À poser quand l'image ne PEUT pas porter de sonde docker — une image
+   * distroless n'a ni `/bin/sh` ni `curl`, donc `docker inspect` rend
+   * éternellement « none », que le serveur réponde ou non. Sans cette URL, un
+   * conteneur à peine démarré est déclaré prêt et les premiers cas échouent sur
+   * un refus qui parle du réseau au lieu du code.
+   */
+  readyUrl?: string;
   /** Note libre affichée sous le mode d'emploi (variante, piège connu). */
   note?: string;
 }

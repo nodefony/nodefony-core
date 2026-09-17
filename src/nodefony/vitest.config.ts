@@ -3,6 +3,11 @@ import { fileURLToPath } from "node:url";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import { oxcDecorators } from "../../vitest.oxc.ts";
 import { transformCache } from "../../vitest.perf.ts";
+import {
+  gateReporter,
+  LOKI_GATE,
+  OPENSEARCH_GATE,
+} from "../../vitest.gates.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -27,6 +32,30 @@ export default defineConfig({
   test: {
     ...transformCache,
     globals: true,
+    // Les DEUX serveurs de logs que le cœur sait alimenter — et que rien
+    // n'exigeait.
+    //
+    // `LogBackplaneE2E.test.ts` se saute sans ses URL et rend `0` : quatre cas
+    // muets comptés comme verts. Deux passes de la forge nommaient pourtant
+    // `NF_LOKI_TEST_URL` et `NF_OPENSEARCH_TEST_URL` dans `NF_GATES_ALLOW`,
+    // c'est-à-dire ÉCARTAIENT une attente que personne n'avait déclarée : ce
+    // fichier n'avait aucun `reporters`, donc aucun rapporteur de gates. Un
+    // renoncement écrit contre une exigence absente ne garde rien.
+    //
+    // `proof` porte sur le nom COMPLET d'un cas PASSÉ (`fullName`), pas sur la
+    // présence de la variable : c'est ce qui distingue « le décor était là » de
+    // « le décor a SERVI ». Les motifs sont les titres des deux suites.
+    //
+    // Conséquence assumée : toute passe du cœur qui ne lève pas ces serveurs
+    // doit ÉNONCER l'absence (`NF_GATES_ALLOW`), et l'échec est bloquant sous
+    // `CI`. Le décor lui-même vit dans `orm.yml`, tâche « Backplane de logs ».
+    reporters: [
+      "default",
+      gateReporter([
+        { gate: LOKI_GATE, proof: "Loki réel" },
+        { gate: OPENSEARCH_GATE, proof: "OpenSearch réel" },
+      ]),
+    ],
     include: ["src/tests/**/*.test.ts"],
     setupFiles: [r("./src/tests/vitest.setup.ts")],
     // ⏱️ Plafond d'ATTENTE, pas seuil de mesure — la distinction décide si

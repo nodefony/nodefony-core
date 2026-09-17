@@ -560,9 +560,11 @@ jobs:
       #
       # Depuis que le rapporteur des gates fait échouer une passe dont une cible
       # déclarée n'a pas tourné, ce job doit dire ce qu'il ne couvre pas : il
-      # tourne sur TROIS systèmes d'exploitation, on n'y montera pas trois bases
-      # de données. Ces cibles sont exercées par `orm.yml`, sur Linux, avec le
-      # décor complet — elles ne sont donc pas perdues, elles sont AILLEURS.
+      # tourne sur TROIS systèmes d'exploitation, on n'y montera ni trois bases
+      # de données ni deux serveurs de logs. Ces cibles sont exercées par
+      # `orm.yml`, sur Linux, avec le décor complet — les bases par la tâche
+      # « Stores », Loki et OpenSearch par « Backplane de logs ». Elles ne sont
+      # donc pas perdues, elles sont AILLEURS.
       #
       # Ce n'est pas un interrupteur pour faire taire un rouge : chaque nom
       # ajouté ici est une couverture qu'on renonce à obtenir ICI, et le rapport
@@ -616,7 +618,15 @@ jobs:
       - name: Build workspaces
         run: npm run build
 
+      # `test:boot` du cœur est un `vitest run` : il porte donc le rapporteur de
+      # gates de `src/nodefony/vitest.config.ts`, qui exige Loki et OpenSearch.
+      # Ce travail éprouve le BINAIRE `nodefony` sur deux systèmes — y monter
+      # deux serveurs de logs ne dirait rien de plus sur le lanceur. L'absence
+      # est donc énoncée, et elle reste NOMMÉE dans le rapport de fin de passe.
+      # Ces deux cibles sont exercées par `orm.yml`, tâche « Backplane de logs ».
       - name: Filet CLI (NF_RUN_CLI_BOOT)
+        env:
+          NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
         run: npm run test:boot
 
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────

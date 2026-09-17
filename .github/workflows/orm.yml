@@ -48,6 +48,18 @@ on:
       # workers, que le banc autonome ne couvre pas.
       - "src/nodefony/src/service/cluster/**"
       - "src/nodefony/src/tests/support/**"
+      # Le backplane de logs et le banc qui l'éprouve. Les deux transports et
+      # leurs pilotes de relecture n'ont AUCUNE autre passe qui les joigne à un
+      # vrai serveur : hors de cette liste, les modifier ne réveillerait rien et
+      # la seule preuve qui les couvre resterait muette.
+      - "src/nodefony/src/syslog/**"
+      - "src/nodefony/src/tests/LogBackplaneE2E.test.ts"
+      # La configuration qui DÉCLARE les attentes de gate du cœur : la casser
+      # rendrait le silence vert à nouveau.
+      - "src/nodefony/vitest.config.ts"
+      # Le décor lui-même — ce travail lève les serveurs par le compose du
+      # dépôt, il n'en a pas de second.
+      - "docker/docker-compose.yml"
       # Les actions locales qui LÈVENT le décor de ces bancs. Les casser doit
       # rejouer ce qui s'en sert : sans ces chemins, un décor dégradé n'était
       # constaté qu'au prochain commit touchant un paquet — sur une cause
@@ -75,6 +87,18 @@ on:
       # workers, que le banc autonome ne couvre pas.
       - "src/nodefony/src/service/cluster/**"
       - "src/nodefony/src/tests/support/**"
+      # Le backplane de logs et le banc qui l'éprouve. Les deux transports et
+      # leurs pilotes de relecture n'ont AUCUNE autre passe qui les joigne à un
+      # vrai serveur : hors de cette liste, les modifier ne réveillerait rien et
+      # la seule preuve qui les couvre resterait muette.
+      - "src/nodefony/src/syslog/**"
+      - "src/nodefony/src/tests/LogBackplaneE2E.test.ts"
+      # La configuration qui DÉCLARE les attentes de gate du cœur : la casser
+      # rendrait le silence vert à nouveau.
+      - "src/nodefony/vitest.config.ts"
+      # Le décor lui-même — ce travail lève les serveurs par le compose du
+      # dépôt, il n'en a pas de second.
+      - "docker/docker-compose.yml"
       # Les actions locales qui LÈVENT le décor de ces bancs. Les casser doit
       # rejouer ce qui s'en sert : sans ces chemins, un décor dégradé n'était
       # constaté qu'au prochain commit touchant un paquet — sur une cause
@@ -361,6 +385,99 @@ jobs:
       - name: Realtime — fan-out cross-process (IPC) et cross-pod (Redis)
         working-directory: src/packages/@nodefony/realtime
         run: npm test
+
+  # ────────────────────────────────────────────────────────────────────────────
+  # Backplane de logs — deux serveurs que le cœur sait alimenter, et qu'aucune
+  # passe n'avait jamais joints.
+  #
+  # `LogBackplaneHttp.test.ts` prouve le FORMAT contre un `fetch` mocké : que
+  # nous ÉMETTONS bien du LogQL, du NDJSON `_bulk`, un `_search`. Un double dit
+  # ce qu'on envoie, jamais ce qui est ACCEPTÉ — labels refusés, fenêtre de
+  # rejet des horodatages, mapping d'index : tout cela ne se découvre que sur un
+  # vrai serveur. Les quatre cas qui le font vivent dans `LogBackplaneE2E`, ils
+  # se sautaient faute d'URL, et un saut compte comme vert. La passe principale
+  # écartait même ces deux cibles par `NF_GATES_ALLOW` — contre une exigence que
+  # personne n'avait déclarée.
+  #
+  # Pourquoi `docker compose` et non `services:` : Loki est DISTROLESS (pas de
+  # `/bin/sh`, pas de `curl`), donc il ne peut porter aucune sonde de santé que
+  # GitHub sache attendre — c'est écrit dans le compose, et un `services:` le
+  # marquerait `unhealthy` à vie. OpenSearch, lui, exige des `ulimits`. Les
+  # décrire ici en serait une SECONDE définition, qui dériverait de celle du
+  # développement sans que rien ne le dise ; le compose est déjà la source
+  # unique, ce travail l'utilise telle quelle.
+  # ────────────────────────────────────────────────────────────────────────────
+  logs:
+    name: Backplane de logs sur serveurs réels (Loki · OpenSearch)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    env:
+      # Forme des URL : `vitest.gates.ts` (source unique, `LOKI_GATE` et
+      # `OPENSEARCH_GATE`). Les ports sont ceux que le compose publie sur
+      # l'hôte ; ce travail tourne sur le runner, pas dans un conteneur.
+      NF_LOKI_TEST_URL: http://127.0.0.1:3100
+      NF_OPENSEARCH_TEST_URL: http://127.0.0.1:9200
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      # La commande EXACTE de `vitest.gates.ts` et du fichier de banc — celle
+      # qu'un développeur tape en local. Un décor qui se devine se monte de
+      # travers.
+      - name: Lever Loki et OpenSearch (compose du dépôt)
+        run: >-
+          docker compose -f docker/docker-compose.yml
+          --profile loki --profile opensearch up -d loki opensearch
+
+      # Sondage côté HÔTE, la seule voie possible pour Loki (cf le compose).
+      # Sans cette attente, la suite partirait avant l'ouverture des ports et
+      # rendrait un rouge qui parle de connexion refusée au lieu du code — le
+      # faux négatif classique de ce genre de décor.
+      - name: Attendre que les deux serveurs répondent
+        shell: bash
+        run: |
+          for cible in "Loki|$NF_LOKI_TEST_URL/ready" \
+                       "OpenSearch|$NF_OPENSEARCH_TEST_URL"; do
+            nom="${cible%%|*}"; url="${cible##*|}"
+            for i in $(seq 1 60); do
+              if curl -fsS "$url" >/dev/null 2>&1; then
+                echo "✅ $nom répond ($url) après ${i}s"; break
+              fi
+              if [ "$i" -eq 60 ]; then
+                echo "❌ $nom muet après 60s — journaux :"
+                docker compose -f docker/docker-compose.yml \
+                  --profile loki --profile opensearch logs --tail 50
+                exit 1
+              fi
+              sleep 1
+            done
+          done
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      # Passe FILTRÉE d'un paquet dont la configuration porte un `gateReporter` :
+      # ce qu'elle n'exerce pas doit être ÉNONCÉ. Ici la liste est VIDE, et c'est
+      # un constat, pas une facilité — les deux seules attentes du cœur sont
+      # Loki et OpenSearch, et ce sont précisément les deux que ce travail lève.
+      # Le rapporteur exige un cas PASSÉ par serveur : un décor levé mais muet
+      # fait échouer cette tâche au lieu de la laisser verte.
+      - name: Backplane de logs — écriture et relecture contre les vrais serveurs
+        working-directory: src/nodefony
+        env:
+          NF_GATES_ALLOW: ""
+        run: npx vitest run src/tests/LogBackplaneE2E.test.ts
 
   # ────────────────────────────────────────────────────────────────────────────
   # Coupures RÉELLES de base — le seul décor qui prouve ce qu'un driver FAIT
