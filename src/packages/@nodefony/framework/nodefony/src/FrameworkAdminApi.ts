@@ -3,6 +3,7 @@ import type {
   IAdminApi,
   IAdminEndpoint,
   IAdminDescriptor,
+  IAdminRequest,
   IFilterSpec,
   IPage,
 } from "nodefony";
@@ -146,6 +147,34 @@ export function createFrameworkAdminApi(
    * une barre de recherche que le serveur refuse en 400.
    */
   const SEARCHABLE = true;
+  /**
+   * **Le** prédicat de recherche des routes — UNE implémentation, deux appels.
+   *
+   * `routes/page` s'en sert pour son `q`, et `routes` (le dump plat) pour le
+   * `q` que la commande `inspect` lui passe. Recopier la liste des champs
+   * balayés ferait diverger les deux portes en silence : on chercherait dans
+   * la console sur un champ que la ligne de commande ignore, sans qu'aucune
+   * erreur ne le dise.
+   *
+   * @param r - la route sérialisée.
+   * @param needle - le motif, DÉJÀ en minuscules (le comparer est le travail
+   *   de l'appelant, qui l'a normalisé une fois pour toute la collection).
+   * @returns `true` si le motif apparaît dans l'un des champs balayés.
+   */
+  const matchesSearch = (r: RouteDump, needle: string): boolean =>
+    [
+      r.methods.join(","),
+      r.path,
+      r.name,
+      r.controller,
+      r.action,
+      r.module,
+      r.bypassFirewall ? "bypass" : "protected",
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase()
+      .includes(needle);
   /** Valeur d'une colonne pour le tri/filtre serveur (clés = colonnes du front). */
   const cell = (r: RouteDump, key: string): string => {
     switch (key) {
@@ -216,8 +245,25 @@ export function createFrameworkAdminApi(
     {
       path: "routes",
       summary:
-        "All registered routes (Router dump) — name, path, methods, controller",
-      handler: () => Router.routes.map(serializeRoute),
+        "All registered routes (Router dump) — name, path, methods, controller. " +
+        "Optional ?q= narrows the dump (path, name, controller, action, module, methods).",
+      // 🔴 `q` est LU, pas seulement toléré. Sans lui, `nodefony inspect routes
+      // auth` rendait les 370 routes de l'application : l'argument `[cible]`
+      // était annoncé par l'aide et jeté en silence. Un agent a alors tronqué
+      // la sortie, conclu qu'aucune route d'authentification n'existait, et
+      // réimplémenté à la main ce que le framework servait déjà.
+      //
+      // Le dump reste PLAT et NON paginé — c'est ce qui distingue cet endpoint
+      // de `routes/page` : on veut ici la liste entière d'un périmètre, pas une
+      // fenêtre dedans. La recherche, elle, est le MÊME prédicat que la console
+      // applique (`matchesSearch`), jamais une seconde écriture.
+      handler: (request: IAdminRequest) => {
+        const needle = one(request.query.q)?.toLowerCase() ?? "";
+        const rows = Router.routes.map(serializeRoute);
+        return needle === ""
+          ? rows
+          : rows.filter((r) => matchesSearch(r, needle));
+      },
     },
     {
       path: "routes/page",
@@ -259,23 +305,7 @@ export function createFrameworkAdminApi(
         }
 
         let rows = Router.routes.map(serializeRoute);
-        if (search) {
-          rows = rows.filter((r) =>
-            [
-              r.methods.join(","),
-              r.path,
-              r.name,
-              r.controller,
-              r.action,
-              r.module,
-              r.bypassFirewall ? "bypass" : "protected",
-            ]
-              .filter(Boolean)
-              .join(" ")
-              .toLowerCase()
-              .includes(search),
-          );
-        }
+        if (search) rows = rows.filter((r) => matchesSearch(r, search));
         for (const f of filters) {
           rows = rows.filter((r) => matchOp(cell(r, f.key), f.op, f.value));
         }

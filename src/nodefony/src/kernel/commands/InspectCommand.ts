@@ -33,6 +33,23 @@ const options: OptionsCommandInterface = {
 };
 
 /**
+ * Les sujets qui portent un trait donné, DÉRIVÉS du registre.
+ *
+ * L'aide de la commande nomme les sujets qui prennent un argument. La dériver
+ * est la seule façon qu'elle ne mente pas : une liste recopiée serait juste le
+ * jour où on l'écrit, et fausse au premier sujet qui gagne ou perd sa cible —
+ * exactement la faute que ce ticket répare, une aide qui promet ce que le code
+ * ne fait pas.
+ *
+ * @param trait - `param` (argument exigé) ou `filter` (argument facultatif).
+ * @returns les noms de sujets concernés, dans l'ordre du registre.
+ */
+const subjectsWith = (trait: "param" | "filter"): string[] =>
+  Object.entries(INSPECT_SUBJECTS)
+    .filter(([, spec]) => spec[trait] !== undefined)
+    .map(([name]) => name);
+
+/**
  * Traduit un échec de lecture en code de sortie POSIX.
  *
  * La lecture (`readAdminSubject`) dit POURQUOI ; c'est à chaque porte de le
@@ -42,6 +59,9 @@ const options: OptionsCommandInterface = {
 const EXIT_BY_FAILURE: Record<InspectFailure, number> = {
   "unknown-subject": SysExit.USAGE,
   "missing-target": SysExit.USAGE,
+  // Un argument de trop est une faute d'usage, au même titre qu'un argument
+  // manquant : la commande est mal FORMÉE, l'application n'y est pour rien.
+  "target-not-supported": SysExit.USAGE,
   "producer-missing": SysExit.UNAVAILABLE,
   "endpoint-missing": SysExit.UNAVAILABLE,
   "handler-failed": SysExit.SOFTWARE,
@@ -104,7 +124,16 @@ class Inspect extends Command {
       "[sujet]",
       `sujet : ${Object.keys(INSPECT_SUBJECTS).join(" | ")}`,
     ).choices(Object.keys(INSPECT_SUBJECTS));
-    this.addArgument("[cible]", "paramètre du sujet (ex : le nom d'un module)");
+    // La cible sert DEUX sujets qui ne l'emploient pas pareil : un paramètre
+    // exigé (`module <nom>`) ou un filtre facultatif (`routes auth`,
+    // `schema http`). L'aide le dit, sinon le lecteur croit l'argument réservé
+    // au premier cas — et il DÉRIVE du registre : une liste écrite à la main
+    // mentirait au premier sujet qui gagne ou perd sa cible.
+    this.addArgument(
+      "[cible]",
+      `argument du sujet — exigé par : ${subjectsWith("param").join(", ")} ; ` +
+        `restreint : ${subjectsWith("filter").join(", ")}`,
+    );
     this.addOption("-j, --json", "sortie JSON (scriptable)");
 
     // ⚠️ POSÉ DANS LE CONSTRUCTEUR, ET PAS AILLEURS : le syslog est branché au

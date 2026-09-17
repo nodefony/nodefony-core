@@ -63,6 +63,13 @@ export const INSPECT_SUBJECTS: Record<string, IInspectSubject> = {
     namespace: "framework",
     path: "routes",
     summary: "toutes les routes (chemin, méthodes, controller, action)",
+    // La cible restreint le dump — `inspect routes auth` ne rend que les routes
+    // dont le chemin, le nom, le controller, l'action, le module ou les méthodes
+    // portent `auth`. Sans cette déclaration, l'argument annoncé par l'aide
+    // était reçu puis jeté : la commande rendait les centaines de routes de
+    // l'application, on tronquait la sortie, et on en concluait l'absence de ce
+    // qu'on venait précisément d'y chercher.
+    filter: "q",
   },
   modules: {
     namespace: "kernel",
@@ -132,6 +139,15 @@ export type InspectFailure =
   | "unknown-subject"
   /** Le sujet exige un paramètre qui n'a pas été fourni. */
   | "missing-target"
+  /**
+   * Une cible a été fournie à un sujet qui n'en consomme aucune.
+   *
+   * Distinct de `unknown-subject` : le sujet existe et sa lecture aurait
+   * abouti. Le refus porte sur le SILENCE qu'on remplace — ignorer la cible
+   * rendait le sujet ENTIER, c'est-à-dire la réponse d'une autre question, et
+   * celui qui l'a posée la lit comme la sienne.
+   */
+  | "target-not-supported"
   /** Le module qui sert ce sujet n'est pas chargé dans cette application. */
   | "producer-missing"
   /** Le producteur existe mais ne déclare pas cet endpoint (version ?). */
@@ -376,6 +392,23 @@ export async function readAdminSubject(
       ok: false,
       reason: "missing-target",
       message: `« ${subject} » attend un argument : ${spec.param}`,
+    };
+  }
+  // 🔴 Une cible qu'aucun sujet ne consomme se REFUSE, elle ne se jette pas.
+  // Le silence rendait le sujet entier sous un code de succès : l'appelant
+  // croyait lire une réponse restreinte, et c'était la collection complète —
+  // le pire des deux mondes, puisque rien ne le distingue d'un filtre qui ne
+  // matche rien. On nomme les sujets qui, eux, acceptent un argument.
+  if (target && !spec.param && !spec.filter) {
+    const accepting = Object.entries(INSPECT_SUBJECTS)
+      .filter(([, s]) => s.param ?? s.filter)
+      .map(([name]) => name);
+    return {
+      ok: false,
+      reason: "target-not-supported",
+      message:
+        `« ${subject} » ne prend aucun argument — « ${target} » serait ignoré. ` +
+        `Sujets qui en acceptent un : ${accepting.join(", ")}`,
     };
   }
 

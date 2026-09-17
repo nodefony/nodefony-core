@@ -32932,6 +32932,7 @@
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
         "src/modules/test/nodefony/admin/TestAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
