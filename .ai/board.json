@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T14:36:03.801Z",
+  "generatedAt": "2026-09-17T15:06:12.898Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 7,
+      "closed": 8,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -4991,8 +4991,8 @@
       "number": 405,
       "title": "fix(devkit-bench): lire le journal d'un agent qui ne l'écrit pas sur sa sortie",
       "url": "https://github.com/nodefony/nodefony-core/issues/405",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
