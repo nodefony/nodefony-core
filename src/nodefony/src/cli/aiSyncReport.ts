@@ -92,7 +92,17 @@ export interface IAiSyncPlan {
  * | vibe   | oui                  | `vibe/core/paths/_local_config_files.py` (`_AGENTS_SKILLS_SUBDIR`) |
  * | gemini | oui, **en priorité** | `@google/gemini-cli` `bundle/docs/cli/skills.md` |
  * | claude | non                  | mesuré — d'où {@link CLAUDE_SKILLS_DIR}         |
- * | codex  | pas de skills        | rien dans son paquet (0.149.0)                  |
+ * | codex  | oui, depuis 0.154    | `.agents/skills` et `~/.codex/skills` dans le binaire ; son invite système cite « a SKILL.md, AGENTS.md, memory » |
+ *
+ * ⚠️ **La ligne de codex a été FAUSSE pendant une version.** Elle disait « pas
+ * de skills — rien dans son paquet (0.149.0) », ce qui était exact à la date où
+ * on l'a écrite et ne l'était plus deux versions plus tard. Un fait sur un
+ * client TIERS se périme sans prévenir, et rien dans ce dépôt ne le signale :
+ * ces lignes se relisent quand on met un agent à jour, pas quand on édite ce
+ * fichier. Ce qui est CONSTATÉ ici, ce sont les chaînes présentes dans le
+ * binaire 0.154 ; le chargement effectif n'a PAS pu être éprouvé — aucun modèle
+ * n'était accessible au compte utilisé (« The 'gpt-5.4-mini' model is not
+ * supported when using Codex with a ChatGPT account »).
  *
  * Gemini est explicite sur la préférence : à niveau égal, « the `.agents/skills/`
  * alias takes precedence over the `.gemini/skills/` directory ». Poser en plus
