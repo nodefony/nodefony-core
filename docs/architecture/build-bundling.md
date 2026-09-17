@@ -441,7 +441,7 @@ La commande (`frontend-build.ts:22`) est faite pour un pipeline d'intégration :
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | **Idempotent**                       | Une entrée dont le manifeste est plus récent que ses sources est ignorée (`FrontendService.ts:560`) |
 | **`--force`**                        | Reconstruit tout, sans test de fraîcheur                                                            |
-| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:769`)                              |
+| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:785`)                              |
 | **Code de sortie**                   | Passe à `1` s'il reste un échec (`frontend-build.ts:103`) — la CI casse                             |
 
 ### Publier les assets — `assets:publish`

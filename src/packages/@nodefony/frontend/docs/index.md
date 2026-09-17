@@ -558,7 +558,7 @@ garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:56`).
 
 **Les familles démarrent indépendamment.** Si Angular échoue, React continue de fonctionner : le
 démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendService.startDev()`,
-`FrontendService.ts:316`).
+`FrontendService.ts:339`).
 
 ### Résilience — ce qui se passe quand Vite tombe
 
@@ -567,11 +567,11 @@ les processus meurent.
 
 | Situation                  | Réponse                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
-| Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:276`)               |
+| Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:297`)               |
 | Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:674`)         |
 | Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:599`)    |
 | Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                             |
-| Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:245`) |
+| Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:266`) |
 | Arrêt du kernel            | `SIGINT`, puis `SIGKILL` après 3 s — aucun zombie ne bloque le port (`ViteProcessSupervisor.ts:26`)   |
 
 Deux subtilités valent d'être connues, parce qu'elles expliquent des comportements sinon
@@ -689,7 +689,7 @@ Dans une application générée par `nodefony create app`, tu n'as pas à y pens
 **`npm run build` construit l'application entière** — le backend (rolldown) puis le front (il
 chaîne `nodefony frontend:build`). Un seul geste avant `npm start` ou dans un pipeline.
 
-`FrontendService.build()` (`FrontendService.ts:761`) appelle Vite **entrée par entrée**, et non une
+`FrontendService.build()` (`FrontendService.ts:799`) appelle Vite **entrée par entrée**, et non une
 fois pour toutes. Ce n'est pas un détail : chaque bundle a sa racine, son dossier de sortie, sa base
 et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole Angular.
 
@@ -825,7 +825,7 @@ Sur le chemin chaud du rendu, trois précautions :
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
 - les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts:912`) — sans quoi les relances les accumuleraient.
+  (`trackListener()`, `ViteProcessSupervisor.ts:961`) — sans quoi les relances les accumuleraient.
 
 La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
 (`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.
