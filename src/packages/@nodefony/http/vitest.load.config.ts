@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter } from "../../../../vitest.gates";
+import { gateReporter } from "../../../../vitest.gates.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 

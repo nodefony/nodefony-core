@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { oxcDecorators } from "../../../../vitest.oxc";
-import { transformCache } from "../../../../vitest.perf";
+import { oxcDecorators } from "../../../../vitest.oxc.ts";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 

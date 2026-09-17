@@ -9,6 +9,11 @@
     // paquet — le SEUL à typechecker sa configuration Vitest — puisse continuer
     // de le faire.
     "rootDir": "../../../..",
+    // Les socles de la racine s'importent avec leur extension `.ts` — Vite
+    // l'exige pour son chargeur de configuration natif, qui deviendra le défaut
+    // (#410). TypeScript ne l'accepte que sous ce drapeau, lui-même conditionné
+    // à `noEmit` : rien n'est émis ici, la condition est remplie.
+    "allowImportingTsExtensions": true,
     "types": ["node", "vitest/globals"],
     "noUnusedLocals": false,
     "noUnusedParameters": false

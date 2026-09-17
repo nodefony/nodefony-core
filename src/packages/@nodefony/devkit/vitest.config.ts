@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { transformCache } from "../../../../vitest.perf";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 /**
  * Config Vitest du module — suite UNITAIRE, qui ne frappe jamais le réseau.

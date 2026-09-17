@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
-import { gateReporter, REDIS_GATE } from "../../../../vitest.gates";
-import { transformCache } from "../../../../vitest.perf";
+import { gateReporter, REDIS_GATE } from "../../../../vitest.gates.ts";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 /**
  * vitest + coverage-v8 pour @nodefony/redis.

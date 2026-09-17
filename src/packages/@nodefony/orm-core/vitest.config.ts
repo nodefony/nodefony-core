@@ -1,6 +1,6 @@
 import { defineConfig } from "vitest/config";
-import { oxcDecorators } from "../../../../vitest.oxc";
-import { transformCache } from "../../../../vitest.perf";
+import { oxcDecorators } from "../../../../vitest.oxc.ts";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 /**
  * vitest + coverage-v8 pour @nodefony/orm-core.

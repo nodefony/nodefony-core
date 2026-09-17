@@ -1,8 +1,8 @@
 import { defineConfig, configDefaults } from "vitest/config";
 import { fileURLToPath } from "node:url";
-import { gateReporter } from "../../../../vitest.gates";
-import type { GateExpectation } from "../../../../vitest.gates";
-import { transformCache } from "../../../../vitest.perf";
+import { gateReporter } from "../../../../vitest.gates.ts";
+import type { GateExpectation } from "../../../../vitest.gates.ts";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 

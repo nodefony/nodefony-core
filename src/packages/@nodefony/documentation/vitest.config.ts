@@ -1,5 +1,5 @@
 import { defineConfig } from "vitest/config";
-import { transformCache } from "../../../../vitest.perf";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 /**
  * Vitest config — @nodefony/documentation.
