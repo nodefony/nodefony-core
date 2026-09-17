@@ -174,6 +174,41 @@
   regardant fabrique une comparaison plausible entre deux objets dont l'un n'existe pas. Une
   question posée dans un prompt affirme ; ce qu'elle affirme se vérifie comme une ancre.
 
+- [1× — 09-17] 🔴 **Ma sonde neuve rendait VERT sur un run où le geste mesuré n'avait pas eu
+  lieu.** Après avoir découpé l'`AGENTS.md` généré en une porte et des annexes, j'ai ajouté au
+  banc une sonde « a ouvert une annexe `agents/nodefony/` », écrite sur le chemin nu
+  (`/agents\/nodefony\/[a-z-]+\.md/`). Elle a rendu vert — et je l'ai ANNONCÉ au user comme un
+  résultat. Vérification sur les appels d'outil : **aucune annexe n'avait été ouverte**. L'agent
+  avait lu la PORTE, et la porte CITE ses neuf annexes dans son index : la sonde comptait la
+  présence de l'index, c'est-à-dire rien. Le motif exige maintenant une clé `file_path`, que
+  seule une lecture réelle produit — et le selftest du banc, qui réclamait un échantillon par
+  sonde, a refusé le commit tant que le cas « cité mais pas ouvert » n'était pas éprouvé.
+  **Une sonde écrite sur le CONTENU d'un document mesure le document, pas le comportement** :
+  dès que le texte cherché peut apparaître dans ce que l'agent LIT, le motif doit viser la
+  structure de l'appel, jamais la chaîne. Voisin gradué : [[feedback_bench_probe_false_verdicts]].
+
+- [2× — 09-17] 🔴 **Deux remplacements mécaniques trop larges dans la même séance, tous deux
+  rattrapés par un test.** (a) Basculer 16 lectures d'`AGENTS.md` vers un helper de test d'un
+  seul `perl` : 14 rouges devenus **18** — j'avais cassé quatre tests qui vérifiaient une
+  ABSENCE dans la porte et voyaient désormais les annexes. Refait en bornant le remplacement au
+  bloc `it(...)` de chaque test nommé : 14 → 2. (b) Renommer les annexes par `s/environnement/
+variables-d-environnement/` : le motif a aussi renommé `node_modules/nodefony/docs/
+environnement.md`, une doc du framework sans rapport, et le gate des renvois morts l'a
+  attrapé. **Le point commun : un motif juste sur les cas qu'on a en tête, appliqué à un
+  périmètre qu'on n'a pas énuméré.** Le geste qui protège tient en une ligne — faire imprimer
+  au script le nombre de remplacements PAR CIBLE, et s'étonner d'un zéro comme d'un trop-plein
+  (c'est ce qui a fait voir qu'un nom de test ne mordait plus).
+
+- [1× — 09-17] **Un `haiku` lâché sur une recherche WEB a rendu 7 verdicts « non établi » sur 8,
+  avec des URL INVENTÉES** (`github.com/aaif/agents-spec`, `docs.cursor.sh`) qui rendent toutes
+  404 — et un « non établi » sur un fait que notre propre kit documentait. Le run entier était
+  à jeter. Refait moi-même en trois requêtes ciblées, puis un `fable` pour la synthèse : verdicts
+  ancrés, deux « faits » du web réfutés au passage. **Le modèle léger convient à une affirmation
+  qu'on confronte à un CORPUS QU'ON POSSÈDE ; sur le web ouvert, où il faut juger la qualité
+  d'une source, il fabrique du plausible.** La règle du projet dit « la tâche a-t-elle une bonne
+  réponse VÉRIFIABLE ? » — sur le web, la réponse existe mais la VÉRIFIER est le travail, et
+  c'est lui qui demande du jugement.
+
 ## 🔭 Un contrôle qui ratisse trop large crie faux — et on lui apprend à être ignoré
 
 - **[1× — 09-16] Un contrôle qui lit du HTML à l'expression régulière prend le TEXTE d'un bloc de
@@ -426,6 +461,14 @@
   `NF_LOKI_TEST_URL` posée sans Loki → 4 tests du cœur rouges, module entier sans rapport, et le
   rouge imputé au produit. Un banc qui n'a personne au bout de son URL ne se tait pas, il tombe.
   Constater la santé du conteneur AVANT de poser quoi que ce soit. [1× — 08-26]
+
+- [1× — 09-17] 🔴 **Le rapport de tâche annonçait « exit code 0 », la sortie du programme disait
+  `exit=1`.** Le gate de mise en forme du scaffold était rouge — une variante sur cinq non
+  conforme — et la notification de fin de commande le donnait pour réussi. Lire le code rapporté
+  aurait fait committer un gabarit que le formateur de l'application réécrit au premier passage.
+  Le réflexe qui a sauvé : ouvrir le fichier de sortie plutôt que croire le résumé. **Un code de
+  retour relayé par une couche n'est pas le code de retour du programme** — même famille que le
+  `tail` qui efface les SKIPS, un cran plus haut. Voisin gradué : [[feedback_prove_on_received_artifact]].
 
 ## 🙈 L'outil ALTÈRE sa propre sortie — et ce qu'il avale passe pour une réponse
 

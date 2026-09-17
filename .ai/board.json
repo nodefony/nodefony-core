@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T05:41:41.958Z",
+  "generatedAt": "2026-09-17T10:13:01.361Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 98,
+      "closed": 99,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 21,
+      "open": 20,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 34,
       "title": "10.0.0-beta"
     },
     {
@@ -3032,7 +3032,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 12,
+      "jours": 11,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3044,8 +3044,8 @@
       "number": 389,
       "title": "docs(scaffold): rendre les instructions d'agent lisibles par tout outil",
       "url": "https://github.com/nodefony/nodefony-core/issues/389",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -3054,6 +3054,22 @@
       "cible": "2026-09-15",
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 404,
+      "title": "feat(devkit): livrer aux applications un skill de développement du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/404",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 9.21,
+      "debut": "2026-10-15",
+      "cible": "2026-10-16",
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
