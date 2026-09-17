@@ -668,7 +668,7 @@ const APP_NOTES_LEGACY_END = "<!-- app-notes:end -->";
  * @param next - le rendu neuf.
  * @returns le rendu neuf, suivi des notes reprises s'il y en avait.
  */
-function migrerDepuisAppNotes(previous: string, next: string): string {
+function migrateLegacyAppNotes(previous: string, next: string): string {
   const debut = previous.indexOf(APP_NOTES_LEGACY_START);
   const fin = previous.indexOf(APP_NOTES_LEGACY_END);
   if (debut === -1 || fin === -1 || fin < debut) {
@@ -708,17 +708,17 @@ function replaceFrameworkBlock(previous: string, next: string): string {
   const debut = previous.indexOf(NODEFONY_BLOCK_START);
   const fin = previous.indexOf(NODEFONY_BLOCK_END);
   if (debut === -1 || fin === -1 || fin < debut) {
-    return migrerDepuisAppNotes(previous, next);
+    return migrateLegacyAppNotes(previous, next);
   }
   const ns = next.indexOf(NODEFONY_BLOCK_START);
   const ne = next.indexOf(NODEFONY_BLOCK_END);
   if (ns === -1 || ne === -1 || ne < ns) {
     return next;
   }
-  const blocNeuf = next.slice(ns, ne + NODEFONY_BLOCK_END.length);
+  const freshBlock = next.slice(ns, ne + NODEFONY_BLOCK_END.length);
   return (
     previous.slice(0, debut) +
-    blocNeuf +
+    freshBlock +
     previous.slice(fin + NODEFONY_BLOCK_END.length)
   );
 }
@@ -731,27 +731,27 @@ function replaceFrameworkBlock(previous: string, next: string): string {
  * balise dans le gabarit. L'index de la porte porte la MÊME condition, sans
  * quoi il nommerait une page absente du disque.
  */
-const ANNEXES_AGENTS: readonly {
-  nom: string;
-  quand?: (d: IAgentsData) => boolean;
+const AGENT_ANNEXES: readonly {
+  slug: string;
+  applies?: (d: IAgentsData) => boolean;
 }[] = [
-  { nom: "avant-de-coder" },
-  { nom: "depannage" },
-  { nom: "inspecter-l-app" },
-  { nom: "commandes" },
-  { nom: "variables-d-environnement" },
-  { nom: "lancer-le-serveur" },
-  { nom: "donnees-et-fichiers" },
-  { nom: "securite-et-droits", quand: (d) => d.hasSecurity },
-  { nom: "temps-reel", quand: (d) => d.hasRealtime },
+  { slug: "avant-de-coder" },
+  { slug: "depannage" },
+  { slug: "inspecter-l-app" },
+  { slug: "commandes" },
+  { slug: "variables-d-environnement" },
+  { slug: "lancer-le-serveur" },
+  { slug: "donnees-et-fichiers" },
+  { slug: "securite-et-droits", applies: (d) => d.hasSecurity },
+  { slug: "temps-reel", applies: (d) => d.hasRealtime },
   {
-    nom: "ajouter-une-brique",
-    quand: (d) => !d.hasOrm || !d.hasSecurity || !d.hasRealtime || !d.front,
+    slug: "ajouter-une-brique",
+    applies: (d) => !d.hasOrm || !d.hasSecurity || !d.hasRealtime || !d.front,
   },
 ];
 
 /** Dossier des annexes, relatif à la racine du projet — visible d'un `ls`. */
-const DOSSIER_ANNEXES = path.join("agents", "nodefony");
+const ANNEX_DIR = path.join("agents", "nodefony");
 
 /** Ce que le template `AGENTS.md` de l'app a besoin de savoir du projet. */
 interface IAgentsData {
@@ -849,19 +849,19 @@ function renderProjectAgents(
   // pas et ne préserve rien — c'est ce qui permet à la porte de rester sous
   // son budget pendant que le contenu, lui, continue de grossir librement.
   const dataAnnexes = { ...data, client } as unknown as Record<string, unknown>;
-  for (const { nom, quand } of ANNEXES_AGENTS) {
-    if (quand && !quand(data)) continue;
-    const corps = eta.renderString(
-      readFileSync(path.join(tplDir, "nodefony", `${nom}.md.tpl`), "utf8"),
+  for (const { slug, applies } of AGENT_ANNEXES) {
+    if (applies && !applies(data)) continue;
+    const content = eta.renderString(
+      readFileSync(path.join(tplDir, "nodefony", `${slug}.md.tpl`), "utf8"),
       dataAnnexes,
     );
-    if (corps.includes("<%")) {
-      throw new Error(`tag eta résiduel dans l'annexe ${nom}`);
+    if (content.includes("<%")) {
+      throw new Error(`tag eta résiduel dans l'annexe ${slug}`);
     }
     // Le chemin PUBLIÉ s'écrit en `/` (il est cité dans l'index de la porte,
     // que des agents lisent) ; le chemin OUVERT se compose en natif.
-    const relatif = `${DOSSIER_ANNEXES.split(path.sep).join("/")}/${nom}.md`;
-    writer.write(path.join(projectRoot, DOSSIER_ANNEXES, `${nom}.md`), corps);
+    const relatif = `${ANNEX_DIR.split(path.sep).join("/")}/${slug}.md`;
+    writer.write(path.join(projectRoot, ANNEX_DIR, `${slug}.md`), content);
     written.push(relatif);
   }
   // Un pointeur par DIALECTE — dérivé de la table des agents, jamais listé à la

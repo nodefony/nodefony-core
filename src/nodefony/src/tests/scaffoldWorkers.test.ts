@@ -91,8 +91,23 @@ describe("create app — le réglage du nombre de processus est DÉCOUVRABLE (#2
     );
   });
 
-  it("AGENTS.md nomme la variable à côté de la ligne de commande", () => {
-    assert.match(read("AGENTS.md"), /NF_WORKERS=/u);
+  it("les instructions d'agent mènent à la variable, et la nomment", () => {
+    // Depuis le découpage de la porte (#389), la matière des commandes vit dans
+    // une annexe. Le contrat du découpage tient en deux temps, et le test les
+    // sépare : la PORTE doit ENVOYER vers l'annexe (sans quoi rien n'y mène —
+    // aucun outil ne charge ce dossier tout seul), et l'ANNEXE doit NOMMER la
+    // variable. Ne contrôler que la seconde laisserait passer une page juste et
+    // introuvable ; ne contrôler que la première, un renvoi vers une page vide.
+    assert.match(
+      read("AGENTS.md"),
+      /agents\/nodefony\/commandes\.md/u,
+      "la porte envoie vers l'annexe des commandes",
+    );
+    assert.match(
+      read(path.join("agents", "nodefony", "commandes.md")),
+      /NF_WORKERS=/u,
+      "l'annexe nomme la variable",
+    );
   });
 });
 
