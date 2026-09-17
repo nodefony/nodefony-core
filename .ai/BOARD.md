@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-17 10:13** (UTC).
+> Empreinte prise le **2026-09-17 10:17** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 83% | 99 | 20 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 17% | 7 | 34 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `████████░░` 83% | 99 | 21 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 18% | 7 | 33 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 4 | 30 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -35,12 +35,12 @@
 
 Ordre 9 · P0 — bloque le reste · 11 j · jalon 10.0.0-alpha · frise 2026-09-15 → 09-30
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 20 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 21 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 34 ouverts
+## Jalon 10.0.0-beta — 33 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -61,7 +61,6 @@ Ordre 9 · P0 — bloque le reste · 11 j · jalon 10.0.0-alpha · frise 2026-09
 | 5.1 | P0 — bloque le reste | 1 | 2026-10-26 → 10-26 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
 | 5.2 | P1 — figé à la création | 1 | 2026-10-27 → 10-27 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
 | 5.3 | P2 — décision | 1 | 2026-10-28 → 10-28 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
-| 9.21 | P1 — figé à la création | 2 | 2026-10-15 → 10-16 | #404 | feat(devkit): livrer aux applications un skill de développement du framework |
 | 9.3 | P2 — décision | 1 | 2026-10-29 → 10-29 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
 | 9.4 | P2 — décision | 1 | 2026-10-30 → 10-30 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
 | 9.5 | P2 — décision | 1 | 2026-11-02 → 11-02 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
@@ -86,11 +85,12 @@ Ordre 9 · P0 — bloque le reste · 11 j · jalon 10.0.0-alpha · frise 2026-09
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 20 ouverts
+## Jalon 10.0.0-alpha — 21 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 9 | P0 — bloque le reste | 11 | 2026-09-15 → 09-30 | #388 | chore(release): publier la préversion 10.0.0-alpha.7 |
+| 9.22 | P1 — figé à la création | 2 | 2026-09-18 → 09-19 | #404 | feat(devkit): livrer aux applications un skill de développement du framework |
 | 9.25 | P0 — bloque le reste | 0.5 | 2026-09-15 → 09-15 | #394 | fix(cli): faire filtrer inspect routes par l'argument annoncé |
 | 9.3 | P1 — figé à la création | 0.5 | 2026-09-16 → 09-16 | #390 | fix(frontend): dire au démarrage qu'aucune interface web n'est posée |
 | 9.35 | P1 — figé à la création | 1 | 2026-09-16 → 09-16 | #154 | fix(frontend): stabiliser le décalage de port sur les agents macOS |

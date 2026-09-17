@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T10:13:01.361Z",
+  "generatedAt": "2026-09-17T10:17:45.869Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,14 +35,14 @@
       "closed": 99,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 20,
+      "open": 21,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 33,
       "title": "10.0.0-beta"
     },
     {
@@ -3062,12 +3062,12 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/404",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 2,
-      "ordre": 9.21,
-      "debut": "2026-10-15",
-      "cible": "2026-10-16",
+      "ordre": 9.22,
+      "debut": "2026-09-18",
+      "cible": "2026-09-19",
       "labels": [
         "10.0.0-beta"
       ]
