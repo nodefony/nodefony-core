@@ -57,7 +57,20 @@ on:
     # mobilisés trente minutes pour une montée de dépendance qui n'a rien à voir
     # avec la mémoire. Constaté dès le premier jour (`typescript-majeur`, où
     # `npm ci` échoue d'ailleurs en ERESOLVE avant même de mesurer).
-    branches: ["main", "dev"]
+    # 🔴 `dev` RETIRÉ, et ce n'est pas un réglage de confort. Ce banc mobilise un
+    # exécuteur pendant 30 à 150 minutes ; il n'a rien à faire sur la branche où
+    # l'on pousse dix fois par jour. Le filtre `paths` était censé le borner et
+    # ne l'a PAS fait : un commit de documentation (`daf2b798`) a déclenché une
+    # exécution complète, parce que GitHub évalue `paths` sur TOUT le push et
+    # qu'un lot de commits en embarque un qui touche le banc. Une borne qui
+    # dépend de la composition d'un lot n'est pas une borne.
+    #
+    # Sur `main` le compte est différent : on n'y pousse qu'aux publications,
+    # donc l'épreuve du banc a lieu une fois, au moment où elle vaut quelque
+    # chose. Entre-temps il se joue SUR LE POSTE, où la machine est maîtrisée :
+    #
+    #   node .claude/skills/nodefony-load-test/scripts/soak.mjs --minutes 30
+    branches: ["main"]
     paths:
       - ".github/workflows/soak.yml"
       - ".claude/skills/nodefony-load-test/scripts/soak.mjs"
@@ -142,7 +155,22 @@ jobs:
     # L'entrée est bornée à 150 en tête de job : 150 × 2 + 40 = 340, sous le
     # plafond de 360 minutes des exécuteurs hébergés. Accepter davantage
     # reproduirait le défaut un cran plus loin.
-    timeout-minutes: ${{ fromJSON(github.event.inputs.minutes || '30') * 2 + 40 }}
+    #
+    # 🔴 CE PLAFOND EST FIXE, ET IL A ÉTÉ CALCULÉ — il ne se DÉRIVE pas de
+    # l'entrée. Il l'a été pendant neuf exécutions
+    # (`${{ fromJSON(github.event.inputs.minutes || '30') * 2 + 40 }}`), et le
+    # workflow entier a cessé de partir : `github.event.inputs` n'existe pas sur
+    # `push` ni sur `schedule`, et l'expression est évaluée à la COMPILATION du
+    # job, avant tout filtre. Résultat mesuré entre le 17/09 05:40 et 14:13 :
+    # neuf runs, ZÉRO job, un rouge à chaque poussée — et le banc, lui, n'a plus
+    # jamais tourné. Un plafond qui empêche la mesure est pire que le plafond
+    # trop court qu'il remplaçait.
+    #
+    # Le fixe vaut la borne HAUTE de l'entrée, pas la durée demandée : un plafond
+    # ne consomme rien, il ne fait que borner. Un run de 30 minutes finit en 30
+    # minutes sous un plafond de 340 ; seul un run BLOQUÉ met plus longtemps à
+    # être tué, ce qu'on accepte sur un banc lancé à la main.
+    timeout-minutes: 340
 
     steps:
       # Une consigne qu'on ne peut pas tenir se REFUSE au départ, elle ne se
