@@ -26,6 +26,33 @@ metadata:
 > des cas. Ce qui doit atteindre un agent s'EXÉCUTE ou vit dans ce corps ; ce qu'on déporterait
 > « pour alléger » n'atteindrait plus personne.
 
+## Passer la main — à lire avant tout le reste
+
+🔴 **Cette table est en tête parce qu'un agent ne lit pas toujours jusqu'au bout.** Mesurée au
+banc : placée en avant-dernière section, elle a été manquée par un agent qui avait arrêté sa
+lecture à la ligne 200 — il n'a jamais su qu'un skill portait sa réponse, a cherché la base de
+l'application au mauvais endroit, et a fini par l'effacer. Celui qui l'a lue a chargé le skill et
+réussi. Une orientation qu'on ne rencontre qu'en fin de page n'oriente personne.
+
+Ces skills sont installés avec le framework et se chargent par leur nom. Les prendre coûte moins
+que de chercher : chacun porte les pièges de son geste, et ceux-là ne se devinent pas.
+
+| Ce que tu t'apprêtes à faire                                         | Le skill                        |
+| -------------------------------------------------------------------- | ------------------------------- |
+| Une ressource : table, validation, service, REST et WebSocket        | `nodefony-add-crud`             |
+| Une logique métier réutilisable, hors de tout controller             | `nodefony-add-service`          |
+| Un flux temps réel, un canal, un abonnement client                   | `nodefony-add-realtime-channel` |
+| Réserver une route, un rôle, une zone, ouvrir à un partenaire        | `nodefony-protect-route`        |
+| Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
+| Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
+
+Prendre le spécialiste DIRECTEMENT est le bon geste quand ta tâche est exactement la sienne : il
+n'y a pas à passer par ici d'abord.
+
+`ls .agents/skills/` liste ceux que TON projet a reçus ; `npx nodefony ai:sync` les remet à jour
+après une montée de version. Ce sont des **pointeurs** : le contenu vit dans `node_modules` et
+suit la version installée — les éditer ne servirait à rien.
+
 ## 1. La règle qui gouverne tout
 
 **N'invente jamais du code Nodefony : génère-le, imite-le, vérifie-le.**
@@ -209,28 +236,7 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
   ajoutée, ou un `git pull`. C'est son cache : `rm -rf node_modules/.vite`, puis relance. Ne
   purge pas sans raison, ça coûte 5 à 20 s de ré-optimisation.
 
-## 6. Quand passer la main
-
-Ces skills sont installés avec le framework et se chargent par leur nom. Les prendre coûte moins
-que de chercher : chacun porte les pièges de son geste, et ceux-là ne se devinent pas.
-
-| Ce que tu t'apprêtes à faire                                         | Le skill                        |
-| -------------------------------------------------------------------- | ------------------------------- |
-| Une ressource : table, validation, service, REST et WebSocket        | `nodefony-add-crud`             |
-| Une logique métier réutilisable, hors de tout controller             | `nodefony-add-service`          |
-| Un flux temps réel, un canal, un abonnement client                   | `nodefony-add-realtime-channel` |
-| Réserver une route, un rôle, une zone, ouvrir à un partenaire        | `nodefony-protect-route`        |
-| Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
-| Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
-
-Prendre le spécialiste DIRECTEMENT est le bon geste quand ta tâche est exactement la sienne : il
-n'y a pas à passer par ici d'abord.
-
-`ls .agents/skills/` liste ceux que TON projet a reçus ; `npx nodefony ai:sync` les remet à jour
-après une montée de version. Ce sont des **pointeurs** : le contenu vit dans `node_modules` et
-suit la version installée — les éditer ne servirait à rien.
-
-## 7. Avant de dire « fait »
+## 6. Avant de dire « fait »
 
 ```bash
 npm run verify        # types + style + tests + câblage

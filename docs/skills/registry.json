@@ -7701,8 +7701,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 246,
-        "approxTokens": 4243
+        "bodyLines": 252,
+        "approxTokens": 4363
       },
       "requires": [],
       "resources": {
@@ -7818,7 +7818,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "246",
+            "detail": "252",
             "advisory": true
           }
         ]
