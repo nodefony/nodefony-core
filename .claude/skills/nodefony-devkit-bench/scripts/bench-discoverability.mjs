@@ -1328,9 +1328,20 @@ export const SONDES_QUALITE = [
     // n'est ouvert que dans 17 % et une page de `references/` jamais. Si ce
     // relevé reste bas, ce n'est pas le script qu'il faut corriger mais sa
     // MENTION dans la porte.
+    //
+    // 🔴 Le motif exige une clé de COMMANDE, et ce n'est pas une précaution de
+    // principe : écrit sur le chemin nu, il a rendu VERT sur deux runs où le
+    // script n'avait JAMAIS été lancé — 4 et 2 correspondances, toutes issues
+    // de la ligne d'`AGENTS.md` que l'agent venait de lire, puisque la porte
+    // CITE la commande en toutes lettres. Exactement le faux vert de l'annexe
+    // ci-dessus, reproduit sur la sonde suivante.
+    //
+    // Les clés retenues sont celles que `transcript-dialectes.mjs` reconnaît
+    // comme portant une commande (`command`, `cmd`) : un chemin cité en prose
+    // n'en porte aucune.
     kind: "transcript",
     name: "a cherché dans la doc installée (docs.mjs)",
-    pattern: /nodefony-dev\/scripts\/docs\.mjs/u,
+    pattern: /"(?:command|cmd)"\s*:\s*"[^"]*docs\.mjs/u,
     observe: true,
   },
 ];

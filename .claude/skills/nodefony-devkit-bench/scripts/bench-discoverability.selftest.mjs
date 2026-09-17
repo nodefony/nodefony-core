@@ -2587,6 +2587,28 @@ const SAMPLES = {
         },
         expect: false,
       },
+      {
+        // 🔴 LE faux vert, et il a été RÉEL : la porte CITE la commande en
+        // toutes lettres, donc le chemin entre dans le transcript dès que
+        // l'agent lit `AGENTS.md`. Écrit sur le chemin nu, ce motif rendait
+        // vert sur deux runs où le script n'avait jamais été lancé — 4 et 2
+        // correspondances, toutes issues de la ligne lue.
+        label: "la commande citée par la porte, jamais lancée",
+        matter: {
+          transcript:
+            '{"type":"tool_result","content":"20  > node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>"}',
+        },
+        expect: false,
+      },
+      {
+        // Le geste réel reste capté quelle que soit la forme de la commande :
+        // chemin relatif, drapeaux avant les termes.
+        label: "lancé depuis un chemin relatif, avec des drapeaux",
+        matter: {
+          transcript: `{"name":"Bash","input":{"command":"node ./node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs --limit 3 firewall"}}`,
+        },
+        expect: true,
+      },
     ],
   },
 };

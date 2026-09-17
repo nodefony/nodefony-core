@@ -30,7 +30,8 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
 | `devkitConfigSchema` | `nodefony/config/config.ts` | `{ enabled, mcp }` — source unique des défauts |
 | `defineDevkitConfig` | `nodefony/config/defineModuleConfig.ts` | parse + freeze au boot |
 | `DevkitError` | `nodefony/src/errors/DevkitError.ts` | erreurs typées du module |
-| 5 skills | `skills/<nom>/SKILL.md` | `nodefony-add-crud`, `nodefony-add-service`, `nodefony-protect-route`, `nodefony-add-realtime-channel`, `nodefony-browser` — publiés (`files`) |
+| 7 skills | `skills/<nom>/SKILL.md` | `nodefony-dev` (GÉNÉRALISTE — la conduite d'une tâche, et il dit lequel des six autres prendre), puis `nodefony-add-crud`, `nodefony-add-service`, `nodefony-protect-route`, `nodefony-add-realtime-channel`, `nodefony-migrate-schema`, `nodefony-browser` — publiés (`files`) |
+| Recherche dans la doc installée | `skills/nodefony-dev/scripts/docs.mjs` | Indexe `node_modules/{nodefony,@nodefony/*}/docs/**.md` (70 pages, 38 000 lignes) et rend chemin + LIGNE + extrait. Répond au trou que rien d'autre ne couvre : `rg` suit le `.gitignore` et ne descend pas dans `node_modules`, donc le sujet paraît ABSENT. Codes : 0 trouvé · 1 rien · 64 usage · **78 rien d'installé** — qui DIT « lance `npm install` », jamais « ce n'est pas documenté » |
 | Sondes `nodefony-browser` | `skills/nodefony-browser/scripts/` | `inspect.mjs` (socle + 6 familles par `NF_BROWSER_FAMILIES` — a11y, rendu, reseau, perf, stockage, responsive ; verdict par famille, nom inconnu REFUSÉ en 64) · `watch.mjs` (frames WS, réponses ≥ 400) · `socket.mjs` (socket A→Z : accueil, abonnement, action, latence médiane, `api.request`, reconnexion — joué DANS la page, donc cookies et Origin réels) · `lib/{browser,wcag,probes}.mjs`. Exécutées SUR LE POSTE par défaut (le pilote conduit un navigateur déjà présent — rien à démarrer) ; dans le conteneur `<app>-browser` en DERNIER RECOURS seulement — mesure comparable, intégration continue, identifiants sensibles |
 | Doc des sondes | `skills/nodefony-browser/references/` | `sondes.md` (chaque champ, lecture des verdicts, QUAND chaque famille se trompe) · `socket.md` (grammaire des frames, verdicts dont `SILENCIEUX` ≠ cassé). Chargées à la demande — le `SKILL.md` reste un index |
 | Tests des sondes | `tests/browser-*.test.ts` | logique PURE sans navigateur (`wcag`, `probes`, importés via `browser-outils.ts`) + banc fonctionnel paramétré `NF_BROWSER_TEST_*` qui SKIPPE en DISANT pourquoi quand le décor manque — visable sur ce dépôt comme sur une app générée |
@@ -222,6 +223,26 @@ sans rien installer et application cassée** (`card`, `check`, `inspect`,
   cœur. Un `name:` de frontmatter différent du dossier fait ÉCARTER le skill.
 - **`files` doit contenir `skills`** — un `files` qui désigne un dossier absent
   ne fait pas échouer `npm pack`, il publie sans (même piège que `dist/`).
+- **🔴 Le pointeur ne transmet que la PREMIÈRE PHRASE de la description**
+  (`readSkillHeader`, cœur). Déclencheurs et « à charger AVANT de… » n'atteignent
+  JAMAIS l'application : ce qui décide de l'invocation là-bas, c'est cette phrase
+  et elle seule. Elle doit donc dire QUOI et QUAND, et **nommer Nodefony** — un
+  agent qui ne voit qu'elle doit comprendre de quel framework on parle.
+  `src/nodefony/src/tests/aiSync.test.ts` le contrôle sur les sept skills livrés ;
+  il a mordu dès le premier run.
+- **🔴 Ce qui atteint un agent s'EXÉCUTE — la prose, non.** Mesuré sur les 1020
+  transcripts du banc, à fenêtre d'existence égale : un SCRIPT cité comme commande
+  dans la porte est lancé dans **80 %** des runs, un `SKILL.md` ouvert dans **17 %**,
+  une page de `references/` dans **0 %**. Corollaires pour tout skill livré :
+  lui donner un script plutôt qu'un chapitre, faire NOMMER ce script par la porte
+  (`AGENTS.md`), et ne pas déporter en `references/` ce dont l'agent ignore avoir
+  besoin — il ne l'ouvrira pas. Les sondes « a chargé le skill nodefony-dev » et
+  « a cherché dans la doc installée » du banc surveillent ce taux.
+- **Les skills livrés sont CONTRÔLÉS** par `skills-doc` au même titre que ceux du
+  dépôt (`npm run skills:check`). Ils ne l'étaient pas : deux descriptions hors
+  standard (1559 et 1339 car., plafond 1024) sont parties chez des utilisateurs.
+  Quand un nom existe des DEUX côtés (`nodefony-browser`, `nodefony-migrate-schema`),
+  les deux sont contrôlés mais la fiche publique revient au dépôt.
 - **Aucun `postinstall`** : `--ignore-scripts` est courant, c'est un vecteur
   d'attaque npm connu, et écrire dans un dossier versionné à chaque installation
   produit des diffs surprises.
