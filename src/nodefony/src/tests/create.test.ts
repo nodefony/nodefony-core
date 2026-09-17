@@ -3026,9 +3026,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Le réflexe gate : un `npm test` vert ne typecheck rien (le runner
       // efface les types) — c'est la panne commune des trois FAIL mesurés.
       assert.include(claude, "npm run verify");
+      // Le seuil se recale sur la taille RÉELLE du gabarit, une ligne au-dessus
+      // — c'est ce qui le fait mordre au prochain ajout et à lui seul. Il a
+      // sauté deux fois le même jour sans que le contenu ait dérapé : le
+      // paragraphe qui nomme le skill `nodefony-dev` (un ajout VOULU), puis la
+      // restauration d'`autoTrim: false`, qui a rendu au fichier les lignes
+      // vides qu'eta avalait. La seconde ne mesure rien du contenu : un seuil
+      // calé sur un rendu mal formé comptait un fichier que personne n'aurait
+      // accepté tel quel.
       assert.isBelow(
         claude.split("\n").length,
-        15,
+        19,
         "CLAUDE.md se remplit : ce qui doit être lu vit dans AGENTS.md",
       );
       // Ces sujets sont traités par AGENTS.md — les redire ici crée deux
