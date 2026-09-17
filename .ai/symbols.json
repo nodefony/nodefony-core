@@ -31014,6 +31014,12 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "FRONTEND_CHOICES": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/kernel/commands/CreateCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
+      ],
       "getScaffoldSpec": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
@@ -33297,10 +33303,6 @@
       ],
       "CREATE_TYPES": [
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
-      ],
-      "FRONTEND_CHOICES": [
-        "src/nodefony/src/kernel/commands/CreateCommand.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "PRESET_CHOICES": [
         "src/nodefony/src/kernel/commands/CreateCommand.ts"

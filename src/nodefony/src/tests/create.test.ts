@@ -27,7 +27,11 @@ import {
   type ICreateRequest,
 } from "../cli/create";
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
-import { getScaffoldSpec, flagFor } from "../cli/scaffold/spec";
+import {
+  FRONTEND_CHOICES,
+  getScaffoldSpec,
+  flagFor,
+} from "../cli/scaffold/spec";
 import {
   findPackageRoot,
   resolveLocalWorkspaces,
@@ -809,6 +813,37 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
       assert.include(agents, ".agents/skills/");
       assert.include(agents, "ai:sync");
+    });
+
+    it("🔴 la porte nomme TOUS les moteurs front, et sa cellule reste une cellule", () => {
+      // La porte les citait de mémoire — « React/Vue/Angular » —, et Svelte y
+      // manquait depuis son ajout sans que rien ne l'ait dit. La liste est
+      // désormais DÉRIVÉE de la spec ; ce contrôle est ce qui empêche de la
+      // recopier à nouveau.
+      const dest = path.join(tmp, "moteurs-front");
+      scaffold(dest, {
+        name: "moteursfront",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const ligne = agents.split("\n").find((l) => l.includes("create front"));
+      assert.isDefined(ligne, "la porte ne nomme pas `create front`");
+      for (const moteur of FRONTEND_CHOICES.filter((c) => c !== "none")) {
+        assert.include(
+          ligne ?? "",
+          moteur,
+          `moteur absent de la porte : ${moteur}`,
+        );
+      }
+      // Une barre NUE dans une cellule de tableau y ouvre une colonne — même
+      // dans un bloc de code. Les deux lignes voisines l'échappent ; celle-ci
+      // aussi, sinon la porte se lit de travers là où on la lit le plus.
+      assert.notMatch(
+        ligne ?? "",
+        /--frontend <[a-z]+\|/u,
+        "barre non échappée dans la cellule des moteurs",
+      );
     });
 
     it("🔴 un geste DESTRUCTEUR n'est jamais enseigné sans son remplaçant", () => {
@@ -7159,6 +7194,81 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         doc.types.map((t) => t.type),
         ["controller"],
       );
+    });
+
+    it("🔴 sans interface web, le geste qui en pose une est NOMMÉ", async () => {
+      // Le mode non interactif ne pose aucune interface — c'est le défaut de la
+      // spec, et il est assumé. Ce qui ne doit PAS arriver, c'est qu'un agent
+      // l'ignore : les gabarits livrent la page, sa connexion et le client
+      // temps réel, et sans cette ligne il les réécrit à la main.
+      const [code, out] = await capture(
+        "app",
+        "sans-front",
+        "--dir",
+        path.join(tmp, "sans-front"),
+        "--preset",
+        "complete",
+        "--frontend",
+        "none",
+        "--yes",
+        "--no-install",
+        "--no-git",
+      );
+      assert.equal(code, SysExit.OK);
+      assert.include(out, "nodefony create front --frontend");
+      // Les moteurs viennent de la MÊME liste que la commande qui en pose un :
+      // recopiés, ils survivraient à l'ajout d'un moteur sans le dire.
+      for (const moteur of FRONTEND_CHOICES.filter((c) => c !== "none")) {
+        assert.include(out, moteur, `moteur absent de l'annonce : ${moteur}`);
+      }
+      assert.notInclude(
+        out,
+        "--frontend <none",
+        "`none` n'est pas un moteur qu'on propose de poser",
+      );
+    });
+
+    it("🔴 le geste N'est PAS annoncé là où il échouerait ou ne sert à rien", async () => {
+      // Deux lignes témoins, sans quoi le contrôle précédent passerait même si
+      // la ligne était écrite inconditionnellement.
+      const [avecFront] = [
+        await capture(
+          "app",
+          "avec-front",
+          "--dir",
+          path.join(tmp, "avec-front"),
+          "--preset",
+          "complete",
+          "--frontend",
+          "react",
+          "--yes",
+          "--no-install",
+          "--no-git",
+        ),
+      ];
+      assert.equal(avecFront[0], SysExit.OK);
+      assert.notInclude(
+        avecFront[1],
+        "nodefony create front --frontend",
+        "une interface est POSÉE : annoncer le geste n'a aucun sens",
+      );
+      // `minimal` n'embarque pas `@nodefony/frontend` : `create front` refuse
+      // la cible, et annoncer un geste qui échoue est pire que se taire.
+      const [codeMin, outMin] = await capture(
+        "app",
+        "minimal-sans-front",
+        "--dir",
+        path.join(tmp, "minimal-sans-front"),
+        "--preset",
+        "minimal",
+        "--frontend",
+        "none",
+        "--yes",
+        "--no-install",
+        "--no-git",
+      );
+      assert.equal(codeMin, SysExit.OK);
+      assert.notInclude(outMin, "nodefony create front --frontend");
     });
 
     it("--answers-json : réponses lues, les flags l'emportent", async () => {

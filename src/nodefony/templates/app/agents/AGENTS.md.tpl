@@ -52,7 +52,7 @@
 | Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie           | `npx nodefony create controller <nom> --role ROLE_X`                                             |
 | Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"`                            |
 | Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
-| Frontend Vite (React/Vue/Angular)                                                                       | `npx nodefony create front <nom> [--module <m>]`                                                 |
+| Frontend Vite — page, formulaire de connexion et temps réel LIVRÉS                                      | `npx nodefony create front <nom> --frontend <<%= it.frontendEngines %>> [--module <m>]`        |
 | Commande CLI `nodefony <module>:<action>`                                                               | `npx nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
 
 **Ces dossiers ne s'écrivent JAMAIS à la main** — y déposer un fichier signifie

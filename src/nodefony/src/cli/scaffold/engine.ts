@@ -84,6 +84,7 @@ import {
 import {
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
+  FRONTEND_CHOICES,
   type IScaffoldTypeSpec,
   type TCommandPhaseChoice,
   type TControllerKindChoice,
@@ -862,9 +863,19 @@ function renderProjectAgents(
             "utf8",
           ).trimEnd(),
         };
+  // Les moteurs que `--frontend` ACCEPTE, dérivés de la spec. La porte les
+  // citait de mémoire (« React/Vue/Angular ») : Svelte y manquait depuis son
+  // ajout, et rien ne l'avait dit — une liste recopiée survit toujours à
+  // l'ajout qu'elle devait annoncer.
+  // Les barres sont ÉCHAPPÉES : la porte est un tableau markdown, où un `|` nu
+  // dans une cellule ouvre une colonne — et c'est déjà la forme des deux
+  // lignes voisines (`--kind hello\|rest\|…`), qu'il ne faut pas contredire.
+  const frontendEngines = FRONTEND_CHOICES.filter((c) => c !== "none").join(
+    "\\|",
+  );
   let rendered = eta.renderString(
     readFileSync(path.join(tplDir, "AGENTS.md.tpl"), "utf8"),
-    { ...data, client } as unknown as Record<string, unknown>,
+    { ...data, client, frontendEngines } as unknown as Record<string, unknown>,
   );
   if (rendered.includes("<%")) {
     throw new Error("tag eta résiduel dans AGENTS.md");
@@ -877,7 +888,10 @@ function renderProjectAgents(
   // Les annexes : le dossier du framework, ÉCRASÉ EN BLOC. Il ne se fusionne
   // pas et ne préserve rien — c'est ce qui permet à la porte de rester sous
   // son budget pendant que le contenu, lui, continue de grossir librement.
-  const dataAnnexes = { ...data, client } as unknown as Record<string, unknown>;
+  const dataAnnexes = { ...data, client, frontendEngines } as unknown as Record<
+    string,
+    unknown
+  >;
   for (const { slug, applies } of AGENT_ANNEXES) {
     if (applies && !applies(data)) continue;
     const content = eta.renderString(

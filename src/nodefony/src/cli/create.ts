@@ -8,7 +8,7 @@ import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 // Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
 // l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
-import { getScaffoldSpec } from "./scaffold/spec";
+import { FRONTEND_CHOICES, getScaffoldSpec } from "./scaffold/spec";
 import {
   findPackageRoot,
   findProjectRoot,
@@ -1485,6 +1485,25 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // le port n'est pas garanti : `portPolicy: "auto"` prend le suivant libre
       // quand 5152 est occupé — annoncer une adresse fixe et une console absente
       // envoie l'utilisateur sur deux 404 dès sa première minute.
+      // 🔴 Le mode non interactif ne pose AUCUNE interface web (`frontend` vaut
+      // `none` par défaut, et ce défaut est le bon : le moteur est un arbitrage
+      // d'équipe, et une pile front imposée à qui ne sert que des API se retire
+      // à la main). Mais ce que la commande ne fait pas, elle le DIT — et ici
+      // plus qu'ailleurs : les gabarits livrent la page, son formulaire de
+      // connexion et le client temps réel, si bien qu'un agent qui ignore ce
+      // geste les réécrit (291 lignes mesurées, dont un client JSON-RPC).
+      // La liste des moteurs est DÉRIVÉE : recopiée, elle survivrait à l'ajout
+      // d'un moteur sans le dire.
+      //
+      // Seulement en préset `complete` : c'est lui qui embarque
+      // `@nodefony/frontend`. En `minimal`, `create front` refuse la cible —
+      // annoncer un geste qui échoue est pire que se taire.
+      (answers.preset === "complete" && answers.frontend === "none"
+        ? `  npx nodefony create front --frontend <${FRONTEND_CHOICES.filter(
+            (c) => c !== "none",
+          ).join("|")}>\n` +
+          `                     # page, connexion et temps réel LIVRÉS — ne les écris pas à la main\n`
+        : "") +
       `  npm run dev        # → https://127.0.0.1:5152 (ou le port libre suivant, annoncé au démarrage)\n` +
       (answers.preset === "complete"
         ? `                     # console d'administration : /nodefony — admin/admin en dev\n`
