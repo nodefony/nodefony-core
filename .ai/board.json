@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T20:53:40.297Z",
+  "generatedAt": "2026-09-17T21:26:44.809Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 111,
+      "closed": 112,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 13,
+      "open": 12,
       "title": "10.0.0-alpha"
     },
     {
@@ -3032,7 +3032,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 6,
+      "jours": 5,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3578,7 +3578,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 4,
+      "jours": 3,
       "ordre": 9.9,
       "debut": "2026-09-22",
       "cible": "2026-09-28",
@@ -3798,8 +3798,8 @@
       "number": 327,
       "title": "test(log): éprouver les transports contre de vrais serveurs",
       "url": "https://github.com/nodefony/nodefony-core/issues/327",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,

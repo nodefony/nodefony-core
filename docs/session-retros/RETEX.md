@@ -563,6 +563,29 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   quelconque. Le fait qui tranche est pourtant structurel et gratuit : **au moment du relevé, notre
   enfant n'existe pas encore — donc ce qui écoute là appartient forcément à quelqu'un d'autre.**
 
+- [4× — 09-17h] 🔴 **Un RENONCEMENT écrit contre une exigence qui n'existe pas.** Deux passes de la
+  forge nommaient `NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL` dans `NF_GATES_ALLOW` — c'est-à-dire
+  écartaient sciemment deux cibles — alors que `src/nodefony/vitest.config.ts` n'avait AUCUN
+  `reporters`, donc aucun rapporteur, donc aucune attente sur ces cibles. La ligne rendait
+  l'espérance « c'est couvert, on y renonce ici » pour un fait ; les retirer, comme le ticket le
+  demandait en toutes lettres, n'aurait rien fait tomber. **Un renoncement SUPPOSE une exigence :
+  sans elle il ne désarme rien, il décore.** Et il est plus dangereux qu'un oubli, parce qu'il a
+  l'air d'une décision prise. Le contrôle qui tranche en dix secondes, et qui manquait : chercher
+  QUI porte l'exigence avant de toucher à ce qui l'écarte. Corollaire vécu dans le même diff : la
+  règle « une passe filtrée énonce ce qu'elle ne joue pas » existait, testée, et son motif ne
+  regardait que `src/packages/@nodefony/…` — le cœur y échappait ([[feedback_fix_the_family_not_the_instance]],
+  [[feedback_gate_must_bite]]).
+
+- [5× — 09-17h] 🔴 **« Le conteneur tourne » rendu pour « le serveur est prêt ».** `containerHealthy`
+  conclut sur `docker inspect` : sonde absente → « none » → réputé sain. Or l'image de Loki est
+  DISTROLESS, elle ne PEUT pas porter de sonde — donc elle est déclarée saine à la seconde où elle
+  démarre, pendant que `GET /ready` rend encore **503** pendant une dizaine de secondes. Mesuré
+  côte à côte dans la même commande : `containerHealthy(loki) = true | GET /ready = 503`. Même
+  famille exactement que « ça écoute ≠ NOTRE serveur écoute » ci-dessus : l'instrument répond à une
+  question VOISINE de celle qu'on pose, et sa réponse est plausible. Le remède est structurel, pas
+  un délai : faire dire au catalogue des décors quelle URL interroger sur l'HÔTE quand l'image ne
+  peut pas se sonder elle-même (`EnvGate.readyUrl`).
+
 ## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
 
 - [1× — 09-17e] 🔴 **Un TEST peut graver une supposition que personne n'a jamais confrontée au
