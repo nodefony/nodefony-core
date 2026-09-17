@@ -66,6 +66,51 @@ async function freePort(): Promise<number> {
   throw new Error("aucun port libre sous la plage éphémère");
 }
 
+/** Connexions entrantes de chaque serveur tiers, pour pouvoir les couper. */
+const connexionsDesTiers = new WeakMap<net.Server, Set<net.Socket>>();
+
+/**
+ * Ouvre un serveur tiers et n'en rend la main qu'une fois qu'il ÉCOUTE.
+ *
+ * `listen()` est asynchrone : l'appeler sans attendre laisse le cas démarrer
+ * avant que son décor soit en place. La sonde ne voit alors pas le port occupé,
+ * le conflit que le cas veut éprouver n'existe pas encore, et le verdict porte
+ * sur autre chose que ce qui est écrit.
+ */
+async function ouvrirTiers(port: number): Promise<net.Server> {
+  const srv = net.createServer();
+  // Suivre les connexions ENTRANTES : `net.Server` n'a pas le
+  // `closeAllConnections()` de `http.Server`, et sans cette liste il n'y a aucun
+  // moyen de rendre la fermeture indépendante de la sonde qui l'interroge.
+  const vivantes = new Set<net.Socket>();
+  srv.on("connection", (socket) => {
+    vivantes.add(socket);
+    socket.once("close", () => vivantes.delete(socket));
+  });
+  connexionsDesTiers.set(srv, vivantes);
+  await new Promise<void>((resolve, reject) => {
+    srv.once("error", reject);
+    srv.listen(port, "127.0.0.1", () => resolve());
+  });
+  return srv;
+}
+
+/**
+ * Ferme un serveur tiers sans attendre ce qu'on ne contrôle pas.
+ *
+ * `close()` ne ferme QUE le socket d'écoute : il attend ensuite la fin de TOUTES
+ * les connexions ouvertes — or la sonde de readiness en a précisément ouvert une
+ * sur ce port. Le décor mettait alors plus de temps à se démonter que le cas
+ * n'en avait mis à établir son verdict, et le délai du test tombait sur le
+ * sujet, verdict déjà acquis. `closeAllConnections()` coupe ce lien.
+ */
+async function fermerTiers(srv: net.Server | undefined): Promise<void> {
+  if (!srv) return;
+  for (const socket of connexionsDesTiers.get(srv) ?? []) socket.destroy();
+  connexionsDesTiers.delete(srv);
+  await new Promise<void>((resolve) => srv.close(() => resolve()));
+}
+
 /** Chemin de log jetable dans le tmpdir système. */
 function tmpLog(tag: string): string {
   return path.join(
@@ -411,7 +456,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     const contested = await freePort();
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "nodefony-detach-dual-"));
     const log = tmpLog("dualbind");
-    const squatteur = net.createServer().listen(contested, "127.0.0.1");
+    const squatteur = await ouvrirTiers(contested);
     let childPid: number | undefined;
     try {
       const stateFile = path.join(
@@ -465,7 +510,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       );
     } finally {
       await killDetached(childPid);
-      squatteur.close();
+      await fermerTiers(squatteur);
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
@@ -489,8 +534,8 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     const [conv1, conv2] = [await freePort(), await freePort()];
     const cwd = fs.mkdtempSync(path.join(os.tmpdir(), "nodefony-detach-3rd-"));
     const log = tmpLog("thirdparty");
-    const squatters = [conv1, conv2].map((p) =>
-      net.createServer().listen(p, "127.0.0.1"),
+    const squatters = await Promise.all(
+      [conv1, conv2].map((p) => ouvrirTiers(p)),
     );
     let childPid: number | undefined;
     try {
@@ -513,7 +558,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       assert.strictEqual(r.exitCode, 69);
     } finally {
       await killDetached(childPid);
-      for (const s of squatters) s.close();
+      await Promise.all(squatters.map((s) => fermerTiers(s)));
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
