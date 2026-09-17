@@ -38,6 +38,10 @@ import {
   lireReleve,
   lireTimeline,
 } from "./lib/transcript-dialectes.mjs";
+// L'emplacement d'un journal hors sortie standard est DÉCLARÉ une fois, dans
+// `journal-source.mjs` — le banc le lit pour capturer, cette aide pour l'annoncer.
+// Recopié ici, il aurait divergé au premier agent ajouté.
+import { provenanceLisible } from "./lib/journal-source.mjs";
 
 const USAGE = `  analyse-transcript — dépouille le transcript d'un agent
 
@@ -46,7 +50,7 @@ const USAGE = `  analyse-transcript — dépouille le transcript d'un agent
   OÙ LES TROUVER ─────────────────────────────────────────────────────────────
 
   · claude   <runDir>/transcript.jsonl  (ou task-<n>.transcript.jsonl)
-  · copilot  ~/.copilot/session-state/<id>/events.jsonl
+  · copilot  ${provenanceLisible("copilot")}
   · vibe     ~/.vibe/logs/session/<id>/messages.jsonl
   · codex    la sortie de \`codex exec --json\`
   · gemini   la sortie de \`gemini -o stream-json\`

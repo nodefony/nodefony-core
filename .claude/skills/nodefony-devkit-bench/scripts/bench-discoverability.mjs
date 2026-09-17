@@ -83,6 +83,7 @@ import { execFileSync, spawn, spawnSync } from "node:child_process";
 import { needsShell } from "./lib/exec-portable.mjs";
 import { garderDrapeaux } from "./lib/argv.mjs";
 import { lireReleve } from "./lib/transcript-dialectes.mjs";
+import { capturerJournal, provenanceLisible } from "./lib/journal-source.mjs";
 import {
   chmodSync,
   copyFileSync,
@@ -232,6 +233,32 @@ const RUN_ROOT = LINKED
 let COMMIT_AU_PACK = null;
 
 const AGENT = process.env.NF_DEVKIT_BENCH_AGENT ?? "claude";
+
+/**
+ * Le journal du run, tel que CET agent l'écrit — adaptateur disque.
+ *
+ * La règle et la capture vivent dans `lib/journal-source.mjs`, avec leurs accès
+ * injectés : ici on ne fait que brancher les vrais. Le défaut du `stdout`
+ * universel est raconté au long dans ce module — en deux mots, il faisait juger
+ * un run RÉUSSI de `copilot` comme un agent qui n'a jamais parlé.
+ *
+ * @param {string} agent - le binaire lancé.
+ * @param {{stdout?: string}} res - ce que `spawnSync` a rendu.
+ * @param {number} debutRunMs - l'instant du lancement, même horloge que le disque.
+ * @returns {{contenu: string, provenance: string, probleme?: string}} le journal.
+ */
+function lireJournalDeLAgent(agent, res, debutRunMs) {
+  return capturerJournal(agent, res.stdout ?? "", debutRunMs, {
+    existe: (p) => existsSync(p),
+    listeDossiers: (p) =>
+      readdirSync(p, { withFileTypes: true })
+        .filter((e) => e.isDirectory())
+        .map((e) => e.name),
+    mtimeMs: (p) => statSync(p).mtimeMs,
+    lire: (p) => readFileSync(p, "utf8"),
+    home: os.homedir(),
+  });
+}
 /**
  * Modèle de l'agent — VARIABLE DU DÉCOR : deux runs sur deux modèles ne se
  * comparent pas. Défaut = le modèle LÉGER de la famille (haiku), à dessein :
@@ -5650,6 +5677,10 @@ function runTask(app, runDir, task) {
       "  · porte MCP NON déclarée — le décor est vide, l'application reste à créer",
     );
   }
+  // L'instant du lancement, pris sur CETTE machine — c'est lui qui sépare le
+  // journal de ce run de celui d'une session précédente de l'utilisateur. Une
+  // seule horloge, celle qui horodate aussi les fichiers qu'on va lire.
+  const debutRunMs = Date.now();
   const res = spawnSync(
     AGENT,
     [
@@ -5673,7 +5704,25 @@ function runTask(app, runDir, task) {
       env: envTache,
     },
   );
-  writeFileSync(transcriptPath, res.stdout ?? "");
+  const journal = lireJournalDeLAgent(AGENT, res, debutRunMs);
+  writeFileSync(transcriptPath, journal.contenu);
+  if (journal.probleme) {
+    // 🔴 On NOMME la vraie cause plutôt que de laisser le garde-fou suivant
+    // conclure « aucun tour d'assistant », qui se lit « authentification ou
+    // quota » — un diagnostic parfaitement faux, et qui envoie chercher une clé
+    // quand c'est un chemin qui manque.
+    console.log(
+      `\n🛑 journal de « ${AGENT} » INTROUVABLE là où il est déclaré.\n` +
+        `   Déclaré : ${provenanceLisible(AGENT)}\n` +
+        `   Constat : ${journal.probleme}\n` +
+        `   Ce n'est PAS un agent muet : sa sortie standard fait ${(res.stdout ?? "").length} octets.\n` +
+        `   Run INTERROMPU — le décor est conservé.`,
+    );
+    process.exit(2);
+  }
+  if (journal.provenance !== "stdout") {
+    console.log(`  · journal lu dans ${journal.provenance}`);
+  }
   if (res.status !== 0) {
     console.log(`  ⚠️ agent sorti en ${res.status} (transcript conservé)`);
   }
