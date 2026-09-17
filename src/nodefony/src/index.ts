@@ -649,6 +649,11 @@ export type {
 // futur data plane Studio (`GET spec` en JSON → formulaire → `POST run`). La
 // spec est 100 % JSON-able ; runScaffold n'a aucune I/O terminal.
 export { getScaffoldSpec } from "./cli/scaffold/spec";
+// La liste des moteurs front est la MÊME pour la commande qui en pose un
+// (`create front --frontend`) et pour qui doit en NOMMER un à l'utilisateur —
+// `@nodefony/frontend` la cite au démarrage quand aucune interface n'est posée.
+// Recopiée, elle survivrait à l'ajout d'un moteur sans le dire.
+export { FRONTEND_CHOICES } from "./cli/scaffold/spec";
 // Le câblage des agents choisis à la création : UNE construction d'appel, servie
 // au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
 export { argvMcpWiring, mcpWiringPlan } from "./cli/create";

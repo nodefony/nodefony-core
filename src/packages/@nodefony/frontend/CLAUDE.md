@@ -170,8 +170,12 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
   `@sveltejs/vite-plugin-svelte` n'est pas installé dans CE dépôt — l'app le porte).
   Solid n'existe pas.
 - **Commandes** (`nodefony/command/`) : `frontend:build`, `frontend:dev`, `frontend:status`.
-  Il n'y a **pas** de `frontend:create` — le scaffold d'un module à front passe par
-  `nodefony create module <nom> --frontend <fw>`.
+  Il n'y a **pas** de `frontend:create` — poser une interface passe par le scaffold du cœur :
+  `nodefony create front [nom] --frontend <moteur>` sur une application ou un module déjà
+  générés, ou `nodefony create module <nom> --frontend <fw>` pour un module neuf. C'est cette
+  commande que le service NOMME au démarrage quand aucune entrée n'est déclarée (`FrontendService`,
+  branche `entries.length === 0`) : la liste des moteurs y est relue depuis `FRONTEND_CHOICES`
+  (cœur, `cli/scaffold/spec.ts`), jamais recopiée.
 - **Multi-bundle** : exercé en vrai — Studio et `@nodefony/test-frontend-react` coexistent.
 - `TemplateHelper` injecte le `manifest.json` en production (tags hashés).
 

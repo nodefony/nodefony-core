@@ -5,6 +5,7 @@ import {
   Event,
   extend,
   injectable,
+  FRONTEND_CHOICES,
 } from "nodefony";
 import type {
   IFrontendService,
@@ -168,9 +169,18 @@ class FrontendService extends Service implements IFrontendService {
       const env = this.kernel?.environment;
       if (env === "development" && this.cfg.autoStartInDevelopment) {
         if (this.entries.length === 0) {
+          // `INFO` en anglais, cette ligne était indiscernable d'un framework
+          // SANS front : le module est installé et câblé, mais rien ne dit que
+          // la capacité existe ni comment l'atteindre. Un agent en conclut
+          // qu'il doit écrire ses pages à la main. Le niveau et la commande
+          // font toute la valeur du message — cf `nodefony create front`.
+          const engines = FRONTEND_CHOICES.filter((c) => c !== "none").join(
+            "|",
+          );
           this.log(
-            "no frontend entries declared — Vite supervisor not started",
-            "INFO",
+            `aucune interface web n'est déclarée — le serveur de développement Vite ne démarre pas. ` +
+              `Pour en poser une : \`nodefony create front [nom] --frontend <${engines}>\``,
+            "WARNING",
           );
           return;
         }

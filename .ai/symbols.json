@@ -33255,7 +33255,8 @@
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "FRONTEND_CHOICES": [
-        "src/nodefony/src/kernel/commands/CreateCommand.ts"
+        "src/nodefony/src/kernel/commands/CreateCommand.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "PRESET_CHOICES": [
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
