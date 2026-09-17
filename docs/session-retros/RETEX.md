@@ -171,6 +171,15 @@ exécution.
   l'échéance qui me tuera ?** Sinon, borner soi-même, assez tôt pour parler — et composer le
   diagnostic AU MOMENT du dépassement, seul instant où l'état dit encore où il en était.
 
+- [1× — 09-17f] 🔴 **Le banc avait FINI son travail, et il est mort quand même — sur son décor.**
+  Le socket-occupant du décor était fermé par un `close()` attendu : or `close()` ne rend la main
+  qu'une fois TOUTES les connexions terminées, et la sonde de conflit du serveur en avait ouvert
+  une. Le banc restait bloqué APRÈS ses assertions, dépassait son échéance, et rendait « Test timed
+  out » — un verdict qui désigne le sujet alors que la faute est dans le rangement. J'ai d'abord
+  cherché pourquoi la readiness n'aboutissait pas ; elle aboutissait très bien. **Le nettoyage d'un
+  banc est du code qui peut pendre, et il pend APRÈS la preuve, donc à l'endroit exact où il la
+  détruit.** Ce qu'on ferme, on le ferme sans attendre ce qu'on ne contrôle pas.
+
 - [1× — 09-11d] **Le défaut corrigé a révélé le suivant, au même endroit.** Le banc de publication
   refusait l'image du scénario à frontend (clé privée). Corrigé, le scénario va PLUS LOIN et tombe
   sur une étape qui n'avait jamais pu s'exécuter : elle efface `public/dist` dans le conteneur, ce
@@ -526,6 +535,23 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   passage, une assertion de banc qui ne l'était pas (`first.status().port === port` passait même
   sans port résolu). Voisins gradués : [[feedback_reliable_path_demoted_to_fallback]],
   [[feedback_resilience_no_silent_degradation]].
+
+- [2× — 09-17f] 🔴 **J'ai RÉÉCRIT le même défaut en le corrigeant.** Chargé d'annoncer l'adresse
+  RÉELLEMENT servie, mon premier jet repliait, faute d'adresse publiée, sur les ports que le
+  superviseur SURVEILLE — et affichait « ✓ serveur prêt — ports 5371 » pendant que le serveur
+  écoutait sur 5372. Exactement l'espérance rendue pour un fait, dans le correctif censé la
+  supprimer. Ce qui l'a révélé n'est aucun des quinze tests unitaires que je venais d'écrire : c'est
+  le banc RÉEL, au premier lancement. **Un repli qui produit une valeur PLAUSIBLE est le plus
+  dangereux : il ne lève jamais, et sa sortie ressemble à la bonne.** La forme honnête existe et
+  coûte une ligne — nommer le statut de ce qu'on rend (« ports surveillés … — adresse NON publiée »).
+
+- [3× — 09-17f] 🔴 **« Ça écoute » ne vaut pas « NOTRE serveur écoute ».** La sonde de readiness du
+  superviseur concluait au démarrage réussi en voyant un socket qu'un TIERS tenait déjà — 1,5 s
+  après le lancement, alors que l'application bootait encore et allait servir un autre port. Le
+  superviseur AVAIT pourtant l'information : il venait d'écrire « ports encore occupés : 5371 ». Il
+  ne s'en servait que pour un autre projet _Nodefony_ identifié, jamais pour un occupant
+  quelconque. Le fait qui tranche est pourtant structurel et gratuit : **au moment du relevé, notre
+  enfant n'existe pas encore — donc ce qui écoute là appartient forcément à quelqu'un d'autre.**
 
 ## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
 

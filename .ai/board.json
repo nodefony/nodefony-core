@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T15:42:51.612Z",
+  "generatedAt": "2026-09-17T16:35:11.785Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 103,
+      "closed": 105,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 17,
+      "open": 15,
       "title": "10.0.0-alpha"
     },
     {
@@ -3032,7 +3032,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 9,
+      "jours": 7.5,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3221,8 +3221,8 @@
       "number": 391,
       "title": "fix(cli): annoncer l'adresse servie quand le port est décalé",
       "url": "https://github.com/nodefony/nodefony-core/issues/391",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3253,8 +3253,8 @@
       "number": 395,
       "title": "fix(cli): rendre l'échec de démarrage visible à qui lance en fond",
       "url": "https://github.com/nodefony/nodefony-core/issues/395",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
