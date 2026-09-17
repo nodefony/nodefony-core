@@ -335,6 +335,11 @@
   d'abîmer le code pour l'outil. La bonne réponse était dans le script : `NON_SKILL_TERMS`, une
   liste qui existe précisément pour les noms en `nodefony-…` qui ne sont pas des skills. Avant de
   contourner un gate, lire s'il porte déjà l'exception.
+- [1× — 09-17] **Une sonde qui vérifie la PRÉSENCE d'une chaîne ne dit rien de son ATTEIGNABILITÉ.** Le banc devkit
+  mesurait depuis des semaines un `AGENTS.md` que deux outils sur deux refusaient d'ouvrir (« File too large,
+  59.3 KB »), sans jamais réessayer. Contenu présent, payé, mesuré rentable (86 % contre 73 %) — et jamais lu.
+  Deux questions distinctes, seule la seconde décide du résultat. Et la frontière juste n'était pas un seuil : le
+  fichier appartient à l'APPLICATION, le framework y écrivait 99,4 % (430 o laissés sur 66 689). → #389
 
 ## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
 
@@ -621,6 +626,11 @@
   jamais armé → « 0 appel au pilote », lu comme une découverte sur le code. Un instrument neuf se
   vérifie sur une LIGNE TÉMOIN dont on connaît la réponse, avant de lui faire dire quoi que ce soit
   du produit. `LC_ALL=C` doit couvrir TOUT le tube, pas seulement sa première commande.
+- [1× — 09-17] **Un débranchement se vérifie sur l'artefact SERVI, pas sur la source éditée.** Correctif retiré,
+  test relancé, 5/5 verts — sauf que le superviseur de dev avait répondu « build en échec — serveur courant
+  conservé » : le serveur jouait encore le correctif. Le faux vert ne venait pas du test mais du décor, et seul le
+  journal du superviseur le disait. Idem pour `npm pack` : `md5` de `dist/index.js` inchangé après rebuild parce
+  que c'est un barrel — le fichier qui porte le code est ailleurs (`preserveModules`).
 
 ## 🗄️ 🧑‍⚖️ Un AUDIT + 🕶️ relire EN AVEUGLE — GRADUÉ
 
@@ -947,6 +957,10 @@ false`) et −6,4 % de débit : la page aurait publié l'inverse exact de sa mes
   celle de l'APPLICATION). Écrire le fichier pour de vrai et le typechecker a pris deux minutes ; la
   seconde faute est devenue un contre-exemple de la page. **Un bloc de code publié se COMPILE, même
   quand aucun gate ne le demande** — surtout quand la page prétend enseigner une garde de typage.
+- [1× — 09-17] **Publier la valeur DEMANDÉE là où on annonce une valeur MESURÉE.** Neuf sites de deux générateurs
+  rendaient `soak.minutes` (l'entrée) au lieu de `observedMinutes` (le relevé) : un run tronqué aurait publié une
+  durée qu'il n'a pas tenue. Même famille : la page de perf composait la durée d'une campagne avec l'empreinte
+  d'une AUTRE — les deux chiffres vrais, la composition fausse, et rien n'indiquait où passait la couture.
 
 ## 🗄️ 🧨 DÉCLARATION qui désarme + 💾 CACHE à demi écrit — VERSÉS
 
@@ -1253,3 +1267,7 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   propre (dispersion ≤ 3 %) et le RAPPORT entre deux camps ne valait rien — c'est l'audit délégué
   qui me l'a fait remarquer, pas moi. Même famille que [[feedback_gate_must_run]], côté mesure :
   ce qu'aucun script n'orchestre n'est pas appliqué.
+- [1× — 09-17] **Une consigne qu'on ne peut pas tenir se REFUSE au départ.** `soak.yml` acceptait `minutes=90`
+  sur un job plafonné en dur à 60 : le run partait, mourait à 60 min 17 s, et ne rendait AUCUN artefact — la
+  seule trace était un job tué sans explication. Le plafond dérive maintenant de l'entrée, et une garde refuse
+  au-delà de ce que la forge tient. Un défaut par ACCEPTATION est plus coûteux qu'un refus.

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T05:17:52.626Z",
+  "generatedAt": "2026-09-17T05:41:41.958Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -3045,7 +3045,7 @@
       "title": "docs(scaffold): rendre les instructions d'agent lisibles par tout outil",
       "url": "https://github.com/nodefony/nodefony-core/issues/389",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
