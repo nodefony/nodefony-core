@@ -9,8 +9,8 @@
 | --- | ---: |
 | PRODUIT — du code livré la porte | 8 |
 | DÉPÔT — un gate ou un script la porte | 32 |
-| CONTEXTE — relue seulement | 80 |
-| INERTE — rien ne la cite | 0 |
+| CONTEXTE — relue seulement | 81 |
+| INERTE — rien ne la cite | 2 |
 
 ## PRODUIT
 
@@ -102,6 +102,7 @@
 - **feedback_named_process_titles** — cité dans 1 artefact(s)
 - **feedback_no_commit_docs_without_validation** — cité dans 2 artefact(s)
 - **feedback_no_headless_chrome** — cité dans 1 artefact(s)
+- **feedback_no_pull_request** — cité dans 1 artefact(s)
 - **feedback_nodefony_not_symfony_clone** — cité dans 1 artefact(s)
 - **feedback_observability_no_prod_impact** — cité dans 1 artefact(s)
 - **feedback_orm_bancs_vitest_migration** — cité dans 1 artefact(s)
@@ -143,3 +144,5 @@
 
 ## INERTE
 
+- **feedback_scope_wider_than_intended** — cité dans 0 artefact(s)
+- **feedback_script_import_executes** — cité dans 0 artefact(s)
