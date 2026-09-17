@@ -127,6 +127,13 @@ const CASES = [
   //   d'utilisateur : « je veux stocker des articles », pas « scaffolder une
   //   entité ». C'est précisément cette formulation-là qui doit mordre, puisque
   //   c'est la seule que l'utilisateur emploiera.
+  // Le skill GÉNÉRALISTE : il doit mordre sur ce qu'on demande AVANT de savoir
+  // quel geste précis on fera — et surtout ne pas voler leur demande aux skills
+  // spécialisés, ce que les cas négatifs plus bas contrôlent.
+  ["comment on code dans ce framework", "nodefony-dev"],
+  ["par où je commence pour modifier cette application", "nodefony-dev"],
+  ["où est la doc de ça, je ne trouve rien", "nodefony-dev"],
+  ["comment vérifier que mon changement est fini", "nodefony-dev"],
   ["je veux stocker des articles dans mon app", "nodefony-add-crud"],
   ["ajoute une entité avec un CRUD", "nodefony-add-crud"],
   ["comment définir une relation entre deux entités", "nodefony-add-crud"],
@@ -187,6 +194,13 @@ const NEGATIVE_CASES = [
   // gardent la frontière, faute de quoi il capterait les demandes de dev front.
   ["mon prébundle Vite est périmé", "nodefony-browser"],
   ["comment brancher le socket client ?", "nodefony-browser"],
+  // `nodefony-dev` est GÉNÉRALISTE : c'est précisément le profil qui vole les
+  // demandes des skills spécialisés, et il porte des mots aimantés (« coder »,
+  // « application », « framework », « vérifier »). Ces trois cas gardent la
+  // frontière : dès qu'un GESTE précis est nommé, c'est son skill qui gagne.
+  ["ajoute une entité avec un CRUD", "nodefony-dev"],
+  ["protège cette route aux administrateurs", "nodefony-dev"],
+  ["la colonne n'existe pas en base", "nodefony-dev"],
 ];
 
 /**

@@ -1,24 +1,18 @@
 ---
 name: nodefony-browser
 description: >
-  Ouvre un écran de ton application dans un navigateur piloté pour le VOIR et surtout le MESURER —
+  Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER —
   contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par
-  axe-core, erreurs de console, requêtes HTTP, frames WebSocket. Fonctionne sur ta machine
-  (Playwright) ou dans un conteneur jetable, au choix. Porte les sondes prêtes à l'emploi, le choix
-  du thème clair ou sombre — un défaut d'affichage n'existe souvent que dans l'un des deux —, les
-  contraintes de réseau qui font répondre `421` ou `401` à une application pourtant saine, et les
-  pièges qui font conclure FAUX : mesurer avant que l'écran soit peuplé, observer un bundle qui
-  n'est plus celui du code, prendre une condition d'arrêt qui réussit toujours. Sait aussi piloter
-  un socket temps réel de bout en bout : accueil, abonnement à un canal, action, latence médiane,
-  pont API, reconnexion. À charger AVANT de conclure quoi que ce soit sur un écran.
+  axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un
+  conteneur jetable. Porte les sondes prêtes à l'emploi, le thème clair ou sombre — un défaut
+  d'affichage n'existe souvent que dans l'un des deux —, et les pièges qui font conclure FAUX :
+  mesurer avant que l'écran soit peuplé, ou observer un bundle qui n'est plus celui du code. Sait
+  aussi piloter un socket temps réel de bout en bout. À charger AVANT de conclure quoi que ce
+  soit sur un écran.
   Déclencheurs : "regarde l'écran", "vérifie l'affichage", "est-ce que ça s'affiche ?",
-  "montre-moi la page", "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste",
-  "cette couleur est-elle lisible ?", "capture d'écran", "vérifie l'accessibilité",
-  "audit accessibilité", "audit WCAG", "en mode clair", "en mode sombre", "le thème sombre",
-  "la page est-elle rapide ?", "temps de chargement", "responsive ?",
-  "quelles requêtes fait la page ?", "le temps réel arrive-t-il jusqu'à l'écran ?",
-  "teste le socket", "mesure la latence du websocket", "le canal pousse-t-il ?",
-  "l'application démarre-t-elle vraiment ?".
+  "lis la console", "y a-t-il des erreurs JS ?", "mesure le contraste", "capture d'écran",
+  "vérifie l'accessibilité", "audit WCAG", "en mode sombre", "la page est-elle rapide ?",
+  "quelles requêtes fait la page ?", "teste le socket".
 ---
 
 # see-screen — voir et MESURER un écran

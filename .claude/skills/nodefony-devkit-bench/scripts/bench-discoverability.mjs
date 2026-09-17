@@ -1296,6 +1296,43 @@ export const SONDES_QUALITE = [
     pattern: /"(?:file_path|path)"\s*:\s*"[^"]*agents\/nodefony\/[a-z-]+\.md"/u,
     observe: true,
   },
+  {
+    // Le skill GÉNÉRALISTE livré aux applications — celui qui répond à « comment
+    // développe-t-on ici ? ». Deux gestes le rendent atteignable, et ce relevé
+    // ne fait pas la différence entre eux : l'INVOCATION par l'outil de skills
+    // (Claude Code, Gemini, vibe), et la LECTURE du `SKILL.md` — qui est le seul
+    // geste possible pour un client sans mécanisme de skills (Codex n'en a
+    // aucun), et pour lequel le pointeur posé par `ai:sync` donne le chemin.
+    //
+    // 🔴 Même piège que l'annexe ci-dessus, et il est plus vicieux ici : la
+    // PORTE nomme désormais `nodefony-dev` en toutes lettres, et l'index des
+    // skills est dans le prompt de plusieurs agents. Un motif écrit sur le nom
+    // nu compterait donc une citation comme une ouverture, sur TOUS les runs.
+    // La clé `"skill"` (invocation) et la clé de chemin (lecture) ne sont
+    // produites que par un appel d'outil réel.
+    kind: "transcript",
+    name: "a chargé le skill nodefony-dev",
+    pattern:
+      /"skill"\s*:\s*"nodefony-dev"|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-dev\/SKILL\.md"/u,
+    observe: true,
+  },
+  {
+    // Ce que l'agent ne peut PAS trouver seul : la documentation installée est
+    // invisible à `rg`, qui suit le `.gitignore` et ne descend pas dans
+    // `node_modules`. 70 pages paraissent absentes, et l'agent conclut « ce
+    // n'est pas documenté » puis réécrit à la main.
+    //
+    // C'est la sonde la plus instructive du lot, parce qu'elle mesure le levier
+    // le plus fort : sur les transcripts déjà collectés, un script cité comme
+    // COMMANDE dans la porte est exécuté dans 80 % des runs, là où un `SKILL.md`
+    // n'est ouvert que dans 17 % et une page de `references/` jamais. Si ce
+    // relevé reste bas, ce n'est pas le script qu'il faut corriger mais sa
+    // MENTION dans la porte.
+    kind: "transcript",
+    name: "a cherché dans la doc installée (docs.mjs)",
+    pattern: /nodefony-dev\/scripts\/docs\.mjs/u,
+    observe: true,
+  },
 ];
 
 /**

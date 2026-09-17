@@ -19,7 +19,7 @@ source: "docs/skills/index.md"
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **Fiches des skills**
 
-**27 skills** · **27/27 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
+**32 skills** · **32/32 conformes** au standard · régénérer : `node .claude/skills/nodefony-skill/scripts/skills-doc.mjs`
 
 ## 🧭 Par où commencer
 
@@ -155,7 +155,22 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont…",
-    "meta": "🟢 conforme v1.7.0 · ⚙️ 14 scripts · 📎 5 réf" }
+    "meta": "🟢 conforme v1.7.0 · ⚙️ 14 scripts · 📎 5 réf" },
+  { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
+    "desc": "Crée une ressource complète dans une application Nodefony — table, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, au lieu de l'écrire à la main.",
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "add-realtime-channel", "href": "nodefony-add-realtime-channel.md",
+    "desc": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.",
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "add-service", "href": "nodefony-add-service.md",
+    "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au…",
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "dev", "href": "nodefony-dev.md",
+    "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+  { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
+    "desc": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon…",
+    "meta": "🟢 conforme" }
 ]
 ```
 
@@ -190,6 +205,11 @@ source: "docs/skills/index.md"
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 187 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 617 | 5 | 14 | ✅ |
+| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 184 | 0 | 0 | ✅ |
+| [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 84 | 0 | 0 | ✅ |
+| [`nodefony-add-service`](nodefony-add-service.md) | — | 78 | 0 | 0 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.0.0 | 129 | 0 | 1 | ✅ |
+| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 182 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

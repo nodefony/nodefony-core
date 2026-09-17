@@ -9,14 +9,11 @@ description: >
   exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma
   changé.
   Déclencheurs : "j'ai ajouté un champ à une entité", "la colonne n'existe pas en base",
-  "modifier une table existante", "migration", "migrer le schéma", "orm:migrate", "orm:generate",
-  "la base est en retard", "appliquer les migrations", "déployer un changement de schéma",
-  "comment passer ce modèle en production", "ma base ne correspond plus au code",
-  "no such column", "column does not exist", "erreur SQL après avoir changé une entité",
-  "adopter une base existante", "réparer une migration en échec", "le pod ne devient pas prêt",
-  "comment tester ma migration", "éprouver une migration", "vérifier qu'une migration marche",
-  "prouver que ma migration s'applique", "essayer sans casser ma base", "base d'essai",
-  "rejouer les migrations depuis zéro", "repartir d'une base propre".
+  "modifier une table existante", "migrer le schéma", "orm:migrate", "orm:generate",
+  "appliquer les migrations", "déployer un changement de schéma", "no such column",
+  "column does not exist", "ma base ne correspond plus au code", "adopter une base existante",
+  "réparer une migration en échec", "éprouver une migration sans casser ma base",
+  "rejouer les migrations depuis zéro".
 metadata:
   version: 2
 ---

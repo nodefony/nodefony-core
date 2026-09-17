@@ -192,7 +192,25 @@ serait sans effet à la régénération suivante.
     "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "skills/nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont…",
-    "meta": "🟢 conforme v1.7.0 · ⚙️ 14 scripts · 📎 5 réf" }
+    "meta": "🟢 conforme v1.7.0 · ⚙️ 14 scripts · 📎 5 réf" },
+  { "icon": "🔧", "title": "add-crud", "href": "skills/nodefony-add-crud.md",
+    "desc": "Crée une ressource complète dans une application Nodefony — table, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, au lieu de l'écrire à la main.",
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "add-realtime-channel", "href": "skills/nodefony-add-realtime-channel.md",
+    "desc": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.",
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "add-service", "href": "skills/nodefony-add-service.md",
+    "desc": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au…",
+    "meta": "🟢 conforme" },
+  { "icon": "🔧", "title": "browser", "href": "skills/nodefony-browser.md",
+    "desc": "Ouvre un écran de ton application Nodefony dans un navigateur piloté pour le VOIR et surtout le MESURER — contrastes et tailles réellement calculés par le moteur de rendu, audit d'accessibilité par axe-core, erreurs de console, requêtes HTTP, frames WebSocket, sur ta machine ou dans un conteneur…",
+    "meta": "🟢 conforme · ⚙️ 4 scripts · 📎 2 réf" },
+  { "icon": "🔧", "title": "dev", "href": "skills/nodefony-dev.md",
+    "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
+    "meta": "🟢 conforme v1.0.0 · ⚙️ 1 script" },
+  { "icon": "🔧", "title": "protect-route", "href": "skills/nodefony-protect-route.md",
+    "desc": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon…",
+    "meta": "🟢 conforme" }
 ]
 ```
 <!-- skills-cards:end -->

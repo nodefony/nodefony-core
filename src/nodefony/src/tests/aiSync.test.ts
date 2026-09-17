@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { expect as chaiExpect } from "chai";
 import {
   mkdtempSync,
+  readdirSync,
   mkdirSync,
   writeFileSync,
   readFileSync,
@@ -16,6 +17,7 @@ import {
   SKILLS_DIR,
   type IDiscoveredSkill,
 } from "../cli/aiSyncReport";
+import { readSkillHeader } from "../cli/aiSync";
 
 void chaiExpect;
 
@@ -421,4 +423,60 @@ describe("ai:sync — on ne remplace QUE ce qu'on a soi-même posé", () => {
     expect(readFileSync(miroir, "utf8")).toContain("nodefony ai:sync");
     expect(plan.preserves).toEqual([]);
   });
+});
+
+describe("ai:sync — ce que le POINTEUR transmet vraiment", () => {
+  // 🔴 Le contrôle qui manquait, et qui décide si un skill livré se déclenchera
+  // un jour. `ai:sync` ne copie pas le skill chez l'utilisateur : il pose un
+  // pointeur dont la description est réduite par `readSkillHeader` à sa
+  // PREMIÈRE PHRASE. Tout ce qui suit le premier point — les déclencheurs, le
+  // « à charger AVANT de… » — n'atteint JAMAIS l'application. Une première
+  // phrase qui ne dit pas à elle seule QUOI et QUAND livre donc un skill
+  // parfaitement écrit et parfaitement inatteignable, et rien ne le signalait.
+  //
+  // Ce contrôle vit ICI et pas dans le gate des skills : c'est
+  // `readSkillHeader` qui coupe, et la règle ne doit avoir qu'une seule
+  // implémentation. La recopier ailleurs la ferait diverger en silence.
+  const skillsDir = path.resolve(
+    __dirname,
+    "../../../packages/@nodefony/devkit/skills",
+  );
+  const livres = readdirSync(skillsDir, { withFileTypes: true })
+    .filter((e) => e.isDirectory())
+    .map((e) => e.name)
+    .sort();
+
+  it("il y a bien des skills livrés à contrôler", () => {
+    // Garde anti-suite creuse : sans elle, un chemin devenu faux rendrait
+    // zéro cas et la suite compterait vert sans avoir rien lu.
+    expect(livres.length).toBeGreaterThan(0);
+  });
+
+  for (const name of livres) {
+    it(`« ${name} » : sa première phrase dit à elle seule quoi et quand`, () => {
+      const source = readFileSync(
+        path.join(skillsDir, name, "SKILL.md"),
+        "utf8",
+      );
+      const header = readSkillHeader(source);
+      expect(header, "frontmatter exploitable").not.toBeNull();
+      const phrase = header?.summary ?? "";
+
+      // Elle doit être une PHRASE, pas un fragment coupé au milieu : le
+      // découpage s'arrête au premier `.`, et une abréviation ou un nombre
+      // décimal placé en tête amputerait la description sans un mot.
+      expect(phrase.length, `trop courte : « ${phrase} »`).toBeGreaterThan(60);
+      expect(
+        phrase.length,
+        `trop longue pour un résumé de pointeur : ${phrase.length}`,
+      ).toBeLessThanOrEqual(400);
+      expect(phrase, "se termine par une ponctuation de fin").toMatch(
+        /[.!?]$/u,
+      );
+
+      // Et elle doit nommer le cadre : un agent qui ne voit que cette phrase
+      // dans une application doit comprendre qu'elle parle de CE framework.
+      expect(phrase.toLowerCase(), "nomme Nodefony").toContain("nodefony");
+    });
+  }
 });

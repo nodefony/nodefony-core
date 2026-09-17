@@ -437,9 +437,33 @@ function triggers(description) {
   return [...after.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 }
 
+/**
+ * Les skills à contrôler : ceux du dépôt, ET ceux que npm livre aux applications.
+ *
+ * 🔴 Les livrés étaient hors du gate, et c'est le plus grave des deux oublis
+ * possibles : un skill du dépôt n'est lu que par un agent qui travaille ICI,
+ * quand un skill livré part chez des utilisateurs qu'on ne connaît pas et qu'on
+ * ne peut plus corriger sans publier. Ils sont marqués `livre` — leur fiche
+ * publique et le registre les distinguent, et un contrôle peut n'être exigé que
+ * d’eux.
+ *
+ * @returns les dossiers à contrôler, dépôt d'abord, chacun avec son origine.
+ */
+function skillsAControler() {
+  const out = [];
+  for (const [racine, livre] of [
+    [SKILLS_DIR, false],
+    [SKILLS_LIVRES_DIR, true],
+  ]) {
+    if (!existsSync(racine)) continue;
+    for (const name of readdirSync(racine).sort())
+      out.push({ name, dir: join(racine, name), livre });
+  }
+  return out;
+}
+
 const skills = [];
-for (const name of readdirSync(SKILLS_DIR).sort()) {
-  const dir = join(SKILLS_DIR, name);
+for (const { name, dir, livre } of skillsAControler()) {
   const file = join(dir, "SKILL.md");
   if (!existsSync(file)) continue;
   const src = readFileSync(file, "utf8");
@@ -544,6 +568,12 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
       nature: "normatif",
       ref: "spec § resources : le dossier de détail se nomme `references/` (pluriel)",
     },
+    // ⚠️ Ce que ce gate ne contrôle PAS, et où c'est contrôlé : `ai:sync` ne
+    // pose pas le skill chez l'utilisateur, il pose un POINTEUR dont la
+    // description est réduite à sa PREMIÈRE PHRASE. La règle appartient donc au
+    // produit (`readSkillHeader`), et son contrôle vit là où la vraie fonction
+    // est importée — `src/nodefony/src/tests/aiSync.test.ts`. La recopier ici
+    // en ferait une seconde implémentation, qui divergerait en silence.
     {
       key: "aucun renvoi vers un skill inexistant",
       ok: deadSkillRefs.length === 0,
@@ -594,6 +624,7 @@ for (const name of readdirSync(SKILLS_DIR).sort()) {
   skills.push({
     name,
     dir,
+    livre,
     version,
     description,
     summary,
@@ -1081,12 +1112,27 @@ function ecrireGenere(chemin, contenu) {
   else writeFileSync(chemin, actuel ? contenu : contenu);
 }
 
+/**
+ * Les skills qui reçoivent une FICHE — un seul par nom.
+ *
+ * Deux skills portent le même nom des deux côtés (`nodefony-browser`,
+ * `nodefony-migrate-schema`) : un JUMEAU du dépôt, plus complet, et sa version
+ * livrée. Les deux sont CONTRÔLÉS — c'est tout l'objet de l'élargissement —
+ * mais une seule fiche peut porter un nom de fichier, et sans arbitrage
+ * explicite c'est le dernier rendu qui gagnerait, silencieusement, selon
+ * l'ordre de lecture du disque. Le dépôt gagne : sa fiche est celle qu'un
+ * lecteur du dépôt cherche.
+ */
+const skillsAvecFiche = skills.filter(
+  (s) => !s.livre || !skills.some((o) => o.name === s.name && !o.livre),
+);
+
 // ---------------------------------------------------------------- exécution
 {
   if (!CHECK_ONLY) mkdirSync(OUT_DIR, { recursive: true });
-  for (const s of skills)
+  for (const s of skillsAvecFiche)
     ecrireGenere(join(OUT_DIR, `${s.name}.md`), renderSkill(s));
-  ecrireGenere(join(OUT_DIR, "index.md"), renderIndex(skills));
+  ecrireGenere(join(OUT_DIR, "index.md"), renderIndex(skillsAvecFiche));
 
   // Index MACHINE. Un registre de skills ou un moteur de recherche n'ouvre pas 27 markdown :
   // il lui faut un seul fichier structuré — résumé, mots-clés, déclencheurs, coût d'activation,

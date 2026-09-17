@@ -2528,6 +2528,67 @@ const SAMPLES = {
       },
     ],
   },
+  "qualité :: a chargé le skill nodefony-dev": {
+    pass: {
+      transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"nodefony-dev"}}`,
+    },
+    fail: {
+      transcript: `{"type":"text","text":"je vais regarder comment ce framework fonctionne"}`,
+    },
+    extra: [
+      {
+        // 🔴 LE cas qui justifie le motif, et il est plus probable ici que pour
+        // les annexes : la PORTE nomme `nodefony-dev` en toutes lettres, et
+        // l'index des skills est dans le prompt système de plusieurs agents. Un
+        // motif écrit sur le nom nu serait vert sur TOUS les runs, y compris
+        // ceux où le skill n'a jamais été chargé.
+        label: "le nom cité par la porte, mais le skill jamais chargé",
+        matter: {
+          transcript: `{"type":"text","text":"La porte dit : charge le skill \`nodefony-dev\` avant ta première modification."}`,
+        },
+        expect: false,
+      },
+      {
+        // Un client SANS mécanisme de skills (Codex) ne peut que LIRE le
+        // fichier — c'est le geste que le pointeur d'`ai:sync` lui indique, et
+        // il compte autant que l'invocation.
+        label: "un client sans skills qui LIT le SKILL.md",
+        matter: {
+          transcript: `{"name":"read_file","input":{"path":"node_modules/@nodefony/devkit/skills/nodefony-dev/SKILL.md"}}`,
+        },
+        expect: true,
+      },
+      {
+        // Un AUTRE skill chargé ne compte pas pour celui-ci : la sonde mesure
+        // une porte précise, pas l'usage des skills en général.
+        label: "un autre skill chargé",
+        matter: {
+          transcript: `{"type":"tool_use","name":"Skill","input":{"skill":"nodefony-add-crud"}}`,
+        },
+        expect: false,
+      },
+    ],
+  },
+  "qualité :: a cherché dans la doc installée (docs.mjs)": {
+    pass: {
+      transcript: `{"name":"Bash","input":{"command":"node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs session cookie"}}`,
+    },
+    fail: {
+      transcript: `{"name":"Bash","input":{"command":"rg session node_modules"}}`,
+    },
+    extra: [
+      {
+        // Le geste que le script existe pour REMPLACER : une recherche à la
+        // racine ne descend pas dans `node_modules` et rend zéro, ce qui se lit
+        // « ce n'est pas documenté ».
+        label: "une recherche ordinaire, qui ne verra rien",
+        matter: {
+          transcript: `{"name":"Bash","input":{"command":"rg -n 'session' ."}}`,
+        },
+        expect: false,
+      },
+    ],
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;

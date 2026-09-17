@@ -12,6 +12,13 @@
 > squelette de module, c'est le signal que tu as raté une commande de la
 > table ci-dessous — arrête-toi et lance-la.
 >
+> 🔴 **Charge le skill `nodefony-dev` AVANT ta première modification**, quelle
+> que soit la tâche : il porte la conduite complète et dit quel skill
+> spécialisé prendre. Et sache ceci dès maintenant — **la référence est
+> INSTALLÉE, mais `rg` ne descend pas dans `node_modules`** : 70 pages
+> paraissent absentes. Une commande les lit, avec la ligne exacte :
+> `node node_modules/@nodefony/devkit/skills/nodefony-dev/scripts/docs.mjs <termes>`.
+>
 > **Tu RENDS une réponse ?** `return this.renderJson(obj)` pour du JSON ;
 > `this.setContextHtml()` puis `return this.render(html)` pour une PAGE — le nonce
 > CSP de la requête s'écrit **`this.context?.cspNonce`** (le `?.` n'est pas
