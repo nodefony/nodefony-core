@@ -2498,6 +2498,36 @@ const SAMPLES = {
       },
     ],
   },
+  "qualité :: a ouvert une annexe agents/nodefony/": {
+    pass: {
+      transcript: `{"type":"tool_use","name":"Read","input":{"file_path":"/tmp/app/agents/nodefony/depannage.md"}}`,
+    },
+    fail: {
+      transcript: `{"type":"text","text":"je vais regarder la documentation"}`,
+    },
+    extra: [
+      {
+        // 🔴 LE cas qui justifie ce motif, et il a produit un faux vert réel :
+        // l'agent lit la PORTE, et la porte CITE ses neuf annexes dans son
+        // index. Un motif écrit sur le chemin nu comptait cette citation comme
+        // une lecture — la sonde mesurait la présence de l'index, pas un geste.
+        label: "l'index de la porte, cité mais pas ouvert",
+        matter: {
+          transcript: `{"type":"text","text":"- **quelque chose ne marche pas** → \`agents/nodefony/depannage.md\`"}`,
+        },
+        expect: false,
+      },
+      {
+        // Une autre clé de chemin reste une lecture : les agents ne nomment pas
+        // tous leur champ `file_path`.
+        label: "un outil qui nomme son champ path",
+        matter: {
+          transcript: `{"name":"read_file","input":{"path":"agents/nodefony/securite-et-droits.md"}}`,
+        },
+        expect: true,
+      },
+    ],
+  },
 };
 
 const key = (task, probe) => `${task.id} :: ${probe.name}`;

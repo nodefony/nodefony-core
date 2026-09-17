@@ -354,14 +354,7 @@ SEULEMENT :
 
    ```bash
    npm run ticket:lint     # 0 = rien à solder ; 1 = corriger AVANT l'empreinte
-   npm run refs:check      # 0 = specs figées à jour ; 3 = une a DÉRIVÉ (il la nomme)
    ```
-
-   `refs:check` vit ici pour la même raison que `ticket:lint` : c'est le moment où le réseau
-   est joint. Une spec VIVANTE figée sous `references/` (AGENTS.md, MCP) se périme **en
-   silence** — on continue de la citer en croyant tenir la norme. Sortie `3` : relire le
-   comparatif qu'il donne, puis remplacer les fichiers ET le `sha` de son `AMONT.json`. Il ne
-   met jamais à jour tout seul, et c'est voulu : une norme se relit avant d'être recopiée.
 
 5 bis. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
 vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :
@@ -636,6 +629,22 @@ Déclencheurs : "consolide les retex", "plan d'amélioration IA".
 >    Il classe chaque leçon en PRODUIT / DÉPÔT / CONTEXTE / INERTE, écrit l'empreinte
 >    `.ai/LESSONS.md`, et surtout **nomme les ancres MORTES** — une mémoire qui prescrit un fichier
 >    disparu envoie chercher au mauvais endroit sans jamais lever d'erreur.
+>
+> 6. **Contrôler que les specs FIGÉES n'ont pas dérivé** :
+>
+>    ```bash
+>    npm run refs:check     # 0 = à jour · 3 = une spec a DÉRIVÉ (il la nomme) · 78 = réseau muet
+>    ```
+>
+>    Une RFC ne bouge jamais ; une spec VIVANTE figée sous `references/` (AGENTS.md, MCP), si — et
+>    elle se périme **en silence** : on continue de la citer en croyant tenir la norme. Sortie `3` :
+>    relire le comparatif qu'il donne, puis remplacer les fichiers ET le `sha` de son `AMONT.json`.
+>    Il ne met jamais à jour tout seul — une norme se relit avant d'être recopiée.
+>
+>    ⚠️ **Ici et pas au END**, et c'est une leçon payée : une spec bouge quelques fois par an, le
+>    END se joue à chaque clôture. Y brancher ce contrôle en ferait un coût récurrent pour un
+>    événement rare — exactement ce que [[feedback_ritual_must_earn_its_keep]] met en garde, et le
+>    END est déjà jugé trop long.
 >
 >    **La question à poser à CHAQUE graduation** : quel automate, quel code du produit, quel gabarit
 >    ou quel skill livré porte cette leçon ? Si la réponse est « aucun », l'écrire dans la mémoire
