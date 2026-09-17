@@ -87,6 +87,12 @@ ne porte pas). Elles supposent un serveur démarré et la porte câblée (`npx n
    `inspect services`, `inspect config` rendent l'état RÉEL — routes montées, services résolus,
    valeur effective **et sa provenance**. Une route lue dans un fichier peut n'être montée nulle
    part ; l'inverse aussi.
+   **Un argument RESTREINT la réponse** — `inspect routes auth` ne rend que les routes dont le
+   chemin, le nom, le contrôleur, l'action, le module ou les méthodes portent `auth` ;
+   `inspect schema http` fait de même sur les réglages d'un module. Ne tronque JAMAIS une sortie
+   d'inspection (`| head`) pour la faire tenir : une application en sert facilement plusieurs
+   centaines, et ce qu'on cherche est presque toujours dans la partie coupée — c'est ainsi qu'on
+   conclut « le framework ne fournit pas ça » et qu'on le réécrit à la main.
 2. **Cherche la référence** (§2) avant de choisir une façade. Le framework en a presque toujours
    une, et la contourner compile — c'est tout le piège.
 3. **Génère.** Si un générateur couvre le besoin, lance-le et **imite sa sortie** pour le reste.
