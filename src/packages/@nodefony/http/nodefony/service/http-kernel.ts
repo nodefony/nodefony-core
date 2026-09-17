@@ -13,6 +13,7 @@ import {
   RequestContext,
   GcScheduler,
   writeRuntimeState,
+  servedUrl,
 } from "nodefony";
 import type { Resolver, Router } from "@nodefony/framework";
 import type { Controller } from "@nodefony/framework";
@@ -1090,6 +1091,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * Le port DÉSIRÉ est publié à côté du port obtenu : un outil peut ainsi dire
    * « tu voulais 5151, tu écoutes sur 5153 » sans deviner.
    *
+   * L'ADRESSE complète l'est aussi, et pour la même raison : un port ne dit pas
+   * son protocole. Le serveur est le seul à savoir lequel de ses ports parle TLS ;
+   * un lecteur qui le devine se trompe le jour où la topologie change.
+   *
    * **Publié dans TOUS les environnements, production comprise.** Le glissement de
    * port (`auto`) n'est pas la seule façon de sortir de la convention : une app qui
    * déclare son port (PaaS `PORT`, ingress, `servers.http.port`) écoute ailleurs
@@ -1111,13 +1116,16 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   ): void {
     const ports: number[] = [];
     const desired: number[] = [];
+    const urls: string[] = [];
     if (serverHttp?.active && serverHttp.port > 0) {
       ports.push(serverHttp.port);
+      urls.push(servedUrl("http", serverHttp.domain, serverHttp.port));
       const d = this.kernel?.options.servers?.http;
       if (d && d.port) desired.push(d.port);
     }
     if (serverHttps?.active && serverHttps.port > 0) {
       ports.push(serverHttps.port);
+      urls.push(servedUrl("https", serverHttps.domain, serverHttps.port));
       const d = this.kernel?.options.servers?.https;
       if (d && d.port) desired.push(d.port);
     }
@@ -1126,6 +1134,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       pid: cluster.isWorker ? (process.ppid ?? process.pid) : process.pid,
       ports,
       desiredPorts: desired.length > 0 ? desired : undefined,
+      urls,
     });
   }
 

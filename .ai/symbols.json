@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 835,
-    "symbols": 4095,
+    "symbols": 4101,
     "classes": 392,
-    "interfaces": 1095,
+    "interfaces": 1097,
     "types": 451,
     "enums": 4,
-    "functions": 1745,
+    "functions": 1749,
     "constants": 408
   },
   "symbols": {
@@ -11302,6 +11302,24 @@
       "extends": null,
       "description": "Ce que le serveur publie sur lui-même une fois ses serveurs en écoute."
     },
+    "PortShift": {
+      "name": "PortShift",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un décalage de ports CONSTATÉ : ce que la config demandait, ce qui sert."
+    },
+    "ReadyAnnouncement": {
+      "name": "ReadyAnnouncement",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un démarrage annonce de l'endroit où il sert."
+    },
     "SupervisorLock": {
       "name": "SupervisorLock",
       "kind": "interface",
@@ -11452,6 +11470,30 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit qui retient la mise en service, ou `null`. **Un fichier dont le process est MORT est ignoré** : sinon `status` nommerait le contributeur d'un serveur d'hier, ce qui est pire que de ne rien nomm…"
+    },
+    "servedUrl": {
+      "name": "servedUrl",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'adresse où TAPER pour atteindre un serveur qui écoute sur `host:port`. Une adresse d'écoute et une adresse de client sont deux choses : `0.0.0.0` et `::` disent « toutes les interfaces », ce qu'a…"
+    },
+    "detectPortShift": {
+      "name": "detectPortShift",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le décalage de ports d'un runtime, ou `null` s'il sert bien ce qu'on lui a demandé. `servers.portPolicy: \"auto\"` (défaut en développement) fait glisser l'écoute au prochain port libre quand le port…"
+    },
+    "readyAnnouncement": {
+      "name": "readyAnnouncement",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ce qu'un démarrage doit DIRE de l'endroit où il sert. Un serveur qui démarre sans dire son adresse laisse interroger celle qu'on croyait — c'est-à-dire, quand le port a glissé, l'application VOISIN…"
     },
     "writeRuntimeState": {
       "name": "writeRuntimeState",
@@ -30827,6 +30869,7 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "chargePrompts": [
@@ -32122,6 +32165,7 @@
         "src/nodefony/src/kernel/checks/runDoctor.ts",
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devProjects.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
@@ -33448,6 +33492,10 @@
         "src/nodefony/src/service/dev/devStop.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "detectPortShift": [
+        "src/nodefony/src/service/dev/detachedStart.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "formatForeignRuntimes": [
         "src/nodefony/src/service/dev/detachedStart.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts",
@@ -33517,6 +33565,9 @@
       "DiscoverOptions": [
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
+      "PortShift": [
+        "src/nodefony/src/service/dev/devStatusReport.ts"
+      ],
       "buildProjectTable": [
         "src/nodefony/src/service/dev/devStatusReport.ts",
         "src/nodefony/src/service/dev/devStop.ts"
@@ -33553,6 +33604,9 @@
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "missingWorkspaceDists": [
+        "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "readyAnnouncement": [
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
       "identifyProcess": [
@@ -35684,6 +35738,9 @@
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts"
       ],
       "writeRuntimeState": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "servedUrl": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
       "buildTrustProxy": [

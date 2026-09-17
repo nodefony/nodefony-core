@@ -544,3 +544,132 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     );
   });
 });
+
+// ─── Constater sans lire le journal ──────────────────────────────────────────
+//
+// Qui lance un serveur en arrière-plan redirige sa sortie vers un fichier : au
+// tour où le démarrage rate, il ne voit rien — et son `curl` répond, parce que
+// l'instance PRÉCÉDENTE sert toujours. `status` est alors le seul canal ; il doit
+// porter le fait, et le rendre par son code de sortie, que personne ne peut rater.
+
+describe("status — le décalage de ports et le VERDICT du code de sortie", () => {
+  let mine = "";
+
+  beforeEach(() => {
+    mine = mkdtempSync(path.join(os.tmpdir(), "nf-shift-"));
+    // Un projet Nodefony minimal : sans lui, le rapport bascule sur « ce dossier
+    // n'est pas un projet », qui est un AUTRE cas (éprouvé plus haut).
+    writeFileSync(
+      path.join(mine, "package.json"),
+      JSON.stringify({ name: "app", dependencies: { nodefony: "^10.0.0" } }),
+      "utf8",
+    );
+  });
+
+  afterEach(() => {
+    rmSync(mine, { recursive: true, force: true });
+  });
+
+  /** Notre serveur, qui a dû glisser de 5151 vers 5153. */
+  const decale = () => {
+    writeRuntimeState(mine, {
+      pid: process.pid,
+      ports: [5153],
+      desiredPorts: [5151],
+      urls: ["http://localhost:5153"],
+    });
+    const mien = proc(4242, "server");
+    return {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [mien] }),
+      getCwd: (pid: number) => (pid === mien.pid ? mine : null),
+      probe: async (): Promise<PortState[]> => [
+        { port: 5153, listening: true },
+      ],
+      probeReadiness: async () => ({ ready: true, blocked: 0 }),
+    };
+  };
+
+  it("le rapport PORTE le décalage — ce que la config voulait, ce qui sert", async () => {
+    const report = await collectDevStatus(mine, decale());
+    assert.ok(report.portShift, "le décalage doit figurer dans le rapport");
+    assert.deepStrictEqual(report.portShift.desired, [5151]);
+    assert.deepStrictEqual(report.portShift.served, [5153]);
+  });
+
+  it("le rendu NOMME les deux ports — sinon « 5153 ✓ UP » a l'air normal", async () => {
+    let out = "";
+    const code = await runStatusReport(mine, {
+      ...decale(),
+      write: (s) => (out += s),
+    });
+    const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
+    assert.match(plain, /DÉCALÉS/);
+    assert.match(plain, /5151/);
+    assert.match(plain, /5153/);
+    // Le projet TOURNE (il sert, ailleurs) : le verdict reste 0.
+    assert.strictEqual(code, 0);
+  });
+
+  it("un runtime qui sert ses ports n'invente AUCUN décalage", async () => {
+    writeRuntimeState(mine, {
+      pid: process.pid,
+      ports: [5151],
+      desiredPorts: [5151],
+    });
+    const mien = proc(4242, "server");
+    let out = "";
+    const code = await runStatusReport(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [mien] }),
+      getCwd: (pid: number) => (pid === mien.pid ? mine : null),
+      probe: async (): Promise<PortState[]> => [
+        { port: 5151, listening: true },
+      ],
+      probeReadiness: async () => ({ ready: true, blocked: 0 }),
+      write: (s) => (out += s),
+    });
+    assert.strictEqual(code, 0);
+    assert.ok(
+      !/DÉCALÉS/.test(out),
+      `aucun décalage à annoncer ici :\n${out.replace(/\x1b\[[0-9;]*m/g, "")}`,
+    );
+  });
+
+  it("aucune instance de CE projet → code NON NUL, même si un port répond", async () => {
+    // Le décor exact du piège : le port de la configuration est tenu — par le
+    // VOISIN. Un `curl` serait honoré, et conclurait « tout va bien ».
+    const voisin = mkdtempSync(path.join(os.tmpdir(), "nf-voisin-"));
+    writeRuntimeState(voisin, { pid: process.pid, ports: [5151] });
+    const leur = proc(9999, "server");
+    let out = "";
+    const code = await runStatusReport(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [leur] }),
+      getCwd: (pid: number) => (pid === leur.pid ? voisin : null),
+      probe: async (): Promise<PortState[]> => [
+        { port: 5151, listening: true },
+      ],
+      write: (s) => (out += s),
+    });
+    rmSync(voisin, { recursive: true, force: true });
+    assert.notStrictEqual(
+      code,
+      0,
+      `un port qui répond n'est pas notre serveur :\n${out.replace(/\x1b\[[0-9;]*m/g, "")}`,
+    );
+    assert.strictEqual(code, 69, "EX_UNAVAILABLE — le service n'est pas là");
+  });
+
+  it("un serveur à NOUS → code 0", async () => {
+    writeRuntimeState(mine, { pid: process.pid, ports: [5151] });
+    const mien = proc(4242, "server");
+    const code = await runStatusReport(mine, {
+      discover: (): ProcessDiscovery => ({ supported: true, procs: [mien] }),
+      getCwd: (pid: number) => (pid === mien.pid ? mine : null),
+      probe: async (): Promise<PortState[]> => [
+        { port: 5151, listening: true },
+      ],
+      probeReadiness: async () => ({ ready: true, blocked: 0 }),
+      write: () => {},
+    });
+    assert.strictEqual(code, 0);
+  });
+});

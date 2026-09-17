@@ -17,6 +17,7 @@ import {
   discoverDevProcesses,
   probePorts,
   readRuntimeState,
+  detectPortShift,
   signalProcessGroup,
   splitByProject,
   formatForeignRuntimes,
@@ -570,11 +571,9 @@ export async function launchDetached(
       // Le runtime a-t-il dû GLISSER ? (`portPolicy: "auto"` sur des ports pris.)
       // Un glissement tu envoie le client sur le port de sa config — donc chez le
       // voisin, qui répond 404 à tout : le décalage doit être DIT, pas déduit.
-      const desired = state?.desiredPorts;
-      const shifted =
-        desired !== undefined &&
-        (desired.length !== watched.length ||
-          desired.some((p, k) => p !== watched[k]));
+      // La comparaison est celle de `detectPortShift`, et pas une seconde écrite
+      // ici : deux copies d'une même règle divergent sans que rien ne le dise.
+      const shift = detectPortShift(state);
       return {
         ok: true,
         pid: child.pid ?? null,
@@ -582,7 +581,7 @@ export async function launchDetached(
         ports: states,
         logFile,
         health,
-        desiredPorts: shifted ? desired : undefined,
+        desiredPorts: shift ? [...shift.desired] : undefined,
       };
     }
     // Progression ~toutes les 5 s, avec la phase courante du superviseur si visible.

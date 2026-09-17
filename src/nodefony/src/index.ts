@@ -614,6 +614,12 @@ export {
   readRuntimeState,
   clearRuntimeState,
   defaultDevPorts,
+  // Le port publié se DIT : `servedUrl` compose l'adresse à viser (le serveur est
+  // seul à connaître son protocole), `detectPortShift` constate l'écart entre le
+  // port voulu et le port servi — implémentation unique de cette comparaison.
+  servedUrl,
+  detectPortShift,
+  readyAnnouncement,
   // Verrou de génération de code — le serveur DIT au superviseur dev « je suis en train
   // d'écrire, ne me redémarre pas ». Sans lui, un scaffold (qui écrit dans `nodefony/` et
   // `index.ts`, précisément là où le watcher regarde) déclenche un redémarrage AU MILIEU
@@ -640,6 +646,8 @@ export type {
   RuntimeMode,
   PortState,
   RuntimeState,
+  PortShift,
+  ReadyAnnouncement,
   SupervisorLock,
   TreeSignalOutcome,
 } from "./service/dev/devProcess";

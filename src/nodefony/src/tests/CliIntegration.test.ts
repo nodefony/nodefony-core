@@ -17,7 +17,7 @@
 
 import assert from "node:assert";
 import { spawn, ChildProcess } from "node:child_process";
-import { connect } from "node:net";
+import { connect, createServer } from "node:net";
 import https from "node:https";
 import fs from "node:fs";
 import os from "node:os";
@@ -563,10 +563,17 @@ describe.skipIf(!fs.existsSync(DIST))(
       assert.ok(candidates.has("--detach"), r.stdout);
     });
 
-    it("status (standalone) → exit 0 et ZÉRO Kernel construit", async () => {
+    it("status (standalone) → verdict par le code de sortie, ZÉRO Kernel construit", async () => {
       // `status`/`stop` sont des commandes SYSTÈME standalone (CliKernel.start
       // court-circuite AVANT `new Kernel`) — l'équivalent du niveau d'arrêt le plus
       // précoce. Le trace file prouve qu'aucun Kernel n'est instancié.
+      //
+      // Le CODE, lui, porte un verdict : 0 si un runtime de ce projet tourne,
+      // `EX_UNAVAILABLE` sinon. Ce banc ne peut donc pas exiger l'un des deux —
+      // il s'exécute aussi bien sur un poste où le serveur de dev tourne que sur
+      // une machine d'intégration où rien n'écoute. Il exige qu'il n'y en ait
+      // pas d'AUTRE : un code inattendu signerait une panne de la commande,
+      // qu'un `assert.strictEqual(0)` aurait confondue avec « rien ne tourne ».
       const traceFile = path.join(
         os.tmpdir(),
         `nodefony-kernel-trace-status-${process.pid}-${Date.now()}.log`,
@@ -575,10 +582,9 @@ describe.skipIf(!fs.existsSync(DIST))(
         const r = await runCli(["status"], CLI_TIMEOUT_MS, {
           NF_KERNEL_TRACE_FILE: traceFile,
         });
-        assert.strictEqual(
-          r.code,
-          0,
-          `status doit sortir 0 même sans runtime up\n${r.stderr}`,
+        assert.ok(
+          r.code === 0 || r.code === 69,
+          `status rend 0 (ça tourne) ou 69 (rien ici), jamais autre chose — vu ${r.code}\n${r.stderr}`,
         );
         assert.strictEqual(
           countKernelBoots(traceFile),
@@ -1206,6 +1212,110 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         assert.strictEqual(stop.code, 0, `stop doit nettoyer\n${stop.stderr}`);
       }
       assert.strictEqual(await isPortOpen(port), false);
+    }, 210000);
+
+    // ─── Le port a glissé : l'application le DIT, personne n'a à le deviner ─────
+    //
+    // Cinq minutes perdues sur une session réelle, une inspection de base de
+    // données et une conclusion en cours d'écriture selon laquelle
+    // l'authentification du framework était cassée : elle ne l'était pas. Les
+    // ports étaient pris, le serveur avait glissé sans le dire, et c'est
+    // l'application VOISINE qui répondait — même sonde de vie, même racine, et
+    // le refus des comptes qu'elle ne connaît pas.
+    //
+    // Le décor reproduit exactement cela : le port demandé est TENU avant le
+    // lancement. Ce cas passe par le vrai serveur (publication de l'adresse) ET
+    // par le vrai superviseur (annonce) — les tests unitaires n'éprouvent que
+    // les fonctions, et une capacité prouvée sur un chemin n'existe pas sur le
+    // voisin.
+    it("development : port occupé → le journal NOMME l'adresse servie et le décalage", async () => {
+      const wanted = 5371; // hors convention [5151, 5152]
+      const log = path.join(os.tmpdir(), `nf-shift-${process.pid}.log`);
+      const stateFile = path.join(
+        REPO_ROOT,
+        "node_modules",
+        ".cache",
+        "nodefony",
+        "runtime.json",
+      );
+      // L'occupant : un socket ordinaire, tenu pendant tout le démarrage. Ses
+      // connexions entrantes sont RETENUES — la sonde de conflit du serveur en
+      // ouvre une, et sans elles sous la main `close()` ne rendrait jamais.
+      const squatteur = createServer();
+      const liens = new Set<import("node:net").Socket>();
+      squatteur.on("connection", (s) => {
+        liens.add(s);
+        s.on("close", () => liens.delete(s));
+      });
+      await new Promise<void>((resolve) =>
+        squatteur.listen(wanted, "127.0.0.1", resolve),
+      );
+      try {
+        const r = await runCli(
+          ["development", "--detach", "--wait", "90", "--log", log],
+          120000,
+          { NF_PORT: String(wanted), NF_PORT_HTTPS: String(wanted + 10) },
+        );
+        assert.strictEqual(
+          r.code,
+          0,
+          `le serveur doit démarrer AILLEURS, pas échouer
+${r.stdout}
+${r.stderr}`,
+        );
+        // 1. Le serveur a publié l'ADRESSE, pas seulement le port : un port seul
+        //    ne dit pas son protocole, et personne ne peut le déduire.
+        const state = JSON.parse(fs.readFileSync(stateFile, "utf8")) as {
+          ports: number[];
+          desiredPorts?: number[];
+          urls?: string[];
+        };
+        assert.ok(
+          !state.ports.includes(wanted),
+          `le port ${wanted} est tenu : l'app doit servir ailleurs — vu ${JSON.stringify(state.ports)}`,
+        );
+        assert.ok(
+          state.urls?.some((u) => u.startsWith("http://")),
+          `l'adresse servie doit être publiée — vu ${JSON.stringify(state.urls)}`,
+        );
+        assert.ok(
+          state.desiredPorts?.includes(wanted),
+          `le port VOULU doit rester lisible — vu ${JSON.stringify(state.desiredPorts)}`,
+        );
+        // 2. Le superviseur l'a ANNONCÉ dans son journal — c'est tout l'objet :
+        //    ce que l'on ne dit pas, on le cherche.
+        const journal = fs.readFileSync(log, "utf8");
+        const queue = journal.replace(/\x1b\[[0-9;]*m/g, "").slice(-4000);
+        assert.match(
+          journal,
+          /PORTS DÉCALÉS/,
+          `décalage non annoncé :\n${queue}`,
+        );
+        assert.ok(
+          journal.includes(String(state.ports[0])),
+          `l'adresse réellement servie doit figurer dans l'annonce :\n${queue}`,
+        );
+        // Et JAMAIS le port ESPÉRÉ présenté comme celui qui sert : c'est le
+        // mensonge exact que ce ticket ferme.
+        assert.ok(
+          !new RegExp(`serveur prêt[^\n]*${wanted}`).test(queue),
+          `l'annonce de démarrage cite le port DEMANDÉ :\n${queue}`,
+        );
+        // 3. Et `status` le porte aussi, pour qui arrive après le démarrage.
+        const st = await runCli(["status"], CLI_TIMEOUT_MS);
+        assert.strictEqual(st.code, 0, "notre serveur tourne → code 0");
+        assert.match(st.stdout, /DÉCALÉS/);
+      } finally {
+        await runCli(["stop"], CLI_TIMEOUT_MS);
+        // ⚠️ Ne PAS attendre le `close` : la sonde de conflit du serveur a ouvert
+        // une connexion vers ce socket, et `close()` ne rend la main qu'une fois
+        // toutes les connexions terminées. Le banc restait bloqué là, APRÈS avoir
+        // fait son travail — et mourait sur son propre délai, en emportant le
+        // verdict qu'il venait d'établir.
+        for (const lien of liens) lien.destroy();
+        squatteur.close();
+        fs.rmSync(log, { force: true });
+      }
     }, 210000);
 
     // ─── Point d'arrêt onReady SANS serveur ─────────────────────────────────────

@@ -26,6 +26,7 @@ import {
   missingWorkspaceDists,
   probePorts,
   readRuntimeState,
+  readyAnnouncement,
   splitByProject,
   formatForeignRuntimes,
   identifyProcess,
@@ -250,6 +251,22 @@ export class DevSupervisor {
    *   du voisin dirait OUI alors que notre enfant n'est même pas booté).
    */
   readonly #foreignHeldPorts = new Set<number>();
+  /**
+   * Ports DÉJÀ occupés à l'instant du lancement — par n'importe qui, pas seulement
+   * par un autre projet Nodefony (un service quelconque, un banc, un conteneur).
+   *
+   * Notre enfant n'existe pas encore quand ce relevé est pris : ce qui écoute là
+   * appartient donc forcément à quelqu'un d'autre, et « ça écoute » ne peut pas
+   * valoir « notre serveur est prêt ». Sans cette distinction, le superviseur
+   * annonçait un démarrage réussi 1,5 s après le lancement — en voyant le socket
+   * du voisin — pendant que l'application bootait encore, et finissait par servir
+   * un tout autre port (vécu, mesuré : « ✓ serveur prêt — ports 5371 » quand le
+   * serveur écoutait sur 5372).
+   *
+   * Recomposé à CHAQUE attente de ports (donc à chaque démarrage et à chaque
+   * rechargement) : un port libéré entre-temps ne doit pas rester suspect à vie.
+   */
+  readonly #preHeldPorts = new Set<number>();
   /** Fichier verrou single-instance (PID du superviseur courant). */
   readonly #pidFile: string;
   /**
@@ -944,6 +961,13 @@ export class DevSupervisor {
           DEGRADED_SETTLE_MS,
           { aborted: () => this.#child !== child || this.#stopping },
         );
+        // Où ce serveur-ci sert, lu de ce qu'il a PUBLIÉ — jamais des ports que
+        // le superviseur surveille, qui ne sont qu'une convention : quand l'un
+        // d'eux est déjà pris, l'écoute a glissé et c'est le voisin qui répond là.
+        const served = readyAnnouncement(
+          readRuntimeState(this.#cwd),
+          this.#ports,
+        );
         if (degraded === true) {
           this.#log(
             `✓ ports à l'écoute en ${Date.now() - t0}ms — ⚠ MAIS boot DÉGRADÉ ` +
@@ -952,10 +976,14 @@ export class DevSupervisor {
           );
         } else {
           this.#log(
-            `✓ serveur prêt en ${Date.now() - t0}ms — framework ready`,
+            `✓ serveur prêt en ${Date.now() - t0}ms — ${served.served}`,
             "green",
           );
         }
+        // Le décalage se DIT même quand le boot est dégradé : c'est l'adresse
+        // qu'on s'apprête à interroger, et l'erreur qu'elle provoque ne ressemble
+        // en rien à un port glissé.
+        if (served.shift !== null) this.#log(`⚠ ${served.shift}`, "yellow");
         // Verdict de build rejoué APRÈS le boot : le splash + les logs de
         // l'enfant ont défilé — sans rappel, l'erreur se perdait dans le scroll.
         this.#replayBuildIssues();
@@ -1001,11 +1029,14 @@ export class DevSupervisor {
     //    considère qu'il n'est pas prêt — jamais on ne s'attribue le voisin.
     if (this.#foreignHeldPorts.size > 0) return false;
     // 3. Aucun conflit connu : sonde classique (couvre un enfant qui ne publie
-    //    pas — app console, dist antérieur au state file).
+    //    pas — app console, dist antérieur au state file). Les ports qu'un tiers
+    //    tenait DÉJÀ au lancement en sont retirés : ils répondraient OUI sans
+    //    rien devoir à notre enfant, et le démarrage s'annoncerait fini avant
+    //    d'avoir commencé — sur l'adresse de quelqu'un d'autre, qui plus est.
+    const mine = this.#ports.filter((p) => !this.#preHeldPorts.has(p));
     if (this.#ports.length === 0) return true;
-    const states = await Promise.all(
-      this.#ports.map((p) => this.#isPortFree(p)),
-    );
+    if (mine.length === 0) return false;
+    const states = await Promise.all(mine.map((p) => this.#isPortFree(p)));
     return states.some((free) => !free);
   }
 
@@ -1332,6 +1363,8 @@ export class DevSupervisor {
     // Les ports tenus par un AUTRE projet ne se libéreront pas — les attendre,
     // c'est brûler le timeout entier à chaque démarrage dès qu'une seconde app
     // tourne. On n'attend que ce qui NOUS revient : l'enfant glissera sur le reste.
+    // Nouveau relevé : un port libéré depuis la dernière attente redevient NÔTRE.
+    this.#preHeldPorts.clear();
     const mine = this.#ports.filter((p) => !this.#foreignHeldPorts.has(p));
     if (mine.length === 0) return;
     const deadline = Date.now() + timeoutMs;
@@ -1340,6 +1373,8 @@ export class DevSupervisor {
       if (states.every(Boolean)) return;
       if (Date.now() >= deadline) {
         const busy = mine.filter((_, i) => !states[i]);
+        // Ce qui écoute ici n'est PAS notre enfant : il n'est pas encore lancé.
+        for (const p of busy) this.#preHeldPorts.add(p);
         this.#log(
           `ports encore occupés après ${timeoutMs}ms : ${busy.join(", ")} — relance quand même`,
           "yellow",

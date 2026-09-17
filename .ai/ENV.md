@@ -149,7 +149,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:714` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:715` |
 | `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:465` |
 | `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3025` |
 | `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3037` |
@@ -189,7 +189,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:77` |
 | `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:997` |
-| `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:579` |
+| `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:743` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:209` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:208` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:92` |
@@ -204,10 +204,10 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NO_TTY` | `src/nodefony/src/cli/scaffold/interactive.ts:82` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:98` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:22` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:138` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:139` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
-| `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:591` |
-| `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:591` |
+| `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:755` |
+| `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:755` |
 | `NF_README_ROOT` | `scripts/release/readme-gate.mjs:97` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |

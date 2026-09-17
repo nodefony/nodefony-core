@@ -29,8 +29,11 @@ class Status extends Command {
   }
 
   override async generate(): Promise<this> {
-    await runStatusReport(process.cwd());
-    await this.terminate(0);
+    // Le code de sortie porte le verdict (0 = ça tourne ici) — le filet le rend
+    // comme le fait le fast-path, sans quoi la même commande répondrait deux
+    // choses différentes selon le chemin qui l'a servie.
+    const code = await runStatusReport(process.cwd());
+    await this.terminate(code);
     return this;
   }
 }

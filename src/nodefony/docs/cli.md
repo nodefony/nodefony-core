@@ -97,6 +97,29 @@ publique, qui ne donne les noms qu'à un appelant authentifié. Quand ce détail
 concorde pas avec ce que le runtime vient de répondre, `status` affiche le compte sans nommer :
 un nom faux ferait chercher une cause déjà levée.
 
+**Le port servi n'est pas toujours le port demandé — et `status` le dit.** En développement, un
+port déjà pris fait glisser l'écoute sur le suivant (`servers.portPolicy: "auto"`). Le démarrage
+annonce alors l'adresse RÉELLE, et `status` porte l'écart tant qu'il dure :
+
+```
+✓ serveur prêt en 3456ms — http://127.0.0.1:5153 · https://127.0.0.1:5154
+⚠ PORTS DÉCALÉS — 5151, 5152 déjà pris par un autre processus → cette app sert
+  http://127.0.0.1:5153 · https://127.0.0.1:5154. Viser CETTE adresse (nodefony status)
+```
+
+Sans cette annonce, on interroge le port de sa configuration, l'application VOISINE répond — même
+sonde de vie, même racine, et un refus d'authentification pour un compte qu'elle ne connaît pas —
+et l'on cherche une panne chez soi pendant qu'on parle à quelqu'un d'autre.
+
+**Le verdict sort aussi par le code de retour.** `status` rend `0` quand un processus de CE projet
+tourne, et `69` (`EX_UNAVAILABLE`) quand il n'y en a aucun — même si un port de la configuration
+répond, puisque ce serait celui d'une autre application. C'est ce qui rend un démarrage en
+arrière-plan constatable sans lire son journal :
+
+```bash
+npx nodefony status || npx nodefony dev   # démarrer seulement si rien ne tourne ici
+```
+
 **Plusieurs applications sur le même poste.** `status` et `stop` sont scopés au projet du
 répertoire courant : ils ne comptent ni n'arrêtent jamais le runtime du voisin. Quand un autre
 projet tourne, `status` le NOMME dans une table (nom du `package.json`, ports tenus, racine),

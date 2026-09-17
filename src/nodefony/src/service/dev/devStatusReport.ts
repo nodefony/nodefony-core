@@ -14,7 +14,9 @@ import {
   isPidAlive,
   portOwnership,
   probePorts,
+  detectPortShift,
   readReadinessState,
+  readRuntimeState,
   readSupervisorPid,
   runtimeModes,
   splitByProject,
@@ -22,6 +24,7 @@ import {
   type DevProcessInfo,
   type DevProcessWithCwd,
   type DiscoverOptions,
+  type PortShift,
   type PortState,
   type RuntimeMode,
 } from "./devProcess";
@@ -29,6 +32,7 @@ import { buildProjectTable, type IProjectRuntime } from "./devProjects";
 import { probeReadiness, type IReadinessProbe } from "./bootVerdict";
 import { runStopReport } from "./devStop";
 import { printUsage, type IUsagePage } from "../../cli/usageReport";
+import { SysExit } from "../../cli/sysexits";
 
 /**
  * Rapport `nodefony status` — composition + exécution DÉCOUPLÉES de la classe Command.
@@ -72,6 +76,22 @@ const STATUS_PAGE: IUsagePage = {
   options: [],
   examples: [
     { term: "nodefony status", text: "l'état des processus de ce projet" },
+    {
+      term: "nodefony status || nodefony dev",
+      text: "démarrer seulement si rien ne tourne ici",
+    },
+  ],
+  exitCodes: [
+    {
+      term: "0",
+      text: "au moins un processus de CE projet tourne",
+    },
+    {
+      term: "69",
+      text:
+        "aucun processus de ce projet — même si un port de la configuration " +
+        "répond : ce serait celui d'une autre application",
+    },
   ],
 };
 
@@ -145,8 +165,7 @@ export async function runStandaloneDevCommand(name: string): Promise<number> {
     return printUsage(name === "stop" ? STOP_PAGE : STATUS_PAGE);
   }
   if (name === "status") {
-    await runStatusReport(cwd);
-    return 0;
+    return runStatusReport(cwd);
   }
   if (name === "stop")
     return runStopReport(cwd, {
@@ -256,6 +275,17 @@ export interface DevStatusReport {
    * lit comme un serveur à nous, ou comme un arrêt qui a échoué.
    */
   readonly portOwners: Readonly<Record<number, string>>;
+  /**
+   * Le runtime sert-il ailleurs que là où sa configuration le demandait ?
+   * `null` quand il sert bien ses ports, ou qu'il n'a rien publié.
+   *
+   * C'est la question qu'un démarrage en arrière-plan ne laisse poser à personne :
+   * la sortie part dans un fichier, le port de la configuration répond quand même
+   * — servi par le VOISIN — et rien ne distingue « mon application tourne » de
+   * « celle d'à côté me répond ». Cette commande est alors le seul canal, et elle
+   * doit donc porter le fait, pas seulement les ports constatés.
+   */
+  readonly portShift: PortShift | null;
 }
 
 /**
@@ -295,6 +325,11 @@ export function buildDevStatus(
    * « prêt ».
    */
   readiness: IReadinessProbe | null = null,
+  /**
+   * Décalage de ports CONSTATÉ par l'appelant (`detectPortShift` sur l'état publié)
+   * — fourni, comme `readiness`, pour que la composition reste PURE.
+   */
+  portShift: PortShift | null = null,
 ): DevStatusReport {
   const nSup = procs.filter((p) => p.role === "supervisor").length;
   const nSrv = procs.filter((p) => p.role === "server").length;
@@ -370,6 +405,15 @@ export function buildDevStatus(
     warnings.push(
       "process non observables ici (`ps` indisponible) — topologie lue dans le pidfile et le fichier d'état (ni RSS, ni %CPU, ni Vite)",
     );
+  // Le port servi n'est pas celui qu'on a écrit : c'est une divergence entre ce
+  // qu'un développeur croit et ce qui est — donc un avertissement, au même titre
+  // qu'un pidfile périmé. Sans lui, le rapport affiche « 5153 ✓ UP » et tout a
+  // l'air normal, y compris pour qui cherche pourquoi ses requêtes n'arrivent pas.
+  if (portShift)
+    warnings.push(
+      `ports DÉCALÉS — configuration ${portShift.desired.join(", ")} déjà pris ` +
+        `→ cette application sert ${portShift.served.join(", ")} ; viser CES ports`,
+    );
   // Fail-loud : mieux vaut une liste trop large ANNONCÉE qu'un « aucune instance »
   // faux. Le décompte ci-dessous porte sur tout le poste, pas sur ce projet.
   if (projectScopeBlind)
@@ -402,6 +446,7 @@ export function buildDevStatus(
     foreign,
     portOwners: foreignPortOwners(foreign),
     readiness,
+    portShift,
   };
 }
 
@@ -456,6 +501,10 @@ export async function collectDevStatus(
   // que si les deux concordent : nommer depuis un fichier en retard d'un cycle
   // ferait chercher une cause déjà levée.
   const readiness = withBlockedBy(probe, cwd);
+  // Le décalage se lit dans le fichier que le runtime publie, jamais des ports
+  // sondés : ceux-ci sont DÉJÀ les ports effectifs (`defaultDevPorts` lit le même
+  // fichier), donc ils ne peuvent pas révéler l'écart avec la configuration.
+  const portShift = detectPortShift(readRuntimeState(cwd));
   return buildDevStatus(
     cwd,
     pid,
@@ -467,14 +516,20 @@ export async function collectDevStatus(
     cwdBlind ? [] : scoped.foreign,
     cwdBlind,
     readiness,
+    portShift,
   );
 }
 
-/** Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout. */
+/**
+ * Collecte (ps + ports + pidfile) puis écrit le rapport status sur stdout.
+ *
+ * @returns le code de sortie : `EX_OK` si un runtime de CE projet tourne,
+ *   `EX_UNAVAILABLE` sinon — cf {@link STATUS_PAGE}.
+ */
 export async function runStatusReport(
   cwd: string,
   deps: DevObservationDeps = {},
-): Promise<void> {
+): Promise<number> {
   // CLI standalone : le process appelant n'est PAS un process dev → `includeSelf` neutre.
   const report = await collectDevStatus(cwd, deps);
   const lines: string[] = [];
@@ -506,6 +561,12 @@ export async function runStatusReport(
   (deps.write ?? ((chunk: string) => writeSync(1, chunk)))(
     lines.join("\n") + "\n",
   );
+  // Le VERDICT sort aussi par le code de retour, et pas seulement à l'écran :
+  // qui lance un serveur en arrière-plan ne lit pas ce rapport — il enchaîne une
+  // commande. Sans code distinct, « rien ne tourne » et « tout va bien » se
+  // ressemblent pour un script, et un `curl` que le voisin honore achève de
+  // convaincre. Même convention que `systemctl is-active` ou `pgrep`.
+  return report.running ? SysExit.OK : SysExit.UNAVAILABLE;
 }
 
 /**

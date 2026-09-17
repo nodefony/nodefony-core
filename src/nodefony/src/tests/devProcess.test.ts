@@ -22,6 +22,7 @@ import {
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
   detectRuntimeMode,
+  detectPortShift,
   devSupervisorPidFile,
   findRuntimeConflict,
   formatUptime,
@@ -32,7 +33,9 @@ import {
   signalProcessGroup,
   processCwd,
   readRuntimeState,
+  readyAnnouncement,
   runtimeModes,
+  servedUrl,
   runtimeStateFile,
   splitByProject,
   writeRuntimeState,
@@ -901,5 +904,182 @@ describe("parseTasklistImage — « je l'ai vu » vs « je n'ai rien vu »", () 
 
   it("sortie vide → null", () => {
     assert.strictEqual(parseTasklistImage(""), null);
+  });
+});
+
+// ─── L'adresse SERVIE : ce qu'un démarrage doit dire, et ce qu'il ne devine pas ─
+//
+// Un port glissé en silence envoie interroger l'application VOISINE : elle répond
+// à la même sonde de vie, sert la même racine, et refuse les comptes qu'elle ne
+// connaît pas. Les trois fonctions ci-dessous sont PURES — aucun port n'est
+// occupé ici, c'est précisément ce qui rend la phrase du décalage éprouvable.
+
+describe("servedUrl — l'adresse où TAPER, pas celle où l'on écoute", () => {
+  it("un hôte d'écoute universel se rend en boucle locale", () => {
+    // `0.0.0.0` n'est pas une destination : aucun client ne peut la composer.
+    assert.strictEqual(
+      servedUrl("http", "0.0.0.0", 5151),
+      "http://localhost:5151",
+    );
+    assert.strictEqual(
+      servedUrl("https", "::", 5152),
+      "https://localhost:5152",
+    );
+    assert.strictEqual(servedUrl("http", "", 5151), "http://localhost:5151");
+  });
+
+  it("un hôte nommé est conservé, et le protocole vient du serveur", () => {
+    assert.strictEqual(
+      servedUrl("https", "app.local", 8443),
+      "https://app.local:8443",
+    );
+    assert.strictEqual(
+      servedUrl("http", "127.0.0.1", 5151),
+      "http://127.0.0.1:5151",
+    );
+  });
+
+  it("une IPv6 littérale s'écrit entre crochets (RFC 3986)", () => {
+    assert.strictEqual(servedUrl("http", "::1", 5151), "http://[::1]:5151");
+    // Déjà entre crochets : ne pas les doubler.
+    assert.strictEqual(servedUrl("http", "[::1]", 5151), "http://[::1]:5151");
+  });
+});
+
+describe("detectPortShift — le port voulu et le port servi", () => {
+  const state = (ports: number[], desiredPorts?: number[]) => ({
+    pid: process.pid,
+    ports,
+    desiredPorts,
+    ts: Date.now(),
+  });
+
+  it("aucun état publié, ou aucun port désiré connu → rien à annoncer", () => {
+    assert.strictEqual(detectPortShift(null), null);
+    assert.strictEqual(detectPortShift(state([5151])), null);
+    assert.strictEqual(detectPortShift(state([5151], [])), null);
+  });
+
+  it("le runtime sert ce qu'on lui a demandé → aucun décalage", () => {
+    assert.strictEqual(
+      detectPortShift(state([5151, 5152], [5151, 5152])),
+      null,
+    );
+  });
+
+  it("un port qui a glissé est CONSTATÉ, avec les deux listes", () => {
+    const shift = detectPortShift(state([5153, 5154], [5151, 5152]));
+    assert.ok(shift, "un glissement doit être constaté");
+    assert.deepStrictEqual(shift.desired, [5151, 5152]);
+    assert.deepStrictEqual(shift.served, [5153, 5154]);
+  });
+
+  it("un serveur en moins (https coupé) compte aussi comme un décalage", () => {
+    // Longueurs différentes : la configuration demandait deux écoutes, une seule
+    // sert — celui qui vise le second port tombe chez quelqu'un d'autre.
+    assert.ok(detectPortShift(state([5151], [5151, 5152])));
+  });
+});
+
+describe("readyAnnouncement — ce que le démarrage ANNONCE", () => {
+  it("les adresses publiées priment : elles portent le protocole", () => {
+    const say = readyAnnouncement({
+      pid: process.pid,
+      ports: [5151, 5152],
+      urls: ["http://localhost:5151", "https://localhost:5152"],
+      ts: Date.now(),
+    });
+    assert.strictEqual(
+      say.served,
+      "http://localhost:5151 · https://localhost:5152",
+    );
+    assert.strictEqual(say.shift, null);
+  });
+
+  it("sans adresse publiée, les ports constatés font l'affaire", () => {
+    // Cas d'un runtime bâti avant ce canal : on n'invente pas de protocole.
+    const say = readyAnnouncement(
+      { pid: process.pid, ports: [5151], ts: Date.now() },
+      [5151, 5152],
+    );
+    assert.strictEqual(say.served, "ports 5151");
+  });
+
+  it("rien de publié → les ports surveillés, DITS comme non confirmés", () => {
+    // Un port surveillé est ce qu'on ESPÉRAIT, pas ce qui sert : l'annoncer
+    // comme un fait est le mensonge que ce ticket ferme.
+    const say = readyAnnouncement(null, [5151, 5152]);
+    assert.match(say.served, /surveillés 5151, 5152/);
+    assert.match(say.served, /NON publiée/);
+    assert.strictEqual(say.shift, null);
+  });
+
+  it("rien de publié, rien de sondé → on le DIT, on n'invente pas", () => {
+    assert.match(readyAnnouncement(null).served, /adresse inconnue/);
+  });
+
+  it("un décalage NOMME le port voulu ET l'adresse qui sert", () => {
+    const say = readyAnnouncement({
+      pid: process.pid,
+      ports: [5153],
+      desiredPorts: [5151],
+      urls: ["http://localhost:5153"],
+      ts: Date.now(),
+    });
+    assert.ok(say.shift, "le décalage doit être annoncé");
+    // Les deux faits que l'on cherchait pendant cinq minutes : ce qu'on avait
+    // écrit, et où l'application est réellement.
+    assert.match(say.shift, /5151/);
+    assert.match(say.shift, /http:\/\/localhost:5153/);
+    // Et les deux sorties : figer le port, ou refuser de glisser.
+    assert.match(say.shift, /servers\.portPolicy/);
+  });
+});
+
+describe("readRuntimeState — les adresses lues d'un fichier restent des adresses", () => {
+  let cwd = "";
+
+  beforeEach(() => {
+    cwd = mkdtempSync(path.join(os.tmpdir(), "nf-urls-"));
+  });
+
+  afterEach(() => {
+    rmSync(cwd, { recursive: true, force: true });
+  });
+
+  it("aller-retour : les adresses publiées se relisent", () => {
+    writeRuntimeState(cwd, {
+      pid: process.pid,
+      ports: [5151, 5152],
+      urls: ["http://localhost:5151", "https://localhost:5152"],
+    });
+    assert.deepStrictEqual(readRuntimeState(cwd)?.urls, [
+      "http://localhost:5151",
+      "https://localhost:5152",
+    ]);
+  });
+
+  it("une adresse qui ne sert PAS un port déclaré est refusée", () => {
+    // Le fichier est ensuite AFFICHÉ comme l'endroit où taper : une entrée
+    // tronquée ou réécrite ne doit pas envoyer frapper un service au hasard.
+    mkdirSync(path.dirname(runtimeStateFile(cwd)), { recursive: true });
+    writeFileSync(
+      runtimeStateFile(cwd),
+      JSON.stringify({
+        pid: process.pid,
+        ports: [5151],
+        urls: [
+          "http://localhost:9999",
+          "file:///etc/passwd",
+          "pas une url",
+          "http://localhost:5151",
+        ],
+        ts: Date.now(),
+      }),
+      "utf8",
+    );
+    assert.deepStrictEqual(readRuntimeState(cwd)?.urls, [
+      "http://localhost:5151",
+    ]);
   });
 });

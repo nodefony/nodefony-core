@@ -261,8 +261,140 @@ export interface RuntimeState {
   ports: number[];
   /** Ports DÉSIRÉS (config) — diffèrent des effectifs si `auto` a dû décaler. */
   desiredPorts?: number[];
+  /**
+   * Adresses à VISER, telles qu'un client doit les écrire (`http://localhost:5151`).
+   *
+   * Un port seul ne dit pas son protocole, et personne ne peut le déduire : `5152`
+   * sert du TLS ici, du clair ailleurs. Seul le serveur le SAIT — il publie donc
+   * l'adresse entière plutôt que de laisser ses lecteurs la reconstituer, chacun
+   * avec sa propre supposition.
+   *
+   * Absent d'un runtime antérieur à ce champ : les lecteurs retombent alors sur
+   * {@link RuntimeState.ports}, qui n'a jamais cessé d'être publié.
+   */
+  urls?: string[];
   /** Horodatage d'écriture (`Date.now()`). */
   ts: number;
+}
+
+/**
+ * L'adresse où TAPER pour atteindre un serveur qui écoute sur `host:port`.
+ *
+ * Une adresse d'écoute et une adresse de client sont deux choses : `0.0.0.0` et
+ * `::` disent « toutes les interfaces », ce qu'aucun client ne peut composer — les
+ * y envoyer produit un échec de connexion sous Windows et un aller simple vers la
+ * passerelle ailleurs. Ils se rendent donc en boucle locale, la seule interface
+ * dont on sache qu'elle atteint CE processus.
+ *
+ * @param scheme - `http` ou `https`, connu du serveur seul.
+ * @param host - l'hôte d'écoute tel que le runtime le déclare.
+ * @param port - le port EFFECTIF.
+ * @returns l'origine à viser (`https://localhost:5152`).
+ */
+export function servedUrl(
+  scheme: "http" | "https",
+  host: string,
+  port: number,
+): string {
+  const wildcard = host === "" || host === "0.0.0.0" || host === "::";
+  const target = wildcard ? "localhost" : host;
+  // Une IPv6 littérale s'écrit entre crochets dans une URL (RFC 3986 §3.2.2).
+  const authority =
+    target.includes(":") && !target.startsWith("[") ? `[${target}]` : target;
+  return `${scheme}://${authority}:${port}`;
+}
+
+/** Un décalage de ports CONSTATÉ : ce que la config demandait, ce qui sert. */
+export interface PortShift {
+  /** Ports écrits dans la configuration. */
+  readonly desired: readonly number[];
+  /** Ports réellement servis. */
+  readonly served: readonly number[];
+}
+
+/**
+ * Le décalage de ports d'un runtime, ou `null` s'il sert bien ce qu'on lui a demandé.
+ *
+ * `servers.portPolicy: "auto"` (défaut en développement) fait glisser l'écoute au
+ * prochain port libre quand le port voulu est pris — le plus souvent par une AUTRE
+ * application Nodefony du poste. Le glissement est le bon comportement ; c'est son
+ * SILENCE qui coûte : on interroge le port de sa config, le voisin répond, sert la
+ * même racine et refuse les comptes qu'il ne connaît pas — et l'on cherche un défaut
+ * chez soi pendant que l'on parle à quelqu'un d'autre.
+ *
+ * Fonction PURE et implémentation UNIQUE de cette comparaison : le démarrage
+ * détaché, le superviseur de développement et `nodefony status` la posaient chacun
+ * de leur côté, ou pas du tout.
+ *
+ * @param state - l'état publié par le runtime, ou `null` s'il n'a rien publié.
+ * @returns le décalage constaté, ou `null` (rien publié, aucun port désiré connu,
+ *   ou ports servis identiques aux ports voulus).
+ */
+export function detectPortShift(state: RuntimeState | null): PortShift | null {
+  const desired = state?.desiredPorts;
+  if (!state || desired === undefined || desired.length === 0) return null;
+  const served = state.ports;
+  const shifted =
+    desired.length !== served.length ||
+    desired.some((port, index) => port !== served[index]);
+  return shifted ? { desired, served } : null;
+}
+
+/** Ce qu'un démarrage annonce de l'endroit où il sert. */
+export interface ReadyAnnouncement {
+  /** Où taper — adresses publiées, ou à défaut les ports constatés. */
+  readonly served: string;
+  /** Le décalage, en toutes lettres, ou `null` s'il n'y en a pas. */
+  readonly shift: string | null;
+}
+
+/**
+ * Ce qu'un démarrage doit DIRE de l'endroit où il sert.
+ *
+ * Un serveur qui démarre sans dire son adresse laisse interroger celle qu'on
+ * croyait — c'est-à-dire, quand le port a glissé, l'application VOISINE : elle
+ * répond à la même sonde de vie, sert la même racine et refuse les comptes qu'elle
+ * ne connaît pas. On cherche alors un défaut chez soi, avec des réponses plausibles
+ * en face. Le décalage est donc énoncé, jamais laissé à déduire.
+ *
+ * Fonction PURE — aucune lecture de fichier ni d'environnement : l'état lui est
+ * remis, et c'est ce qui permet d'éprouver la phrase du décalage sans occuper un
+ * port réel.
+ *
+ * @param state - l'état publié par le runtime, ou `null` s'il n'a rien publié.
+ * @param probedPorts - les ports que l'appelant a constatés à l'écoute, employés
+ *   seulement si le runtime n'a rien publié (dist antérieur au canal d'état).
+ * @returns l'adresse à viser et, le cas échéant, la phrase du décalage.
+ */
+export function readyAnnouncement(
+  state: RuntimeState | null,
+  probedPorts: readonly number[] = [],
+): ReadyAnnouncement {
+  const urls = state?.urls ?? [];
+  // Les adresses d'abord : elles portent le protocole, qu'un port seul tait.
+  // Puis les ports PUBLIÉS. Les ports seulement SURVEILLÉS viennent en dernier et
+  // ne se présentent jamais comme l'endroit qui sert : c'est ce qu'on ESPÉRAIT, et
+  // l'annoncer comme un fait est précisément ce qui fait chercher pendant cinq
+  // minutes une panne chez soi alors qu'on parle à l'application d'à côté.
+  const served =
+    urls.length > 0
+      ? urls.join(" · ")
+      : state && state.ports.length > 0
+        ? `ports ${state.ports.join(", ")}`
+        : probedPorts.length > 0
+          ? `ports surveillés ${probedPorts.join(", ")} — adresse NON publiée par le serveur`
+          : "adresse inconnue (le runtime n'a rien publié)";
+  const shift = detectPortShift(state);
+  return {
+    served,
+    shift:
+      shift === null
+        ? null
+        : `PORTS DÉCALÉS — ${shift.desired.join(", ")} déjà pris par un autre ` +
+          `processus → cette app sert ${served}. Viser CETTE adresse ` +
+          `(nodefony status) ; figer le port : servers.http.port ; échouer au ` +
+          `lieu de glisser : servers.portPolicy = "strict".`,
+  };
 }
 
 /**
@@ -315,6 +447,37 @@ function sanitizePorts(value: unknown): number[] {
   );
 }
 
+/**
+ * Adresses lues d'un FICHIER, ramenées à ce qu'une adresse servie peut être.
+ *
+ * Même exigence que {@link sanitizePorts}, pour la même raison : ces chaînes sont
+ * ensuite AFFICHÉES comme l'endroit où taper, et l'on suivrait ce qui y est écrit.
+ * Une adresse n'est retenue que si elle parle `http`/`https` et porte un port que
+ * le runtime déclare servir — un fichier tronqué ou réécrit ne peut donc pas
+ * envoyer ailleurs que là où cette application écoute.
+ *
+ * @param value - la valeur brute lue dans le fichier, de forme inconnue.
+ * @param ports - les ports déjà validés du même état.
+ * @returns les adresses retenues, normalisées par `URL` ; tableau vide sinon.
+ */
+function sanitizeUrls(value: unknown, ports: readonly number[]): string[] {
+  if (!Array.isArray(value)) return [];
+  const out: string[] = [];
+  for (const raw of value) {
+    if (typeof raw !== "string" || raw.length > 2048) continue;
+    let url: URL;
+    try {
+      url = new URL(raw);
+    } catch {
+      continue;
+    }
+    if (url.protocol !== "http:" && url.protocol !== "https:") continue;
+    if (!ports.includes(Number(url.port))) continue;
+    out.push(url.origin);
+  }
+  return out;
+}
+
 export function readRuntimeState(
   cwd: string,
   opts: { purgeStale?: boolean } = {},
@@ -343,6 +506,7 @@ export function readRuntimeState(
       desiredPorts: Array.isArray(raw.desiredPorts)
         ? sanitizePorts(raw.desiredPorts)
         : undefined,
+      urls: Array.isArray(raw.urls) ? sanitizeUrls(raw.urls, ports) : undefined,
       ts: typeof raw.ts === "number" ? raw.ts : 0,
     };
   } catch {
