@@ -912,7 +912,14 @@ export function writeAgentPointers(
   }
   const tplDir = path.join(findPackageRoot(), "templates", "app", "agents");
   const template = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
-  const eta = new Eta({ autoEscape: false });
+  // 🔴 `ETA_OPTIONS`, jamais une option recomposée : `autoTrim: false` en fait
+  // partie, et l'oublier ici AVALAIT la ligne vide qui suit le titre. Le
+  // pointeur arrivait donc non conforme au prettier que l'application embarque
+  // — mesuré sur le banc : `npm run verify` échoue, l'agent lance
+  // `prettier --write CLAUDE.md`, puis relance `verify`. Deux à trois tours
+  // perdus par utilisateur, sur un fichier de dix lignes, et un premier contact
+  // qui commence par un rouge dont il n'est pas responsable.
+  const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   for (const { file, agents } of pointeurs) {
     const target = path.join(projectRoot, file);
