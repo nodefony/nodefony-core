@@ -581,12 +581,16 @@ incompréhensibles :
   marquage du signal reçu par le processus serveur, un simple Ctrl+C ferait apparaître un
   « redémarrage échoué » en erreur, sur un arrêt parfaitement normal.
 - **La détection d'un port occupé est écrite à un seul endroit** (`isPortInUseMessage()`,
-  `ViteProcessSupervisor.ts:164`), et tolère les deux formulations de Vite (« is in use » comme « is
-  **already** in use »). Deux implémentations de la même règle avaient divergé : la reprise sur port
-  ne se déclenchait jamais, et la seconde application perdait toute son interface.
+  `ViteProcessSupervisor.ts:185`), et elle reconnaît un conflit **FATAL**, pas la simple présence de
+  « in use ». Vite écrit trois textes qui contiennent ces mots, et un seul signifie qu'il a échoué :
+  « Port X is **already** in use » (il meurt — le seul cas où reprendre sur un autre port a un sens),
+  « Port X is in use, **trying another one…** » (il se décale lui-même) et « Port X is in use **on a
+  wildcard address**, but H:X is available… » (il a pris le port demandé et se contente d'avertir).
+  Les confondre faisait reprendre sur un autre port un démarrage qui n'avait aucun conflit, en
+  repayant l'attente de démarrage à chaque essai.
 
 Les écouteurs attachés au processus enfant sont suivis puis retirés à chaque mort
-(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:922`) : sans cela, les relances successives les
+(`cleanupChildListeners()`, `ViteProcessSupervisor.ts:971`) : sans cela, les relances successives les
 accumuleraient jusqu'à l'avertissement de fuite.
 
 ## 🧰 API publique

@@ -282,7 +282,7 @@ Le `TemplateHelper` injecte automatiquement le preamble React Fast Refresh pour 
 
 ### Vite démarre sur un autre port que `devPort`
 
-Le port configuré est pris. Le supervisor retry automatiquement sur `port+1`, `port+2` (option `portRetryAttempts`). Vérifie le port résolu via `svc.status().port`.
+Le port configuré est pris. Le supervisor retry automatiquement sur `port+1`, `port+2` (option `portRetryAttempts`). Vérifie le port résolu via `svc.status().port` — il vaut `null` tant qu'aucun port n'a été résolu, jamais le port demandé : un port qu'on espère n'est pas un port qui sert.
 
 ### Le browser refuse le cert HTTPS de Vite (`https: true`)
 
