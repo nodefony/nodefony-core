@@ -19,10 +19,15 @@ export default defineConfig({
     // 492 modules étaient évalués 792 fois — 58 % du temps de la suite.
     // Mesuré 35,27 s → 20,77 s (-41 %), 3 runs verts consécutifs.
     //
-    // ⚠️ La suite tombe en ordre ALÉATOIRE (`--sequence.shuffle`), mais elle y
-    // tombait DÉJÀ avec isolation — 22 échecs contre 13 : la dépendance à
-    // l'ordre des fichiers préexiste et ne vient pas du partage. Elle a son
-    // propre ticket ; ne pas la lui imputer en relisant ceci.
+    // L'ordre des FICHIERS est indifférent : `--sequence.shuffle.files` rend
+    // 225 passés. Le cloisonnement est déjà là — `mongoTestUri(db)` donne une
+    // base MongoDB par fichier (12 noms distincts).
+    //
+    // ⚠️ `--sequence.shuffle` NU casse la suite, et ce n'est PAS un défaut : il
+    // mélange aussi les tests À L'INTÉRIEUR d'un fichier, où un `describe` qui
+    // crée un enregistrement puis le relit n'a aucune raison de tolérer
+    // l'inversion. Pour éprouver l'isolation entre fichiers, le seul drapeau
+    // juste est `--sequence.shuffle.files`.
     isolate: false,
     ...transformCache,
     globals: true,
