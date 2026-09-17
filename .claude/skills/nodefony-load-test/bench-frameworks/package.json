@@ -8,7 +8,7 @@
     "cors": "2.8.6",
     "drizzle-orm": "0.45.2",
     "express": "^5.2.1",
-    "fastify": "^5.12.4",
+    "fastify": "^5.12.5",
     "helmet": "8.3.0"
   }
 }
