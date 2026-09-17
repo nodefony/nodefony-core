@@ -638,34 +638,120 @@ function renderLayer(
   }
 }
 
-/** Marqueurs de la zone préservée d'`AGENTS.md` — le contrat du merge borné. */
-const APP_NOTES_START = "<!-- app-notes:start -->";
-const APP_NOTES_END = "<!-- app-notes:end -->";
+/** Marqueurs du bloc que le framework possède dans `AGENTS.md`. */
+const NODEFONY_BLOCK_START = "<!-- nodefony:start -->";
+const NODEFONY_BLOCK_END = "<!-- nodefony:end -->";
 
 /**
- * Réinjecte la zone `app-notes` du contenu précédent dans le rendu neuf.
+ * Marqueurs de l'ANCIENNE zone préservée — lus, jamais écrits.
  *
- * C'est TOUT le merge que le scaffold sait faire, et c'est voulu : `AGENTS.md`
- * est 100 % dérivé (réécrit en entier à chaque régénération — il ne peut pas
- * mentir), SAUF cette zone, où l'humain et l'agent accumulent les leçons
- * propres à l'app. Un marqueur absent ou inversé (fichier retravaillé à la
- * main) → le rendu neuf part tel quel : mieux vaut perdre des notes déplacées
- * qu'écrire un fichier recousu de façon imprévisible.
+ * Avant le découpage, `AGENTS.md` était réécrit en entier et seule cette zone
+ * survivait. Les applications déjà en service en portent une, avec dedans les
+ * seules lignes que leur auteur pouvait écrire sans être écrasé.
  */
-function preserveAppNotes(previous: string, next: string): string {
-  const start = previous.indexOf(APP_NOTES_START);
-  const end = previous.indexOf(APP_NOTES_END);
-  if (start === -1 || end === -1 || end < start) {
+const APP_NOTES_LEGACY_START = "<!-- app-notes:start -->";
+const APP_NOTES_LEGACY_END = "<!-- app-notes:end -->";
+
+/**
+ * Sauve les notes d'une application NÉE AVANT le découpage.
+ *
+ * Sans ce passage, la première régénération d'une application existante
+ * écraserait son `AGENTS.md` entier — et avec lui la zone `app-notes`, c'est-à-dire
+ * précisément ce que l'ancien contrat promettait de préserver. Le découpage
+ * rend la page à l'utilisateur ; il ne peut pas la lui rendre vide.
+ *
+ * Les notes reprises sont posées APRÈS le bloc du framework, là où vit désormais
+ * la zone libre — et un en-tête les signale, pour que leur auteur comprenne d'où
+ * elles viennent plutôt que de les croire écrites par lui au mauvais endroit.
+ *
+ * @param previous - l'`AGENTS.md` existant, sans marqueurs `nodefony:`.
+ * @param next - le rendu neuf.
+ * @returns le rendu neuf, suivi des notes reprises s'il y en avait.
+ */
+function migrerDepuisAppNotes(previous: string, next: string): string {
+  const debut = previous.indexOf(APP_NOTES_LEGACY_START);
+  const fin = previous.indexOf(APP_NOTES_LEGACY_END);
+  if (debut === -1 || fin === -1 || fin < debut) {
     return next;
   }
-  const notes = previous.slice(start + APP_NOTES_START.length, end);
-  const ns = next.indexOf(APP_NOTES_START);
-  const ne = next.indexOf(APP_NOTES_END);
+  const notes = previous
+    .slice(debut + APP_NOTES_LEGACY_START.length, fin)
+    .trim();
+  // Une zone jamais remplie ne vaut pas la peine d'être annoncée : la reprendre
+  // poserait un en-tête de migration au-dessus de rien.
+  if (notes === "") {
+    return next;
+  }
+  return `${next.trimEnd()}\n\n## Notes reprises de la version précédente\n\n${notes}\n`;
+}
+
+/**
+ * Réinjecte le bloc du framework dans l'`AGENTS.md` EXISTANT de l'utilisateur.
+ *
+ * C'est l'inverse exact du contrat précédent, et c'est le sujet entier du
+ * découpage : `AGENTS.md` à la racine d'une application est le fichier de
+ * CETTE application — ses conventions, son domaine, ses règles d'équipe. Le
+ * framework n'y possède qu'un bloc délimité ; tout le reste appartient à
+ * l'utilisateur et n'est JAMAIS réécrit. Auparavant le rendu écrasait le
+ * fichier entier et ne sauvait qu'une zone de 430 octets — l'aveu que
+ * l'utilisateur avait besoin de place, et qu'on lui en concédait 0,6 %.
+ *
+ * Marqueurs absents du fichier existant (application née avant le découpage,
+ * ou fichier retravaillé à la main) → le rendu neuf part tel quel : c'est la
+ * migration, et elle ne peut pas deviner où l'utilisateur voulait son bloc.
+ *
+ * @param previous - le fichier tel qu'il est sur le disque.
+ * @param next - le rendu neuf, qui porte les deux marqueurs.
+ * @returns le fichier de l'utilisateur, son seul bloc framework remplacé.
+ */
+function replaceFrameworkBlock(previous: string, next: string): string {
+  const debut = previous.indexOf(NODEFONY_BLOCK_START);
+  const fin = previous.indexOf(NODEFONY_BLOCK_END);
+  if (debut === -1 || fin === -1 || fin < debut) {
+    return migrerDepuisAppNotes(previous, next);
+  }
+  const ns = next.indexOf(NODEFONY_BLOCK_START);
+  const ne = next.indexOf(NODEFONY_BLOCK_END);
   if (ns === -1 || ne === -1 || ne < ns) {
     return next;
   }
-  return next.slice(0, ns + APP_NOTES_START.length) + notes + next.slice(ne);
+  const blocNeuf = next.slice(ns, ne + NODEFONY_BLOCK_END.length);
+  return (
+    previous.slice(0, debut) +
+    blocNeuf +
+    previous.slice(fin + NODEFONY_BLOCK_END.length)
+  );
 }
+
+/**
+ * Les annexes du framework, et la condition qui décide de les rendre.
+ *
+ * Une annexe est un fichier qu'on rend ou qu'on ne rend pas — jamais un
+ * fichier à moitié rendu : c'est pourquoi la condition vit ICI et non en
+ * balise dans le gabarit. L'index de la porte porte la MÊME condition, sans
+ * quoi il nommerait une page absente du disque.
+ */
+const ANNEXES_AGENTS: readonly {
+  nom: string;
+  quand?: (d: IAgentsData) => boolean;
+}[] = [
+  { nom: "avant-de-coder" },
+  { nom: "depannage" },
+  { nom: "inspecter-l-app" },
+  { nom: "commandes" },
+  { nom: "variables-d-environnement" },
+  { nom: "lancer-le-serveur" },
+  { nom: "donnees-et-fichiers" },
+  { nom: "securite-et-droits", quand: (d) => d.hasSecurity },
+  { nom: "temps-reel", quand: (d) => d.hasRealtime },
+  {
+    nom: "ajouter-une-brique",
+    quand: (d) => !d.hasOrm || !d.hasSecurity || !d.hasRealtime || !d.front,
+  },
+];
+
+/** Dossier des annexes, relatif à la racine du projet — visible d'un `ls`. */
+const DOSSIER_ANNEXES = path.join("agents", "nodefony");
 
 /** Ce que le template `AGENTS.md` de l'app a besoin de savoir du projet. */
 interface IAgentsData {
@@ -706,14 +792,19 @@ interface IAgentsData {
 }
 
 /**
- * Rend `AGENTS.md` (+ le pointeur `CLAUDE.md`) à la racine du projet.
+ * Rend `AGENTS.md`, ses annexes `agents/nodefony/` et le pointeur `CLAUDE.md`.
  *
  * Appelé par `create app` ET re-appelé par les scaffolds in-project qui
- * changent l'inventaire décrit (`create module`) : régénération BORNÉE —
- * réécriture complète depuis l'état RÉEL du projet, seule la zone `app-notes`
- * est réinjectée (cf {@link preserveAppNotes}). Le moteur ne sait pas rejouer
- * des templates sur de l'existant, et n'essaie pas : seuls ces fichiers
- * 100 % dérivés sont régénérables.
+ * changent l'inventaire décrit (`create module`) : régénération BORNÉE, et la
+ * borne n'est pas la même pour les deux surfaces. **`AGENTS.md` appartient à
+ * l'application** — seul le bloc entre marqueurs est remplacé (cf
+ * {@link replaceFrameworkBlock}), le reste de la page est celui de
+ * l'utilisateur. **`agents/nodefony/` appartient au framework** — écrasé en
+ * bloc, sans fusion ni préservation.
+ *
+ * C'est ce partage qui laisse la porte tenir son budget (~20 Ko, sous le
+ * plafond de 32 KiB que Codex applique en tronquant SANS le dire) pendant que
+ * le contenu des annexes continue de grossir sans gêner personne.
  *
  * `CLAUDE.md` n'est écrit QUE s'il n'existe pas : c'est un pointeur d'une
  * ligne, et un `CLAUDE.md` remplacé par l'utilisateur lui appartient.
@@ -750,10 +841,29 @@ function renderProjectAgents(
     throw new Error("tag eta résiduel dans AGENTS.md");
   }
   if (writer.exists(agentsPath)) {
-    rendered = preserveAppNotes(writer.read(agentsPath), rendered);
+    rendered = replaceFrameworkBlock(writer.read(agentsPath), rendered);
   }
   writer.write(agentsPath, rendered);
   written.push("AGENTS.md");
+  // Les annexes : le dossier du framework, ÉCRASÉ EN BLOC. Il ne se fusionne
+  // pas et ne préserve rien — c'est ce qui permet à la porte de rester sous
+  // son budget pendant que le contenu, lui, continue de grossir librement.
+  const dataAnnexes = { ...data, client } as unknown as Record<string, unknown>;
+  for (const { nom, quand } of ANNEXES_AGENTS) {
+    if (quand && !quand(data)) continue;
+    const corps = eta.renderString(
+      readFileSync(path.join(tplDir, "nodefony", `${nom}.md.tpl`), "utf8"),
+      dataAnnexes,
+    );
+    if (corps.includes("<%")) {
+      throw new Error(`tag eta résiduel dans l'annexe ${nom}`);
+    }
+    // Le chemin PUBLIÉ s'écrit en `/` (il est cité dans l'index de la porte,
+    // que des agents lisent) ; le chemin OUVERT se compose en natif.
+    const relatif = `${DOSSIER_ANNEXES.split(path.sep).join("/")}/${nom}.md`;
+    writer.write(path.join(projectRoot, DOSSIER_ANNEXES, `${nom}.md`), corps);
+    written.push(relatif);
+  }
   // Un pointeur par DIALECTE — dérivé de la table des agents, jamais listé à la
   // main : deux d'entre eux n'ouvrent QUE le fichier à leur nom et ne verraient
   // jamais l'`AGENTS.md` qu'on vient d'écrire (constaté au source de chacun, cf
@@ -2155,7 +2265,8 @@ function runModuleScaffold(
   // Régénération BORNÉE de l'AGENTS.md de l'app : l'inventaire des modules y
   // vit, et un AGENTS.md qui ignore le module qu'on vient de créer ment. Tout
   // est re-DÉRIVÉ de l'état réel (deps de l'app, cibles du projet — la
-  // transaction voit le module en attente) ; seule la zone `app-notes` survit.
+  // transaction voit le module en attente) ; seul le BLOC entre marqueurs est
+  // remplacé, tout le reste de la page appartient à l'utilisateur.
   // Une app née avant ce mécanisme y gagne son AGENTS.md au premier module.
   //
   // ⚠️ JAMAIS en layout `packages` : dans un monorepo établi, l'AGENTS.md de la

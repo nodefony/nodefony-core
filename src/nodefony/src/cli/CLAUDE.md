@@ -491,16 +491,22 @@ qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 `nodefony create app [name] [--dir <path>] [--force] [--yes] [--preset <complete|minimal>]
 [--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
-L'app naît **agent-ready** : `AGENTS.md` racine (devise + générateurs + table
-tâche→doc dérivée des deps réelles + gates + zone préservée `<!-- app-notes:start/end -->`)
-avec `CLAUDE.md` pointeur (écrit seulement s'il n'existe pas), **et les pointeurs de
+L'app naît **agent-ready** : `AGENTS.md` racine — la **PORTE**, budget **20 Ko**
+(devise + générateurs + vérités universelles + gates + index des annexes), dans un
+bloc `<!-- nodefony:start/end -->` ; **tout ce qui est hors marqueurs appartient à
+l'utilisateur** et n'est jamais réécrit. Le détail vit dans `agents/nodefony/*.md`,
+écrasé EN BLOC (`ANNEXES_AGENTS`, `engine.ts`). Le budget n'est pas un goût :
+Codex CONCATÈNE les `AGENTS.md` de la racine au cwd et tronque **en silence** à
+32 KiB (`project_doc_max_bytes`) — avant le découpage la porte faisait 63 331 o, et
+deux outils de lecture sur deux la refusaient en bloc. Avec `CLAUDE.md` pointeur
+(écrit seulement s'il n'existe pas), **et les pointeurs de
 skills dans `.agents/skills/`** (`syncSkillPointers`, appelé APRÈS l'install — les skills
 vivent dans `node_modules` — et AVANT `git init`, parce que ces fichiers sont faits pour
 être versionnés). Sans ce geste, le lot ne servirait qu'à qui connaît déjà `ai:sync` :
 personne n'apprend un verbe absent. Régénération BORNÉE :
-`create module` réécrit l'`AGENTS.md` depuis l'état réel (inventaire `modules/*`)
-en réinjectant la seule zone `app-notes` (`renderProjectAgents`/`preserveAppNotes`,
-`engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
+`create module` réécrit le seul BLOC entre marqueurs depuis l'état réel (inventaire
+`modules/*`) et régénère les annexes ; la page de l'utilisateur, autour, est
+intacte (`renderProjectAgents`/`replaceFrameworkBlock`, `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
 front, `AppController` tient `/`). Suites franches : e2e EXCLUS de
 `vitest.config.ts`, ciblés par `vitest.e2e.config.ts` seule (`npm test` n'affiche
 jamais de skipped-vert).

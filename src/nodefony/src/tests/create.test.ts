@@ -89,6 +89,29 @@ const scaffold = (
 ) => runScaffold({ type: "app", answers, dir, force }, version);
 
 /**
+ * Tout ce qu'un agent peut ATTEINDRE dans une app générée — porte et annexes.
+ *
+ * `AGENTS.md` ne porte plus que le bloc d'entrée (~20 Ko) ; le reste vit dans
+ * `agents/nodefony/*.md`, que l'index de la porte nomme par son déclencheur.
+ * Un test qui affirme « l'app générée DIT ceci » parle donc de cet ensemble,
+ * pas du seul fichier d'entrée — viser `AGENTS.md` seul reviendrait à exiger
+ * que tout y retourne, c'est-à-dire à défaire le découpage par le banc de test.
+ *
+ * Les tests qui portent sur la PORTE elle-même (son budget, ses marqueurs, les
+ * générateurs qui doivent rester en tête) lisent `AGENTS.md` directement — et
+ * c'est voulu : ce sont deux affirmations différentes.
+ */
+const docsAgent = (dest: string): string => {
+  const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+  const dossier = path.join(dest, "agents", "nodefony");
+  if (!existsSync(dossier)) return porte;
+  const annexes = readdirSync(dossier)
+    .filter((f) => f.endsWith(".md"))
+    .map((f) => readFileSync(path.join(dossier, f), "utf8"));
+  return [porte, ...annexes].join("\n");
+};
+
+/**
  * Retire d'une app générée le service d'EXEMPLE et sa déclaration.
  *
  * Une cible sans le moindre service reste un cas RÉEL — un module créé
@@ -807,7 +830,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "complete",
         frontend: "none",
       });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const agents = docsAgent(dest);
 
       // 1. La commande destructrice existe toujours — la retirer serait pire :
       //    l'agent la trouverait par `--help`, sans le moindre avertissement.
@@ -845,7 +868,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "complete",
         frontend: "none",
       });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const agents = docsAgent(dest);
 
       // 1. L'outil qui CHERCHE, quand le serveur répond.
       assert.include(agents, "nodefony_docs");
@@ -863,9 +886,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Trois échecs du banc devkit dont la cause était ce fichier — pas
       // l'agent. Chacun se relit ici, dans le rendu, parce qu'un gabarit n'est
       // pas ce qu'il produit.
-      const dest = path.join(tmp, "agents-pieges");
-      scaffold(dest, { name: "pieges", preset: "complete", frontend: "none" });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const dest = path.join(tmp, "agents-depannage");
+      scaffold(dest, {
+        name: "depannage",
+        preset: "complete",
+        frontend: "none",
+      });
+      const agents = docsAgent(dest);
 
       // T10 — l'agent s'arrêtait à `npm test` (vitest n'inspecte aucun type) et
       // commitait du code qui ne compile pas. L'en-tête et la conclusion
@@ -1380,10 +1407,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const readme = readFileSync(path.join(dest, "README.md"), "utf8");
         assert.include(readme, "deploy/migrate-job.yaml");
         assert.include(readme, "npx nodefony orm:migrate:status");
-        assert.include(
-          readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
-          "deploy/migrate-job.yaml",
-        );
+        assert.include(docsAgent(dest), "deploy/migrate-job.yaml");
         assertNoEtaResidue(dest);
       });
     }
@@ -1403,10 +1427,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
       }
       // Les commandes, elles, existent bel et bien en sqlite.
-      assert.include(
-        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
-        "npx nodefony orm:migrate:status",
-      );
+      assert.include(docsAgent(dest), "npx nodefony orm:migrate:status");
     });
 
     /**
@@ -1779,7 +1800,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // Un agent qui ignore que ce fichier existe en écrit un de mémoire —
         // sans multi-stage, en root, en forme shell. La capacité doit donc
         // être nommée là où il lit AVANT d'agir, pas seulement exister.
-        const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+        const agents = docsAgent(dest);
         assert.include(agents, "docker build");
         assert.include(agents, "Dockerfile");
         assertNoEtaResidue(dest);
@@ -2630,7 +2651,151 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
-  describe("AGENTS.md — l'app naît parlante pour un agent", () => {
+  describe("AGENTS.md — la PORTE et ses annexes", () => {
+    /** Budget de la porte : voir le test du plafond pour le POURQUOI du chiffre. */
+    const BUDGET_PORTE = 20 * 1024;
+
+    it("la porte tient sous 20 Ko — sinon Codex la TRONQUE sans le dire", () => {
+      // Le chiffre n'est pas une préférence : OpenAI Codex concatène les
+      // `AGENTS.md` de la racine jusqu'au cwd et plafonne à 32 KiB
+      // (`project_doc_max_bytes`), en tronquant SILENCIEUSEMENT. Cursor
+      // recommande < 500 lignes, Claude Code < 200. La porte vise 20 Ko pour
+      // laisser de la place aux `AGENTS.md` de module, qui s'AJOUTENT au même
+      // budget chez Codex. La vitrine complète est le pire cas : tout y est
+      // rendu. Avant le découpage, ce fichier faisait 63 331 o — DEUX FOIS le
+      // plafond dur — et deux outils de lecture sur deux le refusaient en bloc.
+      const dest = path.join(tmp, "porte-budget");
+      scaffold(dest, { name: "porte", preset: "complete", frontend: "react" });
+      const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const octets = Buffer.byteLength(porte, "utf8");
+      assert.isAtMost(
+        octets,
+        BUDGET_PORTE,
+        `la porte fait ${octets} o (budget ${BUDGET_PORTE}) — déporte une section ` +
+          "dans `agents/nodefony/`, ne rogne pas le contenu : il est mesuré rentable",
+      );
+    });
+
+    it("l'index nomme EXACTEMENT les annexes posées — ni page fantôme, ni page muette", () => {
+      // Les deux faces comptent, et aucune ne se voit à l'exécution : un index
+      // qui nomme une page absente envoie l'agent dans le vide, et une page
+      // qu'aucun index ne nomme n'est lue par personne — aucun harness ne
+      // charge ce dossier tout seul. C'est le seul test qui tienne les deux
+      // ensemble ; les vérifier séparément laisserait passer la dérive.
+      for (const [nom, reponses] of [
+        ["complet", { name: "ix1", preset: "complete", frontend: "react" }],
+        ["minimal", { name: "ix2", preset: "minimal", frontend: "none" }],
+      ] as const) {
+        const dest = path.join(tmp, `index-${nom}`);
+        scaffold(dest, reponses as TScaffoldAnswers);
+        const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+        const dossier = path.join(dest, "agents", "nodefony");
+        const surDisque = readdirSync(dossier)
+          .filter((f) => f.endsWith(".md"))
+          .sort();
+        const citees = [
+          ...porte.matchAll(/`agents\/nodefony\/([a-z-]+)\.md`/gu),
+        ]
+          .map((m) => `${m[1]}.md`)
+          .sort();
+        assert.deepEqual(
+          [...new Set(citees)],
+          surDisque,
+          `${nom} : l'index et le dossier divergent`,
+        );
+        assert.isAbove(surDisque.length, 0, `${nom} : aucune annexe posée`);
+      }
+    });
+
+    it("une annexe conditionnelle absente n'est ni posée, ni citée", () => {
+      // `securite-et-droits` n'a de sens que si l'app a un firewall : la poser
+      // sans lui décrirait des décorateurs qui n'existent pas dans ce projet,
+      // et l'agent irait droit dans une erreur d'import.
+      const dest = path.join(tmp, "annexe-cond");
+      scaffold(dest, { name: "acond", preset: "minimal", frontend: "none" });
+      const dossier = path.join(dest, "agents", "nodefony");
+      assert.isFalse(
+        existsSync(path.join(dossier, "securite-et-droits.md")),
+        "sans sécurité, l'annexe sécurité ne doit pas exister",
+      );
+      assert.notInclude(
+        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+        "securite-et-droits.md",
+      );
+      // …et l'inverse est vrai : avec la sécurité, elle est là ET citée.
+      const avec = path.join(tmp, "annexe-cond-avec");
+      scaffold(avec, { name: "acondb", preset: "complete", frontend: "none" });
+      assert.isTrue(
+        existsSync(
+          path.join(avec, "agents", "nodefony", "securite-et-droits.md"),
+        ),
+      );
+    });
+
+    it("le contenu déporté n'est pas PERDU — il a changé de fichier", () => {
+      // Le découpage ne retire rien : chaque section payée doit rester
+      // atteignable. Ces quatre chaînes vivaient dans la porte avant le
+      // découpage ; elles doivent être dans les annexes après.
+      const dest = path.join(tmp, "deporte");
+      scaffold(dest, { name: "dep", preset: "complete", frontend: "react" });
+      const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const tout = docsAgent(dest);
+      for (const temoin of [
+        "trustedOrigins",
+        "npx nodefony orm:migrate:status",
+        "nodefony_docs",
+      ]) {
+        assert.include(tout, temoin, `« ${temoin} » a disparu du corpus`);
+        assert.notInclude(
+          porte,
+          temoin,
+          `« ${temoin} » est resté dans la porte — le budget le paiera`,
+        );
+      }
+    });
+
+    it("une app NÉE AVANT le découpage ne perd pas ses notes à la régénération", () => {
+      // Le cas de migration, et il n'est pas théorique : toute application déjà
+      // en service porte un `AGENTS.md` sans marqueurs `nodefony:`, avec ses
+      // notes dans l'ancienne zone `app-notes` — la seule que l'ancien contrat
+      // promettait de préserver. Écraser ce fichier reviendrait à rompre cette
+      // promesse au moment précis où on rend la page à son propriétaire.
+      const dest = path.join(tmp, "migration");
+      scaffold(dest, { name: "migr", preset: "complete", frontend: "none" });
+      const agentsPath = path.join(dest, "AGENTS.md");
+      // On REFABRIQUE un fichier d'avant : aucun marqueur `nodefony:`, et une
+      // zone `app-notes` remplie.
+      writeFileSync(
+        agentsPath,
+        [
+          "# AGENTS.md — migr",
+          "",
+          "## Notes de cette app",
+          "",
+          "<!-- app-notes:start -->",
+          "- leçon d'équipe : la file d'attente se purge avant chaque déploiement",
+          "<!-- app-notes:end -->",
+          "",
+        ].join("\n"),
+      );
+      runScaffold(
+        {
+          type: "module",
+          answers: { name: "blog", controller: "none" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const apres = readFileSync(agentsPath, "utf8");
+      // Le fichier est repassé au format neuf…
+      assert.include(apres, "<!-- nodefony:start -->");
+      // …et la note de l'utilisateur a survécu, sous un en-tête qui dit d'où
+      // elle vient : sans lui, son auteur la croirait mal placée.
+      assert.include(apres, "la file d'attente se purge");
+      assert.include(apres, "Notes reprises de la version précédente");
+    });
+
     it("aucun agent demandé ⇒ AGENTS.md seul, aucun fichier à un nom d'outil", () => {
       // 🔴 Le défaut corrigé, rapporté tel quel : « j'ai demandé un agent
       // claude, je me retrouve avec un GEMINI.md ». Poser chez quelqu'un le
@@ -2657,10 +2822,17 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         frontend: "none",
         agents: ["claude"],
       });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
-      // La devise ouvre le fichier — LA règle que l'agent doit retenir.
+      const agents = docsAgent(dest);
+      // La devise OUVRE le fichier — LA règle que l'agent doit retenir, et le
+      // seul endroit dont le gain soit mesuré (une tâche passée de 0/1 à 4/4
+      // en remontant les façades en tête, parce que l'agent lit `head -20`).
+      // Cinq lignes et non quatre depuis le découpage : le titre appartient à
+      // l'application, puis vient le marqueur d'ouverture du bloc framework —
+      // et prettier EXIGE une ligne vide après un commentaire HTML. Le seuil
+      // suit une contrainte de format, il ne se relâche pas : cinq lignes
+      // restent très au-dessus de ce qu'un agent lit d'abord.
       assert.include(
-        agents.split("\n").slice(0, 4).join("\n"),
+        agents.split("\n").slice(0, 6).join("\n"),
         "N'invente jamais du code Nodefony",
       );
       // Inventaire des générateurs + front machine : l'agent APPELLE le
@@ -2672,8 +2844,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "--answers-json",
         "--dry-run",
         "npm run typecheck",
-        "<!-- app-notes:start -->",
-        "<!-- app-notes:end -->",
+        "<!-- nodefony:start -->",
+        "<!-- nodefony:end -->",
         // Les verbes qui répondent SANS boot : ce sont les seuls utilisables au
         // moment où l'agent arrive (rien n'est construit) ou quand plus rien ne
         // démarre. Une capacité absente d'ici est une capacité ABSENTE : le banc
@@ -2996,7 +3168,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("minimal : la table des docs dit la vérité des briques réellement installées", () => {
       const dest = path.join(tmp, "amin");
       scaffold(dest, { name: "amin", preset: "minimal", frontend: "none" });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const agents = docsAgent(dest);
       // Pointer une doc non installée serait un mensonge — le trou n°1 du kit.
       assert.notInclude(agents, "@nodefony/security/docs");
       assert.notInclude(agents, "@nodefony/orm-core/docs");
@@ -3020,7 +3192,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("minimal : le fichier NOMME les briques absentes et le geste qui les pose", () => {
       const dest = path.join(tmp, "aabs");
       scaffold(dest, { name: "aabs", preset: "minimal", frontend: "none" });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const agents = docsAgent(dest);
       // Le contenu est conditionné aux briques PRÉSENTES : sans branche
       // « sinon », une app minimale ne lit rien sur ce qui lui manque, et
       // l'agent qui la découvre en conclut que le framework n'en a pas.
@@ -3052,17 +3224,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.notInclude(agents, "n'a PAS");
     });
 
-    it("régénération BORNÉE : create module réécrit l'inventaire, préserve notes et CLAUDE.md", () => {
+    it("régénération BORNÉE : create module réécrit le BLOC, préserve la page et CLAUDE.md", () => {
       const dest = path.join(tmp, "regen");
       scaffold(dest, { name: "regen", preset: "complete", frontend: "none" });
-      // L'humain/agent accumule ses leçons dans la zone préservée…
+      // `AGENTS.md` appartient à l'APPLICATION : l'utilisateur écrit où il veut,
+      // AVANT et APRÈS le bloc du framework. Les deux côtés sont éprouvés — un
+      // remplacement qui ne garderait que la fin passerait un test écrit sur la
+      // seule zone basse, exactement le défaut que ce découpage corrige.
       const agentsPath = path.join(dest, "AGENTS.md");
+      const AVANT = "> Convention d'équipe : toute PR cite son ticket.\n";
+      const APRES =
+        "- leçon locale : toujours frapper /api/hello après un boot\n";
+      const initial = readFileSync(agentsPath, "utf8");
+      assert.include(initial, "<!-- nodefony:start -->");
       writeFileSync(
         agentsPath,
-        readFileSync(agentsPath, "utf8").replace(
-          /_\(vide[^\n]*\n/u,
-          "- leçon locale : toujours frapper /api/hello après un boot\n",
-        ),
+        initial.replace(
+          "<!-- nodefony:start -->",
+          `${AVANT}\n<!-- nodefony:start -->`,
+        ) + APRES,
       );
       // …et remplace le pointeur CLAUDE.md par le sien : il lui appartient.
       const claudePath = path.join(dest, "CLAUDE.md");
@@ -3077,10 +3257,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         version,
       );
       const agents = readFileSync(agentsPath, "utf8");
-      // Réécrit depuis l'état réel : le module créé est inventorié…
+      // Le BLOC est re-dérivé de l'état réel : le module créé est inventorié…
       assert.include(agents, "modules/blog");
-      // …la zone app-notes a survécu à la réécriture complète…
+      // …ce que l'utilisateur a écrit des DEUX côtés du bloc a survécu…
+      assert.include(agents, "toute PR cite son ticket");
       assert.include(agents, "toujours frapper /api/hello");
+      // …le fichier n'a pas été dupliqué au passage (un seul bloc framework)…
+      assert.equal(agents.split("<!-- nodefony:start -->").length - 1, 1);
       // …et le CLAUDE.md de l'utilisateur n'a pas été touché.
       assert.equal(readFileSync(claudePath, "utf8"), "# mon CLAUDE.md à moi\n");
     });
@@ -3259,11 +3442,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "cette zone doit montrer l'authentificateur de porteur SEUL — ajouter " +
           '"session" à côté rouvre exactement le défaut qu\'elle illustre',
       );
-      const agentsMd = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const agentsMd = docsAgent(dest);
       assert.include(
         agentsMd,
         "stateless",
-        "AGENTS.md doit donner le geste M2M — c'est le fichier lu par défaut",
+        "les docs d'agent doivent donner le geste M2M — porte ou annexe sécurité",
       );
       // La zone est écrite DEUX fois — dans la config qu'on édite, et dans le
       // fichier que l'agent lit par défaut. La frontière est réelle (l'un est
@@ -3313,7 +3496,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         preset: "complete",
         frontend: "none",
       });
-      const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      const agents = docsAgent(dest);
       assert.include(
         agents,
         "trustedOrigins",
