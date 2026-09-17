@@ -159,6 +159,18 @@ exécution.
 
 ## 🧊 Un banc qui s'arrête au premier échec CACHE tout ce qui vient après
 
+- [1× — 09-17e] 🔴 **Un banc dont le budget INTERNE dépasse l'échéance du harnais meurt muet — et
+  toute son instrumentation est en aval du point où il meurt.** Le cas du décalage de port avait
+  été soigneusement outillé pour ses échecs d'ASSERTION : compteur de replis, PID qui tient
+  réellement le port, dernière erreur retenue, quatre lectures exclusives rédigées à la main. Rien
+  de tout cela n'était atteignable, parce que ça vient APRÈS l'appel qui pendait. Le superviseur
+  peut dépenser `(portRetryAttempts + 1) × startupTimeoutMs` = 80 s, quand `testTimeout` vaut 60 s :
+  le cas ne pouvait STRUCTURELLEMENT pas voir la fin de ce qu'il mesure. Neuf mois de rouges
+  intermittents lus comme « la case macOS », et pas une ligne de diagnostic.
+  **Le contrôle, avant d'écrire un banc : le budget maximal de ce que j'appelle est-il INFÉRIEUR à
+  l'échéance qui me tuera ?** Sinon, borner soi-même, assez tôt pour parler — et composer le
+  diagnostic AU MOMENT du dépassement, seul instant où l'état dit encore où il en était.
+
 - [1× — 09-11d] **Le défaut corrigé a révélé le suivant, au même endroit.** Le banc de publication
   refusait l'image du scénario à frontend (clé privée). Corrigé, le scénario va PLUS LOIN et tombe
   sur une étape qui n'avait jamais pu s'exécuter : elle efface `public/dist` dans le conteneur, ce
@@ -497,7 +509,37 @@ _Coupés au même passage (antérieurs au 2026-08-06, déjà couverts par une m�
 
 Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
 
+## 🩹 Un repli qui rend une ESPÉRANCE pour un FAIT — et le consommateur qui s'en défend
+
+- [1× — 09-17e] 🔴 **`resolvedPort ?? devPort` : le port qu'on ESPÈRE servi comme le port qui
+  SERT.** L'interface annonçait pourtant `port: number | null` — l'implémentation ne rendait jamais
+  `null` et contredisait son propre type. Conséquence exacte : une 2ᵉ application dont le port n'est
+  pas résolu annonce `devPort`, c'est-à-dire le port de la PREMIÈRE, et son HTML envoie le
+  navigateur chercher ses modules chez la voisine. Le health check avait la même ligne : il sondait
+  le port du voisin et se déclarait sain grâce à lui.
+  **Le signe qui aurait dû alerter des mois plus tôt : un CONSOMMATEUR s'en défendait.**
+  `FrontendService.cspPorts` portait un `⚠️` en toutes lettres — « `status().port` n'est PAS `null`
+  avant résolution, l'implémentation retombe sur le port ESPÉRÉ ». Quelqu'un avait compris le
+  défaut, l'avait ÉCRIT, et l'avait contourné chez lui. **Un contournement documenté chez un lecteur
+  est un défaut non corrigé chez l'auteur** — et il fait payer la vigilance à tous les lecteurs
+  suivants, qui n'auront pas lu ce commentaire. Le corriger à la source a rendu probante, au
+  passage, une assertion de banc qui ne l'était pas (`first.status().port === port` passait même
+  sans port résolu). Voisins gradués : [[feedback_reliable_path_demoted_to_fallback]],
+  [[feedback_resilience_no_silent_degradation]].
+
 ## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
+
+- [1× — 09-17e] 🔴 **Un TEST peut graver une supposition que personne n'a jamais confrontée au
+  source — et il protège alors le défaut au lieu du contrat.** Le banc du détecteur de port occupé
+  portait un cas intitulé « la formulation SANS `already` (versions antérieures) », qui exigeait
+  que `Port X is in use, trying another one…` soit traité comme un conflit. Cette parenthèse est
+  une HYPOTHÈSE : rien ne l'avait vérifiée. Le source de vite 8.3.0 (`httpServerStart`) dit que les
+  trois formulations coexistent dans la MÊME version et désignent trois comportements opposés —
+  `already` = `throw`, les deux autres = `logger.info`/`logger.warn` sur un démarrage qui
+  CONTINUE, dont un sur un `listen` RÉUSSI. Le cas vert protégeait donc exactement ce qu'il fallait
+  corriger. **Un test est une affirmation sur le monde extérieur au même titre qu'un commentaire :
+  quand il en cite un, la citation se vérifie chez lui.** Trente secondes de `grep` dans
+  `node_modules/vite/dist` ont renversé la lecture. Voisin gradué : [[feedback_source_over_memory]].
 
 - [1× — 09-14c] 🔴 **Trois lectures, trois vérités, et j'allais conclure sur la mauvaise.** Le
   changelog de Node annonçait « improve performance with known-length calls to `end()` » ; le titre

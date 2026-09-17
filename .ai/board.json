@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T15:09:47.251Z",
+  "generatedAt": "2026-09-17T15:42:51.612Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 101,
+      "closed": 103,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 19,
+      "open": 17,
       "title": "10.0.0-alpha"
     },
     {
@@ -3032,7 +3032,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 10.5,
+      "jours": 9,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3140,8 +3140,8 @@
       "number": 390,
       "title": "fix(frontend): dire au démarrage qu'aucune interface web n'est posée",
       "url": "https://github.com/nodefony/nodefony-core/issues/390",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -3188,8 +3188,8 @@
       "number": 154,
       "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
