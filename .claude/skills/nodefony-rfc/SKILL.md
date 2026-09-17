@@ -1,17 +1,17 @@
 ---
 name: nodefony-rfc
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 description: >
-  Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la
-  spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte
-  HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et renvoie au corpus
-  RFC unique du dépôt (40 full-text, dont OAuth 8414/9728/6750/8707) : les relire coûte zéro requête.
-  Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "Fetch standard",
-  "RFC 9110/9113/6455/6265", "pseudo-headers HTTP/2", "frame masking", "SameSite cookies",
-  "spec MCP", "Model Context Protocol", "révision 2026-07-28", "server/discover", "ère legacy MCP",
-  "autorisation MCP", "resource server OAuth", "protected resource metadata", "RFC 9728",
-  "WWW-Authenticate", "jeton Bearer", "audience d'un jeton", "resource indicator".
+  Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model
+  Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML.
+  Porte HORS LIGNE la révision MCP 2026-07-28 et la convention AGENTS.md (AAIF / Linux Foundation),
+  avec le script qui dit quand une copie figée a dérivé de son amont.
+  Déclencheurs : "RFC", "conformité HTTP", "norme WebSocket", "CORS spec", "RFC 9110/9113/6455/6265",
+  "SameSite cookies", "spec MCP", "Model Context Protocol", "server/discover", "autorisation MCP",
+  "resource server OAuth", "RFC 9728", "jeton Bearer", "AGENTS.md", "spec AGENTS.md", "AAIF",
+  "instructions d'agent", "quelle taille pour AGENTS.md", "project_doc_max_bytes", "dossier .agents",
+  "Agent Skills", "quel fichier lit tel agent", "cette spec est-elle à jour", "norme périmée".
 ---
 
 # nodefony-rfc
@@ -146,6 +146,51 @@ Et la face symétrique — un serveur qui veut que ses signatures soient vérifi
 > Un serveur d'autorisation n'est **jamais** requis pour le rôle ressource : la spec MCP le place
 > « beyond the scope […] or a separate entity ». Écrire l'inverse a longtemps servi d'excuse à ne
 > rien faire.
+
+### 8. AGENTS.md — la convention d'instructions d'agent — **HORS LIGNE**
+
+`AGENTS.md` est **stewardé par l'Agentic AI Foundation (AAIF), sous la Linux Foundation** — donné
+le **2025-12-09** par OpenAI et Anthropic, en même temps que **MCP** et **goose**. Ce n'est pas une
+spécification normative : c'est une **convention**, sans schéma ni version, et son dépôt canonique
+tient en trois fichiers. Ils sont figés dans `references/agents-md/`, ancrés à leur SHA amont.
+
+| Ce qu'on veut savoir                          | Où le lire, hors ligne                                     |
+| --------------------------------------------- | ---------------------------------------------------------- |
+| Le format et un exemple minimal               | `references/agents-md/README.md`                           |
+| Les phrases qui font foi (précédence, portée) | `references/agents-md/NOTES.md`                            |
+| Ce que le dépôt s'applique à lui-même         | `references/agents-md/AGENTS.md`                           |
+| L'ancrage amont (dépôt, SHA, fichiers suivis) | `references/agents-md/AMONT.json`                          |
+| La gouvernance                                | `Technical_Charter.pdf` du dépôt amont (non figé — 224 Ko) |
+
+🔴 **Les trois faits qui décident d'une conception, et qu'on croit savoir à tort :**
+
+1. **Il n'y a AUCUN mécanisme d'inclusion.** « AGENTS.md is just standard Markdown » — un fichier
+   d'annexe n'est chargé par personne, quel que soit le soin de l'index qui le nomme. Le seul
+   mécanisme de la convention est la **précédence par proximité** : « the closest AGENTS.md to the
+   edited file wins ; explicit user chat prompts override everything ».
+2. **La taille a des plafonds ÉDITEURS, et l'un est DUR.** OpenAI Codex **concatène** les
+   `AGENTS.md` de la racine jusqu'au répertoire courant et tronque **en silence** à **32 KiB**
+   (`project_doc_max_bytes`). Cursor recommande < 500 lignes, Claude Code < 200. Un fichier qui
+   dépasse n'échoue pas : il est amputé sans le dire.
+3. **`.agents/` n'est PAS une norme** — deux propositions concurrentes, `bgreenwell/dotagents`
+   (brouillon, 89 ★) et `agentsfolder/spec` (5 ★, sans évolution depuis janvier 2026), aucune
+   implémentation tierce, aucun lien avec l'AAIF. En revanche **`.agents/skills/` est une racine de
+   fait** pour les _Agent Skills_ — ce que le produit constate client par client dans
+   `src/nodefony/src/cli/aiSyncReport.ts` (`SKILLS_DIR`), avec sa preuve au source de chacun. Ne pas
+   confondre les deux : le dossier d'instructions n'existe pas, la racine de skills, si.
+
+**Rester à jour — une spec vivante se périme en SILENCE.** Une RFC ne bouge jamais ; celle-ci, si.
+La copie figée porte donc son SHA, et un automate dit quand l'amont l'a dépassée :
+
+```bash
+node .claude/skills/nodefony-rfc/scripts/check-amont.mjs
+# 0 = à jour · 3 = des fichiers SUIVIS ont changé (il les nomme) · 78 = on ne SAIT pas (réseau)
+```
+
+Il ne met **jamais** à jour tout seul : une spec se relit avant d'être remplacée. Quand il signale
+une dérive, on relit le comparatif qu'il donne, on remplace les fichiers **et** le `sha` de
+`AMONT.json`. Toute référence ajoutée ici sans `AMONT.json` est signalée comme invérifiable — c'est
+le cas de `mcp-2026-07-28`, figé à la main.
 
 ## Pattern d'usage
 

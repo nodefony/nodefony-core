@@ -1,0 +1,13 @@
+{
+  "repo": "agentsmd/agents.md",
+  "ref": "main",
+  "sha": "d001185d792eb6402a58e4cbef1c228b309ec25d",
+  "date": "2026-09-10T18:46:16Z",
+  "site": "https://agents.md",
+  "gouvernance": "Agentic AI Foundation (AAIF) / Linux Foundation — don du 2025-12-09",
+  "fichiers": [
+    "README.md",
+    "AGENTS.md"
+  ],
+  "note": "Le texte du site vit dans components/*Section.tsx (code tiers) : les phrases qui font foi sont relevées dans NOTES.md."
+}

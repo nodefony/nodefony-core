@@ -354,7 +354,14 @@ SEULEMENT :
 
    ```bash
    npm run ticket:lint     # 0 = rien à solder ; 1 = corriger AVANT l'empreinte
+   npm run refs:check      # 0 = specs figées à jour ; 3 = une a DÉRIVÉ (il la nomme)
    ```
+
+   `refs:check` vit ici pour la même raison que `ticket:lint` : c'est le moment où le réseau
+   est joint. Une spec VIVANTE figée sous `references/` (AGENTS.md, MCP) se périme **en
+   silence** — on continue de la citer en croyant tenir la norme. Sortie `3` : relire le
+   comparatif qu'il donne, puis remplacer les fichiers ET le `sha` de son `AMONT.json`. Il ne
+   met jamais à jour tout seul, et c'est voulu : une norme se relit avant d'être recopiée.
 
 5 bis. **Régénérer l'empreinte des tickets** — c'est le moment où GitHub est joignable et où le board
 vient d'être mis à jour ; c'est donc là qu'elle se prend, jamais plus tard :

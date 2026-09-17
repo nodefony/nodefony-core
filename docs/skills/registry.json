@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-16",
+  "generatedAt": "2026-09-17",
   "count": 27,
   "conformant": 27,
   "skills": [
@@ -5180,44 +5180,61 @@
     },
     {
       "name": "nodefony-rfc",
-      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML.",
+      "summary": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML.",
       "family": "Références et livrables",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [],
       "triggers": [
         "RFC",
         "conformité HTTP",
         "norme WebSocket",
         "CORS spec",
-        "Fetch standard",
         "RFC 9110/9113/6455/6265",
-        "pseudo-headers HTTP/2",
-        "frame masking",
         "SameSite cookies",
         "spec MCP",
         "Model Context Protocol",
-        "révision 2026-07-28",
         "server/discover",
-        "ère legacy MCP",
         "autorisation MCP",
         "resource server OAuth",
-        "protected resource metadata",
         "RFC 9728",
-        "WWW-Authenticate",
         "jeton Bearer",
-        "audience d'un jeton",
-        "resource indicator"
+        "AGENTS.md",
+        "spec AGENTS.md",
+        "AAIF",
+        "instructions d'agent",
+        "quelle taille pour AGENTS.md",
+        "project_doc_max_bytes",
+        "dossier .agents",
+        "Agent Skills",
+        "quel fichier lit tel agent",
+        "cette spec est-elle à jour",
+        "norme périmée"
       ],
-      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, et la spécification Model Context Protocol — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 (transport, versioning, autorisation) et renvoie au corpus RFC unique du dépôt (40 full-text, dont OAuth 8414/9728/6750/8707) : les relire coûte zéro requête. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"Fetch standard\", \"RFC 9110/9113/6455/6265\", \"pseudo-headers HTTP/2\", \"frame masking\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"révision 2026-07-28\", \"server/discover\", \"ère legacy MCP\", \"autorisation MCP\", \"resource server OAuth\", \"protected resource metadata\", \"RFC 9728\", \"WWW-Authenticate\", \"jeton Bearer\", \"audience d'un jeton\", \"resource indicator\".",
+      "description": "Cite et applique les normes qui font foi pour Nodefony — RFC IETF, specs W3C/WHATWG, Model Context Protocol et la convention AGENTS.md — depuis des sources brutes, jamais des pages HTML. Porte HORS LIGNE la révision MCP 2026-07-28 et la convention AGENTS.md (AAIF / Linux Foundation), avec le script qui dit quand une copie figée a dérivé de son amont. Déclencheurs : \"RFC\", \"conformité HTTP\", \"norme WebSocket\", \"CORS spec\", \"RFC 9110/9113/6455/6265\", \"SameSite cookies\", \"spec MCP\", \"Model Context Protocol\", \"server/discover\", \"autorisation MCP\", \"resource server OAuth\", \"RFC 9728\", \"jeton Bearer\", \"AGENTS.md\", \"spec AGENTS.md\", \"AAIF\", \"instructions d'agent\", \"quelle taille pour AGENTS.md\", \"project_doc_max_bytes\", \"dossier .agents\", \"Agent Skills\", \"quel fichier lit tel agent\", \"cette spec est-elle à jour\", \"norme périmée\".",
       "cost": {
-        "bodyLines": 147,
-        "approxTokens": 2428
+        "bodyLines": 192,
+        "approxTokens": 3250
       },
       "requires": [],
       "resources": {
         "references": [],
-        "referenceFilesTotal": 162,
-        "scripts": []
+        "referenceFilesTotal": 166,
+        "scripts": [
+          {
+            "path": "scripts/check-amont.mjs",
+            "purpose": "Dit si une spec VIVANTE figée sous `references/` a dérivé de son amont.",
+            "usage": [],
+            "options": [],
+            "env": [
+              {
+                "name": "GITHUB_TOKEN",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          }
+        ]
       },
       "related": [],
       "conformance": {
@@ -5238,7 +5255,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "829",
+            "detail": "834",
             "advisory": false
           },
           {
@@ -5280,7 +5297,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "147",
+            "detail": "192",
             "advisory": true
           }
         ]
@@ -5535,8 +5552,8 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 709,
-        "approxTokens": 9454
+        "bodyLines": 716,
+        "approxTokens": 9589
       },
       "requires": [],
       "resources": {
@@ -5747,7 +5764,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "709",
+            "detail": "716",
             "advisory": true
           }
         ]
