@@ -94,6 +94,16 @@ Séparés, aucun des deux n'atteignait son vrai poids.
   l'application ENTIÈRE pour un fichier d'appoint. La forme d'une valeur (un chemin à un segment)
   était une hypothèse tacite du code qui la consommait.
 
+- [1× — 09-17] **Deux hypothèses tacites dans un tableau markdown, réveillées par UNE ligne.**
+  En ajoutant une ligne à la table des générateurs d'`AGENTS.md`, j'ai écrit `<react|vue|…>` avec
+  des barres NUES : dans une cellule, un `|` ouvre une colonne — même en bloc de code. Les deux
+  lignes voisines l'échappaient déjà (`--kind hello\|rest\|…`), la convention était SOUS mes yeux
+  et je n'avais pas regardé. Puis mon alignement, calculé à la main sur la largeur que je VOYAIS,
+  a été refusé par `format:scaffold` : la forme d'un gabarit se juge sur le RENDU d'une variante
+  précise, jamais sur la source. Deux règles portées par le voisinage et par un gate, aucune
+  écrite là où j'écrivais. Avant d'ajouter une ligne à une table : lire ses voisines, puis
+  demander au gate — pas compter les colonnes.
+
 - [1× — 09-11] **Une garde inoffensive le reste tant que personne n'ÉCRIT.** `targetsToDeclare`
   faisait entrer tout agent détecté dont le canal n'était pas `cli` — sans danger, ces agents-là
   n'écrivaient rien. Le canal neuf, lui, ÉCRIT : la même ligne aurait posé un fichier chez un outil

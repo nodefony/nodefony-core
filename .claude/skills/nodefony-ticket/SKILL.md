@@ -519,6 +519,11 @@ irréversible pour le pilotage, et ne se délègue pas à un automate qui n'a pa
 ⚠️ **Le message de commit doit CITER le ticket** (`#95`, ou `Closes #95` pour le dernier) — sinon
 la timeline reste vide, le bloc « Commits » sort vide, et `ticket-progress.mjs` ne marque rien.
 
+⚠️ **`Closes #95` ne ferme RIEN depuis `dev`.** GitHub n'honore le mot-clé que sur la branche par
+DÉFAUT, et le développement de ce dépôt vit sur `dev` : pousser laisse donc les tickets ouverts,
+sans un mot. La fermeture est toujours un geste — `gh issue close` avec son compte rendu. Le
+mot-clé garde son intérêt (il lie le commit au ticket dans la timeline, et il fermera au merge).
+
 ### 🔴 La console d'administration est la RÉFÉRENCE de non-régression
 
 Studio est **la seule application réelle du dépôt** : une identité qui bascule, une socket qui se

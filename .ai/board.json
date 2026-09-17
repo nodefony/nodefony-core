@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T16:41:10.609Z",
+  "generatedAt": "2026-09-17T20:46:18.318Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 105,
+      "closed": 111,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 15,
+      "open": 13,
       "title": "10.0.0-alpha"
     },
     {
@@ -3032,7 +3032,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 7.5,
+      "jours": 6,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3206,7 +3206,7 @@
       "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
       "url": "https://github.com/nodefony/nodefony-core/issues/213",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -3333,8 +3333,8 @@
       "number": 392,
       "title": "fix(cli): montrer la forme complète de la commande de création",
       "url": "https://github.com/nodefony/nodefony-core/issues/392",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3429,8 +3429,8 @@
       "number": 393,
       "title": "feat(scaffold): poser une interface web en mode non interactif",
       "url": "https://github.com/nodefony/nodefony-core/issues/393",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5036,6 +5036,54 @@
       ]
     },
     {
+      "number": 408,
+      "title": "perf(tests): garder les modules transformés d'un run à l'autre",
+      "url": "https://github.com/nodefony/nodefony-core/issues/408",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 56,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 409,
+      "title": "perf(tests): peser le partage des processus de test, module par module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/409",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 57,
+      "debut": "2026-09-17",
+      "cible": "2026-09-18",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 410,
+      "title": "build(tests): donner leur extension aux imports des socles de test",
+      "url": "https://github.com/nodefony/nodefony-core/issues/410",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 58,
+      "debut": "2026-09-17",
+      "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 47,
       "title": "docs(release): faire suivre à l'accueil ce qui est réellement publié",
       "url": "https://github.com/nodefony/nodefony-core/issues/47",
@@ -5047,6 +5095,22 @@
       "ordre": 59,
       "debut": "2026-11-18",
       "cible": "2026-11-18",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 411,
+      "title": "fix(tests): cesser de perdre un verdict au démontage du décor",
+      "url": "https://github.com/nodefony/nodefony-core/issues/411",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 59,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
