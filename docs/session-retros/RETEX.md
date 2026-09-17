@@ -492,3 +492,17 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   sur un job plafonné en dur à 60 : le run partait, mourait à 60 min 17 s, et ne rendait AUCUN artefact — la
   seule trace était un job tué sans explication. Le plafond dérive maintenant de l'entrée, et une garde refuse
   au-delà de ce que la forge tient. Un défaut par ACCEPTATION est plus coûteux qu'un refus.
+
+## 🧹 Entretenir le SAS est un geste qui se rate comme un autre
+
+- [1× — 09-17] **Mes propres frictions du jour ont été versées dans le MAUVAIS thème.** Le script
+  d'insertion les a placées AVANT le titre visé — donc à la fin du thème PRÉCÉDENT. Deux d'entre
+  elles seraient parties dans une mémoire qui ne les concernait pas ; attrapé en graduant, parce
+  que la lecture du thème a montré des bullets étrangers à son titre. **Insérer « avant le titre
+  suivant » et « à la fin du thème visé » sont deux gestes différents**, et rien ne les distingue à
+  l'exécution. Le contrôle qui tranche : relire le thème APRÈS écriture, pas le diff.
+- [1× — 09-17] **L'index `MEMORY.md` dépassait sa limite, donc des entrées n'étaient PLUS
+  chargées** — 27 Ko pour 24,4 autorisés, sept lignes coupées en silence. Le fichier grossit d'une
+  ligne d'état par session, et personne ne regarde son poids. Ramené à 23,2 Ko en groupant cinq
+  états anciens. **Le CONSOLIDATE doit contrôler la TAILLE de l'index, pas seulement celle du
+  sas** : un index tronqué fait perdre exactement ce qu'il existe pour rendre atteignable.
