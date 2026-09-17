@@ -27,6 +27,7 @@ import {
 import { renderUsage } from "../cli/usageReport";
 import { createPalette } from "../kernel/checks/report";
 import { getScaffoldSpec, flagFor } from "../cli/scaffold/spec";
+import { version } from "../../package.json";
 
 const TYPES: readonly TScaffoldType[] = [
   "app",
@@ -183,7 +184,7 @@ describe("create --help — une page par type, dérivée de la spec", () => {
           // tient pour une unité (`unbreakableUnits`), délibérément — une
           // commande coupée en deux n'est plus une commande.
           const insecable =
-            /^\s*(usage : |          )?nodefony /u.test(l) ||
+            /^\s*(usage : |          )?(nodefony|npm) /u.test(l) ||
             /^ {2}-\S*( [<[][^\]>]*[\]>])?$/u.test(l) ||
             /^\s*`/u.test(l);
           if (insecable && largeur < 80) continue;
@@ -195,6 +196,29 @@ describe("create --help — une page par type, dérivée de la spec", () => {
         }
       }
     }
+  });
+
+  it("🔴 `create app` montre la forme `npm create`, et le motif de son `--`", () => {
+    // Celui qui découvre le framework n'a RIEN installé : `npm create` est la
+    // seule forme qu'il puisse employer, et c'est celle que l'aide taisait.
+    // Il recomposait donc l'appel de tête et heurtait le `--` — deux agents sur
+    // deux ont perdu un tour sur la même erreur d'npm.
+    const page = rendu(usagePageFor("app")).join("\n");
+    assert.include(
+      page,
+      `npm create nodefony@${version} -- <nom> [options]`,
+      "la forme `npm create` manque au synopsis",
+    );
+    // Le motif, pas seulement la forme : sans lui, un `--` recopié sans être
+    // compris disparaît au premier appel qu'on écrit soi-même.
+    assert.include(
+      page,
+      "Unknown cli flag",
+      "l'erreur d'npm que le `--` évite n'est pas nommée",
+    );
+    // La forme canonique reste là : les DEUX se lisent, jamais l'une à la
+    // place de l'autre — `nodefony create app` est ce qu'on tape ENSUITE.
+    assert.include(page, "nodefony create app <nom> [options]");
   });
 
   it("🔴 chaque page porte un exemple COMPLET et ses codes de sortie", () => {

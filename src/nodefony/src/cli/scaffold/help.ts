@@ -23,6 +23,7 @@
  * @module
  */
 import { getScaffoldSpec, flagFor, type IScaffoldQuestion } from "./spec";
+import { version } from "../../../package.json";
 import type { IUsageEntry, IUsagePage, IUsageSection } from "../usageReport";
 
 /** Les types que `nodefony create` sait engendrer. */
@@ -80,6 +81,13 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "hors de tout projet existant",
     synopsis: [
       "nodefony create app <nom> [options]",
+      // 🔴 La forme que celui qui découvre le framework est le SEUL à pouvoir
+      // employer : il n'a encore rien installé. L'omettre faisait recomposer
+      // l'appel de tête, et tomber sur le `--` (cf « AVANT D'APPELER »).
+      // La version est celle du paquet qui tourne, jamais `latest` : une
+      // préversion n'est pas taguée ainsi, et `npm create nodefony` seul
+      // ramènerait alors une autre version que celle dont on lit l'aide.
+      `npm create nodefony@${version} -- <nom> [options]`,
       "nodefony create app <nom> --preset minimal --no-install",
     ],
     writes: [
@@ -103,7 +111,9 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "À lancer HORS d'un projet Nodefony : la commande crée son dossier. " +
       "Le dossier cible doit être vide, ou `--force`. L'installation des " +
       "dépendances et la première construction font partie de la génération — " +
-      "`--no-install` les saute, et la migration initiale avec elles.",
+      "`--no-install` les saute, et la migration initiale avec elles. " +
+      "Par `npm create`, le `--` n'est pas décoratif : sans lui, npm garde les " +
+      "options pour lui et refuse l'appel (`Unknown cli flag`).",
     examples: [
       {
         term: "nodefony create app mon-app",
