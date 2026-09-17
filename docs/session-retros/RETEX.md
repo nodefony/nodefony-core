@@ -33,6 +33,29 @@
   message d'erreur est une AFFIRMATION sur le runtime : elle se vérifie en l'exécutant, au même
   titre que le code.** Voisin gradué : [[feedback_fix_the_family_not_the_instance]] (le remède
   exposé au défaut qu'il corrige).
+- [1× — 09-17d] 🔴 **Le plafond posé pour qu'un banc de 90 min ne soit plus tué à 60 a fait qu'il
+  n'a plus jamais démarré.** Le plafond du job avait été rendu dynamique, en lisant
+  `github.event.inputs.minutes` — or ce contexte n'existe ni sur `push` ni sur `schedule`, et
+  l'expression est évaluée à la COMPILATION du job. Résultat mesuré sur neuf runs : **zéro job**,
+  un rouge à chaque poussée, et le banc muet pendant neuf heures. Le symptôme ne ressemble pas à
+  sa cause — un workflow rouge se lit « la mesure a échoué », jamais « le fichier ne compile
+  plus ». **Ce qui tranche en une commande** :
+
+  ```bash
+  gh api "repos/<o>/<r>/actions/runs/<id>/jobs" --jq '.total_count'   # 0 → erreur d'évaluation
+  gh api "repos/<o>/<r>/actions/runs/<id>" --jq '.run_started_at, .updated_at'  # égaux à la seconde
+  ```
+
+  Zéro job et deux horodatages identiques : personne n'a consommé d'exécuteur, ce n'est pas un
+  échec de mesure. Corollaire : **une expression qui lit le contexte d'un déclencheur doit être
+  valide sous TOUS les déclencheurs du fichier**, ou redevenir une constante.
+
+- [1× — 09-17d] **Un filtre `paths` n'est pas une borne : GitHub l'évalue sur TOUT le push.** Un
+  banc de 30 à 150 minutes borné à ses deux fichiers est parti sur un commit de documentation —
+  il suffit qu'un autre commit du même lot touche un fichier visé. Une garde dont le verdict
+  dépend de la COMPOSITION d'un lot ne garde rien qu'on puisse énoncer ; la borne qui tient est
+  la branche. Même famille : [[feedback_prove_the_target_not_the_verdict]] (l'outil rend un
+  verdict sur SON périmètre, qui n'est pas celui qu'on croit).
 
 ## 🤝 Le terrain qu'on donne — GRADUÉ
 

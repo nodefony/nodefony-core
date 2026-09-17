@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-17T12:58:33.421Z",
+  "generatedAt": "2026-09-17T14:36:03.801Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 100,
+      "closed": 101,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 20,
+      "open": 19,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 7,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 33,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -3032,7 +3032,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 11,
+      "jours": 10.5,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3076,8 +3076,8 @@
       "number": 394,
       "title": "fix(cli): faire filtrer inspect routes par l'argument annoncé",
       "url": "https://github.com/nodefony/nodefony-core/issues/394",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -3150,6 +3150,38 @@
       "cible": "2026-09-16",
       "labels": [
         "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 406,
+      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/406",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.31,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 407,
+      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/407",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 9.32,
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
@@ -4951,6 +4983,22 @@
       "ordre": 46.2,
       "debut": "2026-11-16",
       "cible": "2026-11-16",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 405,
+      "title": "fix(devkit-bench): lire le journal d'un agent qui ne l'écrit pas sur sa sortie",
+      "url": "https://github.com/nodefony/nodefony-core/issues/405",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 46.3,
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
       "labels": [
         "10.0.0-beta"
       ]
