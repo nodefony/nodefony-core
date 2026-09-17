@@ -27,10 +27,34 @@ describe("Vite — reconnaître un port occupé", () => {
     ).to.equal(true);
   });
 
-  it("la formulation SANS « already » (versions antérieures)", () => {
+  /**
+   * 🔴 Les DEUX textes que vite écrit sans échouer. Ce banc affirmait le
+   * contraire du premier (« formulation SANS `already`, versions antérieures »)
+   * — une supposition, jamais confrontée au source. Elle est fausse : les trois
+   * textes coexistent dans la MÊME version, et `already` est le seul
+   * discriminant. Relu dans `httpServerStart` (vite 8.3.0,
+   * `node_modules/vite/dist/node/chunks/node.js`) : `throw` pour « already »,
+   * `logger.info`/`logger.warn` pour les deux autres — dont le second est émis
+   * sur un `listen` RÉUSSI.
+   *
+   * Les confondre ne coûte rien sur un poste (vite meurt vite), et coûte quatre
+   * échéances de démarrage sur un agent partagé et lent : le texte survit dans
+   * le tampon, `startupTimeoutMessage` le relit à l'échéance, et le superviseur
+   * replie sur un démarrage qui n'avait aucun conflit.
+   */
+  it("« trying another one » n'est PAS un conflit : vite se décale tout seul", () => {
     expect(
       isPortInUseMessage("Port 5173 is in use, trying another one..."),
-    ).to.equal(true);
+    ).to.equal(false);
+  });
+
+  it("« on a wildcard address » n'est PAS un conflit : vite a RÉUSSI son listen", () => {
+    expect(
+      isPortInUseMessage(
+        "Port 5173 is in use on a wildcard address, but localhost:5173 is " +
+          "available. There may be another server running on a wildcard IP on port 5173.",
+      ),
+    ).to.equal(false);
   });
 
   it("le code système brut", () => {
@@ -81,6 +105,29 @@ describe("Vite — reconnaître un port occupé", () => {
       );
       expect(isPortInUseMessage(msg)).to.equal(true);
       expect(msg).to.contain("20000ms"); // l'échéance reste dans le message
+    });
+
+    /**
+     * 🔴 LE CAS MESURÉ SUR LA FORGE, réduit à ce qui le produit. Un agent
+     * partagé où un tiers tient le port sur l'adresse générique : vite AVERTIT,
+     * puis sert quand même sur l'hôte demandé. Si l'échéance est dépassée
+     * ensuite (l'agent est lent, le pré-bundling déborde), c'est ce tampon-là
+     * que l'échec relit.
+     *
+     * Le confondre avec un conflit fait replier `spawnWithPortRetry` sur un
+     * démarrage qui n'en avait aucun — et comme le repli repart pour une
+     * échéance entière, le coût est `(portRetryAttempts + 1) × startupTimeoutMs`,
+     * soit 80 s avec les défauts. C'est ce qui a tué le cas d'intégration du
+     * décalage de port à 60 s sous Windows, quand les cinq autres cas du même
+     * fichier tenaient en moins d'une seconde.
+     */
+    it("un timeout après un AVERTISSEMENT wildcard ne part PAS en repli de port", () => {
+      const msg = startupTimeoutMessage(
+        20_000,
+        "Port 5173 is in use on a wildcard address, but localhost:5173 is available.",
+      );
+      expect(isPortInUseMessage(msg)).to.equal(false);
+      expect(msg).to.not.contain("EADDRINUSE");
     });
 
     it("un timeout SANS rien d'observé n'invente pas un conflit de port", () => {

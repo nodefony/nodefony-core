@@ -72,6 +72,55 @@ async function httpPing(host: string, port: number): Promise<number> {
   });
 }
 
+/**
+ * Échéance que le cas du décalage de port s'impose à LUI-MÊME, avant celle de
+ * vitest.
+ *
+ * Le superviseur peut dépenser `(portRetryAttempts + 1) × startupTimeoutMs`
+ * avant d'abandonner — **80 s** avec les défauts employés ici, quand
+ * `testTimeout` vaut 60 s. Le cas ne pouvait donc structurellement pas voir la
+ * fin d'un repli qui s'éternise : le harnais le tuait d'abord, et TOUTE
+ * l'instrumentation qui suit `second.start()` — compteur de replis, PID qui
+ * tient réellement le port, dernière erreur retenue — restait inatteignable.
+ * Vécu sur la forge : `60008ms` et pas un mot, là où les cinq autres cas du
+ * fichier tiennent en 300 à 700 ms.
+ *
+ * On borne donc nous-mêmes, assez tôt pour PARLER. Un repli sain coûte moins de
+ * deux secondes (le fichier entier tourne en ~5 s sur un poste) : cette marge
+ * n'arbitre rien, elle garantit seulement que le verdict vienne du cas.
+ */
+const STARTUP_DEADLINE_MS = 30_000;
+
+/**
+ * Attend `promise`, mais rend la main AVANT l'échéance du harnais, en
+ * remplaçant un timeout muet par le diagnostic que `buildDiagnostic` compose au
+ * moment du dépassement.
+ */
+async function withDeadline<T>(
+  promise: Promise<T>,
+  deadlineMs: number,
+  buildDiagnostic: () => string,
+): Promise<T> {
+  // Le rejet tardif d'une promesse abandonnée par la course n'a plus de
+  // consommateur : sans ce puits, il remonterait en `unhandledRejection` et
+  // ferait tomber un AUTRE cas, loin d'ici.
+  promise.catch(() => undefined);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(
+          () => reject(new Error(buildDiagnostic())),
+          deadlineMs,
+        );
+      }),
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 describe("ViteProcessSupervisor — intégration (real spawn)", () => {
   it("start + stop golden path", async () => {
     const port = await freePort();
@@ -168,8 +217,43 @@ describe("ViteProcessSupervisor — intégration (real spawn)", () => {
         await httpPing("127.0.0.1", port),
         "prémisse : la 1ʳᵉ instance tient encore le port de base",
       ).to.be.greaterThan(0);
+      // Ce que le banc suppose de la plateforme, écrit noir sur blanc : on ne
+      // compare PAS le PID qui écoute à `first.status().pid`. Les deux diffèrent
+      // légitimement quand vite est lancé par le shim `npx` — c'est alors un
+      // petit-fils qui tient le socket, ce que le cas d'auto-restart plus bas
+      // exploite explicitement. Une prémisse écrite ainsi serait rouge sur les
+      // agents où `resolveViteBin()` échoue, et ce rouge-là n'appartiendrait à
+      // personne.
+      //
+      // Elle n'aurait rien gardé de plus, par ailleurs : `first` a RÉUSSI son
+      // listen sur ce port (assertion ci-dessus), donc aucun tiers ne peut le
+      // tenir en même temps. Et cette assertion, justement, ne prouvait rien
+      // tant que `status().port` retombait sur le port DEMANDÉ : elle passait
+      // même sans port résolu. Elle est probante depuis que le superviseur rend
+      // `null` plutôt qu'une espérance.
 
-      await second.start([makeEntry()], {});
+      // Borné par le cas lui-même — cf `STARTUP_DEADLINE_MS`. Le diagnostic est
+      // composé AU MOMENT du dépassement : c'est le seul instant où l'état du
+      // superviseur dit encore où il en était.
+      await withDeadline(
+        second.start([makeEntry()], {}),
+        STARTUP_DEADLINE_MS,
+        () => {
+          const st = second.status();
+          return (
+            `la 2ᵉ instance n'a pas rendu la main en ${STARTUP_DEADLINE_MS} ms ` +
+            `(budget théorique du superviseur : (portRetryAttempts + 1) × 20000 ms).\n` +
+            `  état=${st.state} port=${st.port ?? "aucun"} replis=${st.portRetries}\n` +
+            `  dernière erreur : ${st.lastError ?? "aucune"}\n` +
+            `  écoute réelle sur ${port} : PID ${pidListeningOn(port) ?? "aucun"} ` +
+            `(1ʳᵉ = ${first.status().pid ?? "?"})\n` +
+            `  replis à 0 → aucun conflit n'a été DÉNONCÉ sous une forme reconnue, ` +
+            `ou vite a averti sans échouer (« in use on a wildcard address », ` +
+            `« trying another one ») et l'échéance a été prise pour un conflit ; ` +
+            `replis > 0 → chaque repli a repayé l'échéance de démarrage entière.`
+          );
+        },
+      );
       const status = second.status();
       expect(status.state).to.equal("ready");
       // 🔴 LA CAUSE, avant le verdict. Ce cas est tombé par intermittence sur

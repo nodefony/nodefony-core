@@ -1096,10 +1096,12 @@ class FrontendService extends Service implements IFrontendService {
     const ports = new Set<string>();
     for (const [family, block] of this.plannedPortBlocks ?? []) {
       const st = this.supervisors.get(family)?.status();
-      // ⚠️ `status().port` n'est PAS `null` avant résolution : l'implémentation
-      // retombe sur le port ESPÉRÉ (`resolvedPort ?? devPort`). Le seul témoin
-      // fiable d'un port qui SERT est l'état — sans quoi on rétrécirait le bloc
-      // sur une espérance, et le glissement sur `EADDRINUSE` rouvrirait le trou.
+      // `status().port` vaut `null` tant qu'aucun port n'est résolu — il ne
+      // retombe plus sur le port ESPÉRÉ, qui faisait annoncer comme servi un
+      // port où rien n'écoutait. L'état reste néanmoins contrôlé ici : un port
+      // résolu par une instance qui n'est plus prête ne sert pas davantage, et
+      // rétrécir le bloc CSP dessus rouvrirait le trou au premier glissement
+      // de port.
       const serving = st?.state === "ready" || st?.state === "compiling";
       if (serving && st?.port) ports.add(String(st.port));
       else for (const p of block) ports.add(String(p));

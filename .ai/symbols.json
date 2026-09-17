@@ -17002,7 +17002,7 @@
       "file": "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts",
       "exported": true,
       "module": "@nodefony/frontend",
-      "description": "Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un port occupé ? **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont divergé : l'une cherchait `port X i…"
+      "description": "Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un conflit de port FATAL — c'est-à-dire un port que vite n'a PAS pu prendre ? **Source UNIQUE** de cette décision. Elle était dupliq…"
     },
     "startupTimeoutMessage": {
       "name": "startupTimeoutMessage",

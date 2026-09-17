@@ -152,20 +152,41 @@ const DEFAULTS: ResolvedOptions = {
 };
 
 /**
- * Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un port occupé ?
+ * Un texte (message d'erreur OU sortie brute de Vite) dénonce-t-il un conflit de
+ * port FATAL — c'est-à-dire un port que vite n'a PAS pu prendre ?
  *
  * **Source UNIQUE** de cette décision. Elle était dupliquée en deux regex qui ont
  * divergé : l'une cherchait `port X is in use`, alors que Vite écrit
  * `Port 5173 is ALREADY in use`. Résultat, le retry de port ne se déclenchait
  * jamais et la seconde app perdait tout son frontend — un conflit de port pourtant
- * parfaitement rattrapable. On tolère donc les deux formulations, et on ne
- * l'écrit qu'ici (deux implémentations d'une même règle = dérive garantie).
+ * parfaitement rattrapable. On ne l'écrit donc qu'ici (deux implémentations d'une
+ * même règle = dérive garantie).
+ *
+ * 🔴 **`already` est OBLIGATOIRE, et c'est tout le sujet.** Vite émet trois textes
+ * qui contiennent « in use », et un seul signifie qu'il a échoué — vérifié au
+ * SOURCE de `httpServerStart` (vite 8.3.0, `dist/node/chunks/node.js`) :
+ *
+ *  - `Port X is already in use` → `throw` : vite MEURT. Seul cas rattrapable par
+ *    un repli sur `port + 1`.
+ *  - `Port X is in use, trying another one…` → `logger.info` : vite cherche
+ *    lui-même le port suivant et annoncera son `Local:`. Rien à rattraper.
+ *  - `Port X is in use on a wildcard address, but H:X is available…` →
+ *    `logger.warn` sur un `listen` **RÉUSSI** : vite sert sur le port demandé.
+ *
+ * Rendre `already` optionnel confondait les trois. La conséquence ne se voyait
+ * pas sur un poste, où vite meurt vite : elle se voyait sur un agent partagé et
+ * lent, via `startupTimeoutMessage`. Un démarrage qui avait seulement AVERTI
+ * (wildcard) puis dépassé l'échéance sortait sous un libellé `EADDRINUSE:`, donc
+ * `spawnWithPortRetry` repliait — et chaque repli repayait l'échéance entière.
+ * Mesuré sur la forge : le cas d'intégration du décalage de port tué à 60 s
+ * (`4 tentatives × startupTimeoutMs`) quand les cinq autres du même fichier
+ * tenaient en 300 à 700 ms.
  */
 export function isPortInUseMessage(text: string): boolean {
   return (
     /EADDRINUSE/i.test(text) ||
     /address already in use/i.test(text) ||
-    /port\s+\d+\s+is\s+(?:already\s+)?in use/i.test(text)
+    /port\s+\d+\s+is\s+already\s+in use/i.test(text)
   );
 }
 
@@ -324,7 +345,16 @@ export class ViteProcessSupervisor implements IViteSupervisor {
       state: this.state,
       host: this.opts.devHost,
       origin: this.resolvedOrigin,
-      port: this.resolvedPort ?? this.opts.devPort,
+      // 🔴 Le port RÉSOLU, jamais le port DEMANDÉ. Le repli `?? devPort` rendait
+      // un port qu'on ESPÈRE pour un port qui SERT — et le contrat annonce
+      // pourtant `number | null`. La conséquence est exactement le symptôme
+      // qu'on cherchait : une 2ᵉ application dont le port n'a pas été résolu
+      // annonçait `devPort`, c'est-à-dire le port de la PREMIÈRE, et le HTML
+      // envoyait le navigateur chercher ses modules chez la voisine.
+      // Un consommateur avait déjà dû s'en défendre (`FrontendService.cspPorts`
+      // testait l'état parce que le port mentait) : la règle se corrige ICI,
+      // à sa source, pas dans chaque lecteur.
+      port: this.resolvedPort,
       pid: this.child?.pid ?? null,
       lastError: this.lastError,
       entries: this.entries,
@@ -349,6 +379,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     // Remis à zéro à chaque démarrage : le compteur décrit CE démarrage, pas
     // l'histoire du superviseur — un cumul ne dirait plus rien du dernier.
     this.portRetries = 0;
+    // Même raison, et même conséquence si on l'oublie : un port résolu par un
+    // démarrage PRÉCÉDENT survivrait à un démarrage qui échoue, et `status()`
+    // annoncerait comme servi un port où plus rien n'écoute.
+    this.resolvedPort = null;
     for (let i = 0; i <= maxAttempts; i++) {
       const port = this.opts.devPort + i;
       try {
@@ -779,7 +813,15 @@ export class ViteProcessSupervisor implements IViteSupervisor {
    */
   private pingVite(): Promise<void> {
     return new Promise<void>((resolve, reject) => {
-      const port = this.resolvedPort ?? this.opts.devPort;
+      // Sans port RÉSOLU, il n'y a rien à sonder — et sonder `devPort` serait
+      // pire que ne rien faire : sur un poste qui fait tourner deux
+      // applications, c'est le serveur de la PREMIÈRE qui répondrait, et ce
+      // superviseur se déclarerait en bonne santé grâce au voisin.
+      const port = this.resolvedPort;
+      if (port === null) {
+        reject(new Error("aucun port résolu — rien à sonder"));
+        return;
+      }
       const scheme = this.opts.https ? https : http;
       const req = scheme.request(
         {
