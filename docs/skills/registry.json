@@ -7995,7 +7995,7 @@
     },
     {
       "name": "nodefony-devops",
-      "summary": "Déploie et exploite CETTE application Nodefony : construire et vérifier son image, la mettre derrière un frontal, la porter sur Kubernetes, la jouer sous Podman, lire sa chaîne d'intégration.",
+      "summary": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman.",
       "family": "Autres",
       "version": "1.0.0",
       "keywords": [],
@@ -8006,33 +8006,41 @@
         "docker compose",
         "derrière nginx",
         "Kubernetes",
-        "manifeste k8s",
-        "Deployment",
-        "Ingress",
         "mon pod redémarre",
         "mon pod perd des requêtes",
         "redéploiement sans coupure",
         "arrêt gracieux",
         "readOnlyRootFilesystem",
         "politique Restricted",
-        "secrets Kubernetes",
+        "secrets",
+        "mot de passe en production",
+        "variables d'environnement",
         "Podman",
-        "podman kube play",
-        "la CI de mon app",
         "GitLab CI"
       ],
-      "description": "Déploie et exploite CETTE application Nodefony : construire et vérifier son image, la mettre derrière un frontal, la porter sur Kubernetes, la jouer sous Podman, lire sa chaîne d'intégration. Son apport : la liste de ce que l'application FOURNIT DÉJÀ — sondes, arrêt gracieux, identité de pod, secrets montés, utilisateur non root — pour qu'aucun manifeste ne réécrive ce qui existe, et celle de ce que l'orchestrateur doit poser en face, faute de quoi l'application se dégrade SANS erreur. À charger AVANT d'écrire un manifeste, un compose ou une étape de déploiement. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"construire et vérifier l'image\", \"docker compose\", \"derrière nginx\", \"Kubernetes\", \"manifeste k8s\", \"Deployment\", \"Ingress\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"redéploiement sans coupure\", \"arrêt gracieux\", \"readOnlyRootFilesystem\", \"politique Restricted\", \"secrets Kubernetes\", \"Podman\", \"podman kube play\", \"la CI de mon app\", \"GitLab CI\".",
+      "description": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : quelles sondes elle expose, combien de temps elle draine, quel code de sortie elle rend, sous quel identifiant elle tourne, où elle écrit, ce qui casse quand une variable manque. Sert d'abord à savoir ce qu'il ne faut PAS réécrire. À charger AVANT d'écrire un manifeste, un compose, une étape de déploiement, ou de diagnostiquer un conteneur qui redémarre. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"construire et vérifier l'image\", \"docker compose\", \"derrière nginx\", \"Kubernetes\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"redéploiement sans coupure\", \"arrêt gracieux\", \"readOnlyRootFilesystem\", \"politique Restricted\", \"secrets\", \"mot de passe en production\", \"variables d'environnement\", \"Podman\", \"GitLab CI\".",
       "cost": {
-        "bodyLines": 125,
-        "approxTokens": 2566
+        "bodyLines": 174,
+        "approxTokens": 4072
       },
       "requires": [],
       "resources": {
-        "references": [],
-        "referenceFilesTotal": 0,
+        "references": [
+          "compose.md",
+          "frontal.md",
+          "image.md",
+          "kubernetes.md",
+          "podman.md",
+          "secrets.md",
+          "variables.md"
+        ],
+        "referenceFilesTotal": 7,
         "scripts": []
       },
-      "related": [],
+      "related": [
+        "nodefony-browser",
+        "nodefony-migrate-schema"
+      ],
       "conformance": {
         "ok": true,
         "checks": [
@@ -8051,7 +8059,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1017",
+            "detail": "957",
             "advisory": false
           },
           {
@@ -8093,7 +8101,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "125",
+            "detail": "174",
             "advisory": true
           }
         ]

@@ -212,8 +212,8 @@ serait sans effet à la régénération suivante.
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
     "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "devops", "href": "skills/nodefony-devops.md",
-    "desc": "Déploie et exploite CETTE application Nodefony : construire et vérifier son image, la mettre derrière un frontal, la porter sur Kubernetes, la jouer sous Podman, lire sa chaîne d'intégration.",
-    "meta": "🟢 conforme v1.0.0" },
+    "desc": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : quelles sondes elle expose, combien de temps elle draine, quel code de sortie elle rend, sous quel…",
+    "meta": "🟢 conforme v1.0.0 · 📎 7 réf" },
   { "icon": "🔧", "title": "protect-route", "href": "skills/nodefony-protect-route.md",
     "desc": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon…",
     "meta": "🟢 conforme" }
