@@ -5,6 +5,7 @@ import { printUsage, printUsageError, type IUsagePage } from "./usageReport";
 import { pathToFileURL } from "node:url";
 import { SysExit } from "./sysexits";
 import { findProjectRoot } from "./projectRoot";
+import { configInconsistencies } from "../kernel/checks/projectScope";
 import { envFileOrder } from "../runtime/loadEnv";
 import { renderEnvExample } from "../config/envExample";
 import { getEnvCatalog, type NamedEnvVarMeta } from "../config/defineEnv";
@@ -316,6 +317,15 @@ function render(report: IEnvReport, projectRoot: string | null): string {
       );
     }
   }
+  if (report.inconsistencies.length > 0) {
+    out.push(
+      `\n⚠ Valeur EFFECTIVE que l'état du projet contredit — la configuration est` +
+        `\nprise en compte, et l'application ne fonctionnera pas pour autant`,
+    );
+    for (const i of report.inconsistencies) {
+      out.push(`  ${pad(i.name, 34)}${i.message}`);
+    }
+  }
   if (report.reserved.length > 0) {
     out.push(
       `\nVariables posées par le FRAMEWORK — ni à déclarer, ni à écrire soi-même`,
@@ -367,7 +377,16 @@ export async function buildProjectEnvReport(
   const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? null;
   const appEnv = rawAppEnv && rawAppEnv !== runtimeEnv ? rawAppEnv : null;
   const root = projectRoot ?? cwd;
+  // Ce que l'état du projet CONTREDIT. Le calcul est celui du vérificateur,
+  // APPELÉ et non recopié : deux implémentations de « ce dialecte est-il
+  // cohérent ? » rendraient des verdicts différents sur le même projet.
+  // Il lit le disque, donc il se fait ICI — `buildEnvReport` reste pure.
+  const inconsistencies = configInconsistencies({
+    cwd: root,
+    ...(projectRoot ? { projectRoot } : {}),
+  });
   return buildEnvReport({
+    inconsistencies,
     runtimeEnv,
     appEnv,
     targetEnv,

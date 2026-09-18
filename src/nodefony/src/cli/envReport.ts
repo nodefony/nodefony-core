@@ -120,6 +120,20 @@ export interface IEnvReport {
    * d'une faute de frappe qu'il n'avait pas commise.
    */
   reserved: { name: string; origin: string | null; role: string }[];
+  /**
+   * Valeurs EFFECTIVES que l'état du projet contredit.
+   *
+   * Une variable peut être posée au bon endroit, avec la bonne provenance, et
+   * rendre l'application inexploitable : `NF_DATABASE_URL` sur un moteur que
+   * les entités ne parlent pas est acceptée sans un mot, puis l'outil de
+   * migration écarte les tables et la première requête répond 500. Le rapport
+   * est le seul endroit où l'on REGARDE après avoir configuré — le taire ici
+   * revient à ne le dire qu'au contrôle que personne n'a de raison de lancer.
+   *
+   * INJECTÉ, comme les fichiers et le catalogue : établir ces constats demande
+   * de lire les sources du projet, et une fonction pure ne lit pas le disque.
+   */
+  inconsistencies: { name: string; message: string }[];
   /** Le catalogue de l'application a-t-il pu être lu ? */
   catalogAvailable: boolean;
   /** Ce que le rapport n'a pas pu établir, et pourquoi. */
@@ -215,6 +229,13 @@ export function buildEnvReport(input: {
    * confronte l'environnement PRÉSENT aux exigences de celui qu'on VISE.
    */
   targetEnv?: string | null;
+  /**
+   * Les valeurs effectives que l'état du projet contredit (cf. `IEnvReport`).
+   *
+   * Établies par l'appelant, qui a le disque : cette fonction reste PURE, donc
+   * éprouvable sans monter un projet.
+   */
+  inconsistencies?: readonly { name: string; message: string }[];
 }): IEnvReport {
   const { runtimeEnv, processEnv, files, catalog } = input;
   const appEnv = input.appEnv ?? null;
@@ -338,6 +359,7 @@ export function buildEnvReport(input: {
     overrides,
     unknown: collectUnknown(processEnv, declared, originOf),
     reserved: collectReserved(processEnv, originOf),
+    inconsistencies: [...(input.inconsistencies ?? [])],
     catalogAvailable: catalog !== null,
     notes,
   };

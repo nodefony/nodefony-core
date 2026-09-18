@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 835,
-    "symbols": 4106,
+    "files": 836,
+    "symbols": 4109,
     "classes": 392,
-    "interfaces": 1097,
+    "interfaces": 1098,
     "types": 451,
     "enums": 4,
-    "functions": 1754,
+    "functions": 1756,
     "constants": 408
   },
   "symbols": {
@@ -9424,6 +9424,47 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Analyse les paquets et rend les manquements trouvés."
+    },
+    "IConfigInconsistency": {
+      "name": "IConfigInconsistency",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/projectScope.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une valeur effective que l'état du projet contredit."
+    },
+    "wiringTargets": {
+      "name": "wiringTargets",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/projectScope.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cibles du contrôle de câblage : l'application elle-même, et chaque module. Ce n'est pas la même liste que celle des paquets : un contrôle de dépendances s'intéresse à ce qui porte un `package.json`…"
+    },
+    "appEnvironment": {
+      "name": "appEnvironment",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/projectScope.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "L'environnement que l'APPLICATION verrait, depuis ce poste. `process.env` ne porte que ce que le terminal a posé ; l'application, elle, lit d'abord sa cascade `.env*`. Un diagnostic qui l'ignore ac…"
+    },
+    "declaredDialectExceptions": {
+      "name": "declaredDialectExceptions",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/projectScope.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les divergences de dialecte que le projet ASSUME, déclarées dans son `package.json` (`nodefony.doctor.entityDialect`). Elles se lisent ici parce que tout appelant doit les respecter : avertir là où…"
+    },
+    "configInconsistencies": {
+      "name": "configInconsistencies",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/projectScope.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les valeurs effectives que l'état du projet contredit. Une variable peut être posée au bon endroit, avec la bonne provenance, et rendre l'application inexploitable. Le cas mesuré : `NF_DATABASE_URL…"
     },
     "IReadinessFinding": {
       "name": "IReadinessFinding",
@@ -31140,6 +31181,9 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/kernel/commands/DoctorCommand.ts"
       ],
+      "configInconsistencies": [
+        "src/nodefony/src/cli/env.ts"
+      ],
       "envFileOrder": [
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -33092,6 +33136,13 @@
         "src/nodefony/src/kernel/checks/surface.ts",
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
+      "resolveEnvCascade": [
+        "src/nodefony/src/kernel/checks/projectScope.ts"
+      ],
+      "checkSurface": [
+        "src/nodefony/src/kernel/checks/projectScope.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
@@ -33183,9 +33234,6 @@
       "readLastBoots": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "resolveEnvCascade": [
-        "src/nodefony/src/kernel/checks/runDoctor.ts"
-      ],
       "IInfraProbe": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
@@ -33210,7 +33258,10 @@
       "IFreshnessResult": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
-      "checkSurface": [
+      "appEnvironment": [
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
+      "wiringTargets": [
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "ISurfaceResult": [

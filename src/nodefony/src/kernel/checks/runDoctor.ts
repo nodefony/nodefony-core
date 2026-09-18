@@ -14,13 +14,12 @@ import path from "node:path";
 import net from "node:net";
 import { resolveInfra } from "../../config/infra";
 import { Spinner } from "../../cli/progress";
-import { readdirSync, readFileSync, statSync } from "node:fs";
+import { readFileSync, statSync } from "node:fs";
 import { execFileSync } from "node:child_process";
 import { checkPackageDeps } from "./packageDeps";
 import { checkWiring } from "./wiring";
 import { readLastBoots } from "./lastBoot";
 import { findProjectRoot } from "../../cli/projectRoot";
-import { resolveEnvCascade } from "../../runtime/loadEnv";
 import type { ILastBoot } from "./lastBoot";
 import {
   type IInfraProbe,
@@ -31,6 +30,7 @@ import {
   type ITrackedEnvProbe,
 } from "./readiness";
 import { checkFreshness, type IFreshnessResult } from "./freshness";
+import { appEnvironment, wiringTargets } from "./projectScope";
 import { checkSurface, type ISurfaceResult } from "./surface";
 import { checkGuards, VERIFY_STEPS, type IGuardResult } from "./guards";
 import {
@@ -67,28 +67,6 @@ import {
 import { renderReport } from "./renderReport";
 import { stripGlobalCliFlags } from "../../cli/globalFlags";
 
-/**
- * L'environnement que l'APPLICATION verrait, depuis ce poste.
- *
- * `process.env` ne porte que ce que le terminal a posé ; l'application, elle,
- * lit d'abord sa cascade `.env*`. Un diagnostic qui l'ignore accuse ce qu'il
- * n'a pas regardé. La cascade est celle d'ICI (mode runtime et environnement de
- * déploiement du poste) — viser un autre environnement ne fait pas apparaître
- * des fichiers qui ne sont pas sur cette machine.
- *
- * @param root - racine du projet (ou dossier de départ, hors projet).
- * @returns l'environnement effectif ; `process.env` n'est jamais modifié.
- */
-function appEnvironment(root: string): Record<string, string | undefined> {
-  const runtimeEnv = process.env.NODE_ENV ?? "development";
-  const rawAppEnv = process.env.APP_ENV ?? process.env.NF_ENV ?? "";
-  return resolveEnvCascade(process.env, {
-    cwd: root,
-    runtimeEnv,
-    ...(rawAppEnv && rawAppEnv !== runtimeEnv ? { appEnv: rawAppEnv } : {}),
-  });
-}
-
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
 const CANDIDATE_ROOTS = [
   ".",
@@ -97,33 +75,6 @@ const CANDIDATE_ROOTS = [
   "src/packages/@nodefony",
   "src/nodefony",
 ];
-
-/** Dossiers qui CONTIENNENT des cibles, par opposition à en être une. */
-const TARGET_CONTAINERS = ["modules", "src/modules", "src/packages/@nodefony"];
-
-/**
- * Cibles du contrôle de câblage : l'application elle-même, et chaque module.
- *
- * Ce n'est pas la même liste que celle des paquets : un contrôle de dépendances
- * s'intéresse à ce qui porte un `package.json`, un contrôle de câblage à ce qui
- * porte un `nodefony/`. Les confondre ferait chercher des entités à la racine
- * d'un dossier qui n'en contient que des modules.
- */
-function wiringTargets(cwd: string): string[] {
-  const targets = [cwd];
-  for (const container of TARGET_CONTAINERS) {
-    const dir = path.join(cwd, container);
-    if (!statSync(dir, { throwIfNoEntry: false })) continue;
-    try {
-      for (const entry of readdirSync(dir, { withFileTypes: true })) {
-        if (entry.isDirectory()) targets.push(path.join(dir, entry.name));
-      }
-    } catch {
-      // Un dossier illisible n'est pas un manquement de l'application.
-    }
-  }
-  return targets;
-}
 
 /**
  * Exceptions déclarées par le projet dans son `package.json` :
