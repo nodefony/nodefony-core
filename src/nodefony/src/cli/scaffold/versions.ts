@@ -71,7 +71,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@types/node": "^26.6.1",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
   oxlint: "^1.83.0",
-  prettier: "^3.9.7",
+  prettier: "^3.9.8",
   rolldown: "^1.2.9",
   typescript: "^6.0.3",
   vitest: "^5.0.1",
