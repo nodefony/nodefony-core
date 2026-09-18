@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T17:28:18.278Z",
+  "generatedAt": "2026-09-18T17:42:17.032Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -4487,7 +4487,7 @@
       "title": "feat(studio): protéger toute la surface d'administration par un rôle",
       "url": "https://github.com/nodefony/nodefony-core/issues/33",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,

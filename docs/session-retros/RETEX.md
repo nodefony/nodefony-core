@@ -22,6 +22,16 @@
 
 ## 🪞 Le remède écrit pour corriger un message trompeur était lui-même FAUX
 
+- [1× — 09-18g] 🔴 **Le skill que j'écrivais pour un exploitant décrivait des fichiers que le
+  produit ne rend pas.** J'ai rédigé la page de déploiement en la calquant sur ce que le ticket en
+  cours allait livrer — Deployment, Service, Ingress, `kubectl apply -f deploy/` — alors que le
+  générateur ne rend qu'un seul manifeste. Un lecteur l'aurait découvert à sa première commande.
+  Le ticket a ensuite été reporté d'un jalon entier : la page aurait menti pendant des mois. Deux
+  fois dans la même séance, d'ailleurs : elle présentait aussi quatre exigences de sécurité comme
+  « acquises par l'image », alors que ce sont des champs de MANIFESTE que l'exploitant pose
+  lui-même. **Une page d'aide est une affirmation sur l'état du produit, pas sur son intention** —
+  elle se vérifie contre ce qui est rendu AUJOURD'HUI, à la ligne près.
+
 - [1× — 09-18d] 🔴 **J'ai annoncé au user un mécanisme de cause comme ÉTABLI, alors que je ne
   l'avais pas reproduit — et l'expérience suivante l'a réfuté.** Un rouge de banc (cookie de
   session absent) ; je trouve un défaut réel à côté (le banc ne vide ses volumes que sur le chemin
@@ -83,6 +93,17 @@ contrôle qui ratisse trop large et crie faux, et le geste dont la portée dépa
 Séparés, aucun des deux n'atteignait son vrai poids.
 
 ## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
+
+- [1× — 09-18g] 🔴 **En ajoutant un skill homonyme d'un skill existant, j'ai découvert que le banc
+  de déclenchement testait le mauvais objet — depuis toujours, et sans un mot.** Le dépôt porte des
+  skills livrés par npm qui portent le MÊME nom que leur jumeau du dépôt (`nodefony-browser`,
+  `nodefony-migrate-schema`), volontairement différents. Le banc sépare bien deux « portées » qui
+  ne se rencontrent jamais — mais sa fonction qui résout la portée d'un cas faisait un `find` par
+  NOM, et le dépôt est balayé en premier. **Les cas écrits POUR un skill livré élisaient donc son
+  homonyme du dépôt** : j'ai édité la description du livré, le score n'a pas bougé d'un dixième, et
+  c'est ce non-mouvement — pas un rouge — qui a trahi le défaut. Une description de skill livré
+  pouvait changer sans que le banc bronche. Réparé : un cas peut imposer sa portée. Le déclencheur
+  n'était pas un test rouge, c'était **un test dont le résultat ne réagit pas à ce qu'on change**.
 
 - [1× — 09-18c] 🔴 **Le SCÉNARIO DE PREUVE écrit dans un ticket se périme comme une ancre — et
   sa péremption ressemble à un défaut de l'instrument.** #358 prescrivait « remettre un certificat
@@ -163,6 +184,15 @@ exécution.
 > Gradué le 2026-09-10 — 7 frictions RÉUNIES → **`feedback_outside_look_finds_what_green_hides`** : le regard extérieur (audit des jointures, USAGE réel, relecture en aveugle privée de mes conclusions) trouve ce qu'une suite verte ne peut pas voir. Ne PAS réécrire ici.
 
 ## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
+
+- [1× — 09-18g] 🔴 **J'ai annoncé au user qu'un ticket était l'ENFANT d'un autre, sur la foi d'une
+  recherche plein texte.** `gh issue list --search "316 in:body"` rend tout ce qui CITE #316 ; j'en
+  ai conclu une parenté, et bâti là-dessus un raisonnement sur la fermeture du parent (« il attend
+  deux enfants situés dans d'autres jalons »). La requête qui dit la vérité est
+  `issue(number:N){parent}` / `subIssues` : elle a montré que le ticket en question **n'avait aucun
+  parent**, et que les 14 vrais sous-tickets étaient **tous fermés** — la fermeture était donc plus
+  propre que je ne l'avais dite. Citer n'est pas être rattaché ; une relation de structure se LIT
+  dans le champ qui la porte, jamais dans un texte qui la mentionne.
 
 - [1× — 09-10] **Retirer un mécanisme oblige à corriger ce qui le PRESCRIT et ce qui le
   DÉCRIT — et ni l'un ni l'autre ne vit dans son fichier.** Le `prepack` de `@nodefony/studio`
