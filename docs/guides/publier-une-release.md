@@ -164,10 +164,19 @@ pour un motif sans rapport.
 ```
 tag v10.*  ─►  épreuve (3 scénarios)  ─►  publication npm
                                        ├─►  vitrine nodefony/nodefony
+                                       │       └─►  verdict de SA chaîne
                                        ├─►  image docker
                                        ├─►  release GitHub
                                        └─►  bilan
 ```
+
+La vitrine est la seule application **installée depuis le registre** : sa propre chaîne construit
+son image, la démarre, la draine et lève la topologie de production derrière un frontal — rien de
+cela n'existe ici, où l'on n'éprouve que des sources non publiées. Le job **verdict** attend ce
+qu'elle rend et fait échouer la publication si elle est rouge. Il n'empêche rien : il tourne après
+`npm publish`, donc après le point irrattrapable. Son rôle est qu'un verdict cesse d'être ignoré.
+Il exige du jeton `NF_VITRINE_TOKEN` une permission de plus — **Actions = Read** ; sans elle il
+avertit au lieu d'échouer, plutôt que de fabriquer un rouge permanent sur un défaut de jeton.
 
 ### 🔒 Le cran d'armement
 

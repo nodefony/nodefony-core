@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T14:57:12.609Z",
+  "generatedAt": "2026-09-18T15:42:54.170Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 117,
+      "closed": 118,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 9,
+      "open": 8,
       "title": "10.0.0-alpha"
     },
     {
@@ -3096,7 +3096,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 2,
+      "jours": 1,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3690,7 +3690,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 2,
+      "jours": 1,
       "ordre": 9.9,
       "debut": "2026-09-22",
       "cible": "2026-09-28",
@@ -3814,8 +3814,8 @@
       "number": 322,
       "title": "feat(ci): faire prouver par la vitrine ce que nul n'éprouve",
       "url": "https://github.com/nodefony/nodefony-core/issues/322",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -6469,6 +6469,38 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 901,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 422,
+      "title": "feat(ci): regarder l'écran d'une application générée à chaque publication",
+      "url": "https://github.com/nodefony/nodefony-core/issues/422",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 902,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 423,
+      "title": "test(release): éprouver la surface npm telle que le registre la sert",
+      "url": "https://github.com/nodefony/nodefony-core/issues/423",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 903,
       "debut": null,
       "cible": null,
       "labels": [
