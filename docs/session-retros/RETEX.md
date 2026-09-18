@@ -411,6 +411,19 @@ menu` — quatre preuves rendues dans la session (rendu groupé, filtre à la fr
   Remplacer un caractère multi-octets exige `-CSD` (ou opérer sur la séquence complète), et
   se vérifie à l'`od -c`, pas à l'œil.
 
+- [1× — 09-18e] 🔴 **Deux couches ont sali la même sortie, et j'ai deux fois accusé le produit.**
+  (a) Un banc cherchait `Set-Cookie` dans des en-têtes rendus `set-cookie` : la réponse était un
+  **200 parfaitement valide**, et le banc a conclu « connexion admin refusée — la lecture de la
+  table des comptes ne passe pas », accusant PostgreSQL. La casse d'un nom d'en-tête ne se suppose
+  pas : HTTP/1.1 la laisse libre, HTTP/2 l'impose en minuscules. Normaliser AVANT de chercher.
+  (b) `vitest` **colorise même quand sa sortie est redirigée dans un fichier** : entre le mot
+  « Tests » et le chiffre se glissent des séquences ANSI, si bien qu'un motif écrit sur le texte
+  VISIBLE ne mord pas. Une suite verte (`4 passed | 12 skipped`) s'est lue « la suite e2e n'annonce
+  aucun test joué ». Dépouiller les codes ANSI (`sed $'s/\033\[[0-9;]*m//g'`) avant tout comptage.
+  Le fait général : **entre ce qu'un programme affiche et ce qu'un script LIT, il y a des couches
+  qui transforment sans le dire** — et le symptôme n'est jamais « je lis mal », c'est « le produit
+  est cassé ». Sur quatre rouges de ce banc, **trois appartenaient à l'instrument**.
+
 ## 👻 Un process qui n'écoute AUCUN port échappe à toute purge par port
 
 - [1× — 08-29] `process.exit()` posé dans un `try` ne déroule AUCUN `finally` : les pods déjà levés survivaient au banc avec leur port ET leur connexion à la base, et le run suivant échouait sur un `DROP DATABASE` refusé — pour une raison qui n'était pas la sienne. Pire dans un cas : le pod fautif n'était pas encore rangé dans la variable que le `finally` inspecte, donc personne ne l'aurait arrêté. Abandonner se fait par une sentinelle qu'on JETTE.
@@ -708,6 +721,21 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   ai tiré un diagnostic entier avant de lire la suite de la sortie. Voisin de
   [[feedback_shell_false_diagnostics]] : le symptôme visible n'est pas toujours celui qu'on croit
   lire, et une sortie se lit ENTIÈRE avant d'en conclure quoi que ce soit.
+
+- [1× — 09-18e] 🔴 **Trois affirmations ÉCRITES ont menti dans la même séance, toutes plausibles.**
+  (a) Le `_state` de la veille et un commentaire de ticket disaient « le banc est écrit, il n'a pas
+  été joué » ; je l'ai relayé au user en RESUME. **Aucun banc n'existait** — `git log --all -S` sur
+  tout l'historique ne rend rien, et le mot désignait en réalité le DÉCOR (le compose généré). Le
+  user a dû me reprendre deux fois avant que je cherche vraiment.
+  (b) Le corps de #322 portait une preuve d'ABSENCE (`rg -c 'docker build' … → 0`) devenue
+  **FAUSSE** : un commit du même jour avait ajouté la construction d'image à la CI générée. Une
+  preuve d'absence se périme dans le sens le plus traître — elle reste crédible en devenant fausse.
+  (c) Le gabarit `e2e.test.ts.tpl` ÉNONÇAIT la bonne règle en commentaire (« il faut un proxy qui
+  termine le TLS ») et l'IMPLÉMENTAIT autrement (`!isExternalTarget`) : la prose disait juste, la
+  condition testait autre chose, et toute application déployée en HTTP clair récoltait un rouge.
+  Le fait commun : **une phrase écrite est crue sans être relue** — par moi le lendemain, par le
+  lecteur d'un ticket, par celui qui maintient un gabarit. Ce qui tranche coûte une commande :
+  rejouer le `rg`, relancer `ticket-verify`, lire la condition à côté du commentaire.
 
 ## 🧪 Un banc comparatif dont les camps dérivent — GRADUÉ
 

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T13:55:37.320Z",
+  "generatedAt": "2026-09-18T14:52:52.777Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 13,
+      "closed": 15,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -1533,7 +1533,7 @@
       "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
-      "jours": 3,
+      "jours": 2,
       "ordre": 4,
       "debut": "2026-10-13",
       "cible": "2026-10-15",
@@ -1641,8 +1641,8 @@
       "number": 160,
       "title": "chore(github): poser les gabarits de ticket et de fusion",
       "url": "https://github.com/nodefony/nodefony-core/issues/160",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1954,8 +1954,8 @@
       "number": 420,
       "title": "build(docker): choisir la base de l'image sur des mesures, pas par habitude",
       "url": "https://github.com/nodefony/nodefony-core/issues/420",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
