@@ -169,6 +169,16 @@ exécution.
 
 ## 🧊 Un banc qui s'arrête au premier échec CACHE tout ce qui vient après
 
+- [1× — 09-18] **Instruire un rouge de banc rend parfois un défaut de l'INSTRUMENT, et c'est un
+  résultat.** Quatre rouges instruits depuis leurs transcripts, sans repayer un seul run : deux
+  vecteurs PRODUIT (le savoir existe et n'est servi qu'au contrôle que personne ne lance), un
+  défaut du BANC (le juge affirmait « champ obligatoire sans défaut » sur une colonne nullable,
+  cause écrite en dur, jamais constatée), un ALÉA d'exécution — moyen sous les yeux, non appliqué.
+  Le tri se fait sur une question : **la sonde a-t-elle ÉTABLI ce qu'elle affirme ?** Le
+  contre-poids à ne pas perdre : les 4 « chutes » de la campagne n'étaient aucune une régression —
+  entre les deux références, le produit n'avait changé que sur un fichier sans rapport avec ces
+  sondes. **Ce qui a bougé entre deux références se lit au `git diff`, avant d'accuser le code.**
+
 - [1× — 09-17e] 🔴 **Un banc dont le budget INTERNE dépasse l'échéance du harnais meurt muet — et
   toute son instrumentation est en aval du point où il meurt.** Le cas du décalage de port avait
   été soigneusement outillé pour ses échecs d'ASSERTION : compteur de replis, PID qui tient
@@ -587,6 +597,16 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   peut pas se sonder elle-même (`EnvGate.readyUrl`).
 
 ## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
+
+- [1× — 09-18] 🔴 **Un artefact RÉSUMÉ lu comme s'il portait le verdict — et j'ai écrit la fausse
+  mesure dans un TICKET.** Le banc devkit écrit `task-<n>.gates.json` par tâche ; j'y ai lu « la
+  tâche 17 remonte à 2/3 », annoncé la remontée au user, et fondé dessus un argument de #416. Ce
+  fichier ne porte QUE les sondes de type `gate` : le verdict agrège aussi les sondes `code` et
+  `transcript`, et la vraie source (`report.json`, la référence) donne **0/3**. Rien ne le dit —
+  le fichier a un nom qui promet le verdict et un contenu qui n'en porte qu'un tiers. **Avant de
+  citer un chiffre, demander quelle source PRODUIT le verdict**, pas laquelle lui ressemble. Et
+  une mesure fausse déjà publiée se corrige À SA PLACE : le corps du ticket, plus un commentaire
+  qui dit l'erreur — sinon quelqu'un la relira comme une preuve.
 
 - [1× — 09-17e] 🔴 **Un TEST peut graver une supposition que personne n'a jamais confrontée au
   source — et il protège alors le défaut au lieu du contrat.** Le banc du détecteur de port occupé
