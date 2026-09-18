@@ -155,7 +155,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont…",
-    "meta": "🟢 conforme v1.7.0 · ⚙️ 14 scripts · 📎 5 réf" },
+    "meta": "🟢 conforme v1.7.0 · ⚙️ 15 scripts · 📎 5 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — table, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, au lieu de l'écrire à la main.",
     "meta": "🟢 conforme" },
@@ -204,7 +204,7 @@ source: "docs/skills/index.md"
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 187 | 1 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 622 | 5 | 14 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 645 | 5 | 15 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 193 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |

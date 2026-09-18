@@ -1,0 +1,79 @@
+name: 🐛 Défaut — quelque chose ne fait pas ce qu'il annonce
+description: Un comportement qui contredit la documentation, une erreur, une régression.
+title: "fix(portée): "
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Le titre suit [Conventional Commits](https://www.conventionalcommits.org)** —
+        `type(portée): verbe à l'infinitif`, sans point final. Il annonce le GESTE,
+        pas le symptôme : le problème a tout un bloc pour lui, juste en dessous.
+        Remplacez `portée` par le module concerné (`http`, `security`, `cli`, `orm`…).
+
+        Les trois champs qui suivent sont ceux du protocole de ce dépôt. Le
+        troisième est le plus important : **sans critère observable, personne ne
+        peut savoir quand le ticket est fini.**
+
+        > _Mainteneurs_ : la voie normale est `npm run ticket:open`, qui inscrit
+        > aussi le ticket au tableau de bord. Une issue ouverte depuis cette page
+        > naît **hors** du tableau — `npm run ticket:lint` la signalera.
+
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Le problème
+      description: >-
+        Deux à quatre phrases : ce qui ne va pas, et ce que ça coûte. Ce que vous
+        attendiez, ce que vous avez obtenu.
+      placeholder: |
+        `context.scheme` rend « http » derrière un frontal TLS, alors que la
+        documentation annonce le schéma constaté. Conséquence : le cookie de
+        session perd son préfixe `__Host-`.
+    validations:
+      required: true
+
+  - type: textarea
+    id: preuve
+    attributes:
+      label: Preuve au terrain
+      description: >-
+        Ce qui permet de le CONSTATER : une reproduction minimale, une requête,
+        un extrait de configuration, un `fichier:ligne`. Une trace d'erreur
+        complète vaut mieux que sa dernière ligne.
+      render: shell
+    validations:
+      required: true
+
+  - type: textarea
+    id: fini-quand
+    attributes:
+      label: Fini quand
+      description: >-
+        Un critère OBSERVABLE — un test qui passe, une commande qui rend tel
+        résultat, un écran qui répond. Jamais « c'est corrigé ».
+      placeholder: >-
+        `curl -sk https://localhost:8443/api/whoami` rend `"scheme":"https"`.
+    validations:
+      required: true
+
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: Sortie de `npx nodefony --version` et de `node --version`.
+      placeholder: "nodefony 10.0.0-alpha.6 · node v24.21.0"
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: garanties
+    attributes:
+      label: Avant d'envoyer
+      options:
+        - label: >-
+            Ce n'est pas une faille de sécurité (celles-ci passent par le canal
+            privé, jamais par une issue publique).
+          required: true
+        - label: J'accepte le [code de conduite](../blob/main/CODE_OF_CONDUCT.md).
+          required: true

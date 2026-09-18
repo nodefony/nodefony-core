@@ -54,13 +54,27 @@ publier, prévenez — un accord vaut mieux qu'une surprise de part et d'autre.
 
 | Version                                              | État                                                                                              |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------------- |
-| `10.x` (branche TypeScript)                          | en préparation, **pas encore publiée sur npm** — les rapports sont bienvenus                      |
+| `10.x` (branche TypeScript)                          | **en préversion**, publiée sur npm sous le canal `alpha` — les rapports sont bienvenus            |
 | `nodefony` ≤ `7.x` (framework JavaScript historique) | **dépréciée** — plus aucun correctif, de sécurité ou autre ; la réécriture TypeScript la remplace |
 
-Les paquets couverts par cette politique, une fois publiés, sont ceux du dépôt :
-`nodefony`, `@nodefony/http`, `@nodefony/framework`, `@nodefony/security`, `@nodefony/user`,
-`@nodefony/realtime`, `@nodefony/frontend`, `@nodefony/studio`, `@nodefony/orm-core`,
-`@nodefony/drizzle`, `@nodefony/mongoose`, `@nodefony/redis`, `@nodefony/documentation`.
+⚠️ Une préversion n'est pas un jouet : `npm i nodefony@alpha` installe du code qui tourne. Les
+rapports la concernant sont traités comme les autres — c'est même le moment où ils coûtent le moins
+cher à corriger. En revanche, **le canal `latest` sert encore la série 7**, dépréciée : si vous
+auditez « nodefony » sans préciser de canal, vérifiez d'abord quelle version vous avez en main
+(`npm ls nodefony`).
+
+Les paquets couverts sont **tous ceux que ce dépôt publie**, et eux seuls : `nodefony`,
+`create-nodefony`, et l'organisation `@nodefony/*`. C'est une règle et non une liste — une
+énumération écrite ici se périmerait au premier paquet ajouté, sans que personne le voie.
+
+⚠️ Le nom « nodefony » apparaît ailleurs sur le registre sans venir d'ici : `nodefony-client`, par
+exemple, est une bibliothèque distincte. Une recherche textuelle (`npm search @nodefony`) les
+ramène toutes ; ce qui tranche, c'est le champ `repository` du paquet, qui doit pointer
+[`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core) :
+
+```bash
+npm view <paquet> repository.url
+```
 
 ## Périmètre — ce qui est une faille, et ce qui n'en est pas
 

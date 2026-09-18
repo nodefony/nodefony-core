@@ -1,0 +1,22 @@
+# Pas d'issue vierge : une page blanche produit des tickets qu'il faut ensuite
+# faire réécrire, et le protocole du dépôt (titre normé, quatre blocs, preuve
+# `fichier:ligne`) n'est visible que de l'intérieur. Les deux formulaires le
+# rendent visible au moment où l'on écrit.
+blank_issues_enabled: false
+
+contact_links:
+  # 🔴 EN PREMIER, et c'est délibéré : une faille publiée est indexée en quelques
+  # minutes — la signaler ici armerait tout le monde avant que le correctif
+  # existe. Le lien mène au canal privé, jamais à un formulaire d'issue.
+  - name: 🔒 Faille de sécurité — canal PRIVÉ, jamais une issue
+    url: https://github.com/nodefony/nodefony-core/security/policy
+    about: >-
+      N'ouvrez ni issue, ni discussion, ni demande de fusion pour une faille.
+      La politique de sécurité dit par où passer et ce à quoi vous attendre.
+
+  - name: 💬 Question, idée, besoin d'aide
+    url: https://github.com/nodefony/nodefony-core/discussions
+    about: >-
+      « Comment faire X ? », « est-ce que Nodefony sait Y ? » — les discussions
+      sont faites pour ça. Une question posée en issue reste sans jalon et
+      encombre le suivi du travail.

@@ -1,0 +1,70 @@
+name: ✨ Évolution — quelque chose manque
+description: Une capacité absente, une ergonomie à corriger, une documentation qui n'existe pas.
+title: "feat(portée): "
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Le titre suit [Conventional Commits](https://www.conventionalcommits.org)** —
+        `type(portée): verbe à l'infinitif`. Le type n'est pas toujours `feat` :
+        `docs` pour une page, `perf` pour une lenteur, `refactor` pour une
+        structure. Le titre doit se comprendre **sans connaître ce dépôt** : ni
+        code de planification interne, ni nom de symbole nu.
+
+        > _Mainteneurs_ : la voie normale est `npm run ticket:open`, qui inscrit
+        > aussi le ticket au tableau de bord. Une issue ouverte depuis cette page
+        > naît **hors** du tableau — `npm run ticket:lint` la signalera.
+
+  - type: textarea
+    id: probleme
+    attributes:
+      label: Le problème
+      description: >-
+        Le PROBLÈME, pas la solution — une solution écrite trop tôt fige une
+        réponse avant qu'on ait compris la question. Qu'est-ce qui est
+        impossible, ou coûteux, aujourd'hui ?
+      placeholder: >-
+        Rien ne permet de savoir, depuis une application, quelles routes sont
+        réellement montées : il faut lire le code des modules un par un.
+    validations:
+      required: true
+
+  - type: textarea
+    id: terrain
+    attributes:
+      label: Preuve au terrain
+      description: >-
+        Ce qui montre que ça manque ou que c'est coûteux : la commande qui ne
+        rend rien, le `fichier:ligne` qui porte la limite, le détour qu'il faut
+        faire aujourd'hui.
+    validations:
+      required: true
+
+  - type: textarea
+    id: fini-quand
+    attributes:
+      label: Fini quand
+      description: >-
+        À quoi reconnaîtra-t-on que c'est livré ? Une commande, un écran, un
+        test. Jamais « c'est implémenté ».
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Ce que vous faites en attendant
+      description: >-
+        Facultatif, mais précieux : un contournement qui marche dit souvent où
+        se trouve la bonne place de la solution.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: garanties
+    attributes:
+      label: Avant d'envoyer
+      options:
+        - label: J'accepte le [code de conduite](../blob/main/CODE_OF_CONDUCT.md).
+          required: true

@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.7.0` |
 | Famille | Autres |
-| Corps | 622 lignes |
-| Coût d'activation | ~11 489 tokens (le corps est chargé à l'invocation) |
+| Corps | 645 lignes |
+| Coût d'activation | ~11 908 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 14 |
+| Scripts | 15 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -95,6 +95,7 @@ script, donc toujours à jour après régénération.
 | `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un | `--limit` | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
 | `scripts/francise.mjs` | Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français. | `--body-file` `--json` `--limit` `--state` `--write` | — |
+| `scripts/github-templates.test.mjs` | Le protocole de ticket vit à UN seul endroit — `SKILL.md` §2 — et il est | — | — |
 | `scripts/pose-lexique.mjs` | Pose le bloc `Lexique` en tête du corps des tickets GitHub ouverts. | `--body-file` `--json` `--limit` `--state` `--write` | — |
 | `scripts/ticket-close.mjs` | Compose le COMPTE RENDU de fermeture d'un ticket — la moitié mécanique. | `--comment` `--format` `--grep` `--name-only` `--reverse` `--since` | — |
 | `scripts/ticket-close.test.mjs` | Suite du compte rendu de fermeture. | `--format` `--grep` `--no-verify` `--reverse` | — |
@@ -139,7 +140,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 622 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ❌ | 645 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
