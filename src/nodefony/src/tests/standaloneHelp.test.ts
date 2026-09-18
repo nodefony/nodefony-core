@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import { runCardCommand } from "../cli/card";
 import { runEnvCommand } from "../cli/env";
 import { runSymbolsCommand } from "../cli/symbols";
+import { runImageCheckCommand } from "../cli/image";
 import { runAiSyncCommand } from "../cli/aiSync";
 import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
@@ -44,6 +45,7 @@ const STANDALONE: ReadonlyArray<
   ["card", (a) => runCardCommand(a, "10.0.0")],
   ["env", runEnvCommand],
   ["symbols", runSymbolsCommand],
+  ["image:check", runImageCheckCommand],
   ["ai:sync", runAiSyncCommand],
   ["ai:mcp", runAiMcpCommand],
   ["git:hooks", runGitHooksCommand],

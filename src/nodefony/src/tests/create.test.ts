@@ -997,6 +997,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(ci, /\n {4}timeout-minutes: \d+\n/u);
       // Un démarrage raté en forge doit laisser quelque chose à lire.
       assert.include(ci, "actions/upload-artifact");
+      // 🔴 L'IMAGE est l'artefact qu'on PUBLIE, et le seul que rien ne
+      // regardait. La chaîne la CONSTRUIT — sans image il n'y a rien à
+      // contrôler — puis la soumet au contrôle du framework, qui lit les
+      // COUCHES : un `.dockerignore` filtre le contexte, pas ce que la
+      // construction produit, et un `rm` dans le Dockerfile n'efface pas une
+      // couche déjà écrite. Les deux étapes se tiennent : garder la seule
+      // construction rendrait le contrôle muet, garder le seul contrôle le
+      // ferait échouer sur une image absente.
+      assert.include(ci, "docker build -t cisqlite:ci .");
+      assert.include(ci, "npx nodefony image:check cisqlite:ci");
       // Le pendant GitLab : même filet, et pas d'exécution sur étiquette.
       assert.match(
         readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8"),

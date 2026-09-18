@@ -111,6 +111,26 @@ jobs:
       # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
       - run: npm run test:e2e
 
+      # 🔴 L'IMAGE est le seul artefact que rien ne regardait, et c'est celui
+      # qu'on PUBLIE. Un secret qui y entre est public : une couche reste
+      # téléchargeable même quand une couche suivante efface le fichier — un
+      # `COPY` puis un `rm` donne donc une image où le secret est absent du
+      # système de fichiers et présent dans le registre. Ni le `.dockerignore`
+      # (qui filtre le contexte, pas ce que la construction produit) ni un `rm`
+      # dans le Dockerfile ne ferment ce chemin.
+      #
+      # La construire ICI est ce qui rend le contrôle possible : sans image, il
+      # n'y a rien à regarder. Elle n'est pas poussée — c'est une image de
+      # contrôle, et son tag le dit.
+      - name: Construire l'image
+        run: docker build -t <%= it.appName %>:ci .
+
+      # `nodefony image:check` lit les COUCHES et refuse par un code non nul.
+      # Un contrôle qui n'a pas PU regarder (démon injoignable, couche illisible)
+      # sort en 69, pas en 0 : cette étape échoue alors, ce qui est voulu.
+      - name: Contrôler l'image (aucun secret embarqué)
+        run: npx nodefony image:check <%= it.appName %>:ci
+
       # Un démarrage raté en forge ne laisse RIEN à lire sans ceci : les
       # journaux de l'application vivent sous `var/`, que le dépôt ignore.
       # Sans cette étape, un e2e rouge s'instruit à l'aveugle.

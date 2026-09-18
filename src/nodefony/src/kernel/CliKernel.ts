@@ -62,6 +62,8 @@ import Card from "./commands/CardCommand";
 import { runCardCommand } from "../cli/card";
 import Symbols from "./commands/SymbolsCommand";
 import { runSymbolsCommand } from "../cli/symbols";
+import Image from "./commands/ImageCommand";
+import { runImageCheckCommand } from "../cli/image";
 import { runAiSyncCommand } from "../cli/aiSync";
 import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
@@ -301,6 +303,15 @@ class CliKernel extends Cli {
       return process.exit(runSymbolsCommand(process.argv));
     }
 
+    // ─── `image:check` : juger une IMAGE, jamais l'application ────────────────
+    // Elle ne regarde qu'un artefact — l'archive d'un `docker save` — et n'a
+    // donc rien à faire d'un kernel. La faire booter la rendrait muette là où
+    // elle sert le plus : une chaîne d'intégration qui vient de construire une
+    // image et n'a ni base, ni décor, ni application démarrée.
+    if (requested === "image:check") {
+      return process.exit(await runImageCheckCommand(process.argv));
+    }
+
     // ─── `ai:sync` : les skills d'agent livrés par les paquets — même famille ──
     // Elle ne lit et n'écrit que des fichiers. Et surtout, elle DOIT répondre
     // dans un terminal qui n'a pas posé `NODE_ENV` : portée par une commande du
@@ -529,6 +540,7 @@ class CliKernel extends Cli {
     // Standalone servis par le fast-path : ces classes n'existent que pour le
     // help et la complétion (leur `generate()` est un filet) — sans elles, une
     // commande bien réelle est INVISIBLE de `nodefony -h`, donc de personne.
+    this.addCommand(Image);
     this.addCommand(AiSync);
     this.addCommand(AiMcp);
     this.addCommand(GitHooks);

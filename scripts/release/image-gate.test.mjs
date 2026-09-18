@@ -113,7 +113,7 @@ describe("cheminsDeLImage — lire TOUTES les couches, pas l'arborescence finale
         [{ nom: "app/index.js" }, { nom: "app/autre.js" }],
       ]),
     );
-    const { chemins, couches } = await cheminsDeLImage(archive);
+    const { paths: chemins, layers: couches } = await cheminsDeLImage(archive);
     expect(couches).toBe(2);
     expect([...chemins].sort()).toEqual([
       "app/autre.js",
@@ -132,7 +132,7 @@ describe("cheminsDeLImage — lire TOUTES les couches, pas l'arborescence finale
         [{ nom: "app/.wh.privkey.pem" }, { nom: "app/index.js" }],
       ]),
     );
-    const { chemins } = await cheminsDeLImage(archive);
+    const { paths: chemins } = await cheminsDeLImage(archive);
     expect(chemins).toContain("app/privkey.pem");
     // Le marqueur d'effacement n'est pas un fichier de l'image.
     expect(chemins.some((c) => c.includes(".wh."))).toBe(false);
@@ -170,7 +170,7 @@ describe("cheminsDeLImage — lire TOUTES les couches, pas l'arborescence finale
     ],
   ])("lit un nom long écrit avec %s", async (_forme, entrees, attendu) => {
     const archive = fichierJetable(dockerSave([entrees]));
-    const { chemins } = await cheminsDeLImage(archive);
+    const { paths: chemins } = await cheminsDeLImage(archive);
     expect(chemins).toContain(attendu);
   });
 
@@ -178,7 +178,7 @@ describe("cheminsDeLImage — lire TOUTES les couches, pas l'arborescence finale
     const archive = fichierJetable(
       dockerSave([[{ nom: "app/privkey.pem" }]], { compresser: false }),
     );
-    const { chemins } = await cheminsDeLImage(archive);
+    const { paths: chemins } = await cheminsDeLImage(archive);
     expect(chemins).toContain("app/privkey.pem");
   });
 
@@ -242,7 +242,7 @@ describe("image-gate — le verdict rendu en ligne de commande", () => {
     // Un appelant qui teste `!== 0` refuse dans les deux cas : c'est voulu.
     // Ce qui compte est qu'un journal ne puisse pas lire l'un pour l'autre.
     const r = lancer(["--files", path.join(os.tmpdir(), "nf-absent-xyz.txt")]);
-    expect(r.status).toBe(2);
+    expect(r.status).toBe(69);
     expect(r.stderr).toContain("CONTRÔLE AVEUGLE");
   });
 });

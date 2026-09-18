@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 837,
-    "symbols": 4117,
-    "classes": 392,
-    "interfaces": 1099,
+    "files": 841,
+    "symbols": 4137,
+    "classes": 394,
+    "interfaces": 1104,
     "types": 451,
     "enums": 4,
-    "functions": 1762,
+    "functions": 1775,
     "constants": 409
   },
   "symbols": {
@@ -6319,6 +6319,108 @@
       "module": "@nodefony/redis",
       "description": "Enregistre les fabriques de stores Redis dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
     },
+    "IImageCheckRequest": {
+      "name": "IImageCheckRequest",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/image/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que la ligne de commande demande."
+    },
+    "parseImageCheckArgv": {
+      "name": "parseImageCheckArgv",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Parse l'argv après le mot `image:check`."
+    },
+    "runImageCheckCommand": {
+      "name": "runImageCheckCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend le verdict sur une image, ou sur l'inventaire de ses chemins. 🔴 **Un contrôle qui n'a pas pu regarder n'est pas un contrôle favorable.** Il rend `EX_UNAVAILABLE` (69), et non 0 : un appelant …"
+    },
+    "detectSuspectFiles": {
+      "name": "detectSuspectFiles",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/suspectFiles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "**Ce qui n'a rien à faire dans un artefact publié** — tarball npm ou image de conteneur. La règle porte sur des NOMS, et c'est délibéré : ce n'est pas un scanner de secrets par contenu (c'est le mé…"
+    },
+    "detectSuspectImageFiles": {
+      "name": "detectSuspectImageFiles",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/suspectFiles.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La MÊME règle, appliquée à l'inventaire d'une image de conteneur. L'image publiée était le seul artefact que rien ne regardait : la `10.0.0-alpha.4` embarquait `nodefony/config/certificates/server/…"
+    },
+    "BlindCheckError": {
+      "name": "BlindCheckError",
+      "kind": "class",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Le contrôle n'a pas pu regarder — distinct d'un verdict défavorable. Un appelant qui confond les deux publie une image que personne n'a vue : le code de sortie qui en découle doit donc être non nul…"
+    },
+    "IImageContents": {
+      "name": "IImageContents",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'une lecture d'image rend : ses chemins, et combien de couches."
+    },
+    "ISavedImage": {
+      "name": "ISavedImage",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un `docker save` laisse derrière lui, à nettoyer par l'appelant."
+    },
+    "readTarHeader": {
+      "name": "readTarHeader",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Décode un en-tête tar de 512 octets."
+    },
+    "tarPathsFromStream": {
+      "name": "tarPathsFromStream",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend tous les chemins d'une archive tar lue en FLUX, mémoire bornée. Gère les trois façons d'écrire un nom long, parce que les couches d'image en sont pleines (`node_modules/…`) : le champ `prefix`…"
+    },
+    "imageContents": {
+      "name": "imageContents",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Tous les chemins de toutes les couches d'une image, dédoublonnés."
+    },
+    "saveImage": {
+      "name": "saveImage",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/image/tarLayers.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`docker save` dans un fichier temporaire, supprimé par l'appelant."
+    },
     "ScaffoldDestinationError": {
       "name": "ScaffoldDestinationError",
       "kind": "class",
@@ -10430,6 +10532,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony git:hooks` — hooks git natifs (`core.hooksPath`), zéro dépendance. **Exécutée en « standalone » (zéro boot).** L'enregistrement ici sert au help (`nodefony --help`) et à la compl…"
+    },
+    "Image": {
+      "name": "Image",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/ImageCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony image:check` — refuse une image qui embarque un secret. **Exécutée en « standalone » (zéro boot)**, comme `doctor`, `env` et `symbols` : l'enregistrement ici sert au help. Elle l…"
     },
     "Inspect": {
       "name": "Inspect",
@@ -28076,6 +28189,7 @@
         "BootConfigurationError",
         "RpcError",
         "TimeoutError",
+        "BlindCheckError",
         "ScaffoldDestinationError",
         "EntityFieldError",
         "AgentError",
@@ -28203,6 +28317,7 @@
         "Check",
         "Env",
         "GitHooks",
+        "Image",
         "Inspect",
         "Install",
         "Licenses",
@@ -28809,6 +28924,7 @@
         "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
+        "src/nodefony/src/kernel/commands/ImageCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/LicensesCommand.ts",
@@ -30947,6 +31063,7 @@
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/cli/image/index.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "printUsageError": [
@@ -30957,7 +31074,8 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
-        "src/nodefony/src/cli/symbols.ts"
+        "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/cli/image/index.ts"
       ],
       "IUsagePage": [
         "src/nodefony/src/cli/aiMcp.ts",
@@ -30968,6 +31086,7 @@
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/cli/image/index.ts",
         "src/nodefony/src/cli/scaffold/help.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
@@ -30986,6 +31105,7 @@
         "src/nodefony/src/kernel/BootConfigurationError.ts",
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/cli/image/index.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/LicensesCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
@@ -31103,6 +31223,7 @@
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
+        "src/nodefony/src/cli/image/index.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "buildCard": [
@@ -31511,6 +31632,7 @@
         "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
+        "src/nodefony/src/kernel/commands/ImageCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/LicensesCommand.ts",
@@ -31762,6 +31884,13 @@
       "runSymbolsCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts"
+      ],
+      "Image": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runImageCheckCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/ImageCommand.ts"
       ],
       "runAiSyncCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
@@ -32635,6 +32764,18 @@
       "RedisWebAuthnCredentialStore": [
         "src/packages/@nodefony/redis/nodefony/registerStores.ts"
       ],
+      "detectSuspectImageFiles": [
+        "src/nodefony/src/cli/image/index.ts"
+      ],
+      "BlindCheckError": [
+        "src/nodefony/src/cli/image/index.ts"
+      ],
+      "imageContents": [
+        "src/nodefony/src/cli/image/index.ts"
+      ],
+      "saveImage": [
+        "src/nodefony/src/cli/image/index.ts"
+      ],
       "pointeursInstructions": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -33393,6 +33534,7 @@
         "src/nodefony/src/kernel/commands/DoctorCommand.ts",
         "src/nodefony/src/kernel/commands/EnvCommand.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts",
+        "src/nodefony/src/kernel/commands/ImageCommand.ts",
         "src/nodefony/src/kernel/commands/InspectCommand.ts",
         "src/nodefony/src/kernel/commands/InstallCommand.ts",
         "src/nodefony/src/kernel/commands/LicensesCommand.ts",
