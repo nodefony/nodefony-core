@@ -14,6 +14,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { checkWiring } from "../kernel/checks/wiring";
+import type { IWiringFinding } from "../kernel/checks/wiring";
 
 /** Décor minimal d'une cible Nodefony : `index.ts` + `nodefony/`. */
 function target(files: Record<string, string>): string {
@@ -57,6 +58,99 @@ class App extends Module {}`,
     const r = checkWiring({ roots: [dir], cwd: dir });
     assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
     assert.strictEqual(r.scanned, 1);
+  });
+
+  // Le contrat d'entrée doit exiger ce que la BASE exige. Sinon la validation
+  // laisse passer, et c'est le moteur qui refuse : un 500 là où l'application
+  // devait rendre un 422 nommant le champ. Mesuré au banc le 18/09 — un agent a
+  // ajouté un slug en notNull() et l'a laissé optional() au contrat ; typecheck,
+  // tests et doctor étaient tous verts.
+  const ENTITE_SLUG = [
+    'import { defineEntity } from "@nodefony/orm-core";',
+    'import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";',
+    'export const posts = sqliteTable("posts", {',
+    '  id: text("id").primaryKey().$defaultFn(() => crypto.randomUUID()),',
+    '  title: text("title").notNull(),',
+    '  slug: text("slug").notNull(),',
+    '  views: integer("views").notNull().default(0),',
+    '  body: text("body"),',
+    '  createdAt: integer("created_at").notNull().$defaultFn(() => new Date()),',
+    "});",
+    'export const PostEntity = defineEntity({ name: "Post", table: posts });',
+  ].join("\n");
+
+  const contratAvec = (slugFacultatif: boolean): string =>
+    [
+      'import { z } from "zod";',
+      "export const createPostSchema = z.object({",
+      "  title: z.string().min(1),",
+      `  slug: z.string().min(1)${slugFacultatif ? ".optional()" : ""},`,
+      "  body: z.string().optional(),",
+      "});",
+      "export const updatePostSchema = createPostSchema.partial();",
+    ].join("\n");
+
+  const DECLARE = [
+    'import { PostEntity } from "./nodefony/entity/Post";',
+    "@entities([PostEntity])",
+    "class App extends Module {}",
+  ].join("\n");
+
+  const desaccords = (dir: string): IWiringFinding[] =>
+    checkWiring({ roots: [dir], cwd: dir }).findings.filter(
+      (x) => x.kind === "champ-facultatif-que-la-base-exige",
+    );
+
+  it("un champ que la base EXIGE et que le contrat rend facultatif → signalé", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITE_SLUG,
+      "nodefony/entity/Post.schema.ts": contratAvec(true),
+      "index.ts": DECLARE,
+    });
+    const f = desaccords(dir);
+    assert.strictEqual(f.length, 1, JSON.stringify(f));
+    assert.ok(f[0]?.message.includes("slug"), f[0]?.message);
+    // Le fichier NOMMÉ est le contrat, pas l'entité : c'est lui qu'on corrige.
+    assert.ok(f[0]?.file.endsWith("Post.schema.ts"), f[0]?.file);
+  });
+
+  it("le MÊME champ rendu obligatoire au contrat → plus rien à signaler", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITE_SLUG,
+      "nodefony/entity/Post.schema.ts": contratAvec(false),
+      "index.ts": DECLARE,
+    });
+    assert.deepStrictEqual(desaccords(dir), []);
+  });
+
+  it("une colonne à DÉFAUT reste légitimement facultative", () => {
+    // views porte un default(0), createdAt un defaultFn : leur absence à
+    // l'entrée est normale. Sans cette exclusion, le contrôle accuserait tout
+    // gabarit du framework. Le nom qui commence par un dollar compte : un motif
+    // de suffixe écrit sans lui tronque la chaîne avant, et rend la colonne
+    // « exigée » alors qu'elle porte un défaut.
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITE_SLUG,
+      "nodefony/entity/Post.schema.ts": [
+        'import { z } from "zod";',
+        "export const createPostSchema = z.object({",
+        "  title: z.string().min(1),",
+        "  slug: z.string().min(1),",
+        "  views: z.number().optional(),",
+        "  createdAt: z.date().optional(),",
+        "});",
+      ].join("\n"),
+      "index.ts": DECLARE,
+    });
+    assert.deepStrictEqual(desaccords(dir), []);
+  });
+
+  it("sans fichier de contrat VOISIN, rien n'est reproché", () => {
+    const dir = make({
+      "nodefony/entity/Post.ts": ENTITE_SLUG,
+      "index.ts": DECLARE,
+    });
+    assert.deepStrictEqual(desaccords(dir), []);
   });
 
   it("écrite à la main, jamais déclarée → manquement NOMMÉ", () => {

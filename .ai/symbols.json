@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 835,
-    "symbols": 4104,
+    "symbols": 4106,
     "classes": 392,
     "interfaces": 1097,
     "types": 451,
     "enums": 4,
-    "functions": 1752,
+    "functions": 1754,
     "constants": 408
   },
   "symbols": {
@@ -10187,6 +10187,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "requiredColumns": {
+      "name": "requiredColumns",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les colonnes qu'une entité rend OBLIGATOIRES sans leur donner de défaut. Une colonne `notNull()` sans `default`/`$defaultFn` n'accepte rien d'absent : si le contrat d'entrée la laisse facultative, …"
+    },
+    "optionalInputFields": {
+      "name": "optionalInputFields",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les champs qu'un contrat de CRÉATION déclare facultatifs. Le schéma de mise à jour est volontairement ignoré : un `.partial()` rend tout facultatif, et c'est son rôle — une modification ne renvoie …"
     },
     "checkWiring": {
       "name": "checkWiring",

@@ -43,6 +43,7 @@ export interface IWiringFinding {
     | "firewall-area-enumere"
     | "hook-lifecycle-inconnu"
     | "reserved-fragment-name"
+    | "champ-facultatif-que-la-base-exige"
     | "fragment-without-satisfies";
   /** Phrase lisible, déjà orientée vers la correction. */
   message: string;
@@ -114,6 +115,68 @@ export interface IWiringCheckResult {
  * sans sa propre entité.
  */
 const ENTITY_RE = /export\s+const\s+(\w+)\s*=\s*defineEntity\s*\(/gu;
+
+/**
+ * Les colonnes qu'une entité rend OBLIGATOIRES sans leur donner de défaut.
+ *
+ * Une colonne `notNull()` sans `default`/`$defaultFn` n'accepte rien d'absent :
+ * si le contrat d'entrée la laisse facultative, la validation passe et c'est la
+ * BASE qui refuse — un 500, là où l'application devait rendre un 422 nommant le
+ * champ. La clé primaire est écartée : elle est presque toujours engendrée.
+ *
+, et un motif qui l'ignore tronque la chaîne AVANT lui — la colonne ressort
+ * alors « exigée » bien qu'elle porte un défaut. Mesuré sur le `createdAt` du
+ * gabarit, qui aurait été accusé à tort le jour où son contrat le rend facultatif.
+ *
+ * @param source - le texte du fichier d'entité, commentaires déjà retirés.
+ * @returns les noms de colonnes exigées, en minuscules.
+ */
+export function requiredColumns(source: string): string[] {
+  const out: string[] = [];
+  for (const m of source.matchAll(
+    /(\w+)\s*:\s*(\w+)\s*\((?:[^()]|\([^()]*\))*\)((?:\s*\.[\w$]+\s*\((?:[^()]|\([^()]*\))*\))*)/gu,
+  )) {
+    const field = m[1];
+    const suffixes = m[3] ?? "";
+    if (field === undefined) continue;
+    if (!/\.notNull\s*\(/u.test(suffixes)) continue;
+    // Un défaut, une clé primaire : l'absence est alors légitime à l'entrée.
+    if (
+      /\.(?:default|\$defaultFn|defaultNow|primaryKey)\s*\(/u.test(suffixes)
+    ) {
+      continue;
+    }
+    out.push(field.toLowerCase());
+  }
+  return out;
+}
+
+/**
+ * Les champs qu'un contrat de CRÉATION déclare facultatifs.
+ *
+ * Le schéma de mise à jour est volontairement ignoré : un `.partial()` rend
+ * tout facultatif, et c'est son rôle — une modification ne renvoie pas l'objet
+ * entier. Seule la création doit exiger ce que la base exige.
+ *
+ * @param source - le texte du fichier `*.schema.ts`, commentaires retirés.
+ * @returns les noms de champs facultatifs, en minuscules.
+ */
+export function optionalInputFields(source: string): string[] {
+  const creation =
+    /export\s+const\s+create\w*Schema\s*=\s*z\s*\.\s*\w*[Oo]bject\s*\(\s*\{([\s\S]*?)\n\}\s*\)/u.exec(
+      source,
+    )?.[1];
+  if (creation === undefined) return [];
+  const out: string[] = [];
+  for (const m of creation.matchAll(/(\w+)\s*:\s*([^\n]*)/gu)) {
+    const field = m[1];
+    const right = m[2] ?? "";
+    if (field === undefined) continue;
+    if (/\.(?:optional|nullish)\s*\(/u.test(right))
+      out.push(field.toLowerCase());
+  }
+  return out;
+}
 
 /** `name: "Post"` du descripteur — ce que voit le registre ORM, qui est PLAT. */
 const ENTITY_NAME_RE = /\bname\s*:\s*["'`](\w+)["'`]/u;
@@ -670,6 +733,26 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
                 `${symbol} n'est déclarée nulle part — sans @entities([${symbol}]) sur le module, ` +
                 `sa table n'est pas créée au démarrage et le repository lèvera « entité inconnue »`,
             });
+          }
+          // Le contrat d'entrée vit dans le fichier VOISIN — c'est la convention
+          // que pose le générateur, et le seul lien qui existe : ni `@entity`
+          // ni le registre ORM ne connaissent le schéma Zod. Pas de voisin, pas
+          // de contrôle : on ne reproche rien à qui n'a pas suivi la convention.
+          const voisin = file.replace(/\.ts$/u, ".schema.ts");
+          const contract = sources.get(voisin);
+          if (contract !== undefined) {
+            const optional = new Set(optionalInputFields(contract));
+            for (const required of requiredColumns(content)) {
+              if (!optional.has(required)) continue;
+              findings.push({
+                kind: "champ-facultatif-que-la-base-exige",
+                file: rel(voisin),
+                message:
+                  `\`${required}\` est facultatif à la création alors que la colonne est notNull() sans défaut — ` +
+                  `un POST sans ce champ passe la validation puis meurt en base : 500, ` +
+                  `quand l'application devait rendre un 422 qui le nomme`,
+              });
+            }
           }
           const entityName = ENTITY_NAME_RE.exec(
             content.slice(content.indexOf(symbol)),
