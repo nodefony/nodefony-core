@@ -666,25 +666,75 @@ export function fusionnerChangelog(ancien, section, version) {
 }
 
 /**
- * Ce qui n'a rien à faire dans un artefact publié — **la règle vit dans le
- * PRODUIT**, ces deux noms n'en sont que les alias historiques du dépôt.
+ * Fichiers qui n'ont rien à faire dans un tarball publié.
  *
- * Elle a déménagé dans `nodefony/src/cli/image/suspectFiles.ts` pour une raison
- * de portée, pas de style : `scripts/` n'est pas publié. Tant que la règle
- * vivait ici, une application créée avec Nodefony ne pouvait pas contrôler sa
- * propre image — alors que c'est elle qui la pousse sur un registre. En garder
- * une copie ici l'aurait fait diverger au premier réglage, chacune restant
- * verte sur ses propres tests.
+ * 🔴 **Cette règle est une COPIE ASSUMÉE de celle du produit**
+ * (`src/nodefony/src/cli/image/suspectFiles.ts`), et c'est une frontière de
+ * paquets qui l'impose : `scripts/` n'est pas publié, et la chaîne de
+ * publication ne doit dépendre d'AUCUN `dist`. Un import du `dist` ferait
+ * échouer `release:pack`, `release:smoke` et le préflight dès qu'une
+ * construction manque — c'est-à-dire risquer la publication entière pour une
+ * économie de vingt lignes.
  *
- * ⚠️ L'import vise le MODULE, pas le barrel : le bundler élague les ré-exports
- * que la surface publique du paquet ne consomme pas. Et il vise le `dist`, donc
- * **le core doit être construit** — c'est le cas dans la forge (l'étape suit le
- * build) comme avant toute publication.
+ * Ce que la copie coûte est donc PAYÉ par un test : `imageCheck.test.ts` (core)
+ * confronte les deux implémentations sur un corpus commun, et tombe si l'une
+ * dérive. Deux copies sans ce test divergeraient en silence, chacune verte sur
+ * ses propres assertions. **Toute modification ici se répercute là-bas, et
+ * réciproquement.**
+ *
+ * Le motif vise des noms de fichiers ENTIERS, pas des fragments : une page de
+ * documentation nommée `environment.md` ou un module `keys.js` sont légitimes,
+ * et les signaler entraînerait l'habitude d'ignorer cette alerte.
+ *
+ * 🔴 `keyset.json` est dans la liste parce qu'un secret ne se reconnaît PAS à
+ * son extension. C'est le trousseau JWT que `JwtKeystore` écrit sous
+ * `var/keys/` hors production — une clé privée Ed25519 dans un fichier qui a
+ * l'air d'une configuration. Toute la liste dit la même chose : ce sont des
+ * NOMS connus du produit, pas une heuristique sur les suffixes.
  */
-export {
-  detectSuspectFiles as detecterSuspects,
-  detectSuspectImageFiles as detecterSuspectsImage,
-} from "../../src/nodefony/dist/node/cli/image/suspectFiles.js";
+export function detecterSuspects(fichiers) {
+  const SUSPECT =
+    /(^|\/)(\.env(\.[\w-]+)?|\.npmrc|\.netrc|id_rsa|id_ed25519|keyset\.json|[\w.-]+\.(pem|p12|pfx|key|keystore)|secrets?\.(json|ya?ml|toml))$/i;
+  const GIT = /(^|\/)\.git\//;
+  return fichiers.filter((f) => SUSPECT.test(f) || GIT.test(f));
+}
+
+/**
+ * La MÊME règle, appliquée à l'inventaire d'une image de conteneur.
+ *
+ * Copie assumée elle aussi (cf {@link detecterSuspects}) : le jumeau vit dans
+ * `detectSuspectImageFiles`, et le test de parité du core garde les deux
+ * alignées. Les trois tolérances et leurs bornes y sont expliquées en détail —
+ * ne pas les modifier ici sans les modifier là-bas.
+ *
+ * - **`node_modules/`** — un `.pem` y est une donnée de test de la dépendance
+ *   qui l'apporte.
+ * - **`.env` NU, et lui seul** — convention du framework : ce fichier est
+ *   commité sans secret. La borne à la racine n'est pas cosmétique : sans elle
+ *   la tolérance couvrait `app/.gemini/.env`, où `nodefony ai:mcp` écrit le
+ *   JETON PORTEUR du serveur MCP.
+ * - **les magasins de certificats PUBLICS du système** — jamais
+ *   `etc/ssl/private/`, et jamais une `.key`, fût-elle sous `certs/`.
+ *
+ * @param fichiers - tous les chemins de toutes les COUCHES, sans `/` initial
+ * @returns les chemins qui interdisent la publication
+ */
+export function detecterSuspectsImage(fichiers) {
+  const DEPENDANCE = /(^|\/)node_modules\//;
+  const ENV_NU = /^([^/]+\/)?\.env$/;
+  // `ssl[^/]*` couvre le `ssl1.1` d'Alpine sans ouvrir `etc/ssl/private/`.
+  const MAGASIN_PUBLIC =
+    /^(etc\/ssl[^/]*\/(certs?\.pem|certs\/)|etc\/pki\/tls\/certs\/|etc\/ca-certificates\/|usr\/(local\/)?share\/ca-certificates\/|usr\/lib\/ssl\/certs\/)/;
+  const CERTIFICAT = /\.(pem|crt|cer)$/i;
+  return detecterSuspects(
+    fichiers.filter(
+      (f) =>
+        !DEPENDANCE.test(f) &&
+        !ENV_NU.test(f) &&
+        !(MAGASIN_PUBLIC.test(f) && CERTIFICAT.test(f)),
+    ),
+  );
+}
 
 /**
  * Ce que la passe fait vraiment, à partir des seuls drapeaux.

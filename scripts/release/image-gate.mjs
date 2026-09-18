@@ -27,16 +27,40 @@
  */
 import { pathToFileURL } from "node:url";
 
-import { runImageCheckCommand } from "../../src/nodefony/dist/node/cli/image/index.js";
-// Les briques se prennent à leur MODULE, pas au barrel : le bundler élague les
-// ré-exports que la surface publique du paquet ne consomme pas, si bien que
-// `index.js` n'expose que la commande. Un import par le barrel compilerait et
-// rendrait `undefined` — donc un banc qui tombe sans dire pourquoi.
-import {
-  imageContents,
-  readTarHeader,
-  tarPathsFromStream,
-} from "../../src/nodefony/dist/node/cli/image/tarLayers.js";
+// 🔴 L'import est DYNAMIQUE, et le catch n'est PAS une commodité : un import
+// statique qui échoue rend « Cannot find module … /dist/node/cli/image/index.js »
+// — un message qui ne dit pas ce qu'il faut faire, au seul moment où l'on
+// publie. Ici l'absence du `dist` devient un CONTRÔLE AVEUGLE nommé, avec son
+// remède. Ce qu'il ne fait JAMAIS, c'est replier sur un verdict favorable :
+// l'appelant reçoit un code non nul, donc un refus.
+//
+// ⚠️ Ce script-ci peut dépendre du `dist` ; la chaîne de PUBLICATION, non.
+// `release-core.mjs` garde donc sa propre copie de la règle des noms, gardée
+// alignée par un test de parité (`imageCheck.test.ts`, core) — faire dépendre
+// le cœur de la publication d'une construction, c'est risquer `release:pack`,
+// `release:smoke` et le préflight pour une économie de vingt lignes.
+let runImageCheckCommand;
+let imageContents;
+let readTarHeader;
+let tarPathsFromStream;
+try {
+  ({ runImageCheckCommand } =
+    await import("../../src/nodefony/dist/node/cli/image/index.js"));
+  // Les briques se prennent à leur MODULE, pas au barrel : le bundler élague
+  // les ré-exports que la surface publique du paquet ne consomme pas, si bien
+  // que `index.js` n'expose que la commande. Un import par le barrel
+  // compilerait et rendrait `undefined` — donc un banc qui tombe sans dire
+  // pourquoi.
+  ({ imageContents, readTarHeader, tarPathsFromStream } =
+    await import("../../src/nodefony/dist/node/cli/image/tarLayers.js"));
+} catch (erreur) {
+  process.stderr.write(
+    `\n✗ CONTRÔLE AVEUGLE — le contrôle d'image vit dans le produit, et sa\n` +
+      `  construction est absente : ${erreur.message}\n\n` +
+      `  → npm run build   (puis relancer)\n\n`,
+  );
+  process.exit(69);
+}
 
 // Axiome de portabilité : on compare des URL, jamais des chemins — sous Windows
 // `D:\…` se lit comme un protocole, et la comparaison serait faussée sans erreur.

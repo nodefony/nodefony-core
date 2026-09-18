@@ -163,3 +163,78 @@ describe("runImageCheckCommand — le verdict rendu à l'appelant", () => {
     expect(code).toBe(64);
   });
 });
+
+/**
+ * 🔴 **La copie du dépôt et celle du produit ne doivent JAMAIS diverger.**
+ *
+ * La règle vit en DEUX exemplaires, et c'est assumé : `scripts/release/` n'est
+ * pas publié, et la chaîne de publication ne doit dépendre d'aucun `dist` — un
+ * import de construction ferait échouer `release:pack`, `release:smoke` et le
+ * préflight dès qu'un build manque, c'est-à-dire risquer la publication entière
+ * pour une économie de vingt lignes.
+ *
+ * Ce que la duplication coûte est donc payé ICI : deux implémentations sans test
+ * de parité divergent en silence, chacune restant verte sur ses propres
+ * assertions. Le corpus ci-dessous est DISCRIMINANT — il porte les trois
+ * tolérances et leurs bornes, celles qu'une réécriture approximative raterait.
+ */
+describe("parité — la règle du dépôt et celle du produit rendent le MÊME verdict", () => {
+  /** Chemins qui exercent chaque branche des deux implémentations. */
+  const corpus = [
+    "app/dist/index.js",
+    "app/package.json",
+    "app/nodefony/config/certificates/server/privkey.pem",
+    "app/var/keys/keyset.json",
+    "app/.env",
+    ".env",
+    "app/.env.local",
+    "app/.env.production",
+    "app/.gemini/.env",
+    "app/.npmrc",
+    "app/.netrc",
+    "app/secrets.yaml",
+    "app/secret.json",
+    "root/.ssh/id_rsa",
+    "root/.ssh/id_ed25519",
+    "app/server.p12",
+    "app/server.pfx",
+    "app/store.keystore",
+    "app/node_modules/selfsigned/test/fixture.pem",
+    "usr/local/lib/node_modules/npm/.npmrc",
+    "etc/ssl/cert.pem",
+    "etc/ssl/certs/ca.pem",
+    "etc/ssl1.1/certs/ca.pem",
+    "etc/pki/tls/certs/ca-bundle.crt",
+    "usr/share/ca-certificates/mozilla/x.crt",
+    "etc/ssl/private/server.key",
+    "etc/ssl/certs/server.key",
+    "app/.git/config",
+    "docs/environment.md",
+    "src/keys.js",
+  ];
+
+  it("même sortie sur un corpus qui exerce chaque branche", async () => {
+    // Import DYNAMIQUE : le script du dépôt vit hors de la racine de ce paquet,
+    // et c'est précisément la frontière que ce test surveille.
+    const depot = await import("../../../../scripts/release/release-core.mjs");
+    expect(depot.detecterSuspectsImage(corpus)).toEqual(
+      detectSuspectImageFiles(corpus),
+    );
+    expect(depot.detecterSuspects(corpus)).toEqual(detectSuspectFiles(corpus));
+  });
+
+  it("le corpus est DISCRIMINANT — il trie, il n'accepte pas tout", () => {
+    const refuses = detectSuspectImageFiles(corpus);
+    // Ni tout accepté (le test passerait sur une règle vide), ni tout refusé
+    // (il passerait sur une règle qui dit oui à tout).
+    expect(refuses.length).toBeGreaterThan(5);
+    expect(refuses.length).toBeLessThan(corpus.length);
+    // Et les trois tolérances mordent vraiment sur ce corpus.
+    expect(refuses).not.toContain("app/.env");
+    expect(refuses).not.toContain("etc/ssl/certs/ca.pem");
+    expect(refuses).not.toContain(
+      "app/node_modules/selfsigned/test/fixture.pem",
+    );
+    expect(refuses).toContain("etc/ssl/certs/server.key");
+  });
+});

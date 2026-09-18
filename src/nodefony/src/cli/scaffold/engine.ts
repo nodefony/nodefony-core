@@ -2387,15 +2387,15 @@ function otherControllerSources(
   selfClass: string,
   writer: ScaffoldWriter,
 ): { file: string; text: string }[] {
-  const dossier = path.join(dir, "nodefony", "controllers");
+  const controllersDir = path.join(dir, "nodefony", "controllers");
   const out: { file: string; text: string }[] = [];
-  for (const entry of writer.listDir(dossier)) {
+  for (const entry of writer.listDir(controllersDir)) {
     if (entry.isDirectory) continue;
     if (!entry.name.endsWith(".ts")) continue;
     if (entry.name === `${selfClass}.ts`) continue;
-    const texte = writer.read(path.join(dossier, entry.name));
-    if (texte === null) continue;
-    out.push({ file: entry.name, text: texte });
+    const content = writer.read(path.join(controllersDir, entry.name));
+    if (content === null) continue;
+    out.push({ file: entry.name, text: content });
   }
   return out;
 }
