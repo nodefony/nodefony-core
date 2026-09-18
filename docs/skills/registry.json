@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-17",
+  "generatedAt": "2026-09-18",
   "count": 34,
   "conformant": 34,
   "skills": [
@@ -1505,6 +1505,22 @@
             "purpose": "Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run,",
             "usage": [],
             "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/memoires-agent.selftest.mjs",
+            "purpose": "Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor.",
+            "usage": [
+              "node memoires-agent.selftest.mjs"
+            ],
+            "options": [
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false

@@ -74,6 +74,7 @@ const LOT_ATTENDU = new Set([
   "bench-discoverability.selftest.mjs",
   "bench-schema.selftest.mjs",
   "jeton-mcp.selftest.mjs",
+  "memoires-agent.selftest.mjs",
   "reinit-decor.selftest.mjs",
   "lib/agents-formats.selftest.mjs",
   "lib/argv.selftest.mjs",

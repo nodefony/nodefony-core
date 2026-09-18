@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
@@ -32,7 +32,7 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | Description | 1016 / 1024 caractères |
 | Déclencheurs | 0 |
 | Ressources `references/` | 5 page(s) |
-| Scripts | 11 |
+| Scripts | 12 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -90,6 +90,7 @@ script, donc toujours à jour après régénération.
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
 | `scripts/build-devkit-report.mjs` | Construit la page « Un agent sait-il développer avec Nodefony ? ». | `--analyze-only` `--data` `--out` `--runs` | `DATA` `OUT` |
 | `scripts/jeton-mcp.selftest.mjs` | Auto-contrôle du JETON de la porte MCP — la durée de vie couvre-t-elle le run, | — | — |
+| `scripts/memoires-agent.selftest.mjs` | Auto-contrôle de la purge du cahier de mémoire que l'agent tient HORS du décor. | `--prove` | — |
 | `scripts/reinit-decor.selftest.mjs` | Auto-contrôle de la remise à zéro du décor — le mécanisme, AVANT de payer un | `--allow-empty` `--format` | — |
 | `scripts/selftests.mjs` | Lance TOUS les contrôles internes du banc, et rend un verdict unique. | `--prove` `--sans` | — |
 | `scripts/verify-generated.mjs` | Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? » | `--auth` `--config` `--connector` `--controller` `--database` `--deny-warnings` `--detach` `--dialect` `--force` `--from-database` `--frontend` `--index` `--inject` `--json` `--keep` `--link` `--module` `--name` `--no-audit` `--no-controller` `--no-e2e` `--no-fund` `--no-ignore` `--no-install` `--no-tests` `--nom` `--out` `--preset` `--repack` `--role` `--scope` `--service` `--ttl` `--unique` `--wait` `--workspace` `--yes` | `APP` `COMMAND_ACTION` `COMMAND_CLASS` `CONTROLLER_GARDE_CLASS` `DATABASE` `INJECTED_SERVICE` `MODULE` `MODULE_PKG` `PASCAL_MODULE` `ROLE_GARDE` `SERVICE` `SERVICE_METHOD` |
@@ -102,6 +103,7 @@ node analyse-transcript.mjs <fichier> [--timeline] [--echecs] [--outils]
 node bench-discoverability.selftest.mjs
 node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
 node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
+node memoires-agent.selftest.mjs
 node reinit-decor.selftest.mjs <runDir d'un run précédent>
 node .claude/skills/nodefony-devkit-bench/scripts/selftests.mjs
 node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étapes

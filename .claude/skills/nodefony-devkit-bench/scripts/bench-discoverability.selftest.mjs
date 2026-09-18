@@ -990,6 +990,31 @@ const SAMPLES = {
   },
 
   // ── T33 ───────────────────────────────────────────────────────────────────
+  "33 :: a chargé le skill des migrations": {
+    // Les deux VOIES d'ouverture d'un skill, parce qu'un agent prend l'une ou
+    // l'autre : l'outil dédié, ou la lecture directe du fichier. Mesuré le
+    // 17/09 — l'outil `Skill` ne rend que « Launching skill », c'est la
+    // lecture qui suit qui porte le contenu ; ne guetter que l'outil raterait
+    // un agent qui va droit au fichier.
+    pass: { transcript: `{"skill":"nodefony-migrate-schema"}` },
+    fail: { transcript: `{"skill":"nodefony-dev"}` },
+    extra: [
+      {
+        label: "accepte la lecture directe du fichier du skill",
+        matter: {
+          transcript: `{"file_path":"/app/node_modules/@nodefony/devkit/skills/nodefony-migrate-schema/SKILL.md"}`,
+        },
+        expect: true,
+      },
+      {
+        // 🔴 Le faux vert qui a coûté l'instruction : l'agent lit `AGENTS.md`
+        // d'office, et ce fichier ne porte rien sur les migrations.
+        label: "refuse AGENTS.md, qui ne dit rien des migrations",
+        matter: { transcript: `{"file_path":"/app/AGENTS.md"}` },
+        expect: false,
+      },
+    ],
+  },
   "33 :: a lu ce que le framework dit des migrations": {
     pass: {
       transcript: `{"file":"node_modules/@nodefony/drizzle/docs/migrations.md"}`,
@@ -1157,6 +1182,31 @@ const SAMPLES = {
   },
 
   // ── T34 — ajouter un champ à l'utilisateur d'une application en service ───
+  "34 :: a chargé le skill des migrations": {
+    // Les deux VOIES d'ouverture d'un skill, parce qu'un agent prend l'une ou
+    // l'autre : l'outil dédié, ou la lecture directe du fichier. Mesuré le
+    // 17/09 — l'outil `Skill` ne rend que « Launching skill », c'est la
+    // lecture qui suit qui porte le contenu ; ne guetter que l'outil raterait
+    // un agent qui va droit au fichier.
+    pass: { transcript: `{"skill":"nodefony-migrate-schema"}` },
+    fail: { transcript: `{"skill":"nodefony-dev"}` },
+    extra: [
+      {
+        label: "accepte la lecture directe du fichier du skill",
+        matter: {
+          transcript: `{"file_path":"/app/node_modules/@nodefony/devkit/skills/nodefony-migrate-schema/SKILL.md"}`,
+        },
+        expect: true,
+      },
+      {
+        // 🔴 Le faux vert qui a coûté l'instruction : l'agent lit `AGENTS.md`
+        // d'office, et ce fichier ne porte rien sur les migrations.
+        label: "refuse AGENTS.md, qui ne dit rien des migrations",
+        matter: { transcript: `{"file_path":"/app/AGENTS.md"}` },
+        expect: false,
+      },
+    ],
+  },
   "34 :: a lu ce que le framework dit de l'utilisateur ou des migrations": {
     pass: {
       transcript: `{"file":"nodefony/entity/User.ts"}`,

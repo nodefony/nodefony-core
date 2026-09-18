@@ -1201,6 +1201,26 @@ const INTERRUPTEUR_DE_SECURITE = {
  * @param {RegExp} pattern - ce qu'on cherche dans le transcript de l'agent.
  * @returns {{kind: "transcript", name: string, pattern: RegExp, observe: true}}
  */
+/**
+ * « A-t-il ouvert le SKILL des migrations ? » — la mesure qui s'est avérée
+ * discriminante, et qu'aucune sonde ne portait.
+ *
+ * 🔴 Instruit le 17/09 sur la tâche 33 : des trois répétitions, la SEULE qui a
+ * chargé `nodefony-migrate-schema` est la seule qui a réussi. Les deux autres
+ * ignoraient où vit la base d'une application — le skill le dit cinq fois,
+ * l'`AGENTS.md` généré pas une — et l'une d'elles a fini par l'effacer.
+ *
+ * Observation et non verdict : on mesure le chemin pris, on ne l'impose pas.
+ * Un agent qui réussirait sans ouvrir ce skill aurait fait juste.
+ */
+const sondeSkillMigrations = () => ({
+  kind: "transcript",
+  name: "a chargé le skill des migrations",
+  pattern:
+    /"skill"\s*:\s*"nodefony-migrate-schema"|"(?:file_path|path)"\s*:\s*"[^"]*skills\/nodefony-migrate-schema\/SKILL\.md"/u,
+  observe: true,
+});
+
 const sondeLecture = (name, pattern) => ({
   kind: "transcript",
   name,
@@ -4053,10 +4073,17 @@ export const TASKS = [
       "Sa base contient déjà des données en service : elle doit pouvoir suivre " +
       "ce changement en production, sans être vidée ni recréée. Prouve-le.",
     probes: [
+      // 🔴 `AGENTS.md` a été RETIRÉ de ce motif : l'agent le lit d'office, et le
+      // fichier généré ne porte rien sur les migrations — deux mentions
+      // incidentes sur 310 lignes, dont aucune n'apprend à migrer. La sonde
+      // était donc verte par construction, dans les trois répétitions du 17/09,
+      // y compris celle qui a effacé la base. Une observation toujours verte
+      // n'observe rien, et c'est elle qui a fait chercher la cause ailleurs.
       sondeLecture(
         "a lu ce que le framework dit des migrations",
-        /migrations?\.md|migrate-schema|AGENTS\.md/iu,
+        /migrations?\.md|migrate-schema/iu,
       ),
+      sondeSkillMigrations(),
       {
         // OBSERVÉE, pas jugée : le verdict porte sur l'état de la base, pas sur
         // le chemin pris. Un agent qui obtiendrait le même résultat autrement
@@ -4245,10 +4272,13 @@ export const TASKS = [
       "être vidée ni recréée, et sans qu'aucun compte soit perdu — et les connexions par " +
       "ce fournisseur doivent continuer de retrouver leur compte. Prouve-le.",
     probes: [
+      // Même retrait qu'en tâche 33 : `AGENTS.md` est lu d'office et ne porte
+      // rien sur le sujet — il rendait cette observation verte sans information.
       sondeLecture(
         "a lu ce que le framework dit de l'utilisateur ou des migrations",
-        /AGENTS\.md|migrations?\.md|migrate-schema|user\/docs|entity\/User\.ts/iu,
+        /migrations?\.md|migrate-schema|user\/docs|entity\/User\.ts/iu,
       ),
+      sondeSkillMigrations(),
       {
         // LA sonde du trou. Le fichier d'entité PORTE le geste dans son
         // en-tête — « Ne modifie pas ce fichier à la main : relance la commande
@@ -5280,6 +5310,63 @@ function sauverIgnoresInitiaux(app, runDir) {
 }
 
 /**
+ * Les mémoires que l'agent a écrites HORS du décor, pour CE run.
+ *
+ * 🔴 Le quatrième canal de contamination, et le seul qui ne vive pas dans
+ * l'application. Un agent tient un dossier de mémoire indexé par le chemin du
+ * projet — `~/.claude/projects/<chemin encodé>/memory/` — qui survit à
+ * `git clean`, à `npm prune` et à la suppression du décor lui-même. Les
+ * répétitions d'une même tâche partagent donc un cahier.
+ *
+ * Mesuré le 17/09 sur la tâche 33 : la répétition 1 y laisse un
+ * `article_slug_migration.md` intitulé « ✅ **FAIT** — migration appliquée avec
+ * succès, 5 articles, 0 perte » ; la répétition 3 le relit **dix fois**, dès son
+ * troisième tour, et part travailler sur un énoncé qu'on lui présente comme déjà
+ * résolu. Le banc annonçait pourtant « aucun héritage ». L'unanimité sur trois
+ * runs ne vaut rien tant que les trois lisent le même cahier.
+ *
+ * **La borne est l'identité du run, pas une convention d'encodage.** On ne
+ * dérive pas le nom du dossier — l'encodage appartient à l'agent et changerait
+ * sans prévenir. On retient les entrées dont le nom CONTIENT le répertoire du
+ * run (un horodatage à la seconde, unique), et l'on ne supprime que leur
+ * sous-dossier `memory`. Une suppression qui ne peut désigner que ce que ce
+ * run a créé.
+ *
+ * @param {string} runDir - le répertoire du run ; son nom horodaté est la borne.
+ * @param {{racine: string, lister: (d: string) => string[], existe: (p: string) => boolean}} io
+ * @returns {string[]} les dossiers `memory` à supprimer — vide si rien ne correspond.
+ */
+export function memoiresAgentDuRun(runDir, io) {
+  const marque = path.basename(runDir);
+  // Une borne vide désignerait TOUS les projets : ne rien rendre est la seule
+  // réponse sûre. Le cas n'arrive pas en exploitation ; il arrive en test.
+  if (!marque) {
+    return [];
+  }
+  if (!io.existe(io.racine)) {
+    return [];
+  }
+  return io
+    .lister(io.racine)
+    .filter((nom) => nom.includes(marque))
+    .map((nom) => path.join(io.racine, nom, "memory"))
+    .filter((p) => io.existe(p));
+}
+
+/** Les accès disque de `memoiresAgentDuRun` — l'injection sert son auto-contrôle. */
+const IO_MEMOIRES_AGENT = {
+  racine: path.join(os.homedir(), ".claude", "projects"),
+  lister: (d) => {
+    try {
+      return readdirSync(d);
+    } catch {
+      return [];
+    }
+  },
+  existe: (p) => existsSync(p),
+};
+
+/**
  * Rend le décor à son état de départ, entre deux tâches.
  *
  * Le banc déroulait toutes les tâches dans UNE application, chacune héritant de
@@ -5434,9 +5521,18 @@ export function reinitialiserDecor(app, runDir, id) {
         `${expliquerEchec(bati.stderr ?? "", bati.stdout ?? "")}`,
     );
   }
+  // 4. Le cahier que l'agent tient HORS du décor — sinon « aucun héritage »
+  //    est faux, et il l'était.
+  const cahiers = memoiresAgentDuRun(runDir, IO_MEMOIRES_AGENT);
+  for (const cahier of cahiers) {
+    rmSync(cahier, { recursive: true, force: true });
+  }
   console.log(
     "  · décor remis à zéro (aucun héritage de la tâche précédente)" +
-      (bati.status === 0 ? ", application reconstruite" : ""),
+      (bati.status === 0 ? ", application reconstruite" : "") +
+      (cahiers.length
+        ? `, ${cahiers.length} cahier(s) de mémoire d'agent purgé(s)`
+        : ""),
   );
 }
 
