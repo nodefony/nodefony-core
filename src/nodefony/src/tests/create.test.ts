@@ -1023,7 +1023,23 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const gitlab = readFileSync(path.join(dest, ".gitlab-ci.yml"), "utf8");
       assert.include(gitlab, "npm run verify");
       assert.include(gitlab, "npm run test:e2e");
-      assert.notInclude(gitlab, "services:");
+      // 🔴 « aucun service » visait le service de BASE DE DONNÉES, et l'écrire
+      // sur le fichier ENTIER interdisait tout autre service — le démon docker
+      // du contrôle d'image en est un, et légitime. L'assertion nomme donc les
+      // moteurs, qui sont ce qu'elle voulait vraiment dire.
+      for (const moteur of ["postgres", "mariadb", "mysql"]) {
+        assert.notInclude(gitlab, moteur);
+      }
+      // Le contrôle d'image côté GitLab : un job SÉPARÉ, parce que construire
+      // une image demande un démon que le conteneur de `verify` n'a pas.
+      // 🔴 Et `node:24`, jamais `docker:28` : les dépôts Alpine de cette
+      // dernière ne servent que Node 22/23, et le framework meurt alors sur une
+      // syntaxe qu'ils ne connaissent pas. Mesuré, les deux versions.
+      assert.include(gitlab, "image-check:");
+      assert.match(gitlab, /image-check:[\s\S]*?\n {2}image: node:24\n/u);
+      assert.include(gitlab, "docker:28-dind");
+      assert.include(gitlab, "docker build -t cisqlite:ci .");
+      assert.include(gitlab, "npx nodefony image:check cisqlite:ci");
       assertNoEtaResidue(dest);
     });
 
