@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T16:33:21.189Z",
+  "generatedAt": "2026-09-18T17:28:18.278Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 118,
+      "closed": 120,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 8,
+      "open": 6,
       "title": "10.0.0-alpha"
     },
     {
@@ -3686,8 +3686,8 @@
       "number": 316,
       "title": "feat(scaffold): rendre l'application générée déployable en production",
       "url": "https://github.com/nodefony/nodefony-core/issues/316",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3731,22 +3731,6 @@
       ]
     },
     {
-      "number": 321,
-      "title": "feat(scaffold): rendre l'application déployable en Kubernetes",
-      "url": "https://github.com/nodefony/nodefony-core/issues/321",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 9.92,
-      "debut": "2026-09-25",
-      "cible": "2026-09-25",
-      "labels": [
-        "10.0.0-alpha"
-      ]
-    },
-    {
       "number": 361,
       "title": "docs(cli): retirer d'AGENTS.md ce qu'un skill livré porte déjà",
       "url": "https://github.com/nodefony/nodefony-core/issues/361",
@@ -3774,6 +3758,22 @@
       "ordre": 9.92,
       "debut": null,
       "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 424,
+      "title": "fix(scaffold): compléter le contexte de sécurité du Job de migration",
+      "url": "https://github.com/nodefony/nodefony-core/issues/424",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.92,
+      "debut": "2026-09-18",
+      "cible": "2026-09-18",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -5559,6 +5559,22 @@
       "ordre": 116,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
+      "labels": [
+        "10.1.0"
+      ]
+    },
+    {
+      "number": 321,
+      "title": "feat(scaffold): rendre l'application déployable en Kubernetes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/321",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 116.5,
+      "debut": "2026-09-25",
+      "cible": "2026-09-25",
       "labels": [
         "10.1.0"
       ]
