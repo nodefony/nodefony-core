@@ -9,8 +9,8 @@
 | --- | ---: |
 | PRODUIT — du code livré la porte | 8 |
 | DÉPÔT — un gate ou un script la porte | 32 |
-| CONTEXTE — relue seulement | 81 |
-| INERTE — rien ne la cite | 2 |
+| CONTEXTE — relue seulement | 83 |
+| INERTE — rien ne la cite | 0 |
 
 ## PRODUIT
 
@@ -115,6 +115,8 @@
 - **feedback_redteam_threat_first** — cité dans 2 artefact(s)
 - **feedback_repo_command_is_authority** — cité dans 2 artefact(s)
 - **feedback_rg_no_replace_flag** — cité dans 1 artefact(s)
+- **feedback_scope_wider_than_intended** — cité dans 1 artefact(s)
+- **feedback_script_import_executes** — cité dans 1 artefact(s)
 - **feedback_security_audit_surface_matrix** — cité dans 2 artefact(s)
 - **feedback_security_rfc_rigor** — cité dans 7 artefact(s)
 - **feedback_session_hygiene** — cité dans 2 artefact(s)
@@ -144,5 +146,3 @@
 
 ## INERTE
 
-- **feedback_scope_wider_than_intended** — cité dans 0 artefact(s)
-- **feedback_script_import_executes** — cité dans 0 artefact(s)
