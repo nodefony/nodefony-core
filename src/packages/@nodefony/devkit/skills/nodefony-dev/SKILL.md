@@ -26,16 +26,20 @@ metadata:
 > des cas. Ce qui doit atteindre un agent s'EXÉCUTE ou vit dans ce corps ; ce qu'on déporterait
 > « pour alléger » n'atteindrait plus personne.
 
-## Passer la main — à lire avant tout le reste
+## Passer la main — TON PREMIER GESTE
 
-🔴 **Cette table est en tête parce qu'un agent ne lit pas toujours jusqu'au bout.** Mesurée au
-banc : placée en avant-dernière section, elle a été manquée par un agent qui avait arrêté sa
-lecture à la ligne 200 — il n'a jamais su qu'un skill portait sa réponse, a cherché la base de
-l'application au mauvais endroit, et a fini par l'effacer. Celui qui l'a lue a chargé le skill et
-réussi. Une orientation qu'on ne rencontre qu'en fin de page n'oriente personne.
+🔴 **Ta tâche est dans cette table ? CHARGE ce skill MAINTENANT, avant d'écrire une ligne, avant
+même d'ouvrir un fichier.** Ce n'est pas un conseil de lecture : c'est le premier geste de la
+tâche. Reviens ici ensuite si tu en as encore besoin.
 
-Ces skills sont installés avec le framework et se chargent par leur nom. Les prendre coûte moins
-que de chercher : chacun porte les pièges de son geste, et ceux-là ne se devinent pas.
+**Ce que coûte de ne pas le faire, mesuré au banc, six exécutions :** chaque agent qui a chargé le
+skill de sa tâche a réussi ; **chacun de ceux qui ne l'ont pas chargé a échoué** — l'un en
+cherchant la base de l'application au mauvais endroit puis en l'effaçant, l'autre en écrivant une
+migration qu'il n'a jamais appliquée. Aucun ne manquait d'information : la table était sous leurs
+yeux. Ils ont simplement continué sans elle.
+
+Ces skills sont installés avec le framework et se chargent par leur nom. Chacun porte les pièges
+de son geste, et ceux-là ne se devinent pas — ils se paient.
 
 | Ce que tu t'apprêtes à faire                                         | Le skill                        |
 | -------------------------------------------------------------------- | ------------------------------- |
@@ -46,8 +50,8 @@ que de chercher : chacun porte les pièges de son geste, et ceux-là ne se devin
 | Changer une entité déjà en base, ou déployer un schéma changé        | `nodefony-migrate-schema`       |
 | Conclure quoi que ce soit d'un ÉCRAN — affichage, contraste, console | `nodefony-browser`              |
 
-Prendre le spécialiste DIRECTEMENT est le bon geste quand ta tâche est exactement la sienne : il
-n'y a pas à passer par ici d'abord.
+Aucune ligne ne correspond ? Alors seulement, continue ici. Et si ta tâche est EXACTEMENT celle
+d'un spécialiste, va droit à lui : il n'y a pas à passer par cette page d'abord.
 
 `ls .agents/skills/` liste ceux que TON projet a reçus ; `npx nodefony ai:sync` les remet à jour
 après une montée de version. Ce sont des **pointeurs** : le contenu vit dans `node_modules` et

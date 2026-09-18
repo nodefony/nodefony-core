@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-18
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 | --- | --- |
 | Version | `1.1.0` |
 | Famille | Autres |
-| Corps | 252 lignes |
-| Coût d'activation | ~4 363 tokens (le corps est chargé à l'invocation) |
+| Corps | 256 lignes |
+| Coût d'activation | ~4 419 tokens (le corps est chargé à l'invocation) |
 | Description | 1018 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 0 page(s) |
@@ -53,7 +53,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 
 ## Ce que contient le corps
 
-- Passer la main — à lire avant tout le reste
+- Passer la main — TON PREMIER GESTE
 - 1. La règle qui gouverne tout
 - 2. Trouver la référence — ce que `rg` ne peut pas voir
 - 3. Conduire une tâche — la séquence, et ses points d'arrêt
@@ -91,7 +91,7 @@ script, donc toujours à jour après régénération.
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 252 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 256 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
