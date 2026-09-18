@@ -57,11 +57,13 @@ dès que ces deux dossiers sont montés.
 | `VCS_REF`    | `""`      | Étiquette OCI `image.revision` — le commit |
 | `BUILD_DATE` | `""`      | Étiquette OCI `image.created`              |
 
+Les trois valeurs se relèvent d'abord — `git describe --tags --always` pour l'étiquette,
+`git rev-parse --short HEAD` pour la révision, et l'horodatage UTC au format ISO 8601 — puis se
+recopient dans la commande. Les poser ainsi plutôt que par substitution garde la ligne exécutable
+sous `cmd.exe` et PowerShell autant que sous un shell POSIX.
+
 ```bash
-docker build -t <app>:$(git describe --tags --always) \
-  --build-arg VERSION="$(node -p 'require("./package.json").version')" \
-  --build-arg VCS_REF="$(git rev-parse --short HEAD)" \
-  --build-arg BUILD_DATE="$(date -u +%Y-%m-%dT%H:%M:%SZ)" .
+docker build -t <app>:<version> --build-arg VERSION=<version> --build-arg VCS_REF=<sha-court> --build-arg BUILD_DATE=<date-iso-8601-utc> .
 ```
 
 Sans eux l'image se construit quand même — avec des étiquettes vides. Une image de production sans

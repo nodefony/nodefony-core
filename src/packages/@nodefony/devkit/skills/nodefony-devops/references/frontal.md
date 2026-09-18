@@ -44,7 +44,8 @@ NF__HTTP__TRUSTPROXY: uniquelocal # le frontal est sur un réseau privé
 regarde pas le bon endroit :
 
 ```bash
-curl -ksSI https://<hôte>/ | grep -i '^set-cookie'     # doit porter un cookie préfixé __Host-
+curl -ksSI https://<hôte>/
+# dans les en-têtes rendus, un Set-Cookie doit porter le préfixe __Host-
 ```
 
 Puis **débranche-le** : retire la variable, redéploie, refais la requête. Le cookie doit tomber. Un
