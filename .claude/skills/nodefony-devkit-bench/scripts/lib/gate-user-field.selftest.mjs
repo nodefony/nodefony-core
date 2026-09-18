@@ -71,15 +71,44 @@ const cas = [
     // sans valeur par défaut SQL. Tout est vert — colonne posée, comptes
     // intacts, état à jour — et plus aucun compte ne peut naître, ni au semis
     // d'un administrateur ni à une première connexion externe.
+    // La cause n'est nommée que si elle est ÉTABLIE : la colonne refuse
+    // l'absence, et c'est la base migrée qui le dit (PRAGMA table_info).
     nom: "champ obligatoire sans defaut SQL",
     attendu: "creation-impossible",
-    faits: { ...PARFAIT, creation: 500 },
+    faits: { ...PARFAIT, creation: 500, colonneExigee: true },
+    detailContient: "notNull",
   },
   {
-    // Le même défaut vu par l'autre bout : la validation refuse la création.
-    nom: "creation refusee par la validation",
-    attendu: "creation-impossible",
-    faits: { ...PARFAIT, creation: 422 },
+    // 🔴 Le cas qui a coûté une enquête : la création échoue, et la colonne
+    // ACCEPTE l'absence. Accuser le champ ajouté serait faux — mesuré deux
+    // répétitions de suite sur une colonne nullable. Le juge dit ce qu'il a
+    // vu, et renvoie au transcript.
+    nom: "creation refusee alors que la colonne accepte le vide",
+    attendu: "creation-refusee",
+    faits: { ...PARFAIT, creation: 500, colonneExigee: false },
+    detailContient: "AILLEURS",
+  },
+  {
+    // Rien n'a pu être examiné : on ne nomme aucune cause plutôt que d'en
+    // inventer une. Un motif plausible et faux est pire qu'un motif absent.
+    nom: "creation refusee, colonne non examinee",
+    attendu: "creation-refusee",
+    faits: { ...PARFAIT, creation: 422, colonneExigee: null },
+    detailContient: "aucune cause n'est établie",
+  },
+  {
+    // 🔴 L'ORDRE est le correctif : des migrations en attente font échouer la
+    // création SANS que le champ y soit pour rien. Le verdict doit être celui
+    // de l'état, opposable, et non un « creation-impossible » qui ne l'est pas.
+    nom: "migrations en attente ET creation en echec",
+    attendu: "etat-non-a-jour",
+    faits: {
+      ...PARFAIT,
+      creation: 500,
+      colonneExigee: true,
+      statusCode: 1,
+      statusVerdict: "en attente",
+    },
   },
   {
     // Le champ est dans le code, la base ne l'a pas : le produit le dit lui-même

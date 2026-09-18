@@ -92,6 +92,7 @@ export const CAUSES = {
   "colonne-non-deployable": 8,
   "non-idempotent": 9,
   "migration-injouable": 10,
+  "creation-refusee": 11,
 };
 
 /**
@@ -108,6 +109,7 @@ export const CAUSES = {
  *
  * @param {{ancienPresent: boolean, comptesExternes: number, creation: number|string,
  *   statusCode: number, statusVerdict?: string, colonneDeployee: boolean|null,
+ *   colonneExigee: boolean|null,
  *   applique: number}} faits
  * @returns {{cause: string, code: number, detail: string}}
  */
@@ -119,6 +121,7 @@ export function judge(faits) {
     statusCode,
     statusVerdict,
     colonneDeployee,
+    colonneExigee,
     applique,
   } = faits;
 
@@ -150,19 +153,6 @@ export function judge(faits) {
         "et chaque connexion en créera un de plus — sans jamais lever d'erreur",
     };
   }
-  // 🔴 Le piège de cette tâche : la base a suivi, et plus personne ne peut
-  // naître. Une colonne obligatoire sans défaut SQL est invisible partout
-  // ailleurs — le schéma est juste, les comptes sont là, l'état est à jour.
-  if (creation !== 201 && creation !== 200) {
-    return {
-      cause: "creation-impossible",
-      code: CAUSES["creation-impossible"],
-      detail:
-        `créer un compte répond ${creation} : le framework crée des utilisateurs ` +
-        "sans connaître le champ ajouté (semis, première connexion externe), donc " +
-        "un champ obligatoire SANS valeur par défaut SQL les rend impossibles",
-    };
-  }
   if (statusCode !== 0) {
     const lu =
       typeof statusVerdict === "string" && statusVerdict.length > 0
@@ -172,6 +162,37 @@ export function judge(faits) {
       cause: "etat-non-a-jour",
       code: CAUSES["etat-non-a-jour"],
       detail: `orm:migrate:status rend ${statusCode}${lu}`,
+    };
+  }
+  // 🔴 Le piège de cette tâche : la base a suivi, et plus personne ne peut
+  // naître. Mais il ne se DÉDUIT pas d'un code de retour — la cause s'établit,
+  // ou ne se nomme pas. Mesuré : le juge a accusé « champ obligatoire sans
+  // défaut » deux répétitions de suite sur une colonne NULLABLE, et ce faux
+  // motif a coûté une enquête entière pour aboutir à un démenti. Le contrôle
+  // d'état passe AVANT, parce que des migrations en attente font échouer la
+  // création sans que le champ y soit pour rien.
+  if (creation !== 201 && creation !== 200) {
+    if (colonneExigee === true) {
+      return {
+        cause: "creation-impossible",
+        code: CAUSES["creation-impossible"],
+        detail:
+          `créer un compte répond ${creation}, et « ${TABLE_USER}.${CHAMP_DEMANDE} » ` +
+          "refuse l'absence (notNull sans défaut SQL) : le framework crée des " +
+          "utilisateurs sans connaître le champ ajouté (semis, première connexion " +
+          "externe), donc plus aucun compte ne peut naître",
+      };
+    }
+    return {
+      cause: "creation-refusee",
+      code: CAUSES["creation-refusee"],
+      detail:
+        `créer un compte répond ${creation}. La colonne ` +
+        `« ${TABLE_USER}.${CHAMP_DEMANDE} » ` +
+        (colonneExigee === false
+          ? "accepte pourtant l'absence : la cause est AILLEURS que dans le champ ajouté"
+          : "n'a pas pu être examinée : aucune cause n'est établie") +
+        " — instruire le transcript plutôt que supposer",
     };
   }
   if (colonneDeployee === null) {
@@ -280,17 +301,29 @@ function colonneDansUneBaseVierge() {
     if (migration.code !== 0) {
       return {
         deployee: null,
+        exigee: null,
         detail: migration.sortie.slice(-400).replace(/\s+/gu, " ").trim(),
       };
     }
     const base = new DatabaseSync(fichier, { readOnly: true });
     try {
-      const colonnes = base
-        .prepare(`PRAGMA table_info("${TABLE_USER}")`)
-        .all()
-        .map((c) => String(c.name));
+      const lignes = base.prepare(`PRAGMA table_info("${TABLE_USER}")`).all();
+      const colonnes = lignes.map((c) => String(c.name));
+      // 🔴 La PREUVE du mécanisme, et non sa supposition. Une colonne qui
+      // refuse l'absence — `notNull` sans défaut — est la seule qui puisse
+      // rendre impossible une création faite par le framework, qui ne connaît
+      // pas le champ ajouté. Sans ce constat, le juge accusait ce mécanisme
+      // sur le seul code de retour : mesuré, il l'a fait deux répétitions de
+      // suite sur une colonne NULLABLE, et l'instruction a coûté une enquête
+      // pour aboutir à un démenti.
+      const ligne = lignes.find((c) => String(c.name) === CHAMP_DEMANDE);
+      const exigee =
+        ligne === undefined
+          ? null
+          : Number(ligne.notnull) === 1 && ligne.dflt_value === null;
       return {
         deployee: colonnes.includes(CHAMP_DEMANDE),
+        exigee,
         detail: colonnes.join(", "),
       };
     } finally {
@@ -299,6 +332,7 @@ function colonneDansUneBaseVierge() {
   } catch (e) {
     return {
       deployee: null,
+      exigee: null,
       detail: `lecture de la base vierge impossible : ${String(e)}`,
     };
   } finally {
@@ -450,6 +484,7 @@ async function principal() {
     statusCode: status.code,
     statusVerdict,
     colonneDeployee: vierge.deployee,
+    colonneExigee: vierge.exigee ?? null,
     applique,
   });
 
