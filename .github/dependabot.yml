@@ -10,6 +10,29 @@
 # risque de rupture applicative (une PR groupée suffit) ; les paquets npm sont
 # ~1 500 et une montée majeure y est une décision d'architecture, pas une mise
 # à jour.
+#
+# ─── 🔴 CE FICHIER NE GOUVERNE PAS TOUT — les ALERTES lui échappent ──────────
+#
+# Dependabot a DEUX régimes, et un seul lit ce fichier :
+#
+#   • les montées de VERSION — pilotées ici : `target-branch`, `schedule`,
+#     `groups`, `cooldown`, `ignore` s'appliquent ;
+#   • les montées de SÉCURITÉ — déclenchées par une alerte, et elles IGNORENT
+#     `target-branch`, le calendrier, les groupes et le délai de décantation.
+#     Elles visent TOUJOURS la branche par défaut du dépôt, donc `main`.
+#
+# Une pull request de sécurité arrive donc contre `main` quoi qu'on écrive ici,
+# et la fusionner ferait avancer `main` HORS RELEASE en laissant le correctif
+# absent de `dev`. Le signe qui la distingue en un coup d'œil : son groupe
+# s'appelle `npm_and_yarn`, qui n'est AUCUN des groupes déclarés plus bas.
+#
+# La conduite : fermer la pull request, appliquer la montée sur `dev`
+# (`npm update <paquet>`), et vérifier que l'alerte se referme. Vécu sur
+# `devalue` — transitive via `svelte`, dans le seul module de test Svelte.
+#
+# Ce qui l'éviterait vraiment est un ARBITRAGE, pas un réglage : faire de `dev`
+# la branche par DÉFAUT du dépôt. Tant que `main` l'est, ce cas se reproduira à
+# chaque alerte — il est connu, il n'est pas corrigeable ici.
 
 version: 2
 updates:
