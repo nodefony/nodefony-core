@@ -612,6 +612,19 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
 
 ## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
 
+- [1× — 09-18c] 🔴 **`engines` ne dit PAS ce que le code exige — et l'écart ne se voit qu'à
+  l'exécution, sur une machine qui n'est pas la mienne.** Le cœur importait `randomUUIDv7` de
+  `node:crypto` par un import NOMMÉ, alors que cette API n'arrive qu'en **Node 24.16.0** et que le
+  paquet déclare `>=24.0.0`. Aucun gate du dépôt ne pouvait le voir : tout tourne ici en Node
+  récent, npm est content, l'image se construit. Il a fallu **bâtir et DÉMARRER** l'image d'une
+  application générée sur une base dont le Node était en 24.14 pour que ça tombe — et c'est un banc
+  ouvert pour tout autre chose (le choix de l'image) qui l'a trouvé. La version d'apparition s'est
+  MESURÉE sur six images (`undefined` jusqu'à 24.14, `function` à partir de 24.16), jamais déduite
+  d'un changelog. Corollaire qui vaut au-delà du cas : **un `if` ne peut rien rattraper derrière un
+  import nommé** (résolu à l'instanciation du module) — il faut le namespace ; et un `await import`
+  au niveau du module rendrait asynchrone tout ce qui l'importe.
+  Voisins gradués : [[feedback_prove_on_received_artifact]], [[feedback_capability_unreachable_is_absent]].
+
 - [1× — 09-18c] 🔴 **Un barrel ré-exporte dans le SOURCE et n'exporte RIEN dans le dist :
   le bundler élague ce que la surface publique du paquet ne consomme pas.** En câblant les
   scripts du dépôt sur le produit (`image-gate.mjs` → `dist/node/cli/image/index.js`), l'import

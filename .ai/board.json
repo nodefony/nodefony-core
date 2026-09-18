@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T11:10:55.108Z",
+  "generatedAt": "2026-09-18T11:54:01.681Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 115,
+      "closed": 116,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 9,
@@ -42,7 +42,7 @@
       "closed": 13,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1951,6 +1951,22 @@
       ]
     },
     {
+      "number": 420,
+      "title": "build(docker): choisir la base de l'image sur des mesures, pas par habitude",
+      "url": "https://github.com/nodefony/nodefony-core/issues/420",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.75,
+      "debut": "2026-10-21",
+      "cible": "2026-10-21",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 20,
       "title": "test(security): attaquer les paquets publiés avant leur sortie",
       "url": "https://github.com/nodefony/nodefony-core/issues/20",
@@ -3020,6 +3036,22 @@
       "ordre": 8.5,
       "debut": "2026-09-18",
       "cible": "2026-09-18",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 419,
+      "title": "fix(core): ne plus exiger une API de node:crypto absente du plancher déclaré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/419",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 8.5,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
