@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 835,
-    "symbols": 4101,
+    "symbols": 4104,
     "classes": 392,
     "interfaces": 1097,
     "types": 451,
     "enums": 4,
-    "functions": 1749,
+    "functions": 1752,
     "constants": 408
   },
   "symbols": {
@@ -22319,6 +22319,22 @@
       "module": "@nodefony/drizzle",
       "description": "Ce qu'une migration s'apprête à DÉTRUIRE — constaté avant d'appliquer. ## Pourquoi ce garde existe, alors qu'aucun outil de migration n'en a La question posée était : « faut-il sauvegarder la base …"
     },
+    "rebuiltTables": {
+      "name": "rebuiltTables",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Les tables qu'une migration RECONSTRUIT, par la ronde que SQLite impose. 🔴 **La convention de nommage n'est PAS la règle.** La version précédente cherchait le préfixe `__new_` que produit l'outil …"
+    },
+    "droppedTables": {
+      "name": "droppedTables",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Les tables qu'un SQL SUPPRIME, dans l'ordre où il les nomme. Exportée pour que l'audit de génération et celui d'application lisent la MÊME chose : deux extractions écrites séparément divergeraient,…"
+    },
     "scanDestructive": {
       "name": "scanDestructive",
       "kind": "function",
@@ -37011,6 +37027,12 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "introspectFailed": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
+      "droppedTables": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
+      "rebuiltTables": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "knownConnectors": [

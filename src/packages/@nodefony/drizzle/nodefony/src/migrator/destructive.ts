@@ -145,26 +145,124 @@ const PATTERNS: ReadonlyArray<{
 ];
 
 /**
- * Reconnaît la recréation de table de SQLite, et l'exclut de la perte de données.
+ * Le SQL d'une migration, qu'on le reçoive découpé ou d'un bloc.
  *
- * SQLite ne sait pas modifier une colonne : l'outil de génération produit alors
- * la ronde connue — créer `__new_x`, y recopier les lignes de `x`, supprimer
- * `x`, renommer. Ce `DROP TABLE` est **structurel**, les données ont été
- * recopiées juste avant ; le signaler comme une perte ferait crier au loup à
- * chaque changement de colonne, et le garde serait désarmé au bout de trois
- * fois.
- *
- * ⚠️ Ce n'est pas une garantie que rien n'est perdu : si une colonne
- * n'apparaît pas dans le `INSERT … SELECT`, ses données disparaissent bel et
- * bien. C'est pourquoi la recréation reste SIGNALÉE, avec le geste — lire le
- * SQL —, et seulement déclassée en avertissement.
+ * Les deux formes existent pour de bon : l'audit d'APPLICATION travaille sur
+ * les instructions déjà séparées, celui de GÉNÉRATION sur le fichier entier.
  */
-function isTableRebuild(statements: readonly string[]): boolean {
-  const joint = statements.join("\n");
-  return (
-    /\bCREATE\s+TABLE\s+[`"']?__new_/i.test(joint) &&
-    /\bINSERT\s+INTO\s+[`"']?__new_/i.test(joint)
+function asSql(sql: readonly string[] | string): string {
+  return typeof sql === "string" ? sql : sql.join("\n");
+}
+
+/** Un nom de table tel qu'il s'écrit en SQL, guillemets facultatifs. */
+const IDENT = "[`\"']?(\\w+)[`\"']?";
+
+/**
+ * Les tables qu'une migration RECONSTRUIT, par la ronde que SQLite impose.
+ *
+ * 🔴 **La convention de nommage n'est PAS la règle.** La version précédente
+ * cherchait le préfixe `__new_` que produit l'outil de génération : elle ne
+ * reconnaissait donc une reconstruction que si c'est LUI qui l'avait écrite.
+ * Une migration reprise à la main — cas courant, et mesuré sur un agent réel
+ * qui avait nommé sa table d'étape `articles_new` — retombait sur
+ * « supprime une table et TOUTES ses lignes », sur un SQL qui ne perd rien.
+ *
+ * Ce qui fait une reconstruction, c'est la RONDE, quels que soient les noms :
+ * une table d'étape est créée, les lignes de la table visée y sont recopiées,
+ * la visée est supprimée, et l'étape prend sa place. Les quatre doivent être
+ * présentes dans le même fichier, et se RÉPONDRE — c'est le renommage final
+ * qui dit quelle table d'étape appartient à quelle table visée.
+ *
+ * ⚠️ Ce n'est pas une garantie que rien n'est perdu : si une colonne n'apparaît
+ * pas dans le `INSERT … SELECT`, ses données disparaissent bel et bien. La
+ * reconstruction reste donc SIGNALÉE, avec le geste — lire le SQL —, et
+ * seulement déclassée en avertissement.
+ *
+ * @param sql - les instructions de la migration, ou le fichier entier.
+ * @returns les tables reconstruites, en minuscules ; vide s'il n'y en a aucune.
+ */
+export function rebuiltTables(
+  sql: readonly string[] | string,
+): ReadonlySet<string> {
+  const joint = asSql(sql);
+  const out = new Set<string>();
+  const renames = joint.matchAll(
+    new RegExp(
+      `\\bALTER\\s+TABLE\\s+${IDENT}\\s+RENAME\\s+TO\\s+${IDENT}`,
+      "gi",
+    ),
   );
+  for (const rename of renames) {
+    const staging = rename[1];
+    const target = rename[2];
+    if (staging === undefined || target === undefined) {
+      continue;
+    }
+    // Les trois autres temps de la ronde, chacun rattaché aux MÊMES noms.
+    // La recopie est bornée : un `[\\s\\S]*` non borné traverserait un fichier
+    // entier et rapprocherait deux instructions sans rapport.
+    const created = new RegExp(
+      `\\bCREATE\\s+TABLE\\s+(?:IF\\s+NOT\\s+EXISTS\\s+)?[\`"']?${staging}[\`"']?\\b`,
+      "i",
+    );
+    const copied = new RegExp(
+      `\\bINSERT\\s+INTO\\s+[\`"']?${staging}[\`"']?[\\s\\S]{0,4000}?\\bFROM\\s+[\`"']?${target}[\`"']?\\b`,
+      "i",
+    );
+    const dropped = new RegExp(
+      `\\bDROP\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?[\`"']?${target}[\`"']?\\b`,
+      "i",
+    );
+    if (created.test(joint) && copied.test(joint) && dropped.test(joint)) {
+      out.add(target.toLowerCase());
+    }
+  }
+  return out;
+}
+
+/**
+ * Les tables qu'un SQL SUPPRIME, dans l'ordre où il les nomme.
+ *
+ * Exportée pour que l'audit de génération et celui d'application lisent la
+ * MÊME chose : deux extractions écrites séparément divergeraient, et l'une des
+ * deux surfaces se mettrait à refuser ce que l'autre laisse passer.
+ *
+ * @param sql - les instructions de la migration, ou le fichier entier.
+ * @returns les noms supprimés, en minuscules.
+ */
+export function droppedTables(sql: readonly string[] | string): string[] {
+  const found = asSql(sql).matchAll(
+    new RegExp(`\\bDROP\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?${IDENT}`, "gi"),
+  );
+  return [...found]
+    .map((m) => m[1])
+    .filter((n): n is string => n !== undefined)
+    .map((n) => n.toLowerCase());
+}
+
+/**
+ * L'instruction fait-elle partie de la mécanique d'une reconstruction ?
+ *
+ * Le verdict porte sur la table que CETTE instruction touche, jamais sur le
+ * fichier entier : une migration qui reconstruit `articles` et supprime
+ * `brouillons` doit continuer de signaler la seconde.
+ */
+function isRebuildMechanics(
+  statement: string,
+  kind: string,
+  rebuilt: ReadonlySet<string>,
+): boolean {
+  if (kind === "drop-table") {
+    return droppedTables(statement).some((name) => rebuilt.has(name));
+  }
+  if (kind === "rename") {
+    const renamed = new RegExp(`\\bRENAME\\s+TO\\s+${IDENT}`, "i").exec(
+      statement,
+    );
+    const target = renamed?.[1];
+    return target !== undefined && rebuilt.has(target.toLowerCase());
+  }
+  return false;
 }
 
 /** Borne une instruction pour l'affichage, sans jamais la déformer. */
@@ -186,7 +284,7 @@ export function scanDestructive(
 ): IDestructiveFinding[] {
   const out: IDestructiveFinding[] = [];
   for (const file of files) {
-    const rebuild = isTableRebuild(file.statements);
+    const rebuilt = rebuiltTables(file.statements);
     for (const statement of file.statements) {
       for (const p of PATTERNS) {
         if (!p.re.test(statement)) {
@@ -194,8 +292,7 @@ export function scanDestructive(
         }
         // Dans une recréation SQLite, la suppression de l'ancienne table et le
         // renommage de la nouvelle font partie de la mécanique.
-        const structurel =
-          rebuild && (p.kind === "drop-table" || p.kind === "rename");
+        const structurel = isRebuildMechanics(statement, p.kind, rebuilt);
         out.push({
           source: file.source,
           tag: file.tag,

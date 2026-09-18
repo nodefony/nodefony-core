@@ -68,6 +68,7 @@ interface IAuditPattern extends IAuditRule {
  * refuse — chaque copie restant verte dans ses propres tests.
  */
 export { FORMAT_MARKER } from "./types";
+import { droppedTables, rebuiltTables } from "./destructive";
 import { FORMAT_MARKER } from "./types";
 
 /**
@@ -251,8 +252,28 @@ export function generationHappened(output: string): boolean {
  */
 const DESTRUCTIVE_PATTERNS: readonly IAuditPattern[] = [
   {
+    // 🔴 SQLite ne sait pas modifier une colonne : il RECONSTRUIT la table —
+    // créer une table d'étape, y recopier les lignes, supprimer la visée,
+    // renommer. Ce `DROP TABLE` est structurel, les lignes viennent d'être
+    // recopiées, et le refuser revient à interdire tout changement de colonne
+    // sur sqlite. Pire : le refus tombe au moment précis où quelqu'un fait
+    // évoluer un schéma en place, et il enseigne à passer outre un garde qui,
+    // partout ailleurs, protège vraiment.
+    //
+    // La reconnaissance vit dans `destructive.ts` et elle est APPELÉE, pas
+    // recopiée : cette liste et celle de l'audit d'application décidaient déjà
+    // séparément du même fait, et l'une avait la corrélation quand l'autre ne
+    // l'avait pas — l'utilisateur recevait donc un refus à la génération pour
+    // un SQL que l'application acceptait ensuite sans broncher.
+    //
+    // Le verdict porte sur CHAQUE table supprimée : une migration qui
+    // reconstruit `articles` et supprime `brouillons` reste refusée.
     id: "drop-table",
     pattern: /\bDROP\s+TABLE\b/i,
+    detect: (code) => {
+      const rebuilt = rebuiltTables(code);
+      return droppedTables(code).some((table) => !rebuilt.has(table));
+    },
     what: "supprime une table ET toutes ses lignes",
     todo: "sauvegarder, puis appliquer en deux temps (cf expand/contract)",
   },

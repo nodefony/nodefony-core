@@ -3,6 +3,7 @@ import {
   auditMigrationSql,
   isInteractivePromptFailure,
 } from "../../scripts/drizzleKit";
+import { scanDestructive } from "../../nodefony/src/migrator/destructive";
 
 /**
  * Ce que cette suite protège : la relecture d'une migration AVANT qu'elle entre
@@ -15,6 +16,70 @@ import {
 describe("auditMigrationSql — ce qui détruit, ce qui verrouille", () => {
   const ids = (list: Array<{ id: string }>): string[] =>
     list.map((r) => r.id).sort();
+
+  describe("reconstruction de table sqlite — le DROP y est STRUCTUREL", () => {
+    // La ronde que sqlite impose pour modifier une colonne : créer une table
+    // d'étape, y recopier les lignes, supprimer la visée, renommer. Refuser
+    // cela revient à interdire tout changement de colonne sur sqlite — et le
+    // refus tombe au moment précis où quelqu'un fait évoluer un schéma en
+    // place, ce qui enseigne à passer outre un garde qui protège ailleurs.
+    const ronde = (etape: string, visee: string): string =>
+      [
+        `CREATE TABLE \`${etape}\` (\`id\` text PRIMARY KEY NOT NULL, \`slug\` text NOT NULL);`,
+        `INSERT INTO \`${etape}\`(\`id\`, \`slug\`) SELECT \`id\`, \`slug\` FROM \`${visee}\`;`,
+        `DROP TABLE \`${visee}\`;`,
+        `ALTER TABLE \`${etape}\` RENAME TO \`${visee}\`;`,
+      ].join("\n");
+
+    it("la ronde écrite par l'outil de génération ne se fait plus refuser", () => {
+      const a = auditMigrationSql(ronde("__new_billets", "billets"), "sqlite");
+      assert.deepEqual(ids(a.destructive), []);
+    });
+
+    it("la MÊME ronde nommée autrement non plus — la convention n'est pas la règle", () => {
+      // Mesuré le 17/09 sur un agent réel : il avait repris la migration à la
+      // main et nommé sa table d'étape `articles_new`. L'ancienne règle ne
+      // reconnaissait que le préfixe de l'outil, et criait à la perte de
+      // données sur un SQL qui ne perd rien.
+      const a = auditMigrationSql(ronde("articles_new", "articles"), "sqlite");
+      assert.deepEqual(ids(a.destructive), []);
+    });
+
+    it("une ronde INCOMPLÈTE reste un DROP — sans recopie, les lignes partent", () => {
+      const sansRecopie = [
+        "CREATE TABLE `articles_new` (`id` text PRIMARY KEY NOT NULL);",
+        "DROP TABLE `articles`;",
+        "ALTER TABLE `articles_new` RENAME TO `articles`;",
+      ].join("\n");
+      assert.deepEqual(
+        ids(auditMigrationSql(sansRecopie, "sqlite").destructive),
+        ["drop-table"],
+      );
+    });
+
+    it("🔴 un vrai DROP à côté d'une reconstruction est TOUJOURS refusé", () => {
+      // Le verdict porte sur CHAQUE table supprimée, jamais sur le fichier :
+      // un dédouanement global rendrait muette toute suppression qui voyage
+      // avec une reconstruction.
+      const melange = `${ronde("__new_billets", "billets")}\nDROP TABLE \`brouillons\`;`;
+      assert.deepEqual(ids(auditMigrationSql(melange, "sqlite").destructive), [
+        "drop-table",
+      ]);
+    });
+
+    it("la recopie doit venir de la table VISÉE, pas d'une autre", () => {
+      const mauvaiseSource = [
+        "CREATE TABLE `articles_new` (`id` text PRIMARY KEY NOT NULL);",
+        "INSERT INTO `articles_new`(`id`) SELECT `id` FROM `autre_table`;",
+        "DROP TABLE `articles`;",
+        "ALTER TABLE `articles_new` RENAME TO `articles`;",
+      ].join("\n");
+      assert.deepEqual(
+        ids(auditMigrationSql(mauvaiseSource, "sqlite").destructive),
+        ["drop-table"],
+      );
+    });
+  });
 
   describe("destructeur — refusé sans consentement explicite", () => {
     it("DROP TABLE : la table et toutes ses lignes", () => {
@@ -264,6 +329,48 @@ describe("les deux portes du SQL destructeur — aucune divergence SILENCIEUSE",
           `divergent, et c'est la plus permissive qui décide`,
       );
     }
+  });
+
+  it("🔴 ce que la GÉNÉRATION dédouane, l'APPLICATION le dédouane aussi", () => {
+    // Le symétrique du cas ci-dessus, et il manquait : la parité n'était gardée
+    // que dans le sens du REFUS. Les deux portes décidaient séparément de ce
+    // qu'est une reconstruction de table — l'une par la ronde, l'autre par un
+    // préfixe de nommage — si bien qu'un même fichier pouvait être refusé à la
+    // génération puis appliqué sans un mot. Elles appellent désormais la MÊME
+    // règle ; ce test est ce qui l'oblige à le rester.
+    const statements = [
+      "CREATE TABLE `articles_new` (`id` text PRIMARY KEY NOT NULL, `slug` text NOT NULL)",
+      "INSERT INTO `articles_new`(`id`, `slug`) SELECT `id`, `slug` FROM `articles`",
+      "DROP TABLE `articles`",
+      "ALTER TABLE `articles_new` RENAME TO `articles`",
+    ];
+
+    const aLaGeneration = auditMigrationSql(statements.join(";\n"), "sqlite");
+    assert.deepEqual(
+      aLaGeneration.destructive.map((r) => r.id),
+      [],
+      "la génération refuse une reconstruction que l'application accepte",
+    );
+
+    const aLApplication = scanDestructive([
+      {
+        source: "app",
+        tag: "0001_slug",
+        idx: 1,
+        hash: "sha256:parite",
+        statements,
+        path: "migrations/sqlite/0001_slug.sql",
+      },
+    ]);
+    assert.equal(
+      aLApplication.filter((f) => f.severity === "data-loss").length,
+      0,
+      "l'application compte une perte là où la génération n'en voit aucune",
+    );
+    assert.ok(
+      aLApplication.some((f) => f.kind === "table-rebuild"),
+      "la reconstruction doit rester SIGNALÉE — déclassée, jamais tue",
+    );
   });
 
   it("🔴 l'asymétrie ASSUMÉE est nommée — le changement de type", () => {
