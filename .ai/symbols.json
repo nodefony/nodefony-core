@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 841,
-    "symbols": 4137,
+    "files": 842,
+    "symbols": 4140,
     "classes": 394,
     "interfaces": 1104,
     "types": 451,
     "enums": 4,
-    "functions": 1775,
+    "functions": 1778,
     "constants": 409
   },
   "symbols": {
@@ -5555,6 +5555,30 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Per-request state propagated transparently across the async pipeline. Set by HttpKernel at request entry (`handleHttp` / `handleWebsocket`) and accessible from any downstream service (logs, ORM, se…"
+    },
+    "composeUuidV7": {
+      "name": "composeUuidV7",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/uuidV7.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose un UUID v7 conforme à la RFC 9562 §5.7. Disposition des 128 bits : 48 bits d'horodatage Unix en millisecondes (gros-boutiste), 4 bits de version (`7`), 12 bits aléatoires, 2 bits de variant…"
+    },
+    "randomUuidV7": {
+      "name": "randomUuidV7",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/uuidV7.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un UUID v7 — natif si ce Node sait le faire, composé ici sinon."
+    },
+    "usesNativeUuidV7": {
+      "name": "usesNativeUuidV7",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/uuidV7.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cette exécution emploie-t-elle l'implémentation de Node ? Exposé pour que le banc puisse le CONSTATER au lieu de le déduire d'un numéro de version — une capacité se constate, elle ne se déduit pas."
     },
     "TimeoutError": {
       "name": "TimeoutError",
@@ -29403,6 +29427,9 @@
       "EventEmitter": [
         "src/nodefony/src/Event.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
+      ],
+      "randomUuidV7": [
+        "src/nodefony/src/Nodefony.ts"
       ],
       "registerPackageInstance": [
         "src/nodefony/src/Nodefony.ts"

@@ -1,6 +1,7 @@
 import type Kernel from "./kernel/Kernel";
 import { version as pkgVersion } from "../package.json";
-import { randomUUID, randomUUIDv7 } from "node:crypto";
+import { randomUUID } from "node:crypto";
+import { randomUuidV7 } from "./runtime/uuidV7";
 import { registerPackageInstance } from "./runtime/packageInstances";
 
 // Inscription de CETTE copie du paquet, à l'évaluation du module — le seul
@@ -84,6 +85,6 @@ export class Nodefony {
    * @returns UUID v7, format `8-4-4-4-12`.
    */
   static generateSortableId(): string {
-    return randomUUIDv7();
+    return randomUuidV7();
   }
 }

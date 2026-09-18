@@ -216,7 +216,19 @@ describe("parité — la règle du dépôt et celle du produit rendent le MÊME 
   it("même sortie sur un corpus qui exerce chaque branche", async () => {
     // Import DYNAMIQUE : le script du dépôt vit hors de la racine de ce paquet,
     // et c'est précisément la frontière que ce test surveille.
-    const depot = await import("../../../../scripts/release/release-core.mjs");
+    // 🔴 Chemin CALCULÉ, et typé à la main. Un spécificateur littéral ferait
+    // résoudre le module par TypeScript, qui refuse un `.mjs` sans déclaration
+    // (TS7016, `any` implicite) — et le dépôt n'écrit pas de `.d.ts` à la main.
+    // Passer par `import.meta.url` dit aussi ce qui est vrai : la cible vit
+    // HORS de ce paquet, c'est précisément la frontière qu'on surveille.
+    const cible = new URL(
+      "../../../../scripts/release/release-core.mjs",
+      import.meta.url,
+    ).href;
+    const depot = (await import(cible)) as {
+      detecterSuspects: (fichiers: string[]) => string[];
+      detecterSuspectsImage: (fichiers: string[]) => string[];
+    };
     expect(depot.detecterSuspectsImage(corpus)).toEqual(
       detectSuspectImageFiles(corpus),
     );
