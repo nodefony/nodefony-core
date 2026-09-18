@@ -58,6 +58,37 @@ node scripts/suivre-run.mjs            # le run le plus récent, gestes décisif
 node scripts/suivre-run.mjs --tout     # sans filtre
 ```
 
+> 🔴 **Le live se lance sur UNE tâche qu'on débogue, JAMAIS sur une campagne.** Il
+> rend un flux : chaque geste de chaque agent, pendant des heures. Branché sur un
+> run de 33 tâches × 3 répétitions, il déverse des milliers de lignes dans le
+> contexte de qui le regarde — pour une matière dont on a déjà dit qu'elle ne rend
+> AUCUN verdict. C'est le coût le plus facile à prendre sans s'en apercevoir :
+> l'outil ne coûte rien à la machine, il coûte au lecteur.
+> Le geste juste : `--task <n>` sur le banc, et le live à côté. Sur une campagne,
+> on lit le RAPPORT, et on n'ouvre le live que si une tâche précise pose question.
+>
+> ⚠️ **Et il ne s'étrangle pas.** `suivre-run.mjs | head -N`, ou un `kill` au bout
+> de quelques secondes, ne rendent RIEN — il suit un fichier, la sortie arrive par
+> à-coups. Conclure de ce silence que « cet agent n'écrit pas de journal » est un
+> faux verdict sur l'outil : le rediriger vers un fichier et lire ce fichier.
+
+**Les deux lecteurs lisent la MÊME matière — ce qui les sépare est le moment et le
+volume, jamais la richesse.** Le croire ferait écrire un troisième lecteur pour
+rien :
+
+| Question                                                      | L'outil                                        |
+| ------------------------------------------------------------- | ---------------------------------------------- |
+| « que fait l'agent **en ce moment** ? » — une tâche, du debug | `suivre-run.mjs`                               |
+| « combien de tours, combien coûté, quels gestes ont échoué ?» | `analyse-transcript.mjs`                       |
+| « quel outil, avec quel argument, dans quel ordre ? »         | `analyse-transcript.mjs --timeline`            |
+| « la tâche est-elle verte ? »                                 | **ni l'un ni l'autre** — `task-<n>.gates.json` |
+
+Ce qu'un appel affiche de lui-même (sa commande, son fichier, **le skill qu'il
+charge**) est choisi par `argSaillant()` dans `scripts/lib/transcript-dialectes.mjs` —
+**une seule fois pour les six grammaires et pour les deux lecteurs**. Une clé qui
+manque là manque partout, et se rattrape en un mot ; la rajouter dans un lecteur
+seul rendrait l'autre aveugle sans que rien ne le dise.
+
 🔴 **Ce n'est PAS la source du verdict**, et les confondre coûterait la mesure : le
 juge lit la sortie capturée, jamais ce journal. On ne conclut donc rien d'ici — on
 INSTRUIT. Ce que ça a déjà rendu : éprouver un motif de sonde contre la matière
