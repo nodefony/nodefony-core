@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T01:19:16.015Z",
+  "generatedAt": "2026-09-18T09:40:44.744Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 10,
+      "closed": 13,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
       "open": 35,
@@ -3507,6 +3507,38 @@
       ]
     },
     {
+      "number": 415,
+      "title": "feat(cli): signaler une base d'un autre moteur que les entités",
+      "url": "https://github.com/nodefony/nodefony-core/issues/415",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.75,
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 416,
+      "title": "feat(cli): signaler les routes sœurs qu'un rôle laisse ouvertes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/416",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.76,
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 352,
       "title": "fix(http): empêcher un frontal de retenir un flux d'événements",
       "url": "https://github.com/nodefony/nodefony-core/issues/352",
@@ -5029,6 +5061,22 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 46.3,
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 417,
+      "title": "fix(devkit-bench): prouver la cause d'une création refusée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/417",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 46.4,
       "debut": "2026-11-17",
       "cible": "2026-11-17",
       "labels": [
