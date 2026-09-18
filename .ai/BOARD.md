@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-17 21:34** (UTC).
+> Empreinte prise le **2026-09-18 01:11** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 90% | 112 | 12 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 19% | 8 | 35 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 91% | 113 | 11 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `██░░░░░░░░` 22% | 10 | 35 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 4 | 30 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -33,9 +33,9 @@
 
 **#388 — chore(release): publier la préversion 10.0.0-alpha.7**
 
-Ordre 9 · P0 — bloque le reste · 5 j · jalon 10.0.0-alpha · frise 2026-09-15 → 09-30
+Ordre 9 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha · frise 2026-09-15 → 09-30
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 12 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 11 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -65,7 +65,6 @@ Ordre 9 · P0 — bloque le reste · 5 j · jalon 10.0.0-alpha · frise 2026-09-
 | 9.31 | P2 — décision | 1 | 2026-10-29 → 10-29 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
 | 9.32 | P2 — décision | 1 | 2026-10-30 → 10-30 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
 | 9.4 | P2 — décision | 1 | 2026-10-30 → 10-30 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
-| 9.5 | P2 — décision | 1 | 2026-11-02 → 11-02 | #176 | fix(orm): ne plus voir une destruction dans une table sqlite reconstruite |
 | 9.55 | P2 — décision | 0.5 | 2026-11-02 → 11-02 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
 | 9.56 | P1 — figé à la création | 0.5 | 2026-11-06 → 11-06 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
 | 9.58 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
@@ -78,6 +77,7 @@ Ordre 9 · P0 — bloque le reste · 5 j · jalon 10.0.0-alpha · frise 2026-09-
 | 32 | P2 — décision | 1 | 2026-11-12 → 11-12 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
 | 46.1 | P1 — figé à la création | 1 | 2026-11-13 → 11-13 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
 | 46.2 | P0 — bloque le reste | 1 | 2026-11-16 → 11-16 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
+| 46.3 | P2 — décision | 0.5 | 2026-11-17 → 11-17 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
 | 48 | P1 — figé à la création | 1 | 2026-11-17 → 11-17 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
 
 ## Jalon outillage-agents — 2 ouverts
@@ -87,12 +87,11 @@ Ordre 9 · P0 — bloque le reste · 5 j · jalon 10.0.0-alpha · frise 2026-09-
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 12 ouverts
+## Jalon 10.0.0-alpha — 11 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 9 | P0 — bloque le reste | 5 | 2026-09-15 → 09-30 | #388 | chore(release): publier la préversion 10.0.0-alpha.7 |
-| 9.7 | P1 — figé à la création | 1 | 2026-09-19 → 09-19 | #99 | feat(devkit): apprendre à l'agent à migrer un schéma |
+| 9 | P0 — bloque le reste | 4 | 2026-09-15 → 09-30 | #388 | chore(release): publier la préversion 10.0.0-alpha.7 |
 | 9.9 | P1 — figé à la création | 3 | 2026-09-22 → 09-28 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.91 | P1 — figé à la création | 1 | 2026-09-25 → 09-25 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
 | 9.92 | P2 — décision | 1 | 2026-09-25 → 09-25 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |

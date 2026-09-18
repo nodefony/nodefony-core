@@ -616,6 +616,21 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   fichier qui les porte** — donc jamais. Le user l'a flairé sur une intuition (« c'est bizarre »),
   pas moi sur une relecture.
 
+- [1× — 09-18] 🔴 **J'ai changé trois fois d'avis sur un ticket parce que je cherchais une CHAÎNE
+  au lieu du MÉCANISME.** #176 accusait un refus `NF_GENERATE_DESTRUCTIVE` de pousser les agents à
+  détruire une base. J'ai cherché ce code dans les transcripts, ne l'ai pas trouvé, et ai RETIRÉ la
+  phrase du ticket. Puis j'ai vu le mécanisme à l'œuvre et annoncé m'être trompé. Puis vérifié : le
+  refus venait bien du texte du skill, pas du produit — mon retrait était juste. Trois positions
+  pour un seul fait, faute d'avoir demandé d'emblée **où vit la règle**, pas **où apparaît son nom**.
+  Le fond était d'ailleurs plus riche : la règle existait en **DEUX exemplaires**, dont un seul
+  portait la corrélation — le ticket pointait celui qui ne l'avait pas.
+- [1× — 09-18] 🔴 **Un `✗` suivi d'un `✓` : j'ai lu le premier comme un refus.** La sortie disait
+  « ✗ … supprime une table et TOUTES ses lignes » puis, deux lignes plus bas, « ✓ 1 migration
+  appliquée ». Rien n'avait été refusé : c'était un AVERTISSEMENT sur une opération réussie. J'en
+  ai tiré un diagnostic entier avant de lire la suite de la sortie. Voisin de
+  [[feedback_shell_false_diagnostics]] : le symptôme visible n'est pas toujours celui qu'on croit
+  lire, et une sortie se lit ENTIÈRE avant d'en conclure quoi que ce soit.
+
 ## 🧪 Un banc comparatif dont les camps dérivent — GRADUÉ
 
 → [[feedback_measure_method]] (7 frictions) : contrôler ce que chaque camp CHARGE et pas seulement
@@ -651,6 +666,19 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   NOMMÉ le piège, et l'avoir nommé à cet endroit précis, n'a pas protégé : seul un cas de contrôle
   l'aurait fait. C'est l'argument entier du selftest — il a d'ailleurs refusé le motif dès qu'on
   le lui a donné.
+
+- [1× — 09-18] 🔴 **Un renvoi REÇU, lu en entier, et pas suivi — mesuré 6 fois sur 6.** Le skill
+  généraliste livré aux applications porte une table « quand passer la main ». Elle vivait en
+  avant-dernière section : un agent qui arrêtait sa lecture à la ligne 200 sur 263 ne la voyait
+  jamais. Remontée en tête (ligne 46), le problème a changé de nature sans disparaître — l'agent
+  suivant a lu le fichier **jusqu'à la ligne 270 sur 269**, avait la table sous les yeux
+  (`grep -c` le prouve sur son transcript), et ne l'a pas suivie : il a écrit une migration qu'il
+  n'a jamais appliquée. Sur six exécutions, **chaque agent qui a chargé le skill de sa tâche a
+  réussi, chacun de ceux qui ne l'ont pas chargé a échoué.** La table INVITAIT (« les prendre coûte
+  moins que de chercher ») ; elle ORDONNE maintenant. La leçon n'est pas « le texte était mal
+  placé » — c'était vrai et ça a été corrigé — mais qu'une fois la portée réglée, **il restait
+  exactement le même défaut sous une autre forme**. Cf [[feedback_gate_must_run]] et la règle du
+  `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🧹 Entretenir le SAS est un geste qui se rate comme un autre
 
