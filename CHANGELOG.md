@@ -8,6 +8,47 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.7 - 2026-09-18
+
+### Changed
+
+- **http:** passer le corps à `end()` pour économiser un tick de boucle d'événements par réponse (09c22774)
+- **scaffold:** faire rédiger par le framework le message de fin de semis, au lieu du gabarit (5c1c1ca5)
+
+### Added
+
+- **kernel:** refuser de servir quand deux copies du paquet `nodefony` cohabitent dans le processus (1d72231c)
+- **cli:** ajouter `nodefony image:check`, qui inspecte couche par couche l'image d'une application (0cca01a2)
+- **cli:** signaler, à la création d'une route protégée, les routes sœurs qu'aucun rôle ne couvre (3180243a)
+- **cli:** signaler une base de données dont le moteur ne correspond pas à celui des entités (fe456d11)
+- **scaffold:** poser une interface web sans dialogue, par un geste nommé (ca2aca53)
+- **scaffold:** conserver la console d'administration dans une application générée pour la production (63e57d0e)
+- **scaffold:** contrôler aussi l'image dans la chaîne d'intégration GitLab générée (f7306d41)
+- **devkit:** livrer aux applications le skill de développement du framework (7b52a67a)
+- **devkit:** livrer aux applications un skill de déploiement — image, secrets, frontal, Kubernetes (51dfb26a)
+
+### Fixed
+
+- **kernel:** nommer le paquet fautif là où la dualité de `nodefony` se produit vraiment (9aa6a356)
+- **core:** refuser un conteneur de services venu d'une autre copie du cœur, au lieu de l'ignorer (6c0dbd4c)
+- **core:** dire laquelle des deux causes fait refuser un conteneur de services (3213cf23)
+- **core:** cesser d'exiger une API de `node:crypto` absente du plancher Node déclaré (58617171)
+- **http:** libérer une requête restée en attente quand l'ouverture de session échoue (133224b4)
+- **cluster:** lire la configuration de grappe aussi sous Windows (1cecfa5b)
+- **orm:** signaler un champ déclaré facultatif que la base exige pourtant (8d74e336)
+- **orm:** cesser de voir une destruction de données dans une table SQLite reconstruite (125d3717)
+- **frontend:** nommer la cause d'un décalage de port, et cesser d'annoncer un port seulement espéré (bb658459)
+- **frontend:** dire au démarrage qu'aucune interface web n'est posée (072f97fd)
+- **cli:** montrer dans l'aide la forme complète de la commande de création (9292055a)
+- **cli:** annoncer l'adresse réellement servie, et rendre un échec de démarrage constatable hors du journal (3a3c1ccf)
+- **cli:** faire filtrer `inspect routes` par l'argument que son aide annonce (df73becf)
+- **cli:** faire repartir le serveur de développement sur le paquet de l'application (1a8e0dcf)
+- **scaffold:** compléter le contexte de sécurité du Job de migration généré (61ce0a0b)
+- **scaffold:** composer les chemins du plan de génération dans une seule grammaire, portable sous Windows (b1f53da8)
+- **scaffold:** rendre le pointeur d'agent généré conforme au formateur que l'application embarque (579b839d)
+- **scaffold:** recaler sur sa taille réelle le seuil de découpe du pointeur d'agent (a397ba78)
+- **scaffold:** écrire en anglais les identifiants des gabarits de test (2b2ff738)
+
 ## 10.0.0-alpha.6 - 2026-09-13
 
 ### Changed
