@@ -1911,6 +1911,92 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     // quelque chose à une habilitation — n'avait aucun chemin outillé, et la
     // doc était la seule réponse.
 
+    // 🔴 Une garde de rôle ferme un FICHIER, pas un ESPACE. Mesuré au banc
+    // (tâche 17, 0/3) : l'agent pose `create controller --role`, les routes
+    // demandées se ferment, et la route sœur du décor répond 200 à un anonyme.
+    // La commande AVERTIT — elle ne refuse pas : un controller seul sous son
+    // préfixe est un cas normal.
+    it("create controller --role : NOMME les routes sœurs restées ouvertes", () => {
+      const dest = path.join(tmp, "rsib");
+      scaffold(dest, { name: "rsib", preset: "complete", frontend: "none" });
+      // Un voisin SOUS le même préfixe, et un témoin qui n'y est pas : sans le
+      // témoin, « tout est signalé » passerait pour un relevé juste.
+      runScaffold(
+        {
+          type: "controller",
+          answers: {
+            name: "compte-notes",
+            kind: "hello",
+            route: "/api/compte/notes",
+          },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      runScaffold(
+        {
+          type: "controller",
+          answers: { name: "ailleurs", kind: "hello", route: "/api/ailleurs" },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const res = runScaffold(
+        {
+          type: "controller",
+          answers: {
+            name: "compte",
+            kind: "hello",
+            route: "/api/compte",
+            role: "ROLE_USER",
+          },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      const avertissement = (res.notes ?? []).find((n) =>
+        n.includes("RESTENT OUVERTES"),
+      );
+      assert.isString(
+        avertissement,
+        "la route sœur doit être NOMMÉE au moment du geste",
+      );
+      assert.include(avertissement ?? "", "/api/compte/notes");
+      assert.notInclude(
+        avertissement ?? "",
+        "/api/ailleurs",
+        "une route hors du préfixe n'a rien à faire là",
+      );
+      // Le geste qui ferme l'ESPACE est DIT, pas seulement le constat.
+      assert.include(avertissement ?? "", "^/api/compte");
+    });
+
+    it("create controller --role : reste MUET quand le controller est seul", () => {
+      const dest = path.join(tmp, "rsolo");
+      scaffold(dest, { name: "rsolo", preset: "complete", frontend: "none" });
+      const res = runScaffold(
+        {
+          type: "controller",
+          answers: {
+            name: "solo",
+            kind: "hello",
+            route: "/api/solo",
+            role: "ROLE_USER",
+          },
+          dir: dest,
+          force: false,
+        },
+        version,
+      );
+      assert.isUndefined(
+        (res.notes ?? []).find((n) => n.includes("RESTENT OUVERTES")),
+        "avertir à tort apprend à passer outre",
+      );
+    });
+
     it("create controller --role : garde de CLASSE + import + hiérarchie sous ROLE_ADMIN", () => {
       const dest = path.join(tmp, "rctrl");
       scaffold(dest, { name: "rctrl", preset: "complete", frontend: "none" });

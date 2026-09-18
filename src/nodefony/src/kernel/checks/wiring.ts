@@ -21,6 +21,7 @@
 import { readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
+import { ROUTE_PATH_RE } from "../../cli/scaffold/routePaths";
 import { collectSources } from "./walk";
 import {
   readManifestSources,
@@ -210,23 +211,6 @@ const SERVICES_LIST_RE = /@services\s*\(\s*\[([\s\S]{0,2000}?)\]/gu;
  */
 const IMPERATIVE_RE =
   /(?:addService|container\.set|\.set)\s*\(\s*[^)]{0,120}?\b(\w+)\b/gu;
-
-/**
- * Un chemin de route Nodefony, tel qu'il est écrit — soit en premier argument
- * d'un décorateur de méthode, soit sous la clé `path` D'UN `@route`.
- *
- * Les deux formes existent et se valent ; n'en lire qu'une rendrait le contrôle
- * aveugle à l'autre, ce qui est pire que pas de contrôle du tout — on croirait
- * la question posée.
- *
- * ⚠️ Le `path:` est borné au voisinage d'un `@route(` et NON lu partout : la
- * clé est celle de react-router, où `:id` est la syntaxe JUSTE. Lu librement,
- * le contrôle accusait les cinq routes du frontend de Studio — un contrôle qui
- * accuse du code correct est un contrôle qu'on désactive, et il aurait fait
- * « corriger » un routage qui marchait.
- */
-const ROUTE_PATH_RE =
-  /@(?:Get|Post|Put|Patch|Delete|Head|Options|All)\s*\(\s*["'`]([^"'`\n]*)["'`]|@route\s*\([\s\S]{0,300}?\bpath\s*:\s*["'`]([^"'`\n]*)["'`]/gu;
 
 /**
  * Le segment variable écrit à la mode d'un AUTRE framework : `/:handle`.

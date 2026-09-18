@@ -93,6 +93,7 @@ import {
   type TModuleControllerChoice,
   type TPresetChoice,
 } from "./spec";
+import { openSiblingRoutes } from "./routePaths";
 
 /**
  * Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O
@@ -2370,6 +2371,36 @@ function runModuleScaffold(
 }
 
 /**
+ * Les sources des AUTRES controllers de la cible, pour y chercher des voisins.
+ *
+ * Les lectures passent par la transaction (`listDir`/`read`), jamais par le
+ * disque en direct : le writer voit les écritures en attente, et une lecture
+ * qui l'ignorerait raterait un controller créé dans la même passe.
+ *
+ * @param dir - la racine de la cible (application ou module).
+ * @param selfClass - la classe qu'on vient d'écrire, à ne pas se compter.
+ * @param writer - la transaction d'écriture.
+ * @returns les sources lisibles, hors la sienne.
+ */
+function otherControllerSources(
+  dir: string,
+  selfClass: string,
+  writer: ScaffoldWriter,
+): { file: string; text: string }[] {
+  const dossier = path.join(dir, "nodefony", "controllers");
+  const out: { file: string; text: string }[] = [];
+  for (const entry of writer.listDir(dossier)) {
+    if (entry.isDirectory) continue;
+    if (!entry.name.endsWith(".ts")) continue;
+    if (entry.name === `${selfClass}.ts`) continue;
+    const texte = writer.read(path.join(dossier, entry.name));
+    if (texte === null) continue;
+    out.push({ file: entry.name, text: texte });
+  }
+  return out;
+}
+
+/**
  * Scaffold IN-PROJECT d'un controller : résout la cible (app racine ou module),
  * rend le template de la saveur (`hello`/`rest`/`duplex`/`realtime`/`example`)
  * dans `<cible>/nodefony/controllers/` puis câble la classe dans le
@@ -2512,6 +2543,22 @@ function runControllerScaffold(
       `WS   ${route}/echo`,
     ],
   };
+  // 🔴 Une garde de rôle ferme un FICHIER, pas un ESPACE. Toute route servie
+  // sous le même préfixe par un AUTRE controller reste ouverte — et la
+  // suivante naîtra ouverte aussi, sans que rien ne le signale. Mesuré au banc
+  // (tâche 17, 0/3) : l'agent pose `create controller --role`, les deux routes
+  // demandées se ferment, et la route sœur du décor répond 200 à un anonyme.
+  // On AVERTIT, on ne refuse pas : un controller délibérément seul sous son
+  // préfixe est un cas normal, et une commande qui avertit à tort apprend à
+  // passer outre.
+  const voisines =
+    role.length > 0
+      ? openSiblingRoutes(
+          route,
+          otherControllerSources(target.dir, nameClass, writer),
+        )
+      : [];
+
   return {
     dest: target.dir,
     files: written.sort(),
@@ -2526,6 +2573,14 @@ function runControllerScaffold(
               (noteRole === null
                 ? `déclaré sous ROLE_ADMIN dans roleHierarchy : l'administrateur y a accès sans porter ce rôle`
                 : `⚠ hiérarchie NON modifiée — ${noteRole}`),
+          ]
+        : []),
+      ...(voisines.length > 0
+        ? [
+            `⚠ ${voisines.length} route(s) RESTENT OUVERTES sous ${route} — la garde ne couvre que ce controller : ` +
+              voisines.map((v) => `${v.route} (${v.file})`).join(", ") +
+              `. Pour fermer l'ESPACE, poser une zone de firewall dont le pattern est le PRÉFIXE ` +
+              `(\`pattern: "^${route}"\` dans nodefony/config/security.ts), jamais la liste des routes du jour.`,
           ]
         : []),
     ],

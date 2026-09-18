@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 836,
-    "symbols": 4109,
+    "files": 837,
+    "symbols": 4117,
     "classes": 392,
-    "interfaces": 1098,
+    "interfaces": 1099,
     "types": 451,
     "enums": 4,
-    "functions": 1756,
-    "constants": 408
+    "functions": 1762,
+    "constants": 409
   },
   "symbols": {
     "Cli": {
@@ -6953,6 +6953,55 @@
       "file": "src/nodefony/src/cli/scaffold/reservedEntities.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "ISiblingRoute": {
+      "name": "ISiblingRoute",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/routePaths.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une route voisine qu'une garde de controller ne couvre pas."
+    },
+    "declaredRoutePaths": {
+      "name": "declaredRoutePaths",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/routePaths.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les chemins de route qu'une source déclare."
+    },
+    "isUnderPrefix": {
+      "name": "isUnderPrefix",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/routePaths.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`candidate` est-il SOUS `prefix` — au sens des segments, pas des caractères ? La comparaison littérale ferait de `/api/accounts` un enfant de `/api/account`, et le générateur signalerait une route …"
+    },
+    "controllerPrefix": {
+      "name": "controllerPrefix",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/routePaths.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le PRÉFIXE d'un controller, tel que `@controller(\"…\")` le déclare. C'est lui, et non les `@route`, qui dit sous quel espace le controller sert : le `path:` d'une action est RELATIF à ce préfixe. Ch…"
+    },
+    "openSiblingRoutes": {
+      "name": "openSiblingRoutes",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/routePaths.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les routes d'AUTRES fichiers qui partagent le préfixe, et que la garde ne couvre donc pas. Protéger un controller par un rôle a l'apparence de fermer un espace ; cela ferme un FICHIER. Toute route …"
+    },
+    "ROUTE_PATH_RE": {
+      "name": "ROUTE_PATH_RE",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/routePaths.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les chemins de route DÉCLARÉS dans une source, et leurs voisins de préfixe. Deux outils en ont besoin et n'ont pas la même question : le vérificateur cherche un segment écrit à la mode d'un autre f…"
     },
     "IScaffoldQuestion": {
       "name": "IScaffoldQuestion",
@@ -32703,6 +32752,9 @@
       "TPresetChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "openSiblingRoutes": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "flagFor": [
         "src/nodefony/src/cli/scaffold/help.ts"
       ],
@@ -33318,6 +33370,9 @@
       ],
       "readManifestSources": [
         "src/nodefony/src/kernel/checks/surface.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "ROUTE_PATH_RE": [
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "reservedFragmentFiles": [
