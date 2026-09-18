@@ -940,7 +940,19 @@ YML
   (cd "$EAPP" && docker compose --profile edge down) > "$WORK/.edge-down.out" 2>&1 \
     || { tail -20 "$WORK/.edge-down.out"; fail "docker compose --profile edge down n'a pas rendu 0"; }
   ok "down → 0 (stop_grace_period au-dessus du shutdownDeadline)"
-  COMPOSE_DIR=""
+  # 🔴 NE PAS désarmer `cleanup` ici. Le `down` ci-dessus est SANS `-v` — c'est
+  # le geste qu'on MESURE (le drain n'est pas coupé), pas le rangement. Vider
+  # `COMPOSE_DIR` rendait le `cleanup` final inerte, et le banc ne laissait donc
+  # un décor sale QUE lorsqu'il RÉUSSISSAIT : `<app>-var` survivait, avec la base
+  # sqlite et ses comptes.
+  #
+  # La passe suivante démarrait alors sur une base peuplée. Le semis d'admin est
+  # idempotent — il crée le compte s'il n'existe pas, il ne réaligne jamais son
+  # mot de passe : le login du cas `__Host-` se faisait refuser, sans Set-Cookie
+  # et sans une ligne dans les journaux. Un rouge qui accuse le produit et qui
+  # n'appartient qu'au décor (vécu le 2026-09-18, sur la bascule de la base de
+  # l'image : trois quarts d'heure à chercher dans Alpine ce qui était dans un
+  # volume).
 fi
 
 cleanup
