@@ -28,6 +28,16 @@ Puis :
 <% if (it.front) { %>- http://127.0.0.1:5151/ — ton app <%= it.frontend %> (HMR Vite en dev)
 <% } %><% if (it.complete) { %>- http://127.0.0.1:5151/nodefony — **Studio**, la console d'administration (dev)
 
+> **Le compte d'administration existe déjà** : `admin` / `nodefony-dev-42`. Il
+> est semé au PREMIER démarrage, et le journal te le redit alors en clair. Pour
+> en changer, décommente `NF_ADMIN_PASSWORD` dans `.env.local`.
+>
+> 🔴 **Ce mot de passe par défaut n'existe qu'en développement.** En production,
+> `NF_ADMIN_PASSWORD` est OBLIGATOIRE : sans elle, aucun compte n'est créé —
+> rien n'est semé en silence avec un secret que le monde entier connaît. Le
+> démarrage le dit et nomme le geste :
+> `npx nodefony security:user:add admin --admin`.
+
 > L'app **persiste déjà** : sans aucune base déclarée, l'ORM Drizzle crée une
 > sqlite locale (`var/databases/`) — users, sessions et jetons y survivent aux
 > redémarrages. Aucun service externe requis pour commencer.
@@ -293,6 +303,36 @@ docker stop -t 20 <container>   # SIGTERM → drain → exit 0
 Le code de l'image appartient à `root` et le processus tourne en `1000:1000` :
 l'application ne peut pas réécrire son propre `dist/`. Seuls `tmp/` et `var/`
 lui appartiennent, ce qui est exactement ce dont elle a besoin pour écrire.
+
+#### Sur quelle base l'image est construite
+
+`node:24-alpine`, et c'est un choix **mesuré** — les trois candidates ont été
+construites avec un contenu identique, scannées, puis **démarrées** :
+
+| Base                                  | Image finale | Critiques | Hautes | Node  | libc  | Shell dedans |
+| ------------------------------------- | -----------: | --------: | -----: | ----- | ----- | ------------ |
+| **`node:24-alpine`** — actuelle       |   **438 Mo** |     **0** |  **4** | 24.21 | musl  | oui (`sh`)   |
+| `node:24-slim`                        |       519 Mo |         2 |     14 | 24.18 | glibc | oui (`bash`) |
+| `gcr.io/distroless/nodejs24-debian12` |       400 Mo |         0 |      8 | 24.14 | glibc | **non**      |
+
+Distroless est la plus légère et perd quand même : elle embarque un Node plus
+ANCIEN et le suivra toujours avec du retard — ce qui l'expose aux CVE déjà
+corrigées en amont **et** aux API récentes que ton code appelle. Et l'objection
+historique contre Alpine est tombée : `better-sqlite3` et `@node-rs/argon2`
+publient leurs binaires musl et s'exécutent après une installation
+`--ignore-scripts`.
+
+**Pour en changer**, le `Dockerfile` porte deux lignes `FROM` — elles se changent
+**ensemble**, les deux étages devant partager la même libc :
+
+```dockerfile
+FROM node:24-slim AS build   # glibc : si un paquet natif n'a pas de binaire musl
+FROM node:24-slim            # le symptôme est au DÉMARRAGE, pas à l'installation
+```
+
+Le détail de chaque candidate, et ce que distroless impose en plus (réécrire
+`CMD` et `HEALTHCHECK` en `/nodejs/bin/node`), est commenté en tête du
+`Dockerfile`.
 
 #### Si tu PUBLIES cette image
 

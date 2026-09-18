@@ -1678,6 +1678,30 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         assert.match(anonymes[0][1], /^node:/u);
 
+        // 🔴 La BASE elle-même, et pas seulement sa forme. C'est un choix
+        // MESURÉ sur les images FINALES (application comprise) : Alpine rend
+        // 0 vulnérabilité critique et 4 hautes, là où `node:24-slim` en rend
+        // 2 et 14, pour 81 Mo de plus. Sans ce contrôle, un retour en arrière
+        // ne se verrait nulle part — l'image se construit et démarre à
+        // l'identique, seule la surface d'attaque change.
+        //
+        // Les DEUX étages sont contrôlés, et sur la MÊME valeur : ils doivent
+        // partager la même libc. Un binaire natif installé à la construction ne
+        // se charge pas à l'exécution sous l'autre, sur un message qui ne parle
+        // jamais de libc — on cherche alors du côté du paquet, du cache npm ou
+        // de la version de Node, jamais de l'image.
+        const etageBuild = etages.find((e) => e[2] === "build");
+        assert.equal(
+          etageBuild?.[1],
+          "node:24-alpine",
+          "l'étage de construction a changé de base — si c'est voulu, la mesure qui le justifie doit être refaite (docker scout sur l'image FINALE) et ce test mis à jour avec elle",
+        );
+        assert.equal(
+          anonymes[0][1],
+          "node:24-alpine",
+          "l'étage d'exécution a changé de base — c'est LUI qu'on déploie",
+        );
+
         // Forme EXEC obligatoire. En forme shell, /bin/sh devient PID 1 et ne
         // transmet PAS le SIGTERM de `docker stop` : plus jamais de drain,
         // SIGKILL à chaque déploiement — et l'image marche parfaitement.

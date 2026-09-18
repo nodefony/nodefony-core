@@ -142,6 +142,74 @@ WebSocket dans le même contexte de contrôleur, l'injection de dépendances, le
 pare-feu applicatif et les sessions, l'ORM avec ses migrations, un frontend bâti
 par Vite, et la console d'administration.
 
+## Sur quelle base elle est bâtie
+
+L'image part de **`node:24-alpine`**. Ce n'est pas une habitude reprise d'un
+gabarit trouvé ailleurs : les trois candidates ont été construites avec un
+contenu identique, scannées et **démarrées**, et c'est la mesure qui a tranché.
+
+| Base                                  | Image finale | Critiques | Hautes | Node embarqué | libc  | Shell dedans |
+| ------------------------------------- | -----------: | --------: | -----: | ------------- | ----- | ------------ |
+| **`node:24-alpine`** — celle-ci       |   **438 Mo** |     **0** |  **4** | 24.21         | musl  | oui (`sh`)   |
+| `node:24-slim`                        |       519 Mo |         2 |     14 | 24.18         | glibc | oui (`bash`) |
+| `gcr.io/distroless/nodejs24-debian12` |       400 Mo |         0 |      8 | 24.14         | glibc | **non**      |
+
+Les comptes de vulnérabilités portent sur les images **finales**, application
+comprise — pas sur les bases seules, qui affichent toutes des chiffres flatteurs
+et ne disent rien de ce qu'on déploie.
+
+**Ce qui décide, et ce n'est pas le poids.** Distroless est la plus légère et
+perd quand même : elle embarque un Node plus ANCIEN, et le suivra toujours avec
+du retard. Ce retard n'est pas qu'une affaire de CVE — il nous a coûté un
+démarrage impossible, sur une API de `node:crypto` que le framework employait et
+que sa version de Node n'avait pas encore. Une base qui décide de ta version de
+Node décide de ce que ton code a le droit d'appeler.
+
+**Et l'objection historique contre Alpine est tombée.** On évitait musl à cause
+des paquets natifs ; les deux qu'une application `complete` embarque —
+`better-sqlite3` et `@node-rs/argon2` — publient désormais leurs binaires musl,
+et s'exécutent ici après une installation **sans script d'installation**
+(`--ignore-scripts`) : base SQLite créée et relue, empreinte Argon2id produite.
+Mesuré, pas supposé.
+
+### En changer dans ton application
+
+Cette image est construite avec le `Dockerfile` que `nodefony create app`
+produit — le même que tu reçois. Sa base tient en **deux lignes `FROM`**, qui se
+changent **ensemble** : les deux étages doivent partager la même libc, sinon un
+binaire natif installé pendant la construction ne se charge pas à l'exécution, et
+le message d'erreur ne parle jamais de libc.
+
+```dockerfile
+FROM node:24-alpine AS build   # étage de construction
+…
+FROM node:24-alpine            # étage d'exécution — celui qu'on déploie
+```
+
+**Revenir à glibc** — à faire si un paquet natif que tu ajoutes ne publie pas de
+binaire musl. Le symptôme arrive au **démarrage** (`.node` introuvable, « Error
+relocating »), jamais à l'installation :
+
+```dockerfile
+FROM node:24-slim AS build
+FROM node:24-slim
+```
+
+**Passer en distroless** — la plus petite et la plus fermée, mais ce n'est pas un
+remplacement d'une ligne : elle n'a ni shell ni gestionnaire de paquets (plus de
+`docker exec … sh` pour diagnostiquer), et son binaire `node` n'est pas sur le
+`PATH`. Il faut donc aussi réécrire `CMD` et `HEALTHCHECK` en `/nodejs/bin/node`,
+et garder une image complète pour construire :
+
+```dockerfile
+FROM node:24-slim AS build
+FROM gcr.io/distroless/nodejs24-debian12
+```
+
+> **Après tout changement de base : reconstruire, puis DÉMARRER.** « Ça
+> construit » ne prouve rien — les trois images se construisaient, et l'une des
+> trois ne démarrait pas.
+
 ## Remonter d'une image à son commit
 
 Chaque image porte les étiquettes OCI normées, et un contrôle refuse la

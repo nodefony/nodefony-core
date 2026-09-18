@@ -80,38 +80,53 @@ Vers **stdout/stderr** (collectés par Docker → driver de logs / collecteur ce
 écrire dans des fichiers depuis le container (éphémère). Le Log Backplane (drivers `loki`/
 `opensearch`) pousse vers un backend externe en prod.
 
-## Dockerfile de référence (multi-stage)
+## Le Dockerfile — il est GÉNÉRÉ, on ne le recopie pas
 
-```dockerfile
-# ---- build ----
-FROM node:24-alpine AS build
-WORKDIR /app
-COPY package*.json ./
-RUN npm ci
-COPY . .
-RUN npm run build          # rolldown : dist/ de tous les espaces de travail
+`nodefony create app` écrit le `Dockerfile` et le `.dockerignore` de
+l'application, doctrine commentée ligne à ligne : multi-stage, installation sans
+script, nettoyage de la matière cryptographique **dans** l'étage de construction,
+`USER 1000:1000` numérique, sonde sur `/readyz`, forme exec du `CMD`.
 
-# ---- runtime ----
-FROM node:24-alpine AS runtime
-ENV NODE_ENV=production
-WORKDIR /app
-COPY --from=build /app/node_modules ./node_modules
-COPY --from=build /app/dist ./dist
-COPY --from=build /app/src ./src
-COPY --from=build /app/package*.json ./
-# 1 process = 1 container, FOREGROUND. SIGTERM → graceful shutdown.
-# Forme exec (pas de shell) → le process Node reçoit directement les signaux.
-EXPOSE 5151 5152
-CMD ["npx", "nodefony", "production"]
-# Cluster intra-container (VPS multi-cœurs) : CMD ["npx","nodefony","cluster","-w","4"]
-```
+Cette page n'en porte donc **pas de copie** : un exemple recopié ici dériverait
+du fichier réel sans que rien ne le dise — et c'est exactement ce qui était
+arrivé, l'exemple de ce guide ayant perdu en route l'utilisateur non-root, la
+sonde et la forme exec du `CMD`. La source est le gabarit :
 
-Notes :
+- le fichier tel qu'il est livré — `src/nodefony/templates/app/base/Dockerfile.tpl`
+  dans le dépôt, `Dockerfile` à la racine de l'application générée
+- ce que chaque ligne garantit, et ce qui casse sans elle — les commentaires du
+  fichier lui-même, qui voyagent avec l'application
+- le contrôle qui refuse une régression —
+  `src/nodefony/src/tests/create.test.ts`, section « Docker — la doctrine
+  cloud-native naît AVEC l'application »
 
-- **Forme exec** `CMD ["...", "..."]` (pas `CMD npx nodefony production`) → le process est PID
-  direct et reçoit `SIGTERM` sans wrapper shell qui l'avalerait.
-- Pour garantir la propagation des signaux et le reaping des zombies, utiliser un init léger
-  si nécessaire : `docker run --init` ou `tini`.
+### La base de l'image
+
+L'image part de **`node:24-alpine`** : zéro vulnérabilité critique contre 2 sur
+`node:24-slim`, 4 hautes contre 14, et 81 Mo de moins — mesuré sur les images
+FINALES, application comprise. L'objection historique (« musl et les paquets
+natifs ») est tombée : `better-sqlite3` et `@node-rs/argon2` publient leurs
+binaires musl et s'exécutent après une installation `--ignore-scripts`.
+
+Les candidates, leurs chiffres et **les deux lignes `FROM` à remplacer** pour en
+changer sont en tête du `Dockerfile` généré, et sur la page publique de l'image
+(`docker/hub-overview.md` dans le dépôt).
+
+> Deux points qui ne se devinent pas : les deux étages doivent partager la même
+> **libc** (un binaire natif installé à la construction ne se charge pas sinon,
+> sur un message qui ne parle pas de libc), et distroless n'est pas un
+> remplacement d'une ligne — ni shell, ni `node` sur le `PATH`.
+
+### Les deux règles qui survivent à tout changement de base
+
+- **Forme exec** `CMD ["…", "…"]`, jamais `CMD npx nodefony production` : en
+  forme shell, `/bin/sh` devient PID 1, ne transmet pas `SIGTERM`, et il n'y a
+  plus aucun arrêt gracieux — l'image marche parfaitement, et chaque déploiement
+  tue les requêtes en vol sans la moindre trace.
+- **Un process au premier plan**, jamais de superviseur dans l'image : la montée
+  en charge vient des répliques de l'orchestrateur. Pour un VPS multi-cœurs sans
+  orchestrateur, `CMD ["npx","nodefony","cluster","-w","4"]` reste le seul cas où
+  plusieurs process partagent un conteneur.
 
 ## Kubernetes — probes & timeouts
 

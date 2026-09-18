@@ -13,8 +13,55 @@
 # k8s donne 30 s, `docker stop` 10 s (`-t 20` pour être large).
 # ─────────────────────────────────────────────────────────────────────────────
 
+# ── La BASE de l'image — un choix MESURÉ, et comment en changer ──────────────
+#
+# Deux lignes `FROM` décident de tout : la libc, la surface de vulnérabilités,
+# le poids, et ce que `docker exec` te donnera le jour où il faudra entrer
+# dedans. Elles se changent ENSEMBLE — l'étage de construction et l'étage
+# d'exécution doivent partager la MÊME libc, sinon un binaire natif installé
+# d'un côté ne se charge pas de l'autre, et le message ne parle pas de libc.
+#
+# Mesuré sur une application Nodefony `complete`, contenu identique, sur les
+# images FINALES (`docker scout quickview`), pas sur les bases seules :
+#
+#     base                                    poids   critiques  hautes  démarre
+#     node:24-alpine            ← ACTUELLE   438 Mo      0         4      oui
+#     node:24-slim                            519 Mo      2        14      oui
+#     gcr.io/distroless/nodejs24-debian12     400 Mo      0         8      oui
+#
+# POURQUOI Alpine. Zéro vulnérabilité critique, 4 hautes contre 14, et 81 Mo de
+# moins. L'objection historique — « les paquets natifs n'ont pas de binaire
+# musl » — est TOMBÉE : `better-sqlite3` et `@node-rs/argon2` embarquent les
+# leurs, et s'exécutent ici après une installation `--ignore-scripts` (mesuré :
+# base sqlite créée et relue, hash Argon2id produit).
+#
+# COMMENT EN CHANGER — remplacer les DEUX lignes, jamais une seule :
+#
+#   glibc (si un paquet natif que tu ajoutes ne publie pas de binaire musl ; le
+#   symptôme est un `.node` introuvable ou un « Error relocating » au DÉMARRAGE,
+#   jamais une erreur d'installation) :
+#       FROM node:24-slim AS build
+#       FROM node:24-slim
+#
+#   distroless (ni shell ni gestionnaire de paquets : plus de `docker exec sh`
+#   pour diagnostiquer, et le binaire node n'est PAS sur le PATH). Ce n'est PAS
+#   un remplacement d'une ligne : il faut aussi réécrire `CMD` et `HEALTHCHECK`
+#   en `/nodejs/bin/node`, et l'étage de construction reste sur une image
+#   complète :
+#       FROM node:24-slim AS build
+#       FROM gcr.io/distroless/nodejs24-debian12
+#   Son compte de vulnérabilités est MOINS bon que celui d'Alpine, pour une
+#   raison structurelle : elle embarque un Node plus ancien (24.14 contre
+#   24.21) et le suivra toujours avec du retard — c'est ce qui l'a fait mourir
+#   au démarrage sur une API de `node:crypto` que le framework employait.
+#
+# Après tout changement de base : reconstruire, DÉMARRER, et vérifier que
+# l'application répond — « ça construit » ne prouve rien (mesuré : les trois
+# images se construisaient, une seule des trois démarrait).
+# ─────────────────────────────────────────────────────────────────────────────
+
 # ── Étape de construction : la chaîne de compilation ne descend PAS en prod ───
-FROM node:24-slim AS build
+FROM node:24-alpine AS build
 WORKDIR /app
 
 # Les sources d'ABORD, en un seul geste — et non le manifeste seul comme le
@@ -40,11 +87,13 @@ COPY . ./
 # d'un LOCKFILE ne porte pas le champ, donc npm invente le script — et le
 # paquet se fait recompiler contre sa volonté.
 #
-# Mesuré dans `node:24-slim` : SANS verrou, aucun script et aucun message ;
-# AVEC verrou, npm 11.16 exécute `node-gyp rebuild`, qui meurt faute de Python
+# Mesuré dans `node:24-alpine` : SANS verrou, aucun script et aucun message ;
+# AVEC verrou, npm 11.19 exécute `node-gyp rebuild`, qui meurt faute de Python
 # et de chaîne de compilation. npm 12 le refuserait — sa politique
 # `allowScripts` BLOQUE un script non approuvé, là où celle de npm 11 se
-# contente d'avertir — mais c'est npm 11.16 que `node:24-slim` embarque.
+# contente d'avertir — mais c'est npm 11.19 que `node:24-alpine` embarque.
+# (Le défaut ne dépend donc pas de la distribution : il a été constaté à
+# l'identique sur `node:24-slim` en npm 11.16.)
 #
 # Le sauter est de toute façon ce qu'il faut faire : les paquets natifs d'une
 # application Nodefony embarquent leurs binaires prébâtis (vérifié —
@@ -203,7 +252,7 @@ HEALTHCHECK --interval=10s --timeout=2s --start-period=5s --retries=3 \
   CMD ["wget", "-q", "--spider", "http://127.0.0.1:8080/livez"]
 
 # ── Étape d'exécution : minimale, non-root ───────────────────────────────────
-FROM node:24-slim
+FROM node:24-alpine
 ENV NODE_ENV=production
 WORKDIR /app
 
@@ -266,7 +315,7 @@ RUN mkdir -p /app/tmp /app/var \
 # Jamais root : les ports de Nodefony (5151, 5152) n'exigent aucun privilège.
 # NUMÉRIQUE, pas `node` : le kubelet refuse `runAsNonRoot: true` quand l'image
 # ne déclare qu'un NOM d'utilisateur, qu'il ne sait pas résoudre en identifiant.
-# Constaté sur `node:24-slim` : `node` vaut exactement `1000:1000`.
+# Constaté sur `node:24-alpine` : `node` vaut exactement `1000:1000`.
 USER 1000:1000
 EXPOSE 5151
 
