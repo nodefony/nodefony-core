@@ -8020,8 +8020,8 @@
       ],
       "description": "Exploite CETTE application Nodefony en conteneur : image, compose, frontal, secrets, variables, Kubernetes, Podman. N'enseigne pas Docker — il énonce le CONTRAT d'exploitation, chiffré : quelles sondes elle expose, combien de temps elle draine, quel code de sortie elle rend, sous quel identifiant elle tourne, où elle écrit, ce qui casse quand une variable manque. Sert d'abord à savoir ce qu'il ne faut PAS réécrire. À charger AVANT d'écrire un manifeste, un compose, une étape de déploiement, ou de diagnostiquer un conteneur qui redémarre. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"construire et vérifier l'image\", \"docker compose\", \"derrière nginx\", \"Kubernetes\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"redéploiement sans coupure\", \"arrêt gracieux\", \"readOnlyRootFilesystem\", \"politique Restricted\", \"secrets\", \"mot de passe en production\", \"variables d'environnement\", \"Podman\", \"GitLab CI\".",
       "cost": {
-        "bodyLines": 174,
-        "approxTokens": 4072
+        "bodyLines": 182,
+        "approxTokens": 4406
       },
       "requires": [],
       "resources": {
@@ -8101,7 +8101,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "174",
+            "detail": "182",
             "advisory": true
           }
         ]

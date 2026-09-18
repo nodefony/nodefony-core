@@ -21,11 +21,14 @@ qui n'existent pas.
 
 ## 2. Le contexte de sécurité — politique Restricted
 
-Six exigences. **Quatre sont acquises** parce que l'image les porte : `runAsNonRoot`, un
-`runAsUser` **numérique** (l'image déclare `USER 1000:1000`, donc tu reportes `1000`),
-`allowPrivilegeEscalation: false`, `capabilities.drop: ["ALL"]`.
+**Commence par lire `deploy/migrate-job.yaml` : son contexte de sécurité est déjà conforme.** Il
+est le seul modèle juste que tu aies sous la main, et il a été écrit pour être recopié.
 
-**Deux te reviennent :**
+Six exigences, toutes portées par le **manifeste** — aucune n'est « héritée de l'image ». Ce que
+l'image apporte, c'est de les rendre satisfaisables sans contorsion : elle déclare
+`USER 1000:1000`, donc l'identifiant numérique existe ; elle n'écoute qu'au-dessus de 1024, donc
+aucune capacité n'est nécessaire. Cinq ne coûtent rien à poser. **La sixième —
+`readOnlyRootFilesystem` — demande les deux volumes**, et c'est la seule qui se travaille.
 
 ```yaml
 spec:

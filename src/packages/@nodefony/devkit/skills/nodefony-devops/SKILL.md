@@ -128,13 +128,21 @@ Service et l'Ingress ne le sont pas — tu les écris, et les §1 et §3 te dise
 kubectl apply -f deploy/migrate-job.yaml    # les migrations AVANT les exemplaires
 ```
 
-La politique **Restricted** exige six choses. Quatre sont acquises par l'image (`runAsNonRoot`
-avec un `runAsUser` **numérique** repris de `USER 1000:1000`, `allowPrivilegeEscalation: false`,
-`capabilities.drop: ["ALL"]`). Deux te reviennent :
+**Le manifeste rendu est ton modèle : il est conforme à la politique Restricted.** Recopie-en le
+contexte de sécurité dans ton Deployment — c'est le seul endroit du dépôt où il est déjà juste.
 
-- `seccompProfile: { type: RuntimeDefault }` — la politique traite l'**absence** de profil comme
-  une violation, pas comme un défaut permissif. Aucun coût ici.
-- `readOnlyRootFilesystem: true` — avec les deux volumes du §3, sinon le conteneur ne démarre pas.
+La politique exige six champs. Aucun n'est « fourni par l'image » : ce sont des champs de
+**manifeste**, c'est toi qui les poses. Ce que l'image apporte, c'est de les rendre tous
+satisfaisables :
+
+| Le champ                              | Ce qu'il te coûte                                                                                                                 |
+| ------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------- |
+| `runAsNonRoot: true`                  | rien                                                                                                                              |
+| `runAsUser` / `runAsGroup` numériques | rien — l'image déclare `USER 1000:1000`, tu reportes `1000`                                                                       |
+| `allowPrivilegeEscalation: false`     | rien                                                                                                                              |
+| `capabilities.drop: ["ALL"]`          | rien — l'application n'écoute qu'au-dessus de 1024                                                                                |
+| `seccompProfile: RuntimeDefault`      | rien — mais **à ne pas oublier** : la politique traite l'**absence** de profil comme une violation, pas comme un défaut permissif |
+| `readOnlyRootFilesystem: true`        | **les deux volumes du §3** — sans eux le conteneur ne démarre pas                                                                 |
 
 **La base de données n'est pas dans le cluster**, et ça a trois conséquences dures →
 [`references/kubernetes.md`](references/kubernetes.md).

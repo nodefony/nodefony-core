@@ -72,6 +72,18 @@ spec:
       restartPolicy: Never
       securityContext:
         runAsNonRoot: true
+        # Le NUMÉRO, pas seulement « pas root ». `runAsNonRoot` seul oblige le
+        # kubelet à deviner l'identité depuis l'image ; la politique Restricted
+        # exige une valeur numérique explicite. Elle reprend le `USER 1000:1000`
+        # du Dockerfile — les deux doivent rester d'accord.
+        runAsUser: 1000
+        runAsGroup: 1000
+        # La politique Restricted traite l'ABSENCE de profil comme une violation
+        # à part entière, pas comme un défaut permissif : sans cette ligne, le
+        # travail est refusé par tout espace de noms qui l'impose. Aucun coût
+        # ici — rien dans ce conteneur n'appelle de fonction système exotique.
+        seccompProfile:
+          type: RuntimeDefault
       containers:
         - name: migrate
           image: <%= it.appName %>:${IMAGE_TAG}

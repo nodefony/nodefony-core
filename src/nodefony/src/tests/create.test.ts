@@ -1530,6 +1530,37 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // Un Job est IMMUABLE et ne se rejoue pas en aveugle.
         assert.include(recipe, "restartPolicy: Never");
         assert.include(recipe, "backoffLimit: 0");
+        // La politique Restricted d'un cluster sérieux. `runAsNonRoot` seul ne
+        // suffit PAS : elle exige un identifiant NUMÉRIQUE, et elle traite
+        // l'ABSENCE de profil d'appels système comme une violation à part
+        // entière — pas comme un défaut permissif. Sans ces trois lignes, le
+        // seul manifeste que Nodefony livre est refusé par le premier espace de
+        // noms correctement verrouillé.
+        assert.include(recipe, "runAsNonRoot: true");
+        assert.include(recipe, "seccompProfile:");
+        assert.include(recipe, "type: RuntimeDefault");
+        // 🔴 Le manifeste et l'image doivent porter le MÊME identifiant. Deux
+        // fichiers, deux endroits où l'écrire : ils divergent en silence, et le
+        // symptôme est un `EACCES` sur un volume, jamais un message qui nomme
+        // la cause. On ne compare donc pas à la constante 1000 — on compare les
+        // deux artefacts RENDUS l'un à l'autre.
+        const dockerfile = readFileSync(path.join(dest, "Dockerfile"), "utf8");
+        const userImage = /^USER\s+(\d+):(\d+)\s*$/m.exec(dockerfile);
+        assert.isNotNull(
+          userImage,
+          "le Dockerfile rendu doit porter un USER NUMÉRIQUE (`USER 1000:1000`) : un nom d'utilisateur n'est pas reportable dans un runAsUser",
+        );
+        const [, uid, gid] = userImage as RegExpExecArray;
+        assert.include(
+          recipe,
+          `runAsUser: ${uid}`,
+          `le travail de migration migre sous un autre identifiant que l'image (image : ${uid})`,
+        );
+        assert.include(
+          recipe,
+          `runAsGroup: ${gid}`,
+          `le travail de migration migre sous un autre groupe que l'image (image : ${gid})`,
+        );
         // L'exemple de secret parle de LA base retenue, pas d'une autre.
         assert.include(recipe, `${scheme}://migrator:MOT_DE_PASSE@db:${port}/`);
         // Aucun espace réservé de documentation n'a survécu au rendu.
