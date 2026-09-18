@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T10:01:19.422Z",
+  "generatedAt": "2026-09-18T11:10:55.108Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 113,
+      "closed": 115,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 11,
+      "open": 9,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 13,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -1919,6 +1919,22 @@
       ]
     },
     {
+      "number": 418,
+      "title": "feat(ci): contrôler aussi l'image dans la chaîne GitLab générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/418",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.7,
+      "debut": "2026-10-21",
+      "cible": "2026-10-21",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 254,
       "title": "test(bench): donner au banc de coupure sa propre base",
       "url": "https://github.com/nodefony/nodefony-core/issues/254",
@@ -3032,7 +3048,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
-      "jours": 4,
+      "jours": 2,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
@@ -3626,7 +3642,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 3,
+      "jours": 2,
       "ordre": 9.9,
       "debut": "2026-09-22",
       "cible": "2026-09-28",
@@ -3638,8 +3654,8 @@
       "number": 358,
       "title": "feat(cli): donner à une application un contrôle de sa propre image",
       "url": "https://github.com/nodefony/nodefony-core/issues/358",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -4214,8 +4230,8 @@
       "number": 382,
       "title": "refactor(scaffold): faire rédiger le message du semis par le framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/382",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P3 — fin de cycle",
       "jours": 1,

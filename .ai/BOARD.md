@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-18 10:01** (UTC).
+> Empreinte prise le **2026-09-18 11:10** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 91% | 113 | 11 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███░░░░░░░` 27% | 13 | 35 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 93% | 115 | 9 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███░░░░░░░` 27% | 13 | 36 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 12% | 4 | 30 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -33,14 +33,14 @@
 
 **#388 — chore(release): publier la préversion 10.0.0-alpha.7**
 
-Ordre 9 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha · frise 2026-09-15 → 09-30
+Ordre 9 · P0 — bloque le reste · 2 j · jalon 10.0.0-alpha · frise 2026-09-15 → 09-30
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 11 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 9 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 35 ouverts
+## Jalon 10.0.0-beta — 36 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -55,6 +55,7 @@ Ordre 9 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha · frise 2026-09-
 | 4.4 | P1 — figé à la création | 1 | 2026-10-16 → 10-16 | #160 | chore(github): poser les gabarits de ticket et de fusion |
 | 4.5 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 4.6 | P2 — décision | 1 | 2026-10-20 → 10-20 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
+| 4.7 | P2 — décision | 0.5 | 2026-10-21 → 10-21 | #418 | feat(ci): contrôler aussi l'image dans la chaîne GitLab générée |
 | 4.8 | P1 — figé à la création | 1 | 2026-10-21 → 10-21 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 4.9 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
 | 5 | P1 — figé à la création | 3 | 2026-10-23 → 10-27 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
@@ -87,16 +88,14 @@ Ordre 9 · P0 — bloque le reste · 4 j · jalon 10.0.0-alpha · frise 2026-09-
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 11 ouverts
+## Jalon 10.0.0-alpha — 9 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 9 | P0 — bloque le reste | 4 | 2026-09-15 → 09-30 | #388 | chore(release): publier la préversion 10.0.0-alpha.7 |
-| 9.9 | P1 — figé à la création | 3 | 2026-09-22 → 09-28 | #316 | feat(scaffold): rendre l'application générée déployable en production |
-| 9.91 | P1 — figé à la création | 1 | 2026-09-25 → 09-25 | #358 | feat(cli): donner à une application un contrôle de sa propre image |
+| 9 | P0 — bloque le reste | 2 | 2026-09-15 → 09-30 | #388 | chore(release): publier la préversion 10.0.0-alpha.7 |
+| 9.9 | P1 — figé à la création | 2 | 2026-09-22 → 09-28 | #316 | feat(scaffold): rendre l'application générée déployable en production |
 | 9.92 | P2 — décision | 1 | 2026-09-25 → 09-25 | #321 | feat(scaffold): rendre l'application déployable en Kubernetes |
 | 9.93 | P1 — figé à la création | 1 | 2026-09-26 → 09-26 | #322 | feat(ci): faire prouver par la vitrine ce que nul n'éprouve |
-| 9.95 | P3 — fin de cycle | 1 | 2026-09-29 → 09-29 | #382 | refactor(scaffold): faire rédiger le message du semis par le framework |
 | 10 | P2 — décision | 1 | 2026-09-24 → 09-24 | #138 | feat(orm): poser les contraintes d'intégrité des relations |
 | 12 | P1 — figé à la création | 1 | 2026-09-25 → 09-25 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
 | 13 | P1 — figé à la création | 1 | 2026-09-28 → 09-28 | #60 | fix(studio): lire la liste des rôles depuis le serveur |

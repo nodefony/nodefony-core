@@ -73,6 +73,20 @@ Séparés, aucun des deux n'atteignait son vrai poids.
 
 ## 🪤 Ajouter un CAS à une table réveille les hypothèses que ses lecteurs n'avaient jamais écrites
 
+- [1× — 09-18c] 🔴 **Le SCÉNARIO DE PREUVE écrit dans un ticket se périme comme une ancre — et
+  sa péremption ressemble à un défaut de l'instrument.** #358 prescrivait « remettre un certificat
+  dans le contexte d'une application témoin, constater le refus ». Je l'ai joué : `.dockerignore`
+  amputé, `privkey.pem` posé, image rebâtie — et le contrôle a rendu **0**. Premier réflexe :
+  « mon gate ne marche pas ». Il marchait. Ce sont DEUX gardes posées depuis la rédaction du
+  ticket qui couvraient ce chemin — l'exclusion, et le `rm -rf nodefony/config/certificates` du
+  stage de build, dont les couches ne descendent pas dans l'image finale. Ce qui l'a établi n'est
+  pas un raisonnement mais un DIFF D'INVENTAIRES entre les deux images : un seul chemin ajouté,
+  `app/.dockerignore.bak`, ma propre sauvegarde. Le trou réel était ailleurs (`.env.production`,
+  couvert par aucune des deux) et le contrôle l'a nommé. **Avant de douter de l'instrument sur un
+  scénario prescrit, vérifier que le scénario ATTEINT encore sa cible** — et le dire dans le
+  compte rendu, sinon la prochaine lecture du ticket refera le même chemin.
+  Voisins gradués : [[feedback_anchor_expires_silently]], [[feedback_bench_probe_false_verdicts]].
+
 - [1× — 09-12c] **Une garde rangée dans une branche ne garde que cette branche.** Le banc
   refuse (exit 78) un canal `local` qui exigerait un registre interposé — mais ce refus
   vivait dans la fonction de montage du décor. En ajoutant un décor VIDE qui saute ce
@@ -597,6 +611,16 @@ Snapshot : `archive/RETEX-snapshot-2026-07-30.md`.
   peut pas se sonder elle-même (`EnvGate.readyUrl`).
 
 ## 📏 Le CHANGELOG résume, le titre approxime — seul le SOURCE dit ce que le code fait
+
+- [1× — 09-18c] 🔴 **Un barrel ré-exporte dans le SOURCE et n'exporte RIEN dans le dist :
+  le bundler élague ce que la surface publique du paquet ne consomme pas.** En câblant les
+  scripts du dépôt sur le produit (`image-gate.mjs` → `dist/node/cli/image/index.js`), l'import
+  a compilé, les symboles sont revenus `undefined`, et onze tests sont tombés sur
+  « cheminsDeLImage is not a function » — un message qui accuse l'appelant, pas l'élagage. Ce que
+  j'avais écrit dans `index.ts` (`export { … } from "./tarLayers"`) était vrai du source et faux
+  de l'artefact. Le constat coûte une commande — `node -e "import('…').then(m=>console.log(Object.keys(m)))"` —
+  et c'est la seule façon de savoir ce qu'un `dist` expose VRAIMENT. Remède : importer le MODULE
+  (`tarLayers.js`), jamais le barrel. Voisin gradué : [[feedback_prove_on_received_artifact]].
 
 - [1× — 09-18] 🔴 **Un artefact RÉSUMÉ lu comme s'il portait le verdict — et j'ai écrit la fausse
   mesure dans un TICKET.** Le banc devkit écrit `task-<n>.gates.json` par tâche ; j'y ai lu « la
