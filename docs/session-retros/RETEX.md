@@ -786,6 +786,23 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   exactement le même défaut sous une autre forme**. Cf [[feedback_gate_must_run]] et la règle du
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
+## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-18f] 🔴 **Un seuil bloquant aurait rendu un job rouge POUR TOUJOURS.** La chaîne de
+  production que je venais d'écrire échouait sur toute vulnérabilité critique de l'image. Mesuré
+  sur `node:24-slim` : `zlib1g` CVE-2023-45853 est marquée `will_not_fix` — aucune mise à jour ne
+  la corrigera jamais. Le job aurait été rouge à chaque exécution, sans que personne ne puisse rien
+  y faire, et il aurait fini par être retiré — emportant avec lui le contrôle du drain et de la
+  topologie, qui eux prouvaient quelque chose. Il ne tranche donc plus que sur ce qui est
+  **corrigeable** (`--ignore-unfixed`), la passe informative montrant tout. La question à poser en
+  écrivant un gate n'est pas seulement « mord-il ? » mais « **peut-on le satisfaire ?** ».
+- [1× — 09-18f] **Un garde-fou a mordu sur une CHAÎNE au lieu d'un geste.** Mon script d'édition
+  Python contenait, dans son motif de recherche, le texte d'une commande de réécriture d'historique
+  qu'il ne faisait que déplacer d'un fichier à l'autre. Le contrôle a refusé l'appel entier. Le
+  remède était d'ancrer autrement — mais le coût est le même que pour un faux positif ordinaire :
+  un contrôle qui refuse ce qui est sûr apprend à chercher comment le contourner.
+  Même famille que [[feedback_gate_must_bite]], côté opposé.
+
 ## 🧹 Entretenir le SAS est un geste qui se rate comme un autre
 
 - [1× — 09-17] **Mes propres frictions du jour ont été versées dans le MAUVAIS thème.** Le script
