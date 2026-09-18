@@ -318,6 +318,10 @@ jobs:
   vitrine:
     name: Vitrine — application générée
     needs: publier
+    # Le commit poussé là-bas : c'est LUI que la chaîne de la vitrine va juger,
+    # et le seul moyen de retrouver ses exécutions (un `main` avance).
+    outputs:
+      sha: ${{ steps.pousser.outputs.sha }}
     if: vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_VITRINE == 'true' && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -400,6 +404,7 @@ jobs:
           }
 
       - name: Pousser la vitrine
+        id: pousser
         env:
           GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
           VERSION: ${{ github.ref_name }}
@@ -417,6 +422,81 @@ jobs:
           # est sur `v7`, dont la garde ci-dessus a constaté l'existence.
           git push --force origin main
           git tag "${VERSION}" && git push origin "${VERSION}"
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+  # ═════════════════════════════════════════════════════════════════════════
+  # 3 bis. LE VERDICT DE LA VITRINE — ce que ce dépôt-ci ne peut pas prouver
+  # ═════════════════════════════════════════════════════════════════════════
+  # La vitrine est la seule application INSTALLÉE DEPUIS LE REGISTRE : sa chaîne
+  # construit son image, la démarre, la draine, et lève la topologie de
+  # production derrière un frontal. Rien de tout cela n'existe ici, où l'on
+  # n'éprouve que des sources non publiées.
+  #
+  # 🔴 CE JOB N'EMPÊCHE RIEN, et c'est assumé : il tourne APRÈS la publication
+  # npm, donc après le point irrattrapable — une version publiée est brûlée, npm
+  # ne connaît pas la transaction. Son rôle est de rendre le run ROUGE, parce
+  # qu'un verdict que personne ne lit n'existe pas : jusqu'ici la chaîne de la
+  # vitrine pouvait être rouge sans qu'aucune publication s'en aperçoive.
+  # Aucun job n'en dépend — il signale, il ne bloque pas.
+  # Ce qui doit mordre AVANT la publication vit dans `release-preflight.yml` et
+  # dans `release:pack` / `release:smoke`, qui éprouvent une installation réelle
+  # depuis les tarballs sans rien publier.
+  vitrine-verdict:
+    name: Vitrine — sa chaîne est-elle verte ?
+    needs: vitrine
+    if: vars.NF_RELEASE_ARMED == 'true' && vars.NF_RELEASE_VITRINE == 'true' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "26.x"
+
+      # 🔴 `NF_VITRINE_TOKEN` a besoin d'une TROISIÈME permission pour cette
+      # lecture : « Actions » = Read. Sans elle l'API rend 403, et ce job
+      # AVERTIT au lieu d'échouer — fabriquer un rouge permanent sur un défaut
+      # de jeton ferait désarmer le job entier, et le verdict avec lui.
+      - name: Attendre le verdict de la chaîne de la vitrine
+        env:
+          GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
+          # Le script juge le dépôt que cette variable nomme : c'est ce qui
+          # permet de l'appeler tel quel sur un AUTRE dépôt que celui-ci.
+          GITHUB_REPOSITORY: nodefony/nodefony
+          SHA: ${{ needs.vitrine.outputs.sha }}
+        run: |
+          set -uo pipefail
+          if [ -z "${SHA}" ]; then
+            echo "::warning::le job vitrine n'a pas rendu de sha — verdict non lu"
+            exit 0
+          fi
+          if ! gh api "repos/nodefony/nodefony/actions/runs?per_page=1" --silent 2>/dev/null; then
+            echo "::warning::NF_VITRINE_TOKEN ne peut pas LIRE les exécutions de nodefony/nodefony."
+            echo "::warning::Ajouter la permission « Actions » = Read au jeton (fine-grained),"
+            echo "::warning::ou « repo » en jeton classique. Verdict de la vitrine NON lu."
+            exit 0
+          fi
+          # Une exécution met quelques secondes à naître après un envoi, et le
+          # juge tient « aucune exécution » pour un ROUGE — à raison, mais pas
+          # ici : ce serait un faux verdict sur une chaîne qui n'a pas encore
+          # démarré. On attend donc qu'elle EXISTE avant de la faire juger.
+          VUE=""
+          for _ in $(seq 1 30); do
+            N=$(gh api "repos/nodefony/nodefony/actions/runs?head_sha=${SHA}&per_page=100" \
+                  --jq '.workflow_runs | length' 2>/dev/null || echo 0)
+            if [ "${N:-0}" -gt 0 ]; then VUE=oui; break; fi
+            sleep 10
+          done
+          if [ -z "$VUE" ]; then
+            echo "::warning::aucune exécution sur ${SHA} après 5 min — la vitrine n'a pas de chaîne active"
+            exit 0
+          fi
+          # Le JUGEMENT lui-même n'est pas réécrit ici : c'est celui que la
+          # garde d'avant-publication applique déjà à ce dépôt (workflows non
+          # bloquants compris). Deux copies auraient divergé au premier ajout.
+          node scripts/release/attendre-ci.mjs --sha "${SHA}" --timeout-min 50
 
   # ═════════════════════════════════════════════════════════════════════════
   # 4. IMAGE — construite DEPUIS l'application générée (décision D4)
@@ -661,7 +741,17 @@ jobs:
   # ═════════════════════════════════════════════════════════════════════════
   bilan:
     name: Bilan — ce qui a tourné, et ce qui a été sauté
-    needs: [epreuve, acces, garde-main, publier, vitrine, image, annonce]
+    needs:
+      [
+        epreuve,
+        acces,
+        garde-main,
+        publier,
+        vitrine,
+        vitrine-verdict,
+        image,
+        annonce,
+      ]
     if: always() && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -686,6 +776,7 @@ jobs:
             etat "${{ needs.acces.result }}"   "Accès (jetons vitrine et docker, OIDC, outils)" ""
             etat "${{ needs.publier.result }}" "Publication npm" ""
             etat "${{ needs.vitrine.result }}" "Vitrine nodefony/nodefony" "poser la variable NF_RELEASE_VITRINE=true et le secret NF_VITRINE_TOKEN"
+            etat "${{ needs['vitrine-verdict'].result }}" "Verdict de la chaîne de la vitrine (image, drain, topologie)" "la vitrine n'a pas été poussée"
             etat "${{ needs.image.result }}"   "Image docker" "poser la variable NF_RELEASE_IMAGE=true et les secrets NF_DOCKERHUB_*"
             etat "${{ needs.annonce.result }}" "Release GitHub" ""
             echo

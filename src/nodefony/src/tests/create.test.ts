@@ -1256,6 +1256,79 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "le frontal ne conditionne pas son démarrage à la santé de l'application",
       );
     });
+
+    it("🔴 la chaîne de PRODUCTION est générée, et elle EXÉCUTE la topologie", () => {
+      // Ce que ce contrôle tient — et ce qu'il ne tient PAS. Il garde la
+      // PRÉSENCE du fichier et de ses points de contrôle ; il ne prouve à aucun
+      // moment qu'ils passent, parce qu'aucune lecture de chaîne ne le peut :
+      // une assertion figeant la ligne d'un `chown` du Dockerfile est restée
+      // verte pendant que l'image ne démarrait pas. La preuve vit dans le job
+      // lui-même, sur la forge — ici on empêche seulement qu'il DISPARAISSE.
+      // UN seul rendu pour les deux lectures : le helper REFAIT le scaffold, et
+      // un second appel dans le même test butte sur son propre dossier.
+      const dest = dossierEdge();
+      const prod = readFileSync(
+        path.join(dest, ".github", "workflows", "production.yml"),
+        "utf8",
+      );
+      // Sur la branche par défaut SEULEMENT : ces jobs construisent des images
+      // et lèvent une infrastructure. À chaque envoi de branche, un utilisateur
+      // les retirerait — un contrôle trop cher est un contrôle qu'on désarme.
+      assert.match(prod, /\non:\n {2}push:\n {4}branches: \[main\]\n/u);
+      assert.include(prod, "workflow_dispatch:");
+      assert.match(prod, /\npermissions:\n {2}contents: read\n/u);
+      // Les deux jobs, et ce que chacun est SEUL à pouvoir prouver.
+      assert.match(prod, /\n {2}image:\n/u);
+      assert.match(prod, /\n {2}topologie:\n/u);
+      // 🔴 Le DRAIN. Un conteneur tué sort en 137 : les requêtes en vol sont
+      // perdues à chaque déploiement, sans une erreur ni une trace. Le code de
+      // sortie est le seul témoin, et rien d'autre ne le regarde.
+      assert.include(prod, "docker inspect -f '{{.State.ExitCode}}'");
+      assert.include(prod, "stop -t 20 app");
+      // 🔴 La GARDE, vue mordre : sans la confiance au frontal, le préfixe du
+      // cookie doit TOMBER. Un cas qui passerait de toute façon ne prouve rien.
+      assert.include(prod, 'NF__HTTP__TRUSTPROXY: ""');
+      assert.include(prod, "__Host-");
+      // La MÊME suite que `ci.yml` joue en direct, rejouée à travers le frontal :
+      // c'est le seul moment où la moitié applicative du contrat de proxy est
+      // exercée.
+      assert.include(prod, "NF_E2E_BASE_URL");
+      assert.include(prod, "npm run test:e2e");
+      // Le certificat se MONTE, donc il faut le fabriquer avant de lever la
+      // topologie — sans lui le frontal ne démarre pas, sur un message nginx.
+      assert.include(prod, "npx nodefony http:certificates");
+      // Une borne, sinon un démarrage qui pend consomme le quota six heures.
+      assert.match(prod, /\n {4}timeout-minutes: \d+\n/u);
+      // Retirable d'un seul `rm` : le filet de base vit dans l'AUTRE fichier.
+      const ci = readFileSync(
+        path.join(dest, ".github", "workflows", "ci.yml"),
+        "utf8",
+      );
+      assert.include(ci, "npm run verify");
+      assert.notInclude(ci, "--profile edge");
+    });
+
+    it("preset minimal : pas de compose, donc pas de chaîne de production", () => {
+      // Le fichier vit dans la couche `complete`, et c'est la seule réponse
+      // juste : ses deux jobs lèvent la topologie par le compose. Le rendre
+      // pour une application qui n'en a pas poserait un workflow rouge dès le
+      // premier envoi — un filet qui échoue sans rien garder se fait retirer,
+      // et le reste avec lui.
+      const dest = path.join(tmp, "prod-minimal");
+      scaffold(dest, { name: "prodmin", preset: "minimal" });
+      assert.isFalse(
+        existsSync(path.join(dest, "compose.yaml")),
+        "le preset minimal a produit un compose",
+      );
+      assert.isFalse(
+        existsSync(path.join(dest, ".github", "workflows", "production.yml")),
+        "chaîne de production rendue sans le compose qu'elle lève",
+      );
+      assert.isTrue(
+        existsSync(path.join(dest, ".github", "workflows", "ci.yml")),
+        "le filet de base a disparu du preset minimal",
+      );
+    });
   });
 
   describe("base SQL retenue à la création (compose ↔ .env ↔ README)", () => {
