@@ -168,16 +168,38 @@ export default defineConfig<typeof env>((ctx) => ({
      * Console d'administration → `/nodefony` : modules chargés, routes, config
      * résolue, sessions, logs.
      *
-     * `policy: "dev"` parce que c'est une surface d'ADMIN : absente de la
-     * production. Pour l'y garder — choix ASSUMÉ — protège `/nodefony` par une
-     * zone firewall, PUIS passe la policy à `"mandatory"`.
+     * `policy: "mandatory"` — la console EXISTE en production. C'est un choix :
+     * une application qu'on exploite a besoin de son tableau de bord là où elle
+     * tourne, pas seulement sur le poste de son auteur. Un `policy: "dev"` la
+     * ferait disparaître en production SANS un mot, et l'exploitant chercherait
+     * un 404 dont rien ne donne la cause.
+     *
+     * ⚠️ CE QUI EST CLOS, ET CE QUI NE L'EST PAS — à savoir avant d'exposer
+     * cette application sur un réseau public :
+     *
+     * - Le DATA PLANE (`/nodefony/<module>/api/...`) exige une SESSION : la
+     *   zone `nodefony-admin` est posée par `@nodefony/framework`, pas par
+     *   toi. Aucune donnée d'administration ne sort sans authentification.
+     * - L'UI hors `/api` (la page elle-même, ses fichiers) n'a PAS encore de
+     *   zone : un anonyme peut l'afficher. Elle ne lui montrera rien — tous
+     *   ses appels reçoivent 401 — mais elle révèle que la console est là.
+     * - Le RBAC par rôle sur toute la surface arrive ; aujourd'hui,
+     *   `ROLE_NODEFONY_ADMIN` ne garde que `/nodefony/studio/api/create/*`.
+     *
+     * Pour fermer l'UI dès maintenant, ajoute une zone dans
+     * `nodefony/config/security.ts` :
+     *
+     *   nodefonyUi: { pattern: "^/nodefony(/|$)", authenticators: ["session"] },
+     *
+     * Le firewall retient la zone au pattern le plus LONG : le data plane et
+     * la sonde de vivacité gardent donc les leurs.
      *
      * `ui: "static"` sert les assets pré-buildés du paquet npm (rien à
      * recompiler). `"auto"`/`"vite"` feraient passer l'UI Studio par TON serveur
      * Vite — pour développer Studio lui-même — et exigeraient ses plugins dans
      * TES devDependencies (une app Vue/Angular n'a pas `@vitejs/plugin-react`).
      */
-    use("@nodefony/studio", { ui: "static" }, { policy: "dev" }),
+    use("@nodefony/studio", { ui: "static" }, { policy: "mandatory" }),
 
     /**
      * Accès Redis générique — chargé par la DÉCLARATION de l'infra cache :
