@@ -22,6 +22,17 @@
 
 ## 🪞 Le remède écrit pour corriger un message trompeur était lui-même FAUX
 
+- [1× — 09-18d] 🔴 **J'ai annoncé au user un mécanisme de cause comme ÉTABLI, alors que je ne
+  l'avais pas reproduit — et l'expérience suivante l'a réfuté.** Un rouge de banc (cookie de
+  session absent) ; je trouve un défaut réel à côté (le banc ne vide ses volumes que sur le chemin
+  du SUCCÈS, donc la base et ses comptes survivent) et j'écris « ça explique le rouge ». Le run
+  suivant est parti AVEC le volume résiduel en place : **vert**. L'identité du banc est une
+  constante du gabarit, donc un volume hérité d'un run récent porte le même compte — le mécanisme
+  était plausible et ne mordait pas ici. Ce qui était établi : le volume survit, il porte la base.
+  Ce qui ne l'était pas : le lien avec CE rouge. **Un mécanisme trouvé en cherchant une cause n'est
+  pas la cause : il le devient quand on l'a fait produire l'effet.** Le ticket a été recalé pour
+  séparer les deux, et fermé sur le seul fait constaté. Voisin : [[feedback_suspect_instrument_and_own_diff]].
+
 - [1× — 09-13e] 🔴 **J'ai failli livrer, dans le correctif d'un diagnostic menteur, une
   affirmation fausse du même genre.** Le défaut corrigé : un boot qui échoue en accusant
   `nodefony.config`, alors que ce fichier est juste. Mon nouveau message expliquait la vraie cause
@@ -182,6 +193,16 @@ exécution.
   coûté une refonte inutile. ↝ [[feedback_anchor_expires_silently]]
 
 ## 🧊 Un banc qui s'arrête au premier échec CACHE tout ce qui vient après
+
+- [1× — 09-18d] **La commande de preuve d'un ticket n'était pas le geste que le produit fait.**
+  #420 affirmait que les paquets natifs tournent sous musl, preuve à l'appui :
+  `npm i better-sqlite3 @node-rs/argon2 && node -e …`. Or l'image, elle, installe avec
+  `--ignore-scripts` — et c'est précisément ce drapeau qui décide si un binaire prébâti est
+  téléchargé ou non. La preuve et l'artefact ne jouaient pas le même coup. Rejoué dans les
+  conditions RÉELLES : vert (base sqlite créée et relue, Argon2id produit), donc la conclusion
+  tenait — mais par chance, pas par construction. **Une preuve se rejoue avec les DRAPEAUX de
+  l'artefact, pas avec la forme courte qu'on tape à la main.** Gradué voisin :
+  [[feedback_prove_on_received_artifact]].
 
 - [1× — 09-18] **Instruire un rouge de banc rend parfois un défaut de l'INSTRUMENT, et c'est un
   résultat.** Quatre rouges instruits depuis leurs transcripts, sans repayer un seul run : deux
