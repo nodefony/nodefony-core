@@ -118,6 +118,25 @@ const CASES = [
     "nodefony-devkit-bench",
   ],
   ["est-ce que create entity marche encore ?", "nodefony-devkit-bench"],
+  // — déploiement : le gabarit côté framework, l'application côté npm. Les deux
+  //   skills portent le même nom ; ce sont les MOTS de la demande qui les
+  //   séparent — « gabarit / scaffold » d'un côté, « mon app / mon pod » de l'autre.
+  [
+    "le gabarit de déploiement ne rend pas le manifeste Kubernetes",
+    "nodefony-devops",
+  ],
+  [
+    "que dit le corpus kubernetes sur la politique Restricted ?",
+    "nodefony-devops",
+  ],
+  // Ces deux-là visent le skill LIVRÉ : la portée est imposée, sans quoi elles
+  // seraient jugées contre son homonyme du dépôt (cf `scopeOf`).
+  ["déployer mon application en production", "nodefony-devops", "package"],
+  [
+    "mon pod perd des requêtes à chaque redéploiement",
+    "nodefony-devops",
+    "package",
+  ],
   // — méta
   ["créer un skill", "nodefony-skill"],
   ["mon skill ne se déclenche jamais", "nodefony-skill"],
@@ -381,8 +400,19 @@ const rank = (phrase, scope = "repo") =>
     .map((s) => ({ name: s.name, sc: score(phrase, s) }))
     .sort((a, b) => b.sc - a.sc);
 
-/** La portée d'un skill par son nom — les cas ne la déclarent pas. */
-const scopeOf = (name) => skills.find((s) => s.name === name)?.scope ?? "repo";
+/**
+ * La portée d'un skill par son nom, qu'un cas peut IMPOSER en troisième position.
+ *
+ * Un même nom peut exister dans les DEUX portées — le dépôt et le paquet livré
+ * portent alors deux skills distincts, volontairement différents (`nodefony-browser`,
+ * `nodefony-migrate-schema`, `nodefony-devops`). Sans portée explicite, ce `find`
+ * rend toujours celui du dépôt, puisqu'il est balayé en premier : les cas écrits
+ * POUR le skill livré testaient en réalité son homonyme du dépôt, et une
+ * description de skill livré pouvait changer sans que le banc bronche. Le défaut
+ * était muet, ce qui est le pire des deux.
+ */
+const scopeOf = (name, impose) =>
+  impose ?? skills.find((s) => s.name === name)?.scope ?? "repo";
 
 const FRAGILE_MARGIN = 0.15; // marge relative sous laquelle un cas vert tient à peu de chose
 
@@ -390,8 +420,8 @@ let pass = 0;
 const failures = [];
 const fragile = [];
 
-for (const [phrase, expected] of CASES) {
-  const ranked = rank(phrase, scopeOf(expected));
+for (const [phrase, expected, portee] of CASES) {
+  const ranked = rank(phrase, scopeOf(expected, portee));
   const [first, second] = ranked;
   const ok = first.sc > 0 && first.name === expected;
   if (ok) {

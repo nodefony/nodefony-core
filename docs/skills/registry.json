@@ -3,8 +3,8 @@
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
   "generatedAt": "2026-09-18",
-  "count": 34,
-  "conformant": 34,
+  "count": 36,
+  "conformant": 36,
   "skills": [
     {
       "name": "nodefony-browser",
@@ -1914,6 +1914,117 @@
       "links": {
         "source": ".claude/skills/nodefony-devkit-bench/SKILL.md",
         "doc": "docs/skills/nodefony-devkit-bench.md"
+      }
+    },
+    {
+      "name": "nodefony-devops",
+      "summary": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "gabarit de déploiement",
+        "Dockerfile généré",
+        "manifeste Kubernetes du scaffold",
+        "politique Restricted",
+        "readOnlyRootFilesystem",
+        "sondes liveness et readiness",
+        "arrêt gracieux d'un pod",
+        "Podman",
+        "corpus docker",
+        "corpus kubernetes",
+        "la CI de l'application générée",
+        "GitLab CI",
+        "scanner l'image"
+      ],
+      "description": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration. Donne la carte de ce que le générateur rend déjà, et embarque HORS LIGNE le corpus de référence (Docker, Kubernetes, Podman, OCI, distroless) sur lequel toute décision se tranche. À charger AVANT de toucher à un gabarit de déploiement ou d'affirmer ce qu'un orchestrateur fait : les réponses se lisent dans le corpus, elles ne se déduisent pas. Le skill livré aux applications vit dans le paquet devkit. Déclencheurs : \"gabarit de déploiement\", \"Dockerfile généré\", \"manifeste Kubernetes du scaffold\", \"politique Restricted\", \"readOnlyRootFilesystem\", \"sondes liveness et readiness\", \"arrêt gracieux d'un pod\", \"Podman\", \"corpus docker\", \"corpus kubernetes\", \"la CI de l'application générée\", \"GitLab CI\", \"scanner l'image\".",
+      "cost": {
+        "bodyLines": 131,
+        "approxTokens": 2436
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 24,
+        "scripts": []
+      },
+      "related": [
+        "nodefony-debug",
+        "nodefony-documentation",
+        "nodefony-framework-dev",
+        "nodefony-load-test",
+        "nodefony-multipod-bench",
+        "nodefony-release",
+        "nodefony-rfc"
+      ],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "906",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "131",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": ".claude/skills/nodefony-devops/SKILL.md",
+        "doc": "docs/skills/nodefony-devops.md"
       }
     },
     {
@@ -7880,6 +7991,116 @@
       "links": {
         "source": "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md",
         "doc": "docs/skills/nodefony-dev.md"
+      }
+    },
+    {
+      "name": "nodefony-devops",
+      "summary": "Déploie et exploite CETTE application Nodefony : construire et vérifier son image, la mettre derrière un frontal, la porter sur Kubernetes, la jouer sous Podman, lire sa chaîne d'intégration.",
+      "family": "Autres",
+      "version": "1.0.0",
+      "keywords": [],
+      "triggers": [
+        "déployer mon application en production",
+        "mettre mon app en production",
+        "construire et vérifier l'image",
+        "docker compose",
+        "derrière nginx",
+        "Kubernetes",
+        "manifeste k8s",
+        "Deployment",
+        "Ingress",
+        "mon pod redémarre",
+        "mon pod perd des requêtes",
+        "redéploiement sans coupure",
+        "arrêt gracieux",
+        "readOnlyRootFilesystem",
+        "politique Restricted",
+        "secrets Kubernetes",
+        "Podman",
+        "podman kube play",
+        "la CI de mon app",
+        "GitLab CI"
+      ],
+      "description": "Déploie et exploite CETTE application Nodefony : construire et vérifier son image, la mettre derrière un frontal, la porter sur Kubernetes, la jouer sous Podman, lire sa chaîne d'intégration. Son apport : la liste de ce que l'application FOURNIT DÉJÀ — sondes, arrêt gracieux, identité de pod, secrets montés, utilisateur non root — pour qu'aucun manifeste ne réécrive ce qui existe, et celle de ce que l'orchestrateur doit poser en face, faute de quoi l'application se dégrade SANS erreur. À charger AVANT d'écrire un manifeste, un compose ou une étape de déploiement. Déclencheurs : \"déployer mon application en production\", \"mettre mon app en production\", \"construire et vérifier l'image\", \"docker compose\", \"derrière nginx\", \"Kubernetes\", \"manifeste k8s\", \"Deployment\", \"Ingress\", \"mon pod redémarre\", \"mon pod perd des requêtes\", \"redéploiement sans coupure\", \"arrêt gracieux\", \"readOnlyRootFilesystem\", \"politique Restricted\", \"secrets Kubernetes\", \"Podman\", \"podman kube play\", \"la CI de mon app\", \"GitLab CI\".",
+      "cost": {
+        "bodyLines": 125,
+        "approxTokens": 2566
+      },
+      "requires": [],
+      "resources": {
+        "references": [],
+        "referenceFilesTotal": 0,
+        "scripts": []
+      },
+      "related": [],
+      "conformance": {
+        "ok": true,
+        "checks": [
+          {
+            "key": "name conforme et égal au dossier",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "en-tête analysable par un vrai parseur YAML",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "description de 1 à 1024 caractères",
+            "ok": true,
+            "detail": "1017",
+            "advisory": false
+          },
+          {
+            "key": "aucun champ hors standard",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "compatibility ≤ 500 caractères (si présent)",
+            "ok": true,
+            "detail": "absent",
+            "advisory": false
+          },
+          {
+            "key": "dossier de ressources nommé `references/`",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers un skill inexistant",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun renvoi vers une ressource inexistante",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "aucun numéro de ticket dans la prose",
+            "ok": true,
+            "detail": null,
+            "advisory": false
+          },
+          {
+            "key": "corps < 500 lignes",
+            "ok": true,
+            "detail": "125",
+            "advisory": true
+          }
+        ]
+      },
+      "links": {
+        "source": "src/packages/@nodefony/devkit/skills/nodefony-devops/SKILL.md",
+        "doc": "docs/skills/nodefony-devops.md"
       }
     },
     {
