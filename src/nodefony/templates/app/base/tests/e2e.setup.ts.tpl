@@ -153,6 +153,23 @@ export function appBaseUrl(): string {
 /** Vrai quand l'application visée est servie ailleurs (typiquement : un frontal). */
 export const isExternalTarget = Boolean(EXTERNAL_BASE_URL);
 
+/**
+ * Vrai quand cette cible externe est servie en **TLS**.
+ *
+ * 🔴 « Externe » et « derrière un frontal TLS » ne sont PAS la même chose, et
+ * les confondre fabrique un rouge qui n'appartient à personne. Une application
+ * jointe par son nom de service sur le réseau d'un compose ou d'un cluster est
+ * bien externe, et pourtant servie en clair : tout ce qui DÉRIVE du schéma
+ * constaté — le préfixe `__Host-` en tête — y est légitimement absent.
+ *
+ * Mesuré : un banc qui joue cette suite contre `http://app:5151` obtenait un
+ * échec sur le cookie, alors que le serveur se comportait exactement comme il
+ * le doit. Le cas mesure la CONFIANCE AU PROXY ; sans TLS au bout, il n'y a
+ * pas de proxy à croire.
+ */
+export const isTlsTarget =
+  isExternalTarget && appBaseUrl().startsWith("https:");
+
 export async function setup(): Promise<void> {
   if (EXTERNAL_BASE_URL) {
     process.stdout.write(

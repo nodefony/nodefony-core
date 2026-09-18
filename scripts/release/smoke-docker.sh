@@ -11,7 +11,7 @@
 # `create-nodefony` installé depuis SON tarball. C'est le premier paquet qu'un
 # inconnu exécute (`npm create nodefony <app>`), et il n'était éprouvé par rien.
 #
-# TROIS scénarios, sélectionnables :
+# CINQ scénarios, sélectionnables :
 #
 #   base   — app minimale sans front : sondes, node PID 1, drain au SIGTERM
 #   front  — app à frontend React : tags `/_assets/…` servis, et les DEUX
@@ -23,9 +23,13 @@
 #            edge up -d --build` : l'app derrière son frontal nginx, jointe par
 #            son NOM de service, `trustProxy: uniquelocal` éprouvé pour de vrai,
 #            et les statiques servis sans que Node soit joint
+#   sql    — les TROIS moteurs serveurs (`--database postgres|mariadb|mysql`)
+#            sous musl : la base jointe par son NOM de service — la seule chose
+#            qu'Alpine pouvait casser —, les migrations appliquées, et la suite
+#            e2e générée jouée DANS un conteneur Alpine
 #
 # Usage (racine repo) :
-#   npm run release:smoke -- [--scenario all|base|front|studio|edge]
+#   npm run release:smoke -- [--scenario all|base|front|studio|edge|sql]
 # Prérequis : npm run build (dist à jour) + docker daemon up.
 set -euo pipefail
 
@@ -46,12 +50,21 @@ SCENARIO="all"
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --scenario) SCENARIO="${2:-}"; shift 2 ;;
-    -h|--help) sed -n '2,22p' "$0"; exit 0 ;;
+    -h|--help) sed -n '2,27p' "$0"; exit 0 ;;
     *) echo "option inconnue : $1" >&2; exit 64 ;;
   esac
 done
-case "$SCENARIO" in all|base|front|studio|edge) ;; *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;; esac
-runs() { [[ "$SCENARIO" == "all" || "$SCENARIO" == "$1" ]]; }
+case "$SCENARIO" in
+  all|base|front|studio|edge|sql|sql:postgres|sql:mariadb|sql:mysql) ;;
+  *) echo "scénario inconnu : $SCENARIO" >&2; exit 64 ;;
+esac
+# `sql` se DÉCOUPE par moteur, et ce n'est pas un raffinement : le job de forge
+# est borné à 45 min, or les trois moteurs en série demandent trois
+# installations, trois constructions d'image et trois suites e2e. Un seul job
+# les dépasserait — et un banc tué par son plafond ne rend aucun verdict, pas
+# même partiel. Un moteur par job : ils tournent en parallèle, et chacun dit sa
+# propre vérité (même raison que `fail-fast: false`).
+runs() { [[ "$SCENARIO" == "all" || "$SCENARIO" == "$1" || "${SCENARIO%%:*}" == "$1" ]]; }
 
 # Quatre niveaux : scripts → nodefony-release → skills → .claude → racine.
 # Le compte se VÉRIFIE au lieu de se supposer : déplacer ce script d'un dossier
@@ -75,10 +88,15 @@ CONTAINERS=""
 # volumes, services liés. `docker rm -f` en laisserait la moitié derrière — d'où
 # un défaisage qui lui est propre, posé dès que le compose est monté.
 COMPOSE_DIR=""
+# Le profil à DÉFAIRE n'est pas le même selon le scénario (`edge` lève un
+# frontal, `sql` lève une base et sa tâche de migration). Un `down` sur le
+# mauvais profil laisse des services debout sans le dire — et le suivant
+# démarre alors sur un décor sale.
+COMPOSE_PROFILE="edge"
 step() { STEP="$1"; echo ""; echo "── $1 ──────────────────────────────────────"; }
 cleanup() {
   for c in $CONTAINERS; do docker rm -f "$c" >/dev/null 2>&1 || true; done
-  [ -n "$COMPOSE_DIR" ] && (cd "$COMPOSE_DIR" && docker compose --profile edge down -v >/dev/null 2>&1 || true)
+  [ -n "$COMPOSE_DIR" ] && (cd "$COMPOSE_DIR" && docker compose --profile "$COMPOSE_PROFILE" down -v >/dev/null 2>&1 || true)
   return 0
 }
 fail() { echo "" >&2; echo "✗ ÉCHEC à l'étape « $STEP » : $1" >&2; cleanup; exit 1; }
@@ -100,13 +118,20 @@ assert_app_conforme() { # dir quoi
   grep -q '^CMD \["' "$dir/Dockerfile" || fail "$quoi : Dockerfile généré sans CMD en forme exec"
 }
 
-scaffold_app() { # nom dir preset frontend
-  local name="$1" dir="$2" preset="$3" front="$4"
+# Le 5e argument est le moteur de base (`--database`). Il est OPTIONNEL et,
+# omis, la commande n'est pas passée du tout : c'est le générateur qui décide
+# alors, et le banc ne doit pas se substituer à son défaut — le jour où il
+# change, les quatre autres scénarios doivent suivre sans qu'on y touche.
+scaffold_app() { # nom dir preset frontend [database]
+  local name="$1" dir="$2" preset="$3" front="$4" db="${5:-}"
+  local db_opt=()
+  [ -n "$db" ] && db_opt=(--database "$db")
   "$NODEFONY_BIN" create app "$name" --dir "$dir" --yes \
-    --preset "$preset" --frontend "$front" --no-install --no-git > "$WORK/.scaffold-$name.out" 2>&1 \
-    || { tail -30 "$WORK/.scaffold-$name.out"; fail "nodefony create app ($preset/$front)"; }
+    --preset "$preset" --frontend "$front" "${db_opt[@]}" \
+    --no-install --no-git > "$WORK/.scaffold-$name.out" 2>&1 \
+    || { tail -30 "$WORK/.scaffold-$name.out"; fail "nodefony create app ($preset/$front${db:+/db=$db})"; }
   assert_app_conforme "$dir" "nodefony create app"
-  ok "app « $name » générée ($preset / front=$front)"
+  ok "app « $name » générée ($preset / front=$front${db:+ / database=$db})"
 }
 
 # Pointe les dépendances du framework vers les tarballs : l'installation qui
@@ -953,6 +978,338 @@ YML
   # n'appartient qu'au décor (vécu le 2026-09-18, sur la bascule de la base de
   # l'image : trois quarts d'heure à chercher dans Alpine ce qui était dans un
   # volume).
+fi
+
+# ═══ SCÉNARIO « sql » — les TROIS moteurs serveurs, sous musl ═══════════════
+#
+# Ce que les quatre autres scénarios ne peuvent pas voir : ils tournent tous sur
+# SQLite, un FICHIER. Or l'image est bâtie sur Alpine (#420), dont la bibliothèque
+# C est musl — et ce qui change entre musl et glibc n'est pas le pilote (`pg` et
+# `mysql2` sont du JavaScript pur) mais la RÉSOLUTION DE NOMS. Joindre sa base
+# par un nom de service est le mode NOMINAL en compose comme en Kubernetes ;
+# c'est donc le premier appel système que fait une application déployée, et le
+# seul que le passage à Alpine pouvait casser.
+#
+# Trois différences documentées de musl, toutes invisibles tant qu'on reste sur
+# un fichier : il n'implémente ni `search` à plusieurs domaines ni `ndots` comme
+# glibc, il interroge les serveurs de `resolv.conf` EN PARALLÈLE et retient la
+# première réponse, et il n'a pas de `nsswitch.conf`. Aucun de ces écarts ne
+# lève d'erreur : ils se manifestent par un nom qui ne résout pas, donc par une
+# application qui n'atteint jamais sa base.
+#
+# Ce que ce scénario établit, moteur par moteur :
+#   1. le compose généré joint la base par son NOM (et non par une boucle locale,
+#      qui dans un conteneur désigne le conteneur lui-même) ;
+#   2. ce nom RÉSOUT depuis l'application, sous musl — constaté par `getaddrinfo`
+#      exécuté DANS le conteneur, pas déduit du fait que l'app démarre ;
+#   3. la tâche de migration, qui est le PREMIER à ouvrir une connexion par ce
+#      nom, s'est terminée avec succès ;
+#   4. l'application sert, et une route qui TOUCHE la base répond ;
+#   5. la suite de bout en bout générée passe, exécutée DANS Alpine et joignant
+#      l'application par son nom de service — les deux points que le « Fini
+#      quand » de #420 réclamait et qu'aucun banc ne couvrait.
+#
+# Le coût est assumé : trois applications générées, installées, bâties et mises
+# en conteneur. C'est le prix d'une preuve sur les trois dialectes que
+# `--database` propose, et ce banc ne se joue pas à chaque commit.
+
+if runs sql; then
+  # Ports décalés : ce banc tourne sur une machine de développement qui fait
+  # déjà tourner les siens, et le compose généré publie sur des ports
+  # CONVENTIONNELS. Chaque valeur est interpolée par le gabarit
+  # (`${POSTGRES_PORT:-5432}`) — c'est le mécanisme qu'il documente, pas un
+  # contournement. Les trois moteurs ne cohabitent jamais : on range entre deux.
+  export APP_PORT=15251 REDIS_PORT=16379 \
+         POSTGRES_PORT=15432 MARIADB_PORT=13306 MYSQL_PORT=13307
+  SQL_APP_PORT=15251
+  COMPOSE_PROFILE="app"
+
+  # `--scenario sql` joue les trois ; `--scenario sql:mysql` n'en joue qu'un,
+  # ce dont la forge se sert pour en faire trois jobs parallèles.
+  case "$SCENARIO" in
+    sql:*) SQL_MOTEURS="${SCENARIO#sql:}" ;;
+    *)     SQL_MOTEURS="postgres mariadb mysql" ;;
+  esac
+  # L'ordre ne porte rien. La garde « vue mordre » se joue sur le PREMIER de la
+  # liste EFFECTIVE, une seule fois : elle débranche la résolution de nom, qui
+  # ne dépend d'aucun dialecte — un job qui ne joue que `mysql` doit donc la
+  # jouer quand même, sinon ce job-là ne prouverait rien.
+  SQL_FIRST="${SQL_MOTEURS%% *}"
+
+  for MOTEUR in $SQL_MOTEURS; do
+    case "$MOTEUR" in
+      postgres) QAPP_NAME="smokesqlpg";    SERVICE="postgres" ;;
+      mariadb)  QAPP_NAME="smokesqlmaria"; SERVICE="mariadb" ;;
+      mysql)    QAPP_NAME="smokesqlmy";    SERVICE="mysql" ;;
+    esac
+    QAPP="$WORK/sql-$MOTEUR"
+    QAPP_IMAGE="$QAPP_NAME:local"
+    QAPP_E2E_IMAGE="$QAPP_NAME-e2e:local"
+
+    step "[sql:$MOTEUR] create app — preset complet, --database $MOTEUR"
+    scaffold_app "$QAPP_NAME" "$QAPP" "complete" "none" "$MOTEUR"
+
+    # ── Ce qui rend la suite DISCRIMINANTE ────────────────────────────────────
+    # Si le compose posait `127.0.0.1`, l'application ne résoudrait aucun nom et
+    # tout ce qui suit serait vert sans rien prouver de musl. On le CONSTATE
+    # avant de mesurer, plutôt que de le supposer d'après le gabarit.
+    step "[sql:$MOTEUR] le compose joint la base par son NOM, pas par une boucle locale"
+    [[ -f "$QAPP/compose.yaml" ]] || fail "compose.yaml non généré pour --database $MOTEUR"
+    SURL=$(sed -n 's/^ *NF_DATABASE_URL: *"\(.*\)"$/\1/p' "$QAPP/compose.yaml" | head -1)
+    [ -n "$SURL" ] || { grep -n "NF_DATABASE_URL" "$QAPP/compose.yaml" | head -5; \
+      fail "NF_DATABASE_URL absente du compose généré"; }
+    contient "$SURL" "@$SERVICE:" \
+      || fail "NF_DATABASE_URL = « $SURL » : la base n'est pas jointe par le nom de service « $SERVICE » — rien ici ne mesurerait la résolution musl"
+    case "$SURL" in
+      *127.0.0.1*|*localhost*) fail "NF_DATABASE_URL = « $SURL » : une boucle locale dans un conteneur désigne le CONTENEUR, pas la base" ;;
+    esac
+    grep -q "^  $SERVICE:" "$QAPP/compose.yaml" \
+      || fail "le service « $SERVICE » n'est pas déclaré dans le compose généré"
+    ok "NF_DATABASE_URL = $SURL (nom de service « $SERVICE »)"
+
+    # ── L'INFRA AVANT LA MIGRATION, et c'est le produit qui l'impose ─────────
+    # `orm:generate` DÉMARRE l'application pour lire ses entités ; sur un moteur
+    # serveur, ce démarrage ouvre une connexion. Sur SQLite la question ne se
+    # pose pas — un fichier est toujours là —, et c'est pourquoi les quatre
+    # autres scénarios n'ont jamais eu besoin de cette étape.
+    #
+    # `up -d` SANS profil monte exactement la base et Redis : ni `migrate`, ni
+    # `app`, qui portent `profiles:`. C'est le geste que le README généré
+    # prescrit à qui développe sur son poste, et `--wait` rend la main quand les
+    # sondes du compose sont vertes, pas quand les conteneurs existent.
+    COMPOSE_DIR="$QAPP"
+    step "[sql:$MOTEUR] infra seule ($SERVICE + redis) — ce que la génération exige"
+    (cd "$QAPP" && docker compose up -d --wait) > "$WORK/.sql-$MOTEUR-infra.out" 2>&1 \
+      || { tail -30 "$WORK/.sql-$MOTEUR-infra.out"; fail "docker compose up -d --wait (infra $MOTEUR)"; }
+    ok "$SERVICE et redis répondent à leurs sondes"
+
+    # 🔴 Depuis l'HÔTE, la base se joint par la boucle locale et le port PUBLIÉ —
+    # décalé, parce que le poste fait déjà tourner ses propres conteneurs sur les
+    # ports conventionnels. Sans cette surcharge, l'application lit le
+    # `NF_DATABASE_URL` de son `.env` (`127.0.0.1:5432`) et tombe sur le
+    # PostgreSQL d'un autre projet : le serveur répond puis refuse (28P01), et
+    # le message accuse des identifiants alors que la base n'est pas la bonne.
+    # Vécu au premier run de ce scénario.
+    case "$MOTEUR" in
+      postgres) HOST_DB_PORT="$POSTGRES_PORT" ;;
+      mariadb)  HOST_DB_PORT="$MARIADB_PORT" ;;
+      mysql)    HOST_DB_PORT="$MYSQL_PORT" ;;
+    esac
+    SURL_HOST=$(printf '%s' "$SURL" | sed "s#@$SERVICE:[0-9]*/#@127.0.0.1:$HOST_DB_PORT/#")
+    contient "$SURL_HOST" "@127.0.0.1:$HOST_DB_PORT/" \
+      || fail "réécriture de l'URL vers l'hôte ratée : « $SURL_HOST »"
+
+    step "[sql:$MOTEUR] deps + migration initiale du dialecte (côté hôte)"
+    rewrite_deps "$QAPP"
+    # L'environnement du processus gagne sur le `.env` de l'application — c'est
+    # le même mécanisme par lequel le compose pose ses valeurs aux services.
+    NF_DATABASE_URL="$SURL_HOST" \
+    NF_REDIS_URL="redis://:$QAPP_NAME-dev@127.0.0.1:$REDIS_PORT" \
+      write_initial_migration "$QAPP"
+
+    # L'identité que la suite e2e présentera — lue dans SON fichier, jamais
+    # redonnée ici : deux valeurs écrites séparément divergent au premier
+    # changement de gabarit, et le symptôme est un 401 qu'on impute à la route.
+    SQL_ADMIN_PASSWORD=$(sed -n 's/^export const ADMIN_PASSWORD = "\(.*\)";$/\1/p' \
+      "$QAPP/tests/e2e.setup.ts")
+    [ -n "$SQL_ADMIN_PASSWORD" ] \
+      || fail "ADMIN_PASSWORD introuvable dans la suite e2e générée ($MOTEUR)"
+
+    # Les secrets que la production EXIGE, posés comme un exploitant le ferait :
+    # par l'environnement du service, jamais dans l'image.
+    cat > "$QAPP/compose.override.yaml" <<YML
+services:
+  migrate:
+    environment:
+      NF_CSRF_SECRET: "$SMOKE_SECRET"
+      NF_SESSION_SECRET: "$SMOKE_SECRET"
+  app:
+    environment:
+      NF_CSRF_SECRET: "$SMOKE_SECRET"
+      NF_SESSION_SECRET: "$SMOKE_SECRET"
+      NF_ADMIN_PASSWORD: "$SQL_ADMIN_PASSWORD"
+YML
+
+    step "[sql:$MOTEUR] docker compose --profile app up -d --build (le geste de l'utilisateur)"
+    (cd "$QAPP" && docker compose --profile app up -d --build) > "$WORK/.sql-$MOTEUR-up.out" 2>&1 \
+      || { tail -40 "$WORK/.sql-$MOTEUR-up.out"; fail "docker compose --profile app up ($MOTEUR)"; }
+    ok "$SERVICE + redis + migrate + app levés"
+
+    # Même motif que le scénario `edge` : compose bâtit l'image lui-même et
+    # échappe donc à `build_image`, qui porte la garde de matière sensible.
+    step "[sql:$MOTEUR] matière sensible dans l'image bâtie par compose"
+    node "$ROOT/scripts/release/image-gate.mjs" "$QAPP_IMAGE" \
+      || fail "matière sensible dans l'image $QAPP_IMAGE (voir ci-dessus)"
+    ok "aucune matière sensible dans $QAPP_IMAGE"
+
+    # ── LA RÉSOLUTION, CONSTATÉE — pas déduite ───────────────────────────────
+    # `getaddrinfo` est l'appel que musl implémente autrement ; on le fait jouer
+    # DANS le conteneur de l'application, avec son `/etc/resolv.conf` et sa
+    # bibliothèque C. Un `ping` prouverait autre chose (il existe des images sans
+    # `ping`, et `busybox` ne passe pas toujours par le même chemin).
+    step "[sql:$MOTEUR] le nom « $SERVICE » résout DEPUIS l'app, sous musl"
+    LIBC=$(docker exec "$QAPP_NAME-app" sh -c 'ls /lib/ld-musl-* 2>/dev/null | head -1' || true)
+    [ -n "$LIBC" ] || fail "l'image de l'application n'est pas sur musl ($QAPP_IMAGE) — ce scénario ne mesurerait pas ce qu'il annonce"
+    ADDR=$(docker exec "$QAPP_NAME-app" node -e \
+      "require('node:dns').promises.lookup(process.argv[1]).then(r=>console.log(r.address),e=>{console.error(e.code||e.message);process.exit(1)})" \
+      "$SERVICE" 2>&1) \
+      || { echo "$ADDR"; fail "getaddrinfo(« $SERVICE ») ÉCHOUE sous musl depuis le conteneur de l'app"; }
+    ok "getaddrinfo(« $SERVICE ») → $ADDR (musl : $(basename "$LIBC"))"
+
+    # La tâche de migration est le PREMIER à ouvrir une connexion par ce nom :
+    # son code de sortie est donc la preuve la plus précoce que la chaîne tient.
+    # `service_completed_successfully` le garantit déjà côté compose — mais une
+    # garantie qu'on n'a pas lue n'est pas une preuve.
+    step "[sql:$MOTEUR] la tâche de migration s'est terminée avec succès"
+    MIG_CODE=$(docker inspect -f '{{.State.ExitCode}}' "$QAPP_NAME-migrate" 2>/dev/null || echo "?")
+    [ "$MIG_CODE" = "0" ] \
+      || { docker logs "$QAPP_NAME-migrate" 2>&1 | tail -30; \
+           fail "la tâche migrate est sortie en $MIG_CODE — le schéma n'a pas été appliqué sur $MOTEUR"; }
+    ok "migrate → exit 0 (le schéma $MOTEUR est appliqué, par le nom de service)"
+
+    step "[sql:$MOTEUR] /readyz — l'application se déclare prête"
+    wait_ready "$QAPP_NAME-app" "$SQL_APP_PORT"
+    ok "http://127.0.0.1:$SQL_APP_PORT/readyz → 200"
+
+    # `/readyz` peut se contenter de vérifier le schéma ; une route qui LIT la
+    # table des comptes prouve que le dialecte fonctionne de bout en bout.
+    step "[sql:$MOTEUR] une route qui TOUCHE la base ($MOTEUR) répond"
+    SQL_LOGIN=$(curl -s -D - -o /dev/null -X POST \
+      "http://127.0.0.1:$SQL_APP_PORT/nodefony/security/api/auth/login" \
+      -H "content-type: application/json" \
+      -d "{\"username\":\"admin\",\"password\":\"$SQL_ADMIN_PASSWORD\"}" || true)
+    # 🔴 La casse d'un nom d'en-tête ne se suppose pas : HTTP/1.1 la laisse
+    # libre, HTTP/2 l'impose en minuscules, et notre serveur rend « set-cookie ».
+    # Chercher « Set-Cookie » a fait échouer ce cas sur une réponse 200
+    # parfaitement valide — un rouge qui accusait PostgreSQL d'un défaut de banc.
+    SQL_LOGIN=$(printf '%s' "$SQL_LOGIN" | tr '[:upper:]' '[:lower:]')
+    contient "$SQL_LOGIN" "set-cookie" \
+      || { echo "$SQL_LOGIN" | head -20; docker logs "$QAPP_NAME-app" 2>&1 | tail -30; \
+           fail "connexion admin refusée sur $MOTEUR — la lecture de la table des comptes ne passe pas"; }
+    ok "login admin → Set-Cookie (le compte a été SEMÉ puis RELU dans $MOTEUR)"
+
+    # ── LA SUITE e2e, JOUÉE DANS ALPINE ──────────────────────────────────────
+    # Deux choses d'un coup, et c'est pour cela qu'elle est jouée ici plutôt que
+    # depuis l'hôte : les tests s'exécutent sous musl (avec le build de
+    # l'application, que `test:e2e` refait), et ils joignent l'application par
+    # son NOM DE SERVICE sur le réseau du compose.
+    #
+    # 🔴 Elle ne peut PAS tourner dans l'image de production : `vitest` est une
+    # dépendance de développement, et l'image installe en `--omit=dev`. C'est
+    # juste — une image de production n'embarque pas son banc. D'où une image
+    # SŒUR, bâtie du même `node:24-alpine`, avec les devDependencies.
+    #
+    # Son `.dockerignore` lui est propre (`Dockerfile.e2e.dockerignore`, lu en
+    # priorité par BuildKit) : celui de l'application exclut `tests`, ce qui est
+    # exactement ce qu'on veut pour l'image qu'on déploie — et l'inverse de ce
+    # qu'il faut ici.
+    #
+    # Elle est écrite APRÈS le `up --build` : le `.dockerignore` de production
+    # ne connaît pas ces deux fichiers, et ils entreraient dans l'image qu'on
+    # vient de faire contrôler.
+    step "[sql:$MOTEUR] image sœur de test (même Alpine, AVEC les devDeps)"
+    ALPINE_BASE=$(sed -n 's/^FROM \(node:[0-9]*-alpine\).*/\1/p' "$QAPP/Dockerfile" | head -1)
+    [ -n "$ALPINE_BASE" ] \
+      || { grep -n "^FROM" "$QAPP/Dockerfile"; fail "base Alpine introuvable dans le Dockerfile généré — l'image sœur dériverait de l'image mesurée"; }
+    cat > "$QAPP/Dockerfile.e2e" <<DOCKERFILE
+# Image SŒUR du banc — jamais publiée, jamais déployée.
+# Même base que l'image de production (lue dans son Dockerfile, pas recopiée),
+# mais avec les devDependencies : la suite de bout en bout a besoin de vitest,
+# que \`--omit=dev\` retire à juste titre de l'image qu'on déploie.
+FROM $ALPINE_BASE
+WORKDIR /app
+COPY . ./
+RUN npm install --no-audit --no-fund --ignore-scripts
+DOCKERFILE
+    # Ce que l'image de production exclut à raison, et qu'il faut ICI.
+    cat > "$QAPP/Dockerfile.e2e.dockerignore" <<'DOCKERIGNORE'
+**/node_modules
+**/dist
+var
+logs
+**/*.log
+*.local
+**/*.local
+nodefony/config/certificates
+**/*.key
+**/*.pem
+.npmrc
+**/.npmrc
+.git
+compose*.y*ml
+DOCKERIGNORE
+    docker build -f "$QAPP/Dockerfile.e2e" -t "$QAPP_E2E_IMAGE" "$QAPP" \
+      > "$WORK/.sql-$MOTEUR-e2e-build.out" 2>&1 \
+      || { tail -40 "$WORK/.sql-$MOTEUR-e2e-build.out"; fail "construction de l'image sœur de test ($MOTEUR)"; }
+    # Un `.dockerignore` dédié qui ne serait PAS pris en compte donnerait une
+    # image sans `tests/`, et la suite « passerait » en ne jouant rien.
+    docker run --rm "$QAPP_E2E_IMAGE" sh -c 'test -f tests/e2e.setup.ts' \
+      || fail "l'image sœur n'a pas tests/ — le .dockerignore dédié n'a pas été pris en compte, la suite ne jouerait rien"
+    ok "image sœur $QAPP_E2E_IMAGE bâtie sur $ALPINE_BASE, tests/ présents"
+
+    step "[sql:$MOTEUR] la suite e2e générée, JOUÉE DANS Alpine et par le nom de service"
+    SQL_NET=$(docker inspect -f '{{range $k,$v := .NetworkSettings.Networks}}{{$k}}{{end}}' \
+      "$QAPP_NAME-app" 2>/dev/null || true)
+    [ -n "$SQL_NET" ] || fail "réseau du compose introuvable pour $QAPP_NAME-app"
+    # `NF_E2E_BASE_URL` : la suite ne démarre alors rien et ne touche aucune
+    # base — elle mesure le déploiement qui tourne. L'adresse est le NOM du
+    # service `app` et son port INTERNE (5151), pas le port publié sur l'hôte :
+    # c'est ce qui fait de ce run une seconde preuve de résolution, cette fois
+    # depuis un conteneur tiers.
+    docker run --rm --network "$SQL_NET" \
+      -e NF_E2E_BASE_URL="http://app:5151" \
+      "$QAPP_E2E_IMAGE" npm run test:e2e > "$WORK/.sql-$MOTEUR-e2e.out" 2>&1 \
+      || { tail -40 "$WORK/.sql-$MOTEUR-e2e.out"; fail "suite e2e DANS Alpine ($MOTEUR)"; }
+    # Un run qui ne joue AUCUN test sort en 0 : le compte se lit, il ne se
+    # suppose pas. Et les migrations se sautent délibérément en cible externe —
+    # le banc le DIT plutôt que de laisser croire à une couverture complète.
+    # 🔴 DÉPOUILLER LES CODES ANSI AVANT DE LIRE. vitest colorise sa sortie même
+    # redirigée dans un fichier : entre « Tests » et le chiffre se glissent des
+    # séquences d'échappement, et un motif écrit sur le texte VISIBLE ne mord
+    # pas. Vécu ici : la suite était verte (4 passés, 12 sautés) et le banc a
+    # annoncé « aucun test joué ». C'est le banc qui lisait mal, pas la suite
+    # qui se taisait.
+    SQL_E2E_LINE=$(sed $'s/\033\[[0-9;]*m//g' "$WORK/.sql-$MOTEUR-e2e.out" \
+      | grep -E "Tests +[0-9]+ (passed|failed)" | tail -1 || true)
+    [ -n "$SQL_E2E_LINE" ] \
+      || { tail -25 "$WORK/.sql-$MOTEUR-e2e.out"; fail "la suite e2e n'annonce aucun test joué ($MOTEUR)"; }
+    ok "e2e sous musl, via http://app:5151 — $SQL_E2E_LINE"
+    ok "  (les cas « migrations » se sautent en cible externe : c'est le contrat de NF_E2E_BASE_URL)"
+
+    # ── LA GARDE, VUE MORDRE ─────────────────────────────────────────────────
+    # Une fois, sur le premier moteur : ce qu'on débranche est la RÉSOLUTION DE
+    # NOM, qui ne dépend d'aucun dialecte. On pointe la base sur un nom qui
+    # n'existe pas sur le réseau et l'on constate que la tâche de migration
+    # tombe — sans quoi les étapes ci-dessus passeraient de toute façon, et ne
+    # prouveraient rien de musl.
+    if [ "$MOTEUR" = "$SQL_FIRST" ]; then
+      step "[sql:$MOTEUR] garde vue mordre — un nom qui ne résout pas fait tomber la migration"
+      BAD_URL=${SURL/@$SERVICE:/@nexistepas-$SERVICE:}
+      cat > "$QAPP/compose.degraded.yaml" <<YML
+# Débranchement DÉLIBÉRÉ du banc : la base est désignée par un nom introuvable.
+services:
+  migrate:
+    environment:
+      NF_DATABASE_URL: "$BAD_URL"
+YML
+      (cd "$QAPP" && docker compose -f compose.yaml -f compose.override.yaml \
+          -f compose.degraded.yaml --profile app run --rm --no-deps migrate) \
+        > "$WORK/.sql-degraded.out" 2>&1 \
+        && { tail -20 "$WORK/.sql-degraded.out"; \
+             fail "la migration RÉUSSIT avec un nom introuvable — les étapes de résolution ne prouvent rien"; }
+      ok "migration en échec sur « nexistepas-$SERVICE » : la résolution EST le maillon mesuré"
+      rm -f "$QAPP/compose.degraded.yaml"
+    fi
+
+    step "[sql:$MOTEUR] down -v — le décor est rangé, volumes compris"
+    (cd "$QAPP" && docker compose --profile app down -v) > "$WORK/.sql-$MOTEUR-down.out" 2>&1 \
+      || { tail -20 "$WORK/.sql-$MOTEUR-down.out"; fail "docker compose --profile app down -v ($MOTEUR)"; }
+    docker rmi -f "$QAPP_E2E_IMAGE" >/dev/null 2>&1 || true
+    COMPOSE_DIR=""
+    ok "$MOTEUR : décor rangé (une base survivante fausserait le moteur suivant)"
+  done
+
+  ok "TROIS moteurs serveurs éprouvés sous musl : postgres, mariadb, mysql"
 fi
 
 cleanup

@@ -1,4 +1,9 @@
-<% if (it.hasSecurity) { %>import { ADMIN_PASSWORD, appBaseUrl, isExternalTarget } from "./e2e.setup";<% } else { %>import { appBaseUrl, isExternalTarget } from "./e2e.setup";<% } %>
+<% if (it.hasSecurity) { %>import {
+  ADMIN_PASSWORD,
+  appBaseUrl,
+  isExternalTarget,
+  isTlsTarget,
+} from "./e2e.setup";<% } else { %>import { appBaseUrl, isExternalTarget } from "./e2e.setup";<% } %>
 import { readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
@@ -107,11 +112,25 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
     }
   }, 15_000);
 <% } %><% if (it.hasSecurity) { %>
-  // ── Derrière un frontal SEULEMENT (`NF_E2E_BASE_URL`) ──────────────────────
+  // Un saut MUET se lit comme un vert : la raison s'affiche, comme le fait la
+  // suite des migrations quand la cible devient externe.
+  if (isExternalTarget && !isTlsTarget) {
+    process.stdout.write(
+      `cookie \`__Host-\` : SAUTÉ — la cible externe (${appBaseUrl()}) est servie ` +
+        "en CLAIR, il n'y a donc aucun frontal TLS à croire.\n",
+    );
+  }
+
+  // ── Derrière un frontal TLS SEULEMENT ──────────────────────────────────────
   // Ce que ce cas éprouve n'existe pas en direct : il faut un proxy qui termine
   // le TLS et annonce `X-Forwarded-Proto`, et un serveur qui le CROIT
   // (`trustProxy`). Sauté sinon — sauter ici est juste ; le taire ne le serait pas.
-  it.skipIf(!isExternalTarget)(
+  //
+  // 🔴 La condition porte sur le TLS, pas sur « externe » : une application
+  // jointe par son nom de service (compose, cluster) est externe ET servie en
+  // clair. Y exiger `__Host-` faisait échouer un serveur parfaitement correct —
+  // le préfixe DÉRIVE du schéma constaté, et en clair il doit être absent.
+  it.skipIf(!isTlsTarget)(
     "derrière le frontal : le cookie de session porte `__Host-`, donc le scheme du CLIENT",
     async () => {
       // 🔴 LE piège de la mise derrière un proxy, et il ne se voit pas en direct :
