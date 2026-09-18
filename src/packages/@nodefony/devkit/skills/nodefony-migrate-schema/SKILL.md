@@ -145,15 +145,21 @@ npx nodefony orm:migrate
 d'appliquer ». Il ne refuse pas — il ne lit pas la base et ignore si ta table porte des lignes —,
 mais s'il le signale et que ta table n'est pas vide, la migration échouera.
 
-**À l'étape 3, sur sqlite, attends-toi à un refus `NF_GENERATE_DESTRUCTIVE`** — mesuré sur une
-table de deux lignes. Rendre une colonne obligatoire n'est pas un `ALTER` en sqlite : le moteur
-n'en a pas, alors l'outil RECONSTRUIT la table (`CREATE __new_billets` → `INSERT … SELECT` →
-`DROP TABLE` → `RENAME`). Le `DROP TABLE` est reconnu comme destructeur, et il l'est en général —
-ici il porte sur une table déjà recopiée, une ligne plus haut, dans la même migration. **Relis le
-fichier avant de décider** : si tu y vois l'`INSERT INTO __new_… SELECT … FROM …` juste avant le
-`DROP`, la reconstruction conserve les lignes, et `orm:migrate` l'applique sans broncher (les
-fichiers sont écrits, c'est leur mise en service qui était refusée). Éprouvé de bout en bout :
-deux lignes semées, trois étapes, deux lignes intactes et l'index unique en place.
+**À l'étape 3, sur sqlite, attends-toi à un AVERTISSEMENT `table-rebuild`, pas à un refus.**
+Rendre une colonne obligatoire n'est pas un `ALTER` en sqlite : le moteur n'en a pas, alors la
+table est RECONSTRUITE (`CREATE` une table d'étape → `INSERT … SELECT` → `DROP TABLE` →
+`RENAME`). Ce `DROP TABLE` porte sur une table recopiée une ligne plus haut, dans la même
+migration : l'outil le reconnaît et te le signale — « recrée la table pour modifier une colonne
+(SQLite ne sait pas faire autrement) » — sans rien refuser, à la génération comme à la mise en
+service. Tu n'as donc **pas** besoin de `--allow-destructive` pour une reconstruction.
+
+Ce qui reste à TA charge, et c'est le sens de l'avertissement : **relis l'`INSERT … SELECT`**.
+Une colonne absente de cette recopie serait bel et bien perdue, et aucun automate ne peut le
+deviner à ta place. Éprouvé de bout en bout : deux lignes semées, trois étapes, deux lignes
+intactes et l'index unique en place.
+
+> Un vrai `DROP TABLE` — une table supprimée sans recopie, ou une AUTRE table supprimée dans la
+> même migration — reste refusé. Le verdict porte sur chaque table, pas sur le fichier.
 
 > **Ne jamais** répondre à un échec de migration en refaisant la base. Une migration qui n'est pas
 > passée n'a **rien** changé — sqlite et PostgreSQL l'annulent entière. C'est le fichier qu'il faut

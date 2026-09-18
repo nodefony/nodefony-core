@@ -4,6 +4,7 @@
   "documentes-jamais-lances": [
     ".claude/skills/nodefony-devkit-bench/scripts/analyse-transcript.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/build-devkit-report.mjs",
+    ".claude/skills/nodefony-devkit-bench/scripts/suivre-run.mjs",
     ".claude/skills/nodefony-devkit-bench/suites/harness.ts",
     ".claude/skills/nodefony-documentation/scripts/code-check.mjs",
     ".claude/skills/nodefony-html-report/scripts/demo.mjs",

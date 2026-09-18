@@ -49,6 +49,23 @@ Elle rend le relevé (tours, durée, coût, appels MCP), la répartition des out
 les gestes qui ont ÉCHOUÉ, et le déroulé apparié. Un tiret signifie « cet agent
 ne l'émet pas » — jamais zéro, qui se comparerait à tort au run d'un autre.
 
+**Pendant que le run se joue, on peut déjà le lire.** Le banc capture la sortie de
+l'agent par `spawnSync` : elle n'existe qu'à la FIN de la tâche. Mais certains agents
+tiennent en PLUS un journal écrit au fil de l'eau, et celui-là se suit :
+
+```bash
+node scripts/suivre-run.mjs            # le run le plus récent, gestes décisifs seulement
+node scripts/suivre-run.mjs --tout     # sans filtre
+```
+
+🔴 **Ce n'est PAS la source du verdict**, et les confondre coûterait la mesure : le
+juge lit la sortie capturée, jamais ce journal. On ne conclut donc rien d'ici — on
+INSTRUIT. Ce que ça a déjà rendu : éprouver un motif de sonde contre la matière
+réelle avant de le figer (au lieu de l'écrire de tête et de payer un run pour
+découvrir qu'il rate), trancher un geste au moment où il tombe — « il vient
+d'effacer la base » : destruction, ou déplacement avec retour ? —, et voir tôt
+qu'un run part de travers avant d'en payer trois.
+
 > 🔴 **Elle vaut aussi pour une session que le banc n'a PAS lancée.** Copilot et
 > vibe écrivent leur journal chez l'utilisateur (`~/.copilot/session-state/…`,
 > `~/.vibe/logs/session/…`) : un essai réel du framework se dépouille donc en une

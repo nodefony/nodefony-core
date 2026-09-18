@@ -671,8 +671,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 900,
-        "approxTokens": 15053
+        "bodyLines": 917,
+        "approxTokens": 15286
       },
       "requires": [
         "serveur UP",
@@ -1566,6 +1566,35 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/suivre-run.mjs",
+            "purpose": "Suit un run du banc PENDANT qu'il se joue, au lieu d'attendre son rapport.",
+            "usage": [
+              "node suivre-run.mjs                 # le run le plus récent"
+            ],
+            "options": [
+              {
+                "flag": "--timeline",
+                "help": ""
+              },
+              {
+                "flag": "--tout",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT",
+                "help": ""
+              },
+              {
+                "name": "RACINE_RUNS",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/verify-generated.mjs",
             "purpose": "Banc de VÉRITÉ du code généré — « ce que le scaffold produit tient-il debout ? »",
             "usage": [
@@ -1877,7 +1906,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": false,
-            "detail": "900",
+            "detail": "917",
             "advisory": true
           }
         ]
@@ -7873,8 +7902,8 @@
       ],
       "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\".",
       "cost": {
-        "bodyLines": 347,
-        "approxTokens": 5646
+        "bodyLines": 353,
+        "approxTokens": 5720
       },
       "requires": [],
       "resources": {
@@ -7945,7 +7974,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "347",
+            "detail": "353",
             "advisory": true
           }
         ]
