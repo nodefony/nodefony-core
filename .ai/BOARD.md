@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-19 20:43** (UTC).
+> Empreinte prise le **2026-09-19 21:01** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -193,11 +193,12 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 171 | P2 — décision | 1 | — | #251 | chore(mcp): trancher si le protocole descend du coeur en module |
 | 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
 
-## Backlog — aucune date promise · 3 ouverts
+## Backlog — aucune date promise · 4 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 901 | P2 — décision | 0.5 | — | #387 | fix(test): sonder les deux ports avant de lancer le banc de démarrage |
 | 902 | P2 — décision | 1 | — | #422 | feat(ci): regarder l'écran d'une application générée à chaque publication |
 | 903 | P2 — décision | 1 | — | #423 | test(release): éprouver la surface npm telle que le registre la sert |
+| 904 | P3 — fin de cycle | 1 | — | #436 | docs(corpus): mettre au standard les neuf pages internes non publiées |
 

@@ -464,6 +464,15 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19h] 🔴 **J'ai mis des liens de tickets dans cinq pages de doc publiques, alors que la
+  règle était TRANCHÉE — et c'est le user qui m'a arrêté.** Le standard dit « pas de journal dans le
+  corps : ni date, ni TODO, ni à venir » ; j'ai lu « avancement = les tickets » comme une
+  autorisation de POINTER un ticket, quand la phrase veut dire « l'avancement n'est pas dans la
+  doc ». Un `#NNN` dans une page publiée y introduit précisément le journal que la règle proscrit,
+  et il se périme à la fermeture. La règle existait, je venais de la lire, et je l'ai inversée.
+  **Le remède n'était pas de me le rappeler : c'est de l'écrire en toutes lettres dans le standard**
+  (fait — avec l'exception du ticket AMONT, qui est un fait).
+
 - [1× — 09-19g] 🔴 **Sept instruments faux dans une seule séance, tous écrits par moi, tous après
   avoir relu « suspecter son instrument ».** Cinq sur la passe de code mort (545 → 116 → 50 → 10 → 4) : entrées lues dans `exports` qui pointe le `dist` donc aucune source ; frontends Vite et
   modules ouverts par le Kernel comptés comme morts ; **un motif d'import qui interdisait le saut
@@ -582,6 +591,24 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
 
+- [1× — 09-19h] 🔴 **Les deux tiers des rouges d'un gate lui demandaient l'IMPOSSIBLE, et personne
+  ne l'avait remarqué en des semaines.** `doc:lint` comptait 53 pages fautives ; **34 étaient des
+  fiches de skill GÉNÉRÉES**, à qui l'on réclamait un lexique, une section « Pièges », un
+  inventaire de tests et trois ancres `fichier:ligne`. Ces sections devraient être écrites DANS la
+  page — or la page est réécrite à chaque `skills:doc`, et toute main y est effacée. Le réflexe
+  était de les remplir (le user proposait même d'y mettre un agent en écriture) : ça aurait produit
+  du texte détruit à la régénération suivante. Le bon geste est un **régime** de plus dans le gate,
+  reconnu au champ `generated:`, et **corriger le GÉNÉRATEUR** pour le reste (`navTitle` : 28
+  reproches d'un coup). **53 → 9 sans une ligne de remplissage.** Le signe qui doit alerter : quand
+  un gate accuse un LOT homogène, ce n'est pas le lot qui est fautif, c'est le gabarit qu'on lui
+  applique.
+- [1× — 09-19h] 🔴 **L'écart entre deux chiffres du même gate était un PÉRIMÈTRE, pas une qualité —
+  et j'ai failli traiter les 9 restants comme une dette.** `npm run doc:lint` rendait « 9 à
+  corriger » quand l'étape de forge, qui ne reçoit que les pages PUBLIÉES, rendait **98/98**. Les 9
+  pages ne sont pas publiées : elles ne bloquaient rien, et aucune n'aurait été vue par la CI même
+  restée rouge. Le geste qui a évité une session de rédaction inutile : **rejouer la commande de la
+  forge à l'identique** avant de conclure. Même famille que le gate du 09-19g qui ne tournait
+  jamais — vérifier ce que reçoit la commande qui lance, dans les deux sens.
 - [1× — 09-19g] 🔴 **J'allais livrer un gate qui aurait crié faux 49 fois sur 55.** Le contrôle
   visé — « un symbole cité par un fichier d'instructions doit exister » — paraissait évident.
   Mesuré avant de le brancher : sur 55 symboles absents du code, **49 étaient des mentions

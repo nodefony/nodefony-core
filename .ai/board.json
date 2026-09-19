@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T20:43:33.077Z",
+  "generatedAt": "2026-09-19T21:01:48.293Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6697,6 +6697,22 @@
       "cible": null,
       "labels": [
         "10.1.0"
+      ]
+    },
+    {
+      "number": 436,
+      "title": "docs(corpus): mettre au standard les neuf pages internes non publiées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/436",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 904,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
       ]
     },
     {
