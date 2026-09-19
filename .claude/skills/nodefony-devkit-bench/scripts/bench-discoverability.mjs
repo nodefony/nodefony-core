@@ -4052,7 +4052,7 @@ export const TASKS = [
     // RELIRE qui le prouve. Seul l'arrêt final tolère un échec — il n'y a rien
     // à garantir sur l'extinction d'un serveur qu'on vient de démarrer.
     prepare:
-      `npx --no-install nodefony create entity ${ENTITE_MIGREE} title:string! ` +
+      `npx --no-install nodefony create entity ${ENTITE_MIGREE} title:string:unique ` +
       `--route ${ROUTE_ARTICLES} --yes >/dev/null 2>&1 && ` +
       `node ${PREPARE_BASE_MIGREE} && ` +
       // 🔴 CONSTRUIRE d'abord. Une commande Nodefony refuse de travailler sur

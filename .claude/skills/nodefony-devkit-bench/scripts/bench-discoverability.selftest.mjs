@@ -2133,7 +2133,7 @@ const SAMPLES = {
   // ── T20 ───────────────────────────────────────────────────────────────────
   "20 :: a lancé create entity": {
     pass: {
-      transcript: `{"command":"npx nodefony create entity Invoice reference:string! amount:int --yes"}`,
+      transcript: `{"command":"npx nodefony create entity Invoice reference:string:unique amount:int --yes"}`,
     },
     fail: {
       transcript: `{"text":"j'écris l'entité et son controller à la main"}`,

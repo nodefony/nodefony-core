@@ -270,7 +270,7 @@ const withE2e = !process.argv.includes("--no-e2e");
 /**
  * Entités générées par le banc — choisies pour EXERCER la grammaire, pas pour
  * faire joli. Chaque champ couvre un cas qui a déjà cassé :
- *  - `!` unique     → le 409 (et l'échantillon paramétré qui l'évite au test) ;
+ *  - `:unique`      → le 409 (et l'échantillon paramétré qui l'évite au test) ;
  *  - `enum(...)=`   → union TS + `z.enum` + défaut posé côté JS ;
  *  - `int=0`        → défaut numérique (littéral nu, pas une chaîne) ;
  *  - `:index`       → index réellement émis en base ;
@@ -281,10 +281,10 @@ const withE2e = !process.argv.includes("--no-e2e");
  * échouer sur un piège qu'il ne teste pas.
  */
 const ENTITIES = [
-  ["Author", "email:string!", "name:string"],
+  ["Author", "email:string:unique", "name:string"],
   [
     "Post",
-    "title:string!",
+    "title:string:unique",
     "status:enum(draft,published)=draft",
     "views:int=0",
     "slug:string:index",
@@ -297,7 +297,7 @@ const ENTITIES = [
   // visée — invisible tant qu'on lit les fichiers rendus au lieu de les exécuter.
   [
     "Invoice",
-    "reference:string(40)!",
+    "reference:string(40):unique",
     "currency:char(3)",
     "amount:decimal(12,2)",
     "trace:uuid",
@@ -315,10 +315,10 @@ const ENTITIES = [
   // `--no-tests` : leurs tests s'exécuteraient sur la base SQLite en mémoire de
   // l'application, avec un schéma PostgreSQL — un échec qui ne dirait rien du
   // générateur. Ces deux entités ne servent qu'à faire LIRE leurs types.
-  ["PgAuthor", "email:string!", "--dialect", "postgres", "--no-tests"],
+  ["PgAuthor", "email:string:unique", "--dialect", "postgres", "--no-tests"],
   [
     "PgInvoice",
-    "reference:string(40)!",
+    "reference:string(40):unique",
     "currency:char(3)",
     "amount:decimal(12,2)",
     "author:ref:PgAuthor",
