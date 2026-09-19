@@ -85,6 +85,20 @@ exécution.
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
 
+- [1× — 09-19g] 🔴 **Le renommage français → anglais a corrigé le CODE ; les pages qui le
+  DÉCRIVENT sont restées sur l'ancien nom.** `check:lang` est vert — 0 identifiant français sur
+  1588 fichiers — mais sept `MEMORY.md`/`CLAUDE.md` citaient encore `controlesSautes`,
+  `grouperParRaison`, `nombreDeControlesPasses`, `surfaceDe`, `argvListe`, `separerGeste`,
+  `aFaireEnsuite`, `mcpEchecAdmin`. Un agent lit « primitives PURES : `controlesSautes` », le
+  cherche, ne le trouve nulle part. Le gate qui a renommé n'avait aucune raison de regarder du
+  Markdown, et aucun autre ne lisait ces fichiers : `anchor-check` résout les ancres
+  `fichier:ligne` du corpus PUBLIÉ, jamais un symbole cité sans ancre dans un fichier
+  d'instructions. La famille du remède était plus large que le remède.
+- [1× — 09-19g] **Un composant supprimé reste décrit par la doc qui s'adresse aux agents.**
+  `ConnectionDrawer.tsx` n'était importé par personne, et le `CLAUDE.md` comme le `MEMORY.md` de
+  studio le donnaient en exemple de « frontend React à instrumenter ». Le supprimer sans relire
+  ces deux pages aurait laissé un exemple qui nomme un fichier absent.
+
 - [1× — 09-19d] 🔴 **Notre propre aide enseignait l'INVERSE de ce que le code faisait, et tous nos
   exemples avec.** Dans la grammaire de champs, `!` posait une contrainte d'UNICITÉ ; `help.ts:62`
   l'annonçait « `!` requis », `spec.ts:834` disait « ! unique », et README, guides, gabarit de la
@@ -450,6 +464,26 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19g] 🔴 **Sept instruments faux dans une seule séance, tous écrits par moi, tous après
+  avoir relu « suspecter son instrument ».** Cinq sur la passe de code mort (545 → 116 → 50 → 10 → 4) : entrées lues dans `exports` qui pointe le `dist` donc aucune source ; frontends Vite et
+  modules ouverts par le Kernel comptés comme morts ; **un motif d'import qui interdisait le saut
+  de ligne, donc aveugle à tout import multi-lignes** ; outillage (`*.config.ts`, `scripts/`)
+  compté comme du produit ; alias posés par un plugin du bundler et par `tsconfigClient.json`.
+  Deux sur la passe de dérive (1140 → 55) : chercher `class X`/`const X` rate toute méthode et
+  tout champ, et **`execSync` n'a pas `rg` dans le PATH de `/bin/sh`** — le `|| true` transformait
+  « outil absent » en « zéro résultat », donc en « tout est mort ». Aucun de ces sept n'a levé
+  d'erreur : chacun rendait un chiffre plausible.
+- [1× — 09-19g] 🔴 **J'ai donné au user une ESTIMATION comme si c'était une mesure, et elle a
+  déclenché du travail.** « ~1/3 de vraies dérives » sur les 55 candidats : la mesure dit 7, soit
+  13 %. Le user a validé la construction d'un gate sur cette phrase. Une fraction annoncée sans
+  avoir compté est un chiffre inventé — il fallait écrire « je n'ai jugé que 6 cas sur 55 ».
+- [1× — 09-19g] **Un sous-agent se trompe précisément sur le cas qui exige de connaître une règle
+  du projet.** Les 55 symboles partis en `haiku` sont revenus « 49 légitimes » — juste sur trois
+  des quatre que j'ai recontrôlés, faux sur le quatrième : `controlesSautes` classé « légitime »
+  alors que la phrase le liste comme primitive EXISTANTE. C'était le seul qui demandait de savoir
+  que le dépôt s'interdit les identifiants français — et c'est celui qui fondait tout le gate.
+  Ce qu'on délègue sans donner la règle revient jugé sans elle.
+
 - [1× — 09-19f] 🔴 **J'ai écrit cinq identifiants FRANÇAIS dans du code de production neuf, le
   LENDEMAIN du jour où le user me l'a fait remarquer** — et c'est `npm run check:lang` qui les a
   trouvés, pas moi (`décrits`, `largeur`, `lignes`, `muets`, `motif`, `groupe`, `cible`). Le
@@ -547,6 +581,23 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-19g] 🔴 **J'allais livrer un gate qui aurait crié faux 49 fois sur 55.** Le contrôle
+  visé — « un symbole cité par un fichier d'instructions doit exister » — paraissait évident.
+  Mesuré avant de le brancher : sur 55 symboles absents du code, **49 étaient des mentions
+  parfaitement légitimes** — un retrait énoncé en toutes lettres (« moteur Eta — pas de
+  `renderTwig` », « `getCspDirectives` N'EXISTE PAS », « Drop au rétro-fit »), un travail futur
+  (« aucun `KafkaBackplane` n'est codé »), une faute de frappe dont la page garde la trace
+  (« ← was `ckeckPath` »), un nom emprunté à Symfony. Recentré sur les identifiants FRANÇAIS
+  absents, qui n'ont aucune de ces lectures : 10 signalements, 0 faux. Le geste qui sauve n'est
+  pas d'écrire le gate, c'est de **compter ce qu'il dirait avant de le brancher**.
+- [1× — 09-19g] 🔴 **Un gate branché au bon endroit logique peut ne JAMAIS tourner.** J'ai mis le
+  contrôle dans `doc-lint`, ce qui était juste — mais l'étage de forge qui lance `doc-lint` reçoit
+  la liste de `build-docs-site.mjs --list`, c'est-à-dire les pages PUBLIÉES, dont les `CLAUDE.md`
+  et `MEMORY.md` ne font pas partie. Le gate aurait existé, serait passé en revue, et n'aurait
+  gardé rien. Il a fallu un drapeau `--instructions` et une étape de forge à part. Brancher un
+  contrôle, ce n'est pas l'écrire au bon endroit : c'est vérifier **ce que reçoit la commande qui
+  le lance**.
 
 - [1× — 09-19f] 🔴 **Un banc qui s'ARRÊTE au premier rouge ne cache pas un détail : il cache tout
   ce qui suit — ici dix-sept étapes, dont une régression livrée la veille.** Le workflow « Code
