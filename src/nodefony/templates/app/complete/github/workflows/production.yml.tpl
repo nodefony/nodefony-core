@@ -216,6 +216,15 @@ jobs:
 
       - run: npm ci
 
+      # BÂTIR AVANT d'appeler le CLI, et pourquoi ce n'est pas facultatif.
+      # `nodefony http:certificates` est une commande de MODULE : elle exige une
+      # application bootable, donc une entrée construite (`main`, `dist/index.js`
+      # ou `index.js`). Sans ce build, le Kernel refuse par « Projet Nodefony
+      # détecté mais NON CONSTRUIT » — une garde délibérée, pas un incident.
+      # Le job voisin ne tombe pas sur ce cas seulement parce que `compose up
+      # --build` bâtit pour lui, DANS l'image ; ici, rien ne le fait à sa place.
+      - run: npm run build
+
       # Le frontal MONTE un certificat, il ne l'embarque jamais : une clé privée
       # gravée dans une image reste lisible par qui la télécharge, même effacée
       # par une couche suivante. En production, c'est l'hébergeur ou l'ingress
