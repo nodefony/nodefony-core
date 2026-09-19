@@ -641,14 +641,21 @@ bloc ; `AGENTS.md` reste court et revient à qui de droit.
 - **Le taux de réussite prime sur la taille.** Le seuil est le 86 % mesuré à
   fichier lu. Un découpage qui le fait chuter est un mauvais découpage — c'est
   lui qu'on jette, jamais le contenu.
-- **Mesurer l'annexe OUVERTE, pas l'annexe POSÉE.** Un fichier d'annexe que
-  personne n'ouvre est exactement le défaut qu'on vient de corriger, déplacé d'un
-  cran. La sonde doit constater une LECTURE dans le transcript, pas l'existence du
-  fichier sur le disque.
-- **L'index nomme le DÉCLENCHEUR, pas le fichier.** « Tu touches à la sécurité →
-  `agents/nodefony/verites-securite.md` » se suit ; « les vérités sont dans X » ne
-  se suit pas. C'est vérifiable sur le rendu, et ça vaut d'être gardé.
+- **Mesurer la page OUVERTE, pas la page POSÉE.** Une page que personne n'ouvre
+  est exactement le défaut qu'on croyait corriger, déplacé d'un cran. La sonde
+  doit constater une LECTURE dans le transcript, pas l'existence du fichier sur
+  le disque.
+  🔴 **Et c'est cette mesure qui a condamné le découpage en annexes copiées.**
+  La sonde d'observation annonçait son propre critère : « un zéro franc dirait
+  que le découpage a rendu le contenu inatteignable ». Le run réel a rendu
+  **1 page ouverte sur 10**. Les pages ont été retirées du projet généré et leur
+  contenu versé dans les skills livrés par npm, qui suivent la version installée.
+  La leçon générale : une sonde qui déclare À L'AVANCE le résultat qui la
+  condamnerait rend le verdict lisible le jour où il tombe.
+- **Le renvoi nomme le DÉCLENCHEUR, pas le fichier.** « Tu touches à la sécurité
+  → charge `nodefony-protect-route` » se suit ; « les vérités sont dans X » ne se
+  suit pas. C'est vérifiable sur le rendu, et ça vaut d'être gardé.
 - **Ce qui reste dans la porte est ce dont l'agent ignore avoir besoin.** Les
   anti-préjugés (« le container DI est PROTOTYPAL ») ne se déportent pas : un
-  agent qui les ignore écrit du faux avec confiance et ne cherchera jamais
-  l'annexe qui le concerne.
+  agent qui les ignore écrit du faux avec confiance et ne cherchera jamais la
+  page qui le concerne.

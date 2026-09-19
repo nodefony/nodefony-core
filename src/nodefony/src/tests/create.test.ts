@@ -93,27 +93,17 @@ const scaffold = (
 ) => runScaffold({ type: "app", answers, dir, force }, version);
 
 /**
- * Tout ce qu'un agent peut ATTEINDRE dans une app générée — porte et annexes.
+ * Ce qu'une app générée DIT elle-même : sa porte, et rien d'autre.
  *
- * `AGENTS.md` ne porte plus que le bloc d'entrée (~20 Ko) ; le reste vit dans
- * `agents/nodefony/*.md`, que l'index de la porte nomme par son déclencheur.
- * Un test qui affirme « l'app générée DIT ceci » parle donc de cet ensemble,
- * pas du seul fichier d'entrée — viser `AGENTS.md` seul reviendrait à exiger
- * que tout y retourne, c'est-à-dire à défaire le découpage par le banc de test.
- *
- * Les tests qui portent sur la PORTE elle-même (son budget, ses marqueurs, les
- * générateurs qui doivent rester en tête) lisent `AGENTS.md` directement — et
- * c'est voulu : ce sont deux affirmations différentes.
+ * La porte ne porte que ce qui est propre à CETTE application ; le savoir-faire
+ * du framework vit dans les skills livrés par les paquets, qui suivent la
+ * version installée. Un test qui affirme « l'app générée dit ceci » parle donc
+ * de `AGENTS.md`, et un test qui affirme « le framework enseigne ceci » va lire
+ * le skill — ce sont deux affirmations différentes, et les confondre ferait
+ * remonter dans la porte ce qu'on en a sorti.
  */
-const docsAgent = (dest: string): string => {
-  const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
-  const dossier = path.join(dest, "agents", "nodefony");
-  if (!existsSync(dossier)) return porte;
-  const annexes = readdirSync(dossier)
-    .filter((f) => f.endsWith(".md"))
-    .map((f) => readFileSync(path.join(dossier, f), "utf8"));
-  return [porte, ...annexes].join("\n");
-};
+const docsAgent = (dest: string): string =>
+  readFileSync(path.join(dest, "AGENTS.md"), "utf8");
 
 /**
  * Retire d'une app générée le service d'EXEMPLE et sa déclaration.
@@ -2926,19 +2916,29 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     });
   });
 
-  describe("AGENTS.md — la PORTE et ses annexes", () => {
+  describe("AGENTS.md — la porte de l'application", () => {
     /** Budget de la porte : voir le test du plafond pour le POURQUOI du chiffre. */
-    const BUDGET_PORTE = 20 * 1024;
+    const BUDGET_PORTE = 26 * 1024;
 
-    it("la porte tient sous 20 Ko — sinon Codex la TRONQUE sans le dire", () => {
+    it("la porte tient sous 26 Ko — sinon Codex la TRONQUE sans le dire", () => {
       // Le chiffre n'est pas une préférence : OpenAI Codex concatène les
       // `AGENTS.md` de la racine jusqu'au cwd et plafonne à 32 KiB
       // (`project_doc_max_bytes`), en tronquant SILENCIEUSEMENT. Cursor
-      // recommande < 500 lignes, Claude Code < 200. La porte vise 20 Ko pour
-      // laisser de la place aux `AGENTS.md` de module, qui s'AJOUTENT au même
-      // budget chez Codex. La vitrine complète est le pire cas : tout y est
-      // rendu. Avant le découpage, ce fichier faisait 63 331 o — DEUX FOIS le
-      // plafond dur — et deux outils de lecture sur deux le refusaient en bloc.
+      // recommande < 500 lignes, Claude Code < 200. La vitrine complète est le
+      // pire cas : tout y est rendu. Avant tout découpage, ce fichier faisait
+      // 63 331 o — DEUX FOIS le plafond dur — et deux outils de lecture sur deux
+      // le refusaient en bloc.
+      //
+      // 🔴 Le budget est passé de 20 à 26 Ko quand les annexes `agents/nodefony/`
+      // ont été retirées, et c'est un ARBITRAGE, pas un relâchement. 20 Ko
+      // supposait qu'on pouvait déporter le reste dans des pages posées à côté ;
+      // la mesure a condamné ce montage — **1 page ouverte sur 10** par un agent
+      // tiers dans une app fraîche, parce qu'aucun harness ne charge ce dossier
+      // tout seul. Ce qui devait être lu d'office est donc REVENU ici, et le
+      // reste vit dans les skills livrés par npm, que les agents chargent bel et
+      // bien (même banc). 26 Ko laisse ~6 KiB aux `AGENTS.md` de module, qui
+      // s'AJOUTENT au même budget chez Codex — et le gate mord toujours : la
+      // marge au-dessus du rendu actuel est d'environ 2 Ko, soit une section.
       const dest = path.join(tmp, "porte-budget");
       scaffold(dest, { name: "porte", preset: "complete", frontend: "react" });
       const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
@@ -2946,87 +2946,62 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.isAtMost(
         octets,
         BUDGET_PORTE,
-        `la porte fait ${octets} o (budget ${BUDGET_PORTE}) — déporte une section ` +
-          "dans `agents/nodefony/`, ne rogne pas le contenu : il est mesuré rentable",
+        `la porte fait ${octets} o (budget ${BUDGET_PORTE}) — déporte vers un skill ` +
+          "ce qui n'a pas à être lu d'office ; ne rogne pas le contenu, il est mesuré rentable",
       );
     });
 
-    it("l'index nomme EXACTEMENT les annexes posées — ni page fantôme, ni page muette", () => {
-      // Les deux faces comptent, et aucune ne se voit à l'exécution : un index
-      // qui nomme une page absente envoie l'agent dans le vide, et une page
-      // qu'aucun index ne nomme n'est lue par personne — aucun harness ne
-      // charge ce dossier tout seul. C'est le seul test qui tienne les deux
-      // ensemble ; les vérifier séparément laisserait passer la dérive.
-      for (const [nom, reponses] of [
-        ["complet", { name: "ix1", preset: "complete", frontend: "react" }],
-        ["minimal", { name: "ix2", preset: "minimal", frontend: "none" }],
-      ] as const) {
-        const dest = path.join(tmp, `index-${nom}`);
-        scaffold(dest, reponses as TScaffoldAnswers);
-        const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
-        const dossier = path.join(dest, "agents", "nodefony");
-        const surDisque = readdirSync(dossier)
-          .filter((f) => f.endsWith(".md"))
-          .sort();
-        const citees = [
-          ...porte.matchAll(/`agents\/nodefony\/([a-z-]+)\.md`/gu),
-        ]
-          .map((m) => `${m[1]}.md`)
-          .sort();
-        assert.deepEqual(
-          [...new Set(citees)],
-          surDisque,
-          `${nom} : l'index et le dossier divergent`,
-        );
-        assert.isAbove(surDisque.length, 0, `${nom} : aucune annexe posée`);
-      }
-    });
-
-    it("une annexe conditionnelle absente n'est ni posée, ni citée", () => {
-      // `securite-et-droits` n'a de sens que si l'app a un firewall : la poser
-      // sans lui décrirait des décorateurs qui n'existent pas dans ce projet,
-      // et l'agent irait droit dans une erreur d'import.
-      const dest = path.join(tmp, "annexe-cond");
-      scaffold(dest, { name: "acond", preset: "minimal", frontend: "none" });
-      const dossier = path.join(dest, "agents", "nodefony");
-      assert.isFalse(
-        existsSync(path.join(dossier, "securite-et-droits.md")),
-        "sans sécurité, l'annexe sécurité ne doit pas exister",
-      );
-      assert.notInclude(
-        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
-        "securite-et-droits.md",
-      );
-      // …et l'inverse est vrai : avec la sécurité, elle est là ET citée.
-      const avec = path.join(tmp, "annexe-cond-avec");
-      scaffold(avec, { name: "acondb", preset: "complete", frontend: "none" });
-      assert.isTrue(
-        existsSync(
-          path.join(avec, "agents", "nodefony", "securite-et-droits.md"),
-        ),
-      );
-    });
-
-    it("le contenu déporté n'est pas PERDU — il a changé de fichier", () => {
-      // Le découpage ne retire rien : chaque section payée doit rester
-      // atteignable. Ces quatre chaînes vivaient dans la porte avant le
-      // découpage ; elles doivent être dans les annexes après.
+    it("le savoir-faire du framework vit dans les skills, jamais dans la porte", () => {
+      // La règle que ce test grave : ce qui vaut pour TOUTE application
+      // Nodefony vit dans les skills livrés par les paquets — ils suivent la
+      // version installée — et surtout PAS dans un fichier copié à la création,
+      // qui se fige au jour où il a été écrit. Les deux faces comptent : si un
+      // témoin disparaît du skill, le savoir est perdu ; s'il réapparaît dans
+      // la porte, la copie figée est de retour et le budget la paiera.
       const dest = path.join(tmp, "deporte");
       scaffold(dest, { name: "dep", preset: "complete", frontend: "react" });
       const porte = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
-      const tout = docsAgent(dest);
+      const skills = path.join(
+        path.resolve(findPackageRoot(), "..", ".."),
+        "src/packages/@nodefony/devkit/skills",
+      );
+      const corpus = readdirSync(skills)
+        .map((d) => path.join(skills, d, "SKILL.md"))
+        .filter((f) => existsSync(f))
+        .map((f) => readFileSync(f, "utf8"))
+        .join("\n");
       for (const temoin of [
-        "trustedOrigins",
-        "npx nodefony orm:migrate:status",
-        "nodefony_docs",
+        "registerVoterFactory",
+        "@CurrentUser()",
+        "NF_CLI_DEBUG",
       ]) {
-        assert.include(tout, temoin, `« ${temoin} » a disparu du corpus`);
+        assert.include(corpus, temoin, `« ${temoin} » a disparu des skills`);
         assert.notInclude(
           porte,
           temoin,
-          `« ${temoin} » est resté dans la porte — le budget le paiera`,
+          `« ${temoin} » est revenu dans la porte — elle se figerait avec`,
         );
       }
+      // Et la porte ENVOIE vers eux : sans cette phrase, le contenu est
+      // atteignable et personne n'y va.
+      assert.include(porte, "nodefony-dev");
+      assert.include(porte, ".agents/skills/");
+    });
+
+    it("une app générée ne porte plus aucun dossier d'annexes copiées", () => {
+      // Le geste entier tient là : plus de page du framework copiée dans le
+      // projet. Une seule y suffirait à réintroduire la dérive — figée au jour
+      // de la création, jamais resynchronisée par `npm update`.
+      const dest = path.join(tmp, "sans-annexes");
+      scaffold(dest, { name: "sansx", preset: "complete", frontend: "react" });
+      assert.isFalse(
+        existsSync(path.join(dest, "agents", "nodefony")),
+        "le dossier agents/nodefony/ ne doit plus être posé",
+      );
+      assert.notInclude(
+        readFileSync(path.join(dest, "AGENTS.md"), "utf8"),
+        "agents/nodefony/",
+      );
     });
 
     it("une app NÉE AVANT le découpage ne perd pas ses notes à la régénération", () => {
@@ -3191,15 +3166,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Où sont les CLÉS de config d'un module — le pointage qui manquait.
       assert.include(agents, "dist/nodefony/config/config.js");
       // La porte MCP se CONSOMME (4 outils) mais s'ÉTEND aussi : une app publie
-      // les siens par `getMcpTools()`. La capacité vivait dans le README du
-      // devkit — donc nulle part, pour un agent qui lit ce fichier-ci et rien
-      // d'autre. ⚠️ Chercher « MCP » ne prouverait RIEN : le sigle apparaît
-      // dans toute la section voisine (ai:mcp, .mcp.json, mcp.tools), et
-      // retirer l'extension laisserait ce gate au vert. On ancre donc sur ce
-      // qui est PROPRE à la déclaration — le contrat, l'enveloppe de réponse,
-      // et l'avertissement qui la borne.
+      // les siens par `getMcpTools()`. La porte NOMME la capacité et le chemin
+      // — sans quoi elle n'existe pas pour qui lit ce fichier et rien d'autre —
+      // et le mode d'emploi vit dans la doc que le paquet LIVRE, qui suit la
+      // version installée. Le partage est imposé par le budget : ce contrat
+      // pèse 3 Ko, la porte n'en a pas 3 à donner, et la tronquer chez Codex
+      // coûterait tout le reste de la page.
+      // ⚠️ Chercher « MCP » ne prouverait RIEN : le sigle apparaît dans toute
+      // la section voisine (ai:mcp, .mcp.json), et retirer l'extension
+      // laisserait ce gate au vert. On ancre donc sur ce qui est PROPRE à la
+      // déclaration — le contrat, l'enveloppe de réponse, et l'avertissement
+      // qui la borne.
+      assert.include(agents, "getMcpTools()");
+      assert.include(
+        agents,
+        "@nodefony/devkit/docs/index.md",
+        "la porte doit DONNER le chemin du mode d'emploi, pas seulement le sigle",
+      );
+      const docMcp = readFileSync(
+        path.join(
+          path.resolve(findPackageRoot(), "..", ".."),
+          "src/packages/@nodefony/devkit/docs/index.md",
+        ),
+        "utf8",
+      );
       for (const needle of [
-        "getMcpTools()",
         "type IMcpTool",
         "mcpText(",
         // Un outil réservé se DÉCLARE, et l'agent doit savoir que le refus est
@@ -3213,9 +3204,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // ancrer sur la CLÉ et sur l'enseignement, jamais sur un état du jour.
         "authorizationServers",
         "resource_metadata",
-        "n'est **pas** une panne",
+        "avant de chercher une panne",
       ]) {
-        assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
+        assert.include(docMcp, needle, `doc devkit sans « ${needle} »`);
       }
       // Les 3 savoirs fondamentaux que tout agent doit avoir AVANT d'écrire :
       // le cœur est ISOMORPHE (jamais un client WS/type dupliqué à la main),
@@ -3261,23 +3252,36 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       // Utilisateurs et droits : sans ces repères, un agent réinvente un lecteur
       // de session, teste l'appartenance à un rôle à la main, ou insère un
-      // utilisateur en base sans passer par l'encodeur de mot de passe. Les
-      // quatre gestes sont NOMMÉS, et leur doc installée est pointée.
+      // utilisateur en base sans passer par l'encodeur de mot de passe. Ces
+      // gestes sont GÉNÉRIQUES — ils valent pour toute app Nodefony — donc ils
+      // vivent dans le skill que l'agent charge pour protéger une route, et
+      // leur doc installée y est pointée. La porte, elle, n'a pas les 2 Ko que
+      // cette section pèse : les lui reprendre tronquerait la page entière.
       // ⚠️ Chercher `@IsGranted` ne prouverait RIEN : le nom apparaît dans
       // plusieurs phrases voisines, donc retirer le geste laisserait le gate au
       // vert (vécu en écrivant ce test). On ancre sur des marqueurs PROPRES à
-      // chaque geste — un par ligne de la section.
+      // chaque geste.
+      const skillDroits = readFileSync(
+        path.join(
+          path.resolve(findPackageRoot(), "..", ".."),
+          "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md",
+        ),
+        "utf8",
+      );
       for (const needle of [
         "Utilisateurs et droits : tout existe",
-        '`@IsGranted("ROLE_ADMIN")` sur la',
-        "lire l'utilisateur courant** : le paramètre décoré `@CurrentUser()`",
-        "la clé `roleHierarchy`",
-        "`npx nodefony security:user:add <identifiant>`",
-        "s'enregistre par\n    `registerVoterFactory`",
+        "@CurrentUser()",
+        "roleHierarchy: {",
+        "npx nodefony security:user:add",
+        "registerVoterFactory",
         "@nodefony/security/docs/authorization.md",
         "@nodefony/user/docs/index.md",
       ]) {
-        assert.include(agents, needle, `AGENTS.md sans « ${needle} »`);
+        assert.include(
+          skillDroits,
+          needle,
+          `skill des droits sans « ${needle} »`,
+        );
       }
       // Aucun module encore : l'état vide DIT quoi faire.
       assert.include(agents, "Aucun — `npx nodefony create module");
@@ -3725,18 +3729,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "cette zone doit montrer l'authentificateur de porteur SEUL — ajouter " +
           '"session" à côté rouvre exactement le défaut qu\'elle illustre',
       );
-      const agentsMd = docsAgent(dest);
-      assert.include(
-        agentsMd,
-        "stateless",
-        "les docs d'agent doivent donner le geste M2M — porte ou annexe sécurité",
-      );
       // La zone est écrite DEUX fois — dans la config qu'on édite, et dans le
-      // fichier que l'agent lit par défaut. La frontière est réelle (l'un est
-      // du code, l'autre de la doc), donc la duplication reste ; ce qui ne
-      // reste pas, c'est la possibilité qu'elles divergent en silence. Une
-      // consigne qui dirait `stateless: false` pendant que la config dit
-      // `true` fabriquerait exactement le défaut qu'elles décrivent.
+      // skill que l'agent charge pour protéger une route. La frontière est
+      // réelle (l'un est du code livré à l'app, l'autre de la doc livrée par
+      // npm), donc la duplication reste ; ce qui ne reste pas, c'est la
+      // possibilité qu'elles divergent en silence. Une consigne qui dirait
+      // `stateless: false` pendant que la config dit `true` fabriquerait
+      // exactement le défaut qu'elles décrivent.
+      const agentsMd = readFileSync(
+        path.join(
+          path.resolve(findPackageRoot(), "..", ".."),
+          "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md",
+        ),
+        "utf8",
+      );
       const zone = (texte: string) => {
         const m =
           /machine:\s*\{[^}]*?pattern:\s*"([^"]+)"[^}]*?authenticators:\s*\[([^\]]*)\][^}]*?stateless:\s*(true|false)/u.exec(
@@ -3752,11 +3758,14 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         zoneConfig,
         "zone machine introuvable dans la config générée",
       );
-      assert.isNotNull(zoneAgents, "zone machine introuvable dans AGENTS.md");
+      assert.isNotNull(
+        zoneAgents,
+        "zone machine introuvable dans le skill protect-route",
+      );
       assert.deepEqual(
         zoneAgents,
         zoneConfig,
-        "AGENTS.md et nodefony.config.ts doivent montrer la MÊME zone machine",
+        "le skill protect-route et nodefony.config.ts doivent montrer la MÊME zone machine",
       );
       const pkg = readJson(path.join(dest, "package.json"));
       assert.include(pkg["scripts"]["test:e2e"], "-c vitest.e2e.config.ts");
@@ -3771,26 +3780,35 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     // CSRF — une origine inconnue obtient alors 201. Aucun ne déclare l'origine,
     // aucun n'ouvre la doc du module. La cause n'est pas le jugement de l'agent
     // mais le placement du savoir : `@CsrfExempt` porte un nom qui se devine,
-    // `trustedOrigins` n'était écrit nulle part où l'agent lit d'office.
-    it("csrf : l'AGENTS.md donne le geste (trustedOrigins) et son bloc reste recopiable", () => {
+    // `trustedOrigins` n'était écrit nulle part où l'agent regarde.
+    it("csrf : le skill donne le geste (trustedOrigins) et son bloc reste recopiable", () => {
       const dest = path.join(tmp, "csrf-agents");
       scaffold(dest, {
         name: "csrf-agents",
         preset: "complete",
         frontend: "none",
       });
-      const agents = docsAgent(dest);
+      // Le geste est GÉNÉRIQUE — il vaut pour toute app Nodefony —, donc il vit
+      // dans le skill que l'agent charge pour protéger une route, et non dans
+      // une page copiée à la création, qui se figerait au jour où on l'a écrite.
+      const agents = readFileSync(
+        path.join(
+          path.resolve(findPackageRoot(), "..", ".."),
+          "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md",
+        ),
+        "utf8",
+      );
       assert.include(
         agents,
         "trustedOrigins",
-        "AGENTS.md doit nommer la clé qui DÉCLARE une origine partenaire",
+        "le skill doit nommer la clé qui DÉCLARE une origine partenaire",
       );
       // Nommer la bonne réponse ne suffit pas : la porte de sortie se devine
       // sans documentation, il faut donc la citer POUR la désigner comme fausse.
       assert.include(
         agents,
         "@CsrfExempt",
-        "AGENTS.md doit nommer le réflexe (@CsrfExempt) pour le récuser",
+        "le skill doit nommer le réflexe (@CsrfExempt) pour le récuser",
       );
       // Le bloc montré est fait pour être recopié dans `nodefony.config.ts`. S'il
       // perdait la clé `secret` que la config y pose, le recopier couperait le
@@ -3804,11 +3822,11 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         secretConfig,
         "bloc csrf introuvable dans la config générée",
       );
-      assert.isNotNull(secretAgents, "bloc csrf introuvable dans l'AGENTS.md");
+      assert.isNotNull(secretAgents, "bloc csrf introuvable dans le skill");
       assert.equal(
         secretAgents,
         secretConfig,
-        "le bloc csrf de l'AGENTS.md doit reprendre le secret de la config — sinon le recopier le supprime",
+        "le bloc csrf du skill doit reprendre le secret de la config — sinon le recopier le supprime",
       );
     });
   });

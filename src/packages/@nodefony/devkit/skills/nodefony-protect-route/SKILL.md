@@ -10,6 +10,7 @@ description: >
   Déclencheurs : "protège cette route", "réserver aux administrateurs", "@IsGranted", "firewall",
   "zone protégée", "403", "401", "un rôle qui en implique un autre", "roleHierarchy",
   "un partenaire doit pouvoir poster", "erreur CSRF", "origine refusée", "@CsrfExempt",
+  "@CsrfProtect", "mon POST passe sans jeton", "faut-il protéger une écriture",
   "API pour un programme", "clé d'API", "désactiver la sécurité pour tester".
 ---
 
@@ -54,6 +55,19 @@ pattern: "^/api/account/(profile|invoices)"; // ❌ les routes d'aujourd'hui
 elle a l'air de couvrir l'espace, et l'introspection montre bien une route protégée à côté. Quand
 des routes partagent un préfixe, ne les protège pas une par une.
 
+## 🔴 La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`
+
+Le raisonnement qui vient, et qui est faux : « le pare-feu vérifie déjà `Sec-Fetch-Site`, donc une
+écriture est protégée ». Ces en-têtes sont posés par un NAVIGATEUR ; un programme qui parle en HTTP
+n'en envoie aucun, et la défense de provenance le laisse alors passer — c'est son rôle, elle
+distingue les sites, pas les intentions. Résultat mesuré : un `POST /api/cart/items` sans jeton rend
+`201`, et l'application croit avoir une défense.
+
+Toute action qui ÉCRIT porte donc `@CsrfProtect` explicitement. Le jeton ne se demande à AUCUN
+endpoint : une requête sûre (`GET`) vers la route protégée sème le cookie lisible `csrf-token`, et
+la mutation le rejoue dans l'en-tête `x-csrf-token` — c'est le double-submit, sinon `403`. La
+provenance et le jeton se **cumulent** ; l'une ne remplace jamais l'autre.
+
 ## 🔴 Ce qu'il ne faut jamais écrire
 
 ```ts
@@ -92,9 +106,13 @@ travail. **Le geste juste est de DÉCLARER l'origine**, jamais de retirer la dé
 
 ```ts
 csrf: {
+  secret: ctx.env.NF_CSRF_SECRET, // la clé que la config pose DÉJÀ — ne la perds pas
   trustedOrigins: ["https://partenaire.example"],
 }
 ```
+
+⚠️ Ce bloc est fait pour être recopié dans `nodefony/config/security.ts`. Recopié **sans** son
+`secret`, il coupe le jeton anti-falsification — en silence, tests verts.
 
 🔴 `@CsrfExempt`, `csrf.enabled: false`, ou couper le contrôle de provenance **résolvent le
 symptôme et ouvrent l'application** : n'importe quel site peut alors faire poster le navigateur
@@ -194,6 +212,20 @@ npx nodefony security:user:add            # un témoin SANS le rôle
 # 3. administrateur     → servi
 npx nodefony inspect routes --json        # la garde est-elle sur la route qu'on croit ?
 ```
+
+## Utilisateurs et droits : tout existe, n'improvise RIEN
+
+Chaque geste ci-dessus a sa référence INSTALLÉE — une recherche ordinaire ne la voit pas, `rg`
+ne descendant pas dans `node_modules` :
+
+- **Zones, authentificateurs, CSRF, CORS, clés d'API** — `node_modules/@nodefony/security/docs/firewall.md`
+- **`@IsGranted`, voters, hiérarchie de rôles** — `node_modules/@nodefony/security/docs/authorization.md`
+- **Contrat `IUser`, `UserService`, mot de passe** — `node_modules/@nodefony/user/docs/index.md`
+- **Politique de contenu, nonce, HSTS** — `node_modules/@nodefony/security/docs/headers.md`
+
+N'écris pas ton propre lecteur de session, ne teste pas l'appartenance à un rôle à la main, et
+n'insère jamais un utilisateur directement en base — le mot de passe passe par l'encodeur du
+framework.
 
 ## Voisins
 

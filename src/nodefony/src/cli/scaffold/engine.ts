@@ -726,42 +726,12 @@ function replaceFrameworkBlock(previous: string, next: string): string {
 }
 
 /**
- * Les annexes du framework, et la condition qui décide de les rendre.
- *
- * Une annexe est un fichier qu'on rend ou qu'on ne rend pas — jamais un
- * fichier à moitié rendu : c'est pourquoi la condition vit ICI et non en
- * balise dans le gabarit. L'index de la porte porte la MÊME condition, sans
- * quoi il nommerait une page absente du disque.
- */
-const AGENT_ANNEXES: readonly {
-  slug: string;
-  applies?: (d: IAgentsData) => boolean;
-}[] = [
-  { slug: "avant-de-coder" },
-  { slug: "depannage" },
-  { slug: "inspecter-l-app" },
-  { slug: "commandes" },
-  { slug: "variables-d-environnement" },
-  { slug: "lancer-le-serveur" },
-  { slug: "donnees-et-fichiers" },
-  { slug: "securite-et-droits", applies: (d) => d.hasSecurity },
-  { slug: "temps-reel", applies: (d) => d.hasRealtime },
-  {
-    slug: "ajouter-une-brique",
-    applies: (d) => !d.hasOrm || !d.hasSecurity || !d.hasRealtime || !d.front,
-  },
-];
-
-/** Dossier des annexes, relatif à la racine du projet — visible d'un `ls`. */
-const ANNEX_DIR = path.join("agents", "nodefony");
-
-/**
  * Un chemin DÉCLARÉ en `/` ramené à la grammaire de la plateforme.
  *
  * Certains chemins du scaffold sont écrits en `/` à leur source, et c'est
  * juste : `.github/copilot-instructions.md` est un nom que la documentation de
- * l'éditeur fixe, `agents/nodefony/` est cité dans l'index d'`AGENTS.md` que
- * des agents lisent. Ce sont des chemins qui VOYAGENT.
+ * l'éditeur fixe, et `.agents/skills/` est cité dans `AGENTS.md`, que des agents
+ * lisent. Ce sont des chemins qui VOYAGENT.
  *
  * La liste des fichiers écrits, elle, ne voyage pas : elle est comparée à des
  * chemins que le disque a rendus, et affichée à quelqu'un qui va les ouvrir.
@@ -823,19 +793,21 @@ interface IAgentsData {
 }
 
 /**
- * Rend `AGENTS.md`, ses annexes `agents/nodefony/` et le pointeur `CLAUDE.md`.
+ * Rend `AGENTS.md` et le pointeur `CLAUDE.md`.
  *
  * Appelé par `create app` ET re-appelé par les scaffolds in-project qui
- * changent l'inventaire décrit (`create module`) : régénération BORNÉE, et la
- * borne n'est pas la même pour les deux surfaces. **`AGENTS.md` appartient à
- * l'application** — seul le bloc entre marqueurs est remplacé (cf
- * {@link replaceFrameworkBlock}), le reste de la page est celui de
- * l'utilisateur. **`agents/nodefony/` appartient au framework** — écrasé en
- * bloc, sans fusion ni préservation.
+ * changent l'inventaire décrit (`create module`) : régénération BORNÉE.
+ * **`AGENTS.md` appartient à l'application** — seul le bloc entre marqueurs est
+ * remplacé (cf {@link replaceFrameworkBlock}), le reste de la page est celui de
+ * l'utilisateur.
  *
- * C'est ce partage qui laisse la porte tenir son budget (~20 Ko, sous le
- * plafond de 32 KiB que Codex applique en tronquant SANS le dire) pendant que
- * le contenu des annexes continue de grossir sans gêner personne.
+ * La porte tient son budget (~20 Ko, sous le plafond de 32 KiB que Codex
+ * applique en tronquant SANS le dire) parce qu'elle ne porte QUE ce qui est
+ * propre à cette application. Tout le savoir-faire du framework vit dans les
+ * skills que les paquets livrent (`node_modules/@nodefony/devkit/skills/`) et
+ * que `ai:sync` pointe dans `.agents/skills/` : ils suivent la version
+ * installée, quand une page copiée dans le projet se fige au jour de sa
+ * création.
  *
  * `CLAUDE.md` n'est écrit QUE s'il n'existe pas : c'est un pointeur d'une
  * ligne, et un `CLAUDE.md` remplacé par l'utilisateur lui appartient.
@@ -886,30 +858,6 @@ function renderProjectAgents(
   }
   writer.write(agentsPath, rendered);
   written.push("AGENTS.md");
-  // Les annexes : le dossier du framework, ÉCRASÉ EN BLOC. Il ne se fusionne
-  // pas et ne préserve rien — c'est ce qui permet à la porte de rester sous
-  // son budget pendant que le contenu, lui, continue de grossir librement.
-  const dataAnnexes = { ...data, client, frontendEngines } as unknown as Record<
-    string,
-    unknown
-  >;
-  for (const { slug, applies } of AGENT_ANNEXES) {
-    if (applies && !applies(data)) continue;
-    const content = eta.renderString(
-      readFileSync(path.join(tplDir, "nodefony", `${slug}.md.tpl`), "utf8"),
-      dataAnnexes,
-    );
-    if (content.includes("<%")) {
-      throw new Error(`tag eta résiduel dans l'annexe ${slug}`);
-    }
-    // Le chemin PUBLIÉ s'écrit en `/` — il est cité dans l'index de la porte,
-    // que des agents lisent. Celui qu'on INSCRIT dans la liste des fichiers
-    // écrits se compose en natif, comme tous les autres : cette liste est
-    // confrontée à ce que le disque rend, elle ne voyage nulle part.
-    const relatif = path.join(ANNEX_DIR, `${slug}.md`);
-    writer.write(path.join(projectRoot, relatif), content);
-    written.push(relatif);
-  }
   // Un pointeur par DIALECTE — dérivé de la table des agents, jamais listé à la
   // main : deux d'entre eux n'ouvrent QUE le fichier à leur nom et ne verraient
   // jamais l'`AGENTS.md` qu'on vient d'écrire (constaté au source de chacun, cf

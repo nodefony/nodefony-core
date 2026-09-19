@@ -264,8 +264,8 @@ est absent de `tools/list` **et** inappelable en le nommant, et le refus dit
 
 > 🔴 **Tant que la porte n'authentifie personne, un outil à scopes ne sortira
 > jamais.** C'est le comportement voulu — fermé par défaut — mais il faut le
-> savoir avant de chercher une panne : `caller` vaut `{ authenticated: false,
-scopes: [] }` tant que le rôle _resource server_ décrit plus haut n'est pas
+> savoir avant de chercher une panne : `caller` vaut
+> `{ authenticated: false, scopes: [] }` tant que le rôle _resource server_ décrit plus haut n'est pas
 > branché. Le jour où il le sera, ces déclarations prendront effet sans qu'une
 > ligne d'outil change.
 

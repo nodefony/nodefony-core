@@ -14,7 +14,7 @@ description: >
   est-il fini", "je ne trouve rien sur ce sujet", "ce n'est pas documenté", "je touche au
   frontend", "mon composant charge des données", "mon écran n'affiche rien".
 metadata:
-  version: 1.1.0
+  version: 1.2.0
 ---
 
 # nodefony-dev — développer dans cette application sans rien inventer
@@ -112,17 +112,160 @@ dans la doc chargée) et `nodefony_symbols` (rend la SIGNATURE réelle d'un symb
 ne porte pas). Elles supposent un serveur démarré et la porte câblée (`npx nodefony ai:mcp`) ;
 `docs.mjs`, lui, répond toujours.
 
-## 3. Conduire une tâche — la séquence, et ses points d'arrêt
+## 3. Interroger l'application — elle répond mieux que ses sources
 
-1. **Demande à l'application, ne déduis pas du code.** `npx nodefony inspect routes`,
-   `inspect services`, `inspect config` rendent l'état RÉEL — routes montées, services résolus,
-   valeur effective **et sa provenance**. Une route lue dans un fichier peut n'être montée nulle
-   part ; l'inverse aussi.
-   **Un argument RESTREINT la réponse** — `inspect routes auth` ne rend que les routes dont le
-   chemin, le nom, le contrôleur, l'action, le module ou les méthodes portent `auth` ;
-   `inspect schema http` fait de même sur les réglages d'un module. Ne tronque JAMAIS une sortie
-   d'inspection (`| head`) pour la faire tenir : une application en sert facilement plusieurs
-   centaines, et ce qu'on cherche est presque toujours dans la partie coupée — c'est ainsi qu'on
+**Perdu ? La carte de visite dit qui répond, ce qui est chargé, où lire et quoi lancer :**
+
+```bash
+npx nodefony card                      # -j pour du JSON
+```
+
+Elle répond **toujours** — application pas encore construite, terminal sans aucune variable
+d'environnement : elle ne lit que des fichiers. Elle le DIT alors (« modules installés », pas
+« chargés ») et renvoie à `inspect modules` pour ce qui est vraiment monté.
+
+```bash
+npx nodefony inspect routes --json     # routes réelles (chemin MONTÉ, méthodes, controller)
+npx nodefony inspect services --json   # services enregistrés, et le module qui les porte
+npx nodefony inspect config --json     # config EFFECTIVE, et d'où vient chaque valeur
+npx nodefony inspect schema http       # ce qu'on a le DROIT d'écrire : clés, type, défaut, description
+npx nodefony inspect modules --json    # modules CHARGÉS — pas ceux que le manifeste déclare
+npx nodefony inspect entities --json   # entités déclarées à l'ORM
+npx nodefony inspect stores --json     # où sont RÉELLEMENT écrites les données (sessions, cache…)
+npx nodefony inspect graph --json      # graphe des entités et de leurs relations
+```
+
+Ces commandes bootent l'application **sans ouvrir un seul port** et rendent exactement ce que sert
+la console d'administration — même code, deux portes.
+
+> **Ce que rend `inspect` ENGLOBE tes sources et les dépasse.** Les modules installés montent leurs
+> propres routes : une application qui en définit une poignée en expose couramment plus d'une
+> centaine. Un écart d'un ordre de grandeur entre tes fichiers et `inspect routes --json | jq
+'length'` n'est PAS une anomalie de l'outil — c'est la différence entre ce que TU as écrit et ce
+> que l'application MONTE.
+
+**« Que fait cette classe, où est-elle définie, qu'étend-elle ? » — une commande, pas une fouille :**
+
+```bash
+npx nodefony symbols AbstractCrudService      # définition, TSDoc, parenté — en O(1)
+npx nodefony symbols --module @nodefony/http  # toute la surface exportée d'un paquet
+```
+
+Le graphe symbolique de tout le framework est livré avec le paquet `nodefony` : la réponse ne
+dépend ni d'un serveur, ni d'un build, ni de ta connexion. Va y chercher un symbole AVANT d'ouvrir
+un `.d.ts` — et avant, surtout, d'inventer une signature.
+
+**Si la commande te résiste, répare l'APPEL — ne te rabats pas sur les sources.** C'est le réflexe
+le plus cher, parce qu'il produit une réponse d'allure normale : un shell qui manque un outil
+(`timeout` n'existe pas sur macOS), un `jq` mal formé, et l'on se replie sur ce qu'on sait lire.
+Les fichiers répondront toujours quelque chose — mais pas à la question posée. Relance sans le
+tube, puis remets ton filtre.
+
+**Tu préfères des OUTILS à des commandes ?** Cette application les expose en Model Context Protocol
+(`npx nodefony ai:mcp` écrit `.mcp.json`) — mêmes réponses, et tes propres modules peuvent publier
+les leurs. La porte est une ROUTE : elle n'existe que serveur démarré, et un client qui la trouve
+éteinte la marque en échec pour toute sa session — démarre l'application D'ABORD, ta session
+ENSUITE. Tout le reste (déclarer un outil métier, le réserver à des scopes, l'autorisation OAuth) :
+`node_modules/@nodefony/devkit/docs/index.md`.
+
+### L'environnement : ne devine JAMAIS, demande
+
+```bash
+npx nodefony env          # cascade des .env, valeur EFFECTIVE de chaque variable, sa PROVENANCE
+```
+
+**Encadre toute modification de configuration par cette commande** : une fois AVANT, pour savoir ce
+qui s'applique et d'où ça vient ; une fois APRÈS, pour prouver que ta valeur est celle qui gagne.
+Lire les `.env` toi-même donne des contenus ; la précédence est un mécanisme — tu ne peux que la
+supposer, et une supposition fausse ne se voit qu'en production. La commande ne boote rien, donc
+elle répond aussi quand l'application ne démarre plus.
+
+**Précédence, du plus FORT au plus faible** — le premier qui pose une valeur gagne, les suivants
+sont ignorés en silence :
+
+```
+process.env  >  .env.<déploiement>.local  >  .env.<mode>.local  >  .env.local
+             >  .env.<déploiement>        >  .env.<mode>        >  .env
+```
+
+`<mode>` = `NODE_ENV` · `<déploiement>` = `APP_ENV` (plus spécifique, donc plus fort). Les `*.local`
+ne sont jamais committés : les secrets y vont, et nulle part ailleurs.
+
+| Forme                                 | Ce que c'est                                         | Où c'est déclaré                                       |
+| ------------------------------------- | ---------------------------------------------------- | ------------------------------------------------------ |
+| `NF_PORT=5151`                        | variable de l'APP, typée et validée                  | `env.ts` (`defineEnv`) — non déclarée = **sans effet** |
+| `NF__HTTP__SERVERS__HTTPS__PORT=8443` | surcharge DIRECTE d'une clé de config d'un module    | rien à déclarer — double `__` = séparateur             |
+| `NF_TOTP_KEY_FILE=/run/secrets/x`     | la même variable, lue depuis un fichier (secret K8s) | idem `NF_TOTP_KEY`                                     |
+
+Une variable `NF_` mal orthographiée n'échoue pas : elle est **ignorée**, et le défaut s'applique en
+silence. `npx nodefony env` est le seul endroit qui la montre, avec la correction probable.
+
+## 4. Les commandes — demande la liste, ne la devine pas
+
+```bash
+npx nodefony --help              # TOUTES les commandes, celles des modules installés comprises
+npx nodefony <commande> --help   # les options exactes de l'une d'elles
+```
+
+La liste **dépend des modules installés** : elle n'est pas la même d'une application à l'autre, et
+elle s'allonge dès que tu en ajoutes un. C'est pour ça qu'elle se demande au lieu de se retenir.
+
+**Toujours `npx`, jamais `nodefony` nu.** Le binaire vit dans les `node_modules` de CETTE
+application : la forme nue rend un code 127 tant que rien n'est installé globalement. Une
+installation globale existe (elle sert à créer une application HORS projet) et, dans un projet, elle
+passe la main au binaire local — mais elle peut être plus ANCIENNE. `npx` prend la version que cette
+application a choisie, sans dépendre de ce qui traîne sur la machine.
+
+Celles qu'on n'invente pas, faute de savoir qu'elles existent :
+
+- Mettre l'application derrière **nginx ou haproxy** — `npx nodefony proxy:generate <nginx|haproxy>`
+- **Servir les fichiers statiques depuis un CDN** — `npx nodefony assets:publish [--clean]`
+- **Certificat TLS de développement** — `npx nodefony http:certificates`
+- **Dépendances en retard**, agrégées et non le brut de npm — `npx nodefony outdated`
+- **Cohérence du projet** (classe non câblée, route qui répondra 404) — `npx nodefony doctor`
+- **Plusieurs processus, un cœur chacun** — `npx nodefony production -w <n|auto>` · `NF_WORKERS`
+- **Complétion au TAB** — `source <(nodefony completion zsh)`
+
+Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE application, et il fait
+foi le jour où les deux divergent.
+
+## 5. Piloter le serveur — et l'ARRÊTER
+
+```bash
+npm run dev                              # développement : rechargement auto, Ctrl+C pour arrêter
+npx nodefony development --no-watch      # développement SANS rechargement : un process, stable
+npx nodefony status                      # que tourne-t-il ? ports, PID — ne boote rien
+npx nodefony stop                        # arrêt PROPRE de tout runtime de cette application
+npx nodefony stop <nom|chemin>           # arrêter un AUTRE projet, sans changer de dossier
+npx nodefony production --detach --wait   # boot réel en arrière-plan ; rend la main ports OUVERTS
+```
+
+**Arrête ce que tu démarres.** Un serveur laissé derrière garde les ports : le run suivant échoue
+sur une erreur qui ne parle jamais de lui (`EADDRINUSE`) — ou pire, un test interroge l'ANCIENNE
+version du code. Et **jamais `… &`** : le processus reçoit SIGHUP et meurt ; tuer le PID du port ne
+tue pas le superviseur, qui respawne.
+
+**Ces commandes ne voient QUE cette application.** Plusieurs projets Nodefony peuvent tourner sur la
+même machine ; `status` ne compte jamais les processus du voisin comme les tiens, il les NOMME dans
+une table à part — et ce nom est ce que `stop` accepte. Donc « aucune instance » veut dire « aucune
+À MOI », pas « rien ne tourne » ; et une cible que `stop` ne peut pas désigner sans ambiguïté est
+REFUSÉE, avec un code de sortie non nul et rien d'arrêté — **lis ce code**, un refus ressemble
+sinon à un succès.
+
+**Pour faire tourner une suite contre un serveur, prends `--no-watch`.** Le mode développement
+relance le serveur dès qu'un fichier bouge : pendant un run, le redémarrage coupe les connexions
+sous les tests, et le rouge qui en sort accuse le code alors que le fautif est le décor.
+
+**N'invente pas d'attente** : `--wait` ne rend la main qu'une fois les ports en écoute — un `sleep`
+arbitraire est soit trop court (test rouge sans raison), soit du temps perdu à chaque exécution.
+
+## 6. Conduire une tâche — la séquence, et ses points d'arrêt
+
+1. **Demande à l'application, ne déduis pas du code** (§3). Une route lue dans un fichier peut
+   n'être montée nulle part ; l'inverse aussi. **Un argument RESTREINT la réponse** — `inspect
+routes auth` ne rend que les routes dont le chemin, le nom, le contrôleur, l'action, le module
+   ou les méthodes portent `auth`. Ne tronque JAMAIS une sortie d'inspection (`| head`) pour la
+   faire tenir : ce qu'on cherche est presque toujours dans la partie coupée — c'est ainsi qu'on
    conclut « le framework ne fournit pas ça » et qu'on le réécrit à la main.
 2. **Cherche la référence** (§2) avant de choisir une façade. Le framework en a presque toujours
    une, et la contourner compile — c'est tout le piège.
@@ -137,7 +280,20 @@ ne porte pas). Elles supposent un serveur démarré et la porte câblée (`npx n
 **Le point d'arrêt qu'on rate** : `npm test` seul ne prouve pas que ça compile — vitest
 n'inspecte aucun type. Une application peut être verte et ne pas compiler.
 
-## 4. Les pièges du serveur
+### Le poids du modèle est un CHOIX, et il est mesuré
+
+Si ton outil sait déléguer à des sous-agents : une tâche couverte par un **générateur** ne demande
+pas un gros modèle — c'est le générateur qui porte le savoir. Mesuré sur ce framework, « ajoute une
+ressource REST » rend le MÊME résultat en modèle léger et en modèle fort (mêmes contrôles verts,
+écart d'étapes dans le bruit) pour **~3× moins cher**. À l'inverse, le socle SANS générateur (flux,
+session, cycle de vie) fait échouer le modèle léger environ une fois sur deux.
+
+Donc : **léger** pour appeler un générateur, inventorier, lire, vérifier un fait, appliquer un
+patron ; **fort** pour écrire du socle sans générateur et pour arbitrer une architecture. Le test
+qui tranche en une seconde : _la tâche a-t-elle une bonne réponse vérifiable ?_ Aucun nom de modèle
+ici — ils changent tous les trimestres ; raisonne en poids.
+
+## 7. Les pièges du serveur
 
 Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers sont les plus fréquents.
 
@@ -153,6 +309,33 @@ Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers son
 - **Tu lis une liste sans la BORNER.** Un `find` sans limite matérialise la table entière —
   indolore sur les quelques lignes du poste de développement, fatal sur les dizaines de milliers
   de la production. Le service d'une entité hérite `findPage({ limit: 25 })`.
+
+- **Des dizaines de tests d'intégration rouges d'un coup** (`ECONNREFUSED`) : ils FRAPPENT un
+  serveur, ils ne le lancent pas — il est éteint. `npx nodefony status` d'abord ; en e2e, laisse
+  la commande gérer le cycle.
+- **Ta route NEUVE répond 404 et le `dist/` est à jour** : elle n'est pas montée où tu crois. Le
+  chemin réel est le PRÉFIXE de son controller suivi du `path` de la route — une action
+  `path: "/widget"` dans un controller `@controller("/api")` répond sur `/api/widget`.
+  `npx nodefony inspect routes --json` donne le chemin MONTÉ.
+- **TOUT répond 404, même les routes du gabarit** : un AUTRE serveur tient les ports — ou LE TIEN
+  a glissé, le port voulu étant pris. `npx nodefony status` montre les ports RÉELS, pas ceux que
+  tu as configurés, et NOMME le projet voisin.
+- 🔴 **`nodefony <commande>` échoue là où `npm run dev` réussit, sur la MÊME application** : DEUX
+  paquets `nodefony` tournent dans le processus — un binaire lié ailleurs (installation globale,
+  `npm link`) exécute un noyau pendant que l'application importe le sien. Chaque copie a ses
+  propres classes, son contexte de requête et ses registres d'injection : un module construit à la
+  frontière perd son container SANS la moindre erreur — il figure dans la liste des modules et ne
+  fait rien. ⚠️ Les deux copies peuvent être la MÊME version ; deux fichiers distincts suffisent,
+  il n'y a aucune incohérence à repérer. `npm ls nodefony` liste les copies (« deduped » partout =
+  une seule) ; `NF_CLI_DEBUG=1 nodefony --version` dit quel CLI s'exécute.
+- **`localhost` et `127.0.0.1` te jouent des tours** : ce sont deux ORIGINES distinctes — cookies,
+  cache et passkeys ne les partagent pas. Une seule origine en développement, partout, URL ouverte
+  comme callbacks.
+
+- **Les routes authentifiées plafonnent quand le reste tient la charge** : le stockage de session
+  par défaut est SYNCHRONE — chaque reprise bloque la boucle d'événements. Compare une route
+  anonyme et une route authentifiée AVANT d'accuser TLS ou le pare-feu ; passe le stockage sur
+  redis pour la charge.
 
 ### Ce qui tue le processus, pas la requête
 
@@ -185,7 +368,34 @@ Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers son
 - **L'application ne démarre plus et le superviseur avale la sortie** :
   `NF_DEV_CHILD=1 npx nodefony development` lance l'enfant seul et montre le crash brut.
 
-## 5. Les pièges du front
+## 8. Données et fichiers — les façades qu'on ne recompose pas
+
+- **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun déclare les
+  _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) — `drizzle` les huit,
+  `mongoose` cinq (ni `totp`, ni `audit`, ni `idempotency`), `redis` quatre. Ce n'est pas un retard
+  de développement mais un CHOIX : un journal d'audit n'a rien à faire dans un moteur documentaire.
+  Ne promets jamais une parité qui n'existe pas — `npx nodefony inspect stores` dit où atterrit
+  chaque donnée.
+- **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.** Un doublon
+  sur une colonne unique ressort en **409**, une donnée qui viole le schéma Zod en **422**, chacun
+  avec son corps JSON : le rendu d'erreur lit le code du pilote (`23505`, `ER_DUP_ENTRY`,
+  `SQLITE_CONSTRAINT_UNIQUE`, `11000`) et le mappe, quel que soit le moteur. N'écris donc JAMAIS un
+  `throw … 409` pour un identifiant déjà pris. Le vérifier toi-même d'abord (« existe-t-il ? » puis
+  insertion) est plus lent ET **faux sous concurrence** : deux requêtes simultanées passent toutes
+  les deux le test avant que l'une n'écrive. La contrainte de la base est le seul arbitre exact.
+- **Un fichier ne se sert pas à la main.** Trois façades, choisies sur l'usage :
+  `this.renderMediaStream(file)` implémente les **requêtes par plage** (`Range` → 206 +
+  `Content-Range`, 416 hors plage) — ce qu'exige un lecteur vidéo ou audio pour se déplacer ;
+  `this.streamFile(file)` envoie le fichier ENTIER en flux ; `this.renderFileDownload(file)` force
+  le téléchargement. Recomposer ça avec `createReadStream` et `response.write` compile, passe les
+  tests — et rend une réponse **incohérente** : un statut posé à la main n'atteint jamais la socket
+  (le pipeline écrit statut et en-têtes à SON tour), donc le client reçoit **200 avec un corps
+  partiel** et croit tenir le fichier complet. Mesuré au banc, pas supposé.
+- **Un pod dont la base est en retard répond 503 sur `/readyz`** (jamais sur `/livez`) et reste
+  hors du répartiteur : c'est voulu, ce n'est pas une panne. `npx nodefony orm:migrate:status` dit
+  qui est en retard ; applique les migrations, les pods se mettent en service SEULS.
+
+## 9. Les pièges du front
 
 Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les quatre moteurs**
 (React, Vue, Angular, Svelte) : le framework ne t'en impose aucun.
@@ -233,6 +443,20 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
   seules, `role="img"` + `aria-label` sur un graphe SVG, jamais une information portée par la
   **couleur seule**, `rel="noopener noreferrer"` sur les liens externes.
 
+- **Une route d'API répond du HTML** : un repli SPA générique avale les routes voisines — le
+  premier motif qui correspond gagne. Repli en préfixe LITTÉRAL ; `npx nodefony inspect routes
+--json` montre l'ordre réel.
+- **Des utilisateurs « déconnectés au hasard »** : le traitement global « 401 = session expirée »
+  frappe aussi les sondes d'authentification, où 401 est NORMAL — et détruit une session valide.
+  Exempte les sondes du traitement global.
+- **Ta page répond 200 et son script ne s'exécute pas** : la politique de contenu exige un `nonce`
+  sur les scripts, et le navigateur refuse un `<script>` en ligne qui n'en porte pas (« Refused to
+  execute inline script »). Un `curl` ne le voit JAMAIS, il ne lit que le corps. Signe le script
+  (valeur `this.context?.cspNonce`) ou sors-le dans un fichier servi ; ne desserre PAS la politique.
+- **En production, la modification front n'apparaît jamais** : hors développement il n'y a PAS de
+  rechargement à chaud, et le manifeste est lu AU BOOT. `npm run build`, puis **redémarre le
+  serveur**, puis rechargement forcé.
+
 ### Le piège qui fait croire à un bug de code
 
 - **Vite affirme qu'un export n'existe pas** (`does not provide an export named …`) alors qu'il
@@ -240,7 +464,7 @@ Ne concerne qu'une application qui a un frontend. Sauf mention, **vaut pour les 
   ajoutée, ou un `git pull`. C'est son cache : `rm -rf node_modules/.vite`, puis relance. Ne
   purge pas sans raison, ça coûte 5 à 20 s de ré-optimisation.
 
-## 6. Avant de dire « fait »
+## 10. Avant de dire « fait »
 
 ```bash
 npm run verify        # types + style + tests + câblage

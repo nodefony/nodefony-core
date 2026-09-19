@@ -170,7 +170,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "dev", "href": "nodefony-dev.md",
     "desc": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT…",
-    "meta": "🟢 conforme v1.1.0 · ⚙️ 1 script" },
+    "meta": "🟢 conforme v1.2.0 · ⚙️ 1 script" },
   { "icon": "🔧", "title": "protect-route", "href": "nodefony-protect-route.md",
     "desc": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon…",
     "meta": "🟢 conforme" }
@@ -212,8 +212,8 @@ source: "docs/skills/index.md"
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 193 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.1.0 | 256 | 0 | 1 | ✅ |
-| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 191 | 0 | 0 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 480 | 0 | 1 | ✅ |
+| [`nodefony-protect-route`](nodefony-protect-route.md) | — | 222 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin
 

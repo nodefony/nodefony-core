@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md"
 ---
@@ -27,10 +27,10 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Autres |
-| Corps | 191 lignes |
-| Coût d'activation | ~2 392 tokens (le corps est chargé à l'invocation) |
-| Description | 882 / 1024 caractères |
-| Déclencheurs | 16 |
+| Corps | 222 lignes |
+| Coût d'activation | ~2 900 tokens (le corps est chargé à l'invocation) |
+| Description | 960 / 1024 caractères |
+| Déclencheurs | 19 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
@@ -43,11 +43,12 @@ Réserve une route d'une application Nodefony aux personnes habilitées, par les
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`protège cette route` · `réserver aux administrateurs` · `@IsGranted` · `firewall` · `zone protégée` · `403` · `401` · `un rôle qui en implique un autre` · `roleHierarchy` · `un partenaire doit pouvoir poster` · `erreur CSRF` · `origine refusée` · `@CsrfExempt` · `API pour un programme` · `clé d'API` · `désactiver la sécurité pour tester`
+`protège cette route` · `réserver aux administrateurs` · `@IsGranted` · `firewall` · `zone protégée` · `403` · `401` · `un rôle qui en implique un autre` · `roleHierarchy` · `un partenaire doit pouvoir poster` · `erreur CSRF` · `origine refusée` · `@CsrfExempt` · `@CsrfProtect` · `mon POST passe sans jeton` · `faut-il protéger une écriture` · `API pour un programme` · `clé d'API` · `désactiver la sécurité pour tester`
 
 ## Ce que contient le corps
 
 - Deux étages, et ils ne font pas la même chose
+- 🔴 La PROVENANCE n'est pas une PREUVE D'INTENTION — une mutation exige `@CsrfProtect`
 - 🔴 Ce qu'il ne faut jamais écrire
 - Un rôle qui en implique un autre
 - Ouvrir à un partenaire sans démonter la défense
@@ -57,6 +58,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Une API pour un PROGRAMME, pas pour un navigateur
 - Les gestes qui affaiblissent en silence
 - Prouver — trois identités, pas une
+- Utilisateurs et droits : tout existe, n'improvise RIEN
 - Voisins
 
 ## Conformité au standard Agent Skills
@@ -71,14 +73,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 882 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 960 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 191 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 222 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

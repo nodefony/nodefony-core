@@ -175,13 +175,11 @@ s'enrichit, ta mémoire non.
 npm run verify        # ⬅ LA commande. typecheck + lint + tests + doctor, dans cet ordre
 ```
 
-**Une seule à retenir, et c'est délibéré.** Les quatre gates ci-dessous existent
-séparément pour qu'on puisse en relancer un ; mais tant qu'ils n'étaient QUE
-séparés, il fallait penser à les enchaîner — et le premier oublié était toujours
-le même, `typecheck`, celui que rien d'autre ne remplace : **le bundler ne
-type-check pas**, ton code peut être bâti, servi, et ne pas compiler.
-
-`verify` s'arrête au premier rouge, et ce rouge est ta tâche suivante.
+**Une seule à retenir, et c'est délibéré.** Les gates ci-dessous existent séparément
+pour qu'on puisse en relancer un ; tant qu'ils n'étaient QUE séparés, le premier oublié
+était toujours le même — `typecheck`, que rien d'autre ne remplace : **le bundler ne
+type-check pas**, ton code peut être bâti, servi, et ne pas compiler. `verify` s'arrête
+au premier rouge, et ce rouge est ta tâche suivante.
 
 ```bash
 npm run typecheck     # types — le seul gate que le build ne fait PAS à ta place
@@ -198,24 +196,13 @@ app sans rien en exécuter — donc il répond même quand elle ne démarre plus
 n'importe quel sous-dossier, et `--json` le rend exploitable par un script. `check`
 en est un alias historique ; le nom à retenir est `doctor`.
 
-Il imprime lui-même ses familles de contrôles, ce qu'il n'a **pas** contrôlé et le
-geste à taper ensuite : ne paraphrase pas sa sortie, lis-la. Trois choses qu'elle ne
-peut pas t'apprendre d'avance :
-
-- il ne montre un contrôle **que s'il a quelque chose à en dire** — sur une app saine,
-  « Câblage » tient en une ligne et ne détaille rien ;
-- il nomme la **classe écrite que rien ne déclare** (entité hors `@entities([…])`,
-  controller hors `@controllers([…])`) : elle compile, ses tests passent, et la panne
-  n'arrive qu'au démarrage suivant — table jamais créée, route en 404. C'est le mode
-  d'échec de la COPIE, celui qu'on fait en recopiant le voisin au lieu d'appeler le
-  générateur ;
-- il relit le bilan du **dernier démarrage** (`var/last-boot.json`), seule façon
-  d'apprendre APRÈS COUP qu'une app a démarré **amputée** — base injoignable, module
-  écarté par sa `policy`. Tout a l'air sain, et une brique manque.
-
-`--live` ajoute ce qui exige une app qui tourne (migrations, cohérence du firewall,
-écart avec l'environnement visé) ; `--deep` LANCE les gardes du projet et interroge
-le registre npm. Sans eux, ces lignes sortent en « non demandé » — pas en « bon ».
+Il imprime ses familles de contrôles, ce qu'il n'a **pas** contrôlé et le geste à taper
+ensuite : lis sa sortie, ne la paraphrase pas. Il nomme la **classe que rien ne déclare**
+(entité hors `@entities([…])`, controller hors `@controllers([…])`) — elle compile, ses
+tests passent, et la panne n'arrive qu'au démarrage suivant — et relit le bilan du
+**dernier démarrage** (`var/last-boot.json`), seule façon d'apprendre APRÈS COUP qu'une
+app a démarré **amputée**. `--live` ajoute ce qui exige une app qui tourne, `--deep`
+LANCE les gardes : sans eux, ces lignes sortent en « non demandé », pas en « bon ».
 
 ## Voir un écran toi-même — un navigateur, pas un `curl`
 
@@ -227,88 +214,195 @@ npm run see:setup
 node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
 ```
 
-Tu obtiens un JSON : le titre, la langue, le thème, les **scripts réellement servis**,
-les erreurs de console, une capture horodatée — et surtout des **mesures** qu'aucune
-capture ne donne : la couleur, le fond effectif, le **contraste calculé** et la taille
-de chaque élément que tu sondes (`NF_BROWSER_PROBES`). C'est la différence entre « ça
-me paraît lisible » et « 7,39:1, donc AAA ».
+Tu obtiens un JSON : les **scripts réellement servis**, les erreurs de console, une
+capture — et des **mesures** (contraste calculé, taille des éléments sondés) : la
+différence entre « ça me paraît lisible » et « 7,39:1, donc AAA ».
 
-À côté : `watch.mjs` regarde le temps qui coule plutôt qu'un instant (frames WebSocket
-horodatées, réponses ≥ 400, reconnexions en boucle), `socket.mjs` pilote le socket
-depuis la page avec ses cookies, et Lighthouse s'exécute **sur une page authentifiée**
-— ce que l'extension du navigateur ne sait pas faire :
-
-```bash
-npm run audit:setup
-npm run audit:web -- /tableau-de-bord
-```
-
-🔴 **Le mode d'emploi est le skill `nodefony-browser`**, installé avec le devkit et
-pointé dans `.agents/skills/` par `ai:sync`. Charge-le AVANT de conclure quoi que ce
-soit d'un écran : il porte le décor en conteneur, les variables de chaque sonde, et
-les pièges qui font conclure FAUX — mesurer avant que l'écran soit peuplé, viser le
-mauvais hôte, juger la performance sur un serveur de développement, et observer un
-bundle qui n'est pas celui que tu as bâti.
+🔴 **Le mode d'emploi est le skill `nodefony-browser`** — charge-le AVANT de conclure
+quoi que ce soit d'un écran : il porte les autres sondes (temps réel, socket,
+Lighthouse authentifié) et les pièges qui font conclure FAUX.
 
 ## Méthode de travail
 
 1. **Budget tokens = une règle de conception** : lire ciblé via les tables
    ci-dessus ; ne jamais scanner le projet entier.
-2. **Le poids du modèle est un CHOIX, et il est mesuré ici** (si ton outil sait
-   déléguer à des sous-agents). Une tâche couverte par un **générateur** ne
-   demande pas un gros modèle : c'est le générateur qui porte le savoir, pas le
-   modèle. Mesuré sur ce framework, « ajoute une ressource REST » rend le MÊME
-   résultat en modèle léger et en modèle fort — mêmes contrôles verts, écart
-   d'étapes dans le bruit — pour **~3× moins cher**. À l'inverse, le socle SANS
-   générateur (flux, session, cycle de vie) fait échouer le modèle léger environ
-   une fois sur deux. Donc : **léger** pour appeler un générateur, inventorier,
-   lire, vérifier un fait, appliquer un patron ; **fort** pour écrire du socle
-   sans générateur et pour arbitrer une architecture. Le test qui tranche en une
-   seconde : _la tâche a-t-elle une bonne réponse vérifiable ?_ Aucun nom de
-   modèle ici — ils changent tous les trimestres ; raisonne en poids.
-3. **Une règle = une source** : ce fichier POINTE la doc, il ne la recopie
+2. **Une règle = une source** : ce fichier POINTE la doc, il ne la recopie
    pas ; n'y recopie rien non plus.
-4. **Batcher les modifs serveur** puis UN SEUL cycle build/restart ; le
+3. **Batcher les modifs serveur** puis UN SEUL cycle build/restart ; le
    frontend passe en HMR, zéro restart.
-5. **Vérifier avant de dire « fait »** : `npm run verify`, jamais `npm test`
-   seul — vitest n'inspecte AUCUN type, une app peut être verte et ne pas
-   compiler ; un vert ne couvre que le diff qui l'a produit ; suspecte ton
-   propre diff.
-6. **La mémoire de l'app est ci-dessous** : accumule les leçons DURABLES dans
+4. **`npm run verify`, jamais `npm test` seul** — vitest n'inspecte AUCUN type,
+   une app peut être verte et ne pas compiler ; suspecte ton propre diff.
+5. **La mémoire de l'app est ci-dessous** : accumule les leçons DURABLES dans
    la zone Notes — pas dans des commentaires éparpillés.
 
-## Annexes — ouvre la page quand SA situation est la tienne
+## Demander à cette app — les verbes qui répondent SANS rien démarrer
 
-Ces pages vivent dans `agents/nodefony/`. **Elles ne se chargent pas toutes
-seules** : aucun outil ne les lit d'office, c'est à toi d'ouvrir celle dont la
-ligne ci-dessous décrit ta situation MAINTENANT. Le dossier appartient au
-framework et se régénère en bloc — n'y écris rien, tes notes vont plus bas.
+```bash
+npm run dev                          # développement (Ctrl+C pour arrêter)
+npx nodefony status                  # que tourne-t-il ? ports, PID — ne boote rien
+npx nodefony stop                    # arrêt PROPRE — jamais `… &`, qui meurt sur SIGHUP
+npx nodefony production --detach --wait   # boot réel détaché, rend la main ports OUVERTS
+npx nodefony card                    # qui répond, ce qui est chargé, où lire, quoi lancer
+npx nodefony symbols <Nom>           # définition, TSDoc, parenté — en O(1)
+npx nodefony inspect routes --json   # les routes MONTÉES (aussi : services, stores)
+npx nodefony inspect config --json   # la config EFFECTIVE, et d'où vient chaque valeur
+```
 
-- **tu ne sais pas quoi lire avant de coder une tâche précise** →
-  `agents/nodefony/avant-de-coder.md`
-- **quelque chose ne marche pas et le message ne suffit pas** →
-  `agents/nodefony/depannage.md`
-- **tu veux l'état RÉEL de l'app** — routes, services, configuration — au lieu
-  de le déduire du code → `agents/nodefony/inspecter-l-app.md`
-- **tu cherches quelle commande lancer** → `agents/nodefony/commandes.md`
-- **tu vas lire ou écrire une variable d'environnement** →
-  `agents/nodefony/variables-d-environnement.md`
-- **tu dois démarrer, arrêter ou redémarrer le serveur** →
-  `agents/nodefony/lancer-le-serveur.md`
-- **tu touches aux entités, au stockage, ou au service d'un fichier** →
-  `agents/nodefony/donnees-et-fichiers.md`<% if (it.hasSecurity) { %>
-- **tu touches à l'authentification, aux droits, au CSRF ou aux comptes** →
-  `agents/nodefony/securite-et-droits.md`<% } %><% if (it.hasRealtime) { %>
-- **tu touches au temps réel** — WebSocket, canaux, diffusion →
-  `agents/nodefony/temps-reel.md`<% } %><% if (!it.hasOrm || !it.hasSecurity || !it.hasRealtime || !it.front) { %>
-- **tu veux ajouter une brique que cette app n'a PAS** →
-  `agents/nodefony/ajouter-une-brique.md`<% } %>
+`card` et `symbols` répondent même sur une app pas construite, sans aucune variable
+posée ; `inspect` boote sans ouvrir un port.
+
+🔴 **Ce que rend `inspect` ENGLOBE tes sources et les dépasse** : les modules installés
+montent leurs propres routes, une app qui en définit une poignée en expose plus d'une
+centaine. Un **écart d'un ordre de grandeur** n'est donc PAS une anomalie — compter dans
+les sources répond à une AUTRE question que celle posée.
+
+🔴 **Si la commande résiste, répare l'APPEL — ne te rabats pas sur les sources** : les
+fichiers répondront toujours quelque chose, mais pas à la question posée.
+
+**Tes modules publient AUSSI leurs outils** — `npx nodefony ai:mcp` écrit `.mcp.json`, et
+un module qui implémente `getMcpTools()` expose son métier, pas la plomberie (contrat,
+scopes : `node_modules/@nodefony/devkit/docs/index.md`). C'est une ROUTE : démarre l'app
+D'ABORD, ta session ENSUITE.
+
+<% if (it.hasSecurity) { %>🔴 **La PROVENANCE d'une requête n'est pas une PREUVE D'INTENTION — une mutation exige
+`@CsrfProtect`.** Le raisonnement qui vient, et qui est faux : « le firewall vérifie déjà
+`Sec-Fetch-Site`, donc une écriture est protégée ». Ces en-têtes sont posés par un
+NAVIGATEUR ; un programme qui parle en HTTP n'en envoie aucun, et la défense de provenance
+le laisse alors passer — elle distingue les sites, pas les intentions. Mesuré : un
+`POST /api/cart/items` sans jeton rend `201`, et l'app croit avoir une défense. Le jeton ne
+se demande à AUCUN endpoint : un `GET` vers la route protégée sème le cookie `csrf-token`,
+la mutation le rejoue dans `x-csrf-token` — sinon `403`. Une origine tierce refusée se
+DÉCLARE (`csrf.trustedOrigins`) : `@CsrfExempt` ferait passer **n'importe quel** site.
+🔴 **Et une URL DÉJÀ PUBLIÉE ne se déplace pas — c'est un contrat.** Quand on te demande
+de protéger une adresse existante, la déménager sous la zone déjà réglée la fait répondre
+`404` à celui-là même qu'on voulait servir : personne n'a prévenu le partenaire, et rien
+dans l'app ne signale la rupture. **On adapte la ZONE à l'URL, jamais l'URL à la zone** —
+étends son `pattern` : `^/api/(machine|partenaire)`.
+
+Gestes complets (zones, rôles, voters, comptes) → skill `nodefony-protect-route`.
+
+<% } %>🔴 **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.**
+Un doublon sur une colonne unique ressort en **409**, une donnée qui viole le schéma Zod
+en **422** : le rendu d'erreur lit le code du pilote (`23505`, `ER_DUP_ENTRY`,
+`SQLITE_CONSTRAINT_UNIQUE`, `11000`) et le mappe. N'écris JAMAIS un `throw … 409` pour un
+identifiant déjà pris — le vérifier d'abord est plus lent ET **faux sous concurrence**.
+
+Les CLÉS qu'un module accepte sont lisibles à la source :
+`node_modules/@nodefony/<module>/dist/nodefony/config/config.js` porte son schéma Zod —
+une clé inconnue est retirée EN SILENCE, ne l'invente pas.
+
+**La référence de CHAQUE brique installée ici est dans `node_modules`** — que `rg`
+lancé à la racine ne voit pas (git l'ignore, `rg` le suit) : le sujet paraît absent
+alors qu'il occupe 70 pages. Trois issues, de la meilleure à la plus brute : l'outil
+`nodefony_docs` (serveur démarré, il cherche dans TOUTE la doc chargée et rend des
+extraits) ; **désigner le dossier** — `rg "terme" node_modules/@nodefony/*/docs/`,
+l'exclusion ne valant que pour le PARCOURS ; ou `rg --no-ignore "terme"`.
+⚠️ Si `node_modules/` n'existe pas, la doc n'est pas là : c'est `npm install` qui n'a
+pas été lancé, pas « le sujet n'est pas documenté ». DIS-LE, et ne réécris jamais ce que
+tu n'as pas pu lire.
+
+- **Kernel, phases, CLI** — `node_modules/nodefony/docs/kernel.md` + `cli.md`
+- **Service, injection, container** — `node_modules/nodefony/docs/service.md`
+- **Client isomorphe (navigateur)** — `node_modules/nodefony/docs/client.md`
+- **Serveurs, sessions, cookies, upload** — `node_modules/@nodefony/http/docs/`
+- **Routing, controllers, décorateurs** — `node_modules/@nodefony/framework/docs/`
+<% if (it.hasSecurity) { %>- **Firewall, CSRF, CORS, rôles, clés d'API** — `node_modules/@nodefony/security/docs/`
+<% } %><% if (it.hasOrm) { %>- **Entités, repositories, migrations** — `node_modules/@nodefony/orm-core/docs/`
+<% } %><% if (it.hasRealtime) { %>- **Canaux temps réel, actions, protocole WS** — `node_modules/@nodefony/realtime/docs/`
+<% } %><% if (it.front) { %>- **Builder Vite, entries, HMR** — `node_modules/@nodefony/frontend/docs/`
+<% } %>
+## Les commandes de CETTE app — demande la liste, ne la devine pas
+
+```bash
+npx nodefony --help              # TOUTES les commandes, celles des modules installés comprises
+npx nodefony <commande> --help   # les options exactes de l'une d'elles
+```
+
+La liste **dépend des modules installés** : elle s'allonge dès que tu en ajoutes un.
+**Toujours `npx`, jamais `nodefony` nu** — le binaire vit dans les `node_modules` de
+CETTE app ; une installation globale peut être plus ANCIENNE.
+
+Celles qu'on n'invente pas, faute de savoir qu'elles existent :
+
+- Derrière **nginx ou haproxy** — `npx nodefony proxy:generate <nginx|haproxy>`
+- **Statiques vers un CDN** — `npx nodefony assets:publish [--clean]`
+- **Certificat TLS de développement** — `npx nodefony http:certificates`
+<% if (it.front) { %>- **Construire le front pour la production** — `npx nodefony frontend:build [-f]`
+<% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]`
+- Créer un **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
+<% } %><% if (it.hasOrm) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate`
+- **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n]`
+- **La base est-elle à jour ?** — `npx nodefony orm:migrate:status` — **0** = à jour,
+  **1** = en retard : ta barrière de déploiement
+- **Éprouver une migration SANS toucher à ta base** —
+  `NF_MIGRATE_DATABASE_URL="sqlite:/tmp/essai.sqlite" npx nodefony orm:migrate` : elle
+  migre AILLEURS. 🔴 C'est ainsi qu'on prouve qu'une migration s'applique — **jamais**
+  en refaisant la base.
+- `npx nodefony orm:reset` **DÉTRUIT les données** (refusé hors développement) : ce
+  n'est ni la façon d'éprouver une migration — voir la ligne ci-dessus —, ni la
+  réponse à une migration qui refuse. Avant tout geste sur un schéma déjà en base,
+  charge le skill `nodefony-migrate-schema` : il porte les codes de refus et ce que
+  chacun appelle.
+<% } %>- **Dépendances en retard**, agrégées — `npx nodefony outdated`
+- **Cohérence du projet** — `npx nodefony doctor [--json]`
+- **Plusieurs processus** — `npx nodefony production -w <n|auto>` · `NF_WORKERS`
+- **Construire l'image** — `docker build -t <%= it.appName %> .` — le `Dockerfile` est
+  DÉJÀ là, ne le réécris pas
+<% if (it.hasMigrateRecipe) { %>- **Migrer le schéma avant un déploiement** — `deploy/migrate-job.yaml` est DÉJÀ rendu
+  au nom de cette app (travail Kubernetes, même image, secret DDL séparé) — son mode
+  d'emploi est en tête du fichier
+<% } %>- **Complétion au TAB** — `source <(nodefony completion zsh)`
+
+Ce tableau ne remplace pas `--help` : lui seul connaît les modules de CETTE app, et il
+fait foi le jour où les deux divergent.
+<% if (!it.hasOrm || !it.hasSecurity || !it.hasRealtime || !it.front) { %>
+## Ce que cette app n'a PAS — et le geste exact pour l'ajouter
+
+Le framework porte ces briques ; CETTE application ne les a pas. N'en conclus pas
+qu'elles n'existent pas, et n'en réécris aucune à la main.
+<% if (!it.hasOrm) { %>
+- **Base de données — cette app n'a PAS d'ORM.** Aucune entité, aucune migration :
+  `create entity` n'aurait nulle part où écrire.
+  `npm i @nodefony/orm-core @nodefony/drizzle drizzle-orm better-sqlite3`, puis
+  ajoute `"@nodefony/drizzle"` aux `modules` de `nodefony.config.ts`. Sans
+  `NF_DATABASE_URL`, c'est un **sqlite local** — aucun service à lancer.
+<% } %><% if (!it.hasSecurity) { %>
+- **Sécurité — cette app n'a PAS de firewall**, ni comptes, ni sessions : toute
+  route est ouverte et `@IsGranted` n'a personne à qui refuser.
+  `npm i @nodefony/security @nodefony/user @node-rs/argon2`, puis
+  `npx nodefony security:secrets -w` et `npx nodefony security:user:add`.
+  ⚠️ Elle ne s'ajoute pas seule : comptes et jetons se PERSISTENT — ces briques
+  forment une grappe avec l'ORM, pose-les ensemble.
+<% } %><% if (!it.hasRealtime) { %>
+- **Temps réel — cette app n'a PAS de socket** : un client qui ouvre un WebSocket
+  n'obtient rien. `npm i @nodefony/realtime`, puis
+  `use("@nodefony/realtime", { backplane: { driver: "cluster" } })` — `cluster`
+  reste intra-pod et n'ajoute aucune dépendance externe.
+<% } %><% if (!it.front) { %>
+- **Front — cette app n'a PAS d'interface à elle** : elle répond en JSON.
+  `npx nodefony create front <nom>` pose le moteur ET câble `@nodefony/frontend`
+  — ne compose pas ce câblage à la main.
+<% } %>
+Chaque brique ajoutée apporte AUSSI ses commandes, ses docs et parfois ses skills :
+redemande `npx nodefony --help`, puis `npx nodefony ai:sync`.
+
+<% } %>
+## Le savoir-faire du framework vit dans les skills, pas dans ce fichier
+
+Cette page ne porte que ce qui est propre à CETTE application. Tout le reste —
+conduire une tâche, les pièges du serveur et du front, protéger une route, changer
+un schéma, regarder un écran — vit dans les **skills** livrés par les paquets :
+`ls .agents/skills/` les liste, et leur description dit quand chacun s'applique.
+
+Ce sont des **pointeurs** vers `node_modules`, donc ils suivent la version du
+framework de ce projet (`npx nodefony ai:sync` après un `npm update`). Rien n'est
+copié ici : une page copiée se figerait au jour de sa création.
 
 <!-- nodefony:end -->
 
 ## Notes de cette app
 
 Cette section — et tout ce qui suit le marqueur ci-dessus — **t'appartient**.
-Nodefony ne la réécrit jamais : il ne régénère que le bloc délimité plus haut et
-le dossier `agents/nodefony/`. Accumule ici les conventions de l'équipe, les
-décisions de domaine et les leçons propres à ce projet.
+Nodefony ne la réécrit jamais : il ne régénère que le bloc délimité plus haut.
+Accumule ici les conventions de l'équipe, les décisions de domaine et les leçons
+propres à ce projet.

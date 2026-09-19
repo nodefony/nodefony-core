@@ -7850,7 +7850,7 @@
       "name": "nodefony-dev",
       "summary": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche.",
       "family": "Autres",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "keywords": [],
       "triggers": [
         "je veux ajouter une fonctionnalité",
@@ -7870,8 +7870,8 @@
       ],
       "description": "Conduit une tâche de développement de bout en bout dans une application Nodefony — comprendre le code en place, choisir la bonne façade, générer plutôt qu'écrire à la main, retrouver la référence installée qu'une recherche ordinaire ne voit pas, puis prouver que c'est fait — et se charge AVANT la première modification, quelle que soit la tâche. Les gestes spécialisés ont leur propre skill (ressource REST, service, canal temps réel, garde de route, migration de schéma, écran vu au navigateur) ; celui-ci porte la conduite commune, les pièges du serveur et du front, et dit lequel prendre. Déclencheurs : \"je veux ajouter une fonctionnalité\", \"comment on code dans ce framework\", \"par où je commence\", \"où est la doc de ça\", \"comment ça marche ici\", \"avant de coder\", \"est-ce que j'écris ça à la main\", \"comment vérifier que c'est bon\", \"mon changement est-il fini\", \"je ne trouve rien sur ce sujet\", \"ce n'est pas documenté\", \"je touche au frontend\", \"mon composant charge des données\", \"mon écran n'affiche rien\".",
       "cost": {
-        "bodyLines": 256,
-        "approxTokens": 4419
+        "bodyLines": 480,
+        "approxTokens": 8160
       },
       "requires": [],
       "resources": {
@@ -7987,7 +7987,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "256",
+            "detail": "480",
             "advisory": true
           }
         ]
@@ -8246,14 +8246,17 @@
         "erreur CSRF",
         "origine refusée",
         "@CsrfExempt",
+        "@CsrfProtect",
+        "mon POST passe sans jeton",
+        "faut-il protéger une écriture",
         "API pour un programme",
         "clé d'API",
         "désactiver la sécurité pour tester"
       ],
-      "description": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon d'ouvrir une route à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la configuration de sécurité. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"zone protégée\", \"403\", \"401\", \"un rôle qui en implique un autre\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"origine refusée\", \"@CsrfExempt\", \"API pour un programme\", \"clé d'API\", \"désactiver la sécurité pour tester\".",
+      "description": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon d'ouvrir une route à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la configuration de sécurité. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"zone protégée\", \"403\", \"401\", \"un rôle qui en implique un autre\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"origine refusée\", \"@CsrfExempt\", \"@CsrfProtect\", \"mon POST passe sans jeton\", \"faut-il protéger une écriture\", \"API pour un programme\", \"clé d'API\", \"désactiver la sécurité pour tester\".",
       "cost": {
-        "bodyLines": 191,
-        "approxTokens": 2392
+        "bodyLines": 222,
+        "approxTokens": 2900
       },
       "requires": [],
       "resources": {
@@ -8280,7 +8283,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "882",
+            "detail": "960",
             "advisory": false
           },
           {
@@ -8322,7 +8325,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "191",
+            "detail": "222",
             "advisory": true
           }
         ]

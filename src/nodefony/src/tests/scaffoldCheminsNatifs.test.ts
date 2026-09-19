@@ -8,8 +8,8 @@ import { toNativeRelativePath } from "../cli/scaffold/engine";
  * mélange pas deux grammaires de chemin.
  *
  * Le défaut réparé : deux entrées sur une quarantaine étaient écrites en `/`
- * littéral — les annexes `agents/nodefony/*.md` et le pointeur
- * `.github/copilot-instructions.md` —, tout le reste arrivant par `path.join`.
+ * littéral — des pages d'agent et le pointeur `.github/copilot-instructions.md`
+ * —, tout le reste arrivant par `path.join`.
  * Sous Linux les deux coïncident et rien ne se voit ; sous Windows le plan du
  * `dry-run` cesse de correspondre à ce que le scaffold écrit vraiment. Trois
  * jobs de la forge sont restés rouges, et les autres plateformes vertes.
@@ -22,8 +22,8 @@ import { toNativeRelativePath } from "../cli/scaffold/engine";
 describe("scaffold — un chemin publié se compose dans la grammaire de la plateforme", () => {
   it("compose en séparateurs Windows sous la grammaire win32", () => {
     expect(
-      toNativeRelativePath("agents/nodefony/commandes.md", path.win32),
-    ).to.equal("agents\\nodefony\\commandes.md");
+      toNativeRelativePath(".agents/skills/nodefony-dev.md", path.win32),
+    ).to.equal(".agents\\skills\\nodefony-dev.md");
     expect(
       toNativeRelativePath(".github/copilot-instructions.md", path.win32),
     ).to.equal(".github\\copilot-instructions.md");
@@ -31,8 +31,8 @@ describe("scaffold — un chemin publié se compose dans la grammaire de la plat
 
   it("laisse un chemin POSIX intact sous la grammaire posix", () => {
     expect(
-      toNativeRelativePath("agents/nodefony/commandes.md", path.posix),
-    ).to.equal("agents/nodefony/commandes.md");
+      toNativeRelativePath(".agents/skills/nodefony-dev.md", path.posix),
+    ).to.equal(".agents/skills/nodefony-dev.md");
   });
 
   it("laisse intact un chemin sans séparateur, quelle que soit la grammaire", () => {
@@ -47,8 +47,8 @@ describe("scaffold — un chemin publié se compose dans la grammaire de la plat
     // Le défaut est ce que le scaffold utilise réellement : si quelqu'un le
     // remplace un jour par une constante, ce cas tombe sur l'une des deux
     // plateformes — jamais sur les deux, ce qui est précisément le piège.
-    expect(toNativeRelativePath("agents/nodefony/x.md")).to.equal(
-      path.join("agents", "nodefony", "x.md"),
+    expect(toNativeRelativePath(".agents/skills/x.md")).to.equal(
+      path.join(".agents", "skills", "x.md"),
     );
   });
 });

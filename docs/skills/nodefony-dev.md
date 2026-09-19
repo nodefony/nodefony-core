@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-18
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.1.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.2.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -25,10 +25,10 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-dev/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | `1.1.0` |
+| Version | `1.2.0` |
 | Famille | Autres |
-| Corps | 256 lignes |
-| Coût d'activation | ~4 419 tokens (le corps est chargé à l'invocation) |
+| Corps | 480 lignes |
+| Coût d'activation | ~8 160 tokens (le corps est chargé à l'invocation) |
 | Description | 1018 / 1024 caractères |
 | Déclencheurs | 14 |
 | Ressources `references/` | 0 page(s) |
@@ -56,10 +56,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - Passer la main — TON PREMIER GESTE
 - 1. La règle qui gouverne tout
 - 2. Trouver la référence — ce que `rg` ne peut pas voir
-- 3. Conduire une tâche — la séquence, et ses points d'arrêt
-- 4. Les pièges du serveur
-- 5. Les pièges du front
-- 6. Avant de dire « fait »
+- 3. Interroger l'application — elle répond mieux que ses sources
+- 4. Les commandes — demande la liste, ne la devine pas
+- 5. Piloter le serveur — et l'ARRÊTER
+- 6. Conduire une tâche — la séquence, et ses points d'arrêt
+- 7. Les pièges du serveur
+- 8. Données et fichiers — les façades qu'on ne recompose pas
+- 9. Les pièges du front
+- 10. Avant de dire « fait »
 
 ## Scripts embarqués
 
@@ -91,7 +95,7 @@ script, donc toujours à jour après régénération.
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 256 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 480 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -1380,35 +1380,6 @@ export const SONDES_QUALITE = [
     invert: true,
   },
   {
-    // OBSERVATION, pas verdict : depuis que l'`AGENTS.md` généré est découpé en
-    // une porte (~20 Ko) et des annexes `agents/nodefony/*.md`, la question
-    // qu'aucune sonde ne posait est « l'agent OUVRE-T-IL une annexe ? ».
-    //
-    // Elle se pose parce que la réponse n'est pas acquise : AUCUN harness ne
-    // charge ce dossier tout seul — ni la spécification AGENTS.md, qui n'a pas
-    // d'include et ne connaît que la précédence par proximité, ni les
-    // conventions `.agents/` concurrentes, qui le disent elles-mêmes
-    // (« Directories do not load themselves »). Seul l'index de la porte peut
-    // y envoyer l'agent, et seul ce relevé dit s'il l'a suivi.
-    //
-    // `observe` et non verdict : une tâche peut légitimement n'avoir besoin
-    // d'aucune annexe. Ce qu'on veut, c'est le TAUX sur l'ensemble des tâches —
-    // un zéro franc dirait que le découpage a rendu le contenu inatteignable,
-    // et c'est le seul résultat qui condamnerait la structure.
-    // 🔴 Le motif vise un APPEL D'OUTIL, jamais le chemin nu — et c'est tout
-    // le contrôle. Écrit `/agents\/nodefony\/[a-z-]+\.md/`, il rendait VERT sur
-    // un run où aucune annexe n'avait été ouverte : l'agent avait lu la porte,
-    // et la porte CITE les neuf chemins dans son index. La sonde mesurait donc
-    // la présence de l'index dans le transcript, c'est-à-dire rien.
-    //
-    // Exiger `"file_path": "…/agents/nodefony/x.md"` ne se satisfait que d'un
-    // `Read` réel : un chemin cité en prose ne porte ni la clé ni les guillemets.
-    kind: "transcript",
-    name: "a ouvert une annexe agents/nodefony/",
-    pattern: /"(?:file_path|path)"\s*:\s*"[^"]*agents\/nodefony\/[a-z-]+\.md"/u,
-    observe: true,
-  },
-  {
     // 🔴 LA question de découvrabilité, et la sonde suivante ne la posait pas.
     // Mesuré sur trois tâches : l'agent a chargé `nodefony-dev` deux fois, et
     // la troisième il a pris `nodefony-protect-route` — LE spécialiste exact de

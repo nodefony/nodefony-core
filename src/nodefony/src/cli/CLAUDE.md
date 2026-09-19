@@ -492,10 +492,13 @@ qui sort du dépôt : les hooks ne s'exécutent alors jamais.
 [--frontend <none|react|vue|angular>] [--link|--no-link] [--git-hooks]` — **standalone 0-boot**
 (fast-path `CliKernel.start`, cas nominal HORS projet : `npx nodefony create app`).
 L'app naît **agent-ready** : `AGENTS.md` racine — la **PORTE**, budget **20 Ko**
-(devise + générateurs + vérités universelles + gates + index des annexes), dans un
+(devise + générateurs + vérités universelles + gates + renvoi aux skills), dans un
 bloc `<!-- nodefony:start/end -->` ; **tout ce qui est hors marqueurs appartient à
-l'utilisateur** et n'est jamais réécrit. Le détail vit dans `agents/nodefony/*.md`,
-écrasé EN BLOC (`ANNEXES_AGENTS`, `engine.ts`). Le budget n'est pas un goût :
+l'utilisateur** et n'est jamais réécrit. Le savoir-faire du framework n'est **jamais
+copié dans le projet** : il vit dans les skills livrés par npm
+(`node_modules/@nodefony/devkit/skills/`), pointés dans `.agents/skills/` — ils suivent
+la version installée, quand une page copiée se fige au jour de sa création. Le budget
+n'est pas un goût :
 Codex CONCATÈNE les `AGENTS.md` de la racine au cwd et tronque **en silence** à
 32 KiB (`project_doc_max_bytes`) — avant le découpage la porte faisait 63 331 o, et
 deux outils de lecture sur deux la refusaient en bloc. Avec `CLAUDE.md` pointeur
@@ -505,8 +508,7 @@ vivent dans `node_modules` — et AVANT `git init`, parce que ces fichiers sont 
 être versionnés). Sans ce geste, le lot ne servirait qu'à qui connaît déjà `ai:sync` :
 personne n'apprend un verbe absent. Régénération BORNÉE :
 `create module` réécrit le seul BLOC entre marqueurs depuis l'état réel (inventaire
-`modules/*`) et régénère les annexes ; la page de l'utilisateur, autour, est
-intacte (`renderProjectAgents`/`replaceFrameworkBlock`, `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
+`modules/*`) ; la page de l'utilisateur, autour, est intacte (`renderProjectAgents`/`replaceFrameworkBlock`, `engine.ts`). Sans frontend, `GET /` répond (HomeController JSON accueil — avec
 front, `AppController` tient `/`). Suites franches : e2e EXCLUS de
 `vitest.config.ts`, ciblés par `vitest.e2e.config.ts` seule (`npm test` n'affiche
 jamais de skipped-vert).
