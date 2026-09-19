@@ -56,7 +56,7 @@
     "@nodefony/orm-core": "^10.0.0-alpha.7",
     "@nodefony/security": "^10.0.0-alpha.7",
     "@nodefony/user": "^10.0.0-alpha.7",
-    "@types/node": "26.6.1",
+    "@types/node": "26.6.2",
     "mongodb-memory-server": "11.2.0",
     "nodefony": "^10.0.0-alpha.7",
     "rimraf": "6.1.3",

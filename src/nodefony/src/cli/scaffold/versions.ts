@@ -68,7 +68,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // développement et MEURT en production — `Cannot find package
   // '@node-rs/argon2'`, échec critique du boot, sur le chemin par défaut.
   "@node-rs/argon2": "^2.2.1",
-  "@types/node": "^26.6.1",
+  "@types/node": "^26.6.2",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
   oxlint: "^1.83.0",
   prettier: "^3.9.8",
@@ -84,7 +84,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@types/react-dom": "^19.3.0",
   vue: "^3.5.43",
   "@vitejs/plugin-vue": "^6.0.9",
-  svelte: "^5.57.0",
+  svelte: "^5.57.1",
   "@sveltejs/vite-plugin-svelte": "^7.3.0",
   "@angular/core": "^22.1.7",
   "@angular/common": "^22.1.7",

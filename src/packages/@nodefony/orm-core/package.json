@@ -39,7 +39,7 @@
     "nodefony": "^10.0.0-alpha.7"
   },
   "devDependencies": {
-    "@types/node": "26.6.1",
+    "@types/node": "26.6.2",
     "nodefony": "^10.0.0-alpha.7",
     "rimraf": "6.1.3",
     "vitest": "5.0.1"
