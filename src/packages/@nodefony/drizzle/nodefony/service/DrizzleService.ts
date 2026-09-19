@@ -18,6 +18,7 @@ import { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
 import { defaultMigrationSources } from "../src/migrator/paths";
 import {
   appMigrationsDir,
+  appVersionsMigrations,
   readMigrationEnv,
   resetAllowed,
   resolveCheckMode,
@@ -196,9 +197,20 @@ class DrizzleService extends Service {
     connect = true,
   ): Promise<void> {
     const dialect = cfg.dialect ?? "sqlite";
+    // 🔴 Dès que l'application VERSIONNE des migrations, elles font foi — même
+    // en développement. Sans cette bascule, deux fabricants du même schéma
+    // cohabitent : le DDL dérivé crée la table, puis la première migration
+    // écrite par-dessus émet un `DROP INDEX` d'un index que le DDL n'a jamais
+    // nommé, échoue, et laisse un marqueur que la réparation ne peut pas lever.
     const ddl = resolveDdlMode(
       cfg.ddl,
       readMigrationEnv(this.kernel as Kernel | null),
+      appVersionsMigrations(
+        appMigrationsDir(
+          this.kernel as Kernel | null,
+          this.#config().migrations?.dir ?? "migrations",
+        ),
+      ),
     );
     let filename: string | undefined;
     if (dialect === "sqlite") {

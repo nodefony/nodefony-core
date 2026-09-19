@@ -1,3 +1,4 @@
+import fs from "node:fs";
 import path from "node:path";
 import type { Kernel } from "nodefony";
 import { ormRegistry } from "@nodefony/orm-core";
@@ -81,6 +82,26 @@ export function resetAllowed(env: IMigrationEnv): boolean {
 }
 
 /**
+ * `orm:generate --apply` est-il recevable dans cet environnement ?
+ *
+ * Écrire une migration et l'appliquer dans le même souffle suppose qu'on relit
+ * le SQL produit entre les deux — ce que personne ne fait sur un serveur.
+ * Ailleurs qu'en développement, la migration a été écrite, relue et versionnée
+ * en amont : `orm:migrate` l'applique, et lui seul. Aucun drapeau ne lève ce
+ * refus, pour la même raison que {@link resetAllowed} n'en a pas.
+ *
+ * Même forme que `resetAllowed`, et c'est voulu : les deux disent « geste de
+ * développement », et deux rédactions de la même condition finiraient par
+ * diverger sans que rien ne le signale.
+ *
+ * @param env - environnement constaté.
+ * @returns `true` si l'enchaînement est recevable.
+ */
+export function generateApplyAllowed(env: IMigrationEnv): boolean {
+  return env.runtime === "development" && env.nodeEnv !== "test";
+}
+
+/**
  * Le mode de schéma qui s'applique à un connecteur.
  *
  * Règle des défauts, et son pourquoi : **appliquer des migrations au démarrage
@@ -92,20 +113,85 @@ export function resetAllowed(env: IMigrationEnv): boolean {
  * - tout le reste → `none` : personne ne touche au schéma au démarrage, un
  *   travail externe applique les migrations avant que le trafic n'arrive.
  *
+ * 🔴 **Une application qui VERSIONNE des migrations bascule en `migrate`, même
+ * en développement.** Deux fabricants du même schéma ne s'accordent pas, et
+ * rien ne le signale tant qu'on ne les fait pas se rencontrer : le DDL dérivé
+ * pose une contrainte d'unicité INLINE et anonyme (`content text NOT NULL
+ * UNIQUE`), là où le générateur de migrations raisonne sur un index NOMMÉ
+ * (`messages_content_unique`). La migration suivante émet alors un
+ * `DROP INDEX` d'un index qui n'a jamais existé, échoue sur `no such index`,
+ * inscrit son marqueur — et la réparation ne peut rien y faire, puisque le
+ * fichier est inapplicable. Vécu sur un agent tiers : trente-cinq minutes de
+ * `repair`/`baseline`/`reset`, deux bases détruites, la boucle brisée à la main.
+ * La condition est délibérément « l'application EN A », pas « elle en a en
+ * attente » : dès la première migration écrite, le schéma leur appartient.
+ * Elle est bornée au développement RÉEL, jamais à `NODE_ENV=test` : une suite
+ * lance un exemplaire par worker, et appliquer des migrations depuis plusieurs
+ * processus au démarrage est précisément ce que la règle ci-dessus refuse.
+ * Un `ddl` écrit dans la configuration gagne toujours — c'est un choix, pas une
+ * déduction.
+ *
  * @param explicit - valeur écrite dans la configuration du connecteur, si elle l'est.
  * @param env - environnement constaté.
+ * @param appHasMigrations - l'application versionne au moins une migration.
  * @returns le mode effectif.
  */
 export function resolveDdlMode(
   explicit: DdlMode | undefined,
   env: IMigrationEnv,
+  appHasMigrations = false,
 ): DdlMode {
   if (explicit) {
     return explicit;
   }
-  return env.runtime === "development" || env.nodeEnv === "test"
-    ? "auto"
-    : "none";
+  if (env.runtime === "development" || env.nodeEnv === "test") {
+    // La bascule ne vaut PAS sous `NODE_ENV=test` : une suite lance N
+    // exemplaires en parallèle (un par worker), et c'est très exactement le
+    // cas que la doctrine ci-dessus interdit. Les bases de test sont d'ailleurs
+    // éphémères — elles partent vides, donc les deux fabricants ne s'y
+    // rencontrent jamais.
+    return appHasMigrations && env.nodeEnv !== "test" ? "migrate" : "auto";
+  }
+  return "none";
+}
+
+/**
+ * L'application versionne-t-elle au moins une migration ?
+ *
+ * Lecture SYNCHRONE et bornée à un `readdirSync` par connecteur au démarrage —
+ * hors de tout chemin de requête. Elle doit l'être : le mode de schéma se
+ * décide avant la connexion, et le rendre asynchrone propagerait un `await`
+ * dans toute la chaîne de résolution pour une réponse qui ne change jamais
+ * pendant la vie du processus.
+ *
+ * Un dossier absent, illisible ou vide répond `false` — l'application n'a alors
+ * rien à appliquer, et `auto` reste le bon défaut de démarrage rapide.
+ *
+ * @param dir - dossier de migrations de l'application ({@link appMigrationsDir}).
+ * @returns `true` si au moins un fichier `.sql` y est versionné, à un niveau
+ *   ou sous un sous-dossier de dialecte (`migrations/postgres/0001_x.sql`).
+ */
+export function appVersionsMigrations(dir: string | undefined): boolean {
+  if (!dir) {
+    return false;
+  }
+  try {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      if (entry.isFile() && entry.name.endsWith(".sql")) {
+        return true;
+      }
+      if (entry.isDirectory() && entry.name !== "meta") {
+        const nested = fs.readdirSync(path.join(dir, entry.name));
+        if (nested.some((name) => name.endsWith(".sql"))) {
+          return true;
+        }
+      }
+    }
+  } catch {
+    // Dossier absent ou illisible : l'application ne versionne rien.
+    return false;
+  }
+  return false;
 }
 
 /**
@@ -356,7 +442,14 @@ export function resolveConnector(
     dialect,
     target,
     fromMigrateUrl,
-    ddl: resolveDdlMode(declared.ddl, env),
+    // La MÊME bascule qu'au démarrage (`DrizzleService.#connectOne`) : une
+    // ligne de commande qui annoncerait `auto` là où le boot applique les
+    // migrations expliquerait un état qui n'existe pas.
+    ddl: resolveDdlMode(
+      declared.ddl,
+      env,
+      appVersionsMigrations(appMigrationsDir(kernel, config.migrations.dir)),
+    ),
   };
 }
 

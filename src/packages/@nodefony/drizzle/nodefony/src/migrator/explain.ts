@@ -1121,3 +1121,48 @@ const REFUSAL_MEANING: Record<IMigrationVerdict["code"], string> = {
   NF_MIGRATE_UNKNOWN_SOURCE:
     "La source demandée n'est pas déclarée par cette application. Filtrer sur un nom inconnu ne touche aucune ligne et rend pourtant « rien à réparer » : le marqueur d'échec resterait en place, et la migration suivante échouerait pour la même raison.",
 };
+
+/**
+ * Les moteurs, chacun dans sa langue, disant « c'est DÉJÀ ainsi ».
+ *
+ * Reconnaître ce cas change le conseil du tout au tout : la migration n'a pas
+ * échoué parce que la base est cassée, mais parce qu'elle est **déjà dans
+ * l'état visé**. Le geste n'est alors ni de corriger le SQL ni de recréer la
+ * base — c'est de déclarer la migration appliquée.
+ */
+const ALREADY_IN_TARGET_STATE: readonly RegExp[] = [
+  // sqlite — l'objet visé manque (on voulait le retirer) ou existe (on voulait
+  // le créer). `better-sqlite3` rend le message du moteur tel quel.
+  /\bno such (index|column|table|trigger|view)\b/iu,
+  /\b(table|index|trigger|view)\b.*\balready exists\b/iu,
+  /\bduplicate column name\b/iu,
+  // postgres
+  /\balready exists\b/iu,
+  /\bdoes not exist\b/iu,
+  // mysql / mariadb
+  /\bduplicate key name\b/iu,
+  /\bcan't drop\b/iu,
+  /\bcheck that (column|it|the) .*exists\b/iu,
+];
+
+/**
+ * L'échec vient-il de ce que la base est DÉJÀ dans l'état que la migration vise ?
+ *
+ * Le cas est fréquent et sa sortie n'était nommée nulle part : le message de
+ * reprise proposait de corriger le fichier ou de travailler sur une base
+ * d'essai, deux voies qui ne mènent à rien quand le fichier est juste et la
+ * base déjà conforme. Un agent placé devant ce refus tourne alors en rond
+ * — `repair` lève le marqueur, `migrate` rejoue, le moteur redit la même
+ * chose — puis finit par recréer la base, ce qui emporte les données.
+ *
+ * Constaté sur un agent tiers : un `DROP INDEX messages_content_unique` sur une
+ * base dont l'unicité avait été posée INLINE par le DDL de démarrage, donc sans
+ * index nommé. Trente-cinq minutes, deux bases détruites, la boucle brisée à la
+ * main.
+ *
+ * @param message - le message d'erreur rendu par le moteur.
+ * @returns `true` si l'échec dit « c'est déjà ainsi ».
+ */
+export function alreadyInTargetState(message: string): boolean {
+  return ALREADY_IN_TARGET_STATE.some((pattern) => pattern.test(message));
+}

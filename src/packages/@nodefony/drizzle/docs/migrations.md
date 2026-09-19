@@ -162,6 +162,34 @@ Le dialecte est celui de votre connecteur : vos entités sont du Drizzle **natif
 un moteur. C'est ce qui vous laisse toute la puissance du moteur dans une entité — et ce qui fait
 qu'une migration vaut pour lui seul.
 
+### En développement : écrire et appliquer d'un seul geste — `--apply`
+
+```bash
+nodefony orm:generate --name ajout_du_titre --apply
+```
+
+Vous éditez votre entité, vous tapez **une** commande, la colonne est en base. C'est le geste
+quotidien du développement, et il ne vous demande pas de retenir un second verbe.
+
+`--apply` n'invente rien : il **enchaîne `orm:migrate`**. Toutes ses gardes valent donc à
+l'identique — une migration qui supprime des données reste refusée sans `--allow-destructive`, le
+verrou est pris, l'historique est écrit. En sortie machine (`--json`), un seul document est produit,
+celui de l'application : c'est lui qui porte le verdict.
+
+> **Le drapeau n'existe qu'en développement**, et aucun autre drapeau ne le déverrouille. Écrire une
+> migration et l'appliquer dans le même souffle suppose qu'on relit le SQL produit entre les deux —
+> ce que personne ne fait sur un serveur. Ailleurs, la migration a été écrite, relue et versionnée
+> ailleurs : c'est `orm:migrate` qui l'applique, et lui seul.
+
+> **Et le mode de schéma bascule tout seul.** Dès que votre application versionne sa première
+> migration, le démarrage cesse de dériver les tables depuis le code (`ddl: "auto"`) et applique vos
+> migrations (`ddl: "migrate"`) — même en développement. Deux fabricants du même schéma ne
+> s'accordent pas : le DDL dérivé pose une unicité **collée à la colonne** (`content text NOT NULL
+UNIQUE`), le générateur de migrations raisonne sur un **index nommé** (`messages_content_unique`),
+> et la première migration qui tente de retirer la seconde échoue sur un objet qui n'a jamais existé.
+> Un `ddl` écrit dans votre configuration gagne toujours ; et sous `NODE_ENV=test`, rien ne change
+> (une suite lance un exemplaire par worker, et ses bases partent vides).
+
 ### Ce que la commande refuse, et pourquoi c'est une bonne nouvelle
 
 **Une migration est immuable dès qu'une base l'a reçue.** Une migration à laquelle il manque une

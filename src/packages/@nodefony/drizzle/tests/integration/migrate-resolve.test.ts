@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import fs from "node:fs/promises";
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import type { Kernel } from "nodefony";
@@ -12,6 +13,9 @@ import {
   resolveCheckMode,
   resolveConnector,
   resolveDdlMode,
+  appVersionsMigrations,
+  generateApplyAllowed,
+  resetAllowed,
   type IMigrationEnv,
 } from "../../nodefony/src/migrator/resolve";
 import {
@@ -79,6 +83,61 @@ describe("migrations — le mode de schéma se résout par environnement", () =>
   it("une valeur écrite gagne toujours sur le défaut", () => {
     assert.equal(resolveDdlMode("none", DEV), "none");
     assert.equal(resolveDdlMode("auto", PROD), "auto");
+  });
+
+  // Deux fabricants du même schéma ne s'accordent pas, et rien ne le dit tant
+  // qu'on ne les fait pas se rencontrer : le DDL dérivé pose une unicité INLINE
+  // et anonyme, le générateur de migrations raisonne sur un index NOMMÉ. La
+  // migration suivante émet alors un `DROP INDEX` d'un index inexistant et
+  // s'échoue elle-même. Constaté sur un agent tiers : 35 minutes de
+  // `repair`/`baseline`/`reset`, deux bases détruites.
+  it("une app qui VERSIONNE des migrations passe en `migrate` dès le développement", () => {
+    assert.equal(resolveDdlMode(undefined, DEV, true), "migrate");
+    // Sans migration versionnée, `auto` reste le défaut du démarrage rapide.
+    assert.equal(resolveDdlMode(undefined, DEV, false), "auto");
+    // Un choix écrit gagne toujours, y compris contre la bascule.
+    assert.equal(resolveDdlMode("auto", DEV, true), "auto");
+    // JAMAIS sous NODE_ENV=test : une suite lance un exemplaire par worker.
+    assert.equal(resolveDdlMode(undefined, TEST, true), "auto");
+    // Hors développement, rien ne change : le schéma appartient au déploiement.
+    assert.equal(resolveDdlMode(undefined, PROD, true), "none");
+  });
+
+  // `--apply` enchaîne l'application dans la foulée de l'écriture. Cela suppose
+  // qu'on relit le SQL produit entre les deux — ce que personne ne fait sur un
+  // serveur. Aucun drapeau ne lève ce refus, comme pour `orm:reset`.
+  it("« --apply » est un geste de développement, et rien ne le déverrouille ailleurs", () => {
+    assert.equal(generateApplyAllowed(DEV), true);
+    assert.equal(generateApplyAllowed(TEST), false);
+    assert.equal(generateApplyAllowed(PROD), false);
+    assert.equal(generateApplyAllowed(INCONNU), false);
+    // La MÊME condition que `orm:reset` : deux rédactions divergeraient.
+    for (const env of [DEV, TEST, PROD, INCONNU]) {
+      assert.equal(generateApplyAllowed(env), resetAllowed(env));
+    }
+  });
+
+  it("appVersionsMigrations CONSTATE le disque, et ne suppose rien", () => {
+    const racine = mkdtempSync(path.join(os.tmpdir(), "nf-migrations-"));
+    // Dossier absent → l'application ne versionne rien.
+    assert.equal(appVersionsMigrations(path.join(racine, "migrations")), false);
+    mkdirSync(path.join(racine, "migrations", "meta"), { recursive: true });
+    // Dossier vide, et `meta/` (journal drizzle) n'est PAS une migration.
+    writeFileSync(
+      path.join(racine, "migrations", "meta", "_journal.json"),
+      "{}",
+    );
+    assert.equal(appVersionsMigrations(path.join(racine, "migrations")), false);
+    // Un sous-dossier de dialecte compte — c'est la forme que rend orm:generate.
+    mkdirSync(path.join(racine, "migrations", "sqlite"), { recursive: true });
+    writeFileSync(
+      path.join(racine, "migrations", "sqlite", "0001_x.sql"),
+      "-- nodefony:migration format=1\n",
+    );
+    assert.equal(appVersionsMigrations(path.join(racine, "migrations")), true);
+    // Sans dossier connu (aucun kernel), on ne bascule pas.
+    assert.equal(appVersionsMigrations(undefined), false);
+    rmSync(racine, { recursive: true, force: true });
   });
 
   it("la sonde retient la mise en service en production, avertit ailleurs", () => {

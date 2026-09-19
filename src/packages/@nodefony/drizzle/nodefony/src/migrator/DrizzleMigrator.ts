@@ -14,6 +14,7 @@ import {
 import { APP_SOURCE } from "./paths";
 import { MIGRATE_URL_ENV } from "./types";
 import { createdTables, loadSources } from "./sources";
+import { alreadyInTargetState } from "./explain";
 import {
   HISTORY_TABLE,
   MigrationLockTimeoutError,
@@ -112,6 +113,33 @@ const REPRISE_SANS_DESTRUCTION =
   MIGRATE_URL_ENV +
   ' = "…" », « env » n\'y existant pas. Écrire la migration suivante est ' +
   "toujours préférable à défaire ce qui est déjà appliqué.";
+
+/**
+ * La troisième voie de reprise — celle qu'aucun message ne nommait.
+ *
+ * Les deux voies écrites jusqu'ici (corriger le fichier, ou travailler sur une
+ * base d'essai) supposent toutes deux que le fichier a tort. Quand le moteur
+ * répond « c'est déjà ainsi », ni l'une ni l'autre ne mène quelque part : le
+ * SQL est juste, la base est conforme, et rejouer redira la même chose. Sans
+ * cette phrase, la boucle `repair` → `migrate` → même refus n'a pas de sortie
+ * — et la seule qu'un agent trouve seul est de recréer la base.
+ *
+ * @param source - source de la migration (`app` ou `framework`).
+ * @param tag - identité de la migration en échec.
+ * @returns le paragraphe à insérer dans le verdict.
+ */
+const alreadyInTargetStateAdvice = (source: string, tag: string): string =>
+  `Ce que dit ce message, c'est que la base est DÉJÀ dans l'état que cette ` +
+  `migration vise : l'objet qu'elle crée existe, ou celui qu'elle retire n'a ` +
+  `jamais existé sous ce nom. Corriger le fichier ne servira donc à rien, et ` +
+  `le rejouer redira la même chose — c'est la boucle dans laquelle on tourne ` +
+  `si on s'obstine. VÉRIFIE d'abord l'état réel (« nodefony inspect entities ` +
+  `--json », ou le schéma de la table concernée) ; s'il correspond bien à ce ` +
+  `que « ${source}/${tag} » voulait obtenir, la migration est SANS OBJET sur ` +
+  `cette base : déclare-la appliquée plutôt que de la rejouer, avec ` +
+  `« nodefony orm:migrate:baseline --up-to ${tag} ». Une cause courante en ` +
+  `développement : la table a été créée par le schéma DÉRIVÉ du démarrage, qui ` +
+  `pose les contraintes sans les nommer, là où une migration les nomme.`;
 
 export class DrizzleMigrator {
   readonly #options: IDrizzleMigratorOptions;
@@ -852,7 +880,11 @@ export class DrizzleMigrator {
       `La migration « ${file.tag} » (source « ${file.source} ») a échoué : ` +
         `${truncate(cause.message)}\n\n${state}\n\n` +
         `Son échec est INSCRIT : le prochain passage refusera de reprendre tant ` +
-        `que le marqueur n'aura pas été levé, après inspection.\n\n${REPRISE_SANS_DESTRUCTION}`,
+        `que le marqueur n'aura pas été levé, après inspection.\n\n` +
+        (alreadyInTargetState(cause.message)
+          ? `${alreadyInTargetStateAdvice(file.source, file.tag)}\n\n`
+          : "") +
+        REPRISE_SANS_DESTRUCTION,
     );
   }
 

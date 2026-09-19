@@ -368,6 +368,43 @@ describe("Applicateur de migrations (sqlite)", () => {
     );
   });
 
+  // #430 — la boucle sans issue. Une migration qui vise un objet DÉJÀ dans
+  // l'état voulu échoue, `repair` lève le marqueur, `migrate` rejoue, le moteur
+  // redit la même chose. Les deux voies de reprise écrites jusqu'ici (corriger
+  // le fichier, ou essayer sur une base d'essai) supposent toutes deux que le
+  // fichier a tort : aucune ne mène quelque part ici. Constaté sur un agent
+  // tiers — trente-cinq minutes, deux bases détruites, la boucle brisée à la
+  // main. Le cas exact : un `DROP INDEX` d'une unicité que le schéma DÉRIVÉ du
+  // démarrage avait posée INLINE, donc sans index nommé.
+  it("🔴 quand la base est DÉJÀ dans l'état visé, le refus nomme la sortie (baseline)", async () => {
+    await appendMigration(sources[0]!.dir, "sqlite", {
+      tag: "0002_retire_unicite",
+      statements: ["DROP INDEX messages_content_unique"],
+    });
+
+    await assert.rejects(
+      async () => migrator().migrate(),
+      (e: unknown) => {
+        assert.ok(e instanceof MigrationVerdictError);
+        assert.equal(e.verdict.code, "NF_MIGRATE_FAILED_MARKER");
+        // Le moteur a bien dit « c'est déjà ainsi »…
+        assert.match(e.message, /no such index/iu);
+        // …et le verdict le TRADUIT, au lieu de laisser chercher.
+        assert.match(e.message, /DÉJÀ dans l'état que cette\s+migration vise/u);
+        // Le geste qui sort de la boucle est NOMMÉ, avec son argument.
+        assert.match(
+          e.message,
+          /orm:migrate:baseline --up-to 0002_retire_unicite/u,
+        );
+        // Et la cause la plus fréquente en développement est dite.
+        assert.match(e.message, /schéma DÉRIVÉ du démarrage/u);
+        // Les deux voies ordinaires restent proposées : on ajoute, on ne retire pas.
+        assertReprisePossible(e);
+        return true;
+      },
+    );
+  });
+
   it("exige une adoption explicite sur une base déjà peuplée", async () => {
     // Une base d'avant les migrations : les tables existent, l'historique non.
     const seed = await open();

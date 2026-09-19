@@ -30,7 +30,11 @@ import { gapAgainstDeclared } from "../src/migrator/divergence";
 import { repairRebuildCopy } from "../src/migrator/rebuildCopy";
 import { readJournal, tablesPresentIn } from "../src/migrator/adopt";
 import { summarizeGap } from "../src/migrator/schemaDiff";
-import { appMigrationsDir } from "../src/migrator/resolve";
+import {
+  appMigrationsDir,
+  generateApplyAllowed,
+  readMigrationEnv,
+} from "../src/migrator/resolve";
 import { APP_SOURCE, frameworkMigrationsDir } from "../src/migrator/paths";
 import {
   createdTables,
@@ -101,6 +105,7 @@ interface IGenerateOptions extends IMigrateSharedOptions {
   name?: string;
   custom?: boolean;
   allowDestructive?: boolean;
+  apply?: boolean;
 }
 
 /**
@@ -136,6 +141,17 @@ interface IGenerateOptions extends IMigrateSharedOptions {
  * nodefony orm:migrate        # ou : le travail de déploiement
  * ```
  *
+ * @example En développement — écrire ET appliquer en un seul geste
+ * ```bash
+ * nodefony orm:generate --name ajout_du_titre --apply
+ * ```
+ * `--apply` n'est rien d'autre qu'un `orm:migrate` enchaîné : la commande
+ * DÉLÈGUE, elle ne rejoue pas l'application pour son compte. Toutes les gardes
+ * du verbe d'application valent donc à l'identique — refus du destructif sans
+ * `--allow-destructive`, verrou, historique. Refusé hors développement : un
+ * déploiement n'écrit pas ses migrations au moment de les appliquer, il
+ * applique celles que la revue de code a validées.
+ *
  * @example Ce que le modèle déclaratif ne peut pas déduire
  * ```bash
  * nodefony orm:generate --custom --name vue_des_ventes
@@ -162,6 +178,10 @@ class OrmGenerate extends OrmMigrateCommand {
     this.addOption(
       "--allow-destructive",
       "accepte une migration qui SUPPRIME des données — à ne poser qu'après avoir relu le fichier produit",
+    );
+    this.addOption(
+      "--apply",
+      "applique la migration dans la foulée (développement seulement) — écrire puis appliquer en un seul geste",
     );
   }
 
@@ -245,7 +265,7 @@ class OrmGenerate extends OrmMigrateCommand {
           dialect: resolution.dialect,
           name,
         });
-        return this.#emit(
+        return await this.#emit(
           {
             formatVersion: MIGRATION_FORMAT_VERSION,
             connector,
@@ -540,7 +560,7 @@ class OrmGenerate extends OrmMigrateCommand {
         );
         return this;
       }
-      return this.#emit(
+      return await this.#emit(
         {
           formatVersion: MIGRATION_FORMAT_VERSION,
           connector,
@@ -620,7 +640,7 @@ class OrmGenerate extends OrmMigrateCommand {
       );
       return this;
     }
-    return this.#emit(
+    return await this.#emit(
       {
         formatVersion: MIGRATION_FORMAT_VERSION,
         connector,
@@ -825,11 +845,26 @@ class OrmGenerate extends OrmMigrateCommand {
    *
    * @returns `this`.
    */
-  #emit(
+  /**
+   * Écrit le compte rendu de génération, puis enchaîne l'application si
+   * `--apply` est posé.
+   *
+   * 🔴 **En sortie machine, `--apply` ne produit qu'UN document** : celui de
+   * l'application, qui porte le verdict final. Le compte rendu de génération
+   * part alors sur la sortie d'ERREUR — libre par contrat — plutôt que d'écrire
+   * deux objets à la suite sur la sortie standard, ce qui casserait tout `| jq`
+   * sans qu'aucune erreur ne le dise.
+   *
+   * @param report - le rapport de génération.
+   * @param opts - options reçues.
+   * @param headline - la première ligne, déjà rédigée par l'appelant.
+   * @returns `this`, la sortie ayant été écrite.
+   */
+  async #emit(
     report: IGenerateReport,
     opts: IGenerateOptions,
     headline: string,
-  ): this {
+  ): Promise<this> {
     const style = this.style;
     let human = `${style.green("✓")} ${headline}\n`;
     if (report.files.length > 0) {
@@ -860,13 +895,87 @@ class OrmGenerate extends OrmMigrateCommand {
           .join("\n") +
         "\n";
     }
-    if (report.generated) {
+    if (report.generated && opts.apply !== true) {
       human +=
         `\n${style.bold("À faire :")}\n` +
-        `  ${style.dim("relire le fichier, puis")} ${style.green("nodefony orm:migrate")}\n`;
+        `  ${style.dim("relire le fichier, puis")} ${style.green("nodefony orm:migrate")}\n` +
+        `  ${style.dim("ou, en développement, les deux d'un geste :")} ` +
+        `${style.green("nodefony orm:generate --apply")}\n`;
+    }
+    if (report.generated && opts.apply === true) {
+      if (opts.json === true) {
+        process.stderr.write(human.endsWith("\n") ? human : `${human}\n`);
+      } else {
+        process.stdout.write(human.endsWith("\n") ? human : `${human}\n`);
+      }
+      await this.#applyNow(opts, report.connector);
+      return this;
     }
     this.respond(report, human, EXIT.ok, opts.json);
     return this;
+  }
+
+  /**
+   * Enchaîne l'application quand `--apply` est posé.
+   *
+   * DÉLÈGUE au verbe `orm:migrate` par son point d'entrée public
+   * ({@link Cli.getCommand}) : rejouer ici l'application aurait produit une
+   * SECONDE implémentation du même geste, qui aurait divergé de la première au
+   * premier réglage — et c'est précisément elle qui porte le refus du
+   * destructif, le verrou et l'écriture de l'historique.
+   *
+   * Refusé hors développement, sans drapeau pour le lever : générer puis
+   * appliquer dans le même souffle suppose qu'on relit le SQL entre les deux,
+   * ce que personne ne fait sur un serveur. En production, la migration a été
+   * écrite, relue et versionnée ailleurs ; `orm:migrate` l'applique.
+   *
+   * @param opts - options reçues, passées telles quelles au verbe d'application.
+   * @param connector - connecteur résolu, pour le message de refus.
+   * @returns `true` si la main a été passée (la sortie est déjà écrite).
+   */
+  async #applyNow(opts: IGenerateOptions, connector: string): Promise<boolean> {
+    if (!generateApplyAllowed(readMigrationEnv(this.kernel as Kernel | null))) {
+      this.fail(
+        connector,
+        "NF_MIGRATE_NOT_DEVELOPMENT",
+        "« --apply » n'existe qu'en développement.",
+        "Écrire une migration et l'appliquer dans le même geste suppose qu'on relit le SQL produit entre les deux — ce que personne ne fait sur un serveur. Hors développement, la migration a été écrite, relue et versionnée ailleurs : c'est « orm:migrate » qui l'applique, et lui seul.",
+        [action("nodefony orm:migrate")],
+        opts.json,
+        EXIT.actionRequired,
+      );
+      return true;
+    }
+    // 🔴 Une commande de MODULE ne vit PAS dans `cli.commands` — `Cli.addCommand`
+    // sert les commandes intégrées, `Module.addCommand` range les siennes dans
+    // le module (`Module.ts:642`). `cli.getCommand("orm:migrate")` rendait donc
+    // toujours `null`, et seule l'exécution RÉELLE l'a montré : ni le typecheck
+    // ni les tests unitaires ne voient ce registre. On passe par le module qui
+    // nous porte — celui-là même qui a déclaré les deux verbes ensemble.
+    const kernel = this.kernel as Kernel | null;
+    const owner = kernel?.getModule("drizzle") as
+      { commands?: Record<string, unknown> } | undefined;
+    const migrate = owner?.commands?.["orm:migrate"];
+    if (!migrate) {
+      // Inatteignable tant que le module déclare ses deux verbes ensemble. Le
+      // dire quand même : un enchaînement muet laisserait croire que la
+      // migration est appliquée alors qu'elle ne l'est pas.
+      this.fail(
+        connector,
+        "NF_MIGRATE_UNAVAILABLE",
+        "Le verbe « orm:migrate » est introuvable : la migration a été ÉCRITE mais n'a pas été appliquée.",
+        "« --apply » ne fait qu'enchaîner ce verbe ; sans lui, il n'y a rien à enchaîner.",
+        [action("nodefony orm:migrate")],
+        opts.json,
+      );
+      return true;
+    }
+    await (
+      migrate as unknown as {
+        generate(opts: IGenerateOptions): Promise<unknown>;
+      }
+    ).generate(opts);
+    return true;
   }
 }
 

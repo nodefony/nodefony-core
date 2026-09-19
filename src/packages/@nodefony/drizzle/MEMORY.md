@@ -4,9 +4,9 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
 
 ## Entités D'APPLICATION — `nodefony create entity`, pas le colKit
 
-- **La voie utilisateur = la commande** : `nodefony create entity Post title:string! views:int` pose table
+- **La voie utilisateur = la commande** : `nodefony create entity Post title:string views:int` pose table
   Drizzle **native du dialecte** + `XRow` + schémas Zod + service CRUD + controller REST/WS + tests, et câble
-  `@entities([...])` (orm-core). Champs `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut**.
+  `@entities([...])` (orm-core). Champs `nom:type[?][:index|:unique]` · `ref:<Entité>` · **non-null par défaut** ; `!` est REFUSÉ.
   Traduction type→colonne : `nodefony/src/cli/scaffold/entityFields.ts` (core, module PUR, 3 dialectes).
 - **`ref:` ⇒ colonne INDEXÉE d'office** (sauf `!`, déjà indexé) : c'est la colonne de jointure
   (`?include=` = `IN (…)`). L'index ≠ la FK — un `JOIN` n'exige aucune contrainte. **FK jamais émises**
@@ -158,6 +158,19 @@ query)`), partagée par les 3 pilotes de migration ET par l'ORM. 🔴 L'ORM lit 
   hors développement (`NF_MIGRATE_NOT_DEVELOPMENT`) : la garde vit dans le produit, pas dans
   l'écran. La prose des refus de résolution vit dans `migrator/refusals.ts`, lue par les deux.
 
+## Mode de schéma au démarrage — la bascule `auto` → `migrate`
+
+`resolveDdlMode(explicit, env, appHasMigrations)` + `appVersionsMigrations(dir)`
+(`src/migrator/resolve.ts`). **Une app qui versionne ≥ 1 `.sql` passe en `migrate` dès le
+développement** — deux fabricants du même schéma divergent en silence : le DDL dérivé pose une
+unicité INLINE anonyme (`content text NOT NULL UNIQUE`), `orm:generate` raisonne sur un index NOMMÉ
+(`messages_content_unique`) ⇒ `DROP INDEX` d'un objet inexistant, `no such index`, marqueur que la
+réparation ne peut pas lever (le fichier reste inapplicable). Bornes : un `ddl` écrit gagne
+toujours · **jamais sous `NODE_ENV=test`** (un exemplaire par worker ; bases éphémères) · hors
+développement, inchangé (`none`). Branché aux DEUX points, sinon boot et CLI expliqueraient deux
+états : `DrizzleService.#connectOne` et `resolveConnector`. Lecture disque SYNCHRONE et bornée
+(1 `readdirSync` par connecteur au boot, `meta/` ignoré, sous-dossiers de dialecte comptés).
+
 ## Migrations — écrire celles de l'APPLICATION (`orm:generate`)
 
 `nodefony/command/orm-generate.ts` + `nodefony/src/migrator/appSchema.ts`. Mécanisme : **les
@@ -166,6 +179,16 @@ fichier ⇒ « matérialiser depuis le registre » est impossible, voie écarté
 
 - **Découverte** : `listTargets(root)` (cœur, source unique de la convention de scaffold) →
   `nodefony/entity/*.ts` par cible, `*.schema.ts` écartés (contrats Zod).
+- **`--apply`** (dev seulement) : `#applyNow` DÉLÈGUE à `orm:migrate` — jamais une 2ᵉ
+  implémentation de l'application (gardes destructives, verrou, historique restent uniques).
+  🔴 La commande se prend sur le **MODULE** (`kernel.getModule("drizzle").commands`), jamais sur
+  `cli.getCommand` : `Cli.addCommand` sert les commandes INTÉGRÉES, `Module.addCommand` range les
+  siennes dans le module (`Module.ts:642`) — `cli.getCommand("orm:migrate")` rend donc toujours
+  `null`. Ni le typecheck ni les tests unitaires ne voient ce registre : seule l'exécution réelle
+  d'une app générée l'a montré.
+  Refus hors développement et sous `NODE_ENV=test` (`NF_MIGRATE_NOT_DEVELOPMENT`). En `--json`, le
+  compte rendu de génération part sur **stderr** : un seul document sur stdout, celui de
+  l'application, sinon `| jq` casse sur le second objet.
 - **Relevé** : import dynamique + `is(v, Table)` — jamais un nom d'export deviné. 🔴 Un fichier qui
   importe un VOISIN sans extension est illisible pour Node (règle ESM) : `collectTables` pose un
   hook `registerHooks` qui réessaie en `.ts`, comme un bundler. Sans lui, 9 entités du framework

@@ -94,6 +94,27 @@ reprendre après une coupure sans lire d'état préalable.
 > dépose un fichier vide et son entrée de journal. Le gabarit déposé explique comment séparer les
 > instructions ; suis-le à la lettre.
 
+**En développement, les deux premiers gestes se disent en un seul** :
+
+```bash
+npx nodefony orm:generate --name ajout_slug --apply
+```
+
+`--apply` ENCHAÎNE `orm:migrate` — il ne rejoue pas l'application pour son compte, donc toutes ses
+gardes valent (refus du destructif sans `--allow-destructive`, verrou, historique). En `--json`, un
+seul document sort : celui de l'application, qui porte le verdict. Le drapeau **n'existe qu'en
+développement** et rien ne le déverrouille ailleurs : hors développement, la migration a été écrite,
+relue et versionnée en amont, et c'est `orm:migrate` seul qui l'applique.
+
+> **Le démarrage bascule tout seul, et il faut le savoir avant d'être surpris.** Tant que
+> l'application ne versionne AUCUNE migration, le démarrage en développement dérive les tables
+> depuis le code (`ddl: "auto"`) : on n'a rien à taper. Dès la première migration écrite, il
+> applique les migrations (`ddl: "migrate"`) et cesse de dériver. C'est ce qui empêche deux
+> fabricants du même schéma de se contredire — le DDL dérivé pose une unicité collée à la colonne,
+> le générateur de migrations raisonne sur un index nommé, et la migration qui tente de retirer le
+> second échoue sur un objet qui n'a jamais existé. Un `ddl` écrit dans la configuration gagne
+> toujours ; sous `NODE_ENV=test`, rien ne change.
+
 ### 🔴 Un champ OBLIGATOIRE sur une table PEUPLÉE — ton moteur ne fait pas ce que tu crois
 
 Ajouter une colonne `NOT NULL` **sans valeur par défaut** à une table qui porte déjà des lignes n'a
