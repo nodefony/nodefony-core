@@ -69,6 +69,32 @@ exécution.
 
 > Gradué le 2026-09-10 — 7 frictions RÉUNIES → **`feedback_outside_look_finds_what_green_hides`** : le regard extérieur (audit des jointures, USAGE réel, relecture en aveugle privée de mes conclusions) trouve ce qu'une suite verte ne peut pas voir. Ne PAS réécrire ici.
 
+## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
+
+- [1× — 09-19c] 🔴 **Mon tri d'architecture était faux, et ce sont les tests du dépôt qui l'ont
+  redressé — pas une relecture, pas le user.** En retirant les pages d'instructions copiées dans
+  chaque app (#432), j'avais tranché « ce qui est propre à l'app va dans la porte, le générique va
+  dans les skills ». Sept assertions sont tombées, chacune portant en commentaire un fait MESURÉ
+  que ma règle ignorait : « deux runs sur deux, l'agent a tapé `orm:reset` — la ligne de CE fichier
+  copiée à la lettre — puis `rm` la base quatre fois » et « ce document est le SEUL qu'il ouvre
+  d'office, le skill qui l'interdit n'est jamais chargé ». La règle juste était donc : la porte
+  garde aussi **ce dont l'ignorance fait faire une bêtise**, générique ou non. Ces faits ne vivent
+  NULLE PART ailleurs — ni dans un `CLAUDE.md`, ni dans une mémoire : leur seul domicile est le
+  commentaire du test qui les garde. Corollaire : avant de déplacer ou supprimer quoi que ce soit,
+  lire les tests qui le couvrent **pour ce qu'ils affirment**, pas seulement pour les faire passer.
+
+## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
+
+- [1× — 09-19c] 🔴 **Le dossier de gabarits s'appelait `templates/app/agents/` alors qu'il ne
+  posait plus aucun dossier `agents/` dans l'application.** Conséquence immédiate : mon propre
+  compte rendu a écrit « `agents/client/*.md` restent », et le user a compris qu'un dossier hors
+  norme subsistait chez l'utilisateur — « nodefony n'a pas à s'immiscer dans l'app d'un user ». Il
+  n'en restait aucun : ces fichiers sont des fragments INJECTÉS dans `AGENTS.md` au rendu, et le
+  `agents/` cité était celui du DÉPÔT. Le nom a fabriqué la méprise, et je l'ai relayée. Renommé
+  `agent-instructions/`. La règle : après tout retrait, le nom de ce qui reste se relit — un
+  contenant qui porte le nom de sa sortie disparue est une ancre fausse d'un genre particulier,
+  puisqu'il ne pointe sur rien de FAUX dans le code, seulement dans la tête de qui le lit.
+
 ## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
 
 - [1× — 09-18g] 🔴 **J'ai annoncé au user qu'un ticket était l'ENFANT d'un autre, sur la foi d'une
@@ -413,6 +439,15 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19c] 🔴 **Le mode rapide était écrit EN TÊTE du script, j'ai payé trois passes lentes
+  avant de m'en servir.** `scripts/check-scaffold-format.mjs` porte ligne 26 :
+  `--raw # le seul régime sans installation (~5 s)`. J'ai lancé la passe COMPLÈTE (4 apps
+  installées, ~3 min) trois fois de suite pour corriger trois décalages d'une ligne vide — soit
+  ~9 min d'attente pour ce qui prenait 15 s. Rien ne m'a caché l'option : elle est dans l'en-tête
+  du fichier que j'avais ouvert pour comprendre le mode « rendu brut ». La règle générale : quand
+  un outil du dépôt a un mode rapide, il est documenté à l'endroit où l'on cherche à le
+  comprendre — c'est-à-dire trop tard si on ne le lit qu'après le premier échec.
+
 - [1× — 09-19] 🔴 **Le TSDoc montrait la bonne forme, l'agent l'avait LU, il a écrit l'autre.**
   Session réelle d'un agent tiers : `ChatController.ts:37-45` porte l'exemple
   `RealtimeClient.shared({ url: "/api/live/realtime" })` — URL relative, façade résolvant seule le
@@ -463,6 +498,15 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-19c] ✅ **Le contre-exemple, et il vaut d'être gardé : une sonde qui DÉCLARE d'avance
+  le résultat qui la condamnerait rend son verdict lisible le jour où il tombe.** La sonde
+  d'observation `a ouvert une annexe agents/nodefony/` portait en commentaire « un zéro franc
+  dirait que le découpage a rendu le contenu inatteignable, et c'est le seul résultat qui
+  condamnerait la structure ». Le run réel a rendu 1/10 — le verdict n'a demandé aucune
+  interprétation, et la structure est tombée. Corollaire appliqué : la sonde devenait
+  INSATISFIABLE après le retrait (plus aucune annexe à ouvrir), donc retirée dans le MÊME geste.
+  Une sonde qu'on laisse derrière une capacité supprimée rend FAUX pour toujours.
 
 - [1× — 09-19] 🔴 **Un juge qui s'ABSTIENT passe pour inoffensif — il ne garde rien.**
   `gate-porte-client.mjs` est inscrit dans la tâche 0 du banc devkit depuis toujours. Sans moteur
