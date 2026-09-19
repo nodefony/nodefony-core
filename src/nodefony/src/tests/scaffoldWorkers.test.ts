@@ -98,15 +98,14 @@ describe("create app — le réglage du nombre de processus est DÉCOUVRABLE (#2
     // aucun outil ne charge ce dossier tout seul), et l'ANNEXE doit NOMMER la
     // variable. Ne contrôler que la seconde laisserait passer une page juste et
     // introuvable ; ne contrôler que la première, un renvoi vers une page vide.
+    // #432 a RETIRÉ les annexes `agents/nodefony/*.md` — copiées dans chaque
+    // app, figées à vie, et ouvertes une fois sur dix. La porte les remplace :
+    // c'est ELLE qui doit nommer la variable, puisqu'elle est le seul document
+    // qu'un agent ouvre d'office.
     assert.match(
       read("AGENTS.md"),
-      /agents\/nodefony\/commandes\.md/u,
-      "la porte envoie vers l'annexe des commandes",
-    );
-    assert.match(
-      read(path.join("agents", "nodefony", "commandes.md")),
-      /NF_WORKERS=/u,
-      "l'annexe nomme la variable",
+      /NF_WORKERS/u,
+      "la porte nomme la variable du nombre de processus",
     );
   });
 });

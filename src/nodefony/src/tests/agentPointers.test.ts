@@ -29,7 +29,7 @@ const TPL = path.join(
   "..",
   "templates",
   "app",
-  "agents",
+  "agent-instructions",
 );
 
 /**

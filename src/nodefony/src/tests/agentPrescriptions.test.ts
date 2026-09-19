@@ -56,7 +56,7 @@ const fichiersPrescripteurs = (): string[] => {
     "nodefony",
     "templates",
     "app",
-    "agents",
+    "agent-instructions",
   );
   const skills = path.join(
     REPO_ROOT,
