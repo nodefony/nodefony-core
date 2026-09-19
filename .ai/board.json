@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T12:01:44.860Z",
+  "generatedAt": "2026-09-19T13:23:33.767Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 122,
+      "closed": 123,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
       "open": 7,
@@ -3114,6 +3114,22 @@
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
       "ordre": 9.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 432,
+      "title": "refactor(scaffold): cesser de copier dix pages d'instructions dans chaque app",
+      "url": "https://github.com/nodefony/nodefony-core/issues/432",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.15,
       "debut": null,
       "cible": null,
       "labels": [
