@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T16:10:37.511Z",
+  "generatedAt": "2026-09-19T18:34:46.035Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,7 +39,7 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 18,
+      "closed": 19,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
       "open": 37,
@@ -53,10 +53,10 @@
       "title": "10.0.0"
     },
     {
-      "closed": 4,
+      "closed": 5,
       "dueOn": "2026-12-15T00:00:00Z",
       "number": 2,
-      "open": 30,
+      "open": 31,
       "title": "10.1.0"
     }
   ],
@@ -5228,6 +5228,22 @@
       ]
     },
     {
+      "number": 434,
+      "title": "fix(scaffold): semer la ligne parente du test de bout en bout",
+      "url": "https://github.com/nodefony/nodefony-core/issues/434",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 46.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 351,
       "title": "fix(bundler): garder le framework hors du bundle d'un module",
       "url": "https://github.com/nodefony/nodefony-core/issues/351",
@@ -5536,7 +5552,7 @@
       "title": "refactor(repo): ranger scripts/ et dire où va un contrôle neuf",
       "url": "https://github.com/nodefony/nodefony-core/issues/205",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "outillage-agents",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -6665,6 +6681,22 @@
       "cible": null,
       "labels": [
         "backlog"
+      ]
+    },
+    {
+      "number": 435,
+      "title": "feat(cli): décrire les scripts npm du projet dans l'aide",
+      "url": "https://github.com/nodefony/nodefony-core/issues/435",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.1.0",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 904,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.1.0"
       ]
     },
     {

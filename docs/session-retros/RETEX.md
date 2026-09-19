@@ -450,6 +450,25 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19f] 🔴 **J'ai écrit cinq identifiants FRANÇAIS dans du code de production neuf, le
+  LENDEMAIN du jour où le user me l'a fait remarquer** — et c'est `npm run check:lang` qui les a
+  trouvés, pas moi (`décrits`, `largeur`, `lignes`, `muets`, `motif`, `groupe`, `cible`). Le
+  `_state` de la veille prescrivait explicitement « lancer `check:lang` avant de proposer un
+  commit » : je l'avais lu au RESUME du matin. Une règle relue ne protège pas au moment du geste ;
+  seul un automate lancé le fait. Corollaire mesuré le même jour : le linter a attrapé ensuite un
+  `no-shadow` que le renommage venait de créer — réparer à la main dans un fichier de 4 000 lignes
+  fabrique son propre défaut, et il faut RELANCER le gate après l'avoir satisfait une fois.
+
+- [1× — 09-19f] 🔴 **J'ai lancé la suite du cœur avec `npx vitest --root src/nodefony` depuis la
+  racine, et récolté 49 faux rouges que j'ai failli instruire comme des régressions.** `--root`
+  change la racine de vitest mais PAS le `process.cwd()` : les fixtures se résolvaient depuis
+  `/<dépôt>/src/tests/finder/…` au lieu de `/<dépôt>/src/nodefony/src/tests/finder/…`, et
+  `FileClass`/`Finder` levaient `ENOENT` sur des fichiers parfaitement présents. La commande du
+  dépôt — `cd src/nodefony && npm test` — rend **4226 verts**. La règle est écrite et graduée
+  ([[feedback_repo_command_is_authority]]) ; ce qui manquait, c'est de la suivre au lieu de
+  composer une invocation « équivalente ». Un seul des 49 était vrai : la page de manuel, qui
+  ignorait la commande que je venais d'ajouter.
+
 - [1× — 09-19e] 🔴 **J'ai édité les sources PENDANT ma propre campagne `test:all`, et j'ai
   fabriqué 5 rouges que j'ai failli imputer au code.** La règle « ne jamais éditer les fichiers
   qu'un run est en train de lire » est écrite, je venais de la lire au RESUME du jour — et turbo a
@@ -528,6 +547,24 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-19f] 🔴 **Un banc qui s'ARRÊTE au premier rouge ne cache pas un détail : il cache tout
+  ce qui suit — ici dix-sept étapes, dont une régression livrée la veille.** Le workflow « Code
+  généré (3 systèmes) » était rouge depuis trois jours, sur 7 jobs et 3 systèmes, pour une cause
+  triviale : le banc appelait une syntaxe de champ retirée du produit l'avant-veille. Réparer ce
+  point a fait avancer le banc de 3 étapes à 21 — et révélé que `create entity X author:ref:Y`
+  produisait un test ROUGE À LA NAISSANCE (clé étrangère inventée, refusée par la base depuis que
+  les relations posent une contrainte), plus la même panne à travers HTTP (500 au lieu de 201).
+  **Aucun de ces deux défauts n'était visible tant que le rouge trivial tenait la porte.** Un rouge
+  ancien n'est pas « connu » : c'est un aveuglement qui grandit derrière lui, et son coût ne se
+  mesure qu'en le réparant.
+
+- [1× — 09-19f] **Un workflow VERT ne dit rien des ALERTES qui portent son nom.** Le user signalait
+  « la CI rouge, CodeQL » ; les runs CodeQL étaient verts sur `main` — parce qu'un workflow d'analyse
+  réussit dès qu'il a téléversé ses résultats, et ne rougit JAMAIS sur un finding. Ce qui était
+  rouge vivait ailleurs : deux alertes ouvertes dans l'onglet Sécurité, plus une alerte de scan de
+  secrets ouverte depuis huit semaines. Répondre « CodeQL est vert » aurait été exact et inutile.
+  Deux surfaces, un seul nom : il faut regarder les deux, et le dire.
 
 - [1× — 09-19e] 🔴 **Une sonde de décor qui constate une DISPONIBILITÉ n'a rien constaté : deux
   campagnes de suite ont rendu 7 rouges parce qu'une AUTRE application tenait le port.** Le banc MCP
