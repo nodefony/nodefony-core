@@ -831,7 +831,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     {
       key: "fields",
       label:
-        "Champs (nom:type, séparés par des espaces — ? nullable, ! unique, :index)",
+        "Champs (nom:type, séparés par des espaces — ? nullable, :index, :unique)",
       type: "string",
       default: "",
     },

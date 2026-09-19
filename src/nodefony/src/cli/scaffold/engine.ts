@@ -1396,7 +1396,7 @@ function dispatchScaffold(
     return runServiceScaffold(request, answers, packageRoot, writer);
   }
   if (request.type === "front") {
-    return runFrontScaffold(request, answers, packageRoot, writer);
+    return runFrontScaffold(request, answers, packageRoot, version, writer);
   }
   if (request.type === "entity") {
     return runEntityScaffold(request, answers, packageRoot, writer);
@@ -2045,6 +2045,78 @@ function readAppDependencyNames(
  * @throws hors projet, module déjà présent (sans `--force`), nom en collision,
  *   ou brique manquante dans l'app (realtime/frontend) — avec le geste exact.
  */
+/**
+ * Régénère le BLOC encadré de l'`AGENTS.md` de l'application depuis son état réel.
+ *
+ * La porte décrit ce que CETTE application porte — ses modules, ses briques, et
+ * le sous-chemin client de son moteur front. Tout cela change après sa
+ * naissance : un scaffold qui ajoute une brique sans rafraîchir la porte laisse
+ * un document qui MENT, et un agent ne va pas chercher ce qu'elle ne nomme pas.
+ *
+ * ⚠️ Vécu sur un agent tiers : une application née `--frontend none` s'était vu
+ * ajouter un front Vue par `create front`. La porte, jamais régénérée, ne
+ * nommait donc aucun sous-chemin client — l'agent a cherché `nodefony/client/vue`
+ * (qui n'existe pas), reçu `ERR_PACKAGE_PATH_NOT_EXPORTED`, puis recodé à la
+ * main le socket que `nodefony/vue` fournit. Il a fallu que l'utilisateur lui
+ * dise « il y a un outil vue dans la lib » pour qu'il le trouve.
+ *
+ * Tout est RE-DÉRIVÉ de l'état réel (dépendances de l'app, cibles du projet —
+ * la transaction voit les écritures en attente) ; seul le bloc entre marqueurs
+ * est remplacé, le reste de la page appartient à l'utilisateur.
+ *
+ * @param eta - moteur de rendu des gabarits.
+ * @param packageRoot - racine du paquet qui porte les gabarits.
+ * @param projectRoot - racine de l'application.
+ * @param appName - nom de l'application, tel que la porte l'annonce.
+ * @param nodefonyVersion - version du paquet qui scaffolde.
+ * @param written - liste des fichiers écrits, enrichie en place.
+ * @param writer - transaction d'écriture.
+ */
+function refreshProjectAgents(
+  eta: Eta,
+  packageRoot: string,
+  projectRoot: string,
+  appName: string,
+  nodefonyVersion: string,
+  written: string[],
+  writer: ScaffoldWriter,
+): void {
+  const appDeps = readAppDependencyNames(projectRoot, writer);
+  renderProjectAgents(
+    eta,
+    packageRoot,
+    projectRoot,
+    {
+      appName,
+      nodefonyVersion,
+      hasSecurity: appDeps.has("@nodefony/security"),
+      hasOrm: appDeps.has("@nodefony/orm-core"),
+      hasRealtime: appDeps.has("@nodefony/realtime"),
+      hasStudio: appDeps.has("@nodefony/studio"),
+      front: appDeps.has("@nodefony/frontend"),
+      clientEngine: detectFrontendEngine(appDeps),
+      hasMigrateRecipe: writer.exists(
+        path.join(projectRoot, "deploy", "migrate-job.yaml"),
+      ),
+      // Régénération : cette passe décrit l'inventaire, elle ne SAIT pas
+      // quels agents on utilise — et n'a pas à le deviner. Les pointeurs
+      // déjà posés restent, aucun n'est ajouté.
+      agents: [],
+      modules: listTargets(projectRoot, writer)
+        .filter((t) => t.kind === "module")
+        .map((t) => ({
+          name: t.name,
+          // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
+          // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
+          // donc `modules/blog` partout, jamais `modules\blog`.
+          dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
+        })),
+    },
+    written,
+    writer,
+  );
+}
+
 function runModuleScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
@@ -2298,36 +2370,12 @@ function runModuleScaffold(
   // réécrire depuis le gabarit d'app détruirait ce travail, et le scaffold n'a
   // aucun moyen de le distinguer d'un fichier qu'il aurait lui-même produit.
   if (!data.publishable) {
-    renderProjectAgents(
+    refreshProjectAgents(
       eta,
       packageRoot,
       projectRoot,
-      {
-        appName,
-        nodefonyVersion: version,
-        hasSecurity: appDeps.has("@nodefony/security"),
-        hasOrm: appDeps.has("@nodefony/orm-core"),
-        hasRealtime: appDeps.has("@nodefony/realtime"),
-        hasStudio: appDeps.has("@nodefony/studio"),
-        front: appDeps.has("@nodefony/frontend"),
-        clientEngine: detectFrontendEngine(appDeps),
-        hasMigrateRecipe: writer.exists(
-          path.join(projectRoot, "deploy", "migrate-job.yaml"),
-        ),
-        // Régénération : cette passe décrit l'inventaire, elle ne SAIT pas
-        // quels agents on utilise — et n'a pas à le deviner. Les pointeurs
-        // déjà posés restent, aucun n'est ajouté.
-        agents: [],
-        modules: listTargets(projectRoot, writer)
-          .filter((t) => t.kind === "module")
-          .map((t) => ({
-            name: t.name,
-            // Ce chemin est RENDU dans `AGENTS.md` — un document que lisent des agents et
-            // des humains, pas un chemin qu'on redonne au système de fichiers. Il s'écrit
-            // donc `modules/blog` partout, jamais `modules\blog`.
-            dir: path.relative(projectRoot, t.dir).split(path.sep).join("/"),
-          })),
-      },
+      appName,
+      version,
       written,
       writer,
     );
@@ -3987,7 +4035,7 @@ function runEntityScaffold(
   if (fields.length === 0) {
     throw new Error(
       `create entity ${pascal} : aucun champ déclaré — passe-les en arguments ` +
-        `(ex : nodefony create entity ${pascal} title:string! body:text? views:int=0)`,
+        `(ex : nodefony create entity ${pascal} title:string body:text? views:int=0)`,
     );
   }
   // Le contrat porte ses propres horodatages, en camelCase — ceux du générateur
@@ -4647,6 +4695,7 @@ function runFrontScaffold(
   request: IScaffoldRequest,
   answers: TScaffoldAnswers,
   packageRoot: string,
+  nodefonyVersion: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
   const projectRoot = findProjectRoot(request.dir);
@@ -4911,6 +4960,26 @@ function runFrontScaffold(
     writer,
   );
   written.push("index.ts");
+  // La porte de l'app nomme le sous-chemin client de son moteur front
+  // (`nodefony/vue`, `nodefony/react`…). Une app née SANS front n'en nommait
+  // aucun, et rien ne la rafraîchissait en lui en ajoutant un : l'agent
+  // cherchait alors un chemin qui n'existe pas, puis réécrivait à la main ce
+  // que le paquet fournit. Bornée au bloc entre marqueurs, comme partout.
+  //
+  // Rendue APRÈS les écritures du front : la détection du moteur lit les
+  // dépendances de l'application, que cette passe vient justement de compléter.
+  const agentsPath = path.join(projectRoot, "AGENTS.md");
+  if (writer.exists(agentsPath)) {
+    refreshProjectAgents(
+      eta,
+      packageRoot,
+      projectRoot,
+      path.basename(projectRoot),
+      nodefonyVersion,
+      written,
+      writer,
+    );
+  }
   const notes = [
     `page ${route} (GET — controller ${nameClass}, entry Vite « ${kebab} »)`,
     ...(added.length > 0

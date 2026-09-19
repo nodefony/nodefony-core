@@ -247,6 +247,28 @@ export function parseCreateArgv(
     } else if (word === "--dir") {
       dir = rest[++i];
     } else if (word.startsWith("-")) {
+      // Le NOM est un positionnel, pas une option — mais `npm init` a habitué
+      // tout le monde à `--name`, et un agent qui recompose l'appel de mémoire
+      // l'écrit ainsi. Refuser sans nommer la forme juste coûte un tour entier :
+      // mesuré au banc de découvrabilité, c'est le tout premier échec d'un run
+      // (`npm create nodefony@alpha -- --name chat-app`). Le refus tient, la
+      // suggestion l'accompagne.
+      const NAMED_AS_OPTION: Record<string, string> = {
+        "--name": "le NOM se donne en argument, juste après le type",
+        "--app-name": "le NOM se donne en argument, juste après le type",
+        "--project": "le NOM se donne en argument, juste après le type",
+      };
+      const hint = NAMED_AS_OPTION[word];
+      if (hint !== undefined) {
+        const given = rest[i + 1];
+        const example =
+          given !== undefined && !given.startsWith("-")
+            ? `nodefony create ${positionals[0] ?? "app"} ${given}`
+            : `nodefony create ${positionals[0] ?? "app"} <nom>`;
+        return {
+          error: `option inconnue : ${word} — ${hint} : ${example}`,
+        };
+      }
       return { error: `option inconnue : ${word}` };
     } else {
       positionals.push(word);

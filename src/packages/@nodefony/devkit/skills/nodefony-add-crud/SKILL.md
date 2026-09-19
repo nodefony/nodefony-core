@@ -44,7 +44,7 @@ se connecte qu'au démarrage), la pagination bornée **et son tri déclaré**, l
 
 ## La grammaire de champs
 
-`nom:type[?|!][:index]` — **non-null par défaut**, `?` rend facultatif, `!` pose une contrainte
+`nom:type[?][:index|:unique]` — **non-null par défaut**, `?` rend facultatif, `:unique` pose une contrainte
 d'unicité, `:index` un index simple.
 
 | Type     | Ce que ça produit       |
@@ -82,7 +82,7 @@ index utiles sont composites : c'est ainsi qu'une table est réellement interrog
 Trois réglages, et ils ne touchent **que** le SQL — la propriété TypeScript reste `id`, `siteId` :
 
 ```bash
-npx nodefony create entity Session token:string! --table user_sessions --column-case snake --id-name session_id
+npx nodefony create entity Session token:string:unique --table user_sessions --column-case snake --id-name session_id
 ```
 
 Faire suivre le TypeScript aurait transformé un réglage de nommage en refonte : le service, le

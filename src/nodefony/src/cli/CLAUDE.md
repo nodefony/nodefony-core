@@ -639,7 +639,7 @@ service CRUD (`extends AbstractCrudService`, validation dans `beforeCreate`/`bef
 se connecte qu'à `onBoot`), controller (`extends ResourceController` — lectures en
 `methods: ["GET","WEBSOCKET"]` = REST **et** socket dans la même méthode ; 201+`Location`,
 204, 404, 422, `@Idempotent({required:false})` = mode souple), tests vitest (sqlite mémoire).
-Champs : `nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut** (types :
+Champs : `nom:type[?][:index|:unique]` · `ref:<Entité>` · **non-null par défaut**, `!` REFUSÉ (types :
 `string text int float bool json date uuid`) — analyse + traduction Drizzle dans
 `scaffold/entityFields.ts` (module PUR, 3 dialectes). **Index de TABLE** :
 `--index "colA,colB"` / `--unique "colA,colB"`, **répétables** (un par index) — les seuls à
@@ -658,7 +658,7 @@ deux index de deux colonnes en un de quatre. Colonne inconnue, répétée, ou im
 (`createdAt` sans horodatages) → **refus AVANT écriture**, avec les colonnes disponibles ;
 même jeu de colonnes déclaré par `:index` ET `--index` → **un seul index émis** (sinon la
 création de la table échoue au démarrage). **`ref:` ⇒ colonne INDEXÉE d'office**
-(sauf `!`, qui pose déjà l'index) : c'est la colonne de jointure (`?include=` = `IN (…)`).
+(sauf `:unique`, qui pose déjà l'index) : c'est la colonne de jointure (`?include=` = `IN (…)`).
 L'index n'est PAS la FK — un `JOIN` n'exige aucune contrainte ; les **FOREIGN KEY ne sont pas
 émises** par le DDL dev (déclarées dans le `CREATE TABLE`, elles n'atteindraient jamais une base
 existante) → domaine des migrations. Wiring : `wireEntitiesDecorator` **crée** `@entities([...])`

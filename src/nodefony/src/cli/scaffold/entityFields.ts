@@ -34,7 +34,7 @@ export const ENTITY_FIELD_TYPES = [
 ] as const;
 export type TEntityFieldType = (typeof ENTITY_FIELD_TYPES)[number];
 
-/** Un champ déclaré, après analyse de `title:string!` ou `author:ref:User`. */
+/** Un champ déclaré, après analyse de `title:string` ou `author:ref:User`. */
 export interface IEntityField {
   /** Nom de la propriété (camelCase). */
   name: string;
@@ -66,7 +66,7 @@ export interface IEntityField {
   defaultValue?: string;
   /** `true` si `?` — la colonne accepte `NULL`. Non-null par DÉFAUT. */
   nullable: boolean;
-  /** `true` si `!` — contrainte d'unicité. */
+  /** `true` si `:unique` — contrainte d'unicité. */
   unique: boolean;
   /** `true` si `:index`. */
   indexed: boolean;
@@ -145,15 +145,27 @@ const NO_DEFAULT: ReadonlySet<string> = new Set(["json", "date", "ref"]);
 /**
  * Analyse la déclaration textuelle des champs.
  *
- * Grammaire : `nom:type[?][!][=defaut][:index]` · `nom:ref:Entité[?][!][:index]`
+ * Grammaire : `nom:type[?][=defaut][:index|:unique]` · `nom:ref:Entité[?][:index|:unique]`
  * - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décision, pas un oubli) ;
- * - `!` → unique ;
  * - `=valeur` → valeur par défaut (`price:float=0`, `status:enum(draft,published)=draft`) ;
- * - `:index` → index simple.
+ * - `:index` → index simple ;
+ * - `:unique` → contrainte d'unicité.
  *
  * Le type `enum` porte ses valeurs entre parenthèses : `status:enum(draft,published)`.
  *
- * @param input - `"title:string! content:text? views:int=0 author:ref:User"`.
+ * 🔴 **`!` est REFUSÉ, et c'est le seul suffixe qui l'est.** Il a longtemps voulu
+ * dire « unique » ici, alors qu'il veut dire « non-null » partout ailleurs —
+ * GraphQL, TypeScript, Kotlin, Swift, Prisma. Le dépôt lui-même s'y est trompé :
+ * son aide l'annonçait comme « requis » quand le code en faisait une contrainte
+ * d'unicité, et l'exemple canonique `create entity Article title:string!` posait
+ * donc une table où deux articles ne peuvent pas porter le même titre. Vécu sur
+ * un agent tiers : un champ `content:text!` a rendu un salon de discussion
+ * incapable de recevoir deux fois le même message, défaut invisible au
+ * typecheck, au lint, aux tests et au `doctor` — il n'est sorti qu'à l'usage.
+ * Le refuser plutôt que l'ignorer est délibéré : un `!` devenu silencieusement
+ * sans effet trahirait qui voulait VRAIMENT l'unicité.
+ *
+ * @param input - `"title:string content:text? views:int=0 slug:string:unique"`.
  * @returns les champs, dans l'ordre de déclaration.
  * @throws EntityFieldError si un champ est mal formé (le mot « invalide » est attendu
  *   par le routeur d'erreurs du CLI pour sortir en `EX_USAGE`).
@@ -163,12 +175,16 @@ export function parseEntityFields(input: string): IEntityField[] {
   const seen = new Set<string>();
 
   for (const raw of input.split(/\s+/u).filter(Boolean)) {
-    // Modificateurs collés au type : `content:text?`, `slug:string!`.
+    // Modificateurs collés au type : `content:text?`, `slug:string:unique`.
     let spec = raw;
     let indexed = false;
+    let unique = false;
     if (spec.endsWith(":index")) {
       indexed = true;
       spec = spec.slice(0, -":index".length);
+    } else if (spec.endsWith(":unique")) {
+      unique = true;
+      spec = spec.slice(0, -":unique".length);
     }
     // Valeur par défaut. Le `=` est cherché APRÈS la parenthèse fermante d'un
     // éventuel `enum(...)` : sans cette précaution, `status:enum(a=1,b)` couperait
@@ -185,18 +201,22 @@ export function parseEntityFields(input: string): IEntityField[] {
       }
     }
     let nullable = false;
-    let unique = false;
-    // Boucle : `?!` et `!?` doivent être acceptés dans les deux ordres.
     for (;;) {
       if (spec.endsWith("?")) {
         nullable = true;
         spec = spec.slice(0, -1);
         continue;
       }
+      // Le message nomme les DEUX intentions possibles, parce qu'on ne peut pas
+      // deviner laquelle était la bonne — et parce que celui qui écrit `!` croit
+      // presque toujours dire « obligatoire », ce qui est déjà le défaut.
       if (spec.endsWith("!")) {
-        unique = true;
-        spec = spec.slice(0, -1);
-        continue;
+        const bare = raw.replaceAll("!", "");
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — « ! » n'a pas de sens ici. ` +
+            `Une colonne est NON-NULL par défaut : écris « ${bare} ». ` +
+            `Pour une contrainte d'unicité : « ${bare}:unique ».`,
+        );
       }
       break;
     }
@@ -321,6 +341,28 @@ export function parseEntityFields(input: string): IEntityField[] {
 
     const type = (parts[1] ?? "string") as TEntityFieldType;
     if (!(ENTITY_FIELD_TYPES as readonly string[]).includes(type)) {
+      // Un `=` resté COLLÉ au type veut dire qu'une valeur par défaut a été
+      // écrite dans une forme que la grammaire ne reconnaît pas — typiquement
+      // un appel SQL, `createdAt:date=now()`. Le message générique (« type
+      // inconnu ») envoie alors chercher un type, quand la faute est ailleurs :
+      // il faut NOMMER la forme acceptée. Vécu au banc de découvrabilité, à la
+      // minute 1 du run.
+      const equals = type.indexOf("=");
+      if (equals > 0) {
+        const bareType = type.slice(0, equals);
+        const written = type.slice(equals + 1);
+        const isCall = /\(\s*\)$|^current_timestamp$/iu.test(written);
+        throw new EntityFieldError(
+          `champ invalide « ${raw} » — une valeur par défaut est une valeur LITTÉRALE, ` +
+            `pas un appel : « ${written} » n'en est pas une. ` +
+            (isCall
+              ? `Un horodatage posé à l'insertion ne se déclare pas : « createdAt » et ` +
+                `« updatedAt » sont générées d'office (--no-timestamps les retire). ` +
+                `Pour une autre date, laisse-la vide et pose-la dans ton service.`
+              : `Écris « ${name}:${bareType}=<valeur> » avec une valeur du type ` +
+                `(ex : views:int=0, status:enum(draft,published)=draft).`),
+        );
+      }
       throw new EntityFieldError(
         `champ invalide « ${raw} » — type « ${type} » inconnu ; attendus : ${ENTITY_FIELD_TYPES.join(" | ")} | ref:<Entité>`,
       );
@@ -332,7 +374,7 @@ export function parseEntityFields(input: string): IEntityField[] {
     }
     if (parts.length > 2) {
       throw new EntityFieldError(
-        `champ invalide « ${raw} » — trop de segments (attendu nom:type[?][!][=defaut][:index])`,
+        `champ invalide « ${raw} » — trop de segments (attendu nom:type[?][=defaut][:index|:unique])`,
       );
     }
     if (defaultValue !== undefined) {

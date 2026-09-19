@@ -100,7 +100,7 @@ Dans une application existante, on crée des briques :
 npx nodefony create controller blog --kind hello
 
 # Une entité et toute sa chaîne : table, schémas d'entrée, service, contrôleur REST, tests.
-npx nodefony create entity Article title:string! body:text views:int
+npx nodefony create entity Article title:string body:text views:int
 ```
 
 Le contrôleur produit par la première commande est exactement celui-ci — c'est le
@@ -242,7 +242,7 @@ npx nodefony create entity --describe-json    # ce type seulement
 **Répondre en JSON**, depuis un fichier ou l'entrée standard :
 
 ```bash
-echo '{"name":"Article","fields":"title:string! body:text"}' \
+echo '{"name":"Article","fields":"title:string body:text"}' \
   | npx nodefony create entity --answers-json - --dry-run
 ```
 

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 842,
-    "symbols": 4140,
+    "symbols": 4144,
     "classes": 394,
     "interfaces": 1104,
     "types": 451,
     "enums": 4,
-    "functions": 1778,
+    "functions": 1782,
     "constants": 409
   },
   "symbols": {
@@ -6789,7 +6789,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Un champ déclaré, après analyse de `title:string!` ou `author:ref:User`."
+      "description": "Un champ déclaré, après analyse de `title:string` ou `author:ref:User`."
     },
     "IEntityIndex": {
       "name": "IEntityIndex",
@@ -6859,7 +6859,7 @@
       "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][!][=defaut][:index]` · `nom:ref:Entité[?][!][:index]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est une décis…"
+      "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][=defaut][:index|:unique]` · `nom:ref:Entité[?][:index|:unique]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est…"
     },
     "parseEntityIndexes": {
       "name": "parseEntityIndexes",
@@ -22843,6 +22843,14 @@
       "module": "@nodefony/drizzle",
       "description": "Ce qu'un refus veut dire QUAND ON CONNAÎT LE MODE DE SCHÉMA. Le même fait mécanique n'a pas la même cause selon le mode, et le geste change avec la cause. Constaté en exécutant la commande pour de …"
     },
+    "alreadyInTargetState": {
+      "name": "alreadyInTargetState",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'échec vient-il de ce que la base est DÉJÀ dans l'état que la migration vise ? Le cas est fréquent et sa sortie n'était nommée nulle part : le message de reprise proposait de corriger le fichier o…"
+    },
     "MIGRATION_FORMAT_VERSION": {
       "name": "MIGRATION_FORMAT_VERSION",
       "kind": "const",
@@ -23303,6 +23311,14 @@
       "module": "@nodefony/drizzle",
       "description": "L'effacement d'une base est-il ACCEPTÉ dans cet environnement ? **Liste blanche, jamais liste noire** : seul `development` passe. Un `staging`, un `test`, un environnement que personne n'a pensé à …"
     },
+    "generateApplyAllowed": {
+      "name": "generateApplyAllowed",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "`orm:generate --apply` est-il recevable dans cet environnement ? Écrire une migration et l'appliquer dans le même souffle suppose qu'on relit le SQL produit entre les deux — ce que personne ne fait…"
+    },
     "resolveDdlMode": {
       "name": "resolveDdlMode",
       "kind": "function",
@@ -23310,6 +23326,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Le mode de schéma qui s'applique à un connecteur. Règle des défauts, et son pourquoi : **appliquer des migrations au démarrage n'est jamais un défaut**. C'est la norme unanime des outils de migrati…"
+    },
+    "appVersionsMigrations": {
+      "name": "appVersionsMigrations",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "L'application versionne-t-elle au moins une migration ? Lecture SYNCHRONE et bornée à un `readdirSync` par connecteur au démarrage — hors de tout chemin de requête. Elle doit l'être : le mode de sc…"
     },
     "resolveCheckMode": {
       "name": "resolveCheckMode",
@@ -34633,6 +34657,7 @@
       ],
       "readMigrationEnv": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -34739,6 +34764,9 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "generateApplyAllowed": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "APP_SOURCE": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
@@ -35005,6 +35033,9 @@
       "defaultMigrationSources": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "appVersionsMigrations": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "resolveCheckMode": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
@@ -37268,6 +37299,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
+      "alreadyInTargetState": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "MigrationLockTimeoutError": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",

@@ -318,6 +318,25 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         "error",
       );
     });
+
+    // #431 — `npm init` a habitué tout le monde à `--name`, et un agent qui
+    // recompose l'appel de mémoire l'écrit ainsi. Mesuré au banc de
+    // découvrabilité : c'est le TOUT PREMIER échec d'un run
+    // (`npm create nodefony@alpha -- --name chat-app`). Le refus tient ; ce
+    // qu'on ajoute, c'est la forme juste, composée avec la valeur donnée.
+    it("🔴 « --name » refusé NOMME la forme attendue, avec la valeur donnée", () => {
+      const r = parseCreateArgv(argv("create", "app", "--name", "chat-app"));
+      assert.property(r, "error");
+      const message = (r as { error: string }).error;
+      assert.include(message, "argument");
+      assert.include(message, "nodefony create app chat-app");
+      // Sans valeur exploitable, la forme est donnée en gabarit.
+      const seul = parseCreateArgv(argv("create", "app", "--name"));
+      assert.include((seul as { error: string }).error, "create app <nom>");
+      // Une option réellement inconnue garde son message court.
+      const autre = parseCreateArgv(argv("create", "app", "ok", "--nope"));
+      assert.notInclude((autre as { error: string }).error, "argument");
+    });
   });
 
   describe("code de sortie — un artefact cassé ne se signale pas en 0", () => {
@@ -1633,7 +1652,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const r = runScaffold(
         {
           type: "entity",
-          answers: { name: "Article", fields: "title:string!" },
+          answers: { name: "Article", fields: "title:string" },
           dir: dest,
           force: false,
         },
@@ -5193,6 +5212,29 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    // La porte nomme le sous-chemin client du moteur front (`nodefony/vue`,
+    // `nodefony/react`). Une app née `--frontend none` n'en nommait aucun, et
+    // `create front` ne la rafraîchissait pas : elle mentait à vie. Vécu sur un
+    // agent tiers — il a cherché `nodefony/client/vue`, qui n'existe pas, reçu
+    // ERR_PACKAGE_PATH_NOT_EXPORTED, puis recodé à la main ce que `nodefony/vue`
+    // fournit ; il a fallu que l'utilisateur lui dise que l'outil existait.
+    it("🔴 rafraîchit la porte AGENTS.md : elle nomme le sous-chemin client ajouté", () => {
+      const dest = path.join(tmp, "fappagents");
+      scaffold(dest, {
+        name: "fappagents",
+        preset: "complete",
+        frontend: "none",
+      });
+      const avant = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.notInclude(avant, "nodefony/vue");
+      front(dest, { name: "webchat", frontend: "vue" });
+      const apres = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+      assert.include(apres, "nodefony/vue");
+      // Bornée au bloc encadré : la page de l'utilisateur ne bouge pas.
+      assert.include(apres, "<!-- nodefony:start -->");
+      assert.include(apres, "<!-- nodefony:end -->");
+    });
+
     it("🔴 rend la page de `create app` — la liaison du moteur, pas un compteur muet", () => {
       // La MÊME page a été tenue en deux rédactions : la vitrine de
       // `create app --frontend`, qui montre la liaison temps réel du moteur, et
@@ -5523,7 +5565,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // couche sous un autre nom de classe. Si le paramétrage avait fui, le
         // service de l'entité changerait de nom ou de clé — en silence.
         const dest = app("svcdataentity");
-        entity(dest, { name: "Article", fields: "title:string!" });
+        entity(dest, { name: "Article", fields: "title:string" });
         const src = readFileSync(
           path.join(dest, "nodefony", "service", "ArticleService.ts"),
           "utf8",
@@ -5744,7 +5786,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       it("REFUSE un second appel qui ferait disparaître un champ, en le NOMMANT", () => {
         const dest = app("ecumul");
-        entity(dest, { name: "Article", fields: "title:string! body:text?" });
+        entity(dest, { name: "Article", fields: "title:string body:text?" });
         try {
           entity(dest, { name: "Article", fields: "views:int=0" });
           assert.fail("le second create entity aurait dû être refusé");
@@ -5773,10 +5815,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // câblage de l'entité ET de son controller doit donc tolérer la
         // régénération sous le même nom — c'est ce que ce cas éprouve.
         const dest = app("ecumul2");
-        entity(dest, { name: "Article", fields: "title:string! body:text?" });
+        entity(dest, { name: "Article", fields: "title:string body:text?" });
         entity(dest, {
           name: "Article",
-          fields: "title:string! body:text? views:int=0",
+          fields: "title:string body:text? views:int=0",
         });
         const src = readFileSync(
           path.join(dest, "nodefony", "entity", "Article.ts"),
@@ -5798,7 +5840,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       it("`--force` assume le remplacement", () => {
         const dest = app("ecumul3");
-        entity(dest, { name: "Article", fields: "title:string!" });
+        entity(dest, { name: "Article", fields: "title:string" });
         entityForce(dest, { name: "Article", fields: "views:int=0" });
         const src = readFileSync(
           path.join(dest, "nodefony", "entity", "Article.ts"),
@@ -5810,7 +5852,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
       it("REFUSE d'écraser une entité dont il ne sait plus lire les champs", () => {
         const dest = app("ecumul4");
-        entity(dest, { name: "Article", fields: "title:string!" });
+        entity(dest, { name: "Article", fields: "title:string" });
         const file = path.join(dest, "nodefony", "entity", "Article.ts");
         // Une main humaine a posé un type imbriqué — forme légitime, que la
         // grammaire de la garde ne lit pas. Refuser vaut mieux que conclure
@@ -5908,7 +5950,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       process.env.NF_DATABASE_URL = "postgres://u:p@127.0.0.1:5432/db";
       const r = entity(dest, {
         name: "Ticket",
-        fields: "code:string(2)! ref:uuid!",
+        fields: "code:string(2) ref:uuid",
       });
       assert.include((r.notes ?? []).join("\n"), "(postgres)");
       const src = readFileSync(
@@ -5934,7 +5976,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = app("tblapp");
       const r = entity(dest, {
         name: "Website",
-        fields: "name:string domain:string!",
+        fields: "name:string domain:string",
         table: "website",
       });
       const src = readFileSync(
@@ -6026,7 +6068,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       process.env.NF_DATABASE_URL = "postgres://u:p@127.0.0.1:5432/db";
-      const r = entity(dest, { name: "Fixed", fields: "code:string!" });
+      const r = entity(dest, { name: "Fixed", fields: "code:string" });
       assert.include((r.notes ?? []).join("\n"), "(sqlite)");
     });
 
@@ -6047,7 +6089,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         ),
       );
       const notes = (
-        entity(dest, { name: "Invoice", fields: "code:string!" }).notes ?? []
+        entity(dest, { name: "Invoice", fields: "code:string" }).notes ?? []
       ).join("\n");
       assert.include(
         notes,
@@ -6073,7 +6115,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // le mode sera résolu au démarrage. Il décrit donc les deux, comme avant.
       const dest = app("ddlauto");
       const notes = (
-        entity(dest, { name: "Ticket", fields: "code:string!" }).notes ?? []
+        entity(dest, { name: "Ticket", fields: "code:string" }).notes ?? []
       ).join("\n");
       assert.include(notes, "créée au prochain boot en développement");
       assert.include(notes, "production : appliquer les migrations");
@@ -6237,7 +6279,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("l'entité est du Drizzle natif, avec la clé uuid7 générée côté JS", () => {
       const dest = app("eapp2");
-      entity(dest, { name: "Post", fields: "title:string! views:int" });
+      entity(dest, { name: "Post", fields: "title:string:unique views:int" });
       const src = readFileSync(
         path.join(dest, "nodefony", "entity", "Post.ts"),
         "utf8",
@@ -6324,7 +6366,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("le vocabulaire de FILTRE est déclaré, et il traverse jusqu'au store", () => {
       const dest = app("eapp4bis");
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       entity(dest, {
         name: "Post",
         fields:
@@ -6366,7 +6408,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("une relation inconnue dans ?include= est refusée, pas ignorée", () => {
       const dest = app("eapp4quater");
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
       const src = readFileSync(
         path.join(dest, "nodefony", "controllers", "PostController.ts"),
@@ -6421,7 +6463,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     // ne sont pas une relation.
     it("`ref:` renseigne defineEntity({ relations }) et ouvre ?include=", () => {
       const dest = app("eapp4e");
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
       const ent = readFileSync(
         path.join(dest, "nodefony", "entity", "Post.ts"),
@@ -6450,7 +6492,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     // des types dans son moteur.
     it("le contexte du projet décrit ce que le projet offre RÉELLEMENT", () => {
       const dest = app("eapp4m");
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       const context = getScaffoldContext(dest);
       assert.isNotNull(context);
       const ctx = context as NonNullable<typeof context>;
@@ -6560,7 +6602,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     // décorateurs, statuts et sérialisation ne sont traversés qu'en HTTP réel.
     it("génère un test HTTP de bout en bout, hors du glob par défaut", () => {
       const dest = app("eapp4i");
-      entity(dest, { name: "Post", fields: "title:string!" });
+      entity(dest, { name: "Post", fields: "title:string:unique" });
       const e2e = readFileSync(
         path.join(dest, "tests", "post.e2e.test.ts"),
         "utf8",
@@ -6590,7 +6632,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
 
     it("le test data généré enregistre les entités cibles des relations", () => {
       const dest = app("eapp4l");
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
       const src = readFileSync(
         path.join(dest, "tests", "post.test.ts"),
@@ -6615,7 +6657,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // PostgreSQL : « invalid input syntax for type uuid ». Mesuré au banc du
       // code généré, sur une application PostgreSQL.
       const dest = app("eapp4m");
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
       const src = readFileSync(
         path.join(dest, "tests", "post.e2e.test.ts"),
@@ -6666,7 +6708,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       delete pkg["dependencies"]["drizzle-orm"];
       writeFileSync(manifeste, `${JSON.stringify(pkg, null, 2)}\n`);
 
-      const res = entity(dest, { name: "Ticket", fields: "label:string!" });
+      const res = entity(dest, { name: "Ticket", fields: "label:string" });
       assert.includeMembers(
         res.depsAdded ?? [],
         ["drizzle-orm"],
@@ -6727,7 +6769,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         frontend: "none",
         database: "postgres",
       });
-      entity(dest, { name: "Ticket", fields: "label:string!" });
+      entity(dest, { name: "Ticket", fields: "label:string" });
       const src = readFileSync(
         path.join(dest, "tests", "ticket.test.ts"),
         "utf8",
@@ -7046,7 +7088,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = app("eapp12");
       // La cible d'une relation doit exister : l'ORM la résout au connect et lève
       // sinon (l'app ne démarrerait pas). Le scaffold refuse donc en amont.
-      entity(dest, { name: "Author", fields: "email:string!" });
+      entity(dest, { name: "Author", fields: "email:string" });
       // `timestamps: false` : SANS ça, createdAt/updatedAt suivent la relation et le
       // commentaire n'est plus en dernière position — le bug ne se reproduit pas.
       entity(dest, {
@@ -7835,7 +7877,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const r = runScaffold(
         {
           type: "entity",
-          answers: { name: "Invoice", fields: "number:string! amount:int" },
+          answers: { name: "Invoice", fields: "number:string amount:int" },
           dir: dest,
           force: false,
         },

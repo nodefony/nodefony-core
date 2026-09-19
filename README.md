@@ -229,7 +229,7 @@ Générer du code — une application, un module, un contrôleur, une entité et
 
 ```bash
 npx nodefony create module blog --frontend react
-npx nodefony create entity Article title:string! body:text views:int
+npx nodefony create entity Article title:string body:text views:int
 npx nodefony create controller admin --kind rest --role ROLE_ADMIN
 ```
 

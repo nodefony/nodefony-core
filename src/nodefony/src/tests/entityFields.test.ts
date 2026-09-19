@@ -29,8 +29,10 @@ describe("scaffold — analyse des champs", () => {
     });
   });
 
-  it("lit type, nullable (?), unique (!) et index", () => {
-    const fields = parseEntityFields("slug:string! bio:text? views:int:index");
+  it("lit type, nullable (?), unique (:unique) et index", () => {
+    const fields = parseEntityFields(
+      "slug:string:unique bio:text? views:int:index",
+    );
     assert.strictEqual(fields[0].unique, true);
     assert.strictEqual(fields[0].nullable, false);
     assert.strictEqual(fields[1].nullable, true);
@@ -38,12 +40,53 @@ describe("scaffold — analyse des champs", () => {
     assert.strictEqual(fields[2].type, "int");
   });
 
-  it("accepte les modificateurs dans les deux ordres (?! et !?)", () => {
-    const a = parseEntityFields("email:string?!")[0];
-    const b = parseEntityFields("email:string!?")[0];
-    assert.deepStrictEqual(a, b);
+  it("une colonne nullable peut être unique (email:string?:unique)", () => {
+    const a = parseEntityFields("email:string?:unique")[0];
     assert.strictEqual(a.nullable, true);
     assert.strictEqual(a.unique, true);
+  });
+
+  // Le suffixe `!` veut dire « non-null » dans toutes les grammaires que nos
+  // utilisateurs connaissent, et il a voulu dire « unique » ici — y compris dans
+  // nos propres exemples. Le refus NOMME les deux intentions ; un no-op
+  // silencieux trahirait celui qui voulait vraiment l'unicité.
+  it("refuse « ! » en nommant les deux intentions possibles", () => {
+    assert.throws(
+      () => parseEntityFields("content:text!"),
+      (error: Error) =>
+        error instanceof EntityFieldError &&
+        error.message.includes("content:text") &&
+        error.message.includes("content:text:unique"),
+    );
+    assert.throws(() => parseEntityFields("email:string?!"), EntityFieldError);
+    assert.throws(() => parseEntityFields("email:string!?"), EntityFieldError);
+  });
+
+  // #431 — deux formes inventées par un agent, refusées sans que rien n'oriente
+  // vers la bonne. `now()` reprend la convention des DEFAULT SQL ; le message
+  // générique répondait « type « date=now() » inconnu », ce qui envoie chercher
+  // un type quand la faute est ailleurs.
+  it("une valeur par défaut APPELÉE est refusée en nommant la forme acceptée", () => {
+    assert.throws(
+      () => parseEntityFields("createdAt:date=now()"),
+      (error: Error) =>
+        error instanceof EntityFieldError &&
+        // Elle dit ce qui cloche…
+        /valeur LITTÉRALE/u.test(error.message) &&
+        // …et que ces deux colonnes-là sont posées d'office.
+        error.message.includes("createdAt") &&
+        error.message.includes("--no-timestamps"),
+    );
+    // Un défaut littéral mal typé garde son message propre, plus précis.
+    assert.throws(
+      () => parseEntityFields("views:int=zéro"),
+      (error: Error) => /n'est pas un nombre/u.test(error.message),
+    );
+    // Et un type réellement inconnu garde le sien.
+    assert.throws(
+      () => parseEntityFields("title:strng"),
+      (error: Error) => /type « strng » inconnu/u.test(error.message),
+    );
   });
 
   it("relation : author:ref:User", () => {
@@ -58,9 +101,9 @@ describe("scaffold — analyse des champs", () => {
     // se voit jamais sur les dix lignes du développement.
     const [f] = parseEntityFields("author:ref:User");
     assert.strictEqual(f.indexed, true);
-    // `!` (unique) pose DÉJÀ un index : en ajouter un second serait du poids
+    // `:unique` pose DÉJÀ un index : en ajouter un second serait du poids
     // mort à l'écriture, sans un seul lecteur de plus.
-    const [u] = parseEntityFields("owner:ref:User!");
+    const [u] = parseEntityFields("owner:ref:User:unique");
     assert.strictEqual(u.unique, true);
     assert.strictEqual(u.indexed, false);
   });
@@ -152,7 +195,7 @@ describe("scaffold — analyse des champs", () => {
 
 describe("scaffold — code des colonnes", () => {
   const fields = parseEntityFields(
-    "title:string! body:text? views:int meta:json published:bool at:date author:ref:User",
+    "title:string:unique body:text? views:int meta:json published:bool at:date author:ref:User",
   );
 
   it("sqlite : types natifs du moteur, booléen et json en mode", () => {

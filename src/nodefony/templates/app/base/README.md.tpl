@@ -375,6 +375,7 @@ déploiement. Deux conséquences pratiques :
 
 ```bash
 npx nodefony orm:generate            # écrit les migrations des entités modifiées
+npx nodefony orm:generate --apply    # dev : écrit ET applique, en un seul geste
 npx nodefony orm:migrate --dry-run   # ce qui serait appliqué, sans rien écrire
 npx nodefony orm:migrate             # applique (verrou + historique)
 npx nodefony orm:migrate:status      # 0 = à jour · 1 = en retard — ta barrière de déploiement

@@ -59,7 +59,7 @@ interface ITypeDoc {
 const ENTITY_FIELDS: IUsageSection = {
   title: "LA GRAMMAIRE DES CHAMPS",
   lines: [
-    "  nom:type[?|!][:index]        `?` facultatif · `!` requis · `:index` indexé",
+    "  nom:type[?][:index|:unique]  NON-NULL par défaut · `?` facultatif",
     "  types  string(n) text int float bool json date uuid char(n) decimal(p,s)",
     "  liens  ref:<Entité>          une clé étrangère vers une autre entité",
     "  enum   status:enum(draft,published)",
@@ -243,7 +243,7 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "controller et tests",
     synopsis: [
       "nodefony create entity <Nom> [champ…] [options]",
-      'nodefony create entity <Nom> --fields "titre:string! vues:int"',
+      'nodefony create entity <Nom> --fields "titre:string vues:int"',
     ],
     writes: [
       "l'entité décorée et son repository, un service CRUD, un controller " +
@@ -258,7 +258,7 @@ const TYPE_DOC: Record<TScaffoldType, ITypeDoc> = {
       "pour un appel programmatique, et les positionnels l'emportent.",
     examples: [
       {
-        term: "nodefony create entity Post titre:string! contenu:text vues:int",
+        term: "nodefony create entity Post titre:string contenu:text vues:int",
         text: "une ressource REST complète, avec ses tests",
       },
       {

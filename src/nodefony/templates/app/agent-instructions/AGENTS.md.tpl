@@ -50,7 +50,7 @@
 | Module applicatif (workspace npm)                                                                       | `npx nodefony create module <nom>`                                                               |
 | Controller HTTP **et** WebSocket (même classe)                                                          | `npx nodefony create controller <nom> --kind hello\|rest\|realtime\|duplex\|example`             |
 | Controller **réservé à une habilitation** — garde de classe + rôle déclaré dans la hiérarchie           | `npx nodefony create controller <nom> --role ROLE_X`                                             |
-| Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string! price:float"`                            |
+| Ressource REST **complète** — entité + service + controller CRUD + tests (ne JAMAIS l'écrire à la main) | `npx nodefony create entity <Nom> --fields "sku:string:unique price:float"`                      |
 | Service métier seul — la logique réutilisable, hors de tout controller                                  | `npx nodefony create service <Nom> [--inject <AutreService>] [--module <m>]`                     |
 | Frontend Vite — page, formulaire de connexion et temps réel LIVRÉS                                      | `npx nodefony create front <nom> --frontend <<%= it.frontendEngines %>> [--module <m>]`        |
 | Commande CLI `nodefony <module>:<action>`                                                               | `npx nodefony create command <action> [--module <m>] [--phase onReady\|onRegister\|onPostReady]` |
@@ -76,7 +76,7 @@ en JSON), `--answers-json <fichier|->` (réponses en JSON), `--dry-run` (plan et
 diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
 Les champs d'une entité se déclarent en positionnels :
-`npx nodefony create entity Post title:string! views:int=0 status:enum(draft,published) slug:string:index author:ref:User`.
+`npx nodefony create entity Post title:string views:int=0 status:enum(draft,published) slug:string:unique author:ref:User`.
 Le `!` interdit le nul, le `?` l'autorise, `:index` pose l'index, `=<valeur>` fixe
 la valeur par défaut, `enum(a,b)` borne les valeurs admises, et
 `ref:<Entité>` crée la colonne de jointure **avec** son index. Les types portent
@@ -264,7 +264,17 @@ un module qui implémente `getMcpTools()` expose son métier, pas la plomberie (
 scopes : `node_modules/@nodefony/devkit/docs/index.md`). C'est une ROUTE : démarre l'app
 D'ABORD, ta session ENSUITE.
 
-<% if (it.hasSecurity) { %>🔴 **La PROVENANCE d'une requête n'est pas une PREUVE D'INTENTION — une mutation exige
+<% if (it.hasSecurity) { %>🔴 **La session est DÉJÀ servie — n'écris pas un controller de compte.** Trois
+routes existent, et elles sont montées par `@nodefony/framework`, PAS par `@nodefony/security`
+(le chemin porte le nom du module qui décrit la sécurité, pas de celui qui sert les routes —
+c'est le piège) : `POST /nodefony/security/api/auth/login` (`{username, password}` → pose le
+cookie de session), `GET /nodefony/security/api/auth/me` (**qui est connecté**, avec ses rôles)
+et `POST /nodefony/security/api/auth/logout` (idempotent). Mesuré sur un agent tiers : faute de
+trouver `me`, il a généré un controller `Account` entier pour refaire une route qui existait, et
+lui a fallu cinq recherches pour trouver `logout`. Le rechargement d'une page (F5) se restaure
+avec `me`, jamais avec un état gardé côté navigateur.
+
+🔴 **La PROVENANCE d'une requête n'est pas une PREUVE D'INTENTION — une mutation exige
 `@CsrfProtect`.** Le raisonnement qui vient, et qui est faux : « le firewall vérifie déjà
 `Sec-Fetch-Site`, donc une écriture est protégée ». Ces en-têtes sont posés par un
 NAVIGATEUR ; un programme qui parle en HTTP n'en envoie aucun, et la défense de provenance
@@ -331,6 +341,7 @@ Celles qu'on n'invente pas, faute de savoir qu'elles existent :
 <% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]`
 - Créer un **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
 <% } %><% if (it.hasOrm) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate`
+- **En développement, écrire ET appliquer d'un geste** — `npx nodefony orm:generate --apply`
 - **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n]`
 - **La base est-elle à jour ?** — `npx nodefony orm:migrate:status` — **0** = à jour,
   **1** = en retard : ta barrière de déploiement
