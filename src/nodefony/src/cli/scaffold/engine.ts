@@ -820,7 +820,19 @@ function renderProjectAgents(
   written: string[],
   writer: ScaffoldWriter,
 ): void {
-  const tplDir = path.join(packageRoot, "templates", "app", "agents");
+  // Le dossier des gabarits s'appelle `agent-instructions/` et NON `agents/` :
+  // il ne produit aucun dossier de ce nom dans l'application. Ce qu'il rend est
+  // une PORTE (`AGENTS.md`), des POINTEURS aux emplacements que chaque outil
+  // fixe, et des fragments injectés dans la porte — rien d'autre n'atterrit à la
+  // racine de l'utilisateur. Un dossier de gabarits qui porte le nom de ce qu'il
+  // ne pose plus fait chercher, dans une application, quelque chose qui n'y est
+  // pas.
+  const tplDir = path.join(
+    packageRoot,
+    "templates",
+    "app",
+    "agent-instructions",
+  );
   const agentsPath = path.join(projectRoot, "AGENTS.md");
   // La porte cliente du moteur CHOISI, et son exemple. Le fragment est du
   // markdown pur (pas un `.tpl`) : il entre tel quel, et le contrôle de tag
@@ -908,7 +920,12 @@ export function writeAgentPointers(
   if (pointeurs.length === 0) {
     return [];
   }
-  const tplDir = path.join(findPackageRoot(), "templates", "app", "agents");
+  const tplDir = path.join(
+    findPackageRoot(),
+    "templates",
+    "app",
+    "agent-instructions",
+  );
   const template = readFileSync(path.join(tplDir, "POINTEUR.md.tpl"), "utf8");
   // 🔴 `ETA_OPTIONS`, jamais une option recomposée : `autoTrim: false` en fait
   // partie, et l'oublier ici AVALAIT la ligne vide qui suit le titre. Le
