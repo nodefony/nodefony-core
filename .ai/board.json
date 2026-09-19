@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T19:49:52.386Z",
+  "generatedAt": "2026-09-19T20:06:00.679Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 126,
+      "closed": 127,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 6,
+      "open": 5,
       "title": "10.0.0-alpha"
     },
     {
@@ -4486,8 +4486,8 @@
       "number": 80,
       "title": "chore(pilotage): confronter au code les cases de la feuille de route",
       "url": "https://github.com/nodefony/nodefony-core/issues/80",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
