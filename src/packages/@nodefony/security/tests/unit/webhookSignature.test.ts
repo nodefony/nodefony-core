@@ -13,6 +13,15 @@ import {
  */
 
 // Vecteur officiel : github.com/standard-webhooks/standard-webhooks (spec §verify).
+//
+// 🔴 Le scan de secrets de GitHub le signale comme « Stripe Webhook Signing
+// Secret », et c'est un FAUX POSITIF : Stripe a co-écrit Standard Webhooks, donc
+// il en partage le préfixe `whsec_`. Cette chaîne est PUBLIÉE — elle figure telle
+// quelle dans des centaines de dépôts publics, dont celui de la spec et
+// `svix/svix-webhooks`. Elle n'appartient à aucun compte, il n'y a rien à
+// révoquer, et la REMPLACER casserait le seul test qui prouve notre conformité
+// normative (la signature attendue ci-dessous en dérive). L'alerte est close en
+// `used_in_tests` : si elle revient, ne pas la « corriger », la refermer.
 const SECRET = "whsec_MfKQ9r8GKYqrTwjUPD8ILPZIo2LaLaSw";
 const MSG_ID = "msg_p5jXN8AQM9LWM0D4loKWxJek";
 const TS = 1614265330;

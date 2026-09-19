@@ -34,6 +34,7 @@ import {
 } from "node:fs";
 import MarkdownIt from "markdown-it";
 import { highlight, STYLE_CODE } from "./markdown-highlight.mjs";
+import { sansBalises } from "./lib/html-text.mjs";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -306,7 +307,7 @@ function readmeSansDoublons() {
       .trim();
   const titre = (bloc) => {
     const m = /<h2[^>]*>([\s\S]*?)<\/h2>/.exec(bloc);
-    return m ? norme(m[1].replace(/<[^>]+>/g, "")) : null;
+    return m ? norme(sansBalises(m[1])) : null;
   };
   const inconnus = [];
   const gardes = morceaux.filter((bloc) => {
