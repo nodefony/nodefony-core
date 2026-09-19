@@ -2,6 +2,7 @@
 adr: 7
 title: ClientKernel isomorphe — geler le contrat runtime client du framework (design only)
 lang: fr
+navTitle: ClientKernel isomorphe
 date: 2026-07-03
 status: accepted
 deciders: [Christophe CAMENSULI]

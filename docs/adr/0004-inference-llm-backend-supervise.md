@@ -2,6 +2,7 @@
 adr: 4
 title: Inférence LLM — backend supervisé, jamais embarquée dans le cœur
 lang: fr
+navTitle: Inférence LLM
 date: 2026-05-29
 status: accepted
 deciders: [Christophe CAMENSULI]

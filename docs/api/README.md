@@ -1,6 +1,7 @@
 ---
 title: "API souveraine par construction — vision & POC (DRAFT)"
 lang: fr
+navTitle: API souveraine
 module: "global"
 topic: api-souveraine
 audience: [developer]

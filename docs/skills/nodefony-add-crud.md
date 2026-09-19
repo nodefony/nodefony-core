@@ -1,5 +1,6 @@
 ---
 title: "nodefony-add-crud — fiche de skill"
+navTitle: nodefony-add-crud
 lang: fr
 audience: humain
 topic: skills

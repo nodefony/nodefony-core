@@ -1,10 +1,11 @@
 ---
 title: "nodefony-multipod-bench — fiche de skill"
+navTitle: nodefony-multipod-bench
 lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-11
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-multipod-bench/SKILL.md"
 ---

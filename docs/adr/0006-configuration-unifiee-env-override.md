@@ -2,6 +2,7 @@
 adr: 6
 title: Configuration unifiée — une source Zod par module + override env générique NF__* + précédence
 lang: fr
+navTitle: Configuration unifiée
 date: 2026-06-28
 status: accepted
 deciders: [Christophe CAMENSULI]

@@ -2,6 +2,7 @@
 adr: 2
 title: Schéma DB plateforme conférence WebRTC (mediasoup) — banc de test ORM + cible P15
 lang: fr
+navTitle: Schéma conférence WebRTC
 date: 2026-05-21
 status: accepted
 deciders: [Christophe CAMENSULI]

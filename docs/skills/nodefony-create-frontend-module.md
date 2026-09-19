@@ -1,5 +1,6 @@
 ---
 title: "nodefony-create-frontend-module — fiche de skill"
+navTitle: nodefony-create-frontend-module
 lang: fr
 audience: humain
 topic: skills

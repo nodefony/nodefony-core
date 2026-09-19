@@ -1,5 +1,6 @@
 ---
 title: "nodefony-roadmap — fiche de skill"
+navTitle: nodefony-roadmap
 lang: fr
 audience: humain
 topic: skills

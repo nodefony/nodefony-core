@@ -1,5 +1,6 @@
 ---
 title: "nodefony-devkit-bench — fiche de skill"
+navTitle: nodefony-devkit-bench
 lang: fr
 audience: humain
 topic: skills

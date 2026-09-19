@@ -1,6 +1,7 @@
 ---
 title: "Campagnes versionnées — ce qui a été éprouvé, et ce qui ne l'a pas été"
 lang: fr
+navTitle: Campagnes versionnées
 module: "global"
 topic: qualite-data
 section: "Qualité"

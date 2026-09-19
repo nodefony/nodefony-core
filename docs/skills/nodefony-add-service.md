@@ -1,10 +1,11 @@
 ---
 title: "nodefony-add-service — fiche de skill"
+navTitle: nodefony-add-service
 lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-add-service/SKILL.md"
 ---

@@ -1,10 +1,11 @@
 ---
 title: "nodefony-add-realtime-channel — fiche de skill"
+navTitle: nodefony-add-realtime-channel
 lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-add-realtime-channel/SKILL.md"
 ---

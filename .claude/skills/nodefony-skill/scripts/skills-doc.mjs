@@ -673,6 +673,10 @@ function renderSkill(s) {
   const firstSentence = s.description.split(/(?<=[.!?])\s/)[0];
   L.push("---");
   L.push(`title: "${s.name} — fiche de skill"`);
+  // Le `title` porte « — fiche de skill » pour qui lit la page ; le MENU, lui, est une
+  // colonne étroite, et `doc-lint` refuse au-delà de 32 caractères. Le nom du skill est
+  // déjà le libellé que le lecteur cherche : il fait le navTitle sans rien perdre.
+  L.push(`navTitle: ${s.name}`);
   L.push("lang: fr");
   L.push("audience: humain");
   L.push("topic: skills");
@@ -1006,6 +1010,7 @@ function renderIndex(list) {
   const L = [];
   L.push("---");
   L.push('title: "Fiches des skills — index généré"');
+  L.push("navTitle: Fiches des skills");
   L.push("lang: fr");
   L.push("audience: humain");
   L.push("topic: skills");

@@ -88,6 +88,18 @@ const REQUIRED_ADR = [
   { key: "décision", re: /^##\s+(?:\S+\s+)?D[eé]cision/im },
   { key: "conséquences", re: /^##\s+(?:\S+\s+)?Cons[eé]quences/im },
 ];
+// 5ᵉ RÉGIME — une page GÉNÉRÉE. Elle se reconnaît au champ `generated:` de son
+// frontmatter, qui nomme le script producteur ; `source:` nomme ce qu'il faut corriger.
+// Ce qu'on lui demande est ce qu'un GÉNÉRATEUR peut tenir : une identité, une source, et
+// des liens vivants. Ce qu'on ne lui demande PAS — lexique, pièges, inventaire de tests,
+// compteur de couverture, ancres `fichier:ligne` — n'est pas une faveur : ces sections
+// devraient être ÉCRITES DANS la page, or la page est réécrite à chaque régénération et
+// toute main y est effacée. Le gate y exigeait donc l'impossible, sur 34 fiches à la fois,
+// soit les deux tiers de ses rouges — et un gate qui échoue toujours pour de mauvaises
+// raisons finit ignoré, y compris le jour où il a raison (même motif que le régime index).
+// Ce qui manque à une page générée se corrige dans SON SCRIPT, jamais dans la page.
+const REQUIRED_GENERATED = [];
+
 // Le cycle de vie d'une décision. `superseded`/`deprecated` sont ce qui remplace la
 // SUPPRESSION : un ADR périmé garde sa valeur (il dit pourquoi on avait tranché ainsi),
 // seul son statut change. Un statut hors liste est une décision au cycle de vie inconnu.
@@ -166,6 +178,9 @@ for (const f of files) {
   const isAdr =
     /^\d{4}-(?!\d{2}-\d{2}-)/.test(path.basename(f)) ||
     /^adr:\s*\d+/im.test(src);
+  // Une page générée le DÉCLARE (`generated: <script>`) — on ne le déduit ni du chemin ni
+  // du nom, qui changeraient au prochain producteur.
+  const isGenerated = Boolean(fm.generated);
 
   // 1) Frontmatter minimal (convention A). Un index de dossier ne porte pas les champs de
   // publication (`title`/`updated`/`source`) : il n'est ni rendu, ni versionné comme une page.
@@ -173,9 +188,11 @@ for (const f of files) {
   // (`updated` serait un contresens), et il engage quelqu'un (`deciders`).
   for (const k of isAdr
     ? ["adr", "title", "date", "status", "deciders"]
-    : isIndexReadme
-      ? ["module", "topic", "audience", "status"]
-      : ["title", "topic", "audience", "updated", "source", "status"]) {
+    : isGenerated
+      ? ["title", "topic", "audience", "status", "generated", "source"]
+      : isIndexReadme
+        ? ["module", "topic", "audience", "status"]
+        : ["title", "topic", "audience", "updated", "source", "status"]) {
     if (!fm[k]) errs.push(`frontmatter manquant: ${k}`);
   }
   if (isAdr && fm.status && !ADR_STATUS.test(fm.status))
@@ -215,13 +232,15 @@ for (const f of files) {
   // 2) Sections obligatoires (un régime par nature de page).
   const required = isIndexReadme
     ? []
-    : isAdr
-      ? REQUIRED_ADR
-      : isHub
-        ? REQUIRED_HUB
-        : isLexique
-          ? REQUIRED_LEXIQUE
-          : REQUIRED;
+    : isGenerated
+      ? REQUIRED_GENERATED
+      : isAdr
+        ? REQUIRED_ADR
+        : isHub
+          ? REQUIRED_HUB
+          : isLexique
+            ? REQUIRED_LEXIQUE
+            : REQUIRED;
   for (const r of required)
     if (!r.re.test(src)) errs.push(`section manquante: ${r.key}`);
 
@@ -241,7 +260,8 @@ for (const f of files) {
     isHub ||
     isLexique ||
     isIndexReadme ||
-    isAdr;
+    isAdr ||
+    isGenerated;
   if (!testsOptOut) {
     if (!TESTS_HEADING.test(src))
       errs.push("section « Tests » manquante (ou `tests: none` si justifié)");

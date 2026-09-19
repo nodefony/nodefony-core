@@ -1,10 +1,11 @@
 ---
 title: "nodefony-migrate-schema — fiche de skill"
+navTitle: nodefony-migrate-schema
 lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-11
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-migrate-schema/SKILL.md"
 ---

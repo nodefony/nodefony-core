@@ -1,5 +1,6 @@
 ---
 title: "nodefony-dev — fiche de skill"
+navTitle: nodefony-dev
 lang: fr
 audience: humain
 topic: skills

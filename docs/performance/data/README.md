@@ -1,6 +1,7 @@
 ---
 title: "Mesures versionnées — un chiffre attaché à sa version"
 lang: fr
+navTitle: Mesures versionnées
 module: "global"
 topic: perf-data
 section: "Performance"

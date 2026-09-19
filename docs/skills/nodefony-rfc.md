@@ -1,10 +1,11 @@
 ---
 title: "nodefony-rfc — fiche de skill"
+navTitle: nodefony-rfc
 lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-rfc/SKILL.md"
 ---

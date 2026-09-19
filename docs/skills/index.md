@@ -1,5 +1,6 @@
 ---
 title: "Fiches des skills — index généré"
+navTitle: Fiches des skills
 lang: fr
 audience: humain
 topic: skills

@@ -2,6 +2,7 @@
 adr: 3
 title: Architecture orm-core — abstraction Repository multi-ORM (risques & garde-fous)
 lang: fr
+navTitle: Architecture orm-core
 date: 2026-05-21
 status: accepted
 deciders: [Christophe CAMENSULI]

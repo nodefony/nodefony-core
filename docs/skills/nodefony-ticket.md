@@ -1,5 +1,6 @@
 ---
 title: "nodefony-ticket — fiche de skill"
+navTitle: nodefony-ticket
 lang: fr
 audience: humain
 topic: skills

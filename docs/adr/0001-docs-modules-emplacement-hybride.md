@@ -2,6 +2,7 @@
 adr: 1
 title: Docs des modules — emplacement hybride + versionnement frontmatter/git
 lang: fr
+navTitle: Docs des modules
 date: 2026-05-20
 status: accepted
 deciders: [Christophe CAMENSULI]

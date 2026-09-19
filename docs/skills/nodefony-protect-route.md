@@ -1,5 +1,6 @@
 ---
 title: "nodefony-protect-route — fiche de skill"
+navTitle: nodefony-protect-route
 lang: fr
 audience: humain
 topic: skills

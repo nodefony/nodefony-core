@@ -1,6 +1,7 @@
 ---
 title: "Performance — mesures et rapports"
 lang: fr
+navTitle: Performance
 module: "global"
 topic: performance-index
 section: "Performance"
