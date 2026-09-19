@@ -890,6 +890,23 @@ export function renderStatus(report: IMigrationReport, style: IStyle): string {
     out += renderDivergence(report.divergence, style);
   }
   out += `\n${renderBlocks(style, report.summary, meaningOf(report.verdict), report.nextActions)}`;
+  // 🔴 DIRE le sens du code de sortie, parce que « 1 » se lit « échec » partout
+  // ailleurs. Notre table est délibérée — 0 à jour, 1 action REQUISE, 2 la
+  // commande n'a pas pu travailler — et elle ne bougera pas : des passes de
+  // déploiement s'arrêtent dessus (`orm:migrate:status --json || exit 1`).
+  // Mais elle vivait dans un seul TSDoc, qui traverse vers les `.d.ts` et le
+  // graphe symbolique et n'atteint JAMAIS celui qui tape la commande.
+  //
+  // Vécu : après une réparation réussie, `orm:migrate:repair` affiche
+  // « ✓ historique réparé » et rend 1 — puisqu'il reste à appliquer. Un agent a
+  // lu ce 1 comme un échec, relancé `migrate`, re-réparé, cinq fois de suite.
+  // Le geste suivant était pourtant déjà à l'écran : c'est le CODE qui mentait
+  // à la lecture, pas la sortie. Une ligne suffit à lever l'ambiguïté.
+  if (report.exitCode === EXIT.actionRequired) {
+    out += `\n${style.dim("code de sortie 1 — une action est requise, ce n'est pas un échec.")}\n`;
+  } else if (report.exitCode === EXIT.error) {
+    out += `\n${style.dim("code de sortie 2 — la commande n'a pas pu travailler.")}\n`;
+  }
   return out;
 }
 
