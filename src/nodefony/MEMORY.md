@@ -260,7 +260,7 @@ rien à redéclarer.
   `nodefony_inspect` et répondre à sa place.
 - 🔴 **Un résultat est une RÉPONSE, pas un déversement** — `mcpText` borne à
   `MCP_TEXT_MAX_CHARS` (32 000). Au-delà : un tableau rend son `count` EXACT puis
-  ses entrées en SURFACE (`surfaceDe` : scalaires courts gardés, objets/tableaux
+  ses entrées en SURFACE (`surfaceOf` : scalaires courts gardés, objets/tableaux
   imbriqués et longues chaînes jetés) ; un objet rend ses `keys`. **En deçà, la
   donnée part TELLE QUELLE** — aucun consommateur à retoucher, et la garde n'est
   pas payée sur le cas courant. Garder TOUTES les entrées en surface, jamais un
@@ -318,23 +318,23 @@ rien à redéclarer.
 
 Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
 
-| Fichier           | Rôle                                                                                                                                                                      |
-| ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `runCheck.ts`     | COLLECTE (`collectDoctorReport`) + ligne de commande + `renderDoctorReport` (rendu + code) + `attachLive`. Ne met rien en forme.                                          |
-| `report.ts`       | Primitives PURES : `IExecution`, `DoctorFamily`, `TITRES`, `FAMILLES`, `COUNTED_FAMILIES`, `countFindings`, `controlesSautes`, `preventedChecks`, palette, repli, accord. |
-| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                                     |
-| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                                                 |
+| Fichier           | Rôle                                                                                                                                                                    |
+| ----------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `runCheck.ts`     | COLLECTE (`collectDoctorReport`) + ligne de commande + `renderDoctorReport` (rendu + code) + `attachLive`. Ne met rien en forme.                                        |
+| `report.ts`       | Primitives PURES : `IExecution`, `DoctorFamily`, `TITRES`, `FAMILLES`, `COUNTED_FAMILIES`, `countFindings`, `skippedChecks`, `preventedChecks`, palette, repli, accord. |
+| `renderReport.ts` | `rendreRapport(report, opts) → string[]`. PUR : largeur, couleur et instant INJECTÉS.                                                                                   |
+| `live.ts`         | ÉTAGE 2 (`collectLiveReport`) : interroge les producteurs `IAdminApi` de l'app démarrée. Ne calcule RIEN.                                                               |
 
 - **Un contrôle rend DEUX choses** : ses `findings`, et son `execution` (`{ran, reason, short, unlock}`).
   Une liste vide ne vaut quitus que si `ran` est vrai — c'est la moitié du
   diagnostic que « 0 manquement » ne dit pas. Familles : `freshness`,
   `readiness`, `envCatalog` (sous-règle de `readiness`), `deps`, `wiring`,
   `migrations` et `firewall` (étage 2).
-- `envCatalog` NE se rapporte PAS quand `readiness` est déjà sauté (`controlesSautes`
+- `envCatalog` NE se rapporte PAS quand `readiness` est déjà sauté (`skippedChecks`
   dédoublonne) : sinon le bilan chiffré ne colle plus aux lignes affichées.
 - **Le rendu produit le document ENTIER avant d'écrire** : c'est ce qui permet
   d'aligner sur le plus long titre, de regrouper les sautés par raison
-  (`grouperParRaison`) et de faire tenir le bilan sur une ligne — ou de l'empiler.
+  (`groupByReason`) et de faire tenir le bilan sur une ligne — ou de l'empiler.
 - **Couleur = `doitColorer(env, isTTY)`** (`NO_COLOR` gagne, puis `FORCE_COLOR`,
   sinon TTY). `clc` émet TOUJOURS (`validateStream: false`) : c'est ici que la
   porte se ferme, pas dans `colors.ts`.
@@ -358,7 +358,7 @@ Quatre fichiers, quatre responsabilités qui ne se mélangent pas :
   `--strict` (armé d'office par `CI`) faisait échouer `doctor` dans toute chaîne
   automatisée, application générée comprise.
 - **UN SEUL compte** : `countFindings` (`report.ts`) sert le code de sortie, le
-  bilan chiffré et MCP ; `nombreDeControlesPasses` itère `COUNTED_FAMILIES`.
+  bilan chiffré et MCP ; `passedCheckCount` itère `COUNTED_FAMILIES`.
   Les deux avaient été écrits en dur ailleurs et ont divergé au premier ajout —
   le sommaire montrait deux échecs quand le bilan en annonçait un.
 - **3 portes, 1 rapport** : CLI (fast-path `CliKernel`), `--json`, MCP

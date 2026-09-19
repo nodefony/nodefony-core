@@ -42,8 +42,8 @@ started → preRegistered → registered → booted → ready → postReady
 - `renderReport.ts` = document PUR (largeur/couleur/instant injectés). Grille : item colonne 4,
   contenu colonne 7 (`ITEM`/`CORPS`). Ordre : en-tête → bandeau de verdict → ÉTAT → PROBLÈMES →
   NON CONTRÔLÉ → DERNIERS DÉMARRAGES → À FAIRE ENSUITE → bilan.
-- Convention du GESTE : un message de contrôle porte `… → commande`. `separerGeste` le détache,
-  le rendu le pose sous un `▸` sans accents graves, et `aFaireEnsuite` le dédoublonne. Un geste
+- Convention du GESTE : un message de contrôle porte `… → commande`. `splitAction` le détache,
+  le rendu le pose sous un `▸` sans accents graves, et `nextActions` le dédoublonne. Un geste
   noyé dans la phrase n'apparaît NI sous le chevron NI dans la liste finale.
 - `IExecution.onDemand` : NON DEMANDÉ (`--live`) ≠ EMPÊCHÉ. Seul l'empêchement pèse sur le code
   de sortie en mode strict ; les deux restent affichés (ni l'un ni l'autre n'est un quitus).
@@ -385,7 +385,7 @@ Règles :
 
 - **Le corps d'un refus appartient au producteur, jamais à la porte.** Un 404 « section inconnue »
   joint le plan de la page ; le résumer en « introuvable » fait conclure que la page n'existe pas.
-  `InspectResult.body` le porte ; MCP (`mcpEchecAdmin`, borné 4 ko) et CLI `inspect` le rendent.
+  `InspectResult.body` le porte ; MCP (`mcpAdminFailure`, borné 4 ko) et CLI `inspect` le rendent.
 - **Panne ≠ refus.** Un handler qui lève est notifié par `onServerError` — ne pas le deviner depuis
   un 500, qu'un producteur peut rendre lui-même. Une 4xx portée par `nodefonyError` est une faute
   du CLIENT : restituée telle quelle, jamais journalisée.

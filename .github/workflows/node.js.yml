@@ -488,6 +488,24 @@ jobs:
           tr '\n' '\0' < /tmp/pages-publiees.txt \
             | xargs -0 node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs
 
+      # Les fichiers d'INSTRUCTIONS (`CLAUDE.md`, `MEMORY.md`) décrivent le code à
+      # un agent, et rien ne les relisait quand le code bougeait. L'étage
+      # ci-dessus ne peut pas les couvrir : il reçoit les pages PUBLIÉES, dont
+      # ces fichiers ne font pas partie — d'où une étape à part, et le drapeau
+      # `--instructions` qui ne garde que ce régime.
+      # Le gate ne mord que sur un identifiant FRANÇAIS absent du code : il a
+      # forcément été renommé (le dépôt s'interdit d'en écrire) et la page ne l'a
+      # pas suivi. Mesuré avant de le resserrer : sur 55 symboles absents, 49
+      # étaient des mentions légitimes — un retrait énoncé, un travail futur, un
+      # nom emprunté. Les signaler aurait appris à passer outre.
+      - name: Gate — symboles cités par les fichiers d'instructions
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: |
+          node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs
+          node .claude/skills/nodefony-documentation/scripts/doc-lint.mjs --instructions \
+            src/nodefony src/packages/@nodefony src/modules
+
       # Les ancres INTERNES (`](#une-section)`) : un sommaire mort ne se voit pas
       # à la lecture du Markdown, seulement au clic. Le slug est calculé par la
       # MÊME règle que `DocToc.slugifyHeading()` du portail ; les faire diverger a

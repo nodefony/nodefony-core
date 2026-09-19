@@ -439,7 +439,7 @@ inconnue en nommant celles qui existent (exit `64`), jamais en l'ignorant.
 
 ⚠️ **Ce que le code de sortie ne dit pas.** Mesuré : `gemini mcp remove nodefony` répond « not found
 in project settings », **sort en 0**, et laisse l'entrée que `gemini mcp add` venait d'écrire. Le
-verdict se prend donc au CONSTAT — la commande de lecture de l'agent (`argvListe`), relancée après
+verdict se prend donc au CONSTAT — la commande de lecture de l'agent (`argvList`), relancée après
 le geste : porte encore là après un retrait ⇒ état `sans-effet`, dit tel quel. Sans lecture possible
 (Vibe n'a pas de `mcp list`), on ne prétend rien.
 

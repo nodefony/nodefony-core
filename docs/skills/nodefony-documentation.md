@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-11
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -27,12 +27,12 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | --- | --- |
 | Version | `3.0.0` |
 | Famille | Développer le framework |
-| Corps | 469 lignes |
-| Coût d'activation | ~7 930 tokens (le corps est chargé à l'invocation) |
+| Corps | 471 lignes |
+| Coût d'activation | ~8 082 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 8 |
+| Scripts | 10 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -87,8 +87,10 @@ script, donc toujours à jour après régénération.
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
 | `scripts/corpus.mjs` | Dossiers qu'on ne descend jamais. | — | — |
-| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--show-toplevel` | `COVERAGE` `NAV_MAX` |
+| `scripts/doc-lint.mjs` | doc-lint.mjs — Definition of Done mécanique pour la doc Nodefony. | `--instructions` `--list` `--show-toplevel` | `COVERAGE` `NAV_MAX` |
 | `scripts/gen-counters.mjs` | gen-counters.mjs — génère les compteurs `coverage/tests.<topic>.json` en COMPTANT | `--show-toplevel` | — |
+| `scripts/symboles.mjs` | Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`, | — | — |
+| `scripts/symboles.selftest.mjs` | Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que | — | — |
 | `lib/slug-heading.mjs` | Slug d'un titre de page — la SEULE implémentation côté Node. | — | — |
 
 **Invocation telle que documentée dans chaque script :**
@@ -99,6 +101,7 @@ Usage : node anchor-inpage.mjs <page.md ...>
 Usage : node code-check.mjs <page.md ...>
 Usage : node doc-lint.mjs /tmp/corpus/*.md
 Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
+`@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs
 ```
 
 **Toutes les variables lues par ce skill** : `APPLY` · `COVERAGE` · `NAV_MAX` · `NF_BOOT_TIMEOUT_MS`
@@ -122,7 +125,7 @@ Usage : node gen-counters.mjs [topic...]   (sans args : tous les topics)
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 469 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 471 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

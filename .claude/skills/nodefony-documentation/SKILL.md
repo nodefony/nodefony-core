@@ -306,6 +306,8 @@ le module évolue. Ce qui compte pour qui écrit de la doc ou touche au site :
 | `scripts/anchor-fix.mjs` | **RÉPARE** les ancres SUSPECT : relit la sortie d'`anchor-check` sur stdin et recale chaque ancre sur la LIGNE DE DÉFINITION du symbole qu'elle cite. Sans `--apply` = simulation. |
 | `scripts/anchor-inpage.mjs <page.md>` | **Ancres INTERNES** : chaque `](#section)` mène-t-il à un titre de la page ? (sommaires morts) |
 | `scripts/code-check.mjs <page.md>` | **Compilabilité** : extrait les blocs du « Démarrage rapide » et les compile en TS strict |
+| `scripts/doc-lint.mjs --instructions <racines>` | **Dérive des fichiers d'INSTRUCTIONS** (`CLAUDE.md`, `MEMORY.md`) : un identifiant FRANÇAIS qu'ils citent et que le code ne porte plus a forcément été renommé — la page ne l'a pas suivi. Dictionnaire emprunté à `check:lang` (jamais une copie). Ne mord PAS sur un symbole anglais absent : mesuré, 49 sur 55 étaient des retraits énoncés, des travaux futurs ou des noms empruntés |
+| `scripts/symboles.selftest.mjs` | Éprouve ce contrôle : il doit attraper un identifiant français disparu ET se taire sur un retrait annoncé. Lancé par la forge avec le gate |
 | `scripts/gen-counters.mjs [topic]` | Compteurs de tests **comptés réellement** depuis `scripts/test-map.json` (JAMAIS de photo figée) |
 | `scripts/build-docs-site.mjs --only <page.md>` | Aperçu d'UNE page, rendu par le moteur du SITE — donc l'aperçu EST ce qui sera publié |
 

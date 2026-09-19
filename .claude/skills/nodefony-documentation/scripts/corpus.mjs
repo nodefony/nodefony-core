@@ -60,3 +60,28 @@ export const resoudreCorpus = (cibles) =>
   cibles.flatMap((c) =>
     fs.existsSync(c) && fs.statSync(c).isDirectory() ? pagesDe(c) : [c],
   );
+
+/**
+ * Les fichiers d'INSTRUCTIONS sous un dossier : `CLAUDE.md` et `MEMORY.md`.
+ *
+ * Ils sont volontairement hors du corpus rendu par `pagesDe` — ils s'adressent
+ * à qui travaille dans le dépôt, pas au lecteur du portail, et n'ont ni
+ * frontmatter ni sections imposées. Ils ont en revanche une exigence qui leur
+ * est propre : les symboles qu'ils citent doivent exister.
+ *
+ * @param dir - dossier de départ.
+ * @returns les chemins des fichiers d'instructions, triés.
+ */
+export const instructionsDe = (dir) =>
+  fs
+    .readdirSync(dir, { withFileTypes: true })
+    .flatMap((e) => {
+      const abs = path.join(dir, e.name);
+      if (e.isDirectory()) {
+        return e.name.startsWith(".") || IGNORES.has(e.name)
+          ? []
+          : instructionsDe(abs);
+      }
+      return e.name === "CLAUDE.md" || e.name === "MEMORY.md" ? [abs] : [];
+    })
+    .sort();

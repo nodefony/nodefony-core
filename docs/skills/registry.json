@@ -2066,8 +2066,8 @@
       ],
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
-        "bodyLines": 469,
-        "approxTokens": 7930
+        "bodyLines": 471,
+        "approxTokens": 8082
       },
       "requires": [],
       "resources": {
@@ -2172,6 +2172,14 @@
             ],
             "options": [
               {
+                "flag": "--instructions",
+                "help": ""
+              },
+              {
+                "flag": "--list",
+                "help": ""
+              },
+              {
                 "flag": "--show-toplevel",
                 "help": ""
               }
@@ -2201,6 +2209,26 @@
                 "help": ""
               }
             ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/symboles.mjs",
+            "purpose": "Dérive des SYMBOLES cités par les fichiers d'instructions (`CLAUDE.md`,",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/symboles.selftest.mjs",
+            "purpose": "Éprouve le contrôle de dérive des symboles : il doit ATTRAPER un symbole que",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-documentation/scripts/symboles.selftest.mjs"
+            ],
+            "options": [],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -2287,7 +2315,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "469",
+            "detail": "471",
             "advisory": true
           }
         ]

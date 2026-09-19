@@ -4,7 +4,8 @@
 // Usage : node doc-lint.mjs /tmp/corpus/*.md
 import fs, { readFileSync, existsSync } from "node:fs";
 import path from "node:path";
-import { resoudreCorpus } from "./corpus.mjs";
+import { resoudreCorpus, instructionsDe } from "./corpus.mjs";
+import { indexerIdentifiants, symbolesFantomes } from "./symboles.mjs";
 
 // Les compteurs sont des ARTEFACTS régénérables (gen-counters.mjs) → tmp/doc-work/.
 import { execSync } from "node:child_process";
@@ -12,14 +13,20 @@ const REPO = execSync("git rev-parse --show-toplevel", {
   encoding: "utf8",
 }).trim();
 const COVERAGE = path.join(REPO, "tmp/doc-work/coverage");
-const cibles = process.argv.slice(2);
+// `--instructions` ne garde que le régime des `CLAUDE.md`/`MEMORY.md`. La forge
+// en a besoin : son étage « pages publiées » reçoit une liste que
+// `build-docs-site.mjs --list` produit, et les fichiers d'instructions n'en font
+// PAS partie — brancher le contrôle sans ce drapeau l'aurait laissé ne jamais
+// tourner, ce qui est la façon la plus discrète de n'avoir aucun gate.
+const seulementInstructions = process.argv.includes("--instructions");
+const cibles = process.argv.slice(2).filter((a) => a !== "--instructions");
 if (!cibles.length) {
   console.error("usage: node doc-lint.mjs <fichier.md|dossier ...>");
   process.exit(2);
 }
 
-const files = resoudreCorpus(cibles);
-if (!files.length) {
+const files = seulementInstructions ? [] : resoudreCorpus(cibles);
+if (!files.length && !seulementInstructions) {
   console.error(`aucune page .md sous : ${cibles.join(", ")}`);
   process.exit(2);
 }
@@ -336,6 +343,41 @@ for (const f of files) {
 }
 
 console.log("\n=== doc-lint — Definition of Done ===\n");
+
+// ── Régime « instructions » — `CLAUDE.md` et `MEMORY.md` ──────────────────────
+// Ces fichiers ne sont pas des pages du portail : ni frontmatter, ni sections
+// imposées, ni ancres. Ils portent une exigence qui leur est propre — les
+// symboles qu'ils citent doivent exister. Rien ne les relisait quand le code
+// bougeait, si bien qu'un composant supprimé y restait décrit, et qu'un agent
+// le cherchait dans un dépôt qui ne l'avait plus.
+const instructions = [
+  ...new Set(
+    cibles.flatMap((c) => {
+      if (!existsSync(c)) return [];
+      if (fs.statSync(c).isDirectory()) return instructionsDe(c);
+      const n = path.basename(c);
+      return n === "CLAUDE.md" || n === "MEMORY.md" ? [c] : [];
+    }),
+  ),
+];
+
+if (instructions.length) {
+  // L'index coûte une lecture de toutes les sources : ne le payer que s'il sert.
+  const index = indexerIdentifiants(path.join(REPO, "src"));
+  for (const f of instructions) {
+    const fantomes = symbolesFantomes(readFileSync(f, "utf8"), index);
+    if (fantomes.length) failed++;
+    report.push([
+      f,
+      fantomes.map(
+        (nom) =>
+          `symbole \`${nom}\` cité, absent de tout le code source — le corriger, ` +
+          `le retirer, ou dire en toutes lettres qu'il est retiré`,
+      ),
+    ]);
+  }
+}
+
 // Le nom court se lit mieux… tant qu'il désigne UNE page. Or `README.md` et `index.md` se
 // répètent d'un dossier à l'autre : un rapport de sept lignes « ❌ README.md » ne dit pas
 // lequel réparer. Les noms ambigus DANS CE LOT passent donc en chemin relatif au dépôt.
