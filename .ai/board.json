@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T18:55:30.109Z",
+  "generatedAt": "2026-09-19T19:19:19.735Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,14 +35,14 @@
       "closed": 126,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 4,
+      "open": 6,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 19,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 37,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -4483,6 +4483,22 @@
       ]
     },
     {
+      "number": 80,
+      "title": "chore(pilotage): confronter au code les cases de la feuille de route",
+      "url": "https://github.com/nodefony/nodefony-core/issues/80",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 10,
+      "debut": "2026-09-20",
+      "cible": "2026-09-20",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 138,
       "title": "feat(orm): poser les contraintes d'intégrité des relations",
       "url": "https://github.com/nodefony/nodefony-core/issues/138",
@@ -4528,6 +4544,22 @@
       "cible": "2026-11-06",
       "labels": [
         "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 384,
+      "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/384",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 11,
+      "debut": "2026-09-21",
+      "cible": "2026-09-21",
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {
@@ -5001,38 +5033,6 @@
       "cible": null,
       "labels": [
         "10.0.0"
-      ]
-    },
-    {
-      "number": 80,
-      "title": "chore(pilotage): confronter au code les cases de la feuille de route",
-      "url": "https://github.com/nodefony/nodefony-core/issues/80",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 32,
-      "debut": "2026-11-12",
-      "cible": "2026-11-12",
-      "labels": [
-        "10.0.0-beta"
-      ]
-    },
-    {
-      "number": 384,
-      "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
-      "url": "https://github.com/nodefony/nodefony-core/issues/384",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 32.5,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
-      "labels": [
-        "10.0.0-beta"
       ]
     },
     {
