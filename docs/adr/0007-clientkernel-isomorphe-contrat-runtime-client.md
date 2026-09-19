@@ -455,7 +455,7 @@ ferait du kernel un moule du legacy Studio.
 | -------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | **A. Transplanter le Kernel serveur dans le navigateur** | Routeur/firewall/ORM/serveurs n'ont pas d'existence navigateur ; le Kernel back pèse et suppose un process. L'isomorphisme de Nodefony = même modèle mental, pas même binaire.                                            |
 | **B. DI à décorateurs côté client**                      | `reflect-metadata` + metadata emit = poids et complexité sans gain vs composition explicite ; contredit la décision Studio éprouvée (cf. la décision Studio citée plus haut) ; l'injector est déjà exclu du build client. |
-| **C. Package séparé `@nodefony/client`**                 | Déjà tranché (2026-05-21, [[project_client_lib_subpaths_decision]]) : subpaths du core = tree-shaking par entry, couplage de version = avantage (type-safety end-to-end), 1 package à maintenir (solo). P13.3 supprimé.   |
+| **C. Package séparé `@nodefony/client`**                 | Déjà tranché : subpaths du core = tree-shaking par entry, couplage de version = avantage (type-safety end-to-end), 1 package à maintenir (solo). P13.3 supprimé.                                                          |
 | **D. Statu quo — chaque app garde sa glue**              | C'est le drift qu'on tue : 1 511 lignes non réutilisables, `ApiClient` à réécrire par app, et une règle de sécurité (D9) dont la présence dépend du copier-coller. Inacceptable une fois le contrat publié.               |
 | **E. Framework front complet (routing/rendu possédés)**  | Ligne rouge D1 : se battre contre React/Vue/Angular est perdu d'avance ; la valeur de Nodefony côté client est l'infra (socket, api, observabilité, identité), pas la vue.                                                |
 | **F. Implémenter maintenant (pas design only)**          | La Phase 0 release a un chemin critique (0.6 revue realtime, 0.7 Dockerfile DoD) ; le contrat suffit à stopper le drift et ne bloque personne. L'implémentation sans consommateur neuf (debug-client) serait spéculative. |
@@ -508,7 +508,6 @@ ferait du kernel un moule du legacy Studio.
   `src/nodefony/src/kernel/MEMORY.md:40` (hooks lifecycle back).
 - ADR : [0003](0003-orm-core-abstraction-repository-multi-orm.md) (abstraction par contrat),
   [0006](0006-configuration-unifiee-env-override.md) (augmentation de module typée, format spec).
-- Mémoires IA : `project_realtime_nodefony_socket_vision` (North Star socket, contrat d'abord) ·
-  `project_client_lib_subpaths_decision` (subpaths, règles de fer, audit B/C) ·
-  `project_release_nodefony10` (modèle B, DoD) · session 2026-06-29 (vision ClientKernel affinée).
+- Le protocole de la socket : [`@nodefony/realtime` — protocole](../../src/packages/@nodefony/realtime/docs/protocole.md).
+- Le contrat client livré : `src/nodefony/src/client/`.
 - Release : `docs/release/nodefony-10.md` §6bis (pipeline pack, smoke test de parité).

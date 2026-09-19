@@ -30,8 +30,7 @@ portable) **plutôt qu'Active Record** (l'entité se persiste elle-même). Raiso
 permettre de **changer d'ORM sans réécrire le métier** et, accessoirement, de
 faire cohabiter plusieurs stores (SQL + Mongo + Redis) derrière la même API.
 Inspiration : Doctrine/Symfony (liaison entity↔repository + DI), NestJS/TypeORM
-(syntaxe décorateurs), Fowler/DDD (concept). Cf mémoires IA
-`project_decisions_p5_p6_orm`, `project_p5_3_kit`.
+(syntaxe décorateurs), Fowler/DDD (concept).
 
 État à la rédaction : le **squelette** est livré et testé (22 tests unit verts),
 mais **aucun adapter réel ne tourne encore** → l'abstraction n'est pas validée
@@ -239,7 +238,6 @@ typés, #4 repo tx-aware). ADR clôturé côté design ; reste l'industrialisati
 ## Liens
 
 - ADR-0002 (schéma banc de test mediasoup) — fournit le cas dur (User↔Room).
-- Mémoires IA : `project_decisions_p5_p6_orm`, `project_p5_3_kit`,
-  `project_mediasoup_test_db`.
+- [ADR-0008](0008-orm-drizzle-reference-sequelize-retire.md) — quel driver instancie ce contrat, et lesquels ont été retirés.
 - Code : `src/packages/@nodefony/orm-core/` (interfaces, `nodefony/src/`,
   `nodefony/src/decorators/`).

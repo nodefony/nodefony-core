@@ -206,4 +206,25 @@ describe("corpus — navigation interne", () => {
       "mod~security~index",
     );
   });
+
+  // Un ADR qui délègue son raisonnement à une mémoire d'IA non versionnée est
+  // illisible pour qui clone le dépôt — et c'est le reproche principal qu'un audit
+  // extérieur a fait à ce projet : « une décision d'architecture d'un logiciel
+  // libre ne peut pas dépendre d'un contexte privé ». Cinq ADR sur sept portaient
+  // quatorze de ces renvois ; ils ont été remplacés par des sources du dépôt. Sans
+  // cette garde, le prochain ADR écrit en session les réintroduit, parce que la
+  // mémoire est précisément ce que l'auteur a sous la main au moment d'écrire.
+  it("ne laisse aucun ADR déléguer son raisonnement hors du dépôt", () => {
+    const adrDir = join(REPO, "docs/adr");
+    const fautifs: Record<string, string[]> = {};
+    for (const nom of readdirSync(adrDir)) {
+      if (!nom.endsWith(".md")) continue;
+      const texte = readFileSync(join(adrDir, nom), "utf8");
+      // `project_<slug>` et `core-dev/<...>` sont les deux formes que prennent les
+      // fiches de la mémoire d'IA, qui vit hors du dépôt (`~/.claude/…`).
+      const trouves = texte.match(/project_[a-z0-9_]+|core-dev\/[\w./-]+/g);
+      if (trouves) fautifs[nom] = [...new Set(trouves)];
+    }
+    expect(fautifs).toEqual({});
+  });
 });

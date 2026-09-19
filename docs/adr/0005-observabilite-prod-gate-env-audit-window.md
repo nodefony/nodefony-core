@@ -112,5 +112,4 @@ Pour debugger en prod **sans** payer le volume en permanence : un **bouton « Au
 - Règle perf+mémoire ABSOLUE : `CLAUDE.md` racine (§ PERF & MÉMOIRE).
 - Classification d'étape isomorphe : `src/nodefony/src/syslog/drivers/pduFlow.ts` (`pduFlowStep`).
 - Filtres structurés `protocol`/`flow` : `filterPdus` + `ILogQueryCriteria` + `SyslogAdminApi`.
-- Mémoires IA : `project_log_audit_window_vision`, `project_request_tracking_page_vision`,
-  `project_log_backplane_vision`.
+- Le journal et ses transports : `src/nodefony/docs/syslog.md`, code `src/nodefony/src/syslog/`.

@@ -13,8 +13,8 @@ tags: [orm, orm-core, mediasoup, schema, p5, p15]
 ## Statut
 
 Accepté (2026-05-21). Superséde l'usage des entités legacy `nodefony-mediasoup`
-(`User`/`Room`/`Calendar`/`Events`) comme référence — voir mémoire IA
-`project_mediasoup_test_db`.
+(`User`/`Room`/`Calendar`/`Events`) comme référence — le schéma qui en est tiré vit dans
+`src/modules/mediasoup/`, qui sert de banc de test à l'ORM.
 
 ## Contexte
 
@@ -192,7 +192,7 @@ requis).
 
 ## Liens
 
-- Mémoire IA `project_mediasoup_test_db` (cartographie legacy)
-- `project_decisions_realtime_isomorphic` (P15 mediasoup + SIP)
-- `project_nodefony_user_module` (P5.5), `project_decisions_p5_p6_orm`
-- ADR-0001 (placement docs)
+- Le schéma vivant : `src/modules/mediasoup/` (banc de test de l'ORM).
+- [ADR-0010](0010-identite-iuser-module-user-separe.md) — le contrat `IUser` que `User` réalise ici.
+- [ADR-0003](0003-orm-core-abstraction-repository-multi-orm.md) — l'abstraction que ce schéma éprouve (cas dur `User`↔`Room`).
+- [ADR-0001](0001-docs-modules-emplacement-hybride.md) — placement des docs.

@@ -189,5 +189,5 @@ deep-merge, n'écrit que ses **écarts**, et son devops surcharge par `NF__*`/`*
 - Veille modèles : Spring Boot (external config, relaxed binding, starters), Symfony (bundle
   `Configuration`, deep-merge, secrets vault), .NET Core (`Section__Key`), Grafana (`GF_<SECTION>_<KEY>`),
   Docker official images (`docker-entrypoint.sh`, `file_env`), 12-factor (factor III + ses limites).
-- Mémoires IA : `project_config_clarity_chantier_kit`, `project_config_chantier_defineconfig_kit`.
+- La recette côté utilisateur : [`docs/guides/configuration.md`](../guides/configuration.md).
 - Règle perf/mémoire ABSOLUE (override résolu 1× au boot, 0 coût hot path) : `CLAUDE.md` racine.
