@@ -126,8 +126,16 @@ scaffold_app() { # nom dir preset frontend [database]
   local name="$1" dir="$2" preset="$3" front="$4" db="${5:-}"
   local db_opt=()
   [ -n "$db" ] && db_opt=(--database "$db")
+  # 🔴 `"${db_opt[@]+"${db_opt[@]}"}"` et non `"${db_opt[@]}"` : sous `set -u`,
+  # le bash 3.2 que macOS livre encore traite un tableau VIDE comme une variable
+  # non définie et tue le script — `db_opt[@]: unbound variable` —, là où bash 5
+  # (linux, la forge) rend zéro argument sans broncher. Ce banc est l'outil de
+  # DIAGNOSTIC d'une publication : il tombait donc à sa première étape sur le
+  # poste du mainteneur, précisément quand la forge venait de rougir et qu'on
+  # voulait rejouer vite. La forme d'expansion conditionnelle vaut sur les deux
+  # versions, et n'ajoute aucun argument quand le tableau est vide.
   "$NODEFONY_BIN" create app "$name" --dir "$dir" --yes \
-    --preset "$preset" --frontend "$front" "${db_opt[@]}" \
+    --preset "$preset" --frontend "$front" "${db_opt[@]+"${db_opt[@]}"}" \
     --no-install --no-git > "$WORK/.scaffold-$name.out" 2>&1 \
     || { tail -30 "$WORK/.scaffold-$name.out"; fail "nodefony create app ($preset/$front${db:+/db=$db})"; }
   assert_app_conforme "$dir" "nodefony create app"
