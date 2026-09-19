@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T15:06:51.934Z",
+  "generatedAt": "2026-09-19T16:06:47.028Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,14 +32,14 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 125,
+      "closed": 126,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 5,
+      "open": 4,
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 17,
+      "closed": 18,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
       "open": 37,
@@ -4486,8 +4486,8 @@
       "number": 138,
       "title": "feat(orm): poser les contraintes d'intégrité des relations",
       "url": "https://github.com/nodefony/nodefony-core/issues/138",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -4556,8 +4556,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 12,
-      "debut": "2026-09-25",
-      "cible": "2026-09-25",
+      "debut": "2026-09-21",
+      "cible": "2026-09-21",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -4637,8 +4637,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 13,
-      "debut": "2026-09-28",
-      "cible": "2026-09-28",
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "rattrapable",
         "10.0.0-alpha"
@@ -4866,8 +4866,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 20,
-      "debut": "2026-09-29",
-      "cible": "2026-09-29",
+      "debut": "2026-09-23",
+      "cible": "2026-09-23",
       "labels": [
         "arbitrage",
         "10.0.0-alpha"
@@ -5212,6 +5212,22 @@
       ]
     },
     {
+      "number": 433,
+      "title": "test(devkit): sauter le banc MCP quand le port répond pour une autre application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/433",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 46.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 351,
       "title": "fix(bundler): garder le framework hors du bundle d'un module",
       "url": "https://github.com/nodefony/nodefony-core/issues/351",
@@ -5301,8 +5317,8 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 55,
-      "debut": "2026-10-02",
-      "cible": "2026-10-02",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "10.0.0-alpha"
       ]

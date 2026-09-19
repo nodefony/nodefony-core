@@ -450,6 +450,14 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19e] 🔴 **J'ai édité les sources PENDANT ma propre campagne `test:all`, et j'ai
+  fabriqué 5 rouges que j'ai failli imputer au code.** La règle « ne jamais éditer les fichiers
+  qu'un run est en train de lire » est écrite, je venais de la lire au RESUME du jour — et turbo a
+  rebâti les `dist` au milieu des tests, produisant un `Cannot find module
+'@nodefony/security/dist/index.js'` qui a aussi empêché le serveur de démarrer, donc la suite
+  d'intégration de tourner. Relancée sur un arbre stable : 12 échecs → 7. Le geste qui manque n'est
+  pas une relecture, c'est une barrière — un run long occupe l'arbre, et rien ne le dit.
+
 - [1× — 09-19d] 🔴 **J'ai écrit un identifiant de production EN FRANÇAIS le jour où je venais de
   lire la règle qui l'interdit.** `DEJA_DANS_L_ETAT_VISE` dans `DrizzleMigrator.ts`, plus `valeur`
   / `exemple` dans `create.ts` — alors que le `CLAUDE.md` du dépôt ET le skill `framework-dev`
@@ -520,6 +528,18 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-19e] 🔴 **Une sonde de décor qui constate une DISPONIBILITÉ n'a rien constaté : deux
+  campagnes de suite ont rendu 7 rouges parce qu'une AUTRE application tenait le port.** Le banc MCP
+  avait pourtant sa garde (`describe.skipIf`), et elle fonctionnait : elle demandait « quelque chose
+  répond-il sur 5151 ? », à quoi l'application voisine du user répondait oui. Les assertions ont donc
+  porté sur une application qui n'a aucune raison de déclarer les outils du dépôt, et le message
+  d'échec parlait d'un outil manquant — jamais du fait qu'on interrogeait quelqu'un d'autre. J'ai
+  d'abord soupçonné mon propre diff, ce qui était juste, puis il a fallu arrêter l'application
+  voisine pour voir 17/17. Le remède (#433) est que la sonde demande son NOM à l'application
+  (`nodefony_card` → `app.name`, comparé au manifeste racine) : une identité, pas un code HTTP.
+  Ce que `start.sh` faisait déjà, lui, en refusant de tuer le runtime d'un autre projet — et c'est
+  son refus, pas la sonde, qui a fini par nommer la cause.
 
 - [1× — 09-19c] ✅ **Le contre-exemple, et il vaut d'être gardé : une sonde qui DÉCLARE d'avance
   le résultat qui la condamnerait rend son verdict lisible le jour où il tombe.** La sonde
