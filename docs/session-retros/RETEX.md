@@ -413,6 +413,15 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19] 🔴 **Le TSDoc montrait la bonne forme, l'agent l'avait LU, il a écrit l'autre.**
+  Session réelle d'un agent tiers : `ChatController.ts:37-45` porte l'exemple
+  `RealtimeClient.shared({ url: "/api/live/realtime" })` — URL relative, façade résolvant seule le
+  schéma. Il a ouvert ce fichier, puis composé dans sa page
+  `location.protocol === "https:" ? "wss:" : "ws:"` — ce que `RealtimeClient.ts:335-339` fait déjà —
+  et coupé la socket PARTAGÉE en croyant libérer son abonnement. La correction n'a pas été
+  d'écrire mieux la prose : c'est le GABARIT de la page qui manquait l'exemple. Un exemple agit
+  dans le fichier qu'on ÉDITE ; à côté, il informe.
+
 - [1× — 09-19] 🔴 **Le skill que je venais de charger disait NOIR SUR BLANC de ne pas conclure d'un
   silence — j'ai conclu « le banc est figé ».** `nodefony-devkit-bench` porte l'avertissement en
   toutes lettres (« il suit un fichier, la sortie arrive par à-coups ») ; dix minutes plus tard, un
@@ -454,6 +463,21 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-19] 🔴 **Un juge qui s'ABSTIENT passe pour inoffensif — il ne garde rien.**
+  `gate-porte-client.mjs` est inscrit dans la tâche 0 du banc devkit depuis toujours. Sans moteur
+  front au manifeste il sort en code `2` — « l'INSTRUMENT ne sait pas quoi exiger, pas l'agent » —
+  donc il ne rendait JAMAIS de verdict, et l'énoncé ne demandait aucune page. Un juge nommé dans la
+  liste, compté dans les sondes, et muet depuis sa création : le run affichait PASS. L'abstention
+  est plus discrète que le rouge ET que le vert — elle ne se voit ni dans le verdict ni dans le
+  compte. Ce qui l'a révélé : avoir cherché ce qu'il ferait AVANT de le croire utile.
+
+- [1× — 09-19] 🔴 **Mon motif a attrapé la PROSE qui interdit ce qu'il cherchait.** Un gate neuf
+  refusait `new WebSocket` dans le code généré ; il tombait rouge sur le gabarit CONFORME, parce
+  que celui-ci écrit « aucun `new WebSocket` à la main » dans son propre commentaire. Une assertion
+  qui cherche une mauvaise pratique par son NOM trouve d'abord la documentation qui l'interdit.
+  Resserrée sur l'appel (`new WebSocket(`, parenthèse comprise). Vaut pour tout gate de style :
+  le texte qui proscrit un motif contient le motif.
 
 - [1× — 09-19] 🔴 **J'ai ouvert un ticket qui qualifiait de BUG une convention délibérée.** #429
   affirmait que `orm:migrate:repair` et `orm:migrate:status --json` mentaient sur leur code de
