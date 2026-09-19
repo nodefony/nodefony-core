@@ -5175,6 +5175,128 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertNoEtaResidue(dest);
     });
 
+    it("🔴 rend la page de `create app` — la liaison du moteur, pas un compteur muet", () => {
+      // La MÊME page a été tenue en deux rédactions : la vitrine de
+      // `create app --frontend`, qui montre la liaison temps réel du moteur, et
+      // un squelette de dix-huit lignes rendu ici, qui n'en montrait rien.
+      // Mesuré sur une session réelle (agent tiers) : parti du squelette,
+      // l'agent a recomposé à la main la résolution d'URL que `RealtimeClient`
+      // fait déjà (`src/client/realtime/RealtimeClient.ts`), puis a coupé la
+      // socket PARTAGÉE de la page en croyant libérer son abonnement. Il avait
+      // pourtant lu le TSDoc du controller qui montrait la bonne forme : un
+      // exemple de CODE dans le fichier qu'on édite agit, la prose à côté non.
+      const cas = [
+        ["react", "nodefony/react"],
+        ["vue", "nodefony/vue"],
+        ["svelte", "nodefony/svelte"],
+        ["angular", "nodefony/angular"],
+      ] as const;
+      for (const [frontend, liaison] of cas) {
+        const dest = path.join(tmp, `fvitrine-${frontend}`);
+        scaffold(dest, {
+          name: `fv${frontend}`,
+          preset: "complete",
+          frontend: "none",
+        });
+        front(dest, { name: "board", frontend });
+        // Tout ce que l'utilisateur ouvrira : la politique s'installe dans le
+        // point de montage pour Vue, Angular et Svelte, et dans la page pour
+        // React (`NodefonyProvider`). Le test exige la LIAISON, pas son
+        // emplacement — sinon il gèlerait un détail propre à un moteur.
+        const dir = path.join(dest, "frontend", "src");
+        const rendu = readdirSync(dir, { recursive: true, withFileTypes: true })
+          .filter((e) => e.isFile())
+          .map((e) => readFileSync(path.join(e.parentPath, e.name), "utf8"))
+          .join("\n");
+        assert.include(
+          rendu,
+          liaison,
+          `${frontend} : la page générée n'importe pas la liaison du framework`,
+        );
+        // La parenthèse vise l'APPEL : les gabarits nomment aussi
+        // « new WebSocket » en PROSE, pour dire de ne pas l'écrire — une
+        // assertion sur le mot seul tombe sur le commentaire qui l'interdit.
+        assert.notInclude(
+          rendu,
+          "new WebSocket(",
+          `${frontend} : une socket à la main là où la façade existe`,
+        );
+        // La marque et la feuille de style que la page importe doivent être
+        // POSÉES : sans elles la page générée ne compile pas.
+        for (const f of ["brand.ts", "showcase.css", "accent.css"]) {
+          assert.isTrue(
+            existsSync(path.join(dir, f)),
+            `${frontend} : manque frontend/src/${f}`,
+          );
+        }
+        assertNoEtaResidue(dest);
+      }
+    });
+
+    it("🔴 câble le bundle de production dans `npm run build`", () => {
+      // Le gabarit du manifeste ne pose `&& nodefony frontend:build` que si
+      // l'application naît AVEC un front. Créée sans, puis enrichie ici, elle
+      // ne bâtissait jamais ses assets — invisible en développement, où Vite
+      // sert la page, et découvert en production seulement, là où plus aucun
+      // serveur de développement ne rattrape.
+      const dest = path.join(tmp, "fbuildwire");
+      scaffold(dest, {
+        name: "fbuildwire",
+        preset: "complete",
+        frontend: "none",
+      });
+      const avant = readJson(path.join(dest, "package.json"));
+      assert.notInclude(
+        String((avant["scripts"] as Record<string, string>)["build"]),
+        "frontend:build",
+        "décor : l'app témoin doit naître SANS l'étape front",
+      );
+      front(dest, { name: "board", frontend: "react" });
+      const apres = readJson(path.join(dest, "package.json"));
+      assert.include(
+        String((apres["scripts"] as Record<string, string>)["build"]),
+        "&& nodefony frontend:build",
+        "le bundle de production du front n'entre pas dans `npm run build`",
+      );
+      // Ce que l'utilisateur avait déjà dans son script reste devant.
+      assert.include(
+        String((apres["scripts"] as Record<string, string>)["build"]),
+        "rolldown",
+      );
+    });
+
+    it("la capacité se CONSTATE dans le manifeste — sans realtime, pas de promesse", () => {
+      // `create front` ne connaît pas le preset qui a fait l'application : il
+      // lit ce qu'elle PORTE. Une page qui s'abonnerait à un canal absent
+      // afficherait « connexion » sans fin — un faux exemple apprend à se
+      // méfier du générateur, ce qui coûte plus cher que de ne rien montrer.
+      const dest = path.join(tmp, "fvitrine-sans-rt");
+      scaffold(dest, {
+        name: "fvsansrt",
+        preset: "complete",
+        frontend: "none",
+      });
+      const manifest = path.join(dest, "package.json");
+      const pkg = readJson(manifest) as Record<
+        string,
+        Record<string, string> | undefined
+      >;
+      delete pkg["dependencies"]?.["@nodefony/realtime"];
+      delete pkg["devDependencies"]?.["@nodefony/realtime"];
+      writeFileSync(manifest, JSON.stringify(pkg, null, 2));
+      front(dest, { name: "board", frontend: "vue" });
+      const dir = path.join(dest, "frontend", "src");
+      const rendu = readdirSync(dir, { recursive: true, withFileTypes: true })
+        .filter((e) => e.isFile())
+        .map((e) => readFileSync(path.join(e.parentPath, e.name), "utf8"))
+        .join("\n");
+      assert.notInclude(
+        rendu,
+        "nodefony/vue",
+        "sans @nodefony/realtime, la page ne doit pas s'abonner à un canal",
+      );
+    });
+
     it("module local : la brique de l'app est POSÉE en peer, pas réclamée à la main", () => {
       // Régression mesurée sur un agent tiers : la garde refusait dès que
       // `@nodefony/frontend` manquait à la CIBLE. Un module local est un

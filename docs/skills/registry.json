@@ -346,8 +346,8 @@
       ],
       "description": "Scaffold d'un module à frontend SPA (React 19, Vue 3, Angular 21, Svelte 5) servi par @nodefony/frontend via Vite, DANS LE REPO FRAMEWORK (src/modules/). Dans une APPLICATION, le scaffold est une commande — `nodefony create module <nom> --frontend <fw>` — et ce skill se contente d'y renvoyer : il ne réimplémente pas le CLI. Wrapper de nodefony-create-module : délègue le squelette puis enrichit le spécifique frontend (controller HTML+CSP, registerEntry, entry+App du framework, peerDeps). Déclencheurs : \"crée un module frontend\", \"module react\", \"module vue\", \"module angular\", \"module svelte\", \"scaffold module avec front\", \"nouveau front nodefony\", \"module vite\".",
       "cost": {
-        "bodyLines": 254,
-        "approxTokens": 3850
+        "bodyLines": 257,
+        "approxTokens": 3938
       },
       "requires": [],
       "resources": {
@@ -421,7 +421,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "254",
+            "detail": "257",
             "advisory": true
           }
         ]
@@ -1231,6 +1231,10 @@
               },
               {
                 "flag": "--dry-run",
+                "help": ""
+              },
+              {
+                "flag": "--frontend",
                 "help": ""
               },
               {

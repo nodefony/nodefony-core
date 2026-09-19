@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-11
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 ---
@@ -27,8 +27,8 @@ source: ".claude/skills/nodefony-create-frontend-module/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Développer le framework |
-| Corps | 254 lignes |
-| Coût d'activation | ~3 850 tokens (le corps est chargé à l'invocation) |
+| Corps | 257 lignes |
+| Coût d'activation | ~3 938 tokens (le corps est chargé à l'invocation) |
 | Description | 669 / 1024 caractères |
 | Déclencheurs | 8 |
 | Ressources `references/` | 1 page(s) |
@@ -94,7 +94,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 254 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 257 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

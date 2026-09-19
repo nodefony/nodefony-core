@@ -36,8 +36,11 @@ nodefony create front dashboard --module shop    # une page de plus, sur un modu
 
 `create module --frontend X` pose le workspace npm PUIS délègue au scaffold `front` : coquille HTML,
 entry du framework, controller de page (nonce CSP), `registerEntry` dans `onKernelBoot`, deps npm du
-framework. Templates réels : `src/nodefony/templates/front/` + `templates/shared/front-shell/`
-(source UNIQUE, partagée avec `create app`). Le tableau de paramètres par framework ci-dessous vaut
+framework. Templates réels : `templates/app/frontend/` (la PAGE et sa marque — le même gabarit
+que `create app --frontend`, une seule rédaction), `templates/front/base/` (le controller de page),
+`templates/shared/front-shell|front-entry|front-registrar/` (coquille, montage, déclaration d'entry).
+La page rendue montre la liaison temps réel du moteur (`nodefony/react|vue|svelte|angular`) dès que
+l'application porte `@nodefony/realtime` et `@nodefony/security` — constaté dans les manifestes. Le tableau de paramètres par framework ci-dessous vaut
 comme RÉFÉRENCE de lecture — mais dans une app, ne rends rien à la main.
 
 Ce que l'IA apporte en plus : le choix du framework, la vérification post-build (transform Vite,

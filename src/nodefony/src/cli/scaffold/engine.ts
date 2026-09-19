@@ -4740,6 +4740,28 @@ function runFrontScaffold(
   const route = String(answers.route) || `/${kebab}`;
   const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
+  // La page rendue ici est la MÊME que celle de `create app --frontend` : une
+  // seule rédaction, donc une seule à corriger. Elle a été tenue en deux
+  // exemplaires — une vitrine qui montrait la liaison temps réel du moteur, et
+  // un squelette de dix-huit lignes qui n'en montrait rien — si bien qu'un
+  // agent parti de `create front` recomposait à la main une résolution d'URL
+  // que `RealtimeClient` fait déjà, et coupait la socket PARTAGÉE de la page en
+  // croyant libérer son abonnement.
+  //
+  // Ce que la page MONTRE dépend de ce que l'application porte VRAIMENT : une
+  // capacité se CONSTATE dans les manifestes, elle ne se déduit pas d'un preset
+  // que cette commande ne connaît pas. L'union des deux manifestes est la bonne
+  // lecture — la cible peut être un module workspace, qui résout depuis l'arbre
+  // de l'application sans rien installer pour lui-même. Sans `@nodefony/
+  // realtime` ni `@nodefony/security`, la page se rabat sur ses preuves de base
+  // plutôt que d'afficher des cartes qui ne répondront jamais.
+  const reachableDeps = new Set([
+    ...targetDeps,
+    ...readAppDependencyNames(projectRoot, writer),
+  ]);
+  const complete =
+    reachableDeps.has("@nodefony/realtime") &&
+    reachableDeps.has("@nodefony/security");
   const data = {
     nameClass,
     pascal,
@@ -4751,6 +4773,8 @@ function runFrontScaffold(
     front,
     // Titre de la coquille HTML (même clé que `create app`).
     appName: target.name,
+    // Même drapeau que `create app`, pour la même page (cf ci-dessus).
+    complete,
   };
   const tokens = { __NAME__: nameClass, __PASCAL__: pascal };
   renderLayer(
@@ -4781,9 +4805,38 @@ function runFrontScaffold(
     writer,
     tokens,
   );
+  // Marque et feuille de style de la page — couche PARTAGÉE avec `create app`.
+  // Seul le sous-dossier `frontend/` est rendu : `app/frontend/shared` porte
+  // aussi le controller de page de l'app, et `create front` a le sien, nommé.
+  // `renderLayer` pousse des chemins RELATIFS à SA source : rendre ce
+  // sous-dossier dans `frontend/` annoncerait « src/brand.ts » là où
+  // l'utilisateur ouvrira « frontend/src/brand.ts ». On recale les seules
+  // entrées que cette couche ajoute — la liste affichée est la carte que
+  // l'utilisateur suit ensuite, un chemin faux l'envoie chercher ailleurs.
+  const brandLayerStart = written.length;
   renderLayer(
     eta,
-    path.join(packageRoot, "templates", "front", frontend),
+    path.join(
+      packageRoot,
+      "templates",
+      "app",
+      "frontend",
+      "shared",
+      "frontend",
+    ),
+    path.join(target.dir, "frontend"),
+    data,
+    written,
+    writer,
+    tokens,
+  );
+  for (let i = brandLayerStart; i < written.length; i += 1) {
+    written[i] = path.join("frontend", written[i] as string);
+  }
+  // La page du moteur — MÊME gabarit que `create app --frontend` (source unique).
+  renderLayer(
+    eta,
+    path.join(packageRoot, "templates", "app", "frontend", frontend),
     target.dir,
     data,
     written,
@@ -4856,7 +4909,25 @@ function runFrontScaffold(
   if (addFrontendPeer) {
     addDeps("peerDependencies", { "@nodefony/frontend": "*" });
   }
-  if (added.length > 0) {
+  // Le bundle de PRODUCTION du front doit entrer dans `npm run build`. Le
+  // gabarit du manifeste ne pose `&& nodefony frontend:build` que si l'app naît
+  // AVEC un front (`templates/app/base/package.json.tpl`) : une application
+  // créée sans front puis enrichie ici ne bâtissait jamais ses assets. Rien ne
+  // le disait — en développement Vite sert la page, et le manque n'apparaît
+  // qu'en production, là où il n'y a plus de serveur de développement pour
+  // rattraper. Le script n'est touché que s'il lui manque l'étape, et la
+  // commande y est ajoutée à la FIN : ce que l'utilisateur a écrit avant reste.
+  const scripts = manifest["scripts"];
+  const buildScript = scripts?.["build"];
+  let buildWired = false;
+  if (
+    typeof buildScript === "string" &&
+    !buildScript.includes("frontend:build")
+  ) {
+    scripts["build"] = `${buildScript} && nodefony frontend:build`;
+    buildWired = true;
+  }
+  if (added.length > 0 || buildWired) {
     writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
     written.push("package.json");
   }

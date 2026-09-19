@@ -386,6 +386,17 @@ const SAMPLES = {
     pass: { added: `import { useChannel } from "nodefony/svelte";` },
     fail: { added: `const ws = new WebSocket("wss://localhost:5371/chat");` },
   },
+  // L'échec n'est pas « rien » : c'est une page écrite À LA MAIN. Un agent qui
+  // compose lui-même son `App.vue` a bien rendu une page — la sonde doit
+  // distinguer le geste, pas le résultat.
+  "0 :: a généré la page plutôt que de l'écrire (create front)": {
+    pass: {
+      transcript: `{"command":"npx nodefony create front demo --frontend vue"}`,
+    },
+    fail: {
+      transcript: `{"text":"j'écris frontend/src/App.vue à la main"}`,
+    },
+  },
 
   // ── T1 ────────────────────────────────────────────────────────────────────
   "1 :: a lancé create entity": {

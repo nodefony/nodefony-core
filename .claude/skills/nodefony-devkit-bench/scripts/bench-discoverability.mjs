@@ -1521,7 +1521,8 @@ export const TASKS = [
       "Ce dossier est vide. Crée une application Nodefony pour un service de chat, " +
       `avec \`${commandeCreation(CANAL)}\`. Elle doit exposer une ressource REST ` +
       "« message », un canal temps réel pour recevoir les messages en direct, et la " +
-      "ressource ne doit être accessible qu'à un utilisateur authentifié. Termine en " +
+      "ressource ne doit être accessible qu'à un utilisateur authentifié. Ajoute " +
+      "aussi une page de démonstration. Termine en " +
       "prouvant que l'application démarre et que ses tests passent — montre les " +
       "commandes et leurs réponses, pas une description.",
     probes: [
@@ -1558,6 +1559,21 @@ export const TASKS = [
         pattern: /new\s+WebSocket\(/u,
         where: "added",
         invert: true,
+      },
+      {
+        // L'énoncé demande « une page de démonstration » et RIEN d'autre : ni
+        // moteur, ni commande, ni apparence. C'est le seul endroit du banc où
+        // l'on voit ce qu'un agent CHOISIT quand on ne choisit pas pour lui —
+        // quel moteur, et surtout : génère-t-il la page ou l'écrit-il ?
+        //
+        // OBSERVATION, jamais jugement : écrire une page à la main est une
+        // réponse légitime à un énoncé qui ne demande aucun générateur.
+        // Sanctionner le chemin mesurerait un style ; ce qui est jugé reste
+        // l'application.
+        kind: "transcript",
+        name: "a généré la page plutôt que de l'écrire (create front)",
+        pattern: commandeQuiContient("create\\s+front\\b"),
+        observe: true,
       },
       {
         // 🔴 LE juge des quatre issues. Il TROUVE d'abord l'application — le
