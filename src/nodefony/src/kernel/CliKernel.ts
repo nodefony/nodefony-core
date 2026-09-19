@@ -50,6 +50,7 @@ import {
   type IHelpCommand,
   type IHelpOption,
 } from "../cli/helpReport";
+import { loadProjectScripts, groupProjectScripts } from "../cli/projectScripts";
 import {
   isDoctorCommand,
   runDoctorCommand,
@@ -61,6 +62,7 @@ import { runEnvCommand } from "../cli/env";
 import Card from "./commands/CardCommand";
 import { runCardCommand } from "../cli/card";
 import Symbols from "./commands/SymbolsCommand";
+import Scripts from "./commands/ScriptsCommand";
 import { runSymbolsCommand } from "../cli/symbols";
 import Image from "./commands/ImageCommand";
 import { runImageCheckCommand } from "../cli/image";
@@ -536,6 +538,7 @@ class CliKernel extends Cli {
     this.addCommand(Env);
     this.addCommand(Card);
     this.addCommand(Symbols);
+    this.addCommand(Scripts);
     this.addCommand(Inspect);
     // Standalone servis par le fast-path : ces classes n'existent que pour le
     // help et la complétion (leur `generate()` est un filet) — sans elles, une
@@ -876,6 +879,19 @@ class CliKernel extends Cli {
       .sort((a, b) => a.flags.localeCompare(b.flags));
 
     const loaded = Object.keys(modules).filter((m) => m !== "app");
+    // Les scripts du projet courant, ceux que l'auteur a pris la peine de
+    // décrire. On les lit à CHAQUE affichage : une liste figée au démarrage
+    // mentirait dès le script suivant, et cette aide est précisément ce qu'on
+    // ouvre quand on ne se souvient plus de ce qu'un script fait.
+    const projectScripts = groupProjectScripts(loadProjectScripts()).map(
+      (g) => ({
+        title: g.title,
+        scripts: g.scripts.map((s) => ({
+          flags: s.name,
+          description: s.description as string,
+        })),
+      }),
+    );
     const out = process.stdout;
     const lines = renderHelp(
       {
@@ -884,6 +900,7 @@ class CliKernel extends Cli {
         globalOptions,
         ...(loaded.length ? { modules: loaded } : {}),
         jsonCommands: CliKernel.JSON_COMMANDS,
+        ...(projectScripts.length ? { projectScripts } : {}),
         ...(extra?.note ? { note: extra.note } : {}),
         ...(extra?.noteAction ? { noteAction: extra.noteAction } : {}),
       },

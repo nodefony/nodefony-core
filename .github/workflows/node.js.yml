@@ -180,6 +180,16 @@ jobs:
       - name: Gate — noms de fichiers portables (3 systèmes)
         run: npm run check:filenames
 
+      # `package.json` est du JSON : aucun commentaire n'y est possible, et le
+      # seul indice de ce que fait un script y est son NOM. Sur un dépôt qui en
+      # porte soixante, son auteur ne s'en souvient plus — et un agent qui
+      # découvre le projet ne peut que deviner. Les descriptions vivent dans
+      # `nodefony.scripts` ; ce gate existe parce qu'une liste tenue à la main se
+      # périme en trois semaines. Il refuse aussi une description ORPHELINE, qui
+      # ferait croire à une capacité supprimée depuis.
+      - name: Gate — chaque script npm dit ce qu'il fait
+        run: npm run check:scripts
+
       # Une dépendance absente de la liste `external` d'un rolldown.config est
       # AVALÉE dans le `dist/` publié : l'application en reçoit une copie, et npm
       # lui installe l'autre. Deux copies d'une bibliothèque à état global (un

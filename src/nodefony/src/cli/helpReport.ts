@@ -123,6 +123,25 @@ export interface IHelpModel {
   noteAction?: string;
   /** Les commandes qui répondent en JSON — la phrase de pied pour un agent. */
   jsonCommands?: readonly string[];
+  /**
+   * Les scripts `npm` du projet courant qui portent une description.
+   *
+   * `package.json` est du JSON : il n'accepte aucun commentaire, et le seul
+   * indice de ce que fait un script y est son NOM. Sur un projet qui en porte
+   * soixante, l'auteur lui-même ne s'en souvient plus, et un agent qui découvre
+   * le dépôt ne peut que deviner. Les descriptions déclarées dans
+   * `nodefony.scripts` remontent donc ICI, là où l'on regarde en premier.
+   *
+   * Absent quand rien n'est déclaré : aucune application ne paie une section
+   * qu'elle n'a pas remplie.
+   *
+   * Groupés par USAGE, jamais dans l'ordre du manifeste — celui-ci est l'ordre
+   * de l'écriture, et il fait chercher.
+   */
+  projectScripts?: readonly {
+    readonly title: string;
+    readonly scripts: readonly IHelpOption[];
+  }[];
 }
 
 /** Le décor du rendu — tout ce que ce module refuse d'aller chercher. */
@@ -426,6 +445,44 @@ export function renderHelp(
       lines.push(
         ...input(opt.flags, opt.description, colOpt, width, p, p.strong),
       );
+    }
+  }
+
+  if (model.projectScripts && model.projectScripts.length > 0) {
+    // UNE seule colonne pour toutes les familles : des largeurs différentes
+    // d'un groupe à l'autre donneraient un escalier illisible.
+    const colScript = Math.min(
+      COLUMN_MAX,
+      Math.max(
+        0,
+        ...model.projectScripts.flatMap((g) =>
+          g.scripts.map((s) => s.flags.length),
+        ),
+      ),
+    );
+    for (const [i, group] of model.projectScripts.entries()) {
+      section(`SCRIPTS NPM · ${group.title}`);
+      // Ces lignes ne sont PAS des commandes du framework : les taper après
+      // `nodefony` ne mène nulle part. Le rappel est posé une fois, sous la
+      // première famille — là où le lecteur rencontre la première.
+      if (i === 0) {
+        lines.push(
+          `  ${p.dim("Ils se lancent avec :")} ${p.action("npm run <nom>")}`,
+          "",
+        );
+      }
+      for (const script of group.scripts) {
+        lines.push(
+          ...input(
+            script.flags,
+            script.description,
+            colScript,
+            width,
+            p,
+            p.action,
+          ),
+        );
+      }
     }
   }
 
