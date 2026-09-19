@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-17
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **0/1** recommandé (SHOULD).
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD).
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,17 +27,17 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 725 lignes |
-| Coût d'activation | ~9 678 tokens (le corps est chargé à l'invocation) |
-| Description | 960 / 1024 caractères |
+| Corps | 293 lignes |
+| Coût d'activation | ~4 222 tokens (le corps est chargé à l'invocation) |
+| Description | 992 / 1024 caractères |
 | Déclencheurs | 18 |
-| Ressources `references/` | 2 page(s) |
+| Ressources `references/` | 4 page(s) |
 | Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps.
+Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`.
 
 ## Skills voisins
 
@@ -68,18 +68,6 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 6. Mode module — symboles exportés (`.ai/symbols.json`, O(1))
 - 7. Sortie finale (récap synthétique, ≤ 40 lignes)
 - Anti-patterns START
-- ⚡ END courant = 7 étapes LÉGÈRES (ne PAS faire les stats lourdes)
-- Modèle SAS (pourquoi RETEX.md existe)
-- Boîte à outils CONSOLIDATE — déportée
-- 9. Sauvegarde OBLIGATOIRE (auto-save)
-- 10. Mémoire de reprise (OBLIGATOIRE — c'est ce que lit le mode RESUME)
-- 11. Sauvegarde de la mémoire IA (OBLIGATOIRE — durabilité crash / changement de PC)
-- 1. Compter les retex
-- 2. Lire les sections clés (jq/awk, pas tout le fichier)
-- 3. Patterns récurrents (≥ 3 retex)
-- 4. Produire le PLAN D'ACTION
-- 5. Exécuter (avec accord user)
-- Anti-patterns END / CONSOLIDATE
 - Liens
 
 ## Références (chargées à la demande)
@@ -90,6 +78,8 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
 | `references/migration-audit.md` | Référence — auditer l'avancement de la migration, phase par phase | 451 |
+| `references/mode-consolidate.md` | MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS | 135 |
+| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 334 |
 
 
 ## Scripts embarqués
@@ -144,14 +134,14 @@ node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 960 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 992 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 725 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 293 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

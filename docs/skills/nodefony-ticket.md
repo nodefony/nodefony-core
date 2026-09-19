@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-18
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-ticket/SKILL.md"
 ---
@@ -17,7 +17,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **0/1** recommandé (SHOULD) · 🏷️ `v1.7.0`.
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v1.7.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -27,11 +27,11 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | --- | --- |
 | Version | `1.7.0` |
 | Famille | Autres |
-| Corps | 645 lignes |
-| Coût d'activation | ~11 908 tokens (le corps est chargé à l'invocation) |
+| Corps | 409 lignes |
+| Coût d'activation | ~7 906 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 17 |
-| Ressources `references/` | 5 page(s) |
+| Ressources `references/` | 7 page(s) |
 | Scripts | 15 |
 | Conformité | ✅ conforme au standard |
 
@@ -63,9 +63,8 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 - 2. Le corps — quatre blocs, toujours dans cet ordre
 - 3. Le ticket est un instrument d'ÉCONOMIE — il achète du temps, ou il en coûte
 - 4. Parent et sous-tickets
-- 5. Labels et champs du tableau de bord
-- 6. Créer, ordonner, rattacher
-- 7. Fermer un ticket — le geste est TRIPLE
+- 5. Inscrire, ordonner, dater — et quand prendre un ticket
+- 6. Fermer un ticket — le geste est TRIPLE
 - Pièges vécus
 - Les scripts de ce skill
 - Références (chargées à la demande)
@@ -79,8 +78,10 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/conventional-commits.md` | Conventional Commits 1.0.0 — la spec, hors ligne | 53 |
 | `references/dates.md` | Les dates du tableau de bord — poser, régler, recaler | 69 |
 | `references/economie.md` | Le ticket comme instrument d'économie — le détail | 149 |
+| `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 125 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 187 |
 
 
 ## Scripts embarqués
@@ -140,7 +141,7 @@ node ticket-verify.mjs                       # ancres de tous les tickets ouvert
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ❌ | 645 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 409 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

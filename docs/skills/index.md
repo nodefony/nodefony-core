@@ -38,7 +38,7 @@ source: "docs/skills/index.md"
 [
   { "icon": "🧭", "title": "session", "href": "nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 7 scripts · 📎 2 réf" },
+    "meta": "🟢 conforme · ⚙️ 7 scripts · 📎 4 réf" },
   { "icon": "🧩", "title": "skill", "href": "nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -146,7 +146,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.1.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "devkit-bench", "href": "nodefony-devkit-bench.md",
     "desc": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la…",
-    "meta": "🟢 conforme v1.3.0 · ⚙️ 13 scripts · 📎 5 réf" },
+    "meta": "🟢 conforme v1.3.0 · ⚙️ 13 scripts · 📎 8 réf" },
   { "icon": "🔧", "title": "devops", "href": "nodefony-devops.md",
     "desc": "Porte le déploiement d'une application Nodefony côté FRAMEWORK : les gabarits qui rendent son image, son compose, sa topologie, ses manifestes Kubernetes et sa chaîne d'intégration.",
     "meta": "🟢 conforme v1.0.0" },
@@ -158,7 +158,7 @@ source: "docs/skills/index.md"
     "meta": "🟢 conforme v1.0.0 · 📎 1 réf" },
   { "icon": "🔧", "title": "ticket", "href": "nodefony-ticket.md",
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont…",
-    "meta": "🟢 conforme v1.7.0 · ⚙️ 15 scripts · 📎 5 réf" },
+    "meta": "🟢 conforme v1.7.0 · ⚙️ 15 scripts · 📎 7 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
     "desc": "Crée une ressource complète dans une application Nodefony — table, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, au lieu de l'écrire à la main.",
     "meta": "🟢 conforme" },
@@ -187,7 +187,7 @@ source: "docs/skills/index.md"
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 257 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
-| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 996 | 5 | 13 | ✅ |
+| [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 404 | 8 | 13 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 131 | 0 | 0 | ✅ |
 | [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 469 | 2 | 8 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 397 | 10 | 0 | ✅ |
@@ -202,13 +202,13 @@ source: "docs/skills/index.md"
 | [`nodefony-rfc`](nodefony-rfc.md) | 1.2.0 | 192 | 0 | 1 | ✅ |
 | [`nodefony-roadmap`](nodefony-roadmap.md) | 2.0.0 | 117 | 0 | 0 | ✅ |
 | [`nodefony-security-review`](nodefony-security-review.md) | — | 356 | 0 | 0 | ✅ |
-| [`nodefony-session`](nodefony-session.md) | — | 725 | 2 | 7 | ✅ |
+| [`nodefony-session`](nodefony-session.md) | — | 293 | 4 | 7 | ✅ |
 | [`nodefony-skill`](nodefony-skill.md) | 1.2.0 | 298 | 0 | 3 | ✅ |
 | [`nodefony-start-server`](nodefony-start-server.md) | — | 270 | 0 | 2 | ✅ |
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 187 | 1 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 645 | 5 | 15 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 409 | 7 | 15 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 193 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |

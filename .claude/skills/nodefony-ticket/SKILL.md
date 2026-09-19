@@ -307,282 +307,43 @@ Un ticket qui porte du travail propre n'est **pas** un parent : s'il a un second
 celui-ci devient un ticket **frère** qui le nomme en `Dépend de`, et le premier renvoie vers lui
 dans son « Fini quand ».
 
-## 5. Labels et champs du tableau de bord
+## 5. Inscrire, ordonner, dater — et quand prendre un ticket
 
-|                       |                                                                                                                      |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Jalon**             | `10.0.0` (échéance) · `10.1` (suit par npm) · **aucun jalon** = le backlog, label `backlog`                          |
-| **`irrattrapable`**   | une version suivante ne peut PAS le réparer — dépendance publiée, contrat gelé                                       |
-| **`rattrapable`**     | une 10.0.1 le répare — premier à glisser si la date se tend                                                          |
-| **`arbitrage`**       | une décision à rendre, pas du travail à faire                                                                        |
-| **`Jours`**           | l'estimation, en nombre                                                                                              |
-| **`Priorité`**        | `P0` bloque le reste ou chemin critique · `P1` doit sortir dans le jalon · `P2` décision · `P3` fin de cycle ou 10.1 |
-| **`Ordre`**           | encode les DÉPENDANCES, pas une préférence — c'est lui qui se trie                                                   |
-| **`Début` / `Cible`** | une TRANCHE de calendrier, posée à la main sur ce qui est engagé — jamais dérivée de `Jours` (§ ci-dessous)          |
+Tout ce qui touche au **tableau de bord** vit en référence : labels et jalons, champs `Jours`,
+`Priorité`, `Ordre`, les dates de la frise, les neuf contrôles de `ticket:lint`, le geste de
+création, et la règle du **contexte chaud** qui dit quand prendre un ticket plutôt que de le
+reporter.
 
-### Les dates — la frise, et surtout le RECALAGE
+→ **[`references/tableau-de-bord.md`](references/tableau-de-bord.md)** — à charger avant d'ouvrir,
+d'ordonner ou d'estimer.
 
-Deux champs `Date` (`Début` / `Cible`) posés à la main sur ce qui est ENGAGÉ, plus l'échéance des
-jalons : c'est ce qui remplit la vue _Roadmap_. Leur intérêt n'est pas la frise mais la mesure —
-l'écart entre le jour où l'on comptait faire un ticket et celui où il s'est fermé est la seule
-façon de savoir si c'est l'estimation qui était fausse ou l'ordre de travail.
+**Ce qu'il faut savoir sans l'ouvrir** :
 
-> 🔴 **Ne JAMAIS dériver ces dates en cumulant `Jours`** : ce serait une frise qui a l'air d'une
-> mesure et qui est fausse d'un ordre de grandeur ([[feedback_board_days_are_not_calendar]]).
+- 🔴 **`gh issue create` n'inscrit PAS le ticket au tableau de bord.** Ouvrir par la commande du
+  dépôt — `npm run ticket:open` — qui crée, inscrit et pose les champs d'un seul geste.
+- **L'estimation en jours ne prédit rien** : ce qui prédit le reste-à-faire est le **nombre** de
+  tickets ouverts, pas la somme de leurs jours. Découper un ticket en trois le rend trois fois plus
+  cher, chacun repayant son chargement de contexte.
+- **Un jalon promet une date ; le backlog n'en promet aucune.** Si la réponse honnête est « quand
+  j'aurai le temps », le ticket porte `backlog`, pas un jalon.
+- **Le contrôle se lance** : `npm run ticket:lint` (0 = le tableau se tient).
 
-Méthode de pose, réglage de la vue (non pilotable par l'API), et ce que la pose révèle
-immédiatement → **[`references/dates.md`](references/dates.md)**.
+## 6. Fermer un ticket — le geste est TRIPLE
 
-### 🔴 Ces règles ne mordent que parce qu'un AUTOMATE les relit
+Fermer ne recale pas que le code : les **tickets voisins** et la **documentation** affirment encore
+l'état d'avant, et personne ne les relit. Le protocole, les deux scripts de sélection mécanique et
+la forme du **compte rendu de fermeture** vivent en référence.
 
-Tout ce qui précède est de la prose, et **une règle en prose n'est appliquée que si quelqu'un y
-pense au bon moment.** Personne n'y pense en relisant un tableau de soixante-dix lignes. La preuve
-est vécue : **deux tickets, à deux mois d'écart**, ont reçu un jalon sans jamais être
-inscrits au tableau — aucun compteur ne les voyait, et rien ne l'a dit.
+→ **[`references/fermeture.md`](references/fermeture.md)** — à charger avant de fermer.
 
-```bash
-npm run ticket:lint                       # le tableau entier
-npm run ticket:lint -- --milestone 10.0.0 # un seul jalon
-npm run ticket:lint -- --json             # pour un autre outil
-```
+**Ce qu'il faut savoir sans l'ouvrir** :
 
-Neuf contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
-arbitrage sans bonne réponse mécanique :
-
-| Code                           | Ce qu'il attrape                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                           |
-| `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                       |
-| `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                             |
-| `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                        |
-| `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle           |
-| `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire |
-| `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)  |
-| `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                  |
-| `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_    |
-
-Deux pièges que ce script a déjà payés, et qui valent pour tout automate de pilotage :
-
-- **`gh api graphql --paginate` concatène des objets JSON INDENTÉS** — ni `split("\n")` ni un
-  `JSON.parse` unique ne les découpent. `--slurp` agrège les pages en un tableau ; et le compte se
-  contrôle contre `totalCount`, jamais contre la longueur de ce qu'on a reçu.
-- **Un contrôle qui crie faux apprend à passer outre.** Deux verdicts ont dû être bornés dès le
-  premier run réel : `Dépend de : rien — mais à faire AVANT #175` lu comme une dépendance (c'est
-  l'inverse), et un `P0` précédé de ses PRÉREQUIS traité comme une contradiction (c'est le
-  fonctionnement normal de l'ordre).
-
-### Un jalon promet une date — le backlog n'en promet aucune
-
-**Le critère : est-ce que je m'engage à le sortir dans la foulée ?** Si la réponse honnête est
-« quand j'aurai le temps », le ticket n'a **pas** de jalon — il porte `backlog`. Y mettre un jalon
-n'avance rien et abîme l'instrument : un jalon qui contient ce qu'on ne fera pas ment exactement
-comme un document écrit à la main, et son compteur d'avancement cesse d'être lisible.
-
-En pratique : un chantier de plusieurs jours, sans date, va au backlog ; un correctif d'une
-demi-journée déjà cadré va dans le jalon. Basculer coûte une commande, et se fait dans les deux
-sens :
-
-```bash
-gh issue edit <n> --remove-milestone --remove-label "10.1" --add-label "backlog"
-```
-
-### L'ordre VISUEL de la grille se pose, le GROUPEMENT non
-
-Le champ `Ordre` ne déplace rien : il faut repositionner physiquement chaque ligne, en chaîne —
-premier item sans `afterId` (il monte en tête), chacun des suivants `afterId` le précédent.
-
-```bash
-gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID!){
-  updateProjectV2ItemPosition(input:{projectId:$p,itemId:$i,afterId:$a}){clientMutationId}}' \
-  -f p="$PID" -f i="$ITEM" -f a="$PRECEDENT"
-```
-
-⚠️ **Le groupement d'une vue — par jalon, par statut — n'est PAS pilotable.** `updateProjectV2View`
-existe, mais sa configuration n'accepte que les colonnes visibles (`visibleFieldIds`) : vérifié par
-introspection du schéma. Le groupement se règle **dans l'interface web** — ouvrir la vue, menu ⌄ à
-droite de son onglet, `Group by` → `Milestone` —, et il est mémorisé par vue. Ne pas chercher une
-commande : il n'y en a pas.
-
-**Le critère de jalon** : _qu'est-ce qu'une 10.0.1 ne peut pas réparer ?_ Une page de doc se
-republie seule ; une dépendance publiée dans un `package.json`, non. Ne pas confondre avec « figé à
-la création d'une app » — trop large, puisque `npm create nodefony@latest` sert toujours les
-derniers gabarits.
-
-### Quand le prendre — l'ordre dit les DÉPENDANCES, le contexte dit le MOMENT
-
-`Ordre` encode ce qui doit passer avant quoi. Il ne dit **rien** du coût, et c'est là qu'on perd le
-plus : **rouvrir un ticket plus tard, c'est repayer son contexte.** Sur ce dépôt, la relecture de
-contexte pèse ~72 % de la dépense d'une session — écrire coûte presque rien, comprendre coûte tout.
-
-> **🔥 Règle du contexte chaud : un ticket dont le contexte est DÉJÀ chargé se fait dans la foulée,
-> même s'il n'est pas le prochain dans l'ordre.** Les fichiers sont ouverts, les ancres viennent
-> d'être relues, le raisonnement est en mémoire : le même travail coûtera trois fois plus cher dans
-> deux semaines, quand il faudra tout rouvrir pour retrouver ce qu'on sait maintenant.
-
-Le test, en une question : **est-ce que je viens de lire ce qu'il faut pour le faire ?**
-
-| Situation                                                              | Le geste                                                                              |
-| ---------------------------------------------------------------------- | ------------------------------------------------------------------------------------- |
-| Le ticket est né de la vérification qu'on vient de faire               | **Le faire maintenant.** Son contexte, c'est exactement ce qu'on a sous les yeux.     |
-| Petit (≤ 0,5 j), sans dépendance amont, dans les fichiers déjà ouverts | **Le faire maintenant**, puis le refermer en citant le commit.                        |
-| Gros, ou il touche un module qu'on n'a pas ouvert                      | Le laisser à son ordre — le contexte serait à charger de toute façon.                 |
-| Il dépend d'un ticket non fait                                         | Le laisser, quoi qu'il en coûte : l'ordre est une **dépendance**, pas une préférence. |
-
-Ce qui ne change pas : le ticket existe **quand même**, écrit avant d'être fait. C'est lui qui porte
-la preuve, le critère de fin et la trace — le faire dans la foulée n'autorise pas à sauter l'écrit.
-
-## 6. Créer, ordonner, rattacher
-
-> 🔴 **`gh issue create` n'inscrit PAS le ticket au tableau de bord.** L'issue existe, et elle
-> n'entre dans aucun compteur d'avancement : ni l'ordre de travail, ni le reste-à-faire, ni
-> l'empreinte hors ligne. Vécu : un ticket resté invisible du pilotage jusqu'à un contrôle manuel — un
-> oubli qui ne crie pas est pire qu'une erreur. **Ouvrir par la commande du dépôt**, qui fait
-> création, inscription et pose des champs d'un seul geste :
-
-```bash
-npm run ticket:open -- --title "docs(guides): retirer « mocha + bun » du hub" \
-  --body-file tmp/t/1.md --milestone "10.0.0" --priorite P1 --jours 0.5
-#   --backlog          → pas de jalon, label `backlog` (aucune date promise)
-#   --parent 63        → sous-ticket : l'ordre se DÉRIVE du parent (63.1, 63.2, …)
-#   --ordre 12.5       → ordre explicite, quand il n'y a pas de parent
-#   --label irrattrapable
-```
-
-### 🔴 L'ordre d'une grappe suit les DÉPENDANCES, jamais les numéros d'issue
-
-Un sous-ticket sans ordre tombe en fin de tri et n'est **jamais proposé** — le même oubli muet que
-l'absence d'inscription au tableau, une case plus loin. Avec `--parent`, la commande le dérive
-(parent 50 → 50.1, 50.2, …) et **refuse** les deux cas où un ordre dérivé serait faux : un parent
-qui n'a pas d'ordre lui-même, et une grappe de plus de neuf enfants, qui mordrait sur le cran
-suivant. Sans parent ni `--ordre`, elle l'ANNONCE au lieu de se taire.
-
-Ce que la machine ne peut pas faire à ta place, c'est **classer les frères entre eux**. Le rang
-d'un enfant, c'est sa place dans la chaîne des dépendances : le socle avant ce qui s'y branche,
-la veille avant ce qu'elle tranche, le confort avant le chantier de fond s'il a été jugé
-prioritaire.
-
-> **Le remplissage mécanique ressemble à un arbitrage et n'en est pas un.** Vécu sur une grappe :
-> sept sous-tickets rangés à `ordre = numéro d'issue − 4`. Conséquences invisibles à la lecture —
-> le socle commun aux quatre fronts passait **après** les trois liaisons qui en dépendent, le bus de
-> journalisation déclaré « première brique » passait **après** la brique qu'il fonde, le seul ticket
-> d'un **autre jalon** ouvrait la grappe, et le ticket que le parent désigne comme « le confort
-> d'abord » fermait la marche. Le contrôle qui tranche en une seconde : **si les ordres sont dans le
-> même sens que les numéros d'issue, personne n'a arbitré.**
-
-Le détail des champs reste utile quand on corrige un item existant :
-
-```bash
-
-# poser les champs du board (ids : gh project field-list <n> --owner <org>)
-item=$(gh project item-add <n> --owner <org> --url <url> --format json --jq '.id')
-gh project item-edit --id "$item" --project-id "$PID" --field-id "$FJOURS" --number 2
-gh project item-edit --id "$item" --project-id "$PID" --field-id "$FPRIO" --single-select-option-id "$P1"
-
-# ordonner physiquement la grille (le champ Ordre ne trie pas la vue à lui seul)
-gh api graphql -f query='mutation($p:ID!,$i:ID!,$a:ID!){
-  updateProjectV2ItemPosition(input:{projectId:$p,itemId:$i,afterId:$a}){clientMutationId}}' \
-  -f p="$PID" -f i="$ITEM" -f a="$PRECEDENT"
-```
-
-## 7. Fermer un ticket — le geste est TRIPLE
-
-**Un ticket qu'on ferme change un fait, et ce fait est recopié ailleurs.** C'est le défaut le plus
-coûteux du pilotage par tickets, parce qu'il ne fait aucun bruit : le travail est bon, le ticket est
-fermé, et deux documents plus loin une phrase continue d'affirmer l'état d'avant. Personne ne la
-relit — on la croit, on estime dessus, on planifie dessus.
-
-Vécu : le retrait d'un contrat de la surface publiée a rendu faux, du même coup, le bloc
-« ✅ ce qui est déjà fait » d'un **ticket voisin**, trois passages d'un **ADR**, une **page de doc publique** et
-une entrée du **journal de publication**. Aucun n'aurait été trouvé sans y penser.
-
-Donc, avant de fermer, trois recalages — dans cet ordre, parce que chacun révèle le suivant :
-
-| #   | Ce qu'on recale         | Comment on le TROUVE (jamais de mémoire)                                                                      |
-| --- | ----------------------- | ------------------------------------------------------------------------------------------------------------- |
-| 1   | **Le code**             | Le diff, les tests, le gate vu mordre — c'est le travail lui-même.                                            |
-| 2   | **Les tickets voisins** | `node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD`                             |
-| 3   | **La documentation**    | `rg -n '<le symbole ou le fait qui a changé>' --glob '*.md'` — puis `anchor-check.mjs` sur les pages touchées |
-
-```bash
-# Les tickets qui parlent de ce qu'on vient de changer (sélection MÉCANIQUE, verdict humain)
-node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs --touched-by HEAD
-
-# Les ancres `fichier:ligne` de TOUS les tickets ouverts, résolues contre le code
-node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs
-node .claude/skills/nodefony-ticket/scripts/ticket-verify.mjs 34 54    # ceux-là seulement
-```
-
-### Le compte rendu de fermeture — quatre blocs, dont deux qu'aucun automate ne connaît
-
-**Fermer sur « fait » perd tout ce que la session a appris.** Le travail a produit des commits, des
-tests, une garde vue mordre — et presque toujours quelque chose qui **déborde de l'énoncé** : la
-protection demandée en séance, le voisin qu'il a fallu aligner. Rien de cela n'est retrouvable
-ensuite autrement qu'en relisant le code, c'est-à-dire au prix exact que le ticket existe pour
-éviter (§3). Le compte rendu est le seul endroit où ces faits atterrissent.
-
-```bash
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95            # brouillon
-node .claude/skills/nodefony-ticket/scripts/ticket-close.mjs 95 --since <sha>
-```
-
-| Bloc                  | Qui le remplit                                                                                                       |
-| --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Commits**           | le script (`git log --grep '#N\b'`) — la borne de mot évite que `#9` ramène le travail de `#95`                      |
-| **Preuves**           | le script pour les fichiers de test ; **l'auteur** pour la garde vue mordre : ce qu'on a débranché, ce qui est tombé |
-| **Au-delà du ticket** | **l'auteur seul** — ce qui a débordé et POURQUOI                                                                     |
-| **Non fait**          | **l'auteur seul** — le point du « Fini quand » non couvert, et son motif                                             |
-
-Les deux derniers ne sont dans aucun dépôt : un script qui les devinerait rendrait un compte rendu
-plausible et faux. Le script imprime donc, mais **n'écrit rien sur GitHub** — fermer est
-irréversible pour le pilotage, et ne se délègue pas à un automate qui n'a pas lu le diff.
-
-> **Un débordement STRUCTURANT prend son propre ticket**, ouvert et refermé dans la foulée : le
-> compte rendu dit ce qui a été fait, il ne remplace pas l'endroit où l'on cherche.
-
-⚠️ **Le message de commit doit CITER le ticket** (`#95`, ou `Closes #95` pour le dernier) — sinon
-la timeline reste vide, le bloc « Commits » sort vide, et `ticket-progress.mjs` ne marque rien.
-
-⚠️ **`Closes #95` ne ferme RIEN depuis `dev`.** GitHub n'honore le mot-clé que sur la branche par
-DÉFAUT, et le développement de ce dépôt vit sur `dev` : pousser laisse donc les tickets ouverts,
-sans un mot. La fermeture est toujours un geste — `gh issue close` avec son compte rendu. Le
-mot-clé garde son intérêt (il lie le commit au ticket dans la timeline, et il fermera au merge).
-
-### 🔴 La console d'administration est la RÉFÉRENCE de non-régression
-
-Studio est **la seule application réelle du dépôt** : une identité qui bascule, une socket qui se
-re-négocie, des caches à purger, des écrans qui consomment. Tout le reste est du code rendu ou des
-tests unitaires.
-
-> **Tout ticket qui touche le client OU le serveur — temps réel et isomorphisme en tête — se ferme
-> en ayant vérifié que la console d'administration marche encore.** Pas « compile encore » :
-> marche. On l'ouvre, on regarde la console du navigateur, on vérifie que la socket se connecte.
-
-Le geste est dans le skill `nodefony-browser` (voie LOCALE, rien à démarrer côté navigateur), après
-avoir relancé le serveur — `nodefony-start-server`.
-
-Le corollaire est plus dur à admettre : **ce que Studio n'utilise pas n'est éprouvé par personne.**
-Le fournisseur React publié par le framework en est l'exemple — Studio a sa propre glue, si bien que
-la seule preuve de ce fournisseur était une chaîne de caractères cherchée dans un fichier rendu.
-Quand un ticket ajoute une surface que Studio n'emploie pas, il doit dire qui l'emploiera, et quand.
-
-### Pourquoi un automate, et pas un label « même sujet »
-
-La tentation est d'étiqueter les tickets d'un même sujet pour les retrouver. **Ça ne mordrait pas,
-et le dépôt en a déjà la preuve** : le champ `Status` du tableau de bord est resté à `In Progress`
-**0 fois sur 64** tant qu'il fallait le poser à la main — il n'a servi qu'une fois DÉRIVÉ du commit.
-Un label de sujet aurait exactement le même sort : il faut y penser à la création, y penser à la
-relecture, et il duplique ce que le **ticket parent** exprime déjà mieux (§4).
-
-L'automate, lui, ne demande à personne d'y penser. Il ne juge rien non plus — il dit quels tickets
-citent les fichiers du diff, et l'humain tranche. Deux limites à connaître, parce qu'un outil dont on
-ignore les bords rend des verdicts qu'on croit exhaustifs :
-
-- **Une ancre juste ne rend pas un ticket vrai.** Vécu : un ticket pointait des lignes qui existaient toujours et
-  affirmait au-dessus un état devenu faux. C'est le mode `--touched-by` qui l'attrape, pas la
-  résolution d'ancres.
-- **Un fichier que tout le monde cite n'est pas un indice.** Le journal de publication est cité par
-  19 tickets : les retenir noierait les trois vrais. L'outil les écarte et **le dit**, avec leurs
-  numéros — une troncature muette serait pire que le bruit.
+- ⚠️ **`Closes #95` ne ferme RIEN depuis `dev`** : GitHub n'honore le mot-clé que sur la branche par
+  défaut. La fermeture est toujours un geste — `gh issue close`, avec son compte rendu.
+- **Fermer sur « fait » perd ce que la session a appris.** Deux blocs qu'aucun automate ne peut
+  écrire : ce qui a **débordé** de l'énoncé, et ce qui n'a **pas** été fait, avec son motif.
+- **La console d'administration est la référence de non-régression** : tout ticket qui touche le
+  client ou le serveur se ferme en ayant vérifié qu'elle marche encore — pas qu'elle compile.
 
 ## Pièges vécus
 
@@ -653,9 +414,12 @@ périmètre qu'il balaye.
 
 ## Références (chargées à la demande)
 
-| Fichier                                                                    | Contenu                                                                                                                               |
-| -------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------- |
-| [`references/conventional-commits.md`](references/conventional-commits.md) | La spec 1.0.0 hors ligne : structure normative, table des types, règle `BREAKING CHANGE`, et ce que Nodefony ajoute par-dessus        |
-| [`references/economie.md`](references/economie.md)                         | Le ticket comme instrument d'économie : les six choses qui achètent du temps, ce qui se coupe, un avant/après, la borne               |
-| [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                   |
-| [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande |
+| Fichier                                                                    | Contenu                                                                                                                                                                |
+| -------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`references/conventional-commits.md`](references/conventional-commits.md) | La spec 1.0.0 hors ligne : structure normative, table des types, règle `BREAKING CHANGE`, et ce que Nodefony ajoute par-dessus                                         |
+| [`references/economie.md`](references/economie.md)                         | Le ticket comme instrument d'économie : les six choses qui achètent du temps, ce qui se coupe, un avant/après, la borne                                                |
+| [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                                                    |
+| [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande                                  |
+| [`references/tableau-de-bord.md`](references/tableau-de-bord.md)           | Labels, jalons et backlog, champs `Jours`/`Priorité`/`Ordre`, dates de la frise, les neuf contrôles de `ticket:lint`, le geste de création, et quand prendre un ticket |
+| [`references/fermeture.md`](references/fermeture.md)                       | Fermer : les trois recalages (code, tickets voisins, documentation), le compte rendu en quatre blocs, et la console d'administration comme référence de non-régression |
+| [`references/dates.md`](references/dates.md)                               | Poser `Début` / `Cible` à la main, régler la vue Roadmap (non pilotable par l'API), et ce que la pose révèle                                                           |

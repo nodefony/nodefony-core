@@ -671,8 +671,8 @@
       "triggers": [],
       "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
       "cost": {
-        "bodyLines": 996,
-        "approxTokens": 16519
+        "bodyLines": 404,
+        "approxTokens": 7320
       },
       "requires": [
         "serveur UP",
@@ -683,12 +683,15 @@
       "resources": {
         "references": [
           "agents-et-porte-mcp.md",
+          "banc-conformite.md",
           "banc-decouvrabilite-lecons.md",
+          "banc-decouvrabilite.md",
           "banc-schema-etudes-de-cas.md",
+          "banc-verite.md",
           "methode-de-mesure.md",
           "tache-zero.md"
         ],
-        "referenceFilesTotal": 5,
+        "referenceFilesTotal": 8,
         "scripts": [
           {
             "path": "scripts/analyse-transcript.mjs",
@@ -1909,8 +1912,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "996",
+            "ok": true,
+            "detail": "404",
             "advisory": true
           }
         ]
@@ -5692,7 +5695,8 @@
       "family": "Cycle de session",
       "version": null,
       "keywords": [
-        "MIGRATION_STATUS.md"
+        "MIGRATION_STATUS.md",
+        "references/"
       ],
       "triggers": [
         "reprends",
@@ -5714,18 +5718,20 @@
         "gros point migration",
         "assainir le dashboard migration"
       ],
-      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. Le détail de chaque mode est dans le corps. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
+      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
       "cost": {
-        "bodyLines": 725,
-        "approxTokens": 9678
+        "bodyLines": 293,
+        "approxTokens": 4222
       },
       "requires": [],
       "resources": {
         "references": [
           "consolidate-toolkit.md",
-          "migration-audit.md"
+          "migration-audit.md",
+          "mode-consolidate.md",
+          "mode-end.md"
         ],
-        "referenceFilesTotal": 2,
+        "referenceFilesTotal": 4,
         "scripts": [
           {
             "path": "scripts/board-next.mjs",
@@ -5886,7 +5892,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "960",
+            "detail": "992",
             "advisory": false
           },
           {
@@ -5927,8 +5933,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "725",
+            "ok": true,
+            "detail": "293",
             "advisory": true
           }
         ]
@@ -6642,8 +6648,8 @@
       ],
       "description": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont les DATES qui alimentent la frise et recalent les estimations, le moment où un ticket se fait dans la foulée, et ce qui fait qu'un ticket ACHÈTE du temps : chemins exacts, commandes prêtes, pièges connus. À charger AVANT d'ouvrir une issue. Déclencheurs : \"crée un ticket\", \"ouvre une issue\", \"corrige les tickets\", \"ce titre est incompréhensible\", \"renomme cette issue\", \"ticket parent\", \"découper cette issue\", \"estimer un ticket\", \"priorité d'un ticket\", \"ce ticket est-il encore vrai ?\", \"ferme ce ticket\", \"quel ticket prendre maintenant ?\", \"ce ticket est trop vague\", \"quels tickets parlent de ce que j'ai changé ?\", \"dater les tickets\", \"la roadmap du projet est vide\", \"recaler les estimations\".",
       "cost": {
-        "bodyLines": 645,
-        "approxTokens": 11908
+        "bodyLines": 409,
+        "approxTokens": 7906
       },
       "requires": [
         "redis"
@@ -6653,10 +6659,12 @@
           "conventional-commits.md",
           "dates.md",
           "economie.md",
+          "fermeture.md",
           "github-issues.md",
-          "lexique.md"
+          "lexique.md",
+          "tableau-de-bord.md"
         ],
-        "referenceFilesTotal": 5,
+        "referenceFilesTotal": 7,
         "scripts": [
           {
             "path": "scripts/board-lint.mjs",
@@ -7226,8 +7234,8 @@
           },
           {
             "key": "corps < 500 lignes",
-            "ok": false,
-            "detail": "645",
+            "ok": true,
+            "detail": "409",
             "advisory": true
           }
         ]
