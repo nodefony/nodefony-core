@@ -607,15 +607,22 @@ if runs studio; then
   step "[studio] create app — preset complet"
   scaffold_app "smokestudio" "$SAPP" "complete" "none"
 
-  # Le gabarit déclare déjà `ui: "static"` ; seule la policy change. Studio est
-  # `dev` par défaut (0 coût en production), or c'est justement en production
-  # qu'on veut savoir si son UI publiée est servie.
-  step "[studio] policy dev → mandatory"
+  # Le gabarit pose lui-même `ui: "static"` ET `policy: "mandatory"` : la console
+  # reste servie en production, ce qui est précisément la situation qu'on veut
+  # éprouver ici. Ce banc CONSTATE donc cet état, il ne le fabrique plus.
+  #
+  # 🔴 Constater plutôt que basculer, et pourquoi le constat doit rester.
+  # Ce bloc réécrivait la policy `dev` → `mandatory` dans le manifeste généré.
+  # Le jour où le gabarit a posé `mandatory` de lui-même, la réécriture a levé
+  # sur sa propre garde — le banc corrigeait un défaut qui n'existait plus.
+  # Le supprimer aurait laissé le scénario muet sur un retour à `dev` : il
+  # aurait alors mesuré une console ABSENTE en croyant mesurer son UI publiée.
+  # Un banc qui modifie son sujet ne l'éprouve pas ; un banc qui le constate, si.
+  step "[studio] la console est-elle déclarée pour la production ?"
   node -e '
 const fs = require("node:fs");
 const f = process.argv[1] + "/nodefony.config.ts";
-const src = fs.readFileSync(f, "utf8");
-const lines = src.split("\n");
+const lines = fs.readFileSync(f, "utf8").split("\n");
 // Le marqueur est `use("@nodefony/studio"`, PAS le seul nom du paquet : le
 // manifeste généré le mentionne aussi dans un `export type { … } from
 // "@nodefony/studio"`, placé AVANT la déclaration. Chercher le nom nu prenait
@@ -623,12 +630,20 @@ const lines = src.split("\n");
 // désigne la mauvaise ligne tout en semblant chercher la bonne.
 const i = lines.findIndex((l) => l.includes("use(\"@nodefony/studio\""));
 if (i < 0) { throw new Error("déclaration `use(\"@nodefony/studio\", …)` introuvable dans le manifeste généré"); }
-if (!lines[i].includes("policy: \"dev\"")) { throw new Error("policy attendue `dev` : " + lines[i].trim()); }
-lines[i] = lines[i].replace("policy: \"dev\"", "policy: \"mandatory\"");
-fs.writeFileSync(f, lines.join("\n"));
-process.stdout.write("studio → mandatory\n");
-' "$SAPP" || fail "bascule de la policy Studio"
-  ok "Studio passé en mandatory (ui: static déjà posé par le gabarit)"
+const ligne = lines[i].trim();
+if (!ligne.includes("policy: \"mandatory\"")) {
+  throw new Error(
+    "le gabarit ne déclare plus la console pour la production : " + ligne + "\n" +
+    "  Deux causes, et toutes deux se corrigent hors de ce banc :\n" +
+    "   · la policy est repassée à `dev` — la console dispara\u00eet du build de production,\n" +
+    "     et ce scénario mesurerait une absence en croyant mesurer son UI publiée ;\n" +
+    "   · la forme de la déclaration a changé (options réordonnées, policy implicite)\n" +
+    "     — alors le constat doit apprendre la forme nouvelle, le gabarit reste juste."
+  );
+}
+process.stdout.write("studio: policy mandatory constatée dans le gabarit\n");
+' "$SAPP" || fail "constat de la policy Studio"
+  ok "Studio déclaré mandatory par le gabarit (ui: static posé de même)"
 
   step "[studio] deps + migration initiale + image"
   rewrite_deps "$SAPP"
