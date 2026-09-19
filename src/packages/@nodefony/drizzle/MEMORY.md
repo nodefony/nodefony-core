@@ -27,7 +27,10 @@ Purpose: 3e adapter orm-core + module bootable. Drizzle + better-sqlite3. Type-s
   En sortent : les contraintes colonne (PK/NOT NULL/UNIQUE), les **index** (`CREATE INDEX` SÉPARÉ, donc
   il atteint aussi une base déjà créée) et les **`CHECK` des colonnes `enum`** (clause DE TABLE, donc
   seulement à la création — une base de dev antérieure ne l'a pas). N'en sortent PAS : les `DEFAULT` SQL
-  (défauts **toujours** `$defaultFn`) ni les clés étrangères — drizzle-kit seul les émet.
+  (défauts **toujours** `$defaultFn`). Les **clés étrangères, si** : dans le `CREATE TABLE`,
+  donc jamais sur une base déjà créée. Ordre de création = tri topologique (`ddlPlan.ts`) ;
+  cycle → contrainte arrière OMISE + avertissement nommé ; SQLite = `PRAGMA foreign_keys = ON`
+  à la connexion (le migrateur, non : drizzle-kit gère lui-même OFF/ON autour d'un rebuild).
 - Kinds colKit : `text` · `json` · `bool` · `epochMs` · `int` (32 bits SIGNÉ sur les 3 dialectes — réservé
   aux valeurs bornées par le domaine) · **`int64`** (bigint pg/mysql — tout compteur sans borne connue) ·
   `dateMs` · **`enum`** (`values: [...]`, texte + `CHECK`). Un `CHECK` se grave à vie dans la migration

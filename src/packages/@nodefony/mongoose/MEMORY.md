@@ -29,6 +29,15 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 
 ## Gotchas
 
+- 🔴 **Aucune intégrité référentielle — et ce n'est pas un manque à combler.** MongoDB n'a ni clé
+  étrangère ni `ON DELETE` : un `ref: ObjectId` sert au `populate()`, il ne contraint RIEN. Une
+  entité dont le parent est effacé garde donc un identifiant qui ne désigne plus rien, en silence
+  — là où le même schéma sur `@nodefony/drizzle` refuserait l'effacement (`restrict`) ou remettrait
+  la colonne à `NULL` (`set null`). Conséquence de conception : `IEntityRelation` (contrat PARTAGÉ
+  d'`orm-core`) ne porte **délibérément pas** de champ `onDelete` — une politique acceptée ici puis
+  jetée serait pire qu'absente. Qui veut cette garantie sur document l'écrit dans son service (un
+  `deleteMany` des enfants, ou un refus), jamais dans le schéma.
+
 - `MongooseUserRepository.from` confronte `model.schema.paths` au contrat via `assertUserContract`,
   avec `DOCUMENT_USER_COLUMNS` (dérivé de `userSchema`, jamais recopié) : `id` (virtuel sur `_id`) et
   les horodatages (`timestamps: true`) ne sont PAS des chemins — les exiger refuserait toute entité

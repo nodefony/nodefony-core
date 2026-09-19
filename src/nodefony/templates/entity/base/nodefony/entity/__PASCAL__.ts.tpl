@@ -1,14 +1,15 @@
 import { defineEntity } from "@nodefony/orm-core";
 <% if (it.needsNodefony) { %>import { Nodefony } from "nodefony";
 <% } %><%= it.drizzleImport %>
-
+<% if (it.entityImports) { %><%= it.entityImports %>
+<% } %>
 /**
  * Table `<%= it.table %>` — schéma Drizzle **natif** du dialecte `<%= it.dialect %>`.
  *
  * C'est du Drizzle ordinaire : tous les types et options du moteur sont à ta
  * disposition, il n'y a aucune couche à contourner. Un besoin non couvert par le
- * générateur (colonne `numeric(12,4)`, longueur de chaîne sur mesure, contrainte de
- * clé étrangère) s'écrit directement ici.
+ * générateur (colonne `numeric(12,4)`, longueur de chaîne sur mesure, effacement
+ * en cascade sur une relation) s'écrit directement ici.
  *
  * Les index de table, eux, sont couverts : `--index "colA,colB"` et
  * `--unique "colA,colB"` à la création, répétables autant de fois que la table
@@ -21,8 +22,15 @@ import { defineEntity } from "@nodefony/orm-core";
  * - les `DEFAULT` **SQL** ne sont pas émis par ce DDL dérivé. C'est pourquoi les
  *   valeurs par défaut ci-dessous sont posées **côté JS** (`$defaultFn`) : elles
  *   s'appliquent quoi qu'il arrive, y compris sur une base créée à la main.
- */
-export const <%= it.camel %>Table = <%= it.tableFn %>("<%= it.table %>", {
+<% if (it.relations.length) { %> *
+ * Les contraintes d'intégrité (`.references(…)`), elles, se déclarent DANS le
+ * `CREATE TABLE` : une base de développement déjà créée ne les recevra pas — seule
+ * une migration (`nodefony orm:generate --apply`) les ajoute après coup. La
+ * politique d'effacement suit la colonne : obligatoire → `restrict` (le parent ne
+ * peut pas partir), facultative → `set null` (l'enfant survit, orphelin explicite).
+ * Un effacement en cascade s'écrit ici, à la main : rien dans `ref:` ne le demande.
+<% } %> */
+export const <%= it.tableSymbol %> = <%= it.tableFn %>("<%= it.table %>", {
   <%= it.columns %>}<%= it.tableExtras %>);
 
 /** Une ligne de `<%= it.table %>`, telle que la rend le repository. */
@@ -51,7 +59,7 @@ export const <%= it.pascal %>Entity = defineEntity({
   name: "<%= it.pascal %>",
   module: "<%= it.moduleName %>",
 <% if (it.connector !== "default") { %>  connector: "<%= it.connector %>",
-<% } %>  schema: <%= it.camel %>Table,
+<% } %>  schema: <%= it.tableSymbol %>,
 <% if (it.relations.length) { %>  relations: [
 <% it.relations.forEach(function (rel) { %>    {
       // `field` = le nom sous lequel on demande la relation (`?include=<%= rel.field %>`)

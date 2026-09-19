@@ -464,6 +464,13 @@ export const userTable = sqliteTable("User", { id: text("id").primaryKey() });
         /CREATE TABLE `User`/,
         "la table du framework est exclue : un second CREATE échoue sur toute base DÉJÀ migrée — donc en production, et nulle part ailleurs",
       );
+      // La contrainte d'intégrité doit traverser jusqu'au fichier de migration :
+      // c'est LUI que la production applique, pas le DDL dérivé du développement.
+      assert.match(
+        sql,
+        /FOREIGN KEY \(`author`\) REFERENCES `User`\(`id`\)/,
+        "la relation est déclarée, la migration ne porte aucune contrainte",
+      );
     });
   });
 });

@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 842,
-    "symbols": 4144,
+    "files": 843,
+    "symbols": 4153,
     "classes": 394,
-    "interfaces": 1104,
+    "interfaces": 1109,
     "types": 451,
     "enums": 4,
-    "functions": 1782,
+    "functions": 1786,
     "constants": 409
   },
   "symbols": {
@@ -6876,6 +6876,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce que chaque type de champ devient, dans chaque moteur. Montrer la traduction plutôt que la promettre : `json` devient `jsonb` en PostgreSQL et une colonne texte en SQLite, `string` un `varchar(25…"
+    },
+    "entityTableSymbol": {
+      "name": "entityTableSymbol",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de la variable qui porte la table Drizzle d'une entité (`User` → `userTable`). Une seule implémentation, parce qu'il y a deux producteurs : le gabarit d'entité DÉCLARE cette variable, et une en…"
     },
     "buildEntityCodegen": {
       "name": "buildEntityCodegen",
@@ -23733,6 +23741,58 @@
       "module": "@nodefony/drizzle",
       "description": "Séparateur de statements produit par drizzle-kit."
     },
+    "IResolvedForeignKey": {
+      "name": "IResolvedForeignKey",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/ddlPlan.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ordre de création des tables, et contraintes qu'il faut renoncer à poser. Module **pur** (aucune base, aucun Drizzle) : c'est la seule partie du DDL dérivé qui demande un raisonnement, donc la seul…"
+    },
+    "ITableDependency": {
+      "name": "ITableDependency",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/ddlPlan.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une table à créer, et les tables que ses clés étrangères désignent."
+    },
+    "IOmittedForeignKey": {
+      "name": "IOmittedForeignKey",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/ddlPlan.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Une contrainte qu'on renonce à poser, et la raison qui le commande."
+    },
+    "IDdlPlan": {
+      "name": "IDdlPlan",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/ddlPlan.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Ordre de création, et ce qu'il a fallu abandonner en chemin."
+    },
+    "planTableCreation": {
+      "name": "planTableCreation",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/ddlPlan.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Trie les tables pour que chaque cible naisse avant qui la désigne. Tri topologique (Kahn) sur le graphe des dépendances, avec deux écarts assumés au manuel : - **l'auto-référence ne compte pas** (`…"
+    },
+    "explainOmittedForeignKeys": {
+      "name": "explainOmittedForeignKeys",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/ddlPlan.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Met en mots les contraintes abandonnées — le message que l'appelant journalise. Écrit pour être lu par celui qui découvre le problème dans ses journaux : il nomme les tables, la cause, et ce qu'il …"
+    },
     "DrizzleOrm": {
       "name": "DrizzleOrm",
       "kind": "class",
@@ -32845,6 +32905,9 @@
       "buildEntityCodegen": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "entityTableSymbol": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "parseRowFieldNames": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -37427,6 +37490,15 @@
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "DrizzleTransaction": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "planTableCreation": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "explainOmittedForeignKeys": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "IResolvedForeignKey": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
       ],
       "assertOrderOption": [

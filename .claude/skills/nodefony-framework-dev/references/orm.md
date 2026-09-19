@@ -31,13 +31,15 @@ Contrats (core) : `IOrm` · `IEntity<S,M>` (+`IEntityRelation`) · `IRepository<
 **Dans une APPLICATION, c'est une COMMANDE — ne recopie pas ces templates à la main :**
 
 ```bash
-nodefony create entity Article title:string! tags:json published:bool author:ref:User
+nodefony create entity Article title:string tags:json published:bool author:ref:User
 ```
 
 Elle pose la chaîne entière (table Drizzle native du dialecte, interface de ligne, schémas Zod
 d'entrée, service CRUD, controller REST **et** WebSocket, tests) et câble l'`index.ts`
 (`@entities([...])` créé s'il n'existe pas, `@controllers([...])` complété). Champs :
-`nom:type[?|!][:index]` · `ref:<Entité>` · **non-null par défaut**.
+`nom:type[?][:index|:unique]` · `ref:<Entité>` · **non-null par défaut** — `!` est REFUSÉ
+(il veut dire « unique » nulle part ailleurs ; une colonne est déjà obligatoire par défaut,
+et l'unicité s'écrit `:unique`).
 
 Deux gardes à connaître :
 
@@ -212,7 +214,7 @@ sur les **134 renommages** qu'exige le schéma d'Umami, **115 sont le passage m�
 | `tinyint(1)`, booléen en `varchar('Y')` | `bool` | un booléen stocké en varchar (`'yes'`/`'1'`) reste un `string` |
 | `datetime`, `timestamp` | `date` | ⚠️ défaut `'0000-00-00 00:00:00'` : **illégal** ailleurs — ne pas reprendre |
 | `json`, PHP sérialisé | `json` / `text` | du PHP sérialisé n'est PAS du JSON → `text` |
-| FK implicite (`post_author` → `users.ID`) | `ref:User` | pose un commentaire + le type ; **aucune contrainte FK n'est émise** |
+| FK implicite (`post_author` → `users.ID`) | `ref:User` | pose le type, l'index ET la contrainte (`restrict`, ou `set null` si `?`) |
 
 **Ce qui NE PASSE PAS (limites dures — dis-le, ne bricole pas) :**
 

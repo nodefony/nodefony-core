@@ -258,9 +258,10 @@ export function parseEntityFields(input: string): IEntityField[] {
       // écrite ensuite : sans index, chacune balaie la table entière, et le
       // ralentissement n'apparaît qu'une fois les données arrivées — jamais sur
       // les dix lignes de développement. La contrainte d'intégrité (FOREIGN KEY)
-      // est un sujet DISTINCT, traité au DDL ; l'index, lui, sert à chaque
-      // requête et ne coûte qu'à l'écriture. `unique` s'en passe : il en pose
-      // déjà un (relation 1-1).
+      // est posée plus bas et reste un sujet DISTINCT : elle protège la
+      // COHÉRENCE, l'index sert la VITESSE — un moteur n'exige aucune contrainte
+      // pour joindre, et n'accélère rien parce qu'il y en a une. `unique` se
+      // passe de l'index : il en pose déjà un (relation 1-1).
       fields.push({
         name,
         type: "ref",
@@ -657,6 +658,35 @@ export function describeColumnTypes(): Array<{
   }));
 }
 
+/**
+ * Nom de la variable qui porte la table Drizzle d'une entité (`User` → `userTable`).
+ *
+ * Une seule implémentation, parce qu'il y a deux producteurs : le gabarit d'entité
+ * DÉCLARE cette variable, et une entité voisine la RÉFÉRENCE (`.references()`).
+ * Deux conventions écrites séparément se seraient accordées le premier jour puis
+ * auraient divergé au premier ajustement, en produisant un import introuvable.
+ *
+ * @param entity - nom de l'entité en PascalCase.
+ * @returns le nom de la variable exportée par son fichier.
+ */
+export function entityTableSymbol(entity: string): string {
+  return `${entity.charAt(0).toLowerCase()}${entity.slice(1)}Table`;
+}
+
+/**
+ * Type de colonne « n'importe laquelle » du dialecte — l'annotation qu'exige une
+ * référence CIRCULAIRE (une entité qui se désigne elle-même, `parent:ref:Category`).
+ *
+ * Sans elle, TypeScript refuse de compiler le fichier généré : la table est en cours
+ * de définition au moment où la lambda la nomme, donc son type s'infère à partir de
+ * lui-même (« implicitly has type 'any' »). L'annotation coupe la récursion.
+ */
+const ANY_COLUMN: Record<TEntityDialect, string> = {
+  sqlite: "AnySQLiteColumn",
+  postgres: "AnyPgColumn",
+  mysql: "AnyMySqlColumn",
+};
+
 /** Fonction de table Drizzle du dialecte (`sqliteTable`…) et son import. */
 export const TABLE_FN: Record<TEntityDialect, { fn: string; module: string }> =
   {
@@ -837,9 +867,9 @@ function primaryKeyColumn(
  * cas ordinaire. Une cible d'un autre style se corrige dans la table générée :
  * c'est du Drizzle natif.
  *
- * Aucune contrainte `REFERENCES` n'est émise — même raison qu'ailleurs : le DDL
- * dérivé du mode développement ne l'appliquerait pas, et une promesse non tenue
- * coûte plus cher qu'un commentaire honnête.
+ * La contrainte `REFERENCES`, elle, est posée par l'appelant
+ * ({@link buildEntityCodegen}) : elle dépend de la CIBLE, que cette fonction ne
+ * connaît pas — elle ne décide que du TYPE de la colonne.
  *
  * @param dialect - moteur visé.
  * @param id - stratégie de clé primaire de l'entité en cours.
@@ -888,6 +918,13 @@ export interface IEntityCodegen {
   columns: string;
   /** Import Drizzle du dialecte (`import { text, integer } from "drizzle-orm/sqlite-core";`). */
   drizzleImport: string;
+  /**
+   * Imports des tables VISÉES par les relations (`import { userTable } from "./User";`).
+   *
+   * Chaîne vide quand l'entité n'a aucune relation, ou quand la seule relation se
+   * désigne elle-même — sa table est alors déclarée dans le fichier courant.
+   */
+  entityImports: string;
   /** Fonction de table (`sqliteTable`). */
   tableFn: string;
   /** Propriétés de l'interface de ligne. */
@@ -952,6 +989,14 @@ export function buildEntityCodegen(
      * La propriété reste `id` quoi qu'il arrive — cf {@link primaryKeyColumn}.
      */
     idName?: string;
+    /**
+     * Nom PascalCase de l'entité en cours — sert à reconnaître une relation qui se
+     * désigne ELLE-MÊME (`parent:ref:Category` dans `Category`).
+     *
+     * Ce cas ne s'importe pas (la table est déclarée juste au-dessus) et exige une
+     * annotation de type, faute de quoi le fichier généré ne compile pas.
+     */
+    entity?: string;
   },
 ): IEntityCodegen {
   const { dialect, id, timestamps, softDelete, table } = options;
@@ -963,6 +1008,8 @@ export function buildEntityCodegen(
   const columns: string[] = [];
   const rowProps: string[] = [];
   const zodProps: string[] = [];
+  /** Entités VISÉES par une relation, hors auto-référence — une ligne d'import chacune. */
+  const referenced = new Set<string>();
 
   const pk = primaryKeyColumn(dialect, id, idName);
   pk.imports.forEach((i) => imports.add(i));
@@ -980,6 +1027,32 @@ export function buildEntityCodegen(
     } else {
       imports.add(columnImport(dialect, field.type));
     }
+    // La contrainte d'intégrité, POSÉE ICI parce qu'elle a besoin de la cible.
+    let references = "";
+    //
+    // La politique `ON DELETE` se DÉDUIT de la nullabilité, elle ne s'invente pas :
+    //  - colonne qui accepte le vide → `set null`. L'enfant survit à son parent, et
+    //    son orphelinage est EXPLICITE (la colonne vaut NULL), pas deviné.
+    //  - colonne obligatoire → `restrict`. `set null` y est impossible : MySQL REFUSE
+    //    de créer la contrainte (errno 1830), PostgreSQL et SQLite l'acceptent puis
+    //    échouent au premier effacement du parent — un piège à retardement.
+    // `cascade` n'est JAMAIS un défaut : c'est un effacement en chaîne, et rien dans
+    // `author:ref:User` ne le demande. Il s'écrit à la main dans la table générée,
+    // qui est du Drizzle ordinaire.
+    if (field.type === "ref" && field.target) {
+      const self = field.target === options.entity;
+      const onDelete = field.nullable ? "set null" : "restrict";
+      const targetTable = entityTableSymbol(field.target);
+      if (self) {
+        imports.add(`type ${ANY_COLUMN[dialect]}`);
+      } else {
+        referenced.add(field.target);
+      }
+      const arrow = self
+        ? `(): ${ANY_COLUMN[dialect]} => ${targetTable}.id`
+        : `() => ${targetTable}.id`;
+      references = `.references(${arrow}, { onDelete: "${onDelete}" })`;
+    }
     let col =
       fk?.expr ??
       COLUMN[dialect][field.type](column, field.values, {
@@ -987,6 +1060,7 @@ export function buildEntityCodegen(
         precision: field.precision,
         scale: field.scale,
       });
+    col += references;
     if (!field.nullable) col += ".notNull()";
     if (field.unique) col += ".unique()";
     if (field.defaultNow) {
@@ -1034,10 +1108,7 @@ export function buildEntityCodegen(
     zodProps.push(`${field.name}: ${zod},`);
 
     if (field.type === "ref") {
-      // La contrainte de clé étrangère n'est PAS émise : le DDL dérivé du dev ne la
-      // créerait pas, et une fausse promesse coûte plus cher qu'un commentaire honnête.
-      columns[columns.length - 1] +=
-        ` // → ${field.target}.id (contrainte FK à ajouter en migration)`;
+      columns[columns.length - 1] += ` // → ${field.target}.id`;
     }
   }
 
@@ -1117,6 +1188,16 @@ export function buildEntityCodegen(
   return {
     columns: blockLn(columns),
     drizzleImport: `import { ${[...imports].sort().join(", ")} } from "${module}";`,
+    // Une ligne par entité visée, triée : l'ordre des imports ne doit pas dépendre
+    // de l'ordre dans lequel les champs ont été tapés — deux générations du même
+    // schéma produisent le même fichier, donc un diff vide.
+    entityImports: [...referenced]
+      .sort()
+      .map(
+        (target) =>
+          `import { ${entityTableSymbol(target)} } from "./${target}";`,
+      )
+      .join("\n"),
     tableFn: fn,
     rowProps: block(rowProps),
     zodProps: block(zodProps),

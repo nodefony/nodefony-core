@@ -413,7 +413,10 @@ describe("scaffold — code des colonnes", () => {
     assert.doesNotMatch(c.zodProps, /createdAt/u);
   });
 
-  it("une relation est annotée — la contrainte FK n'est PAS promise", () => {
+  // La nullabilité COMMANDE la politique d'effacement, et rien d'autre : une
+  // colonne obligatoire ne peut pas être mise à NULL, donc son parent ne peut pas
+  // partir sans elle.
+  it("relation obligatoire : contrainte posée, effacement RESTREINT", () => {
     const c = buildEntityCodegen(parseEntityFields("author:ref:User"), {
       dialect: "sqlite",
       id: "uuid7",
@@ -423,8 +426,60 @@ describe("scaffold — code des colonnes", () => {
     });
     assert.match(
       c.columns,
-      /author: text\("author"\)\.notNull\(\), \/\/ → User\.id/u,
+      /author: text\("author"\)\.references\(\(\) => userTable\.id, \{ onDelete: "restrict" \}\)\.notNull\(\), \/\/ → User\.id/u,
     );
+    assert.equal(c.entityImports, 'import { userTable } from "./User";');
+  });
+
+  it("relation facultative : l'enfant survit, la colonne passe à NULL", () => {
+    const c = buildEntityCodegen(parseEntityFields("author:ref:User?"), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "posts",
+    });
+    assert.match(c.columns, /onDelete: "set null"/u);
+    assert.doesNotMatch(c.columns, /notNull/u);
+  });
+
+  // Une entité qui se désigne elle-même ne s'importe pas — et sans annotation de
+  // type, le fichier rendu ne compilerait pas (« implicitly has type 'any' »).
+  it("relation vers SOI : annotation de type, aucun import", () => {
+    const c = buildEntityCodegen(parseEntityFields("parent:ref:Category?"), {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "categories",
+      entity: "Category",
+    });
+    assert.match(
+      c.columns,
+      /\.references\(\(\): AnySQLiteColumn => categoryTable\.id/u,
+    );
+    assert.equal(c.entityImports, "");
+    assert.match(c.drizzleImport, /type AnySQLiteColumn/u);
+  });
+
+  // Chaque dialecte a SON type générique de colonne — celui d'un autre moteur
+  // n'existe pas dans son module, et l'import serait introuvable.
+  it("relation vers SOI : le type générique suit le dialecte", () => {
+    for (const [dialect, expected] of [
+      ["postgres", "AnyPgColumn"],
+      ["mysql", "AnyMySqlColumn"],
+    ] as const) {
+      const c = buildEntityCodegen(parseEntityFields("parent:ref:Category?"), {
+        dialect,
+        id: "uuid7",
+        timestamps: false,
+        softDelete: false,
+        table: "categories",
+        entity: "Category",
+      });
+      assert.match(c.columns, new RegExp(`\\(\\): ${expected} =>`, "u"));
+      assert.match(c.drizzleImport, new RegExp(`type ${expected}`, "u"));
+    }
   });
 
   // Une énumération doit contraindre pour de vrai — au typage ET à l'entrée.

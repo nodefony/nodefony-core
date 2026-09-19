@@ -250,9 +250,16 @@ main ; opt-out `frameworkEntities: false`.
   rend `text`/`integer` SQLite, `text`/`bigint`/`jsonb` PG) **+ `#buildCreateIndexes`** : les index
   déclarés sont émis à part (`CREATE INDEX IF NOT EXISTS`, clause retirée en MySQL qui ne la connaît
   pas → `ER_DUP_KEYNAME` toléré, et LUI SEUL). Émis SÉPARÉMENT de la table pour arriver aussi sur une
-  base de dev déjà créée. Les **clés étrangères ne sont PAS émises** : elles se déclarent DANS le
-  `CREATE TABLE` (donc jamais sur une base existante) et imposeraient un ordre de création
-  topologique, indécidable sur un cycle — c'est le domaine de drizzle-kit.
+  base de dev déjà créée. Les **clés étrangères SONT émises**, dans le `CREATE TABLE` — donc
+  jamais sur une base déjà créée, comme les `CHECK`. Deux conséquences portées par
+  `orm-core/ddlPlan.ts` (module PUR) : les tables sont créées **dans l'ordre de leurs
+  dépendances** (tri topologique ; SQLite s'en moque — il résout tardivement —, PostgreSQL et
+  MySQL REFUSENT), et un **cycle** entre entités fait OMETTRE la contrainte qui regarde en
+  arrière, avec un avertissement qui la nomme. En SQLite, `PRAGMA foreign_keys = ON` est posé à
+  la connexion : sans lui la contrainte est décorative (redondant avec `better-sqlite3`, qui
+  l'active déjà — on ne fait pas reposer une garantie sur le défaut d'un pilote tiers). Le
+  migrateur, LUI, ne le pose pas : drizzle-kit encadre ses recréations de table d'un
+  `foreign_keys=OFF`/`ON`.
   `disconnect`/`ping`/`describeConnection`/`describeEntity` routés.
   `getNativeConnection<DrizzleDb>()` inchangé.
 - **`colKit`** (`entity/colKit.ts`, garde-fou G1 de l'audit comparatif ORM) : **spec logique →

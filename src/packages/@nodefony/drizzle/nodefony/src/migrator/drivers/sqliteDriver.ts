@@ -81,6 +81,13 @@ export class SqliteMigrationDriver implements IMigrationDriver {
       db.pragma("journal_mode = WAL");
       db.pragma("synchronous = NORMAL");
     }
+    // 🔴 `foreign_keys` reste à OFF ICI, contrairement à l'adapter — ce n'est pas
+    // un oubli. SQLite ne sait pas modifier une colonne : drizzle-kit recrée la
+    // table (`__new_x` + copie + `DROP` + `RENAME`), et encadre lui-même ce
+    // travail d'un `PRAGMA foreign_keys=OFF` / `=ON`. Poser le réglage à
+    // l'ouverture ferait échouer toute migration de ce genre sur les contraintes
+    // des tables voisines, le temps du rebuild. L'intégrité est une garantie de
+    // l'EXÉCUTION de l'application, pas de l'outil qui refait son schéma.
     this.#database = db;
   }
 

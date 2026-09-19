@@ -71,6 +71,8 @@ import {
 } from "./DrizzleRepository";
 import { describeTargetSafely } from "../safeTarget";
 import { DrizzleTransaction } from "./DrizzleTransaction";
+import { planTableCreation, explainOmittedForeignKeys } from "./ddlPlan";
+import type { IResolvedForeignKey } from "./ddlPlan";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 
 /**
@@ -177,6 +179,58 @@ interface DDLIndex {
 interface DDLCheck {
   name: string;
   value: SQL;
+}
+
+/**
+ * Sous-ensemble structural d'une clé étrangère, tel que le rendent les trois
+ * `getTableConfig` (`.foreignKeys[]`).
+ *
+ * `reference()` est une FONCTION chez Drizzle, et c'est ce qui permet à deux
+ * entités de se désigner l'une l'autre : la cible n'est lue qu'à l'appel, donc
+ * après que les deux modules ont fini de s'évaluer.
+ */
+interface DDLForeignKey {
+  onDelete?: string;
+  onUpdate?: string;
+  getName(): string;
+  reference(): {
+    columns: readonly { name: string }[];
+    foreignColumns: readonly { name: string }[];
+    foreignTable: unknown;
+  };
+}
+
+/**
+ * Traduit les clés étrangères d'une table Drizzle en noms SQL émettables.
+ *
+ * @param foreignKeys - contraintes lues sur la table (`getTableConfig`).
+ * @param nameOf - comment lire le nom SQL d'une table du dialecte courant.
+ * @param skip - tables visées dont la contrainte doit être ABANDONNÉE (cycle ou
+ *   cible absente de cette base) ; l'appelant les a déjà journalisées.
+ * @returns les contraintes à écrire dans le `CREATE TABLE`.
+ */
+function resolveForeignKeys(
+  foreignKeys: readonly DDLForeignKey[],
+  nameOf: (table: unknown) => string,
+  skip?: ReadonlySet<string>,
+): IResolvedForeignKey[] {
+  const resolved: IResolvedForeignKey[] = [];
+  for (const fk of foreignKeys) {
+    const reference = fk.reference();
+    const foreignTable = nameOf(reference.foreignTable);
+    if (skip?.has(foreignTable)) {
+      continue;
+    }
+    resolved.push({
+      name: fk.getName(),
+      columns: reference.columns.map((column) => column.name),
+      foreignTable,
+      foreignColumns: reference.foreignColumns.map((column) => column.name),
+      onDelete: fk.onDelete,
+      onUpdate: fk.onUpdate,
+    });
+  }
+  return resolved;
 }
 
 /**
@@ -446,6 +500,7 @@ export class DrizzleOrm extends Orm {
     quote = '"',
     checks: readonly DDLCheck[] = [],
     dialect: SqlDialect = "sqlite",
+    foreignKeys: readonly IResolvedForeignKey[] = [],
   ): string {
     const defs = columns.map((col) => {
       const parts = [`${quote}${col.name}${quote}`, col.getSQLType()];
@@ -477,6 +532,29 @@ export class DrizzleOrm extends Orm {
         `CONSTRAINT ${quote}${check.name}${quote} CHECK (${predicate})`,
       );
     }
+    // Les clés étrangères, comme les `CHECK`, vivent DANS le `CREATE TABLE` :
+    // aucun des trois moteurs ne sait les attacher à une table existante de
+    // façon portable (SQLite n'a pas d'`ADD CONSTRAINT` du tout). Le prix est le
+    // même qu'ailleurs, et il est dit : une base de développement DÉJÀ créée ne
+    // les reçoit pas — c'est une migration qui s'en charge.
+    //
+    // La contrainte porte un NOM explicite : en MySQL il est unique pour la
+    // BASE entière, pas pour la table, et deux tables qui laisseraient le
+    // serveur nommer leurs contraintes finiraient par se heurter.
+    for (const fk of foreignKeys) {
+      const source = fk.columns.map((c) => `${quote}${c}${quote}`).join(", ");
+      const target = fk.foreignColumns
+        .map((c) => `${quote}${c}${quote}`)
+        .join(", ");
+      const actions = [
+        fk.onDelete ? ` ON DELETE ${fk.onDelete.toUpperCase()}` : "",
+        fk.onUpdate ? ` ON UPDATE ${fk.onUpdate.toUpperCase()}` : "",
+      ].join("");
+      defs.push(
+        `CONSTRAINT ${quote}${fk.name}${quote} FOREIGN KEY (${source}) ` +
+          `REFERENCES ${quote}${fk.foreignTable}${quote} (${target})${actions}`,
+      );
+    }
     return `CREATE TABLE IF NOT EXISTS ${quote}${name}${quote} (${defs.join(", ")})`;
   }
 
@@ -493,11 +571,11 @@ export class DrizzleOrm extends Orm {
    * pas. Émis à part, il arrive AUSSI sur une base de développement déjà créée —
    * ce qu'aucune clause de table ne permettrait.
    *
-   * Les clés étrangères, elles, ne sont toujours PAS émises : elles se déclarent
-   * DANS le `CREATE TABLE`, donc elles n'atteindraient jamais une base existante,
-   * et elles imposeraient de créer les tables dans l'ordre de leurs dépendances
-   * (indécidable sur un cycle). C'est le travail du DDL de production
-   * (drizzle-kit), pas d'un dérivé de développement.
+   * Les clés étrangères, elles, ne peuvent PAS être émises à part : elles se
+   * déclarent DANS le `CREATE TABLE` (cf `#buildCreateTable`), donc elles
+   * n'atteignent jamais une base déjà créée — c'est le prix assumé, le même que
+   * pour les `CHECK`. Et elles imposent de créer les tables dans l'ordre de
+   * leurs dépendances : cf `#planCreation`, qui porte aussi le cas du cycle.
    *
    * @param table - nom de la table portant les index.
    * @param indexes - index déclarés (`getTableConfig(...).indexes`).
@@ -530,10 +608,60 @@ export class DrizzleOrm extends Orm {
     return statements;
   }
 
+  /**
+   * Ordonne les tables pour que chaque cible naisse avant qui la désigne, et dit
+   * ce qu'il a fallu abandonner.
+   *
+   * Le tri lui-même vit à part ({@link planTableCreation}, module pur) ; cette
+   * méthode ne fait que lire les tables du dialecte courant et JOURNALISER.
+   * L'avertissement compte autant que le tri : une contrainte d'intégrité qui
+   * n'est pas posée est une garantie qu'on croit avoir.
+   *
+   * @param entities - les entités de ce connecteur.
+   * @param describe - comment lire le nom d'une table et ses cibles.
+   * @returns les entités dans l'ordre de création, et les cibles à ignorer par table.
+   */
+  #planCreation(
+    entities: readonly IEntity[],
+    describe: (entity: IEntity) => { name: string; references: string[] },
+  ): { ordered: IEntity[]; skip: Map<string, Set<string>> } {
+    const described = entities.map((entity) => ({
+      entity,
+      ...describe(entity),
+    }));
+    const plan = planTableCreation(described);
+    const skip = new Map<string, Set<string>>();
+    for (const entry of plan.omitted) {
+      const targets = skip.get(entry.table) ?? new Set<string>();
+      targets.add(entry.target);
+      skip.set(entry.table, targets);
+    }
+    const message = explainOmittedForeignKeys(plan.omitted);
+    if (message) {
+      this.log(message, "WARNING");
+    }
+    const rank = new Map(plan.order.map((name, index) => [name, index]));
+    const ordered = [...described]
+      .sort((a, b) => (rank.get(a.name) ?? 0) - (rank.get(b.name) ?? 0))
+      .map((entry) => entry.entity);
+    return { ordered, skip };
+  }
+
   /** Dérive le `CREATE TABLE` SQLite depuis la table Drizzle (dev/test). */
-  #createTableSQL(table: SQLiteTable): string {
-    const { name, columns, checks } = getTableConfig(table);
-    return this.#buildCreateTable(name, columns, '"', checks, "sqlite");
+  #createTableSQL(table: SQLiteTable, skip?: ReadonlySet<string>): string {
+    const { name, columns, checks, foreignKeys } = getTableConfig(table);
+    return this.#buildCreateTable(
+      name,
+      columns,
+      '"',
+      checks,
+      "sqlite",
+      resolveForeignKeys(
+        foreignKeys as unknown as DDLForeignKey[],
+        (target) => getTableConfig(target as SQLiteTable).name,
+        skip,
+      ),
+    );
   }
 
   /** Dérive les `CREATE INDEX` SQLite depuis la table Drizzle (dev/test). */
@@ -543,9 +671,20 @@ export class DrizzleOrm extends Orm {
   }
 
   /** Dérive le `CREATE TABLE` Postgres depuis la table Drizzle (dev/test). */
-  #createTablePgSQL(table: PgTable): string {
-    const { name, columns, checks } = getPgTableConfig(table);
-    return this.#buildCreateTable(name, columns, '"', checks, "postgres");
+  #createTablePgSQL(table: PgTable, skip?: ReadonlySet<string>): string {
+    const { name, columns, checks, foreignKeys } = getPgTableConfig(table);
+    return this.#buildCreateTable(
+      name,
+      columns,
+      '"',
+      checks,
+      "postgres",
+      resolveForeignKeys(
+        foreignKeys as unknown as DDLForeignKey[],
+        (target) => getPgTableConfig(target as PgTable).name,
+        skip,
+      ),
+    );
   }
 
   /** Dérive les `CREATE INDEX` Postgres depuis la table Drizzle (dev/test). */
@@ -555,9 +694,20 @@ export class DrizzleOrm extends Orm {
   }
 
   /** Dérive le `CREATE TABLE` MySQL depuis la table Drizzle (dev/test). */
-  #createTableMysqlSQL(table: MySqlTable): string {
-    const { name, columns, checks } = getMysqlTableConfig(table);
-    return this.#buildCreateTable(name, columns, "`", checks, "mysql");
+  #createTableMysqlSQL(table: MySqlTable, skip?: ReadonlySet<string>): string {
+    const { name, columns, checks, foreignKeys } = getMysqlTableConfig(table);
+    return this.#buildCreateTable(
+      name,
+      columns,
+      "`",
+      checks,
+      "mysql",
+      resolveForeignKeys(
+        foreignKeys as unknown as DDLForeignKey[],
+        (target) => getMysqlTableConfig(target as MySqlTable).name,
+        skip,
+      ),
+    );
   }
 
   /**
@@ -718,6 +868,23 @@ export class DrizzleOrm extends Orm {
       client.pragma("journal_mode = WAL");
       client.pragma("synchronous = NORMAL");
     }
+    // 🔴 Sans ce réglage, les clés étrangères sont DÉCORATIVES : SQLite les
+    // écrit dans le schéma, les relit, et n'empêche rien. Le réglage porte sur la
+    // CONNEXION, jamais sur le fichier — il se repose à chaque ouverture.
+    //
+    // ⚠️ Il est REDONDANT avec le pilote actuel, et posé quand même :
+    // `better-sqlite3` compile SQLite avec `SQLITE_DEFAULT_FOREIGN_KEYS=1`
+    // (constaté : `db.pragma("foreign_keys")` rend `1` sur une base neuve), là
+    // où SQLite lui-même est à OFF depuis toujours, pour les bases d'avant 2006.
+    // On ne fait donc pas reposer une garantie d'intégrité sur le défaut d'un
+    // pilote tiers : le jour où il change, ou le jour où une application ouvre
+    // sa base autrement (`node:sqlite`, où le défaut est OFF), la garantie doit
+    // tenir sans que personne n'ait à y penser.
+    //
+    // Hors du `if` ci-dessus, et c'est voulu : une base en mémoire n'a pas de
+    // journal, mais elle a des contraintes — et c'est sur elle que tournent les
+    // tests, donc c'est là qu'on veut les voir mordre.
+    client.pragma("foreign_keys = ON");
     this.#client = client;
     const db = sqliteDrizzle(client);
     this.#db = db;
@@ -757,10 +924,26 @@ export class DrizzleOrm extends Orm {
       const table = entity.schema as SQLiteTable;
       this.#tables![entity.name] = table;
       entity.model = table;
-      if (!this.#deriveSchema) {
-        continue;
-      }
-      client.exec(this.#createTableSQL(table));
+    }
+    if (!this.#deriveSchema) {
+      return;
+    }
+    // Deux passes, et la séparation n'est pas cosmétique : l'enregistrement vaut
+    // pour TOUTES les entités (même sans DDL dérivé), la création suit l'ordre
+    // des dépendances — qu'on ne connaît qu'après les avoir toutes lues.
+    const plan = this.#planCreation(entities, (entity) => {
+      const config = getTableConfig(entity.schema as SQLiteTable);
+      return {
+        name: config.name,
+        references: config.foreignKeys.map(
+          (fk) => getTableConfig(fk.reference().foreignTable).name,
+        ),
+      };
+    });
+    for (const entity of plan.ordered) {
+      const table = entity.schema as SQLiteTable;
+      const name = getTableConfig(table).name;
+      client.exec(this.#createTableSQL(table, plan.skip.get(name)));
     }
   }
 
@@ -1150,10 +1333,23 @@ export class DrizzleOrm extends Orm {
       const table = entity.schema as PgTable;
       this.#tables![entity.name] = table;
       entity.model = table;
-      if (!this.#deriveSchema) {
-        continue;
-      }
-      await pool.query(this.#createTablePgSQL(table));
+    }
+    if (!this.#deriveSchema) {
+      return;
+    }
+    const plan = this.#planCreation(entities, (entity) => {
+      const config = getPgTableConfig(entity.schema as PgTable);
+      return {
+        name: config.name,
+        references: config.foreignKeys.map(
+          (fk) => getPgTableConfig(fk.reference().foreignTable).name,
+        ),
+      };
+    });
+    for (const entity of plan.ordered) {
+      const table = entity.schema as PgTable;
+      const name = getPgTableConfig(table).name;
+      await pool.query(this.#createTablePgSQL(table, plan.skip.get(name)));
     }
   }
 
@@ -1407,10 +1603,23 @@ export class DrizzleOrm extends Orm {
       const table = entity.schema as MySqlTable;
       this.#tables![entity.name] = table;
       entity.model = table;
-      if (!this.#deriveSchema) {
-        continue;
-      }
-      await pool.query(this.#createTableMysqlSQL(table));
+    }
+    if (!this.#deriveSchema) {
+      return;
+    }
+    const plan = this.#planCreation(entities, (entity) => {
+      const config = getMysqlTableConfig(entity.schema as MySqlTable);
+      return {
+        name: config.name,
+        references: config.foreignKeys.map(
+          (fk) => getMysqlTableConfig(fk.reference().foreignTable).name,
+        ),
+      };
+    });
+    for (const entity of plan.ordered) {
+      const table = entity.schema as MySqlTable;
+      const name = getMysqlTableConfig(table).name;
+      await pool.query(this.#createTableMysqlSQL(table, plan.skip.get(name)));
     }
   }
 

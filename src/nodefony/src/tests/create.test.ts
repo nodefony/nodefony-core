@@ -6486,6 +6486,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(ctrl, "INCLUDABLE.has(name)");
     });
 
+    // La relation n'est pas qu'un lien logique : elle pose une CONTRAINTE que la
+    // base fait respecter. Le fichier rendu doit donc importer la table visée —
+    // un `.references()` vers un symbole non importé ne compile pas.
+    it("`ref:` pose la contrainte d'intégrité et importe la table visée", () => {
+      const dest = app("eapp4fk");
+      entity(dest, { name: "Author", fields: "email:string" });
+      entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
+      const ent = readFileSync(
+        path.join(dest, "nodefony", "entity", "Post.ts"),
+        "utf8",
+      );
+      assert.include(ent, 'import { authorTable } from "./Author";');
+      assert.include(
+        ent,
+        '.references(() => authorTable.id, { onDelete: "restrict" })',
+      );
+    });
+
     // Une entité sans champ produit un CRUD qui « marche » et ne transporte rien.
     // Ce qu'un front (Studio, terminal, agent) doit pouvoir demander AU PROJET
     // plutôt que le deviner : ses connecteurs, ses entités, la traduction réelle

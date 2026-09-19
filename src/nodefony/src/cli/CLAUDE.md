@@ -659,9 +659,15 @@ deux index de deux colonnes en un de quatre. Colonne inconnue, répétée, ou im
 même jeu de colonnes déclaré par `:index` ET `--index` → **un seul index émis** (sinon la
 création de la table échoue au démarrage). **`ref:` ⇒ colonne INDEXÉE d'office**
 (sauf `:unique`, qui pose déjà l'index) : c'est la colonne de jointure (`?include=` = `IN (…)`).
-L'index n'est PAS la FK — un `JOIN` n'exige aucune contrainte ; les **FOREIGN KEY ne sont pas
-émises** par le DDL dev (déclarées dans le `CREATE TABLE`, elles n'atteindraient jamais une base
-existante) → domaine des migrations. Wiring : `wireEntitiesDecorator` **crée** `@entities([...])`
+L'index n'est PAS la FK — un `JOIN` n'exige aucune contrainte —, et la **contrainte d'intégrité
+est émise EN PLUS** : `.references(() => <cible>Table.id, { onDelete })`, avec l'import de la
+table visée. **La politique d'effacement se DÉDUIT de la nullabilité, elle ne s'écrit pas** :
+`author:ref:User` (obligatoire) → `restrict`, `author:ref:User?` → `set null`. `set null` sur une
+colonne obligatoire est refusé par MySQL à la création (errno 1830) et explose au premier
+effacement ailleurs ; `cascade` n'est jamais un défaut et s'écrit à la main dans la table générée.
+Une relation vers SOI (`parent:ref:Category` dans `Category`) ne s'importe pas et porte
+l'annotation `AnySQLiteColumn`/`AnyPgColumn`/`AnyMySqlColumn`, sans laquelle le fichier rendu ne
+compile pas. Wiring : `wireEntitiesDecorator` **crée** `@entities([...])`
 s'il n'existe pas (import **nommé** — un descripteur n'est pas un default), + `@controllers`.
 Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de la cible · entité déjà
 déclarée · **nom RÉSERVÉ par un module du framework** (`scaffold/reservedEntities.ts` : `User`,

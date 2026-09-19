@@ -55,6 +55,7 @@ import {
   parseEntityFields,
   parseEntityIndexes,
   buildEntityCodegen,
+  entityTableSymbol,
   parseRowFieldNames,
   extractRowBlock,
   describeColumnTypes,
@@ -4072,6 +4073,7 @@ function runEntityScaffold(
     indexes,
     columnCase,
     idName,
+    entity: pascal,
   });
 
   // 🔴 `create entity` RÉ-DÉCRIT l'entité en entier — il ne CUMULE pas avec ce
@@ -4264,6 +4266,10 @@ function runEntityScaffold(
   const data = {
     pascal,
     camel,
+    // Le nom de la variable de table vient de la MÊME fonction que celle qui
+    // l'écrit dans les entités voisines (`.references(() => userTable.id)`) :
+    // deux conventions séparées finiraient par ne plus se répondre.
+    tableSymbol: entityTableSymbol(pascal),
     kebab,
     table,
     route,
