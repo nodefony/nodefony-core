@@ -74,3 +74,25 @@ export const <%= it.pascal %>Entity = defineEntity({
     },
 <% }) %>  ],
 <% } %>});
+
+/**
+ * Échantillon **variable** de `<%= it.pascal %>` — paramétré par un entier.
+ *
+ * Il vit ICI, et non dans les tests, parce que trois lecteurs en ont besoin : le
+ * test de la couche donnée, le test de bout en bout, et toute amorce de données
+ * ou démonstration. Trois copies divergeraient au premier champ ajouté, et
+ * chacune passerait ses propres contrôles sans rien dire.
+ *
+ * `n` fait varier les valeurs : deux insertions du même objet violeraient une
+ * contrainte d'unicité, et le test échouerait sur lui-même.
+<% if (it.relationParents.length) { %> *
+ * ⚠️ `refs` porte les identifiants des lignes **parentes**. Une relation est une
+ * vraie clé étrangère : un identifiant qui ne désigne rien est REFUSÉ par la base
+ * — « FOREIGN KEY constraint failed » en direct, 500 à travers la ressource HTTP.
+ * L'appelant crée donc le parent d'abord et passe son identifiant. À défaut, on
+ * retombe sur une valeur inventée, qui suffit au seul contrat de validation.
+<% } %> */
+export const <%= it.camel %>Sample = (
+  n: number,<% if (it.relationParents.length) { %>
+  refs: Record<string, string | number> = {},<% } %>
+): Partial<<%= it.pascal %>Row> => (<%= it.sampleFactory %>);

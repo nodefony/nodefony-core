@@ -2,7 +2,9 @@ import { runningAppPort } from "nodefony/testing";
 import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
 <% if (it.hasSecurity) { %>import { adminLogin } from "./e2e.setup";
-<% } %>
+<% } %>import { <%= it.camel %>Sample } from "../nodefony/entity/<%= it.pascal %>";
+<% it.relationParents.forEach(function (p) { %>import { <%= p.camel %>Sample } from "../nodefony/entity/<%= p.pascal %>";
+<% }) %>
 
 /**
  * Test E2E de la ressource `<%= it.pascal %>` — le cycle CRUD complet, sur le
@@ -20,13 +22,18 @@ import { describe, it, expect, beforeAll } from "vitest";
 const ROUTE = "<%= it.route %>";
 let BASE = "http://127.0.0.1:5151";
 
-/**
- * Échantillon paramétré : `n` change les valeurs.
+<% if (it.relationParents.length) { %>/**
+ * Identifiants des lignes **parentes**, créées par LEUR API au `beforeAll`.
  *
- * Indispensable dès qu'un champ est unique — deux insertions du même échantillon
- * violeraient la contrainte, et le test échouerait sur lui-même.
+ * Une relation est une vraie clé étrangère : la ressource ne peut pas créer une
+ * ligne qui désigne un parent inexistant — la base refuse, et la requête rend 500.
+ * Ce test parle à un serveur lancé dans un AUTRE processus : il n'a ni l'ORM ni la
+ * base sous la main, il passe donc par l'API du parent, comme le ferait un client.
  */
-const sample = (n: number) => (<%= it.sampleFactory %>);
+const parents: Record<string, string | number> = {};
+
+<% } %>/** L'échantillon de l'entité — une seule fabrique pour les deux tests et la doc. */
+const sample = (n: number) => <%= it.camel %>Sample(n<% if (it.relationParents.length) { %>, parents<% } %>);
 
 /** Lit le corps JSON en le typant à plat, sans supposer la forme complète. */
 async function json(res: Response): Promise<Record<string, unknown>> {
@@ -61,7 +68,30 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     const port = runningAppPort();
     BASE = `http://127.0.0.1:${port}`;
 <% if (it.hasSecurity) { %>    AUTH = { cookie: await adminLogin() };
-<% } %>  });
+<% } %><% if (it.relationParents.length) { %>    // Les lignes parentes d'abord — sinon toute création de ce cycle viole la
+    // clé étrangère, et la ressource rend 500 au lieu de 201.
+    //
+    // La route du parent est DÉRIVÉE de son nom, par la règle qui l'a posée à sa
+    // génération. Si elle a été changée à la main (`--route`), corriger la
+    // constante ici : le test le dit franchement plutôt que d'échouer plus loin
+    // sur un statut qui n'accuserait pas le bon coupable.
+<% it.relationParents.forEach(function (p) { %>    {
+      const cree = await fetch(`${BASE}<%= p.route %>`, {
+        method: "POST",
+        headers: entetes(),
+        body: JSON.stringify(<%= p.camel %>Sample(Date.now() % 1_000_000)),
+      });
+      if (cree.status !== 201) {
+        throw new Error(
+          `e2e <%= it.pascal %> : la ligne parente « <%= p.pascal %> » n'a pas pu être créée sur ` +
+            `<%= p.route %> (statut ${cree.status}). Sans elle, aucune création de ce cycle ` +
+            `ne peut aboutir — la clé étrangère serait violée. Vérifier que la ressource ` +
+            `« <%= p.pascal %> » est servie à cette route.`,
+        );
+      }
+      parents["<%= p.pascal %>"] = (await json(cree)).id as string;
+    }
+<% }) %><% } %>  });
 
   it("POST → 201 + Location, puis GET sur cette Location", async () => {
     const payload = sample(1);

@@ -252,6 +252,7 @@ export {
   DrizzleOrm,
   DrizzleRepository,
   DrizzleTransaction,
+  seedEntityRow,
 } from "./nodefony/src/orm-core/index";
 export type {
   DrizzleOrmOptions,

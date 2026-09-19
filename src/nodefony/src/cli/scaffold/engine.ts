@@ -4239,11 +4239,26 @@ function runEntityScaffold(
   // trois types différents, chacun ajouté après coup.
   const sample: Record<string, unknown> = {};
   const factory: string[] = [];
+  // La fabrique vit dans l'ENTITÉ, pas dans les tests : ses deux tests, la
+  // documentation et toute amorce de données parlent du même échantillon. Trois
+  // copies divergeraient au premier champ ajouté, chacune passant ses propres
+  // contrôles.
+  //
+  // Les clés étrangères y lisent `refs` : une relation est une vraie contrainte,
+  // et un identifiant inventé est REFUSÉ par la base (`FOREIGN KEY constraint
+  // failed` en unitaire, 500 sur la ressource HTTP). L'appelant passe les
+  // identifiants des lignes parentes qu'il a créées ; à défaut, on retombe sur
+  // l'identifiant inventé — ce qui suffit au seul contrat Zod, qui se moque de
+  // l'existence du parent.
   for (const f of fields) {
     if (f.nullable) continue;
     const { fixed, expr } = sampleValue(f, id);
     sample[f.name] = fixed;
-    factory.push(`${f.name}: ${expr}`);
+    factory.push(
+      f.type === "ref" && f.target
+        ? `${f.name}: (refs.${f.target} ?? ${expr}) as ${id === "serial" ? "number" : "string"}`
+        : `${f.name}: ${expr}`,
+    );
   }
 
   // Un champ dont la valeur voyage telle quelle en JSON ET varie d'un
@@ -4320,6 +4335,33 @@ function runEntityScaffold(
           .filter((f) => f.type === "ref" && f.target)
           .map((f) => f.target as string),
       ),
+    ],
+    // Les mêmes cibles, mais avec ce qu'il faut pour les créer PAR LEUR API —
+    // ce dont le test de bout en bout a besoin, lui qui parle à un serveur dans
+    // un autre processus et n'a donc ni ORM ni base sous la main.
+    //
+    // La route est DÉRIVÉE par la règle qui l'a posée à la génération du parent
+    // (`/api/<pluriel du kebab>`). Une route changée à la main ne se devine pas :
+    // le test généré le DIT alors franchement, au lieu d'échouer sur un 404 muet.
+    relationParents: [
+      ...new Map(
+        fields
+          .filter((f) => f.type === "ref" && f.target)
+          .map((f) => {
+            const relationTarget = f.target as string;
+            const targetKebab = toKebabCase(relationTarget);
+            return [
+              relationTarget,
+              {
+                pascal: relationTarget,
+                camel:
+                  relationTarget.charAt(0).toLowerCase() +
+                  relationTarget.slice(1),
+                route: `/api/${pluralize(targetKebab)}`,
+              },
+            ] as const;
+          }),
+      ).values(),
     ],
     timestamps,
     softDelete,

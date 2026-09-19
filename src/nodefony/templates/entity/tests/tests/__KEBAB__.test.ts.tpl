@@ -1,8 +1,9 @@
 import { describe, it, expect<% if (it.dialect === "sqlite") { %>, beforeAll, afterAll<% } %> } from "vitest";
-<% if (it.dialect === "sqlite") { %>import { DrizzleOrm } from "@nodefony/drizzle";
+<% if (it.dialect === "sqlite") { %>import { DrizzleOrm<% if (it.relationTargets.length) { %>, seedEntityRow<% } %> } from "@nodefony/drizzle";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import { <%= it.pascal %>Entity } from "../nodefony/entity/<%= it.pascal %>";
-<% } %>import type { <%= it.pascal %>Row } from "../nodefony/entity/<%= it.pascal %>";
+<% } %>import { <%= it.camel %>Sample } from "../nodefony/entity/<%= it.pascal %>";
+import type { <%= it.pascal %>Row } from "../nodefony/entity/<%= it.pascal %>";
 import { create<%= it.pascal %>Schema } from "../nodefony/entity/<%= it.pascal %>.schema";
 <% if (it.dialect === "sqlite") { it.relationTargets.forEach(function (target) { %>import { <%= target %>Entity } from "../nodefony/entity/<%= target %>";
 <% }) } %>
@@ -29,11 +30,21 @@ const ORM = "test-<%= it.kebab %>";
  * dont le type ne correspond pas à la clé visée.
  */
 <% } %>
-/**
- * Échantillon **variable** — indispensable dès qu'un champ est unique : deux insertions
- * du même objet violeraient la contrainte, et le test échouerait sur lui-même.
+<% if (it.relationParents.length) { %>/**
+ * Identifiants des lignes **parentes**.
+ *
+ * Une relation est une vraie clé étrangère : la base REFUSE un identifiant qui ne
+ * désigne rien. L'échantillon lit donc ce qui a été semé — et le test éprouve la
+ * contrainte au lieu de la contourner.
+ *
+ * Il reste VIDE hors base en mémoire : sur un autre dialecte, ce fichier n'éprouve
+ * que le contrat de validation, qui se moque de l'existence du parent.
  */
-const sample = (n: number): Partial<<%= it.pascal %>Row> => (<%= it.sampleFactory %>);
+const parents: Record<string, string | number> = {};
+
+<% } %>/** L'échantillon de l'entité — une seule fabrique pour les deux tests et la doc. */
+const sample = (n: number): Partial<<%= it.pascal %>Row> =>
+  <%= it.camel %>Sample(n<% if (it.relationParents.length) { %>, parents<% } %>);
 
 describe("<%= it.pascal %> — entité", () => {
 <% if (it.dialect === "sqlite") { %>  let orm: DrizzleOrm;
@@ -47,7 +58,12 @@ describe("<%= it.pascal %> — entité", () => {
 <% it.relationTargets.forEach(function (target) { %>    entityRegistry.register({ ...<%= target %>Entity, connector: ORM });
 <% }) %><% } %>    orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
-  });
+<% if (it.relationTargets.length) { %>    // Les lignes parentes existent AVANT toute insertion : `seedEntityRow` lit les
+    // colonnes obligatoires de la table visée et y pose une ligne valide, quels
+    // que soient ses champs. Sans elle, toute création échouerait sur un
+    // « FOREIGN KEY constraint failed » — la contrainte fait son travail.
+<% it.relationTargets.forEach(function (target) { %>    parents.<%= target %> = await seedEntityRow(orm, { ...<%= target %>Entity, connector: ORM });
+<% }) %><% } %>  });
 
   afterAll(async () => {
     await orm.disconnect();

@@ -14,3 +14,4 @@ export type {
   DrizzleResolvedRelation,
 } from "./DrizzleRepository";
 export { DrizzleTransaction } from "./DrizzleTransaction";
+export { seedEntityRow } from "./seedRow";

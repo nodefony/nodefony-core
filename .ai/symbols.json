@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 843,
-    "symbols": 4153,
-    "classes": 394,
-    "interfaces": 1109,
+    "files": 846,
+    "symbols": 4164,
+    "classes": 395,
+    "interfaces": 1112,
     "types": 451,
     "enums": 4,
-    "functions": 1786,
+    "functions": 1793,
     "constants": 409
   },
   "symbols": {
@@ -2292,6 +2292,64 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Racine du PROJET Nodefony courant (app générée / app utilisateur) : remonte depuis `from` jusqu'au premier dossier portant `nodefony.config.ts` + `package.json`. Deux consommateurs, une seule défin…"
+    },
+    "IProjectScript": {
+      "name": "IProjectScript",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Un script `npm` du projet courant, tel que l'aide le rend."
+    },
+    "IProjectScriptGroup": {
+      "name": "IProjectScriptGroup",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une famille de scripts, telle que l'aide la rend."
+    },
+    "readProjectScripts": {
+      "name": "readProjectScripts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Apparie les scripts d'un manifeste avec leurs descriptions. Fonction **pure** : elle ne touche pas au disque, ce qui la rend éprouvable sans monter un projet. Les scripts sortent dans l'ordre du ma…"
+    },
+    "loadProjectScripts": {
+      "name": "loadProjectScripts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit les scripts du `package.json` d'un dossier. Ne lève **jamais** : un projet sans manifeste, illisible ou mal formé rend une liste vide. Cette fonction sert à enrichir une aide — une aide qui pla…"
+    },
+    "formatProjectScripts": {
+      "name": "formatProjectScripts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend les scripts en texte aligné, pour la fin d'une aide de commande. Rend une chaîne **vide** quand aucun script ne porte de description : une section vide, ou une liste de noms sans explication, …"
+    },
+    "groupOfScript": {
+      "name": "groupOfScript",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Range un script dans sa famille."
+    },
+    "groupProjectScripts": {
+      "name": "groupProjectScripts",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/projectScripts.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Groupe les scripts décrits, familles vides retirées. Dans une famille, l'ordre est **alphabétique** : il est stable, et il place naturellement `build` avant `build:core`, `test` avant `test:all`."
     },
     "askPasswordMasked": {
       "name": "askPasswordMasked",
@@ -10674,6 +10732,17 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Applique la topologie résolue — flow **PARTAGÉ** par les commandes de lancement (`cluster`, `production`). Appelé depuis leur `onKernelStart` (phase `onStart`), donc AVANT que l'unique Kernel ne dé…"
+    },
+    "Scripts": {
+      "name": "Scripts",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony scripts` — ce que font les scripts `npm` de ce projet. `package.json` est du JSON : il n'accepte aucun commentaire, et le seul indice de ce que fait un script y est son NOM. Sur …"
     },
     "@nodefony/core:Status": {
       "name": "Status",
@@ -23888,6 +23957,14 @@
       "extends": null,
       "description": "Pilotage transactionnel d'**une connexion**, abstrait du driver (INTERNE). Existe parce que les trois drivers pilotent une transaction différemment : `better-sqlite3` est synchrone sur une connexio…"
     },
+    "seedEntityRow": {
+      "name": "seedEntityRow",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Insère une ligne minimale dans la table d'une entité, et rend son identifiant. Destiné aux **tests** : dès qu'une entité porte une relation (`author:ref:Author`), sa colonne est une vraie clé étran…"
+    },
     "ViteBuilder": {
       "name": "ViteBuilder",
       "kind": "class",
@@ -28432,6 +28509,7 @@
         "Menu",
         "Outdated",
         "Prod",
+        "Scripts",
         "Status",
         "Stop",
         "Symbols",
@@ -29039,6 +29117,7 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -29711,7 +29790,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts"
       ],
       "MediasoupController": [
         "src/modules/mediasoup/index.ts"
@@ -31751,6 +31831,7 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
+        "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -31962,6 +32043,14 @@
       "IHelpOption": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
+      "loadProjectScripts": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/ScriptsCommand.ts"
+      ],
+      "groupProjectScripts": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/ScriptsCommand.ts"
+      ],
       "isDoctorCommand": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
@@ -31990,6 +32079,9 @@
         "src/nodefony/src/kernel/commands/CardCommand.ts"
       ],
       "Symbols": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "Scripts": [
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "runSymbolsCommand": [
@@ -33655,6 +33747,7 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
+        "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -34179,6 +34272,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"

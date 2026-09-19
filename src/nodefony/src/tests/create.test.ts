@@ -615,6 +615,57 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
    * paquet absent serait du bruit dans un manifeste qu'on lit.
    */
   describe("npm — le manifeste refuse le script d'installation fantôme", () => {
+    it("chaque script npm généré dit ce qu'il fait", () => {
+      // `package.json` est du JSON : aucun commentaire n'y est possible, et le
+      // seul indice de ce que fait un script y est son NOM. Une application qui
+      // naît avec vingt scripts muets condamne son auteur — et tout agent qui
+      // la découvre — à lire chaque commande pour deviner. Le dépôt porte le
+      // même gate sur lui-même (`npm run check:scripts`) ; ce test le porte sur
+      // ce qu'il PRODUIT, qui ne passe par aucun de ses gates.
+      for (const preset of ["minimal", "complete"] as const) {
+        const dest = path.join(tmp, `scripts-decrits-${preset}`);
+        scaffold(dest, {
+          name: `decrits${preset}`,
+          preset,
+          frontend: "none",
+        });
+        const pkg = readJson(path.join(dest, "package.json"));
+        const scripts = Object.keys(
+          (pkg["scripts"] ?? {}) as Record<string, string>,
+        );
+        const decrits = ((pkg["nodefony"] ?? {}) as Record<string, unknown>)[
+          "scripts"
+        ] as Record<string, string> | undefined;
+        assert.isObject(
+          decrits,
+          `${preset} : le manifeste généré doit porter « nodefony.scripts »`,
+        );
+        // Un crochet npm (`pre<X>`/`post<X>` dont `<X>` existe) n'a rien à
+        // décrire : son nom dit déjà à quoi il se rattache.
+        const crochet = (nom: string) =>
+          ["pre", "post"].some((p) => {
+            const cible = nom.startsWith(p) ? nom.slice(p.length) : "";
+            return Boolean(cible) && scripts.includes(cible);
+          });
+        const muets = scripts.filter(
+          (nom) => !crochet(nom) && !(decrits ?? {})[nom]?.trim(),
+        );
+        assert.deepEqual(
+          muets,
+          [],
+          `${preset} : scripts générés sans description`,
+        );
+        const orphelines = Object.keys(decrits ?? {}).filter(
+          (nom) => !scripts.includes(nom),
+        );
+        assert.deepEqual(
+          orphelines,
+          [],
+          `${preset} : descriptions qui ne désignent plus aucun script`,
+        );
+      }
+    });
+
     it("preset complete : better-sqlite3 est explicitement refusé", () => {
       const dest = path.join(tmp, "npm-deny-complete");
       scaffold(dest, {
@@ -6677,12 +6728,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = app("eapp4m");
       entity(dest, { name: "Author", fields: "email:string" });
       entity(dest, { name: "Post", fields: "title:string author:ref:Author" });
+      // L'échantillon vit dans l'ENTITÉ, et non plus dans chaque test : ses
+      // deux tests, la documentation et toute amorce de données parlent du même
+      // objet. Trois copies divergeraient au premier champ ajouté.
       const src = readFileSync(
-        path.join(dest, "tests", "post.e2e.test.ts"),
+        path.join(dest, "nodefony", "entity", "Post.ts"),
         "utf8",
       );
       assert.include(src, "00000000-0000-4000-8000-");
       assert.notInclude(src, "author: `author-${n}`");
+      // Et la valeur inventée n'est qu'un REPLI : quand l'appelant a créé la
+      // ligne parente, c'est SON identifiant qui est posé. Sans cela, la clé
+      // étrangère serait refusée par la base — la contrainte est réelle depuis
+      // que les relations la posent.
+      assert.include(src, "refs.Author ??");
     });
 
     it("l'application à ORM porte l'outil qui ÉCRIT les migrations", () => {
