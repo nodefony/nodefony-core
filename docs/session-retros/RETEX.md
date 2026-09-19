@@ -413,6 +413,13 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-19] 🔴 **Le skill que je venais de charger disait NOIR SUR BLANC de ne pas conclure d'un
+  silence — j'ai conclu « le banc est figé ».** `nodefony-devkit-bench` porte l'avertissement en
+  toutes lettres (« il suit un fichier, la sortie arrive par à-coups ») ; dix minutes plus tard, un
+  flux immobile et un `find` qui rendait 0 m'ont suffi. Le run servait des requêtes HTTP à la
+  seconde près. Lire une règle ne la met pas en place au moment du geste : c'est le geste qui doit
+  la rappeler, d'où la section ajoutée AU skill (le CPU du process, jamais une date de fichier).
+
 - [1× — 09-14c] 🔴 **J'ai mesuré cinq camps en séries séquentielles alors que les paires alternées
   sont documentées** dans l'en-tête de `bench-ab-mono.sh` ET dans le skill que je venais de
   charger. Rien ne les imposait : il fallait taper `A1 ; B1 ; A2 ; B2` soi-même. Chaque série était
@@ -447,6 +454,15 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-19] 🔴 **J'ai ouvert un ticket qui qualifiait de BUG une convention délibérée.** #429
+  affirmait que `orm:migrate:repair` et `orm:migrate:status --json` mentaient sur leur code de
+  sortie. Ils ne mentaient pas : `1` signifie « action humaine requise » (`explain.ts:194`), la
+  table est figée et des passes de déploiement s'arrêtent dessus (`|| exit 1`). Coder sur cette
+  prémisse aurait cassé l'usage publié. Ce qui m'a arrêté est d'être allé lire la constante AVANT
+  d'éditer — le vrai défaut était la DÉCOUVRABILITÉ (grille en TSDoc, invisible à qui tape la
+  commande). Un ticket est cru sans être relu : écrire « c'est un bug » sans avoir vu la convention
+  fabrique du travail faux.
 
 - [1× — 09-18f] 🔴 **Un seuil bloquant aurait rendu un job rouge POUR TOUJOURS.** La chaîne de
   production que je venais d'écrire échouait sur toute vulnérabilité critique de l'image. Mesuré

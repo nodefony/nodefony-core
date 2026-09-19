@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-18T21:45:11.139Z",
+  "generatedAt": "2026-09-19T10:01:01.512Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 120,
+      "closed": 122,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 6,
+      "open": 7,
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 15,
+      "closed": 17,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 37,
       "title": "10.0.0-beta"
     },
     {
@@ -1922,8 +1922,8 @@
       "number": 418,
       "title": "feat(ci): contrôler aussi l'image dans la chaîne GitLab générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/418",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -3092,14 +3092,30 @@
       "number": 388,
       "title": "chore(release): publier la préversion 10.0.0-alpha.7",
       "url": "https://github.com/nodefony/nodefony-core/issues/388",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 429,
+      "title": "fix(orm): rendre lisible le code de sortie « action requise » de la migration",
+      "url": "https://github.com/nodefony/nodefony-core/issues/429",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 9.1,
+      "debut": null,
+      "cible": null,
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3116,6 +3132,22 @@
       "ordre": 9.2,
       "debut": "2026-09-15",
       "cible": "2026-09-15",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 430,
+      "title": "fix(orm): sortir de la boucle quand la migration vise un objet déjà présent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/430",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 9.2,
+      "debut": "2026-09-19",
+      "cible": "2026-09-22",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -3212,6 +3244,22 @@
       "ordre": 9.3,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 431,
+      "title": "fix(cli): nommer la forme attendue quand la création refuse un argument",
+      "url": "https://github.com/nodefony/nodefony-core/issues/431",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 9.3,
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "10.0.0-alpha"
       ]
@@ -5159,6 +5207,70 @@
       "ordre": 48,
       "debut": "2026-11-17",
       "cible": "2026-11-17",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 425,
+      "title": "fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab",
+      "url": "https://github.com/nodefony/nodefony-core/issues/425",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 49.1,
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 426,
+      "title": "fix(release): rendre le banc d'installation vierge exécutable sous macOS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/426",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 49.2,
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 427,
+      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/427",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 49.3,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 428,
+      "title": "feat(devkit): contrôler la dérive du corpus du skill de déploiement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/428",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 49.4,
+      "debut": "2026-11-19",
+      "cible": "2026-11-20",
       "labels": [
         "10.0.0-beta"
       ]
