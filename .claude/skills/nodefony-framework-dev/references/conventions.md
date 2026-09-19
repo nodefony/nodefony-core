@@ -23,7 +23,6 @@ nodefony-core/
 ├── tsconfig.json               ← config TS racine (NE PAS MODIFIER sans accord)
 ├── package.json                ← workspaces npm
 ├── CLAUDE.md                   ← ce fichier
-├── MIGRATION_STATUS.md         ← tableau de bord — LIRE EN DÉBUT DE SESSION
 └── src/
     ├── nodefony/               ← workspace @nodefony/core
     │   ├── rolldown.config.ts  ← bundler (NE PAS MODIFIER sans accord)

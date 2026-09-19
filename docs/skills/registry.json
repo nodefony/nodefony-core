@@ -2067,7 +2067,7 @@
       "description": "Kit de dev de la DOCUMENTATION Nodefony, trois faces. (1) Le SITE PUBLIC : générateur `build-docs-site.mjs`, tri de ce qui devient public (dossier, statut, clé `publish`), liens relatifs, flux GitHub Pages unique, gate anti-lien-mort. (2) Le PORTAIL de la console d'administration et le module `@nodefony/documentation` (DocLayout, MarkdownDoc, data plane anti-traversée). (3) Le SYSTÈME D'ÉCRITURE : standard de rédaction et ses gates doc-lint, anchor-check, code-check, gen-counters. Déclencheurs : \"publier la doc\", \"site de documentation\", \"GitHub Pages\", \"cette page doit-elle être publique ?\", \"retirer une page du site\", \"publish\", \"portail doc\", \"DocLayout\", \"MarkdownDoc\", \"écrire une page de doc\", \"doc de référence\", \"standard de rédaction\", \"doc-lint\", \"anchor-check\", \"corpus doc\", \"reprendre la doc\", \"la doc dit-elle encore vrai ?\", \"corriger un écart doc↔code\".",
       "cost": {
         "bodyLines": 471,
-        "approxTokens": 8082
+        "approxTokens": 8080
       },
       "requires": [],
       "resources": {
@@ -2357,7 +2357,7 @@
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
         "bodyLines": 397,
-        "approxTokens": 8593
+        "approxTokens": 8596
       },
       "requires": [],
       "resources": {
@@ -5526,7 +5526,7 @@
       "description": "Contexte de la **couche IA agentic** de Nodefony (Phase 12) — la seule phase réellement future du framework : modules `@nodefony/{llm,vector,rag,memory,agent,agent-guard}`, invariants de design (générique, injectable, streaming natif, validation humaine, mode souverain, conformité AI Act, WebSocket = transport LLM) et la règle « ne pas démarrer de session IA avant P6 ». Les phases 10 (Studio), 13 (Realtime) et 14 (builder Vite) sont LIVRÉES : leurs conventions encore actives sont pointées vers le skill ou la doc qui les porte désormais, pas recopiées. Déclencheurs : \"couche IA\", \"agentic\", \"@nodefony/agent\", \"@nodefony/llm\", \"@nodefony/rag\", \"agent-guard\", \"AI Act\", \"mode souverain\", \"streaming LLM\", \"phase 12\", \"interface consommée par un agent\", \"convention route /nodefony\", \"API admin d'un module\".",
       "cost": {
         "bodyLines": 117,
-        "approxTokens": 2185
+        "approxTokens": 2193
       },
       "requires": [],
       "resources": {
@@ -5723,7 +5723,6 @@
       "family": "Cycle de session",
       "version": null,
       "keywords": [
-        "MIGRATION_STATUS.md",
         "references/"
       ],
       "triggers": [
@@ -5736,30 +5735,21 @@
         "session sur <module>",
         "fin de session",
         "retex",
-        "consolide les retex",
-        "audit migration",
-        "état des lieux migration",
-        "où en est la migration",
-        "avancement migration",
-        "vérifier MIGRATION_STATUS",
-        "revue phase par phase",
-        "gros point migration",
-        "assainir le dashboard migration"
+        "consolide les retex"
       ],
-      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\", \"audit migration\", \"état des lieux migration\", \"où en est la migration\", \"avancement migration\", \"vérifier MIGRATION_STATUS\", \"revue phase par phase\", \"gros point migration\", \"assainir le dashboard migration\".",
+      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 293,
-        "approxTokens": 4222
+        "bodyLines": 278,
+        "approxTokens": 3899
       },
       "requires": [],
       "resources": {
         "references": [
           "consolidate-toolkit.md",
-          "migration-audit.md",
           "mode-consolidate.md",
           "mode-end.md"
         ],
-        "referenceFilesTotal": 4,
+        "referenceFilesTotal": 3,
         "scripts": [
           {
             "path": "scripts/board-next.mjs",
@@ -5899,7 +5889,6 @@
         "nodefony-check-externals",
         "nodefony-check-memory-health",
         "nodefony-inspect",
-        "nodefony-start-server",
         "nodefony-ticket"
       ],
       "conformance": {
@@ -5920,7 +5909,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "992",
+            "detail": "624",
             "advisory": false
           },
           {
@@ -5962,7 +5951,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "293",
+            "detail": "278",
             "advisory": true
           }
         ]
@@ -6000,7 +5989,7 @@
       "description": "Créer, éditer, **fusionner, retirer** ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils), `metadata.version`, ressources en `references/`, note de maintenance intemporelle, table « quand passer la main », et la barrière `skills-doc` qui contrôle la conformité au standard Agent Skills et régénère la fiche publique. Porte les pièges vécus : une règle recopiée dans le CLAUDE.md rend le skill inatteignable, un renvoi survit au refactor qui a supprimé sa cible, une capacité absorbée sans ses déclencheurs devient introuvable. Déclencheurs : \"créer un skill\", \"nouveau skill\", \"éditer un skill\", \"fusionner deux skills\", \"retirer un skill\", \"mon skill ne se déclenche jamais\", \"skill non conforme\", \"skills-ref validate\", \"conformité Agent Skills\", \"fiche de skill\", \"à quoi sert ce skill\".",
       "cost": {
         "bodyLines": 298,
-        "approxTokens": 4650
+        "approxTokens": 4658
       },
       "requires": [
         "docker",
@@ -6345,7 +6334,7 @@
       "description": "Kit de dev du frontend Studio de Nodefony (@nodefony/studio, React 19) — l'app admin interne du framework. Construire un écran (page / dashboard / panneau / onglet) vite et bien en réutilisant le UI kit (PageHeader, PageLayout, DataGrid, DataState, StatCard, KpiCard, JsonViewer, MiniChart, DocHint), le hook useResource, les stores MobX et les hooks temps réel nodefony/react. Donne la recette (route + lazy + navConfig + fallback deep-link + data plane), des squelettes copier-coller, le Jumeau Vivant (Twin), la debug bar, le back-end Studio (controller + data plane + realtime), et les règles qualité (a11y, sécu, perf, gate tsc). DÉRIVE de nodefony-frontend-dev (mécanismes front généraux). Déclencheurs : \"dev studio\", \"page studio\", \"dashboard studio\", \"écran studio\", \"panneau studio\", \"composant studio\", \"page /nodefony\", \"comment coder dans studio\", \"Twin\", \"jumeau vivant\", \"debug bar\", \"debugbar\", \"barre de debug\", \"WDT\".",
       "cost": {
         "bodyLines": 145,
-        "approxTokens": 3206
+        "approxTokens": 3210
       },
       "requires": [],
       "resources": {

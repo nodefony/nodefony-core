@@ -27,38 +27,37 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 293 lignes |
-| Coût d'activation | ~4 222 tokens (le corps est chargé à l'invocation) |
-| Description | 992 / 1024 caractères |
-| Déclencheurs | 18 |
-| Ressources `references/` | 4 page(s) |
+| Corps | 278 lignes |
+| Coût d'activation | ~3 899 tokens (le corps est chargé à l'invocation) |
+| Description | 624 / 1024 caractères |
+| Déclencheurs | 10 |
+| Ressources `references/` | 3 page(s) |
 | Scripts | 7 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases — confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se refait pas à la main. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`.
+Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`.
 
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`start-server`](nodefony-start-server.md) · [`ticket`](nodefony-ticket.md)
+[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex` · `audit migration` · `état des lieux migration` · `où en est la migration` · `avancement migration` · `vérifier MIGRATION_STATUS` · `revue phase par phase` · `gros point migration` · `assainir le dashboard migration`
+`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex`
 
 ## Ce que contient le corps
 
 - Routage du mode
 - 1. Dernière session enregistrée + kit éventuel
-- 2. Phase active + git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
+- 2. Git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
 - 3. Avancement RÉEL — les tickets GitHub (le pilotage a QUITTÉ le plan)
-- 4. Mini-état migration (SI la prochaine étape cible une phase P<n>)
-- 5. Restituer (≤ 30 lignes)
+- 4. Restituer (≤ 30 lignes)
 - Usage
 - 1. Résolution dynamique du chemin (PAS de table hardcodée — elle se périme)
 - 2. Mode global (sans argument)
@@ -77,9 +76,8 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
-| `references/migration-audit.md` | Référence — auditer l'avancement de la migration, phase par phase | 451 |
 | `references/mode-consolidate.md` | MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS | 135 |
-| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 334 |
+| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 336 |
 
 
 ## Scripts embarqués
@@ -134,14 +132,14 @@ node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 992 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 624 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 293 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 278 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

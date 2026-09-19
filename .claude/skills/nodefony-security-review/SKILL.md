@@ -288,7 +288,7 @@ Nodefony). Posture :
    un kit peut nommer un décorateur/seam aspirationnel (vécu : `@RequireScope` jamais codé). Ancrages
    `fichier:ligne`, pas le kit.
 6. Gates (build/typecheck/tests ; memory.test si pipeline touché) → commit `test(security): red-team <brique>`.
-   MAJ `project_p6_redteam_attack_tests_kit` (état brique) + MIGRATION_STATUS.
+   MAJ `project_p6_redteam_attack_tests_kit` (état brique) + le ticket concerné.
 
 ### 4.7 Rapport RED/BLUE-TEAM (format de sortie précis)
 

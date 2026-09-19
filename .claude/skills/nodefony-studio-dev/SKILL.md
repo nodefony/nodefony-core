@@ -26,7 +26,7 @@ description: >
 > Mettre à jour = **éditer la section concernée en place**. **Pas de changelog ni de retex daté** ici —
 > l'historique vit dans `git log`. Une leçon durable se **fond en règle** dans `references/gotchas-studio.md`.
 > Le **détail** (UI kit, recettes, Twin, realtime, back) vit dans `references/*.md` (progressive disclosure)
-> — garder ce fichier **< 350 lignes**. Avancement/phases/roadmap = `MIGRATION_STATUS.md` **uniquement**.
+> — garder ce fichier **< 350 lignes**. Avancement = les **tickets** (hors ligne : `.ai/BOARD.md`, généré) **uniquement**.
 
 > **Périmètre** : mécanismes front **généraux** (isomorphisme, socket `RealtimeClient` + hooks `nodefony/react`,
 > HMR/Vite, data-plane BFF `ApiClient`/`useResource`, RBAC isomorphe, temps-réel-calme/perf/a11y) → **`nodefony-frontend-dev`**

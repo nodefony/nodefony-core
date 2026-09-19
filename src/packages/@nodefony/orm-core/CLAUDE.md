@@ -56,7 +56,7 @@ Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut �
   REST/WS/GraphQL/CLI ne sont que des adaptateurs minces. Cf `project_crud_pattern_decision`.
 - Adapters concrets : **hors de ce module** (`@nodefony/drizzle` par défaut, `@nodefony/mongoose`).
 
-> Avancement des phases → `MIGRATION_STATUS.md` (source unique). Historique → `git log`.
+> Avancement → les **tickets**, ou hors ligne l'empreinte générée `.ai/BOARD.md`. Historique → `git log`.
 
 ## Build / types
 

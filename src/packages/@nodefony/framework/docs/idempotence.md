@@ -368,7 +368,7 @@ MongoDB mérite une mention : `mongoose` n'implémente **pas encore** de store d
 `NF_DATABASE_URL=mongodb://…` fait donc tomber la résolution en étape **4** → repli `memory` avec la
 raison annoncée — et un repli `memory` en cluster ne déduplique plus rien entre pods : le rejeu que
 cette brique promet d'empêcher passe sur un autre pod. En attendant le store Mongo (objectif « full
-NoSQL », `MIGRATION_STATUS.md` P7.11), la dédup cross-pod passe par `redis`.
+NoSQL »), la dédup cross-pod passe par `redis`.
 
 ### Le contrat de dégradation : fail-loud, jamais silencieux
 

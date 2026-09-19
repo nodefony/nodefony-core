@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Version | `3.0.0` |
 | Famille | Développer le framework |
 | Corps | 471 lignes |
-| Coût d'activation | ~8 082 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 080 tokens (le corps est chargé à l'invocation) |
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
@@ -72,7 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/briques-front.md` | Briques front de la doc — API exacte | 128 |
-| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 581 |
+| `references/redaction-contenu.md` | Rédiger une documentation Nodefony — standard d'écriture (contenu) | 584 |
 
 
 ## Scripts embarqués

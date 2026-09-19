@@ -4,7 +4,7 @@
 > Pour ATTAQUER/auditer un diff (red/blue-team, conformité RFC) → skill **`nodefony-security-review`**.
 > Usage des décorateurs `@IsGranted`/`@RequireScope`/`@CsrfProtect` → `references/http.md`.
 > (« Ce qu'il reste » pour la publication = les **tickets** ; phases et tâches restantes de la
-> migration = `MIGRATION_STATUS.md`. Dans les deux cas, PAS ici.)
+> avancement = les **tickets** (hors ligne : `.ai/BOARD.md`, généré). Dans les deux cas, PAS ici.)
 
 ## Sommaire
 

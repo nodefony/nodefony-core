@@ -179,6 +179,6 @@ dérive ici — l'audit `nodefony-check-externals` doit lire ce paragraphe avant
 - **Multi-bundle** : exercé en vrai — Studio et `@nodefony/test-frontend-react` coexistent.
 - `TemplateHelper` injecte le `manifest.json` en production (tags hashés).
 
-> Avancement des phases → `MIGRATION_STATUS.md`. Le HMR cross-module reste ouvert ; il ne
+> Avancement → les **tickets**, ou hors ligne l'empreinte générée `.ai/BOARD.md`. Le HMR cross-module reste ouvert ; il ne
 > passera **pas** par `watcherService` (service retiré du Kernel — le dev est piloté par
 > `DevSupervisor`).

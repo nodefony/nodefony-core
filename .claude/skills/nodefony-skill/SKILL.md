@@ -58,7 +58,7 @@ documentation → `nodefony-documentation`. Scaffolder un module → `nodefony-c
 - **Ressources** : `references/` (au pluriel) pour le détail chargé à la demande, `scripts/` pour
   l'exécutable, `assets/` pour les gabarits. Le corps reste sous 500 lignes et sert d'**index**.
 - **Note de maintenance en tête** : édition en place, pas de changelog, pas de date. L'avancement
-  vit dans `MIGRATION_STATUS.md`, l'historique dans `git log`.
+  vit dans les **tickets** (hors ligne : `.ai/BOARD.md`, généré), l'historique dans `git log`.
 - **Table « quand passer la main »** : un skill dit toujours ce qu'il ne fait PAS, avec le nom du
   skill qui le fait.
 - **Exemples vérifiés au source** — jamais de signature recopiée de mémoire.

@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-framework-dev/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Développer le framework |
 | Corps | 397 lignes |
-| Coût d'activation | ~8 593 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 596 tokens (le corps est chargé à l'invocation) |
 | Description | 980 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 10 page(s), 85 fichiers au total |
@@ -67,7 +67,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/conventions.md` | Conventions de structure — modules, types, configuration | 216 |
+| `references/conventions.md` | Conventions de structure — modules, types, configuration | 215 |
 | `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 731 |
 | `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 568 |
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |

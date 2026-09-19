@@ -76,8 +76,8 @@ droite dit à quelle **question** chacun répond.
 | Fichier                                                                        | La question                                                                               |
 | ------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------- |
 | [`docs/index.md`](docs/index.md)                                               | par où entrer dans la documentation ?                                                     |
-| [`MIGRATION_STATUS.md`](MIGRATION_STATUS.md)                                   | quelles phases du chantier sont faites, laquelle est en cours ?                           |
-| [`.ai/BOARD.md`](.ai/BOARD.md)                                                 | _(généré)_ quels tickets sont ouverts, dans quel ordre ?                                  |
+| [`.ai/BOARD.md`](.ai/BOARD.md)                                                 | _(généré)_ quels tickets sont ouverts, dans quel ordre ? **où en est le projet ?**        |
+| [`docs/adr/`](docs/adr/README.md)                                              | pourquoi cette décision d'architecture, et qu'est-ce qui a été écarté ?                   |
 | [`.ai/ENV.md`](.ai/ENV.md)                                                     | _(généré)_ quelle variable pose ce décor — et **que se passe-t-il si elle est absente ?** |
 | [`.ai/symbols.json`](.ai/symbols.json)                                         | _(généré)_ qui étend, implémente ou importe ce symbole ? Où est-il défini ?               |
 | `npx nodefony inspect schema <module>`                                         | _(exécuté)_ quelles clés de configuration existent, de quel type, et que font-elles ?     |

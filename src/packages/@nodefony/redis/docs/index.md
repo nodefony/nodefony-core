@@ -120,7 +120,7 @@ gigaoctet et le motif d'accès jouent contre lui. Ce n'est pas un trou, c'est le
 avec [`@nodefony/drizzle`](../../drizzle/docs/index.md) et
 [`@nodefony/mongoose`](../../mongoose/docs/index.md).
 
-`totp`, lui, **manque** (`MIGRATION_STATUS.md`, P7.11). Un secret TOTP est de la même famille qu'un
+`totp`, lui, **manque**. Un secret TOTP est de la même famille qu'un
 credential passkey : une petite valeur, durable, relue à chaque authentification, dont la perte
 verrouille l'utilisateur dehors. Puisque Redis porte les passkeys — en opt-in explicite, avec
 l'avertissement ci-dessous — il n'y a pas de raison cohérente qu'il ne porte pas le TOTP au même

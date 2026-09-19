@@ -195,13 +195,16 @@ Choix du format = **qui lit** (`html-vs-md.md`) : humain qui décide → HTML ; 
 - **Première phrase auto-suffisante** (extraite dans `symbols.json` / résumé RAG).
 - Phrases courtes, voix active. Deux niveaux : accroche pour le débutant + détail pour l'expert.
 - **Pas de journal** dans le corps : ni date (sauf frontmatter `updated`), ni « TODO », ni « à venir »,
-  ni n° de phase de migration. Avancement = les **tickets** (jalon + tableau de bord), carte des
-  phases = `MIGRATION_STATUS.md`, historique = `git log`.
+  ni n° de phase de migration, **ni lien vers un ticket du dépôt**. Une page dit ce qui EST ; qui veut
+  l'avancement va le lire dans les tickets. Un renvoi `#NNN` dans une page publiée y introduit
+  précisément le journal que cette règle interdit, et il se périme à la fermeture du ticket. Citer un
+  ticket **amont** (`drizzle-orm#3826`) est en revanche un fait, donc permis.
+  Avancement = les **tickets**, décisions d'architecture = `docs/adr/`, historique = `git log`.
 
 ## 7. Vérification (devise : « la confiance n'exclut pas le contrôle »)
 
-- **Le code est la règle, le `git log` est la règle.** `MEMORY.md`/`CLAUDE.md`/`MIGRATION_STATUS.md`
-  = indices périmables, jamais preuve. Chaque affirmation ancrée sur un `fichier:ligne` lu, ou sur un
+- **Le code est la règle, le `git log` est la règle.** `MEMORY.md`/`CLAUDE.md` et tout document de
+  pilotage = indices périmables, jamais preuve. Chaque affirmation ancrée sur un `fichier:ligne` lu, ou sur un
   **test** (dont `tests/load` et `memory.test.ts` pour les chiffres de perf/mémoire).
 - **ANCRE SYMBOLIQUE (règle 2026-07-19) — le symbole d'abord, la ligne en preuve.** Format :
   `` `Firewall.matchPath()` (`firewall.ts:529`) ``. Le NOM porte le sens (le lecteur sait ce qu'il va

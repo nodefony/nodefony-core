@@ -28,10 +28,12 @@ function collectCorpus(): { abs: string; repoRel: string; slug: string }[] {
   const walk = (dir: string, base: string, source: DocSource): void => {
     if (!existsSync(dir)) return;
     for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      // Un symlink (ex. `docs/MIGRATION_STATUS.md` → `../MIGRATION_STATUS.md`)
-      // porte ses liens relatifs à sa VRAIE localisation (la racine), pas au
+      // Un symlink porte ses liens relatifs à sa VRAIE localisation, pas au
       // point de montage : le portail le sert comme contenu brut, pas comme page
-      // navigable → hors check de liens (le juger casserait la version racine).
+      // navigable → hors check de liens (le juger casserait la version d'origine).
+      // Le cas qui a motivé cette garde était `docs/MIGRATION_STATUS.md`, monté
+      // depuis la racine ; il a disparu avec l'archivage du tableau de bord, mais
+      // la garde reste — rien n'interdit qu'un autre document soit monté ainsi.
       if (entry.isSymbolicLink()) continue;
       const abs = join(dir, entry.name);
       if (entry.isDirectory()) {

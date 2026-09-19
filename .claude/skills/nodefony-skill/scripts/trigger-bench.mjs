@@ -105,7 +105,12 @@ const CASES = [
     "est-ce que le paquet publié marche vraiment ? smoke test des tarballs",
     "nodefony-release",
   ],
-  ["où en est la migration ?", "nodefony-session"],
+  // « où en est la migration ? » a été RETIRÉE du banc le 2026-09-19 : la capacité
+  // qu'elle testait — auditer la carte des phases — a disparu avec la carte
+  // (`MIGRATION_STATUS.md` archivé). La question d'avancement est couverte par
+  // « où en est la publication » et « quels tickets restent », qui élisent bien
+  // `nodefony-session` ; celle-ci, prise littéralement, parle désormais de
+  // migration de SCHÉMA, et `nodefony-migrate-schema` a raison de la capter.
   ["fais un rapport HTML imprimable de ces mesures", "nodefony-html-report"],
   ["c'est quoi la phase 12, la couche IA agentic ?", "nodefony-roadmap"],
   // — bancs du scaffold : ce qu'il PRODUIT, et ce qu'un agent en TROUVE

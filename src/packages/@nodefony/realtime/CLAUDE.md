@@ -133,7 +133,7 @@ emplacement hybride).
 ## Où en est le module
 
 **L'avancement vit dans les tickets** (jalon `10.0.0` ; hors ligne `.ai/BOARD.md`), **et les tâches
-de migration restantes dans `MIGRATION_STATUS.md` (§ P13) — pas ici.** Un tableau de statuts recopié
+restantes dans les **tickets** (hors ligne : `.ai/BOARD.md`, généré) — pas ici.** Un tableau de statuts recopié
 dans un CLAUDE.md devient un mensonge dès la session suivante : celui-ci annonçait encore un driver
 Kafka « à faire » et 6 pages de doc alors qu'il y en a 9.
 

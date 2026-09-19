@@ -359,7 +359,7 @@ Depuis `servers.portPolicy: "auto"` (défaut dev, cf `@nodefony/http/MEMORY.md`)
 - `@entities` → `onBoot` → addEntity|loadEntity
 - `prependOnceListener` (setEvents) toujours index 0 avant `once` (@services/@entities)
 
-**Avancement** : `MIGRATION_STATUS.md` — jamais ici (un MEMORY décrit ce que le code FAIT).
+**Avancement** : les **tickets** (hors ligne : `.ai/BOARD.md`, généré) — jamais ici (un MEMORY décrit ce que le code FAIT).
 
 ## adminPlane (`adminPlane/`) — porte UNIQUE du plan d'administration
 

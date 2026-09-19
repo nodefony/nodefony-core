@@ -243,7 +243,7 @@ appliquées dans le POC, à conserver dans le module :
 
 - **Jamais concaténer un slug brut dans un chemin FS.** Le slug est **validé contre une allowlist**
   (le scan `tree` produit la liste des slugs ; `find` par égalité, puis lecture du chemin connu).
-- **Noms de fichiers FIXES** quand c'est possible (ex `MIGRATION_STATUS.md`) — 0 entrée utilisateur.
+- **Noms de fichiers FIXES** quand c'est possible (ex `CHANGELOG.md`) — 0 entrée utilisateur.
 - **Valeurs `vars` SÛRES uniquement** : aucun chemin FS absolu, aucun secret. Les providers `{{ }}`
   ne renvoient que du dérivé public (version, compteurs, noms de symboles).
 - Auth = mock comme le reste de Studio aujourd'hui ; **firewall réel = P6** (RBAC par `audience`).

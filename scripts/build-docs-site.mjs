@@ -182,10 +182,6 @@ const PRIVATE = [
   },
   { match: (p) => p.startsWith("release/"), why: "plan de version (interne)" },
   {
-    match: (p) => p === "MIGRATION_STATUS.md",
-    why: "tableau de bord de migration (interne)",
-  },
-  {
     match: (p) => p === "README.md",
     why: "conventions d'écriture de la doc (interne)",
   },

@@ -36,7 +36,7 @@ publiquement : l'arbitrage a changé avec les contextes longs et les modèles bo
 | est **réinjecté dans un LLM** (mémoire, contexte, RAG)            | Markdown |
 | documente le code pour la suite                                   | Markdown |
 
-**Conséquence pour ce repo** : `CLAUDE.md`, `MEMORY.md`, `MIGRATION_STATUS.md` **restent en Markdown**.
+**Conséquence pour ce repo** : `CLAUDE.md`, `MEMORY.md`, `.ai/BOARD.md` **restent en Markdown**.
 Ils sont ré-ingérés par un modèle à chaque session — c'est précisément le cas où le Markdown est
 objectivement supérieur, pas une question de goût.
 

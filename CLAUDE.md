@@ -101,7 +101,7 @@ journaux et cas déjà traités → skill **`nodefony-framework-dev`** (`referen
 
 Avant de commencer une nouvelle phase / tâche :
 
-1. **Lire `MIGRATION_STATUS.md`** — Roadmap priorisée P0→P14 + chemin critique. Vérifier dépendances de la tâche.
+1. **Lire l'empreinte des tickets `.ai/BOARD.md`** (générée par `npm run board:snapshot`) — le jalon courant, l'ordre de travail et les dépendances. C'est la SEULE source de l'avancement ; le tableau de bord de migration a été archivé le 2026-09-19 (`docs/archives/migration-status-2026-09-19.md`), et les décisions d'architecture qu'il portait vivent en `docs/adr/`.
 2. **Lancer les tests pour voir l'état RÉEL** (pas faire confiance au journal seul) :
 
    ```bash
@@ -446,7 +446,7 @@ Nodefony est une **plateforme générique** pour construire :
 > Chaque module Nodefony peut enregistrer des commandes CLI via `module.addCommand(Ctor)`.
 > Pattern legacy : `nodefony <command> [args]` (ex : `nodefony orm:migrate`, `nodefony users:add`).
 
-**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Cluster/Install/Outdated`) mais **pas testées en intégration** — voir Phase 11 dans `MIGRATION_STATUS.md`. (`staging`/`preprod` retirée 2026-05-25 — alias mort de `production` ; l'env `staging` reste via `NODE_ENV`. `Pm2`/`Kill` retirées 2026-05-29 — C6 retrait PM2.)
+**État actuel** : commandes implémentées (`Start/Dev/Build/Prod/Cluster/Install/Outdated`) mais **pas testées en intégration**. (`staging`/`preprod` retirée 2026-05-25 — alias mort de `production` ; l'env `staging` reste via `NODE_ENV`. `Pm2`/`Kill` retirées 2026-05-29 — C6 retrait PM2.)
 
 **Règle** : tout module migré qui expose une commande CLI doit :
 
@@ -663,7 +663,7 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 1. Ne dis rien.
 2. **Local Context Only** : Identifier le module de travail.
 3. **Priorité Lecture** : Lire le `CLAUDE.md` situé à la racine du module concerné AVANT toute analyse.
-4. Lire `MIGRATION_STATUS.md` à la racine du projet pour la studio globale.
+4. Lire `.ai/BOARD.md` (empreinte générée des tickets) pour la vue globale.
 5. Si le module possède un `MEMORY.md`, le charger pour les détails techniques bas niveau.
 6. Attends ma commande. Pas de résumé.
 
@@ -694,7 +694,7 @@ const tmp = Nodefony.getKernel()?.tmpDir?.path ?? "/tmp";
 
 **FIN :**
 
-1. Mettre à jour `MIGRATION_STATUS.md`
+1. Fermer ou commenter les tickets soldés, puis rafraîchir l'empreinte (`npm run board:snapshot`)
 2. Mettre à jour `README.md` (humains) + `MEMORY.md` (IA) du module
 3. Committer avant de fermer
 
@@ -728,14 +728,14 @@ grep -E "export\s*\{" src/packages/@nodefony/<module>/dist/index.js | head -1
 
 Le format d'un livrable se choisit sur **qui le lit**, jamais par habitude :
 
-| Le livrable doit…                                                                     | Format   |
-| ------------------------------------------------------------------------------------- | -------- |
-| aider un **humain à décider** — audit, banc de perf, mesures, revue, état des lieux   | **HTML** |
-| être **manipulé** (trier, filtrer, simuler des hypothèses) ou **imprimé / présenté**  | **HTML** |
-| montrer des **graphes**, une matrice, une timeline                                    | **HTML** |
-| être **versionné** et relu en diff (`git log -p`)                                     | Markdown |
-| être **réinjecté dans un LLM** (`CLAUDE.md`, `MEMORY.md`, `MIGRATION_STATUS.md`, RAG) | Markdown |
-| documenter le code pour les prochains développeurs (`docs/`, README)                  | Markdown |
+| Le livrable doit…                                                                    | Format   |
+| ------------------------------------------------------------------------------------ | -------- |
+| aider un **humain à décider** — audit, banc de perf, mesures, revue, état des lieux  | **HTML** |
+| être **manipulé** (trier, filtrer, simuler des hypothèses) ou **imprimé / présenté** | **HTML** |
+| montrer des **graphes**, une matrice, une timeline                                   | **HTML** |
+| être **versionné** et relu en diff (`git log -p`)                                    | Markdown |
+| être **réinjecté dans un LLM** (`CLAUDE.md`, `MEMORY.md`, `.ai/BOARD.md`, RAG)       | Markdown |
+| documenter le code pour les prochains développeurs (`docs/`, README)                 | Markdown |
 
 **Pourquoi** : le problème n'est plus de produire, c'est que l'agent produit **plus que l'humain ne
 lit** — un rapport de 200 lignes en Markdown se fait approuver sans lecture. Le HTML remet l'humain
@@ -871,8 +871,8 @@ MEMORY accumulaient des annotations datées (`(2026-MM-DD)`, `corrigé le …`, 
 une fois fait). Discipline (vaut AUSSI pour les **skills**, cf leur note _Maintenance_) :
 
 - **0 date** · **0 section** `RESTE`/`TODO`/`Changelog`/`État`/`Historique` · **0 réf d'avancement par phase**
-  (`P6.x`, « livré », « à faire ») → l'**avancement = les TICKETS** (jalon `10.0.0` ; hors ligne `.ai/BOARD.md`), la **carte des phases
-  = `MIGRATION_STATUS.md`**, l'**historique = `git log`**.
+  (`P6.x`, « livré », « à faire ») → l'**avancement = les TICKETS** (jalon `10.0.0` ; hors ligne `.ai/BOARD.md`), les
+  **décisions d'architecture = `docs/adr/`**, l'**historique = `git log`**.
 - Mettre à jour = **éditer la section concernée EN PLACE**. Une leçon durable se **fond en RÈGLE** (dans Gotchas),
   pas en entrée datée.
 - Un fait **PÉRIMÉ** (contredit par le code) se **CORRIGE** (devise : ancrer au code, `fichier:ligne`) — jamais

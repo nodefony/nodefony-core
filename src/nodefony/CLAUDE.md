@@ -165,7 +165,7 @@ Décorateurs dans `src/kernel/injector/`. Cf [`src/kernel/injector/MEMORY.md`](s
 
 Internals (deux annuaires, détection de cycles, tri topologique, scopes, limites connues) :
 [`src/kernel/injector/MEMORY.md`](src/kernel/injector/MEMORY.md). **L'avancement vit dans
-`MIGRATION_STATUS.md`, jamais ici** — cette liste a affirmé « circular detection ⬜ » longtemps
+les **tickets** (hors ligne : `.ai/BOARD.md`, généré), jamais ici** — cette liste a affirmé « circular detection ⬜ » longtemps
 après sa livraison, et contredisait le fichier qu'elle pointe.
 
 ### Logging structuré — Pdu

@@ -13,11 +13,13 @@ de tokens. Cf `feedback_session_retros_purpose`.
 Le END par défaut doit être **rapide** (reproche user 2026-05-31 : END trop lourd/pénible). Il fait
 SEULEMENT :
 
-0. **MAJ `MIGRATION_STATUS.md` SI la session a fait avancer une phase / un chantier** (feature livrée,
-   sous-tâche `LB.x`/`Px.y` cochée, statut changé) → mettre à jour la **ligne concernée** (1ʳᵉ cellule
-   - journal) avec le hash de commit, **AVANT** le commit repo (`docs(migration)` ou inclus dans le
-     commit feature). Si la session est un chore/fix/doc qui ne touche aucune phase → **sauter**. Règle
-     gravée dans [[feedback_migration_status_uptodate]] (la garder ICI pour ne pas l'oublier au END).
+0. **Fermer ou commenter les TICKETS que la session a soldés**, puis rafraîchir l'empreinte
+   (`npm run board:snapshot`) — c'est le seul état d'avancement du dépôt, et le seul moment où
+   GitHub est joint. Un ticket fermé sans compte rendu perd la preuve qui l'a soldé : le
+   commentaire porte le hash et l'ancre, la fermeture ne porte que la date.
+   > Le tableau de bord de migration qui vivait à la racine a été **archivé le 2026-09-19**
+   > (`docs/archives/migration-status-2026-09-19.md`) : il n'y a plus de carte de phases à
+   > mettre à jour au END, et les décisions d'architecture vivent en `docs/adr/`.
 1. **MAJ `docs/session-retros/RETEX.md`** (le SAS, lu au START/RESUME) : ajouter **3-5 bullets** des
    frictions/leçons du jour, **rangées par thème**, format `[1× — <date courte>]`. Si une friction y
    figure déjà → **incrémenter le compteur** `[2× — …]` + re-dater. NE PAS redupliquer ce qui est

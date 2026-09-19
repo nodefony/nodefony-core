@@ -216,7 +216,7 @@ Syslog.rawLog(pdu, "[PID 1234]"); // préfixe optionnel
 | severity ≤ 3 (ERROR+)        | `process.stderr`                              |
 | severity > 3                 | `process.stdout`                              |
 
-> `rawLog` est la base du futur **Transport Layer** (session planifiée — voir `MIGRATION_STATUS.md`).
+> `rawLog` est la base du futur **Transport Layer** (planifié — voir les tickets du dépôt).
 
 ---
 

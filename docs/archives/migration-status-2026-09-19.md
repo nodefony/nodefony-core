@@ -1,97 +1,43 @@
-# MIGRATION_STATUS.md — Tableau de bord
-
-> **Mis à jour : 2026-08-20** (audit vérité — cf mémoire IA `core-dev/migration/AUDIT-verite-2026-08.md` ; passes précédentes : `AUDIT-verite-2026-06.md`).
-> **Retouche du 2026-09-01** : `P14.14` et `P14.16` cochées, chacune prouvée au CODE.
-> **Passe #80 close le 2026-09-19** : il ne reste plus une seule case dont personne ne peut dire si
-> elle est vraie (voir l'encadré ci-dessous).
->
-> ### ✅ Passe #80 du 2026-09-19 — les 52 cases confrontées au code, 8 étaient fausses
->
-> Chaque case ⬜/🔶 porte désormais un **verdict**, une **ancre dans `src/`** et une **destination**
-> (un ticket, un jalon, ou un motif écrit de n'avoir pas de ticket). Aucune preuve n'est prise dans
-> ce fichier : un document confirme toujours ce qu'il affirme.
->
-> **Ce qui était faux** — `P5.12` (l'enregistrement du store Redis est automatique depuis toujours,
-> `SessionStorage.ts:323`) · `P6.10` (les logs d'authentification existent, `auditService.ts:37`,
-> alimentés par les cinq authenticators) · `P7.10` **soldée** (S5d, l'écran des migrations, est
-> livré — la case annonçait encore « puis S5d ») · `P7.7` **et** `P13.2`, qui sont **la même tâche
-> écrite dans deux phases**, toutes deux conformes · `16.E.2` (`infra-up` existe, ce n'est pas un
-> skill mais `npm run test:all`) · `16.E.1` **caduque** sous ce nom · `P11.2` et `P11.3`
-> partiellement (deux commandes `http:*` existent, et `security:user:password` aussi).
->
-> **Cinq chiffres de P12 avaient dérivé** (llm 11→8 src, vector 7→5, rag 7→6, memory 6→5,
-> agent 5→4) : le fond des cases tenait, leur comptage non.
->
-> **Trois cases décrivent un seul travail** — `P3.6`, `P3.11` et `P11.5` sont la même enveloppe CLI
-> au-dessus de `filterPdus` (LB.3b), comptée trois fois.
->
-> ### Passe précédente — les 46 cases confrontées au code le 2026-09-06, 40 disaient vrai
->
-> Trois agents de lecture, en parallèle, sur les cases ⬜/🔶 de P3→P16 (P12 exclue : la couche IA
-> est portée en bloc par le jalon `12`). Verdict : **40 justes · 2 fausses · 3 à préciser · 1 non
-> vérifiable par lecture**.
->
-> **C'est le contraire de ce qu'on craignait**, et c'est le résultat qui compte : la carte des
-> phases vieillit BEAUCOUP mieux que les notes de chantier — sur celles-ci, huit affirmations sur
-> dix étaient périmées (mesure du 27 août, cf [#80](https://github.com/nodefony/nodefony-core/issues/80)).
-> Ce qui était faux ici : la vue **Migrations** de la console (P10.9, livrée), et les six verbes
-> `orm:*` de P7.10. Ce qui manquait de précision : P10.10, P14.7, P10.11, P5.12, P13.8, 16.G.1 —
-> chacune porte désormais son ancre et ce qui reste VRAIMENT.
->
-> ⚠️ **Ce que cette passe ne dit pas** : elle a lu du code, elle n'a rien exécuté. Une case peut
-> décrire un symbole qui existe et ne marche pas.
->
-> ### 🔴 Une case non cochée n'est PAS un ticket — et 38 sur 40 n'en ont pas
->
-> Croisé le 2026-09-06 : le fichier porte **40 cases** ⬜/🔶, dont **deux seulement citent un
-> ticket**. Ce n'est pas un oubli de pilotage, et il ne faut surtout pas ouvrir 38 tickets : les
-> orphelines se répartissent en quatre familles qui n'appellent pas le même geste — une phase
-> entière portée par un **jalon** (les 7 de P12 → jalon `12`), un **reste** de phase livrée qui doit
-> d'abord être confronté au code, un **travail réel** à ranger, et des cases **déjà couvertes** par
-> un ticket qui ne se nomme pas (P8.4 → [#228](https://github.com/nodefony/nodefony-core/issues/228),
-> P10.6 → [#33](https://github.com/nodefony/nodefony-core/issues/33)).
->
-> **Ce tri est le ticket [#80](https://github.com/nodefony/nodefony-core/issues/80)**, qui porte le
-> détail des quatre familles et l'extraction reproductible. Sur les quatre cases déjà examinées ce
-> jour — P9.2, 16.G, 16.H.6, 16.F.3 — **les quatre étaient fausses**. Ne pas conclure qu'une tâche
-> reste à faire sur la seule foi d'une case.
->
-> ### 🎯 Ce fichier TEND VERS SON ARCHIVE
->
-> Il a été la carte d'un chantier de migration ; ce chantier se termine. **L'avancement du travail
-> vit désormais dans les tickets** — jalons `10.0.0` (la publication), `10.1` (**cloud-native et
-> problèmes importants**), `10.2` (évolutions fonctionnelles et confort), plus le backlog qui ne
-> promet aucune date. L'empreinte hors ligne est [`.ai/BOARD.md`](.ai/BOARD.md), **générée**.
->
-> Ce qui reste ici, et qui n'a pas d'équivalent ailleurs : **la carte des phases** — ce qui a été
-> migré, ce qui ne l'est pas, et la décomposition vérifiée au code des phases encore ouvertes
-> (P12, P15, P16, P17). Un ticket dit ce qu'on va faire ; cette page dit **où en est le tout**.
->
-> **Il reste TENU À JOUR jusqu'à son archivage** — un tableau de bord qu'on cesse de mettre à jour
-> ne devient pas neutre, il devient MENTEUR, et c'est pire que son absence. Les pourcentages sont
-> l'intérêt de cette page : ils disent d'un coup d'œil où en est le tout, ce qu'aucune liste de
-> tickets ne montre.
->
-> **La règle de sortie** : dès qu'une phase se solde, elle se résume en une ligne et son détail part
-> dans `docs/archives/`. Quand toutes les phases ouvertes auront leurs tickets, ce fichier n'aura
-> plus de raison d'être — il ne se laissera pas mourir de vieillesse, il sera archivé d'un geste.
-> L'instrument qui l'audite (`nodefony-session`, `references/migration-audit.md`) le suivra : il
-> n'a de sens que tant qu'il y a une carte à confronter au code.
->
-> ⚠️ **Les compteurs ci-dessous se MESURENT, ils ne se recopient pas.** Le comptage des phases a sa
-> recette (le `awk` sur la 1ʳᵉ cellule, dans `references/migration-audit.md` — compté à la main, on
-> compte les emoji n'importe où) ; les deux lignes `DOC` viennent de `build-docs-site.mjs --list`
-> passé à `doc-lint.mjs` et `anchor-check.mjs`. Un chiffre écrit sans sa commande vieillit sans
-> prévenir : les trois qui étaient ici — 437 ancres en dérive, 61/63 pages, 84 pages publiées —
-> étaient tous faux au moment de les relire.
-> Légende : ✅ Migré | 🔶 Partiel | ⬜ À faire | 🚫 Bloqué | ⏭️ Skip/Caduc
->
-> **Règle de tenue (CONVENTION) :** statut en **TÊTE de la 1ʳᵉ cellule** (`| ✅ P5.2 | …`), **1 ligne courte**
-> par tâche. Le « comment » détaillé (pavés, hashes, gotchas) va dans la mémoire IA `core-dev/migration/` ou le
-> commit — **JAMAIS** dans la cellule (sinon scroll horizontal + fichier illisible, cf l'obésité corrigée le
-> 2026-06-05 : 278 KB → ce fichier). Le bandeau « Avancement » se recalcule depuis ces marques.
-
 ---
+title: Tableau de bord de la migration 7 → 10 — archive intégrale
+lang: fr
+status: ARCHIVE (photo du 2026-09-19 — ne plus éditer)
+audience: Lead Architect / mainteneur
+publish: false
+---
+
+# Tableau de bord de la migration 7 → 10 — archive intégrale
+
+> **Photo, pas document vivant.** Cette page conserve le tableau de bord de la migration tel
+> qu'il existait le 19 septembre 2026, juste après que ses 52 cases aient été confrontées au
+> code une dernière fois. Elle **ne se met plus à jour** : ses barres de progression, ses
+> pourcentages et ses cases sont figés à cette date.
+>
+> **Pourquoi elle a été retirée de la racine du dépôt.** Le chantier qu'elle pilotait — porter
+> Nodefony de JavaScript à TypeScript — est terminé. Ce qui restait ici était de trois natures,
+> dont deux se périmaient sans le dire : un comptage saisi à la main, un index de dettes qui
+> doublait des tickets, et des décisions d'architecture. Un tableau de bord qu'on cesse de tenir
+> ne devient pas neutre, il devient **menteur** — et un audit extérieur lui a reproché d'être
+> devenu trop central pour ce qu'il disait encore de vrai.
+>
+> **Où vit désormais ce qu'elle portait :**
+>
+> | Ce qu'on cherche                                  | Où c'est maintenant                                                                                                                                                                                                                                      |
+> | ------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+> | Les **décisions d'architecture** et leur pourquoi | [`docs/adr/`](../adr/README.md) — une page par décision, dont [ORM](../adr/0008-orm-drizzle-reference-sequelize-retire.md), [session](../adr/0009-session-hybride-cookie-bff-jwt-api.md) et [identité](../adr/0010-identite-iuser-module-user-separe.md) |
+> | Ce qui **reste à faire**, dans l'ordre            | le tableau de bord des tickets, ou hors ligne l'empreinte **générée** [`.ai/BOARD.md`](../../.ai/BOARD.md)                                                                                                                                               |
+> | Le **périmètre** et l'échéance d'une version      | [`docs/release/nodefony-10.md`](../release/nodefony-10.md)                                                                                                                                                                                               |
+> | Ce qui est **fait**                               | `git log` — jamais une case cochée à la main                                                                                                                                                                                                             |
+> | Ce qu'une variable d'environnement fait           | l'empreinte générée [`.ai/ENV.md`](../../.ai/ENV.md)                                                                                                                                                                                                     |
+>
+> **Les dettes qu'elle indexait ont toutes un ticket** (c'était #56) ; les deux seules qui n'en
+> ont pas portent leur verdict écrit, plus bas dans cette page. Aucune information n'a été
+> perdue à l'archivage : ce qui vivait ailleurs y est resté, ce qui n'existait qu'ici a été
+> promu en ADR.
+>
+> La photo qui la précède, prise le 27 août, est
+> [`migration-roadmap-2026-08-27.md`](migration-roadmap-2026-08-27.md) : elle garde les 112
+> lignes déjà faites que celle-ci avait sorties.
 
 ## 🎯 Décisions stratégiques (le « pourquoi » vit en mémoire IA)
 
@@ -139,7 +85,7 @@ identité = **`IUser` racine + slot agent/service** (`kind`/`onBehalfOf`, PAS `I
 | `@nodefony/realtime` | ✅ | **Durci** : back-pressure WS, 5 seams sécu, **210 tests verts** (+9 skipped docker ; inclut banc loopback isomorphe E2E L0-L4 — 26 scénarios VRAI client↔serveur) ; série socket isomorphe L0-L4 ✅ (duplex S→C, contrat typé partagé, façade serveur `ServerRealtimeSocket`) ; dettes backplane #1/#2 fixées (`c082560`). **Bus authentifié (F83, `44becb5a`)** : admission par canal à l'ingress + sceau HMAC des transports partagés (`backplane.secret`), prouvé sur banc 3 apps / 1 Redis. **Déclaration broadcast STATIQUE `@RealtimeBroadcast` (`2369deb0`)** — l'override n'était lu qu'au handshake, un pod publiant sans abonné local ne propageait rien. **File d'envoi du backplane BORNÉE** (`backplane.maxQueueBytes`, défaut 8 MiB) : `publish` fire-and-forget laissait la file du client Redis grossir sans limite (583 MB sous rafale au banc) — seuil + compteurs `describe().queue` (sonde + Studio) + alerte de transition, doctrine du back-pressure WS ; ferme au passage un `unhandledRejection` quand le bus coupe en plein envoi. **Prouvé au banc** (1 M publications synchrones, `mempeak.sh`) : pic **3 231 MB → 387 MB** (÷8,3) et rafale 2,5× plus courte, à perte de messages IDENTIQUE — sans borne on payait 3,2 Go pour perdre les mêmes. **Plancher des canaux de PLATEFORME (F82 cas 2)** : sans `@nodefony/security`, aucun verrou n'était posé → `syslog:`/`orm:`/`kernel:`… servis à l'anonyme, et l'alerte censée prévenir était muette (elle exigeait une policy déclarée). Le hub porte désormais sa propre fermeture (`subscribeClient`, insensible à la casse), DIT le refus au client (`realtime:denied`), le compte (`systemFloorDeniedTotal`) et avertit à la DÉCLARATION (policy sur namespace réservé → WARNING ; diffusion d'un namespace réservé → REFUSÉE). Liste des namespaces = source unique côté hub, consommée par security (`reservedSystemPrefixes()`), fini les deux inventaires. **Fan-out MUTUALISÉ (plan S1, livré)** : une frame diffusée n'est plus sérialisée qu'une fois pour N abonnés (`ChannelSerializer` fourni par l'abonné, `JsonRpcPeer.buildNotification` = source unique des deux voies, repli protégé si la charge n'est pas sérialisable). Étage fan-out **26× à 62× moins cher** selon la taille de charge (`fanoutSerialize.perf.test.ts`, `NF_RUN_PERF=1`) ; le banc saturé, lui, ne peut pas trancher (variance ×3 > écart cherché). **Contrat du `welcome` tenu des DEUX côtés (`7161699f`)** : le serveur jette toute frame reçue avant `realtime:welcome` (transport JSON-RPC pas encore branché — aucun canal pour porter un refus) ; le client rejouait ses abonnements sur `onOpen`, donc trop tôt, perdant TOUT abonnement posé avant `start()` et tous ceux d'après une reconnexion. Le rejeu part désormais du welcome ; sept mocks du socle enchaînent ouverture ET welcome — sans quoi ils décrivaient un serveur qui n'existe pas (16 cas verts contre lui). Reste dette #3 (frontière inter-modules, attend P6) |
 | `@nodefony/orm-*` | ✅ | **Virage ORM Ph.1-4 CLOS 2026-06-08** (cf § Virage ORM) : Seq OUT, Mongoose refait, kernel/orm OUT, C2/C5, 160 tests + seuils v8. **RÉSILIENCE DE CONNEXION livrée** : une base qui tombe PENDANT que l'application tourne n'était couverte nulle part — les suites ne connaissaient que le `disconnect()` volontaire. Banc de coupure réelle (`docker stop`) : PostgreSQL **tuait le process** (`pg-pool` fait `pool.emit("error")` sur un client INACTIF qui tombe ; un EventEmitter sans auditeur lève, et rien n'installe d'`uncaughtException`), et sur les trois dialectes `isConnected()` répondait `true` en pleine coupure — donc `buildOrmLeanHealth().connected` aussi, et toute readiness qui s'y adosse. Le contrat vit désormais dans `orm-core` et NON dans l'adapter (drizzle est remplaçable) : `isConnected()` concret sur la classe de base, deux hooks idempotents `connectionLost`/`connectionRestored` que chaque adapter appelle depuis SON driver, événements `onOrmLost`/`onOrmRestored`, et `reconnectCount` qui cesse d'être déduit de `connectCount-1` (une reprise de driver ne repasse jamais par `connect()`). Éprouvé à TROIS étages : contrat portable sans infra (`ormResilience.test.ts`, exigible de tout adapter futur), traduction driver→contrat chez chaque adapter (`outage.test.ts`), coupure RÉELLE gatée `NF_RUN_DB_OUTAGE=1` (`outage-real.test.ts`). **Complété après audit** : la détection événementielle ne couvrait que le client INACTIF (`pg-pool` retire son auditeur pendant l'usage) — une coupure sous TRAFIC restait invisible sur pg et mysql, et chaque boot comptait une reconnexion fantôme. Ajoutés : battement de cœur borné dans `orm-core` (le seul mécanisme qui voie une base GELÉE, qu'aucun événement ne signale), `keepAlive` TCP, capacité déclarée `liveness` + compte `assumed` jusqu'à l'agrégat cross-pod. **Éprouvé jusqu'au POD** : banc `db-outage-pod.mjs` (1 à N pods en `production`, base coupée) — débranché, les pods MEURENT en code 1 ; branché, ils survivent et repartent. Job CI `outage` dédié (conteneurs NOMMÉS en `docker run`, `services:` ne donnant pas de nom stable). **Deux trous de plus fermés par la forge** (`e595ef36`, `32e7f574`), tous deux invisibles en local : en MySQL l'`error` d'une `PoolConnection` **n'arrive jamais** quand le serveur tombe (mesuré : le socket rend `end`/`close`, la requête en vol est rejetée en `PROTOCOL_CONNECTION_LOST`, et `mysql2` délivre l'erreur fatale au demandeur, pas à l'émetteur) — l'écoute ne couvrait donc que la connexion INACTIVE, et MySQL n'avait en pratique que le battement à 30 s là où `pg` bascule aussitôt ; le socket sert désormais de signal et déclenche `beatNow()`, qui tranche par une requête au lieu de conclure sur une fermeture (un recyclage en produit une aussi). Et 🔴 **une base qui tombe PENDANT une transaction tuait le pod** : `pg-pool` retire son auditeur `error` du client tant qu'il sert (`index.js:344`), donc le défaut fermé sur le pool restait entier sur le chemin des transactions — `#beginTx` pose un puits et le retire au rendu, synchrone jusqu'au `release`. Prouvés sur serveurs réels, débranchement vérifié sur le dist avant de conclure. ⚠️ Reste : E2E système (cf note P7) ; et Mongo pend **30 s** par requête pendant une coupure (`serverSelectionTimeoutMS` du driver) — mesuré, documenté, **pas raccourci** (choix produit) |
 
-**Intégration continue** ([`docs/guides/integration-continue.md`](docs/guides/integration-continue.md)) : le
+**Intégration continue** ([`docs/guides/integration-continue.md`](../guides/integration-continue.md)) : le
 rapporteur `vitest.gates.ts` fait ÉCHOUER une passe dont une cible déclarée n'a pas tourné (`proof`,
 `NF_GATES_ALLOW`, `NF_GATES_EXPECT`). Le **mode du serveur est une dimension de la MATRICE**, plus une
 propriété de branche (24/dev · 26/dev · 26/**prod**) — la casse du mode livré n'apparaît plus après la
@@ -280,7 +226,7 @@ Console Logs Studio = panneau P10 de facto livré.
 > chaque module vit dans `nodefony/config/<module>.ts`, sous la forme
 > `(ctx) => ({ … }) satisfies I<Module>ConfigInput`. Le `satisfies` est GARDÉ par `nodefony doctor`
 > (constat `fragment-without-satisfies`) : sans lui, une clé inconnue compile et Zod la retire en
-> silence. Recette et pourquoi : [`docs/guides/configuration.md`](docs/guides/configuration.md).
+> silence. Recette et pourquoi : [`docs/guides/configuration.md`](../guides/configuration.md).
 
 ---
 
@@ -577,7 +523,7 @@ Historique du chantier (fabrique CLOSE) : base 9 347 RPS → lots A→D +8,9 %, 
 
 > **Les 112 lignes FAITES ont quitté ce fichier** : cette histoire vit dans `git log`, et sa photo
 > intégrale — cases cochées comprises — dans
-> [`docs/archives/migration-roadmap-2026-08-27.md`](docs/archives/migration-roadmap-2026-08-27.md).
+> [`docs/archives/migration-roadmap-2026-08-27.md`](migration-roadmap-2026-08-27.md).
 > Ne restent ici que les tâches **non faites** (⬜) ou **en cours** (🔶).
 >
 > ✅ **Chaque case ci-dessous a été confrontée au code le 2026-09-19** ([#80](https://github.com/nodefony/nodefony-core/issues/80)),
@@ -616,7 +562,7 @@ unifié HTTP+WS, `logRequest` pluggable, hooks security (`beforeResolve`/`afterA
 
 ### P2 — Cycle de vie Context (100 %)
 
-_Aucune tâche restante — le détail des tâches faites est dans [l'archive](docs/archives/migration-roadmap-2026-08-27.md)._
+_Aucune tâche restante — le détail des tâches faites est dans [l'archive](migration-roadmap-2026-08-27.md)._
 
 ### P3 — Logs structurés (85 %)
 
@@ -763,7 +709,7 @@ DI scopes (singleton/transient), lifecycle session.
 | ⬜ P13.6b | Module `@nodefony/kafka` | **Porté par [#243](https://github.com/nodefony/nodefony-core/issues/243)** (jalon `11`), avec P13.6a. Connexions + config + santé ; **attend un 2ᵉ consommateur** (bus events métier / P12 agents). Répertoire absent. Confronté au code le 09-19. |
 | 🔶 P13.8 | Décorateurs `@RealtimeAction`/`@RealtimeChannel` | 3 décorateurs livrés (`@RealtimeAction`, `@RealtimeChannel`, `@RealtimeInbound` — `realtimeDecorators.ts`) ; reste le motif d'expression régulière, la v1 ne faisant qu'une correspondance EXACTE — `realtime/nodefony/decorators/realtimeDecorators.ts:165-176` l'énonce (« v1 — match EXACT uniquement », le mode `pattern: RegExp` est annoncé pour plus tard). Confronté au code le 09-19. |
 
-> **Dettes backplane multi-pod / multi-app** (détail : [`@nodefony/realtime` — configuration](src/packages/@nodefony/realtime/docs/configuration.md)) :
+> **Dettes backplane multi-pod / multi-app** (détail : [`@nodefony/realtime` — configuration](../../src/packages/@nodefony/realtime/docs/configuration.md)) :
 >
 > - ✅ **#1 + #2 RÉSOLUES (`c082560`, 2026-06-12)** : `resolveBackplaneOriginId()` = `(NF_POD_NAME ?? hostname):pid` (anti-écho fiable cross-pod k8s) + champ `backplane.namespace` (Zod) → canal `nodefony:realtime:<ns>` dérivé de `kernel.projectName` (fin du cross-talk multi-app Redis mutualisé). +9 tests.
 > - ⬜ **#3 (moyenne)** Frontière inter-module des canaux — le mécanisme livré n'est PAS celui du design de 2026-06-05 : realtime **déclare** (`RealtimeHub.registerChannelPolicy()`) et security **décide** (`buildFrameAuthorizer()`) ; il n'a jamais existé de garde `#channelAllowed`. La dette restante : le registre est global et indexé par NOM, donc un module peut redéclarer le canal d'un autre avec une politique plus faible. Détail : `realtime-module-isolation-2026-06-05` (mémoire IA `core-dev/audits/`).
@@ -865,13 +811,13 @@ P15.5 ARI/AMI · P15.6 pipeline agent IA vocal (STT→LLM→TTS) · P15.7 cluste
 > l'avaient prouvé : elles envoyaient encore travailler sur les commandes `framework:*`, sorties du
 > périmètre par [#32](https://github.com/nodefony/nodefony-core/issues/32).
 
-| Ce qu'on cherche                                               | Où                                                                                        |
-| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Ce qui reste, dans l'ordre                                     | le tableau de bord, ou **hors ligne** l'empreinte commitée [`.ai/BOARD.md`](.ai/BOARD.md) |
-| Le périmètre et l'échéance                                     | [`docs/release/nodefony-10.md`](docs/release/nodefony-10.md) §8 et §10.9                  |
-| Le POURQUOI d'une décision                                     | ce fichier (§ Décisions), les `docs/adr/`, les `CLAUDE.md`/`MEMORY.md` de module          |
-| Ce qui est FAIT                                                | `git log` — jamais une case cochée à la main                                              |
-| Ce qu'une variable `NF_*` fait, et ce que son ABSENCE provoque | l'empreinte générée [`.ai/ENV.md`](.ai/ENV.md) (`npm run env:snapshot`)                   |
+| Ce qu'on cherche                                               | Où                                                                                              |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- |
+| Ce qui reste, dans l'ordre                                     | le tableau de bord, ou **hors ligne** l'empreinte commitée [`.ai/BOARD.md`](../../.ai/BOARD.md) |
+| Le périmètre et l'échéance                                     | [`docs/release/nodefony-10.md`](../release/nodefony-10.md) §8 et §10.9                          |
+| Le POURQUOI d'une décision                                     | ce fichier (§ Décisions), les `docs/adr/`, les `CLAUDE.md`/`MEMORY.md` de module                |
+| Ce qui est FAIT                                                | `git log` — jamais une case cochée à la main                                                    |
+| Ce qu'une variable `NF_*` fait, et ce que son ABSENCE provoque | l'empreinte générée [`.ai/ENV.md`](../../.ai/ENV.md) (`npm run env:snapshot`)                   |
 
 **L'empreinte `.ai/BOARD.md` est GÉNÉRÉE** (skill `nodefony-session`, `scripts/board-snapshot.mjs`)
 et ne s'édite pas : c'est ce qui l'empêche de mentir comme mentaient les sections retirées.

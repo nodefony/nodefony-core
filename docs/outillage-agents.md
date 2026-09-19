@@ -75,7 +75,7 @@ serait sans effet à la régénération suivante.
 [
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
     "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 7 scripts · 📎 4 réf" },
+    "meta": "🟢 conforme · ⚙️ 7 scripts · 📎 3 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -271,7 +271,6 @@ fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un s
 
 | Skill                      | Rôle                                                                        | Invoc. | Lect. |
 | -------------------------- | --------------------------------------------------------------------------- | -----: | ----: |
-| `nodefony-migration-audit` | Confronte `MIGRATION_STATUS.md` au code, phase par phase                    |      5 |    51 |
 | `nodefony-security-review` | Revue de conformité d'un diff **et** campagnes red/blue-team                |     10 |     2 |
 | `nodefony-inspect`         | Graphe symbolique, signature d'une méthode, config d'un module, diff propre |      — |     — |
 | `nodefony-check-externals` | Dérive entre les `external` du bundler et les `peerDependencies`            |      0 |     7 |
@@ -412,7 +411,7 @@ de `roadmap` sont faits. Les recouvrements de déclencheurs sont tous **arbitré
 (`ACCEPTED_OVERLAPS` dans `trigger-bench.mjs`) — le banc ne signale plus que les recouvrements neufs.
 
 Reste, hors périmètre de cette page : le **registre des écarts doc↔code** et les **lots 1→7 du
-`@nodefony/devkit`** (le lot 0, conformité de l'existant, est fait). Voir `MIGRATION_STATUS.md`.
+`@nodefony/devkit`** (le lot 0, conformité de l'existant, est fait).
 
 ## Pièges
 

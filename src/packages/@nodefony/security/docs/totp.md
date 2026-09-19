@@ -577,7 +577,7 @@ Deux pièges de lecture, signalés dans l'entité elle-même :
 | `mongoose` | —                                             | —                                   | ⏳ manquant, à venir |
 | `redis`    | —                                             | —                                   | ⏳ manquant, à venir |
 
-Ces deux absences sont des **manques**, pas des choix de périmètre (`MIGRATION_STATUS.md`, P7.11) —
+Ces deux absences sont des **manques**, pas des choix de périmètre —
 mais elles se comblent à deux régimes différents.
 
 `redis` le portera **en opt-in explicite, jamais choisi par `auto`** — exactement le régime des

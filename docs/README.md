@@ -194,4 +194,5 @@ Pas de hook bloquant pour l'instant : la règle est documentaire. Vision (Phase 
 - `CLAUDE.md` (racine) — règles globales du projet
 - `MEMORY.md` (racine) — index des mémoires IA par module
 - `.claude/skills/nodefony-inspect/SKILL.md` — graphe symbolique, signatures, config d'un module, diff
-- `MIGRATION_STATUS.md` — roadmap P0→P14
+- `.ai/BOARD.md` (généré) — les tickets ouverts et leur ordre
+- `docs/adr/` — les décisions d'architecture et leur pourquoi

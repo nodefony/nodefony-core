@@ -214,7 +214,7 @@ nature `durable`. Comparé aux deux autres adapters officiels :
 > [!IMPORTANT]
 > **Ces trois cases vides sont un manque, et il sera comblé.** L'objectif est qu'une application
 > puisse tourner **entièrement sur MongoDB, sans charger `@nodefony/drizzle`** — donc mongoose à 8/8
-> (`MIGRATION_STATUS.md`, P7.11). Le raisonnement « ces briques-là appellent d'autres propriétés »
+> Le raisonnement « ces briques-là appellent d'autres propriétés »
 > décrit une préférence technique, pas ce que vit l'utilisateur : **tu choisis une base de données, tu
 > ne choisis pas de perdre le 2FA, la traçabilité ou la déduplication.**
 >

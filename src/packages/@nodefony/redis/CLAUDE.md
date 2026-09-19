@@ -77,4 +77,4 @@ d'autres couches — il ne contient aucune logique métier.
 
 > **`RedisBackplane` n'est PAS ici** : il vit dans `@nodefony/realtime`
 > (`nodefony/src/backplane/RedisBackplane.ts`) et consomme ce module pour le pub/sub.
-> Avancement des phases → `MIGRATION_STATUS.md`.
+> Avancement → les **tickets**, ou hors ligne l'empreinte générée `.ai/BOARD.md`.

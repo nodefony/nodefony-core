@@ -4,7 +4,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-11
+updated: 2026-09-19
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-roadmap/SKILL.md"
 ---
@@ -28,7 +28,7 @@ source: ".claude/skills/nodefony-roadmap/SKILL.md"
 | Version | `2.0.0` |
 | Famille | Références et livrables |
 | Corps | 117 lignes |
-| Coût d'activation | ~2 185 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~2 193 tokens (le corps est chargé à l'invocation) |
 | Description | 812 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s) |

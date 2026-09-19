@@ -527,7 +527,7 @@ jobs:
 <!-- prettier-ignore -->
 | Domaine | Phase | Gate précis |
 | --- | --- | --- |
-| **Sécurité** | P6 | ✅ **Cœur MVP LIVRÉ — bloqueur levé** (firewall, auth, JWT, RBAC `@IsGranted`) : le tableau de bord le déclare (`MIGRATION_STATUS.md:525`). Reste le durcissement et les niches, **hors périmètre**. |
+| **Sécurité** | P6 | ✅ **Cœur MVP LIVRÉ — bloqueur levé** (firewall, auth, JWT, RBAC `@IsGranted`). Reste le durcissement et les niches, **hors périmètre**. |
 | **ORM** | P5/P7 | **Core stable** (✅) + **Drizzle multi-dialecte sqlite/pg/mysql ✅ LIVRÉ** — les vagues S1→S4 portent les 8 briques sur les 3 dialectes (**comparatif ORM froid ✅ Drizzle confirmé** `a370b5a1`). **Reste : les migrations de schéma en production** (S5, #17), **dégelées et dans le périmètre** — un framework qui livre des entités sans voie de migration en production a un trou dans son modèle, et `drizzle-kit` est un contournement, pas une réponse. **Adapter Mongoose = DÛ COMPLET** (#30) : « une app doit tourner sans drizzle » est acté, donc 4 briques sur 7 est un chemin durable incomplet, pas une couverture adaptée. |
 | **Cloud-native** | P16 (**baseline**) | ✅ **Dockerfile livré** (gabarit de `create app`, prouvé par `smoke-docker.sh` sur une app GÉNÉRÉE) + **graceful shutdown complet** (drain 3 serveurs, probes `/livez` `/readyz` natives, bascule readiness au SIGTERM, `shutdownDeadline` kernel) — Phase 0.7. Config par env (12-factor) : `defineEnv` + `NF__*` déjà en place. **PAS** le P16 complet (HPA, opérateurs k8s, secret managers = **10.x**). |
 | **Reste** | P10/P11/P13/P14 | Studio, CLI, **realtime base** (socket/hub/AIMD/granularité ; backplane Redis si prêt, sinon 10.x), frontend. ⚠️ Les commandes `framework:*` **ne font PAS partie** du périmètre : `nodefony inspect` couvre déjà `routes`, `modules`, `services`, `config`, `stores`, `entities`, `graph` et `status` (`src/nodefony/src/kernel/commands/InspectCommand.ts:87`) — une commande `framework:routes:list` serait une **seconde implémentation de la même règle**. Côté ligne de commande il ne reste que `security:user:password` (#21). |
@@ -746,7 +746,7 @@ disparaît sans erreur. Remède vérifié `--format docker`, avertissement écri
 
 **Fait.** Le dossier est supprimé, et la prose qui le décrivait au présent est corrigée (le flux du
 smoke § « Smoke test de parité », la ligne Cloud-native du tableau des phases, l'encadré d'ordre
-ci-dessus, `MIGRATION_STATUS`). Les mentions restantes sont **historiques** et le restent : elles
+ci-dessus, le tableau de bord de migration depuis archivé). Les mentions restantes sont **historiques** et le restent : elles
 racontent d'où viennent les gabarits (R1.1) et ce que R2.1 a remplacé — les effacer réécrirait
 l'histoire au lieu de la dater.
 

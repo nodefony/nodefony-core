@@ -4,14 +4,11 @@ description: >
   Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) :
   reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur
   un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture
-  des tickets soldés et mémoire de reprise. Porte aussi l'AUDIT de la carte des phases —
-  confronter `MIGRATION_STATUS.md` au code réel, phase par phase, avec le comptage qui ne se
-  refait pas à la main. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`.
+  des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et
+  CONSOLIDATE dans `references/`.
   Déclencheurs : "reprends", "on en était où", "dernière session", "où en est la publication",
   "quels tickets restent", "prépare le contexte", "session sur <module>", "fin de session",
-  "retex", "consolide les retex", "audit migration", "état des lieux migration",
-  "où en est la migration", "avancement migration", "vérifier MIGRATION_STATUS",
-  "revue phase par phase", "gros point migration", "assainir le dashboard migration".
+  "retex", "consolide les retex".
 ---
 
 # nodefony-session
@@ -55,10 +52,9 @@ Lire le `_state.md` le plus récent (sections **Fait / Décisions / Reste**). S'
 rend les retex utiles : frictions chaudes pas encore graduées en `feedback_*`. Les appliquer
 proactivement cette session (ex. « shell instable → 1 cmd à la fois », pièges build/dist après clean).
 
-## 2. Phase active + git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
+## 2. Git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
 
 ```bash
-grep -n "🎯\|## P[0-9]" MIGRATION_STATUS.md | head -10
 echo "Branche : $(git branch --show-current) — non commités : $(git status --short | wc -l | tr -d ' ')"
 echo "--- VÉRITÉ TERRAIN : derniers commits (croiser avec _state.Fait) ---"
 git log -6 --format="%h %ci %s"
@@ -78,8 +74,7 @@ git log -6 --format="%h %ci %s"
 ## 3. Avancement RÉEL — les tickets GitHub (le pilotage a QUITTÉ le plan)
 
 Depuis que la publication est pilotée par des issues, **c'est le jalon qui dit où on en est** — pas
-`MIGRATION_STATUS.md`, pas le `_state`, qui sont tous deux écrits à la main et vieillissent entre
-deux sessions. Un ticket, lui, a un état que personne n'oublie de changer.
+le `_state`, qui est écrit à la main et vieillit entre deux sessions. Un ticket, lui, a un état que personne n'oublie de changer.
 
 **Commencer par la joignabilité — et l'ÉNONCER si elle manque.** GitHub tombe, un jeton expire, on
 travaille hors ligne : conclure « rien n'a avancé » depuis un `gh` muet serait un faux verdict.
@@ -141,18 +136,7 @@ peut-être pas enregistré. **Si l'ordre du tableau de bord et la « Priorité 1
 contredisent, le ticket gagne** — même raison que le garde-fou du §2 : ce qui est écrit à la main
 se périme, ce qui est un état ne se périme pas.
 
-## 4. Mini-état migration (SI la prochaine étape cible une phase P<n>)
-
-Composer avec **[`references/migration-audit.md`](references/migration-audit.md), mode `tableau` /
-variante A uniquement** :
-barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHAINE ÉTAPE**
-(première phase non finie du chemin critique). Compact — **PAS** l'audit interactif code-par-code.
-
-> Audit réel vérifié dans le code : dire « audit migration » — la référence porte le protocole,
-> dont le comptage `awk` qu'on ne refait pas à la main sans se tromper.
-> Si la prochaine étape ne touche aucune phase (chore, fix, doc, skill) → **sauter** ce mini-état.
-
-## 5. Restituer (≤ 30 lignes)
+## 4. Restituer (≤ 30 lignes)
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
@@ -169,9 +153,8 @@ barres ASCII de progression par phase (tri % décroissant) + l'encadré **PROCHA
    suivants **de ce jalon**. Les jalons ultérieurs se citent en une ligne, jamais comme du travail
    à prendre. Si GitHub n'a pas répondu : « avancement non vérifié, GitHub injoignable », plus la
    DATE de l'empreinte. Ne jamais présenter un avancement déduit du seul `_state`.
-5. **Mini-état migration** (barres + encadré, via `references/migration-audit.md`) — si phase concernée
-6. **Branche git** + non commités (alerte si dist périmé probable)
-7. **Question** : « On reprend ça, ou autre chose ? »
+5. **Branche git** + non commités (alerte si dist périmé probable)
+6. **Question** : « On reprend ça, ou autre chose ? »
 
 > Aucun `_state.md` trouvé → fallback : dernier retex `docs/session-retros/` + phase active.
 > Si la prochaine étape cible un module précis → enchaîner sur le **mode START** (`start <module>`)
@@ -212,8 +195,7 @@ fi
 ## 2. Mode global (sans argument)
 
 ```bash
-head -60 MIGRATION_STATUS.md                       # état stratégique
-grep -n "🎯\|## P[0-9]" MIGRATION_STATUS.md | head -20   # phase active
+head -40 .ai/BOARD.md                              # jalons + le prochain dans l'ordre (généré)
 ls -1 src/packages/@nodefony/ src/modules/         # modules réels (source de vérité)
 ```
 

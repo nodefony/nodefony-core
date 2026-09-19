@@ -17,12 +17,12 @@ description: >
 # nodefony-roadmap — la couche IA (Phase 12) + les conventions des phases livrées
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; l'avancement fin vit dans
-> `MIGRATION_STATUS.md`, l'historique dans `git log`. Une leçon durable devient une règle.
+> les **tickets** (hors ligne : `.ai/BOARD.md`, généré), l'historique dans `git log`. Une leçon durable devient une règle.
 
 **Où en est le framework** : P10 (Studio), P13 (Realtime) et P14 (builder Vite) sont **livrées** —
 leurs conventions restent applicables mais vivent dans les skills/docs dédiés (§3). **P12, la couche
 IA agentic, est la seule phase réellement future** (≈17 % au dernier point) : c'est l'objet principal
-de ce skill. Vérité fine = `MIGRATION_STATUS.md`.
+de ce skill. Vérité fine = les tickets du jalon.
 
 ---
 
