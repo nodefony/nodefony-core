@@ -106,6 +106,54 @@ qu'un run part de travers avant d'en payer trois.
 > [`scripts/lib/transcript-dialectes.mjs`](scripts/lib/transcript-dialectes.mjs),
 > **source unique** : le banc les consomme au lieu d'en garder une copie.
 
+### Le flux se TAIT — le run avance-t-il encore ?
+
+Le journal d'un agent est écrit par à-coups : une installation, un `docker build`
+ou une suite de tests ne produisent pas une ligne tant qu'ils n'ont pas rendu la
+main. Un `suivre-run.mjs` figé pendant des minutes est donc l'état NORMAL, et le
+lire comme un blocage fait abandonner un run qui travaillait.
+
+**Le seul signal qui tranche est le PROCESS, jamais le disque** :
+
+```bash
+ps -Ao pid,etime,%cpu,command | grep -E "bench-discoverability|claude -p" | grep -v grep
+```
+
+Un agent qui consomme du CPU travaille ; un agent à `0,0` depuis plusieurs
+relevés est un vrai blocage, et c'est alors le décor qu'on ouvre.
+
+> ⚠️ **Ne PAS déduire l'inactivité d'une date de fichier.** `find … -newermt
+"-2 minutes"` rend `0` sur macOS quelle que soit l'activité — la grammaire BSD
+> ne lit pas les durées relatives de GNU, et elle ne se plaint pas. Un run en
+> pleine rafale de requêtes a été déclaré figé sur cette seule sortie. Même
+> famille que le reste de ce skill : **la sonde est le premier suspect**, pas ce
+> qu'elle prétend mesurer.
+
+### Instruire un run EN VOL — où regarder dans le décor
+
+Le flux dit ce que l'agent TENTE ; le décor dit ce qui en RÉSULTE. Les deux se
+lisent pendant que le run tourne, et c'est là qu'on corrige — après, il faut
+repayer un run pour revoir la même chose.
+
+| La question                                    | Le fichier, sous `<runDir>/tache-<n>/<app>/`     |
+| ---------------------------------------------- | ------------------------------------------------ |
+| l'application a-t-elle démarré, et sert-elle ? | `tmp/nodefony-detached.log`                      |
+| pourquoi le boot a-t-il échoué ?               | `var/last-boot-console.json`                     |
+| le schéma est-il réellement en base ?          | `var/databases/*.db` (`sqlite3 … sqlite_master`) |
+| quelles migrations ont été appliquées ?        | table `nodefony_migrations` de cette même base   |
+
+🔴 **Lecture SEULE.** Écrire dans le décor d'un run en vol, c'est mesurer sa
+propre intervention — le juge relit cette application pour rendre son verdict.
+
+**Ce que ça a déjà rendu, en une séance** : une boucle
+`orm:migrate → repair → migrate → repair` répétée cinq fois était visible dans le
+flux bien avant le verdict — le motif « tourne en rond », qui est le second but du
+banc, se voit ICI et jamais dans un PASS/FAIL. La base, elle, disait que la
+migration avait fini par passer : `nodefony_migrations` portait les identifiants
+**1, 2, puis 5**. Les deux tentatives manquantes avaient été effacées par
+`orm:migrate:repair`, leur cause avec elles — un outil de réparation qui supprime
+le motif de la panne qu'il répare ne laisse rien à instruire à l'exploitant.
+
 **Détail : [`references/methode-de-mesure.md`](references/methode-de-mesure.md)** — trois
 résultats mesurés, valables pour les trois bancs : la variance écrase l'écart d'un run à
 l'autre (médiane de ≥ 3 runs obligatoire), le modèle par défaut choisi conditionne si le banc
