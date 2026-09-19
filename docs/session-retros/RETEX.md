@@ -85,6 +85,17 @@ exécution.
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
 
+- [1× — 09-19d] 🔴 **Notre propre aide enseignait l'INVERSE de ce que le code faisait, et tous nos
+  exemples avec.** Dans la grammaire de champs, `!` posait une contrainte d'UNICITÉ ; `help.ts:62`
+  l'annonçait « `!` requis », `spec.ts:834` disait « ! unique », et README, guides, gabarit de la
+  porte et skill livré écrivaient tous `title:string!` — en croyant dire « obligatoire ». Trois
+  rédactions de la même grammaire, dont une fausse, et personne pour les confronter. Un agent tiers
+  a suivi nos exemples : son salon de discussion refusait deux fois le même message, et il a brûlé
+  35 minutes en migrations pour s'en sortir. La règle : une notation qui contredit un réflexe
+  universel (`!` = non-null en GraphQL, TS, Kotlin, Swift, Prisma) ne se rattrape par AUCUNE prose —
+  ce qu'il faut changer, c'est la notation. Et le signe qu'on est dans ce cas : les rédactions
+  divergent entre elles, parce qu'aucune n'est évidente.
+
 - [1× — 09-19c] 🔴 **Le dossier de gabarits s'appelait `templates/app/agents/` alors qu'il ne
   posait plus aucun dossier `agents/` dans l'application.** Conséquence immédiate : mon propre
   compte rendu a écrit « `agents/client/*.md` restent », et le user a compris qu'un dossier hors
@@ -438,6 +449,17 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   plus tard, les trois mécanismes avaient servi au moins une fois chacun.
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
+
+- [1× — 09-19d] 🔴 **J'ai écrit un identifiant de production EN FRANÇAIS le jour où je venais de
+  lire la règle qui l'interdit.** `DEJA_DANS_L_ETAT_VISE` dans `DrizzleMigrator.ts`, plus `valeur`
+  / `exemple` dans `create.ts` — alors que le `CLAUDE.md` du dépôt ET le skill `framework-dev`
+  chargé en début de session portent « LE CODE S'ÉCRIT EN ANGLAIS » en gras, avec son pourquoi.
+  C'est le user qui l'a vu, pas moi. Ce qui l'a rattrapé ensuite n'est pas la relecture mais
+  `npm run check:lang`, qui a d'ailleurs trouvé un quatrième cas que j'avais laissé (`motif`).
+  Le contraste est net : la même session a respecté sans effort les règles PORTÉES PAR UN GATE
+  (budget de la porte, format du rendu, largeur d'aide, commitlint) et a fauté sur la seule qui
+  ne se déclenche qu'en y pensant. Corollaire pratique : lancer `check:lang` AVANT de proposer
+  un commit, pas après qu'on me l'ait fait remarquer.
 
 - [1× — 09-19c] 🔴 **Le mode rapide était écrit EN TÊTE du script, j'ai payé trois passes lentes
   avant de m'en servir.** `scripts/check-scaffold-format.mjs` porte ligne 26 :

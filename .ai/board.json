@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T13:34:27.008Z",
+  "generatedAt": "2026-09-19T15:02:22.992Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 123,
+      "closed": 125,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 7,
+      "open": 5,
       "title": "10.0.0-alpha"
     },
     {
@@ -3156,8 +3156,8 @@
       "number": 430,
       "title": "fix(orm): sortir de la boucle quand la migration vise un objet déjà présent",
       "url": "https://github.com/nodefony/nodefony-core/issues/430",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -3268,8 +3268,8 @@
       "number": 431,
       "title": "fix(cli): nommer la forme attendue quand la création refuse un argument",
       "url": "https://github.com/nodefony/nodefony-core/issues/431",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
