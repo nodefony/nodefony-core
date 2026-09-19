@@ -488,6 +488,34 @@ if (drapeau("dist-tags")) {
     process.exit(0);
   }
 
+  // ─────────────────────────────────────────────────────────────────────────
+  // L'IDENTITÉ D'ABORD — ce mode ne passe PAS par le publieur de confiance.
+  //
+  // Le trusted publishing de la forge ne couvre que `publish` : `dist-tag`,
+  // `deprecate` et `access` réclament leur propre session, depuis le poste.
+  // Sans elle, npm refuse paquet par paquet par un `ENEEDAUTH` — quatorze fois
+  // de suite, après avoir fait croire que le lot partait. Le constater ICI,
+  // avant le premier geste, rend un message qui NOMME la commande à taper.
+  //
+  // `npm whoami` est un témoin valable pour CE mode, et pour lui seul : il lit
+  // la session du poste. Il ne dit jamais rien d'une authentification OIDC —
+  // s'en servir comme preuve que la chaîne de publication fonctionne serait un
+  // faux verdict.
+  {
+    const qui = npm(["whoami"]);
+    if (qui.status !== 0) {
+      echouer(
+        "aucune session npm sur ce poste — `dist-tag` n'hérite d'AUCUNE\n" +
+          "  authentification de la forge (le publieur de confiance ne couvre que\n" +
+          "  `publish`). Ouvrir la session, puis relancer :\n\n" +
+          "       npm login\n" +
+          `       npm run release -- --dist-tags --publish\n\n` +
+          "  Rien n'a été touché : les quatorze dist-tags sont intacts.",
+      );
+    }
+    dire(`\n  session npm : ${String(qui.stdout ?? "").trim()}`);
+  }
+
   /**
    * Pose un `latest`, en capturant la sortie SEULEMENT si l'on a un code.
    *
