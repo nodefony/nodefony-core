@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-19 18:34** (UTC).
+> Empreinte prise le **2026-09-19 18:55** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -40,7 +40,7 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 37 ouverts
+## Jalon 10.0.0-beta — 38 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -74,6 +74,7 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 11 | P2 — décision | 1 | 2026-11-06 → 11-06 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 | 29 | P2 — décision | 1 | 2026-11-09 → 11-09 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 32 | P2 — décision | 1 | 2026-11-12 → 11-12 | #80 | chore(pilotage): confronter au code les cases de la feuille de route |
+| 32.5 | P2 — décision | 1 | 2026-11-16 → 12-15 | #384 | chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas |
 | 46.1 | P1 — figé à la création | 1 | 2026-11-13 → 11-13 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
 | 46.2 | P0 — bloque le reste | 1 | 2026-11-16 → 11-16 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
 | 46.3 | P2 — décision | 0.5 | 2026-11-17 → 11-17 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
@@ -98,7 +99,7 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 20 | P2 — décision | 1 | 2026-09-23 → 09-23 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
 | 55 | P3 — fin de cycle | 1 | 2026-09-24 → 09-24 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
-## Jalon 10.1.0 — 31 ouverts
+## Jalon 10.1.0 — 30 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -121,7 +122,6 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 121 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #73 | perf(http): rejouer le profil processeur du chemin chaud |
 | 134 | P2 — décision | 1 | 2026-11-16 → 12-15 | #171 | ci(workflows): refuser une étape multi-commandes sans shell |
 | 135 | P2 — décision | 1 | 2026-11-16 → 12-15 | #172 | fix(pilotage): ne pas mettre « en cours » sur un commit de pilotage |
-| 136 | P2 — décision | 1 | 2026-11-16 → 12-15 | #384 | chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas |
 | 139 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #195 | fix(cli): ne plus compter deux fois les fichiers d'une cible imbriquée |
 | 140 | P2 — décision | 1 | 2026-11-16 → 12-15 | #196 | fix(orm): ne proposer un geste que si l'on a constaté qu'il s'applique |
 | 141 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #216 | fix(bench): poser la base que trois bancs multi-pods exigent |

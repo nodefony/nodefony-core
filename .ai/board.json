@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T18:34:46.035Z",
+  "generatedAt": "2026-09-19T18:55:30.109Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -5020,6 +5020,22 @@
       ]
     },
     {
+      "number": 384,
+      "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/384",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 32.5,
+      "debut": "2026-11-16",
+      "cible": "2026-12-15",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
       "number": 38,
       "title": "feat(client): ajouter les services Angular du temps réel",
       "url": "https://github.com/nodefony/nodefony-core/issues/38",
@@ -5973,22 +5989,6 @@
       "status": "Done",
       "milestone": "10.1.0",
       "priorite": "P3 — fin de cycle",
-      "jours": 1,
-      "ordre": 136,
-      "debut": "2026-11-16",
-      "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
-    },
-    {
-      "number": 384,
-      "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
-      "url": "https://github.com/nodefony/nodefony-core/issues/384",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.1.0",
-      "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 136,
       "debut": "2026-11-16",
