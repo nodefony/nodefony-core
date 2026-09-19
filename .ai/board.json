@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T20:06:00.679Z",
+  "generatedAt": "2026-09-19T20:43:33.077Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 127,
+      "closed": 128,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 5,
+      "open": 4,
       "title": "10.0.0-alpha"
     },
     {
@@ -4550,8 +4550,8 @@
       "number": 384,
       "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/384",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
