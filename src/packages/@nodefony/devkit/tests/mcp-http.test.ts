@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
 import { request as httpsRequest } from "node:https";
 import { request as httpRequest } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   MCP_ENDPOINT_PATH,
   MCP_PROTOCOL_VERSION,
@@ -239,6 +242,56 @@ async function jetonPourLaPorte(
 // Obtenu UNE fois, avant toute assertion (cf la déclaration de `JETON` plus haut).
 JETON = await jetonPourLaPorte();
 
+/**
+ * Nom de l'application que ce dépôt EST, lu sur son manifeste.
+ *
+ * Jamais écrit en dur : le nom du paquet racine est la seule définition de
+ * « cette application », et c'est exactement ce que la carte de visite publie.
+ */
+const APPLICATION_ATTENDUE = (
+  JSON.parse(
+    readFileSync(
+      path.resolve(
+        path.dirname(fileURLToPath(import.meta.url)),
+        "../../../../../package.json",
+      ),
+      "utf8",
+    ),
+  ) as { name?: string }
+).name;
+
+/**
+ * QUELLE application répond sur ce port ? — `null` si la question n'a pas de
+ * réponse.
+ *
+ * Un poste de développement fait tourner plusieurs applications Nodefony : le
+ * dépôt, et celles que les bancs génèrent. La première qui prend le port devient
+ * la cible, et une sonde qui se contente d'un code HTTP conclut « le serveur est
+ * là » en interrogeant quelqu'un d'autre. On demande donc son NOM à
+ * l'application — c'est ce que `nodefony_card` publie, et c'est le même nom que
+ * porte son `package.json`.
+ */
+async function applicationServie(): Promise<string | null> {
+  try {
+    const reponse = await poster({
+      jsonrpc: "2.0",
+      id: -1,
+      method: "tools/call",
+      params: { name: "nodefony_card", arguments: {} },
+    });
+    if (reponse.status !== 200) return null;
+    const result = (
+      reponse.body as { result?: { content?: { text?: string }[] } } | null
+    )?.result;
+    const texte = result?.content?.[0]?.text;
+    if (typeof texte !== "string") return null;
+    const carte = JSON.parse(texte) as { app?: { name?: unknown } };
+    return typeof carte.app?.name === "string" ? carte.app.name : null;
+  } catch {
+    return null;
+  }
+}
+
 /** La porte répond-elle — null si oui, la raison sinon. */
 async function porteMuette(): Promise<string | null> {
   try {
@@ -255,6 +308,20 @@ async function porteMuette(): Promise<string | null> {
     }
     if (reponse.status !== 200) {
       return `${BASE}${MCP_ENDPOINT_PATH} rend ${reponse.status} sur un ping — devkit chargé ? mcp.enabled ?`;
+    }
+    // 🔴 La porte répond : reste à savoir QUI. Une application étrangère qui
+    // tient le port fait passer ce banc — et il échoue alors sur des outils
+    // qu'elle n'a aucune raison de déclarer, en accusant le code de ce dépôt.
+    // Vécu (#433) : deux campagnes de suite ont rendu 7 rouges pendant qu'une
+    // application voisine tenait 5151, et il a fallu une enquête pour le voir.
+    const servie = await applicationServie();
+    if (servie !== null && servie !== APPLICATION_ATTENDUE) {
+      return (
+        `${BASE} répond pour l'application « ${servie} », pas « ${APPLICATION_ATTENDUE} » — ` +
+        `un autre projet Nodefony tient le port. L'arrêter depuis SON dossier ` +
+        `(\`nodefony stop\`), ou \`nodefony stop --all\`, puis relancer ` +
+        `\`bash .claude/skills/nodefony-start-server/start.sh\`.`
+      );
     }
     return null;
   } catch (e) {
