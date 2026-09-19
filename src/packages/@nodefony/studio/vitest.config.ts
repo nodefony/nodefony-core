@@ -19,7 +19,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
  * Hors scope unit (split documenté, cf MEMORY.md) :
  *  - `StudioRealtimeController` (WS endpoint) = intégration live-server, couverte
  *    par la suite WS de @nodefony/http (subscribe/unsubscribe → frame JSON-RPC).
- *  - Le frontend React (stores MobX, ConnectionDrawer) = à instrumenter à part.
+ *  - Le frontend React (stores MobX, RealtimeHubContent) = à instrumenter à part.
  */
 export default defineConfig({
   test: {

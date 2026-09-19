@@ -180,7 +180,7 @@ npm run coverage    # + rapport .coverage/ (affiché par l'onglet Coverage Studi
 - Harness = **miroir de `@nodefony/frontend`** : `vitest.config.ts` + `nodefony/tests/{vitest.setup.ts, vitest-mocha-shim.mjs}`. `expect` de **chai** (pas vitest), `vi` de vitest (fake timers + `vi.fn()`).
 - `nodefony/tests/unit/providers.test.ts` (11 tests, providers.ts 98.55% stmts / 100% lines) : verrouille le **coalescing `createSyslogBridge`** (le fix du lag Studio, f82b3de) + `createStatsTicker`. Déterministe via `vi.useFakeTimers()`.
 - `nodefony/tests/unit/scaffoldService.test.ts` (6 tests) : le générateur de code — refus hors développement, simulation qui ne touche pas au disque, distinction créé/réécrit avec le contenu d'avant, refus du moteur répercuté dès la préview, destination d'une app recomposée sous une racine autorisée. Décor = une vraie app rendue par `runScaffold` dans un temporaire, module factice, **aucun boot**.
-- **Split** (volontaire) : le WS endpoint (`StudioRealtimeController`) est de l'**intégration live-server** (subscribe/unsubscribe → frame JSON-RPC) → relève de la suite WS de `@nodefony/http`, pas du run vitest. Le frontend React (stores MobX, `ConnectionDrawer`) = instrumentation séparée non scaffoldée.
+- **Split** (volontaire) : le WS endpoint (`StudioRealtimeController`) est de l'**intégration live-server** (subscribe/unsubscribe → frame JSON-RPC) → relève de la suite WS de `@nodefony/http`, pas du run vitest. Le frontend React (stores MobX, `RealtimeHubContent`) = instrumentation séparée non scaffoldée.
 - ⚠️ providers.ts n'importe que `node:os/v8/perf_hooks` → tests sur la **source pure**, pas le dist (pas d'alias ORM nécessaire, ≠ http/framework).
 
 ## Ce qu'il ne faut JAMAIS faire sans accord
