@@ -71,6 +71,15 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-20] 🔴 **Neuf tests affirmaient le choix que je venais de renverser, et les relâcher
+  aurait effacé ce qu'ils gardaient.** En portant les canaux du processus de `ROLE_ADMIN` à
+  l'échelle plateforme, neuf bancs sont tombés — tous disaient « un admin passe ». La tentation
+  est de corriger l'assertion ; le geste juste est de corriger l'ACTEUR : leurs jetons portent
+  désormais les deux échelles, comme la fixture réelle du dépôt, et leurs parcours de hiérarchie
+  couvrent la nouvelle. Puis d'AJOUTER le fait neuf, qui n'existait dans aucun test — « un rôle
+  d'organisation seul est refusé sur un canal de plateforme, et garde ses canaux applicatifs ».
+  Sans ce contrôle jumeau, rien ne distingue « la protection mord » de « tout est fermé ».
+
 - [1× — 09-19c] 🔴 **Mon tri d'architecture était faux, et ce sont les tests du dépôt qui l'ont
   redressé — pas une relecture, pas le user.** En retirant les pages d'instructions copiées dans
   chaque app (#432), j'avais tranché « ce qui est propre à l'app va dans la porte, le générique va
@@ -84,6 +93,15 @@ exécution.
   lire les tests qui le couvrent **pour ce qu'ils affirment**, pas seulement pour les faire passer.
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
+
+- [1× — 09-20] 🔴 **J'ai nommé un drapeau par ce qu'il PROMETTAIT, et le nom est devenu une porte.**
+  `selfGuarded` — « la route se garde elle-même » — n'installait aucune garde : il en RETIRAIT une
+  (le rôle exigé par la zone). Posé sur une route qui ne décide de rien, il l'ouvrait à tout compte
+  connecté, en silence, et il était exposé dans les options publiques du routeur. Un auditeur
+  extérieur l'a vu en une lecture ; moi qui l'avais écrit trois heures plus tôt, non. Renommé
+  `areaRoleExempt`, marqué interne, affiché dans la ligne de journal d'une route, et gardé par un
+  contrôle d'inventaire. La règle : **un nom qui promet une garde invite à le poser pour débloquer
+  une route** — nommer par le GESTE, jamais par l'intention qu'on lui prête.
 
 - [1× — 09-19g] 🔴 **Le renommage français → anglais a corrigé le CODE ; les pages qui le
   DÉCRIVENT sont restées sur l'ancien nom.** `check:lang` est vert — 0 identifiant français sur
