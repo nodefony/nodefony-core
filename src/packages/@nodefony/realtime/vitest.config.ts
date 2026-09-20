@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { defineConfig, configDefaults } from "vitest/config";
 import { oxcDecorators } from "../../../../vitest.oxc.ts";
 import { gateReporter, REDIS_GATE } from "../../../../vitest.gates.ts";
 import { transformCache } from "../../../../vitest.perf.ts";
@@ -11,7 +11,7 @@ import { transformCache } from "../../../../vitest.perf.ts";
  * **`gateReporter` est ce qui rend ce module honnête.** Une bonne part de ce qui
  * compte ici ne s'exerce QUE contre un vrai Redis (fan-out cross-pod, cloisonnement
  * par namespace, injection depuis le bus) ou derrière un interrupteur de coût
- * (`NF_RUN_CLUSTER_E2E`, `NF_RUN_PERF`). Ces suites s'auto-skippent quand le décor manque
+ * (`NF_RUN_PERF`). Ces suites s'auto-skippent quand le décor manque
  * — et un skip compte comme un succès : la suite affichait « tout vert » sans avoir
  * touché une ligne de backplane. Le reporter nomme la cible non exercée, donne la
  * commande pour l'ouvrir, et FAIT ÉCHOUER la passe en intégration continue.
@@ -20,6 +20,10 @@ import { transformCache } from "../../../../vitest.perf.ts";
  * doublent pas les variables : un Redis joignable ne prouve pas qu'on lui a
  * parlé. Cette liste était écrite dans `orm.yml` sous forme de `jq` ; elle a sa
  * place ici, où elle protège AUSSI qui lance la suite à la main.
+ *
+ * **Ce lot ne porte PAS les bancs qui forkent de vrais process** : `clusterIpc.e2e`
+ * et `redisCluster.e2e` vivent dans `vitest.cluster.config.ts`, avec leur propre
+ * gate `NF_RUN_CLUSTER_E2E` — la raison est écrite là-bas.
  */
 export default defineConfig({
   test: {
@@ -41,21 +45,24 @@ export default defineConfig({
             "RedisBackplane — reconnexion",
           ],
         },
-        {
-          switch: "NF_RUN_CLUSTER_E2E",
-          label: "Cluster e2e (IPC + Redis)",
-          // Les deux topologies de la promesse centrale du framework : le
-          // fan-out entre PROCESS (fork, sans infra) et entre PODS (Redis).
-          proof: ["e2e cluster IPC", "e2e cluster Redis"],
-        },
       ]),
     ],
     include: [
       "nodefony/tests/unit/**/*.test.ts",
       "nodefony/tests/integration/**/*.test.ts",
     ],
-    // Les tests e2e cluster IPC fork des process enfants via tsx + IPC : laisser
-    // une marge confortable (defaut 5s trop court avec setTimeout 150ms × N).
+    // Les deux bancs qui forkent de VRAIS process vivent dans leur propre lot
+    // (`vitest.cluster.config.ts`, `npm run test:cluster`). Ici, ils tourneraient
+    // au milieu d'une passe qui sature déjà les cœurs : le boot d'un worker
+    // dépasse alors le budget d'attente du master, et le banc rend un rouge qui
+    // parle de la machine, pas du code. Leur gate `NF_RUN_CLUSTER_E2E` a suivi
+    // dans l'autre config — un gate se déclare là où sa cible peut s'exercer.
+    exclude: [
+      ...configDefaults.exclude,
+      "nodefony/tests/integration/clusterIpc.e2e.test.ts",
+      "nodefony/tests/integration/redisCluster.e2e.test.ts",
+    ],
+    // Marge confortable : plusieurs bancs enchaînent des attentes de 150 ms × N.
     testTimeout: 15000,
     coverage: {
       provider: "v8",

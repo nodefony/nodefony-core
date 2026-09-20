@@ -610,11 +610,14 @@ jobs:
       # un doit rester possible ; en ajouter un se justifie.
       - name: Run unit tests (turbo)
         env:
-          # `NF_RUN_CLUSTER_E2E` figure ici pour une raison différente des autres :
-          # ce n'est pas un serveur qui manque, c'est un COÛT qu'on refuse — des
-          # process forkés, six fois (trois systèmes × deux versions de Node).
-          # Les deux topologies sont éprouvées par `orm.yml`, une fois, sur Linux.
-          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL,NF_RUN_CLUSTER_E2E
+          # `NF_RUN_CLUSTER_E2E` ne figure PLUS ici, et c'est un retrait, pas un
+          # oubli : les deux bancs qui forkent de vrais process ont quitté la
+          # passe par défaut pour leur propre lot (`npm run test:cluster`).
+          # Aucun gate ne les réclame donc plus ici — un renoncement écrit contre
+          # une exigence inexistante se périme sans bruit et fait croire à une
+          # couverture perdue. Les deux topologies restent éprouvées par
+          # `orm.yml`, une fois, sur Linux.
+          NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
         run: npm test
 
   # ─── Filet CLI — exerce le BINAIRE `nodefony`, sur les deux plateformes ─────

@@ -382,9 +382,20 @@ jobs:
       # injoignable, le banc IPC quand l'interrupteur manque — les deux silences
       # sont VERTS, et c'est ce que le rapporteur transforme en échec.
       # Voir `docs/guides/integration-continue.md`.
-      - name: Realtime — fan-out cross-process (IPC) et cross-pod (Redis)
+      # Deux commandes, deux lots, et c'est voulu : `npm test` joue tout le
+      # module SAUF les deux bancs qui forkent de vrais process, `test:cluster`
+      # ne joue QUE ceux-là, seuls sur la machine. Les mêler rendait le boot
+      # d'un worker plus lent que le budget d'attente du master — rouge
+      # systématique en passe large, vert systématique en isolation. Le gate
+      # `NF_RUN_CLUSTER_E2E` a suivi les bancs dans `vitest.cluster.config.ts` :
+      # si cette seconde commande disparaît, le silence redevient vert.
+      - name: Realtime — le module, hors bancs multi-process
         working-directory: src/packages/@nodefony/realtime
         run: npm test
+
+      - name: Realtime — fan-out cross-process (IPC) et cross-pod (Redis)
+        working-directory: src/packages/@nodefony/realtime
+        run: npm run test:cluster
 
   # ────────────────────────────────────────────────────────────────────────────
   # Backplane de logs — deux serveurs que le cœur sait alimenter, et qu'aucune

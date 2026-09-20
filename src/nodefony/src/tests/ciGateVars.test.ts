@@ -143,9 +143,26 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
       if (!espace || !filtree) continue;
 
       // Cet espace impose-t-il des preuves ? (un `gateReporter` dans sa config)
-      const configs = ["vitest.config.ts", "vitest.integration.config.ts"]
-        .map((c) => path.join(REPO_ROOT, espace, c))
-        .filter((p) => existsSync(p));
+      //
+      // Toutes les configs vitest de l'espace, pas une liste écrite à la main :
+      // un paquet peut porter autant de LOTS qu'il a de décors incompatibles
+      // (`vitest.load.config.ts`, `vitest.cluster.config.ts`…), et chaque lot
+      // porte ses propres attentes. Une liste nommée ratait le lot suivant sans
+      // le dire — le contrôle restait vert sur un step qu'il aurait dû tenir.
+      //
+      // Toutes les configs vitest de l'espace, pas une liste écrite à la main :
+      // un paquet peut porter autant de LOTS qu'il a de décors incompatibles
+      // (`vitest.load.config.ts`, `vitest.cluster.config.ts`…), et chaque lot
+      // porte ses propres attentes. Une liste nommée ratait le lot suivant sans
+      // le dire — mesuré : sur un step témoin visant un espace dont seule la
+      // config de lot portait le rapporteur, l'ancienne forme rendait 15 verts
+      // sans même voir le step, la nouvelle le tient (16 cas, 1 rouge).
+      const dossier = path.join(REPO_ROOT, espace);
+      const configs = existsSync(dossier)
+        ? readdirSync(dossier)
+            .filter((f) => /^vitest(\..+)?\.config\.ts$/.test(f))
+            .map((f) => path.join(dossier, f))
+        : [];
       const garde = configs.some((p) =>
         readFileSync(p, "utf8").includes("gateReporter"),
       );

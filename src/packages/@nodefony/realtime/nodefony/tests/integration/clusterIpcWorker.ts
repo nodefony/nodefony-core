@@ -25,6 +25,26 @@ import {
   processIpcTransport,
 } from "../../src/backplane/ClusterBackplane.js";
 
+/**
+ * Envoie un message de contrôle au master — et seulement si le canal IPC est
+ * encore ouvert.
+ *
+ * `process.send?.()` ne garde que contre l'absence de canal (process non forké) ;
+ * il n'empêche PAS l'écriture sur un canal FERMÉ, qui lève `EPIPE` en événement
+ * `error` non géré et tue le worker. Le cas arrive dès que le master abandonne
+ * avant la fin du boot : son `EPIPE` bruyant remplaçait alors la vraie cause —
+ * un boot plus lent que le budget d'attente — dans la sortie de la suite.
+ */
+function sendToMaster(message: unknown): void {
+  if (!process.connected) return;
+  try {
+    process.send?.(message as never);
+  } catch {
+    // Course entre le test `connected` et l'écriture : le master peut fermer
+    // entre les deux. Un worker qui n'a plus d'interlocuteur n'a rien à dire.
+  }
+}
+
 const hub = getRealtimeHub();
 // Branche le backplane IPC comme le ferait `Realtime.#wireCluster` en cluster réel.
 hub.setBackplane(
@@ -64,7 +84,7 @@ process.on("message", (raw: unknown) => {
       const state: SubState = {
         sink: (payload) => {
           state.receivedCount += 1;
-          process.send?.({
+          sendToMaster({
             cmd: "got",
             channel,
             payload,
@@ -76,7 +96,7 @@ process.on("message", (raw: unknown) => {
       subs.set(channel, state);
       // Factory dummy (pas de provider externe : sink seul suffit pour les tests).
       hub.subscribe(channel, state.sink, () => () => {});
-      process.send?.({
+      sendToMaster({
         cmd: "ack",
         op: "subscribe",
         channel,
@@ -86,7 +106,7 @@ process.on("message", (raw: unknown) => {
     }
     case "mark-broadcast": {
       hub.markBroadcastChannel(msg.prefix as string);
-      process.send?.({
+      sendToMaster({
         cmd: "ack",
         op: "mark-broadcast",
         prefix: msg.prefix,
@@ -96,7 +116,7 @@ process.on("message", (raw: unknown) => {
     }
     case "publish": {
       hub.publish(msg.channel as string, msg.payload);
-      process.send?.({
+      sendToMaster({
         cmd: "ack",
         op: "publish",
         channel: msg.channel,
@@ -107,7 +127,7 @@ process.on("message", (raw: unknown) => {
     case "stats": {
       const out: Record<string, number> = {};
       for (const [ch, st] of subs) out[ch] = st.receivedCount;
-      process.send?.({ cmd: "stats", subs: out, pid: process.pid });
+      sendToMaster({ cmd: "stats", subs: out, pid: process.pid });
       break;
     }
     case "quit": {
@@ -117,4 +137,4 @@ process.on("message", (raw: unknown) => {
   }
 });
 
-process.send?.({ cmd: "ready", pid: process.pid });
+sendToMaster({ cmd: "ready", pid: process.pid });

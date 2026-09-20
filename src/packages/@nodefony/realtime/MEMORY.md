@@ -170,7 +170,8 @@ l'écriture réseau. D'où la règle : pour un gain d'étage, mesurer l'étage
 
 ## Tests (convention vitest — cf `feedback_test_framework_vitest`)
 
-- `npm test` → vitest run (unit + intégration)
+- `npm test` → vitest run (unit + intégration) — **sauf** les deux bancs qui forkent de vrais process
+- `npm run test:cluster` → `vitest.cluster.config.ts` : `clusterIpc.e2e` + `redisCluster.e2e`, `fileParallelism:false` + `singleFork`. Décor : `NF_RUN_CLUSTER_E2E=1` (+ Redis pour le second). **Lot SÉPARÉ, et il doit le rester** : chaque worker est un `fork()` qui charge `tsx` puis tout `nodefony` avant d'annoncer `ready` ; dans une passe qui sature les cœurs (`turbo run test`), le budget d'attente du master mesure la machine — il abandonne, le worker écrit dans un canal fermé, et l'`EPIPE` remplace la vraie cause. Rouge systématique en passe large, vert systématique seul : décor, pas flake. Ne PAS relever le budget — ça ne fait que déplacer le seuil. Les workers gardent `process.connected` avant tout `send` (`sendToMaster`), pour qu'un abandon du master ne produise plus de crash bruyant. Gate `NF_RUN_CLUSTER_E2E` dans `vitest.cluster.config.ts` ; joué par `orm.yml` (job « Socket distribuée ») et par `npm run test:all -- --load`
 - `npm run coverage` → vitest run --coverage (provider v8, reports `.coverage/`)
 - Les skippés = intégration Redis/cluster réels (auto-skip sans docker) ; `gateReporter` les nomme en fin de run — un skip compte comme vert.
 

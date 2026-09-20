@@ -53,6 +53,12 @@
       "outputs": [],
       "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
     },
+    "test:cluster": {
+      "dependsOn": ["build"],
+      "cache": false,
+      "outputs": [],
+      "env": ["NF_*", "REDIS_URL", "DATABASE_URL", "MONGODB_URI", "CI"]
+    },
     "dev": {
       "dependsOn": ["^build"],
       "cache": false,

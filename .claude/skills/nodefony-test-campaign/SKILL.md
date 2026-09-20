@@ -113,9 +113,29 @@ mélangées est ininterprétable.
 
 | Lot | Variables                                                        | Pourquoi séparé                                                                |
 | --- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------ |
-| C1  | `NF_RUN_PERF=1 NF_RUN_CLI_BOOT=1 NF_RUN_CLUSTER_E2E=1`           | non disruptifs — se jouent dans `test:all`                                     |
+| C1  | `NF_RUN_PERF=1 NF_RUN_CLI_BOOT=1`                                | non disruptifs — se jouent dans `test:all`                                     |
+| C1b | `NF_RUN_CLUSTER_E2E=1` + `npm run test:cluster`                  | fork de VRAIS process — exige la machine pour lui (voir ci-dessous)            |
 | C2  | `NF_RUN_WS_RUPTURE=1`                                            | épuise les ports éphémères — isolé, via `run.sh load --rupture`                |
 | C3  | `NF_RUN_DB_OUTAGE=1` + `NF_DB_OUTAGE_{PG,MYSQL,MONGO}_CONTAINER` | **arrête et relance des conteneurs** — annoncer avant, contrôler l'infra après |
+
+**C1b ne s'ouvre PAS dans la passe par défaut, et l'y remettre refabrique le rouge.**
+`clusterIpc.e2e` et `redisCluster.e2e` montent une topologie multi-process : chaque worker est
+un `fork()` qui charge `tsx` puis tout `nodefony` avant d'annoncer `ready`, et le banc attend
+cette annonce sur un budget de temps. Sous `turbo run test` — une trentaine d'espaces de travail
+en parallèle — ce budget mesure la MACHINE : le master abandonne, le worker écrit ensuite dans un
+canal fermé, et l'`EPIPE` qui en résulte remplace la vraie cause dans la sortie. Rouge
+SYSTÉMATIQUE en passe large, vert SYSTÉMATIQUE en isolation — ce n'est pas un flake, c'est une
+incompatibilité de décor. D'où le lot, à jouer quand la machine est à lui :
+
+```bash
+cd src/packages/@nodefony/realtime
+NF_RUN_CLUSTER_E2E=1 NF_REDIS_URL=… NF_REDIS_TEST_URL=… npm run test:cluster
+```
+
+Sans l'interrupteur, les deux bancs se sautent — et `gateReporter` refuse ce silence : il nomme
+la cible et **fait échouer la passe** en intégration continue. C'est ce qui empêche le lot de
+disparaître sans bruit. `npm run test:all -- --load` le joue aussi, sous le nom de phase
+« Socket distribuée (cluster e2e) », et l'ANNONCE comme non lancé sans ce drapeau.
 
 C3 vise le conteneur qui sert la variable d'infra, pas celui qui porte le nom attendu : `NF_MYSQL_URL`
 peut pointer MariaDB pendant qu'un conteneur nommé `mysql` sert un autre port.

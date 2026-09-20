@@ -274,12 +274,19 @@ NF_PG_URL=postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony \
 NF_MYSQL_URL=mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony \
 npm test
 
-# Job « Socket distribuée » d'orm.yml
+# Job « Socket distribuée » d'orm.yml — DEUX commandes, deux lots
+# `npm test` joue le module SAUF les bancs qui forkent de vrais process ;
+# `test:cluster` ne joue QUE ceux-là, seuls sur la machine. Les mêler rend le
+# boot d'un worker plus lent que le budget d'attente du master.
 cd src/packages/@nodefony/realtime
 NF_RUN_CLUSTER_E2E=1 \
 REDIS_URL=redis://:nodefony-dev@127.0.0.1:6379 \
 NF_REDIS_TEST_URL=redis://:nodefony-dev@127.0.0.1:6379/15 \
 npm test
+NF_RUN_CLUSTER_E2E=1 \
+NF_REDIS_URL=redis://:nodefony-dev@127.0.0.1:6379 \
+NF_REDIS_TEST_URL=redis://:nodefony-dev@127.0.0.1:6379/15 \
+npm run test:cluster
 
 # Job « Charge et mémoire » (exige le serveur lancé avec --expose-gc)
 bash .claude/skills/nodefony-start-server/start.sh

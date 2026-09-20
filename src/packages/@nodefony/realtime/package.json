@@ -24,6 +24,7 @@
     "dev": "rolldown -c rolldown.config.ts --watch",
     "clean": "rimraf dist",
     "test": "vitest run",
+    "test:cluster": "vitest run --config vitest.cluster.config.ts",
     "coverage": "vitest run --coverage",
     "lint": "tsc --noEmit",
     "typecheck": "tsgo --noEmit -p tsconfig.json && tsgo --noEmit -p tsconfig.tests.json"

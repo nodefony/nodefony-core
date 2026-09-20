@@ -24,6 +24,26 @@ import {
   createRedisServiceTransport,
 } from "../../src/backplane/RedisBackplane.js";
 
+/**
+ * Envoie un message de contrôle au master — et seulement si le canal IPC est
+ * encore ouvert.
+ *
+ * `process.send?.()` ne garde que contre l'absence de canal (process non forké) ;
+ * il n'empêche PAS l'écriture sur un canal FERMÉ, qui lève `EPIPE` en événement
+ * `error` non géré et tue le worker. Le cas arrive dès que le master abandonne
+ * avant la fin du boot : son `EPIPE` bruyant remplaçait alors la vraie cause —
+ * un boot plus lent que le budget d'attente — dans la sortie de la suite.
+ */
+function sendToMaster(message: unknown): void {
+  if (!process.connected) return;
+  try {
+    process.send?.(message as never);
+  } catch {
+    // Course entre le test `connected` et l'écriture : le master peut fermer
+    // entre les deux. Un worker qui n'a plus d'interlocuteur n'a rien à dire.
+  }
+}
+
 const PASSWORD = process.env.NF_REDIS_PASSWORD ?? "nodefony-dev";
 const HOST = process.env.NF_REDIS_HOST ?? "localhost";
 const PORT = Number.parseInt(process.env.NF_REDIS_PORT ?? "6379", 10);
@@ -90,7 +110,7 @@ async function boot(): Promise<void> {
         };
         subs.set(channel, state);
         hub.subscribe(channel, state.sink, () => () => {});
-        process.send?.({
+        sendToMaster({
           cmd: "ack",
           op: "subscribe",
           channel,
@@ -102,7 +122,7 @@ async function boot(): Promise<void> {
         // Marque le canal broadcast SANS s'abonner (émetteur pur : pas de sink
         // local, donc pas de fan-out local qui fausserait une mesure A→B).
         hub.markBroadcastChannel(msg.channel as string);
-        process.send?.({
+        sendToMaster({
           cmd: "ack",
           op: "mark-broadcast",
           channel: msg.channel,
@@ -112,7 +132,7 @@ async function boot(): Promise<void> {
       }
       case "publish": {
         hub.publish(msg.channel as string, msg.payload);
-        process.send?.({
+        sendToMaster({
           cmd: "ack",
           op: "publish",
           channel: msg.channel,
@@ -126,7 +146,7 @@ async function boot(): Promise<void> {
         for (let i = 0; i < count; i += 1) {
           hub.publish(channel, { t: Date.now(), seq: i });
         }
-        process.send?.({
+        sendToMaster({
           cmd: "ack",
           op: "publish-burst",
           channel,
@@ -138,7 +158,7 @@ async function boot(): Promise<void> {
       case "report": {
         const channel = msg.channel as string;
         const st = subs.get(channel);
-        process.send?.({
+        sendToMaster({
           cmd: "report",
           channel,
           pid: process.pid,
@@ -162,10 +182,10 @@ async function boot(): Promise<void> {
     }
   });
 
-  process.send?.({ cmd: "ready", pid: process.pid });
+  sendToMaster({ cmd: "ready", pid: process.pid });
 }
 
 void boot().catch((e) => {
-  process.send?.({ cmd: "boot-error", error: (e as Error).message });
+  sendToMaster({ cmd: "boot-error", error: (e as Error).message });
   process.exit(1);
 });

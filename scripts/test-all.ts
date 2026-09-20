@@ -29,7 +29,7 @@
  *
  * ```bash
  * npm run test:all                 # infra + build + unit + intégration
- * npm run test:all -- --load       # + suite de charge et gate mémoire
+ * npm run test:all -- --load       # + charge, gate mémoire et cluster e2e
  * npm run test:all -- --no-infra   # n'utilise que ce qui tourne déjà
  * npm run test:all -- --unit       # la suite unitaire seule
  * npm run test:all -- --json       # sortie machine (CI)
@@ -621,11 +621,36 @@ async function main(): Promise<void> {
     }
   }
 
+  // Les deux bancs qui forkent de VRAIS process (`clusterIpc.e2e`,
+  // `redisCluster.e2e`) ont leur propre lot : joués au milieu d'une passe qui
+  // sature les cœurs, le boot d'un worker dépasse le budget d'attente du master
+  // et le banc rend un rouge qui parle de la machine. Ils n'ont pas besoin d'un
+  // serveur — seulement de la machine pour eux, et de leur interrupteur.
+  if (options.load) {
+    const previous = process.env.NF_RUN_CLUSTER_E2E;
+    // Posé ici et nulle part ailleurs : un `VAR=1 cmd` dans la chaîne de
+    // commande casserait sous `cmd.exe` (axiome de portabilité n°9).
+    process.env.NF_RUN_CLUSTER_E2E = "1";
+    await phase(
+      "Socket distribuée (cluster e2e)",
+      "npx turbo run test:cluster",
+      phases,
+    );
+    if (previous === undefined) delete process.env.NF_RUN_CLUSTER_E2E;
+    else process.env.NF_RUN_CLUSTER_E2E = previous;
+  }
+
   // Ce qu'on n'a pas lancé se dit aussi : une batterie « complète » qui tait ses
   // absences est exactement le genre de demi-vérité que ce script combat.
   if (!options.load) {
     phases.push({
       name: "Suite de charge + mémoire",
+      ok: true,
+      skipped: "non lancée — `npm run test:all -- --load`",
+      durationMs: 0,
+    });
+    phases.push({
+      name: "Socket distribuée (cluster e2e)",
       ok: true,
       skipped: "non lancée — `npm run test:all -- --load`",
       durationMs: 0,

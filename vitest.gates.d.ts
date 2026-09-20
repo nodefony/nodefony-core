@@ -268,6 +268,15 @@ export interface GateExpectation {
    * Plusieurs motifs = plusieurs preuves indépendantes, toutes exigées.
    */
   proof?: string | readonly string[];
+  /**
+   * Commande qui ouvre RÉELLEMENT cette cible, quand ce n'est pas `npm test`.
+   *
+   * Le mode d'emploi affiché est lu par quelqu'un qui vient de voir un rouge :
+   * l'envoyer sur une commande qui ne joue pas les bancs concernés lui fait
+   * chercher là où il n'y a rien, et le message est cru PARCE QU'il est précis.
+   * Nécessaire dès qu'une suite vit dans un lot à part (`vitest.<lot>.config.ts`).
+   */
+  command?: string;
 }
 /**
  * Rapporteur vitest qui clôt la suite par un état des cibles NON testées — et
