@@ -166,6 +166,13 @@ export function mountTotpRoutes(frameworkModule: Module): void {
       constructor: TotpController as unknown as Controller["constructor"],
       classMethod,
       requirements: { methods: [method] },
+      // Self-service : le sujet est TOUJOURS l'utilisateur courant
+      // (`#currentSubject()`, jamais un paramètre — anti-IDOR), donc la route
+      // porte sa propre décision et n'hérite pas du rôle par défaut de la zone
+      // data plane. Sans cette déclaration, activer SA 2FA deviendrait réservé
+      // aux administrateurs de la plateforme : mesuré, `POST …/totp/enroll`
+      // rendait 403 à un `ROLE_USER` pourtant authentifié.
+      areaRoleExempt: true,
     });
   }
   if (

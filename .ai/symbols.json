@@ -31318,6 +31318,7 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
+        "src/nodefony/src/cli/see.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/image/index.ts",
         "src/nodefony/src/service/dev/devStatusReport.ts"
@@ -31341,6 +31342,7 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
+        "src/nodefony/src/cli/see.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/image/index.ts",
         "src/nodefony/src/cli/scaffold/help.ts",

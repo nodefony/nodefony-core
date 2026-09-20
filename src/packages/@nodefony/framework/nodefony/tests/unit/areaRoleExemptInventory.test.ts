@@ -27,11 +27,14 @@ const RACINE = path.resolve(ICI, "..", "..", "..");
  * - le pont du plan d'administration : UNE route pour tous les points d'entrée,
  *   dont le rôle se résout par point d'entrée (`resolveAdminRole`) ;
  * - les clés personnelles : l'action est scopée au porteur courant
- *   (`authFlow.me`), jamais à un paramètre.
+ *   (`authFlow.me`), jamais à un paramètre ;
+ * - le 2FA self-service : même raison, le sujet est l'utilisateur courant
+ *   (`#currentSubject()`) — on n'active jamais le second facteur d'autrui.
  */
 const PRODUCTEURS_AUTORISES = new Set([
   path.join("nodefony", "service", "AdminBroker.ts"),
   path.join("nodefony", "controller", "ApiKeyController.ts"),
+  path.join("nodefony", "controller", "TotpController.ts"),
 ]);
 
 /** Fichiers où la dispense se DÉFINIT (et non se pose) — hors inventaire. */

@@ -1470,7 +1470,12 @@ const JOIGNABLES_SANS_ROLE = new Set([
   "/nodefony/http/api/sessions/mine", // self — mes sessions
   "/nodefony/security/api/keys", // self — mes clés personnelles (porteur courant)
   "/nodefony/security/api/keys/capabilities", // self — les scopes que je peux demander
+  "/nodefony/security/api/totp/status", // self — l'état de MON second facteur
 ]);
+// Les trois autres routes TOTP (`enroll`, `confirm`, `disable`) n'y figurent pas
+// parce qu'elles sont en POST : le balayage ne frappe que les lectures. Elles
+// portent la même dispense de zone, pour la même raison — le sujet est toujours
+// l'utilisateur courant, jamais un paramètre.
 // `user/api/me/profile` n'y figure pas : c'est une MUTATION (405 en GET), et le
 // balayage ci-dessous ne frappe que les lectures. L'y avoir écrit par symétrie
 // a été attrapé par la garde qui suit, à sa toute première exécution.
