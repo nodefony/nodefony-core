@@ -10,7 +10,7 @@
  * fait foi (un champ hors capacité = 400, jamais un tri silencieusement inerte).
  *
  * Requires: server running on 5152 (https). Start: /start-server
- * Fixtures dev : admin/secret (ROLE_NODEFONY_ADMIN).
+ * Fixtures dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN).
  */
 import { expect } from "chai";
 import https from "node:https";
@@ -98,7 +98,7 @@ beforeAll(async () => {
   cookie = typeof first === "string" ? (first.split(";")[0] ?? "") : "";
   if (!cookie) {
     throw new Error(
-      `login admin a échoué (status ${res.status}) — user admin/secret requis`,
+      `login admin a échoué (status ${res.status}) — user admin/secret-de-dev-42 requis`,
     );
   }
   // La capacité se CONSTATE : on interroge le serveur au lieu de supposer quel

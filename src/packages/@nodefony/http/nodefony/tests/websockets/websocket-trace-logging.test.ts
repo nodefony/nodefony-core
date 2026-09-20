@@ -56,7 +56,9 @@ function login(): Promise<void> {
         cookie = typeof first === "string" ? (first.split(";")[0] ?? "") : "";
         res.on("data", () => {});
         res.on("end", () =>
-          cookie ? resolve() : reject(new Error("login admin/secret échoué")),
+          cookie
+            ? resolve()
+            : reject(new Error("login admin/secret-de-dev-42 échoué")),
         );
       },
     );

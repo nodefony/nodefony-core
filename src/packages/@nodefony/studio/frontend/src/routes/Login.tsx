@@ -1024,7 +1024,7 @@ export const Login = observer(() => {
           </Group>
           {import.meta.env.DEV && (
             <Text size="xs" c="dimmed">
-              dev : admin / secret
+              dev : admin / secret-de-dev-42
             </Text>
           )}
         </Group>

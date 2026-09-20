@@ -13,7 +13,7 @@
 // gate). Ici on prouve le CÂBLAGE HTTP + RBAC + validation + TTL bout-en-bout.
 //
 // Prérequis : serveur dev UP (https://localhost:5152), compte admin seedé (dev :
-// admin/secret). Lancement (depuis n'importe où) :
+// admin/secret-de-dev-42). Lancement (depuis n'importe où) :
 //   node .claude/skills/nodefony-load-test/scripts/debug-runtime-e2e.mjs
 import https from "node:https";
 
@@ -21,7 +21,7 @@ const BASE = "https://localhost:5152";
 const A = "/nodefony/security/api/auth";
 const K = "/nodefony/kernel/api/log/level";
 const ADMIN = "admin";
-const PW = "secret";
+const PW = "secret-de-dev-42";
 
 // HTTP avec jar de cookies par « agent » (= une session navigateur).
 function req(agent, method, path, body) {

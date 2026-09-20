@@ -23,7 +23,7 @@
 //      plafond 4 h). L'admin est semé par NF_ADMIN_PASSWORD.
 //
 //      NF_IDEMPOTENCY_STORE=redis NF_REDIS_URL='redis://:nodefony-dev@127.0.0.1:6379' \
-//        NF_ADMIN_PASSWORD=secret NF_USER_STORE=memory \
+//        NF_ADMIN_PASSWORD=secret-de-dev-42 NF_USER_STORE=memory \
 //        NF_WITH_DEV_MODULES=1 NF_WITH_DEV_MODULES_TTL_MIN=60 \
 //        node node_modules/nodefony/bin/nodefony cluster --workers 2 --detach --wait 120
 //      (vérifier le log : 2× `Idempotency store → "redis" (distributed)`)
@@ -41,7 +41,8 @@ import https from "node:https";
 const BASE = "https://localhost:5152";
 const BUMP = "/nodefony/test/secure/idempotent/bump";
 const COUNT = "/nodefony/test/secure/idempotent/count";
-const AUTH = "Basic " + Buffer.from("admin:secret").toString("base64");
+const AUTH =
+  "Basic " + Buffer.from("admin:secret-de-dev-42").toString("base64");
 
 function req(method, path, { body, idemKey } = {}) {
   return new Promise((resolve, reject) => {

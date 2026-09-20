@@ -278,7 +278,8 @@ export const env = defineEnv({
   ),
 
   /**
-   * Mot de passe de l'administrateur seedé au boot. En **dev**, défaut `secret`
+   * Mot de passe de l'administrateur seedé au boot. En **dev**, défaut
+   * `secret-de-dev-42` (`DEV_FIXTURE_PASSWORD`)
    * (comptes de fixture connus, bancs out-of-the-box) ; surcharge possible via
    * `.env.local`. En **prod**, AUCUN défaut : sans cette variable, aucun compte
    * n'est seedé (un mot de passe par défaut serait un trou de sécurité — le hash
@@ -287,17 +288,18 @@ export const env = defineEnv({
   NF_ADMIN_PASSWORD: envString({
     optional: true,
     description:
-      "Mot de passe de l'admin seedé (dev défaut 'secret' ; prod requis).",
+      "Mot de passe de l'admin seedé (dev défaut 'secret-de-dev-42' ; prod requis).",
   }),
 
   /**
-   * Mot de passe du compte `user` de fixture (DEV uniquement, défaut `secret`).
+   * Mot de passe du compte `user` de fixture (DEV uniquement, défaut
+   * `secret-de-dev-42`).
    * Jamais utilisé en production (seul l'admin y est seedé, et via NF_ADMIN_PASSWORD).
    */
   NF_USER_PASSWORD: envString({
     optional: true,
     description:
-      "Mot de passe du compte de fixture 'user' (dev, défaut 'secret').",
+      "Mot de passe du compte de fixture 'user' (dev, défaut 'secret-de-dev-42').",
   }),
 
   /**

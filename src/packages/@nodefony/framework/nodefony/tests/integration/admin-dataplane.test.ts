@@ -8,7 +8,7 @@
  *  - vérifie la chaîne complète APRÈS login BFF (cookie de session) ;
  *  - couvre les régressions param `{name}` + enveloppe non double-wrappée.
  *
- * Requires: server on 5152 (HTTPS) + users `admin/secret` (module test).
+ * Requires: server on 5152 (HTTPS) + users `admin/secret-de-dev-42` (module test).
  * Start: /start-server
  */
 import { expect } from "chai";
@@ -86,7 +86,7 @@ beforeAll(async () => {
   cookie = typeof first === "string" ? (first.split(";")[0] ?? "") : "";
   if (!cookie) {
     throw new Error(
-      `login admin a échoué (status ${res.status}) — user admin/secret requis (module test)`,
+      `login admin a échoué (status ${res.status}) — user admin/secret-de-dev-42 requis (module test)`,
     );
   }
 });
@@ -186,7 +186,7 @@ describe("Admin data plane — RBAC : authentifié NON-admin REJETÉ (403)", () 
     const userCookie = await loginCookie("user", "secret-de-dev-42");
     expect(
       userCookie,
-      "login user/secret doit réussir (fixture dev)",
+      "login user/secret-de-dev-42 doit réussir (fixture dev)",
     ).to.not.equal("");
     for (const path of PROTECTED) {
       const r = await req("GET", path, { cookie: userCookie });
@@ -479,7 +479,10 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
 
   it("ROLE_USER → 200 sur /sessions/mine MAIS 403 sur l'admin /sessions/list", async () => {
     const userCookie = await loginCookie("user", "secret-de-dev-42");
-    expect(userCookie, "login user/secret (fixture dev)").to.not.equal("");
+    expect(
+      userCookie,
+      "login user/secret-de-dev-42 (fixture dev)",
+    ).to.not.equal("");
     const mine = await req("GET", "/nodefony/http/api/sessions/mine", {
       cookie: userCookie,
     });
@@ -617,7 +620,7 @@ describe("Admin data plane — user self-service /me (profil)", () => {
 
   it("ROLE_USER → 200, MON profil redacté (identifier = moi, jamais de hash)", async () => {
     const c = await loginCookie("user", "secret-de-dev-42");
-    expect(c, "login user/secret (fixture dev)").to.not.equal("");
+    expect(c, "login user/secret-de-dev-42 (fixture dev)").to.not.equal("");
     const r = await req("GET", "/nodefony/user/api/me", { cookie: c });
     expect(r.status).to.equal(200);
     const me = r.body as { identifier: string; roles: string[] };
@@ -634,7 +637,7 @@ describe("Admin data plane — user self-service /me (profil)", () => {
 // zone `nodefony-admin` (auth `["session"]`) → anonyme 401, tout AUTHENTIFIÉ peut
 // changer SON mot de passe. Re-auth du mot de passe ACTUEL obligatoire (403 sinon).
 // Anti-IDOR : la cible est l'identité ALS serveur, jamais un param client. On opère
-// sur un compte SONDE (jamais la fixture `user/secret`, partagée par les autres bancs).
+// sur un compte SONDE (jamais la fixture `user/secret-de-dev-42`, partagée par les autres bancs).
 
 describe("Admin data plane — user self-service /me/password", () => {
   const probe = "selfpw-probe";
@@ -751,7 +754,7 @@ describe("Admin data plane — user PATCH (corps parsé)", () => {
 
   it("PATCH {roles} applique les rôles (corps parsé, ≠ 500/400)", async () => {
     expect(id, "compte sonde créé").to.be.a("string");
-    // retire ADMIN → un autre admin existe (admin/secret) → pas le dernier → 200
+    // retire ADMIN → un autre admin existe (admin/secret-de-dev-42) → pas le dernier → 200
     const patch = await req("PATCH", `/nodefony/user/api/users/${id}`, auth(), {
       roles: ["ROLE_USER"],
     });

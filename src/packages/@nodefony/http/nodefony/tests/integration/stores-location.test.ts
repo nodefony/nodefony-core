@@ -12,7 +12,7 @@
  *   - la route reste ADMIN-only (résilience sécurité : anonyme ≠ 200).
  *
  * Requires: server running on 5152 (https). Start: /start-server
- * Fixtures dev : admin/secret (ROLE_NODEFONY_ADMIN).
+ * Fixtures dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN).
  */
 import { expect } from "chai";
 import https from "node:https";

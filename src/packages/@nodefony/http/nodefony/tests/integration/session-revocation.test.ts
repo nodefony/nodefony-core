@@ -14,7 +14,7 @@
  *   3. déconnecter TOUT un user       → toutes 401 + count > 0
  *
  * Requires: server running on 5152 (https). Start: /start-server
- * Fixtures dev : admin/secret (ROLE_NODEFONY_ADMIN), user/secret (ROLE_USER).
+ * Fixtures dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN), user/secret-de-dev-42 (ROLE_USER).
  * https://5152 : le cookie de session BFF (`__Host-`) exige un contexte sécurisé.
  */
 import { expect } from "chai";

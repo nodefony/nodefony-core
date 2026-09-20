@@ -22,7 +22,7 @@ const BASE = "https://localhost:5152";
 const A = "/nodefony/security/api/auth";
 const T = "/nodefony/security/api/totp";
 const USER = "user";
-const PW = "secret";
+const PW = "secret-de-dev-42";
 
 // ── HTTP avec jar de cookies par « agent » (= une session navigateur) ─────────
 function req(agent, method, path, body) {

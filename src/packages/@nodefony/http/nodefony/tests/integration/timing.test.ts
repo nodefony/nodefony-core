@@ -97,7 +97,7 @@ function getJson(
   });
 }
 
-/** Fixture dev : admin/secret (ROLE_NODEFONY_ADMIN) — cf provisionUsers. */
+/** Fixture dev : admin/secret-de-dev-42 (ROLE_NODEFONY_ADMIN) — cf provisionUsers. */
 async function loginAsAdmin(): Promise<string> {
   const payload = JSON.stringify({
     username: "admin",

@@ -127,13 +127,13 @@ S=src/packages/@nodefony/devkit/skills/nodefony-browser/scripts
 node $S/inspect.mjs /nodefony/login "Connexion"
 
 # une page derrière authentification, avec des sondes de style
-NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret \
+NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret-de-dev-42 \
   NF_BROWSER_PROBES="menu actif=[class*='NavLink-root'][data-active]" \
   node $S/inspect.mjs /nodefony/supervision "Santé du framework"
 ```
 
-> **Les identifiants du dépôt** : `admin` / `secret` (`NF_ADMIN_PASSWORD`, défaut de développement
-> dans `env.ts`). Ce n'est PAS `admin/admin`, qui est le défaut des applications **générées** —
+> **Les identifiants du dépôt** : `admin` / `secret-de-dev-42` (`DEV_FIXTURE_PASSWORD` dans
+> `nodefony/security/provisionUsers.ts`, surchargeable par `NF_ADMIN_PASSWORD`). Ce n'est PAS `admin/admin`, qui est le défaut des applications **générées** —
 > confondre les deux rend un `401` qu'on impute au parcours de connexion de la sonde.
 
 <details><summary>La même chose en conteneur (dernier recours — voir le tableau ci-dessus)</summary>
@@ -197,7 +197,7 @@ qu'au second clic. Photographier sans agir fait conclure « le champ n'y est pas
 l'a jamais ouvert.
 
 ```bash
-NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret \
+NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret-de-dev-42 \
   NF_BROWSER_ACTIONS="app|voir:agent(s) de développement" \
   node $S/inspect.mjs /nodefony/create "Que voulez-vous créer"
 ```
@@ -225,7 +225,7 @@ Le socle ci-dessus sort toujours. Le reste s'active par famille, chacune rendant
 
 ```bash
 docker exec -e "NF_BROWSER_FAMILIES=a11y,perf,reseau" \
-  -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret-de-dev-42 \
   nodefony-browser node /app/see-screen/inspect.mjs /nodefony/supervision "Santé du framework"
 ```
 
@@ -275,7 +275,7 @@ a qu'un décor faux. L'endpoint est **requis** — rien n'est deviné.
 
 ```bash
 docker exec -e NF_BROWSER_PAGE=/nodefony/supervision \
-  -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret-de-dev-42 \
   -e NF_BROWSER_API=/nodefony/kernel/api/stats \
   nodefony-browser node /app/see-screen/socket.mjs /nodefony/studio/api/realtime
 ```
@@ -301,7 +301,7 @@ Les cinq catégories de Lighthouse sur une page **authentifiée** — dont
 stabilité visuelle, annotations **WebMCP** des formulaires, outils déclarés, `llms.txt`.
 
 ```bash
-NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs /nodefony/documentation
+NF_BROWSER_LOGIN=/nodefony/login NF_BROWSER_USER=admin NF_BROWSER_PASSWORD=secret-de-dev-42 node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs /nodefony/documentation
 ```
 
 Mesuré sur ce dépôt (mode développement) : `accessibility` 93 · `best-practices` 100 · `seo` 91 ·
@@ -329,12 +329,12 @@ reconnexion en boucle ne se voient sur **aucune** capture.
 
 # observer 7 s de trafic sur une page authentifiée
 docker exec -e NF_BROWSER_LOGIN=/nodefony/login \
-  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret-de-dev-42 \
   nodefony-browser node /app/see-screen/watch.mjs /nodefony/supervision 7000
 
 # s'arrêter sur une CONDITION applicative plutôt que sur une durée
 docker exec -e NF_BROWSER_LOGIN=/nodefony/login \
-  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret \
+  -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret-de-dev-42 \
   -e 'NF_BROWSER_UNTIL=() => document.body.innerText.includes("Santé du framework")' \
   nodefony-browser node /app/see-screen/watch.mjs /nodefony/supervision 8000
 ```

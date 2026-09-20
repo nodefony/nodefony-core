@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-browser/SKILL.md"
 | Version | `1.1.0` |
 | Famille | Autres |
 | Corps | 425 lignes |
-| Coût d'activation | ~6 874 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~6 906 tokens (le corps est chargé à l'invocation) |
 | Description | 1008 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 1 page(s), 9 fichiers au total |

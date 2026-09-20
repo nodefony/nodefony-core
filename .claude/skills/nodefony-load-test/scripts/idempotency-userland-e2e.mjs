@@ -11,7 +11,7 @@
 //
 // Prérequis :
 //   1. docker compose -f docker/docker-compose.yml up -d redis   (password "nodefony-dev")
-//   2. serveur dev booté AVEC le store redis (dev fixtures user/secret seedés) :
+//   2. serveur dev booté AVEC le store redis (dev fixtures user/secret-de-dev-42 seedés) :
 //      NF_DEV_CHILD=1 NF_IDEMPOTENCY_STORE=redis NF_REDIS_PASSWORD=nodefony-dev \
 //        node node_modules/nodefony/bin/nodefony development
 //      (vérifier le log : `Idempotency store → "redis" (distributed)`)
@@ -21,7 +21,7 @@ import https from "node:https";
 
 const BASE = "https://localhost:5152";
 const PATH = "/nodefony/test/secure/idempotent/bump";
-const AUTH = "Basic " + Buffer.from("user:secret").toString("base64");
+const AUTH = "Basic " + Buffer.from("user:secret-de-dev-42").toString("base64");
 
 function req(method, path, { body, idemKey } = {}) {
   return new Promise((resolve, reject) => {

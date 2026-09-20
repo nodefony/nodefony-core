@@ -23,7 +23,7 @@ import https from "node:https";
  *   E4 — Message UNIFORME : tout échec de `verify` répond le même libellé
  *        ("WebAuthn verification failed"), jamais la cause crypto fine.
  *
- * Requires: server on 5152 (HTTPS) + users `admin/secret` (module test) + passkeys
+ * Requires: server on 5152 (HTTPS) + users `admin/secret-de-dev-42` (module test) + passkeys
  * activés (sinon 503). Start: /start-server
  */
 

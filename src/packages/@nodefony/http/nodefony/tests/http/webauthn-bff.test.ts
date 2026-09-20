@@ -17,7 +17,7 @@ import https from "node:https";
  *    (No challenge — le bug corrigé ce jour) ;
  *  - `verify` sans aucune session = **400** (No challenge).
  *
- * Requires: server on 5152 (HTTPS) + users `admin/secret` (module test).
+ * Requires: server on 5152 (HTTPS) + users `admin/secret-de-dev-42` (module test).
  * Start: /start-server
  */
 
