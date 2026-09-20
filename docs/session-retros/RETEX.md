@@ -71,6 +71,14 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-20b] 🔴 **J'ai failli retirer huit scripts npm qu'un test du dépôt protégeait par une
+  MESURE.** Raisonnement : un script qui n'est qu'un alias 1:1 d'une commande (`"doctor": "nodefony
+doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en clair — « sans cette
+  ligne, le verbe existe et personne ne l'apprend », `nodefony doctor` employé **5 fois sur 63** au
+  banc de découvrabilité. Le manifeste n'est pas une redite de la CLI : c'est le canal par lequel un
+  agent APPREND les commandes d'un framework qu'il ne connaît pas. Deux tests sont tombés au moment
+  où je l'ai tenté — le filet a fonctionné, mais je ne l'avais pas lu avant de trancher.
+
 - [1× — 09-20] 🔴 **Neuf tests affirmaient le choix que je venais de renverser, et les relâcher
   aurait effacé ce qu'ils gardaient.** En portant les canaux du processus de `ROLE_ADMIN` à
   l'échelle plateforme, neuf bancs sont tombés — tous disaient « un admin passe ». La tentation
@@ -482,6 +490,14 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-20b] 🎫 **J'ai ouvert un ticket sans chercher s'il existait déjà — le user a dû poser la
+  question.** Le skill que je venais de charger dit en toutes lettres qu'un ticket « qui a peut-être
+  déjà été fait se CONSTATE avant d'être repris », et la devise du dépôt est « la confiance n'exclut
+  pas le contrôle ». Le contrôle coûtait UNE commande (`gh issue list --state all` sur titres ET
+  corps) ; je l'ai faite APRÈS, sur demande. Verdict : aucun doublon, mais un voisin à distinguer
+  explicitement (#205, qui range `scripts/` du dépôt et non ceux d'une app générée) — précisément ce
+  qu'une recherche préalable aurait donné gratuitement.
+
 - [1× — 09-19h] 🔴 **J'ai mis des liens de tickets dans cinq pages de doc publiques, alors que la
   règle était TRANCHÉE — et c'est le user qui m'a arrêté.** Le standard dit « pas de journal dans le
   corps : ni date, ni TODO, ni à venir » ; j'ai lu « avancement = les tickets » comme une
@@ -608,6 +624,13 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-20b] 🧭 **Ranger un fichier au bon endroit peut créer un rouge permanent — le choisir en
+  connaissant les contrôles du dossier.** `BUG_REPORT.md` devait quitter la racine ; la cible
+  évidente était `docs/`. Or `doc:lint` balaie `docs/` et n'a aucun régime pour un journal de
+  travail : ni Lexique, ni Vision, ni Pièges. Le poser là aurait ajouté un rouge que personne ne
+  peut fermer. Rangé dans `docs/session-retros/`, hors corpus par construction — le dossier des
+  journaux d'agent, ce qu'il est. Le contrôle est resté à 189/198, inchangé.
 
 - [1× — 09-19h] 🔴 **Les deux tiers des rouges d'un gate lui demandaient l'IMPOSSIBLE, et personne
   ne l'avait remarqué en des semaines.** `doc:lint` comptait 53 pages fautives ; **34 étaient des
