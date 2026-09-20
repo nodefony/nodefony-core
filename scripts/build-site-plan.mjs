@@ -221,6 +221,13 @@ function llmsPlan(pages, base) {
     ),
     "",
     ...wrap(
+      "**La documentation voyage avec les paquets.** Chaque paquet publie son " +
+        "dossier `docs/` sur npm : une fois l'application installée, tout se lit " +
+        "hors ligne depuis `node_modules/@nodefony/<paquet>/docs/`, dans la version " +
+        "INSTALLÉE — sans revenir ici, et sans dépendre d'un hébergeur de code.",
+    ),
+    "",
+    ...wrap(
       "**Les sources sont en Markdown** et se lisent brutes, sans HTML : " +
         "`https://raw.githubusercontent.com/nodefony/nodefony-core/dev/<chemin>`.",
     ),

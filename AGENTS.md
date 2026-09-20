@@ -43,6 +43,12 @@ descendre dans `src/` : la question ne s'y trouve pas.
 
 **Pour travailler sur le framework** : tout le reste de ce fichier.
 
+**La documentation voyage AVEC les paquets** : chaque paquet publie son dossier
+`docs/` sur npm (`files: ["dist", "docs"]` ; le tarball de `@nodefony/http` porte
+sept pages). Une fois l'application installée, tout se lit hors ligne depuis
+`node_modules/@nodefony/<paquet>/docs/` — rien n'oblige à revenir sur un site ni
+sur un hébergeur de code, et la version lue est celle qui est INSTALLÉE.
+
 ---
 
 ## État
