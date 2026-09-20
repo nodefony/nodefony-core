@@ -126,6 +126,28 @@ for (const variant of RETENUES) {
   const dest = path.join(dir, "app");
   mkdirSync(dest, { recursive: true });
 
+  // 🔴 Une variante qui INSTALLE se câble sur le checkout local (`--link`), et
+  // jamais sur le registre.
+  //
+  // Le gabarit épingle le framework sur la version que le dépôt porte
+  // (`^10.0.0-alpha.N`). Or sur un commit d'estampillage cette version n'existe
+  // pas encore — c'est la publication que ce commit prépare qui la crée : npm
+  // rend `ETARGET`, la génération sort en 70, et le gate est ROUGE à CHAQUE
+  // release. Il l'a été sur les alpha 3, 4, 5 et 8, et on avait fini par
+  // l'admettre comme une fatalité de calendrier, sous le nom d'interblocage.
+  //
+  // C'en est un, mais il ne tient qu'à la SOURCE des paquets, pas au gate :
+  // celui-ci juge la FORME de fichiers rendus, et n'a besoin du registre pour
+  // rien. L'argument qui interdit `--link` aux BANCS — le mode lié laisse la
+  // résolution remonter au monorepo et masque une dépendance manquante du
+  // gabarit — ne le concerne pas : ce que prettier lit ne dépend d'aucune
+  // dépendance installée. Il faut seulement que l'installation ABOUTISSE, pour
+  // que `create` formate ce qu'il vient d'écrire avec le prettier du projet —
+  // la fenêtre que ce régime est seul à voir.
+  const CABLE_LOCAL = !variant.answers.includes("--no-install")
+    ? ["--link"]
+    : [];
+
   const gen = spawnSync(
     process.execPath,
     [
@@ -136,6 +158,7 @@ for (const variant of RETENUES) {
       "--dir",
       dest,
       "--yes",
+      ...CABLE_LOCAL,
       ...variant.answers,
     ],
     { cwd: ROOT, encoding: "utf8" },
