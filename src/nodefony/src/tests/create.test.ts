@@ -3533,7 +3533,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.property(pkg["scripts"], "see");
       assert.notProperty(pkg["scripts"], "see:setup");
       assert.notProperty(pkg["scripts"], "audit:setup");
-      assert.include(pkg["nodefony"]["scripts"]["see"], "--audit");
+      // `readJson` aplatit à deux niveaux ; les descriptions en ont trois.
+      const descriptions = (
+        JSON.parse(readFileSync(path.join(dest, "package.json"), "utf8")) as {
+          nodefony: { scripts: Record<string, string> };
+        }
+      ).nodefony.scripts;
+      assert.include(descriptions["see"], "--audit");
     });
 
     it("la couverture marche au PREMIER usage, sans installateur", () => {
