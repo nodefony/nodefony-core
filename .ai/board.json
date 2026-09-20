@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T17:07:42.814Z",
+  "generatedAt": "2026-09-20T17:40:02.006Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 135,
+      "closed": 136,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 2,
+      "open": 1,
       "title": "10.0.0-alpha"
     },
     {
@@ -4972,8 +4972,8 @@
       "number": 292,
       "title": "chore(env): trancher le préfixe des variables propres à l'application",
       "url": "https://github.com/nodefony/nodefony-core/issues/292",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
