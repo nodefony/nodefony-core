@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T12:37:43.973Z",
+  "generatedAt": "2026-09-20T12:40:59.444Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -6272,7 +6272,7 @@
       "title": "feat(observabilite): exposer les métriques au format Prometheus",
       "url": "https://github.com/nodefony/nodefony-core/issues/228",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.2.0",
       "priorite": "P2 — décision",
       "jours": 1,
