@@ -20,6 +20,7 @@
  * `@option` --sha - le commit à juger (défaut : `GITHUB_SHA`)
  * `@option` --run-id - l'exécution courante, pour ne jamais s'attendre soi-même
  * `@option` --timeout-min - abandon après N minutes (défaut 45)
+ * `@option` --grace-min - délai pendant lequel « aucune exécution » vaut « pas encore indexée » et non « rouge » (défaut 3)
  * `@env` GITHUB_REPOSITORY - `org/dépôt`, posé par la forge
  * `@env` GH_TOKEN - jeton de lecture des exécutions
  * `@output` le verdict, et la liste NOMMÉE de ce qui a échoué
@@ -37,6 +38,11 @@ const MOI = arg("run-id", process.env.GITHUB_RUN_ID);
 const DEPOT = process.env.GITHUB_REPOSITORY ?? "nodefony/nodefony-core";
 const LIMITE_MS = Number(arg("timeout-min", "45")) * 60_000;
 const PAUSE_MS = 30_000;
+// La fenêtre pendant laquelle « aucune exécution » veut encore dire « pas
+// encore indexée » plutôt que « il n'y en aura jamais ». Trois minutes : un
+// ordre de grandeur au-dessus du délai constaté (secondes), et très en deçà du
+// délai d'abandon, qui reste seul à trancher.
+const GRACE_MS = Number(arg("grace-min", "3")) * 60_000;
 
 if (!SHA) {
   process.stderr.write(
@@ -86,7 +92,15 @@ for (;;) {
   }
 
   if (runs) {
-    const v = verdictCiDuCommit({ runs, moiMeme: MOI });
+    // Une liste vide ne condamne qu'après la fenêtre de grâce : le temps que
+    // les exécutions d'un commit tout juste poussé deviennent interrogeables
+    // par `head_sha`. Au-delà, elle redevient un rouge — un commit que la
+    // branche n'a jamais porté n'aura jamais de chaîne.
+    const v = verdictCiDuCommit({
+      runs,
+      moiMeme: MOI,
+      patienceEpuisee: Date.now() - debut > GRACE_MS,
+    });
     if (v.verdict === "vert") {
       process.stdout.write(
         `✓ CI verte — ${v.juges.length} exécution(s) jugée(s).\n`,
@@ -98,7 +112,9 @@ for (;;) {
       process.exit(1);
     }
     process.stdout.write(
-      `  … ${v.enCours.length} en cours : ${v.enCours.map((r) => r.nom).join(", ")}\n`,
+      v.enCours.length === 0
+        ? "  … aucune exécution visible pour l'instant — le commit vient d'être poussé, on laisse l'index venir.\n"
+        : `  … ${v.enCours.length} en cours : ${v.enCours.map((r) => r.nom).join(", ")}\n`,
     );
   }
 

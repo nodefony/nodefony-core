@@ -1480,6 +1480,39 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
     expect(v.motif).toMatch(/aucune exécution de CI/);
   });
 
+  it("PIÈGE INVERSE — « rien vu » n'est pas « rien », tant que la patience dure", () => {
+    // Une exécution met quelques secondes à devenir interrogeable par
+    // `head_sha`. Le juge appelé dans cette fenêtre lit une liste vide sur un
+    // commit dont les chaînes EXISTENT — et condamnait. Vécu sur la vitrine de
+    // la 10.0.0-alpha.8 : commit poussé à 22:04:51, ses deux chaînes créées à
+    // 22:04:54, refus à 22:05:10, et les deux ont fini VERTES.
+    const v = verdictCiDuCommit({
+      runs: [],
+      moiMeme: "release",
+      patienceEpuisee: false,
+    });
+    expect(v.verdict).toBe("attendre");
+    expect(v.enCours).toEqual([]);
+  });
+
+  it("la patience est BORNÉE — passé le délai, une liste vide redevient rouge", () => {
+    // Sans cette borne, un commit que la branche n'a jamais porté ferait
+    // attendre jusqu'au délai d'abandon au lieu d'être nommé pour ce qu'il est.
+    const v = verdictCiDuCommit({
+      runs: [],
+      moiMeme: "release",
+      patienceEpuisee: true,
+    });
+    expect(v.verdict).toBe("rouge");
+  });
+
+  it("le DÉFAUT est la garde la plus sévère — un appelant muet obtient le rouge", () => {
+    // Le paramètre est injecté ; s'il venait à être oublié par un appelant, le
+    // défaut ne doit pas relâcher la garde. C'est la même asymétrie que partout
+    // ici : ne jamais échouer du côté permissif.
+    expect(verdictCiDuCommit({ runs: [], moiMeme: "x" }).verdict).toBe("rouge");
+  });
+
   it("`cancelled` et `timed_out` sont ROUGES — ils ne disent pas que le code va bien", () => {
     for (const conclusion of ["cancelled", "timed_out"]) {
       const v = verdictCiDuCommit({

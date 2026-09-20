@@ -835,6 +835,35 @@ if (sale && (ECRIRE || PUBLIER)) {
   );
 }
 
+// 🔴 Le `dist` du cœur se contrôle AVANT d'écrire quoi que ce soit.
+//
+// La page de manuel est régénérée APRÈS l'estampillage, et son générateur
+// refuse — à raison — de travailler sur un `dist` périmé. Mais ce refus
+// arrivait alors que les quinze manifestes étaient DÉJÀ réécrits : l'arbre
+// restait avec une estampille posée, sans changelog ni page, et la garde
+// « arbre propre » ci-dessus interdisait de relancer. On se retrouvait à devoir
+// défaire à la main ce que le script venait de faire — vécu à la préparation de
+// la 10.0.0-alpha.8.
+//
+// Le contrôle n'est pas RECOPIÉ ici : `generate-man.mjs --check` le porte, et
+// il est seul à le porter. On lui demande simplement de se prononcer pendant
+// qu'aucun fichier n'a encore bougé, là où le remède ne coûte que six secondes.
+if (ECRIRE || PUBLIER) {
+  const r = spawnSync("node", ["scripts/generate-man.mjs", "--check"], {
+    cwd: ROOT,
+    encoding: "utf8",
+  });
+  if (r.status === 69) {
+    echouer(
+      "le `dist` du cœur est périmé ou absent — la page de manuel serait rendue\n" +
+        "  depuis un ANCIEN CLI, et l'estampillage aurait déjà eu lieu quand on s'en\n" +
+        "  apercevrait.\n" +
+        (r.stderr || "").trim().replace(/^/gm, "    ") +
+        "\n  Rien n'a été écrit : réparer, puis relancer.",
+    );
+  }
+}
+
 // `--show-current` rend une chaîne VIDE sur un HEAD détaché — ce qu'est un
 // checkout de tag dans la forge. La garde ne vaut donc que pour la préparation :
 // à la publication, c'est le TAG qui fait foi, pas la branche depuis laquelle on

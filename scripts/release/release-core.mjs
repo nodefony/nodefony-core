@@ -1125,6 +1125,7 @@ export function verdictCiDuCommit({
   runs,
   moiMeme,
   exclusions = WORKFLOWS_NON_BLOQUANTS,
+  patienceEpuisee = true,
 }) {
   const exclus = new Set(exclusions.map((e) => e.nom));
   const juges = (runs ?? []).filter(
@@ -1134,7 +1135,23 @@ export function verdictCiDuCommit({
   // Aucun run : la garde ne se DÉSARME pas quand elle ne sait rien — c'est
   // exactement là qu'elle devrait mordre. Le cas arrive si l'on tague un
   // commit que la branche n'a jamais porté.
+  //
+  // 🔴 Mais « je n'ai RIEN VU » et « il n'y a RIEN » sont deux états
+  // différents, et les confondre fabrique un faux rouge. Une exécution met
+  // quelques secondes à devenir interrogeable par `head_sha` : le juge appelé
+  // dans cette fenêtre lit une liste vide sur un commit dont les chaînes
+  // existent déjà. Vécu sur la vitrine de la 10.0.0-alpha.8 — commit poussé à
+  // 22:04:51, ses deux chaînes créées à 22:04:54, refus à 22:05:10 pour
+  // « aucune exécution », alors que les deux ont fini VERTES.
+  //
+  // La patience est donc BORNÉE, et son épuisement est INJECTÉ : le cœur reste
+  // pur — c'est l'appelant qui tient l'horloge, comme partout ici. Tant qu'elle
+  // dure, une liste vide vaut « attendre » ; passé le délai, elle redevient le
+  // rouge qu'elle doit être, et la garde mord toujours sur un commit que la
+  // branche n'a jamais porté. Le défaut reste `true` : un appelant qui ne dit
+  // rien du temps obtient la garde la plus sévère, jamais la plus laxiste.
   if (juges.length === 0) {
+    if (!patienceEpuisee) return { verdict: "attendre", enCours: [] };
     return {
       verdict: "rouge",
       motif:
