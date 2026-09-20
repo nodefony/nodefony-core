@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T10:45:04.075Z",
+  "generatedAt": "2026-09-20T11:10:05.224Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 132,
+      "closed": 133,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 3,
+      "open": 4,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 19,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 35,
       "title": "10.0.0-beta"
     },
     {
@@ -1530,15 +1530,15 @@
       "title": "docs(agents): rendre le dépôt lisible par un agent web",
       "url": "https://github.com/nodefony/nodefony-core/issues/155",
       "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
-      "jours": 2,
+      "jours": 1,
       "ordre": 4,
       "debut": "2026-10-13",
       "cible": "2026-10-15",
       "labels": [
-        "10.0.0-beta"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -1593,16 +1593,16 @@
       "number": 158,
       "title": "docs(site): publier llms.txt, le plan du site et robots.txt",
       "url": "https://github.com/nodefony/nodefony-core/issues/158",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.2,
       "debut": "2026-10-14",
       "cible": "2026-10-14",
       "labels": [
-        "10.0.0-beta"
+        "10.0.0-alpha"
       ]
     },
     {
@@ -1645,6 +1645,22 @@
       "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.4,
+      "debut": "2026-10-16",
+      "cible": "2026-10-16",
+      "labels": [
+        "10.0.0-beta"
+      ]
+    },
+    {
+      "number": 440,
+      "title": "test(devkit-bench): mesurer ce qu'un agent conclut en lisant le dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/440",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.4,
       "debut": "2026-10-16",

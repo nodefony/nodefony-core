@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-20 10:45** (UTC).
+> Empreinte prise le **2026-09-20 11:10** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 98% | 132 | 3 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 35% | 19 | 36 | 2026-10-14 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 133 | 4 | 2026-09-19 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 35% | 19 | 35 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -31,16 +31,16 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#60 — fix(studio): lire la liste des rôles depuis le serveur**
+**#155 — docs(agents): rendre le dépôt lisible par un agent web**
 
-Ordre 13 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-22 → 09-22
+Ordre 4 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-10-13 → 10-15
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 3 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 4 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 36 ouverts
+## Jalon 10.0.0-beta — 35 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -49,9 +49,8 @@ Ordre 13 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 1.8 | P2 — décision | 1 | 2026-10-08 → 10-08 | #312 | chore(release): rendre le lot de publication annulable |
 | 2 | P0 — bloque le reste | 1 | 2026-10-09 → 10-09 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
 | 3 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier l'image sur le registre de GitHub, sans aucun secret |
-| 4 | P1 — figé à la création | 2 | 2026-10-13 → 10-15 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
-| 4.2 | P1 — figé à la création | 1 | 2026-10-14 → 10-14 | #158 | docs(site): publier llms.txt, le plan du site et robots.txt |
 | 4.3 | P2 — décision | 1 | 2026-10-15 → 10-15 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 4.4 | P2 — décision | 1 | 2026-10-16 → 10-16 | #440 | test(devkit-bench): mesurer ce qu'un agent conclut en lisant le dépôt |
 | 4.5 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #215 | fix(build): réparer le contrôle de format du code généré |
 | 4.6 | P2 — décision | 1 | 2026-10-20 → 10-20 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 4.8 | P1 — figé à la création | 1 | 2026-10-21 → 10-21 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
@@ -87,6 +86,15 @@ Ordre 13 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | --- | --- | ---: | --- | --- | --- |
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
+
+## Jalon 10.0.0-alpha — 4 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 4 | P1 — figé à la création | 1 | 2026-10-13 → 10-15 | #155 | docs(agents): rendre le dépôt lisible par un agent web |
+| 13 | P1 — figé à la création | 1 | 2026-09-22 → 09-22 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
+| 20 | P2 — décision | 1 | 2026-09-23 → 09-23 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
+| 55 | P3 — fin de cycle | 1 | 2026-09-24 → 09-24 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.1.0 — 30 ouverts
 
@@ -155,14 +163,6 @@ Ordre 13 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 159 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
 | 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
-
-## Jalon 10.0.0-alpha — 3 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 13 | P1 — figé à la création | 1 | 2026-09-22 → 09-22 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
-| 20 | P2 — décision | 1 | 2026-09-23 → 09-23 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
-| 55 | P3 — fin de cycle | 1 | 2026-09-24 → 09-24 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.0.0 — 2 ouverts
 
