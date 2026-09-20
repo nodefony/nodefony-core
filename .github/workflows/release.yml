@@ -737,6 +737,62 @@ jobs:
           echo "site : republication demandée depuis main"
 
   # ═════════════════════════════════════════════════════════════════════════
+  # 5bis. ACCUEIL — le porter au cran qui vient d'être SERVI
+  # ═════════════════════════════════════════════════════════════════════════
+  # 🔴 Ce job existe parce que la capacité existait DÉJÀ sans que rien ne
+  # l'atteigne. `accueil-gate.mjs --basculer` réécrit les versions périmées des
+  # pages d'accueil depuis les dist-tags réels — mais aucun workflow ne
+  # l'appelait : il n'était CITÉ que dans un message d'erreur. La bascule
+  # reposait donc sur la mémoire d'un humain, à l'étape 6 d'un « RESTE À
+  # FAIRE » imprimé en fin de publication.
+  #
+  # Ce qu'il en coûtait : l'accueil restait au cran précédent, et la garde ne
+  # s'en apercevait qu'à la publication SUIVANTE, en la bloquant. Constaté deux
+  # fois — README et AGENTS.md ont annoncé l'alpha.4 pendant que npm servait
+  # l'alpha.5, puis l'alpha.7 pendant que npm servait l'alpha.8.
+  #
+  # Il tourne APRÈS `publier`, et c'est essentiel : la règle est que l'accueil
+  # annonce ce que npm SERT. Le faire avant ferait mentir la page dans l'autre
+  # sens, en promettant une version que le registre n'a pas encore.
+  #
+  # Ce qu'il ne fait PAS : la PROSE. Passer au cran beta ou stable demande de
+  # décider ce qu'une préversion ne promet pas, et quelle commande met en avant
+  # — le gate refuse ces écarts-là sans pouvoir les écrire. Ici, seules les
+  # VERSIONS basculent, ce qui est mécanique.
+  accueil:
+    name: Accueil — le porter au cran servi
+    needs: publier
+    if: vars.NF_RELEASE_ARMED == 'true' && startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # commiter la bascule sur la branche de publication
+    steps:
+      # La bascule vise « main », PAS le tag : un checkout de tag est un HEAD
+      # détaché, et le commit s'y perdrait sans que rien ne le dise.
+      - uses: actions/checkout@v7
+        with:
+          ref: main
+      - uses: actions/setup-node@v7
+        with: { node-version: "26.x" }
+
+      - name: Basculer les versions d'accueil, et ne commiter que si ça bouge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          node scripts/release/accueil-gate.mjs --basculer
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "· accueil déjà au bon cran — rien à commiter"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "docs(accueil): annoncer ${GITHUB_REF_NAME#v}, que npm sert désormais"
+          git push origin HEAD:main
+          echo "accueil basculé et poussé sur main"
+
+  # ═════════════════════════════════════════════════════════════════════════
   # 6. BILAN — dire ce qui N'A PAS tourné ; un job sauté est silencieux
   # ═════════════════════════════════════════════════════════════════════════
   bilan:
@@ -751,6 +807,7 @@ jobs:
         vitrine-verdict,
         image,
         annonce,
+        accueil,
       ]
     if: always() && startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
@@ -779,6 +836,7 @@ jobs:
             etat "${{ needs['vitrine-verdict'].result }}" "Verdict de la chaîne de la vitrine (image, drain, topologie)" "la vitrine n'a pas été poussée"
             etat "${{ needs.image.result }}"   "Image docker" "poser la variable NF_RELEASE_IMAGE=true et les secrets NF_DOCKERHUB_*"
             etat "${{ needs.annonce.result }}" "Release GitHub" ""
+            etat "${{ needs.accueil.result }}" "Accueil porté au cran servi" "cran non armé"
             echo
             echo "Un job SAUTÉ ne signale rien de lui-même : ce bilan existe pour"
             echo "qu'une release incomplète ne se lise pas comme une release réussie."
