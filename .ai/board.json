@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T22:56:36.577Z",
+  "generatedAt": "2026-09-20T23:27:22.614Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 136,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 1,
+      "open": 4,
       "title": "10.0.0-alpha"
     },
     {
@@ -5452,6 +5452,22 @@
       ]
     },
     {
+      "number": 442,
+      "title": "fix(frontend): dire pourquoi la page de dev pointe une machine injoignable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/442",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 56,
+      "debut": "2026-09-25",
+      "cible": "2026-09-25",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 409,
       "title": "perf(tests): peser le partage des processus de test, module par module",
       "url": "https://github.com/nodefony/nodefony-core/issues/409",
@@ -5468,6 +5484,22 @@
       ]
     },
     {
+      "number": 443,
+      "title": "test(scaffold): lier la route de connexion des tests générés à sa source",
+      "url": "https://github.com/nodefony/nodefony-core/issues/443",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 57,
+      "debut": "2026-09-25",
+      "cible": "2026-09-25",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
       "number": 410,
       "title": "build(tests): donner leur extension aux imports des socles de test",
       "url": "https://github.com/nodefony/nodefony-core/issues/410",
@@ -5479,6 +5511,22 @@
       "ordre": 58,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 444,
+      "title": "test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma",
+      "url": "https://github.com/nodefony/nodefony-core/issues/444",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 58,
+      "debut": "2026-09-26",
+      "cible": "2026-09-26",
       "labels": [
         "10.0.0-alpha"
       ]
