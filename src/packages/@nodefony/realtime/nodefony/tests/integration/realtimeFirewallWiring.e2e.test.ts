@@ -124,7 +124,7 @@ const mkUser = (identifier: string, roles: string[]): IUser => ({
   isLocked: () => false,
 });
 
-const ADMIN = mkUser("boss", ["ROLE_ADMIN"]);
+const ADMIN = mkUser("boss", ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"]);
 const USER = mkUser("alice", ["ROLE_USER"]);
 
 /**
@@ -160,7 +160,10 @@ async function bootSecurity(
     container,
     notificationsCenter: nc,
     options: fwOptions ?? {
-      roleHierarchy: { ROLE_ADMIN: ["ROLE_USER"] },
+      roleHierarchy: {
+        ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN"],
+        ROLE_ADMIN: ["ROLE_USER"],
+      },
       areas: {
         "rt-zone": {
           pattern: "^/realtime",
@@ -252,7 +255,10 @@ describe("E2E câblage firewall → realtime (chaîne sécu RÉELLE, 0 mock de d
     const client = await connectAs(ADMIN);
     expect(client.identity?.authenticated).to.equal(true);
     expect(client.identity?.userIdentifier).to.equal("boss");
-    expect(client.identity?.roles).to.deep.equal(["ROLE_ADMIN"]);
+    expect(client.identity?.roles).to.deep.equal([
+      "ROLE_NODEFONY_ADMIN",
+      "ROLE_ADMIN",
+    ]);
     client.disconnect();
   });
 
@@ -262,7 +268,7 @@ describe("E2E câblage firewall → realtime (chaîne sécu RÉELLE, 0 mock de d
     client.disconnect();
   });
 
-  it("nodefony:syslog (système ROLE_ADMIN) : ADMIN abonné, USER refusé, ANON refusé", async () => {
+  it("nodefony:syslog (système ROLE_NODEFONY_ADMIN) : ADMIN abonné, USER refusé, ANON refusé", async () => {
     const admin = await connectAs(ADMIN);
     const a = await trySubscribe(admin, "nodefony:syslog");
     expect(a.ticks).to.deep.equal([{ ok: true, channel: "nodefony:syslog" }]);
@@ -340,7 +346,10 @@ describe("F82 — plancher système SANS zone realtime qualifiante (fail-closed)
   beforeEach(async () => {
     getRealtimeHub().clear();
     await bootSecurity({
-      roleHierarchy: { ROLE_ADMIN: ["ROLE_USER"] },
+      roleHierarchy: {
+        ROLE_NODEFONY_ADMIN: ["ROLE_ADMIN"],
+        ROLE_ADMIN: ["ROLE_USER"],
+      },
       areas: {},
     });
   });

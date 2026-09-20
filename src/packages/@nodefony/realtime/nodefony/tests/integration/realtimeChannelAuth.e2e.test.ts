@@ -235,7 +235,10 @@ const mkToken = (
 const TOKENS = {
   anon: mkToken("anonymous", false, ["ROLE_ANONYMOUS"], []),
   user: mkToken("session", true, ["ROLE_USER"], []),
-  admin: mkToken("session", true, ["ROLE_ADMIN"], []),
+  // Les DEUX échelles, comme la fixture réelle du dépôt : les canaux du
+  // PROCESSUS (syslog, orm, cluster…) exigent la PLATEFORME, pas
+  // l'organisation — un `ROLE_ADMIN` seul ne doit pas les obtenir.
+  admin: mkToken("session", true, ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"], []),
   service: mkToken("jwt", true, ["ROLE_USER"], ["metrics:read"]),
 } as const;
 
