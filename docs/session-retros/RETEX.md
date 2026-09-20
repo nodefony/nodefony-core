@@ -647,13 +647,34 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
 
+- [1× — 09-20d] 🪞 **Un gate peut garder la COHÉRENCE de deux façades sans garder leur
+  SINCÉRITÉ.** L'accueil affirmait « quatre dépendances de production », et `site-plan.test.mjs`
+  vérifiait que ce chiffre suivait bien le gabarit. Les deux disaient vrai — et l'affirmation était
+  fausse au sens où on la lit : l'application **installe 109 paquets** en production (155 en
+  préréglage complet). Le gate comparait deux écritures entre elles, jamais l'une au terrain, et
+  aucune de ses cinq assertions ne pouvait s'en apercevoir. Un chiffre public se démonte en un
+  `npm ls` : il dit alors « ils enjolivent », ce qui coûte plus cher que de ne rien annoncer. Le
+  geste qui répare n'est pas un meilleur gate, c'est une formulation qui survit à la vérification
+  (« déclarées », plus ce que le chiffre n'est pas). Mesuré en générant puis INSTALLANT les deux
+  préréglages, pas en lisant le `package.json`.
+
+- [1× — 09-20d] 🧯 **Un gate qui REFUSE apprend la règle ; la même règle écrite ailleurs ne
+  l'aurait pas apprise.** Le contrôle de format du scaffold a rejeté mon commit en nommant le
+  motif exact — « une table markdown à lignes conditionnelles ne peut pas être alignée juste, en
+  faire une liste ». Je ne connaissais pas cette contrainte, aucune lecture préalable ne me l'aurait
+  donnée au bon moment, et le message portait le geste. C'est le contre-exemple utile du thème
+  voisin : ce qui est IMPOSÉ au moment du geste s'applique, ce qui est écrit se rate.
+
 - [1× — 09-20c] 🧮 **Deux bancs échouent SYSTÉMATIQUEMENT en passe complète et passent
   SYSTÉMATIQUEMENT seuls — ce n'est pas un flake, c'est une incompatibilité structurelle.**
   `clusterIpc.e2e` et `redisCluster.e2e` forkent de vrais workers dans une passe turbo qui sature
   déjà les cœurs : 7 rouges à chaque fois, 5/5 et 2/2 en isolation. Un rouge qui revient à chaque
   passe et qu'on sait faux est exactement le contrôle qu'on finit par ignorer — et le jour où il
-  dira vrai, personne ne le lira. Ils mériteraient leur propre lot, comme la suite `load` l'a
-  obtenu. Même séance, même famille côté décor : la suite de charge HTTP/WS exige un serveur
+  dira vrai, personne ne le lira. **SOLDÉ le 09-20d** (`60113234`) : lot `test:cluster` à part,
+  gate `NF_RUN_CLUSTER_E2E` migré avec ses bancs, CI et `test:all -- --load` qui le jouent — passe
+  complète 38/38 vertes. La cause lue au journal n'était pas celle qu'on croyait : le master
+  expirait sur l'attente de `ready`, puis le worker écrivait dans un canal fermé et son `EPIPE`
+  **remplaçait la vraie cause** dans la sortie. Même séance, même famille côté décor : la suite de charge HTTP/WS exige un serveur
   (`requires server`) et rendait 7 fichiers rouges en `ECONNREFUSED 5152` parce que mon script
   l'arrêtait juste avant.
 
