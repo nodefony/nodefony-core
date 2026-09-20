@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T11:10:05.224Z",
+  "generatedAt": "2026-09-20T11:47:29.718Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 19,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 35,
+      "open": 36,
       "title": "10.0.0-beta"
     },
     {
@@ -1799,6 +1799,22 @@
       "labels": [
         "10.0.0",
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 441,
+      "title": "refactor(scaffold): retirer 6 scripts npm d'une application générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/441",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.55,
+      "debut": "2026-10-19",
+      "cible": "2026-10-19",
+      "labels": [
+        "10.0.0-beta"
       ]
     },
     {
