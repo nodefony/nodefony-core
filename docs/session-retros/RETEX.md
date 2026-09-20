@@ -502,6 +502,23 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-21] 📣 **Une capacité que RIEN N'APPELLE n'existe pas — et le skill affirmait qu'elle
+  tournait.** `accueil-gate.mjs --basculer` savait porter les pages d'accueil au cran servi. Aucun
+  workflow ne le lançait : il n'était CITÉ que dans un message d'erreur, et le geste vivait à
+  l'étape 6 d'un « RESTE À FAIRE » imprimé en fin de publication. Le `SKILL.md`, lui, écrivait « la
+  bascule des VERSIONS est désormais faite par la chaîne » — une automatisation INEXISTANTE, qu'on
+  croit sur parole parce qu'elle est écrite au passé. Coût : l'accueil reste au cran précédent, et
+  la garde ne s'en aperçoit qu'à la publication SUIVANTE, en la bloquant (alpha.4→5, puis
+  alpha.7→8). Le contrôle qui tranche en dix secondes : `rg` le nom de l'option dans
+  `.github/workflows/` — s'il n'apparaît que dans une chaîne de message, personne ne l'exécute.
+- [1× — 09-21] 🧨 **Un script qui ÉCRIT avant de contrôler laisse un état que sa propre garde
+  refuse de reprendre.** `release --write` estampille les quinze manifestes, PUIS régénère la page
+  de manuel — dont le générateur refuse un `dist` périmé, à raison. Au refus, l'arbre portait une
+  estampille sans changelog ni page, et la garde « arbre propre » interdisait de relancer : il a
+  fallu défaire à la main ce que le script venait de faire, contre un hook qui protège justement
+  l'arbre sale. L'ordre des étapes EST la correction — le contrôle remonte dans les gardes
+  préalables, là où rien n'a encore bougé — et il ne se recopie pas : `generate-man.mjs --check`
+  le porte déjà, on lui demande seulement de se prononcer plus tôt.
 - [1× — 09-20c] 🆘 **Le pied de l'aide PROMET `--help` à toute commande ; un fast-path ne
   l'honorait pas, et PLANTAIT.** `nodefony see --help` prenait le drapeau pour un chemin de page et
   naviguait vers `https://127.0.0.1:5152--help`. La promesse était écrite — dans le pied de l'aide,
@@ -647,6 +664,28 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
 
+- [1× — 09-21] ⛓️ **Un interblocage ADMIS devient une exclusion, et l'exclusion survit à sa
+  cause.** Le gate de format du code généré était rouge à CHAQUE publication depuis l'alpha.3 : il
+  installe l'application témoin depuis npm, or le gabarit épingle une version que la publication
+  n'a pas encore créée (`ETARGET`). Le motif était juste ; la conclusion ne l'était pas — on en a
+  fait une entrée de `WORKFLOWS_NON_BLOQUANTS`, avec son propre test asserant que son rouge rend
+  VERT. L'interblocage ne tenait qu'à la SOURCE des paquets, pas au gate : celui-ci juge la FORME
+  de fichiers rendus et n'a besoin du registre pour rien. **Une ligne** (`--link` sur les variantes
+  qui installent) l'a rendu vert. Le signe qu'on est dans ce cas : l'exclusion ÉNONÇAIT sa
+  condition de levée (« le jour où le banc ne dépendra plus du registre ») et personne ne l'avait
+  relue depuis. ⚠️ Et la fenêtre de preuve est étroite : la correction ne se démontre que pendant
+  que la version est estampillée et ABSENTE du registre — une fois publiée, le gate serait vert
+  pour une raison qui n'est pas la sienne, et le retrait de l'exclusion se serait appuyé sur rien.
+- [1× — 09-21] 🕳️ **« Je n'ai RIEN VU » et « il n'y a RIEN » sont deux états, et les confondre
+  fabrique un faux rouge.** Le juge de CI traitait une liste vide comme une condamnation immédiate,
+  alors qu'il faisait déjà la distinction pour une panne d'API (`runs = null` fait réessayer). Une
+  exécution met quelques secondes à devenir interrogeable par `head_sha` : le contrôle de la
+  vitrine a refusé à 22:05:10 un commit poussé à 22:04:51 dont les deux chaînes, créées à 22:04:54,
+  ont fini VERTES. Le workflow avait POURTANT prévu le cas — une boucle qui attend qu'un run
+  existe avant d'appeler le juge — mais elle vérifie une fois puis passe la main : la garde était
+  au mauvais endroit. Remède : patience BORNÉE, dont l'épuisement est **injecté** (le cœur reste
+  pur, l'appelant tient l'horloge), et défaut du paramètre à « sévère » pour qu'un appelant muet
+  n'obtienne jamais la garde la plus laxiste.
 - [1× — 09-20d] 🪞 **Un gate peut garder la COHÉRENCE de deux façades sans garder leur
   SINCÉRITÉ.** L'accueil affirmait « quatre dépendances de production », et `site-plan.test.mjs`
   vérifiait que ce chiffre suivait bien le gabarit. Les deux disaient vrai — et l'affirmation était
