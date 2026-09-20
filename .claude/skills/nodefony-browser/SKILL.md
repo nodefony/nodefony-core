@@ -44,9 +44,18 @@ cible, vérifier qu'une application générée démarre, prendre une capture pou
 ## 2. Le décor — deux voies, la locale d'abord
 
 ```bash
-# Sur le poste — le plus court, et ce que fait l'utilisateur d'une application
+# Sur le poste, DANS CE DÉPÔT — la sonde par son chemin
 node src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /nodefony/login "Connexion"
+
+# Dans une APPLICATION (ce que fait l'utilisateur) — la commande, qui résout la sonde
+npx nodefony see /connexion "Connexion"     # + --watch · --audit · --install
 ```
+
+⚠️ **Les deux voies lancent le MÊME script.** La commande existe parce qu'une application n'a
+pas de chemin à connaître : elle résout la sonde dans le paquet installé et NOMME ce qui manque.
+Ici, dans le dépôt, le chemin direct reste le plus court — mais une recette écrite pour un
+utilisateur s'écrit avec la commande, sinon elle lui demande de deviner une arborescence de
+`node_modules`.
 
 Les sondes **constatent** où elles s'exécutent (`/.dockerenv`) et en déduisent l'origine à joindre
 et le dossier de sortie : `https://127.0.0.1:5152` et `tmp/browser/` en local. Prérequis :

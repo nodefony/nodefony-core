@@ -3504,6 +3504,49 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(pkg.scripts["audit:deps"], "--omit=dev");
     });
 
+    it("aucun script ne porte un chemin node_modules EN DUR", () => {
+      const dest = path.join(tmp, "sansdur");
+      scaffold(dest, { name: "sansdur", preset: "minimal", frontend: "none" });
+      const scripts = readJson(path.join(dest, "package.json"))
+        .scripts as Record<string, string>;
+      // Un chemin en dur dans un `package.json` généré est FIGÉ dans chaque
+      // application déjà créée : le jour où le paquet visé réorganise ses
+      // dossiers, il casse partout à la fois, et le seul symptôme est un module
+      // introuvable. Les trois sondes du navigateur étaient dans ce cas ; elles
+      // passent par `nodefony see`, qui résout et NOMME ce qui manque.
+      for (const [nom, cmd] of Object.entries(scripts))
+        assert.notInclude(
+          cmd,
+          "node_modules",
+          `le script ${nom} fige une arborescence`,
+        );
+    });
+
+    it("mesurer un écran reste DÉCOUVRABLE depuis le manifeste", () => {
+      const dest = path.join(tmp, "voir");
+      scaffold(dest, { name: "voir", preset: "minimal", frontend: "none" });
+      const pkg = readJson(path.join(dest, "package.json"));
+      // Même raison que `ai:sync` et `doctor` ci-dessus : un verbe qui n'est pas
+      // dans le manifeste n'est pas appris — mesuré au banc. Les deux
+      // installateurs, eux, sont partis : `--install` les remplace, et la
+      // description dit les trois modes.
+      assert.property(pkg["scripts"], "see");
+      assert.notProperty(pkg["scripts"], "see:setup");
+      assert.notProperty(pkg["scripts"], "audit:setup");
+      assert.include(pkg["nodefony"]["scripts"]["see"], "--audit");
+    });
+
+    it("la couverture marche au PREMIER usage, sans installateur", () => {
+      const dest = path.join(tmp, "couv");
+      scaffold(dest, { name: "couv", preset: "minimal", frontend: "none" });
+      const pkg = readJson(path.join(dest, "package.json"));
+      // `coverage:setup` posait 60 Ko à la demande — un script de plus pour un
+      // paquet plus léger que la ligne qui l'installe. Déclaré, `npm run
+      // coverage` répond du premier coup.
+      assert.notProperty(pkg["scripts"], "coverage:setup");
+      assert.property(pkg["devDependencies"], "@vitest/coverage-v8");
+    });
+
     it("l'app naît avec un SECURITY.md dont la zone contact est VISIBLE", () => {
       const dest = path.join(tmp, "secmd");
       scaffold(dest, { name: "secmd", preset: "minimal", frontend: "none" });

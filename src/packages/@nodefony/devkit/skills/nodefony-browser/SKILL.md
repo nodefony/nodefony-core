@@ -32,12 +32,17 @@ description: >
 ## Le geste — sur ta machine
 
 ```bash
-npm run see:setup    # dans une application générée — pose `playwright` et `axe-core`
-node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
+npx nodefony see /              # dans une application : mesure l'écran
+npx nodefony see / --install    # la même, en posant d'abord `playwright` et `axe-core`
 ```
 
-Hors d'une application générée, le premier pas s'écrit en toutes lettres : `npm i -D playwright
-axe-core`, puis `npx playwright install chromium` si aucun navigateur n'est déjà là (§ suivant).
+La commande résout elle-même la sonde et **dit ce qui manque** plutôt que d'échouer sur une trace de
+résolution. Elle n'installe rien sans `--install` : l'outillage d'un navigateur piloté pèse des
+centaines de mégaoctets une fois les navigateurs posés.
+
+Hors d'une application Nodefony, le premier pas s'écrit en toutes lettres : `npm i -D playwright
+axe-core`, puis `npx playwright install chromium` si aucun navigateur n'est déjà là (§ suivant), et
+la sonde se lance par son chemin (`node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /`).
 
 C'est tout. Les sondes **constatent** où elles s'exécutent : sur ta machine elles visent
 `https://127.0.0.1:5152` et déposent leurs captures dans `tmp/browser/`. Rien à configurer tant que
@@ -278,9 +283,9 @@ Lighthouse complet, y compris **derrière une authentification** — ce que l'ex
 ne sait pas faire sur une application protégée.
 
 ```bash
-npm run audit:setup                      # pose `lighthouse` — SÉPARÉ de `see:setup` : une vingtaine
-                                         # de mégaoctets, que tu ne paies que si tu audites
-npm run audit:web -- /tableau-de-bord
+npx nodefony see /tableau-de-bord --audit             # audite
+npx nodefony see /tableau-de-bord --audit --install   # pose `lighthouse` (une vingtaine de
+                                                      # mégaoctets, payés seulement si tu audites)
 ```
 
 Hors d'une application générée, ou pour passer des identifiants :

@@ -63,6 +63,8 @@ import Card from "./commands/CardCommand";
 import { runCardCommand } from "../cli/card";
 import Symbols from "./commands/SymbolsCommand";
 import Scripts from "./commands/ScriptsCommand";
+import See from "./commands/SeeCommand";
+import { runSeeCommand } from "../cli/see";
 import { runSymbolsCommand } from "../cli/symbols";
 import Image from "./commands/ImageCommand";
 import { runImageCheckCommand } from "../cli/image";
@@ -294,6 +296,15 @@ class CliKernel extends Cli {
     // fast-path, sinon il partirait en dispatch différé — donc en boot.
     if (requested === "card" || requested === "devkit:card") {
       return process.exit(runCardCommand(process.argv, version));
+    }
+
+    // ─── `see` : mesurer un ÉCRAN — même famille standalone ───────────────────
+    // Elle pilote un navigateur contre une application qui tourne déjà : un
+    // second Kernel ne servirait à rien et prendrait le port. Elle remplace cinq
+    // scripts npm du gabarit, dont trois portaient un chemin en dur dans
+    // `node_modules` — qui casse en silence dès que le paquet se réorganise.
+    if (requested === "see") {
+      return process.exit(await runSeeCommand(process.argv));
     }
 
     // ─── `symbols` : le graphe symbolique — même famille ──────────────────────
@@ -543,6 +554,7 @@ class CliKernel extends Cli {
     // Standalone servis par le fast-path : ces classes n'existent que pour le
     // help et la complétion (leur `generate()` est un filet) — sans elles, une
     // commande bien réelle est INVISIBLE de `nodefony -h`, donc de personne.
+    this.addCommand(See);
     this.addCommand(Image);
     this.addCommand(AiSync);
     this.addCommand(AiMcp);

@@ -20,7 +20,6 @@
     "stop": "nodefony stop",
     "status": "nodefony status",
     "test": "vitest run",
-    "coverage:setup": "npm i -D @vitest/coverage-v8",
     "coverage": "vitest run --coverage",
     "test:e2e": "npm run build && vitest run -c vitest.e2e.config.ts",
     "typecheck": "tsgo --noEmit",
@@ -32,11 +31,7 @@
     "licenses:write": "nodefony licenses --write",
     "inspect": "nodefony inspect",
     "ai:sync": "nodefony ai:sync",
-    "see:setup": "npm i -D playwright axe-core",
-    "see": "node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs",
-    "watch:screen": "node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs",
-    "audit:setup": "npm i -D playwright lighthouse",
-    "audit:web": "node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs",
+    "see": "nodefony see",
     "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "lint": "oxlint --deny-warnings",
     "format": "prettier --write .",
@@ -55,11 +50,9 @@
       "test": "Lance les tests unitaires (aucun serveur requis).",
       "test:e2e": "Bâtit, démarre un vrai serveur, et éprouve les routes de bout en bout.",
       "coverage": "Lance les tests en mesurant la couverture.",
-      "coverage:setup": "Installe le mesureur de couverture (une seule fois).",
       "typecheck": "Contrôle les types sans rien produire.",
       "lint": "Passe le linter, tout avertissement étant une erreur.",
       "format": "Réécrit le code au format du projet.",
-      "format:check": "Contrôle le format sans rien réécrire.",
       "verify": "La passe complète avant de livrer : types, lint, format, tests, build, diagnostic.",
       "doctor": "Diagnostique l'application : config, services, ports, dépendances.",
       "doctor:live": "Le même diagnostic, contre l'application qui tourne.",
@@ -69,11 +62,8 @@
       "licenses:write": "Écrit le rapport de licences dans un fichier.",
       "inspect": "Interroge l'application : routes, services, config effective.",
       "ai:sync": "Installe dans le projet les compétences d'agent des paquets présents.",
-      "see": "Ouvre une page dans un navigateur piloté et la MESURE (contrastes, console, réseau).",
-      "see:setup": "Installe le navigateur piloté et l'auditeur d'accessibilité (une seule fois).",
-      "watch:screen": "Surveille l'écran en continu et signale ce qui change.",
-      "audit:web": "Audit complet d'une page : accessibilité, performance, bonnes pratiques.",
-      "audit:setup": "Installe l'outillage d'audit web (une seule fois)."<% if (it.complete) { %>,
+      "see": "Mesure un écran dans un navigateur piloté — ajouter -- --watch, --audit ou --install.",
+      "format:check": "Contrôle le format sans rien réécrire."<% if (it.complete) { %>,
       "infra:up": "Démarre les services d'infrastructure (base, cache) par docker compose.",
       "infra:down": "Arrête et retire ces services."<% } %>
     }
@@ -109,7 +99,8 @@
     "rolldown": "<%= it.pkg["rolldown"] %>",
 <% if (it.front) { for (const [n, v] of Object.entries(it.front.devDeps)) { %>    "<%= n %>": "<%= v %>",
 <% } } %>    "typescript": "<%= it.pkg["typescript"] %>",
-    "vitest": "<%= it.pkg["vitest"] %>"
+    "vitest": "<%= it.pkg["vitest"] %>",
+    "@vitest/coverage-v8": "<%= it.pkg["@vitest/coverage-v8"] %>"
   },
   "overrides": {
     "@esbuild-kit/core-utils": {

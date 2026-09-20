@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 845,
-    "symbols": 4163,
-    "classes": 394,
+    "files": 847,
+    "symbols": 4172,
+    "classes": 395,
     "interfaces": 1112,
-    "types": 451,
+    "types": 452,
     "enums": 4,
-    "functions": 1793,
-    "constants": 409
+    "functions": 1798,
+    "constants": 411
   },
   "symbols": {
     "Cli": {
@@ -2399,6 +2399,70 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Interface `readline` ANCRÉE — même garantie, pour le front natif du scaffold. Le scaffold de `create app` ne passe pas par `@inquirer/prompts` : il pose ses questions en `node:readline/promises`, s…"
+    },
+    "SeeMode": {
+      "name": "SeeMode",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le mode demandé — l'inspection est le cas nominal."
+    },
+    "pickMode": {
+      "name": "pickMode",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le mode dans une ligne de commande."
+    },
+    "scriptArguments": {
+      "name": "scriptArguments",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les arguments à passer au script, mode retiré."
+    },
+    "missingDependencies": {
+      "name": "missingDependencies",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les paquets d'un mode qui manquent à un projet. Constaté sur disque, jamais déduit d'un `package.json` : ce qui compte est ce qui est INSTALLÉ. Un paquet déclaré mais absent de `node_modules` ferai…"
+    },
+    "resolveBrowserScript": {
+      "name": "resolveBrowserScript",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Le script du navigateur piloté, pour un mode."
+    },
+    "runSeeCommand": {
+      "name": "runSeeCommand",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Commande `nodefony see` — ouvrir une page dans un navigateur piloté et la MESURER. Trois modes sous une seule entrée, et c'est délibéré : déplacer cinq scripts npm vers trois commandes n'aurait fai…"
+    },
+    "BROWSER_SCRIPTS_DIR": {
+      "name": "BROWSER_SCRIPTS_DIR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Où vivent les scripts du navigateur piloté, dans le paquet qui les publie. C'est un CONTRAT entre deux paquets : le cœur compose ce chemin, `@nodefony/devkit` le sert. Exporté pour qu'un test le co…"
+    },
+    "BROWSER_PROBES": {
+      "name": "BROWSER_PROBES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/see.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les sondes attendues dans ce dossier, une par mode."
     },
     "IStartMenuModuleCommand": {
       "name": "IStartMenuModuleCommand",
@@ -10733,6 +10797,17 @@
       "implements": [],
       "decorators": [],
       "description": "Commande `nodefony scripts` — ce que font les scripts `npm` de ce projet. `package.json` est du JSON : il n'accepte aucun commentaire, et le seul indice de ce que fait un script y est son NOM. Sur …"
+    },
+    "See": {
+      "name": "See",
+      "kind": "class",
+      "file": "src/nodefony/src/kernel/commands/SeeCommand.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": "Command",
+      "implements": [],
+      "decorators": [],
+      "description": "Commande `nodefony see` — ouvrir une page dans un navigateur piloté et la MESURER. **Exécutée en « standalone » (zéro boot)**, comme `doctor`, `env` et `card` : l'enregistrement ici sert au help et…"
     },
     "@nodefony/core:Status": {
       "name": "Status",
@@ -28498,6 +28573,7 @@
         "Outdated",
         "Prod",
         "Scripts",
+        "See",
         "Status",
         "Stop",
         "Symbols",
@@ -29106,6 +29182,7 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
+        "src/nodefony/src/kernel/commands/SeeCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -31207,6 +31284,7 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
+        "src/nodefony/src/cli/see.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/kernel/checks/runDoctor.ts",
@@ -31431,6 +31509,7 @@
       "portableSpawn": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/licenses.ts",
+        "src/nodefony/src/cli/see.ts",
         "src/nodefony/src/kernel/commands/BuildCommand.ts",
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
@@ -31819,6 +31898,7 @@
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/runtimeLauncher.ts",
         "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
+        "src/nodefony/src/kernel/commands/SeeCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",
@@ -32070,6 +32150,13 @@
       ],
       "Scripts": [
         "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "See": [
+        "src/nodefony/src/kernel/CliKernel.ts"
+      ],
+      "runSeeCommand": [
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/commands/SeeCommand.ts"
       ],
       "runSymbolsCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
@@ -33735,6 +33822,7 @@
         "src/nodefony/src/kernel/commands/OutdatedCommand.ts",
         "src/nodefony/src/kernel/commands/ProdCommand.ts",
         "src/nodefony/src/kernel/commands/ScriptsCommand.ts",
+        "src/nodefony/src/kernel/commands/SeeCommand.ts",
         "src/nodefony/src/kernel/commands/StatusCommand.ts",
         "src/nodefony/src/kernel/commands/StopCommand.ts",
         "src/nodefony/src/kernel/commands/SymbolsCommand.ts",

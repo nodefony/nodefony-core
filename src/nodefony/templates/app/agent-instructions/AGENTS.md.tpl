@@ -210,8 +210,10 @@ Un `curl` prouve qu'une route répond ; il ne dit pas si l'écran **se monte**. 
 devkit porte des sondes prêtes à l'emploi :
 
 ```bash
-npm run see:setup
-node node_modules/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs /
+npm run see -- /                # mesure l'écran ; dit ce qui manque, s'il manque
+npm run see -- / --install      # installe l'outillage puis mesure (centaines de Mo)
+npm run see -- / --watch        # surveille en continu, signale ce qui change
+npm run see -- / --audit        # accessibilité, performance, bonnes pratiques
 ```
 
 Tu obtiens un JSON : les **scripts réellement servis**, les erreurs de console, une

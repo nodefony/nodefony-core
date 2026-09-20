@@ -206,6 +206,7 @@ Filet d'intégration : `CliIntegration.test.ts` (`NF_RUN_CLI_BOOT=1` pour les bo
 | `Create`     | —             | `CreateCommand.ts`     | **standalone** — scaffold projet (cf § Scaffold)              |
 | `Env`        | —             | `EnvCommand.ts`        | **standalone** — cascade `.env` + provenance (cf § env)       |
 | `Card`       | `devkit:card` | `CardCommand.ts`       | **standalone** — carte de visite de l'app (cf § card)         |
+| `See`        | —             | `SeeCommand.ts`        | **standalone** — mesure un ÉCRAN, 3 modes (cf § see)          |
 | `Check`      | `doctor`      | `DoctorCommand.ts`     | **standalone** — diagnostic STATIQUE (cf § check)             |
 | `Inspect`    | —             | `InspectCommand.ts`    | état RÉEL de l'app, `onPostReady` sans serveur (cf § inspect) |
 | `Symbols`    | —             | `SymbolsCommand.ts`    | **standalone** — signature + TSDoc depuis le graphe publié    |
@@ -231,6 +232,30 @@ service. Détail des cas + variables (`NF_CLI_DELEGATED`, `NF_CLI_DEBUG`) : [`ME
 > Conséquence pour le dev du framework : `npm link` depuis `src/nodefony` rend `nodefony` disponible
 > partout et suit le checkout (symlink) ; dans le repo self-hosted comme dans une app `create app --link`,
 > le paquet local EST le checkout (`same-package`) → aucun aller-retour.
+
+## `see` — mesurer un écran, sans multiplier les entrées
+
+`nodefony see [url]`, plus `--watch` (surveille en continu) et `--audit` (Lighthouse).
+Les sondes ne vivent PAS ici : elles sont publiées par `@nodefony/devkit`
+(`skills/nodefony-browser/scripts/{inspect,watch,audit}.mjs`), et la commande les
+résout à l'exécution — le cœur ne dépend pas du devkit, qui est une dépendance de
+développement de l'application.
+
+**Ce qu'elle remplace, et pourquoi.** Le gabarit d'application portait cinq scripts
+npm pour ces trois gestes : deux `npm i -D …` et trois chemins EN DUR dans
+`node_modules`. Un chemin en dur dans un `package.json` généré est figé dans chaque
+application déjà créée — le jour où le devkit réorganise ses dossiers, il casse
+partout à la fois, et le seul symptôme est un module introuvable. Ici le chemin
+vit à UN endroit, et `src/tests/seeCommand.test.ts` le confronte au paquet réel.
+
+**Trois modes sous une entrée, pas trois commandes** : déplacer cinq scripts vers
+trois commandes n'aurait fait que gonfler une autre surface. Ce qu'un lecteur
+compte, ce sont les entrées qu'il voit — dans un `package.json` comme dans un
+`--help`.
+
+**N'installe rien sans `--install`** : playwright pèse 5 Mo, lighthouse 21, et les
+navigateurs se comptent en centaines. La commande NOMME ce qui manque et la ligne
+qui l'installe — un échec de résolution, lui, envoie chercher au mauvais endroit.
 
 ## Complétion shell — `cli/completion.ts`
 

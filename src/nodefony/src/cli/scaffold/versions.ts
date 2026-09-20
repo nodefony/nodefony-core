@@ -75,6 +75,11 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   rolldown: "^1.2.9",
   typescript: "^6.0.3",
   vitest: "^5.0.1",
+  // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
+  // `coverage:setup` : elle pèse 60 Ko, quand playwright et lighthouse — eux
+  // restés à la demande — pèsent 5 et 21 Mo. Un installateur pour 60 Ko est une
+  // entrée de plus dans un `package.json` que personne ne lit jusqu'au bout.
+  "@vitest/coverage-v8": "5.0.1",
   // ── Frontend (consommées par FRONTEND_PARAMS) ──
   vite: "^8.3.0",
   react: "^19.3.0",
