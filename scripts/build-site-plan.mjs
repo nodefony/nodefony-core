@@ -212,6 +212,15 @@ function llmsPlan(pages, base) {
     ),
     "",
     ...wrap(
+      "**Ce qui reste avant la version stable, et ce qui peut casser.** Les jalons " +
+        "du dépôt portent le compte exact des tickets ouverts par version, et une " +
+        "échéance qui GLISSE — le compte fait foi, pas la date : " +
+        "https://github.com/nodefony/nodefony-core/milestones. L'engagement de " +
+        "compatibilité, lui, est écrit : ce qui casse, ce qui se déprécie et ce qui " +
+        `reçoit des correctifs — ${citedUrl(pages, "docs/guides/compatibilite/", base)}.`,
+    ),
+    "",
+    ...wrap(
       "**Les sources sont en Markdown** et se lisent brutes, sans HTML : " +
         "`https://raw.githubusercontent.com/nodefony/nodefony-core/dev/<chemin>`.",
     ),
@@ -245,6 +254,27 @@ function llmsPlan(pages, base) {
     lines.push("");
   }
   return `${lines.join("\n")}`;
+}
+
+/**
+ * L'URL d'une page que la PROSE du plan cite nommément.
+ *
+ * Elle lève si la page n'est pas publiée : une phrase qui promet un lien et
+ * n'en donne aucun est ce qui a fait conclure à un agent qu'aucun calendrier
+ * n'existait — alors qu'il existe. Une promesse non tenue coûte plus qu'un
+ * silence.
+ *
+ * @param pages - les pages rendues.
+ * @param urlPath - le chemin de la page dans le site.
+ * @param base - racine d'URL du site.
+ * @returns l'URL à citer, markdown si la page en publie un.
+ */
+function citedUrl(pages, urlPath, base) {
+  const page = pages.find((p) => p.urlPath === urlPath);
+  if (!page)
+    throw new Error(`page citée par le plan mais non publiée : « ${urlPath} »`);
+  const html = page.canonical || `${base}/${page.urlPath}`;
+  return page.markdown ? `${html}index.md` : html;
 }
 
 /**
