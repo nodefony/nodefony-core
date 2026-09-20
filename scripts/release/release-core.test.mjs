@@ -1517,13 +1517,17 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
     }
   });
 
-  it("PIÈGE — l'exclusion qui évite un INTERBLOCAGE de publication", () => {
-    // Le banc de code généré installe l'application DEPUIS le registre npm :
-    // sur un commit d'estampillage, `^10.0.0-alpha.N` n'existe pas encore —
-    // c'est la publication que le tag déclenche qui la crée. L'exiger vert
-    // bloquerait TOUTES les publications : le workflow attend les paquets, les
-    // paquets attendent le workflow. Constaté rouge sur les commits de release
-    // alpha.3, alpha.4 et alpha.5, pour ce seul motif.
+  it("le banc de code généré BLOQUE — son interblocage a été levé, pas admis", () => {
+    // Il a été exclu tant qu'il installait l'application générée DEPUIS le
+    // registre : sur un commit d'estampillage, `^10.0.0-alpha.N` n'existe pas
+    // encore, et l'exiger vert bloquait TOUTE publication. On avait fini par
+    // lire son rouge comme une fatalité de calendrier — c'est exactement ainsi
+    // qu'un gate cesse de garder quoi que ce soit.
+    //
+    // La dépendance au registre a été coupée (`check-scaffold-format.mjs` câble
+    // ses variantes sur le checkout local), et le workflow constaté VERT sur le
+    // commit d'estampille de la 10.0.0-alpha.8, alors absente de npm. Son rouge
+    // redevient donc un vrai rouge : il parle du code généré, pas du calendrier.
     const v = verdictCiDuCommit({
       runs: [
         run("nodefony-core", "completed", "success"),
@@ -1531,7 +1535,7 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
       ],
       moiMeme: "release",
     });
-    expect(v.verdict).toBe("vert");
+    expect(v.verdict).toBe("rouge");
   });
 
   it("un workflow NEUF bloque par défaut — la liste est d'EXCLUSIONS, pas d'inclusions", () => {

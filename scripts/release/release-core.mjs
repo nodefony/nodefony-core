@@ -1086,11 +1086,15 @@ export const WORKFLOWS_NON_BLOQUANTS = [
     motif:
       "publie le site public, ne juge aucun code ; il est de toute façon republié par le job d'annonce",
   },
-  {
-    nom: "Code généré (3 systèmes)",
-    motif:
-      "il installe l'application générée DEPUIS le registre npm : sur un commit d'estampillage, la version qu'il cherche (`^10.0.0-alpha.N`) n'existe pas encore — c'est la publication que ce tag déclenche qui la crée. L'exiger vert serait un INTERBLOCAGE : le workflow attend les paquets, les paquets attendent le workflow. Constaté sur les commits de release alpha.3, alpha.4 et alpha.5, tous rouges pour ce seul motif. Le jour où le banc s'éprouvera sur les tarballs locaux (comme le smoke), cette exclusion tombera",
-  },
+  // « Code généré (3 systèmes) » a occupé cette liste, au motif qu'il installait
+  // l'application générée DEPUIS le registre : sur un commit d'estampillage, la
+  // version cherchée n'existe pas encore, et l'exiger vert aurait interbloqué
+  // toute publication. L'exclusion énonçait sa propre condition de levée — « le
+  // jour où le banc ne dépendra plus du registre » —, elle est remplie : le gate
+  // de format câble ses variantes sur le checkout local
+  // (`scripts/check-scaffold-format.mjs`). Le workflow a été constaté VERT sur
+  // le commit d'estampille de la 10.0.0-alpha.8, version alors absente de npm —
+  // la seule fenêtre où ce vert prouve quelque chose. Il bloque donc de nouveau.
   {
     nom: "Tenue dans la durée (soak RSS)",
     motif:
