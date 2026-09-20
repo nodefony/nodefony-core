@@ -8,6 +8,36 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.8 - 2026-09-20
+
+### Changed
+
+- **Breaking: framework:** refuser l'accès aux API d'administration à tout compte sans rôle, au lieu de le laisser passer (2d819407)
+- **scaffold:** générer les scripts npm d'une application sans chemin en dur (4b4daf92)
+- **deps:** monter les dépendances des quinze paquets publiés (64d0e0a5)
+
+### Added
+
+- **cli:** décrire les scripts npm du projet dans `nodefony --help`, et les lister avec `nodefony scripts` (c0c994c4)
+- **orm:** poser les contraintes d'intégrité des relations déclarées entre entités (#138) (b7659c7d)
+- **orm:** écrire et appliquer une migration de schéma en un seul geste (#430) (ef7c8953)
+- **scaffold:** rendre à `create front` la page d'accueil de `create app`, socket compris (d94d2e8a)
+
+### Removed
+
+- **scaffold:** cesser de copier dix pages d'instructions d'agent dans chaque application générée — la porte `AGENTS.md` les remplace (#432) (fcc4685b)
+
+### Fixed
+
+- **security:** fermer les trois défauts d'autorisation relevés à l'audit du pipeline (e8b2e200)
+- **security:** rendre à un utilisateur la gestion de son propre second facteur (d674d76f)
+- **cli:** répondre à `nodefony see --help` au lieu de planter (ab037beb)
+- **orm:** rendre lisible le code de sortie « action requise » de `orm:migrate` (#429) (39dcafa9)
+- **scaffold:** cesser de lire « ! » comme « obligatoire » dans la grammaire de champs d'une entité (#431) (9f0a0e63)
+- **scaffold:** semer la clé parente dans les tests générés d'une entité liée (#138, #434) (2a921873)
+- **scaffold:** bâtir l'application avant d'appeler le CLI dans la chaîne GitHub générée (d791e9a1)
+- **studio:** lire la liste des rôles depuis le serveur plutôt que d'une copie figée (#60) (a2a4111c)
+
 ## 10.0.0-alpha.7 - 2026-09-18
 
 ### Changed
