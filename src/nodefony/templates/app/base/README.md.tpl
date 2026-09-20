@@ -1,34 +1,58 @@
+<div align="center">
+
+<a href="https://github.com/nodefony/nodefony-core"><img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/nodefony-logo.png" alt="Nodefony" height="72"></a>
+
 # <%= it.appName %>
 
-Application [Nodefony](https://github.com/nodefony/nodefony-core) — générée par `nodefony create app`.
-
-<% if (it.complete) { %>Cette app n'est pas un « hello world » : c'est le **framework complet, câblé et
-prouvé** — HTTP + WebSocket dans le même controller, ORM avec persistance
-out-of-the-box, firewall applicatif, temps réel, console d'administration,
-tests, lint, infra docker. Chaque fichier est commenté : lis-les, ils expliquent
-le POURQUOI, pas juste le quoi.
-<% } else { %>App **minimale** : le socle serveur (`@nodefony/http`) + le router et les
-controllers (`@nodefony/framework`)<% if (it.front) { %> + le frontend <%= it.frontend %> servi par Vite<% } %> — la
-base saine, à faire grandir. Pour la vitrine complète (ORM, firewall, realtime,
-Studio, infra docker) : régénère avec `--preset complete`.
+<% if (it.complete) { %>**HTTP et WebSocket dans le même contrôleur, une base qui persiste, un pare-feu
+applicatif et une console d'administration** — engendrée par
+[`nodefony create app`](https://github.com/nodefony/nodefony-core), câblée et prête à tourner.
+<% } else { %>Le socle serveur et le routeur<% if (it.front) { %>, avec un frontend <%= it.frontend %> servi par Vite<% } %> — engendrée par
+[`nodefony create app`](https://github.com/nodefony/nodefony-core), minimale et saine, à faire grandir.
 <% } %>
----
+[![Nodefony](https://img.shields.io/badge/Nodefony-<%= it.nodefonyVersion.replace(/-/g, "--") %>-1f6feb?style=flat-square)](https://github.com/nodefony/nodefony-core)
+[![Node ≥ 24](https://img.shields.io/badge/Node.js-%E2%89%A5%2024-green?style=flat-square)](package.json)
+[![TypeScript strict](https://img.shields.io/badge/TypeScript-strict-blue?style=flat-square)](tsconfig.json)
 
-## 1. Démarrage express (60 secondes)
+</div>
+
+## Ce dépôt, et le framework
+
+**Ce dépôt est une application.** Il ne contient pas Nodefony : il l'utilise, comme une
+application React ne contient pas React. Le framework vit ailleurs, et c'est une distinction
+qui évite beaucoup de temps perdu.
+
+- **Comprendre ce que fait le framework** → [la documentation](https://nodefony.github.io/nodefony-core/docs/), en
+  commençant par [Par où commencer](https://nodefony.github.io/nodefony-core/docs/demarrer/).
+- **Ce qu'est Nodefony, et ce que ses partis pris coûtent** →
+  [l'architecture en vue d'ensemble](https://nodefony.github.io/nodefony-core/docs/architecture/vue-ensemble/).
+- **Le code d'un paquet que cette app importe** → [`nodefony/nodefony-core`](https://github.com/nodefony/nodefony-core),
+  dans `src/packages/@nodefony/<nom>`.
+- **Brancher VOTRE implémentation** — authentification, stockage, bus temps réel →
+  [Étendre le framework](https://nodefony.github.io/nodefony-core/docs/guides/etendre/), quatorze points d'accroche.
+- **Signaler un défaut, demander une évolution** → [les issues de `nodefony-core`](https://github.com/nodefony/nodefony-core/issues).
+- **Qui décide, et comment** → [la gouvernance](https://github.com/nodefony/nodefony-core/blob/main/GOVERNANCE.md).
+
+⚠️ **Ce que vous n'héritez PAS.** `nodefony-core` est un monorepo de développement : il porte les
+paquets du framework, mais aussi ses bancs de mesure, ses gabarits, ses suites de test et son
+outillage d'agent. **Rien de tout cela n'entre dans cette application** — le lire donne
+l'implémentation du framework, jamais ce que votre application embarque. Ce qu'elle embarque
+vraiment se lit dans **son** `package.json`, ici même.
+
+## Démarrer
 
 ```bash
 npm install
-npm run build        # bundle rolldown → dist/
-npm run dev          # serveur de développement
+npm run build<% if (it.db) { %>
+npm run infra:up     # docker : Redis + <%= it.db.label %> — AVANT l'app<% } %>
+npm run dev
 ```
 
-Puis :
+- `http://127.0.0.1:5151/api/hello` — ta première route, celle que tu iras lire en premier.<% if (it.front) { %>
+- `http://127.0.0.1:5151/` — ton application <%= it.frontend %>, rechargée à chaud pendant que tu écris.<% } %><% if (it.complete) { %>
+- `http://127.0.0.1:5151/nodefony` — **Studio**, la console d'administration.<% } %>
 
-- http://127.0.0.1:5151/api/hello — ta première route
-<% if (it.front) { %>- http://127.0.0.1:5151/ — ton app <%= it.frontend %> (HMR Vite en dev)
-<% } %><% if (it.complete) { %>- http://127.0.0.1:5151/nodefony — **Studio**, la console d'administration (dev)
-
-> **Le compte d'administration existe déjà** : `admin` / `nodefony-dev-42`. Il
+<% if (it.complete) { %>> **Le compte d'administration existe déjà** : `admin` / `nodefony-dev-42`. Il
 > est semé au PREMIER démarrage, et le journal te le redit alors en clair. Pour
 > en changer, décommente `NF_ADMIN_PASSWORD` dans `.env.local`.
 >
@@ -38,11 +62,28 @@ Puis :
 > démarrage le dit et nomme le geste :
 > `npx nodefony security:user:add admin --admin`.
 
-> L'app **persiste déjà** : sans aucune base déclarée, l'ORM Drizzle crée une
-> sqlite locale (`var/databases/`) — users, sessions et jetons y survivent aux
-> redémarrages. Aucun service externe requis pour commencer.
-<% } %>
-## 2. Visite guidée — ce que l'app démontre
+> L'app **persiste déjà** : <% if (it.db) { %>`.env` déclare `NF_DATABASE_URL` sur le <%= it.db.label %> du
+> `compose.yaml`<% } else { %>sans aucune base déclarée, l'ORM Drizzle crée une sqlite locale
+> (`var/databases/`)<% } %> — comptes, sessions et jetons survivent aux redémarrages.
+
+### Ce que la console montre
+
+Elle n'est pas un tableau de bord décoratif : elle lit le runtime en marche.
+
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-supervision.png" alt="Supervision du runtime dans la console d'administration" width="100%">
+
+_Les modules chargés, les services du conteneur d'injection, les routes montées, la mémoire et les
+connexions — l'état réel du processus, pas une configuration relue._
+
+<img src="https://raw.githubusercontent.com/nodefony/nodefony-core/main/docs/assets/studio-request.png" alt="Suivi d'une requête de bout en bout par son identifiant" width="100%">
+
+_Une requête suivie de bout en bout par son identifiant : les étapes traversées, leur durée, les
+requêtes SQL déclenchées et les journaux corrélés. C'est ce qu'on regarde quand quelque chose est
+lent, et qu'on ne sait pas encore où._
+
+<% } %>---
+
+## 1. Visite guidée — ce que l'app démontre
 
 - **Route HTTP** — `curl http://127.0.0.1:5151/api/hello`
 - **WebSocket, _même controller_** — `npx wscat -c ws://127.0.0.1:5151/api/echo` puis tape un message
@@ -58,7 +99,7 @@ Le différenciateur Nodefony tient dans `nodefony/controllers/HelloController.ts
 **une route GET et une route WEBSOCKET dans la même classe** — même pipeline,
 pas deux mondes séparés.
 
-## 3. Structure du projet
+## 2. Structure du projet
 
 - `nodefony.config.ts` — LA config de l'app : uniquement les ÉCARTS aux défauts du framework.
   Pour savoir ce qu'on a le droit d'y écrire : `npx nodefony inspect schema <module>` —
@@ -76,7 +117,7 @@ pas deux mondes séparés.
 - `vitest.e2e.config.ts` — tests e2e, config séparée : `npm test` ne montre que ce qu'il exécute
 - `var/` — données locales (sqlite, logs fichiers), gitignoré
 <% if (it.complete) { %>
-## 4. Infra de développement (docker)
+## 3. Infra de développement (docker)
 
 <% if (it.db) { %>Tu as retenu **<%= it.db.label %>** à la création : le `compose.yaml` ne porte que
 ce service (plus Redis), et `.env` déclare déjà `NF_DATABASE_URL` dessus. Lance
@@ -151,7 +192,7 @@ base ne change **rien d'autre** dans l'app. Le service docker correspondant n'es
 pas dans ce `compose.yaml` (une app y retient un seul dialecte) : ajoute-le, ou
 recrée une app avec `nodefony create app <nom> --database postgres`.
 <% } %><% } %>
-## 5. Tests — `npm test` est ton PREMIER diagnostic
+## 4. Tests — `npm test` est ton PREMIER diagnostic
 
 ```bash
 npm test             # unitaires : l'app se CHARGE (imports, décorateurs, config) — < 1 s
@@ -178,7 +219,7 @@ rien prouvé. Le test e2e utilise le lancement détaché natif du framework :
 arbitraire), et `nodefony stop` arrête proprement. Le client WebSocket est le
 `WebSocket` **natif** de Node — zéro dépendance de test.
 
-## 6. Qualité du code
+## 5. Qualité du code
 
 ```bash
 npm run typecheck    # tsgo — le bundler ne type-check PAS : gate séparé, obligatoire
@@ -202,7 +243,7 @@ familles ne pardonnent pas : le code mort (il finit par mentir) et le préfixe
 `node:` sur les modules du runtime (sans lui, un paquet npm homonyme peut prendre
 la place d'un module natif). Le reste avertit sans bloquer.
 
-## 7. Quand ça casse (troubleshooting)
+## 6. Quand ça casse (troubleshooting)
 
 Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
 
@@ -236,7 +277,7 @@ les versions.
 Si tu l'as retirée et que l'installation casse : remets-la, supprime
 `node_modules`, relance `npm install`. Rien à compiler, SQLite fonctionne.
 <% } %>
-## 8. Production (cloud-native)
+## 7. Production (cloud-native)
 
 ```bash
 npm run build        # backend (rolldown)<% if (it.front) { %> + frontend (vite → public/dist, fingerprinté)<% } %>
@@ -401,7 +442,7 @@ l'orchestrateur (k8s, Swarm, Cloud Run…).<% if (it.complete) { %> Studio est c
 zone firewall puis passe la policy à `"mandatory"` (la recette est commentée
 dans `nodefony.config.ts`).<% } %>
 
-## 9. Développer le framework lui-même (`--link`)
+## 8. Développer le framework lui-même (`--link`)
 
 Si cette app a été générée avec `--link`, les dépendances `nodefony`/`@nodefony/*`
 pointent en `file:` vers un checkout local de `nodefony-core` : tu modifies le
@@ -409,7 +450,7 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 `package.json` tel quel — après la release npm, régénère sans `--link`
 (versions `^<%= it.nodefonyVersion %>`).
 
-## 10. Aller plus loin
+## 9. Aller plus loin
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
 - **Régler un module sans deviner** : `npx nodefony inspect schema <module>` liste les clés
