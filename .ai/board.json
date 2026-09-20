@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-19T21:01:48.293Z",
+  "generatedAt": "2026-09-20T08:57:55.122Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 128,
+      "closed": 132,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 4,
+      "open": 3,
       "title": "10.0.0-alpha"
     },
     {
@@ -4580,10 +4580,10 @@
     },
     {
       "number": 33,
-      "title": "feat(studio): protéger toute la surface d'administration par un rôle",
+      "title": "feat(framework): fermer les API d'administration aux comptes sans rôle",
       "url": "https://github.com/nodefony/nodefony-core/issues/33",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -4624,6 +4624,54 @@
       "cible": null,
       "labels": [
         "10.2.0"
+      ]
+    },
+    {
+      "number": 437,
+      "title": "fix(core): juger un rôle d'administration avec la hiérarchie, pas au nom exact",
+      "url": "https://github.com/nodefony/nodefony-core/issues/437",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 12.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 438,
+      "title": "fix(framework): retirer de la surface publique la dispense de rôle d'une zone",
+      "url": "https://github.com/nodefony/nodefony-core/issues/438",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 12.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
+      ]
+    },
+    {
+      "number": 439,
+      "title": "fix(security): garder les canaux de plateforme par un rôle de plateforme",
+      "url": "https://github.com/nodefony/nodefony-core/issues/439",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 12.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "10.0.0-alpha"
       ]
     },
     {

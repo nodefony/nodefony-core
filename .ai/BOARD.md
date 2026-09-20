@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-19 21:01** (UTC).
+> Empreinte prise le **2026-09-20 08:57** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 128 | 4 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 98% | 132 | 3 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 35% | 19 | 36 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#33 — feat(studio): protéger toute la surface d'administration par un rôle**
+**#60 — fix(studio): lire la liste des rôles depuis le serveur**
 
-Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-21 → 09-21
+Ordre 13 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-22 → 09-22
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 4 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 3 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -87,15 +87,6 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | --- | --- | ---: | --- | --- | --- |
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
-
-## Jalon 10.0.0-alpha — 4 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 12 | P1 — figé à la création | 1 | 2026-09-21 → 09-21 | #33 | feat(studio): protéger toute la surface d'administration par un rôle |
-| 13 | P1 — figé à la création | 1 | 2026-09-22 → 09-22 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
-| 20 | P2 — décision | 1 | 2026-09-23 → 09-23 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
-| 55 | P3 — fin de cycle | 1 | 2026-09-24 → 09-24 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.1.0 — 30 ouverts
 
@@ -164,6 +155,14 @@ Ordre 12 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2
 | 159 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
 | 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
+
+## Jalon 10.0.0-alpha — 3 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 13 | P1 — figé à la création | 1 | 2026-09-22 → 09-22 | #60 | fix(studio): lire la liste des rôles depuis le serveur |
+| 20 | P2 — décision | 1 | 2026-09-23 → 09-23 | #292 | chore(env): trancher le préfixe des variables propres à l'application |
+| 55 | P3 — fin de cycle | 1 | 2026-09-24 → 09-24 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
 
 ## Jalon 10.0.0 — 2 ouverts
 
