@@ -1,17 +1,18 @@
 ---
 name: nodefony-devkit-bench
 description: >
-  Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout
-  (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il
-  l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable
-  avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur
-  produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript).
-  À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les
-  assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type
-  généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges.
+  Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré
+  tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche
+  découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que
+  conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution
+  des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des
+  chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un
+  lecteur conclut le contraire de ce qu'on croit écrire.
   Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create
-  entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "un
-  vrai schéma est-il exprimable ?", "combien de tours a pris l'agent ?".
+  entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?",
+  "un vrai schéma est-il exprimable ?", "combien de tours a pris l'agent ?",
+  "un agent recommanderait-il ce framework ?", "que conclut un agent en lisant le dépôt ?",
+  "notre accueil dit-il vrai ?".
 metadata:
   version: 1.3.0
 ---
@@ -291,11 +292,12 @@ le dépôt.
 Chaque banc a son décor, ses seuils, ses contrôles internes et ses pièges d'interprétation. On en
 lance **un à la fois** : les garder tous dans le corps ferait payer les trois à qui n'en veut qu'un.
 
-| Banc               | La question                                           | Charger AVANT de lancer                                                  |
-| ------------------ | ----------------------------------------------------- | ------------------------------------------------------------------------ |
-| **Vérité**         | le code généré compile, teste et répond en HTTP ?     | [`references/banc-verite.md`](references/banc-verite.md)                 |
-| **Découvrabilité** | un agent lâché dans une app fraîche trouve-t-il ?     | [`references/banc-decouvrabilite.md`](references/banc-decouvrabilite.md) |
-| **Conformité**     | l'application tient-elle les promesses du framework ? | [`references/banc-conformite.md`](references/banc-conformite.md)         |
+| Banc               | La question                                              | Charger AVANT de lancer                                                            |
+| ------------------ | -------------------------------------------------------- | ---------------------------------------------------------------------------------- |
+| **Vérité**         | le code généré compile, teste et répond en HTTP ?        | [`references/banc-verite.md`](references/banc-verite.md)                           |
+| **Découvrabilité** | un agent lâché dans une app fraîche trouve-t-il ?        | [`references/banc-decouvrabilite.md`](references/banc-decouvrabilite.md)           |
+| **Conformité**     | l'application tient-elle les promesses du framework ?    | [`references/banc-conformite.md`](references/banc-conformite.md)                   |
+| **1ʳᵉ impression** | que conclut un agent en LISANT le dépôt, sans y entrer ? | [`references/banc-premiere-impression.md`](references/banc-premiere-impression.md) |
 
 **Ce qu'il faut savoir sans ouvrir** — de quoi choisir, jamais de quoi lancer :
 

@@ -87,6 +87,17 @@ export const IMPUTATIONS = Object.freeze({
   // rouge à l'agent le condamnerait pour une panne d'outil.
   "doctor-illisible": DECOR,
 
+  // PREMIÈRE IMPRESSION — les quatre motifs FAUX que le banc d'accueil relève.
+  // Ils sont du DÉCOR au sens le plus strict : l'agent a conclu depuis ce qu'on
+  // lui a DONNÉ à lire, et aucun geste de sa part ne peut les produire — il ne
+  // fait que lire. Le défaut est dans ce que le dépôt publie, et c'est
+  // précisément ce que ce banc mesure. Les classer contre l'agent
+  // reviendrait à reprocher à un lecteur ce qu'une page ne dit pas.
+  "herite-du-depot": DECOR,
+  "trop-de-dependances": DECOR,
+  "doc-inatteignable": DECOR,
+  "calendrier-absent": DECOR,
+
   // ─── INDÉTERMINÉ — l'agent PEUT l'avoir produite ──────────────────────────
   // Toute la famille « pas de réponse HTTP ». La gate construit et démarre
   // l'application avant de juger (`npm run build` puis `nodefony development

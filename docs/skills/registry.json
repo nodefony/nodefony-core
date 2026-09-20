@@ -664,15 +664,15 @@
     },
     {
       "name": "nodefony-devkit-bench",
-      "summary": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs.",
+      "summary": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer.",
       "family": "Autres",
       "version": "1.3.0",
       "keywords": [],
       "triggers": [],
-      "description": "Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\".",
+      "description": "Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - \"j'ai modifié le scaffold\", \"le code généré compile-t-il ?\", \"est-ce que create entity marche encore ?\", \"rejouer le banc devkit\", \"l'agent trouve-t-il les générateurs ?\", \"un vrai schéma est-il exprimable ?\", \"combien de tours a pris l'agent ?\", \"un agent recommanderait-il ce framework ?\", \"que conclut un agent en lisant le dépôt ?\", \"notre accueil dit-il vrai ?\".",
       "cost": {
-        "bodyLines": 404,
-        "approxTokens": 7320
+        "bodyLines": 405,
+        "approxTokens": 7378
       },
       "requires": [
         "serveur UP",
@@ -686,12 +686,13 @@
           "banc-conformite.md",
           "banc-decouvrabilite-lecons.md",
           "banc-decouvrabilite.md",
+          "banc-premiere-impression.md",
           "banc-schema-etudes-de-cas.md",
           "banc-verite.md",
           "methode-de-mesure.md",
           "tache-zero.md"
         ],
-        "referenceFilesTotal": 8,
+        "referenceFilesTotal": 9,
         "scripts": [
           {
             "path": "scripts/analyse-transcript.mjs",
@@ -1291,6 +1292,67 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/bench-first-impression.mjs",
+            "purpose": "Banc de PREMIÈRE IMPRESSION — ce qu'un agent conclut du dépôt, sans y entrer.",
+            "usage": [
+              "node bench-first-impression.mjs                 # un run, décor sain"
+            ],
+            "options": [
+              {
+                "flag": "--answer",
+                "help": ""
+              },
+              {
+                "flag": "--dangerously-skip-permissi",
+                "help": ""
+              },
+              {
+                "flag": "--decor-only",
+                "help": ""
+              },
+              {
+                "flag": "--keep",
+                "help": ""
+              },
+              {
+                "flag": "--model",
+                "help": ""
+              },
+              {
+                "flag": "--mount",
+                "help": ""
+              },
+              {
+                "flag": "--out",
+                "help": ""
+              },
+              {
+                "flag": "--prove",
+                "help": ""
+              }
+            ],
+            "env": [
+              {
+                "name": "AGENT",
+                "help": ""
+              },
+              {
+                "name": "MODEL",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_AGENT",
+                "help": ""
+              },
+              {
+                "name": "NF_DEVKIT_BENCH_MODEL",
+                "help": ""
+              }
+            ],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/bench-schema.mjs",
             "purpose": "Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer.",
             "usage": [],
@@ -1871,7 +1933,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "1016",
+            "detail": "1014",
             "advisory": false
           },
           {
@@ -1913,7 +1975,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "404",
+            "detail": "405",
             "advisory": true
           }
         ]

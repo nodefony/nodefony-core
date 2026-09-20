@@ -3,6 +3,7 @@
   "_geste": "Un script qu'on cable (npm, forge, autre script) doit SORTIR de cette liste. Un script neuf documente sans etre lance doit y ENTRER, sciemment.",
   "documentes-jamais-lances": [
     ".claude/skills/nodefony-devkit-bench/scripts/analyse-transcript.mjs",
+    ".claude/skills/nodefony-devkit-bench/scripts/bench-first-impression.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/build-devkit-report.mjs",
     ".claude/skills/nodefony-devkit-bench/scripts/suivre-run.mjs",
     ".claude/skills/nodefony-devkit-bench/suites/harness.ts",

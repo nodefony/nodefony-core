@@ -112,6 +112,7 @@ const LOT_ATTENDU = new Set([
   "lib/juges-collecte.selftest.mjs",
   "lib/premisse-identite.selftest.mjs",
   "lib/passes.selftest.mjs",
+  "lib/premiere-impression.selftest.mjs",
   "lib/reference.selftest.mjs",
   "lib/tache-zero.selftest.mjs",
 ]);

@@ -5,14 +5,14 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-20
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---
 
 # `nodefony-devkit-bench`
 
-> Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs.
+> Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-devkit-bench**
 
@@ -28,17 +28,17 @@ source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 | --- | --- |
 | Version | `1.3.0` |
 | Famille | Autres |
-| Corps | 404 lignes |
-| Coût d'activation | ~7 320 tokens (le corps est chargé à l'invocation) |
-| Description | 1016 / 1024 caractères |
+| Corps | 405 lignes |
+| Coût d'activation | ~7 378 tokens (le corps est chargé à l'invocation) |
+| Description | 1014 / 1024 caractères |
 | Déclencheurs | 0 |
-| Ressources `references/` | 8 page(s) |
-| Scripts | 13 |
+| Ressources `references/` | 9 page(s) |
+| Scripts | 14 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Éprouve ce que le scaffold de Nodefony PRODUIT, par trois mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage au lieu de deviner, et le modèle de données d'un vrai logiciel libre est-il exprimable avec la grammaire de champs. Vise DEUX buts : que l'agent n'invente rien qu'un générateur produise, et qu'il y arrive en un minimum de TOURS (tours, durée et coût sont dans le transcript). À charger AVANT de déclarer finie une évolution des gabarits ou du moteur de génération : les assertions du dépôt lisent des chaînes dans des fichiers rendus, elles ne voient pas qu'un type généré ne compile pas. Porte l'interprétation des échecs et l'auto-contrôle des juges. Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "un vrai schéma est-il exprimable ?", "combien de tours a pris l'agent ?".
+Éprouve ce que Nodefony PRODUIT et ce qu'il fait CROIRE, par quatre mesures — le code généré tient-il debout (compilation, tests, HTTP réel), un agent lâché dans une application fraîche découvre-t-il l'outillage, le modèle de données d'un vrai logiciel libre est-il exprimable, et que conclut un agent qui lit le dépôt sans y entrer. À charger AVANT de déclarer finie une évolution des gabarits, du moteur de génération ou des pages d'accueil : les assertions du dépôt lisent des chaînes dans des fichiers rendus — elles ne voient ni qu'un type généré ne compile pas, ni qu'un lecteur conclut le contraire de ce qu'on croit écrire. Déclencheurs - "j'ai modifié le scaffold", "le code généré compile-t-il ?", "est-ce que create entity marche encore ?", "rejouer le banc devkit", "l'agent trouve-t-il les générateurs ?", "un vrai schéma est-il exprimable ?", "combien de tours a pris l'agent ?", "un agent recommanderait-il ce framework ?", "que conclut un agent en lisant le dépôt ?", "notre accueil dit-il vrai ?".
 
 ## Prérequis
 
@@ -72,6 +72,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/banc-conformite.md` | Banc de conformité — l'application tient-elle les promesses du framework ? | 212 |
 | `references/banc-decouvrabilite-lecons.md` | Banc de découvrabilité — leçons et études de cas | 662 |
 | `references/banc-decouvrabilite.md` | Banc de découvrabilité — l'agent trouve-t-il ? | 223 |
+| `references/banc-premiere-impression.md` | Banc de première impression — ce qu'un agent conclut du dépôt sans y entrer | 100 |
 | `references/banc-schema-etudes-de-cas.md` | Banc de schéma — études de cas | 48 |
 | `references/banc-verite.md` | Banc de vérité — le code généré tient-il debout ? | 196 |
 | `references/methode-de-mesure.md` | Méthode de mesure — ce que le banc devkit a appris sur lui-même | 87 |
@@ -88,6 +89,7 @@ script, donc toujours à jour après régénération.
 | `scripts/analyse-transcript.mjs` | Dépouille le transcript d'un agent — d'où qu'il vienne. | `--dialecte` `--echecs` `--grep` `--json` `--large` `--outils` `--timeline` | `USAGE` |
 | `scripts/bench-discoverability.mjs` | Banc de DÉCOUVRABILITÉ du devkit — le gate de la release 10.0.0. | `--agent` `--all` `--allow-empty` `--analyze-only` `--ancien-args` `--answers-json` `--auth` `--check-port-free` `--command` `--confirmer` `--dangerously-skip-permissi` `--decor` `--depistage` `--describe-json` `--detach` `--diff-filter` `--dir` `--dry-run` `--enregistrer-reference` `--format` `--frontend` `--hard` `--help` `--ignored` `--json` `--kind` `--left` `--link` `--max-parents` `--max-time` `--mcp-config` `--model` `--name` `--name-only` `--no-audit` `--no-check` `--no-fund` `--no-install` `--numstat` `--output-format` `--porcelain` `--porteur-args` `--preset` `--purge` `--repack` `--reset` `--rest` `--role` `--roles` `--route` `--runs` `--scope` `--selftest` `--setup-only` `--short` `--status` `--strict-mcp-config` `--task` `--temoin-args` `--ttl` `--unified` `--verbose` `--wait` `--yes` | `AGENT` `CANAL_OPS_ALERTES` `CHAMP_DEMANDE` `ENTITE_MIGREE` `JUGE_CSP` `JUGE_CSRF_PARTENAIRE` `JUGE_ENTITY_DELETE` `JUGE_LISTE` `JUGE_M2M` `JUGE_MEDIA` `JUGE_MIGRATION` `JUGE_MODULE` `JUGE_PARAM` `JUGE_PREFIXE` `JUGE_REALTIME_CHANNEL` `JUGE_ROLE_HIERARCHY` `JUGE_SECURE` `JUGE_SESSION` `JUGE_TACHE_ZERO` `JUGE_THROTTLE` `JUGE_UPLOAD` `JUGE_USER_FIELD` `JUGE_ZONE` `LINKED` `MCP_REGIME` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MCP` `NF_DEVKIT_BENCH_MODEL` `NF_MCP_TOKEN` `NOM_APP_TEMOIN` `ORIGINE_PARTENAIRE` `PAGE_WIDGET` `PREPARE_BASE_MIGREE` `PREPARE_MODULE_ABSENT` `PREPARE_ROLE_HIERARCHY` `PREPARE_UTILISATEUR` `REPERE_PREFIXE_COMPTE` `ROLE_FACTURATION` `ROUTE_ARTICLES` `ROUTE_CATALOGUE` `ROUTE_COMMANDES` `ROUTE_COMPTE_FACTURES` `ROUTE_COMPTE_PROFIL` `ROUTE_DEPOT` `ROUTE_FACTURATION` `ROUTE_IMPORT` `ROUTE_MACHINE` `ROUTE_SYNTHESE` `RUN_ROOT` `TITRE_SEME` |
 | `scripts/bench-discoverability.selftest.mjs` | Auto-contrôle des sondes du banc de découvrabilité — le juge, AVANT le verdict. | `--analyze-only` `--answers-json` `--describe-json` `--detach` `--dry-run` `--frontend` `--help` `--json` `--kind` `--limit` `--name` `--no` `--no-check` `--no-install` `--prove` `--yes` | `NF_CLE` |
+| `scripts/bench-first-impression.mjs` | Banc de PREMIÈRE IMPRESSION — ce qu'un agent conclut du dépôt, sans y entrer. | `--answer` `--dangerously-skip-permissi` `--decor-only` `--keep` `--model` `--mount` `--out` `--prove` | `AGENT` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_MODEL` |
 | `scripts/bench-schema.mjs` | Banc de SCHÉMA — ce que la grammaire de champs ne sait pas exprimer. | `--allow-empty` `--analyze-only` `--dangerously-skip-permissi` `--detach` `--dialect` `--dir` `--dump-only` `--frontend` `--jq` `--json` `--link` `--model` `--no-audit` `--no-fund` `--no-install` `--output-format` `--preset` `--repack` `--schema` `--schema-only` `--setup-only` `--verbose` `--wait` `--yes` | `AGENT` `DIALECT` `LINKED` `MODEL` `NF_DEVKIT_BENCH_AGENT` `NF_DEVKIT_BENCH_AGENT_ARGS` `NF_DEVKIT_BENCH_MODEL` `NF_MYSQL_URL` `NF_PG_URL` |
 | `scripts/bench-schema.selftest.mjs` | Éprouve le BANC lui-même — avant qu'il ne juge quoi que ce soit. | `--allow-no-pg` `--dump-only` `--prove` `--schema` | `JUDGE_TABLE` `NF_PG_URL` |
 | `scripts/build-devkit-report.mjs` | Construit la page « Un agent sait-il développer avec Nodefony ? ». | `--analyze-only` `--data` `--out` `--runs` | `DATA` `OUT` |
@@ -104,6 +106,7 @@ script, donc toujours à jour après régénération.
 ```bash
 node analyse-transcript.mjs <fichier> [--timeline] [--echecs] [--outils]
 node bench-discoverability.selftest.mjs
+node bench-first-impression.mjs                 # un run, décor sain
 node .claude/skills/nodefony-devkit-bench/scripts/bench-schema.selftest.mjs
 node scripts/build-devkit-report.mjs [--data docs/devkit/data/10.0.0.json] [--out tmp/devkit.html]
 node memoires-agent.selftest.mjs
@@ -127,14 +130,14 @@ node scripts/verify-generated.mjs            # décor ISOLÉ + toutes les étape
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1016 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 1014 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 404 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 405 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
