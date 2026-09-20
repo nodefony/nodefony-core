@@ -1335,7 +1335,12 @@ function renderPage(d, published, index, publishedPaths) {
       (FAVICON
         ? `<link rel="icon" href="${rel(d.url, "/")}${FAVICON.slice(1)}">\n`
         : "") +
-      `<link rel="canonical" href="${SITE_URL}${esc(d.url)}">`,
+      `<link rel="canonical" href="${SITE_URL}${esc(d.url)}">\n` +
+      // Le markdown de la page, servi à côté d'elle : un agent l'obtient sans
+      // HTML, en un seul appel, au bon grain. C'est ce qui remplace un
+      // `llms-full.txt` de trois mégaoctets — qu'un lecteur tronquerait par le
+      // haut, lisant un tiers arbitraire du corpus en croyant l'avoir lu entier.
+      `<link rel="alternate" type="text/markdown" href="index.md">`,
     subtitle: badges ? `<span class="badges">${badges}</span>` : "",
     sections: [html],
     nav: buildNav(published, d),
@@ -1350,6 +1355,14 @@ function renderPage(d, published, index, publishedPaths) {
   const dir = path.join(OUT, d.url.replace(/^\//, ""));
   mkdirSync(dir, { recursive: true });
   writeFileSync(path.join(dir, "index.html"), page);
+  // Le markdown porte un en-tête minimal : un agent qui ne reçoit que ce fichier
+  // doit savoir de quelle page il s'agit et d'où elle vient. Ses liens sont ceux
+  // de la page HTML voisine — même dossier, donc même base relative.
+  writeFileSync(
+    path.join(dir, "index.md"),
+    `---\ntitle: ${JSON.stringify(d.title)}\nsource: ${d.repoRel}\n` +
+      `url: ${SITE_URL}${d.url}\n---\n\n${linked}`,
+  );
   return {
     bytes: page.length,
     dead: ext.dead,

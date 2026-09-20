@@ -144,6 +144,7 @@ jobs:
           test -s dist-site/docs/index.html
           test -s dist-site/docs/modules/security/firewall/index.html
           test -s dist-site/performance/latest/index.html
+          test -s dist-site/docs/modules/security/firewall/index.md
           test -s dist-site/llms.txt
           test -s dist-site/sitemap.xml
           test -s dist-site/robots.txt

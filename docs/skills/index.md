@@ -190,7 +190,7 @@ source: "docs/skills/index.md"
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |
 | [`nodefony-devkit-bench`](nodefony-devkit-bench.md) | 1.3.0 | 404 | 8 | 13 | ✅ |
 | [`nodefony-devops`](nodefony-devops.md) | 1.0.0 | 131 | 0 | 0 | ✅ |
-| [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 471 | 2 | 10 | ✅ |
+| [`nodefony-documentation`](nodefony-documentation.md) | 3.0.0 | 479 | 2 | 10 | ✅ |
 | [`nodefony-framework-dev`](nodefony-framework-dev.md) | 2.0.0 | 397 | 10 | 0 | ✅ |
 | [`nodefony-frontend-dev`](nodefony-frontend-dev.md) | 1.0.0 | 114 | 6 | 0 | ✅ |
 | [`nodefony-html-report`](nodefony-html-report.md) | — | 360 | 3 | 8 | ✅ |

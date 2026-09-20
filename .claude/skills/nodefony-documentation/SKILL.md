@@ -73,6 +73,14 @@ sur la résolution des liens, exactement le défaut que ces briques existent pou
   navigateur — la publication tourne sur une machine sans Chromium.
 - **Aucun HTML n'est versionné** : le rendu ne vit que dans l'artefact publié (`dist-site/` est
   ignoré par git). La source est le Markdown.
+- **Le site s'adresse aussi aux AGENTS**, et par trois voies : chaque page publie son markdown à
+  côté d'elle (`index.md`, déclaré en `<link rel="alternate">`) ; `scripts/build-site-plan.mjs`
+  écrit `llms.txt` (le plan de lecture, qui pointe ces markdowns), `sitemap.xml` et `robots.txt`.
+  Ce script lit l'artefact **rendu**, jamais les sources — le tri du périmètre reste dans
+  `build-docs-site.mjs`, et il contrôle que le plan et l'index de recherche décrivent le même
+  corpus. Il tourne APRÈS les trois rendus dans `pages.yml`. Pas de `llms-full.txt` : concaténer
+  le corpus ferait 3 Mo, qu'un lecteur tronque par le haut — il lirait un tiers arbitraire en
+  croyant avoir tout lu. Le bon grain est la page.
 
 ## Briques front — API exacte
 

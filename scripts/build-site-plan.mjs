@@ -98,6 +98,11 @@ function renderedPages(root) {
         ),
         canonical:
           /<link\s+rel="canonical"\s+href="([^"]*)"/i.exec(head)?.[1] ?? "",
+        // Le markdown voisin, quand le générateur l'a publié : c'est LUI que le
+        // plan donne à lire, pas la page HTML. Un agent qui reçoit du markdown ne
+        // dépense rien à en extraire le texte, et ne confond pas le contenu avec
+        // le chrome de la page.
+        markdown: fs.existsSync(path.join(path.dirname(abs), "index.md")),
       };
     })
     .sort((a, b) => a.urlPath.localeCompare(b.urlPath, "en"));
@@ -250,7 +255,8 @@ function llmsPlan(pages, base) {
  * @returns la ligne markdown, description comprise quand la page en déclare une.
  */
 function entryLine(page, base) {
-  const url = page.canonical || `${base}/${page.urlPath}`;
+  const html = page.canonical || `${base}/${page.urlPath}`;
+  const url = page.markdown ? `${html}index.md` : html;
   const description = shorten(page.description);
   return `- [${page.title}](${url})${description ? `: ${description}` : ""}`;
 }
@@ -342,6 +348,40 @@ if (!fs.existsSync(path.join(out, "index.html"))) {
 }
 
 const pages = renderedPages(out);
+
+/**
+ * Le plan et l'index de recherche doivent décrire le MÊME corpus.
+ *
+ * Ce sont deux sorties du même générateur, produites par deux chemins différents :
+ * l'index vient du scan des sources, le plan du balayage de l'artefact. Une page
+ * écartée d'un côté et pas de l'autre est un défaut de périmètre qui ne se voit
+ * nulle part — la page reste trouvable par la recherche et absente du plan, ou
+ * l'inverse. On le constate ici, là où les deux existent côte à côte.
+ */
+function checkSearchIndexAgreement(rendered, root) {
+  const indexPath = path.join(root, "docs", "search-index.json");
+  if (!fs.existsSync(indexPath))
+    return "index de recherche absent — non comparé";
+  const indexed = new Set(
+    JSON.parse(fs.readFileSync(indexPath, "utf8")).docs.map((d) => d.path),
+  );
+  const planned = new Set(
+    rendered
+      .filter((p) => p.segment === "docs")
+      .map((p) => p.urlPath.replace(/^docs\//, "")),
+  );
+  const missing = [...planned].filter((p) => !indexed.has(p));
+  const extra = [...indexed].filter((p) => !planned.has(p));
+  if (missing.length || extra.length)
+    throw new Error(
+      `le plan et l'index de recherche divergent — ` +
+        `dans le plan seul : ${missing.join(", ") || "aucune"} · ` +
+        `dans l'index seul : ${extra.join(", ") || "aucune"}`,
+    );
+  return `${indexed.size} pages de documentation, plan et recherche d'accord`;
+}
+
+const agreement = checkSearchIndexAgreement(pages, out);
 // La base se CONSTATE sur la page d'accueil quand elle porte un canonical : une
 // base passée à la main et une page rendue sous une autre origine produiraient un
 // plan qui pointe à côté du site qu'il décrit.
@@ -356,6 +396,7 @@ fs.writeFileSync(path.join(out, "robots.txt"), robotsTxt(base));
 
 console.log(
   `plan du site écrit — ${pages.length} pages · base ${base}\n` +
+    `  ${agreement}\n` +
     `  llms.txt     ${fs.statSync(path.join(out, "llms.txt")).size} octets\n` +
     `  sitemap.xml  ${fs.statSync(path.join(out, "sitemap.xml")).size} octets\n` +
     `  robots.txt   ${fs.statSync(path.join(out, "robots.txt")).size} octets`,
