@@ -192,6 +192,15 @@ export const env = defineEnv({
   // Developer Settings › OAuth Apps). OPTIONNELS : un fournisseur n'est monté
   // QUE si SES deux secrets sont présents (sinon le bouton n'apparaît pas, 0
   // route morte). JAMAIS commités — `.env` local ou secret-manager.
+  //
+  // 🔴 CES QUATRE NOMS N'ONT PAS DE PRÉFIXE `NF_`, ET C'EST UNE DÉCISION.
+  // Le préfixe dit à qui appartient la VALEUR, pas qui la lit : ces
+  // identifiants sont ÉMIS par Google et GitHub, et leur écosystème fixe déjà
+  // leur nom (la documentation des deux fournisseurs, Auth.js, Passport).
+  // Préfixer reviendrait à revendiquer un bien qui n'est pas le nôtre et à
+  // obliger l'utilisateur à dédoubler une variable qu'il possède déjà. La règle
+  // et ses trois exceptions : `CLAUDE.md`, § variables d'environnement.
+  // Le test : QUI a émis cette valeur ? Google ⇒ son nom. Nous ⇒ `NF_`.
   GOOGLE_CLIENT_ID: envString({
     optional: true,
     description: "OAuth Google — Client ID (Google Cloud Console).",
@@ -221,7 +230,12 @@ export const env = defineEnv({
    * ⚠️ Enregistrer le callback chez le fournisseur en `https://localhost:5152/...`.
    * Google : si `https://localhost` est refusé, utiliser `http://localhost:5151`.
    */
-  OAUTH_REDIRECT_BASE: envString({
+  //
+  // Préfixée, elle : contrairement aux quatre ci-dessus, personne ne l'émet —
+  // c'est l'application qui se la donne. Un nom générique que l'application se
+  // donne est une collision pure, et une collision ne se manifeste jamais par
+  // une erreur.
+  NF_OAUTH_REDIRECT_BASE: envString({
     default: "https://localhost:5152",
     description: "Base d'URL des callbacks OAuth (exact match fournisseur).",
   }),

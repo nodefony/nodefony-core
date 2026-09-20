@@ -481,7 +481,13 @@ projet ni du framework. C'est le modèle Spring Boot starter / Symfony bundle, t
   dédiée ci-dessus dit laquelle. Un réglage qui « ne prend pas » vient souvent de là.
 - **Les variables d'environnement du framework se préfixent `NF_`.** Les noms génériques
   appartiennent à d'autres outils, et une collision ne se manifeste jamais par une erreur : juste
-  par un comportement inexplicable.
+  par un comportement inexplicable. Le préfixe dit **à qui appartient la valeur**, pas qui la lit :
+  ce que votre application se donne à elle-même le porte aussi. Trois choses en sont dispensées —
+  ce que l'on ne possède pas (`NODE_ENV`, `CI`), les alias qu'un hébergeur pose lui-même
+  (`DATABASE_URL`, `REDIS_URL`, acceptés en second rang derrière la forme `NF_`), et les
+  identifiants **émis par un service tiers** dont l'écosystème fixe déjà le nom
+  (`GOOGLE_CLIENT_ID`, `GITHUB_CLIENT_SECRET`) : ceux-là, vous les avez déjà, Nodefony les lit tels
+  quels plutôt que de vous les faire recopier.
 
 ## 🧪 Tests & couverture
 

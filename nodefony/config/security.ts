@@ -65,7 +65,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
               github: {
                 clientId: ctx.env.GITHUB_CLIENT_ID,
                 clientSecret: ctx.env.GITHUB_CLIENT_SECRET,
-                redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
+                redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
                 ...oauthPerProvider,
               },
             }
@@ -75,7 +75,7 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
               google: {
                 clientId: ctx.env.GOOGLE_CLIENT_ID,
                 clientSecret: ctx.env.GOOGLE_CLIENT_SECRET,
-                redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/google/callback`,
+                redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/google/callback`,
                 ...oauthPerProvider,
               },
             }

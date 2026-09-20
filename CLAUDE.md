@@ -480,13 +480,23 @@ Les **invariants** qui doivent rester présents en permanence :
   `REDIS_HOST`, `POD_NAME` sont des noms que d'autres outils revendiquent, et une collision se
   manifeste par un comportement inexplicable, jamais par une erreur. Le préfixe dit À QUI
   appartient la variable — c'est sa seule raison d'être, et elle suffit.
-  Deux exceptions, et deux seulement. (1) Les variables qu'on **ne possède pas** : `NODE_ENV`,
+  **Ce que le préfixe dit : à qui appartient la VALEUR — pas qui la lit.** Le test qui tranche
+  tient en une question : **qui a ÉMIS cette valeur ?** Nous ⇒ `NF_`. Quelqu'un d'autre ⇒ son nom.
+  Trois exceptions, et trois seulement. (1) Les variables qu'on **ne possède pas** : `NODE_ENV`,
   `CI`, `NODE_DEBUG`, `UV_THREADPOOL_SIZE`, `KUBERNETES_SERVICE_HOST`… — elles se lisent, ne se
   renomment pas. (2) Les **alias de plateforme qu'un hébergeur POSE lui-même** (`DATABASE_URL`,
   `REDIS_URL`, `MONGODB_URI`, `APP_ENV`) : acceptés, mais en **SECOND rang** derrière la forme
-  `NF_` (`resolveInfra`, `APP_ENV || NF_ENV`). Le test qui tranche : **un PaaS pose-t-il ce nom ?**
-  `REDIS_URL` oui (Heroku, Render, Upstash) ⇒ alias. `REDIS_HOST`, `POD_NAME` non — personne ne
-  les pose, c'est l'application qui se les donne ⇒ collision pure, donc préfixe obligatoire.
+  `NF_` (`resolveInfra`, `APP_ENV || NF_ENV`). Un PaaS pose-t-il ce nom ? `REDIS_URL` oui (Heroku,
+  Render, Upstash) ⇒ alias. `REDIS_HOST`, `POD_NAME` non — personne ne les pose, c'est
+  l'application qui se les donne ⇒ collision pure, donc préfixe obligatoire.
+  (3) Les **identifiants ÉMIS par un service tiers, dont l'écosystème fixe déjà le nom** :
+  `GOOGLE_CLIENT_ID`/`_SECRET`, `GITHUB_CLIENT_ID`/`_SECRET` (`env.ts:204-219`). Cette valeur
+  n'est pas à nous — elle est délivrée par Google ou GitHub, et leur documentation, Auth.js et
+  Passport emploient tous ce nom. Préfixer reviendrait à revendiquer le bien d'autrui et à forcer
+  l'utilisateur à dédoubler une variable qu'il possède déjà ; pire, deux valeurs finiraient par
+  diverger en silence. ⚠️ L'exception porte sur l'identifiant REÇU, jamais sur le réglage qu'on
+  bâtit autour : la base des callbacks n'est émise par personne, c'est l'application qui se la
+  donne, donc `NF_OAUTH_REDIRECT_BASE` (`env.ts:238`).
   ✅ **La dette est SOLDÉE** : `NODEFONY_*` (18), génériques (12) et interrupteurs de coût (6)
   renommés d'un bloc avant la release, **sans alias de compatibilité**. Ne pas en réintroduire.
   ⚠️ Une garde d'isolation de test qui purge `REDIS_URL` sans purger `NF_REDIS_URL` est

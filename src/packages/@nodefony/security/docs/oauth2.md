@@ -163,6 +163,13 @@ reste de l'application démarre, le bouton correspondant n'apparaît simplement 
 Un fournisseur n'est monté **que si ses deux secrets sont présents** : pas de bouton mort sur l'écran
 de login quand la variable manque.
 
+> **Pourquoi ces deux noms n'ont pas de préfixe `NF_`, contrairement à la règle.** Le préfixe dit à
+> qui appartient la valeur, pas qui la lit — et `GITHUB_CLIENT_ID` vous est **délivré par GitHub**.
+> Son nom est celui que la documentation du fournisseur, Auth.js et Passport emploient déjà : si
+> votre application en a une, Nodefony la lit telle quelle plutôt que de vous faire recopier la même
+> valeur sous un second nom, qui finirait par diverger. La base des callbacks, elle, n'est émise par
+> personne : c'est un réglage que votre application se donne, donc `NF_OAUTH_REDIRECT_BASE`.
+
 ```typescript
 // env.ts — SEUL lecteur de process.env (catalogue typé, validé au boot).
 // nodefony.config.ts — `ctx.env` EST ce catalogue (typé par le paramètre générique).
@@ -173,7 +180,7 @@ export const env = defineEnv({
   GITHUB_CLIENT_SECRET: envString({ optional: true }),
   // Base des callbacks : doit correspondre EXACTEMENT à l'URL enregistrée chez
   // le fournisseur (RFC 9700 — comparaison de chaînes, pas de préfixe).
-  OAUTH_REDIRECT_BASE: envString({ default: "https://localhost:5152" }),
+  NF_OAUTH_REDIRECT_BASE: envString({ default: "https://localhost:5152" }),
 });
 
 export default defineConfig<typeof env>((ctx) => ({
@@ -194,7 +201,7 @@ export default defineConfig<typeof env>((ctx) => ({
                 github: {
                   clientId: ctx.env.GITHUB_CLIENT_ID,
                   clientSecret: ctx.env.GITHUB_CLIENT_SECRET,
-                  redirectUri: `${ctx.env.OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
+                  redirectUri: `${ctx.env.NF_OAUTH_REDIRECT_BASE}/nodefony/security/api/oauth2/github/callback`,
                 },
               }
             : {}),
