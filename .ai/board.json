@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T12:57:04.557Z",
+  "generatedAt": "2026-09-20T14:31:01.797Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 133,
+      "closed": 135,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 4,
+      "open": 2,
       "title": "10.0.0-alpha"
     },
     {
@@ -1529,8 +1529,8 @@
       "number": 155,
       "title": "docs(agents): rendre le dépôt lisible par un agent web",
       "url": "https://github.com/nodefony/nodefony-core/issues/155",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -4743,8 +4743,8 @@
       "number": 60,
       "title": "fix(studio): lire la liste des rôles depuis le serveur",
       "url": "https://github.com/nodefony/nodefony-core/issues/60",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
