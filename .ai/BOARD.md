@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-20 11:47** (UTC).
+> Empreinte prise le **2026-09-20 12:37** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 133 | 4 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 35% | 19 | 36 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 38% | 21 | 34 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -40,7 +40,7 @@ Ordre 4 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 20
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 36 ouverts
+## Jalon 10.0.0-beta — 34 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -50,9 +50,7 @@ Ordre 4 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 20
 | 2 | P0 — bloque le reste | 1 | 2026-10-09 → 10-09 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
 | 3 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier l'image sur le registre de GitHub, sans aucun secret |
 | 4.3 | P2 — décision | 1 | 2026-10-15 → 10-15 | #159 | docs(api): publier une référence d'API générée par paquet |
-| 4.4 | P2 — décision | 1 | 2026-10-16 → 10-16 | #440 | test(devkit-bench): mesurer ce qu'un agent conclut en lisant le dépôt |
 | 4.5 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #215 | fix(build): réparer le contrôle de format du code généré |
-| 4.55 | P2 — décision | 1 | 2026-10-19 → 10-19 | #441 | refactor(scaffold): retirer 6 scripts npm d'une application générée |
 | 4.6 | P2 — décision | 1 | 2026-10-20 → 10-20 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
 | 4.8 | P1 — figé à la création | 1 | 2026-10-21 → 10-21 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
 | 4.9 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T11:47:29.718Z",
+  "generatedAt": "2026-09-20T12:37:43.973Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 19,
+      "closed": 21,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 36,
+      "open": 34,
       "title": "10.0.0-beta"
     },
     {
@@ -1657,8 +1657,8 @@
       "number": 440,
       "title": "test(devkit-bench): mesurer ce qu'un agent conclut en lisant le dépôt",
       "url": "https://github.com/nodefony/nodefony-core/issues/440",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1805,8 +1805,8 @@
       "number": 441,
       "title": "refactor(scaffold): retirer 6 scripts npm d'une application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/441",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
