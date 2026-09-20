@@ -58,22 +58,14 @@ export const ROLE_ADMIN = "ROLE_ADMIN";
 /** Super-admin de l'instance Nodefony : gouvernance complète (voit/fait tout). */
 export const ROLE_NODEFONY_ADMIN = "ROLE_NODEFONY_ADMIN";
 
-/**
- * Rôles applicatifs connus de Studio — base de **suggestions** pour les
- * sélecteurs de rôles (création / édition d'utilisateur). PAS une contrainte :
- * un rôle est une simple chaîne, l'admin peut en assigner d'autres (saisie
- * libre) et c'est le RBAC serveur qui tranche. Ordre = du moins au plus
- * privilégié (lecture humaine). `ROLE_NODEFONY_ADMIN` en dernier = sommet
- * plateforme (à n'attribuer qu'à un opérateur de l'instance, pas à un client).
- */
-export const STUDIO_ROLES: readonly string[] = [
-  ROLE_USER,
-  ROLE_DEV,
-  ROLE_SUPERVISOR,
-  ROLE_SECURITY_AUDITOR,
-  ROLE_ADMIN,
-  ROLE_NODEFONY_ADMIN,
-];
+// Les rôles PROPOSÉS à l'attribution ne vivent plus ici : ils se lisent sur le
+// serveur, `GET /nodefony/security/api/roleHierarchy` (helper `knownRoles`,
+// `routes/roles/rolesModel.ts`). Une liste de noms écrite ici en doublait la
+// déclaration de `defineSecurityConfig({ roleHierarchy })` : les deux copies
+// divergeaient sans une erreur, et un rôle ajouté au serveur n'était jamais
+// proposé. Les constantes ci-dessus restent — elles servent au gating
+// d'AFFICHAGE (VIEW_ROLES), où le nom est une décision du client, pas une
+// donnée du serveur.
 
 /**
  * Filtre de visibilité unifié (nav, route `RoleGuard`, widget du catalogue) :

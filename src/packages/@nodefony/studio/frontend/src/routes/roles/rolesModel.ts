@@ -19,3 +19,24 @@ export { describeFirewallError as describeRolesError } from "../firewall/firewal
 
 /** Version de la doc de cette surface (badge des fiches `DocHint`). */
 export const ROLES_DOC = "v1.0";
+
+/**
+ * Tous les rôles que la hiérarchie du serveur fait CONNAÎTRE — clés ∪ valeurs.
+ *
+ * ⚠️ Ne PAS se contenter de `roles[]` du contrat : le serveur le construit par
+ * `Object.keys(hierarchy)` (`firewall.ts:651`), si bien qu'un rôle qui n'hérite
+ * de rien n'y figure jamais. Sur la configuration du dépôt, `ROLE_USER` est
+ * exactement dans ce cas — il n'apparaît qu'en VALEUR, sous les quatre rôles de
+ * tenant. Un sélecteur alimenté par `roles[]` perdrait donc le rôle de base, le
+ * plus courant de tous.
+ *
+ * Trié pour que l'ordre d'affichage ne dépende pas de l'ordre de déclaration.
+ */
+export function knownRoles(hierarchy: Record<string, string[]>): string[] {
+  const set = new Set<string>();
+  for (const [role, inherited] of Object.entries(hierarchy)) {
+    set.add(role);
+    for (const r of inherited) set.add(r);
+  }
+  return [...set].sort();
+}

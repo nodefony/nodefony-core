@@ -36,12 +36,20 @@ export function CreateUserModal({
   opened,
   onClose,
   roleSuggestions,
+  rolesUnavailable = false,
   onCreated,
 }: {
   opened: boolean;
   onClose: () => void;
   /** Rôles proposés en autocomplétion (suggestions, pas une contrainte). */
   roleSuggestions: string[];
+  /**
+   * La hiérarchie du serveur n'a pas pu être lue — les suggestions retombent
+   * sur les seuls rôles des comptes affichés. DIT à l'écran plutôt que subi :
+   * une liste amputée sans un mot ferait croire que les rôles manquants
+   * n'existent pas.
+   */
+  rolesUnavailable?: boolean;
   /** Appelé après une création réussie (recharge la liste). */
   onCreated: () => void;
 }) {
@@ -155,7 +163,11 @@ export function CreateUserModal({
 
         <TagsInput
           label="Rôles (optionnel)"
-          description="Suggestions des rôles connus ; vous pouvez en saisir d'autres. Vide = compte de base."
+          description={
+            rolesUnavailable
+              ? `Hiérarchie du serveur illisible — seuls les ${roleSuggestions.length} rôle(s) portés par les comptes affichés sont proposés. La saisie reste libre.`
+              : `${roleSuggestions.length} rôle(s) déclarés par le serveur ; vous pouvez en saisir d'autres. Vide = compte de base.`
+          }
           placeholder="ROLE_USER…"
           data={roleSuggestions}
           value={roles}

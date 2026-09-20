@@ -40,8 +40,13 @@ import {
 
 import { useStore, useAuth, useNotifications } from "../stores";
 import { useResource, useFacetCards } from "../hooks";
-import { useIsAdmin, STUDIO_ROLES } from "../auth/roles";
+import { useIsAdmin } from "../auth/roles";
 import { RoleGate } from "../auth/RoleGate";
+import {
+  ROLES_ENDPOINT,
+  knownRoles,
+  type RoleHierarchy,
+} from "./roles/rolesModel";
 import {
   PageLayout,
   StatCard,
@@ -157,14 +162,32 @@ export const Users = observer(() => {
   // `count` du statut — jamais une taille de page. L'aide de la carte dit laquelle.
   const serverCount = counts.total ?? status?.count ?? null;
 
-  // Suggestions de rôles : rôles connus de Studio ∪ ceux portés par les comptes
-  // de la page AFFICHÉE. Le parent n'a plus l'annuaire entier — et ne fait donc
-  // plus croire que cette liste est exhaustive ; la saisie reste libre.
+  // Rôles que le SERVEUR déclare — plus aucune liste de noms dans le navigateur.
+  // Deux copies des mêmes chaînes divergeaient en silence : un rôle ajouté à
+  // `defineSecurityConfig({ roleHierarchy })` n'était jamais proposé ici, sans
+  // qu'aucune erreur ne le signale. Endpoint réservé à ROLE_NODEFONY_ADMIN,
+  // comme l'écran lui-même (groupe « Sécurité », VIEW_ROLES.admin) — le garder
+  // derrière `isAdmin` évite un 403 inutile plutôt qu'il ne protège.
+  const roleHierarchyFetcher = useCallback(
+    (): Promise<RoleHierarchy | null> =>
+      isAdmin
+        ? store.api.getAbsolute<RoleHierarchy>(ROLES_ENDPOINT)
+        : Promise.resolve(null),
+    [store, isAdmin],
+  );
+  const { data: roleHierarchy, error: roleHierarchyError } =
+    useResource(roleHierarchyFetcher);
+
+  // Suggestions de rôles : ceux du serveur ∪ ceux portés par les comptes de la
+  // page AFFICHÉE. Le parent n'a plus l'annuaire entier — et ne fait donc plus
+  // croire que cette liste est exhaustive ; la saisie reste libre.
   const roleSuggestions = useMemo(() => {
-    const set = new Set<string>(STUDIO_ROLES);
+    const set = new Set<string>(
+      roleHierarchy ? knownRoles(roleHierarchy.hierarchy) : [],
+    );
     for (const u of pageUsers) for (const r of u.roles) set.add(r);
     return [...set].sort();
-  }, [pageUsers]);
+  }, [pageUsers, roleHierarchy]);
 
   // Supprime en masse : boucle sur l'endpoint unitaire (idempotent, ordre libre)
   // — 0 endpoint batch côté back, feedback agrégé réussis/échecs. Les garde-fous
@@ -387,6 +410,7 @@ export const Users = observer(() => {
         opened={createOpen}
         onClose={() => setCreateOpen(false)}
         roleSuggestions={roleSuggestions}
+        rolesUnavailable={Boolean(roleHierarchyError)}
         onCreated={reload}
       />
 
