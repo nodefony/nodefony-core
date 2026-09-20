@@ -87,6 +87,35 @@ Nodefony **centralise** la décision dans un service unique, appelé par les dé
 (`@IsGranted`, `@RequireScope`) sur tous les transports, avec une posture **fail-closed** : au
 moindre doute (voter qui plante, silence du jury, moteur absent), c'est refusé — jamais accordé.
 
+## Où se situe Nodefony parmi les modèles de contrôle d'accès
+
+Le contrôle d'accès a plusieurs façons de répondre à « as-tu le droit ? », selon **ce sur quoi**
+la décision porte : un rôle porté par le compte (RBAC), des attributs du sujet, de la ressource et
+du contexte (ABAC), une relation dans un graphe (ReBAC), ou une politique écrite hors du code
+(XACML, et les moteurs qui s'en inspirent). Ce ne sont pas des concurrents : les systèmes réels en
+empilent plusieurs.
+
+Nodefony fait du **RBAC hiérarchique** — des rôles, et une hiérarchie qui dit lesquels en couvrent
+d'autres, au sens des composantes _Core_ et _Hierarchical_ du modèle NIST (ANSI INCITS 359-2004,
+révisée 2012). Le reste se **branche** au jury, décrit plus bas : un voter maison qui lit des
+attributs fait de l'ABAC, un voter qui interroge un moteur de graphe (OpenFGA, SpiceDB, Ory Keto —
+famille issue de l'article _Zanzibar_, Google, 2019) fait du ReBAC.
+
+**Ce qui n'est PAS couvert**, et qu'il vaut mieux savoir avant de concevoir :
+
+- **la séparation des devoirs** (deux rôles incompatibles sur un même compte) n'est pas outillée ;
+  elle se joue à l'affectation des rôles, pas à la décision ;
+- **le filtrage d'une liste** — « montre-moi seulement les lignes que j'ai le droit de voir » — ne
+  passe pas par le jury : chaque décision porte sur **une** ressource. Ce filtrage appartient à ta
+  requête de dépôt ;
+- **le contexte de la requête** (heure, adresse, en-têtes, corps) n'est pas au contrat d'un voter ;
+  ce qui lui parvient, c'est le jeton et le sujet ;
+- **aucune décision « accordé, à condition que »** (les _obligations_ de XACML) : le verdict est
+  binaire.
+
+En pratique, et c'est le cas dans 95 % des applications : des rôles, plus **un** voter d'ownership
+pour les cas où le rôle ne suffit pas.
+
 ## La vision Nodefony — un jury découplé et fail-closed
 
 `Authorization.decide(token, attribute, subject?)` (`authorization.ts:70`) itère les voters, teste
@@ -302,7 +331,7 @@ Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`auth
 
 **Contre-exemple piégeux** : le veto ne traverse **pas** une clause OR. Dans
 `@IsGranted(["ROLE_ADMIN", "doc.edit"])`, chaque attribut est un **jury séparé**
-(`Resolver.ts:587-607`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
+(`Resolver.ts:689-702`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
 consulté. Un interdit absolu se porte en clause **AND** : empiler `@IsGranted("ROLE_ADMIN")` puis
 `@IsGranted("doc.edit", { subject: "id" })`.
 
@@ -327,16 +356,16 @@ se voit au premier test.
 ## 🧰 Déclarer l'exigence — `@IsGranted`, `@RequireScope`, `@Anonymous`
 
 Les décorateurs n'écrivent **que des métadonnées** (0 import `@nodefony/security`, 0 cycle) ; le
-moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:577-578`) :
+moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`) :
 
 | Déclaration                                 | Sémantique                                                                                                                       |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
-| `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:839`)                                             |
+| `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:878`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
 | empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:426`)                           |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1500`)                         |
-| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:613-617`)                                  |
-| `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:760`)          |
+| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:743-747`)                                  |
+| `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:975`)          |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:887`) |
 | `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1236`)                                |
 
@@ -344,7 +373,7 @@ La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI 
 403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:331-336`). Le
 même `executeAction` sert le pipeline HTTP **et** l'invoke WS-RPC : une garde, tous les
 transports. L'enforcement déroule chaque clause : OR interne via un `decide()` par attribut, AND
-entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:576-606`).
+entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:672-702`).
 
 > [!IMPORTANT]
 > **Fail-closed intégral** : route gardée mais moteur `authorization` absent (module security non
@@ -373,6 +402,25 @@ Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts:25-27`) et v
   (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:206`).
 - Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts:36-38`).
 
+#### Deux échelles de rôles — plateforme et organisation
+
+Une **convention de nom** sépare deux échelles, et c'est elle qui prépare le jour où plusieurs
+organisations partageront une instance :
+
+| Préfixe           | Échelle          | Qui le porte               | Scopable ? |
+| ----------------- | ---------------- | -------------------------- | ---------- |
+| `ROLE_NODEFONY_*` | **plateforme**   | l'exploitant de l'instance | **jamais** |
+| `ROLE_*`          | **organisation** | un compte de l'application | oui        |
+
+L'échelle plateforme est la seule qui traverse l'isolation entre organisations. Les ressources du
+**processus** — journaux, base, supervision, ramasse-miettes — sont donc gardées par elle, jamais
+par un rôle d'organisation : un administrateur applicatif n'a pas à lire l'état du serveur qui
+héberge aussi les autres.
+
+> ⚠️ **Ne donne jamais un `ROLE_NODEFONY_*` à un compte client.** Un « administrateur » chez le
+> client, c'est `ROLE_ADMIN`. C'est une convention : **rien dans le code ne l'impose** pour tes
+> propres rôles — seules les politiques de plateforme du framework sont vérifiées par un test.
+
 ### `scope` — l'axe « ce qu'une clé déléguée peut faire »
 
 Frère du `role` sur l'autre axe. Capte la forme conventionnée `api:action` — un `:`, jamais
@@ -399,6 +447,49 @@ voir [firewall](./firewall.md)) et fait deux choses au boot :
 - **Détection de cycles** par DFS coloré — un arc vers un nœud « en cours de visite » = cycle, et
   le boot **jette avec le chemin complet** `A → B → A` (`RoleHierarchyWalker.ts:69-95`) : jamais
   de boucle infinie silencieuse en production.
+
+## 🛡️ Le rôle par défaut d'une zone — et ce qu'il n'écrase pas
+
+Une zone du pare-feu peut exiger un rôle **par défaut** chez elle (`roles`, voir
+[firewall](./firewall.md)). C'est le filet d'un espace d'administration : une route que personne
+n'a pensé à garder hérite du rôle de sa zone, au lieu d'être ouverte à tout compte connecté.
+
+La précédence est un **remplacement, jamais un cumul de rôles** : si l'action déclare sa propre
+garde de rôle, c'est elle qui décide — y compris pour ouvrir plus largement que la zone. C'est
+voulu : une page réservée à l'exploitant (`ROLE_SUPERVISOR`) doit rester atteignable dans une zone
+fermée à l'administrateur de plateforme.
+
+Quatre cas gardent la main, et chacun est une déclaration explicite :
+
+| Ce qui décide à la place                  | Pourquoi                                                                                          |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------- |
+| une garde de **rôle** (`@IsGranted`)      | l'action a dit ce qu'elle exige                                                                   |
+| le **pont du plan d'administration**      | il résout un rôle par point d'entrée, sous une route unique — d'où l'existence de `me`, `mine`    |
+| une route qui **est** le mécanisme d'auth | lui imposer un rôle serait un verrou dont la clé est à l'intérieur                                |
+| l'**ouverture** d'une connexion WebSocket | une connexion n'accède à rien ; ce sont les frames qui accèdent, et chacune est gardée séparément |
+
+> 🔴 **`@RequireScope` seul n'est pas une décision d'identité.** Un scope dit ce qu'une clé
+> déléguée peut faire en ton nom ; sur une session humaine, le voter de scope accorde sans
+> condition. Une action gardée par un scope seul reste donc soumise au rôle de sa zone — les deux
+> axes se **cumulent**. Les traiter comme interchangeables ouvrait la route à tout compte connecté.
+
+Le dernier cas mérite d'être compris, parce qu'il ressemble à un trou sans en être un : une frame
+`api.request {path}` repasse par la **même** décision que la requête HTTP équivalente. L'invariant
+tenu est `api.request {path}` ≤ `GET {path}`.
+
+## 🚪 Trois portes décident — et deux ne passent pas par le jury
+
+C'est la chose la plus utile à savoir avant d'écrire un voter, et la plus facile à ignorer :
+
+| Porte                                      | Qui tranche                         | Le jury est-il consulté ? |
+| ------------------------------------------ | ----------------------------------- | ------------------------- |
+| une action gardée (`@IsGranted`), la zone  | `Authorization.decide()`            | **oui**                   |
+| un point d'entrée du plan d'administration | son rôle déclaré (`isAdminGranted`) | non                       |
+| une frame WebSocket (canal, `api.request`) | la politique de canal               | non                       |
+
+Les trois appliquent la **hiérarchie** de rôles, donc un même rôle y rend le même verdict. Mais un
+voter maison — ABAC, ReBAC, ownership — n'est consulté que par la première. Une règle métier qui
+doit valoir partout se place donc dans le code de l'action, pas seulement dans un voter.
 
 ## 🧩 Étendre le jury — le contrat et le registre
 
@@ -432,11 +523,20 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 
 ## 📜 Normes appliquées
 
-| Domaine                    | Norme / posture                        | Ancrage                                                   |
-| -------------------------- | -------------------------------------- | --------------------------------------------------------- |
-| Contrôle d'accès           | OWASP Top 10 **A01** (IDOR, élévation) | défaut `DENY` du jury (`authorization.ts:100-108`)        |
-| Modèle                     | **Zero Trust** (fermé par défaut)      | 403 fail-closed du Resolver (`Resolver.ts:582-584`)       |
-| Journalisation de sécurité | audit des refus, jamais des octrois    | `#auditDeny` → `recordAudit` (`authorization.ts:113-142`) |
+| Domaine                    | Norme / posture                                                                                                         | Ancrage                                                   |
+| -------------------------- | ----------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| Contrôle d'accès           | OWASP Top 10 **A01** (IDOR, élévation)                                                                                  | défaut `DENY` du jury (`authorization.ts:100-108`)        |
+| Modèle de rôles            | RBAC **hiérarchique**, au sens des composantes _Core_ et _Hierarchical_ d'ANSI INCITS 359 — sans séparation des devoirs | `RoleHierarchyWalker.reachableRoles()`                    |
+| Combinaison des votes      | _deny-overrides_ : un refus l'emporte, le silence ferme                                                                 | `Authorization.decide()`                                  |
+| Scopes délégués            | **RFC 6749 §3.3** — définis par le serveur d'autorisation ; sans effet sur une session humaine                          | `ScopeVoter.vote()`                                       |
+| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts:582-584`)       |
+| Journalisation de sécurité | audit des refus, jamais des octrois                                                                                     | `#auditDeny` → `recordAudit` (`authorization.ts:113-142`) |
+
+> Ce tableau dit ce que le code **fait**, pas ce qu'il revendique : Nodefony n'est pas « conforme
+> ANSI 359 » (ni sessions de rôles, ni séparation des devoirs), pas « conforme XACML » (un seul
+> algorithme de combinaison, aucune obligation), et pas « compatible Zanzibar » (pas d'expansion,
+> pas de liste, pas de jeton de cohérence). Ce qu'il offre, c'est de quoi **brancher** ces moteurs
+> pour une décision ponctuelle.
 
 ## ⚡ Performance & mémoire
 
@@ -451,6 +551,11 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
   `JSON.stringify` aveugle (`describeSubject()`, `authorization.ts:159-165`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
+
+| Symptôme                                                                | Cause                                                                                           | Correction                                                              |
+| ----------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| Une action gardée par `@RequireScope` seul reste accessible à un humain | le voter de scope accorde sans condition à une session — il ne contraint que les clés déléguées | ajouter un `@IsGranted`, ou compter sur le rôle par défaut de la zone   |
+| `@RequireScope("openid")` refuse tout, sans message                     | un scope sans `:` n'est capté par aucun voter → le jury ferme par défaut                        | employer la forme `api:action`, ou déclarer un voter pour cette famille |
 
 | Symptôme                               | Cause (dans le code)                                                                | Correction                                                     |
 | -------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- |

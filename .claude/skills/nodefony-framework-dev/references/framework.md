@@ -429,6 +429,39 @@ résolu via `_resolveSubject(name)` (`Resolver.ts:564`, depuis `route.variables`
 `null` (override classe). Découverte boot des scopes : `collectDeclaredApiScopes()`
 (`nodefony/src/scopeCatalog.ts:29`, scanne `Router.routes` → groupes par API).
 
+### 🔴 Le rôle par défaut d'une ZONE — et pourquoi un scope ne le remplace pas
+
+Une zone du firewall peut exiger un rôle **par défaut** (`ISecuredArea.roles`, en OU, hiérarchie
+comprise) : sans lui, toute route de la zone qu'on a oublié de garder est servie à n'importe quel
+compte authentifié. `Resolver._areaSecurity()` le résout, **mémoïsé par zone** (`WeakMap`, exigence
+gelée) → 0 alloc par requête ; `roles === null` quand la zone n'en déclare aucun.
+
+Il s'applique quand la route **n'a pas décidé du rôle**, et quatre cas gardent la main :
+
+| Ce qui décide à la place                 | Marqueur lu par le Resolver                                           |
+| ---------------------------------------- | --------------------------------------------------------------------- |
+| une garde de rôle (`@IsGranted`)         | `meta.security.hasRoleClause === true`                                |
+| le pont du plan d'admin / les clés perso | `Route.areaRoleExempt`                                                |
+| la route EST le mécanisme d'auth         | `Route.bypassFirewall`                                                |
+| l'OUVERTURE d'une connexion WebSocket    | `context.method === "WEBSOCKET"` **et** `!resolver.messageInvocation` |
+
+🔴 **`hasRoleClause`, pas « une garde existe ».** Un `@RequireScope` seul produit bien une exigence,
+mais sur un AUTRE axe : `ScopeVoter` rend `GRANT` **inconditionnel** à une session humaine (il ne
+contraint que les clés déléguées). Traiter cette garde comme une décision d'identité était un
+**fail-open** — la route d'admin redevenait accessible à tout compte connecté. Rôle et scope se
+CUMULENT ici, ils ne se substituent pas.
+
+🔴 **Le WebSocket : le tuyau s'ouvre, les frames restent gardées.** Le hub temps réel vit DANS la
+zone d'administration ; appliquer le rôle au handshake fermait la socket de la console à tout
+non-admin, qui perdait jusqu'à son propre self-service. Une invocation `api.request` repasse par la
+MÊME décision (`Router.resolve` pose `messageInvocation` dès qu'un `cleanPathOverride` est donné) →
+l'invariant `api.request {path}` ≤ `GET {path}` tient, et un test le verrouille.
+
+⚠️ **`areaRoleExempt` n'installe AUCUNE garde — il en retire une.** Posé sur une route qui ne décide
+de rien, il l'ouvre à tout compte connecté, en silence. Il est réservé aux producteurs internes, et
+`tests/unit/areaRoleExemptInventory.test.ts` refuse toute autre route qui le porte. Pour protéger
+une route, on déclare une garde ; on ne retire pas celle de la zone.
+
 ---
 
 ## Internals — seam idempotence

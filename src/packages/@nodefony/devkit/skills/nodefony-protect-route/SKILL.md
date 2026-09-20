@@ -43,6 +43,36 @@ Les deux se combinent : la zone décide **qui entre**, la garde décide **qui fa
 async list() { … }
 ```
 
+### Une zone peut exiger un rôle PAR DÉFAUT
+
+Une zone qui ne liste que des authentificateurs exige une **identité**, rien de plus : toute route
+qu'elle couvre est ouverte à **n'importe quel compte connecté**. Pour un espace d'administration,
+c'est un défaut ouvert — l'oubli d'une garde s'y solde par une fuite.
+
+```ts
+areas: {
+  backoffice: {
+    pattern: "^/back-office",
+    authenticators: ["session"],
+    roles: ["ROLE_ADMIN"],   // ← exigé par défaut dans toute la zone
+  },
+}
+```
+
+Les rôles sont en **OU** — un seul suffit — et la hiérarchie s'applique. Un refus est un **403**
+(connecté, mais pas autorisé), jamais un 401. Omettre la clé ne change rien au comportement
+existant.
+
+C'est un **défaut**, pas une exclusivité : une route qui porte sa propre garde (`@IsGranted`)
+décide seule, ce qui laisse exister une page réservée à un autre rôle dans une zone par ailleurs
+fermée. Écris donc le rôle **une fois sur la zone**, et ne le répète sur une route que pour en
+exiger un autre.
+
+🔴 **`@RequireScope` seul ne remplace PAS un rôle.** Un scope dit ce qu'une **clé déléguée** peut
+faire en ton nom ; sur une session humaine il n'a aucune prise. Une route gardée par un scope seul
+n'a donc rien décidé de ton identité — et le rôle de sa zone continue de s'appliquer, ce qui est
+voulu. Les deux axes se cumulent, ils ne se substituent pas.
+
 🔴 **Le `pattern` d'une zone est un PRÉFIXE, jamais la liste des routes du jour.**
 
 ```ts
@@ -197,8 +227,15 @@ marche, les tests passent, et le diff ne contient aucune faute visible — il co
 | `@BypassFirewall`, `@Anonymous`                     | la route sort de sa zone                       |
 | `anonymous` ajouté aux authentificateurs d'une zone | toute la zone devient publique                 |
 | `rateLimit: { enabled: false }`                     | le bourrage de mots de passe redevient gratuit |
+| `areaRoleExempt: true` sur une route                | elle perd le rôle par défaut de sa zone        |
 
 Relever un **seuil** est un réglage légitime. L'**éteindre** ne l'est pas.
+
+Le dernier de la liste est le plus trompeur : son nom dit bien ce qu'il fait — il **retire** le rôle
+exigé par la zone —, mais il n'installe rien à la place. Posé sur une route qui ne décide pas
+elle-même de son autorisation, il la rend accessible à tout compte connecté, sans erreur ni trace.
+Il est **réservé aux mécanismes internes du framework** ; ce que tu veux, quand une route de ta zone
+doit être plus ouverte, c'est déclarer le rôle qu'elle exige vraiment.
 
 ## Prouver — trois identités, pas une
 

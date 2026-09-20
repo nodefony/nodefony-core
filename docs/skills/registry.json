@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-19",
+  "generatedAt": "2026-09-20",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -8280,8 +8280,8 @@
       ],
       "description": "Réserve une route d'une application Nodefony aux personnes habilitées, par les briques du framework plutôt que par un contrôle écrit à la main dans l'action. Porte les deux étages (zone du pare-feu et garde par route), la hiérarchie de rôles qui évite d'attribuer un rôle de plus, la façon d'ouvrir une route à un partenaire sans démonter la défense anti-falsification, et les gestes qui affaiblissent l'application en silence. À charger AVANT de poser une garde, d'ouvrir une route à un tiers, ou de toucher à la configuration de sécurité. Déclencheurs : \"protège cette route\", \"réserver aux administrateurs\", \"@IsGranted\", \"firewall\", \"zone protégée\", \"403\", \"401\", \"un rôle qui en implique un autre\", \"roleHierarchy\", \"un partenaire doit pouvoir poster\", \"erreur CSRF\", \"origine refusée\", \"@CsrfExempt\", \"@CsrfProtect\", \"mon POST passe sans jeton\", \"faut-il protéger une écriture\", \"API pour un programme\", \"clé d'API\", \"désactiver la sécurité pour tester\".",
       "cost": {
-        "bodyLines": 222,
-        "approxTokens": 2900
+        "bodyLines": 259,
+        "approxTokens": 3380
       },
       "requires": [],
       "resources": {
@@ -8350,7 +8350,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "222",
+            "detail": "259",
             "advisory": true
           }
         ]
