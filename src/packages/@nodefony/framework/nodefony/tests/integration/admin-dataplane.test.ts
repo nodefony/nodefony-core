@@ -1428,3 +1428,190 @@ describe("Data plane syslog — le vocabulaire est clos", () => {
     expect(asc, "ASC doit partir du log le plus ANCIEN").to.be.lessThan(desc);
   });
 });
+
+// ── FILET DE ZONE — la zone d'administration exige un rôle PAR DÉFAUT ────────
+//
+// La zone `nodefony-admin` n'exigeait qu'une SESSION : toute route qu'elle
+// couvre et que personne n'avait pensé à garder était servie à n'importe quel
+// compte authentifié. Mesuré sur le wire avant le correctif, en `ROLE_USER` :
+// `GET /nodefony/studio/api/realtime/info` → **200**.
+//
+// Le filet applique le rôle de la zone à ce qui ne décide PAS de sa propre
+// autorisation. Les trois dispenses — garde d'action, pont du plan
+// d'administration (rôle par point d'entrée), court-circuit du firewall — sont
+// ce qui laisse exister un point d'entrée ouvert à son propriétaire dans une
+// zone par ailleurs fermée. Logique pure : `unit/areaAuthorizationDefault.test.ts`.
+
+/** Le plan d'administration : `/nodefony/<ns>/api(/…)`, le pattern de la zone. */
+const PLAN_ADMIN = /^\/nodefony\/[^/]+\/api(\/|$)/u;
+
+/**
+ * Chemins qu'un compte SANS rôle d'administration doit malgré tout atteindre,
+ * et que l'inventaire ne suffit pas à reconnaître.
+ *
+ * Ce qui court-circuite le firewall (`bypassFirewall`) est écarté par le
+ * filtre : l'inventaire le PORTE, donc c'est dérivé du code et ça ne peut pas
+ * diverger — c'est ainsi que `security/api/auth/me` (« ces routes SONT le
+ * mécanisme d'auth ») et `security/api/oauth2/providers` (« découverte
+ * publique », l'écran de connexion liste les fournisseurs avant toute
+ * connexion) sortent d'eux-mêmes.
+ *
+ * Restent ceux que rien ne distingue de l'extérieur : le self-service du plan
+ * d'administration, dont le rôle résolu est vide (`public: true`), et la
+ * vivacité, qui a sa propre zone anonyme. Chaque entrée est une déclaration du
+ * code — jamais une tolérance ajoutée pour faire passer le test.
+ */
+const JOIGNABLES_SANS_ROLE = new Set([
+  "/nodefony/kernel/api/livez", // vivacité — zone anonyme dédiée (sondes k8s)
+  "/nodefony/user/api/me", // self — mon compte
+  "/nodefony/http/api/sessions/mine", // self — mes sessions
+  "/nodefony/security/api/keys", // self — mes clés personnelles (porteur courant)
+  "/nodefony/security/api/keys/capabilities", // self — les scopes que je peux demander
+]);
+// `user/api/me/profile` n'y figure pas : c'est une MUTATION (405 en GET), et le
+// balayage ci-dessous ne frappe que les lectures. L'y avoir écrit par symétrie
+// a été attrapé par la garde qui suit, à sa toute première exécution.
+
+interface RouteMontee {
+  path: string;
+  methods: string[];
+  bypassFirewall: boolean;
+}
+
+describe("Plan d'administration — rôle exigé PAR DÉFAUT (filet de zone)", () => {
+  let userCookie = "";
+  let routes: RouteMontee[] = [];
+
+  beforeAll(async () => {
+    userCookie = await loginCookie("user", "secret-de-dev-42");
+    expect(userCookie, "login user (fixture dev) doit réussir").to.not.equal(
+      "",
+    );
+    // L'inventaire vient du SERVEUR : les routes réellement montées, pas une
+    // liste écrite ici — qui se périmerait au premier module ajouté.
+    const r = await req("GET", "/nodefony/framework/api/routes", auth());
+    expect(r.status, "inventaire des routes montées").to.equal(200);
+    const brut = r.body as RouteMontee[] | { rows?: RouteMontee[] };
+    routes = Array.isArray(brut) ? brut : (brut.rows ?? []);
+    expect(
+      routes.length,
+      "l'inventaire ne doit pas être vide",
+    ).to.be.greaterThan(0);
+  });
+
+  it("l'inventaire contient bien des routes du plan d'administration", () => {
+    const duPlan = routes.filter((r) => PLAN_ADMIN.test(r.path));
+    // Sans cette borne, un inventaire vide ou mal filtré rendrait le test
+    // suivant VERT sans avoir rien frappé — le faux vert le plus courant.
+    expect(
+      duPlan.length,
+      "routes du plan d'administration montées",
+    ).to.be.greaterThan(10);
+  });
+
+  it("AUCUNE route du plan n'est servie à un compte sans rôle d'administration", async () => {
+    const cibles = routes.filter(
+      (r) =>
+        PLAN_ADMIN.test(r.path) &&
+        r.methods.includes("GET") &&
+        !r.path.includes("{") && // pas de paramètre à inventer
+        !r.bypassFirewall && // déclaré hors firewall par le code lui-même
+        !JOIGNABLES_SANS_ROLE.has(r.path),
+    );
+    expect(cibles.length, "cibles à frapper").to.be.greaterThan(5);
+    const servies: string[] = [];
+    for (const route of cibles) {
+      const r = await req("GET", route.path, { cookie: userCookie });
+      // 401 (pas d'identité reconnue) et 403 (identité sans droits) sont deux
+      // refus ; 404 aussi (la route existe mais rend vide) — ce qui est refusé
+      // ici, c'est qu'un contenu d'administration SORTE.
+      if (r.status === 200) servies.push(`${route.path} → 200`);
+    }
+    expect(
+      servies,
+      `routes d'administration ouvertes à un ROLE_USER :\n${servies.join("\n")}`,
+    ).to.deep.equal([]);
+  });
+
+  // Une liste d'exceptions écrite à la main pourrit : une entrée y survit à la
+  // route qu'elle désignait, et personne ne s'en aperçoit — l'exception se met
+  // alors à couvrir autre chose, ou plus rien. Le serveur tranche.
+  it("chaque exception écrite à la main désigne une route montée ET joignable", async () => {
+    const montees = new Set(routes.map((r) => r.path));
+    for (const path of JOIGNABLES_SANS_ROLE) {
+      expect(
+        montees.has(path),
+        `exception périmée : ${path} n'est plus montée`,
+      ).to.equal(true);
+      const r = await req("GET", path, { cookie: userCookie });
+      expect(
+        r.status,
+        `exception injustifiée : ${path} n'est PAS joignable sans rôle`,
+      ).to.equal(200);
+    }
+  });
+
+  it("le refus est un 403 — authentifié, mais pas autorisé (jamais un 401)", async () => {
+    const r = await req("GET", "/nodefony/studio/api/realtime/info", {
+      cookie: userCookie,
+    });
+    expect(r.status).to.equal(403);
+  });
+
+  // Le self-service survit à la fermeture : c'est la DISPENSE du pont
+  // d'administration. Sans elle, un utilisateur ne pourrait plus voir son
+  // propre compte ni ses propres sessions dans une zone fermée.
+  it("le self-service reste joignable en ROLE_USER (dispense du pont)", async () => {
+    for (const path of [
+      "/nodefony/user/api/me",
+      "/nodefony/http/api/sessions/mine",
+    ]) {
+      const r = await req("GET", path, { cookie: userCookie });
+      expect(r.status, `GET ${path} en ROLE_USER`).to.equal(200);
+    }
+  });
+
+  // Et la garde d'action survit aussi : `/nodefony/studio/api/stats` est
+  // réservée à l'exploitant (`ROLE_SUPERVISOR`), pas à l'administrateur de la
+  // plateforme. Si la zone écrasait cette garde, la page de supervision
+  // deviendrait inatteignable pour qui elle a été écrite.
+  it("une garde d'action garde la main : ROLE_SUPERVISOR seul atteint /stats", async () => {
+    const identifiant = "supervisor-zone-probe";
+    const cree = await req("POST", "/nodefony/user/api/users", auth(), {
+      identifier: identifiant,
+      plainPassword: "secret-probe",
+      roles: ["ROLE_SUPERVISOR"],
+    });
+    expect(
+      [201, 409],
+      `création du compte de sonde (status ${cree.status})`,
+    ).to.include(cree.status);
+    const cookieSup = await loginCookie(identifiant, "secret-probe");
+    expect(cookieSup, "login du compte de sonde").to.not.equal("");
+    const stats = await req("GET", "/nodefony/studio/api/stats", {
+      cookie: cookieSup,
+    });
+    expect(
+      stats.status,
+      "un ROLE_SUPERVISOR sans ROLE_NODEFONY_ADMIN doit atteindre /stats",
+    ).to.equal(200);
+    // Contrôle jumeau : le MÊME compte reste refusé là où la zone s'applique.
+    const info = await req("GET", "/nodefony/studio/api/realtime/info", {
+      cookie: cookieSup,
+    });
+    expect(
+      info.status,
+      "le même compte n'atteint PAS une route non gardée de la zone",
+    ).to.equal(403);
+  });
+
+  // Le flux de connexion vit DANS la zone qu'il sert : s'il en héritait le
+  // rôle, il faudrait être connecté pour pouvoir se connecter.
+  it("la connexion reste possible — le flux d'auth n'hérite pas du rôle", async () => {
+    const frais = await loginCookie("user", "secret-de-dev-42");
+    expect(
+      frais,
+      "un compte sans rôle d'administration peut se connecter",
+    ).to.not.equal("");
+  });
+});

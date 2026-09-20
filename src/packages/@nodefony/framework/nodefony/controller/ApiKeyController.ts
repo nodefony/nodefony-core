@@ -211,6 +211,12 @@ export function mountApiKeyRoutes(frameworkModule: Module): void {
       constructor: ApiKeyController as unknown as Controller["constructor"],
       classMethod,
       requirements: { methods: [method] },
+      // Self-service : le porteur est TOUJOURS l'utilisateur courant
+      // (`authFlow.me`), jamais un paramètre — la route porte donc sa propre
+      // décision d'autorisation, et n'hérite pas du rôle par défaut de la
+      // zone. Sans cette déclaration, « mes clés » deviendrait réservé aux
+      // administrateurs, alors que chaque compte gère les siennes.
+      selfGuarded: true,
     });
   }
   if (

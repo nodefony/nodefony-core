@@ -84,6 +84,15 @@ export interface ControllerWithInitialize {
  * `context.container` (le cache `"controller"` y survit au Resolver : un
  * forward ou un 2ᵉ Resolver WS sur la MÊME connexion retrouve l'instance).
  */
+/**
+ * Exigences d'autorisation dérivées des **zones** du firewall, mémoïsées par
+ * zone (`Resolver._areaSecurity`). Les zones sont figées au boot : une entrée
+ * par zone, fabriquée une fois pour la vie du processus. `WeakMap` plutôt que
+ * `Map` pour ne pas retenir une zone d'un kernel arrêté — plusieurs kernels
+ * cohabitent dans une même suite de tests.
+ */
+const areaRequirements = new WeakMap<object, SecurityRequirement>();
+
 class Resolver implements IResolver {
   injector?: Injector | null;
   controller: ControllerConstructor | null = null;
@@ -115,6 +124,18 @@ class Resolver implements IResolver {
    * sur `context.method`.
    */
   methodOverride: string | null = null;
+  /**
+   * Cette résolution est-elle une invocation **par message** (pont WS-RPC
+   * `api.request`) plutôt que l'établissement de la connexion ?
+   *
+   * Posé par `Router.resolve` dès qu'un `cleanPathOverride` est fourni : c'est
+   * exactement ce qui distingue « la socket s'ouvre » de « la socket demande
+   * telle ressource ». Le premier n'accède à rien, le second accède — et seul
+   * le second doit subir le rôle par défaut de la zone ({@link _areaSecurity}),
+   * sans quoi l'ouverture même du tuyau deviendrait réservée aux
+   * administrateurs.
+   */
+  messageInvocation: boolean = false;
   constructor(context: ContextType) {
     this.context = context;
     this.injector = context.container?.get<Injector>("injector") ?? null;
@@ -336,6 +357,13 @@ class Resolver implements IResolver {
     // ni la DI ni `initialize()`, qui ont déjà tourné.
     if (meta.security !== null) {
       await this._enforceSecurity(meta.security);
+    } else {
+      // Filet de la ZONE : une route que personne n'a gardée hérite du rôle de
+      // sa zone du firewall, au lieu d'être ouverte à tout compte authentifié.
+      // `null` sur l'immense majorité des routes (aucune zone, ou zone sans
+      // rôle) → 0 await, 0 alloc, comme la branche ci-dessus.
+      const area = this._areaSecurity();
+      if (area !== null) await this._enforceSecurity(area);
     }
     let controller = this.context.container?.get("controller") as Controller;
     // Le pointeur "controller" du container est PARTAGÉ par la connexion (WS)
@@ -566,6 +594,63 @@ class Resolver implements IResolver {
       await store?.abort(verdict.key);
       throw e;
     }
+  }
+
+  /**
+   * Exigence d'autorisation **héritée de la zone** du firewall, pour une route
+   * qui n'en déclare aucune — ou `null` quand il n'y a rien à appliquer.
+   *
+   * Pourquoi ce filet existe : une zone qui n'exige qu'une **identité** laisse
+   * toute route qu'elle couvre accessible à n'importe quel compte authentifié.
+   * Sur une surface d'administration, le défaut doit être l'inverse — l'oubli
+   * se solde par un refus, jamais par une fuite. Le rôle se déclare donc UNE
+   * fois sur la zone, au lieu d'être recopié sur chaque route.
+   *
+   * Trois dispenses, et elles sont toutes des déclarations explicites :
+   * `bypassFirewall` (la route EST le mécanisme d'authentification),
+   * {@link Route.selfGuarded} (le pont du plan d'administration, qui résout un
+   * rôle par point d'entrée), et une garde d'action — traitée par l'appelant,
+   * qui n'entre ici que si `meta.security` est nul.
+   *
+   * L'exigence est **mémoïsée par zone** : les zones sont figées au boot et se
+   * comptent sur une main, donc la fabrication n'a lieu qu'une fois par zone
+   * sur la vie du processus — le hot path ne fait qu'un `get` de `WeakMap`.
+   *
+   * @returns l'exigence à évaluer, ou `null` s'il n'y en a aucune.
+   */
+  private _areaSecurity(): SecurityRequirement | null {
+    if (this.bypassFirewall) return null;
+    if (this.route?.selfGuarded) return null;
+    // Le filet garde une RESSOURCE, pas un TUYAU. Établir une connexion
+    // WebSocket n'accède à rien : ce sont les frames qui accèdent, et chacune
+    // est gardée pour son compte (verrou de frame côté firewall, puis
+    // autorisation de l'action invoquée — qui repasse ICI, marquée
+    // `messageInvocation`, ce qui préserve l'invariant « `api.request {path}`
+    // n'accorde jamais plus que `GET {path}` »).
+    //
+    // Vécu, et c'est la raison d'être de cette ligne : le hub temps réel vit
+    // dans la zone (`/nodefony/studio/api/realtime`). Sans la dispense, la
+    // socket de la console ne s'ouvrait plus pour un compte non
+    // administrateur — il perdait donc jusqu'à son propre self-service, dont
+    // il est pourtant le seul destinataire.
+    if (this.context.method === "WEBSOCKET" && !this.messageInvocation) {
+      return null;
+    }
+    const area = this.context.security;
+    if (!area || !area.security) return null;
+    const roles = area.roles;
+    if (roles === null || roles.length === 0) return null;
+    let requirement = areaRequirements.get(area);
+    if (requirement === undefined) {
+      // Les rôles d'une zone sont en OU — un seul suffit —, donc UNE clause
+      // dont `anyOf` porte la liste. Gelé : l'objet est partagé par toutes les
+      // requêtes de la zone.
+      requirement = Object.freeze({
+        clauses: Object.freeze([Object.freeze({ anyOf: roles })]),
+      }) as SecurityRequirement;
+      areaRequirements.set(area, requirement);
+    }
+    return requirement;
   }
 
   /**

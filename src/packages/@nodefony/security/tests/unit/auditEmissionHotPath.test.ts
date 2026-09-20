@@ -118,7 +118,9 @@ const zone = (authenticators: string[], mode: "first" | "all" = "first") =>
     security: true,
     stateless: false,
     mode,
+    roles: [],
     authenticators,
+    realtime: true,
   } as ISecurityAreaConfig);
 
 // Contexte HTTP minimal PORTANT la provenance (ip/ua/requestId/cookie) lue par
@@ -379,6 +381,7 @@ describe("Firewall ⇄ realtime — frame.denied audité (câblage réel)", () =
             security: true,
             stateless: false,
             mode: "first",
+            roles: [],
             authenticators: ["anonymous"],
             realtime: true,
           },

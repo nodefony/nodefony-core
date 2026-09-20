@@ -137,6 +137,13 @@ class AdminBroker extends Service implements IAdminBroker {
             AdminApiController as unknown as Controller["constructor"],
           classMethod: "dispatch",
           requirements: { methods },
+          // Le rôle se résout PAR POINT D'ENTRÉE dans l'action (`executeAdmin`,
+          // fail-closed, défaut administrateur) — pas par la route, qui est la
+          // même pour tout le plan. La zone du firewall ne doit donc pas
+          // appliquer son rôle par défaut par-dessus : elle écraserait les
+          // points d'entrée qui se déclarent accessibles à leur propriétaire
+          // (`me`, `sessions/mine`), dont le rôle résolu est vide.
+          selfGuarded: true,
         });
         this.byRouteName.set(name, {
           name,

@@ -68,6 +68,8 @@ const m2mArea = (): SecuredArea =>
     security: true,
     stateless: true,
     mode: "first",
+    roles: [],
+    realtime: true,
     authenticators: ["jwt"],
   } as ISecurityAreaConfig);
 

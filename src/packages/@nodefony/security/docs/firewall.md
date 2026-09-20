@@ -431,6 +431,57 @@ muets (volume, pas un signal). Les voters sont instanciés **une fois au boot** 
     ou futur (`mtls`, `agent`…) — est traité comme scopable, donc **bridé par défaut**.
   - En une ligne : rôles = qui tu es ; scopes = ce qu'une **clé** a le droit de faire.
 
+### `roles` — le rôle exigé PAR DÉFAUT dans une zone
+
+Une zone qui ne liste que des authenticators exige une **identité**, rien de plus : toute route
+qu'elle couvre est alors ouverte à **n'importe quel compte connecté**. C'est acceptable pour une
+application ; c'est un défaut ouvert pour une surface d'administration, où l'oubli d'une garde ne
+devrait jamais se solder par une fuite.
+
+`roles` renverse ce défaut. Il se déclare **une fois sur la zone**, au lieu d'être recopié sur
+chaque route :
+
+```typescript
+use("@nodefony/security", {
+  areas: {
+    admin: {
+      pattern: "^/back-office(/|$)",
+      authenticators: ["session"],
+      roles: ["ROLE_ADMIN"], // ← exigé par défaut dans toute la zone
+    },
+  },
+});
+```
+
+Les rôles listés sont en **OU** — un seul suffit — et la **hiérarchie s'applique** : un
+`ROLE_NODEFONY_ADMIN` satisfait `ROLE_ADMIN` si la hiérarchie le dit. Un refus est un **403**
+(authentifié, mais pas autorisé), jamais un 401. Omettre la clé laisse le comportement historique
+inchangé : la zone n'exige qu'une identité.
+
+#### Ce que le rôle de zone n'écrase PAS
+
+C'est un **défaut**, pas une exclusivité. Quatre cas gardent la main, et chacun est une déclaration
+explicite du code — jamais un contournement :
+
+| Ce qui décide à la place                               | Pourquoi                                                                                                              |
+| ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- |
+| Une **garde d'action** (`@IsGranted`, `@RequireScope`) | L'action a déjà dit ce qu'elle exige. Sans cela, une page réservée à l'exploitant deviendrait inatteignable pour lui. |
+| Une route **`selfGuarded`**                            | Elle tranche son autorisation dans son code — typiquement parce qu'elle ne sert QUE le porteur courant.               |
+| Un **`bypassFirewall`**                                | La route EST le mécanisme d'authentification : lui imposer un rôle serait un verrou dont la clé est à l'intérieur.    |
+| L'**ouverture d'une connexion WebSocket**              | Une connexion n'accède à rien ; ce sont les frames qui accèdent, et chacune est gardée pour son compte.               |
+
+Le dernier cas mérite d'être compris, parce qu'il pourrait passer pour un trou. Il n'en est pas un :
+une frame `api.request {path}` **repasse par la même décision** que la requête HTTP équivalente.
+L'invariant tenu est donc `api.request {path}` ≤ `GET {path}` — on n'obtient jamais par la socket ce
+que la porte HTTP refuse. Ce que la dispense évite, c'est qu'un compte sans rôle d'administration ne
+puisse plus ouvrir **aucune** socket, et perde du même coup le self-service dont il est le seul
+destinataire.
+
+> ⚠️ **`selfGuarded` n'est pas un interrupteur pour faire taire un refus.** Le poser sur une route
+> qui ne décide de rien la rend accessible à tout compte connecté, en silence. Il se justifie par ce
+> que fait le CODE de l'action : scoper au porteur courant, ou résoudre un rôle par point d'entrée.
+> Dans le doute, une garde d'action explicite est toujours préférable.
+
 ### La hiérarchie de rôles
 
 `RoleHierarchyWalker` (`src/RoleHierarchyWalker.ts`) : `ROLE_ADMIN` hérite `ROLE_USER`, etc.

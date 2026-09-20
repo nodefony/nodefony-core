@@ -141,7 +141,16 @@ export default {
         // aussi /nodefony/profiler/api (sans slash final). Pattern verrouillé par
         // securedArea.test.ts contre l'inventaire réel des namespaces.
         pattern: "^/nodefony/[^/]+/api(/|$)",
-        authenticators: ["session"], // session BFF (cookie opaque). RBAC par rôle = P6.8.
+        authenticators: ["session"], // session BFF (cookie opaque).
+        // Le rôle de la PLATEFORME (l'exploitant de l'instance), jamais un rôle
+        // de client. C'est un DÉFAUT, pas une exclusivité : une route qui
+        // déclare sa propre garde (`@IsGranted("ROLE_SUPERVISOR")`) et le pont
+        // du plan d'administration (qui résout un rôle par point d'entrée, et
+        // laisse donc exister `me` / `sessions/mine`) gardent la main. Ce qu'il
+        // ferme, c'est l'OUBLI : sans lui, une route d'administration déclarée
+        // sans garde était servie à n'importe quel compte authentifié — un
+        // simple utilisateur de l'application lisait l'état du serveur.
+        roles: ["ROLE_NODEFONY_ADMIN"],
         // Casier de session unique ("default", partagé app+admin) : le login BFF est
         // partagé → pas d'isolation par casier (sans traversée de contexte, non portée —
         // cf mémoire). Isolation admin/app = RBAC par rôle (P6.8), comme OWASP/Symfony.

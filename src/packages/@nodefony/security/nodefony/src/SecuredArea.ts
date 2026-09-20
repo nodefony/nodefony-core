@@ -19,6 +19,12 @@ export class SecuredArea implements ISecuredArea {
   readonly host?: string;
   readonly realtime: boolean;
   readonly resource?: string;
+  /**
+   * Rôles exigés par défaut dans la zone, ou `null` quand elle n'en exige
+   * aucun. `null` plutôt qu'un tableau vide : le hot path teste une référence,
+   * et aucune zone ne porte de tableau qu'elle n'utilise pas.
+   */
+  readonly roles: readonly string[] | null;
 
   constructor(name: string, config: ISecurityAreaConfig) {
     this.name = name;
@@ -30,6 +36,7 @@ export class SecuredArea implements ISecuredArea {
     this.host = config.host;
     this.realtime = config.realtime;
     this.resource = config.resource;
+    this.roles = config.roles.length > 0 ? config.roles : null;
   }
 
   /**

@@ -62,6 +62,22 @@ export interface ISecuredArea {
    */
   readonly realtime: boolean;
 
+  /**
+   * Rôles exigés PAR DÉFAUT dans la zone — en OU, hiérarchie comprise —, ou
+   * `null` quand la zone n'exige qu'une identité.
+   *
+   * C'est le **filet** d'une surface d'administration : une route que personne
+   * n'a pensé à garder hérite du rôle de sa zone, au lieu d'être ouverte à
+   * n'importe quel compte authentifié. Une route qui décide elle-même de son
+   * autorisation — garde déclarée, ou pont du plan d'administration qui résout
+   * un rôle par point d'entrée — n'en dépend pas : c'est ce qui laisse exister
+   * un point d'entrée ouvert à son propriétaire (`me`, `sessions/mine`) dans
+   * une zone par ailleurs fermée.
+   *
+   * Un refus est un **403** (authentifié mais pas autorisé), jamais un 401.
+   */
+  readonly roles: readonly string[] | null;
+
   /** La requête tombe-t-elle dans cette zone ? (pattern + host éventuel). */
   match(context: ContextType): boolean;
 }

@@ -234,6 +234,10 @@ class Router extends Service {
   ): Resolver {
     const resolver = new Resolver(context);
     resolver.methodOverride = methodOverride ?? null;
+    // Un chemin imposé = le pont WS-RPC invoque une ressource PRÉCISE, ce n'est
+    // pas l'ouverture de la connexion. La distinction sert à l'autorisation
+    // héritée de la zone (`Resolver.messageInvocation`).
+    resolver.messageInvocation = cleanPathOverride !== undefined;
     // L5a perf : pathname normalisé UNE fois (constant pour la requête) — évite
     // que chaque Route.match du scan O(N) recalcule URL.pathname + regex + alloc.
     // `cleanPathOverride` (WS-RPC invoke) court-circuite le pathname de la connexion.

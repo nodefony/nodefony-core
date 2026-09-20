@@ -77,6 +77,7 @@ const area = (
     security: true,
     stateless: false,
     mode: "first",
+    roles: [],
     ...config,
   } as ISecurityAreaConfig);
 

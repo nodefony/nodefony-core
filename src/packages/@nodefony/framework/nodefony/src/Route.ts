@@ -172,6 +172,17 @@ export interface RouteOptions {
    * le mécanisme qu'elles servent. Défaut `false` (Zero Trust).
    */
   bypassFirewall?: boolean;
+  /**
+   * La route porte **elle-même** sa décision d'autorisation, et dispense donc
+   * la zone du firewall d'appliquer son rôle par défaut
+   * (`ISecuredArea.roles`). Réservé aux routes dont la garde vit dans l'action
+   * plutôt que dans un décorateur : le pont du plan d'administration, qui
+   * résout un rôle **par point d'entrée** (`resolveAdminRole`) sous une route
+   * unique. Sans cette marque, une zone fermée au rôle d'administrateur
+   * écraserait les points d'entrée qui se déclarent accessibles à leur
+   * propriétaire (`me`, `sessions/mine`). Défaut `false`.
+   */
+  selfGuarded?: boolean;
 }
 
 export interface RouteRequirements {
@@ -222,6 +233,11 @@ class Route implements IRoute {
   varRegexp?: Record<string, RegExp>;
   bypassFirewall: boolean = false;
   /**
+   * La route décide seule de son autorisation → la zone du firewall n'applique
+   * pas son rôle par défaut. Cf {@link RouteOptions.selfGuarded}.
+   */
+  selfGuarded: boolean = false;
+  /**
    * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
    * (`@Body({ stream:true })`) ? `undefined` = pas encore calculé (résolu au 1er
    * `routeExpectsBodyStream(route)` via lecture `Reflect` des `ParamMeta`, O(1)
@@ -256,6 +272,7 @@ class Route implements IRoute {
       this.setDefaults(obj.defaults);
       this.requirements = obj.requirements || {};
       this.bypassFirewall = obj.bypassFirewall ?? false;
+      this.selfGuarded = obj.selfGuarded ?? false;
       this.compile();
     }
     this.generateId();
@@ -545,6 +562,7 @@ class Route implements IRoute {
       schemes: this.schemes,
       variables: this.variables,
       bypassFirewall: this.bypassFirewall,
+      selfGuarded: this.selfGuarded,
     };
   }
   setDefaults(arg?: Record<string, unknown>) {

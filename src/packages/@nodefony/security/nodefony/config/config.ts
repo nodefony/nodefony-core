@@ -96,6 +96,12 @@ const areaSchema = z.strictObject({
     .describe(
       "Authenticators de la zone (sémantique selon `mode`). Validés au boot contre le registre.",
     ),
+  roles: z
+    .array(z.string())
+    .default([])
+    .describe(
+      "Rôle(s) exigés PAR DÉFAUT dans la zone, en OU (l'un suffit ; hiérarchie comprise). Vide (défaut) = la zone n'exige qu'une identité, et toute route qu'elle couvre est ouverte à n'importe quel compte authentifié — c'est un défaut OUVERT, qu'une surface d'administration ne doit pas garder. Renseigné, le rôle s'applique à toute route de la zone qui ne décide PAS elle-même de son autorisation : une route gardée (`@IsGranted`, `@RequireScope`) et le pont du plan d'administration (qui résout un rôle par point d'entrée) gardent la main — sans quoi une zone fermée à l'administrateur écraserait un point d'entrée voulu accessible à son propriétaire (`me`, `sessions/mine`). Un refus ici est un 403 (authentifié, pas autorisé), jamais un 401.",
+    ),
   entryPoint: z
     .string()
     .optional()

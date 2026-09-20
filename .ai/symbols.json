@@ -2,9 +2,9 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 846,
-    "symbols": 4164,
-    "classes": 395,
+    "files": 845,
+    "symbols": 4163,
+    "classes": 394,
     "interfaces": 1112,
     "types": 451,
     "enums": 4,
@@ -8875,16 +8875,6 @@
       "module": "@nodefony/core",
       "description": "Catégorie (`msgid`) réservée à ce que le transport dit de LUI-MÊME. Les entrées qui la portent sont **exclues** de la remontée : sans cette exclusion, un envoi qui échoue journalise son échec, ce q…"
     },
-    "Websocket": {
-      "name": "Websocket",
-      "kind": "class",
-      "file": "src/nodefony/src/client/transport/websocket.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": "Service",
-      "implements": [],
-      "decorators": []
-    },
     "NodefonyVueOptions": {
       "name": "NodefonyVueOptions",
       "kind": "interface",
@@ -16989,8 +16979,7 @@
       "implements": [
         "IResolver"
       ],
-      "decorators": [],
-      "description": "Résout une route vers son couple controller/action et exécute l'action — UN Resolver est alloué par requête HTTP (et par connexion WS, réutilisé par message). **POJO volontaire** (V3.1) : n'étend P…"
+      "decorators": []
     },
     "ControllerWithInitialize": {
       "name": "ControllerWithInitialize",
@@ -24100,7 +24089,7 @@
       "implements": [],
       "decorators": []
     },
-    "@nodefony/http:Websocket": {
+    "Websocket": {
       "name": "Websocket",
       "kind": "class",
       "file": "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
@@ -28320,7 +28309,6 @@
         "ServiceWithInit",
         "Module",
         "Fetch",
-        "Websocket",
         "Injector",
         "DevkitService",
         "DocumentationService",
@@ -29153,7 +29141,6 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/service/fetchService.ts",
-        "src/nodefony/src/client/transport/websocket.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
