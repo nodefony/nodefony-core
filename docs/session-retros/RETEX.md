@@ -102,6 +102,18 @@ doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en cl
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
 
+- [1× — 09-20c] 🔐 **Le dépôt portait DEUX mots de passe de développement, et l'écran annonçait le
+  mauvais.** `secret` a survécu au durcissement de la politique : `DEV_FIXTURE_PASSWORD` valait
+  `secret-de-dev-42` pour le dépôt persistant, mais les hachages pré-calculés de l'annuaire en
+  mémoire encodaient toujours `secret` — deux vérités selon `NF_USER_STORE`, que rien à l'écran ne
+  disait. Conséquence : l'écran de connexion affichait `dev : admin / secret`, les **sept** recettes
+  du skill navigateur échouaient, **cinq** scripts de charge ne s'authentifiaient plus. Aucun test
+  ne tombait — le code des suites avait suivi, **seuls leurs commentaires mentaient**. Même famille
+  le même jour : `audit:web`, script npm supprimé la veille, encore nommé par le menu du CLI. Le
+  remède n'est pas de corriger les occurrences (deux passes manuelles en ont laissé quatre
+  derrière elles) mais un gate qui balaye `git ls-files` et VALIDE le hachage contre la constante —
+  `npm run test:dev-credentials`.
+
 - [1× — 09-20] 🔴 **J'ai nommé un drapeau par ce qu'il PROMETTAIT, et le nom est devenu une porte.**
   `selfGuarded` — « la route se garde elle-même » — n'installait aucune garde : il en RETIRAIT une
   (le rôle exigé par la zone). Posé sur une route qui ne décide de rien, il l'ouvrait à tout compte
@@ -490,6 +502,16 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-20c] 🆘 **Le pied de l'aide PROMET `--help` à toute commande ; un fast-path ne
+  l'honorait pas, et PLANTAIT.** `nodefony see --help` prenait le drapeau pour un chemin de page et
+  naviguait vers `https://127.0.0.1:5152--help`. La promesse était écrite — dans le pied de l'aide,
+  et dans le TSDoc d'une autre commande (« une commande qui répond `option inconnue : --help`
+  apprend au lecteur à ne plus croire le pied de l'aide ») — mais rien ne l'imposait aux
+  fast-paths. Le banc qui l'impose EXISTAIT (`standaloneHelp.test.ts`, « aucun fast-path de
+  CliKernel n'échappe à cette liste ») et nommait le trou en toutes lettres : il a fallu une passe
+  complète pour que quelqu'un lise son verdict. Écrire la promesse ne suffit pas ; c'est le banc
+  qui l'impose, et un banc dont personne ne lit la sortie ne l'impose pas non plus.
+
 - [1× — 09-20b] 🎫 **J'ai ouvert un ticket sans chercher s'il existait déjà — le user a dû poser la
   question.** Le skill que je venais de charger dit en toutes lettres qu'un ticket « qui a peut-être
   déjà été fait se CONSTATE avant d'être repris », et la devise du dépôt est « la confiance n'exclut
@@ -624,6 +646,16 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-20c] 🧮 **Deux bancs échouent SYSTÉMATIQUEMENT en passe complète et passent
+  SYSTÉMATIQUEMENT seuls — ce n'est pas un flake, c'est une incompatibilité structurelle.**
+  `clusterIpc.e2e` et `redisCluster.e2e` forkent de vrais workers dans une passe turbo qui sature
+  déjà les cœurs : 7 rouges à chaque fois, 5/5 et 2/2 en isolation. Un rouge qui revient à chaque
+  passe et qu'on sait faux est exactement le contrôle qu'on finit par ignorer — et le jour où il
+  dira vrai, personne ne le lira. Ils mériteraient leur propre lot, comme la suite `load` l'a
+  obtenu. Même séance, même famille côté décor : la suite de charge HTTP/WS exige un serveur
+  (`requires server`) et rendait 7 fichiers rouges en `ECONNREFUSED 5152` parce que mon script
+  l'arrêtait juste avant.
 
 - [1× — 09-20b] 🧭 **Ranger un fichier au bon endroit peut créer un rouge permanent — le choisir en
   connaissant les contrôles du dossier.** `BUG_REPORT.md` devait quitter la racine ; la cible
