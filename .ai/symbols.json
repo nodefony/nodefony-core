@@ -26484,7 +26484,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Politique système par défaut des canaux d'**introspection serveur** : réservés aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié suffisait » (tout `ROLE_USER` lisait `nodefon…"
+      "description": "Politique système par défaut des canaux d'**introspection serveur** : réservés à l'exploitant de l'INSTANCE, pas à l'administrateur d'une application. Ce que ces canaux exposent est l'état du **pro…"
     },
     "DEFAULT_SYSTEM_PREFIXES": {
       "name": "DEFAULT_SYSTEM_PREFIXES",
@@ -26500,7 +26500,7 @@
       "file": "src/packages/@nodefony/security/nodefony/src/realtime/frameAuthorizer.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "description": "Plancher des canaux de **sécurité** (`nodefony:audit`, P6.14 lot 4) : réservé au super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher d'observabilité générique (`ROLE_ADMIN`…"
+      "description": "Plancher des canaux de **sécurité** (`nodefony:audit`) : réservé à l'exploitant de l'instance (`ROLE_NODEFONY_ADMIN`). Même échelle que {@link SYSTEM_CHANNEL_POLICY} — le journal d'audit du pod n'e…"
     },
     "UPLINK_CHANNEL_POLICY": {
       "name": "UPLINK_CHANNEL_POLICY",

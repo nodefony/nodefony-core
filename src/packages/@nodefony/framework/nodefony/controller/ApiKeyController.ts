@@ -216,7 +216,7 @@ export function mountApiKeyRoutes(frameworkModule: Module): void {
       // décision d'autorisation, et n'hérite pas du rôle par défaut de la
       // zone. Sans cette déclaration, « mes clés » deviendrait réservé aux
       // administrateurs, alors que chaque compte gère les siennes.
-      selfGuarded: true,
+      areaRoleExempt: true,
     });
   }
   if (

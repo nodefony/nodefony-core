@@ -24,8 +24,19 @@ import type {
 // Harnais : proxy `Object.create(prototype)` + champs injectés, comme
 // `securityEnforcement.test.ts` — le vrai constructeur exige name+context+DI.
 
+/**
+ * Une garde de **scope** seul (`@RequireScope`), sans clause de rôle. Le voter
+ * de scope n'ayant aucune prise sur une session humaine (il ne contraint que
+ * les clés déléguées), cette garde n'a rien décidé de l'identité.
+ */
+const SCOPE_SEUL: SecurityRequirement = {
+  clauses: [{ anyOf: ["api:read"] }],
+  hasRoleClause: false,
+};
+
 const ROLE_GARDE: SecurityRequirement = {
   clauses: [{ anyOf: ["ROLE_SUPERVISOR"] }],
+  hasRoleClause: true,
 };
 
 function metaWith(security: SecurityRequirement | null): RouteActionMeta {
@@ -68,7 +79,7 @@ function makeResolver(opts: {
   /** Zone du firewall posée sur le contexte — `null` = hors zone. */
   area?: ZoneStub | null;
   /** La route décide seule de son autorisation (pont du plan d'administration). */
-  selfGuarded?: boolean;
+  areaRoleExempt?: boolean;
   /** La route court-circuite le firewall (elle EST le mécanisme d'auth). */
   bypassFirewall?: boolean;
   /** Les attributs que l'identité de la requête porte. */
@@ -98,7 +109,7 @@ function makeResolver(opts: {
   } as unknown as ContextType;
   r.route = {
     variables: [],
-    selfGuarded: opts.selfGuarded ?? false,
+    areaRoleExempt: opts.areaRoleExempt ?? false,
     actionMeta: metaWith(opts.security ?? null),
   } as unknown as Route;
   r.variables = [];
@@ -200,16 +211,49 @@ describe("Resolver — rôle par défaut hérité de la zone du firewall", () =>
     // D'ENTRÉE (`executeAdmin`). Le rôle de zone les écraserait toutes avec le
     // même, et `me` / `sessions/mine` — déclarés accessibles à leur
     // propriétaire — disparaîtraient pour un compte non administrateur.
-    it("route qui décide seule (selfGuarded) : la zone ne s'applique pas", async () => {
+    it("route qui décide seule (areaRoleExempt) : la zone ne s'applique pas", async () => {
       const demandes: string[] = [];
       const r = makeResolver({
         area: zone(["ROLE_NODEFONY_ADMIN"]),
-        selfGuarded: true,
+        areaRoleExempt: true,
         accorde: [],
         demandes,
       });
       expect(await joue(r)).to.equal(null);
       expect(demandes).to.deep.equal([]);
+    });
+
+    // 🔴 Le contre-exemple qui délimite la dispense, et qui a été un fail-open :
+    // une garde de SCOPE seul n'est pas une décision d'identité. Le voter de
+    // scope accorde sans condition à une session humaine — traiter cette garde
+    // comme une dispense ouvrait la route à n'importe quel compte connecté
+    // dans une zone pourtant fermée.
+    it("garde de SCOPE seul : la zone s'applique EN PLUS (axes orthogonaux)", async () => {
+      const demandes: string[] = [];
+      const r = makeResolver({
+        security: SCOPE_SEUL,
+        area: zone(["ROLE_NODEFONY_ADMIN"]),
+        accorde: ["api:read"], // le scope passe — le rôle, non
+        demandes,
+      });
+      const err = await joue(r);
+      expect(
+        err?.code,
+        "un scope accordé ne vaut pas le rôle exigé par la zone",
+      ).to.equal(403);
+      expect(
+        demandes,
+        "les DEUX axes sont consultés, dans l'ordre garde puis zone",
+      ).to.deep.equal(["api:read", "ROLE_NODEFONY_ADMIN"]);
+    });
+
+    it("garde de scope + rôle de zone satisfaits : l'action s'exécute", async () => {
+      const r = makeResolver({
+        security: SCOPE_SEUL,
+        area: zone(["ROLE_NODEFONY_ADMIN"]),
+        accorde: ["api:read", "ROLE_NODEFONY_ADMIN"],
+      });
+      expect(await joue(r)).to.equal(null);
     });
 
     // Le flux de connexion vit dans la zone qu'il sert : exiger un rôle pour

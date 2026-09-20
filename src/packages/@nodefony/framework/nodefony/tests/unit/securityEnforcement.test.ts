@@ -19,6 +19,7 @@ import {
 
 const ROLE_CLAUSE: SecurityRequirement = {
   clauses: [{ anyOf: ["ROLE_ADMIN"] }],
+  hasRoleClause: true,
 };
 
 function metaWith(security: SecurityRequirement | null): RouteActionMeta {
@@ -194,6 +195,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
   it("AND : 2 clauses, la 2ᵉ refuse → 403", async () => {
     const security: SecurityRequirement = {
       clauses: [{ anyOf: ["ROLE_USER"] }, { anyOf: ["ROLE_ADMIN"] }],
+      hasRoleClause: true,
     };
     const r = makeResolver({
       security,
@@ -208,6 +210,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
   it("OR : anyOf=[A,B], seul B accordé → passe", async () => {
     const security: SecurityRequirement = {
       clauses: [{ anyOf: ["ROLE_A", "ROLE_B"] }],
+      hasRoleClause: true,
     };
     const r = makeResolver({
       security,
@@ -223,6 +226,7 @@ describe("Resolver — enforcement @IsGranted (avant newController)", () => {
     let seen: unknown;
     const security: SecurityRequirement = {
       clauses: [{ anyOf: ["doc.edit"], subjectParam: "id" }],
+      hasRoleClause: true,
     };
     const r = makeResolver({
       security,

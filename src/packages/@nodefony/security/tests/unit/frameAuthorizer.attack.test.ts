@@ -39,7 +39,10 @@ const ADMIN: IRealtimeToken = {
   type: "session",
   getUserIdentifier: () => "boss",
   isAuthenticated: () => true,
-  getRoles: () => ["ROLE_ADMIN"],
+  getRoles: () => ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"],
+  // L'exploitant de l'instance porte les DEUX échelles, comme la fixture
+  // réelle du dépôt : le rôle de plateforme ouvre les canaux du processus,
+  // celui d'organisation les canaux applicatifs.
   getScopes: () => [],
   getAttribute: () => undefined,
 };
@@ -48,7 +51,11 @@ const firewall: IFrameAuthorizerFirewall = {
   matchPath: () => null,
   hasRole: (roles, required) =>
     roles.includes(required) ||
-    (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
+    (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")) ||
+    // Échelle PLATEFORME : l'exploitant de l'instance couvre les rôles
+    // d'organisation, comme la hiérarchie réelle du dépôt.
+    (roles.includes("ROLE_NODEFONY_ADMIN") &&
+      (required === "ROLE_ADMIN" || required === "ROLE_USER")),
 };
 const authorize = buildFrameAuthorizer(firewall, {
   systemRules: DEFAULT_SYSTEM_RULES,

@@ -69,7 +69,10 @@ const ADMIN_TOKEN: IRealtimeToken = {
   type: "session",
   getUserIdentifier: () => "boss",
   isAuthenticated: () => true,
-  getRoles: () => ["ROLE_ADMIN"],
+  getRoles: () => ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"],
+  // L'exploitant de l'instance porte les DEUX échelles, comme la fixture
+  // réelle du dépôt : le rôle de plateforme ouvre les canaux du processus,
+  // celui d'organisation les canaux applicatifs.
   getScopes: () => [],
   getAttribute: () => undefined,
 };
@@ -158,7 +161,11 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
     },
     hasRole: (roles, required) =>
       roles.includes(required) ||
-      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
+      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")) ||
+      // Échelle PLATEFORME : l'exploitant de l'instance couvre les rôles
+      // d'organisation, comme la hiérarchie réelle du dépôt.
+      (roles.includes("ROLE_NODEFONY_ADMIN") &&
+        (required === "ROLE_ADMIN" || required === "ROLE_USER")),
   };
   // Politiques MÉTIER déclarées (`@RealtimeChannel`), exposées par le hub realtime.
   // `nodefony:custom` : volontairement faible (authenticated) pour prouver que le
@@ -250,6 +257,28 @@ describe("buildFrameAuthorizer — api.request ≤ GET + RBAC par canal", () => 
   it("subscribe canal d'observabilité + ADMIN → AUTORISÉ", () => {
     assert.equal(authorize(sub("nodefony:syslog"), ADMIN_TOKEN), true);
     assert.equal(authorize(sub("nodefony:supervision"), ADMIN_TOKEN), true);
+  });
+
+  // 🔴 Le fait NOUVEAU, et celui qui compte : un rôle d'ORGANISATION ne suffit
+  // plus sur un canal du PROCESSUS. Sans ce cas, rien ne distingue « l'admin
+  // passe » de « n'importe quel admin passe » — et c'est cette confusion qui
+  // deviendrait une fuite entre clients le jour du multi-tenant.
+  it("canal de plateforme : ROLE_ADMIN SEUL est refusé (échelle organisation)", () => {
+    const adminApplicatif: IRealtimeToken = {
+      type: "session",
+      getUserIdentifier: () => "admin-du-client",
+      isAuthenticated: () => true,
+      getRoles: () => ["ROLE_ADMIN", "ROLE_USER"],
+      getScopes: () => [],
+      getAttribute: () => undefined,
+    };
+    assert.equal(authorize(sub("nodefony:syslog"), adminApplicatif), false);
+    assert.equal(
+      authorize(sub("nodefony:supervision"), adminApplicatif),
+      false,
+    );
+    // Contrôle jumeau : le MÊME compte garde ses canaux applicatifs.
+    assert.equal(authorize(sub("app:adminonly"), adminApplicatif), true);
   });
 
   it("subscribe convention <module>:health / :stats → ADMIN only", () => {
@@ -359,7 +388,11 @@ describe("buildFrameAuthorizer — override config (realtimeChannels)", () => {
     matchPath: () => null,
     hasRole: (roles, required) =>
       roles.includes(required) ||
-      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
+      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")) ||
+      // Échelle PLATEFORME : l'exploitant de l'instance couvre les rôles
+      // d'organisation, comme la hiérarchie réelle du dépôt.
+      (roles.includes("ROLE_NODEFONY_ADMIN") &&
+        (required === "ROLE_ADMIN" || required === "ROLE_USER")),
   };
   const sub = (channel: string) => ({
     method: "subscribe",

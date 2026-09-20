@@ -143,7 +143,7 @@ class AdminBroker extends Service implements IAdminBroker {
           // appliquer son rôle par défaut par-dessus : elle écraserait les
           // points d'entrée qui se déclarent accessibles à leur propriétaire
           // (`me`, `sessions/mine`), dont le rôle résolu est vide.
-          selfGuarded: true,
+          areaRoleExempt: true,
         });
         this.byRouteName.set(name, {
           name,

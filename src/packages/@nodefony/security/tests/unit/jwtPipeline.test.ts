@@ -198,7 +198,11 @@ describe("Pont WS — frameAuthorizer (data plane / observabilité)", () => {
       p.startsWith("/nodefony/test/m2m") ? { security: true } : null,
     hasRole: (roles, required) =>
       roles.includes(required) ||
-      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")),
+      (required === "ROLE_USER" && roles.includes("ROLE_ADMIN")) ||
+      // Échelle PLATEFORME : l'exploitant de l'instance couvre les rôles
+      // d'organisation, comme la hiérarchie réelle du dépôt.
+      (roles.includes("ROLE_NODEFONY_ADMIN") &&
+        (required === "ROLE_ADMIN" || required === "ROLE_USER")),
   };
   const authorize = buildFrameAuthorizer(firewall);
   const mk = (auth: boolean, roles: string[]): IRealtimeToken => ({
@@ -211,7 +215,8 @@ describe("Pont WS — frameAuthorizer (data plane / observabilité)", () => {
   });
   const anon = mk(false, ["ROLE_ANONYMOUS"]);
   const user = mk(true, ["ROLE_USER"]);
-  const admin = mk(true, ["ROLE_ADMIN"]);
+  // Exploitant de l'instance : les deux échelles, comme la fixture réelle.
+  const admin = mk(true, ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"]);
 
   it("api.request vers la zone JWT : anonyme REFUSÉ, authentifié AUTORISÉ", () => {
     const frame = {

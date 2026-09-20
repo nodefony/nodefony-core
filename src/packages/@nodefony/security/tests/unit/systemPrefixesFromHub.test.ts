@@ -41,16 +41,20 @@ describe("Règles système dérivées de la liste du hub", () => {
     expect(rules[2]?.policy).to.deep.equal(SYSTEM_CHANNEL_POLICY);
   });
 
-  it("LIRE le journal exige ROLE_ADMIN, y ÉCRIRE demande seulement d'être connecté", () => {
+  it("LIRE le journal exige le rôle de plateforme, y ÉCRIRE demande seulement d'être connecté", () => {
     // C'est la garantie qui compte, et elle ne se lit pas dans l'ordre des règles :
     // le plancher d'observabilité protège la LECTURE de l'état du pod. Le canal
-    // montant ne rend rien, il accepte — lui demander ROLE_ADMIN ne le rendrait pas
+    // montant ne rend rien, il accepte — lui demander un rôle ne le rendrait pas
     // plus sûr, il ne recueillerait que les erreurs des administrateurs.
     const rules = buildSystemRules(RESERVED_FLOOR_PREFIXES);
     const first = (channel: string) =>
       rules.find((r) => channel.startsWith(r.prefix))?.policy;
 
-    expect(first("nodefony:syslog")?.roles).to.deep.equal(["ROLE_ADMIN"]);
+    expect(first("nodefony:syslog")?.roles).to.deep.equal([
+      // Échelle PLATEFORME : lire le journal du processus n'est pas un droit
+      // d'administrateur d'application.
+      "ROLE_NODEFONY_ADMIN",
+    ]);
     expect(first("nodefony:syslog:uplink")?.roles).to.equal(undefined);
     // Mais le plancher irréductible tient : une connexion ANONYME ne pousse rien.
     expect(first("nodefony:syslog:uplink")?.authenticated).to.equal(true);

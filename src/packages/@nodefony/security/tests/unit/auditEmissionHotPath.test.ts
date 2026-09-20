@@ -270,7 +270,10 @@ const ADMIN_WS: IRealtimeToken = {
   type: "session",
   getUserIdentifier: () => "boss",
   isAuthenticated: () => true,
-  getRoles: () => ["ROLE_ADMIN"],
+  getRoles: () => ["ROLE_NODEFONY_ADMIN", "ROLE_ADMIN"],
+  // L'exploitant de l'instance porte les DEUX échelles, comme la fixture
+  // réelle du dépôt : le rôle de plateforme ouvre les canaux du processus,
+  // celui d'organisation les canaux applicatifs.
   getScopes: () => [],
   getAttribute: () => undefined,
 };

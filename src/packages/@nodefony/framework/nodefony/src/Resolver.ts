@@ -357,11 +357,19 @@ class Resolver implements IResolver {
     // ni la DI ni `initialize()`, qui ont déjà tourné.
     if (meta.security !== null) {
       await this._enforceSecurity(meta.security);
-    } else {
-      // Filet de la ZONE : une route que personne n'a gardée hérite du rôle de
-      // sa zone du firewall, au lieu d'être ouverte à tout compte authentifié.
-      // `null` sur l'immense majorité des routes (aucune zone, ou zone sans
-      // rôle) → 0 await, 0 alloc, comme la branche ci-dessus.
+    }
+    // Filet de la ZONE : une route dont personne n'a décidé le RÔLE hérite de
+    // celui de sa zone du firewall, au lieu d'être ouverte à tout compte
+    // authentifié. `null` sur l'immense majorité des routes (aucune zone, ou
+    // zone sans rôle) → 0 await, 0 alloc.
+    //
+    // ⚠️ La condition porte sur `hasRoleClause`, PAS sur la simple présence
+    // d'une garde. Un `@RequireScope` seul garde bien l'action — mais sur un
+    // AUTRE axe : le voter de scope accorde sans condition à une session
+    // humaine, puisqu'il ne contraint que les clés déléguées. Traiter cette
+    // garde comme une décision d'identité rendait la route accessible à
+    // n'importe quel compte connecté dans une zone pourtant fermée.
+    if (meta.security === null || !meta.security.hasRoleClause) {
       const area = this._areaSecurity();
       if (area !== null) await this._enforceSecurity(area);
     }
@@ -608,7 +616,7 @@ class Resolver implements IResolver {
    *
    * Trois dispenses, et elles sont toutes des déclarations explicites :
    * `bypassFirewall` (la route EST le mécanisme d'authentification),
-   * {@link Route.selfGuarded} (le pont du plan d'administration, qui résout un
+   * {@link Route.areaRoleExempt} (le pont du plan d'administration, qui résout un
    * rôle par point d'entrée), et une garde d'action — traitée par l'appelant,
    * qui n'entre ici que si `meta.security` est nul.
    *
@@ -620,7 +628,7 @@ class Resolver implements IResolver {
    */
   private _areaSecurity(): SecurityRequirement | null {
     if (this.bypassFirewall) return null;
-    if (this.route?.selfGuarded) return null;
+    if (this.route?.areaRoleExempt) return null;
     // Le filet garde une RESSOURCE, pas un TUYAU. Établir une connexion
     // WebSocket n'accède à rien : ce sont les frames qui accèdent, et chacune
     // est gardée pour son compte (verrou de frame côté firewall, puis

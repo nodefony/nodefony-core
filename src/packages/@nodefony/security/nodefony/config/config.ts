@@ -1131,7 +1131,7 @@ export const securityConfigSchema = z.strictObject({
     .array(realtimeChannelRuleSchema)
     .default([])
     .describe(
-      "Politiques d'autorisation par préfixe sur le temps réel. Couvre les canaux WS (subscribe/inbound) **ET les actions RPC** : le nom de méthode d'une frame entrante est soumis aux mêmes règles de préfixe — une règle `admin:` garde donc aussi l'action `admin:purge`. Étend/surcharge les défauts système (syslog:/orm:/node:/dashboard:/debugbar:/realtime:/cluster: + :health/:stats = ROLE_ADMIN). Ce qui n'est couvert par aucune règle reste libre, sauf gating `@RealtimeChannel` côté controller.",
+      "Politiques d'autorisation par préfixe sur le temps réel. Couvre les canaux WS (subscribe/inbound) **ET les actions RPC** : le nom de méthode d'une frame entrante est soumis aux mêmes règles de préfixe — une règle `admin:` garde donc aussi l'action `admin:purge`. Étend/surcharge les défauts système (syslog:/orm:/node:/dashboard:/debugbar:/realtime:/cluster: + :health/:stats = ROLE_NODEFONY_ADMIN, l'échelle PLATEFORME : ces canaux exposent l'état du processus, pas celui d'une application). Ce qui n'est couvert par aucune règle reste libre, sauf gating `@RealtimeChannel` côté controller.",
     ),
   // Section omise → défauts internes appliqués (parse d'un objet vide).
   cors: corsSchema.default(() => corsSchema.parse({})),

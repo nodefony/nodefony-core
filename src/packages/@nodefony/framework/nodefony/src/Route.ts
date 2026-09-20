@@ -173,16 +173,28 @@ export interface RouteOptions {
    */
   bypassFirewall?: boolean;
   /**
-   * La route porte **elle-même** sa décision d'autorisation, et dispense donc
-   * la zone du firewall d'appliquer son rôle par défaut
-   * (`ISecuredArea.roles`). Réservé aux routes dont la garde vit dans l'action
-   * plutôt que dans un décorateur : le pont du plan d'administration, qui
-   * résout un rôle **par point d'entrée** (`resolveAdminRole`) sous une route
-   * unique. Sans cette marque, une zone fermée au rôle d'administrateur
-   * écraserait les points d'entrée qui se déclarent accessibles à leur
-   * propriétaire (`me`, `sessions/mine`). Défaut `false`.
+   * **INTERNE — n'est pas destiné aux applications.** Soustrait la route au
+   * rôle exigé par défaut dans sa zone du firewall (`ISecuredArea.roles`).
+   *
+   * Le nom dit ce que le drapeau FAIT, et non ce qu'il promettrait : il
+   * n'installe **aucune** garde, il en retire une. Posé sur une route qui ne
+   * décide de rien, il la rend accessible à tout compte connecté, en silence.
+   * C'est pourquoi un contrôle refuse toute route qui le porte hors des
+   * producteurs déclarés du framework — voir
+   * `tests/unit/areaRoleExemptInventory.test.ts`.
+   *
+   * Les deux seuls usages légitimes, tous deux internes : le pont du plan
+   * d'administration, qui résout un rôle **par point d'entrée**
+   * (`resolveAdminRole`) sous une route unique ; et les routes de gestion des
+   * clés personnelles, dont l'action est scopée au porteur courant. Sans eux,
+   * une zone fermée au rôle d'administrateur ferait disparaître le
+   * self-service (`me`, `sessions/mine`, `keys`) pour son propre destinataire.
+   *
+   * Une application qui veut protéger sa route déclare une garde
+   * (`@IsGranted`) : c'est une décision qui se relit, là où ceci est une
+   * exception qui se justifie. Défaut `false`.
    */
-  selfGuarded?: boolean;
+  areaRoleExempt?: boolean;
 }
 
 export interface RouteRequirements {
@@ -234,9 +246,9 @@ class Route implements IRoute {
   bypassFirewall: boolean = false;
   /**
    * La route décide seule de son autorisation → la zone du firewall n'applique
-   * pas son rôle par défaut. Cf {@link RouteOptions.selfGuarded}.
+   * pas son rôle par défaut. Cf {@link RouteOptions.areaRoleExempt}.
    */
-  selfGuarded: boolean = false;
+  areaRoleExempt: boolean = false;
   /**
    * P2.9 — Cache mémoïsé : l'action attend-elle le **flux brut** du body
    * (`@Body({ stream:true })`) ? `undefined` = pas encore calculé (résolu au 1er
@@ -272,7 +284,7 @@ class Route implements IRoute {
       this.setDefaults(obj.defaults);
       this.requirements = obj.requirements || {};
       this.bypassFirewall = obj.bypassFirewall ?? false;
-      this.selfGuarded = obj.selfGuarded ?? false;
+      this.areaRoleExempt = obj.areaRoleExempt ?? false;
       this.compile();
     }
     this.generateId();
@@ -547,7 +559,13 @@ class Route implements IRoute {
     const ctrl = this.controller?.name || "?";
     const action = this.classMethod || this.name;
     const mod = this.module?.name ? `@${this.module.name}/` : "";
-    const auth = this.bypassFirewall ? "  (no auth)" : "";
+    // Ce qui ne se voit pas ne se relit pas : les deux façons qu'une route a de
+    // se soustraire à une garde s'annoncent ici, où l'on inspecte les routes.
+    const auth = this.bypassFirewall
+      ? "  (no auth)"
+      : this.areaRoleExempt
+        ? "  (hors rôle de zone)"
+        : "";
     return `${method} ${this.path} → ${mod}${ctrl}.${action}${auth}`;
   }
 
@@ -562,7 +580,7 @@ class Route implements IRoute {
       schemes: this.schemes,
       variables: this.variables,
       bypassFirewall: this.bypassFirewall,
-      selfGuarded: this.selfGuarded,
+      areaRoleExempt: this.areaRoleExempt,
     };
   }
   setDefaults(arg?: Record<string, unknown>) {

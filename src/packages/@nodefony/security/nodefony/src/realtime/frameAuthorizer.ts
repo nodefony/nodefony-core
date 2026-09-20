@@ -69,13 +69,26 @@ export type FrameDenyReporter = (
 
 /**
  * Politique système par défaut des canaux d'**introspection serveur** : réservés
- * aux administrateurs. DURCISSEMENT Zero Trust (P6) : avant, « authentifié
- * suffisait » (tout `ROLE_USER` lisait `nodefony:syslog`) ; désormais `ROLE_ADMIN`.
- * Surchargeable finement par `realtimeChannels` (ex. `ROLE_SECURITY_AUDITOR`).
+ * à l'exploitant de l'INSTANCE, pas à l'administrateur d'une application.
+ *
+ * Ce que ces canaux exposent est l'état du **processus** — journaux, base,
+ * métriques, supervision, et jusqu'au déclenchement d'un ramasse-miettes
+ * bloquant. C'est l'échelle PLATEFORME, celle que le préfixe `ROLE_NODEFONY_*`
+ * désigne : le seul rôle qui traverse l'isolation entre organisations
+ * clientes. Un `ROLE_ADMIN` est, lui, destiné à être scopé à une organisation ;
+ * le jour où plusieurs partagent une instance, il aurait lu la supervision du
+ * processus qui les héberge toutes.
+ *
+ * Le canal d'audit ({@link SECURITY_CHANNEL_POLICY}) partage désormais cette
+ * échelle — il ne se distingue plus par le rôle, mais par ce qu'il contient.
+ *
+ * Surchargeable finement par `realtimeChannels` : une application qui veut
+ * ouvrir un de ces canaux à un rôle d'organisation le DÉCLARE, elle ne l'hérite
+ * pas.
  */
 export const SYSTEM_CHANNEL_POLICY: IChannelPolicy = {
   authenticated: true,
-  roles: ["ROLE_ADMIN"],
+  roles: ["ROLE_NODEFONY_ADMIN"],
 };
 
 /**
@@ -93,11 +106,12 @@ export const SYSTEM_CHANNEL_POLICY: IChannelPolicy = {
 export const DEFAULT_SYSTEM_PREFIXES = [NODEFONY_CHANNEL_NAMESPACE] as const;
 
 /**
- * Plancher des canaux de **sécurité** (`nodefony:audit`, P6.14 lot 4) : réservé au
- * super-admin Nodefony (`ROLE_NODEFONY_ADMIN`) — un cran AU-DESSUS du plancher
- * d'observabilité générique (`ROLE_ADMIN`). Le journal d'audit du pod ne se lit
- * pas avec un simple rôle admin applicatif. Cohérent avec le data plane HTTP de
- * l'audit (`SecurityAdminApi`, lot 3, même rôle).
+ * Plancher des canaux de **sécurité** (`nodefony:audit`) : réservé à l'exploitant
+ * de l'instance (`ROLE_NODEFONY_ADMIN`). Même échelle que
+ * {@link SYSTEM_CHANNEL_POLICY} — le journal d'audit du pod n'est pas plus
+ * exposé que sa supervision, et aucun des deux ne se lit avec un rôle
+ * d'organisation. Cohérent avec le plan d'administration HTTP de l'audit
+ * (`SecurityAdminApi`, même rôle).
  *
  * Multi-tenant (futur) : `nodefony:audit` reste un canal **plateforme** (pod),
  * jamais exposé à un user tenant ; l'événement portera le `tenantId` (via l'ALS)

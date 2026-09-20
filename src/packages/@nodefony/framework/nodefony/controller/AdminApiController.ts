@@ -205,15 +205,36 @@ class AdminApiController extends Controller {
     };
   }
 
-  /** Extrait les rôles de l'utilisateur ALS sans coupler le core à `IUser`. */
+  /**
+   * Extrait les rôles de l'utilisateur ALS sans coupler le core à `IUser`, en
+   * y **ajoutant ceux que la hiérarchie leur fait couvrir**.
+   *
+   * Sans cet aplatissement, un point d'entrée qui exige `ROLE_DEV` refuserait
+   * un administrateur de plateforme qui le couvre pourtant par hiérarchie : la
+   * décision du plan d'administration est une comparaison de noms
+   * (`isAdminGranted`), là où le jury d'autorisation et le verrou de frame
+   * consultent tous deux la hiérarchie. Trois portes, un même rôle exigé, deux
+   * verdicts possibles — et c'est la porte qu'on relit le moins qui serait la
+   * plus stricte.
+   *
+   * Le parcours est résolu **par nom** (`roleHierarchy`), comme le moteur
+   * d'autorisation : `@nodefony/framework` n'importe jamais `@nodefony/security`.
+   * Absent (module de sécurité non chargé), on rend les rôles bruts — on ne
+   * perd donc jamais ce que l'appelant porte déjà.
+   */
   private extractRoles(user: unknown): readonly string[] {
+    let roles: string[] = [];
     if (user && typeof user === "object" && "roles" in user) {
-      const roles = (user as { roles: unknown }).roles;
-      if (Array.isArray(roles)) {
-        return roles.filter((r): r is string => typeof r === "string");
+      const brut = (user as { roles: unknown }).roles;
+      if (Array.isArray(brut)) {
+        roles = brut.filter((r): r is string => typeof r === "string");
       }
     }
-    return [];
+    if (roles.length === 0) return roles;
+    const walker = this.context?.container?.get("roleHierarchy") as
+      { reachableRoles?(roles: readonly string[]): Set<string> } | undefined;
+    if (!walker?.reachableRoles) return roles;
+    return [...walker.reachableRoles(roles)];
   }
 }
 

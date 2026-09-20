@@ -424,6 +424,20 @@ export interface SecurityClause {
 export interface SecurityRequirement {
   /** Clauses en AND — toutes doivent être accordées (chacune est un OR interne). */
   readonly clauses: readonly SecurityClause[];
+  /**
+   * L'exigence porte-t-elle au moins une clause de **rôle** (`@IsGranted`), par
+   * opposition à des clauses de **scope** seules (`@RequireScope`) ?
+   *
+   * Les deux axes sont orthogonaux : un rôle dit QUI tu es, un scope dit ce
+   * qu'une clé déléguée peut faire EN TON NOM. Une action gardée par un scope
+   * seul n'a donc rien décidé de l'identité — et sur une session humaine le
+   * voter de scope accorde sans condition, puisqu'il ne contraint que les clés
+   * machine. C'est ce que lit le rôle par défaut d'une zone pour savoir s'il
+   * doit s'appliquer EN PLUS (`Resolver`) : sans cette distinction, un
+   * `@RequireScope` seul dispenserait du rôle de zone et ouvrirait la route à
+   * tout compte connecté.
+   */
+  readonly hasRoleClause: boolean;
 }
 
 /**
@@ -1526,6 +1540,7 @@ function computeSecurityRequirement(
   // Figé (objet PARTAGÉ entre requêtes — jamais muté).
   return Object.freeze({
     clauses: Object.freeze(all) as readonly SecurityClause[],
+    hasRoleClause: classClauses.length + methodClauses.length > 0,
   });
 }
 
