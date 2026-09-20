@@ -213,6 +213,7 @@
       "test:deps-gate": "Éprouve le gate de dépendances et son raisonnement sur les divergences de version.",
       "test:site-plan": "Vérifie que l'accueil dit ce qu'une application installe vraiment, en le lisant dans le gabarit.",
       "test:integration": "Lance les suites d'intégration rapides, hors charge et hors mémoire.",
+      "test:cluster": "Lance les deux bancs qui forkent de vrais processus : IPC de cluster et bus Redis. Lot séparé — ils saturent les cœurs.",
       "test:load": "Lance les suites lourdes : charge, tas, fuites, scopes d'injection. Avant tout commit qui touche le pipeline.",
       "test:memory": "Le seul gate mémoire : 1000 requêtes, 100 crashs, 100 WebSockets, avec ses seuils de tas.",
       "test:pilotage": "Éprouve les automates de pilotage : ouverture, fermeture, avancement et cohérence du tableau de bord.",

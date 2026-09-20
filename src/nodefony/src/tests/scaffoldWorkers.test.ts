@@ -53,7 +53,21 @@ describe("create app — le réglage du nombre de processus est DÉCOUVRABLE (#2
 
   it("README nomme les trois voies et dit laquelle l'emporte", () => {
     const readme = read("README.md");
-    const section = readme.slice(readme.indexOf("## 8. Production"));
+    // L'ancre est le TITRE, jamais son NUMÉRO : une section insérée en amont
+    // renumérote tout le README, et un `indexOf` qui rend -1 découpe alors la
+    // dernière ligne du fichier — le test accusait la variable absente là où
+    // c'est la section qui n'avait pas été trouvée.
+    const debut = readme.search(/^##\s*(?:\d+\.\s*)?Production\b/mu);
+    assert.notStrictEqual(
+      debut,
+      -1,
+      "section « Production » introuvable dans le README du gabarit",
+    );
+    const suivante = readme.slice(debut + 1).search(/^##\s/mu);
+    const section =
+      suivante === -1
+        ? readme.slice(debut)
+        : readme.slice(debut, debut + 1 + suivante);
     assert.include(section, "NF_WORKERS", "la variable");
     assert.include(section, "--workers", "la ligne de commande");
     assert.include(
