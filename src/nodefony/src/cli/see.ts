@@ -3,6 +3,7 @@ import { existsSync } from "node:fs";
 import path from "node:path";
 import { findProjectRoot } from "./projectRoot";
 import { portableSpawn } from "./execPortable";
+import { printUsage, type IUsagePage } from "./usageReport";
 
 /**
  * Les trois façons de regarder un écran, et ce que chacune exige.
@@ -106,6 +107,81 @@ export function resolveBrowserScript(
 }
 
 /**
+ * La page de `nodefony see --help`.
+ *
+ * Elle existe parce que le pied de l'aide PROMET `--help` à toute commande : le
+ * fast-path de `see` passait ses arguments au script sans jamais regarder ce
+ * drapeau, si bien que `nodefony see --help` tentait d'ouvrir la page
+ * « --help » — `https://127.0.0.1:5152--help`, plantage du pilote. Une commande
+ * qui ne tient pas cette promesse apprend au lecteur à ne plus la croire.
+ */
+const PAGE: IUsagePage = {
+  command: "nodefony see",
+  tagline:
+    "Ouvre une page de l'application dans un navigateur piloté, et la MESURE.",
+  synopsis: [
+    "nodefony see [<chemin>] [<texte attendu>] [options]",
+    "nodefony see --audit [<chemin>]",
+    "nodefony see --watch [<chemin>] [<durée ms>]",
+  ],
+  sections: [
+    {
+      title: "MODES",
+      entries: [
+        {
+          term: "(défaut)",
+          text: "Photographie la page : contrastes CALCULÉS, accessibilité, réseau, console, capture.",
+        },
+        {
+          term: "--watch",
+          text: "Observe ce qui se PASSE dans la durée — frames du socket, requêtes, erreurs.",
+        },
+        {
+          term: "--audit",
+          text: "Audit Lighthouse complet, sur une page authentifiée.",
+        },
+      ],
+    },
+    {
+      title: "CE QU'IL FAUT SAVOIR",
+      bullets: [
+        "N'installe RIEN sans qu'on le demande : l'outillage d'un navigateur piloté pèse des centaines de mégaoctets. La commande nomme ce qui manque et la ligne qui l'installe.",
+        "Le décor se passe par variables d'environnement : NF_BROWSER_LOGIN, NF_BROWSER_USER, NF_BROWSER_PASSWORD, NF_BROWSER_PROBES, NF_BROWSER_ACTIONS, NF_BROWSER_FAMILIES.",
+        "Se lance depuis la racine de l'application, là où vit nodefony.config.ts.",
+      ],
+    },
+  ],
+  options: [
+    {
+      term: "--install",
+      text: "Installe les paquets manquants du mode demandé.",
+    },
+    { term: "--audit", text: "Mode audit Lighthouse." },
+    { term: "--watch", text: "Mode observation dans la durée." },
+    { term: "--help, -h", text: "Affiche cette page." },
+  ],
+  examples: [
+    {
+      term: "nodefony see",
+      text: "La page d'accueil, telle qu'elle se monte.",
+    },
+    {
+      term: 'nodefony see /connexion "Connexion"',
+      text: "Une page précise, en attendant un texte qui prouve qu'elle est peuplée.",
+    },
+    { term: "nodefony see --audit /", text: "L'audit complet de l'accueil." },
+  ],
+  exitCodes: [
+    {
+      term: "1",
+      text: "Décor absent : hors d'une application, paquet du navigateur non installé, ou dépendances du mode manquantes.",
+    },
+  ],
+  footer:
+    "Le navigateur est celui de la machine (chromium, sinon chrome, sinon msedge) — il n'y a le plus souvent rien à télécharger.",
+};
+
+/**
  * Commande `nodefony see` — ouvrir une page dans un navigateur piloté et la MESURER.
  *
  * Trois modes sous une seule entrée, et c'est délibéré : déplacer cinq scripts
@@ -121,6 +197,12 @@ export function resolveBrowserScript(
  * @returns le code de sortie à rendre au shell.
  */
 export async function runSeeCommand(argv: readonly string[]): Promise<number> {
+  // Avant TOUT le reste : `--help` est une réponse, pas un chemin de page. Le
+  // contrôle passe même hors d'une application — une page d'aide ne dépend pas
+  // d'un décor, et la refuser ici renverrait l'erreur de décor à qui demandait
+  // simplement ce que fait la commande.
+  if (argv.includes("--help") || argv.includes("-h")) return printUsage(PAGE);
+
   const root = findProjectRoot(process.cwd());
   if (!root) {
     process.stderr.write(

@@ -13,6 +13,7 @@ import { runCreateCommand } from "../cli/create";
 import { runCompletionCommand } from "../cli/completion";
 import { runStandaloneDevCommand } from "../service/dev/devStatusReport";
 import { runDoctorCommand } from "../kernel/checks/runDoctor";
+import { runSeeCommand } from "../cli/see";
 
 /**
  * 🔴 Le pied de l'aide promet `nodefony <commande> --help`. Dix commandes le
@@ -52,6 +53,7 @@ const STANDALONE: ReadonlyArray<
   ["create", runCreateCommand],
   ["completion", runCompletionCommand],
   ["doctor", runDoctorCommand],
+  ["see", runSeeCommand],
   ["status", () => runStandaloneDevCommand("status")],
   ["stop", () => runStandaloneDevCommand("stop")],
 ];

@@ -341,13 +341,7 @@ export const NPM_SCRIPT_CATALOG: readonly {
     script: "see",
     summary: "regarde l'écran (et le MESURE)",
     group: "Qualité — écran (npm run)",
-    when: "Ouvre la page dans un navigateur piloté : contrastes CALCULÉS, arbre d'accessibilité, console, requêtes réelles. Pour CONSTATER un rendu au lieu de le supposer.",
-  },
-  {
-    script: "audit:web",
-    summary: "audit Lighthouse + accessibilité",
-    group: "Qualité — écran (npm run)",
-    when: "Audit complet d'une page servie : performance, accessibilité (axe), bonnes pratiques. Plus lourd que `see` — pour une revue, pas pour une boucle de dev.",
+    when: "Ouvre la page dans un navigateur piloté : contrastes CALCULÉS, arbre d'accessibilité, console, requêtes réelles. Pour CONSTATER un rendu au lieu de le supposer. `--watch` observe la durée, `--audit` rend l'audit Lighthouse complet.",
   },
   {
     script: "coverage",
