@@ -12,7 +12,7 @@ Agis en tant que Lead Architect du framework agentique Nodefony.
 # Instructions pour le mode Autonome
 
 - Ne travaille que sur un SEUL module à la fois.
-- Si une commande de test échoue plus de 3 fois d'affilée avec la même erreur, ARRÊTE-TOI et laisse une note dans `BUG_REPORT.md`.
+- Si une commande de test échoue plus de 3 fois d'affilée avec la même erreur, ARRÊTE-TOI et laisse une note dans `docs/session-retros/BUG_REPORT.md`.
 - Interdiction de modifier les fichiers en dehors du scope du module assigné.
 - Fais un commit Git local (`git commit -m "feat(auth): ..."`) dès qu'une sous-tâche est validée et passe les tests.
 

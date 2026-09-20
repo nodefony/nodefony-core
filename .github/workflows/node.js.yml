@@ -256,6 +256,16 @@ jobs:
           npm run test:deps-gate
           npm run deps:gate
 
+      # L'accueil du dépôt AFFIRME ce qu'une application installe — c'est
+      # l'argument qui distingue le produit du monorepo de développement, et
+      # c'est faute de le dire que des agents ont conclu qu'adopter Nodefony
+      # revenait à hériter du dépôt. Le site le calcule ; `AGENTS.md` l'écrit à
+      # la main, donc lui seul peut dériver. Ce gate est ce qui l'en empêche.
+      - name: Gate — l'accueil dit ce qu'une application installe
+        if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
+        shell: bash
+        run: npx vitest run scripts/site-plan.test.mjs
+
       - name: Gate — licences des dépendances de production
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash

@@ -4,12 +4,51 @@ Carte d'entrée du dépôt, au format [AGENTS.md](https://agents.md), pour un ag
 codage qui arrive ici sans contexte. Elle **pointe**, elle ne recopie pas : chaque
 ligne dit où trouver la vérité, jamais ce qu'elle contient.
 
-Nodefony est un framework Node.js fullstack en TypeScript strict, ESM uniquement, où
-HTTP et WebSocket partagent la même route, la même session et le même pare-feu.
+---
+
+## Ce que fait Nodefony, et pour qui
+
+Un framework Node.js fullstack en TypeScript strict, ESM uniquement, où **HTTP et
+WebSocket partagent la même route, la même session et le même pare-feu** : un même
+contrôleur répond aux deux, sans pont, sans second serveur, sans dupliquer
+l'authentification. Autour de cet axe : injection de dépendances, modules, pare-feu
+applicatif, ORM multi-dialecte, constructeur de frontends (Vite), console
+d'administration, et une ligne de commande qui génère le code conventionnel.
+
+Il vise l'application métier dont le temps réel est un citoyen de premier rang —
+API, WebSocket, écran et commandes dans un seul processus, un seul routeur, une
+seule session.
+
+---
+
+## 🔴 Ce dépôt n'est pas ce qu'une application installe
+
+Ce dépôt est le **dépôt de développement** du framework : un monorepo qui porte
+aussi ses bancs de mesure, ses gabarits, ses procédures d'agent et ses retours
+d'expérience. **Rien de tout cela n'entre dans une application.**
+
+|                                      |                                                                                                                                                                     |
+| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Une application minimale générée** | **quatre dépendances de production** — `nodefony`, `@nodefony/http`, `@nodefony/framework`, `zod`. Se constate : `src/nodefony/templates/app/base/package.json.tpl` |
+| **Ce dépôt**                         | 20 paquets, 5 modules d'épreuve, ~7 700 tests, les bancs de charge et la chaîne de publication — aucun n'est une dépendance d'application                           |
+
+> ⚠️ **Ne pas juger le produit sur ce dépôt.** Lire `src/` donne l'implémentation du
+> framework, jamais la surface qu'une application utilise. Le monorepo, la branche de
+> travail, les compétences d'agent, les retex : ce sont les outils du mainteneur.
+
+**Pour évaluer le framework** — « est-ce une bonne base pour mon projet ? » :
+[`README.md`](README.md), puis [`docs/index.md`](docs/index.md), puis générer une
+application (`npm create nodefony@alpha <app>`) et lire ce qu'elle contient. Ne pas
+descendre dans `src/` : la question ne s'y trouve pas.
+
+**Pour travailler sur le framework** : tout le reste de ce fichier.
 
 ---
 
 ## État
+
+Ces réserves portent sur la maturité de la **publication** et sur les moyens du
+projet — pas sur le poids d'une application, mesuré ci-dessus.
 
 |                        |                                                                                                                                                                                                               |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

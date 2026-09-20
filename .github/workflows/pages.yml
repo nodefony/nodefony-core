@@ -53,6 +53,11 @@ on:
       - "src/packages/@nodefony/documentation/nodefony/**"
       - "src/packages/@nodefony/documentation/index.ts"
       - "scripts/readme-html.mjs"
+      - "scripts/build-site-plan.mjs"
+      - "scripts/lib/app-template-deps.mjs"
+      # Le plan du site AFFIRME ce qu'une application installe, en le lisant dans
+      # le gabarit. Une dépendance ajoutée là change donc une page publiée.
+      - "src/nodefony/templates/app/base/package.json.tpl"
       - "README.md"
       - "scripts/build-perf-site.mjs"
       - ".claude/skills/nodefony-html-report/lib/**"
@@ -120,6 +125,14 @@ jobs:
       - name: Construire le dossier de qualité
         run: node scripts/build-qualite-site.mjs --out dist-site/qualite
 
+      # Le PLAN du site, écrit sur ce qui vient d'être rendu — jamais sur les
+      # sources. Un développeur interroge un agent avant d'ouvrir un README :
+      # `llms.txt` est ce qui dit à cet agent où lire, et surtout ce qu'une
+      # application installe vraiment. Cette étape vient donc APRÈS les trois
+      # rendus, sinon le plan décrirait un site incomplet.
+      - name: Écrire le plan du site (llms.txt, sitemap, robots)
+        run: node scripts/build-site-plan.mjs --out dist-site
+
       # Le site doit MONTRER quelque chose : une page vide se publierait en
       # silence. On exige la porte d'entrée, une page profonde et la page de
       # mesures courante — trois points qui tombent pour trois raisons distinctes.
@@ -131,6 +144,9 @@ jobs:
           test -s dist-site/docs/index.html
           test -s dist-site/docs/modules/security/firewall/index.html
           test -s dist-site/performance/latest/index.html
+          test -s dist-site/llms.txt
+          test -s dist-site/sitemap.xml
+          test -s dist-site/robots.txt
           echo "pages rendues : $(find dist-site -name index.html | wc -l)"
 
       # La recherche plein texte tient à DEUX artefacts, et perdre l'un des deux
