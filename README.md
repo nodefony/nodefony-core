@@ -216,6 +216,15 @@ d'avant, sans rapport avec ce que cette page décrit.
 L'application répond sur `http://127.0.0.1:5151` — ou le premier port libre, annoncé au
 démarrage — et la console d'administration sur `/nodefony`.
 
+**À quoi ressemble ce que la commande produit :**
+[`github.com/nodefony/nodefony`](https://github.com/nodefony/nodefony). Ce dépôt n'est pas une
+démonstration écrite à la main pour la vitrine — c'est la sortie littérale de
+`nodefony create app --preset complete --frontend react`, poussée telle quelle et **régénérée à
+chaque publication**. Base de données et migration initiale, sécurité et comptes, temps réel,
+console d'administration, front React, infra docker de développement, chaîne d'intégration
+continue : tout ce que vous y lisez a été engendré, rien n'y a été retouché. C'est le moyen le plus
+court de juger le code qu'on aura à maintenir, avant d'installer quoi que ce soit.
+
 Pour travailler sur le framework lui-même, c'est le dépôt qu'on clone :
 
 ```bash

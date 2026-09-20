@@ -194,14 +194,18 @@ function llmsPlan(pages, base) {
     ),
     "",
     ...wrap(
-      "**Ce qu'une application installe.** Une application créée par " +
-        "`npm create nodefony@alpha`, en version minimale, porte " +
-        `${numberWord(deps.length)} dépendances de production : ` +
-        `${deps.map((d) => `\`${d}\``).join(", ")}. Le dépôt de développement du ` +
-        `framework, lui, est un monorepo de ${packageCount} paquets qui porte en plus ses ` +
-        "bancs de mesure, ses gabarits et son outillage d'agent : rien de cela n'entre " +
-        "dans une application, et le lire ne dit rien du coût d'adoption. Se constate : " +
-        `\`${APP_TEMPLATE_HREF}\`.`,
+      "**Ce qu'une application déclare.** Une application créée par " +
+        "`npm create nodefony@alpha`, en version minimale, déclare " +
+        `${numberWord(deps.length)} dépendances : ` +
+        `${deps.map((d) => `\`${d}\``).join(", ")}. C'est ce qu'elle ÉCRIT dans son ` +
+        "`package.json` ; l'arbre que npm installe en compte une centaine, comme tout " +
+        "projet Node — ce qui se vérifie, c'est qu'aucun n'est un paquet maison qui " +
+        "doublerait l'écosystème : les serveurs sont ceux de Node (`node:http`, " +
+        "`node:http2`), l'ORM est Drizzle, le front est Vite, la validation est Zod. " +
+        `Le dépôt de développement du framework, lui, est un monorepo de ${packageCount} ` +
+        "paquets qui porte en plus ses bancs de mesure, ses gabarits et son outillage " +
+        "d'agent : rien de cela n'entre dans une application, et le lire ne dit rien du " +
+        `coût d'adoption. Se constate : \`${APP_TEMPLATE_HREF}\`.`,
     ),
     "",
     ...wrap(

@@ -63,7 +63,14 @@ describe("dépendances d'une application minimale", () => {
     const accueil = fs.readFileSync(path.join(RACINE, "AGENTS.md"), "utf8");
     const deps = minimalAppDependencies(RACINE);
     const mots = ["zéro", "une", "deux", "trois", "quatre", "cinq", "six"];
-    expect(accueil).toContain(`${mots[deps.length]} dépendances de production`);
+    // « déclarées », pas « de production » : le chiffre compte les lignes que
+    // l'application ÉCRIT, pas les paquets que npm INSTALLE (mesuré : 4 lignes
+    // → 109 paquets en production sur une application minimale). L'ancienne
+    // formule était vraie au sens strict et fausse au sens où on la lit ; un
+    // évaluateur la démontait en un `npm ls`, et l'accueil y perdait plus qu'il
+    // n'y gagnait. Ce gate garde la cohérence du chiffre avec le gabarit — il ne
+    // peut pas garder sa sincérité, c'est la formulation qui s'en charge.
+    expect(accueil).toContain(`${mots[deps.length]} dépendances déclarées`);
     for (const dep of deps) expect(accueil).toContain(`\`${dep}\``);
   });
 });

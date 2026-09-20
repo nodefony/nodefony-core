@@ -266,6 +266,22 @@
       "src/nodefony/src/tests/envOverride.test.ts"
     ]
   },
+  "extension-guide": {
+    "unit": [
+      "src/nodefony/src/tests/LogDriver.test.ts",
+      "src/nodefony/src/tests/Error.test.ts",
+      "src/packages/@nodefony/framework/nodefony/tests/unit/idempotencyStoreRegistry.test.ts",
+      "src/packages/@nodefony/realtime/nodefony/tests/unit/backplaneRegistry.test.ts",
+      "src/packages/@nodefony/realtime/nodefony/tests/unit/healthBackplaneDrivers.test.ts",
+      "src/packages/@nodefony/security/tests/unit/auditStoreRegistry.test.ts",
+      "src/packages/@nodefony/security/tests/unit/tokenStore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/oauthProviders.test.ts",
+      "src/packages/@nodefony/security/tests/unit/authorization.test.ts"
+    ],
+    "attack": [
+      "src/packages/@nodefony/security/tests/unit/authorization.attack.test.ts"
+    ]
+  },
   "external-jwt": {
     "unit": [
       "src/packages/@nodefony/security/tests/unit/externalJwtAuthenticator.test.ts",
