@@ -108,6 +108,7 @@ Avant de commencer une nouvelle phase / tâche :
    npm run test:all              # TOUT : docker + build + unit + intégration, et le RAPPORT
    npm run test:all -- --infra   # juste l'état de l'infra, sans rien lancer
    npm run test:all -- --dialects  # + rejoue les suites ORM sur MySQL Community
+   npm run test:all -- --mongo     # + rejoue le DÉMARRAGE de l'app sur MongoDB
    ```
 
    `test:all` (`scripts/test-all.ts`) démarre les conteneurs manquants, pose les variables
