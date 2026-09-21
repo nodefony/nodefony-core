@@ -19,7 +19,6 @@ import {
   Alert,
   RingProgress,
   UnstyledButton,
-  Tooltip,
   type MantineColor,
 } from "@mantine/core";
 import { Link, useNavigate } from "react-router";
@@ -47,6 +46,7 @@ import {
   StickyTabsList,
   DataState,
   DocHint,
+  InfoHint,
   MiniChart,
   FlashValue,
 } from "../components/ui";
@@ -728,13 +728,27 @@ export const OrmOverview = observer(
     }, [live]);
     useEffect(() => lsSet("nf.orm.liveMs", String(liveMs)), [liveMs]);
 
+    /**
+     * Compte d'une entité, en tenant compte de l'HOMONYMIE entre connecteurs.
+     *
+     * Le serveur qualifie la clé (`connecteur:nom`) quand plusieurs connecteurs
+     * portent ce nom, et la laisse nue sinon — d'où les deux lectures. Sans
+     * cela, `session` de Mongoose affichait le compte de `session` de Drizzle :
+     * deux lignes jumelles, un chiffre faux, et rien pour le dire.
+     */
+    const countOf = useCallback(
+      (e: { name: string; connector: string }): number | undefined =>
+        countMap[`${e.connector}:${e.name}`] ?? countMap[e.name],
+      [countMap],
+    );
+
     // Volume global : plus grosse table + nb de tables peuplées (KPI « Lignes »).
     const volume = useMemo(() => {
       let populated = 0;
       let topName = "";
       let topRows = 0;
       for (const e of entities) {
-        const c = countMap[e.name];
+        const c = countOf(e);
         if (typeof c === "number" && c > 0) {
           populated += 1;
           if (c > topRows) {
@@ -744,7 +758,47 @@ export const OrmOverview = observer(
         }
       }
       return { populated, topName, topRows };
-    }, [entities, countMap]);
+    }, [entities, countOf]);
+
+    /**
+     * Texte de la bulle d'aide d'une carte de connecteur — UNE seule par carte.
+     *
+     * Ce que les badges disent en un mot est développé ici : le rôle, les
+     * briques réellement portées, l'avertissement d'une base volatile. Le
+     * contraire — une bulle par badge — multiplie les cibles de survol sans en
+     * rendre AUCUNE atteignable au clavier.
+     */
+    const aideConnecteur = useCallback(
+      (o: OrmSummary, role: { hint: string }, bricks: string[]): string => {
+        const parts = [role.hint];
+        if (bricks.length > 0) {
+          parts.push(
+            `Briques durables résolues sur ce moteur (${bricks.length}) : ${bricks.join(", ")}.`,
+          );
+        }
+        if (o.connection?.target === ":memory:") {
+          parts.push(
+            "Base en mémoire : tout son contenu disparaît au redémarrage.",
+          );
+        }
+        if (!o.connected) {
+          parts.push(
+            "Connecteur NON relié : les entités qu'il porte sont injoignables.",
+          );
+        }
+        return parts.join(" ");
+      },
+      [],
+    );
+
+    /** Noms d'entité portés par PLUSIEURS connecteurs — sources d'ambiguïté. */
+    const homonymNames = useMemo(() => {
+      const seen = new Map<string, number>();
+      for (const e of entities) seen.set(e.name, (seen.get(e.name) ?? 0) + 1);
+      return new Set(
+        [...seen.entries()].filter(([, n]) => n > 1).map(([name]) => name),
+      );
+    }, [entities]);
 
     // Top 12 tables par volume (lignes), liées au détail de l'entité.
     const topEntities = useMemo<RankItem[]>(
@@ -752,8 +806,13 @@ export const OrmOverview = observer(
         scopedEntities
           .map((e) => ({
             key: `${e.connector}:${e.name}`,
-            label: e.name,
-            value: countMap[e.name] ?? -1,
+            // Le connecteur entre dans le libellé UNIQUEMENT quand le nom est
+            // porté par plusieurs : sinon on alourdit toutes les lignes pour
+            // un cas qui n'existe pas dans la plupart des applications.
+            label: homonymNames.has(e.name)
+              ? `${e.name} · ${e.connector}`
+              : e.name,
+            value: countOf(e) ?? -1,
             href: `/nodefony/orm-entity?name=${encodeURIComponent(
               e.name,
             )}&connector=${encodeURIComponent(e.connector)}`,
@@ -761,7 +820,7 @@ export const OrmOverview = observer(
           .filter((x) => x.value > 0)
           .sort((a, b) => b.value - a.value)
           .slice(0, 12),
-      [scopedEntities, countMap],
+      [scopedEntities, countOf, homonymNames],
     );
 
     const topDomainsByEntities = useMemo<RankItem[]>(
@@ -1183,44 +1242,34 @@ export const OrmOverview = observer(
                             >
                               {o.name}
                             </Text>
-                            <Tooltip
-                              label={role.hint}
-                              multiline
-                              w={280}
-                              withArrow
+                            <Badge
+                              size="xs"
+                              variant="light"
+                              color={role.color as MantineColor}
+                              style={{ textTransform: "none" }}
                             >
-                              <Badge
-                                size="xs"
-                                variant="light"
-                                color={role.color as MantineColor}
-                                style={{
-                                  textTransform: "none",
-                                  cursor: "help",
-                                }}
-                              >
-                                {role.label}
-                              </Badge>
-                            </Tooltip>
-                            <Tooltip
-                              label={
-                                o.connected
-                                  ? "Connecteur relié à sa base"
-                                  : "Connecteur NON relié — les entités qu'il porte sont injoignables"
-                              }
-                              withArrow
-                            >
-                              {o.connected ? (
-                                <IconPlugConnected
-                                  size={15}
-                                  color="var(--mantine-color-teal-5)"
-                                />
-                              ) : (
-                                <IconPlugX
-                                  size={15}
-                                  color="var(--mantine-color-red-5)"
-                                />
-                              )}
-                            </Tooltip>
+                              {role.label}
+                            </Badge>
+                            {o.connected ? (
+                              <IconPlugConnected
+                                size={15}
+                                color="var(--mantine-color-teal-5)"
+                                aria-label="connecteur relié à sa base"
+                              />
+                            ) : (
+                              <IconPlugX
+                                size={15}
+                                color="var(--mantine-color-red-5)"
+                                aria-label="connecteur non relié"
+                              />
+                            )}
+                            {/* L'aide passe par le composant du kit : une bulle
+                                posée sur un `Badge` n'est atteignable NI au
+                                clavier ni au tactile — Mantine ne le rend pas
+                                focusable, et `aria-label` est interdit sur son
+                                `<div>`. `InfoHint` porte la norme : cible de
+                                24 px, `aria-label`, events hover/focus/touch. */}
+                            <InfoHint text={aideConnecteur(o, role, bricks)} />
                           </Group>
 
                           <Group gap={6} mb={6}>
@@ -1239,22 +1288,14 @@ export const OrmOverview = observer(
                               {driver}
                             </Badge>
                             {volatile && (
-                              <Tooltip
-                                label="Base en mémoire : tout son contenu disparaît au redémarrage."
-                                withArrow
+                              <Badge
+                                size="xs"
+                                variant="light"
+                                color="orange"
+                                style={{ textTransform: "none" }}
                               >
-                                <Badge
-                                  size="xs"
-                                  variant="light"
-                                  color="orange"
-                                  style={{
-                                    cursor: "help",
-                                    textTransform: "none",
-                                  }}
-                                >
-                                  volatile
-                                </Badge>
-                              </Tooltip>
+                                volatile
+                              </Badge>
                             )}
                           </Group>
 
@@ -1290,25 +1331,15 @@ export const OrmOverview = observer(
                                   les briques durables n'est pas forcément celle
                                   que l'ORM appelle « default ». */}
                               {bricks.length > 0 && (
-                                <Tooltip
-                                  label={`Briques durables résolues sur ce moteur : ${bricks.join(", ")}.`}
-                                  multiline
-                                  w={280}
-                                  withArrow
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color="teal"
+                                  style={{ textTransform: "none" }}
                                 >
-                                  <Badge
-                                    size="xs"
-                                    variant="light"
-                                    color="teal"
-                                    style={{
-                                      cursor: "help",
-                                      textTransform: "none",
-                                    }}
-                                  >
-                                    {bricks.length} brique
-                                    {bricks.length > 1 ? "s" : ""}
-                                  </Badge>
-                                </Tooltip>
+                                  {bricks.length} brique
+                                  {bricks.length > 1 ? "s" : ""}
+                                </Badge>
                               )}
                             </Group>
                             {/* Les versions répondent à la question d'après :

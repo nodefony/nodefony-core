@@ -313,3 +313,120 @@ describe("OrmAdminApi — graphe canonique + DBML", () => {
     });
   });
 });
+
+/**
+ * 🔴 DEUX connecteurs, une entité HOMONYME — le cas qui rendait un chiffre faux.
+ *
+ * Dès qu'une application démarre sur MongoDB, `@nodefony/drizzle` reste chargé
+ * avec son entité `session` pendant que `@nodefony/mongoose` déclare la sienne.
+ * Le handler `counts` indexait sur le seul NOM : la seconde écrasait la
+ * première, et le tableau de bord affichait le MÊME total pour les deux — dont
+ * un faux, sans qu'aucune ligne ne le signale.
+ *
+ * Les décors portent des comptes DIFFÉRENTS (7 et 0), et c'est ce qui fait le
+ * test : avec deux comptes égaux, l'écrasement passerait inaperçu.
+ */
+describe("OrmAdminApi — counts : deux connecteurs, une entité homonyme", () => {
+  const SQL = "sql-side";
+  const DOC = "doc-side";
+
+  /** Stub qui rend un compte FIXE, distinct par connecteur. */
+  const ormRendant = (nom: string, rows: number): IOrm => ({
+    name: nom,
+    isConnected: () => true,
+    describeEntity: () => [],
+    connect: async () => {},
+    disconnect: async () => {},
+    getRepository: () => ({ count: async () => rows }) as never,
+    transaction: async () => {
+      throw new Error("unused");
+    },
+    getNativeConnection: () => {
+      throw new Error("unused");
+    },
+  });
+
+  const entite = (nom: string, connecteur: string): IEntity => ({
+    name: nom,
+    connector: connecteur,
+    module: "test",
+    schema: {},
+  });
+
+  beforeEach(() => {
+    ormRegistry.register(SQL, ormRendant(SQL, 7));
+    ormRegistry.register(DOC, ormRendant(DOC, 0));
+    entityRegistry.register(entite("session", SQL));
+    entityRegistry.register(entite("session", DOC));
+    // Une entité NON partagée : elle doit garder sa clé nue, sinon on casse les
+    // consommateurs existants pour un cas d'ambiguïté qui ne les concerne pas.
+    entityRegistry.register(entite("facture", SQL));
+  });
+  afterEach(() => {
+    entityRegistry.unregister("session", SQL);
+    entityRegistry.unregister("session", DOC);
+    entityRegistry.unregister("facture", SQL);
+    ormRegistry.unregister(SQL);
+    ormRegistry.unregister(DOC);
+  });
+
+  const compter = async (
+    query: Record<string, string> = {},
+  ): Promise<Record<string, number>> => {
+    const api = createOrmAdminApi();
+    const ep = api.adminEndpoints().find((e) => e.path === "counts")!;
+    return (await ep.handler(req({}, query))) as Record<string, number>;
+  };
+
+  it("🔴 rend les DEUX comptes, chacun sous sa clé qualifiée", async () => {
+    const counts = await compter();
+    assert.equal(
+      counts[`${SQL}:session`],
+      7,
+      `le compte du connecteur SQL est perdu : ${JSON.stringify(counts)}`,
+    );
+    assert.equal(
+      counts[`${DOC}:session`],
+      0,
+      `le compte du connecteur document est perdu : ${JSON.stringify(counts)}`,
+    );
+    // Le cœur du défaut : une seule clé `session` signifierait qu'un des deux
+    // connecteurs a écrasé l'autre, et que l'écran affiche le compte d'une base
+    // pour une autre.
+    assert.equal(
+      counts.session,
+      undefined,
+      `clé ambiguë « session » encore présente : ${JSON.stringify(counts)}`,
+    );
+  });
+
+  it("laisse sa clé NUE à une entité qu'un seul connecteur porte", async () => {
+    const counts = await compter();
+    assert.equal(counts.facture, 7, JSON.stringify(counts));
+    assert.equal(counts[`${SQL}:facture`], undefined, JSON.stringify(counts));
+  });
+
+  it("filtré par connecteur, aucune ambiguïté ne subsiste : clés nues", async () => {
+    // C'est l'appel que fait déjà l'écran d'une base : le filtre lève
+    // l'homonymie, la clé n'a donc aucune raison d'être qualifiée.
+    const counts = await compter({ connector: DOC });
+    assert.equal(counts.session, 0, JSON.stringify(counts));
+    assert.equal(counts[`${DOC}:session`], undefined, JSON.stringify(counts));
+    assert.equal(
+      counts.facture,
+      undefined,
+      "le filtre doit exclure l'autre connecteur",
+    );
+  });
+
+  it("un connecteur déconnecté rend -1, sans contaminer son homonyme", async () => {
+    ormRegistry.unregister(DOC);
+    ormRegistry.register(DOC, {
+      ...ormRendant(DOC, 0),
+      isConnected: () => false,
+    });
+    const counts = await compter();
+    assert.equal(counts[`${SQL}:session`], 7, JSON.stringify(counts));
+    assert.equal(counts[`${DOC}:session`], -1, JSON.stringify(counts));
+  });
+});

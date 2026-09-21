@@ -143,7 +143,11 @@ export function analyzeModel(
     for (const r of rels) relByType[r.type] = (relByType[r.type] ?? 0) + 1;
     const d = e.domain || "(non classé)";
     entitiesByDomain[d] = (entitiesByDomain[d] ?? 0) + 1;
-    const c = countMap[e.name];
+    // Clé QUALIFIÉE d'abord : le serveur préfixe par le connecteur quand
+    // plusieurs le portent (deux ORM chargés déclarent tous deux `session`),
+    // et laisse la clé nue sinon. Lire le seul nom faisait disparaître les
+    // comptes des entités homonymes — total faux, et « — » à l'écran.
+    const c = countMap[`${e.connector}:${e.name}`] ?? countMap[e.name];
     if (typeof c === "number" && c > 0) {
       rowsTotal += c;
       rowsByDomain[d] = (rowsByDomain[d] ?? 0) + c;

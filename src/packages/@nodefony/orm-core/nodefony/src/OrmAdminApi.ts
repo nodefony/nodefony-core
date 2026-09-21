@@ -539,22 +539,40 @@ export function createOrmAdminApi(): IAdminApi {
     {
       path: "counts",
       summary:
-        "Nombre de lignes par entité (COUNT(*)) — ?connector= pour filtrer. Lazy : 1 COUNT par table.",
+        "Nombre de lignes par entité (COUNT(*)) — ?connector= pour filtrer. Lazy : 1 COUNT par table. Clé = nom de l'entité, qualifiée `connecteur:nom` quand plusieurs connecteurs portent ce nom.",
       handler: async (request): Promise<Record<string, number>> => {
         const connector = oneParam(request, "connector");
         const counts: Record<string, number> = {};
         const entities = entityRegistry
           .list()
           .filter((e) => !connector || e.connector === connector);
+        // 🔴 Deux connecteurs peuvent porter une entité HOMONYME — c'est le cas
+        // dès qu'une application tourne sur MongoDB : `@nodefony/drizzle` reste
+        // chargé avec son `session`, et `@nodefony/mongoose` déclare le sien.
+        // Indexé sur le seul nom, le second écrasait le premier : le tableau de
+        // bord affichait alors le MÊME compte pour les deux, dont un faux, sans
+        // qu'aucune ligne ne le dise.
+        //
+        // La clé n'est qualifiée QUE s'il y a ambiguïté : un appel filtré par
+        // `?connector=` et une application mono-ORM gardent leurs clés nues,
+        // donc rien ne casse chez les consommateurs existants.
+        const homonyms = new Map<string, number>();
         for (const e of entities) {
+          homonyms.set(e.name, (homonyms.get(e.name) ?? 0) + 1);
+        }
+        for (const e of entities) {
+          const key =
+            (homonyms.get(e.name) ?? 0) > 1
+              ? `${e.connector}:${e.name}`
+              : e.name;
           try {
             const inst = ormRegistry.get(e.connector);
             // -1 = non comptable (ORM déconnecté / pas de repository) → l'UI affiche « — ».
-            counts[e.name] = inst.isConnected()
+            counts[key] = inst.isConnected()
               ? await inst.getRepository(e.name).count()
               : -1;
           } catch {
-            counts[e.name] = -1;
+            counts[key] = -1;
           }
         }
         return counts;
