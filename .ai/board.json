@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T15:50:13.416Z",
+  "generatedAt": "2026-09-21T16:46:29.079Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 138,
+      "closed": 139,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 5,
+      "open": 4,
       "title": "10.0.0-alpha"
     },
     {
@@ -1767,7 +1767,7 @@
       "title": "feat(scaffold): proposer mongodb au choix de base de données",
       "url": "https://github.com/nodefony/nodefony-core/issues/454",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1782,8 +1782,8 @@
       "number": 455,
       "title": "test(orm): rejouer le démarrage sur MongoDB dans la chaîne, pas à la main",
       "url": "https://github.com/nodefony/nodefony-core/issues/455",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -6013,7 +6013,7 @@
       "title": "test(orm): prouver la parite de contrat entre Mongoose et Drizzle",
       "url": "https://github.com/nodefony/nodefony-core/issues/238",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
