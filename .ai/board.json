@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T14:17:00.580Z",
+  "generatedAt": "2026-09-21T15:26:24.827Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 137,
+      "closed": 138,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 3,
+      "open": 2,
       "title": "10.0.0-alpha"
     },
     {
@@ -5008,8 +5008,8 @@
       "number": 30,
       "title": "feat(mongoose): compléter les stockages manquants côté MongoDB",
       "url": "https://github.com/nodefony/nodefony-core/issues/30",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P3 — fin de cycle",
       "jours": 1,

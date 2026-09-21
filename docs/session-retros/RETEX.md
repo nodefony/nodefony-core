@@ -71,6 +71,29 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-21c] 🔴 **Mon test affirmait une garantie que le CONTRAT ne permet à personne de
+  tenir — et les trois implémentations mentaient de la même façon.** En portant l'idempotence sur
+  Mongo, j'ai écrit « `complete` ne ressuscite pas une clé VOLÉE entre-temps ». Rouge. Réflexe
+  premier : corriger mon store. Le geste juste a été d'aller lire l'implémentation de RÉFÉRENCE
+  (`framework/nodefony/service/IdempotencyStore.ts`) : elle garde sur le seul `kind ===
+"in-flight"`, exactement comme Drizzle — parce que `complete(key, response)` ne reçoit **aucun
+  jeton de réservation** et n'a donc rien pour distinguer le détenteur légitime d'un handler figé
+  qui se réveille. Ce n'est pas un oubli d'adaptateur, c'est une limite du contrat. Les trois
+  TSDoc, eux, promettaient « ni bail expiré + volée entre-temps » — une phrase recopiée trois
+  fois, fausse trois fois. **Diverger pour « mieux faire » aurait été pire que la limite** : le
+  comportement d'un `@Idempotent` aurait dépendu du backend choisi. Le test constate désormais la
+  limite en disant que c'en est une, et la fermer exige un jeton au contrat, donc une majeure.
+
+- [1× — 09-21c] 🔴 **Un banc qui affirme tester une CONDITION a besoin d'un TÉMOIN qui prouve que
+  la condition est bien dans le décor.** Banc de rafale du journal d'audit : 400 événements pour
+  éprouver le curseur composite sur des collisions de milliseconde. Écrit avec un `await` par
+  `append`, chaque écriture était espacée d'un aller-retour réseau — **zéro collision**, et les
+  cinq cas suivants passaient au vert en ne départageant rien. Seul le témoin « la rafale a-t-elle
+  produit des collisions ? » l'a dit. La correction n'était pas cosmétique : l'`AuditService` émet
+  en **synchrone** (`record()` est fire-and-forget) et n'attend pas l'écriture — le décor devait
+  refléter le producteur réel, pas une boucle d'écriture confortable. Un test vert sur un décor qui
+  ne contient pas son sujet est un faux vert PARFAIT : rien ne cloche, tout passe.
+
 - [1× — 09-20b] 🔴 **J'ai failli retirer huit scripts npm qu'un test du dépôt protégeait par une
   MESURE.** Raisonnement : un script qui n'est qu'un alias 1:1 d'une commande (`"doctor": "nodefony
 doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en clair — « sans cette
