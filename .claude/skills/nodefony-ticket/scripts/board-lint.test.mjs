@@ -1,10 +1,15 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import {
   citeLeTicket,
   lintBoard,
   parseBefore,
   parseDependsOn,
 } from "./board-lint.mjs";
+
+const ICI = path.dirname(fileURLToPath(import.meta.url));
 
 /** Un item sain : jalon, ordre, estimation, priorité, aucun statut menteur. */
 const sain = (n, extra = {}) => ({
@@ -553,5 +558,113 @@ describe("VITRINE-OUVERTE", () => {
       now: MAINTENANT,
     });
     expect(codes(findings)).not.toContain("VITRINE-OUVERTE");
+  });
+});
+
+describe("ALERTE-CODE", () => {
+  const alerte = {
+    n: 207,
+    rule: "js/shell-command-injection-from-environment",
+    path: "src/nodefony/src/cli/see.ts",
+    line: 238,
+  };
+
+  it("signale une alerte d'analyse de code restée ouverte", () => {
+    const findings = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      alertes: [alerte],
+      now: MAINTENANT,
+    });
+    const vu = findings.filter((f) => f.code === "ALERTE-CODE");
+    expect(vu).toHaveLength(1);
+    expect(vu[0].severity).toBe("avertissement");
+    // Le fichier ET la règle : sans eux, l'avertissement n'apprend rien et se
+    // fait passer outre — c'est ce qui rend un tableau d'alertes illisible.
+    expect(vu[0].message).toContain("see.ts:238");
+    expect(vu[0].message).toContain(
+      "js/shell-command-injection-from-environment",
+    );
+    expect(vu[0].message).toContain("alerte 207");
+  });
+
+  it("ne porte AUCUN numéro de ticket — une alerte n'en a pas", () => {
+    // Écrire un numéro ici enverrait ouvrir une issue qui n'existe pas. Le
+    // rendu doit donc savoir se passer d'ancre.
+    const vu = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      alertes: [alerte],
+      now: MAINTENANT,
+    }).find((f) => f.code === "ALERTE-CODE");
+    expect(vu.n).toBeNull();
+  });
+
+  it("le déblocage proposé exige un MOTIF, jamais un rejet nu", () => {
+    // Un « rejeté » sans motif est exactement ce qui rend le tableau d'alertes
+    // illisible — la raison d'être de #385.
+    const vu = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      alertes: [alerte],
+      now: MAINTENANT,
+    }).find((f) => f.code === "ALERTE-CODE");
+    expect(vu.unlock).toContain("dismissed_comment");
+  });
+
+  it("ne dit rien sans alerte — y compris si la forge est muette", () => {
+    const findings = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      alertes: [],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("ALERTE-CODE");
+  });
+});
+
+/**
+ * La table des contrôles de la référence est un JUMEAU du script — et un jumeau
+ * non vérifié diverge en silence.
+ *
+ * Mesuré à l'écriture de ce test : le script rendait dix-huit codes, la table en
+ * listait onze, et la prose en annonçait tantôt « neuf » tantôt « onze ». Un
+ * lecteur qui découvre un code absent de la table ne peut pas savoir s'il est
+ * légitime. Le chiffre, lui, a été RETIRÉ de la prose : il se périme au premier
+ * ajout, et aucun automate ne peut le recompter dans une phrase.
+ */
+describe("la table des contrôles dit ce que le script rend", () => {
+  const CODES = new Set(
+    [
+      ...readFileSync(path.join(ICI, "board-lint.mjs"), "utf8").matchAll(
+        /^\s+"([A-Z][A-Z-]+)",$/gmu,
+      ),
+    ].map((m) => m[1]),
+  );
+  // Les LIGNES DU TABLEAU, pas le fichier entier. Mesuré en débranchant ce
+  // gate : lire tout le fichier le rendait VERT après avoir retiré la ligne de
+  // `ALERTE-CODE` — le code était encore cité par la prose qui l'explique, deux
+  // lignes plus bas. Un contrôle qui cherche trop large ne mord sur rien.
+  const TABLE = readFileSync(
+    path.join(ICI, "..", "references", "tableau-de-bord.md"),
+    "utf8",
+  )
+    .split("\n")
+    .filter((l) => l.startsWith("| `"))
+    .join("\n");
+
+  it("le script rend bien une poignée de codes — sinon le motif ne mord sur rien", () => {
+    // Garde du garde : un motif qui ne capture plus rien rendrait ce test vert
+    // sans rien contrôler, le faux vert que le dépôt traque.
+    expect(CODES.size).toBeGreaterThan(10);
+    expect(CODES.has("ALERTE-CODE")).toBe(true);
+  });
+
+  it("chaque code émis par le script figure dans la table de la référence", () => {
+    const absents = [...CODES].filter((c) => !TABLE.includes(`\`${c}\``));
+    expect(
+      absents,
+      `codes absents de la table : ${absents.join(", ")}`,
+    ).toEqual([]);
   });
 });

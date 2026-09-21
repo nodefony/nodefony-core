@@ -310,7 +310,7 @@ dans son « Fini quand ».
 ## 5. Inscrire, ordonner, dater — et quand prendre un ticket
 
 Tout ce qui touche au **tableau de bord** vit en référence : labels et jalons, champs `Jours`,
-`Priorité`, `Ordre`, les dates de la frise, les neuf contrôles de `ticket:lint`, le geste de
+`Priorité`, `Ordre`, les dates de la frise, les contrôles de `ticket:lint`, le geste de
 création, et la règle du **contexte chaud** qui dit quand prendre un ticket plutôt que de le
 reporter.
 
@@ -424,6 +424,6 @@ périmètre qu'il balaye.
 | [`references/economie.md`](references/economie.md)                         | Le ticket comme instrument d'économie : les six choses qui achètent du temps, ce qui se coupe, un avant/après, la borne                                                |
 | [`references/lexique.md`](references/lexique.md)                           | Le glossaire — source unique des définitions posées en tête des tickets, avec le motif de détection de chaque terme                                                    |
 | [`references/github-issues.md`](references/github-issues.md)               | Sous-tickets (limites 100 / 8 niveaux, `--add-sub-issue`, équivalent GraphQL), jalons, Projects v2 et ses pièges de ligne de commande                                  |
-| [`references/tableau-de-bord.md`](references/tableau-de-bord.md)           | Labels, jalons et backlog, champs `Jours`/`Priorité`/`Ordre`, dates de la frise, les neuf contrôles de `ticket:lint`, le geste de création, et quand prendre un ticket |
+| [`references/tableau-de-bord.md`](references/tableau-de-bord.md)           | Labels, jalons et backlog, champs `Jours`/`Priorité`/`Ordre`, dates de la frise, les contrôles de `ticket:lint`, le geste de création, et quand prendre un ticket      |
 | [`references/fermeture.md`](references/fermeture.md)                       | Fermer : les trois recalages (code, tickets voisins, documentation), le compte rendu en quatre blocs, et la console d'administration comme référence de non-régression |
 | [`references/dates.md`](references/dates.md)                               | Poser `Début` / `Cible` à la main, régler la vue Roadmap (non pilotable par l'API), et ce que la pose révèle                                                           |

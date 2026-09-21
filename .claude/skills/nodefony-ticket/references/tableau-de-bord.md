@@ -48,22 +48,28 @@ npm run ticket:lint -- --milestone 10.0.0 # un seul jalon
 npm run ticket:lint -- --json             # pour un autre outil
 ```
 
-Onze contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
+Les contrôles ci-dessous, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
 arbitrage sans bonne réponse mécanique :
 
-| Code                           | Ce qu'il attrape                                                                           |
-| ------------------------------ | ------------------------------------------------------------------------------------------ |
-| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                           |
-| `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                       |
-| `LABEL-DOUBLE-JALON`           | un label porte le nom d'un jalon — deux instruments confondus, le double se périme         |
-| `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                             |
-| `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                        |
-| `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle           |
-| `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire |
-| `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)  |
-| `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                  |
-| `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_    |
-| `VITRINE-OUVERTE`              | un ticket ouvert dans le dépôt GÉNÉRÉ, que rien d'ici ne suit _(avertissement)_            |
+| Code                           | Ce qu'il attrape                                                                               |
+| ------------------------------ | ---------------------------------------------------------------------------------------------- |
+| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                               |
+| `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                           |
+| `LABEL-DOUBLE-JALON`           | un label porte le nom d'un jalon — deux instruments confondus, le double se périme             |
+| `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                                 |
+| `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                            |
+| `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle               |
+| `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire     |
+| `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)      |
+| `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                      |
+| `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_        |
+| `VITRINE-OUVERTE`              | un ticket ouvert dans le dépôt GÉNÉRÉ, que rien d'ici ne suit _(avertissement)_                |
+| `PRIORITE-ORDRE`               | un `P0` rangé après un `P3` — « fin de cycle » avant « bloque le reste »                       |
+| `CIBLE-AVANT-DEBUT`            | `Cible` antérieure à `Début` — la barre de la frise part à l'envers                            |
+| `FRISE-A-TROUS`                | un jalon à moitié daté : la frise en montre une part, et on la croit entière _(avertissement)_ |
+| `FRISE-DECALEE`                | la frise démarre loin d'aujourd'hui — elle date d'un plan qu'on ne suit plus _(avertissement)_ |
+| `FRISE-TROP-COURTE`            | plus de jours estimés que la fenêtre `Début`→`Cible` n'en contient _(avertissement)_           |
+| `ALERTE-CODE`                  | une alerte d'analyse de code restée ouverte, que rien ne nommait _(avertissement)_             |
 
 Deux pièges que ce script a déjà payés, et qui valent pour tout automate de pilotage :
 
@@ -103,6 +109,20 @@ l'avait rouvert, parce que rien ne le montrait.
 La règle qui en découle : **un ticket ouvert dans la vitrine décrit un défaut du GABARIT, et se
 corrige ici.** `VITRINE-OUVERTE` le signale à chaque passage. La lecture est tolérante — vitrine
 injoignable ⇒ aucun avertissement, jamais un faux verdict.
+
+### Les alertes d'analyse de code sont un angle mort de la MÊME famille
+
+Le dossier #385 a instruit dix alertes de construction de commande système et s'est fermé sur un
+critère chiffré : « le compte d'alertes ouvertes rend `0` ». Il était vrai ce jour-là. Sept jours
+plus tard, la même règle était remontée sur un site NOUVEAU, né après la clôture — le verdict
+ayant été posé site par site, à la main, tout code neuf en rouvre une.
+
+Rien ne le disait : le compte n'était lu par aucun contrôle, et l'alerte a été repérée à l'œil.
+`ALERTE-CODE` la nomme désormais là où l'on regarde déjà, avec son fichier et sa règle.
+
+**Une alerte n'est pas une faute de pilotage — c'est un fait à instruire**, d'où un avertissement.
+Ce qui serait fautif, c'est de ne pas la voir. Et le déblocage proposé exige un `dismissed_comment` :
+un « rejeté » sans motif est précisément ce qui rend un tableau d'alertes illisible.
 
 ### 🔴 Un label ne REDIT jamais un jalon — il dit ce que le jalon ne sait pas dire
 

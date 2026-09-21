@@ -108,6 +108,7 @@ export function lintBoard({
   issues,
   commits = {},
   vitrine = [],
+  alertes = [],
   now = new Date(),
 }) {
   const findings = [];
@@ -175,6 +176,27 @@ export function lintBoard({
       t.n,
       `ticket ouvert dans ${VITRINE_REPO} — « ${t.title} » : ce dépôt est généré, le défaut se corrige ICI, et rien ne suit ses tickets`,
       `gh issue view ${t.n} --repo ${VITRINE_REPO}`,
+    );
+  }
+
+  // B — une alerte d'analyse de code OUVERTE, là où l'on regarde déjà.
+  //
+  // #385 a instruit dix alertes et s'est fermé sur un critère chiffré — « le
+  // compte d'alertes ouvertes rend 0 ». Il était vrai ce jour-là, et a cessé de
+  // l'être sept jours plus tard : la même règle est remontée sur un site NOUVEAU,
+  // né après la clôture. Le verdict avait été posé site par site, à la main —
+  // donc tout code neuf rouvre une alerte, et rien ne le disait : le compte
+  // n'était lu par AUCUN contrôle. Celle-là a été repérée à l'œil.
+  //
+  // Avertissement et non erreur : une alerte est un FAIT à instruire, pas une
+  // faute de pilotage. Ce qui serait fautif, c'est de ne pas la voir.
+  for (const a of alertes) {
+    add(
+      "avertissement",
+      "ALERTE-CODE",
+      null,
+      `alerte ${a.n} — ${a.rule} à ${a.path}:${a.line} : à corriger, ou à écarter AVEC son motif`,
+      `gh api repos/${OWNER}/${REPO}/code-scanning/alerts/${a.n} --method PATCH -f state=dismissed -f dismissed_reason=... -f dismissed_comment=...`,
     );
   }
 
@@ -549,6 +571,38 @@ function readVitrine() {
   }
 }
 
+/**
+ * Les alertes d'analyse de code OUVERTES du dépôt.
+ *
+ * Lecture TOLÉRANTE, même raison que `readVitrine` : sans analyse de code
+ * configurée, sans droit de lecture sur cet onglet, ou hors ligne, la commande
+ * échoue — et un pilotage qui tomberait pour ça ferait d'un contrôle utile une
+ * gêne. Muet ⇒ liste vide, donc aucun avertissement, jamais un faux verdict.
+ *
+ * `--paginate` : le compte dépasse une page dès qu'une règle touche plusieurs
+ * sites, et une page unique rendrait un inventaire tronqué qui a l'air complet.
+ */
+function readAlertes() {
+  try {
+    const brut = sh("gh", [
+      "api",
+      "--paginate",
+      `repos/${OWNER}/${REPO}/code-scanning/alerts?state=open&per_page=100`,
+      "--slurp",
+    ]);
+    return JSON.parse(brut)
+      .flat()
+      .map((a) => ({
+        n: a.number,
+        rule: a.rule?.id ?? "règle inconnue",
+        path: a.most_recent_instance?.location?.path ?? "?",
+        line: a.most_recent_instance?.location?.start_line ?? 0,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 function readIssues() {
   const brut = sh("gh", [
     "issue",
@@ -633,7 +687,11 @@ function render(findings, total) {
     if (!lot.length) continue;
     lignes.push(titre);
     for (const f of lot) {
-      lignes.push(`   #${f.n}  [${f.code}]  ${f.message}`);
+      // Tout finding ne porte pas sur un TICKET : une alerte d'analyse de code
+      // n'en a pas, et écrire « #null » enverrait chercher une issue qui n'existe
+      // pas. Son identité est dans le message.
+      const ancre = typeof f.n === "number" ? `#${f.n}` : "—".padEnd(4);
+      lignes.push(`   ${ancre}  [${f.code}]  ${f.message}`);
       if (f.unlock) lignes.push(`         → ${f.unlock}`);
     }
     lignes.push("");
@@ -676,6 +734,7 @@ if (estAppelDirect) {
     issues,
     commits: readCommits(enCours),
     vitrine: readVitrine(),
+    alertes: readAlertes(),
   });
 
   if (json)

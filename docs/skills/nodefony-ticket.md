@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-ticket/SKILL.md"
 | Version | `1.7.0` |
 | Famille | Autres |
 | Corps | 413 lignes |
-| Coût d'activation | ~8 003 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~8 002 tokens (le corps est chargé à l'invocation) |
 | Description | 998 / 1024 caractères |
 | Déclencheurs | 17 |
 | Ressources `references/` | 7 page(s) |
@@ -82,7 +82,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 126 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 236 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 256 |
 
 
 ## Scripts embarqués
@@ -92,7 +92,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--milestone` `--owner` `--paginate` `--remove-label` `--repo` `--slurp` `--state` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
+| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--method` `--milestone` `--owner` `--paginate` `--remove-label` `--repo` `--slurp` `--state` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
 | `scripts/board-lint.test.mjs` | — | `--grep` `--remove-label` | — |
 | `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un | `--limit` | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |

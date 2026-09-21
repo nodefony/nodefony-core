@@ -121,7 +121,7 @@ npm run ticket:lint    # 0 = le tableau se tient ; 1 = une erreur de pilotage à
 ```
 
 Les erreurs se soldent **maintenant** (elles coûtent une commande), pas « plus tard » : c'est le
-seul moment où GitHub est joint et où l'on regarde le pilotage. Le détail des neuf contrôles vit
+seul moment où GitHub est joint et où l'on regarde le pilotage. Le détail des contrôles vit
 dans le skill `nodefony-ticket` (`references/tableau-de-bord.md`) — le charger si un code est à interpréter.
 
 > 🔴 **Lire `.content.title`, JAMAIS `.title`.** Le champ `title` d'un item de tableau de bord est
