@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { getTableConfig } from "drizzle-orm/sqlite-core";
-import type { SQLiteTable } from "drizzle-orm/sqlite-core";
+import type { AnySQLiteColumn, SQLiteTable } from "drizzle-orm/sqlite-core";
 import { getTableConfig as getPgTableConfig } from "drizzle-orm/pg-core";
-import type { PgTable } from "drizzle-orm/pg-core";
+import type { AnyPgColumn, PgTable } from "drizzle-orm/pg-core";
 import { getTableConfig as getMysqlTableConfig } from "drizzle-orm/mysql-core";
-import type { MySqlTable } from "drizzle-orm/mysql-core";
+import type { AnyMySqlColumn, MySqlTable } from "drizzle-orm/mysql-core";
 import { entityRegistry } from "@nodefony/orm-core";
 import type { IEntity } from "@nodefony/orm-core";
 import { USER_COLUMNS, USER_TABLE_NAME } from "@nodefony/user";
@@ -95,16 +95,51 @@ const USER_TABLE_SPEC = {
 } satisfies IFrameworkTableSpec;
 
 /**
+ * Factory de la table `User` — comme {@link FrameworkTableFactory}, mais sa clé
+ * primaire reste ATTEIGNABLE au type.
+ *
+ * 🔴 Sans cela, une application ne peut pas RÉFÉRENCER l'utilisateur, et c'est
+ * la première relation que quiconque écrit : `create entity Message
+ * "author:ref(User)"` rend `.references(() => userTable.id)`, qui ne compilait
+ * pas (`TS2339: Property 'id' does not exist on type 'SQLiteTable<TableConfig>'`).
+ * La table est bâtie depuis une spec dont les colonnes sont calculées
+ * (`Object.fromEntries`) : l'inférence les perd, et le type rendu ne porte plus
+ * aucune colonne — alors qu'elles existent toutes à l'exécution.
+ *
+ * Cette précision reste LOCALE à `User`, et n'est pas remontée dans le colKit :
+ * les tables du framework n'ont pas toutes une colonne `id` (`session` et
+ * `idempotency_key` portent une autre clé), donc l'y déclarer mentirait sur
+ * elles. `tests/unit/userTableReference.test.ts` garde le fait — par sa
+ * COMPILATION, qu'un cas d'exécution ne pourrait pas prouver.
+ */
+export interface UserTableFactory {
+  (dialect: "sqlite"): SQLiteTable & { readonly id: AnySQLiteColumn };
+  (dialect: "postgres"): PgTable & { readonly id: AnyPgColumn };
+  (dialect: "mysql"): MySqlTable & { readonly id: AnyMySqlColumn };
+  (
+    dialect?: SqlDialect,
+  ):
+    | (SQLiteTable & { readonly id: AnySQLiteColumn })
+    | (PgTable & { readonly id: AnyPgColumn })
+    | (MySqlTable & { readonly id: AnyMySqlColumn });
+}
+
+/**
  * Factory de la table `User` pour un dialecte donné (mémoïsée — une instance
  * par dialecte). Les trois dialectes sont portés (`sqlite` par défaut).
  */
-export const createUserTable = createFrameworkTableFactory(USER_TABLE_SPEC);
+export const createUserTable = createFrameworkTableFactory(
+  USER_TABLE_SPEC,
+) as UserTableFactory;
 
 /**
  * Variante SQLite de la table `User` (dialecte par défaut) — export conservé
  * pour l'usage direct/banc-test (ex. module mediasoup).
+ *
+ * Son type n'est PAS réécrit en `SQLiteTable` : l'annoter ainsi effaçait la
+ * clé primaire que la factory vient d'exposer, et c'était la moitié du défaut.
  */
-export const userTable: SQLiteTable = createUserTable("sqlite");
+export const userTable = createUserTable("sqlite");
 
 /**
  * Forme plate d'une ligne `User` renvoyée par le repository de base — le contrat

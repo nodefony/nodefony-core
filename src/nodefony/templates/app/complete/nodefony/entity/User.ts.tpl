@@ -49,8 +49,14 @@ import type { SqlDialect } from "@nodefony/drizzle";
  * (Il n'est PAS déduit de l'environnement : dans une application Nodefony,
  * `env.ts` en est le SEUL lecteur. Une seconde lecture ailleurs fait diverger la
  * configuration effective de ce que le catalogue déclare.)
+ *
+ * 🔴 Le `as const` n'est pas une coquetterie : annoté `: SqlDialect`, ce nom
+ * vaut les TROIS dialectes pour TypeScript, `createUserTable` rend alors une
+ * union, et la clé primaire de la table cesse d'être atteignable — une entité
+ * voisine qui écrit `.references(() => userTable.id)` ne compile plus. Le
+ * `satisfies` garde la valeur contrôlée sans l'élargir.
  */
-const DIALECT: SqlDialect = "<%= it.dialect %>";
+const DIALECT = "<%= it.dialect %>" as const satisfies SqlDialect;
 
 /**
  * La table, EXPORTÉE — et pas seulement passée au descripteur.
@@ -66,4 +72,25 @@ export const UserEntity = defineEntity({
   module: "app",
   connector: FRAMEWORK_CONNECTOR,
   schema: userTable,
+});
+
+/**
+ * Un utilisateur d'exemple, à la convention de TOUTE entité générée.
+ *
+ * 🔴 Il n'est pas là pour décorer : dès qu'une entité te RÉFÉRENCE
+ * (`create entity Note "owner:ref:User"`), le test que le générateur écrit
+ * importe `userSample` pour se fabriquer un parent. Sans cet export, ce test ne
+ * compile pas — et c'est la première relation qu'une application écrit.
+ *
+ * Le mot de passe est celui d'un banc : il passe la politique du framework
+ * (dix caractères au moins, et il ne reprend pas l'identifiant), sans quoi la
+ * création échouerait sur un message parlant de mot de passe là où le test
+ * croit éprouver une relation.
+ *
+ * @param n - un numéro qui rend l'identifiant unique dans une même passe.
+ * @returns de quoi créer un utilisateur par la route de l'application.
+ */
+export const userSample = (n: number): Record<string, unknown> => ({
+  username: `user-${n}`,
+  password: "password-test-42",
 });
