@@ -30,6 +30,7 @@ import { beforeAll, afterAll } from "vitest";
 import { expect } from "chai";
 import https from "node:https";
 import { totpCode, base32Decode } from "@nodefony/security";
+import { IS_PROD_TARGET } from "../helpers/targetEnv";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const LOGIN = "/nodefony/security/api/auth/login";
@@ -39,7 +40,19 @@ const DISABLE = "/nodefony/security/api/totp/disable";
 const STATUS = "/nodefony/security/api/totp/status";
 const TOTP_LIST = "/nodefony/security/api/totp/list";
 const WEBHOOKS = "/nodefony/security/api/webhooks";
-const SINK = "http://127.0.0.1:5152/nodefony/test/webhooks/sink";
+// Cible des endpoints webhook. Elle n'est JAMAIS jointe par ces cas : on y
+// éprouve le MAGASIN (créer, relire, modifier, supprimer), pas la livraison.
+// Mais elle traverse le garde anti-SSRF, dont la politique CHANGE avec le
+// régime (`nodefony/config/security.ts:194-195`) : l'application de
+// développement autorise `http://` et les IP privées pour le récepteur local ;
+// en production les deux sont refusés par un 422 — et c'est le comportement
+// qu'on veut GARDER, pas contourner. La cible de production est donc une IP
+// publique LITTÉRALE : littérale pour n'appeler aucun DNS dans un test,
+// publique pour passer la politique stricte (les plages de documentation sont
+// elles-mêmes bloquées, `ssrfGuard.ts:22-40`). Rien n'y est jamais envoyé.
+const SINK = IS_PROD_TARGET
+  ? "https://1.1.1.1/nodefony/test/webhooks/sink"
+  : "http://127.0.0.1:5152/nodefony/test/webhooks/sink";
 const TIMEOUT = 15_000;
 
 type Res = { status: number; headers: Record<string, unknown>; body: unknown };
