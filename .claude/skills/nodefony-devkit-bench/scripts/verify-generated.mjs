@@ -279,6 +279,14 @@ const withE2e = !process.argv.includes("--no-e2e");
  * `Author` et non `User` : une entité nommée `User` entre en collision avec celle
  * du module de sécurité, et l'application ne démarre plus. Le banc ne doit pas
  * échouer sur un piège qu'il ne teste pas.
+ *
+ * 🔴 Mais NOMMER une entité `User` et en RÉFÉRENCER une sont deux gestes
+ * différents, et seul le premier était couvert. `Note` ci-dessous vise l'entité
+ * `User` que `create app` POSE lui-même — la relation la plus évidente qu'un
+ * débutant écrive, et la seule qui traverse la frontière du framework. Elle ne
+ * compilait pas : la table du framework est bâtie depuis une spec calculée, son
+ * type ne portait plus aucune colonne, et `.references(() => userTable.id)`
+ * tombait en `TS2339`. Viser une entité de l'APPLICATION ne pouvait pas le voir.
  */
 const ENTITIES = [
   ["Author", "email:string:unique", "name:string"],
@@ -307,6 +315,9 @@ const ENTITIES = [
     "--unique",
     "reference,currency",
   ],
+  // La référence qui traverse la frontière du FRAMEWORK : `User` n'est pas une
+  // entité du banc, c'est celle que `create app` pose dans toute application.
+  ["Note", "body:string", "owner:ref:User"],
   // Les DEUX suivantes sont émises pour PostgreSQL, et c'est indispensable : en
   // SQLite, une clé `uuid` et une colonne texte sont le MÊME type, si bien qu'une
   // référence mal typée y est indétectable. La sonde de cohérence FK ↔ PK ne peut
