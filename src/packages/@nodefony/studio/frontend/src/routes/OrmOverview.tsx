@@ -108,11 +108,17 @@ function RankBars({
         <div key={it.key}>
           <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
             {it.href ? (
-              <Anchor component={Link} to={it.href} size="xs" truncate>
+              <Anchor
+                component={Link}
+                to={it.href}
+                size="xs"
+                truncate
+                title={it.detail}
+              >
                 {it.label}
               </Anchor>
             ) : (
-              <Text size="xs" truncate>
+              <Text size="xs" truncate title={it.detail}>
                 {it.label}
               </Text>
             )}
@@ -823,22 +829,64 @@ export const OrmOverview = observer(
       [scopedEntities, countOf, homonymNames],
     );
 
+    /**
+     * Les entités de chaque groupe, prêtes à être montrées au survol.
+     *
+     * Sans cela, une barre « (non classé) 1 » ne dit pas CE qu'elle compte :
+     * on voit qu'il reste une entité non rangée, sans pouvoir la nommer — donc
+     * sans pouvoir la corriger. Le groupe suit la même règle que l'agrégat :
+     * domaine déclaré, à défaut module propriétaire.
+     */
+    const entitiesByGroup = useMemo(() => {
+      const by = new Map<string, string[]>();
+      for (const e of scopedEntities) {
+        const g = e.domain || e.module || "(non classé)";
+        const membres = by.get(g) ?? [];
+        membres.push(`${e.name} · ${e.connector}`);
+        by.set(g, membres);
+      }
+      return by;
+    }, [scopedEntities]);
+
+    /** Rend le détail d'un groupe, borné : au-delà de dix, on compte le reste. */
+    const detailDuGroupe = useCallback(
+      (groupe: string): string | undefined => {
+        const membres = entitiesByGroup.get(groupe);
+        if (!membres?.length) return undefined;
+        const tete = membres.slice(0, 10).join(", ");
+        return membres.length > 10
+          ? `${tete}, et ${membres.length - 10} autre(s)`
+          : tete;
+      },
+      [entitiesByGroup],
+    );
+
     const topDomainsByEntities = useMemo<RankItem[]>(
       () =>
         Object.entries(agg.entitiesByDomain)
-          .map(([k, v]) => ({ key: k, label: k, value: v }))
+          .map(([k, v]) => ({
+            key: k,
+            label: k,
+            value: v,
+            detail: detailDuGroupe(k),
+          }))
           .sort((a, b) => b.value - a.value)
           .slice(0, 12),
-      [agg.entitiesByDomain],
+      [agg.entitiesByDomain, detailDuGroupe],
     );
 
     const topDomainsByRows = useMemo<RankItem[]>(
       () =>
         Object.entries(agg.rowsByDomain)
-          .map(([k, v]) => ({ key: k, label: k, value: v }))
+          .map(([k, v]) => ({
+            key: k,
+            label: k,
+            value: v,
+            detail: detailDuGroupe(k),
+          }))
           .sort((a, b) => b.value - a.value)
           .slice(0, 12),
-      [agg.rowsByDomain],
+      [agg.rowsByDomain, detailDuGroupe],
     );
 
     const exportModel = useCallback(

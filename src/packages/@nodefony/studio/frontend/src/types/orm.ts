@@ -142,6 +142,13 @@ export interface RankItem {
   label: string;
   value: number;
   href?: string;
+  /**
+   * Ce que la ligne AGRÈGE, quand son libellé ne suffit pas à le deviner — la
+   * liste des entités d'un groupe, par exemple. Rendu en `title` natif : c'est
+   * la seule aide qui n'ajoute ni bouton ni cible de survol à chaque ligne d'un
+   * classement, et elle reste lue par les technologies d'assistance.
+   */
+  detail?: string;
 }
 
 // ─── Migrations (data plane `/nodefony/orm/api/migrations?connector=`) ────────
