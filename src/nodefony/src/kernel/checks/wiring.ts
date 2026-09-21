@@ -303,17 +303,91 @@ const HOOK_DECL_RE =
 /** Une classe de ce fichier étend-elle `Module` ? Sinon les hooks ne la concernent pas. */
 const EXTENDS_MODULE_RE = /\bclass\s+\w+\s+extends\s+Module\b/u;
 
+/** Où commence le bloc `areas: {` du manifeste. */
+const AREAS_START_RE = /\bareas\s*:\s*\{/u;
+
 /**
- * Le bloc `areas: { … }` du manifeste, et lui seul.
+ * Le bloc `areas: { … }` du manifeste, et lui seul — accolades ÉQUILIBRÉES.
  *
  * `pattern:` est un mot trop courant pour être lu partout — la clé existe dans
  * une config de bundler, une règle de lint, un routeur front. Le contrôle ne
  * doit accuser que ce qu'il comprend.
+ *
+ * 🔴 Le comptage n'est pas un raffinement : une expression régulière ne sait
+ * pas équilibrer des accolades, et celle qui tenait ce rôle s'arrêtait à la
+ * PREMIÈRE fermante peu indentée — donc à la fin de la première zone. Toutes
+ * les zones suivantes échappaient au contrôle en silence, et un manifeste à
+ * cinq zones n'en faisait juger qu'une.
+ *
+ * @param source - le manifeste, commentaires déjà retirés.
+ * @returns le corps du bloc, ou `null` s'il n'y en a pas.
  */
-const AREAS_BLOCK_RE = /\bareas\s*:\s*\{([\s\S]{0,4000}?)\n\s{0,10}\}/u;
+function extractAreasBlock(source: string): string | null {
+  const start = AREAS_START_RE.exec(source);
+  if (!start) return null;
+  const from = start.index + start[0].length;
+  let depth = 1;
+  for (let i = from; i < source.length; i++) {
+    const c = source[i];
+    if (c === "{") depth++;
+    else if (c === "}") {
+      depth--;
+      if (depth === 0) return source.slice(from, i);
+    }
+  }
+  return null; // bloc non refermé : on ne juge pas ce qu'on ne comprend pas
+}
 
 /** `pattern: "^/api/account"` — la valeur écrite, telle quelle. */
 const AREA_PATTERN_RE = /\bpattern\s*:\s*["'`]([^"'`\n]+)["'`]/gu;
+
+/** L'en-tête d'une zone du bloc `areas` — `"nom": {` ou `nom: {`. */
+const AREA_ENTRY_RE = /["'`]?[\w-]+["'`]?\s*:\s*\{/gu;
+
+/** `authenticators: ["session", "anonymous"]` — la liste écrite, telle quelle. */
+const AREA_AUTHENTICATORS_RE = /\bauthenticators\s*:\s*\[([^\]]*)\]/u;
+
+/**
+ * Les zones d'un bloc `areas` — leur pattern, et ce que chacune FAIT.
+ *
+ * Le pattern seul ne suffit pas à juger : une zone qui OUVRE et une zone qui
+ * FERME se jugent à l'envers l'une de l'autre (cf {@link zoneEnumere}). Le
+ * découpage se fait sur les EN-TÊTES de zone plutôt que sur les accolades —
+ * un corps de zone est plat en pratique, et une accolade équilibrée ne se lit
+ * pas en expression régulière.
+ *
+ * Limite assumée : une zone qui imbriquerait un sous-objet AVANT sa liste
+ * d'authenticators verrait cette liste rattachée à la tranche suivante, donc
+ * serait lue comme fermée. C'est le comportement d'avant cette distinction —
+ * on signale, quitte à être prudent, jamais l'inverse.
+ *
+ * @param areasBlock - le corps du bloc `areas`, commentaires déjà retirés.
+ * @returns une entrée par zone portant un `pattern`.
+ */
+function parseAreas(
+  areasBlock: string,
+): { pattern: string; grantsAnonymous: boolean }[] {
+  const starts: number[] = [];
+  const entryRe = new RegExp(AREA_ENTRY_RE.source, "gu");
+  let entry: RegExpExecArray | null;
+  while ((entry = entryRe.exec(areasBlock)) !== null) starts.push(entry.index);
+
+  const areas: { pattern: string; grantsAnonymous: boolean }[] = [];
+  for (let i = 0; i < starts.length; i++) {
+    const slice = areasBlock.slice(
+      starts[i]!,
+      starts[i + 1] ?? areasBlock.length,
+    );
+    const pattern = new RegExp(AREA_PATTERN_RE.source, "u").exec(slice)?.[1];
+    if (pattern === undefined) continue;
+    const list = AREA_AUTHENTICATORS_RE.exec(slice)?.[1] ?? "";
+    areas.push({
+      pattern,
+      grantsAnonymous: /["'`]anonymous["'`]/u.test(list),
+    });
+  }
+  return areas;
+}
 
 /**
  * La part LITTÉRALE d'un pattern — ce qu'il couvre à coup sûr.
@@ -349,6 +423,15 @@ function prefixeLitteral(pattern: string): string {
  *   (`/api/account/(…|…)`) — l'alternance sert alors à lister des routes. En
  *   tête (`^/(api|admin)`) elle désigne au contraire deux espaces : légitime,
  *   et épargnée.
+ *
+ * 🔴 **Ce raisonnement ne vaut que pour une zone qui PROTÈGE.** Une zone qui
+ * OUVRE — `"anonymous"` dans ses authenticators — l'inverse terme à terme :
+ * énumérer y est le geste JUSTE, puisque c'est un pattern LARGE qui ouvrirait
+ * tout l'espace. Le tri se fait donc chez l'appelant ({@link parseAreas}), et
+ * pas ici : le conseil rendu par ce contrôle (« écris `^/api` ») ouvrirait
+ * alors à l'anonyme l'espace entier que la zone fermée voisine vient de
+ * boucher. C'est exactement ce que le gabarit d'application recommande
+ * d'écrire, et que ce contrôle condamnait.
  *
  * @param pattern - la valeur écrite dans le manifeste.
  * @returns le préfixe à employer, ou `null` si la zone est saine.
@@ -571,11 +654,11 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     path: manifestFile,
     source: manifestSource,
   } of manifestSources) {
-    const areasBlock = AREAS_BLOCK_RE.exec(
-      withoutComments(manifestSource),
-    )?.[1];
+    const areasBlock = extractAreasBlock(withoutComments(manifestSource));
     if (!areasBlock) continue;
-    for (const [, pattern] of areasBlock.matchAll(AREA_PATTERN_RE)) {
+    for (const { pattern, grantsAnonymous } of parseAreas(areasBlock)) {
+      // Une zone qui OUVRE se juge à l'envers : y énumérer est le geste juste.
+      if (grantsAnonymous) continue;
       const prefix = zoneEnumere(pattern);
       if (!prefix) continue;
       findings.push({

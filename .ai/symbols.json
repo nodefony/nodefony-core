@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 854,
-    "symbols": 4206,
+    "symbols": 4209,
     "classes": 398,
-    "interfaces": 1118,
+    "interfaces": 1119,
     "types": 456,
     "enums": 4,
-    "functions": 1812,
+    "functions": 1814,
     "constants": 418
   },
   "symbols": {
@@ -15020,6 +15020,15 @@
       "module": "@nodefony/drizzle",
       "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
+    "UserTableFactory": {
+      "name": "UserTableFactory",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "extends": null,
+      "description": "Factory de la table `User` — comme {@link FrameworkTableFactory}, mais sa clé primaire reste ATTEIGNABLE au type. 🔴 Sans cela, une application ne peut pas RÉFÉRENCER l'utilisateur, et c'est la pre…"
+    },
     "IUserColumnView": {
       "name": "IUserColumnView",
       "kind": "interface",
@@ -15067,7 +15076,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Variante SQLite de la table `User` (dialecte par défaut) — export conservé pour l'usage direct/banc-test (ex. module mediasoup)."
+      "description": "Variante SQLite de la table `User` (dialecte par défaut) — export conservé pour l'usage direct/banc-test (ex. module mediasoup). Son type n'est PAS réécrit en `SQLiteTable` : l'annoter ainsi effaça…"
     },
     "WebAuthnCredentialRow": {
       "name": "WebAuthnCredentialRow",

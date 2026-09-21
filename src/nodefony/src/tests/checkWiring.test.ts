@@ -792,6 +792,47 @@ ${areas}
     assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
   });
 
+  /*
+   *   Une zone qui OUVRE inverse le raisonnement de la règle. Énumérer y est le
+   *   geste JUSTE — c'est même celui que le gabarit d'application recommande en
+   *   toutes lettres : `"anonymous"` sur un pattern large ouvrirait TOUT
+   *   l'espace, soit exactement le trou que la zone fermée vient de boucher.
+   *   Signaler ici, c'est condamner ce qu'on prescrit — et le conseil rendu
+   *   (« écris `^/api` ») OUVRIRAIT l'espace entier à l'anonyme.
+   */
+  it("zone qui OUVRE (anonymous) et énumère → épargnée", () => {
+    const dir = make(
+      manifeste(`      demo: {
+        pattern: "^/api/(hello|echo|live)(/|$)",
+        authenticators: ["session", "anonymous"],
+      },
+      main: {
+        pattern: "^/api",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 0, JSON.stringify(r.findings));
+  });
+
+  it("zone qui FERME et énumère, à côté d'une zone ouverte → signalée", () => {
+    const dir = make(
+      manifeste(`      demo: {
+        pattern: "^/api/(hello|echo)(/|$)",
+        authenticators: ["session", "anonymous"],
+      },
+      compte: {
+        pattern: "^/api/account/(profile|invoices)",
+        authenticators: ["session"],
+      },`),
+    );
+    const r = checkWiring({ roots: [dir], cwd: dir, projectRoot: dir });
+    const f = r.findings.filter((x) => x.kind === "firewall-area-enumere");
+    assert.strictEqual(f.length, 1, JSON.stringify(r.findings));
+    assert.match(f[0].message, /\^\/api\/account"/u);
+  });
+
   it("ancre de fin → signalé : la zone ne couvre aucune route sœur", () => {
     const dir = make(
       manifeste(`      compte: {
