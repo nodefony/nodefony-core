@@ -10,10 +10,30 @@ Elle n'affiche que les items porteurs d'une date, et en connaît trois sortes :
 - **Deux champs `Date`** (`Début` / `Cible`) — une tranche par ticket, donc la SÉQUENCE visible.
 - Une itération — non employée ici.
 
-🔴 **Le réglage n'est PAS pilotable** : `updateProjectV2View` existe, mais sa `configuration`
-n'accepte que `visibleFieldIds` (vérifié par introspection du schéma). Le choix de la source de
-dates se fait dans l'interface web — ouvrir la vue, menu `⌄` de son onglet, `Date fields`. Ne pas
-chercher une commande : il n'y en a pas.
+🔴 **Le réglage n'est ni écrivable NI LISIBLE par l'API** — les deux, et c'est la seconde moitié
+qu'on oublie. En écriture, `updateProjectV2View` n'accepte que `visibleFieldIds` ; en lecture, le
+type `ProjectV2ViewConfiguration` n'expose **que** `visibleFields` (les deux vérifiés par
+introspection du schéma). Conséquence pratique : on ne peut ni poser ce réglage, ni **contrôler
+qu'il a été posé**. Le choix se fait dans l'interface web — ouvrir la vue, menu `⌄` de son onglet,
+`Date fields`. Ne pas chercher une commande : il n'y en a pas.
+
+**Le contrôle se fait donc à l'ÉCRAN, et il se fait tout seul** — le tableau est public, donc un
+navigateur non authentifié suffit (skill `nodefony-browser`) :
+
+```bash
+S=src/packages/@nodefony/devkit/skills/nodefony-browser/scripts
+NF_BROWSER_BASE=https://github.com NF_BROWSER_ACTIONS="clic:Month|clic:Quarter" \
+  node $S/inspect.mjs "/orgs/nodefony/projects/2/views/3" "Release nodefony-core"
+```
+
+Le passage en `Quarter` n'est pas du confort : à l'échelle du mois, un jalon daté trois mois plus
+loin n'a **aucune barre à l'écran** — et l'on conclut que le réglage a échoué alors qu'on regarde
+à côté. Ce qui prouve que la vue lit bien les deux champs, c'est le bandeau de chaque groupe
+(`Tue, Oct 6 - Tue, Dec 1`) : il reprend la première et la dernière tranche du jalon.
+
+⚠️ **Les badges d'un groupe ne sont pas des mesures** : GitHub additionne tout champ numérique, si
+bien qu'un `Ordre: 157.78` s'affiche à côté d'un `Jours: 47.5` pourtant juste. La somme d'ordres
+ne veut rien dire ; ne pas la citer.
 
 ⚠️ **Le symptôme, quand ce réglage est faux : des barres qui n'ont aucun rapport avec les tranches
 posées.** Et il envoie chercher au mauvais endroit, parce qu'on soupçonne les données ou le champ
