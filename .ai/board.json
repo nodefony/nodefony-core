@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T09:28:25.601Z",
+  "generatedAt": "2026-09-21T09:29:36.118Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1707,13 +1707,13 @@
       "title": "fix(client): cesser d'ignorer en silence les trames binaires reçues",
       "url": "https://github.com/nodefony/nodefony-core/issues/451",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.09,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
       "labels": []
     },
     {
@@ -2711,7 +2711,7 @@
       "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
       "url": "https://github.com/nodefony/nodefony-core/issues/448",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2743,7 +2743,7 @@
       "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
       "url": "https://github.com/nodefony/nodefony-core/issues/450",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 3,

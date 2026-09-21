@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-21 09:28** (UTC).
+> Empreinte prise le **2026-09-21 09:29** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -67,7 +67,7 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 | 4.06 | P2 — décision | 1 | 2026-11-03 → 11-03 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 | 4.07 | P2 — décision | 1 | 2026-11-04 → 11-04 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
 | 4.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS |
-| 4.09 | P1 — figé à la création | 1 | — | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
+| 4.09 | P1 — figé à la création | 1 | 2026-11-05 → 11-05 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
 | 5.01 | P2 — décision | 1 | 2026-11-06 → 11-06 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.02 | P2 — décision | 1 | 2026-11-09 → 11-09 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
 | 5.03 | P2 — décision | 1 | 2026-11-10 → 11-10 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
