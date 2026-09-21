@@ -385,8 +385,17 @@ jobs:
           # une vitrine ratée : constaté sur un Codespace de `nodefony/nodefony`,
           # où `/` rendait `{"app":"nodefony",…}`. React parce que la console
           # d'administration l'est déjà — une seule chaîne front dans l'image.
+          # `--license MIT` : ce dépôt est PUBLIC et se présente comme une
+          # démonstration — le défaut du gabarit (« UNLICENSED », tous droits
+          # réservés) y interdirait juridiquement de copier ce qu'on donne à
+          # copier. Il se pose ICI et nulle part ailleurs : le dépôt est écrasé
+          # à chaque publication, donc un LICENSE ajouté à la main ne survivrait
+          # pas à la version suivante. MIT plutôt qu'Apache-2.0, la licence du
+          # framework : c'est du code fait pour être collé dans le projet de
+          # quelqu'un d'autre, sans NOTICE à propager ni modifications à
+          # déclarer. Les deux objets sont distincts.
           node "$GITHUB_WORKSPACE/src/nodefony/bin/nodefony" create app nodefony \
-            --preset complete --frontend react --yes --no-git
+            --preset complete --frontend react --license MIT --yes --no-git
           # La page de démonstration doit EXISTER dans l'arbre poussé : le
           # gabarit peut changer, le drapeau peut être perdu à une réécriture,
           # et rien d'autre ne le verrait — la vitrine partirait muette pour

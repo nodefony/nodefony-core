@@ -1420,8 +1420,13 @@ function dispatchScaffold(
     answers.database as TDatabaseChoice,
     String(answers.name),
   );
+  const license = String(answers.license);
   const data = {
     appName: answers.name,
+    // Identifiant SPDX rendu dans le manifeste ET choix du gabarit de LICENSE :
+    // les deux doivent dire la même chose, le champ étant ce que lisent les
+    // outils et le fichier ce que lisent les humains. Une seule source ici.
+    license,
     // L'année du fichier LICENSE. Elle vaut pour la notice de copyright d'une
     // app NEUVE, et rien d'autre : le fichier est fait pour être remplacé dès
     // qu'une licence est retenue.
@@ -1484,6 +1489,19 @@ function dispatchScaffold(
   const templates = path.join(packageRoot, "templates", request.type);
   const written: string[] = [];
   renderLayer(eta, path.join(templates, "base"), dest, data, written, writer);
+  // Le LICENSE n'est PAS dans le layer `base` : un dossier par identifiant
+  // SPDX, dont un seul est rendu. Écrire le texte permissif par-dessus un
+  // « tous droits réservés » aurait marché tant que les deux fichiers portent
+  // le même nom — et laissé passer, le jour où l'un est renommé, un projet
+  // publié sous une licence qu'il ne porte pas.
+  renderLayer(
+    eta,
+    path.join(templates, "licenses", license),
+    dest,
+    data,
+    written,
+    writer,
+  );
   // Accueil `GET /` : une app sans frontend répondait 404 à sa propre racine.
   // Rendu SEULEMENT sans front — avec un front, `AppController` tient `/`.
   if (!front) {

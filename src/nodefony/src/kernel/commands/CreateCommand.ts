@@ -4,7 +4,11 @@ import { CREATE_TYPES, runCreateCommand } from "../../cli/create";
 // La SOURCE des choix, pas une copie : recopiée dans le texte d'aide, la liste
 // avait vieilli — `svelte` était servi par le générateur et absent de l'aide,
 // donc réputé non supporté par qui lit l'aide avant d'essayer.
-import { FRONTEND_CHOICES, PRESET_CHOICES } from "../../cli/scaffold/spec";
+import {
+  FRONTEND_CHOICES,
+  LICENSE_CHOICES,
+  PRESET_CHOICES,
+} from "../../cli/scaffold/spec";
 
 /** « none (default) | react | … » — le défaut annoncé sur le premier choix. */
 const choices = (values: readonly string[]): string =>
@@ -44,6 +48,7 @@ class Create extends Command {
     this.addOption("-f, --force", "allow a non-empty target directory");
     this.addOption("--preset <preset>", choices(PRESET_CHOICES));
     this.addOption("--frontend <fw>", choices(FRONTEND_CHOICES));
+    this.addOption("--license <spdx>", choices(LICENSE_CHOICES));
     this.addOption("-y, --yes", "accept spec defaults (skip interactive mode)");
     this.addOption(
       "--link",

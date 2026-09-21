@@ -153,6 +153,11 @@ export function parseCreateArgv(
         .split(/[\s,]+/u)
         .map((c) => c.trim().toLowerCase())
         .filter((c) => c.length > 0 && c !== "none");
+    } else if (word === "--license") {
+      // Identifiant SPDX. La validation vit dans `resolveAnswers` (question de
+      // type `choice`) : une valeur inconnue est REFUSÉE avant toute écriture,
+      // plutôt que recopiée telle quelle dans le manifeste généré.
+      answers.license = rest[++i];
     } else if (word === "--preset") {
       answers.preset = rest[++i];
     } else if (word === "--frontend") {

@@ -2,7 +2,7 @@
   "name": "<%= it.appName %>",
   "version": "0.1.0",
   "private": true,
-  "license": "UNLICENSED",
+  "license": "<%= it.license %>",
   "type": "module",
   "description": "Application Nodefony — générée par `nodefony create app`",
   "main": "dist/index.js",

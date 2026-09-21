@@ -29,6 +29,7 @@ import {
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
 import {
   FRONTEND_CHOICES,
+  LICENSE_CHOICES,
   getScaffoldSpec,
   flagFor,
 } from "../cli/scaffold/spec";
@@ -744,6 +745,101 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
       const pkg = readJson(path.join(dest, "package.json"));
       assert.notProperty(pkg, "allowScripts");
+    });
+  });
+
+  /**
+   * La licence de l'application — le champ que lisent les outils et le fichier
+   * que lisent les humains, qui doivent dire la MÊME chose.
+   *
+   * Le défaut (`UNLICENSED` + « tous droits réservés ») est le bon pour une
+   * application privée. Mais ce gabarit produit AUSSI ce qui est publié — la
+   * vitrine `nodefony/nodefony`, régénérée et écrasée à chaque publication :
+   * un LICENSE posé à la main là-bas ne survivrait pas à la version suivante,
+   * donc le choix doit exister ICI ou nulle part.
+   */
+  describe("licence de l'application générée", () => {
+    // `readJson` rend deux niveaux de `Record` — il sert à lire `dependencies`
+    // ou `scripts`. Ici les deux champs sont SCALAIRES, d'où une lecture typée
+    // à part plutôt qu'une conversion qui éteindrait le compilateur.
+    const manifeste = (dest: string): { license?: string; private?: boolean } =>
+      JSON.parse(
+        readFileSync(path.join(dest, "package.json"), "utf8"),
+      ) as Record<string, never>;
+    it("sans l'option, rien ne bouge : UNLICENSED, privé, tous droits réservés", () => {
+      // Le défaut est la moitié qu'on casse sans le voir : corriger la vitrine
+      // en changeant le défaut changerait la licence de TOUS les utilisateurs.
+      const dest = path.join(tmp, "lic-defaut");
+      scaffold(dest, {
+        name: "licdefaut",
+        preset: "minimal",
+        frontend: "none",
+      });
+      const pkg = manifeste(dest);
+      assert.equal(pkg.license, "UNLICENSED");
+      assert.equal(pkg.private, true);
+      assert.include(
+        readFileSync(path.join(dest, "LICENSE"), "utf8"),
+        "Tous droits réservés",
+      );
+    });
+
+    it("--license MIT : le manifeste ET le fichier disent MIT", () => {
+      const dest = path.join(tmp, "lic-mit");
+      scaffold(dest, {
+        name: "licmit",
+        preset: "minimal",
+        frontend: "none",
+        license: "MIT",
+      });
+      assert.equal(manifeste(dest).license, "MIT");
+      const texte = readFileSync(path.join(dest, "LICENSE"), "utf8");
+      assert.include(texte, "MIT License");
+      assert.include(texte, "Copyright (c) ");
+      // La preuve qui compte : plus AUCUNE trace du défaut. Un texte permissif
+      // écrit à côté d'un « tous droits réservés » ne vaut rien.
+      assert.notInclude(texte, "Tous droits réservés");
+    });
+
+    it("un identifiant SPDX inconnu est REFUSÉ, et rien n'est écrit", () => {
+      const dest = path.join(tmp, "lic-inconnue");
+      assert.throws(
+        () =>
+          scaffold(dest, {
+            name: "licinconnue",
+            preset: "minimal",
+            frontend: "none",
+            license: "WTFPL",
+          }),
+        /license invalide/u,
+      );
+      assert.isFalse(existsSync(dest), "le refus doit précéder toute écriture");
+    });
+
+    it("chaque identifiant servi a son gabarit, et rend un fichier non vide", () => {
+      // L'appariement que la spec ne peut pas porter : une valeur ajoutée à
+      // `LICENSE_CHOICES` sans son dossier ferait échouer la création APRÈS
+      // l'écriture des autres fichiers — une app à moitié posée.
+      for (const license of LICENSE_CHOICES) {
+        const dest = path.join(tmp, `lic-tous-${license}`);
+        scaffold(dest, {
+          name: "lictous",
+          preset: "minimal",
+          frontend: "none",
+          license,
+        });
+        assert.equal(
+          manifeste(dest).license,
+          license,
+          `${license} : champ du manifeste`,
+        );
+        const texte = readFileSync(path.join(dest, "LICENSE"), "utf8");
+        assert.isAbove(
+          texte.trim().length,
+          200,
+          `${license} : le fichier LICENSE doit porter un vrai texte`,
+        );
+      }
     });
   });
 

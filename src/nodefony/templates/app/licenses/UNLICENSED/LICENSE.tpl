@@ -8,9 +8,15 @@ redistribuer ce logiciel. C'est le bon défaut pour une application privée —
 celle-ci naît d'ailleurs `"private": true` et `"license": "UNLICENSED"` dans son
 `package.json`.
 
-Si ce logiciel doit être partagé ou publié, REMPLACE ce fichier par le texte de
-la licence retenue (MIT, Apache-2.0, BSD-3-Clause, GPL-3.0…) et aligne le champ `license` du
-`package.json` sur son identifiant SPDX. Les deux doivent dire la même chose :
+Si ce logiciel doit être partagé ou publié, le geste OUTILLÉ est de le créer
+sous sa licence dès le départ — le fichier et le champ `license` du
+`package.json` sont alors posés ensemble, et ne peuvent pas se contredire :
+
+    nodefony create app mon-app --license MIT
+
+Les identifiants servis : MIT, Apache-2.0, BSD-3-Clause, ISC. Pour une licence
+à obligations (GPL, AGPL, MPL), REMPLACE ce fichier par son texte et aligne le
+champ `license` sur son identifiant SPDX. Les deux doivent dire la même chose :
 le champ est ce que lisent les outils, le fichier est ce que lisent les humains.
 
 ---

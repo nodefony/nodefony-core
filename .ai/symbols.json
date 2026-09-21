@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 847,
-    "symbols": 4172,
+    "symbols": 4174,
     "classes": 395,
     "interfaces": 1112,
-    "types": 452,
+    "types": 453,
     "enums": 4,
     "functions": 1798,
-    "constants": 411
+    "constants": 412
   },
   "symbols": {
     "Cli": {
@@ -7290,6 +7290,13 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "TLicenseChoice": {
+      "name": "TLicenseChoice",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
+    },
     "TDatabaseChoice": {
       "name": "TDatabaseChoice",
       "kind": "type",
@@ -7357,13 +7364,20 @@
       "module": "@nodefony/core",
       "description": "Presets d'app : la vitrine complète (défaut) ou la base saine http+framework."
     },
-    "DATABASE_CHOICES": {
-      "name": "DATABASE_CHOICES",
+    "LICENSE_CHOICES": {
+      "name": "LICENSE_CHOICES",
       "kind": "const",
       "file": "src/nodefony/src/cli/scaffold/spec.ts",
       "exported": true,
       "module": "@nodefony/core",
       "description": "Base SQL de développement — le dialecte que l'app vise, choisi À LA CRÉATION. `sqlite` reste le défaut : c'est le seul qui n'exige aucun service, et la promesse du framework est qu'une app fraîche …"
+    },
+    "DATABASE_CHOICES": {
+      "name": "DATABASE_CHOICES",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core"
     },
     "CONTROLLER_KIND_CHOICES": {
       "name": "CONTROLLER_KIND_CHOICES",
@@ -33866,6 +33880,9 @@
         "src/nodefony/src/kernel/commands/CompletionCommand.ts"
       ],
       "CREATE_TYPES": [
+        "src/nodefony/src/kernel/commands/CreateCommand.ts"
+      ],
+      "LICENSE_CHOICES": [
         "src/nodefony/src/kernel/commands/CreateCommand.ts"
       ],
       "PRESET_CHOICES": [

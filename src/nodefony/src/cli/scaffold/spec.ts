@@ -169,6 +169,31 @@ export type TPresetChoice = (typeof PRESET_CHOICES)[number];
  * du scheme de `NF_DATABASE_URL`) — ils décident du service que l'infra de dev
  * fournit, et de l'URL qui la joint.
  */
+/**
+ * Licences proposées à la création — identifiants SPDX.
+ *
+ * `UNLICENSED` reste le DÉFAUT, et c'est un choix : une application naît
+ * privée (`"private": true`), et accorder des droits sur le code de quelqu'un
+ * d'autre sans qu'il l'ait demandé serait une décision prise à sa place.
+ *
+ * La liste est volontairement courte — les quatre permissives que l'on copie
+ * dans un projet tiers sans y réfléchir. Une licence à obligations (GPL, AGPL,
+ * MPL) est un choix militant qui ne se prend pas par défaut d'option : le
+ * fichier rendu dit comment le remplacer.
+ *
+ * 🔴 Chaque valeur DOIT avoir son gabarit `templates/app/licenses/<valeur>/LICENSE.tpl`.
+ * Une entrée ajoutée ici sans son dossier ferait échouer la création APRÈS
+ * l'écriture des autres fichiers — le test `create.test.ts` apparie les deux.
+ */
+export const LICENSE_CHOICES = [
+  "UNLICENSED",
+  "MIT",
+  "Apache-2.0",
+  "BSD-3-Clause",
+  "ISC",
+] as const;
+export type TLicenseChoice = (typeof LICENSE_CHOICES)[number];
+
 export const DATABASE_CHOICES = [
   "sqlite",
   "postgres",
@@ -323,6 +348,26 @@ const APP_SPEC: IScaffoldTypeSpec = {
       // EXPLICITE (interactif : l'utilisateur répond ; API/flags : --link).
       default: false,
       askIf: "hasCheckout",
+    },
+    {
+      key: "license",
+      label: "Licence de l'application (identifiant SPDX)",
+      type: "choice",
+      choices: LICENSE_CHOICES.map((value) => ({
+        value,
+        label:
+          value === "UNLICENSED"
+            ? "Aucun droit accordé (application privée)"
+            : value,
+      })),
+      // `UNLICENSED`, et JAMAIS posée en dialogue (`advanced`) : le défaut est
+      // sûr — une app naît privée, et rien ne dit que son auteur veut publier.
+      // Mais ce défaut n'a de sens que pour une app privée : ce qui est PUBLIÉ
+      // depuis ce gabarit — la vitrine `nodefony/nodefony`, régénérée à chaque
+      // publication — doit pouvoir en sortir sans édition à la main, puisque
+      // rien de ce qu'on y écrirait ne survivrait à la régénération suivante.
+      default: "UNLICENSED",
+      advanced: true,
     },
     {
       key: "gitHooks",
