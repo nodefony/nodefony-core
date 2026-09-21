@@ -58,6 +58,7 @@ export type { IHttpConfigInput } from "@nodefony/http";
 export type { IFrameworkConfigInput } from "@nodefony/framework";
 export type { ISecurityConfigInput } from "@nodefony/security";
 export type { IDrizzleConfigInput } from "@nodefony/drizzle";
+export type { IMongooseConfigInput } from "@nodefony/mongoose";
 export type { IRealtimeConfigInput } from "@nodefony/realtime";
 export type { IRedisConfigInput } from "@nodefony/redis";
 export type { IFrontendConfigInput } from "@nodefony/frontend";
