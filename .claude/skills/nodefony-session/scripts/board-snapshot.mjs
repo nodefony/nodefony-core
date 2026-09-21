@@ -31,8 +31,13 @@
  * @usage    npm run board:snapshot
  * @usage    node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
  * @usage    node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
+ * @usage    npm run board:readme   (= --readme)
+ * @usage    npm run board:issue    (= --issue)
  * @option   --check  ne rien écrire ; sortie 1 si l'empreinte a dérivé, 2 si GitHub est muet
  * @option   --force  passer outre la garde de plausibilité
+ * @option   --readme republie la zone générée du README du PROJET GitHub
+ * @option   --issue  republie l'issue-tableau publique (label `tableau-de-bord`)
+ * @option   --dry-run montre ce qui partirait, sans rien écrire
  * @output   .ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités à la main
  */
 

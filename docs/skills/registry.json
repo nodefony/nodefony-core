@@ -5837,7 +5837,9 @@
             "usage": [
               "npm run board:snapshot",
               "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs",
-              "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check"
+              "node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check",
+              "npm run board:readme   (= --readme)",
+              "npm run board:issue    (= --issue)"
             ],
             "options": [
               {
@@ -5847,6 +5849,18 @@
               {
                 "flag": "--force",
                 "help": "passer outre la garde de plausibilité"
+              },
+              {
+                "flag": "--readme",
+                "help": "republie la zone générée du README du PROJET GitHub"
+              },
+              {
+                "flag": "--issue",
+                "help": "republie l'issue-tableau publique (label `tableau-de-bord`)"
+              },
+              {
+                "flag": "--dry-run",
+                "help": "montre ce qui partirait, sans rien écrire"
               }
             ],
             "env": [

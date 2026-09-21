@@ -105,6 +105,19 @@ npm run board:readme                     # publie
 npm run board:readme -- --dry-run        # montre ce qui partirait, sans rien écrire
 ```
 
+Et **la même empreinte a une seconde vitrine**, qui n'est pas la même audience : l'issue publique
+« Où en est la version 10 » (label `tableau-de-bord`). Le README se lit quand on ouvre le projet ;
+l'issue se suit, s'épingle et se commente — c'est elle que quelqu'un d'extérieur regarde.
+
+```bash
+npm run board:issue                      # republie l'issue-tableau
+```
+
+🔴 **Les deux se lancent, pas l'un OU l'autre.** `--readme` ne touche pas l'issue, et `--issue` ne
+touche pas le README : deux surfaces, deux commandes. Vécu — l'issue est restée sur une photo d'un
+jour plus tôt, à `112 tickets ouverts` contre `122`, parce que seul le README avait été republié.
+Une vitrine périmée est pire qu'une vitrine absente : on la croit.
+
 **Pourquoi le README et pas un graphique.** GitHub n'expose **aucune mutation** pour les _Insights_
 de Projects v2 — vérifié par introspection du schéma : pas un champ `*Insight*` ni `*Chart*` dans
 `mutationType`. Leur configuration ne vit que dans l'interface web, donc elle ne se versionne pas,

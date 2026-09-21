@@ -5,7 +5,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-21
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -78,7 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
 | `references/mode-consolidate.md` | MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS | 135 |
-| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 336 |
+| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 349 |
 
 
 ## Scripts embarqués
@@ -90,7 +90,7 @@ script, donc toujours à jour après régénération.
 | --- | --- | --- | --- |
 | `scripts/board-next.mjs` | Le choix du PROCHAIN ticket — la règle, isolée pour être éprouvable sans réseau. | — | — |
 | `scripts/board-next.test.mjs` | Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le | — | — |
-| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
+| `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` `--readme` `--issue` `--dry-run` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
 | `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS | — | — |
 | `scripts/lessons-carriers.mjs` | Qui PORTE chaque leçon durable — le chaînon manquant du cycle des retex. | `--dead` `--inert` `--recos` `--strict` `--write` | — |
 | `scripts/retex-seuil.mjs` | Les thèmes de `RETEX.md` qui ont atteint le seuil de graduation. | `--all` | `SAS` `SEUIL` |
@@ -114,12 +114,17 @@ Produit : .ai/board.json (machine) + .ai/BOARD.md (lisible) — jamais édités 
 npm run board:snapshot
 node .claude/skills/nodefony-session/scripts/board-snapshot.mjs
 node .claude/skills/nodefony-session/scripts/board-snapshot.mjs --check
+npm run board:readme   (= --readme)
+npm run board:issue    (= --issue)
 ```
 
 | Option | Rôle |
 | --- | --- |
 | `--check` | ne rien écrire ; sortie 1 si l'empreinte a dérivé, 2 si GitHub est muet |
 | `--force` | passer outre la garde de plausibilité |
+| `--readme` | republie la zone générée du README du PROJET GitHub |
+| `--issue` | republie l'issue-tableau publique (label `tableau-de-bord`) |
+| `--dry-run` | montre ce qui partirait, sans rien écrire |
 
 ## Conformité au standard Agent Skills
 
