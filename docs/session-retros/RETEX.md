@@ -102,6 +102,27 @@ doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en cl
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
 
+- [1× — 09-21] 📖 **La documentation fait CROIRE qu'une capacité est fournie — et c'est pire qu'un
+  trou, parce que personne ne la cherche.** `react-hooks.md:217` montre un `useRoomPresence`
+  complet, le cookbook un canal `chat:presence` : ce sont des **exemples que l'utilisateur écrit**
+  (la page le dit — « ton hook porte le vocabulaire de ton domaine »), et la présence n'existe nulle
+  part dans le framework. Constaté sur un agent réel lâché dans une application générée : il les a
+  rangés dans sa colonne **« déjà fourni — ne rien réécrire »**. Un patron bien documenté se lit
+  comme une primitive. Le pendant exact de [[feedback_capability_unreachable_is_absent]] : là une
+  capacité réelle qu'on n'atteint pas, ici une capacité absente qu'on croit atteignable — même
+  écart entre ce que le corpus affirme et ce que le code porte.
+- [1× — 09-21] 🏷️ **Un label homonyme d'un jalon confond deux instruments, et le double se périme
+  seul.** Huit labels portaient le nom des huit jalons ; **quinze tickets ouverts** affichaient une
+  version que leur jalon démentait — quatorze marqués `10.1.0` sur un jalon `10.2.0`, et un portant
+  `10.1.0` + `backlog`. Personne ne déplace un double en déplaçant un jalon. La cause était dans
+  l'outil (`ticket-open.mjs` posait le label homonyme à chaque création), pas dans la discipline.
+  Gate `LABEL-DOUBLE-JALON`.
+- [1× — 09-21] 🔦 **Un drapeau qui existe et que rien ne nomme n'est pas atteignable.**
+  `board-snapshot.mjs --issue` republie l'issue publique d'avancement, et le script npm existait ;
+  mais l'en-tête ne documentait que `--check` et `--force`, et le mode END décrivait l'étape du
+  README puis s'arrêtait. Résultat : la vitrine publique affichait la photo de la veille (112
+  tickets contre 122). Le miroir du premier bullet — ici le code porte plus que le corpus n'annonce.
+
 - [1× — 09-20c] 🔐 **Le dépôt portait DEUX mots de passe de développement, et l'écran annonçait le
   mauvais.** `secret` a survécu au durcissement de la politique : `DEV_FIXTURE_PASSWORD` valait
   `secret-de-dev-42` pour le dépôt persistant, mais les hachages pré-calculés de l'annuaire en
