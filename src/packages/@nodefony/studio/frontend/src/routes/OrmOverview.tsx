@@ -856,6 +856,26 @@ export const OrmOverview = observer(
       return by;
     }, [scopedEntities]);
 
+    /**
+     * Les entités sans relation déclarée, et leur module.
+     *
+     * 🔴 Ce n'est PAS un défaut en soi, et le présenter comme tel faisait un
+     * badge orange allumé en permanence : les entités du framework sont PLATES
+     * par conception. `access_token` porte `subjectId` + `subjectType` — une
+     * référence polymorphe —, `audit_event` porte son acteur en texte. Le
+     * framework refuse d'imposer une clé étrangère vers `User`, puisque c'est
+     * l'application qui possède cette table. Vingt entités sur vingt-trois
+     * relèvent de ce choix ; les nommer est la seule façon de voir les trois
+     * autres, qui sont applicatives.
+     */
+    const orphelines = useMemo(
+      () =>
+        scopedEntities
+          .filter((e) => (e.relations?.length ?? 0) === 0)
+          .map((e) => `${e.name} · ${e.module || "?"}`),
+      [scopedEntities],
+    );
+
     /** Rend le détail d'un groupe, borné : au-delà de dix, on compte le reste. */
     const detailDuGroupe = useCallback(
       (groupe: string): string | undefined => {
@@ -1596,7 +1616,7 @@ export const OrmOverview = observer(
                         <Panel
                           title="Santé du modèle"
                           icon={<IconActivity size={18} />}
-                          hint={`${agg.orphans} entité(s) sans relation · ${agg.relationTotal} relation(s) sur ${scopedEntities.length} entité(s) · ${scopeLabel}.`}
+                          hint={`${agg.orphans} entité(s) sans relation déclarée · ${agg.relationTotal} relation(s) sur ${scopedEntities.length} entité(s) · ${scopeLabel}. Une entité plate n'est PAS une anomalie : les magasins du framework le sont tous par conception (référence polymorphe \`subjectId\`/\`subjectType\`, acteur d'audit en texte), pour ne pas imposer de clé étrangère vers la table \`User\` que possède l'application. Survolez la ligne pour voir lesquelles, avec leur module.`}
                           right={
                             <Button
                               component={Link}
@@ -1611,13 +1631,24 @@ export const OrmOverview = observer(
                         >
                           <Stack gap="sm">
                             <Group justify="space-between" wrap="nowrap">
-                              <Text size="sm">
-                                Entités orphelines (0 relation)
-                              </Text>
-                              <Badge
-                                variant="light"
-                                color={agg.orphans ? "orange" : "teal"}
+                              <Text
+                                size="sm"
+                                title={
+                                  orphelines.length
+                                    ? orphelines.slice(0, 12).join(", ") +
+                                      (orphelines.length > 12
+                                        ? `, et ${orphelines.length - 12} autre(s)`
+                                        : "")
+                                    : undefined
+                                }
                               >
+                                Entités sans relation déclarée
+                              </Text>
+                              {/* Couleur NEUTRE : une entité plate n'est pas une
+                                  anomalie — les magasins du framework le sont
+                                  tous. Un badge orange permanent n'alerte plus
+                                  de rien. */}
+                              <Badge variant="light" color="gray">
                                 {agg.orphans}
                               </Badge>
                             </Group>
