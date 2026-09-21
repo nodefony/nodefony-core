@@ -104,20 +104,20 @@ function RankBars({
   return (
     <Stack gap={10}>
       {items.map((it) => (
-        <div key={it.key}>
+        // Le `title` porte sur la LIGNE ENTIÈRE, jamais sur le seul libellé :
+        // celui-ci fait quelques dizaines de pixels quand la ligne en fait
+        // cinq cents. Posé sur le texte, l'attribut EXISTE — un sélecteur le
+        // trouve, et l'on croit la chose faite — mais il faut viser le mot au
+        // pixel près pour qu'il s'affiche. Une aide qu'on n'atteint pas n'aide
+        // personne.
+        <div key={it.key} title={it.detail}>
           <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
             {it.href ? (
-              <Anchor
-                component={Link}
-                to={it.href}
-                size="xs"
-                truncate
-                title={it.detail}
-              >
+              <Anchor component={Link} to={it.href} size="xs" truncate>
                 {it.label}
               </Anchor>
             ) : (
-              <Text size="xs" truncate title={it.detail}>
+              <Text size="xs" truncate>
                 {it.label}
               </Text>
             )}
