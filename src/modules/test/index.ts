@@ -26,7 +26,6 @@ import DomainClassController from "./nodefony/controller/DomainClassController";
 import DbController from "./nodefony/controller/DbController";
 // P6.13 — récepteur webhook LOCAL (test des livraisons sortantes, /nodefony/test/webhooks/*)
 import WebhookSinkController from "./nodefony/controller/WebhookSinkController";
-import DurableBrickProbeController from "./nodefony/controller/DurableBrickProbeController";
 // POC « API souveraine » — Phase 1 (JETABLE — supprimer le dossier nodefony/poc/
 // + ces 2 imports + les 2 entrées @controllers après la revue Phase 6).
 import PocBookController from "./nodefony/poc/PocBookController";
@@ -105,10 +104,6 @@ const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
   DbController,
   // P6.13 — récepteur webhook local (réception + vérif signature + simulation d'erreurs)
   WebhookSinkController,
-  // Sonde des briques durables qu'aucune route du framework n'atteint (TOTP,
-  // endpoints de webhooks) — sans elle une passe complète les laisse à ZÉRO
-  // ligne, sur Drizzle comme sur Mongo.
-  DurableBrickProbeController,
   // P6 — banc zone protégée (firewall, routes /nodefony/test/secure/*)
   SecureController,
   // Banc d'ORDRE du pipeline — lecture publique du mouchard `initialize()`
