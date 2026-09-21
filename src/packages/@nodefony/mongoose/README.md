@@ -48,6 +48,38 @@ Mongoose : `user`/`pass`/`maxPoolSize`/timeouts).
 La config est validée par **Zod** au boot (`config.ts` = source de vérité). Une config invalide
 plante proprement avec un message clair.
 
+## Les briques que ce module fournit au framework
+
+**Une application peut tourner entièrement sur MongoDB** : les huit briques de persistance
+durables sont portées, aucune ne retombe sur un autre backend. C'est la propriété à retenir avant
+de choisir sa base — un backend durable est un chemin complet, ou il oblige à en rapatrier un
+second pour une seule brique.
+
+| Brique       | Ce qu'elle range                          | Comment l'activer                                           |
+| ------------ | ----------------------------------------- | ----------------------------------------------------------- |
+| Session      | sessions HTTP                             | `use("@nodefony/http", { session: { store: "mongoose" } })` |
+| Utilisateurs | l'annuaire                                | `NF_USER_STORE=mongoose`                                    |
+| Jetons       | rafraîchissement, clés d'API, révocations | `tokenStore: { store: "mongoose" }`                         |
+| Passkeys     | credentials WebAuthn                      | `passkeys: { store: "mongoose" }`                           |
+| TOTP         | secrets du second facteur                 | `totp: { store: "mongoose" }`                               |
+| Audit        | journal de sécurité append-only           | `audit: { store: "mongoose" }`                              |
+| Webhooks     | endpoints notifiés                        | `webhooks: { store: "mongoose" }`                           |
+| Idempotence  | dédoublonnage des mutations rejouées      | `NF_IDEMPOTENCY_STORE=mongoose`                             |
+
+Les quatre dernières colonnes de configuration vivent sous `use("@nodefony/security", …)`.
+**Rien d'autre à écrire** : charger le module suffit à rendre ces backends sélectionnables, et
+`store: "auto"` (le défaut) les choisit tout seul dès qu'une infra Mongo est déclarée
+(`NF_DATABASE_URL=mongodb://…`).
+
+Deux briques méritent un mot :
+
+- **Idempotence** — la dédup fonctionne **entre pods**, sans exiger Redis. La réservation est
+  atomique côté serveur : un `findOneAndUpdate` en `upsert`, filtré sur l'entrée expirée, dont le
+  perdant reçoit une violation d'unicité. C'est l'équivalent Mongo du `SET … NX PX` de Redis.
+  Comme la variante SQL, il n'y a pas de TTL natif : le framework arme une purge périodique.
+- **Audit** — le journal se lit par **curseur**, jamais par décalage : il reçoit des écritures
+  pendant qu'on le parcourt. Rétention purgée par `gc()` (365 jours par défaut).
+
 ## Stockage de session
 
 L'import du module enregistre automatiquement un `SessionStorage` sous le handler `"mongoose"`

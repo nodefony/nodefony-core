@@ -9,7 +9,10 @@
       "user",
       "tokens",
       "passkeys",
-      "webhooks"
+      "totp",
+      "audit",
+      "webhooks",
+      "idempotency"
     ]
   },
   "contributors": [],
@@ -52,6 +55,7 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@nodefony/framework": "^10.0.0-alpha.8",
     "@nodefony/http": "^10.0.0-alpha.8",
     "@nodefony/orm-core": "^10.0.0-alpha.8",
     "@nodefony/security": "^10.0.0-alpha.8",
@@ -63,6 +67,7 @@
     "vitest": "5.0.1"
   },
   "peerDependencies": {
+    "@nodefony/framework": "^10.0.0-alpha.8",
     "@nodefony/http": "^10.0.0-alpha.8",
     "@nodefony/orm-core": "^10.0.0-alpha.8",
     "@nodefony/security": "^10.0.0-alpha.8",

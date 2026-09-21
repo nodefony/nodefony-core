@@ -1,12 +1,21 @@
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import type { Connection, Model } from "mongoose";
 import {
   registerTokenStore,
   getTokenStoreFactory,
+  registerAuditStore,
+  getAuditStoreFactory,
   registerWebAuthnStore,
   getWebAuthnStoreFactory,
+  registerTotpStore,
+  getTotpStoreFactory,
   registerWebhookStore,
   getWebhookStoreFactory,
 } from "@nodefony/security";
+import {
+  registerIdempotencyStore,
+  getIdempotencyStoreFactory,
+} from "@nodefony/framework";
 import { MongooseOrm } from "./src/orm-core/index";
 import {
   registerTokenEntities,
@@ -20,9 +29,24 @@ import {
   registerWebhookEndpointEntity,
   WEBHOOK_ENDPOINT_ENTITY,
 } from "./entity/webhookEndpointEntity";
+import {
+  registerAuditEntities,
+  AUDIT_ENTITY_NAMES,
+} from "./entity/auditEventEntity";
+import {
+  registerTotpSecretEntity,
+  TOTP_SECRET_ENTITY,
+} from "./entity/totpSecretEntity";
+import {
+  registerIdempotencyEntities,
+  IDEMPOTENCY_ENTITY_NAME,
+} from "./entity/idempotencyEntity";
 import { MongooseTokenStore } from "./src/MongooseTokenStore";
 import { MongooseWebAuthnCredentialStore } from "./src/MongooseWebAuthnCredentialStore";
 import { MongooseWebhookStore } from "./src/MongooseWebhookStore";
+import { MongooseAuditStore } from "./src/MongooseAuditStore";
+import { MongooseTotpSecretStore } from "./src/MongooseTotpSecretStore";
+import { MongooseIdempotencyStore } from "./src/MongooseIdempotencyStore";
 
 /**
  * AUTO-ENREGISTREMENT des backends framework portés par Mongoose — « charger le
@@ -33,9 +57,12 @@ import { MongooseWebhookStore } from "./src/MongooseWebhookStore";
  * modèles sont compilés à la connexion). Pas de dialecte (NoSQL) : les schémas
  * sont portables par construction.
  *
- * Couverture PARTIELLE assumée : session (auto via `@entity`), tokens, webauthn,
- * webhooks. PAS d'implémentation mongoose pour l'audit ni l'idempotence — les
- * sélectionner sur mongoose échoue franc (« store inconnu »), jamais en silence.
+ * Couverture : session (auto via `@entity`), utilisateurs, tokens, webauthn,
+ * webhooks, audit, TOTP et idempotence — soit **la totalité des briques
+ * durables**. C'est la propriété que Mongo doit tenir : une application doit
+ * pouvoir tourner SANS aucun backend SQL, et un backend durable est un chemin
+ * complet ou n'en est pas un. Une brique qui manquerait se sélectionnerait en
+ * échec franc (« store inconnu »), jamais en silence.
  *
  * Mêmes garde-fous que Drizzle : entité `has`-guarded (l'app garde la main),
  * fabrique `get`-guarded (premier-arrivé-premier-servi).
@@ -160,6 +187,78 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
         MongooseWebhookStore.from(
           resolveConnectedOrm(`webhooks.store "mongoose"`),
         ),
+      );
+    },
+  );
+
+  // ── Journal d'audit — registre @nodefony/security ───────────────────────────
+  wire(
+    AUDIT_ENTITY_NAMES.events,
+    () => registerAuditEntities(FRAMEWORK_CONNECTOR),
+    () => {
+      if (getAuditStoreFactory("mongoose")) {
+        return;
+      }
+      registerAuditStore("mongoose", (ctx) => {
+        const orm = resolveConnectedOrm(`audit.store "mongoose"`);
+        const days = ctx?.config?.audit?.retentionDays;
+        return MongooseAuditStore.from(
+          orm,
+          undefined,
+          typeof days === "number" ? days * 86_400_000 : undefined,
+        );
+      });
+    },
+  );
+
+  // ── Secrets TOTP (2FA) — registre @nodefony/security ────────────────────────
+  wire(
+    TOTP_SECRET_ENTITY,
+    () => registerTotpSecretEntity(FRAMEWORK_CONNECTOR),
+    () => {
+      if (getTotpStoreFactory("mongoose")) {
+        return;
+      }
+      registerTotpStore("mongoose", () =>
+        MongooseTotpSecretStore.from(
+          resolveConnectedOrm(`totp.store "mongoose"`),
+        ),
+      );
+    },
+  );
+
+  // ── Idempotence des mutations — registre @nodefony/framework ────────────────
+  // ⚠️ Fabriquée à `onKernelBoot` (framework), AVANT le connect Mongoose
+  // (`onBoot`) → la résolution de l'ORM est STRICTEMENT lazy, par usage, et ne
+  // passe PAS par `resolveConnectedOrm` : celui-ci LÈVE quand l'ORM n'est pas
+  // connecté, ce qui est le comportement juste pour une demande explicite, et
+  // exactement le mauvais ici — la fabrique s'exécute forcément trop tôt.
+  wire(
+    IDEMPOTENCY_ENTITY_NAME,
+    () => registerIdempotencyEntities(FRAMEWORK_CONNECTOR),
+    () => {
+      if (getIdempotencyStoreFactory("mongoose")) {
+        return;
+      }
+      registerIdempotencyStore(
+        "mongoose",
+        () =>
+          new MongooseIdempotencyStore(() => {
+            let orm: unknown;
+            try {
+              orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
+            } catch {
+              return null; // ORM pas encore enregistré (boot) ou retiré (shutdown).
+            }
+            if (!(orm instanceof MongooseOrm) || !orm.isConnected()) {
+              return null;
+            }
+            return orm
+              .getNativeConnection<Connection>()
+              .model<Record<string, unknown>>(
+                IDEMPOTENCY_ENTITY_NAME,
+              ) as unknown as Model<Record<string, unknown>>;
+          }),
       );
     },
   );

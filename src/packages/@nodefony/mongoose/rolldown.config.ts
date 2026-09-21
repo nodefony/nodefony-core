@@ -7,6 +7,7 @@ export default defineNodefonyRolldownConfig({
     "@nodefony/orm-core",
     "@nodefony/user",
     "@nodefony/security",
+    "@nodefony/framework",
     "mongodb",
     "mongoose",
     "zod",

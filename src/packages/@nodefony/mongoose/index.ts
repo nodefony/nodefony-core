@@ -80,11 +80,12 @@ class Mongoose extends Module<IMongooseConfig> {
     // autres briques. Toujours (l'app le SÉLECTIONNE via NF_USER_STORE).
     registerUserStore("mongoose");
 
-    // AUTO-REGISTER du schéma framework (tokens/webauthn/webhooks) sur le
-    // connecteur `nodefony` + fabriques "mongoose" dans les registres security —
-    // AVANT le connect de `onBoot`. Zéro câblage app ; guards = l'app garde la
-    // main ; `frameworkEntities: false` = module data-only. Couverture partielle
-    // assumée (pas d'audit/idempotence mongoose — sélection = échec franc).
+    // AUTO-REGISTER du schéma framework (tokens/webauthn/webhooks/audit/totp/
+    // idempotence) sur le connecteur `nodefony` + fabriques "mongoose" dans les
+    // registres security et framework — AVANT le connect de `onBoot`. Zéro
+    // câblage app ; guards = l'app garde la main ; `frameworkEntities: false` =
+    // module data-only. Couverture COMPLÈTE des briques durables : une app doit
+    // pouvoir tourner sans aucun backend SQL.
     if (validated.frameworkEntities !== false) {
       const report = registerMongooseFrameworkStores();
       if (report.appOwned.length) {
@@ -204,6 +205,40 @@ export {
 } from "./nodefony/entity/webhookEndpointEntity";
 export type { WebhookEndpointRow } from "./nodefony/entity/webhookEndpointEntity";
 export { MongooseWebhookStore } from "./nodefony/src/MongooseWebhookStore";
+
+// ─── Journal d'audit Mongoose (IAuditStore de @nodefony/security) ─────────────
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `audit.store: "mongoose"`.
+export {
+  auditEventSchema,
+  createAuditEntities,
+  registerAuditEntities,
+  AUDIT_ENTITY_NAMES,
+} from "./nodefony/entity/auditEventEntity";
+export type { AuditEventRow } from "./nodefony/entity/auditEventEntity";
+export { MongooseAuditStore } from "./nodefony/src/MongooseAuditStore";
+
+// ─── Store de secrets TOTP Mongoose (ITotpSecretStore de @nodefony/security) ──
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `totp.store: "mongoose"`.
+export {
+  totpSecretSchema,
+  createTotpSecretEntity,
+  registerTotpSecretEntity,
+  TOTP_SECRET_ENTITY,
+} from "./nodefony/entity/totpSecretEntity";
+export type { TotpSecretRow } from "./nodefony/entity/totpSecretEntity";
+export { MongooseTotpSecretStore } from "./nodefony/src/MongooseTotpSecretStore";
+
+// ─── Store d'idempotence Mongoose (IIdempotencyStore — contrat au CORE) ───────
+// AUTO-REGISTER (onKernelRegister) : sélectionnable via `idempotency.store:
+// "mongoose"`. Le registre, lui, vit dans @nodefony/framework.
+export {
+  idempotencyKeySchema,
+  createIdempotencyEntities,
+  registerIdempotencyEntities,
+  IDEMPOTENCY_ENTITY_NAME,
+} from "./nodefony/entity/idempotencyEntity";
+export type { IdempotencyKeyRow } from "./nodefony/entity/idempotencyEntity";
+export { MongooseIdempotencyStore } from "./nodefony/src/MongooseIdempotencyStore";
 
 // ─── Auto-register du schéma framework (appelé par onKernelRegister) ─────────
 // Exporté pour les tests et les apps avancées (rejouable : guards idempotents).

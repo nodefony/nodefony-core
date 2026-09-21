@@ -57,7 +57,27 @@ export default defineConfig({
       gateReporter([
         {
           gate: MONGO_GATE,
-          proof: "MongooseTokenStore — ITokenStore portable",
+          // UNE preuve PAR STORE durable, pas une seule pour le module. Une
+          // preuve unique ne dit que « quelque chose a tourné » : un banc
+          // renommé, un fichier qui ne collecte pas, une suite entière absente
+          // passaient dessous sans un mot. Ces motifs sont TOUS exigés — c'est
+          // ce qui rend la couverture 8/8 opposable, et pas seulement affichée.
+          proof: [
+            "MongooseTokenStore — ITokenStore portable",
+            "MongooseWebhookStore — IWebhookStore portable",
+            "MongooseAuditStore — IAuditStore portable",
+            "MongooseTotpSecretStore — ITotpSecretStore portable",
+            "MongooseIdempotencyStore — IIdempotencyStore portable",
+            // La preuve la PLUS forte : ce cas ne peut pas passer sans un vrai
+            // serveur, puisque c'est lui qui arbitre la contrainte d'unicité.
+            // Un double mémoire le rendrait vert à tort.
+            "atomicité sous CONCURRENCE",
+            // La raison d'être du store d'idempotence : deux connexions
+            // distinctes, une base. Sans elle, « cross-pod » n'est qu'un mot.
+            "idempotence CROSS-POD",
+            // La promesse affichée par la console d'administration.
+            "manifeste ↔ registres",
+          ],
         },
       ]),
     ],

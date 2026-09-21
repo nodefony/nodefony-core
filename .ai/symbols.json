@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 847,
-    "symbols": 4175,
-    "classes": 395,
-    "interfaces": 1112,
-    "types": 453,
+    "files": 853,
+    "symbols": 4197,
+    "classes": 398,
+    "interfaces": 1115,
+    "types": 456,
     "enums": 4,
-    "functions": 1799,
-    "constants": 412
+    "functions": 1806,
+    "constants": 418
   },
   "symbols": {
     "Cli": {
@@ -18739,6 +18739,88 @@
       "module": "@nodefony/mongoose",
       "description": "JSON Schema introspectable de la config Mongoose — destiné au formulaire d'édition Studio (futur) et à la documentation générée."
     },
+    "@nodefony/mongoose:AuditEventRow": {
+      "name": "AuditEventRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme **plate** d'une ligne du journal renvoyée par le repository Mongoose — `id` = virtuel (= `_id` = l'id d'événement). Miroir d'`IAuditEvent` avec les champs optionnels rendus explicitement `| n…"
+    },
+    "@nodefony/mongoose:createAuditEntities": {
+      "name": "createAuditEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Construit les descripteurs d'entités du journal d'audit pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison à…"
+    },
+    "@nodefony/mongoose:registerAuditEntities": {
+      "name": "registerAuditEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Enregistre les entités du journal d'audit dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (le modèle est compilé au connect)."
+    },
+    "auditEventSchema": {
+      "name": "auditEventSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Schéma Mongoose du **journal d'audit** `@nodefony/security` — pendant documentaire de la table Drizzle `audit_event`, implémentation NoSQL d' `IAuditStore` (append-only, tamper-evident). ⚠️ **`_id`…"
+    },
+    "@nodefony/mongoose:AUDIT_ENTITY_NAMES": {
+      "name": "AUDIT_ENTITY_NAMES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
+    },
+    "@nodefony/mongoose:IdempotencyKeyRow": {
+      "name": "IdempotencyKeyRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme plate d'une ligne du store d'idempotence telle que rendue par le repository Mongoose. Identique aux champs de {@link idempotencyKeySchema} → zéro mapping store ↔ entité."
+    },
+    "@nodefony/mongoose:createIdempotencyEntities": {
+      "name": "createIdempotencyEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Construit le descripteur d'entité du store d'idempotence pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaison …"
+    },
+    "@nodefony/mongoose:registerIdempotencyEntities": {
+      "name": "registerIdempotencyEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Enregistre l'entité du store d'idempotence dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()`."
+    },
+    "idempotencyKeySchema": {
+      "name": "idempotencyKeySchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Schéma Mongoose du **store d'idempotence** — pendant documentaire de la table Drizzle `idempotency_key`, implémentation NoSQL d'`IIdempotencyStore` (contrat au CORE) pour dédoublonner les mutations…"
+    },
+    "@nodefony/mongoose:IDEMPOTENCY_ENTITY_NAME": {
+      "name": "IDEMPOTENCY_ENTITY_NAME",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository` / `entityRegistry`)."
+    },
     "SessionEntity": {
       "name": "SessionEntity",
       "kind": "class",
@@ -18834,6 +18916,47 @@
       "exported": true,
       "module": "@nodefony/mongoose",
       "description": "Noms logiques des entités du store (clés de lookup `getRepository`)."
+    },
+    "@nodefony/mongoose:TotpSecretRow": {
+      "name": "TotpSecretRow",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Forme **plate** d'une ligne de secret renvoyée par le repository Mongoose. Structure identique à `ITotpSecret` (tout `| null` déjà présent côté contrat) → mapping quasi-identité dans `MongooseTotpS…"
+    },
+    "@nodefony/mongoose:createTotpSecretEntity": {
+      "name": "createTotpSecretEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Construit le descripteur d'entité du store de secrets TOTP pour un ORM nommé. Le `connector` est **dynamique** (nom du connecteur de l'app, ex. `\"nodefony\"`) : le schéma est statique mais sa liaiso…"
+    },
+    "@nodefony/mongoose:registerTotpSecretEntity": {
+      "name": "registerTotpSecretEntity",
+      "kind": "function",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Enregistre l'entité du store de secrets TOTP dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()`."
+    },
+    "totpSecretSchema": {
+      "name": "totpSecretSchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Schéma Mongoose du **store de secrets TOTP** `@nodefony/security` (2FA) — pendant documentaire de la table Drizzle `totp_secret`, implémentation NoSQL d'`ITotpSecretStore`. ⚠️ **`_id` = `userId` (S…"
+    },
+    "@nodefony/mongoose:TOTP_SECRET_ENTITY": {
+      "name": "TOTP_SECRET_ENTITY",
+      "kind": "const",
+      "file": "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "description": "Nom logique de l'entité (clé de lookup `getRepository`)."
     },
     "@nodefony/mongoose:createUserEntity": {
       "name": "createUserEntity",
@@ -19008,6 +19131,32 @@
       "module": "@nodefony/mongoose",
       "description": "**La** table d'alias du dialecte Mongo — `id` public → `_id` au repos. Elle vit ici, chez l'adapter qui possède la convention, et non dans le vocabulaire de chaque ressource : ce n'est pas une prop…"
     },
+    "MongooseAuditStore": {
+      "name": "MongooseAuditStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "IAuditStore"
+      ],
+      "decorators": [],
+      "description": "Journal d'audit **Mongoose** (NoSQL) — implémentation documentaire d' {@link IAuditStore} (append-only, tamper-evident) pour la **rétention longue** et le **partage cross-pod**, là où le store mémo…"
+    },
+    "MongooseIdempotencyStore": {
+      "name": "MongooseIdempotencyStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "IIdempotencyStore"
+      ],
+      "decorators": [],
+      "description": "Store d'idempotence **Mongoose** (NoSQL) — implémentation documentaire d' {@link IIdempotencyStore} (contrat au CORE) pour dédoublonner les mutations rejouées PARTAGÉ cross-pod, là où le store mémo…"
+    },
     "MongooseTokenStore": {
       "name": "MongooseTokenStore",
       "kind": "class",
@@ -19020,6 +19169,19 @@
       ],
       "decorators": [],
       "description": "Store de jetons **Mongoose** (NoSQL) — implémentation d'{@link ITokenStore} au dessus de trois repositories `@nodefony/orm-core` (`access_token`, `denied_jti`, `subject_revocation`). Pendant docume…"
+    },
+    "MongooseTotpSecretStore": {
+      "name": "MongooseTotpSecretStore",
+      "kind": "class",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "implements": [
+        "ITotpSecretStore"
+      ],
+      "decorators": [],
+      "description": "Store de secrets TOTP **Mongoose** (NoSQL) — implémentation documentaire d' {@link ITotpSecretStore} au-dessus d'un unique repository `@nodefony/orm-core` (`totp_secret`). Pendant documentaire de `…"
     },
     "MongooseUserRepository": {
       "name": "MongooseUserRepository",
@@ -28874,12 +29036,14 @@
       ],
       "IAuditStore": [
         "DrizzleAuditStore",
+        "MongooseAuditStore",
         "MemoryAuditStore"
       ],
       "IIdempotencyStore": [
         "DrizzleIdempotencyStore",
         "MemoryIdempotencyStore",
-        "RedisIdempotencyStore"
+        "RedisIdempotencyStore",
+        "MongooseIdempotencyStore"
       ],
       "ITokenStore": [
         "DrizzleTokenStore",
@@ -28889,6 +29053,7 @@
       ],
       "ITotpSecretStore": [
         "DrizzleTotpSecretStore",
+        "MongooseTotpSecretStore",
         "MemoryTotpSecretStore"
       ],
       "IUserRepository": [
@@ -30229,7 +30394,8 @@
         "src/packages/@nodefony/framework/nodefony/src/idempotencyGc.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotencyStoreRegistry.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "IAdminBroker": [
         "src/packages/@nodefony/framework/index.ts",
@@ -30256,11 +30422,13 @@
       ],
       "getIdempotencyStoreFactory": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "registerIdempotencyStore": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "listIdempotencyStores": [
         "src/packages/@nodefony/framework/index.ts"
@@ -32769,7 +32937,10 @@
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/ISession.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
@@ -32831,7 +33002,10 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
@@ -32870,10 +33044,12 @@
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts"
       ],
       "registerAuditStore": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "getAuditStoreFactory": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts"
       ],
       "registerWebAuthnStore": [
@@ -32888,10 +33064,12 @@
         "src/packages/@nodefony/security/nodefony/service/webAuthn.ts"
       ],
       "registerTotpStore": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "getTotpStoreFactory": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts"
       ],
       "registerWebhookStore": [
@@ -32958,10 +33136,13 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts"
       ],
       "registerAuditEntities": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "AUDIT_ENTITY_NAMES": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts"
       ],
       "registerWebAuthnCredentialEntity": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
@@ -32974,11 +33155,14 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts"
       ],
       "registerTotpSecretEntity": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "TOTP_SECRET_ENTITY": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts"
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts"
       ],
       "registerWebhookEndpointEntity": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
@@ -32991,7 +33175,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
       ],
       "registerIdempotencyEntities": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "createIdempotencyTable": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
@@ -33001,7 +33186,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "IDEMPOTENCY_ENTITY_NAME": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "registerSessionEntity": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
@@ -33042,10 +33229,22 @@
       "DrizzleIdempotencyStore": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
       ],
+      "Connection": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
+        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
       "MongooseOrm": [
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
@@ -33057,6 +33256,15 @@
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "MongooseWebhookStore": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "MongooseAuditStore": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "MongooseTotpSecretStore": [
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
+      ],
+      "MongooseIdempotencyStore": [
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "RedisTokenStore": [
@@ -34301,6 +34509,7 @@
       "escapeRegExp": [
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts",
@@ -34366,7 +34575,10 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
         "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
@@ -34442,6 +34654,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
@@ -35161,16 +35374,19 @@
       ],
       "AuditCategory": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts"
       ],
       "AuditOutcome": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditFilters.ts"
       ],
       "IAuditEventFlags": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/readAuditContext.ts"
       ],
       "createFrameworkTableFactory": [
@@ -35200,7 +35416,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "USER_COLUMNS": [
         "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
@@ -35336,7 +35554,10 @@
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
@@ -35355,6 +35576,7 @@
       ],
       "IAuditEvent": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
@@ -35365,12 +35587,14 @@
       ],
       "IAuditListQuery": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
       ],
       "IAuditStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/auditStoreRegistry.ts",
         "src/packages/@nodefony/security/nodefony/src/audit/MemoryAuditStore.ts"
@@ -35388,22 +35612,26 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
       ],
       "AuditEventRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseAuditStore.ts"
       ],
       "IIdempotencyKeyEntry": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "IIdempotencyListQuery": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "IdempotencyOutcome": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
         "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts"
+        "src/packages/@nodefony/framework/nodefony/src/RedisIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "reserveIdempotencyKeyMysql": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
@@ -35412,7 +35640,8 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
       ],
       "IdempotencyKeyRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseIdempotencyStore.ts"
       ],
       "paginate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
@@ -35420,6 +35649,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts"
@@ -35432,6 +35662,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebAuthnCredentialStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
@@ -35519,28 +35750,33 @@
       "searchCriteria": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/paginate.ts"
       ],
       "ITotpEnrollmentSummary": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
       "ITotpListQuery": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
       "ITotpSecret": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
       ],
       "ITotpSecretStore": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/service/totp.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts",
@@ -35548,10 +35784,12 @@
       ],
       "TotpSecretUpdate": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/MemoryTotpSecretStore.ts"
       ],
       "TotpSecretRow": [
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts"
       ],
       "ITransaction": [
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
@@ -36515,12 +36753,6 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts"
-      ],
-      "Connection": [
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
-        "src/packages/@nodefony/redis/nodefony/service/redis.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
       "DOCUMENT_USER_COLUMNS": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts"
