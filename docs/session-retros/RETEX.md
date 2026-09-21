@@ -258,6 +258,17 @@ et la frontière d'un format structuré se compose avec sa grammaire.
 
 ## ⏳ Un défaut « pratique » grave un pouvoir pour le jour où la distinction deviendra réelle
 
+- [1× — 09-21b] ⚖️ **Le défaut d'un générateur est choisi pour UN public, et l'autre le subit sans
+  recours.** `create app` posait `"license": "UNLICENSED"` et un « Tous droits réservés » écrits en
+  dur — le bon défaut pour une application privée, et assumé en toutes lettres dans le gabarit.
+  Mais le MÊME gabarit produit la vitrine publique `nodefony/nodefony` (93 ★ contre 0 pour le
+  dépôt du framework) : un projet libre y montrait une démonstration que personne n'avait le droit
+  de copier, classée `NOASSERTION` par GitHub — donc hors de tout filtre de recherche par licence
+  et écartée d'office par une politique d'entreprise. **Et rien ne pouvait le corriger sur place** :
+  ce dépôt est écrasé à chaque publication, donc l'option devait exister dans le générateur ou
+  nulle part. Le contrôle qui tranche : **qui d'autre reçoit ce défaut ?** — un générateur dont la
+  sortie est publiée a toujours au moins deux publics.
+
 - **`admin:read admin:write` par défaut n'avait aucun effet** — le plan d'administration n'a qu'un
   rôle, les deux scopes ouvrent la même chose. Précisément pour ça, personne ne l'aurait remarqué ;
   et le jour où la séparation lecture/écriture deviendrait réelle, tous les jetons émis d'office
@@ -684,6 +695,24 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-21b] 👁️ **Un gate écrit le jour même est né FAUX VERT, et seul le débranchement
+  l'a montré.** Il devait apparier les codes rendus par `board-lint.mjs` à la table de sa page de
+  référence. Il cherchait `` `CODE` `` dans le fichier ENTIER — or la prose qui explique un code le
+  cite deux lignes sous la table. Ligne de table retirée à l'essai : **vert**. Resserré sur les
+  lignes `| \`CODE\``, il tombe. Sans l'essai, un contrôle mort partait en production de pilotage,
+  avec l'air d'un filet. Le symptôme général : **le périmètre de LECTURE d'un contrôle, plus large
+  que sa cible, ne crie pas — il se TAIT**, et c'est l'échec le plus cher à voir.
+  Ce qu'il cachait, au passage : la table listait **11 codes pour 18 rendus**, et la prose annonçait
+  tantôt « neuf » tantôt « onze » à trois endroits — [[feedback_anchor_expires_silently]] côté CHIFFRE.
+- [1× — 09-21b] 🗓️ **Un critère de fin CHIFFRÉ n'est vrai qu'à l'instant où on le mesure.** #385
+  s'est fermé sur « le compte d'alertes d'analyse de code rend `0` » — exact ce jour-là. Sept jours
+  plus tard la même règle était remontée sur un fichier NOUVEAU, né après la clôture : le verdict
+  avait été posé **site par site, à la main**, donc tout code neuf en rouvre une. Rien ne l'a dit —
+  `code-scanning` n'apparaissait nulle part ailleurs que dans la config de l'analyse — et c'est le
+  user qui l'a vue à l'œil. **Un critère de fin qui se mesure une fois n'est pas un gate : il ne
+  garde rien dès le lendemain.** Croisement de [[feedback_gate_must_run]] et de
+  [[feedback_fix_the_family_not_the_instance]] — le remede ferme le CAS, la famille reste ouverte.
 
 - [1× — 09-21] ⛓️ **Un interblocage ADMIS devient une exclusion, et l'exclusion survit à sa
   cause.** Le gate de format du code généré était rouge à CHAQUE publication depuis l'alpha.3 : il
