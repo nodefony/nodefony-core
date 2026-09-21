@@ -19,15 +19,46 @@ export const ORM_DOC = "v1.2";
  *   ISOLÉE, ne suit PAS `NF_DATABASE_URL`, perdu au redémarrage.
  * - `dédié` : connecteur secondaire persistant avec sa propre config (base distincte).
  */
-export function connectorRole(o: {
-  default: boolean;
-  connection?: { target?: string };
-}): { label: string; color: string; hint: string } {
+export function connectorRole(
+  o: {
+    default: boolean;
+    connection?: { target?: string };
+  },
+  /**
+   * Nombre de briques durables RÉELLEMENT résolues sur le moteur de ce
+   * connecteur. Facultatif : les appelants qui n'ont pas le registre des
+   * stores sous la main gardent l'ancien comportement.
+   */
+  durableBricks?: number,
+): { label: string; color: string; hint: string } {
+  // 🔴 « default » est un drapeau de l'ORM, PAS une promesse sur les données.
+  // `@nodefony/drizzle` est chargé sans condition et tient toujours un
+  // connecteur `default` — sur sqlite local quand aucune infra SQL n'est
+  // déclarée. Démarrez sur MongoDB et vous obtenez un `default` sqlite VIDE
+  // à côté d'un connecteur `nodefony` qui porte tout : annoncer le premier
+  // « primaire — tes stores et ton login vivent ici » envoie chercher ses
+  // données dans une base où il n'y en a pas.
+  if (o.default && durableBricks === 0) {
+    return {
+      label: "défaut de l'ORM",
+      color: "gray",
+      hint: "Connecteur `default` de son ORM — mais AUCUNE brique durable n'y est résolue. L'infrastructure déclarée pointe ailleurs : vos sessions, comptes, jetons et audit vivent sur un autre connecteur de cette page. Celui-ci reste là parce que son module est chargé sans condition.",
+    };
+  }
   if (o.default) {
     return {
       label: "primaire",
       color: "brand",
       hint: "Base applicative principale — suit l'infra déclarée (NF_DATABASE_URL). Tes stores (session, users, tokens, audit…) et ton login vivent ici.",
+    };
+  }
+  // Un connecteur non-`default` qui porte les briques durables EST la base
+  // applicative du moment : c'est le cas d'un démarrage sur MongoDB.
+  if (durableBricks !== undefined && durableBricks > 0) {
+    return {
+      label: "porte les stores",
+      color: "teal",
+      hint: "C'est ICI que vivent vos données applicatives : les briques durables (sessions, comptes, jetons, audit, 2FA…) sont résolues sur ce moteur, parce qu'il correspond à l'infrastructure déclarée. Le connecteur marqué « défaut de l'ORM », lui, ne porte rien.",
     };
   }
   if (o.connection?.target === ":memory:") {

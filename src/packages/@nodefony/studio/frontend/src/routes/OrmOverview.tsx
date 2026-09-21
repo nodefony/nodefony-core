@@ -587,6 +587,32 @@ export const OrmOverview = observer(
         [store],
       ),
     );
+    // Le registre des STORES, pour répondre à la question qui perd tout le
+    // monde : « laquelle de ces bases porte réellement mes données ? ».
+    // Le drapeau `default` d'un ORM ne le dit PAS — `@nodefony/drizzle` est
+    // chargé sans condition et tient toujours un connecteur `default`, même
+    // quand l'infrastructure déclarée est MongoDB et que toutes les briques
+    // durables sont résolues sur `mongoose`.
+    const storesRegistry = useResource(
+      useCallback(
+        () =>
+          store.api.getAbsolute<{
+            infra?: { database?: { family?: string } | null };
+            stores?: Array<{ brick: string; resolved: string }>;
+          }>("/nodefony/kernel/api/stores"),
+        [store],
+      ),
+    );
+    /** Briques durables portées par chaque MOTEUR (`drizzle`, `mongoose`…). */
+    const bricksByVendor = useMemo(() => {
+      const by = new Map<string, string[]>();
+      for (const s of storesRegistry.data?.stores ?? []) {
+        const list = by.get(s.resolved) ?? [];
+        list.push(s.brick);
+        by.set(s.resolved, list);
+      }
+      return by;
+    }, [storesRegistry.data]);
     // Volumes réels — endpoint séparé (1 COUNT(*) par table) : peut être lent sur
     // un gros schéma → ne bloque pas le 1er rendu.
     const counts = useResource(
@@ -1115,53 +1141,189 @@ export const OrmOverview = observer(
                       ]}
                     />
                   </Group>
-                  <Group gap="sm">
+                  {/* Une CARTE par connecteur, jamais une pastille : la
+                      question posée ici est « quelle base, sur quel moteur, et
+                      est-ce que ça tourne ? ». Le nom seul n'y répond pas, et
+                      tout le reste — moteur, pilote, cible, volumétrie,
+                      versions — était déjà servi par le data plane et jeté à
+                      l'affichage. */}
+                  <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
                     {list.map((o) => {
-                      const role = connectorRole(o);
+                      const bricks = bricksByVendor.get(o.vendor ?? "") ?? [];
+                      const role = connectorRole(o, bricks.length);
+                      const driver = o.connection?.driver ?? o.vendor ?? "";
+                      const target = o.connection?.target ?? "";
+                      const volatile = target === ":memory:";
                       return (
-                        <Group key={o.name} gap={4} wrap="nowrap">
-                          <Badge
-                            variant="default"
-                            size="lg"
-                            leftSection={
-                              hasDbLogo(o.connection?.driver ?? o.vendor) ? (
-                                <DbLogo
-                                  name={o.connection?.driver ?? o.vendor ?? ""}
-                                  size={14}
+                        <Card
+                          key={o.name}
+                          withBorder
+                          radius="md"
+                          p="sm"
+                          // Un connecteur TOMBÉ doit se voir de loin : la
+                          // bordure porte l'alerte, pas une icône de 12 px
+                          // perdue au bout d'une ligne.
+                          style={{
+                            borderColor: o.connected
+                              ? undefined
+                              : "var(--mantine-color-red-6)",
+                          }}
+                        >
+                          <Group gap="xs" wrap="nowrap" mb={6}>
+                            {hasDbLogo(driver) ? (
+                              <DbLogo name={driver} size={18} />
+                            ) : (
+                              <IconDatabase size={17} />
+                            )}
+                            <Text
+                              fw={600}
+                              size="sm"
+                              style={{ flex: 1 }}
+                              truncate
+                            >
+                              {o.name}
+                            </Text>
+                            <Tooltip
+                              label={role.hint}
+                              multiline
+                              w={280}
+                              withArrow
+                            >
+                              <Badge
+                                size="xs"
+                                variant="light"
+                                color={role.color as MantineColor}
+                                style={{
+                                  textTransform: "none",
+                                  cursor: "help",
+                                }}
+                              >
+                                {role.label}
+                              </Badge>
+                            </Tooltip>
+                            <Tooltip
+                              label={
+                                o.connected
+                                  ? "Connecteur relié à sa base"
+                                  : "Connecteur NON relié — les entités qu'il porte sont injoignables"
+                              }
+                              withArrow
+                            >
+                              {o.connected ? (
+                                <IconPlugConnected
+                                  size={15}
+                                  color="var(--mantine-color-teal-5)"
                                 />
                               ) : (
-                                <IconDatabase size={13} />
-                              )
-                            }
-                            rightSection={
-                              o.connected ? (
-                                <IconPlugConnected size={12} color="teal" />
-                              ) : (
-                                <IconPlugX size={12} color="gray" />
-                              )
-                            }
-                          >
-                            {o.name}
-                          </Badge>
-                          <Tooltip
-                            label={role.hint}
-                            multiline
-                            w={280}
-                            withArrow
-                          >
+                                <IconPlugX
+                                  size={15}
+                                  color="var(--mantine-color-red-5)"
+                                />
+                              )}
+                            </Tooltip>
+                          </Group>
+
+                          <Group gap={6} mb={6}>
                             <Badge
-                              size="sm"
-                              variant="light"
-                              color={role.color as MantineColor}
-                              style={{ textTransform: "none", cursor: "help" }}
+                              size="xs"
+                              variant="default"
+                              style={{ textTransform: "none" }}
                             >
-                              {role.label}
+                              {o.vendor}
                             </Badge>
-                          </Tooltip>
-                        </Group>
+                            <Badge
+                              size="xs"
+                              variant="default"
+                              style={{ textTransform: "none" }}
+                            >
+                              {driver}
+                            </Badge>
+                            {volatile && (
+                              <Tooltip
+                                label="Base en mémoire : tout son contenu disparaît au redémarrage."
+                                withArrow
+                              >
+                                <Badge
+                                  size="xs"
+                                  variant="light"
+                                  color="orange"
+                                  style={{
+                                    cursor: "help",
+                                    textTransform: "none",
+                                  }}
+                                >
+                                  volatile
+                                </Badge>
+                              </Tooltip>
+                            )}
+                          </Group>
+
+                          {/* La CIBLE est ce qu'on vient chercher : « mes
+                              données sont où ? ». Monospace, jamais tronquée
+                              en silence — le titre porte la valeur entière. */}
+                          <Text
+                            size="xs"
+                            c="dimmed"
+                            title={target || undefined}
+                            truncate
+                            style={{
+                              fontFamily:
+                                "ui-monospace, SFMono-Regular, Menlo, monospace",
+                            }}
+                          >
+                            {target || "—"}
+                          </Text>
+
+                          <Divider my={8} />
+
+                          <Group justify="space-between" gap="xs" wrap="nowrap">
+                            <Group gap={4} wrap="nowrap">
+                              <IconTable size={13} />
+                              <Text
+                                size="xs"
+                                style={{ fontVariantNumeric: "tabular-nums" }}
+                              >
+                                {o.entityCount} entité
+                                {o.entityCount > 1 ? "s" : ""}
+                              </Text>
+                              {/* CE qui lève la confusion : la base qui porte
+                                  les briques durables n'est pas forcément celle
+                                  que l'ORM appelle « default ». */}
+                              {bricks.length > 0 && (
+                                <Tooltip
+                                  label={`Briques durables résolues sur ce moteur : ${bricks.join(", ")}.`}
+                                  multiline
+                                  w={280}
+                                  withArrow
+                                >
+                                  <Badge
+                                    size="xs"
+                                    variant="light"
+                                    color="teal"
+                                    style={{
+                                      cursor: "help",
+                                      textTransform: "none",
+                                    }}
+                                  >
+                                    {bricks.length} brique
+                                    {bricks.length > 1 ? "s" : ""}
+                                  </Badge>
+                                </Tooltip>
+                              )}
+                            </Group>
+                            {/* Les versions répondent à la question d'après :
+                                « suis-je sur le pilote que je crois ? ». */}
+                            <Text size="xs" c="dimmed" ta="right" truncate>
+                              {o.connection?.version
+                                ? `${driver} ${o.connection.version} · `
+                                : ""}
+                              {o.vendor} {o.connection?.ormVersion ?? "—"}
+                            </Text>
+                          </Group>
+                        </Card>
                       );
                     })}
-                  </Group>
+                  </SimpleGrid>
                 </Card>
 
                 {/* Santé ORM par worker (orientée graphs) — carte → drill /nodefony/orm/<pid>. */}
