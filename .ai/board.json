@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T08:58:24.487Z",
+  "generatedAt": "2026-09-21T09:08:41.904Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -180,6 +180,88 @@
       "labels": []
     },
     {
+      "number": 293,
+      "title": "build(release): cesser de réécrire les types au moment du publish",
+      "url": "https://github.com/nodefony/nodefony-core/issues/293",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 1.01,
+      "debut": "2026-10-06",
+      "cible": "2026-10-06",
+      "labels": [
+        "beta-1"
+      ]
+    },
+    {
+      "number": 275,
+      "title": "fix(release): écarter du changelog les commits qui n'atteignent aucun installeur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/275",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 1.02,
+      "debut": "2026-10-07",
+      "cible": "2026-10-07",
+      "labels": [
+        "beta-1"
+      ]
+    },
+    {
+      "number": 312,
+      "title": "chore(release): rendre le lot de publication annulable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/312",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 1.03,
+      "debut": "2026-10-08",
+      "cible": "2026-10-08",
+      "labels": [
+        "arbitrage",
+        "beta-1"
+      ]
+    },
+    {
+      "number": 175,
+      "title": "chore(release): publier la beta depuis la forge, pas à la main",
+      "url": "https://github.com/nodefony/nodefony-core/issues/175",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 1.04,
+      "debut": "2026-10-09",
+      "cible": "2026-10-09",
+      "labels": [
+        "irrattrapable",
+        "beta-1"
+      ]
+    },
+    {
+      "number": 259,
+      "title": "ci(release): publier l'image sur le registre de GitHub, sans aucun secret",
+      "url": "https://github.com/nodefony/nodefony-core/issues/259",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 1.05,
+      "debut": "2026-10-12",
+      "cible": "2026-10-12",
+      "labels": [
+        "beta-1"
+      ]
+    },
+    {
       "number": 257,
       "title": "chore(depot): renommer la branche de travail en dev, main portant la dernière publication",
       "url": "https://github.com/nodefony/nodefony-core/issues/257",
@@ -296,22 +378,6 @@
       "labels": []
     },
     {
-      "number": 293,
-      "title": "build(release): cesser de réécrire les types au moment du publish",
-      "url": "https://github.com/nodefony/nodefony-core/issues/293",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 1.6,
-      "debut": "2026-10-06",
-      "cible": "2026-10-06",
-      "labels": [
-        "beta-1"
-      ]
-    },
-    {
       "number": 309,
       "title": "fix(cli): ne plus contredire au diagnostic ce que la migration vient de faire",
       "url": "https://github.com/nodefony/nodefony-core/issues/309",
@@ -385,22 +451,6 @@
       "labels": []
     },
     {
-      "number": 275,
-      "title": "fix(release): écarter du changelog les commits qui n'atteignent aucun installeur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/275",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 1.7,
-      "debut": "2026-10-07",
-      "cible": "2026-10-07",
-      "labels": [
-        "beta-1"
-      ]
-    },
-    {
       "number": 310,
       "title": "fix(cli): annoncer tous les frontends servis, et livrer un test de config qui teste",
       "url": "https://github.com/nodefony/nodefony-core/issues/310",
@@ -441,23 +491,6 @@
       "debut": "2026-09-14",
       "cible": "2026-09-14",
       "labels": []
-    },
-    {
-      "number": 312,
-      "title": "chore(release): rendre le lot de publication annulable",
-      "url": "https://github.com/nodefony/nodefony-core/issues/312",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 1.8,
-      "debut": "2026-10-08",
-      "cible": "2026-10-08",
-      "labels": [
-        "arbitrage",
-        "beta-1"
-      ]
     },
     {
       "number": 267,
@@ -548,23 +581,6 @@
       "labels": []
     },
     {
-      "number": 175,
-      "title": "chore(release): publier la beta depuis la forge, pas à la main",
-      "url": "https://github.com/nodefony/nodefony-core/issues/175",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P0 — bloque le reste",
-      "jours": 1,
-      "ordre": 2,
-      "debut": "2026-10-09",
-      "cible": "2026-10-09",
-      "labels": [
-        "irrattrapable",
-        "beta-1"
-      ]
-    },
-    {
       "number": 334,
       "title": "test(agents): mesurer ce que les skills changent pour un agent seul",
       "url": "https://github.com/nodefony/nodefony-core/issues/334",
@@ -577,6 +593,103 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 215,
+      "title": "fix(build): réparer le contrôle de format du code généré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/215",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.01,
+      "debut": "2026-10-13",
+      "cible": "2026-10-13",
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 104,
+      "title": "test(cli): un seul processus pour vérifier la forme du code généré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/104",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 2.02,
+      "debut": "2026-10-14",
+      "cible": "2026-10-14",
+      "labels": [
+        "rattrapable",
+        "beta-2"
+      ]
+    },
+    {
+      "number": 20,
+      "title": "test(security): attaquer les paquets publiés avant leur sortie",
+      "url": "https://github.com/nodefony/nodefony-core/issues/20",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.03,
+      "debut": "2026-10-15",
+      "cible": "2026-10-15",
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 294,
+      "title": "test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun",
+      "url": "https://github.com/nodefony/nodefony-core/issues/294",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.04,
+      "debut": "2026-10-16",
+      "cible": "2026-10-16",
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 351,
+      "title": "fix(bundler): garder le framework hors du bundle d'un module",
+      "url": "https://github.com/nodefony/nodefony-core/issues/351",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 2.05,
+      "debut": "2026-10-19",
+      "cible": "2026-10-19",
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 425,
+      "title": "fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab",
+      "url": "https://github.com/nodefony/nodefony-core/issues/425",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 2.06,
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
+      "labels": [
+        "beta-2"
+      ]
     },
     {
       "number": 94,
@@ -1145,22 +1258,6 @@
       "labels": []
     },
     {
-      "number": 259,
-      "title": "ci(release): publier l'image sur le registre de GitHub, sans aucun secret",
-      "url": "https://github.com/nodefony/nodefony-core/issues/259",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 3,
-      "debut": "2026-10-12",
-      "cible": "2026-10-12",
-      "labels": [
-        "beta-1"
-      ]
-    },
-    {
       "number": 335,
       "title": "fix(deps): cesser de rendre un vert sur ce que la garde n'a pas vu",
       "url": "https://github.com/nodefony/nodefony-core/issues/335",
@@ -1173,6 +1270,70 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 268,
+      "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
+      "url": "https://github.com/nodefony/nodefony-core/issues/268",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 3.01,
+      "debut": "2026-10-21",
+      "cible": "2026-10-23",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 269,
+      "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
+      "url": "https://github.com/nodefony/nodefony-core/issues/269",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 3.02,
+      "debut": "2026-10-22",
+      "cible": "2026-10-22",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 270,
+      "title": "fix(security): refuser au démarrage une configuration de fournisseur incomplète",
+      "url": "https://github.com/nodefony/nodefony-core/issues/270",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.03,
+      "debut": "2026-10-23",
+      "cible": "2026-10-23",
+      "labels": [
+        "beta-3"
+      ]
+    },
+    {
+      "number": 272,
+      "title": "docs(security): documenter le branchement d'un Keycloak, du realm au premier login",
+      "url": "https://github.com/nodefony/nodefony-core/issues/272",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 3.04,
+      "debut": "2026-10-26",
+      "cible": "2026-10-26",
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 140,
@@ -1413,6 +1574,135 @@
       "labels": []
     },
     {
+      "number": 396,
+      "title": "fix(orm): refuser orm:generate si une entité n'a pas pu être lue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/396",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.01,
+      "debut": "2026-10-27",
+      "cible": "2026-10-27",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 401,
+      "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
+      "url": "https://github.com/nodefony/nodefony-core/issues/401",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.02,
+      "debut": "2026-10-28",
+      "cible": "2026-10-28",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 313,
+      "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
+      "url": "https://github.com/nodefony/nodefony-core/issues/313",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.03,
+      "debut": "2026-10-29",
+      "cible": "2026-10-29",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 314,
+      "title": "fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas",
+      "url": "https://github.com/nodefony/nodefony-core/issues/314",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.04,
+      "debut": "2026-10-30",
+      "cible": "2026-10-30",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 352,
+      "title": "fix(http): empêcher un frontal de retenir un flux d'événements",
+      "url": "https://github.com/nodefony/nodefony-core/issues/352",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.05,
+      "debut": "2026-11-02",
+      "cible": "2026-11-02",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 139,
+      "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/139",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.06,
+      "debut": "2026-11-03",
+      "cible": "2026-11-03",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
+      "number": 62,
+      "title": "fix(cli): sonder les ports réellement utilisés par l'application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/62",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.07,
+      "debut": "2026-11-04",
+      "cible": "2026-11-04",
+      "labels": [
+        "rattrapable",
+        "beta-4"
+      ]
+    },
+    {
+      "number": 427,
+      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/427",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.08,
+      "debut": "2026-11-05",
+      "cible": "2026-11-05",
+      "labels": [
+        "beta-4"
+      ]
+    },
+    {
       "number": 157,
       "title": "docs(racine): faire d'AGENTS.md la carte d'entrée du dépôt",
       "url": "https://github.com/nodefony/nodefony-core/issues/157",
@@ -1439,22 +1729,6 @@
       "debut": "2026-10-14",
       "cible": "2026-10-14",
       "labels": []
-    },
-    {
-      "number": 159,
-      "title": "docs(api): publier une référence d'API générée par paquet",
-      "url": "https://github.com/nodefony/nodefony-core/issues/159",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.3,
-      "debut": "2026-10-15",
-      "cible": "2026-10-15",
-      "labels": [
-        "beta-5"
-      ]
     },
     {
       "number": 271,
@@ -1527,22 +1801,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 215,
-      "title": "fix(build): réparer le contrôle de format du code généré",
-      "url": "https://github.com/nodefony/nodefony-core/issues/215",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.5,
-      "debut": "2026-10-19",
-      "cible": "2026-10-19",
-      "labels": [
-        "beta-2"
-      ]
     },
     {
       "number": 207,
@@ -1671,23 +1929,6 @@
       ]
     },
     {
-      "number": 104,
-      "title": "test(cli): un seul processus pour vérifier la forme du code généré",
-      "url": "https://github.com/nodefony/nodefony-core/issues/104",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 4.6,
-      "debut": "2026-10-20",
-      "cible": "2026-10-20",
-      "labels": [
-        "rattrapable",
-        "beta-2"
-      ]
-    },
-    {
       "number": 93,
       "title": "fix(mongoose): ne plus taire l'échec de création des index",
       "url": "https://github.com/nodefony/nodefony-core/issues/93",
@@ -1804,22 +2045,6 @@
       "labels": []
     },
     {
-      "number": 20,
-      "title": "test(security): attaquer les paquets publiés avant leur sortie",
-      "url": "https://github.com/nodefony/nodefony-core/issues/20",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.8,
-      "debut": "2026-10-21",
-      "cible": "2026-10-21",
-      "labels": [
-        "beta-2"
-      ]
-    },
-    {
       "number": 219,
       "title": "build(release): contrôler les licences avant de publier",
       "url": "https://github.com/nodefony/nodefony-core/issues/219",
@@ -1833,22 +2058,6 @@
       "cible": null,
       "labels": [
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 294,
-      "title": "test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun",
-      "url": "https://github.com/nodefony/nodefony-core/issues/294",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 4.9,
-      "debut": "2026-10-22",
-      "cible": "2026-10-22",
-      "labels": [
-        "beta-2"
       ]
     },
     {
@@ -1880,22 +2089,6 @@
       "labels": []
     },
     {
-      "number": 268,
-      "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
-      "url": "https://github.com/nodefony/nodefony-core/issues/268",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 3,
-      "ordre": 5,
-      "debut": "2026-10-23",
-      "cible": "2026-10-27",
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
       "number": 288,
       "title": "feat(config): rendre la config d'un module sûre et découvrable",
       "url": "https://github.com/nodefony/nodefony-core/issues/288",
@@ -1922,6 +2115,150 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 159,
+      "title": "docs(api): publier une référence d'API générée par paquet",
+      "url": "https://github.com/nodefony/nodefony-core/issues/159",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.01,
+      "debut": "2026-11-06",
+      "cible": "2026-11-06",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 359,
+      "title": "docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/359",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.02,
+      "debut": "2026-11-09",
+      "cible": "2026-11-09",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 406,
+      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/406",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.03,
+      "debut": "2026-11-10",
+      "cible": "2026-11-10",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 407,
+      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/407",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.04,
+      "debut": "2026-11-11",
+      "cible": "2026-11-11",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 213,
+      "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
+      "url": "https://github.com/nodefony/nodefony-core/issues/213",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.05,
+      "debut": "2026-11-12",
+      "cible": "2026-11-12",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 399,
+      "title": "test(http): rendre la base Redis dans l'état où la suite l'a trouvée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/399",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.06,
+      "debut": "2026-11-13",
+      "cible": "2026-11-13",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 400,
+      "title": "docs(tests): sortir les boots CLI du lot dit non disruptif",
+      "url": "https://github.com/nodefony/nodefony-core/issues/400",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.07,
+      "debut": "2026-11-16",
+      "cible": "2026-11-16",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 371,
+      "title": "test(devkit-bench): constater qu'un agent écrit hors de son décor",
+      "url": "https://github.com/nodefony/nodefony-core/issues/371",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 5.08,
+      "debut": "2026-11-17",
+      "cible": "2026-11-17",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 372,
+      "title": "fix(devkit-bench): chercher la zone de firewall où elle vit vraiment",
+      "url": "https://github.com/nodefony/nodefony-core/issues/372",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 5.09,
+      "debut": "2026-11-18",
+      "cible": "2026-11-18",
+      "labels": [
+        "beta-5"
+      ]
     },
     {
       "number": 24,
@@ -1954,22 +2291,6 @@
       "labels": []
     },
     {
-      "number": 269,
-      "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
-      "url": "https://github.com/nodefony/nodefony-core/issues/269",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P0 — bloque le reste",
-      "jours": 1,
-      "ordre": 5.1,
-      "debut": "2026-10-26",
-      "cible": "2026-10-26",
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
       "number": 281,
       "title": "fix(config): refuser une clé inconnue dans la config de chaque module",
       "url": "https://github.com/nodefony/nodefony-core/issues/281",
@@ -1982,6 +2303,38 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 412,
+      "title": "fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte",
+      "url": "https://github.com/nodefony/nodefony-core/issues/412",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 5.1,
+      "debut": "2026-11-19",
+      "cible": "2026-11-19",
+      "labels": [
+        "beta-5"
+      ]
+    },
+    {
+      "number": 428,
+      "title": "feat(devkit): contrôler la dérive du corpus du skill de déploiement",
+      "url": "https://github.com/nodefony/nodefony-core/issues/428",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 5.11,
+      "debut": "2026-11-20",
+      "cible": "2026-11-20",
+      "labels": [
+        "beta-5"
+      ]
     },
     {
       "number": 35,
@@ -2012,22 +2365,6 @@
       "labels": []
     },
     {
-      "number": 270,
-      "title": "fix(security): refuser au démarrage une configuration de fournisseur incomplète",
-      "url": "https://github.com/nodefony/nodefony-core/issues/270",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 5.2,
-      "debut": "2026-10-27",
-      "cible": "2026-10-27",
-      "labels": [
-        "beta-3"
-      ]
-    },
-    {
       "number": 283,
       "title": "refactor(config)!: préfixer d'un I les types d'entrée de config",
       "url": "https://github.com/nodefony/nodefony-core/issues/283",
@@ -2054,22 +2391,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 272,
-      "title": "docs(security): documenter le branchement d'un Keycloak, du realm au premier login",
-      "url": "https://github.com/nodefony/nodefony-core/issues/272",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 5.3,
-      "debut": "2026-10-28",
-      "cible": "2026-10-28",
-      "labels": [
-        "beta-3"
-      ]
     },
     {
       "number": 282,
@@ -2322,6 +2643,102 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 445,
+      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/445",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 6.01,
+      "debut": "2026-11-23",
+      "cible": "2026-12-01",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 446,
+      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/446",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.02,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 447,
+      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/447",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 6.03,
+      "debut": "2026-11-24",
+      "cible": "2026-11-24",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 448,
+      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/448",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.04,
+      "debut": "2026-11-25",
+      "cible": "2026-11-25",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 449,
+      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/449",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 6.05,
+      "debut": "2026-11-26",
+      "cible": "2026-11-26",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 450,
+      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/450",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 6.06,
+      "debut": "2026-11-27",
+      "cible": "2026-12-01",
+      "labels": [
+        "beta-6"
+      ]
     },
     {
       "number": 180,
@@ -2926,22 +3343,6 @@
       "labels": []
     },
     {
-      "number": 359,
-      "title": "docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé",
-      "url": "https://github.com/nodefony/nodefony-core/issues/359",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 9.3,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 390,
       "title": "fix(frontend): dire au démarrage qu'aucune interface web n'est posée",
       "url": "https://github.com/nodefony/nodefony-core/issues/390",
@@ -2970,38 +3371,6 @@
       "labels": []
     },
     {
-      "number": 406,
-      "title": "docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/406",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 9.31,
-      "debut": "2026-10-29",
-      "cible": "2026-10-29",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 407,
-      "title": "docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/407",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 9.32,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 154,
       "title": "fix(frontend): stabiliser le décalage de port sur les agents macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/154",
@@ -3015,22 +3384,6 @@
       "cible": "2026-09-16",
       "labels": [
         "rattrapable"
-      ]
-    },
-    {
-      "number": 213,
-      "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
-      "url": "https://github.com/nodefony/nodefony-core/issues/213",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 9.4,
-      "debut": "2026-10-30",
-      "cible": "2026-10-30",
-      "labels": [
-        "beta-5"
       ]
     },
     {
@@ -3146,38 +3499,6 @@
       "labels": []
     },
     {
-      "number": 396,
-      "title": "fix(orm): refuser orm:generate si une entité n'a pas pu être lue",
-      "url": "https://github.com/nodefony/nodefony-core/issues/396",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 9.55,
-      "debut": "2026-11-02",
-      "cible": "2026-11-02",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 401,
-      "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
-      "url": "https://github.com/nodefony/nodefony-core/issues/401",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 9.56,
-      "debut": "2026-11-06",
-      "cible": "2026-11-06",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
       "number": 413,
       "title": "feat(orm): signaler un champ facultatif que la base exige",
       "url": "https://github.com/nodefony/nodefony-core/issues/413",
@@ -3190,54 +3511,6 @@
       "debut": null,
       "cible": null,
       "labels": []
-    },
-    {
-      "number": 399,
-      "title": "test(http): rendre la base Redis dans l'état où la suite l'a trouvée",
-      "url": "https://github.com/nodefony/nodefony-core/issues/399",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 9.58,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 400,
-      "title": "docs(tests): sortir les boots CLI du lot dit non disruptif",
-      "url": "https://github.com/nodefony/nodefony-core/issues/400",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 9.59,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 313,
-      "title": "fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative",
-      "url": "https://github.com/nodefony/nodefony-core/issues/313",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 9.6,
-      "debut": "2026-11-03",
-      "cible": "2026-11-03",
-      "labels": [
-        "beta-4"
-      ]
     },
     {
       "number": 393,
@@ -3284,22 +3557,6 @@
       "labels": []
     },
     {
-      "number": 314,
-      "title": "fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas",
-      "url": "https://github.com/nodefony/nodefony-core/issues/314",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 9.7,
-      "debut": "2026-11-04",
-      "cible": "2026-11-04",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
       "number": 415,
       "title": "feat(cli): signaler une base d'un autre moteur que les entités",
       "url": "https://github.com/nodefony/nodefony-core/issues/415",
@@ -3326,22 +3583,6 @@
       "debut": "2026-11-04",
       "cible": "2026-11-04",
       "labels": []
-    },
-    {
-      "number": 352,
-      "title": "fix(http): empêcher un frontal de retenir un flux d'événements",
-      "url": "https://github.com/nodefony/nodefony-core/issues/352",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 9.8,
-      "debut": "2026-11-05",
-      "cible": "2026-11-05",
-      "labels": [
-        "beta-4"
-      ]
     },
     {
       "number": 324,
@@ -4086,22 +4327,6 @@
       "labels": []
     },
     {
-      "number": 139,
-      "title": "fix(security): ne plus laisser de sessions et jetons sans propriétaire",
-      "url": "https://github.com/nodefony/nodefony-core/issues/139",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 11,
-      "debut": "2026-11-06",
-      "cible": "2026-11-06",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
       "number": 384,
       "title": "chore(pilotage): démonter MIGRATION_STATUS, garder ce qui ne périme pas",
       "url": "https://github.com/nodefony/nodefony-core/issues/384",
@@ -4510,23 +4735,6 @@
       ]
     },
     {
-      "number": 62,
-      "title": "fix(cli): sonder les ports réellement utilisés par l'application",
-      "url": "https://github.com/nodefony/nodefony-core/issues/62",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 29,
-      "debut": "2026-11-09",
-      "cible": "2026-11-09",
-      "labels": [
-        "rattrapable",
-        "beta-4"
-      ]
-    },
-    {
       "number": 25,
       "title": "ci(tests): remettre au vert le test de tenue dans la durée",
       "url": "https://github.com/nodefony/nodefony-core/issues/25",
@@ -4681,38 +4889,6 @@
       "labels": []
     },
     {
-      "number": 371,
-      "title": "test(devkit-bench): constater qu'un agent écrit hors de son décor",
-      "url": "https://github.com/nodefony/nodefony-core/issues/371",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 46.1,
-      "debut": "2026-11-13",
-      "cible": "2026-11-13",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 372,
-      "title": "fix(devkit-bench): chercher la zone de firewall où elle vit vraiment",
-      "url": "https://github.com/nodefony/nodefony-core/issues/372",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-beta",
-      "priorite": "P0 — bloque le reste",
-      "jours": 1,
-      "ordre": 46.2,
-      "debut": "2026-11-16",
-      "cible": "2026-11-16",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
       "number": 405,
       "title": "fix(devkit-bench): lire le journal d'un agent qui ne l'écrit pas sur sa sortie",
       "url": "https://github.com/nodefony/nodefony-core/issues/405",
@@ -4725,22 +4901,6 @@
       "debut": "2026-11-18",
       "cible": "2026-11-18",
       "labels": []
-    },
-    {
-      "number": 412,
-      "title": "fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte",
-      "url": "https://github.com/nodefony/nodefony-core/issues/412",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 46.3,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-5"
-      ]
     },
     {
       "number": 417,
@@ -4785,38 +4945,6 @@
       "labels": []
     },
     {
-      "number": 351,
-      "title": "fix(bundler): garder le framework hors du bundle d'un module",
-      "url": "https://github.com/nodefony/nodefony-core/issues/351",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 48,
-      "debut": "2026-11-17",
-      "cible": "2026-11-17",
-      "labels": [
-        "beta-2"
-      ]
-    },
-    {
-      "number": 425,
-      "title": "fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab",
-      "url": "https://github.com/nodefony/nodefony-core/issues/425",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 49.1,
-      "debut": "2026-11-18",
-      "cible": "2026-11-18",
-      "labels": [
-        "beta-2"
-      ]
-    },
-    {
       "number": 426,
       "title": "fix(release): rendre le banc d'installation vierge exécutable sous macOS",
       "url": "https://github.com/nodefony/nodefony-core/issues/426",
@@ -4829,134 +4957,6 @@
       "debut": "2026-11-18",
       "cible": "2026-11-18",
       "labels": []
-    },
-    {
-      "number": 427,
-      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS",
-      "url": "https://github.com/nodefony/nodefony-core/issues/427",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 0.5,
-      "ordre": 49.3,
-      "debut": "2026-11-19",
-      "cible": "2026-11-19",
-      "labels": [
-        "beta-4"
-      ]
-    },
-    {
-      "number": 428,
-      "title": "feat(devkit): contrôler la dérive du corpus du skill de déploiement",
-      "url": "https://github.com/nodefony/nodefony-core/issues/428",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 49.4,
-      "debut": "2026-11-19",
-      "cible": "2026-11-20",
-      "labels": [
-        "beta-5"
-      ]
-    },
-    {
-      "number": 445,
-      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
-      "url": "https://github.com/nodefony/nodefony-core/issues/445",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 7,
-      "ordre": 50,
-      "debut": "2026-11-23",
-      "cible": "2026-12-01",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 446,
-      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
-      "url": "https://github.com/nodefony/nodefony-core/issues/446",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 50.2,
-      "debut": "2026-11-23",
-      "cible": "2026-11-23",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 447,
-      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/447",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 50.3,
-      "debut": "2026-11-24",
-      "cible": "2026-11-24",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 448,
-      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
-      "url": "https://github.com/nodefony/nodefony-core/issues/448",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 50.4,
-      "debut": "2026-11-25",
-      "cible": "2026-11-25",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 449,
-      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
-      "url": "https://github.com/nodefony/nodefony-core/issues/449",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 1,
-      "ordre": 50.5,
-      "debut": "2026-11-26",
-      "cible": "2026-11-26",
-      "labels": [
-        "beta-6"
-      ]
-    },
-    {
-      "number": 450,
-      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
-      "url": "https://github.com/nodefony/nodefony-core/issues/450",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "10.0.0-beta",
-      "priorite": "P1 — figé à la création",
-      "jours": 3,
-      "ordre": 50.6,
-      "debut": "2026-11-27",
-      "cible": "2026-12-01",
-      "labels": [
-        "beta-6"
-      ]
     },
     {
       "number": 30,

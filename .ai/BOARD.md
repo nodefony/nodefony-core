@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-21 08:58** (UTC).
+> Empreinte prise le **2026-09-21 09:08** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -44,46 +44,46 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 1.6 | P1 — figé à la création | 1 | 2026-10-06 → 10-06 | #293 | build(release): cesser de réécrire les types au moment du publish |
-| 1.7 | P2 — décision | 1 | 2026-10-07 → 10-07 | #275 | fix(release): écarter du changelog les commits qui n'atteignent aucun installeur |
-| 1.8 | P2 — décision | 1 | 2026-10-08 → 10-08 | #312 | chore(release): rendre le lot de publication annulable |
-| 2 | P0 — bloque le reste | 1 | 2026-10-09 → 10-09 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
-| 3 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier l'image sur le registre de GitHub, sans aucun secret |
-| 4.3 | P2 — décision | 1 | 2026-10-15 → 10-15 | #159 | docs(api): publier une référence d'API générée par paquet |
-| 4.5 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #215 | fix(build): réparer le contrôle de format du code généré |
-| 4.6 | P2 — décision | 1 | 2026-10-20 → 10-20 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
-| 4.8 | P1 — figé à la création | 1 | 2026-10-21 → 10-21 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
-| 4.9 | P1 — figé à la création | 1 | 2026-10-22 → 10-22 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
-| 5 | P1 — figé à la création | 3 | 2026-10-23 → 10-27 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
-| 5.1 | P0 — bloque le reste | 1 | 2026-10-26 → 10-26 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
-| 5.2 | P1 — figé à la création | 1 | 2026-10-27 → 10-27 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
-| 5.3 | P2 — décision | 1 | 2026-10-28 → 10-28 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
-| 9.3 | P2 — décision | 1 | 2026-10-29 → 10-29 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
-| 9.31 | P2 — décision | 1 | 2026-10-29 → 10-29 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
-| 9.32 | P2 — décision | 1 | 2026-10-30 → 10-30 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
-| 9.4 | P2 — décision | 1 | 2026-10-30 → 10-30 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
-| 9.55 | P2 — décision | 0.5 | 2026-11-02 → 11-02 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
-| 9.56 | P1 — figé à la création | 0.5 | 2026-11-06 → 11-06 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
-| 9.58 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
-| 9.59 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
-| 9.6 | P1 — figé à la création | 1 | 2026-11-03 → 11-03 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
-| 9.7 | P1 — figé à la création | 1 | 2026-11-04 → 11-04 | #314 | fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas |
-| 9.8 | P2 — décision | 1 | 2026-11-05 → 11-05 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
-| 11 | P2 — décision | 1 | 2026-11-06 → 11-06 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
-| 29 | P2 — décision | 1 | 2026-11-09 → 11-09 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
-| 46.1 | P1 — figé à la création | 1 | 2026-11-13 → 11-13 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
-| 46.2 | P0 — bloque le reste | 1 | 2026-11-16 → 11-16 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
-| 46.3 | P2 — décision | 0.5 | 2026-11-17 → 11-17 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
-| 48 | P1 — figé à la création | 1 | 2026-11-17 → 11-17 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
-| 49.1 | P2 — décision | 0.5 | 2026-11-18 → 11-18 | #425 | fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab |
-| 49.3 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS |
-| 49.4 | P2 — décision | 1 | 2026-11-19 → 11-20 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
-| 50 | P2 — décision | 7 | 2026-11-23 → 12-01 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
-| 50.2 | P2 — décision | 1 | 2026-11-23 → 11-23 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
-| 50.3 | P2 — décision | 1 | 2026-11-24 → 11-24 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
-| 50.4 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
-| 50.5 | P1 — figé à la création | 1 | 2026-11-26 → 11-26 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
-| 50.6 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 1.01 | P1 — figé à la création | 1 | 2026-10-06 → 10-06 | #293 | build(release): cesser de réécrire les types au moment du publish |
+| 1.02 | P2 — décision | 1 | 2026-10-07 → 10-07 | #275 | fix(release): écarter du changelog les commits qui n'atteignent aucun installeur |
+| 1.03 | P2 — décision | 1 | 2026-10-08 → 10-08 | #312 | chore(release): rendre le lot de publication annulable |
+| 1.04 | P0 — bloque le reste | 1 | 2026-10-09 → 10-09 | #175 | chore(release): publier la beta depuis la forge, pas à la main |
+| 1.05 | P2 — décision | 1 | 2026-10-12 → 10-12 | #259 | ci(release): publier l'image sur le registre de GitHub, sans aucun secret |
+| 2.01 | P1 — figé à la création | 1 | 2026-10-13 → 10-13 | #215 | fix(build): réparer le contrôle de format du code généré |
+| 2.02 | P2 — décision | 1 | 2026-10-14 → 10-14 | #104 | test(cli): un seul processus pour vérifier la forme du code généré |
+| 2.03 | P1 — figé à la création | 1 | 2026-10-15 → 10-15 | #20 | test(security): attaquer les paquets publiés avant leur sortie |
+| 2.04 | P1 — figé à la création | 1 | 2026-10-16 → 10-16 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
+| 2.05 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
+| 2.06 | P2 — décision | 0.5 | 2026-10-20 → 10-20 | #425 | fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab |
+| 3.01 | P1 — figé à la création | 3 | 2026-10-21 → 10-23 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
+| 3.02 | P0 — bloque le reste | 1 | 2026-10-22 → 10-22 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
+| 3.03 | P1 — figé à la création | 1 | 2026-10-23 → 10-23 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |
+| 3.04 | P2 — décision | 1 | 2026-10-26 → 10-26 | #272 | docs(security): documenter le branchement d'un Keycloak, du realm au premier login |
+| 4.01 | P2 — décision | 0.5 | 2026-10-27 → 10-27 | #396 | fix(orm): refuser orm:generate si une entité n'a pas pu être lue |
+| 4.02 | P1 — figé à la création | 0.5 | 2026-10-28 → 10-28 | #401 | fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows |
+| 4.03 | P1 — figé à la création | 1 | 2026-10-29 → 10-29 | #313 | fix(cli): resservir la vraie erreur de démarrage, pas celle de la dernière tentative |
+| 4.04 | P1 — figé à la création | 1 | 2026-10-30 → 10-30 | #314 | fix(orm): ne pas replier sur un dialecte que les entités ne parlent pas |
+| 4.05 | P2 — décision | 1 | 2026-11-02 → 11-02 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
+| 4.06 | P2 — décision | 1 | 2026-11-03 → 11-03 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
+| 4.07 | P2 — décision | 1 | 2026-11-04 → 11-04 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
+| 4.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS |
+| 5.01 | P2 — décision | 1 | 2026-11-06 → 11-06 | #159 | docs(api): publier une référence d'API générée par paquet |
+| 5.02 | P2 — décision | 1 | 2026-11-09 → 11-09 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
+| 5.03 | P2 — décision | 1 | 2026-11-10 → 11-10 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |
+| 5.04 | P2 — décision | 1 | 2026-11-11 → 11-11 | #407 | docs(modules): publier les 15 règles de dev frontend qu'aucune page ne porte |
+| 5.05 | P2 — décision | 1 | 2026-11-12 → 11-12 | #213 | build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig |
+| 5.06 | P2 — décision | 0.5 | 2026-11-13 → 11-13 | #399 | test(http): rendre la base Redis dans l'état où la suite l'a trouvée |
+| 5.07 | P2 — décision | 0.5 | 2026-11-16 → 11-16 | #400 | docs(tests): sortir les boots CLI du lot dit non disruptif |
+| 5.08 | P1 — figé à la création | 1 | 2026-11-17 → 11-17 | #371 | test(devkit-bench): constater qu'un agent écrit hors de son décor |
+| 5.09 | P0 — bloque le reste | 1 | 2026-11-18 → 11-18 | #372 | fix(devkit-bench): chercher la zone de firewall où elle vit vraiment |
+| 5.1 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #412 | fix(devkit-bench): faire entrer le motif d'une sonde dans son empreinte |
+| 5.11 | P2 — décision | 1 | 2026-11-20 → 11-20 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
+| 6.01 | P2 — décision | 7 | 2026-11-23 → 12-01 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 6.02 | P2 — décision | 1 | 2026-11-23 → 11-23 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 6.03 | P2 — décision | 1 | 2026-11-24 → 11-24 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 6.04 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 6.05 | P1 — figé à la création | 1 | 2026-11-26 → 11-26 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 6.06 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 
 ## Jalon outillage-agents — 2 ouverts
 
