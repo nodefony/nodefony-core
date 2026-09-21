@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-21 15:26** (UTC).
+> Empreinte prise le **2026-09-21 15:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,22 +20,22 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 99% | 138 | 2 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 138 | 5 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 36% | 23 | 41 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
-| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
+| **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 3 | — |
 | **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
 | **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 67% | 4 | 2 | — |
 
 ## ➡️ Le prochain dans l'ordre
 
-**#443 — test(scaffold): lier la route de connexion des tests générés à sa source**
+**#454 — feat(scaffold): proposer mongodb au choix de base de données**
 
-Ordre 57 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-25 → 09-25
+Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-30 → 09-30
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 2 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 5 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -93,6 +93,16 @@ Ordre 57 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-25 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
+## Jalon 10.0.0-alpha — 5 ouverts
+
+| Ordre | Prio | Jours | Frise | Ticket | Titre |
+| --- | --- | ---: | --- | --- | --- |
+| 4.1 | P1 — figé à la création | 1 | 2026-09-30 → 09-30 | #454 | feat(scaffold): proposer mongodb au choix de base de données |
+| 4.11 | P1 — figé à la création | 1 | 2026-09-29 → 09-29 | #455 | test(orm): rejouer le démarrage sur MongoDB dans la chaîne, pas à la main |
+| 57 | P2 — décision | 0.5 | 2026-09-25 → 09-25 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
+| 58 | P2 — décision | 1 | 2026-09-26 → 09-26 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
+| 158 | P2 — décision | 1 | 2026-10-01 → 10-01 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
+
 ## Jalon 10.1.0 — 30 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
@@ -128,7 +138,7 @@ Ordre 57 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-25 
 | 154 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #234 | fix(session): enregistrer le stockage Redis au demarrage |
 | 155 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #235 | feat(security): journaliser les evenements d'authentification |
 
-## Jalon 10.2.0 — 28 ouverts
+## Jalon 10.2.0 — 27 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -156,17 +166,9 @@ Ordre 57 · P2 — décision · 0.5 j · jalon 10.0.0-alpha · frise 2026-09-25 
 | 153 | P2 — décision | 1 | — | #233 | feat(kernel): faire tourner un travail batch et periodique sans serveur |
 | 156 | P2 — décision | 1 | — | #236 | feat(studio): livrer la vue Services et l'audit en direct |
 | 157 | P2 — décision | 1 | — | #237 | test(studio): eprouver la console d'administration de bout en bout |
-| 158 | P2 — décision | 1 | — | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
 | 159 | P2 — décision | 1 | — | #239 | feat(realtime): declarer un canal parametre par un motif |
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
 | 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
-
-## Jalon 10.0.0-alpha — 2 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 57 | P2 — décision | 0.5 | 2026-09-25 → 09-25 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
-| 58 | P2 — décision | 1 | 2026-09-26 → 09-26 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
 
 ## Jalon 10.0.0 — 2 ouverts
 

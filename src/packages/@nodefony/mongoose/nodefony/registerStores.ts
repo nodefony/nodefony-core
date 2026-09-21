@@ -41,6 +41,7 @@ import {
   registerIdempotencyEntities,
   IDEMPOTENCY_ENTITY_NAME,
 } from "./entity/idempotencyEntity";
+import { registerUserEntity } from "./entity/userEntity";
 import { MongooseTokenStore } from "./src/MongooseTokenStore";
 import { MongooseWebAuthnCredentialStore } from "./src/MongooseWebAuthnCredentialStore";
 import { MongooseWebhookStore } from "./src/MongooseWebhookStore";
@@ -138,6 +139,25 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
     }
     registerFactory();
   };
+
+  // ── Utilisateurs (annuaire) — entité `User`, brique de 1ʳᵉ classe ──────────
+  // Le BACKEND "mongoose" est déclaré par `registerUserStore` (index.ts, registre
+  // @nodefony/user) et la SÉLECTION appartient à l'application (`provisionUsers`,
+  // piloté par `NF_USER_STORE`) → seule l'ENTITÉ se déclare ici, comme chez le
+  // jumeau Drizzle.
+  //
+  // 🔴 Elle y manquait, et rien ne pouvait le montrer : les bancs appellent
+  // `registerUserEntity` eux-mêmes, donc ils passaient. Seul un noyau qui BOOTE
+  // réellement sur Mongo l'a révélé — « Schema hasn't been registered for model
+  // "User" », au premier seed d'utilisateurs, en fail-soft.
+  wire(
+    "User",
+    () => registerUserEntity(FRAMEWORK_CONNECTOR),
+    () => {
+      /* backend déclaré via registerUserStore (userStoreRegistry) — pas de
+         fabrique par brique : la résolution user appartient à provisionUsers. */
+    },
+  );
 
   // ── Tokens (PAT + denylist JWT) — registre @nodefony/security ──────────────
   wire(

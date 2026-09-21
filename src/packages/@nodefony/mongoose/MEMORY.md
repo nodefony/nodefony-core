@@ -11,6 +11,25 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
 - **`MongooseRepository<T>`** : CRUD portable, `id`→`_id`, sortie `toObject({virtuals:true})`. `options.relations`→`populate()`. `$like` **lit le motif portable** (`%`/`_`, échappement `\`) via `likePatternToRegExp` d'orm-core → `$regex` ancré — pas une conversion naïve. **Flow tap** : chaque op (`find/findOne/create/update/delete/count`) instrumentée via `#prof` (timing → `queryFlowMonitor.record` + buffer ALS `RequestContext`), descripteur `Model.op {filtre}` redacté ; **coût nul** quand ni buffer ni flow actif (prod). Ctor `(model, connector, session?)`.
 - **Tri portable** — `nodefony/src/mongoOrder.ts` : `MONGO_ORDER_ALIASES` (`id`→`_id`) + `mongoOrder()`/`toMongoSort()`. La convention `id`→`_id` vit chez l'ADAPTER, pas dans le vocabulaire de chaque ressource : c'est une propriété de Mongo, pas des jetons de tri.
 - **Stores portables** (7, entité dans `nodefony/entity/`) — ⚠️ **deux points d'enregistrement, ne pas les confondre** : `SessionStorage` s'auto-déclare **à l'import** (dernière ligne du fichier, `SessionsService.registerStorage("mongoose", …)`) ; les 6 autres (`MongooseTokenStore`, `MongooseWebAuthnCredentialStore`, `MongooseWebhookStore`, `MongooseAuditStore`, `MongooseTotpSecretStore`, `MongooseIdempotencyStore`) sont posés par `registerMongooseFrameworkStores()` (`nodefony/registerStores.ts`) appelé au **`onKernelRegister`**, AVANT le connect du `onBoot` — désactivable par `frameworkEntities: false` (module data-only). **Couverture 8/8 des briques durables** : une app tourne SANS aucun backend SQL. ⚠️ `MongooseWebAuthnCredentialStore` échappe encore en regex native — hors contrat `$like` portable.
+- 🔴 **Ce module se charge en TÊTE du manifeste, AVANT `@nodefony/security`.** Security fabrique
+  ses magasins à son propre boot : un ORM chargé après lui n'est pas encore enregistré, chaque
+  brique durable tombe en fail-soft (« ORM "nodefony" introuvable »), et **le serveur démarre
+  quand même** — il répond 200 en ayant perdu jetons, passkeys, audit et 2FA. C'est pourquoi
+  `"@nodefony/drizzle"` est premier, lui aussi. Constaté en bootant RÉELLEMENT sur Mongo ; aucun
+  banc ne pouvait le voir, tous montent l'ORM à la main. Règle publiée : `docs/guides/persistence.md`.
+- **Le chargement suit la DÉCLARATION de l'infra**, pas une variable dédiée :
+  `when: () => ctx.infra.database?.family === "mongo"` — même principe que `@nodefony/redis`
+  (`!!ctx.infra.cache`). `defineMongooseConfig` lit l'URL tout seul (`MONGODB_URI`, sinon l'infra
+  database de famille mongo) : aucune config à écrire côté application.
+- ⚠️ **L'entité `User` est déclarée par l'auto-register** (`wire("User", …)`), comme chez drizzle.
+  Elle y MANQUAIT, et rien ne pouvait le montrer : les bancs appellent `registerUserEntity`
+  eux-mêmes. Seul un noyau qui boote l'a révélé — « Schema hasn't been registered for model
+  "User" » au premier seed, en fail-soft. [[feedback_twin_alignment_unproven]]
+- ⚠️ **Le TOTP n'a AUCUNE route d'écriture** dans tout le framework : le data plane admin n'expose
+  que `GET totp/list` et `GET users/{id}/totp`. Le magasin et le service sont complets, mais la
+  brique est **inatteignable par HTTP** — `totp_secrets` reste donc à 0 après une passe
+  d'intégration complète, et ce n'est pas un défaut de l'adaptateur.
+  [[feedback_capability_unreachable_is_absent]]
 - **La couverture se DÉCLARE dans `package.json`** (`nodefony.stores` + `nodefony.storeKind`) — c'est ce que lit `readAdapterManifest` de `KernelAdminApi` pour l'écran Stores. Ajouter un store SANS l'y ajouter le rend invisible à la console ; l'y laisser après l'avoir retiré fait mentir la console. Le banc `framework-stores-register.test.ts` apparie les deux sens.
 - **`MongooseAuditStore`** (`nodefony/src/MongooseAuditStore.ts`) : `IAuditStore` append-only. Ordre total `(ts DESC, _id DESC)`, curseur composite auto-portant `<ts>:<id>` → `$or` de deux clauses (hors `Criteria` AND-only ⇒ query native). ⚠️ Tri sur `_id`, **jamais** `id` : au repos un document n'a pas de champ `id` (virtuel de lecture), et Mongo ne se plaint pas d'un tri sur un champ absent — il rend un ordre arbitraire. Résolution du modèle **lazy** ⇒ `append` no-op best-effort hors connexion (l'audit ne fait jamais échouer un login). Index simples par champ : un composite ne s'exprime pas dans un `SchemaDefinition` plat, donc Mongo départage les collisions de ms en mémoire — borné par le `limit` (tri top-K sur une page).
 - **`MongooseTotpSecretStore`** (`nodefony/src/MongooseTotpSecretStore.ts`) : `ITotpSecretStore`, 100 % portable (aucune query native — `IRepository` + `paginate()`). `_id` = `userId` ⇒ l'unicité vient de la clé PRIMAIRE, existante dès le premier document (un index secondaire se construit en tâche de fond : fenêtre sans contrainte). `userId` est **dupliqué** dans le document car c'est lui que le vocabulaire public trie et filtre.

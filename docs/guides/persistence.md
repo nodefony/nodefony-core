@@ -120,6 +120,57 @@ correspond à un `register…Store("<nom>", …)` présent dans le code.
 > Quand `auto` tombe sur une brique que l'infrastructure déclarée ne porte pas, le **repli est
 > annoncé** dans la raison écrite au journal, jamais silencieux.
 
+## 🔴 L'ORDRE des modules décide de tout — un ORM se charge AVANT `@nodefony/security`
+
+C'est la règle qu'on ne découvre qu'en démarrant vraiment, et elle coûte cher parce que
+**l'application démarre quand même**.
+
+`@nodefony/security` fabrique ses magasins à son propre démarrage. Un ORM déclaré **après** lui
+dans `modules` n'est pas encore enregistré à ce moment-là : chaque brique durable échoue en
+_fail-soft_, et le journal le dit une fois, en `WARNING` :
+
+```
+tokenStore "mongoose" : ORM "nodefony" introuvable —
+charger @nodefony/mongoose AVANT @nodefony/security dans le manifeste "modules".
+```
+
+Ce qui se passe ensuite est le vrai piège : **le serveur démarre, écoute, répond `200`** — et il a
+perdu ses jetons, ses passkeys, son journal d'audit et son second facteur, retombés en mémoire. Le
+superviseur de développement l'annonce (`⚠ boot DÉGRADÉ`), mais rien n'arrête le démarrage : c'est
+la doctrine de résilience, et elle est juste — un ORM injoignable ne doit pas tuer un pod.
+
+**Donc un ORM se déclare en TÊTE du manifeste**, avant le socle. C'est la raison — pas une
+convention de style — pour laquelle `@nodefony/drizzle` y est premier :
+
+```ts
+modules: [
+  "@nodefony/drizzle",                      // ← ORM SQL, en tête
+  use("@nodefony/mongoose", undefined, {    // ← ORM NoSQL, en tête aussi
+    when: () => ctx.infra.database?.family === "mongo",
+  }),
+  use("@nodefony/http", …, { policy: "mandatory" }),
+  use("@nodefony/framework", …, { policy: "mandatory" }),
+  use("@nodefony/security", …, { policy: "mandatory" }),   // ← consomme les ORM ci-dessus
+  …
+]
+```
+
+**Charger un module sur la DÉCLARATION de l'infra, pas sur une variable dédiée.** Le `when`
+ci-dessus suit le même principe que `@nodefony/redis` (`when: () => !!ctx.infra.cache`) : un seul
+signal — l'URL que vous avez écrite —, et jamais de connexion implicite vers un `localhost` que
+personne n'a demandé.
+
+> Comment constater que c'est bien parti : le journal de démarrage nomme chaque résolution.
+> Les voir toutes sur le même backend, sans `WARNING` entre elles, est la seule preuve qui vaut.
+>
+> ```
+> session.store    "auto" → "mongoose" (infra database (mongodb))
+> idempotency.store "auto" → "mongoose" (infra database (mongodb))
+> tokenStore       "auto" → "mongoose" (infra database (mongodb))
+> audit.store      "auto" → "mongoose" (infra database (mongodb))
+> …
+> ```
+
 ## Audit ≠ journaux
 
 Deux chemins distincts, à ne pas confondre :

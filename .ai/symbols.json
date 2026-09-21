@@ -33202,7 +33202,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts"
       ],
       "registerUserEntity": [
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/mongoose/nodefony/registerStores.ts"
       ],
       "userTableColumns": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts"

@@ -143,6 +143,27 @@ export default defineConfig<Env>((ctx) => ({
     //    arrivera avec la suite du virage ORM (Mongoose refait sur le modèle Service).
     "@nodefony/drizzle",
 
+    // ── ORM NoSQL Mongoose — chargé par la DÉCLARATION de l'infra, exactement
+    //    comme redis plus bas : `NF_DATABASE_URL=mongodb://…` ⇔ module chargé.
+    //    Un seul signal, pas de variable dédiée à retenir, et surtout pas de
+    //    connexion implicite vers un `localhost` que personne n'a demandé. Le
+    //    module lit l'URL tout seul (`defineMongooseConfig`) → rien à écrire ici.
+    //
+    // 🔴 SA PLACE ICI EST UNE CONTRAINTE, PAS UN STYLE — et c'est la raison
+    //    pour laquelle drizzle est en tête, lui aussi. `@nodefony/security`
+    //    fabrique ses stores à son propre boot ; un ORM chargé APRÈS lui n'est
+    //    pas encore enregistré, et chaque brique durable tombe en fail-soft avec
+    //    « ORM "nodefony" introuvable ». Le serveur démarre quand même, répond
+    //    200, et a perdu ses jetons, ses passkeys, son audit et son 2FA —
+    //    constaté en bootant réellement sur Mongo, ce qu'aucun banc ne faisait.
+    //
+    //    Drizzle reste chargé à côté : les deux cohabitent sur des connecteurs
+    //    distincts (`default` / `nodefony`), et c'est `resolveAutoStore` qui
+    //    tranche — il préfère `mongoose` dès que l'infra déclarée est mongo.
+    use("@nodefony/mongoose", undefined, {
+      when: () => ctx.infra.database?.family === "mongo",
+    }),
+
     // ── Socle serveur — toujours présent (web + routing + sécurité).
     use("@nodefony/http", httpConfig(ctx), { policy: "mandatory" }),
     // Routeur, contrôleurs, plan d'administration — socle, comme http.
@@ -187,20 +208,6 @@ export default defineConfig<Env>((ctx) => ({
     use("@nodefony/redis", undefined, {
       when: () => !!ctx.infra.cache,
     }),
-
-    // ── Exemple : module NoSQL Mongoose (non chargé par défaut). Décommenter ICI
-    //    pour l'activer, avec sa config colocalisée :
-    // use("@nodefony/mongoose", {
-    //   debug: true,
-    //   connectors: {
-    //     nodefony: {
-    //       host: "localhost",
-    //       port: 27017,
-    //       dbname: "nodefony",
-    //       options: { user: "nodefony", pass: "nodefony", maxPoolSize: 50 },
-    //     },
-    //   },
-    // }),
 
     /**
      * Outillage de DÉVELOPPEMENT : carte de visite de l'application et portes de

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T15:26:24.827Z",
+  "generatedAt": "2026-09-21T15:50:13.416Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7,7 +7,7 @@
       "closed": 1,
       "dueOn": null,
       "number": 3,
-      "open": 28,
+      "open": 27,
       "title": "10.2.0"
     },
     {
@@ -35,7 +35,7 @@
       "closed": 138,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 2,
+      "open": 5,
       "title": "10.0.0-alpha"
     },
     {
@@ -1761,6 +1761,38 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 454,
+      "title": "feat(scaffold): proposer mongodb au choix de base de données",
+      "url": "https://github.com/nodefony/nodefony-core/issues/454",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.1,
+      "debut": "2026-09-30",
+      "cible": "2026-09-30",
+      "labels": [
+        "alpha-9"
+      ]
+    },
+    {
+      "number": 455,
+      "title": "test(orm): rejouer le démarrage sur MongoDB dans la chaîne, pas à la main",
+      "url": "https://github.com/nodefony/nodefony-core/issues/455",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.11,
+      "debut": "2026-09-29",
+      "cible": "2026-09-29",
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 158,
@@ -5982,13 +6014,15 @@
       "url": "https://github.com/nodefony/nodefony-core/issues/238",
       "state": "OPEN",
       "status": "Todo",
-      "milestone": "10.2.0",
+      "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 158,
-      "debut": null,
-      "cible": null,
-      "labels": []
+      "debut": "2026-10-01",
+      "cible": "2026-10-01",
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 239,
