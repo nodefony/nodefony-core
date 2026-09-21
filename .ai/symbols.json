@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 853,
-    "symbols": 4197,
+    "files": 854,
+    "symbols": 4206,
     "classes": 398,
-    "interfaces": 1115,
+    "interfaces": 1118,
     "types": 456,
     "enums": 4,
-    "functions": 1806,
+    "functions": 1812,
     "constants": 418
   },
   "symbols": {
@@ -4261,6 +4261,81 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Résout le point d'entrée d'un module Nodefony **depuis l'application**, et non depuis le paquet `nodefony`. POURQUOI cette fonction existe : un `import(\"@app/blog\")` écrit dans le code du core est …"
+    },
+    "IStoreManifest": {
+      "name": "IStoreManifest",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'un module DÉCLARE, dans son `package.json`, de son rapport aux magasins du framework (sessions, jetons, passkeys, audit, 2FA, idempotence). La déclaration vit chez le module — jamais dans une…"
+    },
+    "IStoreManifestEntry": {
+      "name": "IStoreManifestEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une entrée du manifeste `modules`, avec ce que son paquet déclare."
+    },
+    "IStoreOrderFault": {
+      "name": "IStoreOrderFault",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Le fournisseur fautif et le consommateur qu'il aurait dû précéder."
+    },
+    "parseStoreManifest": {
+      "name": "parseStoreManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la déclaration `nodefony` d'un `package.json` déjà analysé. Fonction PURE : elle ne touche pas au disque, ce qui la rend éprouvable sans arborescence de paquets — et laisse chaque appelant choi…"
+    },
+    "findStoreOrderFault": {
+      "name": "findStoreOrderFault",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Cherche un fournisseur de magasins **durables** déclaré APRÈS un module qui les consomme. **Pourquoi cette garde existe.** `@nodefony/security` fabrique ses magasins à son propre démarrage ; un ORM…"
+    },
+    "storeOrderFaultMessage": {
+      "name": "storeOrderFaultMessage",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rédige le CONSTAT : ce qui est fautif, ce que ça coûte, et le geste exact qui répare. Le remède est une ligne à déplacer — le dire évite la demi-heure passée à chercher pourquoi une session ne surv…"
+    },
+    "extractManifestModuleOrder": {
+      "name": "extractManifestModuleOrder",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Extrait, dans l'ORDRE, les noms de paquets déclarés par le bloc `modules: [ … ]` d'un manifeste — depuis son TEXTE, sans rien évaluer. Pourquoi lire le texte : `nodefony doctor` doit répondre sur u…"
+    },
+    "readInstalledStoreManifest": {
+      "name": "readInstalledStoreManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la déclaration d'un module INSTALLÉ, sans rien résoudre ni importer. Voie SYNCHRONE, pour `nodefony doctor` : le diagnostic est une lecture pure, il doit répondre sur une application qui ne dém…"
+    },
+    "readStoreManifest": {
+      "name": "readStoreManifest",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/storeManifest.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Localise le `package.json` d'un module résolu DEPUIS l'application, puis rend sa déclaration de magasins. `require.resolve(\"<pkg>/package.json\")` ne marche pas : un paquet moderne ne publie pas ce …"
     },
     "IMcpGatePosture": {
       "name": "IMcpGatePosture",
@@ -32565,6 +32640,17 @@
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
       ],
+      "findStoreOrderFault": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "readStoreManifest": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "storeOrderFaultMessage": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
       "listPackageInstances": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
@@ -34027,6 +34113,12 @@
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "ROUTE_PATH_RE": [
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "extractManifestModuleOrder": [
+        "src/nodefony/src/kernel/checks/wiring.ts"
+      ],
+      "readInstalledStoreManifest": [
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
       "reservedFragmentFiles": [
@@ -36226,6 +36318,9 @@
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "extractMarkdownSection": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
+      "parseStoreManifest": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
       "TestRunResult": [

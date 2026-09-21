@@ -24,6 +24,12 @@ import { findReservedEntity } from "../../cli/scaffold/reservedEntities";
 import { ROUTE_PATH_RE } from "../../cli/scaffold/routePaths";
 import { collectSources } from "./walk";
 import {
+  extractManifestModuleOrder,
+  findStoreOrderFault,
+  readInstalledStoreManifest,
+  storeOrderFaultMessage,
+} from "../storeManifest";
+import {
   readManifestSources,
   withoutComments,
   diskManifestReader,
@@ -39,6 +45,7 @@ export interface IWiringFinding {
     | "orphan-service"
     | "reserved-entity"
     | "missing-brick"
+    | "store-order"
     | "route-colon-param"
     | "reponse-a-la-main"
     | "firewall-area-enumere"
@@ -493,6 +500,33 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // Un fichier au nom RÉSERVÉ dans le dossier des fragments n'est lu par
   // aucun contrôle ET chargé par personne : le taire serait la pire réponse.
   if (projectRoot) {
+    // L'ORDRE des modules décide de ce que l'application POSSÈDE au démarrage.
+    // Un fournisseur de magasins durables déclaré après son consommateur laisse
+    // sessions, jetons, passkeys, audit et second facteur retomber en mémoire —
+    // et le serveur sert quand même. Le boot le REFUSE (fatal) ; ici on le dit
+    // à FROID, sans démarrer : c'est le seul verdict qu'une chaîne d'intégration
+    // ou une application cassée peuvent encore obtenir.
+    const ordre = extractManifestModuleOrder(withoutComments(manifeste));
+    if (ordre.length > 1) {
+      const fault = findStoreOrderFault(
+        ordre.map((name) => ({
+          name,
+          manifest: readInstalledStoreManifest(projectRoot, name),
+        })),
+      );
+      if (fault) {
+        findings.push({
+          kind: "store-order",
+          file: path.relative(
+            cwd,
+            manifestSources[0]?.path ??
+              path.join(projectRoot, "nodefony.config.ts"),
+          ),
+          message: storeOrderFaultMessage(fault),
+        });
+      }
+    }
+
     for (const file of reservedFragmentFiles(projectRoot, diskManifestReader)) {
       const base = path.basename(file);
       const suggested =

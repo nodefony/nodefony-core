@@ -5,6 +5,9 @@
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
   "type": "module",
+  "nodefony": {
+    "consumesStores": true
+  },
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {

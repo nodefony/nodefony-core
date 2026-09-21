@@ -840,3 +840,93 @@ ${areas}
     assert.strictEqual(r.findings.length, 0, JSON.stringify(r.findings));
   });
 });
+
+describe("check — l'ORDRE des magasins, jugé À FROID", () => {
+  /**
+   * Décor d'un projet : un manifeste, et des paquets factices dans son
+   * `node_modules` — c'est là que le contrôle lit les déclarations, sans jamais
+   * résoudre ni importer quoi que ce soit.
+   */
+  function projet(ordre: string[]): string {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "nf-store-order-"));
+    writeFileSync(
+      path.join(dir, "nodefony.config.ts"),
+      `export default defineConfig(() => ({\n  modules: [\n${ordre
+        .map((m) => `    ${JSON.stringify(m)},`)
+        .join("\n")}\n  ],\n}));\n`,
+    );
+    writeFileSync(
+      path.join(dir, "package.json"),
+      JSON.stringify({ name: "p" }),
+    );
+    const poser = (nom: string, nodefony: Record<string, unknown>): void => {
+      const d = path.join(dir, "node_modules", ...nom.split("/"));
+      mkdirSync(d, { recursive: true });
+      writeFileSync(
+        path.join(d, "package.json"),
+        JSON.stringify({ name: nom, nodefony }),
+      );
+    };
+    poser("@acme/orm", { storeKind: "durable", stores: ["session", "tokens"] });
+    poser("@acme/cache", { storeKind: "cache", stores: ["session"] });
+    poser("@acme/security", { consumesStores: true });
+    poser("@acme/http", {});
+    return dir;
+  }
+
+  const fautes = (dir: string): IWiringFinding[] =>
+    checkWiring({ roots: [dir], cwd: dir, projectRoot: dir }).findings.filter(
+      (f) => f.kind === "store-order",
+    );
+
+  it("🔴 signale un ORM déclaré APRÈS son consommateur, et nomme le remède", () => {
+    const dir = projet(["@acme/http", "@acme/security", "@acme/orm"]);
+    try {
+      const f = fautes(dir);
+      assert.strictEqual(f.length, 1, JSON.stringify(f));
+      const msg = f[0]!.message;
+      assert.ok(msg.includes("@acme/orm"), msg);
+      assert.ok(msg.includes("@acme/security"), msg);
+      assert.ok(msg.includes("Remède"), msg);
+      // Le doctor SIGNALE — il n'a rien refusé, et le dire ferait chercher un
+      // démarrage qui n'a pas eu lieu.
+      assert.ok(!msg.includes("refusé"), msg);
+      // Le fichier désigné doit être celui qu'on ÉDITE pour corriger.
+      assert.strictEqual(f[0]!.file, "nodefony.config.ts");
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("se tait sur l'ordre juste", () => {
+    const dir = projet(["@acme/orm", "@acme/http", "@acme/security"]);
+    try {
+      assert.deepEqual(fautes(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("se tait sur un fournisseur de CACHE déclaré après — Redis y vit, et y fonctionne", () => {
+    const dir = projet(["@acme/orm", "@acme/security", "@acme/cache"]);
+    try {
+      assert.deepEqual(fautes(dir), []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("se tait quand la racine du projet n'est pas fournie — rien à lire, rien à dire", () => {
+    const dir = projet(["@acme/security", "@acme/orm"]);
+    try {
+      assert.deepEqual(
+        checkWiring({ roots: [dir], cwd: dir }).findings.filter(
+          (f) => f.kind === "store-order",
+        ),
+        [],
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

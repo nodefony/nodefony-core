@@ -18,6 +18,7 @@ import {
   applyResolvedPath,
   outlineMarkdown,
   extractMarkdownSection,
+  parseStoreManifest,
 } from "nodefony";
 import type {
   IKernel,
@@ -100,15 +101,15 @@ function readAdapterManifest(
   );
   try {
     if (!existsSync(pkgJson)) return null;
-    const meta = JSON.parse(readFileSync(pkgJson, "utf8")) as {
-      nodefony?: { storeKind?: string; stores?: unknown };
-    };
-    const nf = meta.nodefony;
-    if (!nf || !Array.isArray(nf.stores)) return null;
-    return {
-      storeKind: nf.storeKind === "cache" ? "cache" : "durable",
-      stores: nf.stores.filter((s): s is string => typeof s === "string"),
-    };
+    // L'ANALYSE vit dans le cœur (`parseStoreManifest`) : la MÊME déclaration
+    // arme la garde d'ordre du boot et peuple cet écran. Deux lectures écrites
+    // séparément divergeraient — et l'écran affirmerait une couverture que le
+    // boot ne reconnaît plus.
+    const manifest = parseStoreManifest(
+      JSON.parse(readFileSync(pkgJson, "utf8")),
+    );
+    if (!manifest?.provides) return null;
+    return { storeKind: manifest.storeKind, stores: manifest.stores };
   } catch {
     return null;
   }
