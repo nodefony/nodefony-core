@@ -164,3 +164,81 @@ describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => 
     // base au premier connect, sinon les requêtes échoueraient).
   });
 });
+
+/** Un moteur de persistance tel que la carte des Stores l'annonce. */
+interface EngineEntry {
+  engine: string;
+  package: string;
+  installed: boolean;
+  loaded: boolean;
+}
+
+describe("Stores — un moteur annoncé « chargé » l'est RÉELLEMENT", () => {
+  /**
+   * 🔴 CE QUE CE CAS GARDE. La carte annonçait `@nodefony/redis` **chargé** sur
+   * une application qui ne le charge pas — trois lignes sous une carte d'infra
+   * qui disait « CACHE (REDIS) : absent ». Cause : `loaded` lisait le registre
+   * de FABRIQUES, où `@nodefony/framework` inscrit lui-même
+   * `idempotency:"redis"` (couplage structurel, zéro cycle). Le nom d'un
+   * backend sélectionnable n'est pas la présence d'un module.
+   *
+   * L'invariant est CROISÉ, donc vrai quel que soit le décor : un moteur chargé
+   * doit figurer parmi les modules du noyau, et un module de persistance chargé
+   * doit être annoncé chargé. Écrit dans un seul sens, le cas serait vert sur
+   * une application qui ne charge aucun des trois.
+   */
+  it("`loaded` suit les MODULES du noyau, pas le registre de fabriques", async () => {
+    const cookie = await loginAsAdmin();
+    const [stores, modules] = await Promise.all([
+      get(STORES, { cookie }),
+      get("/nodefony/kernel/api/modules", { cookie }),
+    ]);
+    expect(stores.status, "admin lit /stores").to.equal(200);
+    expect(modules.status, "admin lit /modules").to.equal(200);
+
+    const engines = (stores.body as { engines?: EngineEntry[] }).engines;
+    expect(engines, "payload.engines").to.be.an("array").that.is.not.empty;
+
+    // Les noms de paquets réellement chargés, tels que le noyau les rend.
+    // L'enveloppe du plan d'administration varie (`result` porte tantôt la
+    // liste, tantôt un objet qui la contient) : on cherche le premier tableau
+    // d'objets plutôt que de figer une forme qui se périmerait en silence.
+    const payload = modules.body as Record<string, unknown>;
+    const candidates: unknown[] = [
+      modules.body,
+      payload.modules,
+      (payload.result as Record<string, unknown> | undefined)?.modules,
+      payload.result,
+    ];
+    const loadedModules = (candidates.find(
+      (c) => Array.isArray(c) && c.length > 0 && typeof c[0] === "object",
+    ) ?? []) as Array<Record<string, unknown>>;
+    expect(loadedModules, "liste des modules").to.be.an("array").that.is.not
+      .empty;
+    const names = new Set<string>();
+    for (const m of loadedModules) {
+      for (const k of ["name", "key", "package"]) {
+        const v = m[k];
+        if (typeof v === "string") names.add(v);
+      }
+    }
+
+    for (const e of engines!) {
+      const present = names.has(e.package) || names.has(e.engine);
+      expect(
+        e.loaded,
+        `"${e.package}" annoncé loaded=${e.loaded} alors que le noyau ${
+          present ? "LE charge" : "ne le charge PAS"
+        } — la carte des Stores mentirait`,
+      ).to.equal(present);
+    }
+
+    // Témoin du décor : sans au moins un moteur chargé ET un non chargé, la
+    // boucle ci-dessus ne départage rien — elle serait verte sur une carte
+    // uniformément fausse.
+    expect(
+      engines!.some((e) => e.loaded),
+      "aucun moteur chargé : ce décor ne prouve rien",
+    ).to.equal(true);
+  });
+});

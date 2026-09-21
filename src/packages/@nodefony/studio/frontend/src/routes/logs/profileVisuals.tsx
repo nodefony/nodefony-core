@@ -246,7 +246,10 @@ type IndexedQuery = ProfileQuery & { readonly rank: number };
 const QUERY_COLUMNS: DataGridColumn<IndexedQuery>[] = [
   {
     key: "sql",
-    header: "SQL",
+    // « SQL » était FAUX dès qu'un connecteur non relationnel entrait en scène :
+    // sous Mongoose la colonne porte `User.findOne`, `session.deleteMany`. Le
+    // libellé nomme ce qui est là, pas le seul cas qu'on avait sous les yeux.
+    header: "Requête",
     sortable: true,
     filterable: true,
     value: (q) => q.sql,
@@ -261,7 +264,7 @@ const QUERY_COLUMNS: DataGridColumn<IndexedQuery>[] = [
         {q.sql}
       </Text>
     ),
-    hint: "Requête telle qu'exécutée. Filtrer sur un nom de table isole les accès à une entité — c'est ainsi qu'on reconnaît un N+1 : la même requête répétée.",
+    hint: "Requête telle qu'exécutée, dans la langue du connecteur (SQL, ou commande de document). Filtrer sur un nom de table ou de collection isole les accès à une entité — c'est ainsi qu'on reconnaît un N+1 : la même requête répétée.",
   },
   {
     key: "connector",
@@ -303,7 +306,10 @@ const QUERY_COLUMNS: DataGridColumn<IndexedQuery>[] = [
     value: (q) => q.durationMs,
     render: (q) => (
       <Text size="xs" style={{ fontVariantNumeric: "tabular-nums" }}>
-        {q.durationMs}ms
+        {/* `performance.now()` rend des flottants : la valeur brute s'affichait
+            sur treize décimales (« 4.756719999946654ms »), illisible et fausse
+            en précision — le cumul, lui, passait déjà par ce même format. */}
+        {fmtMs(q.durationMs)}
       </Text>
     ),
     hint: "Temps passé dans le pilote. Trié décroissant par défaut : la requête à corriger est en haut.",
@@ -312,11 +318,11 @@ const QUERY_COLUMNS: DataGridColumn<IndexedQuery>[] = [
 ];
 
 /**
- * Tableau des requêtes ORM mesurées par le profiler (vraies SQL + durée).
+ * Tableau des requêtes ORM mesurées par le profiler (requête réelle + durée).
  *
  * Trié par durée décroissante d'entrée de jeu : sur une trace lente, ce qu'on
  * cherche est la requête la plus coûteuse, et la lire ne doit demander aucun
- * geste. Le tri par SQL, lui, regroupe les requêtes identiques — la signature
+ * geste. Le tri par requête, lui, regroupe les requêtes identiques — la signature
  * visuelle d'un N+1.
  */
 export function QueryTable({ queries }: { queries: ProfileQuery[] }) {

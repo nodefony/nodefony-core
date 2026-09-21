@@ -1163,10 +1163,26 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         // Découvrabilité des MOTEURS : chaque adapter officiel avec son état
         // installé (npm) × chargé (enregistré au runtime) + ses capabilités DÉCLARÉES
         // (domaine + briques couvertes, lues à chaud du package.json — Palier 3).
-        // `loaded` = présent dans l'`available` d'au moins une brique (= auto-enregistré).
-        const registered = new Set(
-          kernel.storeResolutions.flatMap((r) => [...r.available]),
-        );
+        // 🔴 `loaded` dit si le MODULE est chargé — pas si son nom traîne dans un
+        // registre de fabriques. Les deux ont divergé, et l'écran mentait :
+        // `@nodefony/framework` enregistre lui-même la fabrique
+        // `idempotency:"redis"` (couplage structurel, zéro cycle), si bien que
+        // « redis » figurait dans l'`available` d'une brique sur une application
+        // qui ne charge PAS `@nodefony/redis` — annoncé « chargé », carte
+        // d'infra « absent », trois lignes plus haut.
+        //
+        // La question posée par cette carte est « ce moteur est-il là ? », et
+        // seule la liste des modules du noyau y répond. Le registre de fabriques
+        // répond à une autre question : « ce backend est-il sélectionnable ? ».
+        // Le nom NPM d'abord (`package.json` du module, lu à son démarrage), le
+        // nom court en repli : un module dont le manifeste n'a pas encore été lu
+        // ne doit pas disparaître de la carte pour autant.
+        const loadedPackages = new Set<string>();
+        for (const mod of Object.values(kernel.modules)) {
+          const npmName = (mod.package as { name?: unknown } | undefined)?.name;
+          if (typeof npmName === "string") loadedPackages.add(npmName);
+          loadedPackages.add(mod.name);
+        }
         const engines = OFFICIAL_STORE_ADAPTERS.map((a) => {
           const manifest = readAdapterManifest(a.package);
           return {
@@ -1176,7 +1192,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             kind: manifest?.storeKind ?? "durable",
             provides: manifest?.stores ?? [],
             installed: manifest !== null || isPackageInstalled(a.package),
-            loaded: registered.has(a.engine),
+            loaded:
+              loadedPackages.has(a.package) || loadedPackages.has(a.engine),
           };
         });
         return {
