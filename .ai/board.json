@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T11:32:23.240Z",
+  "generatedAt": "2026-09-21T12:27:37.358Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 21,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 41,
+      "open": 43,
       "title": "10.0.0-beta"
     },
     {
@@ -685,6 +685,38 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 2.06,
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 452,
+      "title": "feat(scaffold): choisir la licence de l'application à sa création",
+      "url": "https://github.com/nodefony/nodefony-core/issues/452",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 2.07,
+      "debut": "2026-10-20",
+      "cible": "2026-10-20",
+      "labels": [
+        "beta-2"
+      ]
+    },
+    {
+      "number": 453,
+      "title": "ci(securite): dire quand une alerte d'analyse de code est revenue",
+      "url": "https://github.com/nodefony/nodefony-core/issues/453",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 2.08,
       "debut": "2026-10-20",
       "cible": "2026-10-20",
       "labels": [
@@ -4984,7 +5016,9 @@
       "ordre": 55,
       "debut": "2026-09-24",
       "cible": "2026-09-24",
-      "labels": []
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 408,
@@ -5012,7 +5046,9 @@
       "ordre": 56,
       "debut": "2026-09-25",
       "cible": "2026-09-25",
-      "labels": []
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 409,
@@ -5040,7 +5076,9 @@
       "ordre": 57,
       "debut": "2026-09-25",
       "cible": "2026-09-25",
-      "labels": []
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 410,
@@ -5068,7 +5106,9 @@
       "ordre": 58,
       "debut": "2026-09-26",
       "cible": "2026-09-26",
-      "labels": []
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 47,

@@ -63,6 +63,7 @@ les tickets ; les variantes se séparent par `|` dans le champ de détection ent
 - **gate** (detect: gate|gates) — un contrôle automatique bloquant : tant qu'il est rouge, la chaîne s'arrête.
 - **banc** (detect: banc|bancs) — un montage de mesure : un décor, une charge, et un chiffre en sortie.
 - **jalon** (detect: milestone) — la version dans laquelle un ticket doit sortir.
+- **SPDX** (detect: SPDX) — _Software Package Data Exchange_ : la liste normalisée des identifiants de licence (`MIT`, `Apache-2.0`, `UNLICENSED`…), celle que lisent le champ `license` d'un `package.json`, GitHub et les outils d'audit de dépendances.
 
 ## Anglicismes — l'équivalent à employer
 
