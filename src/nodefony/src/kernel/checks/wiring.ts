@@ -506,10 +506,10 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     // et le serveur sert quand même. Le boot le REFUSE (fatal) ; ici on le dit
     // à FROID, sans démarrer : c'est le seul verdict qu'une chaîne d'intégration
     // ou une application cassée peuvent encore obtenir.
-    const ordre = extractManifestModuleOrder(withoutComments(manifeste));
-    if (ordre.length > 1) {
+    const order = extractManifestModuleOrder(withoutComments(manifeste));
+    if (order.length > 1) {
       const fault = findStoreOrderFault(
-        ordre.map((name) => ({
+        order.map((name) => ({
           name,
           manifest: readInstalledStoreManifest(projectRoot, name),
         })),

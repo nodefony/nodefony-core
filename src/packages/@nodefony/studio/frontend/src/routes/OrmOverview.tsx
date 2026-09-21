@@ -104,7 +104,7 @@ function RankBars({
   return (
     <Stack gap={10}>
       {items.map((it) => {
-        const ligne = (
+        const row = (
           <div
             key={it.key}
             // Aucun `tabIndex` ici : la fiche enveloppe déjà la ligne dans un
@@ -160,10 +160,10 @@ function RankBars({
             sections={[{ label: "Contenu", body: it.detail }]}
             block
           >
-            {ligne}
+            {row}
           </DocHint>
         ) : (
-          ligne
+          row
         );
       })}
     </Stack>
@@ -882,9 +882,9 @@ export const OrmOverview = observer(
       const by = new Map<string, string[]>();
       for (const e of scopedEntities) {
         const g = e.domain || e.module || "(non classé)";
-        const membres = by.get(g) ?? [];
-        membres.push(`${e.name} · ${e.connector}`);
-        by.set(g, membres);
+        const members = by.get(g) ?? [];
+        members.push(`${e.name} · ${e.connector}`);
+        by.set(g, members);
       }
       return by;
     }, [scopedEntities]);
@@ -910,14 +910,14 @@ export const OrmOverview = observer(
     );
 
     /** Rend le détail d'un groupe, borné : au-delà de dix, on compte le reste. */
-    const detailDuGroupe = useCallback(
-      (groupe: string): string | undefined => {
-        const membres = entitiesByGroup.get(groupe);
-        if (!membres?.length) return undefined;
-        const tete = membres.slice(0, 10).join(", ");
-        return membres.length > 10
-          ? `${tete}, et ${membres.length - 10} autre(s)`
-          : tete;
+    const groupDetail = useCallback(
+      (group: string): string | undefined => {
+        const members = entitiesByGroup.get(group);
+        if (!members?.length) return undefined;
+        const head = members.slice(0, 10).join(", ");
+        return members.length > 10
+          ? `${head}, et ${members.length - 10} autre(s)`
+          : head;
       },
       [entitiesByGroup],
     );
@@ -929,11 +929,11 @@ export const OrmOverview = observer(
             key: k,
             label: k,
             value: v,
-            detail: detailDuGroupe(k),
+            detail: groupDetail(k),
           }))
           .sort((a, b) => b.value - a.value)
           .slice(0, 12),
-      [agg.entitiesByDomain, detailDuGroupe],
+      [agg.entitiesByDomain, groupDetail],
     );
 
     const topDomainsByRows = useMemo<RankItem[]>(
@@ -943,11 +943,11 @@ export const OrmOverview = observer(
             key: k,
             label: k,
             value: v,
-            detail: detailDuGroupe(k),
+            detail: groupDetail(k),
           }))
           .sort((a, b) => b.value - a.value)
           .slice(0, 12),
-      [agg.rowsByDomain, detailDuGroupe],
+      [agg.rowsByDomain, groupDetail],
     );
 
     const exportModel = useCallback(
