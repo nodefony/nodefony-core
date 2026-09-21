@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T09:11:21.065Z",
+  "generatedAt": "2026-09-21T09:28:25.601Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 21,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 40,
+      "open": 41,
       "title": "10.0.0-beta"
     },
     {
@@ -1701,6 +1701,20 @@
       "labels": [
         "beta-4"
       ]
+    },
+    {
+      "number": 451,
+      "title": "fix(client): cesser d'ignorer en silence les trames binaires reçues",
+      "url": "https://github.com/nodefony/nodefony-core/issues/451",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.09,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 157,
