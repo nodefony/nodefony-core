@@ -204,6 +204,28 @@ doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en cl
 
 ## 🔗 Une DÉPENDANCE peut être encodée ailleurs que dans le champ « dépend de »
 
+- [1× — 09-21c] 🔴 **J'ai relayé un renvoi MORT trouvé dans le corps d'un ticket, et je l'ai
+  propagé dans trois endroits avant que le user ne l'attrape.** En fermant #30, j'ai écrit
+  « `DATABASE_CHOICES` sans mongodb, c'est **#32**, hors périmètre » — parce que le corps de #30
+  le disait. **#32 est clos depuis le 2026-08-27 et porte tout autre chose** (« trancher les
+  arbitrages avant la publication ») ; surtout, **aucun ticket ouvert ne porte ce sujet** : le
+  trou n'est pas « suivi ailleurs », il n'est pas tracké. J'avais chargé le skill `nodefony-ticket`
+  dans la même session — il porte ce piège EN EXEMPLE, avec presque le même cas (« un corps
+  renvoyait à #9 pour de la documentation ; #9 est une mise à jour de dépendances »). Lire la règle
+  ne suffit pas : un renvoi se contrôle **au moment où l'on s'en sert**, d'un `gh issue view`, et
+  celui-là coûtait dix secondes. Le coût de l'erreur n'est pas le mauvais numéro — c'est qu'un
+  trou réel passe pour couvert, dans un compte rendu de fermeture que personne ne relira.
+
+- [1× — 09-21c] 🔴 **Un ticket que mon travail soldait aux trois quarts est resté invisible, parce
+  que l'automate de sélection ne connaît que les FICHIERS.** `ticket-verify.mjs --touched-by HEAD`
+  a rendu trois tickets voisins, tous sans rapport ; il n'a PAS rendu **#238**, qui déclare
+  pourtant `Dépend de: #30` en toutes lettres et dont trois critères sur quatre venaient d'être
+  remplis. Normal : l'outil sélectionne les tickets qui **citent les fichiers du diff**, et #238
+  cite des fichiers que je n'avais pas touchés. Je ne l'ai trouvé qu'en cherchant autre chose. La
+  règle : après avoir fermé un ticket, lire aussi **ce qui DÉPEND de lui** (`gh issue list` +
+  recherche du numéro dans les corps) — la dépendance déclarée est un lien que l'automate des
+  fichiers ne voit pas, et c'est précisément le lien le plus fort.
+
 - [1× — 09-18g] 🔴 **J'ai annoncé au user qu'un ticket était l'ENFANT d'un autre, sur la foi d'une
   recherche plein texte.** `gh issue list --search "316 in:body"` rend tout ce qui CITE #316 ; j'en
   ai conclu une parenté, et bâti là-dessus un raisonnement sur la fermeture du parent (« il attend
