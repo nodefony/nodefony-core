@@ -97,6 +97,16 @@ export interface HintProps {
    * (`tabIndex={0}`) pour l'ouverture au clavier (a11y).
    */
   children?: ReactNode;
+  /**
+   * Le déclencheur occupe toute la largeur disponible (`children` seulement).
+   *
+   * Le défaut `inline-flex` convient à un chip ou un badge, qui se dimensionne
+   * sur son contenu. Il ne convient PAS à une ligne de classement, dont la
+   * barre de proportion doit s'étendre : le bouton la rétractait sur son
+   * libellé, et la barre devenait illisible. Le cas se règle ici, une fois,
+   * plutôt que chez chaque appelant.
+   */
+  block?: boolean;
 }
 
 /**
@@ -119,6 +129,7 @@ export function Hint({
   links = [],
   width = 360,
   children,
+  block = false,
 }: HintProps) {
   const cfg = HINT_KINDS[kind];
   const Trigger = cfg.trigger;
@@ -156,7 +167,13 @@ export function Hint({
         {children ? (
           <UnstyledButton
             aria-label={`${cfg.badge} : ${title}`}
-            style={{ display: "inline-flex", lineHeight: 0, cursor: "help" }}
+            style={{
+              display: block ? "block" : "inline-flex",
+              width: block ? "100%" : undefined,
+              lineHeight: block ? undefined : 0,
+              cursor: "help",
+              textAlign: block ? "inherit" : undefined,
+            }}
           >
             {children}
           </UnstyledButton>

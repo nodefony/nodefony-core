@@ -6,7 +6,6 @@ import {
   Card,
   Group,
   Text,
-  Tooltip,
   Badge,
   ThemeIcon,
   Button,
@@ -108,12 +107,11 @@ function RankBars({
         const ligne = (
           <div
             key={it.key}
-            // Focusable SEULEMENT quand la ligne ne porte pas de lien : une
-            // cible focusable qui en contient une autre est exactement le
-            // défaut `nested-interactive` que relève axe. Avec lien, c'est le
-            // lien qui reçoit le focus, et il est déjà dans l'ordre de
-            // tabulation.
-            tabIndex={it.detail && !it.href ? 0 : undefined}
+            // Aucun `tabIndex` ici : la fiche enveloppe déjà la ligne dans un
+            // bouton, qui porte le focus et l'annonce. En poser un ferait un
+            // second arrêt de tabulation sur la même chose — le composant le
+            // dit en toutes lettres.
+            style={{ width: "100%" }}
           >
             <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
               {it.href ? (
@@ -147,23 +145,23 @@ function RankBars({
             />
           </div>
         );
-        // L'aide suit la norme du kit — mêmes réglages que `InfoHint` : bulle
-        // multiligne bornée, flèche, au-dessus, et déclenchée au survol COMME
-        // au focus et au toucher. Elle enveloppe la LIGNE entière : le libellé
-        // seul fait quelques dizaines de pixels quand la ligne en fait plus de
+        // L'aide suit la norme du kit : une FICHE typée (`DocHint`), pas un
+        // tooltip brut — c'est la doctrine écrite dans le composant lui-même.
+        // Le déclencheur « custom » y est prévu : l'enfant ouvre la fiche au
+        // survol, ce qui fait de la LIGNE ENTIÈRE la cible. Le libellé seul
+        // ferait quelques dizaines de pixels là où la ligne en fait plus de
         // cinq cents, et une aide qu'on n'atteint pas n'aide personne.
         return it.detail ? (
-          <Tooltip
+          <DocHint
             key={it.key}
-            label={it.detail}
-            multiline
-            w={280}
-            withArrow
-            position="top"
-            events={{ hover: true, focus: true, touch: true }}
+            title={it.label}
+            version={ORM_DOC}
+            summary={`${fmtNum(it.value)} — ce que cette ligne agrège.`}
+            sections={[{ label: "Contenu", body: it.detail }]}
+            block
           >
             {ligne}
-          </Tooltip>
+          </DocHint>
         ) : (
           ligne
         );
