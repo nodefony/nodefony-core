@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-21 12:49** (UTC).
+> Empreinte prise le **2026-09-21 12:55** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 136 | 4 | 2026-09-19 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 98% | 137 | 3 | 2026-09-19 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 36% | 23 | 41 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
@@ -35,7 +35,7 @@
 
 Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24 → 09-24
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 4 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 3 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -161,12 +161,11 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 | 160 | P2 — décision | 1 | — | #240 | chore(frontend): trancher si frontend:create doit exister |
 | 161 | P2 — décision | 1 | — | #241 | fix(security): deriver le domaine des passkeys de l'hote valide |
 
-## Jalon 10.0.0-alpha — 4 ouverts
+## Jalon 10.0.0-alpha — 3 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
 | 55 | P3 — fin de cycle | 1 | 2026-09-24 → 09-24 | #30 | feat(mongoose): compléter les stockages manquants côté MongoDB |
-| 56 | P1 — figé à la création | 1 | 2026-09-25 → 09-25 | #442 | fix(frontend): dire pourquoi la page de dev pointe une machine injoignable |
 | 57 | P2 — décision | 0.5 | 2026-09-25 → 09-25 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
 | 58 | P2 — décision | 1 | 2026-09-26 → 09-26 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
 

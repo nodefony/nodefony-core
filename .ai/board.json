@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T12:49:01.672Z",
+  "generatedAt": "2026-09-21T12:55:37.341Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 136,
+      "closed": 137,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 4,
+      "open": 3,
       "title": "10.0.0-alpha"
     },
     {
@@ -5038,8 +5038,8 @@
       "number": 442,
       "title": "fix(frontend): dire pourquoi la page de dev pointe une machine injoignable",
       "url": "https://github.com/nodefony/nodefony-core/issues/442",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
