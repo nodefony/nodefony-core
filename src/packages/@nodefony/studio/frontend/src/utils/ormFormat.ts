@@ -141,7 +141,13 @@ export function analyzeModel(
     if (rels.length === 0) orphans++;
     if (!e.columns || e.columns.length === 0) noColumns++;
     for (const r of rels) relByType[r.type] = (relByType[r.type] ?? 0) + 1;
-    const d = e.domain || "(non classé)";
+    // Le DOMAINE est facultatif — aucune entité du framework n'en déclare, et
+    // le panneau affichait donc « (non classé) 28 », qui n'apprend rien. Le
+    // MODULE propriétaire, lui, est renseigné presque partout (`security`,
+    // `mediasoup`, `framework`…) et regroupe exactement de la même façon :
+    // c'est déjà le groupement du schéma ERD. On retombe dessus plutôt que de
+    // jeter une information qu'on possède.
+    const d = e.domain || e.module || "(non classé)";
     entitiesByDomain[d] = (entitiesByDomain[d] ?? 0) + 1;
     // Clé QUALIFIÉE d'abord : le serveur préfixe par le connecteur quand
     // plusieurs le portent (deux ORM chargés déclarent tous deux `session`),

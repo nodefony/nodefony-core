@@ -1497,9 +1497,9 @@ export const OrmOverview = observer(
 
                       <Grid.Col span={{ base: 12, lg: 6 }}>
                         <Panel
-                          title="Entités par domaine"
+                          title="Entités par domaine ou module"
                           icon={<IconCategory size={18} />}
-                          hint={`${scopedEntities.length} entité(s) classée(s) sur ${agg.domainCount} domaine(s) · ${scopeLabel}.`}
+                          hint={`${scopedEntities.length} entité(s) réparties sur ${agg.domainCount} groupe(s) · ${scopeLabel}. Le groupe est le DOMAINE déclaré par l'entité ; à défaut, son MODULE propriétaire — les entités du framework ne déclarent pas de domaine, et les ranger toutes sous « non classé » n'apprendrait rien.`}
                           right={
                             <Badge variant="light" color="gray" size="sm">
                               {agg.domainCount}
@@ -1515,9 +1515,9 @@ export const OrmOverview = observer(
 
                       <Grid.Col span={{ base: 12, lg: 6 }}>
                         <Panel
-                          title="Lignes par domaine"
+                          title="Lignes par domaine ou module"
                           icon={<IconCategory size={18} />}
-                          hint={`${fmtNum(agg.rowsTotal)} ligne(s) réparties sur ${Object.keys(agg.rowsByDomain).length} domaine(s) peuplé(s) · ${scopeLabel}.`}
+                          hint={`${fmtNum(agg.rowsTotal)} ligne(s) réparties sur ${Object.keys(agg.rowsByDomain).length} groupe(s) peuplé(s) · ${scopeLabel}. Même groupement que le panneau voisin : domaine déclaré, à défaut module propriétaire.`}
                         >
                           <RankBars
                             items={topDomainsByRows}
