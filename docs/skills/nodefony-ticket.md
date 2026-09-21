@@ -82,7 +82,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | `references/fermeture.md` | Fermer un ticket — le geste est TRIPLE | 106 |
 | `references/github-issues.md` | Issues GitHub — sous-tickets, jalons, projets | 80 |
 | `references/lexique.md` | Lexique des tickets — source unique | 125 |
-| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 221 |
+| `references/tableau-de-bord.md` | Le tableau de bord — labels, champs, ordre, et quand prendre un ticket | 236 |
 
 
 ## Scripts embarqués
@@ -92,7 +92,7 @@ script, donc toujours à jour après régénération.
 
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
-| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--milestone` `--owner` `--paginate` `--remove-label` `--slurp` `--state` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` |
+| `scripts/board-lint.mjs` | Confronte le TABLEAU DE BORD à ses propres règles de pilotage. | `--add-label` `--format` `--grep` `--json` `--limit` `--milestone` `--owner` `--paginate` `--remove-label` `--repo` `--slurp` `--state` `--url` | `JOURS_EN_COURS` `OWNER` `PROJECT` `QUERY_ITEMS` `REPO` `VITRINE_REPO` |
 | `scripts/board-lint.test.mjs` | — | `--grep` `--remove-label` | — |
 | `scripts/board-source.test.mjs` | Le tableau de bord ne se lit JAMAIS par `gh project item-list` — ni dans un | `--limit` | — |
 | `scripts/commit-kind.mjs` | Ce qu'un commit PROUVE au sujet des tickets qu'il cite. | — | — |
@@ -121,7 +121,7 @@ Usage : node .claude/skills/nodefony-ticket/scripts/ticket-progress.mjs [<sha>] 
 node ticket-verify.mjs                       # ancres de tous les tickets ouverts
 ```
 
-**Toutes les variables lues par ce skill** : `JOURS_EN_COURS` · `OWNER` · `PROJECT` · `QUERY_ITEMS` · `REPO`
+**Toutes les variables lues par ce skill** : `JOURS_EN_COURS` · `OWNER` · `PROJECT` · `QUERY_ITEMS` · `REPO` · `VITRINE_REPO`
 
 ## Conformité au standard Agent Skills
 

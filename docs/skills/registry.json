@@ -6803,6 +6803,10 @@
                 "help": ""
               },
               {
+                "flag": "--repo",
+                "help": ""
+              },
+              {
                 "flag": "--slurp",
                 "help": ""
               },
@@ -6834,6 +6838,10 @@
               },
               {
                 "name": "REPO",
+                "help": ""
+              },
+              {
+                "name": "VITRINE_REPO",
                 "help": ""
               }
             ],

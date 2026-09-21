@@ -48,7 +48,7 @@ npm run ticket:lint -- --milestone 10.0.0 # un seul jalon
 npm run ticket:lint -- --json             # pour un autre outil
 ```
 
-Dix contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
+Onze contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
 arbitrage sans bonne réponse mécanique :
 
 | Code                           | Ce qu'il attrape                                                                           |
@@ -63,6 +63,7 @@ arbitrage sans bonne réponse mécanique :
 | `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)  |
 | `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                  |
 | `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_    |
+| `VITRINE-OUVERTE`              | un ticket ouvert dans le dépôt GÉNÉRÉ, que rien d'ici ne suit _(avertissement)_            |
 
 Deux pièges que ce script a déjà payés, et qui valent pour tout automate de pilotage :
 
@@ -88,6 +89,20 @@ sens :
 ```bash
 gh issue edit <n> --remove-milestone --add-label "backlog"
 ```
+
+### Le dépôt VITRINE est un angle mort — et il a un contrôle
+
+`nodefony/nodefony` est **généré** à chaque publication : on n'y édite rien, donc on n'y regarde
+rien. Ni jalon, ni ordre, ni empreinte, ni `ticket:lint` ne le couvrent — un ticket ouvert là-bas
+n'entre dans aucun compteur et n'apparaît dans aucune reprise de session.
+
+Or c'est le dépôt **le plus visible de l'organisation**. Vécu : un ticket y a survécu **onze jours
+à sa propre correction** — poussée le jour même, deux heures après son ouverture. Personne ne
+l'avait rouvert, parce que rien ne le montrait.
+
+La règle qui en découle : **un ticket ouvert dans la vitrine décrit un défaut du GABARIT, et se
+corrige ici.** `VITRINE-OUVERTE` le signale à chaque passage. La lecture est tolérante — vitrine
+injoignable ⇒ aucun avertissement, jamais un faux verdict.
 
 ### 🔴 Un label ne REDIT jamais un jalon — il dit ce que le jalon ne sait pas dire
 

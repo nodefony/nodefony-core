@@ -529,3 +529,29 @@ describe("LABEL-DOUBLE-JALON", () => {
     expect(codes(findings)).not.toContain("LABEL-DOUBLE-JALON");
   });
 });
+
+describe("VITRINE-OUVERTE", () => {
+  it("signale un ticket ouvert dans le dépôt généré", () => {
+    const findings = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      vitrine: [{ n: 152, title: "fix(ci): construire avant de contrôler" }],
+      now: MAINTENANT,
+    });
+    const vu = findings.filter((f) => f.code === "VITRINE-OUVERTE");
+    expect(vu).toHaveLength(1);
+    expect(vu[0].n).toBe(152);
+    expect(vu[0].severity).toBe("avertissement");
+    expect(vu[0].message).toContain("fix(ci): construire avant de contrôler");
+  });
+
+  it("ne dit rien quand la vitrine est vide — y compris si GitHub est muet", () => {
+    const findings = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1)],
+      vitrine: [],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("VITRINE-OUVERTE");
+  });
+});

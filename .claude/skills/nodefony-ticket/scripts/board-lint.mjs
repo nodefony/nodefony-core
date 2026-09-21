@@ -35,6 +35,8 @@ import { isPilotageCommit } from "./commit-kind.mjs";
 const OWNER = "nodefony";
 const REPO = "nodefony-core";
 const PROJECT = 2;
+/** Le dépôt VITRINE : généré à chaque publication, jamais édité à la main. */
+const VITRINE_REPO = "nodefony/nodefony";
 
 /** Au-delà, un statut « en cours » ne s'adosse plus à rien d'observable. */
 const JOURS_EN_COURS = 14;
@@ -101,7 +103,13 @@ export function parseBefore(body) {
  * @param entree.now - instant de référence, injecté pour que le test ne dépende pas du calendrier
  * @returns les constats, erreurs d'abord, chacun avec son code, son ticket et son geste
  */
-export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
+export function lintBoard({
+  items,
+  issues,
+  commits = {},
+  vitrine = [],
+  now = new Date(),
+}) {
   const findings = [];
   const parItem = new Map(items.map((i) => [i.n, i]));
   const add = (severity, code, n, message, unlock) =>
@@ -152,6 +160,22 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
         `gh issue edit ${issue.n} --remove-label "${label}"`,
       );
     }
+  }
+
+  // A — un ticket ouvert dans le dépôt VITRINE n'entre dans aucun compteur d'ici.
+  // Ce dépôt est GÉNÉRÉ à chaque publication : on n'y travaille pas, donc tout
+  // ticket qui y reste ouvert décrit un défaut du GABARIT, qui se corrige ici.
+  // Vécu : #152 y a survécu onze jours à sa propre correction — poussée le jour
+  // même, deux heures après son ouverture — sur le dépôt le plus visible de
+  // l'organisation. Rien ne le regardait : ni jalon, ni ordre, ni empreinte.
+  for (const t of vitrine) {
+    add(
+      "avertissement",
+      "VITRINE-OUVERTE",
+      t.n,
+      `ticket ouvert dans ${VITRINE_REPO} — « ${t.title} » : ce dépôt est généré, le défaut se corrige ICI, et rien ne suit ses tickets`,
+      `gh issue view ${t.n} --repo ${VITRINE_REPO}`,
+    );
   }
 
   // E3 — un item sans ordre tombe en fin de tri, et n'est jamais proposé.
@@ -498,6 +522,33 @@ function readItems() {
     });
 }
 
+/**
+ * Les tickets ouverts du dépôt VITRINE.
+ *
+ * Lecture TOLÉRANTE : ce dépôt n'est pas le sujet du contrôle, et le rendre
+ * bloquant ferait échouer tout le pilotage sur une panne qui ne le concerne
+ * pas. Muet ⇒ liste vide, donc aucun avertissement — jamais un faux verdict.
+ */
+function readVitrine() {
+  try {
+    const brut = sh("gh", [
+      "issue",
+      "list",
+      "--repo",
+      VITRINE_REPO,
+      "--state",
+      "open",
+      "--limit",
+      "50",
+      "--json",
+      "number,title",
+    ]);
+    return JSON.parse(brut).map((i) => ({ n: i.number, title: i.title }));
+  } catch {
+    return [];
+  }
+}
+
 function readIssues() {
   const brut = sh("gh", [
     "issue",
@@ -620,7 +671,12 @@ if (estAppelDirect) {
   const enCours = items
     .filter((i) => i.status === "In Progress")
     .map((i) => i.n);
-  const findings = lintBoard({ items, issues, commits: readCommits(enCours) });
+  const findings = lintBoard({
+    items,
+    issues,
+    commits: readCommits(enCours),
+    vitrine: readVitrine(),
+  });
 
   if (json)
     console.log(JSON.stringify({ total: items.length, findings }, null, 2));
