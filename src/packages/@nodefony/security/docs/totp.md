@@ -568,17 +568,19 @@ Deux pièges de lecture, signalés dans l'entité elle-même :
 - Un epoch en millisecondes **déborde** un `integer` 32 bits → `bigint` en PostgreSQL et MySQL
   (SQLite, lui, a des INTEGER 64 bits).
 
-### Les backends disponibles — et ceux qui manquent
+### Les backends disponibles
 
 | Backend    | Enregistré par                                | Durabilité                          | État                 |
 | ---------- | --------------------------------------------- | ----------------------------------- | -------------------- |
 | `memory`   | builtin (`totpSecretStoreRegistry.ts:54`)     | **volatile** — perdu au redémarrage | ✅ dev / tests       |
 | `drizzle`  | `@nodefony/drizzle` (`registerStores.ts:279`) | durable, partagé entre pods         | ✅ 3 dialectes SQL   |
-| `mongoose` | —                                             | —                                   | ⏳ manquant, à venir |
+| `mongoose` | `@nodefony/mongoose` (`registerStores.ts`)    | durable, partagé entre pods         | ✅ MongoDB           |
 | `redis`    | —                                             | —                                   | ⏳ manquant, à venir |
 
-Ces deux absences sont des **manques**, pas des choix de périmètre —
-mais elles se comblent à deux régimes différents.
+Une application peut donc activer le 2FA **entièrement sur MongoDB**, sans charger d'ORM SQL : une
+application choisit son ORM, elle ne choisit pas de se passer du second facteur.
+
+Reste une absence, et c'est un **manque**, pas un choix de périmètre.
 
 `redis` le portera **en opt-in explicite, jamais choisi par `auto`** — exactement le régime des
 passkeys qu'il porte déjà. Un secret TOTP est de la même famille qu'un credential passkey : une
@@ -587,12 +589,11 @@ dehors. Porter l'un et refuser l'autre au nom du « cache évincible » serait i
 est identique, et il est déjà assumé, avec son avertissement — sur Redis, la persistance devient la
 responsabilité de l'exploitant (AOF, pas d'éviction sur ces clés).
 
-`mongoose` le portera **au régime normal** : une application choisit son ORM, elle ne choisit pas de
-se passer du 2FA — l'objectif est de pouvoir tourner entièrement sur Mongo, sans drizzle. Aujourd'hui, une application MongoDB qui active le 2FA **retombe sur `memory`** (avec la
-raison annoncée dans les journaux de boot, et un avertissement en production) : ses secrets ne
-survivent pas au redémarrage, et ses utilisateurs se retrouvent verrouillés hors de leur second
-facteur. **En attendant** : charger `@nodefony/drizzle` à côté de Mongo — même en SQLite local — suffit
-à rendre le store durable, les deux modules cohabitent sans conflit.
+Côté `mongoose`, le store est **100 % portable** lui aussi : tout passe par le contrat
+`IRepository` et le helper `paginate()` d'orm-core, sans query native
+(`MongooseTotpSecretStore.ts`). Le modèle « un secret par utilisateur » y est porté par la clé
+primaire (`_id` = `userId`) — donc l'unicité existe dès le premier document, sans index construit
+en tâche de fond.
 
 Côté `drizzle`, les **trois dialectes** sont portés — `TOTP_PORTED` vaut l'ensemble des dialectes
 (`registerStores.ts:92`) : SQLite, PostgreSQL, MySQL/MariaDB. Le store n'écrit **aucun SQL natif**,

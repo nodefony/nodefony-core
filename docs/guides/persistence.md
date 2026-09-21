@@ -102,15 +102,23 @@ correspond à un `register…Store("<nom>", …)` présent dans le code.
 | Utilisateurs              |   ✅   |   ✅    |    ✅    |   —   |
 | Jetons (rafraîchissement) |   ✅   |   ✅    |    ✅    |  ✅   |
 | Passkeys (WebAuthn)       |   ✅   |   ✅    |    ✅    |  ✅   |
-| TOTP (double facteur)     |   ✅   |   ✅    |    —     |   —   |
-| Audit                     |   ✅   |   ✅    |    —     |   —   |
+| TOTP (double facteur)     |   ✅   |   ✅    |    ✅    |   —   |
+| Audit                     |   ✅   |   ✅    |    ✅    |   —   |
 | Webhooks                  |   ✅   |   ✅    |    ✅    |   —   |
-| Idempotence               |   ✅   |   ✅    |    —     |  ✅   |
+| Idempotence               |   ✅   |   ✅    |    ✅    |  ✅   |
 
-> **Couverture partielle assumée** : tous les backends ne portent pas toutes les briques — MongoDB
-> n'a ni audit, ni idempotence, ni TOTP. Quand `auto` tombe sur une brique que l'infrastructure
-> déclarée ne porte pas, le **repli est annoncé** dans la raison écrite au journal, jamais
-> silencieux.
+> **Les deux backends DURABLES portent toutes les briques durables.** C'est la propriété à
+> retenir avant de choisir : une application peut tourner **entièrement sur MongoDB**, ou
+> entièrement sur SQL, sans qu'aucune brique ne retombe ailleurs. Un backend durable est un
+> chemin complet ou n'en est pas un.
+>
+> **Redis n'est pas un trou, c'est un domaine.** Il sert les briques à forte rotation (session,
+> jetons, passkeys, idempotence) ; les durables (audit, utilisateurs, TOTP, webhooks) ne sont pas
+> de sa vocation — volume et motif d'accès, pas « c'est un cache ». Les lire comme des absences
+> ferait chercher un manque là où il y a une décision.
+>
+> Quand `auto` tombe sur une brique que l'infrastructure déclarée ne porte pas, le **repli est
+> annoncé** dans la raison écrite au journal, jamais silencieux.
 
 ## Audit ≠ journaux
 
@@ -193,11 +201,11 @@ use("@nodefony/security", {
   partagé entre pods : deux exemplaires de l'application ne voient pas les mêmes jetons. C'est un
   repli annoncé, jamais une cible.
 - **Une case vide de la matrice ne se contourne pas par la configuration.** Nommer
-  `audit: { store: "mongoose" }` ne crée pas l'implémentation : le nom est absent du registre, et
+  `audit: { store: "redis" }` ne crée pas l'implémentation : le nom est absent du registre, et
   la doctrine d'échec ci-dessus s'applique.
 - **Déclarer `NF_REDIS_URL` ne déplace pas le durable.** Le cache ne sert qu'à l'éphémère et aux
-  sessions ; les jetons, l'audit et les webhooks restent sur la base — c'est la nature de la donnée
-  qui décide, pas la disponibilité du backend.
+  sessions ; l'audit, les utilisateurs, le TOTP et les webhooks restent sur la base — c'est la
+  nature de la donnée qui décide, pas la disponibilité du backend.
 - **Sans `NF_DATABASE_URL`, une application avec drizzle chargé écrit quand même sur disque**
   (SQLite local). C'est voulu, mais cela surprend qui croyait tourner « en mémoire » : vérifiez la
   raison écrite au boot avant de conclure.

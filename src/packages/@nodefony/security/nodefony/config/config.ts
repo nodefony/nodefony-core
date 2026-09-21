@@ -595,7 +595,7 @@ const totpSchema = z
       .string()
       .default("auto")
       .describe(
-        "Backend de stockage du secret : auto [défaut, forçable par `NF_STORE`] | memory | drizzle — plus tout backend ajouté par `registerTotpStore` (la liste qui fait foi est celle de l'écran Stores de Studio, pas ce texte). ⚠️ Contrairement aux sessions, aux jetons et aux passkeys, **seul @nodefony/drizzle fournit un store TOTP** : @nodefony/mongoose et @nodefony/redis n'en enregistrent pas. Sur une infra Mongo, `auto` ne trouve donc pas de backend durable et se replie sur `memory` (repli tracé au boot, et WARNING en production) : les secrets 2FA seraient perdus au redémarrage, verrouillant les utilisateurs hors de leur second facteur. Charger @nodefony/drizzle — même en sqlite local, à côté de Mongo — donne la persistance.",
+        "Backend de stockage du secret : auto [défaut, forçable par `NF_STORE`] | memory | drizzle | mongoose — plus tout backend ajouté par `registerTotpStore` (la liste qui fait foi est celle de l'écran Stores de Studio, pas ce texte). Les deux backends DURABLES le portent : sur une infra SQL comme sur une infra Mongo, `auto` trouve un store persistant. ⚠️ @nodefony/redis n'en enregistre pas : avec Redis pour seule infra, `auto` se replie sur `memory` (repli tracé au boot, et WARNING en production) — les secrets 2FA seraient perdus au redémarrage, verrouillant les utilisateurs hors de leur second facteur.",
       ),
   })
   .describe(
@@ -887,7 +887,7 @@ const auditSchema = z
       .string()
       .default("auto")
       .describe(
-        "Store du journal (résolu via `auditStoreRegistry`). `auto` = suit l'infra database déclarée, repli memory (défaut) ; `memory` = per-pod, volatile, borné ; `drizzle` = persistant + partagé multi-pod (auto-register par l'adapter). Vocabulaire unifié : données = `store`.",
+        "Store du journal (résolu via `auditStoreRegistry`). `auto` = suit l'infra database déclarée, repli memory (défaut) ; `memory` = per-pod, volatile, borné ; `drizzle` et `mongoose` = persistants + partagés multi-pod (auto-register par l'adapter chargé). @nodefony/redis n'en fournit pas : un journal croît sans borne et se consulte, ce n'est pas le motif d'accès d'un cache. Vocabulaire unifié : données = `store`.",
       ),
     immutable: z
       .boolean()

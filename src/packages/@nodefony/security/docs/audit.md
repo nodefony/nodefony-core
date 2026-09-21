@@ -569,26 +569,24 @@ ligne de garde `limit + 1` (`DrizzleAuditStore.ts:198`).
 
 ## Entité de persistance et dialectes pris en charge
 
-**Un seul backend durable** est fourni : `@nodefony/drizzle`. Le décompte honnête :
+**Les deux backends durables portent l'audit** : `@nodefony/drizzle` et `@nodefony/mongoose`. Le
+décompte honnête :
 
-| Backend              | Store d'audit | Dialectes prouvés                   |
+| Backend              | Store d'audit | Moteurs prouvés                     |
 | -------------------- | ------------- | ----------------------------------- |
 | builtin `memory`     | ✅ fourni     | — (mémoire du process, per-pod)     |
 | `@nodefony/drizzle`  | ✅ fourni     | SQLite · PostgreSQL · MySQL/MariaDB |
-| `@nodefony/mongoose` | ❌ absent     | —                                   |
+| `@nodefony/mongoose` | ✅ fourni     | MongoDB                             |
 | `@nodefony/redis`    | ❌ absent     | —                                   |
 
-Mongoose porte session, user, jetons, passkeys et webhooks, mais **pas** l'audit ; Redis non plus.
-Ces deux absences n'ont pas le même statut. Redis n'en aura pas, et la raison n'est pas
-« c'est un cache » — il porte déjà des données durables comme les passkeys, en opt-in assumé. C'est
-que le journal d'audit **croît sans borne**, se conserve des mois pour la conformité, et se
-**consulte** (recherche, filtres, pagination) : garder tout ça en mémoire vive coûte cher pour un
-motif d'accès qui n'est pas le sien. Mongo, lui, est un chemin **durable** :
-l'audit y **manque**, et c'est un manque à combler (objectif « full NoSQL ») — un utilisateur choisit sa base de données, pas de perdre sa traçabilité.
+Une application peut donc tourner **entièrement sur MongoDB** sans perdre sa traçabilité : c'était
+la condition pour que Mongo soit un chemin complet, et pas un chemin qui oblige à rapatrier une
+base SQL pour une seule brique.
 
-En attendant, une application MongoDB qui veut un journal durable a trois voies : brancher un store
-maison (voir l'extension ci-dessous), charger `@nodefony/drizzle` à côté de Mongo — même en SQLite
-local, les deux modules cohabitent — ou héberger le journal sur une base SQL.
+**Redis n'en aura pas, et la raison n'est pas « c'est un cache »** — il porte déjà des données
+durables comme les passkeys, en opt-in assumé. C'est que le journal d'audit **croît sans borne**,
+se conserve des mois pour la conformité, et se **consulte** (recherche, filtres, pagination) :
+garder tout ça en mémoire vive coûte cher pour un motif d'accès qui n'est pas le sien.
 
 ### La table `audit_event`
 

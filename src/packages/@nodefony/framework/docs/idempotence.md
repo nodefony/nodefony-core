@@ -67,21 +67,21 @@ reste du pipeline ne fait que traduire son verdict.
 
 ## 📖 Lexique
 
-| Terme             | Sens (dans ce module)                                                                              |
-| ----------------- | -------------------------------------------------------------------------------------------------- |
-| Mutation          | Méthode non sûre : `POST`/`PUT`/`PATCH`/`DELETE` (RFC 9110 §9.2.1). GET/HEAD/OPTIONS = no-op.      |
-| `Idempotency-Key` | En-tête client : un identifiant par **intention** d'écriture (convention Stripe, draft IETF).      |
-| Empreinte         | SHA-256 de `route + params + corps` — détecte une clé réutilisée pour autre chose.                 |
-| Bail (_lease_)    | Durée pendant laquelle une réservation _in-flight_ tient sans `complete`/`abort` (60 s).           |
-| Rétention (TTL)   | Durée pendant laquelle une réponse mémorisée reste rejouable (10 min).                             |
-| in-flight         | Réservation posée, pas encore complétée ni abandonnée.                                             |
-| Verdict           | Décision neutre du helper : `execute` / `guarded` / `replay` / `reject`.                           |
-| Scope de clé      | La clé réellement stockée = `[identité, clé client]` → anti-IDOR.                                  |
-| IDOR              | _Insecure Direct Object Reference_ : lire la donnée d'autrui en devinant son identifiant.          |
-| Store             | Backend qui porte les clés (`memory`, `redis`, `drizzle`) derrière le contrat `IIdempotencyStore`. |
-| GC                | _Garbage Collection_ : purge périodique des clés expirées — nécessaire seulement sans TTL natif.   |
-| Fail-soft         | Le store indisponible n'échoue pas la mutation : elle s'exécute **sans** dédup.                    |
-| Fail-loud         | Un store distribué demandé mais non câblé fait échouer le boot plutôt que dédupliquer en silence.  |
+| Terme             | Sens (dans ce module)                                                                                          |
+| ----------------- | -------------------------------------------------------------------------------------------------------------- |
+| Mutation          | Méthode non sûre : `POST`/`PUT`/`PATCH`/`DELETE` (RFC 9110 §9.2.1). GET/HEAD/OPTIONS = no-op.                  |
+| `Idempotency-Key` | En-tête client : un identifiant par **intention** d'écriture (convention Stripe, draft IETF).                  |
+| Empreinte         | SHA-256 de `route + params + corps` — détecte une clé réutilisée pour autre chose.                             |
+| Bail (_lease_)    | Durée pendant laquelle une réservation _in-flight_ tient sans `complete`/`abort` (60 s).                       |
+| Rétention (TTL)   | Durée pendant laquelle une réponse mémorisée reste rejouable (10 min).                                         |
+| in-flight         | Réservation posée, pas encore complétée ni abandonnée.                                                         |
+| Verdict           | Décision neutre du helper : `execute` / `guarded` / `replay` / `reject`.                                       |
+| Scope de clé      | La clé réellement stockée = `[identité, clé client]` → anti-IDOR.                                              |
+| IDOR              | _Insecure Direct Object Reference_ : lire la donnée d'autrui en devinant son identifiant.                      |
+| Store             | Backend qui porte les clés (`memory`, `redis`, `drizzle`, `mongoose`) derrière le contrat `IIdempotencyStore`. |
+| GC                | _Garbage Collection_ : purge périodique des clés expirées — nécessaire seulement sans TTL natif.               |
+| Fail-soft         | Le store indisponible n'échoue pas la mutation : elle s'exécute **sans** dédup.                                |
+| Fail-loud         | Un store distribué demandé mais non câblé fait échouer le boot plutôt que dédupliquer en silence.              |
 
 ## Qu'est-ce que c'est ?
 
@@ -187,7 +187,7 @@ use("@nodefony/framework", {
     // un nom distribué non câblé fait ÉCHOUER le boot en production (fail-loud)
     // plutôt que dédupliquer per-pod en silence.
     store: "redis",
-    // Purge des clés expirées — utile UNIQUEMENT pour un store SQL (drizzle).
+    // Purge des clés expirées — utile pour les stores SANS TTL natif (drizzle, mongoose).
     gcIntervalS: 600,
   },
 });
@@ -336,11 +336,11 @@ sequenceDiagram
 Source unique = schéma Zod `idempotencySchema`
 (`src/packages/@nodefony/framework/nodefony/config/config.ts:42`).
 
-| Option        | Type      | Défaut   | Effet                                                                                                                       |
-| ------------- | --------- | -------- | --------------------------------------------------------------------------------------------------------------------------- |
-| `store`       | `string`  | `"auto"` | Backing du cache. `auto` suit l'infra déclarée ; `memory` / `redis` / `drizzle` sont explicites (`config.ts:43`).           |
-| `gcIntervalS` | `int ≥ 0` | `600`    | Intervalle de purge des clés expirées, **hors** hot-path. Sans effet pour `redis` (TTL natif) et `memory` (`config.ts:57`). |
-| `gcJitter`    | `bool`    | `true`   | Étale le départ du GC par process — anti _thundering-herd_ sur un store SQL partagé (`config.ts:68`).                       |
+| Option        | Type      | Défaut   | Effet                                                                                                                          |
+| ------------- | --------- | -------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| `store`       | `string`  | `"auto"` | Backing du cache. `auto` suit l'infra déclarée ; `memory` / `redis` / `drizzle` / `mongoose` sont explicites (`config.ts:43`). |
+| `gcIntervalS` | `int ≥ 0` | `600`    | Intervalle de purge des clés expirées, **hors** hot-path. Sans effet pour `redis` (TTL natif) et `memory` (`config.ts:57`).    |
+| `gcJitter`    | `bool`    | `true`   | Étale le départ du GC par process — anti _thundering-herd_ sur un store SQL partagé (`config.ts:68`).                          |
 
 ### Comment `store: "auto"` se résout VRAIMENT
 
@@ -364,11 +364,11 @@ réel est le suivant :
 > que les données survivent au redémarrage. La résolution effective est toujours **journalisée au
 > boot** (`index.ts:207`) : lis cette ligne plutôt que de la déduire.
 
-MongoDB mérite une mention : `mongoose` n'implémente **pas encore** de store d'idempotence. Déclarer
-`NF_DATABASE_URL=mongodb://…` fait donc tomber la résolution en étape **4** → repli `memory` avec la
-raison annoncée — et un repli `memory` en cluster ne déduplique plus rien entre pods : le rejeu que
-cette brique promet d'empêcher passe sur un autre pod. En attendant le store Mongo (objectif « full
-NoSQL »), la dédup cross-pod passe par `redis`.
+MongoDB mérite une mention : `mongoose` porte lui aussi un store d'idempotence. Déclarer
+`NF_DATABASE_URL=mongodb://…` résout donc en étape **3** → `mongoose`, et la dédup cross-pod tient
+sans qu'il faille ajouter Redis à l'infrastructure. Sa réservation atomique repose sur la
+contrainte d'unicité de `_id` — un `findOneAndUpdate` filtré sur l'entrée morte, en `upsert`, dont
+le perdant reçoit un `E11000` : l'équivalent Mongo du `SET … NX PX` de Redis.
 
 ### Le contrat de dégradation : fail-loud, jamais silencieux
 
@@ -392,11 +392,12 @@ Tous respectent le même contrat `IIdempotencyStore`
 
 ### Choisir en 5 secondes
 
-| Store     | Atomicité de `begin`                            | Expiration         | `gc()` | Multi-pod | Pour…                                    |
-| --------- | ----------------------------------------------- | ------------------ | :----: | :-------: | ---------------------------------------- |
-| `memory`  | mono-thread JS                                  | passive + cap FIFO |   ❌   |    ❌     | dev, tests, mono-pod                     |
-| `redis`   | `SET … NX PX`                                   | TTL natif (`PX`)   |   ❌   |    ✅     | cluster — le choix par défaut recommandé |
-| `drizzle` | `INSERT … ON CONFLICT DO UPDATE … WHERE expiré` | applicative        |   ✅   |    ✅     | cluster qui a déjà du SQL, pas de Redis  |
+| Store      | Atomicité de `begin`                            | Expiration         | `gc()` | Multi-pod | Pour…                                    |
+| ---------- | ----------------------------------------------- | ------------------ | :----: | :-------: | ---------------------------------------- |
+| `memory`   | mono-thread JS                                  | passive + cap FIFO |   ❌   |    ❌     | dev, tests, mono-pod                     |
+| `redis`    | `SET … NX PX`                                   | TTL natif (`PX`)   |   ❌   |    ✅     | cluster — le choix par défaut recommandé |
+| `drizzle`  | `INSERT … ON CONFLICT DO UPDATE … WHERE expiré` | applicative        |   ✅   |    ✅     | cluster qui a déjà du SQL, pas de Redis  |
+| `mongoose` | `findOneAndUpdate(expiré) upsert` → `E11000`    | applicative        |   ✅   |    ✅     | cluster qui a déjà Mongo, pas de Redis   |
 
 ### `memory` — le défaut per-pod, gratuit
 
@@ -522,10 +523,14 @@ Deux détails qui expliquent des surprises réelles :
 | `drizzle` (SQL) | SQLite                   | idem, mais mono-machine → **test**              |    ❌     |      ✅       |
 | `memory`        | RAM du pod               | mono-thread JS ; cap FIFO 1000 ; TTL 10 min     |    ❌     |      n/a      |
 
-> [!CAUTION]
-> **MongoDB (`@nodefony/mongoose`) n'implémente PAS de store d'idempotence.** Sélectionner
-> `store: "mongoose"` échoue à la résolution (fail-loud) ; laisser `auto` avec une infra Mongo replie
-> sur `memory` avec une raison annoncée. En cluster Mongo, la dédup passe par `redis`.
+> [!NOTE]
+> **MongoDB (`@nodefony/mongoose`) porte un store d'idempotence.** `store: "mongoose"` est
+> sélectionnable dès que le module est chargé, et `auto` avec une infra Mongo y résout tout seul.
+> En cluster Mongo, la dédup cross-pod n'exige donc pas d'ajouter Redis.
+>
+> Comme la variante SQL, il n'a **pas de TTL natif** : le framework arme un `GcScheduler` parce
+> que le store expose `gc()`. L'échéance d'une entrée bascule du bail à la rétention, ce qu'un
+> index TTL ne saurait pas suivre.
 
 ## 🧰 API publique
 

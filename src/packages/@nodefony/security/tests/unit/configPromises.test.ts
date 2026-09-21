@@ -69,14 +69,15 @@ describe("promesses de config — backends de store TOTP", () => {
     return json.nodefony?.stores ?? [];
   }
 
-  it("seul @nodefony/drizzle annonce un store TOTP", () => {
-    // Le jour où mongoose ou redis en fournira un, ce test tombera — et c'est le
-    // rappel voulu : le `.describe()` de `totp.store` prévient aujourd'hui qu'une
-    // infra Mongo se replie sur `memory`. Cette mise en garde devra sauter avec.
+  it("les deux backends DURABLES annoncent un store TOTP, le cache non", () => {
+    // Cette sentinelle a déjà mordu une fois, exactement comme elle le
+    // promettait : le jour où mongoose a fourni son store, elle a exigé que le
+    // `.describe()` cesse d'annoncer un repli mémoire sur infra Mongo. Elle
+    // garde désormais la vérité INVERSE, et retombera si redis en fournit un.
     assert.ok(declaredStores("drizzle").includes("totp"));
     assert.ok(
-      !declaredStores("mongoose").includes("totp"),
-      "mongoose annonce un store TOTP : mettre à jour le describe de security.totp.store",
+      declaredStores("mongoose").includes("totp"),
+      "mongoose n'annonce plus de store TOTP : mettre à jour le describe de security.totp.store",
     );
     assert.ok(
       !declaredStores("redis").includes("totp"),
@@ -88,13 +89,19 @@ describe("promesses de config — backends de store TOTP", () => {
     assert.deepEqual(listTotpStores(), ["memory"]);
   });
 
-  it("le describe nomme la couverture réelle, pas la liste générique des autres briques", () => {
+  it("le describe nomme la couverture réelle, backend par backend", () => {
     const text = describeOf(["totp", "store"]);
-    assert.ok(
-      !/\|\s*mongoose/.test(text),
-      "mongoose ne doit plus être présenté comme une valeur admise",
-    );
+    // Le texte doit nommer ce qui EXISTE — les deux durables — et ne pas
+    // présenter comme admis un backend que la sélection refuserait.
     assert.ok(text.includes("drizzle"));
+    assert.ok(
+      /\|\s*mongoose/.test(text),
+      "mongoose est désormais une valeur admise : le texte doit le dire",
+    );
+    assert.ok(
+      !/\|\s*redis/.test(text),
+      "redis ne fournit pas de store TOTP : ne pas le présenter comme admis",
+    );
     assert.ok(
       text.toLowerCase().includes("memory"),
       "le repli volatil doit être nommé, c'est lui qui perd les secrets 2FA",

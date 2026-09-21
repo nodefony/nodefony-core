@@ -262,7 +262,7 @@ const CONNECTED_STORES: ReadonlySet<string> = new Set([
  * Résout la sentinelle `"auto"` d'une brique en nom de backend, borné aux
  * backends RÉELLEMENT enregistrés (`available` = `listXStores()` du registre —
  * reflète l'auto-register des adapters chargés). Couverture partielle d'une infra
- * (ex. audit sans impl mongoose) → repli `fallback` avec raison ANNONCÉE,
+ * (ex. brique durable sur `redis`) → repli `fallback` avec raison ANNONCÉE,
  * jamais d'échec : le principe « fallback annoncé, pas de dégradation
  * silencieuse » vit dans la raison retournée, que l'appelant DOIT logger.
  *

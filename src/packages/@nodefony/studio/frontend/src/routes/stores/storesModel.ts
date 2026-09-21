@@ -92,8 +92,11 @@ export interface StoreEngine {
   loaded: boolean;
   /**
    * Briques de persistance que ce moteur SAIT gérer (couverture) — indépendant du
-   * chargement. Ex. mongoose = 5/8 (manque audit/totp/idempotence). Une brique hors
-   * liste retombe sur un autre backend.
+   * chargement. Les moteurs DURABLES les portent toutes (drizzle et mongoose = 8/8) ;
+   * un moteur de CACHE en porte un sous-ensemble par vocation, pas par manque
+   * (redis = 4/8, briques à forte rotation). Une brique hors liste retombe sur un
+   * autre backend. La source est le `package.json` de l'adapter (`nodefony.stores`),
+   * jamais une liste tenue ici — cf `readAdapterManifest` côté serveur.
    */
   provides: string[];
 }
