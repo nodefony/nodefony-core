@@ -45,7 +45,12 @@ const BRICKS: readonly StoreManifestBrick[] = [
   // du `SessionsService` à l'import du module, et son entité est posée par son
   // propre `@entity` — d'où l'absence des deux lecteurs ici.
   { brick: "session" },
-  { brick: "user", backends: listUserStores },
+  // 🔴 `entityPresent` n'est PAS décoratif ici : c'est la seule chose qui
+  // aurait vu le trou. L'entité `User` manquait à l'auto-register mongoose
+  // alors que le jumeau Drizzle la posait, et rien ne tombait — les bancs
+  // appellent `registerUserEntity` eux-mêmes. Seul un noyau qui BOOTE l'a
+  // révélé, sur « Schema hasn't been registered for model "User" ».
+  { brick: "user", backends: listUserStores, entityPresent: has("User") },
   {
     brick: "tokens",
     backends: listTokenStores,
@@ -91,6 +96,7 @@ describe("Mongoose — couverture des briques framework", () => {
       void brick;
     }
     for (const entity of [
+      "User",
       TOKEN_ENTITY_NAMES.records,
       WEBAUTHN_CREDENTIAL_ENTITY,
       TOTP_SECRET_ENTITY,

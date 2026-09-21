@@ -35,6 +35,7 @@
  * npm run test:all -- --json       # sortie machine (CI)
  * npm run test:all -- --infra      # état de l'infra seul, ne lance aucun test
  * npm run test:all -- --dialects   # + rejoue les suites ORM sur MySQL Community
+ * npm run test:all -- --mongo      # + rejoue le DÉMARRAGE de l'app sur MongoDB
  * ```
  *
  * Aucune donnée n'est détruite : les conteneurs déjà lancés sont réutilisés tels
@@ -55,6 +56,7 @@ import {
   LOKI_GATE,
   OPENSEARCH_GATE,
   MYSQL_COMMUNITY_GATE,
+  MONGO_BOOT_GATE,
   gateEnv,
   gateUpCommand,
   redactUrl,
@@ -91,6 +93,8 @@ interface Options {
   infra: boolean;
   /** Rejoue les suites ORM sur les dialectes qui partagent une même variable. */
   dialects: boolean;
+  /** Rejoue le DÉMARRAGE de l'application sur MongoDB, puis son intégration. */
+  mongo: boolean;
   /** Ne prépare que l'infra et rend son état — aucune suite lancée. */
   infraOnly: boolean;
   unit: boolean;
@@ -110,6 +114,7 @@ function parseArgs(argv: string[]): Options {
     infra: !has("--no-infra"),
     infraOnly: has("--infra"),
     dialects: has("--dialects"),
+    mongo: has("--mongo"),
     unit: picked ? has("--unit") : true,
     integration: picked ? has("--integration") : true,
     load: has("--load"),
@@ -519,6 +524,14 @@ async function main(): Promise<void> {
         durationMs: 0,
       });
     }
+    if (!options.mongo) {
+      phases.push({
+        name: "Démarrage sur MongoDB",
+        ok: true,
+        skipped: "non lancée — `npm run test:all -- --mongo`",
+        durationMs: 0,
+      });
+    }
 
     report(infra, phases, options);
     process.exit(infra.every((i) => i.ready) ? 0 : 1);
@@ -604,6 +617,60 @@ async function main(): Promise<void> {
     }
   }
 
+  // ── Démarrage de l'application sur MongoDB ────────────────────────────────
+  // La cible que personne n'exerçait. Les bancs de magasin montent l'ORM à la
+  // main, sans noyau : ils ne peuvent voir ni un ORM chargé après
+  // `@nodefony/security`, ni une entité absente de l'auto-register. Les deux
+  // défauts ont été trouvés en bootant à la MAIN — un geste qui meurt avec sa
+  // session. Cette phase est ce qui le rejoue.
+  //
+  // Elle passe EN DERNIER et laisse le serveur ARRÊTÉ : elle remplace la base
+  // de l'application le temps d'une passe, et rendre la main sur un serveur
+  // branché à Mongo ferait, au prochain test lancé à la main, un rouge qui ne
+  // parle pas de son code.
+  if (options.mongo) {
+    const boot = await prepare(MONGO_BOOT_GATE, options.infra, true);
+    infra.push(boot);
+    if (!boot.ready) {
+      phases.push({
+        name: "Démarrage sur MongoDB",
+        ok: false,
+        skipped: boot.reason ?? "cible indisponible",
+        durationMs: 0,
+      });
+    } else {
+      const saved = process.env.NF_DATABASE_URL;
+      Object.assign(process.env, MONGO_BOOT_GATE.values());
+      // Le serveur en marche est branché à la base PAR DÉFAUT : le garder
+      // ferait jouer la passe contre le mauvais backend, et rendre un vert qui
+      // ne dit rien de Mongo.
+      if (serverRunning()) await run("npx nodefony stop");
+      console.log(
+        `\n${C.cyan("▸")} ${C.bold("Serveur de développement — MongoDB")}`,
+      );
+      const started = await run(
+        "bash .claude/skills/nodefony-start-server/start.sh",
+      );
+      if (started.code !== 0 || !serverRunning()) {
+        phases.push({
+          name: "Démarrage sur MongoDB",
+          ok: false,
+          skipped: "le serveur n'a pas démarré sur MongoDB",
+          durationMs: 0,
+        });
+      } else {
+        await phase(
+          "Démarrage sur MongoDB",
+          "npx turbo run test:integration --continue",
+          phases,
+        );
+      }
+      if (serverRunning()) await run("npx nodefony stop");
+      if (saved === undefined) delete process.env.NF_DATABASE_URL;
+      else process.env.NF_DATABASE_URL = saved;
+    }
+  }
+
   if (options.load) {
     if (serverRunning()) {
       await phase(
@@ -661,6 +728,14 @@ async function main(): Promise<void> {
       name: "Suites ORM — MySQL Community",
       ok: true,
       skipped: "non lancée — `npm run test:all -- --dialects`",
+      durationMs: 0,
+    });
+  }
+  if (!options.mongo) {
+    phases.push({
+      name: "Démarrage sur MongoDB",
+      ok: true,
+      skipped: "non lancée — `npm run test:all -- --mongo`",
       durationMs: 0,
     });
   }

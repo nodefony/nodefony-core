@@ -373,6 +373,33 @@ export const MONGO_GATE: EnvGate = {
 };
 
 /**
+ * MongoDB comme base de l'APPLICATION — le décor qui fait **démarrer un serveur
+ * Nodefony sur Mongo**, et non celui de ses magasins.
+ *
+ * 🔴 Deux variables, deux usages, et les confondre laisse un trou entier. Sous
+ * {@link MONGO_GATE}, `NF_MONGO_TEST_URI` fait tourner les bancs de magasin :
+ * ils montent l'ORM à la main, sans noyau. Le signal qui fait démarrer une
+ * application sur Mongo est `NF_DATABASE_URL` — c'est lui que le manifeste lit
+ * (`when: ctx.infra.database?.family === "mongo"`). Tant que personne ne le
+ * posait, huit briques durables n'avaient jamais été exercées derrière un vrai
+ * boot, et deux défauts s'y cachaient qu'aucune suite ne pouvait voir : un ORM
+ * chargé après `@nodefony/security`, et une entité `User` absente de
+ * l'auto-register.
+ *
+ * La base porte un nom À ELLE : un banc qui écrit dans la base de travail du
+ * développeur salirait le décor qu'il est censé mesurer.
+ */
+export const MONGO_BOOT_GATE: EnvGate = {
+  label: "MongoDB — démarrage de l'application",
+  service: { name: "mongo", profile: "mongo" },
+  values: () => ({
+    NF_DATABASE_URL:
+      `mongodb://127.0.0.1:${fromCompose("MONGO_PORT", "27017")}` +
+      `/nodefony_boot?replicaSet=${fromCompose("MONGO_REPLSET", "rs0")}`,
+  }),
+};
+
+/**
  * Loki (destination de logs LB.4, driver `loki`). Le driver mocké prouve le
  * format LogQL/push ; SEUL un vrai Loki prouve qu'il l'ACCEPTE (labels, fenêtre
  * de rejet des timestamps, `query_range`). Serveur du compose = HTTP simple sans

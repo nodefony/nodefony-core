@@ -2,10 +2,10 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 854,
-    "symbols": 4206,
-    "classes": 398,
-    "interfaces": 1118,
+    "files": 855,
+    "symbols": 4211,
+    "classes": 399,
+    "interfaces": 1122,
     "types": 456,
     "enums": 4,
     "functions": 1812,
@@ -13343,6 +13343,18 @@
         "controller"
       ],
       "description": "Démo"
+    },
+    "DurableBrickProbeController": {
+      "name": "DurableBrickProbeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/DurableBrickProbeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ]
     },
     "FrameworkController": {
       "name": "FrameworkController",
@@ -28876,6 +28888,7 @@
         "DiController",
         "DomainClassController",
         "DomainController",
+        "DurableBrickProbeController",
         "FrameworkController",
         "GraphQlController",
         "HtmlController",
@@ -29354,6 +29367,7 @@
         "DiController",
         "DomainClassController",
         "DomainController",
+        "DurableBrickProbeController",
         "FrameworkController",
         "GraphQlController",
         "HtmlController",
@@ -30227,6 +30241,9 @@
       "WebhookSinkController": [
         "src/modules/test/index.ts"
       ],
+      "DurableBrickProbeController": [
+        "src/modules/test/index.ts"
+      ],
       "PocBookController": [
         "src/modules/test/index.ts"
       ],
@@ -30561,6 +30578,7 @@
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -30754,6 +30772,7 @@
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -30819,6 +30838,7 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DbController.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts"
@@ -30943,6 +30963,7 @@
       "Body": [
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/controller/DecoratorController.ts",
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
         "src/modules/test/nodefony/secure/IdempotentDemoController.ts",
@@ -31085,6 +31106,7 @@
         "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/DomainClassController.ts",
         "src/modules/test/nodefony/controller/DomainController.ts",
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/GraphqlController.ts",
         "src/modules/test/nodefony/controller/HtmlController.ts",
@@ -34837,6 +34859,12 @@
       ],
       "IUploadedFile": [
         "src/modules/test/nodefony/controller/DecoratorController.ts"
+      ],
+      "totpCode": [
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts"
+      ],
+      "base32Decode": [
+        "src/modules/test/nodefony/controller/DurableBrickProbeController.ts"
       ],
       "RealtimeChannel": [
         "src/modules/test/nodefony/controller/LiveSalonController.ts"
