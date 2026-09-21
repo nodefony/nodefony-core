@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T17:16:55.118Z",
+  "generatedAt": "2026-09-21T19:15:19.393Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 139,
       "dueOn": "2026-09-19T00:00:00Z",
       "number": 6,
-      "open": 5,
+      "open": 6,
       "title": "10.0.0-alpha"
     },
     {
@@ -1799,11 +1799,27 @@
       "title": "fix(orm): ne pas ouvrir de base SQLite quand l'infra déclarée n'est pas SQL",
       "url": "https://github.com/nodefony/nodefony-core/issues/456",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.12,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
+      ]
+    },
+    {
+      "number": 457,
+      "title": "fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM",
+      "url": "https://github.com/nodefony/nodefony-core/issues/457",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.13,
       "debut": null,
       "cible": null,
       "labels": [

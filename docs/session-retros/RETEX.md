@@ -71,6 +71,20 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-21d] 📏 **J'ai prouvé qu'un attribut EXISTE, et cru avoir prouvé qu'il SERT.** Le
+  détail d'une ligne passait par un `title` posé sur le seul libellé. Ma sonde le trouvait par
+  sélecteur CSS — donc « c'est fait ». Le user : « le hover ne marche toujours pas ». Il avait
+  raison : la cible faisait quelques dizaines de pixels quand la ligne en fait 513. Un sélecteur
+  interroge le DOM ; il ne dit RIEN de ce qu'une souris peut atteindre. La bonne mesure était la
+  TAILLE de la cible — la sonde la rend, je ne l'avais pas regardée. Même famille que mesurer un
+  contraste sans lire la police : l'attribut n'est pas la propriété qu'on lui prête.
+- [1× — 09-21d] 🔬 **J'ai failli ouvrir un ticket sur une hypothèse — la mesure l'a démentie.**
+  Après avoir fait sauter la session du user en éditant du code serveur pendant qu'il travaillait,
+  j'ai laissé entendre qu'une session « ne survit peut-être pas à un redémarrage ». Le contrôle
+  tient en quatre commandes : cookie frais → `200`, arrêt/relance complet, MÊME cookie → `200`.
+  Elle survit. Le ticket aurait gravé un défaut inexistant dans le jalon, et quelqu'un l'aurait
+  cherché. Un symptôme observé une fois n'est pas une cause : entre les deux, il y a une mesure.
+
 - [1× — 09-21c] 🔴 **Mon test affirmait une garantie que le CONTRAT ne permet à personne de
   tenir — et les trois implémentations mentaient de la même façon.** En portant l'idempotence sur
   Mongo, j'ai écrit « `complete` ne ressuscite pas une clé VOLÉE entre-temps ». Rouge. Réflexe
@@ -124,6 +138,17 @@ doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en cl
   lire les tests qui le couvrent **pour ce qu'ils affirment**, pas seulement pour les faire passer.
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
+
+- [1× — 09-21d] 🧮 **Un agrégat indexé sur un nom NON UNIQUE perd des données sans rien dire —
+  facteur 100 à l'écran.** `counts` du plan d'administration ORM renvoyait `{ nom: total }`. Avec
+  deux ORM chargés, `audit_event` de Mongoose (**265** documents) écrasait celui de Drizzle
+  (**264 080** lignes) : le tableau de bord annonçait « 2.1k lignes » pour une base qui en porte
+  268k, et affichait le même chiffre sur les deux connecteurs — dont un faux. Rien ne criait :
+  une clé écrasée est une affectation réussie. Le même mot, `default`, portait par ailleurs deux
+  sens sur le même écran — « connecteur par défaut de Drizzle » et « base par défaut de
+  l'application » — et sacrait « primaire » une base SQLite vide pendant qu'une application
+  tournait sur MongoDB. Le contrôle : une clé d'agrégat se qualifie dès que son espace de noms
+  n'est pas garanti unique, et un libellé d'écran se relit en se demandant de QUI il parle.
 
 - [1× — 09-21] 📖 **La documentation fait CROIRE qu'une capacité est fournie — et c'est pire qu'un
   trou, parce que personne ne la cherche.** `react-hooks.md:217` montre un `useRoomPresence`
@@ -578,6 +603,24 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   plus tard, les trois mécanismes avaient servi au moins une fois chacun.
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
+
+- [1× — 09-21d] 🗺️ **J'ai déduit la surface d'une application de ce qu'UN module en montre — et
+  bâti un correctif pour un trou inexistant.** Conclusion reprise d'hier : « le 2FA est
+  inatteignable par HTTP, aucune route d'écriture ». Elle venait d'une lecture du data plane
+  d'ADMINISTRATION, qui n'expose en effet que des lectures. `npx nodefony inspect routes` — la
+  commande que le `CLAUDE.md` désigne en toutes lettres comme la voie de l'état RÉEL, et que je
+  n'avais pas lancée — nomme `POST /nodefony/security/api/totp/{enroll,confirm,disable}`, le CRUD
+  complet des webhooks et `webauthn/register/*`. Coût : un controller de sonde écrit, éprouvé,
+  commité, puis RETIRÉ au commit suivant. Le fait de départ restait vrai (trois tables à zéro) ;
+  seule la CAUSE était inventée — rien ne les exerçait. Le contrôle coûte une commande, et il
+  répond à la seule question qui compte : ce que l'application EXPOSE, pas ce qu'un module déclare.
+- [1× — 09-21d] 🎨 **La norme était écrite DANS le composant, et j'ai tâtonné trois fois avant de
+  l'ouvrir.** Pour l'aide d'une ligne de classement : `title` natif, puis `Tooltip` Mantine, puis
+  enfin `DocHint` — le user a dû refuser deux fois. La TSDoc de `DocHint.tsx` dit « bulle d'aide
+  typée façon fiche de documentation (**≠ tooltip brut**) », prévoit le déclencheur personnalisé
+  que je cherchais, et avertit même contre le `tabIndex` que j'avais ajouté. Trois allers-retours
+  pour une page jamais ouverte. Le réflexe manquant n'est pas « demander la norme » mais « lire le
+  composant qu'on s'apprête à contourner » — c'est lui qui la porte, pas une page de skill.
 
 - [1× — 09-21] 📣 **Une capacité que RIEN N'APPELLE n'existe pas — et le skill affirmait qu'elle
   tournait.** `accueil-gate.mjs --basculer` savait porter les pages d'accueil au cran servi. Aucun
