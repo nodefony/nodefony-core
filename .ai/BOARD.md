@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-20 23:27** (UTC).
+> Empreinte prise le **2026-09-21 08:58** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 136 | 4 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 38% | 21 | 34 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███░░░░░░░` 34% | 21 | 40 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -40,7 +40,7 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 34 ouverts
+## Jalon 10.0.0-beta — 40 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -78,6 +78,12 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 | 49.1 | P2 — décision | 0.5 | 2026-11-18 → 11-18 | #425 | fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab |
 | 49.3 | P2 — décision | 0.5 | 2026-11-19 → 11-19 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS |
 | 49.4 | P2 — décision | 1 | 2026-11-19 → 11-20 | #428 | feat(devkit): contrôler la dérive du corpus du skill de déploiement |
+| 50 | P2 — décision | 7 | 2026-11-23 → 12-01 | #445 | test(ecosysteme): éprouver le framework par un module tiers temps réel |
+| 50.2 | P2 — décision | 1 | 2026-11-23 → 11-23 | #446 | test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation |
+| 50.3 | P2 — décision | 1 | 2026-11-24 → 11-24 | #447 | test(ecosysteme): journaliser pas à pas ce que fait l'agent |
+| 50.4 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
+| 50.5 | P1 — figé à la création | 1 | 2026-11-26 → 11-26 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
+| 50.6 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 
 ## Jalon outillage-agents — 2 ouverts
 

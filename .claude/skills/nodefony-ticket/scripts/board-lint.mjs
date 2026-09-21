@@ -133,6 +133,27 @@ export function lintBoard({ items, issues, commits = {}, now = new Date() }) {
     );
   }
 
+  // E2bis — un label qui PORTE LE NOM d'un jalon confond deux instruments : le
+  // jalon promet une date, le label ne promet rien. Le double ne suit pas quand
+  // on déplace le jalon, et il finit par le contredire — mesuré : quinze tickets
+  // ouverts affichaient une version que leur jalon démentait.
+  // Borne ASSUMÉE : les noms de jalons se dérivent des issues ouvertes, donc un
+  // jalon que plus aucun ticket ouvert ne porte n'est pas vu. Ne pas l'injecter
+  // en paramètre — la liste des jalons serait une seconde source à tenir.
+  const jalons = new Set(issues.map((i) => i.milestone).filter(Boolean));
+  for (const issue of issues) {
+    for (const label of issue.labels ?? []) {
+      if (!jalons.has(label)) continue;
+      add(
+        "erreur",
+        "LABEL-DOUBLE-JALON",
+        issue.n,
+        `le label « ${label} » porte le nom d'un jalon — un jalon promet une DATE, un label groupe un LOT ; le double se périme dès qu'on déplace le jalon`,
+        `gh issue edit ${issue.n} --remove-label "${label}"`,
+      );
+    }
+  }
+
   // E3 — un item sans ordre tombe en fin de tri, et n'est jamais proposé.
   for (const item of items) {
     if (typeof item.ordre === "number") continue;

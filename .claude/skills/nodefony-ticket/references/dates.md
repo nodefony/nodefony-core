@@ -15,6 +15,23 @@ n'accepte que `visibleFieldIds` (vérifié par introspection du schéma). Le cho
 dates se fait dans l'interface web — ouvrir la vue, menu `⌄` de son onglet, `Date fields`. Ne pas
 chercher une commande : il n'y en a pas.
 
+⚠️ **Le symptôme, quand ce réglage est faux : des barres qui n'ont aucun rapport avec les tranches
+posées.** Et il envoie chercher au mauvais endroit, parce qu'on soupçonne les données ou le champ
+`Jours`. Deux choses à savoir pour couper court :
+
+- **Une vue Roadmap ne sait PAS lire un champ nombre.** `Jours` ne peut donc jamais être la source
+  d'une barre, quoi qu'on en croie en la regardant.
+- Le menu `Date fields` propose aussi les dates **automatiques** du projet — `Created`, `Updated`,
+  `Closed`. Ce sont elles, les faux candidats : elles sont peuplées sur TOUS les items, donc la
+  frise s'affiche, plausible et fausse. `Début`/`Cible`, elles, ne sont posées que sur l'engagé.
+
+Le contrôle qui tranche AVANT de toucher à la vue — si les deux comptes se tiennent, le défaut est
+dans le réglage, jamais dans les données :
+
+```bash
+npm run ticket:lint     # FRISE-A-TROUS : un jalon à moitié daté
+```
+
 ## Poser les dates — une tranche NEUTRE, puis constater
 
 L'interdit d'abord : **ne jamais dériver les dates en cumulant `Jours`**. Le champ ne prédit pas le

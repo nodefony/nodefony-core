@@ -494,3 +494,38 @@ describe("lintBoard — les erreurs sortent avant les avertissements", () => {
     expect(findings.at(-1).severity).toBe("avertissement");
   });
 });
+
+describe("LABEL-DOUBLE-JALON", () => {
+  it("attrape un label qui porte le nom d'un jalon", () => {
+    const findings = lintBoard({
+      items: [sain(1), sain(2)],
+      issues: [issueSaine(1), issueSaine(2, { labels: ["10.0.0"] })],
+      now: MAINTENANT,
+    });
+    const vu = findings.filter((f) => f.code === "LABEL-DOUBLE-JALON");
+    expect(vu).toHaveLength(1);
+    expect(vu[0].n).toBe(2);
+    expect(vu[0].unlock).toContain("--remove-label");
+  });
+
+  it("attrape le cas qui MENT — label d'un jalon, posé sur un ticket d'un AUTRE jalon", () => {
+    const findings = lintBoard({
+      items: [sain(1), sain(2, { milestone: "10.2.0" })],
+      issues: [
+        issueSaine(1),
+        issueSaine(2, { milestone: "10.2.0", labels: ["10.0.0"] }),
+      ],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).toContain("LABEL-DOUBLE-JALON");
+  });
+
+  it("laisse passer un label de LOT, qui ne porte le nom d'aucun jalon", () => {
+    const findings = lintBoard({
+      items: [sain(1)],
+      issues: [issueSaine(1, { labels: ["beta-1", "irrattrapable"] })],
+      now: MAINTENANT,
+    });
+    expect(codes(findings)).not.toContain("LABEL-DOUBLE-JALON");
+  });
+});

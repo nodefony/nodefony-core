@@ -166,7 +166,12 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-open.mjs")) {
   if (args.backlog) {
     create.push("--label", "backlog");
   } else if (args.milestone) {
-    create.push("--milestone", args.milestone, "--label", args.milestone);
+    // Le jalon SEUL — surtout pas un label homonyme. Un jalon promet une DATE,
+    // un label groupe un LOT : deux notions que le même nom confondait. La copie
+    // a déjà menti (15 tickets ouverts portaient un label de version que leur
+    // jalon contredisait, dont un `10.1.0` sur un jalon `10.2.0`), parce qu'on
+    // déplace un jalon sans penser à son double.
+    create.push("--milestone", args.milestone);
   }
   for (const l of args.label) create.push("--label", l);
   if (args.parent) create.push("--parent", args.parent);

@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-20T23:27:22.614Z",
+  "generatedAt": "2026-09-21T08:58:24.487Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 21,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 34,
+      "open": 40,
       "title": "10.0.0-beta"
     },
     {
@@ -74,7 +74,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -90,9 +89,7 @@
       "ordre": 0.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 19,
@@ -107,7 +104,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -139,9 +135,7 @@
       "ordre": 1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 258,
@@ -155,9 +149,7 @@
       "ordre": 1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 307,
@@ -171,9 +163,7 @@
       "ordre": 1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 333,
@@ -187,9 +177,7 @@
       "ordre": 1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "outillage-agents"
-      ]
+      "labels": []
     },
     {
       "number": 257,
@@ -203,9 +191,7 @@
       "ordre": 1.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 308,
@@ -219,9 +205,7 @@
       "ordre": 1.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 256,
@@ -235,9 +219,7 @@
       "ordre": 1.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 274,
@@ -251,9 +233,7 @@
       "ordre": 1.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 41,
@@ -268,7 +248,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -285,8 +264,7 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "irrattrapable",
-        "10.0.0-alpha"
+        "irrattrapable"
       ]
     },
     {
@@ -301,9 +279,7 @@
       "ordre": 1.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 263,
@@ -317,9 +293,7 @@
       "ordre": 1.6,
       "debut": "2026-09-09",
       "cible": "2026-09-09",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 293,
@@ -334,7 +308,7 @@
       "debut": "2026-10-06",
       "cible": "2026-10-06",
       "labels": [
-        "10.0.0-beta"
+        "beta-1"
       ]
     },
     {
@@ -349,9 +323,7 @@
       "ordre": 1.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 266,
@@ -365,9 +337,7 @@
       "ordre": 1.65,
       "debut": "2026-09-10",
       "cible": "2026-09-10",
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 55,
@@ -383,7 +353,6 @@
       "cible": null,
       "labels": [
         "documentation",
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -399,9 +368,7 @@
       "ordre": 1.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 264,
@@ -415,9 +382,7 @@
       "ordre": 1.7,
       "debut": "2026-09-11",
       "cible": "2026-09-11",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 275,
@@ -432,7 +397,7 @@
       "debut": "2026-10-07",
       "cible": "2026-10-07",
       "labels": [
-        "10.0.0-beta"
+        "beta-1"
       ]
     },
     {
@@ -447,9 +412,7 @@
       "ordre": 1.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 56,
@@ -463,9 +426,7 @@
       "ordre": 1.8,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 265,
@@ -479,9 +440,7 @@
       "ordre": 1.8,
       "debut": "2026-09-14",
       "cible": "2026-09-14",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 312,
@@ -497,7 +456,7 @@
       "cible": "2026-10-08",
       "labels": [
         "arbitrage",
-        "10.0.0-beta"
+        "beta-1"
       ]
     },
     {
@@ -512,9 +471,7 @@
       "ordre": 1.85,
       "debut": "2026-09-15",
       "cible": "2026-09-15",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 58,
@@ -529,7 +486,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "arbitrage"
       ]
     },
@@ -545,9 +501,7 @@
       "ordre": 1.9,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 57,
@@ -562,7 +516,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -578,9 +531,7 @@
       "ordre": 2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 174,
@@ -594,9 +545,7 @@
       "ordre": 2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 175,
@@ -612,7 +561,7 @@
       "cible": "2026-10-09",
       "labels": [
         "irrattrapable",
-        "10.0.0-beta"
+        "beta-1"
       ]
     },
     {
@@ -627,9 +576,7 @@
       "ordre": 2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "outillage-agents"
-      ]
+      "labels": []
     },
     {
       "number": 94,
@@ -643,9 +590,7 @@
       "ordre": 2.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 95,
@@ -659,9 +604,7 @@
       "ordre": 2.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 96,
@@ -675,9 +618,7 @@
       "ordre": 2.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 102,
@@ -691,9 +632,7 @@
       "ordre": 2.35,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 97,
@@ -707,9 +646,7 @@
       "ordre": 2.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 108,
@@ -723,9 +660,7 @@
       "ordre": 2.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 110,
@@ -739,9 +674,7 @@
       "ordre": 2.45,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 124,
@@ -755,9 +688,7 @@
       "ordre": 2.45,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 111,
@@ -771,9 +702,7 @@
       "ordre": 2.46,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 98,
@@ -787,9 +716,7 @@
       "ordre": 2.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 118,
@@ -803,9 +730,7 @@
       "ordre": 2.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 135,
@@ -819,9 +744,7 @@
       "ordre": 2.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 206,
@@ -836,7 +759,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "arbitrage"
       ]
     },
@@ -880,9 +802,7 @@
       "ordre": 2.55,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 163,
@@ -896,9 +816,7 @@
       "ordre": 2.55,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 126,
@@ -912,9 +830,7 @@
       "ordre": 2.56,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 164,
@@ -928,9 +844,7 @@
       "ordre": 2.56,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 128,
@@ -944,9 +858,7 @@
       "ordre": 2.57,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 105,
@@ -960,9 +872,7 @@
       "ordre": 2.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 136,
@@ -976,9 +886,7 @@
       "ordre": 2.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 100,
@@ -992,9 +900,7 @@
       "ordre": 2.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 106,
@@ -1008,9 +914,7 @@
       "ordre": 2.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 119,
@@ -1024,9 +928,7 @@
       "ordre": 2.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 137,
@@ -1041,7 +943,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1057,9 +958,7 @@
       "ordre": 2.8,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 120,
@@ -1073,9 +972,7 @@
       "ordre": 2.8,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 109,
@@ -1089,9 +986,7 @@
       "ordre": 2.85,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 113,
@@ -1105,9 +1000,7 @@
       "ordre": 2.9,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 122,
@@ -1121,9 +1014,7 @@
       "ordre": 2.9,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 114,
@@ -1137,9 +1028,7 @@
       "ordre": 2.91,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 115,
@@ -1153,9 +1042,7 @@
       "ordre": 2.92,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 112,
@@ -1169,9 +1056,7 @@
       "ordre": 2.95,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 123,
@@ -1185,9 +1070,7 @@
       "ordre": 2.95,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 121,
@@ -1217,9 +1100,7 @@
       "ordre": 2.98,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 130,
@@ -1233,9 +1114,7 @@
       "ordre": 2.99,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 18,
@@ -1249,9 +1128,7 @@
       "ordre": 3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 26,
@@ -1265,9 +1142,7 @@
       "ordre": 3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 259,
@@ -1282,7 +1157,7 @@
       "debut": "2026-10-12",
       "cible": "2026-10-12",
       "labels": [
-        "10.0.0-beta"
+        "beta-1"
       ]
     },
     {
@@ -1297,9 +1172,7 @@
       "ordre": 3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "outillage-agents"
-      ]
+      "labels": []
     },
     {
       "number": 140,
@@ -1313,9 +1186,7 @@
       "ordre": 3.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 141,
@@ -1329,9 +1200,7 @@
       "ordre": 3.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 142,
@@ -1345,9 +1214,7 @@
       "ordre": 3.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 149,
@@ -1361,9 +1228,7 @@
       "ordre": 3.34,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 150,
@@ -1377,9 +1242,7 @@
       "ordre": 3.35,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 151,
@@ -1393,9 +1256,7 @@
       "ordre": 3.36,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 152,
@@ -1409,9 +1270,7 @@
       "ordre": 3.37,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 143,
@@ -1425,9 +1284,7 @@
       "ordre": 3.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 144,
@@ -1441,9 +1298,7 @@
       "ordre": 3.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 153,
@@ -1457,9 +1312,7 @@
       "ordre": 3.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 145,
@@ -1473,9 +1326,7 @@
       "ordre": 3.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 146,
@@ -1489,9 +1340,7 @@
       "ordre": 3.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 147,
@@ -1505,9 +1354,7 @@
       "ordre": 3.8,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 148,
@@ -1521,9 +1368,7 @@
       "ordre": 3.9,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 155,
@@ -1537,9 +1382,7 @@
       "ordre": 4,
       "debut": "2026-10-13",
       "cible": "2026-10-15",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 156,
@@ -1553,9 +1396,7 @@
       "ordre": 4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 336,
@@ -1569,9 +1410,7 @@
       "ordre": 4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "outillage-agents"
-      ]
+      "labels": []
     },
     {
       "number": 157,
@@ -1585,9 +1424,7 @@
       "ordre": 4.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 158,
@@ -1601,9 +1438,7 @@
       "ordre": 4.2,
       "debut": "2026-10-14",
       "cible": "2026-10-14",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 159,
@@ -1618,7 +1453,7 @@
       "debut": "2026-10-15",
       "cible": "2026-10-15",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -1633,9 +1468,7 @@
       "ordre": 4.3,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 160,
@@ -1649,9 +1482,7 @@
       "ordre": 4.4,
       "debut": "2026-10-16",
       "cible": "2026-10-16",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 440,
@@ -1665,9 +1496,7 @@
       "ordre": 4.4,
       "debut": "2026-10-16",
       "cible": "2026-10-16",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 59,
@@ -1682,7 +1511,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -1713,7 +1541,7 @@
       "debut": "2026-10-19",
       "cible": "2026-10-19",
       "labels": [
-        "10.0.0-beta"
+        "beta-2"
       ]
     },
     {
@@ -1729,7 +1557,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1746,7 +1573,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1763,7 +1589,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1780,7 +1605,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1797,7 +1621,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1813,9 +1636,7 @@
       "ordre": 4.55,
       "debut": "2026-10-19",
       "cible": "2026-10-19",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 211,
@@ -1830,7 +1651,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -1847,7 +1667,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -1865,7 +1684,7 @@
       "cible": "2026-10-20",
       "labels": [
         "rattrapable",
-        "10.0.0-beta"
+        "beta-2"
       ]
     },
     {
@@ -1881,7 +1700,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -1897,9 +1715,7 @@
       "ordre": 4.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 260,
@@ -1913,9 +1729,7 @@
       "ordre": 4.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 273,
@@ -1930,8 +1744,7 @@
       "debut": "2026-09-18",
       "cible": "2026-09-18",
       "labels": [
-        "irrattrapable",
-        "10.0.0-alpha"
+        "irrattrapable"
       ]
     },
     {
@@ -1946,9 +1759,7 @@
       "ordre": 4.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 418,
@@ -1962,9 +1773,7 @@
       "ordre": 4.7,
       "debut": "2026-10-21",
       "cible": "2026-10-21",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 254,
@@ -1978,9 +1787,7 @@
       "ordre": 4.75,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 420,
@@ -1994,9 +1801,7 @@
       "ordre": 4.75,
       "debut": "2026-10-21",
       "cible": "2026-10-21",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 20,
@@ -2011,7 +1816,7 @@
       "debut": "2026-10-21",
       "cible": "2026-10-21",
       "labels": [
-        "10.0.0-beta"
+        "beta-2"
       ]
     },
     {
@@ -2027,7 +1832,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     },
@@ -2044,7 +1848,7 @@
       "debut": "2026-10-22",
       "cible": "2026-10-22",
       "labels": [
-        "10.0.0-beta"
+        "beta-2"
       ]
     },
     {
@@ -2059,9 +1863,7 @@
       "ordre": 5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 54,
@@ -2075,9 +1877,7 @@
       "ordre": 5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 268,
@@ -2092,7 +1892,7 @@
       "debut": "2026-10-23",
       "cible": "2026-10-27",
       "labels": [
-        "10.0.0-beta"
+        "beta-3"
       ]
     },
     {
@@ -2107,9 +1907,7 @@
       "ordre": 5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 337,
@@ -2123,9 +1921,7 @@
       "ordre": 5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "outillage-agents"
-      ]
+      "labels": []
     },
     {
       "number": 24,
@@ -2140,7 +1936,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -2156,9 +1951,7 @@
       "ordre": 5.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 269,
@@ -2173,7 +1966,7 @@
       "debut": "2026-10-26",
       "cible": "2026-10-26",
       "labels": [
-        "10.0.0-beta"
+        "beta-3"
       ]
     },
     {
@@ -2188,9 +1981,7 @@
       "ordre": 5.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 35,
@@ -2204,9 +1995,7 @@
       "ordre": 5.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 51,
@@ -2220,9 +2009,7 @@
       "ordre": 5.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 270,
@@ -2237,7 +2024,7 @@
       "debut": "2026-10-27",
       "cible": "2026-10-27",
       "labels": [
-        "10.0.0-beta"
+        "beta-3"
       ]
     },
     {
@@ -2252,9 +2039,7 @@
       "ordre": 5.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 34,
@@ -2268,9 +2053,7 @@
       "ordre": 5.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 272,
@@ -2285,7 +2068,7 @@
       "debut": "2026-10-28",
       "cible": "2026-10-28",
       "labels": [
-        "10.0.0-beta"
+        "beta-3"
       ]
     },
     {
@@ -2300,9 +2083,7 @@
       "ordre": 5.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 91,
@@ -2316,9 +2097,7 @@
       "ordre": 5.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 287,
@@ -2332,9 +2111,7 @@
       "ordre": 5.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 132,
@@ -2348,9 +2125,7 @@
       "ordre": 5.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 280,
@@ -2364,9 +2139,7 @@
       "ordre": 5.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 133,
@@ -2380,9 +2153,7 @@
       "ordre": 5.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 291,
@@ -2396,9 +2167,7 @@
       "ordre": 5.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 134,
@@ -2412,9 +2181,7 @@
       "ordre": 5.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 295,
@@ -2428,9 +2195,7 @@
       "ordre": 5.8,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 297,
@@ -2444,9 +2209,7 @@
       "ordre": 5.9,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 298,
@@ -2460,9 +2223,7 @@
       "ordre": 5.91,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 299,
@@ -2476,9 +2237,7 @@
       "ordre": 5.92,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 300,
@@ -2492,9 +2251,7 @@
       "ordre": 5.93,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 22,
@@ -2508,9 +2265,7 @@
       "ordre": 6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 178,
@@ -2524,9 +2279,7 @@
       "ordre": 6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 189,
@@ -2540,9 +2293,7 @@
       "ordre": 6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 197,
@@ -2556,9 +2307,7 @@
       "ordre": 6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 301,
@@ -2572,9 +2321,7 @@
       "ordre": 6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 180,
@@ -2588,9 +2335,7 @@
       "ordre": 6.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 190,
@@ -2604,9 +2349,7 @@
       "ordre": 6.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 198,
@@ -2620,9 +2363,7 @@
       "ordre": 6.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 222,
@@ -2636,9 +2377,7 @@
       "ordre": 6.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 181,
@@ -2652,9 +2391,7 @@
       "ordre": 6.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 191,
@@ -2668,9 +2405,7 @@
       "ordre": 6.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 199,
@@ -2684,9 +2419,7 @@
       "ordre": 6.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 302,
@@ -2700,9 +2433,7 @@
       "ordre": 6.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 182,
@@ -2716,9 +2447,7 @@
       "ordre": 6.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 192,
@@ -2732,9 +2461,7 @@
       "ordre": 6.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 200,
@@ -2748,9 +2475,7 @@
       "ordre": 6.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 303,
@@ -2764,9 +2489,7 @@
       "ordre": 6.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 183,
@@ -2780,9 +2503,7 @@
       "ordre": 6.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 193,
@@ -2796,9 +2517,7 @@
       "ordre": 6.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 202,
@@ -2812,9 +2531,7 @@
       "ordre": 6.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 304,
@@ -2828,9 +2545,7 @@
       "ordre": 6.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 45,
@@ -2844,9 +2559,7 @@
       "ordre": 6.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 184,
@@ -2860,9 +2573,7 @@
       "ordre": 6.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 203,
@@ -2876,9 +2587,7 @@
       "ordre": 6.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 305,
@@ -2892,9 +2601,7 @@
       "ordre": 6.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 46,
@@ -2908,9 +2615,7 @@
       "ordre": 6.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 186,
@@ -2924,9 +2629,7 @@
       "ordre": 6.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 306,
@@ -2940,9 +2643,7 @@
       "ordre": 6.6,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 48,
@@ -2956,9 +2657,7 @@
       "ordre": 6.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 185,
@@ -2972,9 +2671,7 @@
       "ordre": 6.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 289,
@@ -2988,9 +2685,7 @@
       "ordre": 7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 223,
@@ -3004,9 +2699,7 @@
       "ordre": 7.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 285,
@@ -3020,9 +2713,7 @@
       "ordre": 7.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 296,
@@ -3036,9 +2727,7 @@
       "ordre": 7.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 218,
@@ -3052,9 +2741,7 @@
       "ordre": 8,
       "debut": "2026-09-16",
       "cible": "2026-09-18",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 255,
@@ -3068,9 +2755,7 @@
       "ordre": 8.5,
       "debut": "2026-09-18",
       "cible": "2026-09-18",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 419,
@@ -3084,9 +2769,7 @@
       "ordre": 8.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 381,
@@ -3100,9 +2783,7 @@
       "ordre": 8.7,
       "debut": "2026-09-18",
       "cible": "2026-09-19",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 421,
@@ -3116,9 +2797,7 @@
       "ordre": 8.9,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 388,
@@ -3132,9 +2811,7 @@
       "ordre": 9,
       "debut": "2026-09-15",
       "cible": "2026-09-30",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 429,
@@ -3148,9 +2825,7 @@
       "ordre": 9.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 432,
@@ -3164,9 +2839,7 @@
       "ordre": 9.15,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 389,
@@ -3180,9 +2853,7 @@
       "ordre": 9.2,
       "debut": "2026-09-15",
       "cible": "2026-09-15",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 430,
@@ -3196,9 +2867,7 @@
       "ordre": 9.2,
       "debut": "2026-09-19",
       "cible": "2026-09-22",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 404,
@@ -3212,9 +2881,7 @@
       "ordre": 9.22,
       "debut": "2026-09-18",
       "cible": "2026-09-19",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 394,
@@ -3228,9 +2895,7 @@
       "ordre": 9.25,
       "debut": "2026-09-15",
       "cible": "2026-09-15",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 397,
@@ -3244,9 +2909,7 @@
       "ordre": 9.26,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 398,
@@ -3260,9 +2923,7 @@
       "ordre": 9.27,
       "debut": "2026-09-17",
       "cible": "2026-09-18",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 359,
@@ -3277,7 +2938,7 @@
       "debut": "2026-10-29",
       "cible": "2026-10-29",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -3292,9 +2953,7 @@
       "ordre": 9.3,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 431,
@@ -3308,9 +2967,7 @@
       "ordre": 9.3,
       "debut": "2026-09-22",
       "cible": "2026-09-22",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 406,
@@ -3325,7 +2982,7 @@
       "debut": "2026-10-29",
       "cible": "2026-10-29",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -3341,7 +2998,7 @@
       "debut": "2026-10-30",
       "cible": "2026-10-30",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -3357,8 +3014,7 @@
       "debut": "2026-09-16",
       "cible": "2026-09-16",
       "labels": [
-        "rattrapable",
-        "10.0.0-alpha"
+        "rattrapable"
       ]
     },
     {
@@ -3374,7 +3030,7 @@
       "debut": "2026-10-30",
       "cible": "2026-10-30",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -3389,9 +3045,7 @@
       "ordre": 9.4,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 214,
@@ -3405,9 +3059,7 @@
       "ordre": 9.45,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 395,
@@ -3421,9 +3073,7 @@
       "ordre": 9.45,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 276,
@@ -3437,9 +3087,7 @@
       "ordre": 9.47,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 277,
@@ -3453,9 +3101,7 @@
       "ordre": 9.48,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 42,
@@ -3469,9 +3115,7 @@
       "ordre": 9.5,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 176,
@@ -3485,9 +3129,7 @@
       "ordre": 9.5,
       "debut": "2026-11-02",
       "cible": "2026-11-02",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 392,
@@ -3501,9 +3143,7 @@
       "ordre": 9.5,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 396,
@@ -3518,7 +3158,7 @@
       "debut": "2026-11-02",
       "cible": "2026-11-02",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -3534,7 +3174,7 @@
       "debut": "2026-11-06",
       "cible": "2026-11-06",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -3549,9 +3189,7 @@
       "ordre": 9.57,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 399,
@@ -3566,7 +3204,7 @@
       "debut": "2026-11-05",
       "cible": "2026-11-05",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -3582,7 +3220,7 @@
       "debut": "2026-11-05",
       "cible": "2026-11-05",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -3598,7 +3236,7 @@
       "debut": "2026-11-03",
       "cible": "2026-11-03",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -3614,8 +3252,7 @@
       "debut": "2026-09-18",
       "cible": "2026-09-18",
       "labels": [
-        "arbitrage",
-        "10.0.0-alpha"
+        "arbitrage"
       ]
     },
     {
@@ -3630,9 +3267,7 @@
       "ordre": 9.7,
       "debut": "2026-09-19",
       "cible": "2026-09-19",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 279,
@@ -3646,9 +3281,7 @@
       "ordre": 9.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 314,
@@ -3663,7 +3296,7 @@
       "debut": "2026-11-04",
       "cible": "2026-11-04",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -3678,9 +3311,7 @@
       "ordre": 9.75,
       "debut": "2026-11-04",
       "cible": "2026-11-04",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 416,
@@ -3694,9 +3325,7 @@
       "ordre": 9.76,
       "debut": "2026-11-04",
       "cible": "2026-11-04",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 352,
@@ -3711,7 +3340,7 @@
       "debut": "2026-11-05",
       "cible": "2026-11-05",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -3726,9 +3355,7 @@
       "ordre": 9.85,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 325,
@@ -3742,9 +3369,7 @@
       "ordre": 9.86,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 326,
@@ -3758,9 +3383,7 @@
       "ordre": 9.87,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 315,
@@ -3774,9 +3397,7 @@
       "ordre": 9.9,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 316,
@@ -3790,9 +3411,7 @@
       "ordre": 9.9,
       "debut": "2026-09-22",
       "cible": "2026-09-28",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 358,
@@ -3806,9 +3425,7 @@
       "ordre": 9.91,
       "debut": "2026-09-25",
       "cible": "2026-09-25",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 317,
@@ -3822,9 +3439,7 @@
       "ordre": 9.92,
       "debut": "2026-09-14",
       "cible": "2026-09-14",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 361,
@@ -3838,9 +3453,7 @@
       "ordre": 9.92,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 377,
@@ -3854,9 +3467,7 @@
       "ordre": 9.92,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 424,
@@ -3870,9 +3481,7 @@
       "ordre": 9.92,
       "debut": "2026-09-18",
       "cible": "2026-09-18",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 353,
@@ -3886,9 +3495,7 @@
       "ordre": 9.925,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 318,
@@ -3902,9 +3509,7 @@
       "ordre": 9.93,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 322,
@@ -3918,9 +3523,7 @@
       "ordre": 9.93,
       "debut": "2026-09-26",
       "cible": "2026-09-26",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 338,
@@ -3934,9 +3537,7 @@
       "ordre": 9.93,
       "debut": "2026-09-15",
       "cible": "2026-09-15",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 354,
@@ -3950,9 +3551,7 @@
       "ordre": 9.93,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 360,
@@ -3966,9 +3565,7 @@
       "ordre": 9.93,
       "debut": "2026-09-15",
       "cible": "2026-09-15",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 386,
@@ -3982,9 +3579,7 @@
       "ordre": 9.93,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 319,
@@ -3998,9 +3593,7 @@
       "ordre": 9.94,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 327,
@@ -4014,9 +3607,7 @@
       "ordre": 9.94,
       "debut": "2026-09-28",
       "cible": "2026-09-28",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 339,
@@ -4030,9 +3621,7 @@
       "ordre": 9.94,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 355,
@@ -4046,9 +3635,7 @@
       "ordre": 9.94,
       "debut": "2026-09-16",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 369,
@@ -4062,9 +3649,7 @@
       "ordre": 9.94,
       "debut": "2026-09-16",
       "cible": "2026-09-16",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 340,
@@ -4078,9 +3663,7 @@
       "ordre": 9.9405,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 362,
@@ -4094,9 +3677,7 @@
       "ordre": 9.9406,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 363,
@@ -4110,9 +3691,7 @@
       "ordre": 9.9407,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 364,
@@ -4126,9 +3705,7 @@
       "ordre": 9.9408,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 365,
@@ -4142,9 +3719,7 @@
       "ordre": 9.9409,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 347,
@@ -4158,9 +3733,7 @@
       "ordre": 9.941,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 366,
@@ -4174,9 +3747,7 @@
       "ordre": 9.9411,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 367,
@@ -4190,9 +3761,7 @@
       "ordre": 9.9412,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 368,
@@ -4206,9 +3775,7 @@
       "ordre": 9.9413,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 373,
@@ -4222,9 +3789,7 @@
       "ordre": 9.9414,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 374,
@@ -4238,9 +3803,7 @@
       "ordre": 9.9415,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 375,
@@ -4254,9 +3817,7 @@
       "ordre": 9.9416,
       "debut": "2026-09-13",
       "cible": "2026-09-13",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 341,
@@ -4270,9 +3831,7 @@
       "ordre": 9.9417,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 376,
@@ -4286,9 +3845,7 @@
       "ordre": 9.9417,
       "debut": "2026-09-13",
       "cible": "2026-09-13",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 344,
@@ -4302,9 +3859,7 @@
       "ordre": 9.942,
       "debut": "2026-09-18",
       "cible": "2026-09-18",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 350,
@@ -4318,9 +3873,7 @@
       "ordre": 9.943,
       "debut": "2026-09-21",
       "cible": "2026-09-21",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 356,
@@ -4334,9 +3887,7 @@
       "ordre": 9.945,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 320,
@@ -4350,9 +3901,7 @@
       "ordre": 9.95,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 357,
@@ -4366,9 +3915,7 @@
       "ordre": 9.95,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 382,
@@ -4382,9 +3929,7 @@
       "ordre": 9.95,
       "debut": "2026-09-29",
       "cible": "2026-09-29",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 346,
@@ -4398,9 +3943,7 @@
       "ordre": 9.951,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 343,
@@ -4414,9 +3957,7 @@
       "ordre": 9.952,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 323,
@@ -4430,9 +3971,7 @@
       "ordre": 9.98,
       "debut": "2026-09-24",
       "cible": "2026-09-24",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 328,
@@ -4446,9 +3985,7 @@
       "ordre": 9.995,
       "debut": "2026-09-28",
       "cible": "2026-09-28",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 329,
@@ -4462,9 +3999,7 @@
       "ordre": 9.996,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 330,
@@ -4478,9 +4013,7 @@
       "ordre": 9.997,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 331,
@@ -4494,9 +4027,7 @@
       "ordre": 9.998,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 332,
@@ -4510,9 +4041,7 @@
       "ordre": 9.999,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 80,
@@ -4526,9 +4055,7 @@
       "ordre": 10,
       "debut": "2026-09-20",
       "cible": "2026-09-20",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 138,
@@ -4542,9 +4069,7 @@
       "ordre": 10,
       "debut": "2026-09-24",
       "cible": "2026-09-24",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 370,
@@ -4558,9 +4083,7 @@
       "ordre": 10.5,
       "debut": "2026-09-12",
       "cible": "2026-09-12",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 139,
@@ -4575,7 +4098,7 @@
       "debut": "2026-11-06",
       "cible": "2026-11-06",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -4590,9 +4113,7 @@
       "ordre": 11,
       "debut": "2026-09-21",
       "cible": "2026-09-21",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 90,
@@ -4606,9 +4127,7 @@
       "ordre": 11.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 33,
@@ -4622,9 +4141,7 @@
       "ordre": 12,
       "debut": "2026-09-21",
       "cible": "2026-09-21",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 378,
@@ -4638,9 +4155,7 @@
       "ordre": 12,
       "debut": "2026-11-24",
       "cible": "2026-11-28",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 379,
@@ -4654,9 +4169,7 @@
       "ordre": 12,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 437,
@@ -4670,9 +4183,7 @@
       "ordre": 12.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 438,
@@ -4686,9 +4197,7 @@
       "ordre": 12.2,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 439,
@@ -4702,9 +4211,7 @@
       "ordre": 12.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 103,
@@ -4719,7 +4226,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -4735,9 +4241,7 @@
       "ordre": 12.7,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 60,
@@ -4752,8 +4256,7 @@
       "debut": "2026-09-22",
       "cible": "2026-09-22",
       "labels": [
-        "rattrapable",
-        "10.0.0-alpha"
+        "rattrapable"
       ]
     },
     {
@@ -4768,9 +4271,7 @@
       "ordre": 14,
       "debut": "2026-10-02",
       "cible": "2026-10-02",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 83,
@@ -4784,9 +4285,7 @@
       "ordre": 15,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 40,
@@ -4801,7 +4300,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -4818,7 +4316,6 @@
       "debut": "2026-11-16",
       "cible": "2026-12-15",
       "labels": [
-        "10.1.0",
         "arbitrage"
       ]
     },
@@ -4834,9 +4331,7 @@
       "ordre": 16.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 286,
@@ -4850,9 +4345,7 @@
       "ordre": 16.3,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 44,
@@ -4867,7 +4360,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -4883,9 +4375,7 @@
       "ordre": 17,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 49,
@@ -4900,7 +4390,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "rattrapable"
       ]
     },
@@ -4916,9 +4405,7 @@
       "ordre": 18,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 86,
@@ -4932,9 +4419,7 @@
       "ordre": 19,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 290,
@@ -4948,9 +4433,7 @@
       "ordre": 19,
       "debut": "2026-10-05",
       "cible": "2026-10-05",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 87,
@@ -4964,9 +4447,7 @@
       "ordre": 20,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 292,
@@ -4981,8 +4462,7 @@
       "debut": "2026-09-23",
       "cible": "2026-09-23",
       "labels": [
-        "arbitrage",
-        "10.0.0-alpha"
+        "arbitrage"
       ]
     },
     {
@@ -4997,9 +4477,7 @@
       "ordre": 21,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 88,
@@ -5013,9 +4491,7 @@
       "ordre": 21,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 23,
@@ -5030,8 +4506,7 @@
       "debut": "2026-10-07",
       "cible": "2026-10-07",
       "labels": [
-        "rattrapable",
-        "10.0.0-alpha"
+        "rattrapable"
       ]
     },
     {
@@ -5048,7 +4523,7 @@
       "cible": "2026-11-09",
       "labels": [
         "rattrapable",
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -5063,9 +4538,7 @@
       "ordre": 30,
       "debut": "2026-11-11",
       "cible": "2026-11-11",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 43,
@@ -5079,9 +4552,7 @@
       "ordre": 30,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 36,
@@ -5095,9 +4566,7 @@
       "ordre": 31,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 37,
@@ -5111,9 +4580,7 @@
       "ordre": 32,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 38,
@@ -5127,9 +4594,7 @@
       "ordre": 33,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 39,
@@ -5143,9 +4608,7 @@
       "ordre": 34,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 52,
@@ -5159,9 +4622,7 @@
       "ordre": 39,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 342,
@@ -5175,9 +4636,7 @@
       "ordre": 45.3,
       "debut": "2026-11-23",
       "cible": "2026-11-23",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 345,
@@ -5191,9 +4650,7 @@
       "ordre": 45.6,
       "debut": "2026-11-25",
       "cible": "2026-11-25",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 348,
@@ -5207,9 +4664,7 @@
       "ordre": 45.9,
       "debut": "2026-11-27",
       "cible": "2026-11-27",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 349,
@@ -5223,9 +4678,7 @@
       "ordre": 46,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 371,
@@ -5240,7 +4693,7 @@
       "debut": "2026-11-13",
       "cible": "2026-11-13",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -5256,7 +4709,7 @@
       "debut": "2026-11-16",
       "cible": "2026-11-16",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -5271,9 +4724,7 @@
       "ordre": 46.3,
       "debut": "2026-11-18",
       "cible": "2026-11-18",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 412,
@@ -5288,7 +4739,7 @@
       "debut": "2026-11-17",
       "cible": "2026-11-17",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
       ]
     },
     {
@@ -5303,9 +4754,7 @@
       "ordre": 46.4,
       "debut": "2026-11-17",
       "cible": "2026-11-17",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 433,
@@ -5319,9 +4768,7 @@
       "ordre": 46.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 434,
@@ -5335,9 +4782,7 @@
       "ordre": 46.4,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 351,
@@ -5352,7 +4797,7 @@
       "debut": "2026-11-17",
       "cible": "2026-11-17",
       "labels": [
-        "10.0.0-beta"
+        "beta-2"
       ]
     },
     {
@@ -5368,7 +4813,7 @@
       "debut": "2026-11-18",
       "cible": "2026-11-18",
       "labels": [
-        "10.0.0-beta"
+        "beta-2"
       ]
     },
     {
@@ -5383,9 +4828,7 @@
       "ordre": 49.2,
       "debut": "2026-11-18",
       "cible": "2026-11-18",
-      "labels": [
-        "10.0.0-beta"
-      ]
+      "labels": []
     },
     {
       "number": 427,
@@ -5400,7 +4843,7 @@
       "debut": "2026-11-19",
       "cible": "2026-11-19",
       "labels": [
-        "10.0.0-beta"
+        "beta-4"
       ]
     },
     {
@@ -5416,7 +4859,103 @@
       "debut": "2026-11-19",
       "cible": "2026-11-20",
       "labels": [
-        "10.0.0-beta"
+        "beta-5"
+      ]
+    },
+    {
+      "number": 445,
+      "title": "test(ecosysteme): éprouver le framework par un module tiers temps réel",
+      "url": "https://github.com/nodefony/nodefony-core/issues/445",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 7,
+      "ordre": 50,
+      "debut": "2026-11-23",
+      "cible": "2026-12-01",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 446,
+      "title": "test(ecosysteme): figer l'énoncé de l'épreuve et sa grille de notation",
+      "url": "https://github.com/nodefony/nodefony-core/issues/446",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 50.2,
+      "debut": "2026-11-23",
+      "cible": "2026-11-23",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 447,
+      "title": "test(ecosysteme): journaliser pas à pas ce que fait l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/447",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 50.3,
+      "debut": "2026-11-24",
+      "cible": "2026-11-24",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 448,
+      "title": "test(ecosysteme): jouer l'épreuve sans jamais guider l'agent",
+      "url": "https://github.com/nodefony/nodefony-core/issues/448",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 50.4,
+      "debut": "2026-11-25",
+      "cible": "2026-11-25",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 449,
+      "title": "test(ecosysteme): trier ce qui remonte au cœur du framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/449",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 50.5,
+      "debut": "2026-11-26",
+      "cible": "2026-11-26",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 450,
+      "title": "feat(ecosysteme): livrer le tableau blanc comme module installable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/450",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 50.6,
+      "debut": "2026-11-27",
+      "cible": "2026-12-01",
+      "labels": [
+        "beta-6"
       ]
     },
     {
@@ -5431,9 +4970,7 @@
       "ordre": 55,
       "debut": "2026-09-24",
       "cible": "2026-09-24",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 408,
@@ -5447,9 +4984,7 @@
       "ordre": 56,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 442,
@@ -5463,9 +4998,7 @@
       "ordre": 56,
       "debut": "2026-09-25",
       "cible": "2026-09-25",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 409,
@@ -5479,9 +5012,7 @@
       "ordre": 57,
       "debut": "2026-09-17",
       "cible": "2026-09-18",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 443,
@@ -5495,9 +5026,7 @@
       "ordre": 57,
       "debut": "2026-09-25",
       "cible": "2026-09-25",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 410,
@@ -5511,9 +5040,7 @@
       "ordre": 58,
       "debut": "2026-09-17",
       "cible": "2026-09-17",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 444,
@@ -5527,9 +5054,7 @@
       "ordre": 58,
       "debut": "2026-09-26",
       "cible": "2026-09-26",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 47,
@@ -5543,9 +5068,7 @@
       "ordre": 59,
       "debut": "2026-11-18",
       "cible": "2026-11-18",
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 411,
@@ -5559,9 +5082,7 @@
       "ordre": 59,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0-alpha"
-      ]
+      "labels": []
     },
     {
       "number": 27,
@@ -5575,9 +5096,7 @@
       "ordre": 60,
       "debut": "2026-11-19",
       "cible": "2026-11-19",
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 179,
@@ -5591,9 +5110,7 @@
       "ordre": 60.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 165,
@@ -5607,9 +5124,7 @@
       "ordre": 70,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 166,
@@ -5623,9 +5138,7 @@
       "ordre": 70.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 167,
@@ -5703,9 +5216,7 @@
       "ordre": 90,
       "debut": null,
       "cible": null,
-      "labels": [
-        "outillage-agents"
-      ]
+      "labels": []
     },
     {
       "number": 28,
@@ -5719,9 +5230,7 @@
       "ordre": 100,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 31,
@@ -5735,9 +5244,7 @@
       "ordre": 101,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 63,
@@ -5751,9 +5258,7 @@
       "ordre": 110,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 204,
@@ -5767,9 +5272,7 @@
       "ordre": 110.1,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 76,
@@ -5783,9 +5286,7 @@
       "ordre": 111,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 77,
@@ -5799,9 +5300,7 @@
       "ordre": 112,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 78,
@@ -5815,9 +5314,7 @@
       "ordre": 113,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 64,
@@ -5831,9 +5328,7 @@
       "ordre": 114,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 66,
@@ -5847,9 +5342,7 @@
       "ordre": 115,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 67,
@@ -5863,9 +5356,7 @@
       "ordre": 116,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 321,
@@ -5879,9 +5370,7 @@
       "ordre": 116.5,
       "debut": "2026-09-25",
       "cible": "2026-09-25",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 71,
@@ -5896,7 +5385,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.1.0",
         "backlog"
       ]
     },
@@ -5912,9 +5400,7 @@
       "ordre": 118,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 69,
@@ -5928,9 +5414,7 @@
       "ordre": 119,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 72,
@@ -5944,9 +5428,7 @@
       "ordre": 120,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 73,
@@ -5960,9 +5442,7 @@
       "ordre": 121,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 75,
@@ -5977,7 +5457,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.1.0",
         "arbitrage"
       ]
     },
@@ -5993,9 +5472,7 @@
       "ordre": 123,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 161,
@@ -6009,9 +5486,7 @@
       "ordre": 124,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 70,
@@ -6025,9 +5500,7 @@
       "ordre": 130,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 68,
@@ -6041,9 +5514,7 @@
       "ordre": 131,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 74,
@@ -6057,9 +5528,7 @@
       "ordre": 132,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 65,
@@ -6073,9 +5542,7 @@
       "ordre": 133,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 171,
@@ -6089,9 +5556,7 @@
       "ordre": 134,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 172,
@@ -6105,9 +5570,7 @@
       "ordre": 135,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 173,
@@ -6121,9 +5584,7 @@
       "ordre": 136,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 188,
@@ -6151,9 +5612,7 @@
       "ordre": 138,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 195,
@@ -6167,9 +5626,7 @@
       "ordre": 139,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 196,
@@ -6183,9 +5640,7 @@
       "ordre": 140,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 216,
@@ -6199,9 +5654,7 @@
       "ordre": 141,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 221,
@@ -6215,9 +5668,7 @@
       "ordre": 141,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 50,
@@ -6231,9 +5682,7 @@
       "ordre": 142,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 217,
@@ -6247,9 +5696,7 @@
       "ordre": 142,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 224,
@@ -6263,9 +5710,7 @@
       "ordre": 143,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 225,
@@ -6279,9 +5724,7 @@
       "ordre": 144,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 226,
@@ -6295,9 +5738,7 @@
       "ordre": 145,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 227,
@@ -6311,9 +5752,7 @@
       "ordre": 146,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 228,
@@ -6327,9 +5766,7 @@
       "ordre": 147,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 229,
@@ -6343,9 +5780,7 @@
       "ordre": 148,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 230,
@@ -6359,9 +5794,7 @@
       "ordre": 149,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 402,
@@ -6375,9 +5808,7 @@
       "ordre": 150.5,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 403,
@@ -6391,9 +5822,7 @@
       "ordre": 150.6,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 231,
@@ -6407,9 +5836,7 @@
       "ordre": 151,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 232,
@@ -6423,9 +5850,7 @@
       "ordre": 152,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 233,
@@ -6439,9 +5864,7 @@
       "ordre": 153,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 234,
@@ -6455,9 +5878,7 @@
       "ordre": 154,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 235,
@@ -6471,9 +5892,7 @@
       "ordre": 155,
       "debut": "2026-11-16",
       "cible": "2026-12-15",
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 236,
@@ -6487,9 +5906,7 @@
       "ordre": 156,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 237,
@@ -6503,9 +5920,7 @@
       "ordre": 157,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 238,
@@ -6519,9 +5934,7 @@
       "ordre": 158,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 239,
@@ -6535,9 +5948,7 @@
       "ordre": 159,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 240,
@@ -6551,9 +5962,7 @@
       "ordre": 160,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 241,
@@ -6567,9 +5976,7 @@
       "ordre": 161,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.2.0"
-      ]
+      "labels": []
     },
     {
       "number": 242,
@@ -6583,9 +5990,7 @@
       "ordre": 162,
       "debut": null,
       "cible": null,
-      "labels": [
-        "11.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 243,
@@ -6599,9 +6004,7 @@
       "ordre": 163,
       "debut": null,
       "cible": null,
-      "labels": [
-        "11.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 244,
@@ -6615,9 +6018,7 @@
       "ordre": 164,
       "debut": null,
       "cible": null,
-      "labels": [
-        "11.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 245,
@@ -6631,9 +6032,7 @@
       "ordre": 165,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 246,
@@ -6647,9 +6046,7 @@
       "ordre": 166,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 247,
@@ -6663,9 +6060,7 @@
       "ordre": 167,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 248,
@@ -6679,9 +6074,7 @@
       "ordre": 168,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 249,
@@ -6695,9 +6088,7 @@
       "ordre": 169,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 250,
@@ -6711,9 +6102,7 @@
       "ordre": 170,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 251,
@@ -6727,9 +6116,7 @@
       "ordre": 171,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 252,
@@ -6743,9 +6130,7 @@
       "ordre": 172,
       "debut": null,
       "cible": null,
-      "labels": [
-        "12.0.0"
-      ]
+      "labels": []
     },
     {
       "number": 201,
@@ -6823,9 +6208,7 @@
       "ordre": 904,
       "debut": null,
       "cible": null,
-      "labels": [
-        "10.1.0"
-      ]
+      "labels": []
     },
     {
       "number": 436,
@@ -6856,7 +6239,6 @@
       "debut": null,
       "cible": null,
       "labels": [
-        "10.0.0",
         "irrattrapable"
       ]
     }

@@ -6,7 +6,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-09-20
+updated: 2026-09-21
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -209,7 +209,7 @@ source: "docs/skills/index.md"
 | [`nodefony-studio-dev`](nodefony-studio-dev.md) | 2.0.0 | 145 | 6 | 0 | ✅ |
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 207 | 1 | 0 | ✅ |
-| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 409 | 7 | 15 | ✅ |
+| [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 413 | 7 | 15 | ✅ |
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 193 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |

@@ -326,6 +326,10 @@ d'ordonner ou d'estimer.
   cher, chacun repayant son chargement de contexte.
 - **Un jalon promet une date ; le backlog n'en promet aucune.** Si la réponse honnête est « quand
   j'aurai le temps », le ticket porte `backlog`, pas un jalon.
+- **Un jalon promet une DATE, un label groupe un LOT — jamais le même nom.** Un label homonyme d'un
+  jalon se périme dès qu'on déplace le jalon (mesuré : quinze tickets contredits par le leur).
+  Le lot, lui, ne promet rien : c'est sa fermeture complète qui DÉCLENCHE la publication —
+  `gh issue list --label beta-1 --state open` vide, la beta.1 part. `LABEL-DOUBLE-JALON` le contrôle.
 - **Le contrôle se lance** : `npm run ticket:lint` (0 = le tableau se tient).
 
 ## 6. Fermer un ticket — le geste est TRIPLE

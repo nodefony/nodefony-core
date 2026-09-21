@@ -12,7 +12,8 @@
 
 |                       |                                                                                                                      |
 | --------------------- | -------------------------------------------------------------------------------------------------------------------- |
-| **Jalon**             | `10.0.0` (échéance) · `10.1` (suit par npm) · **aucun jalon** = le backlog, label `backlog`                          |
+| **Jalon**             | promet une **DATE** — `10.0.0-beta` et son échéance · **aucun jalon** = le backlog, label `backlog`                  |
+| **`beta-N`**          | un **LOT** de contenu, qui ne promet aucune date — sa fermeture complète DÉCLENCHE la publication (§ ci-dessous)     |
 | **`irrattrapable`**   | une version suivante ne peut PAS le réparer — dépendance publiée, contrat gelé                                       |
 | **`rattrapable`**     | une 10.0.1 le répare — premier à glisser si la date se tend                                                          |
 | **`arbitrage`**       | une décision à rendre, pas du travail à faire                                                                        |
@@ -47,13 +48,14 @@ npm run ticket:lint -- --milestone 10.0.0 # un seul jalon
 npm run ticket:lint -- --json             # pour un autre outil
 ```
 
-Neuf contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
+Dix contrôles, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
 arbitrage sans bonne réponse mécanique :
 
 | Code                           | Ce qu'il attrape                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------------------------ |
 | `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                           |
 | `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                       |
+| `LABEL-DOUBLE-JALON`           | un label porte le nom d'un jalon — deux instruments confondus, le double se périme         |
 | `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                             |
 | `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                        |
 | `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle           |
@@ -84,8 +86,40 @@ demi-journée déjà cadré va dans le jalon. Basculer coûte une commande, et s
 sens :
 
 ```bash
-gh issue edit <n> --remove-milestone --remove-label "10.1" --add-label "backlog"
+gh issue edit <n> --remove-milestone --add-label "backlog"
 ```
+
+### 🔴 Un label ne REDIT jamais un jalon — il dit ce que le jalon ne sait pas dire
+
+**Un jalon promet une date ; un label ne promet rien.** Ce sont deux instruments, et leur donner le
+même nom les confond au point que l'un finit par mentir sur l'autre. Mesuré sur ce dépôt : huit
+labels portaient le nom des huit jalons, et **quinze tickets ouverts** affichaient un label de
+version que leur jalon contredisait — quatorze marqués `10.1.0` alors qu'ils étaient passés au
+jalon `10.2.0`, et un ticket portant à la fois `10.1.0` et `backlog`. Personne ne déplace un double
+en déplaçant un jalon. La cause était dans l'outil, pas dans la discipline : `ticket-open.mjs`
+posait le label homonyme à chaque création.
+
+Le label sert donc à ce dont le jalon est incapable : **découper un jalon en LOTS**, sans avoir à
+promettre une date par lot.
+
+> **La date n'est plus une décision, c'est une conséquence.** Le label dit CE QUI doit être dedans ;
+> le travail dit QUAND ça sort. Une publication `10.0.0-beta.N` part le jour où le label `beta-N`
+> n'a plus aucun ticket ouvert — et ça se constate, ça ne s'estime pas :
+
+```bash
+gh issue list --label beta-1 --state open   # vide → la beta.1 part
+```
+
+C'est ce qui débloque le cas courant, « je ne sais pas quand faire la beta 1 » : on n'a pas à le
+savoir. Un jalon par lot obligerait à inventer cinq échéances, dont aucune ne serait tenue, et le
+compteur d'avancement cesserait d'être lisible.
+
+**Les lots se composent par CAUSE commune, jamais par taille.** Un lot est une question à laquelle
+la publication répond (« publier sans les mains », « ce que l'installeur reçoit ») ; un lot
+équilibré au nombre de tickets n'est qu'un tri, et ne dit rien de ce qui peut sortir ensemble.
+
+Le champ `Ordre` reste ce qu'il est — les **dépendances**. Les deux se superposent sans se
+remplacer : l'ordre dit ce qui passe avant quoi, le label dit ce qui sort ensemble.
 
 ### L'ordre VISUEL de la grille se pose, le GROUPEMENT non
 
