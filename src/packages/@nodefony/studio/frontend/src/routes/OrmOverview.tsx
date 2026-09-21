@@ -46,7 +46,6 @@ import {
   StickyTabsList,
   DataState,
   DocHint,
-  InfoHint,
   MiniChart,
   FlashValue,
 } from "../components/ui";
@@ -774,25 +773,34 @@ export const OrmOverview = observer(
      * contraire — une bulle par badge — multiplie les cibles de survol sans en
      * rendre AUCUNE atteignable au clavier.
      */
-    const aideConnecteur = useCallback(
-      (o: OrmSummary, role: { hint: string }, bricks: string[]): string => {
-        const parts = [role.hint];
-        if (bricks.length > 0) {
-          parts.push(
-            `Briques durables résolues sur ce moteur (${bricks.length}) : ${bricks.join(", ")}.`,
-          );
-        }
-        if (o.connection?.target === ":memory:") {
-          parts.push(
-            "Base en mémoire : tout son contenu disparaît au redémarrage.",
-          );
-        }
+    const sectionsConnecteur = useCallback(
+      (
+        o: OrmSummary,
+        role: { label: string; hint: string },
+        bricks: string[],
+      ): { label: string; body: string }[] => {
+        const sections = [{ label: role.label, body: role.hint }];
+        sections.push({
+          label: "Où vivent les données",
+          body:
+            o.connection?.target === ":memory:"
+              ? "En mémoire du processus : tout son contenu disparaît au redémarrage."
+              : (o.connection?.target ?? "emplacement inconnu"),
+        });
+        sections.push({
+          label: "Briques durables",
+          body:
+            bricks.length > 0
+              ? `${bricks.length} résolue(s) sur ce moteur : ${bricks.join(", ")}.`
+              : "Aucune. Les sessions, comptes, jetons et audit de cette application sont résolus sur un autre connecteur de cette page.",
+        });
         if (!o.connected) {
-          parts.push(
-            "Connecteur NON relié : les entités qu'il porte sont injoignables.",
-          );
+          sections.push({
+            label: "Non relié",
+            body: "Le connecteur n'est pas joignable : les entités qu'il porte ne répondent pas.",
+          });
         }
-        return parts.join(" ");
+        return sections;
       },
       [],
     );
@@ -1317,7 +1325,12 @@ export const OrmOverview = observer(
                                 focusable, et `aria-label` est interdit sur son
                                 `<div>`. `InfoHint` porte la norme : cible de
                                 24 px, `aria-label`, events hover/focus/touch. */}
-                            <InfoHint text={aideConnecteur(o, role, bricks)} />
+                            <DocHint
+                              title={o.name}
+                              version={ORM_DOC}
+                              summary={`${o.vendor} · ${driver} — ${role.label}.`}
+                              sections={sectionsConnecteur(o, role, bricks)}
+                            />
                           </Group>
 
                           <Group gap={6} mb={6}>
