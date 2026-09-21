@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T12:27:37.358Z",
+  "generatedAt": "2026-09-21T12:49:01.672Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 21,
+      "closed": 23,
       "dueOn": "2026-10-14T00:00:00Z",
       "number": 7,
-      "open": 43,
+      "open": 41,
       "title": "10.0.0-beta"
     },
     {
@@ -695,8 +695,8 @@
       "number": 452,
       "title": "feat(scaffold): choisir la licence de l'application à sa création",
       "url": "https://github.com/nodefony/nodefony-core/issues/452",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -711,8 +711,8 @@
       "number": 453,
       "title": "ci(securite): dire quand une alerte d'analyse de code est revenue",
       "url": "https://github.com/nodefony/nodefony-core/issues/453",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,

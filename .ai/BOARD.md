@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-21 12:27** (UTC).
+> Empreinte prise le **2026-09-21 12:49** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 97% | 136 | 4 | 2026-09-19 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `███░░░░░░░` 33% | 21 | 43 | 2026-10-14 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 36% | 23 | 41 | 2026-10-14 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 3% | 1 | 28 | — |
@@ -40,7 +40,7 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 43 ouverts
+## Jalon 10.0.0-beta — 41 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -55,8 +55,6 @@ Ordre 55 · P3 — fin de cycle · 1 j · jalon 10.0.0-alpha · frise 2026-09-24
 | 2.04 | P1 — figé à la création | 1 | 2026-10-16 → 10-16 | #294 | test(cli): éprouver l'installation d'une app avec pnpm, yarn et bun |
 | 2.05 | P1 — figé à la création | 1 | 2026-10-19 → 10-19 | #351 | fix(bundler): garder le framework hors du bundle d'un module |
 | 2.06 | P2 — décision | 0.5 | 2026-10-20 → 10-20 | #425 | fix(scaffold): bâtir l'application avant de contrôler son image dans la chaîne GitLab |
-| 2.07 | P2 — décision | 0.5 | 2026-10-20 → 10-20 | #452 | feat(scaffold): choisir la licence de l'application à sa création |
-| 2.08 | P2 — décision | 0.5 | 2026-10-20 → 10-20 | #453 | ci(securite): dire quand une alerte d'analyse de code est revenue |
 | 3.01 | P1 — figé à la création | 3 | 2026-10-21 → 10-23 | #268 | feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe |
 | 3.02 | P0 — bloque le reste | 1 | 2026-10-22 → 10-22 | #269 | test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak |
 | 3.03 | P1 — figé à la création | 1 | 2026-10-23 → 10-23 | #270 | fix(security): refuser au démarrage une configuration de fournisseur incomplète |

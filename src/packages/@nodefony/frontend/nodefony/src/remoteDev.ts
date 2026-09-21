@@ -215,6 +215,58 @@ export function viteAllowedHostFromPattern(pattern: string): string | null {
 }
 
 /**
+ * Ce qu'il faut DIRE quand l'écoute du serveur Vite contredit la plateforme.
+ *
+ * Le symptôme que cette fonction existe pour expliquer : en dev déporté
+ * (Codespaces, Gitpod, conteneur, machine distante en SSH), la page se charge,
+ * aucun script ne démarre, et le navigateur rend `ERR_CONNECTION_REFUSED`. Rien
+ * ne relie ce refus à une adresse d'écoute — l'utilisateur ne peut pas deviner
+ * que le port existe mais n'est joignable que depuis la machine qui sert.
+ *
+ * **On AVERTIT, on n'ajuste pas.** Élargir l'écoute à toutes les interfaces est
+ * un geste RÉSEAU : il expose un port au-delà de la machine, et le framework ne
+ * le fait nulle part ailleurs en silence. Ce qui manquait n'était pas la
+ * capacité, c'était l'énoncé.
+ *
+ * Le message nomme les DEUX causes, et c'est délibéré : un message qui n'en
+ * énonce qu'une est cru PARCE QU'il est précis, et envoie chercher là où il n'y
+ * a rien. L'écoute est la première à vérifier ; le nom non déclaré de confiance
+ * produit exactement le même écran vide une fois l'écoute élargie.
+ *
+ * Pure, et l'environnement entre en paramètre : le cas se contrôle sans
+ * Codespace, sans conteneur et sans réseau.
+ *
+ * @param detection - ce que `detectRemoteDev` a rendu (`null` = pas de dev déporté).
+ * @param listenHost - l'adresse d'écoute configurée (`frontend.devHost`).
+ * @returns le message à journaliser, ou `null` quand il n'y a rien à dire —
+ *   pas de plateforme distante, ou écoute déjà ouverte au-delà de la machine.
+ */
+export function remoteDevListenAdvice(
+  detection: IRemoteDevDetection | null,
+  listenHost: string,
+): string | null {
+  if (!detection) return null;
+  // `0.0.0.0`, `::` et un nom d'interface quelconque sont déjà joignables de
+  // l'extérieur : il n'y a pas de contradiction à énoncer. Seule la boucle
+  // locale la crée — et elle reste le bon défaut hors dev déporté.
+  if (!isLoopbackHostname(listenHost)) return null;
+  return (
+    `dev déporté détecté (${detection.provider}) mais Vite écoute sur ` +
+    `« ${listenHost} » — une adresse d'ÉCOUTE locale. Depuis l'extérieur de ` +
+    `cette machine (ou de ce conteneur), ce port n'est PAS joignable : la page ` +
+    `se charge, aucun script ne démarre, et le navigateur rend ` +
+    `ERR_CONNECTION_REFUSED.\n` +
+    `           → écouter sur toutes les interfaces : ` +
+    `frontend.devHost = "0.0.0.0" (geste réseau — il expose ce port au-delà ` +
+    `de la machine, c'est pourquoi il n'est pas posé tout seul).\n` +
+    `           Si la page reste muette une fois l'écoute élargie, la cause ` +
+    `est ailleurs : le nom par lequel le navigateur arrive doit être déclaré ` +
+    `de confiance (http.trustedHosts), sinon l'origine des assets n'est pas ` +
+    `dérivée du « Host » reçu.`
+  );
+}
+
+/**
  * Détecte un environnement de dev déporté depuis les variables de plateforme
  * (variables qu'on ne possède pas — elles se lisent, ne se renomment pas).
  * Ordre : Codespaces puis Gitpod (jamais les deux posées en pratique).

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 847,
-    "symbols": 4174,
+    "symbols": 4175,
     "classes": 395,
     "interfaces": 1112,
     "types": 453,
     "enums": 4,
-    "functions": 1798,
+    "functions": 1799,
     "constants": 412
   },
   "symbols": {
@@ -17599,6 +17599,14 @@
       "exported": true,
       "module": "@nodefony/frontend",
       "description": "Motif Vite `allowedHosts` équivalent d'un pattern `trustedHosts` http. `*.suffixe` (wildcard un-label de la barrière Host) → `.suffixe` (wildcard Vite). Un `*` ailleurs n'est pas exprimable chez Vi…"
+    },
+    "remoteDevListenAdvice": {
+      "name": "remoteDevListenAdvice",
+      "kind": "function",
+      "file": "src/packages/@nodefony/frontend/nodefony/src/remoteDev.ts",
+      "exported": true,
+      "module": "@nodefony/frontend",
+      "description": "Ce qu'il faut DIRE quand l'écoute du serveur Vite contredit la plateforme. Le symptôme que cette fonction existe pour expliquer : en dev déporté (Codespaces, Gitpod, conteneur, machine distante en …"
     },
     "detectRemoteDev": {
       "name": "detectRemoteDev",
@@ -36198,6 +36206,9 @@
       "isLoopbackHostname": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/frontend/nodefony/src/template/TemplateHelper.ts"
+      ],
+      "remoteDevListenAdvice": [
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts"
       ],
       "PORT_PLACEHOLDER": [
         "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",

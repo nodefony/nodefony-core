@@ -42,6 +42,7 @@ import {
   viteAllowedHostFromPattern,
   isValidOriginTemplate,
   isLoopbackHostname,
+  remoteDevListenAdvice,
   PORT_PLACEHOLDER,
 } from "../src/remoteDev";
 
@@ -354,6 +355,17 @@ class FrontendService extends Service implements IFrontendService {
     // plateforme de dev déporté (Codespaces/Gitpod), sinon dérivation locale
     // dans le superviseur. Toujours ANNONCÉ (jamais d'adaptation silencieuse).
     const pinned = this.resolvePublicOrigin();
+    // Une plateforme distante DÉTECTÉE avec une écoute de boucle locale : le
+    // port existe et n'est joignable que depuis la machine qui sert. Dit ICI
+    // et non dans `resolvePublicOrigin`, qui retourne avant la détection quand
+    // `frontend.publicOrigin` est écrit — or la contradiction d'écoute existe
+    // aussi dans ce cas, et c'est précisément celui d'un auteur qui a déjà
+    // compris la moitié du problème.
+    const conseil = remoteDevListenAdvice(
+      detectRemoteDev(process.env),
+      this.cfg.devHost,
+    );
+    if (conseil) this.log(conseil, "WARNING");
     const publicOriginTemplate = pinned?.template;
     // Une origine explicite ÉPINGLE le rendu, mais on retient PAR QUOI : une
     // config écrite gagne sur tout, une plateforme déduite cède devant un

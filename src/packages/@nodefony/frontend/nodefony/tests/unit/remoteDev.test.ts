@@ -9,6 +9,7 @@ import {
   detectRemoteDev,
   originWithHostname,
   isLoopbackHostname,
+  remoteDevListenAdvice,
 } from "../../src/remoteDev.js";
 
 /**
@@ -288,6 +289,57 @@ describe("remoteDev — origine publique du dev server", () => {
       ]) {
         expect(isLoopbackHostname(h), h).to.equal(false);
       }
+    });
+  });
+
+  describe("remoteDevListenAdvice — l'écoute contredit-elle la plateforme ?", () => {
+    const CODESPACES = detectRemoteDev({
+      CODESPACE_NAME: "fluffy-space",
+      GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN: "app.github.dev",
+    });
+
+    it("plateforme détectée + écoute locale → le message dit les DEUX causes", () => {
+      const msg = remoteDevListenAdvice(CODESPACES, "127.0.0.1");
+      expect(msg, "un conseil est attendu").to.be.a("string");
+      // Ce qui ne va pas, nommé des deux côtés : la plateforme ET l'écoute.
+      expect(msg).to.contain("codespaces");
+      expect(msg).to.contain("127.0.0.1");
+      // Le réglage qui répare, écrit tel qu'on le tape.
+      expect(msg).to.contain('frontend.devHost = "0.0.0.0"');
+      // La SECONDE cause. Un message qui n'en énonce qu'une est cru parce
+      // qu'il est précis, et envoie chercher là où il n'y a rien : une fois
+      // l'écoute élargie, un hôte non déclaré de confiance rend le même
+      // écran vide.
+      expect(msg).to.contain("trustedHosts");
+    });
+
+    it("toute la boucle locale déclenche, pas seulement 127.0.0.1", () => {
+      for (const h of ["localhost", "::1", "[::1]", "127.0.0.2"]) {
+        expect(remoteDevListenAdvice(CODESPACES, h), h).to.be.a("string");
+      }
+    });
+
+    it("écoute déjà ouverte → rien à dire", () => {
+      // `0.0.0.0` et `::` sont joignables de l'extérieur : il n'y a aucune
+      // contradiction à énoncer, et répéter un avertissement sans objet
+      // apprend à passer outre les suivants.
+      for (const h of ["0.0.0.0", "::", "[::]", "192.168.1.20"]) {
+        expect(remoteDevListenAdvice(CODESPACES, h), h).to.equal(null);
+      }
+    });
+
+    it("aucune plateforme distante → rien à dire, l'écoute locale est le bon défaut", () => {
+      expect(remoteDevListenAdvice(null, "127.0.0.1")).to.equal(null);
+      expect(remoteDevListenAdvice(detectRemoteDev({}), "localhost")).to.equal(
+        null,
+      );
+    });
+
+    it("gitpod déclenche aussi, et se NOMME", () => {
+      const gp = detectRemoteDev({
+        GITPOD_WORKSPACE_URL: "https://mon-espace.ws-eu01.gitpod.io",
+      });
+      expect(remoteDevListenAdvice(gp, "127.0.0.1")).to.contain("gitpod");
     });
   });
 });
