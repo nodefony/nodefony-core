@@ -6,6 +6,7 @@ import {
   Card,
   Group,
   Text,
+  Tooltip,
   Badge,
   ThemeIcon,
   Button,
@@ -103,36 +104,70 @@ function RankBars({
     );
   return (
     <Stack gap={10}>
-      {items.map((it) => (
-        // Le `title` porte sur la LIGNE ENTIÈRE, jamais sur le seul libellé :
-        // celui-ci fait quelques dizaines de pixels quand la ligne en fait
-        // cinq cents. Posé sur le texte, l'attribut EXISTE — un sélecteur le
-        // trouve, et l'on croit la chose faite — mais il faut viser le mot au
-        // pixel près pour qu'il s'affiche. Une aide qu'on n'atteint pas n'aide
-        // personne.
-        <div key={it.key} title={it.detail}>
-          <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
-            {it.href ? (
-              <Anchor component={Link} to={it.href} size="xs" truncate>
-                {it.label}
-              </Anchor>
-            ) : (
-              <Text size="xs" truncate>
-                {it.label}
+      {items.map((it) => {
+        const ligne = (
+          <div
+            key={it.key}
+            // Focusable SEULEMENT quand la ligne ne porte pas de lien : une
+            // cible focusable qui en contient une autre est exactement le
+            // défaut `nested-interactive` que relève axe. Avec lien, c'est le
+            // lien qui reçoit le focus, et il est déjà dans l'ordre de
+            // tabulation.
+            tabIndex={it.detail && !it.href ? 0 : undefined}
+          >
+            <Group justify="space-between" gap="xs" wrap="nowrap" mb={3}>
+              {it.href ? (
+                <Anchor component={Link} to={it.href} size="xs" truncate>
+                  {it.label}
+                </Anchor>
+              ) : (
+                <Text size="xs" truncate>
+                  {it.label}
+                </Text>
+              )}
+              <Text
+                size="xs"
+                c="dimmed"
+                ff="monospace"
+                style={{ flexShrink: 0 }}
+              >
+                {fmtNum(it.value)}
               </Text>
-            )}
-            <Text size="xs" c="dimmed" ff="monospace" style={{ flexShrink: 0 }}>
-              {fmtNum(it.value)}
-            </Text>
-          </Group>
-          <Progress
-            value={it.value < 0 ? 0 : (it.value / max) * 100}
-            color={color}
-            size="sm"
-            radius="sm"
-          />
-        </div>
-      ))}
+            </Group>
+            {/* Une barre de progression EXIGE un nom accessible : sans lui,
+                un lecteur d'écran annonce vingt-cinq « barre de progression »
+                indistinctes. Le nom porte le libellé ET la valeur, puisque
+                c'est ce que la barre représente. */}
+            <Progress
+              value={it.value < 0 ? 0 : (it.value / max) * 100}
+              color={color}
+              size="sm"
+              radius="sm"
+              aria-label={`${it.label} : ${fmtNum(it.value)}`}
+            />
+          </div>
+        );
+        // L'aide suit la norme du kit — mêmes réglages que `InfoHint` : bulle
+        // multiligne bornée, flèche, au-dessus, et déclenchée au survol COMME
+        // au focus et au toucher. Elle enveloppe la LIGNE entière : le libellé
+        // seul fait quelques dizaines de pixels quand la ligne en fait plus de
+        // cinq cents, et une aide qu'on n'atteint pas n'aide personne.
+        return it.detail ? (
+          <Tooltip
+            key={it.key}
+            label={it.detail}
+            multiline
+            w={280}
+            withArrow
+            position="top"
+            events={{ hover: true, focus: true, touch: true }}
+          >
+            {ligne}
+          </Tooltip>
+        ) : (
+          ligne
+        );
+      })}
     </Stack>
   );
 }
