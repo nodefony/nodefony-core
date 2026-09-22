@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-21T19:15:19.393Z",
+  "generatedAt": "2026-09-22T20:48:31.720Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -14,7 +14,7 @@
       "closed": 0,
       "dueOn": null,
       "number": 4,
-      "open": 3,
+      "open": 4,
       "title": "11.0.0"
     },
     {
@@ -33,14 +33,14 @@
     },
     {
       "closed": 139,
-      "dueOn": "2026-09-19T00:00:00Z",
+      "dueOn": "2026-09-23T00:00:00Z",
       "number": 6,
-      "open": 6,
+      "open": 7,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 23,
-      "dueOn": "2026-10-14T00:00:00Z",
+      "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
       "open": 41,
       "title": "10.0.0-beta"
@@ -200,7 +200,7 @@
       "title": "fix(release): écarter du changelog les commits qui n'atteignent aucun installeur",
       "url": "https://github.com/nodefony/nodefony-core/issues/275",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1308,7 +1308,7 @@
       "title": "feat(security): rendre Keycloak utilisable de bout en bout pour la connexion externe",
       "url": "https://github.com/nodefony/nodefony-core/issues/268",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 3,
@@ -1324,7 +1324,7 @@
       "title": "test(security): éprouver la connexion OpenID Connect contre un vrai Keycloak",
       "url": "https://github.com/nodefony/nodefony-core/issues/269",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -1772,8 +1772,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.1,
-      "debut": "2026-09-30",
-      "cible": "2026-09-30",
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "alpha-9"
       ]
@@ -1804,8 +1804,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.12,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "alpha-9"
       ]
@@ -1820,8 +1820,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.13,
-      "debut": null,
-      "cible": null,
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "alpha-9"
       ]
@@ -5138,8 +5138,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 57,
-      "debut": "2026-09-25",
-      "cible": "2026-09-25",
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "alpha-9"
       ]
@@ -5168,8 +5168,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 58,
-      "debut": "2026-09-26",
-      "cible": "2026-09-26",
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "alpha-9"
       ]
@@ -6050,8 +6050,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 158,
-      "debut": "2026-10-01",
-      "cible": "2026-10-01",
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
       "labels": [
         "alpha-9"
       ]
@@ -6069,6 +6069,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 458,
+      "title": "docs(readme): orienter l'évaluateur vers une application générée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/458",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": null,
+      "jours": 0.5,
+      "ordre": 159,
+      "debut": "2026-09-22",
+      "cible": "2026-09-22",
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 240,
@@ -6360,6 +6376,22 @@
       "cible": null,
       "labels": [
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 459,
+      "title": "feat(audio): concevoir le moteur audio de la conférence",
+      "url": "https://github.com/nodefony/nodefony-core/issues/459",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": null,
+      "jours": null,
+      "ordre": null,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "Librairie Cliente"
       ]
     }
   ]

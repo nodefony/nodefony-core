@@ -71,6 +71,21 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-22] 🚧 **Un banc qui ne franchit jamais la frontière du framework ne voit rien de ce
+  qui s'y casse.** Le banc de vérité générait `author:ref:Author` — une entité qu'il crée
+  lui-même — et jamais `ref:User`, l'entité que `create app` POSE dans toute application. Les deux
+  s'écrivent pareil et ne cassent pas pareil : la table du framework est bâtie depuis une spec
+  CALCULÉE, celle d'une entité générée non. Cette seule entrée ajoutée, deux défauts sont tombés
+  d'un coup — la clé primaire inatteignable au type, et l'échantillon `userSample` qu'aucun gabarit
+  d'application n'exportait — que ~1600 tests laissaient passer. Le voisinage entretenait l'angle
+  mort : un commentaire expliquait, à juste titre, pourquoi on ne NOMME pas une entité `User`, et
+  cette raison tenait lieu de raison de ne pas en RÉFÉRENCER une.
+- [1× — 09-22] 🧊 **Un cas d'EXÉCUTION ne peut pas garder un fait de TYPAGE.** La colonne a
+  toujours existé à l'exécution — c'est le type qui l'avait perdue, et tout test vert l'aurait
+  confirmé en boucle. Le garde-fou ne pouvait être que la COMPILATION du fichier de test lui-même,
+  ce qu'il fallait écrire dans sa TSDoc pour que personne ne « répare » plus tard le rouge en
+  retirant l'assertion.
+
 - [1× — 09-21d] 📏 **J'ai prouvé qu'un attribut EXISTE, et cru avoir prouvé qu'il SERT.** Le
   détail d'une ligne passait par un `title` posé sur le seul libellé. Ma sonde le trouvait par
   sélecteur CSS — donc « c'est fait ». Le user : « le hover ne marche toujours pas ». Il avait
@@ -783,6 +798,24 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-22] ⚖️ **Le GABARIT prescrivait ce que le VÉRIFICATEUR condamnait — et le conseil
+  rendu était dangereux.** Le `security.ts` que `create app` pose recommande en TSDoc, comme « le
+  geste à préférer », une zone de firewall au pattern ÉNUMÉRÉ ouverte à l'anonyme ; `nodefony
+doctor` comptait exactement ce bloc en manquement. Un agent du banc l'a appliqué — il avait lu la
+  doc — et a récolté un rouge. La règle jugeait sur le seul `pattern`, sans jamais lire les
+  `authenticators` : son raisonnement (« la prochaine route naîtra publique ») ne vaut que pour une
+  zone qui PROTÈGE, et s'inverse terme à terme pour une zone qui OUVRE, où son conseil (« écris
+  `^/api` ») ouvrirait l'espace entier. **Deux organes du même produit se contredisaient, et aucun
+  test ne pouvait le voir : chacun passait les siens.** Le tort n'était pas côté gabarit — corriger
+  celui-ci aurait dégradé un bon conseil pour contenter une règle fausse.
+- [1× — 09-22] 🔍 **Le contrôle ne voyait qu'UNE zone sur N, et se taisait sur le reste.** Le bloc
+  `areas` était découpé par une expression régulière qui s'arrête à la première accolade fermante
+  peu indentée — donc à la fin de la PREMIÈRE zone. Un manifeste à cinq zones n'en faisait juger
+  qu'une, sans un mot. Découvert par accident : mon cas neuf plaçait la zone fautive en DEUXIÈME
+  position et restait rouge après le correctif. Une regex ne sait pas équilibrer des accolades —
+  quand la cible est un bloc, il faut les compter. Même famille que le périmètre de lecture trop
+  large ci-dessus, par l'autre bout : trop ÉTROIT, ça ne crie pas non plus.
 
 - [1× — 09-21b] 👁️ **Un gate écrit le jour même est né FAUX VERT, et seul le débranchement
   l'a montré.** Il devait apparier les codes rendus par `board-lint.mjs` à la table de sa page de
