@@ -4376,6 +4376,15 @@ function runEntityScaffold(
                   relationTarget.charAt(0).toLowerCase() +
                   relationTarget.slice(1),
                 route: `/api/${pluralize(targetKebab)}`,
+                // `User` est l'IDENTITÉ du framework : `create app` pose sa
+                // table, jamais de CRUD — `POST /api/users` rendrait 404. La
+                // ligne parente existe déjà, c'est le compte avec lequel le
+                // test se connecte ; son id se relit sur `me`. Sans security,
+                // ni compte ni `me` : on retombe sur la voie commune, dont
+                // l'erreur nomme la route absente.
+                identity:
+                  relationTarget === "User" &&
+                  targetDeps.has("@nodefony/security"),
               },
             ] as const;
           }),

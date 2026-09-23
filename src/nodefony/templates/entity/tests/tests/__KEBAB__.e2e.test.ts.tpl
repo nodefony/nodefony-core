@@ -3,7 +3,7 @@ import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
 <% if (it.hasSecurity) { %>import { adminLogin } from "./e2e.setup";
 <% } %>import { <%= it.camel %>Sample } from "../nodefony/entity/<%= it.pascal %>";
-<% it.relationParents.forEach(function (p) { %>import { <%= p.camel %>Sample } from "../nodefony/entity/<%= p.pascal %>";
+<% it.relationParents.filter(function (p) { return !p.identity; }).forEach(function (p) { %>import { <%= p.camel %>Sample } from "../nodefony/entity/<%= p.pascal %>";
 <% }) %>
 
 /**
@@ -75,7 +75,20 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     // génération. Si elle a été changée à la main (`--route`), corriger la
     // constante ici : le test le dit franchement plutôt que d'échouer plus loin
     // sur un statut qui n'accuserait pas le bon coupable.
-<% it.relationParents.forEach(function (p) { %>    {
+<% it.relationParents.forEach(function (p) { %><% if (p.identity) { %>    {
+      // « <%= p.pascal %> » est l'identité du framework : aucune API ne la crée,
+      // la ligne existe déjà — c'est le compte connecté. Son id se relit sur `me`.
+      const moi = await fetch(`${BASE}/nodefony/user/api/me`, { headers: AUTH });
+      if (moi.status !== 200) {
+        throw new Error(
+          `e2e <%= it.pascal %> : l'identité parente « <%= p.pascal %> » n'a pas pu être relue sur ` +
+            `/nodefony/user/api/me (statut ${moi.status}). Sans elle, aucune création de ce ` +
+            `cycle ne peut aboutir — la clé étrangère serait violée.`,
+        );
+      }
+      parents["<%= p.pascal %>"] = (await json(moi)).id as string;
+    }
+<% } else { %>    {
       const cree = await fetch(`${BASE}<%= p.route %>`, {
         method: "POST",
         headers: entetes(),
@@ -91,7 +104,7 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
       }
       parents["<%= p.pascal %>"] = (await json(cree)).id as string;
     }
-<% }) %><% } %>  });
+<% } %><% }) %><% } %>  });
 
   it("POST → 201 + Location, puis GET sur cette Location", async () => {
     const payload = sample(1);
