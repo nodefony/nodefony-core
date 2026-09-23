@@ -29,18 +29,19 @@ Ce que cela a déjà trouvé, et qu'aucune passe SQLite ne pouvait voir : un
 et un texte sont le MÊME type, restait vert de bout en bout.
 
 **MongoDB est une application SANS ORM SQL, pas un dialecte de plus.**
-`create entity` y refuse — il n'écrit que des tables Drizzle —, donc les étapes
-qui éprouvent des entités générées (génération, décâblage, FK ↔ PK, migrations,
-`User` amputée, ressource HTTP) sont ANNONCÉES sautées (`sqlOnly`, `⏭` au
-journal, `skipped` au rapport) : un saut muet se lirait comme un vert. Trois
-choses la jugent à la place : le refus de `create entity` doit NOMMER MongoDB
-(jamais « ajoute @nodefony/drizzle ») ; en production, chaque brique durable
-doit se résoudre sur `mongoose`, lu au journal du serveur
-(`exigerBriquesMongoose`) — sinon le serveur répond 200 en ayant tout rangé en
-mémoire ; et la suite e2e de l'application passe sur un vrai MongoDB. Décor :
-un jeu de réplicas (`rs0`, 127.0.0.1:27017 — celui du compose du dépôt en local,
-`.github/actions/mongo` à la forge). Aucune base à fournir : MongoDB la crée à
-la première écriture, et la suite e2e vide la sienne par le pilote.
+`create entity` y écrit des entités DOCUMENT (schéma Mongoose) : la génération,
+l'entité d'un module et la ressource HTTP s'y éprouvent RÉELLEMENT, sur un jeu
+d'entités propre (`MONGO_ENTITIES` : la même grammaire, sans les options SQL que
+le générateur y refuse, avec une référence vers `User`). Ce qui n'existe qu'en
+SQL — un autre dialecte, la clé étrangère face à sa clé primaire, les
+migrations, le contrat de TABLE de `User` — est ANNONCÉ sauté (`sqlOnly`, `⏭`
+au journal, `skipped` au rapport) : un saut muet se lirait comme un vert. En
+production, chaque brique durable doit se résoudre sur `mongoose`, lu au
+journal du serveur (`exigerBriquesMongoose`) — sinon le serveur répond 200 en
+ayant tout rangé en mémoire. Décor : un jeu de réplicas (`rs0`, 127.0.0.1:27017
+— celui du compose du dépôt en local, `.github/actions/mongo` à la forge).
+Aucune base à fournir : MongoDB la crée à la première écriture, et la suite e2e
+vide la sienne par le pilote.
 
 **Le décor, sur un moteur serveur SQL : TROIS bases, et c'est structurel.** Une
 suite de tests ne fabrique pas sa base — `CREATE DATABASE` est un privilège

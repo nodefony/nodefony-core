@@ -348,6 +348,34 @@ const ENTITIES = [
 ];
 
 /**
+ * Le MÊME banc sur MongoDB : la grammaire entière, SANS les options SQL, que
+ * le générateur y refuse (`--index`, `--unique`, `--dialect`). Les références
+ * visent une entité du banc ET `User` — l'identité que `create app` pose sur
+ * Mongoose, dont la clé est un ObjectId comme celle de toute entité document.
+ */
+const MONGO_ENTITIES = [
+  ["Author", "email:string:unique", "name:string"],
+  [
+    "Post",
+    "title:string:unique",
+    "status:enum(draft,published)=draft",
+    "views:int=0",
+    "slug:string:index",
+    "tags:json?",
+    "author:ref:Author",
+  ],
+  [
+    "Invoice",
+    "reference:string(40):unique",
+    "currency:char(3)",
+    "amount:decimal(12,2)",
+    "trace:uuid",
+    "author:ref:Author",
+  ],
+  ["Note", "body:string", "owner:ref:User"],
+];
+
+/**
  * Sonde de cohérence FK ↔ PK, écrite dans l'application témoin par le banc.
  *
  * Drizzle expose la configuration réelle d'une table (`getTableConfig`) : on y
@@ -393,8 +421,9 @@ let failed = false;
 
 /** Joue une étape, la chronomètre, et retient son verdict. */
 /**
- * Une étape qui n'existe que sur un moteur SQL — elle éprouve des entités
- * générées, que `create entity` refuse d'écrire sur MongoDB.
+ * Une étape qui n'existe que sur un moteur SQL — un autre dialecte, une clé
+ * étrangère face à sa clé primaire, des migrations, le contrat de TABLE de
+ * `User` : rien de tout cela n'existe sur MongoDB.
  *
  * Sur MongoDB elle est ANNONCÉE sautée, avec sa raison, et le rapport la porte
  * (`skipped`) : un banc qui tairait ce qu'il n'a pas regardé délivrerait un
@@ -404,23 +433,30 @@ function sqlOnly(label, why, run) {
   if (!MONGO) return step(label, why, run);
   if (failed) return;
   process.stdout.write(
-    `\n━━ ${label}\n   ⏭ sans objet sur MongoDB — aucune entité générée (create entity n'écrit que du SQL)\n`,
+    `\n━━ ${label}\n   ⏭ sans objet sur MongoDB — étape propre au SQL (dialecte, clé étrangère, migrations, contrat de table)\n`,
   );
-  steps.push({ label, ok: true, ms: 0, skipped: "MongoDB" });
+  steps.push({ label, ok: true, ms: 0, skipped: "MongoDB", commands: [] });
 }
 
 function step(label, why, run) {
   if (failed) return;
   process.stdout.write(`\n━━ ${label}\n   ${why}\n`);
   const started = process.hrtime.bigint();
+  stepCommands = [];
   try {
     run();
     const ms = Number(process.hrtime.bigint() - started) / 1e6;
-    steps.push({ label, ok: true, ms });
+    steps.push({ label, ok: true, ms, commands: stepCommands });
     process.stdout.write(`   ✅ ${Math.round(ms)} ms\n`);
   } catch (error) {
     const ms = Number(process.hrtime.bigint() - started) / 1e6;
-    steps.push({ label, ok: false, ms, error: String(error.message ?? error) });
+    steps.push({
+      label,
+      ok: false,
+      ms,
+      error: String(error.message ?? error),
+      commands: stepCommands,
+    });
     process.stdout.write(
       `   ❌ ${String(error.message ?? error).slice(0, 400)}\n`,
     );
@@ -440,6 +476,35 @@ function step(label, why, run) {
 const PORTS = { NF_PORT: "5361", NF_PORT_HTTPS: "5362" };
 
 /** Exécute une commande dans l'app témoin, en faisant remonter sa sortie si elle échoue. */
+/**
+ * Commandes lancées par l'étape en cours — chacune avec son code et son BILAN.
+ * Rattachées à l'étape dans `report.json` : un banc vert ne disait jusqu'ici
+ * rien de ce que ses commandes avaient rendu, et un test SAUTÉ passait pour vert.
+ */
+let stepCommands = [];
+/** Numéro de la commande — nomme son journal complet (`journaux/NN-….log`). */
+let commandSeq = 0;
+
+/**
+ * Le bilan d'une sortie, en quelques lignes — ce qu'un lecteur doit voir sans
+ * ouvrir le journal complet : le compte vitest (passés, échoués, SAUTÉS), les
+ * fichiers sautés, l'installation npm. Rien d'autre : la sortie entière est sur
+ * disque, et un journal de banc qui recopierait tout ne se lirait plus.
+ */
+function bilanDe(out) {
+  const plain = out.replace(new RegExp(String.raw`\u001b\[[0-9;]*m`, "gu"), "");
+  return plain
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(
+      (l) =>
+        /^(Test Files|Tests)\s+\d/u.test(l) ||
+        /^↓ .*skipped/u.test(l) ||
+        /^(added|removed|changed|up to date)\b.*packages?/u.test(l),
+    )
+    .slice(0, 6);
+}
+
 function run(cmd, args, cwd = APP, env = {}) {
   const res = spawnSync(cmd, args, {
     cwd,
@@ -450,8 +515,36 @@ function run(cmd, args, cwd = APP, env = {}) {
     // message qui accuse une installation absente. Cf `lib/exec-portable.mjs`.
     shell: needsShell(cmd),
   });
+  const sortie = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
+  // La commande, lisible : le chemin du binaire du framework se lit mal.
+  const shown = [cmd === process.execPath ? "node" : cmd, ...args]
+    .map((a) => (a === BIN ? "nodefony" : a))
+    .join(" ");
+  commandSeq += 1;
+  const journalComplet = path.join(
+    ROOT,
+    "journaux",
+    `${String(commandSeq).padStart(2, "0")}-${shown.replace(/[^\w.-]+/gu, "_").slice(0, 60)}.log`,
+  );
+  try {
+    mkdirSync(path.dirname(journalComplet), { recursive: true });
+    writeFileSync(journalComplet, `$ ${shown}\n(cwd ${cwd})\n\n${sortie}\n`);
+  } catch {
+    /* le décor a pu être démonté — le bilan reste affiché */
+  }
+  const bilan = bilanDe(sortie);
+  stepCommands.push({
+    command: shown,
+    status: res.status,
+    bilan,
+    log: journalComplet,
+  });
+  process.stdout.write(
+    `   · $ ${shown.length > 90 ? `${shown.slice(0, 87)}…` : shown} → code ${res.status}\n` +
+      bilan.map((l) => `       ${l}\n`).join(""),
+  );
   if (res.status !== 0) {
-    const out = `${res.stdout ?? ""}${res.stderr ?? ""}`.trim();
+    const out = sortie;
     // La sortie ENTIÈRE sur disque avant tout filtrage — l'affichage, lui, ne
     // peut pas tout porter. Vécu : le lanceur du framework refusait la readiness
     // en NOMMANT le module qui manquait, puis un moteur de test écrivait sa
@@ -763,11 +856,11 @@ step(
   },
 );
 
-sqlOnly(
+step(
   "génération : deux entités qui exercent toute la grammaire",
   "unique, énumération, défauts, index et relation — les cas qui ont déjà cassé.",
   () => {
-    for (const [name, ...fields] of ENTITIES) {
+    for (const [name, ...fields] of MONGO ? MONGO_ENTITIES : ENTITIES) {
       run(process.execPath, [
         BIN,
         "create",
@@ -803,12 +896,9 @@ step(
       "--yes",
     ]);
     // L'entité va DANS le module — c'est l'usage réel, et le seul qui exerce la
-    // résolution du nom npm par le générateur.
-    //
-    // Sur MongoDB, le geste doit être REFUSÉ, et le refus doit nommer MongoDB :
-    // « ajoute @nodefony/drizzle » ferait monter un second ORM pour une table
-    // que la base ne connaît pas. Un refus muet ou mal adressé est un défaut.
-    const argsEntite = [
+    // résolution du nom npm par le générateur. Sur MongoDB aussi : une entité
+    // document, déclarée dans le module comme une table.
+    run(process.execPath, [
       BIN,
       "create",
       "entity",
@@ -818,26 +908,7 @@ step(
       "--module",
       MODULE_PKG,
       "--yes",
-    ];
-    if (MONGO) {
-      const entite = spawnSync(process.execPath, argsEntite, {
-        cwd: APP,
-        encoding: "utf8",
-        env: envDecor(PORTS),
-      });
-      const sortie = `${entite.stdout}${entite.stderr}`;
-      if (entite.status === 0)
-        throw new Error(
-          "`create entity` a ÉCRIT une entité sur une application MongoDB — " +
-            "du Drizzle que rien ne servira",
-        );
-      if (!/persiste sur MongoDB/u.test(sortie))
-        throw new Error(
-          `\`create entity\` refuse sans nommer MongoDB :\n${sortie.slice(-800)}`,
-        );
-    } else {
-      run(process.execPath, argsEntite);
-    }
+    ]);
 
     // Les trois pièces du câblage, constatées sur le disque plutôt que supposées.
     const manifest = JSON.parse(
@@ -857,7 +928,6 @@ step(
         `${MODULE_PKG} absent du manifeste \`modules\` — le Kernel ne le chargera pas`,
       );
     // Et l'entité doit être déclarée DANS le module, pas dans l'app.
-    if (MONGO) return;
     const moduleIndex = readFileSync(
       path.join(APP, "modules", MODULE, "index.ts"),
       "utf8",
@@ -1562,17 +1632,11 @@ export const UserEntity = defineEntity({
   },
 );
 
-if (withE2e && MONGO) {
-  step(
-    "la suite e2e de l'application passe, sur MongoDB (serveur réel)",
-    "Démarrage en production, connexion, session, temps réel — la base e2e " +
-      "vidée par le pilote (Mongoose n'a pas d'orm:reset).",
-    () => run("npm", ["run", "test:e2e"]),
-  );
-}
-
 if (withE2e) {
-  sqlOnly(
+  // Sur MongoDB, la même suite éprouve AUSSI le démarrage en production, la
+  // session et le temps réel sur Mongoose — la base e2e vidée par le pilote
+  // (Mongoose n'a pas d'orm:reset).
+  step(
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",
     "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404 — " +
       "et la suppression EXIGE une identité : refusée sans elle, la donnée survit.",
@@ -1651,13 +1715,7 @@ step(
       // un autre chemin. Un module qui se charge sans monter ses routes rendait
       // 404 sans que rien ne le signale : le boot est vert, l'inventaire des
       // routes se lit hors serveur, et aucune étape ne le frappait EN VRAI.
-      //
-      // Sur MongoDB, pas d'entité générée : la route de l'application est
-      // celle du gabarit (`/api/hello`).
-      for (const chemin of [
-        MONGO ? "/api/hello" : "/api/posts",
-        `/api/${MODULE}`,
-      ]) {
+      for (const chemin of ["/api/posts", `/api/${MODULE}`]) {
         const res = execFileSync(
           process.execPath,
           [
@@ -1695,16 +1753,9 @@ step(
         "aucune route rendue — le plan d'administration est-il monté ?",
       );
     }
-    // Sur MongoDB, aucune entité générée : la route témoin est celle du
-    // gabarit — l'inventaire doit la rendre au même titre.
-    const attendue = MONGO ? "/api/hello" : "/api/posts";
-    const entity = routes.find((r) => String(r.path).startsWith(attendue));
+    const entity = routes.find((r) => String(r.path).startsWith("/api/posts"));
     if (!entity) {
-      throw new Error(
-        MONGO
-          ? `la route ${attendue} de l'application n'apparaît pas`
-          : "les routes de l'entité générée n'apparaissent pas",
-      );
+      throw new Error("les routes de l'entité générée n'apparaissent pas");
     }
   },
 );
