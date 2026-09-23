@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T13:18:31.350Z",
+  "generatedAt": "2026-09-23T20:22:28.393Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 139,
-      "dueOn": "2026-09-23T00:00:00Z",
+      "closed": 141,
+      "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 8,
+      "open": 9,
       "title": "10.0.0-alpha"
     },
     {
@@ -1626,7 +1626,7 @@
       "title": "fix(portabilite): faire importer par URL les dix chemins qui lèvent sous Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/401",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -1674,7 +1674,7 @@
       "title": "fix(http): empêcher un frontal de retenir un flux d'événements",
       "url": "https://github.com/nodefony/nodefony-core/issues/352",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1772,8 +1772,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.1,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -1804,8 +1804,8 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 4.12,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -1820,8 +1820,24 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 4.13,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
+      "labels": [
+        "alpha-9"
+      ]
+    },
+    {
+      "number": 461,
+      "title": "fix(orm): ne plus annoncer un échec de connexion quand le serveur refuse le schéma",
+      "url": "https://github.com/nodefony/nodefony-core/issues/461",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.14,
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -2247,7 +2263,7 @@
       "title": "docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé",
       "url": "https://github.com/nodefony/nodefony-core/issues/359",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2295,7 +2311,7 @@
       "title": "build(scripts): typechecker les outils du dépôt, aujourd'hui hors de tout tsconfig",
       "url": "https://github.com/nodefony/nodefony-core/issues/213",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2359,7 +2375,7 @@
       "title": "fix(devkit-bench): chercher la zone de firewall où elle vit vraiment",
       "url": "https://github.com/nodefony/nodefony-core/issues/372",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -4989,7 +5005,7 @@
       "title": "feat(cli): ajouter une brique à une application déjà générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/349",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -5050,6 +5066,20 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 46.4,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 462,
+      "title": "feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/462",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.1.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 46.5,
       "debut": null,
       "cible": null,
       "labels": []
@@ -5138,8 +5168,8 @@
       "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 57,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -5168,8 +5198,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 58,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -5481,7 +5511,7 @@
       "title": "feat(scaffold): rendre l'application déployable en Kubernetes",
       "url": "https://github.com/nodefony/nodefony-core/issues/321",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -5933,7 +5963,7 @@
       "title": "test(perf): mesurer le banc ORM applicatif sur les trois dialectes",
       "url": "https://github.com/nodefony/nodefony-core/issues/403",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": "10.1.0",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -6050,8 +6080,8 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 158,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -6077,11 +6107,11 @@
       "state": "OPEN",
       "status": "Todo",
       "milestone": "10.0.0-alpha",
-      "priorite": null,
+      "priorite": "P2 — décision",
       "jours": 0.5,
       "ordre": 159,
-      "debut": "2026-09-22",
-      "cible": "2026-09-22",
+      "debut": "2026-09-24",
+      "cible": "2026-09-24",
       "labels": [
         "alpha-9"
       ]
@@ -6169,6 +6199,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 459,
+      "title": "feat(media): modèle média partagé et moteur audio du navigateur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/459",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "11.0.0",
+      "priorite": "P2 — décision",
+      "jours": 15,
+      "ordre": 165,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "Librairie Cliente"
+      ]
     },
     {
       "number": 246,
@@ -6289,7 +6335,7 @@
       "title": "fix(test): sonder les deux ports avant de lancer le banc de démarrage",
       "url": "https://github.com/nodefony/nodefony-core/issues/387",
       "state": "OPEN",
-      "status": "In Progress",
+      "status": "Todo",
       "milestone": null,
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -6376,22 +6422,6 @@
       "cible": null,
       "labels": [
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 459,
-      "title": "feat(media): modèle média partagé et moteur audio du navigateur",
-      "url": "https://github.com/nodefony/nodefony-core/issues/459",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": "11.0.0",
-      "priorite": "P2 — décision",
-      "jours": 15,
-      "ordre": null,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "Librairie Cliente"
       ]
     }
   ]

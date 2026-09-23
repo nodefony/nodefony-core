@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-23 13:18** (UTC).
+> Empreinte prise le **2026-09-23 20:22** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 95% | 139 | 8 | 2026-09-23 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 94% | 141 | 9 | 2026-09-24 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 36% | 23 | 41 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
@@ -33,9 +33,9 @@
 
 **#454 — feat(scaffold): proposer mongodb au choix de base de données**
 
-Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-22 → 09-22
+Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-24 → 09-24
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 7 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 8 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -93,19 +93,20 @@ Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 7 ouverts
+## Jalon 10.0.0-alpha — 8 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.1 | P1 — figé à la création | 1 | 2026-09-22 → 09-22 | #454 | feat(scaffold): proposer mongodb au choix de base de données |
-| 4.12 | P1 — figé à la création | 1 | 2026-09-22 → 09-22 | #456 | fix(orm): ne pas ouvrir de base SQLite quand l'infra déclarée n'est pas SQL |
-| 4.13 | P2 — décision | 1 | 2026-09-22 → 09-22 | #457 | fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM |
-| 57 | P2 — décision | 0.5 | 2026-09-22 → 09-22 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
-| 58 | P2 — décision | 1 | 2026-09-22 → 09-22 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
-| 158 | P2 — décision | 1 | 2026-09-22 → 09-22 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
-| 159 | — | 0.5 | 2026-09-22 → 09-22 | #458 | docs(readme): orienter l'évaluateur vers une application générée |
+| 4.1 | P1 — figé à la création | 1 | 2026-09-24 → 09-24 | #454 | feat(scaffold): proposer mongodb au choix de base de données |
+| 4.12 | P1 — figé à la création | 1 | 2026-09-24 → 09-24 | #456 | fix(orm): ne pas ouvrir de base SQLite quand l'infra déclarée n'est pas SQL |
+| 4.13 | P2 — décision | 1 | 2026-09-24 → 09-24 | #457 | fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM |
+| 4.14 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #461 | fix(orm): ne plus annoncer un échec de connexion quand le serveur refuse le schéma |
+| 57 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
+| 58 | P2 — décision | 1 | 2026-09-24 → 09-24 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
+| 158 | P2 — décision | 1 | 2026-09-24 → 09-24 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
+| 159 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #458 | docs(readme): orienter l'évaluateur vers une application générée |
 
-## Jalon 10.1.0 — 30 ouverts
+## Jalon 10.1.0 — 31 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -118,6 +119,7 @@ Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 20 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #87 | test(mail): éprouver l'envoi contre un vrai serveur de test |
 | 21 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #88 | docs(mail): documenter la configuration et le premier envoi |
 | 46 | P1 — figé à la création | 1 | 2026-11-16 → 12-15 | #349 | feat(cli): ajouter une brique à une application déjà générée |
+| 46.5 | P1 — figé à la création | 1 | — | #462 | feat(cli): ajouter mcp:stdio pour les agents qui lancent leur serveur |
 | 100 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #28 | feat(config): surcharger la config d'application par l'environnement |
 | 110 | P2 — décision | 3 | 2026-11-16 → 12-15 | #63 | test(bancs): rendre chaque banc indépendant du décor partagé |
 | 113 | P3 — fin de cycle | 1 | 2026-11-16 → 12-15 | #78 | test(core): remplacer les seuils absolus des tests de performance |
@@ -186,7 +188,7 @@ Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 162 | P3 — fin de cycle | 1 | — | #242 | feat(core): instruire le besoin de transports TCP, UDP et Unix |
 | 163 | P3 — fin de cycle | 1 | — | #243 | feat(realtime): servir le bus par Kafka pour la retention |
 | 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
-| — | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
+| 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
 
 ## Jalon 12.0.0 — 8 ouverts
 

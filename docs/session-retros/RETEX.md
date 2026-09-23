@@ -628,6 +628,18 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-23b] 🗣️ **Deux affirmations énoncées comme des faits, sans lecture, et le user les a
+  reprises.** « Le contrat de pagination côté Mongoose est à concevoir » : faux — `findPage`
+  passe par `paginate` sur `IRepository`, que `MongooseRepository` implémente, éprouvé sur un
+  vrai MongoDB. « Un jalon backlog n'est pas une bonne pratique GitHub » : j'ai cité NOTRE règle
+  comme une norme extérieure. La devise est en tête du CLAUDE.md ; une affirmation qui oriente
+  une décision (estimer #465, trancher un usage) se vérifie AVANT d'être dite — un `rg` suffisait.
+- [1× — 09-23b] 🙈 **Un filtre `| grep "✖|error"` sur un `git commit` a masqué le refus du hook**
+  (fiche de skill périmée, `❌ …`) : le commit n'avait pas eu lieu, et je l'ai découvert par
+  `git log`. Même famille : un `--repack` du banc a empaqueté un gabarit DÉBRANCHÉ resté sur le
+  disque — tout run suivant sans `--repack` aurait mesuré le débranchement. Capturer la sortie
+  ENTIÈRE dans un fichier, et restaurer + rempaqueter avant de reprendre la mesure
+  ([[feedback_prove_on_received_artifact]], [[feedback_stale_decor_poisons_verdicts]]).
 - [1× — 09-23] 🪆 **Banc élargi, poussé, rouge — puis « corrigé », repoussé, encore rouge :
   trois défauts en poupées russes.** L'entrée `ref:User` ajoutée hier au banc n'avait été rejouée
   ni jusqu'à l'étape HTTP, ni sur un moteur serveur. Le premier défaut (e2e → `POST /api/users`, 404) masquait le deuxième (banc de conformité qui écarte `User`), qui masquait le troisième
@@ -818,8 +830,18 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
 
-- [1× — 09-23] ⏱️ **Deux lectures d'un index GitHub, faites trop tôt, ont rendu un faux
-  verdict.** `ticket:lint` a signalé #461 HORS-TABLEAU dix minutes après son inscription :
+- [1× — 09-23b] 🔌 **Un débranchement qui ne débranchait rien a failli faire accuser la sonde.**
+  Pour voir mordre « chaque brique durable sur mongoose », j'ai commenté `NF_DATABASE_URL` : le
+  banc est resté vert — Mongoose retombe sur `localhost:27017`, le MÊME serveur, et les briques
+  restaient légitimement sur `mongoose`. Le défaut visé (Mongoose après security) est, lui, refusé
+  par le Kernel au boot, en amont. La sonde s'est prouvée sur le journal réel extrait (intact
+  accepté, brique ou annuaire en mémoire refusés). Un débranchement se vérifie par son EFFET
+  attendu, pas par le diff.
+- [2× — 09-23b] ⏱️ **Deux lectures d'un index GitHub, faites trop tôt, ont rendu un faux
+  verdict.** ➕ 09-23b : la cause était un INCIDENT GitHub déclaré (« lag … issue labels
+  reflected in Projects », ouvert à 10:11 UTC) — `projectV2.items` figé à #461 pendant des
+  heures, réinscription sans effet. Avant de soupçonner nos scripts :
+  `curl -s https://www.githubstatus.com/api/v2/incidents/unresolved.json`. `ticket:lint` a signalé #461 HORS-TABLEAU dix minutes après son inscription :
   `projectV2.items` totalisait 438 et ne le listait pas, alors que `issue(461).projectItems`
   rendait bien le projet 2. De même, `gh run list` juste après un push rendait une liste vide,
   et ma surveillance a « échoué » sur un identifiant vide, sans aucun lien avec la CI. Un index
