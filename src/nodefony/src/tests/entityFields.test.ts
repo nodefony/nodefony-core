@@ -12,6 +12,7 @@ import {
   parseEntityIndexes,
   buildEntityCodegen,
   toSnakeCase,
+  refTargetsSerial,
   EntityFieldError,
   type IEntityField,
 } from "../cli/scaffold/entityFields";
@@ -804,7 +805,9 @@ describe("scaffold — tailles de colonne", () => {
  *   vrai serveur.
  */
 describe("scaffold — la référence suit la clé primaire", () => {
-  const fields = parseEntityFields("author:ref:User");
+  // Une cible ORDINAIRE : `User` est l'exception (bloc suivant), il ne peut pas
+  // servir d'exemple de la règle générale.
+  const fields = parseEntityFields("author:ref:Author");
   const base = { timestamps: false, softDelete: false, table: "posts" };
 
   it("postgres + uuid : la référence est un uuid, pas un texte", () => {
@@ -854,6 +857,52 @@ describe("scaffold — la référence suit la clé primaire", () => {
       id: "uuid7",
     });
     assert.match(uuid.zodProps, /author: z\.string\(\)/u);
+  });
+});
+
+/*
+ *   Une référence vers l'IDENTITÉ suit la clé de `user`, pas la stratégie de
+ *   l'entité qu'on génère.
+ *
+ *   La clé de `user` est un UUID applicatif rangé en TEXTE dans les trois moteurs.
+ *   Typée `uuid` (ou `integer` sous `--id serial`), la référence compilait, passait
+ *   en SQLite — et PostgreSQL refusait la contrainte au démarrage (`42804`, types
+ *   incompatibles), sous un message qui parlait de connexion. Vu en CI, sur une
+ *   application générée : aucun test du dépôt ne l'exerçait.
+ */
+describe("scaffold — la référence vers User suit la clé de l'identité", () => {
+  const fields = parseEntityFields("owner:ref:User");
+  const base = { timestamps: false, softDelete: false, table: "notes" };
+
+  it("postgres : un text, comme `user.id` — jamais un uuid", () => {
+    const c = buildEntityCodegen(fields, {
+      ...base,
+      dialect: "postgres",
+      id: "uuid7",
+    });
+    assert.match(c.columns, /owner: text\("owner"\)/u);
+    assert.doesNotMatch(c.columns, /owner: uuid\("owner"\)/u);
+    assert.match(c.drizzleImport, /\btext\b/u);
+  });
+
+  it("clé auto-incrémentée : la référence reste une CHAÎNE, dans les trois moteurs", () => {
+    for (const dialect of ["postgres", "mysql", "sqlite"] as const) {
+      const c = buildEntityCodegen(fields, { ...base, dialect, id: "serial" });
+      assert.doesNotMatch(
+        c.columns,
+        /owner: (integer|int)\("owner"\)/u,
+        `${dialect} : la clé de user n'est pas un entier\n${c.columns}`,
+      );
+      assert.match(c.rowProps, /owner: string;/u, dialect);
+      assert.doesNotMatch(c.zodProps, /owner: z\.number\(\)/u, dialect);
+    }
+  });
+
+  it("l'échantillon et le filtre suivent la même règle", () => {
+    const f = fields[0];
+    assert.strictEqual(typeof sampleValue(f, "serial").fixed, "string");
+    assert.strictEqual(refTargetsSerial("User", "serial"), false);
+    assert.strictEqual(refTargetsSerial("Author", "serial"), true);
   });
 });
 
@@ -917,7 +966,7 @@ describe("scaffold — l'échantillon respecte le schéma", () => {
   });
 
   it("référence vers une clé auto-incrémentée : un NOMBRE", () => {
-    const { fixed, expr } = sampleValue(field("author:ref:User"), "serial");
+    const { fixed, expr } = sampleValue(field("author:ref:Author"), "serial");
     assert.strictEqual(typeof fixed, "number");
     assert.strictEqual(expr, "n");
   });
@@ -987,12 +1036,17 @@ describe("scaffold — nommage SQL d'une table existante", () => {
   });
 
   it("une référence suit la casse — c'est la colonne de jointure", () => {
-    const c = buildEntityCodegen(parseEntityFields("ownerUser:ref:User"), {
-      ...base,
-      columnCase: "snake",
-    });
-    assert.match(c.columns, /ownerUser: uuid\("owner_user"\)/u);
-    assert.match(c.rowProps, /ownerUser: string;/u);
+    // Cible ordinaire : une référence vers `User` suit la clé de l'identité,
+    // pas la stratégie de l'entité — ce n'est pas le sujet de ce cas.
+    const c = buildEntityCodegen(
+      parseEntityFields("ownerAccount:ref:Account"),
+      {
+        ...base,
+        columnCase: "snake",
+      },
+    );
+    assert.match(c.columns, /ownerAccount: uuid\("owner_account"\)/u);
+    assert.match(c.rowProps, /ownerAccount: string;/u);
   });
 
   it("le nom d'index est un objet SQL — il suit la casse des colonnes", () => {

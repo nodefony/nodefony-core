@@ -63,6 +63,8 @@ import {
   COLUMN_CASES,
   ENTITY_DIALECTS,
   ENTITY_ID_KINDS,
+  IDENTITY_ENTITY,
+  refTargetsSerial,
   type TColumnCase,
   type TEntityDialect,
   type TEntityIdKind,
@@ -3446,7 +3448,9 @@ export function sampleValue(
     // Une référence vers une clé auto-incrémentée est un NOMBRE : le schéma la
     // valide comme tel, une chaîne y serait refusée. Sinon la colonne porte le
     // type de la clé visée — un `uuid` ({@link foreignKeyColumn}).
-    return id === "serial" ? { fixed: 1, expr: "n" } : echantillonUuid();
+    return refTargetsSerial(field.target, id)
+      ? { fixed: 1, expr: "n" }
+      : echantillonUuid();
   }
   if (type === "uuid") {
     return echantillonUuid();
@@ -4191,7 +4195,8 @@ function runEntityScaffold(
     if (f.type === "bool") return '"boolean"';
     if (f.type === "enum" && f.values?.length)
       return JSON.stringify(f.values).replace(/","/g, '", "');
-    if (f.type === "ref") return id === "serial" ? '"int"' : '"string"';
+    if (f.type === "ref")
+      return refTargetsSerial(f.target, id) ? '"int"' : '"string"';
     return null;
   };
   const filters = fields
@@ -4274,7 +4279,7 @@ function runEntityScaffold(
     sample[f.name] = fixed;
     factory.push(
       f.type === "ref" && f.target
-        ? `${f.name}: (refs.${f.target} ?? ${expr}) as ${id === "serial" ? "number" : "string"}`
+        ? `${f.name}: (refs.${f.target} ?? ${expr}) as ${refTargetsSerial(f.target, id) ? "number" : "string"}`
         : `${f.name}: ${expr}`,
     );
   }
@@ -4383,7 +4388,7 @@ function runEntityScaffold(
                 // ni compte ni `me` : on retombe sur la voie commune, dont
                 // l'erreur nomme la route absente.
                 identity:
-                  relationTarget === "User" &&
+                  relationTarget === IDENTITY_ENTITY &&
                   targetDeps.has("@nodefony/security"),
               },
             ] as const;

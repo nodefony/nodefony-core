@@ -18,6 +18,36 @@ export type TEntityDialect = (typeof ENTITY_DIALECTS)[number];
 export const ENTITY_ID_KINDS = ["uuid7", "uuid4", "serial"] as const;
 export type TEntityIdKind = (typeof ENTITY_ID_KINDS)[number];
 
+/**
+ * Nom de l'entité d'IDENTITÉ — la table `user` que `create app` pose et que le
+ * framework (sessions, jetons, audit) référence.
+ *
+ * Sa clé n'obéit pas à la stratégie de l'entité qu'on génère : c'est un UUID
+ * applicatif rangé en TEXTE dans les trois moteurs (`KIND_BY_TYPE.uuid` de
+ * `@nodefony/drizzle`). Une référence vers elle typée `uuid` ou `integer`
+ * compile, passe en SQLite, et fait refuser la contrainte par PostgreSQL
+ * (`42804`, types incompatibles).
+ */
+export const IDENTITY_ENTITY = "User";
+
+/**
+ * Une référence désigne-t-elle une clé NUMÉRIQUE ?
+ *
+ * La seule règle qui décide du type d'une référence — colonne, schéma,
+ * échantillon et filtre l'appellent tous, sans quoi l'un finirait par
+ * contredire l'autre.
+ *
+ * @param target - entité visée par la référence.
+ * @param id - stratégie de clé de l'entité en cours de génération.
+ * @returns `true` si la clé visée est un entier auto-incrémenté.
+ */
+export function refTargetsSerial(
+  target: string | undefined,
+  id: TEntityIdKind,
+): boolean {
+  return id === "serial" && target !== IDENTITY_ENTITY;
+}
+
 /** Types de champ du vocabulaire Nodefony (jamais le vocabulaire Drizzle). */
 export const ENTITY_FIELD_TYPES = [
   "string",
@@ -880,8 +910,14 @@ function foreignKeyColumn(
   dialect: TEntityDialect,
   id: TEntityIdKind,
   col: string,
+  target: string | undefined,
 ): { expr: string; tsType: string; imports: string[] } {
-  if (id === "serial") {
+  if (target === IDENTITY_ENTITY && dialect === "postgres") {
+    // La clé de l'identité est un `text` PostgreSQL, pas un `uuid` : la
+    // contrainte exige le MÊME type des deux côtés ({@link IDENTITY_ENTITY}).
+    return { expr: `text("${col}")`, tsType: "string", imports: ["text"] };
+  }
+  if (refTargetsSerial(target, id)) {
     // Un entier ORDINAIRE : la table cible auto-incrémente sa clé, celle qui la
     // désigne se contente de la recopier.
     const expr = dialect === "mysql" ? `int("${col}")` : `integer("${col}")`;
@@ -1021,7 +1057,9 @@ export function buildEntityCodegen(
     // chaîne quelconque : c'est la condition pour que la jointure s'exécute.
     const column = sql(field.name);
     const fk =
-      field.type === "ref" ? foreignKeyColumn(dialect, id, column) : undefined;
+      field.type === "ref"
+        ? foreignKeyColumn(dialect, id, column, field.target)
+        : undefined;
     if (fk) {
       fk.imports.forEach((i) => imports.add(i));
     } else {

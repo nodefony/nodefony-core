@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 854,
-    "symbols": 4209,
+    "symbols": 4211,
     "classes": 398,
     "interfaces": 1119,
     "types": 456,
     "enums": 4,
-    "functions": 1814,
-    "constants": 418
+    "functions": 1815,
+    "constants": 419
   },
   "symbols": {
     "Cli": {
@@ -7034,6 +7034,14 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "refTargetsSerial": {
+      "name": "refTargetsSerial",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Une référence désigne-t-elle une clé NUMÉRIQUE ? La seule règle qui décide du type d'une référence — colonne, schéma, échantillon et filtre l'appellent tous, sans quoi l'un finirait par contredire …"
+    },
     "toSnakeCase": {
       "name": "toSnakeCase",
       "kind": "function",
@@ -7121,6 +7129,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Stratégies de clé primaire."
+    },
+    "IDENTITY_ENTITY": {
+      "name": "IDENTITY_ENTITY",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom de l'entité d'IDENTITÉ — la table `user` que `create app` pose et que le framework (sessions, jetons, audit) référence. Sa clé n'obéit pas à la stratégie de l'entité qu'on génère : c'est un UUI…"
     },
     "ENTITY_FIELD_TYPES": {
       "name": "ENTITY_FIELD_TYPES",
@@ -33421,6 +33437,12 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "ENTITY_ID_KINDS": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "IDENTITY_ENTITY": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "refTargetsSerial": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "TColumnCase": [
