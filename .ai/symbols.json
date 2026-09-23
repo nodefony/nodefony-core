@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 854,
-    "symbols": 4213,
+    "symbols": 4215,
     "classes": 398,
-    "interfaces": 1119,
+    "interfaces": 1120,
     "types": 456,
     "enums": 4,
-    "functions": 1817,
+    "functions": 1818,
     "constants": 419
   },
   "symbols": {
@@ -7374,6 +7374,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Spec d'un type de scaffold (`app` aujourd'hui ; `module`/`controller`/`entity` suivent)."
+    },
+    "IChoiceText": {
+      "name": "IChoiceText",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Libellé et indication d'un choix — tout ce qu'il porte, hormis sa valeur."
     },
     "TFrontendChoice": {
       "name": "TFrontendChoice",

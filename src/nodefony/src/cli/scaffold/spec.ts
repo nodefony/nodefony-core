@@ -203,6 +203,33 @@ export const DATABASE_CHOICES = [
 ] as const;
 export type TDatabaseChoice = (typeof DATABASE_CHOICES)[number];
 
+/** Libellé et indication d'un choix — tout ce qu'il porte, hormis sa valeur. */
+export interface IChoiceText {
+  label: string;
+  hint?: string;
+}
+
+/**
+ * Compose les choix d'une question À PARTIR de la constante qui les énumère.
+ *
+ * La liste n'existe qu'UNE fois : la constante, qui type aussi la réponse
+ * (`TDatabaseChoice`…) et indexe les paramètres du moteur. Recopier ses
+ * valeurs dans la question laissait les deux diverger sans un mot — une base
+ * retirée de la constante restait acceptée par la validation, qui lit la
+ * question. Ici le compilateur refuse une valeur sans texte comme un texte sans
+ * valeur (`Record` exhaustif, excès de propriété sur le littéral).
+ *
+ * @param values - la constante des choix, dans l'ordre d'affichage.
+ * @param texts - libellé et indication de chaque valeur.
+ * @returns les choix de la question, dans l'ordre de la constante.
+ */
+function choicesOf<T extends string>(
+  values: readonly T[],
+  texts: Record<T, IChoiceText>,
+): { value: T; label: string; hint?: string }[] {
+  return values.map((value) => ({ value, ...texts[value] }));
+}
+
 const APP_SPEC: IScaffoldTypeSpec = {
   type: "app",
   description: "Application Nodefony autonome (hors du repo framework)",
@@ -220,14 +247,12 @@ const APP_SPEC: IScaffoldTypeSpec = {
       key: "preset",
       label: "Contenu de l'application",
       type: "choice",
-      choices: [
-        {
-          value: "complete",
+      choices: choicesOf(PRESET_CHOICES, {
+        complete: {
           label: "Vitrine complète (recommandé)",
           hint: "ORM + realtime + security + Studio + infra docker + tests e2e",
         },
-        {
-          value: "minimal",
+        minimal: {
           // Ce que ce choix RETIRE, nommé — le libellé d'avant (« la base
           // saine, à faire grandir ») était vrai et n'aidait personne : il
           // laissait décider en deux secondes, sans dire qu'on décidait de
@@ -242,40 +267,35 @@ const APP_SPEC: IScaffoldTypeSpec = {
             "authentification ni rôles, SANS temps réel, SANS console " +
             "d'administration (ajout manuel ensuite : voir AGENTS.md)",
         },
-      ],
+      }),
       default: "complete",
     },
     {
       key: "database",
       label: "Base de données de développement",
       type: "choice",
-      choices: [
-        {
-          value: "sqlite",
+      choices: choicesOf(DATABASE_CHOICES, {
+        sqlite: {
           label: "sqlite (recommandé pour démarrer)",
           hint: "aucun service à lancer — le fichier vit dans var/databases/",
         },
-        {
-          value: "postgres",
+        postgres: {
           label: "PostgreSQL 16",
           hint: "service docker + NF_DATABASE_URL posée",
         },
-        {
-          value: "mariadb",
+        mariadb: {
           label: "MariaDB 11.4",
           hint: "fork libre de MySQL — même dialecte",
         },
-        {
-          value: "mysql",
+        mysql: {
           label: "MySQL 8.4",
           hint: "service docker + NF_DATABASE_URL posée",
         },
-        {
-          value: "mongodb",
+        mongodb: {
           label: "MongoDB 8",
           hint: "documents, sans SQL — Mongoose à la place de Drizzle",
         },
-      ],
+      }),
       default: "sqlite",
       // L'infra de dev et le catalogue `.env` vivent dans le layer `complete` :
       // en preset minimal il n'y a ni compose.yaml ni ORM, donc rien à décider.
@@ -297,41 +317,36 @@ const APP_SPEC: IScaffoldTypeSpec = {
       // l'équipe connaît, l'existant à intégrer, le système de design imposé,
       // le recrutement. Une correspondance donnerait une fausse autorité, qu'un
       // agent appliquerait avec l'aplomb d'une mesure.
-      choices: [
-        {
-          value: "none",
+      choices: choicesOf(FRONTEND_CHOICES, {
+        none: {
           label: "Aucun",
           hint: "l'app ne sert que des API — `create front` en ajoute un plus tard",
         },
-        {
-          value: "react",
+        react: {
           label: "React 19",
           hint:
             "le plus grand vivier de bibliothèques et de profils — le choix " +
             "par défaut d'une équipe qui n'a pas de préférence",
         },
-        {
-          value: "vue",
+        vue: {
           label: "Vue 3",
           hint:
             "la prise en main la plus rapide — un composant tient dans un " +
             "fichier lisible sans connaître l'outillage",
         },
-        {
-          value: "angular",
+        angular: {
           label: "Angular (standalone, zoneless)",
           hint:
             "le plus prescriptif : il IMPOSE une structure — un appui pour " +
             "une grosse équipe, un poids pour une petite",
         },
-        {
-          value: "svelte",
+        svelte: {
           label: "Svelte 5",
           hint:
             "le plus petit bundle et le moins de code à l'exécution — " +
             "écosystème plus mince, à peser si tu dépends de briques toutes faites",
         },
-      ],
+      }),
       // 🔴 LA phrase qu'aucun outil ne dit jamais, et la plus importante des
       // deux : ce choix se CHANGE. Dans Nodefony le code métier ne dépend pas
       // du moteur — la façade cliente est isomorphe (`nodefony/react`, `/vue`,

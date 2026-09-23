@@ -1606,6 +1606,24 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     describe("--database mongodb — une application SANS ORM SQL", () => {
       // Le test qui MORD si le choix disparaît : il le nomme, là où un refus
       // « database invalide » ne dirait pas lequel manque.
+      it("la question ne répète pas la liste : elle la LIT dans sa constante", () => {
+        // Deux copies divergent en silence : une base retirée de la constante
+        // restait acceptée, la validation lisant la question (#463).
+        const questions = getScaffoldSpec("app")[0]?.questions ?? [];
+        for (const [key, constante] of [
+          ["database", DATABASE_CHOICES],
+          ["frontend", FRONTEND_CHOICES],
+          ["license", LICENSE_CHOICES],
+        ] as const) {
+          const question = questions.find((q) => q.key === key);
+          assert.deepEqual(
+            (question?.choices ?? []).map((c) => c.value),
+            [...constante],
+            `les choix de « ${key} » divergent de leur constante`,
+          );
+        }
+      });
+
       it("mongodb figure parmi les choix de `create app --database`", () => {
         assert.include(
           [...DATABASE_CHOICES],
