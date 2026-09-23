@@ -749,7 +749,7 @@ jsx pour react, `tsconfig.app.json` pour angular). Presets : `complete` = vitrin
 totale (drizzle sqlite auto, realtime, security, frontend+studio dev, redis gated) ;
 `minimal` = http+framework (+ `@nodefony/frontend` si un framework front est choisi).
 
-**Base SQL — `--database <sqlite|postgres|mariadb|mysql>` (défaut `sqlite`)** : le
+**Base — `--database <sqlite|postgres|mariadb|mysql|mongodb>` (défaut `sqlite`)** : le
 générateur connaît le dialecte, donc l'app ne reçoit ni les deux services qu'elle
 n'utilisera pas, ni une URL à recomposer. `DATABASE_PARAMS` + `resolveDatabase`
 (`engine.ts`) sont la SOURCE UNIQUE du service, du port publié et de
@@ -759,6 +759,23 @@ service retenu est rendu **sans `profiles:`** (ce n'est pas une option : `docker
 compose up -d` doit le monter), et `.env` porte l'URL **active** — donc le récap
 de `create app` place `npm run infra:up` AVANT `npm run dev`. En `sqlite` :
 aucun service SQL, URL commentée, l'app démarre sans rien allumer.
+
+**MongoDB — `--database mongodb`** : une application SANS ORM SQL. `@nodefony/mongoose`
+EN TÊTE du manifeste (avant `security`, sinon chaque brique durable retombe en mémoire), pas de
+`@nodefony/drizzle`, ré-export `IMongooseConfigInput`, `User` rendu sur `createUserEntity`,
+`provisionUsers` sur `MongooseUserRepository` (connecteur `"nodefony"`). Deux clés de données
+distinctes : `mongo` (le choix) et **`hasMigrations`** — `hasOrm` ne suffit plus à dire qu'il y a
+des migrations. Elle conditionne le test de migrations, `orm:migrate` du décor e2e, le service
+`migrate` du compose et de la CI de production, `deploy/migrate-job.yaml` et les lignes
+`orm:generate` d'`AGENTS.md` (côté régénération : `@nodefony/drizzle` déclaré). URL
+`mongodb://127.0.0.1:27017/<app>?directConnection=true` : le jeu de réplicas s'annonce en
+`127.0.0.1`, que l'app en conteneur ne joint pas — la connexion directe vise le primaire et garde
+les transactions. Compose et CI lèvent `--replSet rs0` et ne se déclarent prêts qu'à un PRIMAIRE
+élu (`db.hello().isWritablePrimary`) ; GitHub en ÉTAPE (`services:` ne prend pas de commande),
+GitLab en service avec `command:` et initiation par le pilote `mongodb` (devDependency, même
+version que `@nodefony/mongoose`, qui sert aussi au décor e2e à supprimer sa base : Mongoose n'a
+pas d'`orm:reset`). `create entity` y refuse en nommant MongoDB (`assertSqlOrmTarget`, UNE garde
+pour les deux sites), et `doctor` n'y propose plus `create entity`.
 
 **Un moteur SERVEUR réclame TROIS bases, et le décor les FOURNIT.** `<app>` (le
 développement), `<app>_e2e` (la suite e2e — jamais celle du développement) et

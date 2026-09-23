@@ -1,4 +1,4 @@
-<% if (it.db) { %>-- Les DEUX bases que la suite e2e de <%= it.appName %> exige, créées à
+<% if (it.db && !it.mongo) { %>-- Les DEUX bases que la suite e2e de <%= it.appName %> exige, créées à
 -- l'initialisation du serveur.
 --
 -- Pourquoi elles ne se créent pas toutes seules au moment des tests : sur un

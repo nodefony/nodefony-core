@@ -67,12 +67,12 @@ jobs:
           SECRET=$(openssl rand -base64 32)
           cat > compose.ci.yaml <<YML
           services:
-            migrate:
+<% if (it.hasMigrations) { %>            migrate:
               environment:
                 NF_CSRF_SECRET: "$SECRET"
                 NF_SESSION_SECRET: "$SECRET"
                 NF_ADMIN_PASSWORD: "$SECRET"
-            app:
+<% } %>            app:
               environment:
                 NF_CSRF_SECRET: "$SECRET"
                 NF_SESSION_SECRET: "$SECRET"
@@ -80,9 +80,10 @@ jobs:
           YML
 
       # Le geste de l'utilisateur, celui que le README documente. Il construit
-      # l'image, lève la base et Redis, APPLIQUE les migrations (service
+<% if (it.hasMigrations) { %>      # l'image, lève la base et Redis, APPLIQUE les migrations (service
       # `migrate`, une tâche qui se termine), puis démarre l'application.
-      - name: docker compose --profile app up --build
+<% } else { %>      # l'image, lève la base et Redis, puis démarre l'application.
+<% } %>      - name: docker compose --profile app up --build
         shell: bash
         run: |
           set -euo pipefail
@@ -271,12 +272,12 @@ jobs:
           set -euo pipefail
           cat > compose.ci.yaml <<YML
           services:
-            migrate:
+<% if (it.hasMigrations) { %>            migrate:
               environment:
                 NF_CSRF_SECRET: "${NF_CI_SECRET}"
                 NF_SESSION_SECRET: "${NF_CI_SECRET}"
                 NF_ADMIN_PASSWORD: "${NF_CI_ADMIN_PASSWORD}"
-            app-edge:
+<% } %>            app-edge:
               environment:
                 NF_CSRF_SECRET: "${NF_CI_SECRET}"
                 NF_SESSION_SECRET: "${NF_CI_SECRET}"

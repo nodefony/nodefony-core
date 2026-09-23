@@ -199,6 +199,7 @@ export const DATABASE_CHOICES = [
   "postgres",
   "mariadb",
   "mysql",
+  "mongodb",
 ] as const;
 export type TDatabaseChoice = (typeof DATABASE_CHOICES)[number];
 
@@ -246,7 +247,7 @@ const APP_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "database",
-      label: "Base SQL de développement",
+      label: "Base de données de développement",
       type: "choice",
       choices: [
         {
@@ -268,6 +269,11 @@ const APP_SPEC: IScaffoldTypeSpec = {
           value: "mysql",
           label: "MySQL 8.4",
           hint: "service docker + NF_DATABASE_URL posée",
+        },
+        {
+          value: "mongodb",
+          label: "MongoDB 8",
+          hint: "documents, sans SQL — Mongoose à la place de Drizzle",
         },
       ],
       default: "sqlite",

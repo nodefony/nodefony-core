@@ -171,6 +171,41 @@ services:
       retries: 10
       start_period: 10s
 
+<% } %><% if (it.db && it.db.choice === "mongodb") { %>  # --- MongoDB 8 — LA base de l'app (documents, via @nodefony/mongoose) ---
+  # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
+  # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
+  #
+  # 🔴 En JEU DE RÉPLICAS, même à un seul membre : un `mongod` autonome refuse
+  # toute transaction, et les stockages du framework qui écrivent en deux temps
+  # échoueraient sur une erreur qui ne parle pas du décor. Aucune
+  # authentification : le port n'est publié que sur 127.0.0.1.
+  mongo:
+    image: <%= it.db.image %>
+    container_name: <%= it.appName %>-mongo
+    restart: unless-stopped
+    networks: [<%= it.appName %>]
+    command: ["--replSet", "rs0", "--bind_ip_all"]
+    ports:
+      - "127.0.0.1:${MONGO_PORT:-27017}:27017"
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      # Initie le jeu de réplicas au premier passage — idempotent —, puis ne se
+      # déclare sain qu'une fois un PRIMAIRE élu : l'élection suit l'initiation
+      # de quelques secondes, et une écriture dans cet intervalle échoue sur
+      # « not primary ». Le membre s'annonce en 127.0.0.1, l'adresse par laquelle
+      # l'app, sur l'hôte, le joint ; l'app en conteneur passe par
+      # `directConnection=true` (cf `NF_DATABASE_URL`) et n'en dépend pas.
+      test:
+        [
+          "CMD-SHELL",
+          'mongosh --quiet --eval ''try { rs.status() } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]}) } db.hello().isWritablePrimary'' | grep -q true',
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+
 <% } %><% if (it.db && it.db.choice === "mysql") { %>  # --- MySQL 8.4 — LA base de l'app (dialecte retenu à la création) ---
   # Pas de `profiles:` : ce service n'est pas une option, c'est la base que
   # `NF_DATABASE_URL` joint. `docker compose up -d` le monte avec Redis.
@@ -358,7 +393,7 @@ services:
           cpus: "2.0"
           memory: 2g
 
-  # --- LES MIGRATIONS, avant tout trafic (profils `app` et `edge`) ---
+<% if (it.hasMigrations) { %>  # --- LES MIGRATIONS, avant tout trafic (profils `app` et `edge`) ---
   #
   # 🔴 Sans ce service, la topologie ne démarre PAS — et le symptôme n'accuse
   # personne. En production le schéma appartient aux migrations (`ddl: none`,
@@ -382,7 +417,7 @@ services:
     command: ["node_modules/.bin/nodefony", "orm:migrate"]
     environment:
       <<: *app-env
-
+<% } %>
   # --- L'APPLICATION elle-même, en image (profil `app`) ---
   #
   # Hors profil par défaut, et c'est délibéré : en développement l'app tourne sur
@@ -403,15 +438,17 @@ services:
     environment:
       <<: *app-env
     depends_on:
-      # L'ancre pose déjà redis (et la base) ; ici on AJOUTE l'attente des
+<% if (it.hasMigrations) { %>      # L'ancre pose déjà redis (et la base) ; ici on AJOUTE l'attente des
       # migrations — un `depends_on` ne se fusionne pas, il se réécrit.
-      redis:
+<% } else { %>      # Redis et la base — rien de plus : MongoDB n'a pas de migrations à
+      # attendre avant le trafic.
+<% } %>      redis:
         condition: service_healthy
 <% if (it.db) { %>      <%= it.db.service %>:
         condition: service_healthy
-<% } %>      migrate:
+<% } %><% if (it.hasMigrations) { %>      migrate:
         condition: service_completed_successfully
-
+<% } %>
   # --- LA TOPOLOGIE DE PRODUCTION (profil `edge`) : l'app DERRIÈRE son frontal ---
   #
   #   npx nodefony http:certificates          # une fois — le certificat de dev
@@ -450,15 +487,17 @@ services:
       # sont servis avant Node par le `try_files` du frontal, pas contournés.
       NF__HTTP__STATICS__ENABLED: "false"
     depends_on:
-      # L'ancre pose déjà redis (et la base) ; ici on AJOUTE l'attente des
+<% if (it.hasMigrations) { %>      # L'ancre pose déjà redis (et la base) ; ici on AJOUTE l'attente des
       # migrations — un `depends_on` ne se fusionne pas, il se réécrit.
-      redis:
+<% } else { %>      # Redis et la base — rien de plus : MongoDB n'a pas de migrations à
+      # attendre avant le trafic.
+<% } %>      redis:
         condition: service_healthy
 <% if (it.db) { %>      <%= it.db.service %>:
         condition: service_healthy
-<% } %>      migrate:
+<% } %><% if (it.hasMigrations) { %>      migrate:
         condition: service_completed_successfully
-
+<% } %>
   # --- Le frontal nginx (profil `edge`) ---
   # Sa configuration n'est pas écrite : elle est DÉRIVÉE de l'application à la
   # construction (`proxy:generate`, étage `proxyconf` du Dockerfile), avec ses

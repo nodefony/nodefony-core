@@ -81,6 +81,42 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
     }
   });
 
+  it("une application MongoDB : pas de dialecte SQL, et aucun renvoi vers `create entity`", async () => {
+    // Le générateur d'entités n'écrit que des tables Drizzle et REFUSE sur une
+    // application Mongoose : lui proposer ce geste, c'est l'envoyer vers un
+    // refus. Témoin : la même application SANS Mongoose garde le renvoi.
+    const app = (deps: Record<string, string>): string => {
+      const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-mongo-"));
+      writeFileSync(
+        path.join(dir, "package.json"),
+        JSON.stringify({ name: "app-temoin", dependencies: deps }),
+      );
+      writeFileSync(
+        path.join(dir, "nodefony.config.ts"),
+        `export default defineConfig({ modules: [] });\n`,
+      );
+      return dir;
+    };
+    const mongo = app({ "@nodefony/mongoose": "*" });
+    const sql = app({ "@nodefony/drizzle": "*" });
+    try {
+      const surMongo = skippedChecks(
+        (await collectDoctorReport(mongo)).execution,
+      ).find((s) => s.family === "dialect");
+      assert.isDefined(surMongo, "`dialect` doit être rapporté");
+      assert.include(surMongo?.reason ?? "", "MongoDB");
+      assert.notInclude(surMongo?.unlock ?? "", "create entity");
+
+      const surSql = skippedChecks(
+        (await collectDoctorReport(sql)).execution,
+      ).find((s) => s.family === "dialect");
+      assert.include(surSql?.unlock ?? "", "create entity");
+    } finally {
+      rmSync(mongo, { recursive: true, force: true });
+      rmSync(sql, { recursive: true, force: true });
+    }
+  });
+
   it("dans une application NON construite, le catalogue des variables est déclaré non lu", async () => {
     const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-app-"));
     try {

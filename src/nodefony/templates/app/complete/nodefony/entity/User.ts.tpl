@@ -1,4 +1,41 @@
-import { defineEntity } from "@nodefony/orm-core";
+<% if (it.mongo) { %>import { defineEntity } from "@nodefony/orm-core";
+import { createUserEntity, FRAMEWORK_CONNECTOR } from "@nodefony/mongoose";
+
+/**
+ * L'entité `User` de cette application.
+ *
+ * **L'identité appartient à ton application**, pas au framework : c'est ce
+ * fichier qui la déclare. `@nodefony/mongoose` voit qu'elle existe et ne pose
+ * pas la sienne.
+ *
+ * Sur MongoDB, pas de migration : la collection naît à la première écriture, et
+ * les index déclarés par le schéma sont posés à la connexion.
+ *
+ * ## Ajouter tes propres champs
+ *
+ * `nodefony create entity` n'écrit que des tables SQL : sur cette application,
+ * les champs s'ajoutent ici, au schéma Mongoose, à côté de ceux du contrat.
+ *
+ * ```ts
+ * const base = createUserEntity(FRAMEWORK_CONNECTOR);
+ * export const UserEntity = defineEntity({
+ *   ...base,
+ *   module: "app",
+ *   schema: { ...(base.schema as object), department: { type: String } },
+ * });
+ * ```
+ *
+ * Un champ obligatoire doit avoir une valeur par défaut, ou être facultatif :
+ * le framework crée des utilisateurs sans le connaître — au semis d'un
+ * administrateur, à la première connexion par un fournisseur externe — et ces
+ * créations échoueraient.
+ */
+export const UserEntity = defineEntity({
+  ...createUserEntity(FRAMEWORK_CONNECTOR),
+  module: "app",
+});
+
+<% } else { %>import { defineEntity } from "@nodefony/orm-core";
 import { createUserTable, FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
 import type { SqlDialect } from "@nodefony/drizzle";
 
@@ -74,7 +111,7 @@ export const UserEntity = defineEntity({
   schema: userTable,
 });
 
-/**
+<% } %>/**
  * Un utilisateur d'exemple, à la convention de TOUTE entité générée.
  *
  * 🔴 Il n'est pas là pour décorer : dès qu'une entité te RÉFÉRENCE

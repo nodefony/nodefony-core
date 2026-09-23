@@ -28,6 +28,7 @@ import {
 } from "../cli/create";
 import { AGENT_TARGETS, pointeursInstructions } from "../cli/agentTargets";
 import {
+  DATABASE_CHOICES,
   FRONTEND_CHOICES,
   LICENSE_CHOICES,
   getScaffoldSpec,
@@ -1602,6 +1603,157 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
     }
 
+    describe("--database mongodb — une application SANS ORM SQL", () => {
+      // Le test qui MORD si le choix disparaît : il le nomme, là où un refus
+      // « database invalide » ne dirait pas lequel manque.
+      it("mongodb figure parmi les choix de `create app --database`", () => {
+        assert.include(
+          [...DATABASE_CHOICES],
+          "mongodb",
+          "mongodb absent de DATABASE_CHOICES — aucune application ne peut naître sur MongoDB",
+        );
+      });
+
+      it("Mongoose EN TÊTE du manifeste, et pas un octet de Drizzle", () => {
+        const dest = path.join(tmp, "mongo-app");
+        scaffold(dest, { name: "demo", database: "mongodb" });
+        const pkg = readJson(path.join(dest, "package.json"));
+        assert.property(pkg["dependencies"], "@nodefony/mongoose");
+        for (const sql of [
+          "@nodefony/drizzle",
+          "drizzle-orm",
+          "pg",
+          "mysql2",
+          "better-sqlite3",
+        ]) {
+          assert.notProperty(pkg["dependencies"], sql);
+        }
+        assert.notProperty(pkg["devDependencies"], "drizzle-kit");
+        // Le pilote du décor e2e, à la version de @nodefony/mongoose.
+        assert.property(pkg["devDependencies"], "mongodb");
+        assert.notProperty(pkg, "allowScripts");
+
+        const config = readFileSync(
+          path.join(dest, "nodefony.config.ts"),
+          "utf8",
+        );
+        // L'augmentation de config ENTRE dans le programme — sans elle, une
+        // clé mal orthographiée de `use("@nodefony/mongoose", …)` compile.
+        assert.include(
+          config,
+          'export type { IMongooseConfigInput } from "@nodefony/mongoose";',
+        );
+        const mongoose = config.indexOf('"@nodefony/mongoose",');
+        const security = config.indexOf('use("@nodefony/security"');
+        assert.isAbove(mongoose, -1, "@nodefony/mongoose absent du manifeste");
+        // AVANT security, sinon chaque stockage durable retombe en mémoire.
+        assert.isBelow(mongoose, security);
+
+        // Aucun source généré n'importe Drizzle.
+        for (const [rel, contenu] of snapshotTree(dest)) {
+          if (rel.endsWith(".ts")) {
+            assert.notInclude(contenu, "@nodefony/drizzle", rel);
+          }
+        }
+        const user = readFileSync(
+          path.join(dest, "nodefony", "entity", "User.ts"),
+          "utf8",
+        );
+        assert.include(user, "createUserEntity(FRAMEWORK_CONNECTOR)");
+        assert.include(user, 'module: "app"');
+        assert.include(
+          readFileSync(
+            path.join(dest, "nodefony", "security", "provisionUsers.ts"),
+            "utf8",
+          ),
+          "MongooseUserRepository.from(orm)",
+        );
+        assertNoEtaResidue(dest);
+      });
+
+      it("le décor lève un jeu de réplicas, et l'URL le joint en connexion directe", () => {
+        const dest = path.join(tmp, "mongo-decor");
+        scaffold(dest, { name: "demo", database: "mongodb" });
+        const compose = composeOf(dest);
+        assert.include(compose, "\n  mongo:\n");
+        assert.include(compose, '["--replSet", "rs0", "--bind_ip_all"]');
+        assert.include(compose, "db.hello().isWritablePrimary");
+        assert.include(compose, "  mongo-data:");
+        assert.include(compose, "127.0.0.1:${MONGO_PORT:-27017}:27017");
+        for (const other of ["postgres", "mariadb", "mysql"]) {
+          assert.notInclude(compose, `\n  ${other}:\n`);
+        }
+        assert.include(
+          envOf(dest),
+          "\nNF_DATABASE_URL=mongodb://127.0.0.1:27017/demo?directConnection=true\n",
+        );
+        // La CI GitHub lève le même serveur, en étape (pas en `services:`).
+        const ci = readFileSync(
+          path.join(dest, ".github", "workflows", "ci.yml"),
+          "utf8",
+        );
+        assert.include(ci, "--replSet rs0 --bind_ip_all");
+        assert.notMatch(ci, /^    services:$/mu);
+        assertNoEtaResidue(dest);
+      });
+
+      it("rien ne parle de migrations : ni service, ni recette, ni suite, ni étape", () => {
+        const dest = path.join(tmp, "mongo-nomig");
+        scaffold(dest, { name: "demo", database: "mongodb" });
+        for (const absent of [
+          ["deploy", "migrate-job.yaml"],
+          ["tests", "migrations.e2e.test.ts"],
+          ["docker", "db", "init-nodefony-e2e.sql"],
+        ]) {
+          assert.isFalse(
+            existsSync(path.join(dest, ...absent)),
+            `${absent.join("/")} rendu sur une application MongoDB`,
+          );
+        }
+        const compose = composeOf(dest);
+        assert.notInclude(compose, "\n  migrate:\n");
+        assert.notInclude(compose, "service_completed_successfully");
+        const setup = readFileSync(
+          path.join(dest, "tests", "e2e.setup.ts"),
+          "utf8",
+        );
+        assert.include(setup, "dropDatabase()");
+        // Les ARGUMENTS passés au CLI, pas le mot : un commentaire peut dire
+        // pourquoi la commande n'est pas là.
+        assert.notInclude(setup, '"orm:migrate"');
+        assert.notInclude(setup, '"orm:reset"');
+        const agents = readFileSync(path.join(dest, "AGENTS.md"), "utf8");
+        assert.notInclude(agents, "orm:generate");
+        assert.include(agents, "persiste sur MongoDB");
+        const production = readFileSync(
+          path.join(dest, ".github", "workflows", "production.yml"),
+          "utf8",
+        );
+        assert.notMatch(production, /^\s+migrate:$/mu);
+      });
+
+      it("`create entity` refuse, en nommant MongoDB — pas « ajoute Drizzle »", () => {
+        const dest = path.join(tmp, "mongo-entity");
+        scaffold(dest, { name: "demo", database: "mongodb" });
+        assert.throws(
+          () =>
+            runScaffold(
+              {
+                type: "entity",
+                answers: { name: "Article", fields: "title:string" },
+                dir: dest,
+                force: false,
+              },
+              version,
+            ),
+          /persiste sur MongoDB/u,
+        );
+        assert.isFalse(
+          existsSync(path.join(dest, "nodefony", "entity", "Article.ts")),
+        );
+      });
+    });
+
     it("preset minimal : la question ne s'applique pas → la réponse retombe à sqlite", () => {
       const [spec] = getScaffoldSpec("app");
       const answers = resolveAnswers(
@@ -1777,6 +1929,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         { name: "db-postgres", answers: { database: "postgres" } },
         { name: "db-mariadb", answers: { database: "mariadb" } },
         { name: "db-mysql", answers: { database: "mysql" } },
+        { name: "db-mongodb", answers: { database: "mongodb" } },
       ];
       for (const variante of variantes) {
         const dest = path.join(tmp, `perime-${variante.name}`);

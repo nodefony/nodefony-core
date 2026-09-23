@@ -107,6 +107,34 @@ function readExceptions(cwd: string): {
 }
 
 /**
+ * Le manifeste de l'application déclare-t-il ce paquet (dépendances ou
+ * dépendances de développement) ?
+ *
+ * Lu dans `package.json`, jamais dans `node_modules` : `doctor` répond aussi
+ * sur une application qu'on n'a pas encore installée.
+ *
+ * @param projectRoot - racine de l'application.
+ * @param name - nom du paquet.
+ * @returns `false` quand le manifeste est absent ou illisible.
+ */
+function declaresDependency(projectRoot: string, name: string): boolean {
+  try {
+    const pkg = JSON.parse(
+      readFileSync(path.join(projectRoot, "package.json"), "utf8"),
+    ) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    return (
+      pkg.dependencies?.[name] !== undefined ||
+      pkg.devDependencies?.[name] !== undefined
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Sonde les ports de développement et CONSTATE qui les tient.
  *
  * Le verdict `ownedByUs` vient de `readRuntimeState`, qui invalide de lui-même
@@ -1107,18 +1135,30 @@ export async function collectDoctorReport(
       dialect:
         surface.entitiesScanned > 0
           ? { ran: true }
-          : {
-              ran: false,
-              reason:
-                "aucune entité Drizzle dans cette application — il n'y a pas " +
-                "de dialecte à confronter",
-              short: "aucune entité",
-              notApplicable: true,
-              // Un contrôle sauté SANS geste laisse le lecteur devant un
-              // manque qu'il ne sait pas combler. Ici le geste n'est pas une
-              // réparation : c'est ce qui rendrait le contrôle applicable.
-              unlock: "`nodefony create entity <Nom>`",
-            },
+          : projectRoot && declaresDependency(projectRoot, "@nodefony/mongoose")
+            ? {
+                ran: false,
+                // Une application MongoDB n'a pas de dialecte SQL. Lui
+                // proposer `create entity` l'enverrait vers un générateur
+                // qui refuse — il n'écrit que des tables Drizzle.
+                reason:
+                  "application MongoDB (@nodefony/mongoose) — il n'y a pas de " +
+                  "dialecte SQL à confronter",
+                short: "MongoDB",
+                notApplicable: true,
+              }
+            : {
+                ran: false,
+                reason:
+                  "aucune entité Drizzle dans cette application — il n'y a pas " +
+                  "de dialecte à confronter",
+                short: "aucune entité",
+                notApplicable: true,
+                // Un contrôle sauté SANS geste laisse le lecteur devant un
+                // manque qu'il ne sait pas combler. Ici le geste n'est pas une
+                // réparation : c'est ce qui rendrait le contrôle applicable.
+                unlock: "`nodefony create entity <Nom>`",
+              },
       deps: !projectRoot
         ? outsideProject
         : scanned > 0

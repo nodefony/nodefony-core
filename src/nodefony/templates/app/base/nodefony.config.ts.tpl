@@ -28,8 +28,9 @@ import { devkitConfig } from "./nodefony/config/devkit";
 // Y AJOUTER une ligne en montant un module dont on configure les clés.
 export type { IHttpConfigInput } from "@nodefony/http";
 export type { IFrameworkConfigInput } from "@nodefony/framework";
-<% if (it.complete) { %>export type { IDrizzleConfigInput } from "@nodefony/drizzle";
-export type { IRealtimeConfigInput } from "@nodefony/realtime";
+<% if (it.complete && it.mongo) { %>export type { IMongooseConfigInput } from "@nodefony/mongoose";
+<% } else if (it.complete) { %>export type { IDrizzleConfigInput } from "@nodefony/drizzle";
+<% } %><% if (it.complete) { %>export type { IRealtimeConfigInput } from "@nodefony/realtime";
 export type { ISecurityConfigInput } from "@nodefony/security";
 export type { IFrontendConfigInput } from "@nodefony/frontend";
 export type { IStudioConfigInput } from "@nodefony/studio";
@@ -123,7 +124,19 @@ export default defineConfig<typeof env>((ctx) => ({
    * clé du module lui-même.
    */
   modules: [
-<% if (it.complete) { %>    /**
+<% if (it.complete && it.mongo) { %>    /**
+     * ORM Mongoose (MongoDB) — l'URL vient de `NF_DATABASE_URL`, que le module
+     * lit seul : rien à écrire ici.
+     *
+     * 🔴 EN TÊTE, et ce n'est pas un style : `@nodefony/security` fabrique ses
+     * stockages durables (jetons, passkeys, audit, 2FA) à son propre
+     * démarrage. Un ORM chargé APRÈS lui n'est pas encore enregistré, chaque
+     * brique retombe en mémoire, et le serveur répond 200 en ayant tout perdu
+     * au prochain redémarrage.
+     */
+    "@nodefony/mongoose",
+
+<% } else if (it.complete) { %>    /**
      * ORM Drizzle (SQL). Sans `NF_DATABASE_URL` : sqlite LOCAL, et l'app
      * persiste out-of-the-box (users, sessions, jetons). Déclare
      * `NF_DATABASE_URL` (postgres://…) pour pointer une vraie base.

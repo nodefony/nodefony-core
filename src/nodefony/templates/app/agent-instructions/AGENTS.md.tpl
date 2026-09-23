@@ -32,9 +32,11 @@
 > `{ items, hasNext }` ; sinon `find(criteria, { limit })`. Un `find` sans borne
 > matérialise la table ENTIÈRE : indolore sur les quelques lignes du poste de
 > développement, fatal sur les dizaines de milliers de la production. Il te faut
-> une projection de colonnes, une CTE, une agrégation ? Descends au natif **avec
+<% if (it.hasOrm && !it.hasMigrations) { %>> une projection, un pipeline d'agrégation ? Descends au natif **avec son
+> type** — `orm.getNativeConnection<T>()`, où `T` est la `Connection` Mongoose.
+> <% } else { %>> une projection de colonnes, une CTE, une agrégation ? Descends au natif **avec
 > son type** — `import type { DrizzleDb } from "@nodefony/drizzle"` puis
-> `orm.getNativeConnection<DrizzleDb>()`. Sans le paramètre de type tu reçois
+> `orm.getNativeConnection<DrizzleDb>()`. <% } %>Sans le paramètre de type tu reçois
 > `unknown`, et il ne te reste qu'un `as any` que le contrôle refuse.
 >
 > **Tu SERS un fichier ?** Trois façades, jamais `createReadStream` à la main :
@@ -342,7 +344,11 @@ Celles qu'on n'invente pas, faute de savoir qu'elles existent :
 <% if (it.front) { %>- **Construire le front pour la production** — `npx nodefony frontend:build [-f]`
 <% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]`
 - Créer un **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
-<% } %><% if (it.hasOrm) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate`
+<% } %><% if (it.hasOrm && !it.hasMigrations) { %>- **Cette application persiste sur MongoDB** — aucune migration : une collection
+  naît à la première écriture. `create entity` n'écrit que des tables SQL et
+  REFUSE ici ; une entité se déclare à la main (`defineEntity` + schéma
+  Mongoose), sur le patron de `nodefony/entity/User.ts`.
+<% } %><% if (it.hasMigrations) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate`
 - **En développement, écrire ET appliquer d'un geste** — `npx nodefony orm:generate --apply`
 - **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n]`
 - **La base est-elle à jour ?** — `npx nodefony orm:migrate:status` — **0** = à jour,

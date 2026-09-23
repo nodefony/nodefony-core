@@ -34,7 +34,7 @@ jobs:
     runs-on: ubuntu-latest
     # Sans borne, un démarrage qui pend consomme le quota jusqu'à six heures.
     timeout-minutes: 20
-<% if (it.db) { %>    # La base retenue à la création (`NF_DATABASE_URL` du `.env` la joint sur
+<% if (it.db && !it.mongo) { %>    # La base retenue à la création (`NF_DATABASE_URL` du `.env` la joint sur
     # 127.0.0.1) — même image que le compose : les deux viennent du MÊME
     # catalogue du générateur, elles ne peuvent pas diverger.
     services:
@@ -82,7 +82,28 @@ jobs:
           cache: npm
 
       - run: npm ci
-<% if (it.db) { %>
+<% if (it.mongo) { %>
+      # MongoDB en jeu de réplicas — en ÉTAPE et non en `services:`, qui ne
+      # laisse pas choisir la commande du serveur, or elle porte `--replSet`.
+      # Sans jeu de réplicas, MongoDB refuse toute transaction. Même image et
+      # même sonde que le `compose.yaml` : primaire élu, pas seulement initié.
+      - name: MongoDB (jeu de réplicas)
+        shell: bash
+        run: |
+          docker run -d --name mongo -p 127.0.0.1:<%= it.db.port %>:27017 \
+            <%= it.db.image %> --replSet rs0 --bind_ip_all
+          for _ in $(seq 1 60); do
+            if docker exec mongo mongosh --quiet --eval \
+              'try { rs.status() } catch (e) { rs.initiate({_id:"rs0",members:[{_id:0,host:"127.0.0.1:27017"}]}) } db.hello().isWritablePrimary' \
+              2>/dev/null | grep -q true; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "::error::MongoDB : aucun primaire élu en 60 s"
+          docker logs mongo 2>&1 | tail -30
+          exit 1
+<% } else if (it.db) { %>
       # Les deux bases que la suite e2e exige — le service n'en crée qu'une.
       # `CREATE DATABASE` est un privilège d'administration : c'est le décor qui
       # les fournit, jamais la suite (elle n'aurait pas le droit, et ne doit pas

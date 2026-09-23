@@ -58,7 +58,11 @@ const bin = nodefonyBin();
  * démarrer sur un autre en nommant l'entité fautive. Viser un moteur différent
  * suppose de porter chaque entité (`createXTable("postgres")`) — un chantier,
  * pas une variable.
-<% if (it.db) { %> *
+<% if (it.mongo) { %> *
+ * Sur <%= it.db.label %>, c'est une base À PART sur le même serveur —
+ * `<%= it.db.databaseE2e %>`. Rien à fournir : MongoDB la crée à la première
+ * écriture, et la suite la supprime avant de démarrer.
+<% } else if (it.db) { %> *
  * Sur <%= it.db.label %>, c'est une base À PART sur le même serveur —
  * `<%= it.db.databaseE2e %>`, que votre décor FOURNIT : le compose généré la
  * crée, et votre recette doit faire de même. Une suite de tests ne se fabrique
@@ -180,7 +184,17 @@ export async function setup(): Promise<void> {
   }
   // Repartir d'une base VIERGE : une suite dont le verdict dépend de ce qu'un
   // run précédent a laissé n'est pas reproductible.
-<% if (it.db) { %>  //
+<% if (it.mongo) { %>  //
+  // Sur MongoDB, la base se SUPPRIME d'un geste — et renaît à la première
+  // écriture. Pas de `orm:reset` ici : c'est une commande de Drizzle.
+  const { MongoClient } = await import("mongodb");
+  const client = new MongoClient(E2E_BASE_URL);
+  try {
+    await client.db().dropDatabase();
+  } finally {
+    await client.close();
+  }
+<% } else if (it.db) { %>  //
   // Sur un moteur serveur, une base ne s'EFFACE pas — on retire ses tables.
   // `orm:reset` est le geste que le framework prévoit pour ça, et il n'existe
   // qu'en développement : cette base-ci n'a pas d'autre usage que la suite.
@@ -206,7 +220,7 @@ export async function setup(): Promise<void> {
     }
   }
 <% } %>
-<% if (it.hasOrm) { %>  // Le schéma AVANT le trafic — le patron de production, appliqué ici tel quel.
+<% if (it.hasMigrations) { %>  // Le schéma AVANT le trafic — le patron de production, appliqué ici tel quel.
   //
   // En production le démarrage ne fabrique JAMAIS le schéma (mode `ddl: none`) :
   // c'est délibéré, parce que plusieurs exemplaires partent en même temps et

@@ -422,6 +422,7 @@ describe("mode strict — un contrôle SANS MATIÈRE n'est pas un contrôle bloq
     // disent « il n'y a rien » doivent porter la marque.
     const attendus: ReadonlyArray<readonly [string, string]> = [
       ["../kernel/checks/runDoctor.ts", "aucune entité"],
+      ["../kernel/checks/runDoctor.ts", "MongoDB"],
       ["../kernel/checks/runDoctor.ts", "aucune source"],
       ["../kernel/checks/runDoctor.ts", "aucune classe"],
       ["../kernel/checks/live.ts", "aucun ORM"],

@@ -381,6 +381,15 @@ export const DATABASE_PARAMS: Record<
     port: 3306,
     image: "mysql:8.4",
   },
+  // Même image que `docker/docker-compose.yml` du dépôt : c'est celle contre
+  // laquelle `@nodefony/mongoose` est éprouvé.
+  mongodb: {
+    service: "mongo",
+    label: "MongoDB 8",
+    scheme: "mongodb",
+    port: 27017,
+    image: "mongo:8",
+  },
 };
 
 /**
@@ -409,8 +418,18 @@ export function resolveDatabase(
   const params = DATABASE_PARAMS[choice];
   // Identifiants du compose généré : mêmes défauts `${VAR:-…}` que les
   // services, donc l'URL marche sans qu'aucune variable ne soit exportée.
+  //
+  // MongoDB fait exception, sur deux points. Pas d'identifiants : le service
+  // n'écoute que sur 127.0.0.1 et n'active pas l'authentification, comme celui
+  // du dépôt. Et `directConnection=true` plutôt que `replicaSet=` : le jeu de
+  // réplicas s'annonce en `127.0.0.1:27017`, adresse que l'application ne
+  // joint pas depuis SON conteneur (le compose y réécrit l'hôte en nom de
+  // service). La connexion directe vise le primaire sans suivre l'annonce, et
+  // garde les transactions — c'est le jeu de réplicas qui les permet, pas l'URL.
   const dsn = (database: string): string =>
-    `${params.scheme}://${appName}:${appName}-dev@127.0.0.1:${params.port}/${database}`;
+    choice === "mongodb"
+      ? `${params.scheme}://127.0.0.1:${params.port}/${database}?directConnection=true`
+      : `${params.scheme}://${appName}:${appName}-dev@127.0.0.1:${params.port}/${database}`;
   return {
     choice,
     ...params,
@@ -432,6 +451,50 @@ export function resolveDatabase(
     urlE2e: dsn(`${appName}_e2e`),
     urlScratch: dsn(`${appName}_e2e_scratch`),
   };
+}
+
+/**
+ * Refuse de générer une entité là où aucun ORM SQL ne la servira.
+ *
+ * Le générateur n'écrit que des tables Drizzle. Une application MongoDB porte
+ * `@nodefony/mongoose` et PAS Drizzle — et c'est voulu : lui conseiller
+ * « ajoute @nodefony/drizzle », comme au cas d'une application sans ORM, lui
+ * ferait monter un second ORM pour une table que sa base ne connaît pas. Le
+ * refus nomme donc la cause que le projet présente, pas une cause générique.
+ *
+ * La brique se cherche dans l'APP autant que dans la cible : un module est un
+ * workspace qui déclare les paquets Nodefony en peerDependencies, c'est l'app
+ * qui les installe.
+ *
+ * @param targetDeps - dépendances déclarées par la cible (app ou module)
+ * @param projectDeps - dépendances déclarées par l'application
+ * @param targetName - nom de la cible, repris dans le message
+ * @param prefix - préfixe du message, pour l'option qui a déclenché la garde
+ * @throws Error quand Drizzle manque, en distinguant l'application MongoDB
+ */
+export function assertSqlOrmTarget(
+  targetDeps: ReadonlySet<string>,
+  projectDeps: ReadonlySet<string>,
+  targetName: string,
+  prefix = "",
+): void {
+  const has = (dep: string): boolean =>
+    targetDeps.has(dep) || projectDeps.has(dep);
+  if (has("@nodefony/drizzle")) {
+    return;
+  }
+  if (has("@nodefony/mongoose")) {
+    throw new Error(
+      `${prefix}${targetName} persiste sur MongoDB (@nodefony/mongoose) — ` +
+        `create entity n'écrit que des tables SQL (Drizzle). Déclare l'entité à ` +
+        `la main avec defineEntity et un schéma Mongoose : nodefony/entity/User.ts ` +
+        `en donne le patron.`,
+    );
+  }
+  throw new Error(
+    `${prefix}@nodefony/drizzle absent de ${targetName} — ajoute la dep + ` +
+      `use("@nodefony/drizzle") au manifeste modules de nodefony.config.ts, puis relance`,
+  );
 }
 
 /**
@@ -763,6 +826,12 @@ interface IAgentsData {
   nodefonyVersion: string;
   hasSecurity: boolean;
   hasOrm: boolean;
+  /**
+   * L'ORM écrit-il des migrations ? Vrai pour Drizzle, faux pour Mongoose :
+   * une base de documents n'a pas de schéma à migrer, et un agent qu'on
+   * envoie vers `orm:generate` y cherche une commande qui ne s'applique pas.
+   */
+  hasMigrations: boolean;
   hasRealtime: boolean;
   hasStudio: boolean;
   front: boolean;
@@ -1436,12 +1505,21 @@ function dispatchScaffold(
     // Dialecte SQL de l'entité que l'application POSSÈDE (`User`) — le choix de
     // base fait à la création. `mariadb` et `mysql` parlent le même dialecte
     // Drizzle ; l'entité le redéduit au démarrage si une URL d'infra est posée.
+    //
+    // `null` sur MongoDB : il n'y a pas de dialecte SQL, et un défaut ici
+    // ferait rendre un pilote SQL que rien n'importe.
     dialect:
-      answers.database === "postgres"
-        ? "postgres"
-        : answers.database === "sqlite" || !answers.database
-          ? "sqlite"
-          : "mysql",
+      answers.database === "mongodb"
+        ? null
+        : answers.database === "postgres"
+          ? "postgres"
+          : answers.database === "sqlite" || !answers.database
+            ? "sqlite"
+            : "mysql",
+    // Base de DOCUMENTS : `@nodefony/mongoose` remplace `@nodefony/drizzle`,
+    // qui n'est pas chargé à côté — il poserait un SQLite local que personne
+    // n'utilise, et chaque brique durable aurait deux candidats.
+    mongo: answers.database === "mongodb",
     // Nom de la fonction de déclaration d'entry, et nom de l'entry Vite —
     // mêmes clés que `create front`, puisque c'est le MÊME template qui les rend.
     pascal: toPascalCase(String(answers.name)),
@@ -1471,6 +1549,11 @@ function dispatchScaffold(
     // arrivé ici : la clé manquait, la condition valait `undefined`, et l'étape
     // de migration disparaissait du fichier rendu en restant verte à l'écriture.
     hasOrm: preset === "complete",
+    // L'ORM ne suffit pas à dire qu'il y a des migrations : MongoDB n'a pas de
+    // schéma à migrer. Le test de migrations, l'étape `orm:migrate` du décor
+    // e2e et la recette de déploiement se conditionnent à CETTE clé — même nom
+    // que dans `renderProjectAgents`, pour la même raison que `hasOrm`.
+    hasMigrations: preset === "complete" && answers.database !== "mongodb",
     frontend,
     front,
     // Base SQL retenue : `null` = sqlite (aucun service, aucune URL).
@@ -1715,6 +1798,7 @@ function dispatchScaffold(
       nodefonyVersion: version,
       hasSecurity: preset === "complete",
       hasOrm: preset === "complete",
+      hasMigrations: preset === "complete" && answers.database !== "mongodb",
       hasRealtime: preset === "complete",
       hasStudio: preset === "complete",
       front: front !== null,
@@ -2112,6 +2196,7 @@ function refreshProjectAgents(
       nodefonyVersion,
       hasSecurity: appDeps.has("@nodefony/security"),
       hasOrm: appDeps.has("@nodefony/orm-core"),
+      hasMigrations: appDeps.has("@nodefony/drizzle"),
       hasRealtime: appDeps.has("@nodefony/realtime"),
       hasStudio: appDeps.has("@nodefony/studio"),
       front: appDeps.has("@nodefony/frontend"),
@@ -2854,15 +2939,12 @@ function runDataServiceScaffold(
   // cherche dans l'APP autant que dans la cible — un module est un workspace
   // qui déclare les paquets Nodefony en peerDependencies, c'est l'app qui les
   // installe.
-  if (
-    !depsOf(target.dir).has("@nodefony/drizzle") &&
-    !depsOf(projectRoot).has("@nodefony/drizzle")
-  ) {
-    throw new Error(
-      `--entity : @nodefony/drizzle absent de ${target.name} — ajoute la dep + ` +
-        `use("@nodefony/drizzle") au manifeste modules de nodefony.config.ts, puis relance`,
-    );
-  }
+  assertSqlOrmTarget(
+    depsOf(target.dir),
+    depsOf(projectRoot),
+    target.name,
+    "--entity : ",
+  );
 
   const entityPascal = toPascalCase(entityName.replace(/[-_]?[Ee]ntity$/u, ""));
   const entityDir = path.join(target.dir, "nodefony", "entity");
@@ -3840,15 +3922,7 @@ function runEntityScaffold(
   };
   const targetDeps = depsOf(target.dir);
   const projectDeps = depsOf(projectRoot);
-  if (
-    !targetDeps.has("@nodefony/drizzle") &&
-    !projectDeps.has("@nodefony/drizzle")
-  ) {
-    throw new Error(
-      `@nodefony/drizzle absent de ${target.name} — ajoute la dep + use("@nodefony/drizzle") ` +
-        `au manifeste modules de nodefony.config.ts, puis relance`,
-    );
-  }
+  assertSqlOrmTarget(targetDeps, projectDeps, target.name);
 
   // `drizzle-orm` est une dépendance DE L'APPLICATION : l'entité produite ici
   // importe `drizzle-orm/<dialecte>-core` en direct. Une app générée avant que le

@@ -39,6 +39,11 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "better-sqlite3": "13.0.3",
   pg: "8.23.0",
   mysql2: "3.24.4",
+  // Pilote MongoDB, en dépendance de DÉVELOPPEMENT d'une application MongoDB :
+  // seul le décor e2e l'importe, pour vider sa base avant la suite — Mongoose
+  // n'a pas de `orm:reset`. Même version que celle de `@nodefony/mongoose`,
+  // sinon npm en installe deux et la suite parle à un autre client que l'app.
+  mongodb: "7.6.0",
   // L'outil qui ÉCRIT les migrations, piloté par `nodefony orm:generate`. Aucun
   // code ne l'importe : c'est une dépendance de DÉVELOPPEMENT, et elle n'a rien
   // à faire dans une image de production, qui APPLIQUE des migrations déjà

@@ -1,4 +1,4 @@
-<% if (it.hasOrm) { %>import assert from "node:assert/strict";
+<% if (it.hasMigrations) { %>import assert from "node:assert/strict";
 import { execFile<% if (it.db) { %>, execFileSync<% } %> } from "node:child_process";
 import {
   appendFileSync,

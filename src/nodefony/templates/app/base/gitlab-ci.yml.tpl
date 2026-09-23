@@ -37,9 +37,13 @@ verify:
   services:
     - name: <%= it.db.image %>
       alias: <%= it.db.service %>
+<% if (it.mongo) { %>      # Jeu de réplicas : sans lui, MongoDB refuse toute transaction.
+      command: ["--replSet", "rs0", "--bind_ip_all"]
   variables:
+    NF_DATABASE_URL: "mongodb://<%= it.db.service %>:<%= it.db.port %>/<%= it.appName %>?directConnection=true"
+<% } else { %>  variables:
     NF_DATABASE_URL: "<%= it.db.scheme %>://<%= it.appName %>:<%= it.appName %>-dev@<%= it.db.service %>:<%= it.db.port %>/<%= it.appName %>"
-<% if (it.db.choice === "postgres") { %>    POSTGRES_USER: <%= it.appName %>
+<% } %><% if (it.db.choice === "postgres") { %>    POSTGRES_USER: <%= it.appName %>
     POSTGRES_PASSWORD: <%= it.appName %>-dev
     POSTGRES_DB: <%= it.appName %>
 <% } %><% if (it.db.choice === "mariadb") { %>    MARIADB_ROOT_PASSWORD: <%= it.appName %>-dev
@@ -52,7 +56,30 @@ verify:
     MYSQL_DATABASE: <%= it.appName %>
 <% } %><% } %>  script:
     - npm ci --cache .npm --prefer-offline
-    # typecheck + lint + tests + `nodefony doctor` — l'ordre du script.
+<% if (it.mongo) { %>    # Le jeu de réplicas s'initie ICI, par le pilote de l'application : un
+    # service GitLab ne se prête pas à un `exec`. Prêt = un PRIMAIRE élu, pas
+    # seulement initié — une écriture pendant l'élection échoue.
+    - |
+      node --input-type=module <<'JS'
+      import { MongoClient } from "mongodb";
+      const client = new MongoClient("mongodb://<%= it.db.service %>:<%= it.db.port %>/?directConnection=true");
+      const admin = client.db("admin");
+      try {
+        await admin.command({ replSetInitiate: { _id: "rs0", members: [{ _id: 0, host: "<%= it.db.service %>:<%= it.db.port %>" }] } });
+      } catch (error) {
+        if (error.codeName !== "AlreadyInitialized") throw error;
+      }
+      for (let i = 0; i < 60; i++) {
+        if ((await admin.command({ hello: 1 })).isWritablePrimary) {
+          await client.close();
+          process.exit(0);
+        }
+        await new Promise((resolve) => setTimeout(resolve, 1000));
+      }
+      console.error("MongoDB : aucun primaire élu en 60 s");
+      process.exit(1);
+      JS
+<% } %>    # typecheck + lint + tests + `nodefony doctor` — l'ordre du script.
     - npm run verify
     # L'application DÉMARRE et répond en HTTP : la seule preuve qui compte.
     - npm run test:e2e

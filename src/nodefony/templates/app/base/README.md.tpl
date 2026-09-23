@@ -199,7 +199,7 @@ npm test             # unitaires : l'app se CHARGE (imports, décorateurs, confi
 npm run test:e2e     # build + boot RÉEL (production --detach --wait) + HTTP + WS + probes
 ```
 
-<% if (it.db) { %>> **Les e2e ont besoin de DEUX bases de plus**, sur ton serveur
+<% if (it.db && !it.mongo) { %>> **Les e2e ont besoin de DEUX bases de plus**, sur ton serveur
 > <%= it.db.label %> : `<%= it.db.databaseE2e %>` (la suite ne touche jamais
 > celle du développement) et `<%= it.db.databaseScratch %>` (la base vierge que
 > la suite de migrations salit puis remet à zéro). Le compose les crée à sa
@@ -257,7 +257,7 @@ Dans l'ordre — chaque étape isole un étage, du moins cher au plus cher :
    `npx nodefony stop <nom>` l'arrête sans changer de dossier.
 4. **Rebuild** — comportement fantôme après un gros changement : `npm run build`
    puis relance (le serveur charge `dist/`, pas tes sources).
-<% if (it.complete) { %>
+<% if (it.complete && it.dialect === "sqlite") { %>
 ### `npm install` s'arrête sur « gyp ERR! find Python »
 
 Ton manifeste porte ceci, et il faut l'y laisser :
@@ -394,7 +394,18 @@ npm sbom --sbom-format spdx --omit=dev > sbom.spdx.json
 > la main serait faux dès le premier `npm install` — c'est pourquoi il se
 > régénère plutôt qu'il ne se commite.
 
-<% if (it.db) { %>### Migrations de schéma
+<% if (it.mongo) { %>### Schéma sur MongoDB — pas de migrations
+
+Une base de documents n'a pas de schéma à migrer : une collection naît à la
+première écriture, et les index que déclarent les entités sont posés à la
+connexion. Ni `orm:generate`, ni `orm:migrate`, ni étape à passer avant le
+premier exemplaire.
+
+`npx nodefony create entity` n'écrit que des tables SQL : sur cette application
+une entité se déclare à la main, avec `defineEntity` et un schéma Mongoose —
+`nodefony/entity/User.ts` en donne le patron, et dit où ajouter tes champs.
+
+<% } else if (it.db) { %>### Migrations de schéma
 
 En développement, la base **suit le code** : les tables naissent au démarrage et
 un champ facultatif ajouté est posé au boot suivant. Rien de tout cela n'a lieu

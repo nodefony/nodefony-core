@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 854,
-    "symbols": 4211,
+    "symbols": 4213,
     "classes": 398,
     "interfaces": 1119,
     "types": 456,
     "enums": 4,
-    "functions": 1815,
+    "functions": 1817,
     "constants": 419
   },
   "symbols": {
@@ -6770,6 +6770,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Compose le bloc `db` offert aux gabarits — `null` pour sqlite, qui n'a ni service ni URL (le fichier vit dans `var/databases/`, l'ORM s'en charge seul)."
+    },
+    "assertSqlOrmTarget": {
+      "name": "assertSqlOrmTarget",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Refuse de générer une entité là où aucun ORM SQL ne la servira. Le générateur n'écrit que des tables Drizzle. Une application MongoDB porte `@nodefony/mongoose` et PAS Drizzle — et c'est voulu : lu…"
     },
     "findPackageRoot": {
       "name": "findPackageRoot",

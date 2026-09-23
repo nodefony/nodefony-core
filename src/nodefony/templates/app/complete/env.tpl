@@ -28,8 +28,11 @@
 # (var/databases/) — l'app persiste out-of-the-box (users, sessions, jetons).
 <% if (it.db) { %># Tu as retenu <%= it.db.label %> à la création : l'URL ci-dessous joint le service
 # du `compose.yaml` généré. Lance-le avant l'app — `npm run infra:up`.
-# (Repasser en sqlite local : commente cette ligne, rien d'autre à changer.)
-# Elle joint le service `<%= it.db.service %>` du compose, avec ses identifiants de dev.
+<% if (it.mongo) { %># 🔴 Ne la commente pas : sans elle, @nodefony/mongoose n'a aucune base, et les
+# comptes, jetons et sessions retombent en MÉMOIRE — perdus au redémarrage.
+# Cette application ne porte pas d'ORM SQL vers lequel se replier.
+<% } else { %># (Repasser en sqlite local : commente cette ligne, rien d'autre à changer.)
+<% } %># Elle joint le service `<%= it.db.service %>` du compose, avec ses identifiants de dev.
 NF_DATABASE_URL=<%= it.db.url %>
 
 <% } else { %># NF_DATABASE_URL=postgres://user:pass@localhost:5432/<%= it.appName %> (exemple)

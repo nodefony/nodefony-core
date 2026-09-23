@@ -1,4 +1,4 @@
-<% if (it.db) { %># <%= it.appName %> — migration du schéma AVANT le déploiement (Kubernetes)
+<% if (it.db && it.hasMigrations) { %># <%= it.appName %> — migration du schéma AVANT le déploiement (Kubernetes)
 #
 # Ce fichier est rendu à TON nom : image, secret et libellés portent déjà
 # « <%= it.appName %> ». Il n'y a rien à recopier depuis une page de documentation.

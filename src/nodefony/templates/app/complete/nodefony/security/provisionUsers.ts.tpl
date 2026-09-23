@@ -6,9 +6,14 @@ import {
   UserService,
 } from "@nodefony/user";
 import type { IPasswordEncoder } from "@nodefony/user";
-import { DrizzleUserRepository } from "@nodefony/drizzle";
+<% if (it.mongo) { %>import {
+  FRAMEWORK_CONNECTOR,
+  MongooseUserRepository,
+} from "@nodefony/mongoose";
+import type { MongooseOrm } from "@nodefony/mongoose";
+<% } else { %>import { DrizzleUserRepository } from "@nodefony/drizzle";
 import type { DrizzleOrm } from "@nodefony/drizzle";
-import { env } from "../../env";
+<% } %>import { env } from "../../env";
 
 const LOG_CTX = "USERS";
 
@@ -86,20 +91,27 @@ export async function provisionUsers(module: Module): Promise<void> {
   //    Construire un dépôt sur cet ORM lève « no entity table registered » — les
   //    tables ne sont peuplées qu'à la connexion — et tue le démarrage d'une
   //    commande qui n'avait aucun besoin de la base.
-  const registered = ormRegistry.has("default")
+<% if (it.mongo) { %>  //
+  // Connecteur `"nodefony"` (et non `"default"`) : c'est celui où
+  // `@nodefony/mongoose` range les entités du framework — `User` compris.
+  const registered = ormRegistry.has(FRAMEWORK_CONNECTOR)
+    ? (ormRegistry.get(FRAMEWORK_CONNECTOR) as MongooseOrm)
+    : undefined;
+<% } else { %>  const registered = ormRegistry.has("default")
     ? (ormRegistry.get("default") as DrizzleOrm)
     : undefined;
+<% } %>
   const orm = registered?.isConnected() ? registered : undefined;
   if (!orm) {
     // Repli ANNONCÉ (jamais silencieux), et le message nomme la cause RÉELLE :
     // envoyer réinstaller un module présent ferait chercher là où il n'y a rien.
     module.log(
       registered
-        ? `ORM "default" enregistré mais NON CONNECTÉ — ce run n'a pas déclaré ` +
+        ? `ORM "<%= it.mongo ? "nodefony" : "default" %>" enregistré mais NON CONNECTÉ — ce run n'a pas déclaré ` +
             `\`externalServices\` (une commande qui lit ou écrit des données le ` +
             `déclare via CONSOLE_DATA_RUN_PROFILE) → annuaire utilisateurs EN ` +
             `MÉMOIRE le temps de ce run.`
-        : `ORM "default" absent (module @nodefony/drizzle retiré ?) → annuaire ` +
+        : `ORM "<%= it.mongo ? "nodefony" : "default" %>" absent (module <%= it.mongo ? "@nodefony/mongoose" : "@nodefony/drizzle" %> retiré ?) → annuaire ` +
             `utilisateurs EN MÉMOIRE : les comptes ne survivront pas au redémarrage.`,
       "WARNING",
       LOG_CTX,
@@ -110,7 +122,7 @@ export async function provisionUsers(module: Module): Promise<void> {
     return;
   }
 
-  const users = new UserService(DrizzleUserRepository.from(orm), encoder);
+  const users = new UserService(<%= it.mongo ? "MongooseUserRepository" : "DrizzleUserRepository" %>.from(orm), encoder);
   container.set("users", users);
   await seedAdmin(users, module);
 }
