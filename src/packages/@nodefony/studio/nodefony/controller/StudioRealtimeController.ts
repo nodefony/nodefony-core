@@ -4,8 +4,9 @@ import type { IAdminBroker } from "@nodefony/framework";
 import { RealtimeController } from "@nodefony/realtime";
 import type { RealtimePublish } from "@nodefony/realtime";
 import { Context } from "@nodefony/http";
-import type { IAdminRequest, RpcActionHandler, RateBounds } from "nodefony";
+import type { RpcActionHandler, RateBounds } from "nodefony";
 import { parseRate } from "nodefony";
+import { fetchAdminEndpoint } from "../src/adminFetch";
 import {
   createSyslogBridge,
   createStatsTicker,
@@ -283,16 +284,12 @@ class StudioRealtimeController extends RealtimeController {
             pid,
             ts: Date.now(),
             richPending: false,
-            health: await StudioRealtimeController.fetchAdminEndpoint(
+            health: await fetchAdminEndpoint(
               broker,
               "orm",
               "connection/health",
             ),
-            flow: await StudioRealtimeController.fetchAdminEndpoint(
-              broker,
-              "orm",
-              "flow",
-            ),
+            flow: await fetchAdminEndpoint(broker, "orm", "flow"),
           }),
           publish,
           channel,
@@ -330,12 +327,7 @@ class StudioRealtimeController extends RealtimeController {
       // par le hub et survit à la connexion qui l'a créé — ne JAMAIS capturer `this`.
       const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
-        () =>
-          StudioRealtimeController.fetchAdminEndpoint(
-            broker,
-            "orm",
-            "connection/health",
-          ),
+        () => fetchAdminEndpoint(broker, "orm", "connection/health"),
         publish,
         channel,
         ms,
@@ -349,8 +341,7 @@ class StudioRealtimeController extends RealtimeController {
       const ms = parseRate(channel, CHANNELS.ormFlow, RATE_BOUNDS.ormFlow);
       const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
-        () =>
-          StudioRealtimeController.fetchAdminEndpoint(broker, "orm", "flow"),
+        () => fetchAdminEndpoint(broker, "orm", "flow"),
         publish,
         channel,
         ms,
@@ -368,12 +359,7 @@ class StudioRealtimeController extends RealtimeController {
       );
       const broker = this.get<IAdminBroker>("adminBroker");
       return createBrokerTicker(
-        () =>
-          StudioRealtimeController.fetchAdminEndpoint(
-            broker,
-            "realtime",
-            "health",
-          ),
+        () => fetchAdminEndpoint(broker, "realtime", "health"),
         publish,
         channel,
         ms,
@@ -418,32 +404,6 @@ class StudioRealtimeController extends RealtimeController {
     gc();
     const after = process.memoryUsage().heapUsed;
     return { available: true, before, after, freed: before - after };
-  }
-
-  /**
-   * Appelle un endpoint admin (`<namespace>/<path>`) via le broker — Studio reste
-   * GÉNÉRIQUE (aucune dép directe au module producteur : orm-core, framework…). `null`
-   * si le producteur ou l'endpoint est absent.
-   *
-   * **Statique** + `broker` en paramètre : appelé depuis un provider de canal PARTAGÉ
-   * (hub), qui doit capturer le broker (singleton long-lived) à la création, JAMAIS
-   * `this` (la connexion créatrice peut fermer alors que le provider partagé survit).
-   */
-  private static async fetchAdminEndpoint(
-    broker: IAdminBroker | null | undefined,
-    namespace: string,
-    path: string,
-  ): Promise<unknown> {
-    const producer = broker?.list().find((p) => p.adminNamespace === namespace);
-    const ep = producer?.adminEndpoints().find((e) => e.path === path);
-    if (!ep) return null;
-    return ep.handler({
-      params: {},
-      query: {},
-      body: null,
-      user: null,
-      roles: [],
-    } as IAdminRequest);
   }
 
   /** Métadonnées app statiques (env, branche git, version) pour `nodefony:supervision`. */

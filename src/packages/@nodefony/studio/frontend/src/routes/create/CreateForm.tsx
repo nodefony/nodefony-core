@@ -34,7 +34,10 @@ import {
   type IScaffoldTarget,
   type IScaffoldTypeSpec,
   type TAnswers,
+  fieldNamesOf,
 } from "./createModel";
+import { EntityFieldsEditor } from "./EntityFieldsEditor";
+import { EntityIndexesEditor } from "./EntityIndexesEditor";
 
 /** Options du sélecteur de cible : `""` = l'app racine, sinon le NOM du paquet du module. */
 function targetOptions(
@@ -204,6 +207,11 @@ export interface CreateFormProps {
   /** Capacités CONSTATÉES par le serveur — décident des questions `askIf`. */
   caps: IScaffoldCaps;
   onChange: (key: string, value: string | boolean | string[]) => void;
+  /**
+   * Type `entity` seulement : ce qu'il faut pour COMPOSER les champs et les index
+   * au lieu de taper leur grammaire. Absent, ces questions restent des champs texte.
+   */
+  entity?: { types: string[]; referenceable: string[] };
 }
 
 /** Le formulaire d'un type de scaffold : questions du dialogue + repli « Réglages avancés ». */
@@ -214,24 +222,67 @@ export function CreateForm({
   targets,
   caps,
   onChange,
+  entity,
 }: CreateFormProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   // `answers` entre dans le calcul : une question conditionnée par une réponse
   // précédente (`askWhen`) apparaît et disparaît au fil du dialogue.
   const { main, advanced } = splitQuestions(spec, caps, answers);
 
+  // Colonnes qu'un index de table peut couvrir : les champs déclarés, plus les
+  // colonnes implicites que l'analyseur accepte (clé, horodatages, suppression douce).
+  const indexColumns = [
+    "id",
+    ...fieldNamesOf(answers.fields),
+    ...(answers.timestamps !== false ? ["createdAt", "updatedAt"] : []),
+    ...(answers.softDelete === true ? ["deletedAt"] : []),
+  ];
+
+  /** Une question — COMPOSÉE quand c'est un champ ou un index d'entité. */
+  const renderQuestion = (q: IScaffoldQuestion) => {
+    if (entity && q.key === "fields") {
+      return (
+        <EntityFieldsEditor
+          key={q.key}
+          types={entity.types}
+          referenceable={entity.referenceable}
+          error={errors[q.key] ?? null}
+          onChange={(fields) => onChange(q.key, fields)}
+        />
+      );
+    }
+    if (entity && (q.key === "index" || q.key === "uniqueIndex")) {
+      return (
+        <EntityIndexesEditor
+          key={q.key}
+          label={
+            q.key === "index"
+              ? "Index composites"
+              : "Contraintes d'unicité composites"
+          }
+          columns={indexColumns}
+          value={
+            Array.isArray(answers[q.key]) ? (answers[q.key] as string[]) : []
+          }
+          onChange={(value) => onChange(q.key, value)}
+        />
+      );
+    }
+    return (
+      <QuestionField
+        key={q.key}
+        question={q}
+        value={answers[q.key]}
+        error={errors[q.key] ?? validateAnswerLive(q, answers[q.key])}
+        targets={targets}
+        onChange={onChange}
+      />
+    );
+  };
+
   return (
     <Stack gap="md">
-      {main.map((q) => (
-        <QuestionField
-          key={q.key}
-          question={q}
-          value={answers[q.key]}
-          error={errors[q.key] ?? validateAnswerLive(q, answers[q.key])}
-          targets={targets}
-          onChange={onChange}
-        />
-      ))}
+      {main.map(renderQuestion)}
 
       {advanced.length > 0 && (
         <Stack gap="xs">
@@ -257,16 +308,7 @@ export function CreateForm({
           </Group>
           <Collapse expanded={showAdvanced}>
             <Stack gap="md" pt="xs">
-              {advanced.map((q) => (
-                <QuestionField
-                  key={q.key}
-                  question={q}
-                  value={answers[q.key]}
-                  error={errors[q.key] ?? validateAnswerLive(q, answers[q.key])}
-                  targets={targets}
-                  onChange={onChange}
-                />
-              ))}
+              {advanced.map(renderQuestion)}
             </Stack>
           </Collapse>
         </Stack>

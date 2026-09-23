@@ -396,3 +396,11 @@ key={user.id}`), PAS un retry (`useResource` ne retry pas). Lire « X / Y reques
 Un sous-schéma / une vue forée décrit une **architecture RÉELLE** → AVANT de poser briques/étapes/liens, **lire la
 SOURCE DE VÉRITÉ du module** (code + `MEMORY.md`/`CLAUDE.md`), jamais deviner l'ordre ni les noms. Une brique inexacte
 est un **BUG** (une donnée fausse trompe plus qu'elle n'informe). Détail : `twin.md`.
+
+## Sonde navigateur : un interrupteur Mantine se clique par sa PISTE
+
+`NF_BROWSER_ACTIONS="clic:<libellé>"` échoue sur un `Switch` Mantine : l'`input` porte le rôle
+`switch` mais il est masqué, et le texte du libellé ne se clique pas comme tel — la sonde s'arrête
+(code 65) sur « action impossible ». Viser la piste visible : `clic:[class*='Switch-track']`,
+après un `voir:` qui amène le panneau dans la vue. Même famille pour une `Checkbox` : cliquer son
+libellé la COCHE (cf skill `nodefony-browser`), donc `voir` pour observer, sélecteur pour agir.

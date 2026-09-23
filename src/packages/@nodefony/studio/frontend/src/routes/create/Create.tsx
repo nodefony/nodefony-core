@@ -58,6 +58,7 @@ import {
 } from "../../components/ui";
 import { CreateDestination } from "./CreateDestination";
 import { CreateForm } from "./CreateForm";
+import { EntityFieldTypes } from "./EntityFieldTypes";
 import { CreateTerminal, JobStream } from "./CreateTerminal";
 import {
   MAX_TERMINAL_LINES,
@@ -75,6 +76,8 @@ import {
   validateAnswers,
   type CreateSpec,
   type ICreateSpecOk,
+  engineFor,
+  referenceableEntities,
   type IScaffoldCaps,
   type IScaffoldCancelResult,
   type IScaffoldJobMeta,
@@ -530,8 +533,37 @@ export function Create() {
                       targets={spec.targets}
                       caps={caps}
                       onChange={changeAnswer}
+                      entity={
+                        typeSpec.type === "entity" && spec.context
+                          ? {
+                              types: spec.context.columnTypes.map(
+                                (t) => t.type,
+                              ),
+                              referenceable: referenceableEntities(
+                                spec.context,
+                                spec.targets,
+                                answers.module,
+                                engineFor(spec.context, answers.connector),
+                              ),
+                            }
+                          : undefined
+                      }
                     />
                   </Paper>
+                  {/* Ce que chaque type deviendra, sur le moteur du connecteur
+                      CHOISI — recalculé à chaque changement de réponse. */}
+                  {typeSpec.type === "entity" && spec.context && (
+                    <EntityFieldTypes
+                      context={spec.context}
+                      engine={engineFor(spec.context, answers.connector)}
+                      referenceable={referenceableEntities(
+                        spec.context,
+                        spec.targets,
+                        answers.module,
+                        engineFor(spec.context, answers.connector),
+                      )}
+                    />
+                  )}
                 </Stack>
 
                 {/* ── Étape 3 (app SEULEMENT) — où l'application va naître ─ */}

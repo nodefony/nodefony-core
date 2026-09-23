@@ -8,27 +8,12 @@ import {
   IsGranted,
 } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { getScaffoldSpec, scaffoldCaps } from "nodefony";
+import { composeCreateSpec } from "../src/createSpec";
 import type ScaffoldService from "../service/ScaffoldService";
 import { SCAFFOLD_STEPS } from "../service/ScaffoldService";
 
-/**
- * Types de scaffold proposés par Studio.
- *
- * `app` en fait partie, avec une différence de nature : les quatre autres modifient le
- * projet COURANT (ils y écrivent et le recâblent), tandis qu'une app naît AILLEURS — dans
- * un espace de travail voisin. D'où sa destination, qui n'est pas une question de plus du
- * formulaire mais une **recomposition côté serveur** sous une racine autorisée (cf
- * `resolveScaffoldDestination` : le client choisit une racine par identifiant et un nom,
- * jamais un chemin).
- */
-const STUDIO_TYPES = [
-  "app",
-  "module",
-  "controller",
-  "front",
-  "entity",
-] as const;
+// `STUDIO_TYPES` et la composition de la spec vivent dans `src/createSpec.ts` :
+// extraites pour s'éprouver sur une application SQL et une application MongoDB.
 
 /**
  * Data plane du générateur de code (`/nodefony/studio/api/create/*`).
@@ -80,9 +65,9 @@ class StudioCreateController extends Controller {
     // La spec est un TABLEAU de types ; on ne garde que ceux que Studio expose
     // (cf `STUDIO_TYPES` — `app` en fait partie, avec sa destination recomposée
     // côté serveur).
-    const specs = getScaffoldSpec().filter((s) =>
-      (STUDIO_TYPES as readonly string[]).includes(s.type),
-    );
+    // La MÊME composition que le terminal (source : la configuration) — les deux
+    // fronts rendent la même réponse à la même question.
+    const { specs, caps, context } = composeCreateSpec(svc.projectRoot);
     return this.renderJson({
       enabled: true,
       steps: SCAFFOLD_STEPS,
@@ -98,7 +83,10 @@ class StudioCreateController extends Controller {
       // `askIf`. Un front ne peut pas les deviner (`link` dépend de la présence d'un
       // checkout du framework SUR LE DISQUE du serveur) : les figer côté client
       // supprimerait l'option en silence.
-      caps: scaffoldCaps(svc.projectRoot),
+      caps,
+      // Connecteurs réels, entités présentes, et ce que devient chaque type de
+      // champ sur chaque moteur — même source que le terminal (des noms, aucun secret).
+      context,
     });
   }
 

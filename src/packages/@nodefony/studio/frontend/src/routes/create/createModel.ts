@@ -175,6 +175,120 @@ export interface ICreateSpecOk {
   roots: IScaffoldRoot[];
   /** Capacités constatées par le serveur — pilotent les questions `askIf`. */
   caps: IScaffoldCaps;
+  /**
+   * Ce que le PROJET offre : connecteurs réels, entités présentes, et ce que devient
+   * chaque type de champ sur chaque moteur. `null` hors projet.
+   */
+  context?: IScaffoldProjectContext | null;
+}
+
+/** Un connecteur de l'application et son moteur (miroir de `IScaffoldConnector`, core). */
+export interface IScaffoldConnectorInfo {
+  name: string;
+  /** `sqlite` · `postgres` · `mysql` · `mongodb`. */
+  dialect: string;
+}
+
+/** Un type de champ, et ce qu'il devient sur chaque moteur (miroir de `columnTypes`). */
+export interface IScaffoldColumnType {
+  type: string;
+  /** Moteur → ce que le générateur écrit (colonne Drizzle, ou définition Mongoose). */
+  byDialect: Record<string, string>;
+}
+
+/** Contexte du projet servi avec la spec (miroir de `IScaffoldContext`, core). */
+export interface IScaffoldProjectContext {
+  connectors: IScaffoldConnectorInfo[];
+  columnTypes: IScaffoldColumnType[];
+  /** Entités présentes, par NOM de cible (paquet de l'app ou du module). */
+  entities: Record<string, string[]>;
+}
+
+/** Les moteurs, dans l'ordre d'affichage, avec leur nom lisible. */
+export const ENGINES: ReadonlyArray<{ key: string; label: string }> = [
+  { key: "sqlite", label: "SQLite" },
+  { key: "postgres", label: "PostgreSQL" },
+  { key: "mysql", label: "MySQL / MariaDB" },
+  { key: "mongodb", label: "MongoDB" },
+];
+
+/**
+ * Le moteur sur lequel l'entité sera écrite — celui du connecteur CHOISI, sinon le
+ * premier connecteur du projet. `null` quand le projet n'en déclare aucun.
+ */
+export function engineFor(
+  context: IScaffoldProjectContext | null | undefined,
+  connector: unknown,
+): string | null {
+  const connectors = context?.connectors ?? [];
+  return (
+    connectors.find((c) => c.name === connector)?.dialect ??
+    connectors[0]?.dialect ??
+    null
+  );
+}
+
+/**
+ * La syntaxe d'un type telle qu'on la TAPE — la grammaire du générateur, pas son rendu.
+ * Les types à taille montrent leur paramètre ; une relation montre qu'elle a un nom.
+ */
+export function fieldSyntax(type: string): string {
+  switch (type) {
+    case "string":
+      return "nom:string(120)";
+    case "char":
+      return "pays:char(2)";
+    case "decimal":
+      return "prix:decimal(10,2)";
+    case "enum":
+      return "statut:enum(draft,published)";
+    case "ref":
+      return "auteur:ref:User";
+    default:
+      return `nom:${type}`;
+  }
+}
+
+/**
+ * Ce qu'il faut savoir d'un moteur AVANT de modéliser — ses limites, pas sa publicité.
+ * Chaque phrase correspond à un comportement du générateur ou du moteur.
+ */
+export const ENGINE_NOTES: Readonly<Record<string, string>> = {
+  sqlite:
+    "Le moteur n'applique aucune longueur : string(120) devient un text. C'est le schéma d'entrée qui borne les valeurs, sur tous les transports.",
+  postgres:
+    "Types stricts : une référence prend le type exact de la clé visée (uuid, entier, texte pour User). Le schéma de production s'applique par orm:generate puis orm:migrate.",
+  mysql:
+    "Les dates sont en datetime(3) (timestamp s'arrête en 2038). Le schéma de production s'applique par orm:generate puis orm:migrate.",
+  mongodb:
+    "Ni clé étrangère ni migration : une relation est un ObjectId chargé par ?include=, et supprimer un parent n'est jamais refusé. Les options SQL (table, casse des colonnes, index composites) sont refusées.",
+};
+
+/**
+ * Les entités qu'une relation `ref:` peut viser depuis la cible choisie : celles de la
+ * cible, plus — sur MongoDB seulement — celles de l'application quand la cible est un
+ * module. En SQL, le générateur REFUSE ce lien : la table visée devrait être importée
+ * par le module, un paquet qui ne dépend pas de l'application.
+ */
+export function referenceableEntities(
+  context: IScaffoldProjectContext | null | undefined,
+  targets: IScaffoldTarget[],
+  moduleAnswer: unknown,
+  engine: string | null,
+): string[] {
+  if (!context) return [];
+  const app = targets.find((t) => t.kind === "app")?.name;
+  const target =
+    typeof moduleAnswer === "string" && moduleAnswer !== ""
+      ? moduleAnswer
+      : app;
+  const names = new Set<string>([
+    ...(target ? (context.entities[target] ?? []) : []),
+    ...(app && target !== app && engine === "mongodb"
+      ? (context.entities[app] ?? [])
+      : []),
+  ]);
+  return [...names].sort();
 }
 
 /** Refus serveur (hors développement) — porte SA raison, qu'on affiche telle quelle. */
@@ -549,4 +663,113 @@ export function isRunning(job: IScaffoldJobMeta | null): boolean {
 export function describeScaffoldError(e: unknown): string {
   if (e instanceof Error && e.message) return e.message;
   return "Le serveur a refusé la demande.";
+}
+
+/**
+ * Un champ d'entité composé dans l'interface — une ligne de l'éditeur.
+ *
+ * Il ne porte AUCUNE règle de validation : il se sérialise dans la grammaire de
+ * la commande (`nom:type(…)?=défaut:unique`), et c'est l'analyseur du générateur
+ * qui juge — la préview le rejoue avant toute écriture. Deux grammaires
+ * divergeraient en silence ; `entityFieldsParity.test.ts` confronte celle-ci au
+ * vrai analyseur.
+ */
+export interface IFieldRow {
+  /** Identifiant local de la ligne (clé React), jamais sérialisé. */
+  id: number;
+  name: string;
+  type: string;
+  /** `string(n)` et `char(n)`. */
+  length: string;
+  /** `decimal(p,s)`. */
+  precision: string;
+  scale: string;
+  /** `enum(a,b)`. */
+  values: string[];
+  /** Entité visée par `ref:`. */
+  target: string;
+  nullable: boolean;
+  unique: boolean;
+  indexed: boolean;
+  defaultValue: string;
+}
+
+/** Types qui n'acceptent pas de défaut littéral (la grammaire les refuse). */
+export const NO_DEFAULT_TYPES: ReadonlySet<string> = new Set([
+  "json",
+  "date",
+  "ref",
+]);
+
+/** Une ligne vierge — un champ texte obligatoire, la forme la plus fréquente. */
+export function emptyFieldRow(id: number): IFieldRow {
+  return {
+    id,
+    name: "",
+    type: "string",
+    length: "",
+    precision: "",
+    scale: "",
+    values: [],
+    target: "",
+    nullable: false,
+    unique: false,
+    indexed: false,
+    defaultValue: "",
+  };
+}
+
+/**
+ * Une ligne dans la grammaire de la commande — ou `null` si elle n'a pas encore
+ * de nom (ligne en cours de saisie : elle n'est pas envoyée).
+ *
+ * Ordre IMPOSÉ par l'analyseur : type et paramètres, puis `?`, puis `=défaut`,
+ * puis `:unique` ou `:index` (un `?` placé après le défaut est refusé).
+ */
+export function serializeField(row: IFieldRow): string | null {
+  const name = row.name.trim();
+  if (!name) return null;
+  let spec: string;
+  if (row.type === "ref") {
+    spec = `ref:${row.target.trim()}`;
+  } else if (
+    (row.type === "string" || row.type === "char") &&
+    row.length.trim()
+  ) {
+    spec = `${row.type}(${row.length.trim()})`;
+  } else if (row.type === "decimal" && row.precision.trim()) {
+    spec = `decimal(${row.precision.trim()},${row.scale.trim() || "0"})`;
+  } else if (row.type === "enum") {
+    spec = `enum(${row.values
+      .map((v) => v.trim())
+      .filter(Boolean)
+      .join(",")})`;
+  } else {
+    spec = row.type;
+  }
+  let out = `${name}:${spec}`;
+  if (row.nullable) out += "?";
+  if (row.defaultValue.trim() && !NO_DEFAULT_TYPES.has(row.type)) {
+    out += `=${row.defaultValue.trim()}`;
+  }
+  if (row.unique) out += ":unique";
+  else if (row.indexed) out += ":index";
+  return out;
+}
+
+/** Toutes les lignes, dans la forme qu'attend la réponse `fields`. */
+export function serializeFields(rows: IFieldRow[]): string {
+  return rows
+    .map(serializeField)
+    .filter((f): f is string => f !== null)
+    .join(" ");
+}
+
+/** Les noms de champs d'une réponse `fields` — ce qu'un index composite peut couvrir. */
+export function fieldNamesOf(fields: unknown): string[] {
+  if (typeof fields !== "string") return [];
+  return fields
+    .split(/\s+/u)
+    .map((f) => f.split(":")[0] ?? "")
+    .filter(Boolean);
 }
