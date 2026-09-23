@@ -71,6 +71,15 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-23] 🎭 **Des tests prenaient l'EXCEPTION comme exemple de la règle générale — et
+  l'un d'eux affirmait le défaut.** « la référence suit la clé primaire » était illustré par
+  `author:ref:User`, et un cas de casse SQL exigeait `ownerUser: uuid("owner_user")` en
+  PostgreSQL : exactement le type que le serveur refuse face à `user.id` (`text`). Or `User` est
+  la seule cible dont la clé NE suit PAS la stratégie de l'entité générée. Le test ne mesurait
+  rien de faux sur `Author` ; il gelait une erreur sur `User`, et aurait fait « réparer » le
+  correctif. Un exemple de règle se choisit ORDINAIRE ; le cas limite a son propre bloc, qui dit
+  pourquoi il est limite.
+
 - [1× — 09-22] 🚧 **Un banc qui ne franchit jamais la frontière du framework ne voit rien de ce
   qui s'y casse.** Le banc de vérité générait `author:ref:Author` — une entité qu'il crée
   lui-même — et jamais `ref:User`, l'entité que `create app` POSE dans toute application. Les deux
@@ -619,6 +628,16 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-23] 🪆 **Banc élargi, poussé, rouge — puis « corrigé », repoussé, encore rouge :
+  trois défauts en poupées russes.** L'entrée `ref:User` ajoutée hier au banc n'avait été rejouée
+  ni jusqu'à l'étape HTTP, ni sur un moteur serveur. Le premier défaut (e2e → `POST /api/users`, 404) masquait le deuxième (banc de conformité qui écarte `User`), qui masquait le troisième
+  (clé étrangère `uuid` → `text`, refusée par PostgreSQL). Mon premier correctif, prouvé sur
+  SQLite seul, a été annoncé et poussé : la CI a rendu le suivant. Les conteneurs PostgreSQL et
+  MySQL tournaient sur la machine ; la règle « une preuve porte sur une sortie ENTIÈRE » était
+  écrite. **Après un changement du banc ou du générateur, rejouer localement la MATRICE du job
+  — génération, conformité, et chaque moteur serveur — avant de pousser**, pas l'étape qui
+  était rouge.
+
 - [1× — 09-21d] 🗺️ **J'ai déduit la surface d'une application de ce qu'UN module en montre — et
   bâti un correctif pour un trou inexistant.** Conclusion reprise d'hier : « le 2FA est
   inatteignable par HTTP, aucune route d'écriture ». Elle venait d'une lecture du data plane
@@ -798,6 +817,22 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-23] ⏱️ **Deux lectures d'un index GitHub, faites trop tôt, ont rendu un faux
+  verdict.** `ticket:lint` a signalé #461 HORS-TABLEAU dix minutes après son inscription :
+  `projectV2.items` totalisait 438 et ne le listait pas, alors que `issue(461).projectItems`
+  rendait bien le projet 2. De même, `gh run list` juste après un push rendait une liste vide,
+  et ma surveillance a « échoué » sur un identifiant vide, sans aucun lien avec la CI. Un index
+  à cohérence différée ne dit pas « pas encore » : il dit « absent ». Quand on sait qui l'on
+  cherche, interroger l'OBJET précis ; et une sonde qui reçoit un vide doit le dire, pas
+  conclure.
+- [1× — 09-23] 🔤 **Un filtre qui juge sur le TEXTE d'un fichier écartait une entité que le
+  runtime reconnaît.** Le banc de conformité retenait les entités SQLite par la regex
+  `sqliteTable\(` ; `User.ts` bâtit sa table par `createUserTable(DIALECT)` et disparaissait,
+  puis toute relation vers lui faisait lever la connexion. Le dialecte se lit sur la TABLE
+  chargée (`is(schema, SQLiteTable)`), comme le fait déjà `dialectOf` de l'outil de migration.
+  Même famille que la regex d'accolades d'hier : une lecture textuelle d'un fait structurel
+  finit toujours par rater une forme légale.
 
 - [1× — 09-22] ⚖️ **Le GABARIT prescrivait ce que le VÉRIFICATEUR condamnait — et le conseil
   rendu était dangereux.** Le `security.ts` que `create app` pose recommande en TSDoc, comme « le

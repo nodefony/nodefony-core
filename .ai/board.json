@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-22T20:48:31.720Z",
+  "generatedAt": "2026-09-23T13:18:31.350Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -14,7 +14,7 @@
       "closed": 0,
       "dueOn": null,
       "number": 4,
-      "open": 4,
+      "open": 5,
       "title": "11.0.0"
     },
     {
@@ -35,7 +35,7 @@
       "closed": 139,
       "dueOn": "2026-09-23T00:00:00Z",
       "number": 6,
-      "open": 7,
+      "open": 8,
       "title": "10.0.0-alpha"
     },
     {
@@ -6380,13 +6380,13 @@
     },
     {
       "number": 459,
-      "title": "feat(audio): concevoir le moteur audio de la conférence",
+      "title": "feat(media): modèle média partagé et moteur audio du navigateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/459",
       "state": "OPEN",
       "status": "Todo",
       "milestone": "11.0.0",
-      "priorite": null,
-      "jours": null,
+      "priorite": "P2 — décision",
+      "jours": 15,
       "ordre": null,
       "debut": null,
       "cible": null,
