@@ -351,6 +351,15 @@ la forme du **compte rendu de fermeture** vivent en référence.
 
 ## Pièges vécus
 
+- **🔴 Un ticket « HORS-TABLEAU » juste après son inscription : regarder GitHub AVANT le tableau.**
+  Pendant une panne de GitHub Projects, `ticket:open` confirme l'inscription et `projectV2.items`
+  ne la montre pas — quatre tickets d'affilée signalés absents, tous inscrits. Les réinscrire à la
+  main est inopérant, et le geste se refait à chaque reprise tant que personne ne consulte la page
+  de statut : **https://www.githubstatus.com** (en ligne de commande :
+  `curl -s https://www.githubstatus.com/api/v2/incidents/unresolved.json | jq '.incidents[].name'`).
+  `ticket:lint` la consulte de lui-même dès qu'il trouve une erreur, et nomme l'incident sous la
+  liste. Incident en cours ⇒ ne rien réparer, relancer le contrôle une fois l'incident résolu.
+
 - **`for n in $VAR` ne découpe pas en zsh** (contrairement à bash) : la boucle reçoit la liste
   entière comme un seul mot. Écrire la liste en clair dans le `for`.
 - **Un corps passé en `--body` inline** perd ses backticks et ses accents selon le shell.

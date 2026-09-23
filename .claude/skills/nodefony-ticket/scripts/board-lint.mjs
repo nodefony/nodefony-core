@@ -674,7 +674,57 @@ function readCommits(numeros) {
 
 // ─────────────────────────────────────────── rendu
 
-function render(findings, total) {
+/** Page de statut de GitHub — incidents en cours, API publique sans jeton. */
+export const GITHUB_STATUS_URL =
+  "https://www.githubstatus.com/api/v2/incidents/unresolved.json";
+
+/**
+ * Les incidents GitHub EN COURS, ou `null` si la page n'a pas répondu.
+ *
+ * Consultés seulement quand le tableau présente des erreurs : pendant une panne
+ * de GitHub Projects, une issue inscrite reste invisible de `projectV2.items`
+ * (vécu : quatre tickets « HORS-TABLEAU » inscrits par la commande qui venait de
+ * le confirmer). La réinscrire à la main est inopérant, et le geste se refait à
+ * chaque reprise tant que personne ne regarde la page de statut. Un échec de
+ * lecture rend `null` — il ne masque jamais le verdict du tableau.
+ */
+export async function readGithubIncidents(fetcher = globalThis.fetch) {
+  try {
+    const res = await fetcher(GITHUB_STATUS_URL, {
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const body = await res.json();
+    return (body.incidents ?? []).map((i) => ({
+      name: String(i.name),
+      status: String(i.status),
+      link: String(i.shortlink ?? ""),
+    }));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * L'avertissement à afficher sous les erreurs — pur, éprouvable sans réseau.
+ *
+ * @param incidents - rendus par {@link readGithubIncidents} (`null` = inconnu).
+ * @returns les lignes à afficher, vides s'il n'y a rien à dire.
+ */
+export function incidentLines(incidents) {
+  if (!incidents?.length) return [];
+  return [
+    "🌩️  GitHub signale un incident EN COURS — une erreur ci-dessus peut en venir, pas du tableau :",
+    ...incidents.map(
+      (i) => `   ${i.name} — ${i.status}${i.link ? ` — ${i.link}` : ""}`,
+    ),
+    "   → NE RIEN réinscrire à la main (inopérant pendant la panne) : relancer ce contrôle une fois l'incident résolu.",
+    "   Page de statut : https://www.githubstatus.com",
+    "",
+  ];
+}
+
+function render(findings, total, incidents = null) {
   const erreurs = findings.filter((f) => f.severity === "erreur");
   const avis = findings.filter((f) => f.severity === "avertissement");
   const lignes = [];
@@ -696,6 +746,7 @@ function render(findings, total) {
     }
     lignes.push("");
   }
+  if (erreurs.length) lignes.push(...incidentLines(incidents));
   if (!findings.length)
     lignes.push(
       "✅ aucune incohérence — jalons, ordres, statuts et dépendances se tiennent",
@@ -737,9 +788,14 @@ if (estAppelDirect) {
     alertes: readAlertes(),
   });
 
+  const incidents = findings.some((f) => f.severity === "erreur")
+    ? await readGithubIncidents()
+    : null;
   if (json)
-    console.log(JSON.stringify({ total: items.length, findings }, null, 2));
-  else console.log(render(findings, items.length));
+    console.log(
+      JSON.stringify({ total: items.length, findings, incidents }, null, 2),
+    );
+  else console.log(render(findings, items.length, incidents));
 
   process.exit(findings.some((f) => f.severity === "erreur") ? 1 : 0);
 }

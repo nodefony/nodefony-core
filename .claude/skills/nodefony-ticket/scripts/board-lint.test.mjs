@@ -7,6 +7,8 @@ import {
   lintBoard,
   parseBefore,
   parseDependsOn,
+  incidentLines,
+  readGithubIncidents,
 } from "./board-lint.mjs";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
@@ -666,5 +668,46 @@ describe("la table des contrôles dit ce que le script rend", () => {
       absents,
       `codes absents de la table : ${absents.join(", ")}`,
     ).toEqual([]);
+  });
+});
+
+describe("panne GitHub — la page de statut est consultée, jamais crue à l'aveugle", () => {
+  it("un incident en cours est NOMMÉ, avec le geste : ne rien réinscrire", () => {
+    const lignes = incidentLines([
+      {
+        name: "Incident across several services",
+        status: "investigating",
+        link: "https://stspg.io/x",
+      },
+    ]);
+    expect(lignes.join("\n")).toContain(
+      "Incident across several services — investigating",
+    );
+    expect(lignes.join("\n")).toContain("NE RIEN réinscrire");
+  });
+
+  it("aucun incident, ou page injoignable : RIEN à dire (pas de fausse alerte)", () => {
+    expect(incidentLines([])).toEqual([]);
+    expect(incidentLines(null)).toEqual([]);
+  });
+
+  it("la lecture tolère une panne de la page de statut elle-même", async () => {
+    const enPanne = async () => {
+      throw new Error("réseau");
+    };
+    const refus = async () => ({ ok: false, json: async () => ({}) });
+    const reponse = async () => ({
+      ok: true,
+      json: async () => ({
+        incidents: [
+          { name: "Projects dégradé", status: "identified", shortlink: "l" },
+        ],
+      }),
+    });
+    expect(await readGithubIncidents(enPanne)).toBeNull();
+    expect(await readGithubIncidents(refus)).toBeNull();
+    expect(await readGithubIncidents(reponse)).toEqual([
+      { name: "Projects dégradé", status: "identified", link: "l" },
+    ]);
   });
 });
