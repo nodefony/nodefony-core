@@ -2,6 +2,8 @@ import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { readFileSync, existsSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { DrizzleOrm } from "@nodefony/drizzle";
+import { is } from "drizzle-orm";
+import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import {
   inspect,
@@ -317,11 +319,13 @@ describe("intégration — la couche donnée, sur une vraie base", () => {
       // connecter — « its schema is not a sqlite table ».
       //
       // Le dialecte ne se lit PAS sur l'entité : il n'y a pas de champ pour ça.
-      // Il se lit dans la fabrique de table du schéma — `sqliteTable(` contre
-      // `pgTable(`. Vécu : un filtre sur `entity.dialect` ne mord pas, la
-      // connexion lève dans le `beforeAll`, et vitest marque les trois cas
-      // SKIPPÉS — un skip qui se lit comme un vert.
-      if (!/\bsqliteTable\s*\(/.test(readFileSync(fichier, "utf8"))) continue;
+      // Il se lit sur la TABLE chargée, comme le fait l'outil de migration
+      // (`dialectOf`). Vécu deux fois : un filtre sur `entity.dialect` ne mord
+      // pas (connexion levée au `beforeAll`, trois cas SKIPPÉS — un skip qui se
+      // lit comme un vert) ; et chercher `sqliteTable(` dans le TEXTE écartait
+      // `User`, dont la table sort d'une fabrique (`createUserTable(DIALECT)`) —
+      // toute entité qui la référence faisait alors lever la connexion.
+      if (!is(entity.schema, SQLiteTable)) continue;
       entityRegistry.register({ ...entity, connector: ORM } as never);
       chargees.push({ nom, entity });
     }
