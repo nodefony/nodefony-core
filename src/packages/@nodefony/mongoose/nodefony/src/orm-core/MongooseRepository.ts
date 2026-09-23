@@ -1,5 +1,6 @@
 import type { ClientSession, QueryFilter, Model } from "mongoose";
 import { RequestContext, redactSecrets } from "nodefony";
+import { MONGO_ORDER_ALIASES } from "../mongoOrder";
 import {
   assertOrderOption,
   isFieldOperators,
@@ -25,6 +26,19 @@ type LooseModel = Model<Record<string, unknown>>;
 // `LIKE … ESCAPE '\'` émis côté SQL, sinon changer de backend changerait les
 // résultats. Elle était écrite ici, et elle ignorait l'échappement — un `a\_b`
 // y devenait `a\.b`, c'est-à-dire un motif qui ne matche rien.
+
+/**
+ * Clé Mongo d'un champ de TRI — `id` public → `_id` au repos.
+ *
+ * Mongo ne se plaint pas d'un tri sur un champ absent : il rend les documents
+ * dans un ordre arbitraire. `id` n'est qu'un virtuel de lecture ; sans cette
+ * traduction, `order: [["id", "DESC"]]` — le départage du tri par défaut de
+ * tout CRUD généré — serait silencieusement inerte ici et correct en SQL. Même
+ * table que les stores Mongo ({@link MONGO_ORDER_ALIASES}).
+ */
+function sortKey(field: string): string {
+  return MONGO_ORDER_ALIASES[field] ?? field;
+}
 
 /**
  * Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Mongoose.
@@ -237,7 +251,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           query = query.sort(
             Object.fromEntries(
               options.order.map(([field, dir]) => [
-                field,
+                sortKey(field),
                 dir === "DESC" ? -1 : 1,
               ]),
             ),
@@ -274,7 +288,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
           query = query.sort(
             Object.fromEntries(
               options.order.map(([field, dir]) => [
-                field,
+                sortKey(field),
                 dir === "DESC" ? -1 : 1,
               ]),
             ),

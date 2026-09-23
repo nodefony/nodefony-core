@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 854,
-    "symbols": 4215,
+    "symbols": 4229,
     "classes": 398,
-    "interfaces": 1120,
-    "types": 456,
+    "interfaces": 1122,
+    "types": 458,
     "enums": 4,
-    "functions": 1818,
-    "constants": 419
+    "functions": 1826,
+    "constants": 421
   },
   "symbols": {
     "Cli": {
@@ -6694,15 +6694,6 @@
       "module": "@nodefony/core",
       "description": "Où une NOUVELLE application a le droit de naître, quand la création est pilotée par une interface web (Studio) plutôt que par une ligne de commande. ## Le problème En CLI, la destination est le `cw…"
     },
-    "IScaffoldCaps": {
-      "name": "IScaffoldCaps",
-      "kind": "interface",
-      "file": "src/nodefony/src/cli/scaffold/engine.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null,
-      "description": "Capacités d'environnement évaluées par le front (cf `IScaffoldQuestion.askIf`)."
-    },
     "IScaffoldRequest": {
       "name": "IScaffoldRequest",
       "kind": "interface",
@@ -6752,8 +6743,7 @@
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "extends": null,
-      "description": "Un connecteur de base de données, tel que déclaré dans la configuration."
+      "extends": null
     },
     "TScaffoldAnswers": {
       "name": "TScaffoldAnswers",
@@ -6763,6 +6753,14 @@
       "module": "@nodefony/core",
       "description": "Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O terminal, aucun kernel : le même moteur sert le CLI rapide (argv), le CLI interactif (readline) et Studio (endpoint data p…"
     },
+    "TEntityOrm": {
+      "name": "TEntityOrm",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "ORM qui servira une entité générée."
+    },
     "resolveDatabase": {
       "name": "resolveDatabase",
       "kind": "function",
@@ -6771,13 +6769,21 @@
       "module": "@nodefony/core",
       "description": "Compose le bloc `db` offert aux gabarits — `null` pour sqlite, qui n'a ni service ni URL (le fichier vit dans `var/databases/`, l'ORM s'en charge seul)."
     },
-    "assertSqlOrmTarget": {
-      "name": "assertSqlOrmTarget",
+    "resolveEntityOrm": {
+      "name": "resolveEntityOrm",
       "kind": "function",
       "file": "src/nodefony/src/cli/scaffold/engine.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Refuse de générer une entité là où aucun ORM SQL ne la servira. Le générateur n'écrit que des tables Drizzle. Une application MongoDB porte `@nodefony/mongoose` et PAS Drizzle — et c'est voulu : lu…"
+      "description": "Choisit l'ORM qui servira une entité générée — ou refuse, si aucun ne le fera. Drizzle d'abord : une application qui porte les deux ORM (MongoDB pour un module, SQL pour le reste) a déclaré Drizzle…"
+    },
+    "assertNoSqlOnlyOptions": {
+      "name": "assertNoSqlOnlyOptions",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Options de `create entity` qui n'ont de sens qu'en SQL — refusées sur une entité document plutôt qu'ignorées. Une option ignorée est pire qu'un refus : l'utilisateur croit avoir obtenu une table `w…"
     },
     "findPackageRoot": {
       "name": "findPackageRoot",
@@ -6976,6 +6982,14 @@
       "module": "@nodefony/core",
       "description": "Paramètres de la base SQL retenue au scaffold — SOURCE UNIQUE du service docker, du port publié et de l'URL de connexion, consommée par les TROIS gabarits qui en parlent (`compose.yaml`, `.env`, `R…"
     },
+    "MONGOOSE_CONNECTOR": {
+      "name": "MONGOOSE_CONNECTOR",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Connecteur de `@nodefony/mongoose` (`FRAMEWORK_CONNECTOR`, `registerStores.ts`). Recopié parce que le cœur ne dépend pas des modules ORM ; le test du générateur le confronte à la constante du modul…"
+    },
     "EntityFieldError": {
       "name": "EntityFieldError",
       "kind": "class",
@@ -7013,6 +7027,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Tout ce dont les templates ont besoin pour rendre une entité."
+    },
+    "IMongooseEntityCodegen": {
+      "name": "IMongooseEntityCodegen",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Tout ce dont le gabarit d'entité DOCUMENT a besoin."
     },
     "TEntityDialect": {
       "name": "TEntityDialect",
@@ -7066,6 +7089,14 @@
       "module": "@nodefony/core",
       "description": "Nom SQL d'une colonne, dérivé de sa propriété TypeScript."
     },
+    "suggestFieldType": {
+      "name": "suggestFieldType",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Type Nodefony le plus probable derrière une saisie inconnue — casse (`String`, `INT`) ou habitude d'un autre outil (`boolean`, `integer`)."
+    },
     "parseEntityFields": {
       "name": "parseEntityFields",
       "kind": "function",
@@ -7105,6 +7136,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Produit le code des colonnes, de l'interface de ligne et du schéma Zod. Les horodatages sont posés **côté JS** (`$defaultFn`/`$onUpdateFn`) et non en SQL : le DDL dérivé du mode dev n'émet pas les …"
+    },
+    "buildMongooseEntityCodegen": {
+      "name": "buildMongooseEntityCodegen",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Produit le schéma Mongoose, l'interface de ligne et le schéma Zod d'une entité DOCUMENT — le pendant de {@link buildEntityCodegen} pour `@nodefony/mongoose`. Pas un quatrième dialecte : il n'y a ni…"
     },
     "parseRowFieldNames": {
       "name": "parseRowFieldNames",
@@ -7169,6 +7208,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Fonction de table Drizzle du dialecte (`sqliteTable`…) et son import."
+    },
+    "OBJECT_ID_PATTERN": {
+      "name": "OBJECT_ID_PATTERN",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Forme d'un identifiant MongoDB (`ObjectId`) — 24 chiffres hexadécimaux. Source unique pour le schéma Zod d'une référence et pour l'échantillon qui doit le satisfaire : une référence mal formée n'at…"
     },
     "IFormatOutcome": {
       "name": "IFormatOutcome",
@@ -7358,6 +7405,15 @@
       "module": "@nodefony/core",
       "description": "Les chemins de route DÉCLARÉS dans une source, et leurs voisins de préfixe. Deux outils en ont besoin et n'ont pas la même question : le vérificateur cherche un segment écrit à la mode d'un autre f…"
     },
+    "IScaffoldCaps": {
+      "name": "IScaffoldCaps",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Capacités de l'environnement, telles que le MOTEUR les voit — ce qu'un front ne peut pas deviner (cf `IScaffoldQuestion.askIf`)."
+    },
     "IScaffoldQuestion": {
       "name": "IScaffoldQuestion",
       "kind": "interface",
@@ -7383,6 +7439,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Libellé et indication d'un choix — tout ce qu'il porte, hormis sa valeur."
+    },
+    "TScaffoldCap": {
+      "name": "TScaffoldCap",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom d'une capacité d'environnement ({@link IScaffoldCaps})."
     },
     "TFrontendChoice": {
       "name": "TFrontendChoice",
@@ -7439,6 +7503,14 @@
       "file": "src/nodefony/src/cli/scaffold/spec.ts",
       "exported": true,
       "module": "@nodefony/core"
+    },
+    "capAllows": {
+      "name": "capAllows",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/spec.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "La question est-elle posée dans CET environnement ? Une seule lecture pour le dialogue, le récapitulatif et l'aide : trois copies du même test divergeraient à la première capacité ajoutée."
     },
     "flagFor": {
       "name": "flagFor",
@@ -31823,6 +31895,10 @@
         "src/nodefony/src/kernel/commands/MenuCommand.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
+      "capAllows": [
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
       "FRONTEND_CHOICES": [
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
@@ -31835,9 +31911,6 @@
         "src/nodefony/src/cli/scaffold/help.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
       ],
-      "findPackageRoot": [
-        "src/nodefony/src/cli/create.ts"
-      ],
       "listTargets": [
         "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
@@ -31846,12 +31919,13 @@
       "getScaffoldContext": [
         "src/nodefony/src/cli/create.ts"
       ],
-      "resolveLocalWorkspaces": [
-        "src/nodefony/src/cli/create.ts"
-      ],
       "runScaffold": [
         "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "scaffoldCaps": [
+        "src/nodefony/src/cli/create.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
       ],
       "TScaffoldAnswers": [
         "src/nodefony/src/cli/create.ts",
@@ -33432,6 +33506,9 @@
       "buildEntityCodegen": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "buildMongooseEntityCodegen": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
       "entityTableSymbol": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -33540,6 +33617,10 @@
       "TPresetChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
+      "IScaffoldCaps": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
       "openSiblingRoutes": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
@@ -33559,9 +33640,6 @@
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "IPrompts": [
-        "src/nodefony/src/cli/scaffold/interactive.ts"
-      ],
-      "IScaffoldCaps": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
       "IScaffoldContext": [
@@ -37712,9 +37790,6 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
-      "scaffoldCaps": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
-      ],
       "SCAFFOLD_STEPS": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
@@ -38254,6 +38329,9 @@
       ],
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
+      "MONGO_ORDER_ALIASES": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "likePatternToRegExp": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"

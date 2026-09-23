@@ -216,6 +216,35 @@ describe.skipIf(!URI)(
       await users.delete({});
     });
 
+    it("tri sur `id` : traduit en `_id` — départage le tri par défaut d'un CRUD généré", async () => {
+      // `id` n'est qu'un virtuel : trié tel quel, Mongo rend l'ordre NATUREL
+      // (celui d'insertion) sans un mot. D'où `DESC` et des ex æquo sur `age` :
+      // un tri inerte rendrait l'ordre croissant, et ce test tomberait.
+      await users.delete({});
+      for (const n of [1, 2, 3]) {
+        await users.create({ email: `tie${n}@x.io`, age: 20 });
+      }
+      const inserted = (
+        await users.find({}, { order: [["email", "ASC"]] })
+      ).map((u) => String(u.id));
+      const desc = await users.find(
+        {},
+        {
+          order: [
+            ["age", "ASC"],
+            ["id", "DESC"],
+          ],
+        },
+      );
+      assert.deepEqual(
+        desc.map((u) => String(u.id)),
+        [...inserted].reverse(),
+      );
+      const first = await users.findOne({}, { order: [["id", "ASC"]] });
+      assert.equal(String(first?.id), inserted[0]);
+      await users.delete({});
+    });
+
     it("relation one-to-many : ref ObjectId + écriture/lecture portable", async () => {
       const owner = await users.create({ email: "owner@b.c" });
       await rooms.create({
