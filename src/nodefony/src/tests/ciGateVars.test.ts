@@ -288,7 +288,7 @@ describe("scaffold.yml — les images des dialectes viennent du catalogue", () =
   // interdire.
   const matrice = /database:\s*\[([^\]]*)\]/u.exec(contenu)?.[1] ?? "";
 
-  for (const moteur of ["postgres", "mysql"] as const) {
+  for (const moteur of ["postgres", "mysql", "mongodb"] as const) {
     it(`${moteur} est exercé avec l'image du catalogue`, () => {
       assert.include(
         images,

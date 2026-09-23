@@ -13,9 +13,9 @@ node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --link   
 node .claude/skills/nodefony-devkit-bench/scripts/verify-generated.mjs --database postgres  # le MÊME banc, un autre moteur
 ```
 
-### Les trois moteurs — une application PAR moteur, jamais une variable
+### Les moteurs — une application PAR moteur, jamais une variable
 
-`--database <sqlite|postgres|mysql|mariadb>` change le moteur de l'application
+`--database <sqlite|postgres|mysql|mariadb|mongodb>` change le moteur de l'application
 témoin, et il faut bien qu'il la RECRÉE : le dialecte est une décision prise à
 la création, les entités sont écrites pour lui (`createXTable("postgres")`), et
 l'ORM refuse de démarrer sur un autre en nommant l'entité fautive. Pointer une
@@ -28,7 +28,21 @@ Ce que cela a déjà trouvé, et qu'aucune passe SQLite ne pouvait voir : un
 `uuid` — chaque POST rendait 500 en PostgreSQL, pendant que SQLite, où un `uuid`
 et un texte sont le MÊME type, restait vert de bout en bout.
 
-**Le décor, sur un moteur serveur : TROIS bases, et c'est structurel.** Une
+**MongoDB est une application SANS ORM SQL, pas un dialecte de plus.**
+`create entity` y refuse — il n'écrit que des tables Drizzle —, donc les étapes
+qui éprouvent des entités générées (génération, décâblage, FK ↔ PK, migrations,
+`User` amputée, ressource HTTP) sont ANNONCÉES sautées (`sqlOnly`, `⏭` au
+journal, `skipped` au rapport) : un saut muet se lirait comme un vert. Trois
+choses la jugent à la place : le refus de `create entity` doit NOMMER MongoDB
+(jamais « ajoute @nodefony/drizzle ») ; en production, chaque brique durable
+doit se résoudre sur `mongoose`, lu au journal du serveur
+(`exigerBriquesMongoose`) — sinon le serveur répond 200 en ayant tout rangé en
+mémoire ; et la suite e2e de l'application passe sur un vrai MongoDB. Décor :
+un jeu de réplicas (`rs0`, 127.0.0.1:27017 — celui du compose du dépôt en local,
+`.github/actions/mongo` à la forge). Aucune base à fournir : MongoDB la crée à
+la première écriture, et la suite e2e vide la sienne par le pilote.
+
+**Le décor, sur un moteur serveur SQL : TROIS bases, et c'est structurel.** Une
 suite de tests ne fabrique pas sa base — `CREATE DATABASE` est un privilège
 d'administration que l'utilisateur applicatif n'a pas (constaté sur MySQL :
 `GRANT ALL ON <base>.*` et rien d'autre). Le décor les fournit, ici comme dans

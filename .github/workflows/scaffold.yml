@@ -347,7 +347,7 @@ jobs:
       fail-fast: false
       matrix:
         # SQLite est déjà couvert par le job ci-dessus, sur les trois systèmes.
-        database: ["postgres", "mysql"]
+        database: ["postgres", "mysql", "mongodb"]
 
     # Les DEUX services tournent dans les deux passes, et c'est voulu : GitHub
     # ne sait pas déclarer un service conditionné par la matrice. Deux
@@ -357,8 +357,8 @@ jobs:
     # l'application témoin — `<app>` / `<app>-dev` / `<app>`, où `<app>` est le
     # nom de l'application du banc (`verify-generated.mjs`, constante `APP`).
     # Les images viennent du MÊME catalogue que le compose généré
-    # (`DATABASE_PARAMS`, `engine.ts`) ; le gate `dialectes:images` du dépôt
-    # refuse qu'elles divergent.
+    # (`DATABASE_PARAMS`, `engine.ts`) ; `src/tests/ciGateVars.test.ts` refuse
+    # qu'elles divergent. MongoDB n'est PAS un service : voir l'étape dédiée.
     services:
       postgres:
         image: postgres:16-alpine
@@ -414,7 +414,19 @@ jobs:
       # l'utilisateur applicatif n'a pas, et ne doit pas avoir : c'est le décor
       # qui les fournit, ici comme dans le compose que le générateur écrit.
       # Mêmes noms des deux côtés, dérivés une seule fois (`resolveDatabase`).
+      # MongoDB en jeu de réplicas — en ÉTAPE, pas en `services:` : ceux-ci ne
+      # laissent pas choisir la commande du serveur, or elle porte `--replSet`
+      # (sans lui, aucune transaction). L'image est passée EN CLAIR pour que le
+      # contrôle des images la confronte au catalogue du générateur. Aucune
+      # base à créer : MongoDB en crée une à la première écriture.
+      - name: MongoDB (jeu de réplicas)
+        if: matrix.database == 'mongodb'
+        uses: ./.github/actions/mongo
+        with:
+          image: mongo:8
+
       - name: Bases de la suite e2e
+        if: matrix.database != 'mongodb'
         shell: bash
         run: |
           set -eo pipefail

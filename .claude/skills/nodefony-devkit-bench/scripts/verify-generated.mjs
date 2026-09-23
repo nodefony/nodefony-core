@@ -58,7 +58,7 @@ import {
 } from "./lib/isolation.mjs";
 import { envDecor } from "./lib/env-decor.mjs";
 import { needsShell } from "./lib/exec-portable.mjs";
-import { extraitEchec } from "./lib/extrait-echec.mjs";
+import { extraitEchec, lignesLisibles } from "./lib/extrait-echec.mjs";
 import { MOT_DE_PASSE_POSE } from "./lib/identites.mjs";
 import { createRequire } from "node:module";
 
@@ -172,7 +172,14 @@ function option(nom, defaut) {
  * le decor que l'autre vient d'ecraser.
  */
 const DATABASE = option("--database", "sqlite");
-const MOTEURS = ["sqlite", "postgres", "mysql", "mariadb"];
+const MOTEURS = ["sqlite", "postgres", "mysql", "mariadb", "mongodb"];
+/**
+ * MongoDB : une application SANS ORM SQL (`@nodefony/mongoose`, pas Drizzle).
+ * `create entity` y REFUSE — il n'écrit que des tables —, donc tout ce que ce
+ * banc éprouve À TRAVERS des entités générées est sans objet. Ces étapes sont
+ * DITES sautées (`sqlOnly`), jamais tues : un saut muet se lirait comme un vert.
+ */
+const MONGO = DATABASE === "mongodb";
 if (!MOTEURS.includes(DATABASE)) {
   process.stderr.write(
     `--database ${DATABASE} inconnu — attendus : ${MOTEURS.join(", ")}\n`,
@@ -385,6 +392,23 @@ const steps = [];
 let failed = false;
 
 /** Joue une étape, la chronomètre, et retient son verdict. */
+/**
+ * Une étape qui n'existe que sur un moteur SQL — elle éprouve des entités
+ * générées, que `create entity` refuse d'écrire sur MongoDB.
+ *
+ * Sur MongoDB elle est ANNONCÉE sautée, avec sa raison, et le rapport la porte
+ * (`skipped`) : un banc qui tairait ce qu'il n'a pas regardé délivrerait un
+ * vert que personne n'a mérité.
+ */
+function sqlOnly(label, why, run) {
+  if (!MONGO) return step(label, why, run);
+  if (failed) return;
+  process.stdout.write(
+    `\n━━ ${label}\n   ⏭ sans objet sur MongoDB — aucune entité générée (create entity n'écrit que du SQL)\n`,
+  );
+  steps.push({ label, ok: true, ms: 0, skipped: "MongoDB" });
+}
+
 function step(label, why, run) {
   if (failed) return;
   process.stdout.write(`\n━━ ${label}\n   ${why}\n`);
@@ -739,7 +763,7 @@ step(
   },
 );
 
-step(
+sqlOnly(
   "génération : deux entités qui exercent toute la grammaire",
   "unique, énumération, défauts, index et relation — les cas qui ont déjà cassé.",
   () => {
@@ -780,7 +804,11 @@ step(
     ]);
     // L'entité va DANS le module — c'est l'usage réel, et le seul qui exerce la
     // résolution du nom npm par le générateur.
-    run(process.execPath, [
+    //
+    // Sur MongoDB, le geste doit être REFUSÉ, et le refus doit nommer MongoDB :
+    // « ajoute @nodefony/drizzle » ferait monter un second ORM pour une table
+    // que la base ne connaît pas. Un refus muet ou mal adressé est un défaut.
+    const argsEntite = [
       BIN,
       "create",
       "entity",
@@ -790,7 +818,26 @@ step(
       "--module",
       MODULE_PKG,
       "--yes",
-    ]);
+    ];
+    if (MONGO) {
+      const entite = spawnSync(process.execPath, argsEntite, {
+        cwd: APP,
+        encoding: "utf8",
+        env: envDecor(PORTS),
+      });
+      const sortie = `${entite.stdout}${entite.stderr}`;
+      if (entite.status === 0)
+        throw new Error(
+          "`create entity` a ÉCRIT une entité sur une application MongoDB — " +
+            "du Drizzle que rien ne servira",
+        );
+      if (!/persiste sur MongoDB/u.test(sortie))
+        throw new Error(
+          `\`create entity\` refuse sans nommer MongoDB :\n${sortie.slice(-800)}`,
+        );
+    } else {
+      run(process.execPath, argsEntite);
+    }
 
     // Les trois pièces du câblage, constatées sur le disque plutôt que supposées.
     const manifest = JSON.parse(
@@ -810,6 +857,7 @@ step(
         `${MODULE_PKG} absent du manifeste \`modules\` — le Kernel ne le chargera pas`,
       );
     // Et l'entité doit être déclarée DANS le module, pas dans l'app.
+    if (MONGO) return;
     const moduleIndex = readFileSync(
       path.join(APP, "modules", MODULE, "index.ts"),
       "utf8",
@@ -1009,7 +1057,7 @@ step(
   },
 );
 
-step(
+sqlOnly(
   "les entités d'un AUTRE dialecte quittent le câblage",
   "Un schéma PostgreSQL enregistré sur un connecteur SQLite fait échouer le boot.",
   // Elles restent sur le disque — c'est leur COMPILATION et leurs TYPES qu'on
@@ -1063,7 +1111,7 @@ step(
   },
 );
 
-step(
+sqlOnly(
   "une RÉFÉRENCE a le type de la clé qu'elle vise",
   "Sinon la jointure est refusée par le moteur — invisible en SQLite, fatale ailleurs.",
   // Ce que ce banc protège, mesuré : avec une colonne texte face à une clé
@@ -1289,7 +1337,7 @@ step(
  * une entité. La faire ici, c'est éprouver la chaîne entière — générer, puis
  * appliquer — sur l'application que l'utilisateur reçoit.
  */
-step(
+sqlOnly(
   "les migrations de l'application sont ÉCRITES",
   "Le geste du développeur après une entité : `orm:generate`. Sans lui, la " +
     "production démarre sur une base sans tables applicatives.",
@@ -1353,7 +1401,7 @@ step(
   },
 );
 
-step(
+sqlOnly(
   "une entité `User` AMPUTÉE fait REFUSER — au build ET au démarrage",
   "Le seul chemin qui prouve le contrat de bout en bout : app générée, entité " +
     "de l'application, kernel qui démarre pour de vrai.",
@@ -1514,8 +1562,17 @@ export const UserEntity = defineEntity({
   },
 );
 
-if (withE2e) {
+if (withE2e && MONGO) {
   step(
+    "la suite e2e de l'application passe, sur MongoDB (serveur réel)",
+    "Démarrage en production, connexion, session, temps réel — la base e2e " +
+      "vidée par le pilote (Mongoose n'a pas d'orm:reset).",
+    () => run("npm", ["run", "test:e2e"]),
+  );
+}
+
+if (withE2e) {
+  sqlOnly(
     "la ressource RÉPOND vraiment (HTTP, serveur réel)",
     "201+Location, 422, 409 sur doublon, page hasNext, PATCH, 204 puis 404 — " +
       "et la suppression EXIGE une identité : refusée sans elle, la donnée survit.",
@@ -1551,6 +1608,32 @@ if (withE2e) {
  * production BOOTE et SERVE — un hook de cycle de vie qui jette, une config
  * absente en production, un service `policy:"dev"` requis au boot.
  */
+/**
+ * Sur MongoDB, chaque brique durable doit être servie par `mongoose` — lu dans
+ * le journal du serveur qu'on vient de démarrer, en production.
+ *
+ * C'est le défaut que rien d'autre ne voit : `@nodefony/mongoose` chargé APRÈS
+ * `@nodefony/security`, ou une brique résolue ailleurs, et le serveur démarre
+ * quand même, répond 200 — en ayant rangé sessions, jetons et audit en
+ * MÉMOIRE, perdus au redémarrage.
+ */
+function exigerBriquesMongoose() {
+  const journal = lignesLisibles(
+    readFileSync(path.join(APP, "tmp", "nodefony-detached.log"), "utf8"),
+  ).join("\n");
+  const resolues = [...journal.matchAll(/(\S+) "auto" → "([a-z]+)"/gu)];
+  const ailleurs = resolues.filter(([, , backend]) => backend !== "mongoose");
+  // Sept briques auto-résolues : sessions, idempotence, jetons, passkeys,
+  // audit, 2FA, webhooks. L'annuaire des utilisateurs, lui, est choisi par
+  // l'application (`provisionUsers`) et ne le dit que s'il retombe en mémoire.
+  if (resolues.length < 7 || ailleurs.length > 0 || /EN MÉMOIRE/u.test(journal))
+    throw new Error(
+      `briques durables hors de mongoose — ${resolues.length} résolues, ` +
+        `${ailleurs.map(([, brique, backend]) => `${brique} → ${backend}`).join(", ") || "aucune ailleurs"}` +
+        `${/EN MÉMOIRE/u.test(journal) ? ", annuaire EN MÉMOIRE" : ""}`,
+    );
+}
+
 step(
   "l'app DÉMARRE en PRODUCTION et sert une route",
   "Le mode que les autres étapes n'exercent jamais — un défaut de dépendance " +
@@ -1568,7 +1651,13 @@ step(
       // un autre chemin. Un module qui se charge sans monter ses routes rendait
       // 404 sans que rien ne le signale : le boot est vert, l'inventaire des
       // routes se lit hors serveur, et aucune étape ne le frappait EN VRAI.
-      for (const chemin of ["/api/posts", `/api/${MODULE}`]) {
+      //
+      // Sur MongoDB, pas d'entité générée : la route de l'application est
+      // celle du gabarit (`/api/hello`).
+      for (const chemin of [
+        MONGO ? "/api/hello" : "/api/posts",
+        `/api/${MODULE}`,
+      ]) {
         const res = execFileSync(
           process.execPath,
           [
@@ -1582,6 +1671,7 @@ step(
         );
         void res;
       }
+      if (MONGO) exigerBriquesMongoose();
     } finally {
       // Toujours, même en échec : un serveur détaché qui survit au banc tient
       // les ports et fait échouer le run SUIVANT sur un symptôme sans rapport.
@@ -1605,9 +1695,16 @@ step(
         "aucune route rendue — le plan d'administration est-il monté ?",
       );
     }
-    const entity = routes.find((r) => String(r.path).startsWith("/api/posts"));
+    // Sur MongoDB, aucune entité générée : la route témoin est celle du
+    // gabarit — l'inventaire doit la rendre au même titre.
+    const attendue = MONGO ? "/api/hello" : "/api/posts";
+    const entity = routes.find((r) => String(r.path).startsWith(attendue));
     if (!entity) {
-      throw new Error("les routes de l'entité générée n'apparaissent pas");
+      throw new Error(
+        MONGO
+          ? `la route ${attendue} de l'application n'apparaît pas`
+          : "les routes de l'entité générée n'apparaissent pas",
+      );
     }
   },
 );
@@ -1718,9 +1815,14 @@ step(
 process.stdout.write("\n━━ verdict\n");
 for (const s of steps) {
   process.stdout.write(
-    `  ${s.ok ? "✅" : "❌"} ${s.label} (${Math.round(s.ms)} ms)\n`,
+    s.skipped
+      ? `  ⏭ ${s.label} (sans objet — ${s.skipped})\n`
+      : `  ${s.ok ? "✅" : "❌"} ${s.label} (${Math.round(s.ms)} ms)\n`,
   );
 }
+// Un saut se COMPTE dans le verdict : « tout est vert » sur huit étapes sur
+// quatorze ne dit pas la même chose que sur quatorze.
+const sautees = steps.filter((s) => s.skipped).length;
 const report = {
   steps,
   app: APP,
@@ -1752,6 +1854,6 @@ if (!failed && !keep) {
 process.stdout.write(
   failed
     ? "\n❌ le code généré ne tient pas — corrige avant de dire « fait »\n"
-    : "\n✅ le code généré compile, se teste et répond\n",
+    : `\n✅ le code généré compile, se teste et répond${sautees > 0 ? ` — ${sautees} étape(s) SANS OBJET sur ce moteur, non éprouvées` : ""}\n`,
 );
 process.exit(failed ? 1 : 0);

@@ -102,7 +102,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `NF_RUN_CLUSTER_E2E` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
-| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **trois moteurs** (une application par moteur, ubuntu) | PostgreSQL, MySQL (job `dialectes`) |
+| `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **autres moteurs** (une application par moteur, ubuntu) — MongoDB compris, où les étapes propres aux entités SQL sont annoncées sautées | PostgreSQL, MySQL, MongoDB en jeu de réplicas (job `dialectes`) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
 
 | `secrets.yml` | Aucun secret dans l'arbre | `gitleaks` sur l'arbre ET l'historique — le scanner se prouve d'abord sur un témoin planté | — |
