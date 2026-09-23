@@ -98,7 +98,7 @@ class StudioCreateController extends Controller {
       // `askIf`. Un front ne peut pas les deviner (`link` dépend de la présence d'un
       // checkout du framework SUR LE DISQUE du serveur) : les figer côté client
       // supprimerait l'option en silence.
-      caps: scaffoldCaps(),
+      caps: scaffoldCaps(svc.projectRoot),
     });
   }
 

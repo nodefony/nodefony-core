@@ -150,7 +150,17 @@ export type IScaffoldJobMeta = Omit<IScaffoldJobState, "lines">;
  */
 export interface IScaffoldCaps {
   hasCheckout: boolean;
-  /** Le serveur peut en déclarer d'autres : une capacité inconnue vaut « non ». */
+  /**
+   * Le projet persiste en SQL. Absent = le serveur ne le sait pas (aucun ORM
+   * déclaré) : rien n'est tu. Faux = application MongoDB — la clé primaire
+   * d'une entité n'a rien à choisir.
+   */
+  hasSqlOrm?: boolean;
+  /**
+   * Le serveur peut en déclarer d'autres. Seule une capacité déclarée FAUSSE
+   * tait une question — la règle `capAllows` du moteur, confrontée à celle-ci
+   * par `createCapsParity.test.ts`.
+   */
   [key: string]: boolean | undefined;
 }
 
@@ -298,7 +308,9 @@ export function isQuestionVisible(
   caps: IScaffoldCaps,
   answers: TAnswers = {},
 ): boolean {
-  if (q.askIf && caps[q.askIf] !== true) return false;
+  // Même règle que `capAllows` (moteur) : seule une capacité déclarée FAUSSE
+  // tait la question. Exiger `true` cachait ici ce que le terminal demande.
+  if (q.askIf && caps[q.askIf] === false) return false;
   if (q.askWhen && String(answers[q.askWhen.key]) !== q.askWhen.equals) {
     return false;
   }
