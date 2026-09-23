@@ -64,6 +64,56 @@ import {
 export { nodefonyBin } from "../cli/nodefonyBin";
 
 /**
+ * Mot de passe du compte administrateur JETABLE que le décor e2e d'une
+ * application générée pose (`NF_ADMIN_PASSWORD`, pour la suite seule — la
+ * production ne sème aucun compte sans mot de passe explicite).
+ *
+ * Il vit ICI, et non dans le décor de l'application, parce que les tests d'un
+ * MODULE en ont besoin aussi : un module a son propre `rootDir`, il ne peut pas
+ * importer un fichier de l'application (TS6059). Une seule source, donc.
+ */
+export const E2E_ADMIN_PASSWORD = "e2e-compte-jetable-42";
+
+/**
+ * Ouvre une session administrateur sur une application qui sert, et rend
+ * l'en-tête `cookie` à rejouer.
+ *
+ * @example
+ * ```ts
+ * import { adminLogin, runningAppPort } from "nodefony/testing";
+ *
+ * const base = `http://127.0.0.1:${runningAppPort()}`;
+ * const cookie = await adminLogin(base);
+ * await fetch(`${base}/api/posts/1`, { method: "DELETE", headers: { cookie } });
+ * ```
+ *
+ * @param baseUrl - adresse de l'application (`http://127.0.0.1:5151`).
+ * @param password - mot de passe du compte ; celui du décor e2e par défaut.
+ * @param username - identifiant du compte ; `admin` par défaut.
+ * @returns l'en-tête `cookie` de la session ouverte.
+ * @throws Quand la connexion ne rend pas 200 — en le disant : c'est le décor
+ *   qui est en cause, pas la route que le test mesure.
+ */
+export async function adminLogin(
+  baseUrl: string,
+  password: string = E2E_ADMIN_PASSWORD,
+  username = "admin",
+): Promise<string> {
+  const res = await fetch(`${baseUrl}/nodefony/security/api/auth/login`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (res.status !== 200) {
+    throw new Error(
+      `connexion admin impossible (${res.status}) — le décor de test, pas la route mesurée`,
+    );
+  }
+  const cookies = res.headers.getSetCookie?.() ?? [];
+  return cookies.map((c) => c.split(";")[0]).join("; ");
+}
+
+/**
  * Port de l'application DÉMARRÉE, ou une erreur qui dit pourquoi on l'ignore.
  *
  * ## Pourquoi ce n'est pas `?? 5151`

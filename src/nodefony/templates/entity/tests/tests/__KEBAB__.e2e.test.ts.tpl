@@ -1,7 +1,8 @@
-import { runningAppPort } from "nodefony/testing";
-import { readRuntimeState } from "nodefony";
+<% if (it.hasSecurity && it.inModule) { %>import { adminLogin, runningAppPort } from "nodefony/testing";
+<% } else { %>import { runningAppPort } from "nodefony/testing";
+<% } %>import { readRuntimeState } from "nodefony";
 import { describe, it, expect, beforeAll } from "vitest";
-<% if (it.hasSecurity) { %>import { adminLogin } from "./e2e.setup";
+<% if (it.hasSecurity && !it.inModule) { %>import { adminLogin } from "./e2e.setup";
 <% } %>import { <%= it.camel %>Sample } from "../nodefony/entity/<%= it.pascal %>";
 <% it.relationParents.filter(function (p) { return !p.identity; }).forEach(function (p) { %>import { <%= p.camel %>Sample } from "../nodefony/entity/<%= p.pascal %>";
 <% }) %>
@@ -67,7 +68,10 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
   beforeAll(async () => {
     const port = runningAppPort();
     BASE = `http://127.0.0.1:${port}`;
-<% if (it.hasSecurity) { %>    AUTH = { cookie: await adminLogin() };
+<% if (it.hasSecurity) { %>    // Un MODULE ne peut pas importer le décor de l'application (son `rootDir`
+    // est le module) : il ouvre la session par `nodefony/testing`, sur l'adresse
+    // qu'il vient de lire.
+    AUTH = { cookie: await adminLogin(<% if (it.inModule) { %>BASE<% } %>) };
 <% } %><% if (it.relationParents.length) { %>    // Les lignes parentes d'abord — sinon toute création de ce cycle viole la
     // clé étrangère, et la ressource rend 500 au lieu de 201.
     //
@@ -147,17 +151,18 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     );
 <% } %>  });
 
+<% if (it.invalidBody) { %>
   it("corps invalide → 422 qui NOMME les champs fautifs", async () => {
     const res = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",
       headers: entetes(),
-      body: JSON.stringify({}),
+      body: JSON.stringify(<%= it.invalidBody %>),
     });
     // 422 et non 400 : le corps a bien été lu, c'est son CONTENU qui viole le
     // contrat (RFC 9110 §15.5.21).
     expect(res.status).toBe(422);
   });
-<% if (it.hasUnique) { %>
+<% } %><% if (it.hasUnique) { %>
   it("doublon sur une valeur unique → 409, pas 500", async () => {
     const payload = sample(42);
     const first = await fetch(`${BASE}${ROUTE}`, {

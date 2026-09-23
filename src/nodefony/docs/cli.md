@@ -262,7 +262,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 
 `create` prend un **type** en argument — **sept** (`app | module | controller | service | front |
 entity | command`, `CREATE_TYPES`, `create.ts:43`) — et route vers un moteur de scaffold unique
-(`runCreateCommand()`, `create.ts:750`) :
+(`runCreateCommand()`, `create.ts:1129`) :
 
 ```bash
 nodefony create app mon-app --preset complete --frontend react   # nouveau projet
@@ -277,7 +277,7 @@ nodefony create command import --phase onReady                    # commande CLI
 > marche, et elle reste **invisible au conteneur**. Sans générateur de commande, il n'a aucun
 > modèle et invente. Un type de scaffold manquant ne se voit pas — il se paie en code inventé.
 
-Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:910`),
+Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:1115`),
 partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline), et un futur formulaire
 Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 

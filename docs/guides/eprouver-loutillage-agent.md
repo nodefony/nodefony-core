@@ -117,13 +117,13 @@ Sur un seul schéma réel :
 | `create entity Account` → table `accounts` — **6 tables sur 6**        | aucune option n'imposait le nom de table                              |
 | 29 corrections à la main                                               | l'essentiel : nommer les colonnes SQL                                 |
 
-Le premier point s'est révélé être un **défaut du produit**, pas un manque : `resolveDatabase()`
-(`engine.ts:373`) déduisait le dialecte en lisant le fichier de configuration, alors qu'une
+Le premier point s'est révélé être un **défaut du produit**, pas un manque : `detectDialect()`
+(`engine.ts:3790`) déduisait le dialecte en lisant le fichier de configuration, alors qu'une
 application déclare sa base par URL — le cas normal en conteneur, en intégration continue, en
 production. Le générateur produisait donc du code SQLite pour une application tournant sur
 PostgreSQL, **en l'annonçant dans une ligne que personne ne relit**. Corrigé en le branchant sur
 la même résolution que le noyau, `resolveInfra()` (`infra.ts:134`), appelée depuis
-`engine.ts:2738` : l'environnement d'abord, le fichier ensuite.
+`engine.ts:3886` : l'environnement d'abord, le fichier ensuite.
 
 Aucune relecture de code ne l'avait vu. Il a fallu qu'un tiers ignorant demande au framework
 quelque chose de banal.

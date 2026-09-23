@@ -1888,6 +1888,16 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             () => entity(dest, { name: "Post", fields: "title:string" }),
             /RETIRERAIT un champ — views/u,
           );
+          // Le geste proposé est celui d'un DOCUMENT, pas d'une table.
+          try {
+            entity(dest, { name: "Post", fields: "title:string" });
+          } catch (e) {
+            assert.include((e as Error).message, "schéma Mongoose ordinaire");
+            assert.notMatch(
+              (e as Error).message,
+              /Drizzle|orm:generate|migration/u,
+            );
+          }
           // Rappeler TOUS les champs, plus un : accepté.
           entity(dest, {
             name: "Post",
@@ -1914,16 +1924,27 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
               '  constructor(kernel: Kernel) {\n    super("blog", kernel);\n  }\n}\n',
           );
           entity(dest, { name: "Note", fields: "text:text", module: "blog" });
+          // Un lien vers `User`, qui vit dans l'APPLICATION : valide sur
+          // MongoDB (registre plat, `ref: "User"` se résout par son nom).
+          entity(dest, {
+            name: "Memo",
+            fields: "owner:ref:User",
+            module: "blog",
+          });
+          assert.include(
+            read(mod, "nodefony/entity/Memo.ts"),
+            'owner: { type: "ObjectId", ref: "User", required: true, index: true },',
+          );
           const peers =
             JSON.parse(read(mod, "package.json")).peerDependencies ?? {};
           assert.property(peers, "@nodefony/mongoose");
           assert.property(peers, "@nodefony/orm-core");
           assert.notProperty(peers, "@nodefony/drizzle");
           const index = read(mod, "index.ts");
-          assert.match(index, /@entities\(\[NoteEntity\]\)/u);
+          assert.match(index, /@entities\(\[NoteEntity, MemoEntity\]\)/u);
           assert.match(
             index,
-            /@controllers\(\[NoteController\]\)\nexport class BlogModule/u,
+            /@controllers\(\[NoteController, MemoController\]\)\nexport class BlogModule/u,
           );
           assert.match(
             index,
@@ -6075,6 +6096,188 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       scaffold(dest, { name, preset, frontend: "none" });
       return dest;
     };
+
+    describe("défauts de FAMILLE trouvés par l'audit du générateur", () => {
+      /** Un module local, câblé à la main — sans aucun peer de sécurité. */
+      const moduleIn = (dest: string, name: string): string => {
+        const mod = path.join(dest, "modules", name);
+        mkdirSync(mod, { recursive: true });
+        writeFileSync(
+          path.join(mod, "package.json"),
+          JSON.stringify(
+            {
+              name: `@app/${name}`,
+              version: "1.0.0",
+              peerDependencies: { "@nodefony/orm-core": "*" },
+            },
+            null,
+            2,
+          ),
+        );
+        writeFileSync(
+          path.join(mod, "index.ts"),
+          'import { Module, Kernel } from "nodefony";\n\n' +
+            `class ${name}Module extends Module {\n` +
+            `  constructor(kernel: Kernel) {\n    super("${name}", kernel);\n  }\n}\n\n` +
+            `export default ${name}Module;\n`,
+        );
+        return mod;
+      };
+      const read = (...parts: string[]): string =>
+        readFileSync(path.join(...parts), "utf8");
+
+      it("tous les champs facultatifs : les tests générés éprouvent un corps du MAUVAIS type", () => {
+        // `{}` y est VALIDE : les deux tests « corps vide refusé » naissaient rouges.
+        const dest = app("audit-optional");
+        entity(dest, {
+          name: "Setting",
+          fields: "enabled:bool=true note:text?",
+        });
+        const unit = read(dest, "tests", "setting.test.ts");
+        assert.include(unit, 'createSettingSchema.parse({"enabled":"oui"})');
+        assert.notInclude(unit, "Schema.parse({})");
+        assert.include(
+          read(dest, "tests", "setting.e2e.test.ts"),
+          'JSON.stringify({"enabled":"oui"})',
+        );
+      });
+
+      it("un champ obligatoire : le corps vide reste le cas éprouvé", () => {
+        const dest = app("audit-required");
+        entity(dest, { name: "Tag", fields: "label:string" });
+        assert.include(
+          read(dest, "tests", "tag.test.ts"),
+          "createTagSchema.parse({})",
+        );
+      });
+
+      it("uniquement du `json` : aucun corps n'est invalide — le test n'est pas ÉMIS", () => {
+        const dest = app("audit-json");
+        entity(dest, { name: "Blob", fields: "data:json?" });
+        assert.notInclude(
+          read(dest, "tests", "blob.test.ts"),
+          "refuse un corps invalide",
+        );
+        assert.notInclude(
+          read(dest, "tests", "blob.e2e.test.ts"),
+          "corps invalide → 422",
+        );
+      });
+
+      it("🔴 dans un MODULE, le DELETE naît GARDÉ — la sécurité est lue dans l'APP", () => {
+        // Un module ne déclare jamais @nodefony/security en peer : ne lire que
+        // lui faisait naître une suppression ouverte à l'anonyme.
+        const dest = app("audit-module-sec");
+        const mod = moduleIn(dest, "shop");
+        entity(dest, { name: "Order", fields: "ref:string", module: "shop" });
+        assert.include(
+          read(mod, "nodefony", "controllers", "OrderController.ts"),
+          '@IsGranted("ROLE_ADMIN")',
+        );
+        // Et son test e2e ouvre la session par `nodefony/testing` : le décor de
+        // l'application est hors du `rootDir` du module (TS6059).
+        assert.include(
+          read(mod, "tests", "order.e2e.test.ts"),
+          'import { adminLogin, runningAppPort } from "nodefony/testing";',
+        );
+      });
+
+      it("🔴 `create controller --kind rest` dans un module : même garde", () => {
+        const dest = app("audit-module-ctrl");
+        const mod = moduleIn(dest, "shop");
+        runScaffold(
+          {
+            type: "controller",
+            answers: { name: "catalog", kind: "rest", module: "shop" },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+        assert.include(
+          read(mod, "nodefony", "controllers", "CatalogController.ts"),
+          "IsGranted",
+        );
+      });
+
+      it("SQL : une relation d'un module vers `User` nomme la VRAIE sortie", () => {
+        // « crée-la d'abord » envoyait vers un refus : `User` ne vit que dans l'app.
+        const dest = app("audit-module-ref");
+        moduleIn(dest, "shop");
+        assert.throws(
+          () =>
+            entity(dest, {
+              name: "Order",
+              fields: "buyer:ref:User",
+              module: "shop",
+            }),
+          /vise une entité de l'APPLICATION depuis le module/u,
+        );
+      });
+
+      it("deux ORM : `--connector nodefony` désigne MONGOOSE, sinon Drizzle", () => {
+        const dest = app("audit-dual-orm");
+        const pkgPath = path.join(dest, "package.json");
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8"));
+        pkg.dependencies["@nodefony/mongoose"] = "*";
+        writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+        entity(dest, {
+          name: "Doc",
+          fields: "title:string",
+          connector: "nodefony",
+        });
+        const doc = read(dest, "nodefony", "entity", "Doc.ts");
+        assert.include(doc, "export const docSchema = {");
+        assert.notMatch(doc, /sqliteTable|drizzle/u);
+        entity(dest, { name: "Row", fields: "title:string" });
+        assert.include(
+          read(dest, "nodefony", "entity", "Row.ts"),
+          "sqliteTable(",
+        );
+      });
+
+      it("dernier import MULTI-LIGNE : l'import est posé APRÈS, sans doublon (TS2300)", () => {
+        const dest = app("audit-multiline", "minimal");
+        const indexPath = path.join(dest, "index.ts");
+        const multi =
+          'import {\n  controllers,\n  route,\n} from "@nodefony/framework";\n';
+        const source = readFileSync(indexPath, "utf8")
+          .replace(
+            /^import \{ controllers \} from "@nodefony\/framework";\n/mu,
+            "",
+          )
+          .replace(/@controllers\(\[[^\]]*\]\)\n?/u, "");
+        // Le bloc multi-ligne devient le DERNIER import du fichier.
+        const lastImport = [...source.matchAll(/^import [^\n]*\n/gmu)].at(-1);
+        assert.isDefined(lastImport);
+        const at = (lastImport?.index ?? 0) + (lastImport?.[0].length ?? 0);
+        writeFileSync(
+          indexPath,
+          source.slice(0, at) + multi + source.slice(at),
+        );
+        runScaffold(
+          {
+            type: "controller",
+            answers: { name: "first" },
+            dir: dest,
+            force: false,
+          },
+          version,
+        );
+        const out = readFileSync(indexPath, "utf8");
+        assert.notInclude(
+          out,
+          "import {\nimport",
+          "import inséré DANS les accolades",
+        );
+        assert.equal(
+          (out.match(/^\s*controllers,?$|\{ controllers \}/gmu) ?? []).length,
+          1,
+          "controllers importé deux fois",
+        );
+        assert.match(out, /@controllers\(\[FirstController\]\)/u);
+      });
+    });
 
     describe("create service --entity — le patron d'accès aux données", () => {
       /** Scaffold service depuis `from`, avec les réponses données. */

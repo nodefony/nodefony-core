@@ -64,9 +64,9 @@ const ENTITY_FIELDS: IUsageSection = {
     "  liens  ref:<Entité>          une clé étrangère vers une autre entité",
     "  enum   status:enum(draft,published)",
     "  défaut views:int=0",
-    "  casse  entité en PascalCase (Post, ref:User) · champ en camelCase (publishedAt)",
-    "  mongo  sur MongoDB : ref → ObjectId, json → Mixed, sans table ni migration",
-    "  moteur ce que devient chaque type : --describe-json (context.columnTypes)",
+    "  casse  entité en PascalCase (Post, ref:User) · champ en camelCase",
+    "  mongo  sur MongoDB : ref → ObjectId, json → Mixed, sans migration",
+    "  moteur ce que devient un type : --describe-json (context.columnTypes)",
   ],
 };
 

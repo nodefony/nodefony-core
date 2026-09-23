@@ -42,7 +42,7 @@ nodefony create module shop --frontend react   # ou : vue | angular | svelte
 
 La commande produit le squelette du module **et** son frontend : controller HTML avec sa politique
 de sécurité, dossier `frontend/`, dépendances déclarées, point d'entrée enregistré. Les quatre
-choix sont **React 19, Vue 3, Angular 21 et Svelte 5** (`spec.ts:150`) — elle vous fait gagner les
+choix sont **React 19, Vue 3, Angular 21 et Svelte 5** (`spec.ts:194`) — elle vous fait gagner les
 neuf étapes manuelles ci-dessous.
 
 Le reste de ce guide explique la **version manuelle**, utile pour comprendre ce que la commande

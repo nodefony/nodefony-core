@@ -179,12 +179,12 @@ Le même controller sert aussi ces lectures en **WebSocket** (les méthodes de l
 
 ## ⚠️ Pièges (les erreurs de début)
 
-| Symptôme                             | Cause                                                     | Correction                                                                |
-| ------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------- |
-| `404` sur `/api/hello`               | Serveur lancé depuis un sous-dossier (« projet fantôme ») | Lance **depuis la racine** de `mon-app` (là où est `nodefony.config.ts`). |
-| Une route ajoutée n'apparaît pas     | Le `dist/` est périmé                                     | Le HMR suffit en dev ; sinon `npm run build` puis relance.                |
-| `create entity` refuse de s'exécuter | `@nodefony/drizzle` absent du projet                      | Ajoute-le à `modules` + `npm install`, puis relance la commande.          |
-| Le port 5151 est déjà pris           | Un serveur tourne déjà                                    | `npx nodefony stop`, ou change le port dans `nodefony.config.ts`.         |
+| Symptôme                             | Cause                                                     | Correction                                                                                                    |
+| ------------------------------------ | --------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| `404` sur `/api/hello`               | Serveur lancé depuis un sous-dossier (« projet fantôme ») | Lance **depuis la racine** de `mon-app` (là où est `nodefony.config.ts`).                                     |
+| Une route ajoutée n'apparaît pas     | Le `dist/` est périmé                                     | Le HMR suffit en dev ; sinon `npm run build` puis relance.                                                    |
+| `create entity` refuse de s'exécuter | aucun ORM dans le projet                                  | Ajoute `@nodefony/drizzle` (SQL) ou `@nodefony/mongoose` (MongoDB) à `modules` + `npm install`, puis relance. |
+| Le port 5151 est déjà pris           | Un serveur tourne déjà                                    | `npx nodefony stop`, ou change le port dans `nodefony.config.ts`.                                             |
 
 ## 🔗 Pour aller plus loin
 

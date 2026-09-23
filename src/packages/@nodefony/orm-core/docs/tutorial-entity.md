@@ -339,7 +339,8 @@ que l'import plus la ligne du décorateur.
 > [!WARNING]
 > La commande refuse de générer si aucun module ORM n'est déclaré dans l'application. C'est
 > volontaire : une entité sans driver produit du code mort qui ne compile même pas. Ajoute
-> `use("@nodefony/drizzle", …)` au manifeste `modules`, puis relance.
+> `"@nodefony/drizzle"` (SQL) ou `"@nodefony/mongoose"` (MongoDB) au manifeste `modules`, puis
+> relance. Sur MongoDB, la même commande écrit un schéma Mongoose au lieu d'une table.
 
 ## 🧰 Lire et écrire — le contrat complet
 

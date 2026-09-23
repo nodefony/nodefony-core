@@ -1,7 +1,12 @@
 import { execFileSync } from "node:child_process";
 <% if (!it.db) { %>import { rmSync } from "node:fs";
 import path from "node:path";
-<% } %>import { nodefonyBin, runningAppPort } from "nodefony/testing";
+<% } %>import {
+<% if (it.hasSecurity) { %>  adminLogin as loginAdmin,
+  E2E_ADMIN_PASSWORD,
+<% } %>  nodefonyBin,
+  runningAppPort,
+} from "nodefony/testing";
 /**
  * Démarre l'application UNE fois pour toute la suite E2E, et l'arrête à la fin.
  *
@@ -88,7 +93,9 @@ export const E2E_BASE_URL =
  * le BOOT, et la suite entière s'arrête sur « aucun fichier de test trouvé »,
  * message qui n'a aucun rapport avec la cause.
  */
-export const ADMIN_PASSWORD = "e2e-compte-jetable-42";
+// La valeur vit dans `nodefony/testing` : les tests d'un MODULE, qui ne peuvent
+// pas importer ce fichier (leur `rootDir` est le module), en ont besoin aussi.
+export const ADMIN_PASSWORD = E2E_ADMIN_PASSWORD;
 
 /**
  * Ouvre une session d'administration et rend l'en-tête `Cookie` à rejouer.
@@ -103,21 +110,7 @@ export const ADMIN_PASSWORD = "e2e-compte-jetable-42";
  * m'authentifier » qu'un test qui conclut « accès refusé » sur un décor cassé.
  */
 export async function adminLogin(): Promise<string> {
-  const res = await fetch(`${appBaseUrl()}/nodefony/security/api/auth/login`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({
-      username: "admin",
-      password: ADMIN_PASSWORD,
-    }),
-  });
-  if (res.status !== 200) {
-    throw new Error(
-      `connexion admin impossible (${res.status}) — le décor de test, pas la route mesurée`,
-    );
-  }
-  const cookies = res.headers.getSetCookie?.() ?? [];
-  return cookies.map((c) => c.split(";")[0]).join("; ");
+  return loginAdmin(appBaseUrl(), ADMIN_PASSWORD);
 }
 <% } %>
 /**

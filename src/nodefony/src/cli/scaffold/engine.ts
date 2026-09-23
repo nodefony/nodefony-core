@@ -86,6 +86,7 @@ import {
   withoutComments,
 } from "../../kernel/checks/sourceText";
 import {
+  flagFor,
   getScaffoldSpec,
   CONTROLLER_KIND_CHOICES,
   FRONTEND_CHOICES,
@@ -97,6 +98,7 @@ import {
   type TModuleControllerChoice,
   type TPresetChoice,
   type IScaffoldCaps,
+  type IScaffoldQuestion,
 } from "./spec";
 import { openSiblingRoutes } from "./routePaths";
 
@@ -540,55 +542,38 @@ export function assertNoSqlOnlyOptions(
   answers: TScaffoldAnswers,
   entity: string,
 ): void {
-  const list = (value: unknown): number =>
-    Array.isArray(value) ? value.length : value ? 1 : 0;
-  const asked: Array<[string, boolean, string]> = [
-    [
-      "--table",
-      String(answers.table ?? "").trim() !== "",
-      "le nom de la collection vient du nom de l'entité",
-    ],
-    [
-      "--column-case",
-      (answers.columnCase ?? "camel") !== "camel",
-      "un document garde le nom de ses propriétés",
-    ],
-    [
-      "--id-name",
-      String(answers.idName ?? "id").trim() !== "id",
-      "la clé d'un document est `_id`, servie en `id`",
-    ],
-    [
-      "--dialect",
-      String(answers.dialect ?? "") !== "",
-      "MongoDB n'a pas de dialecte SQL",
-    ],
-    [
-      "--id",
-      String(answers.id ?? "uuid7") !== "uuid7",
-      "la clé d'un document est un ObjectId natif",
-    ],
-    [
-      "--index",
-      list(answers.index) > 0,
-      "un index composite s'écrit à la main dans le schéma",
-    ],
-    [
-      "--unique",
-      list(answers.uniqueIndex) > 0,
-      "un index composite s'écrit à la main dans le schéma",
-    ],
-  ];
-  for (const [option, given, why] of asked) {
-    if (given) {
-      throw new Error(
-        `create entity ${entity} : « ${option} » est une option SQL, et cette ` +
-          `application persiste sur MongoDB (@nodefony/mongoose) — ${why}.\n` +
-          `  → relancer sans « ${option} » (les champs \`:index\` et \`:unique\` restent disponibles)`,
-      );
-    }
+  // La LISTE vient de la spec (`askIf: "hasSqlOrm"`) : la même source décide
+  // de ce que le dialogue tait, de ce que l'aide annote et de ce qui est
+  // refusé ici. Seule la RAISON, propre à chaque option, s'écrit à part.
+  const [spec] = getScaffoldSpec("entity");
+  for (const question of spec?.questions ?? []) {
+    if (question.askIf !== "hasSqlOrm") continue;
+    const value = answers[question.key];
+    const given = Array.isArray(value)
+      ? value.length > 0
+      : value !== undefined &&
+        String(value).trim() !== String(question.default ?? "").trim();
+    if (!given) continue;
+    const option = flagFor(question);
+    throw new Error(
+      `create entity ${entity} : « ${option} » est une option SQL, et cette ` +
+        `application persiste sur MongoDB (@nodefony/mongoose) — ` +
+        `${SQL_ONLY_REASON[question.key] ?? "elle n'a pas d'équivalent pour un document"}.\n` +
+        `  → relancer sans « ${option} » (les champs \`:index\` et \`:unique\` restent disponibles)`,
+    );
   }
 }
+
+/** Pourquoi chaque réglage SQL n'a pas de sens pour un document — le message du refus. */
+const SQL_ONLY_REASON: Readonly<Record<string, string>> = {
+  table: "le nom de la collection vient du nom de l'entité",
+  columnCase: "un document garde le nom de ses propriétés",
+  idName: "la clé d'un document est `_id`, servie en `id`",
+  dialect: "MongoDB n'a pas de dialecte SQL",
+  id: "la clé d'un document est un ObjectId natif",
+  index: "un index composite s'écrit à la main dans le schéma",
+  uniqueIndex: "un index composite s'écrit à la main dans le schéma",
+};
 
 /**
  * Racine du paquet `nodefony` contenant `templates/` — remontée depuis CE fichier
@@ -1230,7 +1215,7 @@ function projectOrm(dir: string): TEntityOrm | null {
 export interface IScaffoldContext {
   /** Cibles possibles : l'application racine et ses modules locaux. */
   targets: IScaffoldTarget[];
-  /** Connecteurs déclarés, avec le moteur SQL de chacun. */
+  /** Connecteurs déclarés, avec le moteur de chacun (`mongodb` pour Mongoose). */
   connectors: IScaffoldConnector[];
   /**
    * Types de champ disponibles, et ce qu'ils deviennent dans CHAQUE moteur.
@@ -1242,7 +1227,7 @@ export interface IScaffoldContext {
   columnTypes: Array<{
     /** Nom du type dans le vocabulaire Nodefony. */
     type: string;
-    /** Colonne Drizzle produite, par dialecte. */
+    /** Colonne Drizzle produite par dialecte SQL, et définition Mongoose sous `mongodb`. */
     byDialect: Record<string, string>;
   }>;
   /** Entités existantes par cible — ce que `ref:` peut viser. */
@@ -1281,6 +1266,59 @@ export function getScaffoldContext(
     columnTypes: describeColumnTypes(),
     entities,
     idKinds: ENTITY_ID_KINDS,
+  };
+}
+
+/**
+ * Remplace les réponses possibles d'une question par celles du PROJET RÉEL.
+ *
+ * Une question marquée `optionsFrom` n'a pas ses choix dans la spec : ils
+ * dépendent de ce que l'application déclare. Sans cette hydratation, le
+ * connecteur se saisit en texte libre — et une faute de frappe ne se voit
+ * qu'au démarrage suivant. UNE implémentation, pour le terminal ET Studio.
+ *
+ * Quand le défaut de la spec ne figure pas parmi les choix réels (`default`
+ * sur une application MongoDB, dont le seul connecteur est `nodefony`), le
+ * défaut devient le premier choix : présélectionner une valeur qui n'existe
+ * pas ferait générer une entité rattachée à un ORM absent.
+ *
+ * @param question - question de la spec.
+ * @param context - contexte du projet ({@link getScaffoldContext}), `null` hors projet.
+ * @returns la question, hydratée si elle le demande et si le projet répond.
+ */
+export function hydrateQuestion(
+  question: IScaffoldQuestion,
+  context: IScaffoldContext | null,
+): IScaffoldQuestion {
+  if (!question.optionsFrom || !context) return question;
+  const values =
+    question.optionsFrom === "connectors"
+      ? context.connectors.map((c) => ({
+          value: c.name,
+          label: c.name,
+          hint: c.dialect,
+        }))
+      : Object.values(context.entities)
+          .flat()
+          .map((name) => ({ value: name, label: name }));
+  if (values.length === 0) return question;
+  const known = values.some((v) => v.value === question.default);
+  const connectors = question.optionsFrom === "connectors";
+  return {
+    ...question,
+    type: "choice",
+    choices: values,
+    default: known ? question.default : (values[0]?.value ?? question.default),
+    // Liste lue dans les FICHIERS — par le terminal comme par Studio, qui
+    // partagent cette composition. Le dire, pour qu'un connecteur qu'un module
+    // ouvre dans son code ne passe pas pour absent.
+    ...(connectors
+      ? {
+          note:
+            "connecteurs DÉCLARÉS dans la configuration — un connecteur qu'un " +
+            "module ouvre dans son code n'y figure pas",
+        }
+      : {}),
   };
 }
 
@@ -1457,6 +1495,63 @@ function decoratorListRe(
 }
 
 /**
+ * Les déclarations `import` d'un source, chacune ENTIÈRE — y compris sur
+ * plusieurs lignes (`import {\n  a,\n  b,\n} from "x";`), la forme que
+ * prettier donne à un import trop long.
+ *
+ * Une lecture ligne à ligne prenait la première ligne d'un import multi-ligne
+ * pour la déclaration entière : un import inséré « après » atterrissait DANS
+ * ses accolades, et un nom importé sur la deuxième ligne passait pour absent.
+ */
+function importStatements(
+  source: string,
+): Array<{ start: number; end: number; text: string }> {
+  const out: Array<{ start: number; end: number; text: string }> = [];
+  // `import(` (dynamique) et `import.meta` ne sont pas des déclarations.
+  for (const m of source.matchAll(/^import(?!\s*[(.])\b/gmu)) {
+    const start = m.index ?? 0;
+    // La déclaration finit à sa clause `from "…"`, ou à la chaîne d'un import
+    // à effet de bord (`import "x";`) — la première des deux qui vient.
+    const tail = /(?:\bfrom\s*|^import\s+)(["'])[^"'\n]+\1;?/mu.exec(
+      source.slice(start),
+    );
+    if (!tail || tail.index === undefined) continue;
+    const end = start + tail.index + tail[0].length;
+    out.push({ start, end, text: source.slice(start, end) });
+  }
+  return out;
+}
+
+/** Position juste APRÈS le dernier import du source — `undefined` s'il n'y en a aucun. */
+export function lastImportEnd(source: string): number | undefined {
+  return importStatements(source).at(-1)?.end;
+}
+
+/**
+ * `name` est-il déjà importé (en valeur, pas en `type`) depuis `from` ?
+ *
+ * Lu sur les déclarations entières : `import {\n  controllers,\n} from "…"`
+ * compte, et une seconde déclaration du même nom ferait échouer la compilation
+ * (TS2300, identifiant dupliqué).
+ */
+export function importsName(
+  source: string,
+  name: string,
+  from: string,
+): boolean {
+  return importStatements(source).some(({ text }) => {
+    if (!text.includes(`"${from}"`) && !text.includes(`'${from}'`))
+      return false;
+    if (/^import\s+type\b/u.test(text)) return false;
+    const braces = /\{([\s\S]*)\}/u.exec(text)?.[1] ?? "";
+    return braces
+      .split(",")
+      .map((part) => part.trim())
+      .some((part) => part === name || part.startsWith(`${name} as `));
+  });
+}
+
+/**
  * Paquet qui exporte chaque décorateur de liste d'un module — l'import qu'on
  * pose quand le décorateur est CRÉÉ. Chacun vit là où vit son concept :
  * `@controllers` avec le routeur, `@entities` avec l'ORM, `@services` au cœur.
@@ -1492,23 +1587,18 @@ export function wireDecoratorList(
     );
   }
   const importLine = `import ${className} from "${importPath}";`;
-  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
-  const last = imports.at(-1);
-  if (!last || last.index === undefined) {
+  const importAt = lastImportEnd(source);
+  if (importAt === undefined) {
     throw new Error(
       `aucun import trouvé dans ${indexPath} — ajoute à la main :\n` +
         `  ${importLine}\n  @${decorator}([..., ${className}])`,
     );
   }
-  const importAt = last.index + last[0].length;
   // Le décorateur peut ne pas être encore importé du tout (module sans
   // controller, cible sans service) : on l'ajoute dans la MÊME passe que
   // l'import de la classe, pour ne recalculer l'offset qu'une fois.
   const from = DECORATOR_SOURCE[decorator];
-  const needsDecoratorImport = !new RegExp(
-    `\\b${decorator}\\b[^\\n]*from "${from}"`,
-    "u",
-  ).test(source);
+  const needsDecoratorImport = !importsName(source, decorator, from);
   const extraImport = needsDecoratorImport
     ? `\nimport { ${decorator} } from "${from}";`
     : "";
@@ -2715,9 +2805,22 @@ function runControllerScaffold(
   const manifest = JSON.parse(
     writer.read(path.join(target.dir, "package.json")),
   ) as Record<string, Record<string, string>>;
+  // Les briques se cherchent dans l'APP autant que dans la cible : un module
+  // est un workspace qui déclare les paquets Nodefony en peerDependencies,
+  // c'est l'app qui les installe. Ne lire que le module faisait naître son
+  // DELETE sans garde (sécurité « absente »), et refuser `--role` ou la
+  // saveur realtime sur une application qui les porte.
+  const appManifest =
+    target.dir === projectRoot
+      ? manifest
+      : (JSON.parse(
+          writer.read(path.join(projectRoot, "package.json")),
+        ) as Record<string, Record<string, string>>);
   const targetDeps = new Set(
-    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
-      Object.keys(manifest[b] ?? {}),
+    [manifest, appManifest].flatMap((m) =>
+      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+        Object.keys(m[b] ?? {}),
+      ),
     ),
   );
   if (!CONTROLLER_KIND_CHOICES.includes(kind)) {
@@ -3409,15 +3512,13 @@ export function wireCommandCall(
       `${className} est déjà référencé dans ${indexPath} — choisis un autre nom`,
     );
   }
-  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
-  const last = imports.at(-1);
-  if (!last || last.index === undefined) {
+  const importAt = lastImportEnd(source);
+  if (importAt === undefined) {
     throw new Error(
       `aucun import trouvé dans ${indexPath} — ajoute à la main :\n` +
         `  ${importLine}\n  ${callLine} dans le constructeur`,
     );
   }
-  const importAt = last.index + last[0].length;
   const withImport =
     source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
   // Pas de parenthèse imbriquée attendue dans un `super(nom, kernel, url, config)` :
@@ -3654,6 +3755,36 @@ export function malformedProbe(
     if (f.def.startsWith("[")) {
       return { name: f.name, value: "valeur-hors-domaine" };
     }
+  }
+  return null;
+}
+
+/**
+ * Un corps JSON que le schéma d'entrée d'une entité REFUSE, ou `null` si aucun
+ * ne l'est (une entité faite uniquement de `json`, qui accepte tout).
+ *
+ * `{}` quand un champ est obligatoire sans défaut ; sinon, le premier champ
+ * reçoit une valeur du MAUVAIS type — c'est toujours le contrat qui refuse,
+ * jamais une particularité du moteur.
+ *
+ * @param fields - champs de l'entité.
+ * @returns le corps, sérialisé, ou `null`.
+ */
+export function invalidBodyOf(fields: readonly IEntityField[]): string | null {
+  if (fields.some((f) => !f.nullable && f.defaultValue === undefined)) {
+    return "{}";
+  }
+  for (const f of fields) {
+    if (f.type === "json") continue;
+    const wrong =
+      f.type === "int" || f.type === "float"
+        ? "abc"
+        : f.type === "bool"
+          ? "oui"
+          : f.type === "date"
+            ? "pas-une-date"
+            : 12345;
+    return JSON.stringify({ [f.name]: wrong });
   }
   return null;
 }
@@ -4089,7 +4220,22 @@ function runEntityScaffold(
   };
   const targetDeps = depsOf(target.dir);
   const projectDeps = depsOf(projectRoot);
-  const orm = resolveEntityOrm(targetDeps, projectDeps, target.name);
+  const found = resolveEntityOrm(targetDeps, projectDeps, target.name);
+  // Une application qui porte les DEUX ORM choisit par le CONNECTEUR : celui
+  // de Mongoose (`nodefony`) désigne une entité document — sauf si la
+  // configuration déclare elle-même un connecteur Drizzle de ce nom. Sans
+  // cette règle, `--connector nodefony` rattachait une table Drizzle à
+  // l'ORM Mongoose, qui la recevait comme schéma au démarrage.
+  const orm: TEntityOrm =
+    found === "drizzle" &&
+    (targetDeps.has("@nodefony/mongoose") ||
+      projectDeps.has("@nodefony/mongoose")) &&
+    String(answers.connector ?? "") === MONGOOSE_CONNECTOR &&
+    !readConnectors(projectRoot, writer).some(
+      (c) => c.name === MONGOOSE_CONNECTOR,
+    )
+      ? "mongoose"
+      : found;
   // Entité DOCUMENT : pas de table, pas de migration, pas de dialecte — ni
   // `drizzle-orm` à déclarer, ni options SQL à honorer.
   const mongo = orm === "mongoose";
@@ -4440,10 +4586,14 @@ function runEntityScaffold(
         `create entity ${pascal} : l'entité existe déjà, et ce rendu RETIRERAIT ` +
           `${lost.length > 1 ? "des champs" : "un champ"} — ${lost.join(", ")}. ` +
           `La commande ré-décrit l'entité en entier, elle ne cumule pas : tout champ ` +
-          `non rappelé disparaît, et la prochaine migration y verrait une suppression ` +
-          `de colonnes, donc une perte de données.\n` +
-          `  → ajoute le champ à la main dans ${shown} (c'est du Drizzle ordinaire), ` +
-          `puis « nodefony orm:generate »\n` +
+          `non rappelé disparaît` +
+          (mongo
+            ? ` du schéma — et du contrat d'entrée, qui cesserait de l'accepter.\n` +
+              `  → ajoute le champ à la main dans ${shown} (c'est un schéma Mongoose ordinaire)\n`
+            : `, et la prochaine migration y verrait une suppression ` +
+              `de colonnes, donc une perte de données.\n` +
+              `  → ajoute le champ à la main dans ${shown} (c'est du Drizzle ordinaire), ` +
+              `puis « nodefony orm:generate »\n`) +
           `  → ou relance en redonnant TOUS les champs de l'entité, celui-ci compris\n` +
           `  → ou assume le remplacement avec « --force »`,
       );
@@ -4506,10 +4656,28 @@ function runEntityScaffold(
       `${field.target}.ts`,
     );
     if (!writer.exists(targetFile)) {
+      // La cible vit peut-être dans l'APPLICATION, et la relation part d'un
+      // MODULE. Le conseil « crée-la d'abord » envoyait alors vers un refus
+      // (`User` ne vit que dans l'app) ou vers un doublon.
+      const inApp =
+        target.kind !== "app" &&
+        writer.exists(
+          path.join(projectRoot, "nodefony", "entity", `${field.target}.ts`),
+        );
+      // MongoDB : le registre d'entités est plat et un lien n'importe rien —
+      // `ref: "User"` se résout par son NOM au démarrage. Valide tel quel.
+      if (inApp && mongo) continue;
       throw new Error(
-        `create entity ${pascal} : la relation « ${field.name}:ref:${field.target} » ` +
-          `vise une entité qui n'existe pas dans ${target.name} — crée-la d'abord ` +
-          `(nodefony create entity ${field.target} …), puis relance`,
+        inApp
+          ? `create entity ${pascal} : la relation « ${field.name}:ref:${field.target} » ` +
+              `vise une entité de l'APPLICATION depuis le module ${target.name}. En SQL, ` +
+              `la table visée devrait être importée par le module — un paquet séparé, qui ` +
+              `ne dépend pas de l'application.\n` +
+              `  → générer ${pascal} dans l'application (sans « --module »), ou ` +
+              `garder un identifiant simple (« ${field.name}:uuid »)`
+          : `create entity ${pascal} : la relation « ${field.name}:ref:${field.target} » ` +
+              `vise une entité qui n'existe pas dans ${target.name} — crée-la d'abord ` +
+              `(nodefony create entity ${field.target} …), puis relance`,
       );
     }
   }
@@ -4585,6 +4753,14 @@ function runEntityScaffold(
   const eta = new Eta(ETA_OPTIONS);
   const written: string[] = [];
   const data = {
+    // Un corps que le contrat d'entrée DOIT refuser — le test « 422 » et son
+    // pendant unitaire en ont besoin. `{}` ne suffit que si un champ est
+    // obligatoire sans défaut : sinon il est VALIDE, et les deux tests
+    // générés naissaient rouges (`enabled:bool=true note:text?`).
+    invalidBody: invalidBodyOf(fields),
+    // Un module a son propre `rootDir` : ses tests ne peuvent pas importer le
+    // décor e2e de l'application, et passent par `nodefony/testing`.
+    inModule: target.kind !== "app",
     pascal,
     camel,
     // Le nom de la variable de table vient de la MÊME fonction que celle qui
@@ -4676,7 +4852,8 @@ function runEntityScaffold(
                 // l'erreur nomme la route absente.
                 identity:
                   relationTarget === IDENTITY_ENTITY &&
-                  targetDeps.has("@nodefony/security"),
+                  (targetDeps.has("@nodefony/security") ||
+                    projectDeps.has("@nodefony/security")),
               },
             ] as const;
           }),
@@ -4695,7 +4872,11 @@ function runEntityScaffold(
     // deux générateurs qui produisent la même route ne peuvent pas avoir deux
     // doctrines. Conditionné à la présence du module, faute de quoi `@IsGranted`
     // n'existerait pas et le code généré ne compilerait pas (preset minimal).
-    hasSecurity: targetDeps.has("@nodefony/security"),
+    // L'app autant que la cible : un module ne déclare jamais la sécurité en
+    // peer, et son DELETE naissait OUVERT dans une application qui la porte.
+    hasSecurity:
+      targetDeps.has("@nodefony/security") ||
+      projectDeps.has("@nodefony/security"),
     ...codegen,
   };
 
@@ -4994,14 +5175,12 @@ export function wireEntitiesDecorator(
   const importLine = `import { ${className} } from "${importPath}";`;
   const manual = `  ${importLine}\n  @entities([${className}]) sur la classe Module`;
 
-  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
-  const last = imports.at(-1);
-  if (!last || last.index === undefined) {
+  const importAt = lastImportEnd(source);
+  if (importAt === undefined) {
     throw new Error(
       `aucun import trouvé dans ${indexPath} — ajoute à la main :\n${manual}`,
     );
   }
-  const importAt = last.index + last[0].length;
 
   // Le décorateur existe déjà (une entité a précédé) → compléter SA liste.
   // Même règle que `wireDecoratorList` : le décorateur RÉEL, pas sa mention dans
@@ -5031,8 +5210,10 @@ export function wireEntitiesDecorator(
 
   // 1) l'import du descripteur + celui du décorateur (si absent) ;
   // 2) le décorateur lui-même, juste avant l'ancre.
-  const needsDecoratorImport = !/\bentities\b[^\n]*@nodefony\/orm-core/u.test(
+  const needsDecoratorImport = !importsName(
     source,
+    "entities",
+    "@nodefony/orm-core",
   );
   const injected =
     `\n${importLine}` +
@@ -5386,12 +5567,10 @@ export function wireKernelBootCall(
 ): string | null {
   const source = writer.read(indexPath);
   const importLine = `import { ${fnName} } from "${importPath}";`;
-  const imports = [...source.matchAll(/^import [^\n]*$/gmu)];
-  const last = imports.at(-1);
-  if (!last || last.index === undefined) {
+  const importAt = lastImportEnd(source);
+  if (importAt === undefined) {
     return `ajoute à la main : ${importLine} + ${fnName}(this); dans onKernelBoot()`;
   }
-  const importAt = last.index + last[0].length;
   const withImport =
     source.slice(0, importAt) + `\n${importLine}` + source.slice(importAt);
   if (/onKernelBoot\s*\(/u.test(withImport)) {

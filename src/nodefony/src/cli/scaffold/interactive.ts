@@ -3,10 +3,11 @@ import { anchorEventLoop, chargePrompts, type IPrompts } from "../prompts";
 import clc from "../../colors";
 import type { Readable, Writable } from "node:stream";
 import { capAllows, type IScaffoldTypeSpec } from "./spec";
-import type {
-  IScaffoldCaps,
-  IScaffoldContext,
-  TScaffoldAnswers,
+import {
+  hydrateQuestion,
+  type IScaffoldCaps,
+  type IScaffoldContext,
+  type TScaffoldAnswers,
 } from "./engine";
 
 /**
@@ -301,7 +302,7 @@ export async function askMissing(
       if (q.advanced) {
         continue;
       }
-      const question = hydrate(q, context);
+      const question = hydrateQuestion(q, context);
       answers[q.key] = rich
         ? await askRich(rich, question)
         : await ask(rl!, output, question);
@@ -311,35 +312,4 @@ export async function askMissing(
     releaseAnchor();
   }
   return answers;
-}
-
-/**
- * Remplace les réponses possibles d'une question par celles du PROJET RÉEL.
- *
- * Une question marquée `optionsFrom` n'a pas ses choix dans la spec : ils
- * dépendent de ce que l'application déclare. Sans cette hydratation, le dialogue
- * demande un nom de connecteur en texte libre — et une faute de frappe ne se
- * voit qu'au démarrage suivant.
- *
- * Sans contexte (hors projet), ou si le projet n'a rien à proposer, la question
- * est rendue telle quelle : mieux vaut un champ libre qu'une liste vide dont on
- * ne peut rien choisir.
- */
-function hydrate(
-  question: IScaffoldTypeSpec["questions"][number],
-  context: IScaffoldContext | null,
-): IScaffoldTypeSpec["questions"][number] {
-  if (!question.optionsFrom || !context) return question;
-  const values =
-    question.optionsFrom === "connectors"
-      ? context.connectors.map((c) => ({
-          value: c.name,
-          label: c.name,
-          hint: c.dialect,
-        }))
-      : Object.values(context.entities)
-          .flat()
-          .map((name) => ({ value: name, label: name }));
-  if (values.length === 0) return question;
-  return { ...question, type: "choice", choices: values };
 }

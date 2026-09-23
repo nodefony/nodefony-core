@@ -664,6 +664,13 @@ export { getScaffoldSpec } from "./cli/scaffold/spec";
 // `@nodefony/frontend` la cite au démarrage quand aucune interface n'est posée.
 // Recopiée, elle survivrait à l'ajout d'un moteur sans le dire.
 export { FRONTEND_CHOICES } from "./cli/scaffold/spec";
+// La grammaire des champs d'une entité — le SEUL analyseur. Studio compose des
+// champs dans une interface et confronte sa sérialisation à celui-ci.
+export {
+  parseEntityFields,
+  EntityFieldError,
+  ENTITY_FIELD_TYPES,
+} from "./cli/scaffold/entityFields";
 // « Cette question se pose-t-elle ici ? » — la MÊME réponse pour le dialogue du
 // terminal, son récapitulatif et le formulaire de Studio.
 export { capAllows } from "./cli/scaffold/spec";
@@ -684,6 +691,9 @@ export {
   findProjectRoot,
   scaffoldCaps,
   getScaffoldContext,
+  // Les choix RÉELS d'une question (`optionsFrom`) — une règle pour le terminal
+  // et pour Studio, qui reçoit sa spec déjà hydratée.
+  hydrateQuestion,
 } from "./cli/scaffold/engine";
 export type {
   IScaffoldContext,

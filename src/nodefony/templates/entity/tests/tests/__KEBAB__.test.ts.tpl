@@ -93,11 +93,11 @@ describe("<%= it.pascal %> — entité", () => {
     expect(await repo.count()).toBe(before + 1);
   });
 
-<% } %>  it("le contrat d'entrée refuse un corps vide", () => {
+<% } %><% if (it.invalidBody) { %>  it("le contrat d'entrée refuse un corps invalide", () => {
     // Le service appelle ce même schéma : un rejet devient un 422 côté HTTP et WS.
-    expect(() => create<%= it.pascal %>Schema.parse({})).toThrow();
+    expect(() => create<%= it.pascal %>Schema.parse(<%= it.invalidBody %>)).toThrow();
   });
-
+<% } %>
   it("le contrat d'entrée retire les champs inconnus (anti-promotion)", () => {
     const parsed = create<%= it.pascal %>Schema.parse({
       ...sample(3),

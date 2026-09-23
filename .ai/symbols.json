@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 854,
-    "symbols": 4229,
+    "files": 856,
+    "symbols": 4239,
     "classes": 398,
-    "interfaces": 1122,
+    "interfaces": 1123,
     "types": 458,
     "enums": 4,
-    "functions": 1826,
-    "constants": 421
+    "functions": 1833,
+    "constants": 423
   },
   "symbols": {
     "Cli": {
@@ -6079,6 +6079,14 @@
       "extends": null,
       "description": "Un exemplaire jetable, démarré et joignable."
     },
+    "adminLogin": {
+      "name": "adminLogin",
+      "kind": "function",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Ouvre une session administrateur sur une application qui sert, et rend l'en-tête `cookie` à rejouer."
+    },
     "runningAppPort": {
       "name": "runningAppPort",
       "kind": "function",
@@ -6102,6 +6110,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Démarre un exemplaire JETABLE de l'application, dans un état choisi. ## À quoi ça sert Certaines choses ne s'observent que sur un processus qui démarre dans un état précis : un schéma en retard qui…"
+    },
+    "E2E_ADMIN_PASSWORD": {
+      "name": "E2E_ADMIN_PASSWORD",
+      "kind": "const",
+      "file": "src/nodefony/src/testing/index.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Mot de passe du compte administrateur JETABLE que le décor e2e d'une application générée pose (`NF_ADMIN_PASSWORD`, pour la suite seule — la production ne sème aucun compte sans mot de passe explic…"
     },
     "nodefonyOptions": {
       "name": "nodefonyOptions",
@@ -6849,6 +6865,14 @@
       "module": "@nodefony/core",
       "description": "Lit le contexte du projet contenant `dir`."
     },
+    "hydrateQuestion": {
+      "name": "hydrateQuestion",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Remplace les réponses possibles d'une question par celles du PROJET RÉEL. Une question marquée `optionsFrom` n'a pas ses choix dans la spec : ils dépendent de ce que l'application déclare. Sans cet…"
+    },
     "listTargets": {
       "name": "listTargets",
       "kind": "function",
@@ -6871,6 +6895,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "`BlogPost` / `blog_post` → `blog-post`."
+    },
+    "lastImportEnd": {
+      "name": "lastImportEnd",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Position juste APRÈS le dernier import du source — `undefined` s'il n'y en a aucun."
+    },
+    "importsName": {
+      "name": "importsName",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "`name` est-il déjà importé (en valeur, pas en `type`) depuis `from` ? Lu sur les déclarations entières : `import {\\n controllers,\\n} from \"…\"` compte, et une seconde déclaration du même nom ferait …"
     },
     "wireDecoratorList": {
       "name": "wireDecoratorList",
@@ -6934,6 +6974,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le filtre sur lequel une valeur MAL FORMÉE existe, et de quoi la fabriquer — ou `null` si aucun filtre de l'entité ne peut en refuser une. Toutes les natures ne refusent pas : un filtre `\"string\"` …"
+    },
+    "invalidBodyOf": {
+      "name": "invalidBodyOf",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/engine.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Un corps JSON que le schéma d'entrée d'une entité REFUSE, ou `null` si aucun ne l'est (une entité faite uniquement de `json`, qui accepte tout). `{}` quand un champ est obligatoire sans défaut ; si…"
     },
     "sampleValue": {
       "name": "sampleValue",
@@ -22196,6 +22244,39 @@
       "module": "@nodefony/studio",
       "description": "Ce qui transite sur le canal `nodefony:scaffold:job@<id>`. Deux natures, et pas une seule : une ligne de terminal **et** l'état du job. Sans le second, le front n'aurait aucun moyen d'apprendre par…"
     },
+    "fetchAdminEndpoint": {
+      "name": "fetchAdminEndpoint",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/src/adminFetch.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Appelle un endpoint admin (`<namespace>/<path>`) via le broker — Studio reste GÉNÉRIQUE (aucune dépendance directe au module producteur : orm-core, framework…). `null` si le producteur ou l'endpoin…"
+    },
+    "IStudioCreateSpec": {
+      "name": "IStudioCreateSpec",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/src/createSpec.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "Ce que le formulaire reçoit du moteur, pour UN projet."
+    },
+    "composeCreateSpec": {
+      "name": "composeCreateSpec",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/src/createSpec.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Compose la matière du formulaire « Créer » pour le projet `projectRoot` — la part du data plane `create/spec` qui dépend du PROJET. Fonction pure au sens du data plane : elle ne lit que le disque d…"
+    },
+    "STUDIO_TYPES": {
+      "name": "STUDIO_TYPES",
+      "kind": "const",
+      "file": "src/packages/@nodefony/studio/nodefony/src/createSpec.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Types de scaffold servis par l'écran « Créer ». `app` en fait partie, avec une différence de nature : les quatre autres modifient le projet COURANT (ils y écrivent et le recâblent), tandis qu'une a…"
+    },
     "IOAuthProfile": {
       "name": "IOAuthProfile",
       "kind": "interface",
@@ -30592,7 +30673,8 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/src/adminFetch.ts"
       ],
       "IFrameworkConfigInput": [
         "src/packages/@nodefony/framework/index.ts",
@@ -31909,7 +31991,7 @@
         "src/nodefony/src/cli/create.ts",
         "src/nodefony/src/cli/scaffold/engine.ts",
         "src/nodefony/src/cli/scaffold/help.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
       ],
       "listTargets": [
         "src/nodefony/src/cli/create.ts",
@@ -31917,6 +31999,10 @@
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "getScaffoldContext": [
+        "src/nodefony/src/cli/create.ts",
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
+      ],
+      "MONGOOSE_CONNECTOR": [
         "src/nodefony/src/cli/create.ts"
       ],
       "runScaffold": [
@@ -31925,7 +32011,7 @@
       ],
       "scaffoldCaps": [
         "src/nodefony/src/cli/create.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
       ],
       "TScaffoldAnswers": [
         "src/nodefony/src/cli/create.ts",
@@ -33592,12 +33678,17 @@
         "src/nodefony/src/kernel/checks/surface.ts",
         "src/nodefony/src/kernel/checks/wiring.ts"
       ],
+      "flagFor": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/help.ts"
+      ],
       "CONTROLLER_KIND_CHOICES": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IScaffoldTypeSpec": [
         "src/nodefony/src/cli/scaffold/engine.ts",
-        "src/nodefony/src/cli/scaffold/interactive.ts"
+        "src/nodefony/src/cli/scaffold/interactive.ts",
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
       ],
       "TCommandPhaseChoice": [
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -33619,16 +33710,15 @@
       ],
       "IScaffoldCaps": [
         "src/nodefony/src/cli/scaffold/engine.ts",
-        "src/nodefony/src/cli/scaffold/interactive.ts"
+        "src/nodefony/src/cli/scaffold/interactive.ts",
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
+      ],
+      "IScaffoldQuestion": [
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/help.ts"
       ],
       "openSiblingRoutes": [
         "src/nodefony/src/cli/scaffold/engine.ts"
-      ],
-      "flagFor": [
-        "src/nodefony/src/cli/scaffold/help.ts"
-      ],
-      "IScaffoldQuestion": [
-        "src/nodefony/src/cli/scaffold/help.ts"
       ],
       "IUsageEntry": [
         "src/nodefony/src/cli/scaffold/help.ts"
@@ -33642,8 +33732,13 @@
       "IPrompts": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
+      "hydrateQuestion": [
+        "src/nodefony/src/cli/scaffold/interactive.ts",
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
+      ],
       "IScaffoldContext": [
-        "src/nodefony/src/cli/scaffold/interactive.ts"
+        "src/nodefony/src/cli/scaffold/interactive.ts",
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
       ],
       "TEntityFieldType": [
         "src/nodefony/src/cli/scaffold/userContractSource.ts"
@@ -33989,7 +34084,7 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
+        "src/packages/@nodefony/studio/nodefony/src/adminFetch.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
@@ -37790,12 +37885,18 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
+      "composeCreateSpec": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
       "SCAFFOLD_STEPS": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "RateBounds": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
+      "fetchAdminEndpoint": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "createSyslogBridge": [

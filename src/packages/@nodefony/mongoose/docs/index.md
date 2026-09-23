@@ -362,6 +362,23 @@ class Blog extends Module {
 export default Blog;
 ```
 
+### Le raccourci — `nodefony create entity`
+
+Dans une application MongoDB (`create app --database mongodb`), tout ce qui précède se génère,
+avec la même grammaire de champs qu'en SQL :
+
+```bash
+npx nodefony create entity Post title:string(120) body:text? views:int=0 author:ref:User
+```
+
+La commande écrit le schéma Mongoose (`nodefony/entity/Post.ts`), les schémas de validation, un
+service CRUD, un controller REST + WebSocket et les tests, puis câble `@entities([...])` et
+`@controllers([...])`. L'entité se pose sur le connecteur `nodefony` ; une référence est un
+`ObjectId` indexé, que le schéma d'entrée exige bien formé (24 caractères hexadécimaux, sinon 422).
+Les options propres au SQL (`--table`, `--column-case`, `--id-name`, `--dialect`, `--id`,
+`--index`, `--unique`) sont refusées en le disant ; l'entité `User` ne se régénère pas, elle
+s'étend dans `nodefony/entity/User.ts`.
+
 ### 3. Ce qu'on observe
 
 ```bash
@@ -574,6 +591,11 @@ MongoDB n'a pas de clé étrangère. L'adapter traduit les relations déclarées
 Le chargement se demande à la lecture : `find(criteria, { relations: ["comments"] })` devient un
 `populate`. Le refus du `many-to-many` est volontaire : il n'a pas de traduction unique en Mongo
 (tableau de références ? collection de liaison ?), et un choix imposé serait un mauvais choix.
+
+> [!WARNING]
+> Sans clé étrangère, **rien ne protège l'intégrité** : supprimer un parent n'est jamais refusé
+> (là où le SQL généré pose `restrict`), et `populate` rend alors `null` à la place du parent
+> disparu. Si l'intégrité compte, la garde s'écrit dans le service du parent.
 
 ### Transactions
 

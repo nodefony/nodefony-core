@@ -32,6 +32,9 @@ import {
 } from "../cli/scaffold/entityFields";
 import {
   assertNoSqlOnlyOptions,
+  importsName,
+  invalidBodyOf,
+  lastImportEnd,
   MONGOOSE_CONNECTOR,
   resolveEntityOrm,
   scaffoldCaps,
@@ -93,7 +96,7 @@ describe("create entity — traduction Mongoose, type par type", () => {
     ]);
   });
 
-  it("un défaut JSON est une FABRIQUE — jamais un objet partagé entre documents", () => {
+  it("un JSON facultatif : `Mixed`, nul par défaut (la grammaire refuse un défaut `json`)", () => {
     assert.deepStrictEqual(lines("t:json?"), [
       't: { type: "Mixed", default: null },',
     ]);
@@ -503,53 +506,130 @@ const DRIZZLE_SQL: Readonly<Record<string, string>> = {
   uuid: "uuid",
 };
 
-describe("create entity — la table des types du skill add-crud suit le GÉNÉRATEUR", () => {
-  const skill = readFileSync(
-    path.join(devkitSkills, "nodefony-add-crud/SKILL.md"),
-    "utf8",
-  );
-  const rows = new Map<string, string[]>();
-  for (const line of skill.split("\n")) {
-    const cells = line.split("|").map((c) => c.trim());
-    const head = /^`([a-z]+)[(:]?/u.exec(cells[1] ?? "")?.[1];
-    if (head && cells.length >= 7) rows.set(head, cells.slice(3, 7));
-  }
-  const firstTick = (cell: string): string =>
-    /`([A-Za-z]+)/u.exec(cell)?.[1] ?? "";
+// Deux copies de la table, pour deux lecteurs : le skill (livré par npm, lu par
+// l'agent) et le guide (lu par l'humain). Chacune est confrontée au générateur.
+for (const [label, file] of [
+  ["skill add-crud", path.join(devkitSkills, "nodefony-add-crud/SKILL.md")],
+  ["guide generer-du-code", path.join(repo, "docs/guides/generer-du-code.md")],
+] as const)
+  describe(`create entity — la table des types (${label}) suit le GÉNÉRATEUR`, () => {
+    const skill = readFileSync(file, "utf8");
+    const rows = new Map<string, string[]>();
+    for (const line of skill.split("\n")) {
+      const cells = line.split("|").map((c) => c.trim());
+      const head = /^`([a-z]+)[(:]?/u.exec(cells[1] ?? "")?.[1];
+      if (head && cells.length >= 7) rows.set(head, cells.slice(3, 7));
+    }
+    const firstTick = (cell: string): string =>
+      /`([A-Za-z]+)/u.exec(cell)?.[1] ?? "";
 
-  it("chaque type du vocabulaire a sa ligne — et aucune ligne n'est inventée", () => {
-    assert.deepStrictEqual(
-      [...rows.keys()].sort(),
-      [...ENTITY_FIELD_TYPES, "ref"].sort(),
+    it("chaque type du vocabulaire a sa ligne — et aucune ligne n'est inventée", () => {
+      assert.deepStrictEqual(
+        [...rows.keys()].sort(),
+        [...ENTITY_FIELD_TYPES, "ref"].sort(),
+      );
+    });
+
+    it("chaque cellule SQL nomme le type que le générateur émet, moteur par moteur", () => {
+      const columns = ["sqlite", "postgres", "mysql"] as const;
+      const drift: string[] = [];
+      for (const { type, byDialect } of describeColumnTypes()) {
+        if (type === "ref") continue; // dépend de la clé VISÉE : la note ³ le dit
+        columns.forEach((dialect, i) => {
+          const fn = /^(\w+)\(/u.exec(byDialect[dialect] ?? "")?.[1] ?? "";
+          const written = firstTick(rows.get(type)?.[i] ?? "");
+          if (DRIZZLE_SQL[fn] !== written) {
+            drift.push(
+              `${type} × ${dialect} : doc « ${written} », générateur ${fn} → ${DRIZZLE_SQL[fn]}`,
+            );
+          }
+        });
+      }
+      assert.deepStrictEqual(drift, []);
+    });
+
+    it("chaque cellule MongoDB nomme le type Mongoose que le générateur écrit", () => {
+      const drift: string[] = [];
+      for (const { type, byDialect } of describeColumnTypes()) {
+        const emitted = /type: "?(\w+)/u.exec(byDialect["mongodb"] ?? "")?.[1];
+        const written = firstTick(rows.get(type)?.[3] ?? "");
+        if (emitted !== written)
+          drift.push(`${type} : doc « ${written} », générateur ${emitted}`);
+      }
+      assert.deepStrictEqual(drift, []);
+    });
+  });
+
+describe("create entity — correctifs de l'audit, aux limites", () => {
+  it("facultatif ET unique : index PARTIEL sur le type — deux `null` ne se heurtent pas", () => {
+    assert.deepStrictEqual(lines("email:string?:unique"), [
+      'email: { type: String, maxlength: 255, default: null, index: { unique: true, partialFilterExpression: { email: { $type: "string" } } } },',
+    ]);
+    assert.deepStrictEqual(lines("owner:ref:User?:unique"), [
+      'owner: { type: "ObjectId", ref: "User", default: null, index: { unique: true, partialFilterExpression: { owner: { $type: "objectId" } } } }, // → User.id',
+    ]);
+    // Obligatoire et unique : l'index plein, inchangé.
+    assert.deepStrictEqual(lines("sku:string:unique"), [
+      "sku: { type: String, maxlength: 255, required: true, unique: true },",
+    ]);
+  });
+
+  it("corps invalide : `{}` si un champ est obligatoire, sinon le MAUVAIS type, sinon rien", () => {
+    const body = (fields: string): string | null =>
+      invalidBodyOf(parseEntityFields(fields));
+    assert.strictEqual(body("a:string b:int=0"), "{}");
+    assert.strictEqual(body("n:int=0"), '{"n":"abc"}');
+    assert.strictEqual(body("b:bool=true"), '{"b":"oui"}');
+    assert.strictEqual(body("d:date?"), '{"d":"pas-une-date"}');
+    assert.strictEqual(body("s:string?"), '{"s":12345}');
+    // Le JSON accepte tout : on passe au champ suivant, et sans suivant, rien.
+    assert.strictEqual(body("j:json? s:text?"), '{"s":12345}');
+    assert.strictEqual(body("j:json?"), null);
+  });
+
+  it("les imports se lisent en DÉCLARATIONS entières — multi-ligne, type, dynamique", () => {
+    const src =
+      'import { Module } from "nodefony";\n' +
+      'import {\n  controllers,\n  route,\n} from "@nodefony/framework";\n' +
+      'import type { entities } from "@nodefony/orm-core";\n' +
+      'import "./side";\n\n' +
+      "const m = import.meta.url;\n" +
+      'import("./late");\n';
+    const end = lastImportEnd(src) ?? -1;
+    assert.ok(
+      src.slice(0, end).endsWith('import "./side";'),
+      src.slice(0, end),
+    );
+    assert.ok(src.slice(end).startsWith("\n\nconst m = import.meta"));
+    assert.ok(importsName(src, "controllers", "@nodefony/framework"));
+    assert.ok(importsName(src, "route", "@nodefony/framework"));
+    // Un import de TYPE ne rend pas le décorateur disponible à l'exécution.
+    assert.ok(!importsName(src, "entities", "@nodefony/orm-core"));
+    assert.ok(!importsName(src, "controllers", "nodefony"));
+    assert.strictEqual(lastImportEnd("const a = 1;\n"), undefined);
+    assert.ok(
+      importsName(
+        'import { services as s } from "nodefony";',
+        "services",
+        "nodefony",
+      ),
     );
   });
 
-  it("chaque cellule SQL nomme le type que le générateur émet, moteur par moteur", () => {
-    const columns = ["sqlite", "postgres", "mysql"] as const;
-    const drift: string[] = [];
-    for (const { type, byDialect } of describeColumnTypes()) {
-      if (type === "ref") continue; // dépend de la clé VISÉE : la note ³ le dit
-      columns.forEach((dialect, i) => {
-        const fn = /^(\w+)\(/u.exec(byDialect[dialect] ?? "")?.[1] ?? "";
-        const written = firstTick(rows.get(type)?.[i] ?? "");
-        if (DRIZZLE_SQL[fn] !== written) {
-          drift.push(
-            `${type} × ${dialect} : doc « ${written} », générateur ${fn} → ${DRIZZLE_SQL[fn]}`,
-          );
-        }
-      });
-    }
-    assert.deepStrictEqual(drift, []);
-  });
-
-  it("chaque cellule MongoDB nomme le type Mongoose que le générateur écrit", () => {
-    const drift: string[] = [];
-    for (const { type, byDialect } of describeColumnTypes()) {
-      const emitted = /type: "?(\w+)/u.exec(byDialect["mongodb"] ?? "")?.[1];
-      const written = firstTick(rows.get(type)?.[3] ?? "");
-      if (emitted !== written)
-        drift.push(`${type} : doc « ${written} », générateur ${emitted}`);
-    }
-    assert.deepStrictEqual(drift, []);
+  it("la liste des options SQL vient de la SPEC — refusée, annotée et tue d'une source", () => {
+    const [spec] = getScaffoldSpec("entity");
+    const sqlOnly = spec.questions
+      .filter((q) => q.askIf === "hasSqlOrm")
+      .map((q) => q.key)
+      .sort();
+    assert.deepStrictEqual(sqlOnly, [
+      "columnCase",
+      "dialect",
+      "id",
+      "idName",
+      "index",
+      "table",
+      "uniqueIndex",
+    ]);
   });
 });

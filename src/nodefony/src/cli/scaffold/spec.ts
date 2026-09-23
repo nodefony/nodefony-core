@@ -930,6 +930,18 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     "Entité + schémas de validation + service CRUD + controller REST/WebSocket (dans l'app ou un module)",
   questions: [
     {
+      key: "connector",
+      label: "Connecteur ORM",
+      // La PREMIÈRE question : le connecteur décide du moteur
+      // (SQLite, PostgreSQL, MySQL, MongoDB), donc de ce que devient chaque
+      // champ qu'on déclare ensuite.
+      type: "string",
+      default: "default",
+      // Les connecteurs sont ceux que l'application DÉCLARE : les proposer évite
+      // qu'un nom inventé produise une entité rattachée à une base inexistante.
+      optionsFrom: "connectors",
+    },
+    {
       key: "name",
       label: "Nom de l'entité (PascalCase, ex : Post)",
       type: "string",
@@ -1016,17 +1028,9 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
       advanced: true,
     },
     {
-      key: "connector",
-      label: "Connecteur ORM",
-      type: "string",
-      default: "default",
-      advanced: true,
-      // Les connecteurs sont ceux que l'application DÉCLARE : les proposer évite
-      // qu'un nom inventé produise une entité rattachée à une base inexistante.
-      optionsFrom: "connectors",
-    },
-    {
       key: "dialect",
+      // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
+      askIf: "hasSqlOrm",
       label: "Dialecte SQL (défaut : lu dans la config)",
       type: "string",
       default: "",
@@ -1047,6 +1051,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     // à la main (134 renommages pour le seul schéma d'Umami).
     {
       key: "table",
+      // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
+      askIf: "hasSqlOrm",
       label: "Nom SQL de la table (défaut : pluriel du nom de l'entité)",
       type: "string",
       default: "",
@@ -1054,6 +1060,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "columnCase",
+      // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
+      askIf: "hasSqlOrm",
       label: "Casse des colonnes SQL",
       type: "choice",
       choices: [
@@ -1073,6 +1081,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "idName",
+      // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
+      askIf: "hasSqlOrm",
       label: "Nom SQL de la clé primaire (la propriété reste `id`)",
       type: "string",
       default: "id",
@@ -1080,6 +1090,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "index",
+      // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
+      askIf: "hasSqlOrm",
       label:
         'Index de table, colonnes séparées par des virgules (ex. "siteId,createdAt")',
       type: "list",
@@ -1088,6 +1100,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     },
     {
       key: "uniqueIndex",
+      // Réglage SQL : refusé sur une application MongoDB (`assertNoSqlOnlyOptions`).
+      askIf: "hasSqlOrm",
       flag: "--unique",
       label:
         'Contrainte d\'unicité sur plusieurs colonnes (ex. "siteId,visitId")',

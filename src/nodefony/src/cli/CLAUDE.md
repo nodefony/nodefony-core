@@ -694,7 +694,7 @@ Une relation vers SOI (`parent:ref:Category` dans `Category`) ne s'importe pas e
 l'annotation `AnySQLiteColumn`/`AnyPgColumn`/`AnyMySqlColumn`, sans laquelle le fichier rendu ne
 compile pas. Wiring : `wireEntitiesDecorator` **crée** `@entities([...])`
 s'il n'existe pas (import **nommé** — un descripteur n'est pas un default), + `@controllers`.
-Gardes AVANT écriture : hors projet · `@nodefony/drizzle` absent de la cible · entité déjà
+Gardes AVANT écriture : hors projet · aucun ORM dans la cible NI l'app (`resolveEntityOrm`) · entité déjà
 déclarée · **nom RÉSERVÉ par un module du framework** (`scaffold/reservedEntities.ts` : `User`,
 `session`, `access_token`, `audit_event`… ; casse et séparateurs ignorés — registre ORM PLAT, un
 homonyme dépossède le module et l'app ne démarre plus sur un message de « colonne inconnue » ;
@@ -774,8 +774,19 @@ les transactions. Compose et CI lèvent `--replSet rs0` et ne se déclarent prê
 élu (`db.hello().isWritablePrimary`) ; GitHub en ÉTAPE (`services:` ne prend pas de commande),
 GitLab en service avec `command:` et initiation par le pilote `mongodb` (devDependency, même
 version que `@nodefony/mongoose`, qui sert aussi au décor e2e à supprimer sa base : Mongoose n'a
-pas d'`orm:reset`). `create entity` y refuse en nommant MongoDB (`assertSqlOrmTarget`, UNE garde
-pour les deux sites), et `doctor` n'y propose plus `create entity`.
+pas d'`orm:reset`). `create entity` y écrit une entité DOCUMENT : `resolveEntityOrm` choisit l'ORM
+(Drizzle d'abord si les deux sont là), `buildMongooseEntityCodegen` traduit les champs (types par NOM
+— `"ObjectId"`, `"Mixed"` — pour ne pas importer `mongoose`), clé `_id` servie en `id`, connecteur
+`MONGOOSE_CONNECTOR` (`"nodefony"`, jamais `default` : il n'existe que chez Drizzle). Les options SQL
+sont REFUSÉES en le disant (`assertNoSqlOnlyOptions`), `User` ne s'y régénère pas, et le dialogue tait
+la clé primaire (capacité `hasSqlOrm` de `scaffoldCaps`, lue par `capAllows` — Studio en tient une
+COPIE confrontée par `createCapsParity.test.ts`). ⚠️ Aucune clé étrangère : supprimer un parent n'est
+jamais refusé.
+
+**Les copies du générateur sont GARDÉES** (`entityMongoose.test.ts`) : tout exemple `create entity …`
+écrit dans les gabarits, l'aide, les skills et la doc passe le VRAI parseur, et la table des types du
+skill `nodefony-add-crud` est confrontée à `describeColumnTypes()` sur les quatre moteurs. Un exemple
+faux enseigne la forme refusée — vécu : `!` dans `AGENTS.md` après #431.
 
 **Un moteur SERVEUR réclame TROIS bases, et le décor les FOURNIT.** `<app>` (le
 développement), `<app>_e2e` (la suite e2e — jamais celle du développement) et

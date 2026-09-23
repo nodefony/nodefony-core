@@ -116,8 +116,9 @@ correspond à un `register…Store("<nom>", …)` présent dans le code.
 > Elle monte `@nodefony/mongoose` en tête du manifeste, SANS `@nodefony/drizzle`, déclare son
 > entité `User` sur Mongoose, et son `compose.yaml` lève un MongoDB en jeu de réplicas — les
 > transactions l'exigent. Pas de migrations : une collection naît à la première écriture. En
-> contrepartie, `create entity` n'écrit que des tables SQL et refuse sur cette application ; une
-> entité Mongoose s'y déclare à la main, sur le patron de `nodefony/entity/User.ts`.
+> contrepartie, MongoDB ne tient aucune clé étrangère : `create entity` y écrit des entités
+> DOCUMENT (schéma Mongoose, même grammaire de champs qu'en SQL), dont les relations sont des
+> `ObjectId` chargés par `?include=` — supprimer un parent n'y est jamais refusé.
 >
 > **Redis n'est pas un trou, c'est un domaine.** Il sert les briques à forte rotation (session,
 > jetons, passkeys, idempotence) ; les durables (audit, utilisateurs, TOTP, webhooks) ne sont pas

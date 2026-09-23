@@ -1345,6 +1345,26 @@ const MONGOOSE_TYPE: Record<TEntityFieldType | "ref", string> = {
   decimal: "String",
 };
 
+/**
+ * Type BSON de la valeur d'un champ — le filtre d'un index unique PARTIEL
+ * (`partialFilterExpression: { champ: { $type } }`), qui n'indexe que les
+ * valeurs réellement présentes.
+ */
+const BSON_TYPE: Record<TEntityFieldType | "ref", string> = {
+  string: "string",
+  text: "string",
+  int: "number",
+  float: "number",
+  bool: "bool",
+  json: "object",
+  date: "date",
+  uuid: "string",
+  ref: "objectId",
+  enum: "string",
+  char: "string",
+  decimal: "string",
+};
+
 /** Tout ce dont le gabarit d'entité DOCUMENT a besoin. */
 export interface IMongooseEntityCodegen {
   /** Corps du schéma Mongoose (lignes `nom: { type: …, … },`). */
@@ -1413,7 +1433,18 @@ export function buildMongooseEntityCodegen(
       // lisent pareil, et le contrat `T | null` dit vrai.
       parts.push("default: null");
     }
-    if (field.unique) {
+    if (field.unique && field.nullable) {
+      // Facultatif ET unique : l'index unique de MongoDB indexe `null` comme
+      // une VALEUR — deux documents sans e-mail se heurteraient (E11000, 409
+      // sur une création légitime). `sparse` ne suffit pas : il n'écarte que
+      // les champs ABSENTS, pas un `null` que le contrat d'entrée accepte.
+      // Un index PARTIEL, restreint aux valeurs du bon type, reproduit le SQL,
+      // où `UNIQUE` admet N NULL — éprouvé sur MongoDB réel, et reconnu par
+      // `diffIndexes` (l'audit d'index de l'ORM ne le signale pas manquant).
+      parts.push(
+        `index: { unique: true, partialFilterExpression: { ${field.name}: { $type: "${BSON_TYPE[field.type]}" } } }`,
+      );
+    } else if (field.unique) {
       parts.push("unique: true");
     } else if (field.indexed || field.type === "ref") {
       // Une référence est la clé de jointure (`?include=`, filtre par parent) :

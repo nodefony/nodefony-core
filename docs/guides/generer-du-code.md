@@ -73,8 +73,8 @@ qu'on imite.
 C'est une différence de nature. Un agent — ou un développeur pressé — qui imite
 un fichier existant reproduit ce que cet exemple avait de particulier, y compris
 ce qui a vieilli. Un appel, lui, part de la spec courante : `getScaffoldSpec()`
-(`spec.ts:899`) décrit les types, leurs questions et leurs valeurs permises, et
-`resolveAnswers()` (`engine.ts:529`) refuse tout ce qui sort de cette
+(`spec.ts:1115`) décrit les types, leurs questions et leurs valeurs permises, et
+`resolveAnswers()` (`engine.ts:702`) refuse tout ce qui sort de cette
 description. Le générateur peut donc dire ce qu'il attend, et l'appelant n'a rien
 à deviner.
 
@@ -155,14 +155,48 @@ curl http://127.0.0.1:5151/api/blog
 
 | Type         | Ce que ça pose                                                                                                                                                              | Où                        |
 | ------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------- |
-| `app`        | Un projet complet : configuration, environnement typé, contrôleur d'accueil, tests, outillage. Deux presets, quatre frontends, quatre bases SQL.                            | Un dossier **neuf**       |
+| `app`        | Un projet complet : configuration, environnement typé, contrôleur d'accueil, tests, outillage. Deux presets, quatre frontends, quatre bases SQL ou MongoDB.                 | Un dossier **neuf**       |
 | `module`     | Un workspace npm sous `modules/<nom>/`, déclaré dans les workspaces et le manifeste `modules` de l'application.                                                             | Dans le projet courant    |
 | `controller` | Une classe de contrôleur, dans l'une des cinq saveurs (`hello`, `rest`, `duplex`, `realtime`, `example`), câblée à sa cible. `--role ROLE_X` le réserve à une habilitation. | Application **ou** module |
 | `front`      | Un frontend Vite : coquille HTML, point de montage, contrôleur de page, déclaration d'entrée.                                                                               | Application **ou** module |
-| `entity`     | La chaîne de persistance complète : table du dialecte, schémas d'entrée, service CRUD, contrôleur REST + socket, tests.                                                     | Application **ou** module |
+| `entity`     | La chaîne de persistance complète : table du dialecte (ou schéma Mongoose sur MongoDB), schémas d'entrée, service CRUD, contrôleur REST + socket, tests.                    | Application **ou** module |
 
 Le détail des drapeaux de chaque type est dans `nodefony create --help`, et sous
 forme lisible par une machine dans `--describe-json` (voir plus bas).
+
+## Les champs d'une entité, moteur par moteur
+
+`nom:type[?][=défaut][:index|:unique]` — **non nul par défaut** ; `?` rend facultatif,
+`=valeur` fixe un défaut littéral, `:unique` pose l'unicité, `:index` un index. Le `!` est
+**refusé** : un champ est déjà obligatoire. Une relation s'écrit `<champ>:ref:<Entité>`.
+L'entité et la cible en PascalCase (`Post`, `ref:User`), le champ en camelCase ; une faute de
+casse, ou un type d'un autre outil (`boolean`, `integer`), est refusé avec la forme juste.
+
+| Type           | Ce que ça produit             | SQLite          | PostgreSQL       | MySQL / MariaDB | MongoDB                |
+| -------------- | ----------------------------- | --------------- | ---------------- | --------------- | ---------------------- |
+| `string(n)`    | texte court, borné (255)      | `text` ¹        | `varchar(n)`     | `varchar(n)`    | `String` + `maxlength` |
+| `text`         | texte long                    | `text`          | `text`           | `text`          | `String`               |
+| `int`          | entier                        | `integer`       | `integer`        | `int`           | `Number`               |
+| `float`        | nombre à virgule              | `real`          | `double`         | `double`        | `Number`               |
+| `decimal(p,s)` | décimal EXACT (voyage chaîne) | `numeric`       | `numeric(p,s)`   | `decimal(p,s)`  | `String`               |
+| `bool`         | booléen                       | `integer` (0/1) | `boolean`        | `boolean`       | `Boolean`              |
+| `json`         | document libre                | `text` (JSON)   | `jsonb`          | `json`          | `Mixed`                |
+| `date`         | horodatage (ms)               | `integer` (ms)  | `timestamptz(3)` | `datetime(3)`   | `Date`                 |
+| `uuid`         | identifiant                   | `text`          | `uuid`           | `varchar(36)`   | `String`               |
+| `char(n)`      | longueur EXACTE               | `text` ¹        | `char(n)`        | `char(n)`       | `String`, `n` exact    |
+| `enum(a,b)`    | valeurs admises ²             | `text`          | `varchar(255)`   | `varchar(255)`  | `String` + `enum`      |
+| `ref:<Entité>` | relation ³                    | clé étrangère   | clé étrangère    | clé étrangère   | `ObjectId` + `ref`     |
+
+¹ SQLite n'applique aucune longueur : c'est le schéma d'entrée (Zod) qui borne, sur TOUS les
+transports. ² Même colonne partout, sans type SQL nommé (qui exigerait une migration) : le type
+TypeScript et le schéma Zod bornent les valeurs. ³ En SQL, la colonne prend le type de la clé
+visée (`uuid`, entier pour `--id serial`, texte pour `User`) ; en MongoDB, aucune clé étrangère.
+
+Sur **MongoDB**, la même commande écrit une entité document : la clé est l'`_id` natif, servie
+en `id`, et aucune migration n'existe. Les options propres au SQL (`--table`, `--column-case`,
+`--id-name`, `--dialect`, `--id`, `--index`, `--unique`) y sont refusées en le disant. Cette table
+est confrontée au générateur par un test : elle dit ce que CETTE version écrit, et
+`--describe-json` (champ `context.columnTypes`) le rend pour une machine.
 
 ## Voir avant d'écrire
 
@@ -215,7 +249,7 @@ npx nodefony create entity Article title:string
 ```
 
 La garantie tient à la transaction, pas à la position des vérifications dans le
-code : `runScaffold()` (`engine.ts:1195`) ouvre la transaction, chaque étape y
+code : `runScaffold()` (`engine.ts:1575`) ouvre la transaction, chaque étape y
 écrit, et le versement n'a lieu qu'après la dernière. Une garde ajoutée demain
 est automatiquement sûre, où qu'elle soit placée.
 
@@ -254,7 +288,7 @@ le drapeau est la retouche de l'appel.
 > `resolveAnswers()` ne conserve que les clés déclarées : un `"prest"` écrit à la
 > place de `"preset"` produirait un projet différent de celui demandé, sans un
 > mot. Une personne relit le résultat ; un appelant automatique, non
-> (`readAnswersJson()`, `create.ts:458`).
+> (`readAnswersJson()`, `create.ts:444`).
 
 Combinés, ces trois drapeaux forment une boucle sûre pour un agent : se décrire
 (`--describe-json`), proposer (`--answers-json … --dry-run`), puis exécuter.

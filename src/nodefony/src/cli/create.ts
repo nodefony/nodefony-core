@@ -13,6 +13,7 @@ import {
   findProjectRoot,
   listTargets,
   getScaffoldContext,
+  MONGOOSE_CONNECTOR,
   runScaffold,
   scaffoldCaps,
   type TScaffoldAnswers,
@@ -1222,7 +1223,15 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
             String(effective.get(q.askWhen.key)) === q.askWhen.equals),
       )
       .map((q) => {
-        const value = answers[q.key] ?? q.default;
+        // Sur MongoDB, le connecteur par défaut est celui de Mongoose : le
+        // récap montre ce que le moteur ÉCRIRA, pas le défaut de la spec.
+        const value =
+          type === "entity" &&
+          q.key === "connector" &&
+          caps.hasSqlOrm === false &&
+          (answers[q.key] ?? q.default) === "default"
+            ? MONGOOSE_CONNECTOR
+            : (answers[q.key] ?? q.default);
         const shown =
           q.type === "boolean"
             ? value === true
