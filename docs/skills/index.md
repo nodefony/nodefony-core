@@ -6,7 +6,7 @@ audience: humain
 topic: skills
 tests: none
 status: stable
-updated: 2026-09-21
+updated: 2026-09-23
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "docs/skills/index.md"
 ---
@@ -161,7 +161,7 @@ source: "docs/skills/index.md"
     "desc": "Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une preuve `fichier:ligne` et un critère de fin observable, parents et sous-tickets, champs du tableau dont…",
     "meta": "🟢 conforme v1.7.0 · ⚙️ 15 scripts · 📎 7 réf" },
   { "icon": "🔧", "title": "add-crud", "href": "nodefony-add-crud.md",
-    "desc": "Crée une ressource complète dans une application Nodefony — table, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, au lieu de l'écrire à la main.",
+    "desc": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB.",
     "meta": "🟢 conforme" },
   { "icon": "🔧", "title": "add-realtime-channel", "href": "nodefony-add-realtime-channel.md",
     "desc": "Ajoute un flux temps réel à une application Nodefony par la bonne couche — un `RealtimeController` et ses décorateurs de canal — au lieu de recomposer un WebSocket à la main.",
@@ -210,7 +210,7 @@ source: "docs/skills/index.md"
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 207 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 413 | 7 | 15 | ✅ |
-| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 193 | 0 | 0 | ✅ |
+| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 231 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |
 | [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 480 | 0 | 1 | ✅ |

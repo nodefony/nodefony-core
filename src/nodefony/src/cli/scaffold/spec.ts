@@ -20,6 +20,43 @@
 /** Une question de scaffold — champ `pattern` en string (JSON-able, validation partagée). */
 import { AGENT_TARGETS } from "../agentTargets";
 
+/**
+ * Capacités de l'environnement, telles que le MOTEUR les voit — ce qu'un front
+ * ne peut pas deviner (cf `IScaffoldQuestion.askIf`).
+ */
+export interface IScaffoldCaps {
+  /** Un checkout du framework est résolvable (mode `--link`). */
+  hasCheckout: boolean;
+  /**
+   * Le projet courant persiste en SQL (Drizzle).
+   *
+   * Absent = vrai : hors projet, ou sans ORM déclaré, rien ne dit que les
+   * questions de table sont sans objet — et les taire à tort retirerait un
+   * choix en silence. Seule une application Mongoose SANS Drizzle le rend faux.
+   */
+  hasSqlOrm?: boolean;
+}
+
+/** Nom d'une capacité d'environnement ({@link IScaffoldCaps}). */
+export type TScaffoldCap = keyof IScaffoldCaps;
+
+/**
+ * La question est-elle posée dans CET environnement ?
+ *
+ * Une seule lecture pour le dialogue, le récapitulatif et l'aide : trois
+ * copies du même test divergeraient à la première capacité ajoutée.
+ *
+ * @param question - la question de la spec
+ * @param caps - les capacités constatées
+ * @returns `false` si sa capacité est explicitement absente
+ */
+export function capAllows(
+  question: Pick<IScaffoldQuestion, "askIf">,
+  caps: IScaffoldCaps,
+): boolean {
+  return question.askIf === undefined || caps[question.askIf] !== false;
+}
+
 export interface IScaffoldQuestion {
   key: string;
   /** Libellé montré tel quel par le CLI interactif et Studio. */
@@ -57,8 +94,15 @@ export interface IScaffoldQuestion {
    * Condition d'affichage par CAPACITÉ d'environnement (JSON-able — pas de
    * fonction) : la question n'est posée que si le front la déclare vraie.
    * `hasCheckout` = un checkout nodefony-core est résolvable (mode --link).
+   * `hasSqlOrm` = le projet persiste en SQL (Drizzle) — une question de table
+   * n'a rien à demander à une application MongoDB.
+   *
+   * Seul `hasCheckout` est FORCÉ par le moteur (`link` → `false`). Une question
+   * `hasSqlOrm` non satisfaite est seulement TUE par le dialogue et le récap :
+   * une valeur passée en option reste lue, pour que le moteur la refuse en le
+   * disant plutôt que de l'avaler.
    */
-  askIf?: "hasCheckout";
+  askIf?: TScaffoldCap;
   /**
    * Condition d'affichage par RÉPONSE PRÉCÉDENTE (JSON-able) : la question n'est
    * posée que si `key` a déjà pour valeur `equals`. Distinct d'`askIf`, qui
@@ -904,6 +948,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     {
       key: "id",
       label: "Clé primaire",
+      // Sur MongoDB la clé est l'ObjectId natif : rien à choisir.
+      askIf: "hasSqlOrm",
       type: "choice",
       choices: [
         {
@@ -947,7 +993,7 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
     {
       key: "tests",
       flag: "--no-tests",
-      label: "Tests (base sqlite en mémoire)",
+      label: "Tests (unitaires + bout en bout)",
       type: "boolean",
       default: true,
     },

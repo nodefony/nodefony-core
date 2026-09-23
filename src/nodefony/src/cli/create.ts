@@ -8,14 +8,13 @@ import { SysExit } from "./sysexits";
 import { version } from "../../package.json";
 // Les sept listes de choix ont disparu d'ici AVEC la section qui les recopiait :
 // l'aide les DÉRIVE désormais de la spec (`scaffold/help.ts`).
-import { FRONTEND_CHOICES, getScaffoldSpec } from "./scaffold/spec";
+import { capAllows, FRONTEND_CHOICES, getScaffoldSpec } from "./scaffold/spec";
 import {
-  findPackageRoot,
   findProjectRoot,
   listTargets,
   getScaffoldContext,
-  resolveLocalWorkspaces,
   runScaffold,
+  scaffoldCaps,
   type TScaffoldAnswers,
 } from "./scaffold/engine";
 import { formatFilesOnDisk } from "./scaffold/format";
@@ -405,9 +404,7 @@ function describeScaffold(type: TCreateType | undefined): string {
     {
       nodefony: version,
       types: getScaffoldSpec(type),
-      caps: {
-        hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null,
-      },
+      caps: scaffoldCaps(),
       project: projectRoot
         ? {
             root: projectRoot,
@@ -1173,9 +1170,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     return SysExit.OK;
   }
   const type = parsed.type as TCreateType;
-  const caps = {
-    hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null,
-  };
+  const caps = scaffoldCaps();
   let answers = parsed.answers;
   if (parsed.answersJson !== undefined) {
     try {
@@ -1220,8 +1215,11 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       // pour éviter.
       .filter(
         (q) =>
-          !q.askWhen ||
-          String(effective.get(q.askWhen.key)) === q.askWhen.equals,
+          // Question tue par le dialogue (capacité absente) : l'afficher
+          // annoncerait un choix qui n'a pas été fait.
+          capAllows(q, caps) &&
+          (!q.askWhen ||
+            String(effective.get(q.askWhen.key)) === q.askWhen.equals),
       )
       .map((q) => {
         const value = answers[q.key] ?? q.default;

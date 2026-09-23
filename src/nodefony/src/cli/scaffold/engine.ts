@@ -55,6 +55,7 @@ import {
   parseEntityFields,
   parseEntityIndexes,
   buildEntityCodegen,
+  buildMongooseEntityCodegen,
   entityTableSymbol,
   parseRowFieldNames,
   extractRowBlock,
@@ -95,6 +96,7 @@ import {
   type TFrontendChoice,
   type TModuleControllerChoice,
   type TPresetChoice,
+  type IScaffoldCaps,
 } from "./spec";
 import { openSiblingRoutes } from "./routePaths";
 
@@ -116,10 +118,7 @@ import { openSiblingRoutes } from "./routePaths";
  */
 export type TScaffoldAnswers = Record<string, string | boolean | string[]>;
 
-/** Capacités d'environnement évaluées par le front (cf `IScaffoldQuestion.askIf`). */
-export interface IScaffoldCaps {
-  hasCheckout: boolean;
-}
+export type { IScaffoldCaps } from "./spec";
 
 export interface IScaffoldRequest {
   type: string;
@@ -453,14 +452,44 @@ export function resolveDatabase(
   };
 }
 
+/** ORM qui servira une entité générée. */
+export type TEntityOrm = "drizzle" | "mongoose";
+
+/** Paquet Nodefony de chaque ORM — celui qu'un module déclare en peer, celui qu'un message nomme. */
+const ORM_MODULE: Record<TEntityOrm, string> = {
+  drizzle: "@nodefony/drizzle",
+  mongoose: "@nodefony/mongoose",
+};
+
 /**
- * Refuse de générer une entité là où aucun ORM SQL ne la servira.
+ * Connecteur de `@nodefony/mongoose` (`FRAMEWORK_CONNECTOR`, `registerStores.ts`).
  *
- * Le générateur n'écrit que des tables Drizzle. Une application MongoDB porte
- * `@nodefony/mongoose` et PAS Drizzle — et c'est voulu : lui conseiller
- * « ajoute @nodefony/drizzle », comme au cas d'une application sans ORM, lui
- * ferait monter un second ORM pour une table que sa base ne connaît pas. Le
- * refus nomme donc la cause que le projet présente, pas une cause générique.
+ * Recopié parce que le cœur ne dépend pas des modules ORM ; le test du
+ * générateur le confronte à la constante du module, pour que les deux ne
+ * divergent pas en silence.
+ */
+export const MONGOOSE_CONNECTOR = "nodefony";
+
+/**
+ * Échantillon d'une référence MongoDB : un ObjectId bien formé, varié par `n`.
+ *
+ * Il doit satisfaire le schéma Zod de la référence (`OBJECT_ID_PATTERN`, `entityFields.ts`) —
+ * un identifiant UUID y serait refusé, et le test généré échouerait sur lui-même.
+ */
+function objectIdSample(): { fixed: unknown; expr: string } {
+  return {
+    fixed: "1".padStart(24, "0"),
+    expr: 'n.toString(16).padStart(24, "0")',
+  };
+}
+
+/**
+ * Choisit l'ORM qui servira une entité générée — ou refuse, si aucun ne le fera.
+ *
+ * Drizzle d'abord : une application qui porte les deux ORM (MongoDB pour un
+ * module, SQL pour le reste) a déclaré Drizzle pour ses tables, et c'est ce que
+ * `create entity` produisait avant de savoir écrire un schéma document. Mongoose
+ * seul → une entité DOCUMENT. Aucun des deux → refus, avec le geste.
  *
  * La brique se cherche dans l'APP autant que dans la cible : un module est un
  * workspace qui déclare les paquets Nodefony en peerDependencies, c'est l'app
@@ -470,31 +499,95 @@ export function resolveDatabase(
  * @param projectDeps - dépendances déclarées par l'application
  * @param targetName - nom de la cible, repris dans le message
  * @param prefix - préfixe du message, pour l'option qui a déclenché la garde
- * @throws Error quand Drizzle manque, en distinguant l'application MongoDB
+ * @returns l'ORM retenu
+ * @throws Error quand l'application ne porte aucun ORM
  */
-export function assertSqlOrmTarget(
+export function resolveEntityOrm(
   targetDeps: ReadonlySet<string>,
   projectDeps: ReadonlySet<string>,
   targetName: string,
   prefix = "",
-): void {
+): TEntityOrm {
   const has = (dep: string): boolean =>
     targetDeps.has(dep) || projectDeps.has(dep);
   if (has("@nodefony/drizzle")) {
-    return;
+    return "drizzle";
   }
   if (has("@nodefony/mongoose")) {
-    throw new Error(
-      `${prefix}${targetName} persiste sur MongoDB (@nodefony/mongoose) — ` +
-        `create entity n'écrit que des tables SQL (Drizzle). Déclare l'entité à ` +
-        `la main avec defineEntity et un schéma Mongoose : nodefony/entity/User.ts ` +
-        `en donne le patron.`,
-    );
+    return "mongoose";
   }
   throw new Error(
-    `${prefix}@nodefony/drizzle absent de ${targetName} — ajoute la dep + ` +
-      `use("@nodefony/drizzle") au manifeste modules de nodefony.config.ts, puis relance`,
+    `${prefix}aucun ORM dans ${targetName} — ajoute @nodefony/drizzle (SQL) ou ` +
+      `@nodefony/mongoose (MongoDB) aux dépendances + use(…) au manifeste modules ` +
+      `de nodefony.config.ts, puis relance`,
   );
+}
+
+/**
+ * Options de `create entity` qui n'ont de sens qu'en SQL — refusées sur une
+ * entité document plutôt qu'ignorées.
+ *
+ * Une option ignorée est pire qu'un refus : l'utilisateur croit avoir obtenu
+ * une table `website` en `snake_case`, et découvre une collection `posts` en
+ * camelCase le jour où il la cherche. Chaque entrée compare la réponse au
+ * DÉFAUT de la spec — seule façon de distinguer « demandé » de « non dit ».
+ *
+ * @param answers - réponses résolues de `create entity`
+ * @param entity - nom de l'entité, repris dans le message
+ * @throws Error en nommant la première option SQL demandée
+ */
+export function assertNoSqlOnlyOptions(
+  answers: TScaffoldAnswers,
+  entity: string,
+): void {
+  const list = (value: unknown): number =>
+    Array.isArray(value) ? value.length : value ? 1 : 0;
+  const asked: Array<[string, boolean, string]> = [
+    [
+      "--table",
+      String(answers.table ?? "").trim() !== "",
+      "le nom de la collection vient du nom de l'entité",
+    ],
+    [
+      "--column-case",
+      (answers.columnCase ?? "camel") !== "camel",
+      "un document garde le nom de ses propriétés",
+    ],
+    [
+      "--id-name",
+      String(answers.idName ?? "id").trim() !== "id",
+      "la clé d'un document est `_id`, servie en `id`",
+    ],
+    [
+      "--dialect",
+      String(answers.dialect ?? "") !== "",
+      "MongoDB n'a pas de dialecte SQL",
+    ],
+    [
+      "--id",
+      String(answers.id ?? "uuid7") !== "uuid7",
+      "la clé d'un document est un ObjectId natif",
+    ],
+    [
+      "--index",
+      list(answers.index) > 0,
+      "un index composite s'écrit à la main dans le schéma",
+    ],
+    [
+      "--unique",
+      list(answers.uniqueIndex) > 0,
+      "un index composite s'écrit à la main dans le schéma",
+    ],
+  ];
+  for (const [option, given, why] of asked) {
+    if (given) {
+      throw new Error(
+        `create entity ${entity} : « ${option} » est une option SQL, et cette ` +
+          `application persiste sur MongoDB (@nodefony/mongoose) — ${why}.\n` +
+          `  → relancer sans « ${option} » (les champs \`:index\` et \`:unique\` restent disponibles)`,
+      );
+    }
+  }
 }
 
 /**
@@ -1072,14 +1165,53 @@ export interface IScaffoldTarget {
  *
  * Sert aux questions conditionnelles (`askIf`) : `link` (créer une app branchée sur le
  * checkout local du framework, au lieu des paquets npm publiés) n'a de sens que si un
- * checkout est résolvable. Un front ne peut PAS le deviner — seul le serveur sait ce
- * qu'il y a sur le disque. Le figer côté client à `false` reviendrait à supprimer
- * l'option en silence.
+ * checkout est résolvable ; la clé primaire d'une entité n'a rien à choisir sur une
+ * application MongoDB. Un front ne peut PAS le deviner — seul le serveur sait ce
+ * qu'il y a sur le disque. Le figer côté client reviendrait à supprimer une option,
+ * ou à en proposer une morte, en silence.
  *
- * @returns les capacités passées à {@link resolveAnswers}.
+ * SOURCE UNIQUE des capacités : le terminal, `--describe-json` et Studio l'appellent.
+ *
+ * @param dir - dossier d'où remonter au projet (défaut : répertoire courant).
+ * @returns les capacités passées à {@link resolveAnswers} et aux dialogues.
  */
-export function scaffoldCaps(): IScaffoldCaps {
-  return { hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null };
+export function scaffoldCaps(dir: string = process.cwd()): IScaffoldCaps {
+  const caps: IScaffoldCaps = {
+    hasCheckout: resolveLocalWorkspaces(findPackageRoot()) !== null,
+  };
+  const orm = projectOrm(dir);
+  if (orm !== null) {
+    caps.hasSqlOrm = orm === "drizzle";
+  }
+  return caps;
+}
+
+/**
+ * ORM que déclare l'application qui contient `dir` — `null` hors projet ou sans ORM.
+ *
+ * Même préséance que {@link resolveEntityOrm} (Drizzle d'abord), qui reste la
+ * garde du moteur : celle-ci ne sert qu'à décider quoi DEMANDER.
+ */
+function projectOrm(dir: string): TEntityOrm | null {
+  const root = findProjectRoot(dir);
+  if (!root) return null;
+  const file = path.join(root, "package.json");
+  if (!existsSync(file)) return null;
+  try {
+    const pkg = JSON.parse(readFileSync(file, "utf8")) as Record<
+      string,
+      Record<string, string> | undefined
+    >;
+    const deps = new Set(
+      ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+        Object.keys(pkg[b] ?? {}),
+      ),
+    );
+    return resolveEntityOrm(deps, new Set(), "");
+  } catch {
+    // Manifeste illisible ou aucun ORM : on ne tait aucune question.
+    return null;
+  }
 }
 
 /**
@@ -1139,7 +1271,13 @@ export function getScaffoldContext(
   }
   return {
     targets,
-    connectors: readConnectors(projectRoot, writer),
+    // Sur une application MongoDB, le connecteur RÉEL est celui de Mongoose.
+    // `readConnectors` rendrait le `default` SQLite qu'il suppose quand rien
+    // n'est déclaré — un choix qu'aucun ORM de cette application ne sert.
+    connectors:
+      projectOrm(projectRoot) === "mongoose"
+        ? [{ name: MONGOOSE_CONNECTOR, dialect: "mongodb" }]
+        : readConnectors(projectRoot, writer),
     columnTypes: describeColumnTypes(),
     entities,
     idKinds: ENTITY_ID_KINDS,
@@ -1318,6 +1456,21 @@ function decoratorListRe(
   return new RegExp(`^([ \\t]*)@${decorator}\\(\\[([^\\]]*)\\]\\)`, "mu");
 }
 
+/**
+ * Paquet qui exporte chaque décorateur de liste d'un module — l'import qu'on
+ * pose quand le décorateur est CRÉÉ. Chacun vit là où vit son concept :
+ * `@controllers` avec le routeur, `@entities` avec l'ORM, `@services` au cœur.
+ * Un import deviné (`nodefony` pour tous) compile… jusqu'au premier build.
+ */
+const DECORATOR_SOURCE: Record<
+  "controllers" | "entities" | "services",
+  string
+> = {
+  controllers: "@nodefony/framework",
+  entities: "@nodefony/orm-core",
+  services: "nodefony",
+};
+
 export function wireDecoratorList(
   indexPath: string,
   decorator: "controllers" | "entities" | "services",
@@ -1348,14 +1501,16 @@ export function wireDecoratorList(
     );
   }
   const importAt = last.index + last[0].length;
-  // `@services(...)` peut ne pas être encore importé du tout (cible sans
-  // service) : on l'ajoute dans la MÊME passe que l'import de la classe, pour
-  // ne recalculer l'offset qu'une fois.
-  const needsServicesImport =
-    decorator === "services" &&
-    !/\bservices\b[^\n]*from "nodefony"/u.test(source);
-  const extraImport = needsServicesImport
-    ? `\nimport { services } from "nodefony";`
+  // Le décorateur peut ne pas être encore importé du tout (module sans
+  // controller, cible sans service) : on l'ajoute dans la MÊME passe que
+  // l'import de la classe, pour ne recalculer l'offset qu'une fois.
+  const from = DECORATOR_SOURCE[decorator];
+  const needsDecoratorImport = !new RegExp(
+    `\\b${decorator}\\b[^\\n]*from "${from}"`,
+    "u",
+  ).test(source);
+  const extraImport = needsDecoratorImport
+    ? `\nimport { ${decorator} } from "${from}";`
     : "";
   const withImport =
     source.slice(0, importAt) +
@@ -1372,12 +1527,12 @@ export function wireDecoratorList(
     writer.write(indexPath, wired);
     return;
   }
-  if (decorator !== "services") {
-    throw new Error(
-      `@${decorator}([...]) introuvable dans ${indexPath} — ajoute à la main :\n` +
-        `  ${importLine}\n  @${decorator}([${className}]) sur la classe Module`,
-    );
-  }
+  // Décorateur ABSENT : on le CRÉE, pour les trois listes. Un module sans
+  // controller est légitime — exiger un `@controllers([])` vide pour pouvoir
+  // lui en ajouter un faisait refuser `create entity` et `create controller`
+  // sur la forme la plus simple d'un module, alors que `@services` et
+  // `@entities` étaient déjà posés au premier usage.
+  //
   // `export` est TOLÉRÉ devant la classe : nos gabarits exportent en bas de
   // fichier, mais `export class X extends Module` est la forme que la doc du
   // kernel montre — et c'est celle qu'une app écrite à la main portera. Un
@@ -1389,12 +1544,12 @@ export function wireDecoratorList(
   if (!classMatch || classMatch.index === undefined) {
     throw new Error(
       `« class … extends Module » introuvable dans ${indexPath} — ajoute à la main :\n` +
-        `  ${importLine}\n  @services([${className}]) juste au-dessus de la classe`,
+        `  ${importLine}\n  @${decorator}([${className}]) juste au-dessus de la classe`,
     );
   }
   const wired =
     withImport.slice(0, classMatch.index) +
-    `@services([${className}])\n` +
+    `@${decorator}([${className}])\n` +
     withImport.slice(classMatch.index);
   writer.write(indexPath, wired);
 }
@@ -2939,7 +3094,7 @@ function runDataServiceScaffold(
   // cherche dans l'APP autant que dans la cible — un module est un workspace
   // qui déclare les paquets Nodefony en peerDependencies, c'est l'app qui les
   // installe.
-  assertSqlOrmTarget(
+  const orm = resolveEntityOrm(
     depsOf(target.dir),
     depsOf(projectRoot),
     target.name,
@@ -2991,7 +3146,10 @@ function runDataServiceScaffold(
     );
   }
 
-  const connector = readConnectors(projectRoot, writer)[0]?.name ?? "default";
+  const connector =
+    orm === "mongoose"
+      ? MONGOOSE_CONNECTOR
+      : (readConnectors(projectRoot, writer)[0]?.name ?? "default");
   const written: string[] = [];
   renderLayer(
     eta,
@@ -3004,6 +3162,7 @@ function runDataServiceScaffold(
       serviceClass: nameClass,
       serviceKey: `${camel}Service`,
       connector,
+      ormModule: ORM_MODULE[orm],
     },
     written,
     writer,
@@ -3762,11 +3921,19 @@ function extractBlock(source: string, key: string): string | null {
 }
 
 /** Un connecteur de base de données, tel que déclaré dans la configuration. */
+/** Connecteur SQL lu dans `nodefony.config.ts` — le seul que {@link readConnectors} connaisse. */
+interface ISqlScaffoldConnector extends IScaffoldConnector {
+  dialect: TEntityDialect;
+}
+
 export interface IScaffoldConnector {
   /** Nom sous lequel les entités le désignent (`default`, `analytics`…). */
   name: string;
-  /** Moteur SQL visé — décide des types de colonnes générés. */
-  dialect: TEntityDialect;
+  /**
+   * Moteur visé — décide des types générés. `mongodb` pour le connecteur de
+   * `@nodefony/mongoose` : une entité document, pas une table.
+   */
+  dialect: TEntityDialect | "mongodb";
   /**
    * Qui fabrique le schéma de ce connecteur, quand l'application l'ÉCRIT.
    *
@@ -3797,7 +3964,7 @@ export interface IScaffoldConnector {
 function readConnectors(
   projectRoot: string,
   writer: ScaffoldWriter,
-): IScaffoldConnector[] {
+): ISqlScaffoldConnector[] {
   const configPath = manifestFileWith(
     projectRoot,
     writer,
@@ -3812,7 +3979,7 @@ function readConnectors(
       ? (value as TEntityDialect)
       : "sqlite";
 
-  const connectors: IScaffoldConnector[] = [];
+  const connectors: ISqlScaffoldConnector[] = [];
   const block = extractBlock(source, "connectors");
   if (block !== null) {
     // On s'appuie sur la forme `<nom>: { … dialect: "x" }` DANS le bloc, borné
@@ -3922,7 +4089,10 @@ function runEntityScaffold(
   };
   const targetDeps = depsOf(target.dir);
   const projectDeps = depsOf(projectRoot);
-  assertSqlOrmTarget(targetDeps, projectDeps, target.name);
+  const orm = resolveEntityOrm(targetDeps, projectDeps, target.name);
+  // Entité DOCUMENT : pas de table, pas de migration, pas de dialecte — ni
+  // `drizzle-orm` à déclarer, ni options SQL à honorer.
+  const mongo = orm === "mongoose";
 
   // `drizzle-orm` est une dépendance DE L'APPLICATION : l'entité produite ici
   // importe `drizzle-orm/<dialecte>-core` en direct. Une app générée avant que le
@@ -3955,18 +4125,22 @@ function runEntityScaffold(
           `(${why})`,
       );
     };
-    ensure("dependencies", "drizzle-orm", "l'entité l'importe en direct");
+    if (!mongo) {
+      ensure("dependencies", "drizzle-orm", "l'entité l'importe en direct");
+    }
     // `drizzle-kit` n'est pas importé par le code : c'est `nodefony orm:generate`
     // qui le pilote, pour ÉCRIRE les migrations. Il n'a donc rien à faire dans
     // les dépendances d'exécution — mais sans lui, la première commande qui
     // produit une migration échoue en disant qu'il manque, et l'utilisateur
     // découvre l'existence d'un outil tiers au pire moment. Déclaré ici, il
     // arrive avec la première entité, comme le reste.
-    ensure(
-      "devDependencies",
-      "drizzle-kit",
-      "`nodefony orm:generate` le pilote pour écrire les migrations",
-    );
+    if (!mongo) {
+      ensure(
+        "devDependencies",
+        "drizzle-kit",
+        "`nodefony orm:generate` le pilote pour écrire les migrations",
+      );
+    }
     if (rootManifest !== null) {
       writer.write(
         rootManifestPath,
@@ -3995,6 +4169,19 @@ function runEntityScaffold(
   // refus. Ce n'est pas une variante cosmétique — le framework LIT cette table,
   // et il l'écrit en dur dans certaines requêtes.
   const isUserEntity = reserved?.appOwned === true;
+  if (isUserEntity && mongo) {
+    // Sur MongoDB, `User.ts` n'a pas de colonnes à réécrire : il étend le
+    // schéma du contrat (`createUserEntity`). Le régénérer écraserait ce
+    // raccord sans rien apporter — les champs s'ajoutent dans le fichier.
+    throw new Error(
+      `create entity ${pascal} : sur MongoDB, l'entité de l'utilisateur s'étend ` +
+        `dans nodefony/entity/User.ts — son TSDoc donne le geste (étendre le schéma ` +
+        `de createUserEntity). Il n'y a ni table ni migration à régénérer.`,
+    );
+  }
+  if (mongo) {
+    assertNoSqlOnlyOptions(answers, pascal);
+  }
   if (isUserEntity && target.kind !== "app") {
     throw new Error(
       `create entity ${pascal} : l'entité de l'utilisateur ne peut vivre que dans ` +
@@ -4071,11 +4258,15 @@ function runEntityScaffold(
   // Le nom vient du CONTRAT lu dans l'application (`USER_TABLE_NAME`), jamais
   // d'une constante recopiée ici : c'est la version que CETTE application a
   // installée qui décide.
-  const table = isUserEntity
-    ? userTableName(target.dir)
-    : tableAnswer
-      ? assertSqlName(tableAnswer, "--table")
-      : tableName(pascal);
+  // Sur MongoDB, pas de table : la collection est celle du modèle, nommée par
+  // Mongoose depuis le nom de l'entité. Rien à valider comme identifiant SQL.
+  const table = mongo
+    ? tableName(pascal)
+    : isUserEntity
+      ? userTableName(target.dir)
+      : tableAnswer
+        ? assertSqlName(tableAnswer, "--table")
+        : tableName(pascal);
   // Casse des colonnes et nom de la clé primaire — la PROPRIÉTÉ TypeScript ne bouge
   // dans aucun des deux cas : le service CRUD, le controller et les tests générés
   // nomment `id` et `siteId`, quel que soit le nom que porte la colonne en base.
@@ -4093,10 +4284,20 @@ function runEntityScaffold(
   // Le connecteur est résolu AVANT le dialecte : c'est LUI qui décide du moteur.
   // Sans cela, une entité posée sur un second connecteur héritait du dialecte du
   // premier — une table PostgreSQL générée en SQLite, sans un mot.
-  const connector = String(answers.connector || "default");
-  const dialect =
-    (String(answers.dialect || "") as TEntityDialect) ||
-    detectDialect(projectRoot, writer, connector);
+  //
+  // 🔴 Sur MongoDB, le connecteur par défaut est celui de `@nodefony/mongoose`
+  // (`nodefony`), jamais `default` : ce nom est celui de Drizzle, et il n'existe
+  // pas dans une application qui ne le charge pas — l'entité serait posée sur
+  // un ORM absent, et le service lèverait au premier appel.
+  const connectorAnswer = String(answers.connector || "default");
+  const connector =
+    mongo && connectorAnswer === "default"
+      ? MONGOOSE_CONNECTOR
+      : connectorAnswer;
+  const dialect = mongo
+    ? "sqlite"
+    : (String(answers.dialect || "") as TEntityDialect) ||
+      detectDialect(projectRoot, writer, connector);
   if (!(ENTITY_DIALECTS as readonly string[]).includes(dialect)) {
     throw new Error(
       `dialecte invalide « ${dialect} » — attendus : ${ENTITY_DIALECTS.join(" | ")}`,
@@ -4160,17 +4361,19 @@ function runEntityScaffold(
       true,
     ),
   ];
-  const codegen = buildEntityCodegen(fields, {
-    dialect,
-    id,
-    timestamps,
-    softDelete,
-    table,
-    indexes,
-    columnCase,
-    idName,
-    entity: pascal,
-  });
+  const codegen = mongo
+    ? buildMongooseEntityCodegen(fields, { timestamps, softDelete })
+    : buildEntityCodegen(fields, {
+        dialect,
+        id,
+        timestamps,
+        softDelete,
+        table,
+        indexes,
+        columnCase,
+        idName,
+        entity: pascal,
+      });
 
   // 🔴 `create entity` RÉ-DÉCRIT l'entité en entier — il ne CUMULE pas avec ce
   // qui existe déjà. Sur une entité présente, un second appel qui ne rappelle
@@ -4291,6 +4494,11 @@ function runEntityScaffold(
   // refuse ici, tant qu'on peut encore nommer la cause et la solution.
   for (const field of fields) {
     if (field.type !== "ref" || !field.target) continue;
+    // Une entité qui se désigne ELLE-MÊME (`parent:ref:Category` dans
+    // `Category`) : son fichier est celui qu'on est en train d'écrire. Exiger
+    // qu'il existe rendait l'auto-référence impossible à la création, sur tous
+    // les moteurs — alors que le code qu'on en génère la sait écrire.
+    if (field.target === pascal) continue;
     const targetFile = path.join(
       target.dir,
       "nodefony",
@@ -4349,7 +4557,8 @@ function runEntityScaffold(
   // l'existence du parent.
   for (const f of fields) {
     if (f.nullable) continue;
-    const { fixed, expr } = sampleValue(f, id);
+    const { fixed, expr } =
+      mongo && f.type === "ref" ? objectIdSample() : sampleValue(f, id);
     sample[f.name] = fixed;
     factory.push(
       f.type === "ref" && f.target
@@ -4386,7 +4595,11 @@ function runEntityScaffold(
     table,
     route,
     connector,
-    dialect,
+    // Sur MongoDB, le dialecte NOMMÉ est `mongodb` : c'est lui que les gabarits
+    // lisent pour choisir leur branche (le test unitaire n'ouvre aucune base).
+    dialect: mongo ? "mongodb" : dialect,
+    mongo,
+    ormModule: ORM_MODULE[orm],
     // Le gabarit de service sépare le nom de la CLASSE de celui de l'ENTITÉ :
     // `create service <Nom> --entity <Entité>` rend le même fichier sous un
     // autre nom. Ici les deux coïncident — c'est le service de l'entité.
@@ -4546,7 +4759,7 @@ function runEntityScaffold(
   if (target.kind === "module") {
     const peer = (manifest["peerDependencies"] ??= {});
     let touched = false;
-    for (const brick of ["@nodefony/orm-core", "@nodefony/drizzle"]) {
+    for (const brick of ["@nodefony/orm-core", ORM_MODULE[orm]]) {
       if (!targetDeps.has(brick)) {
         peer[brick] = "*";
         touched = true;
@@ -4602,28 +4815,35 @@ function runEntityScaffold(
     (c) => c.name === connector,
   )?.ddl;
   const schemaBuiltAtBoot = writtenMode !== "none" && writtenMode !== "migrate";
-  const notes = [
-    ...ormRuntimeNote,
-    // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
-    // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
-    // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
-    schemaBuiltAtBoot
-      ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
-      : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
-    ...(schemaBuiltAtBoot
-      ? [
-          `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
-          `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
-        ]
-      : [
-          // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
-          // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
-          // il efface, et ce mode est celui d'une base qui porte des données.
-          `→ écrire la migration : nodefony orm:generate --name <nom>`,
-          `→ l'appliquer : nodefony orm:migrate${connector === "default" ? "" : ` --connector ${connector}`}`,
-          `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
-        ]),
-  ];
+  const notes = mongo
+    ? [
+        // Rien à migrer, et le dire : c'est la question que pose quiconque
+        // vient du SQL, et la réponse est différente.
+        `collection du modèle « ${pascal} » sur le connecteur « ${connector} » (mongodb) — elle naît à la première écriture, sans migration`,
+        `⚠ les index déclarés (:index, :unique, références) sont posés à la connexion ; un index MANQUANT est journalisé en CRITIC au démarrage`,
+      ]
+    : [
+        ...ormRuntimeNote,
+        // Le CONNECTEUR est nommé, pas seulement le dialecte : dans une application
+        // qui en déclare plusieurs, « sqlite » ne dit pas OÙ la table atterrit. Et
+        // c'est la seule ligne de la sortie qui réponde à « sur quelle base ? ».
+        schemaBuiltAtBoot
+          ? `table ${table} sur le connecteur « ${connector} » (${dialect}) — créée au prochain boot en développement`
+          : `table ${table} sur le connecteur « ${connector} » (${dialect}, schéma : ${writtenMode}) — le démarrage ne la crée PAS`,
+        ...(schemaBuiltAtBoot
+          ? [
+              `⚠ en dev, un champ ajouté qui accepte le vide est posé au prochain boot ; un champ OBLIGATOIRE ne l'est pas — « nodefony orm:reset », ou une migration`,
+              `⚠ production : appliquer les migrations AVANT le déploiement (« nodefony orm:migrate »), jamais depuis le processus qui sert le trafic`,
+            ]
+          : [
+              // Un seul chemin, et il est complet : ce connecteur ne rattrape rien
+              // tout seul, quel que soit le champ. `orm:reset` n'est pas proposé —
+              // il efface, et ce mode est celui d'une base qui porte des données.
+              `→ écrire la migration : nodefony orm:generate --name <nom>`,
+              `→ l'appliquer : nodefony orm:migrate${connector === "default" ? "" : ` --connector ${connector}`}`,
+              `⚠ tant qu'elle n'est pas appliquée, la colonne n'existe pas en base — les requêtes qui la lisent échoueront`,
+            ]),
+      ];
   if (controller) {
     notes.push(
       `REST ${route} (GET liste paginée/POST) · ${route}/{id} (GET/PUT/PATCH/DELETE) — les lectures répondent AUSSI par la socket`,
@@ -4682,7 +4902,13 @@ function runEntityScaffold(
  * @returns l'index d'insertion, ou `undefined` si aucune classe `extends Module`.
  */
 export function findModuleClassAnchor(source: string): number | undefined {
-  const match = /^class\s+\w+\s+extends\s+Module\b/mu.exec(source);
+  // `export` TOLÉRÉ, comme dans `wireDecoratorList` : une seule définition de
+  // « la classe du module », sinon `create service` câble un module que
+  // `create entity` déclare introuvable.
+  const match =
+    /^(?:export\s+(?:default\s+)?)?class\s+\w+\s+extends\s+Module\b/mu.exec(
+      source,
+    );
   if (!match || match.index === undefined) {
     return undefined;
   }

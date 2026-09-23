@@ -82,9 +82,10 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
   });
 
   it("une application MongoDB : pas de dialecte SQL, et aucun renvoi vers `create entity`", async () => {
-    // Le générateur d'entités n'écrit que des tables Drizzle et REFUSE sur une
-    // application Mongoose : lui proposer ce geste, c'est l'envoyer vers un
-    // refus. Témoin : la même application SANS Mongoose garde le renvoi.
+    // Sur une application Mongoose, `create entity` écrit des DOCUMENTS : il ne
+    // rendrait pas ce contrôle de dialecte SQL applicable, le proposer comme
+    // déblocage serait faux. Témoin : la même application SANS Mongoose garde
+    // le renvoi.
     const app = (deps: Record<string, string>): string => {
       const dir = mkdtempSync(path.join(tmpdir(), "nf-doctor-mongo-"));
       writeFileSync(

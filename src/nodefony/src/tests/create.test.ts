@@ -1750,25 +1750,205 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.notMatch(production, /^\s+migrate:$/mu);
       });
 
-      it("`create entity` refuse, en nommant MongoDB — pas « ajoute Drizzle »", () => {
-        const dest = path.join(tmp, "mongo-entity");
-        scaffold(dest, { name: "demo", database: "mongodb" });
-        assert.throws(
-          () =>
-            runScaffold(
-              {
-                type: "entity",
-                answers: { name: "Article", fields: "title:string" },
-                dir: dest,
-                force: false,
-              },
-              version,
-            ),
-          /persiste sur MongoDB/u,
-        );
-        assert.isFalse(
-          existsSync(path.join(dest, "nodefony", "entity", "Article.ts")),
-        );
+      describe("`create entity` sur MongoDB — une entité DOCUMENT (#465)", () => {
+        const entity = (
+          dest: string,
+          answers: TScaffoldAnswers,
+          force = false,
+        ): ReturnType<typeof runScaffold> =>
+          runScaffold({ type: "entity", answers, dir: dest, force }, version);
+        const read = (dest: string, rel: string): string =>
+          readFileSync(path.join(dest, rel), "utf8");
+        const mongoApp = (name: string): string => {
+          const dest = path.join(tmp, name);
+          scaffold(dest, { name: "demo", database: "mongodb" });
+          return dest;
+        };
+
+        it("écrit la chaîne entière — schéma Mongoose, AUCUN Drizzle, connecteur de Mongoose", () => {
+          const dest = mongoApp("mongo-entity");
+          const pkgAvant = read(dest, "package.json");
+          const result = entity(dest, {
+            name: "Post",
+            fields:
+              "title:string(120) body:text? views:int=0 status:enum(draft,published)=draft slug:string:unique tags:json?",
+          });
+          for (const rel of [
+            "nodefony/entity/Post.ts",
+            "nodefony/entity/Post.schema.ts",
+            "nodefony/service/PostService.ts",
+            "nodefony/controllers/PostController.ts",
+            "tests/post.test.ts",
+          ]) {
+            assert.include(result.files, rel);
+          }
+          const post = read(dest, "nodefony/entity/Post.ts");
+          assert.include(post, "export const postSchema = {");
+          assert.include(post, 'connector: "nodefony",');
+          assert.include(post, "timestamps: true,");
+          assert.include(
+            post,
+            "slug: { type: String, maxlength: 255, required: true, unique: true },",
+          );
+          assert.include(post, 'tags: { type: "Mixed", default: null },');
+          assert.notMatch(post, /drizzle|sqliteTable|pgTable|\.references\(/u);
+          // Ni `drizzle-orm` ni `drizzle-kit` : l'entité n'importe que orm-core.
+          assert.equal(read(dest, "package.json"), pkgAvant);
+          assert.notInclude(result.depsAdded ?? [], "drizzle-orm");
+          assert.include(
+            read(dest, "nodefony/service/PostService.ts"),
+            "@nodefony/mongoose",
+          );
+          assert.notInclude(read(dest, "tests/post.test.ts"), "DrizzleOrm");
+          const index = read(dest, "index.ts");
+          assert.include(index, "PostEntity");
+          assert.include(index, "PostController");
+          assert.isTrue(
+            (result.notes ?? []).some((n) => n.includes("sans migration")),
+            (result.notes ?? []).join("\n"),
+          );
+          assert.isFalse(
+            (result.notes ?? []).some((n) => n.includes("orm:migrate")),
+          );
+        });
+
+        it("relations : vers User, vers une autre entité, vers SOI — ObjectId + échantillon valide", () => {
+          const dest = mongoApp("mongo-rel");
+          entity(dest, {
+            name: "Category",
+            fields: "name:string parent:ref:Category?",
+          });
+          entity(dest, {
+            name: "Post",
+            fields: "title:string author:ref:User category:ref:Category",
+          });
+          const post = read(dest, "nodefony/entity/Post.ts");
+          assert.include(
+            post,
+            'author: { type: "ObjectId", ref: "User", required: true, index: true },',
+          );
+          assert.include(post, 'target: "Category",');
+          assert.include(post, 'foreignKey: "author",');
+          // L'échantillon d'une référence est un ObjectId, pas un UUID : le
+          // schéma d'entrée refuserait l'inverse, et le test généré tomberait.
+          assert.include(post, 'n.toString(16).padStart(24, "0")');
+          assert.notInclude(post, "00000000-0000-4000-8000-");
+          assert.include(
+            read(dest, "nodefony/entity/Post.schema.ts"),
+            "identifiant MongoDB attendu",
+          );
+          const category = read(dest, "nodefony/entity/Category.ts");
+          assert.include(
+            category,
+            'parent: { type: "ObjectId", ref: "Category", default: null, index: true },',
+          );
+        });
+
+        it("`User` n'est pas régénéré sur MongoDB — le refus dit où l'étendre", () => {
+          const dest = mongoApp("mongo-user");
+          const avant = read(dest, "nodefony/entity/User.ts");
+          assert.throws(
+            () => entity(dest, { name: "User", fields: "department:string?" }),
+            /s'étend dans nodefony\/entity\/User\.ts/u,
+          );
+          assert.equal(read(dest, "nodefony/entity/User.ts"), avant);
+        });
+
+        it("une option SQL est REFUSÉE en la nommant, et rien n'est écrit", () => {
+          const dest = mongoApp("mongo-sql-opt");
+          for (const [option, extra] of [
+            ["--table", { table: "posts" }],
+            ["--column-case", { columnCase: "snake" }],
+            ["--id-name", { idName: "post_id" }],
+            ["--dialect", { dialect: "postgres" }],
+            ["--id", { id: "serial" }],
+            ["--index", { index: ["title,views"] }],
+            ["--unique", { uniqueIndex: ["title,views"] }],
+          ] as Array<[string, TScaffoldAnswers]>) {
+            assert.throws(
+              () =>
+                entity(dest, {
+                  name: "Post",
+                  fields: "title:string views:int",
+                  ...extra,
+                }),
+              new RegExp(`« ${option} » est une option SQL`, "u"),
+              option,
+            );
+          }
+          assert.isFalse(
+            existsSync(path.join(dest, "nodefony", "entity", "Post.ts")),
+          );
+        });
+
+        it("régénérer SANS rappeler un champ est refusé — la garde anti-écrasement vaut ici aussi", () => {
+          const dest = mongoApp("mongo-overwrite");
+          entity(dest, { name: "Post", fields: "title:string views:int" });
+          assert.throws(
+            () => entity(dest, { name: "Post", fields: "title:string" }),
+            /RETIRERAIT un champ — views/u,
+          );
+          // Rappeler TOUS les champs, plus un : accepté.
+          entity(dest, {
+            name: "Post",
+            fields: "title:string views:int tags:json?",
+          });
+          assert.include(read(dest, "nodefony/entity/Post.ts"), "tags:");
+        });
+
+        it("un MODULE déclare @nodefony/mongoose en peer — jamais @nodefony/drizzle", () => {
+          const dest = mongoApp("mongo-module");
+          const mod = path.join(dest, "modules", "blog");
+          mkdirSync(mod, { recursive: true });
+          writeFileSync(
+            path.join(mod, "package.json"),
+            JSON.stringify({ name: "@demo/blog", version: "1.0.0" }, null, 2),
+          );
+          writeFileSync(
+            path.join(mod, "index.ts"),
+            // Module MINIMAL écrit à la main : ni `@controllers`, ni `@entities`,
+            // et `export class` — la forme de la doc du kernel. Les deux
+            // décorateurs doivent être CRÉÉS, pas exigés.
+            'import { Module, Kernel } from "nodefony";\n\n' +
+              "export class BlogModule extends Module {\n" +
+              '  constructor(kernel: Kernel) {\n    super("blog", kernel);\n  }\n}\n',
+          );
+          entity(dest, { name: "Note", fields: "text:text", module: "blog" });
+          const peers =
+            JSON.parse(read(mod, "package.json")).peerDependencies ?? {};
+          assert.property(peers, "@nodefony/mongoose");
+          assert.property(peers, "@nodefony/orm-core");
+          assert.notProperty(peers, "@nodefony/drizzle");
+          const index = read(mod, "index.ts");
+          assert.match(index, /@entities\(\[NoteEntity\]\)/u);
+          assert.match(
+            index,
+            /@controllers\(\[NoteController\]\)\nexport class BlogModule/u,
+          );
+          assert.match(
+            index,
+            /import \{ controllers \} from "@nodefony\/framework";/u,
+          );
+        });
+
+        it("le contexte projet annonce le VRAI connecteur — pas un `default` SQLite fictif", () => {
+          const dest = mongoApp("mongo-context");
+          assert.deepEqual(getScaffoldContext(dest)?.connectors, [
+            { name: "nodefony", dialect: "mongodb" },
+          ]);
+        });
+
+        it("AGENTS.md apprend la commande sur MongoDB — et ne dit plus qu'elle refuse", () => {
+          const dest = mongoApp("mongo-agents");
+          const agents = docsAgent(dest);
+          assert.include(agents, "écrit une entité DOCUMENT");
+          assert.match(
+            agents,
+            /npx nodefony create entity Post .*author:ref:User/u,
+          );
+          assert.notInclude(agents, "n'écrit que des tables SQL");
+          assert.notInclude(agents, "Le `!` interdit");
+        });
       });
     });
 
@@ -4580,24 +4760,42 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assertTreeUnchanged(before, dest);
     });
 
+    it("sans @controllers([...]) : le décorateur est CRÉÉ, avec son import", () => {
+      // Un module sans controller est légitime : exiger un `@controllers([])`
+      // vide pour pouvoir lui en ajouter un refusait la forme la plus simple.
+      const dest = path.join(tmp, "nocontrollers");
+      scaffold(dest, { name: "nocontrollers", preset: "minimal" });
+      const indexPath = path.join(dest, "index.ts");
+      writeFileSync(
+        indexPath,
+        readFileSync(indexPath, "utf8")
+          .replace(/@controllers\(\[[^\]]*\]\)\n?/u, "")
+          .replace(/\bcontrollers,\s*/u, ""),
+      );
+      controller(dest, { name: "first" });
+      const index = readFileSync(indexPath, "utf8");
+      assert.match(index, /@controllers\(\[FirstController\]\)\n/u);
+      assert.match(index, /\bcontrollers\b[^\n]*from "@nodefony\/framework"/u);
+    });
+
     it("wiring impossible : refus SANS laisser un controller orphelin", () => {
-      // Un `index.ts` sans `@controllers([...])` : le moteur ne SAIT pas câbler.
-      // Il doit le dire avant d'écrire — un fichier posé mais jamais chargé est
-      // pire qu'un refus, l'utilisateur croit avoir un controller qui répond.
+      // Aucune classe de module où poser le décorateur : le moteur ne SAIT pas
+      // câbler. Il doit le dire avant d'écrire — un fichier posé mais jamais
+      // chargé est pire qu'un refus, l'utilisateur croit avoir un controller
+      // qui répond.
       const dest = path.join(tmp, "noanchor");
       scaffold(dest, { name: "noanchor", preset: "minimal" });
       const indexPath = path.join(dest, "index.ts");
       writeFileSync(
         indexPath,
-        readFileSync(indexPath, "utf8").replace(
-          /@controllers\(\[[^\]]*\]\)/u,
-          "",
-        ),
+        readFileSync(indexPath, "utf8")
+          .replace(/@controllers\(\[[^\]]*\]\)/u, "")
+          .replace(/extends Module\b/u, "extends Base"),
       );
       const before = snapshotTree(dest);
       assert.throws(
         () => controller(dest, { name: "orphan" }),
-        /@controllers/u,
+        /extends Module/u,
       );
       assertTreeUnchanged(before, dest);
     });
@@ -7505,6 +7703,30 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.match(src, /author: string;\n\}/u);
     });
 
+    it("relation vers SOI dès la création — le fichier visé est celui qu'on écrit", () => {
+      // Seul le générateur de code était éprouvé (entityFields.test) ; la
+      // COMMANDE refusait l'auto-référence, la cible « n'existant pas encore ».
+      const dest = app("eapp-self");
+      entity(dest, {
+        name: "Category",
+        fields: "name:string parent:ref:Category?",
+      });
+      const src = readFileSync(
+        path.join(dest, "nodefony", "entity", "Category.ts"),
+        "utf8",
+      );
+      assert.include(src, "(): AnySQLiteColumn => categoryTable.id");
+      assert.notInclude(src, 'from "./Category"');
+    });
+
+    it("une cible ABSENTE reste refusée — l'exception ne vaut que pour soi", () => {
+      const dest = app("eapp-missing");
+      assert.throws(
+        () => entity(dest, { name: "Post", fields: "category:ref:Category" }),
+        /vise une entité qui n'existe pas/u,
+      );
+    });
+
     it("table au pluriel, y compris irrégulier (Story → stories)", () => {
       const dest = app("eapp11");
       entity(dest, { name: "Story", fields: "title:string" });
@@ -7520,7 +7742,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const dest = app("bare", "minimal"); // minimal = pas de drizzle
         assert.throws(
           () => entity(dest, { name: "Post", fields: "title:string" }),
-          /@nodefony\/drizzle absent/u,
+          // Le geste, pour les DEUX familles : sans ORM, rien ne dit que
+          // l'application veut du SQL plutôt que des documents.
+          /aucun ORM dans .*@nodefony\/drizzle \(SQL\) ou @nodefony\/mongoose \(MongoDB\)/u,
         );
         assert.isFalse(existsSync(path.join(dest, "nodefony", "entity")));
       });

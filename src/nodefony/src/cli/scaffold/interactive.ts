@@ -2,7 +2,7 @@ import readline from "node:readline/promises";
 import { anchorEventLoop, chargePrompts, type IPrompts } from "../prompts";
 import clc from "../../colors";
 import type { Readable, Writable } from "node:stream";
-import type { IScaffoldTypeSpec } from "./spec";
+import { capAllows, type IScaffoldTypeSpec } from "./spec";
 import type {
   IScaffoldCaps,
   IScaffoldContext,
@@ -285,7 +285,10 @@ export async function askMissing(
       if (answers[q.key] !== undefined) {
         continue;
       }
-      if (q.askIf === "hasCheckout" && !caps.hasCheckout) {
+      // Capacité absente de l'environnement : `link` sans checkout, la clé
+      // primaire sur une application MongoDB. Une question qui ne décide rien
+      // ici n'a pas à être posée.
+      if (!capAllows(q, caps)) {
         continue;
       }
       // Dépend d'une réponse précédente : la question ne se pose que si ce

@@ -13,8 +13,8 @@ import { createUserEntity, FRAMEWORK_CONNECTOR } from "@nodefony/mongoose";
  *
  * ## Ajouter tes propres champs
  *
- * `nodefony create entity` n'écrit que des tables SQL : sur cette application,
- * les champs s'ajoutent ici, au schéma Mongoose, à côté de ceux du contrat.
+ * `nodefony create entity` écrit tes AUTRES entités ; celle-ci ne se régénère
+ * pas — ses champs s'ajoutent ici, au schéma Mongoose, à côté de ceux du contrat.
  *
  * ```ts
  * const base = createUserEntity(FRAMEWORK_CONNECTOR);

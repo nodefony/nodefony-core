@@ -64,6 +64,9 @@ const ENTITY_FIELDS: IUsageSection = {
     "  liens  ref:<Entité>          une clé étrangère vers une autre entité",
     "  enum   status:enum(draft,published)",
     "  défaut views:int=0",
+    "  casse  entité en PascalCase (Post, ref:User) · champ en camelCase (publishedAt)",
+    "  mongo  sur MongoDB : ref → ObjectId, json → Mixed, sans table ni migration",
+    "  moteur ce que devient chaque type : --describe-json (context.columnTypes)",
   ],
 };
 
@@ -348,6 +351,9 @@ function textFor(question: IScaffoldQuestion): string {
   }
   if (question.askIf === "hasCheckout") {
     parts.push("— seulement depuis un checkout du framework");
+  }
+  if (question.askIf === "hasSqlOrm") {
+    parts.push("— SQL seulement (refusé sur MongoDB)");
   }
   return parts.join(" ");
 }

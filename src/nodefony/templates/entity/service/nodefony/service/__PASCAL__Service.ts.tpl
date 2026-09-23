@@ -35,8 +35,8 @@ import {
  * champ (`this.repository`), figé à la construction.
  *
  * Pourquoi celui-là : le repository est la SEULE dépendance qui change entre
- * deux dialectes SQL, et la recevoir par le constructeur laisse le service
- * testable sans base — un dépôt en mémoire suffit (cf le test généré à côté).
+ * deux bases (SQLite, PostgreSQL, MongoDB…), et la recevoir par le constructeur
+ * laisse le service testable sans base — un dépôt en mémoire suffit (cf le test généré à côté).
  * Aller chercher le connecteur depuis chaque méthode rendrait l'inverse vrai :
  * plus rien ne serait éprouvable sans infrastructure.
  *
@@ -127,7 +127,7 @@ export function get<%= it.serviceClass %>(): <%= it.serviceClass %> {
     // message qui suit (celui qui dit QUOI FAIRE) soit bien celui qu'on lit.
     if (!ormRegistry.has("<%= it.connector %>")) {
       throw new Error(
-        `<%= it.serviceClass %> : aucun connecteur « <%= it.connector %> » — vérifie que @nodefony/drizzle est dans le manifeste modules de nodefony.config.ts`,
+        `<%= it.serviceClass %> : aucun connecteur « <%= it.connector %> » — vérifie que <%= it.ormModule %> est dans le manifeste modules de nodefony.config.ts`,
       );
     }
     const orm = ormRegistry.get("<%= it.connector %>");

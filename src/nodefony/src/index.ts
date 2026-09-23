@@ -664,6 +664,9 @@ export { getScaffoldSpec } from "./cli/scaffold/spec";
 // `@nodefony/frontend` la cite au démarrage quand aucune interface n'est posée.
 // Recopiée, elle survivrait à l'ajout d'un moteur sans le dire.
 export { FRONTEND_CHOICES } from "./cli/scaffold/spec";
+// « Cette question se pose-t-elle ici ? » — la MÊME réponse pour le dialogue du
+// terminal, son récapitulatif et le formulaire de Studio.
+export { capAllows } from "./cli/scaffold/spec";
 // Le câblage des agents choisis à la création : UNE construction d'appel, servie
 // au terminal comme à Studio. Recopiée, elle divergerait au premier drapeau.
 export { argvMcpWiring, mcpWiringPlan } from "./cli/create";
@@ -672,6 +675,7 @@ export type {
   IScaffoldTypeSpec,
   TFrontendChoice,
   TPresetChoice,
+  TScaffoldCap,
 } from "./cli/scaffold/spec";
 export {
   runScaffold,

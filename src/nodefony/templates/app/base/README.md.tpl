@@ -401,9 +401,16 @@ première écriture, et les index que déclarent les entités sont posés à la
 connexion. Ni `orm:generate`, ni `orm:migrate`, ni étape à passer avant le
 premier exemplaire.
 
-`npx nodefony create entity` n'écrit que des tables SQL : sur cette application
-une entité se déclare à la main, avec `defineEntity` et un schéma Mongoose —
-`nodefony/entity/User.ts` en donne le patron, et dit où ajouter tes champs.
+`npx nodefony create entity` y écrit une entité **document** — schéma Mongoose,
+service CRUD, controller et tests — avec la même grammaire de champs qu'en SQL :
+
+```bash
+npx nodefony create entity Post title:string(120) body:text? author:ref:User
+```
+
+Une relation (`ref:`) est un `ObjectId` chargé par `?include=` ; MongoDB ne
+tient pas de clé étrangère, donc supprimer un parent n'est pas refusé. L'entité
+`User` s'étend, elle, dans `nodefony/entity/User.ts`.
 
 <% } else if (it.db) { %>### Migrations de schéma
 

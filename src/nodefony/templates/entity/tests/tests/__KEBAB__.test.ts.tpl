@@ -22,13 +22,18 @@ const ORM = "test-<%= it.kebab %>";
  * Ce que ces tests protègent : le schéma de validation refuse ce qu'il doit refuser.
  * Ils tournent partout, sans rien installer.
  *
- * ⚠️ **La couche DONNÉES n'est pas éprouvée ici, et c'est délibéré.** Cette entité est
+<% if (it.mongo) { %> * ⚠️ **La couche DONNÉES n'est pas éprouvée ici, et c'est délibéré.** Cette entité
+ * est un document MongoDB : il n'existe pas de MongoDB en mémoire qui s'installe
+ * sans rien. C'est la suite e2e (`npm run test:e2e`) qui l'éprouve, sur VOTRE
+ * serveur : c'est là que se voient un index unique absent, ou une référence qui
+ * ne se charge pas par `?include=`.
+<% } else { %> * ⚠️ **La couche DONNÉES n'est pas éprouvée ici, et c'est délibéré.** Cette entité est
  * écrite pour <%= it.dialect %> : son schéma n'existe que dans ce dialecte, et l'ORM
  * refuse de le monter ailleurs — une base en mémoire ne peut donc pas la recevoir.
  * C'est la suite e2e (`npm run test:e2e`) qui l'éprouve, sur VOTRE serveur, avec les
  * types réels : c'est là que se voient un `char(3)` sorti en 255 ou une clé étrangère
  * dont le type ne correspond pas à la clé visée.
- */
+<% } %> */
 <% } %>
 <% if (it.relationParents.length) { %>/**
  * Identifiants des lignes **parentes**.

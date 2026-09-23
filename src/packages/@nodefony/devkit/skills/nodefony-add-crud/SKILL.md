@@ -1,18 +1,18 @@
 ---
 name: nodefony-add-crud
 description: >
-  Crée une ressource complète dans une application Nodefony — table, schémas de validation,
+  Crée une ressource complète dans une application Nodefony — entité, schémas de validation,
   service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`,
-  au lieu de l'écrire à la main. Porte la grammaire de champs (types, relations, index simples et
-  composites), les réglages pour épouser une table SQL existante, et les trois vérités qu'on
-  découvre autrement en production : la table naît au démarrage, un champ ajouté n'est rattrapé que
-  s'il accepte le vide, et la production s'applique par des migrations — dont le cycle complet vit
-  dans le skill `nodefony-migrate-schema`. À charger AVANT d'écrire une entité, un repository ou un
-  controller de ressource.
+  sur SQL comme sur MongoDB. Porte la grammaire de champs, la
+  table des types moteur par moteur, les relations et clés étrangères,
+  les réglages pour épouser une table SQL existante, et ce qu'on découvre autrement en
+  production : la table naît au démarrage, un champ ajouté n'est rattrapé que s'il accepte le
+  vide, et la production s'applique par des migrations (skill `nodefony-migrate-schema`). À
+  charger AVANT d'écrire une entité, un repository ou un controller de ressource.
   Déclencheurs : "ajoute une entité", "crée un CRUD", "nouvelle table", "modèle de données",
-  "ressource REST", "endpoint CRUD", "je veux stocker des articles/commandes/utilisateurs",
-  "comment définir un champ", "une relation entre deux entités", "index composite",
-  "épouser une table existante", "renommer les colonnes en snake_case".
+  "ressource REST", "je veux stocker des articles/commandes", "comment définir un champ", "quels types de champ ?", "une relation entre
+  deux entités", "clé étrangère", "index composite", "épouser une table existante",
+  "entité MongoDB", "schéma Mongoose".
 ---
 
 # add-crud — une ressource complète, générée
@@ -44,29 +44,48 @@ se connecte qu'au démarrage), la pagination bornée **et son tri déclaré**, l
 
 ## La grammaire de champs
 
-`nom:type[?][:index|:unique]` — **non-null par défaut**, `?` rend facultatif, `:unique` pose une contrainte
-d'unicité, `:index` un index simple.
+`nom:type[?][=défaut][:index|:unique]` — **non-null par défaut**, `?` rend facultatif, `=valeur`
+fixe un défaut LITTÉRAL, `:unique` pose une contrainte d'unicité, `:index` un index simple.
+🔴 **`!` est REFUSÉ** : il ne veut pas dire « obligatoire » ici — un champ l'est déjà.
 
-| Type     | Ce que ça produit       |
-| -------- | ----------------------- |
-| `string` | texte court (une ligne) |
-| `text`   | texte long              |
-| `int`    | entier                  |
-| `float`  | décimal                 |
-| `bool`   | booléen                 |
-| `json`   | document                |
-| `date`   | horodatage              |
-| `uuid`   | identifiant             |
+**Casse** : l'entité et la cible d'une relation en PascalCase (`Post`, `ref:User`), le champ en
+camelCase (`publishedAt`). Une faute de casse ou un type d'un autre outil (`boolean`, `integer`)
+est refusé avec la forme juste proposée.
 
-**Une relation** s'écrit `ref:<Entité>` :
+| Type           | Ce que ça produit             | SQLite          | PostgreSQL       | MySQL / MariaDB | MongoDB                |
+| -------------- | ----------------------------- | --------------- | ---------------- | --------------- | ---------------------- |
+| `string(n)`    | texte court, borné (255)      | `text` ¹        | `varchar(n)`     | `varchar(n)`    | `String` + `maxlength` |
+| `text`         | texte long                    | `text`          | `text`           | `text`          | `String`               |
+| `int`          | entier                        | `integer`       | `integer`        | `int`           | `Number`               |
+| `float`        | nombre à virgule              | `real`          | `double`         | `double`        | `Number`               |
+| `decimal(p,s)` | décimal EXACT (voyage chaîne) | `numeric`       | `numeric(p,s)`   | `decimal(p,s)`  | `String`               |
+| `bool`         | booléen                       | `integer` (0/1) | `boolean`        | `boolean`       | `Boolean`              |
+| `json`         | document libre                | `text` (JSON)   | `jsonb`          | `json`          | `Mixed`                |
+| `date`         | horodatage (ms)               | `integer` (ms)  | `timestamptz(3)` | `datetime(3)`   | `Date`                 |
+| `uuid`         | identifiant                   | `text`          | `uuid`           | `varchar(36)`   | `String`               |
+| `char(n)`      | longueur EXACTE               | `text` ¹        | `char(n)`        | `char(n)`       | `String`, `n` exact    |
+| `enum(a,b)`    | valeurs admises ²             | `text`          | `varchar(255)`   | `varchar(255)`  | `String` + `enum`      |
+| `ref:<Entité>` | relation ³                    | clé étrangère   | clé étrangère    | clé étrangère   | `ObjectId` + `ref`     |
+
+¹ SQLite n'applique aucune longueur : c'est le schéma d'entrée (Zod) qui borne, sur TOUS les
+transports. ² Même colonne partout, sans type SQL nommé (qui exigerait une migration) : le type
+TypeScript et le schéma Zod bornent les valeurs. ³ En SQL, la colonne prend le type de la clé
+visée (`uuid`, entier pour `--id serial`, texte pour `User`) ; en MongoDB, aucune clé étrangère.
+
+La table exacte, par moteur, telle que CETTE version l'écrit :
+`npx nodefony create entity --describe-json` (champ `context.columnTypes`).
+
+**Une relation** s'écrit `<champ>:ref:<Entité>` — le champ d'abord, toujours :
 
 ```bash
-npx nodefony create entity Comment body:text ref:Article
+npx nodefony create entity Comment body:text article:ref:Article
 ```
 
-La colonne de jointure est **indexée d'office** — c'est elle que traverse un `?include=`.
-Les clés étrangères ne sont pas émises : une contrainte déclarée dans le `CREATE TABLE`
-n'atteindrait jamais une base déjà en place. C'est le domaine des migrations.
+La colonne de jointure est **indexée d'office** — c'est elle que traverse un `?include=`. En SQL,
+la **clé étrangère est émise** (`.references()`), du type de la clé visée, et son effacement se
+déduit de la nullabilité : `article:ref:Article` (obligatoire) → `restrict`, le parent ne peut pas
+partir ; `article:ref:Article?` → `set null`. `cascade` n'est jamais un défaut : il s'écrit à la
+main dans la table générée.
 
 **Un index de table** porte plusieurs colonnes, et c'est le seul à le pouvoir :
 
@@ -76,6 +95,24 @@ npx nodefony create entity Visit siteId:uuid path:string at:date --index "siteId
 
 Les deux options sont **répétables** — un couple par index. Sur un schéma réel, la majorité des
 index utiles sont composites : c'est ainsi qu'une table est réellement interrogée.
+
+## Sur une application MongoDB
+
+La même commande écrit une entité **document** : schéma Mongoose, service CRUD, controller et
+tests — sans table ni migration (la collection naît à la première écriture). Une ligne, toutes
+les options qui ont un sens ici :
+
+```bash
+npx nodefony create entity Post title:string(120) body:text? views:int=0 status:enum(draft,published)=draft slug:string:unique tags:json? author:ref:User --soft-delete --route /api/posts --dry-run
+```
+
+- La clé est l'`_id` natif, servie en `id` ; `ref:<Entité>` est un `ObjectId` indexé, chargé
+  par `?include=`, que le schéma d'entrée exige bien formé (24 caractères hexadécimaux → 422).
+- 🔴 **MongoDB ne tient AUCUNE clé étrangère** : supprimer un parent n'est pas refusé, et
+  `?include=` rend `null` à sa place. Si l'intégrité compte, la garde s'écrit dans le service.
+- Refusées en le disant (options SQL) : `--table`, `--column-case`, `--id-name`, `--dialect`,
+  `--id`, `--index`, `--unique`. Un index composite s'écrit à la main dans le schéma.
+- `User` ne se régénère pas : il s'étend dans `nodefony/entity/User.ts` (son TSDoc donne le geste).
 
 ## Épouser une table qui existe déjà
 
@@ -149,7 +186,7 @@ Ce contrat vaut aussi quand tu écris une liste **à la main** (un endpoint d'ad
 listing filtré) : le côté serveur déclare ce qu'il sait trier, le point d'entrée le demande, et le
 refus tombe tout seul.
 
-## Les trois vérités à savoir avant de livrer
+## Les trois vérités à savoir avant de livrer (SQL)
 
 1. **La table naît au prochain démarrage en développement** (`CREATE TABLE IF NOT EXISTS`).
 2. **La modifier n'altère rien** — aucun `ALTER` n'est émis. Une colonne ajoutée à une entité déjà
@@ -164,7 +201,8 @@ Le générateur s'arrête plutôt que de produire un fichier bancal — lis le m
 geste :
 
 - **hors projet** (aucun `nodefony.config.ts` au-dessus) ;
-- **`@nodefony/drizzle` absent** de la cible ;
+- **aucun ORM** dans l'application (ni `@nodefony/drizzle`, ni `@nodefony/mongoose`) ;
+- **une option SQL sur une application MongoDB** (liste ci-dessus) ;
 - **entité déjà déclarée** ;
 - **nom réservé par un module du framework** (`session`, `access_token`, `audit_event`…) — un
   homonyme dépossède le module, et l'application ne démarre plus sur un message parlant d'une

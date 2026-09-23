@@ -1138,9 +1138,9 @@ export async function collectDoctorReport(
           : projectRoot && declaresDependency(projectRoot, "@nodefony/mongoose")
             ? {
                 ran: false,
-                // Une application MongoDB n'a pas de dialecte SQL. Lui
-                // proposer `create entity` l'enverrait vers un générateur
-                // qui refuse — il n'écrit que des tables Drizzle.
+                // Une application MongoDB n'a pas de dialecte SQL. Aucun
+                // geste ne rend ce contrôle applicable : `create entity` y
+                // écrit des DOCUMENTS, qui n'ont pas de dialecte à confronter.
                 reason:
                   "application MongoDB (@nodefony/mongoose) — il n'y a pas de " +
                   "dialecte SQL à confronter",

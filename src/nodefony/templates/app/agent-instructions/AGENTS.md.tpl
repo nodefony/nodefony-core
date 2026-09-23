@@ -79,7 +79,8 @@ diffs, zéro écriture). Un refus n'écrit jamais rien (transaction).
 
 Les champs d'une entité se déclarent en positionnels :
 `npx nodefony create entity Post title:string views:int=0 status:enum(draft,published) slug:string:unique author:ref:User`.
-Le `!` interdit le nul, le `?` l'autorise, `:index` pose l'index, `=<valeur>` fixe
+Un champ est NON NUL par défaut ; le `?` l'autorise (le `!` est REFUSÉ, jamais
+ignoré), `:index` pose l'index, `:unique` l'unicité, `=<valeur>` fixe
 la valeur par défaut, `enum(a,b)` borne les valeurs admises, et
 `ref:<Entité>` crée la colonne de jointure **avec** son index. Les types portent
 leur taille (`string(120)`, `char(2)`, `decimal(10,2)`). Un index de TABLE couvre
@@ -93,6 +94,24 @@ rien renommer à la main : `--table <nom_sql>` (au lieu du pluriel),
 `--column-case snake` (colonne `site_id`, propriété toujours `siteId`) et
 `--id-name <colonne>` (clé primaire `website_id`, propriété toujours `id`). Le
 code TypeScript ne change dans aucun des trois cas — seul le SQL suit.
+<% if (it.hasOrm && !it.hasMigrations) { %>
+**Sur CETTE application (MongoDB), la même commande écrit une entité DOCUMENT** :
+schéma Mongoose, service CRUD, controller REST + socket et tests — sans table ni
+migration. Une ligne, toutes les options qui ont un sens ici :
+
+```bash
+npx nodefony create entity Post title:string(120) body:text? views:int=0 status:enum(draft,published)=draft slug:string:unique tags:json? author:ref:User --soft-delete --route /api/posts --module <nom> --dry-run
+```
+
+`ref:<Entité>` → `ObjectId` indexé, chargé par `?include=` ; `json` → `Mixed` ;
+`decimal` reste une chaîne. La clé est l'`_id` natif, servie en `id`. MongoDB ne
+tient **aucune clé étrangère** : supprimer un parent n'est pas refusé, et
+`?include=` rend `null` à la place d'un parent disparu. Retirer `--dry-run` pour
+écrire ; `--no-timestamps`, `--no-controller`, `--no-service`, `--no-tests`
+retirent une couche. Sont REFUSÉES, en le disant : `--table`, `--column-case`,
+`--id-name`, `--dialect`, `--id`, `--index`, `--unique` (options SQL). L'entité
+`User` ne se régénère pas : elle s'étend dans `nodefony/entity/User.ts`.
+<% } %>
 `npx nodefony create entity --help` porte la grammaire de CETTE version — elle
 s'enrichit, ta mémoire non.
 
@@ -345,9 +364,8 @@ Celles qu'on n'invente pas, faute de savoir qu'elles existent :
 <% } %><% if (it.hasSecurity) { %>- **Clés de chiffrement du firewall** — `npx nodefony security:secrets [-w]`
 - Créer un **administrateur** — `npx nodefony security:user:add <identifiant> --admin`
 <% } %><% if (it.hasOrm && !it.hasMigrations) { %>- **Cette application persiste sur MongoDB** — aucune migration : une collection
-  naît à la première écriture. `create entity` n'écrit que des tables SQL et
-  REFUSE ici ; une entité se déclare à la main (`defineEntity` + schéma
-  Mongoose), sur le patron de `nodefony/entity/User.ts`.
+  naît à la première écriture, et `npx nodefony create entity` y écrit une entité
+  document (schéma Mongoose) — la grammaire de champs est la même qu'en SQL.
 <% } %><% if (it.hasMigrations) { %>- **Écrire les migrations** des entités modifiées — `npx nodefony orm:generate`
 - **En développement, écrire ET appliquer d'un geste** — `npx nodefony orm:generate --apply`
 - **Appliquer les migrations** (verrou + historique) — `npx nodefony orm:migrate [-n]`

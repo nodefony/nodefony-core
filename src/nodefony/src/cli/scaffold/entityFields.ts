@@ -173,6 +173,40 @@ const ENTITY_RE = /^[A-Z][A-Za-z0-9]*$/u;
 const NO_DEFAULT: ReadonlySet<string> = new Set(["json", "date", "ref"]);
 
 /**
+ * Noms qu'on tape par habitude d'un autre outil, et le type Nodefony qu'ils
+ * désignent. Une SUGGESTION, jamais un alias accepté : deux orthographes
+ * valides pour un même type, c'est deux grammaires à documenter, à tester et à
+ * faire lire à un agent — et la seconde finit par diverger.
+ */
+const FIELD_TYPE_HINTS: Readonly<Record<string, TEntityFieldType>> = {
+  boolean: "bool",
+  integer: "int",
+  number: "float",
+  double: "float",
+  datetime: "date",
+  timestamp: "date",
+  object: "json",
+  varchar: "string",
+  str: "string",
+  numeric: "decimal",
+};
+
+/**
+ * Type Nodefony le plus probable derrière une saisie inconnue — casse
+ * (`String`, `INT`) ou habitude d'un autre outil (`boolean`, `integer`).
+ *
+ * @param typed - le type tel que tapé.
+ * @returns le type suggéré, ou `null` si rien ne s'en approche.
+ */
+export function suggestFieldType(typed: string): TEntityFieldType | null {
+  const lower = typed.toLowerCase();
+  if ((ENTITY_FIELD_TYPES as readonly string[]).includes(lower)) {
+    return lower as TEntityFieldType;
+  }
+  return FIELD_TYPE_HINTS[lower] ?? null;
+}
+
+/**
  * Analyse la déclaration textuelle des champs.
  *
  * Grammaire : `nom:type[?][=defaut][:index|:unique]` · `nom:ref:Entité[?][:index|:unique]`
@@ -274,8 +308,14 @@ export function parseEntityFields(input: string): IEntityField[] {
     if (parts[1] === "ref") {
       const target = parts[2];
       if (!target || !ENTITY_RE.test(target)) {
+        // La faute la plus fréquente est la casse (`ref:user`) : la corriger à
+        // la place de l'utilisateur, c'est lui dire EXACTEMENT quoi retaper.
+        const fixed =
+          target && /^[a-z][A-Za-z0-9]*$/u.test(target)
+            ? ` → ${name}:ref:${target.charAt(0).toUpperCase()}${target.slice(1)} ?`
+            : "";
         throw new EntityFieldError(
-          `champ invalide « ${raw} » — cible attendue : nom d'entité en PascalCase (ex : author:ref:User)`,
+          `champ invalide « ${raw} » — cible attendue : nom d'entité en PascalCase (ex : author:ref:User)${fixed}`,
         );
       }
       if (defaultValue !== undefined) {
@@ -394,8 +434,10 @@ export function parseEntityFields(input: string): IEntityField[] {
                 `(ex : views:int=0, status:enum(draft,published)=draft).`),
         );
       }
+      const suggestion = suggestFieldType(type);
       throw new EntityFieldError(
-        `champ invalide « ${raw} » — type « ${type} » inconnu ; attendus : ${ENTITY_FIELD_TYPES.join(" | ")} | ref:<Entité>`,
+        `champ invalide « ${raw} » — type « ${type} » inconnu ; attendus : ${ENTITY_FIELD_TYPES.join(" | ")} | ref:<Entité>` +
+          (suggestion ? ` → ${name}:${suggestion} ?` : ""),
       );
     }
     if (type === "enum") {
@@ -673,8 +715,8 @@ export function describeColumnTypes(): Array<{
   const types = [...ENTITY_FIELD_TYPES, "ref"] as const;
   return types.map((type) => ({
     type,
-    byDialect: Object.fromEntries(
-      ENTITY_DIALECTS.map((dialect) => [
+    byDialect: Object.fromEntries([
+      ...ENTITY_DIALECTS.map((dialect) => [
         dialect,
         // Colonne d'exemple : le nom importe peu, la FORME est ce qu'on montre.
         // Les tailles sont fournies pour que `char` et `decimal` se montrent tels
@@ -684,8 +726,33 @@ export function describeColumnTypes(): Array<{
           ...(type === "decimal" ? { precision: 12, scale: 2 } : {}),
         }),
       ]),
-    ),
+      // MongoDB : la définition que {@link buildMongooseEntityCodegen} écrit
+      // réellement, relue sur sa sortie — pas une seconde table à tenir.
+      ["mongodb", mongooseDefinitionOf(type)],
+    ]),
   }));
+}
+
+/**
+ * Définition Mongoose d'un champ d'exemple obligatoire du type donné, telle
+ * que le générateur l'écrit (`{ type: String, maxlength: 255, required: true }`).
+ */
+function mongooseDefinitionOf(type: TEntityFieldType | "ref"): string {
+  const field: IEntityField = {
+    name: "exemple",
+    type,
+    nullable: false,
+    unique: false,
+    indexed: false,
+    ...(type === "ref" ? { target: "User" } : {}),
+    ...(type === "enum" ? { values: ["a", "b"] } : {}),
+    ...(type === "char" ? { length: 2 } : {}),
+  };
+  const line = buildMongooseEntityCodegen([field], {
+    timestamps: false,
+    softDelete: false,
+  }).schemaFields;
+  return line.replace(/^exemple: /u, "").replace(/,( \/\/.*)?$/u, "");
 }
 
 /**
@@ -1242,6 +1309,152 @@ export function buildEntityCodegen(
     tableExtras,
     needsNodefony: id !== "serial",
     idType: pk.tsType,
+  };
+}
+
+/**
+ * Forme d'un identifiant MongoDB (`ObjectId`) — 24 chiffres hexadécimaux.
+ *
+ * Source unique pour le schéma Zod d'une référence et pour l'échantillon qui
+ * doit le satisfaire : une référence mal formée n'atteint jamais Mongoose, qui
+ * la refuserait par une `CastError` — un 500 là où le client mérite un 422.
+ */
+export const OBJECT_ID_PATTERN = "^[0-9a-f]{24}$";
+
+/**
+ * Type Mongoose d'un champ du vocabulaire Nodefony.
+ *
+ * Écrit en NOM de type (`"ObjectId"`, `"Mixed"`) ou en constructeur global
+ * (`String`, `Number`…) — jamais `Schema.Types.X` : l'entité générée n'importe
+ * pas `mongoose`, que l'application reçoit par `@nodefony/mongoose` sans le
+ * déclarer. Un décimal exact reste une CHAÎNE, comme en SQL : même contrat
+ * d'API sur les deux familles, et aucune perte de précision en route.
+ */
+const MONGOOSE_TYPE: Record<TEntityFieldType | "ref", string> = {
+  string: "String",
+  text: "String",
+  int: "Number",
+  float: "Number",
+  bool: "Boolean",
+  json: '"Mixed"',
+  date: "Date",
+  uuid: "String",
+  ref: '"ObjectId"',
+  enum: "String",
+  char: "String",
+  decimal: "String",
+};
+
+/** Tout ce dont le gabarit d'entité DOCUMENT a besoin. */
+export interface IMongooseEntityCodegen {
+  /** Corps du schéma Mongoose (lignes `nom: { type: …, … },`). */
+  schemaFields: string;
+  /** Propriétés de l'interface de ligne. */
+  rowProps: string;
+  /** Corps du schéma Zod de création. */
+  zodProps: string;
+  /** Type TS de la clé primaire — toujours `string` (virtuel `id` d'un ObjectId). */
+  idType: string;
+}
+
+/**
+ * Produit le schéma Mongoose, l'interface de ligne et le schéma Zod d'une entité
+ * DOCUMENT — le pendant de {@link buildEntityCodegen} pour `@nodefony/mongoose`.
+ *
+ * Pas un quatrième dialecte : il n'y a ni table, ni colonne, ni migration. La
+ * clé est l'`_id` natif, servi au contrat `id: string` par le virtuel que
+ * `MongooseOrm` active à la sérialisation — exactement comme l'entité `User`
+ * que `create app` pose, sans quoi `ref:User` ne joindrait pas. Les horodatages
+ * sont l'option `timestamps` du descripteur, pas des champs : le moteur les
+ * fournit, les redéclarer les mettrait en concurrence avec lui.
+ *
+ * @param fields - champs analysés par {@link parseEntityFields}.
+ * @param options - horodatages et suppression douce.
+ */
+export function buildMongooseEntityCodegen(
+  fields: IEntityField[],
+  options: { timestamps: boolean; softDelete: boolean },
+): IMongooseEntityCodegen {
+  const schemaFields: string[] = [];
+  const rowProps: string[] = ["id: string;"];
+  const zodProps: string[] = [];
+
+  for (const field of fields) {
+    const parts = [`type: ${MONGOOSE_TYPE[field.type]}`];
+    if (field.type === "ref" && field.target) {
+      parts.push(`ref: ${JSON.stringify(field.target)}`);
+    }
+    if (field.type === "enum" && field.values) {
+      parts.push(
+        `enum: ${JSON.stringify(field.values).replace(/","/g, '", "')}`,
+      );
+    }
+    if (field.type === "string") {
+      parts.push(`maxlength: ${field.length ?? 255}`);
+    }
+    if (field.type === "char" && field.length !== undefined) {
+      parts.push(`minlength: ${field.length}`, `maxlength: ${field.length}`);
+    }
+    // Obligatoire sans défaut → `required`. Un défaut rend la valeur impossible
+    // à manquer : l'exiger n'ajouterait qu'un refus (règle de `userEntity.ts`).
+    if (!field.nullable && field.defaultValue === undefined) {
+      parts.push("required: true");
+    }
+    if (field.defaultValue !== undefined) {
+      // Un défaut STRUCTURÉ passe en fabrique : en valeur, Mongoose partagerait
+      // le même objet entre tous les documents.
+      parts.push(
+        field.type === "json"
+          ? `default: () => (${defaultLiteral(field)})`
+          : `default: ${defaultLiteral(field)}`,
+      );
+    } else if (field.nullable) {
+      // `null` explicite plutôt que rien : un document ancien et un neuf se
+      // lisent pareil, et le contrat `T | null` dit vrai.
+      parts.push("default: null");
+    }
+    if (field.unique) {
+      parts.push("unique: true");
+    } else if (field.indexed || field.type === "ref") {
+      // Une référence est la clé de jointure (`?include=`, filtre par parent) :
+      // indexée d'office, comme sa colonne SQL.
+      parts.push("index: true");
+    }
+    schemaFields.push(`${field.name}: { ${parts.join(", ")} },`);
+    if (field.type === "ref") {
+      schemaFields[schemaFields.length - 1] += ` // → ${field.target}.id`;
+    }
+
+    const optional = field.nullable ? " | null" : "";
+    rowProps.push(`${field.name}: ${tsTypeOf(field)}${optional};`);
+
+    let zod =
+      field.type === "ref"
+        ? `z.string().regex(/${OBJECT_ID_PATTERN}/iu, "identifiant MongoDB attendu (24 caractères hexadécimaux)")`
+        : zodTypeOf(field);
+    if (field.nullable) zod += ".nullable().optional()";
+    if (field.defaultValue !== undefined) {
+      zod += `.default(${defaultLiteral(field)})`;
+    }
+    zodProps.push(`${field.name}: ${zod},`);
+  }
+
+  if (options.timestamps) {
+    rowProps.push("createdAt: Date;", "updatedAt: Date;");
+  }
+  if (options.softDelete) {
+    schemaFields.push("deletedAt: { type: Date, default: null },");
+    rowProps.push("deletedAt: Date | null;");
+  }
+
+  // Même ponctuation que {@link buildEntityCodegen} : la fin de ligne appartient
+  // au point d'insertion du gabarit, pas à la valeur.
+  const block = (lines: string[]): string => lines.join("\n  ");
+  return {
+    schemaFields: block(schemaFields),
+    rowProps: block(rowProps),
+    zodProps: block(zodProps),
+    idType: "string",
   };
 }
 
