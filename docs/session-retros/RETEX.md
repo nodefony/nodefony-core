@@ -163,6 +163,14 @@ doctor"`) n'a pas d'intérêt propre. `create.test.ts` portait la réponse en cl
 
 ## 🏷️ Un NOM qui a survécu à ce qu'il désignait envoie chercher ce qui n'existe plus
 
+- [1× — 09-24] 📜 **Un EXEMPLE écrit survit au correctif qui l'a rendu faux.** #431 avait rendu
+  `!` refusé ; `AGENTS.md` enseignait encore « le `!` interdit le nul », le skill add-crud montrait
+  `create entity Comment body:text ref:Article` (refusé : pas de nom de champ) et affirmait « les
+  clés étrangères ne sont pas émises » (faux depuis #138). Aucune assertion ne les lisait. Remède
+  posé : `entityMongoose.test.ts` relève TOUT exemple `create entity …` des gabarits, de l'aide,
+  des skills et de la doc et le passe au VRAI parseur ; la table des types est confrontée au
+  générateur. Un exemple est du code qui agit : il se teste comme du code.
+
 - [1× — 09-21d] 🧮 **Un agrégat indexé sur un nom NON UNIQUE perd des données sans rien dire —
   facteur 100 à l'écran.** `counts` du plan d'administration ORM renvoyait `{ nom: total }`. Avec
   deux ORM chargés, `audit_event` de Mongoose (**265** documents) écrasait celui de Drizzle
@@ -422,6 +430,13 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🧵 Trois choses ne suivent PAS d'un process à l'autre — enchaîner se teste
 
+- [1× — 09-24] 🗂️ **`git commit -- <chemins>` échoue ici sur « invalid object … package-lock.json ».**
+  Cette forme fait travailler git ET les crochets (lint-staged, symboles) sur un index TEMPORAIRE,
+  où une entrée `package-lock.json` pointe un objet jamais écrit — reproduit deux fois, l'index
+  normal restant sain (`git ls-files -s` = `HEAD` = copie de travail). Le geste qui passe : indexer
+  EXACTEMENT le lot puis `git commit` sans chemins. La garde du dépôt refuse `git reset` sur un
+  arbre sale : ne pas désindexer, committer par lots successifs.
+
 - [1× — 09-05d] **Un test lisait `NODE_ENV` de SON process pour savoir si le SERVEUR tourne en production.** Deux horloges : la forge démarre le serveur en production et lance la suite sans ce mode. Le cas exigeait donc, en production, la phrase que la production retire exprès — rouge sur les trois plateformes à la fois. Le porteur existait déjà (`NF_TEST_ENV`, posé par un `globalSetup` qui SONDE le serveur sur `/livez`) ; ce cas était le seul à ne pas l'appeler. Avant d'écrire une condition sur l'environnement dans un test d'intégration, chercher QUI porte déjà le mode de la cible.
 
 - Enchaîner une commande sur une autre (`spawnSync`) : l'ENVIRONNEMENT (un enfant ne reçoit que ce
@@ -628,6 +643,14 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
 
 ## 🎚️ Une méthode ÉCRITE et non IMPOSÉE ne s'applique pas — même quand on vient de la lire
 
+- [1× — 09-24] 🔀 **J'ai introduit moi-même la divergence que la règle interdit.** « 1 règle = 1
+  implémentation », rappelée dix fois dans la session — et j'ai fait lire à Studio les connecteurs
+  du SERVEUR démarré pendant que le terminal lisait la configuration : même code, deux SOURCES,
+  deux réponses (`mediasoup` visible d'un côté seulement). C'est le user qui l'a vu. Remède : une
+  source, et un test qui exige la MÊME réponse des deux fronts (`createSpecDataPlane.test.ts`). Et
+  la note « un connecteur ouvert en code n'y figure pas » était un aveu posé à la place d'une
+  correction — la vraie est #469 (DÉCLARER le connecteur).
+
 - [1× — 09-23b] 🗣️ **Deux affirmations énoncées comme des faits, sans lecture, et le user les a
   reprises.** « Le contrat de pagination côté Mongoose est à concevoir » : faux — `findPage`
   passe par `paginate` sur `IRepository`, que `MongooseRepository` implémente, éprouvé sur un
@@ -829,6 +852,13 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-24] 🔇 **Un banc VERT qui ne dit pas ce qu'il a lancé.** `verify-generated.mjs`
+  n'écrivait la sortie d'une commande que si elle ÉCHOUAIT : impossible de savoir combien de tests
+  e2e avaient tourné sur MongoDB (15 s contre 61 s en SQLite — suspect) sans rejouer la passe en
+  `--keep`. Remède : chaque commande laisse sa ligne et son bilan (passés, SAUTÉS, todo) au
+  journal et dans `report.json`. Le premier run a aussitôt montré `1 skipped` (TLS, attendu) et
+  `2 todo`, invisibles jusque-là.
 
 - [1× — 09-23b] 🔌 **Un débranchement qui ne débranchait rien a failli faire accuser la sonde.**
   Pour voir mordre « chaque brique durable sur mongoose », j'ai commenté `NF_DATABASE_URL` : le
