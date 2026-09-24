@@ -1026,6 +1026,32 @@ describe("scanRepo — sur un dépôt fabriqué", () => {
       ["filet"],
     );
   });
+
+  // Le hook pre-commit ne balaie que les fichiers INDEXÉS : une exception qui
+  // vise un fichier qu'il n'a pas lu n'est pas « sans effet », elle est hors de
+  // sa vue. La dire périmée à chaque commit apprendrait à ne plus lire l'alerte.
+  it("balayage PARTIEL : n'est « sans effet » qu'une exception visant un fichier balayé", () => {
+    const root = repo({
+      "src/a/x.ts": "export const clean = 1;\n",
+      "src/b/y.ts": "export const alsoClean = 1;\n",
+    });
+    const exceptions = [
+      { path: "src/a/x.ts", reason: "vise un fichier balayé" },
+      { path: "src/b/", reason: "vise un fichier NON balayé" },
+      { identifier: "largeur", reason: "sans chemin" },
+    ];
+    const partial = scanRepo({ root, paths: ["src/a/x.ts"], exceptions });
+    assert.deepEqual(
+      partial.exceptions.unused.map((e) => e.reason),
+      ["vise un fichier balayé"],
+    );
+    // Le balayage complet, lui, les juge toutes — défauts compris.
+    const full = scanRepo({ root, exceptions });
+    assert.equal(
+      full.exceptions.unused.length,
+      DEFAULT_EXCEPTIONS.length + exceptions.length,
+    );
+  });
 });
 
 /**

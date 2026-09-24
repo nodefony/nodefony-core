@@ -26,6 +26,22 @@ if ! node scripts/check-no-nul-bytes.mjs --staged; then
   exit 1
 fi
 
+# Le code s'écrit en ANGLAIS — et c'est la règle qui se fautait le plus : écrite
+# dans le CLAUDE.md, relue le matin, enfreinte deux jours de suite dans l'après-
+# midi, jamais attrapée qu'après coup par `npm run check:lang`, que rien ne
+# lançait. Ce qui est IMPOSÉ au moment du geste s'applique ; ce qui est écrit se
+# rate. Seuls les fichiers INDEXÉS sous `src/` (le périmètre de `check:lang`)
+# sont balayés : ~0,2 s au lieu de 18 pour le dépôt entier.
+STAGED_SRC=$(git diff --cached --name-only --diff-filter=ACMR -- 'src/*')
+if [ -n "$STAGED_SRC" ]; then
+  # shellcheck disable=SC2086 # la liste se découpe en arguments, c'est voulu
+  if ! node .claude/skills/nodefony-identifiers/scripts/check-identifier-language.mjs $STAGED_SRC; then
+    echo "❌ identifiant(s) français dans le code de production — le code s'écrit en anglais."
+    echo "   → renommer (skill nodefony-identifiers), ou déclarer une exception AVEC sa raison"
+    exit 1
+  fi
+fi
+
 # Garde anti-dérive : `.env.example` est GÉNÉRÉ depuis env.ts (catalogue defineEnv).
 # Si env.ts, .env.example ou l'en-tête curé est staged, vérifier qu'ils sont
 # synchronisés (sinon une var ajoutée à env.ts mais pas régénérée passerait). Placé

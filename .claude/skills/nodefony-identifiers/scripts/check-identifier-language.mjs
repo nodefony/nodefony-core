@@ -1350,16 +1350,27 @@ export function readExceptionsFile(file) {
  * @param options.exceptions - exceptions, en plus des défauts
  * @returns `{ scanned, findings, exceptions: { declared, applied, absorbed, unused } }`
  */
-export function scanRepo({ root, paths = ["src"], exceptions = [] } = {}) {
+export function scanRepo({ root, paths, exceptions = [] } = {}) {
+  // Un balayage PARTIEL (des fichiers nommés — le hook pre-commit) ne peut pas
+  // juger qu'une exception est « sans effet » : elle vise le plus souvent un
+  // fichier qu'il n'a pas lu. Il ne signale donc que celles qui visent un
+  // fichier balayé ; le balayage complet, lui, les juge toutes.
+  const partial = paths !== undefined;
   const files = [];
-  for (const p of paths) walk(root, p, files);
+  for (const p of paths ?? ["src"]) walk(root, p, files);
   const raw = [];
   for (const rel of files) {
     const source = readFileSync(path.join(root, ...rel.split("/")), "utf8");
     raw.push(...analyzeSource(source, rel));
   }
   const all = [...DEFAULT_EXCEPTIONS, ...exceptions];
-  const { kept, applied, unused } = applyExceptions(raw, all);
+  const { kept, applied, unused: allUnused } = applyExceptions(raw, all);
+  const unused = partial
+    ? allUnused.filter(
+        (e) =>
+          e.path !== undefined && files.some((f) => pathMatches(f, e.path)),
+      )
+    : allUnused;
   return {
     scanned: files.length,
     findings: kept,
