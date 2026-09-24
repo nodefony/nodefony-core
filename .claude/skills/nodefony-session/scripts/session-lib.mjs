@@ -124,6 +124,46 @@ export function linksInSection(text, heading) {
   ];
 }
 
+/**
+ * Instant d'écriture d'un `_state` — l'ancre du début de la session suivante.
+ *
+ * Le champ `modified:` du frontmatter ne suffit PAS : rien ne le pose de façon
+ * sûre (absent de 4 `_state` sur 20), et sans lui la clôture retombait en
+ * silence sur « les 20 derniers commits » — trois sessions d'un coup — et la
+ * reprise éteignait son garde-fou « `_state` PÉRIMÉ ». La date du dernier commit
+ * du fichier dans le dépôt de la mémoire existe toujours, sur tout poste.
+ *
+ * @param {{ committedAt: string | null, modified: string | null, mtime: string | null }} sources
+ *   - `committedAt` : `git log -1 --format=%cI -- <fichier>` du dépôt mémoire ;
+ *   - `modified` : champ du frontmatter ({@link modifiedOf}) ;
+ *   - `mtime` : date du fichier sur le disque, dernier recours.
+ * @returns la première date disponible, dans cet ordre, ou `null`.
+ */
+export function stateWrittenAt({ committedAt, modified, mtime }) {
+  return committedAt || modified || mtime || null;
+}
+
+/**
+ * Arguments de `git log` qui bornent la session.
+ *
+ * Une révision se RÉSOUT par git, quelle que soit sa forme (`abc1234`, `abc1234^`,
+ * `HEAD~3`) ; seul ce qui ne se résout pas est pris pour une date. Reconnue au
+ * seul motif d'un hash nu, `abc1234^` partait en `--since=abc1234^` — un filtre
+ * de DATE que git lit n'importe comment : tout l'historique.
+ *
+ * @param {string | null} since - révision ou date du début de session.
+ * @param {(rev: string) => string | null} resolve - hash d'une révision, ou `null`.
+ * @returns les arguments, et `anchored: false` quand aucune ancre n'existe.
+ */
+export function sessionLogArgs(since, resolve) {
+  if (!since) return { args: ["-20"], anchored: false };
+  const sha = resolve(since);
+  return {
+    args: sha ? [`${sha}..HEAD`] : [`--since=${since}`],
+    anchored: true,
+  };
+}
+
 /** Date `modified:` du frontmatter d'une mémoire, ou `null`. */
 export function modifiedOf(text) {
   const m = /^\s*modified:\s*(\S+)/mu.exec(text);

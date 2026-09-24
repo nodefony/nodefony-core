@@ -31,6 +31,8 @@ import {
   clip,
   datesIn,
   modifiedOf,
+  sessionLogArgs,
+  stateWrittenAt,
   uncitedWork,
 } from "./session-lib.mjs";
 
@@ -92,15 +94,23 @@ const nextStateName = () => {
   return `project_session_${today}_state.md`;
 };
 
-// ── Plage de la session : `--since`, sinon la date d'écriture du `_state` qui l'ouvre.
-const since =
-  sinceAt !== -1 ? argv[sinceAt + 1] : modifiedOf(readMem(openingState));
-const logArgs =
-  since && /^[0-9a-f]{7,40}$/u.test(since)
-    ? [`${since}..HEAD`]
-    : since
-      ? [`--since=${since}`]
-      : ["-20"];
+// ── Plage de la session : `--since`, sinon l'instant où le `_state` qui l'ouvre a
+// été écrit (cf `stateWrittenAt` : le commit du dépôt mémoire fait foi).
+const writtenAt = (file) =>
+  file
+    ? stateWrittenAt({
+        committedAt:
+          sh("git", ["-C", MEM, "log", "-1", "--format=%cI", "--", file]).out ||
+          null,
+        modified: modifiedOf(readMem(file)),
+        mtime: fs.statSync(path.join(MEM, file)).mtime.toISOString(),
+      })
+    : null;
+const since = sinceAt !== -1 ? argv[sinceAt + 1] : writtenAt(openingState);
+const { args: logArgs, anchored } = sessionLogArgs(since, (rev) => {
+  const r = git("rev-parse", "--verify", "--quiet", `${rev}^{commit}`);
+  return r.ok && r.out ? r.out : null;
+});
 const commits = git("log", ...logArgs, "--format=%h%x09%s")
   .out.split("\n")
   .filter(Boolean)
@@ -117,7 +127,10 @@ else prepare();
 function prepare() {
   const say = (l = "") => console.log(l);
   say(
-    `Session : ${commits.length} commit(s) depuis ${since ?? "?"}${range ? ` (${range})` : ""}`,
+    `Session : ${commits.length} commit(s) depuis ${since ?? "?"}${range ? ` (${range})` : ""}` +
+      (anchored
+        ? ""
+        : " ⚠️ AUCUNE ancre : 20 derniers commits — passer `--since <rév>`"),
   );
 
   // Tickets cités par les commits de la session, et leur état.

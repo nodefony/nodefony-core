@@ -5997,7 +5997,15 @@
             "usage": [],
             "options": [
               {
+                "flag": "--format",
+                "help": ""
+              },
+              {
                 "flag": "--json",
+                "help": ""
+              },
+              {
+                "flag": "--since",
                 "help": ""
               }
             ],
@@ -6009,7 +6017,12 @@
             "path": "scripts/session-lib.test.mjs",
             "purpose": "Règles pures de la reprise et de la clôture — chaque cas porte le défaut",
             "usage": [],
-            "options": [],
+            "options": [
+              {
+                "flag": "--since",
+                "help": ""
+              }
+            ],
             "env": [],
             "output": "",
             "selfDocumented": false
@@ -8360,7 +8373,7 @@
       "description": "Fait évoluer le schéma d'une base Nodefony et le porte en production, par les commandes `orm:generate` et `orm:migrate` du framework — jamais par un `ALTER` écrit à la main ni par la suppression d'une base. Porte la lecture de l'état (que l'application tourne ou non), le plan avant le geste, les codes de refus et le geste que chacun appelle, les trois interdits qui cassent un historique, et le patron de déploiement où les migrations passent AVANT les exemplaires. À charger AVANT de modifier une entité déjà en base, ou avant de déployer un schéma changé. Déclencheurs : \"j'ai ajouté un champ à une entité\", \"la colonne n'existe pas en base\", \"modifier une table existante\", \"migrer le schéma\", \"orm:migrate\", \"orm:generate\", \"appliquer les migrations\", \"déployer un changement de schéma\", \"no such column\", \"column does not exist\", \"ma base ne correspond plus au code\", \"adopter une base existante\", \"réparer une migration en échec\", \"éprouver une migration sans casser ma base\", \"rejouer les migrations depuis zéro\".",
       "cost": {
         "bodyLines": 375,
-        "approxTokens": 6151
+        "approxTokens": 6245
       },
       "requires": [],
       "resources": {

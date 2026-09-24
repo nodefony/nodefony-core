@@ -27,6 +27,7 @@ import {
   linksInSection,
   liveRetexThemes,
   modifiedOf,
+  stateWrittenAt,
   newlyDone,
   uncitedWork,
 } from "./session-lib.mjs";
@@ -103,7 +104,12 @@ if (!stateFile) {
   );
 } else {
   const text = fs.readFileSync(path.join(MEM, stateFile), "utf8");
-  const since = modifiedOf(text);
+  const since = stateWrittenAt({
+    committedAt:
+      git("-C", MEM, "log", "-1", "--format=%cI", "--", stateFile).out || null,
+    modified: modifiedOf(text),
+    mtime: fs.statSync(path.join(MEM, stateFile)).mtime.toISOString(),
+  });
   say(
     `_state ${stateFile}${since ? ` (écrit ${since.slice(0, 16).replace("T", " ")})` : ""}`,
   );

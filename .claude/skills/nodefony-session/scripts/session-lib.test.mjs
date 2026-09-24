@@ -10,6 +10,8 @@ import {
   linksInSection,
   liveRetexThemes,
   modifiedOf,
+  sessionLogArgs,
+  stateWrittenAt,
   newlyDone,
   uncitedWork,
 } from "./session-lib.mjs";
@@ -130,5 +132,50 @@ describe("helpers de mémoire", () => {
   });
   it("datesIn trouve les dates ISO", () => {
     expect(datesIn("corrigé le 2026-09-24, v10.0.0")).toEqual(["2026-09-24"]);
+  });
+});
+
+describe("stateWrittenAt — l'ancre de session ne dépend pas d'un champ facultatif", () => {
+  it("le commit du dépôt mémoire fait foi, même sans `modified:`", () => {
+    expect(
+      stateWrittenAt({
+        committedAt: "2026-09-24T20:15:57+02:00",
+        modified: null,
+        mtime: "2026-09-25T08:00:00.000Z",
+      }),
+    ).toBe("2026-09-24T20:15:57+02:00");
+  });
+  it("replis : `modified:`, puis la date du fichier, puis rien", () => {
+    expect(
+      stateWrittenAt({ committedAt: null, modified: "m", mtime: "t" }),
+    ).toBe("m");
+    expect(
+      stateWrittenAt({ committedAt: null, modified: null, mtime: "t" }),
+    ).toBe("t");
+    expect(
+      stateWrittenAt({ committedAt: null, modified: null, mtime: null }),
+    ).toBeNull();
+  });
+});
+
+describe("sessionLogArgs — une révision se résout, elle ne se devine pas", () => {
+  const resolve = (rev) =>
+    ({ "abc1234^": "0f0f0f0", "HEAD~3": "1e1e1e1", abc1234: "abc1234" })[rev] ??
+    null;
+
+  it("`sha^` et `HEAD~3` sont des révisions, pas des dates", () => {
+    expect(sessionLogArgs("abc1234^", resolve).args).toEqual(["0f0f0f0..HEAD"]);
+    expect(sessionLogArgs("HEAD~3", resolve).args).toEqual(["1e1e1e1..HEAD"]);
+  });
+  it("une date reste une date", () => {
+    expect(sessionLogArgs("2026-09-24T20:15:57+02:00", resolve).args).toEqual([
+      "--since=2026-09-24T20:15:57+02:00",
+    ]);
+  });
+  it("sans ancre, le repli est ANNONCÉ", () => {
+    expect(sessionLogArgs(null, resolve)).toEqual({
+      args: ["-20"],
+      anchored: false,
+    });
   });
 });

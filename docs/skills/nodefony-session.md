@@ -98,8 +98,8 @@ script, donc toujours à jour après régénération.
 | `scripts/retex-seuil.mjs` | Les thèmes de `RETEX.md` qui ont atteint le seuil de graduation. | `--all` | `SAS` `SEUIL` |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |
 | `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, | `--since` `--no-publish` | `MEM` `PUBLISH` |
-| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans | `--json` | — |
-| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut | — | — |
+| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans | `--format` `--json` `--since` | — |
+| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut | `--since` | — |
 | `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
 
 **Invocation telle que documentée dans chaque script :**
