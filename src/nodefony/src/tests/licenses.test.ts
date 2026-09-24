@@ -78,9 +78,15 @@ describe("licences — la liste d'acceptation REFUSE, sinon elle ne garde rien",
     // `(BSD-3-Clause OR GPL-2.0)` est acceptable parce qu'on RETIENT BSD.
     assert.strictEqual(accept("(BSD-3-Clause OR GPL-2.0)"), "BSD-3-Clause");
     assert.strictEqual(accept("(MIT OR Apache-2.0)"), "MIT");
-    // Le `AND` n'est dans aucune table, et ne doit jamais y tomber par déduction.
+    // Un `AND` ne passe que DÉCLARÉ tel quel après examen — jamais par déduction.
     assert.strictEqual(accept("(MIT AND GPL-2.0)"), null);
     assert.strictEqual(accept("MIT AND GPL-2.0"), null);
+    assert.strictEqual(
+      accept("(Apache-2.0 AND BSD-3-Clause)"),
+      "(Apache-2.0 AND BSD-3-Clause)",
+    );
+    // Deux permissives connues ne suffisent pas : l'ordre inverse n'a pas été examiné.
+    assert.strictEqual(accept("(BSD-3-Clause AND Apache-2.0)"), null);
   });
 
   it("les permissives usuelles passent, sous leur propre terme", () => {

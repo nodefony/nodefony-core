@@ -83,6 +83,11 @@ export const ALLOWED: ReadonlySet<string> = new Set([
   // La nôtre AVANT la 10.0.0 : des paquets publiés la portent encore, et
   // une licence EXAMINÉE ne se retire pas d'une liste d'acceptation.
   "CECILL-B",
+  // Conjonction EXAMINÉE, déclarée telle quelle — jamais déduite d'un `AND`
+  // quelconque : les deux termes sont permissifs et leurs obligations se
+  // CUMULENT. `@bufbuild/protobuf` (via `sass-embedded`) : Apache-2.0, avec les
+  // fichiers dérivés de Google Protobuf restés BSD-3-Clause.
+  "(Apache-2.0 AND BSD-3-Clause)",
 ]);
 
 /**
@@ -127,6 +132,10 @@ export const LICENSE_DUTY: ReadonlyMap<string, string> = new Map([
   ["CC-BY-4.0", "créditer l'auteur (donnée, pas code)"],
   ["CC-BY-3.0", "créditer l'auteur (donnée, pas code)"],
   ["CECILL-B", "garder la notice et CITER les auteurs (BSD de droit français)"],
+  [
+    "(Apache-2.0 AND BSD-3-Clause)",
+    "CUMUL : notice et NOTICE d'Apache, plus la notice BSD sans invoquer le nom des auteurs",
+  ],
 ]);
 
 /**
