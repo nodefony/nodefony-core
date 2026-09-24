@@ -25,11 +25,12 @@ Driver **NoSQL Mongoose** sur `@nodefony/orm-core` — adapter documentaire hét
   Elle y MANQUAIT, et rien ne pouvait le montrer : les bancs appellent `registerUserEntity`
   eux-mêmes. Seul un noyau qui boote l'a révélé — « Schema hasn't been registered for model
   "User" » au premier seed, en fail-soft. [[feedback_twin_alignment_unproven]]
-- ⚠️ **Le TOTP n'a AUCUNE route d'écriture** dans tout le framework : le data plane admin n'expose
-  que `GET totp/list` et `GET users/{id}/totp`. Le magasin et le service sont complets, mais la
-  brique est **inatteignable par HTTP** — `totp_secrets` reste donc à 0 après une passe
-  d'intégration complète, et ce n'est pas un défaut de l'adaptateur.
-  [[feedback_capability_unreachable_is_absent]]
+- ⚠️ **Les écritures TOTP passent par les routes SELF-SERVICE, montées sous condition** :
+  `mountTotpRoutes()` (`framework/…/TotpController.ts`) pose `POST /nodefony/security/api/totp/{enroll,confirm,disable}`
+  et `GET …/status` **seulement si le service `totp` existe** (security chargé + 2FA activé) — 404 sinon.
+  Le data plane admin n'ajoute que `POST users/{id}/totp/disable`. Un `totp_secrets` à 0 après une
+  passe d'intégration signifie « 2FA non activé dans le décor », pas « brique inatteignable » :
+  `http/…/durable-bricks-crud.test.ts` écrit par ces routes. [[feedback_capability_unreachable_is_absent]]
 - **La couverture se DÉCLARE dans `package.json`** (`nodefony.stores` + `nodefony.storeKind`) — c'est ce que lit `readAdapterManifest` de `KernelAdminApi` pour l'écran Stores. Ajouter un store SANS l'y ajouter le rend invisible à la console ; l'y laisser après l'avoir retiré fait mentir la console. Le banc `framework-stores-register.test.ts` apparie les deux sens.
 - **`MongooseAuditStore`** (`nodefony/src/MongooseAuditStore.ts`) : `IAuditStore` append-only. Ordre total `(ts DESC, _id DESC)`, curseur composite auto-portant `<ts>:<id>` → `$or` de deux clauses (hors `Criteria` AND-only ⇒ query native). ⚠️ Tri sur `_id`, **jamais** `id` : au repos un document n'a pas de champ `id` (virtuel de lecture), et Mongo ne se plaint pas d'un tri sur un champ absent — il rend un ordre arbitraire. Résolution du modèle **lazy** ⇒ `append` no-op best-effort hors connexion (l'audit ne fait jamais échouer un login). Index simples par champ : un composite ne s'exprime pas dans un `SchemaDefinition` plat, donc Mongo départage les collisions de ms en mémoire — borné par le `limit` (tri top-K sur une page).
 - **`MongooseTotpSecretStore`** (`nodefony/src/MongooseTotpSecretStore.ts`) : `ITotpSecretStore`, 100 % portable (aucune query native — `IRepository` + `paginate()`). `_id` = `userId` ⇒ l'unicité vient de la clé PRIMAIRE, existante dès le premier document (un index secondaire se construit en tâche de fond : fenêtre sans contrainte). `userId` est **dupliqué** dans le document car c'est lui que le vocabulaire public trie et filtre.

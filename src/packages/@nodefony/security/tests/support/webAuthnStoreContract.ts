@@ -163,27 +163,25 @@ export function runWebAuthnStoreContract(
       assert.deepEqual((await store().findById("c-empty"))?.transports, []);
     });
 
-    it("signCount : 0 ≠ absent, et grande valeur non tronquée (borne int32)", async () => {
+    it("signCount : 0 ≠ absent, et borne uint32 du W3C non tronquée", async () => {
       // Compteur anti-clonage FIDO. Deux pièges : un `0` confondu avec « absent »
       // (les authenticators d'Apple renvoient TOUJOURS 0) et une valeur tronquée
       // silencieusement, qui ferait diverger la détection de clonage.
       //
-      // ⚠️ ÉCART DE CONFORMITÉ connu (dette au dashboard) : le W3C définit
-      // `signCount` comme un **uint32** (≤ 4 294 967 295), or la colonne est
-      // `kind: "int"` = int32 SIGNÉ en pg/mysql. Au-delà d'`INT32_MAX`, pg lève
-      // `22003` et mysql `ER_WARN_DATA_OUT_OF_RANGE` — sqlite passe (INTEGER
-      // 64-bit) : c'est une DIVERGENCE, donc hors banc de parité. Inatteignable
-      // en pratique (le compteur s'incrémente de 1 par authentification), mais le
-      // banc borne ici ce qui est réellement garanti PARTOUT.
-      const INT32_MAX = 2_147_483_647;
+      // Le W3C définit `signCount` comme un **uint32** : la borne haute doit
+      // survivre sur TOUT backend. La colonne SQL est un entier 64 bits
+      // (`kind: "int64"`) — un int32 signé lèverait au-delà de 2 147 483 647.
+      const UINT32_MAX = 4_294_967_295;
       await store().save(makeCredential({ id: "c-zero", signCount: 0 }));
       assert.equal(
         (await store().findById("c-zero"))?.signCount,
         0,
         "0 ≠ null",
       );
-      await store().save(makeCredential({ id: "c-big", signCount: INT32_MAX }));
-      assert.equal((await store().findById("c-big"))?.signCount, INT32_MAX);
+      await store().save(
+        makeCredential({ id: "c-big", signCount: UINT32_MAX }),
+      );
+      assert.equal((await store().findById("c-big"))?.signCount, UINT32_MAX);
     });
   });
 
