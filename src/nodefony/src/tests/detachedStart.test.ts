@@ -435,6 +435,12 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
     }
   });
 
+  // Plafond PROPRE, pour la raison du cas « ports tenus par un TIERS » plus bas :
+  // même décor (un squatteur + un enfant détaché, attente bornée à 15 s puis
+  // constat de mort), ~4 s isolé, et sorti deux fois en `Test timed out in
+  // 30000ms` dans la passe complète. C'est la charge qui était mesurée. Le refus,
+  // lui, est éprouvé tel quel — et sa sonde ne se laisse plus tromper par une
+  // boucle d'événements saturée (`isPortListening`, cf devProcess.test.ts).
   it("port DÉJÀ tenu par un tiers et publié quand même par le child → refus, jamais READY", async () => {
     // Le frère du cas précédent, et le plus vicieux : le child écoute POUR DE
     // BON, publie son état, la sonde répond — tout est vert, et pourtant ce
@@ -514,7 +520,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
       fs.rmSync(log, { force: true });
       removeWorkDir(cwd);
     }
-  });
+  }, 90_000);
 
   // Plafond PROPRE, plus large que les 30 s du fichier de configuration.
   // Ce cas ne mesure aucune durée : il attend qu'une readiness REFUSE de

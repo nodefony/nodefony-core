@@ -1311,6 +1311,14 @@ export function formatForeignRuntimes(
 /**
  * `true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de
  * la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND.
+ *
+ * 🔴 Le délai ne conclut « muet » qu'APRÈS la phase d'entrées/sorties. Une boucle
+ * d'événements bloquée plus longtemps que `timeoutMs` (machine chargée, `spawnSync`
+ * voisin) reprend par les MINUTEURS, avant d'avoir lu le `connect` pourtant déjà
+ * arrivé : le délai gagnait, et un port OCCUPÉ était déclaré LIBRE. Le pre-flight de
+ * `launchDetached` ratait alors le port contesté — un faux READY, le défaut même
+ * qu'il existe pour empêcher. Reporter le verdict d'un `setImmediate` (qui passe
+ * après la lecture des entrées/sorties) laisse le `connect` arrivé l'emporter.
  */
 export function isPortListening(
   port: number,
@@ -1319,14 +1327,17 @@ export function isPortListening(
 ): Promise<boolean> {
   return new Promise((resolve) => {
     const socket = net.connect({ host, port });
+    let settled = false;
     const settle = (listening: boolean): void => {
+      if (settled) return;
+      settled = true;
       socket.removeAllListeners();
       socket.destroy();
       resolve(listening);
     };
     socket.once("connect", () => settle(true)); // quelqu'un répond → à l'écoute
     socket.once("error", () => settle(false)); // refusé / injoignable → muet
-    socket.setTimeout(timeoutMs, () => settle(false));
+    socket.setTimeout(timeoutMs, () => setImmediate(() => settle(false)));
   });
 }
 

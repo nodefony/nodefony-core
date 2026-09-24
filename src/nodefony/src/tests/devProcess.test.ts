@@ -15,9 +15,11 @@ import {
   rmSync,
   writeFileSync,
 } from "node:fs";
+import net from "node:net";
 import {
   clearRuntimeState,
   defaultDevPorts,
+  isPortListening,
   formatForeignRuntimes,
   discoverDevProcessesDetailed,
   discoverFromRuntimeState,
@@ -239,6 +241,36 @@ describe("devProcess — détection de mode & conflit (gardes anti-collision)", 
   it("ligne vide / header → null", () => {
     assert.strictEqual(parsePsRow(""), null);
     assert.strictEqual(parsePsRow("  PID PPID RSS %CPU ELAPSED COMMAND"), null);
+  });
+});
+
+describe("devProcess — isPortListening sous boucle d'événements BLOQUÉE", () => {
+  // Sous charge, la boucle reprend par les minuteurs avant de lire le `connect`
+  // déjà arrivé : le délai gagnait et un port OCCUPÉ se lisait LIBRE — le
+  // pre-flight de `launchDetached` ratait alors le port contesté (vu en suite
+  // complète : `detachedStart` au-delà de 30 s).
+  it("port OCCUPÉ + boucle bloquée au-delà du délai → toujours « à l'écoute »", async () => {
+    const server = net.createServer();
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address() as net.AddressInfo;
+    try {
+      const verdict = isPortListening(port, "127.0.0.1", 50);
+      const until = Date.now() + 200;
+      while (Date.now() < until) {
+        /* boucle bloquée 4× le délai, comme une machine saturée */
+      }
+      assert.strictEqual(await verdict, true);
+    } finally {
+      await new Promise((r) => server.close(r));
+    }
+  });
+
+  it("port LIBRE → « muet », le délai reste un délai", async () => {
+    const server = net.createServer();
+    await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+    const { port } = server.address() as net.AddressInfo;
+    await new Promise((r) => server.close(r));
+    assert.strictEqual(await isPortListening(port, "127.0.0.1", 50), false);
   });
 });
 

@@ -12342,7 +12342,7 @@
       "file": "src/nodefony/src/service/dev/devProcess.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "`true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND."
+      "description": "`true` si un service écoute sur `port` en loopback (connexion acceptée). Inverse de la sonde « port libre » du superviseur : ici on confirme qu'un serveur RÉPOND. 🔴 Le délai ne conclut « muet » qu…"
     },
     "probePorts": {
       "name": "probePorts",
