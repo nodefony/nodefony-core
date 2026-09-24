@@ -120,6 +120,26 @@ export function fmtBytes(n?: number): string {
 }
 
 /**
+ * Compte de lignes d'une entité, lu dans la réponse de `/nodefony/orm/api/counts`.
+ *
+ * Clé QUALIFIÉE d'abord : le serveur préfixe par le connecteur quand plusieurs
+ * le portent (deux ORM chargés déclarent tous deux `session`), et laisse la clé
+ * nue sinon. Lire le seul nom faisait afficher à l'entité homonyme le compte de
+ * sa jumelle — un chiffre faux, et rien pour le dire. SEUL lecteur de cette
+ * règle : trois écrans la recopiaient, et le troisième l'avait oubliée.
+ *
+ * @param countMap - réponse de l'endpoint (`nom` ou `connecteur:nom` → compte).
+ * @param e - l'entité, avec son connecteur.
+ * @returns le compte (`-1` = non comptable), ou `undefined` s'il est absent.
+ */
+export function entityCount(
+  countMap: Record<string, number>,
+  e: { name: string; connector: string },
+): number | undefined {
+  return countMap[`${e.connector}:${e.name}`] ?? countMap[e.name];
+}
+
+/**
  * Agrège un ensemble d'entités : relations (total + par type), domaines
  * (entités + lignes), santé (orphelines, colonnes non introspectées).
  * Pure → mémoïsable côté global ET par onglet ORM.
@@ -149,11 +169,7 @@ export function analyzeModel(
     // jeter une information qu'on possède.
     const d = e.domain || e.module || "(non classé)";
     entitiesByDomain[d] = (entitiesByDomain[d] ?? 0) + 1;
-    // Clé QUALIFIÉE d'abord : le serveur préfixe par le connecteur quand
-    // plusieurs le portent (deux ORM chargés déclarent tous deux `session`),
-    // et laisse la clé nue sinon. Lire le seul nom faisait disparaître les
-    // comptes des entités homonymes — total faux, et « — » à l'écran.
-    const c = countMap[`${e.connector}:${e.name}`] ?? countMap[e.name];
+    const c = entityCount(countMap, e);
     if (typeof c === "number" && c > 0) {
       rowsTotal += c;
       rowsByDomain[d] = (rowsByDomain[d] ?? 0) + c;

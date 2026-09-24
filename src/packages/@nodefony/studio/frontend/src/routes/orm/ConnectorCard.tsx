@@ -72,6 +72,7 @@ import {
   fmtClock,
   fmtBytes,
   connectorRole,
+  entityCount,
 } from "../../utils/ormFormat";
 import {
   normalize,
@@ -253,7 +254,7 @@ export function ConnectorCard({
       .map((e) => {
         relations += e.relations?.length ?? 0;
         domains.add(e.domain || "(non classé)");
-        const c = countMap[e.name];
+        const c = entityCount(countMap, e);
         if (typeof c === "number" && c > 0) rows += c;
         return { name: e.name, domain: e.domain || "—", rows: c ?? -1 };
       })

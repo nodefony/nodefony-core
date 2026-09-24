@@ -67,6 +67,7 @@ import {
   connectorRole,
   lsGet,
   lsSet,
+  entityCount,
 } from "../utils/ormFormat";
 import {
   RealtimeHealthLive,
@@ -776,7 +777,7 @@ export const OrmOverview = observer(
      */
     const countOf = useCallback(
       (e: { name: string; connector: string }): number | undefined =>
-        countMap[`${e.connector}:${e.name}`] ?? countMap[e.name],
+        entityCount(countMap, e),
       [countMap],
     );
 
