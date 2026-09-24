@@ -1549,8 +1549,7 @@ class Kernel extends Service implements IKernel {
     // Gating `policy:"dev"` sur le MODE RUNTIME (NODE_ENV-aware) — un conteneur
     // staging (NODE_ENV=production) droppe bien les modules dev. Le gating fin par
     // environnement de déploiement passe par `when(config)` (axe appEnvironment).
-    const isProd =
-      this.resolveRuntimeEnv(this.cli?.environment) === "production";
+    const isProd = this.isProductionRuntime();
     // Dérogation explicite au gating `policy:"dev"` — pour éprouver un runtime de
     // production AVEC les modules de banc (suite d'intégration, diagnostic « pourquoi
     // ce module manque »). Lue ici et nulle part ailleurs ; jamais silencieuse (cf
@@ -1998,8 +1997,11 @@ class Kernel extends Service implements IKernel {
       isProd: runtimeEnv === "production",
       isDev: runtimeEnv === "development",
       isTest: runtimeEnv === "test",
+      // La MÊME entrée que le gating (`isProductionRuntime`) : comparer
+      // `runtimeEnv` brut déclarait, sous `NODE_ENV=staging`, le connecteur
+      // d'un module que le gating écartait.
       devModules: devModulesLoaded(
-        runtimeEnv === "production",
+        this.isProductionRuntime(),
         process.env[FORCE_DEV_MODULES_ENV],
       ),
     };
@@ -2878,6 +2880,18 @@ class Kernel extends Service implements IKernel {
       }
     }
     process.env.NODE_DEBUG = this.debug ? "true" : "false";
+  }
+
+  /**
+   * Le runtime visé est-il un runtime de production ? — au sens du GATING des
+   * modules (`resolveRuntimeEnv` replie `staging`/`test` sur production).
+   *
+   * Une seule méthode pour deux lecteurs : le gating des modules `policy:"dev"`
+   * et `ctx.devModules` publié à la configuration. Calculé deux fois, ils
+   * divergeaient sur `NODE_ENV=staging`.
+   */
+  private isProductionRuntime(): boolean {
+    return this.resolveRuntimeEnv(this.cli?.environment) === "production";
   }
 
   /**

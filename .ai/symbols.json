@@ -20311,7 +20311,7 @@
       "file": "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
-      "description": "Signale UNE fois par process les entités orphelines, au moment où tous les ORM sont ouverts. Appelée par chaque module ORM (Drizzle, Mongoose) à `onReady` : la règle vit ici, une fois, et le premie…"
+      "description": "Signale UNE fois par démarrage les entités orphelines, au moment où tous les ORM sont ouverts. Appelée par chaque module ORM (Drizzle, Mongoose) à `onReady` : la règle vit ici, une fois, et le prem…"
     },
     "IPaginateOptions": {
       "name": "IPaginateOptions",

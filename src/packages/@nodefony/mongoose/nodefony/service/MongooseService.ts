@@ -61,8 +61,9 @@ class MongooseService extends Service {
     // Tous les ORM sont ouverts à `onReady` : une entité dont le connecteur
     // n'existe pas ne sera servie par rien — le DIRE (règle d'orm-core).
     this.module.hookKernel("onReady", () => {
-      reportOrphanEntities((message, severity) =>
-        this.log(message, severity as "WARNING"),
+      reportOrphanEntities(
+        (message, severity) => this.log(message, severity),
+        this.kernel ?? this,
       );
     });
     this.kernel?.once("onTerminate", async () => {

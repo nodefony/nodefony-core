@@ -46,27 +46,34 @@ export function describeOrphanEntities(
   );
 }
 
-let reported = false;
+/** Les démarrages déjà rapportés — un Kernel ne le dit qu'une fois. */
+const reported = new WeakSet<object>();
 
 /**
- * Signale UNE fois par process les entités orphelines, au moment où tous les
+ * Signale UNE fois par démarrage les entités orphelines, au moment où tous les
  * ORM sont ouverts.
  *
  * Appelée par chaque module ORM (Drizzle, Mongoose) à `onReady` : la règle vit
  * ici, une fois, et le premier appel la rend — le second se tait, sans quoi une
  * application qui charge les deux ORM lirait deux fois le même avertissement.
+ * La garde porte sur le KERNEL et non sur le process : un process qui démarre
+ * plusieurs noyaux (une suite de tests) doit être prévenu à chacun.
  *
  * @param log - journal du module appelant.
+ * @param owner - le démarrage concerné (le Kernel), clé de la garde.
+ * @returns le message rendu, ou `null` (rien à dire, ou déjà dit).
  */
 export function reportOrphanEntities(
-  log: (message: string, severity: string) => void,
-): void {
-  if (reported) return;
-  reported = true;
+  log: (message: string, severity: "WARNING") => void,
+  owner: object,
+): string | null {
+  if (reported.has(owner)) return null;
+  reported.add(owner);
   const connectors = ormRegistry.list();
   const message = describeOrphanEntities(
     findOrphanEntities(entityRegistry.list(), connectors),
     connectors,
   );
   if (message !== null) log(message, "WARNING");
+  return message;
 }

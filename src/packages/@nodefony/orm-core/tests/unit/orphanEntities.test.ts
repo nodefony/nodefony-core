@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import {
   describeOrphanEntities,
   findOrphanEntities,
+  reportOrphanEntities,
 } from "../../nodefony/src/orphanEntities";
+import { entityRegistry } from "../../nodefony/src/EntityRegistry";
 import type { IEntity } from "../../nodefony/interfaces/index";
 
 // Vécu : sur une infra MongoDB, le `User` de l'application restait une table SQL
@@ -47,5 +49,45 @@ describe("entités orphelines — inscrites sur un connecteur qu'aucun ORM n'ouv
     assert.match(message, /Connecteurs ouverts : nodefony/u);
     assert.match(message, /NF_DATABASE_URL/u);
     assert.match(message, /nodefony inspect entities/u);
+  });
+});
+
+// Le rapport lui-même — ce qui rougit si l'appel ou sa garde disparaît.
+describe("reportOrphanEntities — le démarrage le DIT, une fois par Kernel", () => {
+  const orphan = entity("Ghost", "never-opened-connector", "orphans");
+
+  it("NOMME l'orpheline au journal, en WARNING", () => {
+    entityRegistry.register(orphan);
+    try {
+      const lines: string[] = [];
+      const message = reportOrphanEntities(
+        (m, severity) => lines.push(`${severity} ${m}`),
+        {},
+      );
+      assert.ok(message);
+      assert.equal(lines.length, 1);
+      assert.match(
+        lines[0] as string,
+        /^WARNING .*Ghost@orphans → « never-opened-connector »/u,
+      );
+    } finally {
+      entityRegistry.unregister("Ghost", "never-opened-connector");
+    }
+  });
+
+  it("un second ORM du même démarrage se tait ; un AUTRE démarrage parle", () => {
+    entityRegistry.register(orphan);
+    try {
+      const kernel = {};
+      const lines: string[] = [];
+      const log = (m: string) => lines.push(m);
+      reportOrphanEntities(log, kernel);
+      assert.equal(reportOrphanEntities(log, kernel), null);
+      assert.equal(lines.length, 1);
+      reportOrphanEntities(log, {});
+      assert.equal(lines.length, 2);
+    } finally {
+      entityRegistry.unregister("Ghost", "never-opened-connector");
+    }
   });
 });
