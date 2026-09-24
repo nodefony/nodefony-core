@@ -122,3 +122,32 @@ export class ReferencedEntityError extends Error {
     this.field = field;
   }
 }
+
+/**
+ * Levée par `ITransaction.savepoint()` / `rollbackTo()` sur un moteur qui ne porte
+ * PAS de savepoints (MongoDB).
+ *
+ * Refuser vaut mieux que se taire : un `rollbackTo()` rendu en no-op laissait
+ * l'appelant croire ses écritures annulées alors qu'elles restaient en base. Le
+ * refus tombe dès `savepoint()`, pas au `rollbackTo()` : le chemin d'erreur, où
+ * l'on annule, est celui qu'on teste le moins — la faute doit se voir au premier
+ * essai. Pour annuler, terminer la transaction entière (`rollback()`, ou laisser
+ * le callback de `IOrm.transaction()` lever).
+ */
+export class SavepointNotSupportedError extends Error {
+  /** Moteur qui refuse (valeur de `describeConnection().driver`). */
+  readonly driver: string;
+
+  /**
+   * @param driver - moteur qui ne porte pas de savepoints.
+   * @param operation - opération refusée (`savepoint` ou `rollbackTo`).
+   */
+  constructor(driver: string, operation: "savepoint" | "rollbackTo") {
+    super(
+      `${operation}() is not supported by the "${driver}" driver: it has no savepoints. ` +
+        `Roll back the whole transaction instead (rollback(), or throw from the transaction callback).`,
+    );
+    this.name = "SavepointNotSupportedError";
+    this.driver = driver;
+  }
+}

@@ -1,4 +1,5 @@
 import type { ClientSession } from "mongoose";
+import { SavepointNotSupportedError } from "@nodefony/orm-core";
 import type { ITransaction } from "@nodefony/orm-core";
 
 /**
@@ -9,8 +10,8 @@ import type { ITransaction } from "@nodefony/orm-core";
  * MongoDB **exigent un replica set** (un standalone ne les supporte pas).
  *
  * MongoDB n'a **pas de savepoints** : {@link MongooseTransaction.savepoint} /
- * {@link MongooseTransaction.rollbackTo} sont des no-op documentés (limite du
- * driver, prévue par le contrat).
+ * {@link MongooseTransaction.rollbackTo} les REFUSENT (`SavepointNotSupportedError`).
+ * Un no-op laissait croire un rollback partiel qui n'annulait rien.
  */
 export class MongooseTransaction implements ITransaction {
   readonly #session: ClientSession;
@@ -51,14 +52,22 @@ export class MongooseTransaction implements ITransaction {
     await this.#session.abortTransaction();
   }
 
-  /** No-op : MongoDB ne gère pas les savepoints. */
+  /**
+   * Refusé : MongoDB n'a pas de savepoints.
+   *
+   * @throws SavepointNotSupportedError toujours.
+   */
   async savepoint(_name: string): Promise<void> {
-    // Intentionnellement vide — limite du driver MongoDB (cf TSDoc classe).
+    throw new SavepointNotSupportedError("mongodb", "savepoint");
   }
 
-  /** No-op : MongoDB ne gère pas les savepoints. */
+  /**
+   * Refusé : MongoDB n'a pas de savepoints.
+   *
+   * @throws SavepointNotSupportedError toujours.
+   */
   async rollbackTo(_name: string): Promise<void> {
-    // Intentionnellement vide — limite du driver MongoDB.
+    throw new SavepointNotSupportedError("mongodb", "rollbackTo");
   }
 
   /** Expose la `ClientSession` native (trappe bas niveau). */

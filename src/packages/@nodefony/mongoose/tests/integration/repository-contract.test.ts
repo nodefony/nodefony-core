@@ -59,8 +59,8 @@ describe.skipIf(!URI)("MongooseOrm — contrat IRepository + IOrm", () => {
       dispose: () => ormRegistry.unregister(`${ORM}_offline`),
     }),
     driver: "mongodb",
-    // Mongo n'a pas de savepoints : `savepoint`/`rollbackTo` sont un no-op
-    // documenté (cf `advanced.test.ts`) — le cas est sauté, et nommé.
+    // Mongo n'a pas de savepoints : `savepoint`/`rollbackTo` les REFUSENT
+    // (`SavepointNotSupportedError`) — le contrat éprouve ce refus.
     savepoints: false,
     assertProbe: async (o) => {
       const p = await o.probe!();

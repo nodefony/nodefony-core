@@ -82,7 +82,7 @@ exige donc pas — et les nomme.
 <!-- prettier-ignore -->
 | Écart | SQL | MongoDB | Ce que ça change pour vous |
 | --- | --- | --- | --- |
-| **Savepoints** | réels | `savepoint()`/`rollbackTo()` sont des **no-op** (`MongooseTransaction.ts:60`) | Un rollback PARTIEL n'annule rien sous MongoDB : les écritures entre le savepoint et le `rollbackTo` restent. Le cas est sauté au banc (`savepoints: false`), et le saut se lit au rapport. |
+| **Savepoints** | réels | `savepoint()`/`rollbackTo()` lèvent `SavepointNotSupportedError` (`MongooseTransaction.ts:69`) | Pas de rollback PARTIEL sous MongoDB : le refus fait échouer le callback, et la transaction ENTIÈRE est annulée. Le banc éprouve ce refus (`savepoints: false`). |
 | **Expiration des jetons** | `gc()` balaie et compte | `gc()` balaie et compte ; **Redis** : TTL natif, `gc()` rend toujours 0, à la seconde près | Le banc vérifie que l'expiré a DISPARU plutôt qu'un compte (`nativeTtl`), et saute la borne à la milliseconde sous Redis. |
 | **Casse de `$like`** | suit la collation (sqlite/mysql insensibles, pg sensible) | expression régulière, sensible | Ne pas compter sur l'insensibilité à la casse : le banc n'utilise que des motifs à casse exacte. |
 | **Ordre de deux écritures concurrentes** | sqlite : le premier lancé gagne ; pg/mysql : ordre d'arrivée libre | ordre d'arrivée libre | Le banc exige ce qui vaut partout — aucun rejet, une seule révocation effective, aucune réécriture ultérieure — jamais QUI gagne. |

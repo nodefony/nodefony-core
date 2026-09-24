@@ -3,8 +3,8 @@
   "repoRoot": ".",
   "stats": {
     "files": 861,
-    "symbols": 4290,
-    "classes": 399,
+    "symbols": 4291,
+    "classes": 400,
     "interfaces": 1129,
     "types": 459,
     "enums": 4,
@@ -20236,6 +20236,17 @@
       "decorators": [],
       "description": "Levée quand une suppression viserait une entité encore RÉFÉRENCÉE par une relation obligatoire d'une autre entité. C'est le pendant, pour un moteur sans clé étrangère (MongoDB), du `restrict` que l…"
     },
+    "SavepointNotSupportedError": {
+      "name": "SavepointNotSupportedError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/errors.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Levée par `ITransaction.savepoint()` / `rollbackTo()` sur un moteur qui ne porte PAS de savepoints (MongoDB). Refuser vaut mieux que se taire : un `rollbackTo()` rendu en no-op laissait l'appelant …"
+    },
     "Orm": {
       "name": "Orm",
       "kind": "class",
@@ -29203,6 +29214,7 @@
         "UnknownCriteriaField",
         "InvalidOrderOption",
         "ReferencedEntityError",
+        "SavepointNotSupportedError",
         "RagError",
         "VectorError",
         "DevkitError",
@@ -38881,6 +38893,9 @@
       ],
       "ReferencedEntityError": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "SavepointNotSupportedError": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseTransaction.ts"
       ],
       "DecoratedClass": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",

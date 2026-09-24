@@ -51,6 +51,7 @@ export {
   UnknownCriteriaField,
   InvalidOrderOption,
   ReferencedEntityError,
+  SavepointNotSupportedError,
 } from "./nodefony/src/errors";
 
 // ─── Options de lecture — garde portable partagée par tous les adapters ───────

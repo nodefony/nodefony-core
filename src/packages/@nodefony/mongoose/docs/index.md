@@ -636,7 +636,8 @@ await orm.transaction(async (tx) => {
 > **Les transactions exigent un replica set.** Un serveur MongoDB isolé (`mongod` seul, l'installation
 > par défaut) ne les supporte pas. En développement, démarre un replica set à un nœud ; en production,
 > Atlas et la plupart des services managés en fournissent un d'office. Les points de sauvegarde
-> intermédiaires (`savepoint`) n'existent pas en Mongo : ce sont des opérations neutres.
+> intermédiaires n'existent pas en Mongo : `savepoint()` et `rollbackTo()` lèvent
+> `SavepointNotSupportedError` — pour annuler, c'est la transaction entière qu'on abandonne.
 
 ### La trappe native — quand le contrat ne suffit plus
 

@@ -32,7 +32,7 @@ const URI_REELLE = process.env.NF_MONGO_TEST_URI;
 const ORM = "mongo_outage_real";
 
 // Entité minimale du banc : une transaction Mongo ne se prouve que par une
-// ÉCRITURE — `savepoint()` y est un no-op documenté (pas de savepoints côté
+// ÉCRITURE — `savepoint()` y est REFUSÉ sans parler au serveur (pas de savepoints côté
 // MongoDB), donc inapte à révéler un serveur tombé.
 @entity({
   connector: ORM,
@@ -199,9 +199,9 @@ describe.skipIf(!ON || !URI_REELLE || !BOX)(
 
     it("coupure PENDANT une transaction ouverte : elle échoue, et une transaction NEUVE repasse après", async () => {
       // ⚠️ Une transaction se sonde par une ÉCRITURE, pas par un `savepoint()` :
-      // MongoDB n'a pas de savepoints, et le contrat les rend en no-op
-      // documenté. Un banc qui s'y fierait croirait interroger le serveur
-      // sans jamais lui parler — et passerait au vert sur une base éteinte.
+      // MongoDB n'a pas de savepoints, et le driver les refuse sans jamais
+      // parler au serveur. Un banc qui s'y fierait échouerait pour la mauvaise
+      // raison — le refus, pas la coupure.
       const depot = orm.getRepository<{ id?: string; libelle: string }>(
         "OutageDoc",
       );

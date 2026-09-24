@@ -611,15 +611,16 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 `DrizzleRepository.upsert()` (`DrizzleRepository.ts:879`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:405`).
 
-| Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |
-| -------------------------------------- | ----------------------------------- | ---------------------------------- |
-| Moteurs                                | SQLite, PostgreSQL, MySQL / MariaDB | MongoDB                            |
-| Contrat `IRepository` (15 verbes)      | complet                             | complet                            |
-| Eager-load `{ relations }`             | oui                                 | oui (`populate`)                   |
-| Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1933`)          | oui (`MongooseOrm.ts:649`)         |
-| Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1835`)          | oui (`MongooseOrm.ts:617`)         |
+| Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`                         |
+| -------------------------------------- | ----------------------------------- | -------------------------------------------- |
+| Moteurs                                | SQLite, PostgreSQL, MySQL / MariaDB | MongoDB                                      |
+| Contrat `IRepository` (15 verbes)      | complet                             | complet                                      |
+| Eager-load `{ relations }`             | oui                                 | oui (`populate`)                             |
+| Transactions                           | oui                                 | oui (replica set requis par Mongo)           |
+| Savepoints (rollback partiel)          | oui                                 | non — refusés (`SavepointNotSupportedError`) |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1933`)          | oui (`MongooseOrm.ts:649`)                   |
+| Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                                   |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1835`)          | oui (`MongooseOrm.ts:617`)                   |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :

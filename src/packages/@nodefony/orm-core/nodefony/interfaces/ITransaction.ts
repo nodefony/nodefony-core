@@ -3,7 +3,7 @@
  *
  * Obtenue dans le callback de `IOrm.transaction()`. Les transactions cross-ORM
  * (2PC) ne sont PAS garanties : une transaction porte sur un seul ORM/connexion.
- * La sémantique des savepoints dépend du driver (peut être un no-op).
+ * Un moteur sans savepoints (MongoDB) les REFUSE : `SavepointNotSupportedError`.
  */
 export interface ITransaction {
   /** Valide définitivement les opérations de la transaction. */
@@ -16,6 +16,7 @@ export interface ITransaction {
    * Crée un point de sauvegarde nommé pour un rollback partiel ultérieur.
    *
    * @param name - identifiant du savepoint.
+   * @throws SavepointNotSupportedError si le moteur n'en porte pas (MongoDB).
    */
   savepoint(name: string): Promise<void>;
 
@@ -23,6 +24,7 @@ export interface ITransaction {
    * Annule jusqu'à un savepoint sans terminer la transaction.
    *
    * @param name - savepoint cible.
+   * @throws SavepointNotSupportedError si le moteur n'en porte pas (MongoDB).
    */
   rollbackTo(name: string): Promise<void>;
 

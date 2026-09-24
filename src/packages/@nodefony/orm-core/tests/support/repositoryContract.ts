@@ -7,6 +7,7 @@ import {
   escapeLikeTerm,
 } from "@nodefony/orm-core";
 import type { IOrm, IRepository } from "@nodefony/orm-core";
+import { SavepointNotSupportedError } from "@nodefony/orm-core";
 
 /**
  * **Banc de contrat UNIQUE** de `IRepository` **et `IOrm`** — LA même suite,
@@ -61,8 +62,8 @@ export interface RepositoryContractHarness {
   /** Valeur attendue de `describeConnection().driver`. */
   driver: string;
   /**
-   * **Capacité** : le driver porte-t-il de VRAIS savepoints ? `false` = no-op
-   * documenté (MongoDB) → le cas est sauté, et le saut se lit au rapport.
+   * **Capacité** : le driver porte-t-il de VRAIS savepoints ? `false` (MongoDB) =
+   * le driver doit les REFUSER — c'est ce cas-là qui est alors éprouvé.
    */
   savepoints: boolean;
   /**
@@ -636,9 +637,9 @@ export function runRepositoryContract(
     assert.equal(await repo.count({}), 0);
   });
 
-  // Capacité DÉCLARÉE par le harnais : un driver sans savepoints (MongoDB) en
-  // fait un no-op documenté — le cas est alors sauté, et le saut se VOIT au
-  // rapport au lieu de passer pour un vert.
+  // Capacité DÉCLARÉE par le harnais. Un driver sans savepoints (MongoDB) ne
+  // saute pas le sujet : il doit les REFUSER (cas suivant) — un no-op laissait
+  // croire annulées des écritures restées en base.
   it.skipIf(!harness.savepoints)(
     "transaction : savepoint / rollbackTo — annulation PARTIELLE, la transaction continue",
     async () => {
@@ -658,6 +659,33 @@ export function runRepositoryContract(
         (r) => r.name,
       );
       assert.deepEqual(names, ["kept", "kept-after"]);
+    },
+  );
+
+  it.skipIf(harness.savepoints)(
+    "transaction : un driver SANS savepoints les refuse, et la transaction entière est annulée",
+    async () => {
+      await repo.delete({});
+      await assert.rejects(
+        orm.transaction(async (tx) => {
+          await repo
+            .withTransaction(tx)
+            .create({ name: "orphan", age: 1, score: 1 });
+          await tx.savepoint("sp1");
+        }),
+        (err: unknown) =>
+          err instanceof SavepointNotSupportedError &&
+          err.driver === harness.driver,
+      );
+      await assert.rejects(
+        orm.transaction((tx) => tx.rollbackTo("sp1")),
+        SavepointNotSupportedError,
+      );
+      assert.equal(
+        await repo.count({}),
+        0,
+        "le refus fait échouer le callback : rien n'est validé",
+      );
     },
   );
 

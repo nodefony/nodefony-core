@@ -1,7 +1,12 @@
 import assert from "node:assert/strict";
 import type { Connection } from "mongoose";
 import { mongoTestUri } from "../helpers/mongoTestUri";
-import { entity, entityRegistry, ormRegistry } from "@nodefony/orm-core";
+import {
+  entity,
+  entityRegistry,
+  ormRegistry,
+  SavepointNotSupportedError,
+} from "@nodefony/orm-core";
 import type { IRepository, ITransaction } from "@nodefony/orm-core";
 import {
   MongooseOrm,
@@ -16,7 +21,7 @@ import {
 // scopé sur la base `mongo_adv` du fichier. `null` → infra absente → skip.
 const URI = mongoTestUri("mongo_adv");
 
-// ─────────────── updateMany + savepoints (no-op Mongo) ──────────────────────
+// ─────────────── updateMany + savepoints (refusés par Mongo) ──────────────────────
 @entity({
   connector: "mongo_adv_a",
   name: "AdvUser",
@@ -37,7 +42,7 @@ interface AdvUser {
 }
 
 describe.skipIf(!URI)(
-  "Mongoose avancé — updateMany + savepoints (no-op)",
+  "Mongoose avancé — updateMany + savepoints (refusés)",
   () => {
     let orm: MongooseOrm;
     let users: IRepository<AdvUser>;
@@ -76,18 +81,19 @@ describe.skipIf(!URI)(
       assert.equal(n, 0);
     });
 
-    it("savepoint / rollbackTo : NO-OP documenté (Mongo n'a pas de savepoints) — ne throw pas, n'annule rien", async () => {
+    it("savepoint / rollbackTo : REFUSÉS (Mongo n'a pas de savepoints) — la transaction entière est annulée", async () => {
       await users.delete({});
-      await orm.transaction(async (tx: ITransaction) => {
-        const r = users.withTransaction(tx);
-        await r.create({ email: "keep", age: 1, active: true });
-        await tx.savepoint("sp1"); // no-op
-        await r.create({ email: "drop", age: 2, active: true });
-        await tx.rollbackTo("sp1"); // no-op → ne rollback PAS "drop"
-      });
-      // Contrat porté : le savepoint étant un no-op, les DEUX docs persistent.
-      assert.ok(await users.findOne({ email: "keep" }));
-      assert.ok(await users.findOne({ email: "drop" }));
+      await assert.rejects(
+        orm.transaction(async (tx: ITransaction) => {
+          await users
+            .withTransaction(tx)
+            .create({ email: "keep", age: 1, active: true });
+          await tx.savepoint("sp1");
+        }),
+        SavepointNotSupportedError,
+      );
+      // Le refus a fait échouer le callback : l'écriture d'AVANT n'est pas validée.
+      assert.equal(await users.findOne({ email: "keep" }), null);
     });
   },
 );
