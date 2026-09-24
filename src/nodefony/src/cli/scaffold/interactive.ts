@@ -3,6 +3,7 @@ import { anchorEventLoop, chargePrompts, type IPrompts } from "../prompts";
 import clc from "../../colors";
 import type { Readable, Writable } from "node:stream";
 import { capAllows, type IScaffoldTypeSpec } from "./spec";
+import { composeEntityFields, type TAskQuestion } from "./entityFieldsDialog";
 import {
   hydrateQuestion,
   type IScaffoldCaps,
@@ -302,10 +303,23 @@ export async function askMissing(
       if (q.advanced) {
         continue;
       }
-      const question = hydrateQuestion(q, context);
-      answers[q.key] = rich
-        ? await askRich(rich, question)
-        : await ask(rl!, output, question);
+      const askOne: TAskQuestion = (question) =>
+        rich ? askRich(rich, question) : ask(rl!, output, question);
+      if (q.compose === "entityFields") {
+        // La cible d'une relation : les entités du projet, plus celle qu'on
+        // est en train de créer (une relation vers soi est légitime).
+        const entity = String(answers.name ?? "");
+        const known = context ? Object.values(context.entities).flat() : [];
+        const targets = [...new Set([...known, ...(entity ? [entity] : [])])];
+        answers[q.key] = await composeEntityFields(
+          askOne,
+          output,
+          targets,
+          entity,
+        );
+        continue;
+      }
+      answers[q.key] = await askOne(hydrateQuestion(q, context));
     }
   } finally {
     rl?.close();

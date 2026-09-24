@@ -736,6 +736,13 @@ l'admin web) :
   0 dep, streams injectables → testé sur PassThrough). En TTY sans `--yes`,
   les questions non couvertes par les flags sont posées + récap + confirmation ;
   hors TTY (CI, spawn) = défauts de la spec, stable pour les scripts.
+  Une question marquée `compose: "entityFields"` (les champs de `create entity`)
+  se pose UN CHAMP À LA FOIS (`entityFieldsDialog.ts` — nom, type en liste,
+  taille, valeurs, cible, facultatif, contrainte, défaut) : chaque champ est écrit
+  par `formatEntityField` (l'inverse exact de `parseEntityFields`) puis JUGÉ par
+  l'analyseur, et le récap montre la ligne de commande équivalente. La réponse
+  garde sa forme — script et Studio la fournissent toujours entière. Studio a sa
+  propre sérialisation, confrontée à `formatEntityField` (`entityFieldsParity.test.ts`).
 - `create.ts` — adaptateur argv (flags → réponses partielles) + orchestration.
 
 **Templates = LAYERS eta** (`templates/app/`, moteur eta — dep core, conditionnels

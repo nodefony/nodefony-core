@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 859,
-    "symbols": 4269,
+    "files": 860,
+    "symbols": 4276,
     "classes": 398,
     "interfaces": 1127,
-    "types": 458,
+    "types": 459,
     "enums": 4,
-    "functions": 1855,
-    "constants": 427
+    "functions": 1860,
+    "constants": 428
   },
   "symbols": {
     "Cli": {
@@ -7162,6 +7162,14 @@
       "module": "@nodefony/core",
       "description": "Analyse la déclaration textuelle des champs. Grammaire : `nom:type[?][=defaut][:index|:unique]` · `nom:ref:Entité[?][:index|:unique]` - `?` → nullable (sinon **NOT NULL** : une colonne nullable est…"
     },
+    "formatEntityField": {
+      "name": "formatEntityField",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Écrit un champ dans la grammaire de la ligne de commande — l'inverse exact de {@link parseEntityFields}. Il sert à ceux qui COMPOSENT un champ au lieu de l'écrire : le dialogue du terminal, qui mon…"
+    },
     "parseEntityIndexes": {
       "name": "parseEntityIndexes",
       "kind": "function",
@@ -7258,6 +7266,14 @@
       "module": "@nodefony/core",
       "description": "Casses de nom de colonne SQL proposées — la propriété TypeScript ne bouge jamais. `camel` reproduit la propriété telle quelle (défaut historique) ; `snake` émet `site_id` là où la propriété reste `…"
     },
+    "TYPES_WITHOUT_DEFAULT": {
+      "name": "TYPES_WITHOUT_DEFAULT",
+      "kind": "const",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Types qui n'acceptent pas de valeur par défaut littérale."
+    },
     "TABLE_FN": {
       "name": "TABLE_FN",
       "kind": "const",
@@ -7273,6 +7289,22 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Forme d'un identifiant MongoDB (`ObjectId`) — 24 chiffres hexadécimaux. Source unique pour le schéma Zod d'une référence et pour l'échantillon qui doit le satisfaire : une référence mal formée n'at…"
+    },
+    "TAskQuestion": {
+      "name": "TAskQuestion",
+      "kind": "type",
+      "file": "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose les champs d'une entité UN PAR UN, dans le terminal — au lieu de demander la grammaire `nom:type?:unique` à quelqu'un qui découvre. Le dialogue ne décide rien : chaque champ composé est écr…"
+    },
+    "composeEntityFields": {
+      "name": "composeEntityFields",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose les champs, et rend la réponse `fields` telle que la ligne de commande l'aurait reçue."
     },
     "IFormatOutcome": {
       "name": "IFormatOutcome",
@@ -33811,7 +33843,8 @@
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "parseEntityFields": [
-        "src/nodefony/src/cli/scaffold/engine.ts"
+        "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts"
       ],
       "parseEntityIndexes": [
         "src/nodefony/src/cli/scaffold/engine.ts"
@@ -33863,6 +33896,7 @@
       ],
       "IEntityField": [
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts",
         "src/nodefony/src/cli/scaffold/userContractSource.ts"
       ],
       "findReservedEntity": [
@@ -33942,6 +33976,7 @@
       ],
       "IScaffoldQuestion": [
         "src/nodefony/src/cli/scaffold/engine.ts",
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts",
         "src/nodefony/src/cli/scaffold/help.ts"
       ],
       "openSiblingRoutes": [
@@ -33949,6 +33984,22 @@
       ],
       "nodefonyImports": [
         "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "ENTITY_FIELD_TYPES": [
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts"
+      ],
+      "EntityFieldError": [
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts"
+      ],
+      "TYPES_WITHOUT_DEFAULT": [
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts"
+      ],
+      "formatEntityField": [
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts"
+      ],
+      "TEntityFieldType": [
+        "src/nodefony/src/cli/scaffold/entityFieldsDialog.ts",
+        "src/nodefony/src/cli/scaffold/userContractSource.ts"
       ],
       "IUsageEntry": [
         "src/nodefony/src/cli/scaffold/help.ts"
@@ -33962,6 +34013,12 @@
       "IPrompts": [
         "src/nodefony/src/cli/scaffold/interactive.ts"
       ],
+      "composeEntityFields": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
+      "TAskQuestion": [
+        "src/nodefony/src/cli/scaffold/interactive.ts"
+      ],
       "hydrateQuestion": [
         "src/nodefony/src/cli/scaffold/interactive.ts",
         "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
@@ -33969,9 +34026,6 @@
       "IScaffoldContext": [
         "src/nodefony/src/cli/scaffold/interactive.ts",
         "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
-      ],
-      "TEntityFieldType": [
-        "src/nodefony/src/cli/scaffold/userContractSource.ts"
       ],
       "inject": [
         "src/nodefony/src/client/angular/index.ts",
@@ -35108,6 +35162,15 @@
       ],
       "toOpenSearchDocument": [
         "src/nodefony/src/syslog/transports/OpenSearchTransport.ts"
+      ],
+      "text": [
+        "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/modules/test/nodefony/entity/adoptFixture.ts",
+        "src/modules/test/nodefony/entity/adoptFixture.ts",
+        "src/modules/test/nodefony/entity/adoptFixture.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts"
       ],
       "IEntity": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",

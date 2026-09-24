@@ -134,6 +134,15 @@ export interface IScaffoldQuestion {
    */
   optionsFrom?: "connectors" | "entities";
   /**
+   * La réponse se COMPOSE en plusieurs questions au lieu de s'écrire d'un bloc.
+   *
+   * `entityFields` : le dialogue du terminal demande les champs un par un
+   * (`entityFieldsDialog.ts`) et rend la même ligne de grammaire que la
+   * commande aurait reçue. La réponse, elle, ne change pas de forme — un script
+   * ou Studio continuent de la fournir entière.
+   */
+  compose?: "entityFields";
+  /**
    * Réglage **avancé** : jamais posé en dialogue (son défaut est sûr), mais piloté par
    * une option de la ligne de commande — et proposé par Studio dans un repli.
    *
@@ -956,6 +965,9 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
         "Champs (nom:type, séparés par des espaces — ? nullable, :index, :unique)",
       type: "string",
       default: "",
+      // En dialogue, un champ à la fois : la grammaire se montre au
+      // récapitulatif au lieu d'être exigée d'entrée.
+      compose: "entityFields",
     },
     {
       key: "id",

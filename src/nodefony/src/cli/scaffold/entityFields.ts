@@ -170,7 +170,11 @@ const NAME_RE = /^[a-z][a-zA-Z0-9]*$/u;
 const ENTITY_RE = /^[A-Z][A-Za-z0-9]*$/u;
 
 /** Types qui n'acceptent pas de valeur par défaut littérale. */
-const NO_DEFAULT: ReadonlySet<string> = new Set(["json", "date", "ref"]);
+export const TYPES_WITHOUT_DEFAULT: ReadonlySet<string> = new Set([
+  "json",
+  "date",
+  "ref",
+]);
 
 /**
  * Noms qu'on tape par habitude d'un autre outil, et le type Nodefony qu'ils
@@ -451,7 +455,7 @@ export function parseEntityFields(input: string): IEntityField[] {
       );
     }
     if (defaultValue !== undefined) {
-      if (NO_DEFAULT.has(type)) {
+      if (TYPES_WITHOUT_DEFAULT.has(type)) {
         throw new EntityFieldError(
           `champ invalide « ${raw} » — le type « ${type} » n'accepte pas de valeur par défaut`,
         );
@@ -487,6 +491,43 @@ export function parseEntityFields(input: string): IEntityField[] {
   }
 
   return fields;
+}
+
+/**
+ * Écrit un champ dans la grammaire de la ligne de commande — l'inverse exact de
+ * {@link parseEntityFields}.
+ *
+ * Il sert à ceux qui COMPOSENT un champ au lieu de l'écrire : le dialogue du
+ * terminal, qui montre en récapitulatif la ligne équivalente (on apprend la
+ * syntaxe en passant, sans avoir dû la connaître), et Studio, dont la copie est
+ * confrontée à celle-ci. L'ordre des suffixes est celui que l'analyseur défait :
+ * `?`, puis `=défaut`, puis `:unique` ou `:index`.
+ *
+ * Une relation est indexée d'office par l'analyseur : son `:index` ne s'écrit
+ * donc pas — la forme la plus courte est la forme canonique.
+ *
+ * @param field - un champ tel que l'analyseur le rend.
+ * @returns la déclaration, ex. `price:decimal(12,2)?=0:index`.
+ */
+export function formatEntityField(field: IEntityField): string {
+  let type: string;
+  if (field.type === "ref") {
+    type = `ref:${field.target ?? ""}`;
+  } else if (field.type === "enum") {
+    type = `enum(${(field.values ?? []).join(",")})`;
+  } else if (field.type === "decimal") {
+    type = `decimal(${field.precision ?? 0},${field.scale ?? 0})`;
+  } else if (field.length !== undefined) {
+    type = `${field.type}(${field.length})`;
+  } else {
+    type = field.type;
+  }
+  let out = `${field.name}:${type}`;
+  if (field.nullable) out += "?";
+  if (field.defaultValue !== undefined) out += `=${field.defaultValue}`;
+  if (field.unique) out += ":unique";
+  else if (field.indexed && field.type !== "ref") out += ":index";
+  return out;
 }
 
 /**

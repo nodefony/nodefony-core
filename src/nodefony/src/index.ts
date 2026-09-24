@@ -669,6 +669,7 @@ export { FRONTEND_CHOICES } from "./cli/scaffold/spec";
 // champs dans une interface et confronte sa sérialisation à celui-ci.
 export {
   parseEntityFields,
+  formatEntityField,
   EntityFieldError,
   ENTITY_FIELD_TYPES,
 } from "./cli/scaffold/entityFields";

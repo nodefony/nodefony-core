@@ -9,7 +9,11 @@
  */
 import { describe, it } from "vitest";
 import { expect } from "chai";
-import { ENTITY_FIELD_TYPES, parseEntityFields } from "nodefony";
+import {
+  ENTITY_FIELD_TYPES,
+  formatEntityField,
+  parseEntityFields,
+} from "nodefony";
 import {
   NO_DEFAULT_TYPES,
   emptyFieldRow,
@@ -74,6 +78,12 @@ describe("Créer — éditeur de champs : la sérialisation passe le VRAI analys
             if (type === "ref") expect(parsed?.target, label).to.equal("User");
             if (withDefault && !NO_DEFAULT_TYPES.has(type)) {
               expect(parsed?.defaultValue, label).to.equal(DEFAULTS[type]);
+            }
+            // Un seul écrivain de référence : le cœur. L'écran écrit la même
+            // ligne, au `:index` près d'une relation — indexée d'office, la
+            // forme canonique ne l'écrit pas.
+            if (!(type === "ref" && mode === "indexed")) {
+              expect(formatEntityField(parsed!), label).to.equal(text);
             }
             checked += 1;
           }
