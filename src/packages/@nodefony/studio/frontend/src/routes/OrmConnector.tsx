@@ -26,6 +26,7 @@ import {
   Badge,
   Button,
   Code,
+  Collapse,
   CopyButton,
   Grid,
   Group,
@@ -52,6 +53,7 @@ import {
   IconDatabase,
   IconDownload,
   IconGitMerge,
+  IconHeartbeat,
   IconHeartRateMonitor,
   IconInfoCircle,
   IconPlugConnected,
@@ -96,6 +98,7 @@ import {
 import {
   analyzeConnector,
   attributeBricks,
+  timeOutages,
   worstLevel,
   type ConnectorFinding,
   type ConnectorTab,
@@ -200,6 +203,186 @@ function InlineCode({ text }: { text: string }) {
         .split("`")
         .map((part, i) => (i % 2 === 1 ? <Code key={i}>{part}</Code> : part))}
     </>
+  );
+}
+
+/**
+ * **Résilience** — comment ce connecteur détecte une coupure et constate le
+ * retour, avec les valeurs qui tournent dans ce process, puis la chronologie
+ * des pertes et reprises. Le mécanisme (battement de cœur, perte en
+ * souffrance, reprise constatée) vit dans `Orm` (`@nodefony/orm-core`) ;
+ * cette section ne fait que le rendre lisible.
+ */
+function ResilienceSection({ health }: { health: ConnHealth }) {
+  const [explain, setExplain] = useState(false);
+  const res = health.resilience;
+  const events = useMemo(
+    () => timeOutages(health.events ?? []),
+    [health.events],
+  );
+  if (!res) {
+    return (
+      <Text size="sm" c="dimmed">
+        Ce serveur ne publie pas encore le mécanisme de reconnexion de ses
+        connecteurs.
+      </Text>
+    );
+  }
+  const lastOutage = events.find((e) => e.outageMs !== undefined)?.outageMs;
+  const period = res.heartbeatMs > 0 ? fmtDuration(res.heartbeatMs) : null;
+  const mongo = health.driver === "mongodb";
+  // SQLite est une bibliothèque DANS le process : ni serveur ni réseau, donc
+  // rien qui tombe au sens d'une coupure — le mécanisme tourne, mais ses
+  // chiffres n'ont pas le sens qu'ils ont face à PostgreSQL ou MongoDB.
+  const inProcess = health.driver === "sqlite";
+  return (
+    <Paper withBorder radius="md" p="md">
+      <Group justify="space-between" mb="sm" wrap="wrap">
+        <Group gap="xs">
+          <IconHeartbeat size={18} />
+          <Title order={2} size="h4">
+            Résilience
+          </Title>
+          <Badge
+            variant="light"
+            color={res.lostPending ? "red" : health.connected ? "teal" : "gray"}
+          >
+            {res.lostPending
+              ? "perte en cours"
+              : health.connected
+                ? "connecté"
+                : "arrêté"}
+          </Badge>
+        </Group>
+        <Button
+          size="compact-sm"
+          variant="subtle"
+          aria-expanded={explain}
+          onClick={() => setExplain((v) => !v)}
+        >
+          {explain ? "Masquer le mécanisme" : "Comment ça marche ?"}
+        </Button>
+      </Group>
+      {inProcess ? (
+        <Text size="sm" c="dimmed" mb="sm">
+          <b>Peu significatif ici :</b> SQLite est une bibliothèque qui lit un
+          fichier dans ce process — il n'y a ni serveur ni réseau qui puisse
+          tomber. Le battement n'y détecterait qu'une panne de fichier (disque
+          plein, fichier supprimé, droits retirés). Ce mécanisme prend son sens
+          face à PostgreSQL, MySQL ou MongoDB.
+        </Text>
+      ) : null}
+      <SimpleGrid cols={{ base: 1, md: 3 }}>
+        <DefinitionList>
+          <KeyValue
+            k="Battement de cœur"
+            v={
+              res.heartbeatMs <= 0
+                ? "désactivé"
+                : res.heartbeatActive
+                  ? `actif · toutes les ${period}`
+                  : res.pingable
+                    ? "arrêté"
+                    : "impossible (pas de ping)"
+            }
+          />
+          <KeyValue
+            k="Délai de réponse"
+            v={fmtDuration(res.heartbeatTimeoutMs)}
+          />
+        </DefinitionList>
+        <DefinitionList>
+          <KeyValue k="Pertes constatées" v={String(health.lostCount ?? 0)} />
+          <KeyValue k="Reprises constatées" v={String(health.reconnectCount)} />
+        </DefinitionList>
+        <DefinitionList>
+          <KeyValue
+            k="Dernière perte"
+            v={health.lastLostAt ? fmtClock(health.lastLostAt) : "—"}
+          />
+          <KeyValue
+            k="Dernière coupure"
+            v={lastOutage !== undefined ? fmtDuration(lastOutage) : "—"}
+          />
+        </DefinitionList>
+      </SimpleGrid>
+      <Collapse expanded={explain}>
+        <Stack gap={6} mt="md">
+          <Text size="sm" fw={600}>
+            Ce qui se passe quand la base tombe
+          </Text>
+          <Text size="sm" c="dimmed">
+            <b>1. Détecter.</b>{" "}
+            {mongo
+              ? "Le pilote MongoDB surveille ses serveurs en permanence : il signale seul la perte, même sans trafic."
+              : inProcess
+                ? "SQLite n'a pas de serveur : le battement exécute sa requête dans ce process, sur le fichier."
+                : "Ce pilote n'apprend l'état de la base que par ses requêtes. Ses signaux (fermeture d'une connexion du pool) ne tranchent pas : ils avancent le battement, qui seul décide."}{" "}
+            {period
+              ? `Le battement interroge la base toutes les ${period} ; sans réponse en ${fmtDuration(res.heartbeatTimeoutMs)}, c'est une perte — une base gelée ne ferme rien, seule une montre la voit.`
+              : "Le battement est désactivé : aucune sonde périodique ne complète le pilote."}
+          </Text>
+          <Text size="sm" c="dimmed">
+            <b>2. Constater la perte, une seule fois.</b> Le connecteur passe
+            hors ligne, sa durée de connexion est remise à zéro (un compteur qui
+            continuerait de courir se lirait comme une preuve de santé), et
+            l'événement <Code>onOrmLost</Code> part une fois — même si dix
+            connexions du pool tombent ensemble.
+          </Text>
+          <Text size="sm" c="dimmed">
+            <b>3. Attendre le retour.</b> Pendant la panne, le battement
+            continue : c'est lui qui verra la base revenir. Un arrêt volontaire
+            (<Code>disconnect()</Code>) l'arrête, en revanche.
+          </Text>
+          <Text size="sm" c="dimmed">
+            <b>4. Constater la reprise.</b> À la première réponse, le connecteur
+            repasse en ligne et <Code>onOrmRestored</Code> part. Une reprise
+            n'est comptée que s'il y a eu une perte : ouvrir le pool au
+            démarrage n'en est pas une.
+          </Text>
+          <Text size="xs" c="dimmed">
+            Réglage : <Code>NF_ORM_HEARTBEAT_MS</Code> (période, 0 = désactivé).
+            Mesures propres à ce process — chaque exemplaire a sa connexion.
+          </Text>
+        </Stack>
+      </Collapse>
+      <Title order={3} size="h5" mt="md" mb={6}>
+        Chronologie des coupures
+      </Title>
+      {events.length > 0 ? (
+        <Table striped>
+          <Table.Tbody>
+            {events.map((e) => (
+              <Table.Tr key={`${e.ts}-${e.kind}`}>
+                <Table.Td w={110}>{fmtClock(e.ts)}</Table.Td>
+                <Table.Td w={110}>
+                  <Badge
+                    size="sm"
+                    variant="light"
+                    color={e.kind === "lost" ? "red" : "teal"}
+                  >
+                    {e.kind === "lost" ? "perte" : "reprise"}
+                  </Badge>
+                </Table.Td>
+                <Table.Td>
+                  {e.kind === "lost" ? (
+                    <Code>{e.reason ?? "cause non transmise"}</Code>
+                  ) : e.outageMs !== undefined ? (
+                    `après ${fmtDuration(e.outageMs)} de coupure`
+                  ) : (
+                    "coupure antérieure à la chronologie"
+                  )}
+                </Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      ) : (
+        <Text size="sm" c="dimmed">
+          Aucune coupure depuis le démarrage de ce process.
+        </Text>
+      )}
+    </Paper>
   );
 }
 
@@ -1024,6 +1207,7 @@ export const OrmConnector = observer(() => {
               </Paper>
             ) : null}
           </SimpleGrid>
+          <ResilienceSection health={h} />
           <Title order={2} size="h4">
             Erreurs récentes
           </Title>

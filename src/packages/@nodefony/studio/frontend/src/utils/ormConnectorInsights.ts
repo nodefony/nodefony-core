@@ -9,6 +9,7 @@
  * qu'annoncer faux).
  */
 import type {
+  ConnEvent,
   ConnHealth,
   EntityNode,
   FlowDetail,
@@ -16,7 +17,7 @@ import type {
   OrmSummary,
   StoreBrick,
 } from "../types/orm";
-import { fmtBytes, fmtMs, fmtNum } from "./ormFormat";
+import { fmtBytes, fmtClock, fmtMs, fmtNum } from "./ormFormat";
 
 /**
  * Rattache chaque brique du registre des stores au CONNECTEUR qui la porte.
@@ -210,6 +211,41 @@ export function analyzeConnector(input: ConnectorInput): ConnectorFinding[] {
     });
   }
 
+  // ── Résilience ───────────────────────────────────────────────────────────
+  const res = health?.resilience;
+  if (res?.lostPending) {
+    const since = health?.lastLostAt ?? null;
+    const reason = health?.events?.find((e) => e.kind === "lost")?.reason;
+    out.push({
+      id: "outage",
+      level: "critical",
+      title: "Connexion perdue — le framework attend son retour",
+      detail: `${reason ? `Cause : ${reason}. ` : ""}${
+        since !== null ? `Perdue depuis ${fmtClock(since)}. ` : ""
+      }${
+        res.heartbeatActive
+          ? `Le battement sonde la base toutes les ${fmtMs(res.heartbeatMs)} : la reprise sera constatée à la première réponse.`
+          : "Aucun battement ne tourne : seule une requête ou un événement du pilote verra le retour."
+      }`,
+      tab: "connexion",
+    });
+  }
+  // SQLite vit DANS le process (un fichier, pas de serveur ni de réseau) :
+  // il n'y a pas de coupure à guetter, un battement coupé n'y coûte rien.
+  if (res && res.heartbeatMs <= 0 && !volatile && driver !== "sqlite") {
+    out.push({
+      id: "heartbeat-off",
+      level: driver === "mongodb" ? "info" : "warning",
+      title: "Battement de cœur désactivé",
+      detail:
+        driver === "mongodb"
+          ? "Le pilote MongoDB surveille ses serveurs lui-même : les pertes restent détectées, sans le filet d'une sonde périodique."
+          : "Ce pilote n'apprend l'état de la base que par ses requêtes : une base gelée, ou tombée sans trafic, restera annoncée « connectée ».",
+      tab: "connexion",
+      command: "NF_ORM_HEARTBEAT_MS=30000",
+    });
+  }
+
   // ── Stabilité ────────────────────────────────────────────────────────────
   if (health && health.reconnectCount > 0) {
     out.push({
@@ -381,4 +417,34 @@ export function analyzeConnector(input: ConnectorInput): ConnectorFinding[] {
   }
 
   return out.sort((a, b) => LEVEL_RANK[a.level] - LEVEL_RANK[b.level]);
+}
+
+/** Un événement de la chronologie, avec la durée de la coupure qu'il clôt. */
+export interface TimedConnEvent extends ConnEvent {
+  /** Pour une reprise : durée depuis la perte qui la précède (ms). */
+  outageMs?: number;
+}
+
+/**
+ * Durée de chaque coupure : une reprise est rapprochée de la perte qui la
+ * précède. Une reprise dont la perte est sortie de la chronologie bornée
+ * reste sans durée — jamais une durée inventée.
+ *
+ * @param events - chronologie du data plane, plus récents d'abord.
+ * @returns la même chronologie, plus récents d'abord, reprises chiffrées.
+ */
+export function timeOutages(events: readonly ConnEvent[]): TimedConnEvent[] {
+  const out: TimedConnEvent[] = [];
+  let lostAt: number | null = null;
+  for (let i = events.length - 1; i >= 0; i--) {
+    const e = events[i];
+    if (e.kind === "lost") {
+      if (lostAt === null) lostAt = e.ts;
+      out.push({ ...e });
+    } else {
+      out.push(lostAt === null ? { ...e } : { ...e, outageMs: e.ts - lostAt });
+      lostAt = null;
+    }
+  }
+  return out.reverse();
 }

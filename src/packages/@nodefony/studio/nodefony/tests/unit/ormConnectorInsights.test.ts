@@ -7,6 +7,7 @@ import { expect } from "chai";
 import {
   analyzeConnector,
   attributeBricks,
+  timeOutages,
   worstLevel,
 } from "../../../frontend/src/utils/ormConnectorInsights";
 import type {
@@ -277,5 +278,107 @@ describe("analyzeConnector — un verdict = une mesure", () => {
       bricks: [brick("tokens", "drizzle", FILE)],
     });
     expect(f.map((x) => x.level)).to.deep.equal(["critical", "warning", "ok"]);
+  });
+});
+
+describe("résilience — la perte en cours et le battement se lisent", () => {
+  const res = (over = {}) => ({
+    heartbeatMs: 30_000,
+    heartbeatTimeoutMs: 5_000,
+    heartbeatActive: true,
+    pingable: true,
+    lostPending: false,
+    ...over,
+  });
+
+  it("une perte EN SOUFFRANCE est critique, avec sa cause", () => {
+    const f = analyzeConnector({
+      orm: fileDb,
+      health: health({
+        resilience: res({ lostPending: true }),
+        lastLostAt: 1000,
+        events: [
+          {
+            kind: "lost",
+            ts: 1000,
+            reason: "battement : aucune réponse en 5000 ms",
+          },
+        ],
+      }),
+    });
+    const outage = f.find((x) => x.id === "outage");
+    expect(outage?.level).to.equal("critical");
+    expect(outage?.detail).to.contain("aucune réponse en 5000 ms");
+    // Une perte réparée n'est plus « en cours »
+    expect(
+      ids(
+        analyzeConnector({
+          orm: fileDb,
+          health: health({ resilience: res() }),
+        }),
+      ),
+    ).to.not.include("outage");
+  });
+
+  it("battement coupé : avertissement sur un pilote muet, simple information sur MongoDB", () => {
+    const off = res({ heartbeatMs: 0, heartbeatActive: false });
+    const pg: OrmSummary = {
+      ...fileDb,
+      connection: { driver: "postgres", target: "db:5432/app" },
+    };
+    const sql = analyzeConnector({
+      orm: pg,
+      health: health({
+        driver: "postgres",
+        target: "db:5432/app",
+        resilience: off,
+      }),
+    });
+    expect(sql.find((x) => x.id === "heartbeat-off")?.level).to.equal(
+      "warning",
+    );
+    // SQLite : une bibliothèque dans le process, pas de coupure à guetter
+    expect(
+      ids(
+        analyzeConnector({ orm: fileDb, health: health({ resilience: off }) }),
+      ),
+    ).to.not.include("heartbeat-off");
+    const mg = analyzeConnector({
+      orm: mongo,
+      health: health({
+        driver: "mongodb",
+        target: "mongodb://db/app",
+        resilience: off,
+      }),
+    });
+    expect(mg.find((x) => x.id === "heartbeat-off")?.level).to.equal("info");
+    // En mémoire : pas de sujet
+    expect(
+      ids(
+        analyzeConnector({
+          orm: memoryDb,
+          health: health({ target: ":memory:", resilience: off }),
+        }),
+      ),
+    ).to.not.include("heartbeat-off");
+  });
+
+  it("timeOutages : chaque reprise chiffrée depuis la PREMIÈRE perte qui la précède", () => {
+    const t = timeOutages([
+      { kind: "restored", ts: 9000 },
+      { kind: "lost", ts: 7000, reason: "b" },
+      { kind: "restored", ts: 5000 },
+      { kind: "lost", ts: 3000, reason: "a2" },
+      { kind: "lost", ts: 2000, reason: "a1" },
+      { kind: "restored", ts: 1000 },
+    ]);
+    expect(t.map((e) => e.outageMs)).to.deep.equal([
+      2000,
+      undefined,
+      3000,
+      undefined,
+      undefined,
+      undefined,
+    ]);
   });
 });

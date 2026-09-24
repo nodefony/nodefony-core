@@ -65,6 +65,26 @@ export interface ConnError {
   ts: number;
 }
 
+/** Perte ou reprise constatée (chronologie de `connection/health`). */
+export interface ConnEvent {
+  kind: "lost" | "restored";
+  ts: number;
+  reason?: string;
+}
+
+/** Mécanisme de résilience tel qu'il tourne (`connection/health`). */
+export interface ConnResilience {
+  /** Période du battement (ms) ; `0` = désactivé. */
+  heartbeatMs: number;
+  /** Délai sans réponse qui vaut une perte (ms). */
+  heartbeatTimeoutMs: number;
+  heartbeatActive: boolean;
+  /** L'adapter sait répondre à `ping()` (condition du battement). */
+  pingable: boolean;
+  /** Perte constatée et pas encore réparée. */
+  lostPending: boolean;
+}
+
 /** Diagnostic d'un connecteur (/nodefony/orm/api/connection/health). */
 export interface ConnHealth {
   instanceId: string;
@@ -79,6 +99,12 @@ export interface ConnHealth {
   uptimeMs: number | null;
   connectCount: number;
   reconnectCount: number;
+  /** Absents d'un serveur antérieur à la chronologie des coupures. */
+  lostCount?: number;
+  lastLostAt?: number | null;
+  lastRestoredAt?: number | null;
+  events?: ConnEvent[];
+  resilience?: ConnResilience;
   errorCount: number;
   lastError: ConnError | null;
   recentErrors: ConnError[];
