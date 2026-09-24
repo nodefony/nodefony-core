@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T18:13:18.080Z",
+  "generatedAt": "2026-09-24T18:49:37.994Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 152,
+      "closed": 153,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 7,
+      "open": 6,
       "title": "10.0.0-alpha"
     },
     {
@@ -2264,8 +2264,8 @@
       "number": 467,
       "title": "feat(mongoose): refuser la suppression d'un parent encore référencé",
       "url": "https://github.com/nodefony/nodefony-core/issues/467",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,

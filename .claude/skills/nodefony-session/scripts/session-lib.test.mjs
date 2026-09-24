@@ -57,12 +57,27 @@ describe("ciVerdict — le statut fait foi, jamais la conclusion seule", () => {
     ]);
     expect(v).toMatchObject({ state: "failure", failed: ["b"] });
   });
-  it("annulé (remplacé par un run plus récent) n'est pas un rouge", () => {
+  it("annulé sur le dernier commit (job figé) n'est pas un vert — et il est nommé", () => {
+    const v = ciVerdict([
+      {
+        status: "completed",
+        conclusion: "cancelled",
+        workflowName: "nodefony-core",
+      },
+      { status: "completed", conclusion: "success", workflowName: "Secrets" },
+    ]);
+    expect(v).toMatchObject({
+      state: "cancelled",
+      cancelled: ["nodefony-core"],
+    });
+  });
+  it("un rouge l'emporte sur une annulation", () => {
     expect(
       ciVerdict([
         { status: "completed", conclusion: "cancelled", workflowName: "a" },
+        { status: "completed", conclusion: "failure", workflowName: "b" },
       ]).state,
-    ).toBe("success");
+    ).toBe("failure");
   });
   it("aucun run → none, pas un vert", () => {
     expect(ciVerdict([]).state).toBe("none");

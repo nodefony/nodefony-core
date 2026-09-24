@@ -42,11 +42,17 @@ export function uncitedWork(commits, stateText) {
  * Un run en cours a `conclusion: ""` — pas `null` : un `conclusion ?? status`
  * le lit donc comme terminé. Le statut fait foi, jamais la conclusion seule.
  *
+ * Un run ANNULÉ n'est pas un vert : les runs lus sont ceux du commit le plus
+ * récent qui en a, donc aucun run plus récent du même workflow n'a pu le
+ * remplacer — il a atteint son plafond (job figé) ou a été annulé à la main.
+ * Le compter vert a affiché ✅ sur un commit dont la CI principale était figée.
+ *
  * @param {{status: string, conclusion: string, workflowName: string}[]} runs
- * @returns {{state: "none"|"running"|"failure"|"success", running: string[], failed: string[]}}
+ * @returns {{state: "none"|"running"|"failure"|"cancelled"|"success", running: string[], failed: string[], cancelled: string[]}}
  */
 export function ciVerdict(runs) {
-  if (!runs.length) return { state: "none", running: [], failed: [] };
+  if (!runs.length)
+    return { state: "none", running: [], failed: [], cancelled: [] };
   const running = runs
     .filter((r) => r.status !== "completed")
     .map((r) => r.workflowName);
@@ -57,12 +63,17 @@ export function ciVerdict(runs) {
         !["success", "skipped", "neutral", "cancelled"].includes(r.conclusion),
     )
     .map((r) => r.workflowName);
+  const cancelled = runs
+    .filter((r) => r.status === "completed" && r.conclusion === "cancelled")
+    .map((r) => r.workflowName);
   const state = failed.length
     ? "failure"
     : running.length
       ? "running"
-      : "success";
-  return { state, running, failed };
+      : cancelled.length
+        ? "cancelled"
+        : "success";
+  return { state, running, failed, cancelled };
 }
 
 /**

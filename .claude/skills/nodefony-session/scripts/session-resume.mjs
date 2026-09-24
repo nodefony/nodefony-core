@@ -151,14 +151,20 @@ if (online) {
   if (!sha) say("CI : aucun run sur les 5 derniers commits poussés");
   else {
     const v = ciVerdict(all.filter((r) => r.headSha === sha));
-    const icon = { success: "✅", running: "⏳", failure: "❌", none: "·" }[
-      v.state
-    ];
+    const icon = {
+      success: "✅",
+      running: "⏳",
+      failure: "❌",
+      cancelled: "⚠️",
+      none: "·",
+    }[v.state];
     const detail = v.failed.length
       ? ` — rouge : ${v.failed.join(", ")}`
       : v.running.length
         ? ` — en cours : ${v.running.join(", ")}`
-        : "";
+        : v.cancelled.length
+          ? ` — ANNULÉ (job figé ?) : ${v.cancelled.join(", ")}`
+          : "";
     say(`CI ${sha.slice(0, 8)} ${icon} ${v.state}${clip(detail, 80)}`);
   }
 }
