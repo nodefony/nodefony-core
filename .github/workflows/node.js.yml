@@ -966,3 +966,123 @@ jobs:
             src/packages/@nodefony/http/throttle-report.json
           retention-days: 7
           if-no-files-found: ignore
+
+  # ── Matrice de DÉCORS — l'application réelle démarrée sur chaque base ────────
+  #
+  # Les défauts de cette famille ne se montrent que dans UN décor : sur MongoDB,
+  # un connecteur SQL ouvert pour rien et le `User` de l'application orphelin ;
+  # en production sous dérogation, des entités sans connecteur puis `/readyz`
+  # à 503. L'intégration ci-dessus ne démarre qu'en SQLite (développement et
+  # production) : tout le reste n'était vu que si quelqu'un démarrait à la main
+  # dans le bon décor — d'où un défaut découvert à chaque correction.
+  #
+  # Chaque décor démarre l'application (l'action attend `/readyz` à 200) puis
+  # joue les invariants de `vitest.decors.config.ts` : chaque entité a son
+  # connecteur ouvert, la pastille « défaut » suit les briques durables, aucun
+  # `default` Drizzle sur MongoDB. SQLite et la production sont déjà couverts
+  # par `test-integration`. MariaDB porte le dialecte `mysql` (MySQL Community
+  # se rejoue en local : `npm run test:all -- --dialects`).
+  #
+  # Les trois décors tournent EN PARALLÈLE de l'intégration : ils n'allongent pas
+  # l'attente d'une poussée au-delà du job le plus long.
+  test-decors:
+    name: Décor (${{ matrix.decor }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - decor: postgres
+            database-url: postgres://nodefony:nodefony-dev@127.0.0.1:5432/nodefony
+          - decor: mariadb
+            database-url: mysql://nodefony:nodefony-dev@127.0.0.1:3306/nodefony
+          - decor: mongodb
+            database-url: mongodb://127.0.0.1:27017/nodefony_boot?replicaSet=rs0
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: nodefony
+          POSTGRES_PASSWORD: nodefony-dev
+          POSTGRES_DB: nodefony
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nodefony -d nodefony"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      mariadb:
+        image: mariadb:11.4
+        env:
+          MARIADB_ROOT_PASSWORD: nodefony-dev
+          MARIADB_USER: nodefony
+          MARIADB_PASSWORD: nodefony-dev
+          MARIADB_DATABASE: nodefony
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd "healthcheck.sh --connect --innodb_initialized"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 12
+
+    env:
+      # Le backoff de connexion compte par identifiant saisi : sans cette
+      # coupure, les connexions répétées de la suite finiraient en 429.
+      NF__SECURITY__RATELIMIT__ENABLED: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 26.x
+          cache: "npm"
+
+      - name: MongoDB (jeu de réplicas, comme en développement)
+        if: matrix.decor == 'mongodb'
+        uses: ./.github/actions/mongo
+
+      - name: Install dependencies
+        run: npm ci --no-audit --no-fund
+
+      - name: Build workspaces
+        run: npm run build
+
+      - name: Rebuild test module
+        run: npm run build --workspace=src/modules/test
+
+      - name: Générer le certificat de développement
+        run: node node_modules/nodefony/bin/nodefony http:certificates
+
+      - name: Démarrer l'application sur ${{ matrix.decor }}
+        uses: ./.github/actions/nodefony-server
+        with:
+          mode: development --no-watch
+          env: |
+            NF_DATABASE_URL=${{ matrix.database-url }}
+            NODE_EXTRA_CA_CERTS=${{ github.workspace }}/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
+
+      - name: Invariants du décor
+        working-directory: src/packages/@nodefony/http
+        run: npx vitest run -c vitest.decors.config.ts
+
+      - name: Arrêter l'application
+        if: always()
+        uses: ./.github/actions/nodefony-server
+        with:
+          action: stop
+
+      - name: Journal du serveur (échec)
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nodefony-server-log-decor-${{ matrix.decor }}
+          path: nodefony-server.log
+          retention-days: 7
+          if-no-files-found: ignore
