@@ -73,7 +73,7 @@ Le socle : présent dans toute application, quelle que soit sa forme.
 [
   { "icon": "🛡️", "title": "@nodefony/security", "href": "../src/packages/@nodefony/security/docs/index.md",
     "desc": "Firewall par zones, six authenticators, autorisation par voters, CSRF/CORS/en-têtes, 2FA, passkeys, webhooks, audit.",
-    "meta": "13 pages — le module le plus fourni" },
+    "meta": "17 pages — le module le plus fourni" },
   { "icon": "👤", "title": "@nodefony/user", "href": "../src/packages/@nodefony/user/docs/index.md",
     "desc": "L'identité `IUser` et son stockage.", "meta": "comptes utilisateurs" }
 ]
@@ -148,7 +148,7 @@ Orientés tâche : on suit le guide, on obtient un résultat.
 
 ## 🔗 Pour aller plus loin
 
-- 🧭 **Tu ne sais pas par où entrer ?** → [Par où commencer](demarrer.md) : quatre parcours ordonnés.
+- 🧭 **Tu ne sais pas par où entrer ?** → [Par où commencer](demarrer.md) : cinq parcours ordonnés.
 - 🧪 **Qualité** : chaque page de brique porte l'inventaire de ses tests — unitaires, intégration, E2E,
   attaque, charge — **et dit ce qui manque**. Un trou de couverture nommé vaut mieux qu'un chiffre flatteur.
 - 📊 **Ce que ça tient** : le dossier [Performance](performance/index.md) — où part le temps, ce

@@ -55,7 +55,7 @@ flowchart TD
 ```
 
 Un bloc ne sait **ni** comment il est affiché, **ni** comment ses données arrivent. Il déclare ce
-qu'il lui faut (`IWidgetDef`, `types.ts:123`) et rend une donnée qu'on lui tend. C'est ce qui permet
+qu'il lui faut (`IWidgetDef`, `types.ts:121`) et rend une donnée qu'on lui tend. C'est ce qui permet
 au même bloc d'apparaître comme fenêtre de bureau, comme panneau du Jumeau vivant, ou comme
 vignette d'aperçu — sans une ligne dupliquée.
 
@@ -159,7 +159,7 @@ Ce qu'on observe ensuite :
 
 1. Ouvrir `https://127.0.0.1:5152/nodefony/workspace` après connexion. Au **tout premier
    affichage**, les modèles sont semés et le bureau actif est **« Mon compte »**
-   (`DEFAULT_WORKSPACE_ID`, `presets.ts:164`) : profil, clés d'API, sessions — trois blocs qu'un
+   (`DEFAULT_WORKSPACE_ID`, `presets.ts:167`) : profil, clés d'API, sessions — trois blocs qu'un
    simple utilisateur a le droit de voir.
 2. Cliquer **Ajouter** : le catalogue s'ouvre. Survoler une carte affiche un **aperçu en direct** du
    vrai bloc, pas une image (`WidgetPreview`, `WidgetCatalogDrawer.tsx:60`). Cliquer la pose sur le
@@ -199,7 +199,7 @@ l'unique détenteur de l'état du bureau.
 Le choix assumé est celui du **bureau libre** : les fenêtres flottent, peuvent se **chevaucher**, et
 s'empilent selon un rang de profondeur. Il n'y a pas de colonnes imposées.
 
-Les coordonnées sont **mixtes**, et c'est délibéré (`WidgetInstance`, `types.ts:156`) :
+Les coordonnées sont **mixtes**, et c'est délibéré (`WidgetInstance`, `types.ts:154`) :
 
 - **X et largeur en fraction** de la largeur du bureau (0 à 1) → le bureau **s'adapte** à la taille
   de l'écran sans casser la disposition ;
@@ -223,12 +223,12 @@ La disposition est enregistrée dans le **stockage local du navigateur**
 - Un bureau est **lié à l'appareil**, pas au compte. Le même utilisateur sur deux machines a deux
   bureaux différents.
 - Comme le stockage n'est pas lié à l'identité, un changement de compte sur le même navigateur
-  **purge et ressème** les bureaux (`resetForIdentity()`, `WorkspaceStore.ts:321`) — sinon la
+  **purge et ressème** les bureaux (`resetForIdentity()`, `WorkspaceStore.ts:322`) — sinon la
   disposition d'un administrateur resterait affichée au compte suivant.
 
 Une fois des bureaux enregistrés, ce sont **eux** qui font foi : les modèles ne sont semés qu'au tout
 premier lancement, puis ils ne servent plus qu'à la création d'un nouveau bureau
-(`load()`, `WorkspaceStore.ts:334`). Une création, un renommage ou une suppression ne sera jamais
+(`load()`, `WorkspaceStore.ts:335`). Une création, un renommage ou une suppression ne sera jamais
 écrasé par un modèle.
 
 ## 🗂️ Le catalogue de blocs
@@ -271,7 +271,7 @@ comportement.
 ### Ce qu'un bloc déclare
 
 Un bloc est une **structure de données** plus un composant d'affichage (`IWidgetDef`,
-`types.ts:123`) : identifiant, titre, description, famille, icône, étiquettes, taille par défaut,
+`types.ts:121`) : identifiant, titre, description, famille, icône, étiquettes, taille par défaut,
 et surtout sa **source**.
 
 La source est l'élément central, en trois formes (`WidgetSource`, `types.ts:83`) :
@@ -355,13 +355,13 @@ Deux filtres distincts s'appliquent, et il faut les distinguer pour ne pas s'ét
 absent.
 
 **Les blocs du catalogue.** La visibilité d'un bloc est décidée par une politique **par famille**
-(`CATEGORY_ROLES`, `workspace/registry.ts:17`), qu'un bloc peut surcharger individuellement. Les
+(`CATEGORY_ROLES`, `workspace/registry.ts:19`), qu'un bloc peut surcharger individuellement. Les
 blocs « Mon compte » ne demandent rien : ils sont en libre-service, et le serveur les restreint de
 toute façon aux données du demandeur. Les blocs de sécurité, à l'opposé, sont réservés à
 l'administrateur de plateforme.
 
 **Les modèles de bureau.** Un modèle porte lui aussi ses rôles (`isWorkspaceVisible()`,
-`presets.ts:159`). Sans cela, un simple utilisateur se retrouverait devant un bureau « Développeur »
+`presets.ts:162`). Sans cela, un simple utilisateur se retrouverait devant un bureau « Développeur »
 rempli de blocs qui lui répondraient tous par un refus. Et si le bureau actif cesse d'être
 accessible — un changement de compte, une révocation de rôle — la page bascule d'elle-même sur le
 premier bureau visible, au lieu d'afficher une page morte.

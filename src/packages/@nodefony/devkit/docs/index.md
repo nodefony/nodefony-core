@@ -284,16 +284,20 @@ agent invente : faute d'une marche à suivre, il écrit un CRUD à la main, un
 service à méthodes `static` que le conteneur ne voit pas, un contrôle de droits
 dans le corps de l'action.
 
-Le paquet livre donc cinq **skills** au format [Agent Skills](https://agentskills.io),
-un par tâche où l'invention coûte cher :
+Le paquet livre donc huit **skills** au format [Agent Skills](https://agentskills.io) :
+un qui porte la conduite commune de toute tâche, et un par geste où l'invention
+coûte cher :
 
-| Skill                           | Le besoin qu'il couvre                                      |
-| ------------------------------- | ----------------------------------------------------------- |
-| `nodefony-add-crud`             | exposer une ressource REST complète, entité comprise        |
-| `nodefony-add-service`          | ajouter de la logique métier réutilisable, vue du conteneur |
-| `nodefony-protect-route`        | réserver une route à qui est habilité                       |
-| `nodefony-add-realtime-channel` | ouvrir un canal temps réel où le serveur pousse             |
-| `nodefony-browser`              | voir **et mesurer** un écran, sans navigateur sur le poste  |
+| Skill                           | Le besoin qu'il couvre                                          |
+| ------------------------------- | --------------------------------------------------------------- |
+| `nodefony-dev`                  | conduire une tâche de bout en bout, avant toute modification    |
+| `nodefony-add-crud`             | exposer une ressource REST complète, entité comprise            |
+| `nodefony-add-service`          | ajouter de la logique métier réutilisable, vue du conteneur     |
+| `nodefony-protect-route`        | réserver une route à qui est habilité                           |
+| `nodefony-add-realtime-channel` | ouvrir un canal temps réel où le serveur pousse                 |
+| `nodefony-browser`              | voir **et mesurer** un écran, sans navigateur sur le poste      |
+| `nodefony-migrate-schema`       | faire évoluer le schéma d'une base et le porter en production   |
+| `nodefony-devops`               | exploiter l'application en conteneur, sans réécrire son contrat |
 
 Tous portent le préfixe `nodefony-` : leurs pointeurs arrivent dans le dossier où
 vous écrivez aussi les vôtres, et sans namespace un skill maison du même nom

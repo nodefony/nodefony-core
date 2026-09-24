@@ -17867,7 +17867,7 @@
       "file": "src/packages/@nodefony/frontend/nodefony/src/isolationGroups.ts",
       "exported": true,
       "module": "@nodefony/frontend",
-      "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Vue/Studio) reste sur le por…"
+      "description": "Famille servie sur le port de base (`devPort`). Les autres familles prennent les blocs de ports suivants. Garder `default` ici garantit que l'instance principale (React/Svelte/vanilla/Studio) reste…"
     },
     "IResolvedPublicOrigin": {
       "name": "IResolvedPublicOrigin",

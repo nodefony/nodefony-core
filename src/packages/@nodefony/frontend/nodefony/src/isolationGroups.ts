@@ -51,7 +51,7 @@ export function isolationGroup(type: string): string {
 /**
  * Famille servie sur le port de base (`devPort`). Les autres familles prennent
  * les blocs de ports suivants. Garder `default` ici garantit que l'instance
- * principale (React/Vue/Studio) reste sur le port habituel (5173).
+ * principale (React/Svelte/vanilla/Studio) reste sur le port habituel (5173).
  */
 export const PRIMARY_FAMILY = "default";
 

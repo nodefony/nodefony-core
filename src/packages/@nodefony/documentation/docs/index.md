@@ -129,7 +129,7 @@ octet nul, hors jeu de caractères — **avant** même la recherche.
 **Tes liens relatifs restent valides des deux côtés.** Une page se lie à ses voisines par chemin
 relatif (`[Architecture](./architecture.md)`), ce qui la rend lisible sur GitHub et dans l'éditeur ;
 le portail, lui, navigue par identifiant. La traduction est faite au service
-(`rewriteInternalLinks()`, `linkResolver.ts:90`), seul à connaître la table chemin → identifiant.
+(`rewriteInternalLinks()`, `linkResolver.ts:91`), seul à connaître la table chemin → identifiant.
 Une cible **absente de l'index** est laissée intacte plutôt que réécrite au hasard : mieux vaut un
 lien inerte qu'un identifiant inventé.
 
@@ -191,12 +191,13 @@ source: "docs/facturation.md"
 ---
 ```
 
-Six clés seulement sont **consommées** par le serveur ; les autres (`tags`, `topic`, `module`…) sont
+Sept clés seulement sont **consommées** par le serveur ; les autres (`tags`, `topic`, `module`…) sont
 conservées telles quelles, sans effet sur le catalogue — elles servent à l'indexation documentaire.
 
 | Clé        | Ce qu'elle change                                     | À défaut                                     |
 | ---------- | ----------------------------------------------------- | -------------------------------------------- |
 | `title`    | le titre affiché dans le catalogue et en tête de page | le nom de fichier, humanisé                  |
+| `navTitle` | le libellé court de la navigation                     | `title`                                      |
 | `audience` | les personas qui voient la page (filtre de vue)       | vide = visible par toutes                    |
 | `status`   | le badge de maturité affiché à côté du titre          | aucun badge                                  |
 | `version`  | la version montrée pour la page                       | `"doc"`                                      |
@@ -281,7 +282,7 @@ Une variable sans fournisseur est **laissée telle quelle** dans la page : l'aut
 un branchement, au lieu d'un trou silencieux. Un fournisseur qui échoue ne casse jamais le rendu.
 
 Le module publie aussi ses briques pures, utilisables hors serveur — `parseFrontmatter()`,
-`scanDocsDir()` (`docScanner.ts:55`), `isSafeSlug()` et `pathToSlug()` (`slug.ts:60`) — de quoi
+`scanDocsDir()` (`docScanner.ts:66`), `isSafeSlug()` et `pathToSlug()` (`slug.ts:60`) — de quoi
 écrire un générateur de site qui range les fichiers exactement comme le portail. Les signatures
 exactes vivent dans le graphe généré (`jq '.symbols.DocumentationService' .ai/symbols.json`), jamais
 recopiées ici : elles divergeraient en silence.
@@ -300,7 +301,7 @@ au démarrage contre le schéma du module (`documentationConfigSchema`,
 | `cache`   | la durée de vie du catalogue ; `0` = rescan à chaque appel                            | `30000` ms                      |
 
 Deux réglages se surchargent par l'environnement, appliqués **après** la validation
-(`defineDocumentationConfig()`, `defineModuleConfig.ts:32`) : `DOCS_REPO_URL` et `DOCS_REPO_BRANCH`.
+(`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) : `DOCS_REPO_URL` et `DOCS_REPO_BRANCH`.
 Le second sert en conteneur, où le dépôt git n'est pas embarqué — sans lui, la branche est lue au
 runtime dans le dépôt réel, et retombe sur `main` s'il n'y en a pas.
 
@@ -317,14 +318,15 @@ centre, le sommaire et le lien « Modifier » à droite. La page du module,
 `/nodefony/modules/documentation`, montre par ailleurs sa configuration résolue, ses routes et ses
 symboles.
 
-Deux portes composent le data plane, toutes deux réservées aux rôles de développement et de
-supervision (`DocumentationController.ts:48`) — la documentation technique n'est pas une page
+Trois portes composent le data plane, toutes réservées aux rôles de développement et de
+supervision (`DocumentationController.ts:49`) — la documentation technique n'est pas une page
 publique :
 
-| Route                                  | Ce qu'elle renvoie                                                         |
-| -------------------------------------- | -------------------------------------------------------------------------- |
-| `GET /nodefony/documentation/api/tree` | le catalogue : sections, pages, personas (`DocumentationController.ts:50`) |
-| `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:82`)       |
+| Route                                  | Ce qu'elle renvoie                                                          |
+| -------------------------------------- | --------------------------------------------------------------------------- |
+| `GET /nodefony/documentation/api/tree` | le catalogue : sections, pages, personas (`DocumentationController.ts:50`)  |
+| `GET …/api/search?q=`                  | titres et corps cherchés, extraits situés (`DocumentationController.ts:70`) |
+| `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:82`)        |
 
 Le lien « Modifier » est assemblé côté serveur à partir d'un chemin **relatif** au dépôt
 (`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:560`) : aucun chemin absolu de

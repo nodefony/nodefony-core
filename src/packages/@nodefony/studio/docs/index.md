@@ -69,7 +69,7 @@ Trois parcours selon ce que tu viens faire. L'ordre compte : chaque étape suppo
 
 Le tableau pour trouver la bonne famille en cinq secondes ; les cards en dessous pour savoir ce
 qu'on y trouve, et à qui c'est ouvert. La navigation réelle est déclarée d'un seul tenant
-(`NAV_GROUPS`, `navConfig.ts:106`) — ajouter un écran, c'est ajouter une ligne.
+(`NAV_GROUPS`, `navConfig.ts:116`) — ajouter un écran, c'est ajouter une ligne.
 
 | Famille               | Ce qu'on y voit                                          | Ouvert à                     |
 | --------------------- | -------------------------------------------------------- | ---------------------------- |
@@ -117,12 +117,12 @@ bord de plus.
 
 **Il n'invente aucune donnée.** Chaque chiffre affiché vient d'un endpoint qu'un module a publié
 lui-même, sous `/nodefony/<module>/api/*`. Studio découvre ces producteurs par le catalogue
-`/nodefony/framework/api/admin` (`FrameworkAdminApi.ts:203`) et construit sa navigation avec.
+`/nodefony/framework/api/admin` (`FrameworkAdminApi.ts:356`) et construit sa navigation avec.
 Conséquence pratique : tout ce que montre l'écran est aussi lisible en `curl`, en script, ou depuis
 un agent — l'interface n'est pas un passage obligé.
 
 **Il est facultatif, et le framework le sait.** Le module se déclare non critique
-(`Studio.critical`, `index.ts:45`) : un échec de son démarrage n'emporte jamais le processus. S'il
+(`Studio.critical`, `index.ts:59`) : un échec de son démarrage n'emporte jamais le processus. S'il
 n'est pas chargé du tout, ce sont **les pages** qui disparaissent — le data plane de chaque module,
 lui, reste monté et servi. On perd la vue, jamais la donnée.
 
@@ -179,7 +179,7 @@ export default defineConfig(() => ({
 Ce qu'on observe ensuite :
 
 1. Au démarrage, le module annonce le mode retenu et **la raison** de ce choix dans les journaux
-   (`Studio.onKernelBoot()`, `index.ts:66`) — c'est le premier endroit à regarder si la page reste
+   (`Studio.onKernelBoot()`, `index.ts:99`) — c'est le premier endroit à regarder si la page reste
    blanche.
 2. `https://127.0.0.1:5152/nodefony` sert la page ; toute URL à un segment sous `/nodefony` renvoie
    la même page React (`StudioController.renderStudio()`, `StudioController.ts:53`), pour que le
@@ -187,7 +187,7 @@ Ce qu'on observe ensuite :
 3. `curl https://127.0.0.1:5152/nodefony/studio/api/health` répond sans authentification :
    c'est la sonde de vie, volontairement placée hors du pare-feu et réduite à l'état, la durée de
    fonctionnement et l'identifiant de processus (`StudioController.apiHealth()`,
-   `StudioController.ts:159`).
+   `StudioController.ts:163`).
 
 ## 🔐 Accéder à Studio
 
@@ -314,10 +314,10 @@ lecteur qui choisit sa granularité, dans des bornes que le serveur impose.
 Deux autres formes de trafic circulent sur la même connexion :
 
 - des **actions** en aller-retour (`StudioRealtimeController.realtimeActions()`,
-  `StudioRealtimeController.ts:112`) — mesurer la latence, déclencher un ramasse-miettes, piloter le
+  `StudioRealtimeController.ts:114`) — mesurer la latence, déclencher un ramasse-miettes, piloter le
   générateur de code ;
 - le **pont d'API** (`StudioRealtimeController.realtimeApiRequest()`,
-  `StudioRealtimeController.ts:202`), qui permet d'appeler un endpoint du data plane **par la
+  `StudioRealtimeController.ts:203`), qui permet d'appeler un endpoint du data plane **par la
   socket** plutôt qu'en HTTP, avec exactement la même réponse.
 
 > [!WARNING]

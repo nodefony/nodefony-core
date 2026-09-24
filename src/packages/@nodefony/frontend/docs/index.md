@@ -95,8 +95,8 @@ elle traverse le pare-feu, connaît la session, reçoit son nonce CSP. Le module
 
 **Un seul Vite pour N modules.** Trois modules à interface ne lancent pas trois serveurs Vite : leurs
 entrées sont agrégées dans une seule instance multi-entrées. La seule exception est documentée et
-justifiée — Angular est isolé, parce que son greffon transforme **tous** les `.ts` du serveur de
-développement (`isolationGroup()`, `isolationGroups.ts:39`).
+justifiée — Angular et Vue sont isolés, parce qu'un greffon voisin transformerait leurs `.ts`
+(`isolationGroup()`, `isolationGroups.ts:39`).
 
 **Le module ne dépend ni de `@nodefony/http` ni de `@nodefony/framework`.** Tout ce dont il a besoin
 d'eux (le serveur statique, le pare-feu, les certificats, le port réellement écouté) est résolu **par
@@ -159,10 +159,10 @@ Le tableau pour situer en cinq secondes ; les fiches en dessous pour savoir quoi
     "desc": "En développement ton interface vient de Vite : un fetch part donc vers Vite, qui ne connaît pas la route et répond son index.html. Le symptôme (Unexpected token '<') ne parle jamais de proxy — et le data plane d'administration, lui, est proxifié d'office.",
     "meta": "à ne pas sauter : c'est l'oubli qui produit le bug n°1" },
   { "icon": "🎨", "title": "Presets", "href": "#-extension",
-    "desc": "Quatre recettes prêtes — React, Vue, Angular, vanilla : quel greffon Vite charger, quelles dépendances pré-empaqueter, quelles extensions reconnaître. Les greffons sont chargés paresseusement : tu ne paies pas React si tu fais du Vue.",
+    "desc": "Cinq recettes prêtes — React, Vue, Angular, Svelte, vanilla : quel greffon Vite charger, quelles dépendances pré-empaqueter, quelles extensions reconnaître. Les greffons sont chargés paresseusement : tu ne paies pas React si tu fais du Vue.",
     "meta": "tu choisis ton framework UI, ou tu en ajoutes un" },
   { "icon": "🧱", "title": "Familles d'isolation", "href": "#familles-disolation--pourquoi-angular-a-son-vite",
-    "desc": "React, Vue et vanilla partagent une instance Vite sans se gêner. Angular non : son greffon transforme tout fichier .ts du serveur, y compris ceux des autres bundles — d'où une instance dédiée, sur son propre bloc de ports.",
+    "desc": "React, Svelte et vanilla partagent une instance Vite. Angular et Vue ont chacun la leur, sur leur propre bloc de ports : le greffon Angular transforme tout fichier .ts du serveur, et celui de React mord sur le script d'un composant Vue.",
     "meta": "tu mélanges Angular avec autre chose" },
   { "icon": "🖼️", "title": "Rendu des balises", "href": "#rendu--des-balises-ou-un-document-complet",
     "desc": "Deux portes d'entrée pour la même source : renderTags (tu écris ta page, on injecte les balises) et renderDocument (tu écris ton index.html, on l'injecte dedans). Plus les helpers de vue disponibles dans tes templates Eta.",
@@ -337,8 +337,8 @@ npx nodefony frontend:status
 
 Tout se déclare dans `nodefony.config.ts` via `use("@nodefony/frontend", { … })`. Le schéma Zod
 (`frontendConfigSchema`, `config.ts:108`) est la **source unique** des défauts : chaque `.default()`
-y vit, et nulle part ailleurs. Le builder `defineFrontendConfig()` (`defineModuleConfig.ts:22`) valide
-et gèle au démarrage ; `frontendConfigJsonSchema()` (`defineModuleConfig.ts:31`) expose le tout en
+y vit, et nulle part ailleurs. Le builder `defineFrontendConfig()` (`defineModuleConfig.ts:23`) valide
+et gèle au démarrage ; `frontendConfigJsonSchema()` (`defineModuleConfig.ts:35`) expose le tout en
 JSON Schema pour l'écran de configuration de Studio.
 
 > [!NOTE]
@@ -545,20 +545,23 @@ connaître :
 
 ### Familles d'isolation — pourquoi Angular a son Vite
 
-React, Vue et vanilla ciblent des extensions disjointes (`.tsx`, `.vue`) et cohabitent sans conflit
-dans une seule instance. Angular, lui, transforme **tout** fichier `.ts` du serveur de développement,
-y compris ceux des autres bundles — il échoue alors sur des fichiers hors de son `tsconfig`, ce qui
-déclenche une boucle de rechargement.
+React, Svelte et vanilla cohabitent dans une seule instance. Deux frameworks ne le peuvent pas, pour
+deux raisons différentes. Angular transforme **tout** fichier `.ts` du serveur de développement, y
+compris ceux des autres bundles — il échoue alors sur des fichiers hors de son `tsconfig`, ce qui
+déclenche une boucle de rechargement. Vue, lui, sert le script d'un composant sous un identifiant
+qui finit par `.ts` (`Comp.vue?vue&type=script&lang.ts`) : le greffon React y injecte son
+`$RefreshSig$()`, que rien ne définit hors d'une page React, et le composant ne se monte plus. Des
+extensions différentes n'y changent rien, et l'option `exclude` du greffon React non plus.
 
-D'où le regroupement par **famille** (`isolationGroup()`, `isolationGroups.ts:20`) : `angular` a la
-sienne, tout le reste partage `default`. Chaque famille obtient un **bloc de ports disjoint**
+D'où le regroupement par **famille** (`isolationGroup()`, `isolationGroups.ts:39`) : `angular` et
+`vue` ont chacune la leur, tout le reste partage `default`. Chaque famille obtient un **bloc de ports disjoint**
 (`familyPortPlan()`, `isolationGroups.ts:84`) de taille `portRetryAttempts + 1` : ainsi, une instance
 qui glisse de port sur conflit ne peut jamais empiéter sur le bloc d'une autre. La famille principale
 garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:56`).
 
 **Les familles démarrent indépendamment.** Si Angular échoue, React continue de fonctionner : le
 démarrage n'échoue que si **aucune** famille n'a pu démarrer (`FrontendService.startDev()`,
-`FrontendService.ts:339`).
+`FrontendService.ts:340`).
 
 ### Résilience — ce qui se passe quand Vite tombe
 
@@ -605,15 +608,15 @@ et dans les types du paquet — jamais recopiées ici, où elles se périmeraien
 dans son `onKernelBoot()`. Elle résout les chemins relatifs, calcule le préfixe public et renvoie
 l'entrée résolue (`IResolvedFrontendEntry`, `IFrontBuilder.ts:40`).
 
-| Champ           | Requis | Défaut             | Rôle                                                       |
-| --------------- | ------ | ------------------ | ---------------------------------------------------------- |
-| `type`          | oui    | —                  | Le preset : `react19`, `vue3`, `angular`, `vanilla`.       |
-| `entry`         | oui    | —                  | Le fichier d'entrée, relatif à la racine du module.        |
-| `root`          | non    | `./frontend`       | La racine front (celle qui contient `index.html`).         |
-| `outDir`        | non    | `./public/dist`    | Où le build écrit ce bundle.                               |
-| `name`          | non    | nom du module      | Nom logique du bundle — c'est la clé de `renderTags(...)`. |
-| `publicPath`    | non    | `/_assets/<name>/` | Préfixe d'URL des assets en production.                    |
-| `apiProxyPaths` | non    | `[]`               | Les préfixes que Vite doit transmettre à Nodefony.         |
+| Champ           | Requis | Défaut             | Rôle                                                            |
+| --------------- | ------ | ------------------ | --------------------------------------------------------------- |
+| `type`          | oui    | —                  | Le preset : `react19`, `vue3`, `angular`, `svelte5`, `vanilla`. |
+| `entry`         | oui    | —                  | Le fichier d'entrée, relatif à la racine du module.             |
+| `root`          | non    | `./frontend`       | La racine front (celle qui contient `index.html`).              |
+| `outDir`        | non    | `./public/dist`    | Où le build écrit ce bundle.                                    |
+| `name`          | non    | nom du module      | Nom logique du bundle — c'est la clé de `renderTags(...)`.      |
+| `publicPath`    | non    | `/_assets/<name>/` | Préfixe d'URL des assets en production.                         |
+| `apiProxyPaths` | non    | `[]`               | Les préfixes que Vite doit transmettre à Nodefony.              |
 
 ```ts ignore
 frontend.registerEntry(this, {
@@ -758,10 +761,11 @@ page blanche muette.
 
 ## 🧩 Extension
 
-**Ajouter un framework UI** revient à écrire un preset (`IFrontPreset`, `IFrontPreset.ts:16`) : son
+**Ajouter un framework UI** revient à écrire un preset (`IFrontPreset`, `IFrontPreset.ts:15`) : son
 identifiant, ses extensions, ses dépendances à pré-empaqueter, et une fonction qui construit ses
-greffons Vite. Les quatre presets fournis sont les modèles à copier — React (`react19-vite.ts:9`),
-Vue (`vue3-vite.ts:11`), Angular (`angular-vite.ts:15`), vanilla (`vanilla-vite.ts:9`). Tous
+greffons Vite. Les cinq presets fournis sont les modèles à copier — React (`react19-vite.ts:9`),
+Vue (`vue3-vite.ts:11`), Angular (`angular-vite.ts:15`), Svelte (`svelte5-vite.ts:13`),
+vanilla (`vanilla-vite.ts:9`). Tous
 importent leur greffon **paresseusement** : un preset non utilisé ne coûte ni installation, ni
 chargement.
 
@@ -809,7 +813,7 @@ accéder à ton application par un hôte virtuel bloquerait tout.
 > fuirait jusqu'à un déploiement.
 
 Deux garde-fous complètent le tableau : le producteur de données pour Studio expose une vue **sans
-chemins de fichiers absolus** (`IViteInstanceView`, `FrontendAdminApi.ts:78`), et le serveur de
+chemins de fichiers absolus** (`IViteInstanceView`, `FrontendAdminApi.ts:80`), et le serveur de
 développement n'autorise l'accès disque qu'aux racines explicitement listées.
 
 ## ⚡ Performance et mémoire

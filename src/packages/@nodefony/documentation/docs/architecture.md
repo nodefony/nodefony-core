@@ -134,8 +134,8 @@ séparés — c'est précisément le travail de ce module.
 
 **Les briques de base sont pures.** Le découpage du frontmatter (`parseFrontmatter()`,
 `frontmatter.ts:51`), la fabrication du slug (`pathToSlug()`, `slug.ts:60`), le parcours du
-disque (`scanDocsDir()`, `docScanner.ts:55`) et la traduction des liens
-(`rewriteInternalLinks()`, `linkResolver.ts:90`) sont des fonctions sans état et sans Kernel.
+disque (`scanDocsDir()`, `docScanner.ts:66`) et la traduction des liens
+(`rewriteInternalLinks()`, `linkResolver.ts:91`) sont des fonctions sans état et sans Kernel.
 Elles sont exportées telles quelles, donc réutilisables par un générateur statique ou un
 indexeur RAG — et testables sans démarrer un serveur.
 
@@ -261,11 +261,11 @@ fichier.
 
 Chaque couche ne connaît que sa voisine du dessous, et la plus volatile est la plus mince.
 
-| Couche        | Qui                                                    | Sa seule responsabilité                              | Ce qu'elle ignore                    |
-| ------------- | ------------------------------------------------------ | ---------------------------------------------------- | ------------------------------------ |
-| Contrôleur    | `DocumentationController` — sans état                  | traduire un résultat (ou une erreur) en réponse HTTP | comment l'index est construit        |
-| Service       | `DocumentationService` — le seul stateful              | scanner, cacher, indexer, résoudre                   | qui l'appelle, et par quel transport |
-| Briques pures | `frontmatter` · `slug` · `docScanner` · `linkResolver` | une transformation, sans état ni Kernel              | qu'un serveur existe                 |
+| Couche        | Qui                                                               | Sa seule responsabilité                              | Ce qu'elle ignore                    |
+| ------------- | ----------------------------------------------------------------- | ---------------------------------------------------- | ------------------------------------ |
+| Contrôleur    | `DocumentationController` — sans état                             | traduire un résultat (ou une erreur) en réponse HTTP | comment l'index est construit        |
+| Service       | `DocumentationService` — le seul stateful                         | scanner, cacher, indexer, résoudre                   | qui l'appelle, et par quel transport |
+| Briques pures | `frontmatter` · `slug` · `docScanner` · `linkResolver` · `search` | une transformation, sans état ni Kernel              | qu'un serveur existe                 |
 
 Le contrôleur est **réinstancié à chaque requête** : il ne peut donc rien retenir, et c'est
 voulu. Le service est un singleton par process ; il porte l'index caché (`#cache`,
@@ -289,7 +289,7 @@ modules déjà chargés. Ses chemins sont résolus en real-path : en dépôt wor
 `node_modules/@nodefony/x` est un lien vers la source, et c'est la source qui doit indexer —
 sinon un même fichier aurait deux chemins, et les liens entre pages ne se résoudraient plus.
 
-Le parcours lui-même, `scanDocsDir()` (`docScanner.ts:55`), est **best-effort** par
+Le parcours lui-même, `scanDocsDir()` (`docScanner.ts:66`), est **best-effort** par
 construction : un dossier absent rend une liste vide au lieu de lever une erreur. C'est ce
 qui permet de balayer les `docs/` de modules qui n'en ont pas, sans que rien ne plante. Un
 fichier illisible garde un titre dérivé de son nom (`humanizeFilename()`, `docScanner.ts:40`)
@@ -378,18 +378,18 @@ Le pont, c'est une table `chemin repo → slug` construite au scan (`#ensureCach
 `../../../../../docs/index.md` sans le moindre moyen de savoir à quel fichier ça correspond —
 il ne connaît ni l'arborescence du dépôt, ni le point de départ de la page.
 
-`rewriteInternalLinks()` (`linkResolver.ts:90`) applique quatre règles :
+`rewriteInternalLinks()` (`linkResolver.ts:91`) applique quatre règles :
 
 1. **Seules les cibles `.md` internes** sont touchées (`MD_LINK`, `linkResolver.ts:31`). Les
    URL absolues, les `mailto:`, les ancres pures `#section`, les images et les `.ts` restent
    intacts.
 2. **Le chemin est résolu contre le dossier de la page** (`resolveRelative()`,
-   `linkResolver.ts:43`), en saturant à la racine : une remontée excessive ne peut pas sortir
+   `linkResolver.ts:44`), en saturant à la racine : une remontée excessive ne peut pas sortir
    du dépôt.
 3. **Une cible non indexée reste telle quelle.** Mieux vaut un lien inerte qu'un slug inventé
    qui produirait un 404.
 4. **Les fences typées aussi.** Un catalogue de hub porte ses cibles dans du JSON
-   (`"href": "cors.md"`) : sans traduction, `JSON_HREF` (`linkResolver.ts:40`), les cards
+   (`"href": "cors.md"`) : sans traduction, `JSON_HREF` (`linkResolver.ts:41`), les cards
    d'un hub renverraient dans le vide.
 
 L'ancre de section est **préservée** : `pipeline.md#etapes` devient `root~…~pipeline.md#etapes`.
@@ -449,33 +449,34 @@ unique des défauts.
 | `cache.ttlMs` | entier ≥ 0 | `30000` | fraîcheur de l'index ; `0` = rescan à chaque requête (`config.ts:120`) |
 
 Deux variables d'environnement écrasent la config, appliquées **après** le parse pour que le
-schéma reste pur et sérialisable (`defineDocumentationConfig()`, `defineModuleConfig.ts:32`) :
+schéma reste pur et sérialisable (`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) :
 
 | Variable           | Écrase        | Quand c'est utile                                        |
 | ------------------ | ------------- | -------------------------------------------------------- |
 | `DOCS_REPO_URL`    | `repo.url`    | image de conteneur partagée entre plusieurs dépôts       |
 | `DOCS_REPO_BRANCH` | `repo.branch` | CI ou production détachée de git (pas de `.git` lisible) |
 
-La validation a lieu au `onKernelRegister` (`index.ts:50`), **avant** l'instanciation du
+La validation a lieu au `onKernelRegister` (`index.ts:63`), **avant** l'instanciation du
 service : une config invalide arrête le démarrage avec un message qui nomme le champ fautif,
 plutôt qu'un `undefined.x` trois phases plus loin. Le JSON Schema publié par
 `configSchema()` (`index.ts:53`) alimente le panneau de configuration Studio.
 
-Enfin, le module est déclaré **non critique** (`index.ts:33`) : son échec ne tue jamais le
+Enfin, le module est déclaré **non critique** (`index.ts:46`) : son échec ne tue jamais le
 process — une application ne tombe pas parce que sa documentation est indisponible.
 
-## 🔌 Data plane — deux routes, deux formes
+## 🔌 Data plane — trois routes, trois formes
 
 `DocumentationController` (`DocumentationController.ts:31`) est monté sur `/nodefony` et
 respecte la convention d'administration : jamais de route mono-segment, toujours
 `/nodefony/<module>/api/*`.
 
-| Route                                         | Rend                                | Contrat                             |
-| --------------------------------------------- | ----------------------------------- | ----------------------------------- |
-| `GET /nodefony/documentation/api/tree`        | l'index complet, sections ordonnées | `IDocTree` (`IDocumentation.ts:64`) |
-| `GET /nodefony/documentation/api/page/{slug}` | une page résolue                    | `IDocPage` (`IDocumentation.ts:74`) |
+| Route                                         | Rend                                | Contrat                                      |
+| --------------------------------------------- | ----------------------------------- | -------------------------------------------- |
+| `GET /nodefony/documentation/api/tree`        | l'index complet, sections ordonnées | `IDocTree` (`IDocumentation.ts:64`)          |
+| `GET /nodefony/documentation/api/page/{slug}` | une page résolue                    | `IDocPage` (`IDocumentation.ts:74`)          |
+| `GET /nodefony/documentation/api/search?q=`   | extraits situés, titres et corps    | `IDocSearchResult` (`IDocumentation.ts:148`) |
 
-Les deux exigent un rôle (`@IsGranted`, `DocumentationController.ts:48`) : `ROLE_DEV` ou
+Les trois exigent un rôle (`@IsGranted`, `DocumentationController.ts:49`) : `ROLE_DEV` ou
 `ROLE_SUPERVISOR`. C'est de la doc technique de framework — architecture, internals — pas du
 contenu destiné à l'utilisateur final d'une application.
 
@@ -597,23 +598,25 @@ ligne change côté serveur.
 
 ## 🧪 Tests & couverture
 
-Cinq fichiers, tous **unitaires** : les briques pures se testent sans serveur, sans Kernel et
+Sept fichiers, tous **unitaires** : les briques pures se testent sans serveur, sans Kernel et
 sans conteneur — c'est précisément la raison de les avoir isolées. Les compteurs exacts vivent
 dans la carte de l'aperçu, régénérés depuis les résultats réels.
 
-| Banc                   | Ce qui est réellement exercé                                                                             |
-| ---------------------- | -------------------------------------------------------------------------------------------------------- |
-| `frontmatter.test.ts`  | scalaires, guillemets, listes inline et en bloc, clé vide, commentaires, BOM, CRLF, ligne mal formée     |
-| `slug.test.ts`         | forme des slugs racine et module, et surtout les **refus** : vide, > 512, octet nul, `/`, `\`, `..`, `%` |
-| `docScanner.test.ts`   | dossier absent → `[]`, filtre `.md`, segments exclus, tri, groupe, titre humanisé, tag de source         |
-| `linkResolver.test.ts` | lien plat, remontée profonde, module voisin, ancre préservée, cible non indexée, fences typées           |
-| `corpusLinks.test.ts`  | le **corpus réel** du dépôt : liens morts, unicité des slugs, hubs atteignables                          |
+| Banc                    | Ce qui est réellement exercé                                                                                    |
+| ----------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `frontmatter.test.ts`   | scalaires, guillemets, listes inline et en bloc, clé vide, commentaires, BOM, CRLF, ligne mal formée            |
+| `slug.test.ts`          | forme des slugs racine et module, et surtout les **refus** : vide, > 512, octet nul, `/`, `\`, `..`, `%`        |
+| `docScanner.test.ts`    | dossier absent → `[]`, filtre `.md`, segments exclus, tri, groupe, titre humanisé, tag de source                |
+| `linkResolver.test.ts`  | lien plat, remontée profonde, module voisin, ancre préservée, cible non indexée, fences typées                  |
+| `search-parity.test.ts` | la recherche sérialisée pour le site public ne référence rien hors de son corps : même classement qu'au portail |
+| `search-redos.test.ts`  | aucune expression de la recherche ne devient quadratique sur un corpus hostile                                  |
+| `corpusLinks.test.ts`   | le **corpus réel** du dépôt : liens morts, unicité des slugs, hubs atteignables                                 |
 
 Le dernier mérite qu'on s'y arrête. Les autres travaillent sur un index fabriqué ; celui-là
 parcourt les vraies pages et attrape ce qu'aucun double ne peut voir : un `../` mal compté,
-une page renommée, un lien vers un fichier supprimé (`analyze()`, `corpusLinks.test.ts:120`).
+une page renommée, un lien vers un fichier supprimé (`analyze()`, `corpusLinks.test.ts:122`).
 
-Il porte un **cliquet** : `LEGACY_BROKEN_LINKS` (`corpusLinks.test.ts:147`) liste les pages
+Il porte un **cliquet** : `LEGACY_BROKEN_LINKS` (`corpusLinks.test.ts:149`) liste les pages
 pas encore reprises au standard, qui traînent des liens faux hérités. Deux assertions
 l'encadrent — les pages hors liste ne doivent avoir **aucun** lien mort, et une page de la
 liste qui a été réparée doit en **sortir**. Sans cette seconde garde, la liste se relâcherait
