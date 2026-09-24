@@ -215,7 +215,7 @@ Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `
 > **Une application tourne entièrement sur MongoDB, sans charger `@nodefony/drizzle`.** Les huit
 > briques y ont leur store, et ce n'est pas qu'une déclaration : `npm run test:all -- --mongo`
 > démarre l'application sur MongoDB et rejoue toute la passe d'intégration, et chaque store joue le
-> même banc de contrat que son jumeau SQL — cf [Parité des adaptateurs](../../../../docs/guides/parite-des-adaptateurs.md).
+> même banc de contrat que son jumeau SQL — cf [Parité des adaptateurs](../../../../../docs/guides/parite-des-adaptateurs.md).
 >
 > La colonne `redis` obéit à une autre logique : elle gagnera `totp` (au régime opt-in de ses jetons
 > et passkeys, jamais choisi par `auto`), mais pas `user`, `audit` ni `webhooks` — non parce que

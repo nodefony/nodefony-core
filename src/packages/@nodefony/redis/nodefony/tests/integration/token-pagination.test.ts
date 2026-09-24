@@ -52,6 +52,9 @@ class FakePaginatingRedis {
   expire(): Promise<boolean> {
     return Promise.resolve(true);
   }
+  get(key: string): Promise<string | null> {
+    return Promise.resolve(this.#strings.get(key) ?? null);
+  }
   set(key: string, value: string): Promise<unknown> {
     this.#strings.set(key, value);
     return Promise.resolve("OK");
