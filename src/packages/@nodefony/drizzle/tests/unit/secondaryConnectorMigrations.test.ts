@@ -54,11 +54,15 @@ function tables(file: string): string[] {
 
 describe("migrations — le connecteur secondaire n'en reçoit aucune", () => {
   let root: string;
+  let service: DrizzleService | null = null;
 
   beforeAll(() => {
     root = mkdtempSync(path.join(os.tmpdir(), "nf-secondary-"));
   });
-  afterAll(() => {
+  afterAll(async () => {
+    // Fermer les bases AVANT d'effacer leur dossier : sous Windows, un fichier
+    // sqlite ouvert ne se supprime pas (EPERM) — `unregister` ne ferme rien.
+    await service?.disconnectAll();
     ormRegistry.unregister("default");
     ormRegistry.unregister("analytics");
     rmSync(root, { recursive: true, force: true });
@@ -119,7 +123,7 @@ describe("migrations — le connecteur secondaire n'en reçoit aucune", () => {
         return module;
       },
     };
-    const service = new DrizzleService(module as unknown as Module);
+    service = new DrizzleService(module as unknown as Module);
     const journal: string[] = [];
     service.syslog?.on("onLog", (pdu: Pdu) => {
       journal.push(String(pdu.payload));
