@@ -72,6 +72,20 @@ on:
       # Les routes de sonde que le banc de persistance appelle.
       - "src/modules/test/nodefony/controller/DbController.ts"
       - "vitest.gates.ts"
+      # Ce qui décide QUAND un connecteur s'ouvre et quelles entités il porte :
+      # le Kernel (gating des modules), les modules qui inscrivent des briques
+      # durables, et la configuration de l'application. Sans eux, un commit qui
+      # change l'ouverture d'un connecteur ne rejouait aucun banc PostgreSQL ni
+      # MariaDB (constaté sur d9e2232c).
+      - "src/nodefony/src/kernel/**"
+      - "src/nodefony/src/config/**"
+      - "src/packages/@nodefony/security/**"
+      - "src/packages/@nodefony/user/**"
+      - "nodefony/**"
+      - "index.ts"
+      - "nodefony.config.ts"
+      - "env.ts"
+      - "package-lock.json"
       - ".github/workflows/orm.yml"
   pull_request:
     branches: ["main", "dev"]
@@ -111,6 +125,20 @@ on:
       # Les routes de sonde que le banc de persistance appelle.
       - "src/modules/test/nodefony/controller/DbController.ts"
       - "vitest.gates.ts"
+      # Ce qui décide QUAND un connecteur s'ouvre et quelles entités il porte :
+      # le Kernel (gating des modules), les modules qui inscrivent des briques
+      # durables, et la configuration de l'application. Sans eux, un commit qui
+      # change l'ouverture d'un connecteur ne rejouait aucun banc PostgreSQL ni
+      # MariaDB (constaté sur d9e2232c).
+      - "src/nodefony/src/kernel/**"
+      - "src/nodefony/src/config/**"
+      - "src/packages/@nodefony/security/**"
+      - "src/packages/@nodefony/user/**"
+      - "nodefony/**"
+      - "index.ts"
+      - "nodefony.config.ts"
+      - "env.ts"
+      - "package-lock.json"
       - ".github/workflows/orm.yml"
   # Rattrapage manuel : un changement transverse peut casser ces suites sans
   # toucher aucun des chemins ci-dessus.

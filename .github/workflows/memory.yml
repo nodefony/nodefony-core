@@ -50,6 +50,14 @@ on:
       - "src/packages/@nodefony/framework/**"
       - "src/nodefony/**"
       - "src/modules/test/**"
+      # Le firewall est traversé à CHAQUE requête, et ces modules posent les
+      # stores de session et d'idempotence du pipeline : une fuite chez eux
+      # franchit le seuil sans toucher `http` ni `framework`.
+      - "src/packages/@nodefony/security/**"
+      - "src/packages/@nodefony/user/**"
+      - "src/packages/@nodefony/realtime/**"
+      - "src/packages/@nodefony/drizzle/**"
+      - "src/packages/@nodefony/redis/**"
       - ".github/workflows/memory.yml"
       - ".github/actions/nodefony-server/**"
   pull_request:
@@ -59,6 +67,14 @@ on:
       - "src/packages/@nodefony/framework/**"
       - "src/nodefony/**"
       - "src/modules/test/**"
+      # Le firewall est traversé à CHAQUE requête, et ces modules posent les
+      # stores de session et d'idempotence du pipeline : une fuite chez eux
+      # franchit le seuil sans toucher `http` ni `framework`.
+      - "src/packages/@nodefony/security/**"
+      - "src/packages/@nodefony/user/**"
+      - "src/packages/@nodefony/realtime/**"
+      - "src/packages/@nodefony/drizzle/**"
+      - "src/packages/@nodefony/redis/**"
       - ".github/workflows/memory.yml"
       - ".github/actions/nodefony-server/**"
   workflow_dispatch:
