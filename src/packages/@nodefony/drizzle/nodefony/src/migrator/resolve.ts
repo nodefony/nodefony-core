@@ -102,6 +102,9 @@ export function generateApplyAllowed(env: IMigrationEnv): boolean {
   return env.runtime === "development" && env.nodeEnv !== "test";
 }
 
+/** Nom de fichier d'une base SQLite en MÉMOIRE — volatile, repart vide à chaque démarrage. */
+export const MEMORY_DATABASE = ":memory:";
+
 /**
  * Le mode de schéma qui s'applique à un connecteur.
  *
@@ -134,16 +137,28 @@ export function generateApplyAllowed(env: IMigrationEnv): boolean {
  *
  * @param explicit - valeur écrite dans la configuration du connecteur, si elle l'est.
  * @param env - environnement constaté.
+ * 🔴 **Une base VOLATILE (`:memory:`) dérive toujours son schéma**, en
+ * production comprise. Rien d'autre ne peut la peupler : elle repart vide à
+ * chaque démarrage, et une migration appliquée ne survit pas au processus. En
+ * `none`, elle restait vide, le verdict de schéma tombait à `divergent` et la
+ * sonde de disponibilité retenait la mise en service (vécu en CI : le connecteur
+ * d'un module de banc, ouvert en production sous dérogation).
+ *
  * @param appHasMigrations - l'application versionne au moins une migration.
+ * @param volatile - la base est en mémoire (`:memory:`).
  * @returns le mode effectif.
  */
 export function resolveDdlMode(
   explicit: DdlMode | undefined,
   env: IMigrationEnv,
   appHasMigrations = false,
+  volatile = false,
 ): DdlMode {
   if (explicit) {
     return explicit;
+  }
+  if (volatile) {
+    return "auto";
   }
   if (env.runtime === "development" || env.nodeEnv === "test") {
     // La bascule ne vaut PAS sous `NODE_ENV=test` : une suite lance N
@@ -500,6 +515,7 @@ export function resolveConnector(
         connector,
         appMigrationsDir(kernel, config.migrations.dir),
       ),
+      declared.filename === MEMORY_DATABASE,
     ),
   };
 }

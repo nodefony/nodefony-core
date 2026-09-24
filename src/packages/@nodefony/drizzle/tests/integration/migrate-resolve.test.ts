@@ -69,6 +69,13 @@ describe("migrations — le mode de schéma se résout par environnement", () =>
     assert.equal(resolveDdlMode(undefined, DEV), "auto");
     assert.equal(resolveDdlMode(undefined, TEST), "auto");
     assert.equal(resolveDdlMode(undefined, PROD), "none");
+    // Une base `:memory:` repart vide : seul son code peut la peupler — en
+    // production comprise (vécu en CI : `none` la laissait vide, verdict
+    // `divergent`, mise en service retenue).
+    assert.equal(resolveDdlMode(undefined, PROD, false, true), "auto");
+    assert.equal(resolveDdlMode(undefined, DEV, true, true), "auto");
+    // …mais un mode ÉCRIT gagne toujours.
+    assert.equal(resolveDdlMode("none", PROD, false, true), "none");
     // Le cas qui compte vraiment : un environnement que personne n'a nommé
     // ne doit PAS hériter du comportement de développement.
     assert.equal(resolveDdlMode(undefined, INCONNU), "none");

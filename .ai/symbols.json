@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 858,
-    "symbols": 4268,
+    "symbols": 4269,
     "classes": 398,
     "interfaces": 1127,
     "types": 458,
     "enums": 4,
     "functions": 1855,
-    "constants": 426
+    "constants": 427
   },
   "symbols": {
     "Cli": {
@@ -24167,6 +24167,14 @@
       "module": "@nodefony/drizzle",
       "description": "Conduite face à la divergence, telle que la configuration la déclare."
     },
+    "MEMORY_DATABASE": {
+      "name": "MEMORY_DATABASE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom de fichier d'une base SQLite en MÉMOIRE — volatile, repart vide à chaque démarrage."
+    },
     "ISchemaGap": {
       "name": "ISchemaGap",
       "kind": "interface",
@@ -36079,6 +36087,9 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "resolveDdlMode": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "MEMORY_DATABASE": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "buildReport": [

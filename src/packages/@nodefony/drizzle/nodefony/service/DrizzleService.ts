@@ -30,6 +30,7 @@ import {
   adviseMigrations,
   resolveCheckMode,
   resolveDdlMode,
+  MEMORY_DATABASE,
 } from "../src/migrator/resolve";
 import { buildReport, meaningOf, isAheadOnly } from "../src/migrator/explain";
 import { describeDivergence } from "../src/migrator/divergence";
@@ -70,7 +71,7 @@ const READINESS_POLL_MS = 15_000;
  * suffit.
  */
 const DDL_EXPLAINED: Record<DdlMode, string> = {
-  auto: "(dérivé du code au démarrage — développement ; les colonnes manquantes qui acceptent le vide sont ajoutées)",
+  auto: "(dérivé du code au démarrage ; les colonnes manquantes qui acceptent le vide sont ajoutées)",
   migrate:
     "(migrations appliquées au démarrage, sous verrou — un seul exemplaire assumé)",
   none: "(personne ne touche au schéma ici — un travail externe lance « nodefony orm:migrate »)",
@@ -226,6 +227,7 @@ class DrizzleService extends Service {
           this.#config().migrations?.dir ?? "migrations",
         ),
       ),
+      cfg.filename === MEMORY_DATABASE,
     );
     let filename: string | undefined;
     if (dialect === "sqlite") {
