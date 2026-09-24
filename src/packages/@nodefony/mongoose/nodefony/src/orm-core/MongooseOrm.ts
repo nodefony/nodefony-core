@@ -2,6 +2,7 @@ import path from "node:path";
 import fs from "node:fs";
 import { createRequire } from "node:module";
 import mongoose from "mongoose";
+import type { Container } from "nodefony";
 import type {
   ConnectOptions,
   Connection,
@@ -105,9 +106,17 @@ export class MongooseOrm extends Orm {
    * @param name - clé unique de l'ORM dans le `ormRegistry`.
    * @param uri - URI de connexion MongoDB (replica set requis pour les tx).
    * @param options - options de connexion Mongoose (auth, pool, timeouts).
+   * @param container - container du service qui construit l'ORM : il porte le
+   *   `syslog` du kernel. Sans lui, la perte et la reprise de connexion
+   *   s'écrivent dans un journal que rien ne relie à la sortie du serveur.
    */
-  constructor(name: string, uri: string, options?: ConnectOptions) {
-    super(name);
+  constructor(
+    name: string,
+    uri: string,
+    options?: ConnectOptions,
+    container?: Container,
+  ) {
+    super(name, container);
     this.#uri = uri;
     this.#options = options;
   }

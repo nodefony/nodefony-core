@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { Container, Syslog } from "nodefony";
+import type { Pdu } from "nodefony";
 import { ormRegistry, connectionMonitor } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 
@@ -111,10 +113,21 @@ describe.skipIf(!ON || !PG_URL || !PG_BOX)(
   () => {
     const ORM = "outage_real_pg";
     let orm: DrizzleOrm;
+    // Le journal que l'ORM partage avec son container — en application, celui
+    // du kernel. Une coupure qui ne s'y lit pas n'existe pas pour l'exploitant.
+    let journal: string[];
 
     beforeEach(async () => {
       ormRegistry.unregister(ORM);
+      journal = [];
+      const container = new Container();
+      const syslog = new Syslog({ moduleName: "banc" });
+      syslog.on("onLog", (pdu: Pdu) => {
+        journal.push(String(pdu.payload));
+      });
+      container.set("syslog", syslog);
       orm = new DrizzleOrm(ORM, {
+        container,
         dialect: "postgres",
         url: PG_URL as string,
       });
@@ -175,6 +188,16 @@ describe.skipIf(!ON || !PG_URL || !PG_BOX)(
       assert.ok(revenu, "le pool doit rouvrir une connexion tout seul");
       assert.equal(orm.isConnected(), true, "l'état doit repartir vert");
       assert.ok(connectionMonitor.snapshot(ORM).reconnectCount >= 1);
+      // Constaté avant le correctif : compteurs justes, et zéro ligne au
+      // journal du serveur — l'ORM écrivait dans un journal à lui.
+      assert.ok(
+        journal.some((l) => l.startsWith("connexion perdue")),
+        `« connexion perdue » absente du journal : ${JSON.stringify(journal)}`,
+      );
+      assert.ok(
+        journal.includes("connexion rétablie"),
+        `« connexion rétablie » absente du journal : ${JSON.stringify(journal)}`,
+      );
     }, 120_000);
 
     it("coupure PENDANT une transaction ouverte : elle échoue, et une transaction NEUVE repasse après", async () => {

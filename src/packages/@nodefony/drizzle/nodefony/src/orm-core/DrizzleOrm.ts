@@ -7,6 +7,7 @@ import { createRequire } from "node:module";
 // dépendance DURE de toute application, y compris une application PostgreSQL
 // qui ne l'ouvrira jamais.
 import type BetterSqlite3 from "better-sqlite3";
+import type { Container } from "nodefony";
 import { is } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import {
@@ -113,6 +114,16 @@ export interface DrizzleOrmOptions {
    * `mysql`. Requise pour ces dialectes.
    */
   url?: string;
+  /**
+   * Container du service qui construit l'ORM — il porte le `syslog` du kernel.
+   *
+   * Sans lui, l'ORM se fabrique un container et un journal à lui, que rien ne
+   * relie à la sortie du serveur : « connexion perdue » et « connexion
+   * rétablie » partaient dans le vide, et l'exploitant ne voyait que les
+   * échecs des sondes, jamais le diagnostic de la reprise. Omis en usage
+   * direct (bancs de test) : l'ORM reste alors autonome, comme avant.
+   */
+  container?: Container;
   /**
    * Le schéma doit-il être DÉRIVÉ du code à la connexion ?
    *
@@ -389,7 +400,7 @@ export class DrizzleOrm extends Orm {
    * @param options - options de connexion (`dialect`, `filename` sqlite, `url` pg).
    */
   constructor(name: string, options: DrizzleOrmOptions = {}) {
-    super(name);
+    super(name, options.container);
     this.#dialect = options.dialect ?? "sqlite";
     this.#deriveSchema = options.deriveSchema !== false;
     this.#filename = options.filename ?? ":memory:";

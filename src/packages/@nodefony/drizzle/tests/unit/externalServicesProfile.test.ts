@@ -4,7 +4,7 @@ import {
   CONSOLE_RUN_PROFILE,
   CONSOLE_DATA_RUN_PROFILE,
 } from "nodefony";
-import type { IRunProfile, Module } from "nodefony";
+import type { IRunProfile, Module, Pdu } from "nodefony";
 import DrizzleService from "../../nodefony/service/DrizzleService";
 
 /**
@@ -37,6 +37,7 @@ let compteur = 0;
 function decor(profil: IRunProfile): {
   boot: () => Promise<void>;
   orm: () => { isConnected(): boolean } | undefined;
+  journal: string[];
 } {
   let hook: (() => Promise<void>) | null = null;
   const connecteur = `banc-${++compteur}`;
@@ -63,7 +64,13 @@ function decor(profil: IRunProfile): {
     },
   };
   const service = new DrizzleService(module as unknown as Module);
+  // Tout ce qui atteint le journal du SERVICE — donc celui du kernel.
+  const journal: string[] = [];
+  service.syslog?.on("onLog", (pdu: Pdu) => {
+    journal.push(String(pdu.payload));
+  });
   return {
+    journal,
     boot: async () => {
       assert.ok(hook, "le service n'a posé aucun hook onBoot");
       await (hook as unknown as () => Promise<void>)();
@@ -109,6 +116,28 @@ describe("DrizzleService — la connexion suit le profil d'exécution déclaré"
     });
     await d.boot();
     assert.equal(d.orm()?.isConnected(), true);
+  });
+
+  it("🔴 la perte et la reprise de connexion atteignent le journal du kernel", async () => {
+    // L'ORM se construisait SANS container : il se fabriquait un journal à
+    // lui, que rien ne reliait à la sortie du serveur. Constaté sur une vraie
+    // coupure PostgreSQL : compteurs justes, et zéro ligne dans le journal.
+    const d = decor({ ...CONSOLE_DATA_RUN_PROFILE });
+    await d.boot();
+    const orm = d.orm() as unknown as {
+      connectionLost(reason: string): void;
+      connectionRestored(): void;
+    };
+    orm.connectionLost("serveur arrêté");
+    orm.connectionRestored();
+    assert.ok(
+      d.journal.some((l) => l.includes("connexion perdue : serveur arrêté")),
+      `« connexion perdue » absente du journal : ${JSON.stringify(d.journal)}`,
+    );
+    assert.ok(
+      d.journal.includes("connexion rétablie"),
+      `« connexion rétablie » absente du journal : ${JSON.stringify(d.journal)}`,
+    );
   });
 
   it("profil absent (kernel pas encore démarré) → aucune connexion", async () => {

@@ -4,7 +4,7 @@ import {
   CONSOLE_RUN_PROFILE,
   CONSOLE_DATA_RUN_PROFILE,
 } from "nodefony";
-import type { IRunProfile, Module } from "nodefony";
+import type { IRunProfile, Module, Pdu } from "nodefony";
 import MongooseService from "../../nodefony/service/MongooseService";
 
 /**
@@ -27,6 +27,7 @@ let compteur = 0;
 function decor(profil: IRunProfile): {
   boot: () => Promise<void>;
   orm: () => unknown;
+  journal: string[];
 } {
   let hook: (() => Promise<void>) | null = null;
   const connecteur = `banc-${++compteur}`;
@@ -54,7 +55,13 @@ function decor(profil: IRunProfile): {
     },
   };
   const service = new MongooseService(module as unknown as Module);
+  // Tout ce qui atteint le journal du SERVICE — donc celui du kernel.
+  const journal: string[] = [];
+  service.syslog?.on("onLog", (pdu: Pdu) => {
+    journal.push(String(pdu.payload));
+  });
   return {
+    journal,
     boot: async () => {
       assert.ok(hook, "le service n'a posé aucun hook onBoot");
       await (hook as unknown as () => Promise<void>)();
@@ -64,6 +71,31 @@ function decor(profil: IRunProfile): {
 }
 
 describe("MongooseService — la connexion suit le profil d'exécution déclaré", () => {
+  it("🔴 la perte et la reprise de connexion atteignent le journal du kernel", async () => {
+    // L'ORM se construisait SANS container : il se fabriquait un journal à
+    // lui, que rien ne reliait à la sortie du serveur — compteurs justes, et
+    // zéro ligne dans le journal. Profil console : l'ORM existe sans se
+    // connecter ; on le déclare vivant pour éprouver la bascule seule.
+    const d = decor({ ...CONSOLE_RUN_PROFILE });
+    await d.boot();
+    const orm = d.orm() as {
+      alive: boolean;
+      connectionLost(reason: string): void;
+      connectionRestored(): void;
+    };
+    orm.alive = true;
+    orm.connectionLost("serveur arrêté");
+    orm.connectionRestored();
+    assert.ok(
+      d.journal.some((l) => l.includes("connexion perdue : serveur arrêté")),
+      `« connexion perdue » absente du journal : ${JSON.stringify(d.journal)}`,
+    );
+    assert.ok(
+      d.journal.includes("connexion rétablie"),
+      `« connexion rétablie » absente du journal : ${JSON.stringify(d.journal)}`,
+    );
+  });
+
   it("profil console : aucune connexion tentée — le port mort ne fait rien échouer", async () => {
     const d = decor({ ...CONSOLE_RUN_PROFILE });
     // Si une connexion était tentée, ce boot lèverait : l'adresse est morte.

@@ -227,6 +227,9 @@ class DrizzleService extends Service {
     // existent pour empêcher : une table sans trace dans l'historique, dont
     // plus personne ne sait d'où elle vient.
     const orm = new DrizzleOrm(name, {
+      // Le journal de l'ORM doit être CELUI du kernel : sans ce container, la
+      // perte et la reprise de connexion s'écrivaient nulle part.
+      container: this.container ?? undefined,
       dialect,
       filename,
       url: cfg.url,

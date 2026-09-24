@@ -137,6 +137,9 @@ class MongooseService extends Service {
       name,
       uri,
       MongooseService.buildConnectOptions(cfg),
+      // Le journal de l'ORM doit être CELUI du kernel : sans ce container, la
+      // perte et la reprise de connexion s'écrivaient nulle part.
+      this.container ?? undefined,
     );
     // Même règle que l'ORM SQL, au MÊME point : `externalServices` gouverne la
     // CONNEXION, pas l'EXISTENCE. L'ORM est enregistré dans tous les cas — c'est
