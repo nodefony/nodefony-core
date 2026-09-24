@@ -48,6 +48,7 @@ import { existsSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { containerHealthy } from "./lib/docker.ts";
+import { resetMongoDatabase } from "./lib/mongoReset.ts";
 import {
   PG_GATE,
   MYSQL_GATE,
@@ -645,13 +646,34 @@ async function main(): Promise<void> {
       // ferait jouer la passe contre le mauvais backend, et rendre un vert qui
       // ne dit rien de Mongo.
       if (serverRunning()) await run("npx nodefony stop");
+      // Décor VIERGE : la base du banc survit sinon à sa passe, et ses comptes
+      // périmés font tomber l'authentification — des rouges identiques avec ou
+      // sans le diff éprouvé. Un échec ici est DIT, jamais contourné.
+      let resetError: string | null = null;
+      try {
+        const dropped = await resetMongoDatabase(
+          process.env.NF_DATABASE_URL ?? "",
+          ROOT,
+        );
+        console.log(`  ${C.dim(`base « ${dropped} » remise à zéro`)}`);
+      } catch (error) {
+        resetError = error instanceof Error ? error.message : String(error);
+      }
       console.log(
         `\n${C.cyan("▸")} ${C.bold("Serveur de développement — MongoDB")}`,
       );
-      const started = await run(
-        "bash .claude/skills/nodefony-start-server/start.sh",
-      );
-      if (started.code !== 0 || !serverRunning()) {
+      const started =
+        resetError === null
+          ? await run("bash .claude/skills/nodefony-start-server/start.sh")
+          : { code: 1, output: "" };
+      if (resetError !== null) {
+        phases.push({
+          name: "Démarrage sur MongoDB",
+          ok: false,
+          skipped: `base du banc non remise à zéro : ${resetError}`,
+          durationMs: 0,
+        });
+      } else if (started.code !== 0 || !serverRunning()) {
         phases.push({
           name: "Démarrage sur MongoDB",
           ok: false,
