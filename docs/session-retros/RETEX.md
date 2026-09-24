@@ -232,6 +232,11 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 👻 Un process qui n'écoute AUCUN port échappe à toute purge par port
 
+- [1× — 09-24i] La sonde CI (#479) ne nommait un process détaché que s'il s'appelait `node` ou
+  `turbo` : au premier gel capturé, elle a rendu « aucun détaché » alors que `turbo.exe` attendait
+  un tuyau — tenu, s'il existe, par un binaire natif que le filtre taisait. Identifier par un NOM
+  est une purge par critère indirect comme une autre : lister TOUT ce qui est né pendant l'étape,
+  écarter explicitement le sien (lanceur, ancêtres, inventaire).
 - [1× — 08-29] `process.exit()` posé dans un `try` ne déroule AUCUN `finally` : les pods déjà levés survivaient au banc avec leur port ET leur connexion à la base, et le run suivant échouait sur un `DROP DATABASE` refusé — pour une raison qui n'était pas la sienne. Pire dans un cas : le pod fautif n'était pas encore rangé dans la variable que le `finally` inspecte, donc personne ne l'aurait arrêté. Abandonner se fait par une sentinelle qu'on JETTE.
 - [1× — 08-23e] Un superviseur de développement orphelin (son enfant tué en `-9`) survit sans tenir
   le moindre port : invisible à `lsof`, absent d'un `pkill -f bin/nodefony` (son titre de process est
@@ -272,6 +277,14 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-24i] `ciVerdict` comptait `cancelled` comme vert (« remplacé par un run plus récent ») —
+  vrai pour un vieux commit, FAUX pour celui que la reprise examine (le plus récent qui a des runs :
+  personne n'a pu le remplacer). Résultat : `CI ✅` affiché sur un job Windows figé. Un statut se
+  lit sur le commit qu'on regarde, pas sur le cas moyen.
+- [1× — 09-24i] #476 : ticket, kit et conception parlaient du DOSSIER ; aucun ne disait que
+  `orm:generate` prenait TOUTES les tables de l'application, quelle que soit leur base. Vu en
+  lisant le code avant d'écrire — sans quoi la migration d'un secondaire aurait décrit celles de
+  `default` (cf [[feedback_design_doc_is_not_a_verified_scope]]).
 - [1× — 09-24h] « Prisma fait pareil » affirmé DE MÉMOIRE — le user a dû demander de regarder
   mieux. Lue, sa doc a révélé deux écarts réels de la garde (auto-référence bloquée, index de
   référence absent → parcours complet). Une comparaison à un voisin est une affirmation : elle se
