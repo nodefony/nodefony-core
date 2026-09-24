@@ -277,6 +277,20 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25b] `strictTemplates` était DÉCLARÉ, jamais EXÉCUTÉ : analogjs vaut
+  `disableTypeChecking ?? true`, et le gabarit promettait « templates vérifiés au build Vite ».
+  Derrière : 17 références mortes dans la vitrine Angular (le renommage #187 par LanguageService
+  ne voit pas les templates, qui sont des chaînes) + `LiveEvent.n` dans le gabarit `complete`.
+  Une option de vérification se prouve par une faute INJECTÉE, pas par sa présence.
+- [1× — 09-25b] Nouvelle option `strictUnclaimedEventNames` d'abord « vérifiée » sur `chnaged` :
+  0 erreur des deux côtés. Le source dit qu'elle ne vise que les noms camelCase — la faute
+  injectée doit tomber DANS le périmètre de la règle, sinon le vert ne distingue rien.
+- [1× — 09-25b] Trois instruments faux dans la session, chacun rattrapé par un recoupement :
+  sonde sur `dist/index.js` (l'entrée est `dist/node/index.js` → « absent 120 s ») ; boucle
+  `for p in $VAR` sous zsh (pas de découpage → 0 fichier modifié, sans erreur) ; `sed \b` BSD
+  (0 remplacement). Cf [[feedback_shell_false_diagnostics]] : compter l'EFFET (`git diff --stat`)
+  après chaque geste de masse.
+
 - [1× — 09-24k] #238 : chaque store passait SES tests ; rejoué sur la copie COMMUNE, le banc a
   trouvé 17 défauts (Redis : seuil de révocation qui recule ; Mongo : `$ne` qui attrape l'absent ;
   mémoire : aucune copie). Un test écrit pour un seul backend éprouve ce que ce backend fait, pas
