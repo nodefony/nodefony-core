@@ -39,7 +39,7 @@ interface SecureData {
 
 /** Un message du canal `live:events` (cf `nodefony/controllers/LiveController.ts`). */
 interface LiveEvent {
-  n: number;
+  text: string;
   ts: number;
   pid: number;
 }

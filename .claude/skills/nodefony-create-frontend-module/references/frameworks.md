@@ -211,9 +211,12 @@ export class AppComponent implements OnInit {
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
-    "types": []
+    "types": ["vite/client"]
   },
-  "angularCompilerOptions": { "strictTemplates": true },
+  "angularCompilerOptions": {
+    "strictTemplates": true,
+    "strictUnclaimedEventNames": true
+  },
   "files": ["src/main.ts"],
   "include": ["src/**/*.ts"]
 }

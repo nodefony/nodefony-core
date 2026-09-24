@@ -86,8 +86,8 @@ const FRONTS = [
           @for (f of fronts; track f.href) {
             <a
               [href]="f.href"
-              [attr.aria-current]="f.nom === 'Angular' ? 'page' : null"
-              >{{ f.nom }}</a
+              [attr.aria-current]="f.name === 'Angular' ? 'page' : null"
+              >{{ f.name }}</a
             >
           }
         </nav>
@@ -101,7 +101,7 @@ const FRONTS = [
                   liveState() === 'connecting' || liveState() === 'reconnecting'
                 "
               ></span>
-              {{ etatFr() }}
+              {{ stateLabel() }}
               <b>{{ vue()?.frames ?? 0 }}</b> trames
             </span>
             <div class="sonde-detail" role="status">
@@ -109,13 +109,13 @@ const FRONTS = [
                 <dt>Adresse</dt>
                 <dd>{{ vue()?.url ?? "—" }}</dd>
                 <dt>État</dt>
-                <dd>{{ etatFr() }}</dd>
+                <dd>{{ stateLabel() }}</dd>
                 <dt>Canaux</dt>
-                <dd>{{ canaux() }}</dd>
+                <dd>{{ channels() }}</dd>
                 <dt>Trames reçues</dt>
                 <dd>{{ vue()?.frames ?? 0 }}</dd>
                 <dt>Dernière</dt>
-                <dd>{{ derniereDe() }}</dd>
+                <dd>{{ lastFrom() }}</dd>
               </dl>
               <p class="rien">
                 Tout cela vient du client lui-même : afficher ce panneau ne
@@ -125,8 +125,8 @@ const FRONTS = [
           </span>
           <button
             class="bascule"
-            [attr.aria-pressed]="barreVisible()"
-            (click)="basculerBarre()"
+            [attr.aria-pressed]="barVisible()"
+            (click)="toggleBar()"
           >
             Barre de debug
           </button>
@@ -189,16 +189,16 @@ const FRONTS = [
                   liveState() === 'connecting' || liveState() === 'reconnecting'
                 "
               ></span>
-              {{ etatFr() }}
+              {{ stateLabel() }}
             </p>
             <p class="live-meta">
               @if (vue()?.lastFrame?.at) {
-                dernière trame : {{ derniereDe() }}
+                dernière trame : {{ lastFrom() }}
               } @else {
                 aucune trame — le serveur se tait tant qu'il n'a rien à dire
               }
             </p>
-            <button class="btn btn--ghost" (click)="basculer()">
+            <button class="btn btn--ghost" (click)="toggle()">
               {{
                 liveState() === "connected" ? "Couper la connexion" : "Rétablir"
               }}
@@ -217,11 +217,11 @@ const FRONTS = [
                 <input
                   [value]="text()"
                   (input)="text.set($any($event.target).value)"
-                  (keydown.enter)="envoyer()"
+                  (keydown.enter)="send()"
                   placeholder="Écrivez, puis Entrée…"
                   aria-label="Message à diffuser"
                 />
-                <button class="counter" (click)="envoyer()">Envoyer</button>
+                <button class="counter" (click)="send()">Envoyer</button>
               </div>
               <ul class="salon">
                 @if (messages().length === 0) {
@@ -231,7 +231,7 @@ const FRONTS = [
                     <li>
                       <span class="qui">{{ m.front }}</span>
                       <span>{{ m.text }}</span>
-                      <span class="quand">{{ heureDe(m.ts) }}</span>
+                      <span class="quand">{{ timeOf(m.ts) }}</span>
                     </li>
                   }
                 }
@@ -251,15 +251,15 @@ const FRONTS = [
               <div class="deux" style="margin-top: 14px">
                 <div>
                   <p class="voie">
-                    HTTP <em>{{ duree(parHttp()) }}</em>
+                    HTTP <em>{{ duration(parHttp()) }}</em>
                   </p>
-                  <pre class="out">{{ corps(parHttp()) }}</pre>
+                  <pre class="out">{{ body(parHttp()) }}</pre>
                 </div>
                 <div>
                   <p class="voie">
-                    Socket <em>{{ duree(parSocket()) }}</em>
+                    Socket <em>{{ duration(parSocket()) }}</em>
                   </p>
-                  <pre class="out">{{ corps(parSocket()) }}</pre>
+                  <pre class="out">{{ body(parSocket()) }}</pre>
                 </div>
               </div>
             </div>
@@ -278,7 +278,7 @@ const FRONTS = [
                 l'appelle directement.
               </p>
             </div>
-            <pre class="code"><code>{{ extrait }}</code></pre>
+            <pre class="code"><code>{{ excerpt }}</code></pre>
           </div>
         </section>
 

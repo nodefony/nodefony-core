@@ -108,8 +108,12 @@ export class ViteConfigGenerator {
           const tsconfigPath = toGeneratedPath(
             path.resolve(angularEntry!.root, "tsconfig.app.json"),
           );
+          // analogjs coupe le typecheck des templates par défaut
+          // (`disableTypeChecking ?? true`) : sans ce drapeau, `strictTemplates`
+          // et `strictUnclaimedEventNames` du tsconfig.app.json ne mordent
+          // jamais, et une faute de template passe le build.
           pluginsExprs.push(
-            `angular({ tsconfig: ${JSON.stringify(tsconfigPath)} })`,
+            `angular({ disableTypeChecking: false, tsconfig: ${JSON.stringify(tsconfigPath)} })`,
           );
           optimizeInclude.push(
             "@angular/core",
