@@ -800,20 +800,20 @@ jobs:
             // d'un autre monde. Sans risque : ce runtime est éphémère, il vit le
             // temps d'une tâche et n'est joignable que depuis elle.
             //
-            // ⚠️ Il doit PASSER la politique de mot de passe (`PasswordPolicy`,
-            // posée d'office sur `UserService`) : 10 caractères au moins, et il ne
+            // ⚠️ Il doit PASSER la politique de mot de passe (PasswordPolicy,
+            // posée d'office sur UserService) : 10 caractères au moins, et il ne
             // reprend pas l'identifiant du compte. Un semis refusé n'est pas un
             // test rouge — en production c'est un échec CRITIQUE qui tue le boot,
             // la readiness n'est jamais atteinte, et toutes les tâches
             // d'intégration tombent sur un message qui parle d'un mot de passe.
-            // Vécu : `secret` (6 caractères) a fait rougir les six tâches.
+            // Vécu : secret (6 caractères) a fait rougir les six tâches.
             'NF_ADMIN_PASSWORD=secret-de-dev-42',
             // L'adresse publique de l'émetteur de jetons. En production, elle
             // ne se devine pas (RFC 8414 §2) : sans elle, rien n'est publié et
-            // les bancs de jetons (`issuer-metadata`, `external-jwt-e2e`) se
+            // les bancs de jetons (issuer-metadata, external-jwt-e2e) se
             // sautaient — la marche production n'a jamais prouvé qu'un jeton
             // s'y vérifie. Leur passage est désormais EXIGÉ par le rapporteur
-            // (`TOKEN_PROOFS`, http/vitest.integration.config.ts).
+            // (TOKEN_PROOFS, http/vitest.integration.config.ts).
             'NF_JWT_ISSUER=https://localhost:5152',
             '',
           ];
