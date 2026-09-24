@@ -476,7 +476,9 @@ atomique sur les quatre backends.
 d'un moteur), un `schema` natif du driver, et des `relations` déclaratives (`IEntityRelation`,
 `IEntity.ts:4`). Deux champs facultatifs servent la lisibilité d'un gros modèle : `module` (qui
 apporte l'entité) et `domain` (`IEntity.ts:58`, la classification métier — l'axe qui rend navigable
-une base de plusieurs centaines de tables).
+une base de plusieurs centaines de tables). Un troisième, `indexes` (`IEntityIndex`), déclare les
+index COMPOSITES qu'un adaptateur ne sait pas exprimer dans son schéma : Mongoose les applique
+(`schema.index()`), Drizzle les ignore, puisqu'il les déclare dans sa table.
 
 Dans une application, on ne construit pas un `IEntity` à la main : on écrit un `IEntityDefinition`
 (`defineEntity.ts:15`) — le même objet **sans** `connector`, justement parce que le connecteur est
@@ -607,7 +609,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
 `DrizzleRepository.upsert()` (`DrizzleRepository.ts:868`) et `MongooseRepository.upsert()`
-(`MongooseRepository.ts:343`).
+(`MongooseRepository.ts:405`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |
 | -------------------------------------- | ----------------------------------- | ---------------------------------- |
@@ -615,9 +617,9 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Contrat `IRepository` (15 verbes)      | complet                             | complet                            |
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                   |
 | Transactions + savepoints              | oui                                 | oui (replica set requis par Mongo) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1593`)          | oui (`MongooseOrm.ts:558`)         |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1933`)          | oui (`MongooseOrm.ts:649`)         |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                         |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1614`)          | oui (`MongooseOrm.ts:529`)         |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1835`)          | oui (`MongooseOrm.ts:617`)         |
 
 **Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
 qu'il porte dans son `package.json`, clé `nodefony.stores` :
@@ -687,7 +689,7 @@ rendent sûr en production :
   observe, et le débit par seconde est **dérivé côté lecteur** (delta entre deux relevés), donc rien
   n'est muté à la lecture.
 
-Le data plane `/nodefony/orm/api/*` (`createOrmAdminApi()`, `OrmAdminApi.ts:421`) expose huit points
+Le data plane `/nodefony/orm/api/*` (`createOrmAdminApi()`, `OrmAdminApi.ts:541`) expose huit points
 d'entrée, tous filtrables par `?connector=` :
 
 | Point d'entrée      | Ce qu'il rend                                                     |
@@ -698,8 +700,8 @@ d'entrée, tous filtrables par `?connector=` :
 | `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:184`)     |
 | `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table          |
 | `connection/health` | état, latence, erreurs, reconnexions, sondes                      |
-| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:310`) |
-| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:345`) ou `jsonschema`         |
+| `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:360`) |
+| `export/{format}`   | `dbml` (`toDbml()`, `OrmAdminApi.ts:395`) ou `jsonschema`         |
 
 Ce graphe canonique est **la pièce maîtresse**, pas le diagramme : c'est une donnée sérialisable qui
 sert à la fois l'ERD de Studio, un export vers un outil tiers, et le contexte d'un agent IA

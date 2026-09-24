@@ -35,7 +35,7 @@ non chargé par défaut (Drizzle = ORM SQL par défaut).
 
 ## Sondes Studio (data plane)
 
-`describeEntity` (`schema.paths`, `_id`=PK) · `describeConnection` (driver `mongodb` + cible SANS
+`describeEntity` (`schema.paths`, PK nommée `id`, `__v` exclu) · `describeConnection` (driver `mongodb` + cible SANS
 credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serverStatus`→pool) ·
 **flow tap** (`MongooseRepository` → `queryFlowMonitor` + buffer ALS, coût nul hors observation).
 
