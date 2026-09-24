@@ -45,6 +45,15 @@ export interface WebAuthnStoreSnapshot {
   credentials: IWebAuthnCredential[];
 }
 
+/**
+ * Copie d'une passkey : `transports` est un tableau mutable — rendre ou garder
+ * la référence laisserait l'appelant muter le store en place, ce que les
+ * backends persistants rendent impossible par sérialisation.
+ */
+function cloneCredential(c: IWebAuthnCredential): IWebAuthnCredential {
+  return { ...c, transports: [...c.transports] };
+}
+
 export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   /** id (base64url) → credential (source de vérité). */
   readonly #byId = new Map<string, IWebAuthnCredential>();
@@ -52,7 +61,8 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   readonly #idsByUser = new Map<string, Set<string>>();
 
   findById(credentialId: string): Promise<IWebAuthnCredential | null> {
-    return Promise.resolve(this.#byId.get(credentialId) ?? null);
+    const cred = this.#byId.get(credentialId);
+    return Promise.resolve(cred ? cloneCredential(cred) : null);
   }
 
   findByUser(userId: string): Promise<IWebAuthnCredential[]> {
@@ -64,7 +74,7 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
     for (const id of ids) {
       const cred = this.#byId.get(id);
       if (cred) {
-        out.push(cred);
+        out.push(cloneCredential(cred));
       }
     }
     return Promise.resolve(out);
@@ -75,7 +85,13 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
   }
 
   save(credential: IWebAuthnCredential): Promise<void> {
-    this.#byId.set(credential.id, credential);
+    // Un re-save sous un AUTRE porteur retire l'ancien lien : une passkey n'a
+    // qu'un porteur, comme la ligne unique d'un backend persistant.
+    const previous = this.#byId.get(credential.id);
+    if (previous && previous.userId !== credential.userId) {
+      this.#unindex(previous.userId, credential.id);
+    }
+    this.#byId.set(credential.id, cloneCredential(credential));
     let set = this.#idsByUser.get(credential.userId);
     if (!set) {
       set = new Set<string>();
@@ -102,14 +118,19 @@ export class MemoryWebAuthnCredentialStore implements IWebAuthnCredentialStore {
       return Promise.resolve();
     }
     this.#byId.delete(credentialId);
-    const set = this.#idsByUser.get(cred.userId);
+    this.#unindex(cred.userId, credentialId);
+    return Promise.resolve();
+  }
+
+  /** Retire un id de l'index d'un porteur ; l'entrée vide disparaît. */
+  #unindex(userId: string, credentialId: string): void {
+    const set = this.#idsByUser.get(userId);
     if (set) {
       set.delete(credentialId);
       if (set.size === 0) {
-        this.#idsByUser.delete(cred.userId);
+        this.#idsByUser.delete(userId);
       }
     }
-    return Promise.resolve();
   }
 
   /** Credentials filtrés, dans l'ordre contractuel (createdAt DESC, id ASC). */
