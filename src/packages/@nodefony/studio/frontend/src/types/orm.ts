@@ -313,8 +313,11 @@ export interface StoreBrick {
   available?: string[];
   reason?: string;
   configPath?: string;
-  /** Où vivent les données — la cible du connecteur qui les porte. */
-  location?: string;
+  /**
+   * Où vivent les données — la cible du connecteur qui les porte. Publiée
+   * pour un fichier local seulement : `null` pour une base réseau.
+   */
+  location?: string | null;
   provenance?: string;
 }
 

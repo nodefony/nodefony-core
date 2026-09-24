@@ -27,8 +27,11 @@ import { fmtBytes, fmtClock, fmtMs, fmtNum } from "./ormFormat";
  * briques, et le dédié s'annonçait comme la base applicative — celle qui
  * s'efface au redémarrage. La preuve d'appartenance est la `location` que le
  * registre publie, comparée à la cible du connecteur. Un moteur qui n'a qu'UN
- * connecteur lui rend ses briques sans autre preuve ; entre plusieurs, une
- * brique sans correspondance n'est attribuée à personne.
+ * connecteur lui rend ses briques sans autre preuve. Entre plusieurs : une
+ * `location` qui ne correspond à rien n'est attribuée à personne ; une brique
+ * SANS `location` (base réseau — le serveur ne la publie que pour un fichier
+ * local) va au connecteur par défaut de son ORM, où le framework inscrit ses
+ * entités.
  *
  * @param stores - briques du registre (`/nodefony/kernel/api/stores`).
  * @param connectors - connecteurs déclarés (`/nodefony/orm/api/orms`).
@@ -44,10 +47,12 @@ export function attributeBricks(
     const owner =
       candidates.length === 1
         ? candidates[0]
-        : candidates.find(
-            (o) =>
-              s.location !== undefined && o.connection?.target === s.location,
-          );
+        : s.location !== undefined && s.location !== null
+          ? candidates.find((o) => o.connection?.target === s.location)
+          : // Sans `location` (base réseau : le serveur ne la publie que pour
+            // un fichier local), la brique vit sur le connecteur PAR DÉFAUT de
+            // son ORM — celui où le framework inscrit ses entités.
+            candidates.find((o) => o.default);
     if (owner === undefined) continue;
     const list = by.get(owner.name) ?? [];
     list.push(s);

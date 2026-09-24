@@ -352,8 +352,8 @@ function ResilienceSection({ health }: { health: ConnHealth }) {
       {events.length > 0 ? (
         <Table striped>
           <Table.Tbody>
-            {events.map((e) => (
-              <Table.Tr key={`${e.ts}-${e.kind}`}>
+            {events.map((e, i) => (
+              <Table.Tr key={`${i}-${e.ts}-${e.kind}`}>
                 <Table.Td w={110}>{fmtClock(e.ts)}</Table.Td>
                 <Table.Td w={110}>
                   <Badge
@@ -1214,8 +1214,8 @@ export const OrmConnector = observer(() => {
           {h.recentErrors.length > 0 ? (
             <Table striped>
               <Table.Tbody>
-                {h.recentErrors.map((e) => (
-                  <Table.Tr key={`${e.ts}-${e.message}`}>
+                {h.recentErrors.map((e, i) => (
+                  <Table.Tr key={`${i}-${e.ts}`}>
                     <Table.Td w={120}>{fmtClock(e.ts)}</Table.Td>
                     <Table.Td>
                       <Code>{e.message}</Code>

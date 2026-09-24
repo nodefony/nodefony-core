@@ -90,9 +90,20 @@ describe("attributeBricks — au connecteur, jamais au moteur", () => {
     expect(by.has("mediasoup")).to.equal(false);
   });
 
-  it("entre plusieurs candidats, une brique sans location n'est attribuée à personne", () => {
+  it("entre plusieurs candidats, SANS location (base réseau) → le connecteur par défaut de l'ORM", () => {
+    // Vu sur PostgreSQL : le registre publie `location: null`, et le
+    // connecteur `default` s'affichait « ne porte aucune brique ».
     const by = attributeBricks(
-      [brick("tokens", "drizzle")],
+      [{ brick: "tokens", resolved: "drizzle", location: null }],
+      [memoryDb, fileDb],
+    );
+    expect(by.get("default")?.map((b) => b.brick)).to.deep.equal(["tokens"]);
+    expect(by.has("mediasoup")).to.equal(false);
+  });
+
+  it("entre plusieurs candidats, une location qui ne correspond à RIEN n'est attribuée à personne", () => {
+    const by = attributeBricks(
+      [brick("tokens", "drizzle", "var/autre.db")],
       [memoryDb, fileDb],
     );
     expect(by.size).to.equal(0);
