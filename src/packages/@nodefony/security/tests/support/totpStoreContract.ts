@@ -30,16 +30,19 @@ export interface TotpStoreContractHarness {
   /** Vide le store (banc idempotent, et base réelle qui survit au run précédent). */
   clear: () => Promise<void>;
   /**
-   * Un **nouveau** store sur la même base — prouve que la donnée est persistée,
-   * et non retenue par l'instance qui vient de l'écrire.
+   * **Capacité** : un **nouveau** store sur la même base — prouve que la donnée
+   * est persistée, et non retenue par l'instance qui vient de l'écrire. Absente
+   * pour un store mémoire (il n'a pas de base) : le cas est alors sauté, et nommé.
    */
-  newStore: () => ITotpSecretStore;
+  newStore?: () => ITotpSecretStore;
   /**
    * Nombre d'enregistrements portés par cet utilisateur, lu **sous** le store
    * (repository, requête native). C'est la seule façon de prouver l'unicité :
    * l'API publique, elle, ne rend qu'un secret quoi qu'il arrive en base.
+   * Absent pour un store mémoire : sa `Map` est indexée par `userId`, l'unicité
+   * y est structurelle — il n'y a rien « sous » le store à compter.
    */
-  countFor: (userId: string) => Promise<number>;
+  countFor?: (userId: string) => Promise<number>;
   /**
    * **Capacité optionnelle** : réchauffe le pool de connexions. Un pool froid
    * sérialise les premières requêtes et masque les courses que le cas d'écriture
@@ -93,6 +96,36 @@ export function runTotpStoreContract(harness: TotpStoreContractHarness): void {
       assert.equal(found?.digits, 6);
     });
 
+    it("ne partage pas recoveryCodes avec l'appelant, ni à l'écriture ni à la lecture", async () => {
+      // Les codes de secours sont des HASH à usage unique : un appelant qui
+      // mute sa copie ne doit ni en rendre un réutilisable, ni en effacer un.
+      const recoveryCodes = ["h1", "h2"];
+      await store().save(makeSecret({ userId: "u-ref", recoveryCodes }));
+      recoveryCodes.push("MUTATED");
+      const first = await store().findByUser("u-ref");
+      assert.deepEqual(
+        first?.recoveryCodes,
+        ["h1", "h2"],
+        "copie à l'écriture",
+      );
+      assert.ok(first);
+      // `readonly` ne protège qu'à la compilation : un appelant JS (ou un cast)
+      // mute quand même à l'exécution — c'est ce que la copie doit absorber.
+      const mutable = first as unknown as {
+        recoveryCodes: string[];
+        lastUsedStep: number | null;
+      };
+      mutable.recoveryCodes.pop();
+      mutable.lastUsedStep = 999;
+      const again = await store().findByUser("u-ref");
+      assert.deepEqual(
+        again?.recoveryCodes,
+        ["h1", "h2"],
+        "copie à la lecture",
+      );
+      assert.equal(again?.lastUsedStep, null, "l'anti-rejeu ne bouge pas seul");
+    });
+
     it("findByUser d'un utilisateur non enrôlé renvoie null", async () => {
       assert.equal(await store().findByUser("ghost"), null);
     });
@@ -105,11 +138,13 @@ export function runTotpStoreContract(harness: TotpStoreContractHarness): void {
       const found = await store().findByUser("bob");
       assert.equal(found?.secretEnc, "new");
       assert.equal(found?.digits, 8);
-      assert.equal(
-        await harness.countFor("bob"),
-        1,
-        "clé = userId : jamais deux secrets pour un user",
-      );
+      if (harness.countFor) {
+        assert.equal(
+          await harness.countFor("bob"),
+          1,
+          "clé = userId : jamais deux secrets pour un user",
+        );
+      }
     });
 
     it("save CONCURRENT × 10 du même user : 0 rejet, un seul secret", async () => {
@@ -125,7 +160,9 @@ export function runTotpStoreContract(harness: TotpStoreContractHarness): void {
       assert.deepEqual(rejections(results), [], "aucun rejet");
       const found = await store().findByUser("carol");
       assert.ok(found && /^enc-\d$/.test(found.secretEnc));
-      assert.equal(await harness.countFor("carol"), 1);
+      if (harness.countFor) {
+        assert.equal(await harness.countFor("carol"), 1);
+      }
     });
 
     it("les secrets sont ISOLÉS par user", async () => {
@@ -282,14 +319,17 @@ export function runTotpStoreContract(harness: TotpStoreContractHarness): void {
   });
 
   describe("persistance", () => {
-    it("un secret écrit est relu par un NOUVEAU store sur la même base", async () => {
-      await purge();
-      await store().save(
-        makeSecret({ userId: "persist", secretEnc: "durable" }),
-      );
-      const other = harness.newStore();
-      assert.equal((await other.findByUser("persist"))?.secretEnc, "durable");
-    });
+    it.skipIf(!harness.newStore)(
+      "un secret écrit est relu par un NOUVEAU store sur la même base",
+      async () => {
+        await purge();
+        await store().save(
+          makeSecret({ userId: "persist", secretEnc: "durable" }),
+        );
+        const other = harness.newStore!();
+        assert.equal((await other.findByUser("persist"))?.secretEnc, "durable");
+      },
+    );
   });
 
   describe("recherche `q` — préfixe indexable, terme échappé", () => {

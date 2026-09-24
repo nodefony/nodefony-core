@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 861,
-    "symbols": 4287,
+    "symbols": 4288,
     "classes": 399,
     "interfaces": 1128,
     "types": 459,
     "enums": 4,
-    "functions": 1868,
+    "functions": 1869,
     "constants": 429
   },
   "symbols": {
@@ -27758,8 +27758,7 @@
       "implements": [
         "ITotpSecretStore"
       ],
-      "decorators": [],
-      "description": "Store de secrets TOTP **en mémoire** — implémentation de référence d'{@link ITotpSecretStore}. Clé = `userId` (un secret par utilisateur). 0 dépendance, idéale pour le développement mono-process et…"
+      "decorators": []
     },
     "TotpStoreSnapshot": {
       "name": "TotpStoreSnapshot",

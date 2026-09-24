@@ -60,16 +60,26 @@ export interface TotpStoreSnapshot {
  * un adapter ORM ou Redis. Perf : la `Map` n'existe que si le store est instancié
  * (2FA activé), jamais sur le hot path par requête.
  */
+/**
+ * Copie d'un secret : `recoveryCodes` est un tableau mutable — rendre ou garder
+ * la référence laisserait l'appelant rendre un code de secours réutilisable, ou
+ * en effacer un, sans passer par le store.
+ */
+function cloneSecret(s: ITotpSecret): ITotpSecret {
+  return { ...s, recoveryCodes: [...s.recoveryCodes] };
+}
+
 export class MemoryTotpSecretStore implements ITotpSecretStore {
   /** userId → secret (source de vérité). */
   readonly #byUser = new Map<string, ITotpSecret>();
 
   findByUser(userId: string): Promise<ITotpSecret | null> {
-    return Promise.resolve(this.#byUser.get(userId) ?? null);
+    const secret = this.#byUser.get(userId);
+    return Promise.resolve(secret ? cloneSecret(secret) : null);
   }
 
   save(secret: ITotpSecret): Promise<void> {
-    this.#byUser.set(secret.userId, secret);
+    this.#byUser.set(secret.userId, cloneSecret(secret));
     return Promise.resolve();
   }
 
@@ -79,7 +89,7 @@ export class MemoryTotpSecretStore implements ITotpSecretStore {
       if (patch.confirmedAt !== undefined)
         secret.confirmedAt = patch.confirmedAt;
       if (patch.recoveryCodes !== undefined)
-        secret.recoveryCodes = patch.recoveryCodes;
+        secret.recoveryCodes = [...patch.recoveryCodes];
       if (patch.lastUsedStep !== undefined)
         secret.lastUsedStep = patch.lastUsedStep;
       if (patch.lastUsedAt !== undefined) secret.lastUsedAt = patch.lastUsedAt;

@@ -39,7 +39,7 @@ comportement entre deux moteurs devient donc un test rouge, par construction.
 | `ITokenStore` | `runTokenStoreContract()` (`security/tests/support/tokenStoreContract.ts:66`) | ✅ | ✅ | ✅ |
 | `IWebAuthnCredentialStore` | `runWebAuthnStoreContract()` (`security/tests/support/webAuthnStoreContract.ts:63`) | ✅ | ✅ | ✅ |
 | `IWebhookStore` | `runWebhookStoreContract()` (`security/tests/support/webhookStoreContract.ts:66`) | ✅ | ✅ | ✅ |
-| `ITotpSecretStore` | `runTotpStoreContract()` (`security/tests/support/totpStoreContract.ts:78`) | — | ✅ | ✅ |
+| `ITotpSecretStore` | `runTotpStoreContract()` (`security/tests/support/totpStoreContract.ts:81`) | ✅ | ✅ | ✅ |
 | Journal d'audit sous rafale | `runAuditBurstContract()` (`security/tests/support/auditBurstContract.ts:56`) | — | ✅ | ✅ |
 | Manifeste des stores | `runStoreManifestContract()` (`security/tests/support/storeManifestContract.ts:82`) | — | ✅ | ✅ |
 
@@ -62,7 +62,7 @@ laissait passer.
 - **Les stores mémoire partageaient leurs objets avec l'appelant** et gardaient d'anciens liens
   d'index : un jeton réécrit sous un nouveau secret restait joignable par l'ancien. Copies
   profondes et ré-indexation : `cloneOrNull()` (`MemoryTokenStore.ts:51`), `cloneCredential()`
-  (`MemoryWebAuthnCredentialStore.ts:53`), `cloneEndpoint()` (`MemoryWebhookStore.ts:53`).
+  (`MemoryWebAuthnCredentialStore.ts:53`), `cloneEndpoint()` (`MemoryWebhookStore.ts:53`), `cloneSecret()` (`MemoryTotpSecretStore.ts:68`).
 
 ## Écarts ASSUMÉS entre moteurs
 
@@ -92,7 +92,6 @@ exige donc pas — et les nomme.
   la copie commune.
 - **MySQL Community se joue dans une passe séparée** de MariaDB (les deux partagent
   `NF_MYSQL_URL`) : `npm run test:all -- --dialects`.
-- **Le store TOTP en mémoire ne passe pas le contrat commun** — seulement son banc de listing.
 - **La coupure réelle du serveur MongoDB** (`outage-real.test.ts`) ne tourne que sur demande
   (`NF_RUN_DB_OUTAGE=1`), le banc ayant alors la main sur le conteneur ; sans elle, ses cas sont
   sautés.
@@ -138,7 +137,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée depuis vite
 <!-- prettier-ignore -->
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
-| Unitaires (mémoire) | `@nodefony/security` `unit/tokenStoreContract.test.ts`, `unit/webAuthnCredentialStoreContract.test.ts`, `unit/webhookStore.test.ts` | les stores mémoire passent la même copie que les bases |
+| Unitaires (mémoire) | `@nodefony/security` `unit/tokenStoreContract.test.ts`, `unit/webAuthnCredentialStoreContract.test.ts`, `unit/webhookStore.test.ts`, `unit/totpStoreContract.test.ts` | les stores mémoire passent la même copie que les bases |
 | Intégration (sqlite) | `@nodefony/drizzle` `repository-contract-sqlite.test.ts`, `token-store-sqlite.test.ts`, `webauthn-store-sqlite.test.ts`, `webhook-store-sqlite.test.ts` | les contrats sur SQLite |
 | E2E (bases réelles) | `@nodefony/drizzle` `*-postgres.e2e.test.ts`, `*-mysql.e2e.test.ts` · `@nodefony/mongoose` `repository-contract.test.ts`, `token-store.test.ts`, `webauthn-credential-store.test.ts`, `webhook-store.test.ts` | les mêmes contrats sur PostgreSQL, MySQL/MariaDB et MongoDB |
 

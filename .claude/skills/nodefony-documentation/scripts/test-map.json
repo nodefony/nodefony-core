@@ -823,7 +823,8 @@
     "unit": [
       "src/packages/@nodefony/security/tests/unit/tokenStoreContract.test.ts",
       "src/packages/@nodefony/security/tests/unit/webAuthnCredentialStoreContract.test.ts",
-      "src/packages/@nodefony/security/tests/unit/webhookStore.test.ts"
+      "src/packages/@nodefony/security/tests/unit/webhookStore.test.ts",
+      "src/packages/@nodefony/security/tests/unit/totpStoreContract.test.ts"
     ],
     "integration": [
       "src/packages/@nodefony/drizzle/tests/integration/repository-contract-sqlite.test.ts",
