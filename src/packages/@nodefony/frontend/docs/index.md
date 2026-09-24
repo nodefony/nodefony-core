@@ -489,7 +489,7 @@ intermittent, apparaissant seulement quand le navigateur est plus rapide que le 
 | Pièce                   | Rôle                                                               | Ancre                                                       |
 | ----------------------- | ------------------------------------------------------------------ | ----------------------------------------------------------- |
 | `FrontendService`       | l'orchestrateur : entrées, familles, cycle de vie, rendu           | `FrontendService.ts:70`                                     |
-| `ViteProcessSupervisor` | lance, surveille, relance et arrête **un** processus Vite          | `ViteProcessSupervisor.ts:215`                              |
+| `ViteProcessSupervisor` | lance, surveille, relance et arrête **un** processus Vite          | `ViteProcessSupervisor.ts:236`                              |
 | `ViteConfigGenerator`   | écrit la configuration Vite (fonction pure, testée seule)          | `ViteConfigGenerator.toMjs()` (`ViteConfigGenerator.ts:69`) |
 | `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:95`)       |
 | `TemplateHelper`        | produit les balises (dev) ou lit le manifeste (prod)               | `TemplateHelper.ts:36`                                      |
@@ -535,7 +535,7 @@ connaître :
 1. **Les préfixes de tous les modules sont agrégés et dédupliqués** — un seul Vite, un seul proxy.
 2. **Une clé commençant par `^` est traitée comme une expression régulière** par Vite. C'est ainsi que
    le data plane d'administration est couvert d'un coup.
-3. **`/nodefony/<module>/api` est ajouté d'office**, sans que tu le déclares (`ViteConfigGenerator.ts:172`).
+3. **`/nodefony/<module>/api` est ajouté d'office**, sans que tu le déclares (`ViteConfigGenerator.ts:201`).
    Sans cela, la barre de débogage injectée en développement appellerait `/nodefony/profiler/api` et
    recevrait le repli SPA — le clic serait mort.
 
@@ -569,10 +569,10 @@ les processus meurent.
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:297`)               |
 | Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:715`)         |
-| Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:599`)    |
+| Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:787`)    |
 | Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                             |
 | Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:266`) |
-| Arrêt du kernel            | `SIGINT`, puis `SIGKILL` après 3 s — aucun zombie ne bloque le port (`ViteProcessSupervisor.ts:26`)   |
+| Arrêt du kernel            | `SIGINT`, puis `SIGKILL` après 3 s — aucun zombie ne bloque le port (`ViteProcessSupervisor.ts:912`)  |
 
 Deux subtilités valent d'être connues, parce qu'elles expliquent des comportements sinon
 incompréhensibles :
@@ -774,7 +774,7 @@ Deux points d'attention avant de se lancer :
 - si le nouveau framework transforme des fichiers qui ne lui appartiennent pas, il lui faut sa propre
   famille d'isolation — c'est la leçon d'Angular.
 
-**Remplacer le superviseur** est prévu par le contrat `IViteSupervisor` (`IViteSupervisor.ts:41`) :
+**Remplacer le superviseur** est prévu par le contrat `IViteSupervisor` (`IViteSupervisor.ts:64`) :
 `start`, `stop`, `status`. C'est le seul point d'isolement entre « Vite dans un processus séparé » et
 toute autre stratégie.
 

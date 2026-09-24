@@ -269,7 +269,7 @@ Les variables sont la seule extension du module. Une page écrit `{{ nom }}` ; l
 la valeur au moment de servir (`DocumentationService.#resolveVars()`,
 `DocumentationService.ts:541`). Trois variables sont fournies d'office — version du noyau, branche
 et empreinte git — enregistrées quand tous les modules sont montés
-(`Documentation.onKernelReady()`, `index.ts:70`). Ton module peut ajouter les siennes :
+(`Documentation.onKernelReady()`, `index.ts:78`). Ton module peut ajouter les siennes :
 
 ```ts
 // Dans le hook onKernelReady de ton module : tous les services existent.
@@ -324,7 +324,7 @@ publique :
 | Route                                  | Ce qu'elle renvoie                                                         |
 | -------------------------------------- | -------------------------------------------------------------------------- |
 | `GET /nodefony/documentation/api/tree` | le catalogue : sections, pages, personas (`DocumentationController.ts:50`) |
-| `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:65`)       |
+| `GET …/api/page/{slug}`                | une page résolue + son lien source (`DocumentationController.ts:82`)       |
 
 Le lien « Modifier » est assemblé côté serveur à partir d'un chemin **relatif** au dépôt
 (`DocumentationService.#buildSourceUrl()`, `DocumentationService.ts:560`) : aucun chemin absolu de

@@ -345,7 +345,8 @@ homonyme), elle est conservée : le défaut ne rétrograde jamais une règle plu
 ### Situation 2 — les namespaces réservés portent un plancher
 
 Un nom qui commence par `nodefony:` hérite d'un plancher non contournable : authentifié **et**
-`ROLE_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts:70`). Un seul préfixe couvre donc tout
+`ROLE_NODEFONY_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts:89`) — un rôle de la plateforme,
+pas le `ROLE_ADMIN` d'une organisation. Un seul préfixe couvre donc tout
 ce que la plateforme expose (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:106`). C'est ce qui
 protège `nodefony:kernel:gc` : le nom **est** la garde, et la comparaison est insensible à la casse
 pour qu'un `NODEFONY:kernel:gc` ne passe pas à côté.
@@ -529,7 +530,7 @@ passe par le pont pour tout ce qui est déjà une route. Le détail du pont vit 
 | Le client attend indéfiniment, aucune erreur                 | le handler ne rend jamais (il publie au lieu de retourner) — pas de frame `result` | toujours `return` une valeur ; publier **en plus**, jamais **à la place**          |
 | `-32601 method not found`                                    | nom mal orthographié, ou action déclarée sur un **autre** endpoint                 | vérifier `socket.serverMethods` — c'est la liste réelle de CETTE connexion         |
 | `-32603 internal error` sans détail                          | un `throw` ordinaire est rendu opaque au client (Zero Trust)                       | lever une `RpcError` avec un code et un message publiables                         |
-| `-32001 unauthorized` sur une action légitime                | le nom commence par `nodefony:`, le namespace réservé à la plateforme              | renommer hors de `nodefony:`, ou obtenir `ROLE_ADMIN`                              |
+| `-32001 unauthorized` sur une action légitime                | le nom commence par `nodefony:`, le namespace réservé à la plateforme              | renommer hors de `nodefony:`, ou obtenir `ROLE_NODEFONY_ADMIN`                     |
 | Une action sensible est appelable par un anonyme             | une action applicative est **libre** tant qu'aucune politique ne la couvre         | ajouter une règle de préfixe (`security/nodefony/config/config.ts:906`)            |
 | Un travail relancé crée deux jobs                            | action non idempotente rejouée après une reconnexion                               | action compagnon d'annulation, ou identifiant fourni par l'appelant + mémorisation |
 | `abort()` introuvable sur la socket                          | il n'existe pas — et n'arrêterait pas le serveur de toute façon                    | exposer une action d'annulation qui prend l'identifiant du travail                 |

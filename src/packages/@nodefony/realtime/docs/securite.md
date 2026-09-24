@@ -93,16 +93,16 @@ Les étapes 1 et 2 appartiennent à `@nodefony/http` et `@nodefony/security` : l
 Une WebSocket authentifiée est une cible de choix : elle porte une identité, vit longtemps et
 diffuse en continu.
 
-| Attaque                                                                                                | Ce qui la bloque                                                   | Où                                                           |
-| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ | ------------------------------------------------------------ |
-| **CSWSH** — `evil.com` fait `new WebSocket("wss://app.exemple.com/rt")`, le navigateur joint le cookie | Contrôle d'`Origin` same-origin par défaut, puis allowlist stricte | `@nodefony/http` transport, puis `csrf.checkOrigin` realtime |
-| **Écoute des flux internes** — un visiteur s'abonne à `nodefony:syslog` et lit les logs du pod         | Plancher des namespaces réservés (authentifié + `ROLE_ADMIN`)      | Verrou de frame `@nodefony/security`                         |
-| **Élévation par canal métier** — un `ROLE_USER` s'abonne au canal admin d'un autre module              | Policy déclarée sur le canal, évaluée avec la hiérarchie de rôles  | `@RealtimeChannel(name, { roles })` + verrou de frame        |
-| **Pont API plus permissif que REST** — `api.request {path}` pour contourner un 401 HTTP                | Re-match de la MÊME zone firewall que `GET {path}`                 | Verrou de frame, surface `api.request`                       |
-| **Socket zombie** — un admin se déconnecte, sa socket continue de diffuser                             | Re-validation périodique de l'identité, fermeture `4001`           | Tick de révocation du hub                                    |
-| **DoS mémoire par abonnements** — une connexion ouvre des milliers de canaux                           | Plafond de canaux par connexion (256 par défaut)                   | `limits.maxChannelsPerConnection`                            |
-| **DoS mémoire par lenteur** — un client ne lit pas, la file d'envoi enfle jusqu'à l'OOM                | Jet de frames à 1 MiB, fermeture `1013` à 8 MiB                    | Back-pressure du transport WS                                |
-| **Oracle d'autorisation** — sonder les canaux pour cartographier les droits                            | Motif de refus **générique** (`forbidden`), jamais le détail       | `realtime:denied`                                            |
+| Attaque                                                                                                | Ce qui la bloque                                                       | Où                                                           |
+| ------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
+| **CSWSH** — `evil.com` fait `new WebSocket("wss://app.exemple.com/rt")`, le navigateur joint le cookie | Contrôle d'`Origin` same-origin par défaut, puis allowlist stricte     | `@nodefony/http` transport, puis `csrf.checkOrigin` realtime |
+| **Écoute des flux internes** — un visiteur s'abonne à `nodefony:syslog` et lit les logs du pod         | Plancher des namespaces réservés (authentifié + `ROLE_NODEFONY_ADMIN`) | Verrou de frame `@nodefony/security`                         |
+| **Élévation par canal métier** — un `ROLE_USER` s'abonne au canal admin d'un autre module              | Policy déclarée sur le canal, évaluée avec la hiérarchie de rôles      | `@RealtimeChannel(name, { roles })` + verrou de frame        |
+| **Pont API plus permissif que REST** — `api.request {path}` pour contourner un 401 HTTP                | Re-match de la MÊME zone firewall que `GET {path}`                     | Verrou de frame, surface `api.request`                       |
+| **Socket zombie** — un admin se déconnecte, sa socket continue de diffuser                             | Re-validation périodique de l'identité, fermeture `4001`               | Tick de révocation du hub                                    |
+| **DoS mémoire par abonnements** — une connexion ouvre des milliers de canaux                           | Plafond de canaux par connexion (256 par défaut)                       | `limits.maxChannelsPerConnection`                            |
+| **DoS mémoire par lenteur** — un client ne lit pas, la file d'envoi enfle jusqu'à l'OOM                | Jet de frames à 1 MiB, fermeture `1013` à 8 MiB                        | Back-pressure du transport WS                                |
+| **Oracle d'autorisation** — sonder les canaux pour cartographier les droits                            | Motif de refus **générique** (`forbidden`), jamais le détail           | `realtime:denied`                                            |
 
 > [!IMPORTANT]
 > Les lignes 2 à 5 supposent `@nodefony/security` chargé **avec au moins une zone protégée**. Sans
@@ -449,12 +449,12 @@ non-chaîne (`startChannel` ignore de toute façon un canal absent).
 Certains namespaces exposent l'intérieur du pod. Ils portent une politique par défaut que la config
 peut **resserrer**, jamais desserrer.
 
-| Cible                                      | Politique par défaut                                          |
-| ------------------------------------------ | ------------------------------------------------------------- |
-| `nodefony:audit`                           | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:99`) |
-| tout le reste de `nodefony:`               | authentifié + `ROLE_ADMIN` (`frameAuthorizer.ts:70`)          |
-| tout canal contenant `:health` ou `:stats` | authentifié + `ROLE_ADMIN`                                    |
-| tout le reste                              | libre, sauf policy déclarée                                   |
+| Cible                                      | Politique par défaut                                           |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| `nodefony:audit`                           | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:99`)  |
+| tout le reste de `nodefony:`               | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:89`)  |
+| tout canal contenant `:health` ou `:stats` | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:253`) |
+| tout le reste                              | libre, sauf policy déclarée                                    |
 
 Le journal d'audit est un **canal précis**, pas un namespace : sa règle est posée devant celle du
 territoire (premier match gagnant), et elle n'existe que si le hub réserve bien ce territoire.
@@ -776,7 +776,7 @@ n'est pas appliquée.
   (`RealtimeHub.ts:849`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
   du backplane. Un `drops` qui grimpe signale des clients en souffrance ; un `slowConsumers` non nul
   précède souvent une fermeture `1013`. Même snapshot en flux sur le canal `nodefony:socket`
-  (namespace réservé : `ROLE_ADMIN`).
+  (namespace réservé : `ROLE_NODEFONY_ADMIN`).
 - **Journal d'audit** : les refus de frame arrivent sur le canal `nodefony:audit`
   (`ROLE_NODEFONY_ADMIN`) et dans le data plane d'audit de `@nodefony/security`.
 - **Page module** : `/nodefony/modules/realtime` — la config effective (dont `csrf.checkOrigin` et

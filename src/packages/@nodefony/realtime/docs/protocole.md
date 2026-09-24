@@ -433,7 +433,7 @@ radicalement :
 | une **requête**       | `-32001 "unauthorized"` (`JsonRpcPeer.ts:413`)                  | Un `id` existe : il y a un canal de réponse          |
 | une **notification**  | la notification `realtime:denied` (`RealtimeController.ts:433`) | Aucun `id` : sans elle, le client se croirait abonné |
 
-`IRealtimeDenied` (`RealtimeEventMap.ts:269`) porte deux champs, `channel` et `reason` — et le motif
+`IRealtimeDenied` (`RealtimeEventMap.ts:269`) porte `channel` et `reason` — plus un `detail` optionnel, posé hors production seulement — et le motif
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un
 attaquant y lirait la carte des droits. Deux motifs circulent : `forbidden` (le verrou a dit non) et
 `limit` (le plafond de canaux de la connexion est atteint, `RealtimeController.ts:763`). Côté client,

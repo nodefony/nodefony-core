@@ -106,9 +106,13 @@ la rend éprouvable sans serveur, et ce qui l'empêche d'inventer quoi que ce so
 npx nodefony ai:mcp        # écrit .mcp.json ; --dry-run pour voir sans écrire
 ```
 
-Quatre outils, qui sont les commandes que vous connaissez déjà :
+Sept outils. Quatre sont les commandes que vous connaissez déjà :
 `nodefony_inspect` (ce qui est monté), `nodefony_check` (ce qui manque),
 `nodefony_symbols` (ce qu'une API signifie), `nodefony_card` (par où commencer).
+`nodefony_docs` sert la documentation des modules. `nodefony_admin_list` et
+`nodefony_admin_call` ouvrent les lectures du data plane d'administration — le
+catalogue, puis l'appel — et exigent un jeton porteur du scope `admin:read` :
+sans lui, ils n'apparaissent pas dans la liste.
 
 **Il n'y a pas de process à lancer.** Depuis la révision `2026-07-28` du
 transport, un serveur MCP est un endpoint `POST` sans session : c'est donc une
@@ -330,13 +334,13 @@ absente sans `NODE_ENV`) ; les skills, eux, doivent se mettre à jour par npm.
 
 ## Configuration
 
-| Clé                  | Type       | Défaut                                 | Rôle                                           |
-| -------------------- | ---------- | -------------------------------------- | ---------------------------------------------- |
-| `enabled`            | `boolean`  | `true`                                 | Interrupteur du module                         |
-| `mcp.enabled`        | `boolean`  | `true`                                 | Répond-on aux requêtes MCP ? Coupé → `404`     |
-| `mcp.allowedOrigins` | `string[]` | `[]`                                   | Origines de navigateur admises ; vide = aucune |
-| `mcp.allowRemote`    | `boolean`  | `false`                                | Accepter un appel d'une adresse non locale     |
-| `mcp.tools`          | `string[]` | `["inspect","check","symbols","card"]` | Allowlist des outils — lecture seule           |
+| Clé                  | Type       | Défaut                                             | Rôle                                           |
+| -------------------- | ---------- | -------------------------------------------------- | ---------------------------------------------- |
+| `enabled`            | `boolean`  | `true`                                             | Interrupteur du module                         |
+| `mcp.enabled`        | `boolean`  | `true`                                             | Répond-on aux requêtes MCP ? Coupé → `404`     |
+| `mcp.allowedOrigins` | `string[]` | `[]`                                               | Origines de navigateur admises ; vide = aucune |
+| `mcp.allowRemote`    | `boolean`  | `false`                                            | Accepter un appel d'une adresse non locale     |
+| `mcp.tools`          | `string[]` | les sept outils intégrés (`BUILTIN_MCP_TOOL_KEYS`) | Allowlist des outils — lecture seule           |
 
 Les clés, leurs types et leurs défauts viennent du schéma Zod
 (`nodefony/config/config.ts`) — **source unique** dont dérivent la

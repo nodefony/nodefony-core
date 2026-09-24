@@ -459,7 +459,7 @@ schéma reste pur et sérialisable (`defineDocumentationConfig()`, `defineModule
 La validation a lieu au `onKernelRegister` (`index.ts:50`), **avant** l'instanciation du
 service : une config invalide arrête le démarrage avec un message qui nomme le champ fautif,
 plutôt qu'un `undefined.x` trois phases plus loin. Le JSON Schema publié par
-`configSchema()` (`index.ts:40`) alimente le panneau de configuration Studio.
+`configSchema()` (`index.ts:53`) alimente le panneau de configuration Studio.
 
 Enfin, le module est déclaré **non critique** (`index.ts:33`) : son échec ne tue jamais le
 process — une application ne tombe pas parce que sa documentation est indisponible.
@@ -555,7 +555,7 @@ production, les 30 secondes par défaut le rendent négligeable.
   est bien indexée, bien rangée, et que ses liens cliquent.
 - **La carte du module** (`/nodefony/modules/documentation`) montre sa doc, ses symboles, ses
   tests et sa configuration validée — le formulaire y est dérivé du JSON Schema publié par
-  `configSchema()` (`index.ts:40`), jamais écrit à la main.
+  `configSchema()` (`index.ts:53`), jamais écrit à la main.
 - **Le journal** nomme chaque refus avec son code stable (`DOC_NOT_FOUND`, `DOC_UNSAFE_SLUG`).
   Une page qui « n'apparaît pas » se diagnostique là, en une ligne.
 
@@ -567,7 +567,7 @@ entièrement lisible dans ses deux réponses.
 **1. Une variable `{{ }}`** — le point d'extension du contenu. `registerVar()`
 (`DocumentationService.ts:172`) accepte un fournisseur **synchrone** qui rend une chaîne
 (l'exemple du Démarrage rapide). Le module en enregistre trois lui-même au `onKernelReady`
-(`index.ts:70`) : `version`, `branch`, `commit`.
+(`index.ts:78`) : `version`, `branch`, `commit`.
 
 **2. Les briques pures** — le point d'extension de l'outillage. `parseFrontmatter()`,
 `scanDocsDir()`, `pathToSlug()`, `isSafeSlug()` sont exportées par le paquet et n'ont besoin
