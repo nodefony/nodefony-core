@@ -100,17 +100,18 @@ const VERDICTS: Record<
 /**
  * Ce que vaut le statut d'UNE migration.
  *
- * ⚠️ Les nuances sont FONCÉES (`.9`) et ce n'est pas cosmétique : en thème
- * clair, un badge Mantine `variant="light"` sur une couleur de base rend
- * 4,32:1 pour du 11 px gras — sous le seuil WCAG AA de 4,5:1, mesuré par
- * axe-core sur cet écran. La nuance foncée est ce qui fait passer le texte.
+ * ⚠️ Couleurs de BASE, jamais une nuance (`teal.9`) : avec une nuance, Mantine
+ * peint le FOND du variant `light` à cette nuance pleine, mais garde le texte
+ * sur `light-color` — qui vaut la même nuance 9 en thème clair. Texte et fond
+ * identiques, illisibles (mesuré 1,18:1). Le contraste du variant `light` en
+ * clair est réglé une fois pour toutes dans `theme.ts` (`readableLightColors`).
  */
 const STATUS_STYLES: Record<string, { color: MantineColor; label: string }> = {
-  applied: { color: "teal.9", label: "appliquée" },
-  pending: { color: "orange.9", label: "en attente" },
-  failed: { color: "red.9", label: "échec" },
-  drifted: { color: "orange.9", label: "fichier modifié" },
-  missing: { color: "gray.8", label: "fichier absent" },
+  applied: { color: "teal", label: "appliquée" },
+  pending: { color: "orange", label: "en attente" },
+  failed: { color: "red", label: "échec" },
+  drifted: { color: "orange", label: "fichier modifié" },
+  missing: { color: "gray", label: "fichier absent" },
 };
 
 /**
@@ -172,16 +173,16 @@ function SourceTable({ source }: { source: MigrationSource }) {
       <Group justify="space-between" mb="sm">
         <Group gap="xs">
           <Text fw={600}>{source.name}</Text>
-          <Badge color="teal.9" variant="light">
+          <Badge color="teal" variant="light">
             {source.applied} appliquée(s)
           </Badge>
           {source.pending > 0 && (
-            <Badge color="orange.9" variant="light">
+            <Badge color="orange" variant="light">
               {source.pending} en attente
             </Badge>
           )}
           {source.failed > 0 && (
-            <Badge color="red.9" variant="light">
+            <Badge color="red" variant="light">
               {source.failed} en échec
             </Badge>
           )}

@@ -1,10 +1,15 @@
 import {
   ActionIcon,
+  Code,
   createTheme,
+  darken,
+  isVirtualColor,
+  luminance,
   Modal,
   NavLink,
   Tabs,
   type MantineColorsTuple,
+  type MantineTheme,
 } from "@mantine/core";
 
 /** Palette de marque sélectionnable (réversible à chaud, persistée). */
@@ -176,6 +181,17 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
           },
         }),
       }),
+      // Code EN LIGNE : il se coupe au lieu de défiler. Mantine pose
+      // `overflow: auto` sur tout `<Code>` ; un nom long (une variable
+      // `NF__HTTP__…`) dans une cellule devient alors une zone qui défile sans
+      // pouvoir recevoir le focus — axe-core : `scrollable-region-focusable`,
+      // 23 fois sur l'écran de configuration, et du contenu hors d'atteinte au
+      // clavier. Couper le mot rend tout visible ; le code en BLOC garde son
+      // défilement (il est fait pour ça).
+      Code: Code.extend({
+        styles: (_theme, props) =>
+          props.block ? {} : { root: { overflowWrap: "anywhere" } },
+      }),
       // Toute commande à icône seule doit pouvoir être ATTEINTE — WCAG 2.2,
       // critère 2.5.8 « Target Size (Minimum) », 24 × 24 px.
       //
@@ -247,10 +263,75 @@ export const studioTheme = buildStudioTheme();
  * le fond sombre. Dans les deux cas le texte reste nettement en retrait du texte
  * principal : le rôle visuel de « secondaire » est préservé.
  */
-export const studioCssVariablesResolver = () => ({
+/** Seuil WCAG AA du texte courant, avec une marge contre l'arrondi. */
+const AA_TEXT = 4.6;
+
+/** Rapport de contraste WCAG entre deux couleurs (luminances de Mantine). */
+function contrastRatio(a: string, b: string): number {
+  const la = luminance(a);
+  const lb = luminance(b);
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
+/**
+ * Première teinte de la famille, à partir de `from`, lisible sur `background`.
+ *
+ * On reste dans la MÊME famille (une teinte plus profonde, jamais une autre
+ * couleur) ; si même la plus sombre échoue, on l'assombrit par pas.
+ *
+ * @returns une référence de variable (`var(--mantine-color-x-8)`) ou une
+ *   couleur calculée, et `null` quand la teinte par défaut passe déjà.
+ */
+function readableShade(
+  name: string,
+  tuple: readonly string[],
+  background: string,
+  from: number,
+): string | null {
+  for (let i = from; i < tuple.length; i++) {
+    if (contrastRatio(tuple[i], background) >= AA_TEXT) {
+      return i === from ? null : `var(--mantine-color-${name}-${i})`;
+    }
+  }
+  for (let k = 0.1; k <= 0.8; k += 0.1) {
+    const c = darken(tuple[tuple.length - 1], k);
+    if (contrastRatio(c, background) >= AA_TEXT) return c;
+  }
+  return null;
+}
+
+/**
+ * Texte coloré lisible en schéma CLAIR, pour TOUTES les couleurs du thème.
+ *
+ * Mantine rend en clair `c="<couleur>"` à la teinte 6 (`--…-text` = `filled`),
+ * et le texte des variants `light` (badges, alertes) à la teinte 9 sur un fond
+ * à la teinte 1. Pour les teintes vives, c'est sous le seuil — mesuré par
+ * axe-core en clair sur le tableau de bord ORM et la supervision : titre
+ * « Studio » en `nodefonyCyan` à **2,87:1**, badges `yellow` à **2,68:1**,
+ * `teal` et `orange` à **4,3:1**. Le défaut n'existe pas en sombre : il
+ * n'apparaissait qu'en basculant de thème.
+ *
+ * Réglé ICI plutôt qu'au site d'appel : chaque couleur reçoit la première
+ * teinte de sa propre famille qui passe le seuil, les couleurs déjà conformes
+ * ne bougent pas, et un écran à venir en hérite sans y penser.
+ */
+function readableLightColors(theme: MantineTheme): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [name, tuple] of Object.entries(theme.colors)) {
+    if (isVirtualColor(tuple)) continue;
+    const text = readableShade(name, tuple, "#ffffff", 6);
+    if (text) out[`--mantine-color-${name}-text`] = text;
+    const light = readableShade(name, tuple, tuple[1], 9);
+    if (light) out[`--mantine-color-${name}-light-color`] = light;
+  }
+  return out;
+}
+
+export const studioCssVariablesResolver = (theme: MantineTheme) => ({
   variables: {},
   light: {
     "--mantine-color-dimmed": "var(--mantine-color-gray-7)",
+    ...readableLightColors(theme),
   },
   dark: {
     "--mantine-color-dimmed": "var(--mantine-color-dark-1)",

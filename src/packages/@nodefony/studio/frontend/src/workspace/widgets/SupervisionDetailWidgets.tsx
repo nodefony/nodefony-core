@@ -106,6 +106,7 @@ function MemoryBody({ source }: WidgetRenderProps<StatsPayload>) {
                 value={pct}
                 color={pct >= 90 ? "red" : pct >= 70 ? "orange" : "teal"}
                 size="sm"
+                aria-label={`${spaceLabel(s.name)} : ${pct} % occupé`}
               />
             </div>
           );

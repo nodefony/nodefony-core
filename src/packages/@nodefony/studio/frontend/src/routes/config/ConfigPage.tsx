@@ -295,14 +295,17 @@ export const ConfigPage = observer(() => {
           <Progress.Root size="xl" radius="sm">
             <Progress.Section
               value={pct(stats.byProvenance.default)}
+              aria-label={`Provenance $défaut : ${pct(stats.byProvenance.default)} %`}
               color="gray"
             />
             <Progress.Section
               value={pct(stats.byProvenance.app)}
+              aria-label={`Provenance $application : ${pct(stats.byProvenance.app)} %`}
               color="grape"
             />
             <Progress.Section
               value={pct(stats.byProvenance.env)}
+              aria-label={`Provenance $environnement : ${pct(stats.byProvenance.env)} %`}
               color="teal"
             />
           </Progress.Root>

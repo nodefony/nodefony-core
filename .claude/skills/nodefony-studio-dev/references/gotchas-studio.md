@@ -428,3 +428,12 @@ connecteur — ils ne recopient pas son détail. Deux écrans qui affichent la m
 jour où l'un seul est corrigé. Les verdicts se calculent dans `utils/ormConnectorInsights.ts`
 (pur, testé) ; santé et flux sont des mesures PAR PROCESS : l'écran nomme toujours le pid qui les a
 produites.
+
+## Couleurs : jamais de NUANCE sur un variant `light`
+
+`<Badge color="teal.9" variant="light">` peint le FOND à la nuance 9 pleine et garde le texte sur
+`--…-light-color`, qui vaut la même nuance 9 en thème clair : texte invisible (1,18:1). Écrire la
+couleur de base (`color="teal"`) ; la lisibilité du texte coloré et des variants `light` en clair
+est réglée pour toutes les couleurs par `readableLightColors` (`theme.ts`), qui choisit la
+première teinte de la même famille passant 4,5:1. Un `<Code>` en ligne se coupe (thème) au lieu
+de défiler ; une `Progress` porte un `aria-label` ; un titre de page est un `<h1>`.

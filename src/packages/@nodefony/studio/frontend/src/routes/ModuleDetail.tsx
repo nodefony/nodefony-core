@@ -312,7 +312,13 @@ const coverageColumns: DataGridColumn<CoverageFileRow>[] = [
     value: (f) => f.lines,
     render: (f) => (
       <Group gap="xs" wrap="nowrap">
-        <Progress value={f.lines} color={covColor(f.lines)} w={110} size="sm" />
+        <Progress
+          value={f.lines}
+          color={covColor(f.lines)}
+          w={110}
+          size="sm"
+          aria-label={`Couverture des lignes : ${Math.round(f.lines)} %`}
+        />
         <Text size="xs" w={34} ta="right">
           {Math.round(f.lines)}%
         </Text>

@@ -26,7 +26,9 @@ export function StubPage({
     <Stack gap="md">
       <Group justify="space-between" align="flex-end">
         <Stack gap={4}>
-          <Title order={2}>{title}</Title>
+          <Title order={1} size="h2">
+            {title}
+          </Title>
           {description && (
             <Text c="dimmed" size="sm">
               {description}

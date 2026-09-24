@@ -70,7 +70,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/backend-studio.md` | Référence — Back-end Studio (controller · data plane · auth · realtime serveur) | 104 |
 | `references/debugbar.md` | Référence — Debug bar Nodefony (nodefony/debugbar) | 43 |
-| `references/gotchas-studio.md` | Gotchas Studio — règles durables (par thème) | 431 |
+| `references/gotchas-studio.md` | Gotchas Studio — règles durables (par thème) | 440 |
 | `references/realtime-studio.md` | Référence — Realtime Studio (canaux · hub UI · log protocole · patron sondes) | 123 |
 | `references/twin.md` | Référence — Jumeau Vivant (Twin) | 77 |
 | `references/ui-kit.md` | Référence — UI kit Studio & construction d'écran | 373 |

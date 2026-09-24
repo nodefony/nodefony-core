@@ -393,7 +393,12 @@ function HealthBreakdown({ r }: { r: HealthResult }) {
               {p.score} · {Math.round((p.weight / total) * 100)} %
             </Text>
           </Group>
-          <Progress value={p.score} color={partColor(p.score)} size="sm" />
+          <Progress
+            value={p.score}
+            color={partColor(p.score)}
+            size="sm"
+            aria-label={`${p.label} : score ${p.score}`}
+          />
         </div>
       ))}
     </Stack>

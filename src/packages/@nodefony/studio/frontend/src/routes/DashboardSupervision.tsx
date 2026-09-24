@@ -2473,7 +2473,9 @@ export const DashboardSupervision = observer(() => {
               <Group gap={6} mb="md">
                 <IconDatabase size={20} stroke={1.5} />
                 {SRC_NODE}
-                <Title order={4}>Heap V8</Title>
+                <Title order={2} size="h4">
+                  Heap V8
+                </Title>
                 <DocHint
                   title="Heap utilisé"
                   version={SUP_DOC}
@@ -2520,7 +2522,9 @@ export const DashboardSupervision = observer(() => {
               <Group gap={6} mb="md">
                 <IconBoxMultiple size={20} stroke={1.5} />
                 {SRC_NODE}
-                <Title order={4}>Espaces mémoire V8</Title>
+                <Title order={2} size="h4">
+                  Espaces mémoire V8
+                </Title>
                 <DocHint
                   title="Tas V8 par espace"
                   version={SUP_DOC}
@@ -2572,6 +2576,7 @@ export const DashboardSupervision = observer(() => {
                             }
                             size="sm"
                             radius="sm"
+                            aria-label={`${sp.name} : ${pct} % occupé`}
                           />
                         </div>
                       );
@@ -2592,7 +2597,9 @@ export const DashboardSupervision = observer(() => {
             <Group gap={6} mb="md">
               <IconPlug size={20} stroke={1.5} />
               {SRC_ORM}
-              <Title order={4}>Connecteurs ORM / bases</Title>
+              <Title order={2} size="h4">
+                Connecteurs ORM / bases
+              </Title>
               <Text size="xs" c="dimmed">
                 {connUp}/{connectors.length} actif(s)
               </Text>
@@ -2721,7 +2728,9 @@ export const DashboardSupervision = observer(() => {
             <Group gap={6} mb="md">
               <IconBolt size={20} stroke={1.5} />
               {dbIcon(flowMainVendor)}
-              <Title order={4}>Flux ORM</Title>
+              <Title order={2} size="h4">
+                Flux ORM
+              </Title>
               <Text size="xs" c="dimmed">
                 {flowTotal.toLocaleString()} requête(s) cumulée(s)
               </Text>
@@ -3021,7 +3030,9 @@ export const DashboardSupervision = observer(() => {
               <Group justify="space-between" mb="md">
                 <Group gap={6} wrap="nowrap">
                   {SRC_NODE}
-                  <Title order={4}>Process</Title>
+                  <Title order={2} size="h4">
+                    Process
+                  </Title>
                 </Group>
                 <Badge variant="light" color="gray" size="sm">
                   PID {stats?.proc?.pid ?? stats?.pid ?? info?.pid ?? "—"}
@@ -3202,7 +3213,9 @@ export const DashboardSupervision = observer(() => {
               <Group justify="space-between" mb="md">
                 <Group gap={6} wrap="nowrap">
                   {SRC_NODEFONY}
-                  <Title order={4}>Système</Title>
+                  <Title order={2} size="h4">
+                    Système
+                  </Title>
                 </Group>
                 <IconServer size={20} stroke={1.4} />
               </Group>
@@ -3278,7 +3291,9 @@ export const DashboardSupervision = observer(() => {
               <Group gap={6} mb="md">
                 <IconPlugConnected size={20} stroke={1.5} />
                 {SRC_NODE}
-                <Title order={4}>Ressources actives</Title>
+                <Title order={2} size="h4">
+                  Ressources actives
+                </Title>
                 <Text size="xs" c="dimmed">
                   {handles ? (
                     <FlashValue value={handles.total}>
