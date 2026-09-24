@@ -351,7 +351,7 @@ réel est le suivant :
 
 | Ordre | Condition                                                                | Résolution                             | Ancre          |
 | ----- | ------------------------------------------------------------------------ | -------------------------------------- | -------------- |
-| 1     | `NF_STORE=<x>` et `<x>` enregistré pour cette brique                     | `<x>` (override global)                | `infra.ts:251` |
+| 1     | `NF_STORE=<x>` et `<x>` enregistré pour cette brique                     | `<x>` (override global)                | `infra.ts:343` |
 | 2     | Infra **cache** déclarée (`NF_REDIS_URL`) et `redis` enregistré          | `redis`                                | `infra.ts:258` |
 | 3     | Infra **database** déclarée (`NF_DATABASE_URL`) et le backend enregistré | `drizzle` (SQL) / `mongoose` (Mongo)   | `infra.ts:261` |
 | 4     | Une préférence existait mais son backend n'est pas enregistré            | `fallback` = `memory`, raison ANNONCÉE | `infra.ts:274` |
@@ -461,7 +461,7 @@ déjà Postgres mais pas Redis obtient la dédup cross-pod **sans nouvelle infra
   (`DrizzleIdempotencyStore.ts:264`), jamais `fresh`.
 - **MySQL/MariaDB** : ni `RETURNING`, ni `WHERE` sur l'`ON DUPLICATE KEY UPDATE`, et un `affectedRows`
   ambigu → la réservation passe par `reserveIdempotencyKeyMysql()`
-  (`DrizzleIdempotencyStore.ts:213`), qui la reconstruit en deux instructions chacune atomique.
+  (`DrizzleIdempotencyStore.ts:233`), qui la reconstruit en deux instructions chacune atomique.
 - **Pas de TTL natif** → `gc()` (`DrizzleIdempotencyStore.ts:318`) = `DELETE WHERE expiresAt <= now`.
   C'est le **seul** store qui expose `gc`, donc le seul que le framework planifie (voir plus bas).
 - **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts:296`) et `abort()`

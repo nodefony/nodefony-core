@@ -221,7 +221,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 | `menu` | — | Menu interactif : les commandes utiles ici | `onStart` | `MenuCommand.ts` |
 
 `status` et `stop` sont détournées vers leur exécution réelle **avant** tout boot
-(`CliKernel.ts:185`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
+(`CliKernel.ts:212`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
 
 **`check`/`doctor` et `env` prennent le même raccourci, et pour une raison qui se retient**
 (`CliKernel.ts:94` et `:239`) : on lance ces deux commandes précisément quand l'application **ne

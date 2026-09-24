@@ -657,7 +657,7 @@ peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **u
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 
 - le plafond est actif **même sans `RealtimeService`** — le hub porte le défaut 256
-  (`RealtimeHub.ts:315`), il n'y a pas de fenêtre où la garde n'existerait pas ;
+  (`RealtimeHub.ts:374`), il n'y a pas de fenêtre où la garde n'existerait pas ;
 - au-delà, le hub **n'est jamais appelé** : le canal n'est pas ouvert, aucun provider ne démarre ;
 - le refus est **observable** (`realtime:denied`, motif `limit`) ;
 - un re-`subscribe` d'un canal déjà tenu **ne consomme pas de slot** (l'idempotence est vérifiée

@@ -603,7 +603,7 @@ une méthode ; la méthode l'emporte, par fusion et non par remplacement
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
   journalisée en WARNING sans écriture (`Session.save()`, `session.ts:255-264`). C'est le seul champ
-  propagé par le kernel (`http-kernel.ts:1482`).
+  propagé par le kernel (`http-kernel.ts:1194`).
 
 En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:189`).
 

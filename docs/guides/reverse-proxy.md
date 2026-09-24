@@ -97,11 +97,11 @@ battement du WebSocket.
 
 | Ce qui est généré                                                                                                     | Ce que ça évite                                                                                                       |
 | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------- |
-| `X-Forwarded-For` **écrasé** avec l'adresse vue du client                                                             | un client qui s'invente une IP — le motif est écrit dans le générateur (`generateProxyConfig.ts:103`)                 |
+| `X-Forwarded-For` **écrasé** avec l'adresse vue du client                                                             | un client qui s'invente une IP — le motif est écrit dans le générateur (`generateProxyConfig.ts:134`)                 |
 | `Upgrade` / `Connection` relayés                                                                                      | un WebSocket qui « ne se connecte pas » sans le moindre message d'erreur                                              |
 | `proxy_read_timeout` dérivé du battement WebSocket — quatre battements, plancher 300 s (`generateProxyConfig.ts:132`) | un proxy qui coupe des sockets **vivantes** parce que son inactivité par défaut est plus courte que le battement      |
 | `client_max_body_size` dérivé de `maxBodySize`                                                                        | un `413` posé par nginx (1 Mo par défaut) que l'application n'a jamais vu passer                                      |
-| une chaîne de `try_files` sur les racines statiques                                                                   | les statiques d'un module en `404`, alors qu'ils sont bien montés (`generateProxyConfig.ts:214`)                      |
+| une chaîne de `try_files` sur les racines statiques                                                                   | les statiques d'un module en `404`, alors qu'ils sont bien montés (`generateProxyConfig.ts:378`)                      |
 | HAProxy : `Forwarded` entrant **effacé** avant le nôtre                                                               | un en-tête forgé conservé à côté du vrai (RFC 7239 §8.1)                                                              |
 | HAProxy : le schéma **constaté** sur `ssl_fc`                                                                         | annoncer `proto=https` à un client venu en clair — le défaut a existé, il a été corrigé par le banc contre proxy réel |
 

@@ -299,7 +299,7 @@ pipeline HTTP/WS l'ouvre et le ferme pour toi.
 - Déclaré une fois au boot (`Container.addScope()`, `http-kernel.ts:309`) ;
 - ouvert à l'entrée de chaque requête (`Container.enterScope()`, `http-kernel.ts:729`) ;
 - fermé au teardown (`Container.leaveScope()`, `http-kernel.ts:733`), **y compris quand un hook
-  lève** — le chemin d'erreur libère aussi le scope (`http-kernel.ts:1212`).
+  lève** — le chemin d'erreur libère aussi le scope (`http-kernel.ts:1256`).
 
 C'est là que vivent `resolver`, `context` et le `controller` per-request. Ils masquent le parent le
 temps de la requête et disparaissent avec elle.

@@ -336,7 +336,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 
 - Builtin, enregistré à l'import du module via `registerTokenStore` (`tokenStoreRegistry.ts:63-68`).
 - `listPage` : tri `createdAt` DESC + tiebreaker `id`, déterministe pour l'offset — parité SQL
-  (`MemoryTokenStore.ts:122-142`).
+  (`MemoryTokenStore.ts:165-185`).
 - Denylist bornée : purge **amortie** tous les 256 ajouts — `#maybeSweep()`
   (`MemoryTokenStore.ts:393`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
 - `snapshot()`/`restore()` sérialisables — base d'une persistance fichier, index reconstruits

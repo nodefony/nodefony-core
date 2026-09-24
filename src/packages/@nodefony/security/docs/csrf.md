@@ -148,7 +148,7 @@ export default ProfileController;
 
 (Wiring : `@controllers([ProfileController])` dans le module de l'app — `nodefony create controller`
 le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les actions : les marqueurs
-`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1605-1611`.)
+`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1620-1626`.)
 
 ### Comment le front obtient — puis rejoue — le token
 
@@ -246,7 +246,7 @@ autorisation :
 
 Cas voisin — **façade multi-domaine** (`www.example.com` poste vers l'API d'un autre domaine à toi) :
 déclarer l'alias dans `csrf.trustedOrigins` (match exact d'origine), pas dans `cors.origins` — CORS
-ouvrirait **aussi** la lecture des réponses au JS tiers (`config.ts:176-181`).
+ouvrirait **aussi** la lecture des réponses au JS tiers (`config.ts:188-193`).
 
 ## 🏗️ Architecture interne
 
@@ -269,7 +269,7 @@ Lectures durcies côté firewall :
 
 - en-têtes lus en **première occurrence** — jamais un tableau d'en-têtes répétés (garde d'injection,
   `headerValue()`, `firewall.ts:103`) ; cookie extrait de l'en-tête **brut**, sans dépendre du
-  parse du contexte (`cookieValue()`, `firewall.ts:90-103`) ;
+  parse du contexte (`cookieValue()`, `firewall.ts:116-129`) ;
 - hôte cible **brut avec port** — `:authority` en HTTP/2, `context.domain` en dernier recours
   (`firewall.ts:772-775`) ;
 - le refus est un `CsrfError` **403 au message générique** : la politique (en-têtes inspectés,
@@ -339,7 +339,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 - **Lazy** : `#csrf`/`#csrfTokens` restent `null` si la défense est désactivée — aucune structure
   allouée « au cas où » (`firewall.ts:164`).
 - Le coût HMAC (1 à l'émission, 1 à la vérif) n'est payé **que** sur les routes `@CsrfProtect` ; les
-  marqueurs sont lus depuis le memo de route — 0 `Reflect` par requête (`Resolver.ts:142`).
+  marqueurs sont lus depuis le memo de route — 0 `Reflect` par requête (`Resolver.ts:162`).
 
 ## 📡 Observabilité — Studio
 

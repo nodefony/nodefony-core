@@ -722,9 +722,10 @@ champ portant sa description. C'est ce que consomme la page module de Studio pou
 configuration attendue. L'instance de backplane éventuelle en est absente : une classe n'a rien à
 faire dans un schéma sérialisable.
 
-Un message d'erreur de validation est reformaté par le module avant d'être levé : chaque problème
-apparaît sous la forme `chemin: message`, séparés par des points médians
-(`src/packages/@nodefony/realtime/index.ts:219`). Tu lis quel champ est fautif, pas une trace Zod
+Un message d'erreur de validation est reformaté par le cœur avant d'être levé (`parseModuleConfig`,
+appelé par `defineRealtimeConfig`) : chaque problème apparaît sous la forme `chemin : message`
+(`src/nodefony/src/kernel/moduleConfig.ts:42`), séparés par des points médians
+(`src/nodefony/src/kernel/moduleConfig.ts:58`). Tu lis quel champ est fautif, pas une trace Zod
 brute.
 
 ## 📡 Observabilité — relire ce qui s'applique vraiment

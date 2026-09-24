@@ -316,7 +316,7 @@ Ce que ça déclenche : le service arme un `GcScheduler` de purge **toutes les h
 anti-avalanche en cluster. Chaque
 tour appelle la purge du contrat — `gc()`, voisin de `listPage()` dans le même contrat
 (`IAuditStore.ts:59`) — qui supprime les événements plus vieux que la fenêtre : un `DELETE` par seuil
-côté SQL (`DrizzleAuditStore.ts:231`), un défilement de file tant que l'événement de tête dépasse le
+côté SQL (`DrizzleAuditStore.ts:256`), un défilement de file tant que l'événement de tête dépasse le
 `threshold` côté mémoire (`MemoryAuditStore.ts:138`).
 
 Ce qu'on observe dans les logs : `audit gc — 1284 événement(s) purgé(s)` en niveau DEBUG.

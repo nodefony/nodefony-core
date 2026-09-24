@@ -129,7 +129,7 @@ lui, reste monté et servi. On perd la vue, jamais la donnée.
 **Il se protège avec le pare-feu de l'application.** Studio n'a pas d'authentification à lui : la
 connexion passe par `@nodefony/security` (session serveur, cookie opaque), et chaque endpoint
 d'administration porte un rôle minimum appliqué par le courtier (`IAdminEndpoint.role`,
-`IAdminApi.ts:152`). Un administrateur de plateforme voit tout ; un développeur voit
+`IAdminApi.ts:166`). Un administrateur de plateforme voit tout ; un développeur voit
 l'introspection ; un simple compte ne voit que son espace.
 
 ## 🏛️ Place dans le framework

@@ -559,7 +559,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   `DrizzleWebAuthnCredentialStore` (`DrizzleWebAuthnCredentialStore.ts:37`) est **100 % portable** —
   aucune requête SQL native, tout passe par `IRepository` d'`orm-core`.
 - Trois dialectes sur le même banc : **sqlite** (toujours, `:memory:`), **postgres** et **mysql**
-  (gatés par l'infra). Pagination offset + `total` (`DrizzleWebAuthnCredentialStore.ts:188`).
+  (gatés par l'infra). Pagination offset + `total` (`DrizzleWebAuthnCredentialStore.ts:199`).
 
 ### `mongoose` — MongoDB
 

@@ -252,7 +252,7 @@ Trois gardes évitent les heures de débogage les plus classiques :
 
 `defineEnv()` (`defineEnv.ts:270`) lit la source **une fois**, valide tout en bloc, et renvoie un
 objet **gelé** (`Object.freeze`, `defineEnv.ts:494`). Une variable absente prend son défaut ; une
-variable présente mais invalide **arrête le boot en la nommant** (`defineEnv.ts:283`).
+variable présente mais invalide **arrête le boot en la nommant** (`defineEnv.ts:479`).
 
 Il déclare aussi ses propres métadonnées (`getEnvCatalog()`, `defineEnv.ts:110`), ce qui permet de
 **générer** `.env.example` depuis le catalogue (`renderEnvExample()`, `envExample.ts:57`) au lieu de
@@ -386,7 +386,7 @@ export default defineConfig((ctx) => ({
 | `production`     | `production`     | `0.0.0.0`       | aucun      |
 | (absent)         | `production`     | `0.0.0.0`       | aucun      |
 
-Deux détails qui comptent : `dev` est normalisé en `development` (`Kernel.ts:1363`), et **l'absence**
+Deux détails qui comptent : `dev` est normalisé en `development` (`Kernel.ts:1990`), et **l'absence**
 de `NODE_ENV` est traitée comme `production` — le défaut est le régime le plus prudent, jamais le plus
 bavard.
 

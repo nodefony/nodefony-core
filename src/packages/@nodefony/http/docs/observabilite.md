@@ -231,7 +231,7 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 | Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                |
 | ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:436`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                           |
 | ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:436`)       | Handshake **et** messages (via `AsyncResource.bind`, BUG-001).               |
-| Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:221`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur. |
+| Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:262`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur. |
 
 > [!IMPORTANT]
 > Les logs de **fin** de requête (bilan `req`, `onClose`) sont émis **hors** de la bulle ALS (déjà

@@ -402,7 +402,7 @@ chargement et la validation.
 
 Le niveau du journal dépend de qui parle : une **application** qui vise un module absent obtient un
 `WARNING` (config morte, comptée au verdict de boot) ; un **module** obtient un `INFO`, parce qu'il
-peut légitimement embarquer un réglage pour une cible optionnelle (`Module.ts:329`).
+peut légitimement embarquer un réglage pour une cible optionnelle (`Module.ts:401`).
 
 ### Rendre son module optionnel
 
@@ -617,7 +617,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | `@services()` refuse ma classe : « not assignable »       | Config déclarée en `interface` — pas d'index signature (`kernelDecorator.ts:21`) | Déclarer le type de config avec `type`, pas `interface`              |
 | `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1766`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
-| Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:329`)                         | Charger le module, ou retirer la clé                                 |
+| Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:401`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:1034`)                   | Déplacer le réglage dans `onKernelStart()`                           |
 | Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:1033`)                         | `fireAsync()` si le résultat compte                                  |
 | Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:3062`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |

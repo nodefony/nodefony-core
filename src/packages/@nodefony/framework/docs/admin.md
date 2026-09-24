@@ -310,8 +310,8 @@ La décision est **fail-closed** : un authentifié **sans** le rôle requis — 
 laissez-passer.
 
 - **Rôle par défaut** : sans `role` explicite, un endpoint exige `ROLE_NODEFONY_ADMIN`
-  (`AdminBroker.ts:112` ; défaut du champ `IAdminEndpoint.role`, `IAdminApi.ts:152`).
-- **Endpoint public** : `public: true` (`IAdminApi.ts:152`) → le RBAC du broker est court-circuité
+  (`AdminBroker.ts:112` ; défaut du champ `IAdminEndpoint.role`, `IAdminApi.ts:166`).
+- **Endpoint public** : `public: true` (`IAdminApi.ts:175`) → le RBAC du broker est court-circuité
   (`role === ""`, `adminRbac.ts:26`). À réserver aux sondes cloud-native (liveness/readiness) et à
   placer hors d'une zone fermée — sinon le firewall verrouille en amont. Exemple réel :
   `GET /nodefony/kernel/api/livez` (`KernelAdminApi.ts:615`), sorti de `nodefony-admin` par la zone

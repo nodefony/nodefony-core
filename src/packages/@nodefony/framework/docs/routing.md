@@ -440,7 +440,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
   chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:126`) que la
   route doit déclarer **en plus** du transport — une route `POST` qui n'annonce pas `WEBSOCKET` reste
-  **injoignable** par socket (zéro contournement, `Route.ts:678`).
+  **injoignable** par socket (zéro contournement, `Route.ts:722`).
 
 Le routage par **message** (invoquer un chemin porté par une frame, sans toucher l'URL de la connexion)
 passe par le même `resolve()`, avec un chemin fourni en argument — l'état partagé de la socket n'est
@@ -581,7 +581,7 @@ La table de routes est introspectable en ligne, sans lire le code :
   méthodes, contrôleur (`FrameworkAdminApi.ts:123`). Variante paginée/triée/filtrée côté serveur :
   `routes/page`.
 - **`GET /nodefony/framework/api/info`** — résumé : nombre de routes, méthodes servies, modules
-  propriétaires (`FrameworkAdminApi.ts:183`).
+  propriétaires (`FrameworkAdminApi.ts:335`).
 - **Écran Routes** de Studio (`/nodefony/routes`) — la même table, filtrable.
 - **Playground** (`/nodefony/playground`, développement uniquement) — un formulaire par action, généré depuis la table :
   transports (dont le duplex), paramètres décorés, gardes de sécurité. Il **exécute** de vraies actions,
