@@ -60,9 +60,9 @@ git diff HEAD -- 'src/**/*.ts' | grep -nE '^\+' \
   | grep -E '(query|execute|exec|raw)\(' | grep -E '\+ *['"'"'"`]'
 ```
 
-> Le tag `sql\`…${x}\`` (drizzle) bind les `${}`→ **sûr** : il a`sql`AVANT le backtick,
-donc il ne matche PAS le motif`\(\s\*\`` du check 1. Si un appel db a un backtick
-> **directement** après la parenthèse → template brut → vérifier à la main.
+> Le tag ``sql`…${x}` `` (drizzle) bind les `${}` → **sûr** : il a `sql` AVANT le
+> backtick, donc il ne matche PAS le motif ``\(\s*` `` du check 1. Si un appel db a un
+> backtick **directement** après la parenthèse → template brut → vérifier à la main.
 
 - Critère portable orm-core : passer par `Criteria`/`FieldOperators` (déjà bindés), pas du SQL maison.
 
