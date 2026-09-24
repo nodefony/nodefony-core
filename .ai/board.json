@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T10:07:42.545Z",
+  "generatedAt": "2026-09-24T11:25:20.683Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 148,
+      "closed": 149,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 8,
+      "open": 7,
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 23,
+      "closed": 26,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 45,
+      "open": 42,
       "title": "10.0.0-beta"
     },
     {
@@ -1902,8 +1902,8 @@
       "number": 461,
       "title": "fix(orm): ne plus annoncer un échec de connexion quand le serveur refuse le schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/461",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -1918,8 +1918,8 @@
       "number": 473,
       "title": "fix(drizzle): ne pas appliquer les migrations du framework à un connecteur secondaire",
       "url": "https://github.com/nodefony/nodefony-core/issues/473",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1932,8 +1932,8 @@
       "number": 474,
       "title": "feat(stores): publier le connecteur qui porte chaque brique durable",
       "url": "https://github.com/nodefony/nodefony-core/issues/474",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P3 — fin de cycle",
       "jours": 1,
@@ -1946,8 +1946,8 @@
       "number": 475,
       "title": "fix(orm): journaliser la perte et la reprise d'une connexion",
       "url": "https://github.com/nodefony/nodefony-core/issues/475",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 0.5,

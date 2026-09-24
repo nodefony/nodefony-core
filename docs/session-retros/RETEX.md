@@ -280,9 +280,19 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 - [1× — 09-24d] Ordre posé sur trois tickets en ne lisant que les tickets ORM du jalon → trois
   ORDRE-DOUBLON. Un rang libre se lit sur le jalon ENTIER (même famille que
   [[feedback_anchor_expires_silently]] : un relevé filtré pris pour un inventaire).
+- [1× — 09-24e] #474 : les 12 stores + 9 enregistrements du framework couverts, tests verts — et
+  au serveur réel sur PostgreSQL, la brique `user` rendait `connector: null`. Elle est enregistrée
+  par l'APPLICATION (`provisionUsers`), hors du motif `readStoreLocation` qui avait servi
+  d'inventaire. Le remède durable est l'invariant côté CONSOMMATEUR (« toute brique résolue par un
+  ORM publie son connecteur »), pas la liste des producteurs.
+- [1× — 09-24e] Un superviseur de dev laissé en marche REBÂTIT les `dist` à chaque édition : un
+  test a lu le `dist` du cœur à moitié écrit (faux rouge `Tools.js` introuvable), et une
+  contre-épreuve n'a pas mordu parce que Drizzle importe `orm-core` par son `dist`, pas sa source.
+  Avant de débrancher : savoir PAR QUEL artefact le consommateur lit le code, et le rebâtir.
 - Pointés, déjà gradués : débranchement qui n'a PAS eu lieu (`perl` sans effet, `diff -q` muet →
   « vert débranché » vide) → [[feedback_gate_must_bite]] ; app servie depuis un `dist` qui ignorait
-  le fragment neuf → [[feedback_prove_on_received_artifact]].
+  le fragment neuf → [[feedback_prove_on_received_artifact]] ; décor partagé qui fausse un verdict
+  → [[feedback_stale_decor_poisons_verdicts]].
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
