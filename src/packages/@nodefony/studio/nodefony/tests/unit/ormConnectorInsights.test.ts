@@ -382,3 +382,26 @@ describe("résilience — la perte en cours et le battement se lisent", () => {
     ]);
   });
 });
+
+describe("migrations d'une base volatile", () => {
+  it("« pending » sur `:memory:` → information, jamais « schéma pas à jour »", () => {
+    const pending = {
+      formatVersion: 1,
+      connector: "mediasoup",
+      verdict: "pending",
+      summary: "2 migrations à appliquer",
+      nextActions: [],
+      sources: [],
+      driver: { kind: "sql", ddl: "auto" },
+    };
+    const f = analyzeConnector({ orm: memoryDb, migrations: pending });
+    expect(ids(f)).to.include("migrations-ephemeral");
+    expect(ids(f)).to.not.include("migrations-pending");
+    // Sur une base fichier, le retard reste un avertissement
+    expect(
+      analyzeConnector({ orm: fileDb, migrations: pending }).find(
+        (x) => x.id === "migrations-pending",
+      )?.level,
+    ).to.equal("warning");
+  });
+});

@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
-import type { IEntity } from "@nodefony/orm-core";
+import type { IEntity, IEntityDefinition } from "@nodefony/orm-core";
 import { userTable } from "@nodefony/drizzle";
 
 /** Module propriétaire — regroupe les entités dans l'ERD Studio. */
@@ -187,129 +187,133 @@ export const eventTagTable = sqliteTable("EventTag", {
   tagId: text("tagId").notNull(),
 });
 
+/** Nom du connecteur Drizzle du banc — déclaré dans `nodefony/config/drizzle.ts`. */
+export const MEDIASOUP_CONNECTOR = "mediasoup";
+
 /**
- * Enregistre les entités `mediasoup` dans le `entityRegistry` pour un ORM donné.
- * À appeler **avant** `orm.connect()` (l'adapter résout les relations au connect
- * et exige que toutes les cibles soient déjà enregistrées sur le même ORM).
+ * Les entités du banc `mediasoup`, SANS connecteur : c'est
+ * `@entities(mediasoupEntities, { connector })` qui le pose, en `onRegister` —
+ * donc avant toute connexion, ce qu'exige la résolution des relations.
+ */
+export const mediasoupEntities: IEntityDefinition[] = [
+  // User réutilise la table du contrat @nodefony/user (même schéma que le défaut).
+  { module: MODULE, name: "User", schema: userTable },
+  { module: MODULE, name: "Room", schema: roomTable },
+  {
+    module: MODULE,
+    name: "RoomMember",
+    schema: roomMemberTable,
+    relations: [
+      {
+        type: "many-to-one",
+        target: "Room",
+        field: "room",
+        foreignKey: "roomId",
+      },
+      {
+        type: "many-to-one",
+        target: "User",
+        field: "user",
+        foreignKey: "userId",
+      },
+    ],
+  },
+  {
+    module: MODULE,
+    name: "Calendar",
+    schema: calendarTable,
+    relations: [
+      {
+        type: "many-to-one",
+        target: "User",
+        field: "creator",
+        foreignKey: "creatorId",
+      },
+    ],
+  },
+  {
+    module: MODULE,
+    name: "Event",
+    schema: eventTable,
+    relations: [
+      {
+        type: "many-to-one",
+        target: "Calendar",
+        field: "calendar",
+        foreignKey: "calendarId",
+      },
+      {
+        type: "many-to-one",
+        target: "Room",
+        field: "room",
+        foreignKey: "roomId",
+      },
+      {
+        type: "many-to-one",
+        target: "User",
+        field: "creator",
+        foreignKey: "creatorId",
+      },
+      // Auto-référence : un événement récurrent pointe vers son maître.
+      {
+        type: "many-to-one",
+        target: "Event",
+        field: "parent",
+        foreignKey: "parentEventId",
+      },
+    ],
+  },
+  {
+    module: MODULE,
+    name: "Recording",
+    schema: recordingTable,
+    relations: [
+      {
+        type: "many-to-one",
+        target: "Room",
+        field: "room",
+        foreignKey: "roomId",
+      },
+      // FK nullable : un enregistrement peut être ad-hoc (sans Event planifié).
+      {
+        type: "many-to-one",
+        target: "Event",
+        field: "event",
+        foreignKey: "eventId",
+      },
+    ],
+  },
+  { module: MODULE, name: "Tag", schema: tagTable },
+  {
+    module: MODULE,
+    name: "EventTag",
+    schema: eventTagTable,
+    relations: [
+      {
+        type: "many-to-one",
+        target: "Event",
+        field: "event",
+        foreignKey: "eventId",
+      },
+      {
+        type: "many-to-one",
+        target: "Tag",
+        field: "tag",
+        foreignKey: "tagId",
+      },
+    ],
+  },
+];
+
+/**
+ * Enregistre les entités `mediasoup` pour un connecteur donné — pour un banc
+ * qui ouvre son propre ORM (les tests). À appeler **avant** `orm.connect()`.
+ * L'application, elle, passe par `@entities` sur le module.
  *
- * @param connector - nom de la connexion cible (ex. `"mediasoup"`).
+ * @param connector - nom de la connexion cible.
  */
 export function registerMediasoupEntities(connector: string): void {
-  const entities: IEntity[] = [
-    // User réutilise la table du contrat @nodefony/user (même schéma que le défaut).
-    { connector, module: MODULE, name: "User", schema: userTable },
-    { connector, module: MODULE, name: "Room", schema: roomTable },
-    {
-      connector,
-      module: MODULE,
-      name: "RoomMember",
-      schema: roomMemberTable,
-      relations: [
-        {
-          type: "many-to-one",
-          target: "Room",
-          field: "room",
-          foreignKey: "roomId",
-        },
-        {
-          type: "many-to-one",
-          target: "User",
-          field: "user",
-          foreignKey: "userId",
-        },
-      ],
-    },
-    {
-      connector,
-      module: MODULE,
-      name: "Calendar",
-      schema: calendarTable,
-      relations: [
-        {
-          type: "many-to-one",
-          target: "User",
-          field: "creator",
-          foreignKey: "creatorId",
-        },
-      ],
-    },
-    {
-      connector,
-      module: MODULE,
-      name: "Event",
-      schema: eventTable,
-      relations: [
-        {
-          type: "many-to-one",
-          target: "Calendar",
-          field: "calendar",
-          foreignKey: "calendarId",
-        },
-        {
-          type: "many-to-one",
-          target: "Room",
-          field: "room",
-          foreignKey: "roomId",
-        },
-        {
-          type: "many-to-one",
-          target: "User",
-          field: "creator",
-          foreignKey: "creatorId",
-        },
-        // Auto-référence : un événement récurrent pointe vers son maître.
-        {
-          type: "many-to-one",
-          target: "Event",
-          field: "parent",
-          foreignKey: "parentEventId",
-        },
-      ],
-    },
-    {
-      connector,
-      module: MODULE,
-      name: "Recording",
-      schema: recordingTable,
-      relations: [
-        {
-          type: "many-to-one",
-          target: "Room",
-          field: "room",
-          foreignKey: "roomId",
-        },
-        // FK nullable : un enregistrement peut être ad-hoc (sans Event planifié).
-        {
-          type: "many-to-one",
-          target: "Event",
-          field: "event",
-          foreignKey: "eventId",
-        },
-      ],
-    },
-    { connector, module: MODULE, name: "Tag", schema: tagTable },
-    {
-      connector,
-      module: MODULE,
-      name: "EventTag",
-      schema: eventTagTable,
-      relations: [
-        {
-          type: "many-to-one",
-          target: "Event",
-          field: "event",
-          foreignKey: "eventId",
-        },
-        {
-          type: "many-to-one",
-          target: "Tag",
-          field: "tag",
-          foreignKey: "tagId",
-        },
-      ],
-    },
-  ];
-  for (const entity of entities) {
-    entityRegistry.register(entity);
+  for (const entity of mediasoupEntities) {
+    entityRegistry.register({ ...entity, connector } as IEntity);
   }
 }

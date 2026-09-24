@@ -12,6 +12,8 @@ import type { env } from "./env";
 // s'en passe. Ce fichier-ci reste l'INDEX : quels modules, dans quel ordre.
 import { devkitConfig } from "./nodefony/config/devkit";
 <% if (it.complete) { %>import { securityConfig } from "./nodefony/config/security";
+<% } %><% if (it.complete && it.mongo) { %>import { mongooseConfig } from "./nodefony/config/mongoose";
+<% } else if (it.complete) { %>import { drizzleConfig } from "./nodefony/config/drizzle";
 <% } %>
 // ── Registre de config des modules — À GARDER ────────────────────────────────
 // Ces ré-exports n'existent QUE pour faire entrer dans le programme TypeScript
@@ -126,7 +128,8 @@ export default defineConfig<typeof env>((ctx) => ({
   modules: [
 <% if (it.complete && it.mongo) { %>    /**
      * ORM Mongoose (MongoDB) — l'URL vient de `NF_DATABASE_URL`, que le module
-     * lit seul : rien à écrire ici.
+     * applique à son connecteur ; les connecteurs se DÉCLARENT dans
+     * `nodefony/config/mongoose.ts`.
      *
      * 🔴 EN TÊTE, et ce n'est pas un style : `@nodefony/security` fabrique ses
      * stockages durables (jetons, passkeys, audit, 2FA) à son propre
@@ -134,14 +137,15 @@ export default defineConfig<typeof env>((ctx) => ({
      * brique retombe en mémoire, et le serveur répond 200 en ayant tout perdu
      * au prochain redémarrage.
      */
-    "@nodefony/mongoose",
+    use("@nodefony/mongoose", mongooseConfig()),
 
 <% } else if (it.complete) { %>    /**
      * ORM Drizzle (SQL). Sans `NF_DATABASE_URL` : sqlite LOCAL, et l'app
      * persiste out-of-the-box (users, sessions, jetons). Déclare
-     * `NF_DATABASE_URL` (postgres://…) pour pointer une vraie base.
+     * `NF_DATABASE_URL` (postgres://…) pour pointer une vraie base. Les
+     * connecteurs se DÉCLARENT dans `nodefony/config/drizzle.ts`.
      */
-    "@nodefony/drizzle",
+    use("@nodefony/drizzle", drizzleConfig()),
 
 <% } %>    /** Socle serveur : HTTP/WS natifs + probes /livez /readyz. */
     use("@nodefony/http", {}),

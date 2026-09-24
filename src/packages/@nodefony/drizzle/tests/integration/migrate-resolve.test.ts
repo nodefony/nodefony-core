@@ -10,6 +10,7 @@ import type { IDrizzleConfig } from "../../nodefony/interfaces/IDrizzleConfig";
 import {
   MIGRATE_URL_ENV,
   buildMigrator,
+  adviseMigrations,
   resolveCheckMode,
   resolveConnector,
   resolveDdlMode,
@@ -540,5 +541,27 @@ describe("migrations — le refus des tables du framework est HONORÉ", () => {
       "sans refus explicite, les migrations du framework restent à appliquer — " +
         "sinon le contrôle ci-dessus serait vert pour la mauvaise raison",
     );
+  });
+});
+
+describe("adviseMigrations — le conseil du mode `auto`", () => {
+  const dev = { runtime: "development", nodeEnv: "development" } as const;
+  it("rendu en développement, sur une base fichier", () => {
+    assert.equal(adviseMigrations("warn", dev, "var/app.db"), true);
+    assert.equal(adviseMigrations("warn", dev, undefined), true);
+  });
+  it("tu sur une base `:memory:` — son historique repart vide à chaque démarrage", () => {
+    assert.equal(adviseMigrations("warn", dev, ":memory:"), false);
+  });
+  it("tu hors développement, et quand la conduite est `off`", () => {
+    assert.equal(
+      adviseMigrations(
+        "warn",
+        { runtime: "production", nodeEnv: "production" },
+        "x.db",
+      ),
+      false,
+    );
+    assert.equal(adviseMigrations("off", dev, "x.db"), false);
   });
 });

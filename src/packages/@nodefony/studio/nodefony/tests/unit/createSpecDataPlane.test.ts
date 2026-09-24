@@ -109,11 +109,8 @@ describe("data plane create/spec — Drizzle puis Mongoose", () => {
       expect(connectorQuestion(dest)).to.deep.equal(
         raw ? hydrateQuestion(raw, terminal) : undefined,
       );
-      // Au premier plan, première question, et la source DITE.
+      // Au premier plan, première question.
       expect(connectorQuestion(dest)?.advanced).to.not.equal(true);
-      expect(connectorQuestion(dest)?.note).to.contain(
-        "DÉCLARÉS dans la configuration",
-      );
     }
   });
 });

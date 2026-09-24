@@ -216,6 +216,33 @@ export function resolveCheckMode(
   return env.runtime === "production" ? "fail" : "warn";
 }
 
+/**
+ * En schéma `auto`, faut-il ÉNONCER au démarrage les migrations enregistrées
+ * que personne n'a appliquées ?
+ *
+ * Oui en développement, sauf conduite `off` — c'est ce conseil qui évite de
+ * conclure à une base incohérente devant une colonne inconnue. Jamais sur une
+ * base `:memory:` : elle repart VIDE à chaque démarrage, son historique aussi,
+ * si bien que tout y paraît « à appliquer » à chaque fois — un avertissement
+ * permanent qui n'apprend rien (vécu : le connecteur de banc `mediasoup`,
+ * une fois déclaré, réclamait à chaque démarrage les migrations du framework
+ * et de l'application, qui ne le concernent pas).
+ *
+ * @param check - conduite résolue ({@link resolveCheckMode}).
+ * @param env - environnement constaté.
+ * @param filename - fichier sqlite du connecteur, s'il en a un.
+ * @returns `true` si le conseil doit être rendu.
+ */
+export function adviseMigrations(
+  check: MigrationCheckMode,
+  env: IMigrationEnv,
+  filename: string | undefined,
+): boolean {
+  return (
+    check !== "off" && env.runtime === "development" && filename !== ":memory:"
+  );
+}
+
 /** Ce qu'un connecteur est, du point de vue des migrations. */
 export type IConnectorResolution =
   | {

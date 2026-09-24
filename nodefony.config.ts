@@ -36,6 +36,7 @@ import { realtimeConfig } from "./nodefony/config/realtime";
 import { securityConfig } from "./nodefony/config/security";
 import { studioConfig } from "./nodefony/config/studio";
 import { devkitConfig } from "./nodefony/config/devkit";
+import { drizzleConfig } from "./nodefony/config/drizzle";
 
 // ── Registre de config des modules — À GARDER ────────────────────────────────
 // Ces ré-exports n'existent QUE pour faire entrer dans ce programme TypeScript
@@ -142,7 +143,7 @@ export default defineConfig<Env>((ctx) => ({
   modules: [
     // ── ORM — Drizzle (SQL) par défaut. Le gating par driver (when c.orm?.driver)
     //    arrivera avec la suite du virage ORM (Mongoose refait sur le modèle Service).
-    "@nodefony/drizzle",
+    use("@nodefony/drizzle", drizzleConfig(ctx)),
 
     // ── ORM NoSQL Mongoose — chargé par la DÉCLARATION de l'infra, exactement
     //    comme redis plus bas : `NF_DATABASE_URL=mongodb://…` ⇔ module chargé.

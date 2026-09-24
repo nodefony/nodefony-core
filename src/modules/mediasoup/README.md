@@ -63,7 +63,7 @@ durcir `@nodefony/orm-core` — puis le modèle servira tel quel à la vraie imp
 
 ```
 src/modules/mediasoup/
-├── index.ts                         # Module : enregistre le build Vue + monte le connecteur Drizzle "mediasoup"
+├── index.ts                         # Module : enregistre le build Vue + déclare ses entités (@entities) sur le connecteur "mediasoup"
 ├── nodefony/
 │   ├── config/config.ts             # module-frontend { https: true }
 │   ├── controller/MediasoupController.ts   # GET /mediasoup (page Vue) + /mediasoup/api/data
@@ -72,7 +72,7 @@ src/modules/mediasoup/
     └── src/{main.ts, App.vue}
 ```
 
-- **Connecteur ORM dédié** `mediasoup` (Drizzle, `:memory:`), ouvert à `onKernelBoot`, fermé à `onTerminate`.
+- **Connecteur ORM dédié** `mediasoup` (Drizzle, `:memory:`, `ddl: "auto"`) — **déclaré par l'application** dans `nodefony/config/drizzle.ts` (hors production, comme le module), ouvert et fermé par `DrizzleService`. Le module ne l'ouvre pas : il déclare ses entités par `@entities(mediasoupEntities, { connector: "mediasoup" })`, inscrites en `onRegister`, donc avant toute connexion. Ouvert dans le code, le connecteur restait invisible à `create entity`, à la page « Créer », à `orm:migrate` et à `nodefony doctor`.
 - Les entités sont enregistrées **avant** `connect()` (l'adapter résout les relations au connect).
 - Toutes taggées `module: "mediasoup"` → **regroupées dans l'ERD Studio**.
 

@@ -21,6 +21,7 @@ import {
   appVersionsMigrations,
   readMigrationEnv,
   resetAllowed,
+  adviseMigrations,
   resolveCheckMode,
   resolveDdlMode,
 } from "../src/migrator/resolve";
@@ -375,7 +376,7 @@ class DrizzleService extends Service {
     // Borné au DÉVELOPPEMENT : c'est là que le bilan de démarrage le rend
     // lisible, et une suite de tests ne paie ainsi aucune lecture d'historique.
     const adviseOnly = ddl === "auto";
-    if (adviseOnly && (check === "off" || env.runtime !== "development")) {
+    if (adviseOnly && !adviseMigrations(check, env, filename)) {
       return;
     }
     const target = { dialect, filename, url: cfg.url } as {

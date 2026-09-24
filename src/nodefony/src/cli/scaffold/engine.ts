@@ -1351,22 +1351,14 @@ export function hydrateQuestion(
           .map((name) => ({ value: name, label: name }));
   if (values.length === 0) return question;
   const known = values.some((v) => v.value === question.default);
-  const connectors = question.optionsFrom === "connectors";
+  // Liste lue dans les FICHIERS — par le terminal comme par Studio, qui
+  // partagent cette composition. Un connecteur ouvert dans le code d'un module
+  // n'y figure pas : c'est `nodefony doctor` qui le signale, pas une note ici.
   return {
     ...question,
     type: "choice",
     choices: values,
     default: known ? question.default : (values[0]?.value ?? question.default),
-    // Liste lue dans les FICHIERS — par le terminal comme par Studio, qui
-    // partagent cette composition. Le dire, pour qu'un connecteur qu'un module
-    // ouvre dans son code ne passe pas pour absent.
-    ...(connectors
-      ? {
-          note:
-            "connecteurs DÉCLARÉS dans la configuration — un connecteur qu'un " +
-            "module ouvre dans son code n'y figure pas",
-        }
-      : {}),
   };
 }
 

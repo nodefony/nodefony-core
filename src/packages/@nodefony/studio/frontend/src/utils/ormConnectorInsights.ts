@@ -397,6 +397,18 @@ export function analyzeConnector(input: ConnectorInput): ConnectorFinding[] {
       tab: "migrations",
       command: mig.error.nextActions[0]?.command,
     });
+  } else if (mig && mig.verdict !== "up-to-date" && volatile) {
+    // Une base `:memory:` repart vide à chaque démarrage, son historique de
+    // migrations aussi : tout y paraît « à appliquer », toujours. Son schéma
+    // vient du code (`ddl: "auto"`) — le dire, sans en faire une alerte.
+    out.push({
+      id: "migrations-ephemeral",
+      level: "info",
+      title: "Historique de migrations sans objet",
+      detail:
+        "Base en mémoire : elle repart vide à chaque démarrage, son historique aussi. Son schéma est dérivé du code au démarrage.",
+      tab: "migrations",
+    });
   } else if (mig && mig.verdict !== "up-to-date") {
     out.push({
       id: "migrations-pending",
