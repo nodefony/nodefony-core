@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T11:32:41.262Z",
+  "generatedAt": "2026-09-24T13:35:31.817Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 149,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 8,
+      "open": 9,
       "title": "10.0.0-alpha"
     },
     {
@@ -1985,6 +1985,20 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 477,
+      "title": "fix(orm): ne plus ouvrir de base SQLite fantôme sur une infra MongoDB",
+      "url": "https://github.com/nodefony/nodefony-core/issues/477",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.21,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 271,

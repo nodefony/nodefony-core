@@ -289,6 +289,17 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
   test a lu le `dist` du cœur à moitié écrit (faux rouge `Tools.js` introuvable), et une
   contre-épreuve n'a pas mordu parce que Drizzle importe `orm-core` par son `dist`, pas sa source.
   Avant de débrancher : savoir PAR QUEL artefact le consommateur lit le code, et le rebâtir.
+- [1× — 09-24f] Trois défauts du jour n'existaient QUE dans un décor : `default` Drizzle fantôme sur
+  MongoDB, entités du banc sans connecteur en production sous `NF_WITH_DEV_MODULES`, puis
+  `:memory:` vide (`/readyz` 503) en production. Deux venaient de MES correctifs, poussés sans
+  rejouer le décor voisin. Remède STRUCTUREL : job CI `test-decors` (invariants sur chaque base) —
+  pas une vigilance de plus.
+- [1× — 09-24f] Même règle écrite deux fois (module `policy:"dev"` chargé ⇔ son connecteur ouvert) :
+  `ctx.isProd` d'un côté, gating + dérogation de l'autre. Exposer le verdict (`ctx.devModules`)
+  plutôt que le recopier.
+- [1× — 09-24f] Débranchement « vert » deux fois pour rien : `start.sh` ne rebâtit pas l'app racine
+  (ancien `dist`), puis le DevSupervisor a RECHARGÉ le backend entre le débranchement et le test.
+  Débrancher, rebâtir, vérifier le `dist`, tester, restaurer — dans UNE commande.
 - Pointés, déjà gradués : débranchement qui n'a PAS eu lieu (`perl` sans effet, `diff -q` muet →
   « vert débranché » vide) → [[feedback_gate_must_bite]] ; app servie depuis un `dist` qui ignorait
   le fragment neuf → [[feedback_prove_on_received_artifact]] ; décor partagé qui fausse un verdict
