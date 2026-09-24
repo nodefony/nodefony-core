@@ -78,11 +78,32 @@ export function parseProcessTable(platform, raw, now) {
     }));
 }
 
+/** Le sous-arbre de `rootPid` dans la table (lui compris). */
+function subtree(rows, rootPid) {
+  const set = new Set([rootPid]);
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const r of rows) {
+      if (!set.has(r.pid) && set.has(r.ppid)) {
+        set.add(r.pid);
+        grew = true;
+      }
+    }
+  }
+  return set;
+}
+
 /**
- * Les process qui comptent : les descendants VIVANTS de la commande, et tout
- * `node` ou `turbo` né pendant l'étape qui n'en descend plus — détaché, il a
- * été rattaché ailleurs (à `init` sous POSIX, à un parent mort sous Windows),
- * et c'est lui qui tient le tuyau.
+ * Les process qui comptent : les descendants VIVANTS de la commande, et TOUT
+ * process né pendant l'étape qui n'en descend plus — détaché, il a été rattaché
+ * ailleurs (à `init` sous POSIX, à un parent mort sous Windows), et c'est lui
+ * qui tient le tuyau.
+ *
+ * Aucun filtre sur le NOM : le tuyau peut être tenu par un binaire natif
+ * (`esbuild`, `tsgo`, un addon Rust) aussi bien que par `node` — un filtre
+ * `node|turbo` a laissé un gel sans coupable nommé (turbo.exe figé, sans enfant).
+ * Sont écartés : ce lanceur, ses ancêtres (le shell de l'étape naît dans la marge
+ * d'horloge) et son propre sous-arbre (l'inventaire lui-même).
  *
  * @param {{pid:number, ppid:number, startedAt:number, command:string}[]} rows - la table lue.
  * @param {number} rootPid - le process lancé par ce lanceur.
@@ -91,27 +112,21 @@ export function parseProcessTable(platform, raw, now) {
  * @returns {{pid:number, ppid:number, command:string, detached:boolean}[]}
  */
 export function selectSuspects(rows, rootPid, selfPid, since) {
-  const descendants = new Set([rootPid]);
-  for (let grew = true; grew;) {
-    grew = false;
-    for (const r of rows) {
-      if (!descendants.has(r.pid) && descendants.has(r.ppid)) {
-        descendants.add(r.pid);
-        grew = true;
-      }
-    }
+  const descendants = subtree(rows, rootPid);
+  const own = subtree(rows, selfPid);
+  const byPid = new Map(rows.map((r) => [r.pid, r]));
+  for (
+    let r = byPid.get(selfPid);
+    r && !own.has(r.ppid);
+    r = byPid.get(r.ppid)
+  ) {
+    own.add(r.ppid);
   }
   const suspects = [];
   for (const r of rows) {
-    if (r.pid === selfPid) continue;
-    const detached = !descendants.has(r.pid);
-    if (
-      !detached ||
-      (r.startedAt >= since - 1000 &&
-        /\b(node|turbo)(\.exe)?\b/iu.test(r.command))
-    ) {
-      suspects.push({ ...r, detached });
-    }
+    if (descendants.has(r.pid)) suspects.push({ ...r, detached: false });
+    else if (!own.has(r.pid) && r.startedAt >= since - 1000)
+      suspects.push({ ...r, detached: true });
   }
   return suspects;
 }
@@ -145,6 +160,9 @@ function readProcessTable() {
   });
 }
 
+/** Plafond de l'inventaire : sans filtre de nom, un runner peut en compter beaucoup. */
+const MAX_LISTED = 40;
+
 /** Naissance de ce lanceur : ce qui est né avant n'est pas de cette étape. */
 const STARTED = Date.now();
 
@@ -157,12 +175,14 @@ async function report(reason, rootPid) {
   } else {
     const suspects = selectSuspects(table.rows, rootPid, process.pid, STARTED);
     if (suspects.length === 0)
-      lines.push("  aucun descendant ni process node/turbo détaché");
-    for (const s of suspects) {
+      lines.push("  aucun descendant ni process détaché né pendant l'étape");
+    for (const s of suspects.slice(0, MAX_LISTED)) {
       lines.push(
         `  ${s.detached ? "DÉTACHÉ " : ""}pid ${s.pid} ← ${s.ppid} : ${s.command.slice(0, 300)}`,
       );
     }
+    if (suspects.length > MAX_LISTED)
+      lines.push(`  … et ${suspects.length - MAX_LISTED} autre(s)`);
   }
   process.stderr.write(`${lines.join("\n")}\n\n`);
 }

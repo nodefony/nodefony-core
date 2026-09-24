@@ -85,11 +85,15 @@ describe("parseProcessTable — la table du système, deux grammaires", () => {
   });
 });
 
-describe("selectSuspects — descendants vivants, et node/turbo DÉTACHÉS nés pendant l'étape", () => {
+describe("selectSuspects — descendants vivants, et TOUT process détaché né pendant l'étape", () => {
   const since = 100_000;
   const rows = [
     { pid: 1, ppid: 0, startedAt: 0, command: "init" },
-    { pid: 50, ppid: 1, startedAt: since, command: "node run-watched.mjs" },
+    // le shell de l'étape : né dans la marge d'horloge, ancêtre du lanceur
+    { pid: 40, ppid: 1, startedAt: since - 500, command: "bash -e step.sh" },
+    { pid: 50, ppid: 40, startedAt: since, command: "node run-watched.mjs" },
+    // l'inventaire lui-même, lancé par le lanceur
+    { pid: 60, ppid: 50, startedAt: since + 9000, command: "ps -eo pid=" },
     { pid: 100, ppid: 50, startedAt: since + 10, command: "sh -c npm test" },
     { pid: 101, ppid: 100, startedAt: since + 20, command: "turbo run test" },
     // né pendant l'étape, rattaché à init : c'est lui qui tient le tuyau
@@ -99,16 +103,21 @@ describe("selectSuspects — descendants vivants, et node/turbo DÉTACHÉS nés 
       startedAt: since + 5000,
       command: "node dist/server.js",
     },
-    // né pendant l'étape, détaché, mais pas node/turbo
-    { pid: 201, ppid: 1, startedAt: since + 5000, command: "sleep 100" },
-    // node détaché, mais né AVANT l'étape : un autre process de la machine
+    // binaire natif détaché : le filtre de NOM d'hier le taisait
+    {
+      pid: 201,
+      ppid: 1,
+      startedAt: since + 5000,
+      command: "esbuild.exe --service",
+    },
+    // détaché, mais né AVANT l'étape : un autre process de la machine
     { pid: 300, ppid: 1, startedAt: since - 60_000, command: "node autre.js" },
   ];
 
-  it("garde l'arbre de la commande et le node détaché de l'étape, écarte le reste", () => {
+  it("garde l'arbre de la commande et tout détaché de l'étape, écarte le lanceur, ses ancêtres et son inventaire", () => {
     const got = selectSuspects(rows, 100, 50, since);
-    expect(got.map((s) => s.pid)).toEqual([100, 101, 200]);
-    expect(got.find((s) => s.pid === 200)?.detached).toBe(true);
+    expect(got.map((s) => s.pid)).toEqual([100, 101, 200, 201]);
+    expect(got.find((s) => s.pid === 201)?.detached).toBe(true);
     expect(got.find((s) => s.pid === 101)?.detached).toBe(false);
   });
 });
