@@ -26,15 +26,13 @@ import type {
  * **Index** — mêmes axes que la variante SQL, et pour la même raison (filtrage
  * de la console d'audit) ; perf de lecture seule, jamais de sémantique.
  *
- * ⚠️ Ils sont **simples, un par champ** : `MongooseOrm` compile chaque entité
- * depuis un `SchemaDefinition` plat, où un index COMPOSITE (`{ts:-1,_id:-1}`,
- * l'ordre total du store) ne s'exprime pas. Conséquence à connaître, et elle est
- * bornée : Mongo sert le filtre par l'index sur `ts`, puis départage en mémoire
- * les événements d'une même milliseconde. Le `limit` du store rend ce tri
- * **top-K** — il porte sur une page, jamais sur le journal. Si une rafale
- * soutenue à la milliseconde devenait la norme, le remède est un index composite
- * déclaré à la connexion, pas un relâchement de l'ordre : c'est lui qui garantit
- * qu'aucun événement ne se répète ni ne se perd d'une page à l'autre.
+ * L'ORDRE TOTAL du store (`ts DESC, _id DESC`) est porté par un index
+ * COMPOSITE déclaré sur l'entité (`indexes`, cf `createAuditEntities`) : un
+ * `SchemaDefinition` plat n'exprime que des index par champ, et sans lui la
+ * requête du journal parcourait toute la collection puis triait en mémoire
+ * (plan `COLLSCAN` + `SORT`, mesuré). C'est lui qui garantit, au coût d'un
+ * parcours d'index, qu'aucun événement ne se répète ni ne se perd d'une page à
+ * l'autre — `audit-store.test.ts` en lit le plan d'exécution.
  */
 export const auditEventSchema: SchemaDefinition = {
   // ── Identité + horodatage (posés par l'AuditService) ──────────────────────
@@ -107,6 +105,8 @@ export function createAuditEntities(connector: string): IEntity[] {
       name: AUDIT_ENTITY_NAMES.events,
       module: "security",
       schema: auditEventSchema,
+      // L'ordre TOTAL du store : servi par l'index, jamais trié en mémoire.
+      indexes: [{ fields: { ts: -1, _id: -1 }, name: "audit_ts_id_desc" }],
     },
   ];
 }

@@ -65,6 +65,10 @@ laissait passer.
   (`MONOTONIC_SET_SCRIPT`, `RedisTokenStore.ts:62`). Il gardait aussi l'ancien secret d'un jeton
   réécrit, acceptait deux jetons pour un même secret, et ne purgeait jamais un PAT enregistré
   déjà révoqué.
+- **Le journal d'audit sous MongoDB parcourait toute la collection puis triait en mémoire**
+  (plan `COLLSCAN` + `SORT`) : un `SchemaDefinition` plat n'exprime pas d'index composite. Les
+  entités déclarent désormais les leurs (`IEntityIndex`, appliqué par `MongooseOrm`), et l'ordre
+  total `{ ts: -1, _id: -1 }` est servi par l'index — un test lit le plan d'exécution.
 - **Les stores mémoire partageaient leurs objets avec l'appelant** et gardaient d'anciens liens
   d'index : un jeton réécrit sous un nouveau secret restait joignable par l'ancien. Copies
   profondes et ré-indexation : `cloneOrNull()` (`MemoryTokenStore.ts:51`), `cloneCredential()`
@@ -92,11 +96,6 @@ exige donc pas — et les nomme.
   refuser le rejeu, le compteur qui recule, la clé étrangère, l'origine étrangère et la passkey
   supprimée (`http/…/webauthn-ceremony.test.ts`). Les formats `packed`, `tpm` ou `android-key`,
   et toute confrontation aux métadonnées FIDO, ne le sont pas — Nodefony ne les exploite pas.
-- **L'ordre total du journal d'audit sous MongoDB repose sur un départage en mémoire.** Un
-  `SchemaDefinition` plat n'exprime pas l'index composite `{ ts: -1, _id: -1 }` : Mongo sert le
-  filtre par l'index sur `ts`, puis départage en mémoire les événements d'une même milliseconde
-  (`auditEventSchema`, `auditEventEntity.ts:39`). Le banc de rafale prouve que l'ordre est juste ;
-  il ne mesure pas le coût de ce départage sur un gros volume.
 - **L'expiration d'un jeton Redis n'est éprouvée que sur le double.** Le serveur réel prouve les
   commandes et la vraie concurrence, mais on n'avance pas son horloge : ses cas d'expiration
   sont sautés (`clockDrivenExpiry: false`), et le double fidèle, piloté par l'horloge du banc,

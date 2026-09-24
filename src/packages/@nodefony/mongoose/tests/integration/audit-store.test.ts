@@ -167,5 +167,42 @@ describe.skipIf(!URI)(
         assert.equal(await degrade.gc(), 0);
       });
     });
+
+    describe("ordre total servi par l'INDEX, pas par un tri en mémoire", () => {
+      it("la requête du journal parcourt l'index composite (ts, _id) — aucune étape SORT", async () => {
+        // L'ordre (ts DESC, _id DESC) est ce qui garantit qu'aucun événement ne
+        // se répète ni ne se perd d'une page à l'autre. Sans index composite,
+        // Mongo sert le filtre par l'index sur `ts` puis départage EN MÉMOIRE
+        // les événements d'une même milliseconde : juste, mais d'un coût qui
+        // croît avec la rafale. Le plan d'exécution dit lequel des deux on a.
+        await orm.pendingIndexAudit;
+        const connection = orm.getNativeConnection<{
+          model(name: string): {
+            collection: {
+              find(f: object): {
+                sort(s: object): {
+                  limit(n: number): { explain(): Promise<unknown> };
+                };
+              };
+            };
+          };
+        }>();
+        const plan = await connection
+          .model(AUDIT_ENTITY_NAMES.events)
+          .collection.find({})
+          .sort({ ts: -1, _id: -1 })
+          .limit(11)
+          .explain();
+        const winning = JSON.stringify(
+          (plan as { queryPlanner?: { winningPlan?: unknown } }).queryPlanner
+            ?.winningPlan,
+        );
+        assert.ok(!winning.includes('"SORT"'), `tri en mémoire : ${winning}`);
+        assert.ok(
+          winning.includes('"keyPattern":{"ts":-1,"_id":-1}'),
+          `index composite absent du plan : ${winning}`,
+        );
+      });
+    });
   },
 );

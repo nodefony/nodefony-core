@@ -3,9 +3,9 @@
   "repoRoot": ".",
   "stats": {
     "files": 861,
-    "symbols": 4289,
+    "symbols": 4290,
     "classes": 399,
-    "interfaces": 1128,
+    "interfaces": 1129,
     "types": 459,
     "enums": 4,
     "functions": 1869,
@@ -19595,14 +19595,22 @@
       "extends": null,
       "description": "Relation déclarative entre deux entités, indépendante du driver ORM."
     },
-    "IEntity": {
-      "name": "IEntity",
+    "@nodefony/orm-core:IEntityIndex": {
+      "name": "IEntityIndex",
       "kind": "interface",
       "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IEntity.ts",
       "exported": true,
       "module": "@nodefony/orm-core",
       "extends": null,
       "description": "Description d'une entité enregistrée dans le registre cross-ORM. Une même entité logique (ex. `User`) peut exister sur plusieurs connecteurs : `connector` désigne la connexion nommée cible (celle d…"
+    },
+    "IEntity": {
+      "name": "IEntity",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IEntity.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null
     },
     "IOrm": {
       "name": "IOrm",

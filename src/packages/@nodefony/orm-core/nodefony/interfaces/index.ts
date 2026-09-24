@@ -1,5 +1,5 @@
 export type { IOrm } from "./IOrm";
-export type { IEntity, IEntityRelation } from "./IEntity";
+export type { IEntity, IEntityIndex, IEntityRelation } from "./IEntity";
 export type {
   IRepository,
   OrmCriteria,

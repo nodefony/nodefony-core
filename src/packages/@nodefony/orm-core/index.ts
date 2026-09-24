@@ -10,6 +10,7 @@
 export type {
   IOrm,
   IEntity,
+  IEntityIndex,
   IEntityRelation,
   IRepository,
   OrmCriteria,

@@ -158,15 +158,25 @@ export class MongooseOrm extends Orm {
     // 1) Schémas (virtuels activés à la sérialisation pour exposer `id`/populates).
     const schemas = new Map<string, Schema>();
     for (const entity of entities) {
-      schemas.set(
-        entity.name,
-        new mongoose.Schema(entity.schema as SchemaDefinition, {
-          toObject: { virtuals: true },
-          toJSON: { virtuals: true },
-          // Horodatages auto (createdAt/updatedAt) si l'entité les déclare.
-          timestamps: entity.timestamps ?? false,
-        }),
-      );
+      const schema = new mongoose.Schema(entity.schema as SchemaDefinition, {
+        toObject: { virtuals: true },
+        toJSON: { virtuals: true },
+        // Horodatages auto (createdAt/updatedAt) si l'entité les déclare.
+        timestamps: entity.timestamps ?? false,
+      });
+      // Index COMPOSITES : un `SchemaDefinition` plat n'en exprime que par
+      // champ. Construits par mongoose à la compilation, puis constatés par
+      // `verifyIndexes()` comme tout index déclaré.
+      for (const index of entity.indexes ?? []) {
+        schema.index(
+          { ...index.fields },
+          {
+            ...(index.unique !== undefined ? { unique: index.unique } : {}),
+            ...(index.name !== undefined ? { name: index.name } : {}),
+          },
+        );
+      }
+      schemas.set(entity.name, schema);
     }
 
     // 2) Relations : pas de FK SQL → refs ObjectId + virtual populate.

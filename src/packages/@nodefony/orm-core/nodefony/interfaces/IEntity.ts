@@ -34,6 +34,20 @@ export interface IEntityRelation {
  * @typeParam S - type du schéma natif du driver.
  * @typeParam M - type du modèle compilé natif du driver.
  */
+/**
+ * Index COMPOSITE déclaré par une entité, pour l'adapter qui ne sait pas
+ * l'exprimer dans son schéma (Mongoose : un `SchemaDefinition` plat n'a d'index
+ * que par champ).
+ */
+export interface IEntityIndex {
+  /** Champs et sens, dans l'ORDRE de l'index (`1` croissant, `-1` décroissant). */
+  readonly fields: Readonly<Record<string, 1 | -1>>;
+  /** Contrainte d'unicité sur la combinaison. */
+  readonly unique?: boolean;
+  /** Nom de l'index en base (sinon celui que le driver dérive des champs). */
+  readonly name?: string;
+}
+
 export interface IEntity<S = unknown, M = unknown> {
   /** Nom logique de l'entité (clé de lookup, ex. `"User"`). */
   readonly name: string;
@@ -73,4 +87,11 @@ export interface IEntity<S = unknown, M = unknown> {
 
   /** Relations déclarées vers d'autres entités (par nom logique). */
   readonly relations?: ReadonlyArray<IEntityRelation>;
+
+  /**
+   * Index composites, appliqués par l'adapter qui les exprime hors schéma
+   * (Mongoose `schema.index()`). Les ORM schema-as-code (Drizzle) les déclarent
+   * dans leur table → ce champ y est sans effet. **Optionnel**.
+   */
+  readonly indexes?: ReadonlyArray<IEntityIndex>;
 }
