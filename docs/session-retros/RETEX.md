@@ -269,6 +269,10 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-24g] Les preuves de jetons (RFC 8414 / 8707) tournaient en développement et se
+  SAUTAIENT en production depuis toujours (pas de `NF_JWT_ISSUER`) — « SUITE SAUTÉE » écrit dans
+  chaque journal vert, lu par personne. Corrigé en les EXIGEANT dans les deux modes
+  (`TOKEN_PROOFS`) : une preuve propre à un décor se déclare au rapporteur, sinon le skip est vert.
 - [1× — 09-24d] Rattachement des briques par `location` : juste sur sqlite, FAUX sur PostgreSQL —
   le serveur ne publie `location` que pour un fichier local (`null` en réseau, par CONCEPTION).
   Vu seulement en coupant réellement PG sous la page. Un indice se lit à sa SOURCE (qui le pose,

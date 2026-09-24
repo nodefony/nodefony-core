@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T15:07:22.939Z",
+  "generatedAt": "2026-09-24T16:59:59.205Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 26,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 42,
+      "open": 43,
       "title": "10.0.0-beta"
     },
     {
@@ -1368,6 +1368,20 @@
       ]
     },
     {
+      "number": 478,
+      "title": "feat(security): fournir aux pods de production une clé de signature partagée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/478",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 3.05,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 140,
       "title": "feat(user): publier le contrat de colonnes de l'utilisateur",
       "url": "https://github.com/nodefony/nodefony-core/issues/140",
@@ -2109,7 +2123,7 @@
       "title": "feat(cli): demander les champs d'une entité un par un dans le terminal",
       "url": "https://github.com/nodefony/nodefony-core/issues/471",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
