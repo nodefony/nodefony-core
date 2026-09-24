@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T01:50:46.035Z",
+  "generatedAt": "2026-09-24T06:43:56.880Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -1779,6 +1779,22 @@
       ]
     },
     {
+      "number": 466,
+      "title": "fix(http): répondre 404 à un identifiant mal formé, pas 500",
+      "url": "https://github.com/nodefony/nodefony-core/issues/466",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.1,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
+      ]
+    },
+    {
       "number": 463,
       "title": "refactor(scaffold): écrire une seule fois la liste des bases proposées",
       "url": "https://github.com/nodefony/nodefony-core/issues/463",
@@ -1899,6 +1915,22 @@
       "labels": []
     },
     {
+      "number": 468,
+      "title": "feat(studio): montrer les types de champ du moteur à la création",
+      "url": "https://github.com/nodefony/nodefony-core/issues/468",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.2,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
+      ]
+    },
+    {
       "number": 271,
       "title": "feat(studio): afficher tout fournisseur de connexion configuré, pas seulement les marques connues",
       "url": "https://github.com/nodefony/nodefony-core/issues/271",
@@ -1911,6 +1943,22 @@
       "debut": "2026-09-17",
       "cible": "2026-09-17",
       "labels": []
+    },
+    {
+      "number": 469,
+      "title": "fix(mediasoup): déclarer son connecteur au lieu de l'ouvrir dans son code",
+      "url": "https://github.com/nodefony/nodefony-core/issues/469",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.3,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 160,
@@ -1941,6 +1989,22 @@
       "labels": []
     },
     {
+      "number": 470,
+      "title": "feat(doctor): signaler un connecteur ORM que personne n'a déclaré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/470",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.4,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
+      ]
+    },
+    {
       "number": 59,
       "title": "fix(cluster): ne plus arracher les gestionnaires de signaux des modules",
       "url": "https://github.com/nodefony/nodefony-core/issues/59",
@@ -1969,6 +2033,22 @@
       "debut": null,
       "cible": null,
       "labels": []
+    },
+    {
+      "number": 471,
+      "title": "feat(cli): demander les champs d'une entité un par un dans le terminal",
+      "url": "https://github.com/nodefony/nodefony-core/issues/471",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.5,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
+      ]
     },
     {
       "number": 207,
@@ -6480,6 +6560,22 @@
       "cible": null,
       "labels": [
         "irrattrapable"
+      ]
+    },
+    {
+      "number": 467,
+      "title": "feat(mongoose): refuser la suppression d'un parent encore référencé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/467",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": null,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
       ]
     }
   ]

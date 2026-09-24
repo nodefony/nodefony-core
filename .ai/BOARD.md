@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-24 01:50** (UTC).
+> Empreinte prise le **2026-09-24 06:43** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#457 — fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM**
+**#466 — fix(http): répondre 404 à un identifiant mal formé, pas 500**
 
-Ordre 4.13 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise 2026-09-24 → 09-24
+Ordre 4.1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha · frise —
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 12 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -93,16 +93,22 @@ Ordre 4.13 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise 2026-09-24 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 6 ouverts
+## Jalon 10.0.0-alpha — 12 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
+| 4.1 | P1 — figé à la création | 0.5 | — | #466 | fix(http): répondre 404 à un identifiant mal formé, pas 500 |
 | 4.13 | P2 — décision | 1 | 2026-09-24 → 09-24 | #457 | fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM |
 | 4.14 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #461 | fix(orm): ne plus annoncer un échec de connexion quand le serveur refuse le schéma |
+| 4.2 | P2 — décision | 1 | — | #468 | feat(studio): montrer les types de champ du moteur à la création |
+| 4.3 | P1 — figé à la création | 1 | — | #469 | fix(mediasoup): déclarer son connecteur au lieu de l'ouvrir dans son code |
+| 4.4 | P2 — décision | 0.5 | — | #470 | feat(doctor): signaler un connecteur ORM que personne n'a déclaré |
+| 4.5 | P2 — décision | 1 | — | #471 | feat(cli): demander les champs d'une entité un par un dans le terminal |
 | 57 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
 | 58 | P2 — décision | 1 | 2026-09-24 → 09-24 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
 | 158 | P2 — décision | 1 | 2026-09-24 → 09-24 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
 | 159 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #458 | docs(readme): orienter l'évaluateur vers une application générée |
+| — | P2 — décision | 1 | — | #467 | feat(mongoose): refuser la suppression d'un parent encore référencé |
 
 ## Jalon 10.1.0 — 31 ouverts
 
