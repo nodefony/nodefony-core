@@ -2,6 +2,7 @@ import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import type { IMigrationSource } from "./types";
+import { ownsSharedMigrations } from "../frameworkConnector";
 
 /** Nom logique RÉSERVÉ de la source livrée par le framework. */
 export const FRAMEWORK_SOURCE = "framework";
@@ -84,13 +85,24 @@ export async function frameworkMigrationsDir(): Promise<string> {
  *
  * @param appDir - dossier de migrations de l'application, s'il y en a un.
  * @param options.framework - `false` quand le module est data-only.
+ * @param options.connector - connecteur visé ; un connecteur secondaire ne
+ *   reçoit AUCUNE source. Omis : le registre complet (usage direct).
  * @returns le registre, prêt pour l'applicateur.
  */
 export async function defaultMigrationSources(
   appDir?: string,
-  options: { framework?: boolean } = {},
+  options: { framework?: boolean; connector?: string } = {},
 ): Promise<IMigrationSource[]> {
   const sources: IMigrationSource[] = [];
+  // Un connecteur SECONDAIRE ne reçoit ni les migrations du framework ni
+  // celles de l'application : elles décrivent la base du framework, pas la
+  // sienne (cf `ownsSharedMigrations`).
+  if (
+    options.connector !== undefined &&
+    !ownsSharedMigrations(options.connector)
+  ) {
+    return sources;
+  }
   if (options.framework !== false) {
     sources.push({
       name: FRAMEWORK_SOURCE,

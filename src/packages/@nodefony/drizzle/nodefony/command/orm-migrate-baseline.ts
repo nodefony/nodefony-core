@@ -158,6 +158,9 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
     resolution: Extract<IConnectorResolution, { kind: "ready" }>,
     config: IDrizzleConfig,
   ): Promise<IAdoptedBaseline | null> {
+    if (this.refuseSecondaryWriter(resolution.connector, opts.json)) {
+      return null;
+    }
     const root = (this.kernel as Kernel).path;
     const dir = appMigrationsDir(this.kernel as Kernel, config.migrations.dir);
     if (dir === undefined) {

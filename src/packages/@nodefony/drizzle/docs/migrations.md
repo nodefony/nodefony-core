@@ -117,6 +117,13 @@ Toutes acceptent `--connector <nom>` (défaut : `default`) et `--json`. Le flux 
 Les migrations du **framework** sont livrées dans le paquet : vous n'avez pas à les produire. Celles
 de votre **application**, vous les écrivez avec `orm:generate` — voir la section suivante.
 
+Ces deux familles de migrations appartiennent au **seul connecteur `default`**, celui qui porte les
+briques du framework : le dossier `migrations/<dialecte>` décrit sa base, et aucune autre. Un
+connecteur secondaire (une base d'analyse, la base d'un module) n'en reçoit aucune : en
+développement son schéma est dérivé du code, et `orm:generate --connector <secondaire>` refuse
+(`NF_MIGRATE_SECONDARY_CONNECTOR`) plutôt que d'écrire un fichier que `default` appliquerait à sa
+propre base.
+
 Côté configuration, il n'y a rien à écrire pour le cas courant : le mode se résout par
 environnement. Ne le déclarer que pour s'en écarter — un serveur unique qui migre au démarrage :
 

@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 856,
-    "symbols": 4249,
+    "files": 857,
+    "symbols": 4252,
     "classes": 398,
     "interfaces": 1126,
     "types": 458,
     "enums": 4,
-    "functions": 1838,
+    "functions": 1841,
     "constants": 425
   },
   "symbols": {
@@ -6516,14 +6516,6 @@
       "module": "@nodefony/drizzle",
       "description": "Déclare les entités framework portées sur `dialect` (connecteur `default`) et enregistre leurs fabriques de stores dans les registres de `@nodefony/security` et `@nodefony/framework`. Idempotent (g…"
     },
-    "FRAMEWORK_CONNECTOR": {
-      "name": "FRAMEWORK_CONNECTOR",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "AUTO-ENREGISTREMENT des backends framework portés par Drizzle — « charger le module = ses backends deviennent sélectionnables par simple nom ». Appelé par `Drizzle.onKernelRegister` (config validée…"
-    },
     "@nodefony/mongoose:IFrameworkStoresReport": {
       "name": "IFrameworkStoresReport",
       "kind": "interface",
@@ -6541,7 +6533,7 @@
       "module": "@nodefony/mongoose",
       "description": "Déclare les entités framework Mongoose (connecteur `nodefony`) et enregistre leurs fabriques de stores dans les registres de `@nodefony/security`. Idempotent (guards) — rejouable sans effet."
     },
-    "@nodefony/mongoose:FRAMEWORK_CONNECTOR": {
+    "FRAMEWORK_CONNECTOR": {
       "name": "FRAMEWORK_CONNECTOR",
       "kind": "const",
       "file": "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
@@ -15639,6 +15631,22 @@
       "decorators": [],
       "description": "Store d'endpoints webhook **Drizzle** (driver `better-sqlite3`) — implémentation SQL d'{@link IWebhookStore} au-dessus d'un unique repository `@nodefony/orm-core` (`webhook_endpoint`). Persistance …"
     },
+    "ownsSharedMigrations": {
+      "name": "ownsSharedMigrations",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/frameworkConnector.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Ce connecteur possède-t-il les migrations du framework et de l'application ? **Seul le connecteur du framework les possède.** Le dossier des migrations de l'application (`migrations/<dialect>`) ne …"
+    },
+    "@nodefony/drizzle:FRAMEWORK_CONNECTOR": {
+      "name": "FRAMEWORK_CONNECTOR",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/frameworkConnector.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Connecteur conventionnel qui héberge le schéma framework (même convention que `SESSION_CONNECTOR` : `\"default\"` pour Drizzle, `\"nodefony\"` pour Mongoose). Vit dans ce fichier sans dépendance parce …"
+    },
     "likeCond": {
       "name": "likeCond",
       "kind": "function",
@@ -23925,6 +23933,14 @@
       "module": "@nodefony/drizzle",
       "description": "Le connecteur est une base SQL, mais la configuration du module ne le déclare pas — cas d'un ORM construit directement dans du code. ⚠️ Ne JAMAIS lui répondre « ne porte pas de migrations » : c'est…"
     },
+    "secondaryConnector": {
+      "name": "secondaryConnector",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Écrire une migration pour un connecteur SECONDAIRE — refusé. Le dossier des migrations de l'application n'a qu'un propriétaire : le connecteur du framework. Un fichier écrit là « pour » un autre co…"
+    },
     "describeResolutionRefusal": {
       "name": "describeResolutionRefusal",
       "kind": "function",
@@ -23989,6 +24005,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "L'application versionne-t-elle au moins une migration ? Lecture SYNCHRONE et bornée à un `readdirSync` par connecteur au démarrage — hors de tout chemin de requête. Elle doit l'être : le mode de sc…"
+    },
+    "connectorVersionsMigrations": {
+      "name": "connectorVersionsMigrations",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Des migrations versionnées CONCERNENT-elles ce connecteur ? C'est la question que pose la bascule `auto` → `migrate`, et elle n'est pas « l'application versionne-t-elle des migrations ? » : celles-…"
     },
     "resolveCheckMode": {
       "name": "resolveCheckMode",
@@ -30620,7 +30644,10 @@
       ],
       "FRAMEWORK_CONNECTOR": [
         "src/packages/@nodefony/drizzle/index.ts",
-        "src/packages/@nodefony/mongoose/index.ts"
+        "src/packages/@nodefony/mongoose/index.ts",
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
       ],
       "IDrizzleConfig": [
         "src/packages/@nodefony/drizzle/index.ts",
@@ -35547,6 +35574,12 @@
       "composeReport": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
+      "ownsSharedMigrations": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
       "describeResolutionRefusal": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
@@ -35554,6 +35587,9 @@
       "moduleAbsent": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
+      ],
+      "secondaryConnector": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
       "CommandFailureCode": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
@@ -35910,7 +35946,7 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
-      "appVersionsMigrations": [
+      "connectorVersionsMigrations": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "adviseMigrations": [

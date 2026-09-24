@@ -4,6 +4,7 @@ import type { IMigrationAction } from "./types";
 import type { MigrationVerdictError } from "./types";
 import { knownConnectors, MIGRATE_URL_ENV } from "./resolve";
 import type { IConnectorResolution } from "./resolve";
+import { FRAMEWORK_CONNECTOR } from "../frameworkConnector";
 
 /**
  * Les refus de RÉSOLUTION, rendus en VALEUR — la prose qu'un connecteur non
@@ -68,7 +69,9 @@ export type CommandFailureCode =
   /** L'adoption par lecture de la base, demandée alors qu'il existe déjà des migrations. */
   | "NF_MIGRATE_BASELINE_NOT_EMPTY"
   /** La table d'historique existe, mais ce n'est pas celle du framework. */
-  | "NF_MIGRATE_HISTORY_FOREIGN";
+  | "NF_MIGRATE_HISTORY_FOREIGN"
+  /** Écrire une migration pour un connecteur qui ne possède pas le dossier. */
+  | "NF_MIGRATE_SECONDARY_CONNECTOR";
 
 /**
  * Ce que la découverte des entités a VU, au moment où la commande a refusé.
@@ -343,6 +346,30 @@ export function notConfigured(
     meaning:
       "Un connecteur créé directement dans du code (un banc de test, un module qui instancie son ORM lui-même) est enregistré au moment où il se connecte, mais l'état des migrations se lit dans la configuration — c'est elle qui porte le dossier des fichiers et le mode de schéma. Déclare-le dans `connectors` pour pouvoir le suivre.",
     nextActions: [action("nodefony inspect config --json")],
+    exitCode: 2,
+  };
+}
+
+/**
+ * Écrire une migration pour un connecteur SECONDAIRE — refusé.
+ *
+ * Le dossier des migrations de l'application n'a qu'un propriétaire : le
+ * connecteur du framework. Un fichier écrit là « pour » un autre connecteur
+ * serait appliqué par le connecteur du framework, à SA base — l'exact inverse
+ * de ce que la commande annoncerait.
+ *
+ * @param connector - connecteur demandé.
+ * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
+ */
+export function secondaryConnector(connector: string): IResolutionRefusal {
+  return {
+    code: "NF_MIGRATE_SECONDARY_CONNECTOR",
+    summary: `Le connecteur « ${connector} » n'est pas celui du framework (« ${FRAMEWORK_CONNECTOR} ») : aucune migration n'est écrite pour lui. Rien n'a été écrit.`,
+    meaning: `Le dossier \`migrations/<dialecte>\` décrit UNE base, celle du connecteur « ${FRAMEWORK_CONNECTOR} » : c'est lui seul qui applique ce qu'il contient. Un fichier écrit là pour « ${connector} » serait appliqué à la mauvaise base. Les migrations par connecteur n'existent pas encore ; le schéma d'un connecteur secondaire se dérive du code (\`ddl: "auto"\`) ou se gère hors du framework.`,
+    nextActions: [
+      action(`nodefony orm:migrate:status --connector ${connector}`),
+      action("nodefony inspect config --json"),
+    ],
     exitCode: 2,
   };
 }

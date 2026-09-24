@@ -231,6 +231,9 @@ class OrmGenerate extends OrmMigrateCommand {
     }
     const { resolution, config } = resolved;
     const connector = resolution.connector;
+    if (this.refuseSecondaryWriter(connector, opts.json)) {
+      return this;
+    }
     const name = this.#nameOrFail(opts, connector);
     if (name === null) {
       return this;

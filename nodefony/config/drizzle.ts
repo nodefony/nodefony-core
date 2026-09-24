@@ -27,12 +27,10 @@ import type { env } from "../../env";
  *   hors production seulement — comme le module (`policy: "dev"`). Ouverte en
  *   production, elle servirait un module qui n'y est pas chargé.
  *
- * 🔴 `ddl: "auto"` n'est pas décoratif sur `mediasoup`. Cette application
- * versionne des migrations : sans mode écrit, TOUT connecteur bascule en
- * `migrate`, et la base du banc réclamait les migrations du framework et de
- * l'application — pas les siennes — sans jamais créer ses tables. La bascule
- * protège une base DURABLE de deux fabricants de schéma qui divergent ; une
- * base `:memory:` repart vide à chaque démarrage, ils ne s'y rencontrent pas.
+ * `mediasoup` n'écrit aucun `ddl` : c'est un connecteur SECONDAIRE, les
+ * migrations du dépôt (framework et application) appartiennent à `default`
+ * seul. En développement son schéma est donc dérivé du code (`auto`), même
+ * quand l'application versionne des migrations.
  */
 export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
   ({
@@ -44,7 +42,6 @@ export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
             mediasoup: {
               dialect: "sqlite",
               filename: ":memory:",
-              ddl: "auto",
             },
           }),
     },

@@ -174,6 +174,18 @@ développement, inchangé (`none`). Branché aux DEUX points, sinon boot et CLI 
 états : `DrizzleService.#connectOne` et `resolveConnector`. Lecture disque SYNCHRONE et bornée
 (1 `readdirSync` par connecteur au boot, `meta/` ignoré, sous-dossiers de dialecte comptés).
 
+## Propriétaire des migrations — le SEUL connecteur du framework
+
+`ownsSharedMigrations(connector)` (`src/frameworkConnector.ts`, avec `FRAMEWORK_CONNECTOR` =
+`"default"` que `registerStores.ts` réexporte) = UNE règle. `migrations/<dialecte>` n'a aucune notion
+de connecteur : il décrit la base du framework. Secondaire ⇒ `defaultMigrationSources(…, {connector})`
+rend `[]` · `connectorVersionsMigrations` rend `false` (pas de bascule `migrate`, reste `auto` en
+dev) · `auto` : aucun conseil, aucune lecture d'historique · `ddl: "migrate"` écrit : avertissement
+au boot (« sans migration à appliquer ») · `orm:generate` et `orm:migrate:baseline --from-database`
+refusent `NF_MIGRATE_SECONDARY_CONNECTOR` (le fichier irait dans le dossier de `default`, qui
+l'appliquerait à SA base). Migrations PAR connecteur : non supportées. Banc :
+`tests/unit/secondaryConnectorMigrations.test.ts`.
+
 ## Migrations — écrire celles de l'APPLICATION (`orm:generate`)
 
 `nodefony/command/orm-generate.ts` + `nodefony/src/migrator/appSchema.ts`. Mécanisme : **les

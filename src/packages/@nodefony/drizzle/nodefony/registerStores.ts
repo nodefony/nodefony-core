@@ -16,6 +16,7 @@ import {
   getIdempotencyStoreFactory,
 } from "@nodefony/framework";
 import { DrizzleOrm } from "./src/orm-core/index";
+import { FRAMEWORK_CONNECTOR } from "./src/frameworkConnector";
 import type { DrizzleDb } from "./src/orm-core/index";
 import type { SqlDialect } from "./config/config";
 import {
@@ -79,10 +80,10 @@ import { DrizzleIdempotencyStore } from "./src/DrizzleIdempotencyStore";
  */
 
 /**
- * Connecteur conventionnel qui héberge le schéma framework (même convention que
- * `SESSION_CONNECTOR` : `"default"` pour Drizzle, `"nodefony"` pour Mongoose).
+ * Connecteur conventionnel qui héberge le schéma framework — défini dans
+ * `src/frameworkConnector.ts`, que les migrations lisent aussi.
  */
-export const FRAMEWORK_CONNECTOR = "default";
+export { FRAMEWORK_CONNECTOR };
 
 /** Portage par entité (chantier multi-dialecte — Ph.2.1 allume les cases). */
 const ALL_DIALECTS: readonly SqlDialect[] = ["sqlite", "postgres", "mysql"];

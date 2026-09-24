@@ -31,9 +31,11 @@ import {
   type IConnectorResolution,
 } from "../src/migrator/resolve";
 import { composeReport } from "../src/migrator/status";
+import { ownsSharedMigrations } from "../src/frameworkConnector";
 import {
   describeResolutionRefusal,
   moduleAbsent,
+  secondaryConnector,
   type CommandFailureCode,
   type ICommandFailure,
   type IDiscoveryFacts,
@@ -291,6 +293,32 @@ export abstract class OrmMigrateCommand extends Command {
     // sorti, le boot silencieux des commandes avalant les deux. Un
     // avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
     return { resolution, config };
+  }
+
+  /**
+   * Arrête une commande qui ÉCRIRAIT une migration pour un connecteur
+   * secondaire — le fichier atterrirait dans le dossier du connecteur du
+   * framework, qui l'appliquerait à sa propre base.
+   *
+   * @param connector - connecteur résolu.
+   * @param json - mode machine.
+   * @returns `true` si la commande est arrêtée.
+   */
+  protected refuseSecondaryWriter(connector: string, json?: boolean): boolean {
+    if (ownsSharedMigrations(connector)) {
+      return false;
+    }
+    const refusal = secondaryConnector(connector);
+    this.fail(
+      connector,
+      refusal.code,
+      refusal.summary,
+      refusal.meaning,
+      refusal.nextActions,
+      json,
+      refusal.exitCode,
+    );
+    return true;
   }
 
   /**

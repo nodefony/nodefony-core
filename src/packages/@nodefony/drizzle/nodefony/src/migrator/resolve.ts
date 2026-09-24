@@ -13,6 +13,7 @@ import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
 import { resolveConnectorTarget } from "../connectorTarget";
 import { DrizzleMigrator } from "./DrizzleMigrator";
 import { defaultMigrationSources } from "./paths";
+import { ownsSharedMigrations } from "../frameworkConnector";
 import type { IMigrationTarget } from "./drivers/index";
 
 /**
@@ -192,6 +193,26 @@ export function appVersionsMigrations(dir: string | undefined): boolean {
     return false;
   }
   return false;
+}
+
+/**
+ * Des migrations versionnées CONCERNENT-elles ce connecteur ?
+ *
+ * C'est la question que pose la bascule `auto` → `migrate`, et elle n'est pas
+ * « l'application versionne-t-elle des migrations ? » : celles-ci décrivent la
+ * base du framework. Posée telle quelle, elle faisait basculer en `migrate` un
+ * connecteur secondaire qui n'en recevra jamais une — sa base restait alors
+ * sans schéma, ni dérivé ni migré.
+ *
+ * @param connector - nom du connecteur.
+ * @param dir - dossier de migrations de l'application ({@link appMigrationsDir}).
+ * @returns `true` si le connecteur possède les migrations ET qu'il en existe.
+ */
+export function connectorVersionsMigrations(
+  connector: string,
+  dir: string | undefined,
+): boolean {
+  return ownsSharedMigrations(connector) && appVersionsMigrations(dir);
 }
 
 /**
@@ -475,7 +496,10 @@ export function resolveConnector(
     ddl: resolveDdlMode(
       declared.ddl,
       env,
-      appVersionsMigrations(appMigrationsDir(kernel, config.migrations.dir)),
+      connectorVersionsMigrations(
+        connector,
+        appMigrationsDir(kernel, config.migrations.dir),
+      ),
     ),
   };
 }
@@ -538,6 +562,7 @@ export async function buildMigrator(
   const appDir = appMigrationsDir(kernel, config.migrations.dir);
   const sources = await defaultMigrationSources(appDir, {
     framework: config.frameworkEntities !== false,
+    connector: resolution.connector,
   });
   return new DrizzleMigrator({
     connector: resolution.connector,

@@ -17,8 +17,12 @@ import { defaultConnectorFilename } from "../src/connectorTarget";
 import { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
 import { defaultMigrationSources } from "../src/migrator/paths";
 import {
+  FRAMEWORK_CONNECTOR,
+  ownsSharedMigrations,
+} from "../src/frameworkConnector";
+import {
   appMigrationsDir,
-  appVersionsMigrations,
+  connectorVersionsMigrations,
   readMigrationEnv,
   resetAllowed,
   adviseMigrations,
@@ -206,7 +210,8 @@ class DrizzleService extends Service {
     const ddl = resolveDdlMode(
       cfg.ddl,
       readMigrationEnv(this.kernel as Kernel | null),
-      appVersionsMigrations(
+      connectorVersionsMigrations(
+        name,
         appMigrationsDir(
           this.kernel as Kernel | null,
           this.#config().migrations?.dir ?? "migrations",
@@ -379,8 +384,21 @@ class DrizzleService extends Service {
     // Borné au DÉVELOPPEMENT : c'est là que le bilan de démarrage le rend
     // lisible, et une suite de tests ne paie ainsi aucune lecture d'historique.
     const adviseOnly = ddl === "auto";
-    if (adviseOnly && !adviseMigrations(check, env, filename)) {
+    // Un connecteur SECONDAIRE ne possède aucune migration : en `auto`, il n'a
+    // rien à annoncer — lire son historique ne servirait qu'à dire « rien ».
+    const owns = ownsSharedMigrations(name);
+    if (adviseOnly && (!owns || !adviseMigrations(check, env, filename))) {
       return;
+    }
+    if (!owns) {
+      // `migrate` écrit sur un secondaire : un choix explicite qui ne fera
+      // plus rien. Le taire laisserait croire son schéma géré.
+      this.log(
+        `Drizzle « ${name} » : \`ddl: "migrate"\` sans migration à appliquer — ` +
+          `seul le connecteur « ${FRAMEWORK_CONNECTOR} » possède le dossier des ` +
+          `migrations. Le schéma de « ${name} » n'est ni dérivé ni migré par le framework.`,
+        "WARNING",
+      );
     }
     const target = { dialect, filename, url: cfg.url } as {
       dialect: "sqlite" | "postgres" | "mysql";
@@ -389,7 +407,7 @@ class DrizzleService extends Service {
     };
     const sources = await defaultMigrationSources(
       appMigrationsDir(kernel, config.migrations?.dir ?? "migrations"),
-      { framework: config.frameworkEntities !== false },
+      { framework: config.frameworkEntities !== false, connector: name },
     );
     const migrator = new DrizzleMigrator({
       connector: name,
