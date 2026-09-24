@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-24 21:36** (UTC).
+> Empreinte prise le **2026-09-24 21:44** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,8 +20,8 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 99% | 157 | 2 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 38% | 26 | 43 | 2026-10-10 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 100% | 158 | 0 | 2026-09-24 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 37% | 26 | 44 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -31,16 +31,16 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#479 — ci: empêcher un process détaché de figer les jobs Windows après leur succès**
+**#293 — build(release): cesser de réécrire les types au moment du publish**
 
-Ordre 4.9 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha · frise —
+Ordre 1.01 · P1 — figé à la création · 1 j · jalon 10.0.0-beta · frise 2026-10-06 → 10-06
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 2 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 44 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 43 ouverts
+## Jalon 10.0.0-beta — 44 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -87,6 +87,7 @@ Ordre 4.9 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha · fris
 | 6.04 | P1 — figé à la création | 1 | 2026-11-25 → 11-25 | #448 | test(ecosysteme): jouer l'épreuve sans jamais guider l'agent |
 | 6.05 | P1 — figé à la création | 1 | 2026-11-26 → 11-26 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
 | 6.06 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
+| 6.07 | P1 — figé à la création | 0.5 | 2026-09-25 → 12-01 | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
 
 ## Jalon outillage-agents — 2 ouverts
 
@@ -94,13 +95,6 @@ Ordre 4.9 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha · fris
 | --- | --- | ---: | --- | --- | --- |
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
-
-## Jalon 10.0.0-alpha — 2 ouverts
-
-| Ordre | Prio | Jours | Frise | Ticket | Titre |
-| --- | --- | ---: | --- | --- | --- |
-| 4.9 | P1 — figé à la création | 0.5 | — | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
-| 158 | P2 — décision | 1 | 2026-09-24 → 09-24 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |
 
 ## Jalon 10.1.0 — 31 ouverts
 

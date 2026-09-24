@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T21:36:06.938Z",
+  "generatedAt": "2026-09-24T21:44:45.261Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 157,
+      "closed": 158,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 2,
+      "open": 0,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 26,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 43,
+      "open": 44,
       "title": "10.0.0-beta"
     },
     {
@@ -2425,20 +2425,6 @@
       ]
     },
     {
-      "number": 479,
-      "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
-      "url": "https://github.com/nodefony/nodefony-core/issues/479",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P1 — figé à la création",
-      "jours": 0.5,
-      "ordre": 4.9,
-      "debut": null,
-      "cible": null,
-      "labels": []
-    },
-    {
       "number": 53,
       "title": "docs: remettre la documentation à niveau avant la version 10",
       "url": "https://github.com/nodefony/nodefony-core/issues/53",
@@ -3113,6 +3099,22 @@
       "jours": 3,
       "ordre": 6.06,
       "debut": "2026-11-27",
+      "cible": "2026-12-01",
+      "labels": [
+        "beta-6"
+      ]
+    },
+    {
+      "number": 479,
+      "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
+      "url": "https://github.com/nodefony/nodefony-core/issues/479",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 6.07,
+      "debut": "2026-09-25",
       "cible": "2026-12-01",
       "labels": [
         "beta-6"
@@ -6326,8 +6328,8 @@
       "number": 238,
       "title": "test(orm): prouver la parite de contrat entre Mongoose et Drizzle",
       "url": "https://github.com/nodefony/nodefony-core/issues/238",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
