@@ -11,7 +11,8 @@
   "types": "./dist/types/index.d.ts",
   "exports": {
     ".": {
-      "types": "./index.ts",
+      "nodefony-source": "./index.ts",
+      "types": "./dist/types/index.d.ts",
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }

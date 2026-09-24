@@ -3,9 +3,10 @@
     "target": "ES2024",
     "module": "ESNext",
     "moduleResolution": "Bundler",
-    // ESNext (pas le défaut du target) : en mode --link les types des paquets
-    // nodefony sont leurs SOURCES TS, qui utilisent des APIs ES2025+
-    // (RegExp.escape…) — même choix que les tsconfigs du framework.
+    // ESNext (pas le défaut du target) : les déclarations des paquets
+    // nodefony exposent des APIs ES2025+ (RegExp.escape…) — même choix que
+    // les tsconfigs du framework. En mode --link comme depuis npm, l'app lit
+    // les `.d.ts` publiés (condition `types`), jamais les sources du checkout.
     "lib": ["ESNext", "DOM", "DOM.Iterable"],
 <% if (it.front) { %>    // `vite/client` déclare ce que Vite sait importer et que TypeScript ignore :
     // les feuilles de style, les images, `import.meta.env`. Sans lui, un

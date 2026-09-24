@@ -48,10 +48,11 @@
 > **Bundler** : `rolldown` + `tsgo` (`@typescript/native-preview`) sont des devDeps de la
 > RACINE (hoistés) — un module n'en déclare PAS de copie locale.
 
-> **`exports["."].types` — 2 patterns (CLAUDE.md racine)** : un NOUVEAU module pointe
-> `./dist/types/index.d.ts` (standard, `.d.ts` généré). Le pattern `"./index.ts"` (source,
-> anti-race TS2307) est RÉSERVÉ aux modules consommés en source par un autre workspace
-> (http/framework/security/frontend/orm-core/user) — ne pas l'utiliser par défaut.
+> **`exports["."].types` (CLAUDE.md racine)** : TOUJOURS `./dist/types/index.d.ts` (`.d.ts`
+> généré) — l'audit de release refuse un `types` que `files` n'emporte pas. Un module consommé en
+> source par un autre workspace (http/framework/security/orm-core/user) ajoute DEVANT
+> `"nodefony-source": "./index.ts"`, et chaque tsconfig consommateur déclare
+> `"customConditions": ["nodefony-source"]` — ne pas l'utiliser par défaut.
 > **Toolchain = devDependencies UNIQUEMENT** (décision 0.4) : outillage de build ne va
 > JAMAIS en `dependencies` (poids runtime). Les peers workspace consommés (`nodefony`,
 > `@nodefony/http`…) se doublent en devDeps `"*"` pour le typecheck/build local.

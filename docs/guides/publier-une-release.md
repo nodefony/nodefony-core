@@ -113,16 +113,19 @@ liste écrite à la main, dont l'oubli serait **silencieux**.
 
 ### Le problème qu'il résout
 
-**Le dépôt ne peut pas voir sa propre surface publiée.** Les paquets du cœur pointent leurs types
-vers la **source** :
+**Le dépôt ne voit pas sa propre surface publiée.** Les paquets du cœur se lisent en **source**
+dans le dépôt, par une condition d'export que seuls ses tsconfigs déclarent :
 
 ```json
-"exports": { ".": { "types": "./index.ts" } }
+"exports": { ".": { "nodefony-source": "./index.ts", "types": "./dist/types/index.d.ts" } }
 ```
 
-C'est délibéré — cela évite une course au build entre modules qui se consomment en source. Mais
-**cette source n'est pas dans le tarball**. Ici, tout compile ; chez celui qui installe, rien ne
-marche. Six paquets ont publié des semaines dans cet état sans qu'aucun test du dépôt ne bronche.
+C'est délibéré — cela évite une course au build entre modules qui se consomment en source. Chez
+celui qui installe, la condition est inconnue et TypeScript retient `types`. Le manifeste publié
+est donc celui du dépôt, sans réécriture — mais le dépôt, lui, ne passe jamais par `types`. Six
+paquets ont publié des semaines avec un `types` vers une source absente du tarball sans qu'aucun
+test du dépôt ne bronche : c'est pourquoi `auditerMetadonnees` refuse désormais tout `types` que
+`files` n'emporte pas.
 
 Aucune suite locale ne peut voir ça, par construction : elle travaille sur les fichiers du dépôt,
 et le problème est précisément dans ce qui **n'y est plus** une fois empaqueté.
@@ -134,8 +137,8 @@ npm run release:smoke                       # les trois scénarios
 npm run release:smoke -- --scenario base    # un seul (docker build se paie en minutes)
 ```
 
-1. **Empaquette** les quinze paquets, en basculant au passage les `exports.types` vers les `.d.ts`
-   générés et en extensionnant les specifiers des déclarations (`node16`/`nodenext` l'exige).
+1. **Empaquette** les quinze paquets, en refusant un type déclaré absent du disque et en
+   extensionnant les specifiers des déclarations (`node16`/`nodenext` l'exige).
 2. **Installe le scaffolder depuis son tarball**, dans un dossier jetable.
 3. **Génère** une application avec ce binaire-là (`create app`, puis `create controller`).
 4. **Construit une image**, l'installation étant **vierge** : le conteneur n'a jamais vu le dépôt.

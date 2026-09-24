@@ -147,13 +147,6 @@
       },
       "entityDialect": [
         "entity/dolibarr/bench-pg.ts"
-      ],
-      "typesUnreachable": [
-        "@nodefony/http",
-        "@nodefony/framework",
-        "@nodefony/security",
-        "@nodefony/user",
-        "@nodefony/orm-core"
       ]
     },
     "scripts": {

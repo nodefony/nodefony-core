@@ -77,8 +77,8 @@
  * au monde : git, npm, le disque. Une release ne se répétant pas, ce qui décide
  * doit pouvoir s'éprouver sans elle.
  *
- * Il n'empaquette pas non plus : `pack-all.mjs` le fait, avec la bascule des
- * `exports.types` et le post-traitement des déclarations.
+ * Il n'empaquette pas non plus : `pack-all.mjs` le fait, avec les peers
+ * optionnels et le post-traitement des déclarations.
  */
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readSync, writeFileSync } from "node:fs";

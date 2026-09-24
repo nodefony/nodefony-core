@@ -35,6 +35,8 @@ import {
   MAX_BUFFER_GIT,
   analyserCommits,
   auditerMetadonnees,
+  ciblesDeTypes,
+  couvertParFiles,
   LONGUEUR_MIN_DESCRIPTION,
   FICHIERS_LICENCE,
   comparerVersions,
@@ -263,6 +265,66 @@ describe("auditerMetadonnees — ce qui fait refuser la publication le jour J", 
 
   it("laisse passer un paquet conforme", () => {
     expect(audit([ok]).bloquants).toEqual([]);
+  });
+
+  // ── Les types publiés doivent VOYAGER dans le tarball ───────────────────
+  it("REFUSE des types qui pointent la SOURCE, absente d'un tarball `files: [dist]`", () => {
+    const { bloquants } = audit([
+      {
+        ...ok,
+        pkg: {
+          ...ok.pkg,
+          exports: {
+            ".": { types: "./index.ts", import: "./dist/index.js" },
+          },
+        },
+      },
+    ]);
+    expect(bloquants).toHaveLength(1);
+    expect(bloquants[0]).toContain("./index.ts");
+    expect(bloquants[0]).toContain("TS7016");
+  });
+
+  it("laisse la condition `nodefony-source` pointer la source : seul `types` est lu", () => {
+    const pkg = {
+      ...ok.pkg,
+      types: "./dist/types/index.d.ts",
+      exports: {
+        ".": {
+          "nodefony-source": "./index.ts",
+          types: "./dist/types/index.d.ts",
+          import: "./dist/index.js",
+        },
+      },
+    };
+    expect(audit([{ ...ok, pkg }]).bloquants).toEqual([]);
+  });
+
+  it("lit `types` à la racine ET dans les conditions imbriquées", () => {
+    expect(
+      ciblesDeTypes({
+        types: "./a.d.ts",
+        exports: {
+          ".": { import: { types: "./b.d.ts", default: "./b.js" } },
+          "./c": { types: "./a.d.ts" },
+        },
+      }).sort(),
+    ).toEqual(["./a.d.ts", "./b.d.ts"]);
+  });
+
+  it("`files` couvre un dossier, un fichier et un motif — pas un préfixe de nom", () => {
+    expect(couvertParFiles("./dist/types/index.d.ts", ["dist"])).toBe(true);
+    expect(couvertParFiles("./dist/types/index.d.ts", ["./dist/"])).toBe(true);
+    expect(couvertParFiles("./index.d.ts", ["index.d.ts"])).toBe(true);
+    // `dist` ne couvre pas `dist-old/…` : un préfixe de NOM n'est pas un dossier.
+    expect(couvertParFiles("./dist-old/index.d.ts", ["dist"])).toBe(false);
+    expect(couvertParFiles("./index.ts", ["dist", "docs"])).toBe(false);
+    expect(couvertParFiles("migrations/a/x.sql", ["migrations/*/*.sql"])).toBe(
+      true,
+    );
+    expect(
+      couvertParFiles("migrations/a/b/x.sql", ["migrations/*/*.sql"]),
+    ).toBe(false);
   });
 
   // ── La licence doit VOYAGER : le champ ET le texte ──────────────────────

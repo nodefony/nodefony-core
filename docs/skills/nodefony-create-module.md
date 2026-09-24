@@ -69,7 +69,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/templates.md` | Templates — nodefony-create-module | 947 |
+| `references/templates.md` | Templates — nodefony-create-module | 948 |
 
 
 ## Conformité au standard Agent Skills

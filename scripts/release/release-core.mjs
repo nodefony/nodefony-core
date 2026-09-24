@@ -170,6 +170,57 @@ export const FICHIERS_LICENCE = [
  */
 export const LONGUEUR_MIN_DESCRIPTION = 40;
 
+/**
+ * Chemins de types qu'un installeur résout : le champ racine `types` et toute
+ * clé `types` d'`exports`, conditions imbriquées comprises.
+ *
+ * Les autres conditions (`nodefony-source`, `import`…) ne sont pas lues ici :
+ * seule `types` est ce que le TypeScript de l'installeur retient.
+ *
+ * @param pkg - le manifeste du paquet.
+ * @returns les chemins déclarés, sans doublon.
+ */
+export function ciblesDeTypes(pkg) {
+  const cibles = new Set();
+  if (typeof pkg.types === "string") cibles.add(pkg.types);
+  const parcourir = (noeud) => {
+    if (noeud === null || typeof noeud !== "object") return;
+    for (const [cle, valeur] of Object.entries(noeud)) {
+      if (cle === "types" && typeof valeur === "string") cibles.add(valeur);
+      else parcourir(valeur);
+    }
+  };
+  parcourir(pkg.exports);
+  return [...cibles];
+}
+
+/**
+ * Dit si un chemin du paquet est emporté par la liste `files` de npm.
+ *
+ * Une entrée couvre le fichier qu'elle nomme et tout ce qui est sous le
+ * dossier qu'elle nomme ; `*` ne traverse pas un `/`, `**` si.
+ *
+ * @param cible - chemin relatif au paquet (`./dist/types/index.d.ts`).
+ * @param files - la liste `files` du manifeste.
+ * @returns vrai si le fichier voyage dans le tarball.
+ */
+export function couvertParFiles(cible, files) {
+  const net = (c) => c.replace(/^\.\//u, "").replace(/\/+$/u, "");
+  const chemin = net(cible);
+  return files.some((entree) => {
+    const e = net(entree);
+    if (e.includes("*")) {
+      const motif = e
+        .replace(/[.+?^${}()|[\]\\]/gu, "\\$&")
+        .replace(/\*\*/gu, "\u0000")
+        .replace(/\*/gu, "[^/]*")
+        .replace(/\u0000/gu, ".*");
+      return new RegExp(`^${motif}(/.*)?$`, "u").test(chemin);
+    }
+    return chemin === e || chemin.startsWith(`${e}/`);
+  });
+}
+
 export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
   const bloquants = [];
   const avertissements = [];
@@ -253,6 +304,25 @@ export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
           ` (attendu ${FICHIERS_LICENCE.join(" ou ")} dans ${p.location})` +
           ` — le tarball déclarerait « ${p.pkg.license ?? "?"} » sans en fournir les termes`,
       );
+    }
+
+    // ── Les TYPES publiés doivent VOYAGER dans le tarball ─────────────────
+    //
+    // Le dépôt lit ses paquets du cœur en SOURCE par la condition d'export
+    // `nodefony-source` (déclarée dans ses tsconfigs) ; l'installeur, qui ne la
+    // déclare pas, retombe sur `types`. Si `types` désigne un fichier que
+    // `files` n'emporte pas, le dépôt n'en souffre jamais et l'installeur n'a
+    // aucun type (`TS7016`). La chaîne a longtemps RÉÉCRIT ce champ au pack —
+    // invisible du dépôt, donc incontrôlé : c'est maintenant un refus.
+    if (Array.isArray(p.pkg.files)) {
+      for (const cible of ciblesDeTypes(p.pkg)) {
+        if (!couvertParFiles(cible, p.pkg.files)) {
+          bloquants.push(
+            `${p.nom} : types → ${cible} hors de \`files\` (${p.pkg.files.join(", ")})` +
+              ` — absent du tarball, l'installeur n'aurait aucun type (TS7016)`,
+          );
+        }
+      }
     }
 
     // ── Ce que npm et les moteurs INDEXENT ────────────────────────────────

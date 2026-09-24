@@ -11,6 +11,7 @@
     "experimentalDecorators": true,
     "target": "ES2024",
     "module": "ESNext",
+    "customConditions": ["nodefony-source"],
     "moduleResolution": "Bundler",
     "strict": true,
     "noImplicitOverride": true,

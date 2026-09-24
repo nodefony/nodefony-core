@@ -11,6 +11,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
+    "customConditions": ["nodefony-source"],
     "moduleResolution": "Bundler",
     "resolveJsonModule": true,
     "stripInternal": true,

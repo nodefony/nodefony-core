@@ -9,8 +9,8 @@
 //   `.ts`) → aucune option compilateur ne peut le faire ;
 // - le style interne du repo est `moduleResolution: Bundler` (imports nus,
 //   décision figée) → pas de codemod des centaines de sources ;
-// - même philosophie que la bascule `exports.types` : on corrige à la
-//   FRONTIÈRE de publication (pack), sources et DX internes intactes.
+// - on corrige donc à la FRONTIÈRE de publication (pack), sources et DX
+//   internes intactes.
 //
 // Méthode : AST TypeScript (jamais de regex — zéro faux positif dans les
 // strings), remplacement par positions (diff minimal). Pour chaque specifier

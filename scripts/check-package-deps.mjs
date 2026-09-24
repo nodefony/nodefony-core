@@ -26,15 +26,14 @@
  *
  * `typesUnreachable` — paquets dont `exports["."].types` pointe `./index.ts`,
  * que `files` n'embarque pas : après `npm i`, le consommateur n'a aucun type.
- * Ce n'est pas un oubli mais le cycle ci-dessus — pointer la source le résout
- * sans exiger que l'autre soit déjà construit, et la contrainte se propage à
- * qui est lu en source (`security → user → orm-core`).
+ * La liste est VIDE : le cycle ci-dessus se lit en source par la condition
+ * d'export `nodefony-source` (déclarée dans les tsconfigs du dépôt), et
+ * `types` pointe le `.d.ts` publié. Une entrée qui y reviendrait est une
+ * régression, pas une dette.
  *
- * ⚠️ Ces deux listes ne doivent que RÉTRÉCIR — `frontend` en est sorti le jour
- * où il s'est avéré hors du cycle, et la garde REFUSE une entrée devenue
- * inutile. Les vider demande de casser le cycle (remonter les contrats
- * partagés dans le cœur), pas de bricoler les manifestes :
- * `publishConfig.exports` ne fonctionne PAS avec npm (vérifié sur un tarball).
+ * ⚠️ Ces deux listes ne doivent que RÉTRÉCIR — la garde REFUSE une entrée
+ * devenue inutile. `publishConfig.exports` ne fonctionne PAS avec npm (vérifié
+ * sur un tarball) : ne pas y chercher un remède.
  *
  * Usage : `node scripts/check-package-deps.mjs` (sort en erreur si manquement).
  */

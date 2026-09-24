@@ -1,13 +1,12 @@
 // Pack release des workspaces publiables (modèle B — N-packages lockstep).
 //
 // Pour chaque workspace non-private :
-//   1. si `exports["."].types` pointe le SOURCE (`./index.ts`, pattern anti-race
-//      des 7 packages cœur consommés en source dans le repo) → BASCULE au pack
-//      vers `./dist/types/index.d.ts` (contrainte release §6bis, cf
-//      docs/release/nodefony-10.md) — le tarball est dist-only, le source n'y
-//      est pas : sans bascule, tsc des consommateurs = TS2307 ;
+//   1. vérifie que les types déclarés existent (les paquets du cœur lus en
+//      source par le dépôt le font par la condition `nodefony-source`, jamais
+//      par `types` : aucune réécriture) ;
 //   2. `npm pack` → `release/tarballs/*.tgz` ;
-//   3. RESTAURE le package.json à l'octet près (backup mémoire, try/finally).
+//   3. RESTAURE le package.json à l'octet près quand des peers optionnels y
+//      ont été injectés (backup mémoire, try/finally).
 //
 // Sorties : release/tarballs/*.tgz + release/tarballs/manifest.json
 // (map nom → fichier tgz, consommée par le smoke test / l'app témoin).
@@ -24,7 +23,7 @@ import {
 } from "node:fs";
 import path from "node:path";
 import { fixDtsExtensions } from "./fix-dts-extensions.mjs";
-import { auditerMetadonnees } from "./release-core.mjs";
+import { auditerMetadonnees, ciblesDeTypes } from "./release-core.mjs";
 
 // `release/` → `scripts/` → racine du dépôt. Ce script fait partie du PRODUIT :
 // la chaîne de publication ne peut pas dépendre de l'outillage d'agent, qui se
@@ -125,35 +124,23 @@ for (const w of workspaces) {
     }
   }
 
-  // Bascule des types SOURCE → .d.ts généré (détection auto, 0 liste en dur).
+  // Les types déclarés doivent EXISTER au pack. Qu'ils soient couverts par
+  // `files` est une règle du manifeste, tranchée par `auditerMetadonnees`
+  // avant la boucle ; ici on constate le disque : un `.d.ts` déclaré mais pas
+  // encore bâti partirait absent sans que `npm pack` ne dise rien.
   //
-  // DEUX champs, pas un. `exports["."].types` sert la résolution moderne
-  // (`Bundler`, `node16`) ; le champ RACINE `types` reste le fallback des
-  // résolutions classiques et de nombreux outils/IDE. Un paquet `files: ["dist"]`
-  // qui publie `types: "./index.ts"` désigne un fichier ABSENT du tarball : le
-  // dépôt self-hosted n'en souffre jamais, l'installeur n'a pas de types. C'est
-  // le même piège que la bascule d'`exports`, une porte plus loin — d'où la
-  // garde générique plutôt qu'une correction paquet par paquet.
-  const rootExport = pkg.exports?.["."];
-  const switched = [];
-  const dts = path.join(dir, "dist", "types", "index.d.ts");
-  const needsDts =
-    rootExport?.types === "./index.ts" || pkg.types === "./index.ts";
-  if (needsDts && !existsSync(dts)) {
+  // Rien n'est RÉÉCRIT : le dépôt lit la source par la condition d'export
+  // `nodefony-source` (ses tsconfigs la déclarent), l'installeur lit `types`.
+  // Le tarball est donc le `package.json` du dépôt, tel quel.
+  const missingDts = ciblesDeTypes(pkg).filter(
+    (t) => !existsSync(path.join(dir, t)),
+  );
+  if (missingDts.length > 0) {
     failures.push(
-      `${pkg.name}: types pointent la source (./index.ts) mais dist/types/index.d.ts absent — build types requis`,
+      `${pkg.name}: types déclarés absents du disque (${missingDts.join(", ")}) — build types requis`,
     );
     continue;
   }
-  if (rootExport?.types === "./index.ts") {
-    rootExport.types = "./dist/types/index.d.ts";
-    switched.push("exports.types");
-  }
-  if (pkg.types === "./index.ts") {
-    pkg.types = "./dist/types/index.d.ts";
-    switched.push("types");
-  }
-  const needsSwitch = switched.length > 0;
 
   // Peers optionnels au pack (§6bis) — merge sans écraser un meta existant.
   const optionalPeers = PACK_PEER_OPTIONAL[pkg.name];
@@ -186,13 +173,13 @@ for (const w of workspaces) {
     }
   }
 
-  const mutated = needsSwitch || needsPeerMeta;
+  const mutated = needsPeerMeta;
   try {
     if (mutated) {
       writeFileSync(pkgPath, JSON.stringify(pkg, null, 2) + "\n");
     }
-    // `--ignore-scripts` : le tarball se prépare ICI — bascule des `exports.types`
-    // et extension des specifiers `.d.ts` juste au-dessus. Un `prepack` qui
+    // `--ignore-scripts` : le tarball se prépare ICI — peers optionnels et
+    // extension des specifiers `.d.ts` juste au-dessus. Un `prepack` qui
     // reconstruit (rolldown vide `dist`, puis `tsgo`) EFFACE cette préparation, et le
     // paquet part avec des specifiers relatifs nus, illégaux en node16/ESM. Le
     // défaut est resté invisible tant que le paquet concerné ne publiait aucun
@@ -224,10 +211,9 @@ for (const w of workspaces) {
       continue;
     }
     manifest[pkg.name] = tgz;
-    const notes = [
-      needsSwitch ? `${switched.join(" + ")} basculé(s)` : null,
-      needsPeerMeta ? "peers optional injectés" : null,
-    ].filter(Boolean);
+    const notes = [needsPeerMeta ? "peers optional injectés" : null].filter(
+      Boolean,
+    );
     console.log(
       `✓ ${pkg.name} → ${tgz}${notes.length ? `  (${notes.join(" + ")})` : ""}`,
     );

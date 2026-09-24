@@ -100,10 +100,10 @@ export function newestPublishedMtime(repo) {
 /**
  * Tarballs des paquets publiables — l'outil de la RELEASE, pas un packer de plus.
  *
- * `pack-all.mjs` porte des subtilités qu'une copie perdrait sans le dire : la
- * bascule des `exports.types` du source vers les `.d.ts` générés au moment du
- * pack (sans elle, le typecheck du consommateur casse), les peers rendus
- * optionnels, la restauration des `package.json` à l'octet près.
+ * `pack-all.mjs` porte des subtilités qu'une copie perdrait sans le dire : le
+ * refus d'un type déclaré absent du disque, les peers rendus optionnels,
+ * l'extension des specifiers `.d.ts`, la restauration des `package.json` à
+ * l'octet près.
  *
  * Re-packer coûte une minute ; on ne le refait donc que si une source publiable
  * a bougé depuis le dernier pack — la fraîcheur se CONSTATE, elle ne se suppose

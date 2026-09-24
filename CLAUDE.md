@@ -469,9 +469,10 @@ Nodefony est une **plateforme générique** pour construire :
 Les **invariants** qui doivent rester présents en permanence :
 
 - **Types** : jamais de `.d.ts` écrit à la main. `types` ET `exports["."].types` pointent vers du
-  **généré** (`dist/types/`) — sauf les modules consommés EN SOURCE par un autre module
-  (`http`, `framework`, `security`, `frontend`, `orm-core`, `user`), qui pointent `./index.ts`
-  (anti-race de build ; casser un maillon = TS2307 chez les consommateurs).
+  **généré** (`dist/types/`), SANS exception — c'est ce que l'installeur lit. Les modules consommés
+  EN SOURCE par un autre (`http`, `framework`, `security`, `orm-core`, `user`) ajoutent la condition
+  `"nodefony-source": "./index.ts"`, lue par les seuls tsconfigs du dépôt (`customConditions`) —
+  anti-race de build ; retirer un des deux côtés = TS2307 chez les consommateurs sans `dist`.
 - **Interfaces** : `nodefony/interfaces/I*.ts` + barrel, re-exportées en `export type` dans `index.ts`.
 - **Config d'app** : `nodefony.config.ts` + `env.ts` à la racine (`env.ts` = SEUL lecteur de
   `process.env`). Par-environnement = **fonction `(ctx) => …`**, jamais un fichier parallèle.

@@ -191,9 +191,9 @@ publiés**, ce qu'aucun test du dépôt ne peut voir. Reste : le câbler en CI (
 > tarball ou config dist non rebuildée).
 
 > ✅ **Mutations AU PACK câblées dans `pack-all.mjs`** (mutation temporaire du package.json,
-> restauration à l'octet près en try/finally) : (1) **bascule `exports.types`** `./index.ts` →
-> `./dist/types/index.d.ts` — détection AUTO des packages concernés (les 7 du cœur), garde-fou
-> `dist/types/index.d.ts` présent ; (2) **`peerDependenciesMeta.optional`** injecté (table
+> restauration à l'octet près en try/finally) : (1) **plus aucune bascule des types** — le dépôt lit
+> la source par la condition `nodefony-source`, `types` pointe `./dist/types/index.d.ts` dans le
+> manifeste lui-même ; garde-fou : tout type déclaré doit exister sur le disque ; (2) **`peerDependenciesMeta.optional`** injecté (table
 > `PACK_PEER_OPTIONAL` : react/react-dom du core — npm ≥7 auto-installe les peers, toute app backend
 > pure les tirait). À étendre aux adapters lourds (pg/mysql2/mongoose/redis) quand leurs peers seront
 > câblés. `attw` reste à ajouter en complément du `tsc` témoin.
@@ -287,7 +287,7 @@ laquelle a lâché :
    `BREAKING CHANGE:`), rendu d'un **brouillon** à relire.
 7. `--write` : **estampillage** de la version dans les `package.json` (réécriture du seul champ,
    sans reformater) + fusion du changelog.
-8. `--pack` : délégation à `pack-all.mjs` (bascule des `exports.types`, extensions des `.d.ts`),
+8. `--pack` : délégation à `pack-all.mjs` (types déclarés présents, extensions des `.d.ts`),
    puis **inspection du contenu** de chaque tarball.
 9. `--publish` : **répétition `--dry-run` sur le lot ENTIER**, puis publication séquentielle qui
    s'arrête net au premier refus en DISANT l'état exact (publiés / restants).

@@ -80,7 +80,7 @@ describe("checkPackageDeps — un frère du dépôt doit être ORDONNÉ", () => 
 
   /**
    * Un type est effacé à la compilation : il n'impose aucun ordre. Les paquets
-   * lus en source pointent d'ailleurs leurs `types` vers `./index.ts`
+   * lus en source le sont d'ailleurs par la condition d'export `nodefony-source`
    * précisément pour ne pas exiger d'être construits — exiger une arête ici
    * ferait crier la garde sur un dépôt sain, donc lui apprendrait à être ignorée.
    */

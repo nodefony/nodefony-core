@@ -28,10 +28,10 @@ description: >
 > **qu'ai-je cherché qui n'était pas écrit ?** — la réponse s'ajoute à la section concernée, en une
 > ou deux lignes, jamais en journal daté. Le skill doit converger vers « on l'ouvre, on exécute ».
 
-Le dépôt ne voit pas sa propre surface publiée. Les paquets du cœur pointent leurs types vers la
-**source** (`exports["."].types → ./index.ts`) pour éviter une course au build ; cette source est
-absente du tarball. Tant qu'on ne dépaquette pas, tout va bien — et rien ne marche chez celui qui
-installe. C'est pourquoi la chaîne existe : elle fabrique le tarball, l'installe **à neuf**, et
+Le dépôt ne voit pas sa propre surface publiée. Les paquets du cœur se lisent en **source** par la
+condition d'export `"nodefony-source"` (déclarée dans les seuls tsconfigs du dépôt) pour éviter une
+course au build ; l'installeur, lui, retient `types` → `.d.ts`. Le dépôt ne passe donc JAMAIS par
+le chemin de l'installeur : tant qu'on ne dépaquette pas, rien ne dit que ce chemin tient. C'est pourquoi la chaîne existe : elle fabrique le tarball, l'installe **à neuf**, et
 compile une application témoin contre lui.
 
 ## 1. La chaîne appartient au PRODUIT — ce skill n'exécute rien
@@ -44,7 +44,7 @@ derrière les commandes npm qui font autorité :
 | --- | --- | --- |
 | `npm run release -- --version <v> --npm-tag <tag>` | `scripts/release/release.mjs` | PRÉPARE et REFUSE. Sans drapeau, ne touche aucun fichier |
 | `npm run test:release` | `vitest run scripts/release/` | Le raisonnement pur, éprouvé sans publier |
-| `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, `exports.types` basculés |
+| `npm run release:pack` | `scripts/release/pack-all.mjs` | Un tarball par publiable, manifeste tel quel |
 | `npm run release:smoke [-- --scenario X]` | `scripts/release/smoke-docker.sh` | Installation VIERGE en conteneur |
 | `npm run release:image-gate -- <image>` | `scripts/release/image-gate.mjs` | REFUSE une image porteuse d'un secret, couche par couche |
 | `npm run release -- --version <v> --promouvoir` | `scripts/release/release.mjs` | Les QUATRE gestes mécaniques entre l'estampille et le tag. Ne tague jamais |
@@ -232,9 +232,9 @@ npm run release:pack                           # les tarballs seuls
 > taguer ne prouve donc rien de plus et coûte des minutes de `docker build` : le réserver au
 > DIAGNOSTIC, quand la forge a déjà rougi et qu'on veut le rejouer vite.
 
-`pack-all.mjs` empaquette chaque workspace non privé, **bascule temporairement** les
-`exports["."].types` qui pointent la source vers le `.d.ts` généré, puis restaure le
-`package.json`. `fix-dts-extensions.mjs` extensionne les specifiers relatifs des déclarations
+`pack-all.mjs` empaquette chaque workspace non privé **sans réécrire les types** : il refuse un
+`types` déclaré absent du disque, et `auditerMetadonnees` refuse en amont un `types` que `files`
+n'emporte pas. Ne JAMAIS réintroduire de bascule au pack : le dépôt ne verrait plus l'état publié. `fix-dts-extensions.mjs` extensionne les specifiers relatifs des déclarations
 (`node16`/`nodenext` l'exige) — appelé **depuis** le pack, pas à la main.
 
 **La PORTE D'ENTRÉE est éprouvée en premier.** `create-nodefony` est installé depuis SON tarball et
@@ -307,7 +307,9 @@ par un sous-shell.
   La vérification, c'est `npm pack` puis lire le manifeste **dépaqueté** — jamais le `package.json`
   du dépôt.
 - **`publishConfig.exports` n'est pas appliqué par npm** (c'est pnpm/yarn). Testé avant d'être
-  proposé : le manifeste dépaqueté gardait le chemin source.
+  proposé : le manifeste dépaqueté gardait le chemin source. Le remède est la condition
+  `"nodefony-source"` + `customConditions` dans les tsconfigs du dépôt — un paquet neuf lu en source
+  par un autre en a besoin des DEUX côtés.
 - **Un import non déclaré ne casse rien ici et deux choses ailleurs** : le graphe de build perd son
   ordre, et l'installeur n'a pas la dépendance. Auditer les imports de **valeur**, pas seulement de
   types.
