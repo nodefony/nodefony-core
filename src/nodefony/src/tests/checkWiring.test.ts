@@ -971,3 +971,75 @@ describe("check — l'ORDRE des magasins, jugé À FROID", () => {
     }
   });
 });
+
+describe("check — connecteurs ORM que personne n'a déclarés (information)", () => {
+  const kinds = (dir: string): string[] =>
+    checkWiring({ roots: [dir], cwd: dir, projectRoot: dir }).notices.map(
+      (n) => n.kind,
+    );
+
+  it("module ORM chargé SANS bloc `connectors` → le repli `default` est signalé", () => {
+    const dir = target({
+      "nodefony.config.ts": `export default defineConfig(() => ({ modules: ["@nodefony/drizzle"] }));`,
+    });
+    try {
+      assert.deepStrictEqual(kinds(dir), ["orm-connector-fallback"]);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("connecteurs déclarés dans un fragment → silence ; sans module ORM → silence", () => {
+    const declared = target({
+      "nodefony.config.ts": `import { drizzleConfig } from "./nodefony/config/drizzle";
+export default defineConfig((ctx) => ({ modules: [use("@nodefony/drizzle", drizzleConfig(ctx))] }));`,
+      "nodefony/config/drizzle.ts": `export const drizzleConfig = () => ({ connectors: { default: {} } });`,
+    });
+    const noOrm = target({
+      "nodefony.config.ts": `export default defineConfig(() => ({ modules: ["@nodefony/http"] }));`,
+    });
+    try {
+      assert.deepStrictEqual(kinds(declared), []);
+      assert.deepStrictEqual(kinds(noOrm), []);
+    } finally {
+      rmSync(declared, { recursive: true, force: true });
+      rmSync(noOrm, { recursive: true, force: true });
+    }
+  });
+
+  it("`new DrizzleOrm(` dans le code d'un module → signalé, avec le fichier", () => {
+    const dir = target({
+      "nodefony/entity/schema.ts": `export const t = 1;`,
+      "index.ts": `const ORM = "banc";
+export class Banc extends Module {
+  async onKernelBoot() { await new DrizzleOrm(ORM, { filename: ":memory:" }).connect(); }
+}`,
+    });
+    try {
+      const r = checkWiring({ roots: [dir], cwd: dir });
+      assert.deepStrictEqual(
+        r.notices.map((n) => [n.kind, n.file]),
+        [["orm-connector-in-code", "index.ts"]],
+      );
+      // Une information ne se compte JAMAIS dans le verdict.
+      assert.deepStrictEqual(r.findings, []);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it("l'adapter qui DÉFINIT la classe l'instancie sans être accusé", () => {
+    const dir = target({
+      "nodefony/service/DrizzleOrm.ts": `export class DrizzleOrm extends Orm {}`,
+      "nodefony/service/DrizzleService.ts": `const orm = new DrizzleOrm(name, cfg);`,
+    });
+    try {
+      assert.deepStrictEqual(
+        checkWiring({ roots: [dir], cwd: dir }).notices,
+        [],
+      );
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

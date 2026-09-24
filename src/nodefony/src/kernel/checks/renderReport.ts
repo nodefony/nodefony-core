@@ -297,6 +297,20 @@ export function renderReport(
     }
   }
 
+  const notices = report.wiring.notices ?? [];
+  if (notices.length > 0) {
+    // Une INFORMATION, comme la surface ouverte : l'application démarre. Ce
+    // qu'elle dit, c'est ce qu'un lecteur de la configuration — le générateur,
+    // un agent — ne voit pas.
+    section("CONNECTEURS ORM", p.warning);
+    for (const n of notices) {
+      for (const [i, l] of wrap(n.message, width, BODY).entries()) {
+        lines.push(i === 0 ? `${ITEM}${p.warning("—")}  ${l.trim()}` : l);
+      }
+      lines.push(p.dim(`${BODY}${n.file}`));
+    }
+  }
+
   const openings = openSurface(report, width, p);
   if (openings.length > 0) {
     // Une INFORMATION, en teinte neutre : chacune de ces ouvertures est un

@@ -393,6 +393,12 @@ ce que le raccourci évite.
 - **Dépendances** (`kernel/checks/packageDeps.ts`, 3) — `undeclared-import` (paquet importé sans
   être déclaré) · `unreachable-types` · `stale-exception` (une exception de la liste qui ne
   correspond plus à rien — la liste se périme, donc elle se contrôle).
+- **Informations, HORS verdict** (`wiring.ts` → `notices`, section « CONNECTEURS ORM ») —
+  `orm-connector-fallback` (un module ORM chargé sans bloc `connectors` : le générateur écrira
+  sur le `default` de repli) · `orm-connector-in-code` (`new DrizzleOrm(`/`new MongooseOrm(` hors
+  de l'adapter qui définit la classe : connecteur invisible à toute lecture de la configuration).
+  Jamais comptées dans `countFindings` — l'application démarre ; elles disent ce qu'un lecteur
+  STATIQUE ne verra pas.
 
 > **Le contre-exemple à garder** : la règle `route-colon-param` a d'abord lu `path:` PARTOUT et
 > accusé les cinq routes react-router du frontend Studio, où `:id` est la syntaxe JUSTE. Un contrôle

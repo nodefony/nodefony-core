@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 856,
-    "symbols": 4245,
+    "symbols": 4249,
     "classes": 398,
-    "interfaces": 1125,
+    "interfaces": 1126,
     "types": 458,
     "enums": 4,
-    "functions": 1837,
-    "constants": 423
+    "functions": 1838,
+    "constants": 425
   },
   "symbols": {
     "Cli": {
@@ -368,6 +368,7 @@
       "extends": "Module",
       "implements": [],
       "decorators": [
+        "entities",
         "controllers"
       ]
     },
@@ -10758,6 +10759,15 @@
       "extends": null,
       "description": "Un câblage manquant, ou un nom qui dépossède un module du framework."
     },
+    "IWiringNotice": {
+      "name": "IWiringNotice",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/checks/wiring.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Une INFORMATION de câblage — ni erreur ni avertissement : l'application démarre, mais un lecteur statique (le générateur, un agent) y lit autre chose que ce qui tournera. Jamais comptée dans le ver…"
+    },
     "IWiringCheckOptions": {
       "name": "IWiringCheckOptions",
       "kind": "interface",
@@ -13230,7 +13240,7 @@
       "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
       "exported": true,
       "module": "modules/mediasoup",
-      "description": "Enregistre les entités `mediasoup` dans le `entityRegistry` pour un ORM donné. À appeler **avant** `orm.connect()` (l'adapter résout les relations au connect et exige que toutes les cibles soient d…"
+      "description": "Enregistre les entités `mediasoup` pour un connecteur donné — pour un banc qui ouvre son propre ORM (les tests). À appeler **avant** `orm.connect()`. L'application, elle, passe par `@entities` sur …"
     },
     "roomTable": {
       "name": "roomTable",
@@ -13287,6 +13297,22 @@
       "exported": true,
       "module": "modules/mediasoup",
       "description": "Jonction `Event`↔`Tag` (2ᵉ relation N-N explicite du modèle)."
+    },
+    "MEDIASOUP_CONNECTOR": {
+      "name": "MEDIASOUP_CONNECTOR",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Nom du connecteur Drizzle du banc — déclaré dans `nodefony/config/drizzle.ts`."
+    },
+    "mediasoupEntities": {
+      "name": "mediasoupEntities",
+      "kind": "const",
+      "file": "src/modules/mediasoup/nodefony/entity/schema.ts",
+      "exported": true,
+      "module": "modules/mediasoup",
+      "description": "Les entités du banc `mediasoup`, SANS connecteur : c'est `@entities(mediasoupEntities, { connector })` qui le pose, en `onRegister` — donc avant toute connexion, ce qu'exige la résolution des relat…"
     },
     "createTestAdminApi": {
       "name": "createTestAdminApi",
@@ -23972,6 +23998,14 @@
       "module": "@nodefony/drizzle",
       "description": "La conduite de la sonde de disponibilité face à un schéma en retard. En production, un exemplaire dont le schéma est en retard ne doit pas recevoir de trafic : il répondrait des erreurs de colonne …"
     },
+    "adviseMigrations": {
+      "name": "adviseMigrations",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "En schéma `auto`, faut-il ÉNONCER au démarrage les migrations enregistrées que personne n'a appliquées ? Oui en développement, sauf conduite `off` — c'est ce conseil qui évite de conclure à une bas…"
+    },
     "knownConnectors": {
       "name": "knownConnectors",
       "kind": "function",
@@ -29546,6 +29580,9 @@
       ]
     },
     "decoratedBy": {
+      "entities": [
+        "Mediasoup"
+      ],
       "controllers": [
         "Mediasoup",
         "Test",
@@ -30335,23 +30372,16 @@
         "src/packages/@nodefony/frontend/nodefony/src/FrontendAdminApi.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts"
       ],
-      "DrizzleOrm": [
-        "src/modules/mediasoup/index.ts",
-        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts"
+      "entities": [
+        "src/modules/mediasoup/index.ts"
       ],
       "MediasoupController": [
         "src/modules/mediasoup/index.ts"
       ],
-      "registerMediasoupEntities": [
+      "MEDIASOUP_CONNECTOR": [
+        "src/modules/mediasoup/index.ts"
+      ],
+      "mediasoupEntities": [
         "src/modules/mediasoup/index.ts"
       ],
       "services": [
@@ -33403,6 +33433,18 @@
         "src/packages/@nodefony/mongoose/nodefony/registerStores.ts",
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
+      "DrizzleOrm": [
+        "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleIdempotencyStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTokenStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts"
+      ],
       "DrizzleDb": [
         "src/packages/@nodefony/drizzle/nodefony/registerStores.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleAuditStore.ts",
@@ -34942,6 +34984,10 @@
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
+      "IEntityDefinition": [
+        "src/modules/mediasoup/nodefony/entity/schema.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts"
+      ],
       "userTable": [
         "src/modules/mediasoup/nodefony/entity/schema.ts"
       ],
@@ -35863,6 +35909,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
       "appVersionsMigrations": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
+      ],
+      "adviseMigrations": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "resolveCheckMode": [
@@ -38480,9 +38529,6 @@
       ],
       "likePatternToRegExp": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
-      "IEntityDefinition": [
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts"
       ],
       "DecoratedClass": [
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts",

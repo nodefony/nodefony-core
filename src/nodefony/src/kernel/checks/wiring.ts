@@ -59,6 +59,19 @@ export interface IWiringFinding {
   file: string;
 }
 
+/**
+ * Une INFORMATION de câblage — ni erreur ni avertissement : l'application
+ * démarre, mais un lecteur statique (le générateur, un agent) y lit autre chose
+ * que ce qui tournera. Jamais comptée dans le verdict de `doctor`.
+ */
+export interface IWiringNotice {
+  kind: "orm-connector-fallback" | "orm-connector-in-code";
+  /** Phrase lisible, avec le geste qui la fait taire. */
+  message: string;
+  /** Fichier concerné, relatif à la racine analysée. */
+  file: string;
+}
+
 export interface IWiringCheckOptions {
   /** Cibles à explorer : une application, et ses `modules/*`. */
   roots: string[];
@@ -111,6 +124,8 @@ const BRICKS: ReadonlyArray<{
 
 export interface IWiringCheckResult {
   findings: IWiringFinding[];
+  /** Informations — hors verdict (cf {@link IWiringNotice}). */
+  notices: IWiringNotice[];
   /** Nombre de fichiers d'entité et de controller réellement analysés. */
   scanned: number;
 }
@@ -123,6 +138,16 @@ export interface IWiringCheckResult {
  * sans sa propre entité.
  */
 const ENTITY_RE = /export\s+const\s+(\w+)\s*=\s*defineEntity\s*\(/gu;
+
+/** Les modules ORM dont un connecteur peut se déclarer dans le manifeste. */
+const ORM_PACKAGES = ["@nodefony/drizzle", "@nodefony/mongoose"] as const;
+/** Un bloc `connectors: {` — la déclaration, là où le générateur la lit. */
+const CONNECTORS_BLOCK_RE = /\bconnectors\s*:\s*\{/u;
+/** `new DrizzleOrm("nom"` — un connecteur ouvert dans le code. */
+const ORM_IN_CODE_RE =
+  /\bnew\s+(DrizzleOrm|MongooseOrm)\s*\(\s*(?:["'`]([\w-]+)["'`])?/gu;
+/** La définition d'un adapter — sa cible est épargnée. */
+const ORM_CLASS_DEFINITION_RE = /\bclass\s+(?:DrizzleOrm|MongooseOrm)\b/u;
 
 /**
  * Les colonnes qu'une entité rend OBLIGATOIRES sans leur donner de défaut.
@@ -548,6 +573,7 @@ function isTarget(dir: string): boolean {
 export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   const { roots, cwd = process.cwd(), projectRoot } = options;
   const findings: IWiringFinding[] = [];
+  const notices: IWiringNotice[] = [];
   let scanned = 0;
 
   // Le manifeste et le manifeste npm de l'application, lus UNE fois. Les deux
@@ -583,6 +609,28 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
   // Un fichier au nom RÉSERVÉ dans le dossier des fragments n'est lu par
   // aucun contrôle ET chargé par personne : le taire serait la pire réponse.
   if (projectRoot) {
+    // Un module ORM chargé SANS connecteur déclaré : l'application démarre sur
+    // le `default` que le module se fournit, mais tout ce qui lit la
+    // configuration sans démarrer — `create entity`, la page « Créer » de la
+    // console — écrit alors sur un connecteur DEVINÉ. Une information, pas un
+    // défaut : c'est le cas de toute application qui n'a qu'une base.
+    const code = withoutComments(manifeste);
+    const orm = ORM_PACKAGES.find((p) =>
+      new RegExp(`["'\`]${p}["'\`]`, "u").test(code),
+    );
+    if (orm && !CONNECTORS_BLOCK_RE.test(code)) {
+      notices.push({
+        kind: "orm-connector-fallback",
+        file: path.relative(cwd, path.join(projectRoot, "nodefony.config.ts")),
+        message:
+          `${orm} est chargé mais aucun connecteur n'est déclaré : l'application ` +
+          `tourne sur le connecteur \`default\` que le module se fournit, moteur ` +
+          `déduit de NF_DATABASE_URL (sqlite sans elle). C'est aussi sur lui que ` +
+          `\`create entity\` écrira. Pour le nommer, ou en déclarer d'autres : ` +
+          `\`connectors: { … }\` dans nodefony/config/${orm.split("/")[1]}.ts`,
+      });
+    }
+
     // L'ORDRE des modules décide de ce que l'application POSSÈDE au démarrage.
     // Un fournisseur de magasins durables déclaré après son consommateur laisse
     // sessions, jetons, passkeys, audit et second facteur retomber en mémoire —
@@ -693,6 +741,32 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       sources.set(file, withoutComments(read(file)));
     }
     const rel = (f: string): string => path.relative(cwd, f);
+
+    // Un connecteur OUVERT dans le code, hors de l'adapter qui définit la
+    // classe : invisible à toute lecture de la configuration. Le marqueur vise
+    // l'USAGE (`new DrizzleOrm(`), et une cible qui DÉFINIT la classe est
+    // épargnée — l'adapter a le droit d'instancier ce qu'il déclare.
+    const definesOrm = [...sources.values()].some((c) =>
+      ORM_CLASS_DEFINITION_RE.test(c),
+    );
+    if (!definesOrm) {
+      for (const [file, content] of sources) {
+        for (const m of content.matchAll(ORM_IN_CODE_RE)) {
+          const name = m[2] ? `« ${m[2]} » ` : "";
+          notices.push({
+            kind: "orm-connector-in-code",
+            file: rel(file),
+            message:
+              `connecteur ${name}ouvert dans le code (\`new ${m[1]}(\`) : ` +
+              `aucune lecture de la configuration ne le voit — \`create entity\` ` +
+              `et la page « Créer » ne le proposent pas, \`orm:migrate\` ne ` +
+              `sait pas le suivre. Le déclarer dans \`connectors\` ` +
+              `(nodefony/config/<orm>.ts) et enregistrer ses entités par ` +
+              `\`@entities([…], { connector })\``,
+          });
+        }
+      }
+    }
 
     // Ce que la cible DÉCLARE, relevé une fois — deux voies, une seule réponse
     // à la question « ce service existera-t-il au démarrage ? ».
@@ -893,5 +967,5 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
     }
   }
 
-  return { findings, scanned };
+  return { findings, notices, scanned };
 }

@@ -755,6 +755,11 @@ export interface IDoctorReport {
   wiring: {
     scanned: number;
     findings: ReturnType<typeof checkWiring>["findings"];
+    /**
+     * Informations hors verdict (connecteurs ORM non déclarés). Facultatif :
+     * un rapport produit avant ce champ reste lisible.
+     */
+    notices?: ReturnType<typeof checkWiring>["notices"];
   };
   /** Ce qui manque ICI et maintenant (env, modules, deps, ports). */
   readiness: IReadinessResult;
@@ -999,7 +1004,11 @@ export async function collectDoctorReport(
     freshness,
     surface,
     guards,
-    wiring: { scanned: wiring.scanned, findings: wiring.findings },
+    wiring: {
+      scanned: wiring.scanned,
+      findings: wiring.findings,
+      notices: wiring.notices,
+    },
     readiness,
     deep,
     lastBoots,
