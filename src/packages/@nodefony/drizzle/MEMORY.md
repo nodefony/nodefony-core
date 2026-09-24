@@ -174,17 +174,25 @@ développement, inchangé (`none`). Branché aux DEUX points, sinon boot et CLI 
 états : `DrizzleService.#connectOne` et `resolveConnector`. Lecture disque SYNCHRONE et bornée
 (1 `readdirSync` par connecteur au boot, `meta/` ignoré, sous-dossiers de dialecte comptés).
 
-## Propriétaire des migrations — le SEUL connecteur du framework
+## Propriétaire des migrations — un dossier PAR connecteur
 
-`ownsSharedMigrations(connector)` (`src/frameworkConnector.ts`, avec `FRAMEWORK_CONNECTOR` =
-`"default"` que `registerStores.ts` réexporte) = UNE règle. `migrations/<dialecte>` n'a aucune notion
-de connecteur : il décrit la base du framework. Secondaire ⇒ `defaultMigrationSources(…, {connector})`
-rend `[]` · `connectorVersionsMigrations` rend `false` (pas de bascule `migrate`, reste `auto` en
-dev) · `auto` : aucun conseil, aucune lecture d'historique · `ddl: "migrate"` écrit : avertissement
-au boot (« sans migration à appliquer ») · `orm:generate` et `orm:migrate:baseline --from-database`
-refusent `NF_MIGRATE_SECONDARY_CONNECTOR` (le fichier irait dans le dossier de `default`, qui
-l'appliquerait à SA base). Migrations PAR connecteur : non supportées. Banc :
-`tests/unit/secondaryConnectorMigrations.test.ts`.
+`ownsSharedMigrations(connector)` (`src/frameworkConnector.ts`, `FRAMEWORK_CONNECTOR` = `"default"`)
+dit qui reçoit les migrations du FRAMEWORK et de la racine `migrations/<dialecte>` : `default` seul.
+`connectorMigrationsDir(appDir, connector)` (`src/migrator/paths.ts`) = LA règle du dossier propre :
+`default` → racine · secondaire → `migrations/<connecteur>` · nom réservé
+(`RESERVED_MIGRATION_DIRS` : `sqlite`/`postgres`/`mysql`/`meta`) → `undefined`. Tous les lecteurs
+passent par elle : `defaultMigrationSources` (secondaire = source `app` sur son dossier, jamais
+`framework`) · `connectorVersionsMigrations` (bascule `auto`→`migrate` sur SON dossier ;
+`migrations/analytics/` ne fait pas versionner `default` : pas de `.sql` direct dedans) ·
+`orm:generate` et `orm:migrate:baseline --from-database` (`outDir`) · `DrizzleService`
+(`hasMigrations` : secondaire sans fichier en `migrate` → avertissement qui donne la commande).
+Nom réservé → `refuseReservedConnector` → `NF_MIGRATE_SECONDARY_CONNECTOR` (seul cas refusé).
+Partage des tables à la génération : `tablesOfConnector` (`appSchema.ts`) — table → connecteur de
+l'entité qui la déclare (registre) ; table sans entité → `default`. Tables du framework (usurpation,
+exclusion du diff, adoption) : `default` seul — une base secondaire peut réutiliser leurs noms.
+Bancs : `tests/unit/secondaryConnectorMigrations.test.ts`,
+`tests/integration/secondary-connector-migrations.test.ts` (deux bases réelles, sqlite + PG ; MySQL
+exclu : décor à base unique).
 
 ## Migrations — écrire celles de l'APPLICATION (`orm:generate`)
 

@@ -16,6 +16,7 @@ import {
   usurpedTables,
   writeSchemaModule,
   registeredTables,
+  tablesOfConnector,
   type IUnreadableEntityFile,
 } from "../src/migrator/appSchema";
 import {
@@ -35,7 +36,12 @@ import {
   generateApplyAllowed,
   readMigrationEnv,
 } from "../src/migrator/resolve";
-import { APP_SOURCE, frameworkMigrationsDir } from "../src/migrator/paths";
+import {
+  APP_SOURCE,
+  connectorMigrationsDir,
+  frameworkMigrationsDir,
+} from "../src/migrator/paths";
+import { ownsSharedMigrations } from "../src/frameworkConnector";
 import {
   createdTables,
   frameworkTables,
@@ -231,7 +237,7 @@ class OrmGenerate extends OrmMigrateCommand {
     }
     const { resolution, config } = resolved;
     const connector = resolution.connector;
-    if (this.refuseSecondaryWriter(connector, opts.json)) {
+    if (this.refuseReservedConnector(connector, opts.json)) {
       return this;
     }
     const name = this.#nameOrFail(opts, connector);
@@ -257,7 +263,11 @@ class OrmGenerate extends OrmMigrateCommand {
       );
       return this;
     }
-    const outDir = path.join(migrationsDir, resolution.dialect);
+    // Le dossier DU connecteur : la racine pour celui du framework, son
+    // sous-dossier pour un secondaire. Un nom réservé a déjà été refusé.
+    const connectorDir =
+      connectorMigrationsDir(migrationsDir, connector) ?? migrationsDir;
+    const outDir = path.join(connectorDir, resolution.dialect);
     const relative = (p: string): string =>
       path.relative(root, p).split(path.sep).join("/");
 
@@ -345,8 +355,11 @@ class OrmGenerate extends OrmMigrateCommand {
     // Une entité écrite pour un AUTRE moteur n'entre pas dans cette migration :
     // l'outil l'ignorerait de toute façon, et annoncer son nombre de tables
     // sans elle est la seule façon de ne pas mentir sur ce qui a été écrit.
-    const tables = mine.filter((t) => t.dialect === dialect);
-    const otherDialect = mine
+    // Et une table d'un AUTRE connecteur non plus : elle vit dans une autre
+    // base, dont les migrations sont écrites à part.
+    const ofConnector = tablesOfConnector(mine, connector);
+    const tables = ofConnector.filter((t) => t.dialect === dialect);
+    const otherDialect = ofConnector
       .filter((t) => t.dialect !== dialect)
       .map((t) => ({
         table: t.tableName,
@@ -365,7 +378,11 @@ class OrmGenerate extends OrmMigrateCommand {
     };
 
     // 2. Ce qui appartient au FRAMEWORK n'appartient pas à l'application.
-    const framework = new Set(await frameworkTables(dialect));
+    //    Les tables du framework ne vivent que dans la base de SON connecteur :
+    //    une base secondaire peut réutiliser leurs noms sans rien usurper.
+    const framework = new Set(
+      ownsSharedMigrations(connector) ? await frameworkTables(dialect) : [],
+    );
     const usurped = usurpedTables(tables, framework);
     if (usurped.length > 0) {
       const list = usurped
@@ -502,7 +519,9 @@ class OrmGenerate extends OrmMigrateCommand {
         configRel: relative(configFile),
         name,
         label: `le connecteur « ${connector} » (${dialect})`,
-        regenerateCommand: `nodefony orm:generate --name ${name}`,
+        regenerateCommand: ownsSharedMigrations(connector)
+          ? `nodefony orm:generate --name ${name}`
+          : `nodefony orm:generate --connector ${connector} --name ${name}`,
       });
     } finally {
       // Le dossier de travail ne survit à RIEN : ni au succès, ni à l'échec.

@@ -402,19 +402,31 @@ class DrizzleService extends Service {
     // Borné au DÉVELOPPEMENT : c'est là que le bilan de démarrage le rend
     // lisible, et une suite de tests ne paie ainsi aucune lecture d'historique.
     const adviseOnly = ddl === "auto";
-    // Un connecteur SECONDAIRE ne possède aucune migration : en `auto`, il n'a
-    // rien à annoncer — lire son historique ne servirait qu'à dire « rien ».
-    const owns = ownsSharedMigrations(name);
-    if (adviseOnly && (!owns || !adviseMigrations(check, env, filename))) {
+    const appDir = appMigrationsDir(
+      kernel,
+      config.migrations?.dir ?? "migrations",
+    );
+    // Le connecteur du framework reçoit toujours les migrations du framework ;
+    // un SECONDAIRE n'a que les siennes (`migrations/<connecteur>/`). Sans
+    // aucune, en `auto`, il n'a rien à annoncer — lire son historique ne
+    // servirait qu'à dire « rien ».
+    const hasMigrations =
+      ownsSharedMigrations(name) || connectorVersionsMigrations(name, appDir);
+    if (
+      adviseOnly &&
+      (!hasMigrations || !adviseMigrations(check, env, filename))
+    ) {
       return;
     }
-    if (!owns) {
-      // `migrate` écrit sur un secondaire : un choix explicite qui ne fera
-      // plus rien. Le taire laisserait croire son schéma géré.
+    if (!hasMigrations) {
+      // `migrate` écrit sur un secondaire qui n'a rien versionné : un choix
+      // explicite qui ne fera rien. Le taire laisserait croire son schéma géré.
       this.log(
         `Drizzle « ${name} » : \`ddl: "migrate"\` sans migration à appliquer — ` +
-          `seul le connecteur « ${FRAMEWORK_CONNECTOR} » possède le dossier des ` +
-          `migrations. Le schéma de « ${name} » n'est ni dérivé ni migré par le framework.`,
+          `« ${name} » n'est pas le connecteur du framework (« ${FRAMEWORK_CONNECTOR} ») ` +
+          `et aucune migration n'est versionnée sous son dossier. Son schéma n'est ni ` +
+          `dérivé ni migré par le framework : \`nodefony orm:generate --connector ${name}\` ` +
+          `écrit sa première migration.`,
         "WARNING",
       );
     }
@@ -423,10 +435,10 @@ class DrizzleService extends Service {
       filename?: string;
       url?: string;
     };
-    const sources = await defaultMigrationSources(
-      appMigrationsDir(kernel, config.migrations?.dir ?? "migrations"),
-      { framework: config.frameworkEntities !== false, connector: name },
-    );
+    const sources = await defaultMigrationSources(appDir, {
+      framework: config.frameworkEntities !== false,
+      connector: name,
+    });
     const migrator = new DrizzleMigrator({
       connector: name,
       ...target,

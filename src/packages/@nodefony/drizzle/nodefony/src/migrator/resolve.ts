@@ -12,8 +12,7 @@ import type {
 import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
 import { resolveConnectorTarget } from "../connectorTarget";
 import { DrizzleMigrator } from "./DrizzleMigrator";
-import { defaultMigrationSources } from "./paths";
-import { ownsSharedMigrations } from "../frameworkConnector";
+import { connectorMigrationsDir, defaultMigrationSources } from "./paths";
 import type { IMigrationTarget } from "./drivers/index";
 
 /**
@@ -214,20 +213,21 @@ export function appVersionsMigrations(dir: string | undefined): boolean {
  * Des migrations versionnées CONCERNENT-elles ce connecteur ?
  *
  * C'est la question que pose la bascule `auto` → `migrate`, et elle n'est pas
- * « l'application versionne-t-elle des migrations ? » : celles-ci décrivent la
- * base du framework. Posée telle quelle, elle faisait basculer en `migrate` un
- * connecteur secondaire qui n'en recevra jamais une — sa base restait alors
- * sans schéma, ni dérivé ni migré.
+ * « l'application versionne-t-elle des migrations ? » : celles de la racine
+ * décrivent la base du framework. Posée telle quelle, elle faisait basculer en
+ * `migrate` un connecteur secondaire qui n'en recevra jamais une — sa base
+ * restait alors sans schéma, ni dérivé ni migré. On regarde donc le dossier
+ * DU connecteur ({@link connectorMigrationsDir}).
  *
  * @param connector - nom du connecteur.
  * @param dir - dossier de migrations de l'application ({@link appMigrationsDir}).
- * @returns `true` si le connecteur possède les migrations ET qu'il en existe.
+ * @returns `true` si le dossier propre au connecteur porte au moins un `.sql`.
  */
 export function connectorVersionsMigrations(
   connector: string,
   dir: string | undefined,
 ): boolean {
-  return ownsSharedMigrations(connector) && appVersionsMigrations(dir);
+  return appVersionsMigrations(connectorMigrationsDir(dir, connector));
 }
 
 /**

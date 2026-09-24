@@ -31,11 +31,11 @@ import {
   type IConnectorResolution,
 } from "../src/migrator/resolve";
 import { composeReport } from "../src/migrator/status";
-import { ownsSharedMigrations } from "../src/frameworkConnector";
+import { isReservedConnectorName } from "../src/migrator/paths";
 import {
   describeResolutionRefusal,
   moduleAbsent,
-  secondaryConnector,
+  reservedConnectorName,
   type CommandFailureCode,
   type ICommandFailure,
   type IDiscoveryFacts,
@@ -297,18 +297,21 @@ export abstract class OrmMigrateCommand extends Command {
 
   /**
    * Arrête une commande qui ÉCRIRAIT une migration pour un connecteur
-   * secondaire — le fichier atterrirait dans le dossier du connecteur du
-   * framework, qui l'appliquerait à sa propre base.
+   * secondaire dont le nom est celui d'un dossier de dialecte — son dossier
+   * propre se confondrait avec celui des migrations du framework.
    *
    * @param connector - connecteur résolu.
    * @param json - mode machine.
    * @returns `true` si la commande est arrêtée.
    */
-  protected refuseSecondaryWriter(connector: string, json?: boolean): boolean {
-    if (ownsSharedMigrations(connector)) {
+  protected refuseReservedConnector(
+    connector: string,
+    json?: boolean,
+  ): boolean {
+    if (!isReservedConnectorName(connector)) {
       return false;
     }
-    const refusal = secondaryConnector(connector);
+    const refusal = reservedConnectorName(connector);
     this.fail(
       connector,
       refusal.code,

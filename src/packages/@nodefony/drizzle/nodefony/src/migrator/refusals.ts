@@ -5,6 +5,7 @@ import type { MigrationVerdictError } from "./types";
 import { knownConnectors, MIGRATE_URL_ENV } from "./resolve";
 import type { IConnectorResolution } from "./resolve";
 import { FRAMEWORK_CONNECTOR } from "../frameworkConnector";
+import { RESERVED_MIGRATION_DIRS } from "./paths";
 
 /**
  * Les refus de RÉSOLUTION, rendus en VALEUR — la prose qu'un connecteur non
@@ -72,7 +73,7 @@ export type CommandFailureCode =
   | "NF_MIGRATE_BASELINE_NOT_EMPTY"
   /** La table d'historique existe, mais ce n'est pas celle du framework. */
   | "NF_MIGRATE_HISTORY_FOREIGN"
-  /** Écrire une migration pour un connecteur qui ne possède pas le dossier. */
+  /** Écrire une migration pour un connecteur secondaire au nom réservé (`postgres`…). */
   | "NF_MIGRATE_SECONDARY_CONNECTOR";
 
 /**
@@ -389,25 +390,25 @@ export function notConfigured(
 }
 
 /**
- * Écrire une migration pour un connecteur SECONDAIRE — refusé.
+ * Écrire une migration pour un connecteur secondaire dont le NOM est celui d'un
+ * dossier de dialecte — refusé.
  *
- * Le dossier des migrations de l'application n'a qu'un propriétaire : le
- * connecteur du framework. Un fichier écrit là « pour » un autre connecteur
- * serait appliqué par le connecteur du framework, à SA base — l'exact inverse
- * de ce que la commande annoncerait.
+ * Un connecteur secondaire range ses migrations sous `migrations/<connecteur>/`,
+ * à côté des dossiers de dialecte du connecteur du framework. Nommé `postgres`,
+ * son dossier SERAIT celui des migrations PostgreSQL du framework : il les
+ * lirait comme les siennes, et les siennes seraient appliquées à la base du
+ * framework. On le refuse en nommant la collision, plutôt que de le découvrir
+ * au premier déploiement.
  *
  * @param connector - connecteur demandé.
  * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
  */
-export function secondaryConnector(connector: string): IResolutionRefusal {
+export function reservedConnectorName(connector: string): IResolutionRefusal {
   return {
     code: "NF_MIGRATE_SECONDARY_CONNECTOR",
-    summary: `Le connecteur « ${connector} » n'est pas celui du framework (« ${FRAMEWORK_CONNECTOR} ») : aucune migration n'est écrite pour lui. Rien n'a été écrit.`,
-    meaning: `Le dossier \`migrations/<dialecte>\` décrit UNE base, celle du connecteur « ${FRAMEWORK_CONNECTOR} » : c'est lui seul qui applique ce qu'il contient. Un fichier écrit là pour « ${connector} » serait appliqué à la mauvaise base. Les migrations par connecteur n'existent pas encore ; le schéma d'un connecteur secondaire se dérive du code (\`ddl: "auto"\`) ou se gère hors du framework.`,
-    nextActions: [
-      action(`nodefony orm:migrate:status --connector ${connector}`),
-      action("nodefony inspect config --json"),
-    ],
+    summary: `Le connecteur « ${connector} » porte le nom d'un dossier réservé (${RESERVED_MIGRATION_DIRS.join(", ")}) : ses migrations ne peuvent pas avoir de dossier propre. Rien n'a été écrit.`,
+    meaning: `Les migrations d'un connecteur secondaire vivent sous \`migrations/<connecteur>/<dialecte>\`, à côté des dossiers de dialecte du connecteur « ${FRAMEWORK_CONNECTOR} ». Le dossier \`migrations/${connector}\` est déjà l'un d'eux : les deux connecteurs y liraient les migrations de l'autre, et chacune serait appliquée à la mauvaise base. Renomme le connecteur dans \`connectors\` (par exemple « ${connector}_data ») : son nom ne sert qu'à le désigner.`,
+    nextActions: [action("nodefony inspect config --json")],
     exitCode: 2,
   };
 }

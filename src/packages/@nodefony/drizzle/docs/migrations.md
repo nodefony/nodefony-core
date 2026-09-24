@@ -118,11 +118,32 @@ Les migrations du **framework** sont livrées dans le paquet : vous n'avez pas �
 de votre **application**, vous les écrivez avec `orm:generate` — voir la section suivante.
 
 Ces deux familles de migrations appartiennent au **seul connecteur `default`**, celui qui porte les
-briques du framework : le dossier `migrations/<dialecte>` décrit sa base, et aucune autre. Un
-connecteur secondaire (une base d'analyse, la base d'un module) n'en reçoit aucune : en
-développement son schéma est dérivé du code, et `orm:generate --connector <secondaire>` refuse
-(`NF_MIGRATE_SECONDARY_CONNECTOR`) plutôt que d'écrire un fichier que `default` appliquerait à sa
-propre base.
+briques du framework : le dossier `migrations/<dialecte>` décrit sa base, et aucune autre.
+
+Un **connecteur secondaire** (une base d'analyse, la base d'un module, un second PostgreSQL) a ses
+**propres** migrations, dans son sous-dossier :
+
+```text
+migrations/
+├── sqlite/                 ← connecteur « default » (framework + application)
+└── analytics/
+    └── postgres/           ← connecteur « analytics », et lui seul
+```
+
+```bash
+nodefony orm:generate --connector analytics --name init   # écrit sous migrations/analytics/<dialecte>
+nodefony orm:migrate  --connector analytics                # l'applique à la base d'« analytics »
+```
+
+Chaque base ne reçoit que son dossier : `default` ne voit pas les migrations d'`analytics`, et
+inversement. `orm:generate --connector analytics` ne décrit que les tables des entités déclarées sur
+ce connecteur (`@entity({ connector: "analytics" })`) ; une table qu'aucune entité ne réclame reste
+à `default`. Tant qu'un secondaire n'a rien versionné, rien ne change : en développement son schéma
+est dérivé du code. Dès son premier fichier, il bascule en `migrate` comme `default`.
+
+Un connecteur secondaire ne peut pas s'appeler `sqlite`, `postgres`, `mysql` ni `meta` : son dossier
+serait celui d'un dialecte de `default`. Les commandes qui écriraient une migration le refusent
+(`NF_MIGRATE_SECONDARY_CONNECTOR`) — renommez le connecteur, son nom ne sert qu'à le désigner.
 
 Côté configuration, il n'y a rien à écrire pour le cas courant : le mode se résout par
 environnement. Ne le déclarer que pour s'en écarter — un serveur unique qui migre au démarrage :

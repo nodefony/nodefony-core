@@ -39,6 +39,7 @@ import { MySqlTable } from "drizzle-orm/mysql-core";
 import { PgTable } from "drizzle-orm/pg-core";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import { FORMAT_MARKER } from "./kit";
+import { ownsSharedMigrations } from "../frameworkConnector";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
 
 /** Une table trouvée dans un fichier d'entité de l'application. */
@@ -599,4 +600,56 @@ export function registeredTables(connector: string): IExpectedEntity[] {
     }
   }
   return out;
+}
+
+/**
+ * Tables d'un connecteur parmi celles que les fichiers fournissent — le
+ * partage qui fait qu'une migration ne décrit que SA base.
+ *
+ * Une table appartient au connecteur de l'entité qui la déclare (le REGISTRE
+ * le sait, un fichier non). Une table qu'aucune entité ne réclame reste au
+ * connecteur du framework, comme avant que les connecteurs secondaires aient
+ * leurs migrations. Sans ce partage, la table d'une entité secondaire entrait
+ * AUSSI dans les migrations du framework : créée dans une base qui ne s'en sert
+ * jamais, et proposée à la suppression le jour où elle n'y figure plus.
+ *
+ * @param tables - tables fournies par les fichiers de l'application.
+ * @param connector - connecteur visé.
+ * @param owners - `table → connecteurs` qui la déclarent ; par défaut, le registre.
+ * @returns les tables de ce connecteur, dans l'ordre reçu.
+ */
+export function tablesOfConnector<T extends { tableName: string }>(
+  tables: readonly T[],
+  connector: string,
+  owners: ReadonlyMap<string, ReadonlySet<string>> = registeredOwners(),
+): T[] {
+  return tables.filter((t) => {
+    const claimed = owners.get(t.tableName);
+    return claimed === undefined
+      ? ownsSharedMigrations(connector)
+      : claimed.has(connector);
+  });
+}
+
+/**
+ * Pour chaque table enregistrée, les connecteurs dont une entité la déclare.
+ *
+ * @returns la table de correspondance, lue dans le registre des entités.
+ */
+export function registeredOwners(): Map<string, Set<string>> {
+  const owners = new Map<string, Set<string>>();
+  for (const entity of entityRegistry.list()) {
+    const schema = entity.schema as unknown;
+    if (!is(schema, Table)) {
+      continue;
+    }
+    const table = getTableName(schema);
+    let set = owners.get(table);
+    if (set === undefined) {
+      set = new Set();
+      owners.set(table, set);
+    }
+    set.add(entity.connector);
+  }
+  return owners;
 }

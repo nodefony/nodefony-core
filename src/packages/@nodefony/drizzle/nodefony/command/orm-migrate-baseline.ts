@@ -16,6 +16,8 @@ import {
 import { appMigrationsDir } from "../src/migrator/resolve";
 import { registeredTables } from "../src/migrator/appSchema";
 import { frameworkTables } from "../src/migrator/sources";
+import { connectorMigrationsDir } from "../src/migrator/paths";
+import { ownsSharedMigrations } from "../src/frameworkConnector";
 import { HISTORY_TABLE } from "../src/migrator/types";
 import { stampFormatMarker } from "../src/migrator/kit";
 import { checkMigrationName } from "../src/migrator/name";
@@ -158,7 +160,7 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
     resolution: Extract<IConnectorResolution, { kind: "ready" }>,
     config: IDrizzleConfig,
   ): Promise<IAdoptedBaseline | null> {
-    if (this.refuseSecondaryWriter(resolution.connector, opts.json)) {
+    if (this.refuseReservedConnector(resolution.connector, opts.json)) {
       return null;
     }
     const root = (this.kernel as Kernel).path;
@@ -174,7 +176,12 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
       );
       return null;
     }
-    const outDir = path.join(dir, resolution.dialect);
+    // Le dossier DU connecteur (sous-dossier pour un secondaire) ; un nom
+    // réservé a déjà été refusé.
+    const outDir = path.join(
+      connectorMigrationsDir(dir, resolution.connector) ?? dir,
+      resolution.dialect,
+    );
     const journal = await readJournal(outDir);
     if (journal !== null && journal.entries.length > 0) {
       // Adopter par lecture de la base suppose qu'il n'y a RIEN à quoi se
@@ -225,8 +232,12 @@ class OrmMigrateBaseline extends OrmMigrateCommand {
       // l'inscription qui suit prend en charge ; les lire ici en ferait une
       // seconde description du même schéma, et le prochain diff repartirait du
       // mauvais côté.
+      // Une base SECONDAIRE ne porte pas celles du framework : une table qui y
+      // en réutilise le nom est la sienne.
       excludedTables: [
-        ...(await frameworkTables(resolution.dialect)),
+        ...(ownsSharedMigrations(resolution.connector)
+          ? await frameworkTables(resolution.dialect)
+          : []),
         HISTORY_TABLE,
       ],
       declaredTables: registeredTables(resolution.connector).map(

@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 860,
-    "symbols": 4279,
+    "symbols": 4284,
     "classes": 399,
     "interfaces": 1128,
     "types": 459,
     "enums": 4,
-    "functions": 1861,
-    "constants": 428
+    "functions": 1865,
+    "constants": 429
   },
   "symbols": {
     "Cli": {
@@ -23299,6 +23299,22 @@
       "module": "@nodefony/drizzle",
       "description": "Tables attendues sur un connecteur, telles que le REGISTRE les connaît. Le registre est la seule source qui sache ce que l'application DÉCLARE : les fichiers disent ce qu'elle fournit, la base ce q…"
     },
+    "tablesOfConnector": {
+      "name": "tablesOfConnector",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Tables d'un connecteur parmi celles que les fichiers fournissent — le partage qui fait qu'une migration ne décrit que SA base. Une table appartient au connecteur de l'entité qui la déclare (le REGI…"
+    },
+    "registeredOwners": {
+      "name": "registeredOwners",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Pour chaque table enregistrée, les connecteurs dont une entité la déclare."
+    },
     "ISchemaReader": {
       "name": "ISchemaReader",
       "kind": "interface",
@@ -23906,6 +23922,22 @@
       "module": "@nodefony/drizzle",
       "description": "Ce qu'un nom de migration a le droit d'être — et ce qu'on propose sinon. **Pourquoi une fonction pure, à part de la commande** : ce nom entre dans le tag du fichier, et un tag ne se renomme plus un…"
     },
+    "isReservedConnectorName": {
+      "name": "isReservedConnectorName",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Le nom de ce connecteur collisionne-t-il avec un dossier de dialecte ?"
+    },
+    "connectorMigrationsDir": {
+      "name": "connectorMigrationsDir",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Dossier des migrations PROPRES à un connecteur — la seule règle qui dit où elles vivent. Le connecteur du framework garde la racine (`migrations/<dialecte>`) : ses migrations décrivent la base du f…"
+    },
     "frameworkMigrationsDir": {
       "name": "frameworkMigrationsDir",
       "kind": "function",
@@ -23953,6 +23985,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Rang de la source application : dernière appliquée, toujours. Les entités d'une application peuvent référencer les tables du framework et celles des modules ; l'inverse n'arrive jamais."
+    },
+    "RESERVED_MIGRATION_DIRS": {
+      "name": "RESERVED_MIGRATION_DIRS",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Noms qui ne peuvent PAS désigner le dossier d'un connecteur secondaire : ce sont ceux des dossiers de dialecte (et du journal) que le connecteur du framework range déjà sous `migrations/`. Un conne…"
     },
     "IRebuildCopyRepair": {
       "name": "IRebuildCopyRepair",
@@ -24081,13 +24121,13 @@
       "module": "@nodefony/drizzle",
       "description": "Le connecteur est une base SQL, mais la configuration du module ne le déclare pas — cas d'un ORM construit directement dans du code. ⚠️ Ne JAMAIS lui répondre « ne porte pas de migrations » : c'est…"
     },
-    "secondaryConnector": {
-      "name": "secondaryConnector",
+    "reservedConnectorName": {
+      "name": "reservedConnectorName",
       "kind": "function",
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Écrire une migration pour un connecteur SECONDAIRE — refusé. Le dossier des migrations de l'application n'a qu'un propriétaire : le connecteur du framework. Un fichier écrit là « pour » un autre co…"
+      "description": "Écrire une migration pour un connecteur secondaire dont le NOM est celui d'un dossier de dialecte — refusé. Un connecteur secondaire range ses migrations sous `migrations/<connecteur>/`, à côté des…"
     },
     "describeResolutionRefusal": {
       "name": "describeResolutionRefusal",
@@ -24160,7 +24200,7 @@
       "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
       "exported": true,
       "module": "@nodefony/drizzle",
-      "description": "Des migrations versionnées CONCERNENT-elles ce connecteur ? C'est la question que pose la bascule `auto` → `migrate`, et elle n'est pas « l'application versionne-t-elle des migrations ? » : celles-…"
+      "description": "Des migrations versionnées CONCERNENT-elles ce connecteur ? C'est la question que pose la bascule `auto` → `migrate`, et elle n'est pas « l'application versionne-t-elle des migrations ? » : celles …"
     },
     "resolveCheckMode": {
       "name": "resolveCheckMode",
@@ -35781,11 +35821,8 @@
       "composeReport": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
-      "ownsSharedMigrations": [
-        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      "isReservedConnectorName": [
+        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
       "describeResolutionRefusal": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
@@ -35795,7 +35832,7 @@
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
-      "secondaryConnector": [
+      "reservedConnectorName": [
         "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts"
       ],
       "CommandFailureCode": [
@@ -35835,6 +35872,9 @@
       "registeredTables": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
+      ],
+      "tablesOfConnector": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
       ],
       "IUnreadableEntityFile": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts"
@@ -35886,9 +35926,21 @@
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
+      "connectorMigrationsDir": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
+      ],
       "frameworkMigrationsDir": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
+      "ownsSharedMigrations": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/paths.ts"
       ],
       "createdTables": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-generate.ts",
@@ -38539,6 +38591,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "knownConnectors": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
+      ],
+      "RESERVED_MIGRATION_DIRS": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts"
       ],
       "parseDatabaseUrl": [
