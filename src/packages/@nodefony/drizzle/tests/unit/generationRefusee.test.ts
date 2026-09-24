@@ -3,7 +3,10 @@ import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { describe, it } from "vitest";
-import { runGenerate } from "../../nodefony/src/migrator/kit";
+import {
+  runGenerate,
+  topLevelAwaitFailure,
+} from "../../nodefony/src/migrator/kit";
 import {
   MigrationToolError,
   formatToolOutput,
@@ -100,6 +103,38 @@ describe("la génération refuse en nommant sa cause", () => {
     );
     // Le piège qui suit la réponse « renamed » — un type changé disparaît.
     assert.match(e.refusal.meaning, /3826/u);
+  });
+
+  // Vécu (CI) : un `await` de premier niveau dans `nodefony/entity/User.ts` a
+  // fait tomber `orm:generate` sur une pile d'esbuild qui ne nommait ni l'outil
+  // (drizzle-kit relit les entités en CommonJS) ni le remède.
+  const ESBUILD_TLA =
+    "/app/nodefony/entity/User.ts:82:6: ERROR: Top-level await is currently " +
+    'not supported with the "cjs" output format\n    at failureErrorWithLog (…)\n';
+
+  it("un `await` de premier niveau : NOMME le fichier, la ligne, et la commande à rejouer", () => {
+    const e = refus(ESBUILD_TLA);
+    assert.equal(e.refusal.code, "NF_GENERATE_TOP_LEVEL_AWAIT");
+    assert.match(e.refusal.summary, /\/app\/nodefony\/entity\/User\.ts:82/u);
+    assert.match(e.refusal.meaning, /CommonJS/u);
+    assert.match(e.refusal.meaning, /index\.ts/u);
+    assert.equal(
+      e.refusal.nextActions[0]?.command,
+      "nodefony orm:generate --name add_team",
+    );
+  });
+
+  it("reconnaît la ligne d'esbuild même COLORÉE, et elle seule", () => {
+    const colore = ESBUILD_TLA.replace("ERROR:", "\u001B[31mERROR:\u001B[0m");
+    assert.deepEqual(topLevelAwaitFailure(colore), {
+      file: "/app/nodefony/entity/User.ts",
+      line: 82,
+    });
+    assert.equal(topLevelAwaitFailure("Error: something broke\n"), null);
+    assert.equal(
+      topLevelAwaitFailure("Interactive prompts require a TTY\n"),
+      null,
+    );
   });
 
   describe("citation de la sortie d'un outil", () => {

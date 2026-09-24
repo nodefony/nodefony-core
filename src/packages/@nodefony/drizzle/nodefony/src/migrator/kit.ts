@@ -26,6 +26,7 @@ import {
   generationFailed,
   generationNeedsAnswer,
   generationToolMissing,
+  generationTopLevelAwait,
   introspectFailed,
 } from "./refusals";
 
@@ -148,6 +149,17 @@ export function runGenerate({
     // n'y a rien, pendant que la cause est dans le fichier d'entité qu'on vient
     // d'éditer. La règle valait déjà pour l'outil absent (cf
     // `resolveDrizzleKitBin`) ; elle ne couvrait pas la famille.
+    const awaited = topLevelAwaitFailure(output);
+    if (awaited !== null) {
+      throw new MigrationToolError(
+        generationTopLevelAwait(
+          label,
+          awaited.file,
+          awaited.line,
+          regenerateCommand ?? `nodefony orm:generate --name ${name}`,
+        ),
+      );
+    }
     if (isInteractivePromptFailure(output)) {
       throw new MigrationToolError(
         generationNeedsAnswer(
@@ -451,6 +463,28 @@ export function auditMigrationSql(
  */
 export function isInteractivePromptFailure(output: string): boolean {
   return /Interactive prompts require a TTY/i.test(output);
+}
+
+/**
+ * Reconnaît le refus de l'outil devant un `await` de premier niveau.
+ *
+ * C'est l'esbuild de `drizzle-kit` qui le détecte, en transpilant le fichier en
+ * CommonJS : sa ligne d'erreur nomme le fichier et la position. On la lit plutôt
+ * que d'analyser nous-mêmes les sources — l'outil qui refuse est aussi celui qui
+ * sait exactement où, sans faux positif. Fonction PURE, éprouvée sans process.
+ *
+ * @param output - sortie complète de l'outil.
+ * @returns le fichier et la ligne, ou `null` si l'échec est d'une autre nature.
+ */
+export function topLevelAwaitFailure(
+  output: string,
+): { file: string; line: number } | null {
+  const plain = output.replace(/\u001B\[[0-9;]*m/g, "");
+  const m =
+    /([^\s"'`]+\.[cm]?[jt]sx?):(\d+):\d+: ERROR: Top-level await is currently not supported with the \\?"cjs\\?" output format/u.exec(
+      plain,
+    );
+  return m ? { file: m[1] as string, line: Number(m[2]) } : null;
 }
 
 /**

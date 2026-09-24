@@ -231,6 +231,14 @@ dépendances de développement (`--omit=dev`, une image de production). Le refus
 geste ; il ne parle pas de votre base, qui n'y est pour rien — appliquer des migrations, lui, ne
 réclame aucun outil tiers.
 
+Un cinquième tient à la forme d'un fichier d'entité : **un `await` de premier niveau**
+(`NF_GENERATE_TOP_LEVEL_AWAIT`). Votre application est ESM et démarre très bien avec lui, mais
+l'outil qui écrit les migrations relit les fichiers de schéma de son côté, en CommonJS, où cette
+construction n'existe pas. Le refus nomme le fichier et la ligne. Un fichier d'entité **déclare**
+une table : ce qui se décide à l'exécution — choisir une entité selon l'infrastructure, importer
+un module à la demande — se place dans l'`index.ts` du module, dont `@entities([...])` accepte une
+liste calculée.
+
 ### Une entité qui pointe vers une table du framework
 
 Déclarer une référence vers une table du framework (`session`, `audit_event`…) est légitime : ce

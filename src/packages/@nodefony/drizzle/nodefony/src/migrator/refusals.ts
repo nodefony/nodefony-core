@@ -60,6 +60,8 @@ export type CommandFailureCode =
   | "NF_GENERATE_TOOL_MISSING"
   /** L'outil de génération pose une question, et il n'y a pas de terminal. */
   | "NF_GENERATE_NEEDS_ANSWER"
+  /** Un fichier d'entité porte un `await` de premier niveau, que l'outil ne sait pas lire. */
+  | "NF_GENERATE_TOP_LEVEL_AWAIT"
   /** L'outil de génération s'est arrêté ; ce qu'il a dit est remonté tel quel. */
   | "NF_GENERATE_TOOL_FAILED"
   /** La lecture du schéma d'une base existante a échoué. */
@@ -222,6 +224,42 @@ export function generationNeedsAnswer(
       "⚠️ Après avoir répondu « renamed », RELIRE le fichier produit : quand une colonne est renommée " +
       "ET que son type change, l'outil n'écrit que le renommage et oublie le changement de type " +
       "(drizzle-orm#3826).",
+    nextActions: [action(replay)],
+    exitCode: 2,
+  };
+}
+
+/**
+ * Un fichier lu par l'outil de génération porte un `await` de premier niveau.
+ *
+ * Nodefony est ESM, et l'application démarre très bien avec ce fichier. Mais
+ * l'outil qui écrit les migrations (`drizzle-kit`) relit les fichiers de schéma
+ * HORS de la chaîne de l'application, en les transpilant en CommonJS — où un
+ * `await` de premier niveau n'existe pas. Sans ce refus, l'utilisateur recevait
+ * une pile d'appels d'esbuild qui ne nomme ni l'outil ni le remède.
+ *
+ * @param label - ce qui était généré, tel qu'on le cite à l'utilisateur.
+ * @param file - fichier fautif, tel que l'outil l'a nommé.
+ * @param line - ligne de l'`await`.
+ * @param replay - la commande à relancer une fois le fichier corrigé.
+ * @returns le refus, prêt pour la ligne de commande comme pour l'écran.
+ */
+export function generationTopLevelAwait(
+  label: string,
+  file: string,
+  line: number,
+  replay: string,
+): IResolutionRefusal {
+  return {
+    code: "NF_GENERATE_TOP_LEVEL_AWAIT",
+    summary: `${file}:${line} — un \`await\` de premier niveau empêche de générer ${label} ; rien n'a été écrit.`,
+    meaning:
+      "L'application démarre avec ce fichier : elle est ESM. Mais l'outil qui écrit les migrations " +
+      "(drizzle-kit) relit les fichiers de schéma de son côté, en CommonJS, où un `await` de premier " +
+      "niveau n'existe pas. Un fichier d'entité DÉCLARE un schéma : ce qui se décide à l'exécution " +
+      "(choisir une entité selon l'infrastructure, importer un module à la demande) se place dans " +
+      "l'`index.ts` du module — `@entities([...])` accepte une liste calculée. " +
+      "La base n'est pas en cause : elle n'a pas été interrogée.",
     nextActions: [action(replay)],
     exitCode: 2,
   };

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 858,
-    "symbols": 4266,
+    "symbols": 4268,
     "classes": 398,
     "interfaces": 1127,
     "types": 458,
     "enums": 4,
-    "functions": 1853,
+    "functions": 1855,
     "constants": 426
   },
   "symbols": {
@@ -23807,6 +23807,14 @@
       "module": "@nodefony/drizzle",
       "description": "Reconnaît l'échec de `drizzle-kit` faute de terminal interactif. L'outil pose une question — « cette colonne a-t-elle été renommée, ou supprimée puis ajoutée ? » — à laquelle lui seul ne peut pas r…"
     },
+    "topLevelAwaitFailure": {
+      "name": "topLevelAwaitFailure",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Reconnaît le refus de l'outil devant un `await` de premier niveau. C'est l'esbuild de `drizzle-kit` qui le détecte, en transpilant le fichier en CommonJS : sa ligne d'erreur nomme le fichier et la …"
+    },
     "stampFormatMarker": {
       "name": "stampFormatMarker",
       "kind": "function",
@@ -23981,6 +23989,14 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "L'outil de génération pose une QUESTION, et aucun terminal n'y répond. C'est le cas d'une colonne qui disparaît pendant qu'une autre apparaît : renommage (les données suivent) ou suppression puis a…"
+    },
+    "generationTopLevelAwait": {
+      "name": "generationTopLevelAwait",
+      "kind": "function",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/refusals.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Un fichier lu par l'outil de génération porte un `await` de premier niveau. Nodefony est ESM, et l'application démarre très bien avec ce fichier. Mais l'outil qui écrit les migrations (`drizzle-kit…"
     },
     "generationFailed": {
       "name": "generationFailed",
@@ -38408,6 +38424,9 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "generationToolMissing": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
+      ],
+      "generationTopLevelAwait": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts"
       ],
       "introspectFailed": [

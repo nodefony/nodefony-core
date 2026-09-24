@@ -74,6 +74,12 @@ Deux usages :
   préfixe par `./` ; question de renommage sans terminal). Tout appel passe par `runGenerate`
   (`scripts/drizzleKit.ts`), qui exige une PREUVE POSITIVE. Un contrôle qui conclut de « code 0 +
   aucun fichier » déclare ALIGNÉ un schéma qui a dérivé : la panne innocente le produit.
+- 🔴 **`drizzle-kit` relit les fichiers d'entité en COMMONJS** (son esbuild, hors de la chaîne ESM
+  de l'application) : un `await` de premier niveau y est refusé. `runGenerate` reconnaît cette
+  ligne d'esbuild (`topLevelAwaitFailure`, `kit.ts`) et lève `NF_GENERATE_TOP_LEVEL_AWAIT` en
+  nommant fichier et ligne. Ne PAS réécrire la génération sur `drizzle-kit/api` pour y échapper :
+  ce serait recopier chez nous le format de fichiers d'un outil tiers (journal, instantanés
+  chaînés), qui dériverait à chaque montée de version. La logique d'exécution va dans `index.ts`.
 - 🔴 **`drizzle-kit` ne collecte que les tables exportées À PLAT** (mesuré : plate + nichée →
   « 1 tables »). Regrouper les 10 constantes d'un schéma matérialisé dans un objet ⇒ migration
   VIDE, verte.
