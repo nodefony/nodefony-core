@@ -1228,22 +1228,33 @@ export function scaffoldCaps(dir: string = process.cwd()): IScaffoldCaps {
 function projectOrm(dir: string): TEntityOrm | null {
   const root = findProjectRoot(dir);
   if (!root) return null;
+  try {
+    return resolveEntityOrm(projectDependencies(root), new Set(), "");
+  } catch {
+    // Aucun ORM : on ne tait aucune question.
+    return null;
+  }
+}
+
+/**
+ * Paquets que déclare le `package.json` d'un projet, tous blocs confondus —
+ * vide si le manifeste est absent ou illisible.
+ */
+function projectDependencies(root: string): Set<string> {
   const file = path.join(root, "package.json");
-  if (!existsSync(file)) return null;
+  if (!existsSync(file)) return new Set();
   try {
     const pkg = JSON.parse(readFileSync(file, "utf8")) as Record<
       string,
       Record<string, string> | undefined
     >;
-    const deps = new Set(
+    return new Set(
       ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
         Object.keys(pkg[b] ?? {}),
       ),
     );
-    return resolveEntityOrm(deps, new Set(), "");
   } catch {
-    // Manifeste illisible ou aucun ORM : on ne tait aucune question.
-    return null;
+    return new Set();
   }
 }
 
@@ -1304,17 +1315,50 @@ export function getScaffoldContext(
   }
   return {
     targets,
-    // Sur une application MongoDB, le connecteur RÉEL est celui de Mongoose.
-    // `readConnectors` rendrait le `default` SQLite qu'il suppose quand rien
-    // n'est déclaré — un choix qu'aucun ORM de cette application ne sert.
-    connectors:
-      projectOrm(projectRoot) === "mongoose"
-        ? [{ name: MONGOOSE_CONNECTOR, dialect: "mongodb" }]
-        : readConnectors(projectRoot, writer),
+    connectors: projectConnectors(projectRoot, writer),
     columnTypes: describeColumnTypes(),
     entities,
     idKinds: ENTITY_ID_KINDS,
   };
+}
+
+/**
+ * Connecteurs sur lesquels une entité de ce projet peut naître.
+ *
+ * Trois formes d'application, une seule lecture :
+ * - Mongoose seul : son connecteur (`nodefony`). {@link readConnectors} rendrait
+ *   le `default` SQLite qu'il suppose quand rien n'est déclaré — un choix
+ *   qu'aucun ORM de cette application ne sert.
+ * - Drizzle seul (ou aucun ORM) : les connecteurs de la configuration.
+ * - Les DEUX : ceux de Drizzle, PLUS `nodefony` quand l'infra déclarée est
+ *   MongoDB — la condition même qui charge `@nodefony/mongoose` dans le
+ *   manifeste. Le taire cachait une base que la console d'administration
+ *   montre ; le proposer sur une infra SQL ferait naître une entité sur un ORM
+ *   que l'application ne charge pas. Le générateur suit le choix
+ *   (`--connector nodefony` ⇒ entité document).
+ *
+ * @param projectRoot - racine du projet.
+ * @param writer - accès fichiers transactionnel du scaffold.
+ * @returns les connecteurs, dans l'ordre où le formulaire les propose.
+ */
+function projectConnectors(
+  projectRoot: string,
+  writer: ScaffoldWriter,
+): IScaffoldConnector[] {
+  const mongo: IScaffoldConnector = {
+    name: MONGOOSE_CONNECTOR,
+    dialect: "mongodb",
+  };
+  if (projectOrm(projectRoot) === "mongoose") return [mongo];
+  const sql: IScaffoldConnector[] = readConnectors(projectRoot, writer);
+  if (
+    projectDependencies(projectRoot).has("@nodefony/mongoose") &&
+    declaredDatabase(projectRoot)?.family === "mongo" &&
+    !sql.some((c) => c.name === MONGOOSE_CONNECTOR)
+  ) {
+    return [...sql, mongo];
+  }
+  return sql;
 }
 
 /**
@@ -4026,7 +4070,7 @@ function declaresDialect(
 }
 
 /**
- * Dialecte de l'infra DÉCLARÉE du projet, cascade `.env` comprise.
+ * Base de l'infra DÉCLARÉE du projet, cascade `.env` comprise.
  *
  * `process.env` seul ne suffit pas : une URL posée dans `.env.local` (le cas
  * nominal en développement — le fichier est gitignoré, c'est là qu'on met sa
@@ -4035,10 +4079,12 @@ function declaresDialect(
  * que d'en inventer un : un ordre affiché qui différerait de l'ordre appliqué
  * serait pire que pas d'ordre du tout.
  *
- * @returns le dialecte SQL, ou `null` si aucune base n'est déclarée (ou si elle
- *   n'est pas SQL — une base mongo ne dicte aucun dialecte à `create entity`).
+ * @returns la base résolue par {@link resolveInfra}, ou `null` si aucune n'est
+ *   déclarée (ou si son URL n'est pas supportée).
  */
-function infraDialect(projectRoot: string): TEntityDialect | null {
+function declaredDatabase(
+  projectRoot: string,
+): ReturnType<typeof resolveInfra>["database"] | null {
   const env: Record<string, string | undefined> = {};
   try {
     // `envFileOrder` rend des NOMS, pas des chemins — et sans mode d'exécution
@@ -4064,16 +4110,23 @@ function infraDialect(projectRoot: string): TEntityDialect | null {
   }
   try {
     // Le shell l'emporte sur les fichiers, comme au runtime.
-    const infra = resolveInfra({ ...env, ...process.env });
-    const dialect = infra.database?.dialect;
-    return dialect && (ENTITY_DIALECTS as readonly string[]).includes(dialect)
-      ? (dialect as TEntityDialect)
-      : null;
+    return resolveInfra({ ...env, ...process.env }).database ?? null;
   } catch {
     // URL non supportée : ce n'est pas au scaffold de rendre ce verdict — le
     // boot le fera, avec le bon message.
     return null;
   }
+}
+
+/**
+ * Dialecte SQL de l'infra déclarée — `null` si aucune base, ou si elle n'est
+ * pas SQL (une base mongo ne dicte aucun dialecte à `create entity`).
+ */
+function infraDialect(projectRoot: string): TEntityDialect | null {
+  const dialect = declaredDatabase(projectRoot)?.dialect;
+  return dialect && (ENTITY_DIALECTS as readonly string[]).includes(dialect)
+    ? (dialect as TEntityDialect)
+    : null;
 }
 
 /**

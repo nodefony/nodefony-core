@@ -9,6 +9,7 @@
 import { describe, it } from "vitest";
 import { expect } from "chai";
 import {
+  capsForConnector,
   engineFor,
   referenceableEntities,
   type IScaffoldProjectContext,
@@ -56,5 +57,40 @@ describe("Créer — panneau des types : moteur et relations", () => {
     expect(
       referenceableEntities(context([]), targets, "@demo/blog", "mongodb"),
     ).to.deep.equal(["Note", "Post", "User"]);
+  });
+});
+
+// Vu sur l'app du dépôt bootée sur MongoDB : `nodefony — mongodb` choisi, le
+// formulaire offrait encore la clé primaire et les réglages SQL — la capacité
+// décrivait l'application, pas le connecteur de l'entité.
+describe("Créer — les questions SQL suivent le connecteur CHOISI", () => {
+  const hybrid = context([
+    { name: "default", dialect: "sqlite" },
+    { name: "nodefony", dialect: "mongodb" },
+  ]);
+
+  it("connecteur MongoDB : `hasSqlOrm` tombe à faux, le reste est gardé", () => {
+    expect(
+      capsForConnector(
+        { hasCheckout: true, hasSqlOrm: true },
+        hybrid,
+        "nodefony",
+      ),
+    ).to.deep.equal({ hasCheckout: true, hasSqlOrm: false });
+  });
+
+  it("connecteur SQL : les questions SQL reviennent", () => {
+    expect(
+      capsForConnector(
+        { hasCheckout: false, hasSqlOrm: false },
+        hybrid,
+        "default",
+      ),
+    ).to.deep.equal({ hasCheckout: false, hasSqlOrm: true });
+  });
+
+  it("sans connecteur connu : les capacités du serveur restent telles quelles", () => {
+    const caps = { hasCheckout: false };
+    expect(capsForConnector(caps, context([]), "x")).to.equal(caps);
   });
 });

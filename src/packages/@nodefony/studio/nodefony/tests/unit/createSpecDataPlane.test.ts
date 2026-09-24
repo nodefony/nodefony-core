@@ -19,7 +19,10 @@ import {
   Nodefony,
   runScaffold,
 } from "nodefony";
-import { composeCreateSpec } from "../../src/createSpec";
+import {
+  composeCreateSpec,
+  connectorsFromOrmSummaries,
+} from "../../src/createSpec";
 
 describe("data plane create/spec — Drizzle puis Mongoose", () => {
   let tmp = "";
@@ -92,9 +95,9 @@ describe("data plane create/spec — Drizzle puis Mongoose", () => {
     expect(ref?.byDialect["mongodb"]).to.contain('"ObjectId"');
   });
 
-  it("Studio et le terminal : la MÊME réponse — contexte et question du connecteur", () => {
-    // Une source commune, ou deux fronts qui divergent : le terminal ne voyait pas
-    // ce que Studio lisait sur le serveur démarré.
+  it("Hors serveur (aucun registre) : la MÊME réponse que le terminal", () => {
+    // Sans registre ORM à interroger, Studio n'a que la lecture du terminal : les
+    // deux fronts doivent alors rendre exactement la même chose.
     for (const [name, database] of [
       ["samesql", "sqlite"],
       ["samemongo", "mongodb"],
@@ -112,5 +115,68 @@ describe("data plane create/spec — Drizzle puis Mongoose", () => {
       // Au premier plan, première question.
       expect(connectorQuestion(dest)?.advanced).to.not.equal(true);
     }
+  });
+
+  // Vu sur l'app de ce dépôt bootée sur MongoDB : la page ORM montrait
+  // `default`, un secondaire ET `nodefony`, « Créer » les deux premiers seulement
+  // — il relisait le texte de la configuration au lieu du registre en mémoire.
+  describe("serveur démarré : le registre ORM en MÉMOIRE fait foi", () => {
+    // `default` n'a que son nom : c'est `nodefony` qui porte les stores.
+    const summaries = [
+      { name: "default", default: false, connection: { driver: "sqlite" } },
+      { name: "analytics", default: false, connection: { driver: "sqlite" } },
+      { name: "nodefony", default: true, connection: { driver: "mongodb" } },
+    ];
+
+    it("traduit `orm/orms` en connecteurs du générateur", () => {
+      expect(
+        connectorsFromOrmSummaries([
+          ...summaries,
+          { name: "maria", connection: { driver: "MariaDB" } },
+          // Moteur non publié, ou que le générateur n'écrit pas : écarté.
+          { name: "sans-connexion" },
+          { name: "redis", connection: { driver: "redis" } },
+          null,
+        ]),
+      ).to.deep.equal({
+        connectors: [
+          { name: "default", dialect: "sqlite" },
+          { name: "analytics", dialect: "sqlite" },
+          { name: "nodefony", dialect: "mongodb" },
+          { name: "maria", dialect: "mysql" },
+        ],
+        preferred: "nodefony",
+      });
+      expect(connectorsFromOrmSummaries(null)).to.equal(null);
+      expect(connectorsFromOrmSummaries({ name: "x" })).to.equal(null);
+    });
+
+    it("propose TOUS les connecteurs chargés, dont celui que la configuration ne dit pas", () => {
+      const dest = app("liveapp", "sqlite");
+      const live = connectorsFromOrmSummaries(summaries);
+      const { context, specs } = composeCreateSpec(dest, live);
+      expect(context?.connectors.map((c) => c.name)).to.deep.equal([
+        "default",
+        "analytics",
+        "nodefony",
+      ]);
+      const question = specs
+        .find((s) => s.type === "entity")
+        ?.questions.find((q) => q.key === "connector");
+      expect(question?.choices?.map((c) => c.value)).to.deep.equal([
+        "default",
+        "analytics",
+        "nodefony",
+      ]);
+      // Présélectionné : celui qui porte les stores, pas celui qui s'appelle `default`.
+      expect(question?.default).to.equal("nodefony");
+    });
+
+    it("aucun ORM chargé : aucun connecteur — pas un `default` relu dans la configuration", () => {
+      const dest = app("noormapp", "sqlite");
+      expect(
+        composeCreateSpec(dest, { connectors: [] }).context?.connectors,
+      ).to.deep.equal([]);
+    });
   });
 });

@@ -7,8 +7,13 @@ import {
   controller,
   IsGranted,
 } from "@nodefony/framework";
+import type { IAdminBroker } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
-import { composeCreateSpec } from "../src/createSpec";
+import { fetchAdminEndpoint } from "../src/adminFetch";
+import {
+  composeCreateSpec,
+  connectorsFromOrmSummaries,
+} from "../src/createSpec";
 import type ScaffoldService from "../service/ScaffoldService";
 import { SCAFFOLD_STEPS } from "../service/ScaffoldService";
 
@@ -65,9 +70,16 @@ class StudioCreateController extends Controller {
     // La spec est un TABLEAU de types ; on ne garde que ceux que Studio expose
     // (cf `STUDIO_TYPES` — `app` en fait partie, avec sa destination recomposée
     // côté serveur).
-    // La MÊME composition que le terminal (source : la configuration) — les deux
-    // fronts rendent la même réponse à la même question.
-    const { specs, caps, context } = composeCreateSpec(svc.projectRoot);
+    // Les connecteurs viennent du registre ORM EN MÉMOIRE — la source de la page
+    // ORM. Aucun ORM chargé ⇒ aucun connecteur : on ne relit pas la configuration.
+    const live = connectorsFromOrmSummaries(
+      await fetchAdminEndpoint(
+        this.get<IAdminBroker>("adminBroker"),
+        "orm",
+        "orms",
+      ),
+    ) ?? { connectors: [] };
+    const { specs, caps, context } = composeCreateSpec(svc.projectRoot, live);
     return this.renderJson({
       enabled: true,
       steps: SCAFFOLD_STEPS,
@@ -84,8 +96,8 @@ class StudioCreateController extends Controller {
       // checkout du framework SUR LE DISQUE du serveur) : les figer côté client
       // supprimerait l'option en silence.
       caps,
-      // Connecteurs réels, entités présentes, et ce que devient chaque type de
-      // champ sur chaque moteur — même source que le terminal (des noms, aucun secret).
+      // Connecteurs réels (registre en mémoire), entités présentes, et ce que
+      // devient chaque type de champ sur chaque moteur (des noms, aucun secret).
       context,
     });
   }

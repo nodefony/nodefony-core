@@ -229,6 +229,32 @@ export function engineFor(
 }
 
 /**
+ * Les capacités vues par UNE entité : celles de l'application, corrigées par le
+ * moteur du connecteur choisi.
+ *
+ * `hasSqlOrm` décrit l'application entière ; or une application peut porter
+ * deux ORM, et l'entité naît sur le connecteur CHOISI. Sur un connecteur
+ * MongoDB, la clé primaire, la table et la casse des colonnes n'ont rien à
+ * choisir — les offrir faisait remplir des réglages que le générateur refuse
+ * ou ignore. Inversement, un connecteur SQL rend ces questions à nouveau utiles.
+ *
+ * @param caps - capacités déclarées par le serveur.
+ * @param context - contexte du projet (connecteurs et leurs moteurs).
+ * @param connector - réponse courante à la question du connecteur.
+ * @returns les capacités à appliquer au formulaire de l'entité.
+ */
+export function capsForConnector(
+  caps: IScaffoldCaps,
+  context: IScaffoldProjectContext | null | undefined,
+  connector: unknown,
+): IScaffoldCaps {
+  const engine = engineFor(context, connector);
+  if (engine === null) return caps;
+  const sql = engine !== "mongodb";
+  return caps.hasSqlOrm === sql ? caps : { ...caps, hasSqlOrm: sql };
+}
+
+/**
  * La syntaxe d'un type telle qu'on la TAPE — la grammaire du générateur, pas son rendu.
  * Les types à taille montrent leur paramètre ; une relation montre qu'elle a un nom.
  */

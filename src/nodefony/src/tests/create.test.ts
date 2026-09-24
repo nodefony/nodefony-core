@@ -42,6 +42,7 @@ import {
   runScaffold,
   type TScaffoldAnswers,
   getScaffoldContext,
+  hydrateQuestion,
   findModuleClassAnchor,
   filterProbe,
   malformedProbe,
@@ -7370,6 +7371,95 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       assert.include(src, "pgTable");
       assert.include(src, 'jsonb("meta")');
       assert.include(src, 'connector: "analytics"');
+    });
+
+    // Vu sur l'app de CE dépôt bootée sur MongoDB : la page ORM de Studio
+    // montrait `default`, un secondaire ET `nodefony` ; « Créer » ne proposait
+    // que les deux premiers — impossible d'y créer une entité document alors
+    // que le générateur la sait écrire (`--connector nodefony`).
+    describe("application aux DEUX ORM", () => {
+      /** App drizzle à laquelle on ajoute mongoose, et une infra déclarée. */
+      const hybrid = (name: string, databaseUrl: string): string => {
+        const dest = app(name);
+        const pkgPath = path.join(dest, "package.json");
+        const pkg = JSON.parse(readFileSync(pkgPath, "utf8")) as {
+          dependencies: Record<string, string>;
+        };
+        pkg.dependencies["@nodefony/mongoose"] = "*";
+        writeFileSync(pkgPath, JSON.stringify(pkg, null, 2));
+        writeFileSync(
+          path.join(dest, ".env.local"),
+          `NF_DATABASE_URL=${databaseUrl}\n`,
+        );
+        return dest;
+      };
+      // L'alias de plateforme est lu aussi : un shell qui le porte
+      // déciderait à la place du décor.
+      let savedAlias: string | undefined;
+      beforeEach(() => {
+        savedAlias = process.env.DATABASE_URL;
+        delete process.env.DATABASE_URL;
+      });
+      afterEach(() => {
+        if (savedAlias === undefined) delete process.env.DATABASE_URL;
+        else process.env.DATABASE_URL = savedAlias;
+      });
+
+      it("infra MongoDB : le connecteur de Mongoose s'ajoute à ceux de Drizzle", () => {
+        const dest = hybrid(
+          "ehyb-mongo",
+          "mongodb://127.0.0.1:27017/ehyb?directConnection=true",
+        );
+        const connectors = getScaffoldContext(dest)?.connectors ?? [];
+        assert.deepEqual(
+          connectors.map((c) => [c.name, c.dialect]),
+          [
+            ["default", "sqlite"],
+            ["nodefony", "mongodb"],
+          ],
+        );
+        // Et la question du formulaire le propose, sans changer le défaut.
+        const question = hydrateQuestion(
+          getScaffoldSpec("entity")[0]!.questions.find(
+            (q) => q.key === "connector",
+          )!,
+          getScaffoldContext(dest)!,
+        );
+        assert.deepEqual(
+          question.choices?.map((c) => c.value),
+          ["default", "nodefony"],
+        );
+        assert.equal(question.default, "default");
+      });
+
+      it("infra SQL : Mongoose n'est pas chargé, son connecteur n'est pas proposé", () => {
+        const dest = hybrid(
+          "ehyb-sql",
+          "postgres://demo:demo@127.0.0.1:5432/demo",
+        );
+        assert.deepEqual(
+          getScaffoldContext(dest)?.connectors.map((c) => c.name),
+          ["default"],
+        );
+      });
+
+      it("le connecteur proposé produit bien une entité document", () => {
+        const dest = hybrid(
+          "ehyb-gen",
+          "mongodb://127.0.0.1:27017/ehyb?directConnection=true",
+        );
+        entity(dest, {
+          name: "Note",
+          fields: "title:string",
+          connector: "nodefony",
+        });
+        const src = readFileSync(
+          path.join(dest, "nodefony", "entity", "Note.ts"),
+          "utf8",
+        );
+        assert.notInclude(src, "sqliteTable");
+        assert.include(src, 'connector: "nodefony"');
+      });
     });
 
     it("refuse une entité sans champ, et n'écrit rien", () => {

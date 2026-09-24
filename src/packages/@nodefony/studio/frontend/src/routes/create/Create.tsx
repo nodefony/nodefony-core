@@ -76,6 +76,7 @@ import {
   validateAnswers,
   type CreateSpec,
   type ICreateSpecOk,
+  capsForConnector,
   engineFor,
   referenceableEntities,
   type IScaffoldCaps,
@@ -210,7 +211,12 @@ export function Create() {
   // Les capacités viennent du SERVEUR : lui seul sait ce qu'il y a sur son disque (un
   // checkout du framework est-il résolvable ?). Les deviner côté navigateur revenait à
   // supprimer une question en silence. Absentes (vieux serveur) → tout à « non ».
-  const caps: IScaffoldCaps = spec?.caps ?? { hasCheckout: false };
+  const appCaps: IScaffoldCaps = spec?.caps ?? { hasCheckout: false };
+  // Une entité suit le moteur du connecteur CHOISI, pas celui de l'application.
+  const caps: IScaffoldCaps =
+    typeSpec?.type === "entity"
+      ? capsForConnector(appCaps, spec?.context, answers.connector)
+      : appCaps;
   const destination = describeDestination(
     roots.find((r) => r.id === rootId) ?? null,
     subPath,
@@ -227,7 +233,7 @@ export function Create() {
     const s = spec?.specs.find((x) => x.type === next);
     if (!s) return;
     setType(next);
-    setAnswers(defaultAnswers(s, caps));
+    setAnswers(defaultAnswers(s, appCaps));
     setSteps(defaultSteps(next, spec?.steps ?? []));
     setErrors({});
     // Repartir de la première racine (et de son sommet) : garder le dossier d'un choix
