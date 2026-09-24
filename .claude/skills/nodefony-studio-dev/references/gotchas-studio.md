@@ -418,3 +418,13 @@ libellé la COCHE (cf skill `nodefony-browser`), donc `voir` pour observer, sél
   Mantine le classe « foncé » et garde le blanc (3,35:1). Les aplats actifs (`NavLink`, `Tabs`
   `pills`) descendent à `brand.7` ; les liens en sombre montent à `brand.3`. Mesurer les DEUX thèmes
   — en sonde, basculer par `clic:[aria-label='Toggle theme']`.
+
+## Un objet, une page — ailleurs, un LIEN
+
+Le détail d'un connecteur ORM vit sur `/nodefony/orm-connector?name=<nom>` (analyse, données,
+stores, requêtes, connexion, migrations). La vue d'ensemble, l'onglet « Modèle de données » et la
+vue par process (`/nodefony/orm/<pid>`) en montrent un RÉSUMÉ et renvoient vers elle par le nom du
+connecteur — ils ne recopient pas son détail. Deux écrans qui affichent la même chose divergent le
+jour où l'un seul est corrigé. Les verdicts se calculent dans `utils/ormConnectorInsights.ts`
+(pur, testé) ; santé et flux sont des mesures PAR PROCESS : l'écran nomme toujours le pid qui les a
+produites.

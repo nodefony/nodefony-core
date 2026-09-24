@@ -272,3 +272,53 @@ export type MigrationPlanReply = MigrationPlan | MigrationFailure;
 
 /** Le compte rendu, ou l'empêchement. */
 export type MigrationApplyReply = MigrationApplied | MigrationFailure;
+
+/**
+ * Une brique du registre des stores (`GET /nodefony/kernel/api/stores`) —
+ * sous-ensemble consommé par les écrans ORM.
+ */
+export interface StoreBrick {
+  brick: string;
+  /** `durable` (données applicatives) ou `ephemeral` (cache, verrous…). */
+  nature?: string;
+  configured?: string;
+  /** Moteur qui porte la brique (`drizzle`, `mongoose`, `memory`, `redis`…). */
+  resolved: string;
+  available?: string[];
+  reason?: string;
+  configPath?: string;
+  /** Où vivent les données — la cible du connecteur qui les porte. */
+  location?: string;
+  provenance?: string;
+}
+
+/** Une requête lente, telle que le flux la retient (SQL compris). */
+export interface SlowQuery {
+  ts: number;
+  durationMs: number;
+  connector?: string;
+  sql?: string;
+}
+
+/** Flux COMPLET d'un connecteur (`GET /nodefony/orm/api/flow`). */
+export interface FlowDetail {
+  connector: string;
+  vendor?: string;
+  total: number;
+  avgMs: number | null;
+  ewmaMs: number | null;
+  lastMs: number | null;
+  maxMs: number | null;
+  slowTotal: number;
+  slow: SlowQuery[];
+}
+
+/** Réponse de `GET /nodefony/orm/api/flow`. */
+export interface FlowSnapshot {
+  enabled: boolean;
+  ts?: number;
+  instanceId?: string;
+  /** Seuil (ms) au-delà duquel une requête est retenue comme lente. */
+  slowMs?: number;
+  connectors: FlowDetail[];
+}

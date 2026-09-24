@@ -1,3 +1,4 @@
+import { useSearchParams } from "react-router";
 import { observer } from "mobx-react-lite";
 import { useCallback, useMemo, useState } from "react";
 import {
@@ -327,7 +328,11 @@ function Divergence({ status }: { status: MigrationStatus }) {
 export const Migrations = observer(() => {
   const store = useStore();
   const notifications = useNotifications();
-  const [connector, setConnector] = useState<string | null>(null);
+  // `?connector=` : la page d'un connecteur renvoie ici sur SA base.
+  const [searchParams] = useSearchParams();
+  const [connector, setConnector] = useState<string | null>(() =>
+    searchParams.get("connector"),
+  );
   const [plan, setPlan] = useState<MigrationPlan | null>(null);
   const [planLoading, setPlanLoading] = useState(false);
   const [application, setApplication] = useState(false);

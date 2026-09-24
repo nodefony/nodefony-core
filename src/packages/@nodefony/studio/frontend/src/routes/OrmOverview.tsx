@@ -51,6 +51,7 @@ import {
   FlashValue,
 } from "../components/ui";
 import { DbLogo, hasDbLogo } from "../components/DbLogo";
+import { attributeBricks } from "../utils/ormConnectorInsights";
 import { buildHealth, type HealthResult } from "../utils/health";
 import {
   normalize,
@@ -81,6 +82,7 @@ import {
   type OrmGraph,
   type RankItem,
   type OrmRate,
+  type StoreBrick,
 } from "../types/orm";
 
 /**
@@ -550,48 +552,16 @@ export const OrmOverview = observer(
         () =>
           store.api.getAbsolute<{
             infra?: { database?: { family?: string } | null };
-            stores?: Array<{
-              brick: string;
-              resolved: string;
-              location?: string;
-            }>;
+            stores?: StoreBrick[];
           }>("/nodefony/kernel/api/stores"),
         [store],
       ),
     );
-    /**
-     * Briques portées par chaque CONNECTEUR (clé : son nom).
-     *
-     * 🔴 Jamais par moteur : deux connecteurs sqlite (le `default` sur fichier
-     * et un connecteur dédié `:memory:`) recevaient alors TOUS DEUX les huit
-     * briques, et le dédié s'affichait « porte les stores » — la page désignait
-     * comme base applicative celle qui s'efface au redémarrage. La preuve
-     * d'appartenance est la `location` que le registre publie pour chaque
-     * brique, comparée à la cible du connecteur. Un moteur qui n'a qu'UN
-     * connecteur lui rend ses briques sans autre preuve ; entre plusieurs, une
-     * brique sans correspondance n'est attribuée à personne — ne rien dire
-     * vaut mieux qu'annoncer faux.
-     */
-    const bricksByConnector = useMemo(() => {
-      const by = new Map<string, string[]>();
-      const connectors = orms.data ?? [];
-      for (const s of storesRegistry.data?.stores ?? []) {
-        const candidates = connectors.filter((o) => o.vendor === s.resolved);
-        const owner =
-          candidates.length === 1
-            ? candidates[0]
-            : candidates.find(
-                (o) =>
-                  s.location !== undefined &&
-                  o.connection?.target === s.location,
-              );
-        if (owner === undefined) continue;
-        const list = by.get(owner.name) ?? [];
-        list.push(s.brick);
-        by.set(owner.name, list);
-      }
-      return by;
-    }, [storesRegistry.data, orms.data]);
+    /** Briques portées par chaque CONNECTEUR — règle unique : `attributeBricks`. */
+    const bricksByConnector = useMemo(
+      () => attributeBricks(storesRegistry.data?.stores ?? [], orms.data ?? []),
+      [storesRegistry.data, orms.data],
+    );
     // Volumes réels — endpoint séparé (1 COUNT(*) par table) : peut être lent sur
     // un gros schéma → ne bloque pas le 1er rendu.
     const counts = useResource(
@@ -1261,7 +1231,9 @@ export const OrmOverview = observer(
                       l'affichage. */}
                   <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
                     {list.map((o) => {
-                      const bricks = bricksByConnector.get(o.name) ?? [];
+                      const bricks = (bricksByConnector.get(o.name) ?? []).map(
+                        (b) => b.brick,
+                      );
                       const role = connectorRole(o, bricks.length);
                       const driver = o.connection?.driver ?? o.vendor ?? "";
                       const target = o.connection?.target ?? "";
@@ -1287,14 +1259,16 @@ export const OrmOverview = observer(
                             ) : (
                               <IconDatabase size={17} />
                             )}
-                            <Text
+                            <Anchor
+                              component={Link}
+                              to={`/nodefony/orm-connector?name=${encodeURIComponent(o.name)}`}
                               fw={600}
                               size="sm"
                               style={{ flex: 1 }}
                               truncate
                             >
                               {o.name}
-                            </Text>
+                            </Anchor>
                             <Badge
                               size="xs"
                               variant="light"

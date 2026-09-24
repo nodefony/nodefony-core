@@ -285,9 +285,14 @@ export function ConnectorCard({
           </ThemeIcon>
           <div style={{ minWidth: 0 }}>
             <Group gap={6} wrap="nowrap">
-              <Text fw={700} truncate>
+              <Anchor
+                component={Link}
+                to={`/nodefony/orm-connector?name=${encodeURIComponent(orm.name)}`}
+                fw={700}
+                truncate
+              >
                 {orm.name}
-              </Text>
+              </Anchor>
               <Tooltip label={role.hint} multiline w={280} withArrow>
                 <Badge
                   size="xs"

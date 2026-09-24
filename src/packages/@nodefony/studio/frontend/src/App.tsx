@@ -82,6 +82,9 @@ const Migrations = lazy(() =>
 const OrmOverview = lazy(() =>
   import("./routes/OrmOverview").then((m) => ({ default: m.OrmOverview })),
 );
+const OrmConnector = lazy(() =>
+  import("./routes/OrmConnector").then((m) => ({ default: m.OrmConnector })),
+);
 const OrmWorker = lazy(() =>
   import("./routes/OrmWorker").then((m) => ({ default: m.OrmWorker })),
 );
@@ -227,6 +230,7 @@ const router = createBrowserRouter([
               { path: "databases", element: <Database /> },
               { path: "stores", element: <Stores /> },
               { path: "orm-entity", element: <OrmEntity /> },
+              { path: "orm-connector", element: <OrmConnector /> },
               { path: "migrate", element: <Migrations /> },
               { path: "services", element: <Services /> },
               { path: "modules", element: <Modules /> },
