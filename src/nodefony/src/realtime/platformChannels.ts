@@ -48,7 +48,13 @@ export const PLATFORM_CHANNELS = {
   syslog: "nodefony:syslog",
   /** Journal d'audit sécurité — plancher super-admin, un cran au-dessus des autres. */
   audit: "nodefony:audit",
-  /** Métriques agrégées du tableau de bord (vue d'ensemble). */
+  /**
+   * Canal qu'AUCUN fournisseur ne sert : s'y abonner ne lève rien et ne reçoit jamais rien.
+   *
+   * @deprecated Utiliser {@link PLATFORM_CHANNELS.supervision} (`nodefony:supervision`),
+   *   qui porte les métriques des process. Valeur conservée à l'identique pendant la série 10 ;
+   *   retrait en 11.0.0.
+   */
   dashboard: "nodefony:dashboard",
   /** Supervision des process du cluster ; forage par process : `…@<pid>`. */
   supervision: "nodefony:supervision",
