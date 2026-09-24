@@ -60,7 +60,7 @@ pas un détail d'implémentation, c'est le cœur du modèle : une session ne tra
 identifiant, jamais l'utilisateur lui-même. À chaque requête, `SessionAuthenticator.authenticate()`
 (`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts:96`) redemande
 l'identité vivante — `resolveSessionIdentity`
-(`src/packages/@nodefony/security/nodefony/src/authenticator/SessionAuthenticator.ts:70`) — pour que
+(`src/packages/@nodefony/security/nodefony/src/sessionIdentity.ts:27`) — pour que
 la désactivation d'un compte, un changement de rôle ou un verrouillage prennent effet
 **immédiatement**, sans attendre l'expiration d'un jeton.
 

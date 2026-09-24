@@ -661,7 +661,7 @@ est ignoré, pas propagé (`RedisBackplane.ts:212`).
 ### Le démarrage, et ce qui se passe quand ça rate
 
 Le module valide sa configuration par Zod à l'enregistrement
-(`src/packages/@nodefony/realtime/index.ts:181`), puis câble tout au démarrage du noyau
+(`src/packages/@nodefony/realtime/index.ts:219`), puis câble tout au démarrage du noyau
 (`src/packages/@nodefony/realtime/index.ts:213`) — après l'initialisation des services (le
 service Redis a donc ouvert ses connexions) et avant le trafic.
 

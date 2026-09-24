@@ -51,7 +51,7 @@ flowchart LR
     R["abonnements ref-comptés<br/>canal → nb de consommateurs"]
   end
   CL --> P["provide/inject<br/>markRaw — jamais réactif"]
-  P --> H1["useNodefonyState()<br/>Ref&lt;RealtimeState&gt;"]
+  P --> H1["useNodefonyState()<br/>Readonly&lt;Ref&lt;RealtimeState&gt;&gt;"]
   P --> H2["useNodefonyChannelData()<br/>Ref&lt;T | null&gt;"]
   P --> H3["useNodefonyChannel()<br/>un rappel, rien à afficher"]
   H1 -. "fin de portée" .-> R
@@ -176,7 +176,7 @@ déballe). La socket, elle, n'est pas réactive : c'est un objet, pas un état.
 | -------------------------------------- | ------------------------------- | ------------------------------------------------------------ |
 | `nodefonyVue`                          | —                               | le plugin : fournit la socket et lance la connexion          |
 | `useNodefony()`                        | `RealtimeClient`                | l'échappatoire : `emit`, `request`, `mutate`, `ping`         |
-| `useNodefonyState()`                   | `Ref<RealtimeState>`            | afficher l'état, griser un bouton pendant une reconnexion    |
+| `useNodefonyState()`                   | `Readonly<Ref<RealtimeState>>`  | afficher l'état, griser un bouton pendant une reconnexion    |
 | `useNodefonyIdentity()`                | `Ref<RealtimeIdentity \| null>` | savoir qui est connecté — sans appeler `/auth/me`            |
 | `useNodefonyChannel(canal, onMessage)` | —                               | réagir à chaque message (journal, son, animation)            |
 | `useNodefonyChannelData<T>(canal)`     | `Ref<T \| null>`                | la dernière valeur — le cas le plus courant                  |

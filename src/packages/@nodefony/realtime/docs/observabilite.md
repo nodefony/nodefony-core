@@ -406,8 +406,9 @@ refusée.
 | `nodefony:syslog`      | `createSyslogBridge()` (`providers.ts:145`)                        | **événementiel**   | — (coalescé)  |
 
 > [!WARNING]
-> **`nodefony:dashboard` n'existe pas.** Le canal de supervision s'appelle `nodefony:supervision` ; ce
-> nom n'apparaît plus que comme donnée de test. S'abonner à un canal inconnu ne lève **aucune
+> **`nodefony:dashboard` n'est servi par aucun fournisseur.** Le canal de supervision s'appelle
+> `nodefony:supervision`. Le nom survit pourtant comme constante exportée
+> (`PLATFORM_CHANNELS.dashboard`, `platformChannels.ts:52`) — c'est ce qui le rend piégeux. S'abonner à un canal inconnu ne lève **aucune
 > erreur** — le provider rend `null` et rien n'arrive jamais. C'est le piège numéro un de la page.
 
 `nodefony:syslog` est le seul de la liste à ne pas être cadencé : il **relaie** au lieu de sonder. Comme

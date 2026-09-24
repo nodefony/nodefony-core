@@ -407,11 +407,10 @@ restent lisibles via `this.options` — c'est le canal de configuration d'un ser
 | _(toute autre clé)_  | libre                   | —                  | config propre au service, lisible dans `this.options`                   |
 
 > [!WARNING]
-> **`events.nbListeners` n'a pas de défaut effectif à 20.** La constante `defaultOptions`
-> (`Service.ts:17`) annonce `20`, mais elle n'est jamais appliquée : la propagation lit le paramètre
-> **brut** du constructeur (`Service.ts:114` et `Service.ts:119`), pas `this.options` fusionné. Sans
-> valeur explicite, la limite reste celle de Node — **10**. Passe-la si un bus partagé dépasse la
-> dizaine d'abonnés.
+> **`events` remplace le défaut EN ENTIER, il ne s'y fusionne pas.** Sans `events`, le défaut de
+> `defaultOptions` s'applique (`nbListeners: 20`, `Service.ts:169`). Mais passer `events: { captureRejections: true }`
+> sans `nbListeners` fait retomber la limite à celle de Node — **10** : l'objet fourni remplace tout
+> le défaut. Redonne `nbListeners` dès que tu passes `events`.
 
 ### La convention `onXxx` — et son piège
 

@@ -189,8 +189,8 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:532`). La
-colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
+Vingt-trois commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:532`),
+plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
 | Commande | Alias | Ce qu'elle fait | Arrêt | Classe |
@@ -212,6 +212,13 @@ colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standal
 | `card` | `devkit:card` | **Carte de visite** de l'app : identité, modules installés, où aller, quoi lancer — `--json`, `--cwd` (**0 boot**) | `0 boot` | `CardCommand.ts` |
 | `symbols` | — | Signature et TSDoc d'un symbole du framework, depuis le graphe publié — `--module`, `--json` (**0 boot**) | `0 boot` | `SymbolsCommand.ts` |
 | `ai:sync` | — | Pose dans `.agents/skills/` les **pointeurs** vers les skills livrés par les paquets installés — `--dry-run`, `--json`, `--cwd` (**0 boot**) | `0 boot` | `cli/aiSync.ts` |
+| `ai:mcp` | — | Déclare le serveur MCP de l'app à ton agent (**0 boot**) | `0 boot` | `AiMcpCommand.ts` |
+| `see` | — | Ouvre une page dans un navigateur piloté et la **mesure** (**0 boot**) | `0 boot` | `SeeCommand.ts` |
+| `image:check` | — | Refuse une image de conteneur qui embarque un secret (**0 boot**) | `0 boot` | `ImageCommand.ts` |
+| `git:hooks` | — | Pose les hooks git : contrôles au commit et au push (**0 boot**) | `0 boot` | `GitHooksCommand.ts` |
+| `licenses` | — | Les licences des dépendances redistribuées | `onRegister` | `LicensesCommand.ts` |
+| `scripts` | — | Ce que font les scripts npm du projet (descriptions déclarées dans `nodefony.scripts`) | `onRegister` | `ScriptsCommand.ts` |
+| `menu` | — | Menu interactif : les commandes utiles ici | `onStart` | `MenuCommand.ts` |
 
 `status` et `stop` sont détournées vers leur exécution réelle **avant** tout boot
 (`CliKernel.ts:185`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
