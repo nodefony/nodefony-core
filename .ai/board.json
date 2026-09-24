@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T16:59:59.205Z",
+  "generatedAt": "2026-09-24T18:13:18.080Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,7 +32,7 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 151,
+      "closed": 152,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
       "open": 7,
@@ -2122,8 +2122,8 @@
       "number": 471,
       "title": "feat(cli): demander les champs d'une entité un par un dans le terminal",
       "url": "https://github.com/nodefony/nodefony-core/issues/471",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -2421,6 +2421,20 @@
       "labels": [
         "irrattrapable"
       ]
+    },
+    {
+      "number": 479,
+      "title": "ci: empêcher un process détaché de figer les jobs Windows après leur succès",
+      "url": "https://github.com/nodefony/nodefony-core/issues/479",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
+      "ordre": 4.9,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 53,

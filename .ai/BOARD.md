@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-24 16:59** (UTC).
+> Empreinte prise le **2026-09-24 18:13** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 96% | 151 | 7 | 2026-09-24 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 96% | 152 | 7 | 2026-09-24 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 38% | 26 | 43 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
@@ -31,9 +31,9 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#471 — feat(cli): demander les champs d'une entité un par un dans le terminal**
+**#467 — feat(mongoose): refuser la suppression d'un parent encore référencé**
 
-Ordre 4.5 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise —
+Ordre 4.6 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise —
 
 > Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 7 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
@@ -99,9 +99,9 @@ Ordre 4.5 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise —
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.5 | P2 — décision | 1 | — | #471 | feat(cli): demander les champs d'une entité un par un dans le terminal |
 | 4.6 | P2 — décision | 1 | — | #467 | feat(mongoose): refuser la suppression d'un parent encore référencé |
 | 4.7 | P2 — décision | 2 | — | #476 | feat(orm): donner ses propres migrations à un connecteur secondaire |
+| 4.9 | P1 — figé à la création | 0.5 | — | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
 | 57 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
 | 58 | P2 — décision | 1 | 2026-09-24 → 09-24 | #444 | test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma |
 | 158 | P2 — décision | 1 | 2026-09-24 → 09-24 | #238 | test(orm): prouver la parite de contrat entre Mongoose et Drizzle |

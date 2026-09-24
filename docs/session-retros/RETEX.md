@@ -200,6 +200,9 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🧵 Trois choses ne suivent PAS d'un process à l'autre — enchaîner se teste
 
+- [1× — 09-24h] `cd` RELATIF dans une commande Bash refusé DEUX fois par le crochet de cwd — et
+  la commande entière n'a pas tourné (patch compris) : relire l'état avant de conclure qu'un
+  geste a eu lieu. Toujours `cd /chemin/absolu && …`.
 - [1× — 09-24] 🗂️ **`git commit -- <chemins>` échoue ici sur « invalid object … package-lock.json ».**
   Cette forme fait travailler git ET les crochets (lint-staged, symboles) sur un index TEMPORAIRE,
   où une entrée `package-lock.json` pointe un objet jamais écrit — reproduit deux fois, l'index
@@ -269,6 +272,13 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-24h] « Prisma fait pareil » affirmé DE MÉMOIRE — le user a dû demander de regarder
+  mieux. Lue, sa doc a révélé deux écarts réels de la garde (auto-référence bloquée, index de
+  référence absent → parcours complet). Une comparaison à un voisin est une affirmation : elle se
+  vérifie dans SA doc avant d'être dite, et c'est elle qui trouve les cas limites.
+- [1× — 09-24h] Passer une référence du banc en FACULTATIVE a fait tomber le lint du code généré :
+  `refs` mort quand toutes les références d'une entité sont facultatives, en SQL comme en MongoDB,
+  depuis toujours. Le banc n'exerçait que des références obligatoires.
 - [1× — 09-24g] Les preuves de jetons (RFC 8414 / 8707) tournaient en développement et se
   SAUTAIENT en production depuis toujours (pas de `NF_JWT_ISSUER`) — « SUITE SAUTÉE » écrit dans
   chaque journal vert, lu par personne. Corrigé en les EXIGEANT dans les deux modes
