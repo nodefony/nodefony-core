@@ -277,6 +277,17 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-24k] #238 : chaque store passait SES tests ; rejoué sur la copie COMMUNE, le banc a
+  trouvé 17 défauts (Redis : seuil de révocation qui recule ; Mongo : `$ne` qui attrape l'absent ;
+  mémoire : aucune copie). Un test écrit pour un seul backend éprouve ce que ce backend fait, pas
+  le contrat — le brancher sur la copie commune AVANT d'écrire les siens.
+- [1× — 09-24k] La doc Mongoose disait 5/8 briques quand `persistence.md` disait 8/8 — jumeaux
+  divergés depuis #30 (cf [[feedback_twin_alignment_unproven]]). Et `anchor-check` jugeait « OK »
+  des ancres décalées de 78 lignes : un gate trop tolérant certifie ce qu'il ne voit pas.
+- [1× — 09-24k] Audit de doc délégué à `haiku` : sur pages longues, 4 paquets sur 16 n'ont vérifié
+  que des numéros de ligne (exclus par la consigne) et rendu « 0 faux ». Un « 0 faux » se lit avec
+  le NOMBRE d'affirmations vérifiées — 14 sur 7 pages n'est pas un audit.
+
 - [1× — 09-24j] #444 : le banc éprouvait des références vers une AUTRE entité ; l'auto-référence
   (`parent:ref:Category?`) générait des tests qui importaient l'entité deux fois (TS2300). Trouvé
   en générant le schéma du rapport d'usage (incidents), pas en relisant le gabarit.
