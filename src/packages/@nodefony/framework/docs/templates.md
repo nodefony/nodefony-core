@@ -222,11 +222,11 @@ sequenceDiagram
 | 2   | Ouverture de la phase mesurée `render`       | `phaseStart("render")` (`Controller.ts:377`)                  |
 | 3   | Injection des aides frontend dans les locals | `withFrontendLocals()` (`Controller.ts:448`)                  |
 | 4   | Rendu de la source par le moteur             | `Eta.render()` → `renderStringAsync` (`Eta.ts:51`)            |
-| 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:331`) |
+| 5   | `Content-Type: text/html` puis envoi         | `setContextHtml()` + `renderResponse()` (`Controller.ts:392`) |
 
 Le point notable de l'étape 3 : `withFrontendLocals()` ajoute automatiquement `frontendTags`,
 `frontendDocument` et `asset` aux locals **si** le service `frontend` est présent — et **tes** valeurs
-priment (spread `param` en dernier, `Controller.ts:345`). Si le module frontend n'est pas chargé, la
+priment (spread `param` en dernier, `Controller.ts:412`). Si le module frontend n'est pas chargé, la
 fonction retourne les locals inchangés : zéro couplage dur.
 
 ## 🔐 Sécurité — échappement HTML et XSS
@@ -270,7 +270,7 @@ scaffold). Les deux sont **asynchrones** (I/O non bloquante).
 | ----------------------------------- | ------------------------------------------------------- | ------------------- |
 | `renderView(path, locals, status?)` | Rendre une vue `.eta` (lit le fichier + aides frontend) | `Controller.ts:308` |
 | `render(data, encoding?, status?)`  | Envoyer un corps quelconque (ex. HTML déjà prêt)        | `Controller.ts:377` |
-| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:392` |
+| `renderJson(obj, status?)`          | Réponse JSON explicite (pas un template)                | `Controller.ts:481` |
 
 Les signatures exactes vivent dans le graphe symbolique `.ai/symbols.json` — jamais recopiées ici.
 
@@ -285,7 +285,7 @@ Le moteur est configuré **en dur**, pas via un bloc Zod exposé à `use()`. Tro
 | `cache`      | `true` en prod, `false` sinon | compile-once des templates en production ; recompile à chaud en dev | `Template.ts:20` |
 
 Le cache n'est **pas** un booléen figé : `Template` le dérive de l'environnement du kernel
-(`environment === "prod"`, `Template.ts:20`) puis `Eta` l'applique au moteur (`Eta.ts:41`). En
+(`environment === "prod"`, `Template.ts:20`) puis `Eta` l'applique au moteur (`Eta.ts:34`). En
 développement, un template modifié est donc pris en compte sans redémarrer.
 
 ## 🔌 HTTP et WebSocket — le même rendu
@@ -309,7 +309,7 @@ c'est le différenciateur Nodefony : une classe, deux transports, le même moteu
 | Domaine            | Norme / référence       | Comment le code s'y conforme                                          |
 | ------------------ | ----------------------- | --------------------------------------------------------------------- |
 | Neutralisation XSS | OWASP — Output Encoding | échappement HTML par défaut (`autoEscape`, `Eta.ts:16`)               |
-| Type de média HTML | `text/html`             | posé par `setContextHtml()` dans `renderView()` (`Controller.ts:331`) |
+| Type de média HTML | `text/html`             | posé par `setContextHtml()` dans `renderView()` (`Controller.ts:410`) |
 | I/O non bloquante  | Node.js async fs        | lecture async du fichier (`readFile`, `Eta.ts:71`)                    |
 
 ## ⚡ Performance et mémoire
@@ -323,7 +323,7 @@ template), et le framework l'isole pour ça :
 - **Cache en prod** : les templates sont compilés une fois (`cache` vrai en production,
   `Template.ts:20`) ; le coût de parsing n'est payé qu'au premier rendu.
 - **Lecture non bloquante** : le fichier est lu en async (`FileClass.readAsync()` côté `renderView`,
-  `readFile` côté `renderFile`, `Eta.ts:71`) — l'event loop n'est jamais gelé par un `readFileSync`.
+  `readFile` côté `renderFile`, `Eta.ts:66`) — l'event loop n'est jamais gelé par un `readFileSync`.
 - **Aides frontend paresseuses** : `withFrontendLocals()` (`Controller.ts:448`) ne construit les
   fonctions `frontendTags`/`asset` que si le service `frontend` répond — sinon il rend les locals tels
   quels, zéro allocation superflue.

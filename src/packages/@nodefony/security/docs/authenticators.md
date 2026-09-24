@@ -112,7 +112,7 @@ un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggabl
   s'enregistrent à l'import du module via `registerAuthenticatorFactory()`
   (`authenticatorRegistry.ts:72-125`) — donc toujours avant le boot.
 - Le sixième, `firewall-realtime`, n'est **pas dans le registre** : c'est le firewall qui le câble
-  lui-même au handshake WS des zones protégées (`Firewall.#wireRealtime()`, `firewall.ts:268`).
+  lui-même au handshake WS des zones protégées (`Firewall.#wireRealtime()`, `firewall.ts:279`).
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
 - Un nom inconnu en config = boot **fail-closed** — `#configError` posé + log CRITIC
@@ -236,7 +236,7 @@ Le seul authenticator autorisé à produire un token **non authentifié** sans d
 
 Schéma **HTTP Basic** (RFC 7617) : `Authorization: Basic base64(id:mdp)`, charset UTF-8, scheme
 case-insensitive (`UserPasswordAuthenticator.ts:11`) ; `createToken()` split au **premier** `:` —
-le mot de passe peut en contenir (`UserPasswordAuthenticator.ts:74`).
+le mot de passe peut en contenir (`UserPasswordAuthenticator.ts:68`).
 
 - **La vérification est déléguée** au `IPasswordVerifier` (le `UserService`) : hash, comparaison,
   leurre anti-timing, re-hash transparent — l'authenticator ne voit que le verdict.
@@ -287,7 +287,7 @@ prouvées en test :
 Le **message d'échec est uniforme** (`INVALID_TOKEN`, `JwtAuthenticator.ts:24`) : la cause fine
 (expiré, `aud`, signature, sujet banni) part en **audit**, jamais au client — anti-oracle. Le token
 promu porte `scopes`, `jti`, `claims` en attributs (`JwtAuthenticator.ts:162-171`). `jose` est
-importé **lazy** — dépendance lourde (`JwtAuthenticator.ts:96`).
+importé **lazy** — dépendance lourde (`JwtAuthenticator.ts:112`).
 
 Les six premiers se déclarent dans une zone (registre `authenticatorRegistry.ts:73`) ;
 `firewall-realtime` ne se déclare pas — le firewall le câble lui-même au handshake WebSocket.
@@ -335,7 +335,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
 - **Perf : il ne relit pas la base.** `authenticate()` réutilise l'identité de l'ALS
   (`FirewallRealtimeAuthenticator.ts:91`) au lieu de refaire deux lectures base par connexion —
   un coût évitable sur le différenciateur temps réel.
-- **Câblé automatiquement** par `Firewall.#wireRealtime()` (`firewall.ts:268`) pour toute zone
+- **Câblé automatiquement** par `Firewall.#wireRealtime()` (`firewall.ts:279`) pour toute zone
   protégée `realtime !== false` — une instance par zone au handshake (`firewall.ts:289`).
 - **Le mode de preuve suit le jeton du firewall**, il n'est pas deviné : absent (zone historique),
   on retombe sur le mode le plus strict, la session (`FirewallRealtimeAuthenticator.ts:101-103`).
@@ -345,7 +345,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
   `buildSessionRevalidator()` re-lit `storage.read(id)` et compare l'identifiant ; toute erreur de
   lecture invalide, fail-closed (`FirewallRealtimeAuthenticator.ts:227`). En mode jeton porteur, la
   preuve est autre : `exp`, `jti` denylisté, `invalidBefore`
-  (`FirewallRealtimeAuthenticator.ts:127`).
+  (`FirewallRealtimeAuthenticator.ts:179`).
 
 > [!NOTE]
 > **Asymétrie de révocation HTTP↔WS (assumée)** : le jeton realtime est figé au handshake (les
@@ -449,7 +449,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
   (le chemin chaud/froid vit dans le [firewall](./firewall.md)).
 - Résolutions **lazy** : le verifier `#resolveVerifier` est mémoïsé au premier login
   (`UserPasswordAuthenticator.ts:105`) ; keystore, `tokenStore` et `users` sont résolus du
-  container au premier usage ; `jose` est importé lazy (`JwtAuthenticator.ts:96`).
+  container au premier usage ; `jose` est importé lazy (`JwtAuthenticator.ts:112`).
 - `anonymous` : singleton gelé `anonymousUser`, zéro allocation d'utilisateur
   (`AnonymousToken.ts:9`).
 - `apikey` : écriture `lastUsedAt` **coalescée** — pas une écriture par requête
@@ -468,7 +468,7 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | JWT rejeté alors qu'il « semble » valide | `aud`/`iss`/`typ` non conformes, ou `alg` ≠ EdDSA (`JwtAuthenticator.ts:103-107`) | Émettre via le `TokenService` (mêmes iss/aud/typ) |
 | Clé API révoquée encore acceptée quelques secondes | Confusion avec un JWT (auto-porté) — `revokedAt` est lu à chaque requête (`ApiKeyAuthenticator.ts:110`) | Un PAT est révoqué immédiatement ; vérifier `revokedAt` |
 | Révocation WS pas immédiate | Identité figée au handshake — asymétrie assumée du `FirewallRealtimeAuthenticator` (`FirewallRealtimeAuthenticator.ts:51-55`) | Attendre la fenêtre de re-validation, ou utiliser JWT + canal révocation |
-| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:617`) | Configurer `rateLimit` pour poser le throttler |
+| Brute-force pas ralenti | `loginThrottler` absent du container — `rateLimit.enabled` off (`firewall.ts:613`) | Configurer `rateLimit` pour poser le throttler |
 
 ## 🧪 Tests & couverture
 

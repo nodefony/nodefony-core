@@ -264,8 +264,8 @@ sequenceDiagram
 
 | #   | Étape                                     | Où                                                         |
 | --- | ----------------------------------------- | ---------------------------------------------------------- |
-| 1   | Le producteur s'enregistre                | `AdminBroker.register()` (`AdminBroker.ts:45`)             |
-| 2   | Le framework monte tout                   | `AdminBroker.mountAll()` (`AdminBroker.ts:104`)            |
+| 1   | Le producteur s'enregistre                | `AdminBroker.register()` (`AdminBroker.ts:53`)             |
+| 2   | Le framework monte tout                   | `AdminBroker.mountAll()` (`AdminBroker.ts:112`)            |
 | 3   | Une route par endpoint (nom déterministe) | `Router.createRoute()` (`AdminBroker.ts:124`)              |
 | 4   | Le controller pont estampillé une fois    | `Router.setController()` idempotent (`AdminBroker.ts:146`) |
 | 5   | Dispatch : lookup de la route             | `AdminBroker.resolve()` (`AdminApiController.ts:94`)       |
@@ -275,15 +275,15 @@ sequenceDiagram
 Points de conception saillants :
 
 - **Le montage FIGE les routes.** Après `mountAll()`, tout `register()` lève
-  (`AdminBroker.ts:46`) : on ne monte pas une route à chaud (Zero surprise en prod). Le broker garde
+  (`AdminBroker.ts:53`) : on ne monte pas une route à chaud (Zero surprise en prod). Le broker garde
   la trace via son drapeau `mounted`.
-- **Le nom de route est déterministe** : `admin.<ns>.<method>.<path>` (`AdminBroker.ts:114`) — c'est
+- **Le nom de route est déterministe** : `admin.<ns>.<method>.<path>` (`AdminBroker.ts:123`) — c'est
   la clé du lookup O(1) que le pont refait à chaque requête.
 - **`Router.setController` n'est appelé qu'une fois** par process (`AdminBroker.ts:146`) : il pose
   une propriété non réinscriptible sur le prototype ; une garde `hasOwnProperty` rend l'appel
   idempotent (multi-broker en test, re-boot).
 - **Le catalogue se construit à la volée** depuis `AdminBroker.list()` + `AdminBroker.routes()`
-  (`AdminBroker.ts:100`) — jamais un état retenu.
+  (`AdminBroker.ts:108`) — jamais un état retenu.
 
 > [!IMPORTANT]
 > Convention de route **figée** : le data plane est toujours en **≥ 3 segments**
@@ -334,7 +334,7 @@ montée avec `[method, "WEBSOCKET"]`. Elle devient donc invocable par le pont WS
   expose son statut.
 
 Les **mutations** sont pontables par socket. La sécurité d'écriture repose alors sur l'**idempotence**
-(`idempotencyGate()`, `AdminApiController.ts:158`) : la clé `Idempotency-Key` est **obligatoire en
+(`idempotencyGate()`, `AdminApiController.ts:131`) : la clé `Idempotency-Key` est **obligatoire en
 WS** (une socket reconnecte et rejoue), **optionnelle en HTTP** (`required: false`,
 `AdminApiController.ts:184`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:149`) ; la
 porte est évaluée **après** le RBAC (un 403 ne consomme aucune entrée). Le helper est le **même** que
@@ -364,18 +364,18 @@ sont enregistrés au `onKernelReady` du framework :
 
 | Namespace   | Producteur                                            | Rôle                                              |
 | ----------- | ----------------------------------------------------- | ------------------------------------------------- |
-| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:468`)      | modules, process, uptime, `livez`                 |
-| `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts:40`) | dump du Router + **catalogue** + Playground (dev) |
+| `kernel`    | `createKernelAdminApi` (`KernelAdminApi.ts:582`)      | modules, process, uptime, `livez`                 |
+| `framework` | `createFrameworkAdminApi` (`FrameworkAdminApi.ts:86`) | dump du Router + **catalogue** + Playground (dev) |
 | `syslog`    | `createSyslogAdminApi` (`SyslogAdminApi.ts:95`)       | viewer de logs (dev)                              |
 
 Les modules externes s'enregistrent depuis leur propre `onKernelBoot` :
 
-| Namespace  | Module               | Enregistrement                                      |
-| ---------- | -------------------- | --------------------------------------------------- |
-| `http`     | `@nodefony/http`     | `createHttpAdminApi` (`http/index.ts:121`)          |
-| `security` | `@nodefony/security` | `registerSecurityAdminApi` (`security/index.ts:94`) |
-| `user`     | `@nodefony/user`     | `adminNamespace` (`UserAdminApi.ts:879`)            |
-| `orm`      | `@nodefony/orm-core` | `adminNamespace` (`OrmAdminApi.ts:537`)             |
+| Namespace  | Module               | Enregistrement                                       |
+| ---------- | -------------------- | ---------------------------------------------------- |
+| `http`     | `@nodefony/http`     | `createHttpAdminApi` (`http/index.ts:121`)           |
+| `security` | `@nodefony/security` | `registerSecurityAdminApi` (`security/index.ts:104`) |
+| `user`     | `@nodefony/user`     | `adminNamespace` (`UserAdminApi.ts:945`)             |
+| `orm`      | `@nodefony/orm-core` | `adminNamespace` (`OrmAdminApi.ts:709`)              |
 
 Pour le détail de chacun, se reporter à la doc de son module — le broker reste agnostique de leur
 contenu.
@@ -389,14 +389,14 @@ recopiées ici (elles s'y périmeraient).
 
 | Membre (`IAdminBroker`)  | Rôle                                                     | Ancre                |
 | ------------------------ | -------------------------------------------------------- | -------------------- |
-| `register(api)`          | Enregistre un producteur (throw si namespace pris/monté) | `AdminBroker.ts:45`  |
-| `unregister(ns)`         | Retire un producteur (et ses routes si montées)          | `AdminBroker.ts:61`  |
-| `has(ns)` / `getApi(ns)` | Interrogation du registre                                | `AdminBroker.ts:79`  |
-| `list()`                 | Producteurs enregistrés (immuable)                       | `AdminBroker.ts:87`  |
-| `resolvePath(ns, path)`  | Chemin absolu d'un endpoint sans le monter               | `AdminBroker.ts:91`  |
-| `mountAll()`             | Monte toutes les routes (idempotent)                     | `AdminBroker.ts:104` |
-| `resolve(routeName)`     | Lookup O(1) d'une route montée (utilisé par le pont)     | `AdminBroker.ts:96`  |
-| `routes()`               | Introspection des routes montées (source du catalogue)   | `AdminBroker.ts:100` |
+| `register(api)`          | Enregistre un producteur (throw si namespace pris/monté) | `AdminBroker.ts:53`  |
+| `unregister(ns)`         | Retire un producteur (et ses routes si montées)          | `AdminBroker.ts:69`  |
+| `has(ns)` / `getApi(ns)` | Interrogation du registre                                | `AdminBroker.ts:91`  |
+| `list()`                 | Producteurs enregistrés (immuable)                       | `AdminBroker.ts:95`  |
+| `resolvePath(ns, path)`  | Chemin absolu d'un endpoint sans le monter               | `AdminBroker.ts:99`  |
+| `mountAll()`             | Monte toutes les routes (idempotent)                     | `AdminBroker.ts:112` |
+| `resolve(routeName)`     | Lookup O(1) d'une route montée (utilisé par le pont)     | `AdminBroker.ts:104` |
+| `routes()`               | Introspection des routes montées (source du catalogue)   | `AdminBroker.ts:108` |
 
 ## 📡 Observabilité — Studio
 
@@ -416,7 +416,7 @@ recopiées ici (elles s'y périmeraient).
 
 | Symptôme                                         | Cause (dans le code)                                                               | Correction                                                                           |
 | ------------------------------------------------ | ---------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------ |
-| `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts:46`)                                 | Enregistrer au `onKernelBoot`, pas plus tard                                         |
+| `register()` throw « routes figées »             | Appel **après** `mountAll()` (`AdminBroker.ts:112`)                                | Enregistrer au `onKernelBoot`, pas plus tard                                         |
 | `register()` throw « namespace déjà enregistré » | Deux producteurs sur le même `adminNamespace` (`AdminBroker.ts:51`)                | Namespace unique ; garder `register()` idempotent (`has(ns)` avant)                  |
 | 401 sur toute route `/nodefony/<ns>/api/*`       | Zone `nodefony-admin` : pas de session BFF (`config.ts:141`)                       | S'authentifier (login BFF) ; pour une sonde publique → `public: true` + zone anonyme |
 | 403 alors qu'on est connecté                     | Rôle manquant, `isAdminGranted` fail-closed (`adminRbac.ts:24`)                    | Doter le compte du rôle requis (défaut `ROLE_NODEFONY_ADMIN`)                        |

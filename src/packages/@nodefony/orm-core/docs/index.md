@@ -393,7 +393,7 @@ l'ordre des écouteurs, la table existe ou non. `entities()` s'accroche à `onRe
 (`entitiesDecorator.ts:66`), strictement antérieur — sûr par construction. C'est la différence de
 comportement avec `@controllers`, qui lui reste à `onBoot`.
 
-**`Orm.connect()`** (`Orm.ts:54`) est une **template method** : elle mesure la latence, alimente le
+**`Orm.connect()`** (`Orm.ts:118`) est une **template method** : elle mesure la latence, alimente le
 moniteur de connexion, puis émet `onOrmReady`. Un adapter surcharge `onConnect()` (`Orm.ts:74`), et
 **jamais** `connect()` — sinon l'événement et l'instrumentation disparaissent.
 
@@ -422,16 +422,16 @@ verbes se choisissent sur **la garantie** qu'ils apportent, pas sur leur nom.
 
 | Verbe                 | Ce qu'il garantit                                                    | Ancre                        |
 | --------------------- | -------------------------------------------------------------------- | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                          | `IRepository.ts:213`         |
-| `count` / `exists`    | compter, ou juste savoir s'il y en a un (sans charger de colonne)    | `IRepository.ts:378`, `:335` |
+| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                          | `IRepository.ts:230`         |
+| `count` / `exists`    | compter, ou juste savoir s'il y en a un (sans charger de colonne)    | `IRepository.ts:395`, `:335` |
 | `create`              | insertion d'une ligne, rend la version persistée (id, défauts)       | `IRepository.ts:240`         |
 | `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots       | `IRepository.ts:252`         |
 | `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend       | `IRepository.ts:269`         |
 | `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**          | `IRepository.ts:312`         |
 | `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction  | `IRepository.ts:296`         |
 | `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit             | `IRepository.ts:287`         |
-| `delete`              | supprime tout ce qui matche, rend le nombre                          | `IRepository.ts:298`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                      | `IRepository.ts:328`         |
+| `delete`              | supprime tout ce qui matche, rend le nombre                          | `IRepository.ts:336`         |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                      | `IRepository.ts:345`         |
 | `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique | `IRepository.ts:355`         |
 | `withTransaction(tx)` | une **vue** du repository liée à une transaction                     | `IRepository.ts:406`         |
 
@@ -440,7 +440,7 @@ verbes se choisissent sur **la garantie** qu'ils apportent, pas sur leur nom.
 > `findOneAndUpdate` en Mongo), jamais un `UPDATE` suivi d'une relecture. La différence n'est pas
 > cosmétique : la relecture rendrait `null` **à tort** dès que le critère porte sur un champ qu'on
 > vient de modifier — `updateOne({ status: "pending" }, { status: "done" })` ne retrouve plus rien
-> après coup (`IRepository.ts:221`).
+> après coup (`IRepository.ts:269`).
 
 Quelques usages, un par garantie :
 
@@ -472,7 +472,7 @@ atomique sur les quatre backends.
 
 ### [`IEntity`](tutorial-entity.md) — la description d'une table
 
-`IEntity` (`IEntity.ts:37`) porte un nom logique, un `connector` (le nom d'une **connexion**, jamais
+`IEntity` (`IEntity.ts:51`) porte un nom logique, un `connector` (le nom d'une **connexion**, jamais
 d'un moteur), un `schema` natif du driver, et des `relations` déclaratives (`IEntityRelation`,
 `IEntity.ts:4`). Deux champs facultatifs servent la lisibilité d'un gros modèle : `module` (qui
 apporte l'entité) et `domain` (`IEntity.ts:58`, la classification métier — l'axe qui rend navigable
@@ -557,7 +557,7 @@ Deux décisions le rendent utilisable sur une grosse table :
    `false`. C'est la distinction « Page » (avec total) et « Slice » (sans), reprise de Spring Data.
 
 Les bornes sont normalisées plutôt que propagées : un `limit` de `0` ou un `offset` négatif est
-ramené dans le domaine valide (`paginate.ts:28`) — un `find({ limit: 0 })` a un comportement qui
+ramené dans le domaine valide (`paginate.ts:56`) — un `find({ limit: 0 })` a un comportement qui
 dépend du dialecte, donc on ne le laisse pas sortir.
 
 Le contrat de page lui-même (`IPage`, `IPageQuery`) vit dans le **cœur**
@@ -590,7 +590,7 @@ export class ArticleService extends AbstractCrudService<ArticleRow> {
 - **Lectures** (`find`, `findOne`, `findById`, `count`, `findPage`) — **délégation pure**. Aucun
   hook, aucun événement : c'est le chemin chaud, il ne doit rien payer.
 - **Mutations** (`create`, `updateOne`, `delete`) — encadrées par des hooks _template method_
-  (`beforeCreate`, `AbstractCrudService.ts:185`, et ses six frères) puis un événement de cycle de vie
+  (`beforeCreate`, `AbstractCrudService.ts:212`, et ses six frères) puis un événement de cycle de vie
   `onCreated` / `onUpdated` / `onDeleted`, **émis seulement si la mutation a eu lieu**
   (`AbstractCrudService.ts:167`). L'audit, l'invalidation de cache ou une notification Studio s'y
   abonnent sans toucher au service.
@@ -608,7 +608,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:868`) et `MongooseRepository.upsert()`
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts:879`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:405`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`               |
@@ -646,7 +646,7 @@ qu'il porte dans son `package.json`, clé `nodefony.stores` :
 
 Le contrat minimal tient en peu de choses, parce que `orm-core` fournit déjà la plomberie.
 
-1. **Étendre `Orm`** (`Orm.ts:29`) : implémenter `onConnect()`, `disconnect()`, `isConnected()`,
+1. **Étendre `Orm`** (`Orm.ts:46`) : implémenter `onConnect()`, `disconnect()`, `isConnected()`,
    `getRepository()`, `transaction()`, `getNativeConnection()`. L'enregistrement dans `ormRegistry`
    est fait par le constructeur de base — il n'y a rien à écrire. **Ne jamais surcharger
    `connect()`** : c'est la template method qui émet `onOrmReady` et instrumente la latence.
@@ -674,7 +674,7 @@ la santé ne doit pas coûter le débit, et observer le débit ne doit pas réve
 
 **`connectionMonitor`** (`ConnectionMonitor.ts:197`) suit le **cycle de vie** d'une connexion :
 première connexion, reconnexions, erreurs récentes, et une fenêtre de latence de ping
-(`ConnectionMonitor.recordPing()`, `ConnectionMonitor.ts:106`). Il est alimenté par `Orm.connect()`
+(`ConnectionMonitor.recordPing()`, `ConnectionMonitor.ts:136`). Il est alimenté par `Orm.connect()`
 sans que l'adapter ait à y penser.
 
 **`queryFlowMonitor`** (`QueryFlowMonitor.ts:146`) suit le **débit** : total de requêtes, latence
@@ -697,7 +697,7 @@ d'entrée, tous filtrables par `?connector=` :
 | `orms`              | les connecteurs, leur état, leur nombre d'entités                 |
 | `entities`          | le modèle complet : colonnes + relations                          |
 | `entity/{name}`     | une entité (404 si inconnue)                                      |
-| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:184`)     |
+| `graph`             | le graphe canonique (`buildOrmGraph()`, `OrmAdminApi.ts:227`)     |
 | `counts`            | le nombre de lignes par entité — un `COUNT(*)` par table          |
 | `connection/health` | état, latence, erreurs, reconnexions, sondes                      |
 | `flow`              | débit et requêtes lentes (`buildOrmFlow()`, `OrmAdminApi.ts:360`) |
@@ -732,11 +732,11 @@ deux, et pas de course).
 | Symptôme                                                      | Cause                                                                                              | Correction                                                                                  |
 | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
 | « no entity registered under "X" » au premier appel           | l'entité n'a jamais été inscrite (fichier importé mais `defineEntity` est sans effet de bord)      | l'ajouter à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                    |
-| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec `connect()`                                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:66`)        |
+| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec `connect()`                                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:56`)        |
 | « entity "User" exists on multiple connectors … specify one » | la même entité vit sur plusieurs connecteurs                                                       | préciser le connecteur : `entityRegistry.get("User", "analytics")` (`EntityRegistry.ts:54`) |
 | Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                          | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)       |
 | `UnknownCriteriaField` sur un champ qui existe « pourtant »   | faute de frappe, ou champ calculé absent du schéma                                                 | lire les champs connus dans le message ; pour du natif, passer par `getNativeConnection()`  |
-| `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts:252`)                      |
+| `updateOne` rend `null` alors que la ligne a bien changé      | ancien réflexe `UPDATE` + relecture (le critère porte sur le champ modifié)                        | utiliser `updateOne`, atomique par construction (`IRepository.ts:269`)                      |
 | Un `upsert` écrase une valeur qui devait progresser           | le `DO UPDATE` est inconditionnel (contrainte MySQL)                                               | poser la condition **dans** la valeur : `{ seuil: { $max: v } }` (`IRepository.ts:94`)      |
 | Un objet de critère est pris pour une égalité (colonne JSON)  | comportement **voulu** : une valeur n'est un filtre que si **toutes** ses clés sont des opérateurs | c'est la protection ; pour filtrer dedans, passer au natif (`criteria.ts:42`)               |
 | `onOrmReady` ne part plus après un ajout dans l'adapter       | `connect()` a été surchargé                                                                        | surcharger `onConnect()` (`Orm.ts:74`), jamais `connect()`                                  |

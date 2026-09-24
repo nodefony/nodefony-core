@@ -95,7 +95,7 @@ privé (`Nodefony.ts:27`) — et n'expose que des membres `static`. On ne demand
 chargement : on le demande **au moment de s'en servir**, quand il existe.
 
 > [!IMPORTANT]
-> `Nodefony.getKernel()` (`Nodefony.ts:34`) rend `Kernel | **null**`. Le `null` n'est pas
+> `Nodefony.getKernel()` (`Nodefony.ts:42`) rend `Kernel | **null**`. Le `null` n'est pas
 > théorique : hors serveur — dans un test unitaire, un script, un fichier importé avant le boot —
 > il n'y a pas de kernel. Toujours `?.`, jamais un `!`.
 
@@ -113,7 +113,7 @@ sait en plus se charger et s'accrocher au cycle de vie.
 (`Kernel.ts:405`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
 façade pour le reste.
 
-**3. Le CLI n'est pas le noyau.** `CliKernel` (`CliKernel.ts:84`) étend `Cli`, **pas** `Kernel` : il
+**3. Le CLI n'est pas le noyau.** `CliKernel` (`CliKernel.ts:117`) étend `Cli`, **pas** `Kernel` : il
 analyse `argv`, choisit une commande, puis **construit** le kernel (`CliKernel.ts:238`). Séparation
 utile — beaucoup d'invocations (`--version`, la complétion, `nodefony create`) n'ont aucun kernel à
 démarrer, et n'en démarrent effectivement aucun.
@@ -269,7 +269,7 @@ npx nodefony billing:report      # elle n'existe QUE parce que le module l'a pos
 | --------- | ------------------------------------------------------------------------------------------ |
 | `name`    | Clé du module dans `kernel.modules`, et préfixe de ses logs. Court, sans espace.           |
 | `kernel`  | Le kernel porteur — il fournit container, journal et bus. Reçu, jamais cherché.            |
-| `path`    | **Toujours `import.meta.url`.** Normalisé par `Module.setPath()` (`Module.ts:163`).        |
+| `path`    | **Toujours `import.meta.url`.** Normalisé par `Module.setPath()` (`Module.ts:196`).        |
 | `options` | Les **défauts** de ta configuration. Le manifeste et l'environnement les écrasent ensuite. |
 
 Le constructeur fait trois choses et rien d'autre : il range les options dans l'arbre de paramètres
@@ -313,7 +313,7 @@ class Billing extends Module<IBillingConfig> {}
 this.config.currency; // string — 0 cast, 0 `as`
 ```
 
-`Module.config` (`Module.ts:152`) est un getter qui renvoie `this.options` : la config **validée et
+`Module.config` (`Module.ts:178`) est un getter qui renvoie `this.options` : la config **validée et
 gelée** par le module à sa phase `onKernelRegister`. Coût nul — une référence, aucune allocation.
 
 > [!CAUTION]
@@ -387,7 +387,7 @@ Le registre des controllers est global au process mais **indexé par module** �
 | Appel                | Ancre           | Rend                                                       |
 | -------------------- | --------------- | ---------------------------------------------------------- |
 | `getController("X")` | `Module.ts:564` | le constructeur, ou **lève** si absent de **ce** module    |
-| `getControllers()`   | `Module.ts:488` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
+| `getControllers()`   | `Module.ts:579` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
 
 ### Surcharger la config d'un autre module
 
@@ -425,7 +425,7 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 | ---------------- | ---------------- | ------------------------------------------------------ |
 | `getModule(nom)` | `Kernel.ts:1766` | le module, ou `undefined` s'il n'est pas chargé        |
 | `getModules()`   | `Kernel.ts:1769` | la table complète, **par référence** (ne pas la muter) |
-| `modules`        | `Kernel.ts:584`  | le même objet, en accès direct                         |
+| `modules`        | `Kernel.ts:600`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
 `undefined`, pas une erreur. Le tester est donc à ta charge — c'est aussi le bon moyen de rendre une
@@ -454,7 +454,7 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | Membre                      | Ancre            | Note                                                                   |
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
-| `environment`               | `Kernel.ts:395`  | Le mode **moteur** : `"development"` ou `"production"`.                |
+| `environment`               | `Kernel.ts:411`  | Le mode **moteur** : `"development"` ou `"production"`.                |
 | `domain`                    | `Kernel.ts:609`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
 | `getBootReport()`           | `Kernel.ts:3316` | Le verdict du dernier boot : modules, serveurs, santé.                 |
@@ -471,12 +471,12 @@ Quatre membres, tous statiques (`Nodefony.ts:22`).
 
 | Membre                 | Ancre            | Usage                                                                    |
 | ---------------------- | ---------------- | ------------------------------------------------------------------------ |
-| `getKernel()`          | `Nodefony.ts:34` | Le kernel courant, ou `null`. **Toujours** tester.                       |
+| `getKernel()`          | `Nodefony.ts:42` | Le kernel courant, ou `null`. **Toujours** tester.                       |
 | `version`              | `Nodefony.ts:24` | La version du paquet `nodefony`, lue au build.                           |
-| `generateId()`         | `Nodefony.ts:54` | UUID **v4** — aléatoire. Pour un identifiant qui doit être imprévisible. |
+| `generateId()`         | `Nodefony.ts:62` | UUID **v4** — aléatoire. Pour un identifiant qui doit être imprévisible. |
 | `generateSortableId()` | `Nodefony.ts:79` | UUID **v7** — horodaté, donc **ordonné**. Pour une clé primaire.         |
 
-`setKernel()` (`Nodefony.ts:44`) existe mais appartient au boot : l'appeler soi-même écrase la
+`setKernel()` (`Nodefony.ts:52`) existe mais appartient au boot : l'appeler soi-même écrase la
 référence globale sans avertissement.
 
 > [!CAUTION]
@@ -533,7 +533,7 @@ override async onKernelBoot(): Promise<this> {
 ```
 
 La conséquence est asymétrique, et c'est ce qui la rend traître. La criticité manquante est traitée
-comme **critique par défaut** (`Kernel.ts:2668` : l'échec est fatal dès lors que `critical !== false`
+comme **critique par défaut** (`Kernel.ts:3133` : l'échec est fatal dès lors que `critical !== false`
 et qu'on est en production). Donc :
 
 | Environnement  | Hook déclaré, `critical = false` | Écouteur posé à la main   |
@@ -550,7 +550,7 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 ## ⚙️ CliKernel — le noyau des commandes
 
-`CliKernel` (`CliKernel.ts:84`) est ce que `npx nodefony <commande>` instancie. Il n'étend **pas**
+`CliKernel` (`CliKernel.ts:117`) est ce que `npx nodefony <commande>` instancie. Il n'étend **pas**
 `Kernel` : il étend `Cli`, analyse `argv` via Commander, et fabrique le kernel dans `start()`
 (`CliKernel.ts:172`).
 
@@ -605,7 +605,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 
 | Symptôme                                                  | Cause (dans le code)                                                             | Correction                                                           |
 | --------------------------------------------------------- | -------------------------------------------------------------------------------- | -------------------------------------------------------------------- |
-| `does not provide an export named 'kernel'`               | L'ancien singleton exporté n'existe plus                                         | `Nodefony.getKernel()` (`Nodefony.ts:34`), avec un `?.`              |
+| `does not provide an export named 'kernel'`               | L'ancien singleton exporté n'existe plus                                         | `Nodefony.getKernel()` (`Nodefony.ts:42`), avec un `?.`              |
 | `Cannot read properties of null` sur le kernel            | `getKernel()` rend `null` hors serveur                                           | Tester le retour ; en service, préférer l'injection                  |
 | Mon hook n'est jamais appelé                              | Propriété fléchée, ou nom approximatif                                           | Méthode de prototype nommée exactement (`Module.ts:235`)             |
 | Le boot casse **en production seulement**                 | Écouteur de phase posé à la main → non tagué → critique par défaut               | Déclarer un hook de module (`Module.ts:236`)                         |
@@ -615,7 +615,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | `import { Inject } from "nodefony"` échoue                | Le décorateur de propriété n'est pas ré-exporté par le paquet                    | Injection par constructeur : `@inject("nom")`                        |
 | `@injectable({ singleton: true })` sans effet             | La clé n'existe pas — elle est acceptée puis **ignorée**                         | `{ scope: "singleton" }` (défaut) ou `{ scope: "transient" }`        |
 | `@services()` refuse ma classe : « not assignable »       | Config déclarée en `interface` — pas d'index signature (`kernelDecorator.ts:21`) | Déclarer le type de config avec `type`, pas `interface`              |
-| `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1575`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
+| `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1766`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:329`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:100`)                    | Déplacer le réglage dans `onKernelStart()`                           |

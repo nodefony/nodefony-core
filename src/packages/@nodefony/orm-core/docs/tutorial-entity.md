@@ -88,7 +88,7 @@ battre contre le cadre.
 
 **1. Le connecteur est une donnée de configuration, jamais de code.** C'est pourquoi le
 descripteur qu'on écrit (`IEntityDefinition`, `defineEntity.ts:15`) est un `IEntity`
-(`IEntity.ts:37`) **privé de son `connector`** : celui-ci est résolu au démarrage, avec `"default"`
+(`IEntity.ts:51`) **privé de son `connector`** : celui-ci est résolu au démarrage, avec `"default"`
 pour valeur de repli (`DEFAULT_CONNECTOR`, `entitiesDecorator.ts:12`). Figer la connexion dans le
 fichier d'entité interdirait de servir la même table depuis une base différente selon
 l'environnement.
@@ -349,23 +349,23 @@ apportent, jamais sur leur nom.
 
 | Verbe                 | Ce qu'il garantit                                                  | Ancre                        |
 | --------------------- | ------------------------------------------------------------------ | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                    | `IRepository.ts:213`, `:192` |
+| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                    | `IRepository.ts:230`, `:192` |
 | `create`              | insère une ligne et rend sa version persistée (id, défauts)        | `IRepository.ts:240`         |
 | `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots     | `IRepository.ts:252`         |
 | `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend        | `IRepository.ts:269`         |
 | `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**           | `IRepository.ts:312`         |
 | `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction    | `IRepository.ts:296`         |
 | `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit  | `IRepository.ts:287`         |
-| `delete`              | supprime tout ce qui matche, rend le nombre                        | `IRepository.ts:298`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                    | `IRepository.ts:328`         |
+| `delete`              | supprime tout ce qui matche, rend le nombre                        | `IRepository.ts:336`         |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                    | `IRepository.ts:345`         |
 | `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique       | `IRepository.ts:355`         |
-| `count` / `exists`    | compter, ou juste savoir s'il y en a une (sans charger de colonne) | `IRepository.ts:378`, `:335` |
+| `count` / `exists`    | compter, ou juste savoir s'il y en a une (sans charger de colonne) | `IRepository.ts:395`, `:335` |
 | `withTransaction(tx)` | une **vue** du repository liée à une transaction                   | `IRepository.ts:406`         |
 
 > [!IMPORTANT]
 > **Il n'existe pas de méthode `update()`.** Le choix est explicite et il est intentionnel :
 > `IRepository.updateOne()` (`IRepository.ts:269`) pour une ligne — atomique, et elle **rend** la
-> ligne modifiée —, `IRepository.updateMany()` (`IRepository.ts:274`) pour un lot — qui rend le
+> ligne modifiée —, `IRepository.updateMany()` (`IRepository.ts:312`) pour un lot — qui rend le
 > **nombre** de lignes touchées. Un verbe unique masquerait cette différence de garantie, qui est
 > précisément ce qu'on veut choisir en connaissance de cause.
 
@@ -394,7 +394,7 @@ await orm.transaction(async (tx) => {
 ```
 
 Deux réflexes de performance, dès le premier jour : préférer `IRepository.exists()`
-(`IRepository.ts:335`) à `findOne(...) !== null` — aucune colonne n'est chargée —, et
+(`IRepository.ts:395`) à `findOne(...) !== null` — aucune colonne n'est chargée —, et
 `IRepository.increment()` (`IRepository.ts:325`) à une lecture suivie d'une écriture : une requête
 au lieu de deux, et pas de course.
 
@@ -472,7 +472,7 @@ champs connus — le diagnostic d'une faute de frappe est immédiat.
 
 ## 📄 Pager les résultats
 
-`find()` avec `limit`/`offset`/`order` (`RepositoryReadOptions`, `IRepository.ts:153`) suffit pour
+`find()` avec `limit`/`offset`/`order` (`RepositoryReadOptions`, `IRepository.ts:174`) suffit pour
 une tranche. Pour une vraie page — celle qui sait s'il y a une suite — utilise `paginate()`
 (`paginate.ts:47`) :
 
@@ -525,9 +525,9 @@ d'administration, la primitive est `AbstractCrudService.findPage()` (`AbstractCr
 
 | Symptôme                                                      | Cause                                                                                            | Correction                                                                                               |
 | ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------------------- |
-| `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts:269`), `updateMany` pour un lot (`IRepository.ts:274`)       |
+| `posts.update is not a function`                              | la méthode `update()` n'existe pas dans le contrat                                               | `updateOne` pour une ligne (`IRepository.ts:269`), `updateMany` pour un lot (`IRepository.ts:312`)       |
 | « no entity registered under "Post" » au premier appel        | le fichier d'entité est importé, mais `defineEntity()` est **sans effet de bord**                | ajouter l'entité à `@entities([...])` sur le module (`entitiesDecorator.ts:56`)                          |
-| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec l'ouverture du connecteur                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:66`)                     |
+| La table n'existe pas alors que l'entité est déclarée         | inscription faite à `onBoot` → course avec l'ouverture du connecteur                             | inscrire à `onRegister` — c'est ce que fait `entities()` (`entitiesDecorator.ts:56`)                     |
 | Une colonne ajoutée au schéma reste absente de la table       | le DDL du boot est un `CREATE TABLE IF NOT EXISTS` : aucun `ALTER` n'est émis                    | supprimer la base de développement et redémarrer, ou passer par une migration                            |
 | Un `DEFAULT` SQL ou un index déclaré n'apparaît pas           | le DDL dérivé ne les émet pas                                                                    | poser le défaut côté JavaScript (`$defaultFn`) ; créer l'index par migration                             |
 | Un filtre « champ vide » ne remonte jamais rien               | `colonne = NULL` est toujours faux en SQL                                                        | `{ champ: { $null: true } }` ou la valeur nue `{ champ: null }` (`IRepository.ts:65`)                    |

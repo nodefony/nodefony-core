@@ -192,7 +192,7 @@ des connexions, la compilation des schémas, et présente le tout derrière le c
 
 Nodefony ne demande pas à chaque backend de tout savoir faire. **Chaque adapter déclare ce qu'il
 implémente**, dans son `package.json` (clé `nodefony.stores`), et le framework lit cette déclaration
-à chaud (`readAdapterManifest()` (`KernelAdminApi.ts:84`)). Rien n'est curaté dans le cœur : la
+à chaud (`readAdapterManifest()` (`KernelAdminApi.ts:93`)). Rien n'est curaté dans le cœur : la
 source de vérité, c'est l'adapter lui-même — ce qui vaut aussi pour un adapter tiers.
 
 Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `tokens`, `passkeys`,
@@ -225,7 +225,7 @@ Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `
 ### Ce qui se passe quand tu ne choisis rien
 
 Chaque brique a une clé `store` dont le défaut est `"auto"`. La résolution
-(`resolveAutoStore()` (`infra.ts:241`)) suit l'infrastructure **déclarée**, bornée aux backends
+(`resolveAutoStore()` (`infra.ts:297`)) suit l'infrastructure **déclarée**, bornée aux backends
 réellement chargés :
 
 | Ta situation                                            | Ce que `auto` choisit                                    |
@@ -484,7 +484,7 @@ sequenceDiagram
 
 L'ordre n'est pas cosmétique. Les entités sont déclarées à `onKernelRegister`, **strictement avant**
 le `connect` de `onBoot` : les modèles sont compilés à la connexion
-(`MongooseOrm.onConnect()` (`MongooseOrm.ts:74`)), donc une entité déclarée trop tard n'existe tout
+(`MongooseOrm.onConnect()` (`MongooseOrm.ts:137`)), donc une entité déclarée trop tard n'existe tout
 simplement pas. C'est aussi pour ça que `@entities` s'exécute à la phase `onRegister` et non `onBoot`.
 
 Chaque connecteur ouvre une **connexion isolée** (`mongoose.createConnection`), pas le singleton
@@ -492,7 +492,7 @@ global de Mongoose : c'est ce qui permet à plusieurs bases — voire plusieurs 
 le même processus.
 
 Le service orchestre ce cycle de bout en bout : il ouvre une connexion par connecteur déclaré au
-démarrage (`MongooseService.connectAll()` (`MongooseService.ts:63`)) et referme tout à l'arrêt
+démarrage (`MongooseService.connectAll()` (`MongooseService.ts:89`)) et referme tout à l'arrêt
 (`MongooseService.disconnectAll()` (`MongooseService.ts:195`)). Le module se déclare **non critique**
 (`Mongoose.critical` (`mongoose/index.ts:48`)) : une base injoignable ne tue pas le processus —
 l'application monte quand même, l'échec est journalisé, et c'est l'orchestrateur qui relèvera Mongo.
@@ -502,7 +502,7 @@ l'application monte quand même, l'échec est journalisé, et c'est l'orchestrat
 > indexées par `(connecteur, nom)` dans un registre **global au processus**. Si Drizzle (dont le
 > connecteur par défaut est `default`) et Mongoose tournaient ensemble avec le même nom, leurs deux
 > entités `session` entreraient en collision. Un nom distinct par driver règle le problème par
-> construction (`FRAMEWORK_CONNECTOR` (`registerStores.ts:49`)).
+> construction (`FRAMEWORK_CONNECTOR` (`registerStores.ts:77`)).
 
 ### Le trajet d'une requête
 
@@ -543,14 +543,14 @@ drivers. Les signatures exactes vivent dans le graphe généré
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
 (`MongooseRepository.upsert()` (`MongooseRepository.ts:405`),
-`MongooseRepository.increment()` (`MongooseRepository.ts:429`)) : un seul aller-retour, la
+`MongooseRepository.increment()` (`MongooseRepository.ts:491`)) : un seul aller-retour, la
 comparaison est faite par le serveur. Ce n'est pas une optimisation cosmétique — c'est ce qui évite
 que deux requêtes simultanées lisent le même état et s'écrasent mutuellement.
 
 ### Les critères et leurs opérateurs
 
 Les opérateurs portables sont ceux d'[`orm-core`](../../orm-core/docs/index.md), et la plupart sont
-natifs en Mongo. Deux méritent une explication (`MongooseRepository.#mongoOps()` (`MongooseRepository.ts:127`)) :
+natifs en Mongo. Deux méritent une explication (`MongooseRepository.#mongoOps()` (`MongooseRepository.ts:173`)) :
 
 | Opérateur portable         | Côté Mongo                | Remarque                                                            |
 | -------------------------- | ------------------------- | ------------------------------------------------------------------- |
@@ -678,9 +678,9 @@ Trois comportements valent d'être connus :
 - **Purge à deux bornes** — `idleTimeoutS` et `absoluteTimeoutS` (`SessionStorage.gc()` (`SessionStorage.ts:165`)) :
   l'inactivité (depuis la dernière activité) et l'âge absolu (depuis la création, **jamais prolongé** —
   la ré-authentification finit par être imposée, conformément aux recommandations NIST/OWASP).
-- **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:174`)) : rafraîchir
+- **Prolongation sans réécriture** (`SessionStorage.touch()` (`SessionStorage.ts:195`)) : rafraîchir
   l'activité ne réécrit pas le contenu de la session, juste son horodatage.
-- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:277`)) :
+- **Écran d'administration redacté par construction** (`SessionStorage.listPage()` (`SessionStorage.ts:286`)) :
   le contenu applicatif et les messages flash **ne sortent pas de la base**. Studio affiche qui est
   connecté, jamais ce qu'il y a dans sa session.
 
@@ -694,7 +694,7 @@ vaut mieux qu'une erreur 500 et un rejet non capturé.
 `MongooseUserRepository` rend des objets `BaseUser` (avec leur comportement : rôles, actif, verrouillé),
 pas des documents nus. Deux recherches lui sont propres :
 
-- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:256`)) :
+- **par compte social lié** (`MongooseUserRepository.findBySocialProvider()` (`MongooseUserRepository.ts:264`)) :
   un `$elemMatch` sur un tableau libre de fournisseurs — le pendant Mongo du parcours JSON en SQL.
   C'est ce qui porte le motif « Shadow User » d'OAuth (un compte créé à la volée au premier login social),
   **sans colonne par fournisseur** : ajouter GitHub demain n'est pas une migration.
@@ -725,10 +725,10 @@ expiration ne sont donc jamais balayés par erreur ; ils partent par une règle 
 ### Passkeys
 
 Une collection, l'identifiant du credential en clé primaire. L'enregistrement passe par un `upsert`
-atomique (`MongooseWebAuthnCredentialStore.save()` (`MongooseWebAuthnCredentialStore.ts:94`)) : deux
+atomique (`MongooseWebAuthnCredentialStore.save()` (`MongooseWebAuthnCredentialStore.ts:109`)) : deux
 enregistrements concurrents de la même passkey ne peuvent pas produire de collision de clé.
 
-Le listing d'administration (`MongooseWebAuthnCredentialStore.listPage()` (`MongooseWebAuthnCredentialStore.ts:158`))
+Le listing d'administration (`MongooseWebAuthnCredentialStore.listPage()` (`MongooseWebAuthnCredentialStore.ts:173`))
 projette **sans la clé publique** — elle ne franchit jamais la frontière du store. La recherche libre
 est un **préfixe ancré**, pas une expression régulière fournie par l'appelant : une recherche
 utilisateur n'est jamais interprétée comme du code.
@@ -783,7 +783,7 @@ natif.
 **Les horodatages sont des nombres, pas des dates.** Les contrats du framework portent des `number`
 (millisecondes depuis l'époque) : les stocker tels quels garde la logique de purge **strictement
 identique** à celle de l'adapter SQL. Seule l'entité `User` utilise la gestion automatique de Mongoose
-(`createUserEntity()` (`userEntity.ts:90`)), parce que son contrat porte des dates.
+(`createUserEntity()` (`userEntity.ts:104`)), parce que son contrat porte des dates.
 
 Le contrat expose partout `id: string`, jamais un `ObjectId` : le champ virtuel `id` est activé à la
 sérialisation, sur toutes les entités compilées par l'adapter.
@@ -800,7 +800,7 @@ heures plus tard.
 | `debug`             | trace toutes les opérations Mongoose (développement)           | `false`                                 |
 | `frameworkEntities` | déclare le schéma framework et rend ses stores sélectionnables | `true`                                  |
 
-Les valeurs font foi dans le schéma (`mongooseConfigSchema` (`config.ts:83`)) ; la surcharge par
+Les valeurs font foi dans le schéma (`mongooseConfigSchema` (`config.ts:98`)) ; la surcharge par
 l'environnement est appliquée **après** la validation
 (`applyEnvOverrides()` (`defineModuleConfig.ts:22`)), ce qui garde le schéma pur et publiable en
 JSON Schema pour Studio.
@@ -870,7 +870,7 @@ Le module suit la règle de fond du framework : **ce qui n'est pas observé ne c
 | `many-to-many non portable`                                  | Refus explicite : pas de traduction unique en Mongo                           | Déclarer la relation via la connexion native                                      |
 | Les sessions disparaissent au redémarrage                    | `session.store` resté sur `memory`                                            | `session: { store: "mongoose" }`, ou déclarer `NF_DATABASE_URL` et laisser `auto` |
 | `audit store "mongoose" inconnu` — boot avorté en production | Brique **non portée** par Mongo, sélectionnée explicitement                   | Laisser `auto` (repli annoncé) ou choisir un backend qui la porte                 |
-| Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:74`)        |
+| Les comptes ne survivent pas au redémarrage                  | `provisionUsers` toujours branché sur l'annuaire mémoire                      | Câbler `MongooseUserRepository.from(orm)` (`MongooseUserRepository.ts:89`)        |
 | Un champ écrit se relit `undefined`, sans aucune erreur      | Il n'est pas dans le **schéma** : Mongoose est strict et l'écarte en silence  | L'ajouter au schéma de l'entité — le type TypeScript seul ne suffit pas           |
 | Le premier `npm test` du module met une éternité             | Le serveur Mongo de test télécharge son binaire (une seule fois)              | Définir `NF_MONGO_TEST_URI` sur un conteneur Mongo                                |
 

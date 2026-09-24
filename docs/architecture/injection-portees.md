@@ -129,7 +129,7 @@ Les services courts (resolver, context, controller) sont posés en **own-propert
 `Container.ts:466`). La raison est explicite dans le code, et elle est vitale.
 
 Depuis que le scope **adopte le prototype du parent** (optimisation qui évite deux allocations
-mortes par requête, `Scope` constructeur, `Container.ts:453`), un `set()` de type `Container`
+mortes par requête, `Scope` constructeur, `Container.ts:440`), un `set()` de type `Container`
 écrirait sur le **proto partagé**. Un service per-request deviendrait alors visible de **toutes** les
 requêtes concurrentes.
 
@@ -435,7 +435,7 @@ cœur divergent ainsi ; seul `HttpKernel` s'alignait, par coïncidence de casse.
 
 L'injecteur lit deux métadonnées (`Injector._instantiateWithStack()`, `injector.ts:254`) :
 
-1. **`inject:services`** — posé par `@inject("nom")` (`inject()`, `kernelDecorator.ts:114`).
+1. **`inject:services`** — posé par `@inject("nom")` (`inject()`, `kernelDecorator.ts:167`).
    **Prioritaire**, tableau creux indexé par position.
 2. **`design:paramtypes`** — émis par TypeScript (`emitDecoratorMetadata`). Permet l'**auto-injection
    par type**, sans `@inject` explicite.
@@ -447,7 +447,7 @@ controller de recevoir son `context` en premier argument tout en ayant des `@inj
 ### L'injection par propriété — présente dans le moteur, pas dans la surface publique
 
 Le moteur applique une injection post-construction (`Injector._applyPropertyInjection()`,
-`injector.ts:223`), alimentée par le décorateur `Inject` majuscule (`kernelDecorator.ts:143`) qui
+`injector.ts:223`), alimentée par le décorateur `Inject` majuscule (`kernelDecorator.ts:196`) qui
 écrit sur le **prototype** (là où `inject` minuscule écrit sur le constructeur).
 
 En pratique, **préférer l'injection par constructeur** : elle est explicite, elle est couverte, et
@@ -496,7 +496,7 @@ sequenceDiagram
 | `leaveScope(scope)`               | Fermer et nettoyer une instance de scope (`Container.ts:312`)                                     |
 | `scopeCount(name)`                | Instances vivantes — sonde de fuite bon marché (`Container.ts:330`)                               |
 | `setParameters` / `getParameters` | Arbre pointé `a.b.c` ; côté scope, **merge profond** avec le parent (`Container.ts:500`)          |
-| `clean()` / `reset()`             | Démontage / remise à zéro — après `clean()`, `get` rend `null` et `set` lève (`Container.ts:412`) |
+| `clean()` / `reset()`             | Démontage / remise à zéro — après `clean()`, `get` rend `null` et `set` lève (`Container.ts:195`) |
 
 Signatures complètes : générées depuis les TSDoc, jamais recopiées ici.
 
@@ -535,13 +535,13 @@ Nodefony est un framework runtime : ce chemin s'exécute à chaque requête. Tro
 - **Héritage par prototype plutôt que remontée logicielle** : lire un service parent depuis un scope
   est résolu par V8, sans code intermédiaire (`Container.ts:127`).
 - **Adoption des protos parents par le scope** : évite deux closures et deux `Object.create` jetés à
-  chaque requête (`Scope` constructeur, `Container.ts:453`).
+  chaque requête (`Scope` constructeur, `Container.ts:440`).
 - **`id` de scope = compteur monotone base 36**, pas un UUID v4 (`containerSeq`, `Container.ts:67`) :
   un appel crypto par requête pour une clé locale jamais exposée serait du gaspillage.
 - **`Map` pour le bookkeeping des scopes**, pas un objet littéral `delete`-é (`Scopes`,
   `Container.ts:62`) : l'ajout/retrait à chaque requête fait « churner » la _shape_ d'un objet
   ordinaire et dégrade les inline caches V8.
-- **Scopes alloués en lazy** — `null` tant qu'aucun `addScope` (`Container.ts:101`) : pas de bucket
+- **Scopes alloués en lazy** — `null` tant qu'aucun `addScope` (`Container.ts:272`) : pas de bucket
   alloué d'office et jamais utilisé.
 
 Côté portées, le coût se lit simplement :

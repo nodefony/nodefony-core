@@ -145,7 +145,7 @@ multi-clients. Pour un appel serveur→client ciblé, on passe par la connexion 
 
 **Un provider par canal, pas un par client.** Si mille onglets s'abonnent au même canal de
 santé, le calcul ne doit tourner qu'une fois. Le hub crée le producteur au **premier**
-abonné et le détruit au **dernier** (`RealtimeHub.subscribe()`, `RealtimeHub.ts:388`) : le
+abonné et le détruit au **dernier** (`RealtimeHub.subscribe()`, `RealtimeHub.ts:462`) : le
 coût suit le nombre de canaux, pas le nombre de clients.
 
 **Le cluster est un détail de configuration.** Ni ton contrôleur ni ton client ne savent
@@ -355,14 +355,14 @@ au handshake, puis lue en O(1). C'est le compromis assumé, documenté dans
 Particularité contre-intuitive : côté serveur, le transport **n'écoute pas** d'événement
 socket. C'est le pipeline HTTP de `@nodefony/http` qui appelle la route WebSocket du
 contrôleur à chaque message reçu, laquelle pousse la charge dans
-`WsConnectionTransport.feed()` (`WsConnectionTransport.ts:146`). La fermeture arrive de la
+`WsConnectionTransport.feed()` (`WsConnectionTransport.ts:150`). La fermeture arrive de la
 même façon, par le hook `onFinish` du contexte, qui déclenche `fireClose()`
-(`WsConnectionTransport.ts:151`).
+(`WsConnectionTransport.ts:155`).
 
 Ce transport porte aussi la **back-pressure**. Elle n'est pas câblée en dur : les trois
 leviers sont des clés de configuration du serveur WebSocket, lues par le transport
 (`WsConnectionTransport.ts:63-75`) et documentées dans `@nodefony/http`
-(`http/nodefony/config/config.ts:625`).
+(`http/nodefony/config/config.ts:1044`).
 
 | File non drainée (`bufferedAmount`)     | Décision                                            | Réglage (défaut)                                                                      |
 | --------------------------------------- | --------------------------------------------------- | ------------------------------------------------------------------------------------- |
@@ -471,7 +471,7 @@ dépendances.
 
 ### Le provider partagé — un ticker, pas mille
 
-`RealtimeHub.subscribe()` (`RealtimeHub.ts:388`) applique une mécanique en trois temps :
+`RealtimeHub.subscribe()` (`RealtimeHub.ts:462`) applique une mécanique en trois temps :
 
 1. Le canal existe déjà ? On ajoute simplement le sink de cette connexion. Fin.
 2. Sinon, on inscrit le sink **avant** d'appeler la fabrique — de sorte que le tout premier
@@ -511,7 +511,7 @@ une connexion fautive n'interrompt pas la diffusion aux autres.
 
 Par défaut, **aucun canal ne traverse le backplane**. Il faut déclarer un préfixe, via
 `@RealtimeBroadcast` sur ton contrôleur (`realtimeDecorators.ts:342`) ou
-directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:594`).
+directement `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`).
 
 Trois raisons à ce choix, qui prend à contre-pied la plupart des bibliothèques temps réel :
 
@@ -550,14 +550,14 @@ coûte chaque abonné supplémentaire.
 `IBackplane` (`IBackplane.ts:75`) est délibérément minuscule : le backplane ne connaît ni
 les abonnés ni les canaux logiques. Tout l'état vit dans le hub.
 
-| Membre                                           | Rôle                                                            |
-| ------------------------------------------------ | --------------------------------------------------------------- |
-| `originId` (`IBackplane.ts:77`)                  | l'étiquette de CE process, lue par l'anti-écho                  |
-| `start()` (`IBackplane.ts:115`)                  | ouvrir le transport. Idempotent, synchrone ou asynchrone        |
-| `publish(channel, payload)` (`IBackplane.ts:89`) | propager aux **autres** pairs. Ne refait pas le fan-out local   |
-| `onMessage(handler)` (`IBackplane.ts:127`)       | recevoir des pairs. Un seul gestionnaire à la fois              |
-| `stop()` (`IBackplane.ts:130`)                   | libérer connexions et écouteurs. Idempotent                     |
-| `describe()` (`IBackplane.ts:136`)               | la carte d'identité : driver, nature, origine, cross-pod, canal |
+| Membre                                            | Rôle                                                            |
+| ------------------------------------------------- | --------------------------------------------------------------- |
+| `originId` (`IBackplane.ts:77`)                   | l'étiquette de CE process, lue par l'anti-écho                  |
+| `start()` (`IBackplane.ts:115`)                   | ouvrir le transport. Idempotent, synchrone ou asynchrone        |
+| `publish(channel, payload)` (`IBackplane.ts:121`) | propager aux **autres** pairs. Ne refait pas le fan-out local   |
+| `onMessage(handler)` (`IBackplane.ts:127`)        | recevoir des pairs. Un seul gestionnaire à la fois              |
+| `stop()` (`IBackplane.ts:130`)                    | libérer connexions et écouteurs. Idempotent                     |
+| `describe()` (`IBackplane.ts:136`)                | la carte d'identité : driver, nature, origine, cross-pod, canal |
 
 Deux absences volontaires. Il n'y a **pas** de `subscribe`/`unsubscribe` par canal : le
 transport porte **un seul** canal physique, et les canaux logiques voyagent **dans**
@@ -620,7 +620,7 @@ et non une :
 
 1. **Côté hub** : l'arrivée passe par `publishLocal`, jamais par `publish`. Rien ne repart.
 2. **Côté backplane** : à la réception, on compare l'`originId` de l'enveloppe au sien et
-   on jette si c'est le même (`RedisBackplane.ts:220`, `ClusterBackplane.ts:134`).
+   on jette si c'est le même (`RedisBackplane.ts:209`, `ClusterBackplane.ts:134`).
 
 L'étiquette elle-même est calculée par `resolveBackplaneOriginId()` (`originId.ts:24`), et
 sa recette mérite qu'on s'y arrête :
@@ -755,7 +755,7 @@ bien plus dangereux qu'un canal ouvertement public.
 
 ## 📡 Observabilité — la sonde et Studio
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:775`) rend un instantané en **lecture pure** : aucune
+`RealtimeHub.probe()` (`RealtimeHub.ts:849`) rend un instantané en **lecture pure** : aucune
 allocation sur le chemin chaud, jamais d'exception. Les compteurs sont des primitives
 incrémentées en O(1) ; ils sont **monotones**, ce qui laisse au lecteur le soin de dériver
 un débit.
@@ -774,7 +774,7 @@ process, plus — si elles sont disponibles — les sondes ORM et les compteurs 
 chemins de lecture, un seul producteur :
 
 - **HTTP** : `GET /nodefony/realtime/api/health`, exposé par `createRealtimeAdminApi()`
-  (`RealtimeAdminApi.ts:91`) ;
+  (`RealtimeAdminApi.ts:98`) ;
 - **Canal temps réel** : `nodefony:socket`, poussé par un ticker.
 
 ### En cluster : la vue « pod » plutôt que « worker »

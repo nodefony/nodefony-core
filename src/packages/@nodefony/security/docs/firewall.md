@@ -52,8 +52,8 @@ flowchart TD
   AU -->|succès| OK["user + token dans l'ALS → contrôleur"]
 ```
 
-`Firewall.isSecure()` (`firewall.ts:705`) rattache la requête à une **zone** via
-`Firewall.matchPath()` (`firewall.ts:696`) ; `Firewall.handleSecurity()` (`firewall.ts:738`) décide.
+`Firewall.isSecure()` (`firewall.ts:721`) rattache la requête à une **zone** via
+`Firewall.matchPath()` (`firewall.ts:712`) ; `Firewall.handleSecurity()` (`firewall.ts:754`) décide.
 Les zones sont triées par **spécificité** dans `#build()` — `list.sort` par longueur de motif :
 le plus long gagne, pas le premier déclaré (`firewall.ts:191`).
 
@@ -203,7 +203,7 @@ Point commun de sécurité : **message d'échec uniforme** (`"Invalid token"` / 
 Credential = l'**identifiant** posé dans le blob de session (jamais un secret).
 
 - **N'ouvre jamais la session lui-même** : il exige une session reprise portant un user
-  (`supports()`, `SessionAuthenticator.ts:43`). C'est `AuthFlow.login()` (BFF) qui ouvre et
+  (`supports()`, `SessionAuthenticator.ts:75`). C'est `AuthFlow.login()` (BFF) qui ouvre et
   régénère l'ID (anti-fixation).
 - **L'identité est re-résolue à CHAQUE requête** (`SessionAuthenticator.ts:70`) → rôles frais,
   révocation et verrouillage effectifs immédiatement.
@@ -513,11 +513,11 @@ scopes, métier), un même jury, combinables.
 
 ## 🔌 HTTP et WebSocket — le même firewall
 
-`Firewall.#wireRealtime()` (`firewall.ts:268`) câble, pour toute zone protégée `realtime !== false`
+`Firewall.#wireRealtime()` (`firewall.ts:279`) câble, pour toute zone protégée `realtime !== false`
 (opt-out, `firewall.ts:277`), le `FirewallRealtimeAuthenticator` au handshake (`firewall.ts:289`)
 **et** un `frameAuthorizer` (RBAC par canal, `firewall.ts:337`). Même résolution de zone que HTTP.
 Sur une socket, un refus n'a pas d'en-tête `WWW-Authenticate` (`Firewall.#setChallenge()`,
-`firewall.ts:1191`) : le **code de fermeture** suffit.
+`firewall.ts:1207`) : le **code de fermeture** suffit.
 
 ## 🛡️ En-têtes de sécurité, CSRF, CORS
 

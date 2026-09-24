@@ -105,7 +105,7 @@ mêmes noms partout — pour qu'on ne se pose jamais la question de savoir où r
 | `nodefony/config/config.ts`             | **Le QUOI**    | Le schéma Zod commenté, source unique des défauts, et le type TS qui en dérive |
 | `nodefony/config/defineModuleConfig.ts` | **Le COMMENT** | Le builder : valide → applique l'environnement → gèle. Plus le JSON Schema.    |
 
-Le schéma (`mongooseConfigSchema` (`config.ts:83`)) porte les valeurs d'usine sous forme de
+Le schéma (`mongooseConfigSchema` (`config.ts:98`)) porte les valeurs d'usine sous forme de
 `.default(…)`, et chaque champ son `.describe(…)`. Les défauts effectifs du module ne sont pas
 retapés à la main : ils sont **matérialisés depuis le schéma lui-même**
 (`mongooseConfigSchema.parse({})` (`config.ts:122`)). Changer un défaut = changer le `.default()`,
@@ -134,11 +134,11 @@ qui collisionnerait à l'import). Trois écarts réels, tous **assumés et véri
    Ce n'est pas de la fantaisie : les entités sont indexées par `(connecteur, nom)` dans un registre
    **global au processus**, donc deux drivers avec le même nom de connecteur feraient collision sur
    leurs entités `session` homonymes. Un nom distinct règle le problème par construction
-   (`FRAMEWORK_CONNECTOR` (`registerStores.ts:49`)).
+   (`FRAMEWORK_CONNECTOR` (`registerStores.ts:77`)).
 2. **Mongoose expose deux variables dédiées** (`MONGODB_URI`, `NF_MONGODB_DEBUG`) là où Drizzle ne lit
    que l'infra déclarée. C'est un héritage de convention du driver Mongo, conservé parce qu'il est
    universellement connu — mais l'infra déclarée reste le chemin recommandé.
-3. **`options` n'est pas re-modélisé** (`options` (`config.ts:71`)) : c'est un dictionnaire libre
+3. **`options` n'est pas re-modélisé** (`options` (`config.ts:86`)) : c'est un dictionnaire libre
    passé tel quel à Mongoose. Re-décrire les dizaines de `ConnectOptions` en Zod produirait une
    deuxième vérité, condamnée à diverger de la bibliothèque à chaque version. Le prix à payer est
    assumé : une faute de frappe dans `options` n'est pas attrapée par Zod, elle l'est par Mongoose
@@ -232,7 +232,7 @@ export default defineConfig(() => ({
 ```
 
 Si `NF_DATABASE_URL` pointe déjà sur du `mongodb://`, tu peux laisser **tous** ces champs sur leur
-défaut `auto` : la résolution suit l'infra déclarée (`resolveAutoStore()` (`infra.ts:241`)) et
+défaut `auto` : la résolution suit l'infra déclarée (`resolveAutoStore()` (`infra.ts:297`)) et
 journalise sa raison. Détail dans le hub, section
 [Ce qui se passe quand tu ne choisis rien](./index.md#ce-qui-se-passe-quand-tu-ne-choisis-rien).
 
@@ -260,14 +260,14 @@ Et six champs par connecteur :
 
 ### `connectors` — une ou plusieurs bases
 
-Chaque entrée de `connectors` (`config.ts:93`) devient une **connexion isolée** ouverte au démarrage,
+Chaque entrée de `connectors` (`config.ts:108`) devient une **connexion isolée** ouverte au démarrage,
 puis un ORM inscrit sous ce nom. Deux entrées = deux connexions, deux ORM, deux jeux d'entités : c'est
 ainsi qu'une application lit une base métier et écrit dans une base d'archives sans les mélanger.
 
 L'adresse se donne de deux façons, jamais les deux à la fois utilement :
 
 - **En pièces détachées** — `host`, `port`, `dbname` : lisible, adapté au développement. Le service
-  les assemble en `mongodb://hôte:port/base` (`MongooseService.buildUri()` (`MongooseService.ts:94`)).
+  les assemble en `mongodb://hôte:port/base` (`MongooseService.buildUri()` (`MongooseService.ts:102`)).
 - **En une URI** — `uri` (`config.ts:41`) : la seule forme capable d'exprimer un replica set, un
   `mongodb+srv`, des options de requête. **Dès qu'`uri` est présent, les trois autres champs ne sont
   plus lus du tout.**
@@ -287,15 +287,15 @@ publique** de ton application : le changer déplace des entités.
 
 > [!WARNING]
 > Le connecteur nommé `nodefony` a un statut particulier : c'est **lui** qui porte le schéma du
-> framework (`FRAMEWORK_CONNECTOR` (`registerStores.ts:49`)) et le stockage de session
+> framework (`FRAMEWORK_CONNECTOR` (`registerStores.ts:77`)) et le stockage de session
 > (`SESSION_CONNECTOR` (`sessionEntity.ts:5`)). Le renommer ou le supprimer sans le remplacer casse
 > les stores framework — ils cherchent un ORM `nodefony` connecté et échouent franchement s'il manque
-> (`resolveConnectedOrm()` (`registerStores.ts:64`)).
+> (`resolveConnectedOrm()` (`registerStores.ts:92`)).
 
 ### `options` — ce que Mongoose sait faire et Nodefony ne re-décrit pas
 
-`options` (`config.ts:71`) est transmis tel quel au driver
-(`MongooseService.#connectOne()` (`MongooseService.ts:87`)). On y met tout ce qui touche au
+`options` (`config.ts:86`) est transmis tel quel au driver
+(`MongooseService.#connectOne()` (`MongooseService.ts:141`)). On y met tout ce qui touche au
 **transport** plutôt qu'à l'adresse : taille du pool, délais, TLS, identifiants séparés.
 
 ```typescript
@@ -320,7 +320,7 @@ description des options du driver.
 
 ### `debug` — voir passer les requêtes
 
-`debug` (`config.ts:85`) active la trace intégrée de Mongoose (`connectAll()` (`MongooseService.ts:81`)).
+`debug` (`config.ts:100`) active la trace intégrée de Mongoose (`connectAll()` (`MongooseService.ts:81`)).
 Chaque opération part sur la sortie standard, avec sa collection, son filtre et ses champs.
 
 C'est un **réglage de processus, pas de connecteur** : il vaut pour toutes les connexions à la fois.
@@ -330,7 +330,7 @@ détaillée dans la section [Observabilité](#-observabilité--studio).
 
 ### `frameworkEntities` — le module pose-t-il le schéma du framework ?
 
-C'est le champ le plus discret et le plus structurant (`frameworkEntities` (`config.ts:102`)). Sur son
+C'est le champ le plus discret et le plus structurant (`frameworkEntities` (`config.ts:117`)). Sur son
 défaut `true`, le module fait deux choses de plus qu'ouvrir des connexions, dès son enregistrement et
 **avant** que la connexion ne s'ouvre (`Mongoose.onKernelRegister()` (`mongoose/index.ts:65`)) :
 
@@ -338,7 +338,7 @@ défaut `true`, le module fait deux choses de plus qu'ouvrir des connexions, dè
    pour que leurs modèles soient compilés au moment de la connexion ;
 2. il **enregistre les fabriques** correspondantes dans les registres de `@nodefony/security`, ce qui
    rend le nom `"mongoose"` sélectionnable dans `tokenStore`, `passkeys`, `webhooks`
-   (`registerMongooseFrameworkStores()` (`registerStores.ts:94`)).
+   (`registerMongooseFrameworkStores()` (`registerStores.ts:126`)).
 
 Le passer à `false` transforme le module en **pur driver de données** : tes entités à toi, rien
 d'autre. Les stores framework Mongo deviennent alors introuvables — les sélectionner échoue
@@ -436,7 +436,7 @@ De la plus faible à la plus forte priorité :
 
 1. **Les défauts du schéma** — `localhost:27017/nodefony`, `debug: false`, `frameworkEntities: true`.
 2. **Ta config d'app** — `use("@nodefony/mongoose", { … })`, fusionnée en profondeur sous les défauts
-   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1600`)).
+   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1656`)).
 3. **Un override venu d'un autre module** — la clé `module-mongoose` dans la config d'un module tiers.
 4. **`NF__MONGOOSE__…`** — l'override générique d'environnement.
 5. **La validation Zod** — types, bornes, défauts des champs restés absents.
@@ -550,8 +550,8 @@ use("@nodefony/mongoose", {
 
 Les deux connexions s'ouvrent en série au démarrage, dans l'ordre de déclaration
 (`connectAll()` (`MongooseService.ts:81`)), et se ferment toutes à l'arrêt
-(`disconnectAll()` (`MongooseService.ts:181`)). Un service peut demander l'une ou l'autre par son nom
-(`getOrm()` (`MongooseService.ts:189`)), mais l'usage courant reste le registre d'ORM.
+(`disconnectAll()` (`MongooseService.ts:195`)). Un service peut demander l'une ou l'autre par son nom
+(`getOrm()` (`MongooseService.ts:203`)), mais l'usage courant reste le registre d'ORM.
 
 ## 🔐 Le secret de connexion
 
@@ -718,7 +718,7 @@ frontière du plan d'administration.
 | `NF_DATABASE_URL` est bien posée, Mongo n'est pas utilisé                 | L'URL est de famille SQL : elle appartient à `@nodefony/drizzle`                     | Une URL `mongodb://`/`mongodb+srv://`, ou passer par `MONGODB_URI`                           |
 | Le démarrage échoue sur le schéma de l'URL                                | Schéma inconnu (`mongo://`, faute de frappe) — refus délibéré, jamais de repli       | Corriger le schéma : `mongodb://` ou `mongodb+srv://`                                        |
 | `Transaction numbers are only allowed on a replica set…`                  | Serveur isolé : pas de transactions                                                  | Un replica set, même à un nœud (`?replicaSet=rs0&directConnection=true`)                     |
-| `ORM "nodefony" introuvable` au montage d'un store                        | `@nodefony/security` chargé **avant** `@nodefony/mongoose`                           | Placer le driver **avant** dans `modules` (`resolveConnectedOrm()` (`registerStores.ts:64`)) |
+| `ORM "nodefony" introuvable` au montage d'un store                        | `@nodefony/security` chargé **avant** `@nodefony/mongoose`                           | Placer le driver **avant** dans `modules` (`resolveConnectedOrm()` (`registerStores.ts:92`)) |
 | Le store `mongoose` est introuvable pour les jetons                       | `frameworkEntities: false` — le module est en mode données seules                    | Repasser à `true`, ou choisir un backend qui porte la brique                                 |
 | `session: { store: "mongoose" }` marche malgré `frameworkEntities: false` | Attendu : la session s'enregistre à l'import, pas via ce champ                       | Rien à corriger — voir l'avertissement de la section `frameworkEntities`                     |
 | Une option de `options` n'a aucun effet                                   | Elle n'est pas validée par Zod ; Mongoose l'a ignorée ou refusée                     | Vérifier son nom exact dans les `ConnectOptions` de la version de Mongoose installée         |

@@ -499,7 +499,7 @@ et ne sont jamais recopiées ici (elles divergeraient). Ce tableau donne l'**usa
 | `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts:19`       |
 | `IUserProvider`              | source d'identité : **lève** si introuvable, jamais `null`    | `IUserProvider.ts:14`         |
 | `IPasswordVerifier`          | valide un couple identifiant/mot de passe, rend un verdict    | `IPasswordVerifier.ts:15`     |
-| `IPasswordEncoder`           | `supports`/`hash`/`verify`/`needsRehash`                      | `IPasswordEncoder.ts:11`      |
+| `IPasswordEncoder`           | `supports`/`hash`/`verify`/`needsRehash`                      | `IPasswordEncoder.ts:51`      |
 | `IPasswordBlocklist`         | point d'extension « ce mot de passe est-il compromis ? »      | `IPasswordBlocklist.ts:12`    |
 | `IOAuthProfile`              | profil normalisé issu d'un fournisseur, **sans aucun jeton**  | `IOAuthUserProvisioner.ts:12` |
 | `IOAuthProvisionPolicy`      | rôles par défaut + autorisation de création à la volée        | `IOAuthUserProvisioner.ts:37` |
@@ -530,12 +530,12 @@ ajoute quatre accès que le `Criteria` générique ne sait pas exprimer.
 | ------------------------------------ | ------------------------------------------------------------- | -------------------- |
 | `createUser()`                       | hache le clair puis délègue au `create` générique             | `UserService.ts:106` |
 | `findByIdentifier()`                 | lecture directe par identifiant fonctionnel                   | `UserService.ts:129` |
-| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:143` |
+| `listPage()` / `countActiveAdmins()` | façades vers le dépôt (pagination et garde-fou)               | `UserService.ts:174` |
 | `changePassword()`                   | hache et persiste, émet `onPasswordChanged`                   | `UserService.ts:213` |
 | `authenticate()`                     | vérifie, nivelle le temps, re-hache si besoin                 | `UserService.ts:243` |
 | `loadUserByIdentifier()`             | `IUserProvider` — **lève** `UserNotFoundError` si absent      | `UserService.ts:301` |
 | `loadUserByOAuth()`                  | `IUserProvider` — lit un lien social, ne crée jamais          | `UserService.ts:317` |
-| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:331` |
+| `refreshUser()`                      | recharge depuis la source (rôles frais, révocation immédiate) | `UserService.ts:342` |
 | `provisionOAuthUser()`               | Shadow User : lit, ou crée si la politique l'autorise         | `UserService.ts:363` |
 | `passwordBlocklist`                  | champ opt-in — branche ta liste de mots de passe compromis    | `UserService.ts:83`  |
 
@@ -573,7 +573,7 @@ rendre insupportable pour ton serveur.
 | Détection du format         | préfixe PHC `$argon2id$`               | préfixe `$2a$`/`$2b$`/`$2y$`            |
 
 Les deux bindings sont des **peer dependencies optionnelles** chargées par import dynamique au
-premier `hash`/`verify` (`Argon2idEncoder.ts:10`) : une app qui n'authentifie que par OAuth ou par
+premier `hash`/`verify` (`Argon2idEncoder.ts:140`) : une app qui n'authentifie que par OAuth ou par
 jeton ne les charge jamais.
 
 > [!TIP]
@@ -631,7 +631,7 @@ Des coûts **supérieurs** ne déclenchent rien — on ne rétrograde jamais une
 
 ### Le tableau des paramètres
 
-Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:35`) — la source
+Dérivé du schéma Zod de la section `encoders` (`security/nodefony/config/config.ts:1116`) — la source
 unique des bornes et des défauts.
 
 | Option        | Type                     | Défaut     | Bornes    | Effet                                            |
@@ -700,7 +700,7 @@ pas produire le même identifiant fonctionnel.
 
 Nom, prénom, avatar, locale : ce sont des données d'**affichage**, pas d'identité. Elles vivent dans
 `metadata.profile`, jamais dans des colonnes dédiées (`IUserProfile.ts:15`), et six clés seulement
-sont reconnues (`userProfile.ts:11`).
+sont reconnues (`userProfile.ts:142`).
 
 Au provisionnement, ces champs sont pré-remplis depuis les claims du fournisseur — **une seule fois,
 à la création** : un login ultérieur n'écrase jamais ce que l'utilisateur a édité depuis.
@@ -902,7 +902,7 @@ verrais ta donnée en base et vide dans ton code.
 
 > [!WARNING]
 > **Un champ métier ne sort JAMAIS dans la console d'administration.** `toUserSummary` construit son
-> résumé champ par champ (`UserAdminApi.ts:90`) : ni ton `salaire` ni ta `note RH` ne partent dans
+> résumé champ par champ (`UserAdminApi.ts:98`) : ni ton `salaire` ni ta `note RH` ne partent dans
 > le data plane. Un test le garde (`UserAdminApi.test.ts:270`) — l'étanchéité ne tient pas à la
 > prudence de qui édite ce fichier.
 
@@ -989,7 +989,7 @@ Prouvée par `oauth.attack.test.ts:71`.
 Trois barrières, indépendantes :
 
 1. **Au type** : le contrat de base `IUser` n'a pas de champ `password` (`IUser.ts:70`).
-2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:85`). Il
+2. **Au DTO** : `toUserSummary()` construit sa sortie par **allowlist** (`UserAdminApi.ts:98`). Il
    n'expose ni `password`, ni `metadata` (qui peut contenir du sensible), ni le moindre jeton dans
    les liens sociaux — seulement `provider`, `providerId` et une date. Le champ `hasPassword` dit
    qu'un mot de passe local **existe**, sans rien en révéler.

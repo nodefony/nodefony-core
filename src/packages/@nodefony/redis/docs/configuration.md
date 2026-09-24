@@ -125,7 +125,7 @@ options ». Il possède **un schéma Zod commenté**, et tout en dérive :
   pendant d'entrée `IRedisConfigInput` (`IRedisConfig.ts:17`), où tout champ portant un défaut devient
   optionnel.
 - **Le texte d'aide** vit dans les `.describe()` du schéma, ce qui permet à
-  `redisConfigJsonSchema()` (`defineModuleConfig.ts:110`) de publier un JSON Schema **documenté** que
+  `redisConfigJsonSchema()` (`defineModuleConfig.ts:121`) de publier un JSON Schema **documenté** que
   Studio transforme en formulaire.
 - **Les champs sensibles se déclarent** : `url` et `password` portent un `.meta({ secret: true })`
   (`config.ts:187`), ce qui les fait masquer là où la configuration est affichée.
@@ -331,7 +331,7 @@ historiques (`nf:sess`, `nf:tok`, `nf:wac`) sont conservés tels quels.
 | ---------- | --------------- | ------------------------- | --------------------------------------------------------------------------------------------------------- |
 | `socket`   | objet           | défauts de `socketSchema` | Les options TCP/TLS communes.                                                                             |
 | `username` | chaîne          | _absent_                  | Utilisateur ACL (Redis 6+). Absent avec un `password` présent = authentification héritée `requirepass`.   |
-| `password` | chaîne (secret) | _absent_                  | Mot de passe. Marqué secret dans `globalOptionsSchema` (`config.ts:187`) → masqué là où il s'afficherait. |
+| `password` | chaîne (secret) | _absent_                  | Mot de passe. Marqué secret dans `globalOptionsSchema` (`config.ts:173`) → masqué là où il s'afficherait. |
 
 `username` n'a **pas** de variable d'environnement dédiée : sur un serveur à ACL, il se pose dans la
 configuration de l'application (il n'est pas secret par lui-même), ou dans l'URL.
@@ -460,7 +460,7 @@ jamais où les sessions ont atterri. Le comparatif transverse vit dans
 ### Quand une URL est posée, ce qui devient sans effet
 
 Dès que `url` est renseignée — par l'application ou par l'environnement — `buildClientOptions()`
-(`buildClientOptions.ts:68`) **ne pose plus** `socket.host` ni `socket.port` : ils entreraient en
+(`buildClientOptions.ts:45`) **ne pose plus** `socket.host` ni `socket.port` : ils entreraient en
 conflit avec ceux de l'URL. Trois conséquences à connaître :
 
 <!-- prettier-ignore -->
@@ -495,7 +495,7 @@ définitivement.
 ouverture ne rend jamais la main tant que Redis ne répond pas ; la file d'attente hors ligne du client
 retient les commandes, et un démarrage sans serveur se transforme en attente infinie plutôt qu'en
 échec lisible. D'où `applyResilienceDefaults()` (`defineModuleConfig.ts:65`), qui borne les tentatives
-à `DEV_DEFAULT_MAX_RETRIES` (`defineModuleConfig.ts:45`) — cinq — quand, et seulement quand,
+à `DEV_DEFAULT_MAX_RETRIES` (`defineModuleConfig.ts:52`) — cinq — quand, et seulement quand,
 l'application ne s'est pas prononcée.
 
 | `NODE_ENV`                          | L'application fixe `maxRetries` ? | Valeur effective                    |
@@ -611,7 +611,7 @@ Aucune ligne dans `nodefony.config.ts`. Le mot de passe voyage dans l'URL : trai
 secret entier, jamais comme une adresse.
 
 **La limite de forme à connaître** : le schéma n'expose qu'un **booléen** `tls`
-(`socketSchema` (`config.ts:114`)). Autorité de certification privée, certificat client, nom de
+(`socketSchema` (`config.ts:79`)). Autorité de certification privée, certificat client, nom de
 serveur explicite — rien de tout cela n'est exprimable. Un service managé à certificat public
 fonctionne ; une authentification mutuelle par certificat n'est pas couverte par la configuration du
 module.
@@ -697,8 +697,8 @@ faire avant une mise en production.
 | Symptôme | Cause | Correction |
 | --- | --- | --- |
 | Une clé de configuration n'a aucun effet, aucune erreur | Clé inconnue du schéma : la validation Zod **écarte** les clés qu'elle ne connaît pas | Vérifier l'orthographe dans les tables ci-dessus ; contrôler la cible effective (§ Démarrage rapide) |
-| L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:68`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
-| `NF_REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:32`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
+| L'hôte configuré est ignoré | Une `url` est présente — `buildClientOptions()` (`buildClientOptions.ts:45`) ne pose plus host/port | Retirer `NF_REDIS_URL`/`REDIS_URL`, ou tout mettre dans l'URL |
+| `NF_REDIS_PORT` semble sans effet | Valeur non entière ou hors `1..65535` : `applyEnvOverrides()` (`defineModuleConfig.ts:24`) l'ignore | Corriger la valeur — l'ignorance est silencieuse par conception |
 | Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
 | Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:65`)) ; sinon fixer une valeur finie |
 | Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `NF_REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
@@ -749,7 +749,7 @@ rester pur.
 > **Une suite verte ne prouve rien du reste sans serveur Redis.** Les bancs d'intégration se
 > **skippent** quand l'infra manque, et un skip compte comme un succès : on peut lire « tout est
 > vert » sur une suite qui n'a rien exercé. La gate du module est déclarée une seule fois —
-> `REDIS_GATE` (`vitest.gates.ts:329`) — et la fin de run nomme la cible non exercée avec la commande
+> `REDIS_GATE` (`vitest.gates.ts:339`) — et la fin de run nomme la cible non exercée avec la commande
 > exacte pour la satisfaire. **Les variables et la commande docker se lisent là, pas ici** : les
 > recopier dans cette page les condamnerait à diverger.
 

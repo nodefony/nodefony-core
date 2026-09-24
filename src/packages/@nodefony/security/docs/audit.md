@@ -31,7 +31,7 @@ source: "src/packages/@nodefony/security/docs/audit.md"
 > clé d'API est révoquée, un jeton volé resurgit — Nodefony écrit une ligne dans un journal
 > **append-only** : qui, quoi, quand, d'où, avec quel verdict. Pas le trafic (ça, c'est le log HTTP) :
 > les **transitions d'état**. Ancré sur `AuditService` (`auditService.ts:48`), le contrat
-> `IAuditEvent` (`IAuditEvent.ts:53`) et les stores de `nodefony/src/audit/`.
+> `IAuditEvent` (`IAuditEvent.ts:61`) et les stores de `nodefony/src/audit/`.
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Journal d'audit**
 
@@ -70,7 +70,7 @@ flowchart LR
   API --> UI["Studio — Journal d'audit"]
 ```
 
-`AuditService.record()` (`auditService.ts:180`) est le point de passage unique : il pose l'identité et
+`AuditService.record()` (`auditService.ts:187`) est le point de passage unique : il pose l'identité et
 l'horodatage, écrit **sans attendre**, et notifie les abonnés live. Tout le reste — stores, pont WS,
 webhooks, console — se branche autour de lui.
 
@@ -254,7 +254,7 @@ et ratées, sur une fenêtre précise.
 
 Aucune configuration : les événements d'authentification sont émis par défaut. Il suffit de filtrer.
 Les critères se **combinent en ET** et sont traduits par `parseAuditQuery()`
-(`SecurityAdminApi.ts:191`) :
+(`SecurityAdminApi.ts:184`) :
 
 | Paramètre   | Effet                                           | Exemple                     |
 | ----------- | ----------------------------------------------- | --------------------------- |
@@ -315,9 +315,9 @@ Ce que ça déclenche : le service arme un `GcScheduler` de purge **toutes les h
 (`auditService.ts:152`, intervalle `GC_INTERVAL_MS` — `auditService.ts:31`), avec gigue
 anti-avalanche en cluster. Chaque
 tour appelle la purge du contrat — `gc()`, voisin de `listPage()` dans le même contrat
-(`IAuditStore.ts:67`) — qui supprime les événements plus vieux que la fenêtre : un `DELETE` par seuil
+(`IAuditStore.ts:59`) — qui supprime les événements plus vieux que la fenêtre : un `DELETE` par seuil
 côté SQL (`DrizzleAuditStore.ts:231`), un défilement de file tant que l'événement de tête dépasse le
-`threshold` côté mémoire (`MemoryAuditStore.ts:127`).
+`threshold` côté mémoire (`MemoryAuditStore.ts:138`).
 
 Ce qu'on observe dans les logs : `audit gc — 1284 événement(s) purgé(s)` en niveau DEBUG.
 
@@ -332,7 +332,7 @@ La base est indisponible pendant trente secondes. Que se passe-t-il ?
 
 Le choix de Nodefony est explicite : **le métier passe avant la trace**. L'écriture part en
 fire-and-forget — `append()` sans `await`, échec absorbé en log ERROR (`auditService.ts:192`) ; côté SQL, si l'ORM n'est
-pas connecté, `append()` est un no-op assumé (`DrizzleAuditStore.ts:131`). Un login n'échoue jamais
+pas connecté, `append()` est un no-op assumé (`DrizzleAuditStore.ts:146`). Un login n'échoue jamais
 parce que le journal est cassé.
 
 > [!WARNING]
@@ -377,7 +377,7 @@ Pour un auditeur, la colonne `denied` est celle des tentatives d'accès non auto
 ### `auth` — la chaîne d'authentification
 
 Quatre sorties d'échec du firewall passent par le même helper `Firewall.#recordAuth()`
-(`firewall.ts:693`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
+(`firewall.ts:900`), qui enrichit l'événement de la provenance et pose la **zone** en `resource` :
 
 - `auth.throttled` — backoff NIST déclenché, réponse 429 (`firewall.ts:768`) ;
 - `auth.failure` — un credential a été **présenté** et rejeté (`firewall.ts:794`) ;
@@ -399,7 +399,7 @@ Un seul événement, mais c'est le plus parlant : `access.denied`, émis par le 
 ### `token` — la vie et la mort des jetons longue durée
 
 - `token.issued` — un couple access/refresh vient d'être émis, donc une surface d'attaque vient
-  d'être créée ; les `scopes` et l'identifiant du jeton partent en `metadata` (`tokenService.ts:312`) ;
+  d'être créée ; les `scopes` et l'identifiant du jeton partent en `metadata` (`tokenService.ts:535`) ;
 - `token.reuse_detected` — **le signal d'attaque le plus fort du journal** : un refresh déjà révoqué
   a été re-présenté, donc quelqu'un détient un jeton volé. Toute la famille est coupée
   (`tokenService.ts:353`, RFC 9700 §4.14) ;
@@ -428,7 +428,7 @@ depuis l'utilisateur de la requête — avec repli `"admin"`, jamais une décisi
 ## 🧰 Le contrat d'une entrée
 
 Un événement est un objet **sérialisable JSON** (`IAuditEvent.ts:53`). L'émetteur ne fournit qu'un
-brouillon `IAuditEventDraft` (`IAuditEvent.ts:105`) : `id` et `ts` sont posés par le service, ce qui
+brouillon `IAuditEventDraft` (`IAuditEvent.ts:113`) : `id` et `ts` sont posés par le service, ce qui
 garantit un seul appel d'horloge, centralisé hors des points d'émission.
 
 | Champ       | Type                       | Posé par | Rôle                                                         |
@@ -458,11 +458,11 @@ Quatre mécanismes, tous prouvés par les tests.
 
 **1. Le chemin nominal n'émet rien.** Ce n'est pas une optimisation, c'est le modèle : le firewall
 n'appelle `#recordAuth()` que depuis ses quatre sorties d'échec, jamais depuis le succès
-(`firewall.ts:900`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:341`).
-Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:324`).
+(`firewall.ts:900`). Le verrou WS ne tire sa closure `onDeny` que sur refus (`firewall.ts:352`).
+Prouvé : « frame AUTORISÉE → onDeny JAMAIS appelé » (`auditEmissionHotPath.test.ts:333`).
 
 **2. Audit désactivé = coût nul, pas juste coût faible.** `record()` sort avant toute allocation et
-avant tout appel d'horloge si le service est inactif (`auditService.ts:182`). Aucun objet créé,
+avant tout appel d'horloge si le service est inactif (`auditService.ts:187`). Aucun objet créé,
 aucun appel d'horloge. Prouvé par le banc « audit désactivé → `issueTokens` n'est pas journalisé »
 (`auditEmissionHotPath.test.ts:499`).
 
@@ -478,13 +478,13 @@ alloué qu'au premier événement reçu (`auditBridge.ts:62`) ; son minuteur est
 Le pont applique en plus un **coalescing borné** : au plus une frame WS toutes les 250 ms
 (`auditBridge.ts:59`), tampon plafonné à 200 événements (`auditBridge.ts:60`). Sous une rafale
 d'échecs de login, le tampon écrase les plus anciens et compte les omis dans `dropped`
-(`auditBridge.ts:84`) — la console affiche un récapitulatif au lieu de se figer. Superviser ne doit
+(`auditBridge.ts:79`) — la console affiche un récapitulatif au lieu de se figer. Superviser ne doit
 jamais faire tomber ce qu'on supervise.
 
 ## ⚙️ Configuration
 
-Table dérivée du schéma Zod `auditSchema` (`config.ts:877`), rattaché à la racine sous la clé `audit`
-(`config.ts:1152`).
+Table dérivée du schéma Zod `auditSchema` (`config.ts:883`), rattaché à la racine sous la clé `audit`
+(`config.ts:1158`).
 
 | Option          | Type      | Défaut   | Effet                                                                                |
 | --------------- | --------- | -------- | ------------------------------------------------------------------------------------ |
@@ -498,7 +498,7 @@ Table dérivée du schéma Zod `auditSchema` (`config.ts:877`), rattaché à la 
 > `immutable` et `stream` sont déclarés dans le schéma mais **ne sont lus par aucun code** aujourd'hui.
 > Les mettre à `false` ne change rien. L'immuabilité vient du **contrat** `IAuditStore`, qui n'expose
 > ni `update` ni `delete` ciblé (`IAuditStore.ts:48`) ; la diffusion live est gouvernée par la
-> **présence d'abonnés** — la liste `#listeners` du service (`auditService.ts:194`).
+> **présence d'abonnés** — la liste `#listeners` du service (`auditService.ts:55`).
 
 ### Comment `store: "auto"` décide
 
@@ -628,9 +628,9 @@ La règle d'or est écrite en tête du contrat (`IAuditEvent.ts:8`) : **un secre
 Ce que le code garantit, concrètement :
 
 - **Le typage rend le secret difficile à faire entrer.** `actor` est documenté comme un _libellé
-  d'identité_ (`IAuditEvent.ts:74`) et `resource` comme un _descripteur léger_ — « jamais le corps ni
+  d'identité_ (`IAuditEvent.ts:82`) et `resource` comme un _descripteur léger_ — « jamais le corps ni
   les en-têtes de la requête » (`IAuditEvent.ts:79`).
-- **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts:41`) ne porte que deux
+- **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts:49`) ne porte que deux
   booléens : un en-tête `Authorization` était-il là, un cookie était-il là. `readAuditContext()`
   les calcule par un simple `Boolean(headers[…])` (`readAuditContext.ts:40`) — la valeur n'est jamais
   copiée.
@@ -661,7 +661,7 @@ Deux autres propriétés de sécurité valent d'être connues :
 | Ne jamais journaliser de secret           | OWASP Logging Cheat Sheet         | flags de **présence** seuls (`IAuditEvent.ts:41`)                                 |
 | Traçabilité « qui, quoi, quand, d'où »    | ISO 27001 A.8.15 (journalisation) | acteur, action, horodatage et provenance dans `IAuditEvent` (`IAuditEvent.ts:53`) |
 | Journal inaltérable                       | ISO 27001 A.8.15                  | contrat append-only, aucune mutation exposée (`IAuditStore.ts:48`)                |
-| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:906`)                       |
+| Rétention bornée / minimisation           | RGPD art. 5.1.e                   | purge par âge pilotée par `retentionDays` (`config.ts:912`)                       |
 | Détection de rejeu de jeton               | RFC 9700 §4.14                    | `token.reuse_detected` + coupure de famille (`tokenService.ts:353`)               |
 | Backoff de login journalisé               | NIST SP 800-63B                   | `auth.throttled` avec `reason: "throttled"` (`firewall.ts:773`)                   |
 
@@ -690,19 +690,19 @@ webhook. Détail des souscriptions, de la signature et des relivraisons → [web
 
 ## ⚠️ Pièges
 
-| Symptôme                                            | Cause (dans le code)                                               | Correction                                                 |
-| --------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------- |
-| Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts:37`)    | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)   |
-| Un pod voit des événements, l'autre non             | Store `memory` non partagé                                         | Store durable partagé                                      |
-| Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts:109`)   | Corriger le nom, ou charger l'adapter qui l'enregistre     |
-| `limit=5000` ne rend que 500 événements             | Plafond du store (`MemoryAuditStore.ts:12`)                        | Paginer avec `nextCursor`, jamais gonfler `limit`          |
-| La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                 | Repasser le `nextCursor` reçu — le curseur est opaque      |
-| Filtre `?category=authen` sans effet                | Catégorie inconnue **ignorée** (`SecurityAdminApi.ts:191`)         | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
-| Le paramètre `q` ne filtre rien                     | Non appliqué sur ce journal (`IAuditStore.ts:20`)                  | Filtrer par `category`/`actor`/`action`/`requestId`        |
-| `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts:194`) | Retirer le rôle admin, ou ne pas exposer le canal          |
-| Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts:192`)                       | Store à haute disponibilité si la conformité l'exige       |
-| Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF  | Filtrer `action=login.success`, pas `category=auth` seul   |
-| Endpoint d'audit en 503                             | `audit.enabled: false` (`SecurityAdminApi.ts:320`)                 | Réactiver l'audit en configuration                         |
+| Symptôme                                            | Cause (dans le code)                                              | Correction                                                 |
+| --------------------------------------------------- | ----------------------------------------------------------------- | ---------------------------------------------------------- |
+| Journal vide après un redémarrage                   | Store `memory` : volatile et per-pod (`MemoryAuditStore.ts:37`)   | `audit.store: "drizzle"` (ou déclarer `NF_DATABASE_URL`)   |
+| Un pod voit des événements, l'autre non             | Store `memory` non partagé                                        | Store durable partagé                                      |
+| Le boot échoue en production sur l'audit            | Store **explicite** inconnu, fail-closed (`auditService.ts:109`)  | Corriger le nom, ou charger l'adapter qui l'enregistre     |
+| `limit=5000` ne rend que 500 événements             | Plafond du store (`MemoryAuditStore.ts:12`)                       | Paginer avec `nextCursor`, jamais gonfler `limit`          |
+| La page 2 répète ou saute des événements            | Pagination réimplémentée en offset                                | Repasser le `nextCursor` reçu — le curseur est opaque      |
+| Filtre `?category=authen` sans effet                | Catégorie inconnue **ignorée** (`SecurityAdminApi.ts:191`)        | Utiliser une valeur de l'union (`auth`, `authz`, `token`…) |
+| Le paramètre `q` ne filtre rien                     | Non appliqué sur ce journal (`IAuditStore.ts:20`)                 | Filtrer par `category`/`actor`/`action`/`requestId`        |
+| `stream: false` ne coupe pas le live                | Drapeau non lu ; le live suit `#listeners` (`auditService.ts:55`) | Retirer le rôle admin, ou ne pas exposer le canal          |
+| Trous dans le journal pendant une panne de base     | Écriture best-effort (`auditService.ts:192`)                      | Store à haute disponibilité si la conformité l'exige       |
+| Aucun `login.success` alors que les logins marchent | Le succès du **firewall** est muet ; `login.success` vient du BFF | Filtrer `action=login.success`, pas `category=auth` seul   |
+| Endpoint d'audit en 503                             | `audit.enabled: false` (`SecurityAdminApi.ts:320`)                | Réactiver l'audit en configuration                         |
 
 ## 🧪 Tests & couverture
 

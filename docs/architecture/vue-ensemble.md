@@ -104,7 +104,7 @@ Ce qu'il **n'est pas**, dit franchement :
   services, événements de cycle de vie, firewall par zones, contrôleurs à décorateurs), mais
   l'architecture, la terminologie et surtout le modèle de transport unifié lui sont propres.
 - **Ce n'est pas un runtime alternatif.** Les serveurs s'appuient sur Node.js natif :
-  `node:http` et `node:http2` (`ServerHttp.createServer()`, `server-http.ts:68`), `node:https`
+  `node:http` et `node:http2` (`ServerHttp.createServer()`, `server-http.ts:74`), `node:https`
   (`ServerHttps.createServer()`, `server-https.ts:80`), et la bibliothèque `ws` pour le WebSocket
   (`Websocket.createServer()`, `server-websocket.ts:62`). Pas de moteur maison, pas de `Bun.serve()`.
 - **Ce n'est pas une bibliothèque temps réel greffée à côté.** Le WebSocket n'est pas un module
@@ -144,8 +144,8 @@ deux portes.
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de
 requête tracé, **un** journal — que l'appel arrive en HTTP/1.1, en HTTP/2 ou par une trame WebSocket.
 Ce que porte `Context` pour les deux transports : `router` (`Context.ts:219`), `resolver`
-(`Context.ts:160`), `session` (`Context.ts:196`), `user` (`Context.ts:154`), la décision du firewall
-(`Context.ts:125`), le `requestId` (`Context.ts:184`) et le nonce CSP paresseux (`Context.ts:192`).
+(`Context.ts:220`), `session` (`Context.ts:196`), `user` (`Context.ts:198`), la décision du firewall
+(`Context.ts:198`), le `requestId` (`Context.ts:244`) et le nonce CSP paresseux (`Context.ts:244`).
 
 ## 🚀 Démarrage rapide
 
@@ -241,7 +241,7 @@ C'est le différenciateur, en trente lignes.
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
 `modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1545`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1508`). L'ordre du tableau **est** l'ordre
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1656`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -299,15 +299,15 @@ Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même 
 
 Serveurs HTTP/1.1, HTTP/2, HTTPS et WebSocket, contextes de requête, sessions, certificats TLS. C'est
 ici que naît le `Context` que ton contrôleur reçoit, et ici que vit le pipeline unique
-(`HttpKernel`, `http-kernel.ts:171`). À lire quand tu touches au transport, aux sessions ou aux
+(`HttpKernel`, `http-kernel.ts:236`). À lire quand tu touches au transport, aux sessions ou aux
 en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
 
 `Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:86`) et les
-décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:75`), `route()`
-(`routerDecorators.ts:157`), `Get` (`routerDecorators.ts:361`), `IsGranted()`
-(`routerDecorators.ts:663`), `CurrentUser` (`routerDecorators.ts:1236`). C'est la surface que tu
+décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:189`), `route()`
+(`routerDecorators.ts:271`), `Get` (`routerDecorators.ts:515`), `IsGranted()`
+(`routerDecorators.ts:878`), `CurrentUser` (`routerDecorators.ts:1250`). C'est la surface que tu
 manipules le plus.
 
 ### [`@nodefony/security`](../../src/packages/@nodefony/security/docs/index.md) — protéger l'application
@@ -325,8 +325,8 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
 (`Events`, `Kernel.ts:306`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:742`), `Kernel.boot()` (`Kernel.ts:799`), `Kernel.onReady()`
-(`Kernel.ts:829`) et `Kernel.initServers()` (`Kernel.ts:916`).
+`Kernel.start()` (`Kernel.ts:774`), `Kernel.boot()` (`Kernel.ts:1225`), `Kernel.onReady()`
+(`Kernel.ts:1255`) et `Kernel.initServers()` (`Kernel.ts:1355`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
 `onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
@@ -400,8 +400,8 @@ Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 ## 🔐 La sécurité en un coup d'œil
 
 Le pare-feu applicatif de `@nodefony/security` raisonne par **zones** : un motif d'URL, une politique.
-`Firewall.matchPath()` (`firewall.ts:529`) rattache la requête à la zone dont le motif est le plus
-spécifique ; `Firewall.isSecure()` (`firewall.ts:705`) répond « protégée ou non » sur le chemin chaud ;
+`Firewall.matchPath()` (`firewall.ts:712`) rattache la requête à la zone dont le motif est le plus
+spécifique ; `Firewall.isSecure()` (`firewall.ts:721`) répond « protégée ou non » sur le chemin chaud ;
 `Firewall.handleSecurity()` (`firewall.ts:754`) ne travaille que sur zone protégée.
 
 ```mermaid
@@ -502,14 +502,14 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 
 | Domaine                      | Norme                          | Ancrage code                                              |
 | ---------------------------- | ------------------------------ | --------------------------------------------------------- |
-| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:298`)                          |
+| Sémantique HTTP, 405         | RFC 9110                       | `Route.match()` (`Route.ts:327`)                          |
 | Challenge d'authentification | RFC 7235                       | `Firewall.handleSecurity()` (`firewall.ts:754`)           |
 | Fermeture WebSocket          | RFC 6455 §7.4                  | `toWsCloseCode()` (`WebsocketContext.ts:55`)              |
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1312`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1283`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
-| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:114`) · `Service.log()` (`Service.ts:300`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1301`)         |
+| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:172`) · `Service.log()` (`Service.ts:300`) |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1310`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -518,7 +518,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:101`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1328`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1337`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.

@@ -204,8 +204,8 @@ curl -si http://localhost:5151/api/articles -H 'Origin: https://evil.com'
 
 ## ⚙️ Configuration et mises en situation
 
-La section `cors` de la config du module (`corsSchema`, `config.ts:117` ; branchée à la racine en
-`config.ts:117`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
+La section `cors` de la config du module (`corsSchema`, `config.ts:129` ; branchée à la racine en
+`config.ts:129`). Toutes les clés ont un défaut sûr — une section omise donne une politique **fermée**.
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
@@ -322,8 +322,8 @@ sequenceDiagram
   R-->>B: 200 + Access-Control-*
 ```
 
-`Firewall.handleCors()` (`firewall.ts:991`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1301`), à la ligne `http-kernel.ts:1301` — **avant le routing**. La raison est
+`Firewall.handleCors()` (`firewall.ts:1007`) est appelé **en tête de** `HttpKernel.handleHttp()`
+(`http-kernel.ts:1310`), à la ligne `http-kernel.ts:1310` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -371,7 +371,7 @@ Trois briques voisines, souvent confondues. Une seule ligne chacune :
 | **[En-têtes](./headers.md)** (CSP, COOP) | ce que la **page** a le droit de faire | dans le navigateur     | XSS, injection, fenêtres croisées    |
 
 Les deux premières se parlent. Au boot, la liste des origines de confiance CSRF est l'**union** de
-`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:589`) : ce que tu autorises explicitement en
+`csrf.trustedOrigins` et de `cors.origins` (`firewall.ts:605`) : ce que tu autorises explicitement en
 CORS ne peut pas être, au même instant, traité comme une tentative CSRF.
 
 L'inverse n'est pas vrai, et c'est délibéré : `csrf.trustedOrigins` déclare un **alias de domaine**
@@ -414,7 +414,7 @@ Deux réglages distincts, parce que deux mécanismes navigateur distincts.
 ## ⚡ Performance & mémoire
 
 La politique est **précalculée au boot** : les listes `methods`, `allowedHeaders`, `exposedHeaders` et
-`maxAgeS` sont jointes/converties une fois dans le constructeur (`cors.ts:42`), jamais par requête. Il
+`maxAgeS` sont jointes/converties une fois dans le constructeur (`cors.ts:11`), jamais par requête. Il
 ne reste à l'exécution qu'un `Set.has()` sur l'origine.
 
 Le coût par requête est donc :
@@ -429,8 +429,8 @@ Le coût par requête est donc :
 
 La configuration CORS **résolue** (celle qui tourne réellement, pas le fichier source) est exposée par
 `Firewall.describe()` (`firewall.ts:549`), qui délègue à `Firewall.#describeDefenses()`
-(`firewall.ts:575`). La projection CORS y expose `origins`, `credentials`, `methods`,
-`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:594`) — aucun secret ne transite par
+(`firewall.ts:591`). La projection CORS y expose `origins`, `credentials`, `methods`,
+`allowedHeaders`, `exposedHeaders` et `maxAgeS` (`firewall.ts:610`) — aucun secret ne transite par
 cette surface.
 
 - **Data plane** : `GET /nodefony/security/api/firewall` (`SecurityAdminApi.ts:348`), protégé

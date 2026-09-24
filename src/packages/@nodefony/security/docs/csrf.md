@@ -241,7 +241,7 @@ autorisation :
 ```
 
 > [!WARNING]
-> `@CsrfExempt` (`routerDecorators.ts:1099`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
+> `@CsrfExempt` (`routerDecorators.ts:1113`) est un opt-out **ciblé CSRF**. Ne jamais « débloquer un
 > webhook » avec `@BypassFirewall`/`@Anonymous` : eux désactivent l'authentification de la zone.
 
 Cas voisin — **façade multi-domaine** (`www.example.com` poste vers l'API d'un autre domaine à toi) :
@@ -325,7 +325,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | ------------------------------ | --------------------------------- | -------------------------------------- |
 | Méthodes sûres                 | RFC 9110 §9.2.1                   | `SAFE_METHODS` (`csrf.ts:8-13`)        |
 | Provenance                     | W3C Fetch Metadata                | `Csrf.enforce()` (`csrf.ts:85`)        |
-| Valeur `site` inconnue → repli | Fetch Metadata « SHOULD ignore »  | `csrf.ts:107`                          |
+| Valeur `site` inconnue → repli | Fetch Metadata « SHOULD ignore »  | `csrf.ts:96`                           |
 | Token signé                    | OWASP Signed Double-Submit Cookie | `CsrfTokenManager` (`csrfToken.ts:23`) |
 | Refus 403                      | RFC 9110 §15.5.4                  | `CsrfError` (`CsrfError.ts:17-21`)     |
 | Modèle de référence            | Go 1.25 `CrossOriginProtection`   | TSDoc `Csrf` (`csrf.ts:38-41`)         |
@@ -345,7 +345,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 
 L'écran **Firewall** de Studio expose la défense dans son onglet Défenses (`FirewallDefenses`,
 `Firewall.tsx:313-314`). La projection est **sans secret par construction** :
-`Firewall.#describeDefenses()` (`firewall.ts:575`) publie la config résolue, et `synchronizerToken`
+`Firewall.#describeDefenses()` (`firewall.ts:591`) publie la config résolue, et `synchronizerToken`
 n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:601`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)

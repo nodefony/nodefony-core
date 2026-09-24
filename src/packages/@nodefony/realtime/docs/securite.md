@@ -303,7 +303,7 @@ n'est jamais traitée.
 4. `authenticator.authenticate(handshake)` — **async autorisé** (on est en cold path, une fois par
    connexion : lire un store est acceptable ici, jamais par frame).
 5. Pose du token sur la WeakMap `peer → token` via `RealtimeHub.setTokenForPeer()`
-   (`RealtimeHub.ts:936`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
+   (`RealtimeHub.ts:1002`), **avant** l'envoi du `welcome` : le lookup est garanti dès la première
    frame.
 
 Un `throw` de `authenticate()` ferme la socket en `4001` « unauthorized », après un log `WARNING`
@@ -321,11 +321,11 @@ d'audit défectueux ne peut pas empêcher la fermeture.
 - `host` optionnel → comparaison **stricte** (insensible à la casse) sur l'en-tête `Host`, sans
   wildcard.
 - Le match porte sur le **path**, query comprise, jamais sur l'URL absolue : `handshakePath()`
-  (`RealtimeController.ts:1105`) extrait `pathname + search` du `WebsocketContext.url`, qui est
+  (`RealtimeController.ts:1165`) extrait `pathname + search` du `WebsocketContext.url`, qui est
   absolu. Sans cette extraction, un matcher `^/nodefony/…` ne se déclencherait jamais.
 
 `@nodefony/security` enregistre ces matchers automatiquement dans `Firewall.#wireRealtime()`
-(`firewall.ts:253`) : **une instance d'authenticator par zone protégée**, car le hub dédoublonne par
+(`firewall.ts:279`) : **une instance d'authenticator par zone protégée**, car le hub dédoublonne par
 identité d'instance et une instance partagée n'enregistrerait que le premier matcher.
 
 ### Zero Trust — il y a toujours un token
@@ -439,9 +439,9 @@ mémoire : le token déjà résolu, et la cible de la frame.
 | action `@RealtimeAction` | Authentifié **par défaut** ; rôle/scope si déclarés ; ouverte seulement si `{ authenticated: false }` est écrit |
 | `ping`, `unsubscribe` | **passent** — pas de surface de données |
 
-Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts:316`) laisse
+Deux détails évitent des faux refus : `authorizeApiRequest()` (`frameAuthorizer.ts:330`) laisse
 passer une frame au `path` invalide (le handler renverra `-32602` — le verrou ne duplique pas la
-validation), et `authorizeChannel()` (`frameAuthorizer.ts:309`) laisse passer un `channel`
+validation), et `authorizeChannel()` (`frameAuthorizer.ts:359`) laisse passer un `channel`
 non-chaîne (`startChannel` ignore de toute façon un canal absent).
 
 ### Le plancher système — les namespaces réservés
@@ -463,12 +463,12 @@ Trois durcissements méritent d'être connus :
 
 - **Match insensible à la casse, sans allocation** — `startsWithCI()` (`frameAuthorizer.ts:181`).
   Un `NODEFONY:syslog` ne contourne pas le plancher `nodefony:` par un changement de casse.
-- **Plancher irréductible** — `floorReserved()` (`frameAuthorizer.ts:255`) : une règle de config qui
+- **Plancher irréductible** — `floorReserved()` (`frameAuthorizer.ts:269`) : une règle de config qui
   tenterait d'ouvrir un namespace réservé (`{ authenticated: false }`) se voit ré-imposer
   `authenticated: true`. Le test porte sur le **namespace du canal**, pas sur le préfixe de la règle
   qui a matché : un préfixe de config plus court ou altéré ne contourne rien.
 - **La config passe avant les défauts** — les règles de `realtimeChannels`
-  (`security/nodefony/config/config.ts:1124`) sont placées en tête, premier match gagnant. On peut
+  (`security/nodefony/config/config.ts:1130`) sont placées en tête, premier match gagnant. On peut
   donc re-cibler `nodefony:syslog` sur `ROLE_SECURITY_AUDITOR` ; on ne peut pas l'ouvrir à l'anonyme.
 
 Le canal du journal d'audit (`nodefony:audit`) est enregistré comme **canal système** sur le hub
@@ -479,8 +479,8 @@ jamais de canal d'audit non gardé.
 
 ### La policy métier — déclarer sur le canal
 
-`@RealtimeChannel(name, policy)` (`realtimeDecorators.ts:142`) et `@RealtimeInbound(name, policy)`
-(`realtimeDecorators.ts:182`) attachent un `IChannelPolicy` au **nom** du canal. Les trois axes sont
+`@RealtimeChannel(name, policy)` (`realtimeDecorators.ts:192`) et `@RealtimeInbound(name, policy)`
+(`realtimeDecorators.ts:231`) attachent un `IChannelPolicy` au **nom** du canal. Les trois axes sont
 cumulatifs (ET) ; un axe absent n'impose rien :
 
 | Axe             | Sens                                                                          | Évalué par                               |
@@ -531,7 +531,7 @@ Le verrou n'existe que si quelqu'un le pose. Deux conditions doivent être vraie
 1. `@nodefony/security` est chargé, et
 2. au moins une zone a `security: true` **et** `realtime: true`.
 
-C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:253`) : sans zone qualifiante,
+C'est exactement le test de `Firewall.#wireRealtime()` (`firewall.ts:279`) : sans zone qualifiante,
 `wired` reste faux, `setFrameAuthorizer` n'est jamais appelé, et **aucune** policy de canal n'est
 évaluée — ni métier, ni système. `nodefony:syslog` redevient un canal ordinaire.
 
@@ -571,7 +571,7 @@ Le refus doit être observable sans devenir un oracle. Nodefony tranche ainsi :
 
 | Type de frame refusée               | Réponse au client                                                                |
 | ----------------------------------- | -------------------------------------------------------------------------------- |
-| Requête (avec `id`)                 | `-32001 "unauthorized"` — `JsonRpcPeer.receive()` (`JsonRpcPeer.ts:400`)         |
+| Requête (avec `id`)                 | `-32001 "unauthorized"` — `JsonRpcPeer.receive()` (`JsonRpcPeer.ts:390`)         |
 | Notification (`subscribe`, inbound) | `realtime:denied { channel, reason: "forbidden" }` (`RealtimeController.ts:432`) |
 | Dépassement du plafond de canaux    | `realtime:denied { channel, reason: "limit" }`                                   |
 | Canal sans aucun producteur         | `realtime:denied { channel, reason: "unknown" }`                                 |
@@ -625,7 +625,7 @@ Ce que `realtimeRevocation.attack.test.ts` prouve exactement :
 | registre vide                              | tick no-op, aucun crash                                  |
 
 La source de vérité côté security est `buildSessionRevalidator()`
-(`FirewallRealtimeAuthenticator.ts:227`) : il relit la session BFF **par son id capturé au handshake**
+(`FirewallRealtimeAuthenticator.ts:240`) : il relit la session BFF **par son id capturé au handshake**
 et vérifie qu'elle est toujours vivante **et toujours celle du même utilisateur** — ce second point
 attrape le changement de compte sur un navigateur partagé.
 
@@ -652,7 +652,7 @@ pas** borné.
 Chaque canal ouvert coûte un provider, un ticker et une entrée de Map. Sans borne, une connexion
 peut abonner jusqu'à l'OOM — un déni de service mémoire déclenché par **un seul** client.
 
-`RealtimeController.startChannel()` (`RealtimeController.ts:706`) refuse au-delà de
+`RealtimeController.startChannel()` (`RealtimeController.ts:746`) refuse au-delà de
 `limits.maxChannelsPerConnection` (`realtime/nodefony/config/config.ts:142`), défaut **256**,
 `null` pour illimité. Points prouvés par `realtimeChannelCap.attack.test.ts` :
 
@@ -672,7 +672,7 @@ amplificateur.
 
 Un onglet en arrière-plan, un mobile en zone blanche, une fenêtre TCP pleine : la file d'envoi
 grossit sans borne, et le multiplexage concentre le risque (une socket lente bloque tous ses
-canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:76`) applique deux seuils :
+canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:82`) applique deux seuils :
 
 | `bufferedAmount`                                                                                 | Action                                                                                                                      |
 | ------------------------------------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------- |
@@ -681,7 +681,7 @@ canaux). `WsConnectionTransport.send()` (`WsConnectionTransport.ts:76`) applique
 
 ### Taille des messages entrants
 
-Portée par `@nodefony/http` : `websocket.maxPayload` (`http/nodefony/config/config.ts:516`), défaut
+Portée par `@nodefony/http` : `websocket.maxPayload` (`http/nodefony/config/config.ts:543`), défaut
 **1 MiB**, au-delà fermeture RFC 6455 `1009` « Message Too Big ». C'est un durcissement par rapport
 au défaut de la librairie `ws`.
 
@@ -773,7 +773,7 @@ n'est pas appliquée.
 ## 📡 Observabilité — Studio
 
 - **Santé de la socket** : `/nodefony/realtime/api/health`, alimenté par `RealtimeHub.probe()`
-  (`RealtimeHub.ts:775`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
+  (`RealtimeHub.ts:849`) — canaux, abonnés, fan-out, connexions, back-pressure et carte d'identité
   du backplane. Un `drops` qui grimpe signale des clients en souffrance ; un `slowConsumers` non nul
   précède souvent une fermeture `1013`. Même snapshot en flux sur le canal `nodefony:socket`
   (namespace réservé : `ROLE_ADMIN`).

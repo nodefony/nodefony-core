@@ -161,7 +161,7 @@ la carte de l'aperçu, jamais figés ici.
 <!-- prettier-ignore -->
 | Type | Où | Ce qui est prouvé |
 | --- | --- | --- |
-| Unitaires (surface) | `nodefony` `packageDeps.test.ts:38`, `clientSubpathSurface.types.test.ts:164` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe et publie — la règle elle-même vit dans `checkPackageDeps()` (`packageDeps.ts:285`) |
+| Unitaires (surface) | `nodefony` `packageDeps.test.ts:38`, `clientSubpathSurface.types.test.ts:164` · `@nodefony/studio` `packageSurface.test.ts` | ce que chaque paquet déclare correspond à ce que son code importe et publie — la règle elle-même vit dans `checkPackageDeps()` (`packageDeps.ts:281`) |
 | Unitaires (client) | `nodefony` `clientSurfaceExercised.test.ts` | les sous-chemins navigateur sont réellement exercés, pas seulement déclarés |
 | Unitaires (chaîne) | `scripts/release/release-core.test.mjs`, `scripts/check-externals.test.mjs` | l'ordre de publication, les métadonnées exigées, les dépendances externalisées |
 

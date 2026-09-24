@@ -133,7 +133,7 @@ Trois partis pris, tous vérifiables au code.
 
 **Le service ne touche ni HTTP ni session.** `OAuth2Service` rend à l'appelant les éléments à
 persister (`url`, `state`, `codeVerifier`) et un simple `{ identifier }` en sortie
-(`IOAuthAuthorization`, `oauth2.ts:21`). Conséquence pratique : la logique OAuth se teste **sans
+(`IOAuthAuthorization`, `oauth2.ts:82`). Conséquence pratique : la logique OAuth se teste **sans
 serveur**, comme `AuthFlow`. Le transport (cookies, redirections 302) vit dans le controller BFF.
 
 **Le login social finit exactement comme un login classique.** Le callback appelle
@@ -380,9 +380,9 @@ Construit par le helper générique `createOidcProvider()` (`oidc.ts:103`) : PKC
 (`usesPkce: true`, `oidc.ts:111`), émetteur figé `https://accounts.google.com`
 (`oauthProviderRegistry.ts:80`). Ses points d'entrée ne sont **pas** écrits en dur : ils sont
 demandés à l'émetteur (RFC 8414, cf. « Découverte » plus bas). Le profil se lit dans l'**ID token** —
-claims standard `sub`, `email`, `email_verified`, `name` (`oidc.ts:134`), après les contrôles
+claims standard `sub`, `email`, `email_verified`, `name` (`oidc.ts:146`), après les contrôles
 obligatoires d'OpenID Connect Core §3.1.3.7 : `iss`, `aud`, `exp`, et un `sub` non vide
-(`assertIdTokenClaims()`, `oidc.ts:132`). Pas d'identifiant stable, pas d'identité.
+(`assertIdTokenClaims()`, `oidc.ts:139`). Pas d'identifiant stable, pas d'identité.
 
 ### `keycloak` — OIDC self-hosted, l'émetteur vient de ta config
 
@@ -446,7 +446,7 @@ donnerait l'illusion de PKCE.
 
 Pas de PKCE, pas d'ID token, pas d'`iss` (`usesPkce: false`, `issuerPolicy: null`,
 `github.ts:43-44`) : ici, la défense anti-CSRF repose **entièrement** sur le `state`. Le profil vient
-de l'API REST `/user` (`createGithubProvider()`, `github.ts:34`). Subtilité GitHub : l'e-mail
+de l'API REST `/user` (`createGithubProvider()`, `github.ts:53`). Subtilité GitHub : l'e-mail
 primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et n'accepte
 `emailVerified` que si GitHub le certifie (`github.ts:68-77`).
 
@@ -454,7 +454,7 @@ primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et
 
 **Tout serveur OpenID Connect conforme est déjà supporté** — Auth0, Okta, Authentik, Entra
 mono-locataire… — sans une ligne de code propre. Le builtin `oidc` suffit quand il n'y en a qu'un ;
-pour en nommer plusieurs, `registerOAuthProvider()` (`oauthProviderRegistry.ts:56`) au chargement de
+pour en nommer plusieurs, `registerOAuthProvider()` (`oauthProviderRegistry.ts:68`) au chargement de
 ton module (avant le `onBoot` du service) :
 
 ```typescript ignore
@@ -479,14 +479,14 @@ protocole vient de `OAuth2Client`, la fabrique ne fait que lire le profil. C'est
 lignes — `github.ts` en est le modèle.
 
 Un fournisseur qui n'est pas OIDC (pas d'ID token, profil lu à son API) s'écrit comme GitHub
-(`createGithubProvider()`, `github.ts:40`) : `OAuth2Client` porte le protocole, la fabrique ne fait
+(`createGithubProvider()`, `github.ts:53`) : `OAuth2Client` porte le protocole, la fabrique ne fait
 que le mapping du profil. Exemple sans réseau dans le dépôt :
 `src/modules/test/nodefony/secure/oauthTestProvider.ts`.
 
 ## ⚙️ Configuration
 
-Section `oauth2` du schéma Zod (`config.ts:1034`), branchée sur la config du module
-(`config.ts:1149`). Table dérivée du schéma — les défauts sont ceux du code.
+Section `oauth2` du schéma Zod (`config.ts:1155`), branchée sur la config du module
+(`config.ts:1155`). Table dérivée du schéma — les défauts sont ceux du code.
 
 | Option            | Type                 | Défaut          | Effet                                                      |
 | ----------------- | -------------------- | --------------- | ---------------------------------------------------------- |
@@ -495,9 +495,9 @@ Section `oauth2` du schéma Zod (`config.ts:1034`), branchée sur la config du m
 | `allowSignup`     | booléen              | `true`          | `false` = compte préexistant lié exigé (`config.ts:1048`). |
 | `successRedirect` | chemin               | `/`             | Où revient l'utilisateur après succès.                     |
 | `failureRedirect` | chemin               | `/login`        | Où il revient après échec (uniforme, sans détail).         |
-| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1064`).                   |
+| `providers`       | dictionnaire par nom | `{}`            | Fournisseurs activés (`config.ts:1070`).                   |
 
-Par fournisseur (`oauthProviderSchema`, `config.ts:948`) :
+Par fournisseur (`oauthProviderSchema`, `config.ts:954`) :
 
 <!-- prettier-ignore -->
 | Option | Requis | Effet |
@@ -563,11 +563,11 @@ ou détruire les sessions), pas chez le fournisseur.
 | --------------------------------- | ------------------------ | --------------------------------------------------------------------- |
 | Flux Authorization Code           | RFC 6749                 | `IOAuthProvider.validateAuthorizationCode()` (`IOAuthProvider.ts:85`) |
 | PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:58`) · `oidc.ts:104-111`               |
-| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:116`) · `oauth2Schema` (`config.ts:1034`) |
+| Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:116`) · `oauth2Schema` (`config.ts:1040`) |
 | Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:61`) · `oauth2.ts:170-181`         |
 | Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:975`)                                       |
 | Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                   |
-| ID token consommé en code flow    | OIDC Core §3.1.3.7       | `assertIdTokenClaims()` (`oidc.ts:132`)                               |
+| ID token consommé en code flow    | OIDC Core §3.1.3.7       | `assertIdTokenClaims()` (`oidc.ts:139`)                               |
 | Anti-fixation de session          | OWASP Session Management | `session.regenerateId()` au login (`authFlow.ts:388`)                 |
 
 Flux **exclus** par posture 2.1, et donc absents du code : `implicit` (jeton en fragment d'URL) et
@@ -618,9 +618,9 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | ------------------------------------------------- | ----------------------------------------------------------------------------- | ------------------------------------------------------------------- |
 | `404` sur `…/oauth2/…`                            | Service `oauth2` absent (module non chargé / `enabled: false`)                | Charger `@nodefony/security` et activer `oauth2`                    |
 | WARNING « inconnu du registre » au boot           | Nom configuré sans fabrique (`oauth2.ts:149-155`)                             | `registerOAuthProvider()` au chargement du module, ou builtin       |
-| `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:97`)            | Vérifier le nom exact **et** la présence des secrets                |
+| `404` « Unknown provider » sur `authorize`        | Le nom n'est pas dans `listProviders()` (`OAuth2Controller.ts:14`)            | Vérifier le nom exact **et** la présence des secrets                |
 | Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)               | Renseigner `clientId`/`clientSecret` dans l'env                     |
-| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:958`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
+| `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:975`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
 | Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)             | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
 | Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:126-129`)              | Refaire le flux depuis `authorize` — comportement attendu           |
 | `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:170-181`)                         | Corriger `issuer` (Keycloak : URL exacte du realm)                  |

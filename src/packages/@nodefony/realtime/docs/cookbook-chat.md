@@ -1597,23 +1597,23 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 <!-- prettier-ignore -->
 | Ce que tu as utilisé | Où c'est écrit |
 | --- | --- |
-| Les trois décorateurs | `RealtimeAction()` (`realtimeDecorators.ts:101`), `RealtimeChannel()` (`realtimeDecorators.ts:142`), `RealtimeInbound()` (`realtimeDecorators.ts:182`) |
+| Les trois décorateurs | `RealtimeAction()` (`realtimeDecorators.ts:101`), `RealtimeChannel()` (`realtimeDecorators.ts:192`), `RealtimeInbound()` (`realtimeDecorators.ts:231`) |
 | La porte WebSocket | `RealtimeController.handleRealtime()` (`RealtimeController.ts:249`) |
 | Le pont HTTP ⇄ WebSocket | `RealtimeController.realtimeApiRequest()` (`RealtimeController.ts:219`) |
-| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:388`), `RealtimeController.startChannel()` (`RealtimeController.ts:746`) |
-| La publication et le fan-out | `RealtimeHub.publish()` (`RealtimeHub.ts:604`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:549`) |
-| Les canaux diffusables | `RealtimeBroadcast` (`realtimeDecorators.ts:342`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:594`) |
+| L'abonnement et son cycle de vie | `RealtimeHub.subscribe()` (`RealtimeHub.ts:462`), `RealtimeController.startChannel()` (`RealtimeController.ts:746`) |
+| La publication et le fan-out | `RealtimeHub.publish()` (`RealtimeHub.ts:604`), réinjection locale `RealtimeHub.publishLocal()` (`RealtimeHub.ts:623`) |
+| Les canaux diffusables | `RealtimeBroadcast` (`realtimeDecorators.ts:342`), `RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`) |
 | Le branchement du backplane | `RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`), registre `registerBackplaneDriver()` (`backplaneRegistry.ts:55`), cloison `resolveBackplaneOriginId()` (`originId.ts:24`) |
-| Les politiques de canal | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1037`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1037`) |
-| Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:253`) |
-| Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:228`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`) |
+| Les politiques de canal | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1127`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1127`) |
+| Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:279`) |
+| Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:269`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`) |
 | La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:810`) |
 | Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`RealtimeHub.ts:63`) |
 | Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:984`) |
 | L'accueil et l'identité | `IRealtimeWelcome` (`RealtimeEventMap.ts:231`) |
-| La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:775`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |
-| Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:91`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
-| Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:200`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |
-| Les hooks React | `useNodefony()` (`client/react/index.ts:67`), `useNodefonyState()` (`client/react/index.ts:87`), `useNodefonyIdentity()` (`client/react/index.ts:104`), `useNodefonyChannel()` (`client/react/index.ts:198`), `useNodefonyChannelData()` (`client/react/index.ts:148`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:182`) |
-| Le client navigateur | `RealtimeClient.connect()` (`RealtimeClient.ts:311`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:530`), `RealtimeClient.request()` (`RealtimeClient.ts:594`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:386`) |
-| L'upload | `UploadedFile` (`routerDecorators.ts:1239`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:185`) |
+| La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:849`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |
+| Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
+| Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:213`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |
+| Les hooks React | `useNodefony()` (`client/react/index.ts:145`), `useNodefonyState()` (`client/react/index.ts:163`), `useNodefonyIdentity()` (`client/react/index.ts:256`), `useNodefonyChannel()` (`client/react/index.ts:198`), `useNodefonyChannelData()` (`client/react/index.ts:221`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:256`) |
+| Le client navigateur | `RealtimeClient.connect()` (`RealtimeClient.ts:389`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:530`), `RealtimeClient.request()` (`RealtimeClient.ts:729`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:471`) |
+| L'upload | `UploadedFile` (`routerDecorators.ts:1253`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:185`) |

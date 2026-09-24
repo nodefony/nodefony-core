@@ -314,7 +314,7 @@ Trois comportements de `create entity` qui surprennent si on ne les connaît pas
 
 Le squelette est en [Démarrage rapide](#-démarrage-rapide) ; voici les leviers.
 
-**`generate()` est l'action.** On la surcharge (`command/Command.ts:389`) ; elle reçoit les arguments
+**`generate()` est l'action.** On la surcharge (`command/Command.ts:421`) ; elle reçoit les arguments
 positionnels déclarés par `addArgument()`, et l'instance Commander en dernier paramètre. Les hooks de
 cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la demande par `setEvents()`
 (`command/Command.ts:191`), idempotent.

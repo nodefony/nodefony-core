@@ -46,8 +46,8 @@ compte comme un succès. Une passe verte peut donc ne rien avoir prouvé.
 
 Toute cette page découle de là. Le dépôt ne se contente pas de lancer des tests : il **déclare le
 décor attendu** en un seul endroit (`vitest.gates.ts`) — une cible par base, `PG_GATE`
-(`vitest.gates.ts:268`) et `MYSQL_GATE` (`vitest.gates.ts:285`), plus la liste des interrupteurs
-optionnels `OPT_IN_SWITCHES` (`vitest.gates.ts:127`) —, vérifie que chaque décor déclaré a
+(`vitest.gates.ts:278`) et `MYSQL_GATE` (`vitest.gates.ts:295`), plus la liste des interrupteurs
+optionnels `OPT_IN_SWITCHES` (`vitest.gates.ts:137`) —, vérifie que chaque décor déclaré a
 réellement servi, et **fait échouer la passe** en intégration continue quand une cible annoncée
 n'a pas été exercée. Une absence voulue s'énonce ; elle ne s'oublie pas.
 

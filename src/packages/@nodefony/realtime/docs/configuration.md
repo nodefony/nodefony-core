@@ -125,7 +125,7 @@ fichiers, jamais trois**.
 | `nodefony/config/config.ts`             | **le quoi**    | le schéma Zod commenté, source **unique** des valeurs d'usine, et les défauts matérialisés        |
 | `nodefony/config/defineModuleConfig.ts` | **le comment** | le builder pur : analyse, surcharge d'environnement, gel — il ne retape jamais une valeur d'usine |
 
-Le schéma `realtimeConfigSchema` (`config.ts:205`) porte chaque valeur en `.default()` et chaque
+Le schéma `realtimeConfigSchema` (`config.ts:259`) porte chaque valeur en `.default()` et chaque
 explication en `.describe()`. Les défauts effectifs sont **dérivés** du schéma lui-même
 (`realtimeConfigSchema.parse({})`, `config.ts:231`) : il n'existe pas de second endroit où une valeur
 d'usine serait écrite, donc pas de dérive silencieuse possible entre la doc du champ et son
@@ -252,7 +252,7 @@ regarder quand un message ne traverse pas.
 
 > [!TIP]
 > Ces quatre lignes viennent du même endroit du code (`Realtime.#wireBackplane()`,
-> `src/packages/@nodefony/realtime/index.ts:253`) et de la carte d'identité que chaque driver publie.
+> `src/packages/@nodefony/realtime/index.ts:279`) et de la carte d'identité que chaque driver publie.
 > Aucun repli n'est silencieux : si le fan-out est dégradé, c'est écrit.
 
 ## ⚙️ Le schéma, clé par clé
@@ -378,7 +378,7 @@ d'éteindre une sonde sur un pod en incident sans redéployer une configuration.
 ### `slowConsumer.bytes` — un compteur, pas un frein
 
 Seuil de `bufferedAmount` — les octets en attente d'envoi sur une socket — au-delà duquel la sonde
-compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:775`).
+compte la connexion comme « lente » (`RealtimeHub.probe()`, `RealtimeHub.ts:849`).
 
 > [!IMPORTANT]
 > **Cette clé observe, elle n'agit pas.** Elle ne change que le compteur `slowConsumers` de la
@@ -434,7 +434,7 @@ des canaux d'état, où seul le dernier instantané compte.
 Chaque canal ouvert coûte un producteur côté hub, un minuteur le plus souvent, et une entrée de table
 côté connexion. Sans borne, **un seul** client peut s'abonner jusqu'à épuiser la mémoire du
 processus. Le plafond est vérifié à chaque abonnement (`RealtimeController.startChannel()`,
-`RealtimeController.ts:706`).
+`RealtimeController.ts:746`).
 
 Quatre propriétés qui décident du bon réglage :
 

@@ -64,7 +64,7 @@ Trois faits structurent tout le reste :
 1. **Le bundler ne génère aucun `.d.ts`.** C'est écrit noir sur blanc en tête du socle partagé
    (`bundler/index.ts:22`) : les déclarations sortent de `tsgo`, jamais de rolldown.
 2. **La configuration de build est du code publié**, pas un fichier copié de projet en projet :
-   `defineNodefonyRolldownConfig()` (`bundler/index.ts:116`) vit dans le paquet `nodefony` et
+   `defineNodefonyRolldownConfig()` (`bundler/index.ts:135`) vit dans le paquet `nodefony` et
    s'importe par le subpath `nodefony/bundler`.
 3. **Le bundle ne contient que ton code.** Tout ce que le paquet déclare comme dépendance en sort par
    la liste `external`. Un paquet gonflé est presque toujours un `external` oublié.
@@ -270,7 +270,7 @@ Le cœur, encore une fois, en émet **deux jeux** : `tsconfig.declarations.json`
 Une dépendance est `external` quand elle doit rester **un `import` dans la sortie**, résolu au runtime
 depuis `node_modules`. Le bundler laisse la ligne intacte au lieu d'aspirer le paquet.
 
-`defineNodefonyRolldownConfig()` construit cette liste en trois apports (`bundler/index.ts:122`) : le
+`defineNodefonyRolldownConfig()` construit cette liste en trois apports (`bundler/index.ts:135`) : le
 **nom propre du paquet** (toujours, sans condition), la liste passée en option, et — si
 `externalDeps` est vrai (`bundler/index.ts:39`) — toutes les `dependencies` et `peerDependencies`
 lues dans le `package.json` courant.
@@ -441,7 +441,7 @@ La commande (`frontend-build.ts:22`) est faite pour un pipeline d'intégration :
 | ------------------------------------ | --------------------------------------------------------------------------------------------------- |
 | **Idempotent**                       | Une entrée dont le manifeste est plus récent que ses sources est ignorée (`FrontendService.ts:560`) |
 | **`--force`**                        | Reconstruit tout, sans test de fraîcheur                                                            |
-| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:785`)                              |
+| **Un échec n'arrête pas les autres** | Les erreurs sont collectées dans `failures` (`FrontendService.ts:819`)                              |
 | **Code de sortie**                   | Passe à `1` s'il reste un échec (`frontend-build.ts:103`) — la CI casse                             |
 
 ### Publier les assets — `assets:publish`
@@ -458,7 +458,7 @@ reste à l'orchestrateur : Nodefony assemble l'arbre, le déploiement le pousse.
 
 Un module publié sur npm avec son interface d'administration ne peut pas exiger que le consommateur
 compile son front. `resolveUiDelivery()` (`prebuiltUi.ts:48`) arbitre trois modes via la molette `ui`
-(`prebuiltUi.ts:10`) :
+(`prebuiltUi.ts:48`) :
 
 | Mode     | Comportement                                                                          |
 | -------- | ------------------------------------------------------------------------------------- |
@@ -484,8 +484,8 @@ sources, les tests, les configurations — **reste dans le dépôt**.
 | `public`    | `@nodefony/studio`       | Les assets d'interface pré-buildés, servis en mode `static`.      |
 
 L'entrée **`docs` n'est pas décorative** : c'est ce qui rend la documentation d'un module lisible
-depuis une application qui l'a simplement installé. `listModuleDocs()` (`docsReader.ts:178`) lit le
-dossier `docs/` **du module tel qu'installé**, et `readDependencies()` (`docsReader.ts:325`) résout
+depuis une application qui l'a simplement installé. `listModuleDocs()` (`docsReader.ts:206`) lit le
+dossier `docs/` **du module tel qu'installé**, et `readDependencies()` (`docsReader.ts:790`) résout
 les versions réellement présentes dans `node_modules`. Un module publié sans son `docs/` devient muet
 dans la console d'administration.
 

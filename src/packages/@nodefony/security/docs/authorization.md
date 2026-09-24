@@ -363,11 +363,11 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:878`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
 | empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:426`)                           |
-| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1500`)                         |
+| décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1514`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:743-747`)                                  |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:975`)          |
-| `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:887`) |
-| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1236`)                                |
+| `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:926`) |
+| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1250`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
 403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:331-336`). Le
@@ -511,14 +511,14 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 
 ## 🔌 HTTP et WebSocket — une garde, N transports
 
-- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:317`) est le point unique
+- **La même garde** : `Resolver.executeAction()` (`Resolver.ts:335`) est le point unique
   d'enforcement — pipeline HTTP classique **et** invoke WS-RPC (pont `api.request`). Un
   `@IsGranted` protège donc l'action quel que soit le transport (prouvé bout en bout par le banc
   `ws-isgranted-jwt`).
 - **Le service ignore le transport** : l'audit lit `getUserIdentifier()`, commun à `IToken` (HTTP)
   et `IRealtimeToken` (WS) (`authorization.ts:119-122`).
 - **Le verrou de frame** (canaux realtime) applique son RBAC par canal avec la **même
-  hiérarchie** : `satisfies()` (`frameAuthorizer.ts:276`) délègue à `Firewall.hasRole()`
+  hiérarchie** : `satisfies()` (`frameAuthorizer.ts:290`) délègue à `Firewall.hasRole()`
   (`firewall.ts:482`) — les rôles exigés par un canal héritent comme partout ailleurs.
 
 ## 📜 Normes appliquées

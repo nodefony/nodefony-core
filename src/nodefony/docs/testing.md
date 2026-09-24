@@ -79,8 +79,8 @@ console.log(res.status);
 <!-- prettier-ignore -->
 | Export | Ce qu'il fait | Quand s'en servir |
 | --- | --- | --- |
-| `createTestModule()` (`testing/index.ts:160`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
-| `runningAppPort()` (`testing/index.ts:96`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
+| `createTestModule()` (`testing/index.ts:211`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
+| `runningAppPort()` (`testing/index.ts:147`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
 | `startSpareApp()` (`testing/index.ts:302`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
 | `nodefonyBin()` (`testing/index.ts:64`) | Résout le lanceur du framework, où qu'il soit installé | Appeler une commande depuis un script |
 

@@ -277,7 +277,7 @@ Le trajet complet d'une requête, des étapes qu'elle traverse aux branches par 
 | Voie                                                   | Quand la choisir                                            |
 | ------------------------------------------------------ | ----------------------------------------------------------- |
 | `@RealtimeAction("nom")` (`realtimeDecorators.ts:101`) | le cas courant — un nom fixe, une méthode, déclaratif       |
-| `realtimeActions()` (`RealtimeController.ts:179`)      | la table est **calculée** (noms dynamiques, boucle, config) |
+| `realtimeActions()` (`RealtimeController.ts:186`)      | la table est **calculée** (noms dynamiques, boucle, config) |
 
 Les deux sont fusionnées au handshake, et **l'override gagne** en cas de conflit de nom : une
 classe peut ainsi remplacer une action héritée sans toucher au parent
@@ -287,7 +287,7 @@ allouée au premier enregistrement seulement.
 ### Ce que ton `return` et ton `throw` deviennent sur le fil
 
 Le retour du handler est envoyé tel quel en `result`. Les erreurs, elles, suivent une règle Zero
-Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:506`) :
+Trust stricte, appliquée dans `JsonRpcPeer.handleRequest()` (`JsonRpcPeer.ts:499`) :
 
 | Côté serveur                    | Ce que reçoit le client                  | Pourquoi                                        |
 | ------------------------------- | ---------------------------------------- | ----------------------------------------------- |
@@ -346,20 +346,20 @@ homonyme), elle est conservée : le défaut ne rétrograde jamais une règle plu
 
 Un nom qui commence par `nodefony:` hérite d'un plancher non contournable : authentifié **et**
 `ROLE_ADMIN` (`SYSTEM_CHANNEL_POLICY`, `frameAuthorizer.ts:70`). Un seul préfixe couvre donc tout
-ce que la plateforme expose (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:86`). C'est ce qui
+ce que la plateforme expose (`DEFAULT_SYSTEM_PREFIXES`, `frameAuthorizer.ts:106`). C'est ce qui
 protège `nodefony:kernel:gc` : le nom **est** la garde, et la comparaison est insensible à la casse
 pour qu'un `NODEFONY:kernel:gc` ne passe pas à côté.
 
 Ce plancher **prime sur ta déclaration** — y compris sur `{ authenticated: false }`. Et il ne
 s'arrête pas aux préfixes : tout nom **contenant** `:health` ou `:stats` est traité comme un canal
-d'observabilité (`matchSystemPolicy`, `frameAuthorizer.ts:202`). Une action `public:health` reste
+d'observabilité (`matchSystemPolicy`, `frameAuthorizer.ts:243`). Une action `public:health` reste
 donc réservée, quoi qu'en dise son décorateur. À savoir avant de nommer une action « ouverte ».
 
 ### Situation 3 — couvrir SES actions par la configuration
 
 Pour exiger un rôle sur tes propres actions, on déclare une règle de préfixe dans la
 configuration de sécurité — la même liste que pour les canaux
-(`realtimeChannels`, `security/nodefony/config/config.ts:1124`) :
+(`realtimeChannels`, `security/nodefony/config/config.ts:1130`) :
 
 ```ts ignore
 use("@nodefony/security", {
@@ -402,7 +402,7 @@ await socket.request("orders:export", { scope }, 120_000); // action longue
 
 | Défaut    | Valeur    | Ancrage              |
 | --------- | --------- | -------------------- |
-| `request` | 30 000 ms | `JsonRpcPeer.ts:310` |
+| `request` | 30 000 ms | `JsonRpcPeer.ts:319` |
 
 À l'expiration, l'entrée en attente est **retirée** et la `Promise` rejetée avec
 `RPC timeout: <méthode>` (`JsonRpcPeer.ts:455`). Conséquence à connaître : une réponse qui
@@ -444,7 +444,7 @@ fois ? »**.
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
 par la signature** de `mutate()` (`RealtimeClient.ts:797`), et c'est la garde `@Idempotent`
-(`routerDecorators.ts:1103`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
+(`routerDecorators.ts:1142`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
 ```ts ignore

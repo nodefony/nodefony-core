@@ -203,8 +203,8 @@ flowchart TD
 
 Autour de ce cœur, le kernel orchestre le cycle de vie :
 
-- **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:412`) instancie le store
-  depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:412`) et arme un `GcScheduler`
+- **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:417`) instancie le store
+  depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:417`) et arme un `GcScheduler`
   (`http-kernel.ts:422`) qui **purge les fenêtres expirées** hors du chemin chaud.
 - **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1000`) et
   la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1007`) puis `writeHead(429)`
@@ -219,10 +219,10 @@ schéma, écrits ici pour les montrer.
 
 | Option        | Type         | Défaut    | Effet                                                                            | Chaud |
 | ------------- | ------------ | --------- | -------------------------------------------------------------------------------- | ----- |
-| `enabled`     | bool         | `false`   | Arme le rate-limit (HTTP **et** handshakes WS, même compteur) (`config.ts:849`). | oui   |
-| `windowS`     | int (s)      | `60`      | Largeur de la fenêtre fixe ; le compteur par IP repart à zéro (`config.ts:860`). | oui   |
+| `enabled`     | bool         | `false`   | Arme le rate-limit (HTTP **et** handshakes WS, même compteur) (`config.ts:870`). | oui   |
+| `windowS`     | int (s)      | `60`      | Largeur de la fenêtre fixe ; le compteur par IP repart à zéro (`config.ts:881`). | oui   |
 | `max`         | int          | `300`     | Requêtes/IP/fenêtre ; au-delà `429` + `Retry-After` (`config.ts:892`).           | oui   |
-| `maxTracked`  | int (≥ 1000) | `100 000` | Borne mémoire : IP suivies ; au cap, purge puis éviction FIFO (`config.ts:883`). | non   |
+| `maxTracked`  | int (≥ 1000) | `100 000` | Borne mémoire : IP suivies ; au cap, purge puis éviction FIFO (`config.ts:904`). | non   |
 | `gcIntervalS` | int (s)      | `300`     | Intervalle du balayage de purge des fenêtres expirées, hors hot-path.            | non   |
 | `gcJitter`    | bool         | `true`    | Étale le tick GC d'un jitter aléatoire (anti-thundering-herd multi-pod).         | non   |
 
@@ -230,7 +230,7 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 
 | Option                  | Type          | Défaut | Effet                                                                                               | Chaud |
 | ----------------------- | ------------- | ------ | --------------------------------------------------------------------------------------------------- | ----- |
-| `wsMaxConnectionsPerIp` | int \| `null` | `null` | Cap de connexions WS **concurrentes** par IP ; au-delà, upgrade fermé en `1013` (`config.ts:1046`). | oui   |
+| `wsMaxConnectionsPerIp` | int \| `null` | `null` | Cap de connexions WS **concurrentes** par IP ; au-delà, upgrade fermé en `1013` (`config.ts:1067`). | oui   |
 
 > [!TIP]
 > `max: 300` sur `windowS: 60` = **5 req/s soutenu** par IP, avec des rafales tolérées jusqu'à 300 d'un
@@ -242,7 +242,7 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 Un WebSocket ne peut **pas** recevoir un `429` : au moment où le rate-limit décide, le `101 Switching
 Protocols` est déjà parti sur le fil (émis par la bibliothèque `ws`). Le refoulement se fait donc par
 une **fermeture RFC 6455 `1013 Try Again Later`**, décidée dans `onWebsocketRequest()`
-(`http-kernel.ts:1540`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
+(`http-kernel.ts:1549`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
 
 Deux plafonds distincts, tous deux par IP forwarded-aware :
 

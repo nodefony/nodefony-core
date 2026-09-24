@@ -84,14 +84,14 @@ qui remplace Vite une fois en production.
 ### La vision Nodefony — ce que ce module fait différemment
 
 **Vite est un processus système, pas une bibliothèque.** Le superviseur lance le binaire Vite avec
-`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts:372`). La
+`child_process.spawn` (`ViteProcessSupervisor.attemptSpawn()`, `ViteProcessSupervisor.ts:414`). La
 conséquence est concrète : compiler dix mille modules ne coûte **rien** à la latence de tes requêtes,
 et un plantage de Vite ne tue pas ton serveur — le superviseur le relance tout seul.
 
 **C'est Nodefony qui sert le HTML.** Beaucoup de piles séparent un serveur front (qui rend la page) et
 un serveur d'API (qui rend le JSON). Ici, la page d'entrée reste une route de ton contrôleur :
 elle traverse le pare-feu, connaît la session, reçoit son nonce CSP. Le module se contente d'y
-**injecter les bonnes balises** (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:153`).
+**injecter les bonnes balises** (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:163`).
 
 **Un seul Vite pour N modules.** Trois modules à interface ne lancent pas trois serveurs Vite : leurs
 entrées sont agrégées dans une seule instance multi-entrées. La seule exception est documentée et
@@ -302,7 +302,7 @@ d'entrée. Ton `index.html` est **le tien** : mets-y tes polices, tes méta, tes
 
 Le marqueur `<!--nodefony:frontend-->` indique **où** injecter les balises ; sans lui, elles sont
 posées avant `</head>`. Le `<script>` d'entrée que tu vois en bas est retiré automatiquement au rendu
-(`TemplateHelper.injectIntoHtml()`, `TemplateHelper.ts:105`) : il n'est résolvable que par Vite quand
+(`TemplateHelper.injectIntoHtml()`, `TemplateHelper.ts:115`) : il n'est résolvable que par Vite quand
 Vite sert lui-même la page, ce qui n'est pas le cas ici.
 
 ### Ce qu'on observe
@@ -480,7 +480,7 @@ sequenceDiagram
 ```
 
 **Pourquoi `onServersReady` et pas `onReady`.** Vite ne doit démarrer qu'une fois les serveurs
-Nodefony en écoute (`FrontendService.init()`, `FrontendService.ts:146`). Dans l'autre ordre, le proxy
+Nodefony en écoute (`FrontendService.init()`, `FrontendService.ts:160`). Dans l'autre ordre, le proxy
 de Vite viserait un serveur inexistant et les premiers appels d'API échoueraient — un défaut
 intermittent, apparaissant seulement quand le navigateur est plus rapide que le démarrage.
 
@@ -494,7 +494,7 @@ intermittent, apparaissant seulement quand le navigateur est plus rapide que le 
 | `ViteBuilder`           | construit l'objet de configuration Vite pour le build en processus | `ViteBuilder.buildViteConfig()` (`ViteBuilder.ts:95`)       |
 | `TemplateHelper`        | produit les balises (dev) ou lit le manifeste (prod)               | `TemplateHelper.ts:36`                                      |
 | `isolationGroups`       | à quelle famille appartient un preset, et sur quel bloc de ports   | `isolationGroup()` (`isolationGroups.ts:39`)                |
-| `FrontendAdminApi`      | la vue sûre de l'état, pour Studio                                 | `buildFrontendStatus()` (`FrontendAdminApi.ts:139`)         |
+| `FrontendAdminApi`      | la vue sûre de l'état, pour Studio                                 | `buildFrontendStatus()` (`FrontendAdminApi.ts:147`)         |
 
 ### Une configuration Vite écrite, pas passée
 
@@ -552,7 +552,7 @@ déclenche une boucle de rechargement.
 
 D'où le regroupement par **famille** (`isolationGroup()`, `isolationGroups.ts:20`) : `angular` a la
 sienne, tout le reste partage `default`. Chaque famille obtient un **bloc de ports disjoint**
-(`familyPortPlan()`, `isolationGroups.ts:63`) de taille `portRetryAttempts + 1` : ainsi, une instance
+(`familyPortPlan()`, `isolationGroups.ts:84`) de taille `portRetryAttempts + 1` : ainsi, une instance
 qui glisse de port sur conflit ne peut jamais empiéter sur le bloc d'une autre. La famille principale
 garde le port habituel (`PRIMARY_FAMILY`, `isolationGroups.ts:56`).
 
@@ -568,7 +568,7 @@ les processus meurent.
 | Situation                  | Réponse                                                                                               |
 | -------------------------- | ----------------------------------------------------------------------------------------------------- |
 | Port occupé au lancement   | essai sur le port suivant, jusqu'à `portRetryAttempts` (`ViteProcessSupervisor.ts:297`)               |
-| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:674`)         |
+| Vite plante                | relance avec délai exponentiel plafonné (`scheduleRestart()`, `ViteProcessSupervisor.ts:715`)         |
 | Vite ne répond plus (gelé) | sonde périodique ; après N échecs, Vite est tué pour être relancé (`ViteProcessSupervisor.ts:599`)    |
 | Deux `start()` concurrents | la promesse en cours est partagée — jamais deux processus                                             |
 | Ctrl+C au terminal         | le signal marque un arrêt **voulu** : pas de relance (`markShutdown`, `ViteProcessSupervisor.ts:266`) |
@@ -601,7 +601,7 @@ et dans les types du paquet — jamais recopiées ici, où elles se périmeraien
 
 ### `registerEntry` — la déclaration d'une interface
 
-`FrontendService.registerEntry()` (`FrontendService.ts:243`) est appelée par le module consommateur,
+`FrontendService.registerEntry()` (`FrontendService.ts:254`) est appelée par le module consommateur,
 dans son `onKernelBoot()`. Elle résout les chemins relatifs, calcule le préfixe public et renvoie
 l'entrée résolue (`IResolvedFrontendEntry`, `IFrontBuilder.ts:40`).
 
@@ -646,7 +646,7 @@ d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvo
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
 
-Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:153`) :
+Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `TemplateHelper.ts:163`) :
 
 1. le **préambule React Fast Refresh** pour les entrées `react19` — sans lui, `@vitejs/plugin-react`
    refuse de démarrer ;
@@ -656,7 +656,7 @@ Ce qui est injecté en développement (`TemplateHelper.renderDevTags()`, `Templa
 4. un pont qui relaie les événements de rechargement vers la barre de débogage, **sans ouvrir de
    seconde connexion** (`hmrBridgeTag()`, `TemplateHelper.ts:267`) ;
 5. la barre de débogage elle-même, résolue une fois et servie via Vite (`debugBarTag()`,
-   `TemplateHelper.ts:252`).
+   `TemplateHelper.ts:293`).
 
 Quand Vite n'est pas prêt, le rendu ne lève **jamais** : il renvoie un commentaire HTML disant
 l'état. Une page dégradée reste une page.
@@ -696,7 +696,7 @@ et son manifeste — c'est ce qui rend le multi-modules possible et ce qui isole
 Quatre comportements à connaître :
 
 - **Idempotent.** Une entrée dont le manifeste est plus récent que ses sources est ignorée
-  (`isBuildFresh()`, `FrontendService.ts:829`) — le scan est borné au dossier front et saute
+  (`isBuildFresh()`, `FrontendService.ts:879`) — le scan est borné au dossier front et saute
   `node_modules`. Relancer un déploiement ne recompile pas tout.
 - **Les échecs sont collectés, pas propagés.** Un bundle en échec n'arrête pas les autres ; la
   commande passe le code de sortie à `1` s'il en reste un — de quoi casser un pipeline sans masquer
@@ -727,7 +727,7 @@ page. Les trois restent alignés par construction — impossible d'en changer un
 deux autres.
 
 Défaut : `/_assets/<name>/`, normalisé avec ses barres obliques
-(`normalizePublicPath()`, `FrontendService.ts:50`). Chaque bundle a donc son espace, sans collision
+(`normalizePublicPath()`, `FrontendService.ts:62`). Chaque bundle a donc son espace, sans collision
 entre modules.
 
 `assetBaseUrl` ajoute une couche : la base d'un CDN. Renseignée, elle préfixe la `base` du build et
@@ -746,11 +746,11 @@ monté : c'est un déploiement valide, pas une panne.
 
 ### Ce qui est servi en production
 
-`renderProdTags()` (`TemplateHelper.ts:315`) lit `manifest.json` — la carte produite par Vite — et
+`renderProdTags()` (`TemplateHelper.ts:326`) lit `manifest.json` — la carte produite par Vite — et
 émet, dans cet ordre : les feuilles de style d'abord (pour éviter le flash de contenu non stylé), les
 préchargements des morceaux partagés, puis le script d'entrée. Le manifeste est lu **une fois par
 dossier de sortie** et mis en cache : aucune lecture disque par requête. Le CSS est collecté
-récursivement à travers les imports (`collectCss()`, `TemplateHelper.ts:389`), sans quoi le style
+récursivement à travers les imports (`collectCss()`, `TemplateHelper.ts:400`), sans quoi le style
 d'un morceau partagé manquerait sur certaines pages.
 
 Manifeste absent ? Un commentaire HTML le dit, avec la commande à lancer. Pas d'exception, pas de
@@ -789,7 +789,7 @@ La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**.
 (`#registerCsp()`, `FrontendService.ts:1012`), qui émet **un seul** en-tête, origines fusionnées et
 nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
 
-Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:1012`) mérite deux explications, parce
+Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:1034`) mérite deux explications, parce
 qu'elles piègent tout le monde :
 
 - **`'self'` est répété dans chaque directive.** `connect-src`, `style-src`, `img-src` et `font-src`
@@ -836,7 +836,7 @@ En ligne de commande, `nodefony frontend:status` donne l'état, le point d'écou
 entrées servies ; `-j` produit le même contenu en JSON, exploitable par un script.
 
 Côté data plane, le module enregistre son producteur au démarrage
-(`createFrontendAdminApi()`, `FrontendAdminApi.ts:165`) :
+(`createFrontendAdminApi()`, `FrontendAdminApi.ts:173`) :
 
 | Route                             | Contenu                                                                                                       |
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------- |
@@ -869,7 +869,7 @@ apparaisse avant le « prêt ».
 | `max restarts reached` | Vite plante en boucle | lire les lignes `[vite]` du journal — l'erreur est dans ton code front |
 | Le navigateur refuse le certificat de Vite | certificat auto-signé sur une origine distincte | l'accepter sur l'origine Vite, ou installer l'autorité racine de développement |
 | `Refused to load the script` (politique de sécurité) | le pare-feu n'a pas les origines Vite (Vite pas encore prêt au rendu) | recharger une fois Vite prêt ; vérifier que le nonce est bien propagé |
-| Commentaire `prod manifest missing` dans la page | les bundles n'ont pas été construits, et Vite n'était pas là pour le faire au démarrage | `npm run build` (ou `npx nodefony frontend:build`) puis **recharge la page** — l'absence de manifeste n'est jamais mise en cache (`loadManifest()`, `TemplateHelper.ts:336`), le serveur voit le build sans redémarrer |
+| Commentaire `prod manifest missing` dans la page | les bundles n'ont pas été construits, et Vite n'était pas là pour le faire au démarrage | `npm run build` (ou `npx nodefony frontend:build`) puis **recharge la page** — l'absence de manifeste n'est jamais mise en cache (`loadManifest()`, `TemplateHelper.ts:376`), le serveur voit le build sans redémarrer |
 | Les assets répondent 404 en production | le serveur statique est absent ou le préfixe ne correspond pas | vérifier le montage journalisé au démarrage, et `publicPath` |
 | Un module à interface est invisible de `listEntries()` | il est en mode `static` — il n'appelle jamais `registerEntry` | attendu ; regarder la molette `ui` et le mode journalisé au démarrage |
 | Modifications du front sans effet | `vite.config.generated.mjs` édité à la main | ne jamais l'éditer : il est réécrit à chaque démarrage |

@@ -221,7 +221,7 @@ export class SalonComponent {
 ```
 
 Un argument constant ne coûte **aucun** effet : le branchement est direct, et seule une source
-_fonction_ installe un `effect` (`src/nodefony/src/client/angular/index.ts:263`).
+_fonction_ installe un `effect` (`src/nodefony/src/client/angular/index.ts:272`).
 
 ## 🧰 Les fonctions
 

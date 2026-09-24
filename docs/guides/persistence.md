@@ -67,7 +67,7 @@ PostgreSQL, `mysql://` → MySQL, `mongodb://` → MongoDB. Un schéma inconnu *
 ## `store: "auto"` — comment le framework choisit
 
 Chaque brique a `store: "auto"` **par défaut**. La résolution est portée par une fonction unique,
-`resolveAutoStore()` (`infra.ts:241`), et suit la nature de la donnée :
+`resolveAutoStore()` (`infra.ts:297`), et suit la nature de la donnée :
 
 - **durable** (utilisateurs, jetons, passkeys, webhooks, audit, TOTP) → l'infrastructure
   `database` si déclarée ;

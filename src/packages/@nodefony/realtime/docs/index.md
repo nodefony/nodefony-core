@@ -125,8 +125,8 @@ pas deux applications à écrire deux fois, mais deux entrées du même pipeline
 
 **Une connexion, N canaux, dans les deux sens.** Le client s'abonne à autant de canaux qu'il veut sur
 la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@RealtimeChannel`,
-`realtimeDecorators.ts:142`), le client appelle et attend une réponse (`@RealtimeAction`,
-`realtimeDecorators.ts:30`), le client pousse sans attendre (`@RealtimeInbound`,
+`realtimeDecorators.ts:192`), le client appelle et attend une réponse (`@RealtimeAction`,
+`realtimeDecorators.ts:142`), le client pousse sans attendre (`@RealtimeInbound`,
 `realtimeDecorators.ts:30`). Rien n'est ouvert qui n'ait été déclaré.
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
@@ -304,7 +304,7 @@ jamais recopiées ici : elles divergeraient en silence.
 ## ⚙️ Configuration
 
 Un seul point d'entrée : `use("@nodefony/realtime", { … })` dans `nodefony.config.ts`, validé au boot
-contre le schéma du module (`realtimeConfigSchema`, `config.ts:205`). Cinq blocs :
+contre le schéma du module (`realtimeConfigSchema`, `config.ts:259`). Cinq blocs :
 
 - `backplane` — le driver de fan-out et son espace de nommage. Ce cloisonnement devient
   indispensable dès que **deux déploiements partagent le même Redis** : sans lui, leurs publications
@@ -325,7 +325,7 @@ vue de tous les workers d'un pod.
 
 Le data plane admin expose `/nodefony/realtime/api/health` — canaux et abonnés, compteurs de
 diffusion, connexions, octets et frames, pression d'écriture. C'est la même donnée que celle rendue à
-l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:775`).
+l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:849`).
 
 ## 🧪 Tests & couverture
 

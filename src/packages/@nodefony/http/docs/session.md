@@ -69,7 +69,7 @@ flowchart TD
 ```
 
 Le point d'activation est **unique et commun aux deux transports** : `HttpKernel.startSession()`
-(`http-kernel.ts:1131`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
+(`http-kernel.ts:1152`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
 (`http-kernel.ts:1137`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
 
 ## 📖 Lexique
@@ -118,7 +118,7 @@ défaut** dans Nodefony :
   (`Context.getSessionCookieName()`, `Context.ts:714`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
-  tout identifiant inconnu du store (`Session.resume()`, `session.ts:189`), et le login **régénère**
+  tout identifiant inconnu du store (`Session.resume()`, `session.ts:177`), et le login **régénère**
   l'identifiant (`AuthFlow` — voir plus bas).
 - **Exploitation prolongée d'un identifiant volé.** Une session maintenue artificiellement vivante
   resterait exploitable indéfiniment. → l'**absolute timeout** borne l'âge depuis la création et n'est
@@ -140,11 +140,11 @@ agents (voir [Firewall](../../security/docs/firewall.md)).
 
 **2. La session est paresseuse.** Elle n'existe que si une route la demande — `@UseSession`, ou la
 seule présence d'un paramètre `@Session` — ou si un cookie arrive déjà : c'est la garde de
-`HttpKernel.startSession()` (`http-kernel.ts:1131`). Une route publique ne paie **ni lecture de store,
+`HttpKernel.startSession()` (`http-kernel.ts:1152`). Une route publique ne paie **ni lecture de store,
 ni `Set-Cookie`**.
 
 **3. Un seul modèle d'état pour le web et le temps réel.** Le même `startSession()` sert
-`HttpKernel.onRequestEnd()` (`http-kernel.ts:1434`) et `HttpKernel.onConnect()` (`http-kernel.ts:1702`) ;
+`HttpKernel.onRequestEnd()` (`http-kernel.ts:1443`) et `HttpKernel.onConnect()` (`http-kernel.ts:1711`) ;
 l'activité HTTP **ou** WS prolonge la même session (`Session.touchIfNeeded()`, `session.ts:421`).
 
 **4. L'administration ne voit jamais un identifiant.** Un opérateur manipule une `ref`, HMAC tronqué
@@ -284,9 +284,9 @@ Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:782`) et
 | Option              | Type    | Défaut       | Effet                                                                             |
 | ------------------- | ------- | ------------ | --------------------------------------------------------------------------------- |
 | `store`             | string  | `"auto"`     | Backend de persistance — voir la résolution ci-dessous (`config.ts:795`).         |
-| `name`              | string  | `"nodefony"` | Nom du cookie, préfixé `__Host-` selon `cookie.hostPrefix` (`config.ts:750`).     |
+| `name`              | string  | `"nodefony"` | Nom du cookie, préfixé `__Host-` selon `cookie.hostPrefix` (`config.ts:770`).     |
 | `strictMode`        | bool    | `true`       | Un identifiant inconnu du store est rejeté → session neuve (anti-fixation).       |
-| `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:796`). |
+| `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:823`). |
 | `absoluteTimeoutS`  | int ≥ 0 | `43200`      | Âge max depuis la création (12 h), **jamais** prolongé. `0` = désactivé.          |
 | `gcIntervalS`       | int ≥ 0 | `600`        | Période de purge des sessions expirées, hors requête. `0` = timer désarmé.        |
 | `gcJitter`          | bool    | `true`       | Décale le départ du GC par process (anti _thundering herd_ sur un store partagé). |
@@ -310,7 +310,7 @@ Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:782`) et
 
 `auto` n'est pas un store : c'est une sentinelle résolue une fois, au boot, par `resolveAutoStore()`
 (`config/infra.ts:297`), puis journalisée. Elle suit **l'infra que tu as déclarée**, bornée aux stores
-réellement enregistrés (`SessionsService.initializeStorage()`, `sessions-service.ts:231`).
+réellement enregistrés (`SessionsService.initializeStorage()`, `sessions-service.ts:241`).
 
 ```mermaid
 flowchart TD
@@ -337,7 +337,7 @@ Deux comportements à connaître :
 
 ## 🗂️ Choisir son store
 
-Le contrat est unique — `ISessionStorage` (`ISession.ts:127`) — et **tous** les backends le portent.
+Le contrat est unique — `ISessionStorage` (`ISession.ts:142`) — et **tous** les backends le portent.
 Ce qui change, c'est la topologie et la façon d'expirer.
 
 | Store      | Où vit l'état         | Multi-pod | Expiration idle            | `total` admin | Quand le choisir                             |
@@ -356,7 +356,7 @@ dans une `Map` du process : elles **disparaissent au redémarrage** et ne sont *
 pods — c'est un choix (mesurer le framework sans le goulot disque/SQL), pas une limite.
 
 Il porte quand même **toute** la sémantique du contrat : `createdAt` figé à la création, `updatedAt`
-rafraîchi par `MemorySessionStorage.touch()` (`MemorySessionStorage.ts:87`), purge sur les deux bornes
+rafraîchi par `MemorySessionStorage.touch()` (`MemorySessionStorage.ts:96`), purge sur les deux bornes
 par `gc(idleSeconds, absoluteSeconds)` (`MemorySessionStorage.ts:99`), pagination offset à `total` exact
 et tri déterministe (`MemorySessionStorage.listPage()`, `MemorySessionStorage.ts:161`).
 
@@ -390,7 +390,7 @@ Redis jusqu'à son TTL idle, mais elle est **refusée à la reprise**.
 
 Capacités réduites, annoncées et non simulées : la pagination est **par curseur** (pas de `total`, pas
 d'ordre global) et `countSessions()` renvoie **`-1`** = « je ne sais pas »
-(`@nodefony/redis/nodefony/src/SessionStorage.ts:318`). L'appelant affiche l'inconnu, il ne l'invente pas.
+(`@nodefony/redis/nodefony/src/SessionStorage.ts:303`). L'appelant affiche l'inconnu, il ne l'invente pas.
 
 ### `mongoose` — MongoDB, parité de comportement
 
@@ -444,7 +444,7 @@ pose le cookie et marque la session à persister.
 (depuis `updated`, `session.ts:394`). Échec → `invalidate()` (`session.ts:284`) détruit l'entrée et
 recrée une session vierge.
 
-**Écriture minimale.** `SessionsService.saveSession()` (`sessions-service.ts:414`) n'écrit **que** si la
+**Écriture minimale.** `SessionsService.saveSession()` (`sessions-service.ts:429`) n'écrit **que** si la
 session est `dirty` et non `readOnly` ; sinon il appelle `Session.touchIfNeeded()` (`session.ts:421`),
 qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une demi-vie d'idle
 (`session.ts:445`). Une requête de lecture coûte donc au pire un `UPDATE` d'horodatage toutes les
@@ -454,7 +454,7 @@ qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une dem
 pour que la sauvegarde de fin de requête ne réécrive pas ce qu'on vient de supprimer. Surtout, **tout**
 store est décoré par `RevocationGuardStorage` (`sessions-service.ts:279`) : `destroy()` pose une
 **pierre tombale** de 5 minutes (`RevocationGuardStorage.ts:144`) qui refuse ensuite tout `write`
-(`RevocationGuardStorage.ts:128`) **et tout `touch`** (`RevocationGuardStorage.ts:151`) du même
+(`RevocationGuardStorage.ts:151`) **et tout `touch`** (`RevocationGuardStorage.ts:151`) du même
 identifiant — ce qui couvre la requête « en vol » d'un autre client.
 
 **Purge hors requête.** Un `GcScheduler` est armé au `onReady`, désarmé au `onTerminate`
@@ -498,14 +498,14 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 <!-- prettier-ignore -->
 | Aspect | HTTP | WebSocket |
 | --- | --- | --- |
-| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1434`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1702`) |
+| Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1443`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1711`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
 | Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1185`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
-handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:431`). L'identité résolue une fois est donc
+handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:436`). L'identité résolue une fois est donc
 disponible à chaque frame sans relire la base — c'est ce dont profite
 `FirewallRealtimeAuthenticator.supports()` (`FirewallRealtimeAuthenticator.ts:80`), câblé automatiquement
 par le firewall sur les zones temps réel protégées (`firewall.ts:300`).
@@ -548,7 +548,7 @@ curseur offset. Une révocation « partout » qui en laisserait une n'est pas un
 faille — on rend donc la main avec la preuve, pas l'espoir.
 
 `destroyOwnByRef()` ferme l'IDOR **par construction** : parcours restreint aux sessions du demandeur,
-et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:836`). Une
+et appartenance **re-vérifiée** avant même de comparer la `ref` (`sessions-service.ts:840`). Une
 `ref` d'autrui est structurellement introuvable.
 
 ### Redaction — l'identifiant ne sort jamais du process
@@ -570,7 +570,7 @@ Trois barrières superposées :
 | Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:748`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:714`)        |
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `defaultCookieOptions` (`cookie.ts:48`)            |
-| Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:189`)              |
+| Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |
 | Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:226`)          |
 | Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:381`) |
 | Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:394`)     |
@@ -596,27 +596,27 @@ paramètre `@Session()` suffit à déclarer l'intent.
 | Renouveler l'identifiant         | `session.regenerateId()`             | Nouvel identifiant, état conservé (`session.ts:236`).   |
 | Savoir si une écriture aura lieu | `session.dirty`                      | Le drapeau de dirty-tracking (`session.ts:128`).        |
 
-**Intent de route** — `UseSession(options)` (`routerDecorators.ts:761`) s'applique à une classe **ou** à
+**Intent de route** — `UseSession(options)` (`routerDecorators.ts:800`) s'applique à une classe **ou** à
 une méthode ; la méthode l'emporte, par fusion et non par remplacement
-(`resolveSessionIntent()`, `routerDecorators.ts:819`). **Une seule** option (`SessionIntent`,
+(`resolveSessionIntent()`, `routerDecorators.ts:833`). **Une seule** option (`SessionIntent`,
 `ISession.ts:17`) :
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
   journalisée en WARNING sans écriture (`Session.save()`, `session.ts:255-264`). C'est le seul champ
   propagé par le kernel (`http-kernel.ts:1482`).
 
-En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:761`).
+En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:189`).
 
 ## 🧩 Extension — brancher son propre store
 
 Le registre est une inversion de contrôle complète : `@nodefony/http` ne connaît **aucun** backend.
 Chaque module fournisseur se déclare lui-même au chargement, par
-`SessionsService.registerStorage(nom, ctor)` (`sessions-service.ts:174`) — exactement ce que fait la
+`SessionsService.registerStorage(nom, ctor)` (`sessions-service.ts:184`) — exactement ce que fait la
 dernière ligne de chaque adaptateur (`@nodefony/redis/nodefony/src/SessionStorage.ts:323`).
 
 Pour ajouter un backend :
 
-1. Implémenter `ISessionStorage` (`ISession.ts:127`). Le **noyau obligatoire** est court :
+1. Implémenter `ISessionStorage` (`ISession.ts:142`). Le **noyau obligatoire** est court :
    `read`/`start`/`write`/`open`/`close`/`destroy`/`gc`.
 2. Ajouter les capacités **optionnelles** utiles : `touch` (idle glissant sans réécriture, `ISession.ts:158`),
    `listPage` + `countSessions` (administration paginée, `ISession.ts:203`), `listAll` (dump).
@@ -651,9 +651,9 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 Le coût d'une session est **payé seulement quand elle sert** :
 
 - **Zéro par défaut** — sans intent ni cookie, `startSession()` sort immédiatement
-  (`http-kernel.ts:1131`) : ni objet `Session`, ni lecture de store.
+  (`http-kernel.ts:1152`) : ni objet `Session`, ni lecture de store.
 - **Objet léger** — trois sacs `{}` à plat, pas de container DI par session (`session.ts:100-104`).
-- **Zéro écriture en lecture** — le dirty-tracking court-circuite `save()` (`session.ts:266`) ; le
+- **Zéro écriture en lecture** — le dirty-tracking court-circuite `save()` (`session.ts:255`) ; le
   `touch` est throttlé à une écriture par demi-vie d'idle (`session.ts:445`).
 - **GC hors requête** — timer déterministe avec jitter par process, à la place du tirage
   probabiliste hérité de PHP (`sessions-service.ts:306-312`).
@@ -700,7 +700,7 @@ dérivation est faite une fois par page (`sessions-service.ts` `currentSessionRe
 requête ne porte pas de session (appel interne, invocation CLI).
 
 Codes de réponse à connaître : **501** si le store courant ne sait pas s'énumérer
-(`supportsEnumeration()` faux — `HttpAdminApi.ts:352`), **503** si le service de session est absent, **404** pour une `ref` inconnue ou
+(`supportsEnumeration()` faux — `HttpAdminApi.ts:62`), **503** si le service de session est absent, **404** pour une `ref` inconnue ou
 une révocation sans effet, **401** sur `mine` sans identité.
 
 **Écrans** — la page **Sessions** (`/nodefony/sessions`) de Studio liste les sessions vivantes par `ref` et permet la
@@ -708,7 +708,7 @@ révocation unitaire ou en masse (`@nodefony/studio/frontend/src/routes/sessions
 affiche le backend réellement résolu, sa provenance et son emplacement physique : ces informations sont
 publiées au boot par `registerStoreResolution()` (`sessions-service.ts:290`), avec le chemin du fichier
 SQLite quand c'est pertinent (`SessionStorage.location`,
-`@nodefony/drizzle/nodefony/src/SessionStorage.ts:43`).
+`@nodefony/drizzle/nodefony/src/SessionStorage.ts:55`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

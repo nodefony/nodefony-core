@@ -146,7 +146,7 @@ propre serveur**.
 Trois partis pris, tous vérifiables dans le code :
 
 1. **La source est le journal d'audit, pas un bus métier.** `WebhookService.#attachDispatcher()`
-   (`webhooks.ts:185`) s'abonne au service `auditService` et à lui seul. Si l'audit est absent, le
+   (`webhooks.ts:198`) s'abonne au service `auditService` et à lui seul. Si l'audit est absent, le
    dispatcher n'existe pas — le CRUD d'endpoints reste disponible, mais **rien ne part**. C'est une
    limite assumée : les webhooks notifient des **événements de sécurité**.
 2. **Le secret est chiffré, jamais haché.** Contrairement à une clé d'API (qu'on vérifie donc qu'on
@@ -160,7 +160,7 @@ Trois partis pris, tous vérifiables dans le code :
 
 ### 1. Activer les webhooks et poser la clé de chiffrement
 
-Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:654`).
+Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:724`).
 La seule chose que tu dois vraiment fournir, c'est la **clé de chiffrement des secrets de signature** :
 sans elle, une clé éphémère est générée en dev (avec un WARNING), et en production les webhooks sont
 **désactivés** — un secret chiffré par une clé perdue au redémarrage serait illisible
@@ -210,7 +210,7 @@ export default defineConfig<typeof env>((ctx) => ({
 
 Il n'y a **pas de déclaration d'endpoint en config** : un abonnement est une donnée, créée à
 l'exécution via le data plane admin `/nodefony/security/api/webhooks`, gardé
-`ROLE_NODEFONY_ADMIN` (`webhookAdminEndpoints()`, `WebhookAdminApi.ts:205`).
+`ROLE_NODEFONY_ADMIN` (`webhookAdminEndpoints()`, `WebhookAdminApi.ts:219`).
 
 ```bash
 # Session admin (le BFF de login pose le cookie)
@@ -408,8 +408,8 @@ retries** : les tentatives intermédiaires ne sont pas tracées, seule l'issue p
 ## Quels événements partent en webhook ?
 
 Réponse honnête et vérifiable : **les actions du journal d'audit de sécurité, et rien d'autre**. Le
-dispatcher est branché sur `AuditService.subscribe()` (`auditService.ts:205`), appelé dans le
-fire-and-forget de `AuditService.record()` (`auditService.ts:180`). Aucun autre point d'émission
+dispatcher est branché sur `AuditService.subscribe()` (`auditService.ts:212`), appelé dans le
+fire-and-forget de `AuditService.record()` (`auditService.ts:187`). Aucun autre point d'émission
 n'existe dans le code.
 
 Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:16`) donnent la surface réelle :
@@ -480,7 +480,7 @@ qui comptent :
 | `webhook-timestamp` | epoch **secondes**          | fenêtre **anti-rejeu**               |
 | `webhook-signature` | `v1,<base64(HMAC-SHA256)>`  | preuve de l'émetteur                 |
 
-Le secret est un `whsec_<base64 de 256 bits>` généré par `generateSecret()` (`webhooks.ts:108`) ;
+Le secret est un `whsec_<base64 de 256 bits>` généré par `generateSecret()` (`webhooks.ts:117`) ;
 `parseWebhookSecret()` (`webhookSignature.ts:22`) décode la partie base64 — le préfixe n'entre pas
 dans la clé HMAC, et un secret déjà sans préfixe est toléré.
 
@@ -510,7 +510,7 @@ curl -sk -b /tmp/jar -X POST \
 # {"endpoint":{…}, "secret":"whsec_NOUVEAU…"}
 ```
 
-`WebhookService.rotateSecret()` (`webhooks.ts:553`) régénère et rechiffre. Comportement à connaître
+`WebhookService.rotateSecret()` (`webhooks.ts:560`) régénère et rechiffre. Comportement à connaître
 **avant** de cliquer :
 
 - l'ancien secret cesse d'être valide **immédiatement** — il n'y a pas de fenêtre de recouvrement
@@ -668,7 +668,7 @@ abandon. Chaque retry **repasse par la file bornée** (`#scheduleRetry()`,
 
 ### Auto-désactivation d'un endpoint mort
 
-Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:680`) : succès →
+Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:687`) : succès →
 `failureCount = 0` ; échec → incrément. Au-delà de `autoDisableThreshold` (défaut **20**), l'endpoint
 est **désactivé** et un unique événement d'audit `webhook.disabled` est émis — **un par endpoint qui
 meurt**, jamais un par échec (le volume resterait ingérable). Mettre le seuil à `0` désactive
@@ -681,7 +681,7 @@ Le scénario vécu, du début à la fin :
 1. **Tentative 1** → `ECONNREFUSED`. Classé `retry` ; rien n'est encore écrit en base.
 2. **Tentatives 2 à 6** sur ~4 min. Toujours rien de persisté (seule l'issue finale l'est).
 3. **Abandon.** `markDelivery` écrit `lastDeliveryStatus: null`, `lastDeliveryError`, et incrémente
-   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:605`).
+   `failureCount`. Une trace part dans l'historique RAM (`#recordDelivery()`, `webhooks.ts:612`).
 4. **L'événement est PERDU.** Il n'y a pas de file persistée : un webhook est **best-effort**. Rien
    ne sera rejoué quand le destinataire reviendra.
 5. **Après 20 échecs consécutifs**, l'endpoint passe `enabled: false` et cesse de consommer des
@@ -694,14 +694,14 @@ Le scénario vécu, du début à la fin :
 
 ### Arrêt propre
 
-`WebhookService.#shutdown()` (`webhooks.ts:221`) se désabonne de l'audit puis appelle
+`WebhookService.#shutdown()` (`webhooks.ts:234`) se désabonne de l'audit puis appelle
 `WebhookDispatcher.shutdown()` (`WebhookDispatcher.ts:280`) : admission stoppée, **tous les timers de
 retry annulés**, file relâchée. Aucun timer orphelin ne retient le process — et les timers de retry
 sont `unref()` (`webhooks.ts:209`), donc ils n'empêchent jamais Node de sortir.
 
 ## ⚙️ Configuration
 
-Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:777`), lue via
+Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/config.ts:783`), lue via
 `use("@nodefony/security", { webhooks: … })`.
 
 | Option                 | Type       | Défaut     | Effet                                                                                                       |
@@ -721,7 +721,7 @@ Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/c
 
 > [!NOTE]
 > `timestampToleranceS` est **transporté** dans la politique de livraison
-> (`getDeliveryPolicy()`, `webhooks.ts:660`) mais l'émetteur ne l'applique jamais : la fenêtre
+> (`getDeliveryPolicy()`, `webhooks.ts:667`) mais l'émetteur ne l'applique jamais : la fenêtre
 > anti-rejeu est par nature un contrôle du **récepteur**. Traite cette valeur comme la tolérance que
 > tu documentes à tes destinataires — c'est celle du récepteur qui protège.
 
@@ -756,7 +756,7 @@ par dialecte via le `colKit`. Côté documentaire, le schéma force `_id: String
 (`webhookEndpointSchema`, `mongoose/nodefony/entity/webhookEndpointEntity.ts:23`).
 
 Ce qui **n'est pas** persisté : l'historique des livraisons. Il vit en RAM, borné à 20 entrées par
-endpoint (`MAX_DELIVERIES_PER_ENDPOINT`, `webhooks.ts:54`), corps de requête tronqué à 8 Ko, corps
+endpoint (`MAX_DELIVERIES_PER_ENDPOINT`, `webhooks.ts:63`), corps de requête tronqué à 8 Ko, corps
 de réponse à 2 Ko (`RESPONSE_BODY_CAP`, `webhookDelivery.ts:21`) — et il est **par pod**. C'est de
 l'observabilité éphémère de mise au point, pas un journal d'audit.
 
@@ -772,7 +772,7 @@ l'observabilité éphémère de mise au point, pas un journal d'audit.
 Redis n'est pas une omission : un endpoint est de la **configuration durable**, sa place n'est pas
 dans un magasin volatil (`IWebhookStore.ts:29`).
 
-La résolution est explicite et **annoncée**. `WebhookService.#resolveStore()` (`webhooks.ts:231`)
+La résolution est explicite et **annoncée**. `WebhookService.#resolveStore()` (`webhooks.ts:244`)
 privilégie un adapter déjà posé au container, puis résout `auto` d'après l'infra déclarée, et
 **enregistre sa décision** (visible dans Studio). Deux garde-fous :
 
@@ -782,7 +782,7 @@ privilégie un adapter déjà posé au container, puis résout `auto` d'après l
 
 ### Pagination du registre
 
-`WebhookService.listPage()` (`webhooks.ts:126`) délègue au store — la console n'a **jamais** tout le
+`WebhookService.listPage()` (`webhooks.ts:475`) délègue au store — la console n'a **jamais** tout le
 registre en RAM. Ce contrat est vérifié par un **banc unique** rejoué sur tous les backends
 (`webhookPaginationContract.ts`) : mêmes 12 endpoints de seed, mêmes assertions.
 
@@ -801,13 +801,13 @@ registre en RAM. Ce contrat est vérifié par un **banc unique** rejoué sur tou
   insensible à la casse sur `url` **ou** `description`).
 - Mode unique **offset** : tous les backends d'endpoints savent le faire, aucune capacité n'est donc
   à déclarer (`MemoryWebhookStore.listPage()`, `MemoryWebhookStore.ts:90` ;
-  `DrizzleWebhookStore.ts:159` ; `MongooseWebhookStore.ts:227`).
+  `DrizzleWebhookStore.ts:185` ; `MongooseWebhookStore.ts:227`).
 - **Les compteurs suivent la recherche.** `GET webhooks/stats` déclare `search`
   (`WebhookAdminApi.ts:307`) et descend le même `q` jusqu'au store : un terme sans correspondance
   vide les cartes autant que le tableau. Sans cela, la console afficherait « 12 endpoints » au-dessus
   d'une liste filtrée à 2 — un chiffre qui ne répond plus à la question posée à l'écran.
 
-`IWebhookStore.listAll()` (`IWebhookStore.ts:57`) existe toujours, mais il est **réservé au snapshot
+`IWebhookStore.listAll()` (`IWebhookStore.ts:72`) existe toujours, mais il est **réservé au snapshot
 du dispatcher** : celui-ci doit connaître tous les abonnements pour ne rater aucune livraison. C'est
 un cold-path (boot + après écriture CRUD), jamais un chemin d'affichage.
 
@@ -825,12 +825,12 @@ mention.
 | `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:456` |
 | `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:510` |
 | `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:458` |
-| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:542` |
-| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:553` |
-| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:572` |
+| `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:549` |
+| `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:560` |
+| `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:579` |
 | `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:580` |
-| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:595` |
-| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:407` |
+| `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:602` |
+| `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:414` |
 
 Types et briques réutilisables exportés par `@nodefony/security` : `IWebhookEndpoint`,
 `WebhookEndpointSummary`, `IWebhookStore`, `IWebhookListQuery`, `MemoryWebhookStore`,
@@ -933,7 +933,7 @@ exactement le data plane décrit plus haut (`WEBHOOKS_ENDPOINT`, `webhooksModel.
 - **panneau des livraisons récentes** — ce qui a été envoyé et ce que le destinataire a répondu
   (`DeliveriesPanel.tsx`) ;
 - **badge « où on écrit »** : `memory` ou `orm`, dérivé du nom de classe réel du store
-  (`webhookStoreDriver()`, `WebhookAdminApi.ts:101`) — un store tiers inconnu affiche `null` plutôt
+  (`webhookStoreDriver()`, `WebhookAdminApi.ts:113`) — un store tiers inconnu affiche `null` plutôt
   qu'un driver inventé.
 
 En développement, le module `test` fournit un **récepteur local** à demeure — le remplaçant

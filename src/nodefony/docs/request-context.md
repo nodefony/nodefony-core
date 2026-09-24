@@ -287,7 +287,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `scheme`          | le serveur HTTP/WS      | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
 | `traceparent`     | le serveur HTTP/WS      | trace distribuée W3C, honorée si le client l'envoie                         |
 | `user` / `userId` | le firewall après auth  | identité résolue — `firewall.ts:889`                                        |
-| `token`           | le firewall après auth  | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:759`        |
+| `token`           | le firewall après auth  | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:775`        |
 | `context`         | le serveur HTTP/WS      | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
 | `queries`         | le serveur, en dev seul | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
 | `invocation`      | le pont WS-RPC          | profil de **la trame** en cours (phases + requêtes ORM)                     |
@@ -299,8 +299,8 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 
 | Tu veux…                     | Écris plutôt                                              | Ancre                      |
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
-| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1236` |
-| le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:147`        |
+| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1250` |
+| le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:180`        |
 | les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:579`          |
 
 ## 🔌 Où la bulle est ouverte
@@ -313,8 +313,8 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1301`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1592`) | poignée de main, firewall, **et toutes les trames** |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1310`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1601`) | poignée de main, firewall, **et toutes les trames** |
 | WebSocket — trame RPC | `RequestContext.run()` dans `RealtimeController.invokeApiRequest()` (`RealtimeController.ts:878`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:459`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
@@ -336,7 +336,7 @@ problème par construction.
 C'est l'usage le plus subtil du payload, et le patron à copier pour tout observateur.
 
 Le serveur alloue `queries` (`RequestContext.ts:57`) **uniquement quand le profiler est actif**,
-c'est-à-dire en développement (`http-kernel.ts:1340`). En production, la clé est simplement absente.
+c'est-à-dire en développement (`http-kernel.ts:1349`). En production, la clé est simplement absente.
 Cette absence **est** le signal : les adapters ORM n'ont aucun réglage à lire.
 
 ```mermaid
@@ -391,7 +391,7 @@ tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'auc
 `RequestContext` est sur le chemin de **chaque** requête. Ce qui rend son coût acceptable :
 
 - **Rien tant que rien n'est ouvert.** L'instance d'ALS n'existe qu'après le premier `run()`
-  (`RequestContext.ts:118`), et `get()` court-circuite sur une comparaison à `null` tant qu'aucune
+  (`RequestContext.ts:126`), et `get()` court-circuite sur une comparaison à `null` tant qu'aucune
   bulle n'a été ouverte (`RequestContext.ts:131`).
 - **Une seule allocation par requête** : l'objet payload. Il est construit au point d'entrée avec
   les champs déjà connus, pas enrichi au fil de l'eau.
@@ -401,7 +401,7 @@ tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'auc
   lecture de store suivie d'un accès de propriété.
 
 Sur les chiffres, la page reste factuelle : la TSDoc du code annonce **~50-100 ns** par `run()` sur
-Node 22+ pour l'entrée dans le scope (`RequestContext.ts:115`), et le même ordre de grandeur pour la
+Node 22+ pour l'entrée dans le scope (`RequestContext.ts:126`), et le même ordre de grandeur pour la
 lecture du `requestId` par le journal (`Pdu.ts:200`), contre ~5 ns quand le fournisseur n'est pas
 branché. **Il n'existe pas de banc dédié à `RequestContext`** dans le dépôt : ces valeurs sont des
 ordres de grandeur documentés au code, pas une mesure rejouable. Le coût réel se constate en bout de
@@ -446,7 +446,7 @@ Le premier est de loin le plus fréquent, et il ne produit **aucune erreur** —
 > il s'exécute dans un autre tick d'event-loop, hors bulle, et tout rend `undefined`.
 
 C'est ainsi que le framework le fait pour toi aux deux endroits qui comptent : les événements de
-socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:243`) et les rappels d'après-réponse
+socket dans `WebsocketContext.connect()` (`WebsocketContext.ts:230`) et les rappels d'après-réponse
 dans `Context.onAfterResponse()` (`Context.ts:445`). Si tu branches **ton** écouteur sur une socket
 ou une minuterie, la règle est à toi de l'appliquer.
 
@@ -456,9 +456,9 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux             | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
 | `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:164`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall        | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
-| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1236`)         |
+| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1250`)         |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
-| Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:459`) ; pour ton code, `run()` à nouveau |
+| Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                          | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |
 | Identité périmée sur une connexion WebSocket longue                | l'identité a été captée à la poignée de main                                         | revalider par invocation (`RealtimeController.ts:810`), ne pas mettre en cache       |
 | Fuite mémoire autour d'un écouteur lié                             | `AsyncResource.bind` retient le payload, donc l'utilisateur et le contexte           | ne lier que ce qui meurt avec la requête ou la connexion                             |

@@ -229,8 +229,8 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 | Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:139`)   | Même validation, stable sur toute la durée de la socket (handshake → close). |
 | Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:153`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                            |
 | Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                |
-| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:431`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                           |
-| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:431`)       | Handshake **et** messages (via `AsyncResource.bind`, BUG-001).               |
+| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:436`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                           |
+| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:436`)       | Handshake **et** messages (via `AsyncResource.bind`, BUG-001).               |
 | Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:221`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur. |
 
 > [!IMPORTANT]
@@ -269,7 +269,7 @@ de bilan, au teardown, via `Context.logRequest()` (`Context.ts:595`) côté HTTP
 
 Chaque frame WS (RECEIVE / SEND / BROADCAST) peut être tracée pour le Suivi de requête (Studio). Le
 formatage du contenu est **pur** et **borné** — `formatWsLogContent()` (`wsLogContent.ts:55`), appelé par
-`WebsocketContext.logMessageContent()` (`WebsocketContext.ts:397`) :
+`WebsocketContext.logMessageContent()` (`WebsocketContext.ts:393`) :
 
 - `string` → tronquée à `WS_LOG_CONTENT_CAP` (4096, `wsLogContent.ts:15`) + ellipse.
 - **binaire** (Buffer, ArrayBuffer, TypedArray, Blob, `Buffer[]`) → résumé `[binary N B]`, **jamais**
@@ -316,7 +316,7 @@ Choisir en cinq secondes :
 Le plus grand gain en dev : `méthode statut url durée remote [id]`, avec couleur du statut (vert 2xx,
 jaune 4xx, rouge 5xx — `colorizeStatus()`, `pretty-request-logger.ts:100`) et `requestId` tronqué aux 8
 premiers caractères (`shortId()`, `pretty-request-logger.ts:116`). La durée est dérivée des phases de
-timing (`pretty-request-logger.ts:121`).
+timing (`pretty-request-logger.ts:116`).
 
 ### `JsonAuditLogger` — un PDU par requête, pour la machine
 
@@ -372,7 +372,7 @@ Les choix visibles dans le code :
 - **Audit nominal coupable** — l'option `nominal` coupe le log des 2xx/3xx si le sink texte est `null`
   (l'entrée n'atteindrait aucune destination) — ~5,9 % du profil CPU récupérés (`audit-logger.ts:104`).
 - **Trace des frames WS gatée en prod** — `logMessageContent()` court-circuite avant toute construction
-  de chaîne hors dev (`WebsocketContext.ts:401`) ; les events lifecycle ne créent aucun `Pdu` en production (`Context.ts:67`).
+  de chaîne hors dev (`WebsocketContext.ts:393`) ; les events lifecycle ne créent aucun `Pdu` en production (`Context.ts:67`).
 
 Gate mémoire avant tout commit touchant le pipeline : `npm run test:memory` (skill
 `nodefony-check-memory-health`). Rejouer les chiffres de charge : skill `nodefony-load-test`.
@@ -404,7 +404,7 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 | Domaine | Norme | Ancrage |
 | --- | --- | --- |
 | W3C Trace Context (`traceparent`) | W3C Trace Context | `resolveTraceparent()` (`trace.ts:83`), `parseTraceparent()` (`trace.ts:38`) |
-| Sûreté des valeurs d'en-tête (field-value) | RFC 9110 §5.5 | `sanitizeRequestId()` allowlist (`requestId.ts:26`) |
+| Sûreté des valeurs d'en-tête (field-value) | RFC 9110 §5.5 | `sanitizeRequestId()` allowlist (`requestId.ts:38`) |
 | En-têtes trop volumineux / borne | anti-abus (log flooding) | `MAX_REQUEST_ID_LENGTH` (`requestId.ts:18`) |
 | Log structuré (PDU, sévérités) | RFC 5424 | `Pdu` + `requestId`/`pid` (`Pdu.ts:157`) |
 | Sévérité dérivée du statut HTTP | RFC 9110 (catégories) | `severityFromStatus()` (`audit-logger.ts:71`) |

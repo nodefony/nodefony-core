@@ -87,7 +87,7 @@ défaut » en prod.
 ## La vision Nodefony — un service propriétaire, des endpoints minces
 
 `TokenService` est **propriétaire** du store et du keystore : à `TokenService.#build()`
-(`tokenService.ts:93`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
+(`tokenService.ts:101`), si `jwt.enabled` ou `apiKeys.enabled`, il résout le store pluggable, pose
 `tokenStore` au container (`tokenService.ts:163`) puis crée le keystore et pose `jwtKeystore`
 (`tokenService.ts:167-173`) — consommés par le `JwtAuthenticator` et les endpoints. Il arme un
 **gc** via `GcScheduler` (timer `unref` + **jitter** de phase pour étaler les balayages entre pods,
@@ -231,7 +231,7 @@ Erreurs mappées par duck-typing dans `#renderAuthError()` (`TokenAuthController
 `issueForCredentials()` (`tokenService.ts:317`) vérifie l'identifiant/mot de passe via le
 service `users`, avec le **throttling NIST partagé** — `ThrottledError` avant tout hachage
 (`tokenService.ts:733`). Chaque tentative échouée est auditée `login.failure`/`login.throttled`
-par `#auditGrant()` (`tokenService.ts:362-374`). Puis `issueTokens()` (`tokenService.ts:490`)
+par `#auditGrant()` (`tokenService.ts:362-374`). Puis `issueTokens()` (`tokenService.ts:497`)
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
@@ -252,9 +252,9 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:43-51`). 
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:345-361`).
 3. Expiration `expiresAt` vérifiée (`tokenService.ts:363-368`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:745`).
+   `#resolveUserForRefresh()` (`tokenService.ts:752`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
-   (`tokenService.ts:592`).
+   (`tokenService.ts:600`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
    `"rotated"` (`tokenService.ts:698`). Si `rotateRefresh` est désactivé, l'access est réémis
    et le refresh courant reste valide (`tokenService.ts:627`).
@@ -359,7 +359,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 ### `redis` — cluster, TTL natif
 
 - Enregistré par le module redis (`redis/nodefony/registerStores.ts:49`).
-- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:254`) — l'expiration ne
+- TTL natif : `expire()` posé à l'écriture du record (`RedisTokenStore.ts:41`) — l'expiration ne
   dépend pas du gc.
 - Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
   (`RedisTokenStore.ts:35-44`) — sans ordre global ni total, capacité réduite **assumée**.
@@ -399,7 +399,7 @@ Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-trip
   (`ITokenStore.ts:242`).
 - **Tout un porteur** (logout global, ban) : seuil `revokeAllForSubject()` — tout access dont
   `iat < invalidBefore` est rejeté (`ITokenStore.ts:226-234`) ; le seuil est **monotone**, deux
-  logouts successifs ne le reculent pas (`MemoryTokenStore.ts:229`).
+  logouts successifs ne le reculent pas (`MemoryTokenStore.ts:319`).
 
 ### La maintenance (gc)
 
@@ -429,9 +429,9 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 | `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:369`) |
 | `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:374`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:384`) |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:396`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
-| `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`security/nodefony/config/config.ts:398`) |
+| `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`security/nodefony/config/config.ts:404`) |
 | `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:376-381`) |
 
 ### `tokenStore.*`
@@ -441,7 +441,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 | `store`                | string     | `"auto"` | `auto`\|`memory`\|`drizzle`\|`mongoose`\|`redis` — pluggable (`config.ts:394-399`)    |
 | `gcIntervalS`          | number (s) | `600`    | Purge périodique ; `0` = désactivé — chaque process purge SON store (`config.ts:428`) |
 | `gcJitter`             | boolean    | `true`   | Étale le gc d'un délai aléatoire par process — cluster (`config.ts:436`)              |
-| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:442`)              |
+| `retentionRevokedDays` | number (j) | `30`     | Rétention d'un PAT révoqué SANS expiration avant purge (`config.ts:448`)              |
 
 ## 📜 Normes appliquées
 
@@ -458,7 +458,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:648`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:726`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.

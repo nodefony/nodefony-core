@@ -342,10 +342,10 @@ de drizzle qui sert de modèle. Deux fichiers, mêmes noms partout, aucune quest
 | `nodefony/config/config.ts`             | **le QUOI**    | schéma Zod commenté = source **unique** des défauts, matérialisés `parse({})` |
 | `nodefony/config/defineModuleConfig.ts` | **le COMMENT** | builder **pur** : parse → surcharge d'environnement → gel                     |
 
-Concrètement : `drizzleConfigSchema` (`config.ts:79`) porte chaque `.default()` et chaque
+Concrètement : `drizzleConfigSchema` (`config.ts:136`) porte chaque `.default()` et chaque
 `.describe()` — changer un défaut du module, c'est éditer **là et nulle part ailleurs**. Le builder
 `defineDrizzleConfig()` (`defineModuleConfig.ts:81`) ne retape jamais une valeur : il valide, applique
-l'environnement, gèle. Et `drizzleConfigJsonSchema()` (`defineModuleConfig.ts:69`) expose le tout en
+l'environnement, gèle. Et `drizzleConfigJsonSchema()` (`defineModuleConfig.ts:99`) expose le tout en
 JSON Schema pour l'écran de configuration de Studio.
 
 Le schéma reste **pur** : il ne lit ni `process.env` ni le kernel. C'est ce qui rend le module
@@ -361,11 +361,11 @@ importable et testable sans serveur.
 | `connectors.<n>.url`      | `string`                            | —                  | Chaîne de connexion `postgres://…` / `mysql://…`. **Porte un secret.** |
 | `frameworkEntities`       | `boolean`                           | `true`             | Déclare (ou non) le schéma des huit briques durables sur `default`.    |
 
-Table dérivée de `drizzleConfigSchema` (`config.ts:79`) et de `SQL_DIALECTS` (`config.ts:37`).
+Table dérivée de `drizzleConfigSchema` (`config.ts:136`) et de `SQL_DIALECTS` (`config.ts:37`).
 
 **`filename` est volontairement sans défaut.** Le chemin dépend du kernel, qui n'existe pas quand le
 schéma est évalué. Il est résolu **au démarrage** par `DrizzleService.#defaultFilename()`
-(`DrizzleService.ts:95`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
+(`DrizzleService.ts:202`) vers `<app>/var/databases/nodefony-<connecteur>.db` — sous `var/`, le dossier
 commun des données runtime : « où sont mes données ? » a une réponse unique, un seul chemin à
 sauvegarder et à ignorer dans git.
 
@@ -467,7 +467,7 @@ En MySQL, les verbes « qui rendent la ligne écrite » (`create`, `updateOne`, 
 `findOneAndDelete`) se décomposent en sélection de la cible → mutation bornée par la clé primaire **avec
 le critère revérifié dans le `WHERE`** → relecture. Deux à trois allers-retours au lieu d'un : c'est le
 prix du dialecte, payé **uniquement** en MySQL. Une course perdue rend `null`, jamais une mutation hors
-critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1138`).
+critère (`#mysqlInsertReturning()`, `DrizzleRepository.ts:1149`).
 
 Le SQL brut nécessaire aux entités du framework est lui aussi routé par dialecte, dans un seul fichier
 (`queryKit.ts`) : recherche dans une colonne JSON (`findUserIdBySocialProvider()`, `queryKit.ts:76`),
@@ -507,7 +507,7 @@ connexion**, donc leurs tables sont créées au moment où l'ORM s'ouvre.
 | Pièce                  | Rôle                                                                   | Ancre                                                        |
 | ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------------ |
 | `Drizzle` (le module)  | valide la config, déclare le schéma framework, monte le data plane     | `index.ts` du module                                         |
-| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:148`                      |
+| `DrizzleService`       | ouvre un ORM par connecteur au boot, ferme tout à l'arrêt              | `connectAll()`, `DrizzleService.ts:186`                      |
 | `DrizzleOrm`           | la connexion : DDL dérivé, repositories, transactions, sonde           | `DrizzleOrm.ts:214`                                          |
 | `DrizzleRepository<T>` | le CRUD portable, les opérateurs riches, l'eager-load                  | `DrizzleRepository.ts:146`                                   |
 | `DrizzleTransaction`   | `BEGIN`/`COMMIT`/`ROLLBACK` pilotés à la main, sur les trois dialectes | `DrizzleTransaction.ts:70`                                   |
@@ -574,7 +574,7 @@ Deux points de comportement qui évitent des surprises :
   `UPDATE` (`#pickOne()`, `DrizzleRepository.ts:259`). C'est ce qui rend ces verbes portables — MySQL
   interdit la forme naïve.
 - **l'eager-load est manuel** : une requête `IN (…)` par relation déclarée, puis regroupement en
-  mémoire (`#populate()`, `DrizzleRepository.ts:683`). Choix assumé — pas de couche de relations à
+  mémoire (`#populate()`, `DrizzleRepository.ts:694`). Choix assumé — pas de couche de relations à
   déclarer une seconde fois, et le comportement est le même sur les trois dialectes.
 
 ### Transactions — une connexion dédiée, jamais le pool
@@ -656,7 +656,7 @@ ou l'idempotence (`createIdempotencyTable`, `idempotencyEntity.ts:85`).
 ### Comment ça s'active — la réponse est : tout seul
 
 Chaque brique choisit son backend par une option `store`, dont le **défaut est `"auto"`**. La
-résolution automatique (`resolveAutoStore()`, `infra.ts:241`) applique cette préférence :
+résolution automatique (`resolveAutoStore()`, `infra.ts:297`) applique cette préférence :
 
 1. une infra `database` déclarée (`NF_DATABASE_URL`) → **`drizzle`** (ou `mongoose` si l'URL est Mongo) ;
 2. sinon, un backend local persistant réellement chargé → **`drizzle`**, c'est-à-dire SQLite ;
@@ -735,7 +735,7 @@ c'est ce qui interdit de conclure « nouvelle mutation » hors d'une réservatio
 en deux instructions au verdict non ambigu (`reserveIdempotencyKeyMysql()`, `queryKit.ts:152`).
 
 **Le journal d'audit** pagine par un curseur **composite auto-portant** `<horodatage>:<id>` sur un ordre
-total, plutôt que par un identifiant seul (`listPage()`, `DrizzleAuditStore.ts:154`). Deux gains : plus
+total, plutôt que par un identifiant seul (`listPage()`, `DrizzleAuditStore.ts:169`). Deux gains : plus
 d'aller-retour pour résoudre le curseur, et une pagination qui ne rembobine pas à la première page si
 l'événement de référence a été purgé entre deux appels.
 

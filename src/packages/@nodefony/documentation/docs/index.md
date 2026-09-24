@@ -104,11 +104,11 @@ Quatre propriétés, toutes vérifiables dans le code — c'est ce qui distingue
 `readFile` sur un dossier.
 
 **La doc voyage avec le code qu'elle décrit.** Le service scanne le `docs/` racine du projet **et**
-le `docs/` de chaque module chargé (`DocumentationService.#scanAll()`, `DocumentationService.ts:231`).
+le `docs/` de chaque module chargé (`DocumentationService.#scanAll()`, `DocumentationService.ts:324`).
 Pour ton module, la seule condition est d'avoir déclaré `docs` dans le champ `files` de son
 `package.json` — sans quoi npm ne publie pas le dossier, et la doc disparaît à l'installation.
 Le regroupement en sections ne se déclare nulle part : il est **calculé depuis le dossier parent**
-du fichier (`group`, `docScanner.ts:76`), et l'`index.md` d'un dossier est présenté en premier
+du fichier (`group`, `docScanner.ts:87`), et l'`index.md` d'un dossier est présenté en premier
 (`DocumentationService.#orderPages()`, `DocumentationService.ts:486`) — un point d'entrée trié
 alphabétiquement se retrouverait au milieu de ses propres pages.
 
@@ -121,7 +121,7 @@ symbolique — sinon le même fichier existerait sous deux chemins, et ses liens
 
 **Un identifiant de page est une clé, jamais un chemin.** Servir une page consiste à retrouver son
 entrée par **égalité d'identifiant** dans le catalogue scanné, puis à ouvrir le chemin absolu déjà
-connu (`DocumentationService.getPage()`, `DocumentationService.ts:151`). Le `mod~http~index` reçu du
+connu (`DocumentationService.getPage()`, `DocumentationService.ts:244`). Le `mod~http~index` reçu du
 client n'est jamais concaténé à un chemin de système de fichiers. Une garde en défense de profondeur
 (`isSafeSlug()`, `slug.ts:39`) rejette en plus tout identifiant suspect — segment `..`, séparateur,
 octet nul, hors jeu de caractères — **avant** même la recherche.
@@ -135,7 +135,7 @@ lien inerte qu'un identifiant inventé.
 
 > [!IMPORTANT]
 > **Le module ne rend aucun HTML.** Il produit deux formes de données, `IDocTree`
-> (`IDocumentation.ts:57`) et `IDocPage` (`IDocumentation.ts:67`), et s'arrête là. Conséquence
+> (`IDocumentation.ts:64`) et `IDocPage` (`IDocumentation.ts:74`), et s'arrête là. Conséquence
 > pratique : tout ce que montre le portail est aussi lisible en `curl`, en script, ou par un agent —
 > et le même data plane alimentera un générateur de site statique ou une indexation documentaire
 > sans qu'une ligne du module change. Le rendu appartient au lecteur, jamais au serveur.
@@ -211,7 +211,7 @@ Les valeurs de `audience` et de `status` sont des énumérations fermées, `DocA
 > **Deux pièges coûtent une page mal rangée.** La date se déclare `updated` — un `last-updated`
 > n'est pas lu, et la page paraît sans fraîcheur. Et une clé `section` dans le frontmatter ne
 > regroupe rien : le regroupement vient du **dossier parent** du fichier (`group`,
-> `docScanner.ts:76`). Pour ranger une page ailleurs, on la déplace ; on ne la renomme pas.
+> `docScanner.ts:87`). Pour ranger une page ailleurs, on la déplace ; on ne la renomme pas.
 
 ### 3. La lire
 
@@ -260,9 +260,9 @@ consommateur parmi d'autres.
 ## 🧰 Surface publique
 
 Côté serveur, le module expose `DocumentationService` — sa méthode `getTree()`
-(`DocumentationService.ts:185`) construit le catalogue, `getPage()`
+(`DocumentationService.ts:181`) construit le catalogue, `getPage()`
 (`DocumentationService.ts:244`) sert une page, `invalidate()` (`DocumentationService.ts:177`) force
-un rescan immédiat, et `registerVar()` (`DocumentationService.ts:138`) branche une variable
+un rescan immédiat, et `registerVar()` (`DocumentationService.ts:172`) branche une variable
 dynamique.
 
 Les variables sont la seule extension du module. Une page écrit `{{ nom }}` ; le serveur substitue

@@ -181,7 +181,7 @@ Les chiffres exacts vivent dans la carte de l'aperçu, régénérée en comptant
 | Unitaires — générateur | `unit/generateProxyConfig.test.ts` | ce que produisent les deux cibles, à partir d'une introspection donnée |
 | Unitaires — confiance | `unit/trustProxy.test.ts` | CIDR, préréglages, listes — quelle socket a le droit d'être crue |
 | Unitaires — résolution | `unit/forwarded.test.ts`, `unit/forwardedWiring.test.ts` | la remontée RFC 7239, et son câblage dans le pipeline |
-| Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`vitest.gates.ts:413`) |
+| Intégration — proxys RÉELS | `integration/reverse-proxy.test.ts` | les raccords contre nginx **et** HAProxy en marche, derrière `PROXY_GATE` (`vitest.gates.ts:454`) |
 
 > **Ce qui a été attrapé par le banc réel, et par rien d'autre** : `proxy:generate` annonçait
 > `proto=https` à un client venu en clair. Aucun test unitaire ne pouvait le voir — il fallait un

@@ -257,8 +257,8 @@ sequenceDiagram
 Les points d'implémentation qui expliquent des comportements surprenants :
 
 1. **L'aiguillage lit le `Content-Type`, pas la méthode** — `parseRequest()`
-   (`context/http/Request.ts:292`). `PATCH` porte un corps comme `POST`/`PUT` : il figure dans la table
-   des méthodes parsées (`context/http/Request.ts:63`) — l'oubli laissait tout `PATCH` avec un corps vide.
+   (`context/http/Request.ts:429`). `PATCH` porte un corps comme `POST`/`PUT` : il figure dans la table
+   des méthodes parsées (`context/http/Request.ts:79`) — l'oubli laissait tout `PATCH` avec un corps vide.
 2. **Le multipart draine sur un `finish`, après flush de tous les writes** — `streamMultipart()`
    (`context/http/Request.ts:537`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
    qu'une fois tous les fichiers fermés (`context/http/Request.ts:538`).
@@ -283,14 +283,14 @@ non-multipart n'écoute pas `upload.*`.
 | `maxBodySize` | octets | `1_048_576` (1 MiB) | Plafond d'un corps **JSON / urlencoded / XML / brut** → `413`. `0` = illimité. |
 
 Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check** sur `Content-Length`
-qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:296`), puis un **compteur
+qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:407`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
-menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:44`).
-Champ `maxBodySize` du schéma : `config/config.ts:1005`.
+menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:33`).
+Champ `maxBodySize` du schéma : `config/config.ts:1026`.
 
 ### Fichiers multipart — `upload.*`
 
-Table dérivée de `uploadSchema` (`config/config.ts:144`). Toutes les bornes sont `runtimeMutable`.
+Table dérivée de `uploadSchema` (`config/config.ts:159`). Toutes les bornes sont `runtimeMutable`.
 
 | Option             | Type                             | Défaut                 | Effet                                                                                               |
 | ------------------ | -------------------------------- | ---------------------- | --------------------------------------------------------------------------------------------------- |
@@ -319,13 +319,13 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 | `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1240`)            |
 | `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1239`)             |
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1178`)             |
-| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1178`)                       |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1227`)               |
+| `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1223`)                       |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1297`)               |
 | `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:239`) |
 | `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:248`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
-(`routerDecorators.ts:1240`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
+(`routerDecorators.ts:1254`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
 `IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts:49`, `interfaces/IUpload.ts:7`).
 
 ### Un fichier uploadé — `UploadedFile`
@@ -339,7 +339,7 @@ sur disque. Ses membres utiles :
 | `size`                   | Taille réellement écrite (octets).                                      | `getSize()` (`service/upload/upload-service.ts:139`)       |
 | `prettySize`             | Taille lisible (`« 1.2 MB »`).                                          | `getPrettySize()` (`service/upload/upload-service.ts:143`) |
 | `mimeType`               | Type MIME déclaré (`image/png`…), sinon deviné de l'extension.          | `getMimeType()` (`service/upload/upload-service.ts:153`)   |
-| `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.              | `interfaces/IUpload.ts:49`                                 |
+| `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.              | `interfaces/IUpload.ts:55`                                 |
 | `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline.        | `moveAsync()` (`service/upload/upload-service.ts:193`)     |
 | `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                  | `move()` (`service/upload/upload-service.ts:160`)          |
 
@@ -351,7 +351,7 @@ destination est bâtie avec `filename` — d'où l'avertissement de sécurité c
 Pour piper directement un très gros corps (vidéo, backup) vers le disque ou S3 sans passer par busboy ni
 par la RAM, `@Body({ stream: true })` court-circuite le parse et injecte l'`IncomingMessage` brut (un
 `Readable`). Le pipeline sait le sauter en amont via `routeExpectsBodyStream()`
-(`routerDecorators.ts:1365`), mémoïsé sur la route.
+(`routerDecorators.ts:1379`), mémoïsé sur la route.
 
 ```ts
 // fragment — le contrôleur pipe le flux lui-même (0 parse, 0 pic RAM)
@@ -378,7 +378,7 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 
 > [!WARNING]
 > **Path traversal sur la destination.** `move(dir)` / `moveAsync(dir)` vers un **dossier** construit le
-> chemin final avec `file.filename` — le nom **client** (`service/upload/upload-service.ts:197`). Un nom
+> chemin final avec `file.filename` — le nom **client** (`service/upload/upload-service.ts:101`). Un nom
 > `../../etc/cron.d/x` s'échapperait du dossier. Le framework protège le chemin du **temporaire**, pas
 > celui que **tu** choisis. Règle : passe une **cible complète** que tu contrôles, ou assainis toujours
 > avec `path.basename(file.filename)` — exactement le `safeName` du Démarrage rapide.
@@ -395,7 +395,7 @@ Le parsing du corps est sur le chemin de chaque requête écrivante — les choi
 - **`stat` non bloquant** — `UploadedFile.create()` résout les stats du fichier en async
   (`service/upload/upload-service.ts:130`), plus de `lstatSync` par fichier uploadé.
 - **Listeners jumeaux nettoyés** — le drain de fin de corps retire ses écouteurs `end`/`error`/overflow
-  à la main (`once` n'auto-détache que celui qui fire) (`context/http/parser.ts:88`).
+  à la main (`once` n'auto-détache que celui qui fire) (`context/http/parser.ts:78`).
 - **Hash opt-in** — `hashAlgorithm: false` par défaut : zéro coût CPU tant que l'intégrité n'est pas
   demandée.
 
@@ -423,7 +423,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | `413` sur upload sans message clair                     | Une borne busboy atteinte en streaming (fichier, cumul, nombre)     | Vérifier les bornes `upload.*` — 413 émis sur `stream.on("limit")` (`context/http/Request.ts:481`) |
 | Un fichier écrit `../../etc/…` après un `move`          | `move(dossier)` utilise le nom **client** (`upload-service.ts:197`) | Passer une cible complète, ou `path.basename(file.filename)`                                       |
 | Des fichiers temporaires s'accumulent dans `uploadDir`  | Le contrôleur ne déplace jamais le temp                             | Appeler `moveAsync()` (ou purger l'ancien temp par TTL)                                            |
-| `queryPost` vide sur `PATCH`                            | Déjà géré : `PATCH` est dans la table des méthodes parsées          | Aucune — corps `PATCH` parsé comme `POST` (`context/http/Request.ts:63`)                           |
+| `queryPost` vide sur `PATCH`                            | Déjà géré : `PATCH` est dans la table des méthodes parsées          | Aucune — corps `PATCH` parsé comme `POST` (`context/http/Request.ts:78`)                           |
 | Corps `latin1` mal décodé                               | Déjà géré : le `charset=` du `Content-Type` est honoré              | Aucune — `getCharset()` normalise (`context/http/Request.ts:799`)                                  |
 | `multipart` sans boundary fait planter                  | `new Busboy()` throw synchrone                                      | Déjà géré : bascule sur le parser brut (`context/http/Request.ts:502`)                             |
 

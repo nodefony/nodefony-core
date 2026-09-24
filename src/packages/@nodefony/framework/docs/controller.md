@@ -203,7 +203,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1152`) |
 | 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
-| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:313`)      |
+| 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:335`)      |
 | 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
 
 > [!IMPORTANT]
@@ -310,7 +310,7 @@ action se tromperait d'objet.
 > frame 2 — pratique pour un état de conversation, piège si tu comptais sur une instance neuve. En
 > HTTP, l'inverse : chaque requête repart d'une instance vierge.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1702`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1711`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
 (`http-kernel.ts:1152`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
@@ -322,16 +322,16 @@ sont des accesseurs qui dérivent du contexte **vivant**, selon le motif `champ 
 
 | Raccourci        | Ce que tu obtiens                                  | Ancre               |
 | ---------------- | -------------------------------------------------- | ------------------- |
-| `this.context`   | Le contexte transport de la requête courante       | `Controller.ts:146` |
+| `this.context`   | Le contexte transport de la requête courante       | `Controller.ts:180` |
 | `this.route`     | La route matchée                                   | `Controller.ts:158` |
 | `this.request`   | La requête (HTTP, HTTP/2 ou WS)                    | `Controller.ts:162` |
-| `this.response`  | La réponse du transport                            | `Controller.ts:169` |
+| `this.response`  | La réponse du transport                            | `Controller.ts:203` |
 | `this.method`    | La méthode HTTP (ou `WEBSOCKET`)                   | `Controller.ts:212` |
 | `this.queryGet`  | Les paramètres de la query string                  | `Controller.ts:221` |
 | `this.queryPost` | Le corps parsé                                     | `Controller.ts:248` |
 | `this.body`      | Le corps parsé — alias de `queryPost`              | `Controller.ts:248` |
 | `this.queryFile` | Les fichiers uploadés                              | `Controller.ts:239` |
-| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts:229` |
+| `this.session`   | La session **ou `null`** si elle n'est pas activée | `Controller.ts:279` |
 
 Pourquoi des accesseurs plutôt que des champs recopiés au constructeur : **la fraîcheur et le coût**.
 Une valeur recopiée vieillit dès que le pipeline modifie le contexte, et recopier quatre structures
@@ -340,7 +340,7 @@ gratuitement.
 
 ### La session est **lazy** — elle n'existe que si tu la demandes
 
-`this.session` est un simple getter sur `context.session` (`Controller.ts:229`). Il n'y a **pas** de
+`this.session` est un simple getter sur `context.session` (`Controller.ts:279`). Il n'y a **pas** de
 `startSession()` à appeler depuis un contrôleur : l'activation se déclare sur la route, avec
 `@UseSession()` (ou un paramètre `@Session()`, qui vaut déclaration implicite), et le pipeline
 l'exécute à son point unique. Sans déclaration et sans cookie de session entrant, **aucune session
@@ -419,12 +419,12 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 
 | Helper                                       | Pour…                                                    | Ancre               |
 | -------------------------------------------- | -------------------------------------------------------- | ------------------- |
-| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:379` |
+| `renderJson(obj, status?, headers?)`         | JSON explicite avec statut/en-têtes                      | `Controller.ts:481` |
 | `render(data, encoding?, status?, headers?)` | Envoyer un corps quelconque via le contexte              | `Controller.ts:377` |
 | `renderView(path, params, status?)`          | Rendre un template **Eta** (avec les helpers frontend)   | `Controller.ts:410` |
 | `renderResponse(data, encoding?, …)`         | Poser statut + en-têtes, puis envoyer                    | `Controller.ts:392` |
-| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:382` |
-| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:432` |
+| `redirect(url, status?, headers?)`           | Rediriger                                                | `Controller.ts:500` |
+| `forward("module:controller:action")`        | Déléguer à une autre action **sans** aller-retour réseau | `Controller.ts:534` |
 | `setContextJson()` / `setContextHtml()`      | Choisir le type de contenu avant d'envoyer               | `Controller.ts:319` |
 
 `renderView()` mesure sa propre phase `render` et injecte automatiquement les aides frontend
@@ -446,7 +446,7 @@ Deux besoins distincts, deux helpers.
 
 ### Téléchargement — `renderFileDownload()`
 
-`renderFileDownload(file, options?, headers?)` (`Controller.ts:473`) pose
+`renderFileDownload(file, options?, headers?)` (`Controller.ts:625`) pose
 `Content-Disposition: attachment`, `Content-Length`, le type MIME du fichier, puis délègue au moteur
 de flux. Le fichier est résolu **sans bloquer l'event loop** (`getFileAsync()`, `Controller.ts:586`) ;
 la variante synchrone `getFile()` existe encore mais est marquée obsolète — elle appelle `lstatSync`
@@ -454,7 +454,7 @@ et gèle le process le temps du stat.
 
 ### Lecture en continu — `renderMediaStream()`
 
-`renderMediaStream(file, headers?, options?)` (`Controller.ts:609`) implémente les **requêtes par
+`renderMediaStream(file, headers?, options?)` (`Controller.ts:780`) implémente les **requêtes par
 plage** (RFC 9110 §14), ce qui permet à un lecteur vidéo de sauter dans le flux :
 
 | Le client envoie…                             | Réponse                                                         |
@@ -489,7 +489,7 @@ throw new nodefonyError("Article introuvable", 404); // statut porté par l'erre
 throw new HttpError("Not Found", 404, this.context); // variante enrichie du contexte
 ```
 
-L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:874`), qui délègue la mise en
+L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:879`), qui délègue la mise en
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**

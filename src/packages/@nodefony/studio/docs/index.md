@@ -272,7 +272,7 @@ registry.register(inventoryAdminApi);
 
 Ce que le framework fait ensuite, sans que le module s'en occupe :
 
-1. `AdminBroker.register()` (`AdminBroker.ts:45`) mémorise le producteur et refuse un espace de nom
+1. `AdminBroker.register()` (`AdminBroker.ts:53`) mémorise le producteur et refuse un espace de nom
    déjà pris, ou un enregistrement arrivé après le montage.
 2. Au montage, chaque endpoint devient une vraie route `/nodefony/<namespace>/api/<path>`, avec son
    contrôle de rôle appliqué **avant** l'appel du handler.

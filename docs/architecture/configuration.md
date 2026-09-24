@@ -57,7 +57,7 @@ flowchart TD
 ```
 
 Le fait structurant tient en une ligne : **un seul endroit lit `process.env`** — le catalogue
-`defineEnv()` (`defineEnv.ts:270`). Partout ailleurs, la configuration est un objet typé, résolu au
+`defineEnv()` (`defineEnv.ts:421`). Partout ailleurs, la configuration est un objet typé, résolu au
 boot. Cela supprime d'un coup toute une famille de pannes : le `process.env.X` lu au fond d'un
 service, jamais validé, absent en production.
 
@@ -112,7 +112,7 @@ Quatre partis pris, tous vérifiables dans le code :
   appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2168`). Ta config
   **connaît donc son environnement** au moment où elle est calculée.
 - **Le par-environnement passe par `ctx`, jamais par un fichier parallèle** (`ConfigContext`,
-  `types.ts:339`). Un `config.prod.ts` séparé diverge silencieusement ; une expression ternaire, non.
+  `types.ts:376`). Un `config.prod.ts` séparé diverge silencieusement ; une expression ternaire, non.
 - **Les défauts sont dans le framework, pas dans ton projet.** `defaultAppConfig` (`defaults.ts:34`)
   est deep-mergé **sous** ta config (`mergeAndValidate()`, `defineConfig.ts:186`) — une amélioration
   du framework te parvient sans que tu ne réécrives rien.
@@ -301,14 +301,14 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 **contenu du fichier** qui est lu, retour à la ligne final retiré. Deux règles fermes :
 
 - déclarer `NF_X` **et** `NF_X_FILE` en même temps est une **ambiguïté** → `resolveFileEnv()` lève
-  une erreur explicite (`defineEnv.ts:115`) ;
+  une erreur explicite (`defineEnv.ts:129`) ;
 - un fichier illisible est une erreur de boot, jamais un repli silencieux (`defineEnv.ts:122`).
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
 `envOverride.ts:375`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
 (`Kernel.ts:2258`).
 
-Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:59`), en
+Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:131`), en
 cascade : les variantes `*.local` (gitignorées) priment sur les fichiers committés, et **rien**
 n'écrase une variable déjà posée dans `process.env` par le shell ou l'orchestrateur
 (`loadEnv.ts:86`).
@@ -355,11 +355,11 @@ simplement sans auto-complétion.
 
 - **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1409`) ;
 - **`when(config)`** → une garde évaluée sur la config résolue ; `false` retire l'entrée
-  (`Kernel.ts:1429`).
+  (`Kernel.ts:1566`).
 
 Un module retiré n'est pas « chargé puis désactivé » : il n'est **jamais importé**. En ESM, un module
 non importé n'existe pas — le gain est réel, en mémoire comme en temps de boot. Les entrées écartées
-sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1557`), pour
+sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1597`), pour
 qu'un module absent reste explicable.
 
 ## ⚙️ Mises en situation — varier sans dupliquer
@@ -505,7 +505,7 @@ export function defineDrizzleConfig(
 Vérifié au source : `drizzleConfigSchema` (`drizzle/nodefony/config/config.ts:136`) et
 `defineDrizzleConfig()` (`drizzle/nodefony/config/defineModuleConfig.ts:81`). Le module publie enfin
 son JSON Schema en redéfinissant `Module.configSchema()` (`Module.ts:153`), et lit sa config validée
-via le getter typé `Module.config` (`Module.ts:152`).
+via le getter typé `Module.config` (`Module.ts:178`).
 
 ### Les métadonnées de champ — dire ce qu'une valeur EST
 
@@ -564,19 +564,19 @@ sequenceDiagram
 
 Les points de passage, dans l'ordre du code :
 
-1. **`loadEnv()`** (`loadEnv.ts:59`) peuple `process.env` avant tout Kernel — les configs de modules
+1. **`loadEnv()`** (`loadEnv.ts:131`) peuple `process.env` avant tout Kernel — les configs de modules
    lisent l'environnement au boot, il doit donc déjà être là.
-2. **`Kernel.buildConfigContext()`** (`Kernel.ts:1789`) fabrique `ctx`. Le catalogue `env` exporté par
-   l'app y est branché (`Kernel.ts:962`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
+2. **`Kernel.buildConfigContext()`** (`Kernel.ts:1980`) fabrique `ctx`. Le catalogue `env` exporté par
+   l'app y est branché (`Kernel.ts:1127`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
 3. **`descriptor.resolve(ctx)`** (`Kernel.ts:2129`) enchaîne merge, overrides `NF__APP__*` et
-   validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:147`).
+   validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
-   est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:96`)
+   est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)
    puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2258`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
-   `Kernel.ts:1508`), puis overrides inter-modules `module-<nom>`
-   (`Module.readOverrideModuleConfig()`, `Module.ts:258`) et d'environnement
+   `Kernel.ts:1656`), puis overrides inter-modules `module-<nom>`
+   (`Module.readOverrideModuleConfig()`, `Module.ts:377`) et d'environnement
    (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1807`).
 6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1807`) — et l'ordre
    n'est pas anodin : posés plus tard, ils seraient silencieusement ignorés par tout module qui fige
@@ -654,7 +654,7 @@ d'une requête :
 
 - **zéro lecture de `process.env` en production de trafic** — le catalogue est lu une fois et gelé
   (`defineEnv.ts:302`) ;
-- **zéro deep-merge par requête** — `extend(true, …)` ne tourne qu'au `resolve()` (`defineConfig.ts:148`),
+- **zéro deep-merge par requête** — `extend(true, …)` ne tourne qu'au `resolve()` (`defineConfig.ts:156`),
   sur une cible fraîche, sans muter ni les défauts ni l'entrée ;
 - **zéro analyse d'override** au-delà du boot : `parseNfEnvOverrides()` (`envOverride.ts:80`) et
   `resolveInfra()` (`infra.ts:134`) sont appelés une seule fois, l'infra étant mémoïsée
@@ -670,12 +670,12 @@ précisément l'objectif du modèle « résoudre puis figer ».
 | Symptôme                                               | Cause (dans le code)                                                 | Correction                                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2389`)                            |
-| `NF__APP__X=…` sans effet, avec « vouliez-vous dire »  | Le chemin n'existe pas dans les défauts (`applyResolvedPath` refuse) | Déclarer la clé dans `nodefony.config.ts` (`envOverride.ts:126`)                  |
+| `NF__APP__X=…` sans effet, avec « vouliez-vous dire »  | Le chemin n'existe pas dans les défauts (`applyResolvedPath` refuse) | Déclarer la clé dans `nodefony.config.ts` (`envOverride.ts:300`)                  |
 | Le champ ciblé refuse la valeur d'un `envEnum`         | `as const` oublié → l'union littérale est élargie en `string`        | `envEnum([...] as const, …)`                                                      |
 | `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:47`)             |
 | Boot rejeté : « Configuration d'application invalide » | Une valeur hors schéma (`validateAppConfig`)                         | Lire le chemin + la raison, corriger (`schema.ts:377`)                            |
-| Diagnostic vague sur `servers.https`                   | Union Zod — la branche fautive est masquée                           | Le message descend déjà dans les unions (`schema.ts:145`)                         |
-| `KEY` et `KEY_FILE` définis en même temps              | Ambiguïté de secret, refusée (`resolveFileEnv`)                      | N'en garder qu'un (`defineEnv.ts:115`)                                            |
+| Diagnostic vague sur `servers.https`                   | Union Zod — la branche fautive est masquée                           | Le message descend déjà dans les unions (`schema.ts:162`)                         |
+| `KEY` et `KEY_FILE` définis en même temps              | Ambiguïté de secret, refusée (`resolveFileEnv`)                      | N'en garder qu'un (`defineEnv.ts:129`)                                            |
 | Une métadonnée `.meta()` disparaît                     | `.meta()` n'est pas en dernier — le clone Zod la perd                | `.default(x).meta({…})` (`configMeta.ts:27`)                                      |
 | Un override `module-<nom>` semble ignoré               | Il était appliqué après la validation du module                      | Corrigé : appliqué avant (`Kernel.ts:728`) — vérifier l'orthographe du module     |
 | Le cluster ignore `cluster.config.ts`                  | Le fichier déréférence le kernel → import KO → repli silencieux      | Le garder **kernel-free** (`topology.ts:111`)                                     |

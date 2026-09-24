@@ -128,7 +128,7 @@ service par la chaîne `"redis"` dans le conteneur, jamais par un `import`. `Red
 et la sécurité, dans aucun sens — et le graphe de modules reste acyclique.
 
 **Charger le module suffit.** `Redis.onKernelRegister()` (`index.ts:54`) valide la configuration puis
-appelle `registerRedisFrameworkStores()` (`registerStores.ts:46`), qui inscrit les fabriques `redis`
+appelle `registerRedisFrameworkStores()` (`registerStores.ts:72`), qui inscrit les fabriques `redis`
 dans les registres de jetons et de passkeys. Le store de session, lui, s'auto-déclare à l'import du
 fichier (`SessionStorage.ts:323`). Aucune application n'a de câblage à écrire : il ne reste qu'à
 nommer le store — ou à laisser `auto` choisir.
@@ -278,7 +278,7 @@ Trois détails de ce schéma décident de tout le comportement en panne :
 
 1. `RedisService.init()` (`redis.ts:123`) enveloppe **chaque** connexion dans son propre `try/catch` :
    une connexion qui échoue est journalisée en `ERROR` et les suivantes sont quand même tentées.
-2. `RedisService.createConnection()` (`redis.ts:146`) inscrit la connexion dans `#connections`
+2. `RedisService.createConnection()` (`redis.ts:175`) inscrit la connexion dans `#connections`
    **avant** d'attendre son ouverture (`redis.ts:75`).
 3. `Connection.create()` (`Connection.ts:86`) affecte `this.client` **avant** d'appeler `connect()`.
 
@@ -335,7 +335,7 @@ vue d'ensemble ; les fiches détaillent les choix qui surprennent.
 
 ### `nf:sess:*` — la session, une chaîne et un TTL
 
-Une session est un blob JSON écrit d'un coup. `RedisSessionStorage.write()` (`SessionStorage.ts:123`)
+Une session est un blob JSON écrit d'un coup. `RedisSessionStorage.write()` (`SessionStorage.ts:106`)
 pose **systématiquement** un `EX` : une clé de session sans TTL serait une session immortelle, donc un
 défaut de sécurité, pas une commodité.
 
@@ -378,7 +378,7 @@ d'ailleurs pas de méthode de maintenance. Deux structures suffisent : un HASH p
 SET d'identifiants par utilisateur.
 
 Un point de conception mérite d'être connu : `countByUser()`
-(`RedisWebAuthnCredentialStore.ts:203`) utilise `SCARD`, en O(1), sans lire un seul HASH. Il peut donc
+(`RedisWebAuthnCredentialStore.ts:199`) utilise `SCARD`, en O(1), sans lire un seul HASH. Il peut donc
 **sur-compter** les membres orphelins qu'une lecture n'a pas encore nettoyés. L'écart est assumé et
 orienté **fail-closed** : au pire un enrôlement supplémentaire est refusé, jamais un de trop accepté.
 
@@ -488,7 +488,7 @@ garde ne se déclenche que dans deux situations exactes :
 - **après** `RedisService.closeConnections()` (`redis.ts:247`), qui remet la carte à `null`.
 
 Il ne se déclenche **pas** après un `connect()` raté. Puisque la connexion est inscrite dans
-`#connections` avant d'être ouverte (`redis.ts:114`) et que `Connection.create()` affecte son client
+`#connections` avant d'être ouverte (`redis.ts:76`) et que `Connection.create()` affecte son client
 avant de le connecter (`Connection.ts:86`), `getClient("main")` rend alors un client **non nul et
 fermé**. La commande part donc, et la bibliothèque la rejette :
 
@@ -506,7 +506,7 @@ ClientClosedError: The client is closed
 ### Moment 4 — l'arrêt
 
 Le service s'abonne une fois pour toutes à la fin de vie du kernel dans son constructeur
-(`redis.ts:218`). `closeConnections()` (`redis.ts:218`) ferme chaque connexion, avale et journalise les
+(`redis.ts:247`). `closeConnections()` (`redis.ts:247`) ferme chaque connexion, avale et journalise les
 échecs individuels, puis libère la carte. `Connection.close()` (`Connection.ts:146`) appelle la
 fermeture gracieuse du client — qui draine les commandes en vol — puis retire **explicitement** les
 cinq écouteurs via `Connection.#removeListeners()`, dans un bloc `finally` (`Connection.ts:122`).
@@ -528,7 +528,7 @@ L'ordre compte : les écouteurs sont retirés même si la fermeture échoue.
 | Idempotence : `redis` demandé, module absent | échec franc au démarrage | ✅ fail-loud |
 
 Les deux lignes rouges sont un **écart réel au principe** du framework : `RedisSessionStorage.write()`
-(`SessionStorage.ts:123`) rend la charge utile sans la persister et sans un mot. Sur la fenêtre
+(`SessionStorage.ts:106`) rend la charge utile sans la persister et sans un mot. Sur la fenêtre
 étroite qu'il couvre — avant l'ouverture, après la fermeture — l'impact est faible ; le principe, lui,
 voudrait une trace. À l'inverse, `RedisSessionStorage.destroy()` (`SessionStorage.ts:143`) rend `true`
 sans connexion **délibérément** : l'appelant est une déconnexion, et lui répondre « échec » laisserait
@@ -594,7 +594,7 @@ erreur.
 ### Les vidages complets
 
 À côté de la pagination, deux méthodes déversent tout. `RedisSessionStorage.listAll()`
-(`SessionStorage.ts:198`) est **plafonnée** à un maximum de clés parcourues et journalise un
+(`SessionStorage.ts:181`) est **plafonnée** à un maximum de clés parcourues et journalise un
 `WARNING` quand elle tronque — listing partiel signalé, jamais silencieux.
 `RedisTokenStore.listAll()` (`RedisTokenStore.ts:378`), en revanche, boucle jusqu'à la fin du
 keyspace sans plafond : à grande échelle, préférez la pagination ou le système de référence SQL pour
@@ -635,7 +635,7 @@ c'est la contrepartie assumée de la séparation imposée par le protocole.
 
 - **Écran Stores** (`/nodefony/stores`) : pour chaque brique, le store réellement retenu au démarrage
   **et la raison**. La résolution est enregistrée par `SessionsService.initializeStorage()`
-  (`sessions-service.ts:231`), qui journalise aussi la décision au format « `auto` → `redis` (infra
+  (`sessions-service.ts:241`), qui journalise aussi la décision au format « `auto` → `redis` (infra
   cache) ». Le choix automatique lui-même vient de `resolveAutoStore()` (`infra.ts:297`) : Redis n'est
   proposé que pour les natures non durables.
 - **Écran Sessions** : l'énumération y passe par `listPage` en mode curseur — d'où l'absence de
@@ -658,9 +658,9 @@ surfacé par les écrans transverses ci-dessus.
 | Deux applications se renvoient leurs messages temps réel      | Le pub/sub ignore le numéro de base — cloisonnement inexistant                                  | Poser un namespace de canal explicite (`RedisBackplane.ts:31`)                              |
 | Les mêmes messages sont diffusés deux fois localement         | Anti-echo court-circuité (identifiant d'origine partagé)                                        | Un identifiant d'origine distinct par pod (`RedisBackplane.ts:212`)                         |
 | Un jeton expiré « revient » et n'expire plus                  | `HSET` recrée une clé absente, sans TTL                                                         | Le test d'existence préalable (`RedisTokenStore.ts:254`) — ne pas le retirer                |
-| `?cursor=…` fait échouer un listing de jetons                 | Curseur transmis sans validation (`RedisTokenStore.ts:35`)                                      | Ne pas fabriquer de curseur à la main ; rejouer `nextCursor` tel quel                       |
+| `?cursor=…` fait échouer un listing de jetons                 | Curseur transmis sans validation (`RedisTokenStore.ts:46`)                                      | Ne pas fabriquer de curseur à la main ; rejouer `nextCursor` tel quel                       |
 | L'écran d'administration n'affiche aucun total                | `countSessions` / `countTokens` rendent `-1` (comptage O(N) refusé)                             | Afficher « inconnu » ; ne jamais inventer un total                                          |
-| Un `offset` envoyé n'a aucun effet                            | Le mode curseur ne lit que `cursor` (`SessionStorage.ts:258`)                                   | Paginer par curseur, pas par décalage                                                       |
+| Un `offset` envoyé n'a aucun effet                            | Le mode curseur ne lit que `cursor` (`SessionStorage.ts:196`)                                   | Paginer par curseur, pas par décalage                                                       |
 | Des passkeys disparaissent                                    | Politique d'éviction Redis (`allkeys-lru`) sur des clés **sans** TTL                            | `noeviction` + persistance sur l'instance qui porte les passkeys                            |
 | Une session survit à son âge maximal côté Redis               | Le TTL glissant n'exprime pas l'absolu (`SessionStorage.ts:168`)                                | Comportement voulu — l'âge est refusé à la lecture, pas dans le stockage                    |
 | Une surcharge de connexion écrase l'hôte global               | Un schéma partiel qui réapplique ses défauts clobberait la valeur globale                       | Ne poser que les champs voulus dans la surcharge — voir [Configuration](./configuration.md) |
@@ -696,7 +696,7 @@ cette prose. Ce qui doit être dit ici, c'est **ce qui est prouvé, et par quoi*
 > **Une suite verte ne prouve rien sans serveur Redis.** Les bancs d'intégration se **skippent**
 > quand l'infra manque, et un skip compte comme un succès : on peut lire « tout est vert » sur une
 > suite qui n'a rien exercé. La gate du module est déclarée une seule fois — `REDIS_GATE` dans
-> `vitest.gates.ts:329` — et la fin de run nomme la cible non exercée avec la commande exacte pour la
+> `vitest.gates.ts:339` — et la fin de run nomme la cible non exercée avec la commande exacte pour la
 > satisfaire. **Les variables et la commande docker se lisent là, pas ici** : les recopier dans cette
 > page les condamnerait à diverger.
 

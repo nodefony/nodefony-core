@@ -178,7 +178,7 @@ conteneur d'injection, le bus d'événements et l'accès au journal. Conséquenc
 un contrôleur et un adaptateur de base de données s'observent, se configurent et se nettoient de la
 même façon. Il n'y a pas de composant « à part » dans une application Nodefony.
 
-**Le kernel possède les modules, jamais l'inverse.** `Kernel.boot()` (`Kernel.ts:799`) charge le
+**Le kernel possède les modules, jamais l'inverse.** `Kernel.boot()` (`Kernel.ts:1225`) charge le
 manifeste, construit les modules, puis fait passer tout le monde par les mêmes phases. Un `Module`
 (`Module.ts:60`) déclare s'il est **critique** — un module non critique dont le démarrage échoue
 n'emporte pas le processus, il annonce sa dégradation et le reste continue. Les commandes en ligne

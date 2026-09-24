@@ -229,7 +229,7 @@ Un **tuyau bidirectionnel nommé**, multiplexé sur la connexion : `"chat:room-4
 `"nodefony:orm:health"`, `"nodefony:socket"`. Convention de nommage par `:` (espace de noms, puis
 précision). Ce n'est pas une classe — c'est une **chaîne de caractères indexée par le hub**.
 
-`RealtimeHub.subscribe()` (`RealtimeHub.ts:388`) l'indexe ; `IRealtimeSocket.subscribe()`
+`RealtimeHub.subscribe()` (`RealtimeHub.ts:462`) l'indexe ; `IRealtimeSocket.subscribe()`
 (`IRealtimeSocket.ts:132`) le demande. Plusieurs canaux cohabitent sur **une** connexion : c'est le
 multiplexage.
 
@@ -269,7 +269,7 @@ Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `Rp
 ### `canal entrant` (inbound) — le client pousse
 
 Un canal où le **client a le droit d'émettre** vers le serveur. Défaut sûr : **aucun**. Un canal
-n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:30`) ou
+n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:231`) ou
 par l'override `realtimeInbound()` (`RealtimeController.ts:205`).
 
 Le handler reçoit `(params, reply)` — `params` vient du réseau, donc **jamais fiable** :
@@ -347,7 +347,7 @@ L'action de diffuser : une charge publiée sur un canal part vers **tous** les s
 localement. Une connexion fautive ne casse pas la diffusion aux autres — chaque livraison est isolée.
 
 `RealtimeHub.publish()` (`RealtimeHub.ts:604`) pour le chemin complet, `publishLocal()`
-(`RealtimeHub.ts:549`) pour la diffusion **strictement locale** (voie d'entrée du backplane).
+(`RealtimeHub.ts:623`) pour la diffusion **strictement locale** (voie d'entrée du backplane).
 
 ### `sink` — le point de livraison d'une connexion
 
@@ -371,7 +371,7 @@ Le modèle de coût du module : là où une implémentation naïve crée un tick
 Nodefony en crée **un par canal et par pod** et se contente d'ajouter un sink par abonné. Mille
 spectateurs d'un tableau de bord coûtent un timer, pas mille.
 
-`RealtimeHub.subscribe()` (`RealtimeHub.ts:388`).
+`RealtimeHub.subscribe()` (`RealtimeHub.ts:462`).
 
 ### `canal passif` — écouter n'est pas posséder
 
@@ -403,7 +403,7 @@ Un canal **déclaré** comme franchissant la frontière du process : chat, prés
 déclaration se fait par **préfixe**, ce qui couvre les variantes de cadence (`chat:` couvre
 `chat:room-42:1000`).
 
-`RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:594`), déclaré côté contrôleur par
+`RealtimeHub.markBroadcastChannel()` (`RealtimeHub.ts:668`), déclaré côté contrôleur par
 `@RealtimeBroadcast` (`realtimeDecorators.ts:342`).
 
 ### `canal instance-local` — le défaut
@@ -469,7 +469,7 @@ Client et serveur sont des **pairs** : classer une frame, router, corréler les 
 travail des deux côtés. Nodefony l'écrit **une seule fois** ; chaque côté l'entoure de son transport
 et de ses handlers. Aucune dépendance Node — le même fichier tourne dans le navigateur.
 
-`JsonRpcPeer` (`JsonRpcPeer.ts:271`), contrat `IRealtimePeer` (`JsonRpcPeer.ts:213`).
+`JsonRpcPeer` (`JsonRpcPeer.ts:280`), contrat `IRealtimePeer` (`JsonRpcPeer.ts:213`).
 
 ### `dispatch` — classer puis router
 
@@ -534,7 +534,7 @@ Le **fond de panier** d'un rack : la carte qui relie toutes les autres. Ici, le 
 publications d'un process aux autres. Un contrat volontairement minuscule — `publish`, `onMessage`,
 `start`, `stop`, `describe` — parce que tout ce qui est riche appartient au hub.
 
-`IBackplane` (`IBackplane.ts:75`), message `IBackplaneMessage` (`IBackplane.ts:51`), branchement
+`IBackplane` (`IBackplane.ts:107`), message `IBackplaneMessage` (`IBackplane.ts:51`), branchement
 `RealtimeHub.setBackplane()` (`RealtimeHub.ts:714`).
 
 > [!TIP]
@@ -681,7 +681,7 @@ Le contrôle de l'en-tête `Origin` à l'ouverture (RFC 6455 §10.2) : un site t
 ouvrir une connexion authentifiée dans le dos de l'utilisateur. Correspondance **exacte**, aucun
 caractère générique.
 
-`OriginGuard` (`RealtimeHub.ts:25`), configuration `csrf.checkOrigin` (`config.ts:181`).
+`OriginGuard` (`RealtimeHub.ts:33`), configuration `csrf.checkOrigin` (`config.ts:255`).
 
 ### `révocation` — la connexion qui survit à sa session
 
@@ -708,7 +708,7 @@ Le signal émis sur les événements protocolaires qui méritent une trace : fra
 refusée, méthode inconnue, erreur interne. Émis sans attente, avec le pair — ce qui permet de
 retrouver **qui** a été refusé, pas seulement d'où venait le paquet.
 
-`FrameAuditReason` (`JsonRpcPeer.ts:143`), crochet `onFrameAudit` (`JsonRpcPeer.ts:190`).
+`FrameAuditReason` (`JsonRpcPeer.ts:155`), crochet `onFrameAudit` (`JsonRpcPeer.ts:190`).
 
 ### `seam` — le point de greffe
 
@@ -747,7 +747,7 @@ L'oscilloscope du module : « voici mon état, maintenant ». Canaux et abonnés
 livraisons, connexions, octets, back-pressure, carte d'identité du backplane. Lecture **pure**, sans
 allocation sur le chemin chaud.
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:775`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts:61`).
+`RealtimeHub.probe()` (`RealtimeHub.ts:849`) rend un `IRealtimeProbe` (`IRealtimeProbe.ts:61`).
 
 > [!WARNING]
 > `IRealtimeProbe` est la **forme des données**, pas une interface à implémenter avec une méthode
@@ -769,8 +769,8 @@ décide de rien. Les seuils d'ACTION, eux, sont des réglages : `websocket.maxBa
 Une connexion dont le back-pressure dépasse le seuil de comptage. C'est une **métrique**, pas une
 sanction : le seuil de comptage se règle indépendamment des seuils d'action.
 
-`slowConsumer.bytes` (`config.ts:84`), champ `backpressure.slowConsumers`
-(`IRealtimeProbe.ts:81`).
+`slowConsumer.bytes` (`config.ts:121`), champ `backpressure.slowConsumers`
+(`IRealtimeProbe.ts:102`).
 
 ### `compteurs de canal` — mesurés à l'arrivée
 
@@ -794,16 +794,16 @@ Le producteur qui expose la sonde sous `/nodefony/realtime/api/health`, selon la
 routage des administrations de modules. C'est de l'**auto-observabilité** : la socket se regarde
 elle-même par le même chemin que les autres modules.
 
-`createRealtimeAdminApi()` (`RealtimeAdminApi.ts:91`), construction `buildOwnHealth()`
+`createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`), construction `buildOwnHealth()`
 (`RealtimeAdminApi.ts:52`).
 
 ## ⚠️ Pièges — les faux-amis du vocabulaire
 
 | Symptôme                                                           | Cause — le mot pris pour un autre                                                                                     | Correction                                                                              |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| « Je suis abonné mais je ne reçois rien »                          | `subscribe` confondu avec `on` : le flux est demandé, aucun écouteur ne le lit                                        | Les deux : `subscribe(canal)` **et** `on(canal, handler)` (`IRealtimeSocket.ts:141`)    |
+| « Je suis abonné mais je ne reçois rien »                          | `subscribe` confondu avec `on` : le flux est demandé, aucun écouteur ne le lit                                        | Les deux : `subscribe(canal)` **et** `on(canal, handler)` (`IRealtimeSocket.ts:140`)    |
 | « Ça marche en local, plus rien dès qu'on passe à plusieurs pods » | canal resté **instance-local** — le défaut. Traverser le process est une capacité qu'on **demande**                   | Déclarer le préfixe dans `@RealtimeBroadcast` (`realtimeDecorators.ts:342`)             |
-| « Le client publie, le serveur ignore »                            | canal non déclaré **entrant**. Un client ne peut rien pousser tant qu'aucun handler n'existe                          | `@RealtimeInbound("mon:canal")` (`realtimeDecorators.ts:182`)                           |
+| « Le client publie, le serveur ignore »                            | canal non déclaré **entrant**. Un client ne peut rien pousser tant qu'aucun handler n'existe                          | `@RealtimeInbound("mon:canal")` (`realtimeDecorators.ts:231`)                           |
 | Deux déploiements se mélangent sur un même serveur Redis           | pas de **cloison** — le numéro de base ne cloisonne pas le pub/sub                                                    | Poser `backplane.namespace` (`config.ts:59`)                                            |
 | Le fan-out disparaît entre conteneurs identiques                   | **origine** dérivée du seul identifiant de processus : deux conteneurs sont tous deux le n° 1, l'anti-écho avale tout | `resolveBackplaneOriginId()` (`originId.ts:24`) dérive du pod ou de l'hôte              |
 | Deux tickers pour le même tableau de bord                          | **cadence** différente = **canal** différent, jamais réconcilié                                                       | Fabriquer le nom via `rateChannel()` (`channelRate.ts:44`) des deux côtés               |

@@ -123,7 +123,7 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
   (`http-kernel.ts:330`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
-  boot ; `onHttpRequest` (`http-kernel.ts:819`) ne fait plus que trois `setHeader`.
+  boot ; `onHttpRequest` (`http-kernel.ts:949`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
   (`Context.ts:253`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
@@ -173,7 +173,7 @@ export default defineConfig(() => ({
 ```
 
 Les clés sont **typées et auto-complétées** : le module augmente le registre `NodefonyModuleConfig`
-du core (`index.ts:28`), donc `use("@nodefony/security", …)` propose les clés **et** les valeurs
+du core (`index.ts:33`), donc `use("@nodefony/security", …)` propose les clés **et** les valeurs
 d'enum (`referrerPolicy`, `coop`, `corp`…). Une valeur hors enum casse le boot, pas la production.
 
 ### 2. Ce qu'on observe
@@ -276,7 +276,7 @@ victime est capté par ton interface.
 
 Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions`
 (`http-kernel.ts:270`) — et configuré côté `@nodefony/http` avec `frameOptions`
-(`http/nodefony/config/config.ts:121`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
+(`http/nodefony/config/config.ts:136`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
 
@@ -379,7 +379,7 @@ config security est la première source de confusion sur ce sujet.
 
 ### Couche applicative — `use("@nodefony/security", { headers })`
 
-Dérivé du schéma Zod `headersSchema` (`config.ts:194`).
+Dérivé du schéma Zod `headersSchema` (`config.ts:206`).
 
 <!-- prettier-ignore -->
 | Option | Type | Défaut | Effet |
@@ -396,7 +396,7 @@ Dérivé du schéma Zod `headersSchema` (`config.ts:194`).
 
 ### Socle transport — `use("@nodefony/http", { securityHeaders })`
 
-Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts:108`). Ces trois réglages sont
+Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts:123`). Ces trois réglages sont
 **éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:290`)
 recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
@@ -411,10 +411,10 @@ recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 > [!WARNING]
 > Les clés `hsts`, `hstsMaxAgeS`, `frameguard` et `noSniff` **existent** dans la config security
-> (`config.ts:200`, `config.ts:227`, `config.ts:233`) mais **ne pilotent rien** : la couche
+> (`config.ts:257`, `config.ts:257`, `config.ts:257`) mais **ne pilotent rien** : la couche
 > applicative ne les lit pas (`securityHeaders.ts:6`), elles ne servent qu'à l'introspection
 > affichée dans Studio. Pour changer réellement `X-Frame-Options`, c'est `securityHeaders.frameOptions`
-> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts:254`) : Nodefony n'émet aucun
+> **du module http**. Même remarque pour `hidePoweredBy` (`config.ts:282`) : Nodefony n'émet aucun
 > `X-Powered-By`, l'option est un no-op documenté.
 
 ## 🏗️ Le CSP en détail — deux régimes, trois façons de l'étendre
@@ -439,7 +439,7 @@ Le chemin complet, sans surprise :
 
 1. **Au boot**, la chaîne CSP est **pré-découpée** autour de `{{nonce}}` (`securityHeaders.ts:58`).
    Aucun parsing ni regex n'aura lieu pendant une requête.
-2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:835`) lit `context.cspNonce` —
+2. **Par requête**, `Firewall.applySecurityHeaders()` (`firewall.ts:1045`) lit `context.cspNonce` —
    ce qui **génère** le jeton à cet instant (`Context.ts:253`) — puis appelle
    `SecurityHeaders.cspFor()` (`securityHeaders.ts:100`) : un seul `join`.
 3. **Dans la vue**, le contrôleur relit `context.cspNonce`, qui est **mémoïsé** : l'en-tête et le
@@ -502,15 +502,15 @@ Trois propriétés à retenir :
 
 - **Aucun couplage** : la résolution par nom de service évite un cycle de dépendances, et
   `registerCspOrigins` est optionnel — un module fonctionne dans une app **sans** security.
-- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1074`) retire le fragment et
+- **Réversible** : `Firewall.unregisterCspOrigins()` (`firewall.ts:1090`) retire le fragment et
   reconstruit le CSP de base. C'est ce que fait `@nodefony/frontend` à l'arrêt du serveur Vite.
 - **Idempotent** : la reconstruction repart **toujours** du `headers.csp` d'origine
-  (`firewall.ts:1088`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
+  (`firewall.ts:1104`), jamais d'un CSP déjà fusionné — pas d'accumulation entre deux
   enregistrements.
 
 L'exemple de référence vit dans le framework : en développement, `@nodefony/frontend` déclare les
 origines du serveur Vite et `'unsafe-eval'` (exigé par le Fast Refresh de React) via
-`FrontendService.#viteCspFragment()` (`FrontendService.ts:1012`) — ce qui explique qu'un CSP observé
+`FrontendService.#viteCspFragment()` (`FrontendService.ts:1034`) — ce qui explique qu'un CSP observé
 en dev soit plus large qu'en production, où ce fragment n'existe pas.
 
 ## 📜 Normes appliquées

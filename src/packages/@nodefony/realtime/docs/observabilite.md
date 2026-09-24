@@ -96,7 +96,7 @@ temps de réponse — elle mesure **ce qui n'est pas encore parti**.
 Trois partis pris, tous lisibles dans le code.
 
 **1. La sonde est une lecture pure, jamais un collecteur.** `RealtimeHub.probe()`
-(`RealtimeHub.ts:775`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
+(`RealtimeHub.ts:849`) ne fait qu'additionner des primitives déjà tenues à jour par le chemin chaud.
 Aucune entrée-sortie, aucune exception possible, aucun état de lecture conservé. Appeler la sonde
 mille fois par seconde ne changerait rien à ce que le hub fait par ailleurs.
 
@@ -316,7 +316,7 @@ deux autres. Le débit en octets par seconde se dérive de deux photos.
 
 La source par connexion est `IRealtimeConnProbe` (`IRealtimeProbe.ts:25`), implémentée par le
 transport. Les seuils d'ACTION sont distincts du seuil de comptage, et ils sont
-**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:625`) : au-delà de
+**configurables** (`@nodefony/http`, `http/nodefony/config/config.ts:1044`) : au-delà de
 `websocket.maxBackpressure` (4 MiB par défaut) la politique `websocket.backpressurePolicy`
 s'applique — `drop` par défaut, la frame est **jetée** puisque les canaux d'état sont « le
 dernier gagne » et que le prochain instantané la remplacera. La connexion est **fermée** en
@@ -356,7 +356,7 @@ Trois champs n'apparaissent que lorsqu'ils ont un sens :
 ### La couche d'identité, au-dessus
 
 `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) enrichit ce snapshot pur pour produire
-`IRealtimeHealth` (`IRealtimeProbe.ts:106`) : `instanceId`, la santé **process** du worker
+`IRealtimeHealth` (`IRealtimeProbe.ts:121`) : `instanceId`, la santé **process** du worker
 (CPU, mémoire, boucle d'événements), et — si elles ont été branchées — la santé ORM et les compteurs
 d'erreurs du journal. Ces trois derniers champs sont **additifs et optionnels** : un consommateur qui
 ne les connaît pas les ignore.
@@ -368,7 +368,7 @@ resterait vide jusqu'au premier tick.
 
 ### L'instantané HTTP
 
-`GET /nodefony/realtime/api/health`, monté par `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:91`)
+`GET /nodefony/realtime/api/health`, monté par `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`)
 sous le namespace `realtime` du data plane admin. Sert le premier affichage, les sondes de liveness,
 et tout script qui ne veut pas ouvrir une socket.
 
@@ -463,7 +463,7 @@ sur deux workers et sembler se contredire.
 **La réponse de Nodefony est un modèle _push_.** Chaque worker remonte périodiquement sa santé au
 maître via `ClusterProbeClient.start()` (`ClusterProbeClient.ts:170`) ; le maître fusionne et
 rediffuse ; chaque worker met le résultat en cache. **N'importe lequel** sert alors la vue pod en temps
-constant, sans latence de requête (`ClusterProbeClient.getClusterHealth()`, `ClusterProbeClient.ts:285`).
+constant, sans latence de requête (`ClusterProbeClient.getClusterHealth()`, `ClusterProbeClient.ts:291`).
 
 La fusion, `mergeClusterHealth()` (`ClusterProbeClient.ts:46`), est une fonction pure — et sa règle
 mérite d'être connue :
@@ -475,7 +475,7 @@ mérite d'être connue :
 | `backpressure.maxBufferedAmount`                                 | **maximum** | La santé d'une flotte se juge sur son **pire** membre, pas sur sa moyenne. |
 | `slowConsumers`, `drops`                                         | somme       | Ce sont des dénombrements.                                                 |
 
-Le discriminant est le champ `cluster: true` de `IRealtimeClusterHealth` (`IRealtimeProbe.ts:155`) :
+Le discriminant est le champ `cluster: true` de `IRealtimeClusterHealth` (`IRealtimeProbe.ts:178`) :
 un consommateur sait immédiatement s'il lit une vue pod ou une vue per-instance, et `instances[]`
 garde le détail par worker pour le forage.
 

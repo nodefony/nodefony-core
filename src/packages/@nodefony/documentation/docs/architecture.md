@@ -113,8 +113,8 @@ aucun contenu. Il répond à deux questions, et à deux seulement :
 1. **Qu'est-ce qu'il y a à lire ?** → l'index, avec ses sections et ses pages.
 2. **Donne-moi cette page-là.** → le Markdown, métadonnées à part, prêt à afficher.
 
-C'est ce que veut dire **headless** (`Documentation` — `index.ts:31`) : la sortie est du JSON
-(`IDocPage`, `IDocumentation.ts:67`), et trois consommateurs très différents s'en servent —
+C'est ce que veut dire **headless** (`Documentation` — `index.ts:44`) : la sortie est du JSON
+(`IDocPage`, `IDocumentation.ts:74`), et trois consommateurs très différents s'en servent —
 le portail Studio (React), un futur générateur de site, et l'indexation RAG qui réingère le
 Markdown brut.
 
@@ -292,10 +292,10 @@ sinon un même fichier aurait deux chemins, et les liens entre pages ne se réso
 Le parcours lui-même, `scanDocsDir()` (`docScanner.ts:55`), est **best-effort** par
 construction : un dossier absent rend une liste vide au lieu de lever une erreur. C'est ce
 qui permet de balayer les `docs/` de modules qui n'en ont pas, sans que rien ne plante. Un
-fichier illisible garde un titre dérivé de son nom (`humanizeFilename()`, `docScanner.ts:29`)
+fichier illisible garde un titre dérivé de son nom (`humanizeFilename()`, `docScanner.ts:40`)
 et un frontmatter vide.
 
-L'exclusion (`isExcluded()`, `docScanner.ts:38`) compare **par segment de chemin**, pas par
+L'exclusion (`isExcluded()`, `docScanner.ts:49`) compare **par segment de chemin**, pas par
 préfixe : `node_modules` exclut le dossier, jamais un fichier nommé `node_modules-guide.md`.
 
 ### Le frontmatter — ce que le module lit vraiment
@@ -317,7 +317,7 @@ dépendances transitives pour ça.
 Une ligne mal formée est simplement sautée — elle ne fait jamais échouer la page.
 
 Le service ne consomme ensuite qu'une poignée de clés (`getPage()`,
-`DocumentationService.ts:151`) : `title`, `version` (défaut `"doc"`), `status`, `updated`,
+`DocumentationService.ts:244`) : `title`, `version` (défaut `"doc"`), `status`, `updated`,
 `source`, plus `audience` pour l'index. **Toutes les autres clés sont conservées dans le
 fichier et ignorées** — elles servent au RAG et aux outils, pas au portail.
 
@@ -332,7 +332,7 @@ Deux valeurs sont **contraintes**, et le hors-piste est silencieusement écarté
 > Une `audience: [human, ai]` ne provoque **aucune erreur** : les deux valeurs sont
 > écartées, la page se retrouve avec une liste vide — c'est-à-dire « visible par toutes les
 > personas ». L'inverse de ce que l'auteur croyait écrire. Le vocabulaire exact est celui de
-> `AUDIENCES` (`DocumentationService.ts:37`), qui porte aussi les libellés affichés par le
+> `AUDIENCES` (`DocumentationService.ts:44`), qui porte aussi les libellés affichés par le
 > sélecteur de vue.
 
 Et un point à ne pas confondre : **l'audience n'est pas un contrôle d'accès**. Elle n'existe
@@ -472,8 +472,8 @@ respecte la convention d'administration : jamais de route mono-segment, toujours
 
 | Route                                         | Rend                                | Contrat                             |
 | --------------------------------------------- | ----------------------------------- | ----------------------------------- |
-| `GET /nodefony/documentation/api/tree`        | l'index complet, sections ordonnées | `IDocTree` (`IDocumentation.ts:57`) |
-| `GET /nodefony/documentation/api/page/{slug}` | une page résolue                    | `IDocPage` (`IDocumentation.ts:67`) |
+| `GET /nodefony/documentation/api/tree`        | l'index complet, sections ordonnées | `IDocTree` (`IDocumentation.ts:64`) |
+| `GET /nodefony/documentation/api/page/{slug}` | une page résolue                    | `IDocPage` (`IDocumentation.ts:74`) |
 
 Les deux exigent un rôle (`@IsGranted`, `DocumentationController.ts:48`) : `ROLE_DEV` ou
 `ROLE_SUPERVISOR`. C'est de la doc technique de framework — architecture, internals — pas du
@@ -565,7 +565,7 @@ entièrement lisible dans ses deux réponses.
 ## 🧩 Extension — trois points d'accroche
 
 **1. Une variable `{{ }}`** — le point d'extension du contenu. `registerVar()`
-(`DocumentationService.ts:138`) accepte un fournisseur **synchrone** qui rend une chaîne
+(`DocumentationService.ts:172`) accepte un fournisseur **synchrone** qui rend une chaîne
 (l'exemple du Démarrage rapide). Le module en enregistre trois lui-même au `onKernelReady`
 (`index.ts:70`) : `version`, `branch`, `commit`.
 

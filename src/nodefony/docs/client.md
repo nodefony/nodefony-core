@@ -116,7 +116,7 @@ conséquences pratiques, dans l'ordre où on les rencontre.
   la fonction que le front appelle pour griser un bouton et que le back peut appeler dans un jury
   d'autorisation. Plus de « le front croyait que `ROLE_ADMIN` suffisait ».
 - **Les erreurs se traduisent une seule fois.** Le serveur ferme la connexion avec un code RFC 6455 ;
-  le client traduit ce code en message lisible via `closeCodeToNotice()` (`client/realtime/notice.ts:67`).
+  le client traduit ce code en message lisible via `closeCodeToNotice()` (`client/realtime/notice.ts:81`).
   La table de correspondance vit à un seul endroit.
 
 > [!IMPORTANT]
@@ -142,7 +142,7 @@ navigateur, plus une condition `browser` sur l'entrée principale.
 | `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`      | Code partagé front/back ; sinon préfère l'explicite |
 
 Ces entrées navigateur sont produites par une compilation dédiée — `clientConfig`
-(`rolldown.config.ts:100`) déclare exactement ces quatre fichiers d'entrée, en conservant la structure
+(`rolldown.config.ts:109`) déclare exactement ces quatre fichiers d'entrée, en conservant la structure
 des modules pour que le client temps réel ne soit émis **qu'une fois** même s'il est tiré par deux
 subpaths.
 
@@ -314,13 +314,13 @@ stateDiagram-v2
 ```
 
 La subtilité utile est la distinction entre fermeture **transitoire** et **définitive**.
-`isReconnectableCloseCode()` (`client/realtime/notice.ts:156`) lit le code de fermeture : une perte
+`isReconnectableCloseCode()` (`client/realtime/notice.ts:170`) lit le code de fermeture : une perte
 réseau (1006) ou un redémarrage serveur (1011) relancent la boucle de reconnexion ; un refus de
 politique (1008, c'est-à-dire un 401/403 traduit) ne la relance **pas**. Sans cette règle, un visiteur
 anonyme martèlerait indéfiniment un point d'entrée protégé.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/RealtimeClient.ts:1251`) — plafonné à 30 secondes par défaut. La date de la
+(`client/realtime/RealtimeClient.ts:1276`) — plafonné à 30 secondes par défaut. La date de la
 prochaine tentative est exposée en lecture, ce qui permet d'afficher un compte à rebours exact plutôt
 qu'un sablier qui ment.
 
@@ -356,7 +356,7 @@ Deux compléments moins courants. `RealtimeClient.call()`
 (`client/realtime/RealtimeClient.ts:839`) rend l'**enveloppe complète** — la valeur **et**
 l'identifiant du profil serveur de cette trame, ce qui permet en développement d'aller lire la
 radiographie de l'appel. Et `RealtimeClient.register()`
-(`client/realtime/RealtimeClient.ts:907`) fait du navigateur un **appelé** : le serveur peut lui
+(`client/realtime/RealtimeClient.ts:916`) fait du navigateur un **appelé** : le serveur peut lui
 adresser une requête et attendre son résultat. C'est le duplex réel, pas seulement du push.
 
 ### Identité et refus — l'interface sait sans demander
@@ -559,15 +559,15 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare que quatre                                     | Importer depuis `nodefony/client`                                                            |
 | `has no exported member 'RealtimeClient'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                   | Importer explicitement depuis `nodefony/client`                                              |
 | `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`              | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)    |
-| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                | Appeler les deux (`client/realtime/RealtimeClient.ts:485`)                                   |
+| Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                | Appeler les deux (`client/realtime/RealtimeClient.ts:532`)                                   |
 | Un composant démonté coupe le flux d'un autre                   | Attendu et **déjà traité** : les abonnements sont ref-comptés                                                | Ne pas contourner l'API en émettant `unsubscribe` à la main                                  |
 | Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
 | La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:370`) |
 | Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                  | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:295`)                          |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:188`) | Émettre après la résolution de `connect()`                                                   |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:675`) | Émettre après la résolution de `connect()`                                                   |
 | La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                         | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |
-| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:11`)                                            | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |
+| `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:27`)                                            | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |
 | Un bouton masqué au front reste appelable                       | Le RBAC client est de l'ergonomie, pas un contrôle                                                           | Protéger la route côté serveur — c'est lui l'autorité                                        |
 | Deux instances de React après ajout de `nodefony/react`         | React empaqueté au lieu d'être externe                                                                       | Déjà traité au build (`rolldown.config.ts:94`) ; vérifier ses propres alias                  |
 

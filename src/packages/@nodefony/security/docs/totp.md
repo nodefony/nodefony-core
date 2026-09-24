@@ -301,7 +301,7 @@ Ce que le code garantit à chaque étape :
 
 > [!TIP]
 > Le HTTP ne laisse jamais fuir le détail : code faux, enrôlement absent, ou déjà confirmé donnent
-> tous le **même** `400 Invalid or expired code` (`TotpController.confirm()`, `TotpController.ts:97`).
+> tous le **même** `400 Invalid or expired code` (`TotpController.confirm()`, `TotpController.ts:78`).
 > La cause fine reste côté serveur.
 
 ### La vérification au login
@@ -339,7 +339,7 @@ Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:254
    (`authFlow.ts:18`), posée par le login, **consommée** avant l'ouverture de session
    (`authFlow.ts:298`).
 2. **Le code à 6 chiffres est throttlé** comme un mot de passe — même backoff partagé
-   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:264`) : 10⁶ combinaisons se forcent brute en
+   (`AuthFlow.#resolveThrottler()`, `authFlow.ts:447`) : 10⁶ combinaisons se forcent brute en
    quelques minutes sans lui. Trop de tentatives → `429` + `Retry-After`.
 3. **Un échec ne détruit pas le défi** — l'utilisateur qui s'est trompé de chiffre ressaisit ; il
    n'a pas à refaire son mot de passe.
@@ -452,7 +452,7 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 
 ## ⚙️ Configuration et mises en situation
 
-La section `totp` du schéma Zod (`config.ts:1138`) — validée au boot, donc une valeur hors bornes
+La section `totp` du schéma Zod (`config.ts:1144`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
 | Option          | Type                         | Défaut | Effet                                                             |
@@ -492,7 +492,7 @@ Le second facteur validé au login ne dit rien de **qui est devant l'écran dix 
 redemande le code : c'est le _sudo mode_.
 
 Nodefony fournit le step-up **de login** ; la re-vérification en cours de session, elle, se compose
-dans ton controller à partir du service public `TotpService.verifyLogin()` (`totp.ts:262`) :
+dans ton controller à partir du service public `TotpService.verifyLogin()` (`totp.ts:269`) :
 
 ```typescript
 import { controller, Controller, Post } from "@nodefony/framework";
@@ -642,19 +642,19 @@ Tout est exporté depuis `@nodefony/security` — signatures complètes dans `.a
 
 | Méthode                             | Rôle                                                         |
 | ----------------------------------- | ------------------------------------------------------------ |
-| `isEnabled()` (`totp.ts:247`)       | 2FA opérationnel (activé en config **et** boot réussi).      |
-| `beginEnrollment()` (`totp.ts:252`) | Démarre l'enrôlement → secret + URI `otpauth://`, 1×.        |
+| `isEnabled()` (`totp.ts:254`)       | 2FA opérationnel (activé en config **et** boot réussi).      |
+| `beginEnrollment()` (`totp.ts:259`) | Démarre l'enrôlement → secret + URI `otpauth://`, 1×.        |
 | `confirmEnrollment()` (`:257`)      | Confirme par un 1ᵉʳ code → active + codes de récupération.   |
-| `verifyLogin()` (`totp.ts:262`)     | Vérifie un code TOTP **ou** de récupération. Ne lève jamais. |
-| `disable()` (`totp.ts:267`)         | Retire secret et codes.                                      |
-| `status()` (`totp.ts:272`)          | `{ enabled, pending, recoveryCodesRemaining }`.              |
-| `isEnabledFor()` (`totp.ts:299`)    | Raccourci du flux de login (`false` si le 2FA est inerte).   |
+| `verifyLogin()` (`totp.ts:269`)     | Vérifie un code TOTP **ou** de récupération. Ne lève jamais. |
+| `disable()` (`totp.ts:274`)         | Retire secret et codes.                                      |
+| `status()` (`totp.ts:279`)          | `{ enabled, pending, recoveryCodesRemaining }`.              |
+| `isEnabledFor()` (`totp.ts:306`)    | Raccourci du flux de login (`false` si le 2FA est inerte).   |
 | `listPage()` (`totp.ts:283`)        | Page d'enrôlements (data plane admin).                       |
 | `countEnrollments()` (`:294`)       | Compte filtré, sans énumération.                             |
 
 **Les opérations pures**, si tu veux le 2FA **sans** le service (test, script, autre transport) —
 elles prennent leurs dépendances en argument : `beginTotpEnrollment()`, `confirmTotpEnrollment()`,
-`verifyTotpLogin()`, `disableTotp()`, `totpStatus()` (`totpOperations.ts:72`).
+`verifyTotpLogin()`, `disableTotp()`, `totpStatus()` (`totpOperations.ts:200`).
 
 **Les primitives crypto**, pour écrire un client ou un banc de test : `totpCode()`
 (`totpCrypto.ts:174`), `base32Decode()` (`totpCrypto.ts:81`), `deriveTotpKey()`
@@ -699,7 +699,7 @@ vérifie que ta projection n'expose ni secret ni condensat.
 | Dérivation de clé           | RFC 5869 (HKDF)          | `deriveKey()` (`secretCipher.ts:54`)                   |
 | Nonce GCM 96 bits           | NIST SP 800-38D §5.2.1.1 | `IV_BYTES` (`secretCipher.ts:30`)                      |
 | Codes de secours            | NIST SP 800-63B §5.1.2   | `generateRecoveryCodes()` (`totpCrypto.ts:330`)        |
-| Backoff des tentatives      | NIST SP 800-63B          | `AuthFlow.completeMfaLogin()` (`authFlow.ts:264`)      |
+| Backoff des tentatives      | NIST SP 800-63B          | `AuthFlow.completeMfaLogin()` (`authFlow.ts:257`)      |
 | Rate limit (429)            | RFC 6585                 | `429` + `Retry-After` (`SessionAuthController.ts:145`) |
 
 Les **vecteurs de test de la RFC 6238 (Appendix B)** sont rejoués en test sur les trois fonctions de
@@ -715,12 +715,12 @@ Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas
 - **Aucun coût par requête** : le TOTP n'est pas un authenticator du firewall, il ne s'exécute donc
   jamais dans le pipeline HTTP/WS.
 - **Allocation paresseuse du store** : la `Map` de `MemoryTotpSecretStore`
-  (`MemoryTotpSecretStore.ts:62`) n'existe que si le 2FA est activé — le service ne construit rien
+  (`MemoryTotpSecretStore.ts:72`) n'existe que si le 2FA est activé — le service ne construit rien
   quand `totp.enabled` est `false` (`totp.ts:98`).
 - **Le coût réel d'une vérification** : ≤ `2·window + 1` HMAC (3 par défaut) + un déchiffrement
   AES-GCM. De l'ordre de la microseconde — négligeable devant le hachage Argon2id du mot de passe
   qui l'a précédé.
-- **Arrêt propre** : si le store sait se vider sur disque, `TotpService.#shutdown()` (`totp.ts:234`)
+- **Arrêt propre** : si le store sait se vider sur disque, `TotpService.#shutdown()` (`totp.ts:241`)
   le déclenche à `onTerminate` — aucune écriture en attente perdue.
 
 ## 📡 Observabilité — Studio
@@ -760,8 +760,8 @@ Côté journal d'audit, quatre actions tracent le cycle : `login.mfa_required` (
 | Le QR est scanné mais aucun code ne passe         | `digits`/`algorithm` non standard, ignorés par l'app                 | Rester en `SHA1` / 6 chiffres                                      |
 | `202` au login au lieu de `200`                   | Comportement **attendu** : second facteur requis                     | Enchaîner sur `POST …/auth/login/totp`                             |
 | `401` sur `…/auth/me` juste après le mot de passe | L'identité n'est posée qu'après le 2ᵉ facteur (`authFlow.ts:170`)    | Terminer le step-up                                                |
-| `429` pendant la saisie du code                   | Throttle NIST dans `AuthFlow.completeMfaLogin()` (`authFlow.ts:264`) | Respecter `Retry-After` — attendu sous attaque                     |
-| `503 2FA unavailable` sur `…/totp/*`              | Service absent ou `isEnabled()` faux (`TotpController.ts:128`)       | Vérifier `totp.enabled` + la clé + les logs de boot                |
+| `429` pendant la saisie du code                   | Throttle NIST dans `AuthFlow.completeMfaLogin()` (`authFlow.ts:257`) | Respecter `Retry-After` — attendu sous attaque                     |
+| `503 2FA unavailable` sur `…/totp/*`              | Service absent ou `isEnabled()` faux (`TotpController.ts:21`)        | Vérifier `totp.enabled` + la clé + les logs de boot                |
 | Utilisateur bloqué, plus aucun code               | Codes de récupération épuisés                                        | Reset admin via `…/users/{id}/totp/disable`, puis ré-enrôlement    |
 | Même code accepté deux fois                       | Impossible — anti-rejeu `lastUsedStep` (`totpOperations.ts:173`)     | —                                                                  |
 | Code de récupération réutilisable                 | Impossible — retiré du stock à l'usage (`totpOperations.ts:186`)     | Régénérer un lot en ré-enrôlant si le stock est bas                |

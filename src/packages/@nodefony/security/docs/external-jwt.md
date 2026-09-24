@@ -96,7 +96,7 @@ parce qu'il **est** cette application, ou parce que ses sujets sont déjà des i
   Absent, désactivé ou verrouillé : l'accès est refusé. C'est le mode d'une application dont les
   utilisateurs existent chez elle, l'émetteur ne servant qu'à les authentifier.
 - **`ephemeral`** — aucun compte local n'est exigé ni créé ; l'appelant vit le temps de la requête
-  avec les rôles d'`ephemeralRoles` (`config.ts:672`). C'est le mode de l'appelant **purement machine** : un agent, un
+  avec les rôles d'`ephemeralRoles` (`config.ts:678`). C'est le mode de l'appelant **purement machine** : un agent, un
   service. Sans rôle déclaré, il ne passe aucun `@IsGranted` et n'est autorisé que par ses **scopes**
   — qui viennent du jeton, donc bornés par le serveur d'autorisation.
 
