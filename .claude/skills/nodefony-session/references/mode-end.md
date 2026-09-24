@@ -113,7 +113,8 @@ Un gate : il sort **1** tant qu'il manque quelque chose, et nomme chaque manque 
 (`.ai/` compris), commits non poussés, `_state` du jour absent ou qui omet un `feat`/`fix`, pointeur
 `MEMORY.md` manquant, retex absent, **dates ajoutées** dans un `MEMORY.md`/`CLAUDE.md` (ces fichiers
 décrivent le présent), mémoire IA non commitée ou non poussée, CI rouge. Une CI encore en cours est
-signalée ⏳ : le dire dans le `_state`, le prochain RESUME la relira.
+signalée ⏳ sans faire échouer : le prochain `session:resume` la relit de lui-même — ne pas
+rouvrir le `_state` pour l'y écrire, ce qui relancerait commit et push.
 
 **On ne dit « session close » que sur son vert.**
 

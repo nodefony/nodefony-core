@@ -80,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
 | `references/mode-consolidate.md` | MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS | 135 |
-| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 138 |
+| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 139 |
 
 
 ## Scripts embarqués

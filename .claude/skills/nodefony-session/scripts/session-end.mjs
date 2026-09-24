@@ -314,7 +314,7 @@ function verify() {
     if (v.state === "failure") fails.push(`CI rouge : ${v.failed.join(", ")}`);
     else if (v.state === "running")
       warns.push(
-        `CI en cours (${v.running.join(", ")}) — le dire dans le _state`,
+        `CI en cours (${v.running.join(", ")}) — le prochain « session:resume » la relira`,
       );
   } else warns.push("CI non lue (GitHub injoignable)");
 
