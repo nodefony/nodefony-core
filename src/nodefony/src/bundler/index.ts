@@ -57,7 +57,7 @@ export interface INodefonyRolldownOptions {
    * temps de l'écriture, pas celui du build entier. Un test ou un serveur qui
    * importe `dist` pendant un rebuild (DevSupervisor) ne le trouve plus absent.
    * Opt-in : un `outDir` qui héberge d'autres sorties (le `dist` d'une
-   * application, `symbols.json` à la racine du dépôt) serait vidé avec.
+   * application dont un front sortirait dans `dist/`) serait vidé avec.
    */
   cleanDir?: boolean;
 }

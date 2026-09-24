@@ -5,7 +5,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-inspect/SKILL.md"
 ---
@@ -29,7 +29,7 @@ source: ".claude/skills/nodefony-inspect/SKILL.md"
 | Version | `1.0.0` |
 | Famille | Inspecter et auditer |
 | Corps | 287 lignes |
-| Coût d'activation | ~4 149 tokens (le corps est chargé à l'invocation) |
+| Coût d'activation | ~4 167 tokens (le corps est chargé à l'invocation) |
 | Description | 987 / 1024 caractères |
 | Déclencheurs | 16 |
 | Ressources `references/` | 0 page(s) |

@@ -3,7 +3,7 @@
  *
  * Parses TS files matching the config globs, emits two JSON outputs:
  *  - .ai/symbols.json   (stable, committed)   → lightweight, agent-friendly
- *  - dist/symbols.json  (verbose, gitignored) → full detail
+ *  - .ai/symbols.verbose.json  (verbose, gitignored) → full detail
  *
  * Usage: npm run generate-symbols
  */

@@ -21,6 +21,9 @@
 *.pid
 *-report.json
 dist/
+# Graphe symbolique DÉTAILLÉ (npm run generate-symbols) : outil d'agent local,
+# hors de dist/ pour qu'aucun build ne l'efface. La version stable est versionnée.
+.ai/symbols.verbose.json
 node_modules/
 tmp/
 # Sites RENDUS (`build-docs-site.mjs`, `build-perf-site.mjs`) : ~12 Mo de HTML

@@ -4,7 +4,7 @@
  * Globs relative to the repo root.
  * Two outputs:
  *  - stable  : .ai/symbols.json  → committed, lightweight, agent-readable
- *  - verbose : dist/symbols.json → generated, full detail, gitignored
+ *  - verbose : .ai/symbols.verbose.json → generated, full detail, gitignored
  */
 
 export interface GenerateSymbolsConfig {
@@ -51,7 +51,7 @@ const config: GenerateSymbolsConfig = {
   ],
   output: {
     stable: ".ai/symbols.json",
-    verbose: "dist/symbols.json",
+    verbose: ".ai/symbols.verbose.json",
   },
   tsConfigFilePath: "tsconfig.json",
 };

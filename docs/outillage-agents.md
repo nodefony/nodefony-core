@@ -425,7 +425,7 @@ Reste, hors périmètre de cette page : le **registre des écarts doc↔code** e
   distinguent quoi que ce soit.
 - **Un skill très lu et jamais invoqué n'est pas en échec** : ses `references/` et ses `scripts/`
   servent, c'est sa porte d'entrée qui ne s'ouvre pas. Le remède est la `description`, pas le corps.
-- **Vérifier une ancre avec le mauvais chemin conclut faux** : `dist/symbols.json` vit à la racine,
+- **Vérifier une ancre avec le mauvais chemin conclut faux** : `.ai/symbols.verbose.json` vit à la racine,
   pas sous `src/nodefony/` — testé au mauvais endroit, il déclare mort un skill parfaitement valide.
 - **Un `references/` à deux niveaux est invisible pour un client conforme** : la spécification
   n'impose qu'un seul niveau de profondeur.

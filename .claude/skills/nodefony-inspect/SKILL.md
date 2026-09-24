@@ -50,10 +50,10 @@ régénéré — des centaines de lignes qui n'apprennent rien.
 fichiers de nature différente. Poser une question au mauvais conduit à conclure « absent » sur un
 symbole qui existe :
 
-| Fichier             | Suivi     | Contenu                                                                               |
-| ------------------- | --------- | ------------------------------------------------------------------------------------- |
-| `.ai/symbols.json`  | committé  | **Stable** — symboles exportés, map indexée + relations inversées. Réponses en O(1).  |
-| `dist/symbols.json` | non suivi | **Verbose** — tout le reste : `methods`, `properties`, `signature`, imports détaillés |
+| Fichier                    | Suivi     | Contenu                                                                               |
+| -------------------------- | --------- | ------------------------------------------------------------------------------------- |
+| `.ai/symbols.json`         | committé  | **Stable** — symboles exportés, map indexée + relations inversées. Réponses en O(1).  |
+| `.ai/symbols.verbose.json` | non suivi | **Verbose** — tout le reste : `methods`, `properties`, `signature`, imports détaillés |
 
 > Les **relations** (§3) vivent dans le fichier stable ; les **signatures de méthodes** (§4) n'existent
 > que dans le verbose. Le verbose n'est pas versionné : après un `git clone` frais il faut le
@@ -119,10 +119,10 @@ jq '.symbols | to_entries | map(select(.value.module == "@nodefony/http" and .va
 ## 4. Signature d'une méthode (graphe **verbose**)
 
 ```bash
-jq '.symbols.HttpContext.methods | map(.name)' dist/symbols.json                    # inventaire
-jq '.symbols.HttpContext.methods[] | select(.name == "render")' dist/symbols.json   # une méthode
-jq '.symbols.Container.properties[] | select(.visibility == "public")' dist/symbols.json
-jq '.symbols.injectable.signature' dist/symbols.json                                # fonction / décorateur
+jq '.symbols.HttpContext.methods | map(.name)' .ai/symbols.verbose.json                    # inventaire
+jq '.symbols.HttpContext.methods[] | select(.name == "render")' .ai/symbols.verbose.json   # une méthode
+jq '.symbols.Container.properties[] | select(.visibility == "public")' .ai/symbols.verbose.json
+jq '.symbols.injectable.signature' .ai/symbols.verbose.json                                # fonction / décorateur
 ```
 
 Une méthode retourne `name`, `static`, `visibility`, `decorators`, et `description` **si** elle porte
@@ -130,7 +130,7 @@ une TSDoc. Les routes d'un controller se lisent par leurs décorateurs :
 
 ```bash
 jq '.symbols.DefaultController.methods[] | select(.decorators | length > 0) | {name, decorators}' \
-  dist/symbols.json
+  .ai/symbols.verbose.json
 ```
 
 **Absente de l'index** (méthode privée, classe anonyme, `Object.assign(this, …)`) : ne pas ouvrir le
@@ -288,7 +288,7 @@ un commit ancien → `git show <sha> -- src/`.
 
 - **Chercher une signature dans `.ai/symbols.json`** : le fichier stable ne porte pas `methods`. La
   requête renvoie `null`, ce qui ressemble à « la méthode n'existe pas ».
-- **Vérifier une ancre au mauvais chemin conclut faux** : `dist/symbols.json` vit à la **racine** du
+- **Vérifier une ancre au mauvais chemin conclut faux** : `.ai/symbols.verbose.json` vit à la **racine** du
   dépôt, pas sous `src/nodefony/`.
 - **`rg` ignore les dossiers cachés** : une recherche de renvois qui oublie `--hidden` ne voit rien
   sous `.claude/` et conclut « aucun consommateur » sur un fichier pourtant cité dix fois.
