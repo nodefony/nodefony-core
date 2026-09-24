@@ -98,6 +98,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `node.js.yml` | Tests unit | suites unitaires, **3 systèmes × 2 versions de Node** | — |
 | `node.js.yml` | Filet CLI | le binaire `nodefony` démarre vraiment (`NF_RUN_CLI_BOOT`) | — |
 | `node.js.yml` | Tests intégration | pipeline HTTP/WS sur serveur réel, dont le câblage du 429 (backoff NIST) | serveur **dev ET production** |
+| `node.js.yml` | Décor | l'application démarrée sur **PostgreSQL, MariaDB, MongoDB** (en parallèle) : `/readyz` à 200, chaque entité a son connecteur ouvert, la pastille « défaut » suit les briques durables, aucun `default` Drizzle sur MongoDB | la base du décor, serveur dev |
 | `orm.yml` | Stores | drizzle sur **sqlite + PostgreSQL + MySQL**, redis, orm-core | PostgreSQL, MariaDB, Redis |
 | `orm.yml` | Socket distribuée | fan-out **cross-process** (IPC) et **cross-pod** (backplane Redis), attaques F83 | Redis, `NF_RUN_CLUSTER_E2E` |
 | `memory.yml` | Charge, fuites et scopes | heap, fuites HTTP/WS, scopes d'injection sous charge, sessions, flux | serveur `--expose-gc` |
@@ -291,6 +292,12 @@ npm run test:cluster
 # Job « Charge et mémoire » (exige le serveur lancé avec --expose-gc)
 bash .claude/skills/nodefony-start-server/start.sh
 cd src/packages/@nodefony/http && npm run test:load
+
+# Job « Décor » de node.js.yml — l'application démarrée sur UNE base, puis ses
+# invariants. Une base par passe : la commande est la même, seule l'URL change.
+NF_DATABASE_URL="mongodb://127.0.0.1:27017/nodefony_boot?replicaSet=rs0" \
+  bash .claude/skills/nodefony-start-server/start.sh
+cd src/packages/@nodefony/http && npx vitest run -c vitest.decors.config.ts
 
 # Preuves e2e autonomes — aucun décor, elles montent leurs propres process
 node .claude/skills/nodefony-load-test/scripts/cluster-realtime-e2e.mjs

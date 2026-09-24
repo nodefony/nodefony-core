@@ -157,6 +157,7 @@ class DrizzleService extends Service {
       reportOrphanEntities(
         (message, severity) => this.log(message, severity),
         this.kernel ?? this,
+        Object.keys(this.#config()?.connectors ?? {}),
       );
     });
     this.kernel?.once("onTerminate", async () => {
@@ -234,7 +235,7 @@ class DrizzleService extends Service {
     if (dialect === "sqlite") {
       // `filename` optionnel (schéma pur) → résolu ici via le kernel si omis.
       filename = cfg.filename ?? this.#defaultFilename(name);
-      if (filename !== ":memory:") {
+      if (filename !== MEMORY_DATABASE) {
         fs.mkdirSync(path.dirname(filename), { recursive: true });
       }
     }

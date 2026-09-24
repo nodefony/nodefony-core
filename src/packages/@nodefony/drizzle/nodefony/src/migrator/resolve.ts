@@ -102,8 +102,8 @@ export function generateApplyAllowed(env: IMigrationEnv): boolean {
   return env.runtime === "development" && env.nodeEnv !== "test";
 }
 
-/** Nom de fichier d'une base SQLite en MÉMOIRE — volatile, repart vide à chaque démarrage. */
-export const MEMORY_DATABASE = ":memory:";
+import { MEMORY_DATABASE } from "../memoryDatabase";
+export { MEMORY_DATABASE };
 
 /**
  * Le mode de schéma qui s'applique à un connecteur.
@@ -275,7 +275,9 @@ export function adviseMigrations(
   filename: string | undefined,
 ): boolean {
   return (
-    check !== "off" && env.runtime === "development" && filename !== ":memory:"
+    check !== "off" &&
+    env.runtime === "development" &&
+    filename !== MEMORY_DATABASE
   );
 }
 

@@ -11,6 +11,7 @@ import {
 } from "../src/migrator/identityTables";
 import { readMigrationEnv, resetAllowed } from "../src/migrator/resolve";
 import { OrmMigrateCommand, type IMigrateSharedOptions } from "./migrateShared";
+import { MEMORY_DATABASE } from "../src/memoryDatabase";
 
 const options: OptionsCommandInterface = {
   helpGroup: "BASE DE DONNÉES",
@@ -163,7 +164,7 @@ class OrmReset extends OrmMigrateCommand {
 
     const target =
       resolution.dialect === "sqlite"
-        ? (resolution.target.filename ?? ":memory:")
+        ? (resolution.target.filename ?? MEMORY_DATABASE)
         : redact(resolution.target.url ?? "");
 
     let driver: IMigrationDriver | null = null;

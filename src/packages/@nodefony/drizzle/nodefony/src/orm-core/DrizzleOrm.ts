@@ -75,6 +75,7 @@ import { DrizzleTransaction } from "./DrizzleTransaction";
 import { planTableCreation, explainOmittedForeignKeys } from "./ddlPlan";
 import type { IResolvedForeignKey } from "./ddlPlan";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
+import { MEMORY_DATABASE } from "../memoryDatabase";
 
 /**
  * État interne du pool `mysql2` (INTERNE, best-effort) — ce que le driver ne
@@ -403,7 +404,7 @@ export class DrizzleOrm extends Orm {
     super(name, options.container);
     this.#dialect = options.dialect ?? "sqlite";
     this.#deriveSchema = options.deriveSchema !== false;
-    this.#filename = options.filename ?? ":memory:";
+    this.#filename = options.filename ?? MEMORY_DATABASE;
     this.#url = options.url;
     this.#migrationStatus = options.migrationStatus;
     this.#migrationPlan = options.migrationPlan;
@@ -478,7 +479,7 @@ export class DrizzleOrm extends Orm {
    * (`#filename` fixé au ctor, indépendant du connect).
    */
   get location(): string | undefined {
-    if (this.#dialect !== "sqlite" || this.#filename === ":memory:") {
+    if (this.#dialect !== "sqlite" || this.#filename === MEMORY_DATABASE) {
       return undefined;
     }
     return this.#safeTarget();
@@ -875,7 +876,7 @@ export class DrizzleOrm extends Orm {
     // dès qu'on assume sqlite en prod mono-nœud (défaut « sqlite partout », cf Rails 8).
     // `synchronous=NORMAL` = compromis sûr+rapide recommandé AVEC WAL. Sans objet sur
     // `:memory:` (pas de fichier journal) → gaté sur un fichier réel.
-    if (this.#filename !== ":memory:") {
+    if (this.#filename !== MEMORY_DATABASE) {
       client.pragma("journal_mode = WAL");
       client.pragma("synchronous = NORMAL");
     }

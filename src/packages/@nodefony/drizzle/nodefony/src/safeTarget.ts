@@ -1,5 +1,6 @@
 import path from "node:path";
 import type { SqlDialect } from "../config/config";
+import { MEMORY_DATABASE } from "./memoryDatabase";
 
 /**
  * Comment DÉSIGNER la base d'un connecteur sans rien faire fuiter.
@@ -42,8 +43,8 @@ export function describeTargetSafely(
   grammar: typeof path = path,
 ): string {
   if (target.dialect === "sqlite") {
-    const file = target.filename ?? ":memory:";
-    if (file === ":memory:" || !grammar.isAbsolute(file)) {
+    const file = target.filename ?? MEMORY_DATABASE;
+    if (file === MEMORY_DATABASE || !grammar.isAbsolute(file)) {
       return file;
     }
     const relatif = grammar.relative(cwd, file);

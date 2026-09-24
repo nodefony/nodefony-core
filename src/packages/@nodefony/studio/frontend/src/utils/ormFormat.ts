@@ -31,18 +31,17 @@ export function connectorRole(
    */
   durableBricks?: number,
 ): { label: string; color: string; hint: string } {
-  // 🔴 « default » est un drapeau de l'ORM, PAS une promesse sur les données.
-  // `@nodefony/drizzle` est chargé sans condition et tient toujours un
-  // connecteur `default` — sur sqlite local quand aucune infra SQL n'est
-  // déclarée. Démarrez sur MongoDB et vous obtenez un `default` sqlite VIDE
-  // à côté d'un connecteur `nodefony` qui porte tout : annoncer le premier
-  // « primaire — tes stores et ton login vivent ici » envoie chercher ses
-  // données dans une base où il n'y en a pas.
+  // `default` est un RÔLE constaté par le serveur : le connecteur qui porte les
+  // briques durables. Il ne retombe sur le NOM que lorsque AUCUNE brique n'est
+  // portée par un ORM — stores en mémoire (`NF_STORE=memory`), sur Redis ou en
+  // fichier. C'est le seul cas où « défaut » et « aucune brique » se croisent :
+  // annoncer alors « primaire — tes données vivent ici » enverrait chercher
+  // des données qui ne sont dans AUCUNE base de cette page.
   if (o.default && durableBricks === 0) {
     return {
       label: "défaut de l'ORM",
       color: "gray",
-      hint: "Connecteur `default` de son ORM — mais AUCUNE brique durable n'y est résolue. L'infrastructure déclarée pointe ailleurs : vos sessions, comptes, jetons et audit vivent sur un autre connecteur de cette page. Celui-ci reste là parce que son module est chargé sans condition.",
+      hint: "Connecteur `default` de son ORM — mais AUCUNE brique durable n'est portée par un ORM : vos sessions, comptes, jetons et audit sont en mémoire, sur Redis ou en fichier. La page Stores dit où chacun est résolu.",
     };
   }
   if (o.default) {
@@ -52,13 +51,15 @@ export function connectorRole(
       hint: "Base applicative principale — suit l'infra déclarée (NF_DATABASE_URL). Tes stores (session, users, tokens, audit…) et ton login vivent ici.",
     };
   }
-  // Un connecteur non-`default` qui porte les briques durables EST la base
-  // applicative du moment : c'est le cas d'un démarrage sur MongoDB.
+  // Un connecteur non-`default` qui porte des briques durables : elles sont
+  // RÉPARTIES entre plusieurs connecteurs (le défaut est celui qui en porte le
+  // plus). Depuis que le serveur pose `default` sur le porteur, un démarrage sur
+  // MongoDB ne passe plus par ici.
   if (durableBricks !== undefined && durableBricks > 0) {
     return {
       label: "porte les stores",
       color: "teal",
-      hint: "C'est ICI que vivent vos données applicatives : les briques durables (sessions, comptes, jetons, audit, 2FA…) sont résolues sur ce moteur, parce qu'il correspond à l'infrastructure déclarée. Le connecteur marqué « défaut de l'ORM », lui, ne porte rien.",
+      hint: "Une partie de vos données applicatives vit ICI : des briques durables (sessions, comptes, jetons, audit, 2FA…) sont résolues sur ce connecteur. Le connecteur « primaire » en porte davantage — la page Stores dit laquelle est où.",
     };
   }
   if (o.connection?.target === ":memory:") {

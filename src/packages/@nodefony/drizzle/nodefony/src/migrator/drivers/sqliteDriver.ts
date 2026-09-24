@@ -4,6 +4,7 @@
 import type BetterSqlite3 from "better-sqlite3";
 import { schemaReader, type ISchemaReader } from "../catalog";
 import { HISTORY_TABLE, type IMigrationDriver } from "../types";
+import { MEMORY_DATABASE } from "../../memoryDatabase";
 
 /**
  * Pilote SQLite de l'applicateur — connexion `better-sqlite3` dédiée.
@@ -75,7 +76,7 @@ export class SqliteMigrationDriver implements IMigrationDriver {
       );
     }
     const db = new Sqlite(this.#filename);
-    if (this.#filename !== ":memory:") {
+    if (this.#filename !== MEMORY_DATABASE) {
       // Mêmes réglages que l'adapter : une base migrée puis ouverte par
       // l'application ne doit pas changer de mode de journalisation en route.
       db.pragma("journal_mode = WAL");

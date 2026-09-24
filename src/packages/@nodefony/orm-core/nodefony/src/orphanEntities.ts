@@ -26,24 +26,41 @@ export function findOrphanEntities(
  *
  * @param orphans - entités sans connecteur ouvert.
  * @param connectors - connecteurs ouverts, cités pour situer la faute.
+ * @param declared - connecteurs DÉCLARÉS par les modules ORM (leur configuration).
  */
 export function describeOrphanEntities(
   orphans: readonly IEntity[],
   connectors: readonly string[],
+  declared: readonly string[] = [],
 ): string | null {
   if (orphans.length === 0) return null;
-  const list = orphans
-    .map(
-      (e) => `${e.name}${e.module ? `@${e.module}` : ""} → « ${e.connector} »`,
-    )
-    .join(", ");
-  return (
-    `${orphans.length} entité(s) inscrite(s) sur un connecteur qu'aucun ORM n'a ouvert — ` +
-    `rien ne les servira, leur dépôt lèvera au premier appel : ${list}. ` +
-    `Connecteurs ouverts : ${connectors.length > 0 ? connectors.join(", ") : "aucun"}. ` +
-    `Une entité doit suivre la base déclarée (NF_DATABASE_URL) : table SQL sur une infra SQL, ` +
-    `document sur MongoDB. État réel : npx nodefony inspect entities.`
-  );
+  const name = (e: IEntity): string =>
+    `${e.name}${e.module ? `@${e.module}` : ""} → « ${e.connector} »`;
+  const open = `Connecteurs ouverts : ${connectors.length > 0 ? connectors.join(", ") : "aucun"}.`;
+  // Un connecteur DÉCLARÉ mais jamais ouvert n'est pas une faute de
+  // déclaration : un connecteur précédent a échoué au démarrage, et ceux qui le
+  // suivent n'ont pas été construits. Accuser l'entité enverrait chercher dans
+  // son fichier une cause qui est dans l'erreur de connexion, plus haut.
+  const skipped = orphans.filter((e) => declared.includes(e.connector));
+  const unknown = orphans.filter((e) => !declared.includes(e.connector));
+  const parts: string[] = [];
+  if (unknown.length > 0) {
+    parts.push(
+      `${unknown.length} entité(s) inscrite(s) sur un connecteur qu'aucun ORM n'a ouvert — ` +
+        `rien ne les servira, leur dépôt lèvera au premier appel : ${unknown.map(name).join(", ")}. ` +
+        `${open} Une entité doit suivre la base déclarée (NF_DATABASE_URL) : table SQL sur une ` +
+        `infra SQL, document sur MongoDB. État réel : npx nodefony inspect entities.`,
+    );
+  }
+  if (skipped.length > 0) {
+    parts.push(
+      `${skipped.length} entité(s) sur un connecteur DÉCLARÉ mais jamais ouvert : ` +
+        `${skipped.map(name).join(", ")}. Ce n'est pas leur déclaration qui est en cause : ` +
+        `un connecteur a échoué au démarrage (voir l'erreur de connexion plus haut), et ceux ` +
+        `qui le suivent n'ont pas été ouverts. ${open}`,
+    );
+  }
+  return parts.join(" ");
 }
 
 /** Les démarrages déjà rapportés — un Kernel ne le dit qu'une fois. */
@@ -61,11 +78,13 @@ const reported = new WeakSet<object>();
  *
  * @param log - journal du module appelant.
  * @param owner - le démarrage concerné (le Kernel), clé de la garde.
+ * @param declared - connecteurs que l'appelant a DÉCLARÉS (sa configuration).
  * @returns le message rendu, ou `null` (rien à dire, ou déjà dit).
  */
 export function reportOrphanEntities(
   log: (message: string, severity: "WARNING") => void,
   owner: object,
+  declared: readonly string[] = [],
 ): string | null {
   if (reported.has(owner)) return null;
   reported.add(owner);
@@ -73,6 +92,7 @@ export function reportOrphanEntities(
   const message = describeOrphanEntities(
     findOrphanEntities(entityRegistry.list(), connectors),
     connectors,
+    declared,
   );
   if (message !== null) log(message, "WARNING");
   return message;

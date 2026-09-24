@@ -355,15 +355,23 @@ export const Migrations = observer(() => {
   );
   const orms = useResource(ormsFetcher);
 
-  // Le connecteur affiché : celui qu'on a choisi, sinon `default` s'il existe,
-  // sinon le premier. Jamais « le premier venu » en silence : le sélecteur
-  // montre lequel est lu.
+  // Le connecteur affiché : celui qu'on a choisi, sinon le connecteur « défaut »
+  // s'il se MIGRE, sinon le premier qui se migre, sinon le premier. « Défaut »
+  // est le porteur des stores : sur MongoDB c'est un connecteur Mongoose, qui
+  // n'a pas de migrations — l'ouvrir d'office affichait un écran sans objet.
+  // Jamais « le premier venu » en silence : le sélecteur montre lequel est lu.
   const connectors = useMemo(() => orms.data ?? [], [orms.data]);
   const current = useMemo(() => {
     if (connector !== null) {
       return connector;
     }
-    const byDefault = connectors.find((o) => o.default) ?? connectors[0];
+    const migratable = (o: (typeof connectors)[number]): boolean =>
+      o.vendor === "drizzle";
+    const byDefault =
+      connectors.find((o) => o.default && migratable(o)) ??
+      connectors.find(migratable) ??
+      connectors.find((o) => o.default) ??
+      connectors[0];
     return byDefault?.name ?? "default";
   }, [connector, connectors]);
 

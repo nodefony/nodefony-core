@@ -64,6 +64,7 @@ class MongooseService extends Service {
       reportOrphanEntities(
         (message, severity) => this.log(message, severity),
         this.kernel ?? this,
+        Object.keys(this.#config()?.connectors ?? {}),
       );
     });
     this.kernel?.once("onTerminate", async () => {

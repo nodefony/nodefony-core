@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 858,
+    "files": 859,
     "symbols": 4269,
     "classes": 398,
     "interfaces": 1127,
@@ -15671,6 +15671,14 @@
       "module": "@nodefony/drizzle",
       "description": "Compose une condition `LIKE` **avec sa clause `ESCAPE`** — le seul endroit de l'adapter Drizzle qui écrive un `LIKE`. La clause n'est pas un raffinement : sans elle, le contrat `$like` n'a pas une …"
     },
+    "MEMORY_DATABASE": {
+      "name": "MEMORY_DATABASE",
+      "kind": "const",
+      "file": "src/packages/@nodefony/drizzle/nodefony/src/memoryDatabase.ts",
+      "exported": true,
+      "module": "@nodefony/drizzle",
+      "description": "Nom de fichier d'une base SQLite en MÉMOIRE — volatile, elle repart vide à chaque démarrage. Module FEUILLE (aucun import) : l'adapter, le migrateur, les commandes et le service le consultent tous,…"
+    },
     "UserListFilters": {
       "name": "UserListFilters",
       "kind": "interface",
@@ -24166,14 +24174,6 @@
       "exported": true,
       "module": "@nodefony/drizzle",
       "description": "Conduite face à la divergence, telle que la configuration la déclare."
-    },
-    "MEMORY_DATABASE": {
-      "name": "MEMORY_DATABASE",
-      "kind": "const",
-      "file": "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
-      "exported": true,
-      "module": "@nodefony/drizzle",
-      "description": "Nom de fichier d'une base SQLite en MÉMOIRE — volatile, repart vide à chaque démarrage."
     },
     "ISchemaGap": {
       "name": "ISchemaGap",
@@ -35922,6 +35922,14 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/status.ts"
       ],
+      "MEMORY_DATABASE": [
+        "src/packages/@nodefony/drizzle/nodefony/command/orm-reset.ts",
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/safeTarget.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/drivers/sqliteDriver.ts"
+      ],
       "sqliteFilenameFromUrl": [
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
@@ -36087,9 +36095,6 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "resolveDdlMode": [
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
-      ],
-      "MEMORY_DATABASE": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
       ],
       "buildReport": [

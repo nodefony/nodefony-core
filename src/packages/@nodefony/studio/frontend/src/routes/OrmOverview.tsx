@@ -543,10 +543,9 @@ export const OrmOverview = observer(
     );
     // Le registre des STORES, pour répondre à la question qui perd tout le
     // monde : « laquelle de ces bases porte réellement mes données ? ».
-    // Le drapeau `default` d'un ORM ne le dit PAS — `@nodefony/drizzle` est
-    // chargé sans condition et tient toujours un connecteur `default`, même
-    // quand l'infrastructure déclarée est MongoDB et que toutes les briques
-    // durables sont résolues sur `mongoose`.
+    // Le drapeau `default` le résume (le serveur le pose sur le connecteur qui
+    // porte le plus de briques durables) ; ce registre en donne le DÉTAIL, brique
+    // par brique — et dit aussi celles qui ne sont portées par aucun ORM.
     const storesRegistry = useResource(
       useCallback(
         () =>
@@ -736,7 +735,7 @@ export const OrmOverview = observer(
           body:
             bricks.length > 0
               ? `${bricks.length} résolue(s) sur ce connecteur : ${bricks.join(", ")}.`
-              : "Aucune. Les sessions, comptes, jetons et audit de cette application sont résolus sur un autre connecteur de cette page.",
+              : "Aucune. Les sessions, comptes, jetons et audit de cette application sont portés par un autre connecteur, ou hors ORM (mémoire, Redis, fichier) : la page Stores dit où.",
         });
         if (!o.connected) {
           sections.push({

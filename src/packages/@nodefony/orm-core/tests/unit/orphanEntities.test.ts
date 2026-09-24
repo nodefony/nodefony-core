@@ -50,6 +50,25 @@ describe("entités orphelines — inscrites sur un connecteur qu'aucun ORM n'ouv
     assert.match(message, /NF_DATABASE_URL/u);
     assert.match(message, /nodefony inspect entities/u);
   });
+  it("un connecteur DÉCLARÉ mais jamais ouvert : la cause est l'échec d'avant, pas l'entité", () => {
+    // `connectAll` s'arrête au premier connecteur en échec : les suivants ne
+    // sont jamais construits. Accuser leurs entités enverrait chercher ailleurs.
+    const message = describeOrphanEntities(
+      [entity("Visit", "analytics", "stats"), entity("Ghost", "typo")],
+      ["default"],
+      ["default", "analytics"],
+    );
+    assert.ok(message);
+    assert.match(
+      message,
+      /DÉCLARÉ mais jamais ouvert : Visit@stats → « analytics »/u,
+    );
+    assert.match(message, /erreur de connexion plus haut/u);
+    // …et l'inconnu reste accusé, lui — sans l'entité déclarée.
+    const accusation = message.split("DÉCLARÉ")[0] ?? "";
+    assert.match(accusation, /Ghost@app → « typo »/u);
+    assert.doesNotMatch(accusation, /Visit/u);
+  });
 });
 
 // Le rapport lui-même — ce qui rougit si l'appel ou sa garde disparaît.

@@ -130,6 +130,17 @@ describe("la génération refuse en nommant sa cause", () => {
       file: "/app/nodefony/entity/User.ts",
       line: 82,
     });
+    // Un chemin qui contient un ESPACE reste entier (Windows, iCloud).
+    assert.deepEqual(
+      topLevelAwaitFailure(
+        "Transform failed with 1 error:\n" +
+          ESBUILD_TLA.replace("/app/", "C:\\Users\\Jean Dupont\\app\\"),
+      ),
+      {
+        file: "C:\\Users\\Jean Dupont\\app\\nodefony/entity/User.ts",
+        line: 82,
+      },
+    );
     assert.equal(topLevelAwaitFailure("Error: something broke\n"), null);
     assert.equal(
       topLevelAwaitFailure("Interactive prompts require a TTY\n"),

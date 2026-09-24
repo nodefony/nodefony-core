@@ -481,7 +481,10 @@ export function topLevelAwaitFailure(
 ): { file: string; line: number } | null {
   const plain = output.replace(/\u001B\[[0-9;]*m/g, "");
   const m =
-    /([^\s"'`]+\.[cm]?[jt]sx?):(\d+):\d+: ERROR: Top-level await is currently not supported with the \\?"cjs\\?" output format/u.exec(
+    // Le chemin OUVRE sa ligne (`Transform failed…` puis `<chemin>:l:c: ERROR`) :
+    // l'ancrer en début de ligne garde un chemin qui contient un ESPACE
+    // (`C:\Users\Jean Dupont\…`), qu'une classe « sans blanc » tronquait.
+    /(?:^|\n)[^\S\n]*(\S[^\n]*?\.[cm]?[jt]sx?):(\d+):\d+: ERROR: Top-level await is currently not supported with the \\?"cjs\\?" output format/u.exec(
       plain,
     );
   return m ? { file: m[1] as string, line: Number(m[2]) } : null;
