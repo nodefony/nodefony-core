@@ -53,7 +53,7 @@ Deux usages :
   repository de `getRepository()` écrit via le pool, donc hors transaction.
 - **Trappe SQL brut** : `getNativeConnection()` renvoie le db Drizzle (tag `sql`).
 - **Config = Zod (ADR-0006, 1 fichier-schéma)** : `nodefony/config/config.ts`
-  (schéma Zod + défauts `parse({})`, source unique ; dans `config.ts`) → `defineDrizzleConfig` (parse + infra database `NF_DATABASE_URL`/`DATABASE_URL` : dialecte déduit du scheme, `sqlite:`→`filename`, `postgres://`/`mysql://`→`url`, `mongodb://` ignorée + freeze)
+  (schéma Zod + défauts `parse({})`, source unique ; dans `config.ts`) → `defineDrizzleConfig` (parse + infra database `NF_DATABASE_URL`/`DATABASE_URL` : dialecte déduit du scheme, `sqlite:`→`filename`, `postgres://`/`mysql://`→`url`, `mongodb://` non lue, et le `default` des défauts RETIRÉ sauf s'il est écrit par l'app + freeze)
   → validée au `onKernelRegister`, exposée `this.set("drizzleConfig")`. Augmente
   `NodefonyModuleConfig` (typage `use()`). ⚠️ `filename` **optionnel SANS défaut**
   dans le schéma (pur) : le chemin SQLite (kernel-dépendant) est résolu **au boot**
@@ -295,8 +295,7 @@ mode:date` MySQL (pas `timestamp` : borné 2038, timezone de session — le pool
 contrat), PG = rien (OFFSET seul valide,`LIMIT -1`rejeté), mysql =`limit(MAX_SAFE_INTEGER)`(le sentinel doc 2^64-1 n'est pas représentable en double JS). **Chemins mysql (pas de
 RETURNING)** : les verbes « qui rendent la ligne » se décomposent en SELECT-cible → mutation
 bornée PK **+ critère RE-VÉRIFIÉ dans le WHERE** (course perdue → 0 ligne →`null`, jamais une
-mutation hors critère) → relecture par PK ; `create`/`createMany`=`$returningId()` (PK
-  `$defaultFn`côté JS) + relecture ordonnée ;`upsert`=`onDuplicateKeyUpdate`(MySQL arbitre
+mutation hors critère) → relecture par PK ; `create`/`createMany`=`$returningId()`(PK`$defaultFn`côté JS) + relecture ordonnée ;`upsert`=`onDuplicateKeyUpdate`(MySQL arbitre
 sur TOUTES les uniques, pas de`target`) + relecture par les valeurs finales du critère.
   2-3 round-trips au lieu d'1 : le prix du dialecte, payé UNIQUEMENT en mysql.
 - **Idempotence en mysql** (`reserveIdempotencyKeyMysql`, queryKit) : ni `RETURNING` ni `WHERE`

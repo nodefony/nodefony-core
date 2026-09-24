@@ -75,6 +75,7 @@ class Drizzle extends Module<IDrizzleConfig> {
     // faute vient d'être écrite.
     const validated: IDrizzleConfig = defineDrizzleConfig(
       (this.options ?? {}) as IDrizzleConfigInput,
+      (this.appOptions ?? {}) as IDrizzleConfigInput,
     );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le DrizzleService la lit sur son module (`this.module.config`).
@@ -91,8 +92,19 @@ class Drizzle extends Module<IDrizzleConfig> {
     // à la connexion). L'app n'écrit plus aucun `registerXStore` ; elle garde la
     // main via les guards (entité/fabrique déjà posées = respectées) ou coupe
     // tout avec `frameworkEntities: false` (module data-only).
-    if (validated.frameworkEntities !== false) {
-      const dialect = validated.connectors?.default?.dialect ?? "sqlite";
+    // Sans connecteur `default` (infra non SQL, cf `defineDrizzleConfig`), le
+    // schéma framework n'a pas où vivre : le déclarer quand même publierait des
+    // fabriques de stores vers un ORM que personne n'ouvre.
+    const frameworkHost = validated.connectors.default;
+    if (validated.frameworkEntities !== false && frameworkHost === undefined) {
+      this.log(
+        `pas de connecteur "${FRAMEWORK_CONNECTOR}" (infrastructure déclarée non SQL) : ` +
+          `schéma framework non déclaré sur drizzle — les stores durables vont au backend de cette infrastructure`,
+        "INFO",
+      );
+    }
+    if (validated.frameworkEntities !== false && frameworkHost !== undefined) {
+      const dialect = frameworkHost.dialect;
       const report = registerDrizzleFrameworkStores(dialect);
       if (report.unported.length) {
         this.log(

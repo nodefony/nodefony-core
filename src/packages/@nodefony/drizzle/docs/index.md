@@ -385,9 +385,12 @@ NF_DATABASE_URL=mysql://app:secret@db:3306/prod
 NF_DATABASE_URL=sqlite:/var/lib/app/prod.db
 ```
 
-`applyEnvOverrides()` (`defineModuleConfig.ts:20`) lit l'infra, en déduit le dialecte depuis le
-_scheme_, et pose `filename` ou `url` sur le connecteur primaire. Une URL `mongodb://` est **ignorée
-ici** : elle appartient alors à `@nodefony/mongoose`.
+`applyEnvOverrides()` (`defineModuleConfig.ts:32`) lit l'infra, en déduit le dialecte depuis le
+_scheme_, et pose `filename` ou `url` sur le connecteur primaire. Une URL `mongodb://` n'est **pas
+lue ici** : elle appartient à `@nodefony/mongoose`. Drizzle en tire aussi la conséquence — il ne crée
+**pas** le connecteur `default` que ses défauts posent, donc aucune base SQLite parallèle et aucun
+schéma du framework en double. Un `default` que l'application écrit elle-même dans
+`use("@nodefony/drizzle", { connectors: { default: … } })` est gardé, comme tout autre connecteur.
 
 **Situation 3 — plusieurs bases.** Un connecteur par base. Seul `default` porte le schéma du framework ;
 les autres sont à toi.

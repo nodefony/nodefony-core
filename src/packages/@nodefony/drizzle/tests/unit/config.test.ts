@@ -82,12 +82,66 @@ describe("@nodefony/drizzle — config (Zod, alignement ORM 2026-06)", () => {
       });
     });
 
-    it("NF_DATABASE_URL=mongodb:// → ignorée par drizzle (infra mongoose)", () => {
+    it("NF_DATABASE_URL=mongodb:// → AUCUN connecteur `default` (personne ne l'a demandé)", () => {
       withEnv({ NF_DATABASE_URL: "mongodb://h:27017/db" }, () => {
         const c = defineDrizzleConfig();
-        assert.equal(c.connectors.default.dialect, "sqlite");
-        assert.equal(c.connectors.default.url, undefined);
+        // Le connecteur créé en trop ouvrait `var/databases/nodefony-drizzle.db`
+        // et y dupliquait le schéma framework (#456).
+        assert.deepEqual(Object.keys(c.connectors), []);
       });
+    });
+
+    it("NF_DATABASE_URL=mongodb:// → au BOOT, le `default` des défauts du module ne compte pas comme demandé", () => {
+      withEnv({ NF_DATABASE_URL: "mongodb://h:27017/db" }, () => {
+        // Le kernel fusionne les défauts du module (`config.ts`) AVANT la
+        // validation : la config reçue porte donc un `default` que personne n'a
+        // écrit. Seul `declared` (ce que l'application a posé) tranche.
+        const merged = {
+          connectors: { default: { dialect: "sqlite" as const } },
+        };
+        assert.deepEqual(
+          Object.keys(defineDrizzleConfig(merged, {}).connectors),
+          [],
+        );
+        assert.deepEqual(
+          Object.keys(defineDrizzleConfig(merged, merged).connectors),
+          ["default"],
+        );
+      });
+    });
+
+    it("NF_DATABASE_URL=mongodb:// → un `default` ÉCRIT par l'app est gardé, les autres aussi", () => {
+      withEnv({ NF_DATABASE_URL: "mongodb://h:27017/db" }, () => {
+        const c = defineDrizzleConfig({
+          connectors: {
+            default: { dialect: "sqlite", filename: ":memory:" },
+            media: { dialect: "sqlite", filename: ":memory:" },
+          },
+        });
+        assert.deepEqual(Object.keys(c.connectors).sort(), [
+          "default",
+          "media",
+        ]);
+        // L'URL Mongo n'est toujours pas lue par Drizzle.
+        assert.equal(c.connectors.default?.dialect, "sqlite");
+        assert.equal(c.connectors.default?.url, undefined);
+      });
+    });
+
+    it("sans infra déclarée → le `default` du schéma reste (comportement inchangé)", () => {
+      const saved = {
+        NF_DATABASE_URL: process.env.NF_DATABASE_URL,
+        DATABASE_URL: process.env.DATABASE_URL,
+      };
+      delete process.env.NF_DATABASE_URL;
+      delete process.env.DATABASE_URL;
+      try {
+        assert.ok(defineDrizzleConfig().connectors.default);
+      } finally {
+        for (const [k, v] of Object.entries(saved)) {
+          if (v !== undefined) process.env[k] = v;
+        }
+      }
     });
   });
 

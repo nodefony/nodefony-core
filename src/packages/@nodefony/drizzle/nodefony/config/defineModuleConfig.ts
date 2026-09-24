@@ -18,11 +18,26 @@ import type {
  *
  * - Infra `database` (`NF_DATABASE_URL`, alias `DATABASE_URL`) de famille SQL →
  *   dialecte + cible du connecteur primaire (`default`, sinon le premier) :
- *   `sqlite:…` → `filename` ; `postgres://…`/`mysql://…` → `url`. Une URL
- *   `mongodb://` est IGNORÉE ici (l'infra appartient alors à `@nodefony/mongoose`).
+ *   `sqlite:…` → `filename` ; `postgres://…`/`mysql://…` → `url`.
+ * - Infra `database` d'une AUTRE famille (`mongodb://…`) : l'URL appartient à
+ *   `@nodefony/mongoose`, Drizzle ne la lit pas — et il ne crée pas non plus le
+ *   connecteur `default` que son schéma pose par défaut. Ce connecteur-là, personne
+ *   ne l'a demandé : il ouvrait une base SQLite parallèle où le schéma du
+ *   framework se déclarait en double. Un `default` ÉCRIT par l'application, lui,
+ *   est gardé — c'est ce qui sépare « par défaut » de « demandé ».
+ *
+ * @param config - config validée (défauts du schéma posés)
+ * @param declaredDefault - l'application a-t-elle écrit un connecteur `default` ?
  */
-function applyEnvOverrides(config: IDrizzleConfig): IDrizzleConfig {
+function applyEnvOverrides(
+  config: IDrizzleConfig,
+  declaredDefault: boolean,
+): IDrizzleConfig {
   const database = resolveInfra(process.env).database;
+  if (database && database.family !== "sql" && !declaredDefault) {
+    delete config.connectors.default;
+    return config;
+  }
   if (database && database.family === "sql" && database.dialect) {
     const target = config.connectors.default
       ? "default"
@@ -56,18 +71,25 @@ function applyEnvOverrides(config: IDrizzleConfig): IDrizzleConfig {
  * au boot — cf audit config ORM 2026-06 §3.2.
  *
  * @param config - configuration brute (sections omises = défauts sûrs).
+ * @param declared - ce que l'APPLICATION a écrit elle-même. Au boot, `config`
+ *   arrive déjà fusionné avec les défauts du module (`config.ts`) : on ne peut
+ *   plus y distinguer un `default` demandé d'un `default` posé par défaut. Omis,
+ *   `config` fait foi (appel direct, tests).
  * @returns config validée, surchargée par l'env, et gelée.
  * @throws ZodError si la config est invalide.
  */
 export function defineDrizzleConfig(
   config: IDrizzleConfigInput = {},
+  declared: IDrizzleConfigInput = config,
 ): IDrizzleConfig {
   const parsed = parseModuleConfig(
     drizzleConfigSchema,
     config,
     "@nodefony/drizzle",
   );
-  return Object.freeze(applyEnvOverrides(parsed));
+  return Object.freeze(
+    applyEnvOverrides(parsed, declared.connectors?.default !== undefined),
+  );
 }
 
 /**
