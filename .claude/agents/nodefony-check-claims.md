@@ -4,7 +4,7 @@ description: Confronte une LISTE D'AFFIRMATIONS au code réel du dépôt et rend
 tools: Read, Grep, Glob
 model: haiku
 effort: low
-maxTurns: 40
+maxTurns: 80
 color: green
 ---
 
