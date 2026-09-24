@@ -119,7 +119,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build workspaces (turbo)
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       # Le FRONT, bâti pour de bon — la moitié des chemins que le mode
       # développement ne prouve pas.
@@ -265,6 +265,15 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
         shell: bash
         run: npx vitest run scripts/site-plan.test.mjs
+
+      # Le lanceur qui enveloppe les étapes longues (build, tests) : il rend la
+      # main quand la commande finit, même si un descendant DÉTACHÉ garde sa
+      # sortie ouverte — ce qui figeait les jobs Windows jusqu'à leur plafond —
+      # et il nomme ce descendant. Éprouvé sur les TROIS systèmes : c'est sous
+      # Windows que le tuyau hérité se comporte différemment.
+      - name: Gate — le lanceur de la forge rend la main et nomme les détachés
+        shell: bash
+        run: npx vitest run scripts/ci/run-watched.test.mjs
 
       - name: Gate — licences des dépendances de production
         if: matrix.os == 'ubuntu-latest' && matrix.node-version == '26.x'
@@ -592,7 +601,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build workspaces
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       # `NF_GATES_ALLOW` — ce que cette passe n'exerce PAS, écrit noir sur blanc.
       #
@@ -618,7 +627,7 @@ jobs:
           # couverture perdue. Les deux topologies restent éprouvées par
           # `orm.yml`, une fois, sur Linux.
           NF_GATES_ALLOW: NF_PG_URL,NF_MYSQL_URL,REDIS_URL,NF_REDIS_TEST_URL,NF_MONGO_TEST_URI,NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
-        run: npm test
+        run: node scripts/ci/run-watched.mjs npm test
 
   # ─── Filet CLI — exerce le BINAIRE `nodefony`, sur les deux plateformes ─────
   #
@@ -657,7 +666,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build workspaces
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       # `test:boot` du cœur est un `vitest run` : il porte donc le rapporteur de
       # gates de `src/nodefony/vitest.config.ts`, qui exige Loki et OpenSearch.
@@ -668,7 +677,7 @@ jobs:
       - name: Filet CLI (NF_RUN_CLI_BOOT)
         env:
           NF_GATES_ALLOW: NF_LOKI_TEST_URL,NF_OPENSEARCH_TEST_URL
-        run: npm run test:boot
+        run: node scripts/ci/run-watched.mjs npm run test:boot
 
   # ─── Tests d'intégration — ubuntu only, démarre le serveur Nodefony ─────────
   # Indépendant lui aussi (même raison que `test-unit` ci-dessus) : c'est le job
@@ -763,7 +772,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build workspaces
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       # Le module test contient les routes consommées par les tests d'intégration.
       # Doit être buildé APRÈS le build global (turbo cache) car le mode `development`
@@ -890,7 +899,7 @@ jobs:
           env: NODE_EXTRA_CA_CERTS=${{ github.workspace }}/nodefony/config/certificates/ca/nodefony-root-ca.crt.pem
 
       - name: Run integration tests
-        run: npm run test:integration
+        run: node scripts/ci/run-watched.mjs npm run test:integration
 
       - name: Stop Nodefony server
         if: always()
@@ -1059,7 +1068,7 @@ jobs:
         run: npm ci --no-audit --no-fund
 
       - name: Build workspaces
-        run: npm run build
+        run: node scripts/ci/run-watched.mjs npm run build
 
       - name: Rebuild test module
         run: npm run build --workspace=src/modules/test
