@@ -550,21 +550,48 @@ export const OrmOverview = observer(
         () =>
           store.api.getAbsolute<{
             infra?: { database?: { family?: string } | null };
-            stores?: Array<{ brick: string; resolved: string }>;
+            stores?: Array<{
+              brick: string;
+              resolved: string;
+              location?: string;
+            }>;
           }>("/nodefony/kernel/api/stores"),
         [store],
       ),
     );
-    /** Briques durables portées par chaque MOTEUR (`drizzle`, `mongoose`…). */
-    const bricksByVendor = useMemo(() => {
+    /**
+     * Briques portées par chaque CONNECTEUR (clé : son nom).
+     *
+     * 🔴 Jamais par moteur : deux connecteurs sqlite (le `default` sur fichier
+     * et un connecteur dédié `:memory:`) recevaient alors TOUS DEUX les huit
+     * briques, et le dédié s'affichait « porte les stores » — la page désignait
+     * comme base applicative celle qui s'efface au redémarrage. La preuve
+     * d'appartenance est la `location` que le registre publie pour chaque
+     * brique, comparée à la cible du connecteur. Un moteur qui n'a qu'UN
+     * connecteur lui rend ses briques sans autre preuve ; entre plusieurs, une
+     * brique sans correspondance n'est attribuée à personne — ne rien dire
+     * vaut mieux qu'annoncer faux.
+     */
+    const bricksByConnector = useMemo(() => {
       const by = new Map<string, string[]>();
+      const connectors = orms.data ?? [];
       for (const s of storesRegistry.data?.stores ?? []) {
-        const list = by.get(s.resolved) ?? [];
+        const candidates = connectors.filter((o) => o.vendor === s.resolved);
+        const owner =
+          candidates.length === 1
+            ? candidates[0]
+            : candidates.find(
+                (o) =>
+                  s.location !== undefined &&
+                  o.connection?.target === s.location,
+              );
+        if (owner === undefined) continue;
+        const list = by.get(owner.name) ?? [];
         list.push(s.brick);
-        by.set(s.resolved, list);
+        by.set(owner.name, list);
       }
       return by;
-    }, [storesRegistry.data]);
+    }, [storesRegistry.data, orms.data]);
     // Volumes réels — endpoint séparé (1 COUNT(*) par table) : peut être lent sur
     // un gros schéma → ne bloque pas le 1er rendu.
     const counts = useResource(
@@ -738,7 +765,7 @@ export const OrmOverview = observer(
           label: "Briques durables",
           body:
             bricks.length > 0
-              ? `${bricks.length} résolue(s) sur ce moteur : ${bricks.join(", ")}.`
+              ? `${bricks.length} résolue(s) sur ce connecteur : ${bricks.join(", ")}.`
               : "Aucune. Les sessions, comptes, jetons et audit de cette application sont résolus sur un autre connecteur de cette page.",
         });
         if (!o.connected) {
@@ -1234,7 +1261,7 @@ export const OrmOverview = observer(
                       l'affichage. */}
                   <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="sm">
                     {list.map((o) => {
-                      const bricks = bricksByVendor.get(o.vendor ?? "") ?? [];
+                      const bricks = bricksByConnector.get(o.name) ?? [];
                       const role = connectorRole(o, bricks.length);
                       const driver = o.connection?.driver ?? o.vendor ?? "";
                       const target = o.connection?.target ?? "";
