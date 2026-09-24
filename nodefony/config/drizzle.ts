@@ -29,8 +29,10 @@ import type { env } from "../../env";
  *   double, sans que personne ne s'en serve. Non écrit, Drizzle le retire de
  *   lui-même (`defineDrizzleConfig`).
  * - `mediasoup` : la base EN MÉMOIRE du module de banc `@nodefony/mediasoup`,
- *   hors production seulement — comme le module (`policy: "dev"`). Ouverte en
- *   production, elle servirait un module qui n'y est pas chargé.
+ *   ouverte exactement quand le module est chargé (`ctx.devModules`, le verdict
+ *   du gating `policy: "dev"`, dérogation comprise). `isProd` ignorait la
+ *   dérogation : module chargé en production, connecteur absent, entités
+ *   orphelines.
  *
  * `mediasoup` n'écrit aucun `ddl` : c'est un connecteur SECONDAIRE, les
  * migrations du dépôt (framework et application) appartiennent à `default`
@@ -41,7 +43,7 @@ export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
   ({
     connectors: {
       ...(ctx.infra.database?.family === "mongo" ? {} : { default: {} }),
-      ...(ctx.isProd
+      ...(ctx.devModules !== true
         ? {}
         : {
             mediasoup: {

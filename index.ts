@@ -1,4 +1,4 @@
-import { Kernel, Module, appConfigJsonSchema } from "nodefony";
+import { Kernel, Module, appConfigJsonSchema, resolveInfra } from "nodefony";
 import { controllers } from "@nodefony/framework";
 import { entities } from "@nodefony/orm-core";
 import config from "./nodefony.config";
@@ -32,7 +32,15 @@ import { AppUserEntity } from "./nodefony/entity/User";
 export { env } from "./env";
 
 @controllers([AppController, indexController])
-@entities([AppUserEntity])
+// La table `User` n'est inscrite que sur une infra SQL (ou sans infra). Sur
+// MongoDB, une table SQL n'aurait aucun connecteur pour la servir — Drizzle n'y
+// ouvre pas de `default` — et le démarrage signalerait une entité orpheline. Ce
+// dépôt n'ajoute aucun champ à `User` : le document que `@nodefony/mongoose`
+// inscrit alors lui-même porte le contrat. Une application qui AJOUTE des champs
+// sur MongoDB écrit son entité comme le gabarit `create app --database mongodb`.
+@entities(
+  resolveInfra(process.env).database?.family === "mongo" ? [] : [AppUserEntity],
+)
 class App extends Module {
   /**
    * @param kernel - instance du Kernel.

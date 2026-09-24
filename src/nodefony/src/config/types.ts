@@ -392,6 +392,16 @@ export interface ConfigContext<E = Record<string, unknown>> {
   readonly isDev: boolean;
   /** Raccourci `runtimeEnv === "test"`. */
   readonly isTest: boolean;
+  /**
+   * Les modules `policy: "dev"` sont-ils chargés ? — le verdict MÊME du gating
+   * (hors production, ou dérogation `NF_WITH_DEV_MODULES=1`). Ce qui accompagne
+   * un module de développement (connecteur, zone) se conditionne à CECI, jamais
+   * à `isProd` : ce dernier ignore la dérogation.
+   *
+   * Toujours posé par le Kernel. Optionnel pour qu'un contexte construit à la
+   * main (les tests d'une application) reste valide ; absent, il vaut « non ».
+   */
+  readonly devModules?: boolean;
 }
 
 /**

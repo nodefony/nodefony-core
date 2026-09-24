@@ -71,6 +71,27 @@ export interface IGatingInput {
   config: GateConfig;
 }
 
+/**
+ * Les modules `policy: "dev"` sont-ils chargés dans ce runtime ?
+ *
+ * La règle UNIQUE : hors production toujours, en production seulement sous la
+ * dérogation `NF_WITH_DEV_MODULES=1`. Le Kernel l'applique au gating, et la
+ * publie à la configuration (`ctx.devModules`) — tout ce qui ACCOMPAGNE un module
+ * de développement (son connecteur, sa zone) doit suivre CE verdict. Un fragment
+ * qui recopiait `ctx.isProd` à la place oubliait la dérogation : le module était
+ * chargé en production, son connecteur non, et ses entités restaient orphelines.
+ *
+ * @param isProduction - le runtime visé est-il un runtime de production ?
+ * @param forceFlag - valeur brute de `NF_WITH_DEV_MODULES`.
+ * @returns `true` si les modules de développement sont chargés.
+ */
+export function devModulesLoaded(
+  isProduction: boolean,
+  forceFlag: string | undefined,
+): boolean {
+  return !isProduction || forceFlag === "1";
+}
+
 /** La raison affichée quand la politique du module l'écarte d'un runtime de production. */
 export const GATED_BY_POLICY = 'policy "dev" — runtime production';
 

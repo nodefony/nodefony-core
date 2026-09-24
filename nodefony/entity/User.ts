@@ -1,9 +1,6 @@
 import { resolveInfra } from "nodefony";
 import { defineEntity } from "@nodefony/orm-core";
-import {
-  createUserTable,
-  FRAMEWORK_CONNECTOR as SQL_CONNECTOR,
-} from "@nodefony/drizzle";
+import { createUserTable, FRAMEWORK_CONNECTOR } from "@nodefony/drizzle";
 import type { SqlDialect } from "@nodefony/drizzle";
 
 /**
@@ -61,38 +58,9 @@ function appDialect(): SqlDialect {
  */
 export const userTable = createUserTable(appDialect());
 
-/**
- * Le `User` de l'application suit la BASE qu'elle déclare, comme les gabarits
- * de `nodefony create app` : table Drizzle du dialecte sur une infra SQL (ou
- * sans infra), document Mongoose sur MongoDB.
- *
- * Sur MongoDB, une table SQL n'aurait aucun connecteur pour la servir : Drizzle
- * n'y ouvre pas de `default`. L'entité serait orpheline, et les comptes
- * vivraient dans le `User` que le module Mongoose inscrit à défaut — une
- * identité qui n'appartient plus à l'application. Inscrite ici, elle est
- * reconnue comme celle de l'application (`appOwned`), et `provisionUsers` la
- * sert par le dépôt Mongoose.
- *
- * `@nodefony/mongoose` est importé À LA DEMANDE : son barrel inscrit l'entité
- * `session` dès son chargement (`@entity`) — importé sur une infra SQL, il
- * laissait une entité orpheline sur un connecteur que personne n'ouvre.
- */
-export const AppUserEntity =
-  resolveInfra(process.env).database?.family === "mongo"
-    ? await mongoUserEntity()
-    : defineEntity({
-        name: "User",
-        module: "app",
-        connector: SQL_CONNECTOR,
-        schema: userTable,
-      });
-
-/** Le `User` document de l'application, sur le connecteur de Mongoose. */
-async function mongoUserEntity(): Promise<ReturnType<typeof defineEntity>> {
-  const { createUserEntity, FRAMEWORK_CONNECTOR } =
-    await import("@nodefony/mongoose");
-  return defineEntity({
-    ...createUserEntity(FRAMEWORK_CONNECTOR),
-    module: "app",
-  });
-}
+export const AppUserEntity = defineEntity({
+  name: "User",
+  module: "app",
+  connector: FRAMEWORK_CONNECTOR,
+  schema: userTable,
+});

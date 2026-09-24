@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 858,
-    "symbols": 4265,
+    "symbols": 4266,
     "classes": 398,
     "interfaces": 1127,
     "types": 458,
     "enums": 4,
-    "functions": 1852,
+    "functions": 1853,
     "constants": 426
   },
   "symbols": {
@@ -4210,6 +4210,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Ce que la garde `when()` d'un manifeste reçoit — la config fusionnée du kernel."
+    },
+    "devModulesLoaded": {
+      "name": "devModulesLoaded",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/moduleGating.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les modules `policy: \"dev\"` sont-ils chargés dans ce runtime ? La règle UNIQUE : hors production toujours, en production seulement sous la dérogation `NF_WITH_DEV_MODULES=1`. Le Kernel l'applique a…"
     },
     "gateModuleManifest": {
       "name": "gateModuleManifest",
@@ -32898,6 +32906,9 @@
         "src/nodefony/src/syslog/transports/SyslogTransport.ts"
       ],
       "resolveModuleEntry": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "devModulesLoaded": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
       "gateModuleManifest": [

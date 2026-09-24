@@ -39,7 +39,7 @@ import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
 import Module from "./Module";
 import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
-import { gateModuleManifest } from "./moduleGating";
+import { devModulesLoaded, gateModuleManifest } from "./moduleGating";
 import {
   writeLastBoot,
   type ILastBoot,
@@ -1556,7 +1556,7 @@ class Kernel extends Service implements IKernel {
     // ce module manque »). Lue ici et nulle part ailleurs ; jamais silencieuse (cf
     // le WARNING par module ci-dessous) ; sans effet hors production.
     const devModulesForced =
-      isProd && process.env[FORCE_DEV_MODULES_ENV] === "1";
+      isProd && devModulesLoaded(isProd, process.env[FORCE_DEV_MODULES_ENV]);
     // 🔴 La DÉCISION vit dans `gateModuleManifest`, pas ici : `nodefony doctor
     // --env production` la rejoue à froid pour dire ce qui disparaîtra là-bas.
     // Deux copies de la règle divergeraient, et le diagnostic cesserait de
@@ -1998,6 +1998,10 @@ class Kernel extends Service implements IKernel {
       isProd: runtimeEnv === "production",
       isDev: runtimeEnv === "development",
       isTest: runtimeEnv === "test",
+      devModules: devModulesLoaded(
+        runtimeEnv === "production",
+        process.env[FORCE_DEV_MODULES_ENV],
+      ),
     };
   }
 
