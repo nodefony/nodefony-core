@@ -1,4 +1,5 @@
 import { defineConfig } from "vitest/config";
+import { transformCache } from "../../../../vitest.perf.ts";
 
 /**
  * Les INVARIANTS DE DÉCOR — joués par la matrice de la CI sur chaque base
@@ -15,6 +16,7 @@ import { defineConfig } from "vitest/config";
  */
 export default defineConfig({
   test: {
+    ...transformCache,
     globals: true,
     include: ["nodefony/tests/integration/stores-location.test.ts"],
     fileParallelism: false,
