@@ -818,5 +818,32 @@
       "src/packages/@nodefony/security/tests/support/webhookPaginationContract.ts",
       "src/packages/@nodefony/drizzle/tests/integration/webhook-store-contract.ts"
     ]
+  },
+  "orm-parity-guide": {
+    "unit": [
+      "src/packages/@nodefony/security/tests/unit/tokenStoreContract.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webAuthnCredentialStoreContract.test.ts",
+      "src/packages/@nodefony/security/tests/unit/webhookStore.test.ts"
+    ],
+    "integration": [
+      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-sqlite.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-sqlite.test.ts"
+    ],
+    "e2e": [
+      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/repository-contract-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/token-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webauthn-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-postgres.e2e.test.ts",
+      "src/packages/@nodefony/drizzle/tests/integration/webhook-store-mysql.e2e.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/repository-contract.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/token-store.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webauthn-credential-store.test.ts",
+      "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts"
+    ]
   }
 }

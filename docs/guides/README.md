@@ -47,7 +47,10 @@ Où vivent les données, qui décide, et ce qui change quand il y a plusieurs po
     "meta": "le tableau de bord de vos données" },
   { "icon": "🗝️", "title": "Stockage de session", "href": "session-storage.md",
     "desc": "Le mécanisme d'inversion de contrôle, les quatre backends livrés, ce que fait le défaut `auto` — et comment en écrire un sur mesure.",
-    "meta": "le choix qui décide de votre scaling" }
+    "meta": "le choix qui décide de votre scaling" },
+  { "icon": "⚖️", "title": "Parité des adaptateurs", "href": "parite-des-adaptateurs.md",
+    "desc": "SQL ou MongoDB : ce que les bancs prouvent identique, les écarts assumés entre moteurs — et ce qu'aucun banc ne prouve encore.",
+    "meta": "à lire avant de choisir son moteur" }
 ]
 ```
 
