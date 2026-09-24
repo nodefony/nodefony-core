@@ -149,7 +149,13 @@ export const securityConfig = (ctx: ConfigContext<typeof env>) =>
       // émettre un jeton pour sa porte MCP grâce à un module de BANC, si
       // bien qu'aucun essai ici ne pouvait montrer qu'une application
       // générée, elle, se voyait refuser le jeton de sa propre porte.
-      audiences: ctx.isProd
+      //
+      // Elles suivent la présence du BANC (`ctx.devModules`), jamais
+      // `isProd` : la marche `production` de la forge charge le banc
+      // (`NF_WITH_DEV_MODULES=1`), et sans ses audiences elle ne pouvait
+      // qu'éviter les preuves de jetons — une production réelle, sans
+      // modules de développement, garde la liste vide (→ `[issuer]`).
+      audiences: !ctx.devModules
         ? []
         : [
             ctx.env.NF_JWT_ISSUER ?? "https://localhost:5152",

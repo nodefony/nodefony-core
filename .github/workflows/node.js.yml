@@ -808,10 +808,17 @@ jobs:
             // d'intégration tombent sur un message qui parle d'un mot de passe.
             // Vécu : `secret` (6 caractères) a fait rougir les six tâches.
             'NF_ADMIN_PASSWORD=secret-de-dev-42',
+            // L'adresse publique de l'émetteur de jetons. En production, elle
+            // ne se devine pas (RFC 8414 §2) : sans elle, rien n'est publié et
+            // les bancs de jetons (`issuer-metadata`, `external-jwt-e2e`) se
+            // sautaient — la marche production n'a jamais prouvé qu'un jeton
+            // s'y vérifie. Leur passage est désormais EXIGÉ par le rapporteur
+            // (`TOKEN_PROOFS`, http/vitest.integration.config.ts).
+            'NF_JWT_ISSUER=https://localhost:5152',
             '',
           ];
           require('node:fs').writeFileSync('.env.local', lines.join('\n'));
-          console.log('✅ .env.local généré (4 clés, valeurs non affichées)');
+          console.log('✅ .env.local généré (5 valeurs, non affichées)');
           "
 
       # Le SECOND compte du banc, en production seulement — et créé ICI, pas seedé.

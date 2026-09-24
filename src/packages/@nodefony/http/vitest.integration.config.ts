@@ -32,6 +32,20 @@ const PROD_ONLY_PROOFS: readonly string[] = [
 ];
 
 /**
+ * Les preuves de JETONS, exigées dans les DEUX modes : publication de l'émetteur
+ * (RFC 8414), vérification d'un jeton par découverte, liaison d'audience
+ * (RFC 8707). Leurs suites se sautent quand l'application ne publie rien — ce qui
+ * est le cas d'une production sans `NF_JWT_ISSUER`. La marche `production` de la
+ * forge les a ainsi évitées sans que rien ne tombe ; les exiger ici fait d'un
+ * `NF_JWT_ISSUER` oublié un rouge, plus un silence.
+ */
+const TOKEN_PROOFS: readonly string[] = [
+  "le document est SERVI, sans authentification",
+  "le jeton est vérifié et le sujet rattaché au compte LOCAL",
+  "demandé pour l'autre ressource, il ouvre CETTE porte",
+];
+
+/**
  * L'attente de la passe, décidée au MOMENT DU RAPPORT — le mode du serveur visé
  * n'est connu qu'après la sonde du `globalSetup`, donc bien après la lecture de
  * ce fichier.
@@ -52,6 +66,7 @@ function modeExpectations(): GateExpectation[] {
         : "cas propres au DÉVELOPPEMENT",
       proof: prod ? PROD_ONLY_PROOFS : DEV_ONLY_PROOFS,
     },
+    { label: "preuves de jetons (émetteur, audience)", proof: TOKEN_PROOFS },
   ];
 }
 
