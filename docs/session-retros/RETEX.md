@@ -368,6 +368,15 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
   « vert débranché » vide) → [[feedback_gate_must_bite]] ; app servie depuis un `dist` qui ignorait
   le fragment neuf → [[feedback_prove_on_received_artifact]] ; décor partagé qui fausse un verdict
   → [[feedback_stale_decor_poisons_verdicts]].
+- [1× — 09-25c] « Réponse VÉRIFIABLE → `haiku` » a tenu pour recaler une ancre dont l'outil
+  donnait la ligne (d'ailleurs un script suffisait : 107/193 sans modèle), et cassé dès qu'il
+  fallait SITUER une ligne d'après le SENS d'une phrase : ~25 % de citations reformulées ou
+  fausses, contre 0/42 en `sonnet`. Vérifiable ≠ facile à trouver. Le filet qui a tenu : aucune
+  proposition appliquée sans que sa citation soit retrouvée sur la ligne visée.
+- [1× — 09-25c] La consigne « liste numérotée des affirmations D'ABORD » a produit 105 et 121
+  items sur G12/G8, et deux audits encore minces sur G15/G16 — l'agent y a « limité l'inventaire
+  par contrainte de budget » (2 affirmations pour `demarrer.md`). Une consigne de couverture ne
+  tient que si le lot tient dans l'agent : une grosse page = un agent.
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
