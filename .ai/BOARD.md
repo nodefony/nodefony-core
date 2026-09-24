@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-23 22:08** (UTC).
+> Empreinte prise le **2026-09-24 01:50** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 94% | 141 | 9 | 2026-09-24 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 92% | 144 | 12 | 2026-09-24 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 36% | 23 | 41 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#454 — feat(scaffold): proposer mongodb au choix de base de données**
+**#457 — fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM**
 
-Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 2026-09-24 → 09-24
+Ordre 4.13 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise 2026-09-24 → 09-24
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 8 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 6 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -93,12 +93,10 @@ Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 8 ouverts
+## Jalon 10.0.0-alpha — 6 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.1 | P1 — figé à la création | 1 | 2026-09-24 → 09-24 | #454 | feat(scaffold): proposer mongodb au choix de base de données |
-| 4.12 | P1 — figé à la création | 1 | 2026-09-24 → 09-24 | #456 | fix(orm): ne pas ouvrir de base SQLite quand l'infra déclarée n'est pas SQL |
 | 4.13 | P2 — décision | 1 | 2026-09-24 → 09-24 | #457 | fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM |
 | 4.14 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #461 | fix(orm): ne plus annoncer un échec de connexion quand le serveur refuse le schéma |
 | 57 | P2 — décision | 0.5 | 2026-09-24 → 09-24 | #443 | test(scaffold): lier la route de connexion des tests générés à sa source |
@@ -203,7 +201,7 @@ Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 171 | P2 — décision | 1 | — | #251 | chore(mcp): trancher si le protocole descend du coeur en module |
 | 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
 
-## Backlog — aucune date promise · 4 ouverts
+## Backlog — aucune date promise · 5 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -211,4 +209,5 @@ Ordre 4.1 · P1 — figé à la création · 1 j · jalon 10.0.0-alpha · frise 
 | 902 | P2 — décision | 1 | — | #422 | feat(ci): regarder l'écran d'une application générée à chaque publication |
 | 903 | P2 — décision | 1 | — | #423 | test(release): éprouver la surface npm telle que le registre la sert |
 | 904 | P3 — fin de cycle | 1 | — | #436 | docs(corpus): mettre au standard les neuf pages internes non publiées |
+| 905 | P2 — décision | 22.5 | — | #460 | feat(broadcast): boîtier d'apport et hub, une app à rôles |
 

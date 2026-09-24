@@ -71,6 +71,20 @@ exécution.
 
 ## 🧾 Un TEST porte une MESURE — le lire avant de trancher une conception
 
+- [1× — 09-24b] 🧪 **Test unitaire vert, démarrage réel rouge — la config reçue n'était pas celle
+  que le test fabriquait.** #456 : `defineDrizzleConfig({})` rendait bien « aucun `default` » sous
+  infra Mongo ; au boot, `inspect entities` en montrait encore 10. Le kernel fusionne les défauts
+  du module (`config.ts`) AVANT la validation : `this.options` porte toujours `default`. Le test
+  mesurait une entrée que le runtime ne produit jamais. Remède : la décision lit
+  `Module.appOptions` (ce que l'app a écrit) ; le test rejoue l'entrée FUSIONNÉE. Une correction
+  de config se prouve au `inspect` du vrai boot, pas au seul appel direct.
+- [1× — 09-24b] ⏱️ **Un timeout « de charge » cachait un défaut du produit.** `detachedStart`
+  sortait à 30 s en passe complète ; le réflexe était d'élargir son plafond. En remontant la
+  sonde : `isPortListening` concluait « libre » sur un port OCCUPÉ dès que la boucle
+  d'événements était bloquée au-delà de son délai (les minuteurs passent avant la lecture des
+  entrées/sorties). Reproduit en 5 lignes, corrigé par un `setImmediate`. Le plafond a été
+  élargi AUSSI, mais après avoir lu ce que le test mesurait — pas à sa place.
+
 - [1× — 09-23] 🎭 **Des tests prenaient l'EXCEPTION comme exemple de la règle générale — et
   l'un d'eux affirmait le défaut.** « la référence suit la clé primaire » était illustré par
   `author:ref:User`, et un cas de casse SQL exigeait `ownerUser: uuid("owner_user")` en
@@ -852,6 +866,18 @@ celle que le DÉCIDEUR regarde (`rss` contre `phys_footprint`).
   `CLAUDE.md` sur la délégation : la disponibilité ne déclenche rien, seule la mention garantit.
 
 ## 🚨 Un contrôle qu'on ne peut pas SATISFAIRE finit désarmé — comme celui qui crie faux
+
+- [1× — 09-24b] 🙈 **Des fichiers de test qui ne DÉMARRENT pas ne comptent pas comme rouges.**
+  Après une montée de dépendances, npm a rangé `jsdom` sous `src/nodefony/node_modules` au lieu
+  de la racine : vitest (racine) ne le trouvait plus, 4+ fichiers ont échoué à LANCER leur
+  worker — et le bilan de `test:all` annonçait « 2 échoués ». Même geste npm sur Angular (deux
+  copies). Remède appliqué : retirer les entrées imbriquées du verrou puis réinstaller. Le
+  contrôle qui manque : un verrou où un paquet déclaré par un seul workspace n'est plus hissé.
+- [1× — 09-24b] 🕳️ **Toute la CI verte sur un front Angular MORT.** `@angular/build` 22.2 cassait
+  le plugin Vite d'analogjs ; le serveur répondait, `/readyz` 200, une ligne ERROR au journal —
+  et aucun banc ne demandait si chaque front servait. Vu seulement en démarrant à la main pour
+  autre chose. Remède : `frontend-families.test.ts` exige `ready` pour chaque famille déclarée
+  (vu rouge sur la panne reproduite). Un échec ISOLÉ par conception doit avoir un test qui le lit.
 
 - [1× — 09-24] 🔇 **Un banc VERT qui ne dit pas ce qu'il a lancé.** `verify-generated.mjs`
   n'écrivait la sortie d'une commande que si elle ÉCHOUAIT : impossible de savoir combien de tests

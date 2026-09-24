@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-23T22:08:41.369Z",
+  "generatedAt": "2026-09-24T01:50:46.035Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 141,
+      "closed": 144,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 9,
+      "open": 12,
       "title": "10.0.0-alpha"
     },
     {
@@ -1766,8 +1766,8 @@
       "number": 454,
       "title": "feat(scaffold): proposer mongodb au choix de base de données",
       "url": "https://github.com/nodefony/nodefony-core/issues/454",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -1777,6 +1777,20 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 463,
+      "title": "refactor(scaffold): écrire une seule fois la liste des bases proposées",
+      "url": "https://github.com/nodefony/nodefony-core/issues/463",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.105,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 455,
@@ -1795,11 +1809,39 @@
       ]
     },
     {
+      "number": 464,
+      "title": "test(devkit-bench): générer et démarrer une application MongoDB dans le banc",
+      "url": "https://github.com/nodefony/nodefony-core/issues/464",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 4.11,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 465,
+      "title": "feat(scaffold): générer une entité Mongoose sur une application MongoDB",
+      "url": "https://github.com/nodefony/nodefony-core/issues/465",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 4.115,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 456,
       "title": "fix(orm): ne pas ouvrir de base SQLite quand l'infra déclarée n'est pas SQL",
       "url": "https://github.com/nodefony/nodefony-core/issues/456",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -6402,6 +6444,22 @@
       "priorite": "P3 — fin de cycle",
       "jours": 1,
       "ordre": 904,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 460,
+      "title": "feat(broadcast): boîtier d'apport et hub, une app à rôles",
+      "url": "https://github.com/nodefony/nodefony-core/issues/460",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 22.5,
+      "ordre": 905,
       "debut": null,
       "cible": null,
       "labels": [
