@@ -227,8 +227,8 @@
   },
   "dependencies": {
     "@analogjs/vite-plugin-angular": "2.7.2",
-    "@angular/build": "22.2.0",
-    "@angular/compiler-cli": "22.2.0",
+    "@angular/build": "22.1.9",
+    "@angular/compiler-cli": "22.1.8",
     "@vitejs/plugin-react": "6.1.1",
     "@vitejs/plugin-vue": "6.0.9",
     "vite": "8.3.0"
