@@ -46,6 +46,7 @@ import {
   StickyTabsList,
   DataState,
   DocHint,
+  KpiCard,
   MiniChart,
   FlashValue,
 } from "../components/ui";
@@ -204,94 +205,6 @@ function Panel({
       </Group>
       {children}
     </Card>
-  );
-}
-
-/**
- * **KpiCard** — carte de tête riche : label + ⓘ, grande valeur, **pied de carte**
- * (sous-métriques live), accent coloré, et **clic → onglet** (intégration au
- * dashboard). Bordure accent quand l'onglet cible est actif.
- */
-function KpiCard({
-  icon,
-  label,
-  hint,
-  info,
-  value,
-  accent = "brand",
-  footer,
-  onClick,
-  active,
-  pulse,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  hint?: string;
-  info?: React.ReactNode;
-  value: React.ReactNode;
-  accent?: MantineColor;
-  footer?: React.ReactNode;
-  onClick?: () => void;
-  active?: boolean;
-  /** Halo CSS pulsant — signale que cette carte est rafraîchie en temps réel. */
-  pulse?: boolean;
-}) {
-  return (
-    <Grid.Col span={{ base: 12, sm: 6, lg: 3 }}>
-      <Card
-        withBorder
-        radius="md"
-        p="md"
-        h="100%"
-        className={pulse ? "nf-live-card" : undefined}
-        onClick={onClick}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        aria-pressed={onClick ? active : undefined}
-        onKeyDown={
-          onClick
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onClick();
-                }
-              }
-            : undefined
-        }
-        style={{
-          cursor: onClick ? "pointer" : undefined,
-          borderColor: active
-            ? `var(--mantine-color-${accent}-filled)`
-            : undefined,
-          transition: "border-color 120ms ease",
-        }}
-      >
-        <Group justify="space-between" wrap="nowrap" mb={8} align="flex-start">
-          <Group gap={6} wrap="nowrap" c="dimmed" style={{ minWidth: 0 }}>
-            <Text
-              size="xs"
-              fw={600}
-              tt="uppercase"
-              style={{ letterSpacing: 0.3 }}
-              truncate
-            >
-              {label}
-            </Text>
-            {info ??
-              (hint ? (
-                <DocHint title={label} version={ORM_DOC} summary={hint} />
-              ) : null)}
-          </Group>
-          <ThemeIcon variant="light" color={accent} size={34} radius="md">
-            {icon}
-          </ThemeIcon>
-        </Group>
-        <Text fw={700} style={{ fontSize: 30, lineHeight: 1.05 }}>
-          {value}
-        </Text>
-        {footer ? <div style={{ marginTop: 10 }}>{footer}</div> : null}
-      </Card>
-    </Grid.Col>
   );
 }
 
@@ -1047,6 +960,7 @@ export const OrmOverview = observer(
             label="Connecteurs"
             accent="brand"
             icon={<IconDatabase size={20} />}
+            hintVersion={ORM_DOC}
             hint="ORM enregistrés dans le registre process-wide. Clic → onglet Connecteurs."
             value={list.length || "—"}
             active={section === "connecteurs"}
@@ -1163,6 +1077,7 @@ export const OrmOverview = observer(
             label="Entités"
             accent="indigo"
             icon={<IconTable size={20} />}
+            hintVersion={ORM_DOC}
             hint="Entités mappées tous connecteurs. Clic → onglet Modèle de données."
             value={entities.length || "—"}
             active={section === "modele"}
@@ -1194,6 +1109,7 @@ export const OrmOverview = observer(
             label="Lignes (réelles)"
             accent="teal"
             icon={<IconChartBar size={20} />}
+            hintVersion={ORM_DOC}
             hint="Total des lignes en base (COUNT(*) par table) + table la plus volumineuse. Clic → onglet Modèle de données."
             value={
               counts.loading ? (

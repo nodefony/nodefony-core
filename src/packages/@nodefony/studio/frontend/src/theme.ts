@@ -3,6 +3,7 @@ import {
   createTheme,
   Modal,
   NavLink,
+  Tabs,
   type MantineColorsTuple,
 } from "@mantine/core";
 
@@ -156,6 +157,25 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
               }
             : { root: { minHeight: "24px" } },
       }),
+      // Onglet ACTIF en `pills` — même règle que le `NavLink` : l'aplat descend
+      // à `brand.7` au lieu du `primaryShade`. Le libellé blanc sur `brand.4`
+      // (`#4792cd`) mesurait **3,35:1** (axe-core, tableau de bord ORM), et
+      // `autoContrast` ne corrige pas ce cas : Mantine classe ce bleu parmi
+      // les teintes FONCÉES (luminance sous son seuil de 0,3) et garde le
+      // blanc. Borné au variant `pills` et à la couleur par défaut : en
+      // `default`, la même teinte colore un simple soulignement, qui doit au
+      // contraire rester CLAIR pour se voir sur fond sombre ; et un appelant
+      // qui choisit sa couleur la garde.
+      Tabs: Tabs.extend({
+        vars: (_theme, props) => ({
+          root: {
+            "--tabs-color":
+              props.variant === "pills" && props.color === undefined
+                ? "var(--mantine-color-brand-7)"
+                : undefined,
+          },
+        }),
+      }),
       // Toute commande à icône seule doit pouvoir être ATTEINTE — WCAG 2.2,
       // critère 2.5.8 « Target Size (Minimum) », 24 × 24 px.
       //
@@ -203,8 +223,8 @@ export function buildStudioTheme(palette: StudioPalette = "nodefony") {
 export const studioTheme = buildStudioTheme();
 
 /**
- * Surcharge des variables CSS Mantine — **contraste du texte secondaire**, dans
- * les DEUX schémas.
+ * Surcharge des variables CSS Mantine — **contraste du texte secondaire** dans
+ * les DEUX schémas, et des **liens** en sombre.
  *
  * `c="dimmed"` est le style du texte de second plan (en-têtes de groupes du
  * menu, légendes, métadonnées). Il passait sous le seuil WCAG AA de 4,5:1 des
@@ -234,5 +254,11 @@ export const studioCssVariablesResolver = () => ({
   },
   dark: {
     "--mantine-color-dimmed": "var(--mantine-color-dark-1)",
+    // Liens : la teinte par défaut en sombre est `brand.4` (`#4792cd`), soit
+    // **4,04:1** sur le fond d'une carte (`#2e2e2e`) — mesuré par axe-core sur
+    // le tableau de bord ORM, en 12 px, donc sous le seuil AA de 4,5. Un cran
+    // plus clair dans la MÊME famille (`brand.3`) atteint ~5,5:1 sur carte et
+    // ~6,2:1 sur le fond de page : la marque reste, la lisibilité passe.
+    "--mantine-color-anchor": "var(--mantine-color-brand-3)",
   },
 });

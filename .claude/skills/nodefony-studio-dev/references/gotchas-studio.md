@@ -404,3 +404,17 @@ est un **BUG** (une donnée fausse trompe plus qu'elle n'informe). Détail : `tw
 (code 65) sur « action impossible ». Viser la piste visible : `clic:[class*='Switch-track']`,
 après un `voir:` qui amène le panneau dans la vue. Même famille pour une `Checkbox` : cliquer son
 libellé la COCHE (cf skill `nodefony-browser`), donc `voir` pour observer, sélecteur pour agir.
+
+## Accessibilité : trois règles que le kit porte, ne pas les recopier
+
+- **Une carte cliquable n'est pas un bouton.** `role="button"` sur une `Card` qui contient une aide
+  ⓘ imbrique deux contrôles (`axe` : `nested-interactive`). `KpiCard` pose un VRAI bouton sur le
+  libellé, dont un enfant absolu s'étire sur la carte ; l'aide passe au-dessus (`zIndex`). Une
+  copie locale de `KpiCard` dans une page échappe à cette correction — importer celle du kit.
+- **La cible d'un `HoverCard`/`Popover` est un bouton.** Mantine y injecte `aria-haspopup` et
+  `aria-expanded` sans condition : sur un `<div>` c'est un `aria-allowed-attr` critique. Une bulle
+  qui CONTIENT un contrôle (`SegmentedControl`…) s'ouvre au clic par un `Popover`, jamais au survol.
+- **Un contraste se corrige dans `theme.ts`.** `autoContrast` ne sauve pas `brand.4` (`#4792cd`) :
+  Mantine le classe « foncé » et garde le blanc (3,35:1). Les aplats actifs (`NavLink`, `Tabs`
+  `pills`) descendent à `brand.7` ; les liens en sombre montent à `brand.3`. Mesurer les DEUX thèmes
+  — en sonde, basculer par `clic:[aria-label='Toggle theme']`.

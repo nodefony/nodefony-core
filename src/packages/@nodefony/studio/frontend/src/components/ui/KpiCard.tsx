@@ -1,4 +1,11 @@
-import { Card, Grid, Group, Text, ThemeIcon } from "@mantine/core";
+import {
+  Card,
+  Grid,
+  Group,
+  Text,
+  ThemeIcon,
+  UnstyledButton,
+} from "@mantine/core";
 import type { MantineColor } from "@mantine/core";
 import type { ReactNode } from "react";
 import { DocHint } from "./DocHint";
@@ -8,6 +15,8 @@ export interface KpiCardProps {
   label: string;
   /** Bulle ⓘ simple (idéalement DYNAMIQUE — interpolée des données live). */
   hint?: string;
+  /** Version de doc affichée dans la bulle `hint` (badge de `DocHint`). */
+  hintVersion?: string;
   /** Fiche d'aide riche (ex. `<DocHint/>`) — rendue À LA PLACE de `hint` si fournie. */
   info?: ReactNode;
   value: ReactNode;
@@ -15,7 +24,11 @@ export interface KpiCardProps {
   accent?: MantineColor;
   /** Pied de carte : sous-métriques live (badges). */
   footer?: ReactNode;
-  /** Rend la carte cliquable (→ navigation/onglet) ; accessible clavier. */
+  /**
+   * Rend la carte cliquable (→ navigation/onglet). La carte ne devient PAS un
+   * bouton : un vrai bouton nommé par `label` porte l'activation et s'étire sur
+   * toute la surface, l'aide ⓘ restant atteignable au-dessus.
+   */
   onClick?: () => void;
   /** Bordure d'accent quand la cible est active. */
   active?: boolean;
@@ -36,6 +49,7 @@ export function KpiCard({
   icon,
   label,
   hint,
+  hintVersion,
   info,
   value,
   accent = "brand",
@@ -45,6 +59,22 @@ export function KpiCard({
   pulse,
   span = { base: 12, sm: 6, lg: 3 },
 }: KpiCardProps) {
+  const labelText = (
+    <Text
+      size="xs"
+      fw={600}
+      tt="uppercase"
+      style={{ letterSpacing: 0.3 }}
+      truncate
+    >
+      {label}
+    </Text>
+  );
+  const help =
+    info ??
+    (hint ? (
+      <DocHint title={label} version={hintVersion} summary={hint} />
+    ) : null);
   return (
     <Grid.Col span={span}>
       <Card
@@ -53,21 +83,9 @@ export function KpiCard({
         p="md"
         h="100%"
         className={pulse ? "nf-live-card" : undefined}
-        onClick={onClick}
-        role={onClick ? "button" : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        aria-pressed={onClick ? active : undefined}
-        onKeyDown={
-          onClick
-            ? (e) => {
-                if (e.key === "Enter" || e.key === " ") {
-                  e.preventDefault();
-                  onClick();
-                }
-              }
-            : undefined
-        }
         style={{
+          // Bloc conteneur de la zone d'activation étirée (cf plus bas).
+          position: "relative",
           cursor: onClick ? "pointer" : undefined,
           borderColor: active
             ? `var(--mantine-color-${accent}-filled)`
@@ -81,16 +99,42 @@ export function KpiCard({
       >
         <Group justify="space-between" wrap="nowrap" mb={8} align="flex-start">
           <Group gap={6} wrap="nowrap" c="dimmed" style={{ minWidth: 0 }}>
-            <Text
-              size="xs"
-              fw={600}
-              tt="uppercase"
-              style={{ letterSpacing: 0.3 }}
-              truncate
-            >
-              {label}
-            </Text>
-            {info ?? (hint ? <DocHint title={label} summary={hint} /> : null)}
+            {onClick ? (
+              /*
+                🔴 Une carte cliquable n'est PAS un bouton : elle contient déjà
+                le bouton de sa fiche d'aide, et un contrôle ne s'imbrique pas
+                dans un autre (`axe` : `nested-interactive`) — au clavier, la
+                tabulation entrait dans la carte puis dans son aide sans rien
+                annoncer. La zone d'activation est donc ce VRAI bouton, nommé
+                par le libellé ; son enfant absolu s'étire sur toute la carte
+                (bloc conteneur = la `Card`, le bouton restant `static`), si
+                bien qu'un clic n'importe où l'active toujours. L'aide passe
+                AU-DESSUS de cette nappe (`zIndex`), sinon elle deviendrait
+                inatteignable à la souris.
+              */
+              <UnstyledButton
+                onClick={onClick}
+                aria-pressed={active}
+                style={{ minWidth: 0, color: "inherit" }}
+              >
+                <span
+                  aria-hidden
+                  style={{
+                    position: "absolute",
+                    inset: 0,
+                    borderRadius: "inherit",
+                  }}
+                />
+                {labelText}
+              </UnstyledButton>
+            ) : (
+              labelText
+            )}
+            {help ? (
+              <span style={{ position: "relative", zIndex: 1, lineHeight: 0 }}>
+                {help}
+              </span>
+            ) : null}
           </Group>
           <ThemeIcon variant="light" color={accent} size={34} radius="md">
             {icon}

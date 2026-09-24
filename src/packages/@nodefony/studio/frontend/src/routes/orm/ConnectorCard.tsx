@@ -23,7 +23,7 @@ import {
   Tabs,
   Anchor,
   Switch,
-  HoverCard,
+  Popover,
   SegmentedControl,
   CopyButton,
   Tooltip,
@@ -38,6 +38,7 @@ import {
   IconAffiliate,
   IconTable,
   IconBolt,
+  IconAdjustmentsHorizontal,
   IconChartBar,
   IconCategory,
   IconActivity,
@@ -1111,26 +1112,35 @@ export function OrmRealtimeControls({
   return (
     <Group gap="xs">
       {live && <span className="nf-live-dot" aria-hidden />}
-      <HoverCard
-        width={250}
-        shadow="md"
-        position="bottom"
-        withinPortal
-        openDelay={120}
-        closeDelay={120}
-      >
-        <HoverCard.Target>
-          <div>
-            <Switch
-              size="sm"
-              checked={live}
-              onChange={(e) => onToggle(e.currentTarget.checked)}
-              label="Temps réel"
-              aria-label={ariaLabel}
-            />
-          </div>
-        </HoverCard.Target>
-        <HoverCard.Dropdown>
+      <Switch
+        size="sm"
+        checked={live}
+        onChange={(e) => onToggle(e.currentTarget.checked)}
+        label="Temps réel"
+        aria-label={ariaLabel}
+      />
+      {/*
+        La cadence s'ouvre par un VRAI bouton, au clic : la bulle contient un
+        contrôle (`SegmentedControl`), qu'un survol rendait inatteignable au
+        clavier. Et la cible d'un popover reçoit `aria-haspopup`/`aria-expanded`,
+        valides sur un bouton, invalides sur le `<div>` qui enveloppait le switch
+        (`axe` : `aria-allowed-attr`, critique).
+      */}
+      <Popover width={250} shadow="md" position="bottom" withinPortal>
+        <Popover.Target>
+          <ActionIcon
+            variant="subtle"
+            color="gray"
+            w={24}
+            h={24}
+            aria-label={
+              auto ? "Cadence désirée (plancher)" : "Granularité du canal"
+            }
+          >
+            <IconAdjustmentsHorizontal size={15} stroke={1.6} />
+          </ActionIcon>
+        </Popover.Target>
+        <Popover.Dropdown>
           <Group gap={6} mb={6}>
             <IconBolt size={14} />
             <Text size="xs" fw={600}>
@@ -1154,8 +1164,8 @@ export function OrmRealtimeControls({
               ? "Cadence auto (AIMD) ACTIVE — réglée globalement dans le Hub. Cette valeur sert de plancher : la socket part de là et l'ajuste seule selon la charge serveur."
               : "Cadence des pushes de la socket (sonde ORM). Plus court = plus réactif, mais plus de sondes par seconde côté serveur. (Cadence auto réglable dans le Hub.)"}
           </Text>
-        </HoverCard.Dropdown>
-      </HoverCard>
+        </Popover.Dropdown>
+      </Popover>
       {auto && live ? (
         <Badge
           size="sm"
