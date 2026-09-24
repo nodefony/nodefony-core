@@ -370,7 +370,7 @@ JSON Schema pour l'écran de configuration de Studio.
 > **`backendPort` n'est pas forcément le port écouté.** Avec une politique de port automatique, un
 > 5151 occupé fait glisser l'écoute sur 5153. Un proxy figé enverrait alors les appels de ton
 > interface vers le serveur d'une **autre** application. Le module lit donc le port réel sur le
-> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:471`) et journalise
+> serveur lui-même (`FrontendService.resolveBackendPort()`, `FrontendService.ts:493`) et journalise
 > l'écart.
 
 ### Le build de production
@@ -641,7 +641,7 @@ const tags = frontend.renderTags("shop", context.cspNonce);
 const html = frontend.renderDocument("shop", context.cspNonce);
 ```
 
-`renderDocument` (`FrontendService.ts:904`) lit l'`index.html` **de ton module**, retire le `<script>`
+`renderDocument` (`FrontendService.ts:926`) lit l'`index.html` **de ton module**, retire le `<script>`
 d'entrée source, injecte les balises au marqueur (ou avant `</head>`), et renvoie le document.
 Pas d'`index.html` ? Une coquille minimale est générée. En production, l'index est mis en cache ; en
 développement il est relu à chaque appel, pour que tes modifications de la coquille apparaissent.
@@ -703,7 +703,7 @@ Quatre comportements à connaître :
   les autres résultats.
 - **Le résultat est un bilan** : construits / ignorés / en échec, journalisé et renvoyé.
 - **Un démarrage en production sans build se répare — ou se dénonce.** `setupProd()`
-  (`FrontendService.ts:683`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
+  (`FrontendService.ts:705`) vérifie le manifeste de chaque entrée AVANT de monter les statics.
   Manifeste absent et Vite installé (poste de développement, devDependencies présentes) : le build
   tourne **une fois au démarrage**, annoncé en WARNING — fini l'écran blanc après un
   `nodefony production --detach` lancé trop tôt. Manifeste absent et Vite introuvable (image de
@@ -739,7 +739,7 @@ use("@nodefony/frontend", { assetBaseUrl: "https://cdn.example.com" });
 // → <script src="https://cdn.example.com/_assets/shop/main-a1b2c3.js">
 ```
 
-En production, `setupProd()` (`FrontendService.ts:683`) monte chaque dossier de sortie sur son
+En production, `setupProd()` (`FrontendService.ts:705`) monte chaque dossier de sortie sur son
 `publicPath` via le serveur statique — résolu **par nom**, jamais par import, pour ne pas créer de
 cycle. Si ce service est absent (proxy frontal, CDN devant), un avertissement le dit et rien n'est
 monté : c'est un déploiement valide, pas une panne.
@@ -786,7 +786,7 @@ origine. Or en développement, tes modules viennent du port 5173 alors que ta pa
 
 La solution retenue n'est pas d'affaiblir la politique, mais de la **composer**. Une fois Vite prêt
 (donc ses ports réellement connus), le service déclare ses origines au pare-feu
-(`#registerCsp()`, `FrontendService.ts:990`), qui émet **un seul** en-tête, origines fusionnées et
+(`#registerCsp()`, `FrontendService.ts:1012`), qui émet **un seul** en-tête, origines fusionnées et
 nonce par requête. À l'arrêt, les origines sont retirées et la politique redevient stricte.
 
 Le fragment déclaré (`#viteCspFragment()`, `FrontendService.ts:1012`) mérite deux explications, parce

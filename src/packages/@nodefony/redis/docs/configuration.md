@@ -534,7 +534,7 @@ abonné ne peut plus émettre de commandes normales. Une connexion unique rendra
 stockage mutuellement exclusifs.
 
 Ajouter une connexion se fait en nommant une nouvelle clé. La fusion du manifeste est **profonde** —
-`loadModulesFromManifest()` (`Kernel.ts:1492`) fusionne la configuration de `use()` sous les défauts
+`loadModulesFromManifest()` (`Kernel.ts:1656`) fusionne la configuration de `use()` sous les défauts
 déjà matérialisés du module — donc les trois connexions d'usine restent en place :
 
 ```ts ignore
@@ -702,7 +702,7 @@ faire avant une mise en production.
 | Toutes les connexions atterrissent sur la même base | L'URL porte un chemin (`…/2`) qui écrase le `database` de chaque connexion | Déclarer l'URL sans chemin et laisser `database` cloisonner |
 | Le démarrage pend, sans erreur, sans Redis | Tentatives illimitées : la première ouverture ne rend pas la main | Hors production c'est déjà borné (`applyResilienceDefaults()` (`defineModuleConfig.ts:65`)) ; sinon fixer une valeur finie |
 | Erreur `NOAUTH` alors que le mot de passe est configuré | L'URL porte des identifiants qui recouvrent `NF_REDIS_PASSWORD` | Ne pas mélanger : l'URL **ou** hôte + mot de passe |
-| Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:241`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
+| Les sessions ont changé de magasin sans qu'on touche à la configuration | `NF_REDIS_URL` déclare une infra de cache → `resolveAutoStore()` (`infra.ts:297`) bascule les briques `auto` | Nommer le store explicitement pour un comportement identique partout |
 | Une surcharge de connexion ramène le port à `6379` | Un schéma partiel qui réappliquerait ses défauts — d'où `socketOverrideSchema` (`config.ts:133`) sans défaut | Ne poser que les champs voulus ; les autres héritent du socket global |
 | Le module démarre mais n'ouvre rien | `enabled: false` — module chargé, inerte (`RedisService.init()` (`redis.ts:123`)) | Le réactiver, ou retirer le module du manifeste |
 | Le formulaire Studio annonce `maxRetries: 0` en développement | Le JSON Schema décrit le schéma, pas la superposition d'exécution | Lire la configuration effective du service |

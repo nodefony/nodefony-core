@@ -497,7 +497,7 @@ clé privée n'existe que dans l'authenticator.
 | `id`             | Identifiant du credential, base64url — clé naturelle | `text` PK           | `_id: String`    | clé `nf:wac:cred:<id>`  |
 | `userId`         | Porteur (= identifiant applicatif / `userHandle`)    | `text` notNull, idx | `String` indexé  | champ + SET `user:<id>` |
 | `publicKey`      | Clé publique **COSE**, base64url                     | `text` notNull      | `String` requis  | champ                   |
-| `signCount`      | Compteur anti-clone (§6.1.1)                         | `int` notNull       | `Number` requis  | champ                   |
+| `signCount`      | Compteur anti-clone (§6.1.1)                         | `int64` notNull     | `Number` requis  | champ                   |
 | `transports`     | `usb`\|`nfc`\|`ble`\|`internal`\|`hybrid`            | `json` notNull      | `[String]`       | champ JSON              |
 | `backupEligible` | BE flag — fixé à l'enrôlement, **immuable**          | `bool` notNull      | `Boolean` requis | `"1"`/`"0"`             |
 | `backupState`    | BS flag — la passkey **est** sauvegardée             | `bool` notNull      | `Boolean` requis | `"1"`/`"0"`             |
@@ -550,7 +550,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
   `#byId` (vérité) et `#idsByUser` (`allowCredentials`) — `MemoryWebAuthnCredentialStore.ts:47`.
 - `listPage` trie `createdAt` DESC avec `id` en départage → offset déterministe, parité SQL
   (`MemoryWebAuthnCredentialStore.ts:131`). C'est lui qui pilote le banc de contrat partagé.
-- `snapshot()` / `restore()` sérialisables (`MemoryWebAuthnCredentialStore.ts:153`) ; le service
+- `snapshot()` / `restore()` sérialisables (`MemoryWebAuthnCredentialStore.ts:181`) ; le service
   déclenche un `flushNow()` à l'arrêt si le store sait le faire (`webAuthn.ts:254`).
 
 ### `drizzle` — SQL, le durable par défaut

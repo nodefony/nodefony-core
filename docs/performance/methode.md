@@ -1,5 +1,7 @@
 ---
 title: "Méthode de mesure — comment un chiffre devient une mesure"
+navTitle: Méthode de mesure
+updated: 2026-09-14
 lang: fr
 module: "global"
 topic: perf-methode

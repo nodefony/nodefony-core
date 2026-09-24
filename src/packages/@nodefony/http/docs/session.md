@@ -309,7 +309,7 @@ Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:782`) et
 ### Comment `store: "auto"` se résout au boot
 
 `auto` n'est pas un store : c'est une sentinelle résolue une fois, au boot, par `resolveAutoStore()`
-(`config/infra.ts:241`), puis journalisée. Elle suit **l'infra que tu as déclarée**, bornée aux stores
+(`config/infra.ts:297`), puis journalisée. Elle suit **l'infra que tu as déclarée**, bornée aux stores
 réellement enregistrés (`SessionsService.initializeStorage()`, `sessions-service.ts:231`).
 
 ```mermaid
@@ -395,7 +395,7 @@ d'ordre global) et `countSessions()` renvoie **`-1`** = « je ne sais pas »
 ### `mongoose` — MongoDB, parité de comportement
 
 Même sémantique que le store SQL : `findOneAndUpdate({ upsert: true })` en une passe
-(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:102`), `touch` en `updateOne`
+(`@nodefony/mongoose/nodefony/src/SessionStorage.ts:195`), `touch` en `updateOne`
 (`@nodefony/mongoose/nodefony/src/SessionStorage.ts:174`), GC en deux suppressions `$lt`
 (`@nodefony/mongoose/nodefony/src/SessionStorage.ts:144-166`). Les horodatages sont des **nombres**
 (epoch ms) et non des `Date` Mongo, précisément pour que le store reste interchangeable avec Drizzle.

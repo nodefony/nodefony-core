@@ -1,5 +1,7 @@
 ---
 title: "Où part le temps — pipeline, comparaisons, bases de données"
+navTitle: Où part le temps
+updated: 2026-09-14
 lang: fr
 module: "global"
 topic: perf-analyses

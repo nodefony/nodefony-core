@@ -80,7 +80,7 @@ D'où **trois modes**, un par connecteur, réglés par la clé `ddl` :
 
 ## 🚀 Démarrage rapide
 
-Cinq verbes, et un seul à retenir pour le quotidien du développement.
+Six verbes, et un seul à retenir pour le quotidien du développement.
 
 ```bash
 # Ce que la base a reçu, ce qui reste, et ce qu'il faut taper. N'écrit rien.
@@ -490,7 +490,7 @@ qui la prend. Un outil qui prétendrait la préparer tout seul inviterait à ne 
 Ce que l'outil fait à la place, et qui vaut mieux :
 
 - **il refuse d'appliquer sans que vous sachiez.** Le SQL en attente est examiné avant la moindre
-  écriture (`scanDestructive()`, `destructive.ts:184`) : une suppression de données est refusée hors
+  écriture (`scanDestructive()`, `destructive.ts:282`) : une suppression de données est refusée hors
   développement, en nommant l'instruction et ce qui disparaît. Il faut `--allow-destructive` pour
   passer outre, et **au démarrage il n'y a aucun drapeau pour lever le refus** — un exemplaire qui
   redémarre ne supprime jamais de colonne de lui-même, parce que personne ne regarde à ce

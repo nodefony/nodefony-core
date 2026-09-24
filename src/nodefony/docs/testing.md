@@ -81,7 +81,7 @@ console.log(res.status);
 | --- | --- | --- |
 | `createTestModule()` (`testing/index.ts:160`) | Rend un `Module` jetable portant un conteneur et un bus d'événements | Test unitaire d'un service |
 | `runningAppPort()` (`testing/index.ts:96`) | Lit le port de l'application démarrée par le décor | Tout test de bout en bout |
-| `startSpareApp()` (`testing/index.ts:251`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
+| `startSpareApp()` (`testing/index.ts:302`) | Démarre un exemplaire jetable dans un état choisi, puis restaure l'état d'exécution | Éprouver un démarrage, pas un fonctionnement |
 | `nodefonyBin()` (`testing/index.ts:64`) | Résout le lanceur du framework, où qu'il soit installé | Appeler une commande depuis un script |
 
 ### `createTestModule()` — et ce qu'il ne fait pas

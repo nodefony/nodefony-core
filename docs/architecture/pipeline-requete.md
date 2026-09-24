@@ -267,14 +267,14 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 3   | rate-limit par IP      | `http-kernel.ts:865`                                         | un flood est rejeté en 429, **sans** contexte ni scope           |
 | 4   | `handle()`             | `HttpKernel.handle()` (`http-kernel.ts:721`)                 | le **scope DI « request »** est ouvert                           |
 | 5   | `createHttpContext()`  | `http-kernel.ts:1253`                                        | le contexte existe ; le teardown est armé (`once("close")`)      |
-| 6   | `traceparent`          | `http-kernel.ts:1304`                                        | la trace W3C est résolue (héritée ou générée)                    |
+| 6   | `traceparent`          | `http-kernel.ts:1348`                                        | la trace W3C est résolue (héritée ou générée)                    |
 | 7   | `RequestContext.run()` | `http-kernel.ts:431`                                         | **la bulle ALS est ouverte** — `requestId` propagé partout       |
 | 8   | CORS                   | `Firewall.handleCors()` (`firewall.ts:1007`)                 | un **preflight** répond 204 et **sort** du pipeline              |
 | 9   | routage                | `Router.resolve()` (`router.ts:230`)                         | `context.resolver` porte la route, le contrôleur, les variables  |
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1029`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
 | 11  | fallback statique      | `serverStatic` (`http-kernel.ts:241`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
 | 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1224`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
-| 13  | `onRequestEnd()`       | `http-kernel.ts:1399`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
+| 13  | `onRequestEnd()`       | `http-kernel.ts:1443`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
 | 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:767`) | la route est **matchée** ; rien n'est instancié encore           |
 | 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:948`)                 | une mutation cross-site est refusée (403)                        |
 | 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1139`)          | `context.session` existe **si** la route ou un cookie l'exige    |
@@ -306,7 +306,7 @@ construit.
 ### Du retour d'action à l'octet
 
 La valeur que retourne ton action n'est pas envoyée telle quelle :
-`Resolver.returnController()` (`Resolver.ts:697`) la normalise.
+`Resolver.returnController()` (`Resolver.ts:827`) la normalise.
 
 | Ce que l'action retourne      | Ce qui part sur le fil                              |
 | ----------------------------- | --------------------------------------------------- |
@@ -515,7 +515,7 @@ raison est concrète : cette valeur repart dans un en-tête et dans les logs —
 serait une injection de logs.
 
 Pour relier ta requête à une trace **distribuée**, l'en-tête W3C `traceparent` suit le même chemin :
-honoré s'il arrive, généré sinon (`http-kernel.ts:1304`), et réfléchi dans la réponse
+honoré s'il arrive, généré sinon (`http-kernel.ts:1348`), et réfléchi dans la réponse
 (`Response.ts:386`).
 
 ## 🔐 Où s'insèrent les défenses
@@ -549,7 +549,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | Domaine                      | Norme             | Ancrage                                                 |
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:55`)            |
-| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:1705`) |
+| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:1749`) |
 | Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:415`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |

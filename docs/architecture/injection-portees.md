@@ -424,7 +424,7 @@ seulement à la **construction**.
 
 La solution est un apprentissage : au moment où le service est **posé** au container, le couple
 (classe, clé) est enfin connu — il est mémorisé (`Injector.rememberContainerKey()`, `injector.ts:88`)
-depuis `Module.addService()` (`Module.ts:441`) et `Kernel.addKernelService()` (`Kernel.ts:1443`).
+depuis `Module.addService()` (`Module.ts:441`) et `Kernel.addKernelService()` (`Kernel.ts:1484`).
 
 Toute résolution ultérieure passe donc par la **classe**. Sans ce relais, `@inject("Router")`
 interrogeait le container avec `"Router"` là où l'instance est rangée sous `"router"` : réponse

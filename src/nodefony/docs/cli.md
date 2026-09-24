@@ -55,7 +55,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:507`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:532`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -189,7 +189,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:507`). La
+Seize commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:532`). La
 colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -277,7 +277,7 @@ nodefony create command import --phase onReady                    # commande CLI
 > marche, et elle reste **invisible au conteneur**. Sans générateur de commande, il n'a aucun
 > modèle et invente. Un type de scaffold manquant ne se voit pas — il se paie en code inventé.
 
-Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:1115`),
+Le moteur est **pur** et piloté par une spec déclarative 100 % JSON (`getScaffoldSpec()`, `spec.ts:1141`),
 partagée par trois fronts : le CLI rapide (flags), le CLI interactif (readline), et un futur formulaire
 Studio. Ajouter une question = une entrée dans la spec, aucun front à toucher.
 
@@ -337,7 +337,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:540`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:569`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie

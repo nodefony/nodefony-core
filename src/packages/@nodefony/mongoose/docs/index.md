@@ -195,8 +195,8 @@ implémente**, dans son `package.json` (clé `nodefony.stores`), et le framework
 à chaud (`readAdapterManifest()` (`KernelAdminApi.ts:84`)). Rien n'est curaté dans le cœur : la
 source de vérité, c'est l'adapter lui-même — ce qui vaut aussi pour un adapter tiers.
 
-Ce que `@nodefony/mongoose` déclare : `session`, `user`, `tokens`, `passkeys`, `webhooks`, avec la
-nature `durable`. Comparé aux deux autres adapters officiels :
+Ce que `@nodefony/mongoose` déclare : les huit briques — `session`, `user`, `tokens`, `passkeys`,
+`totp`, `audit`, `webhooks`, `idempotency` — avec la nature `durable`. Comparé aux deux autres adapters officiels :
 
 <!-- prettier-ignore -->
 | Brique | `@nodefony/drizzle` (SQL) | `@nodefony/mongoose` (Mongo) | `@nodefony/redis` (cache) |
@@ -206,24 +206,16 @@ nature `durable`. Comparé aux deux autres adapters officiels :
 | `tokens` | ✅ | ✅ | ✅ |
 | `passkeys` | ✅ | ✅ | ✅ |
 | `webhooks` | ✅ | ✅ | — |
-| `totp` | ✅ | — | — |
-| `audit` | ✅ | — | — |
-| `idempotency` | ✅ | — | ✅ |
+| `totp` | ✅ | ✅ | — |
+| `audit` | ✅ | ✅ | — |
+| `idempotency` | ✅ | ✅ | ✅ |
 | Nature | durable | durable | cache |
 
 > [!IMPORTANT]
-> **Ces trois cases vides sont un manque, et il sera comblé.** L'objectif est qu'une application
-> puisse tourner **entièrement sur MongoDB, sans charger `@nodefony/drizzle`** — donc mongoose à 8/8
-> Le raisonnement « ces briques-là appellent d'autres propriétés »
-> décrit une préférence technique, pas ce que vit l'utilisateur : **tu choisis une base de données, tu
-> ne choisis pas de perdre le 2FA, la traçabilité ou la déduplication.**
->
-> En attendant, ces trois briques se résolvent ailleurs **et te le disent** (repli annoncé au boot,
-> avertissement en production) — mais mesure ce que le repli coûte : secrets TOTP perdus au
-> redémarrage (utilisateurs verrouillés hors de leur second facteur), journal d'audit volatil,
-> idempotence sans effet entre pods. La parade immédiate tient en une ligne : charger
-> `@nodefony/drizzle` à côté de Mongo, **même en SQLite local** — les deux modules cohabitent, chaque
-> brique choisit son store.
+> **Une application tourne entièrement sur MongoDB, sans charger `@nodefony/drizzle`.** Les huit
+> briques y ont leur store, et ce n'est pas qu'une déclaration : `npm run test:all -- --mongo`
+> démarre l'application sur MongoDB et rejoue toute la passe d'intégration, et chaque store joue le
+> même banc de contrat que son jumeau SQL — cf [Parité des adaptateurs](../../../../docs/guides/parite-des-adaptateurs.md).
 >
 > La colonne `redis` obéit à une autre logique : elle gagnera `totp` (au régime opt-in de ses jetons
 > et passkeys, jamais choisi par `auto`), mais pas `user`, `audit` ni `webhooks` — non parce que

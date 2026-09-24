@@ -110,7 +110,7 @@ sait en plus se charger et s'accrocher au cycle de vie.
 
 **2. Le kernel s'enregistre lui-même, une fois.** Son constructeur (`Kernel.ts:489`) appelle
 `Nodefony.setKernel(this)` (`Kernel.ts:629`) et se pose au container sous la clé `kernel`
-(`Kernel.ts:389`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
+(`Kernel.ts:405`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
 façade pour le reste.
 
 **3. Le CLI n'est pas le noyau.** `CliKernel` (`CliKernel.ts:84`) étend `Cli`, **pas** `Kernel` : il
@@ -423,8 +423,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1683` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1686` | la table complète, **par référence** (ne pas la muter) |
+| `getModule(nom)` | `Kernel.ts:1766` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1769` | la table complète, **par référence** (ne pas la muter) |
 | `modules`        | `Kernel.ts:584`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
@@ -438,7 +438,7 @@ un conteneur neuf ou un premier boot ne les ont pas.
 
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
-| `path`   | `Kernel.ts:549` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
+| `path`   | `Kernel.ts:565` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
 | `varDir` | `Kernel.ts:518` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
 | `tmpDir` | `Kernel.ts:512` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
@@ -455,9 +455,9 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
 | `environment`               | `Kernel.ts:395`  | Le mode **moteur** : `"development"` ou `"production"`.                |
-| `domain`                    | `Kernel.ts:593`  | Le nom d'hôte retenu, résolu au boot.                                  |
+| `domain`                    | `Kernel.ts:609`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:3029` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:3316` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -495,7 +495,7 @@ même chose.
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
 | `fire(nom, …)`          | `Kernel.ts:2596` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
 | `fireAsync(nom, …)`     | `Kernel.ts:2614` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
-| `fireLifecycle(nom, …)` | `Kernel.ts:2980` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
+| `fireLifecycle(nom, …)` | `Kernel.ts:3795` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
 `fire`.** `fire()` ne t'apprend rien de ce qui s'est passé — il rend un booléen « quelqu'un
@@ -559,7 +559,7 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 | Membre                  | Ancre              | Rôle                                                                  |
 | ----------------------- | ------------------ | --------------------------------------------------------------------- |
 | `runProfile`            | `CliKernel.ts:101` | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
-| `setRunProfile(profil)` | `CliKernel.ts:895` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
+| `setRunProfile(profil)` | `CliKernel.ts:938` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
 | `packageManager`        | `CliKernel.ts:103` | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
 | `addCommand(Ctor)`      | `CliKernel.ts:670` | Enregistre une commande intégrée (les modules passent par `Module`).  |
 | `quietBoot`             | `CliKernel.ts:111` | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |

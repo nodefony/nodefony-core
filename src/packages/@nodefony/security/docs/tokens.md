@@ -338,7 +338,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 - `listPage` : tri `createdAt` DESC + tiebreaker `id`, déterministe pour l'offset — parité SQL
   (`MemoryTokenStore.ts:122-142`).
 - Denylist bornée : purge **amortie** tous les 256 ajouts — `#maybeSweep()`
-  (`MemoryTokenStore.ts:360`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
+  (`MemoryTokenStore.ts:393`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
 - `snapshot()`/`restore()` sérialisables — base d'une persistance fichier, index reconstruits
   (`MemoryTokenStore.ts:253-283`).
 - Volatil, par-process : dev/tests. Pilote le banc de contrat commun.
@@ -354,7 +354,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 
 - Enregistré par le module mongoose (`mongoose/nodefony/registerStores.ts:119`).
 - Pagination **offset + total** via `listPage` (`MongooseTokenStore.ts:163-173`).
-- Purge par `gc()` explicite sur `expiresAt` (`MongooseTokenStore.ts:196`).
+- Purge par `gc()` explicite sur `expiresAt` (`MongooseTokenStore.ts:170`).
 
 ### `redis` — cluster, TTL natif
 
@@ -364,7 +364,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 - Listing par `SCAN` : curseur opaque `skip:scanCursor`, `decodeCursor()`
   (`RedisTokenStore.ts:35-44`) — sans ordre global ni total, capacité réduite **assumée**.
 - `countTokens()` renvoie `-1` : un comptage exact exigerait un SCAN complet O(N), refusé
-  (`RedisTokenStore.ts:432`).
+  (`RedisTokenStore.ts:483`).
 
 ### Le record — une seule table pour PAT et refresh
 

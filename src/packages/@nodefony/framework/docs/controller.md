@@ -48,8 +48,8 @@ Trois idées à retenir :
 1. **Tu hérites de `Service`** — `Controller` étend `Service` (`Controller.ts:112`). Tu récupères
    donc gratuitement le container (`this.get()`), les logs (`this.log()`) et les événements.
 2. **Tu ne construis rien toi-même** — le `Resolver` instancie ta classe via l'injecteur
-   (`Resolver.newController()`, `Resolver.ts:236`), jamais un `new` direct.
-3. **Ton `return` EST la réponse** — `Resolver.returnController()` (`Resolver.ts:697`) traduit la
+   (`Resolver.newController()`, `Resolver.ts:254`), jamais un `new` direct.
+3. **Ton `return` EST la réponse** — `Resolver.returnController()` (`Resolver.ts:827`) traduit la
    valeur retournée : objet → JSON, string → corps brut, `void` → « j'ai répondu moi-même ».
 
 ## 📖 Lexique
@@ -200,7 +200,7 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1316`                               |
 | 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:767`)   |
 | 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1290`)    |
-| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1131`) |
+| 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1152`) |
 | 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
 | 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:313`)      |
@@ -300,7 +300,7 @@ class ChatController extends Controller {
 | `initialize()` | À chaque requête | **Une seule fois**, au handshake |
 
 La réutilisation de l'instance vient du cache posé sur le container du contexte
-(`Resolver.newController()`, `Resolver.ts:232`) : le contexte WS étant partagé par la connexion, le
+(`Resolver.newController()`, `Resolver.ts:254`) : le contexte WS étant partagé par la connexion, le
 contrôleur l'est aussi. Un garde-fou vérifie que l'instance cachée est bien de la classe de la route
 courante et la reconstruit sinon (`Resolver.ts:344-347`) — sans quoi un message invoquant une autre
 action se tromperait d'objet.
@@ -312,7 +312,7 @@ action se tromperait d'objet.
 
 Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1702`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
-(`http-kernel.ts:1131`), avant l'acceptation de la socket, et avant le firewall
+(`http-kernel.ts:1152`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).
 
 ## 🧠 D'où viennent `request`, `response`, `session`
@@ -387,7 +387,7 @@ Ce que ça change, concrètement :
 
 ## 🧰 Répondre — ce que ton `return` déclenche
 
-Le traducteur unique est `Resolver.returnController()` (`Resolver.ts:697`). Il regarde le **type**
+Le traducteur unique est `Resolver.returnController()` (`Resolver.ts:827`). Il regarde le **type**
 de ce que tu as retourné :
 
 <!-- prettier-ignore -->
@@ -399,14 +399,14 @@ de ce que tu as retourné :
 | Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734` |
 | Un `Buffer` | Envoyé brut | `Resolver.ts:723` |
 | Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:716` |
-| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:855`) |
+| `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:948`) |
 | `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:801` |
 | Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:770-777` |
 
 > [!WARNING]
 > **Le piège n° 1 : `return null` sur un statut à corps.** Le framework l'interprète comme « je
 > répondrai moi-même » et attend — jusqu'au timeout. La distinction se fait sur le **statut** :
-> `NO_BODY_STATUS` (`Resolver.ts:855`) contient 204, 205 et 304. Donc un `@Delete` qui fait
+> `NO_BODY_STATUS` (`Resolver.ts:948`) contient 204, 205 et 304. Donc un `@Delete` qui fait
 > `@HttpCode(204)` puis `return null` répond bien 204 vide ; le même `return null` sans `@HttpCode`
 > laisse la requête pendue.
 
@@ -437,7 +437,7 @@ Quand tu veux piloter l'envoi plutôt que retourner une valeur :
 > [!TIP]
 > **Redirection : le code par défaut est 302** (Found), pas 301. Un statut absent ou hors de la liste
 > RFC 9110 §15.4 (301, 302, 303, 307, 308) retombe sur 302 avec un log d'avertissement
-> (`Response.redirect()`, `Response.ts:595`). Un 301 par défaut piégeait : les navigateurs le mettent
+> (`Response.redirect()`, `Response.ts:611`). Un 301 par défaut piégeait : les navigateurs le mettent
 > en cache de façon quasi irréversible.
 
 ## 📁 Servir un fichier — téléchargement et flux média
@@ -493,7 +493,7 @@ L'exception remonte jusqu'à `HttpKernel.onError()` (`http-kernel.ts:874`), qui 
 forme au rendeur d'erreurs. Ce qui en sort :
 
 - **statut normalisé** — un code absent (ou l'ancien quirk `200`) devient **500**
-  (`normalizeHttpStatus()`, `error-renderer.ts:355`) ;
+  (`normalizeHttpStatus()`, `error-renderer.ts:642`) ;
 - **corps structuré** : `{ code, message, result: null, error: {…}, nodefony: {…} }`, l'enveloppe
   `nodefony` portant l'environnement, l'URL et l'**identifiant de requête** — de quoi retrouver la
   trace complète dans les logs ;
@@ -501,7 +501,7 @@ forme au rendeur d'erreurs. Ce qui en sort :
   ne tente pas de rendre — il journalise et s'arrête (`http-kernel.ts:770-775`).
 
 En **WebSocket**, il n'y a pas de statut : l'erreur devient un **code de fermeture** RFC 6455
-(`renderWebsocket()`, `error-renderer.ts:393`) — 401/403 → 1008 (violation de politique),
+(`renderWebsocket()`, `error-renderer.ts:518`) — 401/403 → 1008 (violation de politique),
 5xx → 1011 (erreur interne), le reste → 4004 (plage privée). Si la socket n'est pas encore acceptée,
 c'est un **rejet** de handshake.
 
@@ -521,7 +521,7 @@ explicite :
 const catalog = this.get<CatalogService>("catalog"); // null si absent ou container nettoyé
 ```
 
-`Service.get()` (`Service.ts:472`) est une **façade sûre** : elle retourne `null` au lieu de lever si
+`Service.get()` (`Service.ts:518`) est une **façade sûre** : elle retourne `null` au lieu de lever si
 le container a déjà été détaché. C'est le style à privilégier dans `initialize()`.
 
 ### 2. Injection par le constructeur — `@inject`
@@ -578,13 +578,13 @@ code du framework applique — et attend de toi — les règles suivantes :
 
 | Domaine                          | Norme                    | Comment le code s'y conforme                                   |
 | -------------------------------- | ------------------------ | -------------------------------------------------------------- |
-| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:855`)                           |
+| Statuts sans corps (204/205/304) | RFC 9110 §15.3.5/§15.4.5 | `NO_BODY_STATUS` (`Resolver.ts:948`)                           |
 | Requêtes par plage               | RFC 9110 §14.1.2, §14.2  | `parseByteRange()` (`Controller.ts:107`)                       |
 | Plage insatisfiable → 416        | RFC 9110 §15.5.17        | `renderResponse()` avec 416 (`Controller.ts:392`)              |
 | Redirections                     | RFC 9110 §15.4           | Liste blanche + repli 302 (`Response.ts:534`)                  |
 | Média JSON sans `charset`        | RFC 8259 §11             | Auto-JSON (`Resolver.ts:760`), vérifié par le banc `auto-json` |
 | Scalaire JSON de premier niveau  | RFC 8259 §2              | `number`/`boolean` rendus (`Resolver.ts:734`)                  |
-| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:393`)                  |
+| Codes de fermeture WebSocket     | RFC 6455 §7.4            | `renderWebsocket()` (`error-renderer.ts:518`)                  |
 
 ## 📡 Observabilité — Studio
 

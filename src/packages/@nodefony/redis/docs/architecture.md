@@ -351,7 +351,7 @@ survivre dans Redis jusqu'à la fin de son TTL d'inactivité, mais elle est refu
 ### `nf:tok:*` — les jetons, un HASH et quatre index
 
 Pourquoi un HASH plutôt qu'un blob JSON comme la session ? Parce qu'un jeton est **mis à jour en
-place** à chaque usage. `RedisTokenStore.markUsed()` (`RedisTokenStore.ts:436`) écrit un à trois
+place** à chaque usage. `RedisTokenStore.markUsed()` (`RedisTokenStore.ts:487`) écrit un à trois
 champs (`lastUsedAt`, IP, agent) sans relire l'enregistrement, sans le réécrire, et **sans toucher au
 TTL**. Avec un blob, chaque appel d'API coûterait une lecture, une désérialisation, une réécriture —
 et remettrait en jeu la date d'expiration.
@@ -363,10 +363,10 @@ utilisation.
 
 Les quatre index secondaires sont des SET (`subj`, `fam`) et des chaînes (`hash`, `revsub`). Aucun
 n'a de TTL : ils sont nettoyés **paresseusement**, quand une lecture tombe sur un membre dont
-l'enregistrement a expiré — voir `RedisTokenStore.findBySubject()` (`RedisTokenStore.ts:294`) et
-`RedisTokenStore.findByHash()` (`RedisTokenStore.ts:276`).
+l'enregistrement a expiré — voir `RedisTokenStore.findBySubject()` (`RedisTokenStore.ts:348`) et
+`RedisTokenStore.findByHash()` (`RedisTokenStore.ts:330`).
 
-La révocation combine les deux régimes. `RedisTokenStore.#applyRevoke()` (`RedisTokenStore.ts:470`)
+La révocation combine les deux régimes. `RedisTokenStore.#applyRevoke()` (`RedisTokenStore.ts:550`)
 pose la date et la raison, puis — si le jeton n'avait **pas** d'expiration (cas d'un PAT) — lui donne
 un TTL égal à la durée de rétention. Un jeton révoqué reste donc consultable un temps, puis disparaît
 tout seul.
@@ -450,7 +450,7 @@ muet ne l'est pas. Voici ce que le code fait réellement, moment par moment.
 ### Moment 1 — Redis est absent au démarrage
 
 Le module est déclaré non critique (`index.ts:36`), et l'initialisation du service est **bornée dans
-le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3651`) enveloppe l'appel dans un délai maximal de
+le temps** : `Kernel.guardInitialize()` (`Kernel.ts:3943`) enveloppe l'appel dans un délai maximal de
 démarrage. Un `init()` qui pend ne gèle donc pas le boot ; l'échec est agrégé au rapport de démarrage,
 qui fait dire « démarrage DÉGRADÉ » au superviseur au lieu de mentir sur un état sain.
 
@@ -596,7 +596,7 @@ erreur.
 À côté de la pagination, deux méthodes déversent tout. `RedisSessionStorage.listAll()`
 (`SessionStorage.ts:198`) est **plafonnée** à un maximum de clés parcourues et journalise un
 `WARNING` quand elle tronque — listing partiel signalé, jamais silencieux.
-`RedisTokenStore.listAll()` (`RedisTokenStore.ts:319`), en revanche, boucle jusqu'à la fin du
+`RedisTokenStore.listAll()` (`RedisTokenStore.ts:378`), en revanche, boucle jusqu'à la fin du
 keyspace sans plafond : à grande échelle, préférez la pagination ou le système de référence SQL pour
 la gouvernance.
 
@@ -636,7 +636,7 @@ c'est la contrepartie assumée de la séparation imposée par le protocole.
 - **Écran Stores** (`/nodefony/stores`) : pour chaque brique, le store réellement retenu au démarrage
   **et la raison**. La résolution est enregistrée par `SessionsService.initializeStorage()`
   (`sessions-service.ts:231`), qui journalise aussi la décision au format « `auto` → `redis` (infra
-  cache) ». Le choix automatique lui-même vient de `resolveAutoStore()` (`infra.ts:241`) : Redis n'est
+  cache) ». Le choix automatique lui-même vient de `resolveAutoStore()` (`infra.ts:297`) : Redis n'est
   proposé que pour les natures non durables.
 - **Écran Sessions** : l'énumération y passe par `listPage` en mode curseur — d'où l'absence de
   compteur total et la navigation « page suivante » seule. C'est la capacité réduite décrite plus

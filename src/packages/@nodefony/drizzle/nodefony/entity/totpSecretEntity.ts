@@ -27,7 +27,7 @@ type TotpAlgorithm = "SHA1" | "SHA256" | "SHA512";
  * ⚠️ **`secretEnc` = secret déjà CHIFFRÉ** (AES-256-GCM par le service détenteur de
  * la clé) : le store ne voit que des octets opaques, jamais le secret `K` en clair.
  *
- * ⚠️ **`lastUsedStep` = tranche `T` RFC 6238 (kind `int`)**, pas un horodatage —
+ * ⚠️ **`lastUsedStep` = tranche `T` RFC 6238 (kind `int64`)**, pas un horodatage —
  * les vrais horodatages (`confirmedAt`/`createdAt`/`lastUsedAt`) sont en `epochMs`.
  *
  * ⚠️ **Pas de `.default()` SQL** (règle colKit) : le store fournit TOUJOURS toutes

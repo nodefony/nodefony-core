@@ -407,7 +407,7 @@ flowchart LR
   RB --> K["group-kill + redémarrage du serveur"]
 ```
 
-- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:1133`) reconstruit
+- **Le rebuild est ciblé, pas global.** `DevSupervisor.#build()` (`DevSupervisor.ts:1221`) reconstruit
   les seuls workspaces touchés et leurs dépendants (`turbo --filter=pkg...`), puis l'app racine
   (`rolldown -c`) si un fichier de la racine a bougé. Un `npm run build` complet coûtait plus de
   quatre-vingts secondes pour un fichier.

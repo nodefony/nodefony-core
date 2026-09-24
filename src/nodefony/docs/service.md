@@ -117,7 +117,7 @@ maison :
 - `Event.emitAsyncGuarded()` (`Event.ts:274`) isole **chaque** écouteur (try/catch + délai maximal)
   et renvoie `{ results, errors, stopped }` au lieu de laisser le premier rejet faire sauter la suite.
 
-Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3503`) : un
+Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3795`) : un
 hook de module qui pend ou qui jette ne gèle plus le démarrage du serveur.
 
 Le compromis assumé : `Service` **délègue** massivement (18 méthodes d'événements + 6 méthodes de
@@ -197,7 +197,7 @@ NOTICE  app          catalogue modifié : NF-001 ×3  # l'écouteur du module a 
 ```
 
 Le `msgid` de la deuxième ligne est `catalog` sans qu'on l'ait écrit : `Service.log()`
-(`Service.ts:209`) prend `this.name` par défaut. La trace `SERVICE ADD` vient de
+(`Service.ts:300`) prend `this.name` par défaut. La trace `SERVICE ADD` vient de
 `Module.addService()` (`Module.ts:313`), qui instancie via l'injecteur puis range l'instance au
 container sous `instance.name`.
 
@@ -244,7 +244,7 @@ initialized`) et `set()` lève aussi (`container not initialized`) — mais `get
    avec `moduleName = this.name` puis **posé au container** pour les suivants (`Service.ts:95`).
 4. **Bus** — les trois formes ci-dessous (`Service.ts:106`).
 5. **Nettoyage des options** — la clé `events` est **supprimée** de `options` après usage
-   (`Service.ts:131`).
+   (`Service.ts:119`).
 
 > [!WARNING]
 > L'étape 5 utilise `delete` et **pas** `= undefined`, volontairement : des consommateurs parcourent
@@ -290,7 +290,7 @@ new Service("calc", container, false).fire("x"); // ❌ lève : notificationsCen
 ### Écouteurs trackés — la mécanique anti-fuite
 
 C'est **la** raison d'être de la délégation. Chaque écouteur posé par l'API du service
-(`Service.on()` (`Service.ts:373`), `once`, `addListener`, `prependListener`…) est enregistré dans la
+(`Service.on()` (`Service.ts:419`), `once`, `addListener`, `prependListener`…) est enregistré dans la
 carte privée `#trackedListeners` (`Service.ts:74`) via `Service.trackListener()` (`Service.ts:282`).
 
 ```mermaid
@@ -317,7 +317,7 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 | --- | --- | --- |
 | Naissance | `new Service(name, container, nc, options)` | câblage des trois broches, écouteurs de config attachés |
 | Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:240`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à chaque requête |
-| Journal | `Service.initSyslog()` (`Service.ts:199`) | démarre la sortie console (environnement + verbosité + filtres) |
+| Journal | `Service.initSyslog()` (`Service.ts:250`) | démarre la sortie console (environnement + verbosité + filtres) |
 | Vie | `log` / `fire` / `on` / `get` | délégation vers syslog, bus et container |
 | Destruction | `Service.clean()` (`Service.ts:179`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
 | Destruction+ | `clean(true)` | appelle en plus `Syslog.reset()` — les transports sont fermés |
@@ -336,8 +336,8 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 | `set(name, obj)`         | `Service.ts:435` | enregistre — **lève** si le container est détaché               |
 | `remove(name)`           | `Service.ts:447` | si la cible est un `Service`, appelle son `clean()` **d'abord** |
 | `has(name)`              | `Service.ts:477` | `false` plutôt qu'une erreur quand le container est détaché     |
-| `getParameters(path)`    | `Service.ts:506` | lecture par chemin pointé (`"kernel.environment"`)              |
-| `setParameters(path, v)` | `Service.ts:514` | écriture par chemin pointé — **lève** si détaché                |
+| `getParameters(path)`    | `Service.ts:552` | lecture par chemin pointé (`"kernel.environment"`)              |
+| `setParameters(path, v)` | `Service.ts:560` | écriture par chemin pointé — **lève** si détaché                |
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
@@ -349,25 +349,25 @@ les sondes de fuite.
 
 | Appel                               | Ancre            | Usage                                       |
 | ----------------------------------- | ---------------- | ------------------------------------------- |
-| `log(pci, severity?, msgid?, msg?)` | `Service.ts:209` | le point d'entrée de **tout** log Nodefony  |
-| `logger(pci, …)`                    | `Service.ts:266` | raccourci `DEBUG` + `console.debug` formaté |
+| `log(pci, severity?, msgid?, msg?)` | `Service.ts:300` | le point d'entrée de **tout** log Nodefony  |
+| `logger(pci, …)`                    | `Service.ts:317` | raccourci `DEBUG` + `console.debug` formaté |
 | `trace(pci, …)`                     | `Service.ts:231` | idem avec `console.trace` (pile d'appels)   |
 
 `log()` est **increvable** : sans syslog il fabrique un `Pdu` directement, et toute exception y est
-attrapée pour retomber sur `console` (`Service.ts:218`). Un service qui journalise ne peut pas faire
+attrapée pour retomber sur `console` (`Service.ts:300`). Un service qui journalise ne peut pas faire
 tomber le process à cause du journal. Sévérités et transports : [syslog](syslog.md).
 
 ### Événements
 
 | Appel                                 | Ancre            | Note                                                            |
 | ------------------------------------- | ---------------- | --------------------------------------------------------------- |
-| `fire(name, …)` / `emit(name, …)`     | `Service.ts:272` | synchrone, **0 microtask** — le défaut sur le hot path          |
-| `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts:277` | attend les écouteurs asynchrones, **en séquence**               |
+| `fire(name, …)` / `emit(name, …)`     | `Service.ts:373` | synchrone, **0 microtask** — le défaut sur le hot path          |
+| `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts:378` | attend les écouteurs asynchrones, **en séquence**               |
 | `emitAsyncGuarded(name, options?, …)` | `Service.ts:296` | isole chaque écouteur — **boot / jobs uniquement**              |
 | `on` / `once` / `addListener`         | `Service.ts:350` | **trackés** → retirés par `clean()`                             |
 | `off` / `removeListener`              | `Service.ts:412` | retirent aussi l'entrée de suivi                                |
 | `listen(name, listener)`              | `Service.ts:317` | bind sur `this`, **non tracké** — renvoie un déclencheur        |
-| `settingsToListen(settings, ctx)`     | `Service.ts:398` | câble les clés `onXxx` d'un objet de config                     |
+| `settingsToListen(settings, ctx)`     | `Service.ts:444` | câble les clés `onXxx` d'un objet de config                     |
 | `removeAllListeners(name?)`           | `Service.ts:374` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
 
 Le contrat `EventEmitter` complet (`listenerCount`, `eventNames`, `rawListeners`, `prependListener`,
@@ -389,9 +389,9 @@ Le résultat (`IGuardedEmitResult`, `Event.ts:86`) porte `results`, `errors` et 
 dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) — jamais la sentinelle
 interne `timeoutSentinel` (`Event.ts:33`).
 
-Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3503`) branche la politique : délai issu de
-`Kernel.bootTimeoutMs()` (`Kernel.ts:2803`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:2815`), 5 s par
+Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3795`) branche la politique : délai issu de
+`Kernel.bootTimeoutMs()` (`Kernel.ts:3090`) — 20 s en développement, 60 s en production, surchargeable
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3102`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
@@ -418,7 +418,7 @@ restent lisibles via `this.options` — c'est le canal de configuration d'un ser
 Une clé d'options qui commence par `on` suivi d'au moins un caractère est câblée comme écouteur. Mais
 **pas par le même chemin** selon la forme du bus :
 
-- **bus partagé** → `Service.attachConfiguredListeners()` (`Service.ts:140`) passe par `this.on`,
+- **bus partagé** → `Service.attachConfiguredListeners()` (`Service.ts:231`) passe par `this.on`,
   donc l'écouteur est **tracké** et `clean()` le retirera ;
 - **bus dédié** → c'est le constructeur d'`Event` qui appelle `Event.settingsToListen()`
   (`Event.ts:147`), lequel utilise `Event.listen()` (`Event.ts:171`) : l'écouteur est **bindé, non
@@ -541,9 +541,9 @@ Les services d'un module sont introspectables sans lire le code :
 
 | Symptôme                                                | Cause (dans le code)                                                              | Correction                                                                  |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:282`)   |
+| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:328`)   |
 | `off()` ne retire rien                                  | `Service.listen()` (`Service.ts:317`) **bind** — la référence posée diffère       | retirer via le déclencheur renvoyé, jamais l'original                       |
-| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:419`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
+| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:465`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
 | `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:62`)                         | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
 | `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:435`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
 | Avertissement `MaxListeners` à 11 abonnés               | le défaut annoncé (20) n'est pas appliqué (`Service.ts:17`)                       | passer `{ events: { nbListeners: N } }` explicitement                       |
@@ -551,7 +551,7 @@ Les services d'un module sont introspectables sans lire le code :
 | Écouteurs asynchrones exécutés l'un après l'autre       | `emitAsync` est **séquentiel par design** (`Event.ts:217`)                        | comportement attendu ; paralléliser **dans** l'écouteur si besoin           |
 | Le service est reconstruit, son cache vide              | clé container ≠ nom `@injectable`, pont non appris (`injector.ts:88`)             | passer par `Module.addService()` — jamais un `new` manuel                   |
 | Un service déclaré n'est pas au container après le boot | sa construction a échoué, fail-soft **annoncé** (`Module.ts:365`)                 | lire le BootReport / les ERROR de démarrage ; en prod le boot aurait échoué |
-| `options.events` introuvable après construction         | la clé est **supprimée** volontairement (`Service.ts:131`)                        | lire la valeur avant, ou la conserver sous une autre clé                    |
+| `options.events` introuvable après construction         | la clé est **supprimée** volontairement (`Service.ts:19`)                         | lire la valeur avant, ou la conserver sous une autre clé                    |
 
 ## 🧪 Tests & couverture
 

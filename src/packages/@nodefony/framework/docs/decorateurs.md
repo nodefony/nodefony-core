@@ -124,9 +124,9 @@ Trois partis pris expliquent la forme de cette surface, et un développeur qui l
 jamais surprendre.
 
 **1 — Un décorateur n'écrit QUE des métadonnées.** Aucun décorateur du framework ne contient de
-logique de sécurité, de session ou d'idempotence. `IsGranted()` (`routerDecorators.ts:839`) pose une
+logique de sécurité, de session ou d'idempotence. `IsGranted()` (`routerDecorators.ts:878`) pose une
 clause ; c'est le `Resolver` qui appellera le moteur d'autorisation, **résolu par son nom** dans le
-conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:576`). Pourquoi ce détour : `@nodefony/framework`
+conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:672`). Pourquoi ce détour : `@nodefony/framework`
 ne dépend **pas** de `@nodefony/security` — sans ça, les deux modules formeraient un cycle. Le prix à
 payer est visible : une route gardée alors que le module `security` est absent renvoie **403**, pas
 une erreur de démarrage (fail-closed, `Resolver.ts:582`).
@@ -288,7 +288,7 @@ Six familles, **36 décorateurs**, un seul fichier source. Le tableau de synthè
 | `@controller("/prefix")` | **classe** | Pose le préfixe d'URL **et déclenche la création des routes** de la classe (`controller()`, `routerDecorators.ts:75`) | `@controller("/api/books")` |
 | `@route(nom, options)` | méthode | Forme complète : nom explicite, chemin, `requirements`, `defaults`, hôte (`route()`, `routerDecorators.ts:157`) | `@route("ws-echo", { path: "/echo", requirements: { methods: ["WEBSOCKET"] } })` |
 | `@Domain(motif \| motifs)` | **dual** | Restreint la route (ou la classe) à un ou plusieurs vhosts ; hors domaine → **403** (`Domain()`, `routerDecorators.ts:625`) | `@Domain("*.cdn.example.com")` |
-| `@Scope("singleton")` | **classe** | Une seule instance de contrôleur partagée par toutes les requêtes (`Scope()`, `routerDecorators.ts:729`) | `@Scope("singleton")` |
+| `@Scope("singleton")` | **classe** | Une seule instance de contrôleur partagée par toutes les requêtes (`Scope()`, `routerDecorators.ts:768`) | `@Scope("singleton")` |
 
 **`@controller` est le déclencheur.** Il relit les métadonnées posées par `@route`/`@Get`/… puis les
 **efface** (`Reflect.deleteMetadata`, `routerDecorators.ts:135`) : une classe ne se monte qu'une
@@ -453,14 +453,14 @@ ne s'auto-promeut pas.
 | ------------------------- | ------- | ------------------------------------------------------------------------------------------ | ------------------------------------- |
 | `@HttpCode(201)`          | méthode | Fixe le statut **avant** l'exécution de l'action (`HttpCode()`, `routerDecorators.ts:548`) | `@HttpCode(204)`                      |
 | `@Header("X-Foo", "bar")` | méthode | Ajoute un en-tête ; **s'empile** (plusieurs `@Header` cumulent, `routerDecorators.ts:580`) | `@Header("Cache-Control","no-store")` |
-| `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:589`)         | `@Redirect("/login", 302)`            |
+| `@Redirect("/url", 302)`  | méthode | Redirige **si** l'action ne renvoie rien (`Redirect()`, `routerDecorators.ts:628`)         | `@Redirect("/login", 302)`            |
 
-Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:687`) **avant**
+Les deux premiers sont appliqués par `Resolver._applyResponseMeta()` (`Resolver.ts:780`) **avant**
 l'appel de l'action : ton code peut donc les écraser ensuite (`this.renderJson(data, 202)` gagne).
 
 `@Redirect` a une subtilité utile : si l'action **retourne un objet** portant `url` (et
 éventuellement `statusCode`), cet objet **prend le dessus** sur les valeurs du décorateur
-(`Resolver._handleRedirect()`, `Resolver.ts:703`) — la cible peut donc être calculée à l'exécution :
+(`Resolver._handleRedirect()`, `Resolver.ts:796`) — la cible peut donc être calculée à l'exécution :
 
 ```typescript
 @Get("/go")
@@ -482,8 +482,8 @@ Sept décorateurs, **tous duals** (classe ou méthode) et **tous sans logique** 
 
 | Décorateur                               | Effet                                                                                                    | Ancre                                        |
 | ---------------------------------------- | -------------------------------------------------------------------------------------------------------- | -------------------------------------------- |
-| `@IsGranted(attr \| attrs, { subject })` | Exige un attribut (rôle `ROLE_*` ou règle métier). Tableau = **OU** ; empilés = **ET** ; refus → **403** | `IsGranted()` (`routerDecorators.ts:839`)    |
-| `@RequireScope(scope \| scopes)`         | Exige un scope `api:action` d'un **jeton machine** ; no-op pour une session humaine                      | `RequireScope()` (`routerDecorators.ts:936`) |
+| `@IsGranted(attr \| attrs, { subject })` | Exige un attribut (rôle `ROLE_*` ou règle métier). Tableau = **OU** ; empilés = **ET** ; refus → **403** | `IsGranted()` (`routerDecorators.ts:878`)    |
+| `@RequireScope(scope \| scopes)`         | Exige un scope `api:action` d'un **jeton machine** ; no-op pour une session humaine                      | `RequireScope()` (`routerDecorators.ts:975`) |
 | `@Anonymous()`                           | Rend l'action publique : annule l'autorisation **et** l'authentification (le « permitAll »)              | `Anonymous()` (`routerDecorators.ts:912`)    |
 | `@BypassFirewall`                        | Court-circuite le firewall (sonde de liveness, webhook signé, endpoint de login). **Sans parenthèses**   | `BypassFirewall` (`routerDecorators.ts:686`) |
 | `@Csp({ "frame-src": [...] })`           | Ajoute des directives CSP **à cette réponse** ; classe + méthode fusionnent additivement                 | `Csp()` (`routerDecorators.ts:1001`)         |
@@ -620,7 +620,7 @@ Trois faits à retenir :
 - **Les décorateurs de paramètre fonctionnent pareil.** Pour une invocation par socket, le corps de
   la mutation voyage dans l'ALS et **prime** sur le corps HTTP (vide dans ce cas) — c'est traité dans
   `resolveParamArg()` (`routerDecorators.ts:1283`), et `@Query` lit la query du chemin **invoqué**,
-  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:656`).
+  pas celle du handshake (`Resolver._buildParamArgs()`, `Resolver.ts:749`).
 - **Les gardes s'appliquent identiquement.** `@IsGranted` protège une action joignable par socket
   exactement comme une action HTTP : la décision est prise avant l'instanciation, quel que soit le
   transport.
@@ -706,10 +706,10 @@ ont dit de l'action :
 
 Le `Resolver` consomme ce snapshot dans un ordre qui a du sens sécurité :
 **garde d'abord, instanciation ensuite**. `security !== null` déclenche
-`_enforceSecurity()` (`Resolver.ts:576`) **avant** `newController()` — un `403` n'instancie pas le
+`_enforceSecurity()` (`Resolver.ts:672`) **avant** `newController()` — un `403` n'instancie pas le
 contrôleur et n'exécute pas son `initialize()`. Puis viennent les arguments
-(`_buildParamArgs()`, `Resolver.ts:656`), les métadonnées de réponse
-(`_applyResponseMeta()`, `Resolver.ts:650`), l'action, et enfin la redirection éventuelle.
+(`_buildParamArgs()`, `Resolver.ts:749`), les métadonnées de réponse
+(`_applyResponseMeta()`, `Resolver.ts:780`), l'action, et enfin la redirection éventuelle.
 
 Un usage cold path mérite d'être connu : `extractActionScopes()` (`routerDecorators.ts:1476`) parcourt
 les routes au démarrage pour bâtir le **catalogue des scopes déclarés** — le formulaire de création

@@ -485,7 +485,7 @@ cumulatifs (ET) ; un axe absent n'impose rien :
 
 | Axe             | Sens                                                                          | Évalué par                               |
 | --------------- | ----------------------------------------------------------------------------- | ---------------------------------------- |
-| `authenticated` | token non anonyme                                                             | `satisfies()` (`frameAuthorizer.ts:240`) |
+| `authenticated` | token non anonyme                                                             | `satisfies()` (`frameAuthorizer.ts:290`) |
 | `roles`         | un des rôles suffit, **hiérarchie comprise**                                  | `Firewall.hasRole()` (`firewall.ts:482`) |
 | `scopes`        | un des scopes suffit — axe API (JWT, clé API), une session BFF n'en porte pas | comparaison directe                      |
 

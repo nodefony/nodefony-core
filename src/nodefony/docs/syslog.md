@@ -260,7 +260,7 @@ Points de vigilance, tous vérifiables au code :
 
 Le parcours du schéma d'ouverture, étape par étape et ancré :
 
-1. **Point d'entrée applicatif** — `Service.log()` (`Service.ts:209`) remplit `msgid` avec le nom du
+1. **Point d'entrée applicatif** — `Service.log()` (`Service.ts:300`) remplit `msgid` avec le nom du
    service si tu ne le fournis pas, et garantit qu'un log ne lève **jamais** (un logger qui casse la
    requête serait pire que pas de log).
 2. **Gate de sévérité** — `Syslog.log()` (`Syslog.ts:1161`) compare la sévérité au seuil effectif
@@ -288,7 +288,7 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:364`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2459`).
+  (`maxStack` résolu au boot, `Kernel.ts:2734`).
 - Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:799`) reconstruit le buffer
   en préservant les Pdu existants.
 - Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:764`) : les compteurs de
@@ -557,7 +557,7 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2406`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2681`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En
@@ -751,7 +751,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | -------------------------- | ---------------- | ------------------------------------------------------ |
 | Sévérités 0–7              | RFC 5424 §6.2.1  | `SysLogSeverity` (`Pdu.ts:27`)                         |
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:126`)                    |
-| Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:209`) |
+| Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:303`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
 | Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2376`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |

@@ -405,7 +405,7 @@ NF__MONGOOSE__CONNECTORS__NODEFONY__DBNAME=recette    # champ imbriqué
 NF__MONGOOSE__CONNECTORS__NODEFONY__PORT=27018        # coercé en nombre
 ```
 
-Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1708`)) :
+Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1807`)) :
 une valeur aberrante est donc rejetée comme si tu l'avais écrite dans ton fichier. C'est voulu — un
 réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 
@@ -561,7 +561,7 @@ données d'un coup. La règle est donc sans nuance.
 - **Jamais dans le dépôt.** Ni dans `nodefony.config.ts`, ni dans un fichier d'exemple, ni « juste
   pour le développement ». Le secret arrive par `MONGODB_URI` ou `NF_DATABASE_URL`.
 - **Ni dans les journaux, ni dans Studio.** L'URI est systématiquement nettoyée de tout
-  `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:595`)),
+  `utilisateur:motdepasse@` avant d'être affichée (`MongooseOrm.safeTarget()` (`MongooseOrm.ts:688`)),
   y compris pour les URI multi-hôtes que l'analyseur d'URL standard ne sait pas découper. C'est cette
   cible nettoyée que voit le plan d'administration
   (`MongooseOrm.describeConnection()` (`MongooseOrm.ts:583`)) et le message de connexion au démarrage.
@@ -665,7 +665,7 @@ coûteux à diagnostiquer qu'un serveur qui refuse de démarrer.
 
 Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — conteneur pas encore prêt,
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
-politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:2843`)) :
+politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3130`)) :
 
 | Environnement       | Ce qui se passe                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------- |
@@ -688,7 +688,7 @@ tomber pour le relancer, et c'est le modèle cloud-native que le framework appli
 
 À l'arrêt, les connexions se ferment alors que des requêtes peuvent encore être en vol. Le stockage de
 session **dégrade gracieusement** plutôt que de lever une exception
-(`SessionStorage.#repo()` (`SessionStorage.ts:45`)) : une session non persistée le temps de l'arrêt
+(`SessionStorage.#repo()` (`SessionStorage.ts:66`)) : une session non persistée le temps de l'arrêt
 vaut mieux qu'une erreur 500 et un rejet non capturé. À l'inverse, une entité absente sur un ORM
 **connecté** est une vraie erreur de configuration : celle-là est levée sans ménagement.
 

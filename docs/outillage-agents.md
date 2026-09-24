@@ -1,5 +1,6 @@
 ---
 title: "Outillage agents — les skills du dépôt, leur usage réel et leur conformité"
+navTitle: Outillage agents
 lang: fr
 topic: outillage-agents
 audience: humain

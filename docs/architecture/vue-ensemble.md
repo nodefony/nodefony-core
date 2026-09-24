@@ -138,7 +138,7 @@ la même chaîne, en passant en plus les données de la trame (`WebsocketContext
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
 **exigence de route** parmi d'autres : `Route.match()` compare `context.method` — qui vaut
 littéralement `"WEBSOCKET"` sur une socket — au `methodsSet` précompilé de la route
-(`Route.ts:451`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
+(`Route.ts:480`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
 deux portes.
 
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de
@@ -240,7 +240,7 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1504`) puis
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1545`) puis
 chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1508`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
@@ -323,7 +323,7 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:283`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts:306`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
 `Kernel.start()` (`Kernel.ts:742`), `Kernel.boot()` (`Kernel.ts:799`), `Kernel.onReady()`
 (`Kernel.ts:829`) et `Kernel.initServers()` (`Kernel.ts:916`).
@@ -333,9 +333,9 @@ Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernel
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3503`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3795`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:2983`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3270`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
@@ -453,8 +453,8 @@ alors plus une propriété fragile de ton fichier d'entrée.
 **Ce qui se ressemble.** Beaucoup : les contrôleurs à décorateurs (`@controller`, `@Get`, `@Param`,
 `@Body`, `@Query`), l'injection de dépendances, les gardes d'autorisation, l'idée de modules. Une
 garde `@IsGranted` s'applique **avant** l'instanciation du contrôleur, au niveau du résolveur — même
-contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:425`) enveloppe
-l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:576`) tranche, fail-closed en 403.
+contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:464`) enveloppe
+l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:672`) tranche, fail-closed en 403.
 
 **Ce qui change.** Deux choses. D'abord, **pas de gateway WebSocket séparée** : là où Nest te
 demande un `@WebSocketGateway()` distinct de tes contrôleurs, Nodefony te fait déclarer le transport
@@ -508,7 +508,7 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Partage cross-origin         | Fetch Standard (WHATWG)        | `Firewall.handleCors()` (`http-kernel.ts:1312`)           |
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1283`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
-| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:114`) · `Service.log()` (`Service.ts:209`) |
+| Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:114`) · `Service.log()` (`Service.ts:300`) |
 | Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1301`)         |
 
 ## ⚡ Performance & mémoire

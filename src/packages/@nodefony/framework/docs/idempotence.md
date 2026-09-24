@@ -266,7 +266,7 @@ Deux mécanismes rendent ça possible côté socket :
   frame `socket.mutate` créerait un doublon. Le Resolver teste donc
   `isMutationMethod(this.methodOverride ?? context.method)` (`Resolver.ts:473`).
 
-Le pont utilise `executeActionGuarded()` (`Resolver.ts:425`) : porte d'idempotence **sans** rendu HTTP
+Le pont utilise `executeActionGuarded()` (`Resolver.ts:464`) : porte d'idempotence **sans** rendu HTTP
 — la valeur nue est enveloppée par le peer WS, jamais écrite sur un transport HTTP.
 
 ## 🏗️ Architecture interne
@@ -327,8 +327,8 @@ sequenceDiagram
 
 | Appelant                     | Point d'entrée                                                       | Traduction du verdict              |
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
-| Controller userland HTTP     | `callController()` (`Resolver.ts:396`)                               | `nodefonyError` + rendu normal     |
-| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:425`)                         | valeur nue, enveloppée par le peer |
+| Controller userland HTTP     | `callController()` (`Resolver.ts:435`)                               | `nodefonyError` + rendu normal     |
+| Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:464`)                         | valeur nue, enveloppée par le peer |
 | Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:158`) | `{status, headers, body}`          |
 
 ## ⚙️ Configuration
@@ -464,11 +464,11 @@ déjà Postgres mais pas Redis obtient la dédup cross-pod **sans nouvelle infra
   (`DrizzleIdempotencyStore.ts:213`), qui la reconstruit en deux instructions chacune atomique.
 - **Pas de TTL natif** → `gc()` (`DrizzleIdempotencyStore.ts:318`) = `DELETE WHERE expiresAt <= now`.
   C'est le **seul** store qui expose `gc`, donc le seul que le framework planifie (voir plus bas).
-- **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts:276`) et `abort()`
+- **Mutations conditionnelles** : `complete()` (`DrizzleIdempotencyStore.ts:296`) et `abort()`
   (`DrizzleIdempotencyStore.ts:294`) portent `WHERE state = 'if'` — jamais d'écrasement d'une réponse
   déjà mémorisée, jamais de résurrection d'une clé libérée. `complete` ne touche pas `fingerprint`.
 - **Résolution lazy + dégradation gracieuse** : le handle Drizzle est résolu à **chaque** appel
-  (`DrizzleIdempotencyStore.from()`, `DrizzleIdempotencyStore.ts:172`). ORM non connecté → `begin`
+  (`DrizzleIdempotencyStore.from()`, `DrizzleIdempotencyStore.ts:191`). ORM non connecté → `begin`
   renvoie `fresh` (sans dédup), le reste est no-op.
 
 Le câblage est **automatique** : charger `@nodefony/drizzle` enregistre l'entité **et** la fabrique

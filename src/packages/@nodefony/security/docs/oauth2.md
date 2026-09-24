@@ -314,7 +314,7 @@ compte externe : le _Shadow User_. C'est cette ligne qui porte l'identifiant, le
 actif/verrouillé — donc **tout** ce dont l'autorisation a besoin.
 
 Le contrat s'appelle `IOAuthUserProvisioner` (`IOAuthUserProvisioner.ts:61`) ; l'implémentation par
-défaut est `UserService.provisionOAuthUser()` (`UserService.ts:306`), en **find-or-create** :
+défaut est `UserService.provisionOAuthUser()` (`UserService.ts:363`), en **find-or-create** :
 
 | Situation au retour du fournisseur       | Comportement                                                                   |
 | ---------------------------------------- | ------------------------------------------------------------------------------ |
@@ -503,7 +503,7 @@ Par fournisseur (`oauthProviderSchema`, `config.ts:948`) :
 | Option | Requis | Effet |
 | --- | :---: | --- |
 | `clientId` / `clientSecret` | ✅ | Identifiants délivrés par l'IdP. Secrets : par `env.ts`, jamais journalisés. |
-| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:958`). |
+| `redirectUri` | ✅ | URL de callback **exacte** (`config.ts:975`). |
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
@@ -565,7 +565,7 @@ ou détruire les sessions), pas chez le fournisseur.
 | PKCE                              | RFC 7636                 | `usesPkce` (`IOAuthProvider.ts:58`) · `oidc.ts:104-111`               |
 | Sécurité OAuth (BCP 2.1)          | RFC 9700                 | `OAuth2Service` (`oauth2.ts:116`) · `oauth2Schema` (`config.ts:1034`) |
 | Anti-mix-up (`iss`)               | RFC 9207                 | `issuerPolicy` (`IOAuthProvider.ts:61`) · `oauth2.ts:170-181`         |
-| Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:958`)                                       |
+| Callback en correspondance exacte | RFC 9700 §4              | `redirectUri` (`config.ts:975`)                                       |
 | Claims d'identité OIDC            | OpenID Connect Core      | `fetchProfile()` du helper OIDC (`oidc.ts:127-145`)                   |
 | ID token consommé en code flow    | OIDC Core §3.1.3.7       | `assertIdTokenClaims()` (`oidc.ts:132`)                               |
 | Anti-fixation de session          | OWASP Session Management | `session.regenerateId()` au login (`authFlow.ts:388`)                 |

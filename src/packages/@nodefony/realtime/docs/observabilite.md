@@ -375,7 +375,7 @@ et tout script qui ne veut pas ouvrir une socket.
 ### Le canal temps réel
 
 `nodefony:socket`. Le producteur est un minuteur qui rappelle **le même endpoint** à travers le
-courtier admin (`StudioRealtimeController.createRealtimeChannel()`, `StudioRealtimeController.ts:182`,
+courtier admin (`StudioRealtimeController.createRealtimeChannel()`, `StudioRealtimeController.ts:212`,
 via `createBrokerTicker()` (`providers.ts:465`)). Rien n'est dupliqué : le canal est un endpoint
 rejoué.
 

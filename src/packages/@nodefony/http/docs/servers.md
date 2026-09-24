@@ -264,7 +264,7 @@ en écoute — le récap de développement liste HTTP, HTTP/2, WS et WSS dans ce
 ```
 
 Hors écran animé (production, CI, `--debug`), ce sont les bannières par serveur qui sortent
-(`ServerHttp.showBanner()`, `server-http.ts:226`, appelées par le kernel — `Kernel.ts:545`) :
+(`ServerHttp.showBanner()`, `server-http.ts:226`, appelées par le kernel — `Kernel.ts:561`) :
 
 ```text
 Server Listen on http://127.0.0.1:5151 Family: IPv4 Protocol : 1.1
@@ -484,7 +484,7 @@ panne, c'est une nuisance.
 
 ### La règle
 
-`resolvePortPolicy()` (`portBinder.ts:74`) tranche selon l'environnement, et la valeur explicite gagne
+`resolvePortPolicy()` (`portBinder.ts:93`) tranche selon l'environnement, et la valeur explicite gagne
 toujours :
 
 | Environnement | Défaut   | Pourquoi                                                                                                     |
@@ -510,7 +510,7 @@ détails d'implémentation valent d'être connus, parce qu'ils expliquent des co
    `portBinder.ts:142`).
 2. **Le port de l'autre serveur est réservé.** Si HTTP est chassé de 5151, incrémenter naïvement le
    ferait voler 5152 à HTTPS, qui se décalerait à son tour. Les ports convoités par les autres serveurs
-   sont sautés d'emblée (`buildBindPlan()`, `portBinder.ts:104`, réservation `portBinder.ts:111`).
+   sont sautés d'emblée (`buildBindPlan()`, `portBinder.ts:123`, réservation `portBinder.ts:111`).
 3. **Le gestionnaire d'erreur durable est posé APRÈS le bind.** Attaché avant, il verrait passer les
    `EADDRINUSE` de repli et terminerait le kernel en croyant à une panne
    (`ServerHttp.attachErrorHandler()`, `server-http.ts:186`).

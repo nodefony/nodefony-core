@@ -164,7 +164,7 @@ Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `
 La seule chose que tu dois vraiment fournir, c'est la **clé de chiffrement des secrets de signature** :
 sans elle, une clé éphémère est générée en dev (avec un WARNING), et en production les webhooks sont
 **désactivés** — un secret chiffré par une clé perdue au redémarrage serait illisible
-(`WebhookService.#resolveKey()`, `webhooks.ts:299`).
+(`WebhookService.#resolveKey()`, `webhooks.ts:316`).
 
 ```bash
 # Génère les clés du module security et guide le câblage en 3 fichiers.
@@ -800,8 +800,8 @@ registre en RAM. Ce contrat est vérifié par un **banc unique** rejoué sur tou
   consécutif courant — « qu'est-ce qui casse ? », `IWebhookStore.ts:35`), `q` (sous-chaîne
   insensible à la casse sur `url` **ou** `description`).
 - Mode unique **offset** : tous les backends d'endpoints savent le faire, aucune capacité n'est donc
-  à déclarer (`MemoryWebhookStore.listPage()`, `MemoryWebhookStore.ts:69` ;
-  `DrizzleWebhookStore.ts:159` ; `MongooseWebhookStore.ts:188`).
+  à déclarer (`MemoryWebhookStore.listPage()`, `MemoryWebhookStore.ts:90` ;
+  `DrizzleWebhookStore.ts:159` ; `MongooseWebhookStore.ts:227`).
 - **Les compteurs suivent la recherche.** `GET webhooks/stats` déclare `search`
   (`WebhookAdminApi.ts:307`) et descend le même `q` jusqu'au store : un terme sans correspondance
   vide les cartes autant que le tableau. Sans cela, la console afficherait « 12 endpoints » au-dessus

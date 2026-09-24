@@ -462,7 +462,7 @@ La section `totp` du schéma Zod (`config.ts:1138`) — validée au boot, donc u
 | `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:537`).        |
 | `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                     |
 | `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                              |
-| `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:538`).                    |
+| `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:572`).                    |
 | `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:546`).         |
 | `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:574`).          |
 | `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:580`).               |
@@ -557,7 +557,7 @@ dialecte via le colKit :
 | `period`        | Durée d'un code (s)                             | `integer`          | `integer`  | `int`           |
 | `recoveryCodes` | Condensats des codes **non consommés**          | `text` (mode json) | `jsonb`    | `json`          |
 | `confirmedAt`   | Activation (epoch ms) ou `null` = en attente    | `integer`          | `bigint`   | `bigint`        |
-| `lastUsedStep`  | Dernière tranche `T` validée (**pas** une date) | `integer`          | `integer`  | `int`           |
+| `lastUsedStep`  | Dernière tranche `T` validée (**pas** une date) | `integer`          | `bigint`   | `bigint`        |
 | `createdAt`     | Création (epoch ms)                             | `integer`          | `bigint`   | `bigint`        |
 | `lastUsedAt`    | Dernier usage réussi (epoch ms) ou `null`       | `integer`          | `bigint`   | `bigint`        |
 

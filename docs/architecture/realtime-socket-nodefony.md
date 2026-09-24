@@ -1,5 +1,6 @@
 ---
 title: "La socket Nodefony — la trajectoire vers les protocoles"
+navTitle: La socket Nodefony
 lang: fr
 module: "global"
 topic: realtime-socket-nodefony

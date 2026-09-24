@@ -205,16 +205,17 @@ Requête par requête, qui répond :
 | `Authorization: Bearer nf_…`         | `apikey`               | identifié — clé vérifiée au store, révocable              |
 | rien                                 | aucun                  | **401** + `WWW-Authenticate: Bearer` (`firewall.ts:1200`) |
 
-## 🔐 Les six authenticators intégrés
+## 🔐 Les authenticators intégrés
 
-| Nom                 | Credential                               | Vérité     | Révocable | Pour…                              |
-| ------------------- | ---------------------------------------- | ---------- | :-------: | ---------------------------------- |
-| `anonymous`         | (aucun)                                  | —          |     —     | accepter l'anonymat explicitement  |
-| `userpassword`      | `Authorization: Basic base64(id:mdp)`    | verifier   |    n/a    | outils/scripts, brique login       |
-| `session`           | cookie de session (identifiant en blob)  | serveur    | immédiate | le **web** après login (BFF)       |
-| `jwt`               | `Authorization: Bearer <a.b.c>`          | auto-porté | via état  | API service↔service, agents        |
-| `apikey`            | `Authorization: Bearer nf_…`             | serveur    | immédiate | API/CI/scripts d'un user           |
-| `firewall-realtime` | identité déjà résolue au handshake (ALS) | serveur    | 1 fenêtre | le **WebSocket** de toute identité |
+| Nom                 | Credential                                          | Vérité     |   Révocable    | Pour…                                      |
+| ------------------- | --------------------------------------------------- | ---------- | :------------: | ------------------------------------------ |
+| `anonymous`         | (aucun)                                             | —          |       —        | accepter l'anonymat explicitement          |
+| `userpassword`      | `Authorization: Basic base64(id:mdp)`               | verifier   |      n/a       | outils/scripts, brique login               |
+| `session`           | cookie de session (identifiant en blob)             | serveur    |   immédiate    | le **web** après login (BFF)               |
+| `jwt`               | `Authorization: Bearer <a.b.c>`                     | auto-porté |    via état    | API service↔service, agents                |
+| `external-jwt`      | `Authorization: Bearer <a.b.c>` d'un émetteur TIERS | émetteur   | via l'émetteur | jetons d'un serveur d'autorisation externe |
+| `apikey`            | `Authorization: Bearer nf_…`                        | serveur    |   immédiate    | API/CI/scripts d'un user                   |
+| `firewall-realtime` | identité déjà résolue au handshake (ALS)            | serveur    |   1 fenêtre    | le **WebSocket** de toute identité         |
 
 ### `anonymous` — accepter explicitement l'anonymat
 
@@ -287,6 +288,17 @@ Le **message d'échec est uniforme** (`INVALID_TOKEN`, `JwtAuthenticator.ts:24`)
 (expiré, `aud`, signature, sujet banni) part en **audit**, jamais au client — anti-oracle. Le token
 promu porte `scopes`, `jti`, `claims` en attributs (`JwtAuthenticator.ts:162-171`). `jose` est
 importé **lazy** — dépendance lourde (`JwtAuthenticator.ts:96`).
+
+Les six premiers se déclarent dans une zone (registre `authenticatorRegistry.ts:73`) ;
+`firewall-realtime` ne se déclare pas — le firewall le câble lui-même au handshake WebSocket.
+
+### `external-jwt` — un jeton émis par un serveur d'autorisation TIERS
+
+Là où `jwt` ne vérifie que les jetons signés par Nodefony, `external-jwt` accepte un jeton d'un
+émetteur de confiance déclaré (`resourceServer.issuers`), vérifié contre ses clés publiques, et
+rattache son sujet à un compte local. `jwt` et `external-jwt` s'aiguillent par l'émetteur (`iss`) :
+leur ordre dans la zone ne décide de rien. Tout le détail — audience, espace de noms du sujet, panne
+de l'émetteur en 503 — est dans **[Jetons d'un émetteur tiers](external-jwt.md)**.
 
 ### `apikey` — PAT opaque révocable
 

@@ -354,7 +354,7 @@ Deux lectures possibles, et elles ne sont **pas** équivalentes :
   (`RequestContext.ts:189`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
-  (`DrizzleRepository.ts:330`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:79`).
+  (`DrizzleRepository.ts:330`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:118`).
 
 > [!WARNING]
 > **Ne relis jamais l'ALS après un `await` qui traverse un pool.** Un pilote de base de données peut

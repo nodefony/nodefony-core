@@ -108,17 +108,17 @@ La config d'une application tient dans **deux fichiers à la racine**, et rien d
 Quatre partis pris, tous vérifiables dans le code :
 
 - **`defineConfig()` ne retourne pas une config, mais un descripteur** (`defineConfig.ts:178`) : une
-  marque privée (`CONFIG_DESCRIPTOR`, `defineConfig.ts:112`) et une seule méthode, `resolve(ctx)`,
-  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:1880`). Ta config
+  marque privée (`CONFIG_DESCRIPTOR`, `defineConfig.ts:149`) et une seule méthode, `resolve(ctx)`,
+  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2168`). Ta config
   **connaît donc son environnement** au moment où elle est calculée.
 - **Le par-environnement passe par `ctx`, jamais par un fichier parallèle** (`ConfigContext`,
   `types.ts:339`). Un `config.prod.ts` séparé diverge silencieusement ; une expression ternaire, non.
 - **Les défauts sont dans le framework, pas dans ton projet.** `defaultAppConfig` (`defaults.ts:34`)
-  est deep-mergé **sous** ta config (`mergeAndValidate()`, `defineConfig.ts:147`) — une amélioration
+  est deep-mergé **sous** ta config (`mergeAndValidate()`, `defineConfig.ts:186`) — une amélioration
   du framework te parvient sans que tu ne réécrives rien.
 - **Le boot est fail-closed.** `validateAppConfig()` (`schema.ts:377`) agrège les erreurs Zod avec le
   chemin fautif ; l'échec devient un diagnostic présenté puis une sortie dédiée
-  (`Kernel.bootConfigError()`, `Kernel.ts:2048`).
+  (`Kernel.bootConfigError()`, `Kernel.ts:2287`).
 
 > [!IMPORTANT]
 > Un fichier de config ne doit **jamais** déréférencer le kernel au moment de son import
@@ -306,7 +306,7 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
 `envOverride.ts:375`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
-(`Kernel.ts:2019`).
+(`Kernel.ts:2258`).
 
 Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:59`), en
 cascade : les variantes `*.local` (gitignorées) priment sur les fichiers committés, et **rien**
@@ -351,7 +351,7 @@ simplement sans auto-complétion.
 ### Le filtrage — `policy` et `when`
 
 `UseOptions` (`use.ts:67`) porte deux leviers qui **filtrent** sans jamais réordonner
-(`Kernel.resolveModuleEntries()`, `Kernel.ts:1504`) :
+(`Kernel.resolveModuleEntries()`, `Kernel.ts:1545`) :
 
 - **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1409`) ;
 - **`when(config)`** → une garde évaluée sur la config résolue ; `false` retire l'entrée
@@ -503,7 +503,7 @@ export function defineDrizzleConfig(
 ```
 
 Vérifié au source : `drizzleConfigSchema` (`drizzle/nodefony/config/config.ts:136`) et
-`defineDrizzleConfig()` (`drizzle/nodefony/config/defineModuleConfig.ts:58`). Le module publie enfin
+`defineDrizzleConfig()` (`drizzle/nodefony/config/defineModuleConfig.ts:81`). Le module publie enfin
 son JSON Schema en redéfinissant `Module.configSchema()` (`Module.ts:153`), et lit sa config validée
 via le getter typé `Module.config` (`Module.ts:152`).
 
@@ -572,13 +572,13 @@ Les points de passage, dans l'ordre du code :
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:147`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:96`)
-   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2019`).
+   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2258`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
    `Kernel.ts:1508`), puis overrides inter-modules `module-<nom>`
    (`Module.readOverrideModuleConfig()`, `Module.ts:258`) et d'environnement
-   (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1724`).
-6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1724`) — et l'ordre
+   (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1807`).
+6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1807`) — et l'ordre
    n'est pas anodin : posés plus tard, ils seraient silencieusement ignorés par tout module qui fige
    sa config tôt.
 
@@ -586,20 +586,20 @@ Les points de passage, dans l'ordre du code :
 
 `resolveInfra()` (`infra.ts:134`) lit les URLs déclarées (base, cache, journalisation) et les expose
 en `ctx.infra`. Les briques dont le store vaut la sentinelle `"auto"` (`AUTO_STORE`, `infra.ts:161`)
-s'y branchent via `resolveAutoStore()` (`infra.ts:241`).
+s'y branchent via `resolveAutoStore()` (`infra.ts:297`).
 
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:1965`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:2055`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 
 Une config cassée n'est pas récupérable : le framework ne peut pas deviner tes ports ni tes modules.
-`Kernel.bootConfigError()` (`Kernel.ts:2048`) en fait un échec **soigné** plutôt qu'une trace brute :
+`Kernel.bootConfigError()` (`Kernel.ts:2287`) en fait un échec **soigné** plutôt qu'une trace brute :
 
 - un diagnostic lisible : titre, cause, champ Zod nommé, **et les valeurs par défaut du framework**
-  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2076`) ;
+  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2315`) ;
 - pas de pile d'appels — c'est une faute de configuration, pas un bogue du framework ;
 - un **code de sortie dédié** — `err.exitCode = SysExit.CONFIG`, soit `EX_CONFIG` (78)
   (`Kernel.ts:1527`) — pour qu'un orchestrateur
@@ -658,7 +658,7 @@ d'une requête :
   sur une cible fraîche, sans muter ni les défauts ni l'entrée ;
 - **zéro analyse d'override** au-delà du boot : `parseNfEnvOverrides()` (`envOverride.ts:80`) et
   `resolveInfra()` (`infra.ts:134`) sont appelés une seule fois, l'infra étant mémoïsée
-  (`Kernel.infra`, `Kernel.ts:1932`) ;
+  (`Kernel.infra`, `Kernel.ts:2022`) ;
 - **zéro module inutile** : une entrée écartée par `policy`/`when` n'est **pas importée**, donc son
   code n'occupe ni le temps de boot ni la mémoire.
 
@@ -669,7 +669,7 @@ précisément l'objectif du modèle « résoudre puis figer ».
 
 | Symptôme                                               | Cause (dans le code)                                                 | Correction                                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2129`)                            |
+| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2389`)                            |
 | `NF__APP__X=…` sans effet, avec « vouliez-vous dire »  | Le chemin n'existe pas dans les défauts (`applyResolvedPath` refuse) | Déclarer la clé dans `nodefony.config.ts` (`envOverride.ts:126`)                  |
 | Le champ ciblé refuse la valeur d'un `envEnum`         | `as const` oublié → l'union littérale est élargie en `string`        | `envEnum([...] as const, …)`                                                      |
 | `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:47`)             |

@@ -1,5 +1,7 @@
 ---
 title: "Performance — les chiffres, et ce qu'ils valent"
+navTitle: Performance
+updated: 2026-09-17
 lang: fr
 module: "global"
 topic: perf-index

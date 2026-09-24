@@ -55,7 +55,7 @@ Trois faits à retenir avant tout le reste :
    (`HttpError("Not Found", 404)`, `http-kernel.ts:798`).
 3. **Le chemin est vérifié avant la méthode, et le domaine entre les deux** — c'est ce qui produit un
    `403` plutôt qu'un `405` bavard quand la route appartient à un autre vhost (`Route.match()`,
-   `Route.ts:212`).
+   `Route.ts:327`).
 
 ## 📖 Lexique
 
@@ -109,7 +109,7 @@ banc de non-régression : un refacto du routeur doit le repasser à l'identique.
 
 **Une seule table pour HTTP et WebSocket.** Il n'y a pas de « routeur WS » séparé : une action WS est
 une route dont les méthodes déclarées contiennent `WEBSOCKET` (`Route.matchRequirements()`,
-`Route.ts:649`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
+`Route.ts:700`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
 mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
@@ -281,7 +281,7 @@ qui les lit et appelle `Router.createRoute()` pour chacune (`controller()`, `rou
 ## Motifs de chemin et paramètres
 
 Le chemin déclaré est compilé **une fois**, à la création de la route, en une expression régulière
-ancrée et **insensible à la casse** (`Route.compile()`, `Route.ts:395`). La grammaire tient en cinq
+ancrée et **insensible à la casse** (`Route.compile()`, `Route.ts:424`). La grammaire tient en cinq
 briques (`REG_ROUTE`, `Route.ts:17`) :
 
 | Écriture           | Motif compilé | Capture           | Exemple                                               |
@@ -295,7 +295,7 @@ briques (`REG_ROUTE`, `Route.ts:17`) :
 Et trois comportements qui surprennent la première fois :
 
 - **Le slash final est retiré avant le matching** — `/books/` et `/books` désignent la même route
-  (`Route.cleanPathname()`, `Route.ts:274`). Corollaire : `/files/*` ne matche pas `/files/`, qui a été
+  (`Route.cleanPathname()`, `Route.ts:303`). Corollaire : `/files/*` ne matche pas `/files/`, qui a été
   normalisé en `/files`.
 - **Les valeurs sont URL-décodées** — `%C3%A9t%C3%A9` arrive dans l'action comme `été`
   (`decode()`, `Route.ts:79`).
@@ -307,7 +307,7 @@ Et trois comportements qui surprennent la première fois :
 C'est le mécanisme le moins évident, et le plus utile. Déclarer un `defaults` pour une variable change
 le motif compilé : le segment devient facultatif (`[^/]*`) **et son slash aussi** (`/?`), puis la valeur
 par défaut est réinjectée quand la capture est vide (`checkDefaultParameters()`, `Route.ts:99` ·
-`Route.hydrateDefaultParameters()`, `Route.ts:469`).
+`Route.hydrateDefaultParameters()`, `Route.ts:513`).
 
 ```ts ignore
 @route("route-page", { path: "/page/{slug}", defaults: { slug: "home" } })
@@ -389,7 +389,7 @@ accepte, pas seulement ce que la dernière route scannée acceptait.
 ### Situation 3 — une route réservée à un domaine
 
 Une route restreinte par `@Domain` est **invisible** aux requêtes des autres vhosts : elle lève un 403
-au lieu de participer au match (`Route.matchHostname()`, `Route.ts:605`). Le point de sécurité est
+au lieu de participer au match (`Route.matchHostname()`, `Route.ts:641`). Le point de sécurité est
 l'**ordre des vérifications** : le domaine est vérifié **avant** la méthode. Sans cela, une route d'un
 autre vhost pourrait répondre 405 en révélant SES méthodes — une fuite d'information cross-domaine
 (`Route.match()`, `Route.ts:298`). La passe 2 applique la même règle : les routes d'un autre vhost sont
@@ -465,12 +465,12 @@ class MarseilleController extends Controller {
 Précédence, du plus fort au plus faible : `@route({ host })` › `@Domain` sur la méthode › `@Domain` sur
 la classe (`controller()`, `routerDecorators.ts:89`). Une route sans domaine est servie sur **tous** les
 vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Route.matchHostname()`,
-`Route.ts:605`).
+`Route.ts:641`).
 
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:1697`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:1749`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -515,7 +515,7 @@ chemin ; pour un appel interne, utilise `forward()`.
 
 **`forward()` n'est pas une redirection** : il résout `module:Controller:action` et exécute l'action
 dans le **même** contexte de requête, sans repasser par le réseau (`Resolver.parsePathernController()`,
-`Resolver.ts:185`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
+`Resolver.ts:203`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
 
 ## 🧰 API publique
 
@@ -546,10 +546,10 @@ alloué par requête.
 
 - **Compilation unique au montage** : motif d'URL, motifs de domaine, `Set` de méthodes en majuscules,
   chaîne `Allow`, et regex des requirements par variable sont figés à la création de la route
-  (`Route.compileRequirements()`, `Route.ts:324`). Le matching ne fait plus que des lookups.
+  (`Route.compileRequirements()`, `Route.ts:476`). Le matching ne fait plus que des lookups.
 - **Un seul calcul de chemin par requête** : le `pathname` normalisé est calculé une fois puis passé à
   chaque route scannée — sinon le getter `URL.pathname`, la regex de normalisation et l'allocation de
-  chaîne seraient refaits pour **chaque** route de la table (`Route.cleanPathname()`, `Route.ts:204`).
+  chaîne seraient refaits pour **chaque** route de la table (`Route.cleanPathname()`, `Route.ts:303`).
 - **Lookup O(1) pour les chemins littéraux**, scan pour les seuls chemins à motif — sans changer la
   séquence de candidats (`buildRouteIndex()`, `router.ts:130`). L'index est invalidé par toute mutation
   de la table, avec un garde-fou sur une photo `longueur/première/dernière` qui rattrape même les
@@ -567,10 +567,10 @@ alloué par requête.
 | ---------------------------------------- | ----------------- | --------------------------------------------------------------- |
 | 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:31`)           |
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:298`) |
-| 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:605`)                        |
+| 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:641`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
 | 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1740`)                    |
-| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:649`)                    |
+| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:700`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 
 ## 📡 Observabilité — Studio
