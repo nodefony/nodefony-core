@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 857,
-    "symbols": 4256,
+    "files": 858,
+    "symbols": 4265,
     "classes": 398,
-    "interfaces": 1126,
+    "interfaces": 1127,
     "types": 458,
     "enums": 4,
-    "functions": 1844,
+    "functions": 1852,
     "constants": 426
   },
   "symbols": {
@@ -20174,6 +20174,14 @@
       "decorators": [],
       "description": "Classe de base abstraite de tout ORM Nodefony — câble {@link Service} (DI, Syslog, bus d'événements) et le contrat {@link IOrm}, et s'auto-enregistre dans le {@link ormRegistry} process-wide à la c…"
     },
+    "storeCarrier": {
+      "name": "storeCarrier",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Résumé des ORM enregistrés (statut connexion + nombre d'entités)."
+    },
     "buildOrmGraph": {
       "name": "buildOrmGraph",
       "kind": "function",
@@ -20272,6 +20280,30 @@
       "exported": true,
       "module": "@nodefony/orm-core",
       "description": "Détermine si la sonde de flux ORM (`queryFlowMonitor`) doit être active : **OFF en production** (coût nul sur le hot path des requêtes), **ON sinon** (observabilité dev / Supervision). Override exp…"
+    },
+    "findOrphanEntities": {
+      "name": "findOrphanEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Entités inscrites sur un connecteur qu'aucun ORM n'a ouvert. Une telle entité ne sera servie par rien : son dépôt lèvera au premier appel, loin de sa cause. Vécu : sur une infra MongoDB, le `User` …"
+    },
+    "describeOrphanEntities": {
+      "name": "describeOrphanEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "La phrase qui NOMME les orphelines et le remède — `null` s'il n'y en a pas."
+    },
+    "reportOrphanEntities": {
+      "name": "reportOrphanEntities",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Signale UNE fois par process les entités orphelines, au moment où tous les ORM sont ouverts. Appelée par chaque module ORM (Drizzle, Mongoose) à `onReady` : la règle vit ici, une fois, et le premie…"
     },
     "IPaginateOptions": {
       "name": "IPaginateOptions",
@@ -22344,6 +22376,15 @@
       "module": "@nodefony/studio",
       "description": "Appelle un endpoint admin (`<namespace>/<path>`) via le broker — Studio reste GÉNÉRIQUE (aucune dépendance directe au module producteur : orm-core, framework…). `null` si le producteur ou l'endpoin…"
     },
+    "ILiveConnectors": {
+      "name": "ILiveConnectors",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/studio/nodefony/src/createSpec.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "extends": null,
+      "description": "Connecteurs de l'application qui tourne, lus dans son registre ORM."
+    },
     "IStudioCreateSpec": {
       "name": "IStudioCreateSpec",
       "kind": "interface",
@@ -22359,7 +22400,15 @@
       "file": "src/packages/@nodefony/studio/nodefony/src/createSpec.ts",
       "exported": true,
       "module": "@nodefony/studio",
-      "description": "Compose la matière du formulaire « Créer » pour le projet `projectRoot` — la part du data plane `create/spec` qui dépend du PROJET. Fonction pure au sens du data plane : elle ne lit que le disque d…"
+      "description": "Compose la matière du formulaire « Créer » pour le projet `projectRoot` — la part du data plane `create/spec` qui dépend du PROJET. Extraite du controller pour s'éprouver sur une application SQL ET…"
+    },
+    "connectorsFromOrmSummaries": {
+      "name": "connectorsFromOrmSummaries",
+      "kind": "function",
+      "file": "src/packages/@nodefony/studio/nodefony/src/createSpec.ts",
+      "exported": true,
+      "module": "@nodefony/studio",
+      "description": "Traduit la réponse de `orm/orms` (registre ORM en mémoire) en connecteurs du générateur. La forme est VÉRIFIÉE, pas supposée : Studio ne dépend pas d'`orm-core`, il reçoit du JSON par le broker. Un…"
     },
     "STUDIO_TYPES": {
       "name": "STUDIO_TYPES",
@@ -30208,6 +30257,7 @@
         "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeAdminApi.ts",
@@ -30799,6 +30849,7 @@
         "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
         "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/src/adminFetch.ts"
       ],
@@ -32916,7 +32967,8 @@
       "IStoreResolution": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IKernel.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "findSetReservedKeys": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -33425,6 +33477,7 @@
         "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/appSchema.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
@@ -33443,6 +33496,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/resolve.ts"
       ],
@@ -35040,6 +35094,7 @@
         "src/packages/@nodefony/orm-core/nodefony/src/defineEntity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
@@ -35975,6 +36030,10 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts"
+      ],
+      "reportOrphanEntities": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
       "defaultConnectorFilename": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts"
@@ -38053,7 +38112,14 @@
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts",
         "src/packages/@nodefony/studio/nodefony/realtime/clusterSupervision.ts"
       ],
+      "fetchAdminEndpoint": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
+        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
+      ],
       "composeCreateSpec": [
+        "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
+      ],
+      "connectorsFromOrmSummaries": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts"
       ],
       "SCAFFOLD_STEPS": [
@@ -38062,9 +38128,6 @@
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
       ],
       "RateBounds": [
-        "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
-      ],
-      "fetchAdminEndpoint": [
         "src/packages/@nodefony/studio/nodefony/controller/StudioRealtimeController.ts"
       ],
       "createSyslogBridge": [
@@ -38134,6 +38197,9 @@
       ],
       "TScaffoldStep": [
         "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts"
+      ],
+      "IScaffoldConnector": [
+        "src/packages/@nodefony/studio/nodefony/src/createSpec.ts"
       ],
       "AbstractCrudService": [
         "src/packages/@nodefony/user/nodefony/service/UserService.ts"

@@ -8,6 +8,7 @@ import {
   describeConnectFailure,
   diagnoseConnectionFailure,
   parseConnectionTarget,
+  reportOrphanEntities,
 } from "@nodefony/orm-core";
 import { MongooseOrm } from "../src/orm-core/MongooseOrm";
 import type {
@@ -56,6 +57,13 @@ class MongooseService extends Service {
       // Pas de `log` avant de relancer : le cycle de vie du kernel journalise
       // l'échec, UNE fois, avec le module et la sanction (cf DrizzleService).
       await this.connectAll(runNeedsExternalServices(this.kernel));
+    });
+    // Tous les ORM sont ouverts à `onReady` : une entité dont le connecteur
+    // n'existe pas ne sera servie par rien — le DIRE (règle d'orm-core).
+    this.module.hookKernel("onReady", () => {
+      reportOrphanEntities((message, severity) =>
+        this.log(message, severity as "WARNING"),
+      );
     });
     this.kernel?.once("onTerminate", async () => {
       await this.disconnectAll().catch(() => {

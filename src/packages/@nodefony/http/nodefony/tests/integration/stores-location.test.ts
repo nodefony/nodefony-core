@@ -89,6 +89,7 @@ async function loginAsAdmin(): Promise<string> {
 
 interface StoreEntry {
   brick: string;
+  nature?: string;
   resolved: string;
   available: string[];
   location?: string;
@@ -196,6 +197,103 @@ describe("Stores — le CONNECTEUR de chaque brique portée par un ORM", () => {
         undefined,
       );
     }
+  });
+});
+
+/** Un connecteur tel que `/nodefony/orm/api/orms` le résume. */
+interface OrmEntry {
+  name: string;
+  vendor: string;
+  default: boolean;
+}
+
+describe("Stores — le connecteur PAR DÉFAUT est celui qui porte les stores", () => {
+  /**
+   * 🔴 CE QUE CE CAS GARDE. Boot du dépôt sur MongoDB : un `default` Drizzle
+   * (SQLite local) restait ouvert, sans une brique, avec le schéma du framework
+   * en double — et Studio lui donnait la chip « défaut » parce qu'il s'appelait
+   * ainsi. Deux invariants, vrais sur tout décor : la chip suit les briques
+   * durables, et une infra MongoDB n'ouvre aucun `default` Drizzle.
+   */
+  it("la chip « défaut » suit les briques durables ; MongoDB n'ouvre pas de `default` Drizzle", async () => {
+    const cookie = await loginAsAdmin();
+    const [stores, orms] = await Promise.all([
+      get(STORES, { cookie }),
+      get("/nodefony/orm/api/orms", { cookie }),
+    ]);
+    expect(stores.status, "admin lit /stores").to.equal(200);
+    expect(orms.status, "admin lit /orms").to.equal(200);
+    const body = stores.body as {
+      stores?: StoreEntry[];
+      infra?: { database?: { family?: string } | null };
+    };
+    const raw = orms.body as unknown;
+    const connectors = (
+      Array.isArray(raw) ? raw : ((raw as { result?: unknown }).result ?? [])
+    ) as OrmEntry[];
+    expect(connectors, "liste des connecteurs").to.be.an("array").that.is.not
+      .empty;
+
+    const carriers = new Set(
+      (body.stores ?? [])
+        .filter(
+          (s) => s.nature === "durable" && typeof s.connector === "string",
+        )
+        .map((s) => s.connector),
+    );
+    const flagged = connectors.filter((c) => c.default).map((c) => c.name);
+    if (carriers.size > 0) {
+      expect(flagged, "un seul connecteur par défaut").to.have.lengthOf(1);
+      expect(
+        [...carriers],
+        "le connecteur par défaut porte les briques durables",
+      ).to.include(flagged[0]);
+    }
+    if (body.infra?.database?.family === "mongo") {
+      expect(
+        connectors
+          .filter((c) => c.vendor === "drizzle" && c.name === "default")
+          .map((c) => c.name),
+        "infra MongoDB : aucun `default` Drizzle ouvert",
+      ).to.deep.equal([]);
+    }
+  });
+});
+
+describe("ORM — aucune entité inscrite sur un connecteur fermé", () => {
+  /**
+   * 🔴 CE QUE CE CAS GARDE. Sur MongoDB, le `User` de l'application restait une
+   * table SQL sur `default`, connecteur que Drizzle n'ouvre pas sur cette
+   * infra : entité orpheline, et boot muet. Vrai sur tout décor — chaque
+   * entité doit avoir un connecteur OUVERT pour la servir.
+   */
+  it("chaque entité a son connecteur ouvert", async () => {
+    const cookie = await loginAsAdmin();
+    const [entities, orms] = await Promise.all([
+      get("/nodefony/orm/api/entities", { cookie }),
+      get("/nodefony/orm/api/orms", { cookie }),
+    ]);
+    expect(entities.status, "admin lit /entities").to.equal(200);
+    expect(orms.status, "admin lit /orms").to.equal(200);
+    const unwrap = (raw: unknown): unknown[] =>
+      Array.isArray(raw)
+        ? raw
+        : (((raw as { result?: unknown }).result ?? []) as unknown[]);
+    const open = new Set(
+      (unwrap(orms.body) as Array<{ name: string }>).map((c) => c.name),
+    );
+    const list = unwrap(entities.body) as Array<{
+      name: string;
+      module?: string;
+      connector: string;
+    }>;
+    expect(list, "liste des entités").to.not.be.empty;
+    expect(
+      list
+        .filter((e) => !open.has(e.connector))
+        .map((e) => `${e.name}@${e.module ?? ""} → ${e.connector}`),
+      "entités sans connecteur ouvert",
+    ).to.deep.equal([]);
   });
 });
 

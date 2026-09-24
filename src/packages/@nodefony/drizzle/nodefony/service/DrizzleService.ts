@@ -12,6 +12,7 @@ import {
   describeConnectFailure,
   diagnoseConnectionFailure,
   parseConnectionTarget,
+  reportOrphanEntities,
 } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../src/orm-core/index";
 import { defaultConnectorFilename } from "../src/connectorTarget";
@@ -148,6 +149,13 @@ class DrizzleService extends Service {
       // journalise l'échec, UNE fois, avec le module et la sanction. Le faire
       // aussi ici imprimait la même erreur trois fois (dont deux stacks).
       await this.connectAll(runNeedsExternalServices(this.kernel));
+    });
+    // Tous les ORM sont ouverts à `onReady` : une entité dont le connecteur
+    // n'existe pas ne sera servie par rien — le DIRE (règle d'orm-core).
+    this.module.hookKernel("onReady", () => {
+      reportOrphanEntities((message, severity) =>
+        this.log(message, severity as "WARNING"),
+      );
     });
     this.kernel?.once("onTerminate", async () => {
       // Les minuteurs d'abord : un tour qui partirait pendant la fermeture

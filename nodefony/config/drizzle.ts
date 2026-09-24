@@ -23,6 +23,11 @@ import type { env } from "../../env";
  *
  * - `default` : la base applicative — fichier sqlite local, ou la base que
  *   déclare `NF_DATABASE_URL` (l'infrastructure gagne sur ce fragment).
+ *   🔴 PAS sur une infra MongoDB : les stores y vivent sur `nodefony`
+ *   (Mongoose), et un `default` ÉCRIT ici est pris pour une demande — Drizzle
+ *   ouvrait alors un SQLite local où le schéma du framework se déclarait en
+ *   double, sans que personne ne s'en serve. Non écrit, Drizzle le retire de
+ *   lui-même (`defineDrizzleConfig`).
  * - `mediasoup` : la base EN MÉMOIRE du module de banc `@nodefony/mediasoup`,
  *   hors production seulement — comme le module (`policy: "dev"`). Ouverte en
  *   production, elle servirait un module qui n'y est pas chargé.
@@ -35,7 +40,7 @@ import type { env } from "../../env";
 export const drizzleConfig = (ctx: ConfigContext<typeof env>) =>
   ({
     connectors: {
-      default: {},
+      ...(ctx.infra.database?.family === "mongo" ? {} : { default: {} }),
       ...(ctx.isProd
         ? {}
         : {

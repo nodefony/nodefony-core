@@ -92,7 +92,11 @@ export interface IOrmSummary {
    * `IOrm.vendor` déclaré par chaque adapter (P7.1 industrialisation ORM).
    */
   vendor: string;
-  /** `true` si c'est le connecteur par défaut (`"default"`). */
+  /**
+   * `true` pour le connecteur par défaut : celui qui porte les stores de
+   * l'application (un RÔLE constaté, pas le nom `"default"` — repli sur ce nom
+   * seulement quand aucun store n'est porté par un ORM).
+   */
   default: boolean;
   /** État de la connexion. */
   connected: boolean;

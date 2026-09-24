@@ -57,6 +57,11 @@ export { assertOrderOption } from "./nodefony/src/readOptions";
 // ─── Runtime (P5.2) — registres singletons + classes de base ────────────────
 export { OrmRegistry, ormRegistry } from "./nodefony/src/OrmRegistry";
 export { EntityRegistry, entityRegistry } from "./nodefony/src/EntityRegistry";
+export {
+  findOrphanEntities,
+  describeOrphanEntities,
+  reportOrphanEntities,
+} from "./nodefony/src/orphanEntities";
 export { Orm } from "./nodefony/src/Orm";
 export { Entity } from "./nodefony/src/Entity";
 

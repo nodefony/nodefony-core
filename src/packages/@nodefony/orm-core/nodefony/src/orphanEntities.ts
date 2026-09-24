@@ -1,0 +1,72 @@
+import type { IEntity } from "../interfaces/IEntity";
+import { entityRegistry } from "./EntityRegistry";
+import { ormRegistry } from "./OrmRegistry";
+
+/**
+ * Entités inscrites sur un connecteur qu'aucun ORM n'a ouvert.
+ *
+ * Une telle entité ne sera servie par rien : son dépôt lèvera au premier
+ * appel, loin de sa cause. Vécu : sur une infra MongoDB, le `User` d'une
+ * application restait écrit en table SQL sur `default` — un connecteur que
+ * Drizzle n'ouvre pas sur cette infra — et le boot n'en disait RIEN.
+ *
+ * @param entities - entités inscrites (registre des entités).
+ * @param connectors - connecteurs ouverts (registre des ORM).
+ * @returns les orphelines, dans l'ordre d'inscription.
+ */
+export function findOrphanEntities(
+  entities: readonly IEntity[],
+  connectors: readonly string[],
+): IEntity[] {
+  return entities.filter((e) => !connectors.includes(e.connector));
+}
+
+/**
+ * La phrase qui NOMME les orphelines et le remède — `null` s'il n'y en a pas.
+ *
+ * @param orphans - entités sans connecteur ouvert.
+ * @param connectors - connecteurs ouverts, cités pour situer la faute.
+ */
+export function describeOrphanEntities(
+  orphans: readonly IEntity[],
+  connectors: readonly string[],
+): string | null {
+  if (orphans.length === 0) return null;
+  const list = orphans
+    .map(
+      (e) => `${e.name}${e.module ? `@${e.module}` : ""} → « ${e.connector} »`,
+    )
+    .join(", ");
+  return (
+    `${orphans.length} entité(s) inscrite(s) sur un connecteur qu'aucun ORM n'a ouvert — ` +
+    `rien ne les servira, leur dépôt lèvera au premier appel : ${list}. ` +
+    `Connecteurs ouverts : ${connectors.length > 0 ? connectors.join(", ") : "aucun"}. ` +
+    `Une entité doit suivre la base déclarée (NF_DATABASE_URL) : table SQL sur une infra SQL, ` +
+    `document sur MongoDB. État réel : npx nodefony inspect entities.`
+  );
+}
+
+let reported = false;
+
+/**
+ * Signale UNE fois par process les entités orphelines, au moment où tous les
+ * ORM sont ouverts.
+ *
+ * Appelée par chaque module ORM (Drizzle, Mongoose) à `onReady` : la règle vit
+ * ici, une fois, et le premier appel la rend — le second se tait, sans quoi une
+ * application qui charge les deux ORM lirait deux fois le même avertissement.
+ *
+ * @param log - journal du module appelant.
+ */
+export function reportOrphanEntities(
+  log: (message: string, severity: string) => void,
+): void {
+  if (reported) return;
+  reported = true;
+  const connectors = ormRegistry.list();
+  const message = describeOrphanEntities(
+    findOrphanEntities(entityRegistry.list(), connectors),
+    connectors,
+  );
+  if (message !== null) log(message, "WARNING");
+}

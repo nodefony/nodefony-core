@@ -5,7 +5,9 @@ import type {
   IAdminRegistry,
   IAdminRequest,
   IAdminResponse,
+  IStoreResolution,
 } from "nodefony";
+import { Nodefony } from "nodefony";
 import { performance } from "node:perf_hooks";
 import type {
   IConnectionHealth,
@@ -127,9 +129,50 @@ async function migrationCapability(
 }
 
 /** Résumé des ORM enregistrés (statut connexion + nombre d'entités). */
+/**
+ * Connecteur qui porte les stores de l'application — le connecteur PAR DÉFAUT.
+ *
+ * « Défaut » est un RÔLE, pas un nom : sur une infra MongoDB les briques
+ * durables vivent sur `nodefony` (Mongoose), et marquer `default` (Drizzle)
+ * parce qu'il s'appelle ainsi désignait une base que personne n'utilise. Le
+ * rôle se CONSTATE dans le registre des stores (#474) : le connecteur qui porte
+ * le plus de briques durables, puis de briques tout court.
+ *
+ * @param resolutions - registre des stores du kernel (`storeResolutions`).
+ * @param names - connecteurs enregistrés ; une brique sur un autre nom est ignorée.
+ * @returns le nom du connecteur, ou `null` si aucune brique n'est portée par
+ *   un ORM (le repli sur le nom `default` s'applique alors).
+ */
+export function storeCarrier(
+  resolutions: readonly IStoreResolution[],
+  names: readonly string[],
+): string | null {
+  const score = new Map<string, number>();
+  for (const r of resolutions) {
+    if (!r.connector || !names.includes(r.connector)) continue;
+    // Une brique durable pèse plus qu'une éphémère : c'est elle qui dit où
+    // vivent les données de l'application.
+    score.set(
+      r.connector,
+      (score.get(r.connector) ?? 0) + (r.nature === "durable" ? 1000 : 1),
+    );
+  }
+  let best: string | null = null;
+  for (const name of names) {
+    const s = score.get(name) ?? 0;
+    if (s > 0 && (best === null || s > (score.get(best) ?? 0))) best = name;
+  }
+  return best;
+}
+
 function buildOrmSummaries(): IOrmSummary[] {
   const entities = entityRegistry.list();
-  return ormRegistry.list().map((name) => {
+  const names = ormRegistry.list();
+  const carrier = storeCarrier(
+    Nodefony.getKernel()?.storeResolutions ?? [],
+    names,
+  );
+  return names.map((name) => {
     let connected = false;
     let vendor = "";
     let connection: IOrmSummary["connection"];
@@ -144,7 +187,7 @@ function buildOrmSummaries(): IOrmSummary[] {
     return {
       name,
       vendor,
-      default: name === "default",
+      default: carrier === null ? name === "default" : name === carrier,
       connected,
       entityCount: entities.filter((e) => e.connector === name).length,
       connection,

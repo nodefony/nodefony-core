@@ -4,6 +4,7 @@ import { entityRegistry } from "../../nodefony/src/EntityRegistry";
 import {
   buildOrmGraph,
   createOrmAdminApi,
+  storeCarrier,
   toDbml,
   toJsonSchema,
 } from "../../nodefony/src/OrmAdminApi";
@@ -12,7 +13,7 @@ import type {
   IOrm,
   IEntity,
 } from "../../nodefony/interfaces/index";
-import type { IAdminRequest } from "nodefony";
+import type { IAdminRequest, IStoreResolution } from "nodefony";
 
 const ORM = "testblog";
 
@@ -428,5 +429,54 @@ describe("OrmAdminApi — counts : deux connecteurs, une entité homonyme", () =
     const counts = await compter();
     assert.equal(counts[`${SQL}:session`], 7, JSON.stringify(counts));
     assert.equal(counts[`${DOC}:session`], -1, JSON.stringify(counts));
+  });
+});
+
+// Vu sur l'app du dépôt bootée sur MongoDB : la chip « défaut » restait sur le
+// `default` Drizzle (SQLite local, aucune brique) parce qu'elle suivait le NOM,
+// alors que toutes les briques durables vivaient sur `nodefony`.
+describe("storeCarrier — le connecteur par défaut est celui qui PORTE les stores", () => {
+  const brick = (
+    connector: string | undefined,
+    nature: IStoreResolution["nature"] = "durable",
+  ): IStoreResolution => ({
+    brick: "b",
+    nature,
+    configured: "auto",
+    resolved: "x",
+    available: [],
+    provenance: "infra",
+    reason: "",
+    ...(connector ? { connector } : {}),
+  });
+  const names = ["default", "analytics", "nodefony"];
+
+  it("infra MongoDB : les briques sur `nodefony` en font le défaut", () => {
+    assert.equal(
+      storeCarrier([brick("nodefony"), brick("nodefony")], names),
+      "nodefony",
+    );
+  });
+
+  it("une brique durable l'emporte sur plusieurs éphémères", () => {
+    assert.equal(
+      storeCarrier(
+        [
+          brick("default", "ephemeral"),
+          brick("default", "session"),
+          brick("nodefony"),
+        ],
+        names,
+      ),
+      "nodefony",
+    );
+  });
+
+  it("aucune brique sur un ORM enregistré : null (repli sur le nom)", () => {
+    assert.equal(
+      storeCarrier([brick(undefined), brick("absent")], names),
+      null,
+    );
+    assert.equal(storeCarrier([], names), null);
   });
 });
