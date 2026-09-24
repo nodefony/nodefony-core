@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T08:07:45.872Z",
+  "generatedAt": "2026-09-24T09:58:17.883Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,17 +32,17 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 145,
+      "closed": 148,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 11,
+      "open": 8,
       "title": "10.0.0-alpha"
     },
     {
       "closed": 23,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 42,
+      "open": 45,
       "title": "10.0.0-beta"
     },
     {
@@ -1886,8 +1886,8 @@
       "number": 457,
       "title": "fix(studio): réparer les trois manquements d'accessibilité du tableau de bord ORM",
       "url": "https://github.com/nodefony/nodefony-core/issues/457",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1913,6 +1913,48 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 473,
+      "title": "fix(drizzle): ne pas appliquer les migrations du framework à un connecteur secondaire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/473",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.15,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 474,
+      "title": "feat(stores): publier le connecteur qui porte chaque brique durable",
+      "url": "https://github.com/nodefony/nodefony-core/issues/474",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P3 — fin de cycle",
+      "jours": 1,
+      "ordre": 4.16,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 475,
+      "title": "fix(orm): journaliser la perte et la reprise d'une connexion",
+      "url": "https://github.com/nodefony/nodefony-core/issues/475",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 0.5,
+      "ordre": 4.17,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 158,
@@ -1962,8 +2004,8 @@
       "number": 469,
       "title": "fix(mediasoup): déclarer son connecteur au lieu de l'ouvrir dans son code",
       "url": "https://github.com/nodefony/nodefony-core/issues/469",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -2006,8 +2048,8 @@
       "number": 470,
       "title": "feat(doctor): signaler un connecteur ORM que personne n'a déclaré",
       "url": "https://github.com/nodefony/nodefony-core/issues/470",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,

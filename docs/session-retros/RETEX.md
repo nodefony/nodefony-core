@@ -267,6 +267,23 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 - [1× — 09-24c] **Le classifieur a refusé deux fois un geste sur les barrières de l'agent** — l'enregistrement d'un hook dans `.claude/settings.json`, puis le commit d'un changement de `.githooks/pre-commit` — alors que le code était écrit, testé, vu rouge. Une heure de travail est restée en attente jusqu'à l'accord explicite du user. Le geste juste : dès que la conception touche un hook, un pre-commit ou des réglages de l'agent, le NOMMER au user et obtenir son accord AVANT d'écrire — et lui présenter ce qui empêche la barrière de bloquer par surprise (ici : processus mort ignoré, âge maximal, sortie de secours nommée), c'est ce qu'il a demandé en premier.
 
+## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
+
+- [1× — 09-24d] Rattachement des briques par `location` : juste sur sqlite, FAUX sur PostgreSQL —
+  le serveur ne publie `location` que pour un fichier local (`null` en réseau, par CONCEPTION).
+  Vu seulement en coupant réellement PG sous la page. Un indice se lit à sa SOURCE (qui le pose,
+  quand) avant d'en faire une clé.
+- [1× — 09-24d] Badges `teal.9` en variant `light` : texte = fond (1,18:1) en CLAIR depuis toujours,
+  parfaits en sombre. Invisible tant qu'on ne mesure qu'un thème (déjà vécu sur le menu doc).
+- [1× — 09-24d] Déclarer un connecteur secondaire a basculé son schéma en `migrate` parce que CE
+  dépôt versionne des migrations : `ddl` non écrit = mode déduit du décor, pas du connecteur.
+- [1× — 09-24d] Ordre posé sur trois tickets en ne lisant que les tickets ORM du jalon → trois
+  ORDRE-DOUBLON. Un rang libre se lit sur le jalon ENTIER (même famille que
+  [[feedback_anchor_expires_silently]] : un relevé filtré pris pour un inventaire).
+- Pointés, déjà gradués : débranchement qui n'a PAS eu lieu (`perl` sans effet, `diff -q` muet →
+  « vert débranché » vide) → [[feedback_gate_must_bite]] ; app servie depuis un `dist` qui ignorait
+  le fragment neuf → [[feedback_prove_on_received_artifact]].
+
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
 Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrire ici.
