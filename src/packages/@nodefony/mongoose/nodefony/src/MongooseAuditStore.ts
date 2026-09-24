@@ -82,6 +82,18 @@ export class MongooseAuditStore implements IAuditStore {
     this.#retentionMs = retentionMs;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link MongooseAuditStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link MongooseOrm}. Le modèle est résolu
    * **lazy** (gardé par `isConnected()` → `null` tant que l'ORM n'est pas/plus
@@ -97,7 +109,7 @@ export class MongooseAuditStore implements IAuditStore {
     now?: () => number,
     retentionMs?: number,
   ): MongooseAuditStore {
-    return new MongooseAuditStore(
+    const store = new MongooseAuditStore(
       () => {
         if (!orm.isConnected()) {
           return null;
@@ -110,6 +122,8 @@ export class MongooseAuditStore implements IAuditStore {
       now,
       retentionMs,
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   async append(event: IAuditEvent): Promise<void> {

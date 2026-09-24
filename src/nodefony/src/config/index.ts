@@ -35,6 +35,7 @@ export {
   resolveInfra,
   resolveAutoStore,
   readStoreLocation,
+  readStoreConnector,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   AUTO_STORE,

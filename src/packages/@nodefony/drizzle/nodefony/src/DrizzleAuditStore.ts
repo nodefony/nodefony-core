@@ -104,6 +104,18 @@ export class DrizzleAuditStore implements IAuditStore {
     return this.#location;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link DrizzleAuditStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link DrizzleOrm}. Le handle est résolu **lazy**
    * (gardé par `isConnected()` → `null` tant que l'ORM n'est pas/plus connecté).
@@ -120,13 +132,15 @@ export class DrizzleAuditStore implements IAuditStore {
     now?: () => number,
     retentionMs?: number,
   ): DrizzleAuditStore {
-    return new DrizzleAuditStore(
+    const store = new DrizzleAuditStore(
       () => (orm.isConnected() ? orm.getNativeConnection<DrizzleDb>() : null),
       now,
       retentionMs,
       createAuditEventTable(orm.dialect),
       orm.location,
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   async append(event: IAuditEvent): Promise<void> {

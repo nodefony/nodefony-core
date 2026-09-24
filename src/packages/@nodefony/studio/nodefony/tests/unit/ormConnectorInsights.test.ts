@@ -101,6 +101,47 @@ describe("attributeBricks — au connecteur, jamais au moteur", () => {
     expect(by.has("mediasoup")).to.equal(false);
   });
 
+  it("🔴 le `connector` publié TRANCHE — même sur une base réseau, même hors du connecteur par défaut", () => {
+    // Deux connecteurs drizzle sur PostgreSQL : `location` est `null` pour les
+    // deux. Le repli rangerait tout sur `default` ; le serveur dit `analytics`.
+    const pgDefault: OrmSummary = {
+      ...fileDb,
+      connection: { driver: "postgres", target: "127.0.0.1:5432/app" },
+    };
+    const pgAnalytics: OrmSummary = {
+      ...memoryDb,
+      name: "analytics",
+      connection: { driver: "postgres", target: "127.0.0.1:5432/app" },
+    };
+    const by = attributeBricks(
+      [
+        {
+          brick: "tokens",
+          resolved: "drizzle",
+          location: null,
+          connector: "default",
+        },
+        {
+          brick: "audit",
+          resolved: "drizzle",
+          location: null,
+          connector: "analytics",
+        },
+      ],
+      [pgDefault, pgAnalytics],
+    );
+    expect(by.get("default")?.map((b) => b.brick)).to.deep.equal(["tokens"]);
+    expect(by.get("analytics")?.map((b) => b.brick)).to.deep.equal(["audit"]);
+  });
+
+  it("un `connector` qui ne désigne aucun connecteur déclaré n'est attribué à personne", () => {
+    const by = attributeBricks(
+      [{ brick: "tokens", resolved: "drizzle", connector: "disparu" }],
+      [fileDb],
+    );
+    expect(by.size).to.equal(0);
+  });
+
   it("entre plusieurs candidats, une location qui ne correspond à RIEN n'est attribuée à personne", () => {
     const by = attributeBricks(
       [brick("tokens", "drizzle", "var/autre.db")],

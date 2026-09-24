@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 857,
-    "symbols": 4252,
+    "symbols": 4253,
     "classes": 398,
     "interfaces": 1126,
     "types": 458,
     "enums": 4,
-    "functions": 1841,
+    "functions": 1842,
     "constants": 425
   },
   "symbols": {
@@ -3469,6 +3469,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Lit l'emplacement PHYSIQUE d'un store depuis son instance (getter public `location`), pour l'écran Studio « Stores » — répond à « où mes données sont-elles écrites ? ». Un store fichier (passkeys, …"
+    },
+    "readStoreConnector": {
+      "name": "readStoreConnector",
+      "kind": "function",
+      "file": "src/nodefony/src/config/infra.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit le connecteur ORM d'un store depuis son instance (getter public `connector`), pour le registre des stores — jumeau de {@link readStoreLocation}."
     },
     "AUTO_STORE": {
       "name": "AUTO_STORE",
@@ -30740,6 +30748,15 @@
         "src/packages/@nodefony/security/nodefony/service/webhooks.ts"
       ],
       "readStoreLocation": [
+        "src/packages/@nodefony/framework/index.ts",
+        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
+        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
+        "src/packages/@nodefony/security/nodefony/service/totp.ts",
+        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
+        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "readStoreConnector": [
         "src/packages/@nodefony/framework/index.ts",
         "src/packages/@nodefony/security/nodefony/service/auditService.ts",
         "src/packages/@nodefony/security/nodefony/service/tokenService.ts",

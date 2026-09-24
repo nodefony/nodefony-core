@@ -62,6 +62,15 @@ class SessionStorage implements ISessionStorage {
   }
 
   /**
+   * Connecteur ORM qui porte les sessions — lu par `readStoreConnector` pour le
+   * registre des stores. `undefined` tant que l'ORM de ce connecteur n'est pas
+   * enregistré : on ne publie pas un rattachement que rien ne porte.
+   */
+  get connector(): string | undefined {
+    return ormRegistry.has(SESSION_CONNECTOR) ? SESSION_CONNECTOR : undefined;
+  }
+
+  /**
    * Repository de l'entité session, ou `null` si l'ORM n'est pas (ou plus)
    * connecté.
    *

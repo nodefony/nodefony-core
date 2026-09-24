@@ -4,6 +4,7 @@ import {
   resolveInfra,
   resolveAutoStore,
   readStoreLocation,
+  readStoreConnector,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   type IInfra,
@@ -428,6 +429,21 @@ describe("config — infra (modèle « infra déclarée », Phase 0.8)", () => {
     it("null / undefined → undefined (lecture défensive, jamais de throw)", () => {
       assert.strictEqual(readStoreLocation(null), undefined);
       assert.strictEqual(readStoreLocation(undefined), undefined);
+    });
+  });
+
+  describe("readStoreConnector — connecteur ORM lu de l'instance", () => {
+    it("store porté par un ORM → nom du connecteur", () => {
+      assert.strictEqual(
+        readStoreConnector({ connector: "analytics" }),
+        "analytics",
+      );
+    });
+    it("store hors ORM, chaîne vide, non-string, null → undefined", () => {
+      assert.strictEqual(readStoreConnector({}), undefined);
+      assert.strictEqual(readStoreConnector({ connector: "" }), undefined);
+      assert.strictEqual(readStoreConnector({ connector: 1 }), undefined);
+      assert.strictEqual(readStoreConnector(null), undefined);
     });
   });
 

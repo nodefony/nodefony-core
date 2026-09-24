@@ -10,6 +10,7 @@ import {
   durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
+  readStoreConnector,
 } from "nodefony";
 import { Buffer } from "node:buffer";
 import type {
@@ -210,6 +211,7 @@ class WebAuthnService extends Service {
       reason,
       configPath: "security.passkeys.store",
       location: readStoreLocation(this.#store),
+      connector: readStoreConnector(this.#store),
     });
     // Une attestation DEMANDÉE mais jamais CONFRONTÉE ne garantit rien : le
     // navigateur transmet le certificat du modèle, et nous ne le comparons ni aux

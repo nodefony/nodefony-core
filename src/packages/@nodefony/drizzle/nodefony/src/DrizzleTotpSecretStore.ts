@@ -63,6 +63,18 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
     return this.#location;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link DrizzleTotpSecretStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link DrizzleOrm} connecté. L'entité
    * (`registerTotpSecretEntity`) doit avoir été enregistrée **avant** `orm.connect()`.
@@ -70,10 +82,12 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
    * @param orm - ORM Drizzle connecté hébergeant la table du store.
    */
   static from(orm: DrizzleOrm): DrizzleTotpSecretStore {
-    return new DrizzleTotpSecretStore(
+    const store = new DrizzleTotpSecretStore(
       orm.getRepository<TotpSecretRow>(TOTP_SECRET_ENTITY),
       orm.location,
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   /** Row plate → secret du contrat (recoveryCodes copié = mutable indépendant). */

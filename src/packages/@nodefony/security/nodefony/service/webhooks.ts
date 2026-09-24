@@ -10,6 +10,7 @@ import {
   durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
+  readStoreConnector,
   countFacets,
 } from "nodefony";
 import {
@@ -252,6 +253,7 @@ class WebhookService extends Service {
         reason: "adapter posé au container (infra database déclarée)",
         configPath: "security.webhooks.store",
         location: readStoreLocation(existing),
+        connector: readStoreConnector(existing),
       });
       return existing;
     }
@@ -305,6 +307,7 @@ class WebhookService extends Service {
       reason,
       configPath: "security.webhooks.store",
       location: readStoreLocation(store),
+      connector: readStoreConnector(store),
     });
     return store;
   }

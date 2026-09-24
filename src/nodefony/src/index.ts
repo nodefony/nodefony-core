@@ -382,6 +382,7 @@ export {
   durableStoreRemedy,
   deriveStoreBackend,
   readStoreLocation,
+  readStoreConnector,
   parseDatabaseUrl,
   sqliteFilenameFromUrl,
   AUTO_STORE,

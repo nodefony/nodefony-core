@@ -10,6 +10,7 @@ import {
   runNeedsExternalServices,
   durableStoreRemedy,
   readStoreLocation,
+  readStoreConnector,
   type IPage,
 } from "nodefony";
 import { randomBytes } from "node:crypto";
@@ -150,6 +151,7 @@ class AuditService extends Service implements IAuditSink {
       reason,
       configPath: "security.audit.store",
       location: readStoreLocation(this.#store),
+      connector: readStoreConnector(this.#store),
     });
     // GcScheduler unifié du core — gagne le jitter (anti thundering-herd cluster),
     // l'anti-empilement et la capture d'erreur (l'ancien `.then()` nu laissait un

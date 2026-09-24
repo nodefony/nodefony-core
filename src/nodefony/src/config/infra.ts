@@ -222,6 +222,14 @@ export interface IStoreResolution {
    * déclarée, déjà surfacée à part). Répond à « où sont écrites mes données ? » dans Studio.
    */
   location?: string;
+  /**
+   * Connecteur ORM qui porte la brique, lu depuis l'instance
+   * ({@link readStoreConnector}). C'est ce que le serveur SAIT : la console s'en
+   * sert pour rattacher la brique à SON connecteur, au lieu de le déduire de
+   * `location` (absente pour une base réseau). `undefined` pour un store qui
+   * n'est porté par aucun ORM (`memory`, fichier, Redis).
+   */
+  connector?: string;
 }
 
 /**
@@ -427,5 +435,19 @@ export function readStoreLocation(store: unknown): string | undefined {
   const location = (store as { location?: unknown } | null)?.location;
   return typeof location === "string" && location.length > 0
     ? location
+    : undefined;
+}
+
+/**
+ * Lit le connecteur ORM d'un store depuis son instance (getter public
+ * `connector`), pour le registre des stores — jumeau de {@link readStoreLocation}.
+ *
+ * @param store - instance de store (lue défensivement — seul un getter `connector` string).
+ * @returns nom du connecteur, ou `undefined` si le store n'en expose pas.
+ */
+export function readStoreConnector(store: unknown): string | undefined {
+  const connector = (store as { connector?: unknown } | null)?.connector;
+  return typeof connector === "string" && connector.length > 0
+    ? connector
     : undefined;
 }

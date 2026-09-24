@@ -62,6 +62,18 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
     return this.#location;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link DrizzleWebAuthnCredentialStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link DrizzleOrm} connecté. L'entité
    * (`registerWebAuthnCredentialEntity`) doit avoir été enregistrée **avant**
@@ -70,10 +82,12 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
    * @param orm - ORM Drizzle connecté hébergeant la table du store.
    */
   static from(orm: DrizzleOrm): DrizzleWebAuthnCredentialStore {
-    return new DrizzleWebAuthnCredentialStore(
+    const store = new DrizzleWebAuthnCredentialStore(
       orm.getRepository<WebAuthnCredentialRow>(WEBAUTHN_CREDENTIAL_ENTITY),
       orm.location,
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   /** Row plate → credential du contrat (`nickname?` omis si `null`). */

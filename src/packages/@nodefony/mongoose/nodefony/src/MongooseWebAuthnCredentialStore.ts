@@ -42,6 +42,18 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
     this.#repo = repo;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link MongooseWebAuthnCredentialStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link MongooseOrm} connecté. L'entité
    * (`registerWebAuthnCredentialEntity`) doit avoir été enregistrée **avant**
@@ -50,9 +62,11 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
    * @param orm - ORM Mongoose connecté hébergeant la collection du store.
    */
   static from(orm: MongooseOrm): MongooseWebAuthnCredentialStore {
-    return new MongooseWebAuthnCredentialStore(
+    const store = new MongooseWebAuthnCredentialStore(
       orm.getRepository<WebAuthnCredentialRow>(WEBAUTHN_CREDENTIAL_ENTITY),
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   /** Identité réelle d'un credential : `_id` fait foi, le virtuel `id` en repli. */

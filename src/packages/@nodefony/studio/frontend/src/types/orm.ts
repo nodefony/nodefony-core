@@ -318,6 +318,11 @@ export interface StoreBrick {
    * pour un fichier local seulement : `null` pour une base réseau.
    */
   location?: string | null;
+  /**
+   * Connecteur ORM qui porte la brique, tel que le serveur l'a résolu —
+   * absent pour un store hors ORM, ou d'un serveur antérieur à sa publication.
+   */
+  connector?: string | null;
   provenance?: string;
 }
 

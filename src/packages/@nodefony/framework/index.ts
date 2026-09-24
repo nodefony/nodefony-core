@@ -10,6 +10,7 @@ import {
   runNeedsExternalServices,
   durableStoreRemedy,
   readStoreLocation,
+  readStoreConnector,
 } from "nodefony";
 import type { IIdempotencyStore } from "nodefony";
 import type { IAdminBroker } from "./nodefony/interfaces/IAdminBroker";
@@ -298,6 +299,7 @@ class Framework extends Module<IFrameworkConfig> {
         // À `onKernelBoot` l'ORM drizzle n'est pas encore connecté → location vide.
         // Rafraîchie à `onKernelReady` (cf {@link Framework.onKernelReady}).
         location: readStoreLocation(store),
+        connector: readStoreConnector(store),
       });
       // Store SANS expiration native (drizzle expose `gc` ; redis=TTL PX et
       // memory=purge passive ne l'exposent pas) → arme un balayage périodique HORS

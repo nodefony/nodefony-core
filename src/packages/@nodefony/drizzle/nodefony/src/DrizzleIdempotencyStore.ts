@@ -132,6 +132,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
    *   base ({@link DrizzleOrm.location}) pour Studio. Lazy (comme `resolveDb`) car
    *   le store est fabriqué AVANT le connect de l'ORM → l'emplacement n'est lisible
    *   qu'une fois l'ORM enregistré (lu au `onReady`, pas à la construction).
+   * @param connector - connecteur ORM qui porte la table, publié au registre des stores.
    */
   constructor(
     resolveDb: () => DrizzleDb | null,
@@ -140,7 +141,9 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
     ttlMs: number = DEFAULT_TTL_MS,
     table: DrizzleTable = idempotencyKeyTable,
     resolveLocation?: () => string | undefined,
+    connector?: string,
   ) {
+    this.#connector = connector;
     this.#resolveDb = resolveDb;
     this.#table = table;
     this.#c = execTable(table) as unknown as Record<string, SQLiteColumn>;
@@ -159,6 +162,18 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
    */
   get location(): string | undefined {
     return this.#resolveLocation?.();
+  }
+
+  /** Connecteur ORM qui porte ce store — reçu du constructeur. */
+  readonly #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
   }
 
   /**
@@ -188,6 +203,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       // schéma au runtime (colonnes via la vue par nom logique `#c`).
       createIdempotencyTable(orm.dialect),
       () => orm.location,
+      orm.name,
     );
   }
 

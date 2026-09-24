@@ -263,22 +263,28 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
       registerIdempotencyStore(
         "mongoose",
         () =>
-          new MongooseIdempotencyStore(() => {
-            let orm: unknown;
-            try {
-              orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
-            } catch {
-              return null; // ORM pas encore enregistré (boot) ou retiré (shutdown).
-            }
-            if (!(orm instanceof MongooseOrm) || !orm.isConnected()) {
-              return null;
-            }
-            return orm
-              .getNativeConnection<Connection>()
-              .model<Record<string, unknown>>(
-                IDEMPOTENCY_ENTITY_NAME,
-              ) as unknown as Model<Record<string, unknown>>;
-          }),
+          new MongooseIdempotencyStore(
+            () => {
+              let orm: unknown;
+              try {
+                orm = ormRegistry.get(FRAMEWORK_CONNECTOR);
+              } catch {
+                return null; // ORM pas encore enregistré (boot) ou retiré (shutdown).
+              }
+              if (!(orm instanceof MongooseOrm) || !orm.isConnected()) {
+                return null;
+              }
+              return orm
+                .getNativeConnection<Connection>()
+                .model<Record<string, unknown>>(
+                  IDEMPOTENCY_ENTITY_NAME,
+                ) as unknown as Model<Record<string, unknown>>;
+            },
+            undefined,
+            undefined,
+            undefined,
+            FRAMEWORK_CONNECTOR,
+          ),
       );
     },
   );

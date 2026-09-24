@@ -116,6 +116,18 @@ export class DrizzleTokenStore implements ITokenStore {
     return this.#location;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link DrizzleTokenStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link DrizzleOrm} connecté. Les entités
    * (`registerTokenEntities`) doivent avoir été enregistrées **avant**
@@ -130,7 +142,7 @@ export class DrizzleTokenStore implements ITokenStore {
     now?: () => number,
     retentionRevokedMs?: number,
   ): DrizzleTokenStore {
-    return new DrizzleTokenStore(
+    const store = new DrizzleTokenStore(
       orm.getRepository<IAccessTokenRecord>(TOKEN_ENTITY_NAMES.records),
       orm.getRepository<DeniedJtiRow>(TOKEN_ENTITY_NAMES.denied),
       orm.getRepository<SubjectRevocationRow>(TOKEN_ENTITY_NAMES.revocations),
@@ -138,6 +150,8 @@ export class DrizzleTokenStore implements ITokenStore {
       retentionRevokedMs,
       orm.location,
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   // ── Records ────────────────────────────────────────────────────────────────

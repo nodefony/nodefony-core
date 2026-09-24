@@ -33,6 +33,11 @@ import { fmtBytes, fmtClock, fmtMs, fmtNum } from "./ormFormat";
  * local) va au connecteur par défaut de son ORM, où le framework inscrit ses
  * entités.
  *
+ * Tout cela n'est qu'un REPLI : le registre publie désormais le `connector`
+ * de chaque brique, que le serveur connaît au lieu de le déduire, et c'est lui
+ * qui tranche quand il est présent (deux connecteurs peuvent viser la même
+ * base, une cible ne désigne donc pas un connecteur).
+ *
  * @param stores - briques du registre (`/nodefony/kernel/api/stores`).
  * @param connectors - connecteurs déclarés (`/nodefony/orm/api/orms`).
  * @returns nom du connecteur → briques qu'il porte (absent = aucune).
@@ -43,6 +48,19 @@ export function attributeBricks(
 ): Map<string, StoreBrick[]> {
   const by = new Map<string, StoreBrick[]>();
   for (const s of stores) {
+    // Le serveur SAIT sur quel connecteur il a résolu la brique : quand il le
+    // publie, c'est lui qui tranche — et un nom qui ne désigne aucun connecteur
+    // déclaré n'est attribué à personne, plutôt que deviné.
+    if (s.connector !== undefined && s.connector !== null) {
+      const named = connectors.find((o) => o.name === s.connector);
+      if (named !== undefined) {
+        const list = by.get(named.name) ?? [];
+        list.push(s);
+        by.set(named.name, list);
+      }
+      continue;
+    }
+    // Repli pour un serveur qui ne publie pas encore `connector`.
     const candidates = connectors.filter((o) => o.vendor === s.resolved);
     const owner =
       candidates.length === 1

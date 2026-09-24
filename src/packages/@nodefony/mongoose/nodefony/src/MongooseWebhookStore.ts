@@ -69,6 +69,18 @@ export class MongooseWebhookStore implements IWebhookStore {
     this.#model = model;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link MongooseWebhookStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link MongooseOrm} connecté. L'entité
    * (`registerWebhookEndpointEntity`) doit avoir été enregistrée **avant**
@@ -78,10 +90,12 @@ export class MongooseWebhookStore implements IWebhookStore {
    */
   static from(orm: MongooseOrm): MongooseWebhookStore {
     const connection = orm.getNativeConnection<Connection>();
-    return new MongooseWebhookStore(
+    const store = new MongooseWebhookStore(
       orm.getRepository<WebhookEndpointRow>(WEBHOOK_ENDPOINT_ENTITY),
       connection.model<Record<string, unknown>>(WEBHOOK_ENDPOINT_ENTITY),
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   /** Identité réelle d'un endpoint : `_id` fait foi, le virtuel `id` en repli. */

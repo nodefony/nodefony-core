@@ -54,6 +54,18 @@ export class MongooseTotpSecretStore implements ITotpSecretStore {
     this.#repo = repo;
   }
 
+  /** Connecteur ORM qui porte ce store — posé par {@link MongooseTotpSecretStore.from}. */
+  #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
+  }
+
   /**
    * Construit le store depuis un {@link MongooseOrm} connecté. L'entité
    * (`registerTotpSecretEntity`) doit avoir été enregistrée **avant**
@@ -62,9 +74,11 @@ export class MongooseTotpSecretStore implements ITotpSecretStore {
    * @param orm - ORM Mongoose connecté hébergeant la collection du store.
    */
   static from(orm: MongooseOrm): MongooseTotpSecretStore {
-    return new MongooseTotpSecretStore(
+    const store = new MongooseTotpSecretStore(
       orm.getRepository<TotpSecretRow>(TOTP_SECRET_ENTITY),
     );
+    store.#connector = orm.name;
+    return store;
   }
 
   /** Row plate → secret du contrat (recoveryCodes copié = mutable indépendant). */

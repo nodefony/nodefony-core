@@ -12,6 +12,7 @@ import {
   runNeedsExternalServices,
   durableStoreRemedy,
   readStoreLocation,
+  readStoreConnector,
   type Severity,
 } from "nodefony";
 import { createHash, randomBytes, randomUUID } from "node:crypto";
@@ -167,6 +168,7 @@ class TokenService extends Service {
       reason,
       configPath: "security.tokenStore.store",
       location: readStoreLocation(this.#store),
+      connector: readStoreConnector(this.#store),
     });
     // Partage par NOM (`ApiKeyService`, `JwtAuthenticator`, endpoints framework —
     // convention-frère `passwordEncoder`/`loginThrottler`).

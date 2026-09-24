@@ -16,6 +16,7 @@ import {
   resolveAutoStore,
   runNeedsExternalServices,
   readStoreLocation,
+  readStoreConnector,
   countFacets,
   RequestContext,
 } from "nodefony";
@@ -311,6 +312,7 @@ class SessionsService extends Service {
         // Store réel (avant le garde-fou de révocation) : backend fichier → chemin ;
         // drizzle → base SQLite ; memory/réseau → undefined (voir l'infra).
         location: readStoreLocation(innerStorage),
+        connector: readStoreConnector(innerStorage),
       });
       await storage.open();
       // Maintenance déterministe HORS hot-path (GcScheduler unifié du core) :

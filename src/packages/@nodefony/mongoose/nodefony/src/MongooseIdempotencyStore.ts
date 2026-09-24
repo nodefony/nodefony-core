@@ -107,17 +107,32 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
    * @param now - horloge (epoch ms) injectable pour des tests déterministes.
    * @param leaseMs - bail d'une entrée *in-flight* (ms).
    * @param ttlMs - rétention d'une réponse mémorisée (ms).
+   * @param connector - connecteur ORM qui porte la collection, publié au registre des stores.
    */
   constructor(
     resolveModel: () => LooseModel | null,
     now: () => number = Date.now,
     leaseMs: number = DEFAULT_LEASE_MS,
     ttlMs: number = DEFAULT_TTL_MS,
+    connector?: string,
   ) {
+    this.#connector = connector;
     this.#resolveModel = resolveModel;
     this.#now = now;
     this.#leaseMs = leaseMs;
     this.#ttlMs = ttlMs;
+  }
+
+  /** Connecteur ORM qui porte ce store — reçu du constructeur. */
+  readonly #connector: string | undefined;
+
+  /**
+   * Connecteur ORM qui porte ce store, lu par `readStoreConnector` pour le
+   * registre des stores : la console rattache la brique à SON connecteur au
+   * lieu de le déduire. `undefined` pour un store construit sans ORM (bancs).
+   */
+  get connector(): string | undefined {
+    return this.#connector;
   }
 
   /**
@@ -150,6 +165,7 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
       now,
       leaseMs,
       ttlMs,
+      orm.name,
     );
   }
 

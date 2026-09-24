@@ -386,6 +386,7 @@ export function registerDrizzleFrameworkStores(
               return undefined;
             }
           },
+          FRAMEWORK_CONNECTOR,
         );
       });
     },
