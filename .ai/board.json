@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T19:19:59.418Z",
+  "generatedAt": "2026-09-24T20:09:49.049Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 154,
+      "closed": 157,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 5,
+      "open": 2,
       "title": "10.0.0-alpha"
     },
     {
@@ -1379,7 +1379,9 @@
       "ordre": 3.05,
       "debut": null,
       "cible": null,
-      "labels": []
+      "labels": [
+        "beta-3"
+      ]
     },
     {
       "number": 140,
@@ -5412,8 +5414,8 @@
       "number": 443,
       "title": "test(scaffold): lier la route de connexion des tests générés à sa source",
       "url": "https://github.com/nodefony/nodefony-core/issues/443",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,
@@ -5442,8 +5444,8 @@
       "number": 444,
       "title": "test(devkit-bench): éprouver le code généré d'une relation sur un vrai schéma",
       "url": "https://github.com/nodefony/nodefony-core/issues/444",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -6354,8 +6356,8 @@
       "number": 458,
       "title": "docs(readme): orienter l'évaluateur vers une application générée",
       "url": "https://github.com/nodefony/nodefony-core/issues/458",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 0.5,

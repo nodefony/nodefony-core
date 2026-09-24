@@ -277,6 +277,18 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-24j] #444 : le banc éprouvait des références vers une AUTRE entité ; l'auto-référence
+  (`parent:ref:Category?`) générait des tests qui importaient l'entité deux fois (TS2300). Trouvé
+  en générant le schéma du rapport d'usage (incidents), pas en relisant le gabarit.
+- [2× — 09-24j] Même famille que le `refs` mort du 09-24h, à l'envers : `refs` déclaré d'après les
+  parents que les tests CRÉENT, lu d'après les CHAMPS — deux dérivations d'un même fait, TS2304 dès
+  qu'elles divergent. Attrapé par le banc sur MON correctif. La présence d'un paramètre se dérive
+  de ce qui le LIT (`sampleReadsRefs`).
+- [1× — 09-24j] Trois tickets à prémisse périmée en une session : #443 (la copie avait migré vers
+  `nodefony/testing`), #458 (le site ne lit PAS le README), #238 annoncé bloqué par #30, fermé
+  depuis trois jours — relayé sans `gh issue view`, corrigé par le user
+  (cf [[feedback_dependency_encoded_elsewhere]], déjà gradué : le geste n'a pas été fait).
+
 - [1× — 09-24i] `ciVerdict` comptait `cancelled` comme vert (« remplacé par un run plus récent ») —
   vrai pour un vieux commit, FAUX pour celui que la reprise examine (le plus récent qui a des runs :
   personne n'a pu le remplacer). Résultat : `CI ✅` affiché sur un job Windows figé. Un statut se
