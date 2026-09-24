@@ -49,6 +49,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { containerHealthy } from "./lib/docker.ts";
 import { resetMongoDatabase } from "./lib/mongoReset.ts";
+import { acquire, holder, refusal, release } from "./long-run-lock.mjs";
 import {
   PG_GATE,
   MYSQL_GATE,
@@ -494,6 +495,20 @@ function report(
 async function main(): Promise<void> {
   const options = parseArgs(process.argv.slice(2));
   const phases: PhaseResult[] = [];
+
+  // L'arbre est à nous jusqu'à la sortie : le pre-commit et le garde d'édition
+  // de l'agent refusent tant que le verrou est tenu. Une seconde passe lancée à
+  // côté se refuse elle aussi — deux builds dans le même `dist/` se mangent.
+  const busy = holder();
+  if (busy) {
+    console.error(refusal(busy));
+    process.exit(1);
+  }
+  acquire(`test:all ${process.argv.slice(2).join(" ")}`.trim());
+  process.on("exit", () => release());
+  for (const signal of ["SIGINT", "SIGTERM"] as const) {
+    process.once(signal, () => process.exit(130));
+  }
 
   console.log(C.bold("\n⬢ Nodefony — batterie de tests complète\n"));
 

@@ -1,5 +1,13 @@
 #!/usr/bin/env sh
 
+# Un run long (`test:all`) lit l'arbre pendant des dizaines de minutes : un
+# commit en plein milieu signe un état que sa passe n'a pas testé, et rend son
+# verdict invérifiable. Vécu : deux campagnes invalidées. En tête, parce qu'il
+# ne coûte qu'une lecture de fichier.
+if ! node scripts/long-run-lock.mjs check; then
+  exit 1
+fi
+
 # Formatage auto des fichiers staged (prettier via lint-staged).
 # NON bloquant pour ton workflow : prettier --write réussit toujours sur du code
 # valide ; il reformate, il ne refuse pas. Bypass d'urgence : git commit --no-verify.
