@@ -26,13 +26,16 @@
  *   node ticket-verify.mjs 34 54 91              # ancres de ceux-là seulement
  *   node ticket-verify.mjs --touched-by HEAD     # tickets citant les fichiers d'un commit
  *   node ticket-verify.mjs --touched-by main..HEAD
+ *   node ticket-verify.mjs --dependents 466      # tickets ouverts qui dépendent de #466
  *
  * Sort 1 si une ancre est introuvable ou hors fichier (mêmes verdicts que le
  * gate doc) ; les `SUSPECT` sont rapportés sans faire échouer — une ancre qui a
  * glissé de quelques lignes est le régime normal d'un dépôt vivant. Le mode
  * `--touched-by` ne sort jamais 1 : il n'accuse pas, il donne à relire.
+ * `--dependents` non plus : il dit quels voisins relire AVANT de fermer.
  */
 import { execFileSync, spawnSync } from "node:child_process";
+import { dependentsOf } from "./dependents.mjs";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -52,7 +55,11 @@ const OUT = path.join(REPO, "tmp", "ticket-anchors");
 const argv = process.argv.slice(2);
 const touchedAt = argv.indexOf("--touched-by");
 const touchedBy = touchedAt === -1 ? null : (argv[touchedAt + 1] ?? "HEAD");
-const wanted = argv.filter((a) => /^\d+$/.test(a));
+const dependentsAt = argv.indexOf("--dependents");
+const dependentsOfN =
+  dependentsAt === -1 ? null : Number(argv[dependentsAt + 1]);
+const wanted =
+  dependentsOfN === null ? argv.filter((a) => /^\d+$/.test(a)) : [];
 
 /** Corps des tickets ouverts — un objet par ticket, jamais une chaîne concaténée. */
 function fetchTickets() {
@@ -75,8 +82,10 @@ function fetchTickets() {
         "list",
         "--state",
         "open",
+        // Un plafond atteint TRONQUE sans le dire : le lot ouvert dépasse la
+        // centaine, et `--dependents` doit voir tous les voisins.
         "--limit",
-        "200",
+        "1000",
         "--json",
         "number,title,body",
       ],
@@ -95,6 +104,22 @@ try {
     `⚠️  GitHub injoignable — aucune ancre vérifiée (${err.message.split("\n")[0]})`,
   );
   process.exit(2);
+}
+
+if (dependentsOfN !== null) {
+  if (!Number.isInteger(dependentsOfN)) {
+    console.error("usage : ticket-verify.mjs --dependents <numéro>");
+    process.exit(64);
+  }
+  const { declared, mentioned } = dependentsOf(tickets, dependentsOfN);
+  for (const t of declared) console.log(`dépend   #${t.number}  ${t.title}`);
+  for (const t of mentioned) console.log(`mentionne #${t.number}  ${t.title}`);
+  console.log(
+    declared.length + mentioned.length
+      ? `\n${declared.length} dépendance(s) déclarée(s), ${mentioned.length} mention(s) de #${dependentsOfN} parmi ${tickets.length} tickets ouverts — relire ce qu'elles affirment de son état.`
+      : `Aucun des ${tickets.length} tickets ouverts ne cite #${dependentsOfN}.`,
+  );
+  process.exit(0);
 }
 
 if (touchedBy) {

@@ -35,125 +35,51 @@ Le problème résolu : après `/clear` tu ne sais plus quoi taper ni où on en �
 Réponse : dis **« reprends »**. L'index `MEMORY.md` est déjà rechargé dans mon contexte ;
 ce mode en extrait **LA prochaine action** et te la présente.
 
-## 1. Dernière session enregistrée + kit éventuel
+## 1. Un appel, puis une lecture
 
 ```bash
-MEM="/Users/cci/.claude/projects/-Users-cci-repository-nodefony-core/memory"
-echo "--- dernier état de session (tri par date du nom, pas mtime) ---"
-ls "$MEM"/project_session_*_state.md 2>/dev/null | sort | tail -1
-echo "--- kits 'LIRE EN PREMIER' actifs ---"
-grep -rl "LIRE EN PREMIER" "$MEM"/*_kit.md 2>/dev/null
+npm run session:resume      # ~30 lignes ; --offline pour ne pas joindre GitHub
 ```
 
-Lire le `_state.md` le plus récent (sections **Fait / Décisions / Reste**). S'il y a un kit
-« LIRE EN PREMIER », le lire aussi (priorité sur le \_state générique).
+Puis **`Read` du `_state` qu'il nomme** (et des kits qu'il cite au `## Reste`). C'est tout : le
+script fait, dans l'ordre où l'un éclaire l'autre, ce qui coûtait cinq ou six appels — et trois
+contrôles que personne ne faisait. Ses règles vivent dans
+[`scripts/session-lib.mjs`](scripts/session-lib.mjs), éprouvées par `npm run test:pilotage`.
 
-**LIRE AUSSI `docs/session-retros/RETEX.md`** (le SAS des leçons récentes par thème) — c'est ce qui
-rend les retex utiles : frictions chaudes pas encore graduées en `feedback_*`. Les appliquer
-proactivement cette session (ex. « shell instable → 1 cmd à la fois », pièges build/dist après clean).
+| Ligne de sortie                       | Ce qu'elle tranche                                                                                                                                                                                    |
+| ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `Git … non poussés N ⚠️`              | un commit non poussé n'a PAS de CI — la ligne CI porte alors sur un commit plus ancien                                                                                                                |
+| `🚨 _state PÉRIMÉ`                    | le garde-fou `_state` ↔ commits, **calculé** : des `feat`/`fix` postérieurs au `_state` qu'il ne cite pas. La suite se lit sur EUX, pas sur sa « Priorité 1 » — et on propose de réécrire le `_state` |
+| `CI <sha> ✅/⏳/❌`                   | le dernier commit poussé qui a des runs. `⏳` = en cours : `conclusion` y vaut `""`, seul `status` fait foi                                                                                           |
+| `Jalon courant …` + `➡️ #N`           | le prochain dans l'ordre, choisi par [`board-next.mjs`](scripts/board-next.mjs) dans le **jalon COURANT** — jamais un ticket d'une version ultérieure, même mieux classé                              |
+| `Fermés depuis la dernière empreinte` | diff de l'empreinte commitée contre la fraîche — lisible hors ligne                                                                                                                                   |
+| `Tableau : N erreur(s)`               | `board-lint` lancé UNE fois ; une erreur se solde MAINTENANT (skill `nodefony-ticket`, `references/tableau-de-bord.md`)                                                                               |
+| `dist périmé : …`                     | 1ʳᵉ cause d'échec de session → `npm run build` (après pull/merge : `clean && build`)                                                                                                                  |
+| `Sas RETEX — N thème(s) vivant(s)`    | les TITRES sont les règles ; n'ouvrir `docs/session-retros/RETEX.md` que pour un thème qui touche le travail du jour                                                                                  |
 
-## 2. Git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
+**Pièges que le script porte — ne pas les contourner à la main :**
 
-```bash
-echo "Branche : $(git branch --show-current) — non commités : $(git status --short | wc -l | tr -d ' ')"
-echo "--- VÉRITÉ TERRAIN : derniers commits (croiser avec _state.Fait) ---"
-git log -6 --format="%h %ci %s"
-```
+- 🔴 **L'empreinte `.ai/board.json` est LA voie de lecture**, connecté comme déconnecté : produite
+  par GraphQL paginé ([`board-snapshot.mjs`](scripts/board-snapshot.mjs)), jamais éditée à la main.
+  Le client de tableau de bord en ligne de commande omet des lignes sans le dire (vécu : 120 items
+  sur 261, et un ticket `beta` annoncé avec neuf `alpha` ouverts), et son champ `.title` reste sur
+  l'ancien libellé — la voie GraphQL lit `.content.title`. Hors ligne, le script DIT la date de
+  l'empreinte : trois jours d'écart, c'est trois jours de travail qu'elle ignore.
+- **Le ticket gagne sur le `_state`** : ce qui est écrit à la main se périme, un état de ticket non.
+- **L'empreinte régénérée laisse `.ai/` modifié** — compté à part dans « non commités » ; il part
+  avec le prochain commit.
 
-> 🚨 **GARDE-FOU OBLIGATOIRE (anti-`_state`-périmé, ajouté 2026-05-25).** Le `_state` est écrit à la
-> MAIN par le mode END ; si END a été lancé au MILIEU d'une session qui a continué, le `_state` ment
-> (cas réel 2026-05-25 : END à 00:16 « prochaine = P6 », puis cluster codé à 01:07 → jamais reflété ;
-> RESUME a pointé P6 au lieu du cluster). **La vérité = les commits, pas le `_state`.**
->
-> **Vérifier** : le dernier commit `feat(...)`/`fix(...)` apparaît-il dans la section `## Fait` du
-> `_state` ? **NON → `_state` PÉRIMÉ.** Alors : déduire la prochaine étape du **dernier commit
-> `feat/fix` + son kit associé** (pas de la « Priorité 1 » du `_state`), SIGNALER l'incohérence au
-> user, et proposer de réécrire le `_state`. Ne JAMAIS restituer la « Priorité 1 » d'un `_state` que
-> les commits contredisent.
-
-## 3. Avancement RÉEL — les tickets GitHub (le pilotage a QUITTÉ le plan)
-
-Depuis que la publication est pilotée par des issues, **c'est le jalon qui dit où on en est** — pas
-le `_state`, qui est écrit à la main et vieillit entre deux sessions. Un ticket, lui, a un état que personne n'oublie de changer.
-
-**Commencer par la joignabilité — et l'ÉNONCER si elle manque.** GitHub tombe, un jeton expire, on
-travaille hors ligne : conclure « rien n'a avancé » depuis un `gh` muet serait un faux verdict.
-
-```bash
-# La VOIE NORMALE passe par l'EMPREINTE, jamais par le client de tableau de bord
-# en ligne de commande : il omet des lignes sans le dire (skill `nodefony-ticket`,
-# § Pièges vécus). L'empreinte, elle, est produite par GraphQL PAGINÉ.
-if gh api rate_limit --jq '.rate.remaining' >/dev/null 2>&1; then
-  echo "✅ GitHub joignable — on RAFRAÎCHIT l'empreinte avant de la lire"
-  npm run board:snapshot
-  echo "--- fermés depuis la dernière session ---"
-  gh issue list --state closed --limit 5 --json number,title,closedAt \
-    --jq '.[] | "#\(.number) \(.closedAt[0:10]) \(.title)"'
-else
-  echo "⚠️ GitHub INJOIGNABLE — empreinte du dernier END : le DIRE au user, avec sa date"
-fi
-# Jalons + le prochain dans l'ordre + le premier jalon détaillé. Les bornes sont
-# STRUCTURELLES : un nom de jalon écrit ici se périmerait à la version suivante.
-awk '/^## Jalons/{p=1} /^## Jalon /{n++; if(n==2) exit} p' .ai/BOARD.md
-```
-
-> **L'empreinte, c'est `.ai/BOARD.md` + `.ai/board.json`** — une projection des tickets
-> **générée** par [`scripts/board-snapshot.mjs`](scripts/board-snapshot.mjs) et commitée, sur le
-> modèle de `.ai/symbols.json`. **Ce n'est PAS un repli hors ligne : c'est LA voie de lecture**,
-> connectée comme déconnectée. La croire dégradée a coûté un faux verdict — le 2026-09-08, la
-> reprise a annoncé un ticket de la `beta` alors que neuf tickets `alpha` restaient ouverts, dont
-> un placé DEVANT lui : le client en ligne de commande avait rendu 120 items sur 261, et
-> l'empreinte, elle, nommait déjà le bon en toutes lettres sous « ➡️ Le prochain dans l'ordre ».
-> Le seul écart entre les deux situations est la FRAÎCHEUR : connecté on la régénère avant de la
-> lire, déconnecté on lit celle du dernier END **en disant au user de quand elle date** — trois
-> jours d'écart, c'est trois jours de travail qu'elle ignore.
-> **Elle ne s'édite JAMAIS à la main** — c'est ce qui la rend incapable de diverger de sa source,
-> et toute la différence avec un document de pilotage écrit à la main. La règle qui choisit le
-> prochain ticket vit à part, dans [`scripts/board-next.mjs`](scripts/board-next.mjs), pour être
-> éprouvable sans réseau (`npm run test:pilotage`).
-
-**Puis CONTRÔLER le tableau avant de s'en servir.** Un ordre de travail restitué depuis un tableau
-incohérent envoie travailler au mauvais endroit — et l'incohérence ne crie pas : un ticket hors
-tableau est simplement absent de la liste qu'on vient de lire.
-
-```bash
-npm run ticket:lint    # 0 = le tableau se tient ; 1 = une erreur de pilotage à solder d'abord
-```
-
-Les erreurs se soldent **maintenant** (elles coûtent une commande), pas « plus tard » : c'est le
-seul moment où GitHub est joint et où l'on regarde le pilotage. Le détail des contrôles vit
-dans le skill `nodefony-ticket` (`references/tableau-de-bord.md`) — le charger si un code est à interpréter.
-
-> 🔴 **Lire `.content.title`, JAMAIS `.title`.** Le champ `title` d'un item de tableau de bord est
-> une copie dérivée qui reste sur l'ancien libellé : mesuré, **38 items sur 38** portaient un titre
-> différent de leur issue. Restituer ce champ, c'est annoncer au user des tickets qu'il a fait
-> renommer. L'API GraphQL, elle, rend le titre courant — le tableau de bord affiché est à jour, seul
-> ce champ du client en ligne de commande ment.
-
-**Ce qu'on en tire pour la restitution** : le jalon donne le reste-à-faire, l'ordre donne LA
-prochaine chose à prendre, et les tickets fermés depuis la veille disent ce que le `_state` n'a
-peut-être pas enregistré. **Si l'ordre du tableau de bord et la « Priorité 1 » du `_state` se
-contredisent, le ticket gagne** — même raison que le garde-fou du §2 : ce qui est écrit à la main
-se périme, ce qui est un état ne se périme pas.
-
-## 4. Restituer (≤ 30 lignes)
+## 2. Restituer (≤ 30 lignes)
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
-3. **➡️ Prochaine étape** : celle que l'empreinte nomme sous « ➡️ Le prochain dans l'ordre » —
-   **jamais une déduction personnelle sur une liste de tickets**. 🔴 Elle vient du **JALON
-   COURANT** : tant que la version en cours a des tickets ouverts, un ticket d'une version
-   ultérieure ne passe pas devant, même mieux classé. Restituer un ticket dont le jalon n'est pas
-   celui qui reste à finir est un faux verdict — vécu le 2026-09-08 : `beta` annoncée avec neuf
-   tickets `alpha` ouverts. Si le `_state` désigne un autre ticket que l'empreinte, **l'empreinte
-   gagne** et on dit au user que le `_state` était périmé (même raison qu'au §2 : ce qui est écrit
-   à la main se périme). ⚠️ L'ordre encode les **dépendances**, pas le moment : un ticket petit
-   dont le contexte vient d'être chargé se prend **maintenant** — skill `nodefony-ticket`.
-4. **Avancement du jalon COURANT en premier** : `N ouverts / M fermés`, échéance, puis les 2-3
-   suivants **de ce jalon**. Les jalons ultérieurs se citent en une ligne, jamais comme du travail
-   à prendre. Si GitHub n'a pas répondu : « avancement non vérifié, GitHub injoignable », plus la
-   DATE de l'empreinte. Ne jamais présenter un avancement déduit du seul `_state`.
-5. **Branche git** + non commités (alerte si dist périmé probable)
+3. **➡️ Prochaine étape** : la ligne `➡️` du script, jamais une déduction personnelle sur une
+   liste de tickets. `_state` PÉRIMÉ ou contredit → le DIRE, le ticket gagne. ⚠️ L'ordre encode les
+   **dépendances**, pas le moment : un petit ticket dont le contexte vient d'être chargé se prend
+   **maintenant** — skill `nodefony-ticket`.
+4. **Avancement du jalon COURANT** (ligne `Jalon courant`), les 2 suivants ; les jalons ultérieurs
+   en une ligne au plus. Hors ligne : « avancement non vérifié » + la date de l'empreinte.
+5. **Git** : non poussés, non commités, `dist` périmé — lignes du script
 6. **Question** : « On reprend ça, ou autre chose ? »
 
 > Aucun `_state.md` trouvé → fallback : dernier retex `docs/session-retros/` + phase active.
@@ -270,8 +196,10 @@ la divulgation progressive existe pour éviter.
 
 **Ce qu'il faut savoir sans ouvrir la référence** — de quoi décider, jamais de quoi exécuter :
 
-- Le **END courant est LÉGER** : sept étapes, et les stats coûteuses (tool_use, coût €, allowlist)
-  n'en font PAS partie — elles vivent en CONSOLIDATE. Un END qui traîne est un END mal fait.
+- Le **END courant tient en deux passes de script** autour du seul jugement :
+  `npm run session:end` prépare (tickets, tableau, empreinte, chemins), l'agent ferme, écrit et
+  pousse, puis `npm run session:end -- --verify` refuse une clôture incomplète. Les stats coûteuses
+  (tool_use, coût €, allowlist) vivent en CONSOLIDATE. Un END qui traîne est un END mal fait.
 - Il **écrit la mémoire de reprise** `project_session_<date>_state.md` : sans elle, le mode RESUME
   du prochain `/clear` n'a rien à reprendre. C'est l'étape qu'on ne saute jamais.
 - Il **régénère l'empreinte des tickets** et **pousse la mémoire IA** — le seul moment où GitHub est

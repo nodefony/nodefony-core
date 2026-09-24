@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-24 06:47** (UTC).
+> Empreinte prise le **2026-09-24 07:47** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -21,7 +21,7 @@
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
 | **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 92% | 144 | 12 | 2026-09-24 |
-| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 36% | 23 | 41 | 2026-10-10 |
+| **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 35% | 23 | 42 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
@@ -40,7 +40,7 @@ Ordre 4.1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha · fris
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 41 ouverts
+## Jalon 10.0.0-beta — 42 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -66,8 +66,9 @@ Ordre 4.1 · P1 — figé à la création · 0.5 j · jalon 10.0.0-alpha · fris
 | 4.05 | P2 — décision | 1 | 2026-11-02 → 11-02 | #352 | fix(http): empêcher un frontal de retenir un flux d'événements |
 | 4.06 | P2 — décision | 1 | 2026-11-03 → 11-03 | #139 | fix(security): ne plus laisser de sessions et jetons sans propriétaire |
 | 4.07 | P2 — décision | 1 | 2026-11-04 → 11-04 | #62 | fix(cli): sonder les ports réellement utilisés par l'application |
-| 4.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS |
+| 4.08 | P2 — décision | 0.5 | 2026-11-05 → 11-05 | #427 | fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows |
 | 4.09 | P1 — figé à la création | 1 | 2026-11-05 → 11-05 | #451 | fix(client): cesser d'ignorer en silence les trames binaires reçues |
+| 4.1 | P2 — décision | 1 | — | #472 | test(ci): stabiliser trois suites qui rougissent en passe complète |
 | 5.01 | P2 — décision | 1 | 2026-11-06 → 11-06 | #159 | docs(api): publier une référence d'API générée par paquet |
 | 5.02 | P2 — décision | 1 | 2026-11-09 → 11-09 | #359 | docs(corpus): recaler les 433 ancres fichier:ligne qui ont dérivé |
 | 5.03 | P2 — décision | 1 | 2026-11-10 → 11-10 | #406 | docs(modules): publier les 8 règles de dev backend qu'aucune page ne porte |

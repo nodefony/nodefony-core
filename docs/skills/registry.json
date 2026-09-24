@@ -5801,10 +5801,12 @@
       ],
       "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
       "cost": {
-        "bodyLines": 278,
-        "approxTokens": 3898
+        "bodyLines": 206,
+        "approxTokens": 3165
       },
-      "requires": [],
+      "requires": [
+        "redis"
+      ],
       "resources": {
         "references": [
           "consolidate-toolkit.md",
@@ -5958,11 +5960,79 @@
             "env": [],
             "output": "",
             "selfDocumented": false
+          },
+          {
+            "path": "scripts/session-end.mjs",
+            "purpose": "session-end.mjs — la clôture de session en deux passes, mécanique d'un côté,",
+            "usage": [
+              "npm run session:end                 # préparation",
+              "npm run session:end -- --verify     # gate de clôture (code 1 si incomplet)"
+            ],
+            "options": [
+              {
+                "flag": "--since",
+                "help": "<rév>   début de la session (défaut : date du dernier `_state`)"
+              },
+              {
+                "flag": "--no-publish",
+                "help": "ne republie pas le README ni l'issue du tableau de bord"
+              }
+            ],
+            "env": [
+              {
+                "name": "MEM",
+                "help": ""
+              },
+              {
+                "name": "PUBLISH",
+                "help": ""
+              }
+            ],
+            "output": "≤ 25 lignes en préparation ; la liste des manques en `--verify`",
+            "selfDocumented": true
+          },
+          {
+            "path": "scripts/session-lib.mjs",
+            "purpose": "Règles PURES de la reprise et de la clôture de session — sans réseau, sans",
+            "usage": [],
+            "options": [
+              {
+                "flag": "--json",
+                "help": ""
+              }
+            ],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/session-lib.test.mjs",
+            "purpose": "Règles pures de la reprise et de la clôture — chaque cas porte le défaut",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/session-resume.mjs",
+            "purpose": "session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l).",
+            "usage": [
+              "npm run session:resume"
+            ],
+            "options": [
+              {
+                "flag": "--offline",
+                "help": "ne joint pas GitHub (empreinte du dernier END, datée)"
+              }
+            ],
+            "env": [],
+            "output": "~30 lignes ; code 0 toujours — c'est un état des lieux, pas un gate",
+            "selfDocumented": true
           }
         ]
       },
       "related": [
-        "nodefony-check-externals",
         "nodefony-check-memory-health",
         "nodefony-inspect",
         "nodefony-ticket"
@@ -6027,7 +6097,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "278",
+            "detail": "206",
             "advisory": true
           }
         ]
@@ -6894,6 +6964,24 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/dependents.mjs",
+            "purpose": "Les tickets OUVERTS qui dépendent d'un ticket — la règle, pure et éprouvable.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
+            "path": "scripts/dependents.test.mjs",
+            "purpose": "`dependentsOf` — qui relire avant de fermer un ticket.",
+            "usage": [],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/francise.mjs",
             "purpose": "Remplace, dans le corps des tickets ouverts, les anglicismes qui ont un équivalent français.",
             "usage": [
@@ -7248,6 +7336,10 @@
               "node ticket-verify.mjs                       # ancres de tous les tickets ouverts"
             ],
             "options": [
+              {
+                "flag": "--dependents",
+                "help": ""
+              },
               {
                 "flag": "--json",
                 "help": ""

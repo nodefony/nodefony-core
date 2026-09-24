@@ -5,7 +5,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-21
+updated: 2026-09-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---
@@ -28,23 +28,27 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 278 lignes |
-| Coût d'activation | ~3 898 tokens (le corps est chargé à l'invocation) |
+| Corps | 206 lignes |
+| Coût d'activation | ~3 165 tokens (le corps est chargé à l'invocation) |
 | Description | 624 / 1024 caractères |
 | Déclencheurs | 10 |
 | Ressources `references/` | 3 page(s) |
-| Scripts | 7 |
+| Scripts | 11 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
 Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`.
 
+## Prérequis
+
+Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redis**.
+
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-externals`](nodefony-check-externals.md) · [`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`ticket`](nodefony-ticket.md)
+[`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
@@ -55,10 +59,8 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 ## Ce que contient le corps
 
 - Routage du mode
-- 1. Dernière session enregistrée + kit éventuel
-- 2. Git + 🚨 GARDE-FOU cohérence `_state` ↔ commits
-- 3. Avancement RÉEL — les tickets GitHub (le pilotage a QUITTÉ le plan)
-- 4. Restituer (≤ 30 lignes)
+- 1. Un appel, puis une lecture
+- 2. Restituer (≤ 30 lignes)
 - Usage
 - 1. Résolution dynamique du chemin (PAS de table hardcodée — elle se périme)
 - 2. Mode global (sans argument)
@@ -78,7 +80,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | --- | --- | --: |
 | `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
 | `references/mode-consolidate.md` | MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS | 135 |
-| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 349 |
+| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 138 |
 
 
 ## Scripts embarqués
@@ -95,14 +97,20 @@ script, donc toujours à jour après régénération.
 | `scripts/lessons-carriers.mjs` | Qui PORTE chaque leçon durable — le chaînon manquant du cycle des retex. | `--dead` `--inert` `--recos` `--strict` `--write` | — |
 | `scripts/retex-seuil.mjs` | Les thèmes de `RETEX.md` qui ont atteint le seuil de graduation. | `--all` | `SAS` `SEUIL` |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |
+| `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, | `--since` `--no-publish` | `MEM` `PUBLISH` |
+| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans | `--json` | — |
+| `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut | — | — |
+| `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
 
 **Invocation telle que documentée dans chaque script :**
 
 ```bash
 npm run board:snapshot
+npm run session:end                 # préparation
+npm run session:resume
 ```
 
-**Toutes les variables lues par ce skill** : `PROJECT_NUMBER` · `PROJECT_OWNER` · `QUERY` · `REPO_NAME` · `REPO_OWNER` · `SAS` · `SEUIL`
+**Toutes les variables lues par ce skill** : `MEM` · `PROJECT_NUMBER` · `PROJECT_OWNER` · `PUBLISH` · `QUERY` · `REPO_NAME` · `REPO_OWNER` · `SAS` · `SEUIL`
 
 ### Détail des scripts auto-documentés
 
@@ -126,6 +134,32 @@ npm run board:issue    (= --issue)
 | `--issue` | republie l'issue-tableau publique (label `tableau-de-bord`) |
 | `--dry-run` | montre ce qui partirait, sans rien écrire |
 
+#### `scripts/session-end.mjs`
+
+Produit : ≤ 25 lignes en préparation ; la liste des manques en `--verify`
+
+```bash
+npm run session:end                 # préparation
+npm run session:end -- --verify     # gate de clôture (code 1 si incomplet)
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--since` | <rév>   début de la session (défaut : date du dernier `_state`) |
+| `--no-publish` | ne republie pas le README ni l'issue du tableau de bord |
+
+#### `scripts/session-resume.mjs`
+
+Produit : ~30 lignes ; code 0 toujours — c'est un état des lieux, pas un gate
+
+```bash
+npm run session:resume
+```
+
+| Option | Rôle |
+| --- | --- |
+| `--offline` | ne joint pas GitHub (empreinte du dernier END, datée) |
+
 ## Conformité au standard Agent Skills
 
 > [!NOTE]
@@ -145,7 +179,7 @@ npm run board:issue    (= --issue)
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 278 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 206 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

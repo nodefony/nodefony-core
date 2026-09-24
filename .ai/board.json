@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T06:47:44.469Z",
+  "generatedAt": "2026-09-24T07:47:37.532Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 23,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 41,
+      "open": 42,
       "title": "10.0.0-beta"
     },
     {
@@ -1720,7 +1720,7 @@
     },
     {
       "number": 427,
-      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS",
+      "title": "fix(frontend): stabiliser le cas du décalage de port, intermittent sur macOS et Windows",
       "url": "https://github.com/nodefony/nodefony-core/issues/427",
       "state": "OPEN",
       "status": "Todo",
@@ -1793,6 +1793,20 @@
       "labels": [
         "alpha-9"
       ]
+    },
+    {
+      "number": 472,
+      "title": "test(ci): stabiliser trois suites qui rougissent en passe complète",
+      "url": "https://github.com/nodefony/nodefony-core/issues/472",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 463,
