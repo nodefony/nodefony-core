@@ -27,6 +27,10 @@ uniquement : `npm install nodefony` sert toujours la `7.0.2` (JavaScript), et le
 sortie stable · branche par défaut `main` (dernière publication), développement sur `dev` · ~7 700 tests quand toute
 l'infrastructure répond (`npm run test:all`).
 
+> ⚠️ **Ce dépôt est l'atelier du framework, pas ce qu'une application installe** — agent : [`AGENTS.md`](AGENTS.md).
+> Pour juger le produit, lire une application générée ([`github.com/nodefony/nodefony`](https://github.com/nodefony/nodefony),
+> sortie brute de `create app`) ou en générer une : `npm create nodefony@alpha <app>`.
+
 ---
 
 Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
