@@ -96,18 +96,20 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@vitejs/plugin-vue": "^6.0.9",
   svelte: "^5.57.1",
   "@sveltejs/vite-plugin-svelte": "^7.3.1",
-  // 🔴 Angular BORNÉ à 22.1 (tilde, pas caret) : `@angular/build` 22.2 a cessé
-  // de faire hériter `SourceFileCache` de `Map`, API privée dont
-  // `@analogjs/vite-plugin-angular` 2.7.2 (dernière stable, bêta comprise)
-  // appelle `cache.has` — le serveur Vite d'un front Angular meurt au démarrage
-  // sur « cache.has is not a function ». Un caret laissait toute application
-  // générée tirer la 22.2. Lever la borne quand analogjs publie le correctif.
-  "@angular/core": "~22.1.8",
-  "@angular/common": "~22.1.8",
-  "@angular/platform-browser": "~22.1.8",
+  // 🔴 Angular BORNÉ à la mineure (tilde, pas caret) : le plugin Vite
+  // d'analogjs dépend d'API PRIVÉES de `@angular/build`. La 22.2 a cessé de
+  // faire hériter `SourceFileCache` de `Map` : avec analogjs ≤ 2.7.2, le
+  // serveur Vite d'un front Angular mourait au démarrage sur « cache.has is not
+  // a function » (analogjs 2.7.4 passe un vrai `Map` à `augmentHostWithCaching`).
+  // Un caret laisserait une application générée tirer la mineure suivante
+  // avant qu'analogjs l'ait suivie. Monter les deux ENSEMBLE, et prouver par
+  // `frontend-families.test.ts` sur le serveur de développement.
+  "@angular/core": "~22.2.0",
+  "@angular/common": "~22.2.0",
+  "@angular/platform-browser": "~22.2.0",
   "@analogjs/vite-plugin-angular": "^2.7.4",
-  "@angular/build": "~22.1.9",
-  "@angular/compiler-cli": "~22.1.8",
+  "@angular/build": "~22.2.0",
+  "@angular/compiler-cli": "~22.2.0",
 };
 
 /** Sous-ensemble du catalogue (helper des tables par framework). */
