@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T07:47:37.532Z",
+  "generatedAt": "2026-09-24T07:56:54.477Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 144,
+      "closed": 145,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 12,
+      "open": 11,
       "title": "10.0.0-alpha"
     },
     {
@@ -1782,8 +1782,8 @@
       "number": 466,
       "title": "fix(http): répondre 404 à un identifiant mal formé, pas 500",
       "url": "https://github.com/nodefony/nodefony-core/issues/466",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
@@ -2188,6 +2188,22 @@
       "cible": null,
       "labels": [
         "rattrapable"
+      ]
+    },
+    {
+      "number": 467,
+      "title": "feat(mongoose): refuser la suppression d'un parent encore référencé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/467",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.6,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "alpha-9"
       ]
     },
     {
@@ -6574,22 +6590,6 @@
       "cible": null,
       "labels": [
         "irrattrapable"
-      ]
-    },
-    {
-      "number": 467,
-      "title": "feat(mongoose): refuser la suppression d'un parent encore référencé",
-      "url": "https://github.com/nodefony/nodefony-core/issues/467",
-      "state": "OPEN",
-      "status": "In Progress",
-      "milestone": "10.0.0-alpha",
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": null,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "alpha-9"
       ]
     }
   ]

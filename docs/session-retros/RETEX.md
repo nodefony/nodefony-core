@@ -263,6 +263,10 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
   du navigateur), sans aucun effet, et le user a trouvé le menu bloqué avant moi. Revert. **Ce qui
   marche sans JavaScript ne se remplace pas pour un confort ; on AJOUTE à côté.**
 
+## 🛡️ Toucher à ses PROPRES garde-fous se demande avant d'écrire, pas au commit
+
+- [1× — 09-24c] **Le classifieur a refusé deux fois un geste sur les barrières de l'agent** — l'enregistrement d'un hook dans `.claude/settings.json`, puis le commit d'un changement de `.githooks/pre-commit` — alors que le code était écrit, testé, vu rouge. Une heure de travail est restée en attente jusqu'à l'accord explicite du user. Le geste juste : dès que la conception touche un hook, un pre-commit ou des réglages de l'agent, le NOMMER au user et obtenir son accord AVANT d'écrire — et lui présenter ce qui empêche la barrière de bloquer par surprise (ici : processus mort ignoré, âge maximal, sortie de secours nommée), c'est ce qu'il a demandé en premier.
+
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 
 Ces thèmes ont quitté le sas pour des mémoires durables. Ne pas les réécrire ici.
