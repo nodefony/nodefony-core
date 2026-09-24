@@ -493,7 +493,7 @@ détail complet vit dans [Configuration](configuration.md) ; voici seulement la 
    par `defineConfig()` (`defineConfig.ts:217`).
 4. Ce `resolve` fait, **dans cet ordre**, `mergeAndValidate()` (`defineConfig.ts:186`) : fusion
    profonde sous les défauts du framework → surcharges d'environnement `NF__APP__*` → **validation
-   Zod** (`defineConfig.ts:161`).
+   Zod** (`defineConfig.ts:186`).
 
 La configuration des **modules**, elle, se valide plus tard, à `onKernelRegister` — après que les
 surcharges `Module-<nom>` et `NF__<MODULE>__*` ont été appliquées
@@ -532,11 +532,11 @@ Un boot naïf attend chaque hook indéfiniment. Il suffit d'un `init` qui **pend
 hors ligne qui ne rejette jamais, un store bloqué — pour que le process reste figé jusqu'au `SIGKILL`
 de l'orchestrateur. Nodefony borne ça sur trois axes.
 
-- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:2621`), sinon **20 s en
+- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:3091`), sinon **20 s en
   développement, 60 s en production**. Large à dessein : il borne la pendaison infinie, pas la
   lenteur normale.
-- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:2635`), un
-  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:2635`).
+- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3103`), un
+  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:3099`).
 - **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3130`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
   `WARNING` et le boot continue.
@@ -637,13 +637,13 @@ Deux mécanismes, à ne pas confondre.
 
 > [!CAUTION]
 > `CliKernel` **n'étend pas** `Kernel` — il étend `Cli`, et le `Kernel` lui est rattaché
-> (`CliKernel.start()`, `CliKernel.ts:172`). Corollaire : dans le constructeur de `CliKernel`,
+> (`CliKernel.start()`, `CliKernel.ts:191`). Corollaire : dans le constructeur de `CliKernel`,
 > `environment` peut être indéfini. Tout réglage conditionnel à l'environnement va dans le hook
 > `onKernelStart()` de la commande, jamais dans le constructeur.
 
 Certaines invocations **ne bootent rien du tout** : `--version`, la complétion shell,
 `nodefony create`, `nodefony status`/`stop` sont traitées avant toute construction de `Kernel`
-(`CliKernel.ts:172`). Une tabulation de complétion ne démarre pas un noyau.
+(`CliKernel.ts:176`). Une tabulation de complétion ne démarre pas un noyau.
 
 Enfin, les commandes **de module** (`frontend:build`, `network`…) posent un problème d'ordre : elles
 n'existent dans l'analyseur d'arguments qu'après `onPreRegister`. Leur exécution est donc **différée**

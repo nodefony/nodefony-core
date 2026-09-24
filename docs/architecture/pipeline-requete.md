@@ -529,12 +529,12 @@ où ; les pages dédiées disent comment.
 | Probes de santé       | avant le rate-limit (`http-kernel.ts:848`)             | un orchestrateur limité croirait le pod mort → redémarrages en cascade |
 | Rate-limit par IP     | avant contexte et scope (`http-kernel.ts:998`)         | un flood doit coûter une recherche `Map`, pas une allocation           |
 | CORS                  | avant le routage (`firewall.ts:797`)                   | un preflight n'a **pas** de route ; il ne s'authentifie pas            |
-| En-têtes applicatifs  | après le routage (`http-kernel.ts:1342`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
+| En-têtes applicatifs  | après le routage (`http-kernel.ts:1381`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
 | CSRF                  | après le routage, avant la session (`firewall.ts:741`) | rejet précoce d'une mutation cross-site, avant tout coût d'auth        |
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
 | Idempotence           | dans l'appel d'action (`Resolver.ts:506`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
-| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:317`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
+| Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:349`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
 | Origin WebSocket      | au handshake (`http-kernel.ts:509`)                    | l'anti-CSWSH remplace le CORS, absent des WebSockets                   |
 
 Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·

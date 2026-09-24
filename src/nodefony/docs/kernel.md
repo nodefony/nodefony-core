@@ -109,7 +109,7 @@ donc gratuitement `this.log()`, `this.get()`, `this.on()`, `this.fire()` — le 
 sait en plus se charger et s'accrocher au cycle de vie.
 
 **2. Le kernel s'enregistre lui-même, une fois.** Son constructeur (`Kernel.ts:489`) appelle
-`Nodefony.setKernel(this)` (`Kernel.ts:629`) et se pose au container sous la clé `kernel`
+`Nodefony.setKernel(this)` (`Kernel.ts:738`) et se pose au container sous la clé `kernel`
 (`Kernel.ts:405`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
 façade pour le reste.
 
@@ -493,8 +493,8 @@ même chose.
 
 | Émetteur                | Ancre            | Comportement                                                     | Employé pour           |
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
-| `fire(nom, …)`          | `Kernel.ts:2596` | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
-| `fireAsync(nom, …)`     | `Kernel.ts:2614` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
+| `fire(nom, …)`          | `Kernel.ts:746`  | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
+| `fireAsync(nom, …)`     | `Kernel.ts:1033` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
 | `fireLifecycle(nom, …)` | `Kernel.ts:3795` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
@@ -506,7 +506,7 @@ La règle de choix tient en une ligne : **si le résultat de l'écouteur t'impor
 timer, aucune allocation par requête. La résilience du boot ne se paie pas au prix de la requête.
 
 > [!NOTE]
-> Les trois émetteurs journalisent une ligne `DEBUG` par événement émis (`Kernel.ts:2597`). Utile
+> Les trois émetteurs journalisent une ligne `DEBUG` par événement émis (`Kernel.ts:3062`). Utile
 > pour suivre un boot ; c'est aussi pourquoi un `NF__DEBUG` large rend le démarrage très bavard.
 
 ### Le piège du listener non tagué
@@ -543,7 +543,7 @@ et qu'on est en production). Donc :
 
 En développement les deux formes se comportent pareil : le piège est invisible pendant tout le
 développement, et se déclenche au premier déploiement. Le journal, lui, ne peut nommer personne — il
-écrit `"(anonyme)"` (`Kernel.ts:2672`), ce qui rend le diagnostic difficile au pire moment.
+écrit `"(anonyme)"` (`Kernel.ts:3137`), ce qui rend le diagnostic difficile au pire moment.
 
 **La règle** : sur les phases de boot, on déclare un hook. `kernel.on(...)` est réservé aux
 événements hors cycle de vie.
@@ -609,7 +609,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | `Cannot read properties of null` sur le kernel            | `getKernel()` rend `null` hors serveur                                           | Tester le retour ; en service, préférer l'injection                  |
 | Mon hook n'est jamais appelé                              | Propriété fléchée, ou nom approximatif                                           | Méthode de prototype nommée exactement (`Module.ts:235`)             |
 | Le boot casse **en production seulement**                 | Écouteur de phase posé à la main → non tagué → critique par défaut               | Déclarer un hook de module (`Module.ts:236`)                         |
-| Journal de boot : échec de `"(anonyme)"`                  | Même cause : aucun propriétaire à nommer (`Kernel.ts:2672`)                      | Idem — le hook porte l'identité                                      |
+| Journal de boot : échec de `"(anonyme)"`                  | Même cause : aucun propriétaire à nommer (`Kernel.ts:3137`)                      | Idem — le hook porte l'identité                                      |
 | `Error("Kernel not ready")` sur `addCommand`              | `kernel.cli` absent — module hors invocation CLI (`Module.ts:576`)               | N'appeler `addCommand` que dans un module chargé par le CLI          |
 | Ma commande de module n'apparaît pas                      | `addCommand` appelé dans un hook, trop tard                                      | La poser dans le **constructeur**, comme les modules du framework    |
 | `import { Inject } from "nodefony"` échoue                | Le décorateur de propriété n'est pas ré-exporté par le paquet                    | Injection par constructeur : `@inject("nom")`                        |
@@ -619,8 +619,8 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:329`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:1034`)                   | Déplacer le réglage dans `onKernelStart()`                           |
-| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:2596`)                         | `fireAsync()` si le résultat compte                                  |
-| Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:2597`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
+| Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:1033`)                         | `fireAsync()` si le résultat compte                                  |
+| Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:3062`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
 | Fichier de config qui plante à l'import                   | Kernel déréférencé au premier niveau                                             | `defineConfig((ctx) => …)` ou getter paresseux                       |
 
 ## 🧪 Tests & couverture

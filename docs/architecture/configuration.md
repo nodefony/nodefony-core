@@ -220,7 +220,7 @@ gagne**.
 | --- | -------------------- | ---------- | -------------------------------------------------------------------------------------- |
 | 1   | Défauts du framework | Nodefony   | `defaultAppConfig` (`defaults.ts:34`) · le `.default()` du schéma Zod de chaque module |
 | 2   | Config du projet     | toi        | `nodefony.config.ts` — deep-merge `extend(true, {}, …)` (`defineConfig.ts:148`)        |
-| 3   | Déploiement          | le devops  | `NF__APP__…` (`defineConfig.ts:157`) · `NF__<MODULE>__…` (`Kernel.ts:1904`) · `*_FILE` |
+| 3   | Déploiement          | le devops  | `NF__APP__…` (`defineConfig.ts:79`) · `NF__<MODULE>__…` (`Kernel.ts:1904`) · `*_FILE`  |
 | 4   | Invocation           | la CLI     | drapeaux de commande (`--workers`, …)                                                  |
 
 L'override d'environnement est appliqué **entre le merge et la validation** : la valeur venue du
@@ -251,7 +251,7 @@ Trois gardes évitent les heures de débogage les plus classiques :
 ## 🧰 Le catalogue d'environnement — `defineEnv` et ses helpers
 
 `defineEnv()` (`defineEnv.ts:270`) lit la source **une fois**, valide tout en bloc, et renvoie un
-objet **gelé** (`Object.freeze`, `defineEnv.ts:302`). Une variable absente prend son défaut ; une
+objet **gelé** (`Object.freeze`, `defineEnv.ts:494`). Une variable absente prend son défaut ; une
 variable présente mais invalide **arrête le boot en la nommant** (`defineEnv.ts:283`).
 
 Il déclare aussi ses propres métadonnées (`getEnvCatalog()`, `defineEnv.ts:110`), ce qui permet de

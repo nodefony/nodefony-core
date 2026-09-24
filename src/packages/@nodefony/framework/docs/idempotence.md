@@ -689,7 +689,7 @@ Trois surfaces existent aujourd'hui :
 
 | Symptôme                                               | Cause (dans le code)                                                                 | Correction                                                                   |
 | ------------------------------------------------------ | ------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Rejeu qui renvoie un corps **vide**                    | L'action a retourné `this.renderJson(...)` au lieu du payload (`Resolver.ts:549`)    | Retourner la **valeur brute** ; un WARNING le signale déjà dans les logs     |
+| Rejeu qui renvoie un corps **vide**                    | L'action a retourné `this.renderJson(...)` au lieu du payload (`Resolver.ts:581`)    | Retourner la **valeur brute** ; un WARNING le signale déjà dans les logs     |
 | `409` en boucle sur un endpoint                        | Action qui lève avant `complete`/`abort` → in-flight bloqué jusqu'au bail (60 s)     | Le seam le gère ; en usage manuel du store, `try/finally` obligatoire        |
 | `422 Idempotency-Key is already used`                  | Même clé, **payload différent** (empreinte ≠, `idempotency.ts:189`)                  | Une clé = une intention ; nouvelle clé par requête distincte                 |
 | Rien n'est dédupliqué **malgré** la clé                | Pas d'identité fiable → verdict `execute` (`idempotency.ts:176`)                     | S'assurer que le firewall a résolu l'utilisateur **avant** la mutation       |

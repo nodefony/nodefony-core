@@ -639,7 +639,7 @@ Trois règles de conception se dégagent du contrat, et méritent d'être respec
 | ----------------------------- | ------------------------- | ----------------------------------------------------------------------------- |
 | Attributs et préfixes cookie  | RFC 6265bis §4.1.3        | `__Host-` impose `Secure` + `Path=/`, interdit `Domain` (`cookie.ts:386-403`) |
 | Nom du cookie selon transport | RFC 6265bis / OWASP       | `getSessionCookieName()` (`Context.ts:714`)                                   |
-| Idle timeout                  | NIST SP 800-63B-4 / OWASP | défaut 1800 s, glissant par `touch` (`config.ts:796`)                         |
+| Idle timeout                  | NIST SP 800-63B-4 / OWASP | défaut 1800 s, glissant par `touch` (`config.ts:831`)                         |
 | Absolute timeout              | NIST SP 800-63B-4 / OWASP | défaut 43200 s, jamais prolongé (`config.ts:808`)                             |
 | Identifiant de session        | OWASP Session Management  | 32 octets CSPRNG, opaque (`session.ts:226`)                                   |
 | Identifiant hors URL          | OWASP Session Management  | cookie uniquement — jamais de réécriture d'URL (`session.ts:20-26`)           |

@@ -382,7 +382,7 @@ l'appelant.
 | ----------------- | ------------------------------------------------------------------------------------------- |
 | `timeoutMs`       | délai maximal par écouteur. `0`/absent = **aucun timer alloué**                             |
 | `warnMs`          | seuil de lenteur. `0`/absent = **aucune mesure** (pas un seul `Date.now`)                   |
-| `onListenerError` | appelé sur rejet **ou** dépassement ; renvoyer `true` **arrête** la chaîne (`Event.ts:320`) |
+| `onListenerError` | appelé sur rejet **ou** dépassement ; renvoyer `true` **arrête** la chaîne (`Event.ts:341`) |
 | `onListenerSlow`  | appelé quand un écouteur réussit mais dépasse `warnMs` (`Event.ts:287`)                     |
 
 Le résultat (`IGuardedEmitResult`, `Event.ts:93`) porte `results`, `errors` et `stopped`. En cas de

@@ -418,7 +418,7 @@ Ce qui change par rapport au HTTP :
   inconnu ou un sous-protocole non conforme ferme la connexion **sans jamais l'ouvrir**.
 - **Le sous-protocole est un requirement de route.** Un `protocol` déclaré et non satisfait lève une
   erreur de code **1002** (Protocol Error, RFC 6455 §7.4) au lieu d'un statut HTTP
-  (`acceptedProtocol`, `Route.ts:722`).
+  (`acceptedProtocol`, `Route.ts:758`).
 - **Le 405 ne s'applique pas au WebSocket.** La passe 2 est réservée au HTTP : sur un contexte WS,
   l'exception d'origine est préservée (`Router.resolve()`, `router.ts:230`).
 - **Un `Resolver` par connexion, réutilisé à chaque frame.** Il est créé au handshake, puis chaque
@@ -559,7 +559,7 @@ alloué par requête.
   n'est même construite (`routeNoticePromoted`, `router.ts:299`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
-  (`resolveActionMeta`, `Resolver.ts:142`).
+  (`resolveActionMeta`, `Resolver.ts:469`).
 
 ## 📜 Normes appliquées
 

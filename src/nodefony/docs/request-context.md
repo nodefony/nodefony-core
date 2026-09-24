@@ -251,7 +251,7 @@ INFO    http        : GET /api/invoices/INV-42 200 — 12 ms
 
 Les trois lignes portent **le même** `requestId`, bien qu'aucune ne se le soit transmis : le
 journal le capte tout seul dans la bulle via `Pdu.requestIdProvider` (`Pdu.ts:212`), branché sur
-`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:864`). C'est ce qui
+`RequestContext.getRequestId` par le barrel du cœur (`src/nodefony/src/index.ts:981`). C'est ce qui
 rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md).
 
 ## 🧰 API publique
@@ -301,7 +301,7 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
 | l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1250` |
 | le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:180`        |
-| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:579`          |
+| les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:349`          |
 
 ## 🔌 Où la bulle est ouverte
 

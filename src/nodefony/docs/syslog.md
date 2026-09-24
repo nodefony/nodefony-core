@@ -753,7 +753,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:184`)                    |
 | Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:303`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
-| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2376`)           |
+| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2826`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
 | JSON Lines                 | JSONL            | `FileTransport` format `json` (`FileTransport.ts:10`)  |
 | API de requête Loki        | LogQL            | `createLokiLogDriver()` (`LokiLogDriver.ts:86`)        |
