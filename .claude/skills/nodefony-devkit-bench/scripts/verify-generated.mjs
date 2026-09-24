@@ -370,7 +370,9 @@ const MONGO_ENTITIES = [
     "currency:char(3)",
     "amount:decimal(12,2)",
     "trace:uuid",
-    "author:ref:Author",
+    // Facultative : le test e2e généré y éprouve la remise à `null` à la
+    // suppression du parent — `Post.author`, obligatoire, en éprouve le refus.
+    "author:ref:Author?",
   ],
   ["Note", "body:string", "owner:ref:User"],
 ];

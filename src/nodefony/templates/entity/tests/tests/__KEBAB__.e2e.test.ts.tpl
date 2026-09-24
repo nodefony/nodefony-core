@@ -355,6 +355,57 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     expect(res.status).toBe(404);
   });
 
+<% if (it.referenceProbe) { %>
+  it("<%= it.referenceProbe.nullable ? "supprimer le parent remet la référence à null" : "un parent encore référencé ne se supprime PAS → 409" %>", async () => {
+    // MongoDB ne tient aucune clé étrangère : c'est l'ORM qui applique la
+    // politique du SQL — référence obligatoire → refus, facultative → `null`.
+    // Parent PROPRE à ce test : celui du cycle sert à toutes les créations.
+    const parent = await fetch(`${BASE}<%= it.referenceProbe.parentRoute %>`, {
+      method: "POST",
+      headers: entetes(),
+      body: JSON.stringify(<%= it.referenceProbe.parentCamel %>Sample(Date.now() % 1_000_000 + 1)),
+    });
+    expect(parent.status).toBe(201);
+    const parentId = String((await json(parent)).id);
+    const child = await fetch(`${BASE}${ROUTE}`, {
+      method: "POST",
+      headers: entetes(),
+      body: JSON.stringify({ ...sample(500), <%= it.referenceProbe.field %>: parentId }),
+    });
+    expect(child.status).toBe(201);
+    const childId = String((await json(child)).id);
+
+    const removed = await fetch(`${BASE}<%= it.referenceProbe.parentRoute %>/${parentId}`, {
+      method: "DELETE",
+      headers: AUTH,
+    });
+<% if (it.referenceProbe.nullable) { %>    expect(removed.status).toBe(204);
+    // L'enfant survit, sans pointer dans le vide.
+    const reread = await fetch(`${BASE}${ROUTE}/${childId}`, { headers: AUTH });
+    expect(reread.status).toBe(200);
+    expect((await json(reread))["<%= it.referenceProbe.field %>"]).toBeNull();
+    await fetch(`${BASE}${ROUTE}/${childId}`, { method: "DELETE", headers: AUTH });
+<% } else { %>    // Un conflit d'ÉTAT, pas une panne : le client supprime ou réassigne
+    // d'abord les enfants, et recommence.
+    expect(removed.status).toBe(409);
+    const survit = await fetch(`${BASE}<%= it.referenceProbe.parentRoute %>/${parentId}`, {
+      headers: AUTH,
+    });
+    expect(survit.status).toBe(200);
+<% if (it.softDelete) { %>
+    // Suppression DOUCE : l'enfant « supprimé » reste en base et désigne
+    // toujours son parent — qui reste donc protégé, comme en SQL.
+    await fetch(`${BASE}${ROUTE}/${childId}`, { method: "DELETE", headers: AUTH });
+<% } else { %>
+    // L'enfant parti, le parent se supprime.
+    await fetch(`${BASE}${ROUTE}/${childId}`, { method: "DELETE", headers: AUTH });
+    const ensuite = await fetch(`${BASE}<%= it.referenceProbe.parentRoute %>/${parentId}`, {
+      method: "DELETE",
+      headers: AUTH,
+    });
+    expect(ensuite.status).toBe(204);
+<% } %><% } %>  });
+<% } %>
   it("DELETE → 204, et l'enregistrement n'est plus lisible", async () => {
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",

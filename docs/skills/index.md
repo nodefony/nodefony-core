@@ -210,7 +210,7 @@ source: "docs/skills/index.md"
 | [`nodefony-tail-error-logs`](nodefony-tail-error-logs.md) | — | 84 | 0 | 0 | ✅ |
 | [`nodefony-test-campaign`](nodefony-test-campaign.md) | 1.0.0 | 207 | 1 | 0 | ✅ |
 | [`nodefony-ticket`](nodefony-ticket.md) | 1.7.0 | 422 | 7 | 17 | ✅ |
-| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 231 | 0 | 0 | ✅ |
+| [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |
 | [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 480 | 0 | 1 | ✅ |

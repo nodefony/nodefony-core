@@ -4832,7 +4832,18 @@ function runEntityScaffold(
   // l'identifiant inventé — ce qui suffit au seul contrat Zod, qui se moque de
   // l'existence du parent.
   for (const f of fields) {
-    if (f.nullable) continue;
+    if (f.nullable) {
+      // Une référence FACULTATIVE n'a pas de valeur inventée — mais quand
+      // l'appelant fournit le parent, elle le porte : le lien est alors
+      // éprouvé, et `refs` n'est jamais un paramètre mort (le lint le refuse
+      // quand toutes les références d'une entité sont facultatives).
+      if (f.type === "ref" && f.target) {
+        factory.push(
+          `...(refs.${f.target} === undefined ? {} : { ${f.name}: refs.${f.target} as ${refTargetsSerial(f.target, id) ? "number" : "string"} })`,
+        );
+      }
+      continue;
+    }
     const { fixed, expr } =
       mongo && f.type === "ref" ? objectIdSample() : sampleValue(f, id);
     sample[f.name] = fixed;
@@ -4921,6 +4932,44 @@ function runEntityScaffold(
     // pas capables, et viser aveuglément le premier filtre déclaré faisait
     // exiger le refus d'une chaîne valide.
     malformedProbe: malformedProbe(filters),
+    // La première référence vers un parent CRÉABLE par son API — le test de
+    // bout en bout supprime ce parent et constate la politique d'effacement :
+    // refus (409) si la référence est obligatoire, remise à `null` sinon.
+    //
+    // MongoDB seulement : c'est l'ORM qui y tient la politique, et le test le
+    // prouve. En SQL, la base refuse bien, mais la violation de clé étrangère
+    // rend encore 500 — un test émis là échouerait sur le rendu, pas sur la
+    // garde. L'identité (`User`) est exclue : aucune API ne la supprime.
+    // Un parent à suppression DOUCE l'est aussi : son DELETE n'est qu'une mise
+    // à jour, que la garde ne voit pas (en SQL non plus) — et un parent dont
+    // le fichier est introuvable ne dit pas ce qu'il est.
+    referenceProbe: mongo
+      ? (fields
+          .filter((f) => {
+            if (f.type !== "ref" || !f.target || f.target === IDENTITY_ENTITY) {
+              return false;
+            }
+            const parentFile = path.join(
+              target.dir,
+              "nodefony",
+              "entity",
+              `${f.target}.ts`,
+            );
+            return (
+              writer.exists(parentFile) &&
+              !/\bdeletedAt\b/u.test(writer.read(parentFile))
+            );
+          })
+          .map((f) => ({
+            field: f.name,
+            nullable: f.nullable === true,
+            parent: f.target as string,
+            parentCamel:
+              (f.target as string).charAt(0).toLowerCase() +
+              (f.target as string).slice(1),
+            parentRoute: `/api/${pluralize(toKebabCase(f.target as string))}`,
+          }))[0] ?? null)
+      : null,
     // Entités visées par les relations — le test généré doit les enregistrer,
     // sinon l'ORM lève en résolvant les relations au moment de se connecter.
     relationTargets: [

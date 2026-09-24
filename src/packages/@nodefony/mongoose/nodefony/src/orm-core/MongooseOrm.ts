@@ -21,6 +21,7 @@ import type {
   ITransaction,
 } from "@nodefony/orm-core";
 import { MongooseRepository } from "./MongooseRepository";
+import type { IMongooseReferrer } from "./MongooseRepository";
 import { MongooseTransaction } from "./MongooseTransaction";
 
 /** Modèle Mongoose à document libre (boundary). */
@@ -233,6 +234,7 @@ export class MongooseOrm extends Orm {
       this.#models[entity.name] = model;
       entity.model = model;
     }
+    this.#referrers = this.#indexReferrers(this.#models);
 
     // 4) Constat des index — LANCÉ, pas attendu (cf verifyIndexes).
     const audit = this.verifyIndexes();
@@ -465,7 +467,72 @@ export class MongooseOrm extends Orm {
     this.#connection = null;
     this.#models = null;
     this.#repositories = null;
+    this.#referrers = null;
     this.#indexAudit = null;
+  }
+
+  /**
+   * Index inverse des références : pour chaque entité visée, les champs des
+   * autres entités qui la désignent. `null` quand aucune référence n'existe.
+   */
+  #referrers: Record<string, IMongooseReferrer[]> | null = null;
+
+  /**
+   * Bâtit l'index inverse des références à partir des schémas COMPILÉS.
+   *
+   * Tout champ `ObjectId` qui porte un `ref` vers une entité de cette connexion
+   * compte — qu'il vienne d'un schéma généré (`author: { type: ObjectId, ref }`)
+   * ou d'une relation déclarée (`relations`, que l'étape 2 traduit en champ).
+   * Un tableau de références n'y entre pas : son effacement (retirer l'élément)
+   * n'a pas d'équivalent dans la politique `restrict` / `set null` du SQL.
+   *
+   * @param models - modèles compilés de la connexion.
+   * @returns l'index, ou `null` si aucune entité n'en référence une autre.
+   */
+  #indexReferrers(
+    models: Record<string, LooseModel>,
+  ): Record<string, IMongooseReferrer[]> | null {
+    let index: Record<string, IMongooseReferrer[]> | null = null;
+    for (const model of Object.values(models)) {
+      // Premières clés des index déclarés (champ ET schéma) : seule la tête
+      // d'un index sert une recherche `{ champ: { $in } }`.
+      const leading = new Set(
+        model.schema
+          .indexes()
+          .map(([fields]) => Object.keys(fields as object)[0]),
+      );
+      model.schema.eachPath((fieldPath, type) => {
+        const ref = (type.options as { ref?: unknown } | undefined)?.ref;
+        if (
+          fieldPath === "_id" ||
+          type.instance !== "ObjectId" ||
+          typeof ref !== "string" ||
+          models[ref] === undefined
+        ) {
+          return;
+        }
+        if (index === null) {
+          index = Object.create(null) as Record<string, IMongooseReferrer[]>;
+        }
+        (index[ref] ??= []).push({
+          model,
+          path: fieldPath,
+          required: type.isRequired === true,
+        });
+        if (!leading.has(fieldPath)) {
+          // Sans index, chaque suppression d'un parent parcourt TOUTE la
+          // collection pour y chercher ses enfants. Le générateur indexe
+          // toujours une référence ; un schéma écrit à la main peut l'oublier.
+          this.log(
+            `référence "${model.modelName}.${fieldPath}" → "${ref}" sans index : ` +
+              `chaque suppression d'un "${ref}" parcourra toute la collection ` +
+              `"${model.collection.collectionName}" — ajouter \`index: true\``,
+            "WARNING",
+          );
+        }
+      });
+    }
+    return index;
   }
 
   getRepository<T = unknown>(name: string): IRepository<T> {
@@ -480,7 +547,12 @@ export class MongooseOrm extends Orm {
     }
     let repository = this.#repositories[name];
     if (repository === undefined) {
-      repository = new MongooseRepository(model, this.name);
+      repository = new MongooseRepository(
+        model,
+        this.name,
+        null,
+        this.#referrers?.[name] ?? null,
+      );
       this.#repositories[name] = repository;
     }
     return repository as IRepository<T>;

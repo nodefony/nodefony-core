@@ -108,8 +108,10 @@ npx nodefony create entity Post title:string(120) body:text? views:int=0 status:
 
 - La clé est l'`_id` natif, servie en `id` ; `ref:<Entité>` est un `ObjectId` indexé, chargé
   par `?include=`, que le schéma d'entrée exige bien formé (24 caractères hexadécimaux → 422).
-- 🔴 **MongoDB ne tient AUCUNE clé étrangère** : supprimer un parent n'est pas refusé, et
-  `?include=` rend `null` à sa place. Si l'intégrité compte, la garde s'écrit dans le service.
+- **MongoDB ne tient aucune clé étrangère, l'ORM tient l'effacement** : supprimer un parent
+  encore désigné par une référence obligatoire est refusé (409), une facultative est remise à
+  `null` — la politique du SQL. Hors transaction, ce contrôle n'est pas atomique ; et
+  l'INSERTION n'est pas gardée (un identifiant inexistant est accepté, `?include=` rend `null`).
 - Refusées en le disant (options SQL) : `--table`, `--column-case`, `--id-name`, `--dialect`,
   `--id`, `--index`, `--unique`. Un index composite s'écrit à la main dans le schéma.
 - `User` ne se régénère pas : il s'étend dans `nodefony/entity/User.ts` (son TSDoc donne le geste).

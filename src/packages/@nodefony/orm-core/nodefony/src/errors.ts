@@ -83,3 +83,42 @@ export class InvalidOrderOption extends Error {
     this.received = received;
   }
 }
+
+/**
+ * Levée quand une suppression viserait une entité encore RÉFÉRENCÉE par une
+ * relation obligatoire d'une autre entité.
+ *
+ * C'est le pendant, pour un moteur sans clé étrangère (MongoDB), du `restrict`
+ * que le SQL généré pose sur une colonne de référence obligatoire : le parent
+ * ne part pas tant qu'un enfant le désigne. Sans cette garde, la suppression
+ * passait et `?include=` rendait ensuite `null` à la place du parent — une
+ * application passée du SQL à MongoDB perdait en silence une garantie qu'elle
+ * croyait avoir.
+ *
+ * Erreur de DONNÉES : c'est la surface API qui la projette (le rendu d'erreur
+ * HTTP la reconnaît par son `name` et répond 409).
+ */
+export class ReferencedEntityError extends Error {
+  /** Entité dont la suppression est refusée (nom logique). */
+  readonly entity: string;
+  /** Entité qui la référence encore (nom logique). */
+  readonly referencedBy: string;
+  /** Champ de référence de {@link ReferencedEntityError.referencedBy}. */
+  readonly field: string;
+
+  /**
+   * @param entity - entité dont la suppression est refusée.
+   * @param referencedBy - entité qui la référence encore.
+   * @param field - champ de référence obligatoire qui la désigne.
+   */
+  constructor(entity: string, referencedBy: string, field: string) {
+    super(
+      `Cannot delete "${entity}": still referenced by "${referencedBy}.${field}" ` +
+        `(required reference). Delete or reassign the "${referencedBy}" entries first.`,
+    );
+    this.name = "ReferencedEntityError";
+    this.entity = entity;
+    this.referencedBy = referencedBy;
+    this.field = field;
+  }
+}

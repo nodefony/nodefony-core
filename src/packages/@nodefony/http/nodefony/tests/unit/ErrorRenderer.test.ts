@@ -431,6 +431,41 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
       expect(r.status).to.equal(500);
     });
 
+    // Suppression d'un parent encore référencé (MongoDB, #467) : l'ORM lève une
+    // erreur de DONNÉES, reconnue ici par sa forme — http n'importe pas orm-core.
+    function referencedError(): Error {
+      const e = new Error(
+        'Cannot delete "Author": still referenced by "Post.author"',
+      ) as Error & { referencedBy: string; entity: string; field: string };
+      e.name = "ReferencedEntityError";
+      e.entity = "Author";
+      e.referencedBy = "Post";
+      e.field = "author";
+      return e;
+    }
+
+    it("ReferencedEntityError → 409, en nommant l'entité qui référence", () => {
+      const r = renderer.renderHttp(
+        referencedError(),
+        fakeHttpContext() as never,
+      );
+      expect(r.status).to.equal(409);
+      expect(r.message).to.contain("Post");
+    });
+
+    it("ReferencedEntityError enveloppée (`cause`) → 409 aussi", () => {
+      const wrapped = new Error("service", { cause: referencedError() });
+      const r = renderer.renderHttp(wrapped, fakeHttpContext() as never);
+      expect(r.status).to.equal(409);
+    });
+
+    it("le nom seul ne suffit pas : sans `referencedBy`, reste 500", () => {
+      const e = new Error("x");
+      e.name = "ReferencedEntityError";
+      const r = renderer.renderHttp(e, fakeHttpContext() as never);
+      expect(r.status).to.equal(500);
+    });
+
     it("un `cause` cyclique ne fait pas boucler le rendu", () => {
       const ctx = fakeHttpContext();
       const a = new Error("a") as Error & { cause: unknown };

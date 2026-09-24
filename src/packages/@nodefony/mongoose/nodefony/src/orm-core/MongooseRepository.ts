@@ -7,6 +7,7 @@ import {
   isUpdateOperators,
   likePatternToRegExp,
   queryFlowMonitor,
+  ReferencedEntityError,
   UnknownCriteriaField,
 } from "@nodefony/orm-core";
 import type {
@@ -26,6 +27,26 @@ type LooseModel = Model<Record<string, unknown>>;
 // `LIKE … ESCAPE '\'` émis côté SQL, sinon changer de backend changerait les
 // résultats. Elle était écrite ici, et elle ignorait l'échappement — un `a\_b`
 // y devenait `a\.b`, c'est-à-dire un motif qui ne matche rien.
+
+/**
+ * Champ d'une AUTRE entité qui référence celle d'un repository — une entrée de
+ * l'index inverse que {@link MongooseOrm} bâtit au `connect()`.
+ *
+ * MongoDB ne tient aucune clé étrangère : c'est cette table qui porte, à la
+ * suppression d'un parent, la politique que le SQL généré confie à la base.
+ */
+export interface IMongooseReferrer {
+  /** Modèle de l'entité qui porte la référence. */
+  readonly model: LooseModel;
+  /** Chemin du champ `ObjectId` qui désigne le parent. */
+  readonly path: string;
+  /**
+   * Référence obligatoire → la suppression du parent est REFUSÉE (`restrict`) ;
+   * facultative → le champ est remis à `null` (`set null`). Même règle que le
+   * SQL généré, qui déduit l'effacement de la nullabilité de la colonne.
+   */
+  readonly required: boolean;
+}
 
 /**
  * Clé Mongo d'un champ de TRI — `id` public → `_id` au repos.
@@ -58,20 +79,26 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   readonly #session: ClientSession | null;
   /** Connecteur ORM (clé du registre) — tag des métriques de flux. */
   readonly #connector: string;
+  /** Champs qui référencent cette entité — `null` si personne ne la vise (cas courant, coût nul). */
+  readonly #referrers: readonly IMongooseReferrer[] | null;
 
   /**
    * @param model - modèle Mongoose compilé.
    * @param connector - nom de la connexion (clé du registre) — défaut `"nodefony"`.
    * @param session - session transactionnelle à laquelle lier les ops (ou `null`).
+   * @param referrers - champs d'autres entités qui référencent celle-ci (index
+   *   inverse de {@link MongooseOrm}) ; `null` quand aucune ne la vise.
    */
   constructor(
     model: LooseModel,
     connector = "nodefony",
     session: ClientSession | null = null,
+    referrers: readonly IMongooseReferrer[] | null = null,
   ) {
     this.#model = model;
     this.#connector = connector;
     this.#session = session;
+    this.#referrers = referrers;
   }
 
   /**
@@ -464,8 +491,13 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
   }
 
   async delete(criteria: Criteria<T>): Promise<number> {
-    const filter = this.#filter(criteria);
-    return this.#prof(
+    let filter = this.#filter(criteria);
+    const ids = await this.#referencedTargets(filter, false);
+    if (ids !== null) {
+      if (ids.length === 0) return 0;
+      filter = { _id: { $in: ids } };
+    }
+    const removed = await this.#prof(
       () => this.#descr("deleteMany", filter),
       async () => {
         const res = await this.#model.deleteMany(filter, {
@@ -475,11 +507,18 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       },
       (n) => n,
     );
+    if (ids !== null && removed > 0) await this.#releaseOptional(ids);
+    return removed;
   }
 
   async deleteOne(criteria: Criteria<T>): Promise<boolean> {
-    const filter = this.#filter(criteria);
-    return this.#prof(
+    let filter = this.#filter(criteria);
+    const ids = await this.#referencedTargets(filter, true);
+    if (ids !== null) {
+      if (ids.length === 0) return false;
+      filter = { _id: ids[0] };
+    }
+    const removed = await this.#prof(
       () => this.#descr("deleteOne", filter),
       async () => {
         const res = await this.#model.deleteOne(filter, {
@@ -489,20 +528,105 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       },
       (ok) => (ok ? 1 : 0),
     );
+    if (ids !== null && removed) await this.#releaseOptional(ids);
+    return removed;
   }
 
   async findOneAndDelete(criteria: Criteria<T>): Promise<T | null> {
-    const filter = this.#filter(criteria);
-    return this.#prof(
+    let filter = this.#filter(criteria);
+    const ids = await this.#referencedTargets(filter, true);
+    if (ids !== null) {
+      if (ids.length === 0) return null;
+      filter = { _id: ids[0] };
+    }
+    const doc = await this.#prof(
       () => this.#descr("findOneAndDelete", filter),
       async () => {
-        const doc = await this.#model
+        const found = await this.#model
           .findOneAndDelete(filter, { session: this.#session ?? undefined })
           .exec();
-        return doc ? this.#plain(doc) : null;
+        return found ? this.#plain(found) : null;
       },
-      (doc) => (doc ? 1 : 0),
+      (d) => (d ? 1 : 0),
     );
+    if (ids !== null && doc !== null) await this.#releaseOptional(ids);
+    return doc;
+  }
+
+  /**
+   * Garde d'intégrité d'une suppression — le `restrict` que MongoDB ne tient pas.
+   *
+   * Rend `null` (et ne coûte rien) quand aucune entité ne référence celle-ci.
+   * Sinon, lit les `_id` que la suppression viserait, REFUSE si l'un d'eux est
+   * encore désigné par une référence obligatoire, et les rend : la suppression
+   * porte alors sur ces `_id` exacts, pas sur le filtre — ce qui a été contrôlé
+   * est ce qui part.
+   *
+   * ⚠️ Hors transaction, le contrôle et la suppression sont deux opérations : un
+   * enfant créé entre les deux n'est pas vu. Le SQL, lui, est atomique ; dans
+   * une transaction (`withTransaction`), les deux lisent la même session.
+   * ⚠️ Les `_id` visés sont tous chargés : une suppression en MASSE garde sa
+   * règle « un seul parent retenu bloque le lot », au prix d'une mémoire
+   * proportionnelle au lot. Le CRUD généré supprime par `id`, donc un à un.
+   *
+   * @param filter - filtre Mongo déjà traduit.
+   * @param single - vrai pour `deleteOne`/`findOneAndDelete` (un seul document).
+   * @returns les `_id` visés, ou `null` si l'entité n'est référencée par personne.
+   * @throws ReferencedEntityError si une référence obligatoire désigne l'un d'eux.
+   */
+  async #referencedTargets(
+    filter: QueryFilter<Record<string, unknown>>,
+    single: boolean,
+  ): Promise<unknown[] | null> {
+    const referrers = this.#referrers;
+    if (referrers === null) return null;
+    const session = this.#session ?? undefined;
+    const query = this.#model.find(filter, { _id: 1 }, { session }).lean();
+    if (single) query.limit(1);
+    const docs = (await query.exec()) as { _id: unknown }[];
+    if (docs.length === 0) return [];
+    const ids = docs.map((d) => d._id);
+    for (const referrer of referrers) {
+      if (!referrer.required) continue;
+      // Un enfant qui part DANS LE MÊME LOT ne retient pas son parent — sans
+      // quoi une auto-référence (`Category.parent`) rendrait l'arbre entier
+      // insupprimable d'un seul appel.
+      const blocking = await referrer.model
+        .exists(
+          referrer.model === this.#model
+            ? { [referrer.path]: { $in: ids }, _id: { $nin: ids } }
+            : { [referrer.path]: { $in: ids } },
+        )
+        .session(session ?? null)
+        .exec();
+      if (blocking !== null) {
+        throw new ReferencedEntityError(
+          this.#model.modelName,
+          referrer.model.modelName,
+          referrer.path,
+        );
+      }
+    }
+    return ids;
+  }
+
+  /**
+   * Remet à `null` les références FACULTATIVES aux documents supprimés — le
+   * `set null` du SQL généré : l'enfant survit à son parent, sans pointer dans
+   * le vide.
+   *
+   * @param ids - `_id` des documents supprimés.
+   */
+  async #releaseOptional(ids: unknown[]): Promise<void> {
+    const session = this.#session ?? undefined;
+    for (const referrer of this.#referrers ?? []) {
+      if (referrer.required) continue;
+      await referrer.model.updateMany(
+        { [referrer.path]: { $in: ids } },
+        { $set: { [referrer.path]: null } },
+        { session },
+      );
+    }
   }
 
   async count(criteria?: Criteria<T>): Promise<number> {
@@ -575,6 +699,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       this.#model,
       this.#connector,
       tx.getNative<ClientSession>(),
+      this.#referrers,
     );
   }
 }

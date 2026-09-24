@@ -49,6 +49,7 @@ export type { UpdateOperatorKey } from "./nodefony/src/criteria";
 export {
   UnknownCriteriaField,
   InvalidOrderOption,
+  ReferencedEntityError,
 } from "./nodefony/src/errors";
 
 // ─── Options de lecture — garde portable partagée par tous les adapters ───────

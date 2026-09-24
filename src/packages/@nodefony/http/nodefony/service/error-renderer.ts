@@ -206,6 +206,35 @@ function isUniqueViolation(error: Error): boolean {
 }
 
 /**
+ * Reconnaît une suppression refusée parce que l'entité est encore RÉFÉRENCÉE
+ * (`ReferencedEntityError` de `@nodefony/orm-core`) et rend le nom de l'entité
+ * qui la désigne.
+ *
+ * Reconnaissance **structurelle** (`name` + `referencedBy`), sans importer
+ * orm-core : `@nodefony/http` n'en dépend pas, et l'erreur reste une erreur de
+ * DONNÉES que chaque surface projette elle-même — ici en 409, un conflit d'état
+ * (RFC 9110 §15.5.10) : la requête est valide, c'est l'existence d'un enfant qui
+ * la refuse.
+ *
+ * @param error - erreur remontée par le pipeline.
+ * @returns le nom de l'entité référençante, ou `null`.
+ */
+function referencedByOf(error: Error): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const candidate = current as Error & { referencedBy?: unknown };
+    if (
+      candidate.name === "ReferencedEntityError" &&
+      typeof candidate.referencedBy === "string"
+    ) {
+      return candidate.referencedBy;
+    }
+    current = candidate.cause;
+  }
+  return null;
+}
+
+/**
  * Types de colonne dont une valeur mal formée est un IDENTIFIANT mal formé,
  * tel que PostgreSQL le nomme dans son message `22P02`.
  *
@@ -549,6 +578,22 @@ class DefaultErrorRenderer implements IErrorRenderer {
       // pilote écraserait le 409 par « 23505 ».
       const conflict = new nodefonyError(
         UNIQUE_VIOLATION_MESSAGE,
+        CONFLICT_STATUS,
+      );
+      conflict.stack = error.stack;
+      return new HttpError(
+        conflict,
+        CONFLICT_STATUS,
+        context as unknown as undefined,
+      );
+    }
+    const referencedBy = referencedByOf(error);
+    if (referencedBy !== null) {
+      // Le nom de l'entité référençante est le geste à faire (« supprimez ou
+      // réassignez d'abord les Post ») ; le champ et la collection restent
+      // dans la `stack`, côté serveur.
+      const conflict = new nodefonyError(
+        `Conflict — this resource is still referenced by ${referencedBy}`,
         CONFLICT_STATUS,
       );
       conflict.stack = error.stack;

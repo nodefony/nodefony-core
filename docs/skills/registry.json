@@ -7476,8 +7476,8 @@
       ],
       "description": "Crée une ressource complète dans une application Nodefony — entité, schémas de validation, service CRUD, controller REST+WebSocket et tests — par le générateur `nodefony create entity`, sur SQL comme sur MongoDB. Porte la grammaire de champs, la table des types moteur par moteur, les relations et clés étrangères, les réglages pour épouser une table SQL existante, et ce qu'on découvre autrement en production : la table naît au démarrage, un champ ajouté n'est rattrapé que s'il accepte le vide, et la production s'applique par des migrations (skill `nodefony-migrate-schema`). À charger AVANT d'écrire une entité, un repository ou un controller de ressource. Déclencheurs : \"ajoute une entité\", \"crée un CRUD\", \"nouvelle table\", \"modèle de données\", \"ressource REST\", \"je veux stocker des articles/commandes\", \"comment définir un champ\", \"quels types de champ ?\", \"une relation entre deux entités\", \"clé étrangère\", \"index composite\", \"épouser une table existante\", \"entité MongoDB\", \"schéma Mongoose\".",
       "cost": {
-        "bodyLines": 231,
-        "approxTokens": 3581
+        "bodyLines": 233,
+        "approxTokens": 3627
       },
       "requires": [],
       "resources": {
@@ -7548,7 +7548,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "231",
+            "detail": "233",
             "advisory": true
           }
         ]

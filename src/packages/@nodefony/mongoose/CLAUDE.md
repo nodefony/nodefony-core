@@ -61,6 +61,13 @@ credentials + version) · `ping` (`admin().command({ping:1})`) · `probe` (`serv
   attendu** (une construction dure des minutes) ; `pendingIndexAudit` permet de l'attendre.
 - 🔴 **Ne JAMAIS appeler `syncIndexes()` automatiquement** : il SUPPRIME les index non déclarés au
   schéma. Constater au démarrage, réparer sur geste explicite.
+- **Intégrité à la suppression = l'ORM, pas la base** : `#indexReferrers` (`MongooseOrm`) relève au
+  `connect()` tout champ `ObjectId` + `ref` vers une entité de la connexion ; `MongooseRepository`
+  (`delete`/`deleteOne`/`findOneAndDelete`) refuse si une référence `required` désigne un `_id` visé
+  (`ReferencedEntityError`, orm-core → 409 par le rendu HTTP, reconnu par `name`) et remet à `null`
+  les facultatives. Mêmes défauts que Prisma (`Restrict`/`SetNull`). Non atomique hors transaction ;
+  insertion NON gardée. Un tableau de refs n'est pas relevé. Ne jamais contourner par
+  `getNativeConnection()` dans du code du framework.
 - **`autoIndex` est un champ TYPÉ du connecteur** (`config.ts`), qui prime sur une clé homonyme
   d'`options` (`MongooseService.buildConnectOptions`). À `false` : rien n'est construit, le manque
   est quand même CONSTATÉ et journalisé.

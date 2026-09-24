@@ -592,10 +592,35 @@ Le chargement se demande à la lecture : `find(criteria, { relations: ["comments
 `populate`. Le refus du `many-to-many` est volontaire : il n'a pas de traduction unique en Mongo
 (tableau de références ? collection de liaison ?), et un choix imposé serait un mauvais choix.
 
+**L'adapter tient la politique d'effacement du SQL généré.** Au `connect()`, il relève tout
+champ `ObjectId` qui porte un `ref` vers une entité de la même connexion, et chaque suppression
+d'un parent (`delete`, `deleteOne`, `findOneAndDelete`) la consulte :
+
+| La référence est…              | Supprimer le parent…                                                       |
+| ------------------------------ | -------------------------------------------------------------------------- |
+| obligatoire (`required: true`) | est **refusé** : `ReferencedEntityError`, que le rendu HTTP traduit en 409 |
+| facultative                    | passe, et la référence de l'enfant est **remise à `null`**                 |
+
+Une entité que personne ne référence ne paie rien. Une **auto-référence** (`Category.parent`) ne
+retient pas un parent dont l'enfant part dans le même appel : l'arbre entier se supprime d'un coup.
+Une référence **sans index** est signalée au `connect()` (`WARNING`, champ nommé) : sans lui,
+chaque suppression du parent parcourt toute la collection de l'enfant. Quatre limites, à connaître :
+
+- **Hors transaction, contrôle et suppression sont deux opérations** : un enfant créé entre les
+  deux n'est pas vu. Le SQL, lui, est atomique ; dans `withTransaction`, les deux partagent la
+  session.
+- **Un tableau de références** (`[{ type: ObjectId, ref }]`) n'est pas gardé : retirer l'élément
+  n'a pas d'équivalent dans `restrict` / `set null`.
+- **La suppression douce** (`deletedAt`) est une mise à jour : elle ne déclenche rien — en SQL
+  non plus.
+- **La connexion native** (`getNativeConnection()`) contourne la garde, comme toute requête brute.
+  Et une suppression en masse charge tous les `_id` visés : c'est ce qui permet à un seul parent
+  retenu de bloquer le lot entier.
+
 > [!WARNING]
-> Sans clé étrangère, **rien ne protège l'intégrité** : supprimer un parent n'est jamais refusé
-> (là où le SQL généré pose `restrict`), et `populate` rend alors `null` à la place du parent
-> disparu. Si l'intégrité compte, la garde s'écrit dans le service du parent.
+> L'**insertion** n'est pas gardée : un enfant qui désigne un parent inexistant est accepté, et
+> `populate` rend alors `null` à sa place. Le contrat d'entrée vérifie la forme de l'identifiant,
+> pas l'existence du parent.
 
 ### Transactions
 

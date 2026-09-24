@@ -118,7 +118,9 @@ correspond à un `register…Store("<nom>", …)` présent dans le code.
 > transactions l'exigent. Pas de migrations : une collection naît à la première écriture. En
 > contrepartie, MongoDB ne tient aucune clé étrangère : `create entity` y écrit des entités
 > DOCUMENT (schéma Mongoose, même grammaire de champs qu'en SQL), dont les relations sont des
-> `ObjectId` chargés par `?include=` — supprimer un parent n'y est jamais refusé.
+> `ObjectId` chargés par `?include=`. C'est l'ORM qui y tient la politique d'effacement du SQL :
+> supprimer un parent encore désigné par une référence obligatoire est refusé (409), une
+> référence facultative est remise à `null`.
 >
 > **Redis n'est pas un trou, c'est un domaine.** Il sert les briques à forte rotation (session,
 > jetons, passkeys, idempotence) ; les durables (audit, utilisateurs, TOTP, webhooks) ne sont pas

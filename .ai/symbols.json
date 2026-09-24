@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 860,
-    "symbols": 4276,
-    "classes": 398,
-    "interfaces": 1127,
+    "symbols": 4279,
+    "classes": 399,
+    "interfaces": 1128,
     "types": 459,
     "enums": 4,
-    "functions": 1860,
+    "functions": 1861,
     "constants": 428
   },
   "symbols": {
@@ -20209,6 +20209,17 @@
       "decorators": [],
       "description": "Levée quand l'option de lecture `order` n'est pas un tableau de couples `[champ, \"ASC\" | \"DESC\"]`. Symétrique de {@link UnknownCriteriaField}, sous la même règle « jamais un skip silencieux » : ava…"
     },
+    "ReferencedEntityError": {
+      "name": "ReferencedEntityError",
+      "kind": "class",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/errors.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": "Error",
+      "implements": [],
+      "decorators": [],
+      "description": "Levée quand une suppression viserait une entité encore RÉFÉRENCÉE par une relation obligatoire d'une autre entité. C'est le pendant, pour un moteur sans clé étrangère (MongoDB), du `restrict` que l…"
+    },
     "Orm": {
       "name": "Orm",
       "kind": "class",
@@ -25757,6 +25768,15 @@
       "decorators": [],
       "description": "Repository portable (contrat {@link IRepository}) au-dessus d'un modèle Mongoose. Démontre la portabilité du contrat sur un **store documentaire hétérogène** : - `options.relations` → `populate()` …"
     },
+    "IMongooseReferrer": {
+      "name": "IMongooseReferrer",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+      "exported": true,
+      "module": "@nodefony/mongoose",
+      "extends": null,
+      "description": "Champ d'une AUTRE entité qui référence celle d'un repository — une entrée de l'index inverse que {@link MongooseOrm} bâtit au `connect()`. MongoDB ne tient aucune clé étrangère : c'est cette table …"
+    },
     "MongooseTransaction": {
       "name": "MongooseTransaction",
       "kind": "class",
@@ -29128,6 +29148,7 @@
         "MemoryError",
         "UnknownCriteriaField",
         "InvalidOrderOption",
+        "ReferencedEntityError",
         "RagError",
         "VectorError",
         "DevkitError",
@@ -38771,6 +38792,9 @@
       "MongooseRepository": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
+      "IMongooseReferrer": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
+      ],
       "MongooseTransaction": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts"
       ],
@@ -38778,6 +38802,9 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "likePatternToRegExp": [
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "ReferencedEntityError": [
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "DecoratedClass": [
