@@ -87,9 +87,11 @@ exige donc pas — et les nomme.
 
 ## Ce que les bancs ne prouvent PAS
 
-- **WebAuthn n'est pas éprouvé de bout en bout.** Le store de passkeys l'est, pas la cérémonie :
-  prouver un enrôlement réel exige de fabriquer une attestation d'authentificateur, ce qu'aucun
-  banc ne fait. La vérification cryptographique repose sur `@simplewebauthn`.
+- **Seule l'attestation `none` est éprouvée.** La cérémonie WebAuthn ENTIÈRE l'est, sur les deux
+  moteurs : un authentificateur logiciel enrôle une passkey, ouvre une session par elle, et voit
+  refuser le rejeu, le compteur qui recule, la clé étrangère, l'origine étrangère et la passkey
+  supprimée (`http/…/webauthn-ceremony.test.ts`). Les formats `packed`, `tpm` ou `android-key`,
+  et toute confrontation aux métadonnées FIDO, ne le sont pas — Nodefony ne les exploite pas.
 - **L'ordre total du journal d'audit sous MongoDB repose sur un départage en mémoire.** Un
   `SchemaDefinition` plat n'exprime pas l'index composite `{ ts: -1, _id: -1 }` : Mongo sert le
   filtre par l'index sur `ts`, puis départage en mémoire les événements d'une même milliseconde
