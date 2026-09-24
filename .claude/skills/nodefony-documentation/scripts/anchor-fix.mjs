@@ -38,7 +38,12 @@ for (const line of report) {
       ref: m[2],
       oldLine: Number(m[3]),
       target: m[4],
-      symbols: m[5].split(",").map((s) => s.trim()),
+      // Le rapport suffixe un diagnostic entre parenthèses (« (déclaré l.N) »,
+      // « (mais … existe ailleurs) ») : ce n'est pas un symbole.
+      symbols: m[5]
+        .replace(/\s*\(.*$/, "")
+        .split(",")
+        .map((s) => s.trim()),
     });
   }
 }

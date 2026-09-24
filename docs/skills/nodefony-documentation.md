@@ -5,7 +5,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-20
+updated: 2026-09-24
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-documentation/SKILL.md"
 ---
@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-documentation/SKILL.md"
 | Description | 877 / 1024 caractères |
 | Déclencheurs | 18 |
 | Ressources `references/` | 2 page(s) |
-| Scripts | 10 |
+| Scripts | 11 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -84,6 +84,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/anchor-check.mjs` | anchor-check.mjs — vérifie l'EXACTITUDE des ancres `fichier:ligne` du corpus doc. | `--prouve` `--show-toplevel` | — |
+| `scripts/anchor-check.selftest.mjs` | Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre | — | — |
 | `scripts/anchor-fix.mjs` | Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE. | `--apply` `--occurrences` `--suggest` | `APPLY` `NF_BOOT_TIMEOUT_MS` |
 | `scripts/anchor-inpage.mjs` | anchor-inpage.mjs — les ancres INTRA-PAGE mènent-elles quelque part ? | — | — |
 | `scripts/code-check.mjs` | code-check.mjs — gate de COMPILABILITÉ du « Démarrage rapide » (standard §8sexies). | `--show-toplevel` | — |
@@ -98,6 +99,7 @@ script, donc toujours à jour après régénération.
 
 ```bash
 Usage : node anchor-check.mjs <page.md> [...]   (exit 1 si FILE_NOT_FOUND/LINE_OUT)
+`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
 Usage : node anchor-inpage.mjs <page.md ...>
 Usage : node code-check.mjs <page.md ...>
 Usage : node doc-lint.mjs /tmp/corpus/*.md

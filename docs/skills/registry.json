@@ -2160,6 +2160,17 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/anchor-check.selftest.mjs",
+            "purpose": "Éprouve `anchor-check.mjs` sur un dépôt JETABLE : il doit signaler une ancre",
+            "usage": [
+              "`@usage` node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "scripts/anchor-fix.mjs",
             "purpose": "Recale les ancres `fichier.ts:N` SUSPECT d'une page de doc, par SYMBOLE.",
             "usage": [],

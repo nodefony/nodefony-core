@@ -457,7 +457,7 @@ jobs:
       # `rollup.config.ts`, supprimé à la migration rolldown. Une ancre fausse
       # est pire qu'une ancre absente : elle a l'air d'une preuve.
       #
-      # Ce gate ne mord QUE sur ce qui est indiscutable (`anchor-check.mjs:211`)
+      # Ce gate ne mord QUE sur ce qui est indiscutable (`anchor-check.mjs:445`)
       # — fichier introuvable, ou ligne au-delà de la fin du fichier. Les
       # `SUSPECT` (l'ancre a dérivé de quelques lignes) sont RAPPORTÉS sans
       # échouer : ils se recalent avec `anchor-fix.mjs`, et en faire un blocage
@@ -473,6 +473,9 @@ jobs:
         # dossier qui portait le plus d'ancres périmées du dépôt. Un gate qui
         # regarde à côté est plus dangereux qu'un gate absent : il rassure.
         run: |
+          # L'outil d'abord : un contrôle qui ne sait plus voir une ancre dérivée
+          # rendrait tout le corpus « OK » sans un mot.
+          node .claude/skills/nodefony-documentation/scripts/anchor-check.selftest.mjs
           node scripts/build-docs-site.mjs --list > /tmp/pages-publiees.txt
           echo "corpus publié : $(wc -l < /tmp/pages-publiees.txt) pages"
           tr '\n' '\0' < /tmp/pages-publiees.txt \

@@ -203,7 +203,39 @@ function symboleProuve(mdLine, anchorRaw) {
  * parce qu'une méthode est souvent citée sous une forme que sa ligne de
  * déclaration ne porte pas. D'où l'asymétrie.
  */
-function declareIci(code, sym, start) {
+function declareIci(code, sym, start, end = start) {
+  return lignesDeDeclaration(code, sym).some(
+    (n) =>
+      (n >= start - 3 && n <= end + 3) || (n > end && enteteDe(code, end, n)),
+  );
+}
+
+/**
+ * La ligne `ancre` tombe-t-elle dans l'EN-TÊTE de la déclaration `decl` — le bloc TSDoc,
+ * les commentaires et décorateurs contigus qui la précèdent ? Pointer la doc d'une
+ * méthode, c'est pointer la méthode ; le bloc pouvant faire vingt lignes, une tolérance
+ * fixe en lignes ne suffit pas.
+ */
+function enteteDe(code, ancre, decl) {
+  for (let i = ancre; i < decl; i++) {
+    const l = (code[i - 1] ?? "").trim();
+    if (!(l === "" || /^(\/\*\*?|\*|\/\/|@)/.test(l))) return false;
+  }
+  return true;
+}
+
+/**
+ * Lignes (base 1) où `sym` est DÉCLARÉ dans le fichier — vide s'il n'y est que mentionné.
+ *
+ * Sert au REJET, là où {@link declareIci} sert à l'acceptation : un symbole qui a une
+ * déclaration dans le fichier, et aucune près de l'ancre, prouve que l'ancre a dérivé.
+ * Sans ce rejet, le repli sur la fenêtre large laissait passer n'importe quel décalage
+ * pourvu qu'un mot de la ligne traîne à proximité. Vécu : trois ancres d'une rangée
+ * (`RealtimeAction`, `RealtimeChannel`, `RealtimeInbound`) décalées de 40 à 50 lignes,
+ * toutes rendues OK — `RealtimeChannelFactory` contient `realtimechannel`, et chaque
+ * décorateur se trouvait dans la fenêtre de l'ancre du voisin.
+ */
+function lignesDeDeclaration(code, sym) {
   const bare = sym.replace(/^#/, "");
   const esc = bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   const motifs = [
@@ -216,14 +248,11 @@ function declareIci(code, sym, start) {
       `^\\s{2,}(public |private |protected |static |readonly )*(async )?(get |set )?#?${esc}\\??\\s*[(<:=]`,
     ),
   ];
-  for (
-    let i = Math.max(0, start - 4);
-    i < Math.min(code.length, start + 3);
-    i++
-  ) {
-    if (motifs.some((m) => m.test(code[i] ?? ""))) return true;
+  const out = [];
+  for (let i = 0; i < code.length; i++) {
+    if (motifs.some((m) => m.test(code[i]))) out.push(i + 1);
   }
-  return false;
+  return out;
 }
 
 let total = 0;
@@ -308,9 +337,31 @@ for (const md of args) {
         }
         // Le symbole que l'ancre engage est là où elle pointe : c'est réglé.
         const prouve = symboleProuve(mdLine, raw.replaceAll("`", ""));
-        if (prouve && declareIci(code, prouve, start)) {
+        if (prouve && declareIci(code, prouve, start, end)) {
           best = { kind: "OK", cand };
           break;
+        }
+        // Déclaré AILLEURS dans ce fichier, et pas ici : l'ancre a dérivé. Ce verdict
+        // passe AVANT la fenêtre large, qui accepterait le décalage sur un mot voisin.
+        // Exception : le symbole est ÉCRIT sur la ligne pointée (±1) — l'ancre vise un
+        // site d'USAGE (un appel, une lecture de champ), pas la déclaration.
+        const ailleursDecl = prouve ? lignesDeDeclaration(code, prouve) : [];
+        const motEntier = prouve
+          ? new RegExp(
+              `(^|[^A-Za-z0-9_$])#?${prouve.replace(/^#/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_$])`,
+            )
+          : null;
+        const usageIci = code
+          .slice(Math.max(0, start - 2), Math.min(code.length, end + 1))
+          .some((l) => motEntier?.test(l));
+        if (ailleursDecl.length && !usageIci) {
+          best = {
+            kind: "SUSPECT",
+            cand,
+            tokens: [prouve],
+            declare: ailleursDecl,
+          };
+          continue;
         }
         // Match insensible à la casse : `setFrameAuthorizer` doit satisfaire le
         // token `frameAuthorizer` (conventions camelCase vs nom de propriété).
@@ -351,11 +402,14 @@ for (const md of args) {
           detail:
             best.kind === "LINE_OUT"
               ? `${best.cand} ne fait que ${best.max} lignes`
-              : best.kind === "SUSPECT"
-                ? `${best.cand} — symboles introuvables autour: ${best.tokens.slice(0, 4).join(", ")}` +
-                  ` (mais « ${best.ailleurs[0]} » existe ailleurs dans le fichier)`
-                : `${best.cand} — contexte non résolvable (${best.tokens.slice(0, 3).join(", ")}) :` +
-                  ` littéral, ou symbole prouvé par une ancre voisine`,
+              : best.declare
+                ? `${best.cand} — symboles introuvables autour: ${best.tokens[0]}` +
+                  ` (déclaré l.${best.declare.join("/")})`
+                : best.kind === "SUSPECT"
+                  ? `${best.cand} — symboles introuvables autour: ${best.tokens.slice(0, 4).join(", ")}` +
+                    ` (mais « ${best.ailleurs[0]} » existe ailleurs dans le fichier)`
+                  : `${best.cand} — contexte non résolvable (${best.tokens.slice(0, 3).join(", ")}) :` +
+                    ` littéral, ou symbole prouvé par une ancre voisine`,
         });
       }
     }
