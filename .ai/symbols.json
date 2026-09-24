@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 861,
-    "symbols": 4284,
+    "symbols": 4285,
     "classes": 399,
     "interfaces": 1128,
     "types": 459,
     "enums": 4,
-    "functions": 1865,
+    "functions": 1866,
     "constants": 429
   },
   "symbols": {
@@ -28198,8 +28198,7 @@
       "implements": [
         "IWebhookStore"
       ],
-      "decorators": [],
-      "description": "Store d'endpoints webhook **en mémoire** — défaut dev/test (non persistant : les endpoints sont perdus au redémarrage). En prod, utiliser `drizzle`/ `mongoose` (config `webhooks.store`). Map indexé…"
+      "decorators": []
     },
     "matchesWebhookQuery": {
       "name": "matchesWebhookQuery",

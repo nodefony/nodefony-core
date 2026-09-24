@@ -45,6 +45,15 @@ export function matchesWebhookQuery(
  * Map indexée par id (O(1)). Les lectures renvoient une **copie défensive** : le
  * store détient la vérité, un consommateur ne peut pas muter un record en place.
  */
+/**
+ * Copie PROFONDE d'un endpoint : `events` et `metadata` sont des structures
+ * mutables — une copie de surface laisserait l'appelant muter le store en place,
+ * ce que les backends persistants rendent impossible par sérialisation.
+ */
+function cloneEndpoint(e: IWebhookEndpoint): IWebhookEndpoint {
+  return { ...e, events: [...e.events], metadata: structuredClone(e.metadata) };
+}
+
 export class MemoryWebhookStore implements IWebhookStore {
   /**
    * {@inheritDoc IWebhookStore.sortableFields}
@@ -56,18 +65,18 @@ export class MemoryWebhookStore implements IWebhookStore {
   readonly #byId = new Map<string, IWebhookEndpoint>();
 
   async save(endpoint: IWebhookEndpoint): Promise<void> {
-    this.#byId.set(endpoint.id, { ...endpoint });
+    this.#byId.set(endpoint.id, cloneEndpoint(endpoint));
   }
 
   async findById(id: string): Promise<IWebhookEndpoint | null> {
     const found = this.#byId.get(id);
-    return found ? { ...found } : null;
+    return found ? cloneEndpoint(found) : null;
   }
 
   async update(id: string, patch: WebhookEndpointUpdate): Promise<void> {
     const current = this.#byId.get(id);
     if (!current) return;
-    this.#byId.set(id, { ...current, ...patch });
+    this.#byId.set(id, cloneEndpoint({ ...current, ...patch }));
   }
 
   async delete(id: string): Promise<void> {
@@ -75,8 +84,7 @@ export class MemoryWebhookStore implements IWebhookStore {
   }
 
   async listAll(): Promise<IWebhookEndpoint[]> {
-    // oxlint-disable-next-line no-map-spread -- copie DÉFENSIVE : le remplacement suggéré (`Object.assign`) rendrait la référence interne du store, que l'appelant pourrait muter
-    return [...this.#byId.values()].map((e) => ({ ...e }));
+    return [...this.#byId.values()].map(cloneEndpoint);
   }
 
   async listPage(query: IWebhookListQuery): Promise<IPage<IWebhookEndpoint>> {
@@ -105,12 +113,7 @@ export class MemoryWebhookStore implements IWebhookStore {
         (e, field) => e[field as keyof IWebhookEndpoint] as unknown,
       ),
     );
-    // oxlint-disable-next-line no-map-spread -- clonage DÉFENSIF de la page (cf ci-dessus) : muter l'élément exposerait l'entrée du store
-    const items = filtered.slice(offset, offset + limit).map((e) => ({
-      ...e,
-      events: [...e.events],
-      metadata: { ...e.metadata },
-    }));
+    const items = filtered.slice(offset, offset + limit).map(cloneEndpoint);
     return {
       items,
       total: query.withTotal === false ? undefined : filtered.length,
