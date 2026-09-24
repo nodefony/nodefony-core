@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 861,
-    "symbols": 4288,
+    "symbols": 4289,
     "classes": 399,
     "interfaces": 1128,
     "types": 459,
     "enums": 4,
     "functions": 1869,
-    "constants": 429
+    "constants": 430
   },
   "symbols": {
     "Cli": {
@@ -21028,6 +21028,14 @@
       "module": "@nodefony/redis",
       "extends": null,
       "description": "Sous-ensemble structural du client `redis` v6 utilisé par le store — permet de tester contre un double déterministe sans serveur (le vrai `RedisClientType` satisfait cette forme par ses méthodes ca…"
+    },
+    "MONOTONIC_SET_SCRIPT": {
+      "name": "MONOTONIC_SET_SCRIPT",
+      "kind": "const",
+      "file": "src/packages/@nodefony/redis/nodefony/src/RedisTokenStore.ts",
+      "exported": true,
+      "module": "@nodefony/redis",
+      "description": "Pose un seuil **monotone** en UNE instruction côté serveur : `GET` puis `SET` séparés par un aller-retour laissaient deux révocations simultanées lire le même état et écrire toutes les deux — le se…"
     },
     "RedisWebAuthnCredentialStore": {
       "name": "RedisWebAuthnCredentialStore",

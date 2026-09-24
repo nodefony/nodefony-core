@@ -46,7 +46,24 @@ export interface RedisClientLike {
     cursor: string,
     options?: { MATCH?: string; COUNT?: number },
   ): Promise<{ cursor: string; keys: string[] }>;
+  eval(
+    script: string,
+    options: { keys: string[]; arguments: string[] },
+  ): Promise<unknown>;
 }
+
+/**
+ * Pose un seuil **monotone** en UNE instruction côté serveur : `GET` puis `SET`
+ * séparés par un aller-retour laissaient deux révocations simultanées lire le
+ * même état et écrire toutes les deux — le seuil le plus ANCIEN pouvait rester,
+ * et des jetons révoqués redevenaient valides. Le script garde la clé en chaîne
+ * (aucune migration des données existantes, contrairement à un `ZADD GT`).
+ */
+export const MONOTONIC_SET_SCRIPT = `local c = redis.call('GET', KEYS[1])
+if (not c) or (tonumber(ARGV[1]) > tonumber(c)) then
+  redis.call('SET', KEYS[1], ARGV[1])
+end
+return 1`;
 
 /**
  * Store de jetons **Redis** (node-redis v6) — implémentation d'{@link ITokenStore}
@@ -249,10 +266,44 @@ export class RedisTokenStore implements ITokenStore {
       return;
     }
     const recKey = this.#recKey(record.id);
+    const hashKey = this.#hashKey(record.secretHash);
+    // `secretHash` est UNIQUE, comme en base : un secret ne désigne jamais deux
+    // jetons (il authentifierait deux identités). Un index qui pointe un record
+    // EXPIRÉ n'est qu'un orphelin : on le reprend.
+    const owner = await client.get(hashKey);
+    if (
+      owner !== null &&
+      owner !== record.id &&
+      (await client.exists(this.#recKey(owner))) === 1
+    ) {
+      throw new Error(
+        `secretHash déjà porté par le jeton ${owner} : un secret ne désigne qu'un jeton`,
+      );
+    }
+    // Un re-put remplace la ligne ENTIÈRE : les anciens liens (hash, porteur,
+    // famille) tombent, sinon l'ancien secret authentifierait encore.
+    const previous = await client.hGetAll(recKey);
+    if (Object.keys(previous).length > 0) {
+      const old = this.#decode(previous);
+      if (old.secretHash !== record.secretHash) {
+        await client.del(this.#hashKey(old.secretHash));
+      }
+      if (old.subjectId !== record.subjectId) {
+        await client.sRem(this.#subjKey(old.subjectId), record.id);
+      }
+      if (old.family && old.family !== record.family) {
+        await client.sRem(this.#famKey(old.family), record.id);
+      }
+    }
     // DEL avant HSET : un upsert ne doit pas laisser de champ obsolète.
     await client.del(recKey);
     await client.hSet(recKey, this.#encode(record));
-    const ttl = this.#ttlSeconds(record.expiresAt);
+    // Un PAT déjà RÉVOQUÉ sans expiration vit jusqu'au bout de sa rétention,
+    // comme s'il avait été révoqué par `revoke()` — sinon il ne partirait jamais.
+    const ttl =
+      record.expiresAt === null && record.revokedAt !== null
+        ? this.#ttlSeconds(record.revokedAt + this.#retentionRevokedMs)
+        : this.#ttlSeconds(record.expiresAt);
     if (ttl !== undefined) {
       await client.expire(recKey, ttl);
       await client.set(this.#hashKey(record.secretHash), record.id, {
@@ -546,12 +597,11 @@ export class RedisTokenStore implements ITokenStore {
     if (!client) {
       return;
     }
-    const key = this.#revsubKey(subjectId);
-    const current = await client.get(key);
-    // Monotone : on ne recule jamais le seuil.
-    if (current === null || invalidBefore > Number(current)) {
-      await client.set(key, String(invalidBefore));
-    }
+    // Monotone ET atomique : cf `MONOTONIC_SET_SCRIPT`.
+    await client.eval(MONOTONIC_SET_SCRIPT, {
+      keys: [this.#revsubKey(subjectId)],
+      arguments: [String(invalidBefore)],
+    });
   }
 
   async getInvalidBefore(subjectId: string): Promise<number | null> {

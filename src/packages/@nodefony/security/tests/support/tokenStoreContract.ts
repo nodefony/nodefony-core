@@ -48,6 +48,20 @@ export interface TokenStoreContractHarness {
    * ne se produit JAMAIS — le test devient un faux négatif.
    */
   warm?: () => Promise<void>;
+  /**
+   * **Capacité** : l'expiration est portée par le TTL du MOTEUR (Redis). `gc()`
+   * n'a alors rien à balayer et rend 0 : le banc vérifie que l'expiré a
+   * DISPARU plutôt qu'un compte. Le TTL se compte à la seconde (1 s minimum) :
+   * le banc avance l'horloge d'une seconde pour le laisser tomber, et saute —
+   * en le nommant — la borne exacte à la milliseconde.
+   */
+  nativeTtl?: boolean;
+  /**
+   * **Capacité** : l'expiration suit l'horloge injectée du banc. `false` sur un
+   * serveur réel à TTL natif, dont on n'avance pas le temps : les cas
+   * d'expiration sont alors sautés, et nommés. Défaut `true`.
+   */
+  clockDrivenExpiry?: boolean;
 }
 
 const RETENTION_MS = 30 * 24 * 3_600_000;
@@ -75,6 +89,14 @@ export function runTokenStoreContract(
   const purge = async (): Promise<void> => {
     await harness.clear?.();
     instance = null;
+  };
+  const nativeTtl = harness.nativeTtl === true;
+  const clockExpiry = harness.clockDrivenExpiry !== false;
+  /** Ce que `gc()` doit compter : rien quand le moteur expire seul. */
+  const purgedBy = (n: number): number => (nativeTtl ? 0 : n);
+  /** Laisse tomber un TTL natif (à la seconde, 1 s minimum) ; no-op sinon. */
+  const letTtlElapse = (): void => {
+    if (nativeTtl) CLOCK += 1_000;
   };
 
   beforeAll(async () => {
@@ -483,10 +505,13 @@ export function runTokenStoreContract(
       assert.equal(await store().isJtiDenied("jti-a"), true);
     });
 
-    it("une entrée expirée n'est plus dénoncée (fenêtre $gt now)", async () => {
-      CLOCK = 6_000_000; // > 5_500_000
-      assert.equal(await store().isJtiDenied("jti-a"), false);
-    });
+    it.skipIf(!clockExpiry)(
+      "une entrée expirée n'est plus dénoncée (fenêtre $gt now)",
+      async () => {
+        CLOCK = 6_000_000; // > 5_500_000
+        assert.equal(await store().isJtiDenied("jti-a"), false);
+      },
+    );
 
     it("denyJti écrase l'expiration (upsert)", async () => {
       CLOCK = 6_000_000;
@@ -512,25 +537,28 @@ export function runTokenStoreContract(
       assert.equal(await store().isJtiDenied("jamais"), false);
     });
 
-    it("BORNE exacte : à l'instant `expiresAt`, le jti n'est DÉJÀ plus dénoncé ($gt strict)", async () => {
-      // La fenêtre est `expiresAt > now` : à l'instant PILE de l'expiration, le
-      // jeton est libre. Un `>=` ici le dénoncerait une milliseconde de trop —
-      // écart invisible en test approximatif, et divergent entre backends si le
-      // critère n'était pas porté à l'identique.
-      await store().denyJti("jti-borne", 42_000_000);
-      CLOCK = 41_999_999;
-      assert.equal(
-        await store().isJtiDenied("jti-borne"),
-        true,
-        "1 ms avant : dénoncé",
-      );
-      CLOCK = 42_000_000;
-      assert.equal(
-        await store().isJtiDenied("jti-borne"),
-        false,
-        "à l'instant pile : libre",
-      );
-    });
+    it.skipIf(!clockExpiry)(
+      "BORNE exacte : à l'instant `expiresAt`, le jti n'est DÉJÀ plus dénoncé ($gt strict)",
+      async () => {
+        // La fenêtre est `expiresAt > now` : à l'instant PILE de l'expiration, le
+        // jeton est libre. Un `>=` ici le dénoncerait une milliseconde de trop —
+        // écart invisible en test approximatif, et divergent entre backends si le
+        // critère n'était pas porté à l'identique.
+        await store().denyJti("jti-borne", 42_000_000);
+        CLOCK = 41_999_999;
+        assert.equal(
+          await store().isJtiDenied("jti-borne"),
+          true,
+          "1 ms avant : dénoncé",
+        );
+        CLOCK = 42_000_000;
+        assert.equal(
+          await store().isJtiDenied("jti-borne"),
+          false,
+          "à l'instant pile : libre",
+        );
+      },
+    );
   });
 
   // ── Révocation en masse par porteur ─────────────────────────────────────────
@@ -605,112 +633,132 @@ export function runTokenStoreContract(
 
   // ── Garbage collector ───────────────────────────────────────────────────────
   describe("gc (purge portable, IS NULL au critère)", () => {
-    it("purge expirés / denylist expirée / PAT révoqués anciens, garde le reste", async () => {
-      await purge();
-      CLOCK = 100_000_000;
-      const nowMs = CLOCK;
+    it.skipIf(!clockExpiry)(
+      "purge expirés / denylist expirée / PAT révoqués anciens, garde le reste",
+      async () => {
+        await purge();
+        CLOCK = 100_000_000;
+        const nowMs = CLOCK;
 
-      // 1. denylist : une expirée, une vivante.
-      await store().denyJti("gc-dead", nowMs - 1);
-      await store().denyJti("gc-alive", nowMs + 3_600_000);
-      // 2. records : un expiré, un vivant.
-      await store().put(makeRecord({ id: "gc-exp", expiresAt: nowMs - 1 }));
-      await store().put(
-        makeRecord({ id: "gc-live", expiresAt: nowMs + 60_000 }),
-      );
-      // 3. PAT révoqués SANS expiration : un au-delà de la rétention, un dedans.
-      await store().put(
-        makeRecord({
-          id: "gc-old",
-          expiresAt: null,
-          revokedAt: nowMs - RETENTION_MS - 1,
-          revokedReason: "manual",
-        }),
-      );
-      await store().put(
-        makeRecord({
-          id: "gc-recent",
-          expiresAt: null,
-          revokedAt: nowMs - 1000,
-          revokedReason: "manual",
-        }),
-      );
-      // Un PAT actif sans expiration NE DOIT JAMAIS être purgé.
-      await store().put(makeRecord({ id: "gc-pat", expiresAt: null }));
+        // 1. denylist : une expirée, une vivante.
+        await store().denyJti("gc-dead", nowMs - 1);
+        await store().denyJti("gc-alive", nowMs + 3_600_000);
+        // 2. records : un expiré, un vivant.
+        await store().put(makeRecord({ id: "gc-exp", expiresAt: nowMs - 1 }));
+        await store().put(
+          makeRecord({ id: "gc-live", expiresAt: nowMs + 60_000 }),
+        );
+        // 3. PAT révoqués SANS expiration : un au-delà de la rétention, un dedans.
+        await store().put(
+          makeRecord({
+            id: "gc-old",
+            expiresAt: null,
+            revokedAt: nowMs - RETENTION_MS - 1,
+            revokedReason: "manual",
+          }),
+        );
+        await store().put(
+          makeRecord({
+            id: "gc-recent",
+            expiresAt: null,
+            revokedAt: nowMs - 1000,
+            revokedReason: "manual",
+          }),
+        );
+        // Un PAT actif sans expiration NE DOIT JAMAIS être purgé.
+        await store().put(makeRecord({ id: "gc-pat", expiresAt: null }));
 
-      const purged = await store().gc(nowMs);
-      assert.equal(
-        purged,
-        3,
-        "denylist expirée + record expiré + PAT trop vieux",
-      );
+        letTtlElapse();
+        const purged = await store().gc(nowMs);
+        assert.equal(
+          purged,
+          purgedBy(3),
+          "denylist expirée + record expiré + PAT trop vieux",
+        );
+        assert.equal(await store().isJtiDenied("gc-dead"), false);
 
-      assert.equal(await store().isJtiDenied("gc-alive"), true);
-      assert.equal(await store().findById("gc-exp"), null);
-      assert.ok(await store().findById("gc-live"), "record vivant gardé");
-      assert.equal(await store().findById("gc-old"), null);
-      assert.ok(await store().findById("gc-recent"), "révoqué récent gardé");
-      assert.ok(
-        await store().findById("gc-pat"),
-        "PAT actif sans exp : JAMAIS purgé",
-      );
-    });
+        assert.equal(await store().isJtiDenied("gc-alive"), true);
+        assert.equal(await store().findById("gc-exp"), null);
+        assert.ok(await store().findById("gc-live"), "record vivant gardé");
+        assert.equal(await store().findById("gc-old"), null);
+        assert.ok(await store().findById("gc-recent"), "révoqué récent gardé");
+        assert.ok(
+          await store().findById("gc-pat"),
+          "PAT actif sans exp : JAMAIS purgé",
+        );
+      },
+    );
 
-    it("BORNE exacte : un record qui expire PILE à `now` est purgé ($lte)", async () => {
-      await purge();
-      const nowMs = 200_000_000;
-      await store().put(makeRecord({ id: "b-pile", expiresAt: nowMs }));
-      await store().put(makeRecord({ id: "b-apres", expiresAt: nowMs + 1 }));
-      assert.equal(
-        await store().gc(nowMs),
-        1,
-        "seul celui expiré à l'instant pile",
-      );
-      assert.equal(await store().findById("b-pile"), null);
-      assert.ok(await store().findById("b-apres"), "1 ms plus tard : survit");
-    });
+    it.skipIf(!clockExpiry || nativeTtl)(
+      "BORNE exacte : un record qui expire PILE à `now` est purgé ($lte)",
+      async () => {
+        await purge();
+        const nowMs = 200_000_000;
+        await store().put(makeRecord({ id: "b-pile", expiresAt: nowMs }));
+        await store().put(makeRecord({ id: "b-apres", expiresAt: nowMs + 1 }));
+        assert.equal(
+          await store().gc(nowMs),
+          1,
+          "seul celui expiré à l'instant pile",
+        );
+        assert.equal(await store().findById("b-pile"), null);
+        assert.ok(await store().findById("b-apres"), "1 ms plus tard : survit");
+      },
+    );
 
-    it("gc REJOUÉ : idempotent, et ne purge rien de plus (0 au 2ᵉ passage)", async () => {
-      // Le gc tourne périodiquement sur chaque pod ; deux passages rapprochés ne
-      // doivent pas se marcher dessus ni compter deux fois les mêmes lignes.
-      await purge();
-      const nowMs = 300_000_000;
-      await store().put(makeRecord({ id: "r-exp", expiresAt: nowMs - 1 }));
-      await store().denyJti("r-jti", nowMs - 1);
-      assert.equal(await store().gc(nowMs), 2);
-      assert.equal(await store().gc(nowMs), 0, "rien de neuf à purger");
-    });
+    it.skipIf(!clockExpiry)(
+      "gc REJOUÉ : idempotent, et ne purge rien de plus (0 au 2ᵉ passage)",
+      async () => {
+        // Le gc tourne périodiquement sur chaque pod ; deux passages rapprochés ne
+        // doivent pas se marcher dessus ni compter deux fois les mêmes lignes.
+        await purge();
+        const nowMs = 300_000_000;
+        CLOCK = nowMs;
+        await store().put(makeRecord({ id: "r-exp", expiresAt: nowMs - 1 }));
+        await store().denyJti("r-jti", nowMs - 1);
+        letTtlElapse();
+        assert.equal(await store().gc(nowMs), purgedBy(2));
+        assert.equal(await store().gc(nowMs), 0, "rien de neuf à purger");
+        assert.equal(await store().findById("r-exp"), null);
+      },
+    );
 
-    it("gc CONCURRENT : deux pods qui purgent en même temps ne lèvent pas", async () => {
-      // Cas réel du cluster : chaque pod a son timer. Les deux DELETE se
-      // recouvrent — le perdant doit simplement compter 0, jamais échouer.
-      await harness.warm?.();
-      await purge();
-      const nowMs = 400_000_000;
-      await store().put(makeRecord({ id: "c-exp", expiresAt: nowMs - 1 }));
-      await store().denyJti("c-jti", nowMs - 1);
-      const results = await Promise.allSettled([
-        store().gc(nowMs),
-        store().gc(nowMs),
-        store().gc(nowMs),
-      ]);
-      assert.deepEqual(rejections(results), [], "aucun gc rejeté");
-      const total = results
-        .filter((r) => r.status === "fulfilled")
-        .reduce((s, r) => s + (r as PromiseFulfilledResult<number>).value, 0);
-      assert.equal(
-        total,
-        2,
-        "chaque ligne n'est comptée qu'UNE fois, par un seul pod",
-      );
-      assert.equal(await store().findById("c-exp"), null);
-    });
+    it.skipIf(!clockExpiry)(
+      "gc CONCURRENT : deux pods qui purgent en même temps ne lèvent pas",
+      async () => {
+        // Cas réel du cluster : chaque pod a son timer. Les deux DELETE se
+        // recouvrent — le perdant doit simplement compter 0, jamais échouer.
+        await harness.warm?.();
+        await purge();
+        const nowMs = 400_000_000;
+        CLOCK = nowMs;
+        await store().put(makeRecord({ id: "c-exp", expiresAt: nowMs - 1 }));
+        await store().denyJti("c-jti", nowMs - 1);
+        letTtlElapse();
+        const results = await Promise.allSettled([
+          store().gc(nowMs),
+          store().gc(nowMs),
+          store().gc(nowMs),
+        ]);
+        assert.deepEqual(rejections(results), [], "aucun gc rejeté");
+        const total = results
+          .filter((r) => r.status === "fulfilled")
+          .reduce((s, r) => s + (r as PromiseFulfilledResult<number>).value, 0);
+        assert.equal(
+          total,
+          purgedBy(2),
+          "chaque ligne n'est comptée qu'UNE fois, par un seul pod",
+        );
+        assert.equal(await store().findById("c-exp"), null);
+      },
+    );
 
     it("gc ne touche JAMAIS un jeton vivant, même massivement (garde anti-purge)", async () => {
       // Le pire scénario d'un gc qui déraille : purger des jetons valides =
       // déconnexion de masse. On lui donne 20 vivants et 0 mort.
       await purge();
       const nowMs = 500_000_000;
+      CLOCK = nowMs;
       for (let i = 0; i < 20; i++) {
         await store().put(
           makeRecord({ id: `alive-${i}`, expiresAt: nowMs + 3_600_000 }),

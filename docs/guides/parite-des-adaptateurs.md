@@ -36,7 +36,7 @@ comportement entre deux moteurs devient donc un test rouge, par construction.
 | Contrat | Banc (propriétaire) | Mémoire | Drizzle × sqlite / pg / mysql | MongoDB |
 | --- | --- | --- | --- | --- |
 | `IRepository` + `IOrm` | `runRepositoryContract()` (`orm-core/tests/support/repositoryContract.ts:80`) | — | ✅ | ✅ |
-| `ITokenStore` | `runTokenStoreContract()` (`security/tests/support/tokenStoreContract.ts:66`) | ✅ | ✅ | ✅ |
+| `ITokenStore` | `runTokenStoreContract()` (`security/tests/support/tokenStoreContract.ts:80`) | ✅ | ✅ | ✅ (+ Redis) |
 | `IWebAuthnCredentialStore` | `runWebAuthnStoreContract()` (`security/tests/support/webAuthnStoreContract.ts:63`) | ✅ | ✅ | ✅ |
 | `IWebhookStore` | `runWebhookStoreContract()` (`security/tests/support/webhookStoreContract.ts:66`) | ✅ | ✅ | ✅ |
 | `ITotpSecretStore` | `runTotpStoreContract()` (`security/tests/support/totpStoreContract.ts:81`) | ✅ | ✅ | ✅ |
@@ -59,6 +59,12 @@ laissait passer.
 - **`describeEntity()` parlait le vocabulaire du moteur** (`_id`, `__v`) : l'ERD et le contexte
   IA changeaient de noms selon l'adaptateur (`MongooseOrm.ts:639`).
 - **Le store de jetons MongoDB rendait le document brut**, champs du moteur compris.
+- **Le store de jetons Redis laissait RECULER le seuil de révocation en masse** sous
+  concurrence (`GET` puis `SET`) : deux déconnexions simultanées pouvaient rendre valides des
+  jetons révoqués. Il pose désormais le seuil en une instruction serveur
+  (`MONOTONIC_SET_SCRIPT`, `RedisTokenStore.ts:62`). Il gardait aussi l'ancien secret d'un jeton
+  réécrit, acceptait deux jetons pour un même secret, et ne purgeait jamais un PAT enregistré
+  déjà révoqué.
 - **Les stores mémoire partageaient leurs objets avec l'appelant** et gardaient d'anciens liens
   d'index : un jeton réécrit sous un nouveau secret restait joignable par l'ancien. Copies
   profondes et ré-indexation : `cloneOrNull()` (`MemoryTokenStore.ts:51`), `cloneCredential()`
@@ -73,6 +79,7 @@ exige donc pas — et les nomme.
 | Écart | SQL | MongoDB | Ce que ça change pour vous |
 | --- | --- | --- | --- |
 | **Savepoints** | réels | `savepoint()`/`rollbackTo()` sont des **no-op** (`MongooseTransaction.ts:55`) | Un rollback PARTIEL n'annule rien sous MongoDB : les écritures entre le savepoint et le `rollbackTo` restent. Le cas est sauté au banc (`savepoints: false`), et le saut se lit au rapport. |
+| **Expiration des jetons** | `gc()` balaie et compte | `gc()` balaie et compte ; **Redis** : TTL natif, `gc()` rend toujours 0, à la seconde près | Le banc vérifie que l'expiré a DISPARU plutôt qu'un compte (`nativeTtl`), et saute la borne à la milliseconde sous Redis. |
 | **Casse de `$like`** | suit la collation (sqlite/mysql insensibles, pg sensible) | expression régulière, sensible | Ne pas compter sur l'insensibilité à la casse : le banc n'utilise que des motifs à casse exacte. |
 | **Ordre de deux écritures concurrentes** | sqlite : le premier lancé gagne ; pg/mysql : ordre d'arrivée libre | ordre d'arrivée libre | Le banc exige ce qui vaut partout — aucun rejet, une seule révocation effective, aucune réécriture ultérieure — jamais QUI gagne. |
 | **Deux jetons au même `secretHash`** | sqlite/pg **rejettent** ; mysql **écrase** la ligne en conflit | rejette | Inatteignable en pratique (le hash vient d'un secret aléatoire). L'invariant portable — jamais deux jetons pour un secret — est exigé ; la manière, non (`DrizzleTokenStore.ts:180`). |
@@ -88,8 +95,10 @@ exige donc pas — et les nomme.
   filtre par l'index sur `ts`, puis départage en mémoire les événements d'une même milliseconde
   (`auditEventSchema`, `auditEventEntity.ts:39`). Le banc de rafale prouve que l'ordre est juste ;
   il ne mesure pas le coût de ce départage sur un gros volume.
-- **Le store de jetons Redis n'est pas sous le contrat commun.** Il porte ses propres tests, pas
-  la copie commune.
+- **L'expiration d'un jeton Redis n'est éprouvée que sur le double.** Le serveur réel prouve les
+  commandes et la vraie concurrence, mais on n'avance pas son horloge : ses cas d'expiration
+  sont sautés (`clockDrivenExpiry: false`), et le double fidèle, piloté par l'horloge du banc,
+  les porte.
 - **MySQL Community se joue dans une passe séparée** de MariaDB (les deux partagent
   `NF_MYSQL_URL`) : `npm run test:all -- --dialects`.
 - **La coupure réelle du serveur MongoDB** (`outage-real.test.ts`) ne tourne que sur demande

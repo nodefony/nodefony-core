@@ -844,7 +844,8 @@
       "src/packages/@nodefony/mongoose/tests/integration/repository-contract.test.ts",
       "src/packages/@nodefony/mongoose/tests/integration/token-store.test.ts",
       "src/packages/@nodefony/mongoose/tests/integration/webauthn-credential-store.test.ts",
-      "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts"
+      "src/packages/@nodefony/mongoose/tests/integration/webhook-store.test.ts",
+      "src/packages/@nodefony/redis/nodefony/tests/integration/token-store-contract.test.ts"
     ]
   }
 }
