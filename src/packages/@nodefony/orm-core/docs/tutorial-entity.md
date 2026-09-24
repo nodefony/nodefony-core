@@ -303,7 +303,7 @@ Cette absence d'effet de bord est délibérée : elle permet d'importer une enti
 un script ou un autre module **sans** déclencher son inscription dans un singleton global.
 
 Les champs facultatifs qui servent tôt : `module` (qui apporte l'entité) et `domain`
-(`IEntity.ts:58`), l'axe de classification qui rend navigable une base de plusieurs centaines de
+(`IEntity.ts:72`), l'axe de classification qui rend navigable une base de plusieurs centaines de
 tables dans l'ERD Studio.
 
 ### Étape 4 — brancher l'entité au module
@@ -318,7 +318,7 @@ d'être connues :
    être instancié deux fois : tests, rechargement). Une vraie collision, elle, lève
    (`EntityRegistry.register()`, `EntityRegistry.ts:24`).
 3. **Connecteur commun** — `entities([...], { connector: "analytics" })` pose toute la liste sur
-   une autre base ; une entité qui porte son propre `connector` (`IEntity.ts:42`) garde le sien.
+   une autre base ; une entité qui porte son propre `connector` (`IEntity.ts:56`) garde le sien.
 
 ### Le raccourci — `nodefony create entity`
 

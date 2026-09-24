@@ -199,9 +199,9 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1334`)    |
 | 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1316`                               |
 | 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:767`)   |
-| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1290`)    |
+| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1479`)    |
 | 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1152`) |
-| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1301`) |
+| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1490`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
 | 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:335`)      |
 | 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
@@ -257,7 +257,7 @@ Si ton `initialize()` lève, l'exception remonte le pipeline et sort en réponse
 Chaque étape est chronométrée sous le nom d'une **phase**, lisible dans la debug bar et le profileur :
 `resolve` · `initialize` (DI + ton hook) · `parse` · `firewall` · `action` · `render` · `send`.
 La phase `initialize` existe précisément pour que le temps passé dans ton hook et dans la résolution
-DI **soit imputé à quelqu'un** au lieu de disparaître dans le bloc `action` (`Resolver.ts:281`).
+DI **soit imputé à quelqu'un** au lieu de disparaître dans le bloc `action` (`Resolver.ts:100`).
 
 ## 🔌 HTTP et WebSocket — le même contrôleur
 
@@ -395,10 +395,10 @@ de ce que tu as retourné :
 | --- | --- | --- |
 | Une `Promise` / un thenable | Déballée puis re-traitée (récursif) | `Resolver.ts:700-710` |
 | Une `string` | Envoyée telle quelle en corps | `Resolver.ts:711` |
-| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:760` |
+| Un objet simple ou un tableau | **Auto-JSON** : `application/json` + sérialisation | `Resolver.ts:870` |
 | Un `number` / un `boolean` | Auto-JSON scalaire (RFC 8259 §2 : `42`, `true` sont des documents valides) | `Resolver.ts:734` |
 | Un `Buffer` | Envoyé brut | `Resolver.ts:723` |
-| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:716` |
+| Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:581` |
 | `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:948`) |
 | `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:801` |
 | Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:770-777` |
@@ -507,7 +507,7 @@ c'est un **rejet** de handshake.
 
 > [!NOTE]
 > Les erreurs de ton action remontent **seules** : le Resolver n'enveloppe pas l'appel dans un
-> `try/catch` inutile (`Resolver.ts:405-406`). Inutile d'attraper pour re-lever — sauf si tu veux
+> `try/catch` inutile (`Resolver.ts:444-445`). Inutile d'attraper pour re-lever — sauf si tu veux
 > vraiment traduire l'erreur en un autre statut.
 
 ## 🧩 Services injectés — trois façons

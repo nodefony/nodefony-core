@@ -64,7 +64,7 @@ Trois faits structurent tout le reste :
 1. **Le bundler ne génère aucun `.d.ts`.** C'est écrit noir sur blanc en tête du socle partagé
    (`bundler/index.ts:22`) : les déclarations sortent de `tsgo`, jamais de rolldown.
 2. **La configuration de build est du code publié**, pas un fichier copié de projet en projet :
-   `defineNodefonyRolldownConfig()` (`bundler/index.ts:135`) vit dans le paquet `nodefony` et
+   `defineNodefonyRolldownConfig()` (`bundler/index.ts:144`) vit dans le paquet `nodefony` et
    s'importe par le subpath `nodefony/bundler`.
 3. **Le bundle ne contient que ton code.** Tout ce que le paquet déclare comme dépendance en sort par
    la liste `external`. Un paquet gonflé est presque toujours un `external` oublié.
@@ -225,9 +225,9 @@ Ce n'est pas cosmétique. Trois conséquences directes :
 
 ### Les entrées — tout `nodefony/**`, jamais les tests
 
-`nodefonyInput()` (`bundler/index.ts:92`) construit la carte des entrées : `index.ts` plus le glob
+`nodefonyInput()` (`bundler/index.ts:110`) construit la carte des entrées : `index.ts` plus le glob
 `nodefony/**/*.ts`, chaque fichier nommé par son chemin relatif. Le filtre `IGNORED`
-(`bundler/index.ts:56`) écarte quatre familles : `.d.ts`, `.test.ts`, `.spec.ts` et tout ce qui vit
+(`bundler/index.ts:65`) écarte quatre familles : `.d.ts`, `.test.ts`, `.spec.ts` et tout ce qui vit
 sous un dossier `tests/`.
 
 C'est ce qui garantit qu'un paquet publié **ne contient pas ses tests** — ni le code, ni les fixtures
@@ -270,7 +270,7 @@ Le cœur, encore une fois, en émet **deux jeux** : `tsconfig.declarations.json`
 Une dépendance est `external` quand elle doit rester **un `import` dans la sortie**, résolu au runtime
 depuis `node_modules`. Le bundler laisse la ligne intacte au lieu d'aspirer le paquet.
 
-`defineNodefonyRolldownConfig()` construit cette liste en trois apports (`bundler/index.ts:135`) : le
+`defineNodefonyRolldownConfig()` construit cette liste en trois apports (`bundler/index.ts:144`) : le
 **nom propre du paquet** (toujours, sans condition), la liste passée en option, et — si
 `externalDeps` est vrai (`bundler/index.ts:39`) — toutes les `dependencies` et `peerDependencies`
 lues dans le `package.json` courant.
@@ -306,13 +306,13 @@ cassent, dans cet ordre :
 - **Le nom propre est toujours externe** (`bundler/index.ts:122`). Un paquet qui s'importe par son
   propre nom ferait avaler son `dist` par le bundler — c'est le piège du self-import.
 - **`nodefony` est externalisé en exact-match seulement.** `nodefonyExternalMatcher()`
-  (`bundler/index.ts:68`) accepte le préfixe `<nom>/` pour tous les paquets **sauf** `nodefony` : avec
+  (`bundler/index.ts:77`) accepte le préfixe `<nom>/` pour tous les paquets **sauf** `nodefony` : avec
   `preserveModules`, les chunks internes s'appellent `nodefony/service/…`, et un match par préfixe les
   externaliserait à tort. Le test le verrouille (`bundler.test.ts:27`).
 
 ### Le tree-shaking et son exception
 
-`nodefonyTreeshake` (`bundler/index.ts:82`) déclare les modules externes sans effet de bord — sauf
+`nodefonyTreeshake` (`bundler/index.ts:91`) déclare les modules externes sans effet de bord — sauf
 **un** : `reflect-metadata`. Sa raison d'être **est** son effet de bord (il patche l'objet global
 `Reflect`), donc l'élaguer produit un `Reflect.defineMetadata is not a function` au premier
 décorateur. Une seule ligne dans le socle, et le piège ne se rejoue plus jamais.
@@ -534,10 +534,10 @@ mesurables **au runtime** :
 | --------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | Le bundle explose après un `npm install`                  | Une nouvelle dépendance n'est pas dans `external`                  | L'ajouter à la liste ; auditer avec le skill `nodefony-check-externals`              |
 | Build KO : `"hash" is not exported` (ou binaire natif)    | Une peerDependency est bundlée, le bundler a suivi jusqu'au natif  | Externaliser la peerDependency                                                       |
-| `Reflect.defineMetadata is not a function`                | Le side-effect de `reflect-metadata` a été élagué                  | Déjà couvert par `nodefonyTreeshake` (`bundler/index.ts:82`) — ne pas le contourner  |
+| `Reflect.defineMetadata is not a function`                | Le side-effect de `reflect-metadata` a été élagué                  | Déjà couvert par `nodefonyTreeshake` (`bundler/index.ts:91`) — ne pas le contourner  |
 | `EntityRegistry: entity "…" already registered`           | Deux copies du même paquet dans le processus                       | Vérifier qu'il est bien `external` partout                                           |
-| Chunks cassés / `dist` incohérent avec `preserveModules`  | `nodefony` externalisé par préfixe au lieu d'exact-match           | Passer par `nodefonyExternalMatcher()` (`bundler/index.ts:68`)                       |
-| Le paquet publié contient ses tests                       | Le glob d'entrées ne les exclut pas                                | Utiliser la fabrique : `IGNORED` les écarte (`bundler/index.ts:56`)                  |
+| Chunks cassés / `dist` incohérent avec `preserveModules`  | `nodefony` externalisé par préfixe au lieu d'exact-match           | Passer par `nodefonyExternalMatcher()` (`bundler/index.ts:77`)                       |
+| Le paquet publié contient ses tests                       | Le glob d'entrées ne les exclut pas                                | Utiliser la fabrique : `IGNORED` les écarte (`bundler/index.ts:65`)                  |
 | **TS2307** sur un paquet du dépôt qu'on vient de modifier | Son `exports.types` pointe un `dist/types` absent ou périmé        | Le remettre en source (`./index.ts`) s'il est consommé en source                     |
 | Typecheck vert alors que le type a changé                 | Le consommateur lit un `.d.ts` périmé                              | Même correction — ou rebuilder la dépendance avant                                   |
 | `does not provide an export named 'X'` au démarrage       | `dist` périmé après un pull / merge                                | `npm run clean && npm run build`                                                     |

@@ -292,7 +292,7 @@ les autres par une signature d'index. Chaque couche y dépose ce qui la concerne
 | `queries`         | le serveur, en dev seul | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
 | `invocation`      | le pont WS-RPC          | profil de **la trame** en cours (phases + requêtes ORM)                     |
 | `body`            | le pont WS-RPC          | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey`  | le pont WS-RPC / HTTP   | déduplication d'un rejeu (`Resolver.ts:494`)                                |
+| `idempotencyKey`  | le pont WS-RPC / HTTP   | déduplication d'un rejeu (`Resolver.ts:533`)                                |
 | `renderSink`      | le pont WS-RPC          | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 Les couches supérieures exposent ces clés sous une forme **typée**, à préférer quand elle existe :
@@ -423,7 +423,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre 
    met une identité **déjà vérifiée**, jamais un authentifiant (mot de passe, secret brut).
 2. **Lire l'identité n'est pas autoriser.** `getUser()` rend `unknown` : c'est un transport, pas une
    décision. L'autorisation passe par le firewall et ses décorateurs, qui lisent le **jeton**
-   (`Resolver.ts:579`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
+   (`Resolver.ts:668`) et refusent en `fail-closed` lorsqu'aucune identité n'a été résolue.
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation

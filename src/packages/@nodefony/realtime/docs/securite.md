@@ -545,7 +545,7 @@ firewall se construit au boot, avant tout trafic ; le cas ne se présente qu'en 
 
 **Le refus de dégrader en silence.** Quand des policies sont déclarées sans décideur câblé,
 `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1101`) renvoie `true` et le controller
-émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:522`) :
+émet un WARNING explicite, une seule fois par process (`RealtimeController.ts:558`) :
 
 ```text
 Realtime channel policies declared but NO frame authorizer is wired —
@@ -608,7 +608,7 @@ ou changée → `-32000` avec `status: 401`, et le client bascule sur un `fetch`
 courant. Une erreur de re-validation vaut refus (fail-closed).
 
 **Sur les canaux**, le hub n'inscrit au registre de révocation que les connexions dont le token porte
-`isValid` (`RealtimeController.ts:550`) — anonymes et JWT n'y entrent jamais, coût nul.
+`isValid` (`RealtimeController.ts:586`) — anonymes et JWT n'y entrent jamais, coût nul.
 `RealtimeHub.registerRevocable()` (`RealtimeHub.ts:778`) démarre un `setInterval` `unref` au premier
 inscrit et l'arrête dès que le registre se vide : zéro timer au repos. Période :
 `REVOCATION_REVALIDATE_MS` (`RealtimeHub.ts:111`), 30 s, alignée sur le heartbeat WS.

@@ -439,8 +439,8 @@ un conteneur neuf ou un premier boot ne les ont pas.
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
 | `path`   | `Kernel.ts:565` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
-| `varDir` | `Kernel.ts:518` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
-| `tmpDir` | `Kernel.ts:512` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
+| `varDir` | `Kernel.ts:607` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
+| `tmpDir` | `Kernel.ts:601` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
 `varDir` et `tmpDir` sont des `FileClass`, pas des chaînes : leur chemin est sous `.path`.
 
@@ -472,7 +472,7 @@ Quatre membres, tous statiques (`Nodefony.ts:22`).
 | Membre                 | Ancre            | Usage                                                                    |
 | ---------------------- | ---------------- | ------------------------------------------------------------------------ |
 | `getKernel()`          | `Nodefony.ts:42` | Le kernel courant, ou `null`. **Toujours** tester.                       |
-| `version`              | `Nodefony.ts:24` | La version du paquet `nodefony`, lue au build.                           |
+| `version`              | `Nodefony.ts:32` | La version du paquet `nodefony`, lue au build.                           |
 | `generateId()`         | `Nodefony.ts:62` | UUID **v4** — aléatoire. Pour un identifiant qui doit être imprévisible. |
 | `generateSortableId()` | `Nodefony.ts:79` | UUID **v7** — horodaté, donc **ordonné**. Pour une clé primaire.         |
 
@@ -558,11 +558,11 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 | Membre                  | Ancre              | Rôle                                                                  |
 | ----------------------- | ------------------ | --------------------------------------------------------------------- |
-| `runProfile`            | `CliKernel.ts:101` | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
+| `runProfile`            | `CliKernel.ts:118` | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
 | `setRunProfile(profil)` | `CliKernel.ts:938` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
-| `packageManager`        | `CliKernel.ts:103` | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
+| `packageManager`        | `CliKernel.ts:120` | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
 | `addCommand(Ctor)`      | `CliKernel.ts:670` | Enregistre une commande intégrée (les modules passent par `Module`).  |
-| `quietBoot`             | `CliKernel.ts:111` | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
+| `quietBoot`             | `CliKernel.ts:128` | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
 | `parseCommand(argv?)`   | `CliKernel.ts:169` | Analyse Commander synchrone.                                          |
 
 Le défaut de `runProfile` est **console pur** : `{ servers: false, lifetime: "oneshot" }`. Une
@@ -618,7 +618,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1766`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:329`)                         | Charger le module, ou retirer la clé                                 |
-| `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:100`)                    | Déplacer le réglage dans `onKernelStart()`                           |
+| `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:1034`)                   | Déplacer le réglage dans `onKernelStart()`                           |
 | Un `await` dans un écouteur de `fire()` n'est pas attendu | `fire()` est synchrone par conception (`Kernel.ts:2596`)                         | `fireAsync()` si le résultat compte                                  |
 | Boot très bavard en `DEBUG`                               | Une ligne par événement émis (`Kernel.ts:2597`)                                  | Cibler le debug par module plutôt que `*` — voir [syslog](syslog.md) |
 | Fichier de config qui plante à l'import                   | Kernel déréférencé au premier niveau                                             | `defineConfig((ctx) => …)` ou getter paresseux                       |

@@ -129,7 +129,7 @@ clause ; c'est le `Resolver` qui appellera le moteur d'autorisation, **résolu p
 conteneur (`Resolver._enforceSecurity()`, `Resolver.ts:672`). Pourquoi ce détour : `@nodefony/framework`
 ne dépend **pas** de `@nodefony/security` — sans ça, les deux modules formeraient un cycle. Le prix à
 payer est visible : une route gardée alors que le module `security` est absent renvoie **403**, pas
-une erreur de démarrage (fail-closed, `Resolver.ts:582`).
+une erreur de démarrage (fail-closed, `Resolver.ts:621`).
 
 **2 — Tout est figé une fois, puis relu en O(1).** Les métadonnées de l'action sont consolidées au
 premier passage dans `computeActionMeta()` (`routerDecorators.ts:1595`) puis gelées sur la route.
@@ -529,7 +529,7 @@ Trois façons d'ouvrir une porte, trois portées — les confondre coûte cher :
 | `@CsrfExempt()`   |  **conservée**   |  **conservée**   |   ignorée    | webhook signé, API cross-origin       |
 
 `@Anonymous()` pose en réalité **deux** marqueurs : « pas d'autorisation » et « pas de firewall »
-(`routerDecorators.ts:719-734`) — c'est un `@BypassFirewall` doublé d'une annulation des clauses
+(`routerDecorators.ts:926-941`) — c'est un `@BypassFirewall` doublé d'une annulation des clauses
 héritées de la classe.
 
 > [!CAUTION]

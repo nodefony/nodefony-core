@@ -115,7 +115,7 @@ qu'il arrive côté serveur — révoquer exige d'ajouter… un état serveur (d
 lecture qu'on voulait éviter. Une clé d'API vit **des mois** : un jeton auto-porté de six mois qui
 fuite est une porte ouverte de six mois. Le PAT inverse le compromis : sa vérité est dans le store,
 donc `revokedAt` posé = accès coupé à la requête suivante, sans attendre aucune expiration
-(`ApiKeyAuthenticator.authenticate()`, `ApiKeyAuthenticator.ts:107-114`).
+(`ApiKeyAuthenticator.authenticate()`, `ApiKeyAuthenticator.ts:97-104`).
 
 **Ce que Nodefony fait pour que ça reste bon marché** — trois décisions ancrées au code :
 

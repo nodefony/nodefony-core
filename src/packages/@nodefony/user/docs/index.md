@@ -494,9 +494,9 @@ et ne sont jamais recopiées ici (elles divergeraient). Ce tableau donne l'**usa
 | ---------------------------- | ------------------------------------------------------------- | ----------------------------- |
 | `IUser`                      | identité + rôles plats, sans credential                       | `IUser.ts:31`                 |
 | `IPasswordAuthenticatedUser` | idem + `password: string \| null`                             | `IUser.ts:72`                 |
-| `ISocialProvider`            | un lien vers un compte externe (`provider`/`providerId`)      | `IUser.ts:9`                  |
+| `ISocialProvider`            | un lien vers un compte externe (`provider`/`providerId`)      | `IUser.ts:13`                 |
 | `IUserRepository`            | CRUD portable + finders métier + pagination native            | `IUserRepository.ts:81`       |
-| `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts:19`       |
+| `IUserListQuery`             | filtres de listing (`role`, `enabled`, `q`) + fenêtre de page | `IUserRepository.ts:23`       |
 | `IUserProvider`              | source d'identité : **lève** si introuvable, jamais `null`    | `IUserProvider.ts:14`         |
 | `IPasswordVerifier`          | valide un couple identifiant/mot de passe, rend un verdict    | `IPasswordVerifier.ts:15`     |
 | `IPasswordEncoder`           | `supports`/`hash`/`verify`/`needsRehash`                      | `IPasswordEncoder.ts:51`      |

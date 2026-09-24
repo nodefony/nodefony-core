@@ -238,7 +238,7 @@ le keystore du serveur. Défenses **dures**, prouvées en test (RFC 8725 JWT BCP
 - **`aud` + `iss` obligatoires** + `typ:"at+jwt"` (un refresh présenté comme access est rejeté) +
   exp/nbf (`JwtAuthenticator.ts:105-108`).
 - **révocation** malgré l'auto-portage : denylist `jti` + `invalidBefore` par sujet
-  (`JwtAuthenticator.ts:122-132`).
+  (`JwtAuthenticator.ts:142-152`).
 - **sujet revérifié** à réception (`loadUserByIdentifier(sub)`) : compte disparu/inactif/verrouillé
   = rejet (`JwtAuthenticator.ts:174-187`).
 

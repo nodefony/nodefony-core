@@ -370,7 +370,7 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1250`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
-403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:331-336`). Le
+403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:672-677`). Le
 même `executeAction` sert le pipeline HTTP **et** l'invoke WS-RPC : une garde, tous les
 transports. L'enforcement déroule chaque clause : OR interne via un `decide()` par attribut, AND
 entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:672-702`).
@@ -543,8 +543,8 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
   alloc (`Resolver.ts:334-336`) ; l'exigence est **figée une fois** par route et partagée entre
   requêtes (`SecurityRequirement`, `routerDecorators.ts:424`).
-- **`decide()` sans allocation** : itération en place des voters (`authorization.ts:78-80`),
-  instanciés **une seule fois** au boot (`authorization.ts:55-64`).
+- **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
+  instanciés **une seule fois** au boot (`authorization.ts:70-79`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête
   (`RoleHierarchyWalker.ts:23-30`).
 - **Audit = cold path** : uniquement sur refus, avec un descripteur léger du sujet — jamais de

@@ -127,7 +127,7 @@ pas deux applications à écrire deux fois, mais deux entrées du même pipeline
 la même socket. Trois formes de trafic coexistent : le serveur diffuse (`@RealtimeChannel`,
 `realtimeDecorators.ts:192`), le client appelle et attend une réponse (`@RealtimeAction`,
 `realtimeDecorators.ts:142`), le client pousse sans attendre (`@RealtimeInbound`,
-`realtimeDecorators.ts:30`). Rien n'est ouvert qui n'ait été déclaré.
+`realtimeDecorators.ts:231`). Rien n'est ouvert qui n'ait été déclaré.
 
 **Le travail est fait une fois par processus, pas une fois par client.** Le `RealtimeHub`
 (`RealtimeHub.ts:213`) tient **un seul producteur par canal** : le premier abonné le démarre, le

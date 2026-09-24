@@ -224,7 +224,7 @@ plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 
 (`CliKernel.ts:185`, via `isStandaloneDevCommand`) — leur `generate()` n'est qu'un filet.
 
 **`check`/`doctor` et `env` prennent le même raccourci, et pour une raison qui se retient**
-(`CliKernel.ts:230` et `:239`) : on lance ces deux commandes précisément quand l'application **ne
+(`CliKernel.ts:94` et `:239`) : on lance ces deux commandes précisément quand l'application **ne
 démarre plus**. Les faire booter les rendrait muettes au seul moment où elles servent — et le
 rapport se noierait sous le journal du Kernel. `doctor` devait donc partager ce fast-path : sans
 lui, commander ne le voit pas parmi les intégrées avant le chargement des modules, et l'alias
@@ -263,7 +263,7 @@ sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme le
 | `security:user:add` | Crée un utilisateur (`-p`, `-r roles`, `-a` admin)     | `security-user-add.ts:36`    |
 
 > Une commande introuvable rend le code `EX_USAGE` (64) — **jamais** un repli silencieux sur le
-> serveur (`CliKernel.ts:625`).
+> serveur (`CliKernel.ts:699`).
 
 ## 🏗️ Échafauder — `create`
 

@@ -114,7 +114,7 @@ défaut** dans Nodefony :
 
 - **Vol du cookie (hijacking).** Un script injecté (XSS) ou un réseau en clair capte le cookie et
   rejoue la session. → `HttpOnly` et `Secure` sont à `true` par défaut (`sessionCookieSchema`,
-  `config.ts:718-725`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
+  `config.ts:748-755`), et le nom du cookie prend le préfixe `__Host-` dès que le transport est TLS
   (`Context.getSessionCookieName()`, `Context.ts:714`).
 - **Fixation.** L'attaquant pose lui-même un identifiant dans le navigateur de la victime, attend
   qu'elle se connecte, puis réutilise **le même** identifiant. → double défense : `strictMode` rejette
@@ -501,7 +501,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 | Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1443`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1711`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
-| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1185`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1518`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
@@ -618,8 +618,8 @@ Pour ajouter un backend :
 
 1. Implémenter `ISessionStorage` (`ISession.ts:142`). Le **noyau obligatoire** est court :
    `read`/`start`/`write`/`open`/`close`/`destroy`/`gc`.
-2. Ajouter les capacités **optionnelles** utiles : `touch` (idle glissant sans réécriture, `ISession.ts:158`),
-   `listPage` + `countSessions` (administration paginée, `ISession.ts:203`), `listAll` (dump).
+2. Ajouter les capacités **optionnelles** utiles : `touch` (idle glissant sans réécriture, `ISession.ts:176`),
+   `listPage` + `countSessions` (administration paginée, `ISession.ts:236`), `listAll` (dump).
 3. Appeler `SessionsService.registerStorage("mon-store", MonStore)` au chargement du module.
 4. Exécuter les bancs de contrat partagés (`sessionStoreContract.ts`, `sessionPaginationContract.ts`)
    contre l'implémentation — c'est ce qui garantit la parité.
@@ -659,7 +659,7 @@ Le coût d'une session est **payé seulement quand elle sert** :
   probabiliste hérité de PHP (`sessions-service.ts:306-312`).
 - **Révocation quasi gratuite** — la `Map` de pierres tombales est **paresseuse** : sans révocation,
   `write` ne paie qu'une comparaison `=== null`, sans même un `Date.now()`
-  (`RevocationGuardStorage.ts:146-151`).
+  (`RevocationGuardStorage.ts:163-168`).
 - **Administration bornée** — jamais plus de `SCAN_PAGE = 200` enregistrements en mémoire
   (`sessions-service.ts:75`), garde-fou à 5 000 pages (`sessions-service.ts:83`), parcours interrompu
   **journalisé**.

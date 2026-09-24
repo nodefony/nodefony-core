@@ -269,9 +269,9 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
 3. **Garde de débit** — si `rateLimit` est activé, seuls les `burstLimit` premiers logs de la
    fenêtre passent ; les autres incrémentent `missed` et repartent en `DROPPED`.
 4. **Création du `Pdu`** (`Pdu.ts:172`) — horodatage `Date.now()` sans objet `Date`, `uid`
-   incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:175`), type du payload
+   incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:184`), type du payload
    déduit par un `fastTypeOf()` inline (`Pdu.ts:141`), et `requestId` lu via un fournisseur
-   injectable (`Pdu.ts:144`).
+   injectable (`Pdu.ts:197`).
 5. **Ring buffer** — `pushStack()` (`Syslog.ts:1133`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
 6. **Diffusion** — `fire("onLog")` alimente les listeners (dont l'impression console) ; le fan-out
@@ -623,7 +623,7 @@ const trace = await driver?.query?.({ requestId, order: "asc" });
 ### Rejouer les lignes d'une requête
 
 Chaque `Pdu` créé dans une bulle `RequestContext` porte le `requestId` courant, capté via le
-fournisseur injectable `Pdu.requestIdProvider` (`Pdu.ts:192`), branché côté Node par le barrel du
+fournisseur injectable `Pdu.requestIdProvider` (`Pdu.ts:209`), branché côté Node par le barrel du
 cœur. Filtrer là-dessus donne la trace **complète et ordonnée** d'un appel — pipeline HTTP,
 firewall, requêtes ORM, code applicatif — d'où l'écran de suivi de requête dans Studio.
 
@@ -750,7 +750,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Domaine                    | Norme            | Où c'est dans le code                                  |
 | -------------------------- | ---------------- | ------------------------------------------------------ |
 | Sévérités 0–7              | RFC 5424 §6.2.1  | `SysLogSeverity` (`Pdu.ts:27`)                         |
-| Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:126`)                    |
+| Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:184`)                    |
 | Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:303`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
 | Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2376`)           |

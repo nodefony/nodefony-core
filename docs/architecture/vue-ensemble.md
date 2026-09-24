@@ -138,7 +138,7 @@ la même chaîne, en passant en plus les données de la trame (`WebsocketContext
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
 **exigence de route** parmi d'autres : `Route.match()` compare `context.method` — qui vaut
 littéralement `"WEBSOCKET"` sur une socket — au `methodsSet` précompilé de la route
-(`Route.ts:480`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
+(`Route.ts:243`). Une même action peut donc déclarer `methods: ["GET", "WEBSOCKET"]` et répondre aux
 deux portes.
 
 Ce que ça change concrètement : **une** session, **un** modèle de droits, **un** identifiant de

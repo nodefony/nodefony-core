@@ -342,7 +342,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:694` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:693` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:433` |
-| `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:498` |
+| `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:534` |
 | `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:101` |
 
 > [!TIP]

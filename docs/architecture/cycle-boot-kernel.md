@@ -579,7 +579,7 @@ probable ⇒ `npm run clean && npm run build` ». Et un **journal de boot** —
 figés à `onPostReady` : après cet instant, le tampon mélange boot et exécution normale.
 
 Le garde-fou zéro-serveur va jusqu'au code de sortie : un profil serveur qui finit sans écoute sort en
-`EX_UNAVAILABLE`, pas en `0` trompeur (`Kernel.ts:1135`). L'orchestrateur voit un pod en échec, le
+`EX_UNAVAILABLE`, pas en `0` trompeur (`Kernel.ts:1300`). L'orchestrateur voit un pod en échec, le
 superviseur de développement un message honnête.
 
 ## Arrêt propre — le drain borné

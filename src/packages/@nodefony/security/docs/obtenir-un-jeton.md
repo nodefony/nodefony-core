@@ -136,7 +136,7 @@ Puis `npm run build` — le runtime lit le `dist`, pas la source.
 | `-j, --json`           | —                             | sortie machine, sans invite                              |
 
 Le plafond de `--ttl` n'est pas décoratif : un jeton posé dans un fichier **est une clé**, et une
-clé se remplace (`security-token.ts:52`, `security-token.ts:64-79`).
+clé se remplace (`security-token.ts:352`, `security-token.ts:64-79`).
 
 ### Où `--write` pose la valeur
 

@@ -352,7 +352,7 @@ Deux branches dans un seul service, choisies sur `servers.https.protocol` (`serv
 - **`"2.0"` (défaut)** → `http2.createSecureServer` avec `allowHTTP1: true`
   (`ServerHttps.createServerH2()`, `server-https.ts:174`). Les bornes anti-DoS HTTP/2 ne sont posées
   **que si elles sont configurées**, pour ne pas écraser les défauts de Node
-  (`maxSessionMemory`, `server-https.ts:197`).
+  (`maxSessionMemory`, `server-https.ts:185`).
   Les erreurs de session et de flux sont journalisées sans tuer le serveur
   (`sessionError`, `server-https.ts:274`).
 - **`"1.1"`** → `https.createServer` classique.
@@ -442,7 +442,7 @@ quelle à Node. C'est délibéré — un schéma strict effacerait silencieuseme
 ### Niveau 2 — HTTP/2
 
 Depuis `http2Schema` (`config.ts:353`), appliqué seulement si défini
-(`maxSessionMemory`, `server-https.ts:197`).
+(`maxSessionMemory`, `server-https.ts:185`).
 
 | Option                 | Type | Défaut | Effet                                                                         |
 | ---------------------- | ---- | ------ | ----------------------------------------------------------------------------- |
@@ -786,7 +786,7 @@ L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** c
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
 (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1549`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`rateLimiter`, `http-kernel.ts:287`), sans
+(`rateLimiter`, `http-kernel.ts:292`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
@@ -809,7 +809,7 @@ par seconde. Les choix visibles dans le code :
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
   socket (`wsHeartbeat.ts:69`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
-  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:937`, `http-kernel.ts:489`).
+  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:248`, `http-kernel.ts:248`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
   DI et l'ALS : un flood coûte une recherche dans une table de hachage.
 - **Probes hors pipeline** — réponses pré-allouées, aucun objet créé, aucun journal

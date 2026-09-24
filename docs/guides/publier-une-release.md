@@ -340,8 +340,8 @@ trentaine de saisies pour les deux lots.
   lire comme un échec envoie chercher une panne inexistante.
 - **Ce qui est vérifié avant de publier vit dans le code, pas dans le script** :
   `checkPackageDeps()` (`packageDeps.ts:281`) refuse un import non déclaré, et
-  `defineNodefonyRolldownConfig()` (`bundler/index.ts:135`) décide ce que chaque paquet embarque,
-  en s'appuyant sur `nodefonyExternalMatcher()` (`bundler/index.ts:68`) pour trancher ce qui reste
+  `defineNodefonyRolldownConfig()` (`bundler/index.ts:144`) décide ce que chaque paquet embarque,
+  en s'appuyant sur `nodefonyExternalMatcher()` (`bundler/index.ts:77`) pour trancher ce qui reste
   hors du bundle — une dépendance qui devait rester externe et se retrouve avalée casse à
   l'installation, pas ici.
 

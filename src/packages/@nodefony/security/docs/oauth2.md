@@ -117,7 +117,7 @@ qui les ferme ici :
   session (`OAuth2Service.createAuthorization()`, `oauth2.ts:232-238`).
 - **CSRF de login** — un tiers force ta victime à terminer **son** flux à lui : elle se retrouve
   connectée sur le compte de l'attaquant, qui lit ensuite ce qu'elle y dépose. _Fermé par le `state`_
-  comparé au retour (`OAuth2Controller.callback()`, `OAuth2Controller.ts:137-145`).
+  comparé au retour (`OAuth2Controller.callback()`, `OAuth2Controller.ts:150-158`).
 - **Mix-up d'IdP** — un `code` obtenu chez un fournisseur malveillant est présenté au callback d'un
   fournisseur de confiance. _Fermé par la vérification de l'`iss`_ (`oauth2.ts:170-174`) **et** par
   l'exigence « même fournisseur qu'à l'aller » côté controller (`OAuth2Controller.ts:170`).
@@ -277,7 +277,7 @@ Séquence identique prouvée de bout en bout sur serveur réel par `oauth2-flow.
    (ceux de la config, sinon les scopes par défaut du fournisseur, `oauth2.ts:216`).
 
 Le controller pose les trois valeurs en session, **persiste** (`session.save()` — pas seulement en
-mémoire, `OAuth2Controller.ts:105-108`), puis redirige en 302.
+mémoire, `OAuth2Controller.ts:40-43`), puis redirige en 302.
 
 ### Étape 2 — le retour, validé avant tout appel réseau
 
@@ -448,7 +448,7 @@ Pas de PKCE, pas d'ID token, pas d'`iss` (`usesPkce: false`, `issuerPolicy: null
 `github.ts:43-44`) : ici, la défense anti-CSRF repose **entièrement** sur le `state`. Le profil vient
 de l'API REST `/user` (`createGithubProvider()`, `github.ts:53`). Subtilité GitHub : l'e-mail
 primaire est souvent privé — l'adaptateur bascule alors sur `/user/emails` et n'accepte
-`emailVerified` que si GitHub le certifie (`github.ts:68-77`).
+`emailVerified` que si GitHub le certifie (`github.ts:105-114`).
 
 ### Enregistrer le sien — sans éditer le cœur
 
@@ -507,7 +507,7 @@ Par fournisseur (`oauthProviderSchema`, `config.ts:954`) :
 | `issuer` | OIDC self-hosted | Realm Keycloak ; ignoré par les IdP à endpoints fixes. |
 | `clientAuthMethod` |  | Comment le client s'authentifie au point de jeton (RFC 6749 §2.3). Omis = `client_secret_basic`, ce que la RFC demande de préférer. Poser `client_secret_post` quand le serveur l'EXIGE — il le publie dans `token_endpoint_auth_methods_supported`. |
 | `scopes` |  | Vide = scopes par défaut du fournisseur. |
-| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:218-222`). |
+| `successRedirect` / `failureRedirect` / `defaultRoles` |  | Surchargent le global **pour ce fournisseur** (`oauth2.ts:279-283`). |
 
 Les surcharges par fournisseur permettent la cohabitation : un IdP de recette garde ses redirections
 et ses rôles pendant qu'un IdP de production pointe ailleurs.
@@ -603,7 +603,7 @@ retirer de la configuration.
 technique brut.
 
 Côté suivi, chaque login réussi produit un événement d'audit `auth` / `login.success` via
-`AuthFlow.establishSessionFor()` (`authFlow.ts:229-236`), consultable dans l'écran **Audit**. La
+`AuthFlow.establishSessionFor()` (`authFlow.ts:215-222`), consultable dans l'écran **Audit**. La
 session ouverte apparaît dans l'écran **Sessions** (IP et agent capturés à l'ouverture) ; le compte
 provisionné dans l'écran **Users**, avec ses rôles réels.
 
@@ -622,7 +622,7 @@ provisionné dans l'écran **Users**, avec ses rôles réels.
 | Bouton absent de l'écran de login                 | Secrets manquants → fournisseur non monté (spread conditionnel)               | Renseigner `clientId`/`clientSecret` dans l'env                     |
 | `redirect_uri_mismatch` chez le fournisseur       | `redirectUri` ≠ URL enregistrée, au caractère près (`config.ts:975`)          | Aligner schéma, hôte, port et chemin `/…/{provider}/callback`       |
 | Retour systématique sur `failureRedirect`         | `state`/`verifier` absents (cookie perdu entre les deux requêtes)             | Vérifier `SameSite`/domaine du cookie ; un seul hôte en dev         |
-| Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:126-129`)              | Refaire le flux depuis `authorize` — comportement attendu           |
+| Callback échoue au **deuxième** essai             | `state` à usage unique, consommé (`OAuth2Controller.ts:25-28`)                | Refaire le flux depuis `authorize` — comportement attendu           |
 | `OAuth issuer mismatch`                           | `iss` reçu ≠ l'émetteur attendu (`oauth2.ts:170-181`)                         | Corriger `issuer` (Keycloak : URL exacte du realm)                  |
 | Keycloak : erreur dès le premier login            | `issuer` absent en config (`oauthProviderRegistry.ts:89-93`)                  | Renseigner l'URL du realm                                           |
 | « provisioning indisponible »                     | `users` n'implémente pas la capability (`oauth2.ts:327-333`)                  | Implémenter `provisionOAuthUser()` sur le service `users`           |

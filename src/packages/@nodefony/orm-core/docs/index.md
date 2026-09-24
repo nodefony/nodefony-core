@@ -412,8 +412,8 @@ transaction (`IOrm.transaction()`, `IOrm.ts:41`) et expose la trappe native
 
 Quatre méthodes sont **optionnelles** — un adapter qui ne les implémente pas dégrade proprement au
 lieu d'échouer : `describeEntity()` (`IOrm.ts:78`, colonnes pour l'ERD), `describeConnection()`
-(`IOrm.ts:71`, driver et cible **sans credential**), `ping()` (`IOrm.ts:82`, aller-retour réel) et
-`probe()` (`IOrm.ts:92`, métriques driver, qui ne doit **jamais** lever).
+(`IOrm.ts:88`, driver et cible **sans credential**), `ping()` (`IOrm.ts:109`, aller-retour réel) et
+`probe()` (`IOrm.ts:119`, métriques driver, qui ne doit **jamais** lever).
 
 ### [`IRepository`](tutorial-entity.md) — les quinze verbes
 
@@ -475,7 +475,7 @@ atomique sur les quatre backends.
 `IEntity` (`IEntity.ts:51`) porte un nom logique, un `connector` (le nom d'une **connexion**, jamais
 d'un moteur), un `schema` natif du driver, et des `relations` déclaratives (`IEntityRelation`,
 `IEntity.ts:4`). Deux champs facultatifs servent la lisibilité d'un gros modèle : `module` (qui
-apporte l'entité) et `domain` (`IEntity.ts:58`, la classification métier — l'axe qui rend navigable
+apporte l'entité) et `domain` (`IEntity.ts:72`, la classification métier — l'axe qui rend navigable
 une base de plusieurs centaines de tables). Un troisième, `indexes` (`IEntityIndex`), déclare les
 index COMPOSITES qu'un adaptateur ne sait pas exprimer dans son schéma : Mongoose les applique
 (`schema.index()`), Drizzle les ignore, puisqu'il les déclare dans sa table.

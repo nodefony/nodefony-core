@@ -629,7 +629,7 @@ Ce que le code garantit, concrètement :
 
 - **Le typage rend le secret difficile à faire entrer.** `actor` est documenté comme un _libellé
   d'identité_ (`IAuditEvent.ts:82`) et `resource` comme un _descripteur léger_ — « jamais le corps ni
-  les en-têtes de la requête » (`IAuditEvent.ts:79`).
+  les en-têtes de la requête » (`IAuditEvent.ts:87`).
 - **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts:49`) ne porte que deux
   booléens : un en-tête `Authorization` était-il là, un cookie était-il là. `readAuditContext()`
   les calcule par un simple `Boolean(headers[…])` (`readAuditContext.ts:40`) — la valeur n'est jamais
@@ -639,7 +639,7 @@ Ce que le code garantit, concrètement :
   complète de l'événement **ne contient pas** le secret créé
   (`auditEmissionHotPath.test.ts:545`).
 - **Le motif reste machine.** `reason` est une valeur stable et filtrable, pas un message d'erreur
-  libre (`IAuditEvent.ts:84`) : c'est ce qui empêche une cause fine de fuir dans la trace… et qui
+  libre (`IAuditEvent.ts:92`) : c'est ce qui empêche une cause fine de fuir dans la trace… et qui
   permet de la garder **côté audit** alors que le client, lui, reçoit un message d'échec uniforme
   (anti-énumération).
 

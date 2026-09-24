@@ -259,7 +259,7 @@ Après le login, chaque requête web prouve son identité par la **session serve
 Credential = l'**identifiant** posé dans le blob de session, jamais un secret.
 
 - **N'ouvre jamais la session lui-même** : `supports()` exige une session **déjà reprise** porteuse
-  d'un utilisateur (`SessionAuthenticator.ts:43-46`) — le pipeline http démarre la session _avant_
+  d'un utilisateur (`SessionAuthenticator.ts:75-78`) — le pipeline http démarre la session _avant_
   le firewall ; c'est `AuthFlow.login()` qui ouvre et régénère l'ID (anti-fixation).
 - **L'identité est re-résolue à CHAQUE requête** via `resolveSessionIdentity`
   (`SessionAuthenticator.ts:91`) → rôles frais, révocation immédiate. Les contrôles d'état sont
@@ -281,7 +281,7 @@ prouvées en test :
 | **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:120`)        | `alg=none`, algorithm confusion (§3.1)                             |
 | **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:158`)                | injection de clé / SSRF (§3.5)                                     |
 | **`aud` + `iss` + `typ` obligatoires** | `typ: "at+jwt"` (§3.11) sépare access et refresh (`JwtAuthenticator.ts:105-107`)                 | refresh présenté comme access, token d'un autre service (§3.8-3.9) |
-| **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:123-131`)       | jeton auto-porté volé, logout global                               |
+| **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:142-150`)       | jeton auto-porté volé, logout global                               |
 | **Sujet revérifié**                    | `loadUserByIdentifier(sub)` → disparu/inactif/verrouillé = rejet (`JwtAuthenticator.ts:174-186`) | compte banni encore « valide » via son token (§3.10)               |
 
 Le **message d'échec est uniforme** (`INVALID_TOKEN`, `JwtAuthenticator.ts:24`) : la cause fine
@@ -314,7 +314,7 @@ serveur** (`ITokenStore`) → **révocable immédiatement**. Défenses :
   **ban en masse** du porteur (`invalidBefore` vs `createdAt`, `ApiKeyAuthenticator.ts:117-118`).
 - **Sujet revérifié** à chaque requête → rôles frais (`ApiKeyAuthenticator.ts:123`).
 - **`lastUsedAt` throttlé** : aucune écriture sur le hot path tant que la fenêtre
-  `apiKeys.lastUsedThrottleS` n'est pas dépassée (`ApiKeyAuthenticator.ts:127-133`).
+  `apiKeys.lastUsedThrottleS` n'est pas dépassée (`ApiKeyAuthenticator.ts:31-37`).
 
 Le token promu porte `scopes`, `apiKeyId`, `tenantId` (`ApiKeyAuthenticator.ts:138-140`).
 

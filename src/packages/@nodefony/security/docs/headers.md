@@ -300,7 +300,7 @@ La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
 (`http-kernel.ts:330`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:965`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:268`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 

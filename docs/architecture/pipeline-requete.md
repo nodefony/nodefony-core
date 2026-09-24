@@ -120,7 +120,7 @@ sont traités **avant** toute allocation de contexte, de scope DI ou de bulle AL
 une `Map`.
 
 **2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:230`) est appelé **avant** de lire
-le corps de la requête (`http-kernel.ts:1181`). C'est ce qui permet à une action de recevoir le flux
+le corps de la requête (`http-kernel.ts:1370`). C'est ce qui permet à une action de recevoir le flux
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
 
@@ -533,7 +533,7 @@ où ; les pages dédiées disent comment.
 | CSRF                  | après le routage, avant la session (`firewall.ts:741`) | rejet précoce d'une mutation cross-site, avant tout coût d'auth        |
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
-| Idempotence           | dans l'appel d'action (`Resolver.ts:396`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
+| Idempotence           | dans l'appel d'action (`Resolver.ts:506`)              | seules les actions `@Idempotent` dévient — coût nul ailleurs           |
 | Garde `@IsGranted`    | avant l'appel de la méthode (`Resolver.ts:317`)        | un 403 ne doit pas exécuter une ligne de ton action                    |
 | Origin WebSocket      | au handshake (`http-kernel.ts:509`)                    | l'anti-CSWSH remplace le CORS, absent des WebSockets                   |
 

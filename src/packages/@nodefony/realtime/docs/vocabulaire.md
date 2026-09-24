@@ -476,7 +476,7 @@ et de ses handlers. Aucune dépendance Node — le même fichier tourne dans le 
 Le geste du pair sur une frame entrante : décider de sa nature, trouver le handler, l'appeler,
 renvoyer la réponse s'il en faut une. Ce n'est pas une méthode publique — c'est un **moment**, et
 c'est précisément là que se greffe le [verrou de frame](#verrou-de-frame--la-décision-par-frame),
-par le crochet `beforeDispatch` (`JsonRpcPeer.ts:172`).
+par le crochet `beforeDispatch` (`JsonRpcPeer.ts:192`).
 
 ### `transport` — la couche octets
 
@@ -708,7 +708,7 @@ Le signal émis sur les événements protocolaires qui méritent une trace : fra
 refusée, méthode inconnue, erreur interne. Émis sans attente, avec le pair — ce qui permet de
 retrouver **qui** a été refusé, pas seulement d'où venait le paquet.
 
-`FrameAuditReason` (`JsonRpcPeer.ts:155`), crochet `onFrameAudit` (`JsonRpcPeer.ts:190`).
+`FrameAuditReason` (`JsonRpcPeer.ts:155`), crochet `onFrameAudit` (`JsonRpcPeer.ts:210`).
 
 ### `seam` — le point de greffe
 
@@ -716,8 +716,8 @@ Littéralement une **couture** : un point prévu dans une couche basse pour qu'u
 greffe du comportement **sans modifier la couche basse**. Le module en expose cinq, et c'est ce qui
 permet à la couche sécurité de se brancher sans qu'aucune ligne de realtime ne la connaisse.
 
-Les deux du protocole sont `beforeDispatch` (`JsonRpcPeer.ts:172`) et `onFrameAudit`
-(`JsonRpcPeer.ts:190`) ; les trois du hub sont l'authenticator, le matcher et le contrôle d'origine.
+Les deux du protocole sont `beforeDispatch` (`JsonRpcPeer.ts:192`) et `onFrameAudit`
+(`JsonRpcPeer.ts:210`) ; les trois du hub sont l'authenticator, le matcher et le contrôle d'origine.
 
 → [Sécurité](./securite.md) pour le détail de chacun.
 
@@ -801,7 +801,7 @@ elle-même par le même chemin que les autres modules.
 
 | Symptôme                                                           | Cause — le mot pris pour un autre                                                                                     | Correction                                                                              |
 | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| « Je suis abonné mais je ne reçois rien »                          | `subscribe` confondu avec `on` : le flux est demandé, aucun écouteur ne le lit                                        | Les deux : `subscribe(canal)` **et** `on(canal, handler)` (`IRealtimeSocket.ts:140`)    |
+| « Je suis abonné mais je ne reçois rien »                          | `subscribe` confondu avec `on` : le flux est demandé, aucun écouteur ne le lit                                        | Les deux : `subscribe(canal)` **et** `on(canal, handler)` (`IRealtimeSocket.ts:131`)    |
 | « Ça marche en local, plus rien dès qu'on passe à plusieurs pods » | canal resté **instance-local** — le défaut. Traverser le process est une capacité qu'on **demande**                   | Déclarer le préfixe dans `@RealtimeBroadcast` (`realtimeDecorators.ts:342`)             |
 | « Le client publie, le serveur ignore »                            | canal non déclaré **entrant**. Un client ne peut rien pousser tant qu'aucun handler n'existe                          | `@RealtimeInbound("mon:canal")` (`realtimeDecorators.ts:231`)                           |
 | Deux déploiements se mélangent sur un même serveur Redis           | pas de **cloison** — le numéro de base ne cloisonne pas le pub/sub                                                    | Poser `backplane.namespace` (`config.ts:59`)                                            |

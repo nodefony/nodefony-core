@@ -317,7 +317,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 | `strictSameSite` | boolean · `false` | `true` = refuser aussi `same-site` (sous-domaine non maîtrisé / multi-tenant) — distinct de l'attribut cookie (`config.ts:170-175`). |
 | `sameSite` | enum · `Lax` | **Déclaratif** : surfacé dans l'introspection (`firewall.ts:582`) ; l'attribut effectif du cookie `csrf-token` est `Strict` en dur (`HttpContext.ts:497`). |
 | `trustedOrigins` | string[] · `[]` | Alias **exacts** (`scheme://host[:port]`) autorisés même cross-site — sans ouvrir la lecture CORS (`config.ts:176-181`). |
-| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:182-188`). |
+| `secret` | string ≥ 16 car. · — | Secret HMAC du synchronizer — PROD : via env, **partagé cluster** ; absent = éphémère dev (`config.ts:194-200`). |
 
 ## 📜 Normes appliquées
 
@@ -355,7 +355,7 @@ n'est que la **présence** du secret armé — jamais sa valeur (`firewall.ts:60
 | Mutation légitime cross-domaine bloquée en 403 | Domaine alias non déclaré                                                                      | Ajouter l'origine à `csrf.trustedOrigins` (ou CORS si lecture voulue)     |
 | Client non-navigateur (curl/CI) refusé         | N'arrive pas sur une route non décorée : ni Fetch Metadata ni `Origin` → passe (`csrf.ts:113`) | Attendu ; sur `@CsrfProtect`, semer le token (GET) avant la mutation      |
 | `@CsrfProtect` échoue en 403 côté SPA          | En-tête `x-csrf-token` non rejoué, ou ≠ cookie (`firewall.ts:778-783`)                         | Relire le cookie `csrf-token` et le rejouer à l'identique                 |
-| Tokens invalidés au redémarrage / entre pods   | `csrf.secret` absent → secret éphémère par process (`firewall.ts:199-209`)                     | Fixer `csrf.secret` (≥ 16 car., partagé cluster) — `security:secrets`     |
+| Tokens invalidés au redémarrage / entre pods   | `csrf.secret` absent → secret éphémère par process (`firewall.ts:227-237`)                     | Fixer `csrf.secret` (≥ 16 car., partagé cluster) — `security:secrets`     |
 | `same-site` refusé alors qu'attendu OK         | `strictSameSite` activé (`csrf.ts:102-104`)                                                    | Le désactiver si les sous-domaines sont de confiance                      |
 | `http://` accepté par le repli (même hôte)     | Le repli compare l'**hôte seul**, jamais le scheme (`Csrf.#sameHost()`, `csrf.ts:130-136`)     | Limite documentée (banc red-team) ; Fetch Metadata prime sur nav. moderne |
 | Webhook provider bloqué en 403                 | POST cross-site légitime, hors whitelist                                                       | `@CsrfExempt` sur la route — jamais `@BypassFirewall`                     |

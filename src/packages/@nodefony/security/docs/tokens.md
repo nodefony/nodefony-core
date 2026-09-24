@@ -136,7 +136,7 @@ seulement ses signatures vérifiables. Omettre `grant_types_supported` annoncera
 ### Les endpoints d'émission sont FOURNIS
 
 Dans une app `nodefony create app`, dès que le module security est chargé avec `jwt.enabled` (défaut),
-le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.ts:132-147`) :
+le framework monte deux routes (`mountTokenAuthRoutes()`, `TokenAuthController.ts:161-176`) :
 
 - `POST /nodefony/security/api/token` — body `{username, password, scope?}` → couple access/refresh ;
 - `POST /nodefony/security/api/token/refresh` — body `{refresh_token}` → rotation.
@@ -235,7 +235,7 @@ par `#auditGrant()` (`tokenService.ts:362-374`). Puis `issueTokens()` (`tokenSer
 produit :
 
 - un **access token** : JWT signé EdDSA, en-tête `typ:"at+jwt"` + `kid`, claims
-  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:402-415`) ;
+  `iss`/`sub`/`aud`/`exp` (15 min) + `jti` — `#signAccess()` (`tokenService.ts:649-662`) ;
 - un **refresh token** : secret opaque haute entropie `nfr_<32 octets base64url>`, **stocké haché**
   `sha256` (le clair n'existe qu'en réponse, jamais au repos) — `#buildRefresh()`
   (`tokenService.ts:674-709`).
@@ -250,7 +250,7 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:43-51`). 
 1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:564`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:345-361`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:363-368`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts:707-712`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
    `#resolveUserForRefresh()` (`tokenService.ts:752`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
@@ -340,7 +340,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 - Denylist bornée : purge **amortie** tous les 256 ajouts — `#maybeSweep()`
   (`MemoryTokenStore.ts:393`) + expiration paresseuse à la lecture. Pas de minuterie, pas de fuite.
 - `snapshot()`/`restore()` sérialisables — base d'une persistance fichier, index reconstruits
-  (`MemoryTokenStore.ts:253-283`).
+  (`MemoryTokenStore.ts:324-354`).
 - Volatil, par-process : dev/tests. Pilote le banc de contrat commun.
 
 ### `drizzle` — SQL, le défaut durable
@@ -353,7 +353,7 @@ La décision (configuré → résolu, raison) est publiée au kernel par `regist
 ### `mongoose` — MongoDB
 
 - Enregistré par le module mongoose (`mongoose/nodefony/registerStores.ts:119`).
-- Pagination **offset + total** via `listPage` (`MongooseTokenStore.ts:163-173`).
+- Pagination **offset + total** via `listPage` (`MongooseTokenStore.ts:236-246`).
 - Purge par `gc()` explicite sur `expiresAt` (`MongooseTokenStore.ts:170`).
 
 ### `redis` — cluster, TTL natif
@@ -410,7 +410,7 @@ un futur worker cron — poser alors `gcIntervalS: 0` (`tokenService.ts:293`).
 > [!TIP]
 > Un refresh révoqué **par rotation** n'est PAS purgé tout de suite : il est conservé jusqu'à son
 > `expiresAt` — c'est la **fenêtre de détection de rejeu** — puis tombe au gc, `#isPurgeable()`
-> (`MemoryTokenStore.ts:239-248`). Un store **local** (memory) est par-process : seul SON process
+> (`MemoryTokenStore.ts:301-310`). Un store **local** (memory) est par-process : seul SON process
 > peut le purger → ne déléguez le gc au cron QUE pour un store partagé.
 
 ## ⚙️ Configuration
@@ -449,8 +449,8 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:334-390`) et `token
 | -------------------------------- | --------------- | ------------------------------------------------------- |
 | Réponse d'émission               | RFC 6749 §5.1   | `ITokenResponse` (`tokenService.ts:43-51`)              |
 | Rotation + détection de rejeu    | RFC 9700 §4.14  | `refresh()` (`tokenService.ts:555`)                     |
-| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:402-415`)             |
-| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:406-414`)             |
+| Profil access token `typ:at+jwt` | RFC 9068        | `#signAccess()` (`tokenService.ts:649-662`)             |
+| Claims JWT (`iss/sub/aud/exp`)   | RFC 7519        | `#signAccess()` (`tokenService.ts:649-657`)             |
 | Ed25519 / JWK / JWKS public      | RFC 8037 · 7517 | `#importKeyset()` (`JwtKeystore.ts:156-158`)            |
 | Audiences liées à la ressource   | RFC 8707        | `audience` du record (`ITokenStore.ts:104-105`)         |
 | 429 + `Retry-After`              | RFC 6585        | `#renderAuthError()` (`TokenAuthController.ts:108-115`) |

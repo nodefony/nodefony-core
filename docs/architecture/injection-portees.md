@@ -244,7 +244,7 @@ curl -s http://localhost:5151/api/catalog
 
 > [!TIP]
 > Le controller, lui, est **neuf à chaque requête** (défaut `"request"`,
-> `Controller.scope`, `Controller.ts:196`). C'est voulu : il porte l'état de la requête. Le service
+> `Controller.scope`, `Controller.ts:153`). C'est voulu : il porte l'état de la requête. Le service
 > injecté, lui, est partagé. Deux portées différentes dans le même appel — c'est normal.
 
 ## ⚙️ Les portées — mises en situation

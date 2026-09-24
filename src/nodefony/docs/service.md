@@ -316,7 +316,7 @@ bus dédié, l'objet entier part au ramasse-miettes avec le service, il n'y a ri
 | Étape | Appel | Ce qui se passe |
 | --- | --- | --- |
 | Naissance | `new Service(name, container, nc, options)` | câblage des trois broches, écouteurs de config attachés |
-| Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:240`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à chaque requête |
+| Démarrage | `init(owner)` — **optionnel, à toi de l'écrire** | appelé UNE fois au boot par le module qui porte le service (`Module.ts:109`), sous garde (délai maximal + criticité du module). Reçoit son propriétaire, donc sa configuration résolue. C'est ici que se fait tout ce qui demande un `await` : connexion, chargement, préchauffage. ⚠️ `init`, pas `initialize` — `initialize()` est le hook du **Controller**, appelé à chaque requête |
 | Journal | `Service.initSyslog()` (`Service.ts:250`) | démarre la sortie console (environnement + verbosité + filtres) |
 | Vie | `log` / `fire` / `on` / `get` | délégation vers syslog, bus et container |
 | Destruction | `Service.clean()` (`Service.ts:270`) | retire les écouteurs trackés, remet syslog/nc/container/kernel à vide |
@@ -530,7 +530,7 @@ Les services d'un module sont introspectables sans lire le code :
 
 - **API** — `GET /nodefony/kernel/api/module/{name}` (`KernelAdminApi.ts:1109`) renvoie un tableau
   `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:521`) croisé
-  avec le container (`KernelAdminApi.ts:974`).
+  avec le container (`KernelAdminApi.ts:1346`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.
 - **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:330`) donne le nombre de scopes

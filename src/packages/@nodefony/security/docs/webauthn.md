@@ -549,7 +549,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
 - Builtin, enregistré à l'import du module (`webAuthnCredentialStoreRegistry.ts:53`). Deux index :
   `#byId` (vérité) et `#idsByUser` (`allowCredentials`) — `MemoryWebAuthnCredentialStore.ts:47`.
 - `listPage` trie `createdAt` DESC avec `id` en départage → offset déterministe, parité SQL
-  (`MemoryWebAuthnCredentialStore.ts:19`). C'est lui qui pilote le banc de contrat partagé.
+  (`MemoryWebAuthnCredentialStore.ts:26`). C'est lui qui pilote le banc de contrat partagé.
 - `snapshot()` / `restore()` sérialisables (`MemoryWebAuthnCredentialStore.ts:181`) ; le service
   déclenche un `flushNow()` à l'arrêt si le store sait le faire (`webAuthn.ts:254`).
 

@@ -338,7 +338,7 @@ La pile se lit de haut en bas ; chaque étage ne connaît que son voisin du dess
 dispatch des notifications, gestion des erreurs, `dispose()` propre. Deux points
 d'interception y sont posés :
 
-- `beforeDispatch` (`JsonRpcPeer.ts:172`) — un verrou **synchrone** appelé avant tout
+- `beforeDispatch` (`JsonRpcPeer.ts:192`) — un verrou **synchrone** appelé avant tout
   traitement de frame. Il rend `true`/`false`. Un refus sur une requête produit
   `-32001 unauthorized` ; sur une notification, la frame est jetée
   (`JsonRpcPeer.ts:413`).
@@ -439,7 +439,7 @@ Les étapes, dans l'ordre exact du code :
    l'identité résolue (type, authentifié ou non, rôles, portées). Le client sait **qui il
    est** sans appeler la moindre route.
 
-À la fermeture, un unique `onFinish` (`RealtimeController.ts:542`) fait le ménage complet :
+À la fermeture, un unique `onFinish` (`RealtimeController.ts:578`) fait le ménage complet :
 désabonnement de chaque canal tenu, retrait des deux registres, `fireClose()` du transport,
 `dispose()` du peer. C'est ce qui garantit qu'aucun minuteur ni écouteur ne survit à une
 déconnexion.
