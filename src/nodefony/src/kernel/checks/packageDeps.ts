@@ -77,6 +77,25 @@ export interface IPackageCheckResult {
 const IMPORT_RE =
   /^\s*(?:import|export)\s+(type\s+)?[^;]*?from\s+["'](@nodefony\/[a-z0-9-]+|nodefony)(?:\/[a-z0-9-]+)?["']/gm;
 
+/**
+ * Les paquets Nodefony qu'une source importe, lus comme le fait `doctor`.
+ *
+ * Exportée pour que le générateur déclare ce qu'il écrit avec la MÊME règle
+ * que celle qui le juge : deux lecteurs d'imports divergent en silence.
+ *
+ * @param source - le texte d'un fichier TypeScript
+ * @returns chaque import `@nodefony/<paquet>` ou `nodefony`, sous-chemin retiré,
+ *   avec `typeOnly` quand l'import est effacé à la compilation
+ */
+export function nodefonyImports(
+  source: string,
+): Array<{ dep: string; typeOnly: boolean }> {
+  return Array.from(source.matchAll(IMPORT_RE), (m) => ({
+    dep: m[2] as string,
+    typeOnly: Boolean(m[1]),
+  }));
+}
+
 const DEP_FIELDS = [
   "dependencies",
   "peerDependencies",
@@ -335,9 +354,7 @@ export function checkPackageDeps(
       } catch {
         continue;
       }
-      for (const m of src.matchAll(IMPORT_RE)) {
-        const typeOnly = Boolean(m[1]);
-        const dep = m[2];
+      for (const { dep, typeOnly } of nodefonyImports(src)) {
         // On ne restreint PAS aux paquets présents dans les racines explorées :
         // dans une application, tous les paquets Nodefony viennent de
         // `node_modules`, donc un tel filtre ne contrôlerait jamais rien — le

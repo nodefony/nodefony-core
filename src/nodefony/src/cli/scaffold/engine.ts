@@ -101,6 +101,7 @@ import {
   type IScaffoldQuestion,
 } from "./spec";
 import { openSiblingRoutes } from "./routePaths";
+import { nodefonyImports } from "../../kernel/checks/packageDeps";
 
 /**
  * Moteur de scaffold — PUR : réponses validées → fichiers écrits. Aucune I/O
@@ -731,6 +732,53 @@ export function resolveAnswers(
     answers[q.key] = str;
   }
   return answers;
+}
+
+/**
+ * Déclare en `peerDependencies: "*"` chaque paquet Nodefony que les fichiers
+ * écrits dans un MODULE importent sans que son manifeste le porte.
+ *
+ * Un module est un workspace : il déclare ses briques, l'application les
+ * installe. Les briques se CHERCHENT dans l'application (un controller généré
+ * dans un module importe `IUser` dès que l'app porte la sécurité) : sans cette
+ * déclaration, le module compile par le hoisting de l'app et `doctor` le
+ * refuse. Les imports se lisent avec la règle même de `doctor`.
+ *
+ * @param dir - racine du module (celle de son `package.json`)
+ * @param manifest - manifeste du module, déjà lu ; complété en place
+ * @param files - fichiers écrits, relatifs à `dir`
+ * @param required - briques dont le code dépend SANS les importer (le module
+ *   ORM qui sert le connecteur d'un schéma Mongoose, écrit en littéral)
+ * @returns vrai si le manifeste a été réécrit
+ */
+function declareImportedPeers(
+  dir: string,
+  manifest: Record<string, Record<string, string>>,
+  files: readonly string[],
+  writer: ScaffoldWriter,
+  required: readonly string[] = [],
+): boolean {
+  const own = (manifest["name"] as unknown as string | undefined) ?? "";
+  const declared = new Set(
+    ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
+      Object.keys(manifest[b] ?? {}),
+    ),
+  );
+  const missing = new Set(required.filter((dep) => !declared.has(dep)));
+  for (const rel of files) {
+    if (!rel.endsWith(".ts")) continue;
+    for (const { dep } of nodefonyImports(writer.read(path.join(dir, rel)))) {
+      if (dep !== own && !declared.has(dep)) missing.add(dep);
+    }
+  }
+  if (missing.size === 0) return false;
+  const peer = (manifest["peerDependencies"] ??= {});
+  for (const dep of [...missing].sort()) peer[dep] = "*";
+  writer.write(
+    path.join(dir, "package.json"),
+    `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  return true;
 }
 
 /**
@@ -2890,6 +2938,12 @@ function runControllerScaffold(
     writer,
   );
   written.push("index.ts");
+  if (
+    target.kind === "module" &&
+    declareImportedPeers(target.dir, manifest, written, writer)
+  ) {
+    written.push("package.json");
+  }
   // La hiérarchie vit dans le manifeste de l'APPLICATION, jamais dans celui d'un
   // module : c'est une décision de l'application sur ses propres rôles. Un
   // controller créé DANS un module déclare donc son rôle à la racine.
@@ -4937,19 +4991,14 @@ function runEntityScaffold(
   // (l'app les installe — c'est le pattern posé par `create module`). Les fichiers
   // générés importent orm-core (defineEntity, service) et drizzle (tests) : sans ces
   // deux entrées, le module compilerait « par chance », via le hoisting de l'app.
-  if (target.kind === "module") {
-    const peer = (manifest["peerDependencies"] ??= {});
-    let touched = false;
-    for (const brick of ["@nodefony/orm-core", ORM_MODULE[orm]]) {
-      if (!targetDeps.has(brick)) {
-        peer[brick] = "*";
-        touched = true;
-      }
-    }
-    if (touched) {
-      writer.write(manifestPath, `${JSON.stringify(manifest, null, 2)}\n`);
-      written.push("package.json");
-    }
+  if (
+    target.kind === "module" &&
+    declareImportedPeers(target.dir, manifest, written, writer, [
+      "@nodefony/orm-core",
+      ORM_MODULE[orm],
+    ])
+  ) {
+    written.push("package.json");
   }
 
   const indexPath = path.join(target.dir, "index.ts");

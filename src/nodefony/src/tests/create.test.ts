@@ -48,6 +48,7 @@ import {
   FRONTEND_PARAMS,
 } from "../cli/scaffold/engine";
 import { ScaffoldWriter, diffLines } from "../cli/scaffold/writer";
+import { checkPackageDeps } from "../kernel/checks/packageDeps";
 import {
   diskManifestReader,
   manifestFileWith,
@@ -1780,7 +1781,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             "nodefony/controllers/PostController.ts",
             "tests/post.test.ts",
           ]) {
-            assert.include(result.files, rel);
+            // `files` est NATIF (cf `scaffoldCheminsNatifs.test.ts`) : l'attendu
+            // se compose, il ne se littéralise pas.
+            assert.include(result.files, path.join(...rel.split("/")));
           }
           const post = read(dest, "nodefony/entity/Post.ts");
           assert.include(post, "export const postSchema = {");
@@ -6197,6 +6200,26 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         assert.include(
           read(mod, "nodefony", "controllers", "CatalogController.ts"),
           "IsGranted",
+        );
+        // Ce que le controller importe parce que l'APP porte la sécurité
+        // (`IUser`), le MODULE doit le déclarer : jugé par la règle même de
+        // `nodefony doctor`, pas par une liste recopiée ici.
+        const { findings } = checkPackageDeps({
+          roots: [path.join(dest, "modules")],
+          cwd: dest,
+        });
+        assert.deepEqual(
+          findings.map((f) => f.message),
+          [],
+          "le module généré doit déclarer chaque paquet qu'il importe",
+        );
+        assert.equal(
+          (
+            JSON.parse(read(mod, "package.json")) as {
+              peerDependencies: Record<string, string>;
+            }
+          ).peerDependencies["@nodefony/user"],
+          "*",
         );
       });
 

@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 856,
-    "symbols": 4239,
+    "symbols": 4241,
     "classes": 398,
     "interfaces": 1123,
     "types": 458,
     "enums": 4,
-    "functions": 1833,
+    "functions": 1835,
     "constants": 423
   },
   "symbols": {
@@ -9953,6 +9953,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null
+    },
+    "nodefonyImports": {
+      "name": "nodefonyImports",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/checks/packageDeps.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Les paquets Nodefony qu'une source importe, lus comme le fait `doctor`. Exportée pour que le générateur déclare ce qu'il écrit avec la MÊME règle que celle qui le juge : deux lecteurs d'imports div…"
     },
     "checkPackageDeps": {
       "name": "checkPackageDeps",
@@ -33718,6 +33726,9 @@
         "src/nodefony/src/cli/scaffold/help.ts"
       ],
       "openSiblingRoutes": [
+        "src/nodefony/src/cli/scaffold/engine.ts"
+      ],
+      "nodefonyImports": [
         "src/nodefony/src/cli/scaffold/engine.ts"
       ],
       "IUsageEntry": [
