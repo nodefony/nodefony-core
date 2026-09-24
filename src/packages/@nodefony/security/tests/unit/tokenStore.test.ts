@@ -297,7 +297,10 @@ describe("MemoryTokenStore — rotation refresh + reuse detection (RFC 9700)", (
     await store.revoke("r1", "rotated");
     const r1 = await store.findById("r1");
     if (r1) {
+      // Un record lu est une COPIE : le chaînage s'écrit par `put`, comme dans
+      // `TokenService` — muter sans réécrire ne tiendrait sur aucune base réelle.
       r1.replacedBy = "r2";
+      await store.put(r1);
     }
     await store.put(
       makeRecord({

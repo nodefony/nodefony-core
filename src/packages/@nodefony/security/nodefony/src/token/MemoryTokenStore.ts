@@ -44,6 +44,17 @@ export interface TokenStoreSnapshot {
 }
 
 /**
+ * Copie PROFONDE d'un record lu : `scopes`, `audience`, `resources`, `cnf` et
+ * `metadata` sont mutables — rendre la référence laisserait l'appelant muter le
+ * store en place, ce que les backends persistants rendent impossible.
+ */
+function cloneOrNull(
+  record: IAccessTokenRecord | undefined,
+): IAccessTokenRecord | null {
+  return record ? structuredClone(record) : null;
+}
+
+/**
  * Store de jetons **en mémoire** — implémentation de référence d'{@link ITokenStore}.
  *
  * 0 dépendance, idéale pour le développement mono-process et les **tests**. NON
@@ -93,6 +104,23 @@ export class MemoryTokenStore implements ITokenStore {
   // ── Records ──────────────────────────────────────────────────────────────────
 
   put(record: IAccessTokenRecord): Promise<void> {
+    // `secretHash` est UNIQUE, comme en base : un secret ne désigne jamais deux
+    // jetons (il authentifierait deux identités).
+    const owner = this.#idByHash.get(record.secretHash);
+    if (owner !== undefined && owner !== record.id) {
+      return Promise.reject(
+        new Error(
+          `secretHash déjà porté par le jeton ${owner} : un secret ne désigne qu'un jeton`,
+        ),
+      );
+    }
+    // Un re-put remplace la ligne ENTIÈRE : les anciens liens (hash, porteur,
+    // famille) tombent, sinon l'ancien secret authentifierait encore.
+    const previous = this.#byId.get(record.id);
+    if (previous) {
+      this.#removeRecord(record.id, previous);
+    }
+    record = structuredClone(record);
     this.#byId.set(record.id, record);
     this.#idByHash.set(record.secretHash, record.id);
     this.#addToIndex(this.#idsBySubject, record.subjectId, record.id);
@@ -103,13 +131,13 @@ export class MemoryTokenStore implements ITokenStore {
   }
 
   findById(id: string): Promise<IAccessTokenRecord | null> {
-    return Promise.resolve(this.#byId.get(id) ?? null);
+    return Promise.resolve(cloneOrNull(this.#byId.get(id)));
   }
 
   findByHash(secretHash: string): Promise<IAccessTokenRecord | null> {
     const id = this.#idByHash.get(secretHash);
     return Promise.resolve(
-      id !== undefined ? (this.#byId.get(id) ?? null) : null,
+      id !== undefined ? cloneOrNull(this.#byId.get(id)) : null,
     );
   }
 
@@ -122,14 +150,16 @@ export class MemoryTokenStore implements ITokenStore {
     for (const id of ids) {
       const record = this.#byId.get(id);
       if (record) {
-        out.push(record);
+        out.push(structuredClone(record));
       }
     }
     return Promise.resolve(out);
   }
 
   listAll(): Promise<IAccessTokenRecord[]> {
-    return Promise.resolve([...this.#byId.values()]);
+    return Promise.resolve(
+      [...this.#byId.values()].map((r) => structuredClone(r)),
+    );
   }
 
   listPage(query: ITokenListQuery): Promise<IPage<IAccessTokenRecord>> {
@@ -158,7 +188,10 @@ export class MemoryTokenStore implements ITokenStore {
         (r, field) => r[field as keyof IAccessTokenRecord] as unknown,
       ),
     );
-    const items = filtered.slice(offset, offset + limit);
+    // On trie des RÉFÉRENCES : seule la page retenue est copiée.
+    const items = filtered
+      .slice(offset, offset + limit)
+      .map((r) => structuredClone(r));
     const total = query.withTotal === false ? undefined : filtered.length;
     return Promise.resolve({
       items,

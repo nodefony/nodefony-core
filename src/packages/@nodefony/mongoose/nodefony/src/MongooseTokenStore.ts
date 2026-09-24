@@ -143,12 +143,43 @@ export class MongooseTokenStore implements ITokenStore {
     return (row as { _id?: string })._id ?? row.id;
   }
 
-  /** Normalise `id` (← `_id`) sur un record lu, sans dépendre du virtuel Mongoose. */
-  #withId(row: IAccessTokenRecord | null): IAccessTokenRecord | null {
-    if (row) {
-      row.id = this.#idOf(row);
-    }
-    return row;
+  /**
+   * Document lu → record du contrat, champ par champ. Rendre le document tel
+   * quel laisserait fuir `_id` et `__v` — des champs du MOTEUR que Drizzle ne
+   * rend pas, et qui partiraient jusqu'aux vues d'administration.
+   */
+  #toRecord(row: IAccessTokenRecord): IAccessTokenRecord {
+    return {
+      id: this.#idOf(row),
+      kind: row.kind,
+      name: row.name,
+      prefix: row.prefix,
+      subjectId: row.subjectId,
+      subjectType: row.subjectType,
+      tenantId: row.tenantId,
+      scopes: row.scopes,
+      audience: row.audience,
+      resources: row.resources,
+      secretHash: row.secretHash,
+      hashAlg: row.hashAlg,
+      clientId: row.clientId,
+      cnf: row.cnf,
+      family: row.family,
+      replacedBy: row.replacedBy,
+      createdAt: row.createdAt,
+      expiresAt: row.expiresAt,
+      lastUsedAt: row.lastUsedAt,
+      lastUsedIp: row.lastUsedIp,
+      lastUsedUserAgent: row.lastUsedUserAgent,
+      revokedAt: row.revokedAt,
+      revokedReason: row.revokedReason,
+      metadata: row.metadata,
+    };
+  }
+
+  /** `#toRecord` tolérant à l'absence (lecture unitaire). */
+  #toRecordOrNull(row: IAccessTokenRecord | null): IAccessTokenRecord | null {
+    return row ? this.#toRecord(row) : null;
   }
 
   // ── Records ────────────────────────────────────────────────────────────────
@@ -172,35 +203,30 @@ export class MongooseTokenStore implements ITokenStore {
   }
 
   async findById(id: string): Promise<IAccessTokenRecord | null> {
-    return this.#withId(await this.#records.findOne({ id }));
+    return this.#toRecordOrNull(await this.#records.findOne({ id }));
   }
 
   async findByHash(secretHash: string): Promise<IAccessTokenRecord | null> {
-    return this.#withId(await this.#records.findOne({ secretHash }));
+    return this.#toRecordOrNull(await this.#records.findOne({ secretHash }));
   }
 
   async findBySubject(subjectId: string): Promise<IAccessTokenRecord[]> {
     const rows = await this.#records.find({ subjectId });
-    for (const row of rows) {
-      row.id = this.#idOf(row);
-    }
-    return rows;
+    return rows.map((row) => this.#toRecord(row));
   }
 
   /** Tous les jetons (PAT + refresh) — vue d'administration cross-porteur. */
   async listAll(): Promise<IAccessTokenRecord[]> {
     const rows = await this.#records.find({});
-    for (const row of rows) {
-      row.id = this.#idOf(row);
-    }
-    return rows;
+    return rows.map((row) => this.#toRecord(row));
   }
 
   /**
    * {@inheritDoc ITokenStore.listPage}
    *
    * `paginate()` d'orm-core (skip/limit + countDocuments) sur un filtre portable ;
-   * les `id` sont re-normalisés (`_id` → `id`) comme dans {@link listAll}.
+   * les documents sont convertis en records (`_id` → `id`, sans `__v`) comme dans
+   * {@link listAll}.
    *
    * Le tri demandé est **traduit** avant de descendre : au repos, le jeton n'a
    * pas de champ `id` (le `jti` EST le `_id`), et Mongo ne se plaint pas d'un tri
@@ -216,10 +242,7 @@ export class MongooseTokenStore implements ITokenStore {
       withTotal: query.withTotal,
       order: mongoOrder(query.order, this.sortableFields, TOKEN_DEFAULT_ORDER),
     });
-    for (const row of page.items) {
-      row.id = this.#idOf(row);
-    }
-    return page;
+    return { ...page, items: page.items.map((row) => this.#toRecord(row)) };
   }
 
   /** {@inheritDoc ITokenStore.countTokens} */
