@@ -86,6 +86,9 @@ coverage/
 # Artefacts runtime locaux de Claude Code (verrou du planificateur de tâches, etc.)
 # — les skills/settings de .claude/ restent versionnés, on n'ignore que les locks.
 .claude/*.lock
+# Worktrees jetables des sous-agents (isolation "worktree") : un `git add -A`
+# les embarquait comme dépôts imbriqués.
+.claude/worktrees/
 
 # Ignore les fichiers système et cachés
 .DS_Store
