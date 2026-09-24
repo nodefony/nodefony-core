@@ -3788,7 +3788,8 @@ export function filterProbe(fields: readonly IEntityField[]): {
  * ou `null` si aucun filtre de l'entité ne peut en refuser une.
  *
  * Toutes les natures ne refusent pas : un filtre `"string"` accepte n'importe
- * quelle chaîne, par construction. Le test généré visait pourtant le PREMIER
+ * quelle chaîne, par construction — un identifiant (`"uuid"`, `"objectId"`),
+ * lui, refuse ce qui n'en a pas la forme. Le test généré visait pourtant le PREMIER
  * filtre déclaré quel qu'il soit, et attendait un `400` — sur une entité dont
  * le seul filtre est une clé étrangère à identifiant textuel
  * (`author:ref:Author` avec des `uuid`), il exigeait donc le refus d'une valeur
@@ -3804,6 +3805,9 @@ export function malformedProbe(
   for (const f of filters) {
     if (f.def === '"boolean"') return { name: f.name, value: "oui" };
     if (f.def === '"int"') return { name: f.name, value: "abc" };
+    if (f.def === '"uuid"' || f.def === '"objectId"') {
+      return { name: f.name, value: "pas-un-identifiant" };
+    }
     // Une énumération est rendue comme un tableau littéral : son domaine EST
     // son allowlist, donc tout ce qui n'y figure pas est refusé.
     if (f.def.startsWith("[")) {
@@ -4676,8 +4680,13 @@ function runEntityScaffold(
     if (f.type === "bool") return '"boolean"';
     if (f.type === "enum" && f.values?.length)
       return JSON.stringify(f.values).replace(/","/g, '", "');
-    if (f.type === "ref")
-      return refTargetsSerial(f.target, id) ? '"int"' : '"string"';
+    // La nature d'une clé étrangère suit la clé VISÉE : un nombre, un ObjectId
+    // sous MongoDB, un UUID sinon. Une `"string"` laissait passer une forme
+    // fausse jusqu'à la base — 200 vide ici, 500 là (#466).
+    if (f.type === "ref") {
+      if (refTargetsSerial(f.target, id)) return '"int"';
+      return mongo ? '"objectId"' : '"uuid"';
+    }
     return null;
   };
   const filters = fields

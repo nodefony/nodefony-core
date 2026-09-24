@@ -123,6 +123,41 @@ describe("parseFilters — REFUSE au lieu d'accepter puis jeter", () => {
   });
 });
 
+describe("parseFilters — les IDENTIFIANTS (`uuid`, `objectId`)", () => {
+  // La valeur d'une clé étrangère. Lue comme une `string`, une forme fausse
+  // descendait jusqu'à la base : page vide sous un 200 en SQLite, panne 500 en
+  // PostgreSQL et MongoDB. Le refus se fait ici, pareil pour tous les moteurs.
+  const IDS = { author: "uuid", owner: "objectId" } as const;
+  const UUID = "0190a3b2-7c1d-7e4f-8a9b-0c1d2e3f4a5b";
+  const OID = "65f1a2b3c4d5e6f708192a3b";
+
+  it("une forme valide passe telle quelle, casse comprise", () => {
+    expect(parseFilters({ author: UUID }, IDS).author).to.equal(UUID);
+    expect(parseFilters({ author: UUID.toUpperCase() }, IDS).author).to.equal(
+      UUID.toUpperCase(),
+    );
+    expect(parseFilters({ owner: OID }, IDS).owner).to.equal(OID);
+  });
+
+  it("uuid mal formé → 400 qui dit la forme attendue", () => {
+    for (const bad of ["abc", `${UUID}0`, UUID.replaceAll("-", ""), OID]) {
+      expect(() => parseFilters({ author: bad }, IDS)).to.throw(
+        PageQueryError,
+        /expected a UUID/u,
+      );
+    }
+  });
+
+  it("objectId mal formé → 400 qui dit la forme attendue", () => {
+    for (const bad of ["abc", `${OID}0`, "z".repeat(24), UUID]) {
+      expect(() => parseFilters({ owner: bad }, IDS)).to.throw(
+        PageQueryError,
+        /ObjectId/u,
+      );
+    }
+  });
+});
+
 describe("parseFilters — cohabite avec le contrat de page", () => {
   it("les clés de pagination traversent sans être prises pour des filtres", () => {
     const source = {

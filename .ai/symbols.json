@@ -5552,7 +5552,7 @@
       "file": "src/nodefony/src/runtime/pageFilters.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Nature d'un filtre — ce qui suffit à le lire depuis une source clé→valeur. Volontairement CLOS et minuscule : ces trois natures couvrent la totalité des filtres exposés par les data planes du dépôt…"
+      "description": "Nature d'un filtre — ce qui suffit à le lire depuis une source clé→valeur. Volontairement CLOS et minuscule : ces natures couvrent la totalité des filtres exposés par les data planes du dépôt (`rev…"
     },
     "FilterDef": {
       "name": "FilterDef",

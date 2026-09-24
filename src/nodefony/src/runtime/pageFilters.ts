@@ -4,13 +4,31 @@ import type { PageQuerySource } from "./pageQuery";
 /**
  * Nature d'un filtre — ce qui suffit à le lire depuis une source clé→valeur.
  *
- * Volontairement CLOS et minuscule : ces trois natures couvrent la totalité des
+ * Volontairement CLOS et minuscule : ces natures couvrent la totalité des
  * filtres exposés par les data planes du dépôt (`revoked`, `enabled`, `role`,
- * `actor`, `since`…). Une grammaire d'opérateurs (`contains`, `in`,
- * `startsWith`) serait un langage de requête, pas un filtre : elle appartient au
- * store, qui seul sait ce qu'il peut indexer.
+ * `actor`, `since`…) et par les ressources générées. Une grammaire d'opérateurs
+ * (`contains`, `in`, `startsWith`) serait un langage de requête, pas un filtre :
+ * elle appartient au store, qui seul sait ce qu'il peut indexer.
+ *
+ * `uuid` et `objectId` sont des IDENTIFIANTS — la valeur d'une clé étrangère
+ * (`?author=…`). Les lire comme une `string` laissait passer une valeur mal
+ * formée jusqu'à la base, qui répondait selon son humeur : une page vide sous un
+ * `200` en SQLite et MySQL (la clé y est un texte), une panne `500` en
+ * PostgreSQL (`22P02`) et MongoDB (`CastError`). La forme se juge ici, avant la
+ * base : même refus `400` sur les quatre moteurs.
  */
-export type FilterKind = "string" | "boolean" | "int";
+export type FilterKind = "string" | "boolean" | "int" | "uuid" | "objectId";
+
+/**
+ * Forme d'un UUID, toutes versions confondues : huit-quatre-quatre-quatre-douze
+ * chiffres hexadécimaux. La version n'est pas jugée — `uuid4` et `uuid7`
+ * coexistent dans une même base, et c'est la base qui dit si la clé existe.
+ */
+const UUID_SHAPE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
+
+/** Forme d'un ObjectId MongoDB : vingt-quatre chiffres hexadécimaux. */
+const OBJECT_ID_SHAPE = /^[0-9a-f]{24}$/iu;
 
 /**
  * Un filtre à valeurs **multiples** : la clé peut être répétée dans l'URL
@@ -76,7 +94,7 @@ export interface IParseFiltersOptions {
 }
 
 /** Le type d'UNE valeur, sans la répétition — brique de {@link FilterValue}. */
-type ScalarFilterValue<D> = D extends "string"
+type ScalarFilterValue<D> = D extends "string" | "uuid" | "objectId"
   ? string
   : D extends "boolean"
     ? boolean
@@ -154,6 +172,18 @@ function coerce(
       );
     }
     return n;
+  }
+
+  if (def === "uuid" && !UUID_SHAPE.test(raw)) {
+    throw new PageQueryError(
+      `Invalid value "${raw}" for "${name}" (expected a UUID).`,
+    );
+  }
+
+  if (def === "objectId" && !OBJECT_ID_SHAPE.test(raw)) {
+    throw new PageQueryError(
+      `Invalid value "${raw}" for "${name}" (expected a MongoDB ObjectId: 24 hexadecimal characters).`,
+    );
   }
 
   return raw;

@@ -7170,7 +7170,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Les trois natures où l'ÉGALITÉ veut dire quelque chose — et elles seules.
       assert.include(src, 'published: "boolean"');
       assert.include(src, 'status: ["draft", "live"]');
-      assert.include(src, 'author: "string"');
+      // Une clé étrangère se juge sur la forme de la clé VISÉE (un UUID ici) :
+      // lue comme une chaîne, une forme fausse rendait 200 vide ou 500 (#466).
+      assert.include(src, 'author: "uuid"');
       // Une chaîne libre n'est PAS un filtre : l'égalité stricte sur un titre
       // n'est jamais ce qu'on cherche, `?q=` répond à ça.
       assert.notInclude(src, 'title: "string"');
@@ -7797,6 +7799,13 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             value: "abc",
           },
         );
+        // Un identifiant refuse ce qui n'en a pas la forme — UUID comme ObjectId.
+        for (const def of ['"uuid"', '"objectId"']) {
+          assert.deepStrictEqual(malformedProbe([{ name: "auteur", def }]), {
+            name: "auteur",
+            value: "pas-un-identifiant",
+          });
+        }
         // Le premier filtre RÉFUTABLE est retenu, pas le premier déclaré.
         assert.deepStrictEqual(
           malformedProbe([
