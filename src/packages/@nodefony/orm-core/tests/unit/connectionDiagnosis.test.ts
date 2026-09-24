@@ -282,11 +282,19 @@ describe("describeConnectFailure — la phrase de démarrage", () => {
     assert.match(msg, / Conseil\. Cause : connect ECONNREFUSED$/);
   });
 
-  it("parité avec `create app` : un refus d'instruction n'y est PAS une base injoignable", async () => {
+  // Le module de `create app` est lourd à transpiler : l'importer DANS le test
+  // faisait compter son chargement dans le budget de 5 s du cas — dépassé sur
+  // un exécuteur macOS lent (CI 90574134), sans rien dire de la parité. Le
+  // chargement a son propre budget ; le cas, lui, ne mesure que la parité.
+  let migrationFailureCause: (typeof import("../../../../../nodefony/src/cli/create"))["migrationFailureCause"];
+  beforeAll(async () => {
+    ({ migrationFailureCause } =
+      await import("../../../../../nodefony/src/cli/create"));
+  }, 60_000);
+
+  it("parité avec `create app` : un refus d'instruction n'y est PAS une base injoignable", () => {
     // Le cœur ne peut pas importer orm-core : il lit sa propre copie du
     // marqueur. Ce test compose la phrase ICI et la fait lire LÀ-BAS.
-    const { migrationFailureCause } =
-      await import("../../../../../nodefony/src/cli/create");
     const d = diagnoseConnectionFailure({ code: "42804" });
     const sortie = `ERROR drizzle : BootConfigurationError: ${describeConnectFailure(subject, d, cause)}\n    at x\n`;
     const v = migrationFailureCause(sortie, 70);
