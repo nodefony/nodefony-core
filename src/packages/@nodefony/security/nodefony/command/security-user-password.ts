@@ -4,6 +4,7 @@ import {
   CliKernel,
   Command,
   askPasswordMasked,
+  AUTH_LOGIN_PATH,
 } from "nodefony";
 import type { UserService } from "@nodefony/user";
 import { USER_REVOKED_EVENT } from "@nodefony/user";
@@ -170,7 +171,7 @@ class SecurityUserPassword extends Command {
     process.stdout.write(
       `\n${GREEN}✓ mot de passe changé${RESET} — ${BOLD}${user.identifier}${RESET}\n` +
         `${DIM}  ses sessions et ses jetons sont révoqués : il devra se reconnecter.${RESET}\n` +
-        `${DIM}  connexion : POST /nodefony/security/api/auth/login${RESET}\n` +
+        `${DIM}  connexion : POST ${AUTH_LOGIN_PATH}${RESET}\n` +
         (opts.password
           ? `  ${YELLOW}⚠ mot de passe passé en argument — pense à purger l'historique shell${RESET}\n`
           : "") +

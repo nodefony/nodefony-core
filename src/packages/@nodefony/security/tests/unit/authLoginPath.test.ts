@@ -1,18 +1,16 @@
 import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { AUTH_LOGIN_PATH } from "../../nodefony/command/security-user-add";
+import { AUTH_LOGIN_PATH } from "nodefony";
 
 /**
- * Ce que ce contrôle garde : les DEUX écritures du chemin de connexion disent
- * la même chose.
+ * Ce que ce contrôle garde : la route MONTÉE est celle que le cœur nomme.
  *
- * La commande qui crée un compte dit ensuite comment s'en servir — sans quoi le
- * compte ne sert à rien et la route gardée reste intestable. Mais la route est
- * MONTÉE dans un autre paquet (`mountSessionAuthRoutes`, module framework), et
- * sa valeur n'y vit dans aucune constante exportée : la copie est inévitable,
- * la divergence silencieuse ne l'est pas. Chaque copie passerait ses propres
- * tests pendant que la commande enverrait sur un 404.
+ * `AUTH_LOGIN_PATH` (cœur) est ce que citent la commande qui crée un compte,
+ * `nodefony/testing` et les tests générés d'une application. Mais la route est
+ * MONTÉE dans un autre paquet (`mountSessionAuthRoutes`, module framework) à
+ * partir de sa propre base : si les deux divergent, chaque copie passe ses
+ * propres tests pendant que tout ce qui cite la constante envoie sur un 404.
  *
  * Le contrôle lit le SOURCE du monteur plutôt que de l'importer : l'importer
  * exécuterait le module framework pour lire une chaîne, et le montage est de

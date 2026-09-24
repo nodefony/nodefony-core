@@ -4,6 +4,7 @@ import {
   CliKernel,
   Command,
   askPasswordMasked,
+  AUTH_LOGIN_PATH,
 } from "nodefony";
 import { WeakPasswordError } from "@nodefony/user";
 import type { UserService } from "@nodefony/user";
@@ -30,23 +31,6 @@ const ADMIN_ROLES = ["ROLE_ADMIN", "ROLE_NODEFONY_ADMIN"];
 
 /** Rôle de base, toujours proposé même si l'application n'en déclare aucun. */
 const ROLE_BASE = "ROLE_USER";
-
-/**
- * La route qui échange un compte contre une SESSION — le geste qui manquait.
- *
- * Créer un compte ne sert à rien tant qu'on ne sait pas s'en servir : mesuré,
- * 33 minutes d'un essai réel se sont passées entre un premier refus et
- * l'abandon, faute de savoir quoi appeler. La commande dit donc l'étape
- * suivante au moment où elle a un sens.
- *
- * ⚠️ La route est MONTÉE ailleurs — `mountSessionAuthRoutes` du module
- * framework — et ce paquet ne peut pas l'importer pour la lire (le montage est
- * conditionné au service `authFlow`, et la valeur ne vit dans aucune constante
- * exportée). La copie est donc assumée, et un test la CONFRONTE à la table du
- * controller : deux copies qui divergent en silence, c'est précisément ce
- * qu'on refuse.
- */
-export const AUTH_LOGIN_PATH = "/nodefony/security/api/auth/login";
 
 /**
  * `nodefony security:user:add [identifier]` — crée un compte utilisateur via le

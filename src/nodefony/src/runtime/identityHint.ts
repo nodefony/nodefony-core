@@ -1,4 +1,5 @@
 import type { IKernel } from "../types/IKernel";
+import { AUTH_LOGIN_PATH } from "./authRoutes";
 
 /** Nom du module qui porte l'authentification dans une application Nodefony. */
 const SECURITY_MODULE = "security";
@@ -44,7 +45,7 @@ export function identityHint(
   return (
     `pour ESSAYER cette route, il te faut une identité : crée un compte avec ` +
     `\`npx nodefony security:user:add <identifiant> --admin\`, puis authentifie-toi ` +
-    `(POST /nodefony/security/api/auth/login, {"username","password"}) — la ` +
+    `(POST ${AUTH_LOGIN_PATH}, {"username","password"}) — la ` +
     `session obtenue porte tes rôles. Une application générée en contenu ` +
     `COMPLET seede un compte au premier démarrage et l'annonce dans son ` +
     `journal de boot (contexte USERS)`

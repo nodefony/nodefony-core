@@ -4,7 +4,7 @@
   isExternalTarget,
   isTlsTarget,
 } from "./e2e.setup";<% } else { %>import { appBaseUrl, isExternalTarget } from "./e2e.setup";<% } %>
-import { readRuntimeState } from "nodefony";
+import { <% if (it.hasSecurity) { %>AUTH_LOGIN_PATH, <% } %>readRuntimeState } from "nodefony";
 <% if (it.complete) { %>// La façade temps réel isomorphe — côté Node, subpath `nodefony/client`.
 import { RealtimeClient } from "nodefony/client";
 <% } %>import { describe, it, expect, beforeAll } from "vitest";
@@ -146,23 +146,20 @@ describe("e2e — l'app boote et répond (HTTP + WS)", () => {
       // croit en clair — un cas bâti dessus resterait vert sans `trustProxy` et
       // ne prouverait rien (mesuré). Le préfixe, lui, se DÉRIVE du scheme
       // constaté : il tombe dès que la confiance au proxy est retirée.
-      const res = await fetch(
-        `${appBaseUrl()}/nodefony/security/api/auth/login`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({
-            username: "admin",
-            // La constante du DÉCOR, pas `process.env` : c'est elle que le
-            // décor pose sur le serveur (`NF_ADMIN_PASSWORD`), et le serveur
-            // tourne AILLEURS — dans un conteneur, ou sur une autre machine.
-            // Lire l'environnement du RUNNER rendait la chaîne vide, donc un
-            // `401` que ce cas imputait au cookie qu'il mesure. Une seule
-            // source pour l'identité, et elle vit dans `e2e.setup`.
-            password: ADMIN_PASSWORD,
-          }),
-        },
-      );
+      const res = await fetch(`${appBaseUrl()}${AUTH_LOGIN_PATH}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          username: "admin",
+          // La constante du DÉCOR, pas `process.env` : c'est elle que le
+          // décor pose sur le serveur (`NF_ADMIN_PASSWORD`), et le serveur
+          // tourne AILLEURS — dans un conteneur, ou sur une autre machine.
+          // Lire l'environnement du RUNNER rendait la chaîne vide, donc un
+          // `401` que ce cas imputait au cookie qu'il mesure. Une seule
+          // source pour l'identité, et elle vit dans `e2e.setup`.
+          password: ADMIN_PASSWORD,
+        }),
+      });
       expect(res.status).toBe(200);
       const cookies = res.headers.getSetCookie?.() ?? [];
       expect(cookies.length).toBeGreaterThan(0);

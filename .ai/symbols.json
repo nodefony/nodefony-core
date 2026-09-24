@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 860,
+    "files": 861,
     "symbols": 4284,
     "classes": 399,
     "interfaces": 1128,
@@ -5339,6 +5339,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Assertion type **compile-time** : `expectType<T>(value)` échoue à la compilation si `value` n'est pas assignable à `T`. **0 coût runtime** (fonction vide)."
+    },
+    "AUTH_LOGIN_PATH": {
+      "name": "AUTH_LOGIN_PATH",
+      "kind": "const",
+      "file": "src/nodefony/src/runtime/authRoutes.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Route de connexion par session du framework : `POST` avec `{username, password}`. Elle est MONTÉE par `mountSessionAuthRoutes` (module framework), mais on la cite partout ailleurs : la commande qui…"
     },
     "BearerHeader": {
       "name": "BearerHeader",
@@ -21129,14 +21137,6 @@
       "decorators": [],
       "description": "`nodefony security:user:add [identifier]` — crée un compte utilisateur via le service applicatif `users` (hash Argon2id fait par `UserService.createUser`, jamais de mot de passe stocké en clair). I…"
     },
-    "AUTH_LOGIN_PATH": {
-      "name": "AUTH_LOGIN_PATH",
-      "kind": "const",
-      "file": "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
-      "exported": true,
-      "module": "@nodefony/security",
-      "description": "La route qui échange un compte contre une SESSION — le geste qui manquait. Créer un compte ne sert à rien tant qu'on ne sait pas s'en servir : mesuré, 33 minutes d'un essai réel se sont passées ent…"
-    },
     "SecurityUserDelete": {
       "name": "SecurityUserDelete",
       "kind": "class",
@@ -33434,6 +33434,12 @@
       "TypedRpcActionHandler": [
         "src/nodefony/src/realtime/JsonRpcPeer.ts",
         "src/nodefony/src/client/realtime/RealtimeClient.ts"
+      ],
+      "AUTH_LOGIN_PATH": [
+        "src/nodefony/src/runtime/identityHint.ts",
+        "src/nodefony/src/testing/index.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-add.ts",
+        "src/packages/@nodefony/security/nodefony/command/security-user-password.ts"
       ],
       "PageQueryError": [
         "src/nodefony/src/runtime/pageFilters.ts",

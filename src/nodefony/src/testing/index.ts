@@ -13,6 +13,7 @@ import {
   runtimeStateFile,
   signalProcessGroup,
 } from "../service/dev/devProcess";
+import { AUTH_LOGIN_PATH } from "../runtime/authRoutes";
 
 /**
  * Outillage de TEST publié — ce qu'il faut pour éprouver un service SEUL.
@@ -99,7 +100,7 @@ export async function adminLogin(
   password: string = E2E_ADMIN_PASSWORD,
   username = "admin",
 ): Promise<string> {
-  const res = await fetch(`${baseUrl}/nodefony/security/api/auth/login`, {
+  const res = await fetch(`${baseUrl}${AUTH_LOGIN_PATH}`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ username, password }),
