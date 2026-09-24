@@ -92,6 +92,7 @@ interface StoreEntry {
   resolved: string;
   available: string[];
   location?: string;
+  connector?: string;
 }
 
 describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => {
@@ -162,6 +163,39 @@ describe("Stores — emplacement physique (endpoint /kernel/api/stores)", () => 
     // (racine repo, anti info-leak) et le process de test tourne dans le package http.
     // La création réelle du fichier est couverte par le boot (le serveur écrit sa
     // base au premier connect, sinon les requêtes échoueraient).
+  });
+});
+
+describe("Stores — le CONNECTEUR de chaque brique portée par un ORM", () => {
+  /**
+   * 🔴 CE QUE CE CAS GARDE. Sans `connector`, la console devinait le
+   * connecteur par `location` — absente pour une base réseau — et rangeait tout
+   * sur le connecteur par défaut. Constaté au serveur réel sur PostgreSQL :
+   * sept briques publiaient leur connecteur, et `user` (enregistrée par
+   * l'APPLICATION, hors des services du framework) ne le publiait pas.
+   * L'invariant porte donc sur TOUTE brique résolue par un ORM, d'où qu'elle
+   * vienne.
+   */
+  it("toute brique résolue par un ORM publie son connecteur", async () => {
+    const cookie = await loginAsAdmin();
+    const res = await get(STORES, { cookie });
+    expect(res.status, "admin lit /stores").to.equal(200);
+    const stores = (res.body as { stores?: StoreEntry[] }).stores ?? [];
+    const orm = stores.filter(
+      (s) => s.resolved === "drizzle" || s.resolved === "mongoose",
+    );
+    const orphans = orm.filter(
+      (s) => typeof s.connector !== "string" || s.connector.length === 0,
+    );
+    expect(
+      orphans.map((s) => s.brick),
+      "briques portées par un ORM sans connecteur publié",
+    ).to.deep.equal([]);
+    for (const s of stores.filter((s) => s.resolved === "memory")) {
+      expect(s.connector, `store memory ${s.brick} sans connecteur`).to.equal(
+        undefined,
+      );
+    }
   });
 });
 

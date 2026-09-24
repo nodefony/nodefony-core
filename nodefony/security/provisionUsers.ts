@@ -39,6 +39,7 @@ const LOG_CTX = "USERS";
  * @param resolved - backend réellement branché.
  * @param reason - explication lisible de la résolution.
  * @param location - emplacement physique (fichier `.db` drizzle), `undefined` sinon.
+ * @param connector - connecteur ORM qui porte la table, `undefined` en mémoire.
  */
 function registerUserResolution(
   module: Module,
@@ -46,6 +47,7 @@ function registerUserResolution(
   resolved: string,
   reason: string,
   location?: string,
+  connector?: string,
 ): void {
   module.kernel?.registerStoreResolution({
     brick: "user",
@@ -56,6 +58,7 @@ function registerUserResolution(
     reason,
     configPath: "NF_USER_STORE",
     location,
+    connector,
   });
 }
 
@@ -167,7 +170,14 @@ export async function provisionUsers(module: Module): Promise<void> {
     );
     container.set("users", users);
     // Backend RÉSEAU (MongoDB) → emplacement = l'infra déclarée, surfacée à part.
-    registerUserResolution(module, configured, "mongoose", reason);
+    registerUserResolution(
+      module,
+      configured,
+      "mongoose",
+      reason,
+      undefined,
+      orm.name,
+    );
     await seedPersistentUsers(users, module, "Mongoose");
     return;
   }
@@ -183,7 +193,14 @@ export async function provisionUsers(module: Module): Promise<void> {
   const users = new UserService(DrizzleUserRepository.from(orm), encoder);
   container.set("users", users);
   // Emplacement physique = base SQLite du connecteur "default" (var/databases/…).
-  registerUserResolution(module, configured, "drizzle", reason, orm.location);
+  registerUserResolution(
+    module,
+    configured,
+    "drizzle",
+    reason,
+    orm.location,
+    orm.name,
+  );
   await seedPersistentUsers(users, module, "Drizzle");
 }
 
