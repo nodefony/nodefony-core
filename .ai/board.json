@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T11:25:20.683Z",
+  "generatedAt": "2026-09-24T11:30:34.780Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -35,7 +35,7 @@
       "closed": 149,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 7,
+      "open": 8,
       "title": "10.0.0-alpha"
     },
     {
@@ -2334,6 +2334,20 @@
       "ordre": 4.7,
       "debut": "2026-10-21",
       "cible": "2026-10-21",
+      "labels": []
+    },
+    {
+      "number": 476,
+      "title": "feat(orm): donner ses propres migrations à un connecteur secondaire",
+      "url": "https://github.com/nodefony/nodefony-core/issues/476",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-alpha",
+      "priorite": "P2 — décision",
+      "jours": 2,
+      "ordre": 4.7,
+      "debut": null,
+      "cible": null,
       "labels": []
     },
     {
