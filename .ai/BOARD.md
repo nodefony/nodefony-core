@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-24 13:35** (UTC).
+> Empreinte prise le **2026-09-24 15:07** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -20,7 +20,7 @@
 
 | Jalon | Avancement | Fait | Reste | Échéance |
 | --- | --- | ---: | ---: | --- |
-| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `█████████░` 94% | 149 | 9 | 2026-09-24 |
+| **10.0.0-alpha** | ![10.0.0-alpha](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/6?style=flat-square&label=) `██████████` 96% | 151 | 7 | 2026-09-24 |
 | **10.0.0-beta** | ![10.0.0-beta](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/7?style=flat-square&label=) `████░░░░░░` 38% | 26 | 42 | 2026-10-10 |
 | **10.0.0** | ![10.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/1?style=flat-square&label=) `██████████` 99% | 134 | 2 | 2026-11-15 |
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
@@ -31,11 +31,11 @@
 
 ## ➡️ Le prochain dans l'ordre
 
-**#468 — feat(studio): montrer les types de champ du moteur à la création**
+**#471 — feat(cli): demander les champs d'une entité un par un dans le terminal**
 
-Ordre 4.2 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise —
+Ordre 4.5 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise —
 
-> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 9 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-alpha`**, qui a encore 7 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
@@ -94,12 +94,10 @@ Ordre 4.2 · P2 — décision · 1 j · jalon 10.0.0-alpha · frise —
 | 2 | P2 — décision | 1 | — | #334 | test(agents): mesurer ce que les skills changent pour un agent seul |
 | 90 | P2 — décision | 1 | — | #205 | refactor(repo): ranger scripts/ et dire où va un contrôle neuf |
 
-## Jalon 10.0.0-alpha — 9 ouverts
+## Jalon 10.0.0-alpha — 7 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
-| 4.2 | P2 — décision | 1 | — | #468 | feat(studio): montrer les types de champ du moteur à la création |
-| 4.21 | P1 — figé à la création | 1 | — | #477 | fix(orm): ne plus ouvrir de base SQLite fantôme sur une infra MongoDB |
 | 4.5 | P2 — décision | 1 | — | #471 | feat(cli): demander les champs d'une entité un par un dans le terminal |
 | 4.6 | P2 — décision | 1 | — | #467 | feat(mongoose): refuser la suppression d'un parent encore référencé |
 | 4.7 | P2 — décision | 2 | — | #476 | feat(orm): donner ses propres migrations à un connecteur secondaire |

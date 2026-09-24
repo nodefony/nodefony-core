@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T13:35:31.817Z",
+  "generatedAt": "2026-09-24T15:07:22.939Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -32,10 +32,10 @@
       "title": "outillage-agents"
     },
     {
-      "closed": 149,
+      "closed": 151,
       "dueOn": "2026-09-24T00:00:00Z",
       "number": 6,
-      "open": 9,
+      "open": 7,
       "title": "10.0.0-alpha"
     },
     {
@@ -1974,8 +1974,8 @@
       "number": 468,
       "title": "feat(studio): montrer les types de champ du moteur à la création",
       "url": "https://github.com/nodefony/nodefony-core/issues/468",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P2 — décision",
       "jours": 1,
@@ -1990,8 +1990,8 @@
       "number": 477,
       "title": "fix(orm): ne plus ouvrir de base SQLite fantôme sur une infra MongoDB",
       "url": "https://github.com/nodefony/nodefony-core/issues/477",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 1,
