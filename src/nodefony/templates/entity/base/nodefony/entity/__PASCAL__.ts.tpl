@@ -141,7 +141,7 @@ export const <%= it.pascal %>Entity = defineEntity({
  *
  * `n` fait varier les valeurs : deux insertions du même objet violeraient une
  * contrainte d'unicité, et le test échouerait sur lui-même.
-<% if (it.relationParents.length) { %> *
+<% if (it.sampleReadsRefs) { %> *
 <% if (it.mongo) { %> * ⚠️ `refs` porte les identifiants des documents **parents**. MongoDB ne tient
  * AUCUNE clé étrangère : un identifiant qui ne désigne rien est accepté, et
  * `?include=` rend alors `null` à sa place. L'appelant crée donc le parent
@@ -155,6 +155,6 @@ export const <%= it.pascal %>Entity = defineEntity({
  * retombe sur une valeur inventée, qui suffit au seul contrat de validation.
 <% } %><% } %> */
 export const <%= it.camel %>Sample = (
-  n: number,<% if (it.relationParents.length) { %>
+  n: number,<% if (it.sampleReadsRefs) { %>
   refs: Record<string, string | number> = {},<% } %>
 ): Partial<<%= it.pascal %>Row> => (<%= it.sampleFactory %>);

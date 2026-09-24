@@ -8042,6 +8042,55 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(src, "(): AnySQLiteColumn => categoryTable.id");
       assert.notInclude(src, 'from "./Category"');
+      // L'échantillon LIT `refs` pour le lien vers soi : il doit donc le
+      // déclarer, même quand aucun autre parent n'existe (`TS2304` sinon).
+      assert.include(src, "refs.Category");
+      assert.match(src, /categorySample = \(\s*n: number,\s*refs: Record/u);
+      // Les TESTS générés, eux, importaient et enregistraient l'entité une
+      // seconde fois comme « parent » — `TS2300 Duplicate identifier` au
+      // typecheck de l'application, invisible à tout ce qui lit le rendu.
+      const unit = readFileSync(
+        path.join(dest, "tests", "category.test.ts"),
+        "utf8",
+      );
+      const e2e = readFileSync(
+        path.join(dest, "tests", "category.e2e.test.ts"),
+        "utf8",
+      );
+      for (const [nom, texte, motif] of [
+        ["category.test.ts", unit, /import \{ CategoryEntity \}/gu],
+        ["category.e2e.test.ts", e2e, /import \{ categorySample \}/gu],
+      ] as const) {
+        assert.lengthOf(
+          [...texte.matchAll(motif)],
+          1,
+          `${nom} importe l'entité une seule fois`,
+        );
+      }
+      assert.lengthOf(
+        [...unit.matchAll(/entityRegistry\.register\(/gu)],
+        1,
+        "l'entité n'est enregistrée qu'une fois",
+      );
+      // Son parent n'est ni semé ni créé : la racine d'un arbre n'en a pas.
+      assert.notInclude(unit, "parents.Category");
+      assert.notInclude(e2e, 'parents["Category"]');
+    });
+
+    it("relation vers SOI OBLIGATOIRE — refusée, la première ligne n'aurait pas de parent", () => {
+      const dest = app("eapp-self-required");
+      assert.throws(
+        () =>
+          entity(dest, {
+            name: "Category",
+            fields: "name:string parent:ref:Category",
+          }),
+        /désigne l'entité elle-même et est OBLIGATOIRE[\s\S]*parent:ref:Category\?/u,
+      );
+      assert.isFalse(
+        existsSync(path.join(dest, "nodefony", "entity", "Category.ts")),
+        "rien n'est écrit quand la relation est refusée",
+      );
     });
 
     it("une cible ABSENTE reste refusée — l'exception ne vaut que pour soi", () => {

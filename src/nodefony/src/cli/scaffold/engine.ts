@@ -4756,7 +4756,21 @@ function runEntityScaffold(
     // `Category`) : son fichier est celui qu'on est en train d'écrire. Exiger
     // qu'il existe rendait l'auto-référence impossible à la création, sur tous
     // les moteurs — alors que le code qu'on en génère la sait écrire.
-    if (field.target === pascal) continue;
+    if (field.target === pascal) {
+      // Mais OBLIGATOIRE, elle n'a pas de première ligne : celle-ci devrait
+      // désigner une ligne qui n'existe pas encore. La base la refuse (clé
+      // étrangère), et les tests générés tombaient sur leur propre échantillon.
+      if (!field.nullable) {
+        throw new Error(
+          `create entity ${pascal} : la relation « ${field.name}:ref:${field.target} » ` +
+            `désigne l'entité elle-même et est OBLIGATOIRE — la première ligne ` +
+            `devrait alors viser une ligne qui n'existe pas encore.\n` +
+            `  → la déclarer facultative (« ${field.name}:ref:${field.target}? ») : ` +
+            `la racine de l'arbre n'a pas de parent`,
+        );
+      }
+      continue;
+    }
     const targetFile = path.join(
       target.dir,
       "nodefony",
@@ -4903,6 +4917,10 @@ function runEntityScaffold(
     moduleName: target.kind === "app" ? "app" : String(target.name),
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
+    // La fabrique déclare `refs` dès qu'elle le LIT — toute référence, y compris
+    // vers soi. Le dériver des parents que les tests créent (`relationParents`,
+    // qui exclut l'entité elle-même) laissait `refs` lu et jamais déclaré.
+    sampleReadsRefs: fields.some((f) => f.type === "ref" && f.target),
     comparableField,
     // Sans champ unique, aucun doublon n'est possible : le cas 409 n'existe pas
     // pour cette entité, et un test qui l'attendrait échouerait à jamais.
@@ -4946,7 +4964,14 @@ function runEntityScaffold(
     referenceProbe: mongo
       ? (fields
           .filter((f) => {
-            if (f.type !== "ref" || !f.target || f.target === IDENTITY_ENTITY) {
+            // Ni l'identité, ni l'entité elle-même : son parent n'est pas créé
+            // par le test (cf `relationParents`).
+            if (
+              f.type !== "ref" ||
+              !f.target ||
+              f.target === IDENTITY_ENTITY ||
+              f.target === pascal
+            ) {
               return false;
             }
             const parentFile = path.join(
@@ -4975,7 +5000,7 @@ function runEntityScaffold(
     relationTargets: [
       ...new Set(
         fields
-          .filter((f) => f.type === "ref" && f.target)
+          .filter((f) => f.type === "ref" && f.target && f.target !== pascal)
           .map((f) => f.target as string),
       ),
     ],
@@ -4986,10 +5011,14 @@ function runEntityScaffold(
     // La route est DÉRIVÉE par la règle qui l'a posée à la génération du parent
     // (`/api/<pluriel du kebab>`). Une route changée à la main ne se devine pas :
     // le test généré le DIT alors franchement, au lieu d'échouer sur un 404 muet.
+    //
+    // L'entité elle-même n'y figure JAMAIS (`parent:ref:Category?`) : elle est
+    // déjà importée et enregistrée, et sa relation, facultative par force, reste
+    // vide dans l'échantillon — la racine d'un arbre n'a pas de parent.
     relationParents: [
       ...new Map(
         fields
-          .filter((f) => f.type === "ref" && f.target)
+          .filter((f) => f.type === "ref" && f.target && f.target !== pascal)
           .map((f) => {
             const relationTarget = f.target as string;
             const targetKebab = toKebabCase(relationTarget);

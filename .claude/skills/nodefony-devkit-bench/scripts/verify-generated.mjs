@@ -325,6 +325,11 @@ const ENTITIES = [
   // La référence qui traverse la frontière du FRAMEWORK : `User` n'est pas une
   // entité du banc, c'est celle que `create app` pose dans toute application.
   ["Note", "body:string", "owner:ref:User"],
+  // Une entité qui se désigne ELLE-MÊME — l'arbre (catégories, fils de
+  // discussion, incidents rattachés). Son fichier d'entité compilait ; ses
+  // TESTS importaient et enregistraient l'entité une seconde fois comme parent
+  // (`TS2300`), ce qu'aucune assertion sur le rendu ne voyait.
+  ["Category", "name:string", "parent:ref:Category?"],
   // Les DEUX suivantes sont émises pour PostgreSQL, et c'est indispensable : en
   // SQLite, une clé `uuid` et une colonne texte sont le MÊME type, si bien qu'une
   // référence mal typée y est indétectable. La sonde de cohérence FK ↔ PK ne peut
@@ -375,6 +380,7 @@ const MONGO_ENTITIES = [
     "author:ref:Author?",
   ],
   ["Note", "body:string", "owner:ref:User"],
+  ["Category", "name:string", "parent:ref:Category?"],
 ];
 
 /**
