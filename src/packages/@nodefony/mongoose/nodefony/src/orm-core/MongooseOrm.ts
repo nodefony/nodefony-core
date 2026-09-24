@@ -627,8 +627,11 @@ export class MongooseOrm extends Orm {
 
   /**
    * Colonnes normalisées d'une entité depuis les `paths` du schéma Mongoose —
-   * alimente le graphe canonique / ERD / contexte IA. Pas de PK SQL : `_id` est
-   * la clé primaire implicite de tout document.
+   * alimente le graphe canonique / ERD / contexte IA. Rendues dans le
+   * vocabulaire du CONTRAT, pas du moteur : la clé primaire `_id` s'y nomme
+   * `id` (comme dans les critères et les lignes lues), et la clé de version
+   * interne `__v` n'y figure pas — un graphe qui changerait de noms selon
+   * l'adaptateur ne décrirait plus la même application.
    *
    * @param name - nom logique de l'entité.
    * @returns colonnes (`[]` si l'entité n'est pas connue de cet ORM).
@@ -641,14 +644,16 @@ export class MongooseOrm extends Orm {
     const paths = model.schema.paths as Record<string, SchemaType>;
     // `field`, pas `path` : le module `node:path` est importé dans ce fichier et
     // s'en sert plus bas (`path.dirname`) — un `path` local le masquerait.
-    return Object.entries(paths).map(([field, schemaType]) => ({
-      name: field,
-      // `instance` = type Mongoose ("String", "ObjectId", "Number", "Date"...).
-      type: schemaType.instance || "Mixed",
-      primaryKey: field === "_id",
-      nullable: field === "_id" ? false : schemaType.isRequired !== true,
-      unique: (schemaType.options as { unique?: unknown }).unique === true,
-    }));
+    return Object.entries(paths)
+      .filter(([field]) => field !== "__v")
+      .map(([field, schemaType]) => ({
+        name: field === "_id" ? "id" : field,
+        // `instance` = type Mongoose ("String", "ObjectId", "Number", "Date"...).
+        type: schemaType.instance || "Mixed",
+        primaryKey: field === "_id",
+        nullable: field === "_id" ? false : schemaType.isRequired !== true,
+        unique: (schemaType.options as { unique?: unknown }).unique === true,
+      }));
   }
 
   /**

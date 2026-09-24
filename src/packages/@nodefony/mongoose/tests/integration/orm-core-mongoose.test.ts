@@ -260,12 +260,15 @@ describe.skipIf(!URI)(
     });
 
     // ── Graphe canonique : describeEntity (schema.paths) ──────────────────────
-    it("describeEntity : colonnes normalisées (_id pk, types Mongoose)", () => {
+    it("describeEntity : colonnes normalisées (PK nommée `id`, types Mongoose)", () => {
       const cols = orm.describeEntity("User");
       const byName = new Map(cols.map((c) => [c.name, c]));
 
-      const id = byName.get("_id");
-      assert.ok(id, "_id absent");
+      // Vocabulaire du CONTRAT : ni `_id` ni `__v` (noms du moteur).
+      assert.equal(byName.has("_id"), false, "`_id` du moteur exposé");
+      assert.equal(byName.has("__v"), false, "clé de version exposée");
+      const id = byName.get("id");
+      assert.ok(id, "id absent");
       assert.equal(id.primaryKey, true);
       assert.equal(id.nullable, false);
       assert.match(id.type, /objectid/i); // "ObjectID"/"ObjectId" selon version

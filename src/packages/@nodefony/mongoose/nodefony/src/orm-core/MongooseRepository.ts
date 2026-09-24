@@ -159,6 +159,13 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
    * (`$eq`/`$ne`) — en Mongo `null` matche aussi le champ **absent**, ce qui est
    * bien l'équivalent du `NULL` SQL (colonne sans valeur).
    *
+   * `$ne`/`$nin` ne matchent JAMAIS l'absence de valeur, comme en SQL (où
+   * `col <> 'x'` est inconnu, donc faux, sur un NULL). Natifs, ils la
+   * matcheraient : `{ note: { $ne: "x" } }` ramenait sous MongoDB les documents
+   * sans note, que PostgreSQL écarte — la même requête rendait plus de lignes en
+   * production MongoDB, sans un mot. `null` est donc ajouté à l'ensemble exclu.
+   * Un `$nin` VIDE reste neutre (SQL : aucune exclusion, NULL compris).
+   *
    * @throws Error si `$null` est combiné à `$eq`/`$ne` sur le même champ : les
    *   deux viseraient la même clé Mongo et l'une écraserait l'autre **en
    *   silence** (le contrat les déclare exclusifs — cf `FieldOperators.$null`).
@@ -183,6 +190,20 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       } else {
         out[key] = value;
       }
+    }
+    const ne = ops.$ne;
+    const nin = ops.$nin;
+    if (
+      (ne !== undefined && ne !== null) ||
+      (nin !== undefined && nin.length > 0)
+    ) {
+      const excluded: unknown[] = [...(nin ?? [])];
+      if (ne !== undefined && ne !== null) {
+        excluded.push(ne);
+        delete out.$ne;
+      }
+      excluded.push(null);
+      out.$nin = excluded;
     }
     return out;
   }

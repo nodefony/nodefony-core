@@ -1,42 +1,31 @@
 import assert from "node:assert/strict";
 import { randomUUID } from "node:crypto";
-import { entityRegistry, ormRegistry, paginate } from "@nodefony/orm-core";
-import {
-  UnknownCriteriaField,
-  InvalidOrderOption,
-  LIKE_ESCAPE_CHAR,
-  escapeLikeTerm,
-} from "@nodefony/orm-core";
-import type { IRepository } from "@nodefony/orm-core";
+import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
 import { DrizzleOrm } from "../../nodefony/src/orm-core/index";
 import {
   createFrameworkTableFactory,
   type FrameworkTableFactory,
 } from "../../nodefony/entity/colKit";
 import type { SqlDialect } from "../../nodefony/interfaces/IDrizzleConfig";
+import {
+  PROBE_ENTITY,
+  runRepositoryContract as runSharedRepositoryContract,
+} from "../../../orm-core/tests/support/repositoryContract";
 
 /**
- * BANC DE PARITÉ DES CONTRATS `IRepository` **et `IOrm`** — LA même suite,
- * exécutée sur les TROIS dialectes (sqlite toujours, postgres/mysql gatés par
- * l'infra).
+ * Enveloppe Drizzle du **banc de contrat UNIQUE** `IRepository` + `IOrm` (le
+ * banc vit chez `@nodefony/orm-core`, propriétaire du contrat) : elle déclare
+ * l'entité sonde dans le dialecte, gère le cycle de vie ORM et branche le
+ * harnais. **Aucune assertion de contrat ici** — seule la sonde propre au
+ * moteur (stockage sqlite / pool serveur) reste de ce côté.
  *
- * **Pourquoi ce banc existe** : les chemins d'exécution divergent radicalement
- * par dialecte (RETURNING sqlite/pg vs re-SELECT-par-PK mysql, `ON CONFLICT`
- * vs `ON DUPLICATE KEY UPDATE`, `limit(-1)` vs OFFSET seul vs sentinel…) — la
- * seule preuve que le CONTRAT est identique, verbe par verbe, est de faire
- * passer les mêmes assertions aux trois backends. Un développeur d'application
- * qui change `NF_DATABASE_URL` ne doit observer AUCUNE différence de
- * comportement : chaque écart trouvé ici est un bug du framework, pas de
- * l'app.
- *
- * Divergence sémantique ASSUMÉE (non testée, documentée) : la sensibilité à la
- * casse de `$like` suit la collation du backend (sqlite/mysql insensibles par
- * défaut, PG sensible) — le banc n'utilise que des motifs à casse exacte.
+ * LA même suite sur les TROIS dialectes (sqlite toujours ; postgres/mysql gatés
+ * par l'infra) — et sur MongoDB par l'adaptateur documentaire.
  */
 
 /** Table sonde couvrant tous les kinds + defaults JS + index. */
 const probeFactory: FrameworkTableFactory = createFrameworkTableFactory({
-  name: "repo_contract_probe",
+  name: PROBE_ENTITY,
   columns: {
     id: { kind: "text", primaryKey: true, defaultFn: () => randomUUID() },
     name: { kind: "text", notNull: true },
@@ -49,17 +38,6 @@ const probeFactory: FrameworkTableFactory = createFrameworkTableFactory({
   },
   indexes: [{ name: "repo_contract_probe_age_idx", on: ["age"] }],
 });
-
-interface ProbeRow {
-  id: string;
-  name: string;
-  age: number;
-  score: number;
-  tags: unknown;
-  active: boolean;
-  createdAt: number;
-  note: string | null;
-}
 
 /** Options d'un run du banc (un dialecte = un fichier consommateur). */
 export interface IContractRunOptions {
@@ -77,727 +55,41 @@ export interface IContractRunOptions {
 export function runRepositoryContract(opts: IContractRunOptions): void {
   const { dialect, connector } = opts;
   let orm: DrizzleOrm;
-  let repo: IRepository<ProbeRow>;
-
-  const seed = async (): Promise<void> => {
-    await repo.delete({});
-    await repo.createMany([
-      { name: "alice", age: 30, score: 10, tags: ["a", "b"], note: "n1" },
-      { name: "bob", age: 25, score: 20, tags: [], note: null },
-      { name: "chloé 👩‍💻", age: 35, score: 30, tags: ["c"], note: "n3" },
-      { name: "dan", age: 25, score: 40, tags: null, note: null },
-    ]);
-  };
 
   beforeAll(async () => {
     entityRegistry.register({
       connector,
-      name: "repo_contract_probe",
+      name: PROBE_ENTITY,
       schema: probeFactory(dialect),
     });
     orm = new DrizzleOrm(connector, { dialect, ...opts.connection });
-    await orm.connect();
-    repo = orm.getRepository<ProbeRow>("repo_contract_probe");
-    await repo.delete({}); // table persistante entre les runs (IF NOT EXISTS)
+    await orm.connect(); // le banc purge la table (persistante entre les runs)
   });
 
   afterAll(async () => {
-    await repo.delete({});
     await orm.disconnect();
-    entityRegistry.unregister("repo_contract_probe", connector);
+    entityRegistry.unregister(PROBE_ENTITY, connector);
     ormRegistry.unregister(connector);
   });
 
-  it("create : rend LA ligne persistée, defaults JS appliqués (id UUID, active, createdAt)", async () => {
-    const row = await repo.create({ name: "eve", age: 40, score: 1 });
-    assert.match(row.id, /^[0-9a-f-]{36}$/);
-    assert.equal(row.name, "eve");
-    assert.equal(row.active, true, "defaultFn bool");
-    assert.equal(typeof row.createdAt, "number", "defaultFn epochMs");
-    assert.equal(row.note, null, "colonne omise nullable → null");
-    const reread = await repo.findOne({ id: row.id });
-    assert.deepEqual(reread, row, "la ligne rendue EST la ligne stockée");
-  });
-
-  it("createMany : N lignes rendues, ORDRE d'insertion préservé", async () => {
-    await repo.delete({});
-    const rows = await repo.createMany([
-      { name: "m1", age: 1, score: 1 },
-      { name: "m2", age: 2, score: 2 },
-      { name: "m3", age: 3, score: 3 },
-    ]);
-    assert.deepEqual(
-      rows.map((r) => r.name),
-      ["m1", "m2", "m3"],
-    );
-    assert.equal(new Set(rows.map((r) => r.id)).size, 3);
-  });
-
-  it("round-trip types : json (array/objet), bool, epochMs, unicode/emoji", async () => {
-    const at = 1_700_000_000_123;
-    const created = await repo.create({
-      name: "Ünïcode 👩‍💻 テスト",
-      age: 99,
-      score: 0,
-      tags: { deep: { list: [1, "two", false], n: null } },
-      active: false,
-      createdAt: at,
-    });
-    const row = await repo.findOne({ id: created.id });
-    assert.ok(row);
-    assert.equal(row.name, "Ünïcode 👩‍💻 テスト");
-    assert.deepEqual(row.tags, { deep: { list: [1, "two", false], n: null } });
-    assert.equal(row.active, false);
-    assert.equal(row.createdAt, at, "epoch ms exact (64-bit)");
-  });
-
-  it("find : criteria eq + opérateurs riches ($gt/$in/$like/$ne/$nin)", async () => {
-    await seed();
-    assert.equal((await repo.find({ age: 25 })).length, 2);
-    assert.equal((await repo.find({ age: { $gt: 25 } })).length, 2);
-    assert.equal((await repo.find({ age: { $gte: 25 } })).length, 4);
-    assert.equal((await repo.find({ age: { $in: [25, 35] } })).length, 3);
-    assert.equal((await repo.find({ age: { $nin: [25] } })).length, 2);
-    assert.equal((await repo.find({ name: { $ne: "alice" } })).length, 3);
-    const like = await repo.find({ name: { $like: "ali%" } });
-    assert.deepEqual(
-      like.map((r) => r.name),
-      ["alice"],
-    );
-  });
-
-  it("find : `$like` échappé — un joker rendu LITTÉRAL, même réponse sur les 3 moteurs", async () => {
-    // LE défaut cross-dialecte du contrat : sans clause `ESCAPE` émise,
-    // PostgreSQL et MySQL appliquaient déjà l'antislash quand SQLite cherchait
-    // l'antislash lui-même. Un motif échappé rendait donc la bonne ligne en
-    // production et RIEN en développement — sans erreur, sans trace.
-    await repo.createMany([
-      { name: "remise_50", age: 1, score: 1 },
-      { name: "remiseX50", age: 1, score: 1 },
-      { name: "solde 50%", age: 1, score: 1 },
-      { name: "solde 5012", age: 1, score: 1 },
-    ]);
-
-    // TÉMOIN : sans échappement, `_` est bien un joker — sinon le test suivant
-    // passerait aussi sur un moteur qui ignore les jokers.
-    const joker = await repo.find({ name: { $like: "remise_50" } });
-    assert.deepEqual(
-      joker.map((r) => r.name).sort(),
-      ["remiseX50", "remise_50"],
-      "`_` doit valoir « un caractère quelconque »",
-    );
-
-    const litteral = await repo.find({
-      name: { $like: `remise${LIKE_ESCAPE_CHAR}_50` },
-    });
-    assert.deepEqual(
-      litteral.map((r) => r.name),
-      ["remise_50"],
-      "échappé, `_` ne vaut plus que lui-même",
-    );
-
-    const pourcent = await repo.find({
-      name: { $like: `${escapeLikeTerm("solde 50%")}` },
-    });
-    assert.deepEqual(
-      pourcent.map((r) => r.name),
-      ["solde 50%"],
-      "un `%` échappé ne doit pas ramener « solde 5012 »",
-    );
-  });
-
-  it("find : $null / valeur nue null — « la colonne est vide » (jamais eq(col, NULL))", async () => {
-    await seed(); // note: 2 renseignées (n1/n3), 2 à NULL (bob/dan)
-    // En SQL `col = NULL` est TOUJOURS faux : traduire la valeur nue en égalité
-    // faisait disparaître le filtre en silence (0 ligne, sans erreur). C'est la
-    // cause racine des check-then-act des stores de sécurité.
-    const nulls = await repo.find({ note: null });
-    assert.deepEqual(
-      nulls.map((r) => r.name).sort(),
-      ["bob", "dan"],
-      "valeur nue null ≡ IS NULL",
-    );
-    const explicit = await repo.find({ note: { $null: true } });
-    assert.deepEqual(
-      explicit.map((r) => r.name).sort(),
-      ["bob", "dan"],
-      "$null: true ≡ la valeur nue",
-    );
-    const notNull = await repo.find({ note: { $null: false } });
-    assert.deepEqual(
-      notNull.map((r) => r.name).sort(),
-      ["alice", "chloé 👩‍💻"],
-      "$null: false ≡ IS NOT NULL",
-    );
-    // Combinable avec d'autres opérateurs (AND) : le cas des stores.
-    assert.equal(
-      (await repo.find({ note: { $null: true }, age: { $lte: 25 } })).length,
-      2,
-    );
-    // `$null` n'est PAS `$eq`/`$ne` : ces derniers gardent leur sens sur une
-    // valeur réelle et ne matchent jamais les NULL.
-    assert.equal((await repo.find({ note: { $ne: "n1" } })).length, 1);
-  });
-
-  it("updateOne / update / delete : $null en critère (mutation atomique conditionnelle)", async () => {
-    await seed();
-    // Le remède aux check-then-act : le filtre « pas encore renseigné » entre
-    // dans le WHERE de la mutation → une seule instruction, pas de lecture
-    // préalable dont le résultat serait déjà périmé à l'écriture.
-    const affected = await repo.updateMany({ note: null }, { note: "filled" });
-    assert.equal(affected, 2, "updateMany en masse borné aux NULL");
-    assert.equal((await repo.find({ note: null })).length, 0);
-    assert.equal((await repo.find({ note: { $null: false } })).length, 4);
-    // Rejoué : plus rien à faire (idempotent) — c'est ce qui rend l'opération
-    // sûre en concurrence, là où un findOne+update écraserait le 1er écrivain.
-    assert.equal(await repo.updateMany({ note: null }, { note: "again" }), 0);
-
-    await seed();
-    const one = await repo.updateOne({ note: null }, { note: "one" });
-    assert.ok(one && one.note === "one", "updateOne borné aux NULL");
-    assert.equal((await repo.find({ note: null })).length, 1);
-
-    await seed();
-    assert.equal(await repo.delete({ note: null }), 2, "delete borné aux NULL");
-    assert.equal(await repo.count({}), 2);
-  });
-
-  it("upsert : $max / $min — seuil monotone en UNE instruction (le DO UPDATE n'a pas de WHERE)", async () => {
-    await repo.delete({});
-    // INSERT : rien à comparer → la valeur est posée telle quelle.
-    const seeded = await repo.upsert(
-      { id: "seuil" },
-      { score: { $max: 20 }, name: "s", age: 1 },
-      { note: "créé" },
-    );
-    assert.equal(seeded.score, 20);
-
-    // NB : un upsert reste un INSERT qui BASCULE en UPDATE au conflit — son
-    // INSERT doit donc être valide (toutes les colonnes NOT NULL fournies),
-    // même quand on sait que la ligne existe. D'où `name`/`age` à chaque appel.
-    //
-    // CONFLIT + valeur INFÉRIEURE → ignorée : le seuil ne recule pas. C'est LA
-    // propriété que `revokeAllForSubject` exige (un seuil qui recule ferait
-    // redevenir valides des jetons révoqués).
-    await repo.upsert(
-      { id: "seuil" },
-      { score: { $max: 10 }, name: "s", age: 1 },
-    );
-    assert.equal((await repo.findOne({ id: "seuil" }))?.score, 20);
-
-    // CONFLIT + valeur SUPÉRIEURE → avance.
-    const up = await repo.upsert(
-      { id: "seuil" },
-      { score: { $max: 30 }, name: "s", age: 1 },
-    );
-    assert.equal(up.score, 30, "la ligne RETURNING porte la valeur finale");
-    assert.equal(up.note, "créé", "insertOnly toujours préservé au conflit");
-
-    // $min : le miroir.
-    await repo.upsert(
-      { id: "plancher" },
-      { score: { $min: 50 }, name: "p", age: 1 },
-    );
-    await repo.upsert(
-      { id: "plancher" },
-      { score: { $min: 80 }, name: "p", age: 1 },
-    ); // ignoré
-    assert.equal((await repo.findOne({ id: "plancher" }))?.score, 50);
-    await repo.upsert(
-      { id: "plancher" },
-      { score: { $min: 5 }, name: "p", age: 1 },
-    );
-    assert.equal((await repo.findOne({ id: "plancher" }))?.score, 5);
-
-    // Mélange opérateur + valeur nue dans le même update.
-    await repo.upsert(
-      { id: "seuil" },
-      { score: { $max: 25 }, note: "touché", name: "s", age: 1 }, // 25 < 30 → score inchangé
-    );
-    const mixed = await repo.findOne({ id: "seuil" });
-    assert.equal(mixed?.score, 30, "l'opérateur garde le max");
-    assert.equal(mixed?.note, "touché", "la valeur nue est écrite");
-    assert.equal(await repo.count({}), 2, "aucun doublon");
-  });
-
-  it("upsert CONCURRENT : $max garde le maximum, quel que soit l'ordre d'arrivée", async () => {
-    await repo.delete({});
-    // Le cas réel : N logouts simultanés posent chacun leur seuil. Un
-    // `findOne` + `if (v > existant)` laisse le DERNIER écrire → le seuil peut
-    // RECULER. Ici l'arbitrage est dans l'instruction : le SGBD tranche.
-    const vals = [5, 90, 12, 40, 7, 100, 33, 2, 61, 8];
-    const results = await Promise.allSettled(
-      vals.map((v) =>
-        repo.upsert({ id: "race" }, { score: { $max: v }, name: "r", age: 1 }),
-      ),
-    );
-    assert.deepEqual(
-      results
-        .filter((r) => r.status === "rejected")
-        .map((r) => (r as PromiseRejectedResult).reason?.message),
-      [],
-      "aucun upsert concurrent ne doit être rejeté",
-    );
-    assert.equal(
-      (await repo.findOne({ id: "race" }))?.score,
-      100,
-      "le maximum survit, jamais un écrivain arrivé plus tard avec moins",
-    );
-    assert.equal(await repo.count({}), 1);
-  });
-
-  it("find : order / limit / offset — et OFFSET-SANS-LIMIT (hack routé par dialecte)", async () => {
-    await seed();
-    const desc = await repo.find(undefined, { order: [["score", "DESC"]] });
-    assert.deepEqual(
-      desc.map((r) => r.score),
-      [40, 30, 20, 10],
-    );
-    const page = await repo.find(undefined, {
-      order: [["score", "ASC"]],
-      limit: 2,
-      offset: 1,
-    });
-    assert.deepEqual(
-      page.map((r) => r.score),
-      [20, 30],
-    );
-    // OFFSET sans LIMIT : sqlite exige limit(-1), PG l'interdit, MySQL exige
-    // un sentinel — trois émissions, UN comportement.
-    const tail = await repo.find(undefined, {
-      order: [["score", "ASC"]],
-      offset: 2,
-    });
-    assert.deepEqual(
-      tail.map((r) => r.score),
-      [30, 40],
-    );
-  });
-
-  it("paginate : page NATIVE (LIMIT+1 / OFFSET / COUNT) — offset-first, total, hasNext, Slice, criteria", async () => {
-    await seed(); // 4 lignes : score 10/20/30/40 (age 30/25/35/25)
-    // Tri EXPLICITE obligatoire : la PK est un UUID aléatoire → sans ORDER BY,
-    // l'ordre des pages varierait par backend (RETEX ordre implicite).
-
-    // Page 1/2 (score ASC) : [10,20], il reste 30/40 → hasNext, total exact.
-    const p1 = await paginate(repo, {
-      limit: 2,
-      offset: 0,
-      order: [["score", "ASC"]],
-    });
-    assert.deepEqual(
-      p1.items.map((r) => r.score),
-      [10, 20],
-    );
-    assert.equal(p1.hasNext, true, "il reste une page");
-    assert.equal(p1.total, 4, "COUNT natif sur la collection entière");
-    assert.equal(p1.limit, 2);
-    assert.equal(p1.offset, 0);
-
-    // Page 2/2 : [30,40], plus de suite (le LIMIT+1 ne trouve pas de 5ᵉ ligne).
-    const p2 = await paginate(repo, {
-      limit: 2,
-      offset: 2,
-      order: [["score", "ASC"]],
-    });
-    assert.deepEqual(
-      p2.items.map((r) => r.score),
-      [30, 40],
-    );
-    assert.equal(p2.hasNext, false, "dernière page");
-    assert.equal(p2.total, 4);
-
-    // Slice (withTotal:false) : `total` omis, `hasNext` vient du LIMIT+1 sans COUNT.
-    const slice = await paginate(repo, {
-      limit: 2,
-      offset: 0,
-      order: [["score", "ASC"]],
-      withTotal: false,
-    });
-    assert.equal(slice.total, undefined, "mode Slice : pas de COUNT");
-    assert.equal(slice.hasNext, true);
-    assert.deepEqual(
-      slice.items.map((r) => r.score),
-      [10, 20],
-    );
-
-    // criteria : la page ET le total portent sur la collection FILTRÉE (age=25).
-    const filtered = await paginate(repo, {
-      limit: 5,
-      criteria: { age: 25 },
-      order: [["score", "ASC"]],
-    });
-    assert.deepEqual(
-      filtered.items.map((r) => r.score),
-      [20, 40],
-      "seules les lignes age=25",
-    );
-    assert.equal(
-      filtered.total,
-      2,
-      "total = COUNT filtré, pas la table entière",
-    );
-    assert.equal(filtered.hasNext, false);
-  });
-
-  it("findOne : première du critère, null si absent", async () => {
-    await seed();
-    const one = await repo.findOne({ name: "bob" });
-    assert.equal(one?.age, 25);
-    assert.equal(await repo.findOne({ name: "nobody" }), null);
-  });
-
-  it("updateOne : rend la ligne persistée MÊME si le critère porte sur le champ modifié (B1)", async () => {
-    await seed();
-    const row = await repo.updateOne({ name: "alice" }, { age: 31 });
-    assert.equal(row?.age, 31);
-    const moved = await repo.updateOne({ age: 31 }, { age: 32 });
-    assert.equal(
-      moved?.age,
-      32,
-      "critère sur le champ modifié — pas de null à tort",
-    );
-    assert.equal(await repo.updateOne({ name: "nobody" }, { age: 1 }), null);
-  });
-
-  it("updateOne : borné à AU PLUS UNE ligne quand plusieurs matchent", async () => {
-    await seed();
-    const row = await repo.updateOne({ age: 25 }, { score: 777 });
-    assert.equal(row?.score, 777);
-    assert.equal(
-      (await repo.find({ score: 777 })).length,
-      1,
-      "une seule des deux lignes age=25 modifiée",
-    );
-  });
-
-  it("updateMany : compteur EXACT de lignes affectées", async () => {
-    await seed();
-    assert.equal(await repo.updateMany({ age: 25 }, { score: 5 }), 2);
-    assert.equal(await repo.updateMany({ age: 999 }, { score: 5 }), 0);
-  });
-
-  it("increment : delta côté SQL, ligne rendue, null si introuvable", async () => {
-    await seed();
-    const row = await repo.increment({ name: "alice" }, { score: 7 });
-    assert.equal(row?.score, 17);
-    const again = await repo.increment({ name: "alice" }, { score: -2 });
-    assert.equal(again?.score, 15);
-    assert.equal(await repo.increment({ name: "nobody" }, { score: 1 }), null);
-  });
-
-  it("upsert : chemin INSERT (insertOnly posé) puis chemin UPDATE (insertOnly PRÉSERVÉ)", async () => {
-    await repo.delete({});
-    const inserted = await repo.upsert(
-      { id: "up-1" },
-      { score: 1, name: "vera", age: 50 },
-      { note: "created-once", tags: ["seed"] },
-    );
-    assert.equal(inserted.note, "created-once");
-    assert.equal(inserted.score, 1);
-    const updated = await repo.upsert(
-      { id: "up-1" },
-      { score: 2, name: "vera", age: 50 },
-      { note: "MUST-NOT-OVERWRITE", tags: ["other"] },
-    );
-    assert.equal(updated.score, 2, "update appliqué au conflit");
-    assert.equal(
-      updated.note,
-      "created-once",
-      "champ insert-only jamais écrasé au conflit",
-    );
-    assert.equal(await repo.count({ id: "up-1" }), 1, "toujours UNE ligne");
-  });
-
-  it("delete : compteur ; deleteOne : AU PLUS UNE ; findOneAndDelete : rend la ligne", async () => {
-    await seed();
-    assert.equal(await repo.delete({ age: 999 }), 0);
-    assert.equal(await repo.deleteOne({ age: 25 }), true);
-    assert.equal(
-      (await repo.find({ age: 25 })).length,
-      1,
-      "une seule des deux lignes age=25 supprimée",
-    );
-    const gone = await repo.findOneAndDelete({ name: "alice" });
-    assert.equal(gone?.name, "alice");
-    assert.equal(await repo.findOne({ name: "alice" }), null);
-    assert.equal(await repo.findOneAndDelete({ name: "alice" }), null);
-    assert.equal(await repo.delete({}), 2, "purge finale comptée");
-  });
-
-  it("count / exists", async () => {
-    await seed();
-    assert.equal(await repo.count(), 4);
-    assert.equal(await repo.count({ age: 25 }), 2);
-    assert.equal(await repo.exists({ name: "bob" }), true);
-    assert.equal(await repo.exists({ name: "nobody" }), false);
-  });
-
-  it("countDistinct : compte les VALEURS, pas les lignes — et ignore les NULL", async () => {
-    await seed();
-    // 4 lignes, mais seulement 3 âges distincts (bob et dan ont 25 ans).
-    assert.equal(await repo.count(), 4);
-    assert.equal(await repo.countDistinct("age"), 3);
-    // `note` vaut NULL sur deux lignes : l'absence de valeur n'est pas une
-    // valeur distincte de plus (sémantique COUNT(DISTINCT col) des 3 dialectes).
-    assert.equal(await repo.countDistinct("note"), 2);
-    // Le critère s'applique AVANT la déduplication.
-    assert.equal(await repo.countDistinct("age", { age: 25 }), 1);
-    assert.equal(await repo.countDistinct("age", { name: "nobody" }), 0);
-  });
-
-  it("criteria strict : champ inconnu → UnknownCriteriaField (jamais un skip silencieux)", async () => {
-    await assert.rejects(
-      repo.find({ ghost: 1 } as never),
-      UnknownCriteriaField,
-    );
-  });
-
-  it("order strict : forme mal formée → InvalidOrderOption (la requête ne part PAS sans ORDER BY)", async () => {
-    await seed();
-    // Le défaut historique : `options?.order?.length` est faux pour un objet, donc
-    // le bloc était sauté et le SELECT partait SANS tri — l'appelant recevait des
-    // lignes non triées qu'il croyait triées.
-    await assert.rejects(
-      repo.find({}, { order: { age: "asc" } } as never),
-      InvalidOrderOption,
-    );
-    await assert.rejects(
-      repo.find({}, { order: ["age"] } as never),
-      InvalidOrderOption,
-    );
-    // Casse basse : `dir === "DESC" ? desc : asc` aurait trié à l'ENVERS, sans un mot.
-    await assert.rejects(
-      repo.find({}, { order: [["age", "desc"]] } as never),
-      InvalidOrderOption,
-    );
-    // La garde est en amont des TROIS constructions d'ORDER BY (chemin direct,
-    // chemin préparé, forme mémoïsée) : un critère bindable emprunte le second.
-    await assert.rejects(
-      repo.find({ name: "alice" }, { order: { age: "asc" } } as never),
-      InvalidOrderOption,
-    );
-    // `findOne` passe par le même point : il est gardé par construction.
-    await assert.rejects(
-      repo.findOne({}, { order: { age: "asc" } } as never),
-      InvalidOrderOption,
-    );
-    // Et le tri conforme continue de trier — la garde ne coûte rien au nominal.
-    const rows = await repo.find({}, { order: [["age", "DESC"]] });
-    const ages = rows.map((r) => (r as { age: number }).age);
-    assert.deepEqual(
-      ages,
-      [...ages].sort((a, b) => b - a),
-    );
-  });
-
-  // ── Transactions ────────────────────────────────────────────────────────────
-  // Le contrat le plus cher à casser : une transaction qui ne tient pas rend une
-  // écriture partielle DURABLE. Ces cas manquaient au banc — d'où un
-  // `transaction()` resté sqlite-only, invisible tant que seuls les tests
-  // `:memory:` l'appelaient.
-  //
-  // Le rollback est aussi ce qui prouve l'ATOMICITÉ sur un pool : si `BEGIN` et
-  // les écritures partaient sur des connexions différentes (pg/mysql), l'INSERT
-  // serait auto-committé et survivrait au rollback.
-  //
-  // Divergence sémantique ASSUMÉE (non testée ici, comme la casse de `$like`) :
-  // la visibilité AVANT commit depuis un repository NON lié. En sqlite la
-  // connexion est unique — la transaction encadre le db du connecteur, donc tout
-  // repository lit/écrit dedans ; en postgres/mysql la transaction tient une
-  // connexion dédiée du pool, invisible du reste. Seule règle portable, donc
-  // seule testée : `withTransaction(tx)` est le SEUL moyen d'entrer dans la
-  // transaction, et après commit la ligne est visible de partout.
-
-  it("transaction : commit — les écritures liées par withTransaction sont durables", async () => {
-    await repo.delete({});
-    const out = await orm.transaction(async (tx) => {
-      const txRepo = repo.withTransaction(tx);
-      await txRepo.create({ name: "tx-commit-1", age: 1, score: 1 });
-      await txRepo.create({ name: "tx-commit-2", age: 2, score: 2 });
-      return "done";
-    });
-    assert.equal(out, "done");
-    assert.equal(await repo.count({}), 2);
-  });
-
-  it("transaction : rollback — la closure qui rejette n'a RIEN persisté, l'erreur remonte", async () => {
-    await repo.delete({});
-    await assert.rejects(
-      orm.transaction(async (tx) => {
-        const txRepo = repo.withTransaction(tx);
-        await txRepo.create({ name: "tx-rollback", age: 1, score: 1 });
-        throw new Error("boom");
+  runSharedRepositoryContract({
+    orm: () => orm,
+    offline: () => ({
+      orm: new DrizzleOrm(`${connector}_offline`, {
+        dialect,
+        ...opts.connection,
       }),
-      /boom/,
-    );
-    assert.equal(await repo.count({}), 0);
-  });
-
-  it("transaction : savepoint / rollbackTo — annulation PARTIELLE, la transaction continue", async () => {
-    await repo.delete({});
-    await orm.transaction(async (tx) => {
-      const txRepo = repo.withTransaction(tx);
-      await txRepo.create({ name: "kept", age: 1, score: 1 });
-      await tx.savepoint("sp1");
-      await txRepo.create({ name: "dropped", age: 2, score: 2 });
-      await tx.rollbackTo("sp1");
-      await txRepo.create({ name: "kept-after", age: 3, score: 3 });
-    });
-    // Ordre sur `age` (entier), jamais sur `name` : la PK est un UUID aléatoire
-    // (donc l'ordre physique l'est aussi) et le tri d'un texte suivrait la
-    // collation du backend — deux raisons d'échouer pour rien.
-    const names = (await repo.find({}, { order: [["age", "ASC"]] })).map(
-      (r) => r.name,
-    );
-    assert.deepEqual(names, ["kept", "kept-after"]);
-  });
-
-  it("transaction : la connexion est RENDUE au pool — N transactions d'affilée sans épuisement", async () => {
-    await repo.delete({});
-    // Un pool par défaut plafonne à 10 connexions (pg comme mysql2) : sans
-    // `release()`, ce test se fige à la 11ᵉ au lieu d'échouer — d'où le compte
-    // volontairement au-dessus du plafond, commits ET rollbacks mélangés.
-    for (let i = 0; i < 15; i++) {
-      await orm.transaction(async (tx) => {
-        await repo
-          .withTransaction(tx)
-          .create({ name: `loop-${i}`, age: i, score: i });
-      });
-      await assert.rejects(
-        orm.transaction(async (tx) => {
-          await repo
-            .withTransaction(tx)
-            .create({ name: `undone-${i}`, age: i, score: i });
-          throw new Error("rollback");
-        }),
-        /rollback/,
-      );
-    }
-    assert.equal(await repo.count({}), 15);
-  });
-
-  it("transaction : CONCURRENTES — 15 simultanées passent toutes (pool de 10 / connexion unique)", async () => {
-    await repo.delete({});
-    // Le cas réel : N requêtes HTTP simultanées font chacune une transaction.
-    // Séquentiel, tout marche ; c'est ICI que ça casse. Le nombre dépasse le
-    // pool par défaut (10) exprès → prouve que l'attente d'une connexion est une
-    // FILE, pas un échec. En sqlite (connexion unique = pool de 1), la file est
-    // portée par l'adapter, sinon le 2ᵉ `BEGIN` échoue (« cannot start a
-    // transaction within a transaction »).
-    const results = await Promise.allSettled(
-      Array.from({ length: 15 }, (_, i) =>
-        orm.transaction(async (tx) => {
-          const txRepo = repo.withTransaction(tx);
-          await txRepo.create({ name: `conc-${i}`, age: i, score: i });
-          // Tenir la transaction ouverte : sans ça, elles se sérialisent d'elles-
-          // mêmes et le chevauchement — donc le bug — ne se produit jamais.
-          await new Promise((resolve) => setTimeout(resolve, 20));
-        }),
-      ),
-    );
-    const rejected = results.filter((r) => r.status === "rejected");
-    assert.deepEqual(
-      rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
-      [],
-      "aucune transaction concurrente ne doit être rejetée",
-    );
-    assert.equal(await repo.count({}), 15, "les 15 écritures sont durables");
-  });
-
-  it("transaction : concurrentes ISOLÉES — un rollback n'emporte pas les voisines", async () => {
-    await repo.delete({});
-    // Corollaire du cas précédent : sérialiser ne doit pas mélanger. Chaque
-    // transaction garde son sort propre (sqlite : la file ne doit pas laisser
-    // deux travaux tomber dans le même BEGIN).
-    const results = await Promise.allSettled(
-      Array.from({ length: 6 }, (_, i) =>
-        orm.transaction(async (tx) => {
-          await repo
-            .withTransaction(tx)
-            .create({ name: `mix-${i}`, age: i, score: i });
-          await new Promise((resolve) => setTimeout(resolve, 10));
-          if (i % 2 === 1) {
-            throw new Error(`rollback-${i}`);
-          }
-        }),
-      ),
-    );
-    assert.equal(results.filter((r) => r.status === "rejected").length, 3);
-    const names = (await repo.find({}, { order: [["age", "ASC"]] })).map(
-      (r) => r.name,
-    );
-    assert.deepEqual(names, ["mix-0", "mix-2", "mix-4"], "seuls les pairs");
-  });
-
-  it("transaction : hors connexion → `not connected` (jamais un silence)", async () => {
-    const offline = new DrizzleOrm(`${connector}_offline`, {
-      dialect,
-      ...opts.connection,
-    });
-    try {
-      await assert.rejects(
-        offline.transaction(async () => undefined),
-        /not connected/,
-      );
-      assert.equal(offline.isConnected(), false);
-    } finally {
-      ormRegistry.unregister(`${connector}_offline`);
-    }
-  });
-
-  // ── Contrat IOrm (introspection / santé) ────────────────────────────────────
-  // Même angle mort que `transaction()` : ces méthodes n'étaient exercées QUE
-  // sur sqlite. Or elles alimentent le data plane admin (panneau Studio ORM) —
-  // un adapter qui ne répond qu'en dev laisse la prod muette, en silence.
-
-  it("isConnected / getNativeConnection : vrais sur un connecteur connecté", async () => {
-    assert.equal(orm.isConnected(), true);
-    assert.ok(
-      orm.getNativeConnection(),
-      "trappe SQL brut (ADR-0003 risque #1)",
-    );
-  });
-
-  it("ping : round-trip RÉEL vers la base, sans erreur", async () => {
-    await orm.ping();
-  });
-
-  it("describeConnection : driver = dialecte, cible renseignée, ZÉRO credential", async () => {
-    const info = orm.describeConnection();
-    assert.equal(info.driver, dialect);
-    assert.ok(info.target, "cible affichée dans Studio");
-    assert.ok(info.ormVersion, "version de l'ORM");
-    // Le data plane expose cette cible : un mot de passe d'`url` qui fuiterait
-    // ici partirait dans Studio (et dans ses logs).
-    const dump = JSON.stringify(info);
-    assert.ok(
-      !/nodefony-dev|password|:\/\/[^/]*:[^@]*@/.test(dump),
-      `credential fuité dans describeConnection(): ${dump}`,
-    );
-  });
-
-  it("describeEntity : colonnes normalisées (alimente l'ERD / l'IA du data plane)", async () => {
-    const cols = orm.describeEntity("repo_contract_probe");
-    const byName = new Map(cols.map((c) => [c.name, c]));
-    assert.ok(cols.length >= 8, "toutes les colonnes de la sonde");
-    assert.equal(byName.get("id")?.primaryKey, true);
-    assert.equal(byName.get("name")?.nullable, false, "notNull → non nullable");
-    assert.equal(byName.get("note")?.nullable, true);
-    assert.ok(byName.get("age")?.type, "type SQL du dialecte");
-    assert.deepEqual(orm.describeEntity("ghost"), [], "entité inconnue → []");
-  });
-
-  it("probe : JAMAIS muette sur un connecteur connecté (storage sqlite / pool serveur)", async () => {
-    const p = await orm.probe();
-    assert.ok(
-      Object.keys(p).length > 0,
-      "sonde vide = panneau Studio ORM muet en production",
-    );
-    if (dialect === "sqlite") {
-      // Mono-connexion : la sonde utile est le stockage (PRAGMA).
-      assert.equal(typeof p.storage?.sizeBytes, "number");
-    } else {
+      dispose: () => ormRegistry.unregister(`${connector}_offline`),
+    }),
+    driver: dialect,
+    savepoints: true,
+    assertProbe: async (o) => {
+      const p = await o.probe!();
+      if (dialect === "sqlite") {
+        // Mono-connexion : la sonde utile est le stockage (PRAGMA).
+        assert.equal(typeof p.storage?.sizeBytes, "number");
+        return;
+      }
       // Base serveur : le pool EST la métrique qui compte (saturation à
       // `pool.max` = la falaise de RPS mesurée au banc de charge).
       assert.equal(typeof p.pool?.size, "number", "taille max du pool");
@@ -807,13 +99,13 @@ export function runRepositoryContract(opts: IContractRunOptions): void {
       // La sonde doit REFLÉTER l'état, pas seulement avoir la bonne forme : une
       // transaction tient une connexion dédiée, donc elle est EMPRUNTÉE. Sans
       // cette assertion, des compteurs figés à 0 passeraient le test.
-      await orm.transaction(async () => {
-        const during = await orm.probe();
+      await o.transaction(async () => {
+        const during = await o.probe!();
         assert.ok(
           (during.pool?.borrowed ?? 0) >= 1,
           `transaction en cours → ≥1 connexion empruntée, sonde: ${JSON.stringify(during.pool)}`,
         );
       });
-    }
+    },
   });
 }

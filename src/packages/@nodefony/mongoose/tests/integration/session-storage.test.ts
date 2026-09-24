@@ -168,10 +168,11 @@ describe.skipIf(!URI)(
         assert.match(info.ormVersion ?? "", /\d+\.\d+/); // version mongoose résolue
       });
 
-      it("describeEntity('session') : _id PK + colonnes logiques", () => {
+      it("describeEntity('session') : PK nommée `id` + colonnes logiques", () => {
         const cols = orm.describeEntity("session");
         const byName = Object.fromEntries(cols.map((c) => [c.name, c]));
-        assert.equal(byName._id.primaryKey, true);
+        assert.equal(byName.id.primaryKey, true);
+        assert.equal(byName._id, undefined, "`_id` du moteur exposé");
         assert.ok(byName.session_id, "colonne session_id présente");
       });
     });
