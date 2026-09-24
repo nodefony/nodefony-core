@@ -224,8 +224,10 @@ export async function buildConnectionHealth(
     let storage: IConnectionHealth["storage"];
     let pool: IConnectionHealth["pool"];
     let extra: IConnectionHealth["extra"];
+    let resilience: IConnectionHealth["resilience"];
     try {
       const inst = ormRegistry.get(name);
+      resilience = inst.describeResilience?.();
       connected = inst.isConnected();
       vendor = vendorOf(inst);
       const c = inst.describeConnection?.();
@@ -281,6 +283,11 @@ export async function buildConnectionHealth(
       uptimeMs: core.uptimeMs,
       connectCount: core.connectCount,
       reconnectCount: core.reconnectCount,
+      lostCount: core.lostCount,
+      lastLostAt: core.lastLostAt,
+      lastRestoredAt: core.lastRestoredAt,
+      events: core.events,
+      resilience,
       errorCount: core.errorCount,
       lastError: core.lastError,
       recentErrors: core.recentErrors,

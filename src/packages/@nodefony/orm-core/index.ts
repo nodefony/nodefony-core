@@ -126,6 +126,8 @@ export type {
   IOrmSummary,
   IOrmGraph,
   IConnectionError,
+  IConnectionEvent,
+  IOrmResilience,
   IConnectionHealth,
 } from "./nodefony/interfaces/IOrmGraph";
 export type {

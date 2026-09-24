@@ -4,6 +4,7 @@ import type {
   IColumnInfo,
   IConnectionInfo,
   IOrm,
+  IOrmResilience,
   IRepository,
   ITransaction,
 } from "../interfaces/index";
@@ -159,7 +160,7 @@ export abstract class Orm extends Service implements IOrm {
     }
     this.alive = false;
     this.#lostPending = true;
-    connectionMonitor.recordLost(this.name);
+    connectionMonitor.recordLost(this.name, reason);
     this.log(`connexion perdue : ${reason}`, "WARNING");
     this.fire("onOrmLost", this, reason);
   }
@@ -241,6 +242,23 @@ export abstract class Orm extends Service implements IOrm {
     }, this.heartbeatMs);
     timer.unref?.();
     this.#heartbeat = timer;
+  }
+
+  /**
+   * Décrit le mécanisme de résilience TEL QU'IL TOURNE — lecture pure, pour
+   * le data plane (`connection/health`) : période et montre du battement,
+   * battement actif ou non, perte en souffrance.
+   *
+   * @returns l'état du mécanisme dans ce process.
+   */
+  describeResilience(): IOrmResilience {
+    return {
+      heartbeatMs: this.heartbeatMs,
+      heartbeatTimeoutMs: this.heartbeatTimeoutMs,
+      heartbeatActive: this.#heartbeat !== null,
+      pingable: typeof (this as IOrm).ping === "function",
+      lostPending: this.#lostPending,
+    };
   }
 
   /** Arrête le battement et libère la minuterie. Idempotent. */

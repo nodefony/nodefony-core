@@ -3,9 +3,9 @@
   "repoRoot": ".",
   "stats": {
     "files": 856,
-    "symbols": 4243,
+    "symbols": 4245,
     "classes": 398,
-    "interfaces": 1123,
+    "interfaces": 1125,
     "types": 458,
     "enums": 4,
     "functions": 1837,
@@ -19596,6 +19596,24 @@
       "extends": null,
       "description": "Erreur de connexion horodatée (message **redacté** — jamais de credential)."
     },
+    "IConnectionEvent": {
+      "name": "IConnectionEvent",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Un événement de vie de la connexion : une PERTE ou une REPRISE, constatée par l'adapter (événement du driver) ou par le battement de cœur."
+    },
+    "IOrmResilience": {
+      "name": "IOrmResilience",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrmGraph.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "extends": null,
+      "description": "Le mécanisme de résilience d'un connecteur, TEL QU'IL TOURNE dans ce process. Rend lisible ce qui décide de « connecté / perdu / rétabli » : un pilote qui surveille ses serveurs (MongoDB) le sait s…"
+    },
     "IConnectionHealth": {
       "name": "IConnectionHealth",
       "kind": "interface",
@@ -37101,6 +37119,10 @@
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseWebhookStore.ts",
         "src/packages/@nodefony/security/nodefony/src/webhook/MemoryWebhookStore.ts"
       ],
+      "IOrmResilience": [
+        "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts"
+      ],
       "IColumnInfo": [
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IOrm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
@@ -37162,6 +37184,9 @@
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts"
       ],
       "IConnectionError": [
+        "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts"
+      ],
+      "IConnectionEvent": [
         "src/packages/@nodefony/orm-core/nodefony/src/ConnectionMonitor.ts"
       ],
       "FieldOperators": [

@@ -60,6 +60,31 @@ describe("Orm — contrat de résilience (perte / reprise de connexion)", () => 
     }
   });
 
+  it("describeResilience : dit la perte EN SOUFFRANCE, puis sa réparation", async () => {
+    const orm = mk("res-describe");
+    await orm.connect();
+    let r = orm.describeResilience();
+    assert.equal(r.lostPending, false);
+    assert.equal(r.heartbeatTimeoutMs, 5_000);
+    // Sans `ping()`, pas de battement possible : la description le dit.
+    assert.equal(r.pingable, false);
+    assert.equal(r.heartbeatActive, false);
+
+    orm.signalLost("serveur injoignable");
+    r = orm.describeResilience();
+    assert.equal(r.lostPending, true);
+    const lost = connectionMonitor.snapshot("res-describe").events[0];
+    assert.equal(lost.kind, "lost");
+    assert.equal(lost.reason, "serveur injoignable");
+
+    orm.signalRestored();
+    assert.equal(orm.describeResilience().lostPending, false);
+    assert.equal(
+      connectionMonitor.snapshot("res-describe").events[0].kind,
+      "restored",
+    );
+  });
+
   it("un ORM neuf n'est PAS connecté tant que connect() n'a pas abouti", () => {
     const orm = mk("res-neuf");
     assert.equal(orm.isConnected(), false);

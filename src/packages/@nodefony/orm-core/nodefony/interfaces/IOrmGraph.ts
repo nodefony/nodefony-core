@@ -111,6 +111,39 @@ export interface IConnectionError {
 }
 
 /**
+ * Un événement de vie de la connexion : une PERTE ou une REPRISE, constatée
+ * par l'adapter (événement du driver) ou par le battement de cœur.
+ */
+export interface IConnectionEvent {
+  /** `lost` : la base a cessé de répondre ; `restored` : elle répond à nouveau. */
+  kind: "lost" | "restored";
+  /** Horodatage epoch ms. */
+  ts: number;
+  /** Cause de la perte (credential déjà retiré) — absente pour une reprise. */
+  reason?: string;
+}
+
+/**
+ * Le mécanisme de résilience d'un connecteur, TEL QU'IL TOURNE dans ce process.
+ *
+ * Rend lisible ce qui décide de « connecté / perdu / rétabli » : un pilote qui
+ * surveille ses serveurs (MongoDB) le sait seul ; les autres ne l'apprennent
+ * que par une requête, d'où le battement de cœur que porte la classe `Orm`.
+ */
+export interface IOrmResilience {
+  /** Période du battement (ms) ; `0` = désactivé (`NF_ORM_HEARTBEAT_MS=0`). */
+  heartbeatMs: number;
+  /** Délai au-delà duquel un battement sans réponse vaut une perte (ms). */
+  heartbeatTimeoutMs: number;
+  /** Le battement tourne-t-il en ce moment ? */
+  heartbeatActive: boolean;
+  /** L'adapter sait-il répondre à `ping()` (condition du battement) ? */
+  pingable: boolean;
+  /** Une perte est-elle constatée et PAS ENCORE réparée ? */
+  lostPending: boolean;
+}
+
+/**
  * Diagnostic d'un connecteur — réponse de `/nodefony/orm/api/connection/health`.
  * Combine l'état figé ({@link IConnectionInfo}), les compteurs de cycle de vie
  * (connexions, **reconnexions**, **erreurs**) du moniteur, et un **ping live**
@@ -143,8 +176,18 @@ export interface IConnectionHealth {
   uptimeMs: number | null;
   /** Nombre total de connexions réussies. */
   connectCount: number;
-  /** Reconnexions (connexions au-delà de la première). */
+  /** Reprises CONSTATÉES après une perte (jamais déduites des connexions). */
   reconnectCount: number;
+  /** Pertes constatées depuis le démarrage du process. */
+  lostCount: number;
+  /** Dernière perte (epoch ms), `null` si aucune. */
+  lastLostAt: number | null;
+  /** Dernière reprise (epoch ms), `null` si aucune. */
+  lastRestoredAt: number | null;
+  /** Pertes et reprises récentes (ring borné, plus récentes d'abord). */
+  events: IConnectionEvent[];
+  /** Mécanisme de détection et de reprise, si l'ORM le décrit. */
+  resilience?: IOrmResilience;
   /** Nombre total d'erreurs enregistrées (connexion + ping). */
   errorCount: number;
   /** Dernière erreur, `null` si aucune. */

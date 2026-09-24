@@ -1,4 +1,7 @@
-import type { IConnectionError } from "../interfaces/IOrmGraph";
+import type {
+  IConnectionError,
+  IConnectionEvent,
+} from "../interfaces/IOrmGraph";
 import type { ILatencyWindow } from "../interfaces/IOrmProbe";
 
 /**
@@ -12,6 +15,10 @@ interface MutableStats {
   reconnectCount: number;
   /** Pertes constatées — un incident qui n'a pas encore trouvé sa reprise. */
   lostCount: number;
+  lastLostAt: number | null;
+  lastRestoredAt: number | null;
+  /** Pertes/reprises récentes — `null` tant qu'aucune n'a eu lieu (lazy). */
+  events: IConnectionEvent[] | null;
   errorCount: number;
   lastConnectMs: number | null;
   lastError: IConnectionError | null;
@@ -27,6 +34,12 @@ export interface IConnectionMonitorCore {
   reconnectCount: number;
   /** Pertes de connexion constatées depuis le démarrage du process. */
   lostCount: number;
+  /** Dernière perte (epoch ms), `null` si aucune. */
+  lastLostAt: number | null;
+  /** Dernière reprise (epoch ms), `null` si aucune. */
+  lastRestoredAt: number | null;
+  /** Pertes et reprises récentes, plus récentes d'abord. */
+  events: IConnectionEvent[];
   errorCount: number;
   lastConnectMs: number | null;
   lastError: IConnectionError | null;
@@ -36,6 +49,8 @@ export interface IConnectionMonitorCore {
 
 /** Taille max du ring d'erreurs récentes (borne mémoire). */
 const MAX_RECENT_ERRORS = 12;
+/** Taille max de la chronologie pertes/reprises (borne mémoire). */
+const MAX_EVENTS = 20;
 /** Taille de la fenêtre glissante de latence (min/moy/max). */
 const MAX_LATENCY_SAMPLES = 30;
 
@@ -55,6 +70,9 @@ const EMPTY_CORE: IConnectionMonitorCore = {
   connectCount: 0,
   reconnectCount: 0,
   lostCount: 0,
+  lastLostAt: null,
+  lastRestoredAt: null,
+  events: [],
   errorCount: 0,
   lastConnectMs: null,
   lastError: null,
@@ -95,6 +113,9 @@ class ConnectionMonitor {
         connectCount: 0,
         reconnectCount: 0,
         lostCount: 0,
+        lastLostAt: null,
+        lastRestoredAt: null,
+        events: null,
         errorCount: 0,
         lastConnectMs: null,
         lastError: null,
@@ -147,11 +168,15 @@ class ConnectionMonitor {
    * preuve de bonne santé.
    *
    * @param name - clé du connecteur.
+   * @param reason - cause lisible (credential déjà retiré), si connue.
    */
-  recordLost(name: string): void {
+  recordLost(name: string, reason?: string): void {
     const s = this.#ensure(name);
+    const ts = Date.now();
     s.lostCount += 1;
     s.connectedSince = null;
+    s.lastLostAt = ts;
+    this.#pushEvent(s, { kind: "lost", ts, reason });
   }
 
   /**
@@ -161,8 +186,22 @@ class ConnectionMonitor {
    */
   recordReconnect(name: string): void {
     const s = this.#ensure(name);
+    const ts = Date.now();
     s.reconnectCount += 1;
-    s.connectedSince = Date.now();
+    s.connectedSince = ts;
+    s.lastRestoredAt = ts;
+    this.#pushEvent(s, { kind: "restored", ts });
+  }
+
+  /** Ajoute un événement en tête de la chronologie (allouée au 1ᵉʳ, bornée). */
+  #pushEvent(s: MutableStats, e: IConnectionEvent): void {
+    if (s.events === null) {
+      s.events = [];
+    }
+    s.events.unshift(e);
+    if (s.events.length > MAX_EVENTS) {
+      s.events.length = MAX_EVENTS;
+    }
   }
 
   /**
@@ -222,6 +261,9 @@ class ConnectionMonitor {
       connectCount: s.connectCount,
       reconnectCount: s.reconnectCount,
       lostCount: s.lostCount,
+      lastLostAt: s.lastLostAt,
+      lastRestoredAt: s.lastRestoredAt,
+      events: s.events ?? [],
       errorCount: s.errorCount,
       lastConnectMs: s.lastConnectMs,
       lastError: s.lastError,

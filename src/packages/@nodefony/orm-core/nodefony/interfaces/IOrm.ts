@@ -1,6 +1,6 @@
 import type { IRepository } from "./IRepository";
 import type { ITransaction } from "./ITransaction";
-import type { IColumnInfo, IConnectionInfo } from "./IOrmGraph";
+import type { IOrmResilience, IColumnInfo, IConnectionInfo } from "./IOrmGraph";
 import type { IOrmProbe } from "./IOrmProbe";
 import type {
   IOrmMigrationApplyReply,
@@ -86,6 +86,16 @@ export interface IOrm {
    * @returns infos de connexion, ou `undefined` si non implémenté.
    */
   describeConnection?(): IConnectionInfo;
+
+  /**
+   * Décrit le mécanisme de résilience tel qu'il tourne (battement, perte en
+   * souffrance) pour le data plane. **Optionnel** : la classe `Orm` l'implémente
+   * pour tous ses adapters ; un ORM qui ne dérive pas d'elle laisse le
+   * diagnostic sans cette section.
+   *
+   * @returns l'état du mécanisme.
+   */
+  describeResilience?(): IOrmResilience;
 
   /**
    * Ping bas-coût de la connexion (round-trip réel vers la base) pour le

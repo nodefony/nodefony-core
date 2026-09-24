@@ -59,6 +59,34 @@ describe("ConnectionMonitor — observabilité per-instance des connexions", () 
     assert.notEqual(snap.connectedSince, null);
   });
 
+  it("pertes et reprises DATÉES : chronologie ordonnée, motif gardé, bornée à 20", () => {
+    const n = "cm-events";
+    connectionMonitor.recordConnect(n, 1);
+    // Aucune perte : pas de chronologie, et rien d'alloué pour elle.
+    assert.deepEqual(connectionMonitor.snapshot(n).events, []);
+    assert.equal(connectionMonitor.snapshot(n).lastLostAt, null);
+
+    connectionMonitor.recordLost(n, "ECONNRESET");
+    connectionMonitor.recordReconnect(n);
+    const snap = connectionMonitor.snapshot(n);
+    assert.deepEqual(
+      snap.events.map((e) => e.kind),
+      ["restored", "lost"],
+    );
+    assert.equal(snap.events[1].reason, "ECONNRESET");
+    assert.equal(snap.events[0].reason, undefined);
+    assert.ok(snap.lastLostAt !== null && snap.lastRestoredAt !== null);
+    assert.ok(snap.lastRestoredAt >= snap.lastLostAt);
+
+    for (let i = 0; i < 30; i++) {
+      connectionMonitor.recordLost(n, `coupure ${i}`);
+    }
+    const many = connectionMonitor.snapshot(n);
+    assert.equal(many.events.length, 20);
+    assert.equal(many.events[0].reason, "coupure 29");
+    assert.equal(many.lostCount, 31);
+  });
+
   it("recordError : compte + lastError + ring borné à 12", () => {
     const n = "cm-error";
     for (let i = 0; i < 15; i++) {

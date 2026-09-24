@@ -20,6 +20,8 @@ export type {
   IOrmSummary,
   IOrmGraph,
   IConnectionError,
+  IConnectionEvent,
+  IOrmResilience,
   IConnectionHealth,
 } from "./IOrmGraph";
 export type {
