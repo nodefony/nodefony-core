@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 856,
-    "symbols": 4241,
+    "symbols": 4243,
     "classes": 398,
     "interfaces": 1123,
     "types": 458,
     "enums": 4,
-    "functions": 1835,
+    "functions": 1837,
     "constants": 423
   },
   "symbols": {
@@ -18485,6 +18485,14 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Force du signal « la base ne porte pas ce que le code demande ». Deux niveaux, parce que les pilotes ne disent pas la chose avec la même autorité — et parce que leurs lecteurs n'ont pas le même coû…"
+    },
+    "malformedIdentifierOf": {
+      "name": "malformedIdentifierOf",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Reconnaît un identifiant MAL FORMÉ refusé par la base, et rend la valeur fautive. Deux moteurs le disent : MongoDB par une `CastError` de Mongoose (la clé est un ObjectId), PostgreSQL par `22P02` (…"
     },
     "schemaMismatchOf": {
       "name": "schemaMismatchOf",

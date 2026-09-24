@@ -344,6 +344,17 @@ describe("e2e — <%= it.pascal %> : le cycle CRUD complet", () => {
     expect(res.status).toBe(400);
   });
 <% } %>
+  it("identifiant MAL FORMÉ dans le chemin → 404, pas 500", async () => {
+    // Un identifiant qui ne peut désigner aucune ressource : la vérité est
+    // « introuvable ». SQLite et MySQL rendaient déjà 404 ; PostgreSQL et
+    // MongoDB, dont la clé est typée, levaient — même appel, statut différent
+    // selon le moteur.
+    const res = await fetch(`${BASE}${ROUTE}/pas-un-identifiant`, {
+      headers: AUTH,
+    });
+    expect(res.status).toBe(404);
+  });
+
   it("DELETE → 204, et l'enregistrement n'est plus lisible", async () => {
     const created = await fetch(`${BASE}${ROUTE}`, {
       method: "POST",

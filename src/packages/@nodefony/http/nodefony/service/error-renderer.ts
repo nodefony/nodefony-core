@@ -206,6 +206,102 @@ function isUniqueViolation(error: Error): boolean {
 }
 
 /**
+ * Types de colonne dont une valeur mal formée est un IDENTIFIANT mal formé,
+ * tel que PostgreSQL le nomme dans son message `22P02`.
+ *
+ * Restreint aux types qui portent des clés : `22P02` couvre aussi une date ou
+ * un JSON illisibles, que le contrat d'entrée rejette avant la base — les
+ * retenir ici déguiserait en faute du client une valeur fabriquée par le code.
+ */
+const IDENTIFIER_COLUMN_TYPES = new Set<string>([
+  "uuid",
+  "integer",
+  "bigint",
+  "smallint",
+]);
+
+/**
+ * Signature figée du message `22P02` de PostgreSQL : le type visé, puis la
+ * valeur refusée entre guillemets. Même statut que {@link SQLITE_SCHEMA_PREFIXES} :
+ * un début de message stable dans le source du moteur, lu seulement APRÈS le code.
+ */
+const PG_INVALID_INPUT = /^invalid input syntax for type (\w+): "(.*)"$/su;
+
+/**
+ * Reconnaît un identifiant MAL FORMÉ refusé par la base, et rend la valeur fautive.
+ *
+ * Deux moteurs le disent : MongoDB par une `CastError` de Mongoose (la clé est
+ * un ObjectId), PostgreSQL par `22P02` (la clé est un `uuid` ou un entier).
+ * SQLite et MySQL rangent la clé en texte : ils ne lèvent rien, la lecture rend
+ * simplement « rien », d'où leur 404 — c'est la cohérence avec eux qui est visée.
+ *
+ * Même descente dans `cause` que {@link isUniqueViolation} (Drizzle enveloppe).
+ *
+ * @param error - erreur remontée par le pipeline.
+ * @returns la valeur refusée, ou `null` si ce n'est pas ce cas.
+ */
+export function malformedIdentifierOf(error: unknown): string | null {
+  let current: unknown = error;
+  for (let depth = 0; depth < 5 && current instanceof Error; depth += 1) {
+    const candidate = current as Error & {
+      code?: unknown;
+      kind?: unknown;
+      value?: unknown;
+    };
+    // Reconnaissance STRUCTURELLE (`name` + `kind`), pas `instanceof` : même
+    // raison que pour zod — l'application embarque sa copie de mongoose.
+    if (
+      candidate.name === "CastError" &&
+      (candidate.kind === "ObjectId" || candidate.kind === "UUID") &&
+      (typeof candidate.value === "string" ||
+        typeof candidate.value === "number")
+    ) {
+      return String(candidate.value);
+    }
+    if (String(candidate.code) === "22P02") {
+      const match = PG_INVALID_INPUT.exec(candidate.message ?? "");
+      if (match && IDENTIFIER_COLUMN_TYPES.has(match[1])) return match[2];
+    }
+    current = candidate.cause;
+  }
+  return null;
+}
+
+/**
+ * Statut d'un identifiant mal formé : **404** s'il vient du CHEMIN, **400** sinon.
+ *
+ * Le chemin DÉSIGNE une ressource : `/api/posts/abc` demande une ressource qui ne
+ * peut pas exister, et SQLite comme MySQL rendent déjà 404 — le client reçoit le
+ * même statut quel que soit le moteur. Une valeur venue d'ailleurs (filtre,
+ * corps) est un PARAMÈTRE invalide : un 404 y dirait « la collection n'existe
+ * pas », ce qui est faux. On compare aux segments DÉCODÉS du chemin — l'URL est
+ * reçue encodée, la valeur est ce que la base a vu.
+ *
+ * @param value - la valeur refusée par la base.
+ * @param url - l'URL de la requête (`context.url`).
+ */
+function malformedIdentifierStatus(
+  value: string,
+  url: string | undefined,
+): 404 | 400 {
+  if (!url) return 400;
+  let pathname: string;
+  try {
+    pathname = new URL(url, "http://nodefony.invalid").pathname;
+  } catch {
+    return 400;
+  }
+  for (const segment of pathname.split("/")) {
+    try {
+      if (decodeURIComponent(segment) === value) return 404;
+    } catch {
+      if (segment === value) return 404;
+    }
+  }
+  return 400;
+}
+
+/**
  * Codes rendus par les pilotes quand la requête porte sur une TABLE ou une
  * COLONNE que la base n'a pas — la signature d'un schéma en retard sur le code.
  *
@@ -461,6 +557,23 @@ class DefaultErrorRenderer implements IErrorRenderer {
         CONFLICT_STATUS,
         context as unknown as undefined,
       );
+    }
+    const malformed = malformedIdentifierOf(error);
+    if (malformed !== null) {
+      const status = malformedIdentifierStatus(
+        malformed,
+        (context as { url?: string } | undefined)?.url,
+      );
+      // Message écrit POUR le client, sans le texte du pilote (qui nomme le
+      // type de colonne) ; le détail reste dans la `stack`.
+      const refused = new nodefonyError(
+        status === 404
+          ? "Not Found — this identifier cannot designate any resource"
+          : "Bad Request — malformed identifier",
+        status,
+      );
+      refused.stack = error.stack;
+      return new HttpError(refused, status, context as unknown as undefined);
     }
     // Le `code` n'est passé que s'il est numérique : `HttpError` pose
     // `response.statusCode = code` DÈS son constructeur, donc un code textuel de

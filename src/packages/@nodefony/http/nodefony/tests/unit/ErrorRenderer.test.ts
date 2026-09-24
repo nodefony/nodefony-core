@@ -245,6 +245,105 @@ describe("DefaultErrorRenderer — unit tests (P1.5)", () => {
   // Écrire deux fois la même valeur unique n'est pas une panne : c'est un refus
   // d'état, et le client peut agir dessus (proposer un autre identifiant). Rendu
   // en 500, il n'avait aucun moyen de faire la différence avec un serveur cassé.
+  describe("identifiant mal formé → 404 dans le chemin, 400 ailleurs", () => {
+    // SQLite et MySQL rangent la clé en texte : `GET /api/posts/abc` y rend
+    // 404. PostgreSQL (`22P02`) et MongoDB (`CastError`) levaient — 500. Le
+    // même appel doit rendre le même statut quel que soit le moteur (#466).
+    function withUrl(url: string) {
+      return { ...fakeHttpContext(), url };
+    }
+    function pgInvalid(type: string, value: string): Error {
+      const inner = new Error(
+        `invalid input syntax for type ${type}: "${value}"`,
+      ) as Error & { code: string };
+      inner.code = "22P02";
+      const outer = new Error("Failed query: select …") as Error & {
+        cause: unknown;
+      };
+      outer.name = "DrizzleQueryError";
+      outer.cause = inner;
+      return outer;
+    }
+    function castError(value: string): Error {
+      const e = new Error(
+        `Cast to ObjectId failed for value "${value}" (type string) at path "_id"`,
+      ) as Error & { kind: string; value: string };
+      e.name = "CastError";
+      e.kind = "ObjectId";
+      e.value = value;
+      return e;
+    }
+
+    it("PostgreSQL — uuid mal formé dans le CHEMIN → 404", () => {
+      const r = renderer.renderHttp(
+        pgInvalid("uuid", "abc"),
+        withUrl("https://h/api/posts/abc") as never,
+      );
+      expect(r.status).to.equal(404);
+    });
+
+    it("PostgreSQL — entier mal formé dans le chemin → 404", () => {
+      const r = renderer.renderHttp(
+        pgInvalid("integer", "abc"),
+        withUrl("https://h/api/posts/abc?include=author") as never,
+      );
+      expect(r.status).to.equal(404);
+    });
+
+    it("MongoDB — CastError dans le chemin → 404, segment ENCODÉ compris", () => {
+      const r = renderer.renderHttp(
+        castError("a b"),
+        withUrl("https://h/api/posts/a%20b") as never,
+      );
+      expect(r.status).to.equal(404);
+    });
+
+    it("valeur venue d'un FILTRE (hors chemin) → 400", () => {
+      for (const error of [pgInvalid("uuid", "abc"), castError("abc")]) {
+        const r = renderer.renderHttp(
+          error,
+          withUrl("https://h/api/posts?author=abc") as never,
+        );
+        expect(r.status).to.equal(400);
+      }
+    });
+
+    it("le message du pilote ne franchit pas la frontière (type de colonne)", () => {
+      const r = renderer.renderHttp(
+        pgInvalid("uuid", "abc"),
+        withUrl("https://h/api/posts/abc") as never,
+      );
+      expect(r.message).to.not.contain("uuid");
+      expect(r.message).to.not.contain("invalid input syntax");
+    });
+
+    it("22P02 sur un type NON identifiant (date, json) reste 500", () => {
+      const r = renderer.renderHttp(
+        pgInvalid("json", "abc"),
+        withUrl("https://h/api/posts/abc") as never,
+      );
+      expect(r.status).to.equal(500);
+    });
+
+    it("CastError sur un autre type qu'un identifiant reste 500", () => {
+      const e = castError("abc") as Error & { kind: string };
+      e.kind = "Number";
+      const r = renderer.renderHttp(
+        e,
+        withUrl("https://h/api/posts/abc") as never,
+      );
+      expect(r.status).to.equal(500);
+    });
+
+    it("sans URL (contexte inconnu) → 400, jamais un 404 deviné", () => {
+      const r = renderer.renderHttp(
+        pgInvalid("uuid", "abc"),
+        fakeHttpContext() as never,
+      );
+      expect(r.status).to.equal(400);
+    });
+  });
+
   describe("violation de contrainte unique → 409", () => {
     /**
      * Erreur telle qu'un pilote la produit, ENVELOPPÉE comme le fait Drizzle.
