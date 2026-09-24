@@ -13,8 +13,8 @@
     }
   },
   "scripts": {
-    "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
-    "clean": "rimraf dist",
+    "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "dev": "rolldown -c rolldown.config.ts --watch",
     "test": "vitest run",
     "test:watch": "vitest",

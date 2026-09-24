@@ -193,7 +193,7 @@ for (const w of workspaces) {
     }
     // `--ignore-scripts` : le tarball se prépare ICI — bascule des `exports.types`
     // et extension des specifiers `.d.ts` juste au-dessus. Un `prepack` qui
-    // reconstruit (`rimraf dist && … && tsgo`) EFFACE cette préparation, et le
+    // reconstruit (rolldown vide `dist`, puis `tsgo`) EFFACE cette préparation, et le
     // paquet part avec des specifiers relatifs nus, illégaux en node16/ESM. Le
     // défaut est resté invisible tant que le paquet concerné ne publiait aucun
     // type : personne n'avait de quoi le contrôler. Le tarball reflète donc le

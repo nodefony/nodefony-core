@@ -25,9 +25,9 @@
     }
   },
   "scripts": {
-    "build": "rimraf dist && rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
+    "build": "rolldown -c rolldown.config.ts && tsgo -p tsconfig.declarations.json",
     "dev": "rolldown -c rolldown.config.ts --watch",
-    "clean": "rimraf dist",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "test": "vitest run",
     "coverage": "vitest run --coverage",
     "lint": "tsgo --noEmit"
@@ -38,7 +38,6 @@
     "@types/node": "26.0.1",
     "@vitest/coverage-v8": "4.1.8",
     "nodefony": "*",
-    "rimraf": "6.1.3",
     "vitest": "4.1.8"
   },
   "private": true,
@@ -183,6 +182,8 @@ field séparé `cfg: FooConfig` (voir template Service).
 import { defineNodefonyRolldownConfig } from "nodefony/bundler";
 
 export default defineNodefonyRolldownConfig({
+  // Vide `dist` à l'émission (pas avant la compilation) : pas de `rimraf`.
+  cleanDir: true,
   external: [
     "nodefony",
     // Ajouter selon peer_deps :

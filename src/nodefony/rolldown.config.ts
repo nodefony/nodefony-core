@@ -50,6 +50,9 @@ const nodeConfig: RolldownOptions = defineConfig({
   treeshake: nodefonyTreeshake,
   output: {
     dir: "dist",
+    // Vide `dist` à l'émission, pas avant la compilation : 1ʳᵉ config du
+    // tableau, les trois suivantes écrivent APRÈS elle (bin, client, debugbar).
+    cleanDir: true,
     entryFileNames: "node/[name].js",
     format: "esm",
     sourcemap: false,

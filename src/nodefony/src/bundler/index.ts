@@ -51,6 +51,15 @@ export interface INodefonyRolldownOptions {
   preserveModulesRoot?: string;
   /** Dossier de sortie (défaut `"dist"`). */
   outDir?: string;
+  /**
+   * Vide `outDir` juste AVANT l'émission (défaut `false`) — et non avant la
+   * compilation comme un `rimraf dist && …` : le dossier ne reste vide que le
+   * temps de l'écriture, pas celui du build entier. Un test ou un serveur qui
+   * importe `dist` pendant un rebuild (DevSupervisor) ne le trouve plus absent.
+   * Opt-in : un `outDir` qui héberge d'autres sorties (le `dist` d'une
+   * application, `symbols.json` à la racine du dépôt) serait vidé avec.
+   */
+  cleanDir?: boolean;
 }
 
 const IGNORED = [/\.d\.ts$/u, /\.test\.ts$/u, /\.spec\.ts$/u, /(^|\/)tests\//u];
@@ -158,6 +167,7 @@ export function defineNodefonyRolldownConfig(
     treeshake: nodefonyTreeshake,
     output: {
       dir: opts.outDir ?? "dist",
+      cleanDir: opts.cleanDir ?? false,
       format: "esm",
       entryFileNames: "[name].js",
       exports: "auto",

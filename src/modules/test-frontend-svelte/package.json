@@ -5,9 +5,9 @@
   "type": "module",
   "main": "dist/index.js",
   "scripts": {
-    "build": "rimraf dist && rolldown -c rolldown.config.ts",
+    "build": "rolldown -c rolldown.config.ts",
     "dev": "rolldown -c rolldown.config.ts --watch",
-    "clean": "rimraf dist",
+    "clean": "node --eval \"require('node:fs').rmSync('dist',{recursive:true,force:true})\"",
     "frontend:vite-only": "vite --config frontend/vite.config.generated.mjs"
   },
   "private": true,
@@ -35,8 +35,7 @@
     "@nodefony/http": "*",
     "@sveltejs/vite-plugin-svelte": "^7.3.1",
     "@types/node": "26.6.2",
-    "nodefony": "*",
-    "rimraf": "6.1.3"
+    "nodefony": "*"
   },
   "license": "Apache-2.0"
 }

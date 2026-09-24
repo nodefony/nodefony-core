@@ -120,6 +120,21 @@ describe("nodefony/bundler — socle rolldown partagé (subpath publiable)", () 
       assert.isFalse(external("left-pad"), "hors package.json → bundlé");
     });
 
+    it("cleanDir : éteint par défaut, transmis à output quand demandé", () => {
+      const off = defineNodefonyRolldownConfig({
+        input: { index: "./index.ts" },
+      });
+      const on = defineNodefonyRolldownConfig({
+        input: { index: "./index.ts" },
+        cleanDir: true,
+      });
+      const out = (c: typeof off) =>
+        c.output as { cleanDir?: boolean } | undefined;
+      // Opt-in : un outDir qui héberge d'autres sorties serait vidé avec.
+      assert.isFalse(out(off)?.cleanDir);
+      assert.isTrue(out(on)?.cleanDir);
+    });
+
     it("externalDeps par défaut OFF (liste explicite des packages du repo)", () => {
       const config = defineNodefonyRolldownConfig({
         input: { index: "./index.ts" },

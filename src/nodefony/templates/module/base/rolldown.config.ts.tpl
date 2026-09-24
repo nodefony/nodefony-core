@@ -10,5 +10,12 @@ import { defineNodefonyRolldownConfig } from "nodefony/bundler";
  * le bundle — ils sont résolus au runtime depuis les node_modules de l'app.
  * Le Kernel charge ensuite `dist/index.js` par le nom du paquet
  * (manifeste `modules` de `nodefony.config.ts`).
+ *
+ * `cleanDir` vide `dist/` juste avant l'écriture : les fichiers périmés
+ * disparaissent, et le dossier n'est jamais absent pendant la compilation. Un
+ * front publié dans `dist/` doit donc être bâti APRÈS (script enchaîné).
  */
-export default defineNodefonyRolldownConfig({ externalDeps: true });
+export default defineNodefonyRolldownConfig({
+  externalDeps: true,
+  cleanDir: true,
+});

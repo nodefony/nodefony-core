@@ -556,7 +556,7 @@ async function main(): Promise<void> {
   // `--continue`, jamais `--force`. Deux pièges appris à la dure :
   //
   //  - `--force` invalide TOUT le graphe, y compris les builds dont `test`
-  //    dépend : un `rimraf dist` repartait alors PENDANT qu'un test bootait
+  //    dépend : un build (qui vide `dist`) repartait alors PENDANT qu'un test bootait
   //    l'application, qui échouait sur un module introuvable. On rebâtit une fois,
   //    proprement, puis on laisse le cache faire son travail.
   //  - sans `--continue`, la première suite en échec emporte les suivantes : 8
@@ -564,7 +564,7 @@ async function main(): Promise<void> {
   //    6 000. Un échec doit coûter un échec, pas l'aveuglement sur le reste.
   //
   // Le build précède TOUT : un test qui boote l'application tombe sinon sur le
-  // `rimraf dist` d'un autre paquet, et l'échec pointe un sujet sans rapport.
+  // build (qui vide `dist`) d’un autre paquet, et l'échec pointe un sujet sans rapport.
   //
   // `npm run build`, PAS `turbo run build` : le premier enchaîne les workspaces
   // ET l'application racine (`dist/index.js`). Sans elle, le kernel ne trouve pas
