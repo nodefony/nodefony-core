@@ -23,7 +23,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // racine de l'app, et le typecheck échoue sur un import introuvable.
   // Version ÉPINGLÉE comme dans le monorepo : en 0.x la mineure porte les
   // ruptures, et le repository dépend de comportements fins (cf `limit(-1)`).
-  "drizzle-orm": "0.45.2",
+  "drizzle-orm": "0.45.3",
   // ── Les trois pilotes de base, et pourquoi l'APPLICATION les déclare ──
   //
   // `@nodefony/drizzle` les porte en dépendance de pair OPTIONNELLE : la
@@ -50,7 +50,7 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   // écrites. Épinglée pour la même raison que `drizzle-orm` : en 0.x la mineure
   // porte les ruptures, et le format du journal qu'il écrit est lu par
   // l'applicateur du framework.
-  "drizzle-kit": "0.31.10",
+  "drizzle-kit": "0.31.11",
   // 🔴 Pas une dépendance de l'application : la cible d'un `overrides`.
   // `drizzle-kit` traîne `@esbuild-kit/esm-loader`, DÉPRÉCIÉ (fusionné dans
   // `tsx`) et épinglé sur `esbuild ~0.18.20` — la branche où le serveur de
@@ -75,9 +75,9 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   "@node-rs/argon2": "^2.2.1",
   "@types/node": "^26.6.2",
   "@typescript/native-preview": "^7.0.0-dev.20260707.2",
-  oxlint: "^1.83.0",
-  prettier: "^3.9.8",
-  rolldown: "^1.2.9",
+  oxlint: "^1.85.0",
+  prettier: "^3.9.9",
+  rolldown: "^1.2.10",
   typescript: "^6.0.3",
   vitest: "^5.0.1",
   // Mesure de couverture. DÉCLARÉE, et non installée à la demande par un script
@@ -95,13 +95,13 @@ export const SCAFFOLD_VERSIONS: Record<string, string> = {
   vue: "^3.5.43",
   "@vitejs/plugin-vue": "^6.0.9",
   svelte: "^5.57.1",
-  "@sveltejs/vite-plugin-svelte": "^7.3.0",
-  "@angular/core": "^22.1.7",
-  "@angular/common": "^22.1.7",
-  "@angular/platform-browser": "^22.1.7",
+  "@sveltejs/vite-plugin-svelte": "^7.3.1",
+  "@angular/core": "^22.2.0",
+  "@angular/common": "^22.2.0",
+  "@angular/platform-browser": "^22.2.0",
   "@analogjs/vite-plugin-angular": "^2.7.2",
-  "@angular/build": "^22.1.8",
-  "@angular/compiler-cli": "^22.1.7",
+  "@angular/build": "^22.2.0",
+  "@angular/compiler-cli": "^22.2.0",
 };
 
 /** Sous-ensemble du catalogue (helper des tables par framework). */
