@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import {
+  describeConnectFailure,
   diagnoseConnectionFailure,
   parseConnectionTarget,
 } from "../../nodefony/src/connectionDiagnosis";
@@ -114,11 +115,68 @@ describe("diagnoseConnectionFailure — quelqu'un a répondu", () => {
   });
 });
 
+describe("diagnoseConnectionFailure — connecté, puis une instruction refusée", () => {
+  it("🔴 SQLSTATE 42804 (FK uuid → text) : ne parle PAS de connexion, nomme le refus", () => {
+    // Vécu en CI : rapporté « échec de connexion à 127.0.0.1:5432 (42804) »
+    // alors que la base répondait très bien — une clé étrangère était refusée.
+    const d = diagnoseConnectionFailure(
+      { code: "42804" },
+      { host: "127.0.0.1", port: 5432 },
+    );
+    assert.equal(d.verdict, "rejected");
+    assert.equal(d.code, "42804");
+    assert.match(d.explanation, /a ABOUTI/);
+    assert.match(d.explanation, /refusé une instruction \(42804\)/);
+    assert.ok(!d.explanation.includes("démarrée"));
+    assert.ok(!d.explanation.includes("échec de connexion"));
+  });
+
+  it("toute classe SQLSTATE hors connexion prouve que la connexion avait abouti", () => {
+    for (const code of ["42P07", "23505", "0A000", "XX000"]) {
+      assert.equal(
+        diagnoseConnectionFailure({ code }).verdict,
+        "rejected",
+        code,
+      );
+    }
+  });
+
+  it("MySQL/MariaDB : un `ER_*` d'instruction est un refus, pas une connexion manquée", () => {
+    for (const code of [
+      "ER_FK_INCOMPATIBLE_COLUMNS",
+      "ER_CANNOT_ADD_FOREIGN",
+    ]) {
+      assert.equal(
+        diagnoseConnectionFailure({ code }).verdict,
+        "rejected",
+        code,
+      );
+    }
+  });
+
+  it("les classes de CONNEXION (08, 57) et la phase d'établissement MySQL n'y entrent pas", () => {
+    for (const code of [
+      "08006",
+      "57P01",
+      "57P03",
+      "ER_CON_COUNT_ERROR",
+      "ER_SERVER_SHUTDOWN",
+      "EPIPE",
+    ]) {
+      assert.notEqual(
+        diagnoseConnectionFailure({ code }).verdict,
+        "rejected",
+        code,
+      );
+    }
+  });
+});
+
 describe("diagnoseConnectionFailure — ce qu'on ne sait pas", () => {
   it("un code inconnu ne fait affirmer NI l'un NI l'autre", () => {
-    const d = diagnoseConnectionFailure({ code: "42P07" });
+    const d = diagnoseConnectionFailure({ code: "PROTOCOL_CONNECTION_LOST" });
     assert.equal(d.verdict, "unknown");
-    assert.equal(d.code, "42P07");
+    assert.equal(d.code, "PROTOCOL_CONNECTION_LOST");
     assert.ok(!d.explanation.includes("AUTRE SERVEUR"));
     assert.ok(!d.explanation.includes("personne n'écoute"));
   });
@@ -169,5 +227,72 @@ describe("parseConnectionTarget — l'adresse, jamais le secret", () => {
     for (const url of [undefined, null, "", "pas une url"]) {
       assert.deepEqual(parseConnectionTarget(url), { host: null, port: null });
     }
+  });
+});
+
+describe("diagnoseConnectionFailure — la forme RÉELLE d'une erreur MongoDB", () => {
+  it("`code` numérique ET `codeName` : c'est le NOM qui est lu", () => {
+    // Un `MongoServerError` porte les deux ; lu en premier, `18` masquait
+    // `AuthenticationFailed` et le refus n'était jamais reconnu.
+    const d = diagnoseConnectionFailure({
+      code: 18,
+      codeName: "AuthenticationFailed",
+    });
+    assert.equal(d.verdict, "answered");
+    assert.equal(d.code, "AuthenticationFailed");
+  });
+});
+
+describe("describeConnectFailure — la phrase de démarrage", () => {
+  const subject = `Drizzle : le connecteur "default" (postgres: 127.0.0.1:5432/app)`;
+  const cause = 'foreign key constraint "user_ref_fk" cannot be implemented';
+
+  it("🔴 un refus d'instruction ne commence PAS par « n'a pas pu se connecter », et la cause passe en tête", () => {
+    const d = diagnoseConnectionFailure(
+      { code: "42804" },
+      { host: "127.0.0.1", port: 5432 },
+    );
+    const msg = describeConnectFailure(
+      subject,
+      d,
+      cause,
+      " Si l'adresse est la bonne, …",
+    );
+    assert.ok(!msg.includes("n'a pas pu se connecter"), msg);
+    assert.ok(
+      !msg.includes("Si l'adresse"),
+      "le conseil de connexion n'a rien à faire ici",
+    );
+    assert.ok(
+      msg.indexOf(cause) < msg.indexOf("a ABOUTI"),
+      "la cause du pilote doit précéder l'explication",
+    );
+    assert.match(msg, /\(42804\)/);
+  });
+
+  it("un échec de CONNEXION garde sa phrase et son conseil (inchangé)", () => {
+    const d = diagnoseConnectionFailure({ code: "ECONNREFUSED" });
+    const msg = describeConnectFailure(
+      subject,
+      d,
+      "connect ECONNREFUSED",
+      " Conseil.",
+    );
+    assert.match(msg, /n'a pas pu se connecter — personne n'écoute/);
+    assert.match(msg, / Conseil\. Cause : connect ECONNREFUSED$/);
+  });
+
+  it("parité avec `create app` : un refus d'instruction n'y est PAS une base injoignable", async () => {
+    // Le cœur ne peut pas importer orm-core : il lit sa propre copie du
+    // marqueur. Ce test compose la phrase ICI et la fait lire LÀ-BAS.
+    const { migrationFailureCause } =
+      await import("../../../../../nodefony/src/cli/create");
+    const d = diagnoseConnectionFailure({ code: "42804" });
+    const sortie = `ERROR drizzle : BootConfigurationError: ${describeConnectFailure(subject, d, cause)}\n    at x\n`;
+    const v = migrationFailureCause(sortie, 70);
+    assert.equal(v.databaseUnreachable, false);
+    assert.match(v.pattern, /schéma refusé par la base/);
+    assert.ok(v.pattern.includes(cause), v.pattern);
+    assert.ok(!v.pattern.includes("    at "));
   });
 });

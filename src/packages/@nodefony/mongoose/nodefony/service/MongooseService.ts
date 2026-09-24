@@ -5,6 +5,7 @@ import type { Container, Event, Module } from "nodefony";
 import {
   queryFlowMonitor,
   resolveOrmFlowEnabled,
+  describeConnectFailure,
   diagnoseConnectionFailure,
   parseConnectionTarget,
 } from "@nodefony/orm-core";
@@ -168,8 +169,11 @@ class MongooseService extends Service {
       );
       const cause = e instanceof Error ? e.message : String(e);
       throw new Error(
-        `Mongoose : le connecteur "${name}" (${orm.safeTarget()}) n'a pas pu se ` +
-          `connecter — ${diagnosis.explanation} Cause : ${cause}`,
+        describeConnectFailure(
+          `Mongoose : le connecteur "${name}" (${orm.safeTarget()})`,
+          diagnosis,
+          cause,
+        ),
         { cause: e },
       );
     }

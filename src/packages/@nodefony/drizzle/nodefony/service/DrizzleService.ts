@@ -9,6 +9,7 @@ import type { Container, Event, Kernel, Module } from "nodefony";
 import {
   queryFlowMonitor,
   resolveOrmFlowEnabled,
+  describeConnectFailure,
   diagnoseConnectionFailure,
   parseConnectionTarget,
 } from "@nodefony/orm-core";
@@ -322,12 +323,17 @@ class DrizzleService extends Service {
           ? { host: null, port: null }
           : parseConnectionTarget(cfg.url),
       );
+      // `orm.connect()` fait AUSSI la mise en place du schéma : un refus
+      // d'instruction (FK, type) y tombe, et ce n'est pas une connexion manquée.
       throw new BootConfigurationError(
-        `Drizzle : le connecteur "${name}" (${dialect}: ${target}) n'a pas pu ` +
-          `se connecter — ${diagnosis.explanation} Si l'adresse est la bonne, ` +
-          `vérifier l'infrastructure déclarée (NF_DATABASE_URL / connectors) et ` +
-          `que les entités sont portées sur ce dialecte, ou retirer le ` +
-          `connecteur. Cause : ${cause}`,
+        describeConnectFailure(
+          `Drizzle : le connecteur "${name}" (${dialect}: ${target})`,
+          diagnosis,
+          cause,
+          ` Si l'adresse est la bonne, vérifier l'infrastructure déclarée ` +
+            `(NF_DATABASE_URL / connectors) et que les entités sont portées sur ` +
+            `ce dialecte, ou retirer le connecteur.`,
+        ),
         { cause: e },
       );
     }

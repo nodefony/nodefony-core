@@ -25,6 +25,12 @@ export type ConnectionVerdict =
   | "unreachable"
   /** Un serveur a répondu, et il refuse — le port est bien tenu par quelqu'un. */
   | "answered"
+  /**
+   * La connexion a ABOUTI, puis le serveur a refusé une INSTRUCTION — une
+   * table, une contrainte, un type. Ni l'adresse ni l'état de la base ne sont
+   * en cause : c'est le schéma envoyé qu'il faut corriger.
+   */
+  | "rejected"
   /** L'erreur ne permet de trancher ni dans un sens ni dans l'autre. */
   | "unknown";
 
@@ -80,22 +86,57 @@ const ANSWERED_CODES = new Set([
   "Unauthorized",
 ]);
 
+/**
+ * Classes SQLSTATE (PostgreSQL) qui décrivent la CONNEXION elle-même, pas une
+ * instruction : `08` exception de connexion, `57` intervention de l'opérateur
+ * (arrêt, base qui démarre). Tout autre SQLSTATE est rendu par un serveur à qui
+ * l'on parlait déjà.
+ */
+const CONNECTION_SQLSTATE_CLASSES = new Set(["08", "57"]);
+
+/**
+ * Refus MySQL/MariaDB émis PENDANT l'établissement : le serveur n'a encore
+ * exécuté aucune instruction. Tout autre `ER_*` vient d'un serveur connecté.
+ */
+const MYSQL_CONNECTION_PHASE = new Set([
+  "ER_CON_COUNT_ERROR",
+  "ER_TOO_MANY_USER_CONNECTIONS",
+  "ER_HOST_IS_BLOCKED",
+  "ER_SERVER_SHUTDOWN",
+]);
+
+/**
+ * Le code prouve-t-il que la connexion avait ABOUTI quand le refus est tombé ?
+ *
+ * Ce n'est vrai que d'un code produit par le SERVEUR en réponse à une
+ * instruction : un SQLSTATE PostgreSQL hors des classes de connexion, ou un
+ * `ER_*` MySQL hors de la phase d'établissement. Les codes de refus connus
+ * ({@link ANSWERED_CODES}) sont tranchés AVANT.
+ */
+function provesEstablished(code: string): boolean {
+  // Un chiffre au moins : un code système de cinq lettres (`EPIPE`) n'est pas
+  // un SQLSTATE, et il ne prouve rien d'autre qu'une coupure.
+  if (/^[0-9A-Z]{5}$/.test(code) && /[0-9]/.test(code)) {
+    return !CONNECTION_SQLSTATE_CLASSES.has(code.slice(0, 2));
+  }
+  return code.startsWith("ER_") && !MYSQL_CONNECTION_PHASE.has(code);
+}
+
 /** Lit le code que le driver a posé sur l'erreur, sans rien supposer de sa forme. */
 function readCode(error: unknown): string | null {
   if (typeof error !== "object" || error === null) {
     return null;
   }
   const carrier = error as { code?: unknown; codeName?: unknown };
-  // `codeName` est la forme MongoDB ; `code` celle de Node, `pg` et `mysql2`.
+  // `code` chaîne : Node, `pg`, `mysql2`. `codeName` : MongoDB, qui pose AUSSI
+  // un `code` NUMÉRIQUE (18 pour `AuthenticationFailed`) — lu en premier, ce
+  // nombre masquait le nom, et aucun refus MongoDB n'était reconnu.
   for (const raw of [carrier.code, carrier.codeName]) {
     if (typeof raw === "string" && raw.length > 0) {
       return raw;
     }
-    if (typeof raw === "number") {
-      return String(raw);
-    }
   }
-  return null;
+  return typeof carrier.code === "number" ? String(carrier.code) : null;
 }
 
 /**
@@ -182,6 +223,18 @@ export function diagnoseConnectionFailure(
     };
   }
 
+  if (code !== null && provesEstablished(code)) {
+    return {
+      verdict: "rejected",
+      code,
+      explanation:
+        `la connexion à ${where} a ABOUTI, puis le serveur a refusé une ` +
+        `instruction (${code}) — ce n'est ni l'adresse ni l'état de la base : ` +
+        `c'est le schéma envoyé (une table, une contrainte, un type) qu'il faut ` +
+        `corriger.`,
+    };
+  }
+
   return {
     verdict: "unknown",
     code,
@@ -190,4 +243,49 @@ export function diagnoseConnectionFailure(
       `l'infrastructure déclarée (NF_DATABASE_URL / connectors) désigne bien la ` +
       `base attendue, et qu'elle est démarrée.`,
   };
+}
+
+/**
+ * Marqueur de la phrase « connecté, puis refusé » — lu par `create app`
+ * (`migrationFailureCause`, cœur) pour NE PAS conclure à une base injoignable.
+ * Le cœur ne peut pas importer ce paquet : sa copie est éprouvée contre
+ * celle-ci par un test de parité.
+ */
+export const REJECTED_MARKER =
+  "s'est connecté, mais le serveur a refusé une instruction — ";
+
+/**
+ * Compose le message d'échec au démarrage d'un connecteur — UNE rédaction pour
+ * tous les adapters.
+ *
+ * 🔴 Un refus d'instruction (verdict `rejected`) ne commence JAMAIS par « n'a
+ * pas pu se connecter » : c'était faux, et la phrase envoyait vérifier
+ * l'adresse et l'état d'une base qui répondait très bien. La cause du pilote
+ * passe alors EN TÊTE — c'est elle qui nomme la table ou la contrainte.
+ *
+ * @param subject - sujet de la phrase (`Drizzle : le connecteur "x" (…)`).
+ * @param diagnosis - verdict de {@link diagnoseConnectionFailure}.
+ * @param cause - message brut du pilote.
+ * @param advice - conseil propre à l'adapter, pour un échec de CONNEXION.
+ * @returns le message complet.
+ */
+export function describeConnectFailure(
+  subject: string,
+  diagnosis: IConnectionDiagnosis,
+  cause: string,
+  advice = "",
+): string {
+  if (diagnosis.verdict === "rejected") {
+    const explanation =
+      diagnosis.explanation.charAt(0).toUpperCase() +
+      diagnosis.explanation.slice(1);
+    return (
+      `${subject} ${REJECTED_MARKER}${cause}` +
+      `${diagnosis.code ? ` (${diagnosis.code})` : ""}. ${explanation}`
+    );
+  }
+  return (
+    `${subject} n'a pas pu se connecter — ${diagnosis.explanation}` +
+    `${advice} Cause : ${cause}`
+  );
 }

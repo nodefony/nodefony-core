@@ -869,6 +869,22 @@ export function migrationFailureCause(
   if (output.includes("ECONNREFUSED")) {
     return { databaseUnreachable: true, pattern: "base injoignable" };
   }
+  // Connecté, puis une INSTRUCTION refusée (FK, type) : la base répond — ne
+  // PAS la déclarer injoignable. Copie du `REJECTED_MARKER` d'orm-core (le cœur
+  // ne peut pas l'importer), éprouvée par un test de parité côté orm-core.
+  const rejected =
+    "s'est connecté, mais le serveur a refusé une instruction — ";
+  const refusedAt = output.indexOf(rejected);
+  if (refusedAt >= 0) {
+    const rest = output.slice(refusedAt + rejected.length);
+    const end = rest.indexOf("\n");
+    const refusal = (end >= 0 ? rest.slice(0, end) : rest).trim();
+    const firstSentence = refusal.split(". ")[0] ?? refusal;
+    return {
+      databaseUnreachable: false,
+      pattern: `schéma refusé par la base — ${firstSentence}`,
+    };
+  }
   // Le diagnostic de connexion de l'ORM : « … n'a pas pu se connecter — <ce
   // qu'il a constaté> Si l'adresse est la bonne, … ». On garde le constat.
   const marker = "n'a pas pu se connecter — ";

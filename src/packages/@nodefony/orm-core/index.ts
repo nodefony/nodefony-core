@@ -90,7 +90,9 @@ export { buildOrmLeanHealth } from "./nodefony/src/buildOrmLeanHealth";
 // implémentation — sinon le même symptôme reçoit deux explications différentes.
 export {
   diagnoseConnectionFailure,
+  describeConnectFailure,
   parseConnectionTarget,
+  REJECTED_MARKER,
 } from "./nodefony/src/connectionDiagnosis";
 export type {
   ConnectionVerdict,

@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 857,
-    "symbols": 4253,
+    "symbols": 4256,
     "classes": 398,
     "interfaces": 1126,
     "types": 458,
     "enums": 4,
-    "functions": 1842,
-    "constants": 425
+    "functions": 1844,
+    "constants": 426
   },
   "symbols": {
     "Cli": {
@@ -19977,6 +19977,22 @@
       "module": "@nodefony/orm-core",
       "description": "Explique un échec de connexion en distinguant « personne n'écoute » de « quelqu'un a répondu et refuse »."
     },
+    "describeConnectFailure": {
+      "name": "describeConnectFailure",
+      "kind": "function",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Compose le message d'échec au démarrage d'un connecteur — UNE rédaction pour tous les adapters. 🔴 Un refus d'instruction (verdict `rejected`) ne commence JAMAIS par « n'a pas pu se connecter » : c…"
+    },
+    "REJECTED_MARKER": {
+      "name": "REJECTED_MARKER",
+      "kind": "const",
+      "file": "src/packages/@nodefony/orm-core/nodefony/src/connectionDiagnosis.ts",
+      "exported": true,
+      "module": "@nodefony/orm-core",
+      "description": "Marqueur de la phrase « connecté, puis refusé » — lu par `create app` (`migrationFailureCause`, cœur) pour NE PAS conclure à une base injoignable. Le cœur ne peut pas importer ce paquet : sa copie …"
+    },
     "IConnectionMonitorCore": {
       "name": "IConnectionMonitorCore",
       "kind": "interface",
@@ -35944,6 +35960,10 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "resolveOrmFlowEnabled": [
+        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
+        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
+      ],
+      "describeConnectFailure": [
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
