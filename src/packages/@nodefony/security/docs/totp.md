@@ -110,9 +110,9 @@ reste le second facteur **universel** — celui qui marche sans matériel dédi�
 
 Trois partis pris, tous vérifiables dans le code.
 
-**1. La logique est PURE, le service n'est qu'une prise de courant.** `TotpService` (`totp.ts:71`)
+**1. La logique est PURE, le service n'est qu'une prise de courant.** `TotpService` (`totp.ts:74`)
 résout au boot deux choses seulement : le **store** de secrets et la **clé de chiffrement**
-(`TotpService.#build()`, `totp.ts:89`). Tout le reste — enrôler, confirmer, vérifier — vit dans des
+(`TotpService.#build()`, `totp.ts:92`). Tout le reste — enrôler, confirmer, vérifier — vit dans des
 fonctions sans I/O ni container (`totpOperations.ts`), qui reçoivent leurs dépendances en argument
 (`ITotpDeps`, `totpOperations.ts:22`). Conséquence directe : la logique critique se teste **sans
 serveur, sans base, avec une horloge injectée** — et c'est pour ça qu'elle est couverte à ~100 %.
@@ -125,14 +125,14 @@ différence de traitement, pas une négligence.
 
 **3. Le TOTP n'est pas un authenticator du firewall — c'est un step-up de login.** Il n'apparaît
 jamais dans `area.authenticators` : il s'insère **dans le flux de session BFF**, entre le mot de
-passe et l'ouverture de session (`AuthFlow.completeMfaLogin()`, `authFlow.ts:254`). Même dessin que
+passe et l'ouverture de session (`AuthFlow.completeMfaLogin()`, `authFlow.ts:257`). Même dessin que
 WebAuthn et OAuth : le firewall n'a qu'un seul mécanisme à connaître, la **session**.
 
 > [!IMPORTANT]
 > Le couplage est fait **par nom de service**, jamais par import : `AuthFlow` ne connaît du 2FA
 > qu'une interface locale de trois méthodes (`ITotpLoginVerifier`, `authFlow.ts:44`). 2FA désactivé
 > ⇒ service absent ⇒ le login nominal **ne paie strictement rien** (`AuthFlow.#resolveTotp()`,
-> `authFlow.ts:455`).
+> `authFlow.ts:458`).
 
 ## 🚀 Démarrage rapide
 
@@ -143,7 +143,7 @@ activer un second facteur depuis sa page « ma sécurité », et que le login l'
 
 Le secret TOTP est chiffré au repos → il faut une clé **stable** (sinon les secrets deviennent
 illisibles au redémarrage). La commande la génère et te dit exactement où la coller
-(`nodefony security:secrets`, `security-secrets.ts:36`) :
+(`nodefony security:secrets`, `security-secrets.ts:79`) :
 
 ```bash
 npx nodefony security:secrets --write
@@ -154,7 +154,7 @@ npx nodefony security:secrets --write
 # 3. Fichier nodefony.config.ts — le câblage vers le module security
 ```
 
-Elle produit 32 octets aléatoires en base64 (`randomBytes(32)`, `security-secrets.ts:122`) et
+Elle produit 32 octets aléatoires en base64 (`randomBytes(32)`, `security-secrets.ts:136`) et
 **n'écrase jamais** une valeur existante — une rotation reste un geste manuel et conscient.
 
 ### 2. Déclarer puis câbler la clé
@@ -333,11 +333,11 @@ sequenceDiagram
   A-->>U: 200 { user }
 ```
 
-Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:254`) :
+Trois propriétés à retenir de `AuthFlow.completeMfaLogin()` (`authFlow.ts:257`) :
 
 1. **Le défi vit en session, pas dans l'URL ni dans un jeton client** — clé `mfa:pending`
    (`authFlow.ts:18`), posée par le login, **consommée** avant l'ouverture de session
-   (`authFlow.ts:298`).
+   (`authFlow.ts:301`).
 2. **Le code à 6 chiffres est throttlé** comme un mot de passe — même backoff partagé
    (`AuthFlow.#resolveThrottler()`, `authFlow.ts:447`) : 10⁶ combinaisons se forcent brute en
    quelques minutes sans lui. Trop de tentatives → `429` + `Retry-After`.
@@ -403,13 +403,13 @@ Le store, lui, ne voit que des octets : il ne déchiffre jamais rien (`ITotpSecr
 
 ### La politique de clé — bruyante en dev, fail-closed en production
 
-`TotpService.#resolveKey()` (`totp.ts:204`) tranche au boot :
+`TotpService.#resolveKey()` (`totp.ts:211`) tranche au boot :
 
 | Situation                    | Environnement | Comportement                                                 |
 | ---------------------------- | ------------- | ------------------------------------------------------------ |
-| `totp.encryptionKey` fournie | tous          | Clé dérivée HKDF — cas nominal (`totp.ts:207`).              |
-| Clé absente                  | dev / test    | Clé **éphémère** + `WARNING` (`totp.ts:221`).                |
-| Clé absente                  | production    | `CRITIC` + **2FA désactivé** (`totp.ts:212`).                |
+| `totp.encryptionKey` fournie | tous          | Clé dérivée HKDF — cas nominal (`totp.ts:214`).              |
+| Clé absente                  | dev / test    | Clé **éphémère** + `WARNING` (`totp.ts:228`).                |
+| Clé absente                  | production    | `CRITIC` + **2FA désactivé** (`totp.ts:220`).                |
 | `store: "memory"` en prod    | production    | `WARNING` — secrets volatils, comptes verrouillés au reboot. |
 
 Le refus en production est délibéré : une clé éphémère chiffrerait des secrets **illisibles au
@@ -455,17 +455,17 @@ La saisie est tolérante — casse et tirets ignorés à la normalisation (`totp
 La section `totp` du schéma Zod (`config.ts:1144`) — validée au boot, donc une valeur hors bornes
 échoue **au démarrage**, pas au premier login :
 
-| Option          | Type                         | Défaut | Effet                                                             |
-| --------------- | ---------------------------- | ------ | ----------------------------------------------------------------- |
-| `enabled`       | `boolean`                    | `true` | Coupe le 2FA : service inerte, routes non montées (`totp.ts:98`). |
-| `issuer`        | `string?`                    | —      | Nom affiché dans l'app d'authentification. Omis = nom de l'app.   |
-| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:537`).        |
-| `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                     |
-| `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                              |
-| `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:572`).                    |
-| `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:546`).         |
-| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:574`).          |
-| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:580`).               |
+| Option          | Type                         | Défaut | Effet                                                              |
+| --------------- | ---------------------------- | ------ | ------------------------------------------------------------------ |
+| `enabled`       | `boolean`                    | `true` | Coupe le 2FA : service inerte, routes non montées (`totp.ts:101`). |
+| `issuer`        | `string?`                    | —      | Nom affiché dans l'app d'authentification. Omis = nom de l'app.    |
+| `algorithm`     | `"SHA1"\|"SHA256"\|"SHA512"` | `SHA1` | Fonction HMAC. `SHA1` = compat maximale (`config.ts:551`).         |
+| `digits`        | `int` 6–8                    | `6`    | Longueur du code (RFC 4226 §5.3 : 6 minimum).                      |
+| `period`        | `int` > 0                    | `30`   | Durée de vie d'un code, en secondes.                               |
+| `window`        | `int` ≥ 0                    | `1`    | Tolérance de dérive, en pas (`config.ts:572`).                     |
+| `recoveryCodes` | `int` > 0                    | `10`   | Nombre de codes générés à l'activation (`config.ts:580`).          |
+| `encryptionKey` | `string?`                    | —      | Clé de chiffrement du secret au repos (`config.ts:588`).           |
+| `store`         | `string`                     | `auto` | Backend de persistance du secret (`config.ts:594`).                |
 
 ### Situation 1 — un utilisateur active la 2FA sur son compte
 
@@ -564,7 +564,7 @@ dialecte via le colKit :
 Deux pièges de lecture, signalés dans l'entité elle-même :
 
 - `lastUsedStep` est un **numéro de tranche RFC 6238**, pas un horodatage — d'où le type `int`
-  partout, quand les vraies dates sont en `epochMs` (`totpSecretEntity.ts:53`).
+  partout, quand les vraies dates sont en `epochMs` (`totpSecretEntity.ts:61`).
 - Un epoch en millisecondes **déborde** un `integer` 32 bits → `bigint` en PostgreSQL et MySQL
   (SQLite, lui, a des INTEGER 64 bits).
 
@@ -573,7 +573,7 @@ Deux pièges de lecture, signalés dans l'entité elle-même :
 | Backend    | Enregistré par                                | Durabilité                          | État                 |
 | ---------- | --------------------------------------------- | ----------------------------------- | -------------------- |
 | `memory`   | builtin (`totpSecretStoreRegistry.ts:54`)     | **volatile** — perdu au redémarrage | ✅ dev / tests       |
-| `drizzle`  | `@nodefony/drizzle` (`registerStores.ts:279`) | durable, partagé entre pods         | ✅ 3 dialectes SQL   |
+| `drizzle`  | `@nodefony/drizzle` (`registerStores.ts:320`) | durable, partagé entre pods         | ✅ 3 dialectes SQL   |
 | `mongoose` | `@nodefony/mongoose` (`registerStores.ts`)    | durable, partagé entre pods         | ✅ MongoDB           |
 | `redis`    | —                                             | —                                   | ⏳ manquant, à venir |
 
@@ -596,12 +596,12 @@ primaire (`_id` = `userId`) — donc l'unicité existe dès le premier document,
 en tâche de fond.
 
 Côté `drizzle`, les **trois dialectes** sont portés — `TOTP_PORTED` vaut l'ensemble des dialectes
-(`registerStores.ts:92`) : SQLite, PostgreSQL, MySQL/MariaDB. Le store n'écrit **aucun SQL natif**,
-tout passe par le contrat `IRepository` (`DrizzleTotpSecretStore`, `DrizzleTotpSecretStore.ts:38`)
+(`registerStores.ts:94`) : SQLite, PostgreSQL, MySQL/MariaDB. Le store n'écrit **aucun SQL natif**,
+tout passe par le contrat `IRepository` (`DrizzleTotpSecretStore`, `DrizzleTotpSecretStore.ts:44`)
 — c'est ce qui rend la portabilité gratuite.
 
 **Comment le backend est choisi.** `store: "auto"` (le défaut) suit l'infra déclarée puis les
-adapters réellement chargés (`TotpService.#resolveStore()`, `totp.ts:134`) :
+adapters réellement chargés (`TotpService.#resolveStore()`, `totp.ts:137`) :
 
 1. `NF_STORE` (override global de banc de charge), s'il est enregistré ici ;
 2. infra base de données déclarée (`NF_DATABASE_URL`) → `drizzle` ;
@@ -609,7 +609,7 @@ adapters réellement chargés (`TotpService.#resolveStore()`, `totp.ts:134`) :
 4. sinon **repli `memory`, annoncé** — jamais silencieux.
 
 Un `store` **explicite** introuvable, en revanche, ne se replie pas : `CRITIC` en dev, boot avorté en
-production (`totp.ts:167`). Une faute de frappe ne dégrade jamais la sécurité en douce.
+production (`totp.ts:174`). Une faute de frappe ne dégrade jamais la sécurité en douce.
 
 ## Le listing paginé des enrôlements
 
@@ -622,14 +622,14 @@ d'un seul utilisateur.
 - **pagination native au store** — jamais de parcours complet en mémoire ; l'ordre est contractuel
   (`createdAt` DESC, départagé par `userId` ASC) ;
 - **filtres appliqués côté backend** — `confirmed` (activés / en attente) et `q` (préfixe d'`userId`,
-  donc indexable : le critère `$like` est **ancré à gauche**, `DrizzleTotpSecretStore.ts:153`) ;
+  donc indexable : le critère `$like` est **ancré à gauche**, `DrizzleTotpSecretStore.ts:176`) ;
 - **la vue ne peut pas porter de secret** — `ITotpEnrollmentSummary` (`ITotpSecretStore.ts:16`)
   n'a ni `secretEnc` ni les condensats de récupération, seulement leur **nombre**
   (`recoveryCodesLeft`).
 
 Ce dernier point est une garantie **de contrat**, pas une redaction faite à l'affichage : quel que
 soit le backend, ces champs ne peuvent pas remonter par ce chemin, même si un appelant les demandait
-(`toTotpEnrollment()`, `MemoryTotpSecretStore.ts:18`). C'est ce qu'exerce le banc de contrat partagé.
+(`toTotpEnrollment()`, `MemoryTotpSecretStore.ts:19`). C'est ce qu'exerce le banc de contrat partagé.
 
 `countEnrollments()` (`ITotpSecretStore.ts:90`) donne le KPI de couverture sans énumérer une seule
 ligne.
@@ -638,19 +638,19 @@ ligne.
 
 Tout est exporté depuis `@nodefony/security` — signatures complètes dans `.ai/symbols.json`.
 
-**Le service** (`TotpService`, `totp.ts:71`), résolu par nom dans le container (`"totp"`) :
+**Le service** (`TotpService`, `totp.ts:74`), résolu par nom dans le container (`"totp"`) :
 
-| Méthode                             | Rôle                                                         |
-| ----------------------------------- | ------------------------------------------------------------ |
-| `isEnabled()` (`totp.ts:254`)       | 2FA opérationnel (activé en config **et** boot réussi).      |
-| `beginEnrollment()` (`totp.ts:259`) | Démarre l'enrôlement → secret + URI `otpauth://`, 1×.        |
-| `confirmEnrollment()` (`:257`)      | Confirme par un 1ᵉʳ code → active + codes de récupération.   |
-| `verifyLogin()` (`totp.ts:269`)     | Vérifie un code TOTP **ou** de récupération. Ne lève jamais. |
-| `disable()` (`totp.ts:274`)         | Retire secret et codes.                                      |
-| `status()` (`totp.ts:279`)          | `{ enabled, pending, recoveryCodesRemaining }`.              |
-| `isEnabledFor()` (`totp.ts:306`)    | Raccourci du flux de login (`false` si le 2FA est inerte).   |
-| `listPage()` (`totp.ts:283`)        | Page d'enrôlements (data plane admin).                       |
-| `countEnrollments()` (`:294`)       | Compte filtré, sans énumération.                             |
+| Méthode                               | Rôle                                                         |
+| ------------------------------------- | ------------------------------------------------------------ |
+| `isEnabled()` (`totp.ts:254`)         | 2FA opérationnel (activé en config **et** boot réussi).      |
+| `beginEnrollment()` (`totp.ts:259`)   | Démarre l'enrôlement → secret + URI `otpauth://`, 1×.        |
+| `confirmEnrollment()` (`totp.ts:264`) | Confirme par un 1ᵉʳ code → active + codes de récupération.   |
+| `verifyLogin()` (`totp.ts:269`)       | Vérifie un code TOTP **ou** de récupération. Ne lève jamais. |
+| `disable()` (`totp.ts:274`)           | Retire secret et codes.                                      |
+| `status()` (`totp.ts:279`)            | `{ enabled, pending, recoveryCodesRemaining }`.              |
+| `isEnabledFor()` (`totp.ts:306`)      | Raccourci du flux de login (`false` si le 2FA est inerte).   |
+| `listPage()` (`totp.ts:290`)          | Page d'enrôlements (data plane admin).                       |
+| `countEnrollments()` (`totp.ts:301`)  | Compte filtré, sans énumération.                             |
 
 **Les opérations pures**, si tu veux le 2FA **sans** le service (test, script, autre transport) —
 elles prennent leurs dépendances en argument : `beginTotpEnrollment()`, `confirmTotpEnrollment()`,
@@ -709,14 +709,14 @@ hachage — c'est la preuve d'interopérabilité, pas une auto-évaluation.
 
 Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas.
 
-- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:455`)
+- **Sur le login nominal** (2FA absent ou désactivé) : `AuthFlow.#resolveTotp()` (`authFlow.ts:458`)
   résout le service **une seule fois** puis met le résultat en cache. Service absent ⇒ `null` ⇒
   **zéro accès au store**, zéro allocation par login.
 - **Aucun coût par requête** : le TOTP n'est pas un authenticator du firewall, il ne s'exécute donc
   jamais dans le pipeline HTTP/WS.
 - **Allocation paresseuse du store** : la `Map` de `MemoryTotpSecretStore`
-  (`MemoryTotpSecretStore.ts:72`) n'existe que si le 2FA est activé — le service ne construit rien
-  quand `totp.enabled` est `false` (`totp.ts:98`).
+  (`MemoryTotpSecretStore.ts:74`) n'existe que si le 2FA est activé — le service ne construit rien
+  quand `totp.enabled` est `false` (`totp.ts:101`).
 - **Le coût réel d'une vérification** : ≤ `2·window + 1` HMAC (3 par défaut) + un déchiffrement
   AES-GCM. De l'ordre de la microseconde — négligeable devant le hachage Argon2id du mot de passe
   qui l'a précédé.
@@ -734,26 +734,26 @@ Le 2FA est un chemin **froid** : il ne coûte rien tant qu'on ne se connecte pas
 
 Le data plane admin correspondant, gardé par `ROLE_NODEFONY_ADMIN` :
 
-- `GET /nodefony/security/api/totp/list` — couverture 2FA paginée (`SecurityAdminApi.ts:606`).
+- `GET /nodefony/security/api/totp/list` — couverture 2FA paginée (`SecurityAdminApi.ts:636`).
   Réponse **honnête** si le 2FA est désactivé : `{ enabled: false, items: [] }`, jamais une erreur —
   la console doit pouvoir afficher « 2FA désactivé ».
-- `GET /nodefony/security/api/users/{id}/totp` — statut d'un utilisateur (`SecurityAdminApi.ts:658`).
+- `GET /nodefony/security/api/users/{id}/totp` — statut d'un utilisateur (`SecurityAdminApi.ts:686`).
 - `POST /nodefony/security/api/users/{id}/totp/disable` — reset admin, **audité**
-  (`SecurityAdminApi.ts:683`).
+  (`SecurityAdminApi.ts:711`).
 
 L'admin peut **désactiver**, jamais **activer** pour autrui : le secret se scanne sur l'appareil de
 l'utilisateur, lui seul peut l'armer.
 
 Côté journal d'audit, quatre actions tracent le cycle : `login.mfa_required` (`authFlow.ts:177`),
-`login.success` avec `reason: "totp"` ou `"recovery"` (`authFlow.ts:299`), `login.failure` avec
+`login.success` avec `reason: "totp"` ou `"recovery"` (`authFlow.ts:232`), `login.failure` avec
 `reason: "mfa_invalid"` (`authFlow.ts:291`), et `user.totp_disabled` côté admin
-(`SecurityAdminApi.ts:707`).
+(`SecurityAdminApi.ts:735`).
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
 | Symptôme                                          | Cause (dans le code)                                                 | Correction                                                         |
 | ------------------------------------------------- | -------------------------------------------------------------------- | ------------------------------------------------------------------ |
-| 2FA inactif en production, `CRITIC` au boot       | `totp.encryptionKey` absente — fail-closed (`totp.ts:212`)           | `npx nodefony security:secrets`, puis câbler `ctx.env.NF_TOTP_KEY` |
+| 2FA inactif en production, `CRITIC` au boot       | `totp.encryptionKey` absente — fail-closed (`totp.ts:220`)           | `npx nodefony security:secrets`, puis câbler `ctx.env.NF_TOTP_KEY` |
 | Tous les secrets illisibles après déploiement     | Clé éphémère (dev) ou `TOTP_DERIVATION` modifié                      | Clé **stable** partagée ; ne jamais toucher au contexte HKDF       |
 | Secrets perdus à chaque redémarrage               | Store résolu en `memory` (aucun adapter durable chargé)              | Charger `@nodefony/drizzle` ou déclarer `NF_DATABASE_URL`          |
 | Code « juste » systématiquement refusé            | Horloge décalée de plus d'un pas (fenêtre = ±30 s)                   | Synchroniser NTP serveur **et** téléphone                          |

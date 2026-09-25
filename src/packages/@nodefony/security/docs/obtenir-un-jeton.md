@@ -136,14 +136,14 @@ Puis `npm run build` — le runtime lit le `dist`, pas la source.
 | `-j, --json`           | —                             | sortie machine, sans invite                              |
 
 Le plafond de `--ttl` n'est pas décoratif : un jeton posé dans un fichier **est une clé**, et une
-clé se remplace (`security-token.ts:352`, `security-token.ts:64-79`).
+clé se remplace (`security-token.ts:67-84`).
 
 ### Où `--write` pose la valeur
 
 La variable est `NF_MCP_TOKEN` (`src/nodefony/src/cli/aiMcpReport.ts:32`). La commande ne sert que
 les agents dont la présence est **constatée** dans le projet — on ne crée pas la configuration d'un
 outil que personne n'utilise ici. La table des cibles vit au cœur
-(`src/nodefony/src/cli/agentTargets.ts:239`) : Claude, Gemini, Vibe, Codex.
+(`src/nodefony/src/cli/agentTargets.ts:280`) : Claude, Gemini, Vibe, Codex.
 
 Deux garanties qui ne se négocient pas :
 

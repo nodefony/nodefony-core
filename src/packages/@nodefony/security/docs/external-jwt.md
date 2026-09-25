@@ -33,9 +33,9 @@ Accepter un émetteur ne veut pas dire lui remettre les clés. Deux décisions r
 sont elles qui font la différence entre « intégrer un annuaire » et « en faire l'unique autorité
 d'accès » :
 
-1. **La liste des émetteurs acceptés** est une allowlist (`config.ts:660`). Un jeton dont l'`iss` n'y figure pas est
+1. **La liste des émetteurs acceptés** est une allowlist (`config.ts:666-671`). Un jeton dont l'`iss` n'y figure pas est
    refusé **avant toute requête sortante** — l'application ne va pas interroger un émetteur inconnu.
-2. **Le sujet du jeton ne devient pas d'office un utilisateur** (`config.ts:666`). Par défaut, il
+2. **Le sujet du jeton ne devient pas d'office un utilisateur** (`config.ts:672-677`). Par défaut, il
    doit correspondre à un compte local. Un annuaire d'entreprise vaut pour des milliers de personnes : les accepter
    toutes parce que leur jeton est valide supprimerait la seconde décision, qui est la raison d'être
    du pare-feu.
@@ -81,7 +81,7 @@ normalisés (RFC 8414 / OpenID), et le pare-feu accepte désormais un `Authoriza
 Un `sub` n'est unique que **dans l'espace de son émetteur** (OIDC Core §2). L'identité est donc la
 paire `(émetteur, sujet)`, jamais le sujet seul.
 
-En mode `prefixed` (`config.ts:650`), l'identifiant cherché localement est `<issuer>#<sub>` : deux émetteurs ne peuvent
+En mode `prefixed` (`config.ts:656-660`), l'identifiant cherché localement est `<issuer>#<sub>` : deux émetteurs ne peuvent
 pas se disputer un compte, et surtout **aucun sujet étranger ne peut tomber par hasard sur un
 identifiant local existant**. En mode `subject`, le `sub` est cherché tel quel — dans un annuaire où
 l'utilisateur choisit son identifiant, quelqu'un peut alors se présenter avec `sub: "admin"` et être

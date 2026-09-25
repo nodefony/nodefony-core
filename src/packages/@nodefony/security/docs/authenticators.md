@@ -31,7 +31,7 @@ source: "src/packages/@nodefony/security/docs/authenticators.md"
 > Un **authenticator** répond à une seule question : _« qui es-tu, et peux-tu le prouver ? »_. Il ne
 > décide **pas** des droits (ça, c'est l'autorisation / les voters) — il établit une **identité**.
 > Le firewall enchaîne les authenticators déclarés par une zone jusqu'à obtenir une preuve valide,
-> sinon il ferme en 401 (Zero Trust). Nodefony en fournit **six** intégrés, tous ancrés ici sur le
+> sinon il ferme en 401 (Zero Trust). Nodefony en fournit **sept** intégrés, tous ancrés ici sur le
 > code (`src/packages/@nodefony/security/nodefony/src/authenticator/`).
 
 📍 [Documentation](../../../../../docs/index.md) › [Sécurité](index.md) › **Authenticators**
@@ -90,7 +90,7 @@ classe d'attaque précise — détaillées brique par brique dans le catalogue :
 
 ### Le contrat `IAuthenticator`
 
-Tout authenticator implémente le même cycle (`IAuthenticator.ts:18`), ce qui rend le firewall
+Tout authenticator implémente le même cycle (`IAuthenticator.ts:23`), ce qui rend le firewall
 totalement agnostique de la stratégie :
 
 | Méthode               | Rôle                                                                                                       |
@@ -100,7 +100,7 @@ totalement agnostique de la stratégie :
 | `authenticate(token)` | **Vérifie** (signature/hash/session), applique la **révocation**, **re-résout le sujet** — ou lève un 401. |
 | `onSuccess(ctx,tok)`  | Effet de bord au succès (poser l'identité en session, audit).                                              |
 | `onFailure(ctx,err)`  | Slot d'audit (le 401 + challenge sont posés par le firewall).                                              |
-| `challenge()`         | **Optionnel** (`IAuthenticator.ts:42`) — la valeur `WWW-Authenticate` (RFC 7235) des 401 de la zone.       |
+| `challenge()`         | **Optionnel** (`IAuthenticator.ts:55`) — la valeur `WWW-Authenticate` (RFC 7235) des 401 de la zone.       |
 
 ### Le registre pluggable
 
@@ -108,10 +108,10 @@ Les authenticators sont résolus par **nom** : `Firewall.#instantiateAuthenticat
 (`firewall.ts:429`) interroge `getAuthenticatorFactory()` (`authenticatorRegistry.ts:59`) — jamais
 un `if (name === "jwt")` dans le firewall, qui trahirait la promesse « pluggable ».
 
-- Les **cinq builtins HTTP** (`anonymous`, `userpassword`, `session`, `jwt`, `apikey`)
+- Les **six builtins HTTP** (`anonymous`, `userpassword`, `session`, `jwt`, `external-jwt`, `apikey`)
   s'enregistrent à l'import du module via `registerAuthenticatorFactory()`
-  (`authenticatorRegistry.ts:72-125`) — donc toujours avant le boot.
-- Le sixième, `firewall-realtime`, n'est **pas dans le registre** : c'est le firewall qui le câble
+  (`authenticatorRegistry.ts:73-145`) — donc toujours avant le boot.
+- Le septième, `firewall-realtime`, n'est **pas dans le registre** : c'est le firewall qui le câble
   lui-même au handshake WS des zones protégées (`Firewall.#wireRealtime()`, `firewall.ts:279`).
 - La fabrique ne fait que **construire** ; les résolutions de services coûteuses (`users`,
   `tokenStore`, keystore) restent **lazy** dans l'instance (cold path).
@@ -246,7 +246,7 @@ le mot de passe peut en contenir (`UserPasswordAuthenticator.ts:68`).
   (`UserPasswordAuthenticator.ts:101-103`) — un identifiant bloqué ne coûte **aucun hash** → le
   throttle protège aussi le serveur du **DoS argon2**. Échec compté, succès remis à zéro
   (`UserPasswordAuthenticator.ts:111-114`). `ThrottledError` → **429 + `Retry-After`**
-  (`firewall.ts:764`).
+  (`firewall.ts:780`).
 - **Le throttler est PARTAGÉ** avec le login JSON du BFF — même `loginThrottler` du container : un
   attaquant ne contourne pas le backoff en changeant de porte (`authenticatorRegistry.ts:75-79`).
 - Challenge : `Basic realm="nodefony", charset="UTF-8"` (`UserPasswordAuthenticator.ts:130`).
@@ -273,20 +273,20 @@ Credential = l'**identifiant** posé dans le blob de session, jamais un secret.
 
 Réservé aux **API service↔service / agents** (le web reste sur la session). Vérifie un access token
 **EdDSA** signé par le keystore du serveur ; `supports()` ne réclame que la structure compacte
-`a.b.c` (`COMPACT_JWS`, `JwtAuthenticator.ts:20`). Les défenses **dures** du JWT BCP, toutes
+`a.b.c` (`COMPACT_JWS`, `JwtAuthenticator.ts:21`). Les défenses **dures** du JWT BCP, toutes
 prouvées en test :
 
 | Défense                                | Comment                                                                                          | Attaque fermée                                                     |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------ |
 | **Allowlist d'algorithmes**            | `algorithms: ["EdDSA"]` — jamais l'algo de l'en-tête du token (`JwtAuthenticator.ts:120`)        | `alg=none`, algorithm confusion (§3.1)                             |
-| **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:158`)                | injection de clé / SSRF (§3.5)                                     |
-| **`aud` + `iss` + `typ` obligatoires** | `typ: "at+jwt"` (§3.11) sépare access et refresh (`JwtAuthenticator.ts:105-107`)                 | refresh présenté comme access, token d'un autre service (§3.8-3.9) |
-| **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:142-150`)       | jeton auto-porté volé, logout global                               |
-| **Sujet revérifié**                    | `loadUserByIdentifier(sub)` → disparu/inactif/verrouillé = rejet (`JwtAuthenticator.ts:174-186`) | compte banni encore « valide » via son token (§3.10)               |
+| **Clé par `kid` du keyset LOCAL**      | `createLocalJWKSet` — jamais `jku`/`jwk` de l'en-tête (`JwtAuthenticator.ts:174`)                | injection de clé / SSRF (§3.5)                                     |
+| **`aud` + `iss` + `typ` obligatoires** | `typ: "at+jwt"` (§3.11) sépare access et refresh (`JwtAuthenticator.ts:119-124`)                 | refresh présenté comme access, token d'un autre service (§3.8-3.9) |
+| **Révocation**                         | denylist `isJtiDenied` + seuil `invalidBefore` par porteur (`JwtAuthenticator.ts:138-148`)       | jeton auto-porté volé, logout global                               |
+| **Sujet revérifié**                    | `loadUserByIdentifier(sub)` → disparu/inactif/verrouillé = rejet (`JwtAuthenticator.ts:190-203`) | compte banni encore « valide » via son token (§3.10)               |
 
-Le **message d'échec est uniforme** (`INVALID_TOKEN`, `JwtAuthenticator.ts:24`) : la cause fine
+Le **message d'échec est uniforme** (`INVALID_TOKEN`, `JwtAuthenticator.ts:25`) : la cause fine
 (expiré, `aud`, signature, sujet banni) part en **audit**, jamais au client — anti-oracle. Le token
-promu porte `scopes`, `jti`, `claims` en attributs (`JwtAuthenticator.ts:162-171`). `jose` est
+promu porte `scopes`, `jti`, `claims` en attributs (`JwtAuthenticator.ts:178-188`). `jose` est
 importé **lazy** — dépendance lourde (`JwtAuthenticator.ts:112`).
 
 Les six premiers se déclarent dans une zone (registre `authenticatorRegistry.ts:73`) ;
@@ -306,17 +306,17 @@ Clé API personnelle en `Authorization: Bearer nf_…` (préfixe `apiKeys.prefix
 Contrairement au JWT (auto-porté), un PAT est un **bearer opaque** dont la vérité vit **côté
 serveur** (`ITokenStore`) → **révocable immédiatement**. Défenses :
 
-- **Forme + CRC validés AVANT tout accès au store** (`parseApiKey`, `ApiKeyAuthenticator.ts:99-101`)
+- **Forme + CRC validés AVANT tout accès au store** (`parseApiKey`, `ApiKeyAuthenticator.ts:103-106`)
   → une valeur malformée n'atteint jamais la base (**anti-DoS**).
-- **Lookup par hash SHA-256** (`findByHash`, `ApiKeyAuthenticator.ts:105`) — le secret n'existe
+- **Lookup par hash SHA-256** (`findByHash`, `ApiKeyAuthenticator.ts:109`) — le secret n'existe
   **nulle part au repos**.
-- **Révocation** (`revokedAt`) + **expiration** (`expiresAt`) (`ApiKeyAuthenticator.ts:109-111`) +
-  **ban en masse** du porteur (`invalidBefore` vs `createdAt`, `ApiKeyAuthenticator.ts:117-118`).
-- **Sujet revérifié** à chaque requête → rôles frais (`ApiKeyAuthenticator.ts:123`).
+- **Révocation** (`revokedAt`) + **expiration** (`expiresAt`) (`ApiKeyAuthenticator.ts:113-116`) +
+  **ban en masse** du porteur (`invalidBefore` vs `createdAt`, `ApiKeyAuthenticator.ts:121-122`).
+- **Sujet revérifié** à chaque requête → rôles frais (`ApiKeyAuthenticator.ts:127`).
 - **`lastUsedAt` throttlé** : aucune écriture sur le hot path tant que la fenêtre
-  `apiKeys.lastUsedThrottleS` n'est pas dépassée (`ApiKeyAuthenticator.ts:31-37`).
+  `apiKeys.lastUsedThrottleS` n'est pas dépassée (`ApiKeyAuthenticator.ts:136-143`).
 
-Le token promu porte `scopes`, `apiKeyId`, `tenantId` (`ApiKeyAuthenticator.ts:138-140`).
+Le token promu porte `scopes`, `apiKeyId`, `tenantId` (`ApiKeyAuthenticator.ts:146-149`).
 
 ### `firewall-realtime` — la promotion, en WebSocket, de l'identité déjà posée
 
@@ -356,7 +356,7 @@ l'ALS. `FirewallRealtimeAuthenticator.supports()` ne fait que le constater
 ## ⚙️ Composer une zone — ordre, mode, cohabitation
 
 La liste `area.authenticators` se lit **dans l'ordre**, déroulée par `Firewall.#authenticate()`
-(`firewall.ts:1112`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
+(`firewall.ts:1128`) selon le `mode` de la zone (`first` par défaut, `config.ts:87-92`).
 
 ### Situation 1 — humains ET machines sur la même API (`first`)
 
@@ -389,14 +389,14 @@ authenticators: ["anonymous", "session"],   // ❌ anonymous accepte TOUT le mon
 ### Situation 3 — empiler les preuves (`all`)
 
 En mode `all`, **chaque** maillon est obligatoire : `supports()` faux = 401 immédiat
-(`firewall.ts:937`) et le **dernier** token de la chaîne porte l'identité (`firewall.ts:973`) —
+(`firewall.ts:1144-1149`) et le **dernier** token de la chaîne porte l'identité (`firewall.ts:1198-1199`) —
 utile pour exiger une preuve de canal (mTLS) **et** une identité, ou un « sudo mode » session +
 re-saisie du mot de passe. Scénario complet côté zones : [firewall](./firewall.md).
 
 ### Cohabitation JWT + clé API dans une même zone
 
 Les deux sont des `Bearer`, mais Nodefony les **discrimine sur la forme** — un JWT a la structure
-compacte `a.b.c` (`COMPACT_JWS`, `JwtAuthenticator.ts:20`), un PAT porte le préfixe `nf_` sans
+compacte `a.b.c` (`COMPACT_JWS`, `JwtAuthenticator.ts:21`), un PAT porte le préfixe `nf_` sans
 point (`looksLikeApiKey`, `ApiKeyAuthenticator.ts:72`). Chaque `supports()` ne réclame que _son_
 format → aucun conflit, aucune double vérification.
 
@@ -440,8 +440,8 @@ registerAuthenticatorFactory("ldap", ({ container, config }) => {
 | JWT (BCP) | RFC 7519, 8725 | `jwtVerify` durci : allowlist + claims (`JwtAuthenticator.ts:103-107`) |
 | HTTP Basic | RFC 7617 | `UserPasswordAuthenticator` (`UserPasswordAuthenticator.ts:25-27`) |
 | Backoff de login | NIST SP 800-63B | `#throttler.check()` avant le verifier (`UserPasswordAuthenticator.ts:101-103`) |
-| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:764`) |
-| Anti-énumération | OWASP | `INVALID_TOKEN` (`JwtAuthenticator.ts:24`) · `INVALID_CREDENTIALS` (`UserPasswordAuthenticator.ts:16`) |
+| Rate limit (429) | RFC 6585 | `Retry-After` posé par le firewall (`firewall.ts:780`) |
+| Anti-énumération | OWASP | `INVALID_TOKEN` (`JwtAuthenticator.ts:25`) · `INVALID_CREDENTIALS` (`UserPasswordAuthenticator.ts:16`) |
 
 ## ⚡ Performance & mémoire
 

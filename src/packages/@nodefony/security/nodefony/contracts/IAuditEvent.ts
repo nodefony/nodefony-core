@@ -13,13 +13,13 @@
  * Sous-système de sécurité concerné — axe de filtrage principal de la console
  * d'audit (Studio P6.15). Fermé : la liste des sous-systèmes est stable.
  *
- * ⚠️ Quatre catégories sont RÉSERVÉES — déclarées au contrat mais **sans émetteur à
+ * ⚠️ Trois catégories sont RÉSERVÉES — déclarées au contrat mais **sans émetteur à
  * ce jour** (aucun `record({ category: … })` ne les produit) : `oauth`, `csrf`,
- * `cors`, `config`. La console Studio ne propose donc PAS de filtre pour elles (un
+ * `cors`. La console Studio ne propose donc PAS de filtre pour elles (un
  * filtre qui ne rend jamais rien induit en erreur — cf `studio/.../auditModel.ts`).
  * En câbler une = ajouter son émetteur ICI (l'émetteur), puis la métadonnée
  * d'affichage dans `AUDIT_CATEGORIES`. Émettent réellement : auth, authz, token,
- * session, webauthn, ws, webhook.
+ * session, webauthn, ws, webhook, config (`config.update`).
  */
 export type AuditCategory =
   | "auth" // authentification (login/logout, chaîne du firewall)

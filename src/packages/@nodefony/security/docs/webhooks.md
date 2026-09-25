@@ -160,7 +160,7 @@ Trois partis pris, tous vérifiables dans le code :
 
 ### 1. Activer les webhooks et poser la clé de chiffrement
 
-Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:724`).
+Les webhooks sont **actifs par défaut** (`enabled: true` dans le schéma Zod, `security/nodefony/config/config.ts:785`).
 La seule chose que tu dois vraiment fournir, c'est la **clé de chiffrement des secrets de signature** :
 sans elle, une clé éphémère est générée en dev (avec un WARNING), et en production les webhooks sont
 **désactivés** — un secret chiffré par une clé perdue au redémarrage serait illisible
@@ -412,7 +412,7 @@ dispatcher est branché sur `AuditService.subscribe()` (`auditService.ts:212`), 
 fire-and-forget de `AuditService.record()` (`auditService.ts:187`). Aucun autre point d'émission
 n'existe dans le code.
 
-Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:16`) donnent la surface réelle :
+Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:24`) donnent la surface réelle :
 
 | Catégorie  | Ce qu'elle trace (exemples d'`action`)                                     |
 | ---------- | -------------------------------------------------------------------------- |
@@ -427,6 +427,10 @@ Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:16`) donne
 | `ws`       | Verrou de frame WebSocket (`api.request` / `subscribe`)                    |
 | `webhook`  | Vie des webhooks eux-mêmes (`webhook.created`, `webhook.disabled`)         |
 | `config`   | Mutation de config runtime depuis Studio                                   |
+
+> [!NOTE]
+> Trois catégories sont **réservées** au contrat sans émetteur à ce jour : `oauth`, `csrf`, `cors`
+> (`IAuditEvent.ts:16`). S'y abonner est accepté, mais ne livre jamais rien.
 
 ### La syntaxe d'abonnement
 
@@ -697,7 +701,7 @@ Le scénario vécu, du début à la fin :
 `WebhookService.#shutdown()` (`webhooks.ts:234`) se désabonne de l'audit puis appelle
 `WebhookDispatcher.shutdown()` (`WebhookDispatcher.ts:280`) : admission stoppée, **tous les timers de
 retry annulés**, file relâchée. Aucun timer orphelin ne retient le process — et les timers de retry
-sont `unref()` (`webhooks.ts:209`), donc ils n'empêchent jamais Node de sortir.
+sont `unref()` (`webhooks.ts:222`), donc ils n'empêchent jamais Node de sortir.
 
 ## ⚙️ Configuration
 
@@ -770,7 +774,7 @@ l'observabilité éphémère de mise au point, pas un journal d'audit.
 | `redis`    | **volontairement absent**                                    |    —    |         —         | un registre n'est pas un cache |
 
 Redis n'est pas une omission : un endpoint est de la **configuration durable**, sa place n'est pas
-dans un magasin volatil (`IWebhookStore.ts:29`).
+dans un magasin volatil (`IWebhookStore.ts:43`).
 
 La résolution est explicite et **annoncée**. `WebhookService.#resolveStore()` (`webhooks.ts:244`)
 privilégie un adapter déjà posé au container, puis résout `auto` d'après l'infra déclarée, et
@@ -820,15 +824,15 @@ mention.
 
 | Méthode                       | Rôle                                                               | Ancrage           |
 | ----------------------------- | ------------------------------------------------------------------ | ----------------- |
-| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:434` |
-| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:468` |
-| `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:456` |
-| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:510` |
-| `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:458` |
+| `register(input)`             | Crée un endpoint (SSRF validé) → endpoint **+ secret en clair**    | `webhooks.ts:441` |
+| `listPage(query)`             | Page d'endpoints (vue publique, sans secret)                       | `webhooks.ts:475` |
+| `countEndpoints(query)`       | `COUNT` natif ; `-1` si le backend ne sait pas compter             | `webhooks.ts:489` |
+| `getEndpoint(id)`             | Un endpoint (vue publique) ou `null`                               | `webhooks.ts:517` |
+| `update(id, patch)`           | `url`/`events`/`enabled`/`description`/`metadata` ; URL re-validée | `webhooks.ts:528` |
 | `setEnabled(id, bool)`        | Révocation douce                                                   | `webhooks.ts:549` |
 | `rotateSecret(id)`            | Nouveau secret ; l'ancien meurt immédiatement                      | `webhooks.ts:560` |
 | `revealSecret(id)`            | Secret en clair (action sensible, à auditer par l'appelant)        | `webhooks.ts:579` |
-| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:580` |
+| `delete(id)`                  | Supprime ; `false` si absent                                       | `webhooks.ts:587` |
 | `listDeliveries(id)` _(sync)_ | Historique RAM des dernières livraisons                            | `webhooks.ts:602` |
 | `isReady()` _(sync)_          | Activé **et** store **et** clé résolus                             | `webhooks.ts:414` |
 
@@ -839,13 +843,14 @@ Types et briques réutilisables exportés par `@nodefony/security` : `IWebhookEn
 
 ### Le data plane d'administration
 
-Huit endpoints sous `/nodefony/security/api/webhooks`, tous `ROLE_NODEFONY_ADMIN`, composés dans le
+Neuf endpoints sous `/nodefony/security/api/webhooks`, tous `ROLE_NODEFONY_ADMIN`, composés dans le
 producteur `security` — ils héritent gratuitement du RBAC fail-closed du broker, de l'audit et de la
 porte d'idempotence sur les mutations.
 
 | Méthode + chemin               | Rôle                                                      | Audit              |
 | ------------------------------ | --------------------------------------------------------- | ------------------ |
 | `GET webhooks`                 | Page d'endpoints + driver du store. **Jamais de secret.** | —                  |
+| `GET webhooks/stats`           | Compteurs sur la collection entière, mêmes filtres        | —                  |
 | `POST webhooks`                | Crée ; secret renvoyé **une seule fois** ; `422` si SSRF  | `webhook.created`  |
 | `GET webhooks/{id}`            | Un endpoint (vue publique), `404` sinon                   | —                  |
 | `GET webhooks/{id}/deliveries` | Historique RAM des livraisons de cet endpoint             | —                  |
@@ -863,7 +868,7 @@ Deux détails de conception qui se voient à l'usage :
   honnête (`enabled: false`) et une liste vide, plutôt qu'une erreur. Les **mutations**, elles,
   rendent bien `503` si le service n'est pas prêt.
 - **Le listing est borné** : `limit` par défaut 50, plafond dur **200**
-  (`parseWebhookListQuery()`, `WebhookAdminApi.ts:147`) — un client ne peut pas demander « tout ».
+  (`parseWebhookListQuery()`, `WebhookAdminApi.ts:161`) — un client ne peut pas demander « tout ».
 
 ## 🧩 Extension — brancher son propre registre
 
@@ -910,7 +915,7 @@ qu'il y en a.
 | File d'attente | `maxQueue` (1000) puis **abandon** + log | `WebhookDispatcher.ts:149` |
 | Sockets / FD simultanés | `maxConcurrent` (8) | `WebhookDispatcher.#pump()` (`WebhookDispatcher.ts:173`) |
 | Durée d'une tentative | 10 s puis `req.destroy()` | `webhookDelivery.ts:136` |
-| Historique par endpoint | 20 entrées, corps requête 8 Ko, réponse 2 Ko | `webhooks.ts:54` |
+| Historique par endpoint | 20 entrées, corps requête 8 Ko, réponse 2 Ko | `webhooks.ts:63` · `webhookDelivery.ts:21` |
 | Allocations paresseuses | file, `Set` de timers, historique : `null` tant qu'inutilisés | `WebhookDispatcher.ts:114` |
 
 La preuve n'est pas déclarative : un banc d'attaque envoie **5000 événements vers un endpoint mort**
@@ -947,6 +952,7 @@ secret, et sait **simuler des pannes** pour observer retries et auto-désactivat
 | `POST /nodefony/test/webhooks/sink/status/{code}` | Répond le code demandé → simule un récepteur en erreur |
 | `POST /nodefony/test/webhooks/sink/slow?ms=…`     | Répond lentement → provoque le timeout de livraison    |
 | `GET /nodefony/test/webhooks/received`            | Inspecte les livraisons reçues                         |
+| `DELETE /nodefony/test/webhooks/received`         | Vide le journal des livraisons reçues                  |
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 

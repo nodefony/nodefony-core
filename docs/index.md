@@ -72,7 +72,7 @@ Le socle : présent dans toute application, quelle que soit sa forme.
 ```nodefony-cards
 [
   { "icon": "🛡️", "title": "@nodefony/security", "href": "../src/packages/@nodefony/security/docs/index.md",
-    "desc": "Firewall par zones, six authenticators, autorisation par voters, CSRF/CORS/en-têtes, 2FA, passkeys, webhooks, audit.",
+    "desc": "Firewall par zones, sept authenticators, autorisation par voters, CSRF/CORS/en-têtes, 2FA, passkeys, webhooks, audit.",
     "meta": "17 pages — le module le plus fourni" },
   { "icon": "👤", "title": "@nodefony/user", "href": "../src/packages/@nodefony/user/docs/index.md",
     "desc": "L'identité `IUser` et son stockage.", "meta": "comptes utilisateurs" }

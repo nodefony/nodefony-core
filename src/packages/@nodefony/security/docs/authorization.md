@@ -378,7 +378,7 @@ entre clauses (`Resolver._enforceSecurity()`, `Resolver.ts:672-702`).
 > [!IMPORTANT]
 > **Fail-closed intégral** : route gardée mais moteur `authorization` absent (module security non
 > chargé) OU aucune identité résolue (route **hors zone** firewall) → **403** direct
-> (`Resolver.ts:582-584`). Une route gardée doit être couverte par une zone — voir
+> (`Resolver.ts:678-688`). Une route gardée doit être couverte par une zone — voir
 > [firewall](./firewall.md).
 
 ## 🧑‍⚖️ Les voters intégrés — deux axes, un même jury
@@ -399,7 +399,7 @@ Capte les attributs `ROLE_*` (`RoleVoter.supports()`, `RoleVoter.ts:25-27`) et v
   default-DENY du jury qui ferme, pas ce voter. C'est aussi ce qui rend l'OR
   (`@IsGranted(["A","B"])`) possible.
 - La hiérarchie est lue **en lazy** depuis le container — clé `roleHierarchy`
-  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:206`).
+  (`RoleVoter.ts:30-32`), posée par le firewall au boot (`firewall.ts:209`).
 - Sync par nature → `Promise.resolve`, pas de wrapper `async` inutile (`RoleVoter.ts:36-38`).
 
 #### Deux échelles de rôles — plateforme et organisation
@@ -529,7 +529,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 | Modèle de rôles            | RBAC **hiérarchique**, au sens des composantes _Core_ et _Hierarchical_ d'ANSI INCITS 359 — sans séparation des devoirs | `RoleHierarchyWalker.reachableRoles()`                    |
 | Combinaison des votes      | _deny-overrides_ : un refus l'emporte, le silence ferme                                                                 | `Authorization.decide()`                                  |
 | Scopes délégués            | **RFC 6749 §3.3** — définis par le serveur d'autorisation ; sans effet sur une session humaine                          | `ScopeVoter.vote()`                                       |
-| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts:582-584`)       |
+| Modèle                     | **Zero Trust** (fermé par défaut)                                                                                       | 403 fail-closed du Resolver (`Resolver.ts:678-688`)       |
 | Journalisation de sécurité | audit des refus, jamais des octrois                                                                                     | `#auditDeny` → `recordAudit` (`authorization.ts:113-142`) |
 
 > Ce tableau dit ce que le code **fait**, pas ce qu'il revendique : Nodefony n'est pas « conforme
@@ -541,10 +541,10 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 ## ⚡ Performance & mémoire
 
 - **Hot path à coût nul** : une route non gardée porte `security: null` → 0 lookup, 0 await, 0
-  alloc (`Resolver.ts:334-336`) ; l'exigence est **figée une fois** par route et partagée entre
+  alloc (`Resolver.ts:358`) ; l'exigence est **figée une fois** par route et partagée entre
   requêtes (`SecurityRequirement`, `routerDecorators.ts:424`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
-  instanciés **une seule fois** au boot (`authorization.ts:70-79`).
+  instanciés **une seule fois** au boot (`authorization.ts:51`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête
   (`RoleHierarchyWalker.ts:23-30`).
 - **Audit = cold path** : uniquement sur refus, avec un descripteur léger du sujet — jamais de
@@ -560,7 +560,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
 | Symptôme                               | Cause (dans le code)                                                                | Correction                                                     |
 | -------------------------------------- | ----------------------------------------------------------------------------------- | -------------------------------------------------------------- |
 | Accès refusé alors que le rôle existe  | Attribut mal formé (pas `ROLE_…`) → le `RoleVoter` n'entre pas                      | Respecter le préfixe `ROLE_`                                   |
-| 403 systématique sur une route gardée  | Moteur absent OU identité non résolue — route **hors zone** (`Resolver.ts:582-584`) | Couvrir la route par une zone firewall                         |
+| 403 systématique sur une route gardée  | Moteur absent OU identité non résolue — route **hors zone** (`Resolver.ts:678-688`) | Couvrir la route par une zone firewall                         |
 | Un voter métier bloque tout            | Il renvoie `DENY` au lieu d'`ABSTAIN` quand il ne s'applique pas                    | Renvoyer `ABSTAIN` hors de son domaine                         |
 | Un `DENY` n'a pas bloqué               | Attributs d'une clause = jurys **séparés** (OR) — un autre attribut a accordé       | Porter l'interdit en clause AND (empiler les `@IsGranted`)     |
 | Clé API accède à une action non prévue | Type de jeton traité comme humain (allowlist)                                       | Vérifier que le type n'est pas dans `NON_SCOPABLE_TOKEN_TYPES` |
