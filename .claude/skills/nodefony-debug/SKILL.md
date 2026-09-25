@@ -262,7 +262,7 @@ Cas vécu : `project_service_base_improvements` point 3 (6 jours) suggérait `de
 - **`nodefony-framework-dev` §2** : règles absolues perf+mémoire (à respecter en debug aussi).
 - **`feedback_session_pitfalls`** (mémoire IA) : pièges récurrents (dist périmé, Bun pour `@nodefony/llm`, etc.).
 - **`feedback_service_options_delete`** (mémoire IA, créée 2026-05-27) : règle `delete` obligatoire tant que les consommateurs `for...in` ne sont pas refactorés.
-- **CLAUDE.md racine** : règle absolue perf+mémoire (35 MB / 1000 req, 10 MB / 100 crashes, 30 MB / 100 WS) — seuils blockers à respecter.
+- **CLAUDE.md racine** : règle absolue perf+mémoire — le gate et ses seuils (table `THRESHOLDS` de `memory.test.ts`) sont des blockers ; lecture d'un rouge → skill `nodefony-check-memory-health`.
 
 ## 7. Conventions du skill
 

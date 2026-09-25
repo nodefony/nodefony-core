@@ -5,20 +5,20 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-25
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-check-memory-health/SKILL.md"
 ---
 
 # `nodefony-check-memory-health`
 
-> Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation).
+> Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher).
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-check-memory-health**
 
 > [!TIP]
 > 🟢 **Conforme** au standard [Agent Skills](https://agentskills.io/specification.md) — _Anthropic (standard ouvert)_.
-> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD).
+> ℹ️ **6/6** contrôles normatifs (MUST) · 🛡️ **3/3** projet · 💡 **1/1** recommandé (SHOULD) · 🏷️ `v2.0.0`.
 
 > [!NOTE]
 > Fiche **générée** par `.claude/skills/nodefony-skill/scripts/skills-doc.mjs` à partir du `SKILL.md`. Ne pas l'éditer :
@@ -26,41 +26,41 @@ source: ".claude/skills/nodefony-check-memory-health/SKILL.md"
 
 | | |
 | --- | --- |
-| Version | — (non versionné) |
+| Version | `2.0.0` |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 84 lignes |
-| Coût d'activation | ~1 169 tokens (le corps est chargé à l'invocation) |
-| Description | 750 / 1024 caractères |
-| Déclencheurs | 11 |
+| Corps | 101 lignes |
+| Coût d'activation | ~1 776 tokens (le corps est chargé à l'invocation) |
+| Description | 878 / 1024 caractères |
+| Déclencheurs | 12 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation). Le CLAUDE.md donne la commande ; ce skill donne le protocole et l'interprétation — le charger AVANT de lancer la commande, pas après un résultat rouge.
+Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher). Porte le décor exigé et les pièges de mesure. À charger AVANT de lancer la commande, pas après un résultat rouge. Symptôme runtime plus large → nodefony-debug ; fuite lente sur la durée → nodefony-load-test.
 
 ## Skills voisins
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`start-server`](nodefony-start-server.md)
+[`debug`](nodefony-debug.md) · [`load-test`](nodefony-load-test.md) · [`start-server`](nodefony-start-server.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`vérifier la mémoire` · `memory leak` · `test mémoire` · `heap delta` · `fuite mémoire` · `gate mémoire` · `j'ai touché au pipeline` · `j'ai modifié le Kernel ou le Container` · `je vais commiter une modif http/framework` · `le seuil mémoire a sauté` · `heap qui monte`
+`vérifier la mémoire` · `memory leak` · `test mémoire` · `heap delta` · `fuite mémoire` · `gate mémoire` · `j'ai touché au pipeline` · `j'ai modifié le Kernel ou le Container` · `je vais commiter une modif http/framework` · `le seuil mémoire a sauté` · `heap qui monte` · `octets retenus par requête`
 
 ## Ce que contient le corps
 
-- Quand l'utiliser
-- Pourquoi ça économise des tokens
-- Prérequis
-- Commande à exécuter
-- Grille de seuils (règle dure Nodefony — `CLAUDE.md`)
-- Rapport ultra-court
-- Quand NE PAS utiliser
+- 1. Quand m'utiliser / quand passer la main
+- 2. Ce que le gate mesure — trois familles, trois garanties
+- 3. Lancer
+- 4. Pourquoi une pente, et pourquoi ces précautions
+- 5. Lire un rouge — dans cet ordre
+- 6. Pièges
+- 7. Rapport au user (3 lignes)
 
 ## Conformité au standard Agent Skills
 
@@ -74,14 +74,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 750 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 878 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 84 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 101 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

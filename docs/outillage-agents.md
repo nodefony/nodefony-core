@@ -113,8 +113,8 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🧠", "title": "check-memory-health", "href": "skills/nodefony-check-memory-health.md",
-    "desc": "Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie…",
-    "meta": "🟢 conforme" },
+    "desc": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter,…",
+    "meta": "🟢 conforme v2.0.0" },
   { "icon": "🩺", "title": "debug", "href": "skills/nodefony-debug.md",
     "desc": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une…",
     "meta": "🟢 conforme v1.1.0" },

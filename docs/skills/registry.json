@@ -227,9 +227,9 @@
     },
     {
       "name": "nodefony-check-memory-health",
-      "summary": "Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation).",
+      "summary": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher).",
       "family": "Exécuter, diagnostiquer, mesurer",
-      "version": null,
+      "version": "2.0.0",
       "keywords": [],
       "triggers": [
         "vérifier la mémoire",
@@ -242,12 +242,13 @@
         "j'ai modifié le Kernel ou le Container",
         "je vais commiter une modif http/framework",
         "le seuil mémoire a sauté",
-        "heap qui monte"
+        "heap qui monte",
+        "octets retenus par requête"
       ],
-      "description": "Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels, 100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie fuite d'un flake d'isolation). Le CLAUDE.md donne la commande ; ce skill donne le protocole et l'interprétation — le charger AVANT de lancer la commande, pas après un résultat rouge. Déclencheurs : \"vérifier la mémoire\", \"memory leak\", \"test mémoire\", \"heap delta\", \"fuite mémoire\", \"gate mémoire\", \"j'ai touché au pipeline\", \"j'ai modifié le Kernel ou le Container\", \"je vais commiter une modif http/framework\", \"le seuil mémoire a sauté\", \"heap qui monte\".",
+      "description": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher). Porte le décor exigé et les pièges de mesure. À charger AVANT de lancer la commande, pas après un résultat rouge. Symptôme runtime plus large → nodefony-debug ; fuite lente sur la durée → nodefony-load-test. Déclencheurs : \"vérifier la mémoire\", \"memory leak\", \"test mémoire\", \"heap delta\", \"fuite mémoire\", \"gate mémoire\", \"j'ai touché au pipeline\", \"j'ai modifié le Kernel ou le Container\", \"je vais commiter une modif http/framework\", \"le seuil mémoire a sauté\", \"heap qui monte\", \"octets retenus par requête\".",
       "cost": {
-        "bodyLines": 84,
-        "approxTokens": 1169
+        "bodyLines": 101,
+        "approxTokens": 1776
       },
       "requires": [],
       "resources": {
@@ -256,6 +257,8 @@
         "scripts": []
       },
       "related": [
+        "nodefony-debug",
+        "nodefony-load-test",
         "nodefony-start-server"
       ],
       "conformance": {
@@ -276,7 +279,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "750",
+            "detail": "878",
             "advisory": false
           },
           {
@@ -318,7 +321,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "84",
+            "detail": "101",
             "advisory": true
           }
         ]
@@ -574,7 +577,7 @@
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
         "bodyLines": 255,
-        "approxTokens": 4026
+        "approxTokens": 4040
       },
       "requires": [],
       "resources": {
@@ -2429,8 +2432,8 @@
       ],
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
-        "bodyLines": 397,
-        "approxTokens": 8596
+        "bodyLines": 398,
+        "approxTokens": 8612
       },
       "requires": [],
       "resources": {
@@ -2525,7 +2528,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "397",
+            "detail": "398",
             "advisory": true
           }
         ]

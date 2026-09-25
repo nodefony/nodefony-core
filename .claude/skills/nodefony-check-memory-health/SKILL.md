@@ -1,95 +1,116 @@
 ---
 name: nodefony-check-memory-health
+metadata:
+  version: 2.0.0
 description: >
-  Gate mémoire de Nodefony : lance la suite d'intégration de @nodefony/http (1000 GET séquentiels,
-  100 crashs sync/async, 100 connexions WS), valide les seuils de heap, et surtout dit QUOI FAIRE
-  quand un seuil saute (blocker, ne pas commiter, où chercher la fuite, comment distinguer une vraie
-  fuite d'un flake d'isolation). Le CLAUDE.md donne la commande ; ce skill donne le protocole et
-  l'interprétation — le charger AVANT de lancer la commande, pas après un résultat rouge.
+  Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads,
+  connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les
+  contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter,
+  distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher). Porte le décor exigé
+  et les pièges de mesure. À charger AVANT de lancer la commande, pas après un résultat rouge.
+  Symptôme runtime plus large → nodefony-debug ; fuite lente sur la durée → nodefony-load-test.
   Déclencheurs : "vérifier la mémoire", "memory leak", "test mémoire", "heap delta", "fuite mémoire",
   "gate mémoire", "j'ai touché au pipeline", "j'ai modifié le Kernel ou le Container",
-  "je vais commiter une modif http/framework", "le seuil mémoire a sauté", "heap qui monte".
+  "je vais commiter une modif http/framework", "le seuil mémoire a sauté", "heap qui monte",
+  "octets retenus par requête".
 ---
 
-# check-memory-health
+# nodefony-check-memory-health — le gate mémoire, son décor et la lecture d'un rouge
 
-Wrapper sur les tests Vitest mémoire de `@nodefony/http` (`memory.test.ts`, config dédiée `vitest.load.config.ts`) avec filtrage chirurgical et grille d'interprétation des seuils.
+> **Maintenance** : vérité courante, jamais un journal. Éditer en place ; historique = `git log`.
+> 🔴 **Aucun seuil chiffré ici** : ils vivent dans la table `THRESHOLDS` en tête de
+> `src/packages/@nodefony/http/nodefony/tests/http/memory.test.ts`, seule source. Un seuil recopié
+> dans un document se périme au premier resserrement.
 
-## Quand l'utiliser
+## 1. Quand m'utiliser / quand passer la main
 
-- **Obligatoire** avant tout commit qui modifie : `@nodefony/http`, `@nodefony/framework`, le pipeline request, le DI container, le syslog
-- Après un fix sur un hook utilisateur (after-response, signal abort, etc.)
-- Pour valider qu'un refactor n'a pas régressé la stabilité GC
-- Sur demande explicite : « vérifie la mémoire », « tests memory », « heap delta »
+**Obligatoire avant de commiter** une modification de `@nodefony/http`, `@nodefony/framework`, du
+pipeline de requête, du conteneur d'injection ou du syslog.
 
-## Pourquoi ça économise des tokens
+| Besoin                                                     | Skill                         |
+| ---------------------------------------------------------- | ----------------------------- |
+| Le gate avant commit, et lire son verdict                  | **ici**                       |
+| Fuite LENTE, RSS sur la durée (minutes, heures)            | `nodefony-load-test` (`soak`) |
+| Symptôme runtime large (crash, rouge en suite, régression) | `nodefony-debug`              |
+| Démarrer / redémarrer le serveur de banc                   | `nodefony-start-server`       |
 
-Lancer le runner sans filtre = des centaines de lignes d'output. Ce filtre isole les lignes utiles (`Test Files`, `Tests`, heap deltas, FAIL).
+## 2. Ce que le gate mesure — trois familles, trois garanties
 
-## Prérequis
+| Famille       | Ligne publiée | Ce qu'elle voit                                                                  |
+| ------------- | ------------- | -------------------------------------------------------------------------------- |
+| **Rétention** | `[retention]` | octets de tas retenus PAR itération — pente, pas écart (§4)                      |
+| **Scopes**    | `[scopes]`    | scopes `request` jamais refermés — compte EXACT du registre du conteneur         |
+| **Contextes** | `[contexts]`  | contextes HTTP jamais réclamés par le GC — compte EXACT (`FinalizationRegistry`) |
 
-- Serveur Nodefony **lancé** sur ports 5151/5152 (voir skill `nodefony-start-server`) — les tests
-  **TAPENT** ce serveur, ils ne le spinnent pas. `before all` en ECONNREFUSED = serveur down/port
-  pris, **jamais le heap** (vu 3×).
-- **NE PAS enchaîner** avec le filet CLI (`NF_RUN_CLI_BOOT=1` spawne `production`/`cluster` sur
-  5151/5152 → conflit de ports). Séquencer : (filet CLI seul) PUIS (`start.sh` + memory test).
-- Les tests utilisent l'endpoint `/nodefony/test/memory` du module test pour mesurer le heap
+Les deux comptes exacts voient ce que le tas ne voit pas : un millier de scopes épinglés tient dans
+le bruit d'un tas de 90 Mo. La pente voit ce que les comptes ne voient pas : un tampon, un cache ou
+un écouteur qui grossit sans retenir de contexte.
 
-## Commande à exécuter
+## 3. Lancer
+
+Le gate **tape un serveur vivant**, il ne le démarre pas.
 
 ```bash
-# Vitest (mocha SUPPRIMÉ 2026-06-05). Le gate = memory.test.ts seul, via
-# vitest.load.config.ts (séquentiel, séparé de la non-régression rapide).
-cd /Users/cci/repository/nodefony-core/src/packages/@nodefony/http \
-  && npm run test:memory 2>&1 \
-  | grep -E "Test Files|Tests |heap grew|✓|×|FAIL|memory" \
-  | tail -20
+bash .claude/skills/nodefony-start-server/start.sh            # décor : --expose-gc posé
+lsof -nP -iTCP:5152 -sTCP:ESTABLISHED                        # aucun AUTRE client que le banc
+cd src/packages/@nodefony/http && npm run test:memory > /tmp/memory.log 2>&1; echo "exit=$?"
+grep -E "^\[(retention|scopes|contexts)\]|✓|×|Tests " /tmp/memory.log
 ```
 
-Output attendu (9/9 verts) :
+Capturer la sortie ENTIÈRE, puis filtrer : un `tail` coupe la ligne qui dit pourquoi c'est rouge.
+En CI, le même fichier tourne dans `npm run test:load` (workflow `memory.yml`, trois systèmes).
+
+## 4. Pourquoi une pente, et pourquoi ces précautions
+
+Chaque précaution ci-dessous corrige un faux verdict déjà publié.
+
+- **Une pente (Theil–Sen sur 7 paliers), jamais un écart avant/après.** Un écart est la différence
+  de deux mesures bruitées : un à-coup du serveur de développement (profileur, HMR) de 2,5 Mo se lit
+  comme 2,5 Ko « retenus par requête ». La médiane des pentes ignore un point aberrant.
+- **Fenêtre de confirmation.** Une pente au-dessus du seuil est remesurée ; le rouge exige les deux.
+  Une fuite retient à chaque itération et se retrouve, un à-coup ne tombe qu'une fois. C'est ce qui
+  tient la CI verte sans élargir le seuil.
+- **Échauffement global** (`WARMUP`) : sur un serveur neuf, V8 compile et optimise les chemins chauds
+  et les caches paresseux se remplissent — +3 Mo sur les ~1 000 premières requêtes, puis plat.
+  Mesurer avant ce plateau publie l'échauffement comme une fuite.
+- **Ring du syslog coupé pendant la mesure** (rétabli à la fin) : 2 000 Pdu en développement,
+  re-remplis par chaque scénario avec des lignes d'une autre taille — plusieurs Ko de pente qui ne
+  sont pas une rétention du pipeline.
+- **GC forcé** par la sonde `/nodefony/test/memory` — possible seulement avec `--expose-gc`, que
+  `start.sh` et la CI posent. La sonde rend `gcForced` : sans lui, on mesure du déchet en attente.
+
+## 5. Lire un rouge — dans cet ordre
+
+1. **Quelle famille ?** Le message d'assertion nomme la boucle, la valeur et, pour la rétention, les
+   deux fenêtres et les points relevés.
+2. **`[scopes]` à 1 ou 2, ou `[contexts]` positif, sans rien toucher au pipeline** → d'abord un
+   **client extérieur** : onglet Studio ouvert, client MCP de la session qui se reconnecte après un
+   redémarrage. `lsof -nP -iTCP:5152 -sTCP:ESTABLISHED` les nomme ; les fermer, relancer. Un client
+   n'existe pas en CI : un rouge de compte en CI est un défaut.
+3. **`[retention]` rouge confirmé** → c'est un **blocker**. Ne pas commiter. Chercher dans le diff :
+   - écouteur attaché sans `removeListener` (`once` ne détache pas son jumeau `finish`/`close`) ;
+   - structure allouée par requête et gardée par un objet à longue vie (cache, registre, tableau
+     module-level) ;
+   - hook utilisateur qui ne revient pas à `null` après exécution (règle lazy du `CLAUDE.md`).
+4. **Qualifier avant d'accuser son diff** : rejouer le gate sur la base stashée (skill
+   `nodefony-debug`, « baseline »). Un rouge présent sans le diff n'est pas le sien.
+5. **Ne jamais relever un seuil pour faire passer** : il est posé sur le bruit mesuré. Un seuil se
+   resserre ou se re-mesure (10 passages, serveur neuf, distribution jointe au ticket), il ne se
+   desserre pas pour un run.
+
+## 6. Pièges
+
+- **Ne pas éditer sous `src/` pendant un run** : le superviseur de développement redémarre le
+  serveur à chaque sauvegarde — `ECONNREFUSED` au milieu du banc.
+- **Ne pas enchaîner avec le filet CLI** (`NF_RUN_CLI_BOOT=1`) : il lance `production`/`cluster` sur
+  les mêmes ports. Séquencer.
+- **Un serveur lancé autrement que par `start.sh`** n'a pas `--expose-gc` : `gcForced: false`,
+  mesures fausses.
+- **Serveur resté longtemps en marche** : état accumulé par d'autres suites. En cas de doute,
+  redémarrer — la CI mesure toujours un serveur neuf.
+
+## 7. Rapport au user (3 lignes)
 
 ```
- ✓ nodefony/tests/http/memory.test.ts (9 tests)
- Test Files  1 passed (1)
-      Tests  9 passed (9)
+Mémoire : 9/9 verts · rétention max 0,xx Ko/itér. (GET) · 0 scope, 0 contexte résiduel
 ```
-
-> ⚠️ Le gate exige un serveur lancé via **`start.sh`** (skill `nodefony-start-server`) : il injecte
-> `--expose-gc` pour que la sonde `/nodefony/test/memory` force le GC avant chaque mesure (sinon
-> faux positifs GC-noise, ex. async-crash à 10.4 MB — cf [[project_ws_sustained_heap_finding]]).
-> Si le serveur tourne depuis longtemps ou a été lancé autrement → restart via le skill d'abord.
-
-## Grille de seuils (règle dure Nodefony — `CLAUDE.md`)
-
-<!-- prettier-ignore -->
-| Test | Seuil critique | Si dépassé → cause probable |
-| --- | --- | --- |
-| 1000 sequential GET | < 35 MB | Fuite dans le cycle de vie request (listeners non removed, scope non leaved) |
-| 100 sync crashes | < 10 MB | Kernel ne nettoie pas les scopes après exception |
-| 100 async crashes | < 10 MB | Idem + promesse non rejected |
-| 100 native TypeError crashes | < 15 MB | Idem + cause chain pas attrappée |
-| 500 mixed (index + context + session) | < 20 MB | Storage session qui accumule |
-| 200 multipart uploads | < 30 MB | busboy listeners / WriteStream non libérés (hot path streamMultipart) |
-| 100 WS connections open/close | < 30 MB | WS listener non removed sur `close` |
-| 50 WS echo round-trips | < 25 MB | Buffer message non libéré (seuil 25 : marge bruit GC en fin de suite) |
-
-**Si un seuil saute** → c'est un **blocker**. NE PAS commit. Investiguer :
-
-1. `git diff -w src/` pour identifier les listeners attachés
-2. Vérifier `removeListener` / `once` complémentaire (CLAUDE.md règle perf)
-3. Vérifier `lazy alloc` (null par défaut → array au premier register → null après fire)
-4. Si la cause est trouvée : fix + re-run jusqu'au vert
-
-## Rapport ultra-court
-
-À résumer à l'utilisateur en 3 lignes max :
-
-```
-Memory : 8/8 verts | 1000 GET 3200ms (<35MB) | crashs 10/10/15 MB OK | WS 30/20 MB OK
-```
-
-## Quand NE PAS utiliser
-
-- Pour mesurer une seule requête isolée → `node --inspect` + profiler Chrome
-- Pour de la perf CPU pure → utiliser `npx clinic` ou un benchmark séparé
-- Si le serveur n'est pas lancé → lancer d'abord via skill `nodefony-start-server`

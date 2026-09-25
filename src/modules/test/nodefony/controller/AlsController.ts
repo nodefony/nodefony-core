@@ -31,6 +31,57 @@ export const alsTestState = {
   scopeAfterTeardown: {} as Record<string, boolean>,
 };
 
+type ContextEmitter = {
+  on(event: string, fn: (context: object) => void): unknown;
+  removeListener(event: string, fn: (context: object) => void): unknown;
+};
+
+/**
+ * Traceur des contextes HTTP : chaque contexte créé est inscrit dans un
+ * `FinalizationRegistry`, qui le décompte quand le ramasse-miettes l'a
+ * réclamé. Module-level : il survit aux contrôleurs, qui sont par requête.
+ *
+ * Le compte est tenu par ÉPOQUE : `mark()` ouvre une époque neuve, et seuls les
+ * contextes nés depuis y sont comptés. Sans cela, la base d'une boucle compte
+ * encore les contextes du test précédent que le GC n'a pas fini de réclamer —
+ * l'écart qui en résulte est NÉGATIF (−1 à −3 mesurés) et masquerait autant de
+ * contextes retenus.
+ */
+const contextTracker = {
+  armed: false,
+  epoch: 0,
+  created: 0,
+  finalized: 0,
+  registry: new FinalizationRegistry<number>((epoch) => {
+    if (epoch === contextTracker.epoch) contextTracker.finalized++;
+  }),
+  onCreate: (context: object): void => {
+    contextTracker.created++;
+    contextTracker.registry.register(context, contextTracker.epoch);
+  },
+  mark: (): void => {
+    contextTracker.epoch++;
+    contextTracker.created = 0;
+    contextTracker.finalized = 0;
+  },
+};
+
+function armContextTracker(kernel: ContextEmitter | undefined): boolean {
+  if (!kernel) return false;
+  if (!contextTracker.armed) {
+    kernel.on("onCreateContext", contextTracker.onCreate);
+    contextTracker.armed = true;
+  }
+  return true;
+}
+
+function disarmContextTracker(kernel: ContextEmitter | undefined): void {
+  if (kernel && contextTracker.armed) {
+    kernel.removeListener("onCreateContext", contextTracker.onCreate);
+  }
+  contextTracker.armed = false;
+}
+
 /**
  * Dedicated test controller for AsyncLocalStorage propagation across the
  * WebSocket message lifecycle (BUG-001) and the onAfterResponse hook
@@ -155,6 +206,55 @@ class AlsController extends Controller {
       // Clés PROPRES du scope de CETTE requête : ce que le pipeline y écrit à
       // chaque requête (le contrôleur…). Sonde des écritures par requête.
       requestScopeKeys: this.context?.container?.keys() ?? null,
+    });
+  }
+
+  // Compteur EXACT des contextes HTTP encore vivants — ce que ni le heap ni le
+  // registre des scopes ne voient : un contexte retenu ailleurs (tableau,
+  // fermeture, cache) alors que son scope a bien été refermé. Armé à la
+  // demande : l'écouteur `onCreateContext` fait payer un `fireAsync` à CHAQUE
+  // requête (`http-kernel.ts`, garde `listenerCount`), les autres suites ne
+  // doivent pas le porter.
+  @Get("/contexts/arm")
+  contextsArm() {
+    const kernel = this.kernel?.get("HttpKernel") as ContextEmitter | undefined;
+    return this.renderJson({ armed: armContextTracker(kernel) });
+  }
+
+  @Get("/contexts/disarm")
+  contextsDisarm() {
+    const kernel = this.kernel?.get("HttpKernel") as ContextEmitter | undefined;
+    disarmContextTracker(kernel);
+    return this.renderJson({ armed: false });
+  }
+
+  /** Ouvre une époque : seuls les contextes nés après seront comptés. */
+  @Get("/contexts/mark")
+  contextsMark() {
+    contextTracker.mark();
+    return this.renderJson({ epoch: contextTracker.epoch });
+  }
+
+  @Get("/contexts")
+  async contexts() {
+    // Le GC forcé ne fait que PLANIFIER les rappels de finalisation, et un
+    // objet réclamé peut en libérer d'autres au GC suivant : on alterne GC et
+    // retour à la boucle jusqu'à ce que le compte ne bouge plus (borné). Une
+    // base lue trop tôt compte encore les contextes du test précédent, et
+    // l'écart qui en résulte, NÉGATIF, masquerait autant de contextes retenus.
+    const gc = (globalThis as { gc?: () => void }).gc;
+    let previous = -1;
+    for (let i = 0; i < 5 && previous !== contextTracker.finalized; i++) {
+      previous = contextTracker.finalized;
+      gc?.();
+      await new Promise((r) => setTimeout(r, 0));
+    }
+    return this.renderJson({
+      armed: contextTracker.armed,
+      epoch: contextTracker.epoch,
+      created: contextTracker.created,
+      finalized: contextTracker.finalized,
+      alive: contextTracker.created - contextTracker.finalized,
     });
   }
 

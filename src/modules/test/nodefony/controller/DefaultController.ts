@@ -218,6 +218,33 @@ class DefaultController extends Controller {
     throw new TypeError("native error — no HttpError");
   }
 
+  /**
+   * Coupe (`off`) ou rétablit (`on`) le ring de relecture du syslog. Le banc
+   * mémoire le coupe pendant sa mesure : ring borné mais RE-REMPLI à chaque
+   * scénario par des Pdu d'une autre taille (une trace de crash n'a pas la
+   * taille d'une ligne d'accès), il fabrique une pente de plusieurs Ko par
+   * requête qui n'est pas une rétention du pipeline.
+   */
+  @route("memory-syslog-ring-off", { path: "/memory/syslog-ring/off" })
+  memorySyslogRingOff() {
+    return this.setSyslogRing(false);
+  }
+
+  /** Rétablit le ring coupé par `memory-syslog-ring-off`. */
+  @route("memory-syslog-ring-on", { path: "/memory/syslog-ring/on" })
+  memorySyslogRingOn() {
+    return this.setSyslogRing(true);
+  }
+
+  private setSyslogRing(enabled: boolean) {
+    const syslog = this.kernel?.syslog;
+    if (!syslog) {
+      throw new HttpError("syslog du kernel absent", 500, this.context);
+    }
+    syslog.setRingEnabled(enabled);
+    return this.renderJson({ ringEnabled: syslog.ringEnabled });
+  }
+
   @route("memory-stats", { path: "/memory" })
   memoryStats() {
     // Force un GC si le serveur tourne avec `--expose-gc` → on mesure le heap
@@ -225,6 +252,15 @@ class DefaultController extends Controller {
     // (comportement inchangé). C'est ce qui rend le gate mémoire fiable : sans
     // ça, 5000 frames WS laissent ~180 MB de déchets non collectés qui passent
     // pour une « fuite » alors que le GC les récupère (cf gate ws-messages-load).
+    // Remplissage du ring de relecture du syslog (2 000 Pdu en développement,
+    // `Kernel.ts`, `maxStack`) : tant qu'il n'est pas plein, chaque requête y
+    // AJOUTE ses lignes de log et le tas monte — ~2,5 Mo sur un serveur neuf,
+    // un plateau et non une fuite. Le banc mémoire attend ce plein pour mesurer.
+    // Lu AVANT le GC : `ringStack` copie le ring, la copie part avec lui.
+    const syslog = this.kernel?.syslog;
+    const syslogRing = syslog
+      ? { size: syslog.ringStack.length, capacity: syslog.bufferCapacity }
+      : null;
     const forceGc = (globalThis as { gc?: () => void }).gc;
     if (forceGc) {
       forceGc();
@@ -246,6 +282,7 @@ class DefaultController extends Controller {
       // fuite. Une capacité se CONSTATE — l'appelant doit pouvoir refuser de
       // mesurer plutôt que publier un chiffre faux.
       gcForced: Boolean(forceGc),
+      syslogRing,
       // Ce que `process.memoryUsage()` ne dira JAMAIS : combien de ressources
       // le runtime tient encore ouvertes. Un RSS qui monte pendant que le tas
       // reste plat désigne du hors-V8, et la première question devient « des

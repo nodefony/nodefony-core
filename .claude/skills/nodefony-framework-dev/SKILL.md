@@ -126,8 +126,9 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
   dans le hot path — différer au `send()`.
 - **`performance.now()`** OK (~50 ns) mais 1 mesure début/fin, pas N dans une boucle.
 - **APRÈS toute modif de `@nodefony/http`/`@nodefony/framework`/core pipeline → suite mémoire OBLIGATOIRE**
-  AVANT commit (cf §8). Seuils blockers : **35 MB / 1000 req HTTP**, **10 MB / 100 crashes**,
-  **30 MB / 100 WS**. Si ça saute → NE PAS commit, lazy + cleanup d'abord.
+  AVANT commit (cf §8) — skill `nodefony-check-memory-health`. Les seuils (octets retenus par
+  itération) vivent dans la table `THRESHOLDS` de `memory.test.ts`, seule source. Si ça saute →
+  NE PAS commit, lazy + cleanup d'abord.
 - Quantifier dans le commit si écart > 5 % : « 1000 req : Xms avant / Yms après, heap delta Z MB ».
 
 ### Doctrine Node « ne pas bloquer l'event-loop » (compléments officiels)

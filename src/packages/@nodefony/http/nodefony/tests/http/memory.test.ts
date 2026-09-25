@@ -7,6 +7,7 @@ import {
   type UploadSnapshot,
 } from "../helpers/uploadResidue.js";
 import { drainTo } from "../helpers/scopeDrain.js";
+import { measureRetention, type IRetentionPlan } from "../helpers/heapSlope.js";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -54,6 +55,14 @@ async function liveScopes(): Promise<number> {
   return r.requestScopes as number;
 }
 
+async function liveContexts(): Promise<number> {
+  const r = (await get("/nodefony/test/als-test/contexts")) as Record<
+    string,
+    unknown
+  >;
+  return r.alive as number;
+}
+
 function openCloseWs(url: string): Promise<void> {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(url, wsOpts);
@@ -64,10 +73,6 @@ function openCloseWs(url: string): Promise<void> {
 }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
-
-async function warmup(n = 20): Promise<void> {
-  for (let i = 0; i < n; i++) await get("/nodefony/test/index");
-}
 
 /** Un upload multipart minimal (1 petit fichier) — pour le test de fuite. */
 function uploadSmall(): Promise<void> {
@@ -96,44 +101,88 @@ function uploadSmall(): Promise<void> {
   });
 }
 
-// ── suites ───────────────────────────────────────────────────────────────────
+// ── seuils ───────────────────────────────────────────────────────────────────
 
 /**
- * Asserte que `delta` tient sous `seuilMo` — **et PUBLIE la mesure**.
+ * Octets RETENUS par itération au-delà desquels une boucle est déclarée fuyante.
+ * 🔴 SOURCE UNIQUE : les documents (CLAUDE.md, skills) renvoient ici, ils ne
+ * recopient pas ces valeurs.
  *
- * 🔴 Un seuil dont on ne voit jamais la marge est indistinguable d'un seuil
- * décoratif. Ces bancs ne rendaient leur chiffre qu'en ÉCHEC (le message
- * d'assertion) : tant qu'ils passaient — c'est-à-dire toujours — personne ne
- * pouvait dire si 35 Mo était juste ou vingt fois trop large, ni si une
- * dérive lente était en train de combler la marge. Le vert ne prouvait que
- * « pas de fuite ÉNORME ».
- *
- * La marge est donc imprimée à chaque exécution, sur les trois systèmes. Elle
- * est ce qui permet de resserrer un seuil sur des CHIFFRES — et de voir venir,
- * d'un run à l'autre, ce qu'un simple vert cache par construction.
+ * Posés sur le bruit MESURÉ de la pente, pas choisis à l'œil. 10 passages,
+ * chacun sur un serveur NEUF (le régime de la CI), pente maximale observée en
+ * Ko par itération : GET 0,04 · crashs 0,19 · mixtes 0,26 · uploads 0,38 ·
+ * WS 0,06 / 0,15 (distribution complète au ticket #490). Un seuil commun de
+ * 1 Ko laisse au moins ×2,6 au pire scénario, et vaut la MOITIÉ de la fuite
+ * témoin : 2 Ko retenus par scope (`Container.enterScope`) ont fait tomber les
+ * huit contrôles, mesurés entre 1,55 et 2,40 Ko. Resserrer demande de refaire
+ * ces 10 passages ; desserrer pour faire passer un run est exclu.
  */
-const sousLeSeuil = (quoi: string, delta: number, seuilMo: number): void => {
-  const mo = delta / 1024 / 1024;
-  const marge = mo <= 0 ? "∞" : `×${(seuilMo / mo).toFixed(1)}`;
+const THRESHOLDS = {
+  get: 1024,
+  crashSync: 1024,
+  crashAsync: 1024,
+  crashNative: 1024,
+  mixed: 1024,
+  upload: 1024,
+  wsOpenClose: 1024,
+  wsEcho: 1024,
+} as const;
+
+// ── assertions ───────────────────────────────────────────────────────────────
+
+const ko = (octets: number): string => `${(octets / 1024).toFixed(2)} Ko`;
+
+/**
+ * Mesure ce qu'une boucle retient par itération, PUBLIE la mesure, et rend
+ * l'assertion à jouer — APRÈS les comptes exacts, qui nomment la cause quand
+ * la pente, elle, ne fait que la chiffrer.
+ *
+ * Une pente (octets / itération, Theil–Sen sur des paliers relevés GC forcé)
+ * et non un écart avant/après : cf `helpers/heapSlope.ts`. L'ancien écart sur
+ * 1 000 requêtes laissait passer jusqu'à 35 Ko par requête, et un conteneur
+ * volontairement cassé qui gardait 1 043 scopes est resté vert.
+ *
+ * Une pente au-dessus du seuil est CONFIRMÉE par une seconde fenêtre avant de
+ * conclure : une fuite retient à chaque itération, donc elle se retrouve ; un
+ * à-coup du serveur de développement (profileur, HMR) ne tombe qu'une fois. Le
+ * rouge exige les deux — sans cela, le gate flancherait en CI sur un à-coup.
+ */
+const retention = async (
+  quoi: string,
+  plan: IRetentionPlan,
+  seuil: number,
+): Promise<() => void> => {
+  const first = await measureRetention(plan);
+  const confirm =
+    first.slope < seuil ? null : await measureRetention({ ...plan, warmup: 0 });
+  const verdict = confirm ?? first;
+  const marge =
+    verdict.slope <= 0 ? "∞" : `×${(seuil / verdict.slope).toFixed(1)}`;
   // eslint-disable-next-line no-console
   console.log(
-    `[heap] ${quoi} : ${mo.toFixed(2)} MB mesurés · seuil ${seuilMo} MB · marge ${marge}`,
+    `[retention] ${quoi} : ${ko(first.slope)} / itér.` +
+      (confirm ? ` → confirmation ${ko(confirm.slope)}` : "") +
+      ` · seuil ${ko(seuil)} · marge ${marge}`,
   );
-  expect(delta).to.be.below(
-    seuilMo * 1024 * 1024,
-    `heap grew ${mo.toFixed(1)} MB`,
-  );
+  return () => {
+    expect(
+      verdict.slope,
+      `${quoi} : ${ko(verdict.slope)} retenus par itération, confirmé sur une ` +
+        `seconde fenêtre (première : ${ko(first.slope)}). Tas relevé (Mo) : ` +
+        verdict.points.map((p) => (p / 1048576).toFixed(2)).join(" "),
+    ).to.be.below(seuil);
+  };
 };
 
 /**
  * Asserte que la boucle n'a laissé AUCUN scope `request` ouvert — et PUBLIE le
- * relevé, comme {@link sousLeSeuil} publie sa marge.
+ * relevé.
  *
- * Le heap ne voit pas une petite fuite de scopes : un millier de contextes
- * épinglés tient sous le seuil de 35 Mo. Le registre du conteneur, si — chaque
- * scope jamais libéré y reste compté. Le témoin `base >= 1` garantit qu'on lit
- * un vrai relevé : la sonde compte au moins le scope de sa propre requête (une
- * introspection cassée rendrait `-1` des deux côtés, et un écart nul).
+ * Le tas ne voit pas une petite fuite de scopes ; le registre du conteneur, si
+ * — chaque scope jamais libéré y reste compté. Le témoin `base >= 1` garantit
+ * qu'on lit un vrai relevé : la sonde compte au moins le scope de sa propre
+ * requête (une introspection cassée rendrait `-1` des deux côtés, et un écart
+ * nul).
  */
 const scopesDrained = async (quoi: string, base: number): Promise<void> => {
   expect(
@@ -154,8 +203,134 @@ const scopesDrained = async (quoi: string, base: number): Promise<void> => {
   ).to.be.at.most(0);
 };
 
+/**
+ * Asserte qu'aucun contexte HTTP né depuis la marque (`/als-test/contexts/mark`)
+ * n'est encore VIVANT — compte exact, par `FinalizationRegistry`.
+ *
+ * Voit ce que ni le registre des scopes ni le tas ne voient : UN contexte
+ * retenu ailleurs (tableau, fermeture, cache) alors que son scope a bien été
+ * refermé — un épinglé sur mille pèse 15 o par requête, invisible à la pente.
+ * Seul le contexte de la sonde elle-même doit rester : d'où la base 1, qui
+ * sert aussi de témoin — un traceur désarmé rendrait 0, donc un écart de −1.
+ */
+const contextsReleased = async (quoi: string): Promise<void> => {
+  const delta = await drainTo(liveContexts, 1, 1);
+  expect(
+    delta,
+    "témoin : le traceur est armé et voit le contexte de sa propre requête",
+  ).to.be.at.least(0);
+  // eslint-disable-next-line no-console
+  console.log(`[contexts] ${quoi} : ${delta} contexte(s) encore vivant(s)`);
+  expect(
+    delta,
+    `${quoi} : ${delta} contexte(s) HTTP de la boucle jamais réclamé(s) par ` +
+      "le ramasse-miettes — une référence les retient après la réponse.",
+  ).to.be.at.most(0);
+};
+
+// ── actions ──────────────────────────────────────────────────────────────────
+
+const MIXED_ROUTES = [
+  "/nodefony/test/index",
+  "/nodefony/test/context",
+  "/nodefony/test/rest/session",
+];
+
+/** Une itération par scénario — partagées par l'échauffement et les mesures. */
+const ACTIONS = {
+  get: () => get("/nodefony/test/index"),
+  crashSync: () => get("/nodefony/test/crash/sync"),
+  crashAsync: () => get("/nodefony/test/crash/async"),
+  crashNative: () => get("/nodefony/test/crash/native"),
+  mixed: (i: number) => get(MIXED_ROUTES[i % MIXED_ROUTES.length]),
+  upload: () => uploadSmall(),
+  wsOpenClose: () => openCloseWs(`${WSS}/nodefony/test/ws`),
+  wsEcho: () =>
+    new Promise<void>((resolve, reject) => {
+      // Chaque connexion crée une session (startSession) → allocations plus lourdes.
+      const ws = new WebSocket(`${WSS}/nodefony/test/ws/echo`, wsOpts);
+      ws.once("open", () => ws.send("ping"));
+      ws.once("message", () => ws.close());
+      ws.once("close", () => resolve());
+      ws.once("error", reject);
+    }),
+} satisfies Record<keyof typeof THRESHOLDS, (i: number) => Promise<unknown>>;
+
+/**
+ * Itérations d'échauffement par scénario, jouées UNE fois en tête de suite.
+ *
+ * Un serveur neuf n'est pas au régime : V8 compile et optimise les chemins
+ * chauds (code et retours de type comptent dans `heapUsed`), les caches
+ * paresseux se remplissent. Mesuré sur un serveur neuf, ring du syslog coupé :
+ * +3 Mo sur les ~1 000 premières requêtes GET, puis plat (~40 o/requête sur
+ * les 4 000 suivantes) ; les chemins WebSocket plafonnent après quelques
+ * centaines de connexions. Mesurer avant ce plateau, c'est publier
+ * l'échauffement comme une fuite — c'est ce que faisait l'ancien écart sur
+ * 1 000 requêtes, 2,45 Mo sur les trois systèmes de la CI.
+ */
+const WARMUP = {
+  get: 1500,
+  crashSync: 200,
+  crashAsync: 200,
+  crashNative: 200,
+  mixed: 450,
+  upload: 200,
+  wsOpenClose: 400,
+  wsEcho: 400,
+} satisfies Record<keyof typeof ACTIONS, number>;
+
+/**
+ * Plan de mesure d'un scénario : un palier jeté (reprise après le scénario
+ * précédent), puis `batches` paliers de `batch` itérations.
+ */
+const plan = (
+  key: keyof typeof ACTIONS,
+  batch: number,
+  batches = 6,
+): IRetentionPlan => ({
+  probe: serverHeap,
+  act: async (i) => {
+    await ACTIONS[key](i);
+  },
+  warmup: batch,
+  batch,
+  batches,
+});
+
+// ── suites ───────────────────────────────────────────────────────────────────
+
+// Le ring de relecture du syslog (2 000 Pdu en développement) est coupé pendant
+// la mesure : borné, mais re-rempli à chaque scénario par des Pdu d'une autre
+// taille, il fabrique plusieurs Ko de pente par requête — 2,45 Mo sur les
+// 1 000 premières requêtes d'un serveur neuf, identiques sur les trois systèmes
+// de la CI. Ce n'est pas une rétention du pipeline, c'est un tampon qui se
+// remplit. Rétabli à la fin, quoi qu'il arrive. Puis chaque chemin est amené à
+// son plateau (`WARMUP`).
+beforeAll(async () => {
+  const r = (await get("/nodefony/test/memory/syslog-ring/off")) as Record<
+    string,
+    unknown
+  >;
+  expect(r.ringEnabled, "le ring du syslog doit être coupé").to.equal(false);
+  for (const key of Object.keys(WARMUP) as (keyof typeof WARMUP)[]) {
+    for (let i = 0; i < WARMUP[key]; i++) await ACTIONS[key](i);
+  }
+}, 120_000);
+afterAll(async () => {
+  await get("/nodefony/test/memory/syslog-ring/on");
+});
+
 describe("Memory leaks — HTTP (requires server)", function () {
-  beforeAll(() => warmup());
+  beforeAll(async () => {
+    const r = (await get("/nodefony/test/als-test/contexts/arm")) as Record<
+      string,
+      unknown
+    >;
+    expect(r.armed, "traceur de contextes non armé").to.equal(true);
+  });
+  afterAll(async () => {
+    await get("/nodefony/test/als-test/contexts/disarm");
+  });
 
   // Hygiène : le test d'upload ne doit JAMAIS laisser de résidu dans tmp/.
   // Snapshot avant la suite, diff après → supprime UNIQUEMENT ce qu'elle a créé
@@ -172,76 +347,65 @@ describe("Memory leaks — HTTP (requires server)", function () {
     ).to.be.greaterThan(0);
   });
 
-  it("1000 sequential GET requests — server heap delta < 35 MB", async () => {
+  /** Une boucle HTTP : pente de tas, puis scopes et contextes drainés. */
+  const httpLoop = async (
+    quoi: string,
+    p: IRetentionPlan,
+    seuil: number,
+  ): Promise<void> => {
+    await get("/nodefony/test/als-test/contexts/mark");
     const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 1000; i++) await get("/nodefony/test/index");
-    const after = await serverHeap();
-    sousLeSeuil("1000 sequential GET requests", after - before, 35);
-    await scopesDrained("1000 sequential GET requests", scopesBefore);
+    const assertRetention = await retention(quoi, p, seuil);
+    await scopesDrained(quoi, scopesBefore);
+    await contextsReleased(quoi);
+    assertRetention();
+  };
+
+  it("sequential GET requests — retains nothing per request", async () => {
+    await httpLoop("sequential GET requests", plan("get", 250), THRESHOLDS.get);
   });
 
-  it("100 consecutive sync crashes — server heap delta < 10 MB", async () => {
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/sync");
-    const after = await serverHeap();
-    sousLeSeuil("100 consecutive sync crashes", after - before, 10);
-    await scopesDrained("100 consecutive sync crashes", scopesBefore);
-  });
-
-  it("100 consecutive async crashes — server heap delta < 10 MB", async () => {
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/async");
-    const after = await serverHeap();
-    sousLeSeuil("100 consecutive async crashes", after - before, 10);
-    await scopesDrained("100 consecutive async crashes", scopesBefore);
-  });
-
-  it("100 consecutive native TypeError crashes — server heap delta < 15 MB", async () => {
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/native");
-    const after = await serverHeap();
-    sousLeSeuil("100 consecutive native TypeError crashes", after - before, 15);
-    await scopesDrained(
-      "100 consecutive native TypeError crashes",
-      scopesBefore,
+  it("consecutive sync crashes — retains nothing per crash", async () => {
+    await httpLoop(
+      "consecutive sync crashes",
+      plan("crashSync", 50),
+      THRESHOLDS.crashSync,
     );
   });
 
-  it("500 mixed requests (index + context + session) — server heap delta < 20 MB", async () => {
-    const routes = [
-      "/nodefony/test/index",
-      "/nodefony/test/context",
-      "/nodefony/test/rest/session",
-    ];
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 500; i++) await get(routes[i % routes.length]);
-    const after = await serverHeap();
-    sousLeSeuil(
-      "500 mixed requests (index + context + session)",
-      after - before,
-      20,
-    );
-    await scopesDrained(
-      "500 mixed requests (index + context + session)",
-      scopesBefore,
+  it("consecutive async crashes — retains nothing per crash", async () => {
+    await httpLoop(
+      "consecutive async crashes",
+      plan("crashAsync", 50),
+      THRESHOLDS.crashAsync,
     );
   });
 
-  it("200 sequential multipart uploads — server heap delta < 30 MB", async () => {
+  it("consecutive native TypeError crashes — retains nothing per crash", async () => {
+    await httpLoop(
+      "consecutive native TypeError crashes",
+      plan("crashNative", 50),
+      THRESHOLDS.crashNative,
+    );
+  });
+
+  it("mixed requests (index + context + session) — retains nothing per request", async () => {
+    await httpLoop(
+      "mixed requests (index + context + session)",
+      plan("mixed", 150),
+      THRESHOLDS.mixed,
+    );
+  });
+
+  it("sequential multipart uploads — retains nothing per upload", async () => {
     // Hot path busboy : valide que streamMultipart (listeners file/field +
-    // WriteStream + busboy par requête) ne fuit pas. Fichier minuscule → le
-    // delta heap mesure les listeners/buffers, pas le contenu.
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 200; i++) await uploadSmall();
-    const after = await serverHeap();
-    sousLeSeuil("200 sequential multipart uploads", after - before, 30);
-    await scopesDrained("200 sequential multipart uploads", scopesBefore);
+    // WriteStream + busboy par requête) ne fuit pas. Fichier minuscule → la
+    // pente mesure les listeners/buffers, pas le contenu.
+    await httpLoop(
+      "sequential multipart uploads",
+      plan("upload", 100),
+      THRESHOLDS.upload,
+    );
   });
 
   it("server is alive after load — /index returns 200", async () => {
@@ -263,45 +427,30 @@ describe("Memory leaks — HTTP (requires server)", function () {
 });
 
 describe("Memory leaks — WebSocket (requires server)", function () {
-  // Drain garbage left by the previous (heavy) test before measuring a
-  // baseline. The server runs without --expose-gc, so heap deltas carry GC
-  // noise; a short idle lets V8 reclaim before/after are taken on. NOTE: these
-  // heap-delta checks are only a COARSE gross-leak guard — they do not catch
-  // small retained-scope leaks (BUG-004's ~0.7 MB passed here). The precise
-  // leak guard is the scope-count assertions in lifecycle-als / als-load.
-  beforeEach(async () => {
-    await new Promise((r) => setTimeout(r, 200));
+  const wsLoop = async (
+    quoi: string,
+    p: IRetentionPlan,
+    seuil: number,
+  ): Promise<void> => {
+    const scopesBefore = await liveScopes();
+    const assertRetention = await retention(quoi, p, seuil);
+    await scopesDrained(quoi, scopesBefore);
+    assertRetention();
+  };
+
+  it("WS connections open/close — retains nothing per connection", async () => {
+    await wsLoop(
+      "WS connections open/close",
+      plan("wsOpenClose", 100),
+      THRESHOLDS.wsOpenClose,
+    );
   });
 
-  it("100 WS connections open/close — server heap delta < 30 MB", async () => {
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 100; i++) {
-      await openCloseWs(`${WSS}/nodefony/test/ws`);
-    }
-    const after = await serverHeap();
-    sousLeSeuil("100 WS connections open/close", after - before, 30);
-    await scopesDrained("100 WS connections open/close", scopesBefore);
-  });
-
-  it("50 WS echo round-trips open/send/close — heap delta < 25 MB", async () => {
-    // Chaque connexion crée une session (startSession) → allocations plus lourdes.
-    // Seuil 25 MB (était 20) : marge contre le bruit GC quand ce test tourne en
-    // fin de suite lourde (flaky à 20.1 MB observé). Détection de leak précise =
-    // tests scope-count (lifecycle-als / als-load), pas ce delta heap grossier.
-    const scopesBefore = await liveScopes();
-    const before = await serverHeap();
-    for (let i = 0; i < 50; i++) {
-      await new Promise<void>((resolve, reject) => {
-        const ws = new WebSocket(`${WSS}/nodefony/test/ws/echo`, wsOpts);
-        ws.once("open", () => ws.send("ping"));
-        ws.once("message", () => ws.close());
-        ws.once("close", () => resolve());
-        ws.once("error", reject);
-      });
-    }
-    const after = await serverHeap();
-    sousLeSeuil("50 WS echo round-trips open/send/close", after - before, 25);
-    await scopesDrained("50 WS echo round-trips open/send/close", scopesBefore);
+  it("WS echo round-trips open/send/close — retains nothing per connection", async () => {
+    await wsLoop(
+      "WS echo round-trips open/send/close",
+      plan("wsEcho", 50),
+      THRESHOLDS.wsEcho,
+    );
   });
 });
