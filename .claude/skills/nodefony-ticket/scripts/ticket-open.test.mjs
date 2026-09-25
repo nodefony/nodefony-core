@@ -12,7 +12,7 @@
  * le socle après ce qui en dépend, et un ticket d'un autre jalon en tête.
  */
 import { describe, expect, it } from "vitest";
-import { deriveOrdre, parentTypeAction } from "./ticket-open.mjs";
+import { deriveOrdre, parentTypeAction, siblingRank } from "./ticket-open.mjs";
 
 describe("ordre dérivé d'un sous-ticket", () => {
   it("le premier enfant prend le premier dixième du parent", () => {
@@ -139,5 +139,17 @@ describe("type du parent à la création d'un sous-ticket", () => {
   it("un parent d'un autre type est signalé, jamais écrasé", () => {
     expect(parentTypeAction("Feature")).to.equal("signaler");
     expect(parentTypeAction("Bug")).to.equal("signaler");
+  });
+});
+
+describe("rang d'un sous-ticket compté après sa création", () => {
+  it("le premier enfant, seul rattaché, prend le rang 0 — donc le premier dixième", () => {
+    expect(deriveOrdre(173, siblingRank(1))).to.equal(173.1);
+  });
+  it("le troisième enfant prend le rang 2", () => {
+    expect(siblingRank(3)).to.equal(2);
+  });
+  it("un compte nul (lecture vide) ne rend pas de rang négatif", () => {
+    expect(siblingRank(0)).to.equal(0);
   });
 });

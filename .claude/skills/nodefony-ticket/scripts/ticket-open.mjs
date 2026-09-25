@@ -131,6 +131,20 @@ export function ordreDuTicket(numero) {
 }
 
 /**
+ * Rang d'un sous-ticket parmi ses frères, compté APRÈS sa création.
+ *
+ * `gh issue create --parent` rattache l'enfant AVANT qu'on compte : le total lu
+ * l'inclut déjà. Le prendre tel quel donnait `.2` au premier enfant (vu sur
+ * #494, rangé 173.2 sous un parent sans autre enfant).
+ *
+ * @param total - sous-tickets rattachés au parent, le nouveau compris
+ * @returns le rang du nouveau, à partir de 0
+ */
+export function siblingRank(total) {
+  return Math.max(0, total - 1);
+}
+
+/**
  * Décide du geste à faire sur le type d'un ticket qui reçoit un sous-ticket.
  *
  * @param typeActuel - nom du type du parent, `null` s'il n'en a aucun
@@ -330,9 +344,10 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-open.mjs")) {
     // qu'aucune erreur ne le signale. Interroger un ticket qu'on NOMME n'a pas
     // ce bord.
     const parentOrdre = ordreDuTicket(args.parent);
-    // Les frères sont les sous-tickets DÉJÀ rattachés — comptés à leur source,
-    // pas devinés d'après une plage d'ordres.
-    const rang = nombreDeSousTickets(args.parent);
+    // Les frères sont comptés à leur source, pas devinés d'après une plage
+    // d'ordres.
+    // Compté après la création : le nouveau est déjà rattaché (siblingRank).
+    const rang = siblingRank(nombreDeSousTickets(args.parent));
     try {
       ordre = deriveOrdre(parentOrdre, rang);
     } catch (err) {
