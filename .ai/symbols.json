@@ -5,10 +5,10 @@
     "files": 862,
     "symbols": 4295,
     "classes": 400,
-    "interfaces": 1130,
+    "interfaces": 1131,
     "types": 459,
     "enums": 4,
-    "functions": 1871,
+    "functions": 1870,
     "constants": 431
   },
   "symbols": {
@@ -12629,6 +12629,15 @@
       "module": "@nodefony/core",
       "description": "Résout une cible `nodefony stop <projet>` — par NOM ou par CHEMIN. Le refus est la règle dès que la désignation n'est pas certaine : arrêter des process est irréversible, et deviner « le plus proch…"
     },
+    "IStandaloneArgs": {
+      "name": "IStandaloneArgs",
+      "kind": "interface",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que `status`/`stop` ont reçu, une fois la ligne de commande lue."
+    },
     "DevStatusReport": {
       "name": "DevStatusReport",
       "kind": "interface",
@@ -12653,6 +12662,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Exécute une commande système standalone par son nom — point d'entrée du fast-path `CliKernel.start` (avant tout boot). N'écrit jamais via le syslog (kernel non booté). `stop --all` = trans-projets …"
+    },
+    "parseStandaloneArgs": {
+      "name": "parseStandaloneArgs",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devStatusReport.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la ligne de commande de `status`/`stop` — le raccourci court AVANT commander, il n'a donc personne d'autre pour l'analyser. 🔴 Ce qu'elle ne connaît pas, elle le REFUSE. Elle retenait les seuls…"
     },
     "buildDevStatus": {
       "name": "buildDevStatus",
@@ -32146,7 +32163,8 @@
         "src/nodefony/src/cli/env.ts",
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
-        "src/nodefony/src/cli/image/index.ts"
+        "src/nodefony/src/cli/image/index.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "IUsagePage": [
         "src/nodefony/src/cli/aiMcp.ts",
@@ -32296,7 +32314,8 @@
         "src/nodefony/src/cli/gitHooks.ts",
         "src/nodefony/src/cli/symbols.ts",
         "src/nodefony/src/cli/image/index.ts",
-        "src/nodefony/src/kernel/checks/runDoctor.ts"
+        "src/nodefony/src/kernel/checks/runDoctor.ts",
+        "src/nodefony/src/service/dev/devStatusReport.ts"
       ],
       "buildCard": [
         "src/nodefony/src/cli/card.ts",

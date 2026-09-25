@@ -31,7 +31,12 @@ import {
 import { buildProjectTable, type IProjectRuntime } from "./devProjects";
 import { probeReadiness, type IReadinessProbe } from "./bootVerdict";
 import { runStopReport } from "./devStop";
-import { printUsage, type IUsagePage } from "../../cli/usageReport";
+import {
+  printUsage,
+  printUsageError,
+  type IUsagePage,
+} from "../../cli/usageReport";
+import { stripGlobalCliFlags } from "../../cli/globalFlags";
 import { SysExit } from "../../cli/sysexits";
 
 /**
@@ -131,24 +136,6 @@ const STOP_PAGE: IUsagePage = {
   ],
 };
 
-/**
- * `true` si l'invocation demande l'aide de la commande, et non son exécution.
- *
- * 🔴 Ces commandes analysent `process.argv` elles-mêmes — le fast-path court
- * AVANT commander. Sans ce contrôle, `nodefony stop --help` ARRÊTAIT le serveur :
- * le drapeau était simplement ignoré, et un lecteur qui cherchait la
- * documentation obtenait l'effet.
- *
- * @param name - le nom de la commande, pour ne lire que ce qui la suit.
- * @param argv - la ligne de commande.
- * @returns `true` si `--help` ou `-h` a été demandé.
- */
-function wantsHelp(name: string, argv: readonly string[]): boolean {
-  const at = argv.indexOf(name);
-  if (at === -1) return false;
-  return argv.slice(at + 1).some((a) => a === "--help" || a === "-h");
-}
-
 /** `true` si `name` est une commande système standalone (status/stop). */
 export function isStandaloneDevCommand(name: string): boolean {
   return STANDALONE_DEV_COMMANDS.has(name);
@@ -161,39 +148,58 @@ export function isStandaloneDevCommand(name: string): boolean {
  */
 export async function runStandaloneDevCommand(name: string): Promise<number> {
   const cwd = process.cwd();
-  if (wantsHelp(name, process.argv)) {
-    return printUsage(name === "stop" ? STOP_PAGE : STATUS_PAGE);
-  }
+  const page = name === "stop" ? STOP_PAGE : STATUS_PAGE;
+  const parsed = parseStandaloneArgs(name, process.argv);
+  if ("error" in parsed) return printUsageError(page, parsed.error);
+  if (parsed.help) return printUsage(page);
   if (name === "status") {
     return runStatusReport(cwd);
   }
   if (name === "stop")
-    return runStopReport(cwd, {
-      all: process.argv.includes("--all"),
-      target: standaloneTarget("stop"),
-    });
+    return runStopReport(cwd, { all: parsed.all, target: parsed.target });
   return 0;
 }
 
+/** Ce que `status`/`stop` ont reçu, une fois la ligne de commande lue. */
+export interface IStandaloneArgs {
+  help: boolean;
+  /** `stop --all` — sans effet sur `status`, qui ne la déclare pas. */
+  all: boolean;
+  /** La cible de `stop` (nom ou chemin de projet), ou `undefined`. */
+  target?: string;
+}
+
 /**
- * Argument positionnel d'une commande standalone, lu sur `process.argv` — le
- * fast-path court AVANT commander, il n'a donc personne pour l'analyser.
+ * Lit la ligne de commande de `status`/`stop` — le raccourci court AVANT
+ * commander, il n'a donc personne d'autre pour l'analyser.
  *
- * Seul le premier mot qui suit le nom de la commande et ne commence pas par `-`
- * est retenu ; tout le reste appartient aux options. Rendre `undefined` plutôt
- * qu'une chaîne vide garde la distinction « pas de cible » / « cible vide ».
+ * 🔴 Ce qu'elle ne connaît pas, elle le REFUSE. Elle retenait les seuls mots
+ * qu'elle cherchait et laissait passer le reste : `nodefony status -y`
+ * répondait comme si de rien n'était, et apprenait à son auteur qu'un `-y`
+ * avait un sens ici. Un paramètre accepté puis jeté est pire qu'un refus.
+ * Les options globales du CLI (`-d`, `-i`) restent absorbées, comme partout.
  *
- * @param name - nom de la commande (`stop`).
- * @returns la cible tapée, ou `undefined`.
+ * @param name - nom de la commande (`status` ou `stop`).
+ * @param argv - la ligne de commande complète.
+ * @returns les arguments lus, ou l'erreur à afficher.
  */
-function standaloneTarget(name: string): string | undefined {
-  const argv = process.argv;
+export function parseStandaloneArgs(
+  name: string,
+  argv: readonly string[],
+): IStandaloneArgs | { error: string } {
   const at = argv.indexOf(name);
-  if (at === -1) return undefined;
-  for (const arg of argv.slice(at + 1)) {
-    if (!arg.startsWith("-")) return arg;
+  const words = at === -1 ? [] : stripGlobalCliFlags(argv.slice(at + 1));
+  const parsed: IStandaloneArgs = { help: false, all: false };
+  for (const word of words) {
+    if (word === "-h" || word === "--help") parsed.help = true;
+    else if (name === "stop" && word === "--all") parsed.all = true;
+    else if (word.startsWith("-"))
+      return { error: `option inconnue : ${word}` };
+    else if (name === "stop" && parsed.target === undefined)
+      parsed.target = word;
+    else return { error: `argument inattendu : ${word}` };
   }
-  return undefined;
+  return parsed;
 }
 
 /**
