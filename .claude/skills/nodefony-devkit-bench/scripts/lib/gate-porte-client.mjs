@@ -18,6 +18,15 @@
  * |    `1` | porte-client-absente      | l'AGENT — façade non employée    |
  * |    `2` | manifeste-illisible       | l'INSTRUMENT — rien à juger      |
  * |    `3` | moteur-front-ambigu       | l'INSTRUMENT — verdict non rendu |
+ * |    `2` | frontiere-illisible       | l'INSTRUMENT — pas de premier commit |
+ *
+ * 🔴 **Il ne lit QUE ce que l'agent a AJOUTÉ** — les lignes ajoutées depuis le
+ * premier commit (celui que `create app` pose), plus les fichiers non suivis.
+ * Il lisait toute l'application, et `create app` LIVRE déjà la façade
+ * (`tests/e2e.test.ts`, `LiveController.ts`) : vécu au banc (tâche 0, alpha.9),
+ * une page « temps réel » qui interrogeait l'API toutes les deux secondes a été
+ * jugée conforme sur le seul code du gabarit. La ligne, pas le fichier : un
+ * fichier du gabarit simplement retouché contient déjà la façade.
  *
  * ⚠️ Ce juge ne regarde PAS le WebSocket recomposé à la main : c'est l'affaire
  * de la sonde négative jumelle. Une positive et une négative se prouvent
@@ -28,8 +37,10 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
+import { spawnSync } from "node:child_process";
 import { exit } from "./http-probe.mjs";
 import { motifPorteClient, porteClientDe } from "./tache-zero.mjs";
+import { needsShell } from "./exec-portable.mjs";
 
 /**
  * Les fichiers où une porte cliente peut s'écrire.
@@ -75,6 +86,76 @@ export function sourcesDe(racine) {
   };
   descendre(racine, 0);
   return trouves;
+}
+
+/**
+ * Les lignes AJOUTÉES d'un diff unifié, bornées aux fichiers sources — PURE.
+ *
+ * @param {string} diff - la sortie de `git diff -U0`.
+ * @returns {string[]} les lignes ajoutées (sans le `+`), fichier par fichier.
+ */
+export function lignesAjoutees(diff) {
+  const ajoutees = [];
+  let lu = false;
+  for (const ligne of diff.split("\n")) {
+    const entete = /^\+\+\+ (?:b\/)?(.*)$/u.exec(ligne);
+    if (entete) {
+      const rel = entete[1] ?? "";
+      lu =
+        rel !== "/dev/null" &&
+        EXTENSIONS.test(rel) &&
+        !rel.split("/").some((seg) => IGNORES.has(seg) || seg.startsWith("."));
+      continue;
+    }
+    if (lu && ligne.startsWith("+")) ajoutees.push(ligne.slice(1));
+  }
+  return ajoutees;
+}
+
+/**
+ * Ce que l'agent a ÉCRIT : lignes ajoutées depuis le premier commit, et
+ * contenu des fichiers sources non suivis.
+ *
+ * @param {string} racine - le dossier de l'application.
+ * @returns {{ok: boolean, sources: string[], motif?: string}}
+ */
+export function sourcesAjoutees(racine) {
+  const git = (...args) =>
+    spawnSync("git", args, {
+      cwd: racine,
+      encoding: "utf8",
+      shell: needsShell("git"),
+      maxBuffer: 64 * 1024 * 1024,
+    });
+  const premier = git("rev-list", "--max-parents=0", "HEAD");
+  const sha = premier.status === 0 ? premier.stdout.trim().split("\n")[0] : "";
+  if (!sha) {
+    return {
+      ok: false,
+      sources: [],
+      motif:
+        "pas de premier commit — sans lui, le LIVRÉ ne se distingue pas de " +
+        "l'AJOUTÉ, et le gabarit porte déjà la façade",
+    };
+  }
+  const diff = git("diff", "-U0", "--no-color", "--no-ext-diff", sha, "--");
+  if (diff.status !== 0) {
+    return { ok: false, sources: [], motif: "git diff illisible" };
+  }
+  const sources = lignesAjoutees(diff.stdout);
+  const libres = git("ls-files", "--others", "--exclude-standard", "-z");
+  for (const rel of (libres.stdout ?? "").split("\0")) {
+    if (!rel) continue;
+    if (!EXTENSIONS.test(rel)) continue;
+    if (rel.split("/").some((seg) => IGNORES.has(seg) || seg.startsWith(".")))
+      continue;
+    try {
+      sources.push(readFileSync(path.join(racine, rel), "utf8"));
+    } catch {
+      /* disparu entre-temps */
+    }
+  }
+  return { ok: true, sources };
 }
 
 /**
@@ -131,14 +212,15 @@ function main() {
       pkg = null;
     }
   }
-  const sources = sourcesDe(racine).map((p) => {
-    try {
-      return readFileSync(p, "utf8");
-    } catch {
-      return "";
-    }
-  });
-  const v = jugerPorteClient(pkg, sources);
+  const ajout = sourcesAjoutees(racine);
+  if (!ajout.ok) {
+    exit(
+      2,
+      `CAUSE=frontiere-illisible — ${ajout.motif} — l'INSTRUMENT, pas l'agent`,
+    );
+    return;
+  }
+  const v = jugerPorteClient(pkg, ajout.sources);
   if (v.code === 0) {
     console.log(`CAUSE=conforme — ${v.detail}`);
     process.exit(0);

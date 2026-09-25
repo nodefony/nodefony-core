@@ -21,7 +21,7 @@ const MODULE =
   process.argv.indexOf("--module") === -1
     ? "./gate-porte-client.mjs"
     : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
-const { jugerPorteClient, sourcesDe } = await import(MODULE);
+const { jugerPorteClient, sourcesDe, lignesAjoutees } = await import(MODULE);
 
 const PROVE =
   process.argv.includes("--prove") && MODULE === "./gate-porte-client.mjs";
@@ -148,6 +148,47 @@ cas(
   rmSync(tmp, { recursive: true, force: true });
 }
 
+// ── lignesAjoutees — le juge ne lit que ce que l'agent a ÉCRIT ──────────────
+// 🔴 Vécu (tâche 0, alpha.9) : `create app` LIVRE la façade dans
+// `tests/e2e.test.ts` ; un juge qui lisait toute l'application a déclaré
+// conforme une page qui interrogeait l'API toutes les deux secondes.
+{
+  const diff = [
+    "diff --git a/tests/e2e.test.ts b/tests/e2e.test.ts",
+    "--- a/tests/e2e.test.ts",
+    "+++ b/tests/e2e.test.ts",
+    "@@ -9 +9,2 @@",
+    ' import { RealtimeClient } from "nodefony/client";',
+    "+// retouche de l'agent, rien du client",
+    "diff --git a/nodefony/controllers/Chat.ts b/nodefony/controllers/Chat.ts",
+    "+++ b/nodefony/controllers/Chat.ts",
+    "+setInterval(load, 2000);",
+    "diff --git a/node_modules/x/index.js b/node_modules/x/index.js",
+    "+++ b/node_modules/x/index.js",
+    '+import "nodefony/client";',
+    "diff --git a/README.md b/README.md",
+    "+++ b/README.md",
+    "+RealtimeClient est la façade",
+  ].join("\n");
+  const lues = lignesAjoutees(diff);
+  cas(
+    "une ligne de CONTEXTE du gabarit (façade livrée) n'est PAS lue",
+    !lues.some((l) => l.includes("RealtimeClient")),
+  );
+  cas(
+    "une ligne AJOUTÉE dans un source est lue",
+    lues.includes("setInterval(load, 2000);"),
+  );
+  cas(
+    "node_modules et les fichiers non sources sont écartés",
+    !lues.some((l) => l.includes("nodefony/client") || l.includes("façade")),
+  );
+  cas(
+    "le cas vécu : diff sans façade ⇒ porte absente, plus de faux vert",
+    jugerPorteClient(pkgDe(null), lues).cause === "porte-client-absente",
+  );
+}
+
 // ── --prove ─────────────────────────────────────────────────────────────────
 if (PROVE) {
   const source = readFileSync(path.join(ici, "gate-porte-client.mjs"), "utf8");
@@ -171,6 +212,12 @@ if (PROVE) {
       regle: "l'ambiguïté est imputée à l'INSTRUMENT",
       de: "  if (!porte.ok) {",
       vers: "  if (false) {",
+    },
+    {
+      // Relire les lignes de CONTEXTE, c'est relire le gabarit — le faux vert.
+      regle: "seules les lignes AJOUTÉES sont lues",
+      de: '    if (lu && ligne.startsWith("+")) ajoutees.push(ligne.slice(1));',
+      vers: "    if (lu) ajoutees.push(ligne.slice(1));",
     },
     {
       // Sans les extensions des composants, Svelte et Vue sont invisibles.

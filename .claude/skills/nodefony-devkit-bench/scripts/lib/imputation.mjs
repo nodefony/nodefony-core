@@ -117,6 +117,8 @@ export const IMPUTATIONS = Object.freeze({
   "tests-livres-non-joues": INDETERMINE,
   "moteur-front-ambigu": INDETERMINE,
   "manifeste-illisible": INDETERMINE,
+  // Pas de premier commit : le LIVRÉ ne se distingue plus de l'AJOUTÉ.
+  "frontiere-illisible": INDETERMINE,
   "aucune-reponse": INDETERMINE,
   "aucune-reponse-admin": INDETERMINE,
   "aucune-reponse-anonyme": INDETERMINE,

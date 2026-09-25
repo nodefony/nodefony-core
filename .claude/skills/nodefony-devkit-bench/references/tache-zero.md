@@ -189,6 +189,13 @@ Le banc était donc React-centré exactement comme le gabarit qu'il éprouve —
 du premier essai réel a choisi **Svelte**. Sur cette application, le critère recalait un
 travail juste et ne pouvait rien voir du trou que #347 a fermé.
 
+🔴 **Il ne lit que ce que l'agent a AJOUTÉ** — les lignes ajoutées depuis le premier
+commit, plus les fichiers non suivis. `create app` LIVRE déjà la façade
+(`tests/e2e.test.ts`, `LiveController.ts`) : un juge qui lisait toute l'application a
+déclaré conforme une page « temps réel » qui interrogeait l'API toutes les deux
+secondes. La LIGNE, pas le fichier : un fichier du gabarit retouché contient déjà la
+façade. Pas de premier commit ⇒ `frontiere-illisible`, imputé à l'instrument.
+
 Deux moteurs signés, ou pas de manifeste lisible ⇒ **verdict non rendu**, imputé à
 l'INSTRUMENT. Mieux vaut une sonde non opposable qu'un verdict rendu sur le mauvais
 critère.
