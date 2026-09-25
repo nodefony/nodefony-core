@@ -81,7 +81,7 @@ import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
-import { freezeConfigTree } from "./moduleConfig";
+import { freezeConfigTree, type IModuleConfigEntry } from "./moduleConfig";
 import {
   findStoreOrderFault,
   readStoreManifest,
@@ -599,6 +599,11 @@ class Kernel extends Service implements IKernel {
   uptime: number = new Date().getTime();
   numberCpu: number = os.cpus().length;
   modules: Record<string, Module> = {};
+  /**
+   * Configuration de chaque module, indexée par nom de paquet, figée à la fin
+   * de `onReady` — `null` avant. Lue par {@link getModuleConfigEntry}.
+   */
+  private configRegistry: Record<string, IModuleConfigEntry> | null = null;
   tmpDir?: FileClass;
   /**
    * Répertoire des données runtime **persistées** (`<path>/var`) — base commune des
@@ -1262,9 +1267,22 @@ class Kernel extends Service implements IKernel {
         // toutes les requêtes ; une écriture y lève désormais au lieu de
         // changer en silence la config des requêtes concurrentes (#491, #493).
         // Une commande console s'arrêtant ici est couverte aussi.
+        // Et l'indexer par nom de paquet : `useConfig` la lit en O(1) sur le
+        // chemin de requête, sans parcourir les modules.
+        const registry: Record<string, IModuleConfigEntry> =
+          Object.create(null);
         for (const name in this.modules) {
-          freezeConfigTree(this.modules[name].options);
+          const mod = this.modules[name];
+          freezeConfigTree(mod.options);
+          const packageName = mod.getModuleName();
+          if (packageName) {
+            registry[packageName] = {
+              options: mod.options,
+              overlaySchema: mod.overlaySchema,
+            };
+          }
         }
+        this.configRegistry = registry;
         if (this.setCommandComplete(Events.onReady)) {
           // Phase cible atteinte sans serveur : terminate (one-shot) OU park (daemon
           // long-running). C'est la phase de readiness d'un daemon CONSOLE.
@@ -1750,6 +1768,18 @@ class Kernel extends Service implements IKernel {
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  /**
+   * Configuration figée d'un module et sa liste blanche de surcharge, par nom
+   * de paquet (`"@nodefony/http"`).
+   *
+   * @param packageName - nom du paquet du module
+   * @returns l'entrée, ou `undefined` si le module est inconnu ou si le kernel
+   *   n'a pas encore atteint la fin de `onReady`
+   */
+  getModuleConfigEntry(packageName: string): IModuleConfigEntry | undefined {
+    return this.configRegistry?.[packageName];
+  }
+
   /**
    * Instancie un module et l'enregistre dans `kernel.modules[name]`. Appelle `initialize(this)`
    * sur le module si défini (équivalent constructeur async).

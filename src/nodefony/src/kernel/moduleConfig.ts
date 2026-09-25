@@ -112,6 +112,46 @@ export function parseModuleConfig<T>(
 
 export default parseModuleConfig;
 
+/** Configuration figée d'un module et sa liste blanche de surcharge. */
+export interface IModuleConfigEntry {
+  /** `module.options`, gelé en profondeur. */
+  readonly options: object;
+  /** Schéma de surcharge strict, ou `null` : aucun calque accepté. */
+  readonly overlaySchema: ZodType | null;
+}
+
+/**
+ * Valide un calque de configuration contre le schéma de surcharge que le module
+ * déclare — sa LISTE BLANCHE — et rend le calque nettoyé.
+ *
+ * @remarks Même mise en forme des anomalies que {@link parseModuleConfig}, mais
+ * une `Error` ordinaire : un calque se pose pendant une requête, pas au
+ * démarrage, et un refus y est une faute de l'appelant, pas une configuration
+ * d'application invalide.
+ *
+ * @param schema - schéma de surcharge du module (strict : une clé hors liste
+ *   est une anomalie)
+ * @param input - le calque demandé
+ * @param packageName - nom du paquet, préfixe du message
+ * @returns le calque validé
+ * @throws Error si une clé est hors liste blanche ou une valeur invalide
+ */
+export function parseConfigOverlay<T>(
+  schema: ZodType<T>,
+  input: unknown,
+  packageName: string,
+): T {
+  try {
+    return schema.parse(input);
+  } catch (e) {
+    throw new Error(
+      `[${packageName}] calque de configuration refusé — ${formatConfigIssues(e)}. ` +
+        "Seules les clés de la liste blanche du module (overlaySchema) se surchargent par requête.",
+      { cause: e },
+    );
+  }
+}
+
 /**
  * Gèle en profondeur une configuration : objets simples et tableaux seulement.
  *

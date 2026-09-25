@@ -1,3 +1,4 @@
+import type { ZodType } from "zod";
 import { dirname, resolve, basename, isAbsolute } from "node:path";
 import { fileURLToPath } from "node:url";
 import Kernel, { ServiceConstructor, ServiceWithInit } from "./Kernel";
@@ -118,6 +119,14 @@ class Module<TConfig = Record<string, unknown>>
    * rien. Le collecteur teste la présence avant d'appeler.
    */
   public getMcpTools?(): IMcpTool[];
+  /**
+   * Liste blanche des clés de configuration qu'une requête peut surcharger
+   * ({@link overlayConfig}) : un schéma Zod STRICT, en général
+   * `configSchema.pick({...}).partial()`. `null` (défaut) = le module n'accepte
+   * AUCUN calque. Une clé déclarée ici doit être lue par {@link useConfig},
+   * sinon le calque serait accepté puis ignoré.
+   */
+  public overlaySchema: ZodType | null = null;
   /**
    * Initialise le module — appelé par {@link Kernel.addModule}.
    *

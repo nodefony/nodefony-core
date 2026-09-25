@@ -339,6 +339,8 @@ export { defineConfig, isConfigDescriptor } from "./config/defineConfig";
 export type { AppConfigDescriptor } from "./config/defineConfig";
 export { use } from "./config/use";
 export type { NodefonyModuleConfig, ConfigOf, UseOptions } from "./config/use";
+export { overlayConfig, useConfig } from "./config/overlay";
+export type { NodefonyModuleOverlay, OverlayOf } from "./config/overlay";
 export {
   defineEnv,
   envString,

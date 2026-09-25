@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 864,
-    "symbols": 4306,
+    "files": 865,
+    "symbols": 4313,
     "classes": 404,
-    "interfaces": 1130,
-    "types": 459,
+    "interfaces": 1132,
+    "types": 460,
     "enums": 4,
-    "functions": 1875,
+    "functions": 1879,
     "constants": 434
   },
   "symbols": {
@@ -3496,6 +3496,39 @@
       "module": "@nodefony/core",
       "description": "Infra vide (rien de déclaré) — fallback sûr quand le kernel est absent (tests)."
     },
+    "NodefonyModuleOverlay": {
+      "name": "NodefonyModuleOverlay",
+      "kind": "interface",
+      "file": "src/nodefony/src/config/overlay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Registre AUGMENTABLE des calques acceptés par module — la forme de la liste blanche, déclarée par chaque module comme {@link NodefonyModuleConfig} :"
+    },
+    "OverlayOf": {
+      "name": "OverlayOf",
+      "kind": "type",
+      "file": "src/nodefony/src/config/overlay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Calque accepté par le module `N` — `never` s'il n'en déclare pas."
+    },
+    "overlayConfig": {
+      "name": "overlayConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/config/overlay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Pose un calque de configuration sur la requête courante."
+    },
+    "useConfig": {
+      "name": "useConfig",
+      "kind": "function",
+      "file": "src/nodefony/src/config/overlay.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Lit la configuration d'un module telle que la voit la requête courante."
+    },
     "Reactivity": {
       "name": "Reactivity",
       "kind": "type",
@@ -4161,6 +4194,15 @@
       "exported": true,
       "module": "@nodefony/core"
     },
+    "IModuleConfigEntry": {
+      "name": "IModuleConfigEntry",
+      "kind": "interface",
+      "file": "src/nodefony/src/kernel/moduleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Configuration figée d'un module et sa liste blanche de surcharge."
+    },
     "parseModuleConfig": {
       "name": "parseModuleConfig",
       "kind": "function",
@@ -4168,6 +4210,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Valide la configuration d'un module contre son schéma Zod, et transforme un refus en {@link BootConfigurationError} nommant le module et la clé fautive. ⭐ TL;DR : c'est LA porte par laquelle toute …"
+    },
+    "parseConfigOverlay": {
+      "name": "parseConfigOverlay",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/moduleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Valide un calque de configuration contre le schéma de surcharge que le module déclare — sa LISTE BLANCHE — et rend le calque nettoyé."
     },
     "freezeConfigTree": {
       "name": "freezeConfigTree",
@@ -30516,11 +30566,13 @@
       ],
       "IScope": [
         "src/nodefony/src/Container.ts",
+        "src/nodefony/src/config/overlay.ts",
         "src/nodefony/src/runtime/RequestContext.ts",
         "src/nodefony/src/kernel/injector/injector.ts"
       ],
       "Nodefony": [
         "src/nodefony/src/Error.ts",
+        "src/nodefony/src/config/overlay.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DiController.ts",
@@ -32716,6 +32768,7 @@
       ],
       "isPlainObject": [
         "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/config/overlay.ts",
         "src/nodefony/src/kernel/moduleConfig.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
@@ -32909,6 +32962,48 @@
       ],
       "ConfigInput": [
         "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "RequestContext": [
+        "src/nodefony/src/config/overlay.ts",
+        "src/nodefony/src/kernel/injector/injector.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/requestProbe.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
+        "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
+      "freezeConfigTree": [
+        "src/nodefony/src/config/overlay.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "parseConfigOverlay": [
+        "src/nodefony/src/config/overlay.ts"
+      ],
+      "IModuleConfigEntry": [
+        "src/nodefony/src/config/overlay.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "ConfigOf": [
+        "src/nodefony/src/config/overlay.ts"
       ],
       "ModulePolicy": [
         "src/nodefony/src/config/types.ts",
@@ -33321,9 +33416,6 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
-      ],
-      "freezeConfigTree": [
-        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "findStoreOrderFault": [
         "src/nodefony/src/kernel/Kernel.ts",
@@ -35094,33 +35186,6 @@
       "Fetch": [
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts"
-      ],
-      "RequestContext": [
-        "src/nodefony/src/kernel/injector/injector.ts",
-        "src/modules/test/nodefony/controller/AlsController.ts",
-        "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/modules/test/nodefony/controller/requestProbe.ts",
-        "src/modules/test/nodefony/controller/RequestScopeController.ts",
-        "src/modules/test/nodefony/secure/ApiM2mController.ts",
-        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
-        "src/modules/test/nodefony/secure/SecureController.ts",
-        "src/modules/test/nodefony/secure/SelfExternalController.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "IAdminApi": [
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
