@@ -40,7 +40,7 @@ Service(name, container?, notificationsCenter?, options?)
   décidait. **Règle : un plafond posé sur une ressource qu'on ne possède pas ne se restreint
   jamais.**
 - `options.events` supprimé de `this.options` après construction
-- `notificationsCenter` mis dans container seulement si PAS de kernel (intentionnel)
+- `notificationsCenter` mis dans container seulement si PAS de kernel (intentionnel) — et JAMAIS sur un `Scope` (écriture morte par requête : un Context en construit un par requête, personne ne l'y relit)
 
 **Events — délégation vers `#nc` via getter privé `nc`**
 
@@ -111,10 +111,10 @@ Service(name, container?, notificationsCenter?, options?)
 
 **Core**
 
-- `id: string` — compteur monotone base36 (plus d'uuid : 0 crypto/scope, clé locale)
+- `id: string` — getter PARESSEUX (`#id`), compteur monotone base36 fabriqué à la 1ʳᵉ lecture : 0 chaîne/requête. Lecture seule sur la classe
 - `services: DynamicService | null` — map des services (hérite de `protoService.prototype`)
 - `parameters: DynamicParam | null` — map dot-notation
-- `scopes: Scopes | null` — `Map<name, Map<id, Scope>>` LAZY (null tant que 0 addScope ; un Scope est un Container → pas d'alloc morte/req)
+- `scopes: Scopes | null` — `Map<name, Set<IScope>>` LAZY (null tant que 0 addScope ; un Scope est un Container → pas d'alloc morte/req). Registre = compter + tout refermer au `clean()`, jamais indexé par id
 
 **Services API**
 
@@ -133,12 +133,12 @@ Service(name, container?, notificationsCenter?, options?)
 
 **Scopes**
 
-- `addScope(name)` — déclare un scope (idempotent), retourne le bucket `Map<id, Scope>`
+- `addScope(name)` — déclare un scope (idempotent), retourne le bucket `ReadonlySet<IScope>`
 - `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent ; sur un Scope, l'enfant chaîne sur `parent.services` (voit les services propres du scope parent)
 - `Scope.set/remove` = propriété PROPRE seulement (le proto est partagé entre requêtes) · `Scope.reset()` LÈVE
 - `Scope.getParameters` fusionne dans une cible NEUVE (`extend(deep, {}, parent, local)`) — jamais dans le nœud parent rendu par référence (fuite inter-requêtes)
 - `protoService.prototype` / `protoParameters.prototype` sans prototype (`createProto`) → `has("toString")`/`get("constructor")` = faux/null
-- `leaveScope(scope: IScope)` — nettoie le scope, `bucket.delete(id)`
+- `leaveScope(scope: IScope)` — `bucket.delete(scope)` PUIS `clean()` (un clean qui lève n'épingle pas le scope) ; no-op si pas ouvert ICI (2ᵉ appel, autre conteneur)
 - `removeScope(name)` — nettoie tous les sous-scopes d'un nom
 - `scopeCount(name)` → number — instances vivantes (sondes fuite/Studio ; NE PAS fouiller `.scopes` à la main)
 - `Scope extends Container implements IScope` — `name: string` + `getParameters(name, merge=true, deep=true)`

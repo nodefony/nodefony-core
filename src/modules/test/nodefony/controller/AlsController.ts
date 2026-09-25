@@ -104,6 +104,9 @@ class AlsController extends Controller {
     const count = httpKernel?.container?.scopeCount?.("request");
     return this.renderJson({
       requestScopes: count ?? -1,
+      // Clés PROPRES du scope de CETTE requête : ce que le pipeline y écrit à
+      // chaque requête (le contrôleur…). Sonde des écritures par requête.
+      requestScopeKeys: this.context?.container?.keys() ?? null,
     });
   }
 

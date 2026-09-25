@@ -54,16 +54,18 @@ export interface DynamicParam {
 }
 
 /**
- * Bookkeeping des scopes ouverts : nom de scope → instances vivantes par id.
- * `Map` (et plus un objet `delete`-é) : l'ajout/retrait a lieu à CHAQUE
- * requête — le churn de shape d'un objet ordinaire dégrade les inline caches
- * V8, la Map est conçue pour ce motif.
+ * Registre des scopes ouverts : nom de scope → ensemble des instances
+ * vivantes. Il ne sert qu'à les COMPTER ({@link Container.scopeCount}) et à
+ * les refermer toutes au {@link Container.clean} : un `Set` tenu par l'objet
+ * lui-même rend ce service sans fabriquer de clé. Un index par identifiant
+ * chaîne — fabriqué et haché à chaque ouverture — coûte ~70 % du cycle
+ * `enterScope` + `leaveScope`, payé à chaque requête.
  */
-export type Scopes = Map<string, Map<string, Scope>>;
+export type Scopes = Map<string, Set<IScope>>;
 
-// Clé de bookkeeping des containers/scopes : compteur monotone in-process
-// (base 36). Remplace uuid v4 — un appel crypto par requête pour une simple
-// clé locale jamais exposée cross-process.
+// Identifiant des containers/scopes : compteur monotone in-process (base 36),
+// fabriqué à la PREMIÈRE lecture de `id` seulement — le registre des scopes
+// n'en a plus besoin, et une requête ordinaire ne le lit jamais.
 let containerSeq = 0;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -106,7 +108,7 @@ class Container implements IContainer {
   protected services: DynamicService | null;
   public protoParameters: ProtoParameters;
   protected parameters: DynamicParam | null;
-  public id: string;
+  #id: string | null = null;
   // Lazy (`null` tant qu'aucun addScope) : chaque Scope EST un Container — un
   // bucket alloué d'office serait une alloc morte par requête.
   private scopes: Scopes | null = null;
@@ -131,7 +133,6 @@ class Container implements IContainer {
     adoptedProtoService?: ProtoService,
     adoptedProtoParameters?: ProtoParameters,
   ) {
-    this.id = (++containerSeq).toString(36);
     this.protoService = adoptedProtoService ?? createProto();
     this.protoParameters = adoptedProtoParameters ?? createProto();
     if (input && input instanceof Container) {
@@ -153,6 +154,18 @@ class Container implements IContainer {
       this.services = Object.create(this.protoService.prototype);
       this.parameters = Object.create(this.protoParameters.prototype);
     }
+  }
+
+  /**
+   * Identifiant unique du conteneur dans le process (base 36). Fabriqué à la
+   * première lecture, puis stable : ouvrir un scope par requête ne coûte ni
+   * chaîne ni tour de compteur tant que personne ne le lit.
+   */
+  public get id(): string {
+    if (this.#id === null) {
+      this.#id = (++containerSeq).toString(36);
+    }
+    return this.#id;
   }
 
   private setServices(services: DynamicService): void {
@@ -273,15 +286,16 @@ class Container implements IContainer {
    * once before {@link enterScope} can produce instances.
    *
    * @param name - scope identifier (e.g. `"request"`)
-   * @returns the underlying scope bucket (rarely used by callers)
+   * @returns the open instances of that scope, read-only (rarely used by
+   * callers — {@link scopeCount} answers the usual question)
    */
-  public addScope(name: string): Map<string, Scope> {
+  public addScope(name: string): ReadonlySet<IScope> {
     if (this.scopes === null) {
       this.scopes = new Map();
     }
     let bucket = this.scopes.get(name);
     if (!bucket) {
-      bucket = new Map();
+      bucket = new Set();
       this.scopes.set(name, bucket);
     }
     return bucket;
@@ -304,7 +318,7 @@ class Container implements IContainer {
       );
     }
     const sc = new Scope(name, this, this.protoService, this.protoParameters);
-    bucket.set(sc.id, sc);
+    bucket.add(sc);
     return sc;
   }
 
@@ -316,13 +330,12 @@ class Container implements IContainer {
    * @param scope - the scope instance returned by {@link enterScope}
    */
   public leaveScope(scope: IScope): void {
-    const bucket = this.scopes?.get(scope.name);
-    if (bucket) {
-      const sc = bucket.get(scope.id);
-      if (sc) {
-        sc.clean();
-        bucket.delete(scope.id);
-      }
+    // Retirer AVANT de nettoyer : un `clean()` qui lèverait ne doit pas laisser
+    // le scope épinglé dans le registre. `delete` ne rend `true` que pour un
+    // scope ouvert ICI — un second appel, ou le scope d'un autre conteneur, ne
+    // fait rien.
+    if (this.scopes?.get(scope.name)?.delete(scope)) {
+      scope.clean();
     }
   }
 
@@ -347,7 +360,7 @@ class Container implements IContainer {
   public removeScope(name: string): void {
     const bucket = this.scopes?.get(name);
     if (bucket) {
-      for (const scope of bucket.values()) {
+      for (const scope of bucket) {
         this.leaveScope(scope);
       }
       this.scopes?.delete(name);

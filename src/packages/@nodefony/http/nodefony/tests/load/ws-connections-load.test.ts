@@ -17,6 +17,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import { drainTo } from "../helpers/scopeDrain.js";
 
 const WSS = "wss://localhost:5152";
 const ECHO = `${WSS}/nodefony/test/ws/echo`;
@@ -54,24 +55,6 @@ const serverHeap = async () =>
 const scopes = async () =>
   (await getJson("/nodefony/test/als-test/scopes")).requestScopes as number;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-// Server-side scope release lags the client "close" event (the kernel runs
-// leaveScope when IT processes the close). Poll for eventual drain — a real
-// leak never drains, mere lag drains within a couple of seconds. Returns the
-// last observed delta vs `base`.
-async function drainTo(
-  base: number,
-  target = 5,
-  timeoutMs = 8000,
-): Promise<number> {
-  const t0 = Date.now();
-  let delta = (await scopes()) - base;
-  while (delta >= target && Date.now() - t0 < timeoutMs) {
-    await wait(200);
-    delta = (await scopes()) - base;
-  }
-  return delta;
-}
 
 // Every socket ever created is tracked so a mid-test failure can't leave open
 // connections that poison the next test's scope baseline. afterEach reaps them.
@@ -177,7 +160,7 @@ describe("LOAD — WS connections (axis 1: count)", function () {
 
     await closeAll(sockets);
     expect(
-      await drainTo(scopesBefore),
+      await drainTo(scopes, scopesBefore),
       "all WS scopes released after close",
     ).to.be.below(5);
   });
@@ -189,7 +172,7 @@ describe("LOAD — WS connections (axis 1: count)", function () {
       await closeAll(batch);
     }
     expect(
-      await drainTo(before),
+      await drainTo(scopes, before),
       "churn must not accumulate scopes",
     ).to.be.below(5);
   });

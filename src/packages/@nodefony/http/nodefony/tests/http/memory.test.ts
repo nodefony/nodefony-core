@@ -6,6 +6,7 @@ import {
   purgeUploadResidue,
   type UploadSnapshot,
 } from "../helpers/uploadResidue.js";
+import { drainTo } from "../helpers/scopeDrain.js";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -43,6 +44,14 @@ function get(path: string): Promise<MemStats | Record<string, unknown>> {
 async function serverHeap(): Promise<number> {
   const m = (await get("/nodefony/test/memory")) as MemStats;
   return m.heapUsed;
+}
+
+async function liveScopes(): Promise<number> {
+  const r = (await get("/nodefony/test/als-test/scopes")) as Record<
+    string,
+    unknown
+  >;
+  return r.requestScopes as number;
 }
 
 function openCloseWs(url: string): Promise<void> {
@@ -116,6 +125,35 @@ const sousLeSeuil = (quoi: string, delta: number, seuilMo: number): void => {
   );
 };
 
+/**
+ * Asserte que la boucle n'a laissé AUCUN scope `request` ouvert — et PUBLIE le
+ * relevé, comme {@link sousLeSeuil} publie sa marge.
+ *
+ * Le heap ne voit pas une petite fuite de scopes : un millier de contextes
+ * épinglés tient sous le seuil de 35 Mo. Le registre du conteneur, si — chaque
+ * scope jamais libéré y reste compté. Le témoin `base >= 1` garantit qu'on lit
+ * un vrai relevé : la sonde compte au moins le scope de sa propre requête (une
+ * introspection cassée rendrait `-1` des deux côtés, et un écart nul).
+ */
+const scopesDrained = async (quoi: string, base: number): Promise<void> => {
+  expect(
+    base,
+    "témoin : la sonde voit au moins le scope de sa propre requête",
+  ).to.be.at.least(1);
+  const delta = await drainTo(liveScopes, base, 1);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[scopes] ${quoi} : ${delta} scope(s) résiduel(s) après drainage`,
+  );
+  expect(
+    delta,
+    `${quoi} : ${delta} scope(s) « request » de plus qu'avant la boucle — ` +
+      "soit une fuite (un scope jamais refermé), soit un client EXTERNE " +
+      "(navigateur, client MCP) qui s'est connecté pendant le run : " +
+      "`lsof -nP -iTCP:5152 -sTCP:ESTABLISHED` les nomme.",
+  ).to.be.at.most(0);
+};
+
 describe("Memory leaks — HTTP (requires server)", function () {
   beforeAll(() => warmup());
 
@@ -135,31 +173,42 @@ describe("Memory leaks — HTTP (requires server)", function () {
   });
 
   it("1000 sequential GET requests — server heap delta < 35 MB", async () => {
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 1000; i++) await get("/nodefony/test/index");
     const after = await serverHeap();
     sousLeSeuil("1000 sequential GET requests", after - before, 35);
+    await scopesDrained("1000 sequential GET requests", scopesBefore);
   });
 
   it("100 consecutive sync crashes — server heap delta < 10 MB", async () => {
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/sync");
     const after = await serverHeap();
     sousLeSeuil("100 consecutive sync crashes", after - before, 10);
+    await scopesDrained("100 consecutive sync crashes", scopesBefore);
   });
 
   it("100 consecutive async crashes — server heap delta < 10 MB", async () => {
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/async");
     const after = await serverHeap();
     sousLeSeuil("100 consecutive async crashes", after - before, 10);
+    await scopesDrained("100 consecutive async crashes", scopesBefore);
   });
 
   it("100 consecutive native TypeError crashes — server heap delta < 15 MB", async () => {
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) await get("/nodefony/test/crash/native");
     const after = await serverHeap();
     sousLeSeuil("100 consecutive native TypeError crashes", after - before, 15);
+    await scopesDrained(
+      "100 consecutive native TypeError crashes",
+      scopesBefore,
+    );
   });
 
   it("500 mixed requests (index + context + session) — server heap delta < 20 MB", async () => {
@@ -168,6 +217,7 @@ describe("Memory leaks — HTTP (requires server)", function () {
       "/nodefony/test/context",
       "/nodefony/test/rest/session",
     ];
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 500; i++) await get(routes[i % routes.length]);
     const after = await serverHeap();
@@ -176,16 +226,22 @@ describe("Memory leaks — HTTP (requires server)", function () {
       after - before,
       20,
     );
+    await scopesDrained(
+      "500 mixed requests (index + context + session)",
+      scopesBefore,
+    );
   });
 
   it("200 sequential multipart uploads — server heap delta < 30 MB", async () => {
     // Hot path busboy : valide que streamMultipart (listeners file/field +
     // WriteStream + busboy par requête) ne fuit pas. Fichier minuscule → le
     // delta heap mesure les listeners/buffers, pas le contenu.
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 200; i++) await uploadSmall();
     const after = await serverHeap();
     sousLeSeuil("200 sequential multipart uploads", after - before, 30);
+    await scopesDrained("200 sequential multipart uploads", scopesBefore);
   });
 
   it("server is alive after load — /index returns 200", async () => {
@@ -218,12 +274,14 @@ describe("Memory leaks — WebSocket (requires server)", function () {
   });
 
   it("100 WS connections open/close — server heap delta < 30 MB", async () => {
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 100; i++) {
       await openCloseWs(`${WSS}/nodefony/test/ws`);
     }
     const after = await serverHeap();
     sousLeSeuil("100 WS connections open/close", after - before, 30);
+    await scopesDrained("100 WS connections open/close", scopesBefore);
   });
 
   it("50 WS echo round-trips open/send/close — heap delta < 25 MB", async () => {
@@ -231,6 +289,7 @@ describe("Memory leaks — WebSocket (requires server)", function () {
     // Seuil 25 MB (était 20) : marge contre le bruit GC quand ce test tourne en
     // fin de suite lourde (flaky à 20.1 MB observé). Détection de leak précise =
     // tests scope-count (lifecycle-als / als-load), pas ce delta heap grossier.
+    const scopesBefore = await liveScopes();
     const before = await serverHeap();
     for (let i = 0; i < 50; i++) {
       await new Promise<void>((resolve, reject) => {
@@ -243,5 +302,6 @@ describe("Memory leaks — WebSocket (requires server)", function () {
     }
     const after = await serverHeap();
     sousLeSeuil("50 WS echo round-trips open/send/close", after - before, 25);
+    await scopesDrained("50 WS echo round-trips open/send/close", scopesBefore);
   });
 });

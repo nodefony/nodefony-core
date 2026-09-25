@@ -101,7 +101,7 @@
       "file": "src/nodefony/src/Container.ts",
       "exported": true,
       "module": "@nodefony/core",
-      "description": "Bookkeeping des scopes ouverts : nom de scope → instances vivantes par id. `Map` (et plus un objet `delete`-é) : l'ajout/retrait a lieu à CHAQUE requête — le churn de shape d'un objet ordinaire dég…"
+      "description": "Registre des scopes ouverts : nom de scope → ensemble des instances vivantes. Il ne sert qu'à les COMPTER ({@link Container.scopeCount}) et à les refermer toutes au {@link Container.clean} : un `Se…"
     },
     "ProtoService": {
       "name": "ProtoService",
@@ -30505,6 +30505,16 @@
         "src/nodefony/src/types/IContainer.ts",
         "src/nodefony/src/types/IService.ts"
       ],
+      "Scope": [
+        "src/nodefony/src/Service.ts",
+        "src/packages/@nodefony/framework/index.ts",
+        "src/nodefony/src/command/Command.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
       "isPackageDuplicated": [
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/kernel/Kernel.ts"
@@ -31457,15 +31467,6 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/modules/test/nodefony/secure/SecureController.ts",
         "src/modules/test/nodefony/secure/SecureWsController.ts"
-      ],
-      "Scope": [
-        "src/packages/@nodefony/framework/index.ts",
-        "src/nodefony/src/command/Command.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
       "UseSession": [
         "src/packages/@nodefony/framework/index.ts",

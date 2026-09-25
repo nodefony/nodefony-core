@@ -5,7 +5,7 @@ import type {
   EventListener,
 } from "./types/IService";
 import type { IKernel } from "./types/IKernel";
-import Container, { DynamicParam } from "./Container";
+import Container, { DynamicParam, Scope } from "./Container";
 import { isPackageDuplicated } from "./runtime/packageInstances";
 import Event, { EventDefaultInterface } from "./Event";
 import type { IGuardedEmitOptions, IGuardedEmitResult } from "./Event";
@@ -214,7 +214,14 @@ class Service implements IService {
       if (effectiveEvents?.nbListeners) {
         this.#nc.setMaxListeners(effectiveEvents.nbListeners);
       }
-      if (!this.kernel || this.kernel.container !== this.container) {
+      // Jamais sur un Scope : un Context en construit un par requête, et
+      // personne ne relit ce bus dans un scope — le seul lecteur
+      // (`server-static`) lit le conteneur du MODULE. Le bus reste porté par
+      // le Service (`notificationsCenter`).
+      if (
+        !(this.container instanceof Scope) &&
+        (!this.kernel || this.kernel.container !== this.container)
+      ) {
         this.container.set("notificationsCenter", this.#nc);
       }
     }

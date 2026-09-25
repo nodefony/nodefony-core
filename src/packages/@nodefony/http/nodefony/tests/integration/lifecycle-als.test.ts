@@ -163,3 +163,14 @@ describe("Context lifecycle — ALS tear-down (BUG-001/002)", function () {
     ).to.be.below(3);
   });
 });
+
+describe("Scope de requête — ce que le pipeline y écrit (#483)", function () {
+  it("une requête typique n'écrit plus notificationsCenter dans son scope", async () => {
+    const r = await get("/nodefony/test/als-test/scopes");
+    const keys = r.requestScopeKeys as string[];
+    expect(keys, "témoin : on lit bien le scope de CETTE requête").to.include(
+      "controller",
+    );
+    expect(keys).to.not.include("notificationsCenter");
+  });
+});

@@ -161,6 +161,33 @@ describe("Service — construction", () => {
     assert.strictEqual(container.get("notificationsCenter"), null);
   });
 
+  // #483 — un Context (donc un Service) construit sur le scope de la requête y
+  // écrivait son bus à CHAQUE requête, et personne ne l'y lisait : le seul
+  // lecteur (server-static) lit le conteneur du MODULE. Le bus reste porté par
+  // le Service ; seule l'écriture morte disparaît.
+  it("un Service construit sur un scope de requête n'y écrit pas notificationsCenter (#483)", () => {
+    const root = new Container();
+    root.set("kernel", makeKernel(root));
+    root.set("syslog", new Syslog({ moduleName: "root" }));
+    root.addScope("request");
+    const scope = root.enterScope("request");
+    const s = new Service("ctx", scope);
+    assert.ok(
+      s.notificationsCenter instanceof Event,
+      "le Service garde son propre bus",
+    );
+    assert.deepStrictEqual(scope.keys(), []);
+  });
+
+  it("…même quand aucun kernel n'est encore posé sur le conteneur racine (#483)", () => {
+    const root = new Container();
+    root.set("syslog", new Syslog({ moduleName: "root" }));
+    root.addScope("request");
+    const scope = root.enterScope("request");
+    new Service("ctx", scope);
+    assert.deepStrictEqual(scope.keys(), []);
+  });
+
   it("options.syslog transmis au Syslog interne", () => {
     const s = new Service("syslogOpts", undefined, undefined, {
       syslog: { moduleName: "CUSTOM", defaultSeverity: "DEBUG" },

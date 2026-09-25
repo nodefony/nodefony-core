@@ -767,3 +767,109 @@ describe("Container › Scope — étanchéité (#482)", () => {
     }
   });
 });
+
+describe("Container › registre des scopes ouverts (#483)", () => {
+  // Le registre ne sert qu'à COMPTER les scopes ouverts et à tous les refermer
+  // au clean(). Indexé par un identifiant chaîne fabriqué à chaque ouverture,
+  // il coûtait ~515 ns des ~720 ns du cycle enterScope + leaveScope ; un Set
+  // tenu par l'objet lui-même rend le même service sans fabriquer de clé.
+
+  it("le registre d'un nom est un Set qui tient les scopes ouverts eux-mêmes", () => {
+    const c = new Container();
+    const bucket = c.addScope("req");
+    const s = c.enterScope("req");
+    expect(bucket).to.be.instanceOf(Set);
+    expect(bucket.has(s)).to.equal(true);
+    c.leaveScope(s);
+    expect(bucket.has(s)).to.equal(false);
+    expect(bucket.size).to.equal(0);
+  });
+
+  it("enterScope ne fabrique pas d'identifiant : il naît à sa première lecture, puis ne change plus", () => {
+    const c = new Container();
+    c.addScope("req");
+    const a = c.enterScope("req");
+    const b = c.enterScope("req");
+    // Lu d'abord sur b, l'identifiant de b est fabriqué AVANT celui de a : la
+    // numérotation suit la lecture, pas l'ouverture.
+    const idB = b.id;
+    const idA = a.id;
+    expect(parseInt(idB, 36)).to.be.lessThan(parseInt(idA, 36));
+    expect(a.id).to.equal(idA);
+    expect(b.id).to.equal(idB);
+  });
+
+  it("leaveScope ne referme qu'une fois : un second appel ne rappelle pas clean()", () => {
+    const c = new Container();
+    c.addScope("req");
+    const s = c.enterScope("req");
+    let cleans = 0;
+    const clean = s.clean.bind(s);
+    s.clean = () => {
+      cleans++;
+      clean();
+    };
+    c.leaveScope(s);
+    c.leaveScope(s);
+    expect(cleans).to.equal(1);
+    expect(c.scopeCount("req")).to.equal(0);
+  });
+
+  it("leaveScope ignore un scope ouvert par un AUTRE conteneur, sous le même nom", () => {
+    const c1 = new Container();
+    c1.addScope("req");
+    const c2 = new Container();
+    c2.set("db", "DB2");
+    c2.addScope("req");
+    const s2 = c2.enterScope("req");
+    c1.leaveScope(s2);
+    expect(c2.scopeCount("req")).to.equal(1);
+    expect(s2.get("db")).to.equal("DB2");
+  });
+
+  it("un scope quitte le registre même si son clean() lève — jamais épinglé", () => {
+    const c = new Container();
+    c.addScope("req");
+    const s = c.enterScope("req");
+    s.clean = () => {
+      throw new Error("clean en échec");
+    };
+    expect(() => c.leaveScope(s)).to.throw("clean en échec");
+    expect(c.scopeCount("req")).to.equal(0);
+  });
+
+  it("removeScope referme CHACUN des scopes ouverts du nom, puis oublie le nom", () => {
+    const c = new Container();
+    c.set("db", "DB");
+    c.addScope("req");
+    const opened = [0, 1, 2, 3, 4].map(() => c.enterScope("req"));
+    c.removeScope("req");
+    for (const s of opened) expect(s.get("db")).to.be.null;
+    expect(c.scopeCount("req")).to.equal(0);
+    expect(() => c.enterScope("req")).to.throw("not declared");
+  });
+
+  it("clean() du conteneur referme les scopes ouverts de TOUS les noms", () => {
+    const c = new Container();
+    c.set("db", "DB");
+    c.addScope("req");
+    c.addScope("job");
+    const r = c.enterScope("req");
+    const j = c.enterScope("job");
+    c.clean();
+    expect(r.get("db")).to.be.null;
+    expect(j.get("db")).to.be.null;
+  });
+
+  it("quitter un scope referme aussi ses sous-scopes ouverts", () => {
+    const c = new Container();
+    c.set("db", "DB");
+    c.addScope("req");
+    const s1 = c.enterScope("req");
+    s1.addScope("sub");
+    const sub = s1.enterScope("sub");
+    c.leaveScope(s1);
+    expect(sub.get("db")).to.be.null;
+    expect(s1.scopeCount("sub")).to.equal(0);
+  });
+});
