@@ -4588,6 +4588,20 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       // L'echo WS de fin de vitrine porte sa redirection vers la bonne couche.
       assert.include(src, "--kind realtime");
+      // 🔴 Une PAGE se rend par la façade. Vécu (banc devkit, tâche 0) : sans
+      // modèle dans le code généré, l'agent a écrit `render(html, "text/html")`
+      // (un ENCODAGE est attendu), puis posé `Content-Type` à la main — la
+      // seule sonde rouge de sa tâche, refusée par `nodefony doctor`.
+      assert.include(src, '@Get("/page")');
+      assert.include(src, "this.setContextHtml();");
+      assert.include(src, "return this.render(`<!doctype html>");
+      assert.include(src, 'nonce="${nonce}"');
+      assert.notMatch(codeOnly(src), /setHeader\(\s*["']content-type/iu);
+      assert.isBelow(
+        src.indexOf('@Get("/page")'),
+        src.indexOf('@Get("/{id}")'),
+      );
+      assert.include(src, "nodefony create front");
     });
 
     it("example minimal : vitrine DÉGRADÉE sans security (aucun import mort)", () => {

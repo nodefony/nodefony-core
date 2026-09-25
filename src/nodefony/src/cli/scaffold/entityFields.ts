@@ -243,6 +243,18 @@ export function parseEntityFields(input: string): IEntityField[] {
   const seen = new Set<string>();
 
   for (const raw of input.split(/\s+/u).filter(Boolean)) {
+    // Des champs séparés par des VIRGULES arrivent collés en un seul mot, et
+    // le refus tombait sur le premier défaut venu (« id est la clé
+    // primaire ») sans dire que c'est le séparateur qui est faux. Vécu (banc
+    // devkit, tâche 0) : l'agent a dû deviner. Les virgules d'un `enum(a,b)`
+    // ou d'un `decimal(10,2)` sont hors de cause — on les retire avant de
+    // chercher.
+    if (/,\s*[A-Za-z_]\w*:/u.test(raw.replace(/\([^)]*\)/gu, ""))) {
+      throw new EntityFieldError(
+        `champ invalide « ${raw} » — les champs se séparent par des ESPACES, ` +
+          `pas par des virgules (ex : title:string author:ref:User)`,
+      );
+    }
     // Modificateurs collés au type : `content:text?`, `slug:string:unique`.
     let spec = raw;
     let indexed = false;

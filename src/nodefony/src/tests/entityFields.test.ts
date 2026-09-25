@@ -51,6 +51,25 @@ describe("scaffold — analyse des champs", () => {
   // utilisateurs connaissent, et il a voulu dire « unique » ici — y compris dans
   // nos propres exemples. Le refus NOMME les deux intentions ; un no-op
   // silencieux trahirait celui qui voulait vraiment l'unicité.
+  it("🔴 des champs séparés par des VIRGULES : le refus nomme le séparateur", () => {
+    // Vécu (banc devkit, tâche 0) : `id:id,text:string,user:ref:User` était
+    // refusé sur « id est la clé primaire » — l'agent a dû deviner le reste.
+    assert.throws(
+      () => parseEntityFields("text:string,user:ref:User"),
+      (error: Error) =>
+        error instanceof EntityFieldError &&
+        error.message.includes("ESPACES, pas par des virgules"),
+    );
+    assert.throws(
+      () => parseEntityFields("id:id,text:string"),
+      /ESPACES, pas par des virgules/u,
+    );
+    // Les virgules d'un enum ou d'un decimal restent légitimes.
+    assert.doesNotThrow(() =>
+      parseEntityFields("status:enum(draft,published) price:decimal(10,2)"),
+    );
+  });
+
   it("refuse « ! » en nommant les deux intentions possibles", () => {
     assert.throws(
       () => parseEntityFields("content:text!"),

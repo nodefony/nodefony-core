@@ -310,6 +310,40 @@ interface IItem {
     return { url: last ? `<%= it.route %>/${last}` : "<%= it.route %>" };
   }
 
+  // ── Page HTML ──────────────────────────────────────────────────────────────
+
+  /**
+   * Une PAGE : `setContextHtml()` pose le type de contenu, puis
+   * `render(html)` l'envoie.
+   *
+   * Le second paramètre de `render` est un ENCODAGE, pas un type de contenu :
+   * `render(html, "text/html")` ne compile pas. Et ne pose jamais
+   * `Content-Type` toi-même (`response.setHeader`) — `nodefony doctor` le
+   * refuse : la façade porte aussi l'encodage, le nonce CSP de la requête et
+   * les hooks de fin de réponse. Un script EN LIGNE doit porter ce nonce, sans
+   * quoi le navigateur refuse de l'exécuter.
+   *
+   * Pour une vraie interface (React, Vue, Svelte, Angular), ne l'écris pas
+   * dans une chaîne : `nodefony create front`.
+   */
+  @Get("/page")
+  page() {
+    const nonce = this.context?.cspNonce ?? "";
+    this.setContextHtml();
+    return this.render(`<!doctype html>
+<html lang="fr">
+  <head><meta charset="utf-8"><title><%= it.nameClass %></title></head>
+  <body>
+    <p id="total">…</p>
+    <script nonce="${nonce}">
+      fetch("<%= it.route %>").then((r) => r.json()).then((d) => {
+        document.getElementById("total").textContent = d.total + " élément(s)";
+      });
+    </script>
+  </body>
+</html>`);
+  }
+
   /**
    * `@Param("id")` = segment d'URL `{id}` injecté. Déclarée EN DERNIER des GET :
    * une route paramétrique déclarée avant capturerait `/session`, `/latest`…
