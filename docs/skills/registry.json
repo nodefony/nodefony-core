@@ -247,8 +247,8 @@
       ],
       "description": "Gate mémoire de Nodefony : lance le banc de @nodefony/http (requêtes GET, crashs, uploads, connexions WebSocket) qui mesure les octets RETENUS par itération, les scopes restés ouverts et les contextes jamais réclamés — et surtout dit QUOI FAIRE quand il rougit (blocker, ne pas commiter, distinguer une fuite d'un client extérieur ou d'un décor faux, où chercher). Porte le décor exigé et les pièges de mesure. À charger AVANT de lancer la commande, pas après un résultat rouge. Symptôme runtime plus large → nodefony-debug ; fuite lente sur la durée → nodefony-load-test. Déclencheurs : \"vérifier la mémoire\", \"memory leak\", \"test mémoire\", \"heap delta\", \"fuite mémoire\", \"gate mémoire\", \"j'ai touché au pipeline\", \"j'ai modifié le Kernel ou le Container\", \"je vais commiter une modif http/framework\", \"le seuil mémoire a sauté\", \"heap qui monte\", \"octets retenus par requête\".",
       "cost": {
-        "bodyLines": 101,
-        "approxTokens": 1776
+        "bodyLines": 113,
+        "approxTokens": 2035
       },
       "requires": [],
       "resources": {
@@ -321,7 +321,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "101",
+            "detail": "113",
             "advisory": true
           }
         ]
@@ -577,7 +577,7 @@
       "description": "Kit debug runtime de Nodefony — à charger quand quelque chose vient de casser, pas pour concevoir. Codifie les recettes de diagnostic éprouvées : flake mémoire (l'isolation dit la vérité), vert en isolation et rouge en suite (ressource partagée, pas régression), qualifier une régression par une baseline stashée, échec d'intégration dont la première hypothèse est un serveur éteint, dépendance implicite à `delete`, faux ENOSPC du harnais. Délègue à `nodefony-tail-error-logs`, `nodefony-check-memory-health`, `nodefony-load-test`, `nodefony-frontend-dev` ; la doctrine préventive vit dans `nodefony-framework-dev`. Déclencheurs : \"ça crash\", \"stack trace\", \"unhandledRejection\", \"fuite mémoire\", \"memory leak\", \"race condition\", \"reproduire\", \"ne démarre plus\", \"test rouge inexpliqué\", \"test flake\", \"vert isolé rouge en suite\", \"ce test passe seul mais pas en suite\", \"diagnostic régression\", \"baseline stash\", \"est-ce ma régression ?\", \"404 inexpliqué\", \"ECONNREFUSED tests\", \"ENOSPC\".",
       "cost": {
         "bodyLines": 255,
-        "approxTokens": 4040
+        "approxTokens": 4043
       },
       "requires": [],
       "resources": {
@@ -2433,7 +2433,7 @@
       "description": "Kit de dev du CŒUR backend de Nodefony : core (`nodefony`), `@nodefony/http` (pipeline, serveurs, WS, sessions), `@nodefony/framework` (Router, Controller, décorateurs) et les modules (services, stores, ORM). À charger DÈS qu'une tâche va ÉDITER du code backend, avant la première modification : porte les règles absolues (perf-mémoire, TS strict, lazy alloc, cleanup listeners, ALS), les conventions de structure/config, les recettes vérifiées au source, les gotchas et les RFC hors ligne. Déclencheurs : toute édition de code back — \"modifier du code backend\", \"coder dans le kernel\", \"toucher au cœur ou au pipeline\", \"créer un service injectable/module/controller\", \"commande CLI\", \"entité/repository/adapter ORM\", \"store et pagination\", \"listPage/contrat IPage\", \"endpoint HTTP/WS ou data plane admin\", \"décorateur route\", \"@IsGranted/@Idempotent\", \"realtime/WebSocket\", \"firewall\", \"certificats TLS\", \"structure d'un module\", \"defineConfig\", \"où brancher ce comportement ?\".",
       "cost": {
         "bodyLines": 398,
-        "approxTokens": 8612
+        "approxTokens": 8617
       },
       "requires": [],
       "resources": {

@@ -193,8 +193,8 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 | Charge & mémoire | `http/memory.test.ts` (le gate ¹) · `load/{session,stream,ws-connections,ws-messages,ws-latency}-load.test.ts` |
 
 > ¹ `memory.test.ts` — mesure les octets RETENUS par itération (pente sur paliers, GC forcé), les
-> scopes restés ouverts et les contextes jamais réclamés ; seuils dans sa table `THRESHOLDS`, seule
-> source. Protocole et lecture d'un rouge → skill `nodefony-check-memory-health`.
+> scopes restés ouverts et les contextes jamais réclamés ; seuils dans la table `THRESHOLDS` de
+> `tests/helpers/retention.ts`, seule source, partagée avec les bancs `tests/load/*`. Protocole et lecture d'un rouge → skill `nodefony-check-memory-health`.
 
 ### Suites séparées — charge vs non-régression
 

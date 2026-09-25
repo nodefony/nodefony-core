@@ -17,6 +17,12 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import {
+  THRESHOLDS,
+  retention,
+  serverHeap,
+  setSyslogRing,
+} from "../helpers/retention.js";
 
 const WSS = "wss://localhost:5152";
 const ECHO = `${WSS}/nodefony/test/ws/echo`;
@@ -49,9 +55,6 @@ function getJson(path: string): Promise<Record<string, unknown>> {
     r.end();
   });
 }
-const serverHeap = async () =>
-  (await getJson("/nodefony/test/memory")).heapUsed as number;
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 /** Opens a WS and resolves once the handshake frame is consumed. */
 function open(url: string): Promise<WebSocket> {
@@ -116,33 +119,55 @@ describe("LOAD — WS messages (axis 2: throughput + broadcast)", function () {
     );
   });
 
-  it("sustained — 10 sockets × 500 frames, heap delta < 30 MB", async () => {
+  it("sustained — 10 sockets echoing frames: retains nothing per frame", async () => {
+    // Les sockets restent OUVERTES pendant toute la mesure : on mesure ce que
+    // le serveur garde par TRAME, pas par connexion (cf ws-connections-load).
+    // Une itération = 20 trames par socket, soit 200 trames (`unit`).
     const SOCKETS = 10;
-    const PER = 500;
-    const heapBefore = await serverHeap();
+    const PER_ROUND = 20;
+    await setSyslogRing(false);
     const sockets = await Promise.all(
       Array.from({ length: SOCKETS }, () => open(ECHO)),
     );
-    await Promise.all(
-      sockets.map(
-        (ws) =>
-          new Promise<void>((resolve, reject) => {
-            let got = 0;
-            ws.on("message", () => {
-              if (++got >= PER) resolve();
-            });
-            ws.on("error", reject);
-            for (let i = 0; i < PER; i++) ws.send(`x-${i}`);
-          }),
-      ),
-    );
-    for (const ws of sockets) ws.close();
-    await wait(400);
-    const deltaMb = ((await serverHeap()) - heapBefore) / 1024 / 1024;
-    expect(
-      deltaMb,
-      `heap grew ${deltaMb.toFixed(1)} MB over ${SOCKETS * PER} frames`,
-    ).to.be.below(30);
+    const round = () =>
+      Promise.all(
+        sockets.map(
+          (ws) =>
+            new Promise<void>((resolve, reject) => {
+              let got = 0;
+              const onMessage = () => {
+                if (++got >= PER_ROUND) {
+                  ws.removeListener("message", onMessage);
+                  ws.removeListener("error", reject);
+                  resolve();
+                }
+              };
+              ws.on("message", onMessage);
+              ws.once("error", reject);
+              for (let i = 0; i < PER_ROUND; i++) ws.send(`x-${i}`);
+            }),
+        ),
+      );
+    try {
+      const assertRetention = await retention(
+        "sustained — 10 sockets echoing frames",
+        {
+          probe: serverHeap,
+          act: async () => {
+            await round();
+          },
+          warmup: 10,
+          batch: 10,
+          batches: 6,
+          unit: SOCKETS * PER_ROUND,
+        },
+        THRESHOLDS.wsFrame,
+      );
+      assertRetention();
+    } finally {
+      for (const ws of sockets) ws.close();
+      await setSyslogRing(true);
+    }
   });
 
   // Unbounded message flood — find where delivery starts to drop / lag.

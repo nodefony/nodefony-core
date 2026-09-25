@@ -28,8 +28,8 @@ source: ".claude/skills/nodefony-check-memory-health/SKILL.md"
 | --- | --- |
 | Version | `2.0.0` |
 | Famille | Exécuter, diagnostiquer, mesurer |
-| Corps | 101 lignes |
-| Coût d'activation | ~1 776 tokens (le corps est chargé à l'invocation) |
+| Corps | 113 lignes |
+| Coût d'activation | ~2 035 tokens (le corps est chargé à l'invocation) |
 | Description | 878 / 1024 caractères |
 | Déclencheurs | 12 |
 | Ressources `references/` | 0 page(s) |
@@ -81,7 +81,7 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 101 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 113 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

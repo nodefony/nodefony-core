@@ -7,7 +7,13 @@ import {
   type UploadSnapshot,
 } from "../helpers/uploadResidue.js";
 import { drainTo } from "../helpers/scopeDrain.js";
-import { measureRetention, type IRetentionPlan } from "../helpers/heapSlope.js";
+import { type IRetentionPlan } from "../helpers/heapSlope.js";
+import {
+  THRESHOLDS,
+  retention,
+  serverHeap,
+  setSyslogRing,
+} from "../helpers/retention.js";
 
 const BASE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -40,11 +46,6 @@ function get(path: string): Promise<MemStats | Record<string, unknown>> {
     req.on("error", reject);
     req.end();
   });
-}
-
-async function serverHeap(): Promise<number> {
-  const m = (await get("/nodefony/test/memory")) as MemStats;
-  return m.heapUsed;
 }
 
 async function liveScopes(): Promise<number> {
@@ -101,78 +102,7 @@ function uploadSmall(): Promise<void> {
   });
 }
 
-// ── seuils ───────────────────────────────────────────────────────────────────
-
-/**
- * Octets RETENUS par itération au-delà desquels une boucle est déclarée fuyante.
- * 🔴 SOURCE UNIQUE : les documents (CLAUDE.md, skills) renvoient ici, ils ne
- * recopient pas ces valeurs.
- *
- * Posés sur le bruit MESURÉ de la pente, pas choisis à l'œil. 10 passages,
- * chacun sur un serveur NEUF (le régime de la CI), pente maximale observée en
- * Ko par itération : GET 0,04 · crashs 0,19 · mixtes 0,26 · uploads 0,38 ·
- * WS 0,06 / 0,15 (distribution complète au ticket #490). Un seuil commun de
- * 1 Ko laisse au moins ×2,6 au pire scénario, et vaut la MOITIÉ de la fuite
- * témoin : 2 Ko retenus par scope (`Container.enterScope`) ont fait tomber les
- * huit contrôles, mesurés entre 1,55 et 2,40 Ko. Resserrer demande de refaire
- * ces 10 passages ; desserrer pour faire passer un run est exclu.
- */
-const THRESHOLDS = {
-  get: 1024,
-  crashSync: 1024,
-  crashAsync: 1024,
-  crashNative: 1024,
-  mixed: 1024,
-  upload: 1024,
-  wsOpenClose: 1024,
-  wsEcho: 1024,
-} as const;
-
 // ── assertions ───────────────────────────────────────────────────────────────
-
-const ko = (octets: number): string => `${(octets / 1024).toFixed(2)} Ko`;
-
-/**
- * Mesure ce qu'une boucle retient par itération, PUBLIE la mesure, et rend
- * l'assertion à jouer — APRÈS les comptes exacts, qui nomment la cause quand
- * la pente, elle, ne fait que la chiffrer.
- *
- * Une pente (octets / itération, Theil–Sen sur des paliers relevés GC forcé)
- * et non un écart avant/après : cf `helpers/heapSlope.ts`. L'ancien écart sur
- * 1 000 requêtes laissait passer jusqu'à 35 Ko par requête, et un conteneur
- * volontairement cassé qui gardait 1 043 scopes est resté vert.
- *
- * Une pente au-dessus du seuil est CONFIRMÉE par une seconde fenêtre avant de
- * conclure : une fuite retient à chaque itération, donc elle se retrouve ; un
- * à-coup du serveur de développement (profileur, HMR) ne tombe qu'une fois. Le
- * rouge exige les deux — sans cela, le gate flancherait en CI sur un à-coup.
- */
-const retention = async (
-  quoi: string,
-  plan: IRetentionPlan,
-  seuil: number,
-): Promise<() => void> => {
-  const first = await measureRetention(plan);
-  const confirm =
-    first.slope < seuil ? null : await measureRetention({ ...plan, warmup: 0 });
-  const verdict = confirm ?? first;
-  const marge =
-    verdict.slope <= 0 ? "∞" : `×${(seuil / verdict.slope).toFixed(1)}`;
-  // eslint-disable-next-line no-console
-  console.log(
-    `[retention] ${quoi} : ${ko(first.slope)} / itér.` +
-      (confirm ? ` → confirmation ${ko(confirm.slope)}` : "") +
-      ` · seuil ${ko(seuil)} · marge ${marge}`,
-  );
-  return () => {
-    expect(
-      verdict.slope,
-      `${quoi} : ${ko(verdict.slope)} retenus par itération, confirmé sur une ` +
-        `seconde fenêtre (première : ${ko(first.slope)}). Tas relevé (Mo) : ` +
-        verdict.points.map((p) => (p / 1048576).toFixed(2)).join(" "),
-    ).to.be.below(seuil);
-  };
-};
 
 /**
  * Asserte que la boucle n'a laissé AUCUN scope `request` ouvert — et PUBLIE le
@@ -254,7 +184,7 @@ const ACTIONS = {
       ws.once("close", () => resolve());
       ws.once("error", reject);
     }),
-} satisfies Record<keyof typeof THRESHOLDS, (i: number) => Promise<unknown>>;
+} satisfies Record<string, (i: number) => Promise<unknown>>;
 
 /**
  * Itérations d'échauffement par scénario, jouées UNE fois en tête de suite.
@@ -307,17 +237,13 @@ const plan = (
 // remplit. Rétabli à la fin, quoi qu'il arrive. Puis chaque chemin est amené à
 // son plateau (`WARMUP`).
 beforeAll(async () => {
-  const r = (await get("/nodefony/test/memory/syslog-ring/off")) as Record<
-    string,
-    unknown
-  >;
-  expect(r.ringEnabled, "le ring du syslog doit être coupé").to.equal(false);
+  await setSyslogRing(false);
   for (const key of Object.keys(WARMUP) as (keyof typeof WARMUP)[]) {
     for (let i = 0; i < WARMUP[key]; i++) await ACTIONS[key](i);
   }
 }, 120_000);
 afterAll(async () => {
-  await get("/nodefony/test/memory/syslog-ring/on");
+  await setSyslogRing(true);
 });
 
 describe("Memory leaks — HTTP (requires server)", function () {

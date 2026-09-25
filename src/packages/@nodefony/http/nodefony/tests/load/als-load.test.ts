@@ -10,6 +10,13 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import { drainTo } from "../helpers/scopeDrain.js";
+import {
+  THRESHOLDS,
+  retention,
+  serverHeap,
+  setSyslogRing,
+} from "../helpers/retention.js";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -41,11 +48,22 @@ function getJson(path: string): Promise<Record<string, unknown>> {
   });
 }
 
-const serverHeap = async () =>
-  (await getJson("/nodefony/test/memory")).heapUsed as number;
 const scopes = async () =>
   (await getJson("/nodefony/test/als-test/scopes")).requestScopes as number;
-const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Asserte que la boucle n'a laissé AUCUN scope `request` ouvert : sondage
+ * borné jusqu'au drainage (`drainTo`), jamais un délai fixe — un délai mesure
+ * la machine, et la tolérance « < 5 » qu'il imposait laissait passer quatre
+ * scopes épinglés par boucle.
+ */
+async function scopesDrained(what: string, before: number): Promise<void> {
+  const delta = await drainTo(scopes, before, 1);
+  expect(
+    delta,
+    `${what} : ${delta} scope(s) « request » jamais refermé(s)`,
+  ).to.be.at.most(0);
+}
 
 function wsExchange(path: string, messages: string[]): Promise<void> {
   return new Promise((resolve, reject) => {
@@ -88,37 +106,41 @@ function wsBadClose(path: string): Promise<void> {
 }
 
 describe("LOAD — ALS WebSocket lifecycle", function () {
-  it("BUG-001 — 100 connections x 10 messages: heap delta < 25 MB", async () => {
-    const before = await serverHeap();
+  // Ring du syslog coupé pendant les mesures de rétention (`setSyslogRing`).
+  beforeAll(() => setSyslogRing(false));
+  afterAll(() => setSyslogRing(true));
+
+  it("BUG-001 — WS connections × 10 messages: retains nothing per connection", async () => {
     const batch = Array.from({ length: 10 }, (_, i) => `msg-${i}`);
-    for (let i = 0; i < 100; i++)
-      await wsExchange("/nodefony/test/als-test/ws", batch);
-    const after = await serverHeap();
-    const deltaMb = (after - before) / 1024 / 1024;
-    expect(after - before).to.be.below(
-      25 * 1024 * 1024,
-      `heap grew ${deltaMb.toFixed(1)} MB — AsyncResource.bind must not leak`,
+    const assertRetention = await retention(
+      "BUG-001 — WS connections × 10 messages",
+      {
+        probe: serverHeap,
+        act: () => wsExchange("/nodefony/test/als-test/ws", batch),
+        warmup: 100,
+        batch: 30,
+        batches: 6,
+      },
+      THRESHOLDS.alsMessages,
     );
+    assertRetention();
   });
 
-  it("lifecycle — 150 WS connections open/msg/close: heap delta < 20 MB + scopes clean", async () => {
-    const heapBefore = await serverHeap();
+  it("lifecycle — WS connections open/msg/close: retains nothing per connection + scopes drained", async () => {
     const scopesBefore = await scopes();
-    for (let i = 0; i < 150; i++)
-      await wsExchange("/nodefony/test/als-test/ws/after", ["x"]);
-    await wait(200);
-    const after = await serverHeap();
-    const deltaMb = (after - heapBefore) / 1024 / 1024;
-    expect(after - heapBefore).to.be.below(
-      20 * 1024 * 1024,
-      `heap grew ${deltaMb.toFixed(1)} MB — clean()/leaveScope must run on every close`,
+    const assertRetention = await retention(
+      "lifecycle — WS connections open/msg/close",
+      {
+        probe: serverHeap,
+        act: () => wsExchange("/nodefony/test/als-test/ws/after", ["x"]),
+        warmup: 100,
+        batch: 40,
+        batches: 6,
+      },
+      THRESHOLDS.alsLifecycle,
     );
-    // Delta, not absolute: ambient scopes may be non-zero from prior suites
-    // (e.g. the pre-existing WS-session leak, BUG-004). 150 leaks would show here.
-    expect(
-      (await scopes()) - scopesBefore,
-      "no leaked request scopes",
-    ).to.be.below(5);
+    await scopesDrained("lifecycle", scopesBefore);
+    assertRetention();
   });
 
   it("BUG-003 — 500 WS errors (404 + 1002) leak zero request scopes", async () => {
@@ -127,11 +149,7 @@ describe("LOAD — ALS WebSocket lifecycle", function () {
       await wsBadClose("/nodefony/test/als-test/nope");
     for (let i = 0; i < 250; i++)
       await wsBadClose("/nodefony/test/ws/echo/proto");
-    await wait(200);
-    expect(
-      (await scopes()) - before,
-      "error path must release every scope",
-    ).to.be.below(5);
+    await scopesDrained("BUG-003 — error path", before);
   });
 
   it("BUG-004 — 300 session-bearing WS closed at handshake leak zero scope", async () => {
@@ -144,10 +162,6 @@ describe("LOAD — ALS WebSocket lifecycle", function () {
         ws.once("error", reject);
       });
     }
-    await wait(300);
-    expect(
-      (await scopes()) - before,
-      "session WS teardown must release every scope",
-    ).to.be.below(5);
+    await scopesDrained("BUG-004 — session WS teardown", before);
   });
 });

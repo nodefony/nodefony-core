@@ -184,7 +184,7 @@ source: "docs/skills/index.md"
 | --- | --- | ---: | ---: | ---: | :---: |
 | [`nodefony-browser`](nodefony-browser.md) | 1.1.0 | 425 | 1 | 0 | ✅ |
 | [`nodefony-check-externals`](nodefony-check-externals.md) | — | 116 | 0 | 0 | ✅ |
-| [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 101 | 0 | 0 | ✅ |
+| [`nodefony-check-memory-health`](nodefony-check-memory-health.md) | 2.0.0 | 113 | 0 | 0 | ✅ |
 | [`nodefony-create-frontend-module`](nodefony-create-frontend-module.md) | — | 257 | 1 | 0 | ✅ |
 | [`nodefony-create-module`](nodefony-create-module.md) | — | 279 | 1 | 0 | ✅ |
 | [`nodefony-debug`](nodefony-debug.md) | 1.1.0 | 255 | 0 | 0 | ✅ |

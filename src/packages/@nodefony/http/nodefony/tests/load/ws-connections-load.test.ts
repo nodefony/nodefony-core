@@ -18,6 +18,7 @@ import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
 import { drainTo } from "../helpers/scopeDrain.js";
+import { THRESHOLDS, serverHeap, setSyslogRing } from "../helpers/retention.js";
 
 const WSS = "wss://localhost:5152";
 const ECHO = `${WSS}/nodefony/test/ws/echo`;
@@ -50,8 +51,6 @@ function getJson(path: string): Promise<Record<string, unknown>> {
   });
 }
 
-const serverHeap = async () =>
-  (await getJson("/nodefony/test/memory")).heapUsed as number;
 const scopes = async () =>
   (await getJson("/nodefony/test/als-test/scopes")).requestScopes as number;
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
@@ -141,8 +140,9 @@ describe("LOAD — WS connections (axis 1: count)", function () {
     await wait(400);
   });
 
-  it("500 concurrent connections — all handshake, heap delta < 60 MB", async () => {
+  it("500 concurrent connections — all handshake, bounded cost per held connection", async () => {
     const FLEET = 500;
+    await setSyslogRing(false);
     const heapBefore = await serverHeap();
     const scopesBefore = await scopes();
 
@@ -151,18 +151,28 @@ describe("LOAD — WS connections (axis 1: count)", function () {
     const open = sockets.filter((w) => w.readyState === WebSocket.OPEN).length;
     expect(open, "every connection is OPEN at peak").to.equal(FLEET);
 
+    // Ce que le serveur PAYE par connexion tant qu'elle vit — pas une
+    // rétention (celle-là est mesurée par pente dans memory.test.ts).
     const heapPeak = await serverHeap();
-    const deltaMb = (heapPeak - heapBefore) / 1024 / 1024;
-    expect(heapPeak - heapBefore).to.be.below(
-      60 * 1024 * 1024,
-      `heap grew ${deltaMb.toFixed(1)} MB holding ${FLEET} sockets`,
+    await setSyslogRing(true);
+    const perConnection = (heapPeak - heapBefore) / FLEET;
+    const seuil = THRESHOLDS.wsHeldConnection;
+    // eslint-disable-next-line no-console
+    console.log(
+      `[held] ${FLEET} connexions tenues : ${(perConnection / 1024).toFixed(1)} Ko ` +
+        `par connexion · seuil ${(seuil / 1024).toFixed(1)} Ko`,
     );
+    expect(
+      perConnection,
+      `${(perConnection / 1024).toFixed(1)} Ko de tas par connexion tenue ` +
+        `(${FLEET} connexions)`,
+    ).to.be.below(seuil);
 
     await closeAll(sockets);
     expect(
-      await drainTo(scopes, scopesBefore),
+      await drainTo(scopes, scopesBefore, 1),
       "all WS scopes released after close",
-    ).to.be.below(5);
+    ).to.be.at.most(0);
   });
 
   it("churn — 5×200 open/close cycles leak zero scopes", async () => {
@@ -172,9 +182,9 @@ describe("LOAD — WS connections (axis 1: count)", function () {
       await closeAll(batch);
     }
     expect(
-      await drainTo(scopes, before),
+      await drainTo(scopes, before, 1),
       "churn must not accumulate scopes",
-    ).to.be.below(5);
+    ).to.be.at.most(0);
   });
 
   // Unbounded ceiling probe — disruptive (eats loopback ephemeral ports).

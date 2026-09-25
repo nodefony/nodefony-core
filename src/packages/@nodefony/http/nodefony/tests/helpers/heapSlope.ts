@@ -41,10 +41,15 @@ export interface IRetentionPlan {
   batch: number;
   /** nombre de paliers : `batches + 1` points */
   batches: number;
+  /**
+   * unités portées par UNE itération (défaut 1) — un lot de 50 streams
+   * concurrents, 10 sockets × 100 trames : la pente est rendue PAR unité.
+   */
+  unit?: number;
 }
 
 export interface IRetention {
-  /** octets retenus par itération (pente de Theil–Sen) */
+  /** octets retenus par unité (pente de Theil–Sen ÷ `unit`) */
   slope: number;
   /** tas relevé à chaque palier, en octets */
   points: number[];
@@ -68,5 +73,5 @@ export async function measureRetention(
     xs.push(k * plan.batch);
     points.push(await plan.probe());
   }
-  return { slope: theilSen(xs, points), points };
+  return { slope: theilSen(xs, points) / (plan.unit ?? 1), points };
 }

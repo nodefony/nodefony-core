@@ -18,9 +18,10 @@ description: >
 # nodefony-check-memory-health — le gate mémoire, son décor et la lecture d'un rouge
 
 > **Maintenance** : vérité courante, jamais un journal. Éditer en place ; historique = `git log`.
-> 🔴 **Aucun seuil chiffré ici** : ils vivent dans la table `THRESHOLDS` en tête de
-> `src/packages/@nodefony/http/nodefony/tests/http/memory.test.ts`, seule source. Un seuil recopié
-> dans un document se périme au premier resserrement.
+> 🔴 **Aucun seuil chiffré ici** : ils vivent dans la table `THRESHOLDS` de
+> `src/packages/@nodefony/http/nodefony/tests/helpers/retention.ts`, seule source, partagée par le
+> gate (`memory.test.ts`) et les bancs de charge (`tests/load/*`). Un seuil recopié dans un document
+> se périme au premier resserrement.
 
 ## 1. Quand m'utiliser / quand passer la main
 
@@ -45,6 +46,11 @@ pipeline de requête, du conteneur d'injection ou du syslog.
 Les deux comptes exacts voient ce que le tas ne voit pas : un millier de scopes épinglés tient dans
 le bruit d'un tas de 90 Mo. La pente voit ce que les comptes ne voient pas : un tampon, un cache ou
 un écouteur qui grossit sans retenir de contexte.
+
+Les **bancs de charge** (`npm run test:load`, qui inclut le gate) appliquent la même pente à leurs
+unités : connexion WebSocket porteuse de messages (`als-load`), trame (`ws-messages-load`), stream
+servi (`stream-load`). `ws-connections-load` mesure autre chose : le **coût d'une connexion tenue**
+ouverte (ligne `[held]`), ce que le serveur paye tant qu'elle vit — pas une rétention.
 
 ## 3. Lancer
 
@@ -106,6 +112,12 @@ Chaque précaution ci-dessous corrige un faux verdict déjà publié.
   les mêmes ports. Séquencer.
 - **Un serveur lancé autrement que par `start.sh`** n'a pas `--expose-gc` : `gcForced: false`,
   mesures fausses.
+- **La journalisation retient en vol.** Hors production, le contenu des trames WS est journalisé en
+  DEBUG, et le transport fichier du syslog écrit ligne par ligne : sous un flot de trames, des
+  centaines d'écritures sont en attente à un instant donné (`Pdu`, `FileHandle` en tête d'un diff
+  d'instantanés). Le tas monte puis plafonne, et redescend quand le flot s'arrête — ce n'est pas une
+  rétention. Diagnostic : diff de deux instantanés du tas (`kill -USR1 <pid>` ouvre l'inspecteur sous
+  linux/macOS, puis `HeapProfiler.takeHeapSnapshot`), agrégé par constructeur.
 - **Serveur resté longtemps en marche** : état accumulé par d'autres suites. En cas de doute,
   redémarrer — la CI mesure toujours un serveur neuf.
 

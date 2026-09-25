@@ -11,6 +11,12 @@
  */
 import { expect } from "chai";
 import https from "node:https";
+import {
+  THRESHOLDS,
+  retention,
+  serverHeap,
+  setSyslogRing,
+} from "../helpers/retention.js";
 
 interface StreamResult {
   status: number | undefined;
@@ -72,9 +78,6 @@ const getJson = (path: string): Promise<Record<string, unknown>> =>
     r.on("error", reject);
     r.end();
   });
-
-const serverHeap = async () =>
-  (await getJson("/nodefony/test/memory")).heapUsed as number;
 
 // Ouvre `count` requêtes par lots de `batch` (évite l'épuisement de ports
 // éphémères loopback / AggregateError sur Promise.all massif).
@@ -139,13 +142,32 @@ describe("STREAM LOAD — streamFile / download / media (charge)", function () {
     expect(r.bytes).to.equal(100);
   });
 
-  it("pas de fuite : heap delta borné après 600 streams (< 35 MB)", async () => {
-    await flood("/nodefony/test/html/stream", 100);
-    const before = await serverHeap();
-    await flood("/nodefony/test/html/stream", 300);
-    await flood("/nodefony/test/html/download", 300);
-    const after = await serverHeap();
-    const deltaMB = (after - before) / (1024 * 1024);
-    expect(deltaMB).to.be.lessThan(35, `heap delta ${deltaMB.toFixed(1)} MB`);
+  it("pas de fuite : rien de retenu par stream servi", async () => {
+    // Une itération = un lot de 50 streams concurrents (`flood`), en
+    // alternant streamFile et download ; la pente est rendue par stream.
+    const paths = [
+      "/nodefony/test/html/stream",
+      "/nodefony/test/html/download",
+    ];
+    await setSyslogRing(false);
+    try {
+      const assertRetention = await retention(
+        "streams servis (streamFile + download)",
+        {
+          probe: serverHeap,
+          act: async (i) => {
+            await flood(paths[i % paths.length], 50);
+          },
+          warmup: 4,
+          batch: 2,
+          batches: 6,
+          unit: 50,
+        },
+        THRESHOLDS.stream,
+      );
+      assertRetention();
+    } finally {
+      await setSyslogRing(true);
+    }
   });
 });

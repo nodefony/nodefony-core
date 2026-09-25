@@ -529,7 +529,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` mesure les octets retenus par
 itération (pente sur paliers, GC forcé) sur les requêtes, les crashs, les uploads et les connexions
 WebSocket, plus deux comptes exacts : scopes restés ouverts, contextes jamais réclamés. Ses seuils
-vivent dans la table `THRESHOLDS` du fichier. Un seuil qui saute est un blocage, pas un avertissement.
+vivent dans la table `THRESHOLDS` de `tests/helpers/retention.ts`, partagée avec les bancs de charge. Un seuil qui saute est un blocage, pas un avertissement.
 
 ## 📡 Observabilité — Studio
 

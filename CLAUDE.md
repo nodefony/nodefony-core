@@ -39,7 +39,7 @@ Pour **TOUT** développement (nouvelle feature, refacto, hook, instrumentation, 
   ```
   > **Séparation des suites (vitest)** : non-régression rapide = `npm run test:integration` (`vitest.integration.config.ts`, exclut `tests/load/**` + `memory.test.ts`). Suite lourde (charge, heap, leak, scopes DI) = `npm run test:load` (`vitest.load.config.ts` = `tests/load/**` + `memory.test.ts`). Gate mémoire seul = `npm run test:memory`. Lancer la suite `load` AVANT tout commit touchant Kernel / pipeline / cycle de vie / mémoire — pas à chaque non-régression.
 - **OBLIGATOIRE** quantifier l'impact : "1000 req: Xms avant / Yms après, rétention X Ko/itér." dans le commit message si l'écart est > 5 %.
-- **Si le gate mémoire rougit** → c'est un blocker. NE PAS commit. Les seuils (octets retenus par itération) vivent dans la table `THRESHOLDS` de `memory.test.ts`, seule source. **Lecture d'un rouge, décor et conduite à tenir → skill `nodefony-check-memory-health`** (il porte le diagnostic, pas seulement la commande) ; symptôme runtime plus large → **`nodefony-debug`**.
+- **Si le gate mémoire rougit** → c'est un blocker. NE PAS commit. Les seuils (octets retenus par itération) vivent dans la table `THRESHOLDS` de `src/packages/@nodefony/http/nodefony/tests/helpers/retention.ts`, seule source — gate `memory.test.ts` et bancs `tests/load/*`. **Lecture d'un rouge, décor et conduite à tenir → skill `nodefony-check-memory-health`** (il porte le diagnostic, pas seulement la commande) ; symptôme runtime plus large → **`nodefony-debug`**.
 
 ### Patterns à appliquer systématiquement
 
