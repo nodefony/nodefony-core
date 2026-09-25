@@ -296,6 +296,19 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25i] **Bruit mémoire étalonné sur un serveur CHAUD, jugé par une CI qui démarre à FROID** :
+  10 passages locaux sur le même serveur disaient « 0,23 Mo, du bruit » ; les journaux CI des 3 OS
+  disaient 2,45 Mo à 3 % près, run après run — un REMPLISSAGE déterministe (ring syslog 2 000 Pdu,
+  échauffement V8), pas du bruit. Un seuil se pose sur la distribution du régime où il sera JUGÉ :
+  serveur neuf à chaque passage. Lire d'abord les journaux de la forge : ils sont gratuits.
+- [1× — 09-25i] **J'ai consommé le décor que je voulais mesurer** : une calibration lancée juste après
+  un redémarrage a mangé l'état neuf avant la mesure. Et deux clients EXTÉRIEURS (onglet Studio,
+  client MCP de la session qui se reconnecte) faisaient rougir les comptes exacts de scopes — le
+  message d'erreur les nommait, `lsof` les a confirmés ([[feedback_stale_decor_poisons_verdicts]]).
+- [1× — 09-25i] **Un rouge pour la MAUVAISE raison** : le test d'ordre de `FileTransport` tombait sur
+  `close is not a function`, pas sur l'ordre. Rejoué sans `close` sur l'ancienne version : ordre
+  faux 3/3 — là seulement il prouvait quelque chose ([[feedback_gate_must_bite]]).
+
 - [1× — 09-25g] **Critère « −40 % » de #483 fixé sur un MICROBENCH** (752 → 346 ns, −54 %) : jugé
   in-situ sous charge, −37 %. Les coûts FIXES du décor réel (sonde ~0,1 µs par tranche, caches
   froids) ne baissent pas et COMPRIMENT le pourcentage. Un objectif relatif se fixe dans le décor

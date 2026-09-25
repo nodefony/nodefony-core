@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T16:04:57.700Z",
+  "generatedAt": "2026-09-25T17:56:58.949Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 32,
+      "closed": 33,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 49,
+      "open": 48,
       "title": "10.0.0-beta"
     },
     {
@@ -151,8 +151,8 @@
       "number": 490,
       "title": "test(http): resserrer les seuils mémoire sur le bruit mesuré",
       "url": "https://github.com/nodefony/nodefony-core/issues/490",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
