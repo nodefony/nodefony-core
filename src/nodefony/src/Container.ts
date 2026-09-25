@@ -72,6 +72,17 @@ export type ProtoService = { (): void; [key: string]: any };
 export type ProtoParameters = { (): void; [key: string]: any };
 
 /**
+ * Build a prototype holder whose `prototype` has NO prototype of its own, so
+ * names inherited from `Object.prototype` (`toString`, `constructor`,
+ * `hasOwnProperty`…) are never mistaken for services or parameters.
+ */
+function createProto(): ProtoService {
+  const proto = function () {} as ProtoService;
+  proto.prototype = Object.create(null);
+  return proto;
+}
+
+/**
  * Dependency Injection container — registers services by name and exposes
  * them to the rest of the framework.
  *
@@ -87,8 +98,8 @@ export type ProtoParameters = { (): void; [key: string]: any };
  * const logger = c.get<LoggerService>("logger");
  * ```
  *
- * See `src/nodefony/docs/container.md` for the high-level rationale and the
- * scope model used by the HTTP/WS request pipeline.
+ * See `docs/architecture/injection-portees.md` for the high-level rationale
+ * and the scope model used by the HTTP/WS request pipeline.
  */
 class Container implements IContainer {
   public protoService: ProtoService;
@@ -121,8 +132,8 @@ class Container implements IContainer {
     adoptedProtoParameters?: ProtoParameters,
   ) {
     this.id = (++containerSeq).toString(36);
-    this.protoService = adoptedProtoService ?? function () {};
-    this.protoParameters = adoptedProtoParameters ?? function () {};
+    this.protoService = adoptedProtoService ?? createProto();
+    this.protoParameters = adoptedProtoParameters ?? createProto();
     if (input && input instanceof Container) {
       this.services = Object.create(input.protoService.prototype);
       this.parameters = Object.create(input.protoParameters.prototype);
@@ -217,7 +228,9 @@ class Container implements IContainer {
   }
 
   /**
-   * Unregister a service and cascade the removal into every child scope.
+   * Unregister a service. Open scopes stop inheriting it (they read through
+   * the shared prototype), but a scope's OWN override of the same name is
+   * left untouched — it belongs to that unit of work, not to this container.
    *
    * @param name - service identifier
    * @returns `true` when a service was actually removed, `false` otherwise
@@ -230,13 +243,6 @@ class Container implements IContainer {
       delete this.services[name];
       if (name in this.protoService.prototype) {
         delete this.protoService.prototype[name];
-      }
-      if (this.scopes) {
-        for (const bucket of this.scopes.values()) {
-          for (const scope of bucket.values()) {
-            scope.remove(name);
-          }
-        }
       }
       return true;
     }
@@ -422,8 +428,8 @@ class Container implements IContainer {
    */
   public reset(): void {
     this.clean();
-    this.protoService = function () {};
-    this.protoParameters = function () {};
+    this.protoService = createProto();
+    this.protoParameters = createProto();
     this.services = Object.create(this.protoService.prototype);
     this.parameters = Object.create(this.protoParameters.prototype);
   }
@@ -453,6 +459,24 @@ class Scope extends Container implements IScope {
     super(undefined, false, parentProtoService, parentProtoParameters);
     this.name = name;
     this.parent = parent;
+    // Scope imbriqué : chaîner sur les services du scope PARENT (qui chaînent
+    // eux-mêmes sur le proto racine), sinon l'enfant ne voit pas ce que son
+    // parent a posé pour la requête (controller, context…). Chemin froid.
+    if (parent instanceof Scope && parent.services !== null) {
+      this.services = Object.create(parent.services);
+    }
+  }
+
+  /**
+   * Refused on a scope: rebuilding fresh prototypes would silently detach it
+   * from its parent (every inherited service would read as `null`).
+   *
+   * @throws Error always — close the scope with {@link Container.leaveScope}
+   */
+  public override reset(): void {
+    throw new Error(
+      `reset() is not allowed on scope "${this.name}": leave it with leaveScope() and enter a new one`,
+    );
   }
 
   /**
@@ -506,7 +530,9 @@ class Scope extends Container implements IScope {
     const obj = this.parent?.getParameters(name);
     if (ISDefined(res)) {
       if (merge && isPlainObject(obj) && isPlainObject(res)) {
-        return extend(deep, obj, res) as DynamicParam;
+        // Cible NEUVE : `obj` est le nœud du parent rendu par référence —
+        // fusionner dedans écrirait dans l'état partagé de toutes les requêtes.
+        return extend(deep, {}, obj, res) as DynamicParam;
       }
       return res;
     }

@@ -1433,6 +1433,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         },
       );
     } catch (e) {
+      if (context === null) {
+        // Le contexte n'a pas pu se construire : le `once("close")` qui mène à
+        // `teardownHttp` → `leaveScope` n'a jamais été posé. Sans ceci, le scope
+        // resterait épinglé dans le bucket `request` (miroir de
+        // `releaseOrphanWsScope`).
+        this.container?.leaveScope(scope);
+      }
       return (await this.onError(
         e as Error,
         context as ContextType,

@@ -122,7 +122,7 @@ Service(name, container?, notificationsCenter?, options?)
 - `get<T>(name)` → `T | null` — utilise `name in this.services` (inclut prototype chain)
 - `has(name)` → `boolean` — utilise `name in this.services` (pas `!!value` — supporte valeurs falsy)
 - `remove(name)` → `true` si trouvé/supprimé — utilise `name in this.services` (pas `!!get()`)
-  → propage récursivement aux scopes ouverts
+  → les scopes ouverts cessent d'hériter (proto partagé) ; leur surcharge PROPRE survit (pas de cascade)
 - `keys()` / `entries()` — liste les services propres
 
 **Paramètres**
@@ -134,7 +134,10 @@ Service(name, container?, notificationsCenter?, options?)
 **Scopes**
 
 - `addScope(name)` — déclare un scope (idempotent), retourne le bucket `Map<id, Scope>`
-- `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent
+- `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent ; sur un Scope, l'enfant chaîne sur `parent.services` (voit les services propres du scope parent)
+- `Scope.set/remove` = propriété PROPRE seulement (le proto est partagé entre requêtes) · `Scope.reset()` LÈVE
+- `Scope.getParameters` fusionne dans une cible NEUVE (`extend(deep, {}, parent, local)`) — jamais dans le nœud parent rendu par référence (fuite inter-requêtes)
+- `protoService.prototype` / `protoParameters.prototype` sans prototype (`createProto`) → `has("toString")`/`get("constructor")` = faux/null
 - `leaveScope(scope: IScope)` — nettoie le scope, `bucket.delete(id)`
 - `removeScope(name)` — nettoie tous les sous-scopes d'un nom
 - `scopeCount(name)` → number — instances vivantes (sondes fuite/Studio ; NE PAS fouiller `.scopes` à la main)

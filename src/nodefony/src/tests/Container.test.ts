@@ -670,3 +670,100 @@ describe("Container › Scope avancé", () => {
     expect(s1.id).to.not.equal(s2.id);
   });
 });
+
+describe("Container › Scope — étanchéité (#482)", () => {
+  it("une lecture fusionnée sur un scope n'écrit ni dans le parent ni dans un scope voisin", () => {
+    const root = new Container();
+    root.setParameters("app", { name: "root", debug: false });
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    const s2 = root.enterScope("req");
+    s1.setParameters("app", { debug: true, tenant: "acme" });
+
+    expect(s1.getParameters("app")).to.deep.equal({
+      name: "root",
+      debug: true,
+      tenant: "acme",
+    });
+    expect(root.getParameters("app")).to.deep.equal({
+      name: "root",
+      debug: false,
+    });
+    expect(s2.getParameters("app")).to.deep.equal({
+      name: "root",
+      debug: false,
+    });
+  });
+
+  it("une lecture fusionnée profonde laisse intacts les sous-objets du parent", () => {
+    const root = new Container();
+    root.setParameters("db", { pool: { min: 1, max: 5 } });
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    s1.setParameters("db", { pool: { max: 50 } });
+
+    expect(s1.getParameters("db")).to.deep.equal({ pool: { min: 1, max: 50 } });
+    expect(root.getParameters("db")).to.deep.equal({
+      pool: { min: 1, max: 5 },
+    });
+  });
+
+  it("un scope imbriqué voit les services propres de son scope parent", () => {
+    const root = new Container();
+    root.set("db", "DB");
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    s1.set("controller", "C");
+    s1.addScope("sub");
+    const sub = s1.enterScope("sub");
+
+    expect(sub.get("controller")).to.equal("C");
+    expect(sub.get("db")).to.equal("DB");
+    // Et l'écriture reste locale au sous-scope.
+    sub.set("controller", "C2");
+    expect(sub.get("controller")).to.equal("C2");
+    expect(s1.get("controller")).to.equal("C");
+  });
+
+  it("reset() lève sur un scope au lieu de le détacher de son parent", () => {
+    const root = new Container();
+    root.set("db", "DB");
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    expect(() => s1.reset()).to.throw(/scope/i);
+    expect(s1.get("db")).to.equal("DB");
+  });
+
+  it("remove() sur le parent ne retire pas la surcharge propre d'un scope ouvert", () => {
+    const root = new Container();
+    root.set("db", "DB");
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    s1.set("db", "DB-tenant");
+
+    expect(root.remove("db")).to.equal(true);
+    expect(root.get("db")).to.be.null;
+    expect(s1.get("db")).to.equal("DB-tenant");
+  });
+
+  it("remove() sur le parent retire le service hérité d'un scope ouvert", () => {
+    const root = new Container();
+    root.set("db", "DB");
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    root.remove("db");
+    expect(s1.get("db")).to.be.null;
+  });
+
+  it("les noms hérités d'Object.prototype ne sont ni des services ni des paramètres", () => {
+    const root = new Container();
+    root.addScope("req");
+    const s1 = root.enterScope("req");
+    for (const c of [root, s1]) {
+      expect(c.has("toString")).to.equal(false);
+      expect(c.has("constructor")).to.equal(false);
+      expect(c.get("hasOwnProperty")).to.be.null;
+      expect(c.getParameters("toString")).to.be.null;
+    }
+  });
+});
