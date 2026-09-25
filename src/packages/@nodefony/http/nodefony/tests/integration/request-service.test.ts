@@ -12,7 +12,6 @@
  *   GET /nodefony/test/request-scope/probe        — sonde d'une requête
  *   GET /nodefony/test/request-scope/state        — clean() reçus, et leur ordre
  *   WS  /nodefony/test/request-scope/ws           — résolution à chaque message
- *   GET /nodefony/test/request-scope-captive/     — contrôleur singleton captif
  */
 import { expect } from "chai";
 import https from "node:https";
@@ -134,18 +133,6 @@ describe("#485 — portée request de l'injecteur, sur le serveur réel", () => 
       "requestProbeConsumer",
       "requestProbe",
     ]);
-  });
-
-  it('HTTP : un contrôleur @Scope("singleton") qui réclame un service request est refusé, en nommant les deux', async () => {
-    for (const attempt of [1, 2]) {
-      const r = await get("/nodefony/test/request-scope-captive/");
-      expect(r.status, `tentative ${attempt}`).to.equal(500);
-      expect(r.body.message).to.match(/Dépendance captive refusée/);
-      expect(r.body.message).to.match(/RequestScopeCaptiveController/);
-      expect(r.body.message).to.match(/RequestProbe/);
-    }
-    const health = await get("/nodefony/test/index");
-    expect(health.status, "le serveur reste sain").to.equal(200);
   });
 
   it("WebSocket : une connexion, trois messages — même exemplaire, nettoyé une fois à la fermeture", async () => {

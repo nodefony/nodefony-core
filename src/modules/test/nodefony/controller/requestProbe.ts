@@ -10,13 +10,22 @@ export const requestProbeState = {
   /** Exemplaires de `RequestProbe` construits depuis le démarrage. */
   created: 0,
   /** Nombre de `clean()` reçus, par numéro d'exemplaire. */
-  cleanedBySerial: {} as Record<number, number>,
+  cleanedBySerial: new Map<number, number>(),
   /** Ordre des `clean()` d'une requête, par numéro de son `RequestProbe`. */
-  cleanOrderBySerial: {} as Record<number, string[]>,
+  cleanOrderBySerial: new Map<number, string[]>(),
 };
 
+/**
+ * Exemplaires dont on garde la trace. BORNÉ : une sonde qui retient une entrée
+ * par requête fabrique elle-même la pente que le gate mémoire mesure — les
+ * bancs relisent un exemplaire juste après sa requête, 64 suffit largement.
+ */
+const KEPT_SERIALS = 64;
+
 const recordClean = (serial: number, who: string): void => {
-  (requestProbeState.cleanOrderBySerial[serial] ??= []).push(who);
+  const order = requestProbeState.cleanOrderBySerial.get(serial);
+  if (order) order.push(who);
+  else requestProbeState.cleanOrderBySerial.set(serial, [who]);
 };
 
 /**
@@ -57,6 +66,8 @@ export class RequestProbe extends Service {
   constructor(scope: Scope) {
     super("requestProbe", scope, false);
     this.serial = ++requestProbeState.created;
+    requestProbeState.cleanedBySerial.delete(this.serial - KEPT_SERIALS);
+    requestProbeState.cleanOrderBySerial.delete(this.serial - KEPT_SERIALS);
     this.bornIn = RequestContext.getRequestId() ?? null;
     probeTracker.created++;
     probeTracker.registry.register(this, probeTracker.epoch);
@@ -64,8 +75,10 @@ export class RequestProbe extends Service {
   }
 
   override clean(syslog = false): void {
-    requestProbeState.cleanedBySerial[this.serial] =
-      (requestProbeState.cleanedBySerial[this.serial] ?? 0) + 1;
+    requestProbeState.cleanedBySerial.set(
+      this.serial,
+      (requestProbeState.cleanedBySerial.get(this.serial) ?? 0) + 1,
+    );
     recordClean(this.serial, "requestProbe");
     super.clean(syslog);
   }

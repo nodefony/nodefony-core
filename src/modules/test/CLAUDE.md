@@ -89,17 +89,18 @@ RÉSOUT à nouveau le service) — `nodefony/controller/requestProbe.ts`, état 
 `requestProbeState` et traceur `probeTracker` (`FinalizationRegistry` par époque, services ET
 scopes). Chaque requête sur ce contrôleur crée un `RequestProbe` : son constructeur l'injecte.
 
-| Route                                   | Méthode   | Description                                                                         |
-| --------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
-| `/probe`                                | GET       | `serial`, `bornIn`, `sameInConsumer`, `sameOnResolve`, `ownedByScope`               |
-| `/state`                                | GET       | `clean()` reçus et leur ORDRE, par numéro d'exemplaire                              |
-| `/instances/mark`                       | GET       | ouvre une époque : seuls les exemplaires nés après sont comptés                     |
-| `/instances`                            | GET       | `{ alive, scopesAlive }` de l'époque, après GC forcé — compte exact du gate mémoire |
-| `/ws`                                   | WEBSOCKET | chaque message résout le service à nouveau → même `serial` pour toute la connexion  |
-| `/nodefony/test/request-scope-captive/` | GET       | contrôleur `@Scope("singleton")` qui injecte un service `request` → **500** captive |
+| Route             | Méthode   | Description                                                                         |
+| ----------------- | --------- | ----------------------------------------------------------------------------------- |
+| `/probe`          | GET       | `serial`, `bornIn`, `sameInConsumer`, `sameOnResolve`, `ownedByScope`               |
+| `/state`          | GET       | `clean()` reçus et leur ORDRE, par numéro d'exemplaire                              |
+| `/instances/mark` | GET       | ouvre une époque : seuls les exemplaires nés après sont comptés                     |
+| `/instances`      | GET       | `{ alive, scopesAlive }` de l'époque, après GC forcé — compte exact du gate mémoire |
+| `/ws`             | WEBSOCKET | chaque message résout le service à nouveau → même `serial` pour toute la connexion  |
 
 Bancs : `http/tests/integration/request-service.test.ts` et deux scénarios du gate mémoire
-(`http/tests/http/memory.test.ts`).
+(`http/tests/http/memory.test.ts`). Un contrôleur `@Scope("singleton")` captif n'a pas sa place ici :
+il empêcherait le serveur de DÉMARRER (refus au boot) — sa preuve vit dans
+`framework/tests/unit/requestScopeBoot.test.ts`.
 
 ### LifecycleController (`/nodefony/test/lifecycle`) — `initialize()` qui lève
 

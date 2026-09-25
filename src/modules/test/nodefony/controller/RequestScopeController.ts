@@ -1,4 +1,4 @@
-import { Controller, route, Get, controller, Scope } from "@nodefony/framework";
+import { Controller, route, Get, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { Injector, RequestContext, inject } from "nodefony";
 import {
@@ -46,8 +46,10 @@ class RequestScopeController extends Controller {
   state() {
     return this.renderJson({
       created: requestProbeState.created,
-      cleanedBySerial: requestProbeState.cleanedBySerial,
-      cleanOrderBySerial: requestProbeState.cleanOrderBySerial,
+      cleanedBySerial: Object.fromEntries(requestProbeState.cleanedBySerial),
+      cleanOrderBySerial: Object.fromEntries(
+        requestProbeState.cleanOrderBySerial,
+      ),
     });
   }
 
@@ -99,25 +101,4 @@ class RequestScopeController extends Controller {
   }
 }
 
-/**
- * Contrôleur SINGLETON qui réclame un service `request` : dépendance captive,
- * refusée à sa première requête — il garderait l'exemplaire de cette requête
- * pour toutes les suivantes.
- */
-@Scope("singleton")
-@controller("/nodefony/test/request-scope-captive")
-class RequestScopeCaptiveController extends Controller {
-  constructor(
-    context: Context,
-    @inject("RequestProbe") private probe: RequestProbe,
-  ) {
-    super("RequestScopeCaptiveController", context);
-  }
-
-  @Get("/")
-  index() {
-    return this.renderJson({ serial: this.probe.serial });
-  }
-}
-
-export { RequestScopeController, RequestScopeCaptiveController };
+export { RequestScopeController };

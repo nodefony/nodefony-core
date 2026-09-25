@@ -30601,7 +30601,6 @@
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/modules/test/nodefony/controller/requestProbe.ts",
-        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
