@@ -471,9 +471,6 @@ jobs:
       - name: Attendre le verdict de la chaîne de la vitrine
         env:
           GH_TOKEN: ${{ secrets.NF_VITRINE_TOKEN }}
-          # Le script juge le dépôt que cette variable nomme : c'est ce qui
-          # permet de l'appeler tel quel sur un AUTRE dépôt que celui-ci.
-          GITHUB_REPOSITORY: nodefony/nodefony
           SHA: ${{ needs.vitrine.outputs.sha }}
         run: |
           set -uo pipefail
@@ -505,7 +502,11 @@ jobs:
           # Le JUGEMENT lui-même n'est pas réécrit ici : c'est celui que la
           # garde d'avant-publication applique déjà à ce dépôt (workflows non
           # bloquants compris). Deux copies auraient divergé au premier ajout.
-          node scripts/release/attendre-ci.mjs --sha "${SHA}" --timeout-min 50
+          # Le dépôt se nomme par `--repo`, JAMAIS par `GITHUB_REPOSITORY` : la
+          # forge ignore toute surcharge d'une variable `GITHUB_*`, et le juge
+          # interrogeait alors nodefony-core — « aucune exécution » sur
+          # alpha.7, alpha.8 et alpha.9, publications pourtant vertes.
+          node scripts/release/attendre-ci.mjs --repo nodefony/nodefony --sha "${SHA}" --timeout-min 50
 
   # ═════════════════════════════════════════════════════════════════════════
   # 4. IMAGE — construite DEPUIS l'application générée (décision D4)

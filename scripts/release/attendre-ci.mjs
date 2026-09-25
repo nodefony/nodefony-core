@@ -19,6 +19,10 @@
  * `@usage` node scripts/release/attendre-ci.mjs --sha <sha> --run-id <id>
  * `@option` --sha - le commit à juger (défaut : `GITHUB_SHA`)
  * `@option` --run-id - l'exécution courante, pour ne jamais s'attendre soi-même
+ * `@option` --repo - le dépôt à juger, `org/dépôt` (défaut : `GITHUB_REPOSITORY`).
+ *   🔴 Pour juger un AUTRE dépôt que celui du workflow, c'est la SEULE voie : la
+ *   forge interdit de surcharger une variable `GITHUB_*` dans un `env:` d'étape —
+ *   le journal affiche la valeur demandée, le process reçoit celle du runner.
  * `@option` --timeout-min - abandon après N minutes (défaut 45)
  * `@option` --grace-min - délai pendant lequel « aucune exécution » vaut « pas encore indexée » et non « rouge » (défaut 3)
  * `@env` GITHUB_REPOSITORY - `org/dépôt`, posé par la forge
@@ -35,7 +39,10 @@ const arg = (nom, defaut = null) => {
 
 const SHA = arg("sha", process.env.GITHUB_SHA);
 const MOI = arg("run-id", process.env.GITHUB_RUN_ID);
-const DEPOT = process.env.GITHUB_REPOSITORY ?? "nodefony/nodefony-core";
+const DEPOT = arg(
+  "repo",
+  process.env.GITHUB_REPOSITORY ?? "nodefony/nodefony-core",
+);
 const LIMITE_MS = Number(arg("timeout-min", "45")) * 60_000;
 const PAUSE_MS = 30_000;
 // La fenêtre pendant laquelle « aucune exécution » veut encore dire « pas
@@ -70,7 +77,7 @@ const lireRuns = () => {
 };
 
 process.stdout.write(
-  `Garde — la CI de ${SHA.slice(0, 8)} doit être verte avant toute publication.\n` +
+  `Garde — la CI de ${DEPOT}@${SHA.slice(0, 8)} doit être verte avant toute publication.\n` +
     `  Non bloquants, et pourquoi :\n` +
     WORKFLOWS_NON_BLOQUANTS.map((e) => `    · ${e.nom} — ${e.motif}`).join(
       "\n",

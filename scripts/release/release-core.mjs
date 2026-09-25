@@ -1270,8 +1270,21 @@ export function verdictCiDuCommit({
   patienceEpuisee = true,
 }) {
   const exclus = new Set(exclusions.map((e) => e.nom));
-  const juges = (runs ?? []).filter(
+  const candidats = (runs ?? []).filter(
     (r) => String(r.id) !== String(moiMeme) && !exclus.has(r.nom),
+  );
+  // Un `cancelled` ne dit rien du code : quand une AUTRE exécution du même
+  // workflow sur ce commit a conclu autrement, c'est elle qui parle. Vécu sur la
+  // vitrine de la 10.0.0-alpha.8 — le commit poussé sur une branche de
+  // répétition (CI annulée) puis sur `main` (CI verte). Seul `cancelled` est
+  // doublé : un `failure` reste bloquant, un rejeu vert ne l'efface pas.
+  const ontConclu = new Set(
+    candidats
+      .filter((r) => r.statut === "completed" && r.conclusion !== "cancelled")
+      .map((r) => r.nom),
+  );
+  const juges = candidats.filter(
+    (r) => !(r.conclusion === "cancelled" && ontConclu.has(r.nom)),
   );
 
   // Aucun run : la garde ne se DÉSARME pas quand elle ne sait rien — c'est

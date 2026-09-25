@@ -1586,6 +1586,44 @@ describe("verdict de la CI du commit — on ne publie pas sur un rouge", () => {
     }
   });
 
+  it("un `cancelled` DOUBLÉ par une exécution du même workflow qui a conclu ne compte plus", () => {
+    // Vécu sur la vitrine de la 10.0.0-alpha.8 : le même commit poussé sur une
+    // branche de répétition (CI annulée) puis sur `main` (CI verte).
+    const v = verdictCiDuCommit({
+      runs: [
+        run("CI", "completed", "cancelled", "1"),
+        run("CI", "completed", "success", "2"),
+        run("Production", "completed", "success", "3"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("vert");
+    expect(v.juges.map((r) => r.id)).toEqual(["2", "3"]);
+  });
+
+  it("un `cancelled` SEUL de son workflow reste rouge, même si d'autres workflows sont verts", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("CI", "completed", "cancelled", "1"),
+        run("Production", "completed", "success", "2"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("rouge");
+    expect(v.motif).toMatch(/CI — cancelled/);
+  });
+
+  it("un `failure` n'est JAMAIS doublé — un rejeu vert ne l'efface pas", () => {
+    const v = verdictCiDuCommit({
+      runs: [
+        run("CI", "completed", "failure", "1"),
+        run("CI", "completed", "success", "2"),
+      ],
+      moiMeme: "release",
+    });
+    expect(v.verdict).toBe("rouge");
+  });
+
   it("`skipped` et `neutral` sont VERTS — des filtres de chemin n'ont rien vu passer", () => {
     const v = verdictCiDuCommit({
       runs: [

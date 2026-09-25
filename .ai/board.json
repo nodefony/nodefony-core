@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T09:14:41.381Z",
+  "generatedAt": "2026-09-25T09:28:59.627Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 28,
+      "closed": 29,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 43,
+      "open": 42,
       "title": "10.0.0-beta"
     },
     {
@@ -232,8 +232,8 @@
       "number": 175,
       "title": "chore(release): publier la beta depuis la forge, pas à la main",
       "url": "https://github.com/nodefony/nodefony-core/issues/175",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
