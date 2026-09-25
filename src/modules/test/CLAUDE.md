@@ -81,6 +81,26 @@ Sondes ALS (AsyncLocalStorage) pour BUG-001 (WS messages) + BUG-002 (`onAfterRes
 
 > ⚠️ Au handshake WS, l'action reçoit `undefined` (pas `null`) → détecter via `message == null`, jamais `.toString()` un message absent.
 
+### RequestScopeController (`/nodefony/test/request-scope`) — portée `request` de l'injecteur
+
+Sondes `RequestProbe` / `RequestProbeConsumer` (portée `request`, **déclarées** par
+`@services([...])` sans être instanciées au démarrage) et `RequestProbeReader` (transient, qui
+RÉSOUT à nouveau le service) — `nodefony/controller/requestProbe.ts`, état module-level
+`requestProbeState` et traceur `probeTracker` (`FinalizationRegistry` par époque, services ET
+scopes). Chaque requête sur ce contrôleur crée un `RequestProbe` : son constructeur l'injecte.
+
+| Route                                   | Méthode   | Description                                                                         |
+| --------------------------------------- | --------- | ----------------------------------------------------------------------------------- |
+| `/probe`                                | GET       | `serial`, `bornIn`, `sameInConsumer`, `sameOnResolve`, `ownedByScope`               |
+| `/state`                                | GET       | `clean()` reçus et leur ORDRE, par numéro d'exemplaire                              |
+| `/instances/mark`                       | GET       | ouvre une époque : seuls les exemplaires nés après sont comptés                     |
+| `/instances`                            | GET       | `{ alive, scopesAlive }` de l'époque, après GC forcé — compte exact du gate mémoire |
+| `/ws`                                   | WEBSOCKET | chaque message résout le service à nouveau → même `serial` pour toute la connexion  |
+| `/nodefony/test/request-scope-captive/` | GET       | contrôleur `@Scope("singleton")` qui injecte un service `request` → **500** captive |
+
+Bancs : `http/tests/integration/request-service.test.ts` et deux scénarios du gate mémoire
+(`http/tests/http/memory.test.ts`).
+
 ### LifecycleController (`/nodefony/test/lifecycle`) — `initialize()` qui lève
 
 Son `initialize()` **lève toujours** : toute route posée dessus exerce la frontière d'erreur du hook.

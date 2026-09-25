@@ -38,6 +38,15 @@ import PipelineOrderController from "./nodefony/controller/PipelineOrderControll
 // Décor de banc contre-pression WS — monté SEULEMENT sous interrupteur (voir plus bas).
 import BackpressureRealtimeController from "./nodefony/controller/BackpressureRealtimeController";
 import LiveSalonController from "./nodefony/controller/LiveSalonController";
+// Portée `request` de l'injecteur : sondes + bancs (/nodefony/test/request-scope*).
+import {
+  RequestProbe,
+  RequestProbeConsumer,
+} from "./nodefony/controller/requestProbe";
+import {
+  RequestScopeController,
+  RequestScopeCaptiveController,
+} from "./nodefony/controller/RequestScopeController";
 
 import BenchOrmController, {
   SecureBenchOrmController,
@@ -83,7 +92,9 @@ const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
  */
 const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
 
-@services([])
+// Services de portée `request` : DÉCLARÉS ici, jamais instanciés au démarrage —
+// chaque requête crée les siens à leur première résolution.
+@services([RequestProbe, RequestProbeConsumer])
 @controllers([
   DefaultController,
   HtmlController,
@@ -127,6 +138,9 @@ const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
   // Angular, Svelte) : un seul endpoint `/api/live/realtime`, un seul canal
   // `live:salon`, quatre pages qui doivent s'y brancher à l'identique.
   LiveSalonController,
+  // Portée `request` de l'injecteur — HTTP, WS, et le refus d'un singleton captif
+  RequestScopeController,
+  RequestScopeCaptiveController,
   // Décor du banc de contre-pression WS (opt-in `NF_BENCH_WS_BACKPRESSURE=1`)
   ...(BENCH_WS_BACKPRESSURE ? [BackpressureRealtimeController] : []),
   // Décor du banc du cycle ORM (opt-in `NF_BENCH_ORM=1`)

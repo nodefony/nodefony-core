@@ -56,6 +56,21 @@ async function liveScopes(): Promise<number> {
   return r.requestScopes as number;
 }
 
+const REQUEST_SCOPE = "/nodefony/test/request-scope";
+
+/**
+ * Services `request` de la sonde (#485) encore vivants — et les scopes qui les
+ * portaient —, après GC forcé. Compte exact, par `FinalizationRegistry`, depuis
+ * la marque `/request-scope/instances/mark`.
+ */
+async function liveProbes(): Promise<{ alive: number; scopesAlive: number }> {
+  const r = (await get(`${REQUEST_SCOPE}/instances`)) as Record<
+    string,
+    unknown
+  >;
+  return { alive: r.alive as number, scopesAlive: r.scopesAlive as number };
+}
+
 async function liveContexts(): Promise<number> {
   const r = (await get("/nodefony/test/als-test/contexts")) as Record<
     string,
@@ -158,6 +173,49 @@ const contextsReleased = async (quoi: string): Promise<void> => {
   ).to.be.at.most(0);
 };
 
+/**
+ * Asserte que les services `request` nés depuis la marque, ET les scopes qui
+ * les portaient, ont été réclamés par le ramasse-miettes.
+ *
+ * Le registre des scopes dit qu'un scope a été REFERMÉ ; seul ce compte dit
+ * qu'il a été LIBÉRÉ, avec ses services — un service retenu par une fermeture
+ * épinglerait son scope entier. Base 1 : la sonde elle-même passe par un
+ * contrôleur qui résout le service ; elle sert aussi de témoin (un traceur
+ * muet rendrait 0, donc un écart de −1).
+ */
+const probesReleased = async (quoi: string): Promise<void> => {
+  // Les deux comptes drainent ENSEMBLE : relus par une requête à part, celui
+  // des scopes pourrait encore voir le scope de la lecture précédente.
+  let last = { alive: 0, scopesAlive: 0 };
+  await drainTo(
+    async () => {
+      last = await liveProbes();
+      return Math.max(last.alive, last.scopesAlive);
+    },
+    1,
+    1,
+  );
+  const delta = last.alive - 1;
+  const scopes = last.scopesAlive - 1;
+  expect(
+    delta,
+    "témoin : le traceur voit le service de sa propre requête",
+  ).to.be.at.least(0);
+  // eslint-disable-next-line no-console
+  console.log(
+    `[request-scope] ${quoi} : ${delta} service(s) et ${scopes} scope(s) encore vivant(s)`,
+  );
+  expect(
+    delta,
+    `${quoi} : ${delta} service(s) « request » jamais réclamé(s) — une ` +
+      "référence les retient après la fermeture de leur scope.",
+  ).to.be.at.most(0);
+  expect(
+    scopes,
+    `${quoi} : ${scopes} scope(s) refermé(s) mais jamais réclamé(s).`,
+  ).to.be.at.most(0);
+};
+
 // ── actions ──────────────────────────────────────────────────────────────────
 
 const MIXED_ROUTES = [
@@ -184,6 +242,20 @@ const ACTIONS = {
       ws.once("close", () => resolve());
       ws.once("error", reject);
     }),
+  // Deux services `request` résolus par requête (contrôleur + consommateur).
+  requestService: () => get(`${REQUEST_SCOPE}/probe`),
+  // Le service `request` d'une connexion, résolu au handshake puis à un message.
+  wsRequestService: () =>
+    new Promise<void>((resolve, reject) => {
+      const ws = new WebSocket(`${WSS}${REQUEST_SCOPE}/ws`, wsOpts);
+      let replies = 0;
+      ws.on("message", () => {
+        if (++replies === 1) ws.send("ping");
+        else ws.close();
+      });
+      ws.once("close", () => resolve());
+      ws.once("error", reject);
+    }),
 } satisfies Record<string, (i: number) => Promise<unknown>>;
 
 /**
@@ -207,6 +279,8 @@ const WARMUP = {
   upload: 200,
   wsOpenClose: 400,
   wsEcho: 400,
+  requestService: 450,
+  wsRequestService: 400,
 } satisfies Record<keyof typeof ACTIONS, number>;
 
 /**
@@ -334,6 +408,18 @@ describe("Memory leaks — HTTP (requires server)", function () {
     );
   });
 
+  it("GET resolving request-scoped services — retains nothing per request", async () => {
+    // Deux services `request` par requête (#485) : créés au 1ᵉʳ besoin, rangés
+    // sur le scope, nettoyés à sa fermeture — puis réclamés, scope compris.
+    await get(`${REQUEST_SCOPE}/instances/mark`);
+    await httpLoop(
+      "GET resolving request-scoped services",
+      plan("requestService", 250),
+      THRESHOLDS.requestService,
+    );
+    await probesReleased("GET resolving request-scoped services");
+  });
+
   it("server is alive after load — /index returns 200", async () => {
     const req = https.request({
       ...BASE,
@@ -378,5 +464,17 @@ describe("Memory leaks — WebSocket (requires server)", function () {
       plan("wsEcho", 50),
       THRESHOLDS.wsEcho,
     );
+  });
+
+  it("WS connections resolving a request-scoped service — retains nothing per connection", async () => {
+    // Le scope d'une connexion porte son service `request` jusqu'à la
+    // fermeture (#485) : ni lui ni son scope ne doivent lui survivre.
+    await get(`${REQUEST_SCOPE}/instances/mark`);
+    await wsLoop(
+      "WS connections resolving a request-scoped service",
+      plan("wsRequestService", 50),
+      THRESHOLDS.wsRequestService,
+    );
+    await probesReleased("WS connections resolving a request-scoped service");
   });
 });

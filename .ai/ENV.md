@@ -215,7 +215,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_REDIS_HOST` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:21` |
 | `NF_REDIS_PASSWORD` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:20` |
 | `NF_REDIS_PORT` | `src/packages/@nodefony/realtime/nodefony/tests/integration/RedisBackplane.test.ts:22` |
-| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:81` |
+| `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:80` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:595` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
 | `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:88` |

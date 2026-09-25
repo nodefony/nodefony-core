@@ -75,6 +75,16 @@ export const THRESHOLDS = {
   upload: 1024,
   wsOpenClose: 1024,
   wsEcho: 1024,
+  // Portée `request` de l'injecteur (#485) — 5 passages sur serveur neuf, pas
+  // 10 : le seuil commun ne s'y resserre pas, il s'y applique. Maximum observé
+  // entre parenthèses. La marge WS (×1,9) est sous celle des autres
+  // scénarios ; ce qui y tient, ce sont les comptes EXACTS de la sonde : une
+  // fuite témoin qui retenait chaque service (0,57 Ko de pente, sous ce
+  // seuil) y a été vue — 381 services jamais réclamés.
+  /** GET résolvant deux services `request` — (0,29 Ko) */
+  requestService: 1024,
+  /** connexion WS résolvant un service `request` à chaque message — (0,53 Ko) */
+  wsRequestService: 1024,
   // Bancs de charge (`npm run test:load`, 10 passages sur serveur neuf), par
   // unité indiquée — maximum observé entre parenthèses.
   /** par connexion WS portant 10 messages (`als-load`) — (0,46 Ko) */
