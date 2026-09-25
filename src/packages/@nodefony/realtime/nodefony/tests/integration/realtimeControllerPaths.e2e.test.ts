@@ -7,6 +7,11 @@ import {
   type RpcActionHandler,
   RequestContext,
   Container,
+  Injector,
+  Service,
+  injectable,
+  inject,
+  type Scope,
 } from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import { FrameProfile } from "@nodefony/http";
@@ -93,10 +98,51 @@ type RouterMode =
   | "action403"
   | "actionOpaque"
   | "actionOk"
-  | "scopeProbe";
+  | "scopeProbe"
+  | "sharedProbe";
 let routerMode: RouterMode = "ok";
 /** Conteneur posé sur le faux contexte, que le mode `scopeProbe` compare à `getScope()`. */
 let probeScope: unknown = undefined;
+
+/**
+ * Service de portée `request` : en WebSocket, un exemplaire par CONNEXION. Il
+ * porte un état mutable pour montrer ce que ce partage implique entre deux
+ * invocations `api.request` concurrentes.
+ */
+class SharedProbe extends Service {
+  static created = 0;
+  readonly serial: number;
+  lastWriter: string | null = null;
+  constructor(scope: Scope) {
+    super("rtSharedProbe", scope, false);
+    this.serial = ++SharedProbe.created;
+  }
+}
+injectable({ name: "RtSharedProbe", scope: "request" })(SharedProbe);
+
+/** Lecteur transient : RÉSOUT le service `request` à chaque invocation. */
+class SharedProbeReader extends Service {
+  constructor(readonly probe: SharedProbe) {
+    super("rtSharedProbeReader", probe.container as Container, false);
+  }
+}
+inject("RtSharedProbe")(SharedProbeReader, undefined, 0);
+injectable({ name: "RtSharedProbeReader", scope: "transient" })(
+  SharedProbeReader,
+);
+
+/**
+ * Barrière à deux : chaque invocation attend que l'autre soit arrivée. Sans
+ * elle, deux `api.request` pourraient se suivre au lieu de se chevaucher, et le
+ * test ne prouverait rien de la concurrence.
+ */
+let barrier: { arrived: number; release: () => void; open: Promise<void> };
+const resetBarrier = (): void => {
+  let release!: () => void;
+  const open = new Promise<void>((r) => (release = r));
+  barrier = { arrived: 0, release, open };
+};
+resetBarrier();
 
 function makeRouter() {
   return {
@@ -131,6 +177,21 @@ function makeRouter() {
               result: {
                 scopeDefined: scope !== undefined,
                 scopeIsConnection: scope !== undefined && scope === probeScope,
+              },
+            };
+          }
+          if (routerMode === "sharedProbe") {
+            const { probe } =
+              Injector.instantiate<SharedProbeReader>(SharedProbeReader);
+            probe.lastWriter = pathname;
+            barrier.arrived += 1;
+            if (barrier.arrived === 2) barrier.release();
+            await barrier.open;
+            return {
+              result: {
+                serial: probe.serial,
+                wrote: pathname,
+                readBack: probe.lastWriter,
               },
             };
           }
@@ -719,5 +780,37 @@ describe("RealtimeController E2E — scope de la connexion sous api.request (#48
       scopeIsConnection: false,
     });
     client.disconnect();
+  });
+
+  // Constat 10 de l'audit #481 : la portée `request` suit la CONNEXION en
+  // WebSocket. Deux invocations concurrentes sur une même socket reçoivent donc
+  // le MÊME exemplaire — et ce que l'une y écrit, l'autre le lit. Débrancher :
+  // poser un scope neuf par invocation dans le pont (`RealtimeController.ts`,
+  // champ `scope` de l'ALS) → deux numéros d'exemplaire, le test tombe.
+  it("deux api.request concurrents sur une socket partagent l'exemplaire request", async () => {
+    routerMode = "sharedProbe";
+    resetBarrier();
+    SharedProbe.created = 0;
+    const root = new Container();
+    root.addScope("request");
+    const scope = root.enterScope("request");
+    const { client } = await connect({ container: scope });
+    type Shared = { serial: number; wrote: string; readBack: string };
+    const [a, b] = await Promise.all([
+      client.request<"api.request", Shared>("api.request", { path: "/a" }),
+      client.request<"api.request", Shared>("api.request", { path: "/b" }),
+    ]);
+    // La barrière s'est ouverte : les deux actions étaient EN VOL ensemble.
+    expect(barrier.arrived).to.equal(2);
+    expect(SharedProbe.created).to.equal(1);
+    expect(a.serial).to.equal(b.serial);
+    // Le même état mutable : les deux relisent la DERNIÈRE écriture, donc l'une
+    // d'elles lit ce que l'autre a écrit.
+    expect(a.readBack).to.equal(b.readBack);
+    expect([a.wrote, b.wrote].filter((w) => w !== a.readBack)).to.have.length(
+      1,
+    );
+    client.disconnect();
+    root.leaveScope(scope);
   });
 });
