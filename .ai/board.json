@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-24T23:50:40.557Z",
+  "generatedAt": "2026-09-25T00:26:00.888Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 27,
+      "closed": 28,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 43,
+      "open": 42,
       "title": "10.0.0-beta"
     },
     {
@@ -199,8 +199,8 @@
       "number": 275,
       "title": "fix(release): écarter du changelog les commits qui n'atteignent aucun installeur",
       "url": "https://github.com/nodefony/nodefony-core/issues/275",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P2 — décision",
       "jours": 1,
