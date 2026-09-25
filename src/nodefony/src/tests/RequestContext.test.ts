@@ -187,6 +187,18 @@ describe("RequestContext (AsyncLocalStorage façade)", () => {
       });
     });
 
+    it("clé scope posée mais vide : requireScope() désigne le kernel sans conteneur, pas une bulle maison", () => {
+      RequestContext.run(
+        { requestId: "sans-conteneur", scope: undefined },
+        () => {
+          expect(RequestContext.getScope()).to.equal(undefined);
+          expect(messageOf(() => RequestContext.requireScope())).to.match(
+            /« sans-conteneur » n'a pas de scope : le kernel qui l'a ouverte n'a pas de conteneur DI/,
+          );
+        },
+      );
+    });
+
     it("scope refermé : une continuation qui reprend après leaveScope ne le reçoit plus", async () => {
       const root = openRoot();
       const scope = root.enterScope("request");

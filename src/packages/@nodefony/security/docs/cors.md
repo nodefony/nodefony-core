@@ -323,7 +323,7 @@ sequenceDiagram
 ```
 
 `Firewall.handleCors()` (`firewall.ts:1007`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1310`), à la ligne `http-kernel.ts:1361` — **avant le routing**. La raison est
+(`http-kernel.ts:1310`), à la ligne `http-kernel.ts:1365` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.

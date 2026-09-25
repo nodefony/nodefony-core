@@ -132,11 +132,18 @@ function describeMissingScope(
     );
   }
   if (store.scope == null) {
-    return (
-      `${prefix}la requête « ${store.requestId} » ne porte pas de scope. Sa ` +
-      "bulle a été ouverte par un RequestContext.run() qui ne pose pas " +
-      "« scope » : l'ajouter à la charge utile de ce run()."
-    );
+    // Clé PRÉSENTE mais vide : le site la pose, le kernel n'avait rien à
+    // ouvrir. Clé ABSENTE : la bulle ne la pose pas — bulle maison, ou
+    // micro-bulle de journalisation de fin de requête. Deux gestes différents.
+    return "scope" in store
+      ? `${prefix}la requête « ${store.requestId} » n'a pas de scope : le ` +
+          "kernel qui l'a ouverte n'a pas de conteneur DI (application " +
+          "démarrée sans conteneur, ou décor de test)."
+      : `${prefix}la requête « ${store.requestId} » ne porte pas de scope. ` +
+          "Sa bulle a été ouverte par un RequestContext.run() qui ne pose " +
+          "pas « scope » : une bulle maison (l'ajouter à sa charge utile), ou " +
+          "la micro-bulle de journalisation de fin de requête (la requête est " +
+          "alors terminée).";
   }
   return (
     `${prefix}le scope de la requête « ${store.requestId} » est déjà fermé. ` +

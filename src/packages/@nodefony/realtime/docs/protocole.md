@@ -341,7 +341,7 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 | `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:901` |
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:736` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:693` |
-| `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:433` |
+| `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:496` |
 | `api.request`      | client→server | **oui** | Pont API — rejoue une route HTTP sur la socket (désactivé par défaut) | `RealtimeController.ts:534` |
 | `<action>`         | client→server | **oui** | Toute action déclarée par `@RealtimeAction`                           | `realtimeDecorators.ts:101` |
 
@@ -431,7 +431,7 @@ radicalement :
 | La frame refusée est… | Ce qui part                                                     | Pourquoi                                             |
 | --------------------- | --------------------------------------------------------------- | ---------------------------------------------------- |
 | une **requête**       | `-32001 "unauthorized"` (`JsonRpcPeer.ts:413`)                  | Un `id` existe : il y a un canal de réponse          |
-| une **notification**  | la notification `realtime:denied` (`RealtimeController.ts:433`) | Aucun `id` : sans elle, le client se croirait abonné |
+| une **notification**  | la notification `realtime:denied` (`RealtimeController.ts:496`) | Aucun `id` : sans elle, le client se croirait abonné |
 
 `IRealtimeDenied` (`RealtimeEventMap.ts:269`) porte `channel` et `reason` — plus un `detail` optionnel, posé hors production seulement — et le motif
 est **générique**. Jamais « il te manque `ROLE_ADMIN` » : ce serait un oracle d'autorisation, un

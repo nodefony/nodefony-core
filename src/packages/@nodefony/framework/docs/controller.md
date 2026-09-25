@@ -310,7 +310,7 @@ action se tromperait d'objet.
 > frame 2 — pratique pour un état de conversation, piège si tu comptais sur une instance neuve. En
 > HTTP, l'inverse : chaque requête repart d'une instance vierge.
 
-Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1711`)
+Côté WebSocket, l'ordre est encore plus marqué : `HttpKernel.onConnect()` (`http-kernel.ts:1724`)
 appelle `handleFrontController()` (donc `initialize()`) **avant** `startSession()`
 (`http-kernel.ts:1152`), avant l'acceptation de la socket, et avant le firewall
 (`http-kernel.ts:1457`).

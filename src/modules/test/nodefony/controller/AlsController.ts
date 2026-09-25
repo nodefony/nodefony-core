@@ -23,6 +23,12 @@ export const alsTestState = {
   // connection: proves the onFinish tear-down is deduplicated).
   wsHookFireCount: 0,
   hookCount: 0,
+  // Scope de requête — un hook onAfterResponse le voit-il encore OUVERT ?
+  // (il passe avant leaveScope). Indexé par requestId.
+  scopeInHook: {} as Record<string, boolean>,
+  // Après le teardown, la bulle porte ENCORE `scope`, mais refermé :
+  // getScope() doit rendre undefined. Indexé par requestId.
+  scopeAfterTeardown: {} as Record<string, boolean>,
 };
 
 /**
@@ -78,6 +84,48 @@ class AlsController extends Controller {
     return this.renderJson({ contextRequestId: ctxId });
   }
 
+  // ── Scope de requête — RequestContext.getScope() ───────────────
+  // Doit rendre LE scope de ce contexte (même objet), et un hook
+  // onAfterResponse doit encore le voir ouvert.
+  @Get("/scope")
+  scopeHttp() {
+    const ctxId = this.context!.requestId;
+    const scope = RequestContext.getScope();
+    // Identité d'objet : `IScope` et `Container` sont deux types distincts.
+    const container: unknown = this.context?.container;
+    this.context!.onAfterResponse((ctx) => {
+      alsTestState.scopeInHook[ctxId] = RequestContext.getScope() !== undefined;
+      // Une continuation qui reprend APRÈS le teardown (`leaveScope` puis
+      // `clean()`) : on attend le SIGNAL `cleaned`, jamais un délai fixe.
+      const afterTeardown = (left: number): void => {
+        if (!ctx.cleaned && left > 0) {
+          setImmediate(() => afterTeardown(left - 1));
+          return;
+        }
+        alsTestState.scopeAfterTeardown[ctxId] =
+          ctx.cleaned &&
+          RequestContext.get()?.scope !== undefined &&
+          RequestContext.getScope() === undefined;
+      };
+      setImmediate(() => afterTeardown(1000));
+    });
+    return this.renderJson({
+      contextRequestId: ctxId,
+      scopeIsContainer: scope !== undefined && scope === container,
+    });
+  }
+
+  // Verdicts des hooks de `/scope`. Route À PART : `/state` est la cible du banc
+  // comparatif (`bench-frameworks/payload.mjs` en recopie la réponse pour
+  // Express et Fastify) — un champ de plus ici fausserait l'égalité des camps.
+  @Get("/scope/hooks")
+  scopeHooks() {
+    return this.renderJson({
+      scopeInHook: alsTestState.scopeInHook,
+      scopeAfterTeardown: alsTestState.scopeAfterTeardown,
+    });
+  }
+
   @Get("/state")
   state() {
     return this.renderJson({
@@ -120,6 +168,8 @@ class AlsController extends Controller {
     alsTestState.wsHookHandshakeId = null;
     alsTestState.wsHookFireCount = 0;
     alsTestState.hookCount = 0;
+    alsTestState.scopeInHook = {};
+    alsTestState.scopeAfterTeardown = {};
     return this.renderJson({ ok: true });
   }
 
@@ -132,7 +182,11 @@ class AlsController extends Controller {
     requirements: { methods: ["WEBSOCKET"] },
   })
   async wsAls(message: string | Buffer | null | undefined) {
+    const scope = RequestContext.getScope();
+    const container: unknown = this.context?.container;
     return this.renderJson({
+      // Le scope de la connexion, atteint par l'ALS — handshake ET messages.
+      alsScopeIsContainer: scope !== undefined && scope === container,
       handshake: message == null,
       alsRequestId: RequestContext.getRequestId() ?? null,
       alsUser:

@@ -4,6 +4,7 @@ import {
   RpcError,
   RpcEnvelope,
   RequestContext,
+  Scope,
   identityHint,
   type RpcActionHandler,
   type JsonRpcPeerOptions,
@@ -1015,6 +1016,11 @@ export abstract class RealtimeController<
           userId: token.getUserIdentifier(),
           // V4.1 — contexte transport dans l'ALS (controllers singleton data plane).
           context: ctx,
+          // Le scope de la CONNEXION, pour `RequestContext.getScope()`. Un
+          // `instanceof` et non un cast : sans conteneur de kernel,
+          // `ctx.container` est un Container RACINE, que getScope() ne doit
+          // jamais rendre — une écriture y fuirait vers toutes les requêtes.
+          scope: ctx.container instanceof Scope ? ctx.container : undefined,
           // Mutation : corps + clé d'idempotence portés par l'ALS (pas de corps
           // HTTP parsé en WS) → lus par `AdminApiController.buildRequest`. Absents
           // pour un GET (`p?.body === undefined` → fallback queryPost vide).

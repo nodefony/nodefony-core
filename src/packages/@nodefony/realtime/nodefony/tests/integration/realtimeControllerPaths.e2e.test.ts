@@ -2,7 +2,12 @@ import { describe, it, expect, beforeEach } from "vitest";
 import "reflect-metadata";
 import { RealtimeController } from "../../src/server/RealtimeController.js";
 import { getRealtimeHub } from "../../src/server/RealtimeHub.js";
-import { RpcError as RpcErrorServer, type RpcActionHandler } from "nodefony";
+import {
+  RpcError as RpcErrorServer,
+  type RpcActionHandler,
+  RequestContext,
+  Container,
+} from "nodefony";
 import type { ContextType } from "@nodefony/http";
 import { FrameProfile } from "@nodefony/http";
 import type { RealtimePublish } from "../../interfaces/IRealtimeController.js";
@@ -87,8 +92,11 @@ type RouterMode =
   | "throwOpaque"
   | "action403"
   | "actionOpaque"
-  | "actionOk";
+  | "actionOk"
+  | "scopeProbe";
 let routerMode: RouterMode = "ok";
+/** Conteneur posé sur le faux contexte, que le mode `scopeProbe` compare à `getScope()`. */
+let probeScope: unknown = undefined;
 
 function makeRouter() {
   return {
@@ -116,6 +124,15 @@ function makeRouter() {
           }
           if (routerMode === "actionOk") {
             return { result: { path: pathname, ok: true } };
+          }
+          if (routerMode === "scopeProbe") {
+            const scope = RequestContext.getScope();
+            return {
+              result: {
+                scopeDefined: scope !== undefined,
+                scopeIsConnection: scope !== undefined && scope === probeScope,
+              },
+            };
           }
           return { result: { path: pathname } };
         },
@@ -178,6 +195,8 @@ function makeServer(
     url?: unknown;
     /** Simule un serveur avec le profiler dev actif (défaut : prod, aucun profil). */
     profiling?: boolean;
+    /** Conteneur de la connexion (`ctx.container`) ; absent par défaut. */
+    container?: unknown;
   } = {},
 ): ApiRt {
   const conn = {
@@ -231,6 +250,7 @@ function makeServer(
     url: "url" in opts ? opts.url : "/realtime",
     requestId: "rid-test",
     scheme: "wss",
+    container: opts.container,
     router: opts.noRouter ? undefined : makeRouter(),
     remoteAddress: "127.0.0.1",
     origin: "https://app.test",
@@ -286,7 +306,9 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
     k === "user" ? ({ id: "u" } as T) : undefined,
 });
 
-async function connect(opts: { profiling?: boolean } = {}): Promise<{
+async function connect(
+  opts: { profiling?: boolean; container?: unknown } = {},
+): Promise<{
   client: RealtimeClient;
   rt: ApiRt;
   transport: LoopbackClientTransport;
@@ -658,6 +680,44 @@ describe("RealtimeController E2E — edge dégradés & parsing", () => {
   it("handshake : url absente/non-string → path '/' (pas de crash)", async () => {
     const client = await connectCtx({ url: undefined });
     expect(client.identity).to.not.equal(null);
+    client.disconnect();
+  });
+});
+
+describe("RealtimeController E2E — scope de la connexion sous api.request (#484)", () => {
+  beforeEach(() => {
+    getRealtimeHub().clear();
+    routerMode = "scopeProbe";
+    probeScope = undefined;
+    lastFinish = null;
+  });
+
+  it("une invocation api.request atteint le scope de la connexion par getScope()", async () => {
+    const root = new Container();
+    root.addScope("request");
+    const scope = root.enterScope("request");
+    probeScope = scope;
+    const { client } = await connect({ container: scope });
+    const res = await client.request<
+      "api.request",
+      { scopeDefined: boolean; scopeIsConnection: boolean }
+    >("api.request", { path: "/nodefony/kernel/api/x" });
+    expect(res).to.deep.equal({ scopeDefined: true, scopeIsConnection: true });
+    client.disconnect();
+  });
+
+  it("un conteneur RACINE n'est jamais rendu : getScope() reste undefined", async () => {
+    const root = new Container();
+    probeScope = root;
+    const { client } = await connect({ container: root });
+    const res = await client.request<
+      "api.request",
+      { scopeDefined: boolean; scopeIsConnection: boolean }
+    >("api.request", { path: "/nodefony/kernel/api/x" });
+    expect(res).to.deep.equal({
+      scopeDefined: false,
+      scopeIsConnection: false,
+    });
     client.disconnect();
   });
 });

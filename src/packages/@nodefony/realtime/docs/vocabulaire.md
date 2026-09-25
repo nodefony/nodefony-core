@@ -270,7 +270,7 @@ Un handler qui lève une erreur rend un `-32603` **générique** ; seule une `Rp
 
 Un canal où le **client a le droit d'émettre** vers le serveur. Défaut sûr : **aucun**. Un canal
 n'accepte d'entrée que déclaré explicitement, par `@RealtimeInbound` (`realtimeDecorators.ts:231`) ou
-par l'override `realtimeInbound()` (`RealtimeController.ts:205`).
+par l'override `realtimeInbound()` (`RealtimeController.ts:213`).
 
 Le handler reçoit `(params, reply)` — `params` vient du réseau, donc **jamais fiable** :
 `RealtimeInboundHandler` (`IRealtimeController.ts:16`).

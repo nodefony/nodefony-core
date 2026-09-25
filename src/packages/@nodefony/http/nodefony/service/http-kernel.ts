@@ -1350,6 +1350,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // V4.1 — le contexte transport voyage dans l'ALS : les controllers
           // singleton (stateless) le retrouvent sans le porter sur `this`.
           context,
+          // Le scope DI de la requête (`context.container`), rendu par
+          // `RequestContext.getScope()`. Une propriété de plus dans ce
+          // littéral déjà alloué : aucune allocation.
+          scope,
         },
         async (): Promise<HttpContext> => {
           // CORS (P6 J5) — AVANT le routing : un preflight `OPTIONS` n'a pas de
@@ -1646,6 +1650,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // V4.1 — même seam que HTTP : contexte WS accessible via l'ALS
           // (messages inclus — AsyncResource.bind propage la bulle, BUG-001).
           context,
+          // Le scope de la CONNEXION : tous ses messages le partagent.
+          scope,
         },
         async () => {
           await this.onConnect(context as WebsocketContext, error);

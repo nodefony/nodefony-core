@@ -534,6 +534,9 @@ class Context extends Service implements IContextInterface {
     // AVANT le dispatch (ring + écriture driver JSONL/Loki + bus) : correct pour
     // TOUS les drivers, pas seulement le ring `memory`. Cas courant (dans la
     // bulle) : ALS pleine → run direct ; surcoût = 1 lecture ALS (~ns).
+    // Micro-bulle volontairement SANS `scope` : elle n'enveloppe qu'un
+    // `super.log` synchrone, émis au teardown, souvent après `leaveScope`.
+    // `RequestContext.getScope()` y rend donc `undefined`.
     if (this.requestId && RequestContext.getRequestId() === undefined) {
       return RequestContext.run({ requestId: this.requestId }, () =>
         super.log(pci, severity, msgid, msg),

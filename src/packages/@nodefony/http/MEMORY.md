@@ -316,7 +316,8 @@ Extension de l'`AuditErrorEntry` :
 ## RequestContext (ALS)
 
 - `RequestContext` exporté depuis `nodefony` core (`src/runtime/RequestContext.ts`)
-- API : `RequestContext.run(payload, fn)`, `.get()`, `.getRequestId()`, `.getUser()`, `.getUserId()`, `.set(key, value)`
+- API : `RequestContext.run(payload, fn)`, `.get()`, `.getRequestId()`, `.getUser()`, `.getUserId()`, `.getScope()`, `.requireScope()`, `.set(key, value)`
+- Slot `scope` = `context.container`, posé aux 2 `run` de `HttpKernel` (HTTP ; WS handshake → messages) + pont `api.request` (`ctx.container instanceof Scope`, jamais un cast : racine ≠ scope). Micro-bulle `Context.log()` SANS scope, voulu. `getScope()` écarte un scope refermé → hooks `onAfterResponse` le voient OUVERT (avant `leaveScope`), une continuation post-réponse non
 - AsyncLocalStorage lazy : 1 instance partagée, créée au premier `.run()`. Aucun coût si jamais utilisé.
 - Payload type : `RequestContextPayload { requestId, scheme?, userId?, user?, traceparent?, [key]: unknown }` (open shape)
 - Wrap dans `HttpKernel.handleHttp` (après `createHttpContext`+`onCreateContext`, AVANT `parse` phase) avec `{requestId, scheme}`

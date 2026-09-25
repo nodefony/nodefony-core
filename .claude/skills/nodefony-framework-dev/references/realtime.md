@@ -406,7 +406,7 @@ Types : `ChannelSink = (payload: unknown) => void` `:62` · `ChannelFactory = (c
 
 ### 2.3 `RealtimeController` — base endpoint WS
 
-`rt/nodefony/src/server/RealtimeController.ts:79`. `abstract RealtimeController<Emit extends EventsMap = Default, Actions extends ActionsMap = Default> extends Controller implements IRealtimeController`. Factorise TOUT le protocole ; une sous-classe garde sa route WS et délègue à `handleRealtime(message)`.
+`rt/nodefony/src/server/RealtimeController.ts:152`. `abstract RealtimeController<Emit extends EventsMap = Default, Actions extends ActionsMap = Default> extends Controller implements IRealtimeController`. Factorise TOUT le protocole ; une sous-classe garde sa route WS et délègue à `handleRealtime(message)`.
 
 **Override seams** (tous `protected`, défauts vides/sûrs) :
 
