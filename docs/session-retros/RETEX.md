@@ -277,6 +277,15 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25d] `doc:anchors` annonçait 4 579 ancres OK pendant que ~330 ancres security
+  pointaient 1 à 20 lignes à côté (TSDoc au-dessus, champ Zod voisin) : il accepte le symbole cité
+  dans une FENÊTRE autour de la ligne. Seule la lecture page par page (11 agents) l'a vu. Un gate
+  qui tolère un décalage ne prouve rien sur une ancre précise.
+- [1× — 09-25d] Mon applicateur d'ancres, deux fois fautif : remplacements SÉQUENTIELS (66→74
+  repris par 74→82) et séparateur `|` coupé par une ligne de tableau (chaque espace de la page
+  remplacé). Tenu par : remplacement simultané, séparateur absent du corpus, citation attendue
+  vérifiée sur la ligne cible AVANT tout remplacement — qui a aussi refusé deux « FAUX » d'agents
+  qui étaient vrais (`readBearerHeader`, `removeCredential`).
 - [1× — 09-25b] `strictTemplates` était DÉCLARÉ, jamais EXÉCUTÉ : analogjs vaut
   `disableTypeChecking ?? true`, et le gabarit promettait « templates vérifiés au build Vite ».
   Derrière : 17 références mortes dans la vitrine Angular (le renommage #187 par LanguageService
