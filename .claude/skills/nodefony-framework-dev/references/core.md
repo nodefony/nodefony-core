@@ -235,6 +235,8 @@ RequestContext.run({ requestId, scheme, user }, async () => {
 });
 RequestContext.get(); // payload | undefined
 RequestContext.getUserId(); // string | undefined  (rempli par security P6)
+RequestContext.getScope(); // IScope | undefined — le scope DI de LA requête (fermé → undefined)
+RequestContext.requireScope(); // IScope, ou lève en nommant la cause (hors requête / sans scope / fermé)
 RequestContext.pushQuery({ sql, durationMs }); // no-op si !isProfiling() (gratuit en prod)
 ```
 
@@ -595,18 +597,20 @@ l'instance `Cmd` en **dernier** arg). `addOption` `:365` / `addArgument` `:382` 
 
 ### `RequestContext` (ALS)
 
-`runtime/RequestContext.ts:86` — façade statique au-dessus d'`AsyncLocalStorage` (instance **lazy** `:87-94` → 0 coût si jamais `run`).
+`runtime/RequestContext.ts:157` — façade statique au-dessus d'`AsyncLocalStorage` (instance **lazy** `:160-165` → 0 coût si jamais `run`).
 
-| Méthode                 | Signature                                                  | Ancre           |
-| ----------------------- | ---------------------------------------------------------- | --------------- |
-| `run`                   | `static <T>(payload, fn): T`                               | `:97`           |
-| `get`                   | `static (): RequestContextPayload \| undefined`            | `:102`          |
-| `getRequestId`          | `static (): string \| undefined`                           | `:108`          |
-| `getUser` / `getUserId` | `static (): unknown / string \| undefined`                 | `:113` / `:127` |
-| `getContext<T>`         | `static (): T \| undefined`                                | `:122`          |
-| `set<K>`                | `static (key, value): void` (no-op hors scope)             | `:135`          |
-| `isProfiling`           | `static (): boolean`                                       | `:150`          |
-| `pushQuery`             | `static (query): void` (no-op si !profiling → 0 coût prod) | `:160`          |
+| Méthode                 | Signature                                                      | Ancre           |
+| ----------------------- | -------------------------------------------------------------- | --------------- |
+| `run`                   | `static <T>(payload, fn): T`                                   | `:168`          |
+| `get`                   | `static (): RequestContextPayload \| undefined`                | `:173`          |
+| `getRequestId`          | `static (): string \| undefined`                               | `:179`          |
+| `getUser` / `getUserId` | `static (): unknown / string \| undefined`                     | `:184` / `:198` |
+| `getContext<T>`         | `static (): T \| undefined`                                    | `:193`          |
+| `getScope`              | `static (): IScope \| undefined` (scope refermé → `undefined`) | `:225`          |
+| `requireScope`          | `static (): IScope` — lève en nommant la cause                 | `:239`          |
+| `set<K>`                | `static (key, value): void` (no-op hors scope)                 | `:250`          |
+| `isProfiling`           | `static (): boolean`                                           | `:265`          |
+| `pushQuery`             | `static (query): void` (no-op si !profiling → 0 coût prod)     | `:275`          |
 
 ### `nodefonyError`
 

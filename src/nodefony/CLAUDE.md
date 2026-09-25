@@ -147,6 +147,8 @@ RequestContext.get();              // payload entier ou undefined
 RequestContext.getRequestId();     // string | undefined
 RequestContext.getUser();          // unknown | undefined
 RequestContext.set("user", user);  // mute le store actuel
+RequestContext.getScope();         // IScope | undefined — scope DI de la requête (refermé → undefined)
+RequestContext.requireScope();     // IScope, ou lève en nommant la cause
 RequestContext.isProfiling();      // bool — buffer queries actif (dev profiler)
 RequestContext.pushQuery({ sql, durationMs, rows?, connector? }); // no-op si !isProfiling
 ```

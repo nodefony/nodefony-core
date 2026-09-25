@@ -124,7 +124,7 @@ le corps de la requête (`http-kernel.ts:1370`). C'est ce qui permet à une acti
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
 
-**3. Tout tourne dans une bulle.** `RequestContext.run()` (`RequestContext.ts:126`) ouvre un
+**3. Tout tourne dans une bulle.** `RequestContext.run()` (`RequestContext.ts:168`) ouvre un
 `AsyncLocalStorage` autour de la suite du pipeline. Chaque saut asynchrone en aval — log, requête ORM,
 décorateur de sécurité — retrouve `requestId`, `traceparent` et le contexte, **sans** qu'on les passe
 en paramètre.

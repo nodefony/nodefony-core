@@ -1,5 +1,6 @@
 /// <reference types="node" />
 import { AsyncLocalStorage } from "node:async_hooks";
+import type { IScope } from "../types/IContainer";
 
 /**
  * Une requête ORM (SQL/NoSQL) capturée pendant le scope de requête, pour le
@@ -64,6 +65,14 @@ export interface RequestContextPayload {
    */
   context?: unknown;
   /**
+   * Scope DI de la requête — le même objet que `context.container`. Posé par
+   * `HttpKernel` (requête HTTP ; handshake WebSocket, dont les messages
+   * héritent) et par le pont `api.request` du temps réel. Se lit par
+   * {@link RequestContext.getScope}, qui écarte un scope déjà refermé : ne pas
+   * le lire directement.
+   */
+  scope?: IScope;
+  /**
    * Corps de la requête posé par le **pont WS-RPC `api.request`** (mutations) :
    * en WebSocket il n'existe aucun corps HTTP parsé, donc le pont transporte la
    * charge utile de la frame ici (per-invocation via `RequestContext.run` → zéro
@@ -102,6 +111,39 @@ export interface RequestContextPayload {
    */
   invocation?: unknown;
   [key: string]: unknown;
+}
+
+/**
+ * Message d'échec de {@link RequestContext.requireScope} : il nomme LA cause
+ * parmi trois, parce que chacune appelle un geste différent. Chemin froid —
+ * construit seulement quand l'appel échoue.
+ */
+function describeMissingScope(
+  store: RequestContextPayload | undefined,
+): string {
+  const prefix = "RequestContext.requireScope() : ";
+  if (store === undefined) {
+    return (
+      prefix +
+      "aucune requête en cours. Ce code s'exécute hors de toute requête HTTP " +
+      "et de toute connexion WebSocket (démarrage, commande CLI, minuterie " +
+      "armée hors requête). RequestContext.getScope() rend alors undefined : " +
+      "le tester d'abord."
+    );
+  }
+  if (store.scope == null) {
+    return (
+      `${prefix}la requête « ${store.requestId} » ne porte pas de scope. Sa ` +
+      "bulle a été ouverte par un RequestContext.run() qui ne pose pas " +
+      "« scope » : l'ajouter à la charge utile de ce run()."
+    );
+  }
+  return (
+    `${prefix}le scope de la requête « ${store.requestId} » est déjà fermé. ` +
+    "Ce code s'exécute après la fin de la requête ou de la connexion " +
+    "(promesse non attendue, minuterie, hook branché trop tard) : lire ce " +
+    "dont il a besoin avant que la réponse parte."
+  );
 }
 
 /**
@@ -155,6 +197,50 @@ class RequestContext {
   /** Shortcut — returns the current userId (P6) or `undefined`. */
   static getUserId(): string | undefined {
     return this.get()?.userId;
+  }
+
+  /**
+   * Rend le scope DI de la requête en cours : le conteneur propre à CETTE
+   * requête, ou `undefined` s'il n'y en a pas d'ouvert.
+   *
+   * Le scope hérite de tous les services du kernel par sa chaîne de
+   * prototypes : on y lit tout, mais ce qu'on y écrit (`set`) ne concerne que
+   * cette requête et disparaît avec elle. C'est le même objet que
+   * `context.container`, atteignable sans connaître le transport.
+   *
+   * - HTTP : un scope par requête.
+   * - WebSocket : un scope par CONNEXION, partagé par tous ses messages et
+   *   toutes ses invocations `api.request`, concurrentes comprises — n'y poser
+   *   que ce qui vaut pour la connexion entière.
+   * - `undefined` hors requête (démarrage, CLI, minuterie armée hors requête),
+   *   dans une bulle ouverte sans scope, et une fois le scope refermé : les
+   *   hooks `onAfterResponse` le voient encore ouvert ; une promesse non
+   *   attendue qui continue après la réponse, non.
+   *
+   * Ne pas confondre avec `Injector.getScope()`, qui rend la DURÉE DE VIE
+   * déclarée d'un service (`"singleton"`, `"transient"`).
+   *
+   * @returns le scope ouvert de la requête courante, ou `undefined`.
+   */
+  static getScope(): IScope | undefined {
+    const scope = this.get()?.scope;
+    return scope != null && !scope.closed ? scope : undefined;
+  }
+
+  /**
+   * Comme {@link getScope}, mais lève quand aucun scope ouvert n'est
+   * disponible — pour le code qui n'a pas de sens hors d'une requête.
+   *
+   * @returns le scope ouvert de la requête courante.
+   * @throws Error qui nomme la cause : aucune requête en cours, une bulle
+   * ouverte sans scope (un `RequestContext.run()` qui ne pose pas `scope`), ou
+   * un scope déjà refermé (code qui continue après la fin de la requête).
+   */
+  static requireScope(): IScope {
+    const store = this.get();
+    const scope = store?.scope;
+    if (scope != null && !scope.closed) return scope;
+    throw new Error(describeMissingScope(store));
   }
 
   /**

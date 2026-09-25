@@ -873,3 +873,33 @@ describe("Container › registre des scopes ouverts (#483)", () => {
     expect(s1.scopeCount("sub")).to.equal(0);
   });
 });
+
+describe("Container › closed (#484)", () => {
+  it("un scope est ouvert à l'entrée, fermé après leaveScope — et ne se rouvre pas", () => {
+    const root = new Container();
+    root.addScope("request");
+    const scope = root.enterScope("request");
+    expect(scope.closed).to.equal(false);
+    root.leaveScope(scope);
+    expect(scope.closed).to.equal(true);
+    expect(() => scope.reset()).to.throw(/reset\(\) is not allowed/);
+    expect(scope.closed).to.equal(true);
+  });
+
+  it("une racine est fermée par clean(), rendue utilisable par reset()", () => {
+    const root = new Container();
+    expect(root.closed).to.equal(false);
+    root.clean();
+    expect(root.closed).to.equal(true);
+    root.reset();
+    expect(root.closed).to.equal(false);
+  });
+
+  it("fermer la racine ferme aussi les scopes encore ouverts", () => {
+    const root = new Container();
+    root.addScope("request");
+    const scope = root.enterScope("request");
+    root.clean();
+    expect(scope.closed).to.equal(true);
+  });
+});

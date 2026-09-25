@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 862,
-    "symbols": 4296,
+    "symbols": 4297,
     "classes": 400,
     "interfaces": 1131,
     "types": 459,
     "enums": 4,
-    "functions": 1871,
+    "functions": 1872,
     "constants": 431
   },
   "symbols": {
@@ -30440,7 +30440,8 @@
         "src/nodefony/src/types/IService.ts"
       ],
       "IScope": [
-        "src/nodefony/src/Container.ts"
+        "src/nodefony/src/Container.ts",
+        "src/nodefony/src/runtime/RequestContext.ts"
       ],
       "Nodefony": [
         "src/nodefony/src/Error.ts",

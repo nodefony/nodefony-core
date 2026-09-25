@@ -115,12 +115,12 @@ exactement où la bulle existe, et où elle n'existe plus.
 ## La vision Nodefony
 
 `RequestContext` est une **façade statique** au-dessus d'une instance unique d'`AsyncLocalStorage`
-par processus (`RequestContext.ts:115`). Quatre décisions de conception en découlent.
+par processus (`RequestContext.ts:157`). Quatre décisions de conception en découlent.
 
 - **Allocation paresseuse.** L'instance n'est créée qu'au **premier** `run()` — le getter privé
-  `RequestContext.als` (`RequestContext.ts:118`). Importer la classe sans jamais ouvrir de bulle
+  `RequestContext.als` (`RequestContext.ts:160`). Importer la classe sans jamais ouvrir de bulle
   (bundle client, script CLI, test unitaire) ne coûte rien.
-- **Lecture à sortie rapide.** `RequestContext.get()` (`RequestContext.ts:131`) rend `undefined`
+- **Lecture à sortie rapide.** `RequestContext.get()` (`RequestContext.ts:173`) rend `undefined`
   **sans toucher à l'ALS** quand aucune bulle n'a jamais été ouverte. Le cas « pas de requête » est
   gratuit.
 - **Forme ouverte.** `RequestContextPayload` (`RequestContext.ts:37`) déclare les clés connues puis
@@ -256,20 +256,22 @@ rend la trace complète d'un appel rejouable — voir [Journalisation](syslog.md
 
 ## 🧰 API publique
 
-Neuf membres statiques, tous sûrs hors bulle (aucun ne lève). Les signatures exactes vivent dans le
+Onze membres statiques, tous sûrs hors bulle sauf `requireScope()`, qui lève exprès. Les signatures exactes vivent dans le
 graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 
 | Appel              | Ancre                   | Rend / fait                                          | Hors bulle  |
 | ------------------ | ----------------------- | ---------------------------------------------------- | ----------- |
-| `run(payload, fn)` | `RequestContext.ts:126` | ouvre une bulle et **renvoie ce que renvoie `fn`**   | —           |
-| `get()`            | `RequestContext.ts:131` | le payload entier (objet **mutable**, par référence) | `undefined` |
-| `getRequestId()`   | `RequestContext.ts:137` | l'identifiant de corrélation                         | `undefined` |
-| `getUser()`        | `RequestContext.ts:142` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
-| `getUserId()`      | `RequestContext.ts:155` | son identifiant sous forme de chaîne                 | `undefined` |
-| `getContext<T>()`  | `RequestContext.ts:151` | le contexte transport HTTP/WS, générique             | `undefined` |
-| `set(clé, valeur)` | `RequestContext.ts:164` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
-| `isProfiling()`    | `RequestContext.ts:179` | `true` si un buffer de profilage est actif           | `false`     |
-| `pushQuery(query)` | `RequestContext.ts:189` | ajoute une requête mesurée au buffer                 | **no-op**   |
+| `run(payload, fn)` | `RequestContext.ts:168` | ouvre une bulle et **renvoie ce que renvoie `fn`**   | —           |
+| `get()`            | `RequestContext.ts:173` | le payload entier (objet **mutable**, par référence) | `undefined` |
+| `getRequestId()`   | `RequestContext.ts:179` | l'identifiant de corrélation                         | `undefined` |
+| `getUser()`        | `RequestContext.ts:184` | l'utilisateur authentifié, typé `unknown`            | `undefined` |
+| `getUserId()`      | `RequestContext.ts:198` | son identifiant sous forme de chaîne                 | `undefined` |
+| `getContext<T>()`  | `RequestContext.ts:193` | le contexte transport HTTP/WS, générique             | `undefined` |
+| `getScope()`       | `RequestContext.ts:225` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
+| `requireScope()`   | `RequestContext.ts:239` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
+| `set(clé, valeur)` | `RequestContext.ts:250` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
+| `isProfiling()`    | `RequestContext.ts:265` | `true` si un buffer de profilage est actif           | `false`     |
+| `pushQuery(query)` | `RequestContext.ts:275` | ajoute une requête mesurée au buffer                 | **no-op**   |
 
 > [!IMPORTANT]
 > `set()` hors bulle ne **lève pas** — il ne fait rien. C'est délibéré (le même code doit tourner en
@@ -281,19 +283,20 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 `RequestContextPayload` (`RequestContext.ts:37`) déclare les clés que le cœur connaît, puis autorise
 les autres par une signature d'index. Chaque couche y dépose ce qui la concerne.
 
-| Clé               | Posée par               | À quoi elle sert                                                            |
-| ----------------- | ----------------------- | --------------------------------------------------------------------------- |
-| `requestId`       | le serveur HTTP/WS      | corrélation des logs, en-tête de réponse, suivi de requête                  |
-| `scheme`          | le serveur HTTP/WS      | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
-| `traceparent`     | le serveur HTTP/WS      | trace distribuée W3C, honorée si le client l'envoie                         |
-| `user` / `userId` | le firewall après auth  | identité résolue — `firewall.ts:889`                                        |
-| `token`           | le firewall après auth  | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:775`        |
-| `context`         | le serveur HTTP/WS      | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
-| `queries`         | le serveur, en dev seul | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
-| `invocation`      | le pont WS-RPC          | profil de **la trame** en cours (phases + requêtes ORM)                     |
-| `body`            | le pont WS-RPC          | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
-| `idempotencyKey`  | le pont WS-RPC / HTTP   | déduplication d'un rejeu (`Resolver.ts:533`)                                |
-| `renderSink`      | le pont WS-RPC          | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
+| Clé               | Posée par                          | À quoi elle sert                                                            |
+| ----------------- | ---------------------------------- | --------------------------------------------------------------------------- |
+| `requestId`       | le serveur HTTP/WS                 | corrélation des logs, en-tête de réponse, suivi de requête                  |
+| `scheme`          | le serveur HTTP/WS                 | `http`/`https`/`ws`/`wss` — utile aux liens absolus et aux cookies          |
+| `traceparent`     | le serveur HTTP/WS                 | trace distribuée W3C, honorée si le client l'envoie                         |
+| `user` / `userId` | le firewall après auth             | identité résolue — `firewall.ts:889`                                        |
+| `token`           | le firewall après auth             | jeton **complet** : rôles, périmètres, attributs — `firewall.ts:775`        |
+| `context`         | le serveur HTTP/WS                 | contexte transport, pour les contrôleurs sans état (`RequestContext.ts:65`) |
+| `scope`           | le serveur HTTP/WS, le pont WS-RPC | scope DI de la requête — le lire par `getScope()` (`RequestContext.ts:225`) |
+| `queries`         | le serveur, en dev seul            | buffer de requêtes ORM du profiler (`RequestContext.ts:57`)                 |
+| `invocation`      | le pont WS-RPC                     | profil de **la trame** en cours (phases + requêtes ORM)                     |
+| `body`            | le pont WS-RPC                     | corps d'une mutation — il n'existe aucun corps HTTP parsé sur une trame     |
+| `idempotencyKey`  | le pont WS-RPC / HTTP              | déduplication d'un rejeu (`Resolver.ts:533`)                                |
+| `renderSink`      | le pont WS-RPC                     | puits de capture d'un rendu, pour ne pas écrire de trame hors protocole     |
 
 Les couches supérieures exposent ces clés sous une forme **typée**, à préférer quand elle existe :
 
@@ -350,8 +353,8 @@ flowchart LR
 
 Deux lectures possibles, et elles ne sont **pas** équivalentes :
 
-- `RequestContext.isProfiling()` (`RequestContext.ts:179`) + `RequestContext.pushQuery()`
-  (`RequestContext.ts:189`) — le chemin simple, quand tout se passe dans la bulle.
+- `RequestContext.isProfiling()` (`RequestContext.ts:265`) + `RequestContext.pushQuery()`
+  (`RequestContext.ts:275`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
   (`DrizzleRepository.ts:330`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:118`).
@@ -391,7 +394,7 @@ tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'auc
 `RequestContext` est sur le chemin de **chaque** requête. Ce qui rend son coût acceptable :
 
 - **Rien tant que rien n'est ouvert.** L'instance d'ALS n'existe qu'après le premier `run()`
-  (`RequestContext.ts:126`), et `get()` court-circuite sur une comparaison à `null` tant qu'aucune
+  (`RequestContext.ts:168`), et `get()` court-circuite sur une comparaison à `null` tant qu'aucune
   bulle n'a été ouverte (`RequestContext.ts:131`).
 - **Une seule allocation par requête** : l'objet payload. Il est construit au point d'entrée avec
   les champs déjà connus, pas enrichi au fil de l'eau.
@@ -401,7 +404,7 @@ tourner deux bulles concurrentes avec des `await` entrelacés et vérifie qu'auc
   lecture de store suivie d'un accès de propriété.
 
 Sur les chiffres, la page reste factuelle : la TSDoc du code annonce **~50-100 ns** par `run()` sur
-Node 22+ pour l'entrée dans le scope (`RequestContext.ts:126`), et le même ordre de grandeur pour la
+Node 22+ pour l'entrée dans le scope (`RequestContext.ts:168`), et le même ordre de grandeur pour la
 lecture du `requestId` par le journal (`Pdu.ts:200`), contre ~5 ns quand le fournisseur n'est pas
 branché. **Il n'existe pas de banc dédié à `RequestContext`** dans le dépôt : ces valeurs sont des
 ordres de grandeur documentés au code, pas une mesure rejouable. Le coût réel se constate en bout de
@@ -427,7 +430,7 @@ jeton complet** — rôles, périmètres, attributs (`firewall.ts:632`). Quatre 
 3. **Une identité de WebSocket peut vieillir.** La bulle de connexion porte l'identité captée à la
    poignée de main, et la connexion peut durer des heures — alors que la session, elle, peut être
    révoquée entre-temps. C'est pourquoi le pont WS-RPC **revalide** l'identité à chaque invocation
-   avant d'ouvrir sa bulle — `RequestContext.run()` (`RequestContext.ts:126`) — et refuse en
+   avant d'ouvrir sa bulle — `RequestContext.run()` (`RequestContext.ts:168`) — et refuse en
    cas de doute, au lieu de faire confiance à la valeur capturée à la connexion.
    La même logique vaut pour ton code : ne mets pas en cache un `getUser()` au-delà d'une invocation.
 4. **Rien ne fuit entre requêtes**, mais tout fuit hors de la bulle si on l'en sort. Ranger un
@@ -454,7 +457,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
 | `getRequestId()` vaut `undefined` dans un écouteur / une minuterie | le rappel se déclenche dans un tick postérieur, hors bulle                           | `AsyncResource.bind(fn)` **au branchement**, pas à l'appel                           |
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux             | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
-| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:164`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
+| `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:250`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall        | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
 | `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1250`)         |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |

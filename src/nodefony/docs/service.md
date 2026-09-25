@@ -341,8 +341,8 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
-[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:293`),
-`Container.leaveScope()` (`Container.ts:312`) et `Container.scopeCount()` (`Container.ts:330`) pour
+[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:326`),
+`Container.leaveScope()` (`Container.ts:345`) et `Container.scopeCount()` (`Container.ts:362`) pour
 les sondes de fuite.
 
 ### Journal
@@ -533,7 +533,7 @@ Les services d'un module sont introspectables sans lire le code :
   avec le container (`KernelAdminApi.ts:1346`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.
-- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:330`) donne le nombre de scopes
+- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:362`) donne le nombre de scopes
   **vivants** : un compteur qui monte sans jamais redescendre signale un `leaveScope` manquant.
 
 ## ⚠️ Pièges (symptôme → cause → correction)

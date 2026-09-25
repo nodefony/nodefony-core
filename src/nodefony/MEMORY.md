@@ -139,6 +139,7 @@ Service(name, container?, notificationsCenter?, options?)
 - `Scope.getParameters` fusionne dans une cible NEUVE (`extend(deep, {}, parent, local)`) — jamais dans le nœud parent rendu par référence (fuite inter-requêtes)
 - `protoService.prototype` / `protoParameters.prototype` sans prototype (`createProto`) → `has("toString")`/`get("constructor")` = faux/null
 - `leaveScope(scope: IScope)` — `bucket.delete(scope)` PUIS `clean()` (un clean qui lève n'épingle pas le scope) ; no-op si pas ouvert ICI (2ᵉ appel, autre conteneur)
+- `closed` (getter, `IScope`) = `services === null` : vrai après `clean()`/`leaveScope` ; aucun champ ajouté. `RequestContext.getScope()` écarte un scope `closed`
 - `removeScope(name)` — nettoie tous les sous-scopes d'un nom
 - `scopeCount(name)` → number — instances vivantes (sondes fuite/Studio ; NE PAS fouiller `.scopes` à la main)
 - `Scope extends Container implements IScope` — `name: string` + `getParameters(name, merge=true, deep=true)`

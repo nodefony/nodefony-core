@@ -168,6 +168,19 @@ class Container implements IContainer {
     return this.#id;
   }
 
+  /**
+   * `true` après {@link clean} — pour un scope, après {@link leaveScope}.
+   * Services et paramètres sont alors libérés : `get()` rend `null` (même pour
+   * un service hérité) et `set()` lève. {@link reset} rend un conteneur racine
+   * utilisable ; un scope, lui, ne se rouvre pas.
+   *
+   * Lu sur l'état existant plutôt que sur un drapeau : aucun champ de plus par
+   * scope, donc ni octet ni écriture ajoutés à `enterScope`.
+   */
+  public get closed(): boolean {
+    return this.services === null;
+  }
+
   private setServices(services: DynamicService): void {
     for (const service in services) {
       this.set(service, services[service]);

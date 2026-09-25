@@ -8,6 +8,12 @@ import type Syslog from "../syslog/Syslog";
  */
 export interface IScope extends IContainer {
   readonly name: string;
+  /**
+   * `true` une fois le scope refermé par `leaveScope()` : ses services et
+   * paramètres sont libérés, un `get()` y rend `null` et un `set()` lève. Un
+   * scope fermé ne se rouvre pas — on en ouvre un neuf.
+   */
+  readonly closed: boolean;
   getParameters(
     name: string,
     merge?: boolean,
