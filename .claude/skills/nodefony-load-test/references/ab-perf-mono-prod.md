@@ -63,10 +63,14 @@ le profil avait raison sur le TOTAL, faux sur la répartition (`enterScope` rée
 les vrais postes : `new Request`+`new Response` ~47 % et ctor `Service` ~36 % de la fabrique).
 `%HasFastProperties` innocente le dictionary mode du `protoService` (fast à 100 services).
 
-**Diff STRUCTUREL sans toggle env** (RETEX 06-11) : flipper par
-`git stash push -- <fichiers du diff>` / `git stash pop` — ⚠️ **le dist ne suit PAS le stash** →
-rebuild du package après CHAQUE flip (new→stash→rebuild→old→pop→rebuild→new2…), et une dernière
-fois après le pop final, sinon on benche l'autre code. **Verdict honnête = 3 issues** : gain net
+**Diff STRUCTUREL sans toggle env** : le hook du dépôt REFUSE `git stash`/`git restore` sur un
+arbre non commité (il protège le travail en cours) — et l'A/B se fait justement AVANT le commit.
+Flipper donc SANS toucher à l'index : copier d'abord les fichiers neufs hors du dépôt, puis
+`git show HEAD:<f> > <f>` pour l'ancien, recopie pour le neuf. ⚠️ **le dist ne suit PAS la
+bascule** → rebuild du package après CHAQUE bascule (new→old→rebuild→new→rebuild…), une dernière
+fois au retour final, et PROUVER quel code tourne par un marqueur NON AMBIGU du dist (une méthode
+qui n'existe que d'un côté : `grep -c "nomDeMéthode(" dist/…` — pas un motif qui apparaît aussi à
+la définition, ni un littéral que le bundler replie). Sinon on benche l'autre code. **Verdict honnête = 3 issues** : gain net
 (2 paires disjointes, > bruit ±5 %), structurel-gardé-en-le-disant (médiane positive MAIS
 chevauchement → écrire « RPS bruit » dans le commit), ou rejet. Un levier profilé ~2 % est
 INDISTINGUABLE du bruit machine → prévoir d'emblée l'argument structurel (Pdu/GC/closures).

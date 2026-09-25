@@ -296,6 +296,17 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25j] **A/B « aucune régression » publié sur des séries à thermal de départ DIFFÉRENT**
+  (old 42/37, new 22/18) : chaque série était valide (dispersion ≤ 3 %), la PAIRE ne l'était pas —
+  l'audit l'a vu, pas moi. Relever le thermal de départ des deux camps AVANT de comparer, ou
+  resserrer la cible de la garde ; sinon « non revendiqué », jamais « aucune régression ».
+- [1× — 09-25j] **Un RPS absolu annoncé sans son régime** (8 394 sur batterie + mode économie) : le
+  user l'a comparé aux 13-14 k d'une référence sur secteur. Tout absolu se donne AVEC son régime ;
+  sur batterie, ne publier que le relatif.
+- [1× — 09-25j] **Le skill de charge prescrivait `git stash push -- <fichiers>` pour l'A/B structurel,
+  et le hook du dépôt le REFUSE sur un arbre sale** — deux règles justes, chacune éprouvée sur son
+  décor (arbre propre / travail en cours). Contournement : bascule `git show HEAD:<f> > <f>` après
+  copie des fichiers neufs, retour par recopie. Référence du skill corrigée dans la foulée.
 - [1× — 09-25i] **Bruit mémoire étalonné sur un serveur CHAUD, jugé par une CI qui démarre à FROID** :
   10 passages locaux sur le même serveur disaient « 0,23 Mo, du bruit » ; les journaux CI des 3 OS
   disaient 2,45 Mo à 3 % près, run après run — un REMPLISSAGE déterministe (ring syslog 2 000 Pdu,

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-25 18:02** (UTC).
+> Empreinte prise le **2026-09-25 20:20** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -26,7 +26,7 @@
 | **10.1.0** | ![10.1.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/2?style=flat-square&label=) `█░░░░░░░░░` 14% | 5 | 31 | 2026-12-15 |
 | **10.2.0** | ![10.2.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/3?style=flat-square&label=) `░░░░░░░░░░` 4% | 1 | 27 | — |
 | **11.0.0** | ![11.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/4?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 5 | — |
-| **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 8 | — |
+| **12.0.0** | ![12.0.0](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/5?style=flat-square&label=) `░░░░░░░░░░` 0% | 0 | 9 | — |
 | **outillage-agents** | ![outillage-agents](https://img.shields.io/github/milestones/progress-percent/nodefony/nodefony-core/8?style=flat-square&label=) `███████░░░` 67% | 4 | 2 | — |
 
 ## ➡️ Le prochain dans l'ordre
@@ -184,7 +184,7 @@ Ordre 0.5 · P0 — bloque le reste · 3.5 j · jalon 10.0.0-beta · frise —
 | 164 | P2 — décision | 1 | — | #244 | feat(security): trancher le serveur d'autorisation et le mTLS |
 | 165 | P2 — décision | 15 | — | #459 | feat(media): modèle média partagé et moteur audio du navigateur |
 
-## Jalon 12.0.0 — 8 ouverts
+## Jalon 12.0.0 — 9 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -196,6 +196,7 @@ Ordre 0.5 · P0 — bloque le reste · 3.5 j · jalon 10.0.0-beta · frise —
 | 170 | P2 — décision | 1 | — | #250 | feat(agent): arreter le modele de boucle d'un agent |
 | 171 | P2 — décision | 1 | — | #251 | chore(mcp): trancher si le protocole descend du coeur en module |
 | 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
+| 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
 
 ## Backlog — aucune date promise · 6 ouverts
 

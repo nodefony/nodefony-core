@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T18:02:11.352Z",
+  "generatedAt": "2026-09-25T20:20:22.873Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -21,7 +21,7 @@
       "closed": 0,
       "dueOn": null,
       "number": 5,
-      "open": 8,
+      "open": 9,
       "title": "12.0.0"
     },
     {
@@ -6718,6 +6718,20 @@
       "priorite": "P1 — figé à la création",
       "jours": 1,
       "ordre": 172,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 492,
+      "title": "feat(tenant): isoler les organisations qui partagent une même application",
+      "url": "https://github.com/nodefony/nodefony-core/issues/492",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "12.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 11,
+      "ordre": 173,
       "debut": null,
       "cible": null,
       "labels": []

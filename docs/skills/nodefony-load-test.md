@@ -78,7 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 142 |
+| `references/ab-perf-mono-prod.md` | Niveau 3 — A/B perf mono prod : détails | 146 |
 | `references/catalogue.md` | Catalogue des scripts — ce que chacun prouve | 184 |
 | `references/protocoles-bancs-charge.md` | Protocoles détaillés des bancs de charge les plus utilisés | 237 |
 | `references/reperes-empiriques.md` | Repères empiriques — pour situer un résultat | 30 |
