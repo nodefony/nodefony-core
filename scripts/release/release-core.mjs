@@ -221,6 +221,55 @@ export function couvertParFiles(cible, files) {
   });
 }
 
+/** Sources qu'un bundler compile dans `dist/` — elles voyagent sans être dans `files`. */
+const SOURCE_COMPILEE = /\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|html|json)$/u;
+/** Ce qui vit à côté du code sans jamais être empaqueté. */
+const JAMAIS_EMPAQUETE =
+  /(?:^|\/)(?:tests?|__tests__|fixtures?)\/|\.(?:test|spec|bench)\.[^/]+$/u;
+/** Réglages de construction à la racine du paquet : ils bâtissent l'artefact, ils n'y entrent pas. */
+const CONFIG_DE_BUILD =
+  /^(?:tsconfig[^/]*\.json|[^/]*\.config\.[cm]?[jt]s|turbo\.json|\.[^/]+)$/u;
+/** npm les emporte quelle que soit la liste `files`. */
+const TOUJOURS_EMPAQUETE = /^(?:package\.json|readme[^/]*|licen[cs]e[^/]*)$/iu;
+
+/**
+ * Construit le prédicat « ce chemin du dépôt atteint-il un installeur ? ».
+ *
+ * Un chemin l'atteint s'il appartient à un paquet PUBLIABLE et qu'il y est soit
+ * emporté par `files` (ou par npm d'office : manifeste, README, licence), soit
+ * une source que le build compile dans ce qu'emporte `files` — un `feat(http)`
+ * touche `nodefony/**\/*.ts`, que `files: ["dist"]` ne nomme pas et qui part
+ * pourtant chez l'utilisateur. Les tests et les réglages de build du paquet
+ * n'y entrent pas. Tout ce qui est hors d'un paquet publiable (`.claude/`,
+ * `scripts/`, la racine) ne l'atteint jamais.
+ *
+ * Le critère ne porte PAS sur la portée du commit : `cli`, `kernel`,
+ * `scaffold` ne sont pas des paquets et concernent l'utilisateur ; une liste de
+ * portées écrite à la main dériverait au premier nom neuf, sans rien dire.
+ *
+ * @param paquets - `{ location, pkg }` par paquet publiable (`location` relatif
+ *        à la racine du dépôt, dans l'un ou l'autre séparateur).
+ * @returns `(chemin) => boolean`, chemin relatif à la racine du dépôt.
+ */
+export function perimetrePublie(paquets) {
+  const racines = paquets.map(({ location, pkg }) => ({
+    prefixe: `${location.replaceAll("\\", "/").replace(/\/+$/u, "")}/`,
+    files: Array.isArray(pkg?.files) ? pkg.files : null,
+  }));
+  return (brut) => {
+    const chemin = String(brut).replaceAll("\\", "/");
+    const racine = racines.find((r) => chemin.startsWith(r.prefixe));
+    if (!racine) return false;
+    const rel = chemin.slice(racine.prefixe.length);
+    if (TOUJOURS_EMPAQUETE.test(rel)) return true;
+    if (JAMAIS_EMPAQUETE.test(rel) || CONFIG_DE_BUILD.test(rel)) return false;
+    // Sans `files`, npm emporte le dossier entier.
+    if (racine.files === null || couvertParFiles(rel, racine.files))
+      return true;
+    return SOURCE_COMPILEE.test(rel);
+  };
+}
+
 export function auditerMetadonnees(paquets, { depotAttendu, existe }) {
   const bloquants = [];
   const avertissements = [];
@@ -574,13 +623,26 @@ export const ORDRE_SECTIONS = ["Changed", "Added", "Removed", "Fixed"];
  * pour comprendre une régression ne peut plus remonter au code. Chaque message
  * arrive donc accompagné de son empreinte.
  *
- * @param {Array<{sha?: string, message: string}>|string[]} commits — messages
- *        complets (sujet + corps), avec leur empreinte quand elle est connue.
+ * ## Le PÉRIMÈTRE : un commit qui n'atteint aucun installeur est écarté
+ *
+ * Le type ne suffit pas : les scripts du dépôt, ses bancs et la chaîne de
+ * publication elle-même se commitent en `feat`/`fix`, comme il se doit — et
+ * noyaient les vraies entrées (alpha.3 : 8 coupes à la main sur 20). Quand
+ * `publie` est fourni, un commit dont AUCUN fichier ne le satisfait est écarté
+ * et compté avec les autres. Un seul fichier publié suffit à le garder. Un
+ * commit sans liste de fichiers est gardé : écarter dans le doute publierait
+ * un oubli pour toujours, garder ne coûte qu'une relecture.
+ *
+ * @param {Array<{sha?: string, message: string, fichiers?: string[]}>|string[]} commits — messages
+ *        complets (sujet + corps), avec leur empreinte quand elle est connue,
+ *        et les chemins touchés (relatifs à la racine du dépôt).
  *        La forme « tableau de chaînes » reste acceptée : elle produit des
  *        entrées sans référence, ce que le script signale.
+ * @param {{publie?: (chemin: string) => boolean}} [options] — le prédicat de
+ *        `perimetrePublie` ; absent, seul le type filtre.
  * @returns {{ruptures: Array<{portee: string, texte: string, sha: string}>, groupes: Map<string, Array<{portee: string, texte: string, sha: string}>>, horsConvention: number, ecartes: number}}
  */
-export function analyserCommits(commits) {
+export function analyserCommits(commits, { publie } = {}) {
   const ruptures = [];
   const groupes = new Map();
   let horsConvention = 0;
@@ -604,6 +666,16 @@ export function analyserCommits(commits) {
     // Confondre les deux comptes donnerait à l'auteur un chiffre qui ne veut
     // rien dire — et lui ferait chercher des commits mal écrits qui n'existent pas.
     if (!SECTIONS[m[1]]) {
+      ecartes++;
+      continue;
+    }
+    const fichiers = typeof entree === "string" ? null : entree?.fichiers;
+    if (
+      publie &&
+      Array.isArray(fichiers) &&
+      fichiers.length > 0 &&
+      !fichiers.some(publie)
+    ) {
       ecartes++;
       continue;
     }

@@ -34,6 +34,7 @@ import {
   WORKFLOWS_NON_BLOQUANTS,
   MAX_BUFFER_GIT,
   analyserCommits,
+  perimetrePublie,
   auditerMetadonnees,
   ciblesDeTypes,
   couvertParFiles,
@@ -1938,5 +1939,100 @@ describe("depreciationsAFaire", () => {
         },
       ]),
     ).toEqual([{ nom: "@nodefony/http-bundle", motif: "message PÉRIMÉ" }]);
+  });
+});
+
+// ═══════════════════════════════════════════════════════════════════════════
+describe("perimetrePublie — ce qui atteint un installeur", () => {
+  const publie = perimetrePublie([
+    {
+      location: "src/packages/@nodefony/http",
+      pkg: { files: ["dist", "docs"] },
+    },
+    { location: "src\\nodefony", pkg: { files: ["dist", "templates"] } },
+  ]);
+
+  it("garde les sources compilées, `files`, et ce que npm emporte d'office", () => {
+    for (const f of [
+      "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+      "src/packages/@nodefony/http/index.ts",
+      "src/packages/@nodefony/http/docs/index.md",
+      "src/packages/@nodefony/http/package.json",
+      "src/packages/@nodefony/http/README.md",
+      "src/nodefony/templates/app/env.ts.eta",
+    ]) {
+      expect(publie(f), f).toBe(true);
+    }
+  });
+
+  it("écarte tests, réglages de build, notes d'agent et tout ce qui est hors paquet", () => {
+    for (const f of [
+      ".claude/skills/nodefony-session/scripts/session-resume.mjs",
+      "scripts/release/release-core.mjs",
+      "package.json",
+      "src/packages/@nodefony/http/tests/integration/memory.test.ts",
+      "src/packages/@nodefony/http/nodefony/src/x.test.ts",
+      "src/packages/@nodefony/http/rolldown.config.ts",
+      "src/packages/@nodefony/http/tsconfig.declarations.json",
+      "src/packages/@nodefony/http/MEMORY.md",
+      "src/packages/@nodefony/http-bundle/index.ts",
+    ]) {
+      expect(publie(f), f).toBe(false);
+    }
+  });
+});
+
+describe("analyserCommits — périmètre publié (#275)", () => {
+  const publie = perimetrePublie([
+    { location: "src/packages/@nodefony/http", pkg: { files: ["dist"] } },
+  ]);
+
+  it("🔴 ÉCARTE un feat qui ne touche que l'outillage du dépôt, et le COMPTE", () => {
+    const { groupes, ecartes } = analyserCommits(
+      [
+        {
+          sha: "a1",
+          message: "feat(pilotage): reprise de session",
+          fichiers: [
+            ".claude/skills/nodefony-session/scripts/session-resume.mjs",
+          ],
+        },
+      ],
+      { publie },
+    );
+    expect(groupes.size).toBe(0);
+    expect(ecartes).toBe(1);
+  });
+
+  it("GARDE un commit mixte : un seul fichier publié suffit", () => {
+    const { groupes, ecartes } = analyserCommits(
+      [
+        {
+          sha: "b2",
+          message: "fix(http): en-tête perdu",
+          fichiers: [
+            ".claude/skills/x/SKILL.md",
+            "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+            "scripts/release/release.mjs",
+          ],
+        },
+      ],
+      { publie },
+    );
+    expect(ecartes).toBe(0);
+    expect(groupes.get("Fixed")).toEqual([
+      { portee: "http", texte: "en-tête perdu", sha: "b2", rupture: false },
+    ]);
+  });
+
+  it("GARDE dans le doute : sans liste de fichiers, ou sans prédicat", () => {
+    const sansFichiers = analyserCommits([{ sha: "c3", message: "feat: x" }], {
+      publie,
+    });
+    const sansPredicat = analyserCommits([
+      { sha: "d4", message: "feat: y", fichiers: [".claude/a.md"] },
+    ]);
+    expect(sansFichiers.ecartes).toBe(0);
+    expect(sansPredicat.ecartes).toBe(0);
   });
 });

@@ -87,6 +87,7 @@ import process from "node:process";
 import {
   alignerReferencesInternes,
   analyserCommits,
+  perimetrePublie,
   auditerMetadonnees,
   comparerVersions,
   detecterSuspects,
@@ -1141,20 +1142,36 @@ if (!(PUBLIER && !ECRIRE)) {
   // un message, là où n'importe quel caractère lisible finirait par le faire.
   const RS = "\x1e";
   const US = "\x1f";
+  //
+  // Et les FICHIERS touchés (`--name-only`) : ce qui n'atteint aucun installeur
+  // n'entre pas au changelog (`perimetrePublie`). Git les écrit APRÈS le
+  // format, d'où le séparateur d'enregistrement en TÊTE et un dernier US qui
+  // isole la liste du message.
   const commits = git(
     "log",
     `${dernierTag}..HEAD`,
     "--no-merges",
-    `--format=%h${US}%B${RS}`,
+    "--name-only",
+    `--format=${RS}%h${US}%B${US}`,
   )
     .split(RS)
     .map((bloc) => {
       const [sha, ...reste] = bloc.split(US);
-      return { sha: sha.trim(), message: reste.join(US).trim() };
+      const fichiers = reste.length > 1 ? reste.pop() : "";
+      return {
+        sha: sha.trim(),
+        message: reste.join(US).trim(),
+        fichiers: fichiers
+          .split("\n")
+          .map((f) => f.trim())
+          .filter(Boolean),
+      };
     })
     .filter((c) => c.message);
 
-  const analyse = analyserCommits(commits);
+  const analyse = analyserCommits(commits, {
+    publie: perimetrePublie(paquets),
+  });
   ruptures = analyse.ruptures;
   // `ruptures` ne se passe plus au rendu : chaque entrée porte son propre
   // marqueur, ce qui permet de la remonter EN TÊTE DE SA CATÉGORIE comme la
@@ -1171,7 +1188,7 @@ if (!(PUBLIER && !ECRIRE)) {
         ? `, dont ${ruptures.length} RUPTURE(S)`
         : ", aucune rupture signalée") +
       (analyse.ecartes
-        ? ` · ${analyse.ecartes} sans effet utilisateur (docs, ci, chore… écartés)`
+        ? ` · ${analyse.ecartes} sans effet utilisateur écartés (docs, ci, chore… ou aucun fichier publié)`
         : "") +
       (analyse.horsConvention
         ? ` · ${analyse.horsConvention} HORS CONVENTION (ignorés — messages à corriger)`
