@@ -249,6 +249,19 @@ WARMUP="${BENCH_WARMUP:-5}"
 wrk -t"$THREADS" -c"$CONN" -d"${WARMUP}s" ${WRK_HDR[@]+"${WRK_HDR[@]}"} "$URL" >/dev/null 2>&1
 echo "  warmup: ${WARMUP}s wrk non compté · thermal avant: $THERM_BEFORE · régime: $REGIME"
 
+# Sonde in-situ (`NF_PERF_PROBE=1` passé en KEY=VAL) : remise à zéro APRÈS le
+# warmup — sinon le code froid dilue la mesure —, relevée après les runs et
+# AVANT l'arrêt, que le serveur emporterait avec lui. Le relevé est gardé même
+# quand la série est refusée : c'est une preuve, pas un signal d'acceptation.
+PROBE=0
+case " $EXTRA_ENV " in *" NF_PERF_PROBE=1 "*) PROBE=1 ;; esac
+PROBE_URL="${URL%%/nodefony/*}/nodefony/kernel/bench/probe"
+if [ "$PROBE" = "1" ] && ! curl -sf -o /dev/null "$PROBE_URL?reset=1"; then
+  echo "  ✖ $LABEL: sonde injoignable ($PROBE_URL) — relevé impossible, série abandonnée."
+  kill -INT "$(cat /tmp/nf-bench.pid)" 2>/dev/null
+  exit 1
+fi
+
 # ── Latences ────────────────────────────────────────────────────────────────
 # Un RPS seul ne dit RIEN de ce que vit un utilisateur : deux serveurs au même
 # débit peuvent servir l'un en 5 ms et l'autre avec une queue à 800 ms. C'est le
@@ -295,6 +308,18 @@ for i in 1 2 3; do
   RPS+=("$R")
 done
 THERM_AFTER=$(therm)
+if [ "$PROBE" = "1" ]; then
+  if curl -sf -o "/tmp/nf-bench-$LABEL.probe.json" "$PROBE_URL"; then
+    node -e "
+const p=JSON.parse(require('fs').readFileSync('/tmp/nf-bench-$LABEL.probe.json','utf8'));
+if(p.enabled!==true){console.log('  ⚠ sonde ÉTEINTE côté serveur — relevé vide');process.exit(0)}
+const a=p.avgUs,f=(v)=>v.toFixed(3);
+console.log('  sonde ('+p.count+' req) : enterScope '+f(a.enterScope)+' µs · leaveScope '+f(a.leaveScope)+' µs · cycle '+f(a.enterScope+a.leaveScope)+' µs · ctx '+f(a.ctx)+' µs');
+"
+  else
+    echo "  ⚠ sonde illisible — relevé absent"
+  fi
+fi
 if [ "$BAD" = "1" ]; then
   echo "  ✖ $LABEL: run(s) pollué(s) par des erreurs — médiane NON enregistrée."
   echo "    Un débit mesuré sous erreurs n'est comparable à rien."
