@@ -14,6 +14,20 @@ export interface IScope extends IContainer {
    * scope fermé ne se rouvre pas — on en ouvre un neuf.
    */
   readonly closed: boolean;
+  /**
+   * `true` si `name` est posé SUR ce scope — jamais un service hérité du
+   * conteneur parent. `has()` suit la chaîne de prototypes et répondrait
+   * `true` pour un singleton homonyme.
+   */
+  hasOwn(name: string): boolean;
+  /**
+   * Lie la durée de vie d'un objet à celle du scope : son `clean()`, s'il en a
+   * un, est appelé à la fermeture du scope, dans l'ordre INVERSE des
+   * rattachements (le dernier créé est nettoyé le premier).
+   *
+   * @throws Error si le scope est déjà fermé — l'objet ne serait jamais nettoyé.
+   */
+  own(instance: object): void;
   getParameters(
     name: string,
     merge?: boolean,

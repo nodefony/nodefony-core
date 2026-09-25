@@ -10,6 +10,7 @@ import { JSONObject } from "../types/globals";
 import Service, { DefaultOptionsService } from "../Service";
 import Command from "../command/Command";
 import Injector from "./injector/injector";
+import { BootConfigurationError } from "./BootConfigurationError";
 import Container from "../Container";
 import * as fs from "node:fs/promises";
 import CliKernel from "./CliKernel";
@@ -443,6 +444,17 @@ class Module<TConfig = Record<string, unknown>>
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     ...args: any[]
   ): Promise<Service> {
+    if (Injector.scopeOf(service) === "request") {
+      // Un service `request` n'a pas d'exemplaire au démarrage : chaque requête
+      // crée le sien à sa première résolution. L'instancier ici en ferait un
+      // singleton de fait — celui dont la portée protège justement.
+      throw new BootConfigurationError(
+        `Service « ${service.name} » (portée request) ajouté par addService() : ` +
+          `il n'a pas d'exemplaire au démarrage, chaque requête crée le sien à ` +
+          `sa première résolution. Le lister dans @services([...]) le déclare ` +
+          `sans l'instancier ; l'injecter suffit ensuite.`,
+      );
+    }
     const inst = Injector.instantiate(service, this, ...args);
     if (this.get(inst.name)) {
       this.log(

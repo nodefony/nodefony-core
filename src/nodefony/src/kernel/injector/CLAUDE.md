@@ -63,11 +63,11 @@ course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
 
 ## Métadonnées stockées (`Reflect.metadata`)
 
-| Clé                 | Cible               | Posée par                 | Contenu                        |
-| ------------------- | ------------------- | ------------------------- | ------------------------------ |
-| `inject:services`   | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]`            |
-| `inject:properties` | Prototype classe    | `@Inject(name)` propriété | `{ key: name }`                |
-| `di:scope`          | Classe              | `@injectable(opts)`       | `"singleton"` \| `"transient"` |
+| Clé                 | Cible               | Posée par                 | Contenu                                       |
+| ------------------- | ------------------- | ------------------------- | --------------------------------------------- |
+| `inject:services`   | Constructeur classe | `@inject(name)` paramètre | `[{ index, name }]`                           |
+| `inject:properties` | Prototype classe    | `@Inject(name)` propriété | `{ key: name }`                               |
+| `di:scope`          | Classe              | `@injectable(opts)`       | `"singleton"` \| `"transient"` \| `"request"` |
 
 ⚠️ **CRITIQUE** : `inject:services` sur le **constructeur**, `inject:properties` sur le **prototype**. Confondre = bug silencieux (résolution échoue, classe instanciée avec `undefined`).
 
@@ -172,12 +172,20 @@ Jamais un skip silencieux. Détection via `container.has("foo")` après boot, ou
 
 Signature réelle (`decorators/kernelDecorator.ts` + `InjectableOptions` de `injector.ts`) : accepte un **string** (nom d'enregistrement) OU un objet `{ name?, scope? }`.
 
-| Option  | Type                         | Défaut             | Effet                                               |
-| ------- | ---------------------------- | ------------------ | --------------------------------------------------- |
-| `name`  | `string`                     | `constructor.name` | Nom d'enregistrement dans le registre des classes   |
-| `scope` | `"singleton" \| "transient"` | `"singleton"`      | 1 instance mémoïsée vs nouvelle à chaque résolution |
+| Option  | Type                                      | Défaut             | Effet                                                                                    |
+| ------- | ----------------------------------------- | ------------------ | ---------------------------------------------------------------------------------------- |
+| `name`  | `string`                                  | `constructor.name` | Nom d'enregistrement dans le registre des classes                                        |
+| `scope` | `"singleton" \| "transient" \| "request"` | `"singleton"`      | 1 instance mémoïsée · nouvelle à chaque résolution · 1 par requête (par connexion en WS) |
 
-⚠️ **Pas** d'option `singleton: boolean`, **pas** de `factory`, **pas** de scope `"global"`/`"request"`/`"module"`. Le `DIScope` ne prend que `"singleton"` ou `"transient"`. Le request-scope (`enterScope("request")`) est une notion du **Container** hiérarchique, distincte du DIScope (cf `container.md`).
+⚠️ **Pas** d'option `singleton: boolean`, **pas** de `factory`, **pas** de scope `"global"`/`"module"`.
+
+**Portée `"request"`** : l'instance vit dans le scope DI de la requête (celui qu'ouvre
+`HttpKernel`, lu par `RequestContext.requireScope()`), créée à sa 1ʳᵉ résolution, nettoyée
+(`clean()`, LIFO) à la fermeture du scope. Constructeur `(scope, ...deps)`, `super(nom, scope, false)`.
+Règles qui mordent : un détenteur **singleton** (service, ou contrôleur `@Scope("singleton")`) est
+refusé en `BootConfigurationError` — fatale au boot, tous environnements ; `@services([...])` la
+**déclare** sans l'instancier, `addService()` la refuse ; en WebSocket le scope est la **connexion**.
+Détail et algorithme : [`MEMORY.md`](./MEMORY.md) § Portée `request`.
 
 ## Ce qui est en place côté DI
 

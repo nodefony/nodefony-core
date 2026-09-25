@@ -2,14 +2,14 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 862,
-    "symbols": 4300,
-    "classes": 400,
+    "files": 864,
+    "symbols": 4307,
+    "classes": 405,
     "interfaces": 1131,
     "types": 460,
     "enums": 4,
     "functions": 1874,
-    "constants": 431
+    "constants": 433
   },
   "symbols": {
     "Cli": {
@@ -11238,7 +11238,8 @@
       "kind": "type",
       "file": "src/nodefony/src/kernel/injector/injector.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Durée de vie d'un service injectable. - `\"singleton\"` (défaut) : une instance pour tout le processus, rangée dans le conteneur du kernel à sa première résolution. - `\"transient\"` : une instance neu…"
     },
     "ServiceEntry": {
       "name": "ServiceEntry",
@@ -13740,6 +13741,88 @@
         "controller"
       ],
       "description": "Décor du banc de DISPONIBILITÉ (S5-R) — la télécommande du registre porté par le Kernel (`setReadiness` / `clearReadiness`). Pourquoi une route : le banc d'intégration parle à un serveur RÉEL, dans…"
+    },
+    "RequestProbe": {
+      "name": "RequestProbe",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/requestProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Service de portée `request` : un exemplaire par requête, par connexion WS."
+    },
+    "RequestProbeConsumer": {
+      "name": "RequestProbeConsumer",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/requestProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Service `request` qui dépend du précédent : créé après lui, nettoyé avant."
+    },
+    "RequestProbeReader": {
+      "name": "RequestProbeReader",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/requestProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Service",
+      "implements": [],
+      "decorators": [
+        "injectable"
+      ],
+      "description": "Lecteur TRANSIENT : instancié à chaque message WebSocket, il RÉSOUT le service `request` à nouveau — c'est ce qui prouve que la résolution rend l'exemplaire de la connexion, et pas seulement une ré…"
+    },
+    "requestProbeState": {
+      "name": "requestProbeState",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/requestProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Sondes de la portée `request` de l'injecteur (#485), relues par les bancs d'intégration et le gate mémoire. L'état vit au niveau du module : les services sont par requête, ils ne survivraient pas à…"
+    },
+    "probeTracker": {
+      "name": "probeTracker",
+      "kind": "const",
+      "file": "src/modules/test/nodefony/controller/requestProbe.ts",
+      "exported": true,
+      "module": "modules/test",
+      "description": "Compteur EXACT des exemplaires de `RequestProbe` encore vivants, par `FinalizationRegistry` : un service par requête retenu après la fermeture de son scope se voit ici, là où la pente du tas ne le …"
+    },
+    "RequestScopeController": {
+      "name": "RequestScopeController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/RequestScopeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "controller"
+      ],
+      "description": "Bancs de la portée `request` de l'injecteur (#485) sur le serveur réel. Contrôleur de portée request (le défaut) : il peut recevoir des services `request` par son constructeur."
+    },
+    "RequestScopeCaptiveController": {
+      "name": "RequestScopeCaptiveController",
+      "kind": "class",
+      "file": "src/modules/test/nodefony/controller/RequestScopeController.ts",
+      "exported": true,
+      "module": "modules/test",
+      "extends": "Controller",
+      "implements": [],
+      "decorators": [
+        "Scope",
+        "controller"
+      ],
+      "description": "Contrôleur SINGLETON qui réclame un service `request` : dépendance captive, refusée à sa première requête — il garderait l'exemplaire de cette requête pour toutes les suivantes."
     },
     "RestController": {
       "name": "RestController",
@@ -29196,6 +29279,9 @@
         "Module",
         "Fetch",
         "Injector",
+        "RequestProbe",
+        "RequestProbeConsumer",
+        "RequestProbeReader",
         "DevkitService",
         "DocumentationService",
         "DrizzleService",
@@ -29437,6 +29523,8 @@
         "OpenApiController",
         "PipelineOrderController",
         "ReadinessController",
+        "RequestScopeController",
+        "RequestScopeCaptiveController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -29919,6 +30007,8 @@
         "OpenApiController",
         "PipelineOrderController",
         "ReadinessController",
+        "RequestScopeController",
+        "RequestScopeCaptiveController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -29958,6 +30048,9 @@
         "DomainClassController"
       ],
       "injectable": [
+        "RequestProbe",
+        "RequestProbeConsumer",
+        "RequestProbeReader",
         "DevkitService",
         "AdminBroker",
         "MemoryIdempotencyStore",
@@ -29965,6 +30058,9 @@
         "FrontendService",
         "HttpKernel",
         "SessionsService"
+      ],
+      "Scope": [
+        "RequestScopeCaptiveController"
       ],
       "entity": [
         "SessionEntity"
@@ -30039,6 +30135,7 @@
         "src/nodefony/src/service/fetchService.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/modules/test/nodefony/controller/requestProbe.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -30135,6 +30232,7 @@
         "src/nodefony/src/testing/index.ts",
         "src/packages/@nodefony/redis/nodefony/registerStores.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
+        "src/modules/test/nodefony/controller/requestProbe.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
@@ -30442,7 +30540,8 @@
       ],
       "IScope": [
         "src/nodefony/src/Container.ts",
-        "src/nodefony/src/runtime/RequestContext.ts"
+        "src/nodefony/src/runtime/RequestContext.ts",
+        "src/nodefony/src/kernel/injector/injector.ts"
       ],
       "Nodefony": [
         "src/nodefony/src/Error.ts",
@@ -30512,6 +30611,8 @@
         "src/packages/@nodefony/framework/index.ts",
         "src/nodefony/src/command/Command.ts",
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/modules/test/nodefony/controller/requestProbe.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
@@ -30811,6 +30912,20 @@
         "src/modules/test/index.ts"
       ],
       "LiveSalonController": [
+        "src/modules/test/index.ts"
+      ],
+      "RequestProbe": [
+        "src/modules/test/index.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts"
+      ],
+      "RequestProbeConsumer": [
+        "src/modules/test/index.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts"
+      ],
+      "RequestScopeController": [
+        "src/modules/test/index.ts"
+      ],
+      "RequestScopeCaptiveController": [
         "src/modules/test/index.ts"
       ],
       "BenchOrmController": [
@@ -31147,6 +31262,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/controller/ReadinessController.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -31304,6 +31420,7 @@
         "src/modules/test/nodefony/controller/LiveSalonController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/ReadinessController.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -31341,6 +31458,7 @@
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
         "src/modules/test/nodefony/controller/ReadinessController.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -31378,6 +31496,7 @@
         "src/modules/test/nodefony/controller/DomainController.ts",
         "src/modules/test/nodefony/controller/FrameworkController.ts",
         "src/modules/test/nodefony/controller/PipelineOrderController.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
         "src/modules/test/nodefony/controller/WebhookSinkController.ts",
@@ -31662,6 +31781,7 @@
         "src/modules/test/nodefony/controller/LiveSalonController.ts",
         "src/modules/test/nodefony/controller/OpenapiController.ts",
         "src/modules/test/nodefony/controller/ReadinessController.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/modules/test/nodefony/controller/RestController.ts",
         "src/modules/test/nodefony/controller/RouteController.ts",
         "src/modules/test/nodefony/controller/SessionRuntimeController.ts",
@@ -33125,6 +33245,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/serviceOrder.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
@@ -33220,7 +33341,9 @@
       ],
       "BootConfigurationError": [
         "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/moduleConfig.ts",
+        "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
@@ -34175,6 +34298,8 @@
         "src/nodefony/src/client/angular/index.ts",
         "src/nodefony/src/client/vue/index.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/requestProbe.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -34989,6 +35114,33 @@
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/modules/test/nodefony/controller/DefaultController.ts"
       ],
+      "RequestContext": [
+        "src/nodefony/src/kernel/injector/injector.ts",
+        "src/modules/test/nodefony/controller/AlsController.ts",
+        "src/modules/test/nodefony/controller/DefaultController.ts",
+        "src/modules/test/nodefony/controller/requestProbe.ts",
+        "src/modules/test/nodefony/controller/RequestScopeController.ts",
+        "src/modules/test/nodefony/secure/ApiM2mController.ts",
+        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
+        "src/modules/test/nodefony/secure/SecureController.ts",
+        "src/modules/test/nodefony/secure/SelfExternalController.ts",
+        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
+        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
+        "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
+        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
       "IAdminApi": [
         "src/nodefony/src/kernel/inspect/adminSubjects.ts",
         "src/modules/test/nodefony/admin/TestAdminApi.ts",
@@ -35358,30 +35510,6 @@
       "userTable": [
         "src/modules/mediasoup/nodefony/entity/schema.ts"
       ],
-      "RequestContext": [
-        "src/modules/test/nodefony/controller/AlsController.ts",
-        "src/modules/test/nodefony/controller/DefaultController.ts",
-        "src/modules/test/nodefony/secure/ApiM2mController.ts",
-        "src/modules/test/nodefony/secure/ExternalJwtController.ts",
-        "src/modules/test/nodefony/secure/SecureController.ts",
-        "src/modules/test/nodefony/secure/SelfExternalController.ts",
-        "src/packages/@nodefony/framework/nodefony/controller/AdminApiController.ts",
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/idempotency.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
-        "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
       "readBackpressureOptions": [
         "src/modules/test/nodefony/controller/BackpressureRealtimeController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
@@ -35520,6 +35648,26 @@
       ],
       "resetInitializeProbe": [
         "src/modules/test/nodefony/controller/PipelineOrderController.ts"
+      ],
+      "injectable": [
+        "src/modules/test/nodefony/controller/requestProbe.ts",
+        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
+        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
+      ],
+      "RequestProbeReader": [
+        "src/modules/test/nodefony/controller/RequestScopeController.ts"
+      ],
+      "probeTracker": [
+        "src/modules/test/nodefony/controller/RequestScopeController.ts"
+      ],
+      "requestProbeState": [
+        "src/modules/test/nodefony/controller/RequestScopeController.ts"
       ],
       "ISession": [
         "src/modules/test/nodefony/controller/RestController.ts",
@@ -35683,16 +35831,6 @@
       "IMcpToolDeps": [
         "src/packages/@nodefony/devkit/nodefony/interfaces/IDevkitService.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"
-      ],
-      "injectable": [
-        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/service/Eta.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "mcpDeclaredScopes": [
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts"

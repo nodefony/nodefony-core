@@ -69,41 +69,31 @@ function services(
       // (BootReport) ailleurs. Un simple `log(e, "ERROR")` — ce qui se faisait
       // ici — n'atteignait NI la politique (jamais fatal, même en prod) NI le
       // BootReport : un boot amputé d'un service critique se déclarait « UP ».
-      private async initDecoratorServices() {
-        if (Array.isArray(nameOrPath)) {
-          // L'ordre d'instanciation se CALCULE depuis les dépendances déclarées
-          // (@inject / design:paramtypes) — il ne se lit plus dans la liste. Un
-          // service réclamé doit être au container avant son consommateur ;
-          // faire reposer ça sur l'ordre écrit à la main était un piège (déplacer
-          // `HttpKernel` de 3 lignes → 499 sur chaque requête). Tri STABLE : une
-          // liste déjà correcte sort inchangée.
-          const ordered = orderServicesByDependencies(
-            nameOrPath as ServiceEntry[],
-          );
-          for (const path of ordered) {
-            if (typeof path !== "string") {
-              await this.addService(path as ServiceConstructor).catch(
-                (e: Error) => {
-                  this.handleServiceBootError(e, path as ServiceConstructor);
-                },
-              );
-            } else {
-              await this.loadService(path as string).catch((e: Error) => {
-                this.handleServiceBootError(e, path as string);
-              });
-            }
+      private async initDecoratorServices(): Promise<void> {
+        // L'ordre d'instanciation se CALCULE depuis les dépendances déclarées
+        // (@inject / design:paramtypes) — il ne se lit plus dans la liste. Un
+        // service réclamé doit être au container avant son consommateur ;
+        // faire reposer ça sur l'ordre écrit à la main était un piège (déplacer
+        // `HttpKernel` de 3 lignes → 499 sur chaque requête). Tri STABLE : une
+        // liste déjà correcte sort inchangée.
+        const entries: ServiceEntry[] = Array.isArray(nameOrPath)
+          ? orderServicesByDependencies(nameOrPath)
+          : [nameOrPath];
+        for (const entry of entries) {
+          if (typeof entry === "string") {
+            await this.loadService(entry).catch((e: Error) => {
+              this.handleServiceBootError(e, entry);
+            });
+          } else if (Injector.scopeOf(entry) === "request") {
+            // Portée `request` : la DÉCLARER suffit (`@injectable` l'a
+            // inscrite à l'import) — chaque requête créera son exemplaire à
+            // sa première résolution. Rien à instancier au démarrage.
+            this.log(`SERVICE DECLARED (request) : ${entry.name}`, "DEBUG");
+          } else {
+            await this.addService(entry).catch((e: Error) => {
+              this.handleServiceBootError(e, entry);
+            });
           }
-        } else {
-          if (typeof nameOrPath === "string") {
-            return await this.loadService(nameOrPath as string).catch(
-              (e: Error) => {
-                this.handleServiceBootError(e, nameOrPath as string);
-              },
-            );
-          }
-          return await this.addService(nameOrPath).catch((e: Error) => {
-            this.handleServiceBootError(e, nameOrPath);
-          });
         }
       }
     }
@@ -121,7 +111,9 @@ function services(
  *
  * @param nameOrOptions - Le nom d'enregistrement, ou `{ name?, scope? }`. La
  *   portée vaut `"singleton"` par défaut — une seule instance pour le
- *   processus ; `"transient"` en fabrique une par résolution.
+ *   processus ; `"transient"` en fabrique une par résolution ; `"request"` une
+ *   par requête (par connexion en WebSocket), nettoyée à sa fin — cf
+ *   {@link DIScope}.
  * @returns Le décorateur de classe, qui renvoie la classe inchangée.
  * @example
  * ```typescript
@@ -130,6 +122,15 @@ function services(
  *
  * @injectable({ name: "pdfRenderer", scope: "transient" })
  * class PdfRenderer extends Service {}
+ *
+ * // Reçoit le scope de la requête en premier argument ; `false` : pas de bus
+ * // d'événements par requête. Son `clean()` part avec la requête.
+ * @injectable({ name: "tenant", scope: "request" })
+ * class Tenant extends Service {
+ *   constructor(scope: Scope) {
+ *     super("tenant", scope, false);
+ *   }
+ * }
  * ```
  */
 function injectable(

@@ -5,13 +5,41 @@ import Event from "../../Event";
 import Kernel, { ServiceConstructor } from "../Kernel";
 import { Nodefony } from "../../Nodefony";
 import Fetch from "../../service/fetchService";
+import RequestContext from "../../runtime/RequestContext";
+import type { IScope } from "../../types/IContainer";
+import { BootConfigurationError } from "../BootConfigurationError";
 
-export type DIScope = "singleton" | "transient";
+/**
+ * Durée de vie d'un service injectable.
+ *
+ * - `"singleton"` (défaut) : une instance pour tout le processus, rangée dans
+ *   le conteneur du kernel à sa première résolution.
+ * - `"transient"` : une instance neuve à chaque résolution ; elle vit aussi
+ *   longtemps que celui qui la détient.
+ * - `"request"` : une instance par requête HTTP — par CONNEXION en WebSocket,
+ *   donc partagée par tous les messages et toutes les invocations concurrentes
+ *   d'une même socket. Créée à sa première résolution dans la requête, rangée
+ *   dans le scope de celle-ci, et nettoyée (`clean()`) à sa fermeture. Son
+ *   constructeur reçoit le scope en premier argument. Un singleton ne peut pas
+ *   en dépendre : il garderait l'exemplaire de la première requête pour toutes
+ *   les suivantes — l'injecteur le refuse.
+ */
+export type DIScope = "singleton" | "transient" | "request";
 
 export interface InjectableOptions {
   name?: string;
   scope?: DIScope;
 }
+
+const DI_SCOPES: ReadonlySet<string> = new Set<DIScope>([
+  "singleton",
+  "transient",
+  "request",
+]);
+
+/** Noms d'une pile de résolution, pour les messages d'erreur (chemin froid). */
+const namesOf = (stack: readonly ServiceConstructor[]): string =>
+  stack.map((ctor) => ctor.name).join(" → ");
 
 export interface PropertyInjectMeta {
   key: string | symbol;
@@ -104,7 +132,40 @@ class Injector extends Service {
   static getScope(serviceName: string): DIScope {
     const Ctor = injectables[serviceName];
     if (!Ctor) return "singleton";
-    return (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
+    return Injector.scopeOf(Ctor);
+  }
+
+  /**
+   * Portée DÉCLARÉE d'une classe par `@injectable({ scope })` — `"singleton"`
+   * si elle n'en déclare aucune. C'est elle qui décide comment l'injecteur
+   * résout la classe quand on la réclame par son nom.
+   *
+   * @param service - le constructeur
+   * @returns sa portée déclarée
+   */
+  static scopeOf(service: ServiceConstructor): DIScope {
+    return (
+      (Reflect.getMetadata("di:scope", service) as DIScope | undefined) ??
+      "singleton"
+    );
+  }
+
+  /**
+   * Durée de vie EFFECTIVE d'une instance de `ctor`, pour juger si elle peut
+   * détenir un service `request` : le statique `scope` d'abord — c'est lui que
+   * suit le `Resolver` pour un contrôleur (`@Scope("singleton")` le met en
+   * cache pour tout le processus) —, sinon la portée déclarée.
+   *
+   * @remarks Appelée seulement quand un service `request` est résolu, jamais
+   *   sur le chemin de toutes les instanciations : le statique se lit en
+   *   quelques nanosecondes, là où `Reflect.getMetadata` parcourt toute la
+   *   chaîne des prototypes d'un contrôleur qui n'en porte pas.
+   */
+  private static _lifetimeOf(ctor: ServiceConstructor): DIScope {
+    const own = (ctor as { scope?: unknown }).scope;
+    return typeof own === "string" && DI_SCOPES.has(own)
+      ? (own as DIScope)
+      : Injector.scopeOf(ctor);
   }
 
   static get(serviceName: string): ServiceConstructor {
@@ -145,20 +206,25 @@ class Injector extends Service {
   // Ordre de résolution :
   //   1. @injectable → scope détermine le comportement :
   //        transient : toujours nouvelle instance (container ignoré)
+  //        request   : l'exemplaire du scope de la requête, créé au 1ᵉʳ besoin
   //        singleton : container kernel en premier, sinon instanciée PUIS mémoïsée
   //   2. Non @injectable → container kernel (services ajoutés via kernel.set())
   //   3. Sinon → throw
+  //
+  // `stack` : les constructeurs en cours, de la racine au demandeur.
   private static _resolveWithStack(
     serviceName: string,
-    stack: string[],
+    stack: ServiceConstructor[],
   ): unknown {
     if (Injector.isRegistered(serviceName)) {
       const Ctor = Injector.get(serviceName);
-      const scope: DIScope =
-        (Reflect.getMetadata("di:scope", Ctor) as DIScope) ?? "singleton";
+      const scope = Injector.scopeOf(Ctor);
 
       if (scope === "transient") {
         return Injector._instantiateWithStack(Ctor, stack, []);
+      }
+      if (scope === "request") {
+        return Injector._resolveRequestScoped(serviceName, Ctor, stack);
       }
 
       // Le nom écrit dans `@inject` sert à retrouver la CLASSE ; c'est ELLE qui
@@ -178,13 +244,16 @@ class Injector extends Service {
       try {
         instance = Injector._instantiateWithStack(Ctor, stack, []);
       } catch (error) {
+        // Une dépendance captive est une faute de DÉCLARATION, pas d'ordre :
+        // l'habiller du conseil « liste-le avant » enverrait chercher ailleurs.
+        if (BootConfigurationError.is(error)) throw error;
         // Cas dominant : le service attend son module porteur, ne le reçoit pas
         // (une dépendance se résout sans argument) et casse sur `module.container`
         // — `Cannot read properties of undefined` ne dit RIEN de la vraie cause.
         // La cause quasi certaine est un ORDRE : dans `@services([...])`, un
         // service doit précéder ses consommateurs, sinon il n'est pas encore au
         // container quand ils le réclament.
-        const requester = stack[stack.length - 1];
+        const requester = stack[stack.length - 1]?.name;
         throw new Error(
           `Cannot resolve service "${serviceName}"` +
             (requester ? ` required by "${requester}"` : "") +
@@ -219,11 +288,108 @@ class Injector extends Service {
     throw new Error(`Service ${serviceName} not found or not injectable`);
   }
 
+  // ─── Portée `request` ─────────────────────────────────────────────────────────
+  //
+  // L'exemplaire vit dans le scope de la requête courante, lu par l'ALS. Trois
+  // refus, dans cet ordre : détenteur singleton (captive — faute de déclaration,
+  // visible dès le boot), aucune requête ouverte, clé du scope déjà prise par un
+  // autre objet. Coût nul pour une requête qui n'en résout aucun.
+  private static _resolveRequestScoped(
+    serviceName: string,
+    Ctor: ServiceConstructor,
+    stack: ServiceConstructor[],
+  ): unknown {
+    // Le DÉTENTEUR est le plus proche ancêtre non transient : une dépendance
+    // transient vit aussi longtemps que celui qui la tient. S'il est singleton,
+    // il est mémoïsé à sa première construction : il garderait l'exemplaire de
+    // CETTE requête et le servirait à toutes les suivantes, concurrentes
+    // comprises. Un avertissement laisserait tourner cette fuite de données
+    // entre requêtes — on refuse, même pendant une requête. Une racine
+    // transient sans détenteur appartient à son appelant : acceptée.
+    for (let i = stack.length - 1; i >= 0; i--) {
+      const lifetime = Injector._lifetimeOf(stack[i]);
+      if (lifetime === "transient") continue;
+      if (lifetime === "singleton") {
+        const holder = stack[i].name;
+        throw new BootConfigurationError(
+          `Dépendance captive refusée : « ${holder} » (singleton) dépend de ` +
+            `« ${serviceName} » (portée request) — chemin ${namesOf(stack)} → ` +
+            `${serviceName}. Un singleton vit tout le processus : il garderait ` +
+            `l'exemplaire de la première requête et le servirait à toutes les ` +
+            `suivantes. Déclarer « ${holder} » en portée request, ou lui ` +
+            `passer ce dont il a besoin en argument de méthode au lieu de ` +
+            `l'injecter.`,
+        );
+      }
+      break;
+    }
+
+    let scope: IScope;
+    try {
+      scope = RequestContext.requireScope();
+    } catch (error) {
+      throw new Error(
+        `Service « ${serviceName} » (portée request) résolu hors d'une ` +
+          `requête ouverte. ${error instanceof Error ? error.message : String(error)}`,
+        { cause: error },
+      );
+    }
+
+    // Lecture sur les propriétés PROPRES du scope : `get()` suivrait la chaîne
+    // de prototypes et rendrait un singleton homonyme du conteneur racine.
+    const learned = Injector.containerKeyOf(Ctor);
+    const key = learned ?? serviceName;
+    if (scope.hasOwn(key)) {
+      const existing = scope.get(key);
+      if (existing instanceof Ctor) return existing;
+      throw Injector._requestKeyTaken(serviceName, key, existing);
+    }
+
+    // Le scope en premier argument : un service `request` n'a pas d'autre
+    // conteneur à recevoir — construit sans, un `Service` fabriquerait un
+    // conteneur orphelin.
+    const instance = Injector._instantiateWithStack(Ctor, stack, [scope]);
+    const canonicalKey = instance.name || serviceName;
+    // Une clé posée par le pipeline (`context`, `controller`…) écrasée par un
+    // service homonyme casserait la requête en silence : refus nommé.
+    if (canonicalKey !== key && scope.hasOwn(canonicalKey)) {
+      throw Injector._requestKeyTaken(
+        serviceName,
+        canonicalKey,
+        scope.get(canonicalKey),
+      );
+    }
+    // Apprise une fois pour toutes : ne réécrire la table qu'à la 1ʳᵉ requête.
+    if (canonicalKey !== learned) {
+      Injector.rememberContainerKey(Ctor, canonicalKey);
+    }
+    scope.set(canonicalKey, instance);
+    scope.own(instance);
+    return instance;
+  }
+
+  /** Erreur d'une clé de scope déjà occupée par un autre objet (chemin froid). */
+  private static _requestKeyTaken(
+    serviceName: string,
+    key: string,
+    occupant: unknown,
+  ): Error {
+    const kind =
+      (occupant as { constructor?: { name?: string } } | null)?.constructor
+        ?.name ?? typeof occupant;
+    return new Error(
+      `Service « ${serviceName} » (portée request) : la clé « ${key} » du ` +
+        `scope de la requête est déjà occupée par un autre objet (${kind}). ` +
+        `Le pipeline y range ses propres objets ; donner au service un autre ` +
+        `nom (celui de son super()).`,
+    );
+  }
+
   // ─── Property injection post-construction ─────────────────────────────────────
   private static _applyPropertyInjection(
     constructor: ServiceConstructor,
     instance: unknown,
-    stack: string[],
+    stack: ServiceConstructor[],
   ): unknown {
     const propMetas: PropertyInjectMeta[] =
       Reflect.getMetadata("inject:properties", constructor.prototype) || [];
@@ -236,8 +402,12 @@ class Injector extends Service {
 
   // ─── Instantiation avec injection + détection circulaire ─────────────────────
   //
-  // `stack` : chemin de résolution courant — propre à chaque arbre d'appel (async-safe).
-  // Chaque niveau crée une copie [...stack, name] — jamais de mutation du tableau parent.
+  // `stack` : chemin de résolution courant — les CONSTRUCTEURS, propres à chaque
+  // arbre d'appel (async-safe). Chaque niveau crée une copie [...stack, ctor] —
+  // jamais de mutation du tableau parent. Des constructeurs et non des noms :
+  // deux classes homonymes ne sont pas un cycle, et la portée d'un ancêtre se
+  // relit sur lui — sans rien calculer tant qu'aucun service `request` n'est
+  // résolu.
   //
   // Deux sources de métadonnées :
   //   1. inject:services    — stocké par @inject("name"). Tableau sparse par position.
@@ -253,18 +423,16 @@ class Injector extends Service {
   //   Appliquer la property injection post-construction.
   private static _instantiateWithStack(
     constructor: ServiceConstructor,
-    stack: string[],
+    stack: ServiceConstructor[],
     argsClass: unknown[],
   ): Service {
-    const ctorName = constructor.name;
-
     // ── Détection circulaire ────────────────────────────────────────────────────
-    if (stack.includes(ctorName)) {
+    if (stack.includes(constructor)) {
       throw new Error(
-        `Circular dependency detected: ${[...stack, ctorName].join(" → ")}`,
+        `Circular dependency detected: ${namesOf([...stack, constructor])}`,
       );
     }
-    const nextStack = [...stack, ctorName];
+    const nextStack = [...stack, constructor];
 
     // ── Métadonnées DI ──────────────────────────────────────────────────────────
     const injectExplicit: (string | undefined)[] =

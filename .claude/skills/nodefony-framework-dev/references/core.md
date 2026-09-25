@@ -69,6 +69,9 @@ CLASSE : la clé container est **apprise** quand `addService` pose l'instance, d
 - `@Inject("x")` (Majuscule) = **propriété** post-ctor (`inject:properties` sur le **prototype**),
   `private x!: T` (definite assignment ; `undefined` pendant `super()`). Confondre les deux = bug silencieux.
 - **`singleton` (défaut) = UNE instance**, mémoïsée au container. `"transient"` → toujours un new.
+  `"request"` → UNE instance par requête (par CONNEXION en WS), rangée sur le scope DI de la
+  requête, ctor `(scope, ...deps)`, `clean()` LIFO à la fermeture. Un détenteur singleton
+  (service, contrôleur `@Scope("singleton")`) est refusé : `BootConfigurationError`.
 - ⚠️ **Une dépendance ne reçoit JAMAIS les arguments de son parent** : elle se résout (container),
   elle ne s'hérite pas. Donc un service résolu **comme dépendance** n'a pas d'arguments — s'il exige
   son module, il ne doit être atteint qu'après avoir été posé (c'est le rôle de `@services`).
@@ -533,6 +536,7 @@ et `containerKeys` (CLASSE → clé container réelle, **le token**). Le ctor `(
 | `register`             | `static (name, Ctor): Ctor`     | throw si name vide/Ctor null ; **le dernier gagne** (override assumé) |
 | `isRegistered`         | `static (name): boolean`        | `name in injectables` (O(1))                                          |
 | `getScope`             | `static (name): DIScope`        | lit `di:scope`, défaut `"singleton"`                                  |
+| `scopeOf`              | `static (Ctor): DIScope`        | idem depuis la classe — `"request"` compris                           |
 | `get`                  | `static (name): Ctor`           | throw `not found or not injectable`                                   |
 | `rememberContainerKey` | `static (Ctor, key): void`      | **apprend** le couple (classe, clé) — appelé par `addService`         |
 | `containerKeyOf`       | `static (Ctor): string \| null` | où l'instance vit réellement ; `null` = jamais posée                  |
@@ -546,7 +550,7 @@ erreur **actionnable** (nomme le service, son demandeur, et le remède), `cause`
 ⚠️ `instantiate(X)` sur la classe RACINE ne consulte jamais le container : le scope ne gouverne que
 les **dépendances**.
 
-Types exportés : `DIScope = "singleton" \| "transient"` `:9`, `InjectableOptions` `:11`. Décorateurs (`kernelDecorator.ts:146`) :
+Types exportés : `DIScope = "singleton" \| "transient" \| "request"`, `InjectableOptions` `:11`. Décorateurs (`kernelDecorator.ts:146`) :
 `@injectable(nameOrOptions?)` (register + pose `di:scope`), `@inject("name")` (paramètre ctor → metadata `inject:services`
 sur le **constructeur**), `@Inject("name")` (propriété → `inject:properties` sur le **prototype** — **absent du barrel public**),
 `@services([...])` (sur Module → `onPreBoot`).
@@ -636,7 +640,10 @@ l'ancien export `Error` a été renommé, cassant). Ctor `(message?: string | Er
 
 `_resolveWithStack(name, args, stack)` `:93` : si `@injectable` → `scope==="transient"` → toujours `new` ; `"singleton"` →
 **court-circuit** `kernel.get(name)` si présent (= le cache singleton), sinon `new`. Si non-`@injectable` → fallback `kernel.get(name)`,
-sinon throw. ⇒ Deux scopes seulement : `singleton` (défaut, mémoïsé par le container kernel) et `transient`.
+sinon throw. `"request"` → `_resolveRequestScoped` : refus d'un détenteur singleton, scope lu par
+`RequestContext.requireScope()`, lecture sur les propriétés PROPRES du scope, création paresseuse
+puis `scope.set` + `scope.own`. La pile porte des CONSTRUCTEURS (détenteur relu sans coût tant
+qu'aucun service `request` n'est résolu). Détail : `src/nodefony/src/kernel/injector/MEMORY.md`.
 
 ### Lifecycle kernel (ordre des fires)
 

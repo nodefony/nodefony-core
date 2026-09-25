@@ -472,6 +472,10 @@ class Container implements IContainer {
 class Scope extends Container implements IScope {
   public name: string;
   private parent: Container | null;
+  // Objets dont la durée de vie est liée au scope (services `request`), dans
+  // l'ordre de rattachement. `null` tant que rien n'est rattaché : une requête
+  // qui ne résout aucun service `request` ne paie qu'un champ, jamais un tableau.
+  private owned: object[] | null = null;
 
   constructor(
     name: string,
@@ -538,6 +542,45 @@ class Scope extends Container implements IScope {
   }
 
   /**
+   * `true` si `name` est posé SUR ce scope (propriété propre) — jamais pour un
+   * service hérité du parent. C'est la lecture qu'il faut pour savoir si la
+   * requête possède déjà son exemplaire d'un service : `has()` suit la chaîne
+   * de prototypes, et répondrait `true` pour un singleton homonyme.
+   *
+   * @param name - clé du service
+   */
+  public hasOwn(name: string): boolean {
+    return (
+      this.services !== null &&
+      Object.prototype.hasOwnProperty.call(this.services, name)
+    );
+  }
+
+  /**
+   * Lie la durée de vie de `instance` à celle du scope : son `clean()`, s'il
+   * en a un, sera appelé à la fermeture ({@link Container.leaveScope}), dans
+   * l'ordre INVERSE des rattachements — un service créé après ceux dont il
+   * dépend est nettoyé avant eux.
+   *
+   * @param instance - l'objet à nettoyer avec le scope
+   * @throws Error si le scope est déjà fermé : l'objet ne serait jamais
+   * nettoyé, puisque la fermeture a déjà eu lieu.
+   */
+  public own(instance: object): void {
+    if (this.services === null) {
+      throw new Error(
+        `own() sur le scope « ${this.name} », déjà fermé : l'objet ne ` +
+          `serait jamais nettoyé.`,
+      );
+    }
+    if (this.owned === null) {
+      this.owned = [instance];
+    } else {
+      this.owned.push(instance);
+    }
+  }
+
+  /**
    * Read a parameter from the scope, falling back to the parent container.
    * When both sides hold plain objects, the result is a merged view (deep
    * by default) so a scope can override a few keys without losing the rest.
@@ -566,11 +609,34 @@ class Scope extends Container implements IScope {
   }
 
   /**
-   * Break the parent link and clean the scope. Called by
-   * {@link Container.leaveScope} when the unit of work that owns the scope
-   * finishes.
+   * Nettoie les objets rattachés ({@link own}), du dernier au premier, puis
+   * rompt le lien au parent et libère le scope. Appelé par
+   * {@link Container.leaveScope} quand l'unité de travail qui l'a ouvert se
+   * termine.
+   *
+   * Les services et paramètres du scope sont encore lisibles pendant les
+   * `clean()` des objets rattachés : ils sont libérés APRÈS. Un `clean()` qui
+   * lève est journalisé et n'interrompt pas les suivants — sans quoi un seul
+   * service fautif laisserait tous ceux créés avant lui sans nettoyage.
    */
   public override clean(): void {
+    const owned = this.owned;
+    if (owned !== null) {
+      this.owned = null;
+      for (let i = owned.length - 1; i >= 0; i--) {
+        const instance = owned[i] as { clean?: () => void; name?: unknown };
+        try {
+          instance.clean?.();
+        } catch (error) {
+          this.log(
+            `clean() de « ${typeof instance.name === "string" ? instance.name : instance.constructor?.name} », ` +
+              `rattaché au scope « ${this.name} », a levé : ` +
+              `${error instanceof Error ? error.message : String(error)}`,
+            "ERROR",
+          );
+        }
+      }
+    }
     this.parent = null;
     return super.clean();
   }

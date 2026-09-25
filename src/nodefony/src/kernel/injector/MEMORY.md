@@ -54,10 +54,41 @@ WARN quand il écrase une clé du container).
 
 ```
 "singleton"  défaut — kernel.get(name) si présent, sinon instancie PUIS mémoïse (kernel.set)
-"transient"  toujours new — ignore container kernel
+"transient"  toujours new — ignore container kernel ; vit autant que son DÉTENTEUR
+"request"    1 instance / scope de requête (WS : / CONNEXION), lue par l'ALS
+             (RequestContext.requireScope) ; ctor(scope, ...deps) ; clean() LIFO à leaveScope
 ```
 
 Stocké : `Reflect.defineMetadata("di:scope", scope, Ctor)` par `@injectable`.
+`Injector.scopeOf(Ctor)` = portée DÉCLARÉE (`di:scope ?? "singleton"`) — pilote la résolution.
+`_lifetimeOf(Ctor)` (privé) = durée de vie EFFECTIVE d'un détenteur : statique `scope`
+(contrôleur, `@Scope`) d'abord, sinon `scopeOf`. Lu SEULEMENT quand un service `request` est
+résolu : `Reflect.getMetadata` remonte toute la chaîne de prototypes d'un contrôleur.
+
+### Portée `request` — `_resolveRequestScoped(name, Ctor, stack)`
+
+```
+1. détenteur = 1er ancêtre non transient de `stack` (du demandeur vers la racine)
+   singleton → throw BootConfigurationError « Dépendance captive refusée : A (singleton)
+   dépend de X (portée request) — chemin … » (fatale au boot, tous envs, même critical=false)
+   aucun (racine transient) → accepté : appartient à l'appelant
+2. scope = RequestContext.requireScope()  — throw « Service X (portée request) résolu hors
+   d'une requête ouverte. <cause de requireScope> » (3 causes : pas de requête / bulle sans
+   scope / scope refermé)
+3. key = containerKeyOf(Ctor) ?? name ; scope.hasOwn(key) (PROPRES, jamais la chaîne proto :
+   un singleton homonyme de la racine serait rendu) → existing instanceof Ctor ? rendu : throw
+4. inst = _instantiateWithStack(Ctor, stack, [scope]) ; canonical = inst.name || name
+   canonical ≠ key && scope.hasOwn(canonical) → throw (clé du pipeline : context, controller…)
+5. rememberContainerKey si nouvelle ; scope.set(canonical, inst) ; scope.own(inst)
+```
+
+`Scope.owned: object[] | null` — `null` tant que rien n'est rattaché (+1 champ / requête, 0
+tableau). `Scope.clean()` : boucle LIFO, `try/catch` PAR instance (ERROR journalisé, suite
+continue), puis `super.clean()` — services encore lisibles pendant les `clean()`.
+`own()` sur scope fermé → throw.
+
+**Au boot** : `@services([...])` DÉCLARE une classe `request` (`SERVICE DECLARED (request)`,
+rien d'instancié, rien au container) ; `Module.addService()` la REFUSE (BootConfigurationError).
 
 **La mémoïsation range dans le container du KERNEL** (pas un cache statique : il fuirait d'un kernel
 à l'autre, tests compris). Corollaire assumé : **sans kernel, pas de mémoïsation possible** (aucun
@@ -82,8 +113,8 @@ endroit où ranger) → deux résolutions = deux instances.
 
 ```
 → _instantiateWithStack(Ctor, [], argsClass)
-    si Ctor.name in stack → throw "Circular dependency detected: A → B → A"
-    nextStack = [...stack, Ctor.name]           ← copie par valeur, async-safe
+    si stack.includes(Ctor) → throw "Circular dependency detected: A → B → A"
+    nextStack = [...stack, Ctor]                ← CONSTRUCTEURS (pas des noms), copie par valeur
 
     injectExplicit = Reflect.getMetadata("inject:services", Ctor) || []
     paramTypes     = Reflect.getMetadata("design:paramtypes", Ctor) || []
@@ -114,6 +145,7 @@ dont les args varient). Couvert : `injector.attack.test.ts` section D.
 isRegistered(name) ?
   Ctor = get(name)                                          ← le nom retrouve la CLASSE
   scope === "transient" → _instantiateWithStack(Ctor, stack, [])
+  scope === "request"   → _resolveRequestScoped(name, Ctor, stack)  ← cf § Portée request
   key = containerKeyOf(Ctor) ?? name                        ← LA CLASSE dit où l'instance vit
   kernel && kernel.get(key) → retourne instance container   ← singleton court-circuit
   sinon → inst = _instantiateWithStack(Ctor, stack, [])
@@ -206,10 +238,16 @@ Property injection : toujours après construction, indépendante des paramètres
 ## Circular detection
 
 ```
-Stack : copie par valeur à chaque niveau → async-safe
+Stack : CONSTRUCTEURS, copie par valeur à chaque niveau → async-safe
+Identité, pas nom : deux classes homonymes ne sont pas un cycle
 Singleton déjà dans kernel.get() → court-circuit avant vérification → pas de faux positif
-Throw : "Circular dependency detected: A → B → A"
+Throw : "Circular dependency detected: A → B → A"  (noms joints, chemin froid)
 ```
+
+Pourquoi des constructeurs : la portée d'un ancêtre (détenteur d'une dépendance `request`) se
+relit sur lui, sans rien calculer tant qu'aucun service `request` n'est résolu. A/B mesuré :
+instanciation d'un contrôleur à dépendance inchangée ou plus rapide (comparaison de références
+au lieu de chaînes, plus de lecture de `constructor.name`).
 
 ---
 
@@ -269,8 +307,10 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 
 ## Limites du DI (ce qui n'existe PAS)
 
-- `DIScope` = `"singleton" | "transient"` **seulement** (`injector.ts:9`). Il n'y a **pas** de scope
-  `"scoped"` par requête au niveau du décorateur — l'isolation par requête passe par le `Scope` DI
-  créé par le pipeline HTTP, pas par `@injectable`.
+- Portée `request` en WebSocket = la CONNEXION : pas d'isolation par message (les invocations
+  concurrentes d'une socket partagent l'instance).
+- Pas de résolution publique par nom (`Injector.resolve`) : un service `request` s'obtient par
+  injection ; hors injection, `RequestContext.requireScope().get(clé)` ne rend que ce qui a déjà
+  été créé dans la requête.
 - Pas de registre par module : un seul espace de noms de services, global au container.
 - Pas de `@InjectLazy` / factory paresseuse.
