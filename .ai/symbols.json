@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 861,
-    "symbols": 4293,
+    "files": 862,
+    "symbols": 4295,
     "classes": 400,
-    "interfaces": 1129,
+    "interfaces": 1130,
     "types": 459,
     "enums": 4,
-    "functions": 1870,
+    "functions": 1871,
     "constants": 431
   },
   "symbols": {
@@ -2683,6 +2683,23 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le tableau, ligne par ligne, sans retour chariot final."
+    },
+    "IUnknownOptionCommand": {
+      "name": "IUnknownOptionCommand",
+      "kind": "interface",
+      "file": "src/nodefony/src/cli/unknownOption.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce qu'on dit APRÈS le refus d'une option inconnue. Commander répond `error: unknown option '-y'`, et c'est tout : celui qui l'a tapée ne sait ni ce que la commande accepte, ni où le lire. Vécu (ban…"
+    },
+    "unknownOptionHint": {
+      "name": "unknownOptionHint",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/unknownOption.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Compose l'indice à afficher après une option refusée par Commander."
     },
     "IUsageEntry": {
       "name": "IUsageEntry",
@@ -32981,6 +32998,9 @@
       "runGitHooksCommand": [
         "src/nodefony/src/kernel/CliKernel.ts",
         "src/nodefony/src/kernel/commands/GitHooksCommand.ts"
+      ],
+      "unknownOptionHint": [
+        "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "logColor": [
         "src/nodefony/src/kernel/Kernel.ts",

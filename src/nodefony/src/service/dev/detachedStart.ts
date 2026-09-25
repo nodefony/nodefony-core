@@ -222,6 +222,14 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
   let healthPath: string | undefined;
   let logFile: string | undefined;
   let allowDegraded = false;
+  // La valeur d'une option se lit dans l'argument SUIVANT seulement s'il n'est
+  // pas lui-même une option : `--wait --health /readyz` avalait `--health` comme
+  // valeur de `--wait` — le contrôle de santé disparaissait sans un mot, et
+  // `/readyz` partait au runtime comme un argument.
+  const valueAt = (i: number): string | undefined => {
+    const next = args[i + 1];
+    return next !== undefined && !next.startsWith("-") ? next : undefined;
+  };
   for (let i = 0; i < args.length; i++) {
     const a = args[i];
     if (a === "--detach") {
@@ -229,13 +237,19 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
     } else if (a === "--allow-degraded") {
       allowDegraded = true;
     } else if (a === "--wait" || a.startsWith("--wait=")) {
-      const v = a.includes("=") ? a.split("=")[1] : args[++i];
+      // `--wait` NU est la forme documentée (délai par défaut) : il ne consomme
+      // l'argument suivant que si c'est un nombre de secondes.
+      let v: string | undefined;
+      if (a.includes("=")) v = a.split("=")[1];
+      else if (/^\d+$/u.test(args[i + 1] ?? "")) v = args[++i];
       const n = Number.parseInt(v ?? "", 10);
       if (Number.isInteger(n) && n > 0) waitSec = n;
     } else if (a === "--health" || a.startsWith("--health=")) {
-      healthPath = a.includes("=") ? a.split("=")[1] : args[++i];
+      if (a.includes("=")) healthPath = a.split("=")[1];
+      else if (valueAt(i) !== undefined) healthPath = args[++i];
     } else if (a === "--log" || a.startsWith("--log=")) {
-      logFile = a.includes("=") ? a.split("=")[1] : args[++i];
+      if (a.includes("=")) logFile = a.split("=")[1];
+      else if (valueAt(i) !== undefined) logFile = args[++i];
     } else {
       relayArgs.push(a);
     }

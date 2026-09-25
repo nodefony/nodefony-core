@@ -73,6 +73,7 @@ import { runAiMcpCommand } from "../cli/aiMcp";
 import { runGitHooksCommand } from "../cli/gitHooks";
 import { DebugType, EnvironmentType } from "../types/globals";
 import Module from "./Module";
+import { unknownOptionHint } from "../cli/unknownOption";
 import { HelpContext, Command as commanderCommand } from "commander";
 import { version } from "../../package.json";
 
@@ -460,6 +461,7 @@ class CliKernel extends Cli {
         // Distingue un argv REFUSÉ d'un boot qui MEURT : les deux arrivent dans
         // le même `catch`, et `doctor --live` ne doit rattraper que le second.
         let booting = false;
+        this.armSubcommandExitOverride();
         return this.commander
           ?.parseAsync()
           .then(async () => {
@@ -486,6 +488,14 @@ class CliKernel extends Cli {
             // ne pas re-logger une stack brute par-dessus le diagnostic clair ; le
             // code de sortie est celui porté par l'erreur (EX_CONFIG) sinon 1.
             const err = e as { presented?: boolean; exitCode?: number };
+
+            // Option refusée : Commander a écrit l'erreur, l'indice suit. La
+            // rejournaliser ajouterait une pile pour un simple mauvais usage —
+            // et le code est EX_USAGE, comme pour une commande de module.
+            if (code === "commander.unknownOption") {
+              this.writeUnknownOptionHint(e, requested);
+              return this.kernel?.terminate(SysExit.USAGE) as Promise<Kernel>;
+            }
 
             // ─── `doctor --live` : le boot est mort, le RAPPORT reste dû ─────
             // C'est le cas pour lequel l'outil existe. Sans ce chemin, celui
@@ -663,6 +673,50 @@ class CliKernel extends Cli {
   }
 
   /**
+   * Arme `exitOverride()` sur CHAQUE sous-commande avant l'analyse.
+   *
+   * Commander ne recopie les réglages du programme que dans `.command()` ; les
+   * commandes Nodefony arrivent par `addCommand()` (`Command.ts`), qui ne les
+   * recopie pas — et celles des modules sont posées bien après. Sans ce geste,
+   * une option refusée faisait appeler `process.exit(1)` par Commander
+   * lui-même : aucun `catch` n'était atteint, donc ni l'indice, ni le code de
+   * sortie EX_USAGE, ni l'arrêt propre du Kernel.
+   */
+  private armSubcommandExitOverride(): void {
+    for (const sub of this.commander?.commands ?? []) sub.exitOverride();
+  }
+
+  /**
+   * Après une option refusée par Commander, écrit ce que la commande accepte.
+   *
+   * Commander n'écrit qu'une ligne (`error: unknown option '-y'`) ; l'appelant,
+   * souvent un agent, devinait la suite à l'aveugle. Appelée depuis les DEUX
+   * chemins d'analyse — commande intégrée et commande de module.
+   *
+   * @param e - l'erreur levée par Commander.
+   * @param requested - nom de la commande tapée, ou `null`.
+   */
+  private writeUnknownOptionHint(e: unknown, requested: string | null): void {
+    if ((e as { code?: string })?.code !== "commander.unknownOption") return;
+    const target =
+      requested === null
+        ? undefined
+        : this.commander?.commands.find(
+            (c) => c.name() === requested || c.aliases().includes(requested),
+          );
+    const hint = unknownOptionHint(
+      e instanceof Error ? e.message : String(e),
+      target
+        ? {
+            name: target.name(),
+            flags: target.options.filter((o) => !o.hidden).map((o) => o.flags),
+          }
+        : null,
+    );
+    if (hint) process.stderr.write(`${hint}\n`);
+  }
+
+  /**
    * Dispatch DIFFÉRÉ d'une commande de module.
    *
    * commander ignore la commande au boot (posée par le module à `onPreRegister`,
@@ -686,6 +740,7 @@ class CliKernel extends Cli {
     kernel.once("onStart", () => {
       kernel.once("onPreRegister", async () => {
         try {
+          this.armSubcommandExitOverride();
           await this.commander?.parseAsync();
         } catch (e) {
           const code = (e as { code?: string })?.code;
@@ -696,8 +751,14 @@ class CliKernel extends Cli {
             await this.kernel?.terminate(SysExit.OK);
             return;
           }
-          // Commande inconnue / mauvais usage → EX_USAGE (sysexits.h).
-          this.log(`command not found: ${requested}`, "ERROR");
+          // Mauvais usage → EX_USAGE (sysexits.h). Une option refusée n'est
+          // PAS une commande introuvable : le dire enverrait chercher une
+          // faute de frappe dans le nom d'une commande qui existe.
+          if (code === "commander.unknownOption") {
+            this.writeUnknownOptionHint(e, requested);
+          } else {
+            this.log(`command not found: ${requested}`, "ERROR");
+          }
           await this.kernel?.terminate(SysExit.USAGE);
         }
       });

@@ -120,6 +120,30 @@ function tmpLog(tag: string): string {
 }
 
 describe("parseDetachArgs — parse + strip anti-récursion", () => {
+  it("🔴 `--wait` NU n'avale pas l'option suivante — la santé reste demandée", () => {
+    // Vécu à la lecture : `--wait --health /readyz` prenait `--health` pour la
+    // valeur de `--wait` ; le contrôle de santé disparaissait sans un mot et
+    // `/readyz` partait au runtime comme un argument.
+    const p = parseDetachArgs([
+      "production",
+      "--detach",
+      "--wait",
+      "--health",
+      "/readyz",
+    ]);
+    assert.strictEqual(p.waitSec, 120);
+    assert.strictEqual(p.healthPath, "/readyz");
+    assert.deepStrictEqual(p.relayArgs, ["production"]);
+  });
+
+  it("`--health`/`--log` sans valeur n'avalent pas non plus l'option suivante", () => {
+    const p = parseDetachArgs(["production", "--log", "--detach", "--health"]);
+    assert.strictEqual(p.detach, true);
+    assert.strictEqual(p.logFile, undefined);
+    assert.strictEqual(p.healthPath, undefined);
+    assert.deepStrictEqual(p.relayArgs, ["production"]);
+  });
+
   it("strip --detach/--wait/--health/--log des args relayés", () => {
     const p = parseDetachArgs([
       "development",
