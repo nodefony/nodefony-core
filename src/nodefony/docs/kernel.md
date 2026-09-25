@@ -274,7 +274,7 @@ npx nodefony billing:report      # elle n'existe QUE parce que le module l'a pos
 
 Le constructeur fait trois choses et rien d'autre : il range les options dans l'arbre de paramètres
 sous `modules.<nom>`, il résout le chemin, puis il câble les hooks via `Module.setEvents()`
-(`Module.ts:227`).
+(`Module.ts:245`).
 
 > [!TIP]
 > `path` mérite son `import.meta.url` littéral. `setPath()` remonte au-dessus d'un dossier `dist/`
@@ -337,7 +337,7 @@ Deux chemins, un seul recommandé.
 | `@services([A, B])`          | —               | **Le cas normal.** Construits à `onPreBoot`, ordre calculé. |
 | `Module.addService(Ctor, …)` | `Module.ts:441` | Ajout conditionnel, décidé à l'exécution.                   |
 | `Module.loadService(chemin)` | `Module.ts:544` | Service optionnel chargé par `import()` dynamique.          |
-| `Module.getServiceNames()`   | `Module.ts:532` | Introspection — ce que **ce** module a posé au container.   |
+| `Module.getServiceNames()`   | `Module.ts:541` | Introspection — ce que **ce** module a posé au container.   |
 
 L'ordre écrit dans `@services([…])` n'a **pas** d'importance : il est recalculé depuis les
 dépendances déclarées. Détail du tri et des portées :
@@ -358,7 +358,7 @@ connu de personne.
 
 ### Ajouter une commande CLI
 
-`Module.addCommand()` (`Module.ts:636`) enregistre une commande rattachée au module — c'est ainsi
+`Module.addCommand()` (`Module.ts:656`) enregistre une commande rattachée au module — c'est ainsi
 que `frontend:build`, `security:user:add` ou `network` existent. Convention de nom :
 `<module>:<action>`.
 
@@ -386,13 +386,13 @@ Le registre des controllers est global au process mais **indexé par module** �
 
 | Appel                | Ancre           | Rend                                                       |
 | -------------------- | --------------- | ---------------------------------------------------------- |
-| `getController("X")` | `Module.ts:564` | le constructeur, ou **lève** si absent de **ce** module    |
-| `getControllers()`   | `Module.ts:590` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
+| `getController("X")` | `Module.ts:584` | le constructeur, ou **lève** si absent de **ce** module    |
+| `getControllers()`   | `Module.ts:599` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
 
 ### Surcharger la config d'un autre module
 
 Une clé `Module-<nom>` dans la config d'un module reconfigure **un autre** module, sans toucher à son
-code — `Module.readOverrideModuleConfig()` (`Module.ts:377`), appliqué par le kernel entre le
+code — `Module.readOverrideModuleConfig()` (`Module.ts:386`), appliqué par le kernel entre le
 chargement et la validation.
 
 ```typescript ignore
@@ -423,8 +423,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1785` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1788` | la table complète, **par référence** (ne pas la muter) |
+| `getModule(nom)` | `Kernel.ts:1835` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1838` | la table complète, **par référence** (ne pas la muter) |
 | `modules`        | `Kernel.ts:600`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
@@ -455,9 +455,9 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
 | `environment`               | `Kernel.ts:411`  | Le mode **moteur** : `"development"` ou `"production"`.                |
-| `domain`                    | `Kernel.ts:609`  | Le nom d'hôte retenu, résolu au boot.                                  |
+| `domain`                    | `Kernel.ts:615`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:3330` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:3385` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -495,7 +495,7 @@ même chose.
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
 | `fire(nom, …)`          | `Kernel.ts:746`  | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
 | `fireAsync(nom, …)`     | `Kernel.ts:1033` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
-| `fireLifecycle(nom, …)` | `Kernel.ts:3814` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
+| `fireLifecycle(nom, …)` | `Kernel.ts:3864` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
 `fire`.** `fire()` ne t'apprend rien de ce qui s'est passé — il rend un booléen « quelqu'un
@@ -533,7 +533,7 @@ override async onKernelBoot(): Promise<this> {
 ```
 
 La conséquence est asymétrique, et c'est ce qui la rend traître. La criticité manquante est traitée
-comme **critique par défaut** (`Kernel.ts:3133` : l'échec est fatal dès lors que `critical !== false`
+comme **critique par défaut** (`Kernel.ts:3202` : l'échec est fatal dès lors que `critical !== false`
 et qu'on est en production). Donc :
 
 | Environnement  | Hook déclaré, `critical = false` | Écouteur posé à la main   |

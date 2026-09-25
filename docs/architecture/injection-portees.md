@@ -121,20 +121,20 @@ Conséquence directe : lire un service parent depuis un scope (`scope.get("syslo
 (`Container.get()`, `Container.ts:168`).
 
 Les services courts (resolver, context, controller) sont posés en **own-property** du scope
-(`Scope.set()`, `Container.ts:391`) : ils **masquent** le parent localement sans jamais l'écrire.
+(`Scope.set()`, `Container.ts:151`) : ils **masquent** le parent localement sans jamais l'écrire.
 
 ### Le constat qui garantit l'isolation concurrente
 
 `Scope` **redéfinit** `set()` pour n'écrire que sur son propre objet (`Scope.set()`,
-`Container.ts:391`). La raison est explicite dans le code, et elle est vitale.
+`Container.ts:151`). La raison est explicite dans le code, et elle est vitale.
 
 Depuis que le scope **adopte le prototype du parent** (optimisation qui évite deux allocations
-mortes par requête, `Scope` constructeur, `Container.ts:352`), un `set()` de type `Container`
+mortes par requête, `Scope` constructeur, `Container.ts:344`), un `set()` de type `Container`
 écrirait sur le **proto partagé**. Un service per-request deviendrait alors visible de **toutes** les
 requêtes concurrentes.
 
 La redéfinition en own-property est donc la barrière anti-fuite. Idem pour `Scope.remove()`
-(`Container.ts:404`), qui ne touche jamais un service hérité.
+(`Container.ts:183`), qui ne touche jamais un service hérité.
 
 > [!IMPORTANT]
 > C'est ce qui rend l'isolation **structurelle** et non conventionnelle : ce n'est pas « on évite
@@ -424,7 +424,7 @@ seulement à la **construction**.
 
 La solution est un apprentissage : au moment où le service est **posé** au container, le couple
 (classe, clé) est enfin connu — il est mémorisé (`Injector.rememberContainerKey()`, `injector.ts:88`)
-depuis `Module.addService()` (`Module.ts:441`) et `Kernel.addKernelService()` (`Kernel.ts:1484`).
+depuis `Module.addService()` (`Module.ts:441`) et `Kernel.addKernelService()` (`Kernel.ts:1511`).
 
 Toute résolution ultérieure passe donc par la **classe**. Sans ce relais, `@inject("Router")`
 interrogeait le container avec `"Router"` là où l'instance est rangée sous `"router"` : réponse
@@ -534,7 +534,7 @@ Nodefony est un framework runtime : ce chemin s'exécute à chaque requête. Tro
 - **Héritage par prototype plutôt que remontée logicielle** : lire un service parent depuis un scope
   est résolu par V8, sans code intermédiaire (`Container.ts:127`).
 - **Adoption des protos parents par le scope** : évite deux closures et deux `Object.create` jetés à
-  chaque requête (`Scope` constructeur, `Container.ts:352`).
+  chaque requête (`Scope` constructeur, `Container.ts:344`).
 - **`id` de scope = compteur monotone base 36**, pas un UUID v4 (`containerSeq`, `Container.ts:67`) :
   un appel crypto par requête pour une clé locale jamais exposée serait du gaspillage.
 - **`Map` pour le bookkeeping des scopes**, pas un objet littéral `delete`-é (`Scopes`,

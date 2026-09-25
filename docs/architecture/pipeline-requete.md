@@ -274,7 +274,7 @@ Le tableau ci-dessous est la même séquence, avec ce qui devient vrai à chaque
 | 10  | en-têtes applicatifs   | `Firewall.applySecurityHeaders()` (`firewall.ts:1045`)       | CSP (avec le `@Csp` de la route), Referrer-Policy, COOP/COEP     |
 | 11  | fallback statique      | `serverStatic` (`http-kernel.ts:246`)                        | **aucune route** matchée → le fichier est servi, fin du trajet   |
 | 12  | parse du corps         | `request.initialize()` (`http-kernel.ts:1224`)               | corps et fichiers disponibles (sauté si flux brut demandé)       |
-| 13  | `onRequestEnd()`       | `http-kernel.ts:1454`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
+| 13  | `onRequestEnd()`       | `http-kernel.ts:1463`                                        | hôte vérifié, hook `beforeResolve` tiré                          |
 | 14  | front controller       | `HttpKernel.prepareFrontController()` (`http-kernel.ts:767`) | la route est **matchée** ; rien n'est instancié encore           |
 | 15  | CSRF                   | `Firewall.enforceCsrf()` (`firewall.ts:948`)                 | une mutation cross-site est refusée (403)                        |
 | 16  | session                | `HttpKernel.startSession()` (`http-kernel.ts:1152`)          | `context.session` existe **si** la route ou un cookie l'exige    |
@@ -350,11 +350,11 @@ sequenceDiagram
 
 | #   | Étape                  | Ancrage                                                        | Ce qui devient vrai                                    |
 | --- | ---------------------- | -------------------------------------------------------------- | ------------------------------------------------------ |
-| 1   | `onWebsocketRequest()` | `http-kernel.ts:1560`                                          | rate-limit du handshake (close **1013**) et cap par IP |
-| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1522`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
+| 1   | `onWebsocketRequest()` | `http-kernel.ts:1569`                                          | rate-limit du handshake (close **1013**) et cap par IP |
+| 2   | scope + contexte       | `HttpKernel.createWebsocketContext()` (`http-kernel.ts:1531`)  | scope DI ouvert ; `onFinish` armé pour le libérer      |
 | 3   | bulle ALS              | `http-kernel.ts:1645`                                          | ouverte pour le handshake **et** toutes les trames     |
 | 4   | hôte + Origin          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:599`)     | origine tierce refusée → close **1008** (anti-CSWSH)   |
-| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:1724`)               | route et protocole vérifiés **avant** l'accept         |
+| 5   | front controller       | `HttpKernel.onConnect()` (`http-kernel.ts:1733`)               | route et protocole vérifiés **avant** l'accept         |
 | 6   | session                | `http-kernel.ts:1550`                                          | même point d'activation unique qu'en HTTP              |
 | 7   | `connect()`            | `WebsocketContext.connect()` (`WebsocketContext.ts:230`)       | listeners `close`/`error`/`message` branchés           |
 | 8   | firewall               | `http-kernel.ts:1450`                                          | mêmes zones, mêmes rôles qu'en HTTP                    |
@@ -549,7 +549,7 @@ Détails : [Firewall](../../src/packages/@nodefony/security/docs/firewall.md) ·
 | Domaine                      | Norme             | Ancrage                                                 |
 | ---------------------------- | ----------------- | ------------------------------------------------------- |
 | Codes de fermeture WebSocket | RFC 6455 §7.4     | `toWsCloseCode()` (`WebsocketContext.ts:55`)            |
-| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:1762`) |
+| Hôte non autoritaire → 421   | RFC 9110 §15.5.20 | `HttpKernel.checkValidDomain()` (`http-kernel.ts:1771`) |
 | Message de statut US-ASCII   | RFC 7230 §3.1.2   | `Response.writeHead()` (`Response.ts:415`)              |
 | Valeurs d'en-tête sûres      | RFC 9110 §5.5     | `sanitizeRequestId()` (`requestId.ts:38`)               |
 | IP client derrière un proxy  | RFC 7239          | `http-kernel.ts:866`                                    |

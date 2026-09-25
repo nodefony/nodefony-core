@@ -99,7 +99,7 @@ Service(name, container?, notificationsCenter?, options?)
 
 ## Container (`src/Container.ts`) — `implements IContainer`
 
-**Purpose** : DI Container — registry de services + paramètres dot-notation + scopes hiérarchiques.
+**Purpose** : DI Container — registry de services + scopes hiérarchiques (aucune configuration).
 
 **Interfaces** : `src/types/IContainer.ts` — `IContainer` + `IScope`
 
@@ -127,7 +127,10 @@ Service(name, container?, notificationsCenter?, options?)
 - Aucun arbre de paramètres : chaque module lit sa config dans `this.options`
 - `Kernel.onReady` gèle en profondeur les `options` de CHAQUE module (`freezeConfigTree`, `kernel/moduleConfig.ts`) APRÈS les écouteurs `onReady`, AVANT `initServers()` → aucune requête ne voit une config modifiable. Écriture = `TypeError`. Objets simples + tableaux seulement ; instances de classe épargnées ; parcourt aussi un objet déjà gelé EN SURFACE par son `defineModuleConfig`
 - Une config se complète AU BOOT (`@nodefony/http` : `uploadDir`, `serialNumber`), jamais après `onReady`
-- Surcharge par requête : pas encore (calque par scope + liste blanche par module = #494)
+- **Calque par requête** (`config/overlay.ts`, ADR-0012) : `overlayConfig(pkg, calque)` valide contre `Module.overlaySchema` (Zod strict = LISTE BLANCHE ; `null` = aucun calque), fusionne dans des objets neufs le long du seul chemin, gèle, range dans une `WeakMap<IScope, …>` (pas de champ sur `Scope`) · `useConfig(pkg)` = vue de la requête, sinon `module.options` par référence (0 alloc) · registre `Kernel.configRegistry` par nom de paquet, bâti au gel de `onReady` · `overlayField()` retire le `.default()` d'un champ repris (sinon le défaut s'injecte dans chaque calque)
+- Registre typé `NodefonyModuleOverlay` (augmentable) : un module absent → `overlayConfig` ne compile pas
+- Édition à chaud (dev) : `withResolvedPath` (copie sur écriture de `applyResolvedPath`) + `Kernel.replaceModuleOptions` (options ET registre) — jamais d'écriture en place
+- Seul `@nodefony/http` déclare une liste blanche (`maxBodySize`, `upload.*` hors `uploadDir`) ; décision module par module dans ADR-0012
 
 **Scopes**
 

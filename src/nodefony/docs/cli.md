@@ -250,7 +250,7 @@ un pointeur que plus aucun paquet ne livre est **nommé**, jamais supprimé — 
 
 ### Les commandes de module
 
-Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:636`),
+Chaque module ajoute ses commandes dans son constructeur (`Module.addCommand()`, `Module.ts:656`),
 sous le namespace `<module>:<action>`. Elles apparaissent dans `--help` comme les intégrées :
 
 | Commande            | Ce qu'elle fait                                        | Classe                       |
@@ -327,7 +327,7 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 - `onRegister` (défaut) — les modules sont enregistrés (ex. build, install).
 - `onStart` — rien n'est chargé : pour le vrai standalone.
 
-**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:636`) —
+**Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:656`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:560`). Hors module, un
 outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:756`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.

@@ -117,7 +117,7 @@ maison :
 - `Event.emitAsyncGuarded()` (`Event.ts:274`) isole **chaque** écouteur (try/catch + délai maximal)
   et renvoie `{ results, errors, stopped }` au lieu de laisser le premier rejet faire sauter la suite.
 
-Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3814`) : un
+Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3864`) : un
 hook de module qui pend ou qui jette ne gèle plus le démarrage du serveur.
 
 Le compromis assumé : `Service` **délègue** massivement (18 méthodes d'événements + 6 méthodes de
@@ -387,9 +387,9 @@ Le résultat (`IGuardedEmitResult`, `Event.ts:93`) porte `results`, `errors` et 
 dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) — jamais la sentinelle
 interne `timeoutSentinel` (`Event.ts:33`).
 
-Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3814`) branche la politique : délai issu de
-`Kernel.bootTimeoutMs()` (`Kernel.ts:3104`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3116`), 5 s par
+Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3864`) branche la politique : délai issu de
+`Kernel.bootTimeoutMs()` (`Kernel.ts:3159`) — 20 s en développement, 60 s en production, surchargeable
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3171`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
@@ -479,7 +479,7 @@ délègue à `addService`. Utile pour un service optionnel dont la présence dé
 ## 🔐 Intégrité du boot — jamais de dégradation silencieuse
 
 Un service qu'on ne peut pas **construire** suit exactement la même politique qu'un service qu'on ne
-peut pas **initialiser** : `Module.handleServiceBootError()` (`Module.ts:493`) délègue au verdict du
+peut pas **initialiser** : `Module.handleServiceBootError()` (`Module.ts:513`) délègue au verdict du
 kernel, qui tranche selon deux axes.
 
 | Contexte                                            | Verdict                                                         |
@@ -527,7 +527,7 @@ mesurables :
 Les services d'un module sont introspectables sans lire le code :
 
 - **API** — `GET /nodefony/kernel/api/module/{name}` (`KernelAdminApi.ts:1109`) renvoie un tableau
-  `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:533`) croisé
+  `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:541`) croisé
   avec le container (`KernelAdminApi.ts:1346`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.

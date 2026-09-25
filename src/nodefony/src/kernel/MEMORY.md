@@ -162,7 +162,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:3962`).
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:4012`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.

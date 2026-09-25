@@ -1616,4 +1616,4 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:213`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |
 | Les hooks React | `useNodefony()` (`client/react/index.ts:145`), `useNodefonyState()` (`client/react/index.ts:163`), `useNodefonyIdentity()` (`client/react/index.ts:182`), `useNodefonyChannel()` (`client/react/index.ts:198`), `useNodefonyChannelData()` (`client/react/index.ts:221`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:182`) |
 | Le client navigateur | `RealtimeClient.connect()` (`RealtimeClient.ts:389`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:530`), `RealtimeClient.request()` (`RealtimeClient.ts:729`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:471`) |
-| L'upload | `UploadedFile` (`routerDecorators.ts:1253`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:185`) |
+| L'upload | `UploadedFile` (`routerDecorators.ts:1253`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:200`) |

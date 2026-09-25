@@ -128,7 +128,7 @@ Nodefony crée un serveur HTTP/2 sécurisé avec `allowHTTP1: true` (`ServerHttp
 
 **Le WebSocket n'est jamais un citoyen de seconde zone.** Il est adossé au serveur HTTP porteur
 (`server-websocket.ts:80`), passe par le **même** rate-limit d'IP que les requêtes HTTP — un upgrade
-_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1560`) —, hérite de la même
+_est_ une requête HTTP (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1569`) —, hérite de la même
 session et du même firewall, et se ferme avec le même soin qu'une réponse HTTP.
 
 > [!NOTE]
@@ -784,7 +784,7 @@ processus à l'arrêt.
 
 L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** compteur de rate-limit par
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
-(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1560`). Le `101` étant déjà émis par `ws`, un `429`
+(`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1569`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
 (`rateLimiter`, `http-kernel.ts:292`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).

@@ -12,7 +12,7 @@ Il fournit :
 | Brique                     | Fichier source                     | Rôle                                                                                                                 |
 | -------------------------- | ---------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | **`Service`**              | `src/Service.ts`                   | Classe de base de tout composant Nodefony (Kernel/Module/Controller/adapters ORM/etc.) — DI + EventEmitter + Logging |
-| **`Container`**            | `src/Container.ts`                 | DI Container hiérarchique — services nommés, paramètres dot-notation, scopes par requête                             |
+| **`Container`**            | `src/Container.ts`                 | DI Container hiérarchique — services nommés, scopes par requête                                                      |
 | **`Kernel`**               | `src/kernel/Kernel.ts`             | Orchestre boot, modules, lifecycle events                                                                            |
 | **`Module`**               | `src/kernel/Module.ts`             | Classe de base d'un module Nodefony (suit le pattern `@Module` decorator)                                            |
 | **`CliKernel`**            | `src/kernel/CliKernel.ts`          | Kernel spécialisé pour les commandes CLI (`nodefony development`, `nodefony build`, etc.)                            |

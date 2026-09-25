@@ -206,7 +206,7 @@ fichier ⇒ « matérialiser depuis le registre » est impossible, voie écarté
   implémentation de l'application (gardes destructives, verrou, historique restent uniques).
   🔴 La commande se prend sur le **MODULE** (`kernel.getModule("drizzle").commands`), jamais sur
   `cli.getCommand` : `Cli.addCommand` sert les commandes INTÉGRÉES, `Module.addCommand` range les
-  siennes dans le module (`Module.ts:642`) — `cli.getCommand("orm:migrate")` rend donc toujours
+  siennes dans le module (`Module.ts:656`) — `cli.getCommand("orm:migrate")` rend donc toujours
   `null`. Ni le typecheck ni les tests unitaires ne voient ce registre : seule l'exécution réelle
   d'une app générée l'a montré.
   Refus hors développement et sous `NODE_ENV=test` (`NF_MIGRATE_NOT_DEVELOPMENT`). En `--json`, le

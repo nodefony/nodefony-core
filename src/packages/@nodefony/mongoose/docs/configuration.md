@@ -395,7 +395,7 @@ Trois précisions qui évitent les mauvaises surprises :
 ### L'override générique du framework
 
 Toute clé de config d'un module se surcharge par `NF__<MODULE>__<CHEMIN>`, le double tiret bas
-séparant les niveaux (`parseNfEnvOverrides()` (`envOverride.ts:80`)). Le segment de module est le nom
+séparant les niveaux (`parseNfEnvOverrides()` (`envOverride.ts:92`)). Le segment de module est le nom
 court : `MONGOOSE`.
 
 ```bash
@@ -405,7 +405,7 @@ NF__MONGOOSE__CONNECTORS__NODEFONY__DBNAME=recette    # champ imbriqué
 NF__MONGOOSE__CONNECTORS__NODEFONY__PORT=27018        # coercé en nombre
 ```
 
-Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1826`)) :
+Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1876`)) :
 une valeur aberrante est donc rejetée comme si tu l'avais écrite dans ton fichier. C'est voulu — un
 réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 
@@ -436,7 +436,7 @@ De la plus faible à la plus forte priorité :
 
 1. **Les défauts du schéma** — `localhost:27017/nodefony`, `debug: false`, `frameworkEntities: true`.
 2. **Ta config d'app** — `use("@nodefony/mongoose", { … })`, fusionnée en profondeur sous les défauts
-   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1670`)).
+   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1693`)).
 3. **Un override venu d'un autre module** — la clé `module-mongoose` dans la config d'un module tiers.
 4. **`NF__MONGOOSE__…`** — l'override générique d'environnement.
 5. **La validation Zod** — types, bornes, défauts des champs restés absents.
@@ -568,7 +568,7 @@ données d'un coup. La règle est donc sans nuance.
 - **Les identifiants passés par `options`** (`user`, `pass`) suivent la même règle : ils viennent de
   l'environnement, pas du fichier. Le framework rédige d'ailleurs la valeur de tout override
   d'environnement dont le chemin ressemble à un secret, avant de le journaliser
-  (`pathLooksSecret()` (`envOverride.ts:375`)).
+  (`pathLooksSecret()` (`envOverride.ts:417`)).
 
 > [!TIP]
 > Vérifie ta redaction en une commande : démarre l'application et lis la ligne de connexion. Elle doit
@@ -665,7 +665,7 @@ coûteux à diagnostiquer qu'un serveur qui refuse de démarrer.
 
 Le cas courant : la config est parfaite, mais Mongo n'est pas joignable — conteneur pas encore prêt,
 réseau coupé, identifiants périmés. Le comportement **dépend de l'environnement**, arbitré par la
-politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3130`)) :
+politique de boot du cœur (`Kernel.isBootErrorFatal()` (`Kernel.ts:3199`)) :
 
 | Environnement       | Ce qui se passe                                                                        |
 | ------------------- | -------------------------------------------------------------------------------------- |

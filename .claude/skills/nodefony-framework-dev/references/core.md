@@ -281,6 +281,22 @@ export default {
   **augmente le registre** : `declare module "nodefony" { interface NodefonyModuleConfig { "@nodefony/x": IXConfig } }`
   (declaration merging, pattern Nuxt). Sans ça → `Record<string, unknown>` (accepté, mais 0 auto-complétion).
 
+### Config figée, et surchargée par requête (ADR-0012)
+
+- `module.options` est **gelée en profondeur** à la fin de `onReady` (`freezeConfigTree`) : la compléter
+  AU BOOT, jamais après — une écriture tardive lève `TypeError`. Édition à chaud (dev) = remplacement
+  (`withResolvedPath` + `kernel.replaceModuleOptions`), jamais écriture en place.
+- **Ouvrir une clé à la surcharge par requête** (rare — la clé doit être RELUE par requête et sans
+  enjeu de sécurité) :
+  1. `config.ts` : `export const xOverlaySchema = z.strictObject({ cle: overlayField(schema.shape.cle) }).partial()`
+     — `overlayField` retire le défaut, sinon il s'injecte dans chaque calque ;
+  2. classe du module : `override overlaySchema = xOverlaySchema;`
+  3. `declare module "nodefony" { interface NodefonyModuleOverlay { "@x/y": z.input<typeof xOverlaySchema> } }`
+  4. le LECTEUR lit `useConfig("@x/y").cle` au moment de s'en servir (sinon calque accepté puis ignoré) ;
+  5. tests : calque vide = `{}` (aucun défaut injecté), clé hors liste refusée, banc réel avec requête voisine.
+- Poser un calque : écouteur `kernel.on("onRequestScope", …)` → `overlayConfig("@x/y", { … })` — seul
+  point dans la bulle ALS AVANT la lecture du corps. Modèle : `@nodefony/http` (`httpOverlaySchema`).
+
 ### Config de l'APPLICATION (`nodefony.config.ts` + `env.ts`) — descripteur `defineConfig`
 
 L'app **n'est plus** un dossier `nodefony/config/*` : **`nodefony.config.ts`** (racine) =
@@ -393,7 +409,7 @@ try {
 `framework`, `security`, ORM, IA). Il fournit, sans aucune dépendance réseau :
 
 - **`Service`** — classe de base de TOUT composant (Kernel/Module/Controller/adapters) : DI + EventEmitter (composé) + logging.
-- **`Container`/`Scope`** — DI hiérarchique : services nommés + paramètres dot-notation + scopes per-requête.
+- **`Container`/`Scope`** — DI hiérarchique : services nommés + scopes per-requête (aucune configuration : `module.options`, figée à `onReady`, calque par requête = `overlayConfig`/`useConfig`).
 - **`Kernel`/`Module`** — orchestrateur de boot + unité fonctionnelle (ex-Bundle) avec hooks lifecycle.
 - **`Injector` + décorateurs** — résolution DI metadata-driven (`reflect-metadata`), détection de cycle.
 - **`Syslog`/`Pdu`** — log structuré RFC 5424, ring buffer O(1), transports + sinks + drivers enfichables.
@@ -455,16 +471,15 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 ### `Container` / `Scope`
 
-`Container.ts:93` — `class Container implements IContainer`. Registre de services + paramètres + scopes hiérarchiques.
+`Container.ts` — `class Container implements IContainer`. Registre de services + scopes hiérarchiques.
 
 - `set(name,obj)` `:195` (écrit dans `services[name]` **ET** `protoService.prototype` → héritage scopes) · `get<T>(name): T|null`
   `:212` · `has(name)` `:247` / `remove(name)` `:225` (via `name in services`, pas `!!value` → falsy OK) · `keys`/`entries` `:252`/`:257`.
-- Paramètres dot-notation : `setParameters(name,val)` `:374` (crée les nœuds intermédiaires) · `getParameters(name)` `:396`.
 - Scopes (LAZY — `scopes:null` tant que 0 `addScope`) : `addScope` `:272` · `enterScope` `:293` → `Scope` · `leaveScope` `:312`
   · `scopeCount(name): number` `:330` (sonde fuite/Studio) · `removeScope` `:341`.
 - `clean()` `:412` / `reset()` `:423` (clean + recrée les protos → réutilisable).
 - **`Scope extends Container implements IScope`** `:440` : `set`/`remove` overridés **own-property only** (`:466`/`:479`)
-  — écrire sur le proto partagé polluerait le parent (data race per-requête) ; `getParameters(name, merge=true, deep=true)` `:500` merge local+parent.
+  — écrire sur le proto partagé polluerait le parent (data race per-requête).
 
 ### `Event` (+ `emitAsyncGuarded`)
 

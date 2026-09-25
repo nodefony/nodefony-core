@@ -109,7 +109,7 @@ Quatre partis pris, tous vérifiables dans le code :
 
 - **`defineConfig()` ne retourne pas une config, mais un descripteur** (`defineConfig.ts:178`) : une
   marque privée (`CONFIG_DESCRIPTOR`, `defineConfig.ts:149`) et une seule méthode, `resolve(ctx)`,
-  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2182`). Ta config
+  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2237`). Ta config
   **connaît donc son environnement** au moment où elle est calculée.
 - **Le par-environnement passe par `ctx`, jamais par un fichier parallèle** (`ConfigContext`,
   `types.ts:376`). Un `config.prod.ts` séparé diverge silencieusement ; une expression ternaire, non.
@@ -118,7 +118,7 @@ Quatre partis pris, tous vérifiables dans le code :
   du framework te parvient sans que tu ne réécrives rien.
 - **Le boot est fail-closed.** `validateAppConfig()` (`schema.ts:377`) agrège les erreurs Zod avec le
   chemin fautif ; l'échec devient un diagnostic présenté puis une sortie dédiée
-  (`Kernel.bootConfigError()`, `Kernel.ts:2306`).
+  (`Kernel.bootConfigError()`, `Kernel.ts:2356`).
 
 > [!IMPORTANT]
 > Un fichier de config ne doit **jamais** déréférencer le kernel au moment de son import
@@ -233,9 +233,9 @@ Trois gardes évitent les heures de débogage les plus classiques :
   (`envOverride.ts:300`) résout chaque segment contre les clés **réelles** (insensible à la casse,
   `resolveKey()`, `envOverride.ts:174`) et renvoie `false` si le chemin n'existe pas. Aucune clé
   fantôme n'est créée. À la place, un avertissement « vouliez-vous dire… » façon Git, calculé par
-  distance d'édition (`closestMatch()`, `envOverride.ts:417`), monté en message par
-  `resolveFailureHint()` (`envOverride.ts:529`).
-- **La coercion est explicite.** `coerceEnvValue()` (`envOverride.ts:47`) traite `"true"`/`"false"`,
+  distance d'édition (`closestMatch()`, `envOverride.ts:459`), monté en message par
+  `resolveFailureHint()` (`envOverride.ts:571`).
+- **La coercion est explicite.** `coerceEnvValue()` (`envOverride.ts:59`) traite `"true"`/`"false"`,
   les nombres, le JSON (`[…]`, `{…}`) et le CSV. Le piège `z.coerce.boolean("false") === true` est
   ainsi évité, et une chaîne vide compte comme **absente** (`isAbsent()`, `defineEnv.ts:156`).
 - **Le schéma de l'app n'est pas strict.** Les clés inconnues (`module-<x>`, `App`, `cluster`) sont
@@ -305,7 +305,7 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 - un fichier illisible est une erreur de boot, jamais un repli silencieux (`defineEnv.ts:122`).
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
-`envOverride.ts:375`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
+`envOverride.ts:417`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
 (`Kernel.ts:2272`).
 
 Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:131`), en
@@ -351,7 +351,7 @@ simplement sans auto-complétion.
 ### Le filtrage — `policy` et `when`
 
 `UseOptions` (`use.ts:67`) porte deux leviers qui **filtrent** sans jamais réordonner
-(`Kernel.resolveModuleEntries()`, `Kernel.ts:1564`) :
+(`Kernel.resolveModuleEntries()`, `Kernel.ts:1582`) :
 
 - **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1409`) ;
 - **`when(config)`** → une garde évaluée sur la config résolue ; `false` retire l'entrée
@@ -359,7 +359,7 @@ simplement sans auto-complétion.
 
 Un module retiré n'est pas « chargé puis désactivé » : il n'est **jamais importé**. En ESM, un module
 non importé n'existe pas — le gain est réel, en mémoire comme en temps de boot. Les entrées écartées
-sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1611`), pour
+sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1634`), pour
 qu'un module absent reste explicable.
 
 ## ⚙️ Mises en situation — varier sans dupliquer
@@ -392,7 +392,7 @@ bavard.
 
 > [!TIP]
 > `ctx` porte **deux** axes distincts. `runtimeEnv` est le mode moteur (`NODE_ENV`) ; `appEnv` est un
-> axe de déploiement libre (`APP_ENV`/`NF_ENV`, `Kernel.ts:2005`). Un pré-production tourne
+> axe de déploiement libre (`APP_ENV`/`NF_ENV`, `Kernel.ts:2458`). Un pré-production tourne
 > « comme la production » (`isProd` vrai) tout en se distinguant par `ctx.appEnv === "staging"`.
 > C'est ce qui évite le faux dilemme « soit c'est prod, soit ça ne l'est pas ».
 
@@ -566,7 +566,7 @@ Les points de passage, dans l'ordre du code :
 
 1. **`loadEnv()`** (`loadEnv.ts:131`) peuple `process.env` avant tout Kernel — les configs de modules
    lisent l'environnement au boot, il doit donc déjà être là.
-2. **`Kernel.buildConfigContext()`** (`Kernel.ts:1999`) fabrique `ctx`. Le catalogue `env` exporté par
+2. **`Kernel.buildConfigContext()`** (`Kernel.ts:2049`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1127`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
 3. **`descriptor.resolve(ctx)`** (`Kernel.ts:2129`) enchaîne merge, overrides `NF__APP__*` et
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
@@ -575,10 +575,10 @@ Les points de passage, dans l'ordre du code :
    puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2272`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
-   `Kernel.ts:1670`), puis overrides inter-modules `module-<nom>`
-   (`Module.readOverrideModuleConfig()`, `Module.ts:377`) et d'environnement
-   (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1826`).
-6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1826`) — et l'ordre
+   `Kernel.ts:1693`), puis overrides inter-modules `module-<nom>`
+   (`Module.readOverrideModuleConfig()`, `Module.ts:386`) et d'environnement
+   (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1876`).
+6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1876`) — et l'ordre
    n'est pas anodin : posés plus tard, ils seraient silencieusement ignorés par tout module qui fige
    sa config tôt.
 
@@ -591,15 +591,15 @@ s'y branchent via `resolveAutoStore()` (`infra.ts:297`).
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:2069`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:2124`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 
 Une config cassée n'est pas récupérable : le framework ne peut pas deviner tes ports ni tes modules.
-`Kernel.bootConfigError()` (`Kernel.ts:2306`) en fait un échec **soigné** plutôt qu'une trace brute :
+`Kernel.bootConfigError()` (`Kernel.ts:2356`) en fait un échec **soigné** plutôt qu'une trace brute :
 
 - un diagnostic lisible : titre, cause, champ Zod nommé, **et les valeurs par défaut du framework**
-  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2334`) ;
+  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2384`) ;
 - pas de pile d'appels — c'est une faute de configuration, pas un bogue du framework ;
 - un **code de sortie dédié** — `err.exitCode = SysExit.CONFIG`, soit `EX_CONFIG` (78)
   (`Kernel.ts:1527`) — pour qu'un orchestrateur
@@ -656,9 +656,9 @@ d'une requête :
   (`defineEnv.ts:302`) ;
 - **zéro deep-merge par requête** — `extend(true, …)` ne tourne qu'au `resolve()` (`defineConfig.ts:156`),
   sur une cible fraîche, sans muter ni les défauts ni l'entrée ;
-- **zéro analyse d'override** au-delà du boot : `parseNfEnvOverrides()` (`envOverride.ts:80`) et
+- **zéro analyse d'override** au-delà du boot : `parseNfEnvOverrides()` (`envOverride.ts:92`) et
   `resolveInfra()` (`infra.ts:134`) sont appelés une seule fois, l'infra étant mémoïsée
-  (`Kernel.infra`, `Kernel.ts:2022`) ;
+  (`Kernel.infra`, `Kernel.ts:2091`) ;
 - **zéro module inutile** : une entrée écartée par `policy`/`when` n'est **pas importée**, donc son
   code n'occupe ni le temps de boot ni la mémoire.
 
@@ -669,10 +669,10 @@ précisément l'objectif du modèle « résoudre puis figer ».
 
 | Symptôme                                               | Cause (dans le code)                                                 | Correction                                                                        |
 | ------------------------------------------------------ | -------------------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2389`)                            |
+| Crash à l'import : propriété lue sur `null`            | Déréférencement du kernel au top-level d'un fichier de config        | Passer en getter, ou utiliser `ctx` (`Kernel.ts:2458`)                            |
 | `NF__APP__X=…` sans effet, avec « vouliez-vous dire »  | Le chemin n'existe pas dans les défauts (`applyResolvedPath` refuse) | Déclarer la clé dans `nodefony.config.ts` (`envOverride.ts:300`)                  |
 | Le champ ciblé refuse la valeur d'un `envEnum`         | `as const` oublié → l'union littérale est élargie en `string`        | `envEnum([...] as const, …)`                                                      |
-| `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:47`)             |
+| `NF__…__ENABLED=false` interprété comme vrai           | Attendu d'une coercion naïve — ce n'est pas le cas ici               | Rien à faire : `coerceEnvValue()` est explicite (`envOverride.ts:59`)             |
 | Boot rejeté : « Configuration d'application invalide » | Une valeur hors schéma (`validateAppConfig`)                         | Lire le chemin + la raison, corriger (`schema.ts:377`)                            |
 | Diagnostic vague sur `servers.https`                   | Union Zod — la branche fautive est masquée                           | Le message descend déjà dans les unions (`schema.ts:162`)                         |
 | `KEY` et `KEY_FILE` définis en même temps              | Ambiguïté de secret, refusée (`resolveFileEnv`)                      | N'en garder qu'un (`defineEnv.ts:129`)                                            |

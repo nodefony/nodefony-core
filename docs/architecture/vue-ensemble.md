@@ -240,8 +240,8 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1564`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1670`). L'ordre du tableau **est** l'ordre
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1582`) puis
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1693`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -326,16 +326,16 @@ Le démarrage est une suite d'**événements ordonnés**, déclarés en masque d
 (`Events`, `Kernel.ts:306`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
 `Kernel.start()` (`Kernel.ts:774`), `Kernel.boot()` (`Kernel.ts:1225`), `Kernel.onReady()`
-(`Kernel.ts:1255`) et `Kernel.initServers()` (`Kernel.ts:1355`).
+(`Kernel.ts:1255`) et `Kernel.initServers()` (`Kernel.ts:1382`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
 `onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3814`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3864`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3284`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3339`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
@@ -390,7 +390,7 @@ parent par **chaîne de prototypes JavaScript** (`Object.create(parent.protoServ
 — c'est le moteur JS qui remonte la chaîne.
 
 Les services courts (résolveur, session, contexte) sont posés sur le scope en propriété propre
-(`Scope.set()`, `Container.ts:391`) : ils **masquent** le parent sans le polluer, et
+(`Scope.set()`, `Container.ts:151`) : ils **masquent** le parent sans le polluer, et
 `Container.leaveScope()` (`Container.ts:264`) nettoie tout à la fin de la requête.
 
 Les décorateurs, l'ordre d'instanciation et les pièges de portée →

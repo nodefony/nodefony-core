@@ -306,6 +306,8 @@ Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers son
 - **Une clé de configuration mal orthographiée est retirée en silence.** `satisfies` sur le
   fragment n'est pas décoratif : sans lui, la faute compile, puis la validation écarte la clé et
   le module démarre sur son défaut. Personne ne le voit.
+- **La config d'un module est FIGÉE après le démarrage** : l'écrire lève `TypeError`. Une variante
+  par requête = `overlayConfig()` (clés de la liste blanche du module), lue par `useConfig()`.
 - **Tu lis une liste sans la BORNER.** Un `find` sans limite matérialise la table entière —
   indolore sur les quelques lignes du poste de développement, fatal sur les dizaines de milliers
   de la production. Le service d'une entité hérite `findPage({ limit: 25 })`.

@@ -213,7 +213,7 @@ source: "docs/skills/index.md"
 | [`nodefony-add-crud`](nodefony-add-crud.md) | — | 233 | 0 | 0 | ✅ |
 | [`nodefony-add-realtime-channel`](nodefony-add-realtime-channel.md) | — | 93 | 0 | 0 | ✅ |
 | [`nodefony-add-service`](nodefony-add-service.md) | — | 87 | 0 | 0 | ✅ |
-| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 480 | 0 | 1 | ✅ |
+| [`nodefony-dev`](nodefony-dev.md) | 1.2.0 | 482 | 0 | 1 | ✅ |
 | [`nodefony-protect-route`](nodefony-protect-route.md) | — | 259 | 0 | 0 | ✅ |
 
 ## 🔗 Pour aller plus loin

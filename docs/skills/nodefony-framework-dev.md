@@ -69,7 +69,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
 | `references/conventions.md` | Conventions de structure — modules, types, configuration | 215 |
-| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 742 |
+| `references/core.md` | Core (nodefony) — référence complète (recettes + API + internals + gotchas) | 757 |
 | `references/framework.md` | @nodefony/framework (Router/Controller/admin) — référence complète (recettes + API + internals + gotchas) | 601 |
 | `references/gotchas.md` | Gotchas & diagnostic — règles durables (vérité courante) | 94 |
 | `references/http.md` | @nodefony/http (pipeline/serveurs/WS/TLS) — référence complète (recettes + API + internals + gotchas) | 588 |

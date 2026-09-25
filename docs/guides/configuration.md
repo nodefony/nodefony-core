@@ -6,7 +6,7 @@ topic: configuration
 audience: humain
 version: "doc"
 status: stable
-updated: 2026-09-01
+updated: 2026-09-26
 source: "docs/guides/configuration.md"
 related: project_config_chantier_defineconfig_kit, project_module_loading_architecture, project_app_config_refonte_chantier, feedback_config_docs
 ---
@@ -329,6 +329,66 @@ explicite**, `configReactivity` (`src/nodefony/src/config/reactivity.ts:27`), in
 Un champ absent de la liste est donc `boot` — c'est le défaut sûr. L'application à chaud se fait par
 le data plane `PATCH /nodefony/kernel/api/config/{module}` (`KernelAdminApi.ts:891`), qu'utilise
 l'onglet **Configuration** de Studio, lequel badge chaque champ `🔥 à chaud` / `🔒 redémarrage`.
+
+## Figée au démarrage — et surchargée par requête
+
+**La configuration d'un module est figée à la fin de `onReady`**, avant que le premier serveur
+n'écoute. Elle est partagée par toutes les requêtes : l'écrire (`this.options.upload.maxFiles = 3`)
+lève désormais une `TypeError` au lieu de changer, en silence, la configuration des requêtes
+concurrentes. Une configuration se complète **au démarrage**, jamais après. L'édition à chaud
+ci-dessus reste possible : elle remplace la configuration au lieu de l'écrire.
+
+**Une requête peut pourtant porter SA variante** — le cas typique : une application qui sert
+plusieurs organisations, chacune avec son quota d'envoi. Elle pose un **calque** : quelques clés
+surchargées, pour elle seule, sans jamais toucher la configuration du module.
+
+```ts
+// Dans un module de l'application — reconnaître l'organisation, poser son calque.
+import { Module, overlayConfig } from "nodefony";
+
+export class TenantModule extends Module {
+  override async onKernelBoot(): Promise<this> {
+    this.kernel?.on("onRequestScope", (context: unknown) => {
+      const { request } = context as {
+        request?: { headers?: Record<string, unknown> };
+      };
+      const host = String(request?.headers?.host ?? "");
+      if (host.startsWith("premium.")) {
+        overlayConfig("@nodefony/http", {
+          maxBodySize: 50_000_000,
+          upload: { maxFileSize: 500_000_000 },
+        });
+      }
+    });
+    return this;
+  }
+}
+```
+
+Le code qui applique la limite lit la configuration **par `useConfig()`**, qui voit le calque de
+la requête courante (et, sans calque, l'objet figé du module, sans rien allouer) :
+
+```ts
+import { useConfig } from "nodefony";
+
+const { maxBodySize } = useConfig("@nodefony/http");
+```
+
+Trois règles à connaître :
+
+- **Seules les clés de la LISTE BLANCHE du module se surchargent.** Un module qui n'en déclare pas
+  n'accepte aucun calque ; une clé hors liste est refusée en la nommant. Aujourd'hui, seul
+  `@nodefony/http` en déclare une : `maxBodySize` et les limites `upload.*` (hors `uploadDir`).
+  Secrets, pare-feu, en-têtes de sécurité, sessions, limites de débit : jamais. Le tableau complet,
+  module par module et avec ses raisons, est dans l'[ADR-0012](../adr/0012-calque-configuration-par-requete.md).
+- **`onRequestScope` est le bon moment** : le premier point où la requête a son contexte, AVANT la
+  lecture du corps. Un calque posé plus tard — au pare-feu, dans un contrôleur — arrive après
+  l'application des quotas de corps.
+- **En WebSocket, le calque suit la connexion** : il vaut pour tous les messages de la socket.
+
+Un module qui ouvre une clé à la surcharge la déclare dans `overlaySchema` (un schéma Zod strict,
+bâti avec `overlayField()` pour ne pas hériter des défauts), l'enregistre dans le registre typé
+`NodefonyModuleOverlay`, et la lit par `useConfig()` au moment de s'en servir.
 
 ## Cas particulier : la topologie cluster
 
