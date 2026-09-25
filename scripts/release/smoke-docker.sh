@@ -142,6 +142,16 @@ scaffold_app() { # nom dir preset frontend [database]
   ok "app « $name » générée ($preset / front=$front${db:+ / database=$db})"
 }
 
+# L'identité que la suite e2e générée présentera — lue à SA source, la
+# constante que `tests/e2e.setup.ts` importe de `nodefony/testing`, depuis
+# l'application INSTALLÉE (donc le tarball). Jamais extraite du texte du
+# fichier : un motif sur le source a cassé sans bruit le jour où la valeur
+# y a cessé d'être littérale. Même lecture que la chaîne `production.yml`.
+e2e_admin_password() { # dir (dépendances installées)
+  (cd "$1" && node --input-type=module -e \
+    'const { E2E_ADMIN_PASSWORD } = await import("nodefony/testing"); process.stdout.write(E2E_ADMIN_PASSWORD ?? "")')
+}
+
 # Pointe les dépendances du framework vers les tarballs : l'installation qui
 # suivra n'aura jamais vu le dépôt.
 rewrite_deps() { # dir
@@ -783,17 +793,14 @@ export default WhoamiController;
 TS
   ok "route /api/whoami posée et câblée"
 
-  # L'identité que la suite générée présentera — lue dans SON fichier, pas
-  # redonnée ici (cf `EDGE_ADMIN_PASSWORD` plus haut).
-  EDGE_ADMIN_PASSWORD=$(sed -n 's/^export const ADMIN_PASSWORD = "\(.*\)";$/\1/p' \
-    "$EAPP/tests/e2e.setup.ts")
-  [ -n "$EDGE_ADMIN_PASSWORD" ] \
-    || fail "ADMIN_PASSWORD introuvable dans la suite e2e générée — le banc ne peut pas fournir l'identité qu'elle attend"
-  ok "identité de la suite lue dans son propre fichier"
 
   step "[edge] deps + migration initiale (installe et bâtit côté hôte)"
   rewrite_deps "$EAPP"
   write_initial_migration "$EAPP"
+  EDGE_ADMIN_PASSWORD=$(e2e_admin_password "$EAPP")
+  [ -n "$EDGE_ADMIN_PASSWORD" ] \
+    || fail "E2E_ADMIN_PASSWORD introuvable dans nodefony/testing — le banc ne peut pas fournir l'identité qu'attend la suite générée"
+  ok "identité de la suite lue à sa source (nodefony/testing)"
 
   # 🔴 Le certificat est MONTÉ par le frontal, jamais gravé dans son image — le
   # compose monte `nodefony/config/certificates/server`. Sans ce fichier, nginx
@@ -1133,10 +1140,9 @@ if runs sql; then
     # L'identité que la suite e2e présentera — lue dans SON fichier, jamais
     # redonnée ici : deux valeurs écrites séparément divergent au premier
     # changement de gabarit, et le symptôme est un 401 qu'on impute à la route.
-    SQL_ADMIN_PASSWORD=$(sed -n 's/^export const ADMIN_PASSWORD = "\(.*\)";$/\1/p' \
-      "$QAPP/tests/e2e.setup.ts")
+    SQL_ADMIN_PASSWORD=$(e2e_admin_password "$QAPP")
     [ -n "$SQL_ADMIN_PASSWORD" ] \
-      || fail "ADMIN_PASSWORD introuvable dans la suite e2e générée ($MOTEUR)"
+      || fail "E2E_ADMIN_PASSWORD introuvable dans nodefony/testing ($MOTEUR)"
 
     # Les secrets que la production EXIGE, posés comme un exploitant le ferait :
     # par l'environnement du service, jamais dans l'image.

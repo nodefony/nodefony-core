@@ -1416,6 +1416,31 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
     });
 
+    it("🔴 la chaîne de PRODUCTION lit l'identité e2e à la MÊME source que la suite", () => {
+      // Vécu (vitrine, publication alpha.9) : la chaîne extrayait le mot de
+      // passe du TEXTE de `tests/e2e.setup.ts` par un motif sur un littéral ;
+      // le décor s'est mis à l'importer de `nodefony/testing`, le motif n'a
+      // plus rien trouvé, et seule la vitrine l'a vu — APRÈS la publication.
+      // La règle tenue ici : les deux lisent le même symbole du même module.
+      const dest = dossierEdge();
+      const prod = readFileSync(
+        path.join(dest, ".github", "workflows", "production.yml"),
+        "utf8",
+      );
+      const setup = readFileSync(
+        path.join(dest, "tests", "e2e.setup.ts"),
+        "utf8",
+      );
+      assert.match(
+        setup,
+        /import \{[^}]*\bE2E_ADMIN_PASSWORD\b[^}]*\} from "nodefony\/testing"/u,
+      );
+      const lecture = /^\s*PASSWORD=\$\((.*)\)$/mu.exec(prod)?.[1] ?? "";
+      assert.include(lecture, 'import("nodefony/testing")');
+      assert.include(lecture, "E2E_ADMIN_PASSWORD");
+      assert.notInclude(prod, "tests/e2e.setup.ts |");
+    });
+
     it("🔴 la chaîne de PRODUCTION est générée, et elle EXÉCUTE la topologie", () => {
       // Ce que ce contrôle tient — et ce qu'il ne tient PAS. Il garde la
       // PRÉSENCE du fichier et de ses points de contrôle ; il ne prouve à aucun
