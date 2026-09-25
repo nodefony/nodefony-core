@@ -35,6 +35,7 @@
     ".claude/skills/nodefony-load-test/scripts/idempotency-userland-e2e.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-enterscope.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-extend.mjs",
+    ".claude/skills/nodefony-load-test/scripts/micro/micro-request-scope.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scale.mjs",
     ".claude/skills/nodefony-load-test/scripts/micro/micro-route-scan.mjs",
     ".claude/skills/nodefony-load-test/scripts/poc-bench.mjs",
