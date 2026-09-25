@@ -16,7 +16,14 @@
  * Usage :
  *   node .claude/skills/nodefony-ticket/scripts/ticket-open.mjs --title "fix(x): …" --body-file corps.md \
  *     [--milestone 10.0.0] [--label irrattrapable] [--jours 0.5] \
- *     [--priorite P0|P1|P2|P3] [--parent 63] [--ordre 12.5] [--backlog]
+ *     [--priorite P0|P1|P2|P3] [--parent 63] [--ordre 12.5] [--backlog] \
+ *     [--type Task|Bug|Feature|POC|Epic]
+ *
+ * LE TYPE — `--type` le pose à la création (Task, Bug, Feature, POC, Epic : les
+ * types de l'organisation). Avec `--parent`, le PARENT est promu `Epic` s'il
+ * n'a pas encore de type : c'est le moment où il devient parent, donc le seul où
+ * l'on pense à le déclarer. Un parent qui porte déjà un autre type est SIGNALÉ,
+ * jamais écrasé — ce type a été posé par quelqu'un, pour une raison.
  *
  * `--backlog` retire le jalon et pose le label `backlog` : un jalon promet une
  * date, le backlog n'en promet aucune.
@@ -124,6 +131,37 @@ export function ordreDuTicket(numero) {
 }
 
 /**
+ * Décide du geste à faire sur le type d'un ticket qui reçoit un sous-ticket.
+ *
+ * @param typeActuel - nom du type du parent, `null` s'il n'en a aucun
+ * @returns `"poser"` (type vide → Epic), `"ok"` (déjà Epic) ou `"signaler"`
+ *   (un autre type, qu'on n'écrase pas)
+ */
+export function parentTypeAction(typeActuel) {
+  if (!typeActuel) return "poser";
+  return typeActuel === "Epic" ? "ok" : "signaler";
+}
+
+/**
+ * Lit le type d'une issue, `null` si elle n'en porte aucun.
+ *
+ * @param numero - numéro de l'issue
+ * @returns le nom du type, ou `null`
+ */
+export function typeDuTicket(numero) {
+  const out = sh("gh", [
+    "issue",
+    "view",
+    String(numero),
+    "--repo",
+    `${OWNER}/${REPO}`,
+    "--json",
+    "issueType",
+  ]);
+  return JSON.parse(out)?.issueType?.name ?? null;
+}
+
+/**
  * Compte les sous-tickets DÉJÀ rattachés à un parent.
  *
  * @remarks Le compte est DEMANDÉ (`totalCount`), jamais déduit de la longueur de
@@ -175,10 +213,34 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-open.mjs")) {
   }
   for (const l of args.label) create.push("--label", l);
   if (args.parent) create.push("--parent", args.parent);
+  if (args.type) create.push("--type", args.type);
 
   const url = sh("gh", create).split("\n").pop();
   const number = url.split("/").pop();
   console.log(`ouvert : ${url}`);
+
+  // Le parent se déclare Epic — au moment précis où il le devient.
+  if (args.parent) {
+    const actuel = typeDuTicket(args.parent);
+    const geste = parentTypeAction(actuel);
+    if (geste === "poser") {
+      sh("gh", [
+        "issue",
+        "edit",
+        String(args.parent),
+        "--repo",
+        `${OWNER}/${REPO}`,
+        "--type",
+        "Epic",
+      ]);
+      console.log(`parent #${args.parent} : type posé à Epic`);
+    } else if (geste === "signaler") {
+      console.error(
+        `⚠️ parent #${args.parent} de type « ${actuel} », pas Epic — ` +
+          `à trancher : gh issue edit ${args.parent} --type Epic`,
+      );
+    }
+  }
 
   // L'inscription au tableau — la moitié que `gh issue create` ne fait pas.
   const projectId = JSON.parse(

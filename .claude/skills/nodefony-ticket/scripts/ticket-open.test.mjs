@@ -12,7 +12,7 @@
  * le socle après ce qui en dépend, et un ticket d'un autre jalon en tête.
  */
 import { describe, expect, it } from "vitest";
-import { deriveOrdre } from "./ticket-open.mjs";
+import { deriveOrdre, parentTypeAction } from "./ticket-open.mjs";
 
 describe("ordre dérivé d'un sous-ticket", () => {
   it("le premier enfant prend le premier dixième du parent", () => {
@@ -126,5 +126,18 @@ describe("parTranche — le travail constaté par taille estimée", async () => 
       { jours: 0.5, seances: 1 },
     ]);
     expect(t.map((x) => x.jours)).to.deep.equal([0.5, 3]);
+  });
+});
+
+describe("type du parent à la création d'un sous-ticket", () => {
+  it("un parent sans type est promu Epic", () => {
+    expect(parentTypeAction(null)).to.equal("poser");
+  });
+  it("un parent déjà Epic est laissé tel quel", () => {
+    expect(parentTypeAction("Epic")).to.equal("ok");
+  });
+  it("un parent d'un autre type est signalé, jamais écrasé", () => {
+    expect(parentTypeAction("Feature")).to.equal("signaler");
+    expect(parentTypeAction("Bug")).to.equal("signaler");
   });
 });

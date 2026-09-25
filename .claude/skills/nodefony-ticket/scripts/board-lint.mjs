@@ -97,7 +97,7 @@ export function parseBefore(body) {
  * Chaque contrôle a un verdict binaire et une preuve : aucun n'exige de jugement,
  * c'est ce qui autorise un automate à les rendre tous.
  *
- * @param entree.items - items du tableau, `{ n, title, milestone, ordre, jours, prio, status, parent }`
+ * @param entree.items - items du tableau, `{ n, title, milestone, ordre, jours, prio, status, parent, type }`
  * @param entree.issues - issues OUVERTES du dépôt, `{ n, title, milestone, labels, dependsOn }`
  * @param entree.commits - par numéro de ticket, les commits qui le citent `{ sha, date, subject }`
  * @param entree.now - instant de référence, injecté pour que le test ne dépende pas du calendrier
@@ -442,6 +442,22 @@ export function lintBoard({
     );
   }
 
+  // A5 — un parent se déclare `Epic`. Le type est ce que GitHub AFFICHE partout
+  // (liste, tableau, recherche `type:Epic`) : un parent sans lui ressemble à un
+  // ticket de travail, et on le prend — alors qu'il n'en porte aucun. `type`
+  // absent (`undefined`) = non lu : on se tait plutôt que de crier faux.
+  for (const parent of enfants.keys()) {
+    const p = parItem.get(parent);
+    if (!p || p.type === undefined || p.type === "Epic") continue;
+    add(
+      "avertissement",
+      "PARENT-SANS-EPIC",
+      parent,
+      `a ${enfants.get(parent).length} sous-ticket(s) ouvert(s) mais son type est ${p.type ? `« ${p.type} »` : "vide"} — un parent se déclare Epic`,
+      `gh issue edit ${parent} --repo ${OWNER}/${REPO} --type Epic`,
+    );
+  }
+
   // A4 — un P0 rangé derrière un P2 : la priorité et l'ordre se contredisent.
   const rang = { P0: 0, P1: 1, P2: 2, P3: 3 };
   const niveau = (p) => rang[String(p ?? "").slice(0, 2)] ?? 9;
@@ -490,7 +506,7 @@ query($endCursor:String){
         totalCount
         pageInfo{ hasNextPage endCursor }
         nodes{
-          content{ ... on Issue { number title state milestone{title dueOn} parent{number} } }
+          content{ ... on Issue { number title state milestone{title dueOn} parent{number} issueType{name} } }
           fieldValues(first:20){ nodes{
             ... on ProjectV2ItemFieldNumberValue{ number field{... on ProjectV2FieldCommon{name}} }
             ... on ProjectV2ItemFieldSingleSelectValue{ name field{... on ProjectV2FieldCommon{name}} }
@@ -534,6 +550,7 @@ function readItems() {
         milestone: node.content.milestone?.title ?? null,
         echeance: node.content.milestone?.dueOn ?? null,
         parent: node.content.parent?.number ?? null,
+        type: node.content.issueType?.name ?? null,
         ordre: typeof f.Ordre === "number" ? f.Ordre : undefined,
         jours: typeof f.Jours === "number" ? f.Jours : undefined,
         prio: f["Priorité"] ?? null,

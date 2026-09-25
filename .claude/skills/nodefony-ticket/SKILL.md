@@ -1,7 +1,7 @@
 ---
 name: nodefony-ticket
 metadata:
-  version: 1.7.0
+  version: 1.8.0
 description: >
   Écrit et organise les tickets GitHub du dépôt Nodefony — titre normé Conventional Commits et
   compréhensible sans connaître le dépôt, lexique des abréviations, corps en quatre blocs dont une
@@ -302,6 +302,14 @@ Le **parent** porte le contexte commun, la mesure d'ensemble et la liste des enf
 **aucun travail propre**, donc aucune estimation en propre — sur le tableau de bord, son champ
 `Jours` reçoit la **somme** des enfants, et son corps le dit en toutes lettres pour qu'on ne compte
 pas deux fois. Chaque **enfant** est autonome : on doit pouvoir le prendre sans lire le parent.
+
+**Un parent naît `Epic`** (type d'issue de l'organisation, à côté de `Task`, `Bug`, `Feature`,
+`POC`). Le type est ce que GitHub affiche partout, dans la liste, le tableau et la recherche
+`type:Epic` : un parent qui n'en porte pas ressemble à un ticket de travail, et quelqu'un le prend.
+`ticket:open --parent N` promeut le parent à `Epic` s'il n'a aucun type, et SIGNALE sans l'écraser
+un parent qui en porte un autre ; `--type` pose celui du ticket ouvert. Après coup :
+`gh issue edit N --type Epic`. `board-lint` signale un parent dont le type n'est pas `Epic`
+(`PARENT-SANS-EPIC`).
 
 Un ticket qui porte du travail propre n'est **pas** un parent : s'il a un second volet plus lourd,
 celui-ci devient un ticket **frère** qui le nomme en `Dépend de`, et le premier renvoie vers lui

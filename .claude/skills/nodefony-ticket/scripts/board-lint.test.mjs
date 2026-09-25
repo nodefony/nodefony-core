@@ -338,6 +338,29 @@ describe("lintBoard — chaque incohérence est vue", () => {
     expect(f.message).toContain("totalisent 3");
   });
 
+  it("PARENT-SANS-EPIC : un parent au type vide ou autre qu'Epic", () => {
+    const findings = lintBoard({
+      items: [
+        sain(10, { type: null, jours: 1 }),
+        sain(11, { parent: 10, type: "Task" }),
+        sain(20, { type: "Feature", jours: 1 }),
+        sain(21, { parent: 20, type: "Task" }),
+        sain(30, { type: "Epic", jours: 1 }),
+        sain(31, { parent: 30, type: null }),
+        sain(40, { jours: 1 }),
+        sain(41, { parent: 40 }),
+      ],
+      issues: [10, 11, 20, 21, 30, 31, 40, 41].map((n) => issueSaine(n)),
+      now: MAINTENANT,
+    });
+    const epics = findings.filter((x) => x.code === "PARENT-SANS-EPIC");
+    // 30 est Epic ; 40 n'a pas de type LU ; un enfant sans type n'est pas un parent.
+    expect(epics.map((f) => f.n)).toEqual([10, 20]);
+    expect(epics[0].message).toContain("vide");
+    expect(epics[1].message).toContain("« Feature »");
+    expect(epics[0].unlock).toContain("--type Epic");
+  });
+
   it("PRIORITE-ORDRE : un P0 rangé derrière un P2", () => {
     const findings = lintBoard({
       items: [

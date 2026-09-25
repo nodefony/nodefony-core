@@ -51,25 +51,26 @@ npm run ticket:lint -- --json             # pour un autre outil
 Les contrôles ci-dessous, tous à **verdict binaire** — il ne juge JAMAIS d'une priorisation, qui est un
 arbitrage sans bonne réponse mécanique :
 
-| Code                           | Ce qu'il attrape                                                                               |
-| ------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                               |
-| `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                           |
-| `LABEL-DOUBLE-JALON`           | un label porte le nom d'un jalon — deux instruments confondus, le double se périme             |
-| `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                                 |
-| `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                            |
-| `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle               |
-| `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire     |
-| `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)      |
-| `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                      |
-| `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_        |
-| `VITRINE-OUVERTE`              | un ticket ouvert dans le dépôt GÉNÉRÉ, que rien d'ici ne suit _(avertissement)_                |
-| `PRIORITE-ORDRE`               | un `P0` rangé après un `P3` — « fin de cycle » avant « bloque le reste »                       |
-| `CIBLE-AVANT-DEBUT`            | `Cible` antérieure à `Début` — la barre de la frise part à l'envers                            |
-| `FRISE-A-TROUS`                | un jalon à moitié daté : la frise en montre une part, et on la croit entière _(avertissement)_ |
-| `FRISE-DECALEE`                | la frise démarre loin d'aujourd'hui — elle date d'un plan qu'on ne suit plus _(avertissement)_ |
-| `FRISE-TROP-COURTE`            | plus de jours estimés que la fenêtre `Début`→`Cible` n'en contient _(avertissement)_           |
-| `ALERTE-CODE`                  | une alerte d'analyse de code restée ouverte, que rien ne nommait _(avertissement)_             |
+| Code                           | Ce qu'il attrape                                                                                  |
+| ------------------------------ | ------------------------------------------------------------------------------------------------- |
+| `HORS-TABLEAU`                 | jalon promis, aucun item au tableau — invisible de tout compteur                                  |
+| `NI-JALON-NI-BACKLOG`          | ne promet rien, et n'assume pas de ne rien promettre                                              |
+| `LABEL-DOUBLE-JALON`           | un label porte le nom d'un jalon — deux instruments confondus, le double se périme                |
+| `SANS-ORDRE`                   | tombe en fin de tri, donc n'est jamais proposé                                                    |
+| `ORDRE-DOUBLON`                | deux items au même rang dans un jalon : l'ordre a cessé de trancher                               |
+| `DEPENDANCE-INVERSEE`          | `Dépend de : #N` avec #N rangé APRÈS — le tri propose le travail avant son socle                  |
+| `CONTRAINTE-INVERSEE`          | « à faire AVANT #N » non respecté — la contrainte que le tableau n'a aucun champ pour dire        |
+| `STATUT-MENTEUR`               | « En cours » sans commit de travail depuis 14 j (les commits de pilotage ne comptent pas)         |
+| `SANS-JOURS` / `SANS-PRIORITE` | ne se trie pas, donc ne se prend jamais _(avertissement)_                                         |
+| `PARENT-SOMME`                 | le parent n'affiche pas la somme de ses enfants — on compte deux fois _(avertissement)_           |
+| `PARENT-SANS-EPIC`             | un parent dont le type n'est pas `Epic` — il se prend pour un ticket de travail _(avertissement)_ |
+| `VITRINE-OUVERTE`              | un ticket ouvert dans le dépôt GÉNÉRÉ, que rien d'ici ne suit _(avertissement)_                   |
+| `PRIORITE-ORDRE`               | un `P0` rangé après un `P3` — « fin de cycle » avant « bloque le reste »                          |
+| `CIBLE-AVANT-DEBUT`            | `Cible` antérieure à `Début` — la barre de la frise part à l'envers                               |
+| `FRISE-A-TROUS`                | un jalon à moitié daté : la frise en montre une part, et on la croit entière _(avertissement)_    |
+| `FRISE-DECALEE`                | la frise démarre loin d'aujourd'hui — elle date d'un plan qu'on ne suit plus _(avertissement)_    |
+| `FRISE-TROP-COURTE`            | plus de jours estimés que la fenêtre `Début`→`Cible` n'en contient _(avertissement)_              |
+| `ALERTE-CODE`                  | une alerte d'analyse de code restée ouverte, que rien ne nommait _(avertissement)_                |
 
 Deux pièges que ce script a déjà payés, et qui valent pour tout automate de pilotage :
 
@@ -213,7 +214,9 @@ la preuve, le critère de fin et la trace — le faire dans la foulée n'autoris
 npm run ticket:open -- --title "docs(guides): retirer « mocha + bun » du hub" \
   --body-file tmp/t/1.md --milestone "10.0.0" --priorite P1 --jours 0.5
 #   --backlog          → pas de jalon, label `backlog` (aucune date promise)
-#   --parent 63        → sous-ticket : l'ordre se DÉRIVE du parent (63.1, 63.2, …)
+#   --parent 63        → sous-ticket : l'ordre se DÉRIVE du parent (63.1, 63.2, …) ;
+#                        le parent sans type est promu Epic
+#   --type Bug         → type d'issue (Task, Bug, Feature, POC, Epic)
 #   --ordre 12.5       → ordre explicite, quand il n'y a pas de parent
 #   --label irrattrapable
 ```
