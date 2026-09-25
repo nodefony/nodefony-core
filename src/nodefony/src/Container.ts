@@ -618,27 +618,56 @@ class Scope extends Container implements IScope {
    * `clean()` des objets rattachés : ils sont libérés APRÈS. Un `clean()` qui
    * lève est journalisé et n'interrompt pas les suivants — sans quoi un seul
    * service fautif laisserait tous ceux créés avant lui sans nettoyage.
+   *
+   * `clean()` n'est pas attendu : la fermeture reste synchrone. Un `async
+   * clean()` part en arrière-plan, et son rejet est journalisé — jamais une
+   * `unhandledRejection`. Hors de toute bulle de requête en HTTP : y lire le
+   * scope par `this.container`, pas par `RequestContext`.
    */
   public override clean(): void {
     const owned = this.owned;
     if (owned !== null) {
       this.owned = null;
       for (let i = owned.length - 1; i >= 0; i--) {
-        const instance = owned[i] as { clean?: () => void; name?: unknown };
+        const instance = owned[i] as { clean?: () => unknown; name?: unknown };
         try {
-          instance.clean?.();
+          const done = instance.clean?.();
+          if (
+            done != null &&
+            typeof (done as { then?: unknown }).then === "function"
+          ) {
+            // Journal capturé MAINTENANT : le rejet arrive après la
+            // libération du scope, où `this.log` n'aurait plus de syslog.
+            const syslog = this.get<Syslog>("syslog");
+            Promise.resolve(done).catch((error: unknown) => {
+              const msg = Scope.cleanFailure(this.name, instance, error);
+              if (syslog) syslog.log(msg, "ERROR", "SERVICES CONTAINER");
+              else console.warn(`[Container] ${msg}`);
+            });
+          }
         } catch (error) {
-          this.log(
-            `clean() de « ${typeof instance.name === "string" ? instance.name : instance.constructor?.name} », ` +
-              `rattaché au scope « ${this.name} », a levé : ` +
-              `${error instanceof Error ? error.message : String(error)}`,
-            "ERROR",
-          );
+          this.log(Scope.cleanFailure(this.name, instance, error), "ERROR");
         }
       }
     }
     this.parent = null;
     return super.clean();
+  }
+
+  /** Message d'un `clean()` rattaché qui a échoué (chemin froid). */
+  private static cleanFailure(
+    scopeName: string,
+    instance: { name?: unknown },
+    error: unknown,
+  ): string {
+    const who =
+      typeof instance.name === "string"
+        ? instance.name
+        : instance.constructor?.name;
+    return (
+      `clean() de « ${who} », rattaché au scope « ${scopeName} », a levé : ` +
+      `${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }
 

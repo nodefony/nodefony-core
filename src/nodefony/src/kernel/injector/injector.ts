@@ -143,6 +143,32 @@ class Injector extends Service {
    * @param service - le constructeur
    * @returns sa portée déclarée
    */
+  /**
+   * Noms des services dont un constructeur dépend, tels que l'injecteur les
+   * résoudra : `@inject("nom")` (priorité) puis l'auto-injection par type
+   * (`design:paramtypes`, résolue sur le nom de classe). Lecture des
+   * déclarations seule — rien n'est instancié.
+   *
+   * @param service - le constructeur
+   * @returns les noms, dans l'ordre des paramètres (sans l'injection de propriété)
+   */
+  static dependencyNamesOf(service: ServiceConstructor): string[] {
+    const explicit: (string | undefined)[] =
+      Reflect.getMetadata("inject:services", service) || [];
+    const paramTypes: unknown[] =
+      Reflect.getMetadata("design:paramtypes", service) || [];
+
+    const names: string[] = [];
+    for (const name of explicit) if (name) names.push(name);
+    for (const type of paramTypes) {
+      const name = (type as { name?: string } | undefined)?.name;
+      // Un paramètre n'est auto-injecté que si son type est ENREGISTRÉ — sinon il
+      // reçoit un argument positionnel et ne crée aucune dépendance.
+      if (name && Injector.isRegistered(name)) names.push(name);
+    }
+    return names;
+  }
+
   static scopeOf(service: ServiceConstructor): DIScope {
     return (
       (Reflect.getMetadata("di:scope", service) as DIScope | undefined) ??
@@ -310,15 +336,10 @@ class Injector extends Service {
       const lifetime = Injector._lifetimeOf(stack[i]);
       if (lifetime === "transient") continue;
       if (lifetime === "singleton") {
-        const holder = stack[i].name;
-        throw new BootConfigurationError(
-          `Dépendance captive refusée : « ${holder} » (singleton) dépend de ` +
-            `« ${serviceName} » (portée request) — chemin ${namesOf(stack)} → ` +
-            `${serviceName}. Un singleton vit tout le processus : il garderait ` +
-            `l'exemplaire de la première requête et le servirait à toutes les ` +
-            `suivantes. Déclarer « ${holder} » en portée request, ou lui ` +
-            `passer ce dont il a besoin en argument de méthode au lieu de ` +
-            `l'injecter.`,
+        throw Injector._captiveError(
+          stack[i].name,
+          serviceName,
+          `${namesOf(stack)} → ${serviceName}`,
         );
       }
       break;
@@ -350,9 +371,11 @@ class Injector extends Service {
     // conteneur orphelin.
     const instance = Injector._instantiateWithStack(Ctor, stack, [scope]);
     const canonicalKey = instance.name || serviceName;
-    // Une clé posée par le pipeline (`context`, `controller`…) écrasée par un
-    // service homonyme casserait la requête en silence : refus nommé.
-    if (canonicalKey !== key && scope.hasOwn(canonicalKey)) {
+    // Clé déjà prise — posée par le pipeline (`context`, `controller`…) OU
+    // héritée du conteneur racine (`sessions`, `router`, `syslog`…) : l'écraser
+    // masquerait cet objet pour toute la requête, en silence. `has` et non
+    // `hasOwn` : la chaîne compte ici. Chemin froid, une fois par création.
+    if (scope.has(canonicalKey)) {
       throw Injector._requestKeyTaken(
         serviceName,
         canonicalKey,
@@ -378,11 +401,113 @@ class Injector extends Service {
       (occupant as { constructor?: { name?: string } } | null)?.constructor
         ?.name ?? typeof occupant;
     return new Error(
-      `Service « ${serviceName} » (portée request) : la clé « ${key} » du ` +
-        `scope de la requête est déjà occupée par un autre objet (${kind}). ` +
-        `Le pipeline y range ses propres objets ; donner au service un autre ` +
-        `nom (celui de son super()).`,
+      `Service « ${serviceName} » (portée request) : la clé « ${key} » est ` +
+        `déjà occupée par un autre objet (${kind}) — un objet du pipeline ou ` +
+        `un service du kernel, qu'il masquerait pour toute la requête. Donner ` +
+        `au service un autre nom (celui de son super()). Un remplacement ` +
+        `VOULU pour une requête s'écrit explicitement : ` +
+        `RequestContext.requireScope().set(clé, objet).`,
     );
+  }
+
+  /**
+   * Erreur d'une dépendance captive — partagée par la barrière de résolution
+   * et par l'analyse au démarrage ({@link Injector.assertNoCaptiveDependency}),
+   * pour qu'une même faute se lise de la même façon (chemin froid).
+   */
+  private static _captiveError(
+    holder: string,
+    serviceName: string,
+    path: string,
+  ): BootConfigurationError {
+    return new BootConfigurationError(
+      `Dépendance captive refusée : « ${holder} » (singleton) dépend de ` +
+        `« ${serviceName} » (portée request) — chemin ${path}. Un singleton ` +
+        `vit tout le processus : il garderait l'exemplaire de la première ` +
+        `requête et le servirait à toutes les suivantes. Remèdes : déclarer ` +
+        `« ${holder} » en portée request (@injectable({ scope: "request" }), ` +
+        `ou static scope = "request" pour un contrôleur) ; en transient s'il ` +
+        `n'est détenu par aucun singleton ; ou lui passer ce dont il a besoin ` +
+        `en argument de méthode. Une classe sans portée déclarée est un ` +
+        `singleton.`,
+    );
+  }
+
+  /**
+   * Refuse AU DÉMARRAGE toute dépendance captive atteignable depuis `root` :
+   * un singleton du graphe de dépendances déclarées — `root` compris — qui
+   * détient un service `request`, directement ou à travers des transients.
+   *
+   * @remarks La barrière de résolution ne voit une captive qu'au moment où le
+   *   singleton est construit : pour un singleton paresseux ou un contrôleur
+   *   `@Scope("singleton")`, c'est la première requête qui l'atteint — un
+   *   démarrage vert, puis une erreur 500. Cette analyse lit les déclarations
+   *   (`@inject`, types des paramètres, `@Inject`) sans rien instancier, pour
+   *   que la faute arrête le démarrage. Chemin froid : appelée à
+   *   l'enregistrement d'un contrôleur et d'un service déclaré.
+   *
+   * @param root - la classe dont le graphe est analysé (contrôleur, service)
+   * @throws BootConfigurationError qui nomme le singleton, le service request
+   *   et le chemin qui les relie.
+   */
+  static assertNoCaptiveDependency(root: ServiceConstructor): void {
+    const visited = new Set<ServiceConstructor>();
+    const visit = (ctor: ServiceConstructor, lifetime: DIScope): void => {
+      if (visited.has(ctor)) return;
+      visited.add(ctor);
+      if (lifetime === "singleton") {
+        const path = Injector._requestPathFrom(ctor);
+        if (path !== null) {
+          throw Injector._captiveError(
+            ctor.name,
+            path[path.length - 1],
+            path.join(" → "),
+          );
+        }
+      }
+      for (const name of Injector._declaredDependencies(ctor)) {
+        if (!Injector.isRegistered(name)) continue;
+        const dep = Injector.get(name);
+        // Une dépendance est résolue par son nom : sa portée DÉCLARÉE fait foi.
+        visit(dep, Injector.scopeOf(dep));
+      }
+    };
+    visit(root, Injector._lifetimeOf(root));
+  }
+
+  /**
+   * Chemin du détenteur vers le premier service `request` qu'il atteint
+   * directement ou à travers des transients, `null` s'il n'y en a aucun.
+   */
+  private static _requestPathFrom(holder: ServiceConstructor): string[] | null {
+    const seen = new Set<ServiceConstructor>([holder]);
+    const walk = (
+      ctor: ServiceConstructor,
+      path: string[],
+    ): string[] | null => {
+      for (const name of Injector._declaredDependencies(ctor)) {
+        if (!Injector.isRegistered(name)) continue;
+        const dep = Injector.get(name);
+        const scope = Injector.scopeOf(dep);
+        if (scope === "request") return [...path, name];
+        if (scope === "transient" && !seen.has(dep)) {
+          seen.add(dep);
+          const found = walk(dep, [...path, dep.name]);
+          if (found !== null) return found;
+        }
+      }
+      return null;
+    };
+    return walk(holder, [holder.name]);
+  }
+
+  /** Dépendances déclarées, injection de propriété comprise. */
+  private static _declaredDependencies(ctor: ServiceConstructor): string[] {
+    const names = Injector.dependencyNamesOf(ctor);
+    const props: PropertyInjectMeta[] =
+      Reflect.getMetadata("inject:properties", ctor.prototype) || [];
+    for (const { name } of props) names.push(name);
+    return names;
   }
 
   // ─── Property injection post-construction ─────────────────────────────────────

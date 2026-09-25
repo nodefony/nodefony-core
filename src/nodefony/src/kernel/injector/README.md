@@ -43,12 +43,66 @@ Options disponibles :
 @injectable()                          // nom = nom de la classe, scope = singleton
 @injectable("MonNom")                  // nom explicite
 @injectable({ name: "MonNom", scope: "transient" })  // objet complet
+@injectable({ name: "Tenant", scope: "request" })   // une instance par requête
 ```
 
-| Scope                  | Comportement                                             |
-| ---------------------- | -------------------------------------------------------- |
-| `"singleton"` (défaut) | Réutilise l'instance du container kernel si présente     |
-| `"transient"`          | Crée toujours une nouvelle instance, ignore le container |
+| Scope                  | Comportement                                                                           |
+| ---------------------- | -------------------------------------------------------------------------------------- |
+| `"singleton"` (défaut) | Réutilise l'instance du container kernel si présente                                   |
+| `"transient"`          | Crée toujours une nouvelle instance, ignore le container                               |
+| `"request"`            | Une instance par requête HTTP (par connexion WebSocket), nettoyée à la fin de celle-ci |
+
+### Portée `request`
+
+```typescript
+import { Service, injectable, type Scope } from "nodefony";
+
+@injectable({ name: "Tenant", scope: "request" })
+export class Tenant extends Service {
+  constructor(scope: Scope) {
+    // 1ᵉʳ argument : le scope de la requête. `false` : pas de bus d'événements
+    // par requête.
+    super("tenant", scope, false);
+  }
+  override clean(syslog = false): void {
+    // appelé à la fermeture du scope — libérer ici ce que la requête a ouvert
+    super.clean(syslog);
+  }
+}
+```
+
+- **Création paresseuse** : l'instance naît à sa première résolution dans la requête, puis
+  est rangée sur le scope de celle-ci (clé = le nom de son `super()`). Une requête qui ne
+  résout aucun service `request` ne paie rien.
+- **Nettoyage** : à la fermeture du scope, le `clean()` de chaque instance est appelé une fois,
+  de la dernière créée à la première. Un `clean()` qui lève est journalisé sans empêcher les
+  suivants. Il n'est pas **attendu** : un `async clean()` part en arrière-plan (son échec est
+  journalisé) — un `COMMIT` se fait dans l'action, `clean()` n'est que le filet. En HTTP, il
+  tourne **hors** de la bulle de la requête : y lire le scope par `this.container`, jamais par
+  `RequestContext`.
+- **WebSocket** : le scope est celui de la **connexion**. Une instance `request` vit donc toute
+  la connexion, partagée par tous ses messages — y compris par des invocations concurrentes
+  sur la même socket.
+- **Déclaration** : la lister dans `@services([...])` la déclare sans l'instancier au démarrage
+  (il n'y a pas de requête au démarrage). `addService()` la refuse.
+- **Dépendance captive refusée** : un singleton qui dépend d'un service `request` garderait
+  l'instance de la première requête pour toutes les suivantes. Refus en `BootConfigurationError`
+  qui nomme les deux et le chemin, **au démarrage** : le graphe des dépendances déclarées de
+  chaque contrôleur (`@controllers`) et de chaque service `request` déclaré est analysé, sans
+  rien instancier — un contrôleur `@Scope("singleton")` ou un singleton paresseux qu'ils
+  atteignent arrête le boot. La même règle refuse encore à la résolution ce qu'aucune
+  déclaration ne montrait. Un service `transient` prend la durée de vie de celui qui le
+  détient ; une classe **sans portée déclarée est un singleton**.
+- **Hors requête** (démarrage, commande CLI, minuterie, promesse qui survit à la réponse) :
+  la résolution lève, en nommant le service et la cause.
+- **Clé du scope** : le pipeline range ses propres objets sur le scope (`context`,
+  `controller`…), et le scope hérite des services du kernel (`sessions`, `router`…). Un
+  service dont le nom en reprend un est refusé plutôt que de le masquer pour toute la requête.
+  Un remplacement voulu pour une requête s'écrit explicitement :
+  `RequestContext.requireScope().set(clé, objet)`.
+- **Limites** : `Injector.instantiate(ClasseRequest)` construit HORS du scope (ni rangée, ni
+  nettoyée) — toujours l'injecter. Un scope enfant (`enterScope` sur un scope) ne voit pas
+  les services `request` de son parent.
 
 ---
 
@@ -266,7 +320,8 @@ avant la vérification circulaire — pas de faux positif.
 Injector.register("MyService", MyService); // enregistre manuellement
 Injector.isRegistered("MyService"); // boolean
 Injector.get("MyService"); // retourne le constructeur, throw si absent
-Injector.getScope("MyService"); // "singleton" | "transient"
+Injector.getScope("MyService"); // "singleton" | "transient" | "request"
+Injector.scopeOf(MyService); // idem, depuis la classe
 Injector.instantiate(MyService, ...args); // instancie avec injection
 Injector.inject(MyService, ...args); // alias de instantiate
 Injector.injectables; // Record<string, ServiceConstructor>
@@ -276,13 +331,13 @@ Injector.injectables; // Record<string, ServiceConstructor>
 
 ## 9. Roadmap
 
-| Phase | Feature                                                | Statut        | Prérequis              |
-| ----- | ------------------------------------------------------ | ------------- | ---------------------- |
-| A     | Property injection `@Inject`                           | ✅ 2026-05-14 | —                      |
-| C     | Circular dependency detection                          | ✅ 2026-05-14 | —                      |
-| B     | Scope `scoped` (1 instance/requête, AsyncLocalStorage) | ⬜            | Handler HTTP (Phase 4) |
-| D     | Registry par module (isolation namespace)              | ⬜            | Après B                |
-| E     | `@InjectLazy` (factory, instanciation différée)        | ⬜            | Après D                |
+| Phase | Feature                                                  | Statut        | Prérequis |
+| ----- | -------------------------------------------------------- | ------------- | --------- |
+| A     | Property injection `@Inject`                             | ✅ 2026-05-14 | —         |
+| C     | Circular dependency detection                            | ✅ 2026-05-14 | —         |
+| B     | Portée `request` (1 instance/requête, AsyncLocalStorage) | ✅            | —         |
+| D     | Registry par module (isolation namespace)                | ⬜            | Après B   |
+| E     | `@InjectLazy` (factory, instanciation différée)          | ⬜            | Après D   |
 
 ---
 

@@ -183,8 +183,12 @@ Signature réelle (`decorators/kernelDecorator.ts` + `InjectableOptions` de `inj
 `HttpKernel`, lu par `RequestContext.requireScope()`), créée à sa 1ʳᵉ résolution, nettoyée
 (`clean()`, LIFO) à la fermeture du scope. Constructeur `(scope, ...deps)`, `super(nom, scope, false)`.
 Règles qui mordent : un détenteur **singleton** (service, ou contrôleur `@Scope("singleton")`) est
-refusé en `BootConfigurationError` — fatale au boot, tous environnements ; `@services([...])` la
-**déclare** sans l'instancier, `addService()` la refuse ; en WebSocket le scope est la **connexion**.
+refusé en `BootConfigurationError` — AU DÉMARRAGE (analyse des déclarations à `@controllers` et
+`@services`), sinon à la résolution ; fatale dans tous les environnements. Une classe **sans
+portée déclarée est un singleton**. `@services([...])` la **déclare** sans l'instancier,
+`addService()`/`addKernelService()` la refusent ; son nom ne doit reprendre ni une clé du
+pipeline ni un service du kernel (refus, pas de masquage) ; en WebSocket le scope est la
+**connexion**.
 Détail et algorithme : [`MEMORY.md`](./MEMORY.md) § Portée `request`.
 
 ## Ce qui est en place côté DI

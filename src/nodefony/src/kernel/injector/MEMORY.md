@@ -78,17 +78,35 @@ résolu : `Reflect.getMetadata` remonte toute la chaîne de prototypes d'un cont
 3. key = containerKeyOf(Ctor) ?? name ; scope.hasOwn(key) (PROPRES, jamais la chaîne proto :
    un singleton homonyme de la racine serait rendu) → existing instanceof Ctor ? rendu : throw
 4. inst = _instantiateWithStack(Ctor, stack, [scope]) ; canonical = inst.name || name
-   canonical ≠ key && scope.hasOwn(canonical) → throw (clé du pipeline : context, controller…)
+   scope.has(canonical) → throw — `has` (CHAÎNE) : clé du pipeline (context, controller…) OU
+   service du kernel hérité (sessions, router, syslog…) qu'il masquerait pour la requête
 5. rememberContainerKey si nouvelle ; scope.set(canonical, inst) ; scope.own(inst)
 ```
 
 `Scope.owned: object[] | null` — `null` tant que rien n'est rattaché (+1 champ / requête, 0
 tableau). `Scope.clean()` : boucle LIFO, `try/catch` PAR instance (ERROR journalisé, suite
 continue), puis `super.clean()` — services encore lisibles pendant les `clean()`.
+`clean()` NON attendu : un thenable rendu reçoit un `.catch` (syslog capturé AVANT la
+libération) → jamais d'`unhandledRejection`. HTTP : `clean()` tourne HORS bulle ALS (teardown
+posé avant `RequestContext.run`) ; WS : dedans (`AsyncResource.bind`) → lire `this.container`.
 `own()` sur scope fermé → throw.
 
+### Barrière AU DÉMARRAGE — `Injector.assertNoCaptiveDependency(root)`
+
+Même règle, même message (`_captiveError`) que la résolution, lue sur les DÉCLARATIONS
+(`dependencyNamesOf` = `@inject` + paramtypes enregistrés, + `@Inject` propriétés), rien
+d'instancié : parcours du graphe depuis `root` (visited), chaque nœud singleton (racine :
+`_lifetimeOf`, nœuds : `scopeOf`) → `_requestPathFrom` (descend les transients) → throw.
+Appelée : `@controllers` à `onBoot` (framework, chaque contrôleur) · `@services` pour chaque
+entrée request DÉCLARÉE. Singleton `@services` listé = barrière de résolution (instancié au
+boot). Raison : un contrôleur / singleton paresseux n'est construit qu'à la 1ʳᵉ requête → sans
+elle, boot vert puis 500. `dependencyNamesOf` est AUSSI la lecture du tri de `@services`
+(`serviceOrder.ts`) — une seule lecture des dépendances déclarées.
+
 **Au boot** : `@services([...])` DÉCLARE une classe `request` (`SERVICE DECLARED (request)`,
-rien d'instancié, rien au container) ; `Module.addService()` la REFUSE (BootConfigurationError).
+rien d'instancié, rien au container) après `registeredNameOf` (portée HÉRITÉE sans
+`@injectable` propre → BootConfigurationError) et `assertNoCaptiveDependency` ;
+`Module.addService()` et `Kernel.addKernelService()` la REFUSENT (BootConfigurationError).
 
 **La mémoïsation range dans le container du KERNEL** (pas un cache statique : il fuirait d'un kernel
 à l'autre, tests compris). Corollaire assumé : **sans kernel, pas de mémoïsation possible** (aucun
@@ -308,7 +326,16 @@ try { ... } finally { (Nodefony as any).getKernel = orig; }
 ## Limites du DI (ce qui n'existe PAS)
 
 - Portée `request` en WebSocket = la CONNEXION : pas d'isolation par message (les invocations
-  concurrentes d'une socket partagent l'instance).
+  concurrentes d'une socket partagent l'instance — non éprouvé par un banc à 2 `api.request`
+  en vol).
+- `Injector.instantiate(ClasseRequest)` DIRECT construit hors du scope (ni `set`, ni `own` →
+  jamais nettoyé, doublon d'un `@inject` suivant). Pas de garde dans `instantiate()` : ce serait
+  un `Reflect.getMetadata` par requête (instanciation de CHAQUE contrôleur). Toujours injecter.
+- Scope IMBRIQUÉ : `hasOwn` sur l'enfant ignore le parent → un service request résolu depuis un
+  scope enfant serait dupliqué. Aucun consommateur (`subRequest` inactif) ; le jour venu,
+  chercher own-first jusqu'au scope racine de la requête.
+- Détenteur SANS portée déclarée (ni `@injectable`, ni statique `scope`) = singleton → refus
+  captif « faux positif » pour un helper local : le message nomme les trois remèdes.
 - Pas de résolution publique par nom (`Injector.resolve`) : un service `request` s'obtient par
   injection ; hors injection, `RequestContext.requireScope().get(clé)` ne rend que ce qui a déjà
   été créé dans la requête.

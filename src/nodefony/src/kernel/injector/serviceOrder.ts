@@ -14,34 +14,12 @@ export type ServiceEntry = string | ServiceConstructor;
  *   conséquence du divorce registre/container ; le jour où le token sera la
  *   classe, cette fonction disparaîtra.
  */
-const registeredNameOf = (ctor: ServiceConstructor): string | null => {
+export const registeredNameOf = (ctor: ServiceConstructor): string | null => {
   const registry = Injector.injectables;
   for (const name of Object.keys(registry)) {
     if (registry[name] === ctor) return name;
   }
   return null;
-};
-
-/**
- * Noms des services dont un constructeur dépend, tels que le DI les résoudra :
- * `@inject("nom")` (priorité) puis l'auto-injection par type (`design:paramtypes`,
- * résolue sur le nom de classe).
- */
-const declaredDependencyNames = (ctor: ServiceConstructor): string[] => {
-  const explicit: (string | undefined)[] =
-    Reflect.getMetadata("inject:services", ctor) || [];
-  const paramTypes: unknown[] =
-    Reflect.getMetadata("design:paramtypes", ctor) || [];
-
-  const names: string[] = [];
-  for (const name of explicit) if (name) names.push(name);
-  for (const type of paramTypes) {
-    const name = (type as { name?: string } | undefined)?.name;
-    // Un paramètre n'est auto-injecté que si son type est ENREGISTRÉ — sinon il
-    // reçoit un argument positionnel et ne crée aucune dépendance.
-    if (name && Injector.isRegistered(name)) names.push(name);
-  }
-  return names;
 };
 
 /**
@@ -86,7 +64,7 @@ export function orderServicesByDependencies(
   let hasEdge = false;
   entries.forEach((entry, i) => {
     if (typeof entry === "string") return;
-    for (const depName of declaredDependencyNames(entry)) {
+    for (const depName of Injector.dependencyNamesOf(entry)) {
       const j = indexByName.get(depName);
       if (j === undefined || j === i) continue;
       dependsOn[i].add(j);

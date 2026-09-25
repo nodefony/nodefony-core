@@ -4,12 +4,12 @@
   "stats": {
     "files": 864,
     "symbols": 4307,
-    "classes": 405,
+    "classes": 404,
     "interfaces": 1131,
     "types": 460,
     "enums": 4,
     "functions": 1874,
-    "constants": 433
+    "constants": 434
   },
   "symbols": {
     "Cli": {
@@ -11257,6 +11257,14 @@
       "module": "@nodefony/core",
       "description": "Réordonne les services d'un `@services([...])` selon leurs dépendances **déclarées**, pour que l'ordre d'écriture cesse de compter. `@services` instancie séquentiellement et pose chaque instance au…"
     },
+    "registeredNameOf": {
+      "name": "registeredNameOf",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/injector/serviceOrder.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom sous lequel un constructeur est enregistré au registre `@injectable`, ou `null` s'il ne l'est pas."
+    },
     "IInspectSubject": {
       "name": "IInspectSubject",
       "kind": "interface",
@@ -13809,20 +13817,6 @@
         "controller"
       ],
       "description": "Bancs de la portée `request` de l'injecteur (#485) sur le serveur réel. Contrôleur de portée request (le défaut) : il peut recevoir des services `request` par son constructeur."
-    },
-    "RequestScopeCaptiveController": {
-      "name": "RequestScopeCaptiveController",
-      "kind": "class",
-      "file": "src/modules/test/nodefony/controller/RequestScopeController.ts",
-      "exported": true,
-      "module": "modules/test",
-      "extends": "Controller",
-      "implements": [],
-      "decorators": [
-        "Scope",
-        "controller"
-      ],
-      "description": "Contrôleur SINGLETON qui réclame un service `request` : dépendance captive, refusée à sa première requête — il garderait l'exemplaire de cette requête pour toutes les suivantes."
     },
     "RestController": {
       "name": "RestController",
@@ -29524,7 +29518,6 @@
         "PipelineOrderController",
         "ReadinessController",
         "RequestScopeController",
-        "RequestScopeCaptiveController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -30008,7 +30001,6 @@
         "PipelineOrderController",
         "ReadinessController",
         "RequestScopeController",
-        "RequestScopeCaptiveController",
         "RestController",
         "RouteController",
         "SessionRuntimeController",
@@ -30058,9 +30050,6 @@
         "FrontendService",
         "HttpKernel",
         "SessionsService"
-      ],
-      "Scope": [
-        "RequestScopeCaptiveController"
       ],
       "entity": [
         "SessionEntity"
@@ -30923,9 +30912,6 @@
         "src/modules/test/nodefony/controller/RequestScopeController.ts"
       ],
       "RequestScopeController": [
-        "src/modules/test/index.ts"
-      ],
-      "RequestScopeCaptiveController": [
         "src/modules/test/index.ts"
       ],
       "BenchOrmController": [
@@ -33246,6 +33232,7 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/serviceOrder.ts",
         "src/modules/test/nodefony/controller/RequestScopeController.ts",
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
@@ -33343,6 +33330,7 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/moduleConfig.ts",
+        "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
@@ -33410,7 +33398,8 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/nodefony/src/kernel/injector/serviceOrder.ts"
+        "src/nodefony/src/kernel/injector/serviceOrder.ts",
+        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
       ],
       "ServiceWithInit": [
         "src/nodefony/src/kernel/Module.ts"
@@ -35105,6 +35094,9 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
       "orderServicesByDependencies": [
+        "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
+      ],
+      "registeredNameOf": [
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts"
       ],
       "ServiceEntry": [
