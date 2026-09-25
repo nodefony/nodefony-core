@@ -200,6 +200,12 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🧵 Trois choses ne suivent PAS d'un process à l'autre — enchaîner se teste
 
+- [1× — 09-25e] `git commit --amend … ; git push` : l'amend refusé (commitlint, titre > 100)
+  n'a pas arrêté le push — le commit est parti avec l'ancien message. Un geste irréversible ne
+  s'enchaîne qu'en `&&`, jamais en `;`.
+- [1× — 09-25e] Commander ne recopie `exitOverride()` que dans `.command()` ; `addCommand()` ne
+  recopie RIEN. Toutes nos sous-commandes appelaient donc `process.exit` elles-mêmes sur une option
+  inconnue : aucun `catch`, aucun indice. Un réglage du parent ne suit pas l'enfant — le constater.
 - [1× — 09-24h] `cd` RELATIF dans une commande Bash refusé DEUX fois par le crochet de cwd — et
   la commande entière n'a pas tourné (patch compris) : relire l'état avant de conclure qu'un
   geste a eu lieu. Toujours `cd /chemin/absolu && …`.
@@ -277,6 +283,13 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25e] **Faux VERT du juge client (banc devkit, tâche 0)** : il cherchait la façade dans
+  TOUTE l'application, or `create app` la livre (`tests/e2e.test.ts`) — une page « temps réel » en
+  `setInterval` passait. Un juge ne lit que ce que l'AGENT a écrit : lignes ajoutées depuis le
+  premier commit, jamais le fichier. Vu seulement en relisant le transcript au lieu du verdict.
+- [1× — 09-25e] J'ai annoncé « doctor voit 2 migrations fantômes » en lisant la section DERNIER
+  DÉMARRAGE ; les 2 manquements comptés étaient les PORTS (tenus par un autre projet, alors que
+  `portPolicy: auto` glisse). Lire la section PROBLÈMES — ce qui est COMPTÉ — avant de nommer la cause.
 - [1× — 09-25d] `doc:anchors` annonçait 4 579 ancres OK pendant que ~330 ancres security
   pointaient 1 à 20 lignes à côté (TSDoc au-dessus, champ Zod voisin) : il accepte le symbole cité
   dans une FENÊTRE autour de la ligne. Seule la lecture page par page (11 agents) l'a vu. Un gate
