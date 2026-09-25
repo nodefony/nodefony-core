@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T10:29:14.992Z",
+  "generatedAt": "2026-09-25T10:41:24.844Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 29,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 48,
+      "open": 49,
       "title": "10.0.0-beta"
     },
     {
@@ -382,6 +382,20 @@
       "milestone": "10.0.0-alpha",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
+      "ordre": 1.2,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 487,
+      "title": "refactor(core): casser le cycle de types entre le cœur, http et framework",
+      "url": "https://github.com/nodefony/nodefony-core/issues/487",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
       "ordre": 1.2,
       "debut": null,
       "cible": null,
@@ -6770,6 +6784,22 @@
       "priorite": "P2 — décision",
       "jours": 22.5,
       "ordre": 905,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 488,
+      "title": "refactor(core): découper le noyau, un fichier de 4 255 lignes",
+      "url": "https://github.com/nodefony/nodefony-core/issues/488",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P3 — fin de cycle",
+      "jours": 3,
+      "ordre": 906,
       "debut": null,
       "cible": null,
       "labels": [
