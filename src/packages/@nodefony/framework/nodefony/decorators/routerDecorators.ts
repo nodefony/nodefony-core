@@ -12,7 +12,8 @@ import { RouteOptions } from "../src/Route";
 import Controller from "../src/Controller";
 import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
-import { Module, RequestContext } from "nodefony";
+import { Injector, Module, RequestContext } from "nodefony";
+import type { ServiceConstructor } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod, SessionIntent } from "@nodefony/http";
 
@@ -126,6 +127,14 @@ function controllers(
       }
       async initDecoratorControllers() {
         const log = (contr: TypeController<Controller>) => {
+          // Dépendance captive refusée AU DÉMARRAGE : un contrôleur n'est
+          // construit qu'à sa première requête — sans cette analyse, un
+          // `@Scope("singleton")` qui réclame un service `request` démarrerait
+          // vert puis rendrait 500. Graphe lu sur les déclarations, rien
+          // d'instancié ; `BootConfigurationError`, fatale dans tous les modes.
+          Injector.assertNoCaptiveDependency(
+            contr as unknown as ServiceConstructor,
+          );
           Router.setController(contr, this);
           this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
           // Le log des routes DOIT être émis depuis `this` (le module) — pas
