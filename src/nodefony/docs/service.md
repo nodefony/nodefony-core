@@ -117,7 +117,7 @@ maison :
 - `Event.emitAsyncGuarded()` (`Event.ts:274`) isole **chaque** écouteur (try/catch + délai maximal)
   et renvoie `{ results, errors, stopped }` au lieu de laisser le premier rejet faire sauter la suite.
 
-Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3795`) : un
+Ce dernier porte tout le cycle de vie du kernel via `Kernel.fireLifecycle()` (`Kernel.ts:3814`) : un
 hook de module qui pend ou qui jette ne gèle plus le démarrage du serveur.
 
 Le compromis assumé : `Service` **délègue** massivement (18 méthodes d'événements + 6 méthodes de
@@ -330,19 +330,17 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 
 ### Dépendances — la façade container
 
-| Appel                    | Ancre            | Comportement                                                                       |
-| ------------------------ | ---------------- | ---------------------------------------------------------------------------------- |
-| `get<T>(name)`           | `Service.ts:427` | l'instance typée, ou **`null`** si absente ou après `clean()`                      |
-| `set(name, obj)`         | `Service.ts:533` | enregistre — **lève** si le container est détaché                                  |
-| `remove(name)`           | `Service.ts:545` | si la cible est un `Service`, appelle son `clean()` **d'abord**                    |
-| `has(name)`              | `Service.ts:575` | `false` plutôt qu'une erreur quand le container est détaché                        |
-| `getParameters(path)`    | `Service.ts:559` | lecture par chemin pointé, **en lecture seule** — gelée après `onReady`            |
-| `setParameters(path, v)` | `Service.ts:567` | écriture par chemin pointé — **lève** si détaché, ou si la configuration est figée |
+| Appel            | Ancre            | Comportement                                                    |
+| ---------------- | ---------------- | --------------------------------------------------------------- |
+| `get<T>(name)`   | `Service.ts:427` | l'instance typée, ou **`null`** si absente ou après `clean()`   |
+| `set(name, obj)` | `Service.ts:533` | enregistre — **lève** si le container est détaché               |
+| `remove(name)`   | `Service.ts:545` | si la cible est un `Service`, appelle son `clean()` **d'abord** |
+| `has(name)`      | `Service.ts:559` | `false` plutôt qu'une erreur quand le container est détaché     |
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
-[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:343`),
-`Container.leaveScope()` (`Container.ts:362`) et `Container.scopeCount()` (`Container.ts:379`) pour
+[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:245`),
+`Container.leaveScope()` (`Container.ts:264`) et `Container.scopeCount()` (`Container.ts:281`) pour
 les sondes de fuite.
 
 ### Journal
@@ -389,7 +387,7 @@ Le résultat (`IGuardedEmitResult`, `Event.ts:93`) porte `results`, `errors` et 
 dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) — jamais la sentinelle
 interne `timeoutSentinel` (`Event.ts:33`).
 
-Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3795`) branche la politique : délai issu de
+Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3814`) branche la politique : délai issu de
 `Kernel.bootTimeoutMs()` (`Kernel.ts:3104`) — 20 s en développement, 60 s en production, surchargeable
 par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3116`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
@@ -533,7 +531,7 @@ Les services d'un module sont introspectables sans lire le code :
   avec le container (`KernelAdminApi.ts:1346`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.
-- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:379`) donne le nombre de scopes
+- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:281`) donne le nombre de scopes
   **vivants** : un compteur qui monte sans jamais redescendre signale un `leaveScope` manquant.
 
 ## ⚠️ Pièges (symptôme → cause → correction)

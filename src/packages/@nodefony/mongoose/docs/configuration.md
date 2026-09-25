@@ -405,7 +405,7 @@ NF__MONGOOSE__CONNECTORS__NODEFONY__DBNAME=recette    # champ imbriqué
 NF__MONGOOSE__CONNECTORS__NODEFONY__PORT=27018        # coercé en nombre
 ```
 
-Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1807`)) :
+Ces overrides sont posés **avant** la validation Zod (`Kernel.applyEnvConfigOverrides()` (`Kernel.ts:1826`)) :
 une valeur aberrante est donc rejetée comme si tu l'avais écrite dans ton fichier. C'est voulu — un
 réglage d'environnement invalide doit casser aussi fort qu'un réglage de code.
 

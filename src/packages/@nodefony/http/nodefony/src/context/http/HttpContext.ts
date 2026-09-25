@@ -260,7 +260,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       await this.send();
       return this;
     }
-    // NB perf : pas de `setParameters("query.*")` ici. Les décorateurs
+    // NB perf : pas de copie des paramètres de requête dans le scope DI. Les décorateurs
     // @Query/@Param/@Body lisent `ctx.request.queryGet/queryPost/queryFile`
     // DIRECTEMENT (cf framework routerDecorators) ; peupler le scope DI avec
     // ces clés (4 parses + insertions/req) n'était lu par PERSONNE — héritage

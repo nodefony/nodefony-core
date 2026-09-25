@@ -5,7 +5,7 @@ import type {
   EventListener,
 } from "./types/IService";
 import type { IKernel } from "./types/IKernel";
-import Container, { DynamicParam, Scope } from "./Container";
+import Container, { Scope } from "./Container";
 import { isPackageDuplicated } from "./runtime/packageInstances";
 import Event, { EventDefaultInterface } from "./Event";
 import type { IGuardedEmitOptions, IGuardedEmitResult } from "./Event";
@@ -555,23 +555,7 @@ class Service implements IService {
     return false;
   }
 
-  /** Récupère un paramètre dynamique (config résolue) — `null` si absent. */
-  getParameters(name: string): Readonly<DynamicParam> | null {
-    return this.container?.getParameters(name) ?? null;
-  }
-
-  /**
-   * Définit un paramètre dynamique dans le container.
-   * @throws Error si `clean()` a déjà détaché le container.
-   */
-  setParameters<T>(name: string, ele: T): DynamicParam | null {
-    if (!this.container) {
-      throw new Error(`${this.name}: container not initialized`);
-    }
-    return this.container.setParameters(name, ele);
-  }
-
-  /** Vérifie l'existence d'un service ou paramètre dans le container. */
+  /** Vérifie l'existence d'un service dans le container. */
   has(name: string): boolean {
     return this.container?.has(name) ?? false;
   }

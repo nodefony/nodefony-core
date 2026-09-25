@@ -551,13 +551,7 @@ export type { ISyslog } from "./types/ISyslog";
 export type { ITransport } from "./types/ITransport";
 export type { EnvironmentType, DebugType } from "./types/globals";
 
-export type {
-  DynamicParam,
-  DynamicService,
-  Scopes,
-  ProtoService,
-  ProtoParameters,
-} from "./Container";
+export type { DynamicService, Scopes, ProtoService } from "./Container";
 export { Scope } from "./Container";
 
 export { SEVERITY_NAMES, BROWSER_ORIGIN } from "./syslog/Pdu";

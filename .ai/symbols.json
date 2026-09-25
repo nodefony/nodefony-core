@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 864,
-    "symbols": 4307,
+    "symbols": 4306,
     "classes": 404,
-    "interfaces": 1131,
-    "types": 460,
+    "interfaces": 1130,
+    "types": 459,
     "enums": 4,
-    "functions": 1874,
+    "functions": 1875,
     "constants": 434
   },
   "symbols": {
@@ -87,14 +87,6 @@
       "module": "@nodefony/core",
       "extends": null
     },
-    "DynamicParam": {
-      "name": "DynamicParam",
-      "kind": "interface",
-      "file": "src/nodefony/src/Container.ts",
-      "exported": true,
-      "module": "@nodefony/core",
-      "extends": null
-    },
     "Scopes": {
       "name": "Scopes",
       "kind": "type",
@@ -105,13 +97,6 @@
     },
     "ProtoService": {
       "name": "ProtoService",
-      "kind": "type",
-      "file": "src/nodefony/src/Container.ts",
-      "exported": true,
-      "module": "@nodefony/core"
-    },
-    "ProtoParameters": {
-      "name": "ProtoParameters",
       "kind": "type",
       "file": "src/nodefony/src/Container.ts",
       "exported": true,
@@ -4184,6 +4169,14 @@
       "module": "@nodefony/core",
       "description": "Valide la configuration d'un module contre son schéma Zod, et transforme un refus en {@link BootConfigurationError} nommant le module et la clé fautive. ⭐ TL;DR : c'est LA porte par laquelle toute …"
     },
+    "freezeConfigTree": {
+      "name": "freezeConfigTree",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/moduleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Gèle en profondeur une configuration : objets simples et tableaux seulement."
+    },
     "IModuleEntry": {
       "name": "IModuleEntry",
       "kind": "interface",
@@ -6307,7 +6300,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": "IContainer",
-      "description": "Contrat public d'un scope (Container enfant lié à un parent). Étend IContainer et ajoute name + getParameters avec merge/deep."
+      "description": "Contrat public d'un scope (Container enfant lié à un parent). Étend IContainer et ajoute name, l'état de fermeture et le rattachement d'objets."
     },
     "IContainer": {
       "name": "IContainer",
@@ -30182,7 +30175,6 @@
       ],
       "extend": [
         "src/nodefony/src/Cli.ts",
-        "src/nodefony/src/Container.ts",
         "src/nodefony/src/FileClass.ts",
         "src/nodefony/src/client/index.ts",
         "src/nodefony/src/command/Builder.ts",
@@ -30427,11 +30419,6 @@
       "styleText": [
         "src/nodefony/src/colors.ts"
       ],
-      "isPlainObject": [
-        "src/nodefony/src/Container.ts",
-        "src/nodefony/src/client/index.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
-      ],
       "Message": [
         "src/nodefony/src/Container.ts",
         "src/nodefony/src/Service.ts",
@@ -30589,11 +30576,6 @@
         "src/nodefony/src/types/IService.ts",
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts"
-      ],
-      "DynamicParam": [
-        "src/nodefony/src/Service.ts",
-        "src/nodefony/src/types/IContainer.ts",
-        "src/nodefony/src/types/IService.ts"
       ],
       "Scope": [
         "src/nodefony/src/Service.ts",
@@ -32732,6 +32714,11 @@
       "isEmptyObject": [
         "src/nodefony/src/client/index.ts"
       ],
+      "isPlainObject": [
+        "src/nodefony/src/client/index.ts",
+        "src/nodefony/src/kernel/moduleConfig.ts",
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
+      ],
       "isUndefined": [
         "src/nodefony/src/client/index.ts"
       ],
@@ -33334,6 +33321,9 @@
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/security/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/user/nodefony/src/userContract.ts"
+      ],
+      "freezeConfigTree": [
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "findStoreOrderFault": [
         "src/nodefony/src/kernel/Kernel.ts",

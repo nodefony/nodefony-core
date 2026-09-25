@@ -277,34 +277,6 @@ describe("Service — container delegation", () => {
     service.clean();
     assert.strictEqual(service.has("anything"), false);
   });
-
-  it("setParameters/getParameters", () => {
-    service.setParameters("app.name", "nodefony");
-    const result = service.getParameters("app.name");
-    assert.strictEqual(result, "nodefony");
-  });
-
-  it("setParameters imbriqués (dot notation)", () => {
-    service.setParameters("app.config.debug", true);
-    assert.strictEqual(service.getParameters("app.config.debug"), true);
-  });
-
-  it("getParameters retourne null si absent", () => {
-    assert.strictEqual(service.getParameters("unknown.key"), null);
-  });
-
-  it("getParameters() retourne null si container null", () => {
-    service.clean();
-    assert.strictEqual(service.getParameters("anything"), null);
-  });
-
-  it("setParameters() throw si container null", () => {
-    service.clean();
-    assert.throws(
-      () => service.setParameters("key", "val"),
-      /container not initialized/,
-    );
-  });
 });
 
 // ─── Events ───────────────────────────────────────────────────────────────────
@@ -937,13 +909,5 @@ describe("Service — scénarios framework (partage container)", () => {
     const s = new Service("self");
     s.set("me", s);
     assert.strictEqual(s.get<Service>("me"), s);
-  });
-
-  it("paramètres partagés entre deux services via même container", () => {
-    const container = new Container();
-    const sA = new Service("sA", container);
-    sA.setParameters("shared.value", 42);
-    const sB = new Service("sB", container);
-    assert.strictEqual(sB.getParameters("shared.value"), 42);
   });
 });

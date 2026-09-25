@@ -90,7 +90,7 @@ course avec le `connect()` (raison détaillée dans le TSDoc du décorateur).
 
    ⚠️ L'injecteur CONSTRUIT, il n'initialise pas : `injector.ts` n'appelle
    ni `init` ni `initialize`. Le démarrage du service est déclenché par
-   l'APPELANT — `Module.addService()` (`Module.ts:377`), qui passe par
+   l'APPELANT — `Module.addService()` (`Module.ts:441`), qui passe par
    `Kernel.guardServiceInitialize()` (timeout + criticité) quand un kernel
    est présent, et appelle `init(this)` directement sinon.
 
@@ -139,7 +139,7 @@ C'est un appel fonctionnel `(inject("X") as Function)(Cls, undefined, 0)` côté
 
 Les deux décorateurs s'inscrivent par `kernel.once(...)` depuis le constructeur du
 mixin, donc **avant** les hooks de la sous-classe (`Module.setEvents()` s'exécute
-au constructeur de `Module`, `Module.ts:113`). Le seul `prependOnceListener` du
+au constructeur de `Module`, `Module.ts:70`). Le seul `prependOnceListener` du
 lifecycle est celui de `Module.setEvents()` (`Module.ts:238`) : il charge le
 `package.json` du module en tête de `onPreBoot` — ce n'est pas un décorateur.
 
@@ -163,7 +163,7 @@ une **collision réelle** (deux entités différentes, même nom, même connecte
 levée par le registre et n'est rattrapée par aucun décorateur.
 
 → Conséquence : l'échec d'un service dans `@services` passe par `Module.handleServiceBootError()`
-(`Module.ts:365`), qui applique la **politique de boot** au lieu de simplement logger. En production
+(`Module.ts:504`), qui applique la **politique de boot** au lieu de simplement logger. En production
 sur un module critique, l'erreur est **relancée** et avorte le boot ; sinon le service est absent du
 container et l'échec est **agrégé au BootReport** (le superviseur annonce « boot DÉGRADÉ »).
 Jamais un skip silencieux. Détection via `container.has("foo")` après boot, ou via le BootReport.

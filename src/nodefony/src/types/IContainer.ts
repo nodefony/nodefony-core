@@ -1,16 +1,15 @@
-import type { DynamicParam } from "../Container";
 import type { Pci, Severity, Msgid, Message } from "../syslog/Pdu";
 import type Syslog from "../syslog/Syslog";
 
 /**
  * Contrat public d'un scope (Container enfant lié à un parent).
- * Étend IContainer et ajoute name + getParameters avec merge/deep.
+ * Étend IContainer et ajoute name, l'état de fermeture et le rattachement d'objets.
  */
 export interface IScope extends IContainer {
   readonly name: string;
   /**
-   * `true` une fois le scope refermé par `leaveScope()` : ses services et
-   * paramètres sont libérés, un `get()` y rend `null` et un `set()` lève. Un
+   * `true` une fois le scope refermé par `leaveScope()` : ses services sont
+   * libérés, un `get()` y rend `null` et un `set()` lève. Un
    * scope fermé ne se rouvre pas — on en ouvre un neuf.
    */
   readonly closed: boolean;
@@ -28,11 +27,6 @@ export interface IScope extends IContainer {
    * @throws Error si le scope est déjà fermé — l'objet ne serait jamais nettoyé.
    */
   own(instance: object): void;
-  getParameters(
-    name: string,
-    merge?: boolean,
-    deep?: boolean,
-  ): Readonly<DynamicParam> | null;
 }
 
 /**
@@ -49,20 +43,6 @@ export interface IContainer {
   has(name: string): boolean;
   keys(): string[];
   entries(): [string, unknown][];
-
-  // ─── Paramètres ────────────────────────────────────────────────────────────
-  setParameters<T>(name: string, ele: T): DynamicParam | null;
-  /**
-   * Lit un paramètre. Le résultat est en LECTURE SEULE : pour une clé qu'un
-   * scope ne surcharge pas, c'est le nœud du conteneur racine, partagé par
-   * toutes les requêtes — gelé à la fin du démarrage.
-   */
-  getParameters(name: string): Readonly<DynamicParam> | null;
-  /**
-   * Fige l'arbre des paramètres (lecture seule en profondeur). Appelé par le
-   * kernel à la fin de `onReady` ; un `setParameters` ultérieur lève.
-   */
-  freezeParameters(): void;
 
   // ─── Scopes ────────────────────────────────────────────────────────────────
   addScope(name: string): object;

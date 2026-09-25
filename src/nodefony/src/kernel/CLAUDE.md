@@ -88,7 +88,7 @@ export class MyModule extends Module {
 }
 ```
 
-**Constructor** : `setParameters("modules.<name>")` + `setPath()` + `setEvents()` — qui ne pose un
+**Constructor** : `setPath()` + `setEvents()` — qui ne pose un
 hook que s'il EXISTE sur la classe (`if (this.onKernelRegister)`), plus le
 `prependOnceListener("onPreBoot")` qui charge le `package.json` et les overrides de config.
 **Aucun listener de build** : le build passe par la toolchain CLI (turbo + rolldown), le

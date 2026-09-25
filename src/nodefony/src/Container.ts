@@ -1,72 +1,8 @@
-import { extend, isPlainObject } from "./Tools";
 import type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
 import Syslog from "./syslog/Syslog";
 import type { IContainer, IScope } from "./types/IContainer";
 
-const ISDefined = function (ele: unknown): boolean {
-  return ele !== null && ele !== undefined;
-};
-
-const parseParameterString = function (
-  this: DynamicParam,
-  str: string,
-  value?: unknown,
-): DynamicParam | null {
-  if (!this) {
-    throw new Error(`Bad call`);
-  }
-  const parts = str.split(".");
-  const currentPart = parts.shift();
-  if (currentPart !== undefined) {
-    if (parts.length === 0) {
-      if (value !== undefined) {
-        this[currentPart] = value;
-      }
-      return (this[currentPart] ?? null) as DynamicParam | null;
-    }
-    if (this[currentPart] === undefined || this[currentPart] === null) {
-      if (value !== undefined) {
-        this[currentPart] = {};
-      } else {
-        return null;
-      }
-    }
-    if (typeof this[currentPart] !== "object") {
-      throw new Error(
-        `Cannot create property '${parts[0]}' on ${typeof this[currentPart]} '${this[currentPart]}'`,
-      );
-    }
-    return parseParameterString.call(
-      this[currentPart] as DynamicParam,
-      parts.join("."),
-      value,
-    );
-  }
-  return this;
-};
-
-/**
- * Gèle un arbre de paramètres en profondeur : objets simples et tableaux
- * seulement. Une instance de classe rangée en configuration (client, store,
- * fonction) garde son état propre et n'est pas gelée. Un nœud déjà gelé
- * s'arrête là — ce qui borne aussi un arbre qui se référence lui-même.
- */
-const freezeTree = (node: unknown): void => {
-  if (node === null || typeof node !== "object" || Object.isFrozen(node)) {
-    return;
-  }
-  if (!Array.isArray(node) && !isPlainObject(node)) return;
-  Object.freeze(node);
-  for (const key of Object.keys(node)) {
-    freezeTree((node as Record<string, unknown>)[key]);
-  }
-};
-
 export interface DynamicService {
-  [key: string]: unknown;
-}
-
-export interface DynamicParam {
   [key: string]: unknown;
 }
 
@@ -87,13 +23,11 @@ let containerSeq = 0;
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export type ProtoService = { (): void; [key: string]: any };
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ProtoParameters = { (): void; [key: string]: any };
 
 /**
  * Build a prototype holder whose `prototype` has NO prototype of its own, so
  * names inherited from `Object.prototype` (`toString`, `constructor`,
- * `hasOwnProperty`…) are never mistaken for services or parameters.
+ * `hasOwnProperty`…) are never mistaken for services.
  */
 function createProto(): ProtoService {
   const proto = function () {} as ProtoService;
@@ -106,14 +40,13 @@ function createProto(): ProtoService {
  * them to the rest of the framework.
  *
  * Services are stored on a prototype-backed object (`protoService`) so they
- * are inherited by child scopes (see {@link Scope}). The container also
- * carries an arbitrary parameter tree (`parameters`) used for configuration.
+ * are inherited by child scopes (see {@link Scope}). Configuration does not
+ * live here: each module reads its own `options`.
  *
  * Conventional usage:
  * ```ts
  * const c = new Container();
  * c.set("logger", new LoggerService());
- * c.setParameters("kernel.environment", "development");
  * const logger = c.get<LoggerService>("logger");
  * ```
  *
@@ -123,8 +56,6 @@ function createProto(): ProtoService {
 class Container implements IContainer {
   public protoService: ProtoService;
   protected services: DynamicService | null;
-  public protoParameters: ProtoParameters;
-  protected parameters: DynamicParam | null;
   #id: string | null = null;
   // Lazy (`null` tant qu'aucun addScope) : chaque Scope EST un Container — un
   // bucket alloué d'office serait une alloc morte par requête.
@@ -132,44 +63,21 @@ class Container implements IContainer {
 
   /**
    * Create a new container. When an existing container is passed in, the
-   * new instance inherits its services (via prototype chaining) and clones
-   * its parameters — used by {@link Scope} to build short-lived containers
-   * that share base services but isolate per-request state.
+   * new instance inherits its services (via prototype chaining) — used by
+   * {@link Scope} to build short-lived containers that share base services
+   * but isolate per-request state.
    *
    * @param input - parent container to inherit services from
-   * @param deep - if `true`, parameters are deep-cloned via `structuredClone`
-   * (falls back to shallow copy if `structuredClone` throws on unsupported types)
    * @param adoptedProtoService - @internal canal {@link Scope} : adopte le
    * proto-services du PARENT au lieu d'allouer une closure locale morte
-   * (2 closures + 2 `Object.create` jetés par requête avant ce chemin)
-   * @param adoptedProtoParameters - @internal idem pour les paramètres
    */
-  constructor(
-    input?: Container,
-    deep: boolean = false,
-    adoptedProtoService?: ProtoService,
-    adoptedProtoParameters?: ProtoParameters,
-  ) {
+  constructor(input?: Container, adoptedProtoService?: ProtoService) {
     this.protoService = adoptedProtoService ?? createProto();
-    this.protoParameters = adoptedProtoParameters ?? createProto();
     if (input && input instanceof Container) {
       this.services = Object.create(input.protoService.prototype);
-      this.parameters = Object.create(input.protoParameters.prototype);
       this.setServices(input.services ?? {});
-      if (deep) {
-        try {
-          this.setParametersBulk(
-            structuredClone(input.parameters ?? {}) as DynamicParam,
-          );
-        } catch {
-          this.setParametersBulk(input.parameters ?? {});
-        }
-      } else {
-        this.setParametersBulk(input.parameters ?? {});
-      }
     } else {
       this.services = Object.create(this.protoService.prototype);
-      this.parameters = Object.create(this.protoParameters.prototype);
     }
   }
 
@@ -187,7 +95,7 @@ class Container implements IContainer {
 
   /**
    * `true` après {@link clean} — pour un scope, après {@link leaveScope}.
-   * Services et paramètres sont alors libérés : `get()` rend `null` (même pour
+   * Les services sont alors libérés : `get()` rend `null` (même pour
    * un service hérité) et `set()` lève. {@link reset} rend un conteneur racine
    * utilisable ; un scope, lui, ne se rouvre pas.
    *
@@ -201,12 +109,6 @@ class Container implements IContainer {
   private setServices(services: DynamicService): void {
     for (const service in services) {
       this.set(service, services[service]);
-    }
-  }
-
-  private setParametersBulk(parameters: DynamicParam): void {
-    for (const parameter in parameters) {
-      this.setParameters(parameter, parameters[parameter]);
     }
   }
 
@@ -312,7 +214,7 @@ class Container implements IContainer {
   /**
    * Declare a scope. Scopes are short-lived containers (typically created
    * per HTTP/WS request) that inherit services from this container but
-   * store their own per-request services and parameters. Must be called
+   * store their own per-request services. Must be called
    * once before {@link enterScope} can produce instances.
    *
    * @param name - scope identifier (e.g. `"request"`)
@@ -333,8 +235,8 @@ class Container implements IContainer {
 
   /**
    * Open a new instance of the named scope. The returned {@link Scope}
-   * inherits services from this container but tracks its own services and
-   * parameters in isolation.
+   * inherits services from this container but tracks its own services in
+   * isolation.
    *
    * @param name - scope name previously declared via {@link addScope}
    * @returns a fresh `Scope` instance with a unique `id`
@@ -347,13 +249,13 @@ class Container implements IContainer {
         `Scope "${name}" not declared. Call addScope("${name}") first.`,
       );
     }
-    const sc = new Scope(name, this, this.protoService, this.protoParameters);
+    const sc = new Scope(name, this, this.protoService);
     bucket.add(sc);
     return sc;
   }
 
   /**
-   * Close a scope instance and release its services/parameters. Always
+   * Close a scope instance and release its services. Always
    * called when the unit of work that opened the scope finishes (request
    * end, WS close).
    *
@@ -407,92 +309,16 @@ class Container implements IContainer {
     this.scopes = null;
   }
 
-  // --- Paramètres ---
-
-  /**
-   * Set a value in the parameter tree using a dotted path. Intermediate
-   * objects are created on demand (`a.b.c = 1` creates `a` and `b` if they
-   * are missing).
-   *
-   * @param name - dotted path (e.g. `"kernel.environment"`)
-   * @param ele - value to assign (must not be `undefined`)
-   * @returns the parameter subtree containing the assigned value, or `null`
-   * if the container has been cleaned
-   * @throws Error when `name` is not a string or `ele` is `undefined`
-   */
-  public setParameters<T>(name: string, ele: T): DynamicParam | null {
-    if (typeof name !== "string") {
-      throw new Error(
-        "setParameters : container parameter name must be a string",
-      );
-    }
-    if (ele === undefined) {
-      throw new Error(
-        `setParameters : ${name} container parameter value must be defined`,
-      );
-    }
-    if (!this.parameters) return null;
-    // Chemin froid : une écriture de configuration n'a pas lieu par requête.
-    // Refuser ICI, en nommant la clé, plutôt que laisser lever une TypeError
-    // au fond de la descente, loin de l'appel qui l'a causée.
-    if (Object.isFrozen(this.parameters)) {
-      throw new Error(
-        `setParameters : « ${name} » ne peut plus être écrit — la configuration ` +
-          "du conteneur racine est figée depuis la fin du démarrage (onReady), " +
-          "parce qu'elle est partagée par toutes les requêtes. Une valeur propre " +
-          "à une requête s'écrit sur son scope (scope.setParameters) ; une " +
-          "valeur de configuration se pose avant la fin du démarrage.",
-      );
-    }
-    return parseParameterString.call(this.parameters, name, ele);
-  }
-
-  /**
-   * Fige la configuration du conteneur : l'arbre des paramètres devient en
-   * lecture seule, en profondeur, pour les objets simples et les tableaux.
-   *
-   * @remarks Appelé UNE fois par le kernel à la fin de `onReady`, avant que
-   * le premier serveur n'écoute : l'arbre est partagé par toutes les requêtes,
-   * et un scope le rend par référence pour une clé qu'il ne surcharge pas.
-   * Une écriture lève alors (`TypeError` en mode strict) au lieu de modifier,
-   * en silence, la configuration de toutes les requêtes concurrentes. Coût
-   * payé une fois, rien par requête. `reset()` repart d'un arbre neuf.
-   */
-  public freezeParameters(): void {
-    if (!this.parameters || Object.isFrozen(this.parameters)) return;
-    Object.freeze(this.parameters);
-    for (const key of Object.keys(this.parameters)) {
-      freezeTree(this.parameters[key]);
-    }
-  }
-
-  /**
-   * Read a value (or subtree) from the parameter tree.
-   *
-   * @param name - dotted path (e.g. `"kernel.environment"`)
-   * @returns the value, the subtree, or `null` if absent
-   * @throws Error when `name` is empty
-   */
-  public getParameters(name: string): Readonly<DynamicParam> | null {
-    if (!name) {
-      throw new Error(`getParameters : invalid name "${name}"`);
-    }
-    if (!this.parameters) return null;
-    return parseParameterString.call(this.parameters, name);
-  }
-
   // --- Cycle de vie ---
 
   /**
-   * Tear the container down: close every scope, drop services and
-   * parameters. After `clean()`, any `get`/`set`/`enterScope` call on this
+   * Tear the container down: close every scope and drop services. After `clean()`, any `get`/`set`/`enterScope` call on this
    * instance throws or returns `null`. Called by the kernel during
    * graceful shutdown.
    */
   public clean(): void {
     this.removeAllScopes();
     this.services = null;
-    this.parameters = null;
   }
 
   /**
@@ -503,9 +329,7 @@ class Container implements IContainer {
   public reset(): void {
     this.clean();
     this.protoService = createProto();
-    this.protoParameters = createProto();
     this.services = Object.create(this.protoService.prototype);
-    this.parameters = Object.create(this.protoParameters.prototype);
   }
 }
 
@@ -514,12 +338,11 @@ class Container implements IContainer {
  * the HTTP/WS kernel to isolate per-request services (e.g. request-bound
  * sessions, scoped resolvers) without polluting the global container.
  *
- * Services and parameters defined on a `Scope` shadow the parent's — reads
- * fall back to the parent transparently when nothing is found locally.
+ * Services defined on a `Scope` shadow the parent's — reads fall back to the
+ * parent transparently when nothing is found locally.
  */
 class Scope extends Container implements IScope {
   public name: string;
-  private parent: Container | null;
   // Objets dont la durée de vie est liée au scope (services `request`), dans
   // l'ordre de rattachement. `null` tant que rien n'est rattaché : une requête
   // qui ne résout aucun service `request` ne paie qu'un champ, jamais un tableau.
@@ -529,14 +352,12 @@ class Scope extends Container implements IScope {
     name: string,
     parent: Container,
     parentProtoService: ProtoService,
-    parentProtoParameters: ProtoParameters,
   ) {
-    // Adoption des protos PARENTS (canal @internal du constructeur) :
-    // `services`/`parameters` héritent directement de leur prototype — plus
-    // de double init (2 closures + 2 Object.create jetés par requête avant).
-    super(undefined, false, parentProtoService, parentProtoParameters);
+    // Adoption du proto PARENT (canal @internal du constructeur) : `services`
+    // hérite directement de son prototype — pas de closure ni d'Object.create
+    // jetés par requête.
+    super(undefined, parentProtoService);
     this.name = name;
-    this.parent = parent;
     // Scope imbriqué : chaîner sur les services du scope PARENT (qui chaînent
     // eux-mêmes sur le proto racine), sinon l'enfant ne voit pas ce que son
     // parent a posé pour la requête (controller, context…). Chemin froid.
@@ -629,40 +450,12 @@ class Scope extends Container implements IScope {
   }
 
   /**
-   * Read a parameter from the scope, falling back to the parent container.
-   * When both sides hold plain objects, the result is a merged view (deep
-   * by default) so a scope can override a few keys without losing the rest.
-   *
-   * @param name - dotted path
-   * @param merge - when `true` (default), merge scope and parent objects;
-   * when `false`, scope value wins outright if present
-   * @param deep - deep vs. shallow merge (only when `merge` is `true`)
-   */
-  public override getParameters(
-    name: string,
-    merge: boolean = true,
-    deep: boolean = true,
-  ): Readonly<DynamicParam> | null {
-    const res = parseParameterString.call(this.parameters ?? {}, name);
-    const obj = this.parent?.getParameters(name);
-    if (ISDefined(res)) {
-      if (merge && isPlainObject(obj) && isPlainObject(res)) {
-        // Cible NEUVE : `obj` est le nœud du parent rendu par référence —
-        // fusionner dedans écrirait dans l'état partagé de toutes les requêtes.
-        return extend(deep, {}, obj, res) as DynamicParam;
-      }
-      return res;
-    }
-    return obj ?? null;
-  }
-
-  /**
    * Nettoie les objets rattachés ({@link own}), du dernier au premier, puis
-   * rompt le lien au parent et libère le scope. Appelé par
+   * libère le scope. Appelé par
    * {@link Container.leaveScope} quand l'unité de travail qui l'a ouvert se
    * termine.
    *
-   * Les services et paramètres du scope sont encore lisibles pendant les
+   * Les services du scope sont encore lisibles pendant les
    * `clean()` des objets rattachés : ils sont libérés APRÈS. Un `clean()` qui
    * lève est journalisé et n'interrompt pas les suivants — sans quoi un seul
    * service fautif laisserait tous ceux créés avant lui sans nettoyage.
@@ -698,7 +491,6 @@ class Scope extends Container implements IScope {
         }
       }
     }
-    this.parent = null;
     return super.clean();
   }
 

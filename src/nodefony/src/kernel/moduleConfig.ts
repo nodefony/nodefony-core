@@ -1,5 +1,6 @@
 import type { ZodType } from "zod";
 import { BootConfigurationError } from "./BootConfigurationError";
+import { isPlainObject } from "../Tools";
 
 /**
  * Forme d'une anomalie Zod telle que ce module la lit — volontairement
@@ -81,9 +82,9 @@ function formatConfigIssues(error: unknown): string {
  * `Error` nue rendait donc le refus INVISIBLE là où il est le plus utile :
  * sur le poste de celui qui vient d'écrire la faute de frappe.
  *
- * ⚠️ Ne gèle rien — le gel est la décision du module appelant. `@nodefony/http`
- * ne peut PAS geler sa config (ses services la mutent au boot : `uploadDir`,
- * `serialNumber`), quand les autres le font.
+ * ⚠️ Ne gèle rien ici — un module peut encore compléter sa config au boot
+ * (`@nodefony/http` : `uploadDir`, `serialNumber`). Le gel PROFOND de toutes les
+ * configs a lieu une fois, à la fin de `onReady` ({@link freezeConfigTree}).
  *
  * @param schema - schéma Zod du module (source unique des défauts).
  * @param input - configuration brute venue de `use("<paquet>", { … })`.
@@ -110,3 +111,33 @@ export function parseModuleConfig<T>(
 }
 
 export default parseModuleConfig;
+
+/**
+ * Gèle en profondeur une configuration : objets simples et tableaux seulement.
+ *
+ * @remarks Appelé par le kernel à la fin de `onReady` sur les `options` de
+ * chaque module, avant que le premier serveur n'écoute : ces objets sont
+ * partagés par toutes les requêtes, et une écriture y changerait en silence
+ * la configuration des requêtes concurrentes. Elle lève désormais
+ * (`TypeError` en mode strict). Une instance de classe rangée en
+ * configuration (client, store, fonction) garde son état propre et n'est pas
+ * gelée. Un objet déjà gelé EN SURFACE (le `Object.freeze` d'un
+ * `defineModuleConfig`) est parcouru quand même : ses enfants ne le sont pas.
+ * Les nœuds visités sont retenus le temps de l'appel, ce qui borne un arbre
+ * qui se référence lui-même. Coût payé une fois, rien par requête.
+ *
+ * @param node - la racine à geler (une valeur non objet est ignorée)
+ * @param seen - @internal nœuds déjà parcourus pendant cet appel
+ */
+export function freezeConfigTree(
+  node: unknown,
+  seen: WeakSet<object> = new WeakSet(),
+): void {
+  if (node === null || typeof node !== "object" || seen.has(node)) return;
+  if (!Array.isArray(node) && !isPlainObject(node)) return;
+  seen.add(node);
+  Object.freeze(node);
+  for (const key of Object.keys(node)) {
+    freezeConfigTree((node as Record<string, unknown>)[key], seen);
+  }
+}

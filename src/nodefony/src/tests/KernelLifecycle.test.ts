@@ -1197,33 +1197,56 @@ describe("Kernel lifecycle — onReady()", () => {
     assert.strictEqual(received, k);
   });
 
-  // #491 : la configuration est figée à la fin de `onReady`, AVANT que le
+  // #491/#493 : la configuration de chaque module (`module.options`, partagée
+  // par toutes les requêtes) est figée à la fin de `onReady`, AVANT que le
   // premier serveur n'écoute. Un écouteur de `onReady` écrit encore ; un
   // écouteur de `onPostReady` (serveurs déjà en écoute) ne le peut plus.
-  // Débrancher : retirer l'appel à `freezeParameters()` dans `Kernel.onReady`.
-  it("la configuration est figée entre onReady et onPostReady (#491)", async () => {
+  // Débrancher : retirer la boucle `freezeConfigTree` de `Kernel.onReady`.
+  it("la configuration des modules est figée entre onReady et onPostReady", async () => {
+    class Client {
+      calls = 0;
+    }
+    const client = new Client();
     const k = mkKernel();
-    k.container!.setParameters("app", { debug: false });
+    class Cfg extends Module {
+      constructor(kernel: Kernel) {
+        super("cfg493", kernel, "/tmp/cfg493", {
+          debug: false,
+          db: { pool: 4 },
+          tags: ["a"],
+          client,
+        });
+      }
+    }
+    const mod = await k.addModule(Cfg);
+    const options = mod.options as Record<string, unknown>;
     let writtenAtReady = false;
-    let refusedAtPostReady: unknown = null;
+    const refused: unknown[] = [];
     k.on("onReady", () => {
-      k.container!.setParameters("app.readyFlag", true);
+      options.readyFlag = true;
       writtenAtReady = true;
     });
     k.on("onPostReady", () => {
-      try {
-        k.container!.setParameters("app.late", true);
-      } catch (error) {
-        refusedAtPostReady = error;
+      for (const write of [
+        () => (options.debug = true),
+        () => ((options.db as Record<string, unknown>).pool = 64),
+        () => (options.tags as string[]).push("b"),
+      ]) {
+        try {
+          write();
+        } catch (error) {
+          refused.push(error);
+        }
       }
     });
     await k.onReady();
     assert.strictEqual(writtenAtReady, true);
-    assert.match(String(refusedAtPostReady), /« app\.late » ne peut plus/);
-    assert.strictEqual(
-      Object.isFrozen(k.container!.getParameters("app")),
-      true,
-    );
+    assert.strictEqual(refused.length, 3);
+    assert.ok(refused.every((e) => e instanceof TypeError));
+    assert.strictEqual(options.debug, false);
+    // Une instance de classe rangée en configuration garde son état propre.
+    client.calls += 1;
+    assert.strictEqual(client.calls, 1);
   });
 
   it("initServers() retourne [] si pas de HttpKernel → pas d'erreur", async () => {

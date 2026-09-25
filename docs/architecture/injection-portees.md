@@ -56,7 +56,7 @@ flowchart TD
 
 1. **Le registre** indexe des **classes** décorées `@injectable` (`injectables`, `injector.ts:25`).
 2. **Le container** range des **instances** sous le nom passé à `super(nom, …)` (`Container.set()`,
-   `Container.ts:249`).
+   `Container.ts:151`).
 
 Ces deux chaînes n'ont **aucune raison d'être égales** : la classe `Router` vit dans le container
 sous `"router"`. Toute la mécanique de résolution existe pour réconcilier les deux.
@@ -68,7 +68,7 @@ Le mot est surchargé dans Nodefony. Les confondre produit des bugs qui ne plant
 | Ce qu'on écrit                          | Ce que ça règle                                | Où c'est implémenté                                                               |
 | --------------------------------------- | ---------------------------------------------- | --------------------------------------------------------------------------------- |
 | `@injectable({ scope: "singleton" })`   | combien d'**instances** d'une classe           | `injector.ts:157`                                                                 |
-| `container.enterScope("request")`       | un **sous-container** jeté en fin de requête   | `Container.ts:343`                                                                |
+| `container.enterScope("request")`       | un **sous-container** jeté en fin de requête   | `Container.ts:245`                                                                |
 | `@Scope("singleton")` sur un controller | un controller partagé au lieu d'un par requête | `routerDecorators.ts:754`                                                         |
 | `@RequireScope("users:write")`          | une **permission** — rien à voir avec le DI    | autorisation ([firewall](../../src/packages/@nodefony/security/docs/firewall.md)) |
 
@@ -113,28 +113,28 @@ pour rendre cette fuite **structurellement impossible**, pas seulement improbabl
 ## La vision Nodefony — la portée par chaîne de prototypes
 
 Le `Container` racine est créé au boot et le kernel y **pose** les services partagés. À chaque
-requête, `Container.enterScope()` (`Container.ts:343`) ouvre un sous-container qui hérite du parent
-par **chaîne de prototypes JS** (`Object.create(input.protoService.prototype)`, `Container.ts:127`).
+requête, `Container.enterScope()` (`Container.ts:245`) ouvre un sous-container qui hérite du parent
+par **chaîne de prototypes JS** (`Object.create(input.protoService.prototype)`, `Container.ts:77`).
 
 Conséquence directe : lire un service parent depuis un scope (`scope.get("syslog")`) est une
 **résolution native V8** — pas de hop logiciel, pas de wrapper, pas de remontée manuelle
-(`Container.get()`, `Container.ts:212`).
+(`Container.get()`, `Container.ts:168`).
 
 Les services courts (resolver, context, controller) sont posés en **own-property** du scope
-(`Scope.set()`, `Container.ts:516`) : ils **masquent** le parent localement sans jamais l'écrire.
+(`Scope.set()`, `Container.ts:391`) : ils **masquent** le parent localement sans jamais l'écrire.
 
 ### Le constat qui garantit l'isolation concurrente
 
 `Scope` **redéfinit** `set()` pour n'écrire que sur son propre objet (`Scope.set()`,
-`Container.ts:516`). La raison est explicite dans le code, et elle est vitale.
+`Container.ts:391`). La raison est explicite dans le code, et elle est vitale.
 
 Depuis que le scope **adopte le prototype du parent** (optimisation qui évite deux allocations
-mortes par requête, `Scope` constructeur, `Container.ts:520`), un `set()` de type `Container`
+mortes par requête, `Scope` constructeur, `Container.ts:352`), un `set()` de type `Container`
 écrirait sur le **proto partagé**. Un service per-request deviendrait alors visible de **toutes** les
 requêtes concurrentes.
 
 La redéfinition en own-property est donc la barrière anti-fuite. Idem pour `Scope.remove()`
-(`Container.ts:529`), qui ne touche jamais un service hérité.
+(`Container.ts:404`), qui ne touche jamais un service hérité.
 
 > [!IMPORTANT]
 > C'est ce qui rend l'isolation **structurelle** et non conventionnelle : ce n'est pas « on évite
@@ -486,17 +486,16 @@ sequenceDiagram
 
 ## 🧰 API du Container
 
-| Méthode                           | Rôle                                                                                             |
-| --------------------------------- | ------------------------------------------------------------------------------------------------ |
-| `set(name, instance)`             | Enregistrer un service — racine : proto + own ; scope : own seulement (`Container.ts:249`)       |
-| `get<T>(name)`                    | Résoudre un service — `null` si absent, narrower avant usage (`Container.ts:212`)                |
-| `has(name)` / `remove(name)`      | Test / suppression — la suppression **cascade** vers les scopes enfants (`Container.ts:281`)     |
-| `addScope(name)`                  | **Déclarer** un type de scope, au boot (`Container.ts:322`)                                      |
-| `enterScope(name)`                | **Ouvrir** une instance de scope — lève si non déclaré (`Container.ts:343`)                      |
-| `leaveScope(scope)`               | Fermer et nettoyer une instance de scope (`Container.ts:362`)                                    |
-| `scopeCount(name)`                | Instances vivantes — sonde de fuite bon marché (`Container.ts:379`)                              |
-| `setParameters` / `getParameters` | Arbre pointé `a.b.c` ; côté scope, **merge profond** avec le parent (`Container.ts:476`)         |
-| `clean()` / `reset()`             | Démontage / remise à zéro — `get` rend `null` et `set` lève après `clean()` (`Container.ts:492`) |
+| Méthode                      | Rôle                                                                                             |
+| ---------------------------- | ------------------------------------------------------------------------------------------------ |
+| `set(name, instance)`        | Enregistrer un service — racine : proto + own ; scope : own seulement (`Container.ts:151`)       |
+| `get<T>(name)`               | Résoudre un service — `null` si absent, narrower avant usage (`Container.ts:212`)                |
+| `has(name)` / `remove(name)` | Test / suppression — la suppression **cascade** vers les scopes enfants (`Container.ts:183`)     |
+| `addScope(name)`             | **Déclarer** un type de scope, au boot (`Container.ts:224`)                                      |
+| `enterScope(name)`           | **Ouvrir** une instance de scope — lève si non déclaré (`Container.ts:245`)                      |
+| `leaveScope(scope)`          | Fermer et nettoyer une instance de scope (`Container.ts:264`)                                    |
+| `scopeCount(name)`           | Instances vivantes — sonde de fuite bon marché (`Container.ts:281`)                              |
+| `clean()` / `reset()`        | Démontage / remise à zéro — `get` rend `null` et `set` lève après `clean()` (`Container.ts:319`) |
 
 Signatures complètes : générées depuis les TSDoc, jamais recopiées ici.
 
@@ -535,13 +534,13 @@ Nodefony est un framework runtime : ce chemin s'exécute à chaque requête. Tro
 - **Héritage par prototype plutôt que remontée logicielle** : lire un service parent depuis un scope
   est résolu par V8, sans code intermédiaire (`Container.ts:127`).
 - **Adoption des protos parents par le scope** : évite deux closures et deux `Object.create` jetés à
-  chaque requête (`Scope` constructeur, `Container.ts:520`).
+  chaque requête (`Scope` constructeur, `Container.ts:352`).
 - **`id` de scope = compteur monotone base 36**, pas un UUID v4 (`containerSeq`, `Container.ts:67`) :
   un appel crypto par requête pour une clé locale jamais exposée serait du gaspillage.
 - **`Map` pour le bookkeeping des scopes**, pas un objet littéral `delete`-é (`Scopes`,
   `Container.ts:62`) : l'ajout/retrait à chaque requête fait « churner » la _shape_ d'un objet
   ordinaire et dégrade les inline caches V8.
-- **Scopes alloués en lazy** — `null` tant qu'aucun `addScope` (`Container.ts:322`) : pas de bucket
+- **Scopes alloués en lazy** — `null` tant qu'aucun `addScope` (`Container.ts:224`) : pas de bucket
   alloué d'office et jamais utilisé.
 
 Côté portées, le coût se lit simplement :
@@ -556,7 +555,7 @@ Côté portées, le coût se lit simplement :
 
 Toute modification de `Container.ts` ou du pipeline de requête passe par le gate mémoire
 (`npm run test:memory` dans `@nodefony/http`) — un scope non libéré est une fuite qui grandit avec le
-trafic. La sonde `scopeCount()` (`Container.ts:379`) existe pour la voir venir.
+trafic. La sonde `scopeCount()` (`Container.ts:281`) existe pour la voir venir.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
@@ -565,7 +564,7 @@ trafic. La sonde `scopeCount()` (`Container.ts:379`) existe pour la voir venir.
 | Service reconstruit, cache vide, **aucun crash**  | Nom `@inject` ≠ clé container, résolution avant apprentissage       | Vérifier le `super(nom)` réel ; déclarer le service via `@services`    |
 | Deux instances d'un `singleton` en test           | Pas de kernel → pas d'endroit où mémoïser (`injector.ts:169`)       | Attendu hors kernel ; monter un kernel de test si l'unicité est testée |
 | État d'une requête visible dans une autre         | Écriture sur le container **parent** au lieu du scope               | Toujours `scope.set` per-request — jamais `container.set`              |
-| `Scope "X" not declared`                          | `enterScope("X")` sans `addScope("X")` au boot (`Container.ts:296`) | Déclarer le scope au boot                                              |
+| `Scope "X" not declared`                          | `enterScope("X")` sans `addScope("X")` au boot (`Container.ts:224`) | Déclarer le scope au boot                                              |
 | Fuite mémoire, `scopeCount` qui monte             | `leaveScope` non appelé (pipeline court-circuité)                   | Le kernel le fait aux deux sorties — ne pas contourner le teardown     |
 | `Circular dependency detected: A → B → A`         | Cycle de résolution (`injector.ts:262`)                             | Casser le cycle : repenser la dépendance, ou la résoudre à l'appel     |
 | `Circular service dependency in @services([...])` | Cycle entre services d'une même liste (`serviceOrder.ts:125`)       | Idem — un cycle n'a pas d'ordre valide                                 |

@@ -116,87 +116,6 @@ describe("Container › Services", () => {
   });
 });
 
-// ─── Parameters ───────────────────────────────────────────────────────────────
-
-describe("Container › Parameters", () => {
-  let c: Container;
-  beforeEach(() => {
-    c = new Container();
-  });
-
-  it("setParameters / getParameters simple", () => {
-    c.setParameters("host", "localhost");
-    expect(c.getParameters("host")).to.equal("localhost");
-  });
-
-  it("setParameters / getParameters notation pointée", () => {
-    c.setParameters("db.host", "127.0.0.1");
-    c.setParameters("db.port", 5432);
-    expect(c.getParameters("db.host")).to.equal("127.0.0.1");
-    expect(c.getParameters("db.port")).to.equal(5432);
-  });
-
-  it("getParameters() sur le nœud parent retourne l'objet complet", () => {
-    c.setParameters("db.host", "127.0.0.1");
-    c.setParameters("db.port", 5432);
-    const db = c.getParameters("db") as Record<string, unknown>;
-    expect(db).to.include({ host: "127.0.0.1", port: 5432 });
-  });
-
-  it("setParameters() écrase une valeur existante", () => {
-    c.setParameters("db.port", 5432);
-    c.setParameters("db.port", 3306);
-    expect(c.getParameters("db.port")).to.equal(3306);
-  });
-
-  it("setParameters() imbrication profonde", () => {
-    c.setParameters("a.b.c.d", "deep");
-    expect(c.getParameters("a.b.c.d")).to.equal("deep");
-    expect(c.getParameters("a.b.c")).to.deep.include({ d: "deep" });
-    expect(c.getParameters("a.b")).to.be.an("object");
-    expect(c.getParameters("a")).to.be.an("object");
-  });
-
-  it("setParameters() valeur objet / tableau", () => {
-    const arr = [1, 2, 3];
-    c.setParameters("list", arr);
-    expect(c.getParameters("list")).to.deep.equal([1, 2, 3]);
-  });
-
-  it("setParameters() lève erreur si name n'est pas string", () => {
-    assert.throws(
-      () => c.setParameters(42 as unknown as string, "val"),
-      Error,
-      "container parameter name must be a string",
-    );
-  });
-
-  it("setParameters() lève erreur si value est undefined", () => {
-    assert.throws(
-      () => c.setParameters("key", undefined as unknown as string),
-      Error,
-      "container parameter value must be defined",
-    );
-  });
-
-  it("setParameters() lève erreur si on descend dans un nœud non-objet", () => {
-    c.setParameters("foo.bar", "string_value");
-    assert.throws(
-      () => c.setParameters("foo.bar.nested", "oops"),
-      Error,
-      "Cannot create property",
-    );
-  });
-
-  it("getParameters() name vide lève erreur", () => {
-    assert.throws(() => c.getParameters(""), Error);
-  });
-
-  it("getParameters() clé inexistante → null", () => {
-    expect(c.getParameters("ghost")).to.be.null;
-  });
-});
-
 // ─── Lifecycle ────────────────────────────────────────────────────────────────
 
 describe("Container › Lifecycle", () => {
@@ -204,7 +123,6 @@ describe("Container › Lifecycle", () => {
   beforeEach(() => {
     c = new Container();
     c.set("svcA", new ServiceA());
-    c.setParameters("env", "production");
   });
 
   it("clean() : get() → null, has() → false, keys() → []", () => {
@@ -214,19 +132,11 @@ describe("Container › Lifecycle", () => {
     expect(c.keys()).to.deep.equal([]);
   });
 
-  it("clean() : setParameters / getParameters → null (pas d'erreur)", () => {
-    c.clean();
-    expect(c.setParameters("x", "y")).to.be.null;
-    expect(c.getParameters("x")).to.be.null;
-  });
-
   it("reset() : container à nouveau utilisable après clean()", () => {
     c.clean();
     c.reset();
     c.set("svcA", new ServiceA("after-reset"));
     expect(c.get<ServiceA>("svcA")?.name).to.equal("after-reset");
-    c.setParameters("key", "value");
-    expect(c.getParameters("key")).to.equal("value");
   });
 
   it("remove() sur container clean() → false (pas d'erreur)", () => {
@@ -246,27 +156,11 @@ describe("Container › Constructeur clone", () => {
     expect(child.get("svcA")).to.equal(svcA);
   });
 
-  it("shallow clone hérite des paramètres du parent", () => {
-    const parent = new Container();
-    parent.setParameters("db.host", "localhost");
-    const child = new Container(parent);
-    expect(child.getParameters("db.host")).to.equal("localhost");
-  });
-
   it("shallow clone : service ajouté au child non visible dans parent", () => {
     const parent = new Container();
     const child = new Container(parent);
     child.set("childOnly", new ServiceB(7));
     expect(parent.get("childOnly")).to.be.null;
-  });
-
-  it("deep=true : paramètres clonés — mutation child n'affecte pas parent", () => {
-    const parent = new Container();
-    parent.setParameters("config.port", 3000);
-    const child = new Container(parent, true);
-    child.setParameters("config.port", 9999);
-    expect(parent.getParameters("config.port")).to.equal(3000);
-    expect(child.getParameters("config.port")).to.equal(9999);
   });
 });
 
@@ -278,7 +172,6 @@ describe("Container › Scopes", () => {
     c = new Container();
     c.set("svcA", new ServiceA("main"));
     c.set("svcB", new ServiceB(1));
-    c.setParameters("app.debug", false);
   });
 
   it("enterScope() sans addScope() préalable lève une erreur", () => {
@@ -330,40 +223,6 @@ describe("Container › Scopes", () => {
     s1.set("exclusive", new ServiceC("s1"));
     expect(s1.get<ServiceC>("exclusive")?.label).to.equal("s1");
     expect(s2.get("exclusive")).to.be.null;
-  });
-
-  it("paramètres scope : voit les paramètres du parent", () => {
-    c.addScope("req");
-    const scope = c.enterScope("req");
-    expect(scope.getParameters("app.debug")).to.equal(false);
-  });
-
-  it("paramètres scope : override local n'affecte pas le parent", () => {
-    c.addScope("req");
-    const scope = c.enterScope("req");
-    scope.setParameters("app.debug", true);
-    expect(scope.getParameters("app.debug")).to.equal(true);
-    expect(c.getParameters("app.debug")).to.equal(false);
-  });
-
-  it("paramètres scope : merge quand parent et scope ont un objet", () => {
-    c.setParameters("db", { host: "localhost", port: 5432 });
-    c.addScope("req");
-    const scope = c.enterScope("req");
-    scope.setParameters("db", { port: 3306, ssl: true });
-    const merged = scope.getParameters("db") as Record<string, unknown>;
-    expect(merged["host"]).to.equal("localhost");
-    expect(merged["port"]).to.equal(3306);
-    expect(merged["ssl"]).to.equal(true);
-  });
-
-  it("paramètres scope : pas de merge si valeur non-objet dans scope", () => {
-    c.setParameters("level", { nested: true });
-    c.addScope("req");
-    const scope = c.enterScope("req");
-    scope.setParameters("level", "override-string");
-    expect(scope.getParameters("level")).to.equal("override-string");
-    expect(c.getParameters("level")).to.deep.include({ nested: true });
   });
 
   it("leaveScope() : scope nettoyé, accès aux services → null", () => {
@@ -606,7 +465,7 @@ describe("Container › comportements avancés", () => {
     expect(parent.get("svc")).to.deep.equal({ v: 1 });
   });
 
-  it("reset() recrée protoService et protoParameters", () => {
+  it("reset() recrée protoService", () => {
     const c = new Container();
     const origProto = c.protoService;
     c.reset();
@@ -629,37 +488,13 @@ describe("Container › comportements avancés", () => {
 // ─── Scope avancé ─────────────────────────────────────────────────────────────
 
 describe("Container › Scope avancé", () => {
-  it("Scope.getParameters() merge=false → valeur locale seule", () => {
+  it("Scope.clean() → get retourne null", () => {
     const c = new Container();
-    c.setParameters("db", { host: "localhost", port: 5432 });
-    c.addScope("req");
-    const scope = c.enterScope("req");
-    scope.setParameters("db", { port: 3306 });
-    const result = scope.getParameters("db", false) as Record<string, unknown>;
-    expect(result["port"]).to.equal(3306);
-    expect(result["host"]).to.be.undefined;
-  });
-
-  it("Scope.getParameters() deep=false → merge shallow", () => {
-    const c = new Container();
-    c.setParameters("cfg", { a: { x: 1 }, b: 2 });
-    c.addScope("req");
-    const scope = c.enterScope("req");
-    scope.setParameters("cfg", { a: { y: 9 } });
-    const result = scope.getParameters("cfg", true, false) as Record<
-      string,
-      unknown
-    >;
-    expect((result["a"] as Record<string, unknown>)["y"]).to.equal(9);
-  });
-
-  it("Scope.clean() → parent mis à null, getParameters retourne null", () => {
-    const c = new Container();
-    c.setParameters("key", "value");
+    c.set("key", "value");
     c.addScope("req");
     const scope = c.enterScope("req");
     c.leaveScope(scope);
-    expect(scope.getParameters("key")).to.be.null;
+    expect(scope.get("key")).to.be.null;
   });
 
   it("scope a son propre id unique", () => {
@@ -672,42 +507,6 @@ describe("Container › Scope avancé", () => {
 });
 
 describe("Container › Scope — étanchéité (#482)", () => {
-  it("une lecture fusionnée sur un scope n'écrit ni dans le parent ni dans un scope voisin", () => {
-    const root = new Container();
-    root.setParameters("app", { name: "root", debug: false });
-    root.addScope("req");
-    const s1 = root.enterScope("req");
-    const s2 = root.enterScope("req");
-    s1.setParameters("app", { debug: true, tenant: "acme" });
-
-    expect(s1.getParameters("app")).to.deep.equal({
-      name: "root",
-      debug: true,
-      tenant: "acme",
-    });
-    expect(root.getParameters("app")).to.deep.equal({
-      name: "root",
-      debug: false,
-    });
-    expect(s2.getParameters("app")).to.deep.equal({
-      name: "root",
-      debug: false,
-    });
-  });
-
-  it("une lecture fusionnée profonde laisse intacts les sous-objets du parent", () => {
-    const root = new Container();
-    root.setParameters("db", { pool: { min: 1, max: 5 } });
-    root.addScope("req");
-    const s1 = root.enterScope("req");
-    s1.setParameters("db", { pool: { max: 50 } });
-
-    expect(s1.getParameters("db")).to.deep.equal({ pool: { min: 1, max: 50 } });
-    expect(root.getParameters("db")).to.deep.equal({
-      pool: { min: 1, max: 5 },
-    });
-  });
-
   it("un scope imbriqué voit les services propres de son scope parent", () => {
     const root = new Container();
     root.set("db", "DB");
@@ -755,7 +554,7 @@ describe("Container › Scope — étanchéité (#482)", () => {
     expect(s1.get("db")).to.be.null;
   });
 
-  it("les noms hérités d'Object.prototype ne sont ni des services ni des paramètres", () => {
+  it("les noms hérités d'Object.prototype ne sont pas des services", () => {
     const root = new Container();
     root.addScope("req");
     const s1 = root.enterScope("req");
@@ -763,7 +562,6 @@ describe("Container › Scope — étanchéité (#482)", () => {
       expect(c.has("toString")).to.equal(false);
       expect(c.has("constructor")).to.equal(false);
       expect(c.get("hasOwnProperty")).to.be.null;
-      expect(c.getParameters("toString")).to.be.null;
     }
   });
 });
@@ -901,100 +699,5 @@ describe("Container › closed (#484)", () => {
     const scope = root.enterScope("request");
     root.clean();
     expect(scope.closed).to.equal(true);
-  });
-});
-
-// ─── Configuration figée à la fin du démarrage (#491) ─────────────────────────
-//
-// Pour une clé qu'un scope ne surcharge pas, `getParameters` rend le nœud du
-// conteneur racine PAR RÉFÉRENCE : une requête qui y écrit modifiait la
-// configuration de toutes les autres. `freezeParameters()` (appelé par le
-// kernel à la fin de `onReady`) rend l'écriture bruyante. Débrancher : vider
-// le corps de `freezeParameters` → les blocs 1, 3 et 4 tombent.
-describe("Container › paramètres figés (#491)", () => {
-  class Client {
-    calls = 0;
-  }
-  const decor = () => {
-    const root = new Container();
-    root.setParameters("app", { debug: false, db: { pool: 4 }, tags: ["a"] });
-    root.setParameters("app.client", new Client());
-    root.addScope("request");
-    root.freezeParameters();
-    return root;
-  };
-
-  it("lire une clé non surchargée depuis un scope puis y écrire lève ; racine et voisin intacts", () => {
-    const root = decor();
-    const a = root.enterScope("request");
-    const b = root.enterScope("request");
-    const app = a.getParameters("app") as Record<string, unknown>;
-    assert.throws(() => {
-      app.debug = true;
-    }, TypeError);
-    assert.throws(() => {
-      (app.db as Record<string, unknown>).pool = 64;
-    }, TypeError);
-    assert.throws(() => {
-      (app.tags as string[]).push("b");
-    }, TypeError);
-    expect(root.getParameters("app.debug")).to.equal(false);
-    expect(root.getParameters("app.db.pool")).to.equal(4);
-    expect(b.getParameters("app.debug")).to.equal(false);
-  });
-
-  it("une clé surchargée rend un objet NEUF, modifiable localement (#482 intact)", () => {
-    const root = decor();
-    const a = root.enterScope("request");
-    a.setParameters("app", { debug: true });
-    const app = a.getParameters("app") as Record<string, unknown>;
-    expect(app.debug).to.equal(true);
-    expect(Object.isFrozen(app)).to.equal(false);
-    app.debug = "local";
-    expect(a.getParameters("app.debug")).to.equal(true);
-    expect(root.getParameters("app.debug")).to.equal(false);
-  });
-
-  it("setParameters sur la racine figée est refusé en nommant la clé ; un scope écrit toujours", () => {
-    const root = decor();
-    assert.throws(
-      () => root.setParameters("app.debug", true),
-      /« app\.debug » ne peut plus être écrit/,
-    );
-    assert.throws(() => root.setParameters("neuve", 1), /« neuve »/);
-    const a = root.enterScope("request");
-    a.setParameters("neuve", 1);
-    expect(a.getParameters("neuve")).to.equal(1);
-    expect(root.getParameters("neuve")).to.equal(null);
-  });
-
-  it("une instance de classe rangée en configuration n'est pas gelée", () => {
-    const root = decor();
-    const client = root.getParameters("app.client") as unknown as Client;
-    client.calls += 1;
-    expect(client.calls).to.equal(1);
-    expect(Object.isFrozen(root.getParameters("app"))).to.equal(true);
-  });
-
-  it("reset() repart d'un arbre modifiable", () => {
-    const root = decor();
-    root.reset();
-    root.setParameters("app", { debug: true });
-    expect(root.getParameters("app.debug")).to.equal(true);
-  });
-
-  it("le type de retour refuse l'écriture à la compilation", () => {
-    const root = decor();
-    const scope = root.enterScope("request");
-    // Jamais exécuté : c'est le TYPECHECK qui juge. Si le retour redevient
-    // modifiable, la directive ci-dessous devient inutile et tsgo échoue.
-    const write = (): void => {
-      const app = scope.getParameters("app");
-      if (app) {
-        // @ts-expect-error — Readonly<DynamicParam> : lecture seule
-        app.debug = true;
-      }
-    };
-    expect(typeof write).to.equal("function");
   });
 });

@@ -1,5 +1,4 @@
 import type { IContainer } from "./IContainer";
-import type { DynamicParam } from "../Container";
 import type Event from "../Event";
 import type { EventDefaultInterface } from "../Event";
 import type Pdu from "../syslog/Pdu";
@@ -58,8 +57,6 @@ export interface IService {
   set<T>(name: string, obj: T): void;
   remove(name: string): boolean;
   has(name: string): boolean;
-  getParameters(name: string): Readonly<DynamicParam> | null;
-  setParameters<T>(name: string, ele: T): DynamicParam | null;
 
   // ─── Events delegation ─────────────────────────────────────────────────────
   on(eventName: string | symbol, listener: EventListener): this;

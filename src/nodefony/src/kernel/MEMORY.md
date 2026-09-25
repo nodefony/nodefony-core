@@ -162,7 +162,7 @@ onPreBoot=32  onBoot=64  onReady=128  onServersReady=256  onPostReady=512  onTer
 
 **Registre modules**:
 
-- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:1340`).
+- `addModule(Ctor, ...args)` → instancie, `modules[name] = mod`, appelle `mod.init(this)` si présente, sous `guardInitialize` (`Kernel.ts:3962`).
 - `getModule(name)` / `getModules()`.
 - `addKernelService(Ctor, ...args)` → instancie directement sur container kernel (pas sur module).
 - `loadModule(name, build?)` → `import(resolveModuleEntry(this.path, name))` + addModule.
@@ -186,7 +186,7 @@ Spec figée par `src/tests/resolveModuleEntry.test.ts` (6 tests, dont la régres
 - `setPath(path)` → résout vers répertoire
 - `setEvents()` → wire hooks lifecycle
 - ⚠️ watch runtime write-only RETIRÉ : plus de listener `onPostReady`/`Module.watch()`/`watcherService`. Dev = `DevSupervisor` (auto-restart, `src/service/dev/DevSupervisor.ts`) : parent spawn enfant `NF_DEV_CHILD=1` en **leader de groupe** (`detached`), watch backend (frontend exclu → HMR Vite intact), rebuild ciblé turbo+rolldown, **group-kill** au restart (tue Vite, 0 orphelin) + attente ports libres (anti-EADDRINUSE) + retry crash borné. Activé par `DevCommand`
-- `setParameters("modules.${name}", options)`
+- `options` : config du module, figée en profondeur à la fin de `onReady` (`freezeConfigTree`) — se complète au boot, jamais après
 
 **setPath(p)**:
 
@@ -231,7 +231,7 @@ pris, handler absent, déclaration qui lève) → écarté + `onSkip`, jamais si
 
 **readOverrideModuleConfig(deep?)**: keys `Module-<name>` dans `this.options` → `extend(mod.options, override)`. Warn si module inconnu.
 
-**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts:377`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.
+**addService(Ctor, ...args)**: `Injector.instantiate(svc, this, ...args)` → container → `init(module)` si présente (`Module.ts:110`), sous `guardServiceInitialize` quand un kernel est présent. L'injecteur CONSTRUIT seulement — il n'appelle aucun hook.
 
 **getDependencies()**: `dependencies + peerDependencies` (PAS devDependencies). Pas de dedup — doublon possible si présent dans les deux.
 

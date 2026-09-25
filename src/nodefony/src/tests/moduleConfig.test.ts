@@ -1,7 +1,7 @@
 import assert from "node:assert";
 import { describe, it } from "vitest";
 import { z } from "zod";
-import { parseModuleConfig } from "../kernel/moduleConfig";
+import { freezeConfigTree, parseModuleConfig } from "../kernel/moduleConfig";
 import { BootConfigurationError } from "../kernel/BootConfigurationError";
 
 // Décor : la forme minimale d'une config de module — une racine stricte, une
@@ -130,5 +130,40 @@ describe("parseModuleConfig — la porte de validation des configs de module", (
       () => parseModuleConfig(exploding, {}, "@nodefony/x"),
       /boum/,
     );
+  });
+});
+
+// ─── Gel profond de la configuration (#493) ───────────────────────────────────
+//
+// Débrancher : retirer `Object.freeze(node)` de `freezeConfigTree` → les deux
+// premiers tombent ; retirer la garde `seen` → le troisième déborde la pile.
+describe("freezeConfigTree", () => {
+  it("gèle objets simples et tableaux en profondeur, épargne une instance de classe", () => {
+    class Client {
+      calls = 0;
+    }
+    const cfg = { db: { pool: 4 }, tags: ["a"], client: new Client() };
+    freezeConfigTree(cfg);
+    assert.throws(() => {
+      cfg.db.pool = 64;
+    }, TypeError);
+    assert.throws(() => cfg.tags.push("b"), TypeError);
+    cfg.client.calls += 1;
+    assert.strictEqual(cfg.client.calls, 1);
+  });
+
+  it("descend sous un objet déjà gelé EN SURFACE par son module", () => {
+    const cfg = Object.freeze({ upload: { maxSize: 1 } });
+    freezeConfigTree(cfg);
+    assert.throws(() => {
+      (cfg.upload as { maxSize: number }).maxSize = 2;
+    }, TypeError);
+  });
+
+  it("termine sur un arbre qui se référence lui-même", () => {
+    const cfg: Record<string, unknown> = { a: {} };
+    (cfg.a as Record<string, unknown>).back = cfg;
+    freezeConfigTree(cfg);
+    assert.ok(Object.isFrozen(cfg.a));
   });
 });

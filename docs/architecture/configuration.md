@@ -118,7 +118,7 @@ Quatre partis pris, tous vérifiables dans le code :
   du framework te parvient sans que tu ne réécrives rien.
 - **Le boot est fail-closed.** `validateAppConfig()` (`schema.ts:377`) agrège les erreurs Zod avec le
   chemin fautif ; l'échec devient un diagnostic présenté puis une sortie dédiée
-  (`Kernel.bootConfigError()`, `Kernel.ts:2287`).
+  (`Kernel.bootConfigError()`, `Kernel.ts:2306`).
 
 > [!IMPORTANT]
 > Un fichier de config ne doit **jamais** déréférencer le kernel au moment de son import
@@ -351,7 +351,7 @@ simplement sans auto-complétion.
 ### Le filtrage — `policy` et `when`
 
 `UseOptions` (`use.ts:67`) porte deux leviers qui **filtrent** sans jamais réordonner
-(`Kernel.resolveModuleEntries()`, `Kernel.ts:1545`) :
+(`Kernel.resolveModuleEntries()`, `Kernel.ts:1564`) :
 
 - **`policy: "dev"`** → l'entrée est retirée quand le runtime est `production` (`Kernel.ts:1409`) ;
 - **`when(config)`** → une garde évaluée sur la config résolue ; `false` retire l'entrée
@@ -566,7 +566,7 @@ Les points de passage, dans l'ordre du code :
 
 1. **`loadEnv()`** (`loadEnv.ts:131`) peuple `process.env` avant tout Kernel — les configs de modules
    lisent l'environnement au boot, il doit donc déjà être là.
-2. **`Kernel.buildConfigContext()`** (`Kernel.ts:1980`) fabrique `ctx`. Le catalogue `env` exporté par
+2. **`Kernel.buildConfigContext()`** (`Kernel.ts:1999`) fabrique `ctx`. Le catalogue `env` exporté par
    l'app y est branché (`Kernel.ts:1127`) ; sans catalogue, `ctx.env` retombe sur `process.env` brut.
 3. **`descriptor.resolve(ctx)`** (`Kernel.ts:2129`) enchaîne merge, overrides `NF__APP__*` et
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
@@ -577,8 +577,8 @@ Les points de passage, dans l'ordre du code :
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
    `Kernel.ts:1670`), puis overrides inter-modules `module-<nom>`
    (`Module.readOverrideModuleConfig()`, `Module.ts:377`) et d'environnement
-   (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1807`).
-6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1807`) — et l'ordre
+   (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1826`).
+6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1826`) — et l'ordre
    n'est pas anodin : posés plus tard, ils seraient silencieusement ignorés par tout module qui fige
    sa config tôt.
 
@@ -596,10 +596,10 @@ résolution effective de chaque brique est enregistrée au boot (`Kernel.registe
 ### Quand la config est invalide — le boot s'arrête proprement
 
 Une config cassée n'est pas récupérable : le framework ne peut pas deviner tes ports ni tes modules.
-`Kernel.bootConfigError()` (`Kernel.ts:2287`) en fait un échec **soigné** plutôt qu'une trace brute :
+`Kernel.bootConfigError()` (`Kernel.ts:2306`) en fait un échec **soigné** plutôt qu'une trace brute :
 
 - un diagnostic lisible : titre, cause, champ Zod nommé, **et les valeurs par défaut du framework**
-  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2315`) ;
+  explicitées (`Kernel.formatDefaults()`, `Kernel.ts:2334`) ;
 - pas de pile d'appels — c'est une faute de configuration, pas un bogue du framework ;
 - un **code de sortie dédié** — `err.exitCode = SysExit.CONFIG`, soit `EX_CONFIG` (78)
   (`Kernel.ts:1527`) — pour qu'un orchestrateur

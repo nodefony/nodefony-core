@@ -521,7 +521,7 @@ explicite :
 const catalog = this.get<CatalogService>("catalog"); // null si absent ou container nettoyé
 ```
 
-`Service.get()` (`Service.ts:518`) est une **façade sûre** : elle retourne `null` au lieu de lever si
+`Service.get()` (`Service.ts:525`) est une **façade sûre** : elle retourne `null` au lieu de lever si
 le container a déjà été détaché. C'est le style à privilégier dans `initialize()`.
 
 ### 2. Injection par le constructeur — `@inject`

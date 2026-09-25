@@ -282,7 +282,7 @@ export default class WebsocketContext
         throw e;
       }
     }
-    // Pas de `setParameters("query.*")` : les décorateurs lisent
+    // Pas de copie des paramètres de requête dans le scope DI : les décorateurs lisent
     // `request.queryGet/query` directement (cf HttpContext) — scope DI jamais lu.
     await this.fireAsync("onRequest", this, this.resolver);
     await this.kernel?.fireAsync("onRequest", this, this.resolver);

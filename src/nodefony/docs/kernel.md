@@ -336,8 +336,8 @@ Deux chemins, un seul recommandé.
 | ---------------------------- | --------------- | ----------------------------------------------------------- |
 | `@services([A, B])`          | —               | **Le cas normal.** Construits à `onPreBoot`, ordre calculé. |
 | `Module.addService(Ctor, …)` | `Module.ts:441` | Ajout conditionnel, décidé à l'exécution.                   |
-| `Module.loadService(chemin)` | `Module.ts:533` | Service optionnel chargé par `import()` dynamique.          |
-| `Module.getServiceNames()`   | `Module.ts:521` | Introspection — ce que **ce** module a posé au container.   |
+| `Module.loadService(chemin)` | `Module.ts:544` | Service optionnel chargé par `import()` dynamique.          |
+| `Module.getServiceNames()`   | `Module.ts:532` | Introspection — ce que **ce** module a posé au container.   |
 
 L'ordre écrit dans `@services([…])` n'a **pas** d'importance : il est recalculé depuis les
 dépendances déclarées. Détail du tri et des portées :
@@ -387,7 +387,7 @@ Le registre des controllers est global au process mais **indexé par module** �
 | Appel                | Ancre           | Rend                                                       |
 | -------------------- | --------------- | ---------------------------------------------------------- |
 | `getController("X")` | `Module.ts:564` | le constructeur, ou **lève** si absent de **ce** module    |
-| `getControllers()`   | `Module.ts:579` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
+| `getControllers()`   | `Module.ts:590` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
 
 ### Surcharger la config d'un autre module
 
@@ -423,8 +423,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1780` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1783` | la table complète, **par référence** (ne pas la muter) |
+| `getModule(nom)` | `Kernel.ts:1785` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1788` | la table complète, **par référence** (ne pas la muter) |
 | `modules`        | `Kernel.ts:600`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
@@ -495,7 +495,7 @@ même chose.
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
 | `fire(nom, …)`          | `Kernel.ts:746`  | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
 | `fireAsync(nom, …)`     | `Kernel.ts:1033` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
-| `fireLifecycle(nom, …)` | `Kernel.ts:3795` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
+| `fireLifecycle(nom, …)` | `Kernel.ts:3814` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
 `fire`.** `fire()` ne t'apprend rien de ce qui s'est passé — il rend un booléen « quelqu'un

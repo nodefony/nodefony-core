@@ -240,7 +240,7 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1545`) puis
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1564`) puis
 chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1670`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
@@ -333,7 +333,7 @@ Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernel
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3795`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3814`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
 > le process (`Kernel.recordBootFailure()`, `Kernel.ts:3284`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
@@ -384,14 +384,14 @@ Le pas-à-pas exhaustif, avec le détail de chaque garde →
 ### L'injection — deux annuaires, un héritage natif
 
 Le `Container` racine (`Container.ts:93`) tient les services partagés. À chaque requête,
-`Container.enterScope()` (`Container.ts:343`) ouvre un **scope** : un sous-container qui hérite du
+`Container.enterScope()` (`Container.ts:245`) ouvre un **scope** : un sous-container qui hérite du
 parent par **chaîne de prototypes JavaScript** (`Object.create(parent.protoService.prototype)`,
-`Container.ts:127`). Résoudre un service du parent depuis un scope ne coûte donc aucun saut logiciel
+`Container.ts:77`). Résoudre un service du parent depuis un scope ne coûte donc aucun saut logiciel
 — c'est le moteur JS qui remonte la chaîne.
 
 Les services courts (résolveur, session, contexte) sont posés sur le scope en propriété propre
-(`Scope.set()`, `Container.ts:516`) : ils **masquent** le parent sans le polluer, et
-`Container.leaveScope()` (`Container.ts:362`) nettoie tout à la fin de la requête.
+(`Scope.set()`, `Container.ts:391`) : ils **masquent** le parent sans le polluer, et
+`Container.leaveScope()` (`Container.ts:264`) nettoie tout à la fin de la requête.
 
 Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 [injection & portées](injection-portees.md). Comment la configuration alimente tout ça →
@@ -517,7 +517,7 @@ Nodefony est un framework **runtime** : chaque allocation par requête se multip
 règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
-  qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:131`) ; le tampon de requêtes ORM du
+  qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
   profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1337`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par

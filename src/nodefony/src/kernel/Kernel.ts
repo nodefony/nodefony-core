@@ -81,6 +81,7 @@ import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
+import { freezeConfigTree } from "./moduleConfig";
 import {
   findStoreOrderFault,
   readStoreManifest,
@@ -1256,10 +1257,14 @@ class Kernel extends Service implements IKernel {
     return this.fireLifecycle("onReady", this)
       .then(async () => {
         this.ready = true;
-        // La configuration est complète : la figer AVANT que le premier
-        // serveur n'écoute, pour qu'aucune requête ne voie un arbre modifiable
-        // (#491). Une commande console s'arrêtant ici est couverte aussi.
-        this.container?.freezeParameters();
+        // La configuration est complète : figer celle de chaque module AVANT
+        // que le premier serveur n'écoute. `module.options` est partagé par
+        // toutes les requêtes ; une écriture y lève désormais au lieu de
+        // changer en silence la config des requêtes concurrentes (#491, #493).
+        // Une commande console s'arrêtant ici est couverte aussi.
+        for (const name in this.modules) {
+          freezeConfigTree(this.modules[name].options);
+        }
         if (this.setCommandComplete(Events.onReady)) {
           // Phase cible atteinte sans serveur : terminate (one-shot) OU park (daemon
           // long-running). C'est la phase de readiness d'un daemon CONSOLE.

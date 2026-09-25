@@ -124,7 +124,7 @@ class Module<TConfig = Record<string, unknown>>
    * @param name - nom unique du module dans le kernel (key dans `kernel.modules`).
    * @param kernel - kernel parent (fournit container, syslog, lifecycle events).
    * @param path - chemin source du module (généralement `import.meta.url`).
-   * @param options - config du module (merge avec defaults via `setParameters("modules.<name>")`).
+   * @param options - config du module, lue ensuite dans `this.options` — figée à la fin de `onReady`.
    */
   constructor(
     name: string,
@@ -133,7 +133,6 @@ class Module<TConfig = Record<string, unknown>>
     options: DefaultOptionsService,
   ) {
     super(name, kernel.container as Container, undefined, options);
-    this.setParameters(`modules.${this.name}`, this.options);
     this.path = this.setPath(path);
     this.setEvents();
     // Aucun build runtime : le build des modules passe par la toolchain CLI

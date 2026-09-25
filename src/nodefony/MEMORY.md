@@ -68,8 +68,6 @@ Service(name, container?, notificationsCenter?, options?)
 - `get<T>(name)` → `null` si container null (no throw)
 - `set<T>(name, obj)` → **throw** si container null
 - `has(name)` → `false` si container null (no throw)
-- `getParameters(name)` → `null` si container null (no throw)
-- `setParameters(name, val)` → **throw** si container null
 - `remove(name)` → **toujours `false`** (bug connu — Container.remove() retourne true mais Service l'ignore)
 - `remove()` appelle `clean()` sur les enfants `instanceof Service`
 
@@ -113,7 +111,6 @@ Service(name, container?, notificationsCenter?, options?)
 
 - `id: string` — getter PARESSEUX (`#id`), compteur monotone base36 fabriqué à la 1ʳᵉ lecture : 0 chaîne/requête. Lecture seule sur la classe
 - `services: DynamicService | null` — map des services (hérite de `protoService.prototype`)
-- `parameters: DynamicParam | null` — map dot-notation
 - `scopes: Scopes | null` — `Map<name, Set<IScope>>` LAZY (null tant que 0 addScope ; un Scope est un Container → pas d'alloc morte/req). Registre = compter + tout refermer au `clean()`, jamais indexé par id
 
 **Services API**
@@ -125,41 +122,37 @@ Service(name, container?, notificationsCenter?, options?)
   → les scopes ouverts cessent d'hériter (proto partagé) ; leur surcharge PROPRE survit (pas de cascade)
 - `keys()` / `entries()` — liste les services propres
 
-**Paramètres**
+**Configuration** (pas dans le conteneur)
 
-- `setParameters(name, val)` — dot-notation, crée les nœuds intermédiaires automatiquement
-- `getParameters(name)` → `Readonly<DynamicParam> | null` — pour une clé non surchargée, un scope rend le nœud RACINE par référence
-- Erreur si name non-string, value undefined, ou descente dans un nœud non-objet
-- `freezeParameters()` : gel profond (objets simples + tableaux ; instances de classe épargnées), appelé par `Kernel.onReady` APRÈS les écouteurs `onReady`, AVANT `initServers()` → aucune requête ne voit un arbre modifiable. Écrire dans un nœud lu = `TypeError` ; `setParameters` sur la racine figée = `Error` qui nomme la clé ; `reset()` repart d'un arbre neuf. Gel constaté par `Object.isFrozen(this.parameters)` — PAS de champ drapeau (il pèserait sur chaque `Scope`)
-- `modules.<nom>` = le MÊME objet que `module.options` (`Module.ts` : `setParameters(\`modules.${name}\`, this.options)`) → le gel fige aussi `module.options`après`onReady`
-- Aucun LECTEUR de `getParameters` en production : seul `Module.ts` écrit l'arbre
+- Aucun arbre de paramètres : chaque module lit sa config dans `this.options`
+- `Kernel.onReady` gèle en profondeur les `options` de CHAQUE module (`freezeConfigTree`, `kernel/moduleConfig.ts`) APRÈS les écouteurs `onReady`, AVANT `initServers()` → aucune requête ne voit une config modifiable. Écriture = `TypeError`. Objets simples + tableaux seulement ; instances de classe épargnées ; parcourt aussi un objet déjà gelé EN SURFACE par son `defineModuleConfig`
+- Une config se complète AU BOOT (`@nodefony/http` : `uploadDir`, `serialNumber`), jamais après `onReady`
+- Surcharge par requête : pas encore (calque par scope + liste blanche par module = #494)
 
 **Scopes**
 
 - `addScope(name)` — déclare un scope (idempotent), retourne le bucket `ReadonlySet<IScope>`
 - `enterScope(name)` → `IScope` — crée une instance Scope héritant du proto du parent ; sur un Scope, l'enfant chaîne sur `parent.services` (voit les services propres du scope parent)
 - `Scope.set/remove` = propriété PROPRE seulement (le proto est partagé entre requêtes) · `Scope.reset()` LÈVE
-- `Scope.getParameters` fusionne dans une cible NEUVE (`extend(deep, {}, parent, local)`) — jamais dans le nœud parent rendu par référence (fuite inter-requêtes)
-- `protoService.prototype` / `protoParameters.prototype` sans prototype (`createProto`) → `has("toString")`/`get("constructor")` = faux/null
+- `protoService.prototype` sans prototype (`createProto`) → `has("toString")`/`get("constructor")` = faux/null
 - `leaveScope(scope: IScope)` — `bucket.delete(scope)` PUIS `clean()` (un clean qui lève n'épingle pas le scope) ; no-op si pas ouvert ICI (2ᵉ appel, autre conteneur)
 - `closed` (getter, `IScope`) = `services === null` : vrai après `clean()`/`leaveScope` ; aucun champ ajouté. `RequestContext.getScope()` écarte un scope `closed`
 - `removeScope(name)` — nettoie tous les sous-scopes d'un nom
 - `scopeCount(name)` → number — instances vivantes (sondes fuite/Studio ; NE PAS fouiller `.scopes` à la main)
-- `Scope extends Container implements IScope` — `name: string` + `getParameters(name, merge=true, deep=true)`
-- `Scope.getParameters(name, merge=true, deep=true)` — merge local + parent si les deux sont des objets
+- `Scope extends Container implements IScope` — `name`, `closed`, `hasOwn`, `own`
 - ⚠️ `Scope` ADOPTE les protos parents (+6 % RPS A/B) : `Scope.set`/`remove`
   overridés **own-property only** — `Container.set` (écriture prototype) polluerait le proto PARTAGÉ
   du parent → service per-request visible cross-requêtes (data race). Ne pas « simplifier » ces overrides.
 
 **Cycle de vie**
 
-- `clean()` — `services=null`, `parameters=null`, nettoie tous les scopes
-- `reset()` — `clean()` + recrée protoService/protoParameters → utilisable à nouveau
+- `clean()` — `services=null`, nettoie tous les scopes
+- `reset()` — `clean()` + recrée protoService → utilisable à nouveau
 
 **Constructeur clone**
 
-- `new Container(parent)` — shallow clone (services et params partagés via proto)
-- `new Container(parent, true)` — deep clone des paramètres (`structuredClone` avec fallback)
+- `new Container(parent)` — hérite des services du parent (copie des propres, proto partagé)
+- 2ᵉ argument = `adoptedProtoService` (@internal, canal `Scope`)
 
 **Gotchas**
 
@@ -219,7 +212,7 @@ nodefonyError; // ← anciennement exporté comme "Error" (cassant)
 (extend, typeOf, isArray, isPromise, isPlainObject, isFunction, isContainer);
 // Types (import type)
 (IKernel, IService, IContainer, IScope, IModule, ISyslog);
-(DynamicParam, DynamicService, ProtoService, ProtoParameters);
+(DynamicService, ProtoService, Scopes);
 ```
 
 **Migration `nodefony` default → named** :

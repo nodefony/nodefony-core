@@ -155,13 +155,7 @@ import {
 } from "nodefony";
 
 // Types (tree-shaken à la compilation)
-import type {
-  IKernel,
-  IService,
-  IContainer,
-  IScope,
-  DynamicParam,
-} from "nodefony";
+import type { IKernel, IService, IContainer, IScope } from "nodefony";
 ```
 
 > `Error` n'est plus exporté — utiliser `nodefonyError`.
@@ -247,22 +241,15 @@ svc.set("db", dbInstance);
 const db = svc.get<Database>("db");
 svc.has("db"); // true
 
-// Paramètres (dot notation)
-svc.setParameters("app.name", "myApp");
-svc.getParameters("app.name"); // "myApp"
-svc.setParameters("app.config.debug", true);
-svc.getParameters("app.config.debug"); // true
-
 // Supprimer (appelle clean() si Service)
 svc.remove("db"); // retourne toujours false (comportement actuel)
 ```
 
-> **Note** : `set()`, `setParameters()` lèvent une erreur si le container est null (après `clean()`).
+> **Note** : `set()` lève une erreur si le container est null (après `clean()`).
 >
-> **Configuration figée** : à la fin de `onReady`, le kernel fige l'arbre des paramètres du conteneur
-> racine (`freezeParameters()`), partagé par toutes les requêtes. Une valeur lue par `getParameters`
-> est alors en lecture seule — l'écrire lève une `TypeError` — et `setParameters` sur la racine est
-> refusé. Une valeur propre à une requête s'écrit sur son scope.
+> **Configuration** : le conteneur ne porte pas de configuration — chaque module lit la sienne dans
+> `this.options`. À la fin de `onReady`, le kernel la fige en profondeur : elle est partagée par
+> toutes les requêtes, et l'écrire lève alors une `TypeError`. Une config se complète au démarrage.
 
 ### Events
 
@@ -382,8 +369,6 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 | `set<T>(name, obj)` | `void` | Stocke dans le container |
 | `has(name)` | `boolean` | Vérifie dans le container |
 | `remove(name)` | `boolean` | Supprime du container (toujours `false`) |
-| `getParameters(name)` | `Readonly<DynamicParam> \| null` | Paramètre dot-notation, lecture seule |
-| `setParameters(name, val)` | `DynamicParam \| null` | Définit paramètre |
 | `on/off/once/emit/fire/...` | `this \| boolean` | Events (délégation EventEmitter) |
 
 ### Comportements à connaître (gotchas)
