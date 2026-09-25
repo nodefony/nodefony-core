@@ -526,10 +526,10 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
   `response.once("close")` (`http-kernel.ts:1218`) qui déclenche le teardown : pas de paire
   `finish`/`close` à démonter à la main.
 
-Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` impose des plafonds de croissance
-du tas côté serveur : 1000 GET séquentiels sous 35 MB (`memory.test.ts:117`), 100 connexions
-WebSocket ouvertes puis fermées sous 30 MB (`memory.test.ts:214`), 100 crashs consécutifs sous 10 MB
-(`memory.test.ts:127`). Un seuil qui saute est un blocage, pas un avertissement.
+Ces choix sont **mesurés**, pas postulés. La suite `memory.test.ts` mesure les octets retenus par
+itération (pente sur paliers, GC forcé) sur les requêtes, les crashs, les uploads et les connexions
+WebSocket, plus deux comptes exacts : scopes restés ouverts, contextes jamais réclamés. Ses seuils
+vivent dans la table `THRESHOLDS` du fichier. Un seuil qui saute est un blocage, pas un avertissement.
 
 ## 📡 Observabilité — Studio
 
