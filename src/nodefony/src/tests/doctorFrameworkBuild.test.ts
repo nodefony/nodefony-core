@@ -28,6 +28,7 @@ import {
   checkFreshness,
   checkFrameworkBuild,
   checkFrontendBuild,
+  GENERATED_VITE_CONFIG_FILE,
 } from "../kernel/checks/freshness";
 
 /** Écrit un fichier en créant son dossier — les décors sont profonds. */
@@ -190,6 +191,18 @@ describe("doctor — le frontend déclaré est-il construit ?", () => {
 
   it("le frontend construit APRÈS ses sources ne dit RIEN", () => {
     const racine = appFront({ built: Date.now() + 60_000 });
+    assert.deepEqual(checkFrontendBuild(racine), []);
+  });
+
+  it("🔴 la config Vite que `npm run dev` RÉÉCRIT n'est pas une source du build", () => {
+    // Vécu (application fraîche de l'alpha.9) : un simple `npm run dev` écrit
+    // `frontend/vite.config.generated.mjs`, et `doctor` annonçait ensuite
+    // « le frontend a changé APRÈS son dernier build » — une fausse alerte.
+    const racine = appFront({ built: Date.now() + 60_000 });
+    const generee = path.join(racine, "frontend", GENERATED_VITE_CONFIG_FILE);
+    poser(generee, "export default {};");
+    const apres = (Date.now() + 120_000) / 1000;
+    utimesSync(generee, apres, apres);
     assert.deepEqual(checkFrontendBuild(racine), []);
   });
 

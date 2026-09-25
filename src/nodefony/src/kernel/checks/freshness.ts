@@ -153,6 +153,14 @@ const ENTRY_ROOT_RE = /\broot\s*:\s*["'`]([^"'`\n]+)["'`]/u;
 /** `outDir: "./public/dist"` dans un bloc d'options. */
 const ENTRY_OUT_DIR_RE = /\boutDir\s*:\s*["'`]([^"'`\n]+)["'`]/u;
 
+/**
+ * Config Vite que le superviseur de développement RÉÉCRIT à chaque démarrage, à
+ * la racine du frontend. Ce n'est pas une source : la compter faisait annoncer
+ * un build périmé à toute application dont on venait de lancer `npm run dev`.
+ * Nom unique, lu aussi par l'écrivain (`@nodefony/frontend`).
+ */
+export const GENERATED_VITE_CONFIG_FILE = "vite.config.generated.mjs";
+
 /** Extensions qui composent un bundle front — bien au-delà du TypeScript. */
 const FRONT_SOURCE_RE =
   /\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|sass|less|html)$/u;
@@ -247,8 +255,11 @@ export function checkFrontendBuild(projectRoot: string): IFreshnessFinding[] {
   const findings: IFreshnessFinding[] = [];
   for (const entry of declaredFrontendEntries(projectRoot)) {
     const rootDir = path.join(projectRoot, entry.root);
-    const newestSource = newestFileUnder(rootDir, (f) =>
-      FRONT_SOURCE_RE.test(f),
+    const newestSource = newestFileUnder(
+      rootDir,
+      (f) =>
+        FRONT_SOURCE_RE.test(f) &&
+        path.basename(f) !== GENERATED_VITE_CONFIG_FILE,
     );
     // Une racine vide n'est pas un manquement : il n'y a rien à construire, et
     // crier dessus enverrait chercher un build qui n'a pas lieu d'être.

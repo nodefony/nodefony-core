@@ -484,7 +484,7 @@ panne, c'est une nuisance.
 
 ### La règle
 
-`resolvePortPolicy()` (`portBinder.ts:93`) tranche selon l'environnement, et la valeur explicite gagne
+`resolvePortPolicy()` (cœur, `src/nodefony/src/service/dev/devProcess.ts:1730` — la même règle sert `nodefony doctor`) tranche selon l'environnement, et la valeur explicite gagne
 toujours :
 
 | Environnement | Défaut   | Pourquoi                                                                                                     |

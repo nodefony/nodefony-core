@@ -271,6 +271,7 @@ describe("doctor --live — la greffe sur le rapport statique", () => {
       findings: [],
       catalogUnreadable: false,
       portsProbed: [],
+      portsShifting: [],
       infraProbed: 0,
       trackedUnknown: null,
     },

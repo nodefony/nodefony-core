@@ -780,7 +780,11 @@ function renderSummary(
       text:
         readiness.findings.length > 0
           ? pluralize(readiness.findings.length, "manquement")
-          : "environnement, modules, ports",
+          : readiness.portsShifting.length > 0
+            ? // Pas un manquement — l'application démarre —, mais pas l'adresse
+              // attendue : le taire ferait viser le serveur du voisin.
+              `glissera (${readiness.portsShifting.join(", ")} pris)`
+            : "environnement, modules, ports",
     },
     // « Variables déclarées » est une RÈGLE de `readiness`, pas une famille à
     // part : elle n'apparaît que lorsqu'elle n'a pas pu jouer, sans quoi le

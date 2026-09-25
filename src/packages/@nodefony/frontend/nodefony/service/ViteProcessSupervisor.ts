@@ -1,5 +1,9 @@
 import { spawn, ChildProcess } from "node:child_process";
-import { signalProcessGroup, type TreeSignalOutcome } from "nodefony";
+import {
+  GENERATED_VITE_CONFIG_FILE,
+  signalProcessGroup,
+  type TreeSignalOutcome,
+} from "nodefony";
 import { writeFileSync, readFileSync, existsSync } from "node:fs";
 import { createRequire } from "node:module";
 import http from "node:http";
@@ -420,7 +424,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
 
     // 1. Génère + écrit `vite.config.generated.mjs` à côté de l'index.html.
     const moduleRoot = this.entries[0]!.root;
-    this.configFilePath = path.resolve(moduleRoot, "vite.config.generated.mjs");
+    this.configFilePath = path.resolve(moduleRoot, GENERATED_VITE_CONFIG_FILE);
     const scheme = this.opts.https ? "https" : "http";
     // Origine PUBLIQUE (P14.17) : template résolu contre le port RÉEL de CETTE
     // tentative, sinon dérivation locale. Un template invalide est ANNONCÉ puis

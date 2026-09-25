@@ -35,6 +35,10 @@ import path from "node:path";
 import { existsSync, readFileSync } from "node:fs";
 import { buildProjectEnvReport } from "../../cli/env";
 import {
+  resolvePortPolicy,
+  type PortPolicy,
+} from "../../service/dev/devProcess";
+import {
   withoutComments,
   readManifestCode,
   diskManifestReader,
@@ -68,6 +72,13 @@ export interface IReadinessResult {
   infraProbed: number;
   /** Ports effectivement sondés (vide si aucune sonde n'a été fournie). */
   portsProbed: number[];
+  /**
+   * Ports tenus par un tiers que le démarrage CONTOURNERA — politique `auto`,
+   * le serveur glisse au port libre suivant et l'annonce. Ce n'est pas un
+   * manquement (l'application démarre), mais ça se DIT : elle ne servira pas
+   * l'adresse attendue.
+   */
+  portsShifting: number[];
   /**
    * Pourquoi le contrôle « fichier d'environnement suivi par git » n'a PAS eu
    * lieu — `null` quand il a regardé.
@@ -210,6 +221,11 @@ export async function checkReadiness(input: {
   targetEnv?: string | null;
   /** Verdict de git sur les fichiers d'environnement, ou `null` pour ne pas regarder. */
   tracked?: ITrackedEnvProbe | null;
+  /**
+   * `servers.portPolicy` déclaré, injecté — lu dans le manifeste quand il est
+   * absent.
+   */
+  portPolicy?: PortPolicy | null;
 }): Promise<IReadinessResult> {
   const { projectRoot } = input;
   const targetEnv = input.targetEnv ?? null;
@@ -323,15 +339,30 @@ export async function checkReadiness(input: {
   }
 
   // ─── 4. Ports déjà tenus ──────────────────────────────────────────────────
+  // Un port tenu n'empêche de démarrer QUE sous la politique `strict` : en
+  // `auto` (défaut en développement) le serveur glisse au port libre suivant.
+  // La règle est CELLE du serveur (`resolvePortPolicy`), jamais une copie —
+  // annoncer un EADDRINUSE à une application qui démarre très bien fait un
+  // rouge que l'on apprend à ignorer.
   const portsProbed = [...(input.probe?.probed ?? [])];
-  if (input.probe && !input.probe.ownedByUs) {
+  const portsShifting: number[] = [];
+  if (input.probe && !input.probe.ownedByUs && input.probe.busy.length > 0) {
+    const environment = targetEnv ?? "development";
+    const policy = resolvePortPolicy(
+      environment,
+      input.portPolicy ?? declaredPortPolicy(projectRoot) ?? undefined,
+    );
     for (const port of input.probe.busy) {
+      if (policy === "auto") {
+        portsShifting.push(port);
+        continue;
+      }
       findings.push({
         kind: "port-busy",
         message:
           `le port ${port} est déjà tenu par un autre processus — le démarrage ` +
-          `échouera en EADDRINUSE : nodefony status pour voir ce qui tourne, ` +
-          `nodefony stop pour un runtime Nodefony`,
+          `échouera en EADDRINUSE (servers.portPolicy « strict » en ${environment}) : ` +
+          `nodefony status pour voir ce qui tourne, nodefony stop pour un runtime Nodefony`,
       });
     }
   }
@@ -350,7 +381,23 @@ export async function checkReadiness(input: {
     findings,
     catalogUnreadable,
     portsProbed,
+    portsShifting,
     infraProbed: input.infra?.targets.length ?? 0,
     trackedUnknown,
   };
+}
+
+/**
+ * `servers.portPolicy` tel que le manifeste l'écrit en littéral, ou `null`.
+ *
+ * Lecture du TEXTE, comme le reste du diagnostic (aucun boot) : une valeur
+ * calculée n'est pas vue, et le défaut de l'environnement s'applique alors.
+ *
+ * @param projectRoot - racine de l'application.
+ * @returns la politique déclarée, ou `null`.
+ */
+function declaredPortPolicy(projectRoot: string): PortPolicy | null {
+  const code = readManifestCode(projectRoot, diskManifestReader);
+  const match = /\bportPolicy\s*:\s*["'](auto|strict)["']/u.exec(code);
+  return match ? (match[1] as PortPolicy) : null;
 }

@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 861,
-    "symbols": 4291,
+    "symbols": 4293,
     "classes": 400,
     "interfaces": 1129,
     "types": 459,
     "enums": 4,
-    "functions": 1869,
-    "constants": 430
+    "functions": 1870,
+    "constants": 431
   },
   "symbols": {
     "Cli": {
@@ -9687,6 +9687,14 @@
       "module": "@nodefony/core",
       "description": "Les paquets `@nodefony/*` LIÉS dont le build manque ou date d'avant les sources. Le runtime charge le `dist/` d'un paquet, jamais ses sources — exactement comme pour l'application. La différence es…"
     },
+    "GENERATED_VITE_CONFIG_FILE": {
+      "name": "GENERATED_VITE_CONFIG_FILE",
+      "kind": "const",
+      "file": "src/nodefony/src/kernel/checks/freshness.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Config Vite que le superviseur de développement RÉÉCRIT à chaque démarrage, à la racine du frontend. Ce n'est pas une source : la compter faisait annoncer un build périmé à toute application dont o…"
+    },
     "IProvidedService": {
       "name": "IProvidedService",
       "kind": "interface",
@@ -12116,6 +12124,14 @@
       "module": "@nodefony/core",
       "description": "Appartenance d'un port sondé — ce que le symbole affiché doit distinguer."
     },
+    "PortPolicy": {
+      "name": "PortPolicy",
+      "kind": "type",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Que faire si le port désiré est occupé — `servers.portPolicy`."
+    },
     "devSupervisorPidFile": {
       "name": "devSupervisorPidFile",
       "kind": "function",
@@ -12473,6 +12489,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Liste les workspaces qui DEVRAIENT produire un dist (présence d'un `rolldown.config.ts`) mais dont le dossier `dist/` est absent ou vide — renvoie leurs **noms de package** (pour `turbo --filter`).…"
+    },
+    "resolvePortPolicy": {
+      "name": "resolvePortPolicy",
+      "kind": "function",
+      "file": "src/nodefony/src/service/dev/devProcess.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Politique de port effective. Le défaut dépend de l'environnement, et ce n'est pas de la coquetterie : - **production** → `strict`. Le port y est un contrat (service k8s, ingress, sonde de santé). U…"
     },
     "DEV_SUPERVISOR_TITLE": {
       "name": "DEV_SUPERVISOR_TITLE",
@@ -25700,14 +25724,6 @@
       "extends": null,
       "description": "Forme lue de `kernel.options.servers` (lecture structurelle, pas d'import core)."
     },
-    "PortPolicy": {
-      "name": "PortPolicy",
-      "kind": "type",
-      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Que faire si le port désiré est occupé."
-    },
     "PortListeningProbe": {
       "name": "PortListeningProbe",
       "kind": "type",
@@ -25715,14 +25731,6 @@
       "exported": true,
       "module": "@nodefony/http",
       "description": "Sonde « un serveur répond-il déjà ici ? ». Injectable pour que le banc éprouve la DÉCISION sans dépendre d'un décor réseau ; le défaut est `isPortListening`, exposé par le cœur pour ne pas être rec…"
-    },
-    "resolvePortPolicy": {
-      "name": "resolvePortPolicy",
-      "kind": "function",
-      "file": "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts",
-      "exported": true,
-      "module": "@nodefony/http",
-      "description": "Politique de port effective. Le défaut dépend de l'environnement, et ce n'est pas de la coquetterie : - **production** → `strict`. Le port y est un contrat (service k8s, ingress, sonde de santé). U…"
     },
     "buildBindPlan": {
       "name": "buildBindPlan",
@@ -34536,6 +34544,14 @@
       "buildProjectEnvReport": [
         "src/nodefony/src/kernel/checks/readiness.ts"
       ],
+      "resolvePortPolicy": [
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts"
+      ],
+      "PortPolicy": [
+        "src/nodefony/src/kernel/checks/readiness.ts",
+        "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts"
+      ],
       "readManifestCode": [
         "src/nodefony/src/kernel/checks/readiness.ts",
         "src/packages/@nodefony/security/nodefony/command/security-secrets.ts"
@@ -37203,6 +37219,9 @@
       "FrontendPresetUnknownError": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteConfigGenerator.ts",
         "src/packages/@nodefony/frontend/nodefony/src/builders/ViteBuilder.ts"
+      ],
+      "GENERATED_VITE_CONFIG_FILE": [
+        "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"
       ],
       "TreeSignalOutcome": [
         "src/packages/@nodefony/frontend/nodefony/service/ViteProcessSupervisor.ts"

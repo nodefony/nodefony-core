@@ -126,16 +126,43 @@ describe("check — état d'installation et environnement", () => {
     assert.deepEqual(kinds(r.findings), []);
   });
 
-  it("NOMME le port tenu par un TIERS, avec les deux gestes", async () => {
+  it("NOMME le port tenu par un TIERS là où il fera échouer (production), avec les deux gestes", async () => {
     app({ name: "a" });
     const r = await checkReadiness({
       projectRoot: dir,
+      targetEnv: "production",
       probe: { probed: [5151, 5152], busy: [5151], ownedByUs: false },
     });
     assert.deepEqual(kinds(r.findings), ["port-busy"]);
     assert.include(r.findings[0].message, "5151");
     assert.include(r.findings[0].message, "EADDRINUSE");
     assert.include(r.findings[0].message, "nodefony status");
+    assert.deepEqual(r.portsShifting, []);
+  });
+
+  it("🔴 en développement, un port tenu par un TIERS n'est PAS un manquement : le serveur glisse", async () => {
+    // Vécu (application fraîche de l'alpha.9, un autre projet sur 5151/5152) :
+    // `doctor` annonçait « 2 manquements — échouera en EADDRINUSE » à une
+    // application qui démarrait très bien sur 5153. La politique `auto` (défaut
+    // en développement) fait glisser le serveur ; le diagnostic suit la MÊME
+    // règle, et DIT le glissement au lieu de le taire.
+    app({ name: "a" });
+    const r = await checkReadiness({
+      projectRoot: dir,
+      probe: { probed: [5151, 5152], busy: [5151, 5152], ownedByUs: false },
+    });
+    assert.deepEqual(kinds(r.findings), []);
+    assert.deepEqual(r.portsShifting, [5151, 5152]);
+  });
+
+  it('un `portPolicy: "strict"` DÉCLARÉ au manifeste rend le port tenu fatal, même en développement', async () => {
+    app({ name: "a" }, `servers: { portPolicy: "strict" }`);
+    const r = await checkReadiness({
+      projectRoot: dir,
+      probe: { probed: [5151, 5152], busy: [5151], ownedByUs: false },
+    });
+    assert.deepEqual(kinds(r.findings), ["port-busy"]);
+    assert.include(r.findings[0].message, "strict");
   });
 
   it("une infra DÉCLARÉE et injoignable est SIGNALÉE, avec ses limites", async () => {

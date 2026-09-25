@@ -643,12 +643,16 @@ export {
   // n'existe pas sous Windows et fait conclure « personne n'écoute » là où le
   // serveur écoute très bien.
   isPortListening,
+  // Politique de port (`auto` glisse, `strict` échoue) — le serveur la suit au
+  // bind, `nodefony doctor` la suit pour dire si un port tenu est un problème.
+  resolvePortPolicy,
 } from "./service/dev/devProcess";
 export type {
   DevProcessInfo,
   DevProcessRole,
   RuntimeMode,
   PortState,
+  PortPolicy,
   RuntimeState,
   PortShift,
   ReadyAnnouncement,
@@ -935,6 +939,9 @@ export {
   countCheckFindings,
 } from "./kernel/checks/runDoctor";
 export type { IDoctorReport } from "./kernel/checks/runDoctor";
+// Nom de la config Vite que le superviseur de dev RÉÉCRIT à chaque démarrage :
+// `@nodefony/frontend` l'écrit, `doctor` l'écarte des sources du front.
+export { GENERATED_VITE_CONFIG_FILE } from "./kernel/checks/freshness";
 // Les lecteurs du MANIFESTE (racine + fragments de `nodefony/config/`) —
 // publiés parce qu'un module du framework (`security:secrets`) et un module
 // tiers lisent la configuration de l'application comme `doctor` la lit : une

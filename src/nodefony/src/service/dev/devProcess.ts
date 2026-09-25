@@ -1709,3 +1709,28 @@ function distIsBuilt(dir: string): boolean {
     return false; // dist/ absent → pas buildé
   }
 }
+
+/** Que faire si le port désiré est occupé — `servers.portPolicy`. */
+export type PortPolicy = "auto" | "strict";
+
+/**
+ * Politique de port effective.
+ *
+ * Le défaut dépend de l'environnement, et ce n'est pas de la coquetterie :
+ * - **production** → `strict`. Le port y est un contrat (service k8s, ingress,
+ *   sonde de santé). Un bind silencieux ailleurs donnerait un pod déclaré sain
+ *   que personne n'atteint : une panne invisible, le pire des deux mondes.
+ * - **test** → `strict`. Un port occupé veut dire « un serveur est resté debout » ;
+ *   le banc doit s'arrêter, pas viser à côté (il taperait le serveur du voisin).
+ * - **développement** → `auto`. Ici un port pris n'est qu'une nuisance.
+ *
+ * @param environment - `kernel.environment` (normalisé `development`/`production`/`test`).
+ * @param explicit - `servers.portPolicy` s'il est configuré (il gagne toujours).
+ */
+export function resolvePortPolicy(
+  environment: string | undefined,
+  explicit?: PortPolicy,
+): PortPolicy {
+  if (explicit === "auto" || explicit === "strict") return explicit;
+  return environment === "development" ? "auto" : "strict";
+}

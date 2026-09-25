@@ -44,7 +44,14 @@
  * là où on l'attend sans le dire est une dégradation silencieuse.
  */
 import type { AddressInfo } from "node:net";
-import { isPortListening } from "nodefony";
+import { isPortListening, resolvePortPolicy } from "nodefony";
+import type { PortPolicy } from "nodefony";
+
+// La politique vit dans le CŒUR : `nodefony doctor` doit trancher « ce port
+// tenu fera-t-il échouer le démarrage ? » par la MÊME règle que le serveur.
+// Réexportée ici pour les consommateurs de ce fichier.
+export { resolvePortPolicy };
+export type { PortPolicy };
 
 /** Serveur écoutable (surface minimale commune `http`/`https`/`http2`). */
 export interface Listenable {
@@ -53,9 +60,6 @@ export interface Listenable {
   once(event: string, listener: (...args: never[]) => void): unknown;
   removeListener(event: string, listener: (...args: never[]) => void): unknown;
 }
-
-/** Que faire si le port désiré est occupé. */
-export type PortPolicy = "auto" | "strict";
 
 /** Nombre de ports essayés après le désiré, en `auto`. */
 export const DEFAULT_PORT_RETRY_ATTEMPTS = 20;
@@ -74,28 +78,6 @@ export interface BindResult {
   address: AddressInfo;
   /** Port désiré si l'écoute a dû être décalée, `null` si on l'a obtenu. */
   shiftedFrom: number | null;
-}
-
-/**
- * Politique de port effective.
- *
- * Le défaut dépend de l'environnement, et ce n'est pas de la coquetterie :
- * - **production** → `strict`. Le port y est un contrat (service k8s, ingress,
- *   sonde de santé). Un bind silencieux ailleurs donnerait un pod déclaré sain
- *   que personne n'atteint : une panne invisible, le pire des deux mondes.
- * - **test** → `strict`. Un port occupé veut dire « un serveur est resté debout » ;
- *   le banc doit s'arrêter, pas viser à côté (il taperait le serveur du voisin).
- * - **développement** → `auto`. Ici un port pris n'est qu'une nuisance.
- *
- * @param environment - `kernel.environment` (normalisé `development`/`production`/`test`).
- * @param explicit - `servers.portPolicy` s'il est configuré (il gagne toujours).
- */
-export function resolvePortPolicy(
-  environment: string | undefined,
-  explicit?: PortPolicy,
-): PortPolicy {
-  if (explicit === "auto" || explicit === "strict") return explicit;
-  return environment === "development" ? "auto" : "strict";
 }
 
 /** Forme lue de `kernel.options.servers` (lecture structurelle, pas d'import core). */

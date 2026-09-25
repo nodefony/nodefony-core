@@ -942,6 +942,7 @@ export async function collectDoctorReport(
         findings: [],
         catalogUnreadable: false,
         portsProbed: [],
+        portsShifting: [],
         infraProbed: 0,
         trackedUnknown: null,
       };
