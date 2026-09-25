@@ -187,6 +187,11 @@ et la frontière d'un format structuré se compose avec sa grammaire.
   édition manuelle. `[1× — 08-22]`
 
 - [1× — 08-29f] **Un avertissement émis à un niveau AVALÉ n'existe pas — et changer le niveau ne suffit pas.** Le message qui annonce qu'une variable détourne la base partait en `INFO` ; passé en `WARNING`, il n'est toujours PAS sorti (le boot silencieux des commandes avale les deux) — constaté en exécutant, pas déduit. La bonne question n'est pas « à quel niveau ? » mais « PAR OÙ ça sort ? ». Porté dans l'en-tête du rapport, qui emprunte le même chemin que le `--json`, l'écran et la charge utile ne peuvent plus diverger. Un avertissement qui n'atteint personne est pire qu'aucun : on le croit posé.
+- [1× — 09-25h] **Le rapport `fable` qui a TRANCHÉ la conception de #484 ne vivait que dans la
+  conversation** — c'est le user qui a demandé « tu as mis le résultat de l'audit dans le ticket ? ».
+  Un rapport de sous-agent qui FONDE une décision se poste sur le ticket de la décision au moment
+  où il tombe, avec ce qui en est appliqué ou non : la conversation meurt au `/clear`, et la
+  décision redevient discutable sans son raisonnement.
 
 ## 🧪 Ce qu'on PUBLIE est une affirmation — GRADUÉ
 
@@ -280,6 +285,14 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 ## 🛡️ Toucher à ses PROPRES garde-fous se demande avant d'écrire, pas au commit
 
 - [1× — 09-24c] **Le classifieur a refusé deux fois un geste sur les barrières de l'agent** — l'enregistrement d'un hook dans `.claude/settings.json`, puis le commit d'un changement de `.githooks/pre-commit` — alors que le code était écrit, testé, vu rouge. Une heure de travail est restée en attente jusqu'à l'accord explicite du user. Le geste juste : dès que la conception touche un hook, un pre-commit ou des réglages de l'agent, le NOMMER au user et obtenir son accord AVANT d'écrire — et lui présenter ce qui empêche la barrière de bloquer par surprise (ici : processus mort ignoré, âge maximal, sortie de secours nommée), c'est ce qu'il a demandé en premier.
+- [1× — 09-25h] **Une route de TEST était aussi la cible du banc comparatif** : `/als-test/state`,
+  dont `bench-frameworks/payload.mjs` recopie la réponse pour Express et Fastify. Y ajouter un
+  champ de test faussait l'égalité des camps sans qu'aucun test ne le dise — vu en lisant
+  `payload.mjs` par hasard. Avant d'étendre une route de test, `rg` son chemin dans `.claude/skills`
+  (les bancs) : un jumeau ignoré est un instrument faussé. → [[feedback_twin_alignment_unproven]]
+- [1× — 09-25h] **Le seuil mémoire publiait sa marge pour qu'on le resserre, et personne ne l'a
+  fait** : ×14 à ×678, 1 043 scopes épinglés passés inaperçus (#483). Un seuil dont la marge est
+  affichée mais jamais exploitée reste décoratif — c'est le user qui l'a relevé ; ticket #490.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
@@ -419,6 +432,11 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
   items sur G12/G8, et deux audits encore minces sur G15/G16 — l'agent y a « limité l'inventaire
   par contrainte de budget » (2 affirmations pour `demarrer.md`). Une consigne de couverture ne
   tient que si le lot tient dans l'agent : une grosse page = un agent.
+- [1× — 09-25h] **Un camp dont TOUTES les séries sont refusées se lit comme un PERDANT** : A/B du
+  slot `scope`, 4/4 séries B refusées, « −8 % » — j'ai failli imputer au diff un blocage ≥ 2 s
+  que 8 octets par requête ne peuvent pas produire. Une série refusée est une ABSENCE de mesure,
+  pas une mesure défavorable ; le TEST NUL (même build, étiquettes alternées) tranche le biais du
+  banc en une passe — à lancer avant de conclure sur un écart qui n'a pas de mécanisme.
 
 ## 🗄️ Gradué aux CONSOLIDATE (retiré d'ici — règle anti-doublon)
 

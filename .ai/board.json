@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T13:44:32.990Z",
+  "generatedAt": "2026-09-25T16:04:57.700Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 31,
+      "closed": 32,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 47,
+      "open": 49,
       "title": "10.0.0-beta"
     },
     {
@@ -137,12 +137,26 @@
       "number": 484,
       "title": "feat(core): donner accès au scope de la requête courante par le contexte asynchrone",
       "url": "https://github.com/nodefony/nodefony-core/issues/484",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
       "ordre": 0.9,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 490,
+      "title": "test(http): resserrer les seuils mémoire sur le bruit mesuré",
+      "url": "https://github.com/nodefony/nodefony-core/issues/490",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 0.95,
       "debut": null,
       "cible": null,
       "labels": []
@@ -240,7 +254,7 @@
       "title": "feat(core): ajouter une portée « par requête » aux services injectables",
       "url": "https://github.com/nodefony/nodefony-core/issues/485",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -332,6 +346,20 @@
       ]
     },
     {
+      "number": 491,
+      "title": "fix(core): empêcher une requête de modifier la configuration partagée",
+      "url": "https://github.com/nodefony/nodefony-core/issues/491",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 1.07,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 257,
       "title": "chore(depot): renommer la branche de travail en dev, main portant la dernière publication",
       "url": "https://github.com/nodefony/nodefony-core/issues/257",
@@ -369,6 +397,20 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 1.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 489,
+      "title": "chore(bench): comparer le débit de Nodefony à celui de NestJS",
+      "url": "https://github.com/nodefony/nodefony-core/issues/489",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 1.15,
       "debut": null,
       "cible": null,
       "labels": []
