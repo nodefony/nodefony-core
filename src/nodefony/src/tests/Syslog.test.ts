@@ -1251,6 +1251,86 @@ describe("NODEFONY SYSLOG", () => {
         });
         syslog.log("trigger", "INFO");
       }));
+
+    // Un seul flux d'écriture, et non un `appendFile` par ligne : des appels
+    // concurrents s'entrelaçaient, et chaque ligne ouvrait puis refermait le
+    // fichier.
+    it("préserve l'ordre de 2 000 envois concurrents", async () => {
+      const t = new FileTransport({ path: tmpFile, format: "json" });
+      const sends: Promise<void>[] = [];
+      for (let i = 0; i < 2000; i++) {
+        const pdu = new Pdu(`n${i}`, "INFO", "T");
+        pdu.status = "ACCEPTED";
+        sends.push(t.send(pdu));
+      }
+      await Promise.all(sends);
+      await t.close();
+      const lines = fs.readFileSync(tmpFile, "utf8").trim().split("\n");
+      assert.strict.equal(lines.length, 2000);
+      lines.forEach((l, i) =>
+        assert.strict.equal(JSON.parse(l).payload, `n${i}`),
+      );
+    });
+
+    // Sans plafond, un journal qui produit plus vite que le disque n'écrit
+    // accumule en mémoire une file d'écritures sans borne. Au-delà du plafond,
+    // les lignes sont PERDUES et COMPTÉES, et la saturation est signalée UNE
+    // fois par épisode — ni silence, ni inondation d'erreurs.
+    it("borne la file d'écriture : au-delà du plafond, lignes perdues, comptées, signalées une fois", async () => {
+      const t = new FileTransport({ path: tmpFile, maxPendingBytes: 4096 });
+      const results = await Promise.allSettled(
+        Array.from({ length: 500 }, (_, i) => {
+          const pdu = new Pdu(`ligne ${i} `.padEnd(200, "x"), "INFO", "T");
+          pdu.status = "ACCEPTED";
+          return t.send(pdu);
+        }),
+      );
+      await t.close();
+      const rejected = results.filter((r) => r.status === "rejected");
+      assert.strict.equal(rejected.length, 1, "une seule erreur par épisode");
+      assert.ok(t.dropped > 0, "des lignes ont été perdues");
+      const written = fs.readFileSync(tmpFile, "utf8").trim().split("\n");
+      assert.strict.equal(written.length + t.dropped, 500);
+    });
+
+    it("close() libère le fichier ; un envoi ultérieur le rouvre", async () => {
+      const t = new FileTransport({ path: tmpFile, format: "json" });
+      const first = new Pdu("avant", "INFO", "T");
+      first.status = "ACCEPTED";
+      await t.send(first);
+      await t.close();
+      await t.close(); // idempotent
+      const second = new Pdu("après", "INFO", "T");
+      second.status = "ACCEPTED";
+      await t.send(second);
+      await t.close();
+      const lines = fs.readFileSync(tmpFile, "utf8").trim().split("\n");
+      assert.deepStrictEqual(
+        lines.map((l) => JSON.parse(l).payload),
+        ["avant", "après"],
+      );
+    });
+
+    // Un transport retiré ou remplacé garde sinon son descripteur ouvert :
+    // `Kernel.initializeLog` remonte un `FileTransport` neuf à chaque passage.
+    it("Syslog ferme le transport qu'il retire ou remplace", async () => {
+      const syslog = new Syslog();
+      const closed: string[] = [];
+      const make = (id: string): ITransport => ({
+        name: "file",
+        send: () => Promise.resolve(),
+        close: () => {
+          closed.push(id);
+          return Promise.resolve();
+        },
+      });
+      const a = make("a");
+      const b = make("b");
+      syslog.addTransport(a);
+      syslog.addTransport(b); // remplace `a` (même name)
+      syslog.removeTransport(b);
+      assert.deepStrictEqual(closed, ["a", "b"]);
+    });
   });
 
   describe("HttpTransport", () => {

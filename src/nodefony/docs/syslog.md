@@ -275,10 +275,10 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
 5. **Ring buffer** — `pushStack()` (`Syslog.ts:1133`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
 6. **Diffusion** — `fire("onLog")` alimente les listeners (dont l'impression console) ; le fan-out
-   transports n'est parcouru que s'il y en a au moins un (`_fireTransports`, `Syslog.ts:1507`), et
+   transports n'est parcouru que s'il y en a au moins un (`_fireTransports`, `Syslog.ts:1532`), et
    seulement pour les Pdu `ACCEPTED`.
-7. **Écriture** — `Syslog.rawLog()` (`Syslog.ts:1620`) formate la ligne via `Syslog.wrapper()`
-   (`Syslog.ts:1534`) puis la remet au coalescing, qui la donne au sink actif.
+7. **Écriture** — `Syslog.rawLog()` (`Syslog.ts:1643`) formate la ligne via `Syslog.wrapper()`
+   (`Syslog.ts:1559`) puis la remet au coalescing, qui la donne au sink actif.
 
 ### Le ring buffer — mémoire bornée, relecture O(1)
 
@@ -428,21 +428,22 @@ coûte réellement le reste du pipeline.
 
 ### Basculer et couper à chaud
 
-- **Changer de sink** : `Syslog.setLogSink()` (`Syslog.ts:1666`). La bascule vide d'abord les
+- **Changer de sink** : `Syslog.setLogSink()` (`Syslog.ts:1691`). La bascule vide d'abord les
   lignes en attente **puis** ferme l'ancien sink (`_setLogSink`, `Syslog.ts:154`) — jamais de ligne
   perdue, jamais de descripteur fuité.
-- **Couper sans changer de sink** : `Syslog.setSinkEnabled()` (`Syslog.ts:1689`) coupe l'écriture
+- **Couper sans changer de sink** : `Syslog.setSinkEnabled()` (`Syslog.ts:1714`) coupe l'écriture
   tout en **préservant le nom** du sink (l'interface d'admin sait quoi réafficher). Coût sur le hot
   path : un test booléen.
-- **Forcer la bufférisation** : `Syslog.setOutputBuffering()` (`Syslog.ts:1650`) accepte `true`,
+- **Forcer la bufférisation** : `Syslog.setOutputBuffering()` (`Syslog.ts:1675`) accepte `true`,
   `false` ou `"auto"`.
 
 ### Les transports — le fan-out structuré
 
 Un transport reçoit le `Pdu` entier et l'envoie où il veut. Contrat minimal : un `name` et un
-`send(pdu): Promise<void>`. Ils sont ajoutés (`addTransport()`, `Syslog.ts:1419`, dédupliqué **par
-nom**), listés (`listTransports()`, `Syslog.ts:1463`) et activés/désactivés à chaud
-(`setTransportEnabled()`, `Syslog.ts:1487` — un transport désactivé est **retiré** de la boucle,
+`send(pdu): Promise<void>`, plus un `close()` facultatif que le `Syslog` appelle quand il retire ou
+remplace le transport (un échec part sur `onTransportCloseError`). Ils sont ajoutés (`addTransport()`, `Syslog.ts:1419`, dédupliqué **par
+nom**), listés (`listTransports()`, `Syslog.ts:1492`) et activés/désactivés à chaud
+(`setTransportEnabled()`, `Syslog.ts:1516` — un transport désactivé est **retiré** de la boucle,
 donc sans surcoût). Une erreur d'envoi déclenche `onTransportError` : elle ne fait jamais tomber la
 requête.
 
@@ -456,8 +457,10 @@ requête.
 | `opensearch` | OpenSearch (`_bulk`)      | Production : NDJSON groupé.                          |
 
 Les quatre premiers sont directs : `ConsoleTransport` (`ConsoleTransport.ts:5`) délègue l'impression
-à `Syslog.normalizeLog()` (`Syslog.ts:1596`) ; `FileTransport` (`FileTransport.ts:10`) écrit **un
-objet JSON par ligne**, exactement ce que relit le driver `file` — écriture et relecture sont
+à `Syslog.normalizeLog()` (`Syslog.ts:1625`) ; `FileTransport` écrit **un
+objet JSON par ligne** par un seul flux d'ajout (ordre des lignes garanti), dans une file bornée
+(`maxPendingBytes`, 8 Mio) au-delà de laquelle les lignes sont perdues, comptées (`dropped`) et
+signalées une fois par épisode — exactement ce que relit le driver `file` — écriture et relecture sont
 branchées **ensemble** par le Kernel, sur le même chemin, ce qui évite le classique « j'écris ici,
 je relis là » ; `HttpTransport` (`HttpTransport.ts:12`) fait un `POST` par Pdu, sans regroupement
 (volume faible uniquement) ; `SyslogTransport` (`SyslogTransport.ts:7`) réémet le **même** objet
@@ -632,7 +635,7 @@ permet à `Pdu` de rester utilisable dans la debug bar.
 
 ### Détourner `console.*` vers le journal
 
-`Syslog.overrideConsole()` (`Syslog.ts:1704`) redirige `log/info/warn/error/debug/table/dir` vers un
+`Syslog.overrideConsole()` (`Syslog.ts:1729`) redirige `log/info/warn/error/debug/table/dir` vers un
 `Syslog`. Effet **global au process** : un seul appel, et `restoreConsole()` pour revenir. Les
 méthodes natives ont été capturées au chargement du module, ce qui évite toute récursion infinie
 lors de l'impression.
@@ -717,7 +720,7 @@ kernel.syslog?.addTransport(new SlackTransport());
 ```
 
 Une exception levée dans `send` **ne casse rien** : elle est captée et republiée en
-`onTransportError` (`Syslog.ts:1503`). Pour un volume réel, étends plutôt
+`onTransportError` (`Syslog.ts:1535`). Pour un volume réel, étends plutôt
 `BatchingHttpTransport` (`BatchingHttpTransport.ts:47`) : la file, l'abandon et le vidage sont déjà
 faits.
 
@@ -755,7 +758,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
 | Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2826`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
-| JSON Lines                 | JSONL            | `FileTransport` format `json` (`FileTransport.ts:10`)  |
+| JSON Lines                 | JSONL            | `FileTransport` format `json`                          |
 | API de requête Loki        | LogQL            | `createLokiLogDriver()` (`LokiLogDriver.ts:86`)        |
 
 ## 📡 Observabilité — Studio

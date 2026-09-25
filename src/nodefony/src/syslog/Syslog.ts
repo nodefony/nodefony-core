@@ -1431,15 +1431,40 @@ class Syslog extends Event implements ISyslog {
     if (idx === -1) {
       this._transports.push(transport);
     } else if (this._transports[idx] !== transport) {
+      this._closeTransport(this._transports[idx]);
       this._transports[idx] = transport;
     }
     return this;
   }
 
+  /**
+   * Retire un transport d'écriture et le ferme (`ITransport.close`) : un
+   * transport retiré qui garderait son fichier ouvert fuirait un descripteur à
+   * chaque ré-initialisation du journal (`Kernel.initializeLog`).
+   *
+   * @param transport - l'instance montée par `addTransport`
+   * @returns le syslog, pour chaîner
+   */
   removeTransport(transport: ITransport): this {
     const idx = this._transports.indexOf(transport);
-    if (idx !== -1) this._transports.splice(idx, 1);
+    if (idx !== -1) {
+      this._transports.splice(idx, 1);
+      this._closeTransport(transport);
+    }
     return this;
+  }
+
+  /**
+   * Ferme un transport retiré ou remplacé. Un échec part sur
+   * `onTransportCloseError(err, transport)` — et non sur `onTransportError`,
+   * dont le contrat promet le `Pdu` en échec.
+   */
+  private _closeTransport(transport: ITransport): void {
+    transport
+      .close?.()
+      .catch((err: unknown) =>
+        this.fire("onTransportCloseError", err, transport),
+      );
   }
 
   /**

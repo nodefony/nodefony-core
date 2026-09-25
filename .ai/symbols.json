@@ -13247,7 +13247,8 @@
       "implements": [
         "ITransport"
       ],
-      "decorators": []
+      "decorators": [],
+      "description": "Transport d'écriture vers un fichier : une ligne par `Pdu` (JSONL ou texte), par UN flux d'ajout ouvert paresseusement au premier envoi. Un seul flux garantit l'ordre des lignes et évite un `open`/…"
     },
     "FileTransportOptions": {
       "name": "FileTransportOptions",
