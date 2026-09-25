@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T10:41:24.844Z",
+  "generatedAt": "2026-09-25T13:44:32.990Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 29,
+      "closed": 31,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 49,
+      "open": 47,
       "title": "10.0.0-beta"
     },
     {
@@ -109,8 +109,8 @@
       "number": 482,
       "title": "fix(core): corriger la fuite de paramètres et l'imbrication du scope de requête",
       "url": "https://github.com/nodefony/nodefony-core/issues/482",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -123,8 +123,8 @@
       "number": 483,
       "title": "perf(core): alléger le suivi des scopes ouverts, qui coûte 70 % du cycle",
       "url": "https://github.com/nodefony/nodefony-core/issues/483",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 0.5,
@@ -392,7 +392,7 @@
       "title": "refactor(core): casser le cycle de types entre le cœur, http et framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/487",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
@@ -6795,7 +6795,7 @@
       "title": "refactor(core): découper le noyau, un fichier de 4 255 lignes",
       "url": "https://github.com/nodefony/nodefony-core/issues/488",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": null,
       "priorite": "P3 — fin de cycle",
       "jours": 3,

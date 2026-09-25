@@ -283,6 +283,14 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25g] **Critère « −40 % » de #483 fixé sur un MICROBENCH** (752 → 346 ns, −54 %) : jugé
+  in-situ sous charge, −37 %. Les coûts FIXES du décor réel (sonde ~0,1 µs par tranche, caches
+  froids) ne baissent pas et COMPRIMENT le pourcentage. Un objectif relatif se fixe dans le décor
+  où il sera jugé — ou s'écrit en ABSOLU (µs économisées : ~0,84 µs par requête).
+- [1× — 09-25g] **Débit refusé 4/4, sonde décisionnelle quand même** : portable en charge, thermique
+  jamais sous 45 en 300 s après une matinée de builds (56-60 → 71-73). La sonde in-situ (moyenne
+  sur ~300 000 requêtes, paires alternées, `dist` vérifié par empreinte) tranche là où le RPS ne
+  peut pas — à condition de le DIRE, et de n'annoncer aucun chiffre de débit.
 - [1× — 09-25f] **Job « Vitrine » rouge sur 3 releases** : `env: GITHUB_REPOSITORY: nodefony/nodefony`
   dans une étape — le journal AFFICHE la valeur, le process reçoit celle du runner (la forge ignore
   toute surcharge `GITHUB_*`). Le juge interrogeait nodefony-core. Vrai en local, faux sur la forge ;
