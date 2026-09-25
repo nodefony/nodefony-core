@@ -291,7 +291,7 @@ new Service("calc", container, false).fire("x"); // ❌ lève : notificationsCen
 
 C'est **la** raison d'être de la délégation. Chaque écouteur posé par l'API du service
 (`Service.on()` (`Service.ts:419`), `once`, `addListener`, `prependListener`…) est enregistré dans la
-carte privée `#trackedListeners` (`Service.ts:89`) via `Service.trackListener()` (`Service.ts:328`).
+carte privée `#trackedListeners` (`Service.ts:89`) via `Service.trackListener()` (`Service.ts:335`).
 
 ```mermaid
 sequenceDiagram
@@ -330,19 +330,19 @@ Les signatures exactes vivent dans le graphe TSDoc (`.ai/symbols.json`) ; ce qui
 
 ### Dépendances — la façade container
 
-| Appel                    | Ancre            | Comportement                                                    |
-| ------------------------ | ---------------- | --------------------------------------------------------------- |
-| `get<T>(name)`           | `Service.ts:427` | l'instance typée, ou **`null`** si absente ou après `clean()`   |
-| `set(name, obj)`         | `Service.ts:526` | enregistre — **lève** si le container est détaché               |
-| `remove(name)`           | `Service.ts:538` | si la cible est un `Service`, appelle son `clean()` **d'abord** |
-| `has(name)`              | `Service.ts:568` | `false` plutôt qu'une erreur quand le container est détaché     |
-| `getParameters(path)`    | `Service.ts:552` | lecture par chemin pointé (`"kernel.environment"`)              |
-| `setParameters(path, v)` | `Service.ts:560` | écriture par chemin pointé — **lève** si détaché                |
+| Appel                    | Ancre            | Comportement                                                                       |
+| ------------------------ | ---------------- | ---------------------------------------------------------------------------------- |
+| `get<T>(name)`           | `Service.ts:427` | l'instance typée, ou **`null`** si absente ou après `clean()`                      |
+| `set(name, obj)`         | `Service.ts:533` | enregistre — **lève** si le container est détaché                                  |
+| `remove(name)`           | `Service.ts:545` | si la cible est un `Service`, appelle son `clean()` **d'abord**                    |
+| `has(name)`              | `Service.ts:575` | `false` plutôt qu'une erreur quand le container est détaché                        |
+| `getParameters(path)`    | `Service.ts:559` | lecture par chemin pointé, **en lecture seule** — gelée après `onReady`            |
+| `setParameters(path, v)` | `Service.ts:567` | écriture par chemin pointé — **lève** si détaché, ou si la configuration est figée |
 
 Cette façade est **tolérante en lecture, stricte en écriture**. Le détail du container lui-même
 (scopes par requête, arbre de paramètres, héritage prototypal) est traité dans
-[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:326`),
-`Container.leaveScope()` (`Container.ts:345`) et `Container.scopeCount()` (`Container.ts:362`) pour
+[injection-portees](../../../docs/architecture/injection-portees.md) — `Container.enterScope()` (`Container.ts:343`),
+`Container.leaveScope()` (`Container.ts:362`) et `Container.scopeCount()` (`Container.ts:379`) pour
 les sondes de fuite.
 
 ### Journal
@@ -350,8 +350,8 @@ les sondes de fuite.
 | Appel                               | Ancre            | Usage                                       |
 | ----------------------------------- | ---------------- | ------------------------------------------- |
 | `log(pci, severity?, msgid?, msg?)` | `Service.ts:300` | le point d'entrée de **tout** log Nodefony  |
-| `logger(pci, …)`                    | `Service.ts:317` | raccourci `DEBUG` + `console.debug` formaté |
-| `trace(pci, …)`                     | `Service.ts:322` | idem avec `console.trace` (pile d'appels)   |
+| `logger(pci, …)`                    | `Service.ts:324` | raccourci `DEBUG` + `console.debug` formaté |
+| `trace(pci, …)`                     | `Service.ts:329` | idem avec `console.trace` (pile d'appels)   |
 
 `log()` est **increvable** : sans syslog il fabrique un `Pdu` directement, et toute exception y est
 attrapée pour retomber sur `console` (`Service.ts:300`). Un service qui journalise ne peut pas faire
@@ -361,14 +361,14 @@ tomber le process à cause du journal. Sévérités et transports : [syslog](sys
 
 | Appel                                 | Ancre            | Note                                                            |
 | ------------------------------------- | ---------------- | --------------------------------------------------------------- |
-| `fire(name, …)` / `emit(name, …)`     | `Service.ts:373` | synchrone, **0 microtask** — le défaut sur le hot path          |
-| `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts:378` | attend les écouteurs asynchrones, **en séquence**               |
-| `emitAsyncGuarded(name, options?, …)` | `Service.ts:387` | isole chaque écouteur — **boot / jobs uniquement**              |
-| `on` / `once` / `addListener`         | `Service.ts:396` | **trackés** → retirés par `clean()`                             |
-| `off` / `removeListener`              | `Service.ts:458` | retirent aussi l'entrée de suivi                                |
+| `fire(name, …)` / `emit(name, …)`     | `Service.ts:380` | synchrone, **0 microtask** — le défaut sur le hot path          |
+| `fireAsync(name, …)` / `emitAsync(…)` | `Service.ts:385` | attend les écouteurs asynchrones, **en séquence**               |
+| `emitAsyncGuarded(name, options?, …)` | `Service.ts:394` | isole chaque écouteur — **boot / jobs uniquement**              |
+| `on` / `once` / `addListener`         | `Service.ts:403` | **trackés** → retirés par `clean()`                             |
+| `off` / `removeListener`              | `Service.ts:465` | retirent aussi l'entrée de suivi                                |
 | `listen(name, listener)`              | `Service.ts:408` | bind sur `this`, **non tracké** — renvoie un déclencheur        |
-| `settingsToListen(settings, ctx)`     | `Service.ts:444` | câble les clés `onXxx` d'un objet de config                     |
-| `removeAllListeners(name?)`           | `Service.ts:465` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
+| `settingsToListen(settings, ctx)`     | `Service.ts:451` | câble les clés `onXxx` d'un objet de config                     |
+| `removeAllListeners(name?)`           | `Service.ts:472` | ⚠️ sur un bus partagé, vide **aussi** les écouteurs des voisins |
 
 Le contrat `EventEmitter` complet (`listenerCount`, `eventNames`, `rawListeners`, `prependListener`,
 `setMaxListeners`…) est délégué à l'identique.
@@ -390,8 +390,8 @@ dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) — 
 interne `timeoutSentinel` (`Event.ts:33`).
 
 Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3795`) branche la politique : délai issu de
-`Kernel.bootTimeoutMs()` (`Kernel.ts:3090`) — 20 s en développement, 60 s en production, surchargeable
-par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3102`), 5 s par
+`Kernel.bootTimeoutMs()` (`Kernel.ts:3104`) — 20 s en développement, 60 s en production, surchargeable
+par `NF_BOOT_TIMEOUT_MS` — et seuil de lenteur `Kernel.bootWarnMs()` (`Kernel.ts:3116`), 5 s par
 défaut. Un hook lent est **signalé** (NOTICE), un hook qui pend est **coupé**.
 
 ## ⚙️ Options du service
@@ -432,7 +432,7 @@ C'est exactement le correctif qui empêche une fuite d'écouteurs par instance s
 | Décorateur          | Ancre                    | Rôle                                                               |
 | ------------------- | ------------------------ | ------------------------------------------------------------------ |
 | `@injectable(nom?)` | `kernelDecorator.ts:135` | inscrit la **classe** au registre DI (défaut : `constructor.name`) |
-| `@inject("nom")`    | `kernelDecorator.ts:167` | injecte un service par nom sur un **paramètre** de constructeur    |
+| `@inject("nom")`    | `kernelDecorator.ts:186` | injecte un service par nom sur un **paramètre** de constructeur    |
 | `@services([…])`    | `kernelDecorator.ts:53`  | déclare les services d'un module — instanciés à `onPreBoot`        |
 
 `@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` vaut `singleton` (défaut) ou
@@ -441,7 +441,7 @@ C'est exactement le correctif qui empêche une fuite d'écouteurs par instance s
 container hiérarchique, pas du DI (voir [injection-portees](../../../docs/architecture/injection-portees.md)).
 
 > [!CAUTION]
-> Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts:196`) mais n'est
+> Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts:215`) mais n'est
 > **pas ré-exporté** par le paquet `nodefony` : une app ne peut pas l'importer. Injecte par
 > **constructeur** (`@inject`), qui est le chemin supporté.
 
@@ -449,7 +449,7 @@ container hiérarchique, pas du DI (voir [injection-portees](../../../docs/archi
 
 Historiquement, un service devait être listé **avant** ses consommateurs dans `@services([…])` :
 déplacer une classe de trois lignes suffisait à casser le serveur au runtime. Aujourd'hui, l'ordre se
-**calcule** — `orderServicesByDependencies()` (`serviceOrder.ts:71`), appelé par le décorateur
+**calcule** — `orderServicesByDependencies()` (`serviceOrder.ts:49`), appelé par le décorateur
 (`kernelDecorator.ts:80`), fait un tri topologique **stable** depuis les dépendances déclarées
 (`@inject` puis `design:paramtypes`). Une liste déjà correcte ressort inchangée.
 
@@ -466,7 +466,7 @@ décorateur ne peut pas connaître la seconde : il s'exécute au **chargement** 
 seulement à la **construction**.
 
 Le pont est appris au seul instant où le couple est connu — quand l'instance est posée au container :
-`Injector.rememberContainerKey()` (`injector.ts:88`), appelé depuis `Module.addService()`
+`Injector.rememberContainerKey()` (`injector.ts:116`), appelé depuis `Module.addService()`
 (`Module.ts:441`). Toute résolution ultérieure passe alors par la classe et retrouve **cette**
 instance, au lieu d'en fabriquer une seconde au cache vide.
 
@@ -475,7 +475,7 @@ Les cycles sont détectés à l'instanciation, avec le chemin complet dans le me
 
 ### Charger un service depuis un chemin
 
-`Module.loadService()` (`Module.ts:533`) accepte un spécificateur de module (`import()` dynamique) et
+`Module.loadService()` (`Module.ts:545`) accepte un spécificateur de module (`import()` dynamique) et
 délègue à `addService`. Utile pour un service optionnel dont la présence dépend de la configuration.
 
 ## 🔐 Intégrité du boot — jamais de dégradation silencieuse
@@ -529,20 +529,20 @@ mesurables :
 Les services d'un module sont introspectables sans lire le code :
 
 - **API** — `GET /nodefony/kernel/api/module/{name}` (`KernelAdminApi.ts:1109`) renvoie un tableau
-  `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:521`) croisé
+  `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:533`) croisé
   avec le container (`KernelAdminApi.ts:1346`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.
-- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:362`) donne le nombre de scopes
+- **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:379`) donne le nombre de scopes
   **vivants** : un compteur qui monte sans jamais redescendre signale un `leaveScope` manquant.
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
 | Symptôme                                                | Cause (dans le code)                                                              | Correction                                                                  |
 | ------------------------------------------------------- | --------------------------------------------------------------------------------- | --------------------------------------------------------------------------- |
-| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:328`)   |
+| Fuite d'écouteurs, une de plus par instance             | écouteur posé **directement** sur le bus partagé, hors de l'API du service        | passer par `Service.on()`, qui appelle `trackListener` (`Service.ts:335`)   |
 | `off()` ne retire rien                                  | `Service.listen()` (`Service.ts:408`) **bind** — la référence posée diffère       | retirer via le déclencheur renvoyé, jamais l'original                       |
-| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:465`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
+| Les écouteurs des voisins disparaissent                 | `removeAllListeners()` (`Service.ts:472`) agit sur le bus **partagé** en entier   | cibler l'événement, ou retirer écouteur par écouteur                        |
 | `notificationsCenter not initialized`                   | bus à `false`, ou appel après `clean()` (`Service.ts:270`)                        | ne pas émettre après destruction ; vérifier le 3ᵉ argument du constructeur  |
 | `container not initialized` sur un `set()`              | écriture après `clean()` (`Service.ts:270`)                                       | revoir l'ordre du cycle de vie ; `get()`, lui, rend `null`                  |
 | Avertissement `MaxListeners` à 11 abonnés               | le défaut annoncé (20) n'est pas appliqué (`Service.ts:17`)                       | passer `{ events: { nbListeners: N } }` explicitement                       |

@@ -109,7 +109,7 @@ Quatre partis pris, tous vérifiables dans le code :
 
 - **`defineConfig()` ne retourne pas une config, mais un descripteur** (`defineConfig.ts:178`) : une
   marque privée (`CONFIG_DESCRIPTOR`, `defineConfig.ts:149`) et une seule méthode, `resolve(ctx)`,
-  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2168`). Ta config
+  appelée par le Kernel au boot (`Kernel.resolveAppOptions()`, `Kernel.ts:2182`). Ta config
   **connaît donc son environnement** au moment où elle est calculée.
 - **Le par-environnement passe par `ctx`, jamais par un fichier parallèle** (`ConfigContext`,
   `types.ts:376`). Un `config.prod.ts` séparé diverge silencieusement ; une expression ternaire, non.
@@ -306,7 +306,7 @@ absente mais que `NF_X_FILE` pointe un fichier (secret Docker, `Secret` Kubernet
 
 Côté journal, les chemins qui ressemblent à un secret sont détectés (`pathLooksSecret()`,
 `envOverride.ts:375`) et leur valeur est **rédigée** par `Kernel.surfaceAppEnvOverrides()`
-(`Kernel.ts:2258`).
+(`Kernel.ts:2272`).
 
 Les fichiers `.env` eux-mêmes sont chargés **avant** le boot par `loadEnv()` (`loadEnv.ts:131`), en
 cascade : les variantes `*.local` (gitignorées) priment sur les fichiers committés, et **rien**
@@ -359,7 +359,7 @@ simplement sans auto-complétion.
 
 Un module retiré n'est pas « chargé puis désactivé » : il n'est **jamais importé**. En ESM, un module
 non importé n'existe pas — le gain est réel, en mémoire comme en temps de boot. Les entrées écartées
-sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1597`), pour
+sont tout de même journalisées avec leur raison (`Kernel.recordModuleGated()`, `Kernel.ts:1611`), pour
 qu'un module absent reste explicable.
 
 ## ⚙️ Mises en situation — varier sans dupliquer
@@ -572,10 +572,10 @@ Les points de passage, dans l'ordre du code :
    validation — les trois dans `mergeAndValidate()` (`defineConfig.ts:186`).
 4. **Le rapport d'overrides est différé.** Le merge tourne **avant** que le logger existe : le rapport
    est rangé sur la config en clé non énumérable (`readAppEnvOverrideReport()`, `defineConfig.ts:106`)
-   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2258`).
+   puis émis quand le logger est prêt (`Kernel.surfaceAppEnvOverrides()`, `Kernel.ts:2272`).
 5. **Les modules suivent la même mécanique, un cran plus tard** : chargement dans l'ordre du manifeste
    et deep-merge de la config `use()` sur leurs défauts (`Kernel.loadModulesFromManifest()`,
-   `Kernel.ts:1656`), puis overrides inter-modules `module-<nom>`
+   `Kernel.ts:1670`), puis overrides inter-modules `module-<nom>`
    (`Module.readOverrideModuleConfig()`, `Module.ts:377`) et d'environnement
    (`Kernel.applyEnvConfigOverrides()`, `Kernel.ts:1807`).
 6. **Ces overrides tombent entre l'enregistrement et la validation** (`Kernel.ts:1807`) — et l'ordre
@@ -591,7 +591,7 @@ s'y branchent via `resolveAutoStore()` (`infra.ts:297`).
 La doctrine est explicite : `auto` ne choisit que parmi les backends **réellement enregistrés**, et
 tout repli est **annoncé**, jamais silencieux. Une valeur explicite ne passe jamais par `auto`. La
 résolution effective de chaque brique est enregistrée au boot (`Kernel.registerStoreResolution()`,
-`Kernel.ts:2055`) — donc consultable après coup, plutôt que devinée.
+`Kernel.ts:2069`) — donc consultable après coup, plutôt que devinée.
 
 ### Quand la config est invalide — le boot s'arrête proprement
 

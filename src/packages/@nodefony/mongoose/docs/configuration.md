@@ -436,7 +436,7 @@ De la plus faible à la plus forte priorité :
 
 1. **Les défauts du schéma** — `localhost:27017/nodefony`, `debug: false`, `frameworkEntities: true`.
 2. **Ta config d'app** — `use("@nodefony/mongoose", { … })`, fusionnée en profondeur sous les défauts
-   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1656`)).
+   (`Kernel.loadModulesFromManifest()` (`Kernel.ts:1670`)).
 3. **Un override venu d'un autre module** — la clé `module-mongoose` dans la config d'un module tiers.
 4. **`NF__MONGOOSE__…`** — l'override générique d'environnement.
 5. **La validation Zod** — types, bornes, défauts des champs restés absents.

@@ -423,8 +423,8 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1766` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1769` | la table complète, **par référence** (ne pas la muter) |
+| `getModule(nom)` | `Kernel.ts:1780` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1783` | la table complète, **par référence** (ne pas la muter) |
 | `modules`        | `Kernel.ts:600`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
@@ -457,7 +457,7 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | `environment`               | `Kernel.ts:411`  | Le mode **moteur** : `"development"` ou `"production"`.                |
 | `domain`                    | `Kernel.ts:609`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:3316` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:3330` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est

@@ -560,7 +560,7 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2681`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2695`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En

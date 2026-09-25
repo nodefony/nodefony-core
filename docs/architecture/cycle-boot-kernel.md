@@ -110,7 +110,7 @@ valeurs — `Events` (`Kernel.ts:306`). La chaîne réelle est
 timeout** et son échec est arbitré par une **politique de criticité**. Le chemin chaud HTTP/WS, lui,
 garde l'émission nue — zéro timer, zéro allocation par requête.
 
-**3. Le boot rend un verdict.** `Kernel.getBootReport()` (`Kernel.ts:3316`) agrège une vérité unique
+**3. Le boot rend un verdict.** `Kernel.getBootReport()` (`Kernel.ts:3330`) agrège une vérité unique
 — modules chargés, modules ignorés, serveurs réellement en écoute — consommée par le log, le code de
 sortie, le superviseur de dev et Studio. Un boot ne meurt jamais en silence.
 
@@ -225,7 +225,7 @@ billing: câblé sur invoices             ← onKernelReady
 BOOT ok — 4 module(s), 2 serveur(s) en écoute (http://127.0.0.1:5151, ws://127.0.0.1:5151)
 ```
 
-La dernière ligne est le **verdict** (`Kernel.logBootVerdict()`, `Kernel.ts:3709`). Tant qu'elle n'est
+La dernière ligne est le **verdict** (`Kernel.logBootVerdict()`, `Kernel.ts:3723`). Tant qu'elle n'est
 pas là, le boot n'est pas fini.
 
 ## 🧩 Les points d'accroche — le catalogue des hooks
@@ -243,10 +243,10 @@ Choisir en cinq secondes :
 
 ### `init(kernel?)` — le constructeur asynchrone d'un module
 
-Appelé par `Kernel.addModule()` (`Kernel.ts:1743`), juste après le `new`. C'est le seul endroit qui
+Appelé par `Kernel.addModule()` (`Kernel.ts:1757`), juste après le `new`. C'est le seul endroit qui
 tourne **avant** toute phase, au moment même du chargement du module.
 
-Il est exécuté **sous garde** (`Kernel.guardInitialize()`, `Kernel.ts:3943`) : borné par un timeout et
+Il est exécuté **sous garde** (`Kernel.guardInitialize()`, `Kernel.ts:3957`) : borné par un timeout et
 soumis à la criticité du module. Un `init` qui pend ne gèle plus rien.
 
 ### `onKernelRegister()` — « je valide ma config et je me déclare »
@@ -390,7 +390,7 @@ façon de ne pas le payer.
 
 > [!TIP]
 > Un module gaté n'est pas un module perdu. La raison est consignée
-> (`Kernel.recordModuleGated()`, `Kernel.ts:1597`) et le verdict de boot l'affiche : « 4 module(s),
+> (`Kernel.recordModuleGated()`, `Kernel.ts:1611`) et le verdict de boot l'affiche : « 4 module(s),
 > 1 ignoré(s) (policy/when) ». Tu sais toujours **pourquoi** ton module manque.
 
 ### Situation 4 — « pourquoi ma config n'est pas encore là ? »
@@ -415,7 +415,7 @@ export default {
 };
 ```
 
-Pourquoi ça casse : `Kernel.loadApp()` (`Kernel.ts:2325`) fait un `import()` du point d'entrée de
+Pourquoi ça casse : `Kernel.loadApp()` (`Kernel.ts:2339`) fait un `import()` du point d'entrée de
 l'app **avant** que la config ne soit résolue — le code au premier niveau de tes fichiers de config
 s'exécute donc à un instant où il n'y a pas encore de kernel utilisable. Effet de bord aggravant : le
 module devient **non importable hors serveur**, donc intestable.
@@ -431,7 +431,7 @@ affiche les valeurs par défaut du framework et suggère exactement ce cas. Avec
 | --- | ---------------- | ------------------------------------- | ---------------- | ----------------------------------------- |
 | 1   | `onInit`         | constructeur                          | `Kernel.ts:307`  | le kernel existe, le container aussi      |
 | 2   | `onPreStart`     | `Kernel.start()`                      | `Kernel.ts:774`  | `tmp/` et `var/` garantis, log initialisé |
-| —   | (chargement app) | `Kernel.loadApp()`                    | `Kernel.ts:2325` | **config résolue + validée**              |
+| —   | (chargement app) | `Kernel.loadApp()`                    | `Kernel.ts:2339` | **config résolue + validée**              |
 | 3   | `onStart`        | `Kernel.start()`                      | `Kernel.ts:774`  | profil d'exécution figé                   |
 | 4   | `onPreRegister`  | `Kernel.preRegister()`                | `Kernel.ts:1097` | **modules du manifeste chargés**          |
 | —   | (surcharges)     | `Kernel.applyModuleConfigOverrides()` | `Kernel.ts:1788` | `Module-*` puis `NF__*` appliqués         |
@@ -444,7 +444,7 @@ affiche les valeurs par défaut du framework et suggère exactement ce cas. Avec
 | 11  | `onTerminate`    | `Kernel.terminate()`                  | `Kernel.ts:4155` | le drain commence                         |
 
 Une commande peut s'arrêter à n'importe laquelle de ces phases : `Kernel.setCommandComplete()`
-(`Kernel.ts:2660`) compare la phase atteinte à la phase cible déclarée par la commande et coupe la
+(`Kernel.ts:2674`) compare la phase atteinte à la phase cible déclarée par la commande et coupe la
 chaîne — voir la section « Le mode commande » plus bas.
 
 ### Comment les modules sont choisis et chargés
@@ -475,13 +475,13 @@ dépend.
 l'app (mode lien symbolique, monorepo, pnpm).
 
 **Un module qui échoue ne masque pas les suivants.** `Kernel.loadModulesFromManifest()`
-(`Kernel.ts:1656`) capture l'échec par entrée, le consigne via `Kernel.recordBootFailure()`
-(`Kernel.ts:3270`) et continue. Sans ça, un `dist/` périmé sur le premier module ferait disparaître
+(`Kernel.ts:1670`) capture l'échec par entrée, le consigne via `Kernel.recordBootFailure()`
+(`Kernel.ts:3284`) et continue. Sans ça, un `dist/` périmé sur le premier module ferait disparaître
 les dix autres en silence.
 
 ### Quand ma configuration est-elle résolue et validée ?
 
-**Une seule fois, dans `Kernel.loadApp()` (`Kernel.ts:2325`), avant toute phase de registration.** Le
+**Une seule fois, dans `Kernel.loadApp()` (`Kernel.ts:2339`), avant toute phase de registration.** Le
 détail complet vit dans [Configuration](configuration.md) ; voici seulement la place dans le cycle.
 
 1. Le point d'entrée de l'app est résolu depuis son `package.json` — `Kernel.resolveAppEntry()`
@@ -489,7 +489,7 @@ détail complet vit dans [Configuration](configuration.md) ; voici seulement la 
 2. Le catalogue d'environnement de l'app (`export const env`) alimente le contexte rendu par
    `Kernel.buildConfigContext()` (`Kernel.ts:1980`) — `env`, `infra`, `appEnv`, `runtimeEnv`,
    `isProd`, `isDev`, `isTest`.
-3. `Kernel.resolveAppOptions()` (`Kernel.ts:2168`) appelle le `resolve(ctx)` du descripteur produit
+3. `Kernel.resolveAppOptions()` (`Kernel.ts:2182`) appelle le `resolve(ctx)` du descripteur produit
    par `defineConfig()` (`defineConfig.ts:217`).
 4. Ce `resolve` fait, **dans cet ordre**, `mergeAndValidate()` (`defineConfig.ts:186`) : fusion
    profonde sous les défauts du framework → surcharges d'environnement `NF__APP__*` → **validation
@@ -552,7 +552,7 @@ par `readListenerTags()` (`lifecycleTags.ts:121`) qui portent le propriétaire e
 
 ## 📡 Observabilité — le verdict de boot
 
-`Kernel.getBootReport()` (`Kernel.ts:3316`) produit un `IBootReport` (`bootReport.ts:64`) : durée,
+`Kernel.getBootReport()` (`Kernel.ts:3330`) produit un `IBootReport` (`bootReport.ts:64`) : durée,
 modules chargés, modules en échec, modules gatés, comptes d'erreurs du journal, serveurs en écoute,
 santé et remédiation suggérée.
 
@@ -561,7 +561,7 @@ les deux faisait crier « dégradé » à tort pendant toute la montée des serv
 « pas encore mesuré » n'est pas « mesuré, vraiment zéro » :
 
 - `healthy = false` **uniquement** si un profil serveur était attendu, que la mesure a été faite
-  (`Kernel.captureBootServers()`, `Kernel.ts:3282`) et qu'**aucun** serveur n'écoute (`Kernel.ts:3282`) ;
+  (`Kernel.captureBootServers()`, `Kernel.ts:3296`) et qu'**aucun** serveur n'écoute (`Kernel.ts:3296`) ;
 - des modules ignorés **seuls** laissent le boot `healthy` : dégradé, mais vivant.
 
 Le verdict est **toujours** logué, production comprise, en trois formes :
@@ -575,7 +575,7 @@ Le verdict est **toujours** logué, production comprise, en trois formes :
 Deux aides s'y greffent. Une **remédiation** heuristique — `Kernel.bootRemediationHint()`
 (`Kernel.ts:3679`) traduit un `import()` en échec de type « Cannot find package » en « dist périmé
 probable ⇒ `npm run clean && npm run build` ». Et un **journal de boot** —
-`Kernel.countBootLogIssues()` (`Kernel.ts:3561`) compte les `ERROR`/`WARNING` émis pendant le boot,
+`Kernel.countBootLogIssues()` (`Kernel.ts:3575`) compte les `ERROR`/`WARNING` émis pendant le boot,
 figés à `onPostReady` : après cet instant, le tampon mélange boot et exécution normale.
 
 Le garde-fou zéro-serveur va jusqu'au code de sortie : un profil serveur qui finit sans écoute sort en
@@ -626,7 +626,7 @@ Deux mécanismes, à ne pas confondre.
 (`Kernel.ts:370`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:938`).
 
 **La phase cible** — chaque commande déclare la phase qui lui suffit. Dès qu'elle est atteinte,
-`Kernel.setCommandComplete()` (`Kernel.ts:2660`) coupe la chaîne et `Kernel.finishOrPark()`
+`Kernel.setCommandComplete()` (`Kernel.ts:2674`) coupe la chaîne et `Kernel.finishOrPark()`
 (`Kernel.ts:1415`) décide de la suite :
 
 | Le run est…                              | Ce qui se passe à la phase cible                              |
@@ -653,7 +653,7 @@ démarre jamais un serveur par accident.
 
 ## Cluster et multi-process
 
-Le multi-process n'ajoute **aucune phase**. `Kernel.initCluster()` (`Kernel.ts:3016`) est appelé
+Le multi-process n'ajoute **aucune phase**. `Kernel.initCluster()` (`Kernel.ts:3030`) est appelé
 pendant `preRegister()` (`Kernel.ts:1097`) et se contente de constater le rôle du process — primaire ou
 travailleur — pour émettre `onCluster` et brancher le canal de messages inter-process.
 
