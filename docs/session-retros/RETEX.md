@@ -283,6 +283,18 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-25f] **Job « Vitrine » rouge sur 3 releases** : `env: GITHUB_REPOSITORY: nodefony/nodefony`
+  dans une étape — le journal AFFICHE la valeur, le process reçoit celle du runner (la forge ignore
+  toute surcharge `GITHUB_*`). Le juge interrogeait nodefony-core. Vrai en local, faux sur la forge ;
+  l'alpha.8 l'avait même « expliqué » par un délai d'indexation. Un paramètre qui change de dépôt
+  passe par un ARGUMENT (`--repo`), jamais par une variable réservée — et se rejoue dans le décor du
+  runner (`GITHUB_REPOSITORY=nodefony/nodefony-core node …`).
+- [1× — 09-25f] J'ai recommandé de RETIRER le scope DI en comptant qui écrit dedans (« une seule clé »,
+  c'était trois) au lieu de lire comment il est BÂTI (copie prototypale O(1)) — l'auteur a corrigé.
+  Un mécanisme peu utilisé est d'abord suspect d'être INATTEIGNABLE, pas inutile
+  ([[feedback_capability_unreachable_is_absent]]) ; l'audit par exécution a ensuite trouvé la vraie
+  fuite que ni l'audit externe ni moi n'avions vue.
+
 - [1× — 09-25e] **Faux VERT du juge client (banc devkit, tâche 0)** : il cherchait la façade dans
   TOUTE l'application, or `create app` la livre (`tests/e2e.test.ts`) — une page « temps réel » en
   `setInterval` passait. Un juge ne lit que ce que l'AGENT a écrit : lignes ajoutées depuis le

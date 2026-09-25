@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T10:25:18.432Z",
+  "generatedAt": "2026-09-25T10:29:14.992Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -96,7 +96,7 @@
       "title": "feat(core): rendre atteignable le scope de requête par copie prototypale",
       "url": "https://github.com/nodefony/nodefony-core/issues/481",
       "state": "OPEN",
-      "status": "Todo",
+      "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 3.5,
