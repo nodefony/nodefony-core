@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T00:30:41.410Z",
+  "generatedAt": "2026-09-25T09:14:41.381Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 28,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 42,
+      "open": 43,
       "title": "10.0.0-beta"
     },
     {
@@ -1733,6 +1733,20 @@
         "rattrapable",
         "beta-4"
       ]
+    },
+    {
+      "number": 480,
+      "title": "feat(cli): afficher la doc de la commande sous toute erreur d'usage",
+      "url": "https://github.com/nodefony/nodefony-core/issues/480",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 4.075,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 427,
