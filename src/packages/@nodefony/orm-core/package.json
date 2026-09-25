@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/orm-core",
-  "version": "10.0.0-alpha.8",
+  "version": "10.0.0-alpha.9",
   "description": "Un contrat de dépôt de données pour Nodefony, plusieurs moteurs : interfaces, registre et classes de base pour le support multi-ORM",
   "contributors": [],
   "type": "module",
@@ -37,11 +37,11 @@
     "esm"
   ],
   "peerDependencies": {
-    "nodefony": "^10.0.0-alpha.8"
+    "nodefony": "^10.0.0-alpha.9"
   },
   "devDependencies": {
     "@types/node": "26.6.2",
-    "nodefony": "^10.0.0-alpha.8",
+    "nodefony": "^10.0.0-alpha.9",
     "vitest": "5.0.1"
   },
   "repository": {

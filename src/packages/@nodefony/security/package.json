@@ -1,6 +1,6 @@
 {
   "name": "@nodefony/security",
-  "version": "10.0.0-alpha.8",
+  "version": "10.0.0-alpha.9",
   "description": "Pare-feu applicatif par zones pour Nodefony : authentification, autorisation par rôles, protection CSRF, journal d'audit",
   "author": "Christophe CAMENSULI <ccamensuli@gmail.com>",
   "main": "./dist/index.js",
@@ -54,22 +54,22 @@
     "zod": "^4.6.5"
   },
   "devDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.8",
-    "@nodefony/http": "^10.0.0-alpha.8",
-    "@nodefony/user": "^10.0.0-alpha.8",
+    "@nodefony/framework": "^10.0.0-alpha.9",
+    "@nodefony/http": "^10.0.0-alpha.9",
+    "@nodefony/user": "^10.0.0-alpha.9",
     "@types/node": "26.6.2",
     "@vitest/coverage-v8": "5.0.1",
-    "nodefony": "^10.0.0-alpha.8",
+    "nodefony": "^10.0.0-alpha.9",
     "vitest": "5.0.1"
   },
   "license": "Apache-2.0",
   "readmeFilename": "README.md",
   "contributors": [],
   "peerDependencies": {
-    "@nodefony/framework": "^10.0.0-alpha.8",
-    "@nodefony/http": "^10.0.0-alpha.8",
-    "@nodefony/user": "^10.0.0-alpha.8",
-    "nodefony": "^10.0.0-alpha.8"
+    "@nodefony/framework": "^10.0.0-alpha.9",
+    "@nodefony/http": "^10.0.0-alpha.9",
+    "@nodefony/user": "^10.0.0-alpha.9",
+    "nodefony": "^10.0.0-alpha.9"
   },
   "files": [
     "dist",

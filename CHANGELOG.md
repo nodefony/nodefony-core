@@ -8,6 +8,62 @@ Les sections naissent d'un BROUILLON rendu par `npm run release` depuis les mess
 de commit, puis sont RÉÉCRITES à la main : un journal git est écrit pour l'auteur,
 un changelog pour celui qui met à jour.
 
+## 10.0.0-alpha.9 - 2026-09-25
+
+### Changed
+
+- **mongoose (breaking):** Refuser les savepoints d'une transaction MongoDB au lieu de faire semblant de les poser (6b1875b52)
+- **realtime:** Déprécier `PLATFORM_CHANNELS.dashboard`, qu'aucun fournisseur ne sert (2e47c1dfe)
+- **bundler:** Vider `dist` à l'émission plutôt qu'avant la compilation (option `cleanDir` du socle `nodefony/bundler`) et ne plus dépendre de `rimraf` (b70e56e3a)
+- **scaffold:** Faire déclarer ses connecteurs ORM à une application générée, dans `nodefony/config/drizzle.ts` ou `mongoose.ts` (5da1f5768)
+- **scaffold:** Borner Angular à 22.1 dans les applications générées — `@angular/build` 22.2 casse le plugin Vite d'analogjs (e86647629)
+
+### Added
+
+- **mongoose:** Porter l'audit, le 2FA et l'idempotence sur MongoDB (460ef5531)
+- **mongoose:** Refuser la suppression d'un document parent encore référencé (f99f267b0)
+- **scaffold:** Proposer MongoDB au choix de base de `create app`, et générer des entités Mongoose sur une telle application (fcd035897, 02c6fb3c0, adc9a9e15)
+- **scaffold:** Choisir la licence de l'application à sa création (a29a819ae)
+- **cli:** Demander les champs d'une entité un par un dans le terminal (39cde50be)
+- **orm:** Donner ses propres migrations à un connecteur secondaire (8965458fb)
+- **orm-core:** Publier le mécanisme de reconnexion d'un connecteur et la chronologie de ses coupures (cc539e3bc)
+- **stores:** Publier, pour chaque brique durable, le connecteur qui la porte (5703e5273)
+- **doctor:** Signaler un connecteur ORM que personne n'a déclaré (98fae1528)
+- **kernel:** Refuser au démarrage un ORM déclaré après le module qui consomme ses magasins (d1e256d8b)
+- **core:** Refuser en 400 un identifiant mal formé dans un filtre de référence (96f0488d2)
+- **studio:** Ajouter une page par connecteur ORM — base réellement portée, reconnexion, analyse de ce que le data plane mesure (1fb3cd108, b8fe50538, 3348e14ce)
+- **studio:** Composer les champs d'une entité à sa création, avec leurs types par moteur, sur les seuls connecteurs ouverts (a36f5cf32, f4f80d6b3)
+- **studio:** Regrouper par module les entités sans domaine, et montrer au survol le contenu d'un groupe (e30ebd2e8, 190ffde7a)
+
+### Fixed
+
+- **http:** Répondre 404, et non 500, à un identifiant mal formé dans le chemin (79bf5e1c6)
+- **cli:** Ne plus déclarer libre un port occupé quand la boucle d'événements est saturée (42f5d5e71)
+- **cli:** Accepter la licence composée `Apache-2.0 AND BSD-3-Clause` au contrôle des licences (b4ed7bb4a)
+- **core:** Cesser de condamner la zone de firewall que le gabarit d'application prescrit (f69b553f4)
+- **drizzle:** Dériver le schéma d'une base en mémoire, production comprise (3d5156689)
+- **drizzle:** Refuser en le nommant un `await` de premier niveau dans un fichier d'entité, chemin avec espaces compris (2a5f6e303, 905741346)
+- **drizzle:** Ne plus appliquer les migrations du framework à un connecteur secondaire (3d04e8dd4)
+- **orm:** Ne plus ouvrir de base SQLite quand l'infrastructure déclarée n'est pas SQL (7cc1b57b1, 05804b38a)
+- **orm:** Ouvrir le connecteur d'un module réservé au développement exactement quand ce module est chargé (d9e2232cb, ee990d9d1)
+- **orm:** Journaliser la perte et la reprise d'une connexion (9659c2fb0)
+- **orm:** Ne plus annoncer un échec de connexion quand le serveur refuse le schéma (21e32bc78)
+- **orm:** Trier sur `id` avec Mongoose, et non sur un champ absent (2c66f3e8b)
+- **orm:** Cesser d'écraser le compte d'une entité portée par deux connecteurs (ed0ce765c)
+- **orm-core:** Ne plus présenter comme une faute de déclaration un connecteur resté fermé parce qu'un précédent a échoué (905741346)
+- **mongoose:** Servir l'ordre du journal d'audit par un index composite (19ba16a0f)
+- **redis:** Rendre atomique le seuil de révocation des jetons (88ece7f87)
+- **frontend:** Vérifier réellement les templates Angular au build Vite (fb29db43d)
+- **frontend:** Dire pourquoi la page de développement pointe une machine injoignable (7ded2b77a)
+- **scaffold:** Rendre `User` référençable par une entité de l'application, typé comme la clé de l'identité (34b5dc66a, 595f5a0bf, 398296920)
+- **scaffold:** Faire compiler les tests générés d'une entité qui se référence elle-même (d073c4dea)
+- **scaffold:** Déclarer dans un module chaque paquet que ses fichiers générés importent (49b5010ac, cd69c97ec)
+- **studio:** Attribuer les briques des stores au connecteur qui les porte, et non au moteur (f129f0354, 1024488a7, 63ae146aa)
+- **studio:** Cesser d'annoncer chargé un moteur de persistance qui ne l'est pas (b4ad62536)
+- **studio:** Cesser de présenter une entité plate comme une anomalie du modèle (21cec71ea)
+- **studio:** Poser à la création d'une entité les mêmes questions que le terminal (9af1e1894)
+- **studio:** Réparer l'accessibilité et la lisibilité du tableau de bord ORM en thème clair (59448c6c3, d99c8e868, 2ae17c9c6, 8431d8da1, e85c6d8cd, a727c8de7)
+
 ## 10.0.0-alpha.8 - 2026-09-20
 
 ### Changed
