@@ -556,7 +556,7 @@ class Service implements IService {
   }
 
   /** Récupère un paramètre dynamique (config résolue) — `null` si absent. */
-  getParameters(name: string): DynamicParam | null {
+  getParameters(name: string): Readonly<DynamicParam> | null {
     return this.container?.getParameters(name) ?? null;
   }
 

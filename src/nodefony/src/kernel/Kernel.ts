@@ -1256,6 +1256,10 @@ class Kernel extends Service implements IKernel {
     return this.fireLifecycle("onReady", this)
       .then(async () => {
         this.ready = true;
+        // La configuration est complète : la figer AVANT que le premier
+        // serveur n'écoute, pour qu'aucune requête ne voie un arbre modifiable
+        // (#491). Une commande console s'arrêtant ici est couverte aussi.
+        this.container?.freezeParameters();
         if (this.setCommandComplete(Events.onReady)) {
           // Phase cible atteinte sans serveur : terminate (one-shot) OU park (daemon
           // long-running). C'est la phase de readiness d'un daemon CONSOLE.

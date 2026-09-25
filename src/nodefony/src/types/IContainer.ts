@@ -32,7 +32,7 @@ export interface IScope extends IContainer {
     name: string,
     merge?: boolean,
     deep?: boolean,
-  ): DynamicParam | null;
+  ): Readonly<DynamicParam> | null;
 }
 
 /**
@@ -52,7 +52,17 @@ export interface IContainer {
 
   // ─── Paramètres ────────────────────────────────────────────────────────────
   setParameters<T>(name: string, ele: T): DynamicParam | null;
-  getParameters(name: string): DynamicParam | null;
+  /**
+   * Lit un paramètre. Le résultat est en LECTURE SEULE : pour une clé qu'un
+   * scope ne surcharge pas, c'est le nœud du conteneur racine, partagé par
+   * toutes les requêtes — gelé à la fin du démarrage.
+   */
+  getParameters(name: string): Readonly<DynamicParam> | null;
+  /**
+   * Fige l'arbre des paramètres (lecture seule en profondeur). Appelé par le
+   * kernel à la fin de `onReady` ; un `setParameters` ultérieur lève.
+   */
+  freezeParameters(): void;
 
   // ─── Scopes ────────────────────────────────────────────────────────────────
   addScope(name: string): object;

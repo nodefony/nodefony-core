@@ -45,6 +45,23 @@ const parseParameterString = function (
   return this;
 };
 
+/**
+ * Gèle un arbre de paramètres en profondeur : objets simples et tableaux
+ * seulement. Une instance de classe rangée en configuration (client, store,
+ * fonction) garde son état propre et n'est pas gelée. Un nœud déjà gelé
+ * s'arrête là — ce qui borne aussi un arbre qui se référence lui-même.
+ */
+const freezeTree = (node: unknown): void => {
+  if (node === null || typeof node !== "object" || Object.isFrozen(node)) {
+    return;
+  }
+  if (!Array.isArray(node) && !isPlainObject(node)) return;
+  Object.freeze(node);
+  for (const key of Object.keys(node)) {
+    freezeTree((node as Record<string, unknown>)[key]);
+  }
+};
+
 export interface DynamicService {
   [key: string]: unknown;
 }
@@ -415,7 +432,38 @@ class Container implements IContainer {
       );
     }
     if (!this.parameters) return null;
+    // Chemin froid : une écriture de configuration n'a pas lieu par requête.
+    // Refuser ICI, en nommant la clé, plutôt que laisser lever une TypeError
+    // au fond de la descente, loin de l'appel qui l'a causée.
+    if (Object.isFrozen(this.parameters)) {
+      throw new Error(
+        `setParameters : « ${name} » ne peut plus être écrit — la configuration ` +
+          "du conteneur racine est figée depuis la fin du démarrage (onReady), " +
+          "parce qu'elle est partagée par toutes les requêtes. Une valeur propre " +
+          "à une requête s'écrit sur son scope (scope.setParameters) ; une " +
+          "valeur de configuration se pose avant la fin du démarrage.",
+      );
+    }
     return parseParameterString.call(this.parameters, name, ele);
+  }
+
+  /**
+   * Fige la configuration du conteneur : l'arbre des paramètres devient en
+   * lecture seule, en profondeur, pour les objets simples et les tableaux.
+   *
+   * @remarks Appelé UNE fois par le kernel à la fin de `onReady`, avant que
+   * le premier serveur n'écoute : l'arbre est partagé par toutes les requêtes,
+   * et un scope le rend par référence pour une clé qu'il ne surcharge pas.
+   * Une écriture lève alors (`TypeError` en mode strict) au lieu de modifier,
+   * en silence, la configuration de toutes les requêtes concurrentes. Coût
+   * payé une fois, rien par requête. `reset()` repart d'un arbre neuf.
+   */
+  public freezeParameters(): void {
+    if (!this.parameters || Object.isFrozen(this.parameters)) return;
+    Object.freeze(this.parameters);
+    for (const key of Object.keys(this.parameters)) {
+      freezeTree(this.parameters[key]);
+    }
   }
 
   /**
@@ -425,7 +473,7 @@ class Container implements IContainer {
    * @returns the value, the subtree, or `null` if absent
    * @throws Error when `name` is empty
    */
-  public getParameters(name: string): DynamicParam | null {
+  public getParameters(name: string): Readonly<DynamicParam> | null {
     if (!name) {
       throw new Error(`getParameters : invalid name "${name}"`);
     }
@@ -594,7 +642,7 @@ class Scope extends Container implements IScope {
     name: string,
     merge: boolean = true,
     deep: boolean = true,
-  ): DynamicParam | null {
+  ): Readonly<DynamicParam> | null {
     const res = parseParameterString.call(this.parameters ?? {}, name);
     const obj = this.parent?.getParameters(name);
     if (ISDefined(res)) {

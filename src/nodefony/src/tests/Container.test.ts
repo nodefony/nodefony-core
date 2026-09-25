@@ -903,3 +903,98 @@ describe("Container › closed (#484)", () => {
     expect(scope.closed).to.equal(true);
   });
 });
+
+// ─── Configuration figée à la fin du démarrage (#491) ─────────────────────────
+//
+// Pour une clé qu'un scope ne surcharge pas, `getParameters` rend le nœud du
+// conteneur racine PAR RÉFÉRENCE : une requête qui y écrit modifiait la
+// configuration de toutes les autres. `freezeParameters()` (appelé par le
+// kernel à la fin de `onReady`) rend l'écriture bruyante. Débrancher : vider
+// le corps de `freezeParameters` → les blocs 1, 3 et 4 tombent.
+describe("Container › paramètres figés (#491)", () => {
+  class Client {
+    calls = 0;
+  }
+  const decor = () => {
+    const root = new Container();
+    root.setParameters("app", { debug: false, db: { pool: 4 }, tags: ["a"] });
+    root.setParameters("app.client", new Client());
+    root.addScope("request");
+    root.freezeParameters();
+    return root;
+  };
+
+  it("lire une clé non surchargée depuis un scope puis y écrire lève ; racine et voisin intacts", () => {
+    const root = decor();
+    const a = root.enterScope("request");
+    const b = root.enterScope("request");
+    const app = a.getParameters("app") as Record<string, unknown>;
+    assert.throws(() => {
+      app.debug = true;
+    }, TypeError);
+    assert.throws(() => {
+      (app.db as Record<string, unknown>).pool = 64;
+    }, TypeError);
+    assert.throws(() => {
+      (app.tags as string[]).push("b");
+    }, TypeError);
+    expect(root.getParameters("app.debug")).to.equal(false);
+    expect(root.getParameters("app.db.pool")).to.equal(4);
+    expect(b.getParameters("app.debug")).to.equal(false);
+  });
+
+  it("une clé surchargée rend un objet NEUF, modifiable localement (#482 intact)", () => {
+    const root = decor();
+    const a = root.enterScope("request");
+    a.setParameters("app", { debug: true });
+    const app = a.getParameters("app") as Record<string, unknown>;
+    expect(app.debug).to.equal(true);
+    expect(Object.isFrozen(app)).to.equal(false);
+    app.debug = "local";
+    expect(a.getParameters("app.debug")).to.equal(true);
+    expect(root.getParameters("app.debug")).to.equal(false);
+  });
+
+  it("setParameters sur la racine figée est refusé en nommant la clé ; un scope écrit toujours", () => {
+    const root = decor();
+    assert.throws(
+      () => root.setParameters("app.debug", true),
+      /« app\.debug » ne peut plus être écrit/,
+    );
+    assert.throws(() => root.setParameters("neuve", 1), /« neuve »/);
+    const a = root.enterScope("request");
+    a.setParameters("neuve", 1);
+    expect(a.getParameters("neuve")).to.equal(1);
+    expect(root.getParameters("neuve")).to.equal(null);
+  });
+
+  it("une instance de classe rangée en configuration n'est pas gelée", () => {
+    const root = decor();
+    const client = root.getParameters("app.client") as unknown as Client;
+    client.calls += 1;
+    expect(client.calls).to.equal(1);
+    expect(Object.isFrozen(root.getParameters("app"))).to.equal(true);
+  });
+
+  it("reset() repart d'un arbre modifiable", () => {
+    const root = decor();
+    root.reset();
+    root.setParameters("app", { debug: true });
+    expect(root.getParameters("app.debug")).to.equal(true);
+  });
+
+  it("le type de retour refuse l'écriture à la compilation", () => {
+    const root = decor();
+    const scope = root.enterScope("request");
+    // Jamais exécuté : c'est le TYPECHECK qui juge. Si le retour redevient
+    // modifiable, la directive ci-dessous devient inutile et tsgo échoue.
+    const write = (): void => {
+      const app = scope.getParameters("app");
+      if (app) {
+        // @ts-expect-error — Readonly<DynamicParam> : lecture seule
+        app.debug = true;
+      }
+    };
+    expect(typeof write).to.equal("function");
+  });
+});

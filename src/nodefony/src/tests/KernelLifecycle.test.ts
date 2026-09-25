@@ -1197,6 +1197,35 @@ describe("Kernel lifecycle — onReady()", () => {
     assert.strictEqual(received, k);
   });
 
+  // #491 : la configuration est figée à la fin de `onReady`, AVANT que le
+  // premier serveur n'écoute. Un écouteur de `onReady` écrit encore ; un
+  // écouteur de `onPostReady` (serveurs déjà en écoute) ne le peut plus.
+  // Débrancher : retirer l'appel à `freezeParameters()` dans `Kernel.onReady`.
+  it("la configuration est figée entre onReady et onPostReady (#491)", async () => {
+    const k = mkKernel();
+    k.container!.setParameters("app", { debug: false });
+    let writtenAtReady = false;
+    let refusedAtPostReady: unknown = null;
+    k.on("onReady", () => {
+      k.container!.setParameters("app.readyFlag", true);
+      writtenAtReady = true;
+    });
+    k.on("onPostReady", () => {
+      try {
+        k.container!.setParameters("app.late", true);
+      } catch (error) {
+        refusedAtPostReady = error;
+      }
+    });
+    await k.onReady();
+    assert.strictEqual(writtenAtReady, true);
+    assert.match(String(refusedAtPostReady), /« app\.late » ne peut plus/);
+    assert.strictEqual(
+      Object.isFrozen(k.container!.getParameters("app")),
+      true,
+    );
+  });
+
   it("initServers() retourne [] si pas de HttpKernel → pas d'erreur", async () => {
     const k = mkKernel();
     await assert.doesNotReject(() => k.onReady());

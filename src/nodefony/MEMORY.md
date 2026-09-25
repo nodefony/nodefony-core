@@ -128,8 +128,11 @@ Service(name, container?, notificationsCenter?, options?)
 **Paramètres**
 
 - `setParameters(name, val)` — dot-notation, crée les nœuds intermédiaires automatiquement
-- `getParameters(name)` → `DynamicParam | null`
+- `getParameters(name)` → `Readonly<DynamicParam> | null` — pour une clé non surchargée, un scope rend le nœud RACINE par référence
 - Erreur si name non-string, value undefined, ou descente dans un nœud non-objet
+- `freezeParameters()` : gel profond (objets simples + tableaux ; instances de classe épargnées), appelé par `Kernel.onReady` APRÈS les écouteurs `onReady`, AVANT `initServers()` → aucune requête ne voit un arbre modifiable. Écrire dans un nœud lu = `TypeError` ; `setParameters` sur la racine figée = `Error` qui nomme la clé ; `reset()` repart d'un arbre neuf. Gel constaté par `Object.isFrozen(this.parameters)` — PAS de champ drapeau (il pèserait sur chaque `Scope`)
+- `modules.<nom>` = le MÊME objet que `module.options` (`Module.ts` : `setParameters(\`modules.${name}\`, this.options)`) → le gel fige aussi `module.options`après`onReady`
+- Aucun LECTEUR de `getParameters` en production : seul `Module.ts` écrit l'arbre
 
 **Scopes**
 

@@ -58,7 +58,7 @@ export interface IService {
   set<T>(name: string, obj: T): void;
   remove(name: string): boolean;
   has(name: string): boolean;
-  getParameters(name: string): DynamicParam | null;
+  getParameters(name: string): Readonly<DynamicParam> | null;
   setParameters<T>(name: string, ele: T): DynamicParam | null;
 
   // ─── Events delegation ─────────────────────────────────────────────────────

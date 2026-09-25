@@ -258,6 +258,11 @@ svc.remove("db"); // retourne toujours false (comportement actuel)
 ```
 
 > **Note** : `set()`, `setParameters()` lèvent une erreur si le container est null (après `clean()`).
+>
+> **Configuration figée** : à la fin de `onReady`, le kernel fige l'arbre des paramètres du conteneur
+> racine (`freezeParameters()`), partagé par toutes les requêtes. Une valeur lue par `getParameters`
+> est alors en lecture seule — l'écrire lève une `TypeError` — et `setParameters` sur la racine est
+> refusé. Une valeur propre à une requête s'écrit sur son scope.
 
 ### Events
 
@@ -377,7 +382,7 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 | `set<T>(name, obj)` | `void` | Stocke dans le container |
 | `has(name)` | `boolean` | Vérifie dans le container |
 | `remove(name)` | `boolean` | Supprime du container (toujours `false`) |
-| `getParameters(name)` | `DynamicParam \| null` | Paramètre dot-notation |
+| `getParameters(name)` | `Readonly<DynamicParam> \| null` | Paramètre dot-notation, lecture seule |
 | `setParameters(name, val)` | `DynamicParam \| null` | Définit paramètre |
 | `on/off/once/emit/fire/...` | `this \| boolean` | Events (délégation EventEmitter) |
 
