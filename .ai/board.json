@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T09:28:59.627Z",
+  "generatedAt": "2026-09-25T10:25:18.432Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -42,7 +42,7 @@
       "closed": 29,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 42,
+      "open": 48,
       "title": "10.0.0-beta"
     },
     {
@@ -87,6 +87,62 @@
       "priorite": "P0 — bloque le reste",
       "jours": 1,
       "ordre": 0.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 481,
+      "title": "feat(core): rendre atteignable le scope de requête par copie prototypale",
+      "url": "https://github.com/nodefony/nodefony-core/issues/481",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 3.5,
+      "ordre": 0.5,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 482,
+      "title": "fix(core): corriger la fuite de paramètres et l'imbrication du scope de requête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/482",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 0.7,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 483,
+      "title": "perf(core): alléger le suivi des scopes ouverts, qui coûte 70 % du cycle",
+      "url": "https://github.com/nodefony/nodefony-core/issues/483",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 0.8,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 484,
+      "title": "feat(core): donner accès au scope de la requête courante par le contexte asynchrone",
+      "url": "https://github.com/nodefony/nodefony-core/issues/484",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 0.5,
+      "ordre": 0.9,
       "debut": null,
       "cible": null,
       "labels": []
@@ -180,6 +236,20 @@
       "labels": []
     },
     {
+      "number": 485,
+      "title": "feat(core): ajouter une portée « par requête » aux services injectables",
+      "url": "https://github.com/nodefony/nodefony-core/issues/485",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
+      "ordre": 1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
       "number": 293,
       "title": "build(release): cesser de réécrire les types au moment du publish",
       "url": "https://github.com/nodefony/nodefony-core/issues/293",
@@ -247,7 +317,7 @@
     },
     {
       "number": 259,
-      "title": "ci(release): publier l'image sur le registre de GitHub, sans aucun secret",
+      "title": "ci(release): publier aussi l'image sur GHCR, sans secret stocké",
       "url": "https://github.com/nodefony/nodefony-core/issues/259",
       "state": "OPEN",
       "status": "Todo",
@@ -284,6 +354,20 @@
       "milestone": "10.0.0-alpha",
       "priorite": "P1 — figé à la création",
       "jours": 0.5,
+      "ordre": 1.1,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 486,
+      "title": "docs: expliquer le scope de requête en premier, aux humains et aux agents",
+      "url": "https://github.com/nodefony/nodefony-core/issues/486",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P0 — bloque le reste",
+      "jours": 1,
       "ordre": 1.1,
       "debut": null,
       "cible": null,
