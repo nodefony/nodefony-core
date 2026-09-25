@@ -133,12 +133,15 @@ demande d'écarter ce qui ne change rien pour celui qui met à jour. Le script l
 annonce** séparément des messages hors convention — confondre les deux enverrait chercher des
 commits mal écrits qui n'existent pas.
 
-**🔴 Le filtre par TYPE ne suffit pas : l'outillage interne du dépôt est commité en `feat`/`fix`.**
-Le script retient donc `feat(pilotage)`, `fix(devkit-bench)`, `feat(retex)`, `fix(build)`,
-`feat(release)` — des scripts, des bancs et des gates qui ne partent dans aucun tarball. Pour qui
-installe le paquet, ces entrées sont du bruit qui noie les vraies. **Le test, portée par portée :
-cette ligne décrit-elle quelque chose que l'utilisateur peut ATTEINDRE depuis `exports` ?** Sinon
-elle se coupe. Mesuré sur la `10.0.0-alpha.3` : 20 entrées rendues, **8 coupées**, 12 gardées.
+**Le filtre porte aussi sur le PÉRIMÈTRE publié** (`perimetrePublie`, `release-core.mjs`) : un
+commit dont aucun fichier n'atteint un installeur — ni `files` d'un paquet publiable, ni source
+compilée dans `dist` (tests et réglages de build exclus) — est écarté et compté avec les autres.
+L'outillage du dépôt, commité en `feat`/`fix` comme il se doit (`pilotage`, `devkit-bench`,
+`release`…), ne remonte donc plus. Mesuré : alpha.3 rejouée 19 → 10 entrées ; alpha.9, 108 écartés
+sur 175. **Ce qui reste à l'auteur** : les commits qui touchent un fichier publié sans rien changer
+pour l'utilisateur. Le test, entrée par entrée : _décrit-elle quelque chose que l'utilisateur peut
+ATTEINDRE depuis `exports` ?_ Un export ajouté puis retiré dans la même fenêtre n'a jamais été
+publié — ni entrée, ni rupture (vérifier au `git log -S <symbole> -- <index.ts>`).
 
 Deux cas limites qui se tranchent en ouvrant le commit, jamais sur son sujet : un **renommage
 d'identifiant** n'est une rupture que si le symbole est ré-exporté par l'`index.ts` (sinon il
