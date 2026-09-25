@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { overlayField } from "nodefony";
 
 /**
  * @nodefony/http — CONFIGURATION DU MODULE (schéma Zod = source unique).
@@ -1092,6 +1093,35 @@ export const httpConfigSchema = z
 export type IHttpConfig = z.infer<typeof httpConfigSchema>;
 /** Type d'entrée (toutes sections omissibles — défauts du schéma). */
 export type IHttpConfigInput = z.input<typeof httpConfigSchema>;
+
+/**
+ * LISTE BLANCHE des clés qu'une requête peut surcharger pour elle seule
+ * (`overlayConfig("@nodefony/http", …)`, #494) : les quotas de corps et
+ * d'envoi, lus au MOMENT de lire le corps (`Request.readBodyLimits`) — un
+ * calque posé avant la lecture du corps (écouteur `onRequest`, organisation
+ * reconnue à son nom d'hôte) les voit. Tout le reste est refusé : en-têtes de
+ * sécurité, pare-feu, `trustProxy`, sessions, limites de débit, certificats —
+ * et `queryString`, lu au constructeur de la requête, avant tout calque.
+ * Chaque champ réutilise celui du schéma (mêmes bornes) sans son défaut.
+ */
+export const httpOverlaySchema = z
+  .strictObject({
+    maxBodySize: overlayField(httpConfigSchema.shape.maxBodySize),
+    upload: z
+      .strictObject({
+        maxFileSize: overlayField(uploadSchema.shape.maxFileSize),
+        maxTotalFileSize: overlayField(uploadSchema.shape.maxTotalFileSize),
+        maxFiles: overlayField(uploadSchema.shape.maxFiles),
+        maxFields: overlayField(uploadSchema.shape.maxFields),
+        maxFieldsSize: overlayField(uploadSchema.shape.maxFieldsSize),
+      })
+      .partial(),
+  })
+  .partial()
+  .describe("Clés de @nodefony/http surchargeables par requête.");
+
+/** Calque accepté par `overlayConfig("@nodefony/http", …)`. */
+export type IHttpOverlay = z.input<typeof httpOverlaySchema>;
 
 /**
  * Défauts du module, matérialisés depuis le schéma (source unique). Toujours

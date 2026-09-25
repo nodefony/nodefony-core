@@ -1,4 +1,4 @@
-import type { ZodType } from "zod";
+import type { ZodType, output } from "zod";
 import { BootConfigurationError } from "./BootConfigurationError";
 import { isPlainObject } from "../Tools";
 
@@ -111,6 +111,33 @@ export function parseModuleConfig<T>(
 }
 
 export default parseModuleConfig;
+
+/**
+ * Retire le défaut d'un champ de schéma, pour le réutiliser dans une LISTE
+ * BLANCHE de surcharge (`Module.overlaySchema`).
+ *
+ * @remarks Un champ qui garde son `.default()` injecterait sa valeur par défaut
+ * dans CHAQUE calque qui ne le mentionne pas — et écraserait en silence la
+ * configuration du module pour la requête. On réutilise le champ (bornes,
+ * type, description) plutôt que de le réécrire : deux copies d'une borne
+ * divergeraient. Lecture structurelle (`_zod.def.type`), comme
+ * {@link formatConfigIssues} : le schéma peut venir d'une autre copie de zod.
+ *
+ * @param field - le champ du schéma de configuration du module
+ * @returns le même champ, sans défaut — le rendre facultatif par `.partial()`
+ *   sur l'objet de la liste blanche
+ */
+export function overlayField<T extends ZodType>(
+  field: T,
+): ZodType<output<T>, output<T>> {
+  const def = (field as unknown as { _zod?: { def?: { type?: string } } })._zod
+    ?.def;
+  return (
+    def?.type === "default"
+      ? (field as unknown as { unwrap: () => ZodType }).unwrap()
+      : field
+  ) as ZodType<output<T>, output<T>>;
+}
 
 /** Configuration figée d'un module et sa liste blanche de surcharge. */
 export interface IModuleConfigEntry {

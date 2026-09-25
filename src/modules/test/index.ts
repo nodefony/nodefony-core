@@ -1,4 +1,11 @@
-import { Kernel, Module, services, registerLogDriver, mcpText } from "nodefony";
+import {
+  Kernel,
+  Module,
+  services,
+  registerLogDriver,
+  mcpText,
+  overlayConfig,
+} from "nodefony";
 import type { IAdminRegistry, IMcpTool } from "nodefony";
 import type { HttpKernel } from "@nodefony/http";
 // P6.8 — banc d'idempotence des mutations socket (mutation admin à compteur).
@@ -88,6 +95,21 @@ const BENCH_WS_BACKPRESSURE = process.env.NF_BENCH_WS_BACKPRESSURE === "1";
  * `NF_BENCH_ORM=1` : il n'existe que le temps d'une mesure, jamais par défaut.
  */
 const BENCH_ORM = process.env.NF_BENCH_ORM === "1";
+
+/**
+ * Banc du calque de configuration (#494) : un en-tête de TEST pose, pour la
+ * requête qui le porte, un calque sur le plafond du corps. Il prouve sur le
+ * serveur réel que le point d'accroche `onRequestScope` est dans la bulle ALS
+ * et AVANT la lecture du corps. Module `policy:"dev"` : absent en production.
+ */
+const OVERLAY_TEST_HEADER = "x-nf-test-max-body";
+function overlayProbe(context: unknown): void {
+  const value = (context as { request?: { headers?: Record<string, unknown> } })
+    .request?.headers?.[OVERLAY_TEST_HEADER];
+  if (typeof value === "string") {
+    overlayConfig("@nodefony/http", { maxBodySize: Number(value) });
+  }
+}
 
 // Services de portée `request` : DÉCLARÉS ici, jamais instanciés au démarrage —
 // chaque requête crée les siens à leur première résolution.
@@ -181,6 +203,7 @@ class Test extends Module {
     if (broker && !broker.has("test")) {
       broker.register(createTestAdminApi());
     }
+    this.kernel?.on("onRequestScope", overlayProbe);
     return this;
   }
 

@@ -1,6 +1,9 @@
 import { Kernel, Module, services } from "nodefony";
 import type { IAdminRegistry } from "nodefony";
-import config from "./nodefony/config/config";
+import config, {
+  httpOverlaySchema,
+  type IHttpOverlay,
+} from "./nodefony/config/config";
 import {
   defineHttpConfig,
   httpConfigJsonSchema,
@@ -47,6 +50,9 @@ declare module "nodefony" {
   interface NodefonyModuleConfig {
     "@nodefony/http": IHttpConfigInput;
   }
+  interface NodefonyModuleOverlay {
+    "@nodefony/http": IHttpOverlay;
+  }
 }
 
 @services([
@@ -61,6 +67,8 @@ declare module "nodefony" {
   UploadService,
 ])
 class Http extends Module<IHttpConfig> {
+  // Liste blanche des clés surchargeables par requête (#494).
+  override overlaySchema = httpOverlaySchema;
   //httpKernel: HttpKernel | null = null;
   constructor(kernel: Kernel) {
     super("http", kernel, import.meta.url, config);

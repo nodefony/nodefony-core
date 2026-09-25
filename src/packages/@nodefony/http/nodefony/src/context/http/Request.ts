@@ -28,7 +28,22 @@ import type {
   IParsedUploadFile,
   IUploadOptions,
 } from "../../../interfaces/IUpload";
-import { extend, Pci, Pdu, Message, Severity, Msgid } from "nodefony";
+import {
+  extend,
+  Pci,
+  Pdu,
+  Message,
+  Severity,
+  Msgid,
+  RequestContext,
+  useConfig,
+} from "nodefony";
+
+/** Ce que {@link Request.readBodyLimits} lit de la configuration http. */
+interface IHttpBodyLimits {
+  upload?: IUploadOptions;
+  maxBodySize?: number;
+}
 import Session from "../../session/session";
 import HttpError from "../../errors/httpError";
 import {
@@ -205,10 +220,14 @@ class HttpRequest {
       })
     | undefined;
   charset: BufferEncoding = "utf8";
+  // Limites d'envoi et plafond du corps : lus au MOMENT de lire le corps
+  // (`parseRequest`), jamais au constructeur — un calque de configuration posé
+  // pour cette requête avant la lecture du corps (#494) doit être vu. Un GET,
+  // qui ne lit pas de corps, ne les lit pas.
   uploadOption: IUploadOptions = {};
-  // B1 — plafond du corps NON-multipart (octets) ; 0 = illimité. Lu une fois au
-  // ctor depuis la config http (`maxBodySize`). Consommé par le pré-check
-  // Content-Length (enforceBodyLimit) et le compteur streaming (Parser.write).
+  // B1 — plafond du corps NON-multipart (octets) ; 0 = illimité. Consommé par
+  // le pré-check Content-Length (enforceBodyLimit) et le compteur streaming
+  // (Parser.write).
   maxBodySize: number = 0;
   data: Buffer = Buffer.alloc(0);
   // F-C : parse d'`Accept` À LA DEMANDE — le chemin JSON nominal ne lit
@@ -287,9 +306,6 @@ class HttpRequest {
     if (PERF_PROBE_SUB) perfMark("reqUrlNs");
     this.queryStringOptions =
       this.context?.httpKernel?.module.options.queryString || {};
-    this.uploadOption = this.context?.httpKernel?.module.options.upload || {};
-    this.maxBodySize =
-      this.context?.httpKernel?.module.options.maxBodySize ?? 0;
     let query: QS.ParsedQs;
     if (this.search) {
       query = QS.parse(this.search.slice(1), this.queryStringOptions || {});
@@ -404,6 +420,22 @@ class HttpRequest {
    *
    * @throws {HttpError} 413 si `Content-Length` dépasse `maxBodySize`.
    */
+  /**
+   * Lit le plafond du corps et les limites d'envoi tels que les voit CETTE
+   * requête : la configuration http, surchargée par le calque que la requête a
+   * pu poser avant la lecture du corps (`overlayConfig`, #494). Hors pipeline
+   * (aucun scope ouvert), la configuration du module telle quelle.
+   */
+  private readBodyLimits(): void {
+    const options =
+      RequestContext.getScope() !== undefined
+        ? (useConfig("@nodefony/http") as IHttpBodyLimits)
+        : (this.context?.httpKernel?.module.options as
+            IHttpBodyLimits | undefined);
+    this.uploadOption = options?.upload ?? {};
+    this.maxBodySize = options?.maxBodySize ?? 0;
+  }
+
   private enforceBodyLimit(): void {
     const max = this.maxBodySize;
     if (max <= 0) {
@@ -430,6 +462,7 @@ class HttpRequest {
     if (!(this.method in parse)) {
       return this.parser;
     }
+    this.readBodyLimits();
     // B1 — borne le corps NON-multipart (le multipart a ses propres limites
     // busboy). Pré-check Content-Length AVANT de lire ; le compteur de
     // `Parser.write` prend le relais pour le chunked / Content-Length menteur.

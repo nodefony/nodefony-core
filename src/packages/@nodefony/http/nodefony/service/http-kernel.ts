@@ -1367,6 +1367,15 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context!.response.end();
             return context!;
           }
+          // #494 — premier point DANS la bulle ALS : le scope de la requête est
+          // lisible, rien n'a encore été lu du corps. C'est ici qu'une
+          // application reconnaît l'organisation (nom d'hôte, en-tête…) et pose
+          // son calque de configuration (`overlayConfig`), qui s'applique alors
+          // aux quotas de corps et d'envoi. Compté d'abord : sans écouteur, ni
+          // émission ni microtâche sur le chemin de requête.
+          if (this.kernel && this.kernel.listenerCount("onRequestScope") > 0) {
+            await this.kernel.fireAsync("onRequestScope", context);
+          }
           // P2.9 — Route-match HISSÉ avant le parse (match = method + URL, pur :
           // n'utilise pas le body). Permet de SAUTER le parse busboy/JSON quand
           // l'action attend le flux brut (`@Body({ stream:true })` → le controller

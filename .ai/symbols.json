@@ -3,13 +3,13 @@
   "repoRoot": ".",
   "stats": {
     "files": 865,
-    "symbols": 4315,
+    "symbols": 4319,
     "classes": 404,
     "interfaces": 1133,
-    "types": 460,
+    "types": 461,
     "enums": 4,
-    "functions": 1880,
-    "constants": 434
+    "functions": 1882,
+    "constants": 435
   },
   "symbols": {
     "Cli": {
@@ -4218,6 +4218,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Valide la configuration d'un module contre son schéma Zod, et transforme un refus en {@link BootConfigurationError} nommant le module et la clé fautive. ⭐ TL;DR : c'est LA porte par laquelle toute …"
+    },
+    "overlayField": {
+      "name": "overlayField",
+      "kind": "function",
+      "file": "src/nodefony/src/kernel/moduleConfig.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Retire le défaut d'un champ de schéma, pour le réutiliser dans une LISTE BLANCHE de surcharge (`Module.overlaySchema`)."
     },
     "parseConfigOverlay": {
       "name": "parseConfigOverlay",
@@ -18213,12 +18221,28 @@
       "module": "@nodefony/http",
       "description": "Type d'entrée (toutes sections omissibles — défauts du schéma)."
     },
+    "IHttpOverlay": {
+      "name": "IHttpOverlay",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Calque accepté par `overlayConfig(\"@nodefony/http\", …)`."
+    },
     "httpConfigSchema": {
       "name": "httpConfigSchema",
       "kind": "const",
       "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
       "exported": true,
       "module": "@nodefony/http"
+    },
+    "httpOverlaySchema": {
+      "name": "httpOverlaySchema",
+      "kind": "const",
+      "file": "src/packages/@nodefony/http/nodefony/config/config.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "LISTE BLANCHE des clés qu'une requête peut surcharger pour elle seule (`overlayConfig(\"@nodefony/http\", …)`, #494) : les quotas de corps et d'envoi, lus au MOMENT de lire le corps (`Request.readBod…"
     },
     "IKernelConfigDefaults": {
       "name": "IKernelConfigDefaults",
@@ -30842,6 +30866,9 @@
       "mcpText": [
         "src/modules/test/index.ts"
       ],
+      "overlayConfig": [
+        "src/modules/test/index.ts"
+      ],
       "IAdminRegistry": [
         "src/modules/test/index.ts",
         "src/packages/@nodefony/frontend/index.ts",
@@ -31748,6 +31775,12 @@
       ],
       "FrontendStatus": [
         "src/packages/@nodefony/frontend/index.ts"
+      ],
+      "httpOverlaySchema": [
+        "src/packages/@nodefony/http/index.ts"
+      ],
+      "IHttpOverlay": [
+        "src/packages/@nodefony/http/index.ts"
       ],
       "defineHttpConfig": [
         "src/packages/@nodefony/http/index.ts"
@@ -37505,6 +37538,9 @@
       "ITrustedHostsConfig": [
         "src/packages/@nodefony/http/nodefony/command/proxyGenerateCommand.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "overlayField": [
+        "src/packages/@nodefony/http/nodefony/config/config.ts"
       ],
       "httpConfigSchema": [
         "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"

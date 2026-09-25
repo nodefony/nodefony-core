@@ -9,7 +9,11 @@ export { default as Module } from "./kernel/Module";
 export { BootConfigurationError } from "./kernel/BootConfigurationError";
 export { parseStoreManifest } from "./kernel/storeManifest";
 export type { IStoreManifest } from "./kernel/storeManifest";
-export { parseModuleConfig, freezeConfigTree } from "./kernel/moduleConfig";
+export {
+  parseModuleConfig,
+  freezeConfigTree,
+  overlayField,
+} from "./kernel/moduleConfig";
 export { default as CliKernel } from "./kernel/CliKernel";
 export { default as Service } from "./Service";
 export { default as Container } from "./Container";
