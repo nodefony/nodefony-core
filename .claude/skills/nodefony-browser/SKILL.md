@@ -276,7 +276,7 @@ a qu'un décor faux. L'endpoint est **requis** — rien n'est deviné.
 ```bash
 docker exec -e NF_BROWSER_PAGE=/nodefony/supervision \
   -e NF_BROWSER_LOGIN=/nodefony/login -e NF_BROWSER_USER=admin -e NF_BROWSER_PASSWORD=secret-de-dev-42 \
-  -e NF_BROWSER_API=/nodefony/kernel/api/stats \
+  -e NF_BROWSER_API=/nodefony/kernel/api/livez \
   nodefony-browser node /app/see-screen/socket.mjs /nodefony/studio/api/realtime
 ```
 
