@@ -29,7 +29,7 @@ externe n'est requis pour ce premier essai.
 
 | Étiquette        | Ce qu'elle désigne                                  |
 | ---------------- | --------------------------------------------------- |
-| `10.0.0-alpha.8` | une publication précise — c'est celle à figer en CI |
+| `10.0.0-alpha.9` | une publication précise — c'est celle à figer en CI |
 | `alpha`          | la dernière préversion du canal `alpha` (mobile)    |
 
 **`latest` n'existe pas, et c'est délibéré** : la ligne 10 est en préversion.
