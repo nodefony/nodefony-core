@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 865,
-    "symbols": 4313,
+    "symbols": 4315,
     "classes": 404,
-    "interfaces": 1132,
+    "interfaces": 1133,
     "types": 460,
     "enums": 4,
-    "functions": 1879,
+    "functions": 1880,
     "constants": 434
   },
   "symbols": {
@@ -3265,6 +3265,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Pose `value` dans `target` au `path` donné, en résolvant chaque segment contre les clés EXISTANTES (insensible à la casse). N'altère QUE des chemins déjà présents dans la config (= champs ayant un …"
+    },
+    "withResolvedPath": {
+      "name": "withResolvedPath",
+      "kind": "function",
+      "file": "src/nodefony/src/config/envOverride.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Variante « copie sur écriture » de {@link applyResolvedPath} : rend une NOUVELLE config où `path` vaut `value`, sans jamais écrire dans `target`."
     },
     "readResolvedPath": {
       "name": "readResolvedPath",
@@ -32946,8 +32954,7 @@
       ],
       "applyResolvedPath": [
         "src/nodefony/src/config/defineConfig.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "resolveFailureHint": [
         "src/nodefony/src/config/defineConfig.ts",
@@ -32962,6 +32969,11 @@
       ],
       "ConfigInput": [
         "src/nodefony/src/config/defineConfig.ts"
+      ],
+      "freezeConfigTree": [
+        "src/nodefony/src/config/envOverride.ts",
+        "src/nodefony/src/config/overlay.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "RequestContext": [
         "src/nodefony/src/config/overlay.ts",
@@ -32989,11 +33001,8 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts",
         "src/packages/@nodefony/security/nodefony/src/authenticator/FirewallRealtimeAuthenticator.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
-      ],
-      "freezeConfigTree": [
-        "src/nodefony/src/config/overlay.ts",
-        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "parseConfigOverlay": [
         "src/nodefony/src/config/overlay.ts"
@@ -37212,6 +37221,9 @@
       "flattenConfigSchema": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
+      "withResolvedPath": [
+        "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
+      ],
       "extractMarkdownSection": [
         "src/packages/@nodefony/framework/nodefony/src/KernelAdminApi.ts"
       ],
@@ -39574,6 +39586,9 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "IUploadOptions": [
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
+      ],
+      "useConfig": [
         "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "hasForwardingHeaders": [

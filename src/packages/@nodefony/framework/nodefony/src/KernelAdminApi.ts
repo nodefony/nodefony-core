@@ -15,7 +15,7 @@ import {
   flattenConfigSchema,
   readResolvedPath,
   defaultAppConfig,
-  applyResolvedPath,
+  withResolvedPath,
   outlineMarkdown,
   extractMarkdownSection,
   parseStoreManifest,
@@ -1325,10 +1325,14 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             body: { error: "Invalid value", message: verdict.message },
           };
         }
-        // 7. Application en mémoire (mute `mod.options`). `before` pour l'audit.
+        // 7. Application en mémoire. La config d'un module est FIGÉE après
+        // `onReady` (partagée par toutes les requêtes, #491) : on ne l'écrit pas,
+        // on la REMPLACE par une copie du chemin modifié, gelée à son tour.
+        // `before` pour l'audit.
         const opts = (mod.options ?? {}) as Record<string, unknown>;
         const before = getResolvedPath(opts, segments);
-        if (!applyResolvedPath(opts, segments, value)) {
+        const nextOpts = withResolvedPath(opts, segments, value);
+        if (nextOpts === null) {
           return {
             status: 422,
             body: {
@@ -1337,11 +1341,12 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             },
           };
         }
+        kernel.replaceModuleOptions(kernel.getModules()[key], nextOpts);
         // 7b. Propager aux SERVICES du module. `Service` SHALLOW-clone `options` à
         // la construction (`{ ...options }`) → un scalaire top-level (ex. http
         // `headerServer`, lu par requête sur `HttpKernel.options`) ne se propage PAS
         // par la référence (≠ nested, partagé). On applique le même chemin à chaque
-        // service porteur (`applyResolvedPath` = no-op si la clé n'existe pas).
+        // service porteur (`withResolvedPath` rend `null` si la clé n'existe pas).
         const svcMod = mod as unknown as {
           getServiceNames?: () => string[];
           get?: (name: string) => unknown;
@@ -1351,8 +1356,13 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             options?: Record<string, unknown>;
             onConfigChanged?: (path?: string[]) => void;
           } | null;
-          if (svc?.options && svc.options !== opts) {
-            applyResolvedPath(svc.options, segments, value);
+          // Même copie sur écriture : un service partage les sous-objets figés
+          // de la config du module (copie superficielle au constructeur).
+          if (svc?.options === opts) {
+            svc.options = nextOpts;
+          } else if (svc?.options) {
+            const nextSvc = withResolvedPath(svc.options, segments, value);
+            if (nextSvc !== null) svc.options = nextSvc;
           }
           // Seam optionnel : un service qui MET EN CACHE des valeurs dérivées de
           // la config (ex. HttpKernel : en-têtes sécurité, trust-proxy) recompute

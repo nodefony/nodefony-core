@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import { createKernelAdminApi } from "../../src/KernelAdminApi.js";
+import { freezeConfigTree } from "nodefony";
 import type { IKernel, IAdminRequest, IAdminResponse } from "nodefony";
 
 const httpSchema = {
@@ -51,6 +52,10 @@ function makeKernel(opts: {
     environment: opts.env ?? "development",
     debug: false,
     getModules: () => opts.modules ?? {},
+    // Comme le vrai Kernel : la config d'un module se REMPLACE, jamais ne s'écrit.
+    replaceModuleOptions: (m: MockMod, options: Record<string, unknown>) => {
+      m.options = options;
+    },
     container: {
       get: (n: string) => (n === "auditService" ? opts.sink : undefined),
     },
@@ -112,6 +117,25 @@ describe("PATCH config/{module} — édition live (surface sensible)", () => {
     expect((mod.options.jwt as { accessTtlS: number }).accessTtlS).to.equal(
       300,
     );
+  });
+
+  // #491 : la config d'un module est gelée à la fin de onReady. L'édition à
+  // chaud l'écrivait en place → `TypeError` → 500 (vu sur le serveur réel).
+  // Débrancher : repasser le handler sur `applyResolvedPath` en place.
+  it("config GELÉE (après onReady) → 200 par copie sur écriture, l'original intact", () => {
+    const mod = makeHttpMod();
+    freezeConfigTree(mod.options);
+    const frozen = mod.options;
+    const kernel = makeKernel({ modules: { http: mod } });
+    const res = patchHandler(kernel)(
+      req("http", { path: "jwt.accessTtlS", value: 300 }),
+    );
+    expect(res.status).to.equal(200);
+    expect((mod.options.jwt as { accessTtlS: number }).accessTtlS).to.equal(
+      300,
+    );
+    expect(Object.isFrozen(mod.options.jwt)).to.equal(true);
+    expect((frozen.jwt as { accessTtlS: number }).accessTtlS).to.equal(900);
   });
 
   it("prod → 409 prod_immutable (12-factor)", () => {

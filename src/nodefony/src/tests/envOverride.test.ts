@@ -7,6 +7,7 @@ import {
   coerceEnvValue,
   parseNfEnvOverrides,
   applyResolvedPath,
+  withResolvedPath,
   pathLooksSecret,
   editDistance,
   closestMatch,
@@ -823,5 +824,24 @@ describe("envOverride — le SCHÉMA dit ce que la valeur ignore (#111)", () => 
     assert.strictEqual(coerceEnvValueForType("1", "string"), "1");
     // Type non reconnu : on ne prétend pas savoir, la devinette générique agit.
     assert.strictEqual(coerceEnvValueForType("true", "unknown"), true);
+  });
+});
+
+// ─── Copie sur écriture d'une config figée (#491) ─────────────────────────────
+describe("withResolvedPath", () => {
+  it("rend une config neuve et gelée, l'original intact, les voisins partagés", async () => {
+    const { freezeConfigTree } = await import("../kernel/moduleConfig");
+    const base = { jwt: { accessTtlS: 900, secret: "s" }, cors: { on: true } };
+    freezeConfigTree(base);
+    const next = withResolvedPath(base, ["jwt", "accessttls"], 300);
+    assert.ok(next !== null);
+    assert.strictEqual((next.jwt as { accessTtlS: number }).accessTtlS, 300);
+    assert.strictEqual(base.jwt.accessTtlS, 900);
+    assert.strictEqual(next.cors, base.cors);
+    assert.ok(Object.isFrozen(next) && Object.isFrozen(next.jwt));
+  });
+
+  it("chemin ni présent ni déclaré → null, comme applyResolvedPath", () => {
+    assert.strictEqual(withResolvedPath({ a: 1 }, ["zz"], 2), null);
   });
 });

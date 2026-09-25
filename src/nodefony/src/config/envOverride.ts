@@ -19,6 +19,8 @@
  * ```
  */
 
+import { freezeConfigTree } from "../kernel/moduleConfig";
+
 /** Préfixe d'un override générique (double underscore). */
 const NF_PREFIX = "NF__";
 
@@ -337,6 +339,46 @@ export function applyResolvedPath(
   }
   node[leaf] = raw === undefined ? value : coerceEnvValueLike(raw, node[leaf]);
   return true;
+}
+
+/**
+ * Variante « copie sur écriture » de {@link applyResolvedPath} : rend une NOUVELLE
+ * config où `path` vaut `value`, sans jamais écrire dans `target`.
+ *
+ * @remarks Pour une config FIGÉE (celle d'un module après `onReady`, gelée par
+ * `freezeConfigTree`) : l'écriture en place lève. Seuls les objets du chemin
+ * sont recopiés ; les sous-arbres voisins sont partagés avec l'original, déjà
+ * gelés. Même résolution des clés et même écriture que
+ * {@link applyResolvedPath}, qui fait le travail sur les copies. La nouvelle
+ * config est rendue gelée à son tour.
+ *
+ * @param target - config d'origine (jamais modifiée)
+ * @param path - segments du chemin (minuscules)
+ * @param value - valeur à poser
+ * @returns la nouvelle config, gelée, ou `null` si le chemin n'est ni présent
+ *   ni déclaré (même verdict que {@link applyResolvedPath})
+ */
+export function withResolvedPath(
+  target: Record<string, unknown>,
+  path: string[],
+  value: unknown,
+): Record<string, unknown> | null {
+  const copy: Record<string, unknown> = { ...target };
+  let node = copy;
+  for (let i = 0; i < path.length - 1; i++) {
+    const key = resolveKey(node, path[i]);
+    if (key === null) break;
+    const next = node[key];
+    if (typeof next !== "object" || next === null || Array.isArray(next)) {
+      break;
+    }
+    const cloned = { ...(next as Record<string, unknown>) };
+    node[key] = cloned;
+    node = cloned;
+  }
+  if (!applyResolvedPath(copy, path, value)) return null;
+  freezeConfigTree(copy);
+  return copy;
 }
 
 /**

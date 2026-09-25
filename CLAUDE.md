@@ -524,7 +524,7 @@ Les **invariants** qui doivent rester présents en permanence :
   divergent en silence : chacune passe ses propres tests (vécu : deux seuils de contre-pression
   WS, `resolve.dedupe` présent en dev et absent du build → crash en production).
 - **Une brique requise en PROD n'est jamais fournie par un seul module `policy:"dev"`**, ni par
-  un défaut Zod vide (`.default({})`) : le gating (`Kernel.ts:1131`) la fait disparaître en
+  un défaut Zod vide (`.default({})`) : le gating (`Kernel.ts:1600`) la fait disparaître en
   production sans un mot. Défaut framework sain + un test « boot SANS la config dev » qui
   vérifie que le service requis est toujours posé.
 

@@ -131,6 +131,11 @@ export interface IKernel extends IService {
   loadModule(nameOrPath: string): Promise<IModule>;
   getModule(name: string): IModule;
   getModules(): Record<string, IModule>;
+  /**
+   * Remplace la configuration FIGÉE d'un module (édition à chaud en
+   * développement) : `mod.options` et le registre lu par `useConfig`.
+   */
+  replaceModuleOptions(mod: IModule, options: Record<string, unknown>): void;
   getNetwork(): KernelNetworkResult;
   checkPath(myPath: string): string | null;
   isCommandComplete(progress: number): boolean;

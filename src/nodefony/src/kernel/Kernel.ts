@@ -1781,6 +1781,26 @@ class Kernel extends Service implements IKernel {
   }
 
   /**
+   * Remplace la configuration FIGÉE d'un module par une nouvelle, déjà gelée —
+   * la seule façon de la changer après `onReady` (édition à chaud en
+   * développement). Les requêtes suivantes la voient ; une requête en cours
+   * garde celle qu'elle a lue.
+   *
+   * @param mod - le module dont la configuration change
+   * @param options - la nouvelle configuration (cf. `withResolvedPath`)
+   */
+  replaceModuleOptions(mod: Module, options: Record<string, unknown>): void {
+    mod.options = options;
+    const packageName = mod.getModuleName();
+    if (this.configRegistry !== null && packageName) {
+      this.configRegistry[packageName] = {
+        options,
+        overlaySchema: mod.overlaySchema,
+      };
+    }
+  }
+
+  /**
    * Instancie un module et l'enregistre dans `kernel.modules[name]`. Appelle `initialize(this)`
    * sur le module si défini (équivalent constructeur async).
    *
