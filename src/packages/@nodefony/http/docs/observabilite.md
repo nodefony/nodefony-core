@@ -222,16 +222,16 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 
 ### Le `requestId` — génération, adoption, réflexion
 
-| Étape               | Où                                                                  | Comportement                                                                 |
-| ------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Génération          | `Context.requestId = randomUUID()` (`Context.ts:244`)               | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                  |
-| Adoption HTTP       | `sanitizeRequestId(headers["x-request-id"])` (`HttpContext.ts:158`) | Remplace l'UUID **si** la valeur cliente est sûre, sinon on garde l'UUID.    |
-| Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:139`)   | Même validation, stable sur toute la durée de la socket (handshake → close). |
-| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:153`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                            |
-| Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                |
-| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:436`)       | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                           |
-| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:436`)       | Handshake **et** messages (via `AsyncResource.bind`, BUG-001).               |
-| Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:262`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur. |
+| Étape               | Où                                                                  | Comportement                                                                                                                                                                            |
+| ------------------- | ------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Génération          | `Context.requestId = randomUUID()` (`Context.ts:244`)               | UUID v4 posé dans le constructeur de base — HTTP **et** WS.                                                                                                                             |
+| Adoption HTTP       | `sanitizeRequestId(headers["x-request-id"])` (`HttpContext.ts:158`) | Remplace l'UUID **si** la valeur cliente est sûre, sinon on garde l'UUID.                                                                                                               |
+| Adoption WS         | `sanitizeRequestId(...)` au handshake (`WebsocketContext.ts:139`)   | Même validation, stable sur toute la durée de la socket (handshake → close).                                                                                                            |
+| Réflexion HTTP/1.1  | `Response.setHeader("x-request-id", …)` (`Response.ts:153`)         | Écrit dans `writeHead()`, sur **chaque** réponse.                                                                                                                                       |
+| Réflexion HTTP/2    | `this.headers["x-request-id"] = requestId` (`http2/Response.ts:71`) | Sinon les réponses du port 5152 sortiraient sans corrélation.                                                                                                                           |
+| ALS (HTTP)          | `RequestContext.run({ requestId, … })` (`http-kernel.ts:1344`)      | Ouvre la bulle → tout `Pdu` créé dedans est tagué.                                                                                                                                      |
+| ALS (WS)            | `RequestContext.run({ requestId, … })` (`http-kernel.ts:1654`)      | Handshake **et** messages : la bulle ouverte à la connexion est reliée à chaque message par `AsyncResource.bind`, sinon l'identité résolue au handshake se perdrait au premier message. |
+| Capture dans le log | `Pdu.requestId = Pdu.requestIdProvider?.()` (`Pdu.ts:262`)          | Provider injectable branché sur l'ALS côté Node — 0 lecture côté navigateur.                                                                                                            |
 
 > [!IMPORTANT]
 > Les logs de **fin** de requête (bilan `req`, `onClose`) sont émis **hors** de la bulle ALS (déjà

@@ -281,24 +281,24 @@ faute de `Secure` (`Context.getSessionCookieName()`, `Context.ts:714`).
 Source unique des défauts : le schéma Zod `sessionSchema` (`config.ts:782`) et son sous-schéma
 `sessionCookieSchema` (`config.ts:748`).
 
-| Option              | Type    | Défaut       | Effet                                                                             |
-| ------------------- | ------- | ------------ | --------------------------------------------------------------------------------- |
-| `store`             | string  | `"auto"`     | Backend de persistance — voir la résolution ci-dessous (`config.ts:795`).         |
-| `name`              | string  | `"nodefony"` | Nom du cookie, préfixé `__Host-` selon `cookie.hostPrefix` (`config.ts:770`).     |
-| `strictMode`        | bool    | `true`       | Un identifiant inconnu du store est rejeté → session neuve (anti-fixation).       |
-| `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:823`). |
-| `absoluteTimeoutS`  | int ≥ 0 | `43200`      | Âge max depuis la création (12 h), **jamais** prolongé. `0` = désactivé.          |
-| `gcIntervalS`       | int ≥ 0 | `600`        | Période de purge des sessions expirées, hors requête. `0` = timer désarmé.        |
-| `gcJitter`          | bool    | `true`       | Décale le départ du GC par process (anti _thundering herd_ sur un store partagé). |
-| `refererCheck`      | bool    | `false`      | Lie la session à l'hôte de création (défense en profondeur, `session.ts:366`).    |
-| `cookie.maxAge`     | int ≥ 0 | `0`          | `0` = cookie de session (effacé à la fermeture du navigateur).                    |
-| `cookie.httpOnly`   | bool    | `true`       | Inaccessible depuis JavaScript — anti-XSS.                                        |
-| `cookie.secure`     | bool    | `true`       | Envoyé sur TLS uniquement.                                                        |
-| `cookie.signed`     | bool    | `false`      | Signe le cookie avec le secret HMAC du kernel.                                    |
-| `cookie.hostPrefix` | enum    | `"auto"`     | `__Host-` : `auto` (sur TLS) \| `true` (toujours) \| `false` (jamais).            |
+| Option              | Type    | Défaut       | Effet                                                                                    |
+| ------------------- | ------- | ------------ | ---------------------------------------------------------------------------------------- |
+| `store`             | string  | `"auto"`     | Backend de persistance — voir la résolution ci-dessous (`config.ts:795`).                |
+| `name`              | string  | `"nodefony"` | Nom du cookie, préfixé `__Host-` selon `cookie.hostPrefix` (`config.ts:770`).            |
+| `strictMode`        | bool    | `true`       | Un identifiant inconnu du store est rejeté → session neuve (anti-fixation).              |
+| `idleTimeoutS`      | int ≥ 0 | `1800`       | Inactivité max (30 min). `0` = pas d'expiration par inactivité (`config.ts:823`).        |
+| `absoluteTimeoutS`  | int ≥ 0 | `43200`      | Âge max depuis la création (12 h), **jamais** prolongé. `0` = désactivé.                 |
+| `gcIntervalS`       | int ≥ 0 | `600`        | Période de purge des sessions expirées, hors requête. `0` = timer désarmé.               |
+| `gcJitter`          | bool    | `true`       | Décale le départ du GC par process (anti _thundering herd_ sur un store partagé).        |
+| `refererCheck`      | bool    | `false`      | Lie la session à l'hôte de création — ⚠️ court-circuite les expirations (voir plus bas). |
+| `cookie.maxAge`     | int ≥ 0 | `0`          | `0` = cookie de session (effacé à la fermeture du navigateur).                           |
+| `cookie.httpOnly`   | bool    | `true`       | Inaccessible depuis JavaScript — anti-XSS.                                               |
+| `cookie.secure`     | bool    | `true`       | Envoyé sur TLS uniquement.                                                               |
+| `cookie.signed`     | bool    | `false`      | Signe le cookie avec le secret HMAC du kernel.                                           |
+| `cookie.hostPrefix` | enum    | `"auto"`     | `__Host-` : `auto` (sur TLS) \| `true` (toujours) \| `false` (jamais).                   |
 
 `SameSite` n'est pas dans ce bloc : il vient des options de cookie génériques, dont le défaut est
-`Lax` (`defaultCookieOptions`, `cookie.ts:48`).
+`Lax` (`cookieDefaultSettings`, `cookie.ts:39`).
 
 > [!WARNING]
 > `idleTimeoutS: 0` **et** `absoluteTimeoutS: 0` désactivent les deux bornes : une session ne meurt
@@ -439,10 +439,15 @@ sequenceDiagram
 → `resume()` (`session.ts:177`), sinon `create()` (`session.ts:204`) qui tire un identifiant CSPRNG,
 pose le cookie et marque la session à persister.
 
-**Validation à la reprise.** `Session.isValidSession()` (`session.ts:365`) applique dans l'ordre le
-`refererCheck` (si activé), l'**absolute** (âge depuis `created`, `session.ts:381`), puis l'**idle**
-(depuis `updated`, `session.ts:394`). Échec → `invalidate()` (`session.ts:284`) détruit l'entrée et
-recrée une session vierge.
+**Validation à la reprise.** `Session.isValidSession()` (`session.ts:366`) applique l'**absolute**
+(âge depuis `created`) puis l'**idle** (depuis `updated`). Échec → `invalidate()` (`session.ts:284`)
+détruit l'entrée et recrée une session vierge.
+
+> [!WARNING]
+> Avec `refererCheck: true`, `isValidSession()` rend son verdict sur la **seule** correspondance
+> d'hôte (`Session.checkSecureReferer()`) et retourne aussitôt : les bornes **absolute** et
+> **idle** ne sont alors **pas** évaluées. Tant que ce comportement n'est pas corrigé, ne pas
+> activer `refererCheck` quand l'expiration des sessions compte — c'est-à-dire presque toujours.
 
 **Écriture minimale.** `SessionsService.saveSession()` (`sessions-service.ts:429`) n'écrit **que** si la
 session est `dirty` et non `readOnly` ; sinon il appelle `Session.touchIfNeeded()` (`session.ts:421`),
@@ -569,7 +574,7 @@ Trois barrières superposées :
 | --------------------------------- | ------------------------------------------------- | -------------------------------------------------- |
 | Vol par script injecté (XSS)      | `HttpOnly`                                        | `sessionCookieSchema` (`config.ts:748`)            |
 | Interception réseau               | `Secure` + `__Host-` sur TLS                      | `getSessionCookieName()` (`Context.ts:714`)        |
-| Requête inter-sites               | `SameSite=Lax` par défaut                         | `defaultCookieOptions` (`cookie.ts:48`)            |
+| Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |
 | Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:226`)          |
 | Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:381`) |

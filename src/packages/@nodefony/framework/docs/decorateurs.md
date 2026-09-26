@@ -471,9 +471,10 @@ async go(@Query("to") to?: string) {
 ```
 
 > [!WARNING]
-> Redirection sans statut explicite ailleurs dans le code : `Response.redirect()` vaut **301** par
-> défaut (permanent, mis en cache par les navigateurs). Passe toujours le code —
-> `this.redirect(url, 302)`.
+> Redirection sans statut explicite ailleurs dans le code : `Response.redirect()` vaut **302** par
+> défaut (Found), jamais 301 — un 301 implicite serait mis en cache par les navigateurs, presque
+> irréversiblement. Un code hors de 301/302/303/307/308 retombe aussi sur 302 : passe le code voulu
+> quand il compte — `this.redirect(url, 307)` préserve la méthode.
 
 ### Sécurité — qui passe, qui décide, quelles défenses
 
@@ -802,7 +803,7 @@ L'écran **Routes** (`/nodefony/routes`) et le point d'API `/nodefony/framework/
 | `@Session()` toujours `null` | Aucun intent : ni `@UseSession`, ni paramètre `@Session`, ni cookie repris | Ajouter `@UseSession()` sur l'action ou la classe |
 | `@Headers("X-Foo")` vaut `undefined` | Node met les en-têtes en minuscules ; la recherche est normalisée mais la clé compte | Utiliser la forme minuscule (`"x-foo"`) |
 | `@Redirect` ne redirige pas | L'action a retourné une valeur — la redirection ne joue que sur `undefined`/`null` | Ne rien retourner, ou retourner `{ url, statusCode }` |
-| Réponse `301` inattendue sur un `redirect()` manuel | `Response.redirect()` vaut 301 par défaut | Passer le code : `this.redirect(url, 302)` |
+| Réponse `302` alors qu'un autre code était voulu | `Response.redirect()` vaut 302 par défaut, et un code hors 301/302/303/307/308 y retombe | Passer un code de redirection valide : `this.redirect(url, 307)` |
 | Une méthode nommée `session`/`request`/`response` est refusée | Même règle : ce sont des **accesseurs** de `Controller`. Sans le garde-fou ils ne cassaient rien au build — ils masquaient l'action en silence. | Renommer l'action (aussi : `get`, `set`, `method`, `context`, `route`) |
 | Deux requêtes se mélangent leurs données | `@Scope("singleton")` avec un état de requête stocké sur `this` | Revenir au défaut per-request, ou n'utiliser que des arguments décorés |
 | La route `*` avale toutes les autres | Attendu : elle est montée en dernier mais matche tout ce qui reste | Vérifier que les routes précises sont bien déclarées (elles gagnent) |

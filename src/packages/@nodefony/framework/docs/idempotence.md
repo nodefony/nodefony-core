@@ -593,8 +593,10 @@ lot ont été consommées ; la page suivante rejoue le **même** `SCAN` et repre
 
 Deux réserves à connaître :
 
-- Le champ `tenantId` d'`IPageQuery` est un **slot réservé** au multi-tenant : le passer n'a
-  aujourd'hui **aucun effet de filtrage**.
+- Le champ `tenantId` d'`IPageQuery` est un **emplacement réservé** : il appartient au contrat de
+  pagination commun à tous les stores listables, et servira à isoler les données par organisation
+  quand le framework saura servir plusieurs organisations. Ici, le passer n'a **aucun effet de
+  filtrage** : ce store l'ignore.
 - `size` est une **approximation per-pod** pour les stores distribués (compteur local incrémenté au
   `fresh`, décrémenté au `complete`/`abort`), désalignée cross-pod et non décrémentée si un bail
   expire sans complétion. La vérité cluster passe par la base ou `redis-cli`, jamais par ce getter.
