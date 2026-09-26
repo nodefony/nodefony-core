@@ -180,6 +180,7 @@ function filterUsers(
 }
 
 type AuditEvent = {
+  category?: string;
   action: string;
   actor: string | null;
   resource?: string | null;
