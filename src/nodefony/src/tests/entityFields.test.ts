@@ -15,6 +15,7 @@ import {
   refTargetsSerial,
   EntityFieldError,
   type IEntityField,
+  toCodeLiteral,
 } from "../cli/scaffold/entityFields";
 import { sampleValue } from "../cli/scaffold/engine";
 
@@ -1108,5 +1109,33 @@ describe("scaffold — nommage SQL d'une table existante", () => {
     assert.strictEqual(toSnakeCase("url2Path"), "url2_path");
     // Déjà en snake : idempotent, sinon un second passage ajouterait des tirets bas.
     assert.strictEqual(toSnakeCase("site_id"), "site_id");
+  });
+});
+
+/**
+ * 🔴 Une valeur saisie au générateur n'entre dans le code source rendu que
+ * par `toCodeLiteral` — alerte CodeQL `js/bad-code-sanitization` (#208).
+ *
+ * `JSON.stringify` seul laisse passer `<`, `>` et les séparateurs U+2028 /
+ * U+2029 : sans conséquence dans un fichier `.ts`, mais c'est la forme que
+ * l'analyse exige, et le même littéral inséré dans une page ou un script
+ * deviendrait une injection. Échappés en `\uXXXX`, ils ne peuvent apparaître
+ * qu'à l'intérieur des chaînes JSON : la valeur relue est IDENTIQUE.
+ */
+describe("toCodeLiteral — littéral de code sûr", () => {
+  const risque = {
+    html: "</script><script>alert(1)</script>",
+    sep: "a\u2028b\u2029c",
+    list: ["<", ">", 1, true, null],
+  };
+
+  it("n'émet aucun caractère à risque brut", () => {
+    const out = toCodeLiteral(risque);
+    assert.doesNotMatch(out, /[<>\u2028\u2029]/u);
+  });
+
+  it("rend la MÊME valeur une fois relue", () => {
+    assert.deepStrictEqual(JSON.parse(toCodeLiteral(risque)), risque);
+    assert.strictEqual(JSON.parse(toCodeLiteral("simple")), "simple");
   });
 });

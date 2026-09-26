@@ -223,9 +223,14 @@ export function couvertParFiles(cible, files) {
 
 /** Sources qu'un bundler compile dans `dist/` — elles voyagent sans être dans `files`. */
 const SOURCE_COMPILEE = /\.(?:[cm]?[jt]sx?|vue|svelte|css|scss|html|json)$/u;
-/** Ce qui vit à côté du code sans jamais être empaqueté. */
-const JAMAIS_EMPAQUETE =
-  /(?:^|\/)(?:tests?|__tests__|fixtures?)\/|\.(?:test|spec|bench)\.[^/]+$/u;
+/**
+ * Ce qui vit à côté du code sans jamais être empaqueté : un DOSSIER de test
+ * n'importe où dans le chemin, ou un FICHIER de test. Deux expressions plutôt
+ * qu'une alternance dont une branche seule est ancrée en fin — la précédence
+ * de `|` se lisait mal.
+ */
+const DOSSIER_DE_TEST = /(?:^|\/)(?:tests?|__tests__|fixtures?)\//u;
+const FICHIER_DE_TEST = /\.(?:test|spec|bench)\.[^/]+$/u;
 /** Réglages de construction à la racine du paquet : ils bâtissent l'artefact, ils n'y entrent pas. */
 const CONFIG_DE_BUILD =
   /^(?:tsconfig[^/]*\.json|[^/]*\.config\.[cm]?[jt]s|turbo\.json|\.[^/]+)$/u;
@@ -262,7 +267,12 @@ export function perimetrePublie(paquets) {
     if (!racine) return false;
     const rel = chemin.slice(racine.prefixe.length);
     if (TOUJOURS_EMPAQUETE.test(rel)) return true;
-    if (JAMAIS_EMPAQUETE.test(rel) || CONFIG_DE_BUILD.test(rel)) return false;
+    if (
+      DOSSIER_DE_TEST.test(rel) ||
+      FICHIER_DE_TEST.test(rel) ||
+      CONFIG_DE_BUILD.test(rel)
+    )
+      return false;
     // Sans `files`, npm emporte le dossier entier.
     if (racine.files === null || couvertParFiles(rel, racine.files))
       return true;

@@ -84,23 +84,34 @@ describe("long-run-lock", () => {
   });
 
   it("CLI `clear` retire le verrou, quel qu'en soit le porteur", () => {
-    if (existsSync(LOCK_FILE)) return; // une vraie passe tourne : ne pas la piétiner
     const other = spawn(process.execPath, ["-e", "setTimeout(() => {}, 5000)"]);
+    let created = false;
     try {
-      writeFileSync(
-        LOCK_FILE,
-        JSON.stringify({
-          pid: other.pid,
-          label: "autre",
-          since: new Date().toISOString(),
-        }),
-      );
+      // Création EXCLUSIVE (`wx`) plutôt que « existe ? puis écrire » : entre
+      // les deux, une vraie passe pouvait prendre le verrou, et le test
+      // l'écrasait. Verrou déjà tenu → une vraie passe tourne : ne pas la
+      // piétiner.
+      try {
+        writeFileSync(
+          LOCK_FILE,
+          JSON.stringify({
+            pid: other.pid,
+            label: "autre",
+            since: new Date().toISOString(),
+          }),
+          { flag: "wx" },
+        );
+        created = true;
+      } catch (/** @type {unknown} */ e) {
+        if (/** @type {{ code?: unknown }} */ (e).code === "EEXIST") return;
+        throw e;
+      }
       expect(holder()).not.toBe(null);
       expect(spawnSync(process.execPath, [CLI, "clear"]).status).toBe(0);
       expect(holder()).toBe(null);
     } finally {
       other.kill();
-      rmSync(LOCK_FILE, { force: true });
+      if (created) rmSync(LOCK_FILE, { force: true });
     }
   });
 

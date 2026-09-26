@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 870,
-    "symbols": 4340,
+    "symbols": 4341,
     "classes": 404,
     "interfaces": 1144,
     "types": 463,
     "enums": 4,
-    "functions": 1890,
+    "functions": 1891,
     "constants": 435
   },
   "symbols": {
@@ -7295,6 +7295,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Nom de la variable qui porte la table Drizzle d'une entité (`User` → `userTable`). Une seule implémentation, parce qu'il y a deux producteurs : le gabarit d'entité DÉCLARE cette variable, et une en…"
+    },
+    "toCodeLiteral": {
+      "name": "toCodeLiteral",
+      "kind": "function",
+      "file": "src/nodefony/src/cli/scaffold/entityFields.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Littéral de code sûr pour une valeur saisie au générateur : `JSON.stringify`, puis `<`, `>`, U+2028 et U+2029 échappés en `\\uXXXX`. `JSON.stringify` seul est l'assainissement que CodeQL refuse (`js…"
     },
     "buildEntityCodegen": {
       "name": "buildEntityCodegen",

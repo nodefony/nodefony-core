@@ -74,8 +74,14 @@ export interface IPackageCheckResult {
  * "@nodefony/…"` **dans des chaînes de gabarit**, destinés à une autre
  * application. Sans elle, on réclame une dépendance pour du texte.
  */
+// Temps LINÉAIRE exigé (alerte CodeQL `js/polynomial-redos`) : `doctor` la
+// passe sur les sources de l'application. Deux recouvrements la rendaient
+// quadratique sur une ligne d'espaces — `^\s*` avalait les lignes vides
+// suivantes depuis chaque début de ligne, et `\s+` puis `[^;]*?` se
+// disputaient les mêmes espaces. D'où `[ \t]*` en tête, et l'anticipation
+// `(?=[^\s;])` qui ne laisse démarrer le corps que sur un caractère visible.
 const IMPORT_RE =
-  /^\s*(?:import|export)\s+(type\s+)?[^;]*?from\s+["'](@nodefony\/[a-z0-9-]+|nodefony)(?:\/[a-z0-9-]+)?["']/gm;
+  /^[ \t]*(?:import|export)\s+(type\s+)?(?=[^\s;])[^;]*?from\s*["'](@nodefony\/[a-z0-9-]+|nodefony)(?:\/[a-z0-9-]+)?["']/gm;
 
 /**
  * Les paquets Nodefony qu'une source importe, lus comme le fait `doctor`.

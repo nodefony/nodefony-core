@@ -886,6 +886,34 @@ const ZOD_TYPE: Record<TEntityFieldType | "ref", string> = {
  * Les nombres et booléens sont écrits nus, tout le reste est une chaîne : c'est
  * la seule interprétation possible d'un texte saisi en ligne de commande.
  */
+/** Échappements `\uXXXX` des caractères qu'un littéral de code ne doit pas porter bruts. */
+const CODE_LITERAL_ESCAPES: Readonly<Record<string, string>> = {
+  "<": "\\u003C",
+  ">": "\\u003E",
+  "\u2028": "\\u2028",
+  "\u2029": "\\u2029",
+};
+
+/**
+ * Littéral de code sûr pour une valeur saisie au générateur : `JSON.stringify`,
+ * puis `<`, `>`, U+2028 et U+2029 échappés en `\uXXXX`.
+ *
+ * `JSON.stringify` seul est l'assainissement que CodeQL refuse
+ * (`js/bad-code-sanitization`) : sans conséquence dans un `.ts`, mais le même
+ * littéral inséré dans une page ou un script deviendrait une injection. Dans un
+ * JSON compact, ces caractères ne peuvent figurer QU'À L'INTÉRIEUR d'une
+ * chaîne, où `\u003C` vaut `<` : la valeur relue est identique.
+ *
+ * @param value - la valeur à écrire dans le code rendu.
+ * @returns un littéral JavaScript, qui est aussi du JSON valide.
+ */
+export function toCodeLiteral(value: unknown): string {
+  return JSON.stringify(value).replace(
+    /[<>\u2028\u2029]/gu,
+    (c) => CODE_LITERAL_ESCAPES[c] ?? c,
+  );
+}
+
 function defaultLiteral(field: IEntityField): string {
   if (field.type === "int" || field.type === "float") {
     return String(Number(field.defaultValue));
@@ -897,13 +925,13 @@ function defaultLiteral(field: IEntityField): string {
     // là où le type annonce un objet — une divergence que rien ne signale, et qui
     // ne se voit qu'à la première lecture du champ.
     try {
-      return JSON.stringify(JSON.parse(String(field.defaultValue)));
+      return toCodeLiteral(JSON.parse(String(field.defaultValue)));
     } catch {
       // Pas du JSON : la rendre comme une chaîne reste juste.
-      return JSON.stringify(field.defaultValue);
+      return toCodeLiteral(field.defaultValue);
     }
   }
-  return JSON.stringify(field.defaultValue);
+  return toCodeLiteral(field.defaultValue);
 }
 
 /** Type TS d'un champ — union littérale pour une énumération. */

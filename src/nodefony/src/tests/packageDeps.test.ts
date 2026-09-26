@@ -11,7 +11,10 @@ import { assert } from "chai";
 import { mkdtempSync, rmSync, writeFileSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { checkPackageDeps } from "../kernel/checks/packageDeps";
+import {
+  checkPackageDeps,
+  nodefonyImports,
+} from "../kernel/checks/packageDeps";
 
 let root = "";
 
@@ -246,5 +249,41 @@ describe("checkPackageDeps — un frère du dépôt doit être ORDONNÉ", () => 
     const surLaRacine = findings.filter((f) => f.package === "fixture-racine");
     assert.lengthOf(surLaRacine, 1, JSON.stringify(findings, null, 2));
     assert.equal(surLaRacine[0]?.kind, "peer-only-sibling");
+  });
+});
+
+/**
+ * 🔴 La lecture des imports reste LINÉAIRE — alerte CodeQL
+ * `js/polynomial-redos` (#209).
+ *
+ * `doctor` passe cette expression sur les sources de l'application, donc sur
+ * une entrée qu'on ne maîtrise pas. `\s+` suivi de `[^;]*?` se recouvraient sur
+ * les espaces : une ligne `import` suivie d'espaces coûtait un temps
+ * QUADRATIQUE (mesuré : 2, 5, 22 ms pour 2 000, 4 000, 8 000 espaces).
+ */
+describe("nodefonyImports — temps linéaire", () => {
+  it("lit une ligne de 200 000 espaces sans s'emballer", () => {
+    const source = `import ${" ".repeat(200_000)}`;
+    const start = performance.now();
+    assert.deepEqual(nodefonyImports(source), []);
+    assert.isBelow(performance.now() - start, 100);
+  });
+
+  it("reconnaît toujours les formes réelles d'import", () => {
+    const source = [
+      'import { a } from "@nodefony/http";',
+      'import type { B } from "nodefony";',
+      'export { c } from "@nodefony/framework/sub";',
+      "import {",
+      "  d,",
+      '} from "@nodefony/security";',
+      '//import { e } from "@nodefony/orm-core";',
+    ].join("\n");
+    assert.deepEqual(nodefonyImports(source), [
+      { dep: "@nodefony/http", typeOnly: false },
+      { dep: "nodefony", typeOnly: true },
+      { dep: "@nodefony/framework", typeOnly: false },
+      { dep: "@nodefony/security", typeOnly: false },
+    ]);
   });
 });
