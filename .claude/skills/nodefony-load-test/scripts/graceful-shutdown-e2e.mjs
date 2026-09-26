@@ -105,7 +105,10 @@ const wsClose = new Promise((res) => {
 await sleep(150); // la WS a le temps de s'ouvrir
 const inflight = fetch(HTTP_SLOW_URL)
   .then(async (r) => ({ status: r.status, body: await r.json() }))
-  .catch((e) => ({ status: 0, error: String(e?.cause ?? e) }));
+  .catch((/** @type {unknown} */ e) => ({
+    status: 0,
+    error: String(e?.cause ?? e),
+  }));
 
 // 5) SIGTERM pendant que la requête est en vol.
 await sleep(400);

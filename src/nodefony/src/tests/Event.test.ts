@@ -414,16 +414,18 @@ describe("NODEFONY Notifications Center", () => {
         throw new Error("myError");
       };
       global.notificationsCenter.on("myEvent", async (count, args) => args);
-      global.notificationsCenter.on("myEvent", async () => await myFunc2());
+      global.notificationsCenter.on("myEvent", async () => myFunc2());
       const res = await global.notificationsCenter
         .fireAsync("myEvent", 0, {})
-        .catch((e: Error) => {
+        .catch((e: unknown) => {
+          assert.ok(e instanceof Error);
           assert.strictEqual(e.message, "myError");
         });
       assert.strictEqual(res, undefined);
       const p = global.notificationsCenter
         .fireAsync("myEvent", 0, {})
-        .catch((e: Error) => {
+        .catch((e: unknown) => {
+          assert.ok(e instanceof Error);
           assert.strictEqual(e.message, "myError");
         });
       assert(isPromise(p));

@@ -45,7 +45,7 @@ const port = Number(process.env.PORT ?? 5163);
 app
   .listen({ port, host: "127.0.0.1" })
   .then(() => console.log(`fastify :${port}`))
-  .catch((e) => {
+  .catch((/** @type {unknown} */ e) => {
     // Port pris, adresse refusée : le dire et sortir en erreur, sans pile muette.
     console.error(e);
     process.exit(1);

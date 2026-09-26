@@ -232,29 +232,24 @@ class nodefonyError extends Error {
    * @returns nom de la catégorie ou `false` si pas une `Error`.
    */
   static detectType(error: Error): string | false {
-    switch (true) {
-      case error instanceof ReferenceError:
-        return "ReferenceError";
-      case error instanceof TypeError:
-        return "TypeError";
-      case error instanceof SyntaxError:
-        return "SyntaxError";
-      case error instanceof assert.AssertionError:
-        return "AssertionError";
-      case findErrorAdapter(error) !== null:
-        return "OrmError";
-      case error instanceof Error:
-        if (error.errno) {
-          return "SystemError";
-        }
-        if (error.bytesParsed) {
-          return "ClientError";
-        }
-        try {
-          return error.constructor.name || "Error";
-        } catch (e) {
-          return "Error";
-        }
+    // Chaîne de `if` (et non `switch (true)`) : même ordre, même premier gagnant.
+    if (error instanceof ReferenceError) return "ReferenceError";
+    if (error instanceof TypeError) return "TypeError";
+    if (error instanceof SyntaxError) return "SyntaxError";
+    if (error instanceof assert.AssertionError) return "AssertionError";
+    if (findErrorAdapter(error) !== null) return "OrmError";
+    if (error instanceof Error) {
+      if (error.errno) {
+        return "SystemError";
+      }
+      if (error.bytesParsed) {
+        return "ClientError";
+      }
+      try {
+        return error.constructor.name || "Error";
+      } catch (e) {
+        return "Error";
+      }
     }
     return false;
   }
@@ -442,6 +437,7 @@ class nodefonyError extends Error {
         }
         break;
       }
+      case null:
       default:
         this.getDefaultMessage();
     }

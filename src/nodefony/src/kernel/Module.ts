@@ -688,12 +688,12 @@ class Module<TConfig = Record<string, unknown>>
   async install(force: boolean = false): Promise<number | Error> {
     if ((this.kernel?.cli as CliKernel)?.packageManager) {
       if (force) {
-        return await (this.kernel?.cli as CliKernel)?.packageManager(
+        return (this.kernel?.cli as CliKernel)?.packageManager(
           ["install", "--force"],
           this.path,
         );
       }
-      return await (this.kernel?.cli as CliKernel)?.packageManager(
+      return (this.kernel?.cli as CliKernel)?.packageManager(
         ["install"],
         this.path,
       );
@@ -709,7 +709,7 @@ class Module<TConfig = Record<string, unknown>>
    */
   async outdated(): Promise<number | Error> {
     if ((this.kernel?.cli as CliKernel)?.packageManager) {
-      return await (this.kernel?.cli as CliKernel)?.packageManager(
+      return (this.kernel?.cli as CliKernel)?.packageManager(
         ["outdated"],
         this.path,
       );

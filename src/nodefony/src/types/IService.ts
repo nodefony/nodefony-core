@@ -11,9 +11,14 @@ import type {
 import type { IKernel } from "./IKernel";
 import type { DebugType, EnvironmentType } from "./globals";
 
+/**
+ * Listener d'événement Nodefony : arguments libres, retour libre — une valeur ou
+ * une PROMESSE, que `emitAsync`/`fireAsync` attendent et collectent. Un retour
+ * `void` ferait passer chaque listener `async` pour une promesse perdue.
+ */
 // any[] est intentionnel : les event systems acceptent des callbacks de n'importe quel type
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type EventListener = (...args: any[]) => void;
+export type EventListener = (...args: any[]) => unknown;
 
 export interface DefaultOptionsService extends EventDefaultInterface {
   events?: {

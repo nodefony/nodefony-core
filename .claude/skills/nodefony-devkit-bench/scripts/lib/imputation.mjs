@@ -435,6 +435,7 @@ export const motifNonOpposable = (imputation) => {
       return "cause de DÉCOR — l'agent n'est pas en cause, run écarté";
     case INDETERMINE:
       return "cause INDÉTERMINÉE (agent ou décor) — à instruire, run écarté";
+    case null:
     default:
       return "cause NON CLASSÉE dans imputation.mjs — trou d'instrument, run écarté";
   }

@@ -125,6 +125,7 @@ export function closeCodeToNotice(
       level = "error";
       message = "Ressource temps réel introuvable";
       break;
+    case undefined:
     default:
       message =
         typeof code === "number"

@@ -83,7 +83,7 @@ const ENV_META: unique symbol = Symbol.for("nodefony.envVarMeta");
 const ENV_CATALOG: unique symbol = Symbol.for("nodefony.envCatalog");
 
 /** Attache `meta` à `schema` (non-énumérable → invisible pour Zod/sérialisation). */
-function tagMeta<S extends z.ZodTypeAny>(schema: S, meta: EnvVarMeta): S {
+function tagMeta<S extends z.ZodType>(schema: S, meta: EnvVarMeta): S {
   Object.defineProperty(schema, ENV_META, {
     value: meta,
     enumerable: false,
@@ -188,7 +188,7 @@ interface EnumOpts<T extends string> extends BaseOpts {
   optional?: boolean;
 }
 
-function withDoc<S extends z.ZodTypeAny>(schema: S, description?: string): S {
+function withDoc<S extends z.ZodType>(schema: S, description?: string): S {
   return description ? schema.describe(description) : schema;
 }
 
@@ -202,7 +202,7 @@ export function envString(
 export function envString(opts?: StrOpts): z.ZodType<string>;
 export function envString(opts: StrOpts = {}): z.ZodType<string | undefined> {
   const { default: def, optional, description, requiredIn } = opts;
-  const inner: z.ZodTypeAny =
+  const inner: z.ZodType =
     optional && def === undefined ? z.string().optional() : z.string();
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
   return tagMeta(withDoc(schema, description), {
@@ -223,7 +223,7 @@ export function envNumber(
 export function envNumber(opts?: NumOpts): z.ZodType<number>;
 export function envNumber(opts: NumOpts = {}): z.ZodType<number | undefined> {
   const { default: def, optional, description, requiredIn } = opts;
-  const inner: z.ZodTypeAny =
+  const inner: z.ZodType =
     optional && def === undefined ? z.number().optional() : z.number();
   const schema = z.preprocess((v) => {
     if (isAbsent(v)) return def;
@@ -288,7 +288,7 @@ export function envEnum<const T extends readonly [string, ...string[]]>(
 ): z.ZodType<T[number] | undefined> {
   const { default: def, optional, description, requiredIn } = opts;
   const base = z.enum(values as unknown as [string, ...string[]]);
-  const inner: z.ZodTypeAny =
+  const inner: z.ZodType =
     optional && def === undefined ? base.optional() : base;
   const schema = z.preprocess((v) => (isAbsent(v) ? def : v), inner);
   return tagMeta(withDoc(schema, description), {
@@ -418,7 +418,7 @@ export function isRequiredByStage(
  * @returns objet **figé** + typé : `{ [NOM]: valeur coercée }`.
  * @throws Error (message agrégé nommant chaque variable fautive) si invalide.
  */
-export function defineEnv<M extends Record<string, z.ZodTypeAny>>(
+export function defineEnv<M extends Record<string, z.ZodType>>(
   catalog: M,
   source: Record<string, string | undefined> = process.env,
 ): { readonly [K in keyof M]: z.infer<M[K]> } {

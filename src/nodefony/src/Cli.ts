@@ -153,6 +153,7 @@ const toEngineEnvironment = (raw?: string): EnvironmentType | null => {
     case "prod":
     case "production":
       return raw;
+    case undefined:
     default:
       return null;
   }
@@ -337,7 +338,7 @@ class Cli extends Service {
             await this.fireAsync("onStart", this);
           }
         })
-        .catch((e) => this.log(e, "ERROR"));
+        .catch((e: unknown) => this.log(e, "ERROR"));
     } else if (this.options.autostart) {
       try {
         const func = async function (this: Cli) {
@@ -530,7 +531,7 @@ class Cli extends Service {
     if (!name) {
       name = this.name;
     }
-    return await this.asciify(`      ${name}`, {
+    return this.asciify(`      ${name}`, {
       font: this.options.font || "Standard",
     })
       .then((data: string) => {
@@ -542,7 +543,7 @@ class Cli extends Service {
         console.log(color(data));
         return this;
       })
-      .catch((err: Error) => {
+      .catch((err: unknown) => {
         this.log(err, "ERROR");
         throw err;
       });
@@ -707,7 +708,7 @@ class Cli extends Service {
     options?: ParseOptions,
   ): Promise<CommanderCommand> {
     if (this.commander) {
-      return this.commander?.parseAsync(argv, options).catch((e) => {
+      return this.commander?.parseAsync(argv, options).catch((e: unknown) => {
         throw e;
       });
     }
@@ -938,12 +939,8 @@ class Cli extends Service {
       await fs.promises.mkdir(myPath, mode);
       return new FileClass(myPath);
     } catch (e) {
-      switch ((e as NodeJS.ErrnoException).code) {
-        case "EEXIST":
-          if (force) {
-            return new FileClass(myPath);
-          }
-          break;
+      if ((e as NodeJS.ErrnoException).code === "EEXIST" && force) {
+        return new FileClass(myPath);
       }
       throw e;
     }
@@ -1123,12 +1120,14 @@ class Cli extends Service {
           // relais, le rejet partait en « unhandled rejection » et la promesse
           // rendue ne se réglait JAMAIS. Déjà journalisé par `spawn`.
           process.env.NODE_ENV = currentenv;
-          reject(e);
+          reject(e instanceof Error ? e : new Error(String(e), { cause: e }));
         });
       } catch (e) {
         process.env.NODE_ENV = currentenv;
         this.log(e, "ERROR");
-        return reject(e);
+        return reject(
+          e instanceof Error ? e : new Error(String(e), { cause: e }),
+        );
       }
     });
   }
@@ -1220,7 +1219,9 @@ class Cli extends Service {
         }
       } catch (e) {
         this.log(e, "ERROR");
-        return reject(e);
+        return reject(
+          e instanceof Error ? e : new Error(String(e), { cause: e }),
+        );
       }
     });
   }
@@ -1251,4 +1252,4 @@ class Cli extends Service {
 }
 
 export default Cli;
-export { CliDefaultOptions };
+export type { CliDefaultOptions };

@@ -31,6 +31,9 @@ class FileResult extends Result {
           json.push(dir);
           break;
         }
+        case undefined:
+          // Entrée sans type (non stat-ée) : rien à sérialiser.
+          break;
       }
     }
     return JSON.stringify(json);
@@ -72,6 +75,9 @@ class FileResult extends Result {
         case "symbolicLink":
           info.childrens.getDirectories(result);
           break;
+        case "File":
+        case undefined:
+          break;
       }
     }
     return result;
@@ -86,6 +92,8 @@ class FileResult extends Result {
         case "symbolicLink":
         case "Directory":
           info.childrens.getFiles(result);
+          break;
+        case undefined:
           break;
       }
     }

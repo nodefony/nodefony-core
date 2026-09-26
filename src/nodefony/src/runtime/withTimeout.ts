@@ -61,7 +61,7 @@ export async function withTimeout<T>(
   label?: string,
 ): Promise<T> {
   if (!Number.isFinite(timeoutMs) || timeoutMs <= 0) {
-    return await promise;
+    return promise;
   }
   const p = Promise.resolve(promise);
   // Un rejet APRÈS le timeout (course perdue) ne doit pas devenir unhandled.

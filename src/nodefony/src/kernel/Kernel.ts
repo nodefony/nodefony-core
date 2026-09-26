@@ -968,7 +968,7 @@ class Kernel extends Service implements IKernel {
       const hint = this.diagnoseUnbootableProject();
       if (hint) {
         this.log(hint, "CRITIC");
-        return await this.terminate(1);
+        return this.terminate(1);
       }
       // Hors projet Nodefony (aucune entrée d'app résolue depuis package.json).
       // Le wizard de création est un outil INTERACTIF : sans TTY (container,
@@ -991,9 +991,9 @@ class Kernel extends Service implements IKernel {
             `  · elle n'est pas CONSTRUITE : npm install puis npm run build`,
           "CRITIC",
         );
-        return await this.terminate(1);
+        return this.terminate(1);
       }
-      return await this.cli
+      return this.cli
         .runCommandAsync("menu", ["-i"])
         .then(() => {
           if (this.command) {
@@ -1003,7 +1003,7 @@ class Kernel extends Service implements IKernel {
           }
           return this;
         })
-        .catch((e) => {
+        .catch((e: unknown) => {
           this.log(e, "ERROR");
           throw e;
         });
@@ -1022,7 +1022,7 @@ class Kernel extends Service implements IKernel {
     const devSplash =
       this.environment === "development" && process.env.NF_DEV_CHILD === "1";
     if (this.cli && devSplash) {
-      await this.cli.showAsciify(this.projectName).catch((e) => {
+      await this.cli.showAsciify(this.projectName).catch((e: unknown) => {
         this.log(e, "WARNING");
       });
       // Header consolidé (version + env + meta) juste SOUS l'ASCII, AVANT tout log de
@@ -1051,7 +1051,7 @@ class Kernel extends Service implements IKernel {
     this.varDir = new FileClass(varPath);
 
     if (!this.started) {
-      await this.fireAsync("onPreStart", this).catch((e) => {
+      await this.fireAsync("onPreStart", this).catch((e: unknown) => {
         this.log(e, "CRITIC");
         throw e;
       });
@@ -1060,7 +1060,7 @@ class Kernel extends Service implements IKernel {
       }
 
       // load application
-      await this.loadApp().catch((e) => {
+      await this.loadApp().catch((e: unknown) => {
         // Erreur de config déjà présentée (bootConfigError) → ne pas re-logger une
         // stack brute. Toute autre erreur de boot → log CRITIC complet.
         if (!(e as { presented?: boolean }).presented) {
@@ -1177,11 +1177,11 @@ class Kernel extends Service implements IKernel {
         if (this.setCommandComplete(Events.onRegister)) {
           return this.finishOrPark(0);
         }
-        return this.boot().catch((e) => {
+        return this.boot().catch((e: unknown) => {
           throw e;
         });
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         throw e;
       });
   }
@@ -1256,11 +1256,11 @@ class Kernel extends Service implements IKernel {
         if (this.setCommandComplete(Events.onBoot)) {
           return this.finishOrPark(0);
         }
-        return this.onReady().catch((e) => {
+        return this.onReady().catch((e: unknown) => {
           throw e;
         });
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         throw e;
       });
   }
@@ -1366,12 +1366,12 @@ class Kernel extends Service implements IKernel {
                 return this;
               }
             })
-            .catch((e) => {
+            .catch((e: unknown) => {
               throw e;
             });
         });
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         throw e;
       });
   }
@@ -1400,7 +1400,7 @@ class Kernel extends Service implements IKernel {
     if (this.runProfile?.servers === false) return [];
     const httpKernel = this.get<IServerKernel>("HttpKernel");
     if (httpKernel)
-      return await httpKernel
+      return httpKernel
         .initServers()
         .then(async (servers) => {
           // ATTENDRE la diffusion `onServersReady` (vs fire-and-forget) garantit
@@ -1410,7 +1410,7 @@ class Kernel extends Service implements IKernel {
           await this.fireAsync("onServersReady");
           return servers;
         })
-        .catch((e: Error) => {
+        .catch((e: unknown) => {
           //this.log(e, "CRITIC");
           throw e;
         });
@@ -1583,7 +1583,7 @@ class Kernel extends Service implements IKernel {
     const moduleClass = (await import(
       resolveModuleEntry(this.path, moduleName)
     )) as { default: ModuleConstructor };
-    return await this.addModule(moduleClass.default);
+    return this.addModule(moduleClass.default);
   }
 
   /**
@@ -2537,7 +2537,7 @@ class Kernel extends Service implements IKernel {
     this.version = this.app?.getModuleVersion() as string;
     this.fixCommanderCli();
     this.cli?.setCommandVersion(this.version);
-    await this.fireAsync("onAppLoad", this.app).catch((e) => {
+    await this.fireAsync("onAppLoad", this.app).catch((e: unknown) => {
       throw e;
     });
     return this.app;
@@ -2953,6 +2953,8 @@ class Kernel extends Service implements IKernel {
           this.isDev = true;
           this.isProd = false;
           break;
+        case "prod":
+        case "production":
         default:
           process.env.NODE_ENV = "production";
           process.env.BABEL_ENV = "production";

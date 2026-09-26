@@ -114,7 +114,8 @@ void (async () => {
   console.log(`${ok} abonnés sur ${CH}${MODE === "slow" ? " (LENTS)" : ""}`);
   // Lâché exprès : tourne jusqu'à `httpOn = false`, chaque `fetch` a son `.catch`.
   void httpBlaster();
-  const pid = setInterval(poll, 2000);
+  // `poll` rattrape ses propres erreurs : la promesse lâchée ne peut pas rejeter.
+  const pid = setInterval(() => void poll(), 2000);
   await new Promise((r) => setTimeout(r, HOLD));
   clearInterval(pid);
   httpOn = false;

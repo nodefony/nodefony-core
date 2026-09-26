@@ -39,6 +39,7 @@ function once(args) {
     });
     let out = "";
     let done = false;
+    /** @param {Error | null} err */
     const finish = (err) => {
       if (done) return;
       done = true;

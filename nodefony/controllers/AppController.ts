@@ -40,9 +40,7 @@ class AppController extends Controller {
     return this.renderView(
       view,
       this.context?.metaData as Record<string, unknown> | undefined,
-    ).catch((e) => {
-      throw e;
-    });
+    );
   }
 
   // Sert le bundle standalone de la debug bar pour la page d'accueil (rendue

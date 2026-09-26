@@ -207,7 +207,7 @@ async function main() {
   process.stdout.write(JSON.stringify(result, null, 2) + "\n");
 }
 
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   process.stderr.write(`[hmr-bench] fatal: ${e.stack ?? e.message}\n`);
   process.exit(2);
 });

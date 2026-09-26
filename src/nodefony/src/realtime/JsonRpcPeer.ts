@@ -262,7 +262,7 @@ export interface IRealtimePeer<
 
 interface PendingCall {
   resolve: (value: unknown) => void;
-  reject: (reason: unknown) => void;
+  reject: (reason: Error) => void;
   timer: ReturnType<typeof setTimeout> | null;
   /** Appel tracé : la promesse rend `{ result, meta }` au lieu du `result` nu. */
   withMeta?: boolean;

@@ -76,6 +76,7 @@ function serverHeap() {
 function openHandshaked() {
   return new Promise((resolve, reject) => {
     const ws = new WebSocket(WS_URL, wsOpts);
+    /** @param {Error} e */
     const onErr = (e) => {
       cleanup();
       reject(e);
@@ -178,7 +179,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   console.error("\n  FATAL:", e?.message ?? e);
   process.exit(1);
 });

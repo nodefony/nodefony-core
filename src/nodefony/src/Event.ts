@@ -1,4 +1,5 @@
 import { EventEmitter } from "node:events";
+import type { EventListener } from "./types/IService";
 
 /**
  * Listener générique — args et retour non contraints. Volontairement basé sur
@@ -27,9 +28,6 @@ interface EventOptionInterface {
 type ContextType = unknown;
 
 const regListenOn = /^on(.*)$/;
-
-/** Sentinelle de rejet interne au timeout d'{@link Event.emitAsyncGuarded} (jamais exposée). */
-const timeoutSentinel = Symbol("nodefony.emitAsyncGuarded.timeout");
 
 /**
  * Vrai si la valeur rendue par un listener est un thenable, à attendre.
@@ -132,6 +130,28 @@ export interface IGuardedEmitResult {
  * new ServiceB(name, container, sharedBus);
  * ```
  */
+/**
+ * Signatures d'abonnement d'{@link Event} : un listener peut RENDRE une valeur
+ * ou une promesse — `emitAsync`/`emitAsyncGuarded` les attendent et collectent
+ * leurs résultats. Les signatures héritées d'`EventEmitter` déclarent un retour
+ * `void`, ce qui fait passer tout listener `async` pour une promesse perdue ;
+ * ce contrat-ci dit la vérité. Pur type (fusion de déclarations) : aucun coût
+ * à l'exécution, les méthodes restent celles de `EventEmitter`.
+ */
+// La fusion ne fait que RETYPER des méthodes héritées d'`EventEmitter`, toutes
+// implémentées : aucun membre déclaré ici n'est absent à l'exécution.
+// oxlint-disable-next-line typescript/no-unsafe-declaration-merging
+interface Event {
+  on(eventName: string | symbol, listener: EventListener): this;
+  once(eventName: string | symbol, listener: EventListener): this;
+  addListener(eventName: string | symbol, listener: EventListener): this;
+  prependListener(eventName: string | symbol, listener: EventListener): this;
+  prependOnceListener(
+    eventName: string | symbol,
+    listener: EventListener,
+  ): this;
+}
+
 class Event extends EventEmitter {
   /**
    * @param settings - objet de config dont les clés `onXxx` sont auto-bindées
@@ -313,7 +333,9 @@ class Event extends EventEmitter {
               new Promise<never>((_, reject) => {
                 timer = setTimeout(() => {
                   timedOut = true;
-                  reject(timeoutSentinel);
+                  // Rejet en `Error` (le `catch` ci-dessous la remplace de
+                  // toute façon par son message final, via `timedOut`).
+                  reject(new Error(`listener timeout après ${timeoutMs}ms`));
                 }, timeoutMs);
                 timer.unref?.();
               }),
@@ -370,4 +392,5 @@ const create = (
 const notification = Event;
 
 export default Event;
-export { notification, create, EventDefaultInterface };
+export { notification, create };
+export type { EventDefaultInterface };

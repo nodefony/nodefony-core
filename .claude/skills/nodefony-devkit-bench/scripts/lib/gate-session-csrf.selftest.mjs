@@ -29,6 +29,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { portLibre } from "./http-probe.mjs";
 
+/**
+ * `http.createServer` n'attend rien du handler : on le lui donne SYNCHRONE.
+ * `void` ne rattrape rien — un rejet reste non géré et fait tomber l'autotest,
+ * ce qui est voulu : une application jouet qui casse doit crier.
+ */
+const detach = (handler) => (req, res) => void handler(req, res);
+
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "gate-session-csrf.mjs",
@@ -208,7 +215,7 @@ const dire = (ok, nom, attendu, obtenu, cause = "") => {
 };
 
 for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
-  const srv = http.createServer(handler);
+  const srv = http.createServer(detach(handler));
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE]);
   await new Promise((r) => srv.close(r));
@@ -220,7 +227,7 @@ for (const [nom, [attendu, handler]] of Object.entries(ROLES)) {
 // occupé, et laisser passer sur un port libre. Une garde qui refuse toujours
 // arrêterait le banc au premier run.
 {
-  const srv = http.createServer((_q, s) => s.end("étranger"));
+  const srv = http.createServer(detach((_q, s) => s.end("étranger")));
   await new Promise((r) => srv.listen(Number(PORT), "127.0.0.1", r));
   const res = await run([JUGE, "--check-port-free"]);
   await new Promise((r) => srv.close(r));

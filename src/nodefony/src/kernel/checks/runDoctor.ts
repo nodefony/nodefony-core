@@ -1247,6 +1247,8 @@ export function progressLine(e: IDeepProgress, p: IPalette): string | null {
       return `  ${p.failure("⏱")} ${quoi}${p.dim(`${seconds} — interrompu`)}`;
     case "unavailable":
       return `  ${p.warning("—")} ${quoi}${p.dim(`${seconds} — sans réponse`)}`;
+    case "absent":
+    case undefined:
     default:
       return null;
   }

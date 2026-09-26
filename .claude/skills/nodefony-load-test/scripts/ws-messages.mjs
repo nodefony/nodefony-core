@@ -142,7 +142,7 @@ async function runBroadcast() {
   if (MODE === "broadcast") await runBroadcast();
   else await runEcho();
   process.exit(0);
-})().catch((e) => {
+})().catch((/** @type {unknown} */ e) => {
   console.error("\n  FATAL:", e?.message ?? e);
   process.exit(1);
 });

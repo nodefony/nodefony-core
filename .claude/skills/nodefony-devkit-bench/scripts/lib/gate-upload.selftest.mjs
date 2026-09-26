@@ -40,6 +40,13 @@ import {
   lireFaitDeLaReponse,
 } from "./gate-upload.mjs";
 
+/**
+ * `http.createServer` n'attend rien du handler : on le lui donne SYNCHRONE.
+ * `void` ne rattrape rien — un rejet reste non géré et fait tomber l'autotest,
+ * ce qui est voulu : une application jouet qui casse doit crier.
+ */
+const detach = (handler) => (req, res) => void handler(req, res);
+
 const PARFAIT = {
   statutDepot: 201,
   rangeSousDepot: true,
@@ -310,7 +317,7 @@ for (const c of cas) {
 
   for (const c of CAS_COLLECTE) {
     const racine = mkdtempSync(path.join(os.tmpdir(), "gate-upload-collecte-"));
-    const srv = http.createServer(app({ seme: c.seme, racine }));
+    const srv = http.createServer(detach(app({ seme: c.seme, racine })));
     await new Promise((r) => srv.listen(Number(PORT_JOUET), "127.0.0.1", r));
     const { status, out } = await lancerJuge(racine);
     await new Promise((r) => srv.close(r));

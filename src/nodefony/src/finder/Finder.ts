@@ -129,6 +129,7 @@ const checkMatch = function (
       this.totals[info.type as string]++;
       this.fire(`on${info.type}`, info, this);
       return true;
+    case undefined:
     default:
       return false;
   }
@@ -221,6 +222,9 @@ async function parser(
               );
             }
             break;
+          case "File":
+          case undefined:
+            break;
         }
       }
     }
@@ -264,24 +268,24 @@ class Finder extends Event {
   checkPath(Path: string | FileClass | string[]): Result {
     const type = typeOf(Path);
     const result = new FileResult();
-    switch (true) {
-      case type === "string":
-        result.push(new File(Path as string));
-        return result;
-      case type === "array": {
-        for (const p of Path as string[]) {
-          result.push(new File(p));
-        }
-        return result;
-      }
-      case Path instanceof FileClass:
-        result.push(new File(Path.path));
-        return result;
-      default:
-        throw new Error(
-          `Bad Path type: ${type} Accept only String, Array or fileClass`,
-        );
+    // Chaîne de `if` (et non `switch (true)`) : même ordre, même premier gagnant.
+    if (type === "string") {
+      result.push(new File(Path as string));
+      return result;
     }
+    if (type === "array") {
+      for (const p of Path as string[]) {
+        result.push(new File(p));
+      }
+      return result;
+    }
+    if (Path instanceof FileClass) {
+      result.push(new File(Path.path));
+      return result;
+    }
+    throw new Error(
+      `Bad Path type: ${type} Accept only String, Array or fileClass`,
+    );
   }
 
   /**
@@ -295,27 +299,27 @@ class Finder extends Event {
   async checkPathAsync(Path: string | FileClass | string[]): Promise<Result> {
     const type = typeOf(Path);
     const result = new FileResult();
-    switch (true) {
-      case type === "string":
-        result.push(await File.from(Path as string));
-        return result;
-      case type === "array": {
-        const files = await Promise.all(
-          (Path as string[]).map((p) => File.from(p)),
-        );
-        for (const f of files) {
-          result.push(f);
-        }
-        return result;
-      }
-      case Path instanceof FileClass:
-        result.push(await File.from(Path.path));
-        return result;
-      default:
-        throw new Error(
-          `Bad Path type: ${type} Accept only String, Array or fileClass`,
-        );
+    // Chaîne de `if` (et non `switch (true)`) : même ordre, même premier gagnant.
+    if (type === "string") {
+      result.push(await File.from(Path as string));
+      return result;
     }
+    if (type === "array") {
+      const files = await Promise.all(
+        (Path as string[]).map((p) => File.from(p)),
+      );
+      for (const f of files) {
+        result.push(f);
+      }
+      return result;
+    }
+    if (Path instanceof FileClass) {
+      result.push(await File.from(Path.path));
+      return result;
+    }
+    throw new Error(
+      `Bad Path type: ${type} Accept only String, Array or fileClass`,
+    );
   }
 
   async in(
@@ -345,4 +349,4 @@ class Finder extends Event {
 }
 
 export default Finder;
-export { TotalInterface, FinderEvents };
+export type { TotalInterface, FinderEvents };

@@ -109,12 +109,14 @@ describe("NODEFONY CORE FINDER", () => {
 
     it("PARSE IN", async () => {
       await assert.rejects(global.finder.in("bad path"));
-      let res = await global.finder.in("bad path").catch((e) => {
+      let res = await global.finder.in("bad path").catch((e: unknown) => {
+        assert.ok(e instanceof Error);
         assert.ok(e.message.indexOf("no such file or director") >= 0);
       });
       assert.equal(res, undefined);
       await assert.rejects(async () => {
-        res = await global.finder.in("bad path").catch((e) => {
+        res = await global.finder.in("bad path").catch((e: unknown) => {
+          assert.ok(e instanceof Error);
           assert.match(e.message, /no such file or director/);
           throw e;
         });

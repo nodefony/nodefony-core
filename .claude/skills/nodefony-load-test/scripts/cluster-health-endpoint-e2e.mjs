@@ -149,11 +149,14 @@ else {
     new ClusterProbeClient(processProbeTransport, TICK_MS),
   ).start(buildOwnHealth);
 
-  process.on("message", async (m) => {
+  process.on("message", (m) => {
     if (!m || m.kind !== CTRL || m.event !== "checkpoint") return;
     // VRAI handler de l'endpoint santé : clusterProbeHealth() ?? buildOwnHealth().
-    const health = await buildRealtimeHealth();
-    process.send({ kind: CTRL, event: "pod", role, health });
+    // `void` : un rejet reste non géré et fait tomber le worker — voulu, le
+    // banc doit le voir.
+    void buildRealtimeHealth().then((health) => {
+      process.send({ kind: CTRL, event: "pod", role, health });
+    });
   });
 
   process.send({ kind: CTRL, event: "ready" });

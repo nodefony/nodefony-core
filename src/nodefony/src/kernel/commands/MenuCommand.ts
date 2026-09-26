@@ -255,7 +255,7 @@ class Menu extends Command {
         pageSize,
         theme: this.#theme(),
       })
-      .catch((e) => this.#quit(e));
+      .catch((e: unknown) => this.#quit(e));
     if (selected === "inspect") {
       const sub = buildInspectMenu(INSPECT_SUBJECTS);
       const subject = await this.prompts
@@ -266,7 +266,7 @@ class Menu extends Command {
           loop: false,
           theme: this.#theme(),
         })
-        .catch((e) => this.#quit(e));
+        .catch((e: unknown) => this.#quit(e));
       // Sentinelle interne « inspect <sujet> » — dépliée par generate().
       return `inspect ${subject}`;
     }
@@ -402,7 +402,7 @@ class Menu extends Command {
         // déjà posés sont protégés par le guard `eventsRegistered`.
       }
     }
-    return await this.cli.runCommandAsync(response).then(() => {
+    return this.cli.runCommandAsync(response).then(() => {
       return this;
     });
   }

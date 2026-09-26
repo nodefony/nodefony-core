@@ -471,7 +471,7 @@ for (;;) {
   essaisSonde += 1;
   probe0 = await fetch(PROBE, {
     signal: AbortSignal.timeout(10_000),
-  }).catch((e) => e);
+  }).catch((/** @type {unknown} */ e) => e);
   if (probe0 instanceof Response && probe0.ok) break;
   if (Date.now() - debutAttente >= ATTENTE_SONDE_MS) break;
   await sleep(2000);
@@ -526,7 +526,7 @@ if (!(probe0 instanceof Response) || !probe0.ok) {
   const inexistante = `${origine}/nodefony/test/route-absente-du-banc`;
   const interroger = async (u) => {
     const r = await fetch(u, { signal: AbortSignal.timeout(10_000) }).catch(
-      (e) => e,
+      (/** @type {unknown} */ e) => e,
     );
     return r instanceof Response
       ? `HTTP ${r.status}`

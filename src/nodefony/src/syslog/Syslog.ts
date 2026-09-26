@@ -452,6 +452,11 @@ const checkFormatSeverity = (ele: unknown): string[] | number[] => {
     case "number":
       res = [ele];
       break;
+    case "bigint":
+    case "boolean":
+    case "function":
+    case "symbol":
+    case "undefined":
     default:
       throw new Error(`checkFormatSeverity bad format type : ${typeof ele}`);
   }

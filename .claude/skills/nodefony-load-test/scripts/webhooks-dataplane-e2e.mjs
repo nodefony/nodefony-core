@@ -208,7 +208,7 @@ const main = async () => {
   console.log(`\n${fail === 0 ? "✅" : "❌"} ${pass}/${pass + fail}`);
   process.exit(fail === 0 ? 0 : 1);
 };
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   console.error(e);
   process.exit(1);
 });

@@ -116,6 +116,7 @@ const portsLine = (
           return `${p.port} ${freeLabel}`;
         case "foreign":
           return `${p.port} ${ANSI.yellow}occupé par ${owners[p.port]}${ANSI.reset}`;
+        case "occupied":
         default:
           return `${p.port} ${occupiedLabel}`;
       }

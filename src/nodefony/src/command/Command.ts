@@ -566,23 +566,28 @@ class Command extends Service {
    */
   async showBanner(): Promise<string | Error> {
     if (this.cli) {
-      return this.cli
-        .asciify(`      ${this.name}`)
-        .then((data: string) => {
-          if (this.json) {
-            return data;
-          }
-          if (this.cli) {
-            if (this.cli.options.clear) {
-              this.cli.clear();
+      return (
+        this.cli
+          .asciify(`      ${this.name}`)
+          .then((data: string) => {
+            if (this.json) {
+              return data;
             }
-            const color = this.cli.clc.blueBright.bold;
-            console.log(color(data));
-            this.cli.blankLine();
-          }
-          return data;
-        })
-        .catch((e: Error) => e);
+            if (this.cli) {
+              if (this.cli.options.clear) {
+                this.cli.clear();
+              }
+              const color = this.cli.clc.blueBright.bold;
+              console.log(color(data));
+              this.cli.blankLine();
+            }
+            return data;
+          })
+          // Le contrat rend une `Error` : un rejet d'une autre nature y est ramené.
+          .catch((e: unknown) =>
+            e instanceof Error ? e : new Error(String(e), { cause: e }),
+          )
+      );
     }
     return Promise.resolve("");
   }
@@ -623,4 +628,4 @@ class Command extends Service {
 }
 
 export default Command;
-export { OptionsCommandInterface };
+export type { OptionsCommandInterface };

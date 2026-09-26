@@ -66,7 +66,7 @@ function services(
         // service échoue à l'instanciation doit rester fail-soft, y compris en
         // production. Un `kernel.once` nu n'aurait porté aucune criticité.
         this.hookKernel("onPreBoot", async () => {
-          return await this.initDecoratorServices();
+          return this.initDecoratorServices();
         });
       }
       // Un service qui échoue passe par `handleServiceBootError` (Module) → la
@@ -86,7 +86,7 @@ function services(
           : [nameOrPath];
         for (const entry of entries) {
           if (typeof entry === "string") {
-            await this.loadService(entry).catch((e: Error) => {
+            await this.loadService(entry).catch((e: unknown) => {
               this.handleServiceBootError(e, entry);
             });
           } else if (Injector.scopeOf(entry) === "request") {
@@ -111,7 +111,7 @@ function services(
               this.handleServiceBootError(e, entry);
             }
           } else {
-            await this.addService(entry).catch((e: Error) => {
+            await this.addService(entry).catch((e: unknown) => {
               this.handleServiceBootError(e, entry);
             });
           }

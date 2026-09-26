@@ -493,10 +493,11 @@ describe("Cli — parse / parseAsync", () => {
       commander: false,
       pid: false,
     });
-    assert.throws(
-      () => cli.parseAsync(["node", "test"]),
-      /Commander not found/,
-    );
+    // `parseAsync` lève de façon SYNCHRONE sans commander : la promesse n'est
+    // jamais créée, `void` ne fait que le dire.
+    assert.throws(() => {
+      void cli.parseAsync(["node", "test"]);
+    }, /Commander not found/);
   });
 
   it("parseAsync commande valide → résout avec commander", async () => {

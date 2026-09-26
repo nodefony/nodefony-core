@@ -122,6 +122,6 @@ const main = async () => {
   );
 };
 
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   exit(4, `CAUSE=juge-en-erreur — le juge lui-même a échoué : ${e.message}`);
 });

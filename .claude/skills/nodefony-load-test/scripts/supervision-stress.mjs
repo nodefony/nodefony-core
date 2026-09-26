@@ -245,7 +245,7 @@ process.on("SIGINT", () => {
   setTimeout(() => process.exit(0), 300);
 });
 
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   console.error("\n  FATAL:", e?.message ?? e);
   process.exit(1);
 });

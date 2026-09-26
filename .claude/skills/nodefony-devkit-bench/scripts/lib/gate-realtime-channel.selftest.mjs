@@ -40,6 +40,13 @@ import {
 import { portLibre } from "./http-probe.mjs";
 import { MOT_DE_PASSE_SONDE } from "./identites.mjs";
 
+/**
+ * `http.createServer` n'attend rien du handler : on le lui donne SYNCHRONE.
+ * `void` ne rattrape rien — un rejet reste non géré et fait tomber l'autotest,
+ * ce qui est voulu : une application jouet qui casse doit crier.
+ */
+const detach = (handler) => (req, res) => void handler(req, res);
+
 const JUGE = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "gate-realtime-channel.mjs",
@@ -197,27 +204,30 @@ function creerServeur({
 } = {}) {
   const chemins = { [CHEMIN_REALTIME_OPS]: ops, [CHEMIN_REALTIME_LIVE]: live };
 
-  const srv = http.createServer(async (req, res) => {
-    const url = (req.url ?? "").split("?")[0];
-    if (url === LOGIN && req.method === "POST") {
-      const { username } = await corpsDe(req);
-      if (loginRefuse.includes(username)) {
-        return repondre(res, 401, { error: "Invalid credentials" });
+  const srv = http.createServer(
+    detach(async (req, res) => {
+      const url = (req.url ?? "").split("?")[0];
+      if (url === LOGIN && req.method === "POST") {
+        const { username } = await corpsDe(req);
+        if (loginRefuse.includes(username)) {
+          return repondre(res, 401, { error: "Invalid credentials" });
+        }
+        res.setHeader(
+          "set-cookie",
+          `nodefony=sess-${username}; Path=/; HttpOnly`,
+        );
+        return repondre(res, 200, { user: { username, roles: [] } });
       }
-      res.setHeader(
-        "set-cookie",
-        `nodefony=sess-${username}; Path=/; HttpOnly`,
-      );
-      return repondre(res, 200, { user: { username, roles: [] } });
-    }
-    if (url === MOI) {
-      const qui = quiEst(req.headers.cookie);
-      if (qui === "anonyme") return repondre(res, 401, { error: "no session" });
-      const username = qui === "admin" ? "admin" : "bench-temoin";
-      return repondre(res, 200, { user: { username } });
-    }
-    return repondre(res, 404, { error: "not found" });
-  });
+      if (url === MOI) {
+        const qui = quiEst(req.headers.cookie);
+        if (qui === "anonyme")
+          return repondre(res, 401, { error: "no session" });
+        const username = qui === "admin" ? "admin" : "bench-temoin";
+        return repondre(res, 200, { user: { username } });
+      }
+      return repondre(res, 404, { error: "not found" });
+    }),
+  );
 
   srv.on("upgrade", (req, socket) => {
     const url = (req.url ?? "").split("?")[0];

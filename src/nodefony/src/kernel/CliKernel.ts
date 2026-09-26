@@ -163,6 +163,10 @@ class CliKernel extends Cli {
         // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.pnpm;
         break;
+      // `bun` n'a pas de lanceur dédié : il passe par npm, comme l'absence.
+      case "npm":
+      case "bun":
+      case undefined:
       default:
         // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.npm;
@@ -387,6 +391,9 @@ class CliKernel extends Cli {
     }
 
     this.kernel = new Kernel(this.environment, this, options);
+    // Posé quand le `.catch` du parse a DÉJÀ journalisé l'erreur : le `catch`
+    // englobant, qui la voit (`return await`), ne la répète pas.
+    let logged = false;
     try {
       if (this.commander) {
         this.registerBuiltinCommands();
@@ -449,7 +456,9 @@ class CliKernel extends Cli {
           process.argv.push("menu");
         }
         if (this.isGlobalHelpRequested()) {
-          return this.dispatchGlobalHelp();
+          // `await` : sans lui, un rejet échappait au `catch` ci-dessous, qui
+          // est pourtant écrit pour journaliser les erreurs non présentées.
+          return await this.dispatchGlobalHelp();
         }
 
         // ─── Commandes de MODULE : dispatch DIFFÉRÉ ──────────────────────────
@@ -464,14 +473,15 @@ class CliKernel extends Cli {
           requested !== null &&
           !this.getBuiltinCommandNames().has(requested)
         ) {
-          return this.dispatchModuleCommand(requested);
+          // `await` : même raison que pour le help global ci-dessus.
+          return await this.dispatchModuleCommand(requested);
         }
 
         // Distingue un argv REFUSÉ d'un boot qui MEURT : les deux arrivent dans
         // le même `catch`, et `doctor --live` ne doit rattraper que le second.
         let booting = false;
         this.armSubcommandExitOverride();
-        return this.commander
+        return await this.commander
           ?.parseAsync()
           .then(async () => {
             if (!this.kernel) throw new Error(`Kernel not found`);
@@ -532,6 +542,7 @@ class CliKernel extends Cli {
 
             if (!err.presented) {
               this.log(e, "ERROR");
+              logged = true;
             }
             await this.kernel?.terminate(err.exitCode ?? 1);
             throw e;
@@ -541,7 +552,7 @@ class CliKernel extends Cli {
       throw new Error(`Commander not found`);
     } catch (e) {
       // Erreur déjà présentée (diagnostic clair émis en amont) → pas de re-log stack.
-      if (!(e as { presented?: boolean }).presented) {
+      if (!logged && !(e as { presented?: boolean }).presented) {
         this.log(e, "ERROR");
       }
       throw e;
@@ -778,7 +789,7 @@ class CliKernel extends Cli {
         }
       });
     });
-    return kernel.start().catch(async (e) => {
+    return kernel.start().catch(async (e: unknown) => {
       // Code de sortie porté par l'erreur si présent (ex. config invalide →
       // EX_CONFIG=78, l'orchestrateur distingue « mauvaise config » d'un crash) ;
       // sinon échec de boot générique → EX_SOFTWARE (sysexits.h).
@@ -878,7 +889,7 @@ class CliKernel extends Cli {
     // l'utilisateur. Le kernel n'ayant pas booté, son journal n'a jamais été
     // muselé par `quietBoot` — sans ce drapeau, un « terminate : 0 » venait
     // s'écrire au pied d'une aide qu'on lit ou qu'on redirige.
-    return await kernel.terminate(SysExit.OK, true);
+    return kernel.terminate(SysExit.OK, true);
   }
 
   /**

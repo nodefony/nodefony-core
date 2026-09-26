@@ -168,7 +168,7 @@ async function main() {
   process.exit(0);
 }
 
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   console.error("\n  FATAL:", e?.message ?? e);
   process.exit(1);
 });

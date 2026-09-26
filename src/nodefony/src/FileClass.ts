@@ -383,4 +383,4 @@ class FileClass {
 }
 
 export default FileClass;
-export { FileClassInterface };
+export type { FileClassInterface };

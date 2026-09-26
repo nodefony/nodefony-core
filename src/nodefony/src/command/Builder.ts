@@ -261,4 +261,4 @@ class Builder extends Service {
 }
 
 export default Builder;
-export { FileType, SymlinkParams, CopyParams, BuilderObject };
+export type { FileType, SymlinkParams, CopyParams, BuilderObject };

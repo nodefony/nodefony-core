@@ -445,7 +445,7 @@ if (process.argv[2] === "worker") {
     process.exit(0);
   };
 
-  main().catch((e) => {
+  main().catch((/** @type {unknown} */ e) => {
     console.error("\n  FATAL:", e?.stack ?? e);
     process.exit(1);
   });

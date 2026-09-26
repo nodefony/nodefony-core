@@ -1219,7 +1219,7 @@ export class RealtimeClient<
         this.transport = transport;
       } catch (e) {
         this.setState("error");
-        reject(e);
+        reject(e instanceof Error ? e : new Error(String(e), { cause: e }));
         return;
       }
       transport.onOpen(() => {

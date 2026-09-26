@@ -40,7 +40,7 @@ declare module "nodefony" {
 }
 
 // rapide
-export * from "./globals";
+export type * from "./globals";
 export * from "../Container";
 export * from "../Error";
 export * from "../Event";

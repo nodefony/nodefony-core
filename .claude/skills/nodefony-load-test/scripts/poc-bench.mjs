@@ -133,7 +133,7 @@ function round(x) {
   return Math.round(x * 100) / 100;
 }
 
-main().catch((e) => {
+main().catch((/** @type {unknown} */ e) => {
   process.stderr.write(`[bench] fatal: ${e.stack ?? e.message}\n`);
   process.exit(2);
 });
