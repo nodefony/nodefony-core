@@ -515,7 +515,7 @@ Comme les dépendances sont déjà déclarées, l'ordre correct se **calcule** :
   liste déjà correcte sort **inchangée** (`serviceOrder.ts:100`) ;
 - les entrées `string` (chemins à charger) et les classes hors registre **gardent leur position**
   (`serviceOrder.ts:79`) ;
-- un cycle lève une erreur **nommant le cycle** (`serviceOrder.ts:125`).
+- un cycle lève une erreur **nommant le cycle** (`serviceOrder.ts:103`).
 
 Le tri est appliqué par le décorateur avant la boucle d'instanciation
 (`services()`, `kernelDecorator.ts:48`). C'est l'équivalent du container compilé de Symfony ou de la
@@ -567,7 +567,7 @@ trafic. La sonde `scopeCount()` (`Container.ts:281`) existe pour la voir venir.
 | `Scope "X" not declared`                          | `enterScope("X")` sans `addScope("X")` au boot (`Container.ts:224`) | Déclarer le scope au boot                                              |
 | Fuite mémoire, `scopeCount` qui monte             | `leaveScope` non appelé (pipeline court-circuité)                   | Le kernel le fait aux deux sorties — ne pas contourner le teardown     |
 | `Circular dependency detected: A → B → A`         | Cycle de résolution (`injector.ts:262`)                             | Casser le cycle : repenser la dépendance, ou la résoudre à l'appel     |
-| `Circular service dependency in @services([...])` | Cycle entre services d'une même liste (`serviceOrder.ts:125`)       | Idem — un cycle n'a pas d'ordre valide                                 |
+| `Circular service dependency in @services([...])` | Cycle entre services d'une même liste (`serviceOrder.ts:103`)       | Idem — un cycle n'a pas d'ordre valide                                 |
 | 499 / `Cannot read properties of undefined`       | Un service posé après son consommateur                              | Rien à faire si la dépendance est **déclarée** — sinon la déclarer     |
 | Une instance neuve à chaque résolution            | `@injectable({ scope: "transient" })` non voulu (`injector.ts:160`) | Repasser en `singleton` (le défaut)                                    |
 | Deux utilisateurs voient les données de l'autre   | Champ muté sur un controller `@Scope("singleton")`                  | Retirer l'état de `this`, ou revenir au défaut per-request             |
