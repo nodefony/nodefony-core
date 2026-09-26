@@ -2,13 +2,50 @@ import http2 from "node:http2";
 import http from "node:http";
 import HttpContext from "../http/HttpContext";
 import HttpResponse from "../http/Response";
-import { extend } from "nodefony";
 //import { httpResponse } from "../../../service/http-kernel";
 
 //const HTTP2_HEADER_PATH = http2.constants.HTTP2_HEADER_PATH;
 //const HTTP2_HEADER_LINK = http2.constants.HTTP2_HEADER_LINK;
 const HTTP2_HEADER_STATUS = http2.constants.HTTP2_HEADER_STATUS;
 //const HTTP2_HEADER_CONTENT_TYPE = http2.constants.HTTP2_HEADER_CONTENT_TYPE;
+
+/**
+ * Compose les en-têtes d'une réponse HTTP/2 : ceux posés sur la réponse, puis
+ * ceux passés à `writeHead`, qui gagnent.
+ *
+ * Les clés sont ramenées en MINUSCULES : `getHeaders()` rend `content-type`,
+ * un contrôleur passe `Content-Type` — fusionnées telles quelles, les deux
+ * clés partaient ensemble et `stream.respond()` refusait la réponse
+ * (`ERR_HTTP2_HEADER_SINGLE_VALUE`), soit une 500 sur tout média servi en
+ * HTTP/2. HTTP/2 n'a de toute façon que des noms en minuscules (RFC 9113 §8.2.1).
+ *
+ * @param statusMessage - message de statut, recopié en `x-status-message`
+ * @param current - en-têtes déjà posés sur la réponse
+ * @param extra - en-têtes passés à `writeHead` (objet, ou liste plate clé/valeur)
+ * @returns les en-têtes à transmettre à `respond()`
+ */
+export function mergeResponseHeaders(
+  statusMessage: string,
+  current: http.OutgoingHttpHeaders,
+  extra?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[],
+): http.OutgoingHttpHeaders {
+  const merged: http.OutgoingHttpHeaders = {
+    "x-status-message": statusMessage,
+  };
+  for (const key in current) merged[key.toLowerCase()] = current[key];
+  if (Array.isArray(extra)) {
+    // Forme plate de Node : [clé, valeur, clé, valeur…].
+    for (let i = 0; i + 1 < extra.length; i += 2) {
+      merged[String(extra[i]).toLowerCase()] = extra[i + 1];
+    }
+  } else if (extra) {
+    for (const key in extra) {
+      const value = extra[key];
+      if (value !== undefined) merged[key.toLowerCase()] = value;
+    }
+  }
+  return merged;
+}
 
 class Http2Response extends HttpResponse {
   override statusCode: number = 200;
@@ -56,12 +93,11 @@ class Http2Response extends HttpResponse {
         this.statusMessage = this.getStatusMessage();
         this.setLength();
         this.ensureContentTypeHeader();
-        this.headers = extend(
-          true,
-          { "X-Status-Message": this.statusMessage },
+        this.headers = mergeResponseHeaders(
+          this.statusMessage,
           this.getHeaders(),
           headers,
-        ) as http.OutgoingHttpHeaders;
+        );
         this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
         // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead
         // (http/Response.ts), donc on pose ICI les headers de corrélation,

@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import https from "node:https";
+import http2 from "node:http2";
 import fs from "node:fs";
 import path from "node:path";
 import { asError } from "../helpers/wsText";
@@ -267,5 +268,51 @@ describe("HTTP STREAM Range — conformité RFC 9110 (416 / ignore / clamp)", ()
       `bytes ${SIZE - 10}-${SIZE - 1}/${SIZE}`,
     );
     expect(headers["content-length"]).to.equal("10");
+  });
+});
+
+/**
+ * Le chemin HTTP/2 compose ses en-têtes lui-même (`Http2Response.writeHead` →
+ * `stream.respond`) : un en-tête posé par le filet (`content-type` en
+ * minuscules) et le même passé par le contrôleur (`Content-Type`) arrivaient
+ * sous deux clés, et `respond()` refusait la réponse — 500 sur TOUT média servi
+ * en HTTP/2. Le banc de résilience ne le voyait pas : il n'éprouve que la survie
+ * du serveur, pas le statut rendu.
+ */
+function getHttp2(
+  headers: http2.OutgoingHttpHeaders,
+): Promise<http2.IncomingHttpHeaders & http2.IncomingHttpStatusHeader> {
+  return new Promise((resolve, reject) => {
+    const session = http2.connect("https://localhost:5152", {
+      rejectUnauthorized: false,
+    });
+    session.on("error", reject);
+    const req = session.request({ ":method": "GET", ...headers });
+    req.on("response", (h) => {
+      // Les en-têtes suffisent : le corps (14 Mo) n'est pas lu.
+      req.close();
+      session.close();
+      resolve(h);
+    });
+    req.on("error", reject);
+    req.end();
+  });
+}
+
+describe("HTTP/2 STREAM", () => {
+  it("GET /media en HTTP/2 → 200, un seul Content-Type", async () => {
+    const h = await getHttp2({ ":path": "/nodefony/test/html/media" });
+    expect(h[":status"]).to.equal(200);
+    expect(h["content-type"]).to.equal("video/webm");
+  });
+
+  it("GET /media en HTTP/2 avec Range → 206", async () => {
+    const h = await getHttp2({
+      ":path": "/nodefony/test/html/media",
+      range: "bytes=0-1023",
+    });
+    expect(h[":status"]).to.equal(206);
+    expect(h["content-type"]).to.equal("video/webm");
+    expect(h["content-length"]).to.equal("1024");
   });
 });

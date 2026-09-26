@@ -3,12 +3,12 @@
   "repoRoot": ".",
   "stats": {
     "files": 875,
-    "symbols": 4355,
+    "symbols": 4356,
     "classes": 404,
     "interfaces": 1145,
     "types": 467,
     "enums": 4,
-    "functions": 1900,
+    "functions": 1901,
     "constants": 435
   },
   "symbols": {
@@ -29203,6 +29203,14 @@
       "implements": [],
       "decorators": []
     },
+    "mergeResponseHeaders": {
+      "name": "mergeResponseHeaders",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Compose les en-têtes d'une réponse HTTP/2 : ceux posés sur la réponse, puis ceux passés à `writeHead`, qui gagnent. Les clés sont ramenées en MINUSCULES : `getHeaders()` rend `content-type`, un con…"
+    },
     "WebsocketResponse": {
       "name": "WebsocketResponse",
       "kind": "class",
@@ -30448,8 +30456,7 @@
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/http/parser.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http2/Response.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/http/Request.ts"
       ],
       "Container": [
         "src/nodefony/src/Cli.ts",
