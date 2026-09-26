@@ -123,9 +123,9 @@ function normalizePayload(payload: unknown, maxLen: number): unknown {
   try {
     // Un cycle, un getter qui jette, un DOM node : on ne laisse pas l'échec de
     // sérialisation remonter jusqu'au `publish` — il tuerait le lot entier.
-    return JSON.parse(
-      clamp(JSON.stringify(payload) ?? "null", maxLen),
-    ) as unknown;
+    // `JSON.stringify` rend `undefined` quand un `toJSON` le rend — lib.es5 l'ignore.
+    const json = JSON.stringify(payload) as string | undefined;
+    return JSON.parse(clamp(json ?? "null", maxLen)) as unknown;
   } catch {
     // Repli VOULU sur l'étiquette par défaut (`[object Object]`, `[object
     // HTMLDivElement]`…) : l'objet vient de refuser la sérialisation.
@@ -194,7 +194,7 @@ export function installSyslogUplink(opts: SyslogUplinkOptions): () => void {
       severityName: pdu.severityName,
       moduleName: pdu.moduleName,
       msgid: pdu.msgid,
-      msg: clamp(pdu.msg ?? "", maxStringLength),
+      msg: clamp(pdu.msg, maxStringLength),
       timeStamp: pdu.timeStamp,
       payload: normalizePayload(pdu.payload, maxStringLength),
     };

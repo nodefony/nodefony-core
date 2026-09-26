@@ -1067,7 +1067,7 @@ export class RealtimeClient<
         état: { valeur: this.state },
         identité: {
           valeur: this._identity?.authenticated
-            ? (this._identity.userIdentifier ?? "authentifié")
+            ? this._identity.userIdentifier || "authentifié"
             : "anonyme",
         },
         canaux: { valeur: this._serverChannels?.join(", ") || "aucun" },

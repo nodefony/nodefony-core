@@ -99,11 +99,10 @@ export function installNetworkInterceptor(
           let method = "GET";
           try {
             url = fetchUrl(args[0]);
-            const init = args[1];
+            const input = args[0];
             method = (
-              init?.method ??
-              (args[0] as Request)?.method ??
-              "GET"
+              args[1]?.method ??
+              (input instanceof Request ? input.method : "GET")
             ).toUpperCase();
           } catch {
             /* lecture défensive */
@@ -161,7 +160,8 @@ export function installNetworkInterceptor(
   if (patchedFetch) window.fetch = patchedFetch;
 
   // ── XMLHttpRequest ───────────────────────────────────────────────────
-  const XHR = window.XMLHttpRequest;
+  // Absent de certains environnements (worker, rendu serveur) malgré lib.dom.
+  const XHR = window.XMLHttpRequest as typeof XMLHttpRequest | undefined;
   // Références NATIVES gardées telles quelles : rappelées par `.apply(this…)`
   // et remises en place à la désinstallation (identité exigée).
   // oxlint-disable-next-line typescript/unbound-method
@@ -170,8 +170,10 @@ export function installNetworkInterceptor(
   const origSend = XHR?.prototype.send;
   // État par instance (sans polluer le prototype public) via WeakMap.
   const state = new WeakMap<XMLHttpRequest, NetEntry>();
+  let patchedOpen: XMLHttpRequest["open"] | null = null;
+  let patchedSend: XMLHttpRequest["send"] | null = null;
   if (XHR && origOpen && origSend) {
-    XHR.prototype.open = function (
+    XHR.prototype.open = patchedOpen = function (
       this: XMLHttpRequest,
       method: string,
       url: string | URL,
@@ -182,7 +184,7 @@ export function installNetworkInterceptor(
         if (u && !ignore(u)) {
           state.set(this, {
             id: ++seq,
-            method: (method ?? "GET").toUpperCase(),
+            method: method.toUpperCase(),
             url: u,
             path: toPath(u),
             status: null,
@@ -200,7 +202,10 @@ export function installNetworkInterceptor(
       }
       return origOpen.apply(this, [method, url, ...rest] as never);
     };
-    XHR.prototype.send = function (this: XMLHttpRequest, ...args: unknown[]) {
+    XHR.prototype.send = patchedSend = function (
+      this: XMLHttpRequest,
+      ...args: unknown[]
+    ) {
       const entry = state.get(this);
       if (entry) {
         entry.startedAt = performance.now();
@@ -233,10 +238,10 @@ export function installNetworkInterceptor(
   return () => {
     // On ne restaure que si personne n'a re-patché par-dessus le nôtre.
     if (patchedFetch && window.fetch === patchedFetch) window.fetch = origFetch;
-    if (XHR && origOpen && XHR.prototype.open !== origOpen) {
+    if (XHR && origOpen && XHR.prototype.open === patchedOpen) {
       XHR.prototype.open = origOpen;
     }
-    if (XHR && origSend && XHR.prototype.send !== origSend) {
+    if (XHR && origSend && XHR.prototype.send === patchedSend) {
       XHR.prototype.send = origSend;
     }
   };

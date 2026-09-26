@@ -346,7 +346,7 @@
       // Placée AVANT la surcharge des tests, qui la coupe pour eux.
       "files": [
         "src/nodefony/src/*.ts",
-        "src/nodefony/src/{cli,command,config,finder,kernel,mcp,runtime,service,syslog,testing}/**"
+        "src/nodefony/src/{cli,client,command,config,finder,kernel,mcp,runtime,service,syslog,testing}/**"
       ],
       "rules": {
         "typescript/no-unnecessary-condition": "error"

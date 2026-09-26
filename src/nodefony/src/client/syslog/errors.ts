@@ -66,7 +66,7 @@ export function installErrorCapture(opts: ErrorCaptureOptions): () => void {
 
   const onError = (event: ErrorEvent): void => {
     const source =
-      event.filename !== undefined && event.filename !== ""
+      event.filename !== ""
         ? `${event.filename}:${event.lineno}:${event.colno}`
         : undefined;
     const key = `error|${event.message}|${source ?? ""}`;

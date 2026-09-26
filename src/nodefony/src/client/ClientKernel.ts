@@ -147,7 +147,9 @@ export class ClientKernel implements IClientKernel {
   }
 
   async #doBoot(): Promise<void> {
-    this.#state = "booting";
+    // Élargi : sans cela TS garde `"booting"` rétréci à travers le `await`,
+    // alors que `terminate()` peut changer l'état pendant la connexion.
+    this.#state = "booting" as ClientKernelState;
     this.#service.fire("onBoot", this);
     this.#bindBrowser();
     const socket =
@@ -316,8 +318,8 @@ export class ClientKernel implements IClientKernel {
    */
   #bindBrowser(): void {
     if (this.#options.browserEvents === false) return;
-    const doc: Document | undefined = globalThis.document;
-    const win: Window | undefined = globalThis.window;
+    const doc = globalThis.document as Document | undefined;
+    const win = globalThis.window as Window | undefined;
     if (!doc || !win) return;
     const bind = (
       target: Document | Window,

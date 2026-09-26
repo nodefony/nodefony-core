@@ -210,7 +210,7 @@ export class DebugBarModel {
     const logs = payload.logs;
     if (logs) {
       for (let i = 0; i < logs.length; i++) {
-        const entry = logs[i];
+        const entry = logs.at(i);
         if (typeof entry?.severity !== "number") continue;
         let pdu: Pdu;
         try {

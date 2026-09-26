@@ -176,7 +176,7 @@ function badge(name: string): void {
   if (alreadyAnnounced()) return;
   // Une console peut manquer (rendu côté serveur, test) : on n'annonce rien
   // plutôt que de jeter au démarrage.
-  const c = globalThis.console;
+  const c = globalThis.console as Partial<Console> | undefined;
   if (!c?.log) return;
   (globalThis as { __nfAnnounced__?: boolean }).__nfAnnounced__ = true;
   c.log(
@@ -258,7 +258,7 @@ export function consoleDetails(
   title: string,
 ): boolean {
   if (alreadyDetailed() || !isVerbose()) return false;
-  const c = globalThis.console;
+  const c = globalThis.console as Partial<Console> | undefined;
   if (!c?.log || !c.groupCollapsed || !c.groupEnd) return false;
   (globalThis as { __nfDetailed__?: boolean }).__nfDetailed__ = true;
   c.groupCollapsed(`%c${title}`, "color:#94a3b8");

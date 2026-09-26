@@ -93,6 +93,33 @@ function detailPanelH(): number {
 
 /** Onglets disponibles (ordre d'affichage). */
 type TabId = "realtime" | "network" | "perf" | "logs" | "runtime";
+const TAB_IDS: readonly string[] = [
+  "realtime",
+  "network",
+  "perf",
+  "logs",
+  "runtime",
+] satisfies TabId[];
+
+/** Vrai si la valeur (relue du `localStorage`, donc quelconque) nomme un onglet. */
+function isTabId(value: string): value is TabId {
+  return TAB_IDS.includes(value);
+}
+
+/**
+ * Élément le plus proche de la cible d'un événement qui répond au sélecteur.
+ *
+ * La cible n'est pas toujours un `Element` : un nœud texte, le document ou la
+ * fenêtre n'ont pas de `closest`.
+ */
+function closestFrom(
+  target: EventTarget | null,
+  selector: string,
+): HTMLElement | null {
+  return target instanceof Element
+    ? target.closest<HTMLElement>(selector)
+    : null;
+}
 
 /** Contexte frontend injecté par le builder Vite (@nodefony/frontend) en dev. */
 export interface DebugBarFrontend {
@@ -570,7 +597,7 @@ export class DebugBar {
   private readonly hmrSeries: number[] = [];
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly disposers: Array<() => void> = [];
-  private readonly el = Object.create(null) as Record<string, Element>;
+  private readonly el = Object.create(null) as Partial<Record<string, Element>>;
   // Network — modèle + corrélation profiler serveur.
   private readonly networkEnabled: boolean;
   private readonly profilerBase: string;
@@ -607,7 +634,8 @@ export class DebugBar {
     this.visible = lsGet(LS.visible, "1") !== "0";
     this.minimized = lsGet(LS.min, "0") === "1";
     this.side = lsGet(LS.side, "right") === "left" ? "left" : "right";
-    this.activeTab = (lsGet(LS.tab, "realtime") as TabId) || "realtime";
+    const tab = lsGet(LS.tab, "realtime");
+    this.activeTab = isTabId(tab) ? tab : "realtime";
     this.panelH = clampH(
       parseInt(lsGet(LS.h, String(defaultPanelH())), 10) || defaultPanelH(),
     );
@@ -836,7 +864,7 @@ export class DebugBar {
     );
     // Chaque indicateur MÈNE à l'onglet qui le détaille (et déplie au passage).
     const onGoto = (ev: Event): void => {
-      const t = (ev.target as HTMLElement | null)?.closest?.(".goto");
+      const t = closestFrom(ev.target, ".goto");
       const id = t?.getAttribute("data-goto") as TabId | null;
       if (!id) return;
       this.setOpen(true);
@@ -854,7 +882,7 @@ export class DebugBar {
     const tabsBar = bar.querySelector(".tabs");
     if (tabsBar) {
       const onTab = (ev: Event): void => {
-        const t = (ev.target as HTMLElement | null)?.closest?.(".tab");
+        const t = closestFrom(ev.target, ".tab");
         const id = t?.getAttribute("data-tab") as TabId | null;
         if (id) this.setTab(id);
       };
@@ -874,7 +902,7 @@ export class DebugBar {
     const counts = bar.querySelector(".counts");
     if (counts) {
       const onSev = (ev: Event): void => {
-        const t = (ev.target as HTMLElement | null)?.closest?.(".sevf");
+        const t = closestFrom(ev.target, ".sevf");
         const sev = t?.getAttribute("data-sev");
         if (sev !== "all" && sev !== "err" && sev !== "warn") return;
         // Recliquer le filtre actif le retire : un filtre qu'on ne sait pas
@@ -925,8 +953,9 @@ export class DebugBar {
     });
     this.wireBtn("btnCopy", () => {
       const node = this.el.feed;
-      const text = node ? (node.textContent ?? "") : "";
-      void navigator.clipboard?.writeText(text).then(
+      const text = node ? node.textContent : "";
+      // Absent hors contexte sécurisé (HTTP autre que localhost) malgré lib.dom.
+      void (navigator.clipboard as Clipboard | undefined)?.writeText(text).then(
         () => this.flashBtn("btnCopy", "✓"),
         // Le presse-papiers peut être refusé (contexte non sécurisé, permission) :
         // le dire vaut mieux qu'un bouton qui ne réagit pas.
@@ -945,7 +974,7 @@ export class DebugBar {
     const feed = this.el.feed;
     if (feed) {
       const onFeed = (ev: Event): void => {
-        const row = (ev.target as HTMLElement | null)?.closest?.(".log");
+        const row = closestFrom(ev.target, ".log");
         if (!row) return;
         const open = row.nextElementSibling?.classList.contains("logdetail");
         if (open) {
@@ -966,10 +995,10 @@ export class DebugBar {
       const onFeedKey = (ev: Event): void => {
         const k = (ev as KeyboardEvent).key;
         if (k !== "Enter" && k !== " ") return;
-        const row = (ev.target as HTMLElement | null)?.closest?.(".log");
+        const row = closestFrom(ev.target, ".log");
         if (!row) return;
         ev.preventDefault();
-        (row as HTMLElement).click();
+        row.click();
       };
       feed.addEventListener("click", onFeed);
       feed.addEventListener("keydown", onFeedKey);
@@ -1035,7 +1064,7 @@ export class DebugBar {
   private flashBtn(key: string, glyph: string): void {
     const b = this.el[key];
     if (!b) return;
-    const before = b.textContent ?? "";
+    const before = b.textContent;
     b.textContent = glyph;
     const t = setTimeout(() => {
       b.textContent = before;
@@ -1440,9 +1469,7 @@ export class DebugBar {
     const list = this.el.netList as HTMLElement | undefined;
     if (list) {
       const onClick = (ev: Event): void => {
-        const row = (ev.target as HTMLElement | null)?.closest?.(
-          ".net-row",
-        ) as HTMLElement | null;
+        const row = closestFrom(ev.target, ".net-row");
         if (!row) return;
         const rid = row.dataset.rid;
         this.selectRow(row, rid || null);
@@ -1454,8 +1481,7 @@ export class DebugBar {
     const detail = this.el.netDetail as HTMLElement | undefined;
     if (detail) {
       const onDetail = (ev: Event): void => {
-        const t = ev.target as HTMLElement | null;
-        if (t?.closest?.('[data-act="close"]')) this.deselect();
+        if (closestFrom(ev.target, '[data-act="close"]')) this.deselect();
       };
       detail.addEventListener("click", onDetail);
       this.disposers.push(() => detail.removeEventListener("click", onDetail));
@@ -2066,8 +2092,9 @@ function shortId(id: string): string {
 function traceId(p: { traceparent: string | null }): string {
   if (!p.traceparent) return "—";
   const seg = p.traceparent.split("-");
-  const tid = seg.length >= 2 ? seg[1] : p.traceparent;
-  return tid && tid.length > 12 ? tid.slice(0, 12) + "…" : (tid ?? "—");
+  const tid = seg.at(1) ?? p.traceparent;
+  if (!tid) return "—";
+  return tid.length > 12 ? tid.slice(0, 12) + "…" : tid;
 }
 
 /** Mappe un nom d'environnement vers une classe de couleur du badge. */
