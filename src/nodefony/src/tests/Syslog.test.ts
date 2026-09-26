@@ -117,6 +117,17 @@ describe("NODEFONY SYSLOG", () => {
         done();
       }));
 
+    // RFC 5424 : 0 = EMERGENCY, la sévérité la plus haute. `createPDU` faisait
+    // `severity || defaultSeverity` : un log EMERGENCY passé en numérique
+    // retombait sur la sévérité par défaut (DEBUG) — le plus grave déguisé en
+    // plus bénin.
+    it("sévérité numérique 0 (EMERGENCY) conservée, jamais remplacée par le défaut", () => {
+      const inst = new Syslog({ moduleName: "SEV0" });
+      const pdu = inst.log("panne", 0);
+      assert.strict.equal(pdu.severity, 0);
+      assert.strict.equal(pdu.severityName, "EMERGENCY");
+    });
+
     it("Change stack size ", () =>
       new Promise<void>((done) => {
         const inst = new Syslog({

@@ -603,7 +603,7 @@ const createPDU = function (
 ): Pdu {
   return new Pdu(
     payload,
-    severity || this.settings.defaultSeverity,
+    severity ?? this.settings.defaultSeverity,
     moduleName,
     msgid,
     msg,
