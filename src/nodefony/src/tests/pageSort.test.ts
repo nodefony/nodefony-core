@@ -94,7 +94,7 @@ describe("compareByOrder — neutralité", () => {
 
   it("le comparateur est pur (mêmes arguments, même verdict)", () => {
     const cmp = compareByOrder<Row>([["name", "ASC"]], read);
-    const [x, y] = [rows()[0]!, rows()[1]!];
+    const [x, y] = [rows()[0], rows()[1]];
     expect(cmp(x, y)).to.equal(cmp(x, y));
     expect(cmp(x, y)).to.equal(-cmp(y, x));
   });

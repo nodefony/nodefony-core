@@ -303,7 +303,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const req = parseCreateArgv(
         argv("create", "app", "x", "--git-hooks", "--yes"),
       ) as ICreateRequest;
-      assert.isTrue(req.answers.gitHooks as boolean);
+      assert.isTrue(req.answers.gitHooks);
       // La spec porte la question — `advanced` : jamais posée en dialogue (le
       // défaut SANS hooks est sûr : le filet complet est la CI), mais présente,
       // sinon `resolveAnswers` jetterait la réponse sans un mot.
@@ -564,8 +564,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const m = local.match(new RegExp(`^${k}=(.+)$`, "m"));
         assert.isNotNull(m, `clé ${k} absente de .env.local`);
         // 32 octets base64 = 44 caractères — le format AES-256-GCM attendu.
-        assert.lengthOf((m as RegExpMatchArray)[1], 44);
-        values.push((m as RegExpMatchArray)[1]);
+        assert.lengthOf(m[1], 44);
+        values.push(m[1]);
       }
       assert.lengthOf(new Set(values), 3, "les 3 clés doivent être distinctes");
       // Deux apps générées ne partagent JAMAIS une clé (aléatoire par projet).
@@ -634,9 +634,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           frontend: "none",
         });
         const pkg = readJson(path.join(dest, "package.json"));
-        const scripts = Object.keys(
-          (pkg["scripts"] ?? {}) as Record<string, string>,
-        );
+        const scripts = Object.keys(pkg["scripts"] ?? {});
         const decrits = ((pkg["nodefony"] ?? {}) as Record<string, unknown>)[
           "scripts"
         ] as Record<string, string> | undefined;
@@ -723,7 +721,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           database: base,
         });
         const pkg = readJson(path.join(dest, "package.json"));
-        const deps = (pkg["dependencies"] ?? {}) as Record<string, string>;
+        const deps = pkg["dependencies"] ?? {};
         assert.property(
           deps,
           present,
@@ -862,15 +860,9 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const dest = path.join(tmp, `dk-${preset}`);
         scaffold(dest, { name: `dk${preset}`, preset, frontend: "none" });
         const pkg = readJson(path.join(dest, "package.json"));
-        assert.property(
-          pkg["devDependencies"] as unknown as Record<string, string>,
-          "@nodefony/devkit",
-        );
+        assert.property(pkg["devDependencies"], "@nodefony/devkit");
         // …et SURTOUT pas en dependencies : ce serait installé en production.
-        assert.notProperty(
-          pkg["dependencies"] as unknown as Record<string, string>,
-          "@nodefony/devkit",
-        );
+        assert.notProperty(pkg["dependencies"], "@nodefony/devkit");
         const config = readFileSync(
           path.join(dest, "nodefony.config.ts"),
           "utf8",
@@ -2106,7 +2098,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
           userImage,
           "le Dockerfile rendu doit porter un USER NUMÉRIQUE (`USER 1000:1000`) : un nom d'utilisateur n'est pas reportable dans un runAsUser",
         );
-        const [, uid, gid] = userImage as RegExpExecArray;
+        const [, uid, gid] = userImage;
         assert.include(
           recipe,
           `runAsUser: ${uid}`,
@@ -3031,7 +3023,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         for (const m of texte.matchAll(
           /["'`]((?:\$\{[^}]*\})?\/[^"'`\s]*\/realtime)["'`]/gu,
         )) {
-          const citee = m[1]!.replace(/^\$\{[^}]*\}/u, "");
+          const citee = m[1].replace(/^\$\{[^}]*\}/u, "");
           assert.isTrue(
             reelles.has(citee),
             `${page} enseigne « ${citee} », qu'aucune route ne monte — ` +
@@ -3058,7 +3050,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       for (const m of conseils) {
         assert.isTrue(
-          reelles.has(m[1]!),
+          reelles.has(m[1]),
           `RealtimeClient conseille « ${m[1]} », qu'aucune route ne monte`,
         );
       }
@@ -4008,8 +4000,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("aucun script ne porte un chemin node_modules EN DUR", () => {
       const dest = path.join(tmp, "sansdur");
       scaffold(dest, { name: "sansdur", preset: "minimal", frontend: "none" });
-      const scripts = readJson(path.join(dest, "package.json"))
-        .scripts as Record<string, string>;
+      const scripts = readJson(path.join(dest, "package.json")).scripts;
       // Un chemin en dur dans un `package.json` généré est FIGÉ dans chaque
       // application déjà créée : le jour où le paquet visé réorganise ses
       // dossiers, il casse partout à la fois, et le seul symptôme est un module
@@ -5438,10 +5429,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         // La version suit celle de la RACINE : les paquets d'un dépôt avancent
         // ensemble, ils ne démarrent pas chacun à 0.1.0.
         assert.equal(pkg["version"] as unknown as string, "7.3.1");
-        assert.include(
-          (pkg["scripts"] as unknown as Record<string, string>)["build"],
-          "tsconfig.declarations.json",
-        );
+        assert.include(pkg["scripts"]["build"], "tsconfig.declarations.json");
         for (const f of [
           "tsconfig.declarations.json",
           "tsconfig.tests.json",
@@ -5468,14 +5456,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         const dest = mono("mono");
         const r = mod(dest, { name: "blog", controller: "none" });
         const pkg = readJson(path.join(r.dest, "package.json"));
-        const peer = (pkg["peerDependencies"] ?? {}) as unknown as Record<
-          string,
-          string
-        >;
-        const dev = (pkg["devDependencies"] ?? {}) as unknown as Record<
-          string,
-          string
-        >;
+        const peer = pkg["peerDependencies"] ?? {};
+        const dev = pkg["devDependencies"] ?? {};
         const locaux = Object.keys(peer).filter(
           (n) => n === "nodefony" || n.startsWith("@nodefony/"),
         );
@@ -5942,22 +5924,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
       const avant = readJson(path.join(dest, "package.json"));
       assert.notInclude(
-        String((avant["scripts"] as Record<string, string>)["build"]),
+        String(avant["scripts"]["build"]),
         "frontend:build",
         "décor : l'app témoin doit naître SANS l'étape front",
       );
       front(dest, { name: "board", frontend: "react" });
       const apres = readJson(path.join(dest, "package.json"));
       assert.include(
-        String((apres["scripts"] as Record<string, string>)["build"]),
+        String(apres["scripts"]["build"]),
         "&& nodefony frontend:build",
         "le bundle de production du front n'entre pas dans `npm run build`",
       );
       // Ce que l'utilisateur avait déjà dans son script reste devant.
-      assert.include(
-        String((apres["scripts"] as Record<string, string>)["build"]),
-        "rolldown",
-      );
+      assert.include(String(apres["scripts"]["build"]), "rolldown");
     });
 
     it("la capacité se CONSTATE dans le manifeste — sans realtime, pas de promesse", () => {
@@ -6971,10 +6950,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // …et une app générée AVANT ce gabarit se rattrape au scaffold d'entité.
       const legacy = app("eapp-ormdep-legacy");
       const legacyPath = path.join(legacy, "package.json");
-      const legacyPkg = readJson(legacyPath) as Record<
-        string,
-        Record<string, string>
-      >;
+      const legacyPkg = readJson(legacyPath);
       delete legacyPkg["dependencies"]["drizzle-orm"];
       writeFileSync(legacyPath, `${JSON.stringify(legacyPkg, null, 2)}\n`);
 
@@ -7352,7 +7328,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       entity(dest, { name: "Author", fields: "email:string" });
       const context = getScaffoldContext(dest);
       assert.isNotNull(context);
-      const ctx = context as NonNullable<typeof context>;
+      const ctx = context;
 
       // Les connecteurs viennent de la configuration, pas d'une liste figée.
       assert.isAtLeast(ctx.connectors.length, 1);
@@ -7365,15 +7341,15 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // Les entités existantes : c'est ce que `ref:` peut viser.
       const appTarget = ctx.targets.find((t) => t.kind === "app");
       assert.isDefined(appTarget);
-      assert.include(ctx.entities[appTarget!.name], "Author");
+      assert.include(ctx.entities[appTarget.name], "Author");
       // Le schéma Zod n'est pas une entité — il ne doit pas polluer les choix.
-      assert.notInclude(ctx.entities[appTarget!.name], "Author.schema");
+      assert.notInclude(ctx.entities[appTarget.name], "Author.schema");
 
       // La traduction par moteur est MONTRÉE : c'est elle qui guide le choix.
       const json = ctx.columnTypes.find((t) => t.type === "json");
       assert.isDefined(json);
-      assert.include(json!.byDialect.postgres, "jsonb");
-      assert.include(json!.byDialect.sqlite, 'mode: "json"');
+      assert.include(json.byDialect.postgres, "jsonb");
+      assert.include(json.byDialect.sqlite, 'mode: "json"');
     });
 
     it("hors projet, le contexte est nul plutôt qu'inventé", () => {
@@ -7465,10 +7441,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         );
         // Et la question du formulaire le propose, sans changer le défaut.
         const question = hydrateQuestion(
-          getScaffoldSpec("entity")[0]!.questions.find(
+          getScaffoldSpec("entity")[0].questions.find(
             (q) => q.key === "connector",
           )!,
-          getScaffoldContext(dest)!,
+          getScaffoldContext(dest),
         );
         assert.deepEqual(
           question.choices?.map((c) => c.value),
@@ -8557,10 +8533,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     const capture = async (...words: string[]): Promise<[number, string]> => {
       const chunks: string[] = [];
       const stdout = process.stdout.write.bind(process.stdout);
-      process.stdout.write = ((chunk: string) => {
+      process.stdout.write = (chunk: string) => {
         chunks.push(String(chunk));
         return true;
-      }) as typeof process.stdout.write;
+      };
       try {
         const code = await runCreateCommand(argv("create", ...words));
         return [code, chunks.join("")];
@@ -9112,8 +9088,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     it("resolveLocalWorkspaces : checkout → map, hors checkout → null", () => {
       const workspaces = resolveLocalWorkspaces(findPackageRoot());
       assert.isNotNull(workspaces);
-      assert.equal(workspaces!["nodefony"], findPackageRoot());
-      assert.isTrue(existsSync(workspaces!["@nodefony/http"]));
+      assert.equal(workspaces["nodefony"], findPackageRoot());
+      assert.isTrue(existsSync(workspaces["@nodefony/http"]));
       assert.isNull(resolveLocalWorkspaces(tmp));
     });
 
@@ -9256,10 +9232,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = path.join(tmp, "sim-app");
       const written: string[] = [];
       const stdout = process.stdout.write.bind(process.stdout);
-      process.stdout.write = ((chunk: string) => {
+      process.stdout.write = (chunk: string) => {
         written.push(String(chunk));
         return true;
-      }) as typeof process.stdout.write;
+      };
       let code: number;
       try {
         code = await runCreateCommand(
@@ -9477,7 +9453,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent à CLI coché → ai:mcp le nomme, dans l'app NEUVE, en mode authentifié", () => {
     assert.isAtLeast(parCli.length, 1, "fixture : au moins un agent à CLI");
-    const cle = parCli[0]!.key;
+    const cle = parCli[0].key;
     assert.deepEqual(argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app"), [
       "ai:mcp",
       "--cwd",
@@ -9494,14 +9470,14 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
       1,
       "fixture : au moins un agent servi par fichier",
     );
-    const argv = argvMcpWiring([parFichier[0]!.key], AGENT_TARGETS, "/tmp/app");
+    const argv = argvMcpWiring([parFichier[0].key], AGENT_TARGETS, "/tmp/app");
     assert.isNotNull(argv);
-    assert.deepEqual(argv?.slice(-2), ["--agent", parFichier[0]!.key]);
+    assert.deepEqual(argv?.slice(-2), ["--agent", parFichier[0].key]);
     assert.notInclude(argv ?? [], "none");
   });
 
   it("le jeton se DÉBRANCHE par l'appel, et seulement sur demande", () => {
-    const cle = parFichier[0]!.key;
+    const cle = parFichier[0].key;
     assert.include(
       argvMcpWiring([cle], AGENT_TARGETS, "/tmp/app", { token: false }) ?? [],
       "--no-token",
@@ -9528,8 +9504,8 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
 
   it("un agent NON coché ne part jamais dans l'appel", () => {
     if (parCli.length < 2) return;
-    const argv = argvMcpWiring([parCli[0]!.key], AGENT_TARGETS, "/tmp/app");
-    assert.notInclude(argv?.join(" ") ?? "", parCli[1]!.key);
+    const argv = argvMcpWiring([parCli[0].key], AGENT_TARGETS, "/tmp/app");
+    assert.notInclude(argv?.join(" ") ?? "", parCli[1].key);
   });
 
   it("des agents choisis + app installée ET construite → on câble, jeton compris", () => {
@@ -9980,7 +9956,7 @@ describe("create app — le dialogue d'un vrai terminal", () => {
     const [spec] = getScaffoldSpec("app");
     const q = spec.questions.find((x) => x.key === cle);
     assert.isDefined(q, `question ${cle} absente de la spec`);
-    return q!;
+    return q;
   };
 
   it("🔴 un choix MULTIPLE se coche — on ne compose plus « 2,5,7 »", async () => {
@@ -10067,10 +10043,10 @@ describe("create app — ce qu'un agent emporte de la génération", () => {
   const sortieDe = async (dest: string): Promise<string> => {
     const morceaux: string[] = [];
     const vrai = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: unknown) => {
+    process.stdout.write = (chunk: unknown) => {
       morceaux.push(String(chunk));
       return true;
-    }) as typeof process.stdout.write;
+    };
     try {
       await runCreateCommand(
         argv(
@@ -10108,7 +10084,7 @@ describe("create app — choisir un moteur frontend sans oracle", () => {
     const [spec] = getScaffoldSpec("app");
     const q = spec.questions.find((x) => x.key === "frontend");
     assert.isDefined(q);
-    return q!;
+    return q;
   };
 
   it("🔴 chaque moteur porte un CRITÈRE, jamais son détail de câblage", () => {
@@ -10149,6 +10125,6 @@ describe("create app — choisir un moteur frontend sans oracle", () => {
     };
     const q = json.types[0].questions.find((x) => x.key === "frontend");
     assert.isDefined(q?.note);
-    assert.match(q!.note!, /se change/u);
+    assert.match(q.note, /se change/u);
   });
 });

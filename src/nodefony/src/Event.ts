@@ -289,7 +289,7 @@ class Event extends EventEmitter {
     for (let index = 0; index < handlers.length; index += 1) {
       const handler = handlers[index] as Listener;
       const timeoutMs = perListener
-        ? timeoutOption(handler as unknown as object, index)
+        ? timeoutOption(handler, index)
         : timeoutOption;
       const startedAt = measure ? Date.now() : 0;
       let timedOut = false;

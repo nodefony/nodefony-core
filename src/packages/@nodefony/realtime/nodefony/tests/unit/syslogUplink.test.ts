@@ -39,8 +39,8 @@ describe("syslogUplink — borne 1 : l'origine est FORCÉE", () => {
       noReply,
     );
     expect(seen).toHaveLength(1);
-    expect(seen[0]!.moduleName).toBe(BROWSER_ORIGIN);
-    expect(seen[0]!.moduleName).not.toBe("kernel");
+    expect(seen[0].moduleName).toBe(BROWSER_ORIGIN);
+    expect(seen[0].moduleName).not.toBe("kernel");
   });
 });
 
@@ -96,7 +96,7 @@ describe("syslogUplink — borne 2 : taille et débit bornés", () => {
       { pageId: PAGE, entries: [entry({ msg: "x".repeat(500) })] },
       noReply,
     );
-    expect(seen[0]!.msg).toHaveLength(10);
+    expect(seen[0].msg).toHaveLength(10);
   });
 });
 
@@ -105,22 +105,22 @@ describe("syslogUplink — borne 3 : la sévérité est plafonnée", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
     handler({ pageId: PAGE, entries: [entry({ severity: 0 })] }, noReply);
-    expect(seen[0]!.severity).toBe(MAX_CLIENT_SEVERITY);
-    expect(seen[0]!.severityName).toBe("ERROR");
+    expect(seen[0].severity).toBe(MAX_CLIENT_SEVERITY);
+    expect(seen[0].severityName).toBe("ERROR");
   });
 
   it("laisse passer les niveaux moins graves", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
     handler({ pageId: PAGE, entries: [entry({ severity: 6 })] }, noReply);
-    expect(seen[0]!.severityName).toBe("INFO");
+    expect(seen[0].severityName).toBe("INFO");
   });
 
   it("refuse une sévérité qui n'est pas un entier exploitable", () => {
     const { syslog, seen } = bench();
     const handler = createSyslogUplinkHandler({ syslog });
     handler({ pageId: PAGE, entries: [entry({ severity: "grave" })] }, noReply);
-    expect(seen[0]!.severity).toBe(MAX_CLIENT_SEVERITY);
+    expect(seen[0].severity).toBe(MAX_CLIENT_SEVERITY);
   });
 });
 
@@ -132,7 +132,7 @@ describe("syslogUplink — ce qui entre est NON FIABLE", () => {
       { pageId: PAGE, entries: [entry({ requestId: "req-abc-123" })] },
       noReply,
     );
-    expect(seen[0]!.requestId).toBe("req-abc-123");
+    expect(seen[0].requestId).toBe("req-abc-123");
   });
 
   it("retombe sur le pageId si le requestId est malformé", () => {
@@ -145,7 +145,7 @@ describe("syslogUplink — ce qui entre est NON FIABLE", () => {
       },
       noReply,
     );
-    expect(seen[0]!.requestId).toBe(PAGE);
+    expect(seen[0].requestId).toBe(PAGE);
   });
 
   it("jette un lot sans pageId exploitable", () => {

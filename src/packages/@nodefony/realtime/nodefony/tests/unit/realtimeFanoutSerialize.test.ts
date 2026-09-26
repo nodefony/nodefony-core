@@ -27,7 +27,7 @@ function countingPayload(): { value: { v: number }; count: () => number } {
       return { v: 1 };
     },
   };
-  return { value: value as unknown as { v: number }, count: () => n };
+  return { value: value, count: () => n };
 }
 
 /** Sérialiseur d'un canal : la frame JSON-RPC de notification, telle qu'envoyée. */

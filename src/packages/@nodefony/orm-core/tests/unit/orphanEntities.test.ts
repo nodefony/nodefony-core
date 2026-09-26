@@ -10,8 +10,12 @@ import type { IEntity } from "../../nodefony/interfaces/index";
 // Vécu : sur une infra MongoDB, le `User` de l'application restait une table SQL
 // inscrite sur `default`, que Drizzle n'ouvre pas sur cette infra — et le boot
 // n'en disait rien. Ces cas gardent la règle qui le DIT.
-const entity = (name: string, connector: string, module = "app"): IEntity =>
-  ({ name, connector, module, schema: {} }) as unknown as IEntity;
+const entity = (name: string, connector: string, module = "app"): IEntity => ({
+  name,
+  connector,
+  module,
+  schema: {},
+});
 
 describe("entités orphelines — inscrites sur un connecteur qu'aucun ORM n'ouvre", () => {
   it("trouve celles dont le connecteur n'est pas ouvert, et elles seules", () => {
@@ -86,7 +90,7 @@ describe("reportOrphanEntities — le démarrage le DIT, une fois par Kernel", (
       assert.ok(message);
       assert.equal(lines.length, 1);
       assert.match(
-        lines[0] as string,
+        lines[0],
         /^WARNING .*Ghost@orphans → « never-opened-connector »/u,
       );
     } finally {

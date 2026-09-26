@@ -62,7 +62,7 @@ function auditEndpoint(container: Container) {
   const api = createSecurityAdminApi(container);
   const ep = api.adminEndpoints().find((e) => e.path === "audit/events");
   assert.ok(ep, "endpoint audit/events présent");
-  return ep!;
+  return ep;
 }
 
 // ════════════════════════════════════════════════════════════════════════════
@@ -89,7 +89,7 @@ describe("SecurityAdminApi — déclaration", () => {
     registerSecurityAdminApi(registry, container);
     registerSecurityAdminApi(registry, container); // 2e appel → no-op (has)
     assert.equal(registered.length, 1);
-    assert.equal(registered[0]!.adminNamespace, "security");
+    assert.equal(registered[0].adminNamespace, "security");
   });
 });
 
@@ -113,8 +113,8 @@ describe("SecurityAdminApi — handler audit/events", () => {
       req({ category: "authz" }),
     )) as IPage<IAuditEvent>;
     assert.equal(res.total, 1);
-    assert.equal(res.items[0]!.category, "authz");
-    assert.equal(res.items[0]!.actor, "bob");
+    assert.equal(res.items[0].category, "authz");
+    assert.equal(res.items[0].actor, "bob");
   });
 
   it("pagine via limit + curseur", async () => {
@@ -133,7 +133,7 @@ describe("SecurityAdminApi — handler audit/events", () => {
     assert.equal(page1.total, 4);
     assert.ok(page1.nextCursor);
     const page2 = (await ep.handler(
-      req({ limit: "2", cursor: page1.nextCursor! }),
+      req({ limit: "2", cursor: page1.nextCursor }),
     )) as IPage<IAuditEvent>;
     assert.equal(page2.items.length, 2);
     assert.equal(page2.hasNext, false);
@@ -330,7 +330,7 @@ function endpoint(container: Container, path: string) {
     .adminEndpoints()
     .find((e) => e.path === path);
   assert.ok(ep, `endpoint ${path} présent`);
-  return ep!;
+  return ep;
 }
 
 function reqP(
@@ -379,7 +379,7 @@ describe("SecurityAdminApi — GET webauthn/list", () => {
     assert.equal(res.enabled, true);
     assert.equal(res.items.length, 1);
     assert.ok(
-      !("publicKey" in res.items[0]!),
+      !("publicKey" in res.items[0]),
       "publicKey ne doit JAMAIS fuiter",
     );
     assert.deepEqual(listQueries[0], {
@@ -396,7 +396,7 @@ describe("SecurityAdminApi — GET webauthn/list", () => {
     const ep = endpoint(container, "webauthn/list");
     await ep.handler(reqQ({ limit: "100000" }));
     assert.ok(
-      (listQueries[0]!.limit as number) < 100000,
+      (listQueries[0].limit as number) < 100000,
       "le limit doit être plafonné",
     );
   });
@@ -430,8 +430,8 @@ describe("SecurityAdminApi — facteurs forts (déclaration)", () => {
     for (const [path, method] of expected) {
       const ep = eps.find((e) => e.path === path);
       assert.ok(ep, `endpoint ${path} présent`);
-      assert.equal(ep!.method, method, `${path} méthode`);
-      assert.equal(ep!.role, "ROLE_NODEFONY_ADMIN", `${path} RBAC`);
+      assert.equal(ep.method, method, `${path} méthode`);
+      assert.equal(ep.role, "ROLE_NODEFONY_ADMIN", `${path} RBAC`);
     }
   });
 });
@@ -446,7 +446,7 @@ describe("SecurityAdminApi — GET users/{id}/passkeys", () => {
       credentials: Record<string, unknown>[];
     };
     assert.equal(res.credentials.length, 1);
-    const view = res.credentials[0]!;
+    const view = res.credentials[0];
     assert.equal(view.id, "c1");
     assert.equal(view.nickname, "MacBook de Chris");
     assert.deepEqual(view.transports, ["internal"]);
@@ -481,12 +481,12 @@ describe("SecurityAdminApi — DELETE users/{id}/passkeys/{credentialId}", () =>
     assert.deepEqual(res, { ok: true });
     assert.deepEqual(removedArgs, [["u1", "c1"]]);
     assert.equal(recorded.length, 1);
-    assert.equal(recorded[0]!.category, "webauthn");
-    assert.equal(recorded[0]!.action, "user.passkey_revoked");
-    assert.equal(recorded[0]!.actor, "admin1");
-    assert.equal(recorded[0]!.resource, "u1");
-    assert.equal(recorded[0]!.metadata?.credentialId, "c1");
-    assert.equal(recorded[0]!.metadata?.viaAdmin, true);
+    assert.equal(recorded[0].category, "webauthn");
+    assert.equal(recorded[0].action, "user.passkey_revoked");
+    assert.equal(recorded[0].actor, "admin1");
+    assert.equal(recorded[0].resource, "u1");
+    assert.equal(recorded[0].metadata?.credentialId, "c1");
+    assert.equal(recorded[0].metadata?.viaAdmin, true);
   });
 
   it("404 si la passkey est inconnue/pas le propriétaire — SANS audit", async () => {
@@ -546,10 +546,10 @@ describe("SecurityAdminApi — POST users/{id}/totp/disable", () => {
     assert.deepEqual(res, { ok: true });
     assert.deepEqual(disabledFor, ["u1"]);
     assert.equal(recorded.length, 1);
-    assert.equal(recorded[0]!.category, "auth");
-    assert.equal(recorded[0]!.action, "user.totp_disabled");
-    assert.equal(recorded[0]!.actor, "admin1");
-    assert.equal(recorded[0]!.resource, "u1");
+    assert.equal(recorded[0].category, "auth");
+    assert.equal(recorded[0].action, "user.totp_disabled");
+    assert.equal(recorded[0].actor, "admin1");
+    assert.equal(recorded[0].resource, "u1");
   });
 
   it("404 si l'utilisateur est inconnu (pas de disable)", async () => {

@@ -122,8 +122,8 @@ export class ViteBuilder implements IFrontBuilder {
 
     // Premier root utilisé comme racine Vite (contient index.html).
     // Si plusieurs roots → cas multi-bundle à traiter Phase ultérieure.
-    const root = entries[0]!.root;
-    const outDir = entries[0]!.outDir;
+    const root = entries[0].root;
+    const outDir = entries[0].outDir;
 
     // Prod : `base` = (assetBaseUrl +) publicPath → Vite préfixe les imports/assets
     // internes avec le même chemin que celui servi par `Statics`, éventuellement
@@ -131,7 +131,7 @@ export class ViteBuilder implements IFrontBuilder {
     // l'origine). Multi-entry partage le base de la 1ʳᵉ entrée. `assetBaseUrl` est
     // déjà normalisé sans slash final ; `publicPath` a ses `/` → pas de `//`.
     const base =
-      mode === "production" ? assetBaseUrl + entries[0]!.publicPath : undefined;
+      mode === "production" ? assetBaseUrl + entries[0].publicPath : undefined;
 
     const dedupe = resolveDedupe(usedPresets);
 

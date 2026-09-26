@@ -111,21 +111,21 @@ describe("mode moteur — le défaut quand rien ne le dit", () => {
   it("vaut `development`, jamais `production`", () => {
     assert.strictEqual(DEFAULT_ENGINE_ENVIRONMENT, "development");
     sansNodeEnv(() => {
-      const k = new Kernel(undefined as never, null as never);
+      const k = new Kernel(undefined as never, null);
       assert.strictEqual(k.resolveRuntimeEnv(), "development");
     });
   });
 
   it("`NODE_ENV` prime sur le défaut", () => {
     avecNodeEnv("production", () => {
-      const k = new Kernel(undefined as never, null as never);
+      const k = new Kernel(undefined as never, null);
       assert.strictEqual(k.resolveRuntimeEnv(), "production");
     });
   });
 
   it("l'intention de la commande prime sur le défaut", () => {
     sansNodeEnv(() => {
-      const k = new Kernel(undefined as never, null as never);
+      const k = new Kernel(undefined as never, null);
       assert.strictEqual(k.resolveRuntimeEnv("production"), "production");
     });
   });
@@ -267,7 +267,7 @@ describe("mode moteur — l'hypothèse dont dépend le défaut", () => {
         /this\.alias\(["']([\w:-]+)["']\)/gu,
       )) {
         assert.ok(
-          compares.has(alias as string),
+          compares.has(alias),
           `l'alias « ${alias} » de ${path.basename(fichier)} lance un serveur ` +
             `mais n'est comparé nulle part dans detectEnvironmentFromArgv ` +
             `(comparés : ${[...compares].join(", ")})`,

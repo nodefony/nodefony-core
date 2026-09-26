@@ -4,7 +4,6 @@ import type { ILLMProvider } from "@nodefony/llm";
 import type { IVectorStore, IVectorEntry } from "@nodefony/vector";
 import type {
   IRagService,
-  IChunk,
   ISearchResult,
   IIndexOptions,
   ISearchOptions,
@@ -98,7 +97,7 @@ export class RagService implements IRagService {
         id: r.entry.id,
         text: r.entry.text,
         metadata: r.entry.metadata,
-      } as IChunk,
+      },
       score: r.score,
       rank: r.rank,
     }));

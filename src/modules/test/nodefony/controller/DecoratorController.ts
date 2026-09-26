@@ -161,8 +161,7 @@ class DecoratorController extends Controller {
   getCookie(@Cookie("sid") sid: ICookie | null, @Cookie() all: unknown) {
     return this.renderJson({
       sid: sid ? sid.value : null,
-      count:
-        all && typeof all === "object" ? Object.keys(all as object).length : 0,
+      count: all && typeof all === "object" ? Object.keys(all).length : 0,
     });
   }
 

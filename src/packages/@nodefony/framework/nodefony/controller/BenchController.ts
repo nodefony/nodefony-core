@@ -153,7 +153,7 @@ export function mountBenchRoutes(frameworkModule: Module): void {
   if (mounted) return;
   Router.createRoute("framework.bench", {
     path: "/nodefony/kernel/bench",
-    constructor: BenchController as unknown as Controller["constructor"],
+    constructor: BenchController,
     classMethod: "index",
     requirements: { methods: ["GET"] },
     // Hors aire data plane : aucune zone ne matche ce chemin. Le `bypassFirewall`
@@ -162,17 +162,14 @@ export function mountBenchRoutes(frameworkModule: Module): void {
   });
   Router.createRoute("framework.bench.probe", {
     path: "/nodefony/kernel/bench/probe",
-    constructor: BenchController as unknown as Controller["constructor"],
+    constructor: BenchController,
     classMethod: "probe",
     requirements: { methods: ["GET"] },
   });
   if (
     !Object.prototype.hasOwnProperty.call(BenchController.prototype, "module")
   ) {
-    Router.setController(
-      BenchController as unknown as Parameters<typeof Router.setController>[0],
-      frameworkModule,
-    );
+    Router.setController(BenchController, frameworkModule);
   }
   mounted = true;
 }

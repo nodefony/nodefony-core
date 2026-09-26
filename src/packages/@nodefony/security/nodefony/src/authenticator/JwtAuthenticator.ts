@@ -109,7 +109,7 @@ export class JwtAuthenticator implements IAuthenticator {
     if (typeof raw !== "string" || raw.length === 0) {
       throw new AuthenticationError(INVALID_TOKEN);
     }
-    const jose = (this.#jose ??= (await import("jose")) as typeof Jose);
+    const jose = (this.#jose ??= await import("jose"));
     // Résolution du keyset HORS du try crypto : une absence de câblage doit
     // remonter en Error (loggée ERROR), pas être masquée en « token invalide ».
     const getKey = await this.#ensureGetKey(jose);

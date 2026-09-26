@@ -190,7 +190,7 @@ export function resolveOriginTemplate(
 export function allowedHostPatternForTemplate(template: string): string | null {
   const m = ORIGIN_TEMPLATE_RE.exec(template);
   if (!m) return null;
-  const hostTemplate = m[2]!;
+  const hostTemplate = m[2];
   if (!hostTemplate.includes(PORT_PLACEHOLDER)) return hostTemplate;
   const dot = hostTemplate.indexOf(".");
   if (dot === -1 || hostTemplate.slice(dot + 1).includes(PORT_PLACEHOLDER)) {

@@ -76,14 +76,11 @@ const parseStorage = fonctionDe<
 // Le rapport d'axe-core est une structure ouverte et versionnée par son
 // éditeur : la modéliser en détail ici périmerait au premier changement de
 // leur schéma. Le contrat qu'on éprouve est celui de NOTRE résumé.
-const summarizeLighthouse = fonctionDe<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
-  (lhr: any, threshold?: number) => any
->(probes, "summarizeLighthouse");
-const summarizeAxe = fonctionDe<
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
-  (report: any) => any
->(probes, "summarizeAxe");
+const summarizeLighthouse = fonctionDe<(lhr: any, threshold?: number) => any>(
+  probes,
+  "summarizeLighthouse",
+);
+const summarizeAxe = fonctionDe<(report: any) => any>(probes, "summarizeAxe");
 
 describe("parseFamilies — l'allowlist", () => {
   it("retient les familles connues, dans l'ordre demandé", () => {
@@ -403,9 +400,7 @@ describe("environmentDefaults — constater l'endroit, pas le supposer", () => {
  */
 describe("summarizeLighthouse — un rapport d'un mégaoctet, rendu lisible", () => {
   const report = (
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
     audits: Record<string, any>,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- forme externe
     categories: Record<string, any>,
   ) => ({
     lighthouseVersion: "13.4.1",

@@ -156,7 +156,7 @@ describe("vitrines — les quatre consomment le SOCLE, aucune ne le réécrit", 
   it("chacune s'abonne par SA liaison quand elle existe, par le socle sinon", () => {
     for (const { front } of VITRINES) {
       const src = lire(front, VITRINES.find((v) => v.front === front)!.page);
-      const liaison = LIAISONS[front]!;
+      const liaison = LIAISONS[front];
       for (const jeton of liaison.jetons) {
         expect(
           src,
@@ -294,7 +294,7 @@ describe("vitrines — le même écran, et de quoi le comparer", () => {
       const src = lire(front, page);
       // Le bloc montré à l'écran cite les mêmes appels que ceux plus haut dans
       // le fichier : un extrait qui se périme est pire qu'aucun extrait.
-      const cite = LIAISONS[front]!.cite;
+      const cite = LIAISONS[front].cite;
       // (l'extrait affiché cite le même appel que le câblage réel, plus haut)
       const occurrences = src.split(cite).length - 1;
       expect(

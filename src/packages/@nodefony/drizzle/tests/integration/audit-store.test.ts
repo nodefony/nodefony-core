@@ -68,14 +68,14 @@ describe("Drizzle DrizzleAuditStore — IAuditStore append-only (P6.14)", () => 
       }),
     );
     const page = await store.listPage({ limit: 1 });
-    const event = page.items[0]!;
+    const event = page.items[0];
     assert.equal(event.id, "e3");
     assert.deepEqual(event.flags, { hasCookie: true });
     assert.deepEqual(event.metadata, { zone: "admin" });
     // e1 n'avait ni flags ni metadata → absents (pas de clé null).
     const older = await store.listPage({ limit: 100, cursor: "300:e3" });
-    assert.equal("flags" in older.items[0]!, false);
-    assert.equal("metadata" in older.items[0]!, false);
+    assert.equal("flags" in older.items[0], false);
+    assert.equal("metadata" in older.items[0], false);
   });
 
   // La pagination (curseur composite, ordre total, filtres sous curseur) est

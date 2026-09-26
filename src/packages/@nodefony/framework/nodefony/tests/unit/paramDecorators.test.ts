@@ -32,25 +32,15 @@ describe("Parameter decorators — métadonnées posées", () => {
   it("pose source + key + index pour chaque décorateur", () => {
     class Ctrl {
       action(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Param("id") _p: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Query("q") _q: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Body() _b: unknown,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Headers("Content-Type") _h: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Cookie("sid") _c: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Session("user") _s: unknown,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Req() _req: unknown,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @Res() _res: unknown,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @UploadedFile() _f: unknown,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
         @UploadedFiles() _fs: unknown,
       ) {
         return null;
@@ -74,12 +64,7 @@ describe("Parameter decorators — métadonnées posées", () => {
 
   it("plusieurs décorateurs sur la MÊME méthode s'accumulent (pas d'écrasement)", () => {
     class Ctrl {
-      action(
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        @Query("a") _a: string,
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        @Query("b") _b: string,
-      ) {
+      action(@Query("a") _a: string, @Query("b") _b: string) {
         return null;
       }
     }

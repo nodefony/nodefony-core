@@ -206,8 +206,8 @@ describe("Journaux du navigateur — bout-en-bout, sur une vraie socket", () => 
     await flush();
 
     expect(serverSeen).toHaveLength(1);
-    expect(serverSeen[0]!.payload).toBe("le panier a refusé la quantité");
-    expect(serverSeen[0]!.severityName).toBe("ERROR");
+    expect(serverSeen[0].payload).toBe("le panier a refusé la quantité");
+    expect(serverSeen[0].severityName).toBe("ERROR");
     dispose();
   });
 
@@ -230,9 +230,9 @@ describe("Journaux du navigateur — bout-en-bout, sur une vraie socket", () => 
     await flush();
 
     expect(serverSeen).toHaveLength(1);
-    expect(serverSeen[0]!.requestId).toBe("req-du-serveur-42");
+    expect(serverSeen[0].requestId).toBe("req-du-serveur-42");
     // L'Error a traversé le fil sans se vider (JSON.stringify(new Error()) === "{}").
-    expect((serverSeen[0]!.payload as { message: string }).message).toBe(
+    expect((serverSeen[0].payload as { message: string }).message).toBe(
       "rendu impossible",
     );
     dispose();
@@ -266,8 +266,8 @@ describe("Journaux du navigateur — bout-en-bout, sur une vraie socket", () => 
     await flush();
 
     expect(serverSeen).toHaveLength(1);
-    expect(serverSeen[0]!.msg).toBe("https://app/main.js:42:7");
-    expect((serverSeen[0]!.payload as { name: string }).name).toBe("TypeError");
+    expect(serverSeen[0].msg).toBe("https://app/main.js:42:7");
+    expect((serverSeen[0].payload as { name: string }).name).toBe("TypeError");
 
     disposeCapture();
     dispose();
@@ -294,7 +294,7 @@ describe("Journaux du navigateur — bout-en-bout, sur une vraie socket", () => 
     await flush();
 
     expect(serverSeen).toHaveLength(1);
-    expect(serverSeen[0]!.moduleName).toBe(BROWSER_ORIGIN);
+    expect(serverSeen[0].moduleName).toBe(BROWSER_ORIGIN);
   });
 
   it("🔴 PREUVE NÉGATIVE — interrupteur fermé, RIEN n'arrive", async () => {

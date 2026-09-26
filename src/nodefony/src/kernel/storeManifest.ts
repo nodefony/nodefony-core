@@ -126,7 +126,7 @@ export function findStoreOrderFault(
     if (!manifest) continue;
     if (consumerIndex === -1 && manifest.consumesStores) {
       consumerIndex = i;
-      consumer = entries[i]!.name;
+      consumer = entries[i].name;
       continue;
     }
     if (
@@ -135,7 +135,7 @@ export function findStoreOrderFault(
       manifest.storeKind === "durable"
     ) {
       return {
-        provider: entries[i]!.name,
+        provider: entries[i].name,
         providerIndex: i,
         consumer,
         consumerIndex,

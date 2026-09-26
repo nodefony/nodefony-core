@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   //inject,
   injectable,
 } from "nodefony";
@@ -183,7 +182,7 @@ class Router extends Service implements IRequestRouter {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options.router,
     );
   }

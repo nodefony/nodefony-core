@@ -162,5 +162,5 @@ function own(table: string): boolean {
 
 /** Associe deux listes rang par rang. */
 function zip<A, B>(a: A[], b: B[]): [A, B][] {
-  return a.map((x, i) => [x, b[i] as B]);
+  return a.map((x, i) => [x, b[i]]);
 }

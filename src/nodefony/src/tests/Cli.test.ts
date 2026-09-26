@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { assert } from "chai";
 import Cli, { CliDefaultOptions } from "../Cli";
 import Command from "../command/Command";
@@ -674,7 +673,7 @@ describe("Cli — checkVersion / semver", () => {
   it("checkVersion(null) → utilise this.version", () => {
     const cli = makeCli("cv-null", { version: "4.5.6" });
     cli.version = "4.5.6";
-    const res = cli.checkVersion(null as any);
+    const res = cli.checkVersion(null);
     assert.strictEqual(res, "4.5.6");
   });
 
@@ -970,12 +969,12 @@ describe("Cli — signal handler idempotent", () => {
       }
     }
     const origExit = process.exit;
-    (process as unknown as { exit: (c?: number) => never }).exit = ((
+    (process as unknown as { exit: (c?: number) => never }).exit = (
       code?: number,
     ) => {
       exits.push(code ?? 0);
       throw new ExitCalled(code ?? 0);
-    }) as (c?: number) => never;
+    };
 
     try {
       (cli as any).handleSignals();

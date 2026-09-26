@@ -23,7 +23,7 @@ class Status extends Command {
     super(
       "status",
       "dit quels processus de ce projet tournent, et où",
-      cli as CliKernel,
+      cli,
       options,
     );
   }

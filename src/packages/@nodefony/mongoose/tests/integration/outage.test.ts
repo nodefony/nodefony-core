@@ -139,7 +139,7 @@ describe.skipIf(!URI)("MongooseOrm — délais d'attente par défaut", () => {
     opts?: Record<string, unknown>,
   ): Promise<MongooseOrm> => {
     noms.push(nom);
-    const o = new MongooseOrm(nom, uri, opts as never);
+    const o = new MongooseOrm(nom, uri, opts);
     await o.connect();
     return o;
   };

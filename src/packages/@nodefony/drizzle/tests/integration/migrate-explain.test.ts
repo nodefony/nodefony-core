@@ -309,7 +309,6 @@ describe("migrations — le rendu humain ne pollue jamais un flux", () => {
       ddl: "auto",
     });
     const nu = renderStatus(r, styleFor(false));
-    // eslint-disable-next-line no-control-regex
     assert.ok(!/\x1b\[/.test(nu), "des séquences ANSI ont fuité hors terminal");
     assert.ok(nu.includes("0001_a"));
     assert.ok(nu.includes("nodefony orm:migrate"));
@@ -317,7 +316,6 @@ describe("migrations — le rendu humain ne pollue jamais un flux", () => {
 
   it("en terminal, les couleurs sont là", () => {
     const r = buildReport(plan(), { ddl: "auto" });
-    // eslint-disable-next-line no-control-regex
     assert.ok(/\x1b\[/.test(renderStatus(r, styleFor(true))));
   });
 

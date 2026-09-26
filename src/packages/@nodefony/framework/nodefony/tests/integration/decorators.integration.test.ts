@@ -31,13 +31,13 @@ function req(
         try {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: JSON.parse(raw),
           });
         } catch {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: raw,
           });
         }

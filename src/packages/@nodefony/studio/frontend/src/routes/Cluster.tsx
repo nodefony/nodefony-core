@@ -143,11 +143,9 @@ function ClusterHealthLive({
   useEffect(() => {
     if (data) onData(data);
     // onData = setState (stable) → hors deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   useEffect(() => {
     onRate?.(effectiveMs);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveMs]);
   return null;
 }
@@ -199,7 +197,7 @@ function Sparkline({
   max?: number;
   threshold?: number;
 }) {
-  const last = data.length ? data[data.length - 1]! : 0;
+  const last = data.length ? data[data.length - 1] : 0;
   return (
     <div style={{ minWidth: 0 }}>
       <Group gap={4} justify="space-between" wrap="nowrap">

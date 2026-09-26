@@ -76,9 +76,7 @@ describe("RealtimeClient — identité au welcome", () => {
   it("onIdentity() notifié à chaque (re)welcome (anonyme → authentifié)", () => {
     const { client, internal } = newClient();
     const seen: Array<{ authenticated: boolean } | null> = [];
-    const dispose = client.onIdentity((id) =>
-      seen.push(id as { authenticated: boolean } | null),
-    );
+    const dispose = client.onIdentity((id) => seen.push(id));
     internal.handleMessage(welcome(anon));
     internal.handleMessage(welcome(admin));
     expect(seen).to.have.length(2);

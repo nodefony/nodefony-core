@@ -184,14 +184,14 @@ describe("AuthorizationService — audit", () => {
   it("tout refus est audité (WARNING) ; un accès accordé reste silencieux", async () => {
     const service = makeService();
     const warnings: string[] = [];
-    service.log = ((pci: unknown, severity?: Severity): Pdu => {
+    service.log = (pci: unknown, severity?: Severity): Pdu => {
       if (severity === "WARNING") warnings.push(String(pci));
       return undefined as unknown as Pdu;
-    }) as typeof service.log;
+    };
 
     await service.decide(authedToken([]), "t.veto"); // refus → audit
     assert.equal(warnings.length, 1);
-    assert.match(warnings[0]!, /access denied/);
+    assert.match(warnings[0], /access denied/);
 
     await service.decide(authedToken([]), "t.grant"); // accordé → silencieux
     assert.equal(warnings.length, 1);

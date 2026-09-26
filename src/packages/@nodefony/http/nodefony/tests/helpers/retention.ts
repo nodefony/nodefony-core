@@ -143,7 +143,6 @@ export async function retention(
   const verdict = confirm ?? first;
   const marge =
     verdict.slope <= 0 ? "∞" : `×${(seuil / verdict.slope).toFixed(1)}`;
-  // eslint-disable-next-line no-console
   console.log(
     `[retention] ${quoi} : ${ko(first.slope)} / unité` +
       (confirm ? ` → confirmation ${ko(confirm.slope)}` : "") +

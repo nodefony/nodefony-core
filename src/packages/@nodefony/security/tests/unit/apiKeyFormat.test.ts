@@ -45,9 +45,9 @@ describe("apiKeyFormat — parse (round-trip)", () => {
     const g = generateApiKey("nf");
     const p = parseApiKey(g.token, "nf");
     assert.ok(p);
-    assert.equal(p!.secretHash, g.secretHash);
-    assert.equal(p!.pubid, g.pubid);
-    assert.equal(p!.publicPrefix, g.publicPrefix);
+    assert.equal(p.secretHash, g.secretHash);
+    assert.equal(p.pubid, g.pubid);
+    assert.equal(p.publicPrefix, g.publicPrefix);
   });
 });
 

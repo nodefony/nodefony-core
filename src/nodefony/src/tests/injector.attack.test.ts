@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 //
 // ─── RED-TEAM — brique « injection de dépendances » ───────────────────────────
 //
@@ -79,8 +78,8 @@ describe("RED-TEAM Injector — A. hijack du registre", () => {
   // `Module.addService` logge déjà un WARNING quand il écrase un service du
   // container ; le registre, lui, n'a pas de logger (API statique).
   it("A1 — sentinelle : le dernier register() gagne (override assumé)", () => {
-    Injector.register("HijackTarget", VictimSvc as any);
-    Injector.register("HijackTarget", AttackerSvc as any);
+    Injector.register("HijackTarget", VictimSvc);
+    Injector.register("HijackTarget", AttackerSvc);
 
     assert.strictEqual(
       Injector.get("HijackTarget"),
@@ -141,7 +140,7 @@ describe("RED-TEAM Injector — B. pollution de prototype du registre", () => {
   });
 
   it('B3 — register("__proto__") doit créer une CLÉ, pas déraciner le registre', () => {
-    Injector.register("__proto__", PollutionSvc as any);
+    Injector.register("__proto__", PollutionSvc);
 
     assert.strictEqual(
       Object.getPrototypeOf(registry()),
@@ -196,8 +195,8 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
   it("C1 — CONTRÔLE POSITIF : deux consumers d'un singleton DÉJÀ au container le partagent", () => {
     const shared = new AlignedSvc();
     withKernel({ AlignedSvc: shared }, () => {
-      const a = Injector.instantiate<any>(consumerOf(AlignedSvc, "CA") as any);
-      const b = Injector.instantiate<any>(consumerOf(AlignedSvc, "CB") as any);
+      const a = Injector.instantiate<any>(consumerOf(AlignedSvc, "CA"));
+      const b = Injector.instantiate<any>(consumerOf(AlignedSvc, "CB"));
       assert.strictEqual(a.dep, shared);
       assert.strictEqual(b.dep, shared, "deux consumers → même singleton");
     });
@@ -207,8 +206,8 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
     // Le cœur du contrat : personne ne l'a posé au container. La 1ʳᵉ résolution
     // l'instancie ET le mémoïse ; la 2ᵈᵉ doit retrouver la MÊME instance.
     withKernel({}, () => {
-      const a = Injector.instantiate<any>(consumerOf(AlignedSvc, "CC") as any);
-      const b = Injector.instantiate<any>(consumerOf(AlignedSvc, "CD") as any);
+      const a = Injector.instantiate<any>(consumerOf(AlignedSvc, "CC"));
+      const b = Injector.instantiate<any>(consumerOf(AlignedSvc, "CD"));
 
       assert.strictEqual(
         a.dep,
@@ -224,8 +223,8 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
     // de cache statique : il fuirait d'un kernel à l'autre, tests compris). Sans
     // kernel, il n'existe donc AUCUN endroit où mémoriser : deux instances.
     assert.strictEqual(Nodefony.getKernel(), null);
-    const a = Injector.instantiate<any>(consumerOf(AlignedSvc, "CE") as any);
-    const b = Injector.instantiate<any>(consumerOf(AlignedSvc, "CF") as any);
+    const a = Injector.instantiate<any>(consumerOf(AlignedSvc, "CE"));
+    const b = Injector.instantiate<any>(consumerOf(AlignedSvc, "CF"));
     assert.notStrictEqual(a.dep, b.dep);
   });
 
@@ -264,11 +263,11 @@ describe("RED-TEAM Injector — C. contrat du scope singleton", () => {
       // Ce que fait `Module.addService` en posant l'instance : il apprend le
       // couple (classe, clé). On le rejoue ici — le vrai flux est prouvé de bout
       // en bout par `services.attack.test.ts` H1/H2 (kernel + module réels).
-      Injector.rememberContainerKey(DivergentSvc as any, "divergentSvc");
+      Injector.rememberContainerKey(DivergentSvc, "divergentSvc");
 
       // Le kernel ne le connaît que sous sa clé container réelle.
       withKernel({ divergentSvc: shared }, () => {
-        const c = Injector.instantiate<any>(ConsumerByType as any);
+        const c = Injector.instantiate<any>(ConsumerByType);
         assert.strictEqual(
           c.dep,
           shared,
@@ -336,7 +335,7 @@ describe("RED-TEAM Injector — D. propagation d'argsClass aux dépendances", ()
 
     const secret = { iAmTheParentsArgument: true };
     try {
-      const p = Injector.instantiate<any>(ParentSvc as any, secret);
+      const p = Injector.instantiate<any>(ParentSvc, secret);
       assert.notStrictEqual(
         p.dep.received,
         secret,

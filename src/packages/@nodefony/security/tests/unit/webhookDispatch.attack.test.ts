@@ -129,7 +129,7 @@ describe("attack/secret — le secret de signature ne FUITE jamais", () => {
     d.onAuditEvent(event("login.success"));
     await flush();
     assert.equal(sink.calls.length, 1);
-    const { headers, body } = sink.calls[0]!;
+    const { headers, body } = sink.calls[0];
     assert.ok(!body.includes("whsec_"), "secret dans le body");
     assert.ok(!body.includes("testsecret"), "secret décodé dans le body");
     for (const v of Object.values(headers)) {
@@ -137,7 +137,7 @@ describe("attack/secret — le secret de signature ne FUITE jamais", () => {
       assert.ok(!v.includes("testsecret"), "secret décodé dans un header");
     }
     // la signature est bien présente (HMAC, pas le secret).
-    assert.match(headers["webhook-signature"]!, /^v1,[A-Za-z0-9+/=]+$/);
+    assert.match(headers["webhook-signature"], /^v1,[A-Za-z0-9+/=]+$/);
   });
 });
 
@@ -199,7 +199,7 @@ describe("attack/injection — payload d'audit malveillant", () => {
     );
     d.onAuditEvent(event("login.success", '","injected":true,"x":"'));
     await flush();
-    const parsed = JSON.parse(sink.calls[0]!.body);
+    const parsed = JSON.parse(sink.calls[0].body);
     // pas d'injection de clé au top-level : la valeur reste une string.
     assert.equal(parsed.injected, undefined);
     assert.equal(parsed.data.actor, '","injected":true,"x":"');

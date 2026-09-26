@@ -82,7 +82,7 @@ describe("ClaudeProvider", () => {
         .spyOn(globalThis, "fetch")
         .mockImplementation(async (_input, init) => {
           await new Promise((res, rej) => {
-            const signal = (init as RequestInit | undefined)?.signal;
+            const signal = init?.signal;
             if (signal)
               signal.addEventListener("abort", () =>
                 rej(new DOMException("aborted", "AbortError")),
@@ -105,7 +105,7 @@ describe("ClaudeProvider", () => {
         .spyOn(globalThis, "fetch")
         .mockImplementation(async (_input, init) => {
           return new Promise((_res, rej) => {
-            const signal = (init as RequestInit | undefined)?.signal;
+            const signal = init?.signal;
             if (signal)
               signal.addEventListener("abort", () =>
                 rej(new DOMException("aborted", "AbortError")),

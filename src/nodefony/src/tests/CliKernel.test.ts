@@ -184,7 +184,7 @@ describe("CliKernel — setPackageManager()", () => {
 
   it("undefined → branch default → npm", () => {
     // options.packageManager non défini → manager=undefined → default case
-    cli.setPackageManager(undefined as any);
+    cli.setPackageManager(undefined);
     assert.strictEqual(cli.packageManager, (cli as any).npm);
   });
 
@@ -212,11 +212,11 @@ describe("CliKernel — addCommand()", () => {
 
   beforeAll(() => {
     cli = makeCliKernel();
-    cli.addCommand(TestCommand as any);
+    cli.addCommand(TestCommand);
   });
 
   it("addCommand() retourne une instance de Command", () => {
-    const cmd = cli.addCommand(OtherCommand as any);
+    const cmd = cli.addCommand(OtherCommand);
     assert.ok(cmd instanceof Command);
   });
 
@@ -256,7 +256,7 @@ describe("CliKernel — addCommand()", () => {
       }
       override async action(): Promise<void> {}
     }
-    cli.addCommand(CliCapture as any);
+    cli.addCommand(CliCapture);
     assert.strictEqual(cliArg, cli);
   });
 });

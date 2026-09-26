@@ -49,8 +49,8 @@ async function capture(
   const errs: string[] = [];
   const so = process.stdout.write.bind(process.stdout);
   const se = process.stderr.write.bind(process.stderr);
-  process.stdout.write = ((s: string) => (outs.push(String(s)), true)) as never;
-  process.stderr.write = ((s: string) => (errs.push(String(s)), true)) as never;
+  process.stdout.write = (s: string) => (outs.push(String(s)), true);
+  process.stderr.write = (s: string) => (errs.push(String(s)), true);
   try {
     return { code: run(), out: outs.join(""), err: errs.join("") };
   } finally {

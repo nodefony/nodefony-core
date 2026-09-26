@@ -79,8 +79,8 @@ describe("doctor --deep — les scripts DÉCLARÉS, et rien d'autre", () => {
         "src/a.ts(3,5): error TS2345: nope\n",
       ms: 900,
     }));
-    assert.equal(r[0]!.outcome, "failed");
-    assert.equal(r[0]!.detail, "src/a.ts(3,5): error TS2345: nope");
+    assert.equal(r[0].outcome, "failed");
+    assert.equal(r[0].detail, "src/a.ts(3,5): error TS2345: nope");
   });
 
   it("🔴 un script tué par la borne de temps n'est PAS un succès", async () => {
@@ -95,8 +95,8 @@ describe("doctor --deep — les scripts DÉCLARÉS, et rien d'autre", () => {
       stdout: "",
       ms: 120_000,
     }));
-    assert.equal(r[0]!.outcome, "timeout");
-    assert.match(r[0]!.detail ?? "", /interrompu après 120 s/u);
+    assert.equal(r[0].outcome, "timeout");
+    assert.match(r[0].detail ?? "", /interrompu après 120 s/u);
   });
 });
 

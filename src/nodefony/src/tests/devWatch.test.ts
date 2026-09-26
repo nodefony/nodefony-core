@@ -213,8 +213,8 @@ describe("DevSupervisor — isIgnoredWatchPath (ce que le watch regarde)", () =>
       assert.doesNotThrow(() => watcher.emit("error", boom));
 
       assert.strictEqual(said.length, 1);
-      assert.match(said[0]!, /EBUSY/);
-      assert.match(said[0]!, /tmp[/\\]copied/);
+      assert.match(said[0], /EBUSY/);
+      assert.match(said[0], /tmp[/\\]copied/);
     });
 
     // Contrôle NÉGATIF : sans le garde, le même émetteur JETTE. C'est la preuve

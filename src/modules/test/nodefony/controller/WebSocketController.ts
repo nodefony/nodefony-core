@@ -163,9 +163,7 @@ class WebsocketController extends Controller {
     if (!message) {
       return this.renderJson({ handshake: true, binary: true });
     }
-    const buf = Buffer.isBuffer(message)
-      ? message
-      : Buffer.from(message as string);
+    const buf = Buffer.isBuffer(message) ? message : Buffer.from(message);
     return this.ws?.send(buf, "binary");
   }
 
@@ -190,9 +188,7 @@ class WebsocketController extends Controller {
     if (!message) {
       return this.renderJson({ handshake: true, binary: true });
     }
-    const buf = Buffer.isBuffer(message)
-      ? message
-      : Buffer.from(message as string);
+    const buf = Buffer.isBuffer(message) ? message : Buffer.from(message);
     this.ws?.broadcast(buf, "binary");
   }
 

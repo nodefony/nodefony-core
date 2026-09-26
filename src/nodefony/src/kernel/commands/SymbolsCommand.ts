@@ -36,7 +36,7 @@ class Symbols extends Command {
     super(
       "symbols",
       "où un symbole est défini, et de qui il hérite",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");

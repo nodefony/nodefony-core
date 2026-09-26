@@ -378,13 +378,13 @@ class SecurityToken extends Command {
       const page = await users.listPage({ limit: 25 });
       if (page.items.length > 0) {
         await this.loadPrompts();
-        identifier = (await this.prompts.select({
+        identifier = await this.prompts.select({
           message: "Compte porteur du jeton :",
           choices: page.items.map((u) => ({
             name: `${u.identifier}${(u.roles ?? []).length ? ` ${DIM}(${(u.roles ?? []).join(", ")})${RESET}` : ""}`,
             value: u.identifier,
           })),
-        })) as string;
+        });
       }
     }
     if (!identifier) identifier = "admin";

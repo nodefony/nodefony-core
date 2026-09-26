@@ -140,7 +140,7 @@ export class RedisTokenStore implements ITokenStore {
     retentionRevokedMs?: number,
   ): RedisTokenStore {
     return new RedisTokenStore(
-      () => service.getClient("main") as unknown as RedisClientLike | null,
+      () => service.getClient("main"),
       now,
       retentionRevokedMs,
       () => service.keyPrefix(KEY_BASE),

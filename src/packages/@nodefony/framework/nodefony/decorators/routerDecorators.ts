@@ -13,7 +13,6 @@ import Controller from "../src/Controller";
 import type { ControllerScope } from "../src/Controller";
 //import { dirname, join, resolve, relative } from "node:path";
 import { Injector, Module, RequestContext } from "nodefony";
-import type { ServiceConstructor } from "nodefony";
 import { ControllerConstructor } from "../src/Route";
 import type { HTTPMethod, SessionIntent } from "@nodefony/http";
 
@@ -132,9 +131,7 @@ function controllers(
           // `@Scope("singleton")` qui réclame un service `request` démarrerait
           // vert puis rendrait 500. Graphe lu sur les déclarations, rien
           // d'instancié ; `BootConfigurationError`, fatale dans tous les modes.
-          Injector.assertNoCaptiveDependency(
-            contr as unknown as ServiceConstructor,
-          );
+          Injector.assertNoCaptiveDependency(contr);
           Router.setController(contr, this);
           this.log(`ADD CONTROLLER : ${contr.name}`, "DEBUG");
           // Le log des routes DOIT être émis depuis `this` (le module) — pas
@@ -1231,10 +1228,8 @@ const Query = paramDecoratorFactory("query");
  */
 function Body(keyOrOptions?: string | { stream?: boolean }) {
   const isOptions = typeof keyOrOptions === "object" && keyOrOptions !== null;
-  const key = isOptions ? undefined : (keyOrOptions as string | undefined);
-  const stream = isOptions
-    ? (keyOrOptions as { stream?: boolean }).stream === true
-    : false;
+  const key = isOptions ? undefined : keyOrOptions;
+  const stream = isOptions ? keyOrOptions.stream === true : false;
   return function (
     target: object,
     propertyKey: string,
@@ -1548,7 +1543,7 @@ function computeSecurityRequirement(
   }
   // Figé (objet PARTAGÉ entre requêtes — jamais muté).
   return Object.freeze({
-    clauses: Object.freeze(all) as readonly SecurityClause[],
+    clauses: Object.freeze(all),
     hasRoleClause: classClauses.length + methodClauses.length > 0,
   });
 }

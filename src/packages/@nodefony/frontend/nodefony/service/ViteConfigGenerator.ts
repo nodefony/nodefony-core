@@ -143,8 +143,8 @@ export class ViteConfigGenerator {
       input[e.entryName] = toGeneratedPath(path.resolve(e.root, e.entryFile));
     }
 
-    const root = toGeneratedPath(entries[0]!.root);
-    const outDir = toGeneratedPath(entries[0]!.outDir);
+    const root = toGeneratedPath(entries[0].root);
+    const outDir = toGeneratedPath(entries[0].outDir);
 
     // Multi-bundle fix (P14.6) : autorise `/@fs/<abs>` pour chaque entry root.
     // Sans ça, deux consumers qui partagent la même structure (ex `frontend/src/main.tsx`)
@@ -219,8 +219,8 @@ export class ViteConfigGenerator {
     const useHttps = mode === "development" && !!opts.https;
     const httpsLines = useHttps
       ? `    https: {
-      key: fs.readFileSync(${JSON.stringify(toGeneratedPath(opts.https!.keyPath))}),
-      cert: fs.readFileSync(${JSON.stringify(toGeneratedPath(opts.https!.certPath))}),
+      key: fs.readFileSync(${JSON.stringify(toGeneratedPath(opts.https.keyPath))}),
+      cert: fs.readFileSync(${JSON.stringify(toGeneratedPath(opts.https.certPath))}),
     },\n`
       : "";
     const fsBlock = `    fs: {

@@ -31,7 +31,7 @@ const fullName = (task: TaskLike | undefined): string => {
 beforeEach((ctx) => {
   if (
     (process.env.CI || !process.env.NF_RUN_PERF) &&
-    PERF_TITLE.test(fullName(ctx.task as unknown as TaskLike))
+    PERF_TITLE.test(fullName(ctx.task))
   ) {
     ctx.skip();
   }
@@ -74,7 +74,7 @@ afterEach(() => {
     const before = inherited.get(event);
     for (const listener of process.listeners(event)) {
       if (!before?.has(listener)) {
-        process.removeListener(event, listener as () => void);
+        process.removeListener(event, listener);
       }
     }
   }

@@ -66,7 +66,7 @@ export class ServerRealtimeSocket<
    * ouvrir le canal à qui que ce soit d'autre.
    */
   subscribe(channel: EventNames<Listen> | (string & {})): void {
-    const c = channel as string;
+    const c = channel;
     const subs = (this.#subs ??= new Map<string, number>());
     const n = (subs.get(c) ?? 0) + 1;
     subs.set(c, n);
@@ -79,7 +79,7 @@ export class ServerRealtimeSocket<
 
   /** Désabonne (ref-compté) : coupe le sink du hub au DERNIER consommateur. */
   unsubscribe(channel: EventNames<Listen> | (string & {})): void {
-    const c = channel as string;
+    const c = channel;
     const cur = this.#subs?.get(c);
     if (!cur) return;
     if (cur > 1) {
@@ -139,7 +139,7 @@ export class ServerRealtimeSocket<
         "ServerRealtimeSocket.request: pas de pair unique côté hub (multi-clients). " +
           "Pour un RPC serveur→client 1-1, utiliser RealtimeController.requestClient.",
       ),
-    ) as Promise<ContractResult<Actions, K, T>>;
+    );
   }
 
   /** Vue par-canal ({@link IRealtimeChannel}) — fine liaison sur les primitives. */

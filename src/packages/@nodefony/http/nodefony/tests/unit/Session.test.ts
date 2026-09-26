@@ -50,7 +50,6 @@ function makeSession(
   return new Session(
     "testsession",
     { ...defaultOpts, ...opts },
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     makeManager(strategy) as any,
   );
 }
@@ -67,7 +66,6 @@ describe("Session — unit tests", () => {
       const s = new Session(
         "",
         { ...defaultOpts, name: "fallback" },
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         makeManager() as any,
       );
       expect(s.name).to.equal("fallback");
@@ -79,9 +77,7 @@ describe("Session — unit tests", () => {
 
     it("status is 'disabled' when no storage", () => {
       const mgr = makeManager("migrate");
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       (mgr as any).storage = null;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session("s", defaultOpts, mgr as any);
       expect(s.status).to.equal("disabled");
     });
@@ -177,7 +173,6 @@ describe("Session — unit tests", () => {
         writes += 1;
         return origWrite(id, data);
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session(
         "s",
         defaultOpts,
@@ -190,7 +185,6 @@ describe("Session — unit tests", () => {
 
     it("save() writes when dirty, then clears dirty + sets saved", async () => {
       const storage = makeStorage();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session(
         "s",
         defaultOpts,
@@ -213,7 +207,6 @@ describe("Session — unit tests", () => {
         writes += 1;
         return origWrite(id, data);
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session(
         "s",
         defaultOpts,
@@ -331,7 +324,6 @@ describe("Session — unit tests", () => {
   describe("destroy", () => {
     it("destroy() removes the stored session and returns true", async () => {
       const storage = makeStorage();
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const s = new Session(
         "s",
         defaultOpts,
@@ -497,7 +489,7 @@ describe("Session — unit tests", () => {
       s.updated = new Date(Date.now() - 80_000); // > idle/2 (50 s) → touch
       await s.touchIfNeeded();
       expect(touches).to.deep.equal([["sid", 100]]);
-      expect(Date.now() - (s.updated as Date).getTime()).to.be.lessThan(2_000);
+      expect(Date.now() - s.updated.getTime()).to.be.lessThan(2_000);
     });
 
     it("throttle : NE touche PAS si l'activité est récente (< mi-vie) — perf préservée", async () => {
@@ -552,7 +544,7 @@ describe("Session — unit tests", () => {
     it("getAttributes() reflects set()", () => {
       const s = makeSession();
       s.set("x", 42);
-      expect((s.getAttributes() as Record<string, unknown>).x).to.equal(42);
+      expect(s.getAttributes().x).to.equal(42);
     });
 
     it("get() returns null for an unknown key", () => {

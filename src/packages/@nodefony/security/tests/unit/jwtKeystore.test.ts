@@ -38,7 +38,7 @@ describe("JwtKeystore — mémoire (défaut dev)", () => {
 
     const jwks = await ks.getPublicJWKS();
     assert.equal(jwks.keys.length, 1);
-    const jwk = jwks.keys[0]!;
+    const jwk = jwks.keys[0];
     assert.equal(jwk.kty, "OKP");
     assert.equal(jwk.crv, "Ed25519");
     assert.equal(jwk.use, "sig");
@@ -51,9 +51,7 @@ describe("JwtKeystore — mémoire (défaut dev)", () => {
     );
 
     const expected = await calculateJwkThumbprint(
-      { kty: jwk.kty, crv: jwk.crv, x: jwk.x } as Parameters<
-        typeof calculateJwkThumbprint
-      >[0],
+      { kty: jwk.kty, crv: jwk.crv, x: jwk.x },
       "sha256",
     );
     assert.equal(signing.kid, expected, "kid doit être le thumbprint RFC 7638");
@@ -97,9 +95,9 @@ describe("JwtKeystore — fichier (opt-in)", () => {
           1,
           `mode ${mode.toString(8)} non restreint → doit avertir exactement une fois`,
         );
-        assert.match(told[0]!, /clé PRIVÉE/);
+        assert.match(told[0], /clé PRIVÉE/);
         assert.match(
-          told[0]!,
+          told[0],
           /keySetJson/,
           "l'avertissement doit dire la sortie",
         );
@@ -109,7 +107,7 @@ describe("JwtKeystore — fichier (opt-in)", () => {
         keys: Array<{ d?: string }>;
       };
       assert.equal(raw.active, k1.kid);
-      assert.ok(raw.keys[0]!.d, "le fichier porte la clé PRIVÉE (`d`)");
+      assert.ok(raw.keys[0].d, "le fichier porte la clé PRIVÉE (`d`)");
 
       // 2e keystore depuis le même dossier → recharge sans régénérer.
       const ks2 = new JwtKeystore({ dir }, noop);
@@ -240,7 +238,7 @@ describe("avertissement — le trousseau part-il dans l'image ?", () => {
         1,
         `attendu 1 avertissement, reçu ${warns.length}`,
       );
-      assert.match(dit[0]!, /nodefony\/config\/keys/u);
+      assert.match(dit[0], /nodefony\/config\/keys/u);
     } finally {
       process.chdir(avant);
       rmSync(racine, { recursive: true, force: true });

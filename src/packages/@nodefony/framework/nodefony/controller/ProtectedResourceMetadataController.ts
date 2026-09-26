@@ -289,8 +289,7 @@ export function mountProtectedResourceRoutes(
   for (const path of paths) {
     Router.createRoute(`security.resource.metadata.${index++}`, {
       path,
-      constructor:
-        ProtectedResourceMetadataController as unknown as Controller["constructor"],
+      constructor: ProtectedResourceMetadataController,
       classMethod: "metadata",
       requirements: { methods: ["GET"] },
       bypassFirewall: true,
@@ -302,12 +301,7 @@ export function mountProtectedResourceRoutes(
       "module",
     )
   ) {
-    Router.setController(
-      ProtectedResourceMetadataController as unknown as Parameters<
-        typeof Router.setController
-      >[0],
-      frameworkModule,
-    );
+    Router.setController(ProtectedResourceMetadataController, frameworkModule);
   }
   mounted = true;
   return paths.length;

@@ -277,15 +277,15 @@ export async function bindWithFallback(
   const listenOnce = (port: number): Promise<NodeJS.ErrnoException | null> =>
     new Promise((settle) => {
       const onError = (error: NodeJS.ErrnoException): void => {
-        server.removeListener("listening", onListening as never);
+        server.removeListener("listening", onListening);
         settle(error);
       };
       const onListening = (): void => {
-        server.removeListener("error", onError as never);
+        server.removeListener("error", onError);
         settle(null);
       };
-      server.once("error", onError as never);
-      server.once("listening", onListening as never);
+      server.once("error", onError);
+      server.once("listening", onListening);
       server.listen(port, host);
     });
 

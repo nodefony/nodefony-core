@@ -96,7 +96,7 @@ export function parseGitHooksArgv(
   let dryRun = false;
   let help = false;
   for (let i = 0; i < args.length; i += 1) {
-    const a = args[i] as string;
+    const a = args[i];
     // Une commande qui répond « option inconnue : --help » apprend au lecteur
     // à ne plus croire le pied de l'aide, qui promet ce drapeau.
     if (a === "--help" || a === "-h") help = true;

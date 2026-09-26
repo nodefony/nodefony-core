@@ -171,7 +171,7 @@ export class InMemoryUserRepository implements IUserRepository {
     if (updated) return updated;
     return this.create({
       ...(criteria as Partial<IPasswordAuthenticatedUser>),
-      ...(insertOnly as Partial<IPasswordAuthenticatedUser> | undefined),
+      ...insertOnly,
       ...update,
     });
   }
@@ -224,7 +224,7 @@ export class InMemoryUserRepository implements IUserRepository {
     if (!user) return Promise.resolve(null);
     const rec = user as unknown as Record<string, number>;
     for (const [field, delta] of Object.entries(changes)) {
-      rec[field] = (rec[field] ?? 0) + (delta as number);
+      rec[field] = (rec[field] ?? 0) + delta;
     }
     return Promise.resolve(user);
   }
@@ -235,10 +235,7 @@ export class InMemoryUserRepository implements IUserRepository {
   ): Promise<number> {
     const users = await this.find(criteria);
     for (const user of users) {
-      await this.updateOne(
-        { id: user.id } as Criteria<IPasswordAuthenticatedUser>,
-        data,
-      );
+      await this.updateOne({ id: user.id }, data);
     }
     return users.length;
   }

@@ -288,7 +288,7 @@ class Cookie implements ICookieInterface {
     if (typeof ms === "number") {
       return ms;
     }
-    const converted = ms as StringValue;
+    const converted = ms;
     return MS(converted) / 1000;
   }
 
@@ -354,7 +354,7 @@ class Cookie implements ICookieInterface {
    */
   unsign(val?: string, secret?: string): string | false {
     let input = val ?? (this.value as string);
-    const key = secret ?? (this.options.secret as string);
+    const key = secret ?? this.options.secret;
     if (typeof input !== "string") {
       throw new TypeError("unsign cookie value bad type");
     }

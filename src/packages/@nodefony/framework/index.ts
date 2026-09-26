@@ -310,7 +310,7 @@ class Framework extends Module<IFrameworkConfig> {
       this.#idempotencyGc = scheduleIdempotencyGc(store, {
         intervalS: idem.gcIntervalS,
         jitter: idem.gcJitter,
-        onError: (e) => this.log(e as Error, "WARNING"),
+        onError: (e) => this.log(e, "WARNING"),
         log: (m) => this.log(m, "INFO"),
       });
       if (this.#idempotencyGc) {

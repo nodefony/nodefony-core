@@ -33,7 +33,7 @@ describe("NODEFONY CORE FileClass", () => {
   // ─── constructor ────────────────────────────────────────────────────────────
   describe("constructor", () => {
     it("throws on empty path", () => {
-      expect(() => new FileClass("" as string)).to.throw();
+      expect(() => new FileClass("")).to.throw();
     });
 
     it("throws on non-existent path", () => {
@@ -400,7 +400,7 @@ describe("NODEFONY CORE FileClass", () => {
       const target = `${tmpFile}.moved`;
       try {
         const f = new FileClass(tmpFile);
-        const moved = f.move(target as fs.PathLike);
+        const moved = f.move(target);
         expect(moved).to.be.instanceOf(FileClass);
         expect(moved.path).to.equal(fs.realpathSync(target));
         expect(fs.existsSync(tmpFile)).to.be.false;

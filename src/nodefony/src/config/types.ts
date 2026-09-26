@@ -34,7 +34,6 @@ export type KnownModule =
   | "@nodefony/drizzle"
   | "@nodefony/mongoose"
   // Accepte tout module tiers en gardant l'autocomplétion des littéraux ci-dessus.
-  // eslint-disable-next-line @typescript-eslint/no-empty-object-type
   | (string & {});
 
 /**

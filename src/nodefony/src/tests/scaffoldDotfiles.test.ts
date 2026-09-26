@@ -51,7 +51,7 @@ describe("application générée — les fichiers de RÈGLE", () => {
   const bloc = engine.slice(engine.indexOf("const RENAMES"));
   const declares = new Set(
     [...bloc.slice(0, bloc.indexOf("};")).matchAll(/:\s*"([^"]+)"/gu)].map(
-      (m) => m[1] as string,
+      (m) => m[1],
     ),
   );
 

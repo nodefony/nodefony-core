@@ -1058,7 +1058,7 @@ function renderProjectAgents(
   );
   let rendered = eta.renderString(
     readFileSync(path.join(tplDir, "AGENTS.md.tpl"), "utf8"),
-    { ...data, client, frontendEngines } as unknown as Record<string, unknown>,
+    { ...data, client, frontendEngines },
   );
   if (rendered.includes("<%")) {
     throw new Error("tag eta résiduel dans AGENTS.md");
@@ -1489,7 +1489,7 @@ function resolveScaffoldTarget(
   writer: ScaffoldWriter,
 ): IScaffoldTarget {
   const targets = listTargets(projectRoot, writer);
-  const app = targets[0] as IScaffoldTarget;
+  const app = targets[0];
   if (!moduleName) {
     return app;
   }
@@ -1500,7 +1500,7 @@ function resolveScaffoldTarget(
   }
   const short = modules.filter((t) => path.basename(t.dir) === moduleName);
   if (short.length === 1) {
-    return short[0] as IScaffoldTarget;
+    return short[0];
   }
   if (short.length > 1) {
     throw new Error(
@@ -2115,9 +2115,7 @@ function dispatchScaffold(
   // l'utilisateur n'a pas demandé encombre SON dépôt (« j'ai demandé un agent
   // claude, je me retrouve avec un GEMINI.md »). Ceux qu'on câble plus tard
   // reçoivent leur pointeur à ce moment-là (`nodefony ai:mcp --agent <clé>`).
-  const chosenAgents = Array.isArray(answers.agents)
-    ? (answers.agents as string[])
-    : [];
+  const chosenAgents = Array.isArray(answers.agents) ? answers.agents : [];
   renderProjectAgents(
     eta,
     packageRoot,
@@ -4125,7 +4123,7 @@ function declaredDatabase(
 function infraDialect(projectRoot: string): TEntityDialect | null {
   const dialect = declaredDatabase(projectRoot)?.dialect;
   return dialect && (ENTITY_DIALECTS as readonly string[]).includes(dialect)
-    ? (dialect as TEntityDialect)
+    ? dialect
     : null;
 }
 
@@ -4366,8 +4364,7 @@ function runEntityScaffold(
         Record<string, string>
       >;
       rootManifest[section] ??= {};
-      (rootManifest[section] as Record<string, string>)[dep] =
-        SCAFFOLD_VERSIONS[dep];
+      rootManifest[section][dep] = SCAFFOLD_VERSIONS[dep];
       depsAdded.push(dep);
       ormRuntimeNote.push(
         `dépendance manquante ajoutée au package.json : ${dep}@${SCAFFOLD_VERSIONS[dep]} ` +
@@ -5587,7 +5584,7 @@ function runFrontScaffold(
     tokens,
   );
   for (let i = brandLayerStart; i < written.length; i += 1) {
-    written[i] = path.join("frontend", written[i] as string);
+    written[i] = path.join("frontend", written[i]);
   }
   // La page du moteur — MÊME gabarit que `create app --frontend` (source unique).
   renderLayer(

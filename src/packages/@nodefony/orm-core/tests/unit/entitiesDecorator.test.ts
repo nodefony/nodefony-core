@@ -37,7 +37,6 @@ const CommentEntity = defineEntity({
 const decorate = (
   list: Parameters<typeof entities>[0],
   options?: Parameters<typeof entities>[1],
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
 ): any => entities(list, options)(FakeModule as any);
 
 describe("orm-core — décorateur @entities", () => {

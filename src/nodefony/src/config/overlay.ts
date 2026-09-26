@@ -44,7 +44,6 @@ import type { ConfigOf } from "./use";
  * Un module absent de ce registre n'accepte aucun calque : l'appel ne compile pas.
  */
 // L'interface vide EST le point d'extension (declaration merging). Volontaire.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface NodefonyModuleOverlay {}
 
 /** Calque accepté par le module `N` — `never` s'il n'en déclare pas. */

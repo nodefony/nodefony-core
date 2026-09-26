@@ -24,13 +24,13 @@ function get(
           try {
             resolve({
               status: res.statusCode!,
-              headers: res.headers as Record<string, unknown>,
+              headers: res.headers,
               body: JSON.parse(raw),
             });
           } catch {
             resolve({
               status: res.statusCode!,
-              headers: res.headers as Record<string, unknown>,
+              headers: res.headers,
               body: raw,
             });
           }
@@ -98,7 +98,7 @@ describe("HTTPS/TLS — port 5152 (requires server)", function () {
     it("GET /nodefony/test/index → 200 JSON", async () => {
       const { status, headers } = await get("/nodefony/test/index");
       expect(status).to.equal(200);
-      expect(headers["content-type"] as string).to.include("application/json");
+      expect(headers["content-type"]).to.include("application/json");
     });
 
     it("GET /nodefony/test/context → scheme is 'https'", async () => {

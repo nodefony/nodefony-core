@@ -98,7 +98,7 @@ describe("isForeignDescriptor — la garde reconnaît une marque venue d'ailleur
     const nôtre = Object.getOwnPropertySymbols(vrai)[0];
     expect(nôtre?.description).to.be.a("string");
     expect(
-      isForeignDescriptor({ [Symbol(nôtre!.description!)]: true }),
+      isForeignDescriptor({ [Symbol(nôtre.description)]: true }),
       "la garde ne reconnaît plus le nom de marque posé par defineConfig",
     ).to.equal(true);
   });

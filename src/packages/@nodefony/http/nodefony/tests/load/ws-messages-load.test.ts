@@ -196,7 +196,6 @@ describe("LOAD — WS messages (axis 2: throughput + broadcast)", function () {
           }, 60_000);
         });
         const rate = (received / (Date.now() - t0)) * 1000;
-        // eslint-disable-next-line no-console
         console.log(
           `      ▶ burst ${burst}: ${received} received @ ${rate.toFixed(0)} msg/s ${ok ? "" : "(SHORTFALL)"}`,
         );
@@ -207,7 +206,6 @@ describe("LOAD — WS messages (axis 2: throughput + broadcast)", function () {
         lastGoodRate = rate;
       }
       ws.close();
-      // eslint-disable-next-line no-console
       console.log(
         `      ▶ last clean rate: ${lastGoodRate.toFixed(0)} msg/s${brokeAt ? `, shortfall at burst ${brokeAt}` : " (no shortfall up to cap)"}`,
       );

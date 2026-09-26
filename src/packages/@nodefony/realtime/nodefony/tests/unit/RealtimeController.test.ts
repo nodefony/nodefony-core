@@ -295,7 +295,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       // garde pour les paths qui auraient un await intercalé.
       await Promise.resolve();
       expect(closes).to.have.length(1);
-      expect(closes[0]!.code).to.equal(4003);
+      expect(closes[0].code).to.equal(4003);
       expect(sent).to.have.length(0); // pas de welcome
     });
 
@@ -309,7 +309,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       await Promise.resolve();
       expect(closes).to.have.length(0);
       expect(sent).to.have.length(1);
-      expect(sent[0]!.method).to.equal("realtime:welcome");
+      expect(sent[0].method).to.equal("realtime:welcome");
     });
   });
 
@@ -318,7 +318,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       const { ctx, sent } = makeCtx({ url: "/chat" });
       new TestRt(ctx).feed(null);
       await Promise.resolve();
-      expect(sent[0]!.method).to.equal("realtime:welcome");
+      expect(sent[0].method).to.equal("realtime:welcome");
       // Le hub a 1 connexion (= 1 peer) mais comme on n'a pas d'API directe
       // d'extraction du peer, on vérifie indirectement : pas de close, welcome OK.
     });
@@ -348,7 +348,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       await new Promise((r) => setTimeout(r, 0));
       expect(closes).to.have.length(0);
       expect(calledSuccess).to.equal(true);
-      expect(sent[0]!.method).to.equal("realtime:welcome");
+      expect(sent[0].method).to.equal("realtime:welcome");
     });
 
     it("welcome porte l'identité AUTHENTIFIÉE (type/roles/userIdentifier/scopes du token résolu)", async () => {
@@ -369,7 +369,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       const { ctx, sent } = makeCtx({ url: "/realtime" });
       new TestRt(ctx).feed(null);
       await new Promise((r) => setTimeout(r, 0));
-      const params = sent[0]!.params as Record<string, unknown>;
+      const params = sent[0].params as Record<string, unknown>;
       expect(params.identity).to.deep.equal({
         type: "jwt",
         authenticated: true,
@@ -396,8 +396,8 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       new TestRt(ctx).feed(null);
       await new Promise((r) => setTimeout(r, 0));
       expect(closes).to.have.length(1);
-      expect(closes[0]!.code).to.equal(4001);
-      expect(closes[0]!.reason).to.equal("unauthorized");
+      expect(closes[0].code).to.equal(4001);
+      expect(closes[0].reason).to.equal("unauthorized");
       expect(failureError).to.be.an.instanceOf(Error);
       expect(failureError!.message).to.equal("bad token");
       expect(sent).to.have.length(0); // pas de welcome
@@ -414,7 +414,7 @@ describe("RealtimeController — base endpoint WS (protocole factorisé)", () =>
       new TestRt(ctx).feed(null);
       await new Promise((r) => setTimeout(r, 0));
       expect(closes).to.have.length(0);
-      expect(sent[0]!.method).to.equal("realtime:welcome");
+      expect(sent[0].method).to.equal("realtime:welcome");
     });
   });
 

@@ -86,7 +86,7 @@ describe("UserService — IUserProvider (source d'identité)", () => {
     const svc = makeService({
       findOne: (criteria: { id?: string }) =>
         Promise.resolve(criteria.id === alice.id ? fresh : null),
-    } as Partial<IUserRepository>);
+    });
     const reloaded = await svc.refreshUser(alice);
     assert.equal(reloaded, fresh);
     assert.deepEqual(reloaded.roles, ["ROLE_USER", "ROLE_ADMIN"]);
@@ -95,7 +95,7 @@ describe("UserService — IUserProvider (source d'identité)", () => {
   it("refreshUser lève si le compte a été supprimé", async () => {
     const svc = makeService({
       findOne: () => Promise.resolve(null),
-    } as Partial<IUserRepository>);
+    });
     await assert.rejects(() => svc.refreshUser(alice), UserNotFoundError);
   });
 });

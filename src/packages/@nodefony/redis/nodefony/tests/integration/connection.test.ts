@@ -88,9 +88,9 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
       const client = service.getClient("main");
       assert.ok(client);
       const key = `nodefony:test:${Date.now()}`;
-      await client!.set(key, "ok", { EX: 30 });
-      assert.equal(await client!.get(key), "ok");
-      await client!.del(key);
+      await client.set(key, "ok", { EX: 30 });
+      assert.equal(await client.get(key), "ok");
+      await client.del(key);
     } finally {
       await service.closeConnections();
     }
@@ -106,11 +106,11 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
 
       const channel = `nodefony:chan:${Date.now()}`;
       const received = new Promise<string>((resolve) => {
-        void sub!.subscribe(channel, (message) => resolve(message));
+        void sub.subscribe(channel, (message) => resolve(message));
       });
       // petite latence pour garantir l'abonnement avant publication
       await new Promise((r) => setTimeout(r, 50));
-      await pub!.publish(channel, "hello");
+      await pub.publish(channel, "hello");
 
       const msg = await Promise.race([
         received,
@@ -119,7 +119,7 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
         ),
       ]);
       assert.equal(msg, "hello");
-      await sub!.unsubscribe(channel);
+      await sub.unsubscribe(channel);
     } finally {
       await service.closeConnections();
     }

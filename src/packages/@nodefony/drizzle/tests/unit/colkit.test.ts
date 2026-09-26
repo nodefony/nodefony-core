@@ -290,7 +290,7 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       const { checks } = getTableConfig(buildFrameworkTable("sqlite", SPEC));
       assert.equal(checks.length, 1);
       assert.equal(checks[0]?.name, "colkit_probe_phase_check");
-      const query = new SQLiteSyncDialect().sqlToQuery(checks[0]!.value);
+      const query = new SQLiteSyncDialect().sqlToQuery(checks[0].value);
       assert.equal(query.sql, `"phase" IN ('draft', 'live')`);
       assert.equal(
         query.params.length,
@@ -305,7 +305,7 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
         buildFrameworkTable("postgres", SPEC),
       );
       assert.equal(checks.length, 1);
-      const query = new PgDialect().sqlToQuery(checks[0]!.value);
+      const query = new PgDialect().sqlToQuery(checks[0].value);
       assert.equal(query.sql, `"phase" IN ('draft', 'live')`);
       assert.equal(query.params.length, 0);
     });
@@ -315,7 +315,7 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
         buildFrameworkTable("mysql", SPEC),
       );
       assert.equal(checks.length, 1);
-      const query = new MySqlDialect().sqlToQuery(checks[0]!.value);
+      const query = new MySqlDialect().sqlToQuery(checks[0].value);
       assert.equal(query.sql, "`phase` IN ('draft', 'live')");
       assert.equal(query.params.length, 0);
     });
@@ -329,7 +329,7 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
         },
       } satisfies IFrameworkTableSpec;
       const { checks } = getTableConfig(buildFrameworkTable("sqlite", spec));
-      const query = new SQLiteSyncDialect().sqlToQuery(checks[0]!.value);
+      const query = new SQLiteSyncDialect().sqlToQuery(checks[0].value);
       assert.equal(query.sql, `"mood" IN ('l''un', 'autre')`);
     });
 
@@ -368,10 +368,7 @@ describe("colKit — buildFrameworkTable (S1 multi-dialecte)", () => {
       const factory = createFrameworkTableFactory(SPEC);
       assert.equal(factory("sqlite"), factory("sqlite"));
       assert.equal(factory("postgres"), factory("postgres"));
-      assert.notEqual(
-        factory("sqlite") as unknown,
-        factory("postgres") as unknown,
-      );
+      assert.notEqual(factory("sqlite") as unknown, factory("postgres"));
     });
 
     it("défaut = sqlite ; l'export sessionTable EST la variante sqlite de la factory", () => {

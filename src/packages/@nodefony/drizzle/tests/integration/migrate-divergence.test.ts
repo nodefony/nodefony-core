@@ -410,7 +410,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
       await poser(TABLE_D_EPOQUE);
 
       // Une migration NEUVE, jamais appliquée : le plan n'est plus « à jour ».
-      await appendMigration(sources[0]!.dir, "sqlite", {
+      await appendMigration(sources[0].dir, "sqlite", {
         tag: "0001_jamais_appliquee",
         statements: ["SELECT 1"],
       });

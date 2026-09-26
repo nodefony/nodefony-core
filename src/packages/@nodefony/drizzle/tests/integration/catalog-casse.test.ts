@@ -102,7 +102,7 @@ const CIBLES: ICible[] = [
       url.searchParams.set("options", "-c search_path=nf_casse");
       const admin = await openMigrationDriver({
         dialect: "postgres",
-        url: PG_URL as string,
+        url: PG_URL,
       });
       try {
         await admin.exec("DROP SCHEMA IF EXISTS nf_casse CASCADE");
@@ -120,7 +120,7 @@ const CIBLES: ICible[] = [
           await pilote.close();
           const net = await openMigrationDriver({
             dialect: "postgres",
-            url: PG_URL as string,
+            url: PG_URL,
           });
           try {
             await net.exec("DROP SCHEMA IF EXISTS nf_casse CASCADE");
@@ -142,7 +142,7 @@ const CIBLES: ICible[] = [
     ouvrir: async () => {
       const pilote = await openMigrationDriver({
         dialect: "mysql",
-        url: MYSQL_URL as string,
+        url: MYSQL_URL,
       });
       const vider = () =>
         pilote.exec(`DROP TABLE IF EXISTS ${citer(TABLE, "mysql")}`);

@@ -40,8 +40,8 @@ describe("planAssetPublish", () => {
       "/out",
     );
     expect(plan).to.have.lengthOf(1);
-    expect(plan[0]!.dir).to.equal("/new");
-    expect(plan[0]!.target).to.equal(join(OUT, "test"));
+    expect(plan[0].dir).to.equal("/new");
+    expect(plan[0].target).to.equal(join(OUT, "test"));
   });
 
   it("préfixe racine `/` → cible = outDir lui-même", () => {
@@ -49,7 +49,7 @@ describe("planAssetPublish", () => {
       [{ prefix: "/", dir: "/abs/public" }],
       "/out",
     );
-    expect(plan[0]!.target).to.equal("/out");
+    expect(plan[0].target).to.equal("/out");
   });
 
   it("préserve l'ordre d'insertion", () => {

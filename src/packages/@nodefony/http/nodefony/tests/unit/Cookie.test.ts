@@ -217,9 +217,7 @@ describe("Cookie — unit tests", () => {
 
     it("throws TypeError if val is not a string", () => {
       const c = new Cookie("foo", "bar");
-      expect(() => c.sign(42 as unknown as string, "secret")).to.throw(
-        TypeError,
-      );
+      expect(() => c.sign(42 as unknown, "secret")).to.throw(TypeError);
     });
 
     it("throws TypeError if secret is not a string", () => {

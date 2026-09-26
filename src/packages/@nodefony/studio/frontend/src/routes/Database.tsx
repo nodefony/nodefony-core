@@ -745,7 +745,7 @@ export const Database = observer(() => {
             <SegmentedControl
               size="xs"
               value={view}
-              onChange={(v) => setView(v as "graph" | "list")}
+              onChange={(v) => setView(v)}
               data={[
                 { label: "Graphe", value: "graph" },
                 { label: "Liste", value: "list" },

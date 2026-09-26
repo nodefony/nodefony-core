@@ -117,10 +117,7 @@ describe.skipIf(!PG_URL)(
       // patch est typé sur la LIGNE, qui est la vérité de la table.
       const patch: Partial<UserRow> = { currentRole: "ROLE_ADMIN" };
       const updated = asBaseUser(
-        await users.updateOne(
-          { identifier: "pg-alice" } as Criteria<IPasswordAuthenticatedUser>,
-          patch,
-        ),
+        await users.updateOne({ identifier: "pg-alice" }, patch),
       );
       assert.equal(updated.currentRole, "ROLE_ADMIN");
       const after = updated as unknown as { createdAt: Date; updatedAt: Date };
@@ -192,7 +189,7 @@ describe.skipIf(!PG_URL)(
       assert.equal(
         await users.delete({
           identifier: "pg-bob",
-        } as Criteria<IPasswordAuthenticatedUser>),
+        }),
         1,
         "delete compté via rowCount",
       );

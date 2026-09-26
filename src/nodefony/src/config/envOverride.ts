@@ -546,9 +546,7 @@ export function declaredKeysAtPath(
     node = next as Record<string, unknown>;
   }
   const props = node.properties;
-  return props !== null && typeof props === "object"
-    ? Object.keys(props as Record<string, unknown>)
-    : [];
+  return props !== null && typeof props === "object" ? Object.keys(props) : [];
 }
 
 /**

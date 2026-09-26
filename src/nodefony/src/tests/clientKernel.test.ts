@@ -227,7 +227,7 @@ describe("ClientKernel — l'annonce dans la console", () => {
       groupEnd: () => {
         fins += 1;
       },
-    } as Console;
+    };
     return {
       calls,
       get groupes() {

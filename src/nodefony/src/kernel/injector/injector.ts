@@ -1,7 +1,6 @@
 import "reflect-metadata";
 import Service from "../../Service";
 import Container from "../../Container";
-import Event from "../../Event";
 import Kernel, { ServiceConstructor } from "../Kernel";
 import { Nodefony } from "../../Nodefony";
 import Fetch from "../../service/fetchService";
@@ -75,7 +74,7 @@ class Injector extends Service {
     super(
       "injector",
       kernel.container as Container,
-      kernel.notificationsCenter as Event,
+      kernel.notificationsCenter,
     );
     // `Fetch` est le service « batteries incluses » du core : injectable partout
     // via `@inject("Fetch")` sans qu'aucune app ait à le déclarer. On le DÉCLARE

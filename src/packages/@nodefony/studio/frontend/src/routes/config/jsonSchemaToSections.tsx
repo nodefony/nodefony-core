@@ -76,7 +76,7 @@ function objectBranch(node: JsonSchemaNode): JsonSchemaNode | null {
 /** Résout le nœud schéma à un chemin pointé (via `properties` ET records). */
 function schemaAt(root: unknown, path: string): JsonSchemaNode | null {
   if (!isObj(root)) return null;
-  let node: JsonSchemaNode | null = root as JsonSchemaNode;
+  let node: JsonSchemaNode | null = root;
   for (const seg of path.split(".")) {
     const obj: JsonSchemaNode | null = node ? objectBranch(node) : null;
     if (!obj) return null;
@@ -84,7 +84,7 @@ function schemaAt(root: unknown, path: string): JsonSchemaNode | null {
       node = obj.properties[seg];
     } else if (isObj(obj.additionalProperties)) {
       // record (`z.record`) : toute clé suit le schéma `additionalProperties`.
-      node = obj.additionalProperties as JsonSchemaNode;
+      node = obj.additionalProperties;
     } else {
       return null;
     }
@@ -280,9 +280,7 @@ function walkConfig(
     const value = isObj(effective) ? effective[k] : undefined;
     const childSchema: JsonSchemaNode | null =
       sObj?.properties?.[k] ??
-      (isObj(sObj?.additionalProperties)
-        ? (sObj.additionalProperties as JsonSchemaNode)
-        : null);
+      (isObj(sObj?.additionalProperties) ? sObj.additionalProperties : null);
     const childIsObj =
       objHasProps(childSchema) ||
       (isObj(value) && Object.keys(value).length > 0);

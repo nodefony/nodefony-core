@@ -432,12 +432,7 @@ describe("extend › patterns Nodefony", () => {
     const overrideKey = "Module-http";
     const match = /^[Mm]odule-([\w-]+)/u.exec(overrideKey);
     expect(match?.[1]).to.equal("http");
-    const merged = extend(
-      true,
-      {},
-      httpModOpts,
-      moduleOptions[overrideKey] as object,
-    );
+    const merged = extend(true, {}, httpModOpts, moduleOptions[overrideKey]);
     expect(merged.port).to.equal(8443);
     expect(merged.ssl).to.equal(true);
     expect(merged.timeout).to.equal(30);
@@ -719,13 +714,13 @@ describe("isContainer", () => {
     expect(isContainer(new Container())).to.be.true;
   });
   it("objet plain → false", () => {
-    expect(isContainer({} as any)).to.be.false;
+    expect(isContainer({})).to.be.false;
   });
   it("null → false", () => {
-    expect(isContainer(null as any)).to.be.false;
+    expect(isContainer(null)).to.be.false;
   });
   it("undefined → false", () => {
-    expect(isContainer(undefined as any)).to.be.false;
+    expect(isContainer(undefined)).to.be.false;
   });
   it("Scope → true (hérite de Container)", () => {
     // Scope extends Container — vérifier si disponible
@@ -841,9 +836,7 @@ describe("extend › performance", () => {
   it("10 000 deep merges (10 niveaux) < 500ms", () => {
     // Construit un objet profond à 10 niveaux
     const deep10 = (depth: number, val: unknown): Record<string, unknown> =>
-      depth === 0
-        ? ({ value: val } as Record<string, unknown>)
-        : { nested: deep10(depth - 1, val) };
+      depth === 0 ? { value: val } : { nested: deep10(depth - 1, val) };
     const base = deep10(10, 1);
     const over = deep10(10, 2);
     const N = 10_000;

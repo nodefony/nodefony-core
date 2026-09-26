@@ -55,7 +55,7 @@ export function toOpenSearchDocument<T extends { timeStamp: number }>(
   return {
     ...record,
     [OPENSEARCH_TIMESTAMP_FIELD]: new Date(record.timeStamp).toISOString(),
-  } as T & { "@timestamp": string };
+  };
 }
 
 /**

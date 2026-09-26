@@ -47,7 +47,7 @@ export function readGitBranch(cwd: string = process.cwd()): string {
   try {
     const head = fs.readFileSync(path.join(cwd, ".git", "HEAD"), "utf8").trim();
     const m = head.match(/^ref:\s*refs\/heads\/(.+)$/);
-    _gitBranch = m ? m[1]! : head.slice(0, 7); // détaché → sha court
+    _gitBranch = m ? m[1] : head.slice(0, 7); // détaché → sha court
   } catch {
     _gitBranch = "";
   }

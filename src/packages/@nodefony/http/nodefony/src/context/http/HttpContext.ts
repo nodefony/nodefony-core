@@ -117,8 +117,8 @@ class HttpContext extends Context implements IHttpContextInterface {
         this,
       );
     } else {
-      this.request = new HttpRequest(request as http.IncomingMessage, this);
-      this.response = new HttpResponse(response as http.ServerResponse, this);
+      this.request = new HttpRequest(request, this);
+      this.response = new HttpResponse(response, this);
     }
     // Sous-marque sonde perf : t0 → après new Request + new Response.
     if (perfSub && perfSub.t0 !== 0n) {
@@ -170,7 +170,7 @@ class HttpContext extends Context implements IHttpContextInterface {
         proxyHost: fwd.host ?? <string>request.headers["x-forwarded-host"],
         proxyUri: <string>request.headers["x-original-uri"],
         proxyRealIp: <string>request.headers["x-real-ip"],
-        proxyVia: <string>request.headers.via || "unknown",
+        proxyVia: request.headers.via || "unknown",
       };
       this.log(
         `PROXY REQUEST ${fwd.fromStandard ? "Forwarded (RFC 7239)" : "x-forwarded"} VIA : ${this.proxy.proxyVia}`,

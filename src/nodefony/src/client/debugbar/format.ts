@@ -56,7 +56,6 @@ export function gauge(percent: number, warn = 70, crit = 90): GaugeTier {
   return "ok";
 }
 
-// eslint-disable-next-line no-control-regex
 const ANSI_RE = /\[[0-9;]*m/g;
 
 /** Retire les séquences d'échappement ANSI (couleurs terminal) d'une chaîne. */
@@ -87,7 +86,7 @@ export function sparklinePoints(
   const step = width / (n - 1);
   let out = "";
   for (let i = 0; i < n; i++) {
-    const v = Number.isFinite(values[i]!) ? values[i]! : 0;
+    const v = Number.isFinite(values[i]) ? values[i] : 0;
     const ratio = Math.min(1, Math.max(0, v / ceil));
     const x = Math.round(i * step * 100) / 100;
     const y = Math.round((height - ratio * height) * 100) / 100;

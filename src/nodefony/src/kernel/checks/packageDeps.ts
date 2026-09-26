@@ -91,7 +91,7 @@ export function nodefonyImports(
   source: string,
 ): Array<{ dep: string; typeOnly: boolean }> {
   return Array.from(source.matchAll(IMPORT_RE), (m) => ({
-    dep: m[2] as string,
+    dep: m[2],
     typeOnly: Boolean(m[1]),
   }));
 }

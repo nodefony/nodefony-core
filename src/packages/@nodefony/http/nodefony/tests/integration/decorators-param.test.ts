@@ -45,10 +45,7 @@ function req(
           resolve({
             status: res.statusCode!,
             body,
-            headers: res.headers as Record<
-              string,
-              string | string[] | undefined
-            >,
+            headers: res.headers,
           });
         });
       },

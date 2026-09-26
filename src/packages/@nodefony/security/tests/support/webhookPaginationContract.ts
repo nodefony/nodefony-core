@@ -101,7 +101,7 @@ export function runWebhookPaginationContract(
       assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
       assert.equal((thrown as { code?: unknown }).code, 400);
       assert.ok(thrown instanceof Error);
-      assert.match((thrown as Error).message, /pagination mode/i);
+      assert.match(thrown.message, /pagination mode/i);
     });
 
     it("borne : une page ne rend jamais plus que `limit`", async () => {
@@ -226,7 +226,7 @@ export function runWebhookPaginationContract(
         "un backend d'endpoints doit déclarer ses champs triables",
       );
       assert.ok(
-        fields!.includes("createdAt"),
+        fields.includes("createdAt"),
         "`createdAt` est l'axe par défaut du contrat",
       );
     });

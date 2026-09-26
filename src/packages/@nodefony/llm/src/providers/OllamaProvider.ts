@@ -204,9 +204,8 @@ export class OllamaProvider implements ILLMProvider {
       if (!response.ok) return false;
       const data = (await response.json()) as { models?: { name: string }[] };
       return (
-        data.models?.some((m) =>
-          m.name.startsWith(this.model.split(":")[0]!),
-        ) ?? false
+        data.models?.some((m) => m.name.startsWith(this.model.split(":")[0])) ??
+        false
       );
     } catch {
       return false;
@@ -247,8 +246,8 @@ export class OllamaProvider implements ILLMProvider {
 
     if (sysIdx >= 0) {
       result[sysIdx] = {
-        ...result[sysIdx]!,
-        content: result[sysIdx]!.content + ctxText,
+        ...result[sysIdx],
+        content: result[sysIdx].content + ctxText,
       };
     } else {
       result.unshift({ role: "system", content: ctxText });

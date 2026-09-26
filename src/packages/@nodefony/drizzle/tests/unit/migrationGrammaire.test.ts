@@ -45,8 +45,8 @@ describe("@nodefony/drizzle — grammaire de chaîne, par moteur", () => {
         "mysql",
       );
       assert.equal(statements.length, 1);
-      assert.match(statements[0] as string, /du texte, pas un commentaire/);
-      assert.match(statements[0] as string, /la fin/);
+      assert.match(statements[0], /du texte, pas un commentaire/);
+      assert.match(statements[0], /la fin/);
     });
 
     it("ne coupe pas sur un séparateur porté par la DONNÉE", () => {
@@ -61,7 +61,7 @@ describe("@nodefony/drizzle — grammaire de chaîne, par moteur", () => {
         "mysql",
       );
       assert.equal(statements.length, 1);
-      assert.match(statements[0] as string, /la fin/);
+      assert.match(statements[0], /la fin/);
     });
   });
 
@@ -79,8 +79,8 @@ describe("@nodefony/drizzle — grammaire de chaîne, par moteur", () => {
         "postgres",
       );
       assert.equal(statements.length, 1);
-      assert.match(statements[0] as string, /appartient au corps/);
-      assert.match(statements[0] as string, /LANGUAGE sql/);
+      assert.match(statements[0], /appartient au corps/);
+      assert.match(statements[0], /LANGUAGE sql/);
     });
 
     it("reconnaît un délimiteur NOMMÉ, et lui seul le referme", () => {
@@ -96,7 +96,7 @@ describe("@nodefony/drizzle — grammaire de chaîne, par moteur", () => {
         "postgres",
       );
       assert.equal(statements.length, 1);
-      assert.match(statements[0] as string, /toujours dans le corps/);
+      assert.match(statements[0], /toujours dans le corps/);
     });
 
     it("une chaîne échappée `E'…'` suit la contre-oblique", () => {
@@ -110,7 +110,7 @@ describe("@nodefony/drizzle — grammaire de chaîne, par moteur", () => {
         "postgres",
       );
       assert.equal(statements.length, 1);
-      assert.match(statements[0] as string, /du texte, pas un commentaire/);
+      assert.match(statements[0], /du texte, pas un commentaire/);
     });
   });
 
@@ -130,7 +130,7 @@ describe("@nodefony/drizzle — grammaire de chaîne, par moteur", () => {
         "sqlite",
       );
       assert.equal(statements.length, 2);
-      assert.doesNotMatch(statements[0] as string, /vrai commentaire/);
+      assert.doesNotMatch(statements[0], /vrai commentaire/);
     });
 
     it("un couple de dollars n'ouvre AUCUN corps : c'est du SQL ordinaire", () => {

@@ -64,7 +64,7 @@ function httpKernelWith(trustedHosts: unknown): FakeHttpKernel {
   const patterns = Array.isArray(trustedHosts)
     ? (trustedHosts as string[])
     : typeof trustedHosts === "string"
-      ? [trustedHosts as string]
+      ? [trustedHosts]
       : [];
   const all = ["nodefony.com", "localhost", "127.0.0.1", "[::1]", ...patterns];
   return {

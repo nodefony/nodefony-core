@@ -83,9 +83,9 @@ function newClient(): RealtimeClient {
 
 async function connected(client: RealtimeClient): Promise<MockTransport> {
   const promise = client.connect();
-  transports[transports.length - 1]!.fireOpen();
+  transports[transports.length - 1].fireOpen();
   await promise;
-  return transports[transports.length - 1]!;
+  return transports[transports.length - 1];
 }
 
 /** Les trames d'abonnement émises vers le serveur, dans l'ordre. */

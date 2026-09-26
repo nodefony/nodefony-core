@@ -160,7 +160,7 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
         const connection = orm.getNativeConnection<Connection>();
         return connection.model<Record<string, unknown>>(
           IDEMPOTENCY_ENTITY_NAME,
-        ) as unknown as LooseModel;
+        );
       },
       now,
       leaseMs,

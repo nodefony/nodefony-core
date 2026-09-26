@@ -1,5 +1,4 @@
 import type { CliKernel, OptionsCommandInterface } from "nodefony";
-import type { IMigrationFile } from "../src/migrator/types";
 import type { IDestructiveFinding } from "../src/migrator/destructive";
 import {
   EXIT,
@@ -190,7 +189,7 @@ class OrmMigrate extends OrmMigrateCommand {
       const report = await this.report(plan, resolution, config);
 
       if (opts.dryRun === true) {
-        const pending = plan.pending as readonly IMigrationFile[];
+        const pending = plan.pending;
         const payload: IDryRunReport = {
           formatVersion: MIGRATION_FORMAT_VERSION,
           connector: report.connector,

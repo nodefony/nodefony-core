@@ -128,10 +128,7 @@ describe("DrizzleRepository #pickOne — forme PK portable (S1 multi-dialecte)",
       const row = await repo().updateOne({ grp: "upd" }, { note: "touched" });
       assert.ok(row, "RETURNING doit rendre la ligne modifiée");
       assert.equal(row?.note, "touched");
-      assert.equal(
-        await repo().count({ grp: "upd", note: "touched" } as never),
-        1,
-      );
+      assert.equal(await repo().count({ grp: "upd", note: "touched" }), 1);
       assert.equal(
         await repo().count({ grp: "upd" }),
         3,
@@ -252,7 +249,7 @@ describe("DrizzleRepository #pickOne — forme PK portable (S1 multi-dialecte)",
       // Cible qualifiée par la table : `("t"."tenant", "t"."slot") IN (SELECT "tenant", "slot" FROM (…))`.
       assert.match(update, /"slot"\) in \(select "tenant", "slot" from/i);
       assert.equal(
-        await compRepo().count({ tenant: "t1", payload: "one" } as never),
+        await compRepo().count({ tenant: "t1", payload: "one" }),
         1,
         "une seule des deux lignes t1 modifiée",
       );

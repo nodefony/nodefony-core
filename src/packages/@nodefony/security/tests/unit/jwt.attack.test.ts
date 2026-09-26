@@ -107,7 +107,7 @@ async function mint(
     ...over.claims,
   };
   return new jose.SignJWT(claims)
-    .setProtectedHeader(header as jose.JWTHeaderParameters)
+    .setProtectedHeader(header)
     .sign(over.key ?? signing.key);
 }
 
@@ -172,7 +172,7 @@ describe("JwtAuthenticator — matrice d'attaques (RFC 8725)", () => {
           e instanceof AuthenticationError,
           "doit être AuthenticationError",
         );
-        assert.equal((e as AuthenticationError).code, 401);
+        assert.equal(e.code, 401);
         return true;
       },
     );

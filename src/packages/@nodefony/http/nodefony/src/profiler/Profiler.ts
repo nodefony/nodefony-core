@@ -257,7 +257,7 @@ export class Profiler {
     const out: ProfileSummary[] = [];
     const entries = [...this._buf.values()];
     for (let i = entries.length - 1; i >= 0 && out.length < limit; i--) {
-      const e = entries[i]!;
+      const e = entries[i];
       out.push({
         requestId: e.requestId,
         ts: e.ts,

@@ -72,7 +72,7 @@ describe("normalizeIntrospection — la référence rendue utilisable", () => {
     ) as {
       tables: Record<string, { columns: Record<string, { type: string }> }>;
     };
-    return doc.tables.User?.columns[colonne]?.type as string;
+    return doc.tables.User?.columns[colonne]?.type;
   };
 
   it("🔴 sur MySQL, le booléen lu en `tinyint(1)` est rendu à sa forme déclarée", async () => {

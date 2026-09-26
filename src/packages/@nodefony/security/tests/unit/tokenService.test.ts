@@ -121,10 +121,10 @@ describe("TokenService — émission", () => {
     const store = container.get<ITokenStore>("tokenStore")!;
     const rec = await store.findByHash(sha256(r.refresh_token));
     assert.ok(rec);
-    assert.equal(rec!.kind, "refresh");
-    assert.equal(rec!.secretHash, sha256(r.refresh_token));
-    assert.deepEqual(rec!.scopes, ["orders:read"]);
-    assert.ok(rec!.family);
+    assert.equal(rec.kind, "refresh");
+    assert.equal(rec.secretHash, sha256(r.refresh_token));
+    assert.deepEqual(rec.scopes, ["orders:read"]);
+    assert.ok(rec.family);
   });
 
   it("issueForCredentials : password grant (bon credential émet, mauvais → 401)", async () => {

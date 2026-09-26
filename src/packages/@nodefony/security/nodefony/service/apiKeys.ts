@@ -1,11 +1,4 @@
-import {
-  Service,
-  Module,
-  Container,
-  Event,
-  countFacets,
-  type IPage,
-} from "nodefony";
+import { Service, Module, Container, countFacets, type IPage } from "nodefony";
 import { randomUUID } from "node:crypto";
 import { TOKEN_FACETS, type ITokenCounts } from "../src/token/tokenFilters";
 import {
@@ -59,7 +52,7 @@ class ApiKeyService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -180,7 +173,7 @@ class ApiKeyService extends Service {
       `api key created — id=${record.id} subject=${subjectId} scopes=[${scopes.join(",")}]`,
       "INFO",
     );
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "token",
       action: "apikey.created",
       outcome: "success",
@@ -265,7 +258,7 @@ class ApiKeyService extends Service {
       `api key revoked by admin — id=${id} actor=${actorId} subject=${record.subjectId}`,
       "INFO",
     );
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "token",
       action: "apikey.revoked",
       outcome: "success",
@@ -308,7 +301,7 @@ class ApiKeyService extends Service {
     }
     await store.revoke(id, "manual");
     this.log(`api key revoked — id=${id} subject=${subjectId}`, "INFO");
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "token",
       action: "apikey.revoked",
       outcome: "success",

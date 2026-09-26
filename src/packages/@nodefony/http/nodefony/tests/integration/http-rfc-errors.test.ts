@@ -36,7 +36,7 @@ function req(
         resolve({
           status: res.statusCode!,
           statusMessage: res.statusMessage ?? "",
-          headers: res.headers as Record<string, string | string[] | undefined>,
+          headers: res.headers,
           body: raw.toString("utf-8"),
           bodyLen: raw.length,
         });

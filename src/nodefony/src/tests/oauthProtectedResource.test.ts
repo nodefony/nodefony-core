@@ -208,7 +208,6 @@ describe("buildBearerChallenge — ce qui rend l'autorisation APPRENABLE", () =>
       'error_description="en-t te mal form sch ma attendu"',
     );
     // Aucun octet hors ASCII imprimable ne subsiste dans l'en-tête entier.
-    // eslint-disable-next-line no-control-regex
     expect(/[^\x20-\x7e]/.test(challenge)).to.equal(false);
   });
 

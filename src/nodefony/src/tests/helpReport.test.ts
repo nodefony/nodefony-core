@@ -224,7 +224,6 @@ describe("renderHelp — un document PUR, qui tient dans le terminal", () => {
 describe("renderHelp — la couleur ne change QUE la couleur", () => {
   /** Retire les séquences ANSI, quelles qu'elles soient. */
   const nu = (t: string): string =>
-    // eslint-disable-next-line no-control-regex
     t.replace(new RegExp(`${String.fromCharCode(27)}\\[[0-9;]*m`, "gu"), "");
 
   it("🔴 sans couleur, PAS une seule séquence d'échappement", () => {

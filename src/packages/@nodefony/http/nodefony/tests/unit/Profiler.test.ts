@@ -29,7 +29,7 @@ function ctx(over: Record<string, unknown> = {}): Record<string, unknown> {
 describe("Profiler — unit", () => {
   it("collects a full profile keyed by requestId", () => {
     const p = new Profiler();
-    p.collect(ctx() as never);
+    p.collect(ctx());
     const e = p.get("req-1");
     expect(e).to.exist;
     expect(e!.method).to.equal("GET");
@@ -44,14 +44,14 @@ describe("Profiler — unit", () => {
 
   it("derives total duration from phases (end - start)", () => {
     const p = new Profiler();
-    p.collect(ctx() as never);
+    p.collect(ctx());
     // last phase ends at 5 + 0.5 = 5.5, first starts at 0
     expect(p.get("req-1")!.durationMs).to.equal(5.5);
   });
 
   it("flags ws kind for websocket contexts", () => {
     const p = new Profiler();
-    p.collect(ctx({ requestId: "ws-1", type: "websocket" }) as never);
+    p.collect(ctx({ requestId: "ws-1", type: "websocket" }));
     expect(p.get("ws-1")!.kind).to.equal("ws");
   });
 
@@ -62,7 +62,7 @@ describe("Profiler — unit", () => {
         requestId: "err-1",
         response: null,
         error: { message: "boom" },
-      }) as never,
+      }),
     );
     const e = p.get("err-1")!;
     expect(e.status).to.equal(500);
@@ -71,24 +71,24 @@ describe("Profiler — unit", () => {
 
   it("ignores a context without requestId (no-op)", () => {
     const p = new Profiler();
-    p.collect(ctx({ requestId: undefined }) as never);
+    p.collect(ctx({ requestId: undefined }));
     expect(p.size).to.equal(0);
   });
 
   it("recent() returns summaries newest-first, capped", () => {
     const p = new Profiler();
-    for (let i = 0; i < 5; i++) p.collect(ctx({ requestId: `r${i}` }) as never);
+    for (let i = 0; i < 5; i++) p.collect(ctx({ requestId: `r${i}` }));
     const r = p.recent(3);
     expect(r).to.have.length(3);
-    expect(r[0]!.requestId).to.equal("r4");
-    expect(r[2]!.requestId).to.equal("r2");
+    expect(r[0].requestId).to.equal("r4");
+    expect(r[2].requestId).to.equal("r2");
     // résumé sans les phases
     expect((r[0] as unknown as Record<string, unknown>).phases).to.be.undefined;
   });
 
   it("evicts the oldest entry past capacity (ring buffer)", () => {
     const p = new Profiler(3);
-    for (let i = 0; i < 5; i++) p.collect(ctx({ requestId: `k${i}` }) as never);
+    for (let i = 0; i < 5; i++) p.collect(ctx({ requestId: `k${i}` }));
     expect(p.size).to.equal(3);
     expect(p.get("k0")).to.be.undefined;
     expect(p.get("k1")).to.be.undefined;
@@ -97,11 +97,11 @@ describe("Profiler — unit", () => {
 
   it("re-collecting same requestId refreshes recency without growing", () => {
     const p = new Profiler(3);
-    p.collect(ctx({ requestId: "a" }) as never);
-    p.collect(ctx({ requestId: "b" }) as never);
-    p.collect(ctx({ requestId: "c" }) as never);
-    p.collect(ctx({ requestId: "a" }) as never); // refresh a → b oldest now
-    p.collect(ctx({ requestId: "d" }) as never); // evict b
+    p.collect(ctx({ requestId: "a" }));
+    p.collect(ctx({ requestId: "b" }));
+    p.collect(ctx({ requestId: "c" }));
+    p.collect(ctx({ requestId: "a" })); // refresh a → b oldest now
+    p.collect(ctx({ requestId: "d" })); // evict b
     expect(p.size).to.equal(3);
     expect(p.get("b")).to.be.undefined;
     expect(p.get("a")).to.exist;
@@ -109,7 +109,7 @@ describe("Profiler — unit", () => {
 
   it("clear() empties the buffer", () => {
     const p = new Profiler();
-    p.collect(ctx() as never);
+    p.collect(ctx());
     p.clear();
     expect(p.size).to.equal(0);
   });
@@ -128,7 +128,7 @@ describe("Profiler — unit", () => {
               connector: "drizzle",
             },
           ],
-        }) as never,
+        }),
       );
       const q = p.get("req-1")!.queries;
       expect(q).to.have.length(2);
@@ -138,8 +138,8 @@ describe("Profiler — unit", () => {
 
     it("leaves queries undefined when no adapter pushed (empty/null)", () => {
       const p = new Profiler();
-      p.collect(ctx({ requestId: "empty", profilerQueries: [] }) as never);
-      p.collect(ctx({ requestId: "nul", profilerQueries: null }) as never);
+      p.collect(ctx({ requestId: "empty", profilerQueries: [] }));
+      p.collect(ctx({ requestId: "nul", profilerQueries: null }));
       expect(p.get("empty")!.queries).to.be.undefined;
       expect(p.get("nul")!.queries).to.be.undefined;
     });
@@ -149,7 +149,7 @@ describe("Profiler — unit", () => {
       p.collect(
         ctx({
           profilerQueries: [{ sql: "SELECT 1", startMs: 2.5, durationMs: 0.4 }],
-        }) as never,
+        }),
       );
       // La phase `action` court de 1 à 5 → la requête (2.5) tombe DEDANS.
       expect(p.get("req-1")!.queries![0].startMs).to.equal(2.5);
@@ -167,7 +167,7 @@ describe("Profiler — unit", () => {
 
     it("reports nothing when the request crossed no firewall zone", () => {
       const p = new Profiler();
-      p.collect(ctx() as never);
+      p.collect(ctx());
       expect(p.get("req-1")!.security).to.be.undefined;
     });
 
@@ -182,7 +182,7 @@ describe("Profiler — unit", () => {
             reason: null,
             roles: ["ROLE_NODEFONY_ADMIN"],
           },
-        }) as never,
+        }),
       );
       const s = p.get("req-1")!.security!;
       expect(s.zone).to.equal("admin");
@@ -208,7 +208,7 @@ describe("Profiler — unit", () => {
             reason: "no_credentials",
             roles: null,
           },
-        }) as never,
+        }),
       );
       const s = p.get("req-1")!.security!;
       expect(s.outcome).to.equal("denied");
@@ -221,7 +221,7 @@ describe("Profiler — unit", () => {
       p.collect(
         ctx({
           security: { name: "front", security: false, authenticators: [] },
-        }) as never,
+        }),
       );
       const s = p.get("req-1")!.security!;
       expect(s.protected).to.equal(false);

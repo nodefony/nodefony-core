@@ -563,10 +563,7 @@ class Context extends Service implements IContextInterface {
       lifecycleEventLogging = this.kernel?.environment !== "production";
     }
     if (!lifecycleEventLogging) return;
-    this.log(
-      `${colorLogEvent()} ${event as string}`,
-      EVENT_SEVERITY[event as string] || "DEBUG",
-    );
+    this.log(`${colorLogEvent()} ${event}`, EVENT_SEVERITY[event] || "DEBUG");
   }
 
   override fire(event: KernelEventsType, ...args: unknown[]): boolean {
@@ -602,13 +599,10 @@ class Context extends Service implements IContextInterface {
       const logger = this.httpKernel?.getRequestLogger();
       if (!logger) return;
       // Audit sampling (L3): skip BEFORE renderHttp → 0 alloc, 0 stringify.
-      if (
-        logger.shouldSample &&
-        !logger.shouldSample(this as never, err as Error | null)
-      ) {
+      if (logger.shouldSample && !logger.shouldSample(this as never, err)) {
         return;
       }
-      const entry = logger.renderHttp(this as never, err as Error | null);
+      const entry = logger.renderHttp(this as never, err);
       // Le bilan `req` (LE point d'entrée d'une trace) est émis au teardown, hors
       // bulle ALS → la corrélation requestId est assurée par l'override `log()`
       // ci-dessus (micro-bulle si l'ALS est vide), commun à tous les logs de fin.

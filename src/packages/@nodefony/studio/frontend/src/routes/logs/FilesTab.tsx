@@ -39,7 +39,7 @@ export function FilesTab({ logDir }: { logDir?: string | null }) {
         <SegmentedControl
           size="xs"
           value={mode}
-          onChange={(v) => setMode(v as FilesMode)}
+          onChange={(v) => setMode(v)}
           data={[
             {
               value: "follow",

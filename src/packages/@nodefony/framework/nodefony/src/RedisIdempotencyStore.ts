@@ -263,7 +263,7 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
       return { state: "fresh" };
     }
     const k = this.#key(key);
-    const reservation = JSON.stringify({ s: "if", f: fingerprint } as Entry);
+    const reservation = JSON.stringify({ s: "if", f: fingerprint });
     // Réservation ATOMIQUE : un seul `SET NX` gagne entre N begins concurrents.
     if (
       (await client.set(k, reservation, { NX: true, PX: this.#leaseMs })) !==
@@ -316,7 +316,7 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
       s: "d",
       f: existing.f,
       r: response,
-    } as Entry);
+    });
     await client.set(k, done, { PX: this.#ttlMs });
     this.#dec();
   }

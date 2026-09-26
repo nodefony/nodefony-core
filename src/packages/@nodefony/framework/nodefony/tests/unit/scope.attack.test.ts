@@ -128,16 +128,8 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
   it("A1 — first-arrival context does NOT freeze identity for later users", async () => {
     const router = makeRouter();
     // Alice (admin) est la PREMIÈRE à toucher la route → crée le singleton.
-    const alice = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "alice",
-      router,
-    );
-    const bob = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "bob",
-      router,
-    );
+    const alice = makeResolver(VictimSingleton, "alice", router);
+    const bob = makeResolver(VictimSingleton, "bob", router);
 
     const instance = await alice.r.newController();
     // ATTAQUE significative : Bob tape EXACTEMENT la même instance partagée.
@@ -162,16 +154,8 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
 
   it("A2 — truly concurrent interleaved requests stay isolated", async () => {
     const router = makeRouter();
-    const alice = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "alice",
-      router,
-    );
-    const bob = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "bob",
-      router,
-    );
+    const alice = makeResolver(VictimSingleton, "alice", router);
+    const bob = makeResolver(VictimSingleton, "bob", router);
     const instance = await alice.r.newController();
     expect(await bob.r.newController()).to.equal(instance);
 
@@ -199,16 +183,8 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
 
   it("A3 — route never bleeds across requests (no action confusion)", async () => {
     const router = makeRouter();
-    const alice = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "alice",
-      router,
-    );
-    const bob = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "bob",
-      router,
-    );
+    const alice = makeResolver(VictimSingleton, "alice", router);
+    const bob = makeResolver(VictimSingleton, "bob", router);
 
     // Alice exécute une action complète (chemin réel executeAction).
     const { result } = await alice.r.executeAction();
@@ -227,18 +203,8 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
     const router = makeRouter();
     const adminSess: Sess = { id: "sess-admin" };
     const userSess: Sess = { id: "sess-user" };
-    const alice = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "alice",
-      router,
-      adminSess,
-    );
-    const bob = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "bob",
-      router,
-      userSess,
-    );
+    const alice = makeResolver(VictimSingleton, "alice", router, adminSess);
+    const bob = makeResolver(VictimSingleton, "bob", router, userSess);
     const instance = await alice.r.newController();
     expect(await bob.r.newController()).to.equal(instance);
 
@@ -254,16 +220,8 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
 
   it("A5 — query/queryGet (WS-RPC params) never bleed", async () => {
     const router = makeRouter();
-    const alice = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "alice",
-      router,
-    );
-    const bob = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "bob",
-      router,
-    );
+    const alice = makeResolver(VictimSingleton, "alice", router);
+    const bob = makeResolver(VictimSingleton, "bob", router);
     const instance = await alice.r.newController();
     expect(await bob.r.newController()).to.equal(instance);
 
@@ -279,11 +237,7 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
 
   it("A6 (passe 2) — executeAction does NOT freeze queryOverride on a singleton", async () => {
     const router = makeRouter();
-    const alice = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "alice",
-      router,
-    );
+    const alice = makeResolver(VictimSingleton, "alice", router);
     // Un pont WS-RPC pose une query d'override sur le Resolver d'Alice.
     (
       alice.r as unknown as { queryOverride: Record<string, unknown> | null }
@@ -294,11 +248,7 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
     const instance = await alice.r.newController();
 
     // Le singleton ne doit PAS porter l'override gravé (sinon Bob le lirait).
-    const bob = makeResolver(
-      VictimSingleton as unknown as ControllerConstructor,
-      "bob",
-      router,
-    );
+    const bob = makeResolver(VictimSingleton, "bob", router);
     expect(await bob.r.newController()).to.equal(instance);
     inRun(bob.ctx, () => {
       expect(instance.query).to.deep.equal({ q: "bob" });
@@ -308,16 +258,8 @@ describe("RED-TEAM — singleton controller inter-user leak", () => {
 
   it("CONTRÔLE — per-request controllers are isolated by fresh instantiation", async () => {
     const router = makeRouter();
-    const a = makeResolver(
-      PerRequestCtrl as unknown as ControllerConstructor,
-      "alice",
-      router,
-    );
-    const b = makeResolver(
-      PerRequestCtrl as unknown as ControllerConstructor,
-      "bob",
-      router,
-    );
+    const a = makeResolver(PerRequestCtrl, "alice", router);
+    const b = makeResolver(PerRequestCtrl, "bob", router);
     const ca = await a.r.newController();
     const cb = await b.r.newController();
     // Per-request : DEUX instances distinctes, chacune liée à sa requête.

@@ -38,7 +38,7 @@ function makeMinimalRecord(
     revokedReason: null,
     metadata: {},
     ...over,
-  } as IAccessTokenRecord;
+  };
 }
 
 /**

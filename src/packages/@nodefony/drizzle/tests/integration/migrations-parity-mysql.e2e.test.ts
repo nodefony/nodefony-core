@@ -113,14 +113,14 @@ describe.skipIf(!MYSQL_URL)("Migrations ↔ DDL dérivé — parité (mysql)", (
     const mysql = await import("mysql2/promise");
     const url = new URL(MYSQL_URL as string);
     database = url.pathname.replace(/^\//, "");
-    admin = (await mysql.createConnection({
+    admin = await mysql.createConnection({
       host: url.hostname,
       port: Number(url.port || 3306),
       user: decodeURIComponent(url.username),
       password: decodeURIComponent(url.password),
       database,
       multipleStatements: false,
-    })) as unknown as typeof admin;
+    });
 
     // Phase A — la PRODUCTION : le fichier de migration, appliqué tel quel sur
     // un vrai serveur. C'est aussi la seule preuve que ce SQL s'exécute.
@@ -133,7 +133,7 @@ describe.skipIf(!MYSQL_URL)("Migrations ↔ DDL dérivé — parité (mysql)", (
     // Phase B — le DÉVELOPPEMENT : l'adapter dérive le DDL des mêmes entités.
     await dropFrameworkTables();
     orm = await buildDerivedDatabase(CONNECTOR, "mysql", {
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     derived = await introspect();
   });

@@ -184,7 +184,7 @@ describe("Codes de récupération (NIST SP 800-63B §5.1.2)", () => {
   it("matchRecoveryCode trouve l'index et -1 sinon", () => {
     const codes = generateRecoveryCodes(5);
     const hashes = codes.map(hashRecoveryCode);
-    assert.equal(matchRecoveryCode(codes[2] as string, hashes), 2);
+    assert.equal(matchRecoveryCode(codes[2], hashes), 2);
     assert.equal(matchRecoveryCode("ZZZZZ-ZZZZZ", hashes), -1);
   });
 });

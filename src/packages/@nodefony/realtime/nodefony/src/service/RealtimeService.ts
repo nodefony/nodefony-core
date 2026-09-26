@@ -1,4 +1,4 @@
-import { Service, Container, Event, Module, type JsonRpcPeer } from "nodefony";
+import { Service, Container, Module, type JsonRpcPeer } from "nodefony";
 
 import {
   getRealtimeHub,
@@ -56,7 +56,7 @@ class RealtimeService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
   }

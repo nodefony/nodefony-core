@@ -121,7 +121,7 @@ describe("@nodefony/drizzle — fichiers de migration (lecture et empreinte)", (
       ].join("\n");
       const statements = splitStatements(normalizeSql(sql), "sqlite");
       assert.equal(statements.length, 2);
-      assert.doesNotMatch(statements[0] as string, /vrai commentaire/);
+      assert.doesNotMatch(statements[0], /vrai commentaire/);
     });
 
     it("un fichier qui ne porte QUE des commentaires ne rend aucun statement", () => {

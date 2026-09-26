@@ -70,7 +70,7 @@ export function filterPdus(
   // dans l'ordre d'affichage et s'arrêter dès que la fenêtre est pleine.
   const matched: IPduLike[] = [];
   for (let i = pdus.length - 1; i >= 0; i--) {
-    const pdu = pdus[i]!;
+    const pdu = pdus[i];
     if (requestId !== undefined && pdu.requestId !== requestId) continue;
     if (protocol && pduProtocol(pdu) !== protocol) continue;
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))

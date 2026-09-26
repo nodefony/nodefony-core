@@ -147,7 +147,7 @@ describe("OAuth2Client — échange du code", () => {
       codeVerifier: VERIFIER,
     });
     assert.equal(calls.length, 1);
-    const { url, init } = calls[0]!;
+    const { url, init } = calls[0];
     assert.equal(url, "https://idp.test/token");
     assert.equal(init.method, "POST");
     // Un POST redirigé est rejoué en GET sans corps, et l'en-tête Authorization
@@ -179,7 +179,7 @@ describe("OAuth2Client — échange du code", () => {
       clientAuthMethod: "none",
     });
     await c.validateAuthorizationCode({ code: "c", codeVerifier: null });
-    const { init } = calls[0]!;
+    const { init } = calls[0];
     assert.equal(
       (init.headers as Record<string, string>).Authorization,
       undefined,
@@ -194,7 +194,7 @@ describe("OAuth2Client — échange du code", () => {
     const { client: c, calls } = client(json(200, { access_token: "at" }));
     await c.validateAuthorizationCode({ code: "c", codeVerifier: null });
     assert.equal(
-      new URLSearchParams(calls[0]!.init.body as string).get("code_verifier"),
+      new URLSearchParams(calls[0].init.body as string).get("code_verifier"),
       null,
     );
   });
@@ -335,7 +335,7 @@ describe("OAuth2Client — la forme accueille ce qui n'est pas encore livré", (
       codeVerifier: null,
       additionalParameters: { resource: "https://api.test/mcp" },
     });
-    const body = new URLSearchParams(calls[0]!.init.body as string);
+    const body = new URLSearchParams(calls[0].init.body as string);
     assert.equal(body.get("resource"), "https://api.test/mcp");
     assert.equal(body.get("grant_type"), "authorization_code");
   });
@@ -363,7 +363,7 @@ describe("OAuth2Client — la forme accueille ce qui n'est pas encore livré", (
       clientAuthMethod: "client_secret_post",
     });
     await c.validateAuthorizationCode({ code: "c", codeVerifier: null });
-    const { init } = calls[0]!;
+    const { init } = calls[0];
     assert.equal(
       (init.headers as Record<string, string>).Authorization,
       undefined,

@@ -179,7 +179,6 @@ export const Modules = observer(() => {
 
   useEffect(() => {
     void load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [store]);
 
   const filtered = useMemo(() => {

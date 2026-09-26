@@ -4,7 +4,6 @@ import {
   Service,
   //Kernel,
   Container,
-  Event,
   Module,
   FamilyType,
   inject,
@@ -55,7 +54,7 @@ class ServerHttp extends Service {
     super(
       "server-http",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options.http,
     );
     this.module = module;
@@ -83,7 +82,7 @@ class ServerHttp extends Service {
         });
         this.server = http.createServer(opt);
         this.httpTerminator = createDrainTerminator(
-          this.server as http.Server,
+          this.server,
           this.options.shutdownTimeout,
         );
         if (this.options.maxHeadersCount) {

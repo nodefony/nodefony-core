@@ -70,7 +70,7 @@ export async function scanDocsDir(
 ): Promise<ScannedDoc[]> {
   let entries: string[];
   try {
-    entries = (await readdir(baseDir, { recursive: true })) as string[];
+    entries = await readdir(baseDir, { recursive: true });
   } catch {
     return []; // dossier absent / illisible → rien (best-effort, hors dépôt OK)
   }

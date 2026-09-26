@@ -140,7 +140,7 @@ describe("commandes standalone — `--help` tient la promesse du pied de l'aide"
     );
     const dansLeFastPath = new Set<string>();
     for (const m of source.matchAll(/requested === "([a-z][\w:-]*)"/gu)) {
-      dansLeFastPath.add(m[1] as string);
+      dansLeFastPath.add(m[1]);
     }
     // Un motif qui ne trouve RIEN rendrait ce contrôle vert à vide — c'est la
     // façon dont une garde cesse de garder sans que personne ne s'en aperçoive.

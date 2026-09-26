@@ -4,7 +4,6 @@ import {
   resolveColorEnabled,
   type CliKernel,
   type Kernel,
-  type Module,
 } from "nodefony";
 import type { IDrizzleConfig } from "../interfaces/IDrizzleConfig";
 import type { DrizzleMigrator } from "../src/migrator/DrizzleMigrator";
@@ -136,8 +135,7 @@ export abstract class OrmMigrateCommand extends Command {
    * @returns la configuration, ou `null` si le module n'est pas chargé.
    */
   protected drizzleConfig(): IDrizzleConfig | null {
-    const modules = (this.kernel as Kernel | null)?.modules as
-      Record<string, Module> | undefined;
+    const modules = (this.kernel as Kernel | null)?.modules;
     const mod = modules?.[MODULE_NAME];
     return mod ? (mod.config as unknown as IDrizzleConfig) : null;
   }

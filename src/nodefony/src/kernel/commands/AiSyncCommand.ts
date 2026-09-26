@@ -34,7 +34,7 @@ class AiSync extends Command {
     super(
       "ai:sync",
       "installe les skills d'agent des paquets présents",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption("--dry-run", "Le plan, sans rien écrire");

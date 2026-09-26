@@ -57,15 +57,15 @@ describe("Log Backplane (LB.0/LB.1)", () => {
       const r = filterPdus(sample());
       assert.strictEqual(r.total, 5);
       assert.strictEqual(r.rows.length, 5);
-      assert.strictEqual(r.rows[0]!.payload, "hello world"); // le + récent
-      assert.strictEqual(r.rows[4]!.payload, "alpha login"); // le + ancien
+      assert.strictEqual(r.rows[0].payload, "hello world"); // le + récent
+      assert.strictEqual(r.rows[4].payload, "alpha login"); // le + ancien
       assert.strictEqual(r.truncated, false);
     });
 
     it("severity unique", () => {
       const r = filterPdus(sample(), { severity: "ERROR" });
       assert.strictEqual(r.total, 1);
-      assert.strictEqual(r.rows[0]!.payload, "boom");
+      assert.strictEqual(r.rows[0].payload, "boom");
     });
 
     it("severity multiple (array) + insensible casse", () => {
@@ -85,7 +85,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     it("msgid — inclusion", () => {
       const r = filterPdus(sample(), { msgid: "LOGIN" });
       assert.strictEqual(r.total, 1);
-      assert.strictEqual(r.rows[0]!.moduleName, "AUTH");
+      assert.strictEqual(r.rows[0].moduleName, "AUTH");
     });
 
     it("requestId — match EXACT", () => {
@@ -110,7 +110,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     it("critères combinés en AND", () => {
       const r = filterPdus(sample(), { module: "HTTP", severity: "ERROR" });
       assert.strictEqual(r.total, 1);
-      assert.strictEqual(r.rows[0]!.payload, "boom");
+      assert.strictEqual(r.rows[0].payload, "boom");
     });
 
     it("limit/offset/total/truncated", () => {
@@ -155,7 +155,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     it("protocol + severity combinés en AND", () => {
       const r = filterPdus(proto(), { protocol: "ws", severity: "DEBUG" });
       assert.strictEqual(r.total, 1);
-      assert.strictEqual(r.rows[0]!.payload, "onMessage RECEIVE");
+      assert.strictEqual(r.rows[0].payload, "onMessage RECEIVE");
     });
   });
 
@@ -283,7 +283,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
     it("flow unique → uniquement l'étape", () => {
       const r = filterPdus(flowSample(), { flow: "ws-open" });
       assert.strictEqual(r.total, 1);
-      assert.strictEqual(r.rows[0]!.payload, "EVENT CONTEXT onConnect");
+      assert.strictEqual(r.rows[0].payload, "EVENT CONTEXT onConnect");
     });
     it("flow multiple (OU) → union des étapes", () => {
       const r = filterPdus(flowSample(), { flow: ["ws-open", "ws-message"] });
@@ -360,7 +360,7 @@ describe("Log Backplane (LB.0/LB.1)", () => {
       ring = [mk("a", "INFO", "M1"), mk("b", "ERROR", "M2", "", 2000)];
       const r = await d.query!({ severity: "ERROR" });
       assert.strictEqual(r.total, 1);
-      assert.strictEqual(r.rows[0]!.payload, "b");
+      assert.strictEqual(r.rows[0].payload, "b");
     });
   });
 });
@@ -438,11 +438,11 @@ describe("Log Backplane (LB.2) — driver file JSONL queryable", () => {
     const d = createFileLogDriver({ path: file });
     const all = await d.query!({});
     assert.strictEqual(all.total, 3);
-    assert.strictEqual(all.rows[0]!.payload, "boom"); // le + récent d'abord
-    assert.strictEqual(all.rows[2]!.payload, "alpha login");
+    assert.strictEqual(all.rows[0].payload, "boom"); // le + récent d'abord
+    assert.strictEqual(all.rows[2].payload, "alpha login");
     const err = await d.query!({ severity: "ERROR" });
     assert.strictEqual(err.total, 1);
-    assert.strictEqual(err.rows[0]!.moduleName, "HTTP");
+    assert.strictEqual(err.rows[0].moduleName, "HTTP");
   });
 
   it("requestId EXACT + plage from/to + pagination", async () => {
@@ -480,7 +480,7 @@ describe("Log Backplane (LB.2) — driver file JSONL queryable", () => {
     const d = createFileLogDriver({ path: file });
     const r = await d.query!({});
     assert.strictEqual(r.total, 1);
-    assert.strictEqual(r.rows[0]!.payload, "ok");
+    assert.strictEqual(r.rows[0].payload, "ok");
   });
 
   it("maxScanBytes borne la lecture à la QUEUE du fichier (anti-OOM)", async () => {
@@ -507,7 +507,7 @@ describe("Log Backplane (LB.2) — driver file JSONL queryable", () => {
       r.total > 0 && r.total < 50,
       `attendu une fenêtre tronquée, reçu total=${r.total}`,
     );
-    assert.strictEqual(r.rows[0]!.payload, "p50"); // le + récent présent, fragment partiel jeté
+    assert.strictEqual(r.rows[0].payload, "p50"); // le + récent présent, fragment partiel jeté
   });
 });
 
@@ -686,7 +686,7 @@ describe("Log Backplane (LB.5) — agrégation cluster (cluster-file)", () => {
     const d = createClusterFileLogDriver({ dir });
     const r = await d.query!({});
     assert.strictEqual(r.total, 1);
-    assert.strictEqual(r.rows[0]!.payload, "ok");
+    assert.strictEqual(r.rows[0].payload, "ok");
   });
 
   it("maxFiles borne le nombre de fichiers scannés (anti-OOM)", async () => {

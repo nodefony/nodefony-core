@@ -12,7 +12,7 @@ import type { ControllerConstructor } from "../../src/Route.js";
 // lit uniquement les métadonnées Reflect posées par les décorateurs (ctor +
 // nom d'action), donc des classes nues suffisent.
 const asCtor = (c: unknown): ControllerConstructor =>
-  c as unknown as ControllerConstructor;
+  c as ControllerConstructor;
 
 // Les intents ci-dessous n'utilisent QUE les clés du contrat `SessionIntent`
 // (`readOnly`) : la fusion classe⊕méthode est prouvée sur cette clé — la classe

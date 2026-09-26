@@ -79,11 +79,11 @@ describe.skipIf(!MYSQL_URL)(
         page.items.map((e) => e.id),
         ["my-a2", "my-a1"], // ts DESC
       );
-      const rich = page.items[0]!;
+      const rich = page.items[0];
       assert.deepEqual(rich.flags, { hasCookie: true });
       assert.deepEqual(rich.metadata, { zone: "admin", n: 3 });
       assert.equal(rich.ts, 200, "epoch ms exact via bigint mode number");
-      const bare = page.items[1]!;
+      const bare = page.items[1];
       assert.equal(bare.flags, undefined, "NULL MySQL → champ absent");
       assert.equal(bare.metadata, undefined);
     });
@@ -117,7 +117,7 @@ describe.skipIf(!MYSQL_URL)(
       const page2 = await store.listPage({
         category: "session",
         limit: 2,
-        cursor: page1.nextCursor!,
+        cursor: page1.nextCursor,
       });
       assert.deepEqual(
         page2.items.map((e) => e.id),

@@ -24,7 +24,7 @@ function get(
       res.on("end", () =>
         resolve({
           status: res.statusCode!,
-          headers: res.headers as Record<string, unknown>,
+          headers: res.headers,
           raw: Buffer.concat(chunks).toString("utf8"),
         }),
       );

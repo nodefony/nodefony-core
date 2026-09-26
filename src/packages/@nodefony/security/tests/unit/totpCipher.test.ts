@@ -43,7 +43,7 @@ describe("totpCipher — intégrité (tag GCM)", () => {
     const blob = encryptSecret(Buffer.from("secret-totp-abcd"), key);
     const dot = blob.indexOf(".");
     const raw = Buffer.from(blob.slice(dot + 1), "base64url");
-    raw[raw.length - 1] = (raw[raw.length - 1] as number) ^ 0xff;
+    raw[raw.length - 1] = raw[raw.length - 1] ^ 0xff;
     const tampered = `${blob.slice(0, dot)}.${raw.toString("base64url")}`;
     assert.throws(() => decryptSecret(tampered, key));
   });

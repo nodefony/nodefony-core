@@ -52,7 +52,6 @@ const DIR_META: Record<
 
 /** Retire les codes ANSI d'un payload (les logs TTY peuvent en porter). */
 function stripAnsi(s: string): string {
-  // eslint-disable-next-line no-control-regex
   return s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 

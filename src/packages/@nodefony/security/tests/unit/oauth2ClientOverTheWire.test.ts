@@ -102,7 +102,7 @@ describe("OAuth2Client — ce qui part vraiment sur le socket", () => {
       clientAuthMethod: "client_secret_basic",
       redirectUri: "https://app.test/callback",
       ...overrides,
-    } as ConstructorParameters<typeof OAuth2Client>[0]);
+    });
 
   it("🔴 l'échange aboutit pour de vrai — POST, corps encodé, jetons relus", async () => {
     prochaine = { kind: "tokens" };

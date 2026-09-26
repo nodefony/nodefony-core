@@ -239,9 +239,7 @@ describe("File Upload Tests", () => {
       },
     ]);
     expect(statusCode).to.equal(200);
-    expect(body as unknown[])
-      .to.be.an("array")
-      .with.lengthOf(1);
+    expect(body).to.be.an("array").with.lengthOf(1);
   });
 
   it("rejects a file exceeding maxFileSize with 413", async () => {

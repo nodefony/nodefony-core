@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import { assert } from "chai";
 import { extend, isEmptyObject } from "../Tools";
 

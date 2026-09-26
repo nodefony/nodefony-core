@@ -98,11 +98,7 @@ beforeAll(async () => {
   if (REAL_URL) {
     realClient = createClient({ url: REAL_URL });
     await realClient.connect();
-    store = new RedisTokenStore(
-      () => realClient as unknown as RedisClientLike,
-      Date.now,
-      RETENTION_MS,
-    );
+    store = new RedisTokenStore(() => realClient, Date.now, RETENTION_MS);
   } else {
     store = new RedisTokenStore(
       () => fake as unknown as RedisClientLike,

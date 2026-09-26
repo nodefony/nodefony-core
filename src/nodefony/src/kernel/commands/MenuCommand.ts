@@ -259,7 +259,7 @@ class Menu extends Command {
       const subject = await this.prompts
         .select<string>({
           message: sub.message,
-          choices: this.#render(sub.items) as never,
+          choices: this.#render(sub.items),
           pageSize: 12,
           loop: false,
           theme: this.#theme(),
@@ -357,8 +357,8 @@ class Menu extends Command {
       // commande vient d'un CHOIX, elle doit pouvoir demander ce qui lui
       // manque. (`interaction()` par défaut rend ses arguments, désormais
       // étalés correctement vers `generate` — cf `Command.run`.)
-      this.applyCapabilities(name as string);
-      await this.cli.runCommandAsync(name as string, args);
+      this.applyCapabilities(name);
+      await this.cli.runCommandAsync(name, args);
       return this;
     }
     const command = this.cli.getCommand(response);

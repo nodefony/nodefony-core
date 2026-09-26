@@ -1,4 +1,4 @@
-import type { Criteria, IRepository } from "@nodefony/orm-core";
+import type { IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 // Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
@@ -132,7 +132,7 @@ export class DrizzleWebhookStore implements IWebhookStore {
     // « absent » → deux INSERT → le perdant lève « UNIQUE constraint failed »).
     // `save` pose l'endpoint COMPLET → tout le reste est ré-appliqué au conflit.
     const { id, ...rest } = this.#toRow(endpoint);
-    await this.#repo.upsert({ id }, rest as Partial<WebhookEndpointRow>);
+    await this.#repo.upsert({ id }, rest);
   }
 
   async findById(id: string): Promise<IWebhookEndpoint | null> {
@@ -218,7 +218,7 @@ export class DrizzleWebhookStore implements IWebhookStore {
     // `IN (...)` ne garantit PAS l'ordre → on ré-ordonne selon les ids du SQL.
     const rows = await this.#repo.find({
       id: { $in: ids },
-    } as unknown as Criteria<WebhookEndpointRow>);
+    });
     const byId = new Map(rows.map((row) => [row.id, this.#toEndpoint(row)]));
     const items = ids
       .map((id) => byId.get(id))

@@ -1159,14 +1159,14 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
     })
   ) {
     const { select } = await chargePrompts();
-    const type = (await select({
+    const type = await select({
       message: "Que veux-tu créer ?",
       default: "app",
       choices: CREATE_TYPES.map((t) => ({
         name: `${t} — ${descriptionType(t)}`,
         value: t,
       })),
-    })) as string;
+    });
     // Le type se glisse À LA PLACE qu'il aurait occupée si l'utilisateur
     // l'avait tapé : après le mot `create`, avant tout le reste.
     const at = argv.indexOf("create");
@@ -1454,9 +1454,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   // endroit pour le terminal, Studio et `--answers-json`. Ce qui autorise
   // l'écriture chez un tiers n'est pas la présence d'un humain, c'est un choix
   // EXPLICITE : rien de coché ⇒ rien d'écrit, y compris hors terminal.
-  const chosen = Array.isArray(answers.agents)
-    ? (answers.agents as string[])
-    : [];
+  const chosen = Array.isArray(answers.agents) ? answers.agents : [];
   const wiring = mcpWiringPlan({
     chosen: chosen.length,
     installed,

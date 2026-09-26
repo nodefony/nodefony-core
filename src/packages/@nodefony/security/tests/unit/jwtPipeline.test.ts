@@ -71,7 +71,7 @@ const m2mArea = (): SecuredArea =>
     roles: [],
     realtime: true,
     authenticators: ["jwt"],
-  } as ISecurityAreaConfig);
+  });
 
 function makeContext(
   area: SecuredArea,

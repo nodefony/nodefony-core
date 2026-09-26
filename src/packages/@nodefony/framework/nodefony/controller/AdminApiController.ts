@@ -177,7 +177,7 @@ class AdminApiController extends Controller {
     // matchées positionnelles (le Resolver appelle l'action avec
     // `...resolver.variables`, alignées sur `route.variables`). Cf
     // `Resolver._buildParamArgs`.
-    const names = (this.route?.variables ?? []) as string[];
+    const names = this.route?.variables ?? [];
     const params: Record<string, string> = {};
     for (let i = 0; i < names.length; i++) {
       const key = names[i];
@@ -225,7 +225,7 @@ class AdminApiController extends Controller {
   private extractRoles(user: unknown): readonly string[] {
     let roles: string[] = [];
     if (user && typeof user === "object" && "roles" in user) {
-      const brut = (user as { roles: unknown }).roles;
+      const brut = user.roles;
       if (Array.isArray(brut)) {
         roles = brut.filter((r): r is string => typeof r === "string");
       }

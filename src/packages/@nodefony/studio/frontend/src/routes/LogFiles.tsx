@@ -72,7 +72,7 @@ function parsePdu(line: string): Record<string, unknown> | null {
   try {
     const o: unknown = JSON.parse(line);
     if (o && typeof o === "object" && "severityName" in o) {
-      return o as Record<string, unknown>;
+      return o;
     }
   } catch {
     /* pas du JSON — ligne texte */

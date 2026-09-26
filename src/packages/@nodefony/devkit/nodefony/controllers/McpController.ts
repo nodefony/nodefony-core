@@ -19,11 +19,7 @@ import {
   JsonRpcError,
   jsonRpcFailure,
 } from "nodefony";
-import type {
-  IJsonRpcMessage,
-  IMcpCaller,
-  IAccessTokenVerifier,
-} from "nodefony";
+import type { IMcpCaller, IAccessTokenVerifier } from "nodefony";
 import type { IDevkitService } from "../interfaces/IDevkitService";
 
 /**
@@ -366,7 +362,7 @@ class McpController extends Controller {
     });
 
     const reply = await handleMcpMessage(
-      body as IJsonRpcMessage,
+      body,
       {
         tools,
         caller,

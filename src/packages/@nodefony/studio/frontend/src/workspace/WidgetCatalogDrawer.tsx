@@ -339,7 +339,7 @@ export const WidgetCatalogDrawer = observer(
           <Chip.Group
             value={domain}
             onChange={(v) => {
-              setDomain((v as string) || ALL);
+              setDomain(v || ALL);
               setSub(ALL);
             }}
           >
@@ -357,10 +357,7 @@ export const WidgetCatalogDrawer = observer(
 
           {/* Sous-thèmes du domaine sélectionné. */}
           {subTags.length > 0 ? (
-            <Chip.Group
-              value={sub}
-              onChange={(v) => setSub((v as string) || ALL)}
-            >
+            <Chip.Group value={sub} onChange={(v) => setSub(v || ALL)}>
               <Group gap={6} wrap="wrap" pl="md">
                 <Chip value={ALL} size="xs">
                   Tout {getTag(domain)?.label}
@@ -376,10 +373,7 @@ export const WidgetCatalogDrawer = observer(
 
           {/* Nature + capacités. */}
           <Group gap="md" wrap="wrap">
-            <Chip.Group
-              value={nature}
-              onChange={(v) => setNature((v as string) || ALL)}
-            >
+            <Chip.Group value={nature} onChange={(v) => setNature(v || ALL)}>
               <Group gap={6} wrap="wrap">
                 <Text size="xs" c="dimmed" fw={600}>
                   Nature

@@ -150,13 +150,13 @@ class CliKernel extends Cli {
   ): PackageManager {
     switch (manager) {
       case "yarn":
-        this.packageManager = this.yarn as PackageManager;
+        this.packageManager = this.yarn;
         break;
       case "pnpm":
-        this.packageManager = this.pnpm as PackageManager;
+        this.packageManager = this.pnpm;
         break;
       default:
-        this.packageManager = this.npm as PackageManager;
+        this.packageManager = this.npm;
     }
     return this.packageManager;
   }
@@ -825,7 +825,7 @@ class CliKernel extends Cli {
     return kernel.start().catch(async () => {
       await render();
       return kernel;
-    }) as Promise<Kernel>;
+    });
   }
 
   /**
@@ -863,7 +863,7 @@ class CliKernel extends Cli {
     // l'utilisateur. Le kernel n'ayant pas booté, son journal n'a jamais été
     // muselé par `quietBoot` — sans ce drapeau, un « terminate : 0 » venait
     // s'écrire au pied d'une aide qu'on lit ou qu'on redirige.
-    return (await kernel.terminate(SysExit.OK, true)) as Kernel;
+    return await kernel.terminate(SysExit.OK, true);
   }
 
   /**

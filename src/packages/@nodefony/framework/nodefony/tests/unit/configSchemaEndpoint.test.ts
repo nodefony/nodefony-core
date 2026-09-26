@@ -83,7 +83,7 @@ function ask(kernel: IKernel, module?: string): unknown {
     user: null,
     roles: ["ROLE_NODEFONY_ADMIN"],
     requestId: "test",
-  } as IAdminRequest);
+  });
 }
 
 /** Le décor courant : un module http avec sa config effective. */

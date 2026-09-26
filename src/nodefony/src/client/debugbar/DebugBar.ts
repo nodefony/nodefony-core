@@ -31,7 +31,6 @@ import {
   type DebugBarView,
   type FeedLog,
   type StatsPayload,
-  type SyslogPayload,
 } from "./model";
 import {
   fmtClock,
@@ -1307,8 +1306,7 @@ export class DebugBar {
     });
     const offSyslog = this.client.on(CHANNELS.syslog, (...a) => {
       const p = a[0];
-      if (p && typeof p === "object")
-        this.model.ingestSyslog(p as SyslogPayload);
+      if (p && typeof p === "object") this.model.ingestSyslog(p);
       this.scheduleRender();
     });
     this.model.setState(this.client.state);
@@ -1884,7 +1882,7 @@ export class DebugBar {
     if (refilter) {
       const rows: string[] = [];
       for (let i = feed.length - 1; i >= 0; i--) {
-        const l = feed[i]!;
+        const l = feed[i];
         if (this.feedMatch(l)) rows.push(this.feedRow(l));
       }
       node.innerHTML =
@@ -1906,7 +1904,7 @@ export class DebugBar {
     if (added === 0) return;
     let html = "";
     for (let i = feed.length - 1; i >= feed.length - added; i--) {
-      const l = feed[i]!;
+      const l = feed[i];
       if (this.feedMatch(l)) html += this.feedRow(l);
     }
     if (html === "") return;
@@ -1937,7 +1935,7 @@ export class DebugBar {
     const hasSel = !!rid || this.selNoRid;
     // Donne une vraie hauteur au détail quand un profil est ouvert (sinon le
     // waterfall passe sous le pli, masqué par la liste).
-    (node.parentElement as HTMLElement | null)?.classList.toggle("sel", hasSel);
+    node.parentElement?.classList.toggle("sel", hasSel);
     // Aucune sélection → placeholder, pas de bouton fermer.
     if (!hasSel) {
       node.innerHTML = `<div class="empty">clique un appel → profil serveur (waterfall des phases, route, user).</div>`;

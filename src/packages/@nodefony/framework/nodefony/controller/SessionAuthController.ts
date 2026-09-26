@@ -175,8 +175,7 @@ export function mountSessionAuthRoutes(frameworkModule: Module): void {
   for (const [name, path, method, classMethod] of routes) {
     Router.createRoute(name, {
       path,
-      constructor:
-        SessionAuthController as unknown as Controller["constructor"],
+      constructor: SessionAuthController,
       classMethod,
       requirements: { methods: [method] },
       // Ces routes SONT le mécanisme d'auth : l'aire data plane
@@ -192,12 +191,7 @@ export function mountSessionAuthRoutes(frameworkModule: Module): void {
       "module",
     )
   ) {
-    Router.setController(
-      SessionAuthController as unknown as Parameters<
-        typeof Router.setController
-      >[0],
-      frameworkModule,
-    );
+    Router.setController(SessionAuthController, frameworkModule);
   }
   mounted = true;
 }

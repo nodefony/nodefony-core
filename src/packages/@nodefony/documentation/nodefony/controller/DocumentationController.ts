@@ -52,7 +52,7 @@ class DocumentationController extends Controller {
     try {
       return this.renderJson(await this.#service().getTree());
     } catch (e) {
-      this.log(e as Error, "ERROR");
+      this.log(e, "ERROR");
       return this.renderJson(
         { error: "Index de documentation indisponible." },
         500,
@@ -72,7 +72,7 @@ class DocumentationController extends Controller {
     try {
       return this.renderJson(await this.#service().search(q ?? ""));
     } catch (e) {
-      this.log(e as Error, "ERROR");
+      this.log(e, "ERROR");
       return this.renderJson({ error: "Recherche indisponible." }, 500);
     }
   }
@@ -89,7 +89,7 @@ class DocumentationController extends Controller {
         this.log(`${e.docCode}: ${e.message}`, "WARNING");
         return this.renderJson({ slug, error: "Document inconnu." }, 404);
       }
-      this.log(e as Error, "ERROR");
+      this.log(e, "ERROR");
       return this.renderJson(
         { slug, error: "Lecture de la page impossible." },
         500,

@@ -53,7 +53,7 @@ export function runTotpStoreContract(opts: ITotpStoreContractOptions): void {
     },
     newStore: () => DrizzleTotpSecretStore.from(orm),
     countFor: (userId) =>
-      orm.getRepository(TOTP_SECRET_ENTITY).count({ userId } as never),
+      orm.getRepository(TOTP_SECRET_ENTITY).count({ userId }),
     // Un pool froid sérialise les premières requêtes et masque les courses que
     // le cas d'écriture concurrente existe pour débusquer.
     warm: async () => {

@@ -260,7 +260,6 @@ describe.skipIf(!NF_RUN_CLUSTER_E2E || !REDIS_UP)(
         const lossPct = ((COUNT - received) / COUNT) * 100;
         const throughput = Math.round((received / elapsed) * 1000);
 
-        // eslint-disable-next-line no-console
         console.log(
           `\n  ── RedisBackplane perf (A→B cross-pod, Redis local) ──\n` +
             `  envoyés=${COUNT} reçus=${received} perte=${lossPct.toFixed(2)}%\n` +

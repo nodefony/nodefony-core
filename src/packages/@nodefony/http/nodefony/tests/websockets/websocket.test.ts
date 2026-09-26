@@ -290,7 +290,7 @@ describe("WEBSOCKETS ROUTER — isolation per-requête (test durci)", () => {
             }
           }
         });
-        ws.on("error", (e) => finish(e as Error));
+        ws.on("error", (e) => finish(e));
       }
     }));
 });

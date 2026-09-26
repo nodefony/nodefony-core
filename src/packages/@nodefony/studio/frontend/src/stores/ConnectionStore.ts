@@ -267,7 +267,6 @@ export class ConnectionStore {
     // activeSubscriptions, qui peut contenir des entrées d'affichage réconciliées
     // depuis l'autorité client (canaux abonnés via les hooks `nodefony/react`).
     if (this.clientHandlers.has(channel)) {
-      // eslint-disable-next-line no-console
       console.warn(`[Connection] already subscribed to ${channel}`);
       return () => this.unsubscribe(channel);
     }

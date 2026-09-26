@@ -1336,7 +1336,6 @@ export class DevSupervisor {
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
       c.once("exit", () => {
         clearTimeout(kill9);
-        // oxlint-disable-next-line no-multiple-resolved -- exclusion garantie : le `return resolve()` du cas « enfant déjà mort » sort avant qu'on attende `exit`
         resolve();
       });
       this.#signalGroup(c, "SIGTERM");

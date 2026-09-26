@@ -1,5 +1,4 @@
 /// <reference types="node" />
-import type { Severity } from "nodefony";
 import { logColor } from "nodefony";
 import { performance } from "node:perf_hooks";
 import type {
@@ -91,7 +90,7 @@ class PrettyRequestLogger implements IRequestLogger {
 
     return {
       text,
-      severity: error ? ("ERROR" as Severity) : ("INFO" as Severity),
+      severity: error ? "ERROR" : "INFO",
       msgid: "req",
     };
   }

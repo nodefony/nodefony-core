@@ -121,7 +121,7 @@ export function runAuditPaginationContract(
       assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
       assert.equal((thrown as { code?: unknown }).code, 400);
       assert.ok(thrown instanceof Error);
-      assert.match((thrown as Error).message, /pagination mode/i);
+      assert.match(thrown.message, /pagination mode/i);
     });
 
     it("refuse un `order` (400) — l'ordre appartient au curseur", async () => {
@@ -161,17 +161,17 @@ export function runAuditPaginationContract(
     it("ordre : du plus récent au plus ancien, total exact", async () => {
       const page = await store().listPage({ limit: 3 });
       assert.equal(page.total, 12);
-      assert.equal(page.items[0]!.id, "evt-11");
-      assert.equal(page.items[1]!.id, "evt-10");
-      assert.equal(page.items[2]!.id, "evt-09");
+      assert.equal(page.items[0].id, "evt-11");
+      assert.equal(page.items[1].id, "evt-10");
+      assert.equal(page.items[2].id, "evt-09");
     });
 
     it("parcours complet : 12 événements DISTINCTS, aucun perdu ni répété", async () => {
       const all = await collectByCursor(store());
       assert.equal(all.length, 12);
       assert.equal(new Set(all.map((e) => e.id)).size, 12);
-      assert.equal(all[0]!.id, "evt-11");
-      assert.equal(all[11]!.id, "evt-00");
+      assert.equal(all[0].id, "evt-11");
+      assert.equal(all[11].id, "evt-00");
     });
 
     // La rafale : trois événements à la milliseconde près. Sans ordre total
@@ -216,7 +216,7 @@ export function runAuditPaginationContract(
         limit: 3,
         cursor: "n'importe quoi",
       });
-      assert.equal(page.items[0]!.id, "evt-11");
+      assert.equal(page.items[0].id, "evt-11");
       assert.equal(page.total, 12);
     });
 

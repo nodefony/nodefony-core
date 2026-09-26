@@ -272,7 +272,7 @@ export function JsonView({
           <SegmentedControl
             size="xs"
             value={mode}
-            onChange={(v) => setMode(v as "tree" | "raw")}
+            onChange={(v) => setMode(v)}
             data={[
               { label: "Arbre", value: "tree" },
               { label: "Brut", value: "raw" },

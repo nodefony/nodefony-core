@@ -59,7 +59,7 @@ export function formatCell(value: unknown): string {
   if (typeof value === "object") {
     // Un objet imbriqué n'a pas sa place dans une cellule : on dit sa forme,
     // et `--json` reste la porte pour son contenu.
-    const clés = Object.keys(value as object);
+    const clés = Object.keys(value);
     return clés.length ? `{${clés.join(", ")}}` : "{}";
   }
   return String(value);

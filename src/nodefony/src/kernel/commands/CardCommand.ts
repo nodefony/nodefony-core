@@ -40,12 +40,7 @@ const options: OptionsCommandInterface = {
  */
 class Card extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "card",
-      "carte de visite : où l'on est, quoi lancer",
-      cli as CliKernel,
-      options,
-    );
+    super("card", "carte de visite : où l'on est, quoi lancer", cli, options);
     this.alias("devkit:card");
     this.addOption("-j, --json", "sortie JSON (scriptable)");
     this.addOption(

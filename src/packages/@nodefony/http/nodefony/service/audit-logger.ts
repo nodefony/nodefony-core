@@ -69,10 +69,10 @@ export interface AuditErrorEntry {
  * Unknown/missing status → INFO.
  */
 function severityFromStatus(status: number | null | undefined): Severity {
-  if (!status) return "INFO" as Severity;
-  if (status >= 500) return "ERROR" as Severity;
-  if (status >= 400) return "WARNING" as Severity;
-  return "INFO" as Severity;
+  if (!status) return "INFO";
+  if (status >= 500) return "ERROR";
+  if (status >= 400) return "WARNING";
+  return "INFO";
 }
 
 export interface JsonAuditLoggerOptions {
@@ -272,7 +272,7 @@ class JsonAuditLogger implements IRequestLogger {
     };
     return {
       text: JSON.stringify(entry),
-      severity: error ? ("ERROR" as Severity) : ("INFO" as Severity),
+      severity: error ? "ERROR" : "INFO",
       msgid: "audit",
     };
   }

@@ -116,7 +116,7 @@ export default class WebsocketContext
     this.webSocketState = "handshake";
     this.request = req as WsIncomingMessage;
     this.connection = ws;
-    this.response = new WebsocketResponse(ws as Ws, this);
+    this.response = new WebsocketResponse(ws, this);
     this.method = this.getMethod();
     this.origin = (req.headers.origin as string) ?? "";
     // Résolution forwarded UNIFIÉE (RFC 7239 prioritaire, repli X-Forwarded-*),
@@ -134,8 +134,7 @@ export default class WebsocketContext
     // IP cliente réelle (anti-spoof) : même résolution from-right que HTTP — on
     // dépouille la chaîne forwarded derrière les proxies de confiance.
     this.remoteAddress = this.getRemoteAddress();
-    this.acceptedProtocol = req.headers["sec-websocket-protocol"] as
-      string | undefined;
+    this.acceptedProtocol = req.headers["sec-websocket-protocol"];
     this.scheme = type === "websocket-secure" ? "wss" : "ws";
 
     // Zero Trust : même validation que HttpContext (réflexion + logs + ALS).
@@ -158,11 +157,10 @@ export default class WebsocketContext
 
     // Extend request with URL object so the router can use request.url.pathname
     // Cast needed: IncomingMessage.url is string, IWsRequestExtension.url is URL → intersection string & URL
-    (this.request as WsIncomingMessage).url = this.wsUrl as unknown as string &
-      URL;
-    (this.request as WsIncomingMessage).queryGet = this.queryGet;
-    (this.request as WsIncomingMessage).query = this.queryRequest;
-    (this.request as WsIncomingMessage).path = this.wsPath;
+    this.request.url = this.wsUrl as unknown as string & URL;
+    this.request.queryGet = this.queryGet;
+    this.request.query = this.queryRequest;
+    this.request.path = this.wsPath;
 
     try {
       this.originUrl = new URL(this.origin);
@@ -217,8 +215,8 @@ export default class WebsocketContext
       const logger = this.httpKernel?.getRequestLogger();
       if (!logger) return;
       const entry = logger.renderWebsocket(
-        this as never,
-        (httpError ?? null) as Error | null,
+        this,
+        httpError ?? null,
         acceptedProtocol ?? null,
       );
       const pdu = this.log(entry.text, entry.severity, entry.msgid);
@@ -363,7 +361,7 @@ export default class WebsocketContext
       this.logMessageContent("SEND", payload);
       this.fire("onMessage", payload, this, "SEND");
       this.fire("onSend", payload, this);
-      return this.response.send(payload as string | Buffer | null, encoding);
+      return this.response.send(payload, encoding);
     }
     throw new Error("No response found");
   }
@@ -375,10 +373,7 @@ export default class WebsocketContext
         this.logMessageContent("BROADCAST", payload);
         this.fire("onMessage", payload, this, "BROADCAST");
         this.fire("onBroadcast", payload, this);
-        return this.response.broadcast(
-          payload as string | Buffer | null,
-          encoding,
-        );
+        return this.response.broadcast(payload, encoding);
       }
     }
     return null;
@@ -620,7 +615,7 @@ export default class WebsocketContext
   }
 
   reject(code: number | string | undefined, message?: string) {
-    if (this.connection && (this.connection as Ws).readyState === Ws.OPEN) {
+    if (this.connection && this.connection.readyState === Ws.OPEN) {
       const raw = typeof code === "string" ? parseInt(code, 10) : code;
       // Coercition RFC 6455 §7.4 (cf `toWsCloseCode`) : codes standard préférés,
       // jamais de code 0-999 ni de 4xxx inventé.

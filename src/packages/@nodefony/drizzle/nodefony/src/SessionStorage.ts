@@ -142,11 +142,9 @@ class SessionStorage implements ISessionStorage {
     // reprise) ni de race insert/update. `createdAt` = insert-only → préservé sur
     // une session existante, posé à `now` sur une neuve ; la ligne RETURNING en
     // donne la vraie valeur.
-    const row = await repo.upsert(
-      { session_id: id },
-      fields as Partial<SessionRow>,
-      { createdAt: now } as Partial<SessionRow>,
-    );
+    const row = await repo.upsert({ session_id: id }, fields, {
+      createdAt: now,
+    });
     return {
       ...serialize,
       createdAt: new Date(row.createdAt),
@@ -194,14 +192,14 @@ class SessionStorage implements ISessionStorage {
     const idleCutoff = now - (idleSeconds ?? this.idleTimeoutS) * 1000;
     let deleted = await repo.delete({
       updatedAt: { $lt: idleCutoff },
-    } as Criteria<SessionRow>);
+    });
     // Borne absolute : âge depuis `createdAt`, JAMAIS prolongé (re-auth forcée).
     // Deux DELETE distincts (pas de `$or`) → portable sur tout adapter orm-core.
     const absoluteS = absoluteSeconds ?? this.absoluteTimeoutS;
     if (absoluteS > 0) {
       deleted += await repo.delete({
         createdAt: { $lt: now - absoluteS * 1000 },
-      } as Criteria<SessionRow>);
+      });
     }
     if (deleted > 0) {
       this.manager.log(`DRIZZLE SESSIONS GC ==> ${deleted} DELETED`, "DEBUG");
@@ -219,9 +217,12 @@ class SessionStorage implements ISessionStorage {
     if (!repo) {
       return;
     }
-    await repo.updateOne({ session_id: id }, {
-      updatedAt: Date.now(),
-    } as Partial<SessionRow>);
+    await repo.updateOne(
+      { session_id: id },
+      {
+        updatedAt: Date.now(),
+      },
+    );
   }
 
   /**
@@ -237,7 +238,7 @@ class SessionStorage implements ISessionStorage {
     }
     const rows =
       filter?.user !== undefined
-        ? await repo.find({ user: filter.user } as Partial<SessionRow>)
+        ? await repo.find({ user: filter.user })
         : await repo.find();
     return rows.map((row) => SessionStorage.#toRecord(row));
   }
@@ -293,10 +294,10 @@ class SessionStorage implements ISessionStorage {
       }
       return {
         user: anonymous ? { $null: true } : user,
-      } as Criteria<SessionRow>;
+      };
     }
     if (authenticated !== undefined) {
-      return { user: { $null: !authenticated } } as Criteria<SessionRow>;
+      return { user: { $null: !authenticated } };
     }
     return undefined;
   }

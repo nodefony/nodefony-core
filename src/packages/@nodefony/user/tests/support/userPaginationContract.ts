@@ -143,11 +143,11 @@ export function runUserPaginationContract(
       // est annoncé trie réellement.
       for (const expected of USER_SORTABLE_FIELDS_COMMON) {
         assert.ok(
-          fields!.includes(expected),
+          fields.includes(expected),
           `"${expected}" doit être annoncé par TOUS les backends`,
         );
       }
-      for (const field of fields!) {
+      for (const field of fields) {
         assert.ok(
           (USER_SORTABLE_FIELDS as readonly string[]).includes(field),
           `"${field}" n'appartient pas au vocabulaire public des utilisateurs`,
@@ -221,7 +221,7 @@ export function runUserPaginationContract(
       assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
       assert.equal((thrown as { code?: unknown }).code, 400);
       assert.ok(thrown instanceof Error);
-      assert.match((thrown as Error).message, /pagination mode/i);
+      assert.match(thrown.message, /pagination mode/i);
     });
   });
 }

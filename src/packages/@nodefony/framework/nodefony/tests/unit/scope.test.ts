@@ -149,8 +149,8 @@ describe("Resolver — newController singleton (V4.3)", () => {
   it("returns the SAME instance across resolvers and initializes once", async () => {
     const S = makeSingletonClass();
     const router = makeRouter();
-    const a = makeResolver(S as unknown as ControllerConstructor, "a", router);
-    const b = makeResolver(S as unknown as ControllerConstructor, "b", router);
+    const a = makeResolver(S, "a", router);
+    const b = makeResolver(S, "b", router);
     const c1 = await a.r.newController();
     const c2 = await b.r.newController();
     expect(c1).to.equal(c2);
@@ -161,8 +161,8 @@ describe("Resolver — newController singleton (V4.3)", () => {
   it("caches the creation PROMISE — concurrent requests get one instance", async () => {
     const S = makeSingletonClass();
     const router = makeRouter();
-    const a = makeResolver(S as unknown as ControllerConstructor, "a", router);
-    const b = makeResolver(S as unknown as ControllerConstructor, "b", router);
+    const a = makeResolver(S, "a", router);
+    const b = makeResolver(S, "b", router);
     const [c1, c2] = await Promise.all([
       a.r.newController(),
       b.r.newController(),
@@ -174,8 +174,8 @@ describe("Resolver — newController singleton (V4.3)", () => {
 
   it("degrades to per-request creation when no router is available", async () => {
     const S = makeSingletonClass();
-    const a = makeResolver(S as unknown as ControllerConstructor, "a", null);
-    const b = makeResolver(S as unknown as ControllerConstructor, "b", null);
+    const a = makeResolver(S, "a", null);
+    const b = makeResolver(S, "b", null);
     const c1 = await a.r.newController();
     const c2 = await b.r.newController();
     expect(c1).to.not.equal(c2);
@@ -185,10 +185,10 @@ describe("Resolver — newController singleton (V4.3)", () => {
   it("executeAction SKIPS setRoute for a singleton (route derives from ALS)", async () => {
     const S = makeSingletonClass();
     const router = makeRouter();
-    const a = makeResolver(S as unknown as ControllerConstructor, "a", router);
+    const a = makeResolver(S, "a", router);
     const { result } = await a.r.executeAction();
     expect(result).to.equal("singleton-ok");
-    const instance = (await a.r.newController()) as Controller;
+    const instance = await a.r.newController();
     // setRoute jamais appelé : hors bulle ALS, aucune route sur l'instance.
     expect(instance.route).to.equal(null);
     // Dans la bulle de la requête, la route dérive du resolver du context.
@@ -199,11 +199,7 @@ describe("Resolver — newController singleton (V4.3)", () => {
 
   it("executeAction still calls setRoute for per-request controllers", async () => {
     const router = makeRouter();
-    const a = makeResolver(
-      RequestCtrl as unknown as ControllerConstructor,
-      "a",
-      router,
-    );
+    const a = makeResolver(RequestCtrl, "a", router);
     const { result } = await a.r.executeAction();
     expect(result).to.equal("request-ok");
     const instance = a.ctx.container?.get("controller") as Controller;
@@ -213,7 +209,7 @@ describe("Resolver — newController singleton (V4.3)", () => {
   it("reuses the request-container pointer on subsequent messages (WS path)", async () => {
     const S = makeSingletonClass();
     const router = makeRouter();
-    const a = makeResolver(S as unknown as ControllerConstructor, "a", router);
+    const a = makeResolver(S, "a", router);
     const first = await a.r.newController();
     expect(a.ctx.container?.get("controller")).to.equal(first);
     // 2e executeAction sans reload : prend le pointeur du container, 0 création.

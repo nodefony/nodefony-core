@@ -50,7 +50,7 @@ function request(
         }
         resolve({
           status: res.statusCode!,
-          headers: res.headers as Record<string, unknown>,
+          headers: res.headers,
           body: parsed,
         });
       });
@@ -227,7 +227,7 @@ describe("Stores — le connecteur PAR DÉFAUT est celui qui porte les stores", 
       stores?: StoreEntry[];
       infra?: { database?: { family?: string } | null };
     };
-    const raw = orms.body as unknown;
+    const raw = orms.body;
     const connectors = (
       Array.isArray(raw) ? raw : ((raw as { result?: unknown }).result ?? [])
     ) as OrmEntry[];

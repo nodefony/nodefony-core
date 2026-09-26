@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
@@ -156,7 +155,7 @@ class WebhookService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -370,7 +369,7 @@ class WebhookService extends Service {
           "INFO",
         );
       } else {
-        this.log(e as Error, "ERROR");
+        this.log(e, "ERROR");
       }
     } finally {
       // Horodaté même en ÉCHEC : sans ça, un store en panne serait relu à chaque

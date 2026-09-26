@@ -82,7 +82,7 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
 
     const admin = await openMigrationDriver({
       dialect: "postgres",
-      url: PG_URL as string,
+      url: PG_URL,
     });
     try {
       await admin.exec(`DROP SCHEMA IF EXISTS ${SCHEMA} CASCADE`);
@@ -108,7 +108,7 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
   it("pose la table d'historique dans le schéma du `search_path`, jamais dans `public`", async () => {
     const admin = await openMigrationDriver({
       dialect: "postgres",
-      url: PG_URL as string,
+      url: PG_URL,
     });
     // Les schémas qui portent DÉJÀ une table homonyme. La base est mutualisée :
     // un banc ou une application de développement a pu en laisser une dans
@@ -188,7 +188,7 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
 
     const killer = await openMigrationDriver({
       dialect: "postgres",
-      url: PG_URL as string,
+      url: PG_URL,
     });
     try {
       await killer.query(`SELECT pg_terminate_backend(?::int)`, [pid]);
@@ -205,7 +205,7 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
   });
 
   it("laisse un état NET après un échec à mi-course, et trace le marqueur", async () => {
-    await appendMigration(sources[0]!.dir, "postgres", {
+    await appendMigration(sources[0].dir, "postgres", {
       tag: "0001_casse",
       statements: [
         `CREATE TABLE nf_gadget (id text PRIMARY KEY)`,

@@ -544,7 +544,7 @@ describe("DefaultErrorRenderer — ce qui fuit en production (F189)", () => {
 
   afterEach(() => {
     (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel(
-      previous as never,
+      previous,
     );
   });
 
@@ -686,7 +686,7 @@ describe("DefaultErrorRenderer — base en retard sur le code → hint (#98)", (
 
   afterEach(() => {
     (Nodefony as unknown as { setKernel(k: unknown): void }).setKernel(
-      previous as never,
+      previous,
     );
   });
 

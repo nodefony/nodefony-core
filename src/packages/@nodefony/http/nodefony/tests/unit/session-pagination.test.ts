@@ -34,7 +34,7 @@ describe("MemorySessionStorage — pagination", () => {
   let storage: MemorySessionStorage;
   runSessionPaginationContract({
     mode: "offset",
-    storage: () => storage as unknown as PaginatedSessionStorage,
+    storage: () => storage,
     clear: async () => {
       storage = new MemorySessionStorage(makeManager());
     },

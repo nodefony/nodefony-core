@@ -42,7 +42,7 @@ function spyConsole() {
     groupCollapsed: () => undefined,
     groupEnd: () => undefined,
     table: () => undefined,
-  } as Console;
+  };
   return { calls, restore: () => (globalThis.console = vraie) };
 }
 

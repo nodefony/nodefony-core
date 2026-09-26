@@ -74,7 +74,7 @@ function endpoint(
     lastDeliveryError: null,
     failureCount,
     metadata: {},
-  } as unknown as IWebhookEndpoint;
+  };
 }
 
 /**

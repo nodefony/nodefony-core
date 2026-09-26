@@ -186,7 +186,7 @@ class Resolver implements IResolver {
    * `Context.setMetaData()` pour exposer `msg.nodefony.route.variablesMap`.
    */
   getMatchedParams(): Record<string, unknown> {
-    const names = (this.route?.variables ?? []) as string[];
+    const names = this.route?.variables ?? [];
     const params: Record<string, unknown> = {};
     for (let i = 0; i < names.length; i++) {
       params[names[i]] = this.variables[i];
@@ -229,7 +229,7 @@ class Resolver implements IResolver {
     // Forward interne : même résolution d'intent de session que le match direct.
     if (this.controller) {
       this.context.sessionIntent = resolveSessionIntent(
-        this.controller as ControllerConstructor,
+        this.controller,
         this.actionName,
       );
     }
@@ -314,7 +314,7 @@ class Resolver implements IResolver {
       ) {
         await controller.initialize();
       }
-      return controller as Controller;
+      return controller;
     } finally {
       ctx.phaseEnd("initialize");
     }
@@ -516,7 +516,7 @@ class Resolver implements IResolver {
     const paramCtx = context as unknown as IParamArgContext;
     const httpReq = paramCtx.request;
     // Params de route (noms → valeurs) pour le fingerprint du payload.
-    const names = (this.route?.variables ?? []) as string[];
+    const names = this.route?.variables ?? [];
     const params: Record<string, unknown> = {};
     for (let i = 0; i < names.length; i++) {
       params[names[i]] = this.variables[i];
@@ -554,7 +554,7 @@ class Resolver implements IResolver {
         for (const k in headers) {
           (response as HttpResponse | Http2Response | null)?.setHeader(
             k,
-            headers[k] as string,
+            headers[k],
           );
         }
       }
@@ -688,7 +688,7 @@ class Resolver implements IResolver {
     }
     const clauses = req.clauses;
     for (let i = 0; i < clauses.length; i++) {
-      const clause = clauses[i]!;
+      const clause = clauses[i];
       const subject =
         clause.subjectParam !== undefined
           ? this._resolveSubject(clause.subjectParam)
@@ -697,7 +697,7 @@ class Resolver implements IResolver {
       let ok = false;
       const anyOf = clause.anyOf;
       for (let j = 0; j < anyOf.length; j++) {
-        if (await authz.decide(token, anyOf[j]!, subject)) {
+        if (await authz.decide(token, anyOf[j], subject)) {
           ok = true;
           break;
         }

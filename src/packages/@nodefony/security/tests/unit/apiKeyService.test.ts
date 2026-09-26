@@ -100,10 +100,10 @@ describe("ApiKeyService — création", () => {
 
     const record = await store.findById(created.id);
     assert.ok(record);
-    assert.equal(record!.kind, "pat");
-    assert.equal(record!.secretHash, hashApiKey(created.token));
+    assert.equal(record.kind, "pat");
+    assert.equal(record.secretHash, hashApiKey(created.token));
     // le secret n'est jamais stocké en clair
-    assert.notEqual(record!.secretHash, created.token);
+    assert.notEqual(record.secretHash, created.token);
   });
 
   it("expiration : défaut 90 j / null / custom / invalide", async () => {
@@ -187,8 +187,8 @@ describe("ApiKeyService — listing (sans secret)", () => {
 
     const keys = await svc.listForSubject("alice");
     assert.equal(keys.length, 2);
-    assert.equal(keys[0]!.name, "new"); // tri desc
-    assert.equal(keys[1]!.name, "old");
+    assert.equal(keys[0].name, "new"); // tri desc
+    assert.equal(keys[1].name, "old");
     for (const k of keys) {
       assert.equal("secretHash" in k, false);
       assert.equal("token" in k, false);

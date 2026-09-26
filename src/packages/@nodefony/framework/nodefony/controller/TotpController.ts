@@ -84,7 +84,7 @@ class TotpController extends Controller {
     if (subject === null) {
       return this.renderJson({ error: "Unauthorized" }, 401);
     }
-    const code = (this.queryPost ?? ({} as { code?: unknown })).code;
+    const code = (this.queryPost ?? {}).code;
     if (typeof code !== "string" || code.length === 0) {
       return this.renderJson({ error: "Invalid code" }, 400);
     }
@@ -163,7 +163,7 @@ export function mountTotpRoutes(frameworkModule: Module): void {
   for (const [name, path, method, classMethod] of routes) {
     Router.createRoute(name, {
       path,
-      constructor: TotpController as unknown as Controller["constructor"],
+      constructor: TotpController,
       classMethod,
       requirements: { methods: [method] },
       // Self-service : le sujet est TOUJOURS l'utilisateur courant
@@ -178,10 +178,7 @@ export function mountTotpRoutes(frameworkModule: Module): void {
   if (
     !Object.prototype.hasOwnProperty.call(TotpController.prototype, "module")
   ) {
-    Router.setController(
-      TotpController as unknown as Parameters<typeof Router.setController>[0],
-      frameworkModule,
-    );
+    Router.setController(TotpController, frameworkModule);
   }
   mounted = true;
 }

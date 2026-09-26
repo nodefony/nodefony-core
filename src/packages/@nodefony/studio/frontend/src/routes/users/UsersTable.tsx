@@ -140,7 +140,6 @@ export const UsersTable = observer(function UsersTable({
       }
       // `reloadKey` n'est pas lu dans le corps : il est là pour CHANGER
       // l'identité du loader, ce qui déclenche le rechargement du grid.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [store, filterSignal, reloadKey, onLoaded],
   );

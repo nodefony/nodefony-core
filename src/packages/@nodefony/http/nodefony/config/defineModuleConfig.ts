@@ -95,11 +95,7 @@ export function defineHttpConfig(
   config: IHttpConfigInput = {},
   kernel?: IKernelConfigDefaults | null,
 ): IHttpConfig {
-  const parsed = parseModuleConfig(
-    httpConfigSchema,
-    config,
-    "@nodefony/http",
-  ) as IHttpConfig;
+  const parsed = parseModuleConfig(httpConfigSchema, config, "@nodefony/http");
   // Secure-by-default en PRODUCTION : ne PAS exposer l'identité du framework dans
   // l'en-tête `Server:` (anti-fingerprint OWASP) SAUF si explicitement configuré.
   // En dev le défaut « nodefony » reste (confort/branding). Override possible par

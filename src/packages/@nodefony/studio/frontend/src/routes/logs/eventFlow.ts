@@ -159,7 +159,7 @@ export function flowStepsForProtocol(
   return ids.sort((a, b) => {
     const pa = FLOW_STEPS[a].protocol;
     const pb = FLOW_STEPS[b].protocol;
-    if (pa !== pb) return rank[pa]! - rank[pb]!;
+    if (pa !== pb) return rank[pa] - rank[pb];
     return FLOW_STEPS[a].order - FLOW_STEPS[b].order;
   });
 }

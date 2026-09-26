@@ -280,7 +280,6 @@ function DebouncedFilterInput({
     if (debounced !== value) onChange(debounced);
     // `onChange` et `value` sont volontairement hors dépendances : n'émettre
     // que sur la pause de frappe, pas à chaque rendu du parent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [debounced]);
 
   if (numeric) {

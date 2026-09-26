@@ -121,7 +121,6 @@ describe("Command.setEvents — l'action câblée porte le marquage", () => {
     // Un hook de cycle de vie, à côté de l'action : il doit RESTER borné.
     cmd.onKernelReady = async (): Promise<void> => {};
     const bus = new EventEmitter();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     cmd.kernel = bus as any;
     cmd.setEvents();
 

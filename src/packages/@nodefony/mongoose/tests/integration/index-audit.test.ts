@@ -49,7 +49,7 @@ function registerProbeEntity(): void {
     schema: {
       identifier: { type: String, required: true, unique: true },
     },
-  } as Parameters<typeof entityRegistry.register>[0]);
+  });
 }
 
 /** Retire l'entité et l'ORM du registre process-wide (isolation entre bancs). */
@@ -62,16 +62,12 @@ function unregisterProbe(): void {
 function captureLog(orm: MongooseOrm, wanted: Severity): string[] {
   const captured: string[] = [];
   const original = orm.log.bind(orm);
-  orm.log = ((pci: unknown, severity?: Severity, ...rest: unknown[]): Pdu => {
+  orm.log = (pci: unknown, severity?: Severity, ...rest: unknown[]): Pdu => {
     if (severity === wanted) {
       captured.push(String(pci));
     }
-    return original(
-      pci as Parameters<typeof original>[0],
-      severity,
-      ...(rest as []),
-    );
-  }) as typeof orm.log;
+    return original(pci, severity, ...(rest as []));
+  };
   return captured;
 }
 

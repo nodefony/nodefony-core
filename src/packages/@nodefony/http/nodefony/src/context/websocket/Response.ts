@@ -249,7 +249,7 @@ class WebsocketResponse {
 
   setStatusCode(status: number | string, message?: string) {
     if (typeof status !== "number") {
-      status = parseInt(status as string, 10);
+      status = parseInt(status, 10);
       if (isNaN(status)) status = 500;
     }
     if (!status) status = 500;

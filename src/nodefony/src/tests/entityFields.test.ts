@@ -630,8 +630,8 @@ describe("scaffold — index de table (plusieurs colonnes)", () => {
       () => parseEntityIndexes(["siteId,inexistante"], fields, opts),
       (e: unknown) =>
         e instanceof EntityFieldError &&
-        /inexistante/u.test((e as Error).message) &&
-        /colonnes disponibles/u.test((e as Error).message),
+        /inexistante/u.test(e.message) &&
+        /colonnes disponibles/u.test(e.message),
     );
   });
 
@@ -783,7 +783,7 @@ describe("scaffold — tailles de colonne", () => {
     assert.throws(
       () => parseEntityFields("country:char"),
       (e: unknown) =>
-        e instanceof EntityFieldError && /longueur/u.test((e as Error).message),
+        e instanceof EntityFieldError && /longueur/u.test(e.message),
     );
   });
 
@@ -791,8 +791,7 @@ describe("scaffold — tailles de colonne", () => {
     assert.throws(
       () => parseEntityFields("price:decimal"),
       (e: unknown) =>
-        e instanceof EntityFieldError &&
-        /précision/u.test((e as Error).message),
+        e instanceof EntityFieldError && /précision/u.test(e.message),
     );
   });
 

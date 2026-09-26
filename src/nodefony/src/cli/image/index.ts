@@ -116,7 +116,7 @@ export function parseImageCheckArgv(
   const req: IImageCheckRequest = { image: null, files: null, help: false };
 
   for (let i = 0; i < rest.length; i += 1) {
-    const word = rest[i] as string;
+    const word = rest[i];
     if (word === "--help" || word === "-h") {
       req.help = true;
       continue;

@@ -415,33 +415,33 @@ describe("Module — addService()", () => {
 
   it("addService() enregistre le service dans le container", async () => {
     const { mod } = makeModuleWithKernel("add-svc-mod");
-    await mod.addService(SimpleService as any);
+    await mod.addService(SimpleService);
     const found = mod.get<SimpleService>("SimpleService");
     assert.ok(found instanceof SimpleService);
   });
 
   it("addService() retourne l'instance du service", async () => {
     const { mod } = makeModuleWithKernel("add-svc-ret");
-    const svc = await mod.addService(SimpleService as any);
+    const svc = await mod.addService(SimpleService);
     assert.ok(svc instanceof Service);
     assert.strictEqual(svc.name, "SimpleService");
   });
 
   it("service avec init() → init() appelé", async () => {
     const { mod } = makeModuleWithKernel("init-svc-mod");
-    const svc = await mod.addService(InitService as any);
+    const svc = await mod.addService(InitService);
     assert.ok((svc as InitService).initialized === true);
   });
 
   it("addService() deux fois → WARNING log, override", async () => {
     const { mod } = makeModuleWithKernel("dup-svc-mod");
-    await mod.addService(SimpleService as any);
+    await mod.addService(SimpleService);
 
     const pdus: import("../syslog/Pdu").default[] = [];
     mod.syslog?.on("onLog", (p: import("../syslog/Pdu").default) =>
       pdus.push(p),
     );
-    await mod.addService(SimpleService as any); // second ajout
+    await mod.addService(SimpleService); // second ajout
     mod.syslog?.removeAllListeners();
 
     const warn = pdus.some(
@@ -1146,7 +1146,7 @@ describe("Module — readOverrideModuleConfig() — override complet + log", () 
     );
     assert.ok(pdu, "le log doit être émis");
     assert.strictEqual(
-      pdu!.severityName,
+      pdu.severityName,
       "INFO",
       "un module source (pas l'app) → INFO, pas une anomalie de boot",
     );
@@ -1366,14 +1366,14 @@ describe("Module — edge cases", () => {
         constructor(k: Kernel) {
           super("dup-name", k, PATH_FOR_NODEFONY_DIR, {});
         }
-      } as any,
+      },
     );
     const mod2 = await kernel.addModule(
       class extends Module {
         constructor(k: Kernel) {
           super("dup-name", k, PATH_FOR_NODEFONY_DIR, {});
         }
-      } as any,
+      },
     );
     assert.strictEqual(kernel.getModule("dup-name"), mod2);
     assert.notStrictEqual(kernel.getModule("dup-name"), mod1);
@@ -1464,7 +1464,7 @@ describe("Module — registre de services (contrats DI)", () => {
         super("RegDemoService", c ?? new Container());
       }
     }
-    const ret = mod.registerService(RegDemoService as never, "regDemoService");
+    const ret = mod.registerService(RegDemoService, "regDemoService");
     assert.strictEqual(Injector.isRegistered("regDemoService"), true);
     assert.strictEqual(Injector.get("regDemoService"), RegDemoService);
     assert.strictEqual(
@@ -1501,7 +1501,7 @@ describe("Module — config getter", () => {
   it("this.config reflète la réassignation de this.options (validation au boot)", () => {
     const mod = new Module("cfg-reassign", makeKernelStub(), process.cwd(), {});
     const validated = { enabled: true, store: "drizzle" };
-    mod.options = validated as unknown as DefaultOptionsService;
+    mod.options = validated;
     assert.strictEqual(
       mod.config,
       validated,
@@ -1520,7 +1520,7 @@ describe("Module — config getter", () => {
         super("typed-cfg", k, process.cwd(), {
           host: "h",
           port: 1,
-        } as unknown as DefaultOptionsService);
+        });
       }
       // Accès typé : this.config.host compile sans cast (TConfig = MyCfg).
       readHost(): string {

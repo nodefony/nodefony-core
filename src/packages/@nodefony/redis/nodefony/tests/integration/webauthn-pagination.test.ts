@@ -101,13 +101,9 @@ beforeAll(async () => {
   if (REAL_URL) {
     realClient = createClient({ url: REAL_URL });
     await realClient.connect();
-    store = new RedisWebAuthnCredentialStore(
-      () => realClient as unknown as RedisClientLike,
-    );
+    store = new RedisWebAuthnCredentialStore(() => realClient);
   } else {
-    store = new RedisWebAuthnCredentialStore(
-      () => fake as unknown as RedisClientLike,
-    );
+    store = new RedisWebAuthnCredentialStore(() => fake);
   }
 });
 

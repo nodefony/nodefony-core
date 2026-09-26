@@ -70,7 +70,7 @@ function request(
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });
@@ -214,8 +214,8 @@ function hubConnect(cookie: string | null): Promise<{
         return;
       }
       if (typeof frame.id === "number" && !frame.method) {
-        pending.get(frame.id as number)?.(frame as unknown as JsonRpcReply);
-        pending.delete(frame.id as number);
+        pending.get(frame.id)?.(frame as unknown as JsonRpcReply);
+        pending.delete(frame.id);
       }
     });
   });
@@ -395,7 +395,7 @@ const PROBE = "/nodefony/test/api/idem-probe";
 function countOf(payload: unknown): number {
   let p = payload;
   if (p && typeof p === "object" && "result" in p) {
-    p = (p as { result: unknown }).result;
+    p = p.result;
   }
   return (p as { count?: number } | null)?.count ?? -1;
 }

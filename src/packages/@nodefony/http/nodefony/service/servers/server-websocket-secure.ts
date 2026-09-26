@@ -1,12 +1,5 @@
 import Ws, { WebSocketServer, ServerOptions } from "ws";
-import {
-  Service,
-  Container,
-  Event,
-  Module,
-  FamilyType,
-  inject,
-} from "nodefony";
+import { Service, Container, Module, FamilyType, inject } from "nodefony";
 import HttpKernel, {
   ProtocolType,
   ServerType,
@@ -43,7 +36,7 @@ class WebsocketSecure extends Service {
     super(
       "server-websocket-secure",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       // Serveur WSS → config DÉDIÉE `websocketSecure` (pas `websocket`, le serveur
       // plain) : sinon les knobs propres au secure (keepalive*/maxPayload/
       // allowedOrigins) seraient ignorés. Même forme (websocketSchema).

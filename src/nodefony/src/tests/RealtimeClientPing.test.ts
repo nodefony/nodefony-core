@@ -67,7 +67,7 @@ describe("RealtimeClient — ping() (helper RTT réutilisable, lib cliente)", ()
     let seenTimeout: number | undefined;
     (client as unknown as RequestStub).request = async (_m, _p, timeoutMs) => {
       seenTimeout = timeoutMs;
-      return { pong: true, ts: 0, uptime: 0, pid: 0 } as KernelPingResult;
+      return { pong: true, ts: 0, uptime: 0, pid: 0 };
     };
 
     await client.ping(1234);

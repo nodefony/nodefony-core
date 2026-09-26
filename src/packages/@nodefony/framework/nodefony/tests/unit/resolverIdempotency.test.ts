@@ -127,8 +127,7 @@ function makeResolver(opts: {
   // actions vivent sur le prototype → elles s'exécutent normalement.
   r.newController = async () => Object.create(IdemCtrl.prototype) as IdemCtrl;
   // Capture le rendu sans toucher au transport (le vrai returnController appelle send/render).
-  r.returnController = (async (x: unknown) =>
-    x) as Resolver["returnController"];
+  r.returnController = async (x: unknown) => x;
   return r;
 }
 

@@ -74,7 +74,7 @@ describe("SessionAuthenticator (P6 J3)", () => {
     const token = await auth.createToken(sessionContext("ghost"));
     await assert.rejects(auth.authenticate(token), (e: unknown) => {
       assert.ok(e instanceof AuthenticationError);
-      assert.equal((e as AuthenticationError).message, "Invalid session");
+      assert.equal(e.message, "Invalid session");
       return true;
     });
   });

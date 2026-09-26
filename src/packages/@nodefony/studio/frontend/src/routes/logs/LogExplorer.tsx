@@ -540,7 +540,7 @@ export const LogExplorer = observer(
               <SegmentedControl
                 size="xs"
                 value={order}
-                onChange={(v) => setOrder(v as "asc" | "desc")}
+                onChange={(v) => setOrder(v)}
                 data={[
                   {
                     value: "desc",
@@ -598,7 +598,7 @@ export const LogExplorer = observer(
             <SegmentedControl
               size="xs"
               value={protocol}
-              onChange={(v) => setProtocol(v as "all" | "ws" | "http")}
+              onChange={(v) => setProtocol(v)}
               data={[
                 { value: "all", label: "Tous" },
                 {
@@ -635,7 +635,7 @@ export const LogExplorer = observer(
               w={250}
               data={flowData}
               value={flows}
-              onChange={(v) => setFlows(v as FlowStepId[])}
+              onChange={(v) => setFlows(v)}
               placeholder={flows.length ? undefined : "Toutes les étapes"}
               clearable
               searchable
@@ -652,7 +652,7 @@ export const LogExplorer = observer(
             <Chip.Group
               multiple
               value={[...severities]}
-              onChange={(vals) => setSeverities(new Set(vals as Severity[]))}
+              onChange={(vals) => setSeverities(new Set(vals))}
             >
               <Group gap={4} wrap="wrap">
                 {SEVERITIES.map((s) => (

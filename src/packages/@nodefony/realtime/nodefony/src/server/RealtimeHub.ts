@@ -696,7 +696,7 @@ export class RealtimeHub {
     const prefixes = this.#broadcastPrefixes;
     if (prefixes === null) return false;
     for (let i = 0; i < prefixes.length; i++) {
-      if (channel.startsWith(prefixes[i]!)) return true;
+      if (channel.startsWith(prefixes[i])) return true;
     }
     return false;
   }
@@ -932,7 +932,7 @@ export class RealtimeHub {
     const compiled = compileMatcher(matcher);
     // Dédup ref-identity (push idempotent quand P6 appelle au boot N fois).
     for (let i = 0; i < list.length; i++) {
-      if (list[i]!.authenticator === authenticator) return;
+      if (list[i].authenticator === authenticator) return;
     }
     list.push({ matcher: compiled, authenticator });
   }
@@ -948,7 +948,7 @@ export class RealtimeHub {
     const list = this.#authenticators;
     if (list === null) return null;
     for (let i = 0; i < list.length; i++) {
-      const entry = list[i]!;
+      const entry = list[i];
       if (entry.matcher.match(handshake)) return entry.authenticator;
     }
     return null;
@@ -1218,7 +1218,7 @@ export class RealtimeHub {
     const patterns = this.#channelPolicyPatterns;
     if (patterns === null) return null;
     for (let i = 0; i < patterns.length; i++) {
-      if (patterns[i]!.re.test(name)) return patterns[i]!.policy;
+      if (patterns[i].re.test(name)) return patterns[i].policy;
     }
     return null;
   }

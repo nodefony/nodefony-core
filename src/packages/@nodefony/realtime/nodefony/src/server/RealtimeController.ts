@@ -291,11 +291,7 @@ export abstract class RealtimeController<
         ),
       );
     }
-    return state.peer.request(
-      method as never,
-      params as never,
-      timeoutMs,
-    ) as Promise<ActionResult<Actions, K>>;
+    return state.peer.request(method as never, params, timeoutMs);
   }
 
   /**
@@ -309,7 +305,7 @@ export abstract class RealtimeController<
     params?: EventPayload<Emit, K>,
   ): void {
     const state = (this.context as unknown as RealtimeHolder).__nfRealtime;
-    state?.peer.notify(method as never, params as never);
+    state?.peer.notify(method as never, params);
   }
 
   /**
@@ -550,7 +546,7 @@ export abstract class RealtimeController<
     const channelPolicies = getRealtimeChannelPolicies(this);
     if (channelPolicies) {
       for (const name in channelPolicies) {
-        hub.registerChannelPolicy(name, channelPolicies[name]!);
+        hub.registerChannelPolicy(name, channelPolicies[name]);
       }
       // F1 (revue 0.6) — fail-LOUD : une policy de canal n'est appliquée que si un
       // frameAuthorizer est câblé (par @nodefony/security au boot des zones realtime).
@@ -599,7 +595,7 @@ export abstract class RealtimeController<
     // endpoint au hub (idempotent, cold-path). Défaut = aucun → tout instance-local.
     const broadcast = this.realtimeBroadcastChannels();
     for (let i = 0; i < broadcast.length; i++) {
-      hub.markBroadcastChannel(broadcast[i]!);
+      hub.markBroadcastChannel(broadcast[i]);
     }
 
     // Canaux full-duplex = décorateurs `@RealtimeInbound` + override `realtimeInbound()`.
@@ -739,7 +735,7 @@ export abstract class RealtimeController<
     if (handler) {
       getRealtimeHub().recordInbound(); // sonde : frame full-duplex entrante
       // reply = push serveur→client sur le MÊME canal, vers CETTE connexion.
-      handler(params, (payload) => state!.peer.notify(method, payload));
+      handler(params, (payload) => state.peer.notify(method, payload));
     }
     // `ping` = heartbeat no-op ; notification inconnue = ignorée.
   }

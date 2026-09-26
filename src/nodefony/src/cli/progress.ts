@@ -225,7 +225,6 @@ function hideCursor(stream: NodeJS.WriteStream): void {
  */
 export function fitToWidth(line: string, columns: number | undefined): string {
   const width = columns && columns > 8 ? columns - 2 : 78;
-  // eslint-disable-next-line no-control-regex
   const ansi = /\u001B\[[0-9;]*m/g;
   let visible = 0;
   let out = "";
@@ -573,7 +572,7 @@ export class Spinner extends LiveLine {
   }
 
   #draw(): void {
-    this.paint(this.#render(this.#frames[this.#frame]!, this.#label));
+    this.paint(this.#render(this.#frames[this.#frame], this.#label));
   }
 }
 
@@ -770,7 +769,7 @@ export class ProgressBar extends LiveLine {
           style: this.#style,
         }),
         label: this.#label,
-        frame: this.#spin ? this.#frames[this.#frame]! : "",
+        frame: this.#spin ? this.#frames[this.#frame] : "",
         elapsedMs: this.#startedAt === 0 ? 0 : Date.now() - this.#startedAt,
       }),
     );

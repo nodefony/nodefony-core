@@ -68,7 +68,7 @@ async function decor(options: { jwksDown?: boolean } = {}): Promise<IDecor> {
   };
   const verifier = new RemoteJwtVerifier({
     issuers: [{ issuer: ISSUER, algorithms: ["ES256"] }],
-    fetch: fetchImpl as unknown as typeof globalThis.fetch,
+    fetch: fetchImpl,
   });
   return {
     verify: (token, audience) => verifier.verify(token, audience),

@@ -144,9 +144,7 @@ describe("Firewall — mode first", () => {
     const { context } = makeContext(area({ authenticators: ["a"] }));
     await assert.rejects(
       () => firewall.handleSecurity(context),
-      (e: unknown) =>
-        e instanceof AuthenticationError &&
-        (e as AuthenticationError).code === 401,
+      (e: unknown) => e instanceof AuthenticationError && e.code === 401,
     );
   });
 
@@ -397,8 +395,8 @@ describe("Firewall — propagation ALS (seam autorisation J7)", () => {
       await firewall.handleSecurity(context);
       const token = RequestContext.get()?.token as IToken | undefined;
       assert.ok(token, "token posé dans l'ALS");
-      assert.equal(token!.isAuthenticated(), true);
-      assert.equal(token!.getUser().identifier, "carol");
+      assert.equal(token.isAuthenticated(), true);
+      assert.equal(token.getUser().identifier, "carol");
       // `user` reste posé aussi (raccourci legacy).
       assert.equal((RequestContext.getUser() as IUser).identifier, "carol");
     });

@@ -1,7 +1,6 @@
 import {
   Service,
   Container,
-  Event,
   type Severity,
   type Msgid,
   type Message,
@@ -46,8 +45,8 @@ export default class Connection extends Service {
     super(
       name,
       redisService.container as Container,
-      redisService.notificationsCenter as Event,
-      options as Record<string, unknown>,
+      redisService.notificationsCenter,
+      options,
     );
     this.service = redisService;
     this.options = options;
@@ -60,7 +59,6 @@ export default class Connection extends Service {
     msg?: Message,
   ) {
     if (!msgid) {
-      // eslint-disable-next-line no-param-reassign
       msgid = `\x1b[36mREDIS CONNECTION ${this.name} \x1b[0m`;
     }
     return super.log(pci, severity, msgid, msg);
@@ -83,7 +81,7 @@ export default class Connection extends Service {
    * @throws si la connexion échoue (propagé au service, qui logue).
    */
   async create(): Promise<RedisClientType> {
-    this.client = createClient(this.options) as RedisClientType;
+    this.client = createClient(this.options);
 
     this.#onError = (error: Error): void => {
       this.log(error, "ERROR");

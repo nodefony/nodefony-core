@@ -138,7 +138,7 @@ export function runTokenPaginationContract(
       assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
       assert.equal((thrown as { code?: unknown }).code, 400);
       assert.ok(thrown instanceof Error);
-      assert.match((thrown as Error).message, /pagination mode/i);
+      assert.match(thrown.message, /pagination mode/i);
     });
 
     // Invariant valable dans LES DEUX modes : `IPage.items` contient « au plus
@@ -266,7 +266,7 @@ export function runTokenPaginationContract(
           "un backend offset doit déclarer ses champs triables",
         );
         assert.ok(
-          fields!.includes("createdAt"),
+          fields.includes("createdAt"),
           "`createdAt` est l'axe contractuel d'une console de clés",
         );
       });

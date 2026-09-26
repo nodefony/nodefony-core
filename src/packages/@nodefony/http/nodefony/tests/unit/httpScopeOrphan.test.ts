@@ -44,13 +44,13 @@ describe("HttpKernel.handleHttp — scope orphelin quand le contexte ne se const
     kernel.log = () => undefined;
     kernel.onError = onError;
 
-    const handleHttp = HttpKernel.prototype.handleHttp as HandleHttp;
+    const handleHttp = HttpKernel.prototype.handleHttp;
     await handleHttp.call(
       kernel as unknown as HttpKernel,
       scope,
       {} as Parameters<HandleHttp>[1],
       {} as Parameters<HandleHttp>[2],
-      "http" as Parameters<HandleHttp>[3],
+      "http",
     );
 
     // L'erreur suit toujours son chemin normal…

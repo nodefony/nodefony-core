@@ -17,7 +17,7 @@
 import { randomUUID } from "node:crypto";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import { entityRegistry } from "@nodefony/orm-core";
-import type { IEntity, IEntityDefinition } from "@nodefony/orm-core";
+import type { IEntityDefinition } from "@nodefony/orm-core";
 import { userTable } from "@nodefony/drizzle";
 
 /** Module propriétaire — regroupe les entités dans l'ERD Studio. */
@@ -314,6 +314,6 @@ export const mediasoupEntities: IEntityDefinition[] = [
  */
 export function registerMediasoupEntities(connector: string): void {
   for (const entity of mediasoupEntities) {
-    entityRegistry.register({ ...entity, connector } as IEntity);
+    entityRegistry.register({ ...entity, connector });
   }
 }

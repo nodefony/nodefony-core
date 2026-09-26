@@ -77,8 +77,8 @@ describe.skipIf(!LOKI_URL)("Log Backplane E2E — Loki réel", () => {
     );
     assert.strictEqual(r.total, 3, "les 3 Pdu poussés doivent revenir");
     // Récent d'abord, payload et requestId intacts après aller-retour Loki.
-    assert.strictEqual(r.rows[0]!.payload, "loki-charlie");
-    assert.strictEqual(r.rows[0]!.requestId, reqId);
+    assert.strictEqual(r.rows[0].payload, "loki-charlie");
+    assert.strictEqual(r.rows[0].requestId, reqId);
   });
 
   it("le filtre severity est honoré sur le round-trip", async () => {
@@ -94,7 +94,7 @@ describe.skipIf(!LOKI_URL)("Log Backplane E2E — Loki réel", () => {
       (r) => r.total >= 1,
     );
     assert.strictEqual(r.total, 1);
-    assert.strictEqual(r.rows[0]!.payload, "loki-bravo");
+    assert.strictEqual(r.rows[0].payload, "loki-bravo");
   });
 });
 
@@ -118,8 +118,8 @@ describe.skipIf(!OS_URL)("Log Backplane E2E — OpenSearch réel", () => {
       (r) => r.total >= 3,
     );
     assert.strictEqual(r.total, 3, "les 3 Pdu indexés doivent revenir");
-    assert.strictEqual(r.rows[0]!.payload, "os-charlie"); // récent d'abord
-    assert.strictEqual(r.rows[0]!.requestId, reqId);
+    assert.strictEqual(r.rows[0].payload, "os-charlie"); // récent d'abord
+    assert.strictEqual(r.rows[0].requestId, reqId);
   });
 
   it("le filtre severity est honoré sur le round-trip", async () => {
@@ -135,6 +135,6 @@ describe.skipIf(!OS_URL)("Log Backplane E2E — OpenSearch réel", () => {
       (r) => r.total >= 1,
     );
     assert.strictEqual(r.total, 1);
-    assert.strictEqual(r.rows[0]!.payload, "os-bravo");
+    assert.strictEqual(r.rows[0].payload, "os-bravo");
   });
 });

@@ -165,7 +165,7 @@ class Command extends Service {
       name,
       <Container>container,
       null, //<Event>notificationsCenter,
-      <OptionsCommandInterface>myoptions,
+      myoptions,
     );
     this.cli = cli;
     this.program = this.cli.commander as Cmd;
@@ -250,7 +250,7 @@ class Command extends Service {
       // **0 sans avoir rien fait**, timeout comme exception. Le raisonnement
       // complet vit sur {@link tagCommandAction}.
       this.kernel.once(
-        this.kernelEvent as string,
+        this.kernelEvent,
         tagCommandAction(this.action.bind(this, ...args)),
       );
     }

@@ -3,10 +3,10 @@
   "repoRoot": ".",
   "stats": {
     "files": 867,
-    "symbols": 4323,
+    "symbols": 4321,
     "classes": 404,
     "interfaces": 1137,
-    "types": 461,
+    "types": 459,
     "enums": 4,
     "functions": 1882,
     "constants": 435
@@ -30417,45 +30417,13 @@
       "Event": [
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/Service.ts",
-        "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/Finder.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
-        "src/nodefony/src/kernel/injector/injector.ts",
-        "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
-        "src/packages/@nodefony/framework/nodefony/service/IdempotencyStore.ts",
-        "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Template.ts",
-        "src/packages/@nodefony/frontend/nodefony/service/FrontendService.ts",
         "src/packages/@nodefony/http/nodefony/service/certificates.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
-        "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
-        "src/packages/@nodefony/security/nodefony/service/accessTokenVerifier.ts",
-        "src/packages/@nodefony/security/nodefony/service/apiKeys.ts",
-        "src/packages/@nodefony/security/nodefony/service/auditService.ts",
-        "src/packages/@nodefony/security/nodefony/service/authFlow.ts",
-        "src/packages/@nodefony/security/nodefony/service/authorization.ts",
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/security/nodefony/service/oauth2.ts",
-        "src/packages/@nodefony/security/nodefony/service/tokenService.ts",
-        "src/packages/@nodefony/security/nodefony/service/totp.ts",
-        "src/packages/@nodefony/security/nodefony/service/webAuthn.ts",
-        "src/packages/@nodefony/security/nodefony/service/webhooks.ts",
-        "src/packages/@nodefony/studio/nodefony/service/ScaffoldService.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
-        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
-        "src/packages/@nodefony/http/nodefony/service/upload/upload-service.ts",
-        "src/packages/@nodefony/realtime/nodefony/src/service/RealtimeService.ts"
+        "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts"
       ],
       "DebugType": [
         "src/nodefony/src/Cli.ts",
@@ -30627,8 +30595,6 @@
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRequestLogger.ts",
         "src/packages/@nodefony/http/nodefony/service/audit-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/pretty-request-logger.ts",
-        "src/packages/@nodefony/http/nodefony/service/request-logger.ts",
         "src/packages/@nodefony/redis/nodefony/service/redis.ts",
         "src/packages/@nodefony/redis/nodefony/src/Connection.ts",
         "src/packages/@nodefony/security/nodefony/service/authorization.ts",
@@ -30802,7 +30768,6 @@
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/packages/@nodefony/devkit/nodefony/service/DevkitService.ts",
         "src/packages/@nodefony/documentation/nodefony/service/DocumentationService.ts",
-        "src/packages/@nodefony/drizzle/nodefony/command/migrateShared.ts",
         "src/packages/@nodefony/drizzle/nodefony/service/DrizzleService.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
@@ -31395,7 +31360,6 @@
         "src/packages/@nodefony/framework/nodefony/controller/TotpController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/WebAuthnController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
-        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
@@ -33569,8 +33533,7 @@
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/injector.ts",
-        "src/nodefony/src/kernel/injector/serviceOrder.ts",
-        "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts"
+        "src/nodefony/src/kernel/injector/serviceOrder.ts"
       ],
       "ServiceWithInit": [
         "src/nodefony/src/kernel/Module.ts"
@@ -33637,8 +33600,7 @@
         "src/nodefony/src/mcp/server.ts"
       ],
       "IJsonRpcMessage": [
-        "src/nodefony/src/mcp/server.ts",
-        "src/packages/@nodefony/devkit/nodefony/controllers/McpController.ts"
+        "src/nodefony/src/mcp/server.ts"
       ],
       "IMcpHttpReply": [
         "src/nodefony/src/mcp/server.ts"
@@ -34604,9 +34566,6 @@
       "StatsPayload": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
-      "SyslogPayload": [
-        "src/nodefony/src/client/debugbar/DebugBar.ts"
-      ],
       "fmtClock": [
         "src/nodefony/src/client/debugbar/DebugBar.ts"
       ],
@@ -34797,7 +34756,6 @@
         "src/packages/@nodefony/framework/nodefony/src/SyslogAdminApi.ts",
         "src/packages/@nodefony/http/nodefony/service/HttpAdminApi.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/OrmAdminApi.ts",
-        "src/packages/@nodefony/studio/nodefony/src/adminFetch.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/SecurityAdminApi.ts",
         "src/packages/@nodefony/security/nodefony/src/admin/WebhookAdminApi.ts",
         "src/packages/@nodefony/user/nodefony/src/admin/UserAdminApi.ts"
@@ -35612,33 +35570,6 @@
         "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts",
         "src/packages/@nodefony/drizzle/nodefony/entity/colKit.ts"
       ],
-      "IEntity": [
-        "src/modules/mediasoup/nodefony/entity/schema.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
-        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
-        "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/defineEntity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
-      ],
       "IEntityDefinition": [
         "src/modules/mediasoup/nodefony/entity/schema.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/decorators/entitiesDecorator.ts"
@@ -36370,13 +36301,6 @@
       "IAdoptedBaseline": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate-baseline.ts"
       ],
-      "IMigrationFile": [
-        "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
-      ],
       "IDestructiveFinding": [
         "src/packages/@nodefony/drizzle/nodefony/command/orm-migrate.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
@@ -36439,6 +36363,31 @@
       "drizzleConfigSchema": [
         "src/packages/@nodefony/drizzle/nodefony/config/defineModuleConfig.ts",
         "src/packages/@nodefony/drizzle/nodefony/interfaces/IDrizzleConfig.ts"
+      ],
+      "IEntity": [
+        "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/sessionEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/userTable.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/drizzle/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/auditEventEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/idempotencyEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/tokenEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/totpSecretEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/userEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/webAuthnCredentialEntity.ts",
+        "src/packages/@nodefony/mongoose/nodefony/entity/webhookEndpointEntity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/defineEntity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/Entity.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/EntityRegistry.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/orphanEntities.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleOrm.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/seedRow.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseOrm.ts",
+        "src/packages/@nodefony/orm-core/nodefony/src/decorators/entityDecorator.ts"
       ],
       "AuditCategory": [
         "src/packages/@nodefony/drizzle/nodefony/entity/auditEventEntity.ts",
@@ -36738,7 +36687,6 @@
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleTotpSecretStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebAuthnCredentialStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/DrizzleWebhookStore.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTotpSecretStore.ts",
@@ -36747,7 +36695,6 @@
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/orm-core/nodefony/interfaces/IPage.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/AbstractCrudService.ts",
-        "src/packages/@nodefony/user/nodefony/service/UserService.ts",
         "src/packages/@nodefony/user/nodefony/src/InMemoryUserRepository.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
@@ -37850,11 +37797,6 @@
       "IMongooseConnectorConfig": [
         "src/packages/@nodefony/mongoose/nodefony/service/MongooseService.ts"
       ],
-      "UpdateData": [
-        "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
-        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
-      ],
       "mongoOrder": [
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseTokenStore.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/MongooseUserRepository.ts",
@@ -38017,9 +37959,6 @@
         "src/packages/@nodefony/vector/src/adapters/PgVectorAdapter.ts"
       ],
       "IRagService": [
-        "src/packages/@nodefony/rag/src/services/RagService.ts"
-      ],
-      "IChunk": [
         "src/packages/@nodefony/rag/src/services/RagService.ts"
       ],
       "ISearchResult": [
@@ -38885,6 +38824,11 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/kit.ts",
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
       ],
+      "IMigrationFile": [
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/destructive.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/sources.ts"
+      ],
       "verdictOf": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/divergence.ts"
       ],
@@ -38934,8 +38878,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "IMigrationDrift": [
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts",
-        "src/packages/@nodefony/drizzle/nodefony/src/migrator/explain.ts"
+        "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
       ],
       "IMigrationRun": [
         "src/packages/@nodefony/drizzle/nodefony/src/migrator/DrizzleMigrator.ts"
@@ -39074,6 +39017,10 @@
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],
       "UnknownCriteriaField": [
+        "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
+        "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
+      ],
+      "UpdateData": [
         "src/packages/@nodefony/drizzle/nodefony/src/orm-core/DrizzleRepository.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/orm-core/MongooseRepository.ts"
       ],

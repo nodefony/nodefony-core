@@ -98,7 +98,7 @@ describe("Firewall.describe — zones", () => {
       d.zones.map((z) => z.name),
       ["nodefony-admin", "public"],
     );
-    const admin = d.zones[0]!;
+    const admin = d.zones[0];
     // `RegExp.source` échappe le `/` → `^\/nodefony` (représentation regex canonique).
     assert.equal(admin.pattern, "^\\/nodefony");
     assert.equal(admin.security, true);
@@ -108,7 +108,7 @@ describe("Firewall.describe — zones", () => {
     assert.equal(admin.host, "localhost");
     assert.equal(admin.realtime, true); // défaut Zero Trust
 
-    const pub = d.zones[1]!;
+    const pub = d.zones[1];
     assert.equal(pub.security, false);
     assert.equal(pub.allowsAnonymous, false);
     assert.equal(pub.host, null);
@@ -139,15 +139,15 @@ describe("Firewall.describe — défenses (secret REDACTÉ)", () => {
     const { firewall } = bootFirewall(CONFIG);
     const def = firewall.describe().defenses;
     assert.ok(def, "défenses présentes (config valide)");
-    assert.equal(def!.csrf.enabled, true);
-    assert.equal(def!.csrf.synchronizerToken, true); // secret fourni → armé
-    assert.deepEqual(def!.csrf.trustedOrigins, ["https://alias.example.org"]);
-    assert.equal(def!.cors.enabled, true);
-    assert.deepEqual(def!.cors.origins, ["https://app.example.org"]);
-    assert.equal(def!.cors.credentials, true);
-    assert.equal(def!.headers.enabled, true);
-    assert.ok(def!.headers.csp.length > 0);
-    assert.equal(def!.rateLimit.enabled, true);
+    assert.equal(def.csrf.enabled, true);
+    assert.equal(def.csrf.synchronizerToken, true); // secret fourni → armé
+    assert.deepEqual(def.csrf.trustedOrigins, ["https://alias.example.org"]);
+    assert.equal(def.cors.enabled, true);
+    assert.deepEqual(def.cors.origins, ["https://app.example.org"]);
+    assert.equal(def.cors.credentials, true);
+    assert.equal(def.headers.enabled, true);
+    assert.ok(def.headers.csp.length > 0);
+    assert.equal(def.rateLimit.enabled, true);
   });
 
   it("n'expose JAMAIS la valeur du secret CSRF (présence seule)", () => {
@@ -192,8 +192,8 @@ describe("SecurityAdminApi — endpoints firewall / roleHierarchy", () => {
     for (const path of ["firewall", "roleHierarchy"]) {
       const ep = api.adminEndpoints().find((e) => e.path === path);
       assert.ok(ep, `endpoint ${path} présent`);
-      assert.equal(ep!.method, "GET");
-      assert.equal(ep!.role, "ROLE_NODEFONY_ADMIN");
+      assert.equal(ep.method, "GET");
+      assert.equal(ep.role, "ROLE_NODEFONY_ADMIN");
     }
   });
 

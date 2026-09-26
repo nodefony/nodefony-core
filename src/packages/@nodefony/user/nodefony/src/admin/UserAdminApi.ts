@@ -670,8 +670,8 @@ export function createUserAdminApi(container: Container): IAdminApi {
           };
         }
         const updated = (await users.updateOne(
-          { id: target.id } as never,
-          patch as never,
+          { id: target.id },
+          patch,
         )) as IUser | null;
         if (!updated) return { status: 404, body: { error: "not found" } };
         audit(container, "user.updated", actor.label, target.id, {
@@ -882,10 +882,9 @@ export function createUserAdminApi(container: Container): IAdminApi {
           (me as { metadata?: unknown }).metadata,
           parsed.value,
         );
-        const updated = (await users.updateOne(
-          { id: me.id } as never,
-          { metadata } as never,
-        )) as IUser | null;
+        const updated = (await users.updateOne({ id: me.id }, {
+          metadata,
+        } as never)) as IUser | null;
         if (!updated) return { status: 404, body: { error: "not found" } };
         return toUserSummary(updated);
       },
@@ -922,7 +921,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
             };
           }
         }
-        await users.delete({ id: target.id } as never);
+        await users.delete({ id: target.id });
         audit(container, "user.deleted", actor.label, target.id, {
           identifier: target.identifier,
         });

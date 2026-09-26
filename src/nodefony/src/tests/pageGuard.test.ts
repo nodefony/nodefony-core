@@ -11,8 +11,10 @@ import {
 } from "../runtime/pageGuard";
 import type { IPageQuery } from "../types/IPage";
 
-const q = (partial: Partial<IPageQuery>): IPageQuery =>
-  ({ limit: 10, ...partial }) as IPageQuery;
+const q = (partial: Partial<IPageQuery>): IPageQuery => ({
+  limit: 10,
+  ...partial,
+});
 
 describe("assertPageQuery — mode de pagination", () => {
   it("laisse passer une requête du bon mode", () => {

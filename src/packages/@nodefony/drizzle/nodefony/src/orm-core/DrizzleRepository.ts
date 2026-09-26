@@ -470,7 +470,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (conds.length === 0) {
       return undefined;
     }
-    return conds.length === 1 ? conds[0] : (and(...conds) as SQL);
+    return conds.length === 1 ? conds[0] : and(...conds);
   }
 
   /**
@@ -581,7 +581,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       );
     }
     if (options?.limit !== undefined) {
-      query = query.limit(sql.placeholder("lim") as unknown as number);
+      query = query.limit(sql.placeholder("lim"));
     } else if (options?.offset !== undefined && this.#dialect === "sqlite") {
       // Mêmes hacks OFFSET-sans-LIMIT que le chemin non préparé (cf #runSelect).
       query = query.limit(sql`-1` as unknown as number);
@@ -589,11 +589,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       query = query.limit(Number.MAX_SAFE_INTEGER);
     }
     if (options?.offset !== undefined) {
-      query = query.offset(sql.placeholder("off") as unknown as number);
+      query = query.offset(sql.placeholder("off"));
     }
-    const sqlSafe = this.#safeSql(
-      query as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    );
+    const sqlSafe = this.#safeSql(query);
     const prepared = (
       query as unknown as { prepare(name: string): IPreparedSelect }
     ).prepare(`nf_ps_${++preparedNameSeq}`);
@@ -685,9 +683,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (options?.offset !== undefined) {
       query = query.offset(options.offset);
     }
-    return (await this.#prof(
-      query as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+    return await this.#prof(query);
   }
 
   /** Eager-load manuel des relations déclarées (1 requête `IN (...)` par relation). */
@@ -708,14 +704,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       if (rel.type === "one-to-many") {
         const parentIds = rows.map((row) => row[rel.localKey]);
         const fkCol = this.#col(rel.targetTable, rel.foreignKey);
-        const children = (await this.#prof(
+        const children = await this.#prof(
           this.#db
             .select()
             .from(execTable(rel.targetTable))
-            .where(inArray(fkCol, parentIds)) as unknown as ProfiledQuery<
-            Record<string, unknown>[]
-          >,
-        )) as Record<string, unknown>[];
+            .where(inArray(fkCol, parentIds)),
+        );
         const byParent = new Map<unknown, Record<string, unknown>[]>();
         for (const child of children) {
           const key = child[rel.foreignKey];
@@ -737,14 +731,12 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         const idCol = this.#col(rel.targetTable, rel.targetKey);
         const parents =
           fkValues.length > 0
-            ? ((await this.#prof(
+            ? await this.#prof(
                 this.#db
                   .select()
                   .from(execTable(rel.targetTable))
-                  .where(inArray(idCol, fkValues)) as unknown as ProfiledQuery<
-                  Record<string, unknown>[]
-                >,
-              )) as Record<string, unknown>[])
+                  .where(inArray(idCol, fkValues)),
+              )
             : [];
         const byId = new Map(parents.map((p) => [p[rel.targetKey], p]));
         for (const row of rows) {
@@ -775,17 +767,15 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
 
   async create(data: Partial<T>): Promise<T> {
     if (this.#dialect === "mysql") {
-      const rows = await this.#mysqlInsertReturning([
-        data as Record<string, unknown>,
-      ]);
+      const rows = await this.#mysqlInsertReturning([data]);
       return rows[0] as T;
     }
-    const rows = (await this.#prof(
+    const rows = await this.#prof(
       this.#db
         .insert(execTable(this.#table))
         .values(data as Record<string, unknown>)
-        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+        .returning(),
+    );
     return rows[0] as T;
   }
 
@@ -794,25 +784,20 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return []; // no-op : pas d'INSERT à 0 ligne (drizzle/SQL le rejetteraient).
     }
     if (this.#dialect === "mysql") {
-      return (await this.#mysqlInsertReturning(
-        data as Record<string, unknown>[],
-      )) as T[];
+      return (await this.#mysqlInsertReturning(data)) as T[];
     }
-    const rows = (await this.#prof(
+    const rows = await this.#prof(
       this.#db
         .insert(execTable(this.#table))
         .values(data as Record<string, unknown>[])
-        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+        .returning(),
+    );
     return rows as T[];
   }
 
   async updateOne(criteria: Criteria<T>, data: Partial<T>): Promise<T | null> {
     if (this.#dialect === "mysql") {
-      return this.#mysqlUpdateOneReturning(
-        data as Record<string, unknown>,
-        criteria,
-      );
+      return this.#mysqlUpdateOneReturning(data, criteria);
     }
     // Atomique : UPDATE … WHERE <pickOne> RETURNING.
     // - une SEULE requête → pas de relecture (qui renverrait null à tort si le
@@ -821,13 +806,13 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     //   portable sqlite/pg/mysql — cf. sa doc) ;
     // - RETURNING rend la ligne réellement persistée.
     const pick = this.#pickOne(this.#where(criteria));
-    const rows = (await this.#prof(
+    const rows = await this.#prof(
       this.#db
         .update(execTable(this.#table))
         .set(data as Record<string, unknown>)
         .where(pick)
-        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+        .returning(),
+    );
     return (rows[0] as T) ?? null;
   }
 
@@ -919,18 +904,18 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         ).onDuplicateKeyUpdate({ set: write.set }),
       );
       const conds = target.map((col) => eq(col, values[col.name]));
-      const rows = (await this.#prof(
+      const rows = await this.#prof(
         this.#db
           .select()
           .from(execTable(this.#table))
           .where(
             conds.length === 1 ? (conds[0] as SQL) : (and(...conds) as SQL),
           )
-          .limit(1) as unknown as ProfiledQuery<Record<string, unknown>[]>,
-      )) as Record<string, unknown>[];
+          .limit(1),
+      );
       return rows[0] as T;
     }
-    const rows = (await this.#prof(
+    const rows = await this.#prof(
       this.#db
         .insert(execTable(this.#table))
         .values(values)
@@ -940,22 +925,15 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
           target: target as SQLiteColumn[],
           set: write.set,
         })
-        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+        .returning(),
+    );
     return rows[0] as T;
   }
 
   async updateMany(criteria: Criteria<T>, data: Partial<T>): Promise<number> {
     const where = this.#where(criteria);
-    const builder = this.#db
-      .update(execTable(this.#table))
-      .set(data as Record<string, unknown>);
-    const result = (await this.#prof(
-      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
-        changes?: number;
-        rowCount?: number | null;
-      }>,
-    )) as { changes?: number; rowCount?: number | null };
+    const builder = this.#db.update(execTable(this.#table)).set(data);
+    const result = await this.#prof(where ? builder.where(where) : builder);
     return this.#affected(result);
   }
 
@@ -982,25 +960,20 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return this.#mysqlUpdateOneReturning(setObj, criteria);
     }
     const pick = this.#pickOne(this.#where(criteria));
-    const rows = (await this.#prof(
+    const rows = await this.#prof(
       this.#db
         .update(execTable(this.#table))
         .set(setObj)
         .where(pick)
-        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+        .returning(),
+    );
     return (rows[0] as T) ?? null;
   }
 
   async delete(criteria: Criteria<T>): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db.delete(execTable(this.#table));
-    const result = (await this.#prof(
-      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<{
-        changes?: number;
-        rowCount?: number | null;
-      }>,
-    )) as { changes?: number; rowCount?: number | null };
+    const result = await this.#prof(where ? builder.where(where) : builder);
     return this.#affected(result);
   }
 
@@ -1025,12 +998,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     criteria: Criteria<T>,
   ): Promise<Record<string, unknown>[]> {
     const pick = this.#pickOne(this.#where(criteria));
-    return (await this.#prof(
-      this.#db
-        .delete(execTable(this.#table))
-        .where(pick)
-        .returning() as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+    return await this.#prof(
+      this.#db.delete(execTable(this.#table)).where(pick).returning(),
+    );
   }
 
   // ── Chemins MySQL (pas de RETURNING) ──────────────────────────────────────
@@ -1056,7 +1026,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   /** WHERE d'égalité sur la PK (valeurs plates lues par nom de colonne). */
   #pkWhere(pk: DrizzleColumn[], values: Record<string, unknown>): SQL {
     const conds = pk.map((col) => eq(col, values[col.name]));
-    return conds.length === 1 ? (conds[0] as SQL) : (and(...conds) as SQL);
+    return conds.length === 1 ? conds[0] : (and(...conds) as SQL);
   }
 
   /** SELECT d'UNE ligne par valeurs de PK (relecture post-mutation mysql). */
@@ -1064,13 +1034,13 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     pk: DrizzleColumn[],
     values: Record<string, unknown>,
   ): Promise<Record<string, unknown> | null> {
-    const rows = (await this.#prof(
+    const rows = await this.#prof(
       this.#db
         .select()
         .from(execTable(this.#table))
         .where(this.#pkWhere(pk, values))
-        .limit(1) as unknown as ProfiledQuery<Record<string, unknown>[]>,
-    )) as Record<string, unknown>[];
+        .limit(1),
+    );
     return rows[0] ?? null;
   }
 
@@ -1106,14 +1076,14 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return null;
     }
     const pkCond = this.#pkWhere(pk, target);
-    const result = (await this.#prof(
+    const result = await this.#prof(
       this.#db
         .update(execTable(this.#table))
         .set(set)
         .where(
           where ? (and(pkCond, where) as SQL) : pkCond,
         ) as unknown as ProfiledQuery<readonly unknown[]>,
-    )) as readonly unknown[];
+    );
     if (this.#affected(result) === 0) {
       return null; // course perdue : la cible ne matchait plus le critère.
     }
@@ -1133,13 +1103,13 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return null;
     }
     const pkCond = this.#pkWhere(pk, target);
-    const result = (await this.#prof(
+    const result = await this.#prof(
       this.#db
         .delete(execTable(this.#table))
         .where(
           where ? (and(pkCond, where) as SQL) : pkCond,
         ) as unknown as ProfiledQuery<readonly unknown[]>,
-    )) as readonly unknown[];
+    );
     return this.#affected(result) > 0 ? (target as T) : null;
   }
 
@@ -1150,13 +1120,13 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     data: Record<string, unknown>[],
   ): Promise<Record<string, unknown>[]> {
     const pk = this.#requirePk("create");
-    const ids = (await this.#prof(
+    const ids = await this.#prof(
       (
         this.#db.insert(execTable(this.#table)).values(data) as unknown as {
           $returningId(): ProfiledQuery<Record<string, unknown>[]>;
         }
       ).$returningId(),
-    )) as Record<string, unknown>[];
+    );
     const out: Record<string, unknown>[] = [];
     for (let i = 0; i < data.length; i++) {
       const values: Record<string, unknown> = {};
@@ -1182,9 +1152,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       .from(execTable(this.#table))
       .$dynamic();
     const rows = (await this.#prof(
-      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<
-        Array<{ value: number }>
-      >,
+      where ? builder.where(where) : builder,
     )) as Array<{ value: number }>;
     return Number(rows[0]?.value ?? 0);
   }
@@ -1204,9 +1172,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       .from(execTable(this.#table))
       .$dynamic();
     const rows = (await this.#prof(
-      (where ? builder.where(where) : builder) as unknown as ProfiledQuery<
-        Array<{ value: number }>
-      >,
+      where ? builder.where(where) : builder,
     )) as Array<{ value: number }>;
     return Number(rows[0]?.value ?? 0);
   }
@@ -1221,9 +1187,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       query = query.where(where);
     }
     query = query.limit(1);
-    const rows = (await this.#prof(
-      query as unknown as ProfiledQuery<unknown[]>,
-    )) as unknown[];
+    const rows = await this.#prof(query);
     return rows.length > 0;
   }
 

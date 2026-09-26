@@ -252,7 +252,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
           expiresAt: leaseExpiresAt,
         })
         .onConflictDoUpdate({
-          target: this.#c.key as SQLiteColumn,
+          target: this.#c.key,
           set: {
             fingerprint,
             state: "if",

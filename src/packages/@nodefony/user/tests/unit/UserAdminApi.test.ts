@@ -234,7 +234,7 @@ async function call(
     user: null,
     roles: [],
     ...partial,
-  } as IAdminRequest;
+  };
   const r = await endpoint(api, method, path)(request);
   if (r && typeof r === "object" && "status" in r && "body" in r) {
     return r as { status: number; body: unknown };
@@ -342,7 +342,7 @@ describe("UserAdminApi — profil", () => {
     );
     const { status, body } = await call(api, "PATCH", "users/{id}", {
       params: { id: "p1" },
-      user: { id: "a1", identifier: "admin@x" } as unknown,
+      user: { id: "a1", identifier: "admin@x" },
       body: { profile: { familyName: "Camensuli" } },
     });
     assert.equal(status, 200);
@@ -350,7 +350,7 @@ describe("UserAdminApi — profil", () => {
       givenName: "Chris",
       familyName: "Camensuli",
     });
-    assert.equal((target.metadata as Record<string, unknown>).theme, "dark");
+    assert.equal(target.metadata.theme, "dark");
   });
 
   it("PATCH : un profil invalide (email mal formé) → 400", async () => {
@@ -360,7 +360,7 @@ describe("UserAdminApi — profil", () => {
     );
     const { status } = await call(api, "PATCH", "users/{id}", {
       params: { id: "p1" },
-      user: { id: "a1", identifier: "admin@x" } as unknown,
+      user: { id: "a1", identifier: "admin@x" },
       body: { profile: { email: "not-an-email" } },
     });
     assert.equal(status, 400);
@@ -373,7 +373,7 @@ describe("UserAdminApi — profil", () => {
     );
     const { status } = await call(api, "PATCH", "users/{id}", {
       params: { id: "p1" },
-      user: { id: "a1", identifier: "admin@x" } as unknown,
+      user: { id: "a1", identifier: "admin@x" },
       body: { profile: { givenName: "Chris" } },
     });
     assert.equal(status, 200);
@@ -392,7 +392,7 @@ describe("UserAdminApi — profil", () => {
     });
     const api = createUserAdminApi(container(makeUsers([meUser, other])));
     const { status, body } = await call(api, "POST", "me/profile", {
-      user: { id: "me1", identifier: "me@x" } as unknown,
+      user: { id: "me1", identifier: "me@x" },
       // tentative d'injection d'une cible "other" → IGNORÉE (anti-IDOR)
       body: { id: "other", givenName: "Chris" },
     });
@@ -422,7 +422,7 @@ describe("UserAdminApi — garde-fous anti-lockout", () => {
     );
     const { status } = await call(api, "PATCH", "users/{id}", {
       params: { id: "a1" },
-      user: { id: "a1", identifier: "admin@x" } as unknown,
+      user: { id: "a1", identifier: "admin@x" },
       body: { roles: ["ROLE_USER"] },
     });
     assert.equal(status, 409);
@@ -434,7 +434,7 @@ describe("UserAdminApi — garde-fous anti-lockout", () => {
     );
     const { status } = await call(api, "PATCH", "users/{id}", {
       params: { id: "a1" },
-      user: { id: "super", identifier: "super@x" } as unknown,
+      user: { id: "super", identifier: "super@x" },
       body: { roles: ["ROLE_USER"] },
     });
     assert.equal(status, 409);
@@ -446,7 +446,7 @@ describe("UserAdminApi — garde-fous anti-lockout", () => {
     );
     const { status, body } = await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: { roles: ["ROLE_USER", "ROLE_NODEFONY_ADMIN"] },
     });
     assert.equal(status, 200);
@@ -459,7 +459,7 @@ describe("UserAdminApi — garde-fous anti-lockout", () => {
     );
     const { status } = await call(api, "DELETE", "users/{id}", {
       params: { id: "a1" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
     });
     assert.equal(status, 409);
   });
@@ -470,7 +470,7 @@ describe("UserAdminApi — garde-fous anti-lockout", () => {
     );
     const { status } = await call(api, "DELETE", "users/{id}", {
       params: { id: "a1" },
-      user: { id: "super" } as unknown,
+      user: { id: "super" },
     });
     assert.equal(status, 409);
   });
@@ -481,7 +481,7 @@ describe("UserAdminApi — garde-fous anti-lockout", () => {
     );
     const { status, body } = await call(api, "DELETE", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
     });
     assert.equal(status, 200);
     assert.deepEqual(body, { ok: true });
@@ -493,7 +493,7 @@ describe("UserAdminApi — CRUD + audit", () => {
   it("POST : crée (201, DTO sans hash)", async () => {
     const api = createUserAdminApi(container(makeUsers([])));
     const { status, body } = await call(api, "POST", "users", {
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: {
         identifier: "new@x",
         plainPassword: "nouveau-mot-valise-42",
@@ -510,7 +510,7 @@ describe("UserAdminApi — CRUD + audit", () => {
       container(makeUsers([member("u1", "dup@x")])),
     );
     const { status } = await call(api, "POST", "users", {
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: { identifier: "dup@x" },
     });
     assert.equal(status, 409);
@@ -519,7 +519,7 @@ describe("UserAdminApi — CRUD + audit", () => {
   it("POST : 400 si identifier vide", async () => {
     const api = createUserAdminApi(container(makeUsers([])));
     const { status } = await call(api, "POST", "users", {
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: { identifier: "   " },
     });
     assert.equal(status, 400);
@@ -560,7 +560,7 @@ describe("UserAdminApi — CRUD + audit", () => {
     );
     await call(api, "DELETE", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1", identifier: "admin@x" } as unknown,
+      user: { id: "a1", identifier: "admin@x" },
     });
     assert.equal(events.length, 1);
     assert.equal(events[0].action, "user.deleted");
@@ -581,7 +581,7 @@ describe("UserAdminApi — émission onUserRevoked", () => {
     );
     await call(api, "DELETE", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
     });
     assert.equal(fired.length, 1);
     assert.equal(fired[0].name, "onUserRevoked");
@@ -604,7 +604,7 @@ describe("UserAdminApi — émission onUserRevoked", () => {
     );
     await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: { enabled: false },
     });
     assert.equal((fired[0]?.payload as IUserRevokedEvent)?.reason, "disabled");
@@ -621,7 +621,7 @@ describe("UserAdminApi — émission onUserRevoked", () => {
     );
     await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: { locked: true },
     });
     assert.equal((fired[0]?.payload as IUserRevokedEvent)?.reason, "locked");
@@ -638,7 +638,7 @@ describe("UserAdminApi — émission onUserRevoked", () => {
     );
     await call(api, "PATCH", "users/{id}", {
       params: { id: "u2" },
-      user: { id: "a1" } as unknown,
+      user: { id: "a1" },
       body: { roles: ["ROLE_USER", "ROLE_EDITOR"] },
     });
     assert.equal(fired.length, 0);
@@ -663,7 +663,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
       container(makeUsers([withPassword("u1", "alice@x", "oldsecret")])),
     );
     const { status } = await call(api, "POST", "me/password", {
-      user: { id: "u1", identifier: "alice@x" } as unknown,
+      user: { id: "u1", identifier: "alice@x" },
       body: { newPassword: "newsecret1" },
     });
     assert.equal(status, 400);
@@ -674,7 +674,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
       container(makeUsers([withPassword("u1", "alice@x", "oldsecret")])),
     );
     const { status } = await call(api, "POST", "me/password", {
-      user: { id: "u1", identifier: "alice@x" } as unknown,
+      user: { id: "u1", identifier: "alice@x" },
       body: { currentPassword: "oldsecret", newPassword: "short" },
     });
     assert.equal(status, 400);
@@ -685,7 +685,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
       container(makeUsers([withPassword("u1", "alice@x", "samesecret")])),
     );
     const { status } = await call(api, "POST", "me/password", {
-      user: { id: "u1", identifier: "alice@x" } as unknown,
+      user: { id: "u1", identifier: "alice@x" },
       body: { currentPassword: "samesecret", newPassword: "samesecret" },
     });
     assert.equal(status, 400);
@@ -698,7 +698,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
       container(users, { record: (e) => events.push(e) }),
     );
     const { status } = await call(api, "POST", "me/password", {
-      user: { id: "u1", identifier: "alice@x" } as unknown,
+      user: { id: "u1", identifier: "alice@x" },
       body: { currentPassword: "WRONG", newPassword: "newsecret1" },
     });
     assert.equal(status, 403);
@@ -718,7 +718,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
       container(users, { record: (e) => events.push(e) }),
     );
     const { status, body } = await call(api, "POST", "me/password", {
-      user: { id: "u1", identifier: "alice@x" } as unknown,
+      user: { id: "u1", identifier: "alice@x" },
       body: { currentPassword: "oldsecret", newPassword: "newsecret1" },
     });
     assert.equal(status, 200);
@@ -735,7 +735,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
     const api = createUserAdminApi(container(users));
     const { status } = await call(api, "POST", "me/password", {
       // identité SERVEUR = alice ; le client tente de cibler bob → doit être ignoré
-      user: { id: "alice", identifier: "alice@x" } as unknown,
+      user: { id: "alice", identifier: "alice@x" },
       params: { id: "bob" },
       body: {
         id: "bob",
@@ -758,7 +758,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
     };
     const api = createUserAdminApi(container(users));
     const { status } = await call(api, "POST", "me/password", {
-      user: { id: "u1", identifier: "alice@x" } as unknown,
+      user: { id: "u1", identifier: "alice@x" },
       body: { currentPassword: "oldsecret", newPassword: "password" },
     });
     assert.equal(status, 400);
@@ -790,7 +790,7 @@ describe("UserAdminApi — me (self profile)", () => {
     );
     // le client tente de se faire passer pour bob via le body → ignoré (scope ALS)
     const { status, body } = await call(api, "GET", "me", {
-      user: { id: "alice", identifier: "alice@x" } as unknown,
+      user: { id: "alice", identifier: "alice@x" },
       body: { identifier: "bob@x" },
     });
     assert.equal(status, 200);

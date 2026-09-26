@@ -29,13 +29,13 @@ function req(
         try {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: JSON.parse(raw),
           });
         } catch {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: raw,
           });
         }
@@ -54,13 +54,13 @@ describe("HTTP/1.1 — port 5151 (plain HTTP, requires server)", function () {
     it("GET / → 200 text/html", async () => {
       const { status, headers } = await req("GET", "/");
       expect(status).to.equal(200);
-      expect(headers["content-type"] as string).to.include("text/html");
+      expect(headers["content-type"]).to.include("text/html");
     });
 
     it("GET /nodefony/test/index → 200 application/json", async () => {
       const { status, headers } = await req("GET", "/nodefony/test/index");
       expect(status).to.equal(200);
-      expect(headers["content-type"] as string).to.include("application/json");
+      expect(headers["content-type"]).to.include("application/json");
     });
 
     it("GET /nodefony/test/context → scheme is 'http'", async () => {
@@ -91,7 +91,7 @@ describe("HTTP/1.1 — port 5151 (plain HTTP, requires server)", function () {
         },
       );
       expect(status).to.equal(200);
-      expect(headers["content-type"] as string).to.include("application/json");
+      expect(headers["content-type"]).to.include("application/json");
     });
 
     it("POST with JSON body — Content-Length accepted", async () => {

@@ -1,5 +1,4 @@
 import type { IAdminBroker } from "@nodefony/framework";
-import type { IAdminRequest } from "nodefony";
 
 /**
  * Appelle un endpoint admin (`<namespace>/<path>`) via le broker — Studio reste
@@ -31,5 +30,5 @@ export async function fetchAdminEndpoint(
     body: null,
     user: null,
     roles: [],
-  } as IAdminRequest);
+  });
 }

@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   ACCESS_TOKEN_VERIFIER,
   canonicalIssuer,
 } from "nodefony";
@@ -46,7 +45,7 @@ class AccessTokenVerifierService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());

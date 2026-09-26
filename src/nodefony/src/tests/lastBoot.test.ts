@@ -69,10 +69,10 @@ async function capture(
   const write = process.stdout.write.bind(process.stdout);
   const colonnes = process.stdout.columns;
   process.stdout.columns = LARGEUR_DE_TEST;
-  process.stdout.write = ((s: string) => {
+  process.stdout.write = (s: string) => {
     chunks.push(String(s));
     return true;
-  }) as typeof process.stdout.write;
+  };
   try {
     return { code: await run(), out: chunks.join("") };
   } finally {
@@ -454,10 +454,10 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     it("une option inconnue se DIT, elle ne s'ignore pas (EX_USAGE)", async () => {
       const err: string[] = [];
       const write = process.stderr.write.bind(process.stderr);
-      process.stderr.write = ((s: string) => {
+      process.stderr.write = (s: string) => {
         err.push(String(s));
         return true;
-      }) as typeof process.stderr.write;
+      };
       try {
         assert.equal(await runDoctorCommand(["doctor", "--jsno"]), 64);
       } finally {

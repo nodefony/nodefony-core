@@ -95,8 +95,8 @@ describe("security:user:password — changer le mot de passe coupe les accès", 
       password: "s3cr3t-long",
     });
     expect(fired).toHaveLength(1);
-    expect(fired[0]!.name).toBe("onUserRevoked");
-    expect(fired[0]!.payload).toMatchObject({
+    expect(fired[0].name).toBe("onUserRevoked");
+    expect(fired[0].payload).toMatchObject({
       id: "u-42",
       identifier: "bob",
       reason: "password_changed",

@@ -168,7 +168,7 @@ export function mountTokenAuthRoutes(frameworkModule: Module): void {
   for (const [name, path, method, classMethod] of routes) {
     Router.createRoute(name, {
       path,
-      constructor: TokenAuthController as unknown as Controller["constructor"],
+      constructor: TokenAuthController,
       classMethod,
       requirements: { methods: [method] },
       bypassFirewall: true,
@@ -180,12 +180,7 @@ export function mountTokenAuthRoutes(frameworkModule: Module): void {
       "module",
     )
   ) {
-    Router.setController(
-      TokenAuthController as unknown as Parameters<
-        typeof Router.setController
-      >[0],
-      frameworkModule,
-    );
+    Router.setController(TokenAuthController, frameworkModule);
   }
   mounted = true;
 }

@@ -264,11 +264,11 @@ export function firstUsefulLine(stderr: string, stdout: string): string {
       .split("\n")
       .map((l) => l.trim())
       .filter((l) => l.length > 0 && !bruit.test(l));
-    if (useful.length > 0) return clamp(useful[0] as string);
+    if (useful.length > 0) return clamp(useful[0]);
   }
   for (const f of streams) {
     const lines = f.split("\n").filter((l) => l.trim().length > 0);
-    if (lines.length > 0) return clamp((lines[0] as string).trim());
+    if (lines.length > 0) return clamp(lines[0].trim());
   }
   return "";
 }

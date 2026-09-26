@@ -98,7 +98,7 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
    */
   static from(service: RedisService): RedisWebAuthnCredentialStore {
     return new RedisWebAuthnCredentialStore(
-      () => service.getClient("main") as unknown as RedisClientLike | null,
+      () => service.getClient("main"),
       () => service.keyPrefix(KEY_BASE),
     );
   }

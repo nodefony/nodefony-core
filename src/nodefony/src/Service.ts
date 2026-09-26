@@ -417,9 +417,7 @@ class Service implements IService {
     listener: EventListener,
   ): (...args: unknown[]) => boolean {
     // listen() bind le listener avant de l'enregistrer — on ne peut pas tracker l'original.
-    return this.nc.listen(this, eventName, listener) as (
-      ...args: unknown[]
-    ) => boolean;
+    return this.nc.listen(this, eventName, listener);
   }
 
   /** Enregistre un listener (tracké pour cleanup). Alias EventEmitter de {@link addListener}. */

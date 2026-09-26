@@ -262,7 +262,7 @@ describe("AuditService — actif", () => {
     svc.record(draft);
     const res = await svc.listPage({ limit: 100 });
     assert.equal(res.total, 1);
-    const e = res.items[0]!;
+    const e = res.items[0];
     assert.equal(e.action, "access.denied");
     assert.equal(e.actor, "mallory");
     assert.ok(typeof e.id === "string" && e.id.length > 0);

@@ -58,23 +58,15 @@ describe("Les options globales du CLI sont acceptées par les commandes autonome
   const PARSEURS: ReadonlyArray<
     readonly [string, (argv: string[]) => unknown, string[]]
   > = [
-    ["create", parseCreateArgv as (a: string[]) => unknown, ["create", "app"]],
-    ["card", parseCardArgv as (a: string[]) => unknown, ["card"]],
-    ["env", parseEnvArgv as (a: string[]) => unknown, ["env"]],
-    ["symbols", parseSymbolsArgv as (a: string[]) => unknown, ["symbols"]],
-    ["doctor", parseDoctorArgv as (a: string[]) => unknown, ["doctor"]],
+    ["create", parseCreateArgv, ["create", "app"]],
+    ["card", parseCardArgv, ["card"]],
+    ["env", parseEnvArgv, ["env"]],
+    ["symbols", parseSymbolsArgv, ["symbols"]],
+    ["doctor", parseDoctorArgv, ["doctor"]],
     // Ces deux-là lisent `argv.slice(2)` : leur argv commence donc par deux
     // mots que Node y place (l'exécutable et le script).
-    [
-      "ai:sync",
-      parseAiSyncArgv as (a: string[]) => unknown,
-      ["node", "nodefony", "ai:sync"],
-    ],
-    [
-      "git:hooks",
-      parseGitHooksArgv as (a: string[]) => unknown,
-      ["node", "nodefony", "git:hooks"],
-    ],
+    ["ai:sync", parseAiSyncArgv, ["node", "nodefony", "ai:sync"]],
+    ["git:hooks", parseGitHooksArgv, ["node", "nodefony", "git:hooks"]],
   ];
 
   for (const [nom, parse, base] of PARSEURS) {

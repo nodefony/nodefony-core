@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   Scope,
   //Kernel,
   injectable,
@@ -306,7 +305,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.module = module;
@@ -433,7 +432,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       intervalS: cfg.gcIntervalS,
       jitter: cfg.gcJitter !== false,
       run: () => this.rateLimiter?.gc() ?? 0,
-      onError: (e) => this.log(e as Error, "WARNING", "RATELIMIT-GC"),
+      onError: (e) => this.log(e, "WARNING", "RATELIMIT-GC"),
     });
     this.rateLimitGc.start();
   }
@@ -575,9 +574,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         const patterns = raw ? raw : [];
         policy = {
           disabled: false,
-          extra: compileDomainPatterns(
-            patterns as Parameters<typeof compileDomainPatterns>[0],
-          ),
+          extra: compileDomainPatterns(patterns),
         };
       }
       this._wsOriginPolicy[cfgKey] = policy;
@@ -783,7 +780,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // (WebSocket, ou pas de pré-match), match ici comme avant. Pas de double match.
     let resolver: IRouteResolver;
     if (context.resolver) {
-      resolver = context.resolver as IRouteResolver;
+      resolver = context.resolver;
     } else {
       context.phaseStart("resolve");
       try {
@@ -928,7 +925,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             context.reject(wsResult.code, wsResult.reason);
             return context;
           }
-        } catch (e) {
+        } catch {
           throw error;
         }
       }
@@ -1227,9 +1224,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // P3.7 — détail phase-par-phase (opt-in timing.verbose ; no-op sinon).
       context.logPhasesVerbose();
       // Snapshot dev-only AVANT clean() (la donnée disparaît après).
-      this.profiler?.collect(
-        context as unknown as Parameters<Profiler["collect"]>[0],
-      );
+      this.profiler?.collect(context);
       await context._runAfterResponse();
       // Guard 0-listener (cf onCreateContext) : `onFinish` du contexte n'a de
       // listener que si un controller a posé un hook → 0 microtask sinon.
@@ -1361,7 +1356,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // renvoie 204 (preflight) → court-circuit total : ni routing, ni parse,
           // ni firewall (le preflight ne s'authentifie pas — Fetch Standard).
           // HTTP only : le WebSocket n'a pas de CORS (origine vérifiée au handshake).
-          if (this.firewall?.handleCors(context! as ContextType) === 204) {
+          if (this.firewall?.handleCors(context!) === 204) {
             context!.response.writeHead(204);
             context!.response.end();
             return context!;
@@ -1385,7 +1380,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // parse aucun body. Ordre des hooks P6 (beforeResolve/firewall) inchangé.
           context!.phaseStart("resolve");
           context!.resolver = this.router
-            ? this.router.resolve(context! as ContextType)
+            ? this.router.resolve(context!)
             : null;
           context!.phaseEnd("resolve");
           // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
@@ -1395,7 +1390,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
           // court-circuité plus haut (204). Complète le socle transport (nosniff/
           // frame/HSTS) posé à `onHttpRequest`. No-op si security absent/désactivé.
-          this.firewall?.applySecurityHeaders(context! as ContextType);
+          this.firewall?.applySecurityHeaders(context!);
           // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
           // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
           // total — response.end → `onFinish` → teardown déjà wired par

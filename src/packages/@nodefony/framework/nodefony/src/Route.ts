@@ -335,7 +335,7 @@ class Route implements IRoute {
       const url =
         cleanPath !== undefined ? cleanPath : Route.cleanPathname(context);
       if (url !== undefined) {
-        res = url.match(this.pattern as RegExp);
+        res = url.match(this.pattern);
       }
     }
     if (!res) {
@@ -389,7 +389,7 @@ class Route implements IRoute {
       });
     } catch (e: unknown) {
       if (e && typeof e === "object" && "BreakException" in e) {
-        throw (e as { BreakException: unknown }).BreakException;
+        throw e.BreakException;
       }
       throw e;
     }
@@ -689,7 +689,7 @@ class Route implements IRoute {
     key: K,
   ): RouteRequirements[K] | undefined {
     if (key in this.requirements) {
-      return this.requirements[key] as RouteRequirements[K];
+      return this.requirements[key];
     }
     return undefined;
   }

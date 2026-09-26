@@ -233,7 +233,6 @@ function usePerWorkerErrRate(
     }
     setRates(next);
     // `ts` = horodatage du tick : 1 dérivation par tick (instances changent avec lui).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ts]);
   return rates;
 }

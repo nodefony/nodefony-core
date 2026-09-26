@@ -555,7 +555,6 @@ function SupervisionLive({
   });
   useEffect(() => {
     onRate(eff);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [eff]);
   return null;
 }
@@ -977,7 +976,7 @@ export const DashboardSupervision = observer(() => {
   const flowColorOf = (conn: string): string => {
     const idx = flowSeriesConns.indexOf(conn);
     return idx >= 0
-      ? FLOW_PALETTE[idx % FLOW_PALETTE.length]!
+      ? FLOW_PALETTE[idx % FLOW_PALETTE.length]
       : "var(--mantine-color-gray-5)";
   };
   const connColor: string =
@@ -1916,7 +1915,7 @@ export const DashboardSupervision = observer(() => {
           onClick={() => setTab("systeme")}
           hint={`Durée depuis le démarrage du process (per-instance). PID ${stats?.pid ?? info?.pid ?? "—"}, instance ${stats?.instanceId ?? "—"}. Clic → onglet Système.`}
           value={
-            waiting ? <Skeleton h={30} w={110} /> : uptimeStr(stats!.uptime)
+            waiting ? <Skeleton h={30} w={110} /> : uptimeStr(stats.uptime)
           }
           footer={
             <Badge size="sm" variant="light" color="gray">
@@ -2107,7 +2106,7 @@ export const DashboardSupervision = observer(() => {
                 format={(v) => `${Math.round(v)}/s`}
                 series={flowSeriesConns.map((conn, i) => ({
                   data: flowHist.map((p) => p?.rates?.[conn] ?? 0),
-                  color: FLOW_PALETTE[i % FLOW_PALETTE.length]!,
+                  color: FLOW_PALETTE[i % FLOW_PALETTE.length],
                   label: conn,
                 }))}
               />
@@ -2116,7 +2115,7 @@ export const DashboardSupervision = observer(() => {
                   <Legend
                     key={conn}
                     size={fullscreen ? "md" : "xs"}
-                    color={FLOW_PALETTE[i % FLOW_PALETTE.length]!}
+                    color={FLOW_PALETTE[i % FLOW_PALETTE.length]}
                     label={`${conn} — ${Math.round(flowRates[conn] ?? 0)}/s`}
                   />
                 ))}
@@ -2507,11 +2506,11 @@ export const DashboardSupervision = observer(() => {
                     }
                   />
                   <Stack gap={4} style={{ flex: 1 }}>
-                    <Row k="Heap utilisé" v={bytes(stats!.memory.heapUsed)} />
-                    <Row k="Heap alloué" v={bytes(stats!.memory.heapTotal)} />
+                    <Row k="Heap utilisé" v={bytes(stats.memory.heapUsed)} />
+                    <Row k="Heap alloué" v={bytes(stats.memory.heapTotal)} />
                     <Row k="Plafond V8" v={bytes(heapCeiling)} />
-                    <Row k="RSS" v={bytes(stats!.memory.rss)} />
-                    <Row k="Externe" v={bytes(stats!.memory.external)} />
+                    <Row k="RSS" v={bytes(stats.memory.rss)} />
+                    <Row k="Externe" v={bytes(stats.memory.external)} />
                   </Stack>
                 </Group>
               )}

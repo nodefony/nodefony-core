@@ -31,9 +31,9 @@ export function pidFromNetstat(sortie: string, port: number): number | null {
   const suffixe = `:${port}`;
   for (const ligne of sortie.split(/\r?\n/u)) {
     const mots = ligne.trim().split(/\s+/u);
-    if (mots.length < 5 || !/^TCP$/iu.test(mots[0]!)) continue;
-    if (mots[3] !== "LISTENING" || !mots[1]!.endsWith(suffixe)) continue;
-    const pid = Number.parseInt(mots[4]!, 10);
+    if (mots.length < 5 || !/^TCP$/iu.test(mots[0])) continue;
+    if (mots[3] !== "LISTENING" || !mots[1].endsWith(suffixe)) continue;
+    const pid = Number.parseInt(mots[4], 10);
     if (Number.isInteger(pid) && pid > 0) return pid;
   }
   return null;
@@ -57,7 +57,7 @@ export function pidListeningOn(port: number): number | null {
       .toString()
       .trim();
     if (!out) return null;
-    return Number.parseInt(out.split(/\s+/u)[0]!, 10);
+    return Number.parseInt(out.split(/\s+/u)[0], 10);
   } catch {
     return null;
   }

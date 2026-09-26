@@ -209,7 +209,7 @@ function endpoint(
     (e) => e.path === path && (e.method ?? "GET") === method,
   );
   assert.ok(ep, `endpoint ${method} ${path} présent`);
-  return ep!;
+  return ep;
 }
 
 function req(
@@ -289,7 +289,7 @@ describe("WebhookAdminApi — déclaration & composition", () => {
         (e) => e.path === path && (e.method ?? "GET") === method,
       );
       assert.ok(ep, `${method} ${path}`);
-      assert.equal(ep!.role, "ROLE_NODEFONY_ADMIN", `${method} ${path} RBAC`);
+      assert.equal(ep.role, "ROLE_NODEFONY_ADMIN", `${method} ${path} RBAC`);
     }
   });
 
@@ -322,7 +322,7 @@ describe("GET webhooks — liste + statut driver", () => {
     assert.equal(res.store, "MemoryWebhookStore");
     assert.equal(res.endpoints.length, 1);
     assert.ok(
-      !("secretEnc" in res.endpoints[0]!),
+      !("secretEnc" in res.endpoints[0]),
       "le secret chiffré ne fuit JAMAIS en liste",
     );
   });
@@ -360,10 +360,10 @@ describe("POST webhooks — création", () => {
     assert.match(res.body.secret, /^whsec_/);
     assert.equal(res.body.endpoint.createdBy, "admin1");
     assert.equal(recorded.length, 1);
-    assert.equal(recorded[0]!.category, "webhook");
-    assert.equal(recorded[0]!.action, "webhook.created");
-    assert.equal(recorded[0]!.actor, "admin1");
-    assert.equal(recorded[0]!.resource, res.body.endpoint.id);
+    assert.equal(recorded[0].category, "webhook");
+    assert.equal(recorded[0].action, "webhook.created");
+    assert.equal(recorded[0].actor, "admin1");
+    assert.equal(recorded[0].resource, res.body.endpoint.id);
   });
 
   it("400 sur url manquante / events vide / types invalides", async () => {
@@ -426,8 +426,8 @@ describe("GET webhooks/{id}/deliveries", () => {
       deliveries: Array<{ type: string; ok: boolean; responseBody: string }>;
     };
     assert.equal(ok.deliveries.length, 1);
-    assert.equal(ok.deliveries[0]!.type, "login.success");
-    assert.equal(ok.deliveries[0]!.ok, true);
+    assert.equal(ok.deliveries[0].type, "login.success");
+    assert.equal(ok.deliveries[0].ok, true);
     // Endpoint inexistant → 404 (≠ existe mais 0 livraison → []).
     const miss = (await get.handler(req({ id: "wh_nope" }))) as {
       status: number;
@@ -448,7 +448,7 @@ describe("PATCH webhooks/{id}", () => {
     assert.equal(res.description, "off");
     const ev = recorded.find((e) => e.action === "webhook.updated");
     assert.ok(ev, "audit webhook.updated émis");
-    assert.deepEqual(ev!.metadata?.fields, ["enabled", "description"]);
+    assert.deepEqual(ev.metadata?.fields, ["enabled", "description"]);
 
     const miss = (await patch.handler(
       req({ id: "wh_nope" }, { enabled: true }),
@@ -527,9 +527,9 @@ describe("POST webhooks/{id}/reveal", () => {
     assert.match(res.secret, /^whsec_/);
     const ev = recorded.find((e) => e.action === "webhook.revealed");
     assert.ok(ev, "révélation systématiquement audité");
-    assert.equal(ev!.category, "webhook");
-    assert.equal(ev!.actor, "admin1");
-    assert.equal(ev!.resource, id);
+    assert.equal(ev.category, "webhook");
+    assert.equal(ev.actor, "admin1");
+    assert.equal(ev.resource, id);
     const miss = (await reveal.handler(req({ id: "wh_nope" }))) as {
       status: number;
     };

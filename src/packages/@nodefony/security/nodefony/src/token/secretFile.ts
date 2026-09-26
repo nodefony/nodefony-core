@@ -94,7 +94,7 @@ export async function modeNonRestreintAsync(
 ): Promise<number | null | undefined> {
   let mode: number;
   try {
-    mode = ((await stat(file)).mode & 0o777) as number;
+    mode = (await stat(file)).mode & 0o777;
   } catch {
     return null;
   }

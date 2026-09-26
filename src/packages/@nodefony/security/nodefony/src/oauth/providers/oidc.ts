@@ -1,4 +1,3 @@
-import type * as Jose from "jose";
 import type { IOAuthProfile } from "@nodefony/user";
 import type { IOAuthProvider } from "../../../contracts/IOAuthProvider";
 import type { IOAuthProviderContext } from "../oauthProviderRegistry";
@@ -56,7 +55,7 @@ const DEFAULT_OIDC_SCOPES = ["openid", "profile", "email"];
  * n'entre jamais dans le coût du boot.
  */
 async function decodeIdTokenClaims(idToken: string): Promise<object> {
-  const jose = (await import("jose")) as typeof Jose;
+  const jose = await import("jose");
   return jose.decodeJwt(idToken);
 }
 

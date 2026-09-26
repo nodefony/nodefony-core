@@ -13,9 +13,7 @@ import {
   renderZoneTable,
 } from "../service/dev/BootReporter";
 
-const strip = (s: string): string =>
-  // eslint-disable-next-line no-control-regex
-  s.replace(/\x1b\[[0-9;]*m/g, "");
+const strip = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, "");
 
 describe("bilan de boot — tableau des zones firewall", () => {
   it("cleanZonePattern dé-échappe les slashes de RegExp.source", () => {
@@ -73,6 +71,6 @@ describe("bilan de boot — tableau des zones firewall", () => {
       [{ name: "open", pattern: "^\\/public", security: false }],
       "",
     );
-    assert.match(strip(lines[2]!), /open\s+app\s+\^\/public\s+—\s+public/);
+    assert.match(strip(lines[2]), /open\s+app\s+\^\/public\s+—\s+public/);
   });
 });

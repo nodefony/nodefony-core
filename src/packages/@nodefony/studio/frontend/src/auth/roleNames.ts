@@ -85,7 +85,7 @@ export function isVisibleForRoles(
 ): boolean {
   if (hasRole(userRoles, ROLE_NODEFONY_ADMIN)) return true;
   if (!required || required.length === 0) return true;
-  return hasAnyRole(userRoles, required as string[]);
+  return hasAnyRole(userRoles, required);
 }
 
 /**

@@ -61,7 +61,7 @@ describe("bilan de boot — le manifeste `modules` est une donnée du verdict", 
         "c'est l'état qui a coûté une enquête entière",
     );
     assert.match(
-      report.remediation as string,
+      report.remediation,
       /modules/,
       `la remédiation doit parler du manifeste, pas des serveurs : ${report.remediation}`,
     );

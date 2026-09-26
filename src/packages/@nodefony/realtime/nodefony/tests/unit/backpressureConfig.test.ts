@@ -26,7 +26,7 @@ function fakeConn(bufferedAmount: number): FakeConn {
     close(code?: number) {
       closed.push({ code });
     },
-  } as FakeConn;
+  };
 }
 
 /**

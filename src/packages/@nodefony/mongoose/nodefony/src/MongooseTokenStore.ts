@@ -1,5 +1,5 @@
 import { paginate } from "@nodefony/orm-core";
-import type { Criteria, IRepository, UpdateData } from "@nodefony/orm-core";
+import type { Criteria, IRepository } from "@nodefony/orm-core";
 import type { IPage } from "nodefony";
 import { assertPageQuery } from "nodefony";
 // Contrat en `import type` (effacé à la compilation) ; le VOCABULAIRE DE TRI,
@@ -39,7 +39,7 @@ function tokenListCriteria(
   };
   if (query.subjectId !== undefined) criteria.subjectId = query.subjectId;
   if (query.kind !== undefined) criteria.kind = query.kind;
-  return criteria as Criteria<IAccessTokenRecord>;
+  return criteria;
 }
 import {
   TOKEN_ENTITY_NAMES,
@@ -199,7 +199,7 @@ export class MongooseTokenStore implements ITokenStore {
    */
   async put(record: IAccessTokenRecord): Promise<void> {
     const { id, ...rest } = record;
-    await this.#records.upsert({ id }, rest as Partial<IAccessTokenRecord>);
+    await this.#records.upsert({ id }, rest);
   }
 
   async findById(id: string): Promise<IAccessTokenRecord | null> {
@@ -301,9 +301,12 @@ export class MongooseTokenStore implements ITokenStore {
   async denyJti(jti: string, expiresAt: number): Promise<void> {
     // UPSERT atomique sur la PK (cf `put`) : deux dénonciations simultanées du
     // même jeton rejoué ne doivent pas faire remonter d'erreur.
-    await this.#denied.upsert({ id: jti }, {
-      expiresAt,
-    } as Partial<DeniedJtiRow>);
+    await this.#denied.upsert(
+      { id: jti },
+      {
+        expiresAt,
+      },
+    );
   }
 
   async isJtiDenied(jti: string): Promise<boolean> {
@@ -335,9 +338,12 @@ export class MongooseTokenStore implements ITokenStore {
     subjectId: string,
     invalidBefore: number,
   ): Promise<void> {
-    await this.#revocations.upsert({ id: subjectId }, {
-      invalidBefore: { $max: invalidBefore },
-    } as UpdateData<SubjectRevocationRow>);
+    await this.#revocations.upsert(
+      { id: subjectId },
+      {
+        invalidBefore: { $max: invalidBefore },
+      },
+    );
   }
 
   async getInvalidBefore(subjectId: string): Promise<number | null> {

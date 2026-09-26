@@ -28,9 +28,6 @@ import {
 } from "./queryKit";
 import type { UserRow } from "../entity/userTable";
 
-/** Critère typé sur la ligne `User` (sous-ensemble compatible avec le contrat). */
-type UserCriteria = Criteria<UserRow>;
-
 /**
  * Adapter Drizzle du contrat {@link IUserRepository} — implémentation SQL **par
  * défaut** de la persistance utilisateur (P5.9).
@@ -146,10 +143,7 @@ export class DrizzleUserRepository implements IUserRepository {
     criteria?: Criteria<IPasswordAuthenticatedUser>,
     options?: RepositoryReadOptions,
   ): Promise<IPasswordAuthenticatedUser[]> {
-    const rows = await this.#base.find(
-      criteria as unknown as UserCriteria,
-      options,
-    );
+    const rows = await this.#base.find(criteria, options);
     return rows.map((row) => this.#toUser(row));
   }
 
@@ -157,17 +151,14 @@ export class DrizzleUserRepository implements IUserRepository {
     criteria: Criteria<IPasswordAuthenticatedUser>,
     options?: RepositoryReadOptions,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    const row = await this.#base.findOne(
-      criteria as unknown as UserCriteria,
-      options,
-    );
+    const row = await this.#base.findOne(criteria, options);
     return row ? this.#toUser(row) : null;
   }
 
   async create(
     data: Partial<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser> {
-    const row = await this.#base.create(data as Partial<UserRow>);
+    const row = await this.#base.create(data);
     return this.#toUser(row);
   }
 
@@ -175,10 +166,7 @@ export class DrizzleUserRepository implements IUserRepository {
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: Partial<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    const row = await this.#base.updateOne(
-      criteria as unknown as UserCriteria,
-      data as Partial<UserRow>,
-    );
+    const row = await this.#base.updateOne(criteria, data);
     return row ? this.#toUser(row) : null;
   }
 
@@ -187,35 +175,29 @@ export class DrizzleUserRepository implements IUserRepository {
     update: Partial<IPasswordAuthenticatedUser>,
     insertOnly?: Partial<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser> {
-    const row = await this.#base.upsert(
-      criteria as unknown as UserCriteria,
-      update as Partial<UserRow>,
-      insertOnly as Partial<UserRow> | undefined,
-    );
+    const row = await this.#base.upsert(criteria, update, insertOnly);
     return this.#toUser(row);
   }
 
   async createMany(
     data: Partial<IPasswordAuthenticatedUser>[],
   ): Promise<IPasswordAuthenticatedUser[]> {
-    const rows = await this.#base.createMany(data as Partial<UserRow>[]);
+    const rows = await this.#base.createMany(data);
     return rows.map((row) => this.#toUser(row));
   }
 
   exists(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<boolean> {
-    return this.#base.exists(criteria as unknown as UserCriteria);
+    return this.#base.exists(criteria);
   }
 
   deleteOne(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<boolean> {
-    return this.#base.deleteOne(criteria as unknown as UserCriteria);
+    return this.#base.deleteOne(criteria);
   }
 
   async findOneAndDelete(
     criteria: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    const row = await this.#base.findOneAndDelete(
-      criteria as unknown as UserCriteria,
-    );
+    const row = await this.#base.findOneAndDelete(criteria);
     return row ? this.#toUser(row) : null;
   }
 
@@ -223,10 +205,7 @@ export class DrizzleUserRepository implements IUserRepository {
     criteria: Criteria<IPasswordAuthenticatedUser>,
     changes: Partial<Record<keyof IPasswordAuthenticatedUser, number>>,
   ): Promise<IPasswordAuthenticatedUser | null> {
-    const row = await this.#base.increment(
-      criteria as unknown as UserCriteria,
-      changes as Partial<Record<keyof UserRow, number>>,
-    );
+    const row = await this.#base.increment(criteria, changes);
     return row ? this.#toUser(row) : null;
   }
 
@@ -234,28 +213,22 @@ export class DrizzleUserRepository implements IUserRepository {
     criteria: Criteria<IPasswordAuthenticatedUser>,
     data: Partial<IPasswordAuthenticatedUser>,
   ): Promise<number> {
-    return this.#base.updateMany(
-      criteria as unknown as UserCriteria,
-      data as Partial<UserRow>,
-    );
+    return this.#base.updateMany(criteria, data);
   }
 
   delete(criteria: Criteria<IPasswordAuthenticatedUser>): Promise<number> {
-    return this.#base.delete(criteria as unknown as UserCriteria);
+    return this.#base.delete(criteria);
   }
 
   count(criteria?: Criteria<IPasswordAuthenticatedUser>): Promise<number> {
-    return this.#base.count(criteria as unknown as UserCriteria);
+    return this.#base.count(criteria);
   }
 
   countDistinct(
     field: keyof IPasswordAuthenticatedUser & string,
     criteria?: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<number> {
-    return this.#base.countDistinct(
-      field as keyof UserRow & string,
-      criteria as unknown as UserCriteria,
-    );
+    return this.#base.countDistinct(field as keyof UserRow & string, criteria);
   }
 
   withTransaction(tx: ITransaction): IUserRepository {
@@ -271,7 +244,7 @@ export class DrizzleUserRepository implements IUserRepository {
   ): Promise<IPasswordAuthenticatedUser | null> {
     return this.findOne({
       identifier,
-    } as Criteria<IPasswordAuthenticatedUser>);
+    });
   }
 
   /**
@@ -293,7 +266,7 @@ export class DrizzleUserRepository implements IUserRepository {
     if (id === null) {
       return null;
     }
-    return this.findOne({ id } as Criteria<IPasswordAuthenticatedUser>);
+    return this.findOne({ id });
   }
 
   /**
@@ -342,7 +315,7 @@ export class DrizzleUserRepository implements IUserRepository {
     // (le `IN (...)` ne garantit pas l'ordre) — coût O(page), borné par `limit`.
     const rows = await this.#base.find({
       id: { $in: ids },
-    } as unknown as UserCriteria);
+    });
     const byId = new Map(rows.map((row) => [row.id, this.#toUser(row)]));
     const items = ids
       .map((id) => byId.get(id))

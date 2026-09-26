@@ -1,5 +1,5 @@
 import { entityRegistry, ormRegistry } from "@nodefony/orm-core";
-import type { Connection, Model } from "mongoose";
+import type { Connection } from "mongoose";
 import {
   registerTokenStore,
   getTokenStoreFactory,
@@ -276,9 +276,7 @@ export function registerMongooseFrameworkStores(): IFrameworkStoresReport {
               }
               return orm
                 .getNativeConnection<Connection>()
-                .model<Record<string, unknown>>(
-                  IDEMPOTENCY_ENTITY_NAME,
-                ) as unknown as Model<Record<string, unknown>>;
+                .model<Record<string, unknown>>(IDEMPOTENCY_ENTITY_NAME);
             },
             undefined,
             undefined,

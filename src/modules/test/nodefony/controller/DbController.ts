@@ -53,7 +53,7 @@ class DbController extends Controller {
         );
       }
     } catch (e) {
-      this.log(e as Error, "ERROR", "DB-DEMO", "comptage User échoué");
+      this.log(e, "ERROR", "DB-DEMO", "comptage User échoué");
     }
 
     this.log("Trace DB — fin", "INFO", "DB-DEMO");
@@ -129,7 +129,7 @@ class DbController extends Controller {
     }
     const rows = await repo.find({
       identifier: `${DbController.PROBE_PREFIX}${key}`,
-    } as never);
+    });
     const first = rows[0] as { id?: string } | undefined;
     return this.renderJson({ found: rows.length > 0, id: first?.id ?? null });
   }

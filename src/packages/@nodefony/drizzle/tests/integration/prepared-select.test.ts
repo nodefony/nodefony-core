@@ -193,7 +193,7 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
     assert.deepEqual(in2, in1);
     const or = await repo.find({
       $or: [{ name: "alice" }, { name: "eve" }],
-    } as Partial<ProbeRow>);
+    });
     assert.deepEqual(or.map((r) => r.name).sort(), ["alice", "eve"]);
   });
 
@@ -214,9 +214,9 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
   it("critère sur colonne JSON et bool : le mapToDriverValue s'applique AU BIND (parité avec le chemin non préparé)", async () => {
     const viaPrepared = await repo.find({
       tags: ["a", "b"],
-    } as Partial<ProbeRow>);
+    });
     const viaFallback = await orm.transaction(async (tx) =>
-      repo.withTransaction(tx).find({ tags: ["a", "b"] } as Partial<ProbeRow>),
+      repo.withTransaction(tx).find({ tags: ["a", "b"] }),
     );
     assert.deepEqual(viaPrepared, viaFallback, "parité json");
     assert.equal(viaPrepared.length, 1, "le critère MORD (pas toute la table)");
@@ -250,7 +250,7 @@ describe("DrizzleRepository — SELECT préparés mémoïsés (sqlite)", () => {
       ["bob", "dan", "fred"],
       "l'INSERT est visible à la relecture immédiate",
     );
-    await repo.updateOne({ id: fred.id }, { age: 26 } as Partial<ProbeRow>);
+    await repo.updateOne({ id: fred.id }, { age: 26 });
     const afterUpdate = await shape();
     assert.deepEqual(
       afterUpdate.map((r) => r.name).sort(),

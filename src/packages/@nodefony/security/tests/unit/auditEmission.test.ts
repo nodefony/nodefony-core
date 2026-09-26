@@ -91,14 +91,14 @@ describe("AuthFlow — émission audit", () => {
     await assert.rejects(() => emitter.login(ctx, "alice", ""));
     const { items: events, total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 1);
-    assert.equal(events[0]!.category, "auth");
-    assert.equal(events[0]!.action, "login.failure");
-    assert.equal(events[0]!.outcome, "failure");
-    assert.equal(events[0]!.actor, "alice");
-    assert.equal(events[0]!.reason, "invalid_credentials");
-    assert.equal(events[0]!.ip, "203.0.113.7");
-    assert.equal(events[0]!.requestId, "req-42");
-    assert.equal(events[0]!.flags?.hasCookie, true);
+    assert.equal(events[0].category, "auth");
+    assert.equal(events[0].action, "login.failure");
+    assert.equal(events[0].outcome, "failure");
+    assert.equal(events[0].actor, "alice");
+    assert.equal(events[0].reason, "invalid_credentials");
+    assert.equal(events[0].ip, "203.0.113.7");
+    assert.equal(events[0].requestId, "req-42");
+    assert.equal(events[0].flags?.hasCookie, true);
   });
 
   it("login.failure sur identité inconnue", async () => {
@@ -107,8 +107,8 @@ describe("AuthFlow — émission audit", () => {
     const ctx = fakeContext() as unknown as LoginArgs[0];
     await assert.rejects(() => emitter.login(ctx, "ghost", "pw"));
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "login.failure");
-    assert.equal(events[0]!.actor, "ghost");
+    assert.equal(events[0].action, "login.failure");
+    assert.equal(events[0].actor, "ghost");
   });
 
   it("login.success émet avec l'identité résolue", async () => {
@@ -120,13 +120,13 @@ describe("AuthFlow — émission audit", () => {
         roles: ["ROLE_USER"],
       }),
     });
-    const ctx = fakeContext() as unknown as Record<string, unknown>;
+    const ctx = fakeContext();
     ctx.session = fakeSession("sess-1");
     await emitter.login(ctx as unknown as LoginArgs[0], "alice", "pw");
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "login.success");
-    assert.equal(events[0]!.outcome, "success");
-    assert.equal(events[0]!.actor, "alice");
+    assert.equal(events[0].action, "login.success");
+    assert.equal(events[0].outcome, "success");
+    assert.equal(events[0].actor, "alice");
   });
 
   // ── Facteur d'authentification externe (F16) ──────────────────────────────
@@ -147,14 +147,14 @@ describe("AuthFlow — émission audit", () => {
     container.set("users", {
       loadUserByIdentifier: async () => externalUser,
     });
-    const ctx = fakeContext() as unknown as Record<string, unknown>;
+    const ctx = fakeContext();
     ctx.session = fakeSession("sess-ext");
     const args = [ctx as unknown as LoginArgs[0], "alice"] as const;
     await (reason === undefined
       ? emitter.establishSessionFor(...args)
       : emitter.establishSessionFor(...args, reason));
     const { items: events } = await audit.listPage({ limit: 100 });
-    return events[0]!;
+    return events[0];
   }
 
   it("establishSessionFor journalise le facteur `webauthn`", async () => {
@@ -175,7 +175,7 @@ describe("AuthFlow — émission audit", () => {
 
   it("logout émet session/logout avec l'acteur pré-destruction", async () => {
     const { audit, emitter } = setup(AuthFlow);
-    const ctx = fakeContext() as unknown as Record<string, unknown>;
+    const ctx = fakeContext();
     ctx.session = {
       status: "active",
       user: "alice",
@@ -184,9 +184,9 @@ describe("AuthFlow — émission audit", () => {
     const ok = await emitter.logout(ctx as unknown as LoginArgs[0]);
     assert.equal(ok, true);
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.category, "session");
-    assert.equal(events[0]!.action, "logout");
-    assert.equal(events[0]!.actor, "alice");
+    assert.equal(events[0].category, "session");
+    assert.equal(events[0].action, "logout");
+    assert.equal(events[0].actor, "alice");
   });
 
   it("logout sans session active n'émet rien", async () => {
@@ -207,11 +207,11 @@ describe("Authorization — émission audit", () => {
     const granted = await emitter.decide(token, "SECRET_OP");
     assert.equal(granted, false);
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.category, "authz");
-    assert.equal(events[0]!.action, "access.denied");
-    assert.equal(events[0]!.outcome, "denied");
-    assert.equal(events[0]!.actor, "mallory");
-    assert.equal(events[0]!.resource, "SECRET_OP");
+    assert.equal(events[0].category, "authz");
+    assert.equal(events[0].action, "access.denied");
+    assert.equal(events[0].outcome, "denied");
+    assert.equal(events[0].actor, "mallory");
+    assert.equal(events[0].resource, "SECRET_OP");
   });
 });
 

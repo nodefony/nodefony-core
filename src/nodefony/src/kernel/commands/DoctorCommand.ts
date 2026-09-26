@@ -62,12 +62,7 @@ const options: OptionsCommandInterface = {
  */
 class Check extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "doctor",
-      "ce qui ne va pas dans cette application",
-      cli as CliKernel,
-      options,
-    );
+    super("doctor", "ce qui ne va pas dans cette application", cli, options);
     // `doctor` est le SEUL nom : c'est le mot qu'on tape quand quelque chose ne
     // va pas, celui que les autres écosystèmes ont installé (`brew doctor`,
     // `flutter doctor`), et celui qu'un agent trouve en cherchant à

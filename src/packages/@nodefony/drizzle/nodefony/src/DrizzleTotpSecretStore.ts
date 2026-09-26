@@ -134,7 +134,7 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
     // constraint failed »). `save` pose le secret COMPLET (ré-enrôlement) →
     // tout le reste est ré-appliqué au conflit.
     const { userId, ...rest } = this.#toRow(secret);
-    await this.#repo.upsert({ userId }, rest as Partial<TotpSecretRow>);
+    await this.#repo.upsert({ userId }, rest);
   }
 
   async update(userId: string, patch: TotpSecretUpdate): Promise<void> {
@@ -175,7 +175,7 @@ export class DrizzleTotpSecretStore implements ITotpSecretStore {
       criteria,
       searchCriteria<TotpSecretRow>(query.q, ["userId"]) ?? {},
     );
-    return criteria as unknown as Criteria<TotpSecretRow>;
+    return criteria;
   }
 
   /**

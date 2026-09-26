@@ -235,7 +235,7 @@ async function refus(corps: () => Promise<unknown>): Promise<{
   return {
     code: verdict.code,
     message: leve.message,
-    facts: verdict.facts as Record<string, unknown>,
+    facts: verdict.facts,
     commande: verdict.nextActions[0]?.command ?? "",
     gestes: verdict.nextActions.map((a) => a.command),
   };

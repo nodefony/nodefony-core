@@ -111,7 +111,7 @@ describe("@nodefony/drizzle — nom d'une migration", () => {
     it("la suggestion d'un nom trop long est TRONQUÉE à la limite", () => {
       const v = checkMigrationName(`${"ajout ".repeat(60)}`);
       assert.ok(!v.ok && v.suggestion);
-      assert.ok((v.suggestion as string).length <= MIGRATION_NAME_MAX);
+      assert.ok(v.suggestion.length <= MIGRATION_NAME_MAX);
     });
   });
 

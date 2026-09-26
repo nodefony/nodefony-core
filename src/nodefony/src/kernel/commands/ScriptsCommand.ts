@@ -37,12 +37,7 @@ const options: OptionsCommandInterface = {
  */
 class Scripts extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "scripts",
-      "ce que font les scripts npm de ce projet",
-      cli as CliKernel,
-      options,
-    );
+    super("scripts", "ce que font les scripts npm de ce projet", cli, options);
     this.addOption("-j, --json", "sortie JSON (scriptable)");
   }
 

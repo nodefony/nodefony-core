@@ -663,7 +663,7 @@ export const OrmOverview = observer(
           ),
         );
         if (r.score == null) continue;
-        if (!worst || (r.score as number) < (worst.score as number)) {
+        if (!worst || r.score < (worst.score as number)) {
           worst = r;
           worstPid = inst.instanceId;
         }
@@ -991,7 +991,7 @@ export const OrmOverview = observer(
           {/* Santé ORM — verdict 3 états (pod = pire worker). Clic → onglet Connecteurs. */}
           <KpiCard
             label="Santé ORM"
-            accent={(verdict.result?.color ?? "gray") as MantineColor}
+            accent={verdict.result?.color ?? "gray"}
             icon={<IconHeartRateMonitor size={20} />}
             value={
               verdict.result ? (
@@ -1033,7 +1033,7 @@ export const OrmOverview = observer(
                 <Badge
                   size="sm"
                   variant="light"
-                  color={(verdict.result?.color ?? "gray") as MantineColor}
+                  color={verdict.result?.color ?? "gray"}
                 >
                   {verdict.result?.label ?? "—"}
                 </Badge>
@@ -1271,7 +1271,7 @@ export const OrmOverview = observer(
                             <Badge
                               size="xs"
                               variant="light"
-                              color={role.color as MantineColor}
+                              color={role.color}
                               style={{ textTransform: "none" }}
                             >
                               {role.label}

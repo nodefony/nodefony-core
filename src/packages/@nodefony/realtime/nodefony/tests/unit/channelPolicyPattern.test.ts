@@ -55,7 +55,7 @@ describe("RealtimeHub — politique de canal par MOTIF de nom", () => {
         "chat:*": { roles: ["ROLE_USER"] },
         "chat:room:*": { roles: ["ROLE_ADMIN"] },
       };
-      for (const m of ordre) hub.registerChannelPolicy(m, policies[m]!);
+      for (const m of ordre) hub.registerChannelPolicy(m, policies[m]);
 
       expect(
         hub.resolveChannelPolicy("chat:room:1"),

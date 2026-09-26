@@ -104,14 +104,14 @@ export function repairRebuildCopy(
     const keptSelect: string[] = [];
     const removed: string[] = [];
     for (let i = 0; i < intoColumns.length; i++) {
-      const target = bareName(intoColumns[i] as string);
-      const read = bareName(selectColumns[i] as string);
+      const target = bareName(intoColumns[i]);
+      const read = bareName(selectColumns[i]);
       if (target === null || read === null) {
         return match;
       }
       if (carried.has(read)) {
-        keptInto.push(intoColumns[i] as string);
-        keptSelect.push(selectColumns[i] as string);
+        keptInto.push(intoColumns[i]);
+        keptSelect.push(selectColumns[i]);
       } else {
         removed.push(`${source}.${read}`);
       }

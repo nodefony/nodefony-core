@@ -90,7 +90,7 @@ function packagesBuiltByThisProject(projectRoot: string): Set<string> {
   const list = Array.isArray(patterns)
     ? patterns
     : Array.isArray((patterns as { packages?: unknown } | null)?.packages)
-      ? ((patterns as { packages: unknown[] }).packages as unknown[])
+      ? (patterns as { packages: unknown[] }).packages
       : [];
   for (const pattern of list) {
     if (typeof pattern !== "string") continue;
@@ -276,7 +276,7 @@ export function parseAiSyncArgv(
   let dryRun = false;
   let help = false;
   for (let i = 0; i < args.length; i += 1) {
-    const a = args[i] as string;
+    const a = args[i];
     // Une commande qui répond « option inconnue : --help » apprend au lecteur
     // à ne plus croire le pied de l'aide, qui promet ce drapeau.
     if (a === "--help" || a === "-h") help = true;

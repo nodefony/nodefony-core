@@ -111,7 +111,7 @@ describe.skipIf(!PG_URL)("Migrations ↔ DDL dérivé — parité (postgres)", (
     const { Client } = await import("pg");
     const admin = new Client({ connectionString: PG_URL });
     await admin.connect();
-    client = admin as unknown as typeof client;
+    client = admin;
     close = () => admin.end();
 
     for (const schema of [MIGRATED, DERIVED]) {

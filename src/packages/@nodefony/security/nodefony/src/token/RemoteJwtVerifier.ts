@@ -214,7 +214,7 @@ export class RemoteJwtVerifier {
     audience: string,
   ): Promise<IAccessPrincipal | null> {
     if (typeof token !== "string" || token.length === 0) return null;
-    const jose = (this.#jose ??= (await import("jose")) as typeof Jose);
+    const jose = (this.#jose ??= await import("jose"));
 
     // Lecture NON VÉRIFIÉE, et traitée comme telle : elle ne sert qu'à choisir
     // une entrée dans une liste fermée. Aucune valeur du jeton ne devient une

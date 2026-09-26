@@ -255,7 +255,7 @@ describe.skipIf(!URI)(
 
       const ownerRooms = await rooms.find({
         userId: owner.id,
-      } as Partial<Room>);
+      });
       assert.equal(ownerRooms.length, 2);
     });
 
@@ -448,7 +448,7 @@ describe.skipIf(!URI)(
       assert.deepEqual(
         results
           .filter((r) => r.status === "rejected")
-          .map((r) => (r as PromiseRejectedResult).reason?.message),
+          .map((r) => r.reason?.message),
         [],
         "aucun upsert concurrent ne doit être rejeté",
       );

@@ -86,7 +86,7 @@ function getJson(
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });
@@ -123,7 +123,7 @@ async function loginAsAdmin(): Promise<string> {
             reject(new Error(`login admin KO (status ${res.statusCode})`));
             return;
           }
-          resolve(first.split(";")[0]!);
+          resolve(first.split(";")[0]);
         });
       },
     );

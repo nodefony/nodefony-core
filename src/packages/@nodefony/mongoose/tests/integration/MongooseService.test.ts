@@ -32,7 +32,7 @@ describe("MongooseService — buildUri (assemblage pur)", () => {
         host: "db.local",
         port: 1234,
         dbname: "app",
-      } as IMongooseConnectorConfig),
+      }),
       "mongodb://db.local:1234/app",
     );
   });

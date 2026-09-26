@@ -12,7 +12,7 @@ class Install extends Command {
     super(
       "install",
       "installe les dépendances puis construit le projet",
-      cli as CliKernel,
+      cli,
       optionsCommand,
     );
     this.addOption("-f, --force", "Force Install");

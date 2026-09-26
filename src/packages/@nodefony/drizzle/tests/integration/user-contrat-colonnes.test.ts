@@ -100,7 +100,7 @@ describe("contrat utilisateur — l'entité de l'application est contrôlée au 
   for (const dialect of DIALECTS) {
     describe(dialect, () => {
       it("REFUSE une entité amputée, en nommant la colonne ET son lecteur", () => {
-        entityRegistry.register(amputeeEntity(dialect) as Entity<SQLiteTable>);
+        entityRegistry.register(amputeeEntity(dialect));
         assert.throws(
           () => registerDrizzleFrameworkStores(dialect),
           (error: Error) => {

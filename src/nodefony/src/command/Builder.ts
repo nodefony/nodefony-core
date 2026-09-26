@@ -5,7 +5,6 @@ import fsp from "node:fs/promises";
 import { PathLike } from "node:fs";
 import Service from "../Service";
 import Container from "../Container";
-import Event from "../Event";
 import Command from "./Command";
 import { extend, typeOf } from "../Tools";
 import FileClass from "../FileClass";
@@ -60,7 +59,7 @@ class Builder extends Service {
     super(
       "Builder",
       <Container>command?.container,
-      <Event>command?.notificationsCenter,
+      command?.notificationsCenter,
     );
     this.command = command;
     this.getCliOptions();
@@ -169,7 +168,7 @@ class Builder extends Service {
 
       if (typeOf(obj) === "array") {
         for (const element of obj as BuilderObject[]) {
-          await this.build(element, parent as File, force);
+          await this.build(element, parent, force);
         }
         return child;
       }
@@ -191,7 +190,7 @@ class Builder extends Service {
             (myobj.params as fs.MakeDirectoryOptions) || { mode: 0o755 },
             force,
           );
-          (parent as File).childrens.push(child as File);
+          (parent as File).childrens.push(child);
           this.log(
             `${force ? "Force Create" : "Create"} Directory: ${child?.name}`,
           );
@@ -207,7 +206,7 @@ class Builder extends Service {
           );
           this.log(`Create File: ${filePath}`);
           if (myobj.chmod) {
-            await fsp.chmod(filePath, myobj.chmod as fs.Mode);
+            await fsp.chmod(filePath, myobj.chmod);
           }
           child = new File(filePath, parent as File);
           (parent as File).childrens.push(child);
@@ -235,7 +234,7 @@ class Builder extends Service {
           });
           this.log(`Copy: ${name}`);
           if (myobj.chmod) {
-            await fsp.chmod(destPath, myobj.chmod as fs.Mode);
+            await fsp.chmod(destPath, myobj.chmod);
           }
           child = new File(destPath, parent as File);
           (parent as File).childrens.push(child);
@@ -244,7 +243,7 @@ class Builder extends Service {
       }
 
       if (myobj.childs?.length) {
-        await this.build(myobj.childs, child as FileClass, force);
+        await this.build(myobj.childs, child, force);
       }
     } catch (e) {
       this.log(e, "ERROR");

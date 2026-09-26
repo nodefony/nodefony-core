@@ -73,15 +73,15 @@ describe("create --help — une page par type, dérivée de la spec", () => {
       o.term.startsWith("--frontend"),
     );
     assert.isDefined(terme);
-    for (const c of frontend!.choices ?? []) {
-      assert.include(terme!.term, c.value, `valeur absente : ${c.value}`);
+    for (const c of frontend.choices ?? []) {
+      assert.include(terme.term, c.value, `valeur absente : ${c.value}`);
     }
   });
 
   it("🔴 le DÉFAUT de chaque option est dit — sinon il faut lancer pour le voir", () => {
     const preset = optionsFor("app").find((o) => o.term.startsWith("--preset"));
     assert.isDefined(preset);
-    assert.include(preset!.text, "défaut : complete");
+    assert.include(preset.text, "défaut : complete");
   });
 
   it("🔴 aucun drapeau n'apparaît deux fois", () => {
@@ -120,8 +120,8 @@ describe("create --help — une page par type, dérivée de la spec", () => {
       o.term.startsWith("--no-controller"),
     );
     assert.isDefined(controller);
-    assert.include(controller!.text, "actif par défaut");
-    assert.notInclude(controller!.text, "inactif");
+    assert.include(controller.text, "actif par défaut");
+    assert.notInclude(controller.text, "inactif");
   });
 
   it("🔴 une page ne parle QUE de son type", () => {

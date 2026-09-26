@@ -630,7 +630,7 @@ const FLOW_PALETTE = [
   "var(--mantine-color-cyan-6)",
 ];
 function paletteAt(i: number): string {
-  return FLOW_PALETTE[i % FLOW_PALETTE.length] as string;
+  return FLOW_PALETTE[i % FLOW_PALETTE.length];
 }
 
 /** Débit/s PAR connecteur dérivé du delta de `total` entre 2 rapports + historique. */

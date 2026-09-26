@@ -236,7 +236,6 @@ export const WebhooksTable = observer(function WebhooksTable({
         throw new Error(describeWebhooksError(e), { cause: e });
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [store, filterSignal, reloadKey],
   );

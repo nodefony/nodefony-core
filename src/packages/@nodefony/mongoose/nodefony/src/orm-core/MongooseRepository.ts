@@ -265,7 +265,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       const key = this.#resolveField(field);
       out[key] = isFieldOperators(value) ? this.#mongoOps(value) : value;
     }
-    return out as QueryFilter<Record<string, unknown>>;
+    return out;
   }
 
   /** Sérialise un document en objet plat (virtuels inclus → `id`, populates). */
@@ -353,10 +353,9 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     return this.#prof(
       () => this.#descr("create"),
       async () => {
-        const [doc] = await this.#model.create(
-          [data as Record<string, unknown>],
-          { session: this.#session ?? undefined },
-        );
+        const [doc] = await this.#model.create([data], {
+          session: this.#session ?? undefined,
+        });
         return this.#plain(doc);
       },
       () => 1,
@@ -389,7 +388,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
       () => this.#descr("findOneAndUpdate", filter),
       async () => {
         const doc = await this.#model
-          .findOneAndUpdate(filter, data as Record<string, unknown>, {
+          .findOneAndUpdate(filter, data, {
             // `returnDocument: "after"` = renvoie le doc APRÈS modif (forme non
             // dépréciée de l'ancien `new: true` — Mongoose 9).
             returnDocument: "after",
@@ -422,7 +421,7 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
             filter,
             {
               ...this.#writeDoc(update),
-              $setOnInsert: (insertOnly ?? {}) as Record<string, unknown>,
+              $setOnInsert: insertOnly ?? {},
             },
             {
               upsert: true,
@@ -477,11 +476,9 @@ export class MongooseRepository<T = unknown> implements IRepository<T> {
     return this.#prof(
       () => this.#descr("updateMany", filter),
       async () => {
-        const res = await this.#model.updateMany(
-          filter,
-          data as Record<string, unknown>,
-          { session: this.#session ?? undefined },
-        );
+        const res = await this.#model.updateMany(filter, data, {
+          session: this.#session ?? undefined,
+        });
         return res.modifiedCount ?? 0;
       },
       (n) => n,

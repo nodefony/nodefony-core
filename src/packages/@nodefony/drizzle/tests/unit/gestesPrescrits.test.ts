@@ -64,7 +64,7 @@ describe("Gestes prescrits — atteignables depuis une APPLICATION", () => {
       const texte = readFileSync(fichier, "utf8");
       // Les deux écritures : littéral et gabarit interpolé.
       for (const m of texte.matchAll(/command:\s*["`]([^"`]+)["`]/g)) {
-        releves.push({ fichier, commande: m[1] as string });
+        releves.push({ fichier, commande: m[1] });
       }
     }
     return releves;
@@ -104,7 +104,7 @@ describe("Gestes prescrits — atteignables depuis une APPLICATION", () => {
       }
       const texte = readFileSync(path.join(dirCmd, f), "utf8");
       for (const m of texte.matchAll(/"(orm:[a-z:]+)"/g)) {
-        commandes.add(m[1] as string);
+        commandes.add(m[1]);
       }
     }
     const fautifs = gestes()

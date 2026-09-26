@@ -208,7 +208,7 @@ function SourceTable({ source }: { source: MigrationSource }) {
             <Table.Tbody>
               {entries.map((e) => {
                 const s = STATUS_STYLES[e.status] ?? {
-                  color: "gray" as MantineColor,
+                  color: "gray",
                   label: e.status,
                 };
                 return (
@@ -402,7 +402,7 @@ export const Migrations = observer(() => {
   const status = data !== null && !isMigrationFailure(data) ? data : null;
   const verdict = status
     ? (VERDICTS[status.verdict] ?? {
-        color: "gray" as MantineColor,
+        color: "gray",
         label: status.verdict,
         icon: IconArrowsExchange,
       })

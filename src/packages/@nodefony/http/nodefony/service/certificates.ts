@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 // node-forge n'est importé QUE pour ses TYPES (effacés à la compilation). Le
 // module runtime est chargé paresseusement (voir `loadForge`) — il n'est JAMAIS
 // chargé en production avec un certificat fourni (`explicit`).

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 //
 // Tri des services d'un `@services([...])` par dépendances déclarées.
 // L'enjeu : l'ordre écrit à la main ne doit plus décider du boot.
@@ -43,37 +42,29 @@ describe("orderServicesByDependencies", () => {
   }
 
   it("le consommateur écrit AVANT sa dépendance est replacé APRÈS", () => {
-    const out = orderServicesByDependencies([Beta as any, Alpha as any]);
+    const out = orderServicesByDependencies([Beta, Alpha]);
     assert.deepStrictEqual(out.map(nameOf), ["Alpha", "Beta"]);
   });
 
   it("CONTRÔLE POSITIF : un ordre déjà correct sort INCHANGÉ", () => {
-    const out = orderServicesByDependencies([Alpha as any, Beta as any]);
+    const out = orderServicesByDependencies([Alpha, Beta]);
     assert.deepStrictEqual(out.map(nameOf), ["Alpha", "Beta"]);
   });
 
   it("tri STABLE : les services sans contrainte gardent leur ordre d'écriture", () => {
     // Gamma n'a aucun lien : il ne doit pas « remonter » ni « descendre ».
-    const out = orderServicesByDependencies([
-      Gamma as any,
-      Beta as any,
-      Alpha as any,
-    ]);
+    const out = orderServicesByDependencies([Gamma, Beta, Alpha]);
     // Seule contrainte : Alpha avant Beta. Gamma reste en tête.
     assert.deepStrictEqual(out.map(nameOf), ["Gamma", "Alpha", "Beta"]);
   });
 
   it("aucune dépendance intra-liste → liste identique", () => {
-    const out = orderServicesByDependencies([Gamma as any, Alpha as any]);
+    const out = orderServicesByDependencies([Gamma, Alpha]);
     assert.deepStrictEqual(out.map(nameOf), ["Gamma", "Alpha"]);
   });
 
   it("les chemins (string) gardent leur position — leurs deps sont inconnaissables", () => {
-    const out = orderServicesByDependencies([
-      "./some/path",
-      Beta as any,
-      Alpha as any,
-    ]);
+    const out = orderServicesByDependencies(["./some/path", Beta, Alpha]);
     assert.deepStrictEqual(out.map(nameOf), ["./some/path", "Alpha", "Beta"]);
   });
 
@@ -92,7 +83,7 @@ describe("orderServicesByDependencies", () => {
       }
     }
     Reflect.defineMetadata("design:paramtypes", [Alpha], ByType);
-    const out = orderServicesByDependencies([ByType as any, Alpha as any]);
+    const out = orderServicesByDependencies([ByType, Alpha]);
     assert.deepStrictEqual(out.map(nameOf), ["Alpha", "ByType"]);
   });
 
@@ -109,7 +100,7 @@ describe("orderServicesByDependencies", () => {
     }
     Reflect.defineMetadata("design:paramtypes", [Plain], NeedsPlain);
     // Plain n'est pas @injectable → aucune arête → ordre d'écriture conservé.
-    const out = orderServicesByDependencies([NeedsPlain as any, Plain as any]);
+    const out = orderServicesByDependencies([NeedsPlain, Plain]);
     assert.deepStrictEqual(out.map(nameOf), ["NeedsPlain", "Plain"]);
   });
 
@@ -135,11 +126,7 @@ describe("orderServicesByDependencies", () => {
     injectParam(Deep3, "Deep2", 0);
 
     try {
-      const out = orderServicesByDependencies([
-        Deep3 as any,
-        Deep2 as any,
-        Deep1 as any,
-      ]);
+      const out = orderServicesByDependencies([Deep3, Deep2, Deep1]);
       assert.deepStrictEqual(out.map(nameOf), ["Deep1", "Deep2", "Deep3"]);
     } finally {
       delete (Injector.injectables as any)["Deep1"];
@@ -165,7 +152,7 @@ describe("orderServicesByDependencies", () => {
 
     try {
       assert.throws(
-        () => orderServicesByDependencies([Loop1 as any, Loop2 as any]),
+        () => orderServicesByDependencies([Loop1, Loop2]),
         (e: Error) => {
           assert.match(e.message, /Circular service dependency/);
           assert.match(e.message, /Loop1/);

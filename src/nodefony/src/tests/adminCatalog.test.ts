@@ -104,7 +104,7 @@ function broker(): { list(): readonly IAdminApi[] } {
             handler: () => ({ secret: "non" }),
           },
         ],
-      } as unknown as IAdminApi,
+      },
     ],
   };
 }

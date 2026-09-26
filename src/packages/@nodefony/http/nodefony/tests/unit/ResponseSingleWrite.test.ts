@@ -50,13 +50,7 @@ function makeStub(res: MockServerResponse, flushing = false): HttpResponse {
 }
 
 const send = (stub: HttpResponse, flush: boolean) =>
-  (
-    HttpResponse.prototype.send as (
-      c?: unknown,
-      e?: BufferEncoding,
-      f?: boolean,
-    ) => Promise<HttpResponse>
-  ).call(stub, undefined, "utf-8", flush);
+  HttpResponse.prototype.send.call(stub, undefined, "utf-8", flush);
 
 describe("HttpResponse.send — une réponse unique part en un seul appel", () => {
   it("réponse unique : end(corps) UNE fois, write JAMAIS", async () => {

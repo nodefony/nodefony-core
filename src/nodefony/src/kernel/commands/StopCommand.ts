@@ -20,12 +20,7 @@ const options: OptionsCommandInterface = {
  */
 class Stop extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "stop",
-      "arrête les processus Nodefony de ce projet",
-      cli as CliKernel,
-      options,
-    );
+    super("stop", "arrête les processus Nodefony de ce projet", cli, options);
     this.addArgument(
       "[project]",
       "projet à arrêter (nom ou chemin) — défaut : le projet du répertoire courant",

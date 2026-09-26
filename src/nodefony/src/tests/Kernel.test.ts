@@ -746,14 +746,14 @@ describe("Kernel — module registry", () => {
 
   it("addModule(TestModule) → module enregistré", async () => {
     const k = mkKernel();
-    const mod = await k.addModule(TestModule as any);
+    const mod = await k.addModule(TestModule);
     assert.ok(mod instanceof Module);
     assert.strictEqual(mod.name, "TestModule");
   });
 
   it("getModule(name) → retourne le module ajouté", async () => {
     const k = mkKernel();
-    await k.addModule(TestModule as any);
+    await k.addModule(TestModule);
     const mod = k.getModule("TestModule");
     assert.ok(mod instanceof Module);
   });
@@ -766,15 +766,15 @@ describe("Kernel — module registry", () => {
 
   it("getModules() après addModule → contient le module", async () => {
     const k = mkKernel();
-    await k.addModule(TestModule as any);
+    await k.addModule(TestModule);
     const mods = k.getModules();
     assert.ok("TestModule" in mods);
   });
 
   it("plusieurs modules ajoutés → tous présents", async () => {
     const k = mkKernel();
-    await k.addModule(TestModule as any);
-    await k.addModule(OtherModule as any);
+    await k.addModule(TestModule);
+    await k.addModule(OtherModule);
     const mods = k.getModules();
     assert.ok("TestModule" in mods);
     assert.ok("OtherModule" in mods);
@@ -806,7 +806,7 @@ describe("Kernel — module registry", () => {
 
 describe("Kernel — setDomain", () => {
   it("options.domain défini → retourne ce domaine", () => {
-    const k = mkKernel("development", { domain: "example.com" } as any);
+    const k = mkKernel("development", { domain: "example.com" });
     assert.strictEqual(k.setDomain(), "example.com");
   });
 
@@ -816,7 +816,7 @@ describe("Kernel — setDomain", () => {
   });
 
   it("options.domain = 'selectAuto' → adresse externe ou 'localhost'", () => {
-    const k = mkKernel("development", { domain: "selectAuto" } as any);
+    const k = mkKernel("development", { domain: "selectAuto" });
     const domain = k.setDomain();
     assert.ok(typeof domain === "string");
     assert.ok(domain.length > 0);
@@ -1199,7 +1199,7 @@ describe("Kernel — edge cases", () => {
 
   it("interfacesFilter avec objet filtre vide → même comportement que sans filtre", () => {
     const k = mkKernel();
-    const withEmpty = k.interfacesFilter({} as FilterInterface);
+    const withEmpty = k.interfacesFilter({});
     // Sans type ni family, matchType=false, matchFamily=false → aucun résultat
     // (les deux matchs sont false, condition && → false → aucune entrée poussée)
     for (const name of Object.keys(withEmpty)) {
@@ -1265,11 +1265,11 @@ describe("Kernel — warnReservedConfigKeys (filet clé réservée au boot)", ()
         String(p.payload).includes("timestampToleranceS"),
     );
     assert.ok(warn, "un WARNING doit signaler la clé réservée déviée");
-    assert.strictEqual(warn!.msgid, "CONFIG");
-    assert.match(String(warn!.payload), /RÉSERVÉE/);
-    assert.match(String(warn!.payload), /INERTE côté émetteur/); // description incluse
+    assert.strictEqual(warn.msgid, "CONFIG");
+    assert.match(String(warn.payload), /RÉSERVÉE/);
+    assert.match(String(warn.payload), /INERTE côté émetteur/); // description incluse
     assert.match(
-      String(warn!.payload),
+      String(warn.payload),
       /@nodefony\/fake\.webhooks\.timestampToleranceS/,
     );
   });

@@ -90,8 +90,8 @@ describe("MemoryVectorStore", () => {
     it("returns top-K results sorted by score", async () => {
       const results = await store.search([1, 0, 0], { limit: 2 });
       expect(results.length).toBe(2);
-      expect(results[0]!.score).toBeGreaterThanOrEqual(results[1]!.score);
-      expect(results[0]!.entry.id).toBe("a"); // identique → score 1
+      expect(results[0].score).toBeGreaterThanOrEqual(results[1].score);
+      expect(results[0].entry.id).toBe("a"); // identique → score 1
     });
 
     it("filters by minScore", async () => {

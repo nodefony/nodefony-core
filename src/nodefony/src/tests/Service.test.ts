@@ -47,7 +47,7 @@ describe("Service — construction", () => {
   });
 
   it("null traité comme absent → crée un nouveau Event", () => {
-    const s = new Service("nullNC", undefined, null as unknown as undefined);
+    const s = new Service("nullNC", undefined, null);
     assert(s.notificationsCenter instanceof Event);
   });
 
@@ -138,10 +138,7 @@ describe("Service — construction", () => {
   });
 
   it("notificationsCenter=false → options non fusionnées avec defaultOptions", () => {
-    const s = new Service("falseNC", undefined, false, { foo: "bar" } as Record<
-      string,
-      unknown
-    >);
+    const s = new Service("falseNC", undefined, false, { foo: "bar" });
     assert.strictEqual(s.notificationsCenter, undefined);
     assert.strictEqual((s.options as Record<string, unknown>).foo, "bar");
   });
@@ -795,7 +792,7 @@ describe("Service — clean", () => {
       onConfigured: () => {
         calls += 1;
       },
-    } as never);
+    });
     shared.emit("onConfigured");
     assert.strictEqual(calls, 1, "listener config doit fire");
     assert.strictEqual(

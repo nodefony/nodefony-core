@@ -147,13 +147,13 @@ describe.skipIf(!REAL_URL)(
       it("l'inventaire des jetons est cloisonné lui aussi", async () => {
         const now = () => 1_800_000_000_000;
         const boutique = new RedisTokenStore(
-          () => client as never,
+          () => client,
           now,
           undefined,
           () => resolveKeyPrefix("nf:tok", "boutique"),
         );
         const intranet = new RedisTokenStore(
-          () => client as never,
+          () => client,
           now,
           undefined,
           () => resolveKeyPrefix("nf:tok", "intranet"),
@@ -185,12 +185,8 @@ describe.skipIf(!REAL_URL)(
           revokedReason: null,
           metadata: {},
         });
-        await boutique.put(
-          record("t-boutique", "alice", "h-boutique") as never,
-        );
-        await intranet.put(
-          record("t-intranet", "carol", "h-intranet") as never,
-        );
+        await boutique.put(record("t-boutique", "alice", "h-boutique"));
+        await intranet.put(record("t-intranet", "carol", "h-intranet"));
 
         // Lecture directe : un identifiant connu ne franchit pas la cloison.
         assert.equal((await boutique.findById("t-boutique"))?.id, "t-boutique");

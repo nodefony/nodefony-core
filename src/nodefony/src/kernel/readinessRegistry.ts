@@ -192,7 +192,7 @@ export class ReadinessRegistry {
   report(): IReadinessContributor[] {
     const out: IReadinessContributor[] = [];
     for (const name of Object.keys(this.entries).sort()) {
-      const entry = this.entries[name] as ReadinessEntry;
+      const entry = this.entries[name];
       // `blocking` n'apparaît que lorsqu'il vaut `false` — même parti-pris que
       // `reason` : la forme de sortie ne change que dans le cas qui l'exige, et
       // un consommateur écrit avant cette distinction lit exactement ce qu'il

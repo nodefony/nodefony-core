@@ -25,8 +25,12 @@ function makeStorage(idle = 3600, absolute = 0): MemorySessionStorage {
   );
 }
 
-const blob = (user = ""): ISerializedSession =>
-  ({ Attributes: {}, metaBag: {}, flashBag: {}, user }) as ISerializedSession;
+const blob = (user = ""): ISerializedSession => ({
+  Attributes: {},
+  metaBag: {},
+  flashBag: {},
+  user,
+});
 
 describe("MemorySessionStorage — CRUD + horodatages", () => {
   it("write + start round-trip (start d'une session absente → {})", async () => {

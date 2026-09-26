@@ -13,13 +13,13 @@ describe("encoderFromConfig (P6 J3 — pont config.encoders)", () => {
   it("liste vide → Argon2id aux défauts OWASP (défaut sûr)", () => {
     const enc = encoderFromConfig([]);
     assert.ok(enc instanceof Argon2idEncoder);
-    assert.equal((enc as Argon2idEncoder).memoryKiB, 19456);
+    assert.equal(enc.memoryKiB, 19456);
   });
 
   it("1 spec → l'encodeur seul, coûts propagés (pas de composite inutile)", () => {
     const enc = encoderFromConfig([{ type: "argon2id", ...FAST_ARGON }]);
     assert.ok(enc instanceof Argon2idEncoder);
-    const argon = enc as Argon2idEncoder;
+    const argon = enc;
     assert.equal(argon.memoryKiB, 64);
     assert.equal(argon.timeCost, 1);
     assert.equal(argon.parallelism, 1);
@@ -36,7 +36,7 @@ describe("encoderFromConfig (P6 J3 — pont config.encoders)", () => {
       { type: "bcrypt", rounds: 4 },
     ]);
     assert.ok(enc instanceof MigratingEncoder);
-    const composite = enc as MigratingEncoder;
+    const composite = enc;
     assert.ok(composite.primary instanceof Argon2idEncoder);
     assert.equal(composite.legacy.length, 1);
     assert.ok(composite.legacy[0] instanceof BcryptEncoder);

@@ -925,7 +925,7 @@ describe("check — l'ORDRE des magasins, jugé À FROID", () => {
     try {
       const f = fautes(dir);
       assert.strictEqual(f.length, 1, JSON.stringify(f));
-      const msg = f[0]!.message;
+      const msg = f[0].message;
       assert.ok(msg.includes("@acme/orm"), msg);
       assert.ok(msg.includes("@acme/security"), msg);
       assert.ok(msg.includes("Remède"), msg);
@@ -933,7 +933,7 @@ describe("check — l'ORDRE des magasins, jugé À FROID", () => {
       // démarrage qui n'a pas eu lieu.
       assert.ok(!msg.includes("refusé"), msg);
       // Le fichier désigné doit être celui qu'on ÉDITE pour corriger.
-      assert.strictEqual(f[0]!.file, "nodefony.config.ts");
+      assert.strictEqual(f[0].file, "nodefony.config.ts");
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

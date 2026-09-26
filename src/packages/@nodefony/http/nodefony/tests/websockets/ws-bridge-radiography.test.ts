@@ -68,7 +68,7 @@ function request(
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });
@@ -182,8 +182,8 @@ function hubConnect(cookie: string): Promise<{
         return;
       }
       if (typeof frame.id === "number" && !frame.method) {
-        pending.get(frame.id as number)?.(frame as unknown as JsonRpcReply);
-        pending.delete(frame.id as number);
+        pending.get(frame.id)?.(frame as unknown as JsonRpcReply);
+        pending.delete(frame.id);
       }
     });
   });

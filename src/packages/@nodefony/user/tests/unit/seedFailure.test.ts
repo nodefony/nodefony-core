@@ -137,7 +137,7 @@ describe("les mots de passe de fixture passent la politique par défaut", () => 
       readFileSync(fichier, "utf8"),
     );
     assert.ok(trouve !== null, `${nom} introuvable dans ${relatif}`);
-    return trouve[1] as string;
+    return trouve[1];
   };
 
   it("celui de l'application GÉNÉRÉE (gabarit `create app`)", async () => {

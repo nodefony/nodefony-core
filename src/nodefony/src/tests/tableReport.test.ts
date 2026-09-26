@@ -103,7 +103,7 @@ describe("renderTable — borné à la largeur, quoi qu'on lui donne", () => {
 
   it("large, TOUTES les colonnes sont rendues", () => {
     const texte = renderTable(routes, { width: 200, color: false }).join("\n");
-    for (const clé of Object.keys(routes[0] as TableRow)) {
+    for (const clé of Object.keys(routes[0])) {
       assert.include(texte, clé);
     }
     assert.notInclude(texte, "non affiché", "rien n'a été retiré");

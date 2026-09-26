@@ -30,7 +30,6 @@ const enAttente = (
 const texte = (contributors: readonly IReadinessContributor[]): string =>
   renderPendingLines(contributors)
     .join("")
-    // eslint-disable-next-line no-control-regex
     .replace(/\x1b\[[0-9;]*m/gu, "");
 
 describe("renderPendingLines — ce qui n'est pas prêt se NOMME au démarrage", () => {

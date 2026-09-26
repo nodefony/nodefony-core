@@ -96,11 +96,7 @@ function readExceptions(cwd: string): {
     const raw = readFileSync(path.join(cwd, "package.json"), "utf8");
     const check = (JSON.parse(raw) as { nodefony?: { doctor?: unknown } })
       .nodefony?.doctor;
-    return (check ?? {}) as {
-      typeCycles?: Record<string, string[]>;
-      typesUnreachable?: string[];
-      entityDialect?: string[];
-    };
+    return check ?? {};
   } catch {
     return {};
   }

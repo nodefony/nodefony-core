@@ -27,22 +27,21 @@ describe("@nodefony/drizzle — le code de sortie se lit à l'écran", () => {
   const style = styleFor(false);
 
   /** Un rapport minimal, dont seul le code de sortie varie. */
-  const rapport = (exitCode: 0 | 1 | 2): IMigrationReport =>
-    ({
-      formatVersion: 1,
-      connector: "default",
-      verdict: exitCode === 0 ? "up-to-date" : "pending",
-      exitCode,
-      summary: "peu importe ici",
-      nextActions: [],
-      sources: [],
-      driver: {
-        kind: "sql",
-        dialect: "sqlite",
-        ddl: "auto",
-        historyTable: "nodefony_migrations",
-      },
-    }) as IMigrationReport;
+  const rapport = (exitCode: 0 | 1 | 2): IMigrationReport => ({
+    formatVersion: 1,
+    connector: "default",
+    verdict: exitCode === 0 ? "up-to-date" : "pending",
+    exitCode,
+    summary: "peu importe ici",
+    nextActions: [],
+    sources: [],
+    driver: {
+      kind: "sql",
+      dialect: "sqlite",
+      ddl: "auto",
+      historyTable: "nodefony_migrations",
+    },
+  });
 
   it("dit qu'un code 1 est une action requise, PAS un échec", () => {
     const out = renderStatus(rapport(EXIT.actionRequired), style);

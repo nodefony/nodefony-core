@@ -74,7 +74,7 @@ function config(
       web: { pattern: "^/web", authenticators: ["session"] },
     },
     ...over,
-  } as ISecurityConfigInput;
+  };
 }
 
 describe("Firewall.publishedProtectedResources — le document que le défi promet", () => {
@@ -93,7 +93,7 @@ describe("Firewall.publishedProtectedResources — le document que le défi prom
 
   it("ne publie RIEN sans émetteur de confiance — un document sans serveur d'autorisation ne mène nulle part", () => {
     const published = bootFirewall(
-      config({ resourceServer: { issuers: [] } } as never),
+      config({ resourceServer: { issuers: [] } }),
     ).publishedProtectedResources();
     assert.equal(published.length, 0);
   });
@@ -102,7 +102,7 @@ describe("Firewall.publishedProtectedResources — le document que le défi prom
     const published = bootFirewall(
       config({
         areas: { web: { pattern: "^/web", authenticators: ["session"] } },
-      } as never),
+      }),
     ).publishedProtectedResources();
     assert.equal(published.length, 0);
   });
@@ -125,7 +125,7 @@ describe("Firewall.publishedProtectedResources — le document que le défi prom
             resource: RESOURCE,
           },
         },
-      } as never),
+      }),
     ).publishedProtectedResources();
 
     assert.equal(published.length, 1, "une ressource, un document");
@@ -150,7 +150,7 @@ describe("Firewall.publishedProtectedResources — le document que le défi prom
             resource: second,
           },
         },
-      } as never),
+      }),
     ).publishedProtectedResources();
 
     assert.deepEqual(

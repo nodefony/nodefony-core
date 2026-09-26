@@ -86,7 +86,7 @@ function req(
     roles: ["ROLE_NODEFONY_ADMIN"],
     requestId: "test",
     ...extra,
-  } as IAdminRequest;
+  };
 }
 
 describe("PATCH config/{module} — édition live (surface sensible)", () => {

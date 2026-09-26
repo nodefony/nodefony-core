@@ -1,5 +1,4 @@
 /// <reference types="node" />
-import type { Severity } from "nodefony";
 import { logColor } from "nodefony";
 import type {
   IRequestLogger,
@@ -44,10 +43,10 @@ class DefaultRequestLogger implements IRequestLogger {
       const msgid = `${ctx.type} ${logColor.magenta(errCode)} ${logColor.red(ctx.method ?? "")}`;
       const isProd = ctx.kernel?.environment === "production";
       const text = isProd ? `${txt} ${err}` : `${txt}\n          ${err}`;
-      return { text, severity: "ERROR" as Severity, msgid };
+      return { text, severity: "ERROR", msgid };
     }
     const msgid = `${ctx.type} ${logColor.magenta(ctx.response?.statusCode ?? "")} ${ctx.method}`;
-    return { text: txt, severity: "INFO" as Severity, msgid };
+    return { text: txt, severity: "INFO", msgid };
   }
 
   renderWebsocket(
@@ -77,7 +76,7 @@ class DefaultRequestLogger implements IRequestLogger {
         `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
         `${logColor.cyan("ID")} : ${ctx.requestId}\n        ` +
         error.toString();
-      return { text, severity: "ERROR" as Severity, msgid };
+      return { text, severity: "ERROR", msgid };
     }
     const msgid = `${ctx.type} ${logColor.magenta(ctx.response?.statusCode ?? "")} ${ctx.method}`;
     const text =
@@ -86,7 +85,7 @@ class DefaultRequestLogger implements IRequestLogger {
       `${logColor.cyan("FROM")} : ${ctx.remoteAddress} ` +
       `${logColor.cyan("ORIGIN")} : ${ctx.originUrl?.host} ` +
       `${logColor.cyan("ID")} : ${ctx.requestId}`;
-    return { text, severity: "INFO" as Severity, msgid };
+    return { text, severity: "INFO", msgid };
   }
 }
 

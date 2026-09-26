@@ -233,7 +233,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
           for (const m of sql.matchAll(
             /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z0-9_]+)[`"]?/gi,
           )) {
-            noms.add(m[1] as string);
+            noms.add(m[1]);
           }
         }
         return [...noms];
@@ -1013,10 +1013,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
               1,
               `l'adoption devait écrire UNE migration : ${ecrits.join(", ")}`,
             );
-            const sql = await fs.readFile(
-              path.join(outDir, ecrits[0] as string),
-              "utf8",
-            );
+            const sql = await fs.readFile(path.join(outDir, ecrits[0]), "utf8");
             assert.match(
               sql,
               new RegExp(TABLE, "u"),

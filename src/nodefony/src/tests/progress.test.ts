@@ -499,11 +499,7 @@ describe("fitToWidth — une traînée vaut pire qu'une troncature", () => {
     );
     // …et une ligne colorée trop longue est coupée sur le VISIBLE, pas l'octet.
     const long = `${GREEN}${"x".repeat(40)}${RESET}`;
-    const visible = fitToWidth(long, 12).replaceAll(
-      // eslint-disable-next-line no-control-regex
-      /\[[0-9;]*m/g,
-      "",
-    );
+    const visible = fitToWidth(long, 12).replaceAll(/\[[0-9;]*m/g, "");
     expect(visible).toHaveLength(10);
   });
 

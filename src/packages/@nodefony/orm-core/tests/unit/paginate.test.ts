@@ -139,7 +139,7 @@ describe("paginate (contrat de page portable)", () => {
     const page = await paginate(repo, {
       limit: 2,
       order: [["id", "DESC"]],
-      criteria: { name: "r7" } as Criteria<Row>,
+      criteria: { name: "r7" },
     });
     assert.deepEqual(calls.find[0].order, [["id", "DESC"]]);
     assert.deepEqual(calls.findCriteria[0], { name: "r7" });
@@ -239,7 +239,7 @@ describe("paginate — la RECHERCHE `?q=` est une capacité déclarée", () => {
     const { repo, calls } = spyRepo([{ id: 1, name: "alpha" }]);
     await paginate(
       repo,
-      { limit: 10, q: "al", criteria: { id: 1 } as Criteria<Row> },
+      { limit: 10, q: "al", criteria: { id: 1 } },
       { searchable: ["name"] },
     );
     assert.deepEqual(calls.findCriteria[0], {
@@ -261,7 +261,7 @@ describe("paginate — la RECHERCHE `?q=` est une capacité déclarée", () => {
           {
             limit: 10,
             q: "al",
-            criteria: { $or: [{ id: 1 }, { id: 2 }] } as Criteria<Row>,
+            criteria: { $or: [{ id: 1 }, { id: 2 }] },
           },
           { searchable: ["name"] },
         ),

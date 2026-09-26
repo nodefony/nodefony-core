@@ -66,7 +66,6 @@ class RedisService extends Service {
 
   override log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) {
     if (!msgid) {
-      // eslint-disable-next-line no-param-reassign
       msgid = `\x1b[36mREDIS SERVICE ${this.name} \x1b[0m`;
     }
     return super.log(pci, severity, msgid, msg);
@@ -159,7 +158,7 @@ class RedisService extends Service {
       try {
         await this.createConnection(name);
       } catch (e) {
-        this.log(e as Error, "ERROR");
+        this.log(e, "ERROR");
       }
     }
     return this;
@@ -252,7 +251,7 @@ class RedisService extends Service {
       try {
         await this.#connections[name].close();
       } catch (e) {
-        this.log(e as Error, "ERROR");
+        this.log(e, "ERROR");
       }
     }
     this.#connections = null;

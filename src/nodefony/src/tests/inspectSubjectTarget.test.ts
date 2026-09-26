@@ -50,12 +50,7 @@ describe("inspect — la cible d'un sujet est consommée ou refusée", () => {
     // Deux lectures du même sujet — le refus ne doit dépendre QUE de la
     // déclaration, pas de la présence d'un broker (il n'y en a pas ici).
     for (const target of ["auth", undefined]) {
-      const read = await readAdminSubject(
-        undefined,
-        "routes",
-        ADMIN,
-        target as string | undefined,
-      );
+      const read = await readAdminSubject(undefined, "routes", ADMIN, target);
       expect(read.ok).to.be.false;
       if (read.ok) throw new Error("inatteignable");
       // Sans broker la lecture échoue plus loin, au producteur — jamais sur

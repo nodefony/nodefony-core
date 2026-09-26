@@ -60,7 +60,7 @@ function fakeBroker(): { list(): readonly IAdminApi[] } {
             handler: () => [{ name: "@nodefony/http", version: "10.0.0" }],
           },
         ],
-      } as unknown as IAdminApi,
+      },
     ],
   };
 }
@@ -1361,7 +1361,7 @@ describe("outil docs", () => {
               }),
             },
           ],
-        } as unknown as IAdminApi,
+        },
       ],
     };
   }

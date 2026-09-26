@@ -21,10 +21,8 @@ import {
   AUDIT_OUTCOMES,
   AUDIT_ACTIONS,
   AUDIT_PERIODS,
-  type AuditCategory,
   type AuditFilter,
   type AuditOutcome,
-  type AuditPeriod,
 } from "./auditModel";
 
 export interface AuditFiltersProps {
@@ -88,7 +86,7 @@ export function AuditFilters({
             size="xs"
             data={PERIOD_DATA}
             value={filter.period}
-            onChange={(v) => onChange({ period: v as AuditPeriod })}
+            onChange={(v) => onChange({ period: v })}
           />
         </Stack>
 
@@ -117,9 +115,7 @@ export function AuditFilters({
           searchable
           data={CATEGORY_DATA}
           value={filter.category ?? null}
-          onChange={(v) =>
-            onChange({ category: (v as AuditCategory | null) ?? undefined })
-          }
+          onChange={(v) => onChange({ category: v ?? undefined })}
           w={170}
           comboboxProps={{ withinPortal: true }}
         />

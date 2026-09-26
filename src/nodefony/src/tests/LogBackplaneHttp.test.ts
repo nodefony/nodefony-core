@@ -92,11 +92,11 @@ describe("Log Backplane (LB.4) — driver loki (query LogQL)", () => {
     const d = createLokiLogDriver({ url: "http://loki:3100", fetchImpl: fn });
     const all = await d.query!({});
     assert.strictEqual(all.total, 3);
-    assert.strictEqual(all.rows[0]!.payload, "boom"); // le + récent
-    assert.strictEqual(all.rows[2]!.payload, "login");
+    assert.strictEqual(all.rows[0].payload, "boom"); // le + récent
+    assert.strictEqual(all.rows[2].payload, "login");
     // L'URL cible bien query_range avec le sélecteur de base.
-    assert.match(calls[0]!.url, /\/loki\/api\/v1\/query_range\?/);
-    assert.match(decodeURIComponent(calls[0]!.url), /\{app="nodefony"\}/);
+    assert.match(calls[0].url, /\/loki\/api\/v1\/query_range\?/);
+    assert.match(decodeURIComponent(calls[0].url), /\{app="nodefony"\}/);
   });
 
   it("severity → label matcher dans le LogQL ; filtrage exact par filterPdus", async () => {
@@ -104,8 +104,8 @@ describe("Log Backplane (LB.4) — driver loki (query LogQL)", () => {
     const d = createLokiLogDriver({ url: "http://loki:3100", fetchImpl: fn });
     const r = await d.query!({ severity: "ERROR" });
     assert.strictEqual(r.total, 1);
-    assert.strictEqual(r.rows[0]!.payload, "boom");
-    assert.match(decodeURIComponent(calls[0]!.url), /severity=~"ERROR"/);
+    assert.strictEqual(r.rows[0].payload, "boom");
+    assert.match(decodeURIComponent(calls[0].url), /severity=~"ERROR"/);
   });
 
   it("requestId exact + text : line filters LogQL", async () => {
@@ -115,7 +115,7 @@ describe("Log Backplane (LB.4) — driver loki (query LogQL)", () => {
     assert.strictEqual(r.total, 2);
     // URLSearchParams encode l'espace en `+` (form-urlencoded) → Loki le re-décode
     // en espace côté serveur. On reproduit cette détente pour vérifier le LogQL.
-    const q = decodeURIComponent(calls[0]!.url).replace(/\+/g, " ");
+    const q = decodeURIComponent(calls[0].url).replace(/\+/g, " ");
     assert.match(q, /\|= "req-1"/);
   });
 
@@ -146,9 +146,9 @@ describe("Log Backplane (LB.4) — driver opensearch (query _search)", () => {
     });
     const all = await d.query!({});
     assert.strictEqual(all.total, 2);
-    assert.strictEqual(all.rows[0]!.payload, "boom");
-    assert.match(calls[0]!.url, /\/nodefony-logs\/_search$/);
-    const body = JSON.parse(String(calls[0]!.init!.body));
+    assert.strictEqual(all.rows[0].payload, "boom");
+    assert.match(calls[0].url, /\/nodefony-logs\/_search$/);
+    const body = JSON.parse(String(calls[0].init!.body));
     assert.strictEqual(body.sort[0].timeStamp.order, "desc");
     assert.strictEqual(body.track_total_hits, true);
   });
@@ -160,7 +160,7 @@ describe("Log Backplane (LB.4) — driver opensearch (query _search)", () => {
       fetchImpl: fn,
     });
     await d.query!({ from: 1000, to: 2000 });
-    const body = JSON.parse(String(calls[0]!.init!.body));
+    const body = JSON.parse(String(calls[0].init!.body));
     assert.deepStrictEqual(body.query.bool.filter[0].range.timeStamp, {
       gte: 1000,
       lte: 2000,
@@ -203,8 +203,8 @@ describe("Log Backplane (LB.4) — LokiTransport (push batché)", () => {
     await t.send(mk("c", "ERROR", "HTTP", "", 3000));
     await t.close();
     assert.strictEqual(calls.length, 1); // 1 seul POST
-    assert.match(calls[0]!.url, /\/loki\/api\/v1\/push$/);
-    const body = JSON.parse(String(calls[0]!.init!.body));
+    assert.match(calls[0].url, /\/loki\/api\/v1\/push$/);
+    const body = JSON.parse(String(calls[0].init!.body));
     // 2 jeux de labels distincts (AUTH/INFO vs HTTP/ERROR) → 2 streams.
     assert.strictEqual(body.streams.length, 2);
     const authStream = body.streams.find(
@@ -250,14 +250,14 @@ describe("Log Backplane (LB.4) — OpenSearchTransport (bulk batché)", () => {
       `aucun appel /_bulk — reçus : ${calls.map((c) => c.url).join(", ")}`,
     );
     assert.strictEqual(
-      bulk!.init!.headers!["content-type"],
+      bulk.init!.headers!["content-type"],
       "application/x-ndjson",
     );
-    const body = String(bulk!.init!.body);
+    const body = String(bulk.init!.body);
     assert.ok(body.endsWith("\n"), "le corps bulk DOIT finir par un newline");
     const lines = body.split("\n").filter((l) => l.length > 0);
     assert.strictEqual(lines.length, 4); // 2 action + 2 doc
-    assert.deepStrictEqual(JSON.parse(lines[0]!), {
+    assert.deepStrictEqual(JSON.parse(lines[0]), {
       index: { _index: "nodefony-logs" },
     });
   });
@@ -286,7 +286,7 @@ describe("Log Backplane (LB.4) — OpenSearchTransport (bulk batché)", () => {
     const lignes = String(bulk.init!.body)
       .split("\n")
       .filter((l) => l.length > 0);
-    const doc = JSON.parse(lignes[1]!) as Record<string, unknown>;
+    const doc = JSON.parse(lignes[1]) as Record<string, unknown>;
     assert.strictEqual(
       doc["@timestamp"],
       // Valeur vérifiée par un calcul INDÉPENDANT (python : datetime.utcfromtimestamp),
@@ -319,8 +319,8 @@ describe("Log Backplane (LB.4) — OpenSearchTransport (bulk batché)", () => {
       1,
       `le modèle doit être posé une seule fois (reçu ${modeles.length})`,
     );
-    assert.strictEqual(modeles[0]!.init!.method, "PUT");
-    const corps = JSON.parse(String(modeles[0]!.init!.body)) as {
+    assert.strictEqual(modeles[0].init!.method, "PUT");
+    const corps = JSON.parse(String(modeles[0].init!.body)) as {
       index_patterns: string[];
       template: { mappings: { properties: Record<string, { type: string }> } };
     };

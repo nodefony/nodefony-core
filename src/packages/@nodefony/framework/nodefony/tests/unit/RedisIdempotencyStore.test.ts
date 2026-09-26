@@ -314,7 +314,7 @@ describe("Cloison des clés d'idempotence par application", () => {
       status: 201,
       headers: {},
       body: "commande de boutique",
-    } as IdempotentResponse);
+    });
 
     // « intranet » présente la MÊME clé : pour elle, c'est une demande neuve.
     const chezIntranet = await intranet.begin(CLE, "fp-1");
@@ -341,7 +341,7 @@ describe("Cloison des clés d'idempotence par application", () => {
       status: 201,
       headers: {},
       body: "réponse de A",
-    } as IdempotentResponse);
+    });
 
     const chezB = await appB.begin(CLE, "fp-1");
     assert.equal(

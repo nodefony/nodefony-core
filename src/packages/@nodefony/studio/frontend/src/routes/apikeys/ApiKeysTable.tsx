@@ -143,7 +143,6 @@ export const ApiKeysTable = observer(function ApiKeysTable({
         throw new Error(describeApiKeysError(e), { cause: e });
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [store, filterSignal, reloadKey],
   );
@@ -248,7 +247,6 @@ export const ApiKeysTable = observer(function ApiKeysTable({
     );
     return cols;
     // `canSort` dérive de `showSubject` + `sortable` : les deux suffisent.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [showSubject, sortable]);
 
   const selectedStatus = selected ? keyStatus(selected) : null;

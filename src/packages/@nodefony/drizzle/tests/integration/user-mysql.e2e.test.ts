@@ -118,10 +118,7 @@ describe.skipIf(!MYSQL_URL)(
       // patch est typé sur la LIGNE, qui est la vérité de la table.
       const patch: Partial<UserRow> = { currentRole: "ROLE_ADMIN" };
       const updated = asBaseUser(
-        await users.updateOne(
-          { identifier: "my-alice" } as Criteria<IPasswordAuthenticatedUser>,
-          patch,
-        ),
+        await users.updateOne({ identifier: "my-alice" }, patch),
       );
       assert.equal(updated.currentRole, "ROLE_ADMIN");
       const after = updated as unknown as { createdAt: Date; updatedAt: Date };
@@ -177,7 +174,7 @@ describe.skipIf(!MYSQL_URL)(
       assert.equal(
         await users.delete({
           identifier: "my-bob",
-        } as Criteria<IPasswordAuthenticatedUser>),
+        }),
         1,
         "delete compté via affectedRows",
       );

@@ -152,7 +152,7 @@ function walkReserved(
       }
     } else if (isPlainObject(node.properties)) {
       walkReserved(
-        node.properties as Record<string, unknown>,
+        node.properties,
         isPlainObject(rv) ? rv : undefined,
         path,
         out,

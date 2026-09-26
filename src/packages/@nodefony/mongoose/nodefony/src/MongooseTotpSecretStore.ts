@@ -165,7 +165,7 @@ export class MongooseTotpSecretStore implements ITotpSecretStore {
       criteria,
       searchCriteria<TotpSecretRow>(query.q, ["userId"]) ?? {},
     );
-    return criteria as unknown as Criteria<TotpSecretRow>;
+    return criteria;
   }
 
   /**

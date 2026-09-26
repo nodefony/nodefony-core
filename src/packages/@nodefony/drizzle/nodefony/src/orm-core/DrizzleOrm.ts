@@ -669,7 +669,7 @@ export class DrizzleOrm extends Orm {
       checks,
       "sqlite",
       resolveForeignKeys(
-        foreignKeys as unknown as DDLForeignKey[],
+        foreignKeys,
         (target) => getTableConfig(target as SQLiteTable).name,
         skip,
       ),
@@ -692,7 +692,7 @@ export class DrizzleOrm extends Orm {
       checks,
       "postgres",
       resolveForeignKeys(
-        foreignKeys as unknown as DDLForeignKey[],
+        foreignKeys,
         (target) => getPgTableConfig(target as PgTable).name,
         skip,
       ),
@@ -715,7 +715,7 @@ export class DrizzleOrm extends Orm {
       checks,
       "mysql",
       resolveForeignKeys(
-        foreignKeys as unknown as DDLForeignKey[],
+        foreignKeys,
         (target) => getMysqlTableConfig(target as MySqlTable).name,
         skip,
       ),
@@ -861,8 +861,7 @@ export class DrizzleOrm extends Orm {
         throw new Error("`better-sqlite3` did not expose a constructor");
       }
       Sqlite = resolved;
-      sqliteDrizzle = (await import("drizzle-orm/better-sqlite3"))
-        .drizzle as unknown as (client: BetterSqlite3.Database) => DrizzleDb;
+      sqliteDrizzle = (await import("drizzle-orm/better-sqlite3")).drizzle;
     } catch (e) {
       throw new Error(
         `DrizzleOrm "${this.name}": the sqlite dialect needs the optional ` +
@@ -1220,8 +1219,7 @@ export class DrizzleOrm extends Orm {
         throw new Error("`pg` did not expose a `Pool` constructor");
       }
       PoolCtor = resolved;
-      pgDrizzle = (await import("drizzle-orm/node-postgres"))
-        .drizzle as unknown as (client: Pool | PoolClient) => unknown;
+      pgDrizzle = (await import("drizzle-orm/node-postgres")).drizzle;
     } catch (e) {
       throw new Error(
         `DrizzleOrm "${this.name}": the postgres dialect needs the optional ` +
@@ -1329,7 +1327,7 @@ export class DrizzleOrm extends Orm {
       try {
         await cx.query("BEGIN");
       } catch (e) {
-        giveBack(e as Error); // BEGIN raté → connexion suspecte, pas de recyclage
+        giveBack(e); // BEGIN raté → connexion suspecte, pas de recyclage
         throw e;
       }
       return new DrizzleTransaction(pgDrizzle(cx) as DrizzleDb, {
@@ -1485,12 +1483,9 @@ export class DrizzleOrm extends Orm {
       on: (e: string, f: (c: never) => void) => void;
       removeListener: (e: string, f: (c: never) => void) => void;
     };
-    emitter.on("connection", onConnection as unknown as (c: never) => void);
+    emitter.on("connection", onConnection);
     (this.#unwire ??= []).push(() => {
-      emitter.removeListener(
-        "connection",
-        onConnection as unknown as (c: never) => void,
-      );
+      emitter.removeListener("connection", onConnection);
     });
   }
 
@@ -1520,10 +1515,7 @@ export class DrizzleOrm extends Orm {
       if (!createPool) {
         throw new Error("`mysql2/promise` did not expose `createPool`");
       }
-      mysqlDrizzle = (await import("drizzle-orm/mysql2"))
-        .drizzle as unknown as (
-        client: MysqlPool | MysqlPoolConnection,
-      ) => unknown;
+      mysqlDrizzle = (await import("drizzle-orm/mysql2")).drizzle;
       // `enableKeepAlive` — même raison qu'en postgres (socket zombie après
       // une coupure réseau silencieuse). `mysql2` l'expose au niveau de la
       // connexion, le pool le propage à chacune de celles qu'il crée.

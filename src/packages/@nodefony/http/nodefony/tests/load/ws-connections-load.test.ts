@@ -157,7 +157,6 @@ describe("LOAD — WS connections (axis 1: count)", function () {
     await setSyslogRing(true);
     const perConnection = (heapPeak - heapBefore) / FLEET;
     const seuil = THRESHOLDS.wsHeldConnection;
-    // eslint-disable-next-line no-console
     console.log(
       `[held] ${FLEET} connexions tenues : ${(perConnection / 1024).toFixed(1)} Ko ` +
         `par connexion · seuil ${(seuil / 1024).toFixed(1)} Ko`,
@@ -225,7 +224,6 @@ describe("LOAD — WS connections (axis 1: count)", function () {
           if (openedInStep < want) break; // a full step couldn't open = real ceiling
         }
       } finally {
-        // eslint-disable-next-line no-console
         console.log(
           `\n      ▶ WS connection ceiling reached: ${ceiling} simultaneous sockets`,
         );

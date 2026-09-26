@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *   NODEFONY FRAMEWORK UNIT TEST — MOCHA STYLE
  *   Résilience de boot — Event.emitAsyncGuarded + optimisation emitAsync (hot path)

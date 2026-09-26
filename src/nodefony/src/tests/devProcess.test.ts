@@ -342,7 +342,7 @@ describe("devProcess — valeurs partagées (anti-divergence)", () => {
     const lignes = formatForeignRuntimes([
       proc(101, path.join(path.sep, "tmp", "boutique"), "supervisor"),
       proc(102, path.join(path.sep, "tmp", "boutique"), "server"),
-    ] as unknown as Parameters<typeof formatForeignRuntimes>[0]);
+    ]);
     const texte = lignes.join("\n");
 
     const cible = lignes.findIndex((l) => l.includes("nodefony stop boutique"));

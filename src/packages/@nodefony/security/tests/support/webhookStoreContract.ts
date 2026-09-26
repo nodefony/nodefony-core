@@ -59,7 +59,7 @@ function makeEndpoint(
 function rejections(rs: PromiseSettledResult<unknown>[]): string[] {
   return rs
     .filter((r) => r.status === "rejected")
-    .map((r) => (r as PromiseRejectedResult).reason?.message);
+    .map((r) => r.reason?.message);
 }
 
 /** Déroule la suite du contrat de store webhook sur le backend branché. */

@@ -34,7 +34,7 @@ class See extends Command {
     super(
       "see",
       "ouvre une page dans un navigateur piloté et la MESURE",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption(

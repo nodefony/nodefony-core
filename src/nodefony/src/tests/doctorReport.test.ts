@@ -64,8 +64,8 @@ describe("doctor — mise en forme du rapport", () => {
     const rendues = lignes.map((l) => summaryLine(l, largeurTitre, 80));
     // Le détail commence à la MÊME colonne sur les deux lignes.
     assert.equal(
-      rendues[0]!.indexOf("55 classes"),
-      rendues[1]!.indexOf("build en retard"),
+      rendues[0].indexOf("55 classes"),
+      rendues[1].indexOf("build en retard"),
     );
   });
 

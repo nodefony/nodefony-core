@@ -43,13 +43,13 @@ function httpReq(
         try {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: JSON.parse(raw),
           });
         } catch {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: raw,
           });
         }
@@ -81,13 +81,13 @@ function httpsReq(
         try {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: JSON.parse(raw),
           });
         } catch {
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body: raw,
           });
         }
@@ -108,7 +108,7 @@ describe("Controller — renderJson (HTTP)", () => {
   it("GET /fw/json → 200 application/json", async () => {
     const { status, headers, body } = await httpReq("GET", `${BASE}/json`);
     expect(status).to.equal(200);
-    expect(headers["content-type"] as string).to.include("application/json");
+    expect(headers["content-type"]).to.include("application/json");
     expect((body as Record<string, unknown>).ok).to.be.true;
   });
 

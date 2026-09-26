@@ -80,10 +80,10 @@ async function bootWith(error: Error): Promise<ILogged[]> {
 
   const svc = new WebhookService(module);
   const logged: ILogged[] = [];
-  svc.log = ((payload: unknown, severity?: Severity): Pdu => {
+  svc.log = (payload: unknown, severity?: Severity): Pdu => {
     logged.push({ severity, payload });
     return undefined as unknown as Pdu;
-  }) as typeof svc.log;
+  };
 
   handlers.onBoot?.();
   await new Promise((r) => setImmediate(r));

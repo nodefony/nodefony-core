@@ -42,8 +42,12 @@ function makeService(storage: ISessionStorage): SessionsService {
 }
 
 /** Session sérialisée — `user: ""` est la forme anonyme du store mémoire. */
-const sess = (user = ""): ISerializedSession =>
-  ({ Attributes: {}, metaBag: {}, flashBag: {}, user }) as ISerializedSession;
+const sess = (user = ""): ISerializedSession => ({
+  Attributes: {},
+  metaBag: {},
+  flashBag: {},
+  user,
+});
 
 /** Store mémoire isolé de son manager (options de timeout seules). */
 function makeStorage(): MemorySessionStorage {
@@ -180,14 +184,13 @@ describe("GET sessions/stats — le data plane", () => {
       get: (name: string) => (name === "sessions" ? svc : undefined),
     }) as unknown as Module;
 
-  const req = (query: Record<string, string> = {}): IAdminRequest =>
-    ({
-      params: {},
-      query,
-      body: null,
-      user: { username: "admin1" },
-      roles: ["ROLE_NODEFONY_ADMIN"],
-    }) as unknown as IAdminRequest;
+  const req = (query: Record<string, string> = {}): IAdminRequest => ({
+    params: {},
+    query,
+    body: null,
+    user: { username: "admin1" },
+    roles: ["ROLE_NODEFONY_ADMIN"],
+  });
 
   const endpointOf = (module: Module, path: string): IAdminEndpoint => {
     const found = createHttpAdminApi(module)

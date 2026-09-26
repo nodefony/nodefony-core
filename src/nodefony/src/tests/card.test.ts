@@ -154,10 +154,10 @@ describe("carte de visite — ligne de commande", () => {
     const vide = mkdtempSync(path.join(tmpdir(), "nodefony-nocard-"));
     const errs: string[] = [];
     const write = process.stderr.write.bind(process.stderr);
-    process.stderr.write = ((s: string) => {
+    process.stderr.write = (s: string) => {
       errs.push(String(s));
       return true;
-    }) as typeof process.stderr.write;
+    };
     try {
       const code = runCardCommand(
         ["node", "nodefony", "card", "--cwd", vide],

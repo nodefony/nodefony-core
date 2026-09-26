@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *   Tests des commandes kernel Nodefony
  *   Vérifie : construction, options, description, alias, kernelEvent

@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   GcScheduler,
   AUTO_STORE,
   EMPTY_INFRA,
@@ -62,7 +61,7 @@ class AuditService extends Service implements IAuditSink {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -165,7 +164,7 @@ class AuditService extends Service implements IAuditSink {
           this.log(`audit gc — ${purged} événement(s) purgé(s)`, "DEBUG");
         }
       },
-      onError: (e) => this.log(e as Error, "WARNING"),
+      onError: (e) => this.log(e, "WARNING"),
     });
     this.#gc.start();
     this.log(
@@ -201,7 +200,7 @@ class AuditService extends Service implements IAuditSink {
     if (this.#listeners !== null) {
       for (let i = 0; i < this.#listeners.length; i++) {
         try {
-          this.#listeners[i]!(event);
+          this.#listeners[i](event);
         } catch (error) {
           this.log(error, "ERROR");
         }

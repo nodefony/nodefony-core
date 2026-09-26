@@ -219,9 +219,7 @@ export const WorkspaceSwitcher = observer(() => {
   const dragDown = useCallback(
     (id: string) => (e: ReactPointerEvent<HTMLElement>) => {
       if (e.button !== 0) return;
-      const el = (e.currentTarget as HTMLElement).closest(
-        "[data-ws-id]",
-      ) as HTMLElement | null;
+      const el = e.currentTarget.closest("[data-ws-id]") as HTMLElement | null;
       if (!el) return;
       try {
         e.currentTarget.setPointerCapture(e.pointerId);

@@ -4,7 +4,6 @@ import {
   Service,
   //Kernel,
   Container,
-  Event,
   Module,
   FamilyType,
   //DefaultOptionsService,
@@ -57,7 +56,7 @@ class ServerHttps extends Service {
     super(
       "server-https",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options.https,
     );
     this.module = module;

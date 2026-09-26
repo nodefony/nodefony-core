@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import type { ConnectOptions } from "mongoose";
 import { Service, runNeedsExternalServices } from "nodefony";
-import type { Container, Event, Module } from "nodefony";
+import type { Container, Module } from "nodefony";
 import {
   queryFlowMonitor,
   resolveOrmFlowEnabled,
@@ -39,7 +39,7 @@ class MongooseService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options ?? {},
     );
     this.module = module;
@@ -129,7 +129,7 @@ class MongooseService extends Service {
     cfg: IMongooseConnectorConfig,
   ): ConnectOptions | undefined {
     if (cfg.autoIndex === undefined) {
-      return cfg.options as ConnectOptions | undefined;
+      return cfg.options;
     }
     return {
       ...((cfg.options ?? {}) as ConnectOptions),

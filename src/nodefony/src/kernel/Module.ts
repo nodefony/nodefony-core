@@ -391,8 +391,7 @@ class Module<TConfig = Record<string, unknown>>
       index = regModuleName.exec(ele);
       if (index && index[1]) {
         consumed.push(ele);
-        const mod = this.kernel?.getModule(index[1] as string) as
-          Module | undefined;
+        const mod = this.kernel?.getModule(index[1]) as Module | undefined;
         if (!mod) {
           // Les overrides sont désormais appliqués à `preRegister` (tous les
           // modules @modules + l'app sont enregistrés) : un module introuvable ICI
@@ -516,7 +515,7 @@ class Module<TConfig = Record<string, unknown>>
     const kernel = this.kernel as Kernel | null;
     if (!kernel) {
       // Module orphelin (test isolé) : aucune politique de boot à appliquer.
-      this.log(error as Error, "ERROR");
+      this.log(error, "ERROR");
       return;
     }
     const critical = (this.constructor as typeof Module).critical;

@@ -149,7 +149,7 @@ export class JwtKeystore implements IJwtKeystore {
   }
 
   async #load(): Promise<void> {
-    const jose = (await import("jose")) as typeof Jose;
+    const jose = await import("jose");
     // 1. env (clé injectée par l'app) — prod.
     if (this.#source.keySetJson) {
       await this.#importKeyset(
@@ -240,7 +240,7 @@ export class JwtKeystore implements IJwtKeystore {
     this.#activeKid =
       keyset.active && loaded.some((k) => k.kid === keyset.active)
         ? keyset.active
-        : loaded[0]!.kid;
+        : loaded[0].kid;
   }
 
   #parseKeyset(json: string): StoredKeyset {

@@ -183,8 +183,8 @@ describe("createStatsTicker — heartbeat nodefony:supervision", () => {
     expect(p.pid).to.be.a("number");
     expect(p.uptime).to.be.a("number");
     expect(p.cpuPercent).to.be.a("number");
-    expect(p.cpuPercent as number).to.be.within(0, 100);
-    expect(p.cpuCount as number).to.be.at.least(1);
+    expect(p.cpuPercent).to.be.within(0, 100);
+    expect(p.cpuCount).to.be.at.least(1);
     expect(p.eventLoopMs).to.be.a("number");
     expect(p.loadavg).to.be.an("array").with.length(3);
     const mem = p.memory as Record<string, number>;

@@ -405,7 +405,7 @@ export function parseEntityFields(input: string): IEntityField[] {
           `champ invalide « ${raw} » — longueur nulle (ex : title:string(200), country:char(2))`,
         );
       }
-      parts[1] = sized[1] as string;
+      parts[1] = sized[1];
     } else if (decimalMatch) {
       precision = Number(decimalMatch[1]);
       scale = Number(decimalMatch[2]);
@@ -1571,7 +1571,7 @@ export function parseRowFieldNames(block: string): string[] | null {
     }
     const match = /^([A-Za-z_$][\w$]*)\??:\s*[^;{}]+;$/u.exec(line);
     if (!match) return null;
-    names.push(match[1] as string);
+    names.push(match[1]);
   }
   return names;
 }

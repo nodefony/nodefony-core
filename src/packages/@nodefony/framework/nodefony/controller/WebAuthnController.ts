@@ -264,7 +264,7 @@ class WebAuthnController extends Controller {
    * cérémonie est découvrable (cf {@link WebAuthnController.loginOptions}).
    */
   #body(): { response?: unknown } {
-    return (this.queryPost ?? {}) as { response?: unknown };
+    return this.queryPost ?? {};
   }
 
   /** Origine HTTP de la requête (validée par le service contre le rpID). */
@@ -359,7 +359,7 @@ export function mountWebAuthnRoutes(frameworkModule: Module): void {
   for (const [name, path, method, classMethod, bypass] of routes) {
     Router.createRoute(name, {
       path,
-      constructor: WebAuthnController as unknown as Controller["constructor"],
+      constructor: WebAuthnController,
       classMethod,
       requirements: { methods: [method] },
       bypassFirewall: bypass,
@@ -371,12 +371,7 @@ export function mountWebAuthnRoutes(frameworkModule: Module): void {
       "module",
     )
   ) {
-    Router.setController(
-      WebAuthnController as unknown as Parameters<
-        typeof Router.setController
-      >[0],
-      frameworkModule,
-    );
+    Router.setController(WebAuthnController, frameworkModule);
   }
   mounted = true;
 }

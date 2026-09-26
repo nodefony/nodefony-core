@@ -32,29 +32,29 @@ const stub = (bufferedAmount: number): IStubSocket => {
 describe("wsBackpressure — décision d'émission (backpressure sortante)", () => {
   it("max <= 0 → désactivé : toujours 'send', même buffer énorme", () => {
     const s = stub(999_999_999);
-    expect(decideSend(s as unknown as Ws, 0, "drop")).to.equal("send");
+    expect(decideSend(s, 0, "drop")).to.equal("send");
     expect(s._nfDrops).to.equal(undefined);
   });
 
   it("bufferedAmount <= seuil → 'send' (chemin nominal, 0 drop)", () => {
     const s = stub(1024);
-    expect(decideSend(s as unknown as Ws, 4096, "drop")).to.equal("send");
+    expect(decideSend(s, 4096, "drop")).to.equal("send");
     expect(s._nfDrops).to.equal(undefined);
   });
 
   it("au-delà du seuil, policy 'drop' → 'drop' + compteur, sans fermer", () => {
     const s = stub(8192);
-    expect(decideSend(s as unknown as Ws, 4096, "drop")).to.equal("drop");
+    expect(decideSend(s, 4096, "drop")).to.equal("drop");
     expect(s._nfDrops).to.equal(1);
     expect(s.closed).to.equal(undefined);
     // 2e drop → compteur incrémenté
-    expect(decideSend(s as unknown as Ws, 4096, "drop")).to.equal("drop");
+    expect(decideSend(s, 4096, "drop")).to.equal("drop");
     expect(s._nfDrops).to.equal(2);
   });
 
   it("au-delà du seuil, policy 'close' → 'close' + close(1013) + compteur", () => {
     const s = stub(8192);
-    expect(decideSend(s as unknown as Ws, 4096, "close")).to.equal("close");
+    expect(decideSend(s, 4096, "close")).to.equal("close");
     expect(s._nfDrops).to.equal(1);
     expect(s.closed).to.deep.equal({ code: 1013, reason: "backpressure" });
   });
@@ -87,7 +87,7 @@ describe("wsBackpressure — décision d'émission (backpressure sortante)", () 
 
   it("le compteur _nfDrops est exposé pour la sonde socket", () => {
     const s = stub(8192) as unknown as IBackpressureSocket;
-    decideSend(s as unknown as Ws, 1, "drop");
+    decideSend(s, 1, "drop");
     expect(s._nfDrops).to.equal(1);
   });
 });
@@ -106,7 +106,7 @@ describe("wsBackpressure — palier 2 : fermeture sur série de refus", () => {
   it("closeAfterDrops = 0 → JAMAIS de fermeture, quel que soit le nombre de refus", () => {
     const s = stub(8192);
     for (let i = 0; i < 1000; i++) {
-      expect(decideSend(s as unknown as Ws, 4096, "drop", 0)).to.equal("drop");
+      expect(decideSend(s, 4096, "drop", 0)).to.equal("drop");
     }
     expect(s.closed).to.equal(undefined);
     expect(s._nfDrops).to.equal(1000);
@@ -115,21 +115,21 @@ describe("wsBackpressure — palier 2 : fermeture sur série de refus", () => {
   it("ferme EXACTEMENT au N-ième refus consécutif, pas avant", () => {
     const s = stub(8192);
     for (let i = 1; i < 5; i++) {
-      expect(decideSend(s as unknown as Ws, 4096, "drop", 5)).to.equal("drop");
+      expect(decideSend(s, 4096, "drop", 5)).to.equal("drop");
       expect(s.closed, `refus ${i} ne doit pas fermer`).to.equal(undefined);
     }
-    expect(decideSend(s as unknown as Ws, 4096, "drop", 5)).to.equal("close");
+    expect(decideSend(s, 4096, "drop", 5)).to.equal("close");
     expect(s.closed).to.deep.equal({ code: 1013, reason: "backpressure" });
   });
 
   it("le solde DÉCROÎT quand une frame passe — un pic n'est pas une agonie", () => {
     const s = stub(8192);
-    decideSend(s as unknown as Ws, 4096, "drop", 5); // solde 1
-    decideSend(s as unknown as Ws, 4096, "drop", 5); // solde 2
+    decideSend(s, 4096, "drop", 5); // solde 1
+    decideSend(s, 4096, "drop", 5); // solde 2
     expect(s._nfDropStreak).to.equal(2);
     s.bufferedAmount = 0; // le client draine
-    decideSend(s as unknown as Ws, 4096, "drop", 5); // solde 1
-    decideSend(s as unknown as Ws, 4096, "drop", 5); // solde 0
+    decideSend(s, 4096, "drop", 5); // solde 1
+    decideSend(s, 4096, "drop", 5); // solde 0
     expect(s._nfDropStreak).to.equal(0);
     expect(s.closed, "un client qui rattrape n'est jamais coupé").to.equal(
       undefined,
@@ -143,23 +143,22 @@ describe("wsBackpressure — palier 2 : fermeture sur série de refus", () => {
     // remise à zéro l'aurait laissé connecté indéfiniment.
     for (let i = 0; i < 30 && !s.closed; i++) {
       s.bufferedAmount = 8192;
-      decideSend(s as unknown as Ws, 4096, "drop", 5);
-      decideSend(s as unknown as Ws, 4096, "drop", 5);
+      decideSend(s, 4096, "drop", 5);
+      decideSend(s, 4096, "drop", 5);
       s.bufferedAmount = 0;
-      decideSend(s as unknown as Ws, 4096, "drop", 5);
+      decideSend(s, 4096, "drop", 5);
     }
     expect(s.closed).to.deep.equal({ code: 1013, reason: "backpressure" });
   });
 
   it("le solde ne descend jamais SOUS zéro (pas de crédit accumulé)", () => {
     const s = stub(0);
-    for (let i = 0; i < 50; i++)
-      decideSend(s as unknown as Ws, 4096, "drop", 3);
+    for (let i = 0; i < 50; i++) decideSend(s, 4096, "drop", 3);
     expect(s._nfDropStreak).to.equal(undefined);
     s.bufferedAmount = 8192;
-    decideSend(s as unknown as Ws, 4096, "drop", 3);
-    decideSend(s as unknown as Ws, 4096, "drop", 3);
-    decideSend(s as unknown as Ws, 4096, "drop", 3);
+    decideSend(s, 4096, "drop", 3);
+    decideSend(s, 4096, "drop", 3);
+    decideSend(s, 4096, "drop", 3);
     expect(
       s.closed,
       "3 refus suffisent, aucun crédit ne les a absorbés",
@@ -168,33 +167,30 @@ describe("wsBackpressure — palier 2 : fermeture sur série de refus", () => {
 
   it("le cumul _nfDrops n'est PAS remis à zéro par un drainage (métrique de sonde)", () => {
     const s = stub(8192);
-    decideSend(s as unknown as Ws, 4096, "drop", 0);
-    decideSend(s as unknown as Ws, 4096, "drop", 0);
+    decideSend(s, 4096, "drop", 0);
+    decideSend(s, 4096, "drop", 0);
     s.bufferedAmount = 0;
-    decideSend(s as unknown as Ws, 4096, "drop", 0);
+    decideSend(s, 4096, "drop", 0);
     expect(s._nfDrops).to.equal(2);
     expect(s._nfDropStreak).to.equal(1); // décroît de 1, ne repart pas de zéro
   });
 
   it("une socket SAINE n'écrit jamais le compteur de série (0 coût hot path)", () => {
     const s = stub(0);
-    for (let i = 0; i < 100; i++)
-      decideSend(s as unknown as Ws, 4096, "drop", 5);
+    for (let i = 0; i < 100; i++) decideSend(s, 4096, "drop", 5);
     expect(s._nfDropStreak).to.equal(undefined);
     expect(s._nfDrops).to.equal(undefined);
   });
 
   it("policy 'close' garde la priorité : ferme au 1ᵉʳ dépassement", () => {
     const s = stub(8192);
-    expect(decideSend(s as unknown as Ws, 4096, "close", 999)).to.equal(
-      "close",
-    );
+    expect(decideSend(s, 4096, "close", 999)).to.equal("close");
     expect(s.closed).to.deep.equal({ code: 1013, reason: "backpressure" });
   });
 
   it("désactivé (max <= 0) : ni refus, ni série, ni fermeture", () => {
     const s = stub(999_999_999);
-    for (let i = 0; i < 50; i++) decideSend(s as unknown as Ws, 0, "drop", 1);
+    for (let i = 0; i < 50; i++) decideSend(s, 0, "drop", 1);
     expect(s.closed).to.equal(undefined);
     expect(s._nfDrops).to.equal(undefined);
   });

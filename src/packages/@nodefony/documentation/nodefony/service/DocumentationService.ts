@@ -144,14 +144,13 @@ class DocumentationService extends Service {
       serviceName,
       module.container as Container,
       null,
-      (module.options as Record<string, unknown>) ?? {},
+      module.options ?? {},
     );
     this.module = module;
   }
 
   override log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) {
     if (!msgid) {
-      // eslint-disable-next-line no-param-reassign
       msgid = `\x1b[36mDOCUMENTATION\x1b[0m`;
     }
     return super.log(pci, severity, msgid, msg);
@@ -496,7 +495,7 @@ class DocumentationService extends Service {
       const readme = pages.findIndex((p) =>
         /(^|\/)readme\.md$/i.test(p.relPath),
       );
-      if (readme !== -1) refs[readme]!.isHub = true;
+      if (readme !== -1) refs[readme].isHub = true;
     }
     return refs.sort((a, b) => {
       if (a.isHub !== b.isHub) return a.isHub ? -1 : 1;

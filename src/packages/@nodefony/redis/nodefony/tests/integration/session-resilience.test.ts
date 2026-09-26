@@ -164,7 +164,7 @@ describe.skipIf(!REAL_URL)(
       await storage.write("s-b", body("bob"));
       const alice = await storage.listAll({ user: "alice" });
       assert.equal(alice.length, 1);
-      assert.equal(alice[0]!.id, "s-a");
+      assert.equal(alice[0].id, "s-a");
     });
 
     // Le cas qui compte : une clé illisible (écrite par un autre outil, une

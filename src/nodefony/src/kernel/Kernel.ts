@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/ban-ts-comment */
 import { logColor, setLogColor, resolveColorEnabled } from "../syslog/logColor";
 import cluster from "node:cluster";
 import fs from "node:fs";
@@ -370,7 +369,7 @@ export interface IRunProfile {
 /** Profil par défaut — équivaut à l'ancien `type = "CONSOLE"` (one-shot, sans serveur). */
 export const CONSOLE_RUN_PROFILE: Readonly<IRunProfile> = Object.freeze({
   servers: false,
-  lifetime: "oneshot" as RunLifetime,
+  lifetime: "oneshot",
   interactive: false,
   externalServices: false,
 });
@@ -953,7 +952,7 @@ class Kernel extends Service implements IKernel {
       const hint = this.diagnoseUnbootableProject();
       if (hint) {
         this.log(hint, "CRITIC");
-        return (await this.terminate(1)) as this;
+        return await this.terminate(1);
       }
       // Hors projet Nodefony (aucune entrée d'app résolue depuis package.json).
       // Le wizard de création est un outil INTERACTIF : sans TTY (container,
@@ -976,7 +975,7 @@ class Kernel extends Service implements IKernel {
             `  · elle n'est pas CONSTRUITE : npm install puis npm run build`,
           "CRITIC",
         );
-        return (await this.terminate(1)) as this;
+        return await this.terminate(1);
       }
       return await this.cli
         .runCommandAsync("menu", ["-i"])
@@ -1767,7 +1766,6 @@ class Kernel extends Service implements IKernel {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   /**
    * Configuration figée d'un module et sa liste blanche de surcharge, par nom
    * de paquet (`"@nodefony/http"`).
@@ -1829,7 +1827,7 @@ class Kernel extends Service implements IKernel {
       //await this.fireAsync("onInitialize", mod);
     }
 
-    return mod as Module;
+    return mod;
   }
 
   getModule(name: string): Module {
@@ -1911,7 +1909,7 @@ class Kernel extends Service implements IKernel {
       // lu. Un module qui ne publie pas de schéma retrouve exactement le
       // comportement d'avant (`configSchema()` rend `null`).
       const applied = applyResolvedPath(
-        mod.options as Record<string, unknown>,
+        mod.options,
         ov.path,
         ov.value,
         ov.raw,
@@ -1921,10 +1919,7 @@ class Kernel extends Service implements IKernel {
         // Journaliser la valeur RÉELLEMENT posée, jamais la devinette : un
         // journal qui affiche autre chose que ce que porte la config est le
         // genre de piste qu'on suit une heure.
-        const appliedValue = readResolvedPath(
-          mod.options as Record<string, unknown>,
-          ov.path,
-        );
+        const appliedValue = readResolvedPath(mod.options, ov.path);
         const shown = pathLooksSecret(ov.path)
           ? "«***»"
           : JSON.stringify(appliedValue);
@@ -1935,11 +1930,7 @@ class Kernel extends Service implements IKernel {
       } else {
         this.log(
           `Override env ignoré : chemin "${ov.path.join(".")}" inconnu sur ${mod.name} (${ov.envKey})` +
-            resolveFailureHint(
-              mod.options as Record<string, unknown>,
-              ov.path,
-              schemaDe(mod),
-            ),
+            resolveFailureHint(mod.options, ov.path, schemaDe(mod)),
           "WARNING",
         );
       }
@@ -1964,10 +1955,7 @@ class Kernel extends Service implements IKernel {
       const mod = this.modules[name];
       const schema = mod.configSchema();
       if (!schema) continue;
-      const hits = findSetReservedKeys(
-        schema,
-        mod.options as Record<string, unknown>,
-      );
+      const hits = findSetReservedKeys(schema, mod.options);
       for (const hit of hits) {
         this.log(
           `Clé de config RÉSERVÉE posée sans effet : ${mod.name}.${hit.path} ` +
@@ -2298,7 +2286,7 @@ class Kernel extends Service implements IKernel {
       !foreign &&
       (raw === null ||
         raw === undefined ||
-        (typeof raw === "object" && Object.keys(raw as object).length === 0));
+        (typeof raw === "object" && Object.keys(raw).length === 0));
     const options = extend(
       true,
       {},
@@ -3128,25 +3116,25 @@ class Kernel extends Service implements IKernel {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override fire(event: KernelEventsType, ...args: any[]): boolean {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.fire(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override emit(event: KernelEventsType, ...args: any[]): boolean {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.emit(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override emitAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override fireAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
-    this.log(`${colorLogEvent()} ${event as string}`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
@@ -3866,7 +3854,7 @@ class Kernel extends Service implements IKernel {
     // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques d'un événement de cycle de vie — leur forme dépend de l'événement
     ...args: any[]
   ): Promise<IGuardedEmitResult> {
-    this.log(`${colorLogEvent()} ${event as string} [guarded]`, "DEBUG");
+    this.log(`${colorLogEvent()} ${event} [guarded]`, "DEBUG");
     const warnMs = this.bootWarnMs();
     let fatalError: unknown = null;
     let hasFatal = false;
@@ -3932,7 +3920,7 @@ class Kernel extends Service implements IKernel {
           const { owner, name } = readListenerTags(info.listener);
           this.log(
             `boot lifecycle: hook "${owner ?? name ?? "(anonyme)"}" lent ` +
-              `(${Math.round(info.durationMs)}ms ≥ ${warnMs}ms) sur ${event as string}`,
+              `(${Math.round(info.durationMs)}ms ≥ ${warnMs}ms) sur ${event}`,
             "NOTICE",
           );
         },
@@ -4308,7 +4296,7 @@ class Kernel extends Service implements IKernel {
           "DEBUG",
         );
         try {
-          CliKernel.quit(code as number);
+          CliKernel.quit(code);
           return resolve(this);
         } catch (e) {
           this.log(e, "ERROR");

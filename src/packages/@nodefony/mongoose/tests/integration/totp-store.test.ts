@@ -57,7 +57,7 @@ describe.skipIf(!URI)(
       // `id` → `_id` par le contrat du repository : la clé naturelle EST la PK,
       // donc ce compte prouve l'unicité portée par la clé primaire elle-même.
       countFor: (userId) =>
-        orm.getRepository(TOTP_SECRET_ENTITY).count({ id: userId } as never),
+        orm.getRepository(TOTP_SECRET_ENTITY).count({ id: userId }),
       // Un pool froid sérialise les premières requêtes et masque les courses.
       warm: async () => {
         const repo = orm.getRepository(TOTP_SECRET_ENTITY);

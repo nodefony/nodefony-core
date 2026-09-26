@@ -56,7 +56,7 @@ function serve(routes: Record<string, unknown>): {
 
 describe("discoverAuthorizationServer", () => {
   it("suit l'ordre NORMATIF du cœur et rend les points d'entrée", async () => {
-    const { fetch, seen } = serve({ [CANDIDATES[0]!]: document() });
+    const { fetch, seen } = serve({ [CANDIDATES[0]]: document() });
     const metadata = await discoverAuthorizationServer(ISSUER, { fetch });
     assert.deepEqual(seen, [CANDIDATES[0]]);
     assert.equal(metadata.issuer, ISSUER);
@@ -70,7 +70,7 @@ describe("discoverAuthorizationServer", () => {
   });
 
   it("essaie les trois formes, dans l'ordre, jusqu'à la dernière", async () => {
-    const { fetch, seen } = serve({ [CANDIDATES[2]!]: document() });
+    const { fetch, seen } = serve({ [CANDIDATES[2]]: document() });
     const metadata = await discoverAuthorizationServer(ISSUER, { fetch });
     assert.deepEqual(seen, CANDIDATES);
     assert.equal(metadata.tokenEndpoint, "https://idp.test/realms/app/token");
@@ -95,14 +95,14 @@ describe("discoverAuthorizationServer", () => {
   });
 
   it("une barre oblique terminale ne change RIEN (formes canonisées des deux côtés)", async () => {
-    const { fetch } = serve({ [CANDIDATES[0]!]: document() });
+    const { fetch } = serve({ [CANDIDATES[0]]: document() });
     const metadata = await discoverAuthorizationServer(`${ISSUER}/`, { fetch });
     assert.equal(metadata.issuer, ISSUER);
   });
 
   it("émetteur DISCORDANT → refus, même si le document est par ailleurs valide (RFC 8414 §3.3)", async () => {
     const { fetch } = serve({
-      [CANDIDATES[0]!]: document({ issuer: "https://attaquant.test" }),
+      [CANDIDATES[0]]: document({ issuer: "https://attaquant.test" }),
     });
     await assert.rejects(
       () => discoverAuthorizationServer(ISSUER, { fetch }),
@@ -112,8 +112,8 @@ describe("discoverAuthorizationServer", () => {
 
   it("un document trouvé mais discordant n'est PAS contourné par la voie suivante", async () => {
     const { fetch, seen } = serve({
-      [CANDIDATES[0]!]: document({ issuer: "https://attaquant.test" }),
-      [CANDIDATES[1]!]: document(),
+      [CANDIDATES[0]]: document({ issuer: "https://attaquant.test" }),
+      [CANDIDATES[1]]: document(),
     });
     await assert.rejects(() => discoverAuthorizationServer(ISSUER, { fetch }));
     assert.equal(seen.length, 1, "la seconde voie ne doit pas être tentée");
@@ -121,7 +121,7 @@ describe("discoverAuthorizationServer", () => {
 
   it("point d'entrée manquant → refus nommant le champ", async () => {
     const { fetch } = serve({
-      [CANDIDATES[0]!]: document({ token_endpoint: undefined }),
+      [CANDIDATES[0]]: document({ token_endpoint: undefined }),
     });
     await assert.rejects(
       () => discoverAuthorizationServer(ISSUER, { fetch }),
@@ -131,7 +131,7 @@ describe("discoverAuthorizationServer", () => {
 
   it("point d'entrée en clair → refus", async () => {
     const { fetch } = serve({
-      [CANDIDATES[0]!]: document({ token_endpoint: "http://idp.test/token" }),
+      [CANDIDATES[0]]: document({ token_endpoint: "http://idp.test/token" }),
     });
     await assert.rejects(
       () => discoverAuthorizationServer(ISSUER, { fetch }),
@@ -141,7 +141,7 @@ describe("discoverAuthorizationServer", () => {
 
   it("jeu de clés absent → refus (garde du cœur, pas d'une copie locale)", async () => {
     const { fetch } = serve({
-      [CANDIDATES[0]!]: document({ jwks_uri: undefined }),
+      [CANDIDATES[0]]: document({ jwks_uri: undefined }),
     });
     await assert.rejects(
       () => discoverAuthorizationServer(ISSUER, { fetch }),

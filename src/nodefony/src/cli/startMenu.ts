@@ -125,7 +125,7 @@ interface ICatalogEntry {
  * @returns le libellé à afficher dans le menu.
  */
 function menuGroup(intention: keyof typeof MENU_GROUP_LABELS): string {
-  return MENU_GROUP_LABELS[intention] as string;
+  return MENU_GROUP_LABELS[intention];
 }
 
 export const START_MENU_CATALOG: readonly ICatalogEntry[] = [

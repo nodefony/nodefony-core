@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
@@ -80,7 +79,7 @@ class TotpService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -243,7 +242,7 @@ class TotpService extends Service {
       try {
         await this.#store.flushNow();
       } catch (e) {
-        this.log(e as Error, "ERROR");
+        this.log(e, "ERROR");
       }
     }
   }

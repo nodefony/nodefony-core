@@ -138,7 +138,6 @@ export const SessionsTable = observer(function SessionsTable({
         throw new Error(describeSessionsError(e), { cause: e });
       }
       // `reloadKey` change l'identité du loader → le grid recharge sa page.
-      // eslint-disable-next-line react-hooks/exhaustive-deps
     },
     [store, endpoint, filterSignal, reloadKey],
   );

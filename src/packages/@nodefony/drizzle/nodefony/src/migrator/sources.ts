@@ -480,7 +480,7 @@ function scanLine(
   curseur.coupe = -1;
   let open = curseur.open;
   for (let i = 0; i < line.length; i += 1) {
-    const c = line[i] as string;
+    const c = line[i];
     if (open.startsWith("$")) {
       // Un corps délimité par des dollars ne se referme QUE sur son propre
       // marqueur : un `$$` nu croisé dans un `$corps$` ne termine rien.
@@ -550,9 +550,9 @@ function scanLine(
  */
 function delimiteurDollar(line: string, debut: number): string | null {
   let i = debut + 1;
-  while (i < line.length && /[A-Za-z0-9_]/.test(line[i] as string)) {
+  while (i < line.length && /[A-Za-z0-9_]/.test(line[i])) {
     // Un tag ne commence pas par un chiffre — `$1` est un paramètre.
-    if (i === debut + 1 && /[0-9]/.test(line[i] as string)) {
+    if (i === debut + 1 && /[0-9]/.test(line[i])) {
       return null;
     }
     i += 1;
@@ -578,7 +578,7 @@ export function createdTables(files: readonly IMigrationFile[]): string[] {
   for (const file of files) {
     for (const statement of file.statements) {
       for (const match of statement.matchAll(pattern)) {
-        found.add(match[1] as string);
+        found.add(match[1]);
       }
     }
   }

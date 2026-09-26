@@ -48,7 +48,6 @@ import type { KnownModule, ModuleEntryInput, ResolvedAppConfig } from "./types";
  * reste accepté (config `Record<string, unknown>`), jamais bloqué.
  */
 // L'interface vide EST le point d'extension (declaration merging). Volontaire.
-// eslint-disable-next-line @typescript-eslint/no-empty-object-type
 export interface NodefonyModuleConfig {}
 
 /**
@@ -94,7 +93,7 @@ export function use<N extends KnownModule>(
   if (config !== undefined) {
     // Élargissement contrôlé : `ConfigOf<N>` (forme concrète au call-site) →
     // forme de stockage hétérogène du manifeste. Pas un `any` (cast borné).
-    entry.config = config as Record<string, unknown>;
+    entry.config = config;
   }
   if (opts?.policy !== undefined) {
     entry.policy = opts.policy;

@@ -31,7 +31,7 @@ function makeStub(opts: { verbose: boolean; phases: PhaseTiming[] }): {
 }
 
 function run(stub: { ctx: Context }): void {
-  (Context.prototype.logPhasesVerbose as () => void).call(stub.ctx);
+  Context.prototype.logPhasesVerbose.call(stub.ctx);
 }
 
 describe("P3.7 — Context.logPhasesVerbose()", () => {

@@ -39,9 +39,10 @@ class FrontendBuild extends Command {
     // lisait donc `opts.force` sur l'objet `command` (pas d'options en Commander
     // moderne) → `--force` silencieusement ignoré. `opts()` est fiable quel que soit
     // le nombre de positionnels.
-    const opts = ((
-      this.command as unknown as { opts?: () => { force?: boolean } }
-    )?.opts?.() ?? {}) as { force?: boolean };
+    const opts =
+      (
+        this.command as unknown as { opts?: () => { force?: boolean } }
+      )?.opts?.() ?? {};
     const svc = this.kernel?.container?.get("frontend") as
       FrontendService | undefined;
     if (!svc) {

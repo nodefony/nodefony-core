@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *   NODEFONY FRAMEWORK UNIT TEST — shim browser `node:events`
  *

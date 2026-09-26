@@ -37,12 +37,7 @@ const options: OptionsCommandInterface = {
  */
 class Prod extends Command {
   constructor(cli: CliKernel) {
-    super(
-      "production",
-      "démarre en production, au premier plan",
-      cli as CliKernel,
-      options,
-    );
+    super("production", "démarre en production, au premier plan", cli, options);
     this.alias("prod");
     // Convention de l'écosystème (npm start, next start, nest start) : `start`
     // = démarrer l'application en production. Le menu interactif, lui, vit

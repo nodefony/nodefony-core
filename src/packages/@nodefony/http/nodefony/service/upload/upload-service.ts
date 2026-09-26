@@ -2,7 +2,6 @@ import {
   Service,
   FileClass,
   Container,
-  Event,
   Severity,
   Msgid,
   Pdu,
@@ -38,7 +37,7 @@ export class upload extends Service {
     super(
       "upload",
       httpKernel?.container as Container,
-      httpKernel.notificationsCenter as Event,
+      httpKernel.notificationsCenter,
     );
     this.module = module;
     this.kernel?.once("onBoot", async () => {

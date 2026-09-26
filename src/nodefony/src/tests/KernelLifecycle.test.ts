@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
 import fs from "node:fs";
 import os from "node:os";
@@ -232,7 +231,7 @@ describe("Kernel lifecycle — preRegister()", () => {
       "onPostReady",
     ];
     for (const ev of events) {
-      k.on(ev as any, () => {
+      k.on(ev, () => {
         order.push(ev);
       });
     }
@@ -288,7 +287,7 @@ describe("Kernel lifecycle — preRegister()", () => {
 describe("Kernel lifecycle — module hooks", () => {
   it("onKernelRegister déclenché sur onRegister", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(HookedModule as any)) as HookedModule;
+    const mod = (await k.addModule(HookedModule)) as HookedModule;
     patchGetPackageJson(mod);
     await k.preRegister();
     assert.strictEqual(mod.registerCalled, true);
@@ -296,7 +295,7 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("onKernelBoot déclenché sur onBoot", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(HookedModule as any)) as HookedModule;
+    const mod = (await k.addModule(HookedModule)) as HookedModule;
     patchGetPackageJson(mod);
     await k.preRegister();
     assert.strictEqual(mod.bootCalled, true);
@@ -304,7 +303,7 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("onKernelReady déclenché sur onReady", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(HookedModule as any)) as HookedModule;
+    const mod = (await k.addModule(HookedModule)) as HookedModule;
     patchGetPackageJson(mod);
     await k.preRegister();
     assert.strictEqual(mod.readyCalled, true);
@@ -312,9 +311,7 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("hooks async — setImmediate attendu avant event suivant", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(
-      SlowHookedModule as any,
-    )) as SlowHookedModule;
+    const mod = (await k.addModule(SlowHookedModule)) as SlowHookedModule;
     patchGetPackageJson(mod);
     const kernelOrder: string[] = [];
     k.on("onBoot", () => {
@@ -330,14 +327,14 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("module sans hook — pas d'erreur", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(BasicModule as any)) as BasicModule;
+    const mod = (await k.addModule(BasicModule)) as BasicModule;
     patchGetPackageJson(mod);
     await assert.doesNotReject(() => k.preRegister());
   });
 
   it("deux modules — hooks appelés pour les deux", async () => {
     const k = mkKernel();
-    const m1 = (await k.addModule(HookedModule as any)) as HookedModule;
+    const m1 = (await k.addModule(HookedModule)) as HookedModule;
     patchGetPackageJson(m1);
 
     class HookedModule2 extends Module {
@@ -350,7 +347,7 @@ describe("Kernel lifecycle — module hooks", () => {
         return this;
       }
     }
-    const m2 = (await k.addModule(HookedModule2 as any)) as HookedModule2;
+    const m2 = (await k.addModule(HookedModule2)) as HookedModule2;
     patchGetPackageJson(m2);
 
     await k.preRegister();
@@ -360,7 +357,7 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("init() appelé par addModule avec le kernel", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(InitModule as any)) as InitModule;
+    const mod = (await k.addModule(InitModule)) as InitModule;
     patchGetPackageJson(mod);
     assert.strictEqual(mod.initCalled, true);
     assert.strictEqual(mod.initArg, k);
@@ -368,7 +365,7 @@ describe("Kernel lifecycle — module hooks", () => {
 
   it("module.package chargé sur onPreBoot via getPackageJson mocké", async () => {
     const k = mkKernel();
-    const mod = (await k.addModule(BasicModule as any)) as BasicModule;
+    const mod = (await k.addModule(BasicModule)) as BasicModule;
     patchGetPackageJson(mod);
     await k.preRegister();
     assert.ok(
@@ -594,7 +591,7 @@ describe("Kernel lifecycle — addKernelService", () => {
 
   it("addKernelService → service enregistré dans le container", async () => {
     const k = mkKernel();
-    await k.addKernelService(KSvc as any);
+    await k.addKernelService(KSvc);
     const inst = k.get<KSvc>("KSvc");
     assert.ok(inst instanceof KSvc);
     assert.strictEqual(inst?._marker, "ksvc");
@@ -602,22 +599,20 @@ describe("Kernel lifecycle — addKernelService", () => {
 
   it("addKernelService avec init → init(kernel) appelé", async () => {
     const k = mkKernel();
-    const inst = (await k.addKernelService(
-      KSvcWithInit as any,
-    )) as KSvcWithInit;
+    const inst = (await k.addKernelService(KSvcWithInit)) as KSvcWithInit;
     assert.strictEqual(inst?.initCalled, true);
   });
 
   it("addKernelService → retourne l'instance depuis le container", async () => {
     const k = mkKernel();
-    const inst = await k.addKernelService(KSvc as any);
+    const inst = await k.addKernelService(KSvc);
     assert.ok(inst instanceof KSvc);
   });
 
   it("addKernelService doublon → n'écrase pas (retourne l'existant)", async () => {
     const k = mkKernel();
-    const inst1 = await k.addKernelService(KSvc as any);
-    const inst2 = await k.addKernelService(KSvc as any);
+    const inst1 = await k.addKernelService(KSvc);
+    const inst2 = await k.addKernelService(KSvc);
     // les deux appels retournent une instance de KSvc
     assert.ok(inst1 instanceof KSvc);
     assert.ok(inst2 instanceof KSvc);

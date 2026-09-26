@@ -105,7 +105,7 @@ function fakeNet(routes: Record<string, FakeRoute>): IFakeNet {
       headers: { "content-type": "application/json" },
     });
   };
-  return { fetch: impl as unknown as typeof globalThis.fetch, urls };
+  return { fetch: impl, urls };
 }
 
 const metadata = { issuer: ISSUER, jwks_uri: JWKS_URL };
@@ -472,7 +472,7 @@ describe("RemoteJwtVerifier — les clés LOCALES, sans aucune requête", () => 
           localJwks: async () => issuer.jwks,
         },
       ],
-      fetch: interdit as unknown as typeof fetch,
+      fetch: interdit,
     });
 
     const token = await issuer.sign({ sub: "agent-local", scope: "mcp:read" });
@@ -499,7 +499,7 @@ describe("RemoteJwtVerifier — les clés LOCALES, sans aucune requête", () => 
           },
         },
       ],
-      fetch: interdit as unknown as typeof fetch,
+      fetch: interdit,
     });
 
     const token = await issuer.sign({ sub: "agent-local" });
@@ -520,7 +520,7 @@ describe("RemoteJwtVerifier — les clés LOCALES, sans aucune requête", () => 
           localJwks: async () => maison.jwks,
         },
       ],
-      fetch: interdit as unknown as typeof fetch,
+      fetch: interdit,
     });
 
     const token = await etranger.sign({ sub: "intrus" });

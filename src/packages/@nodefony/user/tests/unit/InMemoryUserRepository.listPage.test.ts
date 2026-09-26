@@ -16,7 +16,7 @@ runUserPaginationContract({
     for (const row of rows) {
       // `enabled` = champ d'entité hors du contrat credential (le `create`
       // le lit défensivement, comme les backends réels).
-      await store.create(row as unknown as Partial<IPasswordAuthenticatedUser>);
+      await store.create(row);
     }
   },
   clear: async () => {

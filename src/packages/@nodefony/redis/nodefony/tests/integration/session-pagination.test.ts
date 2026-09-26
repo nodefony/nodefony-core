@@ -108,7 +108,7 @@ afterAll(async () => {
 
 runSessionPaginationContract({
   mode: "cursor",
-  storage: () => storage as unknown as PaginatedSessionStorage,
+  storage: () => storage,
   clear: async () => {
     if (realClient) await realClient.flushDb();
     else fake.flush();

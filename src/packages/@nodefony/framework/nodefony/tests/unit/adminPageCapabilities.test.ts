@@ -170,13 +170,15 @@ describe("catalogue admin — capacités de page", () => {
         handler: () => ({}),
       },
     ]);
-    expect(
-      (await catalogEntry(broker, "things"))?.page as { search: boolean },
-    ).to.have.property("search", false);
+    expect((await catalogEntry(broker, "things"))?.page).to.have.property(
+      "search",
+      false,
+    );
     canSearch = true;
-    expect(
-      (await catalogEntry(broker, "things"))?.page as { search: boolean },
-    ).to.have.property("search", true);
+    expect((await catalogEntry(broker, "things"))?.page).to.have.property(
+      "search",
+      true,
+    );
   });
 
   it("les facettes traversent en JSON — nom → filtres qui la sélectionnent", async () => {

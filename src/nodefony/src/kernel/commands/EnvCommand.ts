@@ -43,7 +43,7 @@ class Env extends Command {
     super(
       "env",
       "les variables d'environnement et leur provenance",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");

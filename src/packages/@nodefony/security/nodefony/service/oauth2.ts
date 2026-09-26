@@ -1,4 +1,4 @@
-import { Service, Module, Container, Event } from "nodefony";
+import { Service, Module, Container } from "nodefony";
 import type { IUser, IOAuthUserProvisioner } from "@nodefony/user";
 import {
   defineSecurityConfig,
@@ -126,7 +126,7 @@ class OAuth2Service extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());

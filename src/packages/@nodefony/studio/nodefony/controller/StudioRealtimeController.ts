@@ -221,7 +221,7 @@ class StudioRealtimeController extends RealtimeController {
     if (scaffoldJob) {
       const svc = this.get<ScaffoldService>("scaffold");
       if (!svc?.enabled) return null;
-      const jobId = scaffoldJob[1] as string;
+      const jobId = scaffoldJob[1];
       // On relaie l'ÉVÉNEMENT (ligne ou état), pas seulement la ligne : sinon le front
       // n'apprendrait jamais par la socket qu'un job est terminé, et devrait sonder le
       // serveur en boucle alors que la connexion est déjà là.

@@ -101,7 +101,7 @@ function harness(
         return new Promise<IDeliveryResult>((res) => h.gates.push(res));
       }
       const result = Array.isArray(mode)
-        ? (mode[Math.min(i++, mode.length - 1)] as IDeliveryResult)
+        ? mode[Math.min(i++, mode.length - 1)]
         : mode;
       return Promise.resolve(result);
     },
@@ -206,15 +206,15 @@ describe("dispatcher — livraison & signature", () => {
     new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
     await flush();
     assert.equal(h.deliverCalls.length, 1);
-    const { headers, body } = h.deliverCalls[0]!;
+    const { headers, body } = h.deliverCalls[0];
     assert.equal(headers["webhook-id"], "msg_test");
-    assert.match(headers["webhook-signature"]!, /^v1,/);
+    assert.match(headers["webhook-signature"], /^v1,/);
     assert.ok(headers["webhook-timestamp"]);
     const parsed = JSON.parse(body);
     assert.equal(parsed.type, "login.success");
     assert.equal(parsed.data.actor, "alice");
     assert.equal(h.marks.length, 1);
-    assert.equal(h.marks[0]!.ok, true);
+    assert.equal(h.marks[0].ok, true);
   });
 });
 
@@ -226,7 +226,7 @@ describe("dispatcher — retry & auto-marquage", () => {
     assert.equal(h.deliverCalls.length, 3); // attempt 0 + 2 retries
     assert.equal(h.scheduled, 2);
     assert.equal(h.marks.length, 1);
-    assert.equal(h.marks[0]!.ok, false);
+    assert.equal(h.marks[0].ok, false);
   });
   it("retry puis succès → 1 seul markDelivery (ok)", async () => {
     const h = harness([endpoint()], [retryable, ok]);
@@ -234,7 +234,7 @@ describe("dispatcher — retry & auto-marquage", () => {
     await flush();
     assert.equal(h.deliverCalls.length, 2);
     assert.equal(h.marks.length, 1);
-    assert.equal(h.marks[0]!.ok, true);
+    assert.equal(h.marks[0].ok, true);
   });
   it("erreur 4xx → échec définitif sans retry", async () => {
     const h = harness([endpoint()], fatal);
@@ -242,7 +242,7 @@ describe("dispatcher — retry & auto-marquage", () => {
     await flush();
     assert.equal(h.deliverCalls.length, 1);
     assert.equal(h.scheduled, 0);
-    assert.equal(h.marks[0]!.ok, false);
+    assert.equal(h.marks[0].ok, false);
   });
 });
 
@@ -262,8 +262,8 @@ describe("dispatcher — SSRF au point de livraison (rebinding)", () => {
     await flush();
     assert.equal(h.deliverCalls.length, 0);
     assert.equal(h.marks.length, 1);
-    assert.equal(h.marks[0]!.ok, false);
-    assert.match(h.marks[0]!.error ?? "", /ssrf/);
+    assert.equal(h.marks[0].ok, false);
+    assert.match(h.marks[0].error ?? "", /ssrf/);
   });
 });
 
@@ -278,7 +278,7 @@ describe("dispatcher — historique des livraisons (recordDelivery)", () => {
     new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
     await flush();
     assert.equal(h.records.length, 1);
-    const rec = h.records[0]!;
+    const rec = h.records[0];
     assert.equal(rec.ok, true);
     assert.equal(rec.status, 200);
     assert.equal(rec.type, "login.success");
@@ -294,7 +294,7 @@ describe("dispatcher — historique des livraisons (recordDelivery)", () => {
     new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
     await flush();
     assert.equal(h.records.length, 1);
-    assert.equal(h.records[0]!.ok, true);
+    assert.equal(h.records[0].ok, true);
   });
 
   it("rejet SSRF → 1 trace en échec (status null, responseBody null)", async () => {
@@ -311,10 +311,10 @@ describe("dispatcher — historique des livraisons (recordDelivery)", () => {
     new WebhookDispatcher(h.deps).onAuditEvent(auditEvent("login.success"));
     await flush();
     assert.equal(h.records.length, 1);
-    assert.equal(h.records[0]!.ok, false);
-    assert.equal(h.records[0]!.status, null);
-    assert.equal(h.records[0]!.responseBody, null);
-    assert.match(h.records[0]!.error ?? "", /ssrf/);
+    assert.equal(h.records[0].ok, false);
+    assert.equal(h.records[0].status, null);
+    assert.equal(h.records[0].responseBody, null);
+    assert.match(h.records[0].error ?? "", /ssrf/);
   });
 });
 

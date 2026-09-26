@@ -39,7 +39,6 @@ export default async function setup(
     replset = await MongoMemoryReplSet.create({ replSet: { count: 1 } });
     project.provide("mongoUri", replset.getUri());
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.warn(
       `[mongo-test] mongod indisponible → bancs d'intégration skippés : ${
         error instanceof Error ? error.message : String(error)

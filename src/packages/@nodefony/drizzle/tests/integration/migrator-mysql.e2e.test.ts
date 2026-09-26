@@ -48,7 +48,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     new DrizzleMigrator({
       connector: "banc_mysql",
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
       sources,
       lockTimeoutMs,
     });
@@ -74,7 +74,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     // banc, et la suite du module tourne fichier par fichier.
     const admin = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     try {
       for (const table of BANC_TABLES) {
@@ -110,7 +110,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     );
     const admin = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     try {
       const rows = await admin.query<{ n: number }>(
@@ -125,7 +125,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
   it("ne laisse AUCUN verrou zombie quand le détenteur est tué", async () => {
     const holder = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     await holder.lock(5_000);
     const id = Number(
@@ -147,7 +147,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     // session : rien à déverrouiller à la main, jamais.
     const killer = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     try {
       await killer.exec(`KILL ${id}`);
@@ -166,11 +166,11 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
   it("qualifie le verrou par la base — deux bases ne se sérialisent pas", async () => {
     const a = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     const b = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     try {
       // 1. Le serveur compose bien le nom avec la base COURANTE.
@@ -210,7 +210,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
   });
 
   it("laisse un état PARTIEL après un échec — le DDL n'est pas transactionnel", async () => {
-    await appendMigration(sources[0]!.dir, "mysql", {
+    await appendMigration(sources[0].dir, "mysql", {
       tag: "0001_casse",
       statements: [
         "CREATE TABLE nf_mig_gadget (id varchar(64) NOT NULL, PRIMARY KEY (id))",
@@ -222,7 +222,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
 
     const admin = await openMigrationDriver({
       dialect: "mysql",
-      url: MYSQL_URL as string,
+      url: MYSQL_URL,
     });
     try {
       // 🔴 La première table EXISTE : MySQL valide implicitement chaque DDL.

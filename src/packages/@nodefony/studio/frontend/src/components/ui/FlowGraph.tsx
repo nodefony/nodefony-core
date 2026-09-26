@@ -206,7 +206,7 @@ function LayerNode({ data }: NodeProps<LayerNodeType>) {
               borderTop: "1px solid var(--mantine-color-default-border)",
             }}
           >
-            {live!.metrics!.map((m) => (
+            {live.metrics!.map((m) => (
               <Group
                 key={m.label}
                 justify="space-between"

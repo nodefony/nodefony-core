@@ -56,7 +56,7 @@ export function buildClientOptions(
     database: connection.database,
     // redis v6 OSS : pas de notifications de maintenance Enterprise (déterministe).
     maintNotifications: "disabled",
-  } as RedisClientOptions;
+  };
 
   if (global.username) {
     options.username = global.username;

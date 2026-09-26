@@ -94,7 +94,7 @@ function request(
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });
@@ -121,7 +121,7 @@ async function loginCookie(): Promise<string> {
   const set = res.headers["set-cookie"];
   const first = Array.isArray(set) ? set[0] : set;
   expect(typeof first, "cookie de session attendu au login").toBe("string");
-  return (first as string).split(";")[0]!;
+  return (first as string).split(";")[0];
 }
 
 /**

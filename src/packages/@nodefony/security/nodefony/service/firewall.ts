@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   RequestContext,
   Severity,
   Msgid,
@@ -180,7 +179,7 @@ class Firewall extends Service implements IFirewall {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -918,7 +917,7 @@ class Firewall extends Service implements IFirewall {
       // token non authentifié) — sinon `null` (personne ne s'est annoncé).
       trace.user = actor;
     }
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "auth",
       action,
       outcome,

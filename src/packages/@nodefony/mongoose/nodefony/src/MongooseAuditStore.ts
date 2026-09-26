@@ -117,7 +117,7 @@ export class MongooseAuditStore implements IAuditStore {
         const connection = orm.getNativeConnection<Connection>();
         return connection.model<Record<string, unknown>>(
           AUDIT_ENTITY_NAMES.events,
-        ) as unknown as LooseModel;
+        );
       },
       now,
       retentionMs,

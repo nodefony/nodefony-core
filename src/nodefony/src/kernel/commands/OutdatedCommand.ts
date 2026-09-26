@@ -71,7 +71,7 @@ class Outdated extends Command {
     super(
       "outdated",
       "les dépendances en retard, groupées par paquet",
-      cli as CliKernel,
+      cli,
       optionsCommand,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");

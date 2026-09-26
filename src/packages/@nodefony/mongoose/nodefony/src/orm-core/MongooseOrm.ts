@@ -433,10 +433,8 @@ export class MongooseOrm extends Orm {
       ["close", lost("mongoose: close")],
       [
         "error",
-        ((e: Error) =>
-          this.connectionLost(
-            `mongoose: ${e?.message ?? String(e)}`,
-          )) as unknown as (...a: never[]) => void,
+        (e: Error) =>
+          this.connectionLost(`mongoose: ${e?.message ?? String(e)}`),
       ],
       ["reconnected", (): void => this.connectionRestored()],
       ["connected", (): void => this.connectionRestored()],

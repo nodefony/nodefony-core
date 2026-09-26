@@ -27,7 +27,7 @@ function req(query: Record<string, string> = {}): IAdminRequest {
     body: null,
     user: { username: "admin1" },
     roles: ["ROLE_NODEFONY_ADMIN"],
-  } as unknown as IAdminRequest;
+  };
 }
 
 function endpointOf(module: Module, path: string): IAdminEndpoint {

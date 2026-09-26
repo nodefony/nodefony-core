@@ -254,7 +254,7 @@ export function mountOAuth2Routes(frameworkModule: Module): void {
   for (const [name, path, method, classMethod] of routes) {
     Router.createRoute(name, {
       path,
-      constructor: OAuth2Controller as unknown as Controller["constructor"],
+      constructor: OAuth2Controller,
       classMethod,
       requirements: { methods: [method] },
       // Le login précède l'authentification : l'aire data plane ne peut pas garder
@@ -265,10 +265,7 @@ export function mountOAuth2Routes(frameworkModule: Module): void {
   if (
     !Object.prototype.hasOwnProperty.call(OAuth2Controller.prototype, "module")
   ) {
-    Router.setController(
-      OAuth2Controller as unknown as Parameters<typeof Router.setController>[0],
-      frameworkModule,
-    );
+    Router.setController(OAuth2Controller, frameworkModule);
   }
   mounted = true;
 }

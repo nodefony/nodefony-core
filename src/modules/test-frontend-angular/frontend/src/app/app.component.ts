@@ -379,7 +379,7 @@ injectNodefonyChannel("live:salon", (m) => …)`;
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       // Nodefony wraps payload : `{ result: {...} }` selon le HttpKernel.
       const json = (await r.json()) as { result?: ApiData } & ApiData;
-      this.data.set((json.result ?? json) as ApiData);
+      this.data.set(json.result ?? json);
       this.error.set(null);
     } catch (e) {
       this.error.set(e instanceof Error ? e.message : String(e));

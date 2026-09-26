@@ -42,9 +42,7 @@ import { fileURLToPath as versChemin } from "node:url";
 import type { IDoctorReport } from "../kernel/checks/runDoctor";
 
 /** Retire les séquences ANSI pour mesurer la LARGEUR VUE, pas celle écrite. */
-const nu = (s: string): string =>
-  // eslint-disable-next-line no-control-regex
-  s.replace(/\[[0-9;]*m/gu, "");
+const nu = (s: string): string => s.replace(/\[[0-9;]*m/gu, "");
 
 const ANSI = /\[/u;
 
@@ -538,7 +536,7 @@ describe("doctor — les gestes, dédoublonnés et copiables", () => {
         },
       ]).flatMap((g) => [
         {
-          family: "migrations" as DoctorFamily,
+          family: "migrations",
           title: g.titles[0] ?? "",
           reason: g.reason,
           unlock: g.unlock,
@@ -851,7 +849,7 @@ describe("doctor — un démarrage passé ne contredit pas les contrôles d'aujo
               file: "src/app.ts",
             },
           ],
-        } as IDoctorReport["wiring"],
+        },
       }),
       options(),
     );

@@ -38,14 +38,14 @@ describe("@IsGranted — descripteur figé (méthode)", () => {
   it("attribut unique → 1 clause, anyOf=[attr]", () => {
     const sec = computeActionMeta(Ctrl, "single").security!;
     expect(sec.clauses).to.have.lengthOf(1);
-    expect(sec.clauses[0]!.anyOf).to.deep.equal(["ROLE_ADMIN"]);
-    expect(sec.clauses[0]!.subjectParam).to.equal(undefined);
+    expect(sec.clauses[0].anyOf).to.deep.equal(["ROLE_ADMIN"]);
+    expect(sec.clauses[0].subjectParam).to.equal(undefined);
   });
 
   it("tableau → OR (1 clause, plusieurs attributs)", () => {
     const sec = computeActionMeta(Ctrl, "orArray").security!;
     expect(sec.clauses).to.have.lengthOf(1);
-    expect(sec.clauses[0]!.anyOf).to.deep.equal(["ROLE_ADMIN", "ROLE_AUDITOR"]);
+    expect(sec.clauses[0].anyOf).to.deep.equal(["ROLE_ADMIN", "ROLE_AUDITOR"]);
   });
 
   it("empilés → AND (2 clauses)", () => {
@@ -57,8 +57,8 @@ describe("@IsGranted — descripteur figé (méthode)", () => {
 
   it("subject → subjectParam capturé", () => {
     const sec = computeActionMeta(Ctrl, "withSubject").security!;
-    expect(sec.clauses[0]!.subjectParam).to.equal("id");
-    expect(sec.clauses[0]!.anyOf).to.deep.equal(["doc.edit"]);
+    expect(sec.clauses[0].subjectParam).to.equal("id");
+    expect(sec.clauses[0].anyOf).to.deep.equal(["doc.edit"]);
   });
 
   it("action non décorée → security null (0 coût hot path)", () => {
@@ -94,7 +94,7 @@ describe("@IsGranted / @Anonymous — fusion classe + méthode", () => {
   it("méthode nue hérite la garde de classe", () => {
     const sec = computeActionMeta(GuardedCtrl, "inherited").security!;
     expect(sec.clauses).to.have.lengthOf(1);
-    expect(sec.clauses[0]!.anyOf).to.deep.equal(["ROLE_USER"]);
+    expect(sec.clauses[0].anyOf).to.deep.equal(["ROLE_USER"]);
   });
 
   it("@Anonymous (méthode) override la garde de classe → security null", () => {
@@ -122,16 +122,13 @@ describe("@RequireScope — descripteur figé (axe scope, P6.8)", () => {
   it("scope unique → 1 clause, anyOf=[scope]", () => {
     const sec = computeActionMeta(Ctrl, "read").security!;
     expect(sec.clauses).to.have.lengthOf(1);
-    expect(sec.clauses[0]!.anyOf).to.deep.equal(["orders:read"]);
+    expect(sec.clauses[0].anyOf).to.deep.equal(["orders:read"]);
   });
 
   it("tableau → OR (1 clause, plusieurs scopes)", () => {
     const sec = computeActionMeta(Ctrl, "orArray").security!;
     expect(sec.clauses).to.have.lengthOf(1);
-    expect(sec.clauses[0]!.anyOf).to.deep.equal([
-      "orders:read",
-      "orders:admin",
-    ]);
+    expect(sec.clauses[0].anyOf).to.deep.equal(["orders:read", "orders:admin"]);
   });
 
   it("empilés → AND (2 clauses)", () => {

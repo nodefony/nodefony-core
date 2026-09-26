@@ -55,11 +55,11 @@ describe("formatEntityField — l'inverse exact de parseEntityFields", () => {
           for (const def of ["", DEFAULTS[type] ?? ""]) {
             const line = `champ:${typeForm(type)}${nullable}${def ? `=${def}` : ""}${constraint}`;
             const [parsed] = parseEntityFields(line);
-            const written = formatEntityField(parsed!);
+            const written = formatEntityField(parsed);
             assert.deepEqual(parseEntityFields(written), [parsed], line);
             // Forme canonique : elle se relit identique à elle-même.
             assert.equal(
-              formatEntityField(parseEntityFields(written)[0]!),
+              formatEntityField(parseEntityFields(written)[0]),
               written,
             );
             checked += 1;
@@ -72,16 +72,16 @@ describe("formatEntityField — l'inverse exact de parseEntityFields", () => {
 
   it("tailles et relation : la forme écrite est celle qu'on tape", () => {
     assert.equal(
-      formatEntityField(parseEntityFields("titre:string(200)?")[0]!),
+      formatEntityField(parseEntityFields("titre:string(200)?")[0]),
       "titre:string(200)?",
     );
     assert.equal(
-      formatEntityField(parseEntityFields("prix:decimal(10,2)=0:index")[0]!),
+      formatEntityField(parseEntityFields("prix:decimal(10,2)=0:index")[0]),
       "prix:decimal(10,2)=0:index",
     );
     // Une relation est indexée d'office : son `:index` ne s'écrit pas.
     assert.equal(
-      formatEntityField(parseEntityFields("auteur:ref:User:index")[0]!),
+      formatEntityField(parseEntityFields("auteur:ref:User:index")[0]),
       "auteur:ref:User",
     );
   });
@@ -179,7 +179,7 @@ describe("askMissing — la question `fields` passe par le compositeur", () => {
     const [spec] = getScaffoldSpec("entity");
     // Toutes les autres questions sont déjà répondues : seule `fields` se pose.
     const partial = Object.fromEntries(
-      spec!.questions
+      spec.questions
         .filter((q) => q.key !== "fields")
         .map((q) => [q.key, q.key === "name" ? "Post" : q.default]),
     );
@@ -197,7 +197,7 @@ describe("askMissing — la question `fields` passe par le compositeur", () => {
       }
     });
     const answers = await askMissing(
-      spec!,
+      spec,
       partial,
       { hasCheckout: false },
       input,

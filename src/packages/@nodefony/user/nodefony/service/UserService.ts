@@ -1,5 +1,5 @@
 import { AbstractCrudService } from "@nodefony/orm-core";
-import type { Criteria, ServiceWiring } from "@nodefony/orm-core";
+import type { ServiceWiring } from "@nodefony/orm-core";
 import { countFacets } from "nodefony";
 import type { IPage } from "nodefony";
 import { USER_FACETS, type IUserCounts } from "../src/userFilters";
@@ -227,10 +227,7 @@ export class UserService
     if (target === null) return null;
     await this.#assertNotBlocked(plainPassword, target.identifier);
     const password = await this.encoder.hash(plainPassword);
-    const updated = await this.repository.updateOne(
-      { id } as Criteria<IPasswordAuthenticatedUser>,
-      { password },
-    );
+    const updated = await this.repository.updateOne({ id }, { password });
     if (updated !== null) this.fire("onPasswordChanged", updated);
     return updated;
   }
@@ -291,7 +288,7 @@ export class UserService
     if (this.encoder.needsRehash(hash)) {
       const fresh = await this.encoder.hash(plain);
       const rehashed = await this.repository.updateOne(
-        { id: user.id } as Criteria<IPasswordAuthenticatedUser>,
+        { id: user.id },
         { password: fresh },
       );
       this.fire("onPasswordChanged", rehashed ?? user);

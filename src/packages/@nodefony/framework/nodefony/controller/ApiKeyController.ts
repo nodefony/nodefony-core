@@ -208,7 +208,7 @@ export function mountApiKeyRoutes(frameworkModule: Module): void {
   for (const [name, path, method, classMethod] of routes) {
     Router.createRoute(name, {
       path,
-      constructor: ApiKeyController as unknown as Controller["constructor"],
+      constructor: ApiKeyController,
       classMethod,
       requirements: { methods: [method] },
       // Self-service : le porteur est TOUJOURS l'utilisateur courant
@@ -222,10 +222,7 @@ export function mountApiKeyRoutes(frameworkModule: Module): void {
   if (
     !Object.prototype.hasOwnProperty.call(ApiKeyController.prototype, "module")
   ) {
-    Router.setController(
-      ApiKeyController as unknown as Parameters<typeof Router.setController>[0],
-      frameworkModule,
-    );
+    Router.setController(ApiKeyController, frameworkModule);
   }
   mounted = true;
 }

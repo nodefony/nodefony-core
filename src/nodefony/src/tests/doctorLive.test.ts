@@ -101,7 +101,7 @@ describe("doctor --live — le vocabulaire du producteur", () => {
       texte.indexOf(";", texte.indexOf("export type MigrationVerdictName")),
     );
     const connus = new Set(
-      [...bloc.matchAll(/"([a-z-]+)"/gu)].map((m) => m[1] as string),
+      [...bloc.matchAll(/"([a-z-]+)"/gu)].map((m) => m[1]),
     );
     // Un motif qui ne trouve rien rendrait ce contrôle vert à vide.
     assert.isAbove(

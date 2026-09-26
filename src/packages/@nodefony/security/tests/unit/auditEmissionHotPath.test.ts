@@ -121,7 +121,7 @@ const zone = (authenticators: string[], mode: "first" | "all" = "first") =>
     roles: [],
     authenticators,
     realtime: true,
-  } as ISecurityAreaConfig);
+  });
 
 // Contexte HTTP minimal PORTANT la provenance (ip/ua/requestId/cookie) lue par
 // readAuditContext → on prouve que l'événement firewall est enrichi.
@@ -168,14 +168,14 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
     );
     const { items: events, total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 1);
-    assert.equal(events[0]!.category, "auth");
-    assert.equal(events[0]!.action, "auth.failure");
-    assert.equal(events[0]!.outcome, "failure");
-    assert.equal(events[0]!.reason, "invalid_credentials");
-    assert.equal(events[0]!.resource, "nodefony-admin");
-    assert.equal(events[0]!.ip, "203.0.113.9");
-    assert.equal(events[0]!.requestId, "req-fw");
-    assert.equal(events[0]!.flags?.hasCookie, true);
+    assert.equal(events[0].category, "auth");
+    assert.equal(events[0].action, "auth.failure");
+    assert.equal(events[0].outcome, "failure");
+    assert.equal(events[0].reason, "invalid_credentials");
+    assert.equal(events[0].resource, "nodefony-admin");
+    assert.equal(events[0].ip, "203.0.113.9");
+    assert.equal(events[0].requestId, "req-fw");
+    assert.equal(events[0].flags?.hasCookie, true);
   });
 
   it("auth.throttled sur backoff NIST (429)", async () => {
@@ -191,9 +191,9 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       ThrottledError,
     );
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "auth.throttled");
-    assert.equal(events[0]!.outcome, "failure");
-    assert.equal(events[0]!.reason, "throttled");
+    assert.equal(events[0].action, "auth.throttled");
+    assert.equal(events[0].outcome, "failure");
+    assert.equal(events[0].reason, "throttled");
   });
 
   it("auth.denied (Zero Trust) : aucune preuve présentée dans la zone", async () => {
@@ -205,10 +205,10 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       AuthenticationError,
     );
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "auth.denied");
-    assert.equal(events[0]!.outcome, "denied");
-    assert.equal(events[0]!.reason, "no_credentials");
-    assert.equal(events[0]!.actor, null);
+    assert.equal(events[0].action, "auth.denied");
+    assert.equal(events[0].outcome, "denied");
+    assert.equal(events[0].reason, "no_credentials");
+    assert.equal(events[0].actor, null);
   });
 
   it("auth.denied (token non promu hors anonymous) : acteur lu sur le token", async () => {
@@ -224,8 +224,8 @@ describe("Firewall handleSecurity — émission audit (cold-path)", () => {
       AuthenticationError,
     );
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "auth.denied");
-    assert.equal(events[0]!.reason, "unauthenticated");
+    assert.equal(events[0].action, "auth.denied");
+    assert.equal(events[0].reason, "unauthenticated");
   });
 
   it("SUCCÈS authentifié → AUCUNE émission (hot-path nominal muet)", async () => {
@@ -299,10 +299,10 @@ describe("frameAuthorizer — rapporteur onDeny (cold-path)", () => {
     );
     assert.equal(calls.length, 1);
     assert.deepEqual(
-      [calls[0]![0], calls[0]![1], calls[0]![2]],
+      [calls[0][0], calls[0][1], calls[0][2]],
       ["api.request", "/secure/data", "zone_protected"],
     );
-    assert.equal(calls[0]![3].getUserIdentifier(), "anonymous");
+    assert.equal(calls[0][3].getUserIdentifier(), "anonymous");
   });
 
   it("subscribe à un canal système (user non-admin) → onDeny(channel, ch, channel_policy)", () => {
@@ -321,7 +321,7 @@ describe("frameAuthorizer — rapporteur onDeny (cold-path)", () => {
     );
     assert.equal(calls.length, 1);
     assert.deepEqual(
-      [calls[0]![0], calls[0]![1], calls[0]![2]],
+      [calls[0][0], calls[0][1], calls[0][2]],
       ["channel", "nodefony:syslog", "channel_policy"],
     );
   });
@@ -407,12 +407,12 @@ describe("Firewall ⇄ realtime — frame.denied audité (câblage réel)", () =
     );
     assert.equal(ok, false);
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.category, "ws");
-    assert.equal(events[0]!.action, "frame.denied");
-    assert.equal(events[0]!.outcome, "denied");
-    assert.equal(events[0]!.actor, "anonymous");
-    assert.equal(events[0]!.resource, "/rt/secret");
-    assert.equal(events[0]!.reason, "zone_protected");
+    assert.equal(events[0].category, "ws");
+    assert.equal(events[0].action, "frame.denied");
+    assert.equal(events[0].outcome, "denied");
+    assert.equal(events[0].actor, "anonymous");
+    assert.equal(events[0].resource, "/rt/secret");
+    assert.equal(events[0].reason, "zone_protected");
   });
 });
 
@@ -459,11 +459,11 @@ describe("TokenService — émission audit", () => {
     const { svc, audit } = setupToken();
     await svc.issueTokens(fakeUser("alice"), ["orders:read"]);
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.category, "token");
-    assert.equal(events[0]!.action, "token.issued");
-    assert.equal(events[0]!.outcome, "success");
-    assert.equal(events[0]!.actor, "alice");
-    assert.deepEqual((events[0]!.metadata as { scopes: string[] }).scopes, [
+    assert.equal(events[0].category, "token");
+    assert.equal(events[0].action, "token.issued");
+    assert.equal(events[0].outcome, "success");
+    assert.equal(events[0].actor, "alice");
+    assert.deepEqual((events[0].metadata as { scopes: string[] }).scopes, [
       "orders:read",
     ]);
   });
@@ -477,10 +477,10 @@ describe("TokenService — émission audit", () => {
       AuthenticationError,
     );
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "token.reuse_detected");
-    assert.equal(events[0]!.outcome, "denied");
-    assert.equal(events[0]!.actor, "alice");
-    assert.equal(events[0]!.reason, "reuse_detected");
+    assert.equal(events[0].action, "token.reuse_detected");
+    assert.equal(events[0].outcome, "denied");
+    assert.equal(events[0].actor, "alice");
+    assert.equal(events[0].reason, "reuse_detected");
   });
 
   it("login.failure (grant password) sur identité inconnue + identifiants vides", async () => {
@@ -496,10 +496,10 @@ describe("TokenService — émission audit", () => {
     const { items: events, total } = await audit.listPage({ limit: 100 });
     assert.equal(total, 2);
     // Récent → ancien : [0] = identifiants vides (actor null), [1] = ghost.
-    assert.equal(events[0]!.action, "login.failure");
-    assert.equal(events[0]!.category, "auth");
-    assert.equal(events[0]!.actor, null);
-    assert.equal(events[1]!.actor, "ghost");
+    assert.equal(events[0].action, "login.failure");
+    assert.equal(events[0].category, "auth");
+    assert.equal(events[0].actor, null);
+    assert.equal(events[1].actor, "ghost");
   });
 
   it("audit désactivé → token.issued NON journalisé", async () => {
@@ -542,11 +542,11 @@ describe("ApiKeyService — émission audit", () => {
       scopes: [],
     });
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.category, "token");
-    assert.equal(events[0]!.action, "apikey.created");
-    assert.equal(events[0]!.outcome, "success");
-    assert.equal(events[0]!.actor, "alice");
-    assert.equal(events[0]!.resource, created.id);
+    assert.equal(events[0].category, "token");
+    assert.equal(events[0].action, "apikey.created");
+    assert.equal(events[0].outcome, "success");
+    assert.equal(events[0].actor, "alice");
+    assert.equal(events[0].resource, created.id);
     // Le secret en clair ne fuit JAMAIS dans l'événement.
     assert.ok(!JSON.stringify(events[0]).includes(created.token));
   });
@@ -559,9 +559,9 @@ describe("ApiKeyService — émission audit", () => {
     const ok = await keys.revokeForSubject("alice", created.id);
     assert.equal(ok, true);
     const { items: events } = await audit.listPage({ limit: 100 });
-    assert.equal(events[0]!.action, "apikey.revoked");
-    assert.equal(events[0]!.resource, created.id);
-    assert.equal(events[0]!.reason, "manual");
+    assert.equal(events[0].action, "apikey.revoked");
+    assert.equal(events[0].resource, created.id);
+    assert.equal(events[0].reason, "manual");
   });
 
   it("révocation d'une clé d'autrui (anti-énumération) → AUCUNE émission", async () => {

@@ -75,7 +75,6 @@ import {
   stepLabel,
   validateAnswers,
   type CreateSpec,
-  type ICreateSpecOk,
   capsForConnector,
   engineFor,
   referenceableEntities,
@@ -179,7 +178,7 @@ export function Create() {
     }
   }, [store]);
   const { data, loading, error, reload } = useResource(fetcher);
-  const spec = data?.enabled === true ? (data as ICreateSpecOk) : null;
+  const spec = data?.enabled === true ? data : null;
 
   const [type, setType] = useState<string | null>(null);
   const [answers, setAnswers] = useState<TAnswers>({});

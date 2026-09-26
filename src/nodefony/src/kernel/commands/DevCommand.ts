@@ -44,7 +44,7 @@ class Dev extends Command {
     super(
       "development",
       "démarre en développement, rechargement automatique",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.alias("dev");

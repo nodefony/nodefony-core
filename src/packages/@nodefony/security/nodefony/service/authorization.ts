@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   Severity,
   Msgid,
   Message,
@@ -45,7 +44,7 @@ class Authorization extends Service implements IAuthorizationService {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -76,7 +75,7 @@ class Authorization extends Service implements IAuthorizationService {
     let granted = false;
     let considered = 0;
     for (let i = 0; i < voters.length; i++) {
-      const voter = voters[i]!;
+      const voter = voters[i];
       if (!voter.supports(attribute, subject)) continue;
       considered++;
       let vote: VoterVote;
@@ -127,7 +126,7 @@ class Authorization extends Service implements IAuthorizationService {
     );
     // Journal d'audit (P6.14) : tout refus est une transition de sécurité
     // intéressante (le chemin GRANT reste muet — volume, pas un signal).
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "authz",
       action: "access.denied",
       outcome: "denied",

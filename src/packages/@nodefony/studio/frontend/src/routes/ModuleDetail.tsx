@@ -417,12 +417,12 @@ export const ModuleDetail = observer(() => {
         .getAbsolute<CoverageReport>(
           `/nodefony/kernel/api/module/${encodeURIComponent(name)}/coverage`,
         )
-        .catch(() => ({ available: false }) as CoverageReport),
+        .catch(() => ({ available: false })),
       store.api
         .getAbsolute<TestsInfo>(
           `/nodefony/kernel/api/module/${encodeURIComponent(name)}/tests`,
         )
-        .catch(() => ({ files: [], devMode: false }) as TestsInfo),
+        .catch(() => ({ files: [], devMode: false })),
     ])
       .then(([d, allRoutes, docList, symList, cov, testsInfo]) => {
         if (cancelled) return;
@@ -1476,7 +1476,7 @@ function TestsPanel({
 
   const allRes = results[ALL];
   const failures = Object.entries(results).filter(
-    ([, r]) => r !== "running" && !(r as TestRunResult).ok,
+    ([, r]) => r !== "running" && !r.ok,
   ) as [string, TestRunResult][];
 
   return (

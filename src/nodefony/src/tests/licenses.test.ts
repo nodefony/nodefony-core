@@ -285,7 +285,7 @@ describe("licences — l'INVENTAIRE, et le piège qui l'avait vidé", () => {
           assert.ok(erreur instanceof LicenseInventoryError);
           // Le message NOMME ce qui manque — un relevé vide se lirait comme un
           // verdict, et « on ne redistribue rien » serait un mensonge.
-          assert.match((erreur as Error).message, /\ba\b/);
+          assert.match(erreur.message, /\ba\b/);
           return true;
         },
       );

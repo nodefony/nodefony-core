@@ -193,9 +193,9 @@ describe("WebhookService — traçage audit de l'auto-désactivation", () => {
     assert.equal(records.length, 0); // 1ᵉʳ échec : pas encore d'audit
     await svc.markDelivery(endpoint.id, { ok: false, status: 500, error: "x" });
     assert.equal(records.length, 1); // seuil 2 atteint → disabled audité
-    assert.equal(records[0]!.action, "webhook.disabled");
-    assert.equal(records[0]!.category, "webhook");
-    assert.equal(records[0]!.resource, endpoint.id);
+    assert.equal(records[0].action, "webhook.disabled");
+    assert.equal(records[0].category, "webhook");
+    assert.equal(records[0].resource, endpoint.id);
   });
 
   it("un succès n'émet AUCUN audit (volume maîtrisé)", async () => {

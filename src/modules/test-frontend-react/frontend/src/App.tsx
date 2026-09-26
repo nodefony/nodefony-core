@@ -500,7 +500,7 @@ export function App() {
         // Nodefony wraps payload : `{ result: {...} }` selon le HttpKernel.
         const json = (await r.json()) as { result?: ApiData } & ApiData;
         if (!cancelled) {
-          setData((json.result ?? json) as ApiData);
+          setData(json.result ?? json);
           setError(null);
         }
       } catch (e) {

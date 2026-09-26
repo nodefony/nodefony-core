@@ -61,7 +61,7 @@ describe("frameworkConfigSchema (config Zod)", () => {
       expect(() =>
         frameworkConfigSchema.parse({
           idempotensy: {}, // typo
-        } as Record<string, unknown>),
+        }),
       ).to.throw(/idempotensy/);
     });
   });

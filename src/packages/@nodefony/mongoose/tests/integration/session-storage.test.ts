@@ -136,7 +136,7 @@ describe.skipIf(!URI)(
           user: null,
           createdAt: now - 10_000,
           updatedAt: now - 10_000,
-        } as Partial<SessionRow>);
+        });
         await repo.create({
           session_id: "fresh",
           Attributes: {},
@@ -145,7 +145,7 @@ describe.skipIf(!URI)(
           user: null,
           createdAt: now,
           updatedAt: now,
-        } as Partial<SessionRow>);
+        });
 
         await storage.gc(1); // cutoff = now - 1s → "old" (now-10s) supprimé
 
@@ -195,7 +195,7 @@ describe.skipIf(!URI)(
           createdAt: now,
           updatedAt: now,
           ...extra,
-        } as Partial<SessionRow>;
+        };
       };
 
       it("createMany insère N en une fois (ordre préservé) ; [] = no-op", async () => {
@@ -270,7 +270,7 @@ describe.skipIf(!URI)(
 
     runSessionPaginationContract({
       mode: "offset",
-      storage: () => storage as unknown as PaginatedSessionStorage,
+      storage: () => storage,
       clear: async () => {
         await orm.getRepository<SessionRow>("session").delete({});
       },

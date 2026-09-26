@@ -95,10 +95,10 @@ class FileClass {
     }
     this.path = checkPath(Path);
     if (!options?.defer) {
-      const stats = fs.lstatSync(this.path as string);
+      const stats = fs.lstatSync(this.path);
       const resolved = stats.isSymbolicLink()
-        ? (this.path as string)
-        : fs.realpathSync.native(this.path as string);
+        ? this.path
+        : fs.realpathSync.native(this.path);
       this.hydrate(stats, resolved);
     }
   }
@@ -128,7 +128,7 @@ class FileClass {
    * @returns `this` (chaînable, type polymorphe pour les sous-classes type `File`).
    */
   async stat(): Promise<this> {
-    const p = checkPath(this.path as string);
+    const p = checkPath(this.path);
     const stats = await fsp.lstat(p);
     const resolved = stats.isSymbolicLink() ? p : await fsp.realpath(p);
     this.hydrate(stats, resolved);
@@ -146,7 +146,7 @@ class FileClass {
     this.stats = stats;
     this.type = this.checkType();
     this.path = resolvedPath;
-    this.parse = path.parse(this.path as string);
+    this.parse = path.parse(this.path);
     this.name = this.parse.name + this.parse.ext;
     this.ext = this.parse.ext;
     this.shortName = this.parse.name;
@@ -352,7 +352,7 @@ class FileClass {
    */
   move(target: fs.PathLike): FileClass {
     fs.renameSync(<fs.PathLike>this.path, target);
-    return new FileClass(<string>target);
+    return new FileClass(target);
   }
 
   /**
@@ -364,7 +364,7 @@ class FileClass {
    */
   async moveAsync(target: fs.PathLike): Promise<FileClass> {
     await fsp.rename(<fs.PathLike>this.path, target);
-    return FileClass.from(<string>target);
+    return FileClass.from(target);
   }
 
   /** Supprime le fichier du filesystem (synchronous, irréversible). */

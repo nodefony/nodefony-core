@@ -1,4 +1,4 @@
-import { Service, Module, Container, Event } from "nodefony";
+import { Service, Module, Container } from "nodefony";
 class Template extends Service {
   engine: unknown;
   module: Module;
@@ -12,7 +12,7 @@ class Template extends Service {
     super(
       name,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       options,
     );
     this.engine = engine;

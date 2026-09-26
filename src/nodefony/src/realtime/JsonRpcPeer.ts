@@ -376,9 +376,7 @@ export class JsonRpcPeer<
     params?: EventPayload<Emit, K>,
   ): boolean {
     return (
-      this.opts.send(
-        JsonRpcPeer.buildNotification(method as string, params),
-      ) !== false
+      this.opts.send(JsonRpcPeer.buildNotification(method, params)) !== false
     );
   }
 
@@ -425,7 +423,7 @@ export class JsonRpcPeer<
       }
 
       if (hasId) {
-        this.handleRequest(id as number | string, method, params, msg);
+        this.handleRequest(id, method, params, msg);
         return "request";
       }
       // Le handler typé `RpcNotificationHandler<Listen>` ne peut pas être appelé

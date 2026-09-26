@@ -1,12 +1,5 @@
 import Ws, { WebSocketServer, ServerOptions } from "ws";
-import {
-  Service,
-  Container,
-  Event,
-  Module,
-  FamilyType,
-  inject,
-} from "nodefony";
+import { Service, Container, Module, FamilyType, inject } from "nodefony";
 import HttpKernel, {
   ProtocolType,
   ServerType,
@@ -43,7 +36,7 @@ class Websocket extends Service {
     super(
       "server-websocket",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options.websocket,
     );
     this.module = module;

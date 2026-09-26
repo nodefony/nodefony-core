@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   extend,
   injectable,
   FRONTEND_CHOICES,
@@ -131,7 +130,7 @@ class FrontendService extends Service implements IFrontendService {
     super(
       "frontend",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       merged,
     );
     this.module = module;
@@ -378,7 +377,7 @@ class FrontendService extends Service implements IFrontendService {
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
     //  - extraEnv = config.viteEnv → variables VITE_* exposées au browser
     const nodeEnv = this.kernel?.environment;
-    const extraEnv = (this.cfg.viteEnv ?? {}) as Record<string, string>;
+    const extraEnv = this.cfg.viteEnv ?? {};
 
     const groups = this.groupEntriesByFamily();
     // Plan de ports : un bloc disjoint par famille (`default` reste sur 5173).
@@ -651,7 +650,7 @@ class FrontendService extends Service implements IFrontendService {
       allowedHosts: ctx.allowedHosts,
       startupTimeoutMs: this.cfg.startupTimeoutMs,
       pipeLogs: this.cfg.pipeViteLogs,
-      cwd: entries[0]!.root,
+      cwd: entries[0].root,
       backendOrigin: ctx.backendOrigin,
       https: ctx.https,
       nodeEnv: ctx.nodeEnv,

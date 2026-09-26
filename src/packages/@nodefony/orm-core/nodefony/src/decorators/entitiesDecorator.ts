@@ -1,5 +1,4 @@
 import type { Module } from "nodefony";
-import type { IEntity } from "../../interfaces/IEntity";
 import type { IEntityDefinition } from "../defineEntity";
 import { entityRegistry } from "../EntityRegistry";
 
@@ -80,7 +79,7 @@ export function entities(
             );
             continue;
           }
-          entityRegistry.register({ ...definition, connector } as IEntity);
+          entityRegistry.register({ ...definition, connector });
           this.log(
             `ADD ENTITY : ${definition.name} (connector ${connector})`,
             "DEBUG",

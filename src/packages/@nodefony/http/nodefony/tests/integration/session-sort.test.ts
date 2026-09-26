@@ -47,7 +47,7 @@ function request(
         }
         resolve({
           status: res.statusCode!,
-          headers: res.headers as Record<string, unknown>,
+          headers: res.headers,
           body: parsed,
         });
       });
@@ -78,7 +78,7 @@ interface SessionPage {
 const monotonic = (values: number[], dir: "ASC" | "DESC"): boolean =>
   values.every((v, i) => {
     if (i === 0) return true;
-    const prev = values[i - 1]!;
+    const prev = values[i - 1];
     return dir === "ASC" ? prev <= v : prev >= v;
   });
 

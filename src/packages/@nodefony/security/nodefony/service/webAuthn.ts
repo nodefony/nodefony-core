@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   AUTO_STORE,
   EMPTY_INFRA,
   resolveAutoStore,
@@ -108,7 +107,7 @@ class WebAuthnService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -259,7 +258,7 @@ class WebAuthnService extends Service {
       try {
         await this.#store.flushNow();
       } catch (e) {
-        this.log(e as Error, "ERROR");
+        this.log(e, "ERROR");
       }
     }
   }
@@ -543,7 +542,7 @@ class WebAuthnService extends Service {
   }
 
   async #ensureLib(): Promise<Lib> {
-    return (this.#lib ??= (await import("@simplewebauthn/server")) as Lib);
+    return (this.#lib ??= await import("@simplewebauthn/server"));
   }
 
   #ensureReady(): void {

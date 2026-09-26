@@ -38,7 +38,7 @@ import {
 function sendToMaster(message: unknown): void {
   if (!process.connected) return;
   try {
-    process.send?.(message as never);
+    process.send?.(message);
   } catch {
     // Course entre le test `connected` et l'écriture : le master peut fermer
     // entre les deux. Un worker qui n'a plus d'interlocuteur n'a rien à dire.

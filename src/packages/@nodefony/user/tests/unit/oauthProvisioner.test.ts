@@ -86,7 +86,7 @@ describe("UserService — IOAuthUserProvisioner (Shadow User JIT)", () => {
           new BaseUser({
             id: "22222222-2222-4222-8222-222222222222",
             identifier: data.identifier as string,
-            roles: (data.roles ?? []) as string[],
+            roles: data.roles ?? [],
             password: null,
             socialProviders: linksOf(data),
           }),
@@ -177,7 +177,7 @@ describe("UserService — IOAuthUserProvisioner (Shadow User JIT)", () => {
           new BaseUser({
             id: "44444444-4444-4444-8444-444444444444",
             identifier: data.identifier as string,
-            roles: (data.roles ?? []) as string[],
+            roles: data.roles ?? [],
             password: null,
           }),
         );

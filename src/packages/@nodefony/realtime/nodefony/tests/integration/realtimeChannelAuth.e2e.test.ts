@@ -301,8 +301,7 @@ async function connectAs(
   wire.deliverToClient = (raw: string): void => {
     try {
       const f = JSON.parse(raw) as { method?: string; params?: unknown };
-      if (f.method === "realtime:welcome")
-        welcome = (f.params ?? {}) as Partial<IRealtimeWelcome>;
+      if (f.method === "realtime:welcome") welcome = f.params ?? {};
     } catch {
       /* frame illisible : le banc du protocole s'en occupe, pas celui-ci */
     }
@@ -502,9 +501,9 @@ describe("MATRICE E2E — refus observable (contrat client)", () => {
     await flush();
     await flush();
     expect(notices).to.have.length(1);
-    expect(notices[0]!.level).to.equal("error");
+    expect(notices[0].level).to.equal("error");
     // Zero Trust : le message ne révèle jamais le rôle/scope manquant.
-    expect(notices[0]!.message).to.not.match(/ROLE_|scope/i);
+    expect(notices[0].message).to.not.match(/ROLE_|scope/i);
     client.disconnect();
   });
 
@@ -578,23 +577,23 @@ describe("E2E — le détail d'un refus, de bout en bout", () => {
     expect(denials, "un refus attendu").to.have.length(1);
     // Le motif reste générique — c'est lui qui interdit l'oracle, et il ne
     // change pas d'un mode à l'autre.
-    expect(denials[0]!.reason).to.equal("forbidden");
+    expect(denials[0].reason).to.equal("forbidden");
     // Le détail, lui, nomme ce qu'il faut regarder. On n'assène pas sa
     // formulation exacte (elle se réécrit), mais il doit être là et parler du
     // canal refusé — un détail qui ne nomme pas sa cause ne sert à rien.
-    expect(denials[0]!.detail, "le détail est dit en développement").to.be.a(
+    expect(denials[0].detail, "le détail est dit en développement").to.be.a(
       "string",
     );
-    expect(denials[0]!.detail).to.contain("admin:metrics");
+    expect(denials[0].detail).to.contain("admin:metrics");
     // …et il dit le GESTE, pas seulement le diagnostic : sans identité à
     // présenter, il n'y a RIEN à vérifier dans les rôles du jeton. Ce décor
     // monte un kernel sans module d'identité — le geste est donc celui-là, et
     // surtout pas une commande que cette application n'a pas.
     expect(
-      denials[0]!.detail,
+      denials[0].detail,
       "le refus dit comment obtenir une identité",
     ).to.contain("identité");
-    expect(denials[0]!.detail).to.contain("@nodefony/security");
+    expect(denials[0].detail).to.contain("@nodefony/security");
     client.disconnect();
   });
 
@@ -610,13 +609,11 @@ describe("E2E — le détail d'un refus, de bout en bout", () => {
     await flush();
     await flush();
     expect(denials, "un refus attendu").to.have.length(1);
-    expect(denials[0]!.reason).to.equal("forbidden");
+    expect(denials[0].reason).to.equal("forbidden");
     // La même phrase qui aide un développeur renseignerait un attaquant : elle
     // ne franchit pas la production. Une absence vaut production, jamais
     // l'inverse.
-    expect(denials[0]!.detail, "aucun détail en production").to.equal(
-      undefined,
-    );
+    expect(denials[0].detail, "aucun détail en production").to.equal(undefined);
     client.disconnect();
   });
 
@@ -635,8 +632,8 @@ describe("E2E — le détail d'un refus, de bout en bout", () => {
     await flush();
     await flush();
     expect(denials, "un refus attendu").to.have.length(1);
-    expect(denials[0]!.reason).to.equal("unknown");
-    expect(denials[0]!.detail).to.contain("canal:qui:nexiste:pas");
+    expect(denials[0].reason).to.equal("unknown");
+    expect(denials[0].detail).to.contain("canal:qui:nexiste:pas");
     client.disconnect();
   });
 });

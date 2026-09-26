@@ -297,7 +297,7 @@ export function ConnectorCard({
                 <Badge
                   size="xs"
                   variant="light"
-                  color={role.color as MantineColor}
+                  color={role.color}
                   style={{ textTransform: "none", cursor: "help" }}
                 >
                   {role.label}
@@ -833,11 +833,9 @@ export function OrmHealthLive({
   useEffect(() => {
     if (Array.isArray(data)) onData(data);
     // onData = setState (stable) → hors deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   useEffect(() => {
     onRate?.(effectiveMs);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveMs]);
   return null;
 }
@@ -953,11 +951,9 @@ export function RealtimeHealthLive({
   useEffect(() => {
     if (data) onData(data);
     // onData = setState (stable) → hors deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   useEffect(() => {
     onRate?.(effectiveMs);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [effectiveMs]);
   return null;
 }

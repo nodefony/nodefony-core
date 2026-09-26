@@ -3,8 +3,11 @@ import { EntityRegistry } from "../../nodefony/src/EntityRegistry";
 import type { IEntity } from "../../nodefony/interfaces/index";
 
 /** Stub minimal d'IEntity : name + orm suffisent au registre. */
-const entity = (name: string, connector: string): IEntity =>
-  ({ name, connector, schema: {} }) as IEntity;
+const entity = (name: string, connector: string): IEntity => ({
+  name,
+  connector,
+  schema: {},
+});
 
 describe("EntityRegistry", () => {
   let reg: EntityRegistry;

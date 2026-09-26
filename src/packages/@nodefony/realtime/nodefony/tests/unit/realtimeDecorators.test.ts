@@ -34,7 +34,7 @@ describe("@RealtimeAction — registre des actions RPC", () => {
     expect(actions).to.not.equal(null);
     expect(Object.keys(actions!)).to.deep.equal(["nodefony:kernel:ping"]);
     // Bind sur l'instance : `this` reste le controller même appelé via le map.
-    expect(actions!["nodefony:kernel:ping"]!(undefined)).to.deep.equal({
+    expect(actions!["nodefony:kernel:ping"](undefined)).to.deep.equal({
       pong: true,
     });
   });
@@ -69,8 +69,8 @@ describe("@RealtimeAction — registre des actions RPC", () => {
       }
     }
     const actions = getRealtimeActions(new Ctrl())!;
-    expect(actions["echo"]!({ x: 1 })).to.deep.equal({ x: 1 });
-    expect(await actions["echoAsync"]!({ y: 2 })).to.deep.equal({ y: 2 });
+    expect(actions["echo"]({ x: 1 })).to.deep.equal({ x: 1 });
+    expect(await actions["echoAsync"]({ y: 2 })).to.deep.equal({ y: 2 });
   });
 
   it("le `this` reste lié à l'instance (lecture de membre privé)", () => {
@@ -83,7 +83,7 @@ describe("@RealtimeAction — registre des actions RPC", () => {
       }
     }
     const actions = getRealtimeActions(new Ctrl())!;
-    expect(actions["bump"]!(undefined)).to.equal(42);
+    expect(actions["bump"](undefined)).to.equal(42);
   });
 
   it("classe sans décorateur → getRealtimeActions renvoie null (bypass 0-coût)", () => {
@@ -158,7 +158,7 @@ describe("@RealtimeAction — politique d'autorisation (fermée par défaut)", (
       }
     }
     const actions = getRealtimeActions(new Ctrl())!;
-    expect(actions["orders:quote"]!(undefined)).to.equal(42);
+    expect(actions["orders:quote"](undefined)).to.equal(42);
   });
 });
 
@@ -173,7 +173,7 @@ describe("@RealtimeChannel — registre des canaux pub/sub", () => {
     const channels = getRealtimeChannels(new Ctrl());
     expect(channels).to.not.equal(null);
     expect(Object.keys(channels!)).to.deep.equal(["nodefony:dashboard"]);
-    const dispose = channels!["nodefony:dashboard"]!(
+    const dispose = channels!["nodefony:dashboard"](
       "nodefony:dashboard",
       () => {},
     );
@@ -196,7 +196,7 @@ describe("@RealtimeChannel — registre des canaux pub/sub", () => {
     }
     const factory: RealtimeChannelFactory = getRealtimeChannels(new Ctrl())![
       "ch1"
-    ]!;
+    ];
     const dispose = factory("ch1", (_c, _p) => {
       publishedCount++;
     });
@@ -218,7 +218,7 @@ describe("@RealtimeInbound — registre des canaux full-duplex entrants", () => 
       }
     }
     const inbound = getRealtimeInbound(new Ctrl())!;
-    inbound["chat:send"]!({ text: "hi" }, (p) => replied.push(p));
+    inbound["chat:send"]({ text: "hi" }, (p) => replied.push(p));
     expect(replied).to.deep.equal([{ echoed: "hi" }]);
   });
 
@@ -299,7 +299,7 @@ describe("héritage — la subclass voit les décorateurs de la parent ET les si
     // Au minimum, l'action de Sub est présente. Selon le compilateur TS,
     // l'action de Base peut être vue via la chaîne prototype (cas standard
     // de reflect-metadata). On verrouille au moins l'action de Sub :
-    expect(subActions["sub:hello"]!(undefined)).to.equal("sub");
+    expect(subActions["sub:hello"](undefined)).to.equal("sub");
   });
 });
 
@@ -314,8 +314,8 @@ describe("multiples instances de la même classe — registre PAR CLASSE, bind P
     }
     const a = getRealtimeActions(new Ctr("A"))!;
     const b = getRealtimeActions(new Ctr("B"))!;
-    expect(a["who"]!(undefined)).to.equal("A");
-    expect(b["who"]!(undefined)).to.equal("B");
+    expect(a["who"](undefined)).to.equal("A");
+    expect(b["who"](undefined)).to.equal("B");
     // Le registre des NOMS est partagé (posé sur le constructor), mais chaque
     // appel d'helper crée un nouveau map avec des fonctions bind à l'instance —
     // c'est exactement ce qu'on veut au handshake.

@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 /*
  *   Tests du dispatch CLI built-in vs commande de module (CliKernel)
  *   Régression du bug `nodefony frontend:build` → `unknown command` (fallback serveur).
@@ -137,7 +136,7 @@ describe("CliKernel — dispatch built-in vs module", () => {
           super("test:resolve", "", c, { kernelEvent: "onRegister" });
         }
       }
-      const cmd = cli.addCommand(Batch as any);
+      const cmd = cli.addCommand(Batch);
       cli.resolveCommand(cmd, ["arg1", { opt: true }]);
       assert.strictEqual(stub.command, cmd);
       assert.deepStrictEqual(stub.commandArgs, ["arg1", { opt: true }]);
@@ -162,7 +161,7 @@ describe("CliKernel — dispatch built-in vs module", () => {
           });
         }
       }
-      const cmd = cli.addCommand(ModServe as any);
+      const cmd = cli.addCommand(ModServe);
       cli.resolveCommand(cmd, []);
       assert.strictEqual(cli.runProfile.servers, true);
       assert.strictEqual((stub.runProfile as any).servers, true);
@@ -178,7 +177,7 @@ describe("CliKernel — dispatch built-in vs module", () => {
           super("plain:cmd", "", c, { kernelEvent: "onRegister" });
         }
       }
-      const cmd = cli.addCommand(Plain as any);
+      const cmd = cli.addCommand(Plain);
       const before = cli.runProfile;
       cli.resolveCommand(cmd, []);
       assert.strictEqual(cmd.runProfile, null);
@@ -193,7 +192,7 @@ describe("CliKernel — dispatch built-in vs module", () => {
           super("signal:me", "", c, { kernelEvent: "onBoot" });
         }
       }
-      const cmd = cli.addCommand(Signal as any);
+      const cmd = cli.addCommand(Signal);
       cli.commander?.exitOverride();
       await cli.commander?.parseAsync(["node", "nodefony", "signal:me"]);
       // Le parse n'a PAS exécuté la commande : il l'a résolue (mutation kernel +

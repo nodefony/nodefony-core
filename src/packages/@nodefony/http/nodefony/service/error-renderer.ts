@@ -472,9 +472,7 @@ const SCHEMA_MISMATCH_HINT: IErrorHint = {
 class DefaultErrorRenderer implements IErrorRenderer {
   renderHttp(error: Error, context: IHttpContext): IErrorHttpResult {
     const httpError = this.toHttpError(error, context);
-    const status = this.normalizeHttpStatus(
-      httpError.code as number | undefined,
-    );
+    const status = this.normalizeHttpStatus(httpError.code);
     httpError.code = status;
 
     // Mutate context.metaData like the legacy onError did — the test contract
@@ -496,7 +494,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
       for (const key of INTERNAL_ERROR_KEYS) delete serialized[key];
       serialized.message = message;
     }
-    obj.error = serialized as unknown as Error;
+    obj.error = serialized as unknown;
     obj.code = status;
     obj.message = message;
     // L'aide au développeur, et JAMAIS en production : `isProduction()` passe

@@ -146,7 +146,7 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
     // constraint failed »). `save` pose le credential COMPLET → tout le reste
     // est ré-appliqué au conflit.
     const { id, ...rest } = this.#toRow(credential);
-    await this.#repo.upsert({ id }, rest as Partial<WebAuthnCredentialRow>);
+    await this.#repo.upsert({ id }, rest);
   }
 
   async update(credentialId: string, patch: WebAuthnAuthUpdate): Promise<void> {
@@ -186,7 +186,7 @@ export class DrizzleWebAuthnCredentialStore implements IWebAuthnCredentialStore 
     if (query.backedUp !== undefined) {
       criteria.backupState = query.backedUp;
     }
-    return criteria as unknown as Criteria<WebAuthnCredentialRow>;
+    return criteria;
   }
 
   /**

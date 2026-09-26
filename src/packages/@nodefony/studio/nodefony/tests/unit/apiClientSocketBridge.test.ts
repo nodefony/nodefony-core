@@ -72,8 +72,7 @@ function fakeSocket(opts: {
     mutateCalls,
     request<T>(path: `/${string}`): Promise<T> {
       calls.push(path);
-      if (opts.reject !== undefined)
-        return Promise.reject(opts.reject as Error);
+      if (opts.reject !== undefined) return Promise.reject(opts.reject);
       return Promise.resolve(opts.result as T);
     },
     mutate<T>(
@@ -91,8 +90,7 @@ function fakeSocket(opts: {
         body: init.body,
         idempotencyKey: init.idempotencyKey,
       });
-      if (opts.reject !== undefined)
-        return Promise.reject(opts.reject as Error);
+      if (opts.reject !== undefined) return Promise.reject(opts.reject);
       return Promise.resolve(opts.result as T);
     },
   };

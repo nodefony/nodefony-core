@@ -183,7 +183,7 @@ export function safeConfig(
     return value.slice(0, 100).map((v) => safeConfig(v, depth + 1, seen));
   }
   const out: Record<string, unknown> = {};
-  for (const k of Object.keys(value as Record<string, unknown>).slice(0, 200)) {
+  for (const k of Object.keys(value).slice(0, 200)) {
     const raw = (value as Record<string, unknown>)[k];
     // Redaction des secrets AVANT sérialisation : la valeur ne quitte jamais le
     // serveur en clair. On ne redacte que les valeurs réellement posées (une clé
@@ -1085,7 +1085,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
             // La note « secret » suit la REDACTION, pas la seule annotation
             // `.meta({ secret: true })` — une clé masquée dans `effective` sans
             // être marquée laissait croire à une valeur vide.
-            const secret = SECRET_KEY.test(path[path.length - 1] as string);
+            const secret = SECRET_KEY.test(path[path.length - 1]);
             const note =
               secret && !leaf.note.includes("secret")
                 ? [leaf.note, "secret"].filter(Boolean).join(", ")

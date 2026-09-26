@@ -275,7 +275,7 @@ export function runSessionPaginationContract(
       assert.ok(thrown, "un mode de pagination non supporté doit être rejeté");
       assert.equal((thrown as { code?: unknown }).code, 400);
       assert.ok(thrown instanceof Error);
-      assert.match((thrown as Error).message, /pagination mode/i);
+      assert.match(thrown.message, /pagination mode/i);
     });
 
     // ── Mode OFFSET : total exact + ordre déterministe ────────────────────────
@@ -430,7 +430,7 @@ export function runSessionPaginationContract(
           "un backend offset doit déclarer ses champs triables",
         );
         assert.ok(
-          fields!.includes("updatedAt"),
+          fields.includes("updatedAt"),
           "`updatedAt` est l'axe contractuel d'une console de sessions",
         );
       });

@@ -103,9 +103,9 @@ function newClient(opts: Record<string, unknown> = {}): RealtimeClient {
 /** Ouvre la socket et rend le transport courant, prêt à pousser des frames. */
 async function connected(client: RealtimeClient): Promise<MockTransport> {
   const promise = client.connect();
-  transports[transports.length - 1]!.fireOpen();
+  transports[transports.length - 1].fireOpen();
   await promise;
-  return transports[transports.length - 1]!;
+  return transports[transports.length - 1];
 }
 
 /** Ce que la socket a émis vers le serveur, décodé. */

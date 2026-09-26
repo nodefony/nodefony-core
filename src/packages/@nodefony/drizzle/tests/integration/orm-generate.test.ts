@@ -190,7 +190,7 @@ export const postTable = sqliteTable("post", { id: id() });
       "deux alias distincts, jamais un seul",
     );
     assert.ok(
-      alias.every((a2) => (a2 as string).startsWith("nf_")),
+      alias.every((a2) => a2.startsWith("nf_")),
       "les alias sont neutres : le nom de la table vit dans son appel, pas ici",
     );
     assert.ok(

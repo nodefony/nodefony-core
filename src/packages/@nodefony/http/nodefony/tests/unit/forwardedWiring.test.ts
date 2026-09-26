@@ -17,7 +17,7 @@ const fwd = (p: Partial<ResolvedProxy>): ResolvedProxy => ({
 });
 
 const stub = <T>(proto: object, props: object): T =>
-  Object.assign(Object.create(proto), props) as unknown as T;
+  Object.assign(Object.create(proto), props);
 
 const fakeReq = (socket: object, url = "/p"): http.IncomingMessage =>
   ({ url, socket }) as unknown as http.IncomingMessage;

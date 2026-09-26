@@ -275,8 +275,8 @@ export const TraceView = observer(() => {
   // ── Synthèse dérivée de la trace ──
   const summary = useMemo(() => {
     if (!logs.length) return null;
-    const first = logs[0]!;
-    const last = logs[logs.length - 1]!;
+    const first = logs[0];
+    const last = logs[logs.length - 1];
     const isWs = logs.some((l) => pduProtocol(l) === "ws");
     const reqLog = logs.find((l) => l.msgid === "req");
     const req = reqLog ? parseReqLine(recordMessage(reqLog)) : {};

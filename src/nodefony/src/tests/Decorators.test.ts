@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 import assert from "node:assert";
 import { resolve } from "node:path";
 import "reflect-metadata";
@@ -112,7 +111,7 @@ class BetaService extends Service {
 
 describe("@services — construction", () => {
   it("instance de Module après décoration avec un constructeur", () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class DecSvc extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(DecSvc as typeof Module, stub);
@@ -121,7 +120,7 @@ describe("@services — construction", () => {
   });
 
   it("listener onPreBoot inscrit sur le stub", () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcList extends Module {}
     const stub = makeKernelStub();
     createMod(SvcList as typeof Module, stub);
@@ -131,7 +130,7 @@ describe("@services — construction", () => {
   });
 
   it("name du module préservé", () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcNamed extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcNamed as typeof Module, stub);
@@ -143,7 +142,7 @@ describe("@services — construction", () => {
 
 describe("@services — single ServiceConstructor", () => {
   it("addService(Ctor) appelé sur onPreBoot", async () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcMod1 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod1 as typeof Module, stub);
@@ -158,7 +157,7 @@ describe("@services — single ServiceConstructor", () => {
   });
 
   it("loadService non appelé (ctor, pas string)", async () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcMod2 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod2 as typeof Module, stub);
@@ -173,7 +172,7 @@ describe("@services — single ServiceConstructor", () => {
   });
 
   it("sans fireEvent → addService pas encore appelé (lazy)", () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcMod3 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod3 as typeof Module, stub);
@@ -223,10 +222,7 @@ describe("@services — single string path", () => {
 
 describe("@services — array of ServiceConstructors", () => {
   it("addService appelé pour chaque constructeur", async () => {
-    @services([
-      AlphaService as unknown as ServiceConstructor,
-      BetaService as unknown as ServiceConstructor,
-    ])
+    @services([AlphaService, BetaService])
     class SvcMod6 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod6 as typeof Module, stub);
@@ -242,10 +238,7 @@ describe("@services — array of ServiceConstructors", () => {
   });
 
   it("ordre respecté", async () => {
-    @services([
-      BetaService as unknown as ServiceConstructor,
-      AlphaService as unknown as ServiceConstructor,
-    ])
+    @services([BetaService, AlphaService])
     class SvcMod7 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod7 as typeof Module, stub);
@@ -296,7 +289,7 @@ describe("@services — array of strings", () => {
 
 describe("@services — mixed array (string + ServiceConstructor)", () => {
   it("string → loadService, ctor → addService", async () => {
-    @services(["./svc-path", AlphaService as unknown as ServiceConstructor])
+    @services(["./svc-path", AlphaService])
     class SvcMod10 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod10 as typeof Module, stub);
@@ -316,7 +309,7 @@ describe("@services — mixed array (string + ServiceConstructor)", () => {
   });
 
   it("ctor en premier, string en second", async () => {
-    @services([BetaService as unknown as ServiceConstructor, "./last-path"])
+    @services([BetaService, "./last-path"])
     class SvcMod11 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcMod11 as typeof Module, stub);
@@ -340,7 +333,7 @@ describe("@services — mixed array (string + ServiceConstructor)", () => {
 
 describe("@services — gestion des erreurs", () => {
   it("erreur dans addService → catchée, pas propagée", async () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcErr1 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcErr1 as typeof Module, stub);
@@ -366,10 +359,7 @@ describe("@services — gestion des erreurs", () => {
   });
 
   it("erreur dans addService array → continue les éléments suivants", async () => {
-    @services([
-      AlphaService as unknown as ServiceConstructor,
-      BetaService as unknown as ServiceConstructor,
-    ])
+    @services([AlphaService, BetaService])
     class SvcErr3 extends Module {}
     const stub = makeKernelStub();
     const mod = createMod(SvcErr3 as typeof Module, stub);
@@ -392,7 +382,7 @@ describe("@services — gestion des erreurs", () => {
 
 describe("@services — edge cases", () => {
   it("sans kernel dans container → listener onPreBoot non inscrit par @services", () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcEdge1 extends Module {}
     const stub = makeKernelStub();
     stub.container.remove("kernel");
@@ -405,7 +395,7 @@ describe("@services — edge cases", () => {
   });
 
   it("deux instances indépendantes → chacune appelle addService séparément", async () => {
-    @services(AlphaService as unknown as ServiceConstructor)
+    @services(AlphaService)
     class SvcEdge2 extends Module {}
     const stub1 = makeKernelStub();
     const stub2 = makeKernelStub();

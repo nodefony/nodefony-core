@@ -196,14 +196,14 @@ class SecurityUserAdd extends Command {
       // depuis toujours, et rien ne la faisait connaître à qui n'avait pas lu
       // `--help`. Un compte créé sans rôle utile est un compte à refaire.
       await this.loadPrompts();
-      const chosen = (await this.prompts.checkbox({
+      const chosen = await this.prompts.checkbox({
         message: `Rôles de « ${identifier} » :`,
         choices: this.#knownRoles().map((r) => ({
           name: r,
           value: r,
           checked: r === ROLE_BASE,
         })),
-      })) as string[];
+      });
       roles = chosen.length > 0 ? chosen : [ROLE_BASE];
     } else {
       roles = [ROLE_BASE];

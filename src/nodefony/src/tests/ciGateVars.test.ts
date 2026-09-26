@@ -59,7 +59,7 @@ const varNames = (yaml: string): Set<string> => {
   const names = new Set<string>();
   for (const line of yaml.split("\n")) {
     const m = /^\s{2,}([A-Z][A-Z0-9_]*)\s*:/.exec(line);
-    if (m) names.add(m[1] as string);
+    if (m) names.add(m[1]);
   }
   return names;
 };
@@ -125,7 +125,7 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
     const blocs: string[][] = [];
     for (const ligne of lignes) {
       if (STEPS.test(ligne)) blocs.push([]);
-      if (blocs.length > 0) (blocs[blocs.length - 1] as string[]).push(ligne);
+      if (blocs.length > 0) blocs[blocs.length - 1].push(ligne);
     }
 
     for (const bloc of blocs) {
@@ -168,7 +168,7 @@ describe("Passes filtrées — le gate du paquet ne peut pas être tenu", () => 
       );
       if (!garde) continue;
 
-      const nom = STEPS.exec(bloc[0] as string)?.[1] ?? "?";
+      const nom = STEPS.exec(bloc[0])?.[1] ?? "?";
       it(`${file} — « ${nom} » (${espace})`, () => {
         assert.include(
           texte,
@@ -213,7 +213,7 @@ describe("Workflows à liste blanche — les actions locales sont déclarées", 
 
     const actions = new Set(
       [...contenu.matchAll(/uses:\s*\.\/(\.github\/actions\/[\w-]+)/g)].map(
-        (m) => m[1] as string,
+        (m) => m[1],
       ),
     );
     for (const action of actions) {
@@ -266,7 +266,7 @@ describe("scaffold.yml — les images des dialectes viennent du catalogue", () =
 
   const contenu = existsSync(fichier) ? readFileSync(fichier, "utf8") : "";
   const images = [...contenu.matchAll(/^\s*image:\s*(\S+)\s*$/gmu)].map(
-    (m) => m[1] as string,
+    (m) => m[1],
   );
   const catalogue = Object.values(DATABASE_PARAMS).map((p) => p.image);
 

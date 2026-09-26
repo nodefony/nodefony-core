@@ -156,7 +156,7 @@ describe("freezeConfigTree", () => {
     const cfg = Object.freeze({ upload: { maxSize: 1 } });
     freezeConfigTree(cfg);
     assert.throws(() => {
-      (cfg.upload as { maxSize: number }).maxSize = 2;
+      cfg.upload.maxSize = 2;
     }, TypeError);
   });
 

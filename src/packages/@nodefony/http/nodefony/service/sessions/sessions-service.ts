@@ -4,7 +4,6 @@ import {
   Service,
   //Kernel,
   Container,
-  Event,
   Module,
   // FamilyType,
   //DynamicService,
@@ -121,7 +120,7 @@ export function toSessionSummary(
 ): ISessionSummary {
   const data = rec.data;
   const user = typeof data.user === "string" ? data.user : "";
-  const meta = (data.metaBag ?? {}) as Record<string, unknown>;
+  const meta = data.metaBag ?? {};
   return {
     ref,
     user,
@@ -217,7 +216,7 @@ class SessionsService extends Service {
     super(
       "sessions",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options.session,
     );
     this.module = module;
@@ -322,7 +321,7 @@ class SessionsService extends Service {
         intervalS: Number(this.options.gcIntervalS ?? 600),
         jitter: this.options.gcJitter !== false,
         run: () => this.runGc(),
-        onError: (e) => this.log(e as Error, "WARNING", "SESSION-GC"),
+        onError: (e) => this.log(e, "WARNING", "SESSION-GC"),
       });
       this.gcScheduler.start();
     });

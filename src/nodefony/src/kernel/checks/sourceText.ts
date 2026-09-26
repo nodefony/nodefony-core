@@ -52,7 +52,7 @@ export function withoutComments(source: string): string {
   let out = "";
   let i = 0;
   while (i < n) {
-    const c = source[i] as string;
+    const c = source[i];
     const d = source[i + 1];
     if (c === '"' || c === "'" || c === "`") {
       let j = i + 1;

@@ -53,7 +53,7 @@ class Licenses extends Command {
     super(
       "licenses",
       "les licences des dépendances redistribuées",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption("-j, --json", "sortie JSON (scriptable)");

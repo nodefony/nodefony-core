@@ -247,9 +247,7 @@ describe.skipIf(!NF_REDIS_TEST_URL)(
       await client.connect();
       const ns = `test:${Date.now()}`;
       try {
-        const store = new RedisTokenStore(
-          () => client as unknown as RedisClientLike,
-        );
+        const store = new RedisTokenStore(() => client);
         const id = `${ns}:t1`;
         await store.put(
           makeRecord({ id, subjectId: ns, secretHash: `${ns}:h1` }),

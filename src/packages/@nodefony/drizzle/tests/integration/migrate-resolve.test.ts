@@ -61,7 +61,7 @@ function fauxKernel(root: string, varDir?: string): Kernel {
 }
 
 function config(input: unknown = {}): IDrizzleConfig {
-  return drizzleConfigSchema.parse(input) as IDrizzleConfig;
+  return drizzleConfigSchema.parse(input);
 }
 
 describe("migrations — le mode de schéma se résout par environnement", () => {

@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   injectable,
   resolveAdminRole,
   ADMIN_DEFAULT_ROLE,
@@ -12,7 +11,6 @@ import type { HTTPMethod } from "@nodefony/http";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import Router from "./router";
 import AdminApiController from "../controller/AdminApiController";
-import type Controller from "../src/Controller";
 
 const serviceName = "adminBroker";
 
@@ -44,7 +42,7 @@ class AdminBroker extends Service implements IAdminBroker {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options.adminBroker,
     );
     this.frameworkModule = module;
@@ -133,8 +131,7 @@ class AdminBroker extends Service implements IAdminBroker {
         const methods: HTTPMethod[] = [method, "WEBSOCKET"];
         Router.createRoute(name, {
           path,
-          constructor:
-            AdminApiController as unknown as Controller["constructor"],
+          constructor: AdminApiController,
           classMethod: "dispatch",
           requirements: { methods },
           // Le rôle se résout PAR POINT D'ENTRÉE dans l'action (`executeAdmin`,
@@ -167,12 +164,7 @@ class AdminBroker extends Service implements IAdminBroker {
         "module",
       )
     ) {
-      Router.setController(
-        AdminApiController as unknown as Parameters<
-          typeof Router.setController
-        >[0],
-        this.frameworkModule,
-      );
+      Router.setController(AdminApiController, this.frameworkModule);
     }
     this.mounted = true;
     this.log(

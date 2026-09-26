@@ -140,12 +140,7 @@ class Http2Response extends HttpResponse {
           if (this.stream.destroyed || this.stream.closed) {
             return resolve(this.stream);
           }
-          return resolve(
-            this.stream.end(
-              chunk,
-              encoding || this.encoding,
-            ) as http2.ServerHttp2Stream,
-          );
+          return resolve(this.stream.end(chunk, encoding || this.encoding));
         }
         return resolve(super.end(chunk, encoding));
       } catch (e) {

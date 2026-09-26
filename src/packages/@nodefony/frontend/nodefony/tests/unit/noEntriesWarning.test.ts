@@ -87,7 +87,7 @@ describe("aucune interface web posée — ce que le démarrage en dit", () => {
       "un INFO se perd dans le flot de démarrage : le niveau fait partie du correctif",
     ).to.have.lengthOf(1);
 
-    const texte = String(avertissements[0]!.message);
+    const texte = String(avertissements[0].message);
     expect(texte).to.contain("nodefony create front");
     // `none` est un choix de la commande, pas un moteur : il n'a rien à faire
     // dans une invite qui propose d'en POSER un.

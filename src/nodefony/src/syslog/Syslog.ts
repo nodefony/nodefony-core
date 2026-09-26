@@ -32,7 +32,6 @@ interface ProcLike {
   on?(event: string, cb: (...args: unknown[]) => void): void;
 }
 const _proc = (globalThis as { process?: ProcLike }).process;
-// eslint-disable-next-line no-control-regex
 const _stripAnsi = (s: string): string => s.replace(/\x1b\[[0-9;]*m/g, "");
 
 // ── Bufférisation de la sortie (process-global — un seul stdout) ─────────────
@@ -301,7 +300,7 @@ class CircularBuffer<T> {
 
   last(): T | undefined {
     if (this._size === 0) return undefined;
-    return this.buf[(this.head + this._size - 1) % this.capacity] as T;
+    return this.buf[(this.head + this._size - 1) % this.capacity];
   }
 
   clear(): void {
@@ -328,7 +327,7 @@ const formatDebug = function (debug: DebugType): DebugType {
     return mytab[0] === "*" ? true : mytab;
   }
   if (Array.isArray(debug)) {
-    return (debug as string[])[0] === "*" ? true : debug;
+    return debug[0] === "*" ? true : debug;
   }
   return false;
 };
@@ -446,10 +445,10 @@ const checkFormatSeverity = (ele: unknown): string[] | number[] => {
       }
       break;
     case "string":
-      res = (ele as string).split(/,| /);
+      res = ele.split(/,| /);
       break;
     case "number":
-      res = [ele as number];
+      res = [ele];
       break;
     default:
       throw new Error(`checkFormatSeverity bad format type : ${typeof ele}`);
@@ -499,14 +498,14 @@ const wrapperCondition = function (
     return (pdu: Pdu) => {
       const res = myFuncCondition(Conditions as ConditionSetting, pdu);
       if (res) {
-        (callback as CallbackFunction)(pdu);
+        callback(pdu);
       }
     };
   }
 
   if (Array.isArray(callback)) {
     const tab: Pdu[] = [];
-    for (const pdu of callback as CallbackArray) {
+    for (const pdu of callback) {
       const res = myFuncCondition(Conditions as ConditionSetting, pdu);
       if (res) {
         tab.push(pdu);
@@ -542,7 +541,7 @@ const sanitizeConditions = function (
           const res = checkFormatSeverity(condi.data);
           condi.data = {};
           for (let i = 0; i < res.length; i++) {
-            const mySeverity = Pdu.severityToString(res[i] as number);
+            const mySeverity = Pdu.severityToString(res[i]);
             if (mySeverity) {
               condi.data[mySeverity as Severity] =
                 sysLogSeverity[mySeverity as Severity];
@@ -1306,7 +1305,7 @@ class Syslog extends Event implements ISyslog {
       return stack.slice(start);
     }
     if (start === end) {
-      return stack[stack.length - (start as number) - 1];
+      return stack[stack.length - start - 1];
     }
     return stack.slice(start, end);
   }
@@ -1346,7 +1345,7 @@ class Syslog extends Event implements ISyslog {
       );
     }
     if (Array.isArray(stack) || typeof stack === "object") {
-      for (const stackItem of stack as Pdu[]) {
+      for (const stackItem of stack) {
         const pdu = new Pdu(
           stackItem.payload,
           stackItem.severity as Severity | undefined,
@@ -1363,7 +1362,7 @@ class Syslog extends Event implements ISyslog {
           this.fire("onLog", pdu);
         }
       }
-      return stack as Pdu[];
+      return stack;
     }
     throw new Error("syslog loadStack : bad stack in arguments type");
   }
@@ -1742,17 +1741,13 @@ class Syslog extends Event implements ISyslog {
       dir: console.dir.bind(console),
     };
     const con: Console = console;
-    con.log = (...data: unknown[]) => instance.print(...(data as Pci[]));
-    con.info = (...data: unknown[]) =>
-      instance.logMultiple("INFO", ...(data as Pci[]));
-    con.warn = (...data: unknown[]) =>
-      instance.logMultiple("WARNING", ...(data as Pci[]));
-    con.error = (...data: unknown[]) =>
-      instance.logMultiple("ERROR", ...(data as Pci[]));
-    con.debug = (...data: unknown[]) =>
-      instance.logMultiple("DEBUG", ...(data as Pci[]));
-    con.table = (data: unknown) => instance.logMultiple("INFO", data as Pci);
-    con.dir = (obj: unknown) => instance.logMultiple("DEBUG", obj as Pci);
+    con.log = (...data: unknown[]) => instance.print(...data);
+    con.info = (...data: unknown[]) => instance.logMultiple("INFO", ...data);
+    con.warn = (...data: unknown[]) => instance.logMultiple("WARNING", ...data);
+    con.error = (...data: unknown[]) => instance.logMultiple("ERROR", ...data);
+    con.debug = (...data: unknown[]) => instance.logMultiple("DEBUG", ...data);
+    con.table = (data: unknown) => instance.logMultiple("INFO", data);
+    con.dir = (obj: unknown) => instance.logMultiple("DEBUG", obj);
   }
 
   /**

@@ -422,7 +422,7 @@ class HttpResponse {
     if (this.response && !this.response.headersSent) {
       if (this.statusCode) {
         if (typeof this.statusCode === "string") {
-          this.statusCode = parseInt(this.statusCode as string, 10);
+          this.statusCode = parseInt(this.statusCode, 10);
         }
         if (this.statusCode > 599) {
           this.statusCode = 500;

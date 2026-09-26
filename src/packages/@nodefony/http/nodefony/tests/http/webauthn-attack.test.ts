@@ -70,7 +70,7 @@ function request(
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });

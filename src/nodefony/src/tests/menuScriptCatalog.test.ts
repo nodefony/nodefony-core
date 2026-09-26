@@ -40,7 +40,7 @@ function scriptsDuGabarit(): Set<string> {
   const bloc = tpl.slice(tpl.indexOf('"scripts"'));
   const zone = bloc.slice(0, bloc.indexOf('"dependencies"'));
   return new Set(
-    [...zone.matchAll(/"([a-zA-Z][\w:-]*)"\s*:/gu)].map((m) => m[1] as string),
+    [...zone.matchAll(/"([a-zA-Z][\w:-]*)"\s*:/gu)].map((m) => m[1]),
   );
 }
 

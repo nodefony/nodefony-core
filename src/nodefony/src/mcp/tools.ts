@@ -476,7 +476,7 @@ function stringTable(
       Array.isArray(raw) &&
       raw.every((item) => typeof item === "string")
     ) {
-      table[key] = raw as string[];
+      table[key] = raw;
       continue;
     }
     return {

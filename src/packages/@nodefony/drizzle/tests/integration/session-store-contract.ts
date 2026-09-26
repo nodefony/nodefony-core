@@ -150,7 +150,7 @@ export function runDrizzleSessionStoreContract(
       assert.deepEqual(
         results
           .filter((r) => r.status === "rejected")
-          .map((r) => (r as PromiseRejectedResult).reason?.message),
+          .map((r) => r.reason?.message),
         [],
         "aucun write concurrent rejeté",
       );
@@ -262,7 +262,7 @@ export function runDrizzleSessionStoreContract(
         user: null,
         createdAt,
         updatedAt,
-      } as Partial<SessionRow>);
+      });
     };
 
     it("borne IDLE : purge les INACTIVES (updatedAt), garde les fraîches", async () => {
@@ -472,7 +472,7 @@ export function runDrizzleSessionStoreContract(
 
   runSessionPaginationContract({
     mode: "offset",
-    storage: () => storage as unknown as PaginatedSessionStorage,
+    storage: () => storage,
     clear: purge,
   });
 }

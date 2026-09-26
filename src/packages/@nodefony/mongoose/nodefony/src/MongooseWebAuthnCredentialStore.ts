@@ -160,7 +160,7 @@ export class MongooseWebAuthnCredentialStore implements IWebAuthnCredentialStore
     if (query.backedUp !== undefined) {
       criteria.backupState = query.backedUp;
     }
-    return criteria as unknown as Criteria<WebAuthnCredentialRow>;
+    return criteria;
   }
 
   /**

@@ -2,8 +2,6 @@ import type { DivergenceMode, SqlDialect } from "../../config/config";
 import type {
   IAppliedMigration,
   IMigrationAction,
-  IMigrationDrift,
-  IMigrationFile,
   IMigrationPlan,
   IMigrationVerdict,
 } from "./types";
@@ -373,23 +371,23 @@ function groupSources(plan: IMigrationPlan): IMigrationSourceReport[] {
     runId: row.runId,
     ...(row.error !== null ? { error: row.error } : {}),
   });
-  for (const row of plan.applied as readonly IAppliedMigration[]) {
+  for (const row of plan.applied) {
     const entry = ensure(row.source);
     entry.applied += 1;
     entry.entries.push(detail(row));
   }
-  for (const file of plan.pending as readonly IMigrationFile[]) {
+  for (const file of plan.pending) {
     const entry = ensure(file.source);
     entry.pending += 1;
     entry.pendingTags.push(file.tag);
     entry.entries.push({ tag: file.tag, status: "pending" });
   }
-  for (const row of plan.failed as readonly IAppliedMigration[]) {
+  for (const row of plan.failed) {
     const entry = ensure(row.source);
     entry.failed += 1;
     entry.entries.push(detail(row));
   }
-  for (const d of plan.drifted as readonly IMigrationDrift[]) {
+  for (const d of plan.drifted) {
     const entry = ensure(d.source);
     entry.drifted.push({
       tag: d.tag,
@@ -621,13 +619,13 @@ function summaryOf(
     case "drift": {
       const parts: string[] = [];
       if (plan.drifted.length > 0) {
-        const d = plan.drifted[0] as IMigrationDrift;
+        const d = plan.drifted[0];
         parts.push(
           `le fichier « ${d.source}/${d.tag} » a été modifié APRÈS avoir été appliqué (son empreinte a changé)`,
         );
       }
       if (plan.missing.length > 0) {
-        const m = plan.missing[0] as { source: string; tag: string };
+        const m = plan.missing[0];
         parts.push(
           `la migration « ${m.source}/${m.tag} » est enregistrée comme appliquée mais son fichier n'existe plus`,
         );
@@ -635,7 +633,7 @@ function summaryOf(
       return `Le connecteur « ${c} » ne concorde plus avec son historique : ${parts.join(" ; ")}.`;
     }
     case "failed": {
-      const f = plan.failed[0] as IAppliedMigration;
+      const f = plan.failed[0];
       const when = f.startedAt
         ? new Date(f.startedAt).toISOString()
         : "à une date inconnue";

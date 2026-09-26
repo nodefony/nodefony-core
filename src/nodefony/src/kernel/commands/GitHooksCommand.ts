@@ -33,7 +33,7 @@ class GitHooks extends Command {
     super(
       "git:hooks",
       "pose les hooks git : contrôles au commit et au push",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption("--dry-run", "Le plan, sans rien écrire ni configurer");

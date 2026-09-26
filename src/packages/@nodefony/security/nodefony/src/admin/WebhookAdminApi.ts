@@ -373,9 +373,8 @@ export function webhookAdminEndpoints(container: Container): IAdminEndpoint[] {
           const created = await s.register({
             url,
             events,
-            description:
-              (body.description as string | null | undefined) ?? null,
-            enabled: body.enabled as boolean | undefined,
+            description: body.description ?? null,
+            enabled: body.enabled,
             createdBy: actor,
           });
           auditAdmin(container, {

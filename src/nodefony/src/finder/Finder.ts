@@ -271,7 +271,7 @@ class Finder extends Event {
         return result;
       }
       case Path instanceof FileClass:
-        result.push(new File((Path as FileClass).path));
+        result.push(new File(Path.path));
         return result;
       default:
         throw new Error(
@@ -305,7 +305,7 @@ class Finder extends Event {
         return result;
       }
       case Path instanceof FileClass:
-        result.push(await File.from((Path as FileClass).path));
+        result.push(await File.from(Path.path));
         return result;
       default:
         throw new Error(

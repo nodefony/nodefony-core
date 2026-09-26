@@ -133,10 +133,10 @@ describe("promesses de config — attestation WebAuthn", () => {
     const original = svc.log.bind(svc);
     // On observe sans remplacer : le journal réel garde son comportement (et son
     // type de retour), on ne fait que noter ce qui passe.
-    svc.log = ((pci, severity, ...rest) => {
+    svc.log = (pci, severity, ...rest) => {
       lines.push(`${String(severity ?? "INFO")} ${String(pci)}`);
       return original(pci, severity, ...rest);
-    }) as typeof svc.log;
+    };
     handlers.onBoot?.();
     svc.log = original;
     return lines;

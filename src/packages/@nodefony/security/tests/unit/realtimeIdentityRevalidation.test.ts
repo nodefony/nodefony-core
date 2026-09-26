@@ -66,7 +66,7 @@ function bearerToken(
 
 /** Exécute `fn` dans une bulle ALS telle que le firewall la laisse au handshake. */
 function inScope<T>(payload: Record<string, unknown>, fn: () => T): T {
-  return RequestContext.run({ requestId: "t-rev", ...payload } as never, fn);
+  return RequestContext.run({ requestId: "t-rev", ...payload }, fn);
 }
 
 const NOW = 1_800_000_000_000; // epoch ms fixe — aucune horloge réelle dans un test

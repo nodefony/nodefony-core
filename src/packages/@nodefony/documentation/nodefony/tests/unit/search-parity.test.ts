@@ -82,12 +82,12 @@ describe("searchDocs — le classement", () => {
     const r = searchDocs(corpus, "redis");
     expect(r.hits[0]?.slug).toBe("redis~configuration");
     // Le titre pèse 100, une occurrence de corps 1 : l'écart doit rester net.
-    expect(r.hits[0]!.score).toBeGreaterThan(r.hits[1]!.score);
+    expect(r.hits[0].score).toBeGreaterThan(r.hits[1].score);
   });
 
   it("ignore les accents et la casse", () => {
     const r = searchDocs(
-      [{ ...corpus[0]!, body: "La sécurité du dépôt, vue de près." }],
+      [{ ...corpus[0], body: "La sécurité du dépôt, vue de près." }],
       "SECURITE",
     );
     expect(r.matched).toBe(1);
@@ -100,7 +100,7 @@ describe("searchDocs — le classement", () => {
 
   it("situe l'extrait sous son titre de section, et n'y remet pas le titre H1", () => {
     const r = searchDocs(corpus, "session");
-    const ex = r.hits[0]!.excerpts;
+    const ex = r.hits[0].excerpts;
     expect(ex.length).toBeGreaterThan(0);
     // Le titre de niveau 1 est déjà affiché au-dessus du résultat.
     expect(ex.some((e) => e.text.startsWith("Sessions —"))).toBe(false);

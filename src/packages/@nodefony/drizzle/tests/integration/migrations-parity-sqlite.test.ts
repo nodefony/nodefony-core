@@ -92,7 +92,7 @@ describe("Migrations ↔ DDL dérivé — parité (sqlite)", () => {
     orm = await buildDerivedDatabase(CONNECTOR, "sqlite", {
       filename: ":memory:",
     });
-    const handle = orm.getNativeConnection() as unknown as {
+    const handle = orm.getNativeConnection() as {
       $client: { prepare: (sql: string) => { all: () => unknown[] } };
     };
     derived = introspectSqlite(querier(handle.$client));

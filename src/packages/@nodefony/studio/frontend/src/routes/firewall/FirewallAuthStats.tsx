@@ -181,7 +181,7 @@ export const FirewallAuthStats = observer(() => {
           <SegmentedControl
             size="xs"
             value={period}
-            onChange={(v) => setPeriod(v as AuditPeriod)}
+            onChange={(v) => setPeriod(v)}
             data={PERIODS}
           />
           <Button

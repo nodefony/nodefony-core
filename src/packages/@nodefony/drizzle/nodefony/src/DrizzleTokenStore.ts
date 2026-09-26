@@ -38,7 +38,7 @@ function tokenListCriteria(
   };
   if (query.subjectId !== undefined) criteria.subjectId = query.subjectId;
   if (query.kind !== undefined) criteria.kind = query.kind;
-  return criteria as Criteria<IAccessTokenRecord>;
+  return criteria;
 }
 import {
   TOKEN_ENTITY_NAMES,
@@ -179,7 +179,7 @@ export class DrizzleTokenStore implements ITokenStore {
    */
   async put(record: IAccessTokenRecord): Promise<void> {
     const { id, ...rest } = record;
-    await this.#records.upsert({ id }, rest as Partial<IAccessTokenRecord>);
+    await this.#records.upsert({ id }, rest);
   }
 
   findById(id: string): Promise<IAccessTokenRecord | null> {

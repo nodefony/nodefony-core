@@ -17,7 +17,7 @@ function readBranch(gitDir: string): string {
   try {
     const head = fs.readFileSync(path.join(gitDir, "HEAD"), "utf8").trim();
     const m = head.match(/^ref:\s*refs\/heads\/(.+)$/);
-    return m ? m[1]! : head.slice(0, 7);
+    return m ? m[1] : head.slice(0, 7);
   } catch {
     return "";
   }
@@ -29,14 +29,14 @@ function readCommit(gitDir: string): string {
     const head = fs.readFileSync(path.join(gitDir, "HEAD"), "utf8").trim();
     const m = head.match(/^ref:\s*(.+)$/);
     if (!m) return head.slice(0, 7); // HEAD détaché → sha directe
-    const ref = m[1]!;
+    const ref = m[1];
     let sha = "";
     try {
       sha = fs.readFileSync(path.join(gitDir, ref), "utf8").trim();
     } catch {
       const packed = fs.readFileSync(path.join(gitDir, "packed-refs"), "utf8");
       const line = packed.split("\n").find((l) => l.endsWith(` ${ref}`));
-      sha = line ? line.split(" ")[0]! : "";
+      sha = line ? line.split(" ")[0] : "";
     }
     return sha.slice(0, 7);
   } catch {

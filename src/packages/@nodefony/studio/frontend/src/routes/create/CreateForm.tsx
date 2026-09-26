@@ -119,7 +119,7 @@ function QuestionField({
   // plutôt qu'un multi-select : ce sont des gestes distincts (chacun écrit
   // ailleurs), et l'on doit VOIR d'un coup d'œil que rien n'est coché.
   if (question.type === "list" && question.choices) {
-    const coches = Array.isArray(value) ? (value as string[]) : [];
+    const coches = Array.isArray(value) ? value : [];
     return (
       <Stack gap={4}>
         <Group gap="xs" wrap="nowrap">

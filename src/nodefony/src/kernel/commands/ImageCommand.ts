@@ -29,7 +29,7 @@ class Image extends Command {
     super(
       "image:check",
       "refuse une image de conteneur qui embarque un secret",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption(

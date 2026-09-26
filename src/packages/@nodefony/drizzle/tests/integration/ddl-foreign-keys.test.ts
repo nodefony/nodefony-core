@@ -219,16 +219,16 @@ describe("DDL de développement — un cycle est posé, et DIT", () => {
     // L'espion est posé AVANT la connexion : c'est pendant elle que le DDL est
     // dérivé, donc c'est le seul moment où l'avertissement peut sortir.
     const original = orm.log.bind(orm);
-    orm.log = ((message: unknown, severity?: unknown, ...rest: unknown[]) => {
+    orm.log = (message: unknown, severity?: unknown, ...rest: unknown[]) => {
       if (severity === "WARNING") {
         avertissements.push(String(message));
       }
       return original(
-        message as Parameters<typeof original>[0],
+        message,
         severity as Parameters<typeof original>[1],
         ...(rest as []),
       );
-    }) as typeof orm.log;
+    };
     await orm.connect();
   });
 

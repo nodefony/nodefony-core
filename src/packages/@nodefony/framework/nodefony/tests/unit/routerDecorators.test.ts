@@ -246,7 +246,7 @@ describe("routerDecorators — noms d'action réservés", () => {
   const decorate = (proto: object, name: string) =>
     route(`reserved-${name}`, { path: "/x" })(proto, name, {
       value: () => null,
-    } as PropertyDescriptor);
+    });
 
   it("refuse une action qui reprend une MÉTHODE héritée de Service", () => {
     expect(() => decorate(StubController.prototype, "remove")).to.throw(

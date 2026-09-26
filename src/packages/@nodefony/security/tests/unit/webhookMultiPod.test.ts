@@ -104,7 +104,7 @@ describe("Webhooks multi-pod — fraîcheur du cache d'endpoints", () => {
 
     assert.equal(podB.endpointCount(), 1, "le pod B a rattrapé l'endpoint");
     assert.equal(
-      podB.getSnapshot()[0]!.url,
+      podB.getSnapshot()[0].url,
       "https://1.1.1.1/hook",
       "et c'est bien celui créé par A",
     );

@@ -95,10 +95,10 @@ describe("runDoctorWithoutLive — le rapport reste dû quand le boot est mort",
     writeFileSync(path.join(dir, "package.json"), '{"name":"app-morte"}');
     sortie = "";
     write = process.stdout.write.bind(process.stdout);
-    process.stdout.write = ((chunk: string) => {
+    process.stdout.write = (chunk: string) => {
       sortie += String(chunk);
       return true;
-    }) as typeof process.stdout.write;
+    };
   });
 
   afterEach(() => {
@@ -146,7 +146,7 @@ describe("runDoctorWithoutLive — le rapport reste dû quand le boot est mort",
 
   it("un argv REFUSÉ reste un refus d'usage (64), jamais un rapport", async () => {
     const err = process.stderr.write.bind(process.stderr);
-    process.stderr.write = (() => true) as typeof process.stderr.write;
+    process.stderr.write = () => true;
     try {
       assert.equal(await lancer(["doctor", "--live", "--oups"]), 64);
     } finally {

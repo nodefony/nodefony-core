@@ -14,7 +14,7 @@ const REFLECT_URL = `${WSS}/nodefony/test/ws/proto/reflect`;
 const ECHO_URL = `${WSS}/nodefony/test/ws/echo`;
 
 function openWs(url: string, protocol?: string | string[]): WebSocket {
-  if (protocol) return new WebSocket(url, protocol as string, wsOpts);
+  if (protocol) return new WebSocket(url, protocol, wsOpts);
   return new WebSocket(url, wsOpts);
 }
 

@@ -46,7 +46,7 @@ describe.skipIf(!URL)(
 
     beforeAll(async () => {
       const { createClient } = await import("redis");
-      client = createClient({ url: URL! }) as unknown as typeof client;
+      client = createClient({ url: URL! });
       await client.connect();
       await client.flushDb();
     });

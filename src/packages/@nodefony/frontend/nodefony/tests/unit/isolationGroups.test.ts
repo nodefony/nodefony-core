@@ -76,7 +76,7 @@ describe("isolationGroups — familyPortPlan()", () => {
     const bases = [...plan.values()].sort((a, b) => a - b);
     for (let i = 1; i < bases.length; i++) {
       // l'écart entre deux bases ≥ taille de bloc (retry + 1) → aucun port partagé
-      expect(bases[i]! - bases[i - 1]!).to.be.greaterThanOrEqual(retry + 1);
+      expect(bases[i] - bases[i - 1]).to.be.greaterThanOrEqual(retry + 1);
     }
   });
 

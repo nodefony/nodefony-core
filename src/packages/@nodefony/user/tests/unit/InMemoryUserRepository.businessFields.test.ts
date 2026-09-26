@@ -16,8 +16,7 @@ describe("annuaire mémoire — les champs métier de l'application", () => {
   /** L'écriture passe par le dépôt générique : le contrat typé ne les connaît pas. */
   const withBusiness = (
     data: Record<string, unknown>,
-  ): Partial<IPasswordAuthenticatedUser> =>
-    data as Partial<IPasswordAuthenticatedUser>;
+  ): Partial<IPasswordAuthenticatedUser> => data;
 
   it("un champ écrit à la création se relit", async () => {
     const users = new InMemoryUserRepository();

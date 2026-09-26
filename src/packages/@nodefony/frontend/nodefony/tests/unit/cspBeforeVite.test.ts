@@ -78,7 +78,7 @@ function portsOf(directive: string[] | undefined): Set<string> {
   const out = new Set<string>();
   for (const src of directive ?? []) {
     const m = /:(\d+)$/.exec(src);
-    if (m) out.add(m[1]!);
+    if (m) out.add(m[1]);
   }
   return out;
 }
@@ -115,7 +115,7 @@ describe("CSP du rechargement à chaud — contenu (plage planifiée)", () => {
       fw.calls.length,
       "le firewall doit avoir reçu un fragment",
     ).to.be.at.least(1);
-    const ports = portsOf(fw.calls[0]!.fragment["connect-src"]);
+    const ports = portsOf(fw.calls[0].fragment["connect-src"]);
     // Bloc = `portRetryAttempts + 1` = 4 ports (défaut) : le superviseur peut
     // glisser sur EADDRINUSE, et la page déjà servie ne rejouera pas son CSP.
     for (const p of ["5173", "5174", "5175", "5176"]) {
@@ -134,7 +134,7 @@ describe("CSP du rechargement à chaud — contenu (plage planifiée)", () => {
       entry("shop", "vue3"),
     ]);
 
-    const ports = portsOf(fw.calls[0]!.fragment["connect-src"]);
+    const ports = portsOf(fw.calls[0].fragment["connect-src"]);
     // 3 familles × bloc de 4 → 5173..5184. `default` en tête (port habituel),
     // puis les autres par ordre alphabétique : angular, vue.
     for (let p = 5173; p <= 5184; p++) {
@@ -151,7 +151,7 @@ describe("CSP du rechargement à chaud — contenu (plage planifiée)", () => {
     const svc = new FrontendService(fakeModule(fw));
     await runStartDev(svc, [entry("app", "react19")]);
 
-    const connect = fw.calls[0]!.fragment["connect-src"] ?? [];
+    const connect = fw.calls[0].fragment["connect-src"] ?? [];
     // Le symptôme constaté est un refus de `wss://localhost:5173` : l'origine
     // WS doit être là, avec son hôte — jamais un `ws:` nu, qui rendrait la page
     // joignable depuis n'importe où.
@@ -171,10 +171,10 @@ describe("CSP du rechargement à chaud — moment (avant le spawn)", () => {
       1,
     );
     expect(
-      fw.calls[0]!.at,
+      fw.calls[0].at,
       "le CSP doit être posé avant le spawn — une page servie pendant le " +
         "démarrage de Vite garde son CSP pour toute sa durée",
-    ).to.be.lessThan(spawnedAt[0]!);
+    ).to.be.lessThan(spawnedAt[0]);
   });
 });
 

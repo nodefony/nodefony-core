@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   GcScheduler,
   AUTO_STORE,
   EMPTY_INFRA,
@@ -89,7 +88,7 @@ class TokenService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
     this.kernel?.once("onBoot", () => this.#build());
@@ -189,7 +188,7 @@ class TokenService extends Service {
       intervalS: config.tokenStore.gcIntervalS,
       jitter: config.tokenStore.gcJitter,
       run: () => this.runGc(),
-      onError: (e) => this.log(e as Error, "ERROR"),
+      onError: (e) => this.log(e, "ERROR"),
     });
     this.#gc.start();
     this.log(
@@ -371,7 +370,7 @@ class TokenService extends Service {
     actor: string | null,
     reason: string,
   ): void {
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "auth",
       action,
       outcome: "failure",
@@ -404,7 +403,7 @@ class TokenService extends Service {
    *         non déclarée
    */
   #resolveAudience(requested?: unknown): string {
-    const fallback = this.#runtime!.audiences[0]!;
+    const fallback = this.#runtime!.audiences[0];
     if (requested === undefined || requested === null) return fallback;
     if (Array.isArray(requested)) {
       // Refus AVANT de regarder les valeurs : le motif du refus est le nombre.
@@ -527,7 +526,7 @@ class TokenService extends Service {
     await this.#store!.put(record);
     // Audit (P6.14 lot 2b) : un jeton longue durée vient d'être émis (surface
     // d'attaque créée). `tokenId` corrèle une future révocation/rejeu.
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "token",
       action: "token.issued",
       outcome: "success",
@@ -580,7 +579,7 @@ class TokenService extends Service {
       }
       // Audit (P6.14 lot 2b) : signal d'attaque FORT (jeton volé re-présenté) —
       // refus par politique anti-rejeu (RFC 9700 §4.14), famille coupée.
-      recordAudit(this.container as Container, {
+      recordAudit(this.container, {
         category: "token",
         action: "token.reuse_detected",
         outcome: "denied",
@@ -603,7 +602,7 @@ class TokenService extends Service {
     // portée du jeton sans que personne ne l'ait demandé — une restriction qui
     // s'annule au bout de quelques minutes n'est pas une restriction. Un record
     // antérieur à ce champ (ou d'une autre origine) retombe sur le défaut.
-    const audience = record.audience?.[0] ?? this.#runtime!.audiences[0]!;
+    const audience = record.audience?.[0] ?? this.#runtime!.audiences[0];
     if (resource !== undefined && resource !== null && resource !== audience) {
       // Le contrôle porte sur ce qui a été ACCORDÉ, pas sur la liste blanche : une
       // audience parfaitement déclarée reste refusée ici si ce n'est pas celle de
@@ -724,7 +723,7 @@ class TokenService extends Service {
   }
 
   async #ensureJose(): Promise<typeof Jose> {
-    return (this.#jose ??= (await import("jose")) as typeof Jose);
+    return (this.#jose ??= await import("jose"));
   }
 
   #hash(secret: string): string {

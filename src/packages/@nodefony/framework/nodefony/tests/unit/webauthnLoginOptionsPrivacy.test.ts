@@ -119,7 +119,7 @@ describe("WebAuthn login/options — anti-énumération (W3C L3, credential ID p
       "aucune liste de credentials pour un appelant anonyme",
     ).to.equal(undefined);
     expect(
-      asks[0]!.userId,
+      asks[0].userId,
       "le service ne doit pas être ciblé depuis le corps de la requête",
     ).to.equal(undefined);
   });
@@ -157,7 +157,7 @@ describe("WebAuthn login/options — anti-énumération (W3C L3, credential ID p
 
     expect(out.challenge, "un défi doit être servi").to.be.a("string");
     expect(
-      asks[0]!.userId,
+      asks[0].userId,
       "identité prouvée par la session — le `username` posté est ignoré",
     ).to.equal("alice");
   });

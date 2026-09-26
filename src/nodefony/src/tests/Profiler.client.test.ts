@@ -42,8 +42,8 @@ describe("DebugBar Network — modèle (pur)", () => {
     m.ingest(net({ id: 2 }));
     expect(m.total).to.equal(2);
     const e = m.entries();
-    expect(e[0]!.id).to.equal(2);
-    expect(e[1]!.id).to.equal(1);
+    expect(e[0].id).to.equal(2);
+    expect(e[1].id).to.equal(1);
   });
 
   it("ingest : upsert même id (pending → résolu) ne double pas le total", () => {
@@ -91,11 +91,11 @@ describe("DebugBar Network — waterfall (pur)", () => {
   it("positionne les barres proportionnellement au span", () => {
     const bars = computeWaterfall(phases);
     expect(bars).to.have.length(3);
-    expect(bars[0]!.leftPct).to.equal(0);
+    expect(bars[0].leftPct).to.equal(0);
     // action démarre à 2/10 = 20%, dure 6/10 = 60%
-    expect(bars[1]!.leftPct).to.equal(20);
-    expect(bars[1]!.widthPct).to.equal(60);
-    expect(bars[2]!.leftPct).to.equal(80);
+    expect(bars[1].leftPct).to.equal(20);
+    expect(bars[1].widthPct).to.equal(60);
+    expect(bars[2].leftPct).to.equal(80);
   });
 
   it("plancher de largeur pour une phase ~0ms (visibilité)", () => {
@@ -103,13 +103,13 @@ describe("DebugBar Network — waterfall (pur)", () => {
       { name: "resolve", startMs: 0, durationMs: 10 },
       { name: "send", startMs: 10, durationMs: 0 },
     ]);
-    expect(bars[1]!.widthPct).to.be.greaterThan(0);
+    expect(bars[1].widthPct).to.be.greaterThan(0);
   });
 
   it("span nul → pas de division par zéro", () => {
     const bars = computeWaterfall([{ name: "x", startMs: 5, durationMs: 0 }]);
-    expect(bars[0]!.leftPct).to.equal(0);
-    expect(Number.isFinite(bars[0]!.widthPct)).to.equal(true);
+    expect(bars[0].leftPct).to.equal(0);
+    expect(Number.isFinite(bars[0].widthPct)).to.equal(true);
   });
 
   it("liste vide → aucune barre", () => {

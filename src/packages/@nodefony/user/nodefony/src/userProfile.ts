@@ -222,7 +222,7 @@ export function profileFromClaims(
     if (value === undefined) continue;
     const parsed = validateProfilePatch({ [field]: value });
     if (parsed.ok && parsed.value[field]) {
-      result[field] = parsed.value[field] as string;
+      result[field] = parsed.value[field];
     }
   }
   return result;

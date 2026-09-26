@@ -209,7 +209,6 @@ export function useNodefonyChannel(
       handlerRef.current(payload),
     );
     // `deps` étend volontairement la liste (canal dynamique).
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, channel, ...deps]);
 }
 
@@ -282,7 +281,6 @@ export function useNodefonyAdaptiveChannel(
       },
     );
     return () => binding.dispose();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, rebindKey, ...deps]);
 
   return intervalMs;
@@ -380,7 +378,6 @@ export function useNodefonySyslog(opts: UseSyslogOptions = {}): unknown[] {
     const options: ObserveSyslogOptions = { max, severities, channel };
     return observeSyslog(client, setEntries, options);
     // `severities` est un tableau recréé à chaque rendu : la clé le résume.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, channel, max, sevKey]);
 
   return entries;
@@ -404,7 +401,6 @@ export function useNodefonyNotifications(
   handlerRef.current = onNotice;
   React.useEffect(() => {
     return observeNotices(client, (notice) => handlerRef.current(notice));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, ...deps]);
 }
 
@@ -433,7 +429,6 @@ export function useNodefonyNoticeLog(
     const options: ObserveNoticeLogOptions = { max, sources };
     return observeNoticeLog(client, setNotices, options);
     // `sources` est un tableau recréé à chaque rendu : la clé le résume.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [client, max, srcKey]);
 
   return notices;

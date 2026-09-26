@@ -337,7 +337,7 @@ export function runRepositoryContract(
     assert.deepEqual(
       results
         .filter((r) => r.status === "rejected")
-        .map((r) => (r as PromiseRejectedResult).reason?.message),
+        .map((r) => r.reason?.message),
       [],
       "aucun upsert concurrent ne doit être rejeté",
     );
@@ -550,10 +550,7 @@ export function runRepositoryContract(
   });
 
   it("criteria strict : champ inconnu → UnknownCriteriaField (jamais un skip silencieux)", async () => {
-    await assert.rejects(
-      repo.find({ ghost: 1 } as never),
-      UnknownCriteriaField,
-    );
+    await assert.rejects(repo.find({ ghost: 1 }), UnknownCriteriaField);
   });
 
   it("order strict : forme mal formée → InvalidOrderOption (la requête ne part PAS sans ORDER BY)", async () => {
@@ -734,7 +731,7 @@ export function runRepositoryContract(
     );
     const rejected = results.filter((r) => r.status === "rejected");
     assert.deepEqual(
-      rejected.map((r) => (r as PromiseRejectedResult).reason?.message),
+      rejected.map((r) => r.reason?.message),
       [],
       "aucune transaction concurrente ne doit être rejetée",
     );

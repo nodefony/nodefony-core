@@ -23,7 +23,7 @@ beforeAll(async () => {
     req.on("data", (c: Buffer) => chunks.push(c));
     req.on("end", () => {
       last = {
-        headers: req.headers as Record<string, unknown>,
+        headers: req.headers,
         body: Buffer.concat(chunks).toString("utf8"),
         url: req.url,
       };

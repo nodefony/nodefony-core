@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   injectable,
   assertPageQuery,
 } from "nodefony";
@@ -59,7 +58,7 @@ class MemoryIdempotencyStore extends Service implements IIdempotencyStore {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       undefined,
     );
   }

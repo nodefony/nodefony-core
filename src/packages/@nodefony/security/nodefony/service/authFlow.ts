@@ -1,4 +1,4 @@
-import { Service, Module, Container, Event, RequestContext } from "nodefony";
+import { Service, Module, Container, RequestContext } from "nodefony";
 import type { ContextType, SessionsService, ISession } from "@nodefony/http";
 import type { IUser, IUserProvider, IPasswordVerifier } from "@nodefony/user";
 import { AuthenticationError } from "../errors/AuthenticationError";
@@ -89,7 +89,7 @@ class AuthFlow extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
   }
@@ -122,7 +122,7 @@ class AuthFlow extends Service {
       typeof password !== "string" ||
       password.length === 0
     ) {
-      recordAudit(this.container as Container, {
+      recordAudit(this.container, {
         category: "auth",
         action: "login.failure",
         outcome: "failure",
@@ -136,7 +136,7 @@ class AuthFlow extends Service {
     if (throttler !== null) {
       const retryAfterS = throttler.check(identifier);
       if (retryAfterS > 0) {
-        recordAudit(this.container as Container, {
+        recordAudit(this.container, {
           category: "auth",
           action: "login.throttled",
           outcome: "failure",
@@ -150,7 +150,7 @@ class AuthFlow extends Service {
     const user = await this.#resolveUsers().authenticate(identifier, password);
     if (user === null) {
       throttler?.recordFailure(identifier);
-      recordAudit(this.container as Container, {
+      recordAudit(this.container, {
         category: "auth",
         action: "login.failure",
         outcome: "failure",
@@ -172,7 +172,7 @@ class AuthFlow extends Service {
       const session = await this.ensureSession(context);
       session?.set(PENDING_MFA_KEY, user.identifier);
       await session?.save();
-      recordAudit(this.container as Container, {
+      recordAudit(this.container, {
         category: "auth",
         action: "login.mfa_required",
         outcome: "success",
@@ -188,7 +188,7 @@ class AuthFlow extends Service {
     // par `saveSession`), objet riche dans l'ALS (logs/audit).
     context.user = user.identifier;
     RequestContext.set("user", user);
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "auth",
       action: "login.success",
       outcome: "success",
@@ -229,7 +229,7 @@ class AuthFlow extends Service {
     // (OAuth2Controller) le passent ; un appelant qui l'omet est journalisé
     // `federated` — assez pour distinguer d'un login mot de passe, pas assez pour
     // savoir lequel. Un nouveau chemin d'authentification doit nommer son facteur.
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "auth",
       action: "login.success",
       outcome: "success",
@@ -268,7 +268,7 @@ class AuthFlow extends Service {
     if (throttler !== null) {
       const retryAfterS = throttler.check(pending);
       if (retryAfterS > 0) {
-        recordAudit(this.container as Container, {
+        recordAudit(this.container, {
           category: "auth",
           action: "login.throttled",
           outcome: "failure",
@@ -286,7 +286,7 @@ class AuthFlow extends Service {
         : { ok: false, method: undefined };
     if (!result.ok) {
       throttler?.recordFailure(pending);
-      recordAudit(this.container as Container, {
+      recordAudit(this.container, {
         category: "auth",
         action: "login.failure",
         outcome: "failure",
@@ -340,7 +340,7 @@ class AuthFlow extends Service {
     // `saveSession` de fin de requête est un no-op (pas de résurrection).
     context.session = null;
     context.user = null;
-    recordAudit(this.container as Container, {
+    recordAudit(this.container, {
       category: "session",
       action: "logout",
       outcome: "success",

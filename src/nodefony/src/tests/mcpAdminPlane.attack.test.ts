@@ -97,7 +97,7 @@ function broker(options: { hostile?: boolean } = {}): {
             handler: () => ({ secret: "fuite" }),
           },
         ],
-      } as unknown as IAdminApi,
+      },
     ],
   };
 }

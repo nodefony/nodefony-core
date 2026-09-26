@@ -503,8 +503,8 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
       },
     });
     assert.equal(c.useAuth.length, 1);
-    assert.equal(c.useAuth[0]!.auth.name, "firewall-realtime");
-    assert.ok(c.useAuth[0]!.matcher.pattern instanceof RegExp);
+    assert.equal(c.useAuth[0].auth.name, "firewall-realtime");
+    assert.ok(c.useAuth[0].matcher.pattern instanceof RegExp);
     assert.ok(typeof c.frameAuthorizer === "function");
   });
 
@@ -516,7 +516,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
         realtime: true,
       },
     });
-    const re = c.useAuth[0]!.matcher.pattern as RegExp;
+    const re = c.useAuth[0].matcher.pattern as RegExp;
     assert.ok(re.test("/nodefony/studio/api/realtime"));
     assert.ok(!re.test("/public/ws"));
   });
@@ -569,7 +569,7 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
       "http-only": { pattern: "^/admin", authenticators: ["session"] },
     });
     assert.equal(c.useAuth.length, 1);
-    assert.equal(c.useAuth[0]!.auth.name, "firewall-realtime");
+    assert.equal(c.useAuth[0].auth.name, "firewall-realtime");
     assert.ok(typeof c.frameAuthorizer === "function");
   });
 
@@ -595,9 +595,9 @@ describe("firewall.#wireRealtime — câblage du verrou au boot", () => {
       method: "subscribe",
       params: { channel: "nodefony:syslog" },
     };
-    assert.equal(c.frameAuthorizer!(sysSub, ANON_TOKEN), false);
+    assert.equal(c.frameAuthorizer(sysSub, ANON_TOKEN), false);
     const freeSub = { method: "subscribe", params: { channel: "chat:public" } };
-    assert.equal(c.frameAuthorizer!(freeSub, ANON_TOKEN), true);
+    assert.equal(c.frameAuthorizer(freeSub, ANON_TOKEN), true);
   });
 
   it("module realtime absent (realtimeService non enregistré) → no-op, pas de crash", () => {
@@ -741,7 +741,7 @@ describe("firewall.#build / isSecure / provisionShared (boot)", () => {
         host: "admin.example.com",
       },
     });
-    assert.equal(c.useAuth[0]!.matcher.host, "admin.example.com");
+    assert.equal(c.useAuth[0].matcher.host, "admin.example.com");
   });
 
   it("matchPath sans aucune zone → null (court-circuit)", () => {

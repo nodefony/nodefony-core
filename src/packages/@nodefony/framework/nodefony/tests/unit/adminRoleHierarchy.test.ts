@@ -44,7 +44,7 @@ function rolesVus(opts: {
   // `context` est un GETTER du prototype adossé à un champ privé : une
   // affectation directe lèverait. On le masque par une propriété d'instance.
   Object.defineProperty(ctrl, "context", {
-    value: { container } as unknown as ContextType,
+    value: { container } as unknown,
     configurable: true,
   });
   return (

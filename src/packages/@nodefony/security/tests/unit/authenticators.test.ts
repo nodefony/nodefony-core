@@ -147,7 +147,7 @@ describe("UserPasswordAuthenticator — HTTP Basic (RFC 7617)", () => {
         assert.fail("aurait dû rejeter");
       } catch (e) {
         assert.ok(e instanceof AuthenticationError);
-        assert.equal((e as AuthenticationError).code, 401);
+        assert.equal(e.code, 401);
         return (e as Error).message;
       }
     };

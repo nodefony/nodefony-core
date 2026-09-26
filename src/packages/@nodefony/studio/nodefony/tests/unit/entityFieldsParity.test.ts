@@ -83,7 +83,7 @@ describe("Créer — éditeur de champs : la sérialisation passe le VRAI analys
             // ligne, au `:index` près d'une relation — indexée d'office, la
             // forme canonique ne l'écrit pas.
             if (!(type === "ref" && mode === "indexed")) {
-              expect(formatEntityField(parsed!), label).to.equal(text);
+              expect(formatEntityField(parsed), label).to.equal(text);
             }
             checked += 1;
           }

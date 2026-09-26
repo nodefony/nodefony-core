@@ -143,7 +143,7 @@ describe("Applicateur de migrations (sqlite)", () => {
 
   it("refuse une migration appliquée dont le fichier a changé", async () => {
     await migrator().migrate();
-    await writeMigration(path.join(sources[0]!.dir, "sqlite"), {
+    await writeMigration(path.join(sources[0].dir, "sqlite"), {
       tag: "0000_init",
       statements: [
         "CREATE TABLE widget (id TEXT PRIMARY KEY, label TEXT, extra TEXT)",
@@ -187,7 +187,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // Exactement le même SQL, réécrit en CRLF — ce que produit un checkout
     // Windows sous `core.autocrlf`. Sans normalisation, TOUTE machine Windows
     // déclencherait un arrêt sur dérive permanent, pour un non-changement.
-    await writeMigration(path.join(sources[0]!.dir, "sqlite"), {
+    await writeMigration(path.join(sources[0].dir, "sqlite"), {
       tag: "0000_init",
       statements: ["CREATE TABLE widget (id TEXT PRIMARY KEY, label TEXT)"],
       crlf: true,
@@ -200,7 +200,7 @@ describe("Applicateur de migrations (sqlite)", () => {
   });
 
   it("refuse un fichier dont le format n'est pas celui qu'il sait lire", async () => {
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_futur",
       statements: ["CREATE TABLE gadget (id TEXT PRIMARY KEY)"],
       marker: "-- nodefony:migration format=2",
@@ -226,7 +226,7 @@ describe("Applicateur de migrations (sqlite)", () => {
   });
 
   it("refuse une migration qui se range avant la dernière appliquée de sa source", async () => {
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_suite",
       statements: ["CREATE TABLE gadget (id TEXT PRIMARY KEY)"],
     });
@@ -235,7 +235,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // Un collègue livre une migration à l'index 0.5 — impossible en journal,
     // donc on l'insère à un index INFÉRIEUR au dernier appliqué.
     await appendMigration(
-      sources[0]!.dir,
+      sources[0].dir,
       "sqlite",
       {
         tag: "0000b_intercalee",
@@ -286,7 +286,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // La mise à jour du framework apporte une migration dont l'index (1) est
     // INFÉRIEUR à celui de la dernière migration d'app déjà appliquée. Un
     // applicateur à repère haut la sauterait en silence.
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_framework_suite",
       statements: ["CREATE TABLE jeton (id TEXT PRIMARY KEY)"],
     });
@@ -304,7 +304,7 @@ describe("Applicateur de migrations (sqlite)", () => {
   });
 
   it("laisse un état net après un échec, trace le marqueur, et se répare", async () => {
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_casse",
       statements: [
         "CREATE TABLE bon (id TEXT PRIMARY KEY)",
@@ -357,7 +357,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     );
 
     // Le SQL corrigé passe ensuite sans rien d'autre à faire.
-    await writeMigration(path.join(sources[0]!.dir, "sqlite"), {
+    await writeMigration(path.join(sources[0].dir, "sqlite"), {
       tag: "0001_casse",
       statements: ["CREATE TABLE bon (id TEXT PRIMARY KEY)"],
     });
@@ -377,7 +377,7 @@ describe("Applicateur de migrations (sqlite)", () => {
   // main. Le cas exact : un `DROP INDEX` d'une unicité que le schéma DÉRIVÉ du
   // démarrage avait posée INLINE, donc sans index nommé.
   it("🔴 quand la base est DÉJÀ dans l'état visé, le refus nomme la sortie (baseline)", async () => {
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0002_retire_unicite",
       statements: ["DROP INDEX messages_content_unique"],
     });
@@ -432,7 +432,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // Rejouer l'adoption n'inscrit que ce qui manque — donc rien.
     assert.deepEqual(await migrator().baseline(), []);
     // Et la migration suivante s'applique normalement.
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_suite",
       statements: ["CREATE TABLE gadget (id TEXT PRIMARY KEY)"],
     });
@@ -463,7 +463,7 @@ describe("Applicateur de migrations (sqlite)", () => {
     // Le module est désinstallé : sa source disparaît du REGISTRE, et ses
     // lignes restent en base. Sans la règle, elles bloqueraient tout `migrate`
     // ultérieur — pour toujours.
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_suite",
       statements: ["CREATE TABLE gadget (id TEXT PRIMARY KEY)"],
     });
@@ -477,14 +477,14 @@ describe("Applicateur de migrations (sqlite)", () => {
   });
 
   it("refuse une migration appliquée dont le fichier a disparu, sauf demande explicite", async () => {
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_suite",
       statements: ["CREATE TABLE gadget (id TEXT PRIMARY KEY)"],
     });
     await migrator().migrate();
 
     // Le fichier est retiré du dossier, sa source restant installée.
-    const dir = path.join(sources[0]!.dir, "sqlite");
+    const dir = path.join(sources[0].dir, "sqlite");
     await fs.rm(path.join(dir, "0001_suite.sql"));
     const journalPath = path.join(dir, "meta", "_journal.json");
     const journal = JSON.parse(await fs.readFile(journalPath, "utf8")) as {
@@ -520,7 +520,7 @@ describe("Applicateur de migrations (sqlite)", () => {
       await driver.close();
     }
 
-    await appendMigration(sources[0]!.dir, "sqlite", {
+    await appendMigration(sources[0].dir, "sqlite", {
       tag: "0001_suite",
       statements: ["CREATE TABLE gadget (id TEXT PRIMARY KEY)"],
     });

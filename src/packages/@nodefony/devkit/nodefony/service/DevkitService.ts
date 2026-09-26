@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   Nodefony,
   extend,
   injectable,
@@ -83,7 +82,7 @@ class DevkitService extends Service implements IDevkitService {
     super(
       "devkit",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       merged,
     );
     this.module = module;

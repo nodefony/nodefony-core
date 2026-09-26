@@ -133,7 +133,7 @@ class MemoryUserRepo implements IUserRepository {
     if (!user) return Promise.resolve(null);
     const record = user as unknown as Record<string, number>;
     for (const [field, delta] of Object.entries(changes)) {
-      record[field] = (record[field] ?? 0) + (delta as number);
+      record[field] = (record[field] ?? 0) + delta;
     }
     return Promise.resolve<IPasswordAuthenticatedUser>(user);
   }
@@ -185,7 +185,7 @@ class MemoryUserRepo implements IUserRepository {
     filtered.sort((a, b) => a.identifier.localeCompare(b.identifier));
     const items = filtered.slice(offset, offset + limit);
     return Promise.resolve({
-      items: items as IPasswordAuthenticatedUser[],
+      items: items,
       total: query.withTotal === false ? undefined : filtered.length,
       limit,
       offset,

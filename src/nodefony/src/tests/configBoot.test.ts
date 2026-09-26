@@ -307,12 +307,7 @@ describe("config — câblage Kernel boot (Lot 4 : loadApp + defineConfig)", () 
       const desc = defineConfig({ domain: "y" });
       // Reproduit le flux app : index.ts fait super("app", kernel, url, descripteur)
       // → Service applique { ...defaultOptions, ...descripteur } (spread shallow).
-      const mod = new Module(
-        "descApp",
-        k,
-        PKG,
-        desc as unknown as DefaultOptionsService,
-      );
+      const mod = new Module("descApp", k, PKG, desc);
       assert.strictEqual(
         isConfigDescriptor(mod.options),
         true,
@@ -385,7 +380,7 @@ describe("config — NF__APP__* (override env de la config app)", () => {
     it("marque le drapeau secret pour un chemin sensible", () => {
       // champ porteur de défaut + nom sensible : log.* n'a pas de secret ; on teste
       // le drapeau via un chemin présent au nom sensible (ajouté à la cible).
-      const merged = freshMerged() as Record<string, unknown>;
+      const merged = freshMerged();
       (merged as { token?: string }).token = "default";
       const report = applyAppEnvOverrides(merged, { NF__APP__TOKEN: "s3cr3t" });
       assert.strictEqual(report.applied.length, 1);

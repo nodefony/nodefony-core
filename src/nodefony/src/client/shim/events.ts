@@ -62,7 +62,6 @@ export class EventEmitter {
         fn(...args);
       } catch (e) {
         // browser : log mais ne crash pas
-        // eslint-disable-next-line no-console
         console.error("[EventEmitter] listener threw:", e);
       }
     }

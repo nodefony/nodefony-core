@@ -71,7 +71,7 @@ export function deliverWebhook(
   }
 
   const pinned =
-    opts.addresses && opts.addresses.length > 0 ? opts.addresses[0]! : null;
+    opts.addresses && opts.addresses.length > 0 ? opts.addresses[0] : null;
   const lookup: LookupFunction | undefined = pinned
     ? (_hostname, options, callback) => {
         const family = isIP(pinned) === 6 ? 6 : 4;

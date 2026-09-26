@@ -423,7 +423,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     this.cleanupChildListeners();
 
     // 1. Génère + écrit `vite.config.generated.mjs` à côté de l'index.html.
-    const moduleRoot = this.entries[0]!.root;
+    const moduleRoot = this.entries[0].root;
     this.configFilePath = path.resolve(moduleRoot, GENERATED_VITE_CONFIG_FILE);
     const scheme = this.opts.https ? "https" : "http";
     // Origine PUBLIQUE (P14.17) : template résolu contre le port RÉEL de CETTE
@@ -580,7 +580,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         buffer += txt.replace(ansiRe, "");
         const m = buffer.match(localRe);
         if (m) {
-          this.resolvedPort = parseInt(m[2]!, 10);
+          this.resolvedPort = parseInt(m[2], 10);
           this.state = "ready";
           this.healthFailures = 0;
           resolved = true;
@@ -604,7 +604,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         // URL : si elle sort ici, on la prend (même lecture que sur stdout).
         const m = buffer.match(localRe);
         if (m) {
-          this.resolvedPort = parseInt(m[2]!, 10);
+          this.resolvedPort = parseInt(m[2], 10);
           this.state = "ready";
           this.healthFailures = 0;
           resolved = true;
@@ -895,7 +895,6 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         this.child = null;
         this.state = "stopped";
         if (sigKillTimer) clearTimeout(sigKillTimer);
-        // oxlint-disable-next-line no-multiple-resolved -- garde `settled` explicite en tête de `done` (cf ci-dessus) : la règle compte les `resolve` d'une portée sans suivre le drapeau
         resolve();
       };
       child.once("exit", done);

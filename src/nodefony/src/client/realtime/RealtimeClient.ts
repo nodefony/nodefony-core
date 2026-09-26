@@ -221,7 +221,7 @@ export class RealtimeClient<
   >({
     send: (frame) => this.send(frame),
     onNotification: (method, params) =>
-      this.dispatchNotification(method as string, params),
+      this.dispatchNotification(method, params),
   });
   private readonly handlers = new Map<string, Set<EventHandler>>();
   // Abonnements pub/sub ref-comptés (canal → nb de consommateurs). Le subscribe/
@@ -515,7 +515,7 @@ export class RealtimeClient<
     channel: K,
     payload?: K extends EventNames<Emit> ? EventPayload<Emit, K> : unknown,
   ): void {
-    this.emit(channel, payload as never);
+    this.emit(channel, payload);
   }
 
   /**
@@ -530,7 +530,7 @@ export class RealtimeClient<
    * deux consommateurs du même canal ne se coupent plus l'un l'autre.
    */
   subscribe(channel: EventNames<Listen> | (string & {})): void {
-    const c = channel as string;
+    const c = channel;
     const n = (this._subscriptions.get(c) ?? 0) + 1;
     this._subscriptions.set(c, n);
     // Hors de la fenêtre d'écoute du serveur, l'émission serait perdue : la map
@@ -543,7 +543,7 @@ export class RealtimeClient<
    * serveur seulement au **dernier** consommateur. No-op si le canal n'est pas suivi.
    */
   unsubscribe(channel: EventNames<Listen> | (string & {})): void {
-    const c = channel as string;
+    const c = channel;
     const cur = this._subscriptions.get(c);
     if (!cur) return;
     if (cur <= 1) {

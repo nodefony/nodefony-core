@@ -1,4 +1,3 @@
-/* eslint-disable @typescript-eslint/no-explicit-any */
 //
 // ─── RED-TEAM — brique « boot des services » (@services / addService) ─────────
 //
@@ -169,7 +168,7 @@ describe("RED-TEAM @services — intégrité du boot", () => {
 
     try {
       assert.throws(
-        () => Injector.instantiate(Consumer as any),
+        () => Injector.instantiate(Consumer),
         (e: Error) => {
           assert.match(e.message, /NeedsItsModule/, "doit nommer le service");
           assert.match(e.message, /Consumer/, "doit nommer le demandeur");

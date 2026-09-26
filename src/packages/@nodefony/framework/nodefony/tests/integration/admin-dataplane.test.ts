@@ -59,7 +59,7 @@ function req(
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });
@@ -505,7 +505,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
       expect(s, "pas d'Attributes (secrets)").to.not.have.property(
         "Attributes",
       );
-      expect(s.ref as string, "ref HMAC public").to.match(/^sess_/);
+      expect(s.ref, "ref HMAC public").to.match(/^sess_/);
     });
   });
 
@@ -520,7 +520,7 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
     const adminItems = (adminSessions.body as { items: Array<{ ref: string }> })
       .items;
     expect(adminItems.length, "admin a ≥ 1 session").to.be.greaterThan(0);
-    const adminRef = adminItems[0]!.ref;
+    const adminRef = adminItems[0].ref;
     // user présente le ref d'admin (qui EXISTE) → hors de SON périmètre → 404
     // (pas 403 : la ressource est simplement introuvable dans son scope).
     const userCookie = await loginCookie("user", "secret-de-dev-42");
@@ -575,16 +575,16 @@ describe("Admin data plane — http self-service /sessions/mine", () => {
         current.length,
         "le serveur désigne EXACTEMENT une session courante",
       ).to.equal(1);
-      return { cookie, items, current: current[0]! };
+      return { cookie, items, current: current[0] };
     };
     const vueA = await vueDe(a);
     const vueB = await vueDe(b);
-    const mienne = vueA.current.ref !== vueA.items[0]!.ref ? vueA : vueB;
+    const mienne = vueA.current.ref !== vueA.items[0].ref ? vueA : vueB;
     const temoin = mienne === vueA ? b : a;
     expect(
       mienne.current.ref,
       "la session courante n'est pas la première de la liste",
-    ).to.not.equal(mienne.items[0]!.ref);
+    ).to.not.equal(mienne.items[0].ref);
 
     const revoke = await req(
       "POST",
@@ -1067,7 +1067,7 @@ describe("Admin data plane — routes/page filtre `in` (multi-sélection)", () =
       (r) => r.methods.length > 1,
     );
     if (!multi) return; // aucune route multi-méthode montée : rien à prouver
-    const one = multi.methods[0]!;
+    const one = multi.methods[0];
     const r = await req("GET", withFilter("methods", "in", one), auth());
     const names = (r.body as { items: { methods: string[] }[] }).items;
     expect(
@@ -1424,7 +1424,7 @@ describe("Data plane syslog — le vocabulaire est clos", () => {
         auth(),
       );
       expect(r.status).to.equal(200);
-      return (r.body as { rows: { uid: number }[] }).rows[0]!.uid;
+      return (r.body as { rows: { uid: number }[] }).rows[0].uid;
     };
     const asc = await first("ASC");
     const desc = await first("DESC");

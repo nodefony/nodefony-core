@@ -51,13 +51,7 @@ function makeStub(res: MockServerResponse): HttpResponse {
 
 function send(stub: HttpResponse): Promise<HttpResponse> {
   // flush=true → branche streaming
-  return (
-    HttpResponse.prototype.send as (
-      c?: unknown,
-      e?: BufferEncoding,
-      f?: boolean,
-    ) => Promise<HttpResponse>
-  ).call(stub, undefined, "utf-8", true);
+  return HttpResponse.prototype.send.call(stub, undefined, "utf-8", true);
 }
 
 const settle = () => new Promise((r) => setImmediate(r));

@@ -165,14 +165,14 @@ describe("ApiKeyAuthenticator — clé valide", () => {
 
   it("met à jour lastUsedAt AVEC ip/agent — l'écriture a lieu dans onSuccess", async () => {
     const token = await seedKey();
-    const before = (await store.findBySubject("alice"))[0]!;
+    const before = (await store.findBySubject("alice"))[0];
     assert.equal(before.lastUsedAt, null);
     const t = await auth.authenticate(new UserToken("apikey", token));
     // `authenticate` DÉCIDE, il n'écrit pas : il n'a pas le contexte, donc pas
     // l'IP — écrire ici remettrait les colonnes d'audit à null.
     assert.equal(marks, 0);
     await auth.onSuccess(provenanceCtx("1.2.3.4", "curl/8"), t);
-    const after = (await store.findBySubject("alice"))[0]!;
+    const after = (await store.findBySubject("alice"))[0];
     assert.equal(typeof after.lastUsedAt, "number");
     assert.equal(after.lastUsedIp, "1.2.3.4");
     assert.equal(after.lastUsedUserAgent, "curl/8");
@@ -190,7 +190,7 @@ describe("ApiKeyAuthenticator — clé valide", () => {
     const token = await seedKey();
     const t = await auth.authenticate(new UserToken("apikey", token));
     await auth.onSuccess({} as unknown as ContextType, t);
-    const after = (await store.findBySubject("alice"))[0]!;
+    const after = (await store.findBySubject("alice"))[0];
     assert.equal(typeof after.lastUsedAt, "number");
     assert.equal(after.lastUsedIp, null);
     assert.equal(marks, 1);
@@ -220,7 +220,7 @@ describe("ApiKeyAuthenticator — attaques de FORME (0 accès store)", () => {
       () => auth.authenticate(new UserToken("apikey", raw)),
       (e: unknown) => {
         assert.ok(e instanceof AuthenticationError);
-        assert.equal((e as AuthenticationError).code, 401);
+        assert.equal(e.code, 401);
         return true;
       },
     );
@@ -262,7 +262,7 @@ describe("ApiKeyAuthenticator — attaques sur l'ÉTAT (message uniforme)", () =
       () => auth.authenticate(new UserToken("apikey", token)),
       (e: unknown) => {
         assert.ok(e instanceof AuthenticationError);
-        assert.equal((e as AuthenticationError).code, 401);
+        assert.equal(e.code, 401);
         assert.equal((e as Error).message, "Invalid token"); // anti-énumération
         return true;
       },

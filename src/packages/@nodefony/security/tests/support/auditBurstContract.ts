@@ -208,7 +208,7 @@ export function runAuditBurstContract(harness: AuditBurstHarness): void {
       const ids = first.items.map((e) => e.id);
       await harness.removeEvents(ids);
 
-      const second = await store().listPage({ limit: 20, cursor: cursor! });
+      const second = await store().listPage({ limit: 20, cursor: cursor });
       for (const e of second.items) {
         assert.ok(
           !ids.includes(e.id),
@@ -217,7 +217,7 @@ export function runAuditBurstContract(harness: AuditBurstHarness): void {
       }
       // Et la lecture n'est pas repartie du début : le plus récent restant est
       // strictement plus ancien que la position du curseur.
-      const [ts] = cursor!.split(":");
+      const [ts] = cursor.split(":");
       assert.ok(second.items.length > 0);
       assert.ok(second.items[0].ts <= Number(ts));
     });

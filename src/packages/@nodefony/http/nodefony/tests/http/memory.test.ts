@@ -135,7 +135,6 @@ const scopesDrained = async (quoi: string, base: number): Promise<void> => {
     "témoin : la sonde voit au moins le scope de sa propre requête",
   ).to.be.at.least(1);
   const delta = await drainTo(liveScopes, base, 1);
-  // eslint-disable-next-line no-console
   console.log(
     `[scopes] ${quoi} : ${delta} scope(s) résiduel(s) après drainage`,
   );
@@ -164,7 +163,6 @@ const contextsReleased = async (quoi: string): Promise<void> => {
     delta,
     "témoin : le traceur est armé et voit le contexte de sa propre requête",
   ).to.be.at.least(0);
-  // eslint-disable-next-line no-console
   console.log(`[contexts] ${quoi} : ${delta} contexte(s) encore vivant(s)`);
   expect(
     delta,
@@ -201,7 +199,6 @@ const probesReleased = async (quoi: string): Promise<void> => {
     delta,
     "témoin : le traceur voit le service de sa propre requête",
   ).to.be.at.least(0);
-  // eslint-disable-next-line no-console
   console.log(
     `[request-scope] ${quoi} : ${delta} service(s) et ${scopes} scope(s) encore vivant(s)`,
   );

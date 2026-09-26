@@ -20,7 +20,7 @@ class Build extends Command {
     super(
       "build",
       "compile les modules puis l'application vers dist/",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.alias("compile");

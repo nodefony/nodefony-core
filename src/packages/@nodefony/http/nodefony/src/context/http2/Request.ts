@@ -17,7 +17,7 @@ class Http2Request extends HttpRequest {
   }
 
   override getUserAgent(): string | undefined {
-    return this.headers["user-agent"] as string;
+    return this.headers["user-agent"];
   }
 
   override getMethod(): HTTPMethod {

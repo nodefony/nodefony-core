@@ -63,9 +63,9 @@ export function readTarHeader(block: Buffer): Omit<ITarEntry, "offset"> | null {
   // et écrit en base 256. Deviner l'un pour l'autre rendrait une taille absurde,
   // donc un saut faux, donc une archive lue de travers SANS erreur.
   let size: number;
-  if ((block[124] as number) & 0x80) {
+  if (block[124] & 0x80) {
     size = 0;
-    for (let i = 125; i < 136; i += 1) size = size * 256 + (block[i] as number);
+    for (let i = 125; i < 136; i += 1) size = size * 256 + block[i];
   } else {
     const octal = field(124, 12).trim();
     size = octal ? Number.parseInt(octal, 8) : 0;
@@ -161,7 +161,7 @@ export async function tarPathsFromStream(
       // PAX : une suite d'enregistrements « <longueur> clé=valeur\n ».
       const text = content.toString("utf8");
       const found = /(?:^|\n)\d+ path=([^\n]*)/.exec(text);
-      if (found) forcedName = found[1] as string;
+      if (found) forcedName = found[1];
     }
     capture = null;
   };

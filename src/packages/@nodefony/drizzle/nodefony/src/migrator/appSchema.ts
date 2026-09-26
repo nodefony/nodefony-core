@@ -465,7 +465,7 @@ export async function writeCustomMigration({
   const journalFile = path.join(outDir, "meta", "_journal.json");
   let journal: IJournal = {
     version: "7",
-    dialect: KIT_DIALECT[dialect] as string,
+    dialect: KIT_DIALECT[dialect],
     entries: [],
   };
   let raw: string | null = null;
@@ -507,7 +507,7 @@ export async function writeCustomMigration({
   );
   entries.push({
     idx,
-    version: ENTRY_VERSION[dialect] as string,
+    version: ENTRY_VERSION[dialect],
     when: now,
     tag,
     breakpoints: true,
@@ -594,7 +594,7 @@ export function registeredTables(connector: string): IExpectedEntity[] {
     if (entity.connector !== connector) {
       continue;
     }
-    const schema = entity.schema as unknown;
+    const schema = entity.schema;
     if (is(schema, Table)) {
       out.push({ entity: entity.name, table: getTableName(schema) });
     }
@@ -639,7 +639,7 @@ export function tablesOfConnector<T extends { tableName: string }>(
 export function registeredOwners(): Map<string, Set<string>> {
   const owners = new Map<string, Set<string>>();
   for (const entity of entityRegistry.list()) {
-    const schema = entity.schema as unknown;
+    const schema = entity.schema;
     if (!is(schema, Table)) {
       continue;
     }

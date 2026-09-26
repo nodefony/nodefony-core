@@ -194,8 +194,7 @@ export function mountIssuerMetadataRoutes(
   for (const [name, path, classMethod] of routes) {
     Router.createRoute(name, {
       path,
-      constructor:
-        IssuerMetadataController as unknown as Controller["constructor"],
+      constructor: IssuerMetadataController,
       classMethod,
       requirements: { methods: ["GET"] },
       bypassFirewall: true,
@@ -207,12 +206,7 @@ export function mountIssuerMetadataRoutes(
       "module",
     )
   ) {
-    Router.setController(
-      IssuerMetadataController as unknown as Parameters<
-        typeof Router.setController
-      >[0],
-      frameworkModule,
-    );
+    Router.setController(IssuerMetadataController, frameworkModule);
   }
   mounted = true;
 }

@@ -62,7 +62,7 @@ function runOn(opts: {
       removeEvents: async (ids) => {
         await orm
           .getRepository<AuditEventRow>(AUDIT_ENTITY_NAMES.events)
-          .delete({ id: { $in: ids } } as unknown as Criteria<AuditEventRow>);
+          .delete({ id: { $in: ids } });
       },
     });
   });

@@ -50,7 +50,7 @@ describe("InMemoryUserRepository — CRUD (contrat IRepository)", () => {
       assert.equal((await r.find()).length, 2);
       const found = await r.find(crit({ identifier: "bob" }));
       assert.equal(found.length, 1);
-      assert.equal(found[0]!.identifier, "bob");
+      assert.equal(found[0].identifier, "bob");
     });
 
     it("findOne rend `null` (jamais une erreur) quand rien ne matche", async () => {
@@ -258,10 +258,7 @@ describe("InMemoryUserRepository — CRUD (contrat IRepository)", () => {
         2,
         "champ absent traité comme 0",
       );
-      assert.equal(
-        await r.increment(crit({ identifier: "nobody" }), {} as never),
-        null,
-      );
+      assert.equal(await r.increment(crit({ identifier: "nobody" }), {}), null);
     });
 
     it("withTransaction rend le dépôt lui-même (pas de transaction en mémoire)", async () => {

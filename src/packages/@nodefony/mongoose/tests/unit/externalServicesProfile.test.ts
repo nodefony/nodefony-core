@@ -64,7 +64,7 @@ function decor(profil: IRunProfile): {
     journal,
     boot: async () => {
       assert.ok(hook, "le service n'a posé aucun hook onBoot");
-      await (hook as unknown as () => Promise<void>)();
+      await hook();
     },
     orm: () => service.getOrm(connecteur),
   };

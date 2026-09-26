@@ -87,7 +87,7 @@ function newClient(opts: Record<string, unknown> = {}) {
   );
   return client;
 }
-const last = () => transports[transports.length - 1]!;
+const last = () => transports[transports.length - 1];
 
 async function connected(opts: Record<string, unknown> = {}) {
   const client = newClient(opts);
@@ -155,7 +155,7 @@ describe("RealtimeClient — cycle de connexion", () => {
     expect(client.state).to.equal("reconnecting");
     expect(client.reconnectAttempts).to.equal(1);
     expect(client.nextRetryAt).to.be.a("number");
-    expect(events[0]!.delay).to.equal(1000);
+    expect(events[0].delay).to.equal(1000);
     // Le timer de reco recrée un transport + reconnecte.
     vi.advanceTimersByTime(1000);
     expect(transports.length).to.equal(2);
@@ -410,7 +410,7 @@ describe("RealtimeClient — RPC (path, ping, register)", () => {
 
   it("register/unregister : action exposée au pair (duplex) + methods", async () => {
     const client = await connected();
-    client.register("client:confirm" as never, (() => ({ ok: 1 })) as never);
+    client.register("client:confirm" as never, () => ({ ok: 1 }));
     expect(client.methods).to.include("client:confirm");
     client.unregister("client:confirm" as never);
     expect(client.methods).to.not.include("client:confirm");
@@ -420,7 +420,7 @@ describe("RealtimeClient — RPC (path, ping, register)", () => {
   it("notify : notification sortante (sans réponse)", async () => {
     const client = await connected();
     last().sent.length = 0;
-    client.notify("app:event" as never, { x: 1 } as never);
+    client.notify("app:event" as never, { x: 1 });
     expect(last().sent.some((s) => s.includes("app:event"))).to.equal(true);
     client.disconnect();
   });
@@ -429,14 +429,11 @@ describe("RealtimeClient — RPC (path, ping, register)", () => {
 describe("RealtimeClient — log protocole, redaction, erreurs serveur", () => {
   it("frameLog + redaction des champs sensibles (token/password/…)", async () => {
     const client = await connected();
-    client.notify(
-      "auth:login" as never,
-      {
-        token: "SECRET",
-        password: "p",
-        safe: "ok",
-      } as never,
-    );
+    client.notify("auth:login" as never, {
+      token: "SECRET",
+      password: "p",
+      safe: "ok",
+    });
     last().fireMsg(
       JSON.stringify({ jsonrpc: "2.0", method: "x", params: { apikey: "K" } }),
     );
@@ -458,7 +455,7 @@ describe("RealtimeClient — log protocole, redaction, erreurs serveur", () => {
       "__frame__" as never,
       ((f: unknown) => frames.push(f)) as never,
     );
-    client.notify("live:x" as never, { a: 1 } as never);
+    client.notify("live:x" as never, { a: 1 });
     expect(frames.length).to.be.greaterThan(0);
     dispose();
     client.disconnect();
@@ -512,7 +509,7 @@ describe("RealtimeClient — log protocole, redaction, erreurs serveur", () => {
   it("send hors connexion (transport non OPEN) → drop silencieux", () => {
     const client = newClient();
     // pas connecté → notify droppé (pas de crash, rien envoyé)
-    client.notify("x" as never, { a: 1 } as never);
+    client.notify("x" as never, { a: 1 });
     expect(transports.length).to.equal(0); // aucun transport créé
   });
 });
@@ -545,7 +542,7 @@ describe("RealtimeClient — edge (parsing, redaction, dispose, frameLog)", () =
     const payload = arrFrame.payload as {
       params: Array<Record<string, unknown>>;
     };
-    expect(payload.params[0]!.token).to.equal("[redacted]");
+    expect(payload.params[0].token).to.equal("[redacted]");
     client.disconnect();
   });
 

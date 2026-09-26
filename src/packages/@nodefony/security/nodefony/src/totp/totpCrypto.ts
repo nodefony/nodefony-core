@@ -60,7 +60,7 @@ export function base32Encode(buf: Buffer): string {
   let value = 0;
   let out = "";
   for (let i = 0; i < buf.length; i++) {
-    value = (value << 8) | (buf[i] as number);
+    value = (value << 8) | buf[i];
     bits += 8;
     while (bits >= 5) {
       out += BASE32_ALPHABET[(value >>> (bits - 5)) & 31];
@@ -84,7 +84,7 @@ export function base32Decode(input: string): Buffer {
   let value = 0;
   const out: number[] = [];
   for (let i = 0; i < clean.length; i++) {
-    const idx = BASE32_ALPHABET.indexOf(clean[i] as string);
+    const idx = BASE32_ALPHABET.indexOf(clean[i]);
     if (idx === -1) {
       throw new Error(`base32: caractère invalide « ${clean[i]} »`);
     }
@@ -136,12 +136,12 @@ export function hotp(
     .update(counterBuffer(counter))
     .digest();
   // Troncature dynamique (RFC 4226 §5.3) : offset = 4 bits de poids faible.
-  const offset = (hs[hs.length - 1] as number) & 0x0f;
+  const offset = hs[hs.length - 1] & 0x0f;
   const bin =
-    (((hs[offset] as number) & 0x7f) << 24) |
-    (((hs[offset + 1] as number) & 0xff) << 16) |
-    (((hs[offset + 2] as number) & 0xff) << 8) |
-    ((hs[offset + 3] as number) & 0xff);
+    ((hs[offset] & 0x7f) << 24) |
+    ((hs[offset + 1] & 0xff) << 16) |
+    ((hs[offset + 2] & 0xff) << 8) |
+    (hs[offset + 3] & 0xff);
   const mod = bin % 10 ** digits;
   return mod.toString().padStart(digits, "0");
 }
@@ -360,7 +360,7 @@ export function matchRecoveryCode(
   const target = Buffer.from(hashRecoveryCode(presented));
   let found = -1;
   for (let i = 0; i < hashes.length; i++) {
-    const candidate = Buffer.from(hashes[i] as string);
+    const candidate = Buffer.from(hashes[i]);
     if (
       candidate.length === target.length &&
       timingSafeEqual(candidate, target)

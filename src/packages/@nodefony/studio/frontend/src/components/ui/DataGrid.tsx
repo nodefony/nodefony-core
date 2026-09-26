@@ -335,7 +335,6 @@ type GridFeatures = typeof features;
 
 // Métadonnées portées par chaque colonne TanStack (align/filtre/aide).
 declare module "@tanstack/react-table" {
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   interface ColumnMeta<
     TFeatures extends TableFeatures,
     TData extends RowData,
@@ -569,7 +568,7 @@ function FilterCell<T extends RowData>({
         aria-label={`opérateur ${header}`}
         onChange={(v) => {
           if (!v) return;
-          const no = v as DataGridFilterOp;
+          const no = v;
           if (VALUELESS.has(no)) column.setFilterValue({ op: no, value: "" });
           else
             column.setFilterValue(value !== "" ? { op: no, value } : undefined);

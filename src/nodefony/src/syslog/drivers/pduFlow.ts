@@ -72,7 +72,6 @@ export type FlowClassifiable = Pick<IPduLike, "msgid" | "payload"> & {
 
 /** Retire les codes de couleur ANSI (les payloads en TTY peuvent en porter). */
 function stripAnsi(s: string): string {
-  // eslint-disable-next-line no-control-regex
   return s.replace(/\x1b\[[0-9;]*m/g, "");
 }
 

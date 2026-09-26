@@ -198,7 +198,7 @@ describe("totpOperations — vérification login", () => {
   it("code de récupération valide → ok method=recovery, consommé (usage unique)", async () => {
     const deps = makeDeps();
     const { recovery } = await enrolled(deps);
-    const r0 = recovery[0] as string;
+    const r0 = recovery[0];
     const first = await verifyTotpLogin(deps, "alice", r0);
     assert.equal(first.ok, true);
     assert.equal(first.method, "recovery");

@@ -95,11 +95,11 @@ describe("doctor — la fraîcheur du FRAMEWORK, pas seulement de l'application"
     paquetLie(racine, "@nodefony/http", { dist: false });
     const findings = checkFrameworkBuild(racine);
     assert.equal(findings.length, 1);
-    assert.equal(findings[0]!.kind, "framework-missing");
-    assert.match(findings[0]!.message, /@nodefony\/http/u);
+    assert.equal(findings[0].kind, "framework-missing");
+    assert.match(findings[0].message, /@nodefony\/http/u);
     // Le geste doit être celui du DÉPÔT du framework, pas `npm run build` de
     // l'application : bâtir l'app ne construit pas ses dépendances liées.
-    assert.match(findings[0]!.message, /npm run build/u);
+    assert.match(findings[0].message, /npm run build/u);
   });
 
   it("un paquet LIÉ dont les sources sont plus récentes que son build est signalé", () => {
@@ -110,8 +110,8 @@ describe("doctor — la fraîcheur du FRAMEWORK, pas seulement de l'application"
     });
     const findings = checkFrameworkBuild(racine);
     assert.equal(findings.length, 1);
-    assert.equal(findings[0]!.kind, "framework-stale");
-    assert.match(findings[0]!.message, /@nodefony\/framework/u);
+    assert.equal(findings[0].kind, "framework-stale");
+    assert.match(findings[0].message, /@nodefony\/framework/u);
   });
 
   it("un paquet LIÉ à jour ne dit RIEN — le silence est le cas normal", () => {

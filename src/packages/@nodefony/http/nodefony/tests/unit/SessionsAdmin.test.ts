@@ -137,7 +137,7 @@ describe("MemorySessionStorage.listAll (unit)", () => {
       flashBag: {},
       user: "",
       ...data,
-    } as ISerializedSession);
+    });
 
   it("énumère toutes les sessions ({ id, data })", async () => {
     await write("id-a", { user: "alice" });

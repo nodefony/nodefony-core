@@ -400,7 +400,7 @@ function parseAreas(
   const areas: { pattern: string; grantsAnonymous: boolean }[] = [];
   for (let i = 0; i < starts.length; i++) {
     const slice = areasBlock.slice(
-      starts[i]!,
+      starts[i],
       starts[i + 1] ?? areasBlock.length,
     );
     const pattern = new RegExp(AREA_PATTERN_RE.source, "u").exec(slice)?.[1];

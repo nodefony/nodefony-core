@@ -27,7 +27,6 @@ import {
   SCAFFOLD_STEPS,
   SCAFFOLD_STEP_COMMANDS,
   type Container,
-  type Event,
   type Module,
   type IScaffoldChange,
   type IScaffoldRequest,
@@ -162,7 +161,7 @@ class ScaffoldService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options,
     );
   }
@@ -734,9 +733,7 @@ class ScaffoldService extends Service {
     dest: string,
     answers: TScaffoldAnswers,
   ): Promise<void> {
-    const chosen = Array.isArray(answers.agents)
-      ? (answers.agents as string[])
-      : [];
+    const chosen = Array.isArray(answers.agents) ? answers.agents : [];
     const argv = argvMcpWiring(chosen, AGENT_TARGETS, dest);
     if (argv === null) return;
     const ok = await this.#spawnNodefony(job, argv, dest);

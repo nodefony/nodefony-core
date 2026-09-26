@@ -42,7 +42,7 @@ function get(path: string, headers: Record<string, string> = {}): Promise<Res> {
           }
           resolve({
             status: res.statusCode!,
-            headers: res.headers as Record<string, unknown>,
+            headers: res.headers,
             body,
           });
         });

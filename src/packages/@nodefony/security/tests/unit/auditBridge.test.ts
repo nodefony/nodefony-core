@@ -74,8 +74,8 @@ describe("createAuditBridge — coalescing + cleanup", () => {
     expect(batches.length).to.equal(0); // accumulé, pas encore flush
     vi.advanceTimersByTime(200);
     expect(batches.length).to.equal(1);
-    expect(batches[0]!.events.map((e) => e.action)).to.deep.equal(["a", "b"]);
-    expect(batches[0]!.dropped).to.equal(0);
+    expect(batches[0].events.map((e) => e.action)).to.deep.equal(["a", "b"]);
+    expect(batches[0].dropped).to.equal(0);
     dispose();
   });
 
@@ -92,8 +92,8 @@ describe("createAuditBridge — coalescing + cleanup", () => {
     src.emit(ev("b"));
     src.emit(ev("c")); // écrase "a"
     vi.advanceTimersByTime(100);
-    expect(batches[0]!.events.map((e) => e.action)).to.deep.equal(["b", "c"]);
-    expect(batches[0]!.dropped).to.equal(1);
+    expect(batches[0].events.map((e) => e.action)).to.deep.equal(["b", "c"]);
+    expect(batches[0].dropped).to.equal(1);
     dispose();
   });
 
@@ -248,8 +248,8 @@ describe("Firewall ⇄ realtime — nodefony:audit enregistré + live (câblage 
     audit.record(ev("auth.denied"));
     vi.advanceTimersByTime(300);
     expect(published.length).to.equal(1);
-    expect(published[0]!.ch).to.equal(SECURITY_AUDIT_CHANNEL);
-    expect(published[0]!.p.events[0]!.action).to.equal("auth.denied");
+    expect(published[0].ch).to.equal(SECURITY_AUDIT_CHANNEL);
+    expect(published[0].p.events[0].action).to.equal("auth.denied");
 
     // Dernier désabonné → dispose → plus aucune diffusion.
     dispose!();

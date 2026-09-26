@@ -70,7 +70,7 @@ const RETENTION_MS = 30 * 24 * 3_600_000;
 function rejections(rs: PromiseSettledResult<unknown>[]): string[] {
   return rs
     .filter((r) => r.status === "rejected")
-    .map((r) => (r as PromiseRejectedResult).reason?.message);
+    .map((r) => r.reason?.message);
 }
 
 /**
@@ -743,7 +743,7 @@ export function runTokenStoreContract(
         assert.deepEqual(rejections(results), [], "aucun gc rejeté");
         const total = results
           .filter((r) => r.status === "fulfilled")
-          .reduce((s, r) => s + (r as PromiseFulfilledResult<number>).value, 0);
+          .reduce((s, r) => s + r.value, 0);
         assert.equal(
           total,
           purgedBy(2),

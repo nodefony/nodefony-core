@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   RequestContext,
   //typeOf,
   //EnvironmentType,
@@ -298,14 +297,14 @@ class Controller extends Service implements IController {
     // le capturer = `this.get()` sur un container mort dès la requête suivante.
     // Et AUCUNE capture per-request (pas de `setContext`) : l'état de la
     // requête arrive par l'ALS (V4.1), jamais par `this`.
-    const singleton = (new.target as typeof Controller).scope === "singleton";
+    const singleton = new.target.scope === "singleton";
     const kernel = singleton ? context.kernel : null;
     super(
       name,
       ((singleton ? kernel?.container : null) ??
         context.container) as Container,
-      ((singleton ? kernel?.notificationsCenter : null) ??
-        context.notificationsCenter) as Event,
+      (singleton ? kernel?.notificationsCenter : null) ??
+        context.notificationsCenter,
     );
     this.template = this.get<Eta>("template");
     if (!singleton) {
@@ -686,7 +685,7 @@ class Controller extends Service implements IController {
     if (!response) {
       throw new Error(`response not found`);
     }
-    (options as ReadStreamOptions).autoClose = false;
+    options.autoClose = false;
     try {
       const fileDetails = await this.getFileAsync(file);
 
@@ -737,7 +736,7 @@ class Controller extends Service implements IController {
         streamFile.on("open", () => {
           try {
             (this.context as HttpContext)?.writeHead(
-              contextResponse?.statusCode as number,
+              contextResponse?.statusCode,
               headers,
             );
             streamFile.pipe(response, { end: false });

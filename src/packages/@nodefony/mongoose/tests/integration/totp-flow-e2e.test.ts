@@ -136,7 +136,7 @@ describe.skipIf(!URI)(
         "dave",
         codeFor(enroll.secretBase32, d),
       );
-      const r0 = recoveryCodes[0]!;
+      const r0 = recoveryCodes[0];
       assert.equal((await verifyTotpLogin(d, "dave", r0)).method, "recovery");
       assert.equal((await verifyTotpLogin(d, "dave", r0)).ok, false); // déjà consommé
       // Le retrait du code haché a bien été persisté (10 → 9).

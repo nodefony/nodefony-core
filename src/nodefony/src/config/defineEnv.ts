@@ -189,7 +189,7 @@ interface EnumOpts<T extends string> extends BaseOpts {
 }
 
 function withDoc<S extends z.ZodTypeAny>(schema: S, description?: string): S {
-  return (description ? schema.describe(description) : schema) as S;
+  return description ? schema.describe(description) : schema;
 }
 
 /**
@@ -259,7 +259,7 @@ export function envBoolean(opts: BoolOpts = {}): z.ZodType<boolean> {
     default: def,
     description,
     requiredIn,
-  }) as z.ZodType<boolean>;
+  });
 }
 
 /**

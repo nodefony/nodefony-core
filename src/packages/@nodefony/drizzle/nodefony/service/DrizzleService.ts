@@ -5,7 +5,7 @@ import {
   BootConfigurationError,
   runNeedsExternalServices,
 } from "nodefony";
-import type { Container, Event, Kernel, Module } from "nodefony";
+import type { Container, Kernel, Module } from "nodefony";
 import {
   queryFlowMonitor,
   resolveOrmFlowEnabled,
@@ -129,7 +129,7 @@ class DrizzleService extends Service {
     super(
       serviceName,
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       module.options ?? {},
     );
     this.module = module;

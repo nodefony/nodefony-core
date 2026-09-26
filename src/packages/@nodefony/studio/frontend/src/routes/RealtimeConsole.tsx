@@ -608,11 +608,9 @@ function HubHealthLive({
   useEffect(() => {
     if (data) onSnap(data);
     // onSnap stable (useCallback []) → hors deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
   useEffect(() => {
     onRate(intervalMs);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [intervalMs]);
   return null;
 }
@@ -1723,7 +1721,7 @@ export const RealtimeConsole = observer(() => {
                     <SegmentedControl
                       size="xs"
                       value={dir}
-                      onChange={(v) => setDir(v as "all" | "in" | "out")}
+                      onChange={(v) => setDir(v)}
                       data={[
                         { label: "Tout", value: "all" },
                         { label: "↓ in", value: "in" },

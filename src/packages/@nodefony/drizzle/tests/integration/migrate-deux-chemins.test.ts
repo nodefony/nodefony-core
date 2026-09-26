@@ -89,7 +89,7 @@ function config(frameworkEntities: boolean): IDrizzleConfig {
   return drizzleConfigSchema.parse({
     frameworkEntities,
     connectors: { [CONNECTEUR]: { dialect: "sqlite" } },
-  }) as IDrizzleConfig;
+  });
 }
 
 describe("migrations — les deux chemins fabriquent le même schéma (#109)", () => {

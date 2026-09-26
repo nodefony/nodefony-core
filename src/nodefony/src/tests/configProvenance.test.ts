@@ -138,7 +138,7 @@ describe("configProvenance — scénario APP (defaultAppConfig + NF__APP__*)", (
     resolved.servers.http.port = 8080; // surchargé par NF__APP__SERVERS__HTTP__PORT
     // log.driver reste "stdout" (défaut)
     const prov = computeConfigProvenance(
-      resolved as unknown as Record<string, unknown>,
+      resolved,
       defaultAppConfig as unknown as Record<string, unknown>,
       new Set(["servers.http.port"]),
     );
@@ -156,8 +156,8 @@ describe("configProvenance — findSetReservedKeys (filet clé réservée au boo
     };
     const hits = findSetReservedKeys(RESERVED_SCHEMA, resolved);
     assert.strictEqual(hits.length, 1);
-    assert.strictEqual(hits[0]!.path, "webhooks.timestampToleranceS");
-    assert.match(hits[0]!.description, /INERTE côté émetteur/);
+    assert.strictEqual(hits[0].path, "webhooks.timestampToleranceS");
+    assert.match(hits[0].description, /INERTE côté émetteur/);
   });
 
   it("ne signale RIEN quand toutes les clés réservées sont à leur défaut", () => {

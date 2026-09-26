@@ -184,7 +184,7 @@ describe("doctor — l'état d'EXÉCUTION d'un contrôle", () => {
       freshness: { ran: false },
     });
     assert.lengthOf(sautes, 1);
-    assert.isNotEmpty(sautes[0]!.reason);
+    assert.isNotEmpty(sautes[0].reason);
   });
 
   it("l'ordre de lecture est celui du rapport, pas celui de l'objet", () => {
@@ -322,7 +322,7 @@ describe("doctor — la doctrine du régime strict, de bout en bout", () => {
   /** Exécute la commande sans déverser son rapport dans la sortie des tests. */
   const codeDe = async (argv: string[]): Promise<number> => {
     const write = process.stdout.write.bind(process.stdout);
-    process.stdout.write = (() => true) as typeof process.stdout.write;
+    process.stdout.write = () => true;
     try {
       return await runDoctorCommand(argv);
     } finally {

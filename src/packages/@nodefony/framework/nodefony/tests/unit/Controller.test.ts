@@ -118,13 +118,10 @@ function makeController(opts: HarnessOptions = {}) {
     },
   };
 
-  ctx.container.set(
-    "template",
-    (opts.template ?? { render: async () => "" }) as object,
-  );
-  if (opts.sessions) ctx.container.set("sessions", opts.sessions as object);
-  if (opts.frontend) ctx.container.set("frontend", opts.frontend as object);
-  if (opts.router) ctx.container.set("router", opts.router as object);
+  ctx.container.set("template", opts.template ?? { render: async () => "" });
+  if (opts.sessions) ctx.container.set("sessions", opts.sessions);
+  if (opts.frontend) ctx.container.set("frontend", opts.frontend);
+  if (opts.router) ctx.container.set("router", opts.router);
 
   const context = ctx as unknown as ContextType;
   const c = new Controller("test-ctrl", context);

@@ -39,10 +39,10 @@ describe("doctor — fraîcheur du build et plancher de Node", () => {
       r.findings.map((f) => f.kind),
       ["dist-stale"],
     );
-    assert.match(r.findings[0]!.message, /npm run build/);
+    assert.match(r.findings[0].message, /npm run build/);
     // Le message NOMME le fichier fautif : sur cinquante sources, il faut
     // savoir laquelle a bougé.
-    assert.match(r.findings[0]!.message, /nodefony/);
+    assert.match(r.findings[0].message, /nodefony/);
   });
 
   it("un build plus récent que les sources ne dit RIEN", () => {
@@ -152,11 +152,8 @@ describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est p
       r.findings.map((f) => f.kind),
       ["dist-stale"],
     );
-    assert.match(r.findings[0]!.message, /WidgetController\.ts/);
-    assert.equal(
-      r.findings[0]!.file,
-      "nodefony/controller/WidgetController.ts",
-    );
+    assert.match(r.findings[0].message, /WidgetController\.ts/);
+    assert.equal(r.findings[0].file, "nodefony/controller/WidgetController.ts");
   });
 
   it("🔴 un RÉPERTOIRE nommé `*.ts` ne fait pas tomber le contrôle", () => {
@@ -192,6 +189,6 @@ describe("doctor — la fraîcheur désigne un FICHIER, et ignore ce qui n'est p
       r.findings.map((f) => f.kind),
       ["dist-stale"],
     );
-    assert.equal(r.findings[0]!.file, "nodefony/Widget.ts");
+    assert.equal(r.findings[0].file, "nodefony/Widget.ts");
   });
 });

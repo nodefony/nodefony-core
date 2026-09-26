@@ -39,7 +39,7 @@ class Cluster extends Command {
     super(
       "cluster",
       "démarre N workers isolés, relancés s'ils tombent",
-      cli as CliKernel,
+      cli,
       options,
     );
     this.addOption(

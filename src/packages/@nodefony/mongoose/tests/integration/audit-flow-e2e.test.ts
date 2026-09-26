@@ -42,7 +42,7 @@ describe.skipIf(!URI)("Mongoose — MongooseAuditStore sous rafale", () => {
     removeEvents: async (ids) => {
       await orm
         .getRepository(AUDIT_ENTITY_NAMES.events)
-        .delete({ id: { $in: ids } } as never);
+        .delete({ id: { $in: ids } });
     },
   });
 });

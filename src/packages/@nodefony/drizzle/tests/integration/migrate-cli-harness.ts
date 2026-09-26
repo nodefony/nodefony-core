@@ -192,7 +192,7 @@ export async function tablesDeMigrations(dirs: string[]): Promise<string[]> {
       for (const m of sql.matchAll(
         /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?[`"]?([A-Za-z0-9_]+)[`"]?/gi,
       )) {
-        noms.add(m[1] as string);
+        noms.add(m[1]);
       }
     }
   }

@@ -172,15 +172,11 @@ class LoopbackRt extends RealtimeController {
     params?: unknown,
     timeoutMs?: number,
   ): Promise<T> {
-    return this.requestClient(
-      method as never,
-      params as never,
-      timeoutMs,
-    ) as Promise<T>;
+    return this.requestClient(method as never, params, timeoutMs) as Promise<T>;
   }
 
   callNotify(method: string, params?: unknown): void {
-    this.notifyClient(method as never, params as never);
+    this.notifyClient(method as never, params);
   }
 }
 
@@ -539,9 +535,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
       { url: "ws://loopback/realtime", autoReconnect: false },
       () => transport,
     );
-    client.onIdentity((id) =>
-      seen.push(id as { authenticated: boolean } | null),
-    );
+    client.onIdentity((id) => seen.push(id));
     await client.connect();
     await flush();
     await flush();
@@ -630,7 +624,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     // sans ce réveil, le client serait abonné à un canal que rien ne produit.
     expect(rt.publishers["owned:feed"]).to.be.a("function");
 
-    rt.publishers["owned:feed"]!("owned:feed", { tick: 1 });
+    rt.publishers["owned:feed"]("owned:feed", { tick: 1 });
     await flush();
     expect(heardClient).to.deep.equal([{ tick: 1 }]); // le client reçoit du VRAI provider
     expect(heardBack).to.deep.equal([{ tick: 1 }]); // l'écouteur serveur aussi

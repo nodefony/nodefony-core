@@ -82,7 +82,7 @@ describe("0.6 F4 — hub : re-validation périodique des sockets révocables (bl
     });
     await hub.revalidateRevocable();
     assert.equal(conn.closes.length, 1);
-    assert.equal(conn.closes[0]!.code, 4001);
+    assert.equal(conn.closes[0].code, 4001);
   });
 
   it("révoqué retiré du registre après close → pas de RE-close au tick suivant", async () => {

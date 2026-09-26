@@ -109,7 +109,7 @@ class Inspect extends Command {
     super(
       "inspect",
       "l'état réel de l'app : routes, services, config",
-      cli as CliKernel,
+      cli,
       options,
     );
     // OPTIONNEL : déclaré `<sujet>`, commander refusait la commande avant

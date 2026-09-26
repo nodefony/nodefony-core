@@ -167,7 +167,7 @@ describe.skipIf(!URI)(
       await books.create({
         title: "Les Misérables",
         author: a.id,
-      } as Partial<Book>);
+      });
 
       const book = await books.findOne(
         { title: "Les Misérables" },
@@ -182,7 +182,7 @@ describe.skipIf(!URI)(
       await passports.create({
         code: "FR-42",
         author: a.id,
-      } as Partial<Passport>);
+      });
 
       const p = await passports.findOne(
         { code: "FR-42" },
