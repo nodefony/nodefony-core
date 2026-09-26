@@ -260,11 +260,11 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     // situation : « aucune instance » suppose un projet, et l'écrire ici serait la
     // contradiction que garde le test « HORS projet, … » plus bas.
     assert.ok(
-      /n'est pas un projet Nodefony/.test(plain),
+      plain.includes("n'est pas un projet Nodefony"),
       `doit annoncer l'absence, sans supposer un projet :\n${plain}`,
     );
     assert.ok(
-      !/ports UP/.test(plain),
+      !plain.includes("ports UP"),
       `« ports UP » est un verdict sur NOS ports :\n${plain}`,
     );
     assert.ok(
@@ -278,13 +278,13 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     await runStopReport(mine, { ...deps(), write: (s) => (out += s) });
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.ok(
-      /aucune instance de ce projet/.test(plain),
+      plain.includes("aucune instance de ce projet"),
       `rien à arrêter ici :\n${plain}`,
     );
     // La croix « encore occupé » disait un arrêt qui a échoué — alors que `stop`
     // venait lui-même d'annoncer que ces runtimes étaient à un AUTRE projet.
     assert.ok(
-      !/encore occupé/.test(plain),
+      !plain.includes("encore occupé"),
       `aucun échec d'arrêt à signaler :\n${plain}`,
     );
     assert.ok(
@@ -353,7 +353,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
       `le bloc du voisin doit montrer ses process :\n${plain}`,
     );
     assert.ok(
-      /Résumé/.test(plain) && /nodefony stop /.test(plain),
+      plain.includes("Résumé") && plain.includes("nodefony stop "),
       `un résumé doit expliquer et donner le geste :\n${plain}`,
     );
   });
@@ -378,16 +378,16 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.strictEqual(code, 1, "rien ne doit être arrêté au hasard");
     assert.ok(
-      /impossible de rattacher les process à un projet/.test(plain),
+      plain.includes("impossible de rattacher les process à un projet"),
       `la cécité doit être ÉNONCÉE :\n${plain}`,
     );
     assert.ok(
-      !/aucun projet Nodefony en cours ne s'appelle/.test(plain),
+      !plain.includes("aucun projet Nodefony en cours ne s'appelle"),
       `ne jamais nier un projet qu'on n'a pas pu chercher :\n${plain}`,
     );
     // Les deux voies qui ne dépendent PAS de cette capacité sont données.
     assert.ok(
-      /nodefony stop --all/.test(plain) && /cd <projet>/.test(plain),
+      plain.includes("nodefony stop --all") && plain.includes("cd <projet>"),
       `donner les sorties qui marchent quand même :\n${plain}`,
     );
   });
@@ -425,11 +425,11 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     await runStatusReport(mine, { ...deps(), write: (s) => (out += s) });
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.ok(
-      !/de ce projet/.test(plain),
+      !plain.includes("de ce projet"),
       `hors projet, « ce projet » n'a pas de référent :\n${plain}`,
     );
     assert.ok(
-      /n'est pas un projet Nodefony/.test(plain),
+      plain.includes("n'est pas un projet Nodefony"),
       `dire OÙ l'on est, d'abord :\n${plain}`,
     );
     // Les ports de la convention ne sont ceux de personne ici : les annoncer
@@ -462,11 +462,11 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     });
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.ok(
-      /5153 ✓ écoute/.test(plain) && /5154 ✓ écoute/.test(plain),
+      plain.includes("5153 ✓ écoute") && plain.includes("5154 ✓ écoute"),
       `les ports du voisin doivent porter un verdict SONDÉ :\n${plain}`,
     );
     assert.ok(
-      !/5153 déclaré/.test(plain),
+      !plain.includes("5153 déclaré"),
       `« déclaré » ne doit rester que pour un port qu'on n'a PAS sondé :\n${plain}`,
     );
   });
@@ -486,7 +486,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.strictEqual(code, 1, "un stop qui n'a pas compris sa cible échoue");
     assert.ok(
-      /aucun projet Nodefony en cours ne s'appelle/.test(plain),
+      plain.includes("aucun projet Nodefony en cours ne s'appelle"),
       `le refus doit être explicite :\n${plain}`,
     );
     assert.ok(
@@ -506,7 +506,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.strictEqual(code, 1);
     assert.ok(
-      /contradictoires/.test(plain),
+      plain.includes("contradictoires"),
       `dire pourquoi c'est refusé :\n${plain}`,
     );
   });
@@ -535,7 +535,7 @@ describe("status / stop — deux commandes, UN SEUL « mon projet »", () => {
     const plain = out.replace(/\x1b\[[0-9;]*m/g, "");
     assert.strictEqual(code, 1);
     assert.ok(
-      /désigne 2 projets/.test(plain),
+      plain.includes("désigne 2 projets"),
       `le refus doit compter les homonymes :\n${plain}`,
     );
     assert.ok(
@@ -629,7 +629,7 @@ describe("status — le décalage de ports et le VERDICT du code de sortie", () 
     });
     assert.strictEqual(code, 0);
     assert.ok(
-      !/DÉCALÉS/.test(out),
+      !out.includes("DÉCALÉS"),
       `aucun décalage à annoncer ici :\n${out.replace(/\x1b\[[0-9;]*m/g, "")}`,
     );
   });

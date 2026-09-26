@@ -224,7 +224,7 @@ cas("l'encre du clair est sombre", c.clair.includes("#1a1d21"));
 const frag = figure(c, { titre: "T", desc: "D" });
 cas(
   "figure() enveloppe les deux",
-  /g-clair/.test(frag) && /g-sombre/.test(frag),
+  frag.includes("g-clair") && frag.includes("g-sombre"),
 );
 cas(
   "figure() échappe le titre",
@@ -372,7 +372,7 @@ cas(
     // Sans alignement, les deux grilles ont des nombres de lignes différents ;
     // avec, elles coïncident. On compte les lignes de séparation horizontales.
     const lignes = (deuxUnites.match(/class="[^"]*"/g) ?? []).length;
-    return lignes > 0 && !/NaN/.test(deuxUnites);
+    return lignes > 0 && !deuxUnites.includes("NaN");
   })(),
 );
 cas(
@@ -398,7 +398,7 @@ cas(
         },
       ],
     });
-    return simple.startsWith("<svg") && !/NaN/.test(simple);
+    return simple.startsWith("<svg") && !simple.includes("NaN");
   })(),
 );
 cas(

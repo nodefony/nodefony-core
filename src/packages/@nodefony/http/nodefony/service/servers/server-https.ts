@@ -55,7 +55,7 @@ class ServerHttps extends Service {
 
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel,
+    @inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
     // NE PAS SUPPRIMER — cf `server-http.ts` : seul usage de `Module` comme
     // VALEUR ici ; l'élider ferait retomber `design:paramtypes` sur `Object`.

@@ -19,10 +19,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./passes.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./passes.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const { indiceDeLaPasse, passesDe, commitsDuHarnais } = await import(MODULE);
 
 // Trois répétitions de la tâche 26, telles que le banc les écrit — décor et

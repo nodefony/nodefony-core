@@ -973,7 +973,7 @@ export class DrizzleOrm extends Orm {
    * @param params - valeurs bindées.
    * @returns les lignes rendues.
    */
-  #rawQuery = async <T extends Record<string, unknown>>(
+  readonly #rawQuery = async <T extends Record<string, unknown>>(
     sql: string,
     params: readonly unknown[] = [],
   ): Promise<T[]> => {

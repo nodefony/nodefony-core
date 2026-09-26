@@ -386,10 +386,13 @@ describe.skipIf(!fs.existsSync(DIST))(
           assert.ok(txt.includes(name), `l'aide doit lister "${name}"\n${txt}`);
         }
         assert.ok(
-          /create app/.test(txt),
+          txt.includes("create app"),
           `l'aide doit dire par quoi commencer\n${txt}`,
         );
-        assert.ok(!/CRITIC/.test(txt), `un help n'est pas un incident\n${txt}`);
+        assert.ok(
+          !txt.includes("CRITIC"),
+          `un help n'est pas un incident\n${txt}`,
+        );
       } finally {
         fs.rmSync(dir, { recursive: true, force: true });
       }
@@ -412,11 +415,11 @@ describe.skipIf(!fs.existsSync(DIST))(
         const txt = r.stdout + r.stderr;
         assert.ok(txt.includes("development"), "l'aide est bien rendue");
         assert.ok(
-          /npm install/.test(txt),
+          txt.includes("npm install"),
           `qui A une application ne doit pas s'entendre dire d'en créer une\n${txt}`,
         );
         assert.ok(
-          !/create app/.test(txt),
+          !txt.includes("create app"),
           `…et surtout pas le contraire de son geste\n${txt}`,
         );
       } finally {
@@ -943,11 +946,11 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
         NF_NO_COLOR: "1",
       });
       assert.ok(
-        /ÉTAT/.test(r.stdout),
+        r.stdout.includes("ÉTAT"),
         `le rapport doit être rendu malgré le boot mort\n${r.stdout.slice(0, 600)}\n--- stderr ---\n${r.stderr.slice(0, 600)}`,
       );
       assert.ok(
-        /n'a pas démarré/.test(r.stdout),
+        r.stdout.includes("n'a pas démarré"),
         `l'étage 2 doit DIRE pourquoi il n'a pas pu répondre\n${r.stdout.slice(-1500)}`,
       );
       assert.ok(
@@ -1017,7 +1020,7 @@ describe.skipIf(!RUN_BOOT || !fs.existsSync(DIST))(
           `--detach doit sortir 0 à la readiness\n${r.stdout}\n${r.stderr}`,
         );
         assert.ok(
-          /READY — ports en écoute/.test(r.stdout),
+          r.stdout.includes("READY — ports en écoute"),
           `le rapport doit annoncer la readiness\n${r.stdout}`,
         );
         assert.ok(

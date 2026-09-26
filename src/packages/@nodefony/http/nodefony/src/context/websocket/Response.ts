@@ -68,7 +68,7 @@ class WebsocketResponse {
 
   constructor(
     connection: Ws | null,
-    private context: WebsocketContext,
+    private readonly context: WebsocketContext,
   ) {
     this.connection = connection;
   }

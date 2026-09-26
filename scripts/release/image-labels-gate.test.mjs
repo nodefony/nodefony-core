@@ -62,7 +62,7 @@ describe("controlerEtiquettes", () => {
     // pour que les quatre absences soient NOMMÉES au lieu d'un « aveugle ».
     const ecarts = controlerEtiquettes({}, attendu);
     expect(ecarts).toHaveLength(4);
-    expect(ecarts.every((e) => /ABSENTE/.test(e))).toBe(true);
+    expect(ecarts.every((e) => e.includes("ABSENTE"))).toBe(true);
   });
 
   it("refuse un SHA court — une remontée qui doit deviner n'est pas une remontée", () => {

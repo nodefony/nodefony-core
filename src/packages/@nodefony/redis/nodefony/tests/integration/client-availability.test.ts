@@ -132,7 +132,7 @@ describe("RedisService.getClient — connexion inscrite mais jamais ouverte", ()
     assert.ok(
       lines.some(
         ([message, severity]) =>
-          severity === "INFO" && /rétablie/.test(message),
+          severity === "INFO" && message.includes("rétablie"),
       ),
       "un retour à la normale se dit aussi — sinon le journal laisse " +
         "l'exploitant sur la dernière mauvaise nouvelle",

@@ -449,13 +449,14 @@ describe("config — NF__APP__* (override env de la config app)", () => {
       ).surfaceAppEnvOverrides(resolved);
       assert.ok(
         logs.some(
-          (l) => l.sev === "INFO" && /Override env app: domain/.test(l.msg),
+          (l) => l.sev === "INFO" && l.msg.includes("Override env app: domain"),
         ),
       );
       assert.ok(
         logs.some(
           (l) =>
-            l.sev === "WARNING" && /vouliez-vous dire « domain »/.test(l.msg),
+            l.sev === "WARNING" &&
+            l.msg.includes("vouliez-vous dire « domain »"),
         ),
       );
     });

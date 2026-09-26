@@ -52,7 +52,7 @@ export class FileSink implements ILogSink {
   readonly #fd: number;
   readonly #maxPendingBytes: number;
   readonly #sync: boolean;
-  #pending: string[] = [];
+  readonly #pending: string[] = [];
   #pendingBytes = 0;
   #writing = false;
   #inFlight: string | null = null; // chunk passé à fsWrite, pas encore confirmé écrit

@@ -25,10 +25,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./env-decor.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./env-decor.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const { envDecor, nfEcartees } = await import(MODULE);
 
 // Un poste RÉALISTE : les variables du harnais, un jeton MCP émis pour le

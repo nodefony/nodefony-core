@@ -10,7 +10,7 @@ const TOOL_NAME_REGEX = /^[a-z][a-z0-9_]*$/;
 const MAX_TOOLS = 256;
 
 export class ToolRegistry {
-  private tools = new Map<string, ITool>();
+  private readonly tools = new Map<string, ITool>();
 
   register(tool: ITool): void {
     if (!TOOL_NAME_REGEX.test(tool.name)) {

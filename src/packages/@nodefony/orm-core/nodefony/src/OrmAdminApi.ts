@@ -474,10 +474,10 @@ function jsonSchemaType(nativeType: string): IJsonSchemaProperty {
   if (/(real|float|double|decimal|numeric|number)/.test(t)) {
     return { type: "number" };
   }
-  if (/bool/.test(t)) {
+  if (t.includes("bool")) {
     return { type: "boolean" };
   }
-  if (/json/.test(t)) {
+  if (t.includes("json")) {
     return { type: "object" };
   }
   if (/(date|time|timestamp)/.test(t)) {

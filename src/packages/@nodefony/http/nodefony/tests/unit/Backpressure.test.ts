@@ -17,8 +17,8 @@ import HttpResponse from "../../src/context/http/Response";
 // asynchrone (comme Node : `cb` appelé au nextTick, APRÈS le retour de write).
 class MockServerResponse extends EventEmitter {
   written: unknown[] = [];
-  private _ret: boolean;
-  private _err: Error | null;
+  private readonly _ret: boolean;
+  private readonly _err: Error | null;
   constructor(ret: boolean, err: Error | null = null) {
     super();
     this._ret = ret;

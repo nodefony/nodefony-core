@@ -21,10 +21,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./premiere-impression.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./premiere-impression.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const {
   juger,
   mordSurLeDecor,

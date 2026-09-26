@@ -18,8 +18,9 @@ import {
 class RequestScopeController extends Controller {
   constructor(
     context: Context,
-    @inject("RequestProbe") private probe: RequestProbe,
-    @inject("RequestProbeConsumer") private consumer: RequestProbeConsumer,
+    @inject("RequestProbe") private readonly probe: RequestProbe,
+    @inject("RequestProbeConsumer")
+    private readonly consumer: RequestProbeConsumer,
   ) {
     super("RequestScopeController", context);
   }

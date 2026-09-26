@@ -301,7 +301,7 @@ describe("unit — ce que l'application déclare d'elle-même", () => {
         const nu = ligne.trim();
         if (!nu.startsWith("const ") && !nu.startsWith("export const "))
           continue;
-        if (/getKernel\(\)\s*[.[]/.test(nu) && !/getKernel\(\)\?\./.test(nu)) {
+        if (/getKernel\(\)\s*[.[]/.test(nu) && !nu.includes("getKernel()?.")) {
           fautifs.push(`${relatif(p)} → ${nu.slice(0, 80)}`);
         }
       }

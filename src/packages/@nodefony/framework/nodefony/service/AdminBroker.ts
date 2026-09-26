@@ -30,11 +30,11 @@ class AdminBroker extends Service implements IAdminBroker {
   readonly defaultRole = ADMIN_DEFAULT_ROLE;
 
   /** Producteurs enregistrés, indexés par namespace. */
-  private producers = new Map<string, IAdminApi>();
+  private readonly producers = new Map<string, IAdminApi>();
   /** Routes résolues, indexées par nom de route (dispatch O(1)). */
-  private byRouteName = new Map<string, IAdminRoute>();
+  private readonly byRouteName = new Map<string, IAdminRoute>();
   /** Module framework propriétaire — requis pour `Router.setController`. */
-  private frameworkModule: Module;
+  private readonly frameworkModule: Module;
   /** Vrai une fois `mountAll()` exécuté (idempotence + verrou de register). */
   private mounted = false;
 

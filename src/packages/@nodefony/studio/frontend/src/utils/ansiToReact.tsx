@@ -78,7 +78,7 @@ function renderSpan(text: string, s: AnsiState, key: number): ReactNode {
  * Si pas de codes ANSI dans `input`, renvoie la string brute (zéro alloc).
  */
 export function ansiToReact(input: string): ReactNode {
-  if (!input || typeof input !== "string" || input.indexOf("\x1b[") === -1) {
+  if (!input || typeof input !== "string" || !input.includes("\x1b[")) {
     return input;
   }
   // Classe de caractères, et surtout PAS `(?:\d+;?)*` : un `+` imbriqué dans un

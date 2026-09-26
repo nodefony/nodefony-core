@@ -30,7 +30,6 @@ const checkPath = function (myPath: string | fs.PathOrFileDescriptor): string {
   return path.resolve(process.cwd(), <string>myPath);
 };
 
-const regHidden: RegExp = /^\./;
 const defaultWriteOption = {
   flags: "w",
   defaultEncoding: "utf8",
@@ -283,7 +282,7 @@ class FileClass {
 
   /** @returns `true` si le nom commence par `.` (fichier caché Unix). */
   isHidden(): boolean {
-    return regHidden.test(this.name);
+    return this.name.startsWith(".");
   }
 
   content(encoding?: string): string | Buffer {

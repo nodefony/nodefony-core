@@ -194,7 +194,7 @@ export const postTable = sqliteTable("post", { id: id() });
       "les alias sont neutres : le nom de la table vit dans son appel, pas ici",
     );
     assert.ok(
-      !/export \*/.test(body),
+      !body.includes("export *"),
       "jamais d'étoile : c'est elle qui fabrique l'ambiguïté",
     );
   });

@@ -1401,7 +1401,7 @@ step(
   "Couche donnée : la table se crée, l'aller-retour marche, le schéma refuse le vide.",
   () => {
     const out = run("npm", ["test"]);
-    if (/\bskipped\b/.test(out) && !/0 skipped/.test(out)) {
+    if (/\bskipped\b/.test(out) && !out.includes("0 skipped")) {
       // Un test sauté compte comme vert et ne prouve rien : on le dit.
       process.stdout.write(
         "   ⚠ des tests ont été SAUTÉS — vérifie qu'ils devaient l'être\n",

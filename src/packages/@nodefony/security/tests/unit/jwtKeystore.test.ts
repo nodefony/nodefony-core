@@ -82,7 +82,7 @@ describe("JwtKeystore — fichier (opt-in)", () => {
       // 0666), tout comme un montage FAT/exFAT ou NFS sans mapping. La garantie
       // testée est donc : soit la restriction a pris, soit elle est ANNONCÉE.
       const mode = statSync(file).mode & 0o777;
-      const told = warns.filter((w) => /PAS restreint/.test(w));
+      const told = warns.filter((w) => w.includes("PAS restreint"));
       if (mode === 0o600) {
         assert.equal(
           told.length,
@@ -142,7 +142,7 @@ describe("JwtKeystore — fichier (opt-in)", () => {
       });
       await ks.getSigningKey();
       assert.equal(
-        warns.filter((w) => /PAS restreint/.test(w)).length,
+        warns.filter((w) => w.includes("PAS restreint")).length,
         1,
         "un keyset lisible par d'autres comptes doit être signalé",
       );

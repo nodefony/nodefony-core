@@ -23,10 +23,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./gate-tache-zero.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./gate-tache-zero.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const { classerIssue } = await import(MODULE);
 
 const PROVE =

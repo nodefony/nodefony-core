@@ -277,6 +277,45 @@
     // annotation se fait rétrécir au type affecté) ; un indexé s'écrit
     // `arr.at(0)`, qui dit le vrai.
     "typescript/no-unnecessary-condition": "error",
+    // Règles typées hors de toute catégorie active : chacune est TRANCHÉE ici,
+    // et `scaffoldLintParity.test.ts` refuse qu'une règle typée neuve (montée
+    // d'oxlint) reste sans décision. Allumées : zéro ou peu de sites, et
+    // chacune dit une intention (champ jamais réaffecté → `readonly`, enum
+    // mêlant nombres et chaînes, accesseurs de types divergents).
+    "typescript/no-mixed-enums": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/no-unnecessary-qualifier": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/prefer-return-this-type": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-string-starts-ends-with": "error",
+    "typescript/prefer-readonly": "error",
+    // Coupées, avec leur mesure (#498) :
+    // - `strict-boolean-expressions` (3 985 sites) contredit la décision prise
+    //   sur `prefer-nullish-coalescing` : sur un primitif, `||` et le test de
+    //   vérité sont ICI l'idiome voulu (variable d'environnement vide = absente).
+    // - `prefer-readonly-parameter-types` (10 440) : les types de Node et du DOM
+    //   sont mutables par construction ; l'exiger imposerait un `Readonly<>` de
+    //   façade sur chaque requête, réponse et flux.
+    // - `promise-function-async` (1 791) : forcer `async` ajoute une microtâche
+    //   par appel dans le chemin de requête, pour rien — règle perf du dépôt.
+    // - `strict-void-return` (915) : double `no-confusing-void-expression`, dont
+    //   les deux exemptions (flèche courte, `return resolve()`) sont voulues.
+    // - `non-nullable-type-assertion-style` (368) : réclame `x!` là où
+    //   `no-non-null-assertion` l'interdit ; les deux ne peuvent coexister.
+    // - `dot-notation` (335) : réécrirait `process.env["NODE_ENV"]` et les
+    //   en-têtes en accès pointé, alors que le crochet marque une clé d'index
+    //   qui peut manquer.
+    // - `prefer-regexp-exec` (52) : `str.match(re)` → `re.exec(str)`, pur
+    //   style, n'attrape aucun défaut.
+    "typescript/strict-boolean-expressions": "off",
+    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/promise-function-async": "off",
+    "typescript/strict-void-return": "off",
+    "typescript/non-nullable-type-assertion-style": "off",
+    "typescript/dot-notation": "off",
+    "typescript/prefer-regexp-exec": "off",
     // Allumées par `typeAware` via les catégories, mais ABSENTES du préréglage
     // `strict-type-checked` : coupées exprès. `no-unsafe-type-assertion`
     // interdit tout `as` qui rétrécit (1 781 sites, dont les rétrécissements
@@ -422,7 +461,9 @@
         "typescript/no-unnecessary-type-assertion": "off",
         // Types INFÉRÉS, jamais déclarés : `process.argv[2]` y est `string`,
         // et la garde qui protège d'un argument absent passerait pour inutile.
-        "typescript/no-unnecessary-condition": "off"
+        "typescript/no-unnecessary-condition": "off",
+        // `readonly` est un mot de TypeScript : JavaScript n'a pas de quoi le poser.
+        "typescript/prefer-readonly": "off"
       }
     }
   ]

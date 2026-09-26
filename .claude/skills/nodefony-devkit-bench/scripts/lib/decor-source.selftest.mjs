@@ -18,10 +18,9 @@ import { readFileSync, writeFileSync, rmSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./decor-source.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./decor-source.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const {
   SOURCES,
   ETIQUETTES,

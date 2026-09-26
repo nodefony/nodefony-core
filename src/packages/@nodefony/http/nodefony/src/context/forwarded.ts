@@ -58,7 +58,7 @@ export interface ResolvedProxy {
 function splitTopLevel(input: string, sep: string): string[] {
   // FAST PATH : sans `quoted-string`, aucun séparateur ne peut être protégé →
   // un `split` natif suffit (cas dominant : `Forwarded: for=ip;proto=https`).
-  if (input.indexOf('"') === -1) {
+  if (!input.includes('"')) {
     return input.split(sep);
   }
   const out: string[] = [];
@@ -96,7 +96,7 @@ function splitTopLevel(input: string, sep: string): string[] {
 /** Retire les guillemets d'une `quoted-string` et déséchappe `\x` (RFC 7230 §3.2.6). */
 function unquote(value: string): string {
   const v = value.trim();
-  if (v.length >= 2 && v[0] === '"' && v[v.length - 1] === '"') {
+  if (v.length >= 2 && v.startsWith('"') && v.endsWith('"')) {
     return v.slice(1, -1).replace(/\\(.)/gu, "$1");
   }
   return v;
@@ -181,12 +181,12 @@ export function forwardedNodeIp(node: string | undefined): string | null {
     return null;
   }
   // IPv6 littéral : "[2001:db8::1]" ou "[2001:db8::1]:4711".
-  if (n[0] === "[") {
+  if (n.startsWith("[")) {
     const end = n.indexOf("]");
     return end > 1 ? n.slice(1, end) : null;
   }
   // unknown / obfnode (_xxx) : pas une IP comparable (§6.2/§6.3).
-  if (n === "unknown" || n[0] === "_") {
+  if (n === "unknown" || n.startsWith("_")) {
     return null;
   }
   // IPv4 (ou nodename) éventuellement suivi de ":port" → on retire le port.

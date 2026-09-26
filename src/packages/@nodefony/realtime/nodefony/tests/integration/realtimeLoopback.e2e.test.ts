@@ -672,7 +672,7 @@ describe("Realtime loopback E2E — VRAI client ↔ VRAI serveur (la jonction)",
     const { client, closeServer } = await connectPair();
     const perdues: string[] = [];
     client.onNotice((n) => {
-      if (/perdus/.test(n.message)) perdues.push(n.message);
+      if (n.message.includes("perdus")) perdues.push(n.message);
     });
 
     closeServer(1006, "réseau");

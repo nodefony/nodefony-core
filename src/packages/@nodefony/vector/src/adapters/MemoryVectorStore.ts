@@ -19,7 +19,7 @@ export class MemoryVectorStore implements IVectorStore {
   readonly collection: string;
   readonly dimensions: number;
 
-  private entries = new Map<string, IVectorEntry>();
+  private readonly entries = new Map<string, IVectorEntry>();
   private initialized = false;
   private isShutdown = false;
 

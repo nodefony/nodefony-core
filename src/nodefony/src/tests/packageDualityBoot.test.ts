@@ -140,7 +140,7 @@ describe.skipIf(!fs.existsSync(DIST))(
           `un boot en dualité ne doit PAS réussir\n${r.texte}`,
         );
         assert.ok(
-          /Démarrage refusé/.test(r.texte),
+          r.texte.includes("Démarrage refusé"),
           `le refus doit être ANNONCÉ, pas déduit d'un code\n${r.texte}`,
         );
         assert.ok(
@@ -152,7 +152,7 @@ describe.skipIf(!fs.existsSync(DIST))(
         // `test` et `staging` sur `production`, et annoncer un déploiement à
         // qui lançait ses tests envoie chercher au mauvais endroit.
         assert.ok(
-          /NODE_ENV=production/.test(r.texte),
+          r.texte.includes("NODE_ENV=production"),
           `le message doit nommer le NODE_ENV constaté\n${r.texte}`,
         );
         // 🔴 CE QUI REND CE TEST NON COMPLAISANT. Le refus est câblé à DEUX
@@ -162,7 +162,7 @@ describe.skipIf(!fs.existsSync(DIST))(
         // qu'un seul module ne soit construit à la frontière. Le cycle de vie
         // le dit sans qu'on ait à lire une pile d'appels.
         assert.ok(
-          !/onPreRegister/.test(r.texte),
+          !r.texte.includes("onPreRegister"),
           `le refus doit tomber AVANT le chargement des modules — ici le boot ` +
             `a atteint onPreRegister, donc seul le second point de contrôle a ` +
             `mordu\n${r.texte}`,
@@ -179,7 +179,7 @@ describe.skipIf(!fs.existsSync(DIST))(
           NODE_ENV: "development",
         });
         assert.ok(
-          /copies du paquet/.test(r.texte),
+          r.texte.includes("copies du paquet"),
           `la dualité doit être DITE en développement aussi\n${r.texte}`,
         );
         assert.ok(
@@ -187,7 +187,7 @@ describe.skipIf(!fs.existsSync(DIST))(
           `l'avertissement doit nommer les chemins\n${r.texte}`,
         );
         assert.ok(
-          !/Démarrage refusé/.test(r.texte),
+          !r.texte.includes("Démarrage refusé"),
           `en développement on démarre : celui qui lance lit son journal et ` +
             `a besoin de son serveur\n${r.texte}`,
         );

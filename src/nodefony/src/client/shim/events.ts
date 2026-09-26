@@ -13,7 +13,7 @@
 type Listener = (...args: any[]) => void;
 
 export class EventEmitter {
-  private _listeners: Map<string | symbol, Listener[]> = new Map();
+  private readonly _listeners: Map<string | symbol, Listener[]> = new Map();
   private _maxListeners: number = 10;
 
   on(event: string | symbol, fn: Listener): this {

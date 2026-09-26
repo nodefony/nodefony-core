@@ -50,7 +50,7 @@ export abstract class BatchingHttpTransport implements ITransport {
   // Une queue par INSTANCE de transport (créée 1× au boot si le driver est actif),
   // jamais par requête → conforme à la règle d'alloc. Pdu gardés par référence ;
   // la projection (Pdu → ligne/doc) est différée au flush (hors hot path du send).
-  #queue: Pdu[] = [];
+  readonly #queue: Pdu[] = [];
   #timer: ReturnType<typeof setTimeout> | null = null;
   #flushing = false;
   #dropped = 0;

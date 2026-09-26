@@ -16,9 +16,9 @@ export class InMemoryStore {
   private readonly sessionTtlMs: number;
 
   // sessionId -> entries[]
-  private sessions = new Map<string, IMemoryEntry[]>();
+  private readonly sessions = new Map<string, IMemoryEntry[]>();
   // sessionId -> last access timestamp (pour TTL/LRU)
-  private lastAccess = new Map<string, number>();
+  private readonly lastAccess = new Map<string, number>();
 
   // Cleanup timer
   private cleanupHandle: ReturnType<typeof setInterval> | null = null;

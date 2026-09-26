@@ -53,7 +53,7 @@ class Builder extends Service {
   public debug: boolean = false;
   public interactive: boolean = false;
   public location: string = process.cwd();
-  private eta: Eta = new Eta(etaOptions);
+  private readonly eta: Eta = new Eta(etaOptions);
 
   constructor(command: Command) {
     super("Builder", <Container>command.container, command.notificationsCenter);

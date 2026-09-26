@@ -15,7 +15,9 @@
  *   JavaScript comprises. Durcir le dépôt sans le gabarit le fait tomber.
  */
 
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, it, expect } from "vitest";
@@ -28,6 +30,7 @@ const REPO = path.resolve(CORE, "../..");
 
 interface ILintConfig {
   options?: { typeAware?: boolean };
+  categories?: Record<string, string>;
   rules?: Record<string, unknown>;
   overrides?: Array<{ files: string[]; rules?: Record<string, unknown> }>;
 }
@@ -92,5 +95,45 @@ describe("gabarit d'application — même rigueur de typage que le dépôt", () 
     const tplJs = overrideFor(template, "**/*.mjs");
     expect(repoJs).toBeDefined();
     expect(typed(tplJs?.rules)).toEqual(typed(repoJs?.rules));
+  });
+});
+
+interface IRuleInfo {
+  scope: string;
+  value: string;
+  category: string;
+  type_aware: boolean;
+}
+
+describe("règles typées — aucune sans décision", () => {
+  it("règle explicitement chaque règle typée hors des catégories actives", () => {
+    // Le catalogue vient de l'oxlint INSTALLÉ : une montée de version qui
+    // apporte une règle typée fait tomber ce test tant qu'elle n'est pas
+    // tranchée (allumée, ou coupée avec son motif) dans `.oxlintrc.json`.
+    const bin = path.join(
+      path.dirname(
+        createRequire(path.join(REPO, "package.json")).resolve(
+          "oxlint/package.json",
+        ),
+      ),
+      "bin/oxlint",
+    );
+    const catalog = JSON.parse(
+      execFileSync(process.execPath, [bin, "--rules", "--format=json"], {
+        cwd: REPO,
+        encoding: "utf8",
+      }),
+    ) as IRuleInfo[];
+    const active = new Set(
+      Object.entries(repo.categories ?? {})
+        .filter(([, level]) => level !== "off")
+        .map(([name]) => name),
+    );
+    const undecided = catalog
+      .filter((r) => r.type_aware && !active.has(r.category))
+      .map((r) => `${r.scope}/${r.value}`)
+      .filter((key) => !(key in (repo.rules ?? {})));
+    expect(catalog.some((r) => r.type_aware)).toBe(true);
+    expect(undecided).toEqual([]);
   });
 });

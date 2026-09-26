@@ -18,10 +18,9 @@ import { fileURLToPath } from "node:url";
 // des copies mutées. Une seule liste de cas, donc — la faire diverger ferait
 // « prouver » à la mutation un contrôle qui n'est pas celui qu'on exécute.
 // Même patron que `reference.selftest.mjs` : une règle, une implémentation.
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./tache-zero.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./tache-zero.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const {
   canalDe,
   commandeCreation,

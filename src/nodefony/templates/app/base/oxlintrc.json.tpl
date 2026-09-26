@@ -192,6 +192,33 @@
     // annotation se fait rétrécir au type affecté) ; un indexé s'écrit
     // `arr.at(0)`, qui dit le vrai.
     "typescript/no-unnecessary-condition": "error",
+    // Chaque règle typée hors catégorie est tranchée. Allumées : chacune dit
+    // une intention (champ jamais réaffecté → `readonly`, enum mêlant nombres
+    // et chaînes, accesseurs de types divergents).
+    "typescript/no-mixed-enums": "error",
+    "typescript/related-getter-setter-pairs": "error",
+    "typescript/no-unnecessary-qualifier": "error",
+    "typescript/prefer-find": "error",
+    "typescript/prefer-reduce-type-parameter": "error",
+    "typescript/prefer-return-this-type": "error",
+    "typescript/prefer-includes": "error",
+    "typescript/prefer-string-starts-ends-with": "error",
+    "typescript/prefer-readonly": "error",
+    // Coupées : `strict-boolean-expressions` refuse `||` sur un primitif (une
+    // chaîne vide vaut « absente ») ; `prefer-readonly-parameter-types` bute
+    // sur les types mutables de Node ; `promise-function-async` ajoute une
+    // microtâche par appel ; `strict-void-return` double
+    // `no-confusing-void-expression` ; `non-nullable-type-assertion-style`
+    // réclame le `x!` que `no-non-null-assertion` interdit ; `dot-notation`
+    // efface le crochet qui marque une clé pouvant manquer ;
+    // `prefer-regexp-exec` n'est que du style.
+    "typescript/strict-boolean-expressions": "off",
+    "typescript/prefer-readonly-parameter-types": "off",
+    "typescript/promise-function-async": "off",
+    "typescript/strict-void-return": "off",
+    "typescript/non-nullable-type-assertion-style": "off",
+    "typescript/dot-notation": "off",
+    "typescript/prefer-regexp-exec": "off",
     // Allumées par les catégories mais hors du préréglage : `no-unsafe-type-
     // assertion` interdirait tout `as` qui rétrécit, y compris après une
     // validation ; `require-array-sort-compare` refuse un `sort()` de chaînes,
@@ -253,7 +280,9 @@
         "typescript/no-unnecessary-type-assertion": "off",
         // Types INFÉRÉS, jamais déclarés : `process.argv[2]` y est `string`,
         // et la garde qui protège d'un argument absent passerait pour inutile.
-        "typescript/no-unnecessary-condition": "off"
+        "typescript/no-unnecessary-condition": "off",
+        // `readonly` est un mot de TypeScript : JavaScript n'a pas de quoi le poser.
+        "typescript/prefer-readonly": "off"
       }
     }
   ]

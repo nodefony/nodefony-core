@@ -40,10 +40,9 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./identites.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./identites.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const {
   motDePasseAdmin,
   MOT_DE_PASSE_POSE,

@@ -26,10 +26,9 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ICI = path.dirname(fileURLToPath(import.meta.url));
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./premisse-identite.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./premisse-identite.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const { constaterPremisseIdentite } = await import(MODULE);
 
 const defauts = [];

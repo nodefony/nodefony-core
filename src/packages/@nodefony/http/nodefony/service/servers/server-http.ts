@@ -50,7 +50,7 @@ class ServerHttp extends Service {
 
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel,
+    @inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
     // NE PAS SUPPRIMER — cette expression est le seul usage de `Module` EN TANT
     // QUE VALEUR dans ce fichier. Sans elle le bundler élide l'import, et

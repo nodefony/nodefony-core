@@ -175,7 +175,7 @@ describe.skipIf(!fs.existsSync(DIST))(
           `le refus doit sortir en EX_CONFIG (${SysExit.CONFIG})\n${r.texte}`,
         );
         assert.ok(
-          /Démarrage refusé — manifeste "modules"/.test(r.texte),
+          r.texte.includes('Démarrage refusé — manifeste "modules"'),
           `le refus doit être ANNONCÉ, pas déduit d'un code\n${r.texte}`,
         );
         assert.ok(
@@ -184,7 +184,7 @@ describe.skipIf(!fs.existsSync(DIST))(
             `un problème, pas quelle ligne déplacer\n${r.texte}`,
         );
         assert.ok(
-          /Remède/.test(r.texte),
+          r.texte.includes("Remède"),
           `le refus doit dire le GESTE qui répare\n${r.texte}`,
         );
         // 🔴 CE QUI REND CE TEST NON COMPLAISANT. Le contrat n'est pas « refuser »,
@@ -206,7 +206,7 @@ describe.skipIf(!fs.existsSync(DIST))(
       try {
         const r = await lancer(["inspect", "modules"], dir);
         assert.ok(
-          !/Démarrage refusé — manifeste "modules"/.test(r.texte),
+          !r.texte.includes('Démarrage refusé — manifeste "modules"'),
           `l'ordre juste ne doit RIEN refuser\n${r.texte}`,
         );
         // Témoin du décor : sans lui, un refus prononcé pour une tout autre

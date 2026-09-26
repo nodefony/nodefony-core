@@ -355,7 +355,7 @@ function effectiveBackground(el) {
   let opaqueLayer = null;
   for (let n = el; n; n = n.parentElement) {
     const bg = getComputedStyle(n).backgroundColor;
-    if (!bg || /transparent/.test(bg)) continue;
+    if (!bg || bg.includes("transparent")) continue;
     const { a } = parseColor(bg);
     if (a === 0) continue;
     if (a >= 1) {

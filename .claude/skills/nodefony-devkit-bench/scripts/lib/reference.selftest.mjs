@@ -31,10 +31,9 @@ import { fileURLToPath } from "node:url";
 // Le module éprouvé est paramétrable : `--prove` relance ce même fichier sur
 // des copies mutées. Une seule liste de cas, donc — la faire diverger ferait
 // « prouver » à la mutation un contrôle qui n'est pas celui qu'on exécute.
-const MODULE =
-  process.argv.indexOf("--module") === -1
-    ? "./reference.mjs"
-    : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
+const MODULE = !process.argv.includes("--module")
+  ? "./reference.mjs"
+  : path.resolve(process.argv[process.argv.indexOf("--module") + 1]);
 const {
   comparerDecor,
   depister,

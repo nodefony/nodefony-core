@@ -211,7 +211,7 @@ export function extractClientIp(
   // FAST PATH (cas prod dominant : 1 reverse-proxy) — un seul maillon, pas de
   // virgule → 0 allocation (ni split, ni map, ni array). L'IP réelle = ce maillon
   // si le socket (le proxy) est de confiance, sinon le socket lui-même.
-  if (s.indexOf(",") === -1) {
+  if (!s.includes(",")) {
     const ip = s.trim();
     if (!ip) {
       return socketAddress;

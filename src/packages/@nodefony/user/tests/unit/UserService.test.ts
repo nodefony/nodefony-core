@@ -547,7 +547,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
         service.createUser({ identifier: "compta", plainPassword: "abc" }),
         (erreur: unknown) =>
           erreur instanceof WeakPasswordError &&
-          /trop court/.test(erreur.message),
+          erreur.message.includes("trop court"),
       );
     });
 
@@ -567,7 +567,7 @@ describe("UserService (P5.6 — extends AbstractCrudService)", () => {
         service.changePassword(user.id, "marie.dupont-2026"),
         (erreur: unknown) =>
           erreur instanceof WeakPasswordError &&
-          /identifiant du compte/.test(erreur.message),
+          erreur.message.includes("identifiant du compte"),
       );
     });
 

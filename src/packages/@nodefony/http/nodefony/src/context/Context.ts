@@ -276,11 +276,11 @@ class Context extends Service implements IContextInterface {
   // Timing: opt-out in prod (default), opt-in elsewhere. Overridable via
   // kernel.options.timing.enabled. When disabled: `phases` is a shared frozen
   // empty array, `phaseStart`/`phaseEnd` are noops, no Map is allocated.
-  private _timingEnabled: boolean = false;
+  private readonly _timingEnabled: boolean = false;
   // P3.7 — trace verbose opt-in (kernel.options.timing.verbose). Résolu 1× au
   // constructeur, implique `_timingEnabled`. false par défaut → 0 stringify/alloc
   // au teardown hors debug explicite (perf-first : gratuit en prod).
-  private _timingVerbose: boolean = false;
+  private readonly _timingVerbose: boolean = false;
   readonly phases: PhaseTiming[] = EMPTY_PHASES;
   private _phaseIndex: Map<string, number> | null = null;
   // Lazy alloc — most requests never register an after-response hook.

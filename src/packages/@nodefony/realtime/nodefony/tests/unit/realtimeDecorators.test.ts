@@ -184,7 +184,7 @@ describe("@RealtimeChannel — registre des canaux pub/sub", () => {
     let seenChannel: string | null = null;
     let publishedCount = 0;
     class Ctrl {
-      private id = "C1";
+      private readonly id = "C1";
       @RealtimeChannel("ch1")
       ch1(channel: string, publish: RealtimePublish): () => void {
         seenChannel = channel;
@@ -306,7 +306,7 @@ describe("héritage — la subclass voit les décorateurs de la parent ET les si
 describe("multiples instances de la même classe — registre PAR CLASSE, bind PAR INSTANCE", () => {
   it("deux instances → mêmes noms d'actions, mais `this` distinct", () => {
     class Ctr {
-      constructor(private label: string) {}
+      constructor(private readonly label: string) {}
       @RealtimeAction("who")
       who(): string {
         return this.label;

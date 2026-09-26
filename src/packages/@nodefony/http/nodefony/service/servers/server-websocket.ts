@@ -35,7 +35,7 @@ class Websocket extends Service {
   heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   constructor(
     module: Module,
-    @inject("HttpKernel") private httpKernel: HttpKernel,
+    @inject("HttpKernel") private readonly httpKernel: HttpKernel,
   ) {
     super(
       "server-websocket",

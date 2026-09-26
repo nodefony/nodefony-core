@@ -111,7 +111,7 @@ describe("NODEFONY CORE FINDER", () => {
       await assert.rejects(global.finder.in("bad path"));
       let res = await global.finder.in("bad path").catch((e: unknown) => {
         assert.ok(e instanceof Error);
-        assert.ok(e.message.indexOf("no such file or director") >= 0);
+        assert.ok(e.message.includes("no such file or director"));
       });
       assert.equal(res, undefined);
       await assert.rejects(async () => {

@@ -96,7 +96,7 @@ const contextHooksState = {
 class DefaultController extends Controller {
   constructor(
     context: Context,
-    @inject("Fetch") private fetchService: Fetch,
+    @inject("Fetch") private readonly fetchService: Fetch,
   ) {
     super("DefaultController", context);
   }

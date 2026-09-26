@@ -133,7 +133,8 @@ export function safeStringify(v: unknown, indent = 2): string {
  */
 export function tryParseJson(s: string): { ok: boolean; value: unknown } {
   const t = s.trim();
-  if (!t || (t[0] !== "{" && t[0] !== "[")) return { ok: false, value: s };
+  if (!t || (!t.startsWith("{") && !t.startsWith("[")))
+    return { ok: false, value: s };
   try {
     return { ok: true, value: JSON.parse(t) };
   } catch {

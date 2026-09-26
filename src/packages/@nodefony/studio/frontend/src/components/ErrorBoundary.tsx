@@ -50,7 +50,7 @@ export class ErrorBoundary extends Component<Props, State> {
     console.error("[Studio] Error boundary caught:", error, info);
   }
 
-  private reset = (): void =>
+  private readonly reset = (): void =>
     this.setState({ error: null, componentStack: null, showStack: false });
 
   render(): ReactNode {

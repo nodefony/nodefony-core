@@ -67,7 +67,7 @@ function fmtUptime(s: number | undefined): string {
 }
 function sevColor(s: string): string {
   if (/(emerg|alert|crit|error|err)/.test(s)) return "red";
-  if (/warn/.test(s)) return "yellow";
+  if (s.includes("warn")) return "yellow";
   if (/(notice|info)/.test(s)) return "blue";
   return "gray";
 }

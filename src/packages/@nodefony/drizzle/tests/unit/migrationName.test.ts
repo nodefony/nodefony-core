@@ -97,7 +97,7 @@ describe("@nodefony/drizzle — nom d'une migration", () => {
       // Il passe la forme (`[a-z0-9_]+`) mais ne porte aucune substance.
       const v = checkMigrationName("___");
       assert.equal(v.ok, false);
-      assert.ok(!v.ok && /aucune lettre ni chiffre/.test(v.reason));
+      assert.ok(!v.ok && v.reason.includes("aucune lettre ni chiffre"));
     });
 
     it("🔴 un nom trop long est refusé AVANT d'écrire un fichier", () => {
