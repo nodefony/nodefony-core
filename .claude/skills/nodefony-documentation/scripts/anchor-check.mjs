@@ -172,21 +172,47 @@ function voisinsDeLaLigne(mdLine, refCourante) {
  * Quand aucun symbole ne précède l'ancre, on retombe sur l'ensemble des
  * symboles de la ligne — mieux vaut un contexte large que pas de contrôle.
  */
-function symboleProuve(mdLine, anchorRaw) {
-  const at = mdLine.indexOf(anchorRaw);
-  const avant = at > 0 ? mdLine.slice(0, at) : "";
+function symboleProuve(segment, anchorRaw) {
+  const at = segment.indexOf(anchorRaw);
+  const avant = at > 0 ? segment.slice(0, at) : "";
   const ticks = [...avant.matchAll(/`([^`]+)`/g)].map((m) => m[1]);
   for (let i = ticks.length - 1; i >= 0; i--) {
-    const brut = ticks[i];
-    if (/\.(ts|mjs|tsx):\d/.test(brut)) continue; // c'est une autre ancre
+    const brut = ticks[i].replace(/\(.*$/, "");
     const nom = brut
-      .replace(/\(.*$/, "")
       .split(".")
       .pop()
       ?.replace(/[^A-Za-z0-9_$#]/g, "");
-    if (nom && nom.length > 2) return nom;
+    // Un nom QUALIFIÉ (`Service.nc`, `Store.gc()`) désigne un membre sans
+    // ambiguïté, même sur deux lettres. Le jeter faisait remonter au symbole
+    // précédent de la phrase — celui d'une AUTRE ancre.
+    if (nom && (nom.length > 2 || (brut.includes(".") && nom.length === 2)))
+      return nom;
   }
   return null;
+}
+
+/**
+ * Le morceau de la ligne qui appartient à l'ancre : de la fin de l'ancre
+ * PRÉCÉDENTE à la fin de la sienne (à la fin de la ligne si elle est la dernière).
+ *
+ * « `Service.notificationsCenter` (`Service.ts:93`) … getter `Service.nc`
+ * (`Service.ts:98`) » : sans cette borne, un symbole trop court pour compter
+ * laissait remonter jusqu'à `notificationsCenter`, que la première ancre prouve
+ * déjà — et la seconde, juste, sortait SUSPECT parce que ce symbole est déclaré
+ * cinq lignes plus haut. Ce qui précède une ancre voisine est SON contexte.
+ */
+function segmentDeLAncre(mdLine, offset, longueur) {
+  let debut = 0;
+  let suivante = false;
+  for (const m of mdLine.matchAll(ANCHOR_RE)) {
+    const b = m.index + m[0].length;
+    if (b <= offset) debut = Math.max(debut, b);
+    else if (m.index >= offset + longueur) suivante = true;
+  }
+  // Ce qui SUIT l'ancre n'est son contexte que si aucune autre ne vient après :
+  // « la décision du firewall (`Context.ts:198`), le `requestId`
+  // (`Context.ts:244`) » — `requestId` appartient à la seconde.
+  return mdLine.slice(debut, suivante ? offset + longueur : mdLine.length);
 }
 
 /**
@@ -235,9 +261,18 @@ function enteteDe(code, ancre, decl) {
  * toutes rendues OK — `RealtimeChannelFactory` contient `realtimechannel`, et chaque
  * décorateur se trouvait dans la fenêtre de l'ancre du voisin.
  */
-function lignesDeDeclaration(code, sym) {
+function lignesDeDeclaration(code, sym, { sansSignatures = false } = {}) {
   const bare = sym.replace(/^#/, "");
   const esc = bare.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  // Une SIGNATURE de propriété (`state: string;`, `lastUsedThrottleS: number;`)
+  // décrit la forme d'un objet d'options, pas l'endroit où la valeur agit.
+  // La doc cite volontiers la CLÉ de config et pointe la logique qui la
+  // consomme sous un autre nom (`#throttleMs`, `STATE_KEY`) : rejeter l'ancre
+  // parce que la clé est « déclarée » dans le type d'options, c'était
+  // confondre le contrat et son effet.
+  const signature = new RegExp(
+    `^\\s{2,}(public |private |protected |readonly |override |declare )*#?${esc}\\??\\s*:[^=(]*$`,
+  );
   const motifs = [
     new RegExp(`^\\s*(export\\s+)?(abstract\\s+)?class\\s+${esc}\\b`),
     new RegExp(`^\\s*(export\\s+)?interface\\s+${esc}\\b`),
@@ -245,11 +280,12 @@ function lignesDeDeclaration(code, sym) {
     new RegExp(`^\\s*(export\\s+)?(declare\\s+)?const\\s+${esc}\\b`),
     new RegExp(`^\\s*(export\\s+)?type\\s+${esc}\\b`),
     new RegExp(
-      `^\\s{2,}(public |private |protected |static |readonly )*(async )?(get |set )?#?${esc}\\??\\s*[(<:=]`,
+      `^\\s{2,}(public |private |protected |static |readonly |abstract |override )*(async )?(get |set )?#?${esc}\\??\\s*[(<:=]`,
     ),
   ];
   const out = [];
   for (let i = 0; i < code.length; i++) {
+    if (sansSignatures && signature.test(code[i])) continue;
     if (motifs.some((m) => m.test(code[i]))) out.push(i + 1);
   }
   return out;
@@ -318,8 +354,10 @@ for (const md of args) {
         });
         continue;
       }
+      const decalage = mdLine.length - line.length;
+      const segment = segmentDeLAncre(mdLine, decalage + m.index, raw.length);
       const tokens = contextTokens(
-        mdLine,
+        segment,
         raw.replaceAll("`", ""),
         path.basename(ref).replace(/\.(ts|mjs|tsx)$/, ""),
         voisinsDeLaLigne(mdLine, ref),
@@ -336,7 +374,7 @@ for (const md of args) {
           break;
         }
         // Le symbole que l'ancre engage est là où elle pointe : c'est réglé.
-        const prouve = symboleProuve(mdLine, raw.replaceAll("`", ""));
+        const prouve = symboleProuve(segment, raw.replaceAll("`", ""));
         if (prouve && declareIci(code, prouve, start, end)) {
           best = { kind: "OK", cand };
           break;
@@ -345,7 +383,9 @@ for (const md of args) {
         // passe AVANT la fenêtre large, qui accepterait le décalage sur un mot voisin.
         // Exception : le symbole est ÉCRIT sur la ligne pointée (±1) — l'ancre vise un
         // site d'USAGE (un appel, une lecture de champ), pas la déclaration.
-        const ailleursDecl = prouve ? lignesDeDeclaration(code, prouve) : [];
+        const ailleursDecl = prouve
+          ? lignesDeDeclaration(code, prouve, { sansSignatures: true })
+          : [];
         const motEntier = prouve
           ? new RegExp(
               `(^|[^A-Za-z0-9_$])#?${prouve.replace(/^#/, "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![A-Za-z0-9_$])`,
@@ -365,8 +405,20 @@ for (const md of args) {
         }
         // Match insensible à la casse : `setFrameAuthorizer` doit satisfaire le
         // token `frameAuthorizer` (conventions camelCase vs nom de propriété).
+        // La fenêtre englobe l'EN-TÊTE de la déclaration pointée : son TSDoc
+        // nomme ce qu'elle fait (`NF__APP__*` au-dessus d'`applyAppEnvOverrides`)
+        // et peut dépasser les onze lignes de la marge fixe.
+        let haut = start - 1;
+        while (
+          haut > 0 &&
+          /^(\/\*\*?|\*|\/\/|@)/.test((code[haut - 1] ?? "").trim())
+        )
+          haut--;
         const win = code
-          .slice(Math.max(0, start - 11), Math.min(code.length, end + 15))
+          .slice(
+            Math.max(0, Math.min(start - 11, haut)),
+            Math.min(code.length, end + 15),
+          )
           .join("\n")
           .toLowerCase();
         if (tokens.some((t) => win.includes(t.toLowerCase()))) {

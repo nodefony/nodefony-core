@@ -31,7 +31,7 @@ try {
   // Alpha : TSDoc l.1-8 (plus long que la tolérance fixe de 3 lignes), déclaration
   // l.9 ; un usage de Beta l.12 ; `BetaFactory` l.20 (le mot voisin qui trompait) ;
   // Beta déclaré l.30.
-  const code = Array.from({ length: 40 }, () => "");
+  const code = Array.from({ length: 80 }, () => "");
   code[0] = "/**";
   for (let i = 1; i < 7; i++)
     code[i] = " * Fait une chose — sans nommer le symbole.";
@@ -40,6 +40,27 @@ try {
   code[11] = "const b = Beta();";
   code[19] = "export type BetaFactory = () => void;";
   code[29] = "export function Beta(): void {}";
+  // K l.41-44 : un getter de deux lettres (`nc`) et `gc`. IOpts l.46-48 : la
+  // CLÉ `state` n'est qu'une signature — la logique qui la consomme (l.60)
+  // l'écrit `STATE_KEY`. `onConnect` abstrait l.52, dérivé de huit lignes de
+  // l'ancre l.44. `applyX` l.76, dont le TSDoc (l.62-75) nomme `NF__X__`.
+  code[40] = "export abstract class K {";
+  code[41] = "  private get nc(): number { return 1; }";
+  code[42] = "  async gc(): Promise<void> {}";
+  code[43] = "}";
+  code[45] = "export interface IOpts {";
+  code[46] = "  state: string;";
+  code[47] = "}";
+  code[48] = "export abstract class Orm {";
+  code[49] = "  x = 1;";
+  code[51] = "  protected abstract onConnect(): void;";
+  code[52] = "}";
+  code[59] = "session.set(STATE_KEY, null);";
+  code[61] = "/**";
+  code[62] = " * Applique les surcharges `NF__X__*`.";
+  for (let i = 63; i < 74; i++) code[i] = " * Détail sans nommer la variable.";
+  code[74] = " */";
+  code[75] = "export function applyX(): void {}";
   fs.writeFileSync(path.join(racine, "src", "deco.ts"), code.join("\n"));
 
   /** @type {Array<[string, string[], string]>} */
@@ -60,6 +81,37 @@ try {
       "`Beta()` (`deco.ts:12`)",
       [],
       "l'ancre sur un site d'USAGE du symbole est OK",
+    ],
+    // Deux ancres dans une phrase : le contexte de l'une n'est pas celui de l'autre.
+    [
+      "`Alpha()` (`deco.ts:9`) croisé avec la classe (`deco.ts:41`)",
+      [],
+      "le symbole d'une ancre PRÉCÉDENTE ne juge pas la suivante",
+    ],
+    [
+      "la classe (`deco.ts:41`), puis `Alpha` (`deco.ts:9`)",
+      [],
+      "le symbole qui SUIT une ancre appartient à la suivante",
+    ],
+    [
+      "`Alpha()` (`deco.ts:9`) ; getter `K.nc` (`deco.ts:42`), `K.gc()` (`deco.ts:43`)",
+      [],
+      "un membre QUALIFIÉ de deux lettres est un symbole, pas du bruit",
+    ],
+    [
+      "| Rejeu | `state` à usage unique (`deco.ts:60`) |",
+      [],
+      "une CLÉ déclarée en signature d'options ne rejette pas l'ancre sur sa logique",
+    ],
+    [
+      "`Orm.onConnect()` (`deco.ts:44`)",
+      ["SUSPECT deco.ts:44"],
+      "une méthode ABSTRAITE est une déclaration : la dérive se voit",
+    ],
+    [
+      "| Déploiement | `NF__X__…` (`deco.ts:76`) |",
+      [],
+      "le TSDoc de la déclaration pointée fait partie de sa fenêtre",
     ],
   ];
 
