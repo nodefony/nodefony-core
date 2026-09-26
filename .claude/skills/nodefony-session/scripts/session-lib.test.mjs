@@ -10,8 +10,6 @@ import {
   firstPriority,
   nextStateName,
   linksInSection,
-  liveRetexThemes,
-  matureThemes,
   modifiedOf,
   sessionLogArgs,
   stateWrittenAt,
@@ -101,47 +99,6 @@ describe("newlyDone — fermés entre deux empreintes", () => {
       { number: 3, status: "Done", title: "neuf" },
     ];
     expect(newlyDone(before, after).map((i) => i.number)).toEqual([1]);
-  });
-});
-
-describe("matureThemes — le verdict du seuil arrive à la clôture", () => {
-  it("nomme chaque thème MÛR — pas seulement la ligne des totaux", () => {
-    const out = [
-      "RETEX.md — 28 thème(s) vivant(s), 81 friction(s), 715 lignes",
-      "",
-      "🎓 3 thème(s) MÛR(S) pour une mémoire `feedback_*` (seuil 5) :",
-      "   55  🎯 Une règle vérifiée sur UN décor",
-      "    5  🧵 Trois choses ne suivent PAS",
-      "",
-      "   Graduer = lire le thème, lui trouver sa MAISON (une mémoire existante",
-    ].join("\n");
-    expect(matureThemes(out)).toEqual([
-      { count: 55, title: "🎯 Une règle vérifiée sur UN décor" },
-      { count: 5, title: "🧵 Trois choses ne suivent PAS" },
-    ]);
-  });
-  it("rien de mûr → rien à afficher", () => {
-    const out =
-      "RETEX.md — 28 thème(s) vivant(s), 16 friction(s), 443 lignes\n✓ aucun thème au-dessus du seuil de 5 — rien à graduer";
-    expect(matureThemes(out)).toEqual([]);
-  });
-});
-
-describe("liveRetexThemes — les titres vivants du sas", () => {
-  const sas = [
-    "# RETEX",
-    "## 🪞 Le remède — GRADUÉ",
-    "## ⌨️ Une commande tapée",
-    "## 🗄️ 🧨 DÉCLARATION — VERSÉS",
-    "## 👻 Un process sans port",
-    "## 🗄️ Gradué aux CONSOLIDATE",
-    "## 🩹 Archivé vivant après la borne",
-  ].join("\n");
-  it("écarte les gradués/versés et s'arrête à la section d'archive", () => {
-    expect(liveRetexThemes(sas)).toEqual([
-      "⌨️ Une commande tapée",
-      "👻 Un process sans port",
-    ]);
   });
 });
 

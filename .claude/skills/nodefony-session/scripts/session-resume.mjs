@@ -26,7 +26,6 @@ import {
   clip,
   firstPriority,
   linksInSection,
-  liveRetexThemes,
   modifiedOf,
   stateWrittenAt,
   newlyDone,
@@ -152,9 +151,7 @@ const states = fs.existsSync(MEM)
   : [];
 const stateFile = states.at(-1);
 if (!stateFile) {
-  say(
-    "⚠️ aucun _state — reprendre sur le dernier retex de docs/session-retros/",
-  );
+  say("⚠️ aucun _state — reprendre sur `git log` et le tableau (➡️)");
 } else {
   const text = fs.readFileSync(path.join(MEM, stateFile), "utf8");
   const since = stateWrittenAt({
@@ -339,15 +336,5 @@ say(
       }${npmStale ? " · package-lock plus récent que l'installation → npm install" : ""}`
     : "✅ dist et installation à jour",
 );
-
-// ── 9. Sas des retex : les TITRES des thèmes vivants — ce sont les règles.
-const sas = path.join(ROOT, "docs", "session-retros", "RETEX.md");
-if (fs.existsSync(sas)) {
-  const live = liveRetexThemes(fs.readFileSync(sas, "utf8"));
-  say(
-    `Sas RETEX — ${live.length} thème(s) vivant(s) (n'ouvrir que celui qui touche le travail du jour) :`,
-  );
-  for (const t of live.slice(0, 6)) say(`   · ${clip(t, 84)}`);
-}
 
 console.log(out.join("\n"));

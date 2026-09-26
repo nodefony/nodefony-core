@@ -135,7 +135,7 @@ export interface IProjectScriptGroup {
  * automates de pilotage, il appartient au pilotage et non aux tests.
  */
 const SCRIPT_RULES: ReadonlyArray<readonly [RegExp, string]> = [
-  [/^(test:pilotage|retex:seuil|lessons:carriers)$/u, "PILOTER"],
+  [/^test:pilotage$/u, "PILOTER"],
   [/^(board|ticket):/u, "PILOTER"],
   [/^(release|readme:gate|test:release)/u, "PUBLIER"],
   [/^(doc|skills|generate-symbols|env:snapshot)/u, "DOCUMENTER"],

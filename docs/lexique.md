@@ -62,8 +62,8 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | **smoke test**       | « test de fumée »      | Vérif minimale que « ça démarre et le basique marche » (serveur up + 1 route) — avant d'aller plus loin. Pas exhaustif, juste « pas en feu ».      |
 | **garde-fou**        | —                      | Une règle/vérif qui empêche une erreur connue de se reproduire (ex. « vérité = commits, pas le journal »).                                         |
 | **béton**            | image                  | Un plan/contexte tellement détaillé et vérifié qu'une autre session ne peut pas dériver (ancrages `fichier:ligne`, décisions tranchées).           |
-| **retex / RETEX**    | RETour d'EXpérience    | Le bilan d'une session (ce qui a coûté, les leçons). Vit dans `docs/session-retros/`.                                                              |
-| **SAS**              | image (sas d'écluse)   | Le fichier `RETEX.md` : zone tampon des leçons récentes pas encore « gravées » en règle durable.                                                   |
+| **retex / RETEX**    | RETour d'EXpérience    | Ancien bilan de session (ce qui a coûté, les leçons). Archivé dans `docs/session-retros/` ; plus alimenté.                                         |
+| **SAS**              | image (sas d'écluse)   | Ancien fichier `RETEX.md` (archivé) : zone tampon des leçons pas encore « gravées » en règle durable.                                              |
 | **TLDR**             | Too Long; Didn't Read  | « En résumé » : la conclusion en une phrase, avant le détail.                                                                                      |
 
 ### Architecture & patterns

@@ -1,29 +1,28 @@
 ---
 name: nodefony-session
 description: >
-  Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) :
+  Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) :
   reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur
-  un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture
-  des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et
-  CONSOLIDATE dans `references/`.
+  un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des
+  tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans
+  `references/`.
   Déclencheurs : "reprends", "on en était où", "dernière session", "où en est la publication",
   "quels tickets restent", "prépare le contexte", "session sur <module>", "fin de session",
-  "retex", "consolide les retex".
+  "clôture la session".
 ---
 
 # nodefony-session
 
-Skill **lifecycle** : ouverture (`start`) et clôture (`end` / `consolidate`) d'une session.
+Skill **lifecycle** : ouverture (`start`) et clôture (`end`) d'une session.
 Bornes symétriques d'une session = un seul skill, routé par mode.
 
 ## Routage du mode
 
-| Argument / phrasé                                                                              | Mode            | Où est le détail                 |
-| ---------------------------------------------------------------------------------------------- | --------------- | -------------------------------- |
-| `resume`, `reprendre`, "reprends", "on en était où", "dernière session", "c'est quoi la suite" | **RESUME**      | ici                              |
-| _(vide)_, `start`, nom de module (`http`, `framework`…), "prépare le contexte"                 | **START**       | ici                              |
-| `end`, `retex`, "fais le retex", "fin de session", "où sont passés les tokens"                 | **END**         | `references/mode-end.md`         |
-| `consolidate`, "consolide les retex", "plan d'amélioration IA"                                 | **CONSOLIDATE** | `references/mode-consolidate.md` |
+| Argument / phrasé                                                                              | Mode       | Où est le détail         |
+| ---------------------------------------------------------------------------------------------- | ---------- | ------------------------ |
+| `resume`, `reprendre`, "reprends", "on en était où", "dernière session", "c'est quoi la suite" | **RESUME** | ici                      |
+| _(vide)_, `start`, nom de module (`http`, `framework`…), "prépare le contexte"                 | **START**  | ici                      |
+| `end`, "fin de session", "clôture la session", "où sont passés les tokens"                     | **END**    | `references/mode-end.md` |
 
 > **Après un `/clear`, dis simplement « reprends » → mode RESUME.** Rien à mémoriser.
 
@@ -56,7 +55,6 @@ contrôles que personne ne faisait. Ses règles vivent dans
 | `Fermés depuis la dernière empreinte` | diff de l'empreinte commitée contre la fraîche — lisible hors ligne                                                                                                                                   |
 | `Tableau : N erreur(s)`               | `board-lint` lancé UNE fois ; une erreur se solde MAINTENANT (skill `nodefony-ticket`, `references/tableau-de-bord.md`)                                                                               |
 | `dist périmé : …`                     | 1ʳᵉ cause d'échec de session → `npm run build` (après pull/merge : `clean && build`)                                                                                                                  |
-| `Sas RETEX — N thème(s) vivant(s)`    | les TITRES sont les règles ; n'ouvrir `docs/session-retros/RETEX.md` que pour un thème qui touche le travail du jour                                                                                  |
 
 **Pièges que le script porte — ne pas les contourner à la main :**
 
@@ -87,7 +85,7 @@ contrôles que personne ne faisait. Ses règles vivent dans
 5. **Git** : non poussés, non commités, `dist` périmé — lignes du script
 6. **Question** : « On reprend ça, ou autre chose ? »
 
-> Aucun `_state.md` trouvé → fallback : dernier retex `docs/session-retros/` + phase active.
+> Aucun `_state.md` trouvé → fallback : `git log` récent + ligne `➡️` du tableau.
 > Si la prochaine étape cible un module précis → enchaîner sur le **mode START** (`start <module>`)
 > pour charger son contexte (CLAUDE.md/MEMORY.md, dist, symboles). RESUME compose avec START.
 
@@ -177,8 +175,7 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 3. **Git** : branche + N fichiers non commités + dernier commit
 4. **Symboles exportés clés** : 5-10 noms
 5. **Top gotchas MEMORY.md** : 3-5 bullets critiques
-6. **Frictions `RETEX.md` applicables** : 1-3 si pertinentes pour ce module
-7. **Question** : "Sur quoi on bosse ?"
+6. **Question** : "Sur quoi on bosse ?"
 
 ## Anti-patterns START
 
@@ -188,35 +185,24 @@ jq --arg m "@nodefony/$ARG" '.symbols | to_entries
 
 ---
 
-# MODES END et CONSOLIDATE — le détail vit en `references/`
+# MODE END — le détail vit en `references/`
 
-Ces deux modes ferment la session ; ils sont plus longs que RESUME et START, et ne servent qu'une
-fois chacun. Les garder ici ferait payer leur lecture à **chaque** reprise — c'est exactement ce que
-la divulgation progressive existe pour éviter.
-
-| Mode            | Quand                                               | Charger AVANT d'agir                                               |
-| --------------- | --------------------------------------------------- | ------------------------------------------------------------------ |
-| **END**         | « fin de session », « retex », « fais le retex »    | [`references/mode-end.md`](references/mode-end.md)                 |
-| **CONSOLIDATE** | « consolide les retex », « plan d'amélioration IA » | [`references/mode-consolidate.md`](references/mode-consolidate.md) |
+Il ferme la session et ne sert qu'une fois : le garder ici ferait payer sa lecture à **chaque**
+reprise. Charger [`references/mode-end.md`](references/mode-end.md) AVANT d'agir.
 
 **Ce qu'il faut savoir sans ouvrir la référence** — de quoi décider, jamais de quoi exécuter :
 
-- Le **END courant tient en deux passes de script** autour du seul jugement :
-  `npm run session:end` prépare (tickets, tableau, empreinte, chemins), l'agent ferme, écrit et
-  pousse, puis `npm run session:end -- --verify` refuse une clôture incomplète. Les stats coûteuses
-  (tool_use, coût €, allowlist) vivent en CONSOLIDATE. Un END qui traîne est un END mal fait.
-- Il **écrit la mémoire de reprise** `project_session_<date>_state.md` : sans elle, le mode RESUME
-  du prochain `/clear` n'a rien à reprendre. C'est l'étape qu'on ne saute jamais.
-- Il **régénère l'empreinte des tickets** et **pousse la mémoire IA** — le seul moment où GitHub est
-  joint et où le tableau vient d'être mis à jour.
-- Le **CONSOLIDATE se déclenche tous les 10-20 retex**, pas à chaque clôture : y brancher un
-  contrôle rare en ferait un coût récurrent.
-
-> 🔴 **Ne pas exécuter ces modes de mémoire.** Chaque étape porte un piège payé une fois — un ticket
-> qu'on ferme sans compte rendu, un seuil de graduation qui ne mord jamais, une empreinte prise sur
-> un tableau incohérent. La référence porte ces pièges ; ce tableau ne porte que la route.
+- Le END tient en **deux passes de script** autour du seul jugement : `npm run session:end`
+  prépare (tickets, tableau, empreinte, chemin du `_state`), l'agent ferme les tickets, écrit le
+  `_state`, commite et pousse, puis `npm run session:end -- --verify` refuse une clôture
+  incomplète. Un END qui traîne est un END mal fait.
+- Il **écrit la mémoire de reprise** `project_session_<date>_state.md` : sans elle, le RESUME du
+  prochain `/clear` n'a rien à reprendre. C'est l'étape qu'on ne saute jamais.
+- **Pas de retex, pas de sas de leçons.** Une friction se traite SUR LE MOMENT : un automate
+  (gate, test, garde de script) qui la rend impossible, ou rien. Une leçon écrite pour plus tard
+  ne tenait que si l'on y pensait — mesuré, c'était le cas de la majorité.
 
 ## Liens
 
-- Mémoire : `feedback_session_retros_purpose` (but des retex), `feedback_token_economy` (économie tokens).
-- Sortie retex : `docs/session-retros/` (versionné).
+- Mémoire : `feedback_token_economy` (économie tokens).
+- Archive des anciens retex : `docs/session-retros/` (historique, plus alimenté).

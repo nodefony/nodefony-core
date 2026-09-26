@@ -75,8 +75,8 @@ serait sans effet à la régénération suivante.
 ```nodefony-cards
 [
   { "icon": "🧭", "title": "session", "href": "skills/nodefony-session.md",
-    "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des…",
-    "meta": "🟢 conforme · ⚙️ 11 scripts · 📎 3 réf" },
+    "desc": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire…",
+    "meta": "🟢 conforme · ⚙️ 9 scripts · 📎 1 réf" },
   { "icon": "🧩", "title": "skill", "href": "skills/nodefony-skill.md",
     "desc": "Créer, éditer, fusionner, retirer ou auditer un skill du dépôt Nodefony. Dérive de `skill-creator` (qui porte la mécanique générique) et ajoute ce que Nodefony exige en propre : nommage `nodefony-*`, description calibrée pour se DÉCLENCHER (formulations de besoin, pas de noms d'outils),…",
     "meta": "🟢 conforme v1.2.0 · ⚙️ 3 scripts" }
@@ -243,7 +243,7 @@ fichiers. Un skill peut être très lu sans jamais être invoqué — c'est un s
 
 | Skill              | Rôle                                                                              | Invoc. | Lect. |
 | ------------------ | --------------------------------------------------------------------------------- | -----: | ----: |
-| `nodefony-session` | Reprise après `/clear`, ouverture de module, clôture (retex), consolidation       |    133 |     — |
+| `nodefony-session` | Reprise après `/clear`, ouverture de module, clôture (tickets + `_state`)       |    133 |     — |
 | `nodefony-skill`   | Créer, éditer, fusionner, retirer ou auditer un skill (dérive de `skill-creator`) |      — |     — |
 
 ### Développement du framework
@@ -442,6 +442,6 @@ dans les deux sens avant d'être installé.
 
 - ⬆️ **Retour au hub** : [Toute la documentation](index.md)
 - [`session-retros/CONSOLIDATION-2026-07-23.md`](session-retros/CONSOLIDATION-2026-07-23.md) — d'où viennent les décisions de cette page (coût du contexte, règle « une règle = une implémentation »)
-- [`session-retros/RETEX.md`](session-retros/RETEX.md) — le sas des frictions récentes, lu à chaque début de session
+- [`session-retros/archive/RETEX.md`](session-retros/archive/RETEX.md) — l'ancien sas des frictions, archivé : une friction se traite désormais par un automate sur le moment, ou pas du tout
 - `CLAUDE.md` (racine) — les règles permanentes ; les conventions de structure sont déportées dans `references/conventions.md` du kit `nodefony-framework-dev`
 - `tmp/specs-agents/agentskills-specification.md` — la spécification Agent Skills telle que récupérée (à revalider : elle bouge par trimestre)

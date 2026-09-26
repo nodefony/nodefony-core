@@ -4,11 +4,11 @@
  * jugement de l'autre.
  *
  * La clôture était une page de 350 lignes que l'agent exécutait à la main : des
- * étapes écrites deux fois, une section qui contredisait la règle « retex sans
- * stats », une variable jamais définie, et des contrôles qu'on sautait parce
+ * étapes écrites deux fois, une section qui contredisait ses propres règles,
+ * une variable jamais définie, et des contrôles qu'on sautait parce
  * qu'ils coûtaient une commande chacun. Tout ce qui se compte passe ici ; ne
  * reste à l'agent que ce qu'aucun automate ne sait faire : fermer un ticket
- * avec son compte rendu, écrire le retex, la mémoire de reprise.
+ * avec son compte rendu, écrire la mémoire de reprise.
  *
  * Passe 1 — PRÉPARATION (défaut) : ce que la session a touché, les tickets à
  * fermer ou relire, le tableau contrôlé puis photographié, les chemins à écrire.
@@ -30,7 +30,6 @@ import {
   ciVerdict,
   clip,
   datesIn,
-  matureThemes,
   modifiedOf,
   sessionLogArgs,
   stateWrittenAt,
@@ -221,37 +220,9 @@ function prepare() {
       say("⚠️ lint illisible — `npm run ticket:lint`");
     }
   }
-  // Sas : seuil de graduation et taille.
-  const sas = path.join(ROOT, "docs/session-retros/RETEX.md");
-  const seuil = node("nodefony-session/scripts/retex-seuil.mjs");
-  const lines = fs.existsSync(sas)
-    ? fs.readFileSync(sas, "utf8").split("\n").length
-    : 0;
-  say(
-    `Sas RETEX : ${lines} lignes${lines > 300 ? " (au-delà d'un écran → CONSOLIDATE à programmer)" : ""} · ${clip(seuil.out.split("\n")[0] ?? "", 70)}`,
-  );
-  // Une ligne, et seulement si un thème a passé le seuil : aucun coût de plus
-  // à une clôture ordinaire.
-  const mature = matureThemes(seuil.out);
-  if (mature.length > 0) {
-    say(
-      `🎓 À graduer au prochain CONSOLIDATE : ${mature.map((t) => `${clip(t.title, 40)} (${t.count})`).join(" · ")}`,
-    );
-  }
   // Chemins à écrire.
-  const transcripts = path.dirname(MEM);
-  const latest = fs.existsSync(transcripts)
-    ? fs
-        .readdirSync(transcripts)
-        .filter((f) => f.endsWith(".jsonl"))
-        .map((f) => ({ f, t: fs.statSync(path.join(transcripts, f)).mtimeMs }))
-        .sort((a, b) => b.t - a.t)[0]?.f
-    : null;
   say(
-    `À écrire : docs/session-retros/${today}-${latest ? latest.slice(0, 8) : "<id>"}.md (≤ 30 l., sans stats)`,
-  );
-  say(
-    `           ${path.join(MEM, nextStateName(states, today))} + son pointeur dans MEMORY.md`,
+    `À écrire : ${path.join(MEM, nextStateName(states, today))} + son pointeur dans MEMORY.md`,
   );
   if (new Date().getHours() >= 22)
     say(
@@ -285,11 +256,6 @@ function verify() {
     if (!index.includes(stateFile))
       fails.push(`MEMORY.md ne pointe pas ${stateFile}`);
   }
-  const retex = fs
-    .readdirSync(path.join(ROOT, "docs/session-retros"))
-    .filter((f) => f.startsWith(`${today}-`));
-  if (!retex.length)
-    fails.push(`aucun retex docs/session-retros/${today}-*.md`);
   // Anti-journal : dates AJOUTÉES par la session dans un MEMORY.md / CLAUDE.md du dépôt.
   if (range) {
     const diff = git(
@@ -340,6 +306,6 @@ function verify() {
     process.exit(1);
   }
   console.log(
-    "✅ Session close : arbre propre, poussé, _state et retex écrits, mémoire sauvegardée.",
+    "✅ Session close : arbre propre, poussé, _state écrit, mémoire sauvegardée.",
   );
 }

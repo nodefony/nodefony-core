@@ -91,46 +91,6 @@ export function newlyDone(before, after) {
   );
 }
 
-/**
- * Titres des thèmes VIVANTS du sas `RETEX.md` : ceux qui précèdent la section
- * d'archive et ne portent pas la marque « GRADUÉ » / « VERSÉS ».
- *
- * Les titres SONT les règles : les lire suffit à la reprise ; on n'ouvre un
- * thème que s'il touche le travail du jour. Lire les ~440 lignes à chaque
- * reprise coûtait plus que ce qu'elles rendaient.
- */
-export function liveRetexThemes(text) {
-  const out = [];
-  for (const line of text.split("\n")) {
-    if (!line.startsWith("## ")) continue;
-    const title = line.slice(3).trim();
-    if (title.startsWith("🗄️ Gradué aux") || title.startsWith("🗄️ Archivé"))
-      break;
-    if (/GRADUÉ|VERSÉS/u.test(title)) continue;
-    out.push(title);
-  }
-  return out;
-}
-
-/**
- * Thèmes MÛRS annoncés par `retex-seuil.mjs` (`   55  🎯 Titre`), dans l'ordre rendu.
- *
- * 🔴 La clôture n'affichait que la PREMIÈRE ligne du script — les totaux — et
- * avalait la liste : un thème à 55 frictions a traversé huit clôtures sans
- * qu'aucune ne le nomme. Le contrôle existait ; son verdict n'arrivait pas.
- *
- * @param {string} out - sortie standard de `retex-seuil.mjs` (sans `--all`).
- * @returns {{count: number, title: string}[]}
- */
-export function matureThemes(out) {
-  const res = [];
-  for (const line of out.split("\n")) {
-    const m = /^\s+(\d+)\s{2}(\S.*)$/u.exec(line);
-    if (m) res.push({ count: Number(m[1]), title: m[2].trim() });
-  }
-  return res;
-}
-
 /** Liens `[[nom]]` d'une section `## <titre>` d'un fichier Markdown. */
 export function linksInSection(text, heading) {
   const start = text.indexOf(`\n## ${heading}`);

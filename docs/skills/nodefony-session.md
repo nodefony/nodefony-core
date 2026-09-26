@@ -12,7 +12,7 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 
 # `nodefony-session`
 
-> Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise.
+> Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit.
 
 📍 [Documentation](../index.md) › [Outillage agents](../outillage-agents.md) › **nodefony-session**
 
@@ -28,17 +28,17 @@ source: ".claude/skills/nodefony-session/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Cycle de session |
-| Corps | 211 lignes |
-| Coût d'activation | ~3 303 tokens (le corps est chargé à l'invocation) |
-| Description | 624 / 1024 caractères |
-| Déclencheurs | 10 |
-| Ressources `references/` | 3 page(s) |
-| Scripts | 11 |
+| Corps | 197 lignes |
+| Coût d'activation | ~2 893 tokens (le corps est chargé à l'invocation) |
+| Description | 581 / 1024 caractères |
+| Déclencheurs | 9 |
+| Ressources `references/` | 1 page(s) |
+| Scripts | 9 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`.
+Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`.
 
 ## Prérequis
 
@@ -48,13 +48,13 @@ Ce que le décor doit fournir pour que ses scripts disent quelque chose : **redi
 
 Ce skill en nomme d'autres — pour déléguer, ou pour dire ce qu'il ne fait pas :
 
-[`check-memory-health`](nodefony-check-memory-health.md) · [`inspect`](nodefony-inspect.md) · [`ticket`](nodefony-ticket.md)
+[`check-memory-health`](nodefony-check-memory-health.md) · [`ticket`](nodefony-ticket.md)
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `retex` · `consolide les retex`
+`reprends` · `on en était où` · `dernière session` · `où en est la publication` · `quels tickets restent` · `prépare le contexte` · `session sur <module>` · `fin de session` · `clôture la session`
 
 ## Ce que contient le corps
 
@@ -78,9 +78,7 @@ Détail déporté hors du corps — chargé seulement quand la tâche l'exige (d
 
 | Fichier | Ce qu'il couvre | Lignes |
 | --- | --- | --: |
-| `references/consolidate-toolkit.md` | Boîte à outils CONSOLIDATE — minage du transcript | 153 |
-| `references/mode-consolidate.md` | MODE CONSOLIDATE — plan d'amélioration IA + maintenance du SAS | 135 |
-| `references/mode-end.md` | MODE END — clôture de session (RETEX) | 143 |
+| `references/mode-end.md` | MODE END — clôture de session | 119 |
 
 
 ## Scripts embarqués
@@ -94,11 +92,9 @@ script, donc toujours à jour après régénération.
 | `scripts/board-next.test.mjs` | Le décor est celui du 2026-09-08, à l'identique — c'est lui qui a produit le | — | — |
 | `scripts/board-snapshot.mjs` | Instantané du pilotage — projette les tickets GitHub DANS le dépôt. | `--check` `--force` `--readme` `--issue` `--dry-run` | `PROJECT_NUMBER` `PROJECT_OWNER` `QUERY` `REPO_NAME` `REPO_OWNER` |
 | `scripts/board-snapshot.test.mjs` | Éprouve le maillon où une donnée du tableau de bord peut disparaître SANS | — | — |
-| `scripts/lessons-carriers.mjs` | Qui PORTE chaque leçon durable — le chaînon manquant du cycle des retex. | `--dead` `--inert` `--recos` `--strict` `--write` | — |
-| `scripts/retex-seuil.mjs` | Les thèmes de `RETEX.md` qui ont atteint le seuil de graduation. | `--all` | `SAS` `SEUIL` |
 | `scripts/session-cost.mjs` | Agrège la consommation réelle de tous les transcripts Claude Code du projet. | — | — |
 | `scripts/session-end.mjs` | session-end.mjs — la clôture de session en deux passes, mécanique d'un côté, | `--since` `--no-publish` | `MEM` `PUBLISH` |
-| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans | `--all` `--format` `--json` `--since` | — |
+| `scripts/session-lib.mjs` | Règles PURES de la reprise et de la clôture de session — sans réseau, sans | `--format` `--json` `--since` | — |
 | `scripts/session-lib.test.mjs` | Règles pures de la reprise et de la clôture — chaque cas porte le défaut | `--since` | — |
 | `scripts/session-resume.mjs` | session-resume.mjs — la reprise de session en UN appel, sortie bornée (~30 l). | `--offline` | — |
 
@@ -110,7 +106,7 @@ npm run session:end                 # préparation
 npm run session:resume
 ```
 
-**Toutes les variables lues par ce skill** : `MEM` · `PROJECT_NUMBER` · `PROJECT_OWNER` · `PUBLISH` · `QUERY` · `REPO_NAME` · `REPO_OWNER` · `SAS` · `SEUIL`
+**Toutes les variables lues par ce skill** : `MEM` · `PROJECT_NUMBER` · `PROJECT_OWNER` · `PUBLISH` · `QUERY` · `REPO_NAME` · `REPO_OWNER`
 
 ### Détail des scripts auto-documentés
 
@@ -172,14 +168,14 @@ npm run session:resume
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 624 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 581 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 211 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 197 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 

@@ -94,7 +94,7 @@ function resolveTarget(fromDir: string, href: string): string {
  * un `[Service](../../x.md)` cité en modèle comptait comme une navigation, donc
  * comme un lien mort. Ce n'en est pas une — un exemple n'est ni cliquable ni
  * promis au lecteur. `doc-lint` applique déjà cette règle ; ce banc ne l'avait
- * jamais reçue, et c'est la leçon écrite dans `RETEX.md` qui l'a fait tomber.
+ * jamais reçue.
  *
  * Scan ligne à ligne (pas une regex globale) pour tenir les fences à quatre
  * backticks, qui encadrent des blocs contenant eux-mêmes des ```.

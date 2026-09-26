@@ -146,7 +146,6 @@ describe("projectScripts — le classement est DÉRIVÉ, pas déclaré", () => {
 
   it("un nom EXACT gagne sur un préfixe — test:pilotage éprouve le pilotage", () => {
     assert.equal(groupOfScript("test:pilotage"), "PILOTER");
-    assert.equal(groupOfScript("retex:seuil"), "PILOTER");
     assert.equal(groupOfScript("test:release"), "PUBLIER");
   });
 

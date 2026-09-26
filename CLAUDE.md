@@ -96,7 +96,7 @@ journaux et cas déjà traités → skill **`nodefony-framework-dev`** (`referen
 
 > **Juste après un `/clear` : dire simplement « reprends »** → skill `nodefony-session` mode RESUME
 > restitue la dernière session (décisions + prochaine étape) depuis `project_session_<date>_state.md`.
-> **Avant de fermer : dire « fin de session »** → mode END (retex + écrit cette mémoire de reprise).
+> **Avant de fermer : dire « fin de session »** → mode END (ferme les tickets soldés, écrit cette mémoire de reprise, commite).
 > Rien d'autre à mémoriser : le cycle reprise → travail → clôture tient dans un seul skill.
 
 Avant de commencer une nouvelle phase / tâche :
@@ -404,7 +404,7 @@ La doc externe (RFC) et la phase future P12 (couche IA) sont **déchargées dans
 
 **Règle universelle** : interdiction de charger les sites HTML lourds (`nodejs.org`, `typescriptlang.org`, `docs.nestjs.com`, `tools.ietf.org`). Toujours via raw GitHub + proxy `https://r.jina.ai/`. Les skills contiennent les URLs canoniques + le pattern d'usage.
 
-**Convention skills/commands (figée 2026-05-21)** : tous les skills sont préfixés `nodefony-` (namespace + auto-trigger) ; les slash-commands restent **courtes et non préfixées** (couche UX tapée qui délègue au skill — ex. `/start-server`). Cycle de vie d'une session = **un seul skill `nodefony-session`** (modes : RESUME « reprends » après `/clear` / START `<module>` / END « fin de session » / CONSOLIDATE). La liste complète des skills est fournie par le harness — ne pas la dupliquer ici.
+**Convention skills/commands (figée 2026-05-21)** : tous les skills sont préfixés `nodefony-` (namespace + auto-trigger) ; les slash-commands restent **courtes et non préfixées** (couche UX tapée qui délègue au skill — ex. `/start-server`). Cycle de vie d'une session = **un seul skill `nodefony-session`** (modes : RESUME « reprends » après `/clear` / START `<module>` / END « fin de session »). La liste complète des skills est fournie par le harness — ne pas la dupliquer ici.
 
 > **Écrire/éditer un skill** → suivre les **best-practices Anthropic** (doc officielle `platform.claude.com/.../agent-skills/best-practices` ; distillées dans la mémoire IA `feedback_skill_authoring`) : **progressive disclosure** (SKILL.md = processus + INDEX < 500 l, détail dans `references/*.md` chargé à la demande, refs **1 niveau**, TOC si > 100 l), description **3ᵉ personne** (capacité + quand ; 0 roadmap), **degrees of freedom** adaptés, **anti time-sensitive** (cf 🕰️ règle intemporelle § doc modules), **autosuffisant** (consumer = npm `dist` seul → `references/` CONTIENT les internals), exemples vérifiés au source, note _Maintenance_ en tête (édition en place, histoire = git).
 

@@ -5806,7 +5806,7 @@
     },
     {
       "name": "nodefony-session",
-      "summary": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise.",
+      "summary": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit.",
       "family": "Cycle de session",
       "version": null,
       "keywords": [
@@ -5821,24 +5821,21 @@
         "prépare le contexte",
         "session sur <module>",
         "fin de session",
-        "retex",
-        "consolide les retex"
+        "clôture la session"
       ],
-      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END / CONSOLIDATE) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer avec retex, fermeture des tickets soldés et mémoire de reprise. RESUME et START sont dans le corps ; END et CONSOLIDATE dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"retex\", \"consolide les retex\".",
+      "description": "Cycle de vie d'une session Nodefony en un seul skill (modes RESUME / START / END) : reprendre après un /clear — avec l'avancement RÉEL lu sur le jalon et les tickets GitHub, pas sur un document écrit à la main —, préparer le contexte d'un module, clôturer : fermeture des tickets soldés, mémoire de reprise, commit. RESUME et START sont dans le corps ; END dans `references/`. Déclencheurs : \"reprends\", \"on en était où\", \"dernière session\", \"où en est la publication\", \"quels tickets restent\", \"prépare le contexte\", \"session sur <module>\", \"fin de session\", \"clôture la session\".",
       "cost": {
-        "bodyLines": 211,
-        "approxTokens": 3303
+        "bodyLines": 197,
+        "approxTokens": 2893
       },
       "requires": [
         "redis"
       ],
       "resources": {
         "references": [
-          "consolidate-toolkit.md",
-          "mode-consolidate.md",
           "mode-end.md"
         ],
-        "referenceFilesTotal": 3,
+        "referenceFilesTotal": 1,
         "scripts": [
           {
             "path": "scripts/board-next.mjs",
@@ -5925,59 +5922,6 @@
             "selfDocumented": false
           },
           {
-            "path": "scripts/lessons-carriers.mjs",
-            "purpose": "Qui PORTE chaque leçon durable — le chaînon manquant du cycle des retex.",
-            "usage": [],
-            "options": [
-              {
-                "flag": "--dead",
-                "help": ""
-              },
-              {
-                "flag": "--inert",
-                "help": ""
-              },
-              {
-                "flag": "--recos",
-                "help": ""
-              },
-              {
-                "flag": "--strict",
-                "help": ""
-              },
-              {
-                "flag": "--write",
-                "help": ""
-              }
-            ],
-            "env": [],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
-            "path": "scripts/retex-seuil.mjs",
-            "purpose": "Les thèmes de `RETEX.md` qui ont atteint le seuil de graduation.",
-            "usage": [],
-            "options": [
-              {
-                "flag": "--all",
-                "help": ""
-              }
-            ],
-            "env": [
-              {
-                "name": "SAS",
-                "help": ""
-              },
-              {
-                "name": "SEUIL",
-                "help": ""
-              }
-            ],
-            "output": "",
-            "selfDocumented": false
-          },
-          {
             "path": "scripts/session-cost.mjs",
             "purpose": "Agrège la consommation réelle de tous les transcripts Claude Code du projet.",
             "usage": [],
@@ -6021,10 +5965,6 @@
             "purpose": "Règles PURES de la reprise et de la clôture de session — sans réseau, sans",
             "usage": [],
             "options": [
-              {
-                "flag": "--all",
-                "help": ""
-              },
               {
                 "flag": "--format",
                 "help": ""
@@ -6076,7 +6016,6 @@
       },
       "related": [
         "nodefony-check-memory-health",
-        "nodefony-inspect",
         "nodefony-ticket"
       ],
       "conformance": {
@@ -6097,7 +6036,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "624",
+            "detail": "581",
             "advisory": false
           },
           {
@@ -6139,7 +6078,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "211",
+            "detail": "197",
             "advisory": true
           }
         ]

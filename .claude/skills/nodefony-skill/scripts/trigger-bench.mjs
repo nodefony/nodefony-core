@@ -34,7 +34,7 @@ const CASES = [
   ["reprends", "nodefony-session"],
   ["on en était où ?", "nodefony-session"],
   ["fin de session", "nodefony-session"],
-  ["consolide les retex", "nodefony-session"],
+  ["clôture la session", "nodefony-session"],
   // — serveur et diagnostic
   ["lance le serveur", "nodefony-start-server"],
   ["relance le serveur de dev", "nodefony-start-server"],
