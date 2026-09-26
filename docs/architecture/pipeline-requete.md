@@ -120,7 +120,7 @@ sont traités **avant** toute allocation de contexte, de scope DI ou de bulle AL
 une `Map`.
 
 **2. Le routage précède le parsing.** `Router.resolve()` (`router.ts:230`) est appelé **avant** de lire
-le corps de la requête (`http-kernel.ts:1370`). C'est ce qui permet à une action de recevoir le flux
+le corps de la requête (`http-kernel.ts:1408`). C'est ce qui permet à une action de recevoir le flux
 brut plutôt qu'un corps déjà chargé en mémoire — et ce qui évite de payer le disque sur une route qui
 n'est pas un fichier.
 
@@ -417,7 +417,7 @@ Choisir son point d'accroche en cinq secondes :
 
 > [!WARNING]
 > Sur le chemin HTTP, trois de ces événements ne sont émis **que s'ils ont un abonné**
-> (`listenerCount` : `http-kernel.ts:1030`, `:1280`, `:1421`). C'est délibéré — sans abonné, zéro
+> (`listenerCount` : `http-kernel.ts:1051`, `:1338`, `:1510`). C'est délibéré — sans abonné, zéro
 > microtâche par requête. Cela ne change rien pour toi : abonne-toi, et ils partent.
 
 ### Situation 2 — « pourquoi mon hook n'est pas appelé sur les fichiers statiques ? »
@@ -527,9 +527,9 @@ où ; les pages dédiées disent comment.
 | --------------------- | ------------------------------------------------------ | ---------------------------------------------------------------------- |
 | En-têtes de transport | tout premier (`http-kernel.ts:833`)                    | couvre **tout**, y compris statiques et réponses d'erreur              |
 | Probes de santé       | avant le rate-limit (`http-kernel.ts:848`)             | un orchestrateur limité croirait le pod mort → redémarrages en cascade |
-| Rate-limit par IP     | avant contexte et scope (`http-kernel.ts:998`)         | un flood doit coûter une recherche `Map`, pas une allocation           |
+| Rate-limit par IP     | avant contexte et scope (`http-kernel.ts:1019`)        | un flood doit coûter une recherche `Map`, pas une allocation           |
 | CORS                  | avant le routage (`firewall.ts:797`)                   | un preflight n'a **pas** de route ; il ne s'authentifie pas            |
-| En-têtes applicatifs  | après le routage (`http-kernel.ts:1381`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
+| En-têtes applicatifs  | après le routage (`http-kernel.ts:1418`)               | le CSP doit intégrer le `@Csp` de la route matchée                     |
 | CSRF                  | après le routage, avant la session (`firewall.ts:741`) | rejet précoce d'une mutation cross-site, avant tout coût d'auth        |
 | Session               | avant le firewall (`http-kernel.ts:1288`)              | l'authenticator de session lit la session reprise                      |
 | Firewall              | juste avant l'action (`firewall.ts:561`)               | la zone dépend de la route, donc du routage                            |
@@ -567,7 +567,7 @@ règle appliquée partout est la même — ne rien allouer tant que personne ne 
 - **Un seul listener de fin de réponse** : `once("close")` remplace l'ancien couple `finish`/`close`
   avec ses deux `removeListener` (`http-kernel.ts:1238`).
 - **Hooks tirés seulement s'ils ont un abonné** : `listenerCount` avant `fireAsync`
-  (`http-kernel.ts:1030`, `:1280`, `:1421`) — zéro microtâche sur une app sans module de sécurité.
+  (`http-kernel.ts:1051`, `:1338`, `:1510`) — zéro microtâche sur une app sans module de sécurité.
 - **Allocation paresseuse systématique** : le nonce CSP n'est calculé qu'à la première lecture
   (`Context.ts:192`), le signal d'abandon qu'au premier accès (`Context.ts:402`), la liste des hooks
   d'après-réponse qu'au premier enregistrement (`Context.ts:367`).

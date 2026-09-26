@@ -331,7 +331,7 @@ Dès le `DENY`, le jury **s'arrête** — court-circuit, inutile de finir (`auth
 
 **Contre-exemple piégeux** : le veto ne traverse **pas** une clause OR. Dans
 `@IsGranted(["ROLE_ADMIN", "doc.edit"])`, chaque attribut est un **jury séparé**
-(`Resolver.ts:689-702`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
+(`Resolver.ts:700-715`) : si `ROLE_ADMIN` est accordé, `doc.edit` — et son veto — n'est même pas
 consulté. Un interdit absolu se porte en clause **AND** : empiler `@IsGranted("ROLE_ADMIN")` puis
 `@IsGranted("doc.edit", { subject: "id" })`.
 
@@ -361,10 +361,10 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | Déclaration                                 | Sémantique                                                                                                                       |
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:903`)                                             |
-| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
+| `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:424-433`)                              |
 | empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1572`)                          |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1544`)                         |
-| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:743-747`)                                  |
+| `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:754-758`)                                  |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:1002`)         |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:953`) |
 | `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1279`)                                |

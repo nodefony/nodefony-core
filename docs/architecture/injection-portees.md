@@ -198,7 +198,7 @@ lui, rend à chacune la sienne.
 
 > [!TIP]
 > Le contrôleur est lui aussi **neuf à chaque requête** (défaut `"request"`, `Controller.scope`,
-> `Controller.ts:153`) : c'est ce qui lui permet d'injecter un service `request`. Un contrôleur
+> `Controller.ts:163`) : c'est ce qui lui permet d'injecter un service `request`. Un contrôleur
 > `@Scope("singleton")` qui le tenterait est refusé **au démarrage**.
 
 ## 📖 Lexique

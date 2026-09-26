@@ -354,7 +354,7 @@ Deux nuances utiles :
   `Access-Control-Request-Headers` du client (`cors.ts:78`). Ce que tu déclares est ce qui est annoncé,
   point. Un en-tête custom non déclaré fait échouer le preflight côté navigateur.
 - **Les fichiers statiques sont couverts.** `handleCors` s'exécute avant le fallback `serve-static`
-  (`http-kernel.ts:1361`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
+  (`http-kernel.ts:1382`) : une police ou une image servie cross-origin reçoit les mêmes en-têtes que
   tes routes.
 
 Le contrat est publié dans l'interface du firewall (`IFirewall.ts:35`) : `number | undefined` — `204`

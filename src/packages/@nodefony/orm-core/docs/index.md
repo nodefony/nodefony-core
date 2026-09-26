@@ -620,7 +620,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Eager-load `{ relations }`             | oui                                 | oui (`populate`)                             |
 | Transactions                           | oui                                 | oui (replica set requis par Mongo)           |
 | Savepoints (rollback partiel)          | oui                                 | non — refusés (`SavepointNotSupportedError`) |
-| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1933`)          | oui (`MongooseOrm.ts:649`)                   |
+| Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1971`)          | oui (`MongooseOrm.ts:649`)                   |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                                   |
 | Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1873`)          | oui (`MongooseOrm.ts:617`)                   |
 

@@ -287,7 +287,7 @@ défense :
 1. **lire l'état de session, puis l'invalider immédiatement** (`OAuth2Controller.ts:158-166`) — le
    `state` est à **usage unique** : un rejeu du même retour échoue, même avec le bon cookie ;
 2. **comparer** : `code` et `state` présents, `state` reçu ≡ `state` attendu, **et** fournisseur du
-   callback ≡ fournisseur démarré (`OAuth2Controller.ts:174-182`). Un seul écart → `302` vers
+   callback ≡ fournisseur démarré (`OAuth2Controller.ts:172-180`). Un seul écart → `302` vers
    `failureRedirect`, **sans jamais contacter le fournisseur** ;
 3. seulement ensuite, `exchangeAndProvision()`.
 

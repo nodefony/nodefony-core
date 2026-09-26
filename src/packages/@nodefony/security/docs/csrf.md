@@ -93,7 +93,7 @@ contrôleur** : l'attaque meurt sans avoir touché ton code.
 - **Vérifier la provenance d'abord** (OWASP 2025, modèle Go 1.25 `CrossOriginProtection`) : la
   couche 1 est la défense **par défaut**, `csrf.enabled: true` (`config.ts:163-168`).
 - **Globale, pas liée aux zones** : toute mutation cross-site est refusée, route publique ou non —
-  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1499`) arrive **après** le
+  branchée dans le pipeline HTTP — l'appel `enforceCsrf` (`http-kernel.ts:1524`) arrive **après** le
   resolve (les marqueurs de route sont lisibles) et **avant** la session (rejet précoce : un
   attaquant ne coûte ni lecture de session ni authentification).
 - **Logique pure** : la classe `Csrf` est synchrone, sans I/O ni allocation sur le hot-path —
@@ -148,7 +148,7 @@ export default ProfileController;
 
 (Wiring : `@controllers([ProfileController])` dans le module de l'app — `nodefony create controller`
 le fait pour toi. Posé sur la **classe**, `@CsrfProtect()` couvre toutes les actions : les marqueurs
-`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1620-1626`.)
+`csrfProtect`/`csrfExempt` acceptent méthode OU classe, `routerDecorators.ts:1650-1655`.)
 
 ### Comment le front obtient — puis rejoue — le token
 
@@ -296,7 +296,7 @@ de session (TSDoc `CsrfTokenManager`, `csrfToken.ts:12-15`).
 1. `@CsrfProtect`/`@CsrfExempt` posent un **marqueur** de metadata — zéro import de
    `@nodefony/security` côté framework, zéro cycle (`routerDecorators.ts:886`).
 2. Au match de la route, `Resolver.match()` recopie les marqueurs sur le contexte
-   (`Resolver.ts:173-174`) — champs portés par le `Context` de base, HTTP comme WS
+   (`Resolver.ts:156-186`) — champs portés par le `Context` de base, HTTP comme WS
    (`Context.ts:241-243`).
 3. `Firewall.enforceCsrf()` (`firewall.ts:948`) fait les trois rôles : **émission** du token sur
    requête sûre `@CsrfProtect`, **couche 1** sur toute mutation, **couche 2** en plus si

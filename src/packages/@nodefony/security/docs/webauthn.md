@@ -673,7 +673,7 @@ requête. Le code en tire trois conséquences.
   réel (`WebAuthnService.#ensureLib()`, `webAuthn.ts:545`) — une app qui n'enrôle personne ne paie
   jamais son coût de parse.
 - **Rien d'alloué quand c'est désactivé** : `passkeys.enabled: false` sort de `#build()` immédiatement
-  (`webAuthn.ts:129-131`) — pas de store, pas de `Map`.
+  (`webAuthn.ts:119-130`) — pas de store, pas de `Map`.
 - **Le listing admin ne matérialise jamais plus d'une page** : `listPage` applique les filtres au
   store (`IWebAuthnCredentialStore.ts:114`). Le seul appel non paginé, `findByUser`, est borné par
   `maxPerUser` — par conception (`IWebAuthnCredentialStore.ts:88`).

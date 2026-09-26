@@ -536,7 +536,7 @@ de l'orchestrateur. Nodefony borne ça sur trois axes.
   développement, 60 s en production**. Large à dessein : il borne la pendaison infinie, pas la
   lenteur normale.
 - **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3172`), un
-  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:3934`).
+  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:3964`).
 - **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3199`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
   `WARNING` et le boot continue.
@@ -599,7 +599,7 @@ flowchart TD
 ```
 
 L'ordre est obtenu par construction : la bascule de disponibilité est attachée **en tête**
-(`prependOnceListener("onTerminate")`, `http-kernel.ts:485`), les serveurs WebSocket aussi, et les
+(`prependOnceListener("onTerminate")`, `http-kernel.ts:540`), les serveurs WebSocket aussi, et les
 serveurs HTTP en écouteur normal — donc en dernier. C'est nécessaire : le drain HTTP détruit les
 sockets promues en WebSocket **sans** trame de fermeture, il faut donc que les WS aient déjà dit au
 revoir (`createDrainTerminator()`, `serverShutdown.ts:25`).

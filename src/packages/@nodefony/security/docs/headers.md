@@ -275,7 +275,7 @@ privilégient `frame-ancestors`, `X-Frame-Options` reste le filet pour les ancie
 victime est capté par ton interface.
 
 Posé par le **transport** depuis un cache calculé au boot — `secFrameOptions`
-(`http-kernel.ts:267`) — et configuré côté `@nodefony/http` avec `frameOptions`
+(`http-kernel.ts:982`) — et configuré côté `@nodefony/http` avec `frameOptions`
 (`http/nodefony/config/config.ts:136`), qui vaut `DENY` par défaut. `SAMEORIGIN` si ton propre site
 s'auto-encadre. C'est un des trois en-têtes que security **ne ré-émet pas** : il doit valoir aussi
 pour un HTML statique servi directement depuis `public/`.
@@ -287,7 +287,7 @@ pour un HTML statique servi directement depuis `public/`.
 avec tes cookies.
 
 Valeur unique reconnue : `nosniff`, posée depuis le cache `secContentTypeOptions`
-(`http-kernel.ts:963`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
+(`http-kernel.ts:979`). C'est **l'en-tête qui justifie le mieux la couche transport** : le danger
 vient précisément des fichiers servis hors pipeline applicatif — un banc live le prouve sur une 404
 (`security-headers.test.ts:38`).
 
@@ -300,7 +300,7 @@ La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
 (`http-kernel.ts:348`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
-de serveur (`http-kernel.ts:969`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
+de serveur (`http-kernel.ts:985`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
 soit ignoré : l'émettre sur du HTTP simple ne ferait que polluer. Défaut : un an, sous-domaines
 inclus.
 
@@ -523,7 +523,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Champ structuré booléen              | RFC 8941                         | `Origin-Agent-Cluster: ?1` (`securityHeaders.ts:75`)         |
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:267`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
-| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:963`)               |
+| Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:979`)               |
 | Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:348`)       |
 
 ## ⚡ Performance & mémoire

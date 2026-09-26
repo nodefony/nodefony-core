@@ -380,12 +380,13 @@ l'appelant.
 | ----------------- | ------------------------------------------------------------------------------------------- |
 | `timeoutMs`       | délai maximal par écouteur. `0`/absent = **aucun timer alloué**                             |
 | `warnMs`          | seuil de lenteur. `0`/absent = **aucune mesure** (pas un seul `Date.now`)                   |
-| `onListenerError` | appelé sur rejet **ou** dépassement ; renvoyer `true` **arrête** la chaîne (`Event.ts:341`) |
+| `onListenerError` | appelé sur rejet **ou** dépassement ; renvoyer `true` **arrête** la chaîne (`Event.ts:370`) |
 | `onListenerSlow`  | appelé quand un écouteur réussit mais dépasse `warnMs` (`Event.ts:314`)                     |
 
 Le résultat (`IGuardedEmitResult`, `Event.ts:102`) porte `results`, `errors` et `stopped`. En cas de
-dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) — jamais la sentinelle
-interne `timeoutSentinel` (`Event.ts:33`).
+dépassement, l'erreur remontée est une `Error` explicite (`Event.ts:317`) : le délai est suivi par
+un simple drapeau `timedOut` (`Event.ts:322`), et aucune valeur qui ne soit pas une `Error` ne
+peut remonter.
 
 Côté kernel, `Kernel.fireLifecycle()` (`Kernel.ts:3896`) branche la politique : délai issu de
 `Kernel.bootTimeoutMs()` (`Kernel.ts:3177`) — 20 s en développement, 60 s en production, surchargeable

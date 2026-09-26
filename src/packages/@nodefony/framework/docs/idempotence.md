@@ -223,7 +223,7 @@ curl -si -X POST http://localhost:5151/api/payments/charge \
 > [!WARNING]
 > **Le piège n°1** : en verdict `fresh`, la réservation est _in-flight_ tant que `complete` **ou**
 > `abort` n'a pas été appelé. Le seam `@Idempotent` gère ce couple pour toi (`try/catch`,
-> `Resolver.ts:539` et `Resolver.ts:563`). Si tu appelles le store **à la main** (cas avancé), c'est
+> `Resolver.ts:578` et `Resolver.ts:563`). Si tu appelles le store **à la main** (cas avancé), c'est
 > **ta** responsabilité : sans `abort` sur erreur, la clé reste bloquée jusqu'à l'expiration du bail
 > (60 s), et tout rejeu identique reçoit `409` pendant ce temps.
 

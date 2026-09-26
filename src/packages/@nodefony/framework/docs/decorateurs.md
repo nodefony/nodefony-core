@@ -303,7 +303,7 @@ instance par requête (`ControllerScope`, `Controller.ts:144`).
 > [!NOTE]
 > Le core `nodefony` exporte lui aussi un `Scope` (les portées du conteneur d'injection). Celui des
 > contrôleurs s'importe **depuis `@nodefony/framework`** — l'homonymie est signalée dans le code
-> (`routerDecorators.ts:769`).
+> (`routerDecorators.ts:785`).
 
 ### Méthodes HTTP
 
@@ -530,7 +530,7 @@ Trois façons d'ouvrir une porte, trois portées — les confondre coûte cher :
 | `@CsrfExempt()`   |  **conservée**   |  **conservée**   |   ignorée    | webhook signé, API cross-origin       |
 
 `@Anonymous()` pose en réalité **deux** marqueurs : « pas d'autorisation » et « pas de firewall »
-(`routerDecorators.ts:926-941`) — c'est un `@BypassFirewall` doublé d'une annulation des clauses
+(`routerDecorators.ts:953-979`) — c'est un `@BypassFirewall` doublé d'une annulation des clauses
 héritées de la classe.
 
 > [!CAUTION]
@@ -727,7 +727,7 @@ Un décorateur non employé doit coûter **zéro**. C'est tenu par trois mécani
   requête. Le même schéma vaut pour la détection du flux brut
   (`routeExpectsBodyStream()`, `routerDecorators.ts:1408`).
 - **`null` plutôt que structure vide.** Une action sans garde a `security: null` : le `Resolver` teste
-  un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:334`). Idem
+  un `null` et passe — ni résolution de service, ni `await`, ni allocation (`Resolver.ts:368`). Idem
   pour `idempotent`, `cspDirectives`, `paramsMeta`.
 - **Objets gelés et partagés.** Les exigences de sécurité et d'idempotence sont créées **une fois** et
   `Object.freeze`-ées (`routerDecorators.ts:1496`, `:1340`) : une seule instance pour la durée de vie

@@ -581,7 +581,7 @@ La table de routes est introspectable en ligne, sans lire le code :
   méthodes, contrôleur (`FrameworkAdminApi.ts:123`). Variante paginée/triée/filtrée côté serveur :
   `routes/page`.
 - **`GET /nodefony/framework/api/info`** — résumé : nombre de routes, méthodes servies, modules
-  propriétaires (`FrameworkAdminApi.ts:335`).
+  propriétaires (`FrameworkAdminApi.ts:356`).
 - **Écran Routes** de Studio (`/nodefony/routes`) — la même table, filtrable.
 - **Playground** (`/nodefony/playground`, développement uniquement) — un formulaire par action, généré depuis la table :
   transports (dont le duplex), paramètres décorés, gardes de sécurité. Il **exécute** de vraies actions,

@@ -70,7 +70,7 @@ flowchart TD
 
 Le point d'activation est **unique et commun aux deux transports** : `HttpKernel.startSession()`
 (`http-kernel.ts:1168`). Il commence par la garde paresseuse `if (!intent && !context.hasSession())`
-(`http-kernel.ts:1137`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
+(`http-kernel.ts:1207`) — sans intent de route ni cookie entrant, **aucune session n'est ouverte**.
 
 ## 📖 Lexique
 
@@ -351,7 +351,7 @@ Ce qui change, c'est la topologie et la façon d'expirer.
 
 ### `memory` — l'implémentation de référence
 
-Store built-in de `@nodefony/http`, enregistré d'office (`sessions-service.ts:860`). Les sessions vivent
+Store built-in de `@nodefony/http`, enregistré d'office (`sessions-service.ts:913`). Les sessions vivent
 dans une `Map` du process : elles **disparaissent au redémarrage** et ne sont **pas partagées** entre
 pods — c'est un choix (mesurer le framework sans le goulot disque/SQL), pas une limite.
 
@@ -457,7 +457,7 @@ qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une dem
 
 **Anti-résurrection**, sur deux niveaux. `Session.destroy()` remet `mutated = false` (`session.ts:307`)
 pour que la sauvegarde de fin de requête ne réécrive pas ce qu'on vient de supprimer. Surtout, **tout**
-store est décoré par `RevocationGuardStorage` (`sessions-service.ts:279`) : `destroy()` pose une
+store est décoré par `RevocationGuardStorage` (`sessions-service.ts:309`) : `destroy()` pose une
 **pierre tombale** de 5 minutes (`RevocationGuardStorage.ts:156`) qui refuse ensuite tout `write`
 (`RevocationGuardStorage.ts:163`) **et tout `touch`** (`RevocationGuardStorage.ts:163`) du même
 identifiant — ce qui couvre la requête « en vol » d'un autre client.
@@ -506,14 +506,14 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 | Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1482`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1773`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
-| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1538`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1566`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au
 handshake par `RequestContext.run()` **enveloppe aussi les messages** (`http-kernel.ts:455`). L'identité résolue une fois est donc
 disponible à chaque frame sans relire la base — c'est ce dont profite
 `FirewallRealtimeAuthenticator.supports()` (`FirewallRealtimeAuthenticator.ts:80`), câblé automatiquement
-par le firewall sur les zones temps réel protégées (`firewall.ts:300`).
+par le firewall sur les zones temps réel protégées (`firewall.ts:297`).
 
 > [!WARNING]
 > Rien à écrire dans `initialize()` : il n'existe **pas** de `Controller.startSession()`. La session WS
@@ -577,9 +577,9 @@ Trois barrières superposées :
 | Requête inter-sites               | `SameSite=Lax` par défaut                         | `cookieDefaultSettings` (`cookie.ts:39`)           |
 | Fixation (cookie pré-posé)        | `strictMode` + régénération au login              | `Session.resume()` (`session.ts:177`)              |
 | Identifiant deviné                | 32 octets CSPRNG (43 caractères base64url)        | `Session.generateId()` (`session.ts:226`)          |
-| Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:381`) |
-| Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:394`)     |
-| Résurrection après révocation     | pierre tombale 5 min sur `write` **et** `touch`   | `RevocationGuardStorage.ts:121`                    |
+| Session volée exploitée longtemps | absolute timeout, jamais prolongé                 | `absoluteTimeoutS` à la reprise (`session.ts:388`) |
+| Session oubliée ouverte           | idle timeout glissant                             | `idleTimeoutS` à la reprise (`session.ts:401`)     |
+| Résurrection après révocation     | pierre tombale 5 min sur `write` **et** `touch`   | `RevocationGuardStorage.ts:127-171`                |
 | Fuite d'identifiant en admin      | `ref` HMAC + projection en liste blanche          | `toSessionSummary()` (`sessions-service.ts:112`)   |
 | IDOR sur « mes sessions »         | périmètre depuis l'identité ALS, jamais du client | `destroyOwnByRef()` (`sessions-service.ts:861`)    |
 
@@ -608,7 +608,7 @@ une méthode ; la méthode l'emporte, par fusion et non par remplacement
 
 - `readOnly: true` — la session est reprise et lue mais **jamais** persistée ; une mutation tentée est
   journalisée en WARNING sans écriture (`Session.save()`, `session.ts:255-264`). C'est le seul champ
-  propagé par le kernel (`http-kernel.ts:1194`).
+  propagé par le kernel (`http-kernel.ts:1210`).
 
 En décorateur de **classe**, `@UseSession` se place **sous** `@controller` (`routerDecorators.ts:189`).
 
@@ -664,7 +664,7 @@ Le coût d'une session est **payé seulement quand elle sert** :
   probabiliste hérité de PHP (`sessions-service.ts:306-312`).
 - **Révocation quasi gratuite** — la `Map` de pierres tombales est **paresseuse** : sans révocation,
   `write` ne paie qu'une comparaison `=== null`, sans même un `Date.now()`
-  (`RevocationGuardStorage.ts:163-168`).
+  (`RevocationGuardStorage.ts:181-186`).
 - **Administration bornée** — jamais plus de `SCAN_PAGE = 200` enregistrements en mémoire
   (`sessions-service.ts:75`), garde-fou à 5 000 pages (`sessions-service.ts:83`), parcours interrompu
   **journalisé**.
@@ -711,7 +711,7 @@ une révocation sans effet, **401** sur `mine` sans identité.
 **Écrans** — la page **Sessions** (`/nodefony/sessions`) de Studio liste les sessions vivantes par `ref` et permet la
 révocation unitaire ou en masse (`@nodefony/studio/frontend/src/routes/sessions/`). L'écran **Stores**
 affiche le backend réellement résolu, sa provenance et son emplacement physique : ces informations sont
-publiées au boot par `registerStoreResolution()` (`sessions-service.ts:290`), avec le chemin du fichier
+publiées au boot par `registerStoreResolution()` (`sessions-service.ts:321`), avec le chemin du fichier
 SQLite quand c'est pertinent (`SessionStorage.location`,
 `@nodefony/drizzle/nodefony/src/SessionStorage.ts:55`).
 

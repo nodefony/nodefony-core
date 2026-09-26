@@ -196,12 +196,12 @@ Le tableau ci-dessous donne la séquence exacte, avec l'ancre qui la prouve :
 | #   | Étape                                   | Où                                                  |
 | --- | --------------------------------------- | --------------------------------------------------- |
 | 1   | Appariement de la route                 | `router.resolve()` (`http-kernel.ts:1324`)          |
-| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1381`)    |
-| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1316`                               |
+| 2   | En-têtes de sécurité applicatifs        | `applySecurityHeaders()` (`http-kernel.ts:1418`)    |
+| 3   | Parse du corps (sauf `@Body({stream})`) | `http-kernel.ts:1449`                               |
 | 4   | Armement de la route (sans instance)    | `prepareFrontController()` (`http-kernel.ts:789`)   |
-| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1479`)    |
+| 5   | CSRF                                    | `firewall.enforceCsrf()` (`http-kernel.ts:1524`)    |
 | 6   | Session (reprise ou ouverture)          | `HttpKernel.startSession()` (`http-kernel.ts:1168`) |
-| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1490`) |
+| 7   | Firewall — **authentification**         | `firewall.handleSecurity()` (`http-kernel.ts:1535`) |
 | 8   | Autorisation `@IsGranted`               | `Resolver.executeAction()` (`Resolver.ts:334`)      |
 | 9   | **Instanciation DI + `initialize()`**   | `Resolver.executeAction()` (`Resolver.ts:335`)      |
 | 10  | **Ton action**                          | `controller[methodKey]()` (`Resolver.ts:382`)       |
@@ -257,7 +257,7 @@ Si ton `initialize()` lève, l'exception remonte le pipeline et sort en réponse
 Chaque étape est chronométrée sous le nom d'une **phase**, lisible dans la debug bar et le profileur :
 `resolve` · `initialize` (DI + ton hook) · `parse` · `firewall` · `action` · `render` · `send`.
 La phase `initialize` existe précisément pour que le temps passé dans ton hook et dans la résolution
-DI **soit imputé à quelqu'un** au lieu de disparaître dans le bloc `action` (`Resolver.ts:100`).
+DI **soit imputé à quelqu'un** au lieu de disparaître dans le bloc `action` (`Resolver.ts:112`).
 
 ## 🔌 HTTP et WebSocket — le même contrôleur
 
@@ -400,7 +400,7 @@ de ce que tu as retourné :
 | Un `Buffer` | Envoyé brut | `Resolver.ts:854` |
 | Une `Response` (via un `render*`) | Retournée telle quelle — l'envoi a déjà eu lieu | `Resolver.ts:581` |
 | `void`/`null` **et** statut 204/205/304 | Réponse **vide envoyée** (RFC 9110 : ces statuts n'ont pas de corps) | `NO_BODY_STATUS` (`Resolver.ts:948`) |
-| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:932` |
+| `void`/`null` avec tout autre statut | `waitAsync` : « l'action enverra plus tard » | `Resolver.ts:951` |
 | Une instance de classe (entité ORM, DTO) | **Non sérialisée** → `waitAsync` (le teardown avertit du blocage) | `Resolver.ts:906-913` |
 
 > [!WARNING]
@@ -474,7 +474,7 @@ donc testable sans serveur.
 **nettoyage** : le flux est ouvert avec `autoClose: false`, et un client qui raccroche en plein
 téléchargement laisserait sinon un descripteur de fichier ouvert et une promesse pendue à jamais. Un
 écouteur `close` sur la réponse détruit le flux, ce qui déclenche la fermeture du descripteur et
-résout la promesse (`Controller.ts:729-734`), puis se retire lui-même (`Controller.ts:746`). Un
+résout la promesse (`Controller.ts:762-804`), puis se retire lui-même (`Controller.ts:746`). Un
 téléchargement interrompu ne coûte donc **rien** en ressource retenue.
 
 ## ⚠️ Erreurs — lever, rendre, observer
@@ -570,7 +570,7 @@ code du framework applique — et attend de toi — les règles suivantes :
   session sont calculés **une fois** par route puis mémorisés, au lieu d'être relus par `Reflect` à
   chaque requête (`resolveActionMeta()` appelé en `Resolver.ts:469`).
 - **Gardes payées seulement si présentes** : sans `@IsGranted`, la vérification d'autorisation est
-  un test de nullité (`Resolver.ts:334`) — 0 lookup, 0 `await`, 0 allocation.
+  un test de nullité (`Resolver.ts:368`) — 0 lookup, 0 `await`, 0 allocation.
 - **Ta part du contrat** : pas de structure allouée « au cas où » dans le constructeur ni dans
   `initialize()`. Une valeur utile à 5 % des requêtes s'alloue à la demande.
 
@@ -605,7 +605,7 @@ code du framework applique — et attend de toi — les règles suivantes :
 | Réponse vide alors qu'on retourne une entité ORM | Instance de classe **non** sérialisée → `waitAsync` (`Resolver.ts:906`) | Retourner un objet simple, ou `renderJson(entity.toJSON())` |
 | `Route Action not found` | L'action porte un nom déjà utilisé par un membre de `Controller` | Renommer : `session`, `request`, `response`, `context`, `route`, `method`, `query*`, `get`, `set`, `render*`, `redirect`, `forward` sont réservés |
 | `this.session` est `null` dans `initialize()` | La session est activée **après** (`http-kernel.ts:1210`) | Lire la session dans l'action, pas dans le hook |
-| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1490`) | Déplacer l'effet de bord dans l'action |
+| Effet de bord exécuté pour une requête finalement 401 | `initialize()` tourne avant `firewall.handleSecurity()` (`http-kernel.ts:1715`) | Déplacer l'effet de bord dans l'action |
 | Redirection permanente non voulue | Un statut invalide retombe sur 302, un `301` explicite reste 301 | Passer le code voulu : `this.redirect(url, 302)` |
 | WS : l'état d'une frame « bave » sur la suivante | L'instance est partagée par toute la connexion (`Resolver.ts:262`) | Réinitialiser l'état en tête d'action, ou le porter par message |
 | WS : l'action n'est jamais appelée | Route sans transport `WEBSOCKET` déclaré | `requirements: { methods: ["WEBSOCKET"] }` |

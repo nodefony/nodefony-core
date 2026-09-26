@@ -343,7 +343,7 @@ Le plus simple, et celui qui porte le trafic en cloud-native. `ServerHttp.create
 - **Réglages appliqués** : `requestTimeout` (anti slow-loris), `maxHeadersCount`, `timeout` de socket
   (qui émet un événement `onTimeout`), `keepAliveTimeout`.
 - **Erreurs de protocole** : l'événement `clientError` est traité explicitement
-  (`server-http.ts:167`) — voir la section Résilience, c'est un piège Node à part entière.
+  (`server-http.ts:186`) — voir la section Résilience, c'est un piège Node à part entière.
 
 ### `server-https` — TLS, et HTTP/2 par défaut
 
@@ -352,9 +352,9 @@ Deux branches dans un seul service, choisies sur `servers.https.protocol` (`serv
 - **`"2.0"` (défaut)** → `http2.createSecureServer` avec `allowHTTP1: true`
   (`ServerHttps.createServerH2()`, `server-https.ts:192`). Les bornes anti-DoS HTTP/2 ne sont posées
   **que si elles sont configurées**, pour ne pas écraser les défauts de Node
-  (`maxSessionMemory`, `server-https.ts:185`).
+  (`maxSessionMemory`, `server-https.ts:215`).
   Les erreurs de session et de flux sont journalisées sans tuer le serveur
-  (`sessionError`, `server-https.ts:274`).
+  (`sessionError`, `server-https.ts:296`).
 - **`"1.1"`** → `https.createServer` classique.
 
 Le certificat vient du service `certificates`, lu au moment de la création via
@@ -442,7 +442,7 @@ quelle à Node. C'est délibéré — un schéma strict effacerait silencieuseme
 ### Niveau 2 — HTTP/2
 
 Depuis `http2Schema` (`config.ts:353`), appliqué seulement si défini
-(`maxSessionMemory`, `server-https.ts:185`).
+(`maxSessionMemory`, `server-https.ts:215`).
 
 | Option                 | Type | Défaut | Effet                                                                         |
 | ---------------------- | ---- | ------ | ----------------------------------------------------------------------------- |
@@ -641,7 +641,7 @@ Violation)**, jamais par un code HTTP.
 
 > [!NOTE]
 > Une requête **sans** `Origin` (client non navigateur : script, agent, test) est acceptée
-> (`http-kernel.ts:551`). Ce n'est pas un trou : un attaquant non navigateur n'a aucun besoin de CSWSH,
+> (`http-kernel.ts:630`). Ce n'est pas un trou : un attaquant non navigateur n'a aucun besoin de CSWSH,
 > il se connecte directement. Le contrôle protège les **utilisateurs**, pas le port.
 
 ## Probes de santé — `/livez` et `/readyz`
@@ -745,7 +745,7 @@ réponses en cours, sockets inactives fermées, destruction forcée au-delà de 
 > [!IMPORTANT]
 > L'ordre WS-avant-HTTP n'est pas cosmétique. Les serveurs WebSocket s'inscrivent en
 > `prependOnceListener` (`server-websocket.ts:91`), les serveurs HTTP en `once`
-> (`server-http.ts:151`). Inversé, le terminator détruirait les sockets déjà upgradées **sans** frame
+> (`server-http.ts:170`). Inversé, le terminator détruirait les sockets déjà upgradées **sans** frame
 > Close : retour du 1006 pour tous les clients temps réel.
 
 Deux garde-fous encadrent la séquence : `shutdownTimeout` **par serveur** (le drain nominal) et
@@ -786,7 +786,7 @@ L'upgrade WebSocket **est** une requête HTTP : il passe donc par le **même** c
 IP que les requêtes ordinaires, vérifié avant toute allocation de contexte
 (`HttpKernel.onWebsocketRequest()`, `http-kernel.ts:1613`). Le `101` étant déjà émis par `ws`, un `429`
 est impossible → la connexion est fermée en **1013 « Try Again Later »**
-(`rateLimiter`, `http-kernel.ts:292`), sans
+(`rateLimiter`, `http-kernel.ts:1637`), sans
 journalisation (un journal par handshake rejeté serait lui-même un amplificateur sous flood).
 
 Un second plafond, **désactivé par défaut**, borne le nombre de connexions **simultanées** par IP :
@@ -809,7 +809,7 @@ par seconde. Les choix visibles dans le code :
 - **Aucun timer par connexion** — un `setInterval` par serveur WebSocket, `unref`, et deux `number` par
   socket (`wsHeartbeat.ts:69`).
 - **Rien de compilé par requête** — la politique de trust-proxy, celle des `Origin` WS et les motifs de
-  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:248`, `http-kernel.ts:248`).
+  `trustedHosts` sont compilés une fois et mémoïsés (`http-kernel.ts:407`, `http-kernel.ts:407`).
 - **Rejets avant allocation** — rate-limit HTTP et bornes WS sont vérifiés avant le contexte, la portée
   DI et l'ALS : un flood coûte une recherche dans une table de hachage.
 - **Probes hors pipeline** — réponses pré-allouées, aucun objet créé, aucun journal

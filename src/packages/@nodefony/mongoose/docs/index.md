@@ -707,7 +707,7 @@ pas des documents nus. Deux recherches lui sont propres :
   native bornée (`skip`/`limit + 1`), tri sur liste blanche, `_id` en départage. Une page est une page,
   jamais la collection entière rapatriée en mémoire.
 
-Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:354`))
+Le comptage des administrateurs actifs (`MongooseUserRepository.countActiveAdmins()` (`MongooseUserRepository.ts:328`))
 compte côté serveur — c'est le garde-fou qui empêche de supprimer le dernier administrateur.
 
 ### Jetons
