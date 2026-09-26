@@ -347,20 +347,22 @@ que l'import plus la ligne du décorateur.
 Le repository porte **quinze verbes**, pas cinq. Ils se choisissent sur la **garantie** qu'ils
 apportent, jamais sur leur nom.
 
-| Verbe                 | Ce qu'il garantit                                                  | Ancre                        |
-| --------------------- | ------------------------------------------------------------------ | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                    | `IRepository.ts:230`, `:192` |
-| `create`              | insère une ligne et rend sa version persistée (id, défauts)        | `IRepository.ts:240`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots     | `IRepository.ts:252`         |
-| `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend        | `IRepository.ts:269`         |
-| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**           | `IRepository.ts:312`         |
-| `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction    | `IRepository.ts:296`         |
-| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit  | `IRepository.ts:287`         |
-| `delete`              | supprime tout ce qui matche, rend le nombre                        | `IRepository.ts:336`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                    | `IRepository.ts:345`         |
-| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique       | `IRepository.ts:355`         |
-| `count` / `exists`    | compter, ou juste savoir s'il y en a une (sans charger de colonne) | `IRepository.ts:395`, `:335` |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                   | `IRepository.ts:406`         |
+| Verbe                 | Ce qu'il garantit                                                         | Ancre                        |
+| --------------------- | ------------------------------------------------------------------------- | ---------------------------- |
+| `find` / `findOne`    | lecture filtrée, avec tri, bornes et eager-load                           | `IRepository.ts:230`, `:192` |
+| `create`              | insère une ligne et rend sa version persistée (id, défauts)               | `IRepository.ts:240`         |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots            | `IRepository.ts:252`         |
+| `updateOne`           | modifie **au plus une** ligne, **atomiquement**, et la rend               | `IRepository.ts:269`         |
+| `updateMany`          | modifie toutes les lignes du critère, rend le **nombre**                  | `IRepository.ts:312`         |
+| `upsert`              | insère **ou** met à jour sur conflit de clé, en une instruction           | `IRepository.ts:296`         |
+| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, limitation de débit         | `IRepository.ts:287`         |
+| `delete`              | supprime tout ce qui matche, rend le nombre                               | `IRepository.ts:336`         |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                           | `IRepository.ts:345`         |
+| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, `pop` atomique              | `IRepository.ts:355`         |
+| `count`               | compter les entités qui correspondent au critère                          | `IRepository.ts:362`         |
+| `exists`              | savoir s'il y en a au moins une, sans charger de colonne                  | `IRepository.ts:395`         |
+| `countDistinct`       | compter les valeurs DISTINCTES et non nulles d'un champ, sans les charger | `IRepository.ts:381`         |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                          | `IRepository.ts:406`         |
 
 > [!IMPORTANT]
 > **Il n'existe pas de méthode `update()`.** Le choix est explicite et il est intentionnel :

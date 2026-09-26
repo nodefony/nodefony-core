@@ -420,20 +420,22 @@ lieu d'échouer : `describeEntity()` (`IOrm.ts:78`, colonnes pour l'ERD), `descr
 `IRepository<T>` (`IRepository.ts:197`) est la seule surface que ton métier devrait connaître. Les
 verbes se choisissent sur **la garantie** qu'ils apportent, pas sur leur nom.
 
-| Verbe                 | Ce qu'il garantit                                                    | Ancre                        |
-| --------------------- | -------------------------------------------------------------------- | ---------------------------- |
-| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                          | `IRepository.ts:230`         |
-| `count` / `exists`    | compter, ou juste savoir s'il y en a un (sans charger de colonne)    | `IRepository.ts:395`, `:335` |
-| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)       | `IRepository.ts:240`         |
-| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots       | `IRepository.ts:252`         |
-| `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend       | `IRepository.ts:269`         |
-| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**          | `IRepository.ts:312`         |
-| `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction  | `IRepository.ts:296`         |
-| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit             | `IRepository.ts:287`         |
-| `delete`              | supprime tout ce qui matche, rend le nombre                          | `IRepository.ts:336`         |
-| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                      | `IRepository.ts:345`         |
-| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique | `IRepository.ts:355`         |
-| `withTransaction(tx)` | une **vue** du repository liée à une transaction                     | `IRepository.ts:406`         |
+| Verbe                 | Ce qu'il garantit                                                         | Ancre                |
+| --------------------- | ------------------------------------------------------------------------- | -------------------- |
+| `find` / `findOne`    | lecture filtrée + eager-load + tri + bornes                               | `IRepository.ts:230` |
+| `count`               | compter les entités qui correspondent au critère                          | `IRepository.ts:362` |
+| `exists`              | savoir s'il y en a au moins un, sans charger de colonne                   | `IRepository.ts:395` |
+| `countDistinct`       | compter les valeurs DISTINCTES et non nulles d'un champ, sans les charger | `IRepository.ts:381` |
+| `create`              | insertion d'une ligne, rend la version persistée (id, défauts)            | `IRepository.ts:240` |
+| `createMany`          | N lignes en **une** requête — seed, import, ingestion par lots            | `IRepository.ts:252` |
+| `updateOne`           | met à jour **au plus une** ligne, **atomiquement**, et la rend            | `IRepository.ts:269` |
+| `updateMany`          | met à jour toutes les lignes du critère, rend le **nombre**               | `IRepository.ts:312` |
+| `upsert`              | insère **ou** met à jour sur conflit de clé, en **une** instruction       | `IRepository.ts:296` |
+| `increment`           | `SET f = f + ?` atomique — compteurs, quotas, rate-limit                  | `IRepository.ts:287` |
+| `delete`              | supprime tout ce qui matche, rend le nombre                               | `IRepository.ts:336` |
+| `deleteOne`           | supprime **au plus une** ligne, rend un booléen                           | `IRepository.ts:345` |
+| `findOneAndDelete`    | supprime **et rend** la ligne — file de jobs, outbox, `pop` atomique      | `IRepository.ts:355` |
+| `withTransaction(tx)` | une **vue** du repository liée à une transaction                          | `IRepository.ts:406` |
 
 > [!IMPORTANT]
 > `updateOne` est atomique **par construction** : une seule requête (`UPDATE … RETURNING` en SQL,
@@ -622,8 +624,8 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                                   |
 | Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1835`)          | oui (`MongooseOrm.ts:617`)                   |
 
-**Les « stores » du framework, eux, ne sont pas alignés — et c'est un choix.** Un adapter déclare ce
-qu'il porte dans son `package.json`, clé `nodefony.stores` :
+**Les « stores » du framework** : chaque adapter déclare ce qu'il porte dans son `package.json`, clé
+`nodefony.stores`. Les deux backends durables portent les huit :
 
 | Store         | drizzle | mongoose |
 | ------------- | ------- | -------- |
@@ -632,16 +634,15 @@ qu'il porte dans son `package.json`, clé `nodefony.stores` :
 | `tokens`      | ✅      | ✅       |
 | `passkeys`    | ✅      | ✅       |
 | `webhooks`    | ✅      | ✅       |
-| `totp`        | ✅      | —        |
-| `audit`       | ✅      | —        |
-| `idempotency` | ✅      | —        |
+| `totp`        | ✅      | ✅       |
+| `audit`       | ✅      | ✅       |
+| `idempotency` | ✅      | ✅       |
 
 > [!NOTE]
-> La couverture est **adaptée à la nature de chaque backend**, ce n'est pas une parité SQL × NoSQL à
-> atteindre. Un store d'idempotence veut une contrainte d'unicité et un `ON CONFLICT` — le terrain du
-> SQL. Lire ce tableau comme « mongoose est incomplet » serait un contresens : il porte exactement ce
-> qu'un déploiement Mongo attend de lui. La liste fait autorité côté code
-> (`@nodefony/drizzle/package.json`, clé `nodefony.stores`) — elle n'est pas un commentaire.
+> La couverture est **adaptée à la nature de chaque backend** : c'est `@nodefony/redis`, un cache,
+> qui s'arrête à quatre stores (`session`, `tokens`, `passkeys`, `idempotency`) — il ne garde ni
+> comptes ni journal. La liste fait autorité côté code (`nodefony.stores` du `package.json` de chaque
+> adapter) — elle n'est pas un commentaire.
 
 ## 🧩 Extension — brancher son propre driver
 

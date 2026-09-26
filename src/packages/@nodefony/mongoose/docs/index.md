@@ -539,6 +539,7 @@ drivers. Les signatures exactes vivent dans le graphe généré
 | `delete` / `deleteOne` | supprimer | `deleteMany` / `deleteOne` |
 | `findOneAndDelete` | supprimer **et** récupérer le document | `findOneAndDelete` |
 | `count` / `exists` | compter / tester l'existence | `countDocuments` / `exists` |
+| `countDistinct` | compter les valeurs distinctes et non nulles d'un champ | agrégation `$match` → `$group` → `$count` |
 | `withTransaction` | rejouer les mêmes opérations dans une transaction | ajoute la `session` à chaque opération |
 
 Les écritures qui « lisent puis écrivent » sont **atomiques par construction**
@@ -657,13 +658,16 @@ contrat est importé en `import type` (effacé à la compilation), et c'est le d
 auprès du module consommateur. Le module met en place tout ce câblage à son enregistrement, avant que
 la connexion ne s'ouvre.
 
-| Store        | Contrat                    | Comment le choisir                  | Collections                                        |
-| ------------ | -------------------------- | ----------------------------------- | -------------------------------------------------- |
-| Sessions     | `ISessionStorage` (http)   | `session: { store: "mongoose" }`    | `session`                                          |
-| Utilisateurs | `IUserRepository` (user)   | via `provisionUsers` de ton app     | `User`                                             |
-| Jetons       | `ITokenStore` (security)   | `tokenStore: { store: "mongoose" }` | `access_token`, `denied_jti`, `subject_revocation` |
-| Passkeys     | `IWebAuthnCredentialStore` | `passkeys: { store: "mongoose" }`   | `webauthn_credential`                              |
-| Webhooks     | `IWebhookStore`            | `webhooks: { store: "mongoose" }`   | `webhook_endpoint`                                 |
+| Store        | Contrat                       | Comment le choisir                               | Collections                                        |
+| ------------ | ----------------------------- | ------------------------------------------------ | -------------------------------------------------- |
+| Sessions     | `ISessionStorage` (http)      | `session: { store: "mongoose" }`                 | `session`                                          |
+| Utilisateurs | `IUserRepository` (user)      | via `provisionUsers` de ton app                  | `User`                                             |
+| Jetons       | `ITokenStore` (security)      | `tokenStore: { store: "mongoose" }`              | `access_token`, `denied_jti`, `subject_revocation` |
+| Passkeys     | `IWebAuthnCredentialStore`    | `passkeys: { store: "mongoose" }`                | `webauthn_credential`                              |
+| Webhooks     | `IWebhookStore`               | `webhooks: { store: "mongoose" }`                | `webhook_endpoint`                                 |
+| 2FA (TOTP)   | `ITotpSecretStore` (security) | `totp: { store: "mongoose" }`                    | `totp_secret`                                      |
+| Audit        | `IAuditStore` (security)      | `audit: { store: "mongoose" }`                   | `audit_event`                                      |
+| Idempotence  | `IIdempotencyStore` (cœur)    | `idempotency: { store: "mongoose" }` (framework) | `idempotency_key`                                  |
 
 L'auto-enregistrement peut être coupé (`frameworkEntities: false` (`config.ts:102`)) : le module
 devient alors un pur driver de données, sans schéma framework.
@@ -748,7 +752,7 @@ serait pire qu'une erreur.
 
 ## 🗃 Ce qui est stocké
 
-Les cinq schémas portés par le module. Les collections sont créées à la volée par MongoDB — il n'y a
+Les schémas portés par le module — dix collections. Les collections sont créées à la volée par MongoDB — il n'y a
 ni migration ni DDL à jouer, ce qui est l'un des vrais conforts du modèle documentaire.
 
 > ⚠️ **Le revers de ce confort : ce qui n'est pas déclaré est JETÉ, sans un mot.** Mongoose valide en
@@ -763,15 +767,18 @@ ni migration ni DDL à jouer, ce qui est l'un des vrais conforts du modèle docu
 > partagé (`USER_COLUMNS`), et le module en dérive un schéma Mongoose. Un champ métier que tu ajoutes
 > à ton utilisateur suit le même chemin — déclaré, donc écrit ; oublié, donc perdu en silence.
 
-| Collection            | Clé primaire (`_id`)         | Contenu                                                            | Horodatages        |
-| --------------------- | ---------------------------- | ------------------------------------------------------------------ | ------------------ |
-| `session`             | `ObjectId` (auto)            | identifiant de session, contenu, messages flash, méta, utilisateur | nombres (ms)       |
-| `User`                | `ObjectId` (auto)            | identifiant, mot de passe haché, rôles, comptes sociaux, méta      | gérés par Mongoose |
-| `access_token`        | le `jti` (texte)             | type, porteur, périmètres, empreinte du secret, révocation         | nombres (ms)       |
-| `denied_jti`          | le `jti` (texte)             | expiration                                                         | nombres (ms)       |
-| `subject_revocation`  | le porteur (texte)           | seuil `invalidBefore`                                              | nombres (ms)       |
-| `webauthn_credential` | l'identifiant du credential  | clé publique, compteur, transports, état de sauvegarde             | nombres (ms)       |
-| `webhook_endpoint`    | l'identifiant `wh_…` (texte) | URL, secret chiffré, événements, état des livraisons               | nombres (ms)       |
+| Collection            | Clé primaire (`_id`)                   | Contenu                                                                              | Horodatages        |
+| --------------------- | -------------------------------------- | ------------------------------------------------------------------------------------ | ------------------ |
+| `session`             | `ObjectId` (auto)                      | identifiant de session, contenu, messages flash, méta, utilisateur                   | nombres (ms)       |
+| `User`                | `ObjectId` (auto)                      | identifiant, mot de passe haché, rôles, comptes sociaux, méta                        | gérés par Mongoose |
+| `access_token`        | le `jti` (texte)                       | type, porteur, périmètres, empreinte du secret, révocation                           | nombres (ms)       |
+| `denied_jti`          | le `jti` (texte)                       | expiration                                                                           | nombres (ms)       |
+| `subject_revocation`  | le porteur (texte)                     | seuil `invalidBefore`                                                                | nombres (ms)       |
+| `webauthn_credential` | l'identifiant du credential            | clé publique, compteur, transports, état de sauvegarde                               | nombres (ms)       |
+| `webhook_endpoint`    | l'identifiant `wh_…` (texte)           | URL, secret chiffré, événements, état des livraisons                                 | nombres (ms)       |
+| `totp_secret`         | l'identifiant de l'utilisateur (texte) | secret chiffré, algorithme, chiffres, période, codes de secours, dernier pas utilisé | nombres (ms)       |
+| `audit_event`         | l'identifiant d'événement (texte)      | catégorie, action, issue, acteur, ressource, raison, IP, requête                     | nombre (`ts`, ms)  |
+| `idempotency_key`     | la clé d'idempotence (texte)           | empreinte de la requête, état, réponse rejouée                                       | expiration (ms)    |
 
 Deux choix structurants s'y lisent :
 

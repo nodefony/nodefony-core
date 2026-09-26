@@ -316,10 +316,11 @@ dépendances transitives pour ça.
 **Non supporté, volontairement** : objets imbriqués, multi-lignes `|` / `>`, ancres YAML.
 Une ligne mal formée est simplement sautée — elle ne fait jamais échouer la page.
 
-Le service ne consomme ensuite qu'une poignée de clés (`getPage()`,
-`DocumentationService.ts:244`) : `title`, `version` (défaut `"doc"`), `status`, `updated`,
-`source`, plus `audience` pour l'index. **Toutes les autres clés sont conservées dans le
-fichier et ignorées** — elles servent au RAG et aux outils, pas au portail.
+Le service ne consomme ensuite qu'une poignée de clés. `getPage()` (`DocumentationService.ts:244`)
+en lit cinq pour rendre une page — `title`, `version` (défaut `"doc"`), `status`, `updated`,
+`source` — et l'index y ajoute `audience` (filtre de vue) et `navTitle` (libellé court de la
+navigation, lu au scan par `scanDocsDir()` avec repli sur `title`). **Toutes les autres clés sont
+conservées dans le fichier et ignorées** — elles servent au RAG et aux outils, pas au portail.
 
 Deux valeurs sont **contraintes**, et le hors-piste est silencieusement écarté :
 

@@ -1037,17 +1037,17 @@ propriétaire légitime dehors.
 
 ## 📜 Normes appliquées
 
-| Domaine                 | Norme                    | Ce que le code en fait                                      |
-| ----------------------- | ------------------------ | ----------------------------------------------------------- |
-| Hachage de mot de passe | RFC 9106 (Argon2)        | variante `id`, version `0x13`, format PHC lu et écrit       |
-| Politique de hachage    | OWASP Password Storage   | minimums `m=19 MiB, t≥2, p=1` imposés au boot par le schéma |
-| Mots de passe           | NIST SP 800-63B §5.1.1.2 | point d'extension blocklist, consulté hors login            |
-| Longueur minimale       | OWASP ASVS V2.1.1        | plancher de 8 caractères sur le changement self-service     |
-| Ré-authentification     | OWASP Authentication     | mot de passe actuel exigé avant changement                  |
-| Énumération de comptes  | OWASP                    | message uniforme **et** temps de réponse nivelé             |
-| Identité fédérée        | OpenID Connect §5.1      | claims standard mappés vers `IUserProfile`, en camelCase    |
-| Emails                  | RFC 5321 §4.5.3.1.3      | longueur maximale de 254 caractères sur le profil           |
-| Langues                 | BCP 47                   | validation de la forme du champ `locale`                    |
+| Domaine                 | Norme                    | Ce que le code en fait                                                                                                     |
+| ----------------------- | ------------------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| Hachage de mot de passe | RFC 9106 (Argon2)        | variante `id`, version `0x13`, format PHC lu et écrit                                                                      |
+| Politique de hachage    | OWASP Password Storage   | minimums `m=19 MiB, t≥2, p=1` imposés au boot par le schéma                                                                |
+| Mots de passe           | NIST SP 800-63B §5.1.1.2 | point d'extension blocklist, consulté hors login                                                                           |
+| Longueur minimale       | OWASP ASVS V2.1.1        | plancher de 10 caractères (`DEFAULT_PASSWORD_POLICY.minLength`), changement self-service compris — au-delà des 8 de l'ASVS |
+| Ré-authentification     | OWASP Authentication     | mot de passe actuel exigé avant changement                                                                                 |
+| Énumération de comptes  | OWASP                    | message uniforme **et** temps de réponse nivelé                                                                            |
+| Identité fédérée        | OpenID Connect §5.1      | claims standard mappés vers `IUserProfile`, en camelCase                                                                   |
+| Emails                  | RFC 5321 §4.5.3.1.3      | longueur maximale de 254 caractères sur le profil                                                                          |
+| Langues                 | BCP 47                   | validation de la forme du champ `locale`                                                                                   |
 
 ## ⚡ Performance et mémoire
 
