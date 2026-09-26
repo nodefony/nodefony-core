@@ -241,8 +241,8 @@ svc.set("db", dbInstance);
 const db = svc.get<Database>("db");
 svc.has("db"); // true
 
-// Supprimer (appelle clean() si Service)
-svc.remove("db"); // retourne toujours false (comportement actuel)
+// Supprimer : appelle clean() si c'est un Service, rend true si le service existait
+svc.remove("db"); // true
 ```
 
 > **Note** : `set()` lève une erreur si le container est null (après `clean()`).

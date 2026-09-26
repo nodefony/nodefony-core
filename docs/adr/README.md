@@ -26,4 +26,5 @@ status: stable
 | [0008](0008-orm-drizzle-reference-sequelize-retire.md)        | ORM — Drizzle référence SQL, Mongoose pour NoSQL, Sequelize retiré sans dépréciation        | accepted | 2026-06-02 |
 | [0009](0009-session-hybride-cookie-bff-jwt-api.md)            | Session hybride — cookie opaque BFF au navigateur, JWT aux API et aux agents                | accepted | 2026-06-06 |
 | [0010](0010-identite-iuser-module-user-separe.md)             | Identité — contrat `IUser` dans `@nodefony/user`, séparé du firewall                        | accepted | 2026-05-20 |
+| [0011](0011-scope-de-requete-par-copie-prototypale.md)        | Portée de requête — un conteneur par requête, par copie prototypale, atteint par l'ALS      | accepted | 2026-09-26 |
 | [0012](0012-calque-configuration-par-requete.md)              | Configuration — figée au démarrage, surchargée par requête sur liste blanche                | accepted | 2026-09-26 |

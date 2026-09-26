@@ -351,8 +351,8 @@ connu de personne.
 
 > [!CAUTION]
 > `@injectable({ singleton: true })` **n'existe pas**. Les options acceptées sont `{ name?, scope? }`
-> où `scope` vaut `singleton` (défaut) ou `transient` ; une clé `singleton` est **acceptée et
-> ignorée en silence**. De même, `@Inject` (injection de propriété) existe dans le moteur mais
+> où `scope` vaut `singleton` (défaut), `transient` ou `request` ; TypeScript refuse la clé
+> `singleton` (`TS2353`), et en JavaScript elle est **ignorée en silence**. De même, `@Inject` (injection de propriété) existe dans le moteur mais
 > **n'est pas ré-exporté** par le paquet `nodefony` : `import { Inject } from "nodefony"` échoue.
 > Injecte par **constructeur**, avec `@inject("nom")`.
 

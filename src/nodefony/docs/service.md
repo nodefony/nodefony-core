@@ -433,10 +433,13 @@ C'est exactement le correctif qui empêche une fuite d'écouteurs par instance s
 | `@inject("nom")`    | `kernelDecorator.ts:186` | injecte un service par nom sur un **paramètre** de constructeur    |
 | `@services([…])`    | `kernelDecorator.ts:53`  | déclare les services d'un module — instanciés à `onPreBoot`        |
 
-`@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` vaut `singleton` (défaut) ou
-`transient` — une instance neuve à chaque résolution (`injector.ts:160`). Il n'existe **ni**
-`singleton: true`, **ni** `factory`, **ni** scope `request` : le scope par requête est une notion du
-container hiérarchique, pas du DI (voir [injection-portees](../../../docs/architecture/injection-portees.md)).
+`@injectable` accepte aussi un objet `{ name?, scope? }` où `scope` (`DIScope`, `injector.ts:27`)
+vaut `singleton` (défaut, une instance pour le processus), `transient` (une instance neuve à chaque
+résolution) ou `request` (une instance par requête — par connexion en WebSocket —, nettoyée à sa
+fin ; son constructeur reçoit le scope de la requête). Il n'existe **ni** `singleton: true`, **ni**
+`factory` : TypeScript refuse ces clés. Choisir la portée, le calque de chaque requête et la façon de
+l'atteindre depuis n'importe quel code :
+[Injection et portées](../../../docs/architecture/injection-portees.md).
 
 > [!CAUTION]
 > Le décorateur de **propriété** `@Inject` existe dans le code (`kernelDecorator.ts:215`) mais n'est
