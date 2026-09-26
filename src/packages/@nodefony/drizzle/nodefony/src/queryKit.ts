@@ -174,7 +174,7 @@ export async function reserveIdempotencyKeyMysql(
           (${sql.raw("`key`, `fingerprint`, `state`, `response`, `expiresAt`")})
         VALUES (${key}, ${fingerprint}, 'if', NULL, ${leaseExpiresAt})`,
   );
-  if (((inserted as { affectedRows?: number })?.affectedRows ?? 0) === 1) {
+  if (((inserted as { affectedRows?: number }).affectedRows ?? 0) === 1) {
     return true; // clé neuve — INSERT gagné (PK = un seul gagnant possible).
   }
   const [stolen] = await exec.execute(
@@ -186,7 +186,7 @@ export async function reserveIdempotencyKeyMysql(
         WHERE ${sql.raw("`key`")} = ${key}
           AND ${sql.raw("`expiresAt`")} < ${now}`,
   );
-  return ((stolen as { affectedRows?: number })?.affectedRows ?? 0) > 0;
+  return ((stolen as { affectedRows?: number }).affectedRows ?? 0) > 0;
 }
 
 // ─── Listing paginé natif des utilisateurs (contrat `IUserRepository.listPage`) ──

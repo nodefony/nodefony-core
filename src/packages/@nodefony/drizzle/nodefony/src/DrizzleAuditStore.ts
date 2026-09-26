@@ -169,7 +169,9 @@ export class DrizzleAuditStore implements IAuditStore {
   async listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
     assertPageQuery(query, "cursor");
     const limit = Math.min(
-      Math.max(1, query.limit ?? DEFAULT_LIMIT),
+      // `limit` est requis par le type, mais un appelant JavaScript l'omet :
+      // sans défaut, `Math.max(1, undefined)` rend `NaN`.
+      Math.max(1, (query as Partial<IAuditListQuery>).limit ?? DEFAULT_LIMIT),
       MAX_LIMIT,
     );
     const db = this.#resolveDb();
@@ -217,7 +219,7 @@ export class DrizzleAuditStore implements IAuditStore {
     const hasNext = rows.length > limit;
     const pageRows = hasNext ? rows.slice(0, limit) : rows;
     const items = pageRows.map((row) => this.#toEvent(row));
-    const last = pageRows[pageRows.length - 1];
+    const last = pageRows.at(-1);
     return {
       items,
       limit,
@@ -257,7 +259,9 @@ export class DrizzleAuditStore implements IAuditStore {
       .delete(execTable(this.#table))
       .where(lt(this.#c.ts, threshold));
     if (Array.isArray(result)) {
-      return (result[0] as { affectedRows?: number })?.affectedRows ?? 0;
+      return (
+        (result[0] as { affectedRows?: number } | undefined)?.affectedRows ?? 0
+      );
     }
     const r = result as { changes?: number; rowCount?: number | null };
     return r.changes ?? r.rowCount ?? 0;

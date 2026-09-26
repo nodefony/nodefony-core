@@ -229,7 +229,7 @@ export function userTableColumns(
       column.name,
       {
         notNull: column.notNull,
-        isUnique: column.isUnique ?? false,
+        isUnique: column.isUnique,
         primary: column.primary,
       },
     ]),

@@ -260,7 +260,7 @@ export function registerDrizzleFrameworkStores(
       }
       registerTokenStore("drizzle", (ctx) => {
         const orm = resolveConnectedOrm(`tokenStore "drizzle"`, dialect);
-        const days = ctx?.config?.tokenStore?.retentionRevokedDays;
+        const days = ctx.config.tokenStore.retentionRevokedDays;
         return DrizzleTokenStore.from(
           orm,
           undefined,
@@ -281,7 +281,7 @@ export function registerDrizzleFrameworkStores(
       }
       registerAuditStore("drizzle", (ctx) => {
         const orm = resolveConnectedOrm(`audit.store "drizzle"`, dialect);
-        const days = ctx?.config?.audit?.retentionDays;
+        const days = ctx.config.audit.retentionDays;
         return DrizzleAuditStore.from(
           orm,
           undefined,

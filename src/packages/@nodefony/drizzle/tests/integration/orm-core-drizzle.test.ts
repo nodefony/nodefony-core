@@ -118,6 +118,25 @@ describe("orm-core ↔ Drizzle adapter (P7.4)", () => {
       () => users.find({ nope: 1 }),
       /Unknown criteria field/,
     );
+    // Même contrat pour le TRI et `countDistinct` : le champ inconnu partait dans
+    // le SQL en `undefined` et revenait en `no such column: asc`, qui ne nomme ni
+    // le champ ni l'entité. Deux chemins d'ORDER BY : préparé (critère
+    // bindable), et direct (opérateur riche, que le cache de requêtes écarte).
+    await assert.rejects(
+      () => users.find({}, { order: [["nope", "ASC"]] } as never),
+      /Unknown criteria field/,
+    );
+    await assert.rejects(
+      () =>
+        users.find({ age: { $gt: 0 } }, {
+          order: [["nope", "DESC"]],
+        } as never),
+      /Unknown criteria field/,
+    );
+    await assert.rejects(
+      () => users.countDistinct("nope" as never),
+      /Unknown criteria field/,
+    );
 
     assert.equal(await users.delete({ id: created.id }), 1);
     assert.equal(await users.count(), 0);

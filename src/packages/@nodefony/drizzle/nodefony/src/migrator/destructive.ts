@@ -193,11 +193,9 @@ export function rebuiltTables(
     ),
   );
   for (const rename of renames) {
+    // `IDENT` porte UN groupe, obligatoire : les deux sont toujours capturés.
     const staging = rename[1];
     const target = rename[2];
-    if (staging === undefined || target === undefined) {
-      continue;
-    }
     // Les trois autres temps de la ronde, chacun rattaché aux MÊMES noms.
     // La recopie est bornée : un `[\\s\\S]*` non borné traverserait un fichier
     // entier et rapprocherait deux instructions sans rapport.
@@ -234,10 +232,7 @@ export function droppedTables(sql: readonly string[] | string): string[] {
   const found = asSql(sql).matchAll(
     new RegExp(`\\bDROP\\s+TABLE\\s+(?:IF\\s+EXISTS\\s+)?${IDENT}`, "gi"),
   );
-  return [...found]
-    .map((m) => m[1])
-    .filter((n): n is string => n !== undefined)
-    .map((n) => n.toLowerCase());
+  return [...found].map((m) => m[1].toLowerCase());
 }
 
 /**

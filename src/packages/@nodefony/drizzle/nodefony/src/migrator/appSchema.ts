@@ -431,7 +431,8 @@ interface IJournalEntry {
 interface IJournal {
   version: string;
   dialect: string;
-  entries: IJournalEntry[];
+  /** Absent d'un journal écrit à la main : il est relu tel quel du disque. */
+  entries?: IJournalEntry[];
 }
 
 /**

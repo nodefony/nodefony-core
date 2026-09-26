@@ -343,8 +343,15 @@
       // donnée venue du réseau, du disque, d'une config non validée ou d'un
       // appelant JavaScript est légitime — c'est alors le TYPE qu'on rend
       // honnête (`| undefined`, `Partial`, `unknown`), pas la garde qu'on retire.
+      // Élargir par `as T | undefined`, jamais par une ANNOTATION : TypeScript
+      // rétrécit `const x: T | undefined = rec[k]` au type affecté, et la règle
+      // mord encore. Un indexé (`arr[0]`) s'écrit `arr.at(0)`, qui dit le vrai.
       // Placée AVANT la surcharge des tests, qui la coupe pour eux.
-      "files": ["src/nodefony/src/**", "src/packages/@nodefony/orm-core/**"],
+      "files": [
+        "src/nodefony/src/**",
+        "src/packages/@nodefony/orm-core/**",
+        "src/packages/@nodefony/drizzle/**"
+      ],
       "rules": {
         "typescript/no-unnecessary-condition": "error"
       }

@@ -9,7 +9,10 @@ import type {
   MigrationCheckMode,
   SqlDialect,
 } from "../../config/config";
-import type { IDrizzleConfig } from "../../interfaces/IDrizzleConfig";
+import type {
+  IDrizzleConfig,
+  IDrizzleConnectorConfig,
+} from "../../interfaces/IDrizzleConfig";
 import { resolveConnectorTarget } from "../connectorTarget";
 import { DrizzleMigrator } from "./DrizzleMigrator";
 import { connectorMigrationsDir, defaultMigrationSources } from "./paths";
@@ -354,18 +357,16 @@ export type IConnectorResolution =
  * @returns une description courte (`mongoose (mongodb)`), ou le nom de classe seul.
  */
 function describeOwner(name: string): { label: string; driver: string } {
-  let orm: { describeConnection?: () => { driver?: string } } | undefined;
+  let orm: { describeConnection?: () => { driver?: string } };
   try {
-    orm = ormRegistry.get(name) as unknown as {
-      describeConnection?: () => { driver?: string };
-    };
+    orm = ormRegistry.get(name);
   } catch {
     return { label: "un ORM inconnu", driver: "" };
   }
-  const klass = (orm as { constructor?: { name?: string } })?.constructor?.name;
+  const klass = (orm as { constructor?: { name?: string } }).constructor?.name;
   let driver = "";
   try {
-    driver = orm?.describeConnection?.().driver ?? "";
+    driver = orm.describeConnection?.().driver ?? "";
   } catch {
     driver = "";
   }
@@ -409,7 +410,7 @@ const SQL_DRIVERS = new Set([
  */
 export function knownConnectors(config: IDrizzleConfig): string[] {
   const names = new Set<string>(ormRegistry.list());
-  for (const name of Object.keys(config.connectors ?? {})) {
+  for (const name of Object.keys(config.connectors)) {
     names.add(name);
   }
   return [...names].sort();
@@ -442,7 +443,8 @@ export function resolveConnector(
   kernel: Kernel | null,
   options: { allowMigrateUrl?: boolean } = {},
 ): IConnectorResolution {
-  const declared = config.connectors?.[connector];
+  const declared = config.connectors[connector] as
+    IDrizzleConnectorConfig | undefined;
   if (!declared) {
     if (ormRegistry.has(connector)) {
       const owner = describeOwner(connector);

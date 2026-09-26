@@ -39,7 +39,7 @@ function applyEnvOverrides(
     return config;
   }
   if (database?.family === "sql" && database.dialect) {
-    const target = config.connectors.default
+    const target = Object.hasOwn(config.connectors, "default")
       ? "default"
       : Object.keys(config.connectors)[0];
     const connector = target ? config.connectors[target] : undefined;

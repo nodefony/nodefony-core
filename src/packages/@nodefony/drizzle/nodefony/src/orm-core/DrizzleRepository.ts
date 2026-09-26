@@ -66,7 +66,7 @@ export type DrizzleTable = SQLiteTable | PgTable | MySqlTable;
 export type DrizzleColumn = Column;
 
 /** Vue colonnes d'une table Drizzle (accès par nom logique). */
-type TableColumns = Record<string, DrizzleColumn>;
+type TableColumns = Partial<Record<string, DrizzleColumn>>;
 
 /**
  * Vue d'exécution canonique (typage sqlite) d'une table multi-dialecte —
@@ -196,9 +196,33 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     this.#transactional = transactional;
   }
 
-  /** Colonne Drizzle d'une table par nom logique. */
-  #col(table: DrizzleTable, name: string): DrizzleColumn {
+  /** Colonne Drizzle d'une table par nom logique ; `undefined` si elle n'existe pas. */
+  #col(table: DrizzleTable, name: string): DrizzleColumn | undefined {
     return (table as unknown as TableColumns)[name];
+  }
+
+  /**
+   * Colonne EXIGÉE : un nom inconnu lève au lieu de partir dans le SQL.
+   *
+   * Strict (B2) : champ inconnu = erreur, pas un skip silencieux (qui ferait
+   * disparaître la condition → fuite « renvoie tout »), ni un `undefined` glissé
+   * dans un `ORDER BY` (rendu `no such column: asc`). Même contrat que Mongoose.
+   * Requêtes natives → `getNativeConnection()`.
+   *
+   * @param name - nom logique du champ (critère, tri, clé étrangère).
+   * @param table - table qui doit le porter (défaut : celle du repository).
+   * @throws UnknownCriteriaField si la table ne porte pas ce champ.
+   */
+  #requireCol(name: string, table: DrizzleTable = this.#table): DrizzleColumn {
+    const col = this.#col(table, name);
+    if (col === undefined) {
+      throw new UnknownCriteriaField(
+        name,
+        getTableName(table),
+        Object.keys(getTableColumns(table)),
+      );
+    }
+    return col;
   }
 
   /**
@@ -272,7 +296,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       pk.map((col) => sql.identifier(col.name)),
       sql.raw(", "),
     );
-    const first = pk[0];
+    const first = pk.at(0);
     const target =
       pk.length === 1 && first ? sql`${first}` : sql`(${qualified})`;
     return sql`${target} in (select ${output} from (${inner}) as picked)`;
@@ -444,17 +468,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         }
         continue;
       }
-      const col = this.#col(this.#table, field);
-      if (!col) {
-        // Strict (B2) : champ inconnu = erreur, pas un skip silencieux (qui
-        // ferait disparaître la condition → fuite « renvoie tout »). Même
-        // contrat que Mongoose. Requêtes natives → getNativeConnection().
-        throw new UnknownCriteriaField(
-          field,
-          getTableName(this.#table),
-          Object.keys(getTableColumns(this.#table)),
-        );
-      }
+      const col = this.#requireCol(field);
       if (isFieldOperators(value)) {
         this.#pushOperators(conds, col, value);
       } else if (value === null) {
@@ -545,14 +559,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       const conds: SQL[] = [];
       let i = 0;
       for (const [field, value] of Object.entries(criteria)) {
-        const col = this.#col(this.#table, field);
-        if (!col) {
-          throw new UnknownCriteriaField(
-            field,
-            getTableName(this.#table),
-            Object.keys(getTableColumns(this.#table)),
-          );
-        }
+        const col = this.#requireCol(field);
         // `sql.param(placeholder, col)` et JAMAIS `eq(col, placeholder)` nu :
         // `bindIfParam` EXCLUT les Placeholder du wrapping Param, donc le nu
         // serait résolu SANS le `mapToDriverValue` de la colonne (un array json
@@ -575,8 +582,8 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       query = query.orderBy(
         ...options.order.map(([field, dir]) =>
           dir === "DESC"
-            ? desc(this.#col(this.#table, field))
-            : asc(this.#col(this.#table, field)),
+            ? desc(this.#requireCol(field))
+            : asc(this.#requireCol(field)),
         ),
       );
     }
@@ -657,8 +664,8 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       query = query.orderBy(
         ...options.order.map(([field, dir]) =>
           dir === "DESC"
-            ? desc(this.#col(this.#table, field))
-            : asc(this.#col(this.#table, field)),
+            ? desc(this.#requireCol(field))
+            : asc(this.#requireCol(field)),
         ),
       );
     }
@@ -693,7 +700,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return;
     }
     for (const name of relations) {
-      const rel = this.#relations[name];
+      const rel = this.#relations[name] as DrizzleResolvedRelation | undefined;
       if (!rel) {
         throw new Error(
           `DrizzleRepository(${name}): relation "${name}" non déclarée.`,
@@ -701,7 +708,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       }
       if (rel.type === "one-to-many") {
         const parentIds = rows.map((row) => row[rel.localKey]);
-        const fkCol = this.#col(rel.targetTable, rel.foreignKey);
+        const fkCol = this.#requireCol(rel.foreignKey, rel.targetTable);
         const children = await this.#prof(
           this.#db
             .select()
@@ -728,7 +735,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         const fkValues = rows
           .map((row) => row[rel.foreignKey])
           .filter((value) => value !== null && value !== undefined);
-        const idCol = this.#col(rel.targetTable, rel.targetKey);
+        const idCol = this.#requireCol(rel.targetKey, rel.targetTable);
         const parents =
           fkValues.length > 0
             ? await this.#prof(
@@ -837,14 +844,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         values[field] = value;
         continue;
       }
-      const col = this.#col(this.#table, field);
-      if (!col) {
-        throw new UnknownCriteriaField(
-          field,
-          getTableName(this.#table),
-          Object.keys(getTableColumns(this.#table)),
-        );
-      }
+      const col = this.#requireCol(field);
       // `sql.raw` sur une constante INTERNE (jamais une entrée appelante) : le
       // nom de fonction n'est pas paramétrable en SQL. La valeur, elle, est bindée.
       const apply = (fn: string, v: unknown): void => {
@@ -874,14 +874,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     // n'accepte pas de WHERE dessus) → une valeur qui ne doit pas régresser
     // passe par `$max`/`$min` (cf `#writeSet`), et ça reste 1 instruction.
     const target = Object.keys(criteria).map((field) => {
-      const col = this.#col(this.#table, field);
-      if (!col) {
-        throw new UnknownCriteriaField(
-          field,
-          getTableName(this.#table),
-          Object.keys(getTableColumns(this.#table)),
-        );
-      }
+      const col = this.#requireCol(field);
       return col;
     });
     const write = this.#writeSet(update);
@@ -944,14 +937,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     // sur le compteur. Même garantie « au plus une + 0 relecture » qu'updateOne.
     const setObj: Record<string, SQL> = {};
     for (const [field, delta] of Object.entries(changes)) {
-      const col = this.#col(this.#table, field);
-      if (!col) {
-        throw new UnknownCriteriaField(
-          field,
-          getTableName(this.#table),
-          Object.keys(getTableColumns(this.#table)),
-        );
-      }
+      const col = this.#requireCol(field);
       setObj[field] = sql`${col} + ${delta}`;
     }
     if (this.#dialect === "mysql") {
@@ -1069,7 +1055,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   ): Promise<T | null> {
     const pk = this.#requirePk("updateOne");
     const where = this.#where(criteria);
-    const target = (await this.#runSelect(criteria, { limit: 1 }))[0];
+    const target = (await this.#runSelect(criteria, { limit: 1 })).at(0);
     if (!target) {
       return null;
     }
@@ -1096,7 +1082,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   async #mysqlDeleteOneReturning(criteria: Criteria<T>): Promise<T | null> {
     const pk = this.#requirePk("deleteOne");
     const where = this.#where(criteria);
-    const target = (await this.#runSelect(criteria, { limit: 1 }))[0];
+    const target = (await this.#runSelect(criteria, { limit: 1 })).at(0);
     if (!target) {
       return null;
     }
@@ -1166,7 +1152,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
   ): Promise<number> {
     const where = this.#where(criteria);
     const builder = this.#db
-      .select({ value: countDistinct(this.#col(this.#table, field)) })
+      .select({ value: countDistinct(this.#requireCol(field)) })
       .from(execTable(this.#table))
       .$dynamic();
     const rows = (await this.#prof(

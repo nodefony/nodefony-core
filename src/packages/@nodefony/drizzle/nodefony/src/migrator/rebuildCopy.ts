@@ -77,17 +77,8 @@ export function repairRebuildCopy(
     if (groups === undefined) {
       return match;
     }
+    // Aucun groupe n'est facultatif dans `REBUILD_COPY` : tous sont capturés.
     const { head, into, middle, select, tail, source } = groups;
-    if (
-      head === undefined ||
-      into === undefined ||
-      middle === undefined ||
-      select === undefined ||
-      tail === undefined ||
-      source === undefined
-    ) {
-      return match;
-    }
     const known = columnsOf(source);
     if (known === null) {
       return match;

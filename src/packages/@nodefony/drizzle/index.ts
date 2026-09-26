@@ -23,6 +23,7 @@ import {
 import type {
   IDrizzleConfig,
   IDrizzleConfigInput,
+  IDrizzleConnectorConfig,
 } from "./nodefony/interfaces/IDrizzleConfig";
 import OrmGenerate from "./nodefony/command/orm-generate";
 import OrmMigrate from "./nodefony/command/orm-migrate";
@@ -74,7 +75,7 @@ class Drizzle extends Module<IDrizzleConfig> {
     // en développement (fail-soft) — le refus disparaissait précisément là où la
     // faute vient d'être écrite.
     const validated: IDrizzleConfig = defineDrizzleConfig(
-      (this.options ?? {}) as IDrizzleConfigInput,
+      this.options as IDrizzleConfigInput,
       (this.appOptions ?? {}) as IDrizzleConfigInput,
     );
     // Config validée exposée via this.options → `this.config` (accès uniforme
@@ -95,7 +96,10 @@ class Drizzle extends Module<IDrizzleConfig> {
     // Sans connecteur `default` (infra non SQL, cf `defineDrizzleConfig`), le
     // schéma framework n'a pas où vivre : le déclarer quand même publierait des
     // fabriques de stores vers un ORM que personne n'ouvre.
-    const frameworkHost = validated.connectors.default;
+    // `as` et non une annotation : TypeScript rétrécit une annotation à la
+    // valeur affectée, et l'accès indexé d'un `Record` se dit toujours présent.
+    const frameworkHost = validated.connectors.default as
+      IDrizzleConnectorConfig | undefined;
     if (validated.frameworkEntities && frameworkHost === undefined) {
       this.log(
         `pas de connecteur "${FRAMEWORK_CONNECTOR}" (infrastructure déclarée non SQL) : ` +

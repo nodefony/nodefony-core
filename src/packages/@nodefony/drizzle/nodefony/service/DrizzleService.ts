@@ -48,6 +48,19 @@ import type {
 
 const serviceName = "drizzle";
 
+/** Connecteur tel que le service le TROUVE : `dialect` absent vaut `sqlite`, comme le défaut Zod. */
+type DrizzleConnectorView = Omit<IDrizzleConnectorConfig, "dialect"> & {
+  dialect?: IDrizzleConnectorConfig["dialect"];
+};
+
+/** Config du module telle que le service la TROUVE : peut-être partielle (cf `#config`). */
+type DrizzleConfigView = Partial<
+  Omit<IDrizzleConfig, "migrations" | "connectors">
+> & {
+  connectors?: Record<string, DrizzleConnectorView>;
+  migrations?: Partial<IDrizzleConfig["migrations"]>;
+};
+
 /**
  * Période de re-vérification du schéma quand la mise en service est retenue.
  *
@@ -130,7 +143,7 @@ class DrizzleService extends Service {
       serviceName,
       module.container as Container,
       module.notificationsCenter,
-      module.options ?? {},
+      module.options,
     );
     this.module = module;
 
@@ -170,8 +183,23 @@ class DrizzleService extends Service {
     });
   }
 
-  /** Config validée (Zod) exposée par le Module (`this.module.config`). */
-  #config(): IDrizzleConfig {
+  /**
+   * Config du module telle que le service la TROUVE.
+   *
+   * Validée par Zod au boot du kernel ; mais le service se construit aussi hors
+   * kernel (bancs, usage direct) avec une config partielle, voire absente — et
+   * « config absente → rien à connecter » est un contrat couvert par
+   * `DrizzleService.test.ts`. Le type le dit, donc chaque lecture garde.
+   */
+  #config(): DrizzleConfigView | undefined {
+    return this.module.config;
+  }
+
+  /**
+   * Config VALIDÉE, pour les lecteurs de migrations du plan d'administration :
+   * seul un kernel les appelle, et un kernel a validé la config au boot.
+   */
+  #validatedConfig(): IDrizzleConfig {
     return this.module.config as IDrizzleConfig;
   }
 
@@ -210,7 +238,7 @@ class DrizzleService extends Service {
   /** Connecte un connecteur (crée le dossier de la base SQLite si nécessaire). */
   async #connectOne(
     name: string,
-    cfg: IDrizzleConnectorConfig,
+    cfg: DrizzleConnectorView,
     connect = true,
   ): Promise<void> {
     const dialect = cfg.dialect ?? "sqlite";
@@ -226,7 +254,7 @@ class DrizzleService extends Service {
         name,
         appMigrationsDir(
           this.kernel as Kernel | null,
-          this.#config().migrations?.dir ?? "migrations",
+          this.#config()?.migrations?.dir ?? "migrations",
         ),
       ),
       cfg.filename === MEMORY_DATABASE,
@@ -263,7 +291,7 @@ class DrizzleService extends Service {
         const { migrationStatusFor } = await import("../src/migrator/status");
         const result = await migrationStatusFor(
           name,
-          this.#config(),
+          this.#validatedConfig(),
           this.kernel as Kernel | null,
         );
         return result.ok ? result.report : result.failure;
@@ -272,7 +300,7 @@ class DrizzleService extends Service {
         const { migrationPlanFor } = await import("../src/migrator/status");
         const result = await migrationPlanFor(
           name,
-          this.#config(),
+          this.#validatedConfig(),
           this.kernel as Kernel | null,
         );
         return result.ok ? result.plan : result.failure;
@@ -284,7 +312,7 @@ class DrizzleService extends Service {
         const { applyMigrationsFor } = await import("../src/migrator/status");
         const result = await applyMigrationsFor(
           name,
-          this.#config(),
+          this.#validatedConfig(),
           this.kernel as Kernel | null,
         );
         return result.ok ? result.run : result.failure;
@@ -383,14 +411,14 @@ class DrizzleService extends Service {
   async #applySchemaPolicy(
     name: string,
     ddl: DdlMode,
-    cfg: IDrizzleConnectorConfig,
+    cfg: DrizzleConnectorView,
     dialect: string,
     filename: string | undefined,
   ): Promise<void> {
     const kernel = this.kernel as Kernel | null;
     const config = this.#config();
     const env = readMigrationEnv(kernel);
-    const check = resolveCheckMode(config.migrations?.check, env);
+    const check = resolveCheckMode(config?.migrations?.check, env);
     // 🔴 `auto` ne se tait plus. Le schéma y est dérivé du code, donc rien
     // n'est en panne — mais une migration ENREGISTRÉE que personne n'a
     // appliquée reste invisible, et c'est ce silence qui a coûté une base :
@@ -404,7 +432,7 @@ class DrizzleService extends Service {
     const adviseOnly = ddl === "auto";
     const appDir = appMigrationsDir(
       kernel,
-      config.migrations?.dir ?? "migrations",
+      config?.migrations?.dir ?? "migrations",
     );
     // Le connecteur du framework reçoit toujours les migrations du framework ;
     // un SECONDAIRE n'a que les siennes (`migrations/<connecteur>/`). Sans
@@ -436,18 +464,16 @@ class DrizzleService extends Service {
       url?: string;
     };
     const sources = await defaultMigrationSources(appDir, {
-      // `IDrizzleConfig` est ici lu à travers un transtypage de `module.config` :
-      // une config construite à la main (tests, module factice) peut omettre la
+      // Une config construite à la main (tests, module factice) peut omettre la
       // clé, et son absence doit valoir `true` comme le défaut Zod.
-      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
-      framework: config.frameworkEntities !== false,
+      framework: config?.frameworkEntities !== false,
       connector: name,
     });
     const migrator = new DrizzleMigrator({
       connector: name,
       ...target,
       sources,
-      lockTimeoutMs: config.migrations?.lockTimeoutMs,
+      lockTimeoutMs: config?.migrations?.lockTimeoutMs,
     });
 
     if (adviseOnly) {
@@ -548,7 +574,7 @@ class DrizzleService extends Service {
       // où elle apprend quelque chose que personne d'autre ne voit. Elle rend
       // ce qui diverge, NOMMÉ — la phrase publiée à la sonde dit donc quelle
       // table manque, et non plus seulement qu'il en manque une.
-      const mode = this.#config().migrations?.divergence ?? "report";
+      const mode = this.#config()?.migrations?.divergence ?? "report";
       const report = buildReport(plan, {
         ddl,
         // `off` : rien n'est calculé. Cf le même choix dans `migrateShared`.

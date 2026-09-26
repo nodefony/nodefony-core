@@ -1024,7 +1024,7 @@ export function renderRefusal(
   const enMode = ddl
     ? refusalInMode(verdict.code, ddl, verdict.connector)
     : null;
-  const meaning = enMode?.meaning ?? REFUSAL_MEANING[verdict.code] ?? "";
+  const meaning = enMode?.meaning ?? REFUSAL_MEANING[verdict.code];
   const actions = enMode?.actions ?? verdict.nextActions;
   return (
     `${style.red(style.bold("Migration refusée"))} ` +

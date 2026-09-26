@@ -17,7 +17,7 @@
  * (l'outil le préfixe par `./`, fabriquant `.//Users/…`), et l'échec de lecture
  * qui s'ensuit se présente lui aussi comme un succès.
  */
-import { spawnSync } from "node:child_process";
+import { spawnSync, type SpawnSyncReturns } from "node:child_process";
 import fs from "node:fs";
 import path from "node:path";
 import type { SqlDialect } from "../../interfaces/IDrizzleConfig";
@@ -140,7 +140,7 @@ export function runGenerate({
     ],
     { cwd, encoding: "utf8" },
   );
-  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const output = toolOutput(result);
   if (result.status !== 0 || !generationHappened(output)) {
     // 🔴 Un refus TYPÉ, jamais une `Error` nue. Une exception nue tombe dans le
     // fourre-tout des commandes de migration, qui explique TOUT par une base
@@ -209,7 +209,7 @@ export function runIntrospect({
     [resolveDrizzleKitBin(cwd), "introspect", `--config=${configRel}`],
     { cwd, encoding: "utf8" },
   );
-  const output = `${result.stdout ?? ""}${result.stderr ?? ""}`;
+  const output = toolOutput(result);
   if (result.status !== 0) {
     // Même règle qu'à la génération : un refus TYPÉ, pour que la sortie de
     // l'outil atteigne l'utilisateur au lieu d'être remplacée par une
@@ -518,4 +518,19 @@ export function stampFormatMarker(dir: string): number {
     stamped++;
   }
   return stamped;
+}
+
+/**
+ * Sortie complète (standard puis erreur) d'un `spawnSync`.
+ *
+ * Malgré leur type, `stdout` et `stderr` valent `null` quand le processus n'a
+ * pas pu démarrer (`ENOENT`, `EACCES`) : Node les tire alors d'un `output` nul.
+ *
+ * @param result - le retour de `spawnSync` en mode `encoding: "utf8"`.
+ * @returns les deux flux concaténés, vide si rien n'a été écrit.
+ */
+function toolOutput(result: SpawnSyncReturns<string>): string {
+  const stdout = result.stdout as string | null;
+  const stderr = result.stderr as string | null;
+  return `${stdout ?? ""}${stderr ?? ""}`;
 }

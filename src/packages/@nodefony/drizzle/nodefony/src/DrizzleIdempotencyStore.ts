@@ -34,7 +34,9 @@ import {
  */
 function affectedOf(result: unknown): number {
   if (Array.isArray(result)) {
-    return (result[0] as { affectedRows?: number })?.affectedRows ?? 0;
+    return (
+      (result[0] as { affectedRows?: number } | undefined)?.affectedRows ?? 0
+    );
   }
   const r = result as { changes?: number; rowCount?: number | null };
   return r.changes ?? r.rowCount ?? 0;

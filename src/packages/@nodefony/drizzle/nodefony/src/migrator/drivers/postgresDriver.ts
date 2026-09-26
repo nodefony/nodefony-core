@@ -91,8 +91,8 @@ export class PostgresMigrationDriver implements IMigrationDriver {
     // administrateur ou un pare-feu qui coupe tueraient le PROCESS de
     // migration, au lieu de rendre une erreur que l'appelant peut lire.
     // Constaté au banc : cinq tests verts qui portaient deux crashs.
-    client.on("error", (error: Error) => {
-      this.#lost = error?.message ?? String(error);
+    client.on("error", (error: unknown) => {
+      this.#lost = error instanceof Error ? error.message : String(error);
     });
     await client.connect();
     this.#lost = null;

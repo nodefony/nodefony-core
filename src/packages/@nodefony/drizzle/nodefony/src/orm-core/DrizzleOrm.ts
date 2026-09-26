@@ -741,7 +741,7 @@ export class DrizzleOrm extends Orm {
   /** Résout les relations déclaratives d'une entité en métadonnées eager-load. */
   #resolveRelations(
     entity: IEntity,
-    tables: Record<string, DrizzleTable>,
+    tables: Partial<Record<string, DrizzleTable>>,
   ): Record<string, DrizzleResolvedRelation> {
     const resolved: Record<string, DrizzleResolvedRelation> = {};
     for (const relation of entity.relations ?? []) {
@@ -1317,9 +1317,9 @@ export class DrizzleOrm extends Orm {
       // transaction, là même où l'application avait le plus à perdre.
       // Constaté au banc de coupure réelle, qui rendait « 6 tests passés,
       // 1 erreur non capturée » — un vert qui portait un crash.
-      const puitsTx = (err: Error): void => {
+      const puitsTx = (err: unknown): void => {
         this.connectionLost(
-          `pg (transaction) : ${err?.message ?? String(err)}`,
+          `pg (transaction) : ${err instanceof Error ? err.message : String(err)}`,
         );
       };
       cx.on("error", puitsTx);
@@ -1427,8 +1427,10 @@ export class DrizzleOrm extends Orm {
    * bonne santé ne comptent rien.
    */
   #wirePgLifecycle(pool: Pool): void {
-    const onError = (err: Error): void => {
-      this.connectionLost(`pg: ${err?.message ?? String(err)}`);
+    const onError = (err: unknown): void => {
+      this.connectionLost(
+        `pg: ${err instanceof Error ? err.message : String(err)}`,
+      );
     };
     const onConnect = (): void => {
       this.connectionRestored();
@@ -1481,7 +1483,9 @@ export class DrizzleOrm extends Orm {
         if (this.#mysqlPool !== pool) {
           return;
         }
-        this.connectionLost(`mysql: ${err?.message ?? String(err)}`);
+        this.connectionLost(
+          `mysql: ${err instanceof Error ? err.message : String(err)}`,
+        );
       });
       cx.stream?.once("close", () => {
         if (this.#mysqlPool !== pool) {
@@ -1702,7 +1706,7 @@ export class DrizzleOrm extends Orm {
       );
     }
     this.#repositories ??= Object.create(null) as Record<string, IRepository>;
-    let repository = this.#repositories[name];
+    let repository = this.#repositories[name] as IRepository | undefined;
     if (repository === undefined) {
       repository = new DrizzleRepository(
         this.#db,
@@ -1879,12 +1883,14 @@ export class DrizzleOrm extends Orm {
     if (!client) return {};
     try {
       const num = (sql: string, key: string): number | undefined => {
-        const row = client.prepare(sql).get() as Record<string, unknown>;
+        const row = client.prepare(sql).get() as
+          Record<string, unknown> | undefined;
         const v = row?.[key];
         return typeof v === "number" ? v : undefined;
       };
       const str = (sql: string, key: string): string | undefined => {
-        const row = client.prepare(sql).get() as Record<string, unknown>;
+        const row = client.prepare(sql).get() as
+          Record<string, unknown> | undefined;
         const v = row?.[key];
         return typeof v === "string" ? v : undefined;
       };
@@ -1919,7 +1925,7 @@ export class DrizzleOrm extends Orm {
     // `options.max` = plafond configuré ; `pg` applique 10 par défaut quand il
     // n'est pas posé — l'annoncer explicitement plutôt que laisser un trou (la
     // saturation à 10 est justement ce qu'on cherche à voir venir).
-    const max = pool.options?.max;
+    const max = pool.options.max;
     return {
       pool: {
         size: typeof max === "number" ? max : 10,

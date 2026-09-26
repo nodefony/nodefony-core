@@ -558,7 +558,7 @@ export class DrizzleMigrator {
     files: readonly IMigrationFile[],
     options: IMigrateOptions,
   ): void {
-    const first = plan.failed[0];
+    const first = plan.failed.at(0);
     if (first) {
       throw this.#verdict(
         "NF_MIGRATE_FAILED_MARKER",
@@ -577,7 +577,7 @@ export class DrizzleMigrator {
       );
     }
 
-    const drift = plan.drifted[0];
+    const drift = plan.drifted.at(0);
     if (drift) {
       throw this.#verdict(
         "NF_MIGRATE_HASH_MISMATCH",
@@ -616,7 +616,7 @@ export class DrizzleMigrator {
       );
     }
 
-    const gone = plan.missing[0];
+    const gone = plan.missing.at(0);
     if (gone && options.ignoreMissing !== true) {
       throw this.#verdict(
         "NF_MIGRATE_MISSING_FILE",

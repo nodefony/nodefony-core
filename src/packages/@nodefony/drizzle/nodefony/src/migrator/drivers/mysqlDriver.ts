@@ -94,8 +94,8 @@ export class MysqlMigrationDriver implements IMigrationDriver {
     // Même raison qu'en PostgreSQL : un `KILL` de la session, un serveur qui
     // redémarre ou un pare-feu qui coupe émettent `error` sur la connexion.
     // Sans auditeur, l'émission LÈVE et tue le process de migration.
-    cx.on("error", (error: Error) => {
-      this.#lost = error?.message ?? String(error);
+    cx.on("error", (error: unknown) => {
+      this.#lost = error instanceof Error ? error.message : String(error);
     });
     this.#lost = null;
     this.#cxOrNull = cx;

@@ -230,8 +230,8 @@ export async function snapshotTables(outDir: string): Promise<string[]> {
     const snapshot = JSON.parse(raw) as {
       tables?: Record<string, { name?: string }>;
     };
-    return Object.values(snapshot.tables ?? {}).map(
-      (t, i) => t.name ?? Object.keys(snapshot.tables ?? {})[i] ?? "",
+    return Object.entries(snapshot.tables ?? {}).map(
+      ([key, t]) => t.name ?? key,
     );
   } catch {
     return [];
@@ -819,10 +819,13 @@ async function lostColumnUniques(
         if (Number(idx.unique) !== 1 || idx.origin !== "u") {
           continue;
         }
-        const columns = await driver.query<{ name: string }>(
+        // `name` vaut NULL pour une colonne d'EXPRESSION indexée.
+        const columns = await driver.query<{ name: string | null }>(
           `PRAGMA index_info("${String(idx.name).replace(/"/gu, '""')}")`,
         );
-        const names = columns.map((c) => c.name).filter((n) => n !== null);
+        const names = columns
+          .map((c) => c.name)
+          .filter((n): n is string => n !== null);
         if (names.length === 0) {
           continue;
         }

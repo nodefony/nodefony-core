@@ -69,7 +69,7 @@ export function resolveConnectorTarget(
   name: string,
   cfg: IDrizzleConnectorConfig,
 ): IConnectorTarget {
-  const dialect: SqlDialect = cfg.dialect ?? "sqlite";
+  const dialect: SqlDialect = cfg.dialect;
   if (dialect !== "sqlite") {
     return { dialect, url: cfg.url };
   }

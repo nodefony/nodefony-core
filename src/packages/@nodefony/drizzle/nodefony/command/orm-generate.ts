@@ -840,7 +840,10 @@ class OrmGenerate extends OrmMigrateCommand {
       "meta",
       `${String(index - 1).padStart(4, "0")}_snapshot.json`,
     );
-    let snapshot: { tables?: Record<string, { columns?: object }> };
+    // Lu sur disque : rien ne garantit la forme, d'où les `null` admis.
+    let snapshot: {
+      tables?: Record<string, { columns?: object | null } | null> | null;
+    };
     try {
       snapshot = JSON.parse(await fs.readFile(file, "utf8")) as typeof snapshot;
     } catch {
