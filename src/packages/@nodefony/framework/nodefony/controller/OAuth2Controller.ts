@@ -144,6 +144,7 @@ class OAuth2Controller extends Controller {
     session.set(PROVIDER_KEY, provider);
     await session.save(); // PERSISTE l'état (storage), pas juste en mémoire
     this.redirect(auth.url, 302);
+    return undefined;
   }
 
   /** Valide `state`, échange le `code`, ouvre la session BFF (302). */
@@ -208,6 +209,7 @@ class OAuth2Controller extends Controller {
         "WARNING",
       );
       this.redirect(failure, 302);
+      return undefined;
     }
   }
 

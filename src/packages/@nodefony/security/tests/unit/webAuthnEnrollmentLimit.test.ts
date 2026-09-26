@@ -55,12 +55,12 @@ class SpyStore extends MemoryWebAuthnCredentialStore {
   findByUserCalls = 0;
   countByUserCalls = 0;
 
-  findByUser(userId: string): Promise<IWebAuthnCredential[]> {
+  override findByUser(userId: string): Promise<IWebAuthnCredential[]> {
     this.findByUserCalls++;
     return super.findByUser(userId);
   }
 
-  countByUser(userId: string): Promise<number> {
+  override countByUser(userId: string): Promise<number> {
     this.countByUserCalls++;
     return super.countByUser(userId);
   }

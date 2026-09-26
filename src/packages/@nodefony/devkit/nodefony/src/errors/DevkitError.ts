@@ -9,7 +9,7 @@
 export class DevkitError extends Error {
   constructor(
     message: string,
-    public readonly code: string = "DEVKIT_ERROR",
+    public override readonly code: string = "DEVKIT_ERROR",
     public readonly context?: Record<string, unknown>,
   ) {
     super(message);

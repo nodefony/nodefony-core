@@ -8066,7 +8066,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // L'échantillon LIT `refs` pour le lien vers soi : il doit donc le
       // déclarer, même quand aucun autre parent n'existe (`TS2304` sinon).
       assert.include(src, "refs.Category");
-      assert.match(src, /categorySample = \(\s*n: number,\s*refs: Record/u);
+      assert.match(
+        src,
+        /categorySample = \(\s*n: number,\s*refs: Partial<Record/u,
+      );
       // Les TESTS générés, eux, importaient et enregistraient l'entité une
       // seconde fois comme « parent » — `TS2300 Duplicate identifier` au
       // typecheck de l'application, invisible à tout ce qui lit le rendu.

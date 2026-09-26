@@ -50,7 +50,7 @@ class TestRt extends RealtimeController {
   constructor(ctx: unknown) {
     super("test-rt-unknown", ctx as ContextType);
   }
-  createRealtimeChannel(channel: string, _publish: RealtimePublish) {
+  override createRealtimeChannel(channel: string, _publish: RealtimePublish) {
     return channel.startsWith("connu:") ? () => {} : null;
   }
   feed(message: string | null): void {

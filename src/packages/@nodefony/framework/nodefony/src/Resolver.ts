@@ -955,6 +955,7 @@ class Resolver implements IResolver {
             break;
         }
     }
+    return undefined;
   }
 
   /** Statut courant de la réponse (0 si le transport n'en porte pas). */

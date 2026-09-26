@@ -9,7 +9,7 @@
 export class <%= it.pascal %>Error extends Error {
   constructor(
     message: string,
-    public readonly code: string = "<%= it.upper %>_ERROR",
+    public override readonly code: string = "<%= it.upper %>_ERROR",
     public readonly context?: Record<string, unknown>,
   ) {
     super(message);

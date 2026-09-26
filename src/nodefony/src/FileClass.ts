@@ -201,6 +201,7 @@ class FileClass {
     if (this.stats.isSymbolicLink()) return "symbolicLink";
     if (this.stats.isFIFO()) return "Fifo";
     if (this.stats.isSocket()) return "Socket";
+    return undefined;
   }
 
   /**

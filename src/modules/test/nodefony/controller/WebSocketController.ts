@@ -176,6 +176,7 @@ class WebsocketController extends Controller {
       return this.renderJson({ handshake: true });
     }
     this.ws?.broadcast(message.toString());
+    return undefined;
   }
 
   // R4 — broadcast BINAIRE : le Buffer doit repartir en frame binary (opcode
@@ -190,6 +191,7 @@ class WebsocketController extends Controller {
     }
     const buf = Buffer.isBuffer(message) ? message : Buffer.from(message);
     this.ws?.broadcast(buf, "binary");
+    return undefined;
   }
 
   @route("route-websocket-cookie", {

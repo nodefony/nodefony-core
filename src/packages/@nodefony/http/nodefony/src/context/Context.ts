@@ -603,7 +603,10 @@ class Context extends Service implements IContextInterface {
       // bulle ALS → la corrélation requestId est assurée par l'override `log()`
       // ci-dessus (micro-bulle si l'ALS est vide), commun à tous les logs de fin.
       return this.log(entry.text, entry.severity, entry.msgid);
-    } catch {}
+    } catch {
+      // Un échec de journalisation ne doit jamais faire tomber la requête.
+      return undefined;
+    }
   }
 
   /**

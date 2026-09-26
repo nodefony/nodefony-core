@@ -224,7 +224,10 @@ export default class WebsocketContext
       // pour corréler la ligne récapitulative avec les logs de la connexion.
       pdu.requestId ??= this.requestId;
       return pdu;
-    } catch {}
+    } catch {
+      // Un échec de journalisation ne doit jamais faire tomber la connexion.
+      return undefined;
+    }
   }
 
   async connect(): Promise<Ws> {
@@ -507,6 +510,7 @@ export default class WebsocketContext
         this.reject(4004, "Not Found");
         this.rejected = true;
       }
+      return undefined;
     } catch (e) {
       // 1011 "Internal Error" = code RFC 6455 §7.4.1 dédié (serveur, condition
       // inattendue) — préféré à un code privé 4xxx pour un échec interne.

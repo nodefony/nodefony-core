@@ -690,6 +690,7 @@ class Route implements IRoute {
       this.compileRequirements();
       return value;
     }
+    return undefined;
   }
 
   getRequirement<K extends keyof RouteRequirements>(

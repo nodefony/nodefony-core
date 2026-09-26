@@ -7,7 +7,7 @@
 export class FrontendError extends Error {
   constructor(
     message: string,
-    public readonly code: string,
+    public override readonly code: string,
     public readonly context?: Record<string, unknown>,
   ) {
     super(message);

@@ -8,6 +8,9 @@
     "emitDecoratorMetadata": true,
     "useDefineForClassFields": false,
     "strict": true,
+    "noImplicitReturns": true,
+    "noImplicitOverride": true,
+    "noFallthroughCasesInSwitch": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "types": ["vite/client"]

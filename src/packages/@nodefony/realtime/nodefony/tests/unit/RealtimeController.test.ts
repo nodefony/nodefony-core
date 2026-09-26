@@ -67,7 +67,7 @@ class TestRt extends RealtimeController {
     super("test-rt", ctx as ContextType);
   }
 
-  createRealtimeChannel(
+  override createRealtimeChannel(
     channel: string,
     publish: RealtimePublish,
   ): (() => void) | null {

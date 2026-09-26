@@ -38,13 +38,17 @@ interface State {
  * le shell lui-même casse). Re-monter le boundary (clé = pathname) le réarme.
  */
 export class ErrorBoundary extends Component<Props, State> {
-  state: State = { error: null, componentStack: null, showStack: false };
+  override state: State = {
+    error: null,
+    componentStack: null,
+    showStack: false,
+  };
 
   static getDerivedStateFromError(error: Error): Partial<State> {
     return { error };
   }
 
-  componentDidCatch(error: Error, info: ErrorInfo): void {
+  override componentDidCatch(error: Error, info: ErrorInfo): void {
     this.setState({ componentStack: info.componentStack ?? null });
     // Trace console (un transport syslog/Studio pourra s'y brancher plus tard).
     console.error("[Studio] Error boundary caught:", error, info);
@@ -53,7 +57,7 @@ export class ErrorBoundary extends Component<Props, State> {
   private readonly reset = (): void =>
     this.setState({ error: null, componentStack: null, showStack: false });
 
-  render(): ReactNode {
+  override render(): ReactNode {
     const { error, componentStack, showStack } = this.state;
     if (!error) return this.props.children;
     const full = this.props.variant === "full";

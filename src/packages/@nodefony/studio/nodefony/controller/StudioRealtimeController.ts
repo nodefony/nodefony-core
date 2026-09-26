@@ -210,7 +210,7 @@ class StudioRealtimeController extends RealtimeController {
    * granularité. Renvoie le `dispose` (la base l'appelle au `unsubscribe` ET au close)
    * ou `null` si le canal est inconnu.
    */
-  createRealtimeChannel(
+  override createRealtimeChannel(
     channel: string,
     publish: RealtimePublish,
   ): (() => void) | null {

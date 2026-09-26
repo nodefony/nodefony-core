@@ -49,7 +49,7 @@ class TestRt extends RealtimeController {
   constructor(ctx: unknown) {
     super("test-rt-cap", ctx as ContextType);
   }
-  createRealtimeChannel(channel: string, _publish: RealtimePublish) {
+  override createRealtimeChannel(channel: string, _publish: RealtimePublish) {
     this.channelCalls.push(channel);
     return () => {};
   }

@@ -1194,11 +1194,9 @@ class Kernel extends Service implements IKernel {
           (opt) => opt.short === "-v" || opt.long === "--version",
         );
         if (optionVersionExists) {
-          const index = this.cli.commander.options.findIndex((value) => {
-            if (value.flags === "-v, --version") {
-              return value;
-            }
-          });
+          const index = this.cli.commander.options.findIndex(
+            (value) => value.flags === "-v, --version",
+          );
           if (index >= 0) {
             // `commander.options` est typé `readonly Option[]` → cast vers un
             // tableau mutable pour le splice (commander n'expose pas d'API de
@@ -1215,11 +1213,9 @@ class Kernel extends Service implements IKernel {
           (opt) => opt.short === "-d" || opt.long === "--debug",
         );
         if (optionDebugExists) {
-          const index = this.cli.commander.options.findIndex((value) => {
-            if (value.flags === "-d, --debug") {
-              return value;
-            }
-          });
+          const index = this.cli.commander.options.findIndex(
+            (value) => value.flags === "-d, --debug",
+          );
           if (index >= 0) {
             // `commander.options` est typé `readonly Option[]` → cast vers un
             // tableau mutable pour le splice (commander n'expose pas d'API de
@@ -4327,7 +4323,7 @@ class Kernel extends Service implements IKernel {
           resolve(this);
         } catch (e) {
           this.log(e, "ERROR");
-          reject(e as Error);
+          reject(e instanceof Error ? e : new Error(String(e)));
         }
       });
     });

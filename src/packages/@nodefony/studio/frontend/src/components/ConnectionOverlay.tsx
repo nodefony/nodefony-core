@@ -145,6 +145,7 @@ export const ConnectionOverlay = observer(() => {
       return () => window.clearTimeout(t);
     }
     prevDown.current = down;
+    return undefined;
   }, [down]);
 
   if (!down && !recovered) return null;

@@ -66,7 +66,7 @@ class CountingStore extends MemoryWebhookStore {
   reads = 0;
   failing = false;
 
-  async listAll(): Promise<IWebhookEndpoint[]> {
+  override async listAll(): Promise<IWebhookEndpoint[]> {
     this.reads++;
     if (this.failing) throw new Error("store indisponible");
     return super.listAll();

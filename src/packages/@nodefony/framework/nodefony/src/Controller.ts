@@ -538,6 +538,7 @@ class Controller extends Service implements IController {
   getSession(): Session | undefined | null {
     const session = this.context?.session;
     if (session) return session;
+    return undefined;
   }
 
   redirect(
