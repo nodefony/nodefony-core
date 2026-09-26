@@ -665,9 +665,9 @@ describe("doctor --help", () => {
       for (const ligne of usage(p, largeur).split("\n")) {
         if (/^\s*\S+$/u.test(ligne)) continue;
         assert.isAtMost(
-          [...ligne].length,
+          Array.from(ligne).length,
           largeur,
-          `aide de ${[...ligne].length} colonnes sur ${largeur} :\n${ligne}`,
+          `aide de ${Array.from(ligne).length} colonnes sur ${largeur} :\n${ligne}`,
         );
       }
     }

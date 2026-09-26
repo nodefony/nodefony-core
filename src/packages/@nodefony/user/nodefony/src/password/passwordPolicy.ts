@@ -94,7 +94,7 @@ const MIN_RUN_LENGTH = 4;
 function containsKeyboardRun(value: string): boolean {
   const lower = value.toLowerCase();
   for (const run of KEYBOARD_RUNS) {
-    const reversed = [...run].reverse().join("");
+    const reversed = Array.from(run).reverse().join("");
     for (const sequence of [run, reversed]) {
       for (
         let start = 0;

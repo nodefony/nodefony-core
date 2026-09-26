@@ -189,7 +189,7 @@ describe("create --help — une page par type, dérivée de la spec", () => {
             /^\s*`/u.test(l);
           if (insecable && largeur < 80) continue;
           assert.isAtMost(
-            [...l].length,
+            Array.from(l).length,
             largeur,
             `ligne trop longue à ${largeur} : ${l}`,
           );

@@ -60,7 +60,7 @@ async function redisReachable(): Promise<boolean> {
     return true;
   } catch {
     try {
-      await probe.destroy();
+      probe.destroy();
     } catch {
       /* déjà fermé */
     }

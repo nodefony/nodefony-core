@@ -42,6 +42,7 @@ try {
   code[29] = "export function Beta(): void {}";
   fs.writeFileSync(path.join(racine, "src", "deco.ts"), code.join("\n"));
 
+  /** @type {Array<[string, string[], string]>} */
   const cas = [
     // [ligne de la page, verdict attendu, pourquoi ce cas existe]
     [

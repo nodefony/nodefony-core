@@ -323,7 +323,7 @@ class Finder extends Event {
       result = await this.checkPathAsync(Path);
       this.settingsToListen(settings);
       const options = extend({}, this.settings, settings);
-      for await (const res of result) {
+      for (const res of result) {
         await parser.call(this, res, undefined, options, options.depth, res);
       }
     } catch (e) {

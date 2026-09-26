@@ -40,7 +40,7 @@ async function redisJoignable(): Promise<boolean> {
     return true;
   } catch {
     try {
-      await sonde.destroy();
+      sonde.destroy();
     } catch {
       /* déjà fermé */
     }

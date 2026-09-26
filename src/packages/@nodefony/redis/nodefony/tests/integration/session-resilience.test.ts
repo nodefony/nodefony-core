@@ -83,7 +83,7 @@ describe("Redis SessionStorage — connexion absente (dégradation gracieuse)", 
   });
 
   it("close rend true (la connexion appartient au RedisService, pas au store)", async () => {
-    assert.equal(await storage().close(), true);
+    assert.equal(storage().close(), true);
   });
 
   // `gc` est un no-op VOLONTAIRE sur ce backend (l'idle est porté par le TTL

@@ -87,7 +87,7 @@ const closingState = VERIFY ? states.at(-1) : null;
 const openingState = VERIFY ? states.at(-2) : states.at(-1);
 /** Nom du `_state` à écrire : la date du jour, suffixée d'une lettre libre. */
 const nextStateName = () => {
-  for (const suffix of ["", ..."bcdefghijklmnopqrstuvwxyz"]) {
+  for (const suffix of ["", ...Array.from("bcdefghijklmnopqrstuvwxyz")]) {
     const name = `project_session_${today}${suffix}_state.md`;
     if (!states.includes(name)) return name;
   }

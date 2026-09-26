@@ -27,10 +27,7 @@ const base = i === -1 ? "HEAD" : argv[i + 1];
  * l'appel, jamais déduite : c'est ce qui la rend visible en revue.
  */
 const exceptions = new Set(
-  argv.reduce(
-    (acc, a, k) => (a === "--except" ? [...acc, argv[k + 1]] : acc),
-    [],
-  ),
+  argv.flatMap((a, k) => (a === "--except" ? [argv[k + 1]] : [])),
 );
 
 const changed = execFileSync("git", ["diff", "--name-only", base], {

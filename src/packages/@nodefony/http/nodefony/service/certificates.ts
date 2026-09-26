@@ -328,7 +328,7 @@ class Certificate extends Service {
       path.dirname(this.fullchainPath),
     ];
 
-    for await (const directory of directories) {
+    for (const directory of directories) {
       try {
         await fs.access(directory);
       } catch {
@@ -672,7 +672,7 @@ class Certificate extends Service {
 
   async writeCertificates(force: boolean = false): Promise<this> {
     await this.ensureDirectoriesExist();
-    for await (const file of this.files) {
+    for (const file of this.files) {
       try {
         if (file.variable) {
           const isPrivateKey = file.path === this.privateKeyPath;

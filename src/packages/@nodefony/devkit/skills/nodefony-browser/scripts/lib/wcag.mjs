@@ -51,7 +51,7 @@ export function parseColor(color) {
   if (hex) {
     const d = hex[1];
     if (d.length === 3 || d.length === 4) {
-      const q = [...d].map((c) => parseInt(c + c, 16));
+      const q = Array.from(d, (c) => parseInt(c + c, 16));
       return {
         r: q[0],
         g: q[1],

@@ -64,14 +64,18 @@ export function StickyTabsList({
   return (
     <Tabs.List
       {...rest}
-      style={{
-        position: "sticky",
-        // Pile sous le PageHeader sticky (sa hauteur réelle publiée en var).
-        top: "var(--nf-pageheader-height, 76px)",
-        zIndex: 1,
-        background: "var(--mantine-color-body)",
-        ...rest.style,
-      }}
+      // Tableau, pas spread : le `style` Mantine de l'appelant peut être une
+      // FONCTION du thème, qu'un spread aurait jetée sans un mot.
+      style={[
+        {
+          position: "sticky",
+          // Pile sous le PageHeader sticky (sa hauteur réelle publiée en var).
+          top: "var(--nf-pageheader-height, 76px)",
+          zIndex: 1,
+          background: "var(--mantine-color-body)",
+        },
+        rest.style,
+      ]}
     >
       {children}
     </Tabs.List>

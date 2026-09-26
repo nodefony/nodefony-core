@@ -32,6 +32,17 @@ const regListenOn = /^on(.*)$/;
 const timeoutSentinel = Symbol("nodefony.emitAsyncGuarded.timeout");
 
 /**
+ * Vrai si la valeur rendue par un listener est un thenable, à attendre.
+ *
+ * Test inline, sans import : `Event` est isomorphe client/serveur.
+ */
+function isThenable(value: unknown): value is PromiseLike<unknown> {
+  return (
+    value != null && typeof (value as { then?: unknown }).then === "function"
+  );
+}
+
+/**
  * Information sur un listener pendant une émission gardée
  * ({@link Event.emitAsyncGuarded}).
  */
@@ -233,11 +244,7 @@ class Event extends EventEmitter {
       // Ordre séquentiel préservé (un thenable est attendu avant le suivant).
       // `typeof .then` inline — pas d'import (Event est isomorphe client/serveur).
       const r: unknown = Reflect.apply(handler as Listener, this, args);
-      result.push(
-        r != null && typeof (r as { then?: unknown }).then === "function"
-          ? await r
-          : r,
-      );
+      result.push(isThenable(r) ? await r : r);
     }
     return result;
   }
