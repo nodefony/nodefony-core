@@ -31,7 +31,7 @@ export class WsConnectionCounter {
    * (rien n'est incrémenté, la connexion doit être refusée).
    */
   tryAcquire(ip: string): boolean {
-    const counts = (this.#counts ??= new Map());
+    const counts = (this.#counts ??= new Map<string, number>());
     const cur = counts.get(ip) ?? 0;
     if (cur >= this.#max) {
       this.#rejectedTotal += 1;

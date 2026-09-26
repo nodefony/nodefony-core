@@ -43,6 +43,8 @@ interface DiTokens {
   results: TokenResult[];
 }
 
+// `T` = forme du corps JSON choisie par l'appelant : point de cast unique.
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters
 function get<T = DiProbe>(path: string): Promise<{ status: number; body: T }> {
   return new Promise((resolve, reject) => {
     const req = http.request({ ...BASE, path, method: "GET" }, (res) => {

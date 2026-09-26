@@ -140,9 +140,10 @@ describe("Sessions — le tri traverse le data plane", () => {
     ).body as SessionPage;
     if (page.items.length < 2) return; // rien à ordonner
     const values = page.items.map((s) => s.updatedAt ?? 0);
-    expect(monotonic(values, "ASC"), `ASC non croissant : ${values}`).to.equal(
-      true,
-    );
+    expect(
+      monotonic(values, "ASC"),
+      `ASC non croissant : ${values.join(",")}`,
+    ).to.equal(true);
   });
 
   it("`order=updatedAt:DESC` rend une page DÉCROISSANTE", async () => {
@@ -154,7 +155,7 @@ describe("Sessions — le tri traverse le data plane", () => {
     const values = page.items.map((s) => s.updatedAt ?? 0);
     expect(
       monotonic(values, "DESC"),
-      `DESC non décroissant : ${values}`,
+      `DESC non décroissant : ${values.join(",")}`,
     ).to.equal(true);
   });
 

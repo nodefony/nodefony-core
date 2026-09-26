@@ -23,6 +23,7 @@ import {
   serverHeap,
   setSyslogRing,
 } from "../helpers/retention.js";
+import { asError } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const ECHO = `${WSS}/nodefony/test/ws/echo`;
@@ -46,7 +47,7 @@ function getJson(path: string): Promise<Record<string, unknown>> {
           try {
             resolve(JSON.parse(Buffer.concat(chunks).toString()));
           } catch (e) {
-            reject(e);
+            reject(asError(e));
           }
         });
       },

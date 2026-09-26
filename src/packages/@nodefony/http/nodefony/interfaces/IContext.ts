@@ -200,7 +200,7 @@ export interface IHttpContext extends IContext {
 
 export interface IWebsocketContext extends IContext {
   acceptedProtocol?: string;
-  connection: unknown | null;
+  connection: unknown;
   rejected: boolean;
   port: number | string;
   wsUrl: URL | null;

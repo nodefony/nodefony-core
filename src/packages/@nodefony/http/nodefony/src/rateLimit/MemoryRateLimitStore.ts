@@ -51,7 +51,7 @@ export class MemoryRateLimitStore implements IRateLimitStore {
 
   hit(key: string): RateLimitVerdict {
     const now = this.#now();
-    const entries = (this.#entries ??= new Map());
+    const entries = (this.#entries ??= new Map<string, RlEntry>());
     const entry = entries.get(key);
     // IP jamais vue → nouvelle fenêtre (éventuelle éviction au cap d'abord).
     if (entry === undefined) {

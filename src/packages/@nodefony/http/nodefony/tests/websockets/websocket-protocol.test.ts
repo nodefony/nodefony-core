@@ -1,5 +1,6 @@
 import { expect, assert } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -40,9 +41,9 @@ function wsFirstMessage(ws: WebSocket): Promise<Record<string, unknown>> {
     ws.once("error", reject);
     ws.once("message", (data) => {
       try {
-        resolve(JSON.parse(data.toString()));
+        resolve(JSON.parse(rawDataText(data)));
       } catch (e) {
-        reject(e);
+        reject(asError(e));
       }
     });
   });
@@ -54,12 +55,12 @@ describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
   it("Correct protocol → route matches, handshake received", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(ECHO_PROTO_URL, "echo-protocol");
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.handshake).to.be.true;
         expect(msg.nodefony?.websocket?.protocol).to.equal("echo-protocol");
         ws.close();
@@ -71,7 +72,7 @@ describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
   it("Wrong protocol → close code 1002", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(ECHO_PROTO_URL, "wrong-protocol");
@@ -86,7 +87,7 @@ describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
   it("No protocol when required → close code 1002", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(ECHO_PROTO_URL); // no protocol
@@ -101,12 +102,12 @@ describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
   it("No protocol requirement → accepts connection without protocol", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(ECHO_URL);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.handshake).to.be.true;
         ws.close();
       });
@@ -117,12 +118,12 @@ describe("WEBSOCKETS PROTOCOL — Basic negotiation", function () {
   it("No protocol requirement → accepts connection WITH unknown protocol", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(ECHO_URL, "some-custom-proto");
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.handshake).to.be.true;
         ws.close();
       });
@@ -161,12 +162,12 @@ describe("WEBSOCKETS PROTOCOL — Array and multi-protocol", function () {
   it("Single-element array ['echo-protocol'] matches required route", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = new WebSocket(ECHO_PROTO_URL, ["echo-protocol"], wsOpts);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.handshake).to.be.true;
         ws.close();
       });
@@ -177,7 +178,7 @@ describe("WEBSOCKETS PROTOCOL — Array and multi-protocol", function () {
   it("Multi-element array ['wrong', 'echo-protocol'] → header combined → 1002", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       // ws sends "Sec-WebSocket-Protocol: wrong, echo-protocol"
@@ -198,7 +199,7 @@ describe("WEBSOCKETS PROTOCOL — Array and multi-protocol", function () {
   it("Two wrong protocols in array → 1002", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = new WebSocket(ECHO_PROTO_URL, ["proto-a", "proto-b"], wsOpts);

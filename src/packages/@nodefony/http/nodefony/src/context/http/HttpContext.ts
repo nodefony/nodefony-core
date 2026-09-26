@@ -335,28 +335,22 @@ class HttpContext extends Context implements IHttpContextInterface {
     Http2Response | HttpResponse
   > {
     let data = chunk;
-    switch (true) {
-      case this.isJson:
+    // JSON déclaré → sérialisé tel quel ; sinon (HTML ou indéterminé) le type
+    // de la donnée décide. `if` plutôt qu'un `switch (true)` : même aiguillage.
+    if (this.isJson) {
+      data = JSON.stringify(chunk);
+    } else {
+      const type = typeOf(chunk);
+      if (type === "object") {
+        this.setContextJson();
         data = JSON.stringify(chunk);
-        break;
-      case this.isHtml:
-      default:
-        const type = typeOf(chunk);
-        switch (type) {
-          case "object":
-            this.setContextJson();
-            data = JSON.stringify(chunk);
-            break;
-          case "string":
-            if (this.response.contentType === "application/octet-stream") {
-              this.setContextHtml();
-            }
-            break;
-          default:
-            if (this.response.contentType === "application/octet-stream") {
-              this.response.setContentType("text");
-            }
+      } else if (type === "string") {
+        if (this.response.contentType === "application/octet-stream") {
+          this.setContextHtml();
         }
+      } else if (this.response.contentType === "application/octet-stream") {
+        this.response.setContentType("text");
+      }
     }
     if (headers) {
       this.response.setHeaders(headers);
@@ -376,7 +370,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     // décidés — on ne peut plus basculer en 500 —, donc on JOURNALISE et on
     // ferme : une réponse servie vaut mieux qu'une socket abandonnée.
     return this.saveSession()
-      .catch((e) => {
+      .catch((e: unknown) => {
         this.log(
           describeSessionStoreFailure(e).message,
           "CRITIC",
@@ -385,9 +379,7 @@ class HttpContext extends Context implements IHttpContextInterface {
         return null;
       })
       .then(async (_session: Session | null) => {
-        return this.close().catch((e) => {
-          throw e;
-        });
+        return this.close();
       });
   }
 
@@ -514,14 +506,9 @@ class HttpContext extends Context implements IHttpContextInterface {
       .send(chunk, encoding || this.response.encoding)
       .then(() => {
         this.sended = true;
-      })
-      .catch((e: Error) => {
-        throw e;
       });
     // END REQUEST
-    return this.close().catch((e) => {
-      throw e;
-    });
+    return this.close();
   }
 
   flush(chunk: unknown, encoding: BufferEncoding) {
@@ -543,12 +530,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     // d'économiser. Le chemin chunké (`flush()`), lui, n'a pas terminé : il
     // passe toujours par ici.
     if (this.response?.response?.writableEnded) return this.response;
-    return this.response
-      .end()
-      .then(() => this.response)
-      .catch((e) => {
-        throw e;
-      });
+    return this.response.end().then(() => this.response);
   }
 
   redirect(
@@ -584,7 +566,7 @@ class HttpContext extends Context implements IHttpContextInterface {
         host: "",
       };
     }
-    const urlChange = extend({}, this.request.url, urlExtend);
+    const urlChange = extend({}, this.request.url, urlExtend) as url.UrlObject;
     const newUrl = url.format(urlChange);
     return this.redirect(newUrl, status, headers);
   }
@@ -611,7 +593,7 @@ class HttpContext extends Context implements IHttpContextInterface {
         host: "",
       };
     }
-    const urlChange = extend({}, this.request.url, urlExtend);
+    const urlChange = extend({}, this.request.url, urlExtend) as url.UrlObject;
     const newUrl = url.format(urlChange);
     return this.redirect(newUrl, status, headers);
   }

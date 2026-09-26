@@ -1,5 +1,6 @@
 import { expect, assert } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -25,13 +26,13 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Empty string message", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       let sent = false;
       ws.on("message", (data) => {
-        const text = data.toString();
+        const text = rawDataText(data);
         try {
           const msg = JSON.parse(text);
           if (msg.handshake === true && !sent) {
@@ -52,13 +53,13 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Small JSON message (256 B)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       const payload = JSON.stringify({ data: "x".repeat(200) });
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) {
           ws!.send(payload);
         } else {
@@ -73,13 +74,13 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Medium message (64 KB)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       const payload = JSON.stringify({ data: "a".repeat(65000) });
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) {
           ws!.send(payload);
         } else {
@@ -94,14 +95,14 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Large message (512 KB)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       const big = "b".repeat(512 * 1024 - 20);
       const payload = JSON.stringify({ data: big });
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) {
           ws!.send(payload);
         } else {
@@ -118,7 +119,7 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Oversized message (> maxPayload) → close 1009", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       // Défaut maxPayload = 1 MiB (config http). Un message de 2 MiB doit
@@ -128,7 +129,7 @@ describe("WEBSOCKETS LIMITS", function () {
       const huge = "z".repeat(2 * 1024 * 1024); // 2 MiB > 1 MiB
       let closed = false;
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) {
           ws!.send(huge);
         }
@@ -151,7 +152,7 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Sequential messages (10) are ordered", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -161,7 +162,7 @@ describe("WEBSOCKETS LIMITS", function () {
       let sent = 0;
 
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (!handshakeDone) {
           if (msg.handshake === true) {
             handshakeDone = true;
@@ -187,7 +188,7 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Sequential messages (50) integrity", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -196,7 +197,7 @@ describe("WEBSOCKETS LIMITS", function () {
       let handshakeDone = false;
 
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (!handshakeDone) {
           if (msg.handshake === true) {
             handshakeDone = true;
@@ -219,13 +220,13 @@ describe("WEBSOCKETS LIMITS", function () {
   it("JSON with special characters (unicode, quotes, newlines)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       const special = { text: "héllo wörld\n\"tab\t'quote'" };
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) {
           ws!.send(JSON.stringify(special));
         } else {
@@ -240,12 +241,12 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Non-JSON plain text message", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       ws.on("message", (data) => {
-        const text = data.toString();
+        const text = rawDataText(data);
         try {
           const msg = JSON.parse(text);
           if (msg.handshake === true) {
@@ -270,12 +271,12 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Query string params are accessible on connect", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws?key=value&num=42`);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         // index route renders metadata on connect — just verify connection works
         assert.exists(msg);
         ws!.close();
@@ -287,13 +288,13 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Long query string (1 KB)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const longVal = "x".repeat(1000);
       ws = openWs(`${WSS}/nodefony/test/ws?key=${encodeURIComponent(longVal)}`);
       ws.on("message", (data) => {
-        assert.exists(JSON.parse(data.toString()));
+        assert.exists(JSON.parse(rawDataText(data)));
         ws!.close();
       });
       ws.on("close", () => done());
@@ -305,7 +306,7 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Wrong subprotocol falls back gracefully", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo/proto`, "wrong-protocol");
@@ -325,7 +326,7 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Rapid connect and disconnect", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -342,12 +343,12 @@ describe("WEBSOCKETS LIMITS", function () {
   it("Connect without sending (server init only)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = openWs(`${WSS}/nodefony/test/ws/echo`);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) {
           // receive handshake, close without responding
           ws!.close(1000);
@@ -369,12 +370,12 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   it("Route variable: numeric value", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(`${WSS}/nodefony/test/ws/routes/123`, wsOpts);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.variables).to.equal("123");
         ws!.close();
       });
@@ -385,13 +386,13 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   it("Route variable: long value (100 chars)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const long = "a".repeat(100);
       ws = new WebSocket(`${WSS}/nodefony/test/ws/routes/${long}`, wsOpts);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.variables).to.equal(long);
         ws!.close();
       });
@@ -402,12 +403,12 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   it("Route variable: URL-encoded special chars", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(`${WSS}/nodefony/test/ws/routes/hello-world`, wsOpts);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.variables).to.equal("hello-world");
         ws!.close();
       });
@@ -418,7 +419,7 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   it("Route 2 variables: multiple values echo", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(
@@ -427,7 +428,7 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
       );
       let firstMsg = true;
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (firstMsg) {
           firstMsg = false;
           expect(msg.variables.var1).to.equal("aaa");
@@ -445,7 +446,7 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   it("Unknown route returns close with error code", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(
@@ -463,12 +464,12 @@ describe("WEBSOCKETS ROUTER LIMITS", function () {
   it("Route variable: metadata in response (nodefony field)", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(`${WSS}/nodefony/test/ws/routes/test-meta`, wsOpts);
       ws.on("message", (data) => {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         expect(msg.nodefony).to.exist;
         expect(msg.nodefony.route).to.exist;
         ws!.close();

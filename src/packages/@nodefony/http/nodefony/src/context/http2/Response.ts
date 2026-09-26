@@ -63,7 +63,7 @@ class Http2Response extends HttpResponse {
           { "X-Status-Message": this.statusMessage },
           this.getHeaders(),
           headers,
-        );
+        ) as http.OutgoingHttpHeaders;
         this.headers[HTTP2_HEADER_STATUS] = this.statusCode;
         // Request tracing — le chemin stream HTTP/2 bypasse super.writeHead
         // (http/Response.ts), donc on pose ICI les headers de corrélation,
@@ -144,7 +144,7 @@ class Http2Response extends HttpResponse {
         }
         return resolve(super.end(chunk, encoding));
       } catch (e) {
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   }

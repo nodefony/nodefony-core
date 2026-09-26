@@ -39,7 +39,7 @@ export interface IHttpResponse extends IResponse {
 }
 
 export interface IWebsocketResponse extends IResponse {
-  connection: unknown | null;
+  connection: unknown;
   webSocketVersion?: number;
 
   setConnection(connection: unknown): unknown;

@@ -25,7 +25,7 @@ class Parser {
     // Pas de `throw` dans le handler 'data' : un throw dans un callback
     // EventEmitter ne remonte PAS à l'appelant (→ uncaughtException). `write`
     // signale l'overflow par un drapeau, consommé par `ended()` / `parse()`.
-    this.request.request.on("data", (data) => {
+    this.request.request.on("data", (data: Buffer) => {
       this.write(data);
     });
   }
@@ -143,7 +143,11 @@ class ParserQs extends Parser {
       this.request.data.toString(this.charset),
       this.parserOptions,
     );
-    this.request.query = extend({}, this.request.query, this.request.queryPost);
+    this.request.query = extend(
+      {},
+      this.request.query,
+      this.request.queryPost,
+    ) as Record<string, unknown>;
     this.request.context.requestEnded = true;
     return this;
   }
@@ -171,7 +175,8 @@ class ParserXml extends Parser {
           if (err) {
             return reject(err);
           }
-          this.request.queryPost = result;
+          // Arbre XML rendu par xml2js (objet racine).
+          this.request.queryPost = result as Record<string, unknown>;
           this.request.context.requestEnded = true;
           return resolve(this);
         },
@@ -206,7 +211,7 @@ class ParserJson extends Parser {
           {},
           this.request.query,
           this.request.queryPost,
-        );
+        ) as Record<string, unknown>;
       } catch {
         /* JSON malformé : ignoré (brut conservé dans request.data) */
       }

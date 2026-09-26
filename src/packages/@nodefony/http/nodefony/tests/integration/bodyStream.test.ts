@@ -10,6 +10,7 @@
 import { expect } from "chai";
 import http from "node:http";
 import https from "node:https";
+import { asError } from "../helpers/wsText";
 
 type Resp = { status: number; json: Record<string, unknown> };
 
@@ -44,7 +45,7 @@ function post(
               json: JSON.parse(Buffer.concat(chunks).toString("utf-8")),
             });
           } catch (e) {
-            reject(e);
+            reject(asError(e));
           }
         });
       },

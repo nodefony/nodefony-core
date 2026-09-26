@@ -99,7 +99,7 @@ describe("formatWsLogContent — bornage & sûreté", () => {
     const cyclic: Record<string, unknown> = {};
     cyclic.self = cyclic;
     expect(() => formatWsLogContent(cyclic)).to.not.throw();
-    expect(formatWsLogContent(cyclic)).to.equal(String(cyclic));
+    expect(formatWsLogContent(cyclic)).to.equal("[object Object]");
     expect(formatWsLogContent(10n)).to.equal("10");
     expect(formatWsLogContent(42)).to.equal("42");
     expect(formatWsLogContent(true)).to.equal("true");

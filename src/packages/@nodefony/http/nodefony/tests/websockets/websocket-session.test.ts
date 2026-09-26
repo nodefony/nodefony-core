@@ -1,5 +1,6 @@
 import { assert } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const wsOpts = { rejectUnauthorized: false };
 
@@ -18,7 +19,7 @@ describe("WEBSOCKETS SESSION ", () => {
       }
     });
     ws.on("message", (data) => {
-      msg = JSON.parse(data.toString());
+      msg = JSON.parse(rawDataText(data));
     });
     ws.on("close", () => {
       if (doneCallback && !isDone) {
@@ -41,7 +42,7 @@ describe("WEBSOCKETS SESSION ", () => {
   it("Cookie ", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       doneCallback = done;

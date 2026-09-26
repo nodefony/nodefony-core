@@ -11,6 +11,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
+import { asError } from "../helpers/wsText";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 
@@ -35,7 +36,7 @@ function getTiming(
           };
           resolve({ status: res.statusCode!, phases: body.phases });
         } catch (e) {
-          reject(e);
+          reject(asError(e));
         }
       });
     });

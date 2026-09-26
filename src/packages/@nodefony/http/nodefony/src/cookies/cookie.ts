@@ -122,6 +122,8 @@ function cookiesParser(context: ContextType) {
       }
       break;
     }
+    // HTTP/3 réservé (aucun serveur) : même refus que tout type inconnu.
+    case "http3":
     default:
       throw new Error("cookiesParser Bad Type");
   }
@@ -149,7 +151,11 @@ class Cookie implements ICookieInterface {
     value?: unknown,
     options?: CookieOptionsType,
   ) {
-    this.options = extend({}, cookieDefaultSettings, options || {});
+    this.options = extend(
+      {},
+      cookieDefaultSettings,
+      options || {},
+    ) as CookieOptionsType;
     if (!cookiesOrName) {
       throw new Error("cookie must have name");
     }
@@ -200,6 +206,8 @@ class Cookie implements ICookieInterface {
     // `decodeURIComponent` convertissait déjà sa valeur en chaîne implicitement :
     // `String()` rend cette conversion visible sans changer ce qui est décodé.
     if (value) {
+      // Conversion voulue, identique à celle que `decodeURIComponent` ferait.
+      // oxlint-disable-next-line typescript/no-base-to-string
       value = decode(String(value));
     }
     if (this.signed) {
@@ -249,6 +257,8 @@ class Cookie implements ICookieInterface {
     if (!val) {
       return "Lax";
     }
+    // `String()` voulu : une config héritée peut encore passer un booléen.
+    // oxlint-disable-next-line typescript/no-unnecessary-type-conversion
     switch (String(val).toLowerCase()) {
       case "strict":
         return "Strict";

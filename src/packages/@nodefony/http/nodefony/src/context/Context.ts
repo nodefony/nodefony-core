@@ -453,7 +453,7 @@ class Context extends Service implements IContextInterface {
       // Late subscribe — best-effort, run on next microtask
       Promise.resolve()
         .then(() => boundFn(this))
-        .catch((e) => this.log(e, "ERROR", "onAfterResponse(late)"));
+        .catch((e: unknown) => this.log(e, "ERROR", "onAfterResponse(late)"));
       return;
     }
     if (this._afterResponseFns === null) {

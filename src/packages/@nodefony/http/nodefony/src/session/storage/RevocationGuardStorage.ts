@@ -19,6 +19,13 @@ import type {
 const TOMBSTONE_TTL_MS = 5 * 60_000;
 
 /**
+ * Storage dont une capacité optionnelle (`typeof … === "function"`) a été
+ * constatée : la méthode y est garantie.
+ */
+type IWithCapability<K extends keyof ISessionStorage> = ISessionStorage &
+  Required<Pick<ISessionStorage, K>>;
+
+/**
  * Garde-fou de révocation **décoré au-dessus** de n'importe quel
  * {@link ISessionStorage} (file, drizzle, redis, mongo…). Pose une « pierre
  * tombale » sur tout id détruit et REFUSE un `write` ultérieur de ce même id
@@ -100,25 +107,30 @@ class RevocationGuardStorage implements ISessionStorage {
     this.inner = inner;
     this.sortableFields = inner.sortableFields;
     if (typeof inner.listAll === "function") {
-      this.listAll = (filter?: ISessionListFilter) => inner.listAll!(filter);
+      const src = inner as IWithCapability<"listAll">;
+      this.listAll = (filter?: ISessionListFilter) => src.listAll(filter);
     }
     if (typeof inner.listPage === "function") {
-      this.listPage = (query: ISessionListQuery) => inner.listPage!(query);
+      const src = inner as IWithCapability<"listPage">;
+      this.listPage = (query: ISessionListQuery) => src.listPage(query);
     }
     if (typeof inner.countSessions === "function") {
+      const src = inner as IWithCapability<"countSessions">;
       this.countSessions = (query?: Partial<ISessionListQuery>) =>
-        inner.countSessions!(query);
+        src.countSessions(query);
     }
     if (typeof inner.countDistinctUsers === "function") {
+      const src = inner as IWithCapability<"countDistinctUsers">;
       this.countDistinctUsers = (query?: Partial<ISessionListQuery>) =>
-        inner.countDistinctUsers!(query);
+        src.countDistinctUsers(query);
     }
     if (typeof inner.touch === "function") {
+      const src = inner as IWithCapability<"touch">;
       this.touch = (id: string, idleSeconds?: number) => {
         if (this.#isRevoked(id)) {
           return Promise.resolve(); // session révoquée → pas de prolongation
         }
-        return inner.touch!(id, idleSeconds);
+        return src.touch(id, idleSeconds);
       };
     }
   }

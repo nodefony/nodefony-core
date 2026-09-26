@@ -4,6 +4,7 @@ import type {
   PhaseName,
   PhaseTiming,
 } from "../../interfaces/IContext.js";
+import { thrownMessage } from "../errors/thrownMessage";
 
 /**
  * Zone firewall capturée sur le contexte (`SecuredArea`, lue en structurel :
@@ -141,7 +142,7 @@ export class FrameProfile {
     this.response = { statusCode: status };
     if (error !== undefined && error !== null) {
       this.error = {
-        message: error instanceof Error ? error.message : String(error),
+        message: thrownMessage(error),
       };
     }
   }

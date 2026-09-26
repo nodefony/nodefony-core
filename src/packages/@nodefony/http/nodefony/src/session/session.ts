@@ -630,6 +630,7 @@ class Session implements ISession {
         this.log("SESSION STORAGE HANDLER NOT FOUND", "ERROR");
         throw new Error("SESSION STORAGE HANDLER NOT FOUND");
       }
+      case "none":
       default:
         return true;
     }

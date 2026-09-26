@@ -65,9 +65,14 @@ export function formatWsLogContent(
   try {
     s = JSON.stringify(data);
   } catch {
+    // Repli VOULU sur `String()` : un BigInt garde sa valeur, un objet
+    // cyclique rend `[object Object]` — acceptable pour une ligne de log.
+    // oxlint-disable-next-line typescript/no-base-to-string
     return String(data); // cycle, BigInt…
   }
   // JSON.stringify(fonction | undefined | symbol) === undefined.
+  // Même repli voulu (symbole, fonction) — cf ci-dessus.
+  // oxlint-disable-next-line typescript/no-base-to-string
   if (typeof s !== "string") return String(data);
   return s.length > cap ? `${s.slice(0, cap)}…` : s;
 }

@@ -1,6 +1,7 @@
 /// <reference types="node" />
 import { expect } from "chai";
 import WebSocket from "ws";
+import { asError } from "../helpers/wsText";
 
 // B4 — validation d'Origin au handshake WS (anti-CSWSH, OWASP WSTG-CLNT-10).
 // Défaut : same-origin (Origin host == Host), loopback toléré en development,
@@ -34,7 +35,7 @@ describe("WEBSOCKET ORIGIN — anti-CSWSH (B4, requires server)", () => {
             expect(code).to.equal(1008);
             resolve();
           } catch (e) {
-            reject(e);
+            reject(asError(e));
           }
         });
         // Un close abrupt peut précéder d'un 'error' selon Node — non fatal : le

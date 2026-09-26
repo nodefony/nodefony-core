@@ -1,3 +1,4 @@
+import { thrownMessage } from "../errors/thrownMessage";
 /**
  * Ce qu'on répond quand le stockage de session est inutilisable.
  *
@@ -57,7 +58,9 @@ export function describeSessionStoreFailure(
   error: unknown,
 ): ISessionStoreFailure {
   const cause =
-    error instanceof Error ? error.message : String(error ?? "cause inconnue");
+    error === null || error === undefined
+      ? "cause inconnue"
+      : thrownMessage(error);
   // Le remède d'abord : c'est ce que l'exploitant doit FAIRE. Un message qui
   // n'énonce qu'une cause envoie chercher là où il n'y a rien.
   const remedy = looksLikeMissingTable(cause)

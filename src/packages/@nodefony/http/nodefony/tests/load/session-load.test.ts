@@ -11,6 +11,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import { asError } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -41,7 +42,7 @@ function getJson(
               setCookie,
             });
           } catch (e) {
-            reject(e);
+            reject(asError(e));
           }
         });
       },

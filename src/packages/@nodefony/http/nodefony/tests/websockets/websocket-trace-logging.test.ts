@@ -16,6 +16,7 @@ import { expect } from "chai";
 import WebSocket from "ws";
 import https from "node:https";
 import { IS_PROD_TARGET } from "../helpers/targetEnv";
+import { asError } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -87,7 +88,7 @@ function getJson(path: string): Promise<{ rows?: LogRow[] }> {
             try {
               resolve(JSON.parse(body));
             } catch (e) {
-              reject(e);
+              reject(asError(e));
             }
           });
         },

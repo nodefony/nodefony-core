@@ -4,6 +4,7 @@
 // La remplacer par `addEventListener` ferait disparaître ce que le test prouve.
 import { expect } from "chai";
 import WebSocket from "ws";
+import { asError } from "../helpers/wsText";
 
 const wsOpts = { rejectUnauthorized: false };
 
@@ -20,7 +21,7 @@ describe("WEBSOCKETS W3C ", () => {
   it("W3C websocket 404", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(
@@ -39,7 +40,7 @@ describe("WEBSOCKETS W3C ", () => {
   it("W3C websocket", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(

@@ -476,8 +476,9 @@ describe("bindWithFallback — le conflit que le noyau ne signale PAS", () => {
       desired: taken,
       reserved: [],
       attempts: 0,
-    }).catch((error: NodeJS.ErrnoException) => {
-      code = error.code;
+    }).catch((error: unknown) => {
+      const c: unknown = (error as { code?: unknown }).code;
+      code = typeof c === "string" ? c : undefined;
     });
     expect(code).to.equal("EADDRINUSE");
     expect(srv.listening).to.equal(false);

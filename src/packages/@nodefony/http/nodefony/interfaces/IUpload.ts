@@ -64,7 +64,7 @@ export interface IUploadedFile {
 }
 
 export interface IUploadService {
-  path?: string | unknown;
+  path?: unknown;
   /** Construit un `UploadedFile` en async (stat non bloquant). */
   createUploadFile(file: unknown, name: string): Promise<IUploadedFile>;
 }

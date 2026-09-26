@@ -35,6 +35,8 @@ import HttpKernel, {
 } from "../http-kernel";
 import { HTTPMethod } from "../../src/context/Context";
 import Session, { OptionsSessionType } from "../../src/session/session";
+import type { IHttpConfig } from "../../config/config";
+import type { DefaultOptionsService } from "nodefony";
 import Http2Request from "../../src/context/http2/Request";
 import HttpRequest from "../../src/context/http/Request";
 import Certificate from "../../service/certificates";
@@ -157,6 +159,17 @@ interface IAuditSinkLike {
   record(event: ISessionAuditDraft): void;
 }
 
+/**
+ * Options du service de sessions : la section `session` de la configuration
+ * `@nodefony/http` (défauts du schéma appliqués), plus le sac hérité de
+ * `DefaultOptionsService`.
+ */
+/** Storage dont la capacité d'énumération (`listPage`) est vérifiée. */
+type IEnumerableSessionStorage = ISessionStorage &
+  Required<Pick<ISessionStorage, "listPage">>;
+
+export type ISessionServiceOptions = IHttpConfig["session"] &
+  DefaultOptionsService;
 @injectable()
 class SessionsService extends Service {
   /**
@@ -190,7 +203,7 @@ class SessionsService extends Service {
 
   /** Storage enregistré pour un store, ou `undefined`. */
   static getStorage(name: string): SessionStorageCtor | undefined {
-    return SessionsService.storages.get(String(name ?? "").toLowerCase());
+    return SessionsService.storages.get((name ?? "").toLowerCase());
   }
 
   /** Noms des handlers de session enregistrés. */
@@ -198,6 +211,10 @@ class SessionsService extends Service {
     return [...SessionsService.storages.keys()];
   }
 
+  // Section `session` de la config `@nodefony/http` (schéma Zod, défauts
+  // appliqués) : typée à la source — les stockages tiers (redis, mongoose)
+  // lisent `manager.options.idleTimeoutS`/`absoluteTimeoutS` sans `any`.
+  declare public options: ISessionServiceOptions;
   sessionStrategy: sessionStrategyType = "migrate";
   storage: ISessionStorage | null = null;
   module: Module;
@@ -217,7 +234,8 @@ class SessionsService extends Service {
       "sessions",
       module.container as Container,
       module.notificationsCenter,
-      module.options.session,
+      // Section `session` de la config du module (sac non typé côté `Module`).
+      module.options.session as ISessionServiceOptions,
     );
     this.module = module;
     this.certificates = this.get<Certificate>("certificates");
@@ -318,7 +336,11 @@ class SessionsService extends Service {
       // armée une fois le store ouvert, désarmée au onTerminate. Le scan ne
       // tourne plus PENDANT une requête.
       this.gcScheduler = new GcScheduler({
+        // `?? 600` / `!== false` : config lue sur disque et éditable à chaud,
+        // le type peut mentir — gardes d'exécution conservées.
+        // oxlint-disable-next-line typescript/no-unnecessary-type-conversion
         intervalS: Number(this.options.gcIntervalS ?? 600),
+        // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
         jitter: this.options.gcJitter !== false,
         run: () => this.runGc(),
         onError: (e) => this.log(e, "WARNING", "SESSION-GC"),
@@ -383,7 +405,7 @@ class SessionsService extends Service {
         context.fire("onSessionStart", null, e);
         // `return` (pas `throw`) : un throw post-reject dans un executor est
         // avalé par le constructeur Promise — il ne servait ici que de return.
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
       inst
         .start(context)
@@ -408,19 +430,21 @@ class SessionsService extends Service {
             context.fire("onSessionStart", session, null);
             return resolve(session);
           } catch (e) {
+            const error = e instanceof Error ? e : new Error(String(e));
             if (context.cleaned) {
-              return reject(e);
+              return reject(error);
             }
             context.fire("onSessionStart", null, e);
-            return reject(e);
+            return reject(error);
           }
         })
-        .catch((err) => {
+        .catch((err: unknown) => {
+          const error = err instanceof Error ? err : new Error(String(err));
           if (context.cleaned) {
-            return reject(err);
+            return reject(error);
           }
           context.fire("onSessionStart", null, err);
-          return reject(err);
+          return reject(error);
         });
     });
   }
@@ -449,8 +473,8 @@ class SessionsService extends Service {
   }
 
   createSession(name: string, options?: OptionsSessionType): Session {
-    options = extend({}, this.options, options);
-    return new Session(name, options as OptionsSessionType, this);
+    const merged = extend({}, this.options, options) as OptionsSessionType;
+    return new Session(name, merged, this);
   }
 
   setSessionStrategy(strategy: sessionStrategyType) {
@@ -563,7 +587,7 @@ class SessionsService extends Service {
     query: ISessionListQuery,
   ): Promise<IPage<ISessionSummary>> {
     const storage = this.enumerable();
-    const page = await storage.listPage!(query);
+    const page = await storage.listPage(query);
     const wantUser = query.user;
     // Une seule dérivation pour toute la page (le HMAC ne dépend pas des lignes).
     const currentRef = this.currentSessionRef();
@@ -644,12 +668,12 @@ class SessionsService extends Service {
   // rejette tout receveur n'étant pas passé par le constructeur — or les tests
   // d'orchestration instancient volontairement par `Object.create(prototype)`
   // pour isoler la surface admin du constructeur lourd (kernel/certificats).
-  private enumerable(): ISessionStorage {
+  private enumerable(): IEnumerableSessionStorage {
     const storage = this.storage;
     if (!storage || typeof storage.listPage !== "function") {
       throw new Error("sessions: enumeration not supported by current storage");
     }
-    return storage;
+    return storage as IEnumerableSessionStorage;
   }
 
   /**
@@ -676,7 +700,7 @@ class SessionsService extends Service {
     // Garde-fou : borne le nombre d'itérations pour qu'un store au curseur
     // pathologique (qui ne convergerait jamais vers "0") ne boucle pas à l'infini.
     for (let guard = 0; guard < MAX_ADMIN_PAGES; guard += 1) {
-      const page: IPage<ISessionRecord> = await storage.listPage!({
+      const page: IPage<ISessionRecord> = await storage.listPage({
         ...filter,
         limit: SCAN_PAGE,
         // withTotal:false → jamais de COUNT sur un parcours (on ne l'affiche pas).

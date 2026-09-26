@@ -47,6 +47,12 @@ type StaticMount = { prefix: string; server: serveStaticType; dir: string };
  */
 type PublicMountOption = false | { publicPath?: string; dir?: string };
 
+/** Racine statique déclarée en configuration (`statics.<nom>`). */
+interface IStaticRootConfig {
+  path: string;
+  options?: serveStatic.ServeStaticOptions;
+}
+
 class Statics extends Service {
   module: Module;
   servers: ServersStatic;
@@ -64,8 +70,8 @@ class Statics extends Service {
     //@inject("HttpKernel") private httpKernel: HttpKernel
   ) {
     const container = module.container || undefined;
-    const options: serveStatic.ServeStaticOptions =
-      module.options.statics || {};
+    const options = (module.options.statics ||
+      {}) as serveStatic.ServeStaticOptions;
     let event: Event | null | false | undefined;
     if (container) {
       event = container.get<Event>("notificationsCenter");
@@ -83,7 +89,7 @@ class Statics extends Service {
     this.defaultOptions = extend(
       defaultOptions,
       this.options.defaultOptions || {},
-    );
+    ) as serveStatic.ServeStaticOptions;
     if (this.options.defaultOptions) delete this.options.defaultOptions;
     if (this.enabled) {
       this.initStaticFiles();
@@ -159,11 +165,11 @@ class Statics extends Service {
 
   initStaticFiles() {
     for (const staticRoot in this.options) {
-      let Path = this.options[staticRoot].path;
-      Path = this.kernel?.checkPath(Path);
+      // Racine statique déclarée en config (`statics.<nom>`).
+      const root = this.options[staticRoot] as IStaticRootConfig;
+      const Path = this.kernel?.checkPath(root.path);
       let setHeaders = null;
-      const opt: serveStatic.ServeStaticOptions =
-        this.options[staticRoot].options || {};
+      const opt: serveStatic.ServeStaticOptions = root.options || {};
       if (opt.setHeaders) {
         if (typeof opt.setHeaders === "function") {
           setHeaders = opt.setHeaders;
@@ -177,7 +183,8 @@ class Statics extends Service {
       if (setHeaders) {
         this.on("onServeStatic", setHeaders);
       }
-      this.addDirectory(Path, opt);
+      // `""` : chemin non résolu → `addDirectory` lève (comportement inchangé).
+      this.addDirectory(Path ?? "", opt);
     }
   }
 
@@ -195,7 +202,10 @@ class Statics extends Service {
     if (!p.startsWith("/")) p = `/${p}`;
     if (!p.endsWith("/")) p = `${p}/`;
     p = p.replace(/\/{2,}/g, "/");
-    const server = serveStatic(dir, extend({}, this.defaultOptions));
+    const server = serveStatic(
+      dir,
+      extend({}, this.defaultOptions) as serveStatic.ServeStaticOptions,
+    );
     const entry: StaticMount = { prefix: p, server, dir };
     const i = this.mounts.findIndex((m) => m.prefix === p);
     if (i >= 0) this.mounts[i] = entry;
@@ -212,7 +222,11 @@ class Statics extends Service {
     if (!Path) {
       throw new Error("Static file path not Defined ");
     }
-    const opt = extend({}, this.defaultOptions, options);
+    const opt = extend(
+      {},
+      this.defaultOptions,
+      options,
+    ) as serveStatic.ServeStaticOptions;
     /* if (typeof opt.maxAge === "string") {
       //opt.maxAge = parseInt(eval(opt.maxAge), 10);
     }*/
@@ -246,8 +260,7 @@ class Statics extends Service {
     if (request instanceof http.IncomingMessage) {
       // Pour http.IncomingMessage
       scheme =
-        request.connection instanceof tls.TLSSocket &&
-        request.connection.encrypted
+        request.socket instanceof tls.TLSSocket && request.socket.encrypted
           ? "https"
           : "http";
       host = request.headers.host;
@@ -293,20 +306,16 @@ class Statics extends Service {
           request.url = raw;
         } catch (e) {
           request.url = raw;
-          return Promise.reject(e);
+          throw e;
         }
         break;
       }
     }
     for (const server in this.servers) {
-      try {
-        let ele = this.servers[server];
-        await this.getStatic(ele, request, response);
-        const type = mime.lookup(pathname);
-        response.setHeader("Content-Type", type as string);
-      } catch (e) {
-        return Promise.reject(e);
-      }
+      const ele = this.servers[server];
+      await this.getStatic(ele, request, response);
+      const type = mime.lookup(pathname);
+      response.setHeader("Content-Type", type as string);
     }
     return Promise.resolve(response);
   }

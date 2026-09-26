@@ -15,6 +15,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import { rawDataText } from "../helpers/wsText";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -85,7 +86,7 @@ describe("BUG-002 — RequestContext (ALS) inside onAfterResponse", () => {
         wsOpts,
       );
       ws.on("message", (data: WebSocket.RawData) => {
-        const msg = JSON.parse(data.toString()) as Json;
+        const msg = JSON.parse(rawDataText(data)) as Json;
         ws.send("bye");
         setTimeout(() => ws.close(), 10);
         resolve(msg.requestId as string);

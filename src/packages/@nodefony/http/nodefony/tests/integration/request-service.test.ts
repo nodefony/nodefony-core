@@ -17,6 +17,7 @@ import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
 import { drainTo } from "../helpers/scopeDrain.js";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const BASE = { hostname: "127.0.0.1", port: 5152, rejectUnauthorized: false };
 const WSS = "wss://localhost:5152";
@@ -37,7 +38,7 @@ function get(path: string): Promise<{ status: number; body: Json }> {
             body: raw ? JSON.parse(raw) : {},
           });
         } catch (e) {
-          reject(e);
+          reject(asError(e));
         }
       });
     });
@@ -79,10 +80,10 @@ function wsSession(path: string, messages: string[]): Promise<Json[]> {
     let sent = 0;
     ws.on("message", (data: WebSocket.RawData) => {
       try {
-        received.push(JSON.parse(data.toString()) as Json);
+        received.push(JSON.parse(rawDataText(data)) as Json);
       } catch (e) {
         ws.terminate();
-        return reject(e);
+        return reject(asError(e));
       }
       if (sent < messages.length) {
         ws.send(messages[sent++]);

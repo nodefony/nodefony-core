@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -15,11 +16,11 @@ function wsHandshake(ws: WebSocket): Promise<void> {
     ws.once("error", reject);
     ws.once("message", (data) => {
       try {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) resolve();
-        else reject(new Error("no handshake, got: " + data.toString()));
+        else reject(new Error("no handshake, got: " + rawDataText(data)));
       } catch (e) {
-        reject(e);
+        reject(asError(e));
       }
     });
   });
@@ -28,7 +29,7 @@ function wsHandshake(ws: WebSocket): Promise<void> {
 function wsNextText(ws: WebSocket): Promise<string> {
   return new Promise((resolve, reject) => {
     ws.once("error", reject);
-    ws.once("message", (data) => resolve(data.toString()));
+    ws.once("message", (data) => resolve(rawDataText(data)));
   });
 }
 
@@ -37,7 +38,9 @@ function wsNextBinary(ws: WebSocket): Promise<Buffer> {
     ws.once("error", reject);
     ws.once("message", (data) => {
       if (!Buffer.isBuffer(data)) {
-        return reject(new Error("expected binary frame, got text: " + data));
+        return reject(
+          new Error("expected binary frame, got text: " + rawDataText(data)),
+        );
       }
       resolve(data);
     });
@@ -59,7 +62,9 @@ function wsCollectBinary(ws: WebSocket, n: number): Promise<Buffer[]> {
     const handler = (data: WebSocket.RawData) => {
       if (!Buffer.isBuffer(data)) {
         ws.off("message", handler);
-        return reject(new Error("expected binary frame, got text: " + data));
+        return reject(
+          new Error("expected binary frame, got text: " + rawDataText(data)),
+        );
       }
       buffers.push(data);
       if (buffers.length === n) {
@@ -282,7 +287,7 @@ describe("WEBSOCKETS BROADCAST", function () {
     const bDone = new Promise<void>((resolve, reject) => {
       wsB.on("error", reject);
       wsB.on("message", (data) => {
-        bMessages.push(data.toString());
+        bMessages.push(rawDataText(data));
         if (bMessages.length === N) resolve();
       });
     });
@@ -353,7 +358,7 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
     const bDone = new Promise<void>((resolve, reject) => {
       wsB.on("error", reject);
       wsB.on("message", (data) => {
-        bMessages.push(data.toString());
+        bMessages.push(rawDataText(data));
         if (bMessages.length === N) resolve();
       });
     });
@@ -382,7 +387,7 @@ describe("WEBSOCKETS BROADCAST LIMITS", function () {
           const got = new Set<string>();
           ws.on("error", reject);
           ws.on("message", (data) => {
-            got.add(data.toString());
+            got.add(rawDataText(data));
             if (got.size === SENDERS) resolve();
           });
         }),

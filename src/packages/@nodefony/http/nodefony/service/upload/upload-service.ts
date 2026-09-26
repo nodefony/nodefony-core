@@ -42,21 +42,21 @@ export class upload extends Service {
     this.module = module;
     this.kernel?.once("onBoot", async () => {
       this.options = this.httpKernel.options;
-      const abs = path.isAbsolute(this.options.upload.uploadDir);
+      // Même objet que `this.options.upload` (typé côté HttpKernel).
+      const uploadCfg = this.httpKernel.options.upload;
+      const abs = path.isAbsolute(uploadCfg.uploadDir);
       if (abs) {
-        this.path = this.options.upload.uploadDir;
+        this.path = uploadCfg.uploadDir;
       } else {
-        this.path = path.resolve(
-          `${this.kernel?.path}/${this.options.upload.uploadDir}`,
-        );
+        this.path = path.resolve(`${this.kernel?.path}/${uploadCfg.uploadDir}`);
       }
       // mkdir recursive idempotent (async, non bloquant) — plus de existsSync
       // préalable ni de mkdirSync. Fallback /tmp si la création échoue.
       try {
-        await fsp.mkdir(this.path as string, { recursive: true });
+        await fsp.mkdir(this.path, { recursive: true });
       } catch (e) {
         this.path = "/tmp";
-        this.options.upload.uploadDir = this.path;
+        uploadCfg.uploadDir = this.path;
         this.log(e, "DEBUG");
       }
     });
@@ -200,7 +200,11 @@ class UploadedFile extends FileClass {
         return super.move(target);
       }
     }
-    throw fs.lstatSync(dirname);
+    // Dossier cible absent : `lstatSync` lève l'ENOENT d'origine (code +
+    // chemin). L'ancien `throw fs.lstatSync(…)` aurait levé un objet `Stats`
+    // si le dossier était apparu entre-temps.
+    fs.lstatSync(dirname);
+    throw new Error(`Upload target directory not found: ${dirname}`);
   }
 
   /**

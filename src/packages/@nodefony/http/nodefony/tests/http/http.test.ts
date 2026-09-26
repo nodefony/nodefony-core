@@ -1,11 +1,12 @@
 import { expect } from "chai";
 import https from "node:https";
+import { asError } from "../helpers/wsText";
 
 describe("HTTP UNIT TESTS ", () => {
   it("Simple Request ", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const options = {
@@ -41,7 +42,7 @@ describe("HTTP UNIT TESTS ", () => {
   it("GET Request to Non-Existent Route", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const options = {
@@ -74,7 +75,7 @@ describe("HTTP UNIT TESTS ", () => {
   it("GET Request Returning JSON", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const options = {
@@ -115,7 +116,7 @@ describe("HTTP UNIT TESTS ", () => {
   it("Simple route", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       done();

@@ -28,8 +28,16 @@ import {
   buildBindPlan,
   type Listenable,
 } from "../../src/servers/portBinder";
+import {
+  asServersConfig,
+  configuredServerPort,
+} from "../../src/servers/kernelServers";
+import type { IHttpConfig } from "../../config/config";
+import type { DefaultOptionsService } from "nodefony";
 
 class ServerHttps extends Service {
+  // Section `https` de la config du module (schéma Zod, défauts appliqués).
+  declare public options: IHttpConfig["https"] & DefaultOptionsService;
   //httpKernel: HttpKernel | null = null;
   httpTerminator: HttpTerminator | null = null;
   module: Module;
@@ -57,10 +65,10 @@ class ServerHttps extends Service {
       "server-https",
       module.container as Container,
       module.notificationsCenter,
-      module.options.https,
+      module.options.https as IHttpConfig["https"],
     );
     this.module = module;
-    this.active = !!this.kernel?.options.servers.https;
+    this.active = !!asServersConfig(this.kernel?.options.servers)?.https;
     this.port = this.setPort();
     this.domain = this.kernel?.domain as string;
   }
@@ -73,10 +81,12 @@ class ServerHttps extends Service {
   }
 
   setPort(): number {
-    if (this.kernel?.options.servers?.https) {
-      return this.kernel?.options.servers?.https?.port || 0;
-    }
-    return 0;
+    return (
+      configuredServerPort(
+        asServersConfig(this.kernel?.options.servers),
+        "https",
+      ) ?? 0
+    );
   }
 
   createServer(): Promise<https.Server | http2.Http2SecureServer> {
@@ -86,11 +96,13 @@ class ServerHttps extends Service {
           const e = new Error(`Server https is not allowed in config file `);
           return reject(e);
         }
-        this.protocol = this.kernel?.options.servers.https.protocol;
+        const httpsCfg = asServersConfig(this.kernel?.options.servers)?.https;
+        const protocol = httpsCfg ? httpsCfg.protocol : undefined;
+        if (protocol) this.protocol = protocol;
         if (this.protocol === "2.0") {
           return resolve(this.createServerH2());
         }
-        const opt: https.ServerOptions = extend({
+        const opt = extend({
           requestTimeout: this.options.requestTimeout,
           rejectUnauthorized: this.options.rejectUnauthorized,
           key: this.httpKernel?.serviceCerticats?.key,
@@ -98,7 +110,7 @@ class ServerHttps extends Service {
           ca: this.httpKernel?.serviceCerticats?.ca
             ? this.httpKernel?.serviceCerticats?.ca
             : undefined,
-        });
+        }) as https.ServerOptions;
 
         this.server = https.createServer(opt);
         this.httpTerminator = this.terminator();
@@ -126,7 +138,11 @@ class ServerHttps extends Service {
         // durable n'est posé qu'APRÈS le bind (cf server-http.ts).
         this.listenWithPolicy()
           .then(() => resolve(this.server as https.Server))
-          .catch((error: NodeJS.ErrnoException) => {
+          .catch((e: unknown) => {
+            // Rejet de `bindWithFallback` : une erreur système (`code` errno).
+            const error = (
+              e instanceof Error ? e : new Error(String(e))
+            ) as NodeJS.ErrnoException;
             this.reportBindError(error);
             reject(error);
           });
@@ -168,7 +184,7 @@ class ServerHttps extends Service {
         });
       } catch (e) {
         this.log(e, "CRITIC");
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   }
@@ -185,7 +201,7 @@ class ServerHttps extends Service {
               };
             }
           )?.http2 ?? {};
-        const opt: http2.SecureServerOptions = extend({
+        const opt = extend({
           allowHTTP1: true,
           rejectUnauthorized: this.options.rejectUnauthorized,
           key: this.httpKernel?.serviceCerticats?.key,
@@ -193,7 +209,7 @@ class ServerHttps extends Service {
           ca: this.httpKernel?.serviceCerticats?.ca
             ? this.httpKernel?.serviceCerticats?.ca
             : undefined,
-        });
+        }) as http2.SecureServerOptions;
         // Limites anti-DoS HTTP/2 (cf config http2). Appliquées seulement si
         // définies → sinon défauts Node conservés (pas de régression).
         if (h2Cfg.maxSessionMemory) {
@@ -234,11 +250,11 @@ class ServerHttps extends Service {
             }
           }
           if (alpnProtocol === "h2") {
-            return this.httpKernel
+            void this.httpKernel
               ?.onHttpRequest(request, response, "http2")
               .catch(() => {});
           } else {
-            return this.httpKernel
+            void this.httpKernel
               ?.onHttpRequest(request, response, "https")
               .catch(() => {});
           }
@@ -250,7 +266,11 @@ class ServerHttps extends Service {
         // suivait était mort.
         this.listenWithPolicy()
           .then(() => resolve(this.server as http2.Http2SecureServer))
-          .catch((error: NodeJS.ErrnoException) => {
+          .catch((e: unknown) => {
+            // Rejet de `bindWithFallback` : une erreur système (`code` errno).
+            const error = (
+              e instanceof Error ? e : new Error(String(e))
+            ) as NodeJS.ErrnoException;
             this.reportBindError(error);
             reject(error);
           });
@@ -280,7 +300,7 @@ class ServerHttps extends Service {
           this.log(error, "ERROR", "HTTP2 Server streamError");
         });
       } catch (e) {
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   }
@@ -298,7 +318,7 @@ class ServerHttps extends Service {
       this.domain,
       buildBindPlan(
         "https",
-        this.module.kernel?.options.servers,
+        asServersConfig(this.module.kernel?.options.servers),
         this.module.kernel?.environment,
       ),
     );
@@ -348,11 +368,14 @@ class ServerHttps extends Service {
         );
         this.log(myError, "CRITIC");
         break;
+      case undefined:
       default:
         this.log(myError, "CRITIC");
     }
     this.server?.close();
-    setTimeout(() => this.kernel?.terminate(1), 1000);
+    setTimeout(() => {
+      void this.kernel?.terminate(1);
+    }, 1000);
   }
 
   showBanner(): void {

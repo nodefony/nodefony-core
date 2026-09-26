@@ -17,6 +17,7 @@ import {
   serverHeap,
   setSyslogRing,
 } from "../helpers/retention.js";
+import { asError } from "../helpers/wsText";
 
 interface StreamResult {
   status: number | undefined;
@@ -70,7 +71,7 @@ const getJson = (path: string): Promise<Record<string, unknown>> =>
           try {
             resolve(JSON.parse(Buffer.concat(chunks).toString()));
           } catch (e) {
-            reject(e);
+            reject(asError(e));
           }
         });
       },

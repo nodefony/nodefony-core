@@ -318,7 +318,10 @@ export async function bindWithFallback(
     }
     // Un code qui ne dit pas « ce port-ci est pris » n'est pas rattrapable ; le
     // conflit sondé, lui, l'est par construction.
-    if (!conflict && !isPortUnavailable(failure.code, candidate)) throw failure;
+    // `Error.code` est augmenté en `any` par le cœur : rétréci ici.
+    const code: unknown = failure.code;
+    const errCode = typeof code === "string" ? code : undefined;
+    if (!conflict && !isPortUnavailable(errCode, candidate)) throw failure;
     // Port 0 = le noyau alloue : il ne peut pas être « déjà pris ».
     if (plan.desired === 0 || used >= plan.attempts) throw failure;
     used += 1;

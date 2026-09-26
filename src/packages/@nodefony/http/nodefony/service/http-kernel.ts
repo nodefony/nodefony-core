@@ -58,6 +58,12 @@ import type { IRequestLogger } from "../interfaces/IRequestLogger";
 import PrettyRequestLogger from "./pretty-request-logger";
 import JsonAuditLogger from "./audit-logger";
 import { resolveTraceparent } from "./trace";
+import type { DefaultOptionsService } from "nodefony";
+import type { IHttpConfig } from "../config/config";
+import {
+  asServersConfig,
+  configuredServerPort,
+} from "../src/servers/kernelServers";
 
 /**
  * Config interne (shape déclarée par `config/config.ts`). Locale au module —
@@ -221,6 +227,12 @@ export interface Data {
 const serviceName: string = "HttpKernel";
 import type { IHttpKernel as IHttpKernelInterface } from "../interfaces/IHttpKernel";
 
+/** Politique d'Origin WS compilée pour un type de serveur (B4, anti-CSWSH). */
+interface IWsOriginPolicy {
+  disabled: boolean;
+  extra: RegExp[];
+}
+
 // B4 — hôtes loopback tolérés comme `Origin` WS en development (Studio Vite
 // cross-port ; IPv4 / IPv6 / hostname). Module-level → 0 alloc par handshake.
 const WS_DEV_LOOPBACK = new Set<string>([
@@ -236,6 +248,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   // session. Lazy : `null` tant que la contradiction ne se produit pas — le cas
   // est une anomalie de configuration, il ne doit rien coûter aux autres.
   #statelessIntentVues: Set<string> | null = null;
+  // Config du module `@nodefony/http` (schéma Zod `config/config.ts`, défauts
+  // appliqués) : typée à la source pour que les lectures `options.http.*`
+  // ne soient plus `any` (sac hérité de `DefaultOptionsService`).
+  declare public options: IHttpConfig & DefaultOptionsService;
   certificates: unknown;
   serviceCerticats: Certicates | null = null;
   key: string = "";
@@ -279,10 +295,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private _trustProxyChecker: TrustProxyChecker | null = null;
   // B4 — politique d'Origin WS (anti-CSWSH) compilée paresseusement par type de
   // serveur. Object.create(null) : petite map à accès ponctuel (règle perf).
-  private _wsOriginPolicy: Record<
-    string,
-    { disabled: boolean; extra: RegExp[] }
-  > = Object.create(null);
+  private _wsOriginPolicy: Record<string, IWsOriginPolicy> = Object.create(
+    null,
+  ) as Record<string, IWsOriginPolicy>;
   // Rate-limit général par IP (P0.3) — lazy null : 0 alloc, 0 coût sur le hot
   // path quand désactivé (défaut). Construit au boot depuis options.rateLimit si
   // `enabled`, purgé hors hot-path par le GcScheduler du core, reconstruit sur
@@ -384,7 +399,10 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     this.computeSecurityHeaderCaches();
     // Caches paresseux → invalidés, recompilés à la prochaine requête.
     this._trustProxyChecker = null;
-    this._wsOriginPolicy = Object.create(null);
+    this._wsOriginPolicy = Object.create(null) as Record<
+      string,
+      IWsOriginPolicy
+    >;
     // trustedHosts + alias (compilés à onReady) → recompilés.
     this.trustedHosts = (this.options as { trustedHosts?: ITrustedHostsConfig })
       ?.trustedHosts;
@@ -430,6 +448,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // store s'auto-borne déjà (éviction FIFO au cap) → le GC est un complément.
     this.rateLimitGc = new GcScheduler({
       intervalS: cfg.gcIntervalS,
+      // Config lue sur disque et éditable à chaud : `undefined` doit rester
+      // « jitter actif » — la comparaison stricte à `false` est voulue.
+      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
       jitter: cfg.gcJitter !== false,
       run: () => this.rateLimiter?.gc() ?? 0,
       onError: (e) => this.log(e, "WARNING", "RATELIMIT-GC"),
@@ -814,7 +835,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     checkFirewall: boolean = true,
   ): Promise<object> {
     const resolver = await this.prepareFrontController(context, checkFirewall);
-    return await resolver.newController(context);
+    return resolver.newController(context);
   }
 
   /**
@@ -880,58 +901,57 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (context) {
       context.error = error;
     }
-    switch (true) {
-      case context instanceof HttpContext: {
-        const result = this.errorRenderer.renderHttp(error, context);
-        // Mirror result back onto error so callers / logs see normalised code.
-        if (error instanceof HttpError || error instanceof nodefonyError) {
-          error.code = result.status;
-        }
-        context.response.setStatusCode(result.status, result.message);
-        if (result.headers) {
-          context.response.setHeaders(result.headers);
-        }
-        if (this.kernel?.debug) {
-          this.log(error.toString(), "ERROR");
-        }
-        // Race: client closed the socket before the controller produced a
-        // response → teardown ran (`finished=true`) or write already
-        // happened. Don't try to render — that path explodes into a CRITIC
-        // "Response Already sended" for a case the framework expects.
-        if (context.finished || context.sended) {
-          this.log(error.toString(), "DEBUG", "onError on closed context");
-          return context;
-        }
-        if (!context.response.isHeaderSent()) {
-          try {
-            await context.render(result.body);
-          } catch (e) {
-            this.log(e, "CRITIC");
-            throw e;
-          }
-          return context;
-        }
-        await context.close();
+    // Chaîne de `if` plutôt qu'un `switch (true)` : même aiguillage, mais un
+    // discriminant littéral n'a pas de sens pour le contrôle d'exhaustivité.
+    if (context instanceof HttpContext) {
+      const result = this.errorRenderer.renderHttp(error, context);
+      // Mirror result back onto error so callers / logs see normalised code.
+      if (error instanceof HttpError || error instanceof nodefonyError) {
+        error.code = result.status;
+      }
+      context.response.setStatusCode(result.status, result.message);
+      if (result.headers) {
+        context.response.setHeaders(result.headers);
+      }
+      if (this.kernel?.debug) {
+        this.log(error.toString(), "ERROR");
+      }
+      // Race: client closed the socket before the controller produced a
+      // response → teardown ran (`finished=true`) or write already
+      // happened. Don't try to render — that path explodes into a CRITIC
+      // "Response Already sended" for a case the framework expects.
+      if (context.finished || context.sended) {
+        this.log(error.toString(), "DEBUG", "onError on closed context");
         return context;
       }
-      case context instanceof WebsocketContext: {
+      if (!context.response.isHeaderSent()) {
         try {
-          const wsResult = this.errorRenderer.renderWebsocket(error, context);
-          if (context.response && context.response.connection) {
-            context.close(wsResult.code, wsResult.reason);
-            return context;
-          }
-          if (context.request && !context.rejected) {
-            context.reject(wsResult.code, wsResult.reason);
-            return context;
-          }
-        } catch {
-          throw error;
+          await context.render(result.body);
+        } catch (e) {
+          this.log(e, "CRITIC");
+          throw e;
         }
+        return context;
       }
-      default:
-        throw error;
+      await context.close();
+      return context;
     }
+    if (context instanceof WebsocketContext) {
+      try {
+        const wsResult = this.errorRenderer.renderWebsocket(error, context);
+        if (context.response && context.response.connection) {
+          context.close(wsResult.code, wsResult.reason);
+          return context;
+        }
+        if (context.request && !context.rejected) {
+          context.reject(wsResult.code, wsResult.reason);
+          return context;
+        }
+      } catch {
+        throw error;
+      }
+    }
+    throw error;
   }
 
   compileAlias(): RegExp[] {
@@ -1029,14 +1049,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // d'entrée se limite au hook `onServerRequest` (guardé 0-listener) puis délègue
     // au pipeline. Une requête qui matche une route ne touche plus le disque.
     if (this.listenerCount("onServerRequest"))
-      await this.fireAsync("onServerRequest", request, response, type).catch(
-        (e) => {
-          throw e;
-        },
-      );
-    return this.handle(request, response, type).catch((e) => {
-      throw e;
-    });
+      await this.fireAsync("onServerRequest", request, response, type);
+    return this.handle(request, response, type);
   }
 
   async initServers(): Promise<
@@ -1116,14 +1130,20 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (serverHttp?.active && serverHttp.port > 0) {
       ports.push(serverHttp.port);
       urls.push(servedUrl("http", serverHttp.domain, serverHttp.port));
-      const d = this.kernel?.options.servers?.http;
-      if (d && d.port) desired.push(d.port);
+      const port = configuredServerPort(
+        asServersConfig(this.kernel?.options.servers),
+        "http",
+      );
+      if (port) desired.push(port);
     }
     if (serverHttps?.active && serverHttps.port > 0) {
       ports.push(serverHttps.port);
       urls.push(servedUrl("https", serverHttps.domain, serverHttps.port));
-      const d = this.kernel?.options.servers?.https;
-      if (d && d.port) desired.push(d.port);
+      const port = configuredServerPort(
+        asServersConfig(this.kernel?.options.servers),
+        "https",
+      );
+      if (port) desired.push(port);
     }
     if (ports.length === 0) return;
     writeRuntimeState(process.cwd(), {
@@ -1333,6 +1353,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // Témoin de radiographie : le firewall le lit pour décider d'allouer (ou
       // non) sa trace de décision. Booléen → 0 alloc en prod.
       context.profiling = profilerQueries !== null;
+      // Référence non nulle capturée par la closure ALS (le rétrécissement de
+      // `let context` ne traverse pas la fonction fléchée) : 0 alloc.
+      const httpContext: HttpContext = context;
       // P1.4 — enter ALS scope so requestId is propagated to every
       // downstream async hop (logs, ORM, security decorators, etc.).
       return await RequestContext.run(
@@ -1356,10 +1379,12 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // renvoie 204 (preflight) → court-circuit total : ni routing, ni parse,
           // ni firewall (le preflight ne s'authentifie pas — Fetch Standard).
           // HTTP only : le WebSocket n'a pas de CORS (origine vérifiée au handshake).
-          if (this.firewall?.handleCors(context!) === 204) {
-            context!.response.writeHead(204);
-            context!.response.end();
-            return context!;
+          if (this.firewall?.handleCors(httpContext) === 204) {
+            httpContext.response.writeHead(204);
+            // `end()` rend une promesse : l'attendre fait remonter son rejet au
+            // `catch` du pipeline au lieu d'un rejet non géré (préflight seul).
+            await httpContext.response.end();
+            return httpContext;
           }
           // #494 — premier point DANS la bulle ALS : le scope de la requête est
           // lisible, rien n'a encore été lu du corps. C'est ici qu'une
@@ -1378,11 +1403,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // ne throw jamais (pose `resolver.exception`) ; route non matchée → parse
           // normal (comportement 404 inchangé). Isolé HTTP : handleWebsocket ne
           // parse aucun body. Ordre des hooks P6 (beforeResolve/firewall) inchangé.
-          context!.phaseStart("resolve");
-          context!.resolver = this.router
-            ? this.router.resolve(context!)
+          httpContext.phaseStart("resolve");
+          httpContext.resolver = this.router
+            ? this.router.resolve(httpContext)
             : null;
-          context!.phaseEnd("resolve");
+          httpContext.phaseEnd("resolve");
           // En-têtes de sécurité APPLICATIFS (P6 J5 — CSP/Referrer/COOP…), posés
           // APRÈS le resolve (P6 @Csp) → le Resolver a posé `ctx.cspDirectives`
           // depuis `@Csp` de la route, que `applySecurityHeaders` fusionne dans le
@@ -1390,7 +1415,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // toute réponse (succès, 404/405, fichier statique). Le preflight CORS a
           // court-circuité plus haut (204). Complète le socle transport (nosniff/
           // frame/HSTS) posé à `onHttpRequest`. No-op si security absent/désactivé.
-          this.firewall?.applySecurityHeaders(context!);
+          this.firewall?.applySecurityHeaders(httpContext);
           // ROUTER-FIRST (façon Express) : aucune route matchée → FALLBACK static.
           // `serverStatic.handle` reste PENDING si un fichier est servi (court-circuit
           // total — response.end → `onFinish` → teardown déjà wired par
@@ -1399,9 +1424,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           // fs.stat/path.normalize de serve-static (≈ +26 % RPS sur les routes API).
           if (
             this.serverStatic &&
-            context!.resolver?.resolve !== true &&
-            !context!.resolver?.exception &&
-            (this.kernel?.options.servers.statics ||
+            httpContext.resolver?.resolve !== true &&
+            !httpContext.resolver?.exception &&
+            (asServersConfig(this.kernel?.options.servers)?.statics ||
               this.kernel?.options.statics ||
               this.serverStatic.hasMounts())
           ) {
@@ -1416,18 +1441,18 @@ class HttpKernel extends Service implements IHttpKernelInterface {
               .catch(() => undefined);
           }
           const streamBody =
-            context!.resolver?.resolve === true &&
-            context!.resolver.route?.bodyStream === true;
-          context!.phaseStart("parse");
+            httpContext.resolver?.resolve === true &&
+            httpContext.resolver.route?.bodyStream === true;
+          httpContext.phaseStart("parse");
           try {
             if (!streamBody) {
-              await context!.request.initialize();
+              await httpContext.request.initialize();
             }
             // streamBody : body laissé en flux brut (Readable) pour @Body({stream})
           } finally {
-            context!.phaseEnd("parse");
+            httpContext.phaseEnd("parse");
           }
-          const ctx = await this.onRequestEnd(context!);
+          const ctx = await this.onRequestEnd(httpContext);
           if (ctx instanceof Context) {
             ctx.phaseStart("action");
             try {
@@ -1436,7 +1461,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
               ctx.phaseEnd("action");
             }
           }
-          return context!;
+          return httpContext;
         },
       );
     } catch (e) {
@@ -1466,8 +1491,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       throw error;
     }
     // ADD HEADERS CONFIG
-    if (this.options[context.scheme].headers) {
-      context.response.setHeaders(this.options[context.scheme].headers);
+    const schemeHeaders =
+      context.scheme === "https"
+        ? this.options.https.headers
+        : context.scheme === "http"
+          ? this.options.http.headers
+          : null;
+    if (schemeHeaders) {
+      context.response.setHeaders(schemeHeaders);
     }
     // DOMAIN VALID
     if (this.kernel?.options.domainCheck) {
@@ -1508,8 +1539,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
             await this.fireAsync("afterAuth", context);
         } catch (authError) {
           // SECURITY HOOK — onAuthFailure (P1.7)
-          await this.fireAsync("onAuthFailure", context, authError).catch((e) =>
-            this.log(e, "ERROR", "onAuthFailure"),
+          await this.fireAsync("onAuthFailure", context, authError).catch(
+            (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
           );
           throw authError;
         }
@@ -1529,10 +1560,26 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType,
   ): WebsocketContext {
     const context = new WebsocketContext(scope, req, ws, type);
-    context.once("onFinish", async (wscontext) => {
-      if (!context) {
-        return;
-      }
+    // `onFinish` est émis par `fire()` SYNCHRONE (WebsocketContext.onClose) :
+    // une promesse rendue par l'écouteur n'y est attendue par personne. Le
+    // travail async vit dans `finishWebsocket`, qui ne rejette jamais.
+    context.once("onFinish", () => {
+      void this.finishWebsocket(context, scope);
+    });
+    return context;
+  }
+
+  /**
+   * Teardown d'une connexion WS à sa fermeture : signal d'abandon, hooks
+   * post-réponse, persistance de la session, puis libération du scope.
+   * Ne rejette jamais : toute erreur est journalisée (l'appelant est un
+   * écouteur d'événement synchrone, qui n'attend rien).
+   */
+  private async finishWebsocket(
+    context: WebsocketContext,
+    scope: Scope,
+  ): Promise<void> {
+    try {
       if (context.finished) {
         return;
       }
@@ -1552,11 +1599,14 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           this.log(e, "ERROR", "WS onFinish saveSession");
         }
       }
-      this.container?.leaveScope(wscontext.container);
+      // `scope` = celui donné au constructeur du contexte (= `context.container`,
+      // l'argument émis par `onFinish`) — même patron que `teardownHttp`.
+      this.container?.leaveScope(scope);
       context.clean();
       context.finished = true;
-    });
-    return context;
+    } catch (e) {
+      this.log(e, "ERROR", "WS onFinish");
+    }
   }
 
   // WEBSOCKET ENTRY POINT
@@ -1603,13 +1653,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         }
       }
     }
-    await this.fireAsync("onServerRequest", req, null, type).catch((e) => {
-      throw e;
-    });
+    await this.fireAsync("onServerRequest", req, null, type);
     const scope = this.container?.enterScope("request");
-    return this.handleWebsocket(scope as Scope, ws, req, type).catch((e) => {
-      throw e;
-    });
+    return this.handleWebsocket(scope as Scope, ws, req, type);
   }
 
   async handleWebsocket(
@@ -1619,7 +1665,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     type: ServerType,
   ): Promise<unknown> {
     let context: WebsocketContext | null = null;
-    let error: Error | null | unknown = null;
+    let error: unknown = null;
     try {
       context = this.createWebsocketContext(scope, req, ws, type);
     } catch (e) {
@@ -1670,7 +1716,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
                 await this.fireAsync("afterAuth", context);
               } catch (authError) {
                 await this.fireAsync("onAuthFailure", context, authError).catch(
-                  (e) => this.log(e, "ERROR", "onAuthFailure"),
+                  (e: unknown) => this.log(e, "ERROR", "onAuthFailure"),
                 );
                 throw authError;
               }
@@ -1726,9 +1772,13 @@ class HttpKernel extends Service implements IHttpKernelInterface {
 
   async onConnect(
     context: WebsocketContext,
-    error: null | undefined | unknown = null,
+    error: unknown = null,
   ): Promise<Ws | number> {
     if (error) {
+      // Rejet tel quel (une `Error` en pratique : levée par le constructeur du
+      // contexte) — l'envelopper changerait le code et le message vus par
+      // `onError`.
+      // oxlint-disable-next-line typescript/only-throw-error
       throw error;
     }
     if (!context) {
@@ -1759,7 +1809,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (!context.sessionStarting) {
       await this.startSession(context);
     }
-    return await context.connect();
+    return context.connect();
   }
 
   checkValidDomain(context: ContextType): number {

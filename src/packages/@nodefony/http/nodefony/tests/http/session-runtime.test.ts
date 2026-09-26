@@ -2,6 +2,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import WebSocket from "ws";
+import { rawDataText } from "../helpers/wsText";
 
 // Cycle de vie de session (« plug runtime », chantier session étape 5) exercé via
 // le controller dédié `SessionRuntimeController` (/nodefony/test/session-rt).
@@ -55,9 +56,9 @@ function wsHandshake(path: string): Promise<any> {
       clearTimeout(timer);
       let parsed: unknown;
       try {
-        parsed = JSON.parse(data.toString());
+        parsed = JSON.parse(rawDataText(data));
       } catch {
-        parsed = data.toString();
+        parsed = rawDataText(data);
       }
       ws.close();
       resolve(parsed);

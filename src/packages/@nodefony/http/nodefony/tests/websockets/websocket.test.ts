@@ -1,5 +1,6 @@
 import { expect, assert } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -17,7 +18,7 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
   it("Instance WebSocket client 404", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(`${WSS}/nodefony/test/wsu`, wsOpts);
@@ -38,7 +39,7 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
   it("Instance WebSocket client", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(`${WSS}/nodefony/test/ws?foo=bar&bar=foo`, wsOpts);
@@ -52,7 +53,7 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
       });
       ws.on("message", (data) => {
         try {
-          const msg = JSON.parse(data.toString());
+          const msg = JSON.parse(rawDataText(data));
           if (msg.error) {
             ws?.close();
             throw new Error(msg.error);
@@ -70,12 +71,12 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
   it("Instance WebSocket echo", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(`${WSS}/nodefony/test/ws/echo`, wsOpts);
       ws.on("message", (data) => {
-        const text = data.toString();
+        const text = rawDataText(data);
         assert.isString(text, "Message should be a string");
         const msg = JSON.parse(text);
         if (msg.handshake === true) {
@@ -101,7 +102,7 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
   it("Instance WebSocket echo-protocol", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       ws = new WebSocket(
@@ -117,7 +118,7 @@ describe("WEBSOCKETS UNIT TESTS ", () => {
         ws?.send(`{"echo":"echo"}`);
       });
       ws.on("message", (data) => {
-        const text = data.toString();
+        const text = rawDataText(data);
         assert.isString(text, "Message should be a string");
         const msg = JSON.parse(text);
         if (msg.nodefony?.websocket.state !== "connected") {
@@ -154,7 +155,7 @@ describe("WEBSOCKETS ROUTER ", () => {
       }
     });
     ws.on("message", (data) => {
-      msg = JSON.parse(data.toString());
+      msg = JSON.parse(rawDataText(data));
     });
     ws.on("close", () => {
       if (doneCallback && !isDone) {
@@ -177,7 +178,7 @@ describe("WEBSOCKETS ROUTER ", () => {
   it("Routage variables", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       doneCallback = done;
@@ -195,7 +196,7 @@ describe("WEBSOCKETS ROUTER ", () => {
   it("Routage variables 2", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       doneCallback = done;
@@ -242,7 +243,7 @@ describe("WEBSOCKETS ROUTER — isolation per-requête (test durci)", () => {
   it("N connexions concurrentes sur la même route ne se bleedent pas les variables", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const N = 16;
@@ -266,7 +267,7 @@ describe("WEBSOCKETS ROUTER — isolation per-requête (test durci)", () => {
           if (captured) return;
           let msg: any;
           try {
-            msg = JSON.parse(data.toString());
+            msg = JSON.parse(rawDataText(data));
           } catch {
             return;
           }
@@ -281,7 +282,7 @@ describe("WEBSOCKETS ROUTER — isolation per-requête (test durci)", () => {
               finish(
                 new Error(
                   `bleed inter-connexions (${bleed.length}/${N}) : ${bleed
-                    .map((b) => `attendu '${b.exp}', reçu '${b.got}'`)
+                    .map((b) => `attendu '${b.exp}', reçu '${String(b.got)}'`)
                     .join(" | ")}`,
                 ),
               );

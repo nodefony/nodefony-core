@@ -8,6 +8,7 @@
 import { expect } from "chai";
 import https from "node:https";
 import { measureRetention, type IRetentionPlan } from "./heapSlope.js";
+import { asError } from "./wsText";
 
 const PROBE = { hostname: "localhost", port: 5152, rejectUnauthorized: false };
 
@@ -20,7 +21,7 @@ function probeJson(path: string): Promise<Record<string, unknown>> {
         try {
           resolve(JSON.parse(Buffer.concat(chunks).toString()));
         } catch (e) {
-          reject(e);
+          reject(asError(e));
         }
       });
     });

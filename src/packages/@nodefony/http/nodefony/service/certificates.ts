@@ -2,12 +2,13 @@
 // module runtime est chargé paresseusement (voir `loadForge`) — il n'est JAMAIS
 // chargé en production avec un certificat fourni (`explicit`).
 import type pkg from "node-forge";
-import { Service, Module, Container, Event, extend } from "nodefony";
+import { Service, Module, Container, extend } from "nodefony";
 import fs from "node:fs/promises";
 import path, { resolve } from "node:path";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { randomBytes } from "node:crypto";
+import { asServersConfig } from "../src/servers/kernelServers";
 
 const execFileAsync = promisify(execFile);
 
@@ -147,6 +148,16 @@ const defaultOptions: CertificateOptions = {
 };
 
 /**
+ * Valeur texte d'un champ de certificat node-forge (`getField` rend `any`),
+ * ou `null` si le champ est absent.
+ */
+function certFieldValue(field: unknown): string | null {
+  if (field === null || typeof field !== "object") return null;
+  const value: unknown = (field as { value?: unknown }).value;
+  return typeof value === "string" ? value : String(value);
+}
+
+/**
  * Service de fourniture du certificat TLS du serveur HTTPS/WSS.
  *
  * Trois stratégies : `explicit` (certificat fourni en config — le cas de
@@ -160,6 +171,7 @@ const defaultOptions: CertificateOptions = {
  * (RFC 5280 §4.1.2.2), SAN qui fait foi (RFC 6125), `notBefore` reculé,
  * clé privée écrite en `0600`.
  */
+
 class Certificate extends Service {
   module: Module;
   files: filesCertType[] = [];
@@ -195,7 +207,7 @@ class Certificate extends Service {
     super(
       "certificates",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       // Cible `{}` (PAS `defaultOptions`) : `extend` mute sa cible — écrire dans
       // `defaultOptions` polluerait la constante partagée entre instances.
       extend(
@@ -226,8 +238,7 @@ class Certificate extends Service {
   async loadForge(): Promise<ForgeModule> {
     if (!this.forge) {
       // node-forge = module `export =` → la valeur est sous `.default`.
-      this.forge = (await import("node-forge"))
-        .default as unknown as ForgeModule;
+      this.forge = (await import("node-forge")).default;
     }
     return this.forge;
   }
@@ -264,7 +275,7 @@ class Certificate extends Service {
    * exemplaire. La promesse était écrite ; rien ne la tenait.
    */
   private get tlsWanted(): boolean {
-    return !!this.module.kernel?.options?.servers?.https;
+    return !!asServersConfig(this.module.kernel?.options.servers)?.https;
   }
 
   async init(): Promise<this> {
@@ -419,6 +430,9 @@ class Certificate extends Service {
     }
 
     if (requested === "mkcert" || requested === "auto") {
+      // Config lue sur disque : `undefined` doit rester « mkcert autorisé » —
+      // la comparaison stricte à `false` est voulue.
+      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
       if (this.isDev() && this.certOptions.dev?.useMkcert !== false) {
         const caRoot = await this.detectMkcert();
         if (caRoot) {
@@ -576,14 +590,14 @@ class Certificate extends Service {
       }
       // Le SAN doit couvrir les noms requis QUELLE QUE SOIT la stratégie — sinon
       // un changement de SAN (NF_BIND_ALL → nodefony.com) ne régénérerait jamais.
-      const ext = cert.getExtension("subjectAltName") as
-        { altNames?: AltName[] } | undefined;
+      const ext: { altNames?: AltName[] } | undefined =
+        cert.getExtension("subjectAltName");
       if (!ext || !this.sanCovers(ext.altNames ?? [])) {
         return false;
       }
       if (strategy === "mkcert") {
-        const org = cert.issuer.getField("O");
-        return Boolean(org && /mkcert/i.test(String(org.value)));
+        const org = certFieldValue(cert.issuer.getField("O"));
+        return org !== null && /mkcert/i.test(org);
       }
       // selfsigned : un ancien cert SHA-1 doit être régénéré.
       return cert.signatureOid !== pki.oids.sha1WithRSAEncryption;
@@ -657,7 +671,7 @@ class Certificate extends Service {
         }
         this.log(`Read Certificat file ${file.path}`, "DEBUG");
       } catch (err) {
-        this.log(err as Error, "WARNING");
+        this.log(err, "WARNING");
       }
     }
     // Ancre CA (hors `this.files` pour ne pas la réécrire à chaque write) — sert
@@ -731,7 +745,7 @@ class Certificate extends Service {
       await fs.chmod(this.privateKeyPath, mode);
       await fs.chmod(this.serverPath, 0o700);
     } catch (err) {
-      this.log(err as Error, "DEBUG");
+      this.log(err, "DEBUG");
     }
   }
 
@@ -872,12 +886,12 @@ class Certificate extends Service {
       info.validFrom = cert.validity.notBefore.toISOString();
       info.validTo = cert.validity.notAfter.toISOString();
       info.signatureAlgorithm = this.oidName(cert.signatureOid, pki);
-      const cn = cert.subject.getField("CN");
-      if (cn) {
-        info.commonName = String(cn.value);
+      const cn = certFieldValue(cert.subject.getField("CN"));
+      if (cn !== null) {
+        info.commonName = cn;
       }
-      const ext = cert.getExtension("subjectAltName") as
-        { altNames?: AltName[] } | undefined;
+      const ext: { altNames?: AltName[] } | undefined =
+        cert.getExtension("subjectAltName");
       if (ext?.altNames) {
         info.san = ext.altNames.map((a) =>
           a.type === 7 ? (a.ip ?? "") : (a.value ?? ""),
@@ -904,12 +918,16 @@ class Certificate extends Service {
         return md.sha384.create();
       case "sha256":
         return md.sha256.create();
-      default:
+      default: {
+        // Valeur hors contrat (config non validée) : relue en `string` pour le
+        // message — le type l'a épuisée (`never`).
+        const refused: string = hash;
         this.log(
-          `Hachage '${hash}' refusé (SHA-1 interdit) → SHA-256.`,
+          `Hachage '${refused}' refusé (SHA-1 interdit) → SHA-256.`,
           "WARNING",
         );
         return md.sha256.create();
+      }
     }
   }
 }

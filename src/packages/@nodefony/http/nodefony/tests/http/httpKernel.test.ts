@@ -41,7 +41,7 @@ function req(
   return new Promise((resolve, reject) => {
     const request = https.request({ ...BASE, path, method, headers }, (res) => {
       let raw = "";
-      res.on("data", (c: Buffer) => (raw += c));
+      res.on("data", (c: Buffer) => (raw += c.toString()));
       res.on("end", () => {
         try {
           resolve({

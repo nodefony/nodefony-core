@@ -1,5 +1,11 @@
 import Ws, { WebSocketServer, ServerOptions } from "ws";
 import { Service, Container, Module, FamilyType, inject } from "nodefony";
+import type { DefaultOptionsService } from "nodefony";
+import type { IHttpConfig } from "../../config/config";
+import {
+  asServersConfig,
+  configuredServerPort,
+} from "../../src/servers/kernelServers";
 import HttpKernel, {
   ProtocolType,
   ServerType,
@@ -9,13 +15,12 @@ import { AddressInfo } from "node:net";
 import type { IncomingMessage } from "node:http";
 import https from "node:https";
 import httpsServers from "./server-https";
-import {
-  startHeartbeat,
-  trackPong,
-  type IWsHeartbeatOptions,
-} from "./wsHeartbeat";
+import { startHeartbeat, trackPong } from "./wsHeartbeat";
 
 class WebsocketSecure extends Service {
+  // Section `websocketSecure` de la config du module (schéma Zod, défauts appliqués).
+  declare public options: IHttpConfig["websocketSecure"] &
+    DefaultOptionsService;
   module: Module;
   ready: boolean = false;
   server: WebSocketServer | null = null;
@@ -40,7 +45,7 @@ class WebsocketSecure extends Service {
       // Serveur WSS → config DÉDIÉE `websocketSecure` (pas `websocket`, le serveur
       // plain) : sinon les knobs propres au secure (keepalive*/maxPayload/
       // allowedOrigins) seraient ignorés. Même forme (websocketSchema).
-      module.options.websocketSecure,
+      module.options.websocketSecure as IHttpConfig["websocketSecure"],
     );
     this.module = module;
     this.port = this.setPort();
@@ -49,10 +54,12 @@ class WebsocketSecure extends Service {
   }
 
   setPort(): number {
-    if (this.kernel?.options.servers?.https) {
-      return this.kernel?.options.servers?.https?.port || 0;
-    }
-    return 0;
+    return (
+      configuredServerPort(
+        asServersConfig(this.kernel?.options.servers),
+        "https",
+      ) ?? 0
+    );
   }
 
   async createServer(serverHttps: httpsServers): Promise<WebSocketServer> {
@@ -80,10 +87,7 @@ class WebsocketSecure extends Service {
         });
         this.server.on("connection", this.onConnection.bind(this));
         // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.
-        this.heartbeatTimer = startHeartbeat(
-          this.server,
-          this.options as IWsHeartbeatOptions,
-        );
+        this.heartbeatTimer = startHeartbeat(this.server, this.options);
         this.kernel?.prependOnceListener(
           "onTerminate",
           this.terminate.bind(this),
@@ -95,7 +99,7 @@ class WebsocketSecure extends Service {
         return resolve(this.server);
       } catch (e) {
         this.log(e, "ERROR");
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   }
@@ -139,7 +143,7 @@ class WebsocketSecure extends Service {
             );
             return resolve(true);
           } catch (e) {
-            return reject(e);
+            return reject(e instanceof Error ? e : new Error(String(e)));
           }
         }, 300);
         // La résolution appartient au setTimeout : sans ce return, la Promise

@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 868,
-    "symbols": 4325,
+    "files": 870,
+    "symbols": 4340,
     "classes": 404,
-    "interfaces": 1140,
-    "types": 459,
+    "interfaces": 1144,
+    "types": 463,
     "enums": 4,
-    "functions": 1883,
+    "functions": 1890,
     "constants": 435
   },
   "symbols": {
@@ -139,8 +139,7 @@
       "module": "@nodefony/core",
       "extends": "EventEmitter",
       "implements": [],
-      "decorators": [],
-      "description": "Bus d'événements Nodefony — extension de Node.js {@link EventEmitter} avec deux ajouts maison : `emitAsync` (await tous les listeners en séquence) et `settingsToListen` (mapping config → listeners …"
+      "decorators": []
     },
     "EventDefaultInterface": {
       "name": "EventDefaultInterface",
@@ -6591,7 +6590,8 @@
       "kind": "type",
       "file": "src/nodefony/src/types/IService.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Listener d'événement Nodefony : arguments libres, retour libre — une valeur ou une PROMESSE, que `emitAsync`/`fireAsync` attendent et collectent. Un retour `void` ferait passer chaque listener `asy…"
     },
     "ISyslog": {
       "name": "ISyslog",
@@ -25293,6 +25293,13 @@
       "module": "@nodefony/http",
       "description": "Constructeur d'un storage de session (enregistré dans le registre)."
     },
+    "ISessionServiceOptions": {
+      "name": "ISessionServiceOptions",
+      "kind": "type",
+      "file": "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
+      "exported": true,
+      "module": "@nodefony/http"
+    },
     "computeSessionRef": {
       "name": "computeSessionRef",
       "kind": "function",
@@ -25721,6 +25728,14 @@
       "implements": [],
       "decorators": []
     },
+    "thrownMessage": {
+      "name": "thrownMessage",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/errors/thrownMessage.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Message lisible d'une valeur LEVÉE (`catch`, rejet) dont on ignore le type. Même rendu que `String(value)` pour une `Error` (son `message`) et pour les primitives ; un objet quelconque rend son éti…"
+    },
     "FrameProfile": {
       "name": "FrameProfile",
       "kind": "class",
@@ -25941,6 +25956,22 @@
       "implements": [],
       "decorators": [],
       "description": "Compteur de connexions WebSocket CONCURRENTES par IP — backstop opt-in (F6c, revue 0.6). Distinct du {@link MemoryRateLimitStore} : celui-ci compte un DÉBIT d'ouverture par fenêtre (handshakes/s) ;…"
+    },
+    "asServersConfig": {
+      "name": "asServersConfig",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/kernelServers.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Rétrécit la section `servers` de la configuration du kernel (lue dans le sac de config non typé du cœur) en {@link ServersConfig}, sans propager `any`. Seule lecture de `kernel.options.servers` dan…"
+    },
+    "configuredServerPort": {
+      "name": "configuredServerPort",
+      "kind": "function",
+      "file": "src/packages/@nodefony/http/nodefony/src/servers/kernelServers.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "description": "Port DEMANDÉ pour un serveur (`servers.<type>.port`), ou `undefined` si le serveur est désactivé, absent, ou sans port numérique."
     },
     "Listenable": {
       "name": "Listenable",
@@ -30328,8 +30359,16 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/testing/index.ts",
+        "src/packages/@nodefony/framework/nodefony/service/AdminBroker.ts",
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
-        "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts"
+        "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "DEFAULT_ENGINE_ENVIRONMENT": [
         "src/nodefony/src/Cli.ts",
@@ -30454,7 +30493,6 @@
         "src/nodefony/src/finder/Finder.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/nodefony/src/types/IService.ts",
-        "src/packages/@nodefony/http/nodefony/service/certificates.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/Orm.ts",
         "src/packages/@nodefony/orm-core/nodefony/src/serviceWiring.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-static.ts"
@@ -30689,6 +30727,10 @@
         "src/nodefony/src/Event.ts",
         "src/nodefony/src/service/dev/DevSupervisor.ts"
       ],
+      "EventListener": [
+        "src/nodefony/src/Event.ts",
+        "src/nodefony/src/Service.ts"
+      ],
       "randomUuidV7": [
         "src/nodefony/src/Nodefony.ts"
       ],
@@ -30699,9 +30741,6 @@
         "src/nodefony/src/Service.ts",
         "src/nodefony/src/types/IKernel.ts",
         "src/nodefony/src/types/IModule.ts"
-      ],
-      "EventListener": [
-        "src/nodefony/src/Service.ts"
       ],
       "IKernel": [
         "src/nodefony/src/Service.ts",
@@ -31833,7 +31872,13 @@
       ],
       "IHttpConfig": [
         "src/packages/@nodefony/http/index.ts",
-        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts"
+        "src/packages/@nodefony/http/nodefony/config/defineModuleConfig.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
       "IHttpConfigInput": [
         "src/packages/@nodefony/http/index.ts",
@@ -37653,6 +37698,14 @@
         "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
         "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts"
       ],
+      "asServersConfig": [
+        "src/packages/@nodefony/http/nodefony/service/certificates.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
+      ],
       "IErrorRenderer": [
         "src/packages/@nodefony/http/nodefony/service/error-renderer.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -37716,6 +37769,13 @@
       ],
       "resolveTraceparent": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "configuredServerPort": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
+        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],
       "IHttpKernel": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
@@ -39115,10 +39175,6 @@
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
       ],
-      "IWsHeartbeatOptions": [
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
-        "src/packages/@nodefony/http/nodefony/service/servers/server-websocket.ts"
-      ],
       "OptionsSessionType": [
         "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts"
       ],
@@ -39199,6 +39255,10 @@
       "HttpRsponseType": [
         "src/packages/@nodefony/http/nodefony/src/errors/httpError.ts"
       ],
+      "thrownMessage": [
+        "src/packages/@nodefony/http/nodefony/src/profiler/FrameProfile.ts",
+        "src/packages/@nodefony/http/nodefony/src/session/sessionStoreFailure.ts"
+      ],
       "IRateLimitListQuery": [
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
       ],
@@ -39207,6 +39267,9 @@
       ],
       "RateLimitVerdict": [
         "src/packages/@nodefony/http/nodefony/src/rateLimit/MemoryRateLimitStore.ts"
+      ],
+      "ServersConfig": [
+        "src/packages/@nodefony/http/nodefony/src/servers/kernelServers.ts"
       ],
       "isPortListening": [
         "src/packages/@nodefony/http/nodefony/src/servers/portBinder.ts"

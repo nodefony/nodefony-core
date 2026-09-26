@@ -34,7 +34,7 @@ function request(
   path: string,
   method: string,
   headers: Record<string, string> = {},
-  payload: unknown = undefined,
+  payload?: unknown,
 ): Promise<Res> {
   return new Promise((resolve, reject) => {
     const data =

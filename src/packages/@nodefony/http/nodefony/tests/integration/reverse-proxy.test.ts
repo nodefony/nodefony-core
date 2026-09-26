@@ -30,6 +30,7 @@ import https from "node:https";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import WebSocket from "ws";
+import { asError } from "../helpers/wsText";
 
 const NGINX = process.env.NF_PROXY_NGINX_URL ?? "";
 const HAPROXY = process.env.NF_PROXY_HAPROXY_URL ?? "";
@@ -108,7 +109,7 @@ function through(
               seen: JSON.parse(Buffer.concat(chunks).toString()) as SeenContext,
             });
           } catch (e) {
-            reject(e);
+            reject(asError(e));
           }
         });
       },

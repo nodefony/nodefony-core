@@ -1,5 +1,11 @@
 import Ws, { WebSocketServer, ServerOptions } from "ws";
 import { Service, Container, Module, FamilyType, inject } from "nodefony";
+import type { DefaultOptionsService } from "nodefony";
+import type { IHttpConfig } from "../../config/config";
+import {
+  asServersConfig,
+  configuredServerPort,
+} from "../../src/servers/kernelServers";
 import HttpKernel, {
   ProtocolType,
   ServerType,
@@ -9,13 +15,11 @@ import { AddressInfo } from "node:net";
 import type { IncomingMessage } from "node:http";
 import http from "node:http";
 import httpServer from "./server-http";
-import {
-  startHeartbeat,
-  trackPong,
-  type IWsHeartbeatOptions,
-} from "./wsHeartbeat";
+import { startHeartbeat, trackPong } from "./wsHeartbeat";
 
 class Websocket extends Service {
+  // Section `websocket` de la config du module (schéma Zod, défauts appliqués).
+  declare public options: IHttpConfig["websocket"] & DefaultOptionsService;
   module: Module;
   ready: boolean = false;
   server: WebSocketServer | null = null;
@@ -37,7 +41,7 @@ class Websocket extends Service {
       "server-websocket",
       module.container as Container,
       module.notificationsCenter,
-      module.options.websocket,
+      module.options.websocket as IHttpConfig["websocket"],
     );
     this.module = module;
     this.port = this.setPort();
@@ -46,10 +50,12 @@ class Websocket extends Service {
   }
 
   setPort(): number {
-    if (this.kernel?.options.servers?.http) {
-      return this.kernel?.options.servers?.http?.port || 0;
-    }
-    return 0;
+    return (
+      configuredServerPort(
+        asServersConfig(this.kernel?.options.servers),
+        "http",
+      ) ?? 0
+    );
   }
 
   async createServer(serverHttp: httpServer): Promise<WebSocketServer> {
@@ -77,10 +83,7 @@ class Websocket extends Service {
         });
         this.server.on("connection", this.onConnection.bind(this));
         // G2 — heartbeat keep-alive : UN seul interval/serveur, détecte les zombies.
-        this.heartbeatTimer = startHeartbeat(
-          this.server,
-          this.options as IWsHeartbeatOptions,
-        );
+        this.heartbeatTimer = startHeartbeat(this.server, this.options);
         this.kernel?.prependOnceListener(
           "onTerminate",
           this.terminate.bind(this),
@@ -92,7 +95,7 @@ class Websocket extends Service {
         return resolve(this.server);
       } catch (e) {
         this.log(e, "ERROR");
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   }
@@ -136,7 +139,7 @@ class Websocket extends Service {
             );
             return resolve(true);
           } catch (e) {
-            return reject(e);
+            return reject(e instanceof Error ? e : new Error(String(e)));
           }
         }, 300);
         // La résolution appartient au setTimeout : sans ce return, la Promise

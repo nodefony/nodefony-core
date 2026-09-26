@@ -254,8 +254,13 @@ export default class WebsocketContext
     this.teardownWired = true;
     await this.fireAsync("onConnect", this, this.connection);
     this.requestEnded = true;
+    // ⚠️ `handleMessage` est async et peut rejeter (erreur de routage relancée
+    // après le close 1011, ou erreur du contrôleur) : `ws` n'attend pas la
+    // promesse → rejet non géré. Le capter imposerait un `.catch` (une promesse
+    // de plus) PAR MESSAGE sur le chemin chaud : laissé en l'état, signalé.
     this.connection.on(
       "message",
+      // oxlint-disable-next-line typescript/no-misused-promises
       AsyncResource.bind(this.handleMessage.bind(this)),
     );
     this.logRequest(null, this.acceptedProtocol ?? null);
@@ -299,15 +304,11 @@ export default class WebsocketContext
       await this.resolver
         .callController(data)
         .then(async () => {
-          await this.saveSession()
-            .then((session) => {
-              if (session) {
-                this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
-              }
-            })
-            .catch((e) => {
-              throw e;
-            });
+          await this.saveSession().then((session) => {
+            if (session) {
+              this.log(`SAVE SESSION ID : ${session.id}`, "DEBUG");
+            }
+          });
           return this;
         })
         .catch((error: unknown) => {
@@ -315,10 +316,14 @@ export default class WebsocketContext
             if (this.requestEnded) {
               // close() coerce le code via `toWsCloseCode` (RFC 6455 §7.4) :
               // 5xx/absent → 1011, 401/403 → 1008, 404/autre → 4004.
-              throw this.close(
+              // Ferme PUIS relance l'erreur d'origine : l'ancien
+              // `throw this.close(…)` relançait la valeur de retour de
+              // `close()` (`undefined`), et l'erreur était perdue.
+              this.close(
                 (error as HttpError).code,
                 (error as HttpError).message,
               );
+              throw error;
             }
             this.reject(
               (error as HttpError).code ?? undefined,
@@ -477,9 +482,7 @@ export default class WebsocketContext
     const message = isBinary ? data : data.toString();
     this.logMessageContent("RECEIVE", message);
     if (this.response) {
-      this.response.body = Buffer.isBuffer(data)
-        ? data
-        : Buffer.from(data.toString());
+      this.response.body = Buffer.isBuffer(data) ? data : Buffer.from(data);
     }
     try {
       if (!this.resolver) {
@@ -497,9 +500,11 @@ export default class WebsocketContext
             },
           },
         });
-        return this.resolver.callController([message]).catch((e: unknown) => {
-          throw e;
-        });
+        // Promesse rendue SANS `await` (voulu) : une erreur du contrôleur ne
+        // passe pas par le `catch` ci-dessous, qui fermerait la socket en 1011
+        // — seul un échec de routage/de `onMessage` la ferme.
+        // oxlint-disable-next-line typescript/return-await
+        return this.resolver.callController([message]);
       } else if (!this.rejected) {
         this.reject(4004, "Not Found");
         this.rejected = true;

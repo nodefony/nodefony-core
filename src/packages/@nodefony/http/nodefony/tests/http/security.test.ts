@@ -183,7 +183,13 @@ describe("Security — information disclosure (requires server)", () => {
   it("response headers do not expose server version unnecessarily", async () => {
     const { headers } = await get("/nodefony/test/index");
     // X-Powered-By should not expose internal version details
-    const powered = String(headers["x-powered-by"] ?? "");
+    const rawPowered = headers["x-powered-by"];
+    const powered =
+      typeof rawPowered === "string"
+        ? rawPowered
+        : Array.isArray(rawPowered)
+          ? rawPowered.join(",")
+          : "";
     expect(powered).to.not.match(/\d+\.\d+\.\d+/); // no semver in header
   });
 });

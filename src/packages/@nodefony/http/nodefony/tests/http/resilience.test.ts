@@ -3,6 +3,7 @@ import https from "node:https";
 import http2 from "node:http2";
 import tls from "node:tls";
 import net from "node:net";
+import { asError } from "../helpers/wsText";
 
 // ── helpers ──────────────────────────────────────────────────────
 
@@ -146,7 +147,7 @@ describe("Resilience — server must never crash (requires server)", () => {
     it("malformed header (clientError) → 400 + socket closed (no FD leak)", () =>
       new Promise<void>((resolve, reject) => {
         const done = (err?: unknown): void => {
-          if (err) reject(err);
+          if (err) reject(asError(err));
           else resolve();
         };
         // Socket brut sur le port HTTP clair (5151) : nom d'en-tête contenant un

@@ -304,8 +304,9 @@ class HttpRequest {
       this.search = u.search;
     }
     if (PERF_PROBE_SUB) perfMark("reqUrlNs");
-    this.queryStringOptions =
-      this.context?.httpKernel?.module.options.queryString || {};
+    // Section `queryString` de la config du module (sac non typé côté `Module`).
+    this.queryStringOptions = (this.context?.httpKernel?.module.options
+      .queryString || {}) as HttpRequest["queryStringOptions"];
     let query: QS.ParsedQs;
     if (this.search) {
       query = QS.parse(this.search.slice(1), this.queryStringOptions || {});
@@ -361,54 +362,49 @@ class HttpRequest {
   // http-kernel) : les branches renvoient soit le parser, soit le résultat de
   // `fireAsync("onRequestEnd")` (unknown) → type honnête = Promise<unknown>.
   async initialize(): Promise<unknown> {
-    return this.parseRequest()
-      .then(async (parser) => {
-        switch (true) {
-          case parser instanceof ParserXml:
-          case parser instanceof ParserQs:
-          case parser instanceof Parser: {
-            //this.request.once("end", () => {
-            try {
-              if (this.context.finished) {
-                return;
-              }
-              // AWAIT : le corps doit être ENTIÈREMENT parsé (queryPost rempli)
-              // AVANT onRequestEnd → avant que le controller ne lise @Body. Sans
-              // await, onRequestEnd partait sur un parse encore en cours → body vide.
-              await parser.parse();
-              return this.fireRequestEnd();
-            } catch (error) {
-              return this.context?.httpKernel?.onError(
-                error as Error,
-                this.context,
-              );
-            }
-            //});
+    return this.parseRequest().then(async (parser) => {
+      if (
+        parser instanceof ParserXml ||
+        parser instanceof ParserQs ||
+        parser instanceof Parser
+      ) {
+        // La promesse de `onRequestEnd` est rendue HORS du `try`, sans y être
+        // attendue (comme avant) : son rejet remonte à l'appelant
+        // (`handleHttp`) au lieu d'être rendu ici par `onError`. Seuls le parse
+        // et un throw synchrone passent par `onError`.
+        let requestEnd: Promise<unknown> | false;
+        try {
+          if (this.context.finished) {
+            return;
           }
-          default: {
-            if (!parser) {
-              //this.request.once("end", () => {
-              try {
-                if (this.context.finished) {
-                  return;
-                }
-                this.context.requestEnded = true;
-                return this.fireRequestEnd();
-              } catch (error) {
-                return this.context.httpKernel?.onError(
-                  error as Error,
-                  this.context,
-                );
-              }
-              // });
-            }
-          }
+          // AWAIT : le corps doit être ENTIÈREMENT parsé (queryPost rempli)
+          // AVANT onRequestEnd → avant que le controller ne lise @Body. Sans
+          // await, onRequestEnd partait sur un parse encore en cours → body vide.
+          await parser.parse();
+          requestEnd = this.fireRequestEnd();
+        } catch (error) {
+          return this.context?.httpKernel?.onError(
+            error as Error,
+            this.context,
+          );
         }
-        return parser;
-      })
-      .catch((e) => {
-        throw e;
-      });
+        return requestEnd;
+      }
+      if (!parser) {
+        let requestEnd: Promise<unknown> | false;
+        try {
+          if (this.context.finished) {
+            return;
+          }
+          this.context.requestEnded = true;
+          requestEnd = this.fireRequestEnd();
+        } catch (error) {
+          return this.context.httpKernel?.onError(error as Error, this.context);
+        }
+        return requestEnd;
+      }
+      return parser;
+    });
   }
 
   /**
@@ -441,11 +437,12 @@ class HttpRequest {
     if (max <= 0) {
       return;
     }
-    const cl = this.headers["content-length"];
+    // Tableau toléré à l'exécution (en-tête dupliqué) malgré le type de Node.
+    const cl: string | string[] | undefined = this.headers["content-length"];
     if (cl === undefined) {
       return;
     }
-    const declared = parseInt(Array.isArray(cl) ? cl[0] : cl, 10);
+    const declared = parseInt(typeof cl === "string" ? cl : cl[0], 10);
     if (Number.isFinite(declared) && declared > max) {
       throw new HttpError(
         `Request body too large: ${declared} bytes > maxBodySize ${max}`,
@@ -480,6 +477,7 @@ class HttpRequest {
       case "multipart/form-data":
         // SEUL le multipart passe par busboy (streaming → disque).
         return this.parseMultipart();
+      case null:
       default:
         // formidable parsait le JSON via son plugin `json` interne ; busboy ne
         // gère QUE le multipart → on parse le JSON nous-mêmes (→ queryPost, lu
@@ -552,7 +550,10 @@ class HttpRequest {
 
     const { fields, files } = await this.streamMultipart(bb);
     this.queryPost = fields;
-    this.query = extend({}, this.query, this.queryPost);
+    this.query = extend({}, this.query, this.queryPost) as Record<
+      string,
+      unknown
+    >;
     for (const pf of files) {
       await this.createFileUpload(pf.field, pf.file);
     }
@@ -598,7 +599,7 @@ class HttpRequest {
           ws.destroy();
         }
         // oxlint-disable-next-line no-promise-in-callback -- promesse DÉLIBÉRÉE dans un rappel : `abort` est appelée depuis les rappels de busboy, qui ne peuvent rien attendre ; le rejet est garanti par le `finally`, et s'en passer laisserait les fichiers temporaires sur le disque
-        Promise.all(tempPaths.map(unlinkQuiet)).finally(() => reject(err));
+        void Promise.all(tempPaths.map(unlinkQuiet)).finally(() => reject(err));
       };
 
       bb.on("field", (name: string, value: string) => {
@@ -683,7 +684,7 @@ class HttpRequest {
           });
           // .catch → abort (jamais de rejet pendant non-géré).
           pending.push(
-            done.catch((e) =>
+            done.catch((e: unknown) =>
               abort(e instanceof Error ? e : new Error(String(e))),
             ),
           );

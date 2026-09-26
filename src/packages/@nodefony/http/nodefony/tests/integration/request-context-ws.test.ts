@@ -17,6 +17,7 @@
  */
 import { expect } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -39,10 +40,10 @@ function wsSession(
     let sent = 0;
     ws.on("message", (data: WebSocket.RawData) => {
       try {
-        received.push(JSON.parse(data.toString()) as Json);
+        received.push(JSON.parse(rawDataText(data)) as Json);
       } catch (e) {
         ws.terminate();
-        return reject(e);
+        return reject(asError(e));
       }
       if (sent < messages.length) {
         ws.send(messages[sent++]);

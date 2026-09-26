@@ -567,7 +567,7 @@ class HttpResponse {
     chunk?: unknown,
     encoding?: BufferEncoding,
   ): Promise<HttpResponse> {
-    return await this.send(chunk, encoding || this.encoding);
+    return this.send(chunk, encoding || this.encoding);
   }
 
   writeContinue() {
@@ -640,6 +640,9 @@ class HttpResponse {
             "Cache-Control": "no-store, no-cache, must-revalidate",
             Expires: "Thu, 01 Jan 1970 00:00:00 GMT",
           });
+          break;
+        case null:
+        default:
           break;
       }
     }

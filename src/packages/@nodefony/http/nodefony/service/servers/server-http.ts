@@ -24,8 +24,16 @@ import {
   buildBindPlan,
   type Listenable,
 } from "../../src/servers/portBinder";
+import {
+  asServersConfig,
+  configuredServerPort,
+} from "../../src/servers/kernelServers";
+import type { IHttpConfig } from "../../config/config";
+import type { DefaultOptionsService } from "nodefony";
 
 class ServerHttp extends Service {
+  // Section `http` de la config du module (schéma Zod, défauts appliqués).
+  declare public options: IHttpConfig["http"] & DefaultOptionsService;
   module: Module;
   server: http.Server | http2.Http2Server | null = null;
   httpTerminator: HttpTerminator | null = null;
@@ -55,19 +63,21 @@ class ServerHttp extends Service {
       "server-http",
       module.container as Container,
       module.notificationsCenter,
-      module.options.http,
+      module.options.http as IHttpConfig["http"],
     );
     this.module = module;
-    this.active = !!module.kernel?.options.servers.http;
+    this.active = !!asServersConfig(module.kernel?.options.servers)?.http;
     this.port = this.setPort();
     this.domain = this.module.kernel?.domain as string;
   }
 
   setPort(): number {
-    if (this.module.kernel?.options.servers?.http) {
-      return this.module.kernel?.options.servers?.http?.port || 0;
-    }
-    return 0;
+    return (
+      configuredServerPort(
+        asServersConfig(this.module.kernel?.options.servers),
+        "http",
+      ) ?? 0
+    );
   }
 
   createServer(): Promise<http.Server | http2.Http2Server> {
@@ -77,9 +87,9 @@ class ServerHttp extends Service {
           const e = new Error(`Server http is not allowed in config file `);
           return reject(e);
         }
-        const opt: http.ServerOptions = extend({
+        const opt = extend({
           requestTimeout: this.options.requestTimeout,
-        });
+        }) as http.ServerOptions;
         this.server = http.createServer(opt);
         this.httpTerminator = createDrainTerminator(
           this.server,
@@ -103,13 +113,13 @@ class ServerHttp extends Service {
             this.server.keepAliveTimeout = this.options.keepAliveTimeout;
           }
         }
-        this.server.on("request", (request, response) =>
-          this.httpKernel
+        this.server.on("request", (request, response) => {
+          void this.httpKernel
             ?.onHttpRequest(request, response, this.type)
             .catch(() => {
               return;
-            }),
-        );
+            });
+        });
         this.module.fire("onCreateServer", this.type, this);
         // LISTEN — en `portPolicy: "auto"` (défaut dev), un port occupé fait
         // glisser l'écoute au prochain port libre au lieu de tuer le boot. Le
@@ -120,7 +130,7 @@ class ServerHttp extends Service {
           this.domain,
           buildBindPlan(
             "http",
-            this.module.kernel?.options.servers,
+            asServersConfig(this.module.kernel?.options.servers),
             this.module.kernel?.environment,
           ),
         )
@@ -144,7 +154,11 @@ class ServerHttp extends Service {
             this.attachErrorHandler();
             resolve(this.server as http.Server);
           })
-          .catch((error: NodeJS.ErrnoException) => {
+          .catch((e: unknown) => {
+            // Rejet de `bindWithFallback` : une erreur système (`code` errno).
+            const error = (
+              e instanceof Error ? e : new Error(String(e))
+            ) as NodeJS.ErrnoException;
             this.reportBindError(error);
             reject(error);
           });
@@ -177,7 +191,7 @@ class ServerHttp extends Service {
         });
       } catch (e) {
         this.log(e, "CRITIC");
-        return reject(e);
+        return reject(e instanceof Error ? e : new Error(String(e)));
       }
     });
   }
@@ -221,11 +235,14 @@ class ServerHttp extends Service {
         );
         this.log(myError, "CRITIC");
         break;
+      case undefined:
       default:
         this.log(myError, "CRITIC");
     }
     this.server?.close();
-    setTimeout(() => this.kernel?.terminate(1), 1000);
+    setTimeout(() => {
+      void this.kernel?.terminate(1);
+    }, 1000);
   }
 
   showBanner(): void {

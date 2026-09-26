@@ -1,5 +1,6 @@
 import { expect } from "chai";
 import WebSocket from "ws";
+import { asError, rawDataText } from "../helpers/wsText";
 
 const WSS = "wss://localhost:5152";
 const wsOpts = { rejectUnauthorized: false };
@@ -13,7 +14,7 @@ function waitForHandshake(ws: WebSocket): Promise<void> {
     ws.once("error", reject);
     ws.on("message", (data) => {
       try {
-        const msg = JSON.parse(data.toString());
+        const msg = JSON.parse(rawDataText(data));
         if (msg.handshake === true) resolve();
       } catch {
         reject(new Error("bad handshake"));
@@ -26,7 +27,7 @@ describe("WEBSOCKETS PERF — Concurrent connections", function () {
   it("10 simultaneous connections open and close cleanly", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const N = 10;
@@ -41,7 +42,7 @@ describe("WEBSOCKETS PERF — Concurrent connections", function () {
         ws.on("error", done);
         ws.on("message", (data) => {
           try {
-            const msg = JSON.parse(data.toString());
+            const msg = JSON.parse(rawDataText(data));
             if (msg.handshake === true) {
               opened++;
               if (opened === N) {
@@ -62,7 +63,7 @@ describe("WEBSOCKETS PERF — Concurrent connections", function () {
   it("25 simultaneous connections — all receive handshake", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const N = 25;
@@ -76,7 +77,7 @@ describe("WEBSOCKETS PERF — Concurrent connections", function () {
         ws.on("error", done);
         ws.on("message", (data) => {
           try {
-            const msg = JSON.parse(data.toString());
+            const msg = JSON.parse(rawDataText(data));
             if (msg.handshake === true) {
               handshakes++;
               ws.close(1000);
@@ -100,7 +101,7 @@ describe("WEBSOCKETS PERF — Message throughput", function () {
   it("100 sequential messages on one connection — all echoed", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -111,7 +112,7 @@ describe("WEBSOCKETS PERF — Message throughput", function () {
       ws.on("error", done);
       ws.on("message", (data) => {
         try {
-          const msg = JSON.parse(data.toString());
+          const msg = JSON.parse(rawDataText(data));
           if (!handshakeDone) {
             if (msg.handshake === true) {
               handshakeDone = true;
@@ -136,7 +137,7 @@ describe("WEBSOCKETS PERF — Message throughput", function () {
   it("50 messages × 1 KB — all delivered", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -148,7 +149,7 @@ describe("WEBSOCKETS PERF — Message throughput", function () {
       ws.on("error", done);
       ws.on("message", (data) => {
         try {
-          const msg = JSON.parse(data.toString());
+          const msg = JSON.parse(rawDataText(data));
           if (!handshakeDone) {
             if (msg.handshake === true) {
               handshakeDone = true;
@@ -175,7 +176,7 @@ describe("WEBSOCKETS PERF — Round-trip latency", function () {
   it("Single round-trip under 500ms", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -185,7 +186,7 @@ describe("WEBSOCKETS PERF — Round-trip latency", function () {
       ws.on("error", done);
       ws.on("message", (data) => {
         try {
-          const msg = JSON.parse(data.toString());
+          const msg = JSON.parse(rawDataText(data));
           if (!handshakeDone) {
             if (msg.handshake === true) {
               handshakeDone = true;
@@ -207,7 +208,7 @@ describe("WEBSOCKETS PERF — Round-trip latency", function () {
   it("10 sequential round-trips — avg < 200ms", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const ws = openWs(`${WSS}/nodefony/test/ws/echo`);
@@ -235,7 +236,7 @@ describe("WEBSOCKETS PERF — Round-trip latency", function () {
       ws.on("error", done);
       ws.on("message", (data) => {
         try {
-          const msg = JSON.parse(data.toString());
+          const msg = JSON.parse(rawDataText(data));
           if (!handshakeDone) {
             if (msg.handshake === true) {
               handshakeDone = true;
@@ -257,7 +258,7 @@ describe("WEBSOCKETS PERF — Routing under load", function () {
   it("10 concurrent connections on route variables — all resolve correctly", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const N = 10;
@@ -273,7 +274,7 @@ describe("WEBSOCKETS PERF — Routing under load", function () {
         ws.on("error", done);
         ws.on("message", (data) => {
           try {
-            const msg = JSON.parse(data.toString());
+            const msg = JSON.parse(rawDataText(data));
             if (msg.variables === id) correct++;
             ws.close(1000);
           } catch {
@@ -296,7 +297,7 @@ describe("WEBSOCKETS PERF — Routing under load", function () {
   it("5 concurrent connections on 2-variable route — all resolve correctly", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const N = 5;
@@ -313,7 +314,7 @@ describe("WEBSOCKETS PERF — Routing under load", function () {
         ws.on("error", done);
         ws.on("message", (data) => {
           try {
-            const msg = JSON.parse(data.toString());
+            const msg = JSON.parse(rawDataText(data));
             if (msg.variables?.var1 === v1 && msg.variables?.var2 === v2)
               correct++;
             ws.close(1000);

@@ -206,9 +206,10 @@ describe("briques durables — le cycle ENTIER par les vraies routes", () => {
         items.length,
         "le journal 2FA est vide après une activation",
       ).to.be.greaterThan(0);
-      const mine = items.find((i) =>
-        String(i.userId ?? i.subject ?? i.user ?? "").includes("admin"),
-      );
+      const mine = items.find((i) => {
+        const who = i.userId ?? i.subject ?? i.user ?? "";
+        return typeof who === "string" && who.includes("admin");
+      });
       expect(
         mine,
         `enrôlement non rattaché au compte : ${JSON.stringify(items.slice(0, 3))}`,

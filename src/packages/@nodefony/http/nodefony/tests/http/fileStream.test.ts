@@ -3,12 +3,13 @@ import { expect } from "chai";
 import https from "node:https";
 import fs from "node:fs";
 import path from "node:path";
+import { asError } from "../helpers/wsText";
 
 describe("HTTP STREAM", () => {
   it("GET /stream", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const options = {
@@ -44,7 +45,7 @@ describe("HTTP STREAM", () => {
   it("GET /download", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const options = {
@@ -84,7 +85,7 @@ describe("HTTP STREAM", () => {
   it("GET /media", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const options = {
@@ -121,7 +122,7 @@ describe("HTTP STREAM  with Range", () => {
   it("GET /media with Range header", () =>
     new Promise<void>((resolve, reject) => {
       const done = (err?: unknown): void => {
-        if (err) reject(err);
+        if (err) reject(asError(err));
         else resolve();
       };
       const size = 14625011;
