@@ -134,7 +134,7 @@ le moment venu.
 
 ```bash
 # 1. Créer l'application (profil complet : http, framework, realtime, sécurité, frontend)
-npx nodefony create app mon-chat --complete
+npx nodefony create app mon-chat --preset complete
 cd mon-chat
 
 # 2. Créer le module qui portera le salon

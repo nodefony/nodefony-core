@@ -351,6 +351,15 @@ for (const f of files) {
       );
   }
 
+  // 5 ter) Pas de résidu d'appel d'outil. Un agent qui écrit une page par un
+  // outil peut en laisser la fermeture (`</content>`, `</invoke>`) en fin de
+  // fichier : la règle HTML ci-dessous ne la voit pas (liste de balises
+  // fermée), et le site la publie telle quelle — vécu sur quatre pages.
+  if (/^<\/?(content|invoke|parameter|function_calls)\b[^>]*>\s*$/m.test(prose))
+    errs.push(
+      "résidu d'appel d'outil (`</content>`, `</invoke>`…) — à retirer du fichier",
+    );
+
   // 6) Pas de HTML brut (le portail n'a pas rehype-raw). Une balise CITÉE (fence ou
   // backticks) s'affiche comme du texte : elle ne demande rien au moteur de rendu.
   if (/<(div|span|table|br|img|svg)\b/i.test(prose))

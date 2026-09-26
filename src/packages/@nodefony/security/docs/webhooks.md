@@ -1017,6 +1017,3 @@ Couverture : `npm run coverage` dans `@nodefony/security`. Revue de sécurité d
 - La **source des événements** livrés → [audit](audit.md) · Le pare-feu qui les produit → [firewall](firewall.md)
 - Secrets et jetons du module, mêmes principes de chiffrement au repos → [tokens](tokens.md)
 - Vocabulaire transverse de la sécurité → [lexique](lexique.md)
-</content>
-
-</invoke>

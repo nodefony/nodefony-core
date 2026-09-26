@@ -451,7 +451,7 @@ peut **resserrer**, jamais desserrer.
 
 | Cible                                      | Politique par défaut                                           |
 | ------------------------------------------ | -------------------------------------------------------------- |
-| `nodefony:audit`                           | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:99`)  |
+| `nodefony:audit`                           | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:120`) |
 | tout le reste de `nodefony:`               | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:89`)  |
 | tout canal contenant `:health` ou `:stats` | authentifié + `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:253`) |
 | tout le reste                              | libre, sauf policy déclarée                                    |

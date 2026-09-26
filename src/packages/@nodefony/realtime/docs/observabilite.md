@@ -588,6 +588,3 @@ npm run coverage   # rapport vitest — jamais de pourcentage figé dans cette p
 - [Sécurité](securite.md) — qui a le droit de s'abonner à un canal de santé, et pourquoi ça compte.
 - [Cookbook — un chat](cookbook-chat.md) — le patron appliqué de bout en bout sur une vraie fonctionnalité.
 - [Vocabulaire](vocabulaire.md) — les douze mots de la socket.
-</content>
-
-</invoke>

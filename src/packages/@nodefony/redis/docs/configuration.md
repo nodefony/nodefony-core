@@ -676,7 +676,7 @@ reste et refuse de démarrer sur une valeur hors bornes. Le message nomme le cha
 (`index.ts:68`) :
 
 ```
-[@nodefony/redis] Invalid config: globalOptions.socket.port: Too big: expected number to be <=65535
+[@nodefony/redis] configuration invalide — globalOptions.socket.port : Too big: expected number to be <=65535
 ```
 
 C'est un défaut de configuration : rien à chercher côté réseau.

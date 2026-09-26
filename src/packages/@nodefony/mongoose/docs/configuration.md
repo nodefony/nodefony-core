@@ -653,7 +653,7 @@ Un port hors bornes, un type erroné, un champ vide : le démarrage s'arrête av
 le champ**, pas une pile d'appels.
 
 ```
-[@nodefony/mongoose] Invalid config: connectors.x.port: Too small: expected number to be >=1
+[@nodefony/mongoose] configuration invalide — connectors.x.port : Too small: expected number to be >=1
 ```
 
 Le message est assemblé à partir des remontées de validation, chemin de champ compris

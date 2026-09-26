@@ -367,6 +367,3 @@ l'infrastructure sous la main.
 - 🏛️ **Transverse** : [vue d'ensemble du framework](../../../../../docs/architecture/vue-ensemble.md) ·
   [le pipeline d'une requête](../../../../../docs/architecture/pipeline-requete.md)
 - 📖 [Lexique général](../../../../../docs/lexique.md) du framework.
-</content>
-
-</invoke>

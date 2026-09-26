@@ -340,7 +340,7 @@ pose **systématiquement** un `EX` : une clé de session sans TTL serait une ses
 défaut de sécurité, pas une commodité.
 
 L'expiration par inactivité (« idle ») est donc portée par Redis lui-même. Deux conséquences
-directes : `gc()` (`SessionStorage.ts:168`) est un **no-op** assumé — aucun balayage, aucune requête
+directes : `gc()` (`SessionStorage.ts:151`) est un **no-op** assumé — aucun balayage, aucune requête
 de purge périodique — et `touch()` (`SessionStorage.ts:166`) se réduit à un `EXPIRE`, en O(1), **sans
 réécrire la valeur**. C'est le renouvellement le moins coûteux de tous les backends de session.
 

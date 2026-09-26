@@ -325,7 +325,7 @@ La pile se lit de haut en bas ; chaque étage ne connaît que son voisin du dess
 | Protocole  | `JsonRpcPeer` (`JsonRpcPeer.ts:271`)                    | étiqueter, corréler, refuser une frame  | par où passent les octets     |
 | Transport  | `WsConnectionTransport` (`WsConnectionTransport.ts:46`) | déplacer des octets, mesurer la file    | ce que veut dire un message   |
 | Hub        | `RealtimeHub` (`RealtimeHub.ts:213`)                    | table des abonnés locaux + fan-out      | qu'il existe d'autres process |
-| Backplane  | `IBackplane` (`IBackplane.ts:75`)                       | porter un message aux autres process    | ce qu'est un abonné           |
+| Backplane  | `IBackplane` (`IBackplane.ts:107`)                      | porter un message aux autres process    | ce qu'est un abonné           |
 
 > [!NOTE]
 > Une part de la documentation historique décrit cette pile en « 5 étages » en comptant
@@ -547,12 +547,12 @@ coûte chaque abonné supplémentaire.
 
 ### Le contrat, en cinq méthodes
 
-`IBackplane` (`IBackplane.ts:75`) est délibérément minuscule : le backplane ne connaît ni
+`IBackplane` (`IBackplane.ts:107`) est délibérément minuscule : le backplane ne connaît ni
 les abonnés ni les canaux logiques. Tout l'état vit dans le hub.
 
 | Membre                                            | Rôle                                                            |
 | ------------------------------------------------- | --------------------------------------------------------------- |
-| `originId` (`IBackplane.ts:77`)                   | l'étiquette de CE process, lue par l'anti-écho                  |
+| `originId` (`IBackplane.ts:109`)                  | l'étiquette de CE process, lue par l'anti-écho                  |
 | `start()` (`IBackplane.ts:115`)                   | ouvrir le transport. Idempotent, synchrone ou asynchrone        |
 | `publish(channel, payload)` (`IBackplane.ts:121`) | propager aux **autres** pairs. Ne refait pas le fan-out local   |
 | `onMessage(handler)` (`IBackplane.ts:127`)        | recevoir des pairs. Un seul gestionnaire à la fois              |

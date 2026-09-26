@@ -928,6 +928,3 @@ Vite en ligne de commande, jamais par un navigateur sans affichage.
   [build et empaquetage](../../../../../docs/architecture/build-bundling.md) ·
   [vue d'ensemble du framework](../../../../../docs/architecture/vue-ensemble.md)
 - 📖 [Lexique général](../../../../../docs/lexique.md) du framework.
-</content>
-
-</invoke>

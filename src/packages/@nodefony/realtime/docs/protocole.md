@@ -246,7 +246,7 @@ Sur le fil, dans l'inspecteur réseau du navigateur, exactement cinq frames :
 ```jsonc
 // 1. serveur → client : l'accueil, aussitôt après le handshake
 {"jsonrpc":"2.0","method":"realtime:welcome","params":{
-  "ts":1770000000000,"protocol":"jsonrpc-2.0",
+  "ts":1770000000000,"protocol":"jsonrpc-2.0","env":"development",
   "channels":["chat:room-42"],"methods":["chat:history"],
   "identity":{"type":"anonymous","authenticated":false,
               "userIdentifier":"anonymous","roles":["ROLE_ANONYMOUS"],"scopes":[]}}}
@@ -264,9 +264,11 @@ Sur le fil, dans l'inspecteur réseau du navigateur, exactement cinq frames :
 {"jsonrpc":"2.0","method":"chat:room-42","params":{"text":"salut"}}
 ```
 
-L'accueil porte **cinq** champs : `ts`, `protocol`, `channels`, `methods`, `identity`
-(`IRealtimeWelcome`, `RealtimeEventMap.ts:231`), émis par le contrôleur au handshake
-(`RealtimeController.ts:8`). Il n'y a pas de champ `version`.
+L'accueil porte cinq champs — `ts`, `protocol`, `channels`, `methods`, `identity`
+(`IRealtimeWelcome`, `RealtimeEventMap.ts:231`) — plus un sixième, `env`, **uniquement hors
+production** (`welcomeEnv()`, `welcomeEnv.ts:19`) : c'est lui que porte l'exemple ci-dessus, capturé
+en développement. Émis par le contrôleur au handshake (`peer.notify("realtime:welcome")`,
+`RealtimeController.ts:708`). Il n'y a pas de champ `version`.
 
 ## 🔌 Anatomie d'une frame, champ par champ
 
@@ -335,10 +337,10 @@ ouvertes à l'application. Colonne `id` : présent = requête (réponse due), ab
 
 | Méthode            | Direction     | `id` ?  | Rôle                                                                  | Ancrage                     |
 | ------------------ | ------------- | :-----: | --------------------------------------------------------------------- | --------------------------- |
-| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:459` |
+| `subscribe`        | client→server |   non   | « pousse-moi ce canal » — `params.channel`                            | `RealtimeController.ts:721` |
 | `unsubscribe`      | client→server |   non   | « arrête » — dernier abonné, le producteur est libéré                 | `RealtimeController.ts:727` |
-| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:740`     |
-| `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:901` |
+| `ping`             | client→server |   non   | Battement de cœur — **no-op serveur**, aucun pong                     | `RealtimeClient.ts:1300`    |
+| `<canal>`          | server→client |   non   | Push d'un message : le **nom du canal est la `method`**               | `RealtimeController.ts:786` |
 | `<canal entrant>`  | client→server |   non   | Le client pousse sur un canal déclaré entrant                         | `RealtimeController.ts:736` |
 | `realtime:welcome` | server→client |   non   | L'accueil : 5 champs, dont l'identité résolue                         | `RealtimeController.ts:693` |
 | `realtime:denied`  | server→client |   non   | Rend OBSERVABLE le refus d'une notification                           | `RealtimeController.ts:496` |
@@ -357,7 +359,7 @@ Les quatre formes de frame circulent en permanence sous tes yeux — ce schéma 
 > `nodefony:kernel:ping` et `nodefony:kernel:gc` (`StudioRealtimeController.ts:114`) sont des exemples d'actions,
 > **pas des méthodes du cœur temps réel** : elles sont déclarées par le contrôleur
 > d'administration de `@nodefony/studio`. Un endpoint applicatif ne les expose pas. Le helper
-> `RealtimeClient.ping()` (`RealtimeClient.ts:740`) mesure le RTT en les appelant — il suppose donc
+> `RealtimeClient.ping()` (`RealtimeClient.ts:878`) mesure le RTT en les appelant — il suppose donc
 > un endpoint qui les déclare, contrairement à la notification `ping` du battement de cœur, qui
 > n'attend jamais de réponse.
 
@@ -474,7 +476,7 @@ décrits dans [la page sécurité](./securite.md).
 | L'exception du serveur n'arrive jamais au client                 | Zero Trust : tout throw ordinaire devient `-32603` générique (`JsonRpcPeer.ts:528`)                             | Lever une `RpcError` pour exposer volontairement code et `data`                   |
 | Une notification refusée disparaît sans trace côté client        | Sans `id`, aucune réponse possible (`beforeDispatch`, `JsonRpcPeer.ts:151`)                                     | Écouter `realtime:denied` via `onDenied()` (`RealtimeClient.ts:471`)              |
 | `nodefony:kernel:ping` répond `-32601` sur mon endpoint          | L'action `nodefony:kernel:ping` est déclarée par `@nodefony/studio` (`StudioRealtimeController.ts:114`)         | Déclarer la sienne, ou lire `serverMethods` avant d'appeler                       |
-| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:742`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:740`) |
+| Le battement de cœur ne renvoie aucun pong                       | La notification `ping` est un no-op serveur (`RealtimeController.ts:743`)                                       | Pour mesurer un RTT, utiliser une action RPC — `ping()` (`RealtimeClient.ts:878`) |
 | Une réponse reçue est ignorée sans message                       | Corrélation sur `id` **numériques** seulement (`JsonRpcPeer.ts:537`)                                            | Ne pas fabriquer soi-même de réponse à `id` chaîne                                |
 | Les premières frames envoyées après `connect()` semblent perdues | Le transport n'est branché qu'une fois le handshake terminé                                                     | Attendre `realtime:welcome` — le client le fait déjà                              |
 
