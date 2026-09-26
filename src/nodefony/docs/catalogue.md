@@ -96,7 +96,7 @@ Un contrat commun, plusieurs implémentations : écris contre le contrat, choisi
 | --- | --- | --- |
 | `@nodefony/orm-core` | jamais directement — c'est le contrat, tiré par l'adaptateur que tu choisis | — |
 | `@nodefony/drizzle` | **le défaut** : SQL (PostgreSQL, MySQL/MariaDB, SQLite), `nodefony create entity` cible lui | tes données sont des documents sans schéma stable |
-| `@nodefony/mongoose` | MongoDB, données orientées document | tu as besoin d'un des **stores qu'il ne fournit pas** : il en couvre 5 (session, user, tokens, passkeys, webhooks) là où `drizzle` en couvre 8 — `totp`, `audit` et `idempotency` lui manquent |
+| `@nodefony/mongoose` | MongoDB, données orientées document — il tient les huit stores du framework, comme `drizzle` | tu as besoin de clés étrangères ou de migrations versionnées : seul le SQL les tient |
 | `@nodefony/redis` | cache, sessions partagées entre pods, backplane du temps réel en cluster | un seul processus : les sessions en mémoire et le backplane local suffisent |
 
 **L'arbitrage qui revient le plus souvent** : `drizzle` ou `mongoose` ? Le générateur d'entités
@@ -105,12 +105,11 @@ application MongoDB — mais seul le SQL tient des clés étrangères et des mig
 Prends `mongoose` parce que tes données SONT des documents, pas pour éviter de choisir un dialecte
 SQL.
 
-**La couverture d'un adaptateur est ADAPTÉE, pas identique.** Chaque adaptateur déclare les
-_stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) : `drizzle` les huit,
-`mongoose` cinq, `redis` quatre. Ce n'est pas un retard de développement mais un choix — stocker
-un journal d'audit ou un verrou d'idempotence dans un moteur documentaire n'a pas de sens partout.
-Conséquence pratique : un adaptateur ne remplace pas l'autre, ils se **complètent**, et
-`nodefony inspect stores` dit où chaque donnée atterrit RÉELLEMENT dans ton application.
+**La couverture d'un adaptateur est ADAPTÉE à sa nature.** Chaque adaptateur déclare les
+_stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) : `drizzle` et `mongoose` les
+huit, `redis` quatre (`session`, `tokens`, `passkeys`, `idempotency`) — un cache ne garde pas un
+journal d'audit ni des comptes. Conséquence pratique : `redis` complète une base, il ne la remplace
+pas, et `nodefony inspect stores` dit où chaque donnée atterrit RÉELLEMENT dans ton application.
 
 **Et `redis` ?** Il ne sert à rien tant que l'application tourne dans un seul processus. Il devient
 nécessaire à l'instant où il y en a deux : sans lui, deux pods ont deux annuaires de sessions et

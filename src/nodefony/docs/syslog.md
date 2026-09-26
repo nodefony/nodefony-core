@@ -325,6 +325,10 @@ validée au boot par le schéma Zod de l'application (`schema.ts:26`).
 | `queryDriver`    | `string`                                    | `"auto"`   | Destination **relisable**. `"auto"` s'adapte au mode de lancement.    |  boot   |
 | `loki.url`       | `string`                                    | —          | Base Loki. Déclarée seule, elle **impose** la relecture Loki.         |  boot   |
 | `opensearch.url` | `string`                                    | —          | Base OpenSearch. Même logique de bouton unique.                       |  boot   |
+| `dir`            | `string`                                    | `"logs"`   | Dossier des fichiers de log (texte + JSONL relisible), sous le cwd.   |  boot   |
+| `file.path`      | `string`                                    | —          | Chemin explicite du sink `file` ; sinon `<dir>/nodefony-<pid>.log`.   |  boot   |
+| `maxStack`       | `number`                                    | `100`      | Profondeur du ring de relecture (driver `memory`) — `2000` en dev.    |  boot   |
+| `queryFile`      | `{ path?, maxScanBytes? }`                  | —          | JSONL relu par le driver de relecture `file`, et son plafond de scan. |  boot   |
 
 ### Comment `queryDriver: "auto"` décide
 
@@ -358,14 +362,6 @@ permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au 
 > Un override par module n'a **aucun effet** quand il n'y a pas de gate globale (cas du
 > développement, seuil `null`) : tout passe déjà. Ce n'est pas une panne — c'est la conséquence
 > logique d'un seuil qui ne peut que **relever** la verbosité.
-
-### Réglages non atteignables depuis `nodefony.config.ts`
-
-Le Kernel lit quatre réglages supplémentaires (`log.dir`, `log.maxStack`, `log.file.path`,
-`log.queryFile`) qui **ne figurent pas** dans le type public `LogConfig` (`types.ts:189`) : les
-écrire dans `nodefony.config.ts` provoque une erreur TypeScript. Leurs valeurs par défaut
-s'appliquent donc telles quelles — dossier `logs/`, fichiers `nodefony-<pid>.log` et
-`nodefony-<pid>.jsonl`, ring de 100 (2000 en développement).
 
 ## 🔌 Axe ÉCRITURE — le sink et les transports
 

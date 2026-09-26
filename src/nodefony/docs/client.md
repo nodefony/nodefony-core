@@ -127,8 +127,9 @@ conséquences pratiques, dans l'ordre où on les rencontre.
 
 ## La vision Nodefony
 
-Le champ `exports` du paquet est le pivot de tout le dispositif. Il déclare **quatre** points d'entrée
-navigateur, plus une condition `browser` sur l'entrée principale.
+Le champ `exports` du paquet est le pivot de tout le dispositif. Il déclare **sept** points d'entrée
+navigateur — le socle (`client`, `roles`, `debugbar`) et une liaison par moteur front (`react`, `vue`,
+`svelte`, `angular`) —, plus une condition `browser` sur l'entrée principale.
 
 | Ce que tu importes    | Ce que tu obtiens                                                        | Quand l'utiliser                                    |
 | --------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- |
@@ -142,7 +143,7 @@ navigateur, plus une condition `browser` sur l'entrée principale.
 | `nodefony` (au front) | La **même chose** que `nodefony/client`, via la condition `browser`      | Code partagé front/back ; sinon préfère l'explicite |
 
 Ces entrées navigateur sont produites par une compilation dédiée — `clientConfig`
-(`rolldown.config.ts:109`) déclare exactement ces quatre fichiers d'entrée, en conservant la structure
+(`rolldown.config.ts:112`) déclare exactement ces sept fichiers d'entrée, en conservant la structure
 des modules pour que le client temps réel ne soit émis **qu'une fois** même s'il est tiré par deux
 subpaths.
 
@@ -556,7 +557,7 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 
 | Symptôme                                                        | Cause (dans le code)                                                                                         | Correction                                                                                   |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------------- |
-| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare que quatre                                     | Importer depuis `nodefony/client`                                                            |
+| `Cannot find module 'nodefony/realtime'`                        | Ce subpath **n'existe pas** — le champ `exports` n'en déclare aucun sous ce nom                              | Importer depuis `nodefony/client`                                                            |
 | `has no exported member 'RealtimeClient'` dans un fichier front | Import depuis `"nodefony"` typé par la condition **Node** (outil sans condition `browser`)                   | Importer explicitement depuis `nodefony/client`                                              |
 | `RealtimeIdentity` introuvable à l'import                       | Version antérieure : le type n'était réexporté ni par `nodefony/client` ni par `nodefony/react`              | Corrigé — `import type { RealtimeIdentity } from "nodefony/client"` (ou `nodefony/react`)    |
 | Le canal est silencieux, aucun message                          | `on()` installé sans `subscribe()` — le serveur ne pousse pas                                                | Appeler les deux (`client/realtime/RealtimeClient.ts:532`)                                   |

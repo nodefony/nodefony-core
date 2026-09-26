@@ -42,6 +42,8 @@ Angular ou Svelte.
 ## Démarrage rapide
 
 ```ts
+/// <reference types="vite/client" />
+// Dans un front servi par Vite : `import.meta.env.DEV` vaut true en développement.
 import { mountDebugBar } from "nodefony/debugbar";
 
 // En développement uniquement — la barre n'a rien à faire en production.
@@ -125,7 +127,7 @@ position de défilement ne saute pas.
 
 ## Ce que la barre garde sur votre navigateur
 
-Six valeurs, uniquement d'apparence, dans le stockage local — visibles dans
+Sept valeurs, uniquement d'apparence, dans le stockage local — visibles dans
 l'onglet Runtime, avec un bouton pour les effacer :
 
 | Clé                   | Ce qu'elle retient           |

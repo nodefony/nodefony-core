@@ -372,12 +372,11 @@ Chacun a déjà coûté au moins une heure à quelqu'un. Les quatre premiers son
 
 ## 8. Données et fichiers — les façades qu'on ne recompose pas
 
-- **Un adaptateur de données ne remplace pas l'autre : ils se COMPLÈTENT.** Chacun déclare les
-  _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) — `drizzle` les huit,
-  `mongoose` cinq (ni `totp`, ni `audit`, ni `idempotency`), `redis` quatre. Ce n'est pas un retard
-  de développement mais un CHOIX : un journal d'audit n'a rien à faire dans un moteur documentaire.
-  Ne promets jamais une parité qui n'existe pas — `npx nodefony inspect stores` dit où atterrit
-  chaque donnée.
+- **Un cache ne remplace pas une base : ils se COMPLÈTENT.** Chaque adaptateur déclare les
+  _stores_ qu'il sait tenir (`nodefony.stores` de son `package.json`) — `drizzle` et `mongoose` les
+  huit, `redis` quatre (`session`, `tokens`, `passkeys`, `idempotency`) : un cache ne garde ni
+  comptes ni journal d'audit. Ne promets jamais une parité qui n'existe pas — lis ce champ, et
+  `npx nodefony inspect stores` dit où atterrit chaque donnée.
 - **Les violations de contrainte sont DÉJÀ traduites en HTTP — ne les rattrape pas.** Un doublon
   sur une colonne unique ressort en **409**, une donnée qui viole le schéma Zod en **422**, chacun
   avec son corps JSON : le rendu d'erreur lit le code du pilote (`23505`, `ER_DUP_ENTRY`,

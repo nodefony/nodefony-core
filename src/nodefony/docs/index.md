@@ -318,12 +318,16 @@ c'est le sous-chemin qui décide de ce qui atterrit dans ton bundle.
 <!-- prettier-ignore -->
 | Import | Ce qu'on y trouve | Où ça tourne |
 | --- | --- | --- |
-| `nodefony` | `Kernel`, `Module`, `Service`, `Container`, `Syslog`, `Pdu`, `defineConfig`, `use`, les décorateurs d'injection, `Cli` et `Command` | serveur (Node.js) |
+| `nodefony` | `Kernel`, `Module`, `Service`, `Container`, `RequestContext`, `Syslog`, `Pdu`, `defineConfig`, `use`, les décorateurs d'injection, `Cli` et `Command` | serveur (Node.js) |
 | `nodefony/client` | `RealtimeClient`, le pair JSON-RPC, la cadence adaptative, et les briques isomorphes | navigateur |
 | `nodefony/react` | `NodefonyProvider` et les hooks (`useNodefony`, `useNodefonyChannel`, …) | navigateur (React) |
+| `nodefony/vue` | le plugin `nodefonyVue` et les composables `useNodefony*` | navigateur (Vue 3) |
+| `nodefony/svelte` | `configureNodefony` et les sources réactives lues `.current` | navigateur (Svelte 5) |
+| `nodefony/angular` | `provideNodefony` et les fonctions `injectNodefony*` (signals) | navigateur (Angular) |
 | `nodefony/roles` | `hasRole`, `RoleSet`, `RoleRegistry` — la même évaluation de rôles des deux côtés | isomorphe |
 | `nodefony/debugbar` | la barre de débogage embarquable dans une page | navigateur |
 | `nodefony/bundler` | le socle de configuration du bundler, partagé par tous les paquets et par les applications | outillage de build |
+| `nodefony/testing` | `createTestModule`, `runningAppPort`, `startSpareApp` — éprouver un module ou une application | tests (Node.js) |
 
 L'import racine `nodefony` est **conditionnel** : un bundler qui cible le navigateur y trouve
 automatiquement le build client, là où Node.js reçoit le build serveur. C'est ce qui rend

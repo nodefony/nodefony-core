@@ -269,23 +269,24 @@ Ces trames se lisent en direct dans la console temps réel de Studio (`/nodefony
 
 ## 🧰 Les hooks
 
-Onze hooks et un fournisseur. La colonne **re-rend quand** est celle qui compte : c'est elle qui
+Douze hooks et un fournisseur. La colonne **re-rend quand** est celle qui compte : c'est elle qui
 décide du coût de ton écran.
 
-| Hook                                  | Rend                       | Re-rend quand                                 | Ancre                       |
-| ------------------------------------- | -------------------------- | --------------------------------------------- | --------------------------- |
-| `NodefonyProvider`                    | le sous-arbre              | quand `client` change                         | `client/react/index.ts:146` |
-| `useNodefony()`                       | le client                  | **jamais** (référence stable)                 | `client/react/index.ts:145` |
-| `useNodefonyState()`                  | l'état de connexion        | à chaque changement d'état                    | `client/react/index.ts:163` |
-| `useNodefonyIdentity()`               | l'identité, ou `null`      | à l'accueil et au logout                      | `client/react/index.ts:166` |
-| `useNodefonyChannel()`                | rien                       | **jamais** — ton handler décide               | `client/react/index.ts:198` |
-| `useNodefonyChannelData<T>()`         | la dernière valeur         | à chaque message du canal                     | `client/react/index.ts:210` |
-| `useNodefonyAdaptiveChannel()`        | la cadence effective (ms)  | à chaque changement de cadence                | `client/react/index.ts:244` |
-| `useNodefonyAdaptiveChannelData<T>()` | `{ data, intervalMs }`     | à chaque message **ou** changement de cadence | `client/react/index.ts:221` |
-| `useNodefonyChannelStats()`           | débit, série, total        | ⚠️ une seule fois — voir Pièges               | `client/react/index.ts:328` |
-| `useNodefonySyslog()`                 | un tampon de lignes de log | à chaque lot retenu par le filtre             | `client/react/index.ts:373` |
-| `useNodefonyNotifications()`          | rien                       | **jamais** — ton handler décide               | `client/react/index.ts:398` |
-| `useNodefonyNoticeLog()`              | un tampon de notices       | à chaque notice retenue                       | `client/react/index.ts:424` |
+| Hook                                  | Rend                           | Re-rend quand                                   | Ancre                       |
+| ------------------------------------- | ------------------------------ | ----------------------------------------------- | --------------------------- |
+| `NodefonyProvider`                    | le sous-arbre                  | quand `client` change                           | `client/react/index.ts:146` |
+| `useNodefony()`                       | le client                      | **jamais** (référence stable)                   | `client/react/index.ts:145` |
+| `useNodefonyState()`                  | l'état de connexion            | à chaque changement d'état                      | `client/react/index.ts:163` |
+| `useNodefonyIdentity()`               | l'identité, ou `null`          | à l'accueil et au logout                        | `client/react/index.ts:166` |
+| `useNodefonyChannel()`                | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:198` |
+| `useNodefonyChannelData<T>()`         | la dernière valeur             | à chaque message du canal                       | `client/react/index.ts:210` |
+| `useNodefonyAdaptiveChannel()`        | la cadence effective (ms)      | à chaque changement de cadence                  | `client/react/index.ts:244` |
+| `useNodefonyAdaptiveChannelData<T>()` | `{ data, intervalMs }`         | à chaque message **ou** changement de cadence   | `client/react/index.ts:221` |
+| `useNodefonyChannelStats()`           | débit, série, total            | ⚠️ une seule fois — voir Pièges                 | `client/react/index.ts:328` |
+| `useNodefonySnapshot()`               | l'état de la socket, ou `null` | à chaque échantillon (canaux, trames, dernière) | `client/react/index.ts:350` |
+| `useNodefonySyslog()`                 | un tampon de lignes de log     | à chaque lot retenu par le filtre               | `client/react/index.ts:373` |
+| `useNodefonyNotifications()`          | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:398` |
+| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:424` |
 
 ### `NodefonyProvider` — publier le client dans l'arbre
 
