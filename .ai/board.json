@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T20:52:40.018Z",
+  "generatedAt": "2026-09-26T21:01:57.346Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -3343,6 +3343,20 @@
       "labels": [
         "beta-6"
       ]
+    },
+    {
+      "number": 500,
+      "title": "refactor(core): préparer la sortie des décorateurs historiques de TypeScript",
+      "url": "https://github.com/nodefony/nodefony-core/issues/500",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 6.08,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 180,
@@ -6984,22 +6998,6 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 907,
-      "debut": null,
-      "cible": null,
-      "labels": [
-        "backlog"
-      ]
-    },
-    {
-      "number": 500,
-      "title": "docs(adr): décider du passage aux décorateurs standard du langage",
-      "url": "https://github.com/nodefony/nodefony-core/issues/500",
-      "state": "OPEN",
-      "status": "Todo",
-      "milestone": null,
-      "priorite": "P2 — décision",
-      "jours": 1,
-      "ordre": 908,
       "debut": null,
       "cible": null,
       "labels": [

@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-26 20:52** (UTC).
+> Empreinte prise le **2026-09-26 21:01** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -35,12 +35,12 @@
 
 Ordre 1.01 · P1 — figé à la création · — j · jalon 10.0.0-beta · frise —
 
-> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 45 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
+> Choisi dans le **jalon courant `10.0.0-beta`**, qui a encore 46 tickets ouverts. Un ticket d'un jalon ULTÉRIEUR ne passe jamais devant, même mieux classé : l'ordre encode les dépendances, le jalon encode la livraison.
 
 > L'ordre encode les **dépendances**, pas le moment : un ticket petit dont le
 > contexte est déjà chargé se prend maintenant (skill `nodefony-ticket`).
 
-## Jalon 10.0.0-beta — 45 ouverts
+## Jalon 10.0.0-beta — 46 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -89,6 +89,7 @@ Ordre 1.01 · P1 — figé à la création · — j · jalon 10.0.0-beta · fris
 | 6.05 | P1 — figé à la création | 1 | 2026-11-26 → 11-26 | #449 | test(ecosysteme): trier ce qui remonte au cœur du framework |
 | 6.06 | P1 — figé à la création | 3 | 2026-11-27 → 12-01 | #450 | feat(ecosysteme): livrer le tableau blanc comme module installable |
 | 6.07 | P1 — figé à la création | 0.5 | 2026-09-25 → 12-01 | #479 | ci: empêcher un process détaché de figer les jobs Windows après leur succès |
+| 6.08 | P1 — figé à la création | 2 | — | #500 | refactor(core): préparer la sortie des décorateurs historiques de TypeScript |
 
 ## Jalon outillage-agents — 2 ouverts
 
@@ -197,7 +198,7 @@ Ordre 1.01 · P1 — figé à la création · — j · jalon 10.0.0-beta · fris
 | 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
 | 174 | P3 — fin de cycle | 3 | — | #503 | feat(mcp): exposer une route annotée comme outil pour les agents |
 
-## Backlog — aucune date promise · 9 ouverts
+## Backlog — aucune date promise · 8 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -208,6 +209,5 @@ Ordre 1.01 · P1 — figé à la création · — j · jalon 10.0.0-beta · fris
 | 905 | P2 — décision | 22.5 | — | #460 | feat(broadcast): boîtier d'apport et hub, une app à rôles |
 | 906 | P3 — fin de cycle | 3 | — | #488 | refactor(core): découper le noyau, un fichier de 4 255 lignes |
 | 907 | P2 — décision | 1 | — | #499 | feat(orm): dessiner les liens logiques des tables du framework vers l'utilisateur |
-| 908 | P2 — décision | 1 | — | #500 | docs(adr): décider du passage aux décorateurs standard du langage |
 | 909 | P2 — décision | 1 | — | #501 | feat(core): typer la résolution des services par leur nom |
 
