@@ -169,16 +169,13 @@ class DbController extends Controller {
         } as Partial<{ id: string }>);
         throw new Error("échec volontaire — la transaction doit être annulée");
       });
-      // Atteint seulement si la transaction n'a PAS propagé l'erreur : c'est un
-      // défaut du contrat, pas un succès.
-      return this.renderJson(
-        { rolledBack: false, reason: "erreur-avalee" },
-        500,
-      );
     } catch {
       this.log(`Sonde de rollback jouée — ${key}`, "INFO", "DB-DEMO");
       return this.renderJson({ rolledBack: true });
     }
+    // Atteint seulement si la transaction n'a PAS propagé l'erreur : c'est un
+    // défaut du contrat, pas un succès.
+    return this.renderJson({ rolledBack: false, reason: "erreur-avalee" }, 500);
   }
 }
 

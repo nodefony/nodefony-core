@@ -153,9 +153,9 @@ describe("RedisBackplane (pub/sub cross-pod)", () => {
     bp.onMessage(() => (fired += 1));
     await bp.start();
     // simule un autre process publiant n'importe quoi sur le canal partagé
-    t.publish(REDIS_RT_CHANNEL, "}{ pas du json");
-    t.publish(REDIS_RT_CHANNEL, JSON.stringify({ payload: 1 })); // pas de channel
-    t.publish(REDIS_RT_CHANNEL, JSON.stringify({ channel: "c" })); // pas d'originId
+    void t.publish(REDIS_RT_CHANNEL, "}{ pas du json");
+    void t.publish(REDIS_RT_CHANNEL, JSON.stringify({ payload: 1 })); // pas de channel
+    void t.publish(REDIS_RT_CHANNEL, JSON.stringify({ channel: "c" })); // pas d'originId
     expect(fired).to.equal(0);
   });
 
@@ -236,7 +236,7 @@ describe("createRedisServiceTransport (adaptateur clients redis)", () => {
     const transport = createRedisServiceTransport(publisher, subscriber);
     const received: string[] = [];
 
-    transport.publish("nodefony:realtime", "payload");
+    void transport.publish("nodefony:realtime", "payload");
     expect(pubCalls).to.deep.equal([
       { channel: "nodefony:realtime", message: "payload" },
     ]);

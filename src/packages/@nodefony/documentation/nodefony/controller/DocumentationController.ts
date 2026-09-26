@@ -50,7 +50,7 @@ class DocumentationController extends Controller {
   @Get("/documentation/api/tree")
   async tree() {
     try {
-      return this.renderJson(await this.#service().getTree());
+      return await this.renderJson(await this.#service().getTree());
     } catch (e) {
       this.log(e, "ERROR");
       return this.renderJson(
@@ -70,7 +70,7 @@ class DocumentationController extends Controller {
   @Get("/documentation/api/search")
   async search(@Query("q") q?: string) {
     try {
-      return this.renderJson(await this.#service().search(q ?? ""));
+      return await this.renderJson(await this.#service().search(q ?? ""));
     } catch (e) {
       this.log(e, "ERROR");
       return this.renderJson({ error: "Recherche indisponible." }, 500);
@@ -82,7 +82,7 @@ class DocumentationController extends Controller {
   @Get("/documentation/api/page/{slug}")
   async page(@Param("slug") slug: string) {
     try {
-      return this.renderJson(await this.#service().getPage(slug));
+      return await this.renderJson(await this.#service().getPage(slug));
     } catch (e) {
       // Cas attendus → 404 générique (détail loggé serveur, jamais au client).
       if (e instanceof DocNotFoundError || e instanceof DocUnsafeSlugError) {

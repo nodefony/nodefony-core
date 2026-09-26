@@ -93,6 +93,17 @@ class AlsController extends Controller {
     super("AlsController", context);
   }
 
+  /**
+   * Contexte de la requête courante — toujours posé quand une route s'exécute.
+   *
+   * @throws Error si l'action tourne hors requête (défaut de câblage).
+   */
+  #requireContext(): NonNullable<Controller["context"]> {
+    const context = this.context;
+    if (!context) throw new Error("AlsController : aucun contexte de requête");
+    return context;
+  }
+
   async initialize(): Promise<this> {
     return this;
   }
@@ -100,8 +111,8 @@ class AlsController extends Controller {
   // ── BUG-002 HTTP — after-response hook reads ALS ─────────────────
   @Get("/after")
   afterRegister() {
-    const ctxId = this.context!.requestId;
-    this.context!.onAfterResponse(() => {
+    const ctxId = this.#requireContext().requestId;
+    this.#requireContext().onAfterResponse(() => {
       const alsId = RequestContext.getRequestId() ?? null;
       alsTestState.lastHookRequestId = alsId;
       alsTestState.byContext[ctxId] = alsId;
@@ -114,7 +125,7 @@ class AlsController extends Controller {
   @Get("/after/user")
   afterUser() {
     RequestContext.set("user", { id: "http-user-7" });
-    this.context!.onAfterResponse(() => {
+    this.#requireContext().onAfterResponse(() => {
       alsTestState.hookUser =
         (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null;
     });
@@ -126,8 +137,8 @@ class AlsController extends Controller {
   // fired === true, exercising the late branch bind.
   @Get("/after/late")
   afterLate() {
-    const ctxId = this.context!.requestId;
-    this.context!.onAfterResponse((ctx) => {
+    const ctxId = this.#requireContext().requestId;
+    this.#requireContext().onAfterResponse((ctx) => {
       ctx.onAfterResponse(() => {
         alsTestState.lateHookRequestId = RequestContext.getRequestId() ?? null;
       });
@@ -140,11 +151,11 @@ class AlsController extends Controller {
   // onAfterResponse doit encore le voir ouvert.
   @Get("/scope")
   scopeHttp() {
-    const ctxId = this.context!.requestId;
+    const ctxId = this.#requireContext().requestId;
     const scope = RequestContext.getScope();
     // Identité d'objet : `IScope` et `Container` sont deux types distincts.
     const container: unknown = this.context?.container;
-    this.context!.onAfterResponse((ctx) => {
+    this.#requireContext().onAfterResponse((ctx) => {
       alsTestState.scopeInHook[ctxId] = RequestContext.getScope() !== undefined;
       // Une continuation qui reprend APRÈS le teardown (`leaveScope` puis
       // `clean()`) : on attend le SIGNAL `cleaned`, jamais un délai fixe.

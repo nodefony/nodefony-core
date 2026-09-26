@@ -101,6 +101,18 @@ class DefaultController extends Controller {
     super("DefaultController", context);
   }
 
+  /**
+   * Contexte de la requête courante — toujours posé quand une route s'exécute.
+   *
+   * @throws Error si l'action tourne hors requête (défaut de câblage).
+   */
+  #requireContext(): NonNullable<Controller["context"]> {
+    const context = this.context;
+    if (!context)
+      throw new Error("DefaultController : aucun contexte de requête");
+    return context;
+  }
+
   @route("index", {
     path: "/index",
     requirements: { methods: ["GET", "HEAD"] },
@@ -197,6 +209,9 @@ class DefaultController extends Controller {
   // Tests Node.js header sanitization: CR/LF in value → ERR_INVALID_HTTP_TOKEN
   @route("header-echo", { path: "/header-echo" })
   headerEcho() {
+    // Sonde de décor : `qs` peut rendre un objet (`?x-val[a]=b`), converti en
+    // `[object Object]` comme depuis toujours — la réponse ne doit pas bouger.
+    // oxlint-disable-next-line typescript/no-base-to-string
     const val = String(this.queryGet?.["x-val"] ?? "none");
     (this.context as HttpContext).response?.setHeader("x-echoed", val);
     return this.renderJson({ echoed: val });
@@ -316,7 +331,7 @@ class DefaultController extends Controller {
   @route("after-incr", { path: "/after/incr" })
   afterIncr() {
     afterResponseState.handlerAtMs = Date.now();
-    this.context!.onAfterResponse(() => {
+    this.#requireContext().onAfterResponse(() => {
       afterResponseState.count++;
       afterResponseState.lastFiredAtMs = Date.now();
     });
@@ -325,13 +340,13 @@ class DefaultController extends Controller {
 
   @route("after-multi", { path: "/after/multi" })
   afterMulti() {
-    this.context!.onAfterResponse(() => {
+    this.#requireContext().onAfterResponse(() => {
       afterResponseState.multiCount += 1;
     });
-    this.context!.onAfterResponse(() => {
+    this.#requireContext().onAfterResponse(() => {
       afterResponseState.multiCount += 10;
     });
-    this.context!.onAfterResponse(() => {
+    this.#requireContext().onAfterResponse(() => {
       afterResponseState.multiCount += 100;
     });
     return this.renderJson({ ok: true });
@@ -339,7 +354,7 @@ class DefaultController extends Controller {
 
   @route("after-throw", { path: "/after/throw" })
   afterThrow() {
-    this.context!.onAfterResponse(() => {
+    this.#requireContext().onAfterResponse(() => {
       afterResponseState.count++;
     });
     throw new Error("after-throw — hook must still fire", 500);
@@ -368,7 +383,7 @@ class DefaultController extends Controller {
   // Waits up to 2s; resolves early if context.signal aborts (client disconnect).
   @route("abort-wait", { path: "/abort/wait" })
   async abortWait() {
-    const signal = this.context!.signal;
+    const signal = this.#requireContext().signal;
     abortState.inflightCount++;
     try {
       await new Promise<void>((resolve, reject) => {
@@ -502,11 +517,11 @@ class DefaultController extends Controller {
   // partir dans la réponse : preuve par le fil, pas par un état interne.
   @route("hooks-context", { path: "/hooks/context" })
   hooksContext() {
-    this.context!.on("onSend", () => {
+    this.#requireContext().on("onSend", () => {
       contextHooksState.onSendCount++;
-      this.context!.response?.setHeader("x-hook-onsend", "fired");
+      this.#requireContext().response?.setHeader("x-hook-onsend", "fired");
     });
-    this.context!.on("onClose", () => {
+    this.#requireContext().on("onClose", () => {
       contextHooksState.onCloseCount++;
     });
     return this.renderJson({ armed: true });
@@ -534,7 +549,7 @@ class DefaultController extends Controller {
     return this.renderJson({
       requestId: RequestContext.getRequestId() ?? null,
       scheme: RequestContext.get()?.scheme ?? null,
-      contextRequestId: this.context!.requestId,
+      contextRequestId: this.#requireContext().requestId,
     });
   }
 
@@ -549,7 +564,7 @@ class DefaultController extends Controller {
       beforeAwait: beforeAwait ?? null,
       afterAwait: afterAwait ?? null,
       sameAcrossAwait: beforeAwait === afterAwait,
-      contextRequestId: this.context!.requestId,
+      contextRequestId: this.#requireContext().requestId,
     });
   }
 }

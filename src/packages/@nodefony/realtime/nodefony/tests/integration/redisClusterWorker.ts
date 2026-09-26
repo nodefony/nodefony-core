@@ -185,7 +185,10 @@ async function boot(): Promise<void> {
   sendToMaster({ cmd: "ready", pid: process.pid });
 }
 
-void boot().catch((e) => {
-  sendToMaster({ cmd: "boot-error", error: (e as Error).message });
+void boot().catch((e: unknown) => {
+  sendToMaster({
+    cmd: "boot-error",
+    error: e instanceof Error ? e.message : String(e),
+  });
   process.exit(1);
 });

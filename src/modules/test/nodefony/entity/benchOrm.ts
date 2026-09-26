@@ -42,6 +42,12 @@ interface INativeInsertDb {
   };
 }
 
+/**
+ * Espace de noms d'un fichier du corpus, chargé par URL (donc sans type) : ses
+ * exports restent opaques, comme les champs d'{@link IBenchCorpus}.
+ */
+type CorpusModule = Record<string, unknown>;
+
 let corpus: IBenchCorpus | null = null;
 
 /**
@@ -77,7 +83,9 @@ async function loadCorpus(): Promise<IBenchCorpus> {
     if (dialect === "postgres") {
       // Variante pg-core des 3 tables (fichier unique, généré par
       // `dolibarr/gen-bench-pg.mjs` — même dossier gitignoré que le corpus).
-      const pg = await import(/* @vite-ignore */ `${base}bench-pg.js`);
+      const pg = (await import(
+        /* @vite-ignore */ `${base}bench-pg.js`
+      )) as CorpusModule;
       corpus = {
         llx_user: pg.llx_user,
         llx_societe: pg.llx_societe,
@@ -86,9 +94,13 @@ async function loadCorpus(): Promise<IBenchCorpus> {
       return corpus;
     }
     const [u, s, f] = await Promise.all([
-      import(/* @vite-ignore */ `${base}llx_user.js`),
-      import(/* @vite-ignore */ `${base}llx_societe.js`),
-      import(/* @vite-ignore */ `${base}llx_facture.js`),
+      import(/* @vite-ignore */ `${base}llx_user.js`) as Promise<CorpusModule>,
+      import(
+        /* @vite-ignore */ `${base}llx_societe.js`
+      ) as Promise<CorpusModule>,
+      import(
+        /* @vite-ignore */ `${base}llx_facture.js`
+      ) as Promise<CorpusModule>,
     ]);
     corpus = {
       llx_user: u.llx_user,

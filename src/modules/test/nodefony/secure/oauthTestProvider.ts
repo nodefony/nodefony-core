@@ -34,7 +34,7 @@ registerOAuthProvider("test-oidc", (): IOAuthProvider => {
       new URL(
         `https://test-idp.local/authorize` +
           `?state=${encodeURIComponent(state)}` +
-          `&code_challenge=${encodeURIComponent(String(codeVerifier ?? ""))}` +
+          `&code_challenge=${encodeURIComponent(codeVerifier ?? "")}` +
           `&scope=${encodeURIComponent(scopes.join(" "))}`,
       ),
     // Aucun appel réseau : "échange" symbolique (jetons factices) + profil fixe.

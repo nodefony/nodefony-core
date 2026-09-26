@@ -29,6 +29,8 @@ export const ANONYMOUS_REALTIME_TOKEN: IRealtimeToken = Object.freeze({
   getScopes(): string[] {
     return [];
   },
+  // Implémente la signature générique du contrat public `IRealtimeToken`.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute<T = unknown>(key: string): T | undefined {
     return anonymousAttributes[key] as T | undefined;
   },

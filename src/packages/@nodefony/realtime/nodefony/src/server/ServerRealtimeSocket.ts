@@ -80,17 +80,19 @@ export class ServerRealtimeSocket<
   /** Désabonne (ref-compté) : coupe le sink du hub au DERNIER consommateur. */
   unsubscribe(channel: EventNames<Listen> | (string & {})): void {
     const c = channel;
-    const cur = this.#subs?.get(c);
-    if (!cur) return;
+    const subs = this.#subs;
+    const cur = subs?.get(c);
+    if (subs === null || cur === undefined || cur === 0) return;
     if (cur > 1) {
-      this.#subs!.set(c, cur - 1);
+      subs.set(c, cur - 1);
       return;
     }
-    this.#subs!.delete(c);
-    const sink = this.#sinks?.get(c);
-    if (sink) {
+    subs.delete(c);
+    const sinks = this.#sinks;
+    const sink = sinks?.get(c);
+    if (sinks && sink) {
       this.hub.unsubscribe(c, sink);
-      this.#sinks!.delete(c);
+      sinks.delete(c);
     }
   }
 

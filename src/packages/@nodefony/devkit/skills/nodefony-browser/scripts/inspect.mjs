@@ -167,8 +167,8 @@ await page.addInitScript(() => {
     if (window.__nfCsp.length < 20)
       window.__nfCsp.push({
         directive: e.violatedDirective,
-        blocked: String(e.blockedURI ?? "").slice(0, 140),
-        source: String(e.sourceFile ?? "").slice(0, 140),
+        blocked: (e.blockedURI ?? "").slice(0, 140),
+        source: (e.sourceFile ?? "").slice(0, 140),
         line: e.lineNumber,
       });
   });
@@ -682,14 +682,14 @@ async function measurePage(args) {
 // CSP de l'application refuserait à bon droit) : c'est le pilote qui évalue.
 const expression = `((args) => {
 ${sourceWcag()}
-${describeElement}
-${isVisible}
-${effectiveBackground}
-${probeA11y}
-${probeRendering}
-${probeWebStorage}
-${readPerf}
-return (${measurePage})(args);
+${describeElement.toString()}
+${isVisible.toString()}
+${effectiveBackground.toString()}
+${probeA11y.toString()}
+${probeRendering.toString()}
+${probeWebStorage.toString()}
+${readPerf.toString()}
+return (${measurePage.toString()})(args);
 })(${JSON.stringify({ probes: PROBES, families: [...active] })})`;
 
 const measured = await page.evaluate(expression);
@@ -711,7 +711,9 @@ if (active.has("axe")) {
   try {
     const axeCode = await axeSource();
     const report = await page.evaluate(async (source) => {
-      // eslint-disable-next-line no-new-func -- évalué par le pilote, hors CSP
+      // Le code d'axe-core est une CHAÎNE à exécuter dans la page : c'est le seul
+      // moyen de l'y charger sans `<script>` injecté, que la CSP refuserait.
+      // oxlint-disable-next-line no-new-func, typescript/no-implied-eval -- évalué par le pilote, hors CSP
       new Function(source)();
       return await window.axe.run(document, {
         resultTypes: ["violations", "incomplete"],

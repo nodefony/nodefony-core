@@ -312,10 +312,11 @@ class RealtimeService extends Service {
  */
 function buildOriginGuard(config: IRealtimeConfig): OriginGuard | null {
   const c = config.csrf?.checkOrigin;
-  if (!c || c.enabled !== true) return null;
+  // Booléens garantis par le schéma Zod (`checkOriginSchema`, validé au register).
+  if (!c?.enabled) return null;
   // Capture les valeurs à la résolution → pas de relecture config par upgrade.
   const allowSet = new Set<string>(c.allowList ?? []);
-  const allowMissing = c.allowMissingOrigin === true;
+  const allowMissing = c.allowMissingOrigin;
   return (origin: string | undefined): boolean => {
     if (origin === undefined || origin === "") return allowMissing;
     return allowSet.has(origin);

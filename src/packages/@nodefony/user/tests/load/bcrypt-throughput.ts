@@ -68,7 +68,7 @@ async function main(): Promise<void> {
   console.log(`  ${vMs.toFixed(1)} ms (résultat=${ok})`);
 }
 
-main().catch((e) => {
+main().catch((e: unknown) => {
   console.error(e);
   process.exit(1);
 });

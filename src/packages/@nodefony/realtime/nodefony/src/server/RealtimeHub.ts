@@ -574,8 +574,9 @@ export class RealtimeHub {
    * et retire le canal (libère timers/listeners). No-op si non abonné.
    */
   unsubscribe(channel: string, sink: ChannelSink): void {
-    const st = this.#channels?.get(channel);
-    if (!st) return;
+    const channels = this.#channels;
+    const st = channels?.get(channel);
+    if (!channels || !st) return;
     st.sinks.delete(sink);
     if (st.sinks.size === 0) {
       try {
@@ -583,7 +584,7 @@ export class RealtimeHub {
       } catch {
         /* noop — un provider fautif ne bloque pas le nettoyage */
       }
-      this.#channels!.delete(channel);
+      channels.delete(channel);
     }
   }
 
@@ -714,7 +715,22 @@ export class RealtimeHub {
   setBackplane(backplane: IBackplane): IBackplane {
     this.#backplane = backplane;
     backplane.onMessage((msg) => this.#admitFromBackplane(msg));
-    backplane.start();
+    const started = backplane.start();
+    // `start()` peut être asynchrone (Redis : abonnement au canal). Son échec
+    // n'était rattrapé par personne → rejet non géré. On le signale par le canal
+    // de plateforme quand il est branché ; sinon on le relève tel quel, pour ne
+    // pas rendre muet un backplane qui ne relaie rien (cold path : 1 appel au boot).
+    if (started instanceof Promise) {
+      void started.catch((err: unknown) => {
+        if (this.#notice === null) {
+          throw err instanceof Error ? err : new Error(String(err));
+        }
+        this.#notifyOnce(
+          "backplane:start",
+          `realtime: démarrage du backplane en échec — les autres pairs ne recevront rien (${err instanceof Error ? err.message : String(err)})`,
+        );
+      });
+    }
     return backplane;
   }
 

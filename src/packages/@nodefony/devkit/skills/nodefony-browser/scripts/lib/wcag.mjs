@@ -39,7 +39,7 @@
  * @throws {Error} si la notation n'est pas reconnue.
  */
 export function parseColor(color) {
-  const s = String(color).trim();
+  const s = color.trim();
   // `transparent` est le SEUL mot-clé que les navigateurs rendent parfois tel
   // quel, et il a une valeur définie : `rgba(0, 0, 0, 0)`. Le refuser serait
   // faux — un fond non peint est un cas courant, pas une erreur de mesure.
@@ -73,7 +73,7 @@ export function parseColor(color) {
   const numbers = s.match(/-?\d*\.?\d+(?:e-?\d+)?%?/gi);
   if (!numbers || numbers.length < 3)
     throw new Error(
-      `notation de couleur non reconnue : ${JSON.stringify(String(color))} — ` +
+      `notation de couleur non reconnue : ${JSON.stringify(color)} — ` +
         "attendu rgb()/rgba(), color(srgb …) ou #rrggbb",
     );
   // `color(srgb …)` et `color(display-p3 …)` : canaux en 0–1. Le pourcentage
@@ -164,7 +164,7 @@ export function contrastRatio(a, b) {
  * @returns {boolean} vrai si les seuils « texte large » s'appliquent.
  */
 export function isLargeText(px, bold) {
-  return px >= 24 || (bold === true && px >= 18.66);
+  return px >= 24 || (bold && px >= 18.66);
 }
 
 /**

@@ -1095,10 +1095,11 @@ export abstract class RealtimeController<
   private stopChannel(ctx: WebsocketContext, channel?: string): void {
     if (!channel) return;
     const state = (ctx as unknown as RealtimeHolder).__nfRealtime;
-    const sink = state?.channels.get(channel);
+    if (!state) return;
+    const sink = state.channels.get(channel);
     if (sink) {
       getRealtimeHub().unsubscribe(channel, sink);
-      state!.channels.delete(channel);
+      state.channels.delete(channel);
       this.log(`WS unsubscribe → ${channel}`, "DEBUG");
     }
   }

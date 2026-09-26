@@ -49,7 +49,7 @@ class WebsocketController extends Controller {
       name: this.kernel?.name,
       query: this.query,
       ...this.context?.metaData,
-    }).catch((e) => {
+    }).catch((e: unknown) => {
       return this.renderJson({
         error: e,
         ...this.context?.metaData,
@@ -66,7 +66,7 @@ class WebsocketController extends Controller {
       return this.renderJson({ handshake: true });
     }
     try {
-      return this.renderJson(JSON.parse(message.toString()));
+      return await this.renderJson(JSON.parse(message.toString()));
     } catch {
       return this.render(message.toString());
     }
@@ -79,7 +79,7 @@ class WebsocketController extends Controller {
   async proto(message: string | Buffer | null) {
     if (message) {
       try {
-        return this.renderJson(JSON.parse(message.toString()));
+        return await this.renderJson(JSON.parse(message.toString()));
       } catch {
         return this.render(message.toString());
       }
@@ -95,7 +95,7 @@ class WebsocketController extends Controller {
   async routage(ele: string, message: string | Buffer | null) {
     if (message) {
       try {
-        return this.renderJson(JSON.parse(message.toString()));
+        return await this.renderJson(JSON.parse(message.toString()));
       } catch {
         return this.render(message.toString());
       }
@@ -146,7 +146,7 @@ class WebsocketController extends Controller {
       return this.renderJson({ handshake: true, protocol: "json-protocol" });
     }
     try {
-      return this.renderJson(JSON.parse(message.toString()));
+      return await this.renderJson(JSON.parse(message.toString()));
     } catch {
       return this.renderJson({
         error: "invalid json",
@@ -203,6 +203,14 @@ class WebsocketController extends Controller {
         return this.renderJson({
           ...this.context?.metaData,
         });
+      // Tous les autres états (dont l'absence de socket) rendent la même
+      // réponse : les énumérer ne fait que prouver qu'aucun n'est oublié.
+      case "handshake":
+      case "message":
+      case "closed":
+      case "error":
+      case null:
+      case undefined:
       default:
         return this.renderJson({
           ...this.context?.metaData,

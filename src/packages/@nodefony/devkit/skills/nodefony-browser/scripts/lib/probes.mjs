@@ -39,7 +39,7 @@ export const FAMILIES = Object.freeze({
  *   et celles qui n'existent pas — à refuser, jamais à ignorer.
  */
 export function parseFamilies(raw, fallback = []) {
-  const requested = String(raw ?? "").trim();
+  const requested = (raw ?? "").trim();
   if (!requested) return { kept: [...fallback], unknown: [] };
   if (requested === "toutes") {
     return { kept: Object.keys(FAMILIES), unknown: [] };
@@ -71,7 +71,7 @@ export function parseFamilies(raw, fallback = []) {
 export function parseProbes(raw) {
   const probes = [];
   const rejected = [];
-  for (const chunk of String(raw ?? "")
+  for (const chunk of (raw ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean)) {
@@ -171,9 +171,7 @@ export function parseActions(raw) {
  *   `schema` à null quand rien n'est demandé (on ne force rien).
  */
 export function parseColorScheme(raw) {
-  const v = String(raw ?? "")
-    .trim()
-    .toLowerCase();
+  const v = (raw ?? "").trim().toLowerCase();
   if (!v) return { schema: null, invalid: null };
   if (v === "light" || v === "dark" || v === "no-preference")
     return { schema: v, invalid: null };
@@ -200,7 +198,7 @@ export function parseColorScheme(raw) {
 export function parseStorage(raw) {
   const entries = [];
   const rejected = [];
-  for (const chunk of String(raw ?? "")
+  for (const chunk of (raw ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean)) {
@@ -261,7 +259,7 @@ export function environmentDefaults({ inContainer, base, out } = {}) {
  * @returns {string} le nom de fichier, sans dossier.
  */
 export function authStateName(login) {
-  const raw = String(login ?? "");
+  const raw = login ?? "";
   const readable =
     raw.replace(/[^A-Za-z0-9._-]/gu, "_").slice(0, 40) || "anonyme";
   const fingerprint = createHash("sha256")
@@ -284,7 +282,7 @@ export function authStateName(login) {
 export function parseWidths(raw) {
   const widths = [];
   const invalidWidths = [];
-  for (const chunk of String(raw ?? "")
+  for (const chunk of (raw ?? "")
     .split(",")
     .map((p) => p.trim())
     .filter(Boolean)) {
@@ -495,7 +493,7 @@ export function summarizeLighthouse(lhr, threshold = 0.9) {
  * @returns {string[]} les navigateurs à essayer, dans l'ordre.
  */
 export function browserOrder(explicit) {
-  const v = String(explicit ?? "").trim();
+  const v = (explicit ?? "").trim();
   if (v) return [v];
   return ["chromium", "chrome", "msedge"];
 }

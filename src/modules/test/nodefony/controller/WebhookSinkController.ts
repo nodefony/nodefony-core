@@ -107,8 +107,12 @@ class WebhookSinkController extends Controller {
    * renvoie `respondedStatus`. Cœur partagé par les routes de réception.
    */
   #record(raw: string, secret: string | undefined, status: number): SinkEntry {
-    const context = this.context!;
-    const headers = context.request!.headers;
+    const context = this.context;
+    const request = context?.request;
+    if (!context || !request) {
+      throw new Error("WebhookSinkController : aucune requête en cours");
+    }
+    const headers = request.headers;
     const id = headerOne(headers["webhook-id"]);
     const ts = headerOne(headers["webhook-timestamp"]);
     const sig = headerOne(headers["webhook-signature"]);
@@ -121,7 +125,7 @@ class WebhookSinkController extends Controller {
     const entry: SinkEntry = {
       receivedAt: Date.now(),
       method: context.method ?? "POST",
-      url: String(context.url ?? ""),
+      url: context.url,
       webhookId: id,
       webhookTimestamp: ts,
       webhookSignature: sig,

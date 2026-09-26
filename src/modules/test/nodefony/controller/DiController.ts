@@ -45,7 +45,10 @@ class DiController extends Controller {
     const consumers = [
       { name: "sessions", holder: sessions },
       { name: "upload", holder: upload },
-    ].filter((c) => c.holder != null && c.holder.httpKernel !== undefined);
+    ].filter(
+      (c): c is { name: string; holder: { httpKernel?: unknown } } =>
+        c.holder != null && c.holder.httpKernel !== undefined,
+    );
 
     return this.renderJson({
       httpKernelPresent: Boolean(httpKernel),
@@ -54,7 +57,7 @@ class DiController extends Controller {
       httpKernelShared:
         Boolean(httpKernel) &&
         consumers.length > 0 &&
-        consumers.every((c) => c.holder!.httpKernel === httpKernel),
+        consumers.every((c) => c.holder.httpKernel === httpKernel),
       // Le module http expose-t-il la même instance (cohérence module↔container) ?
       moduleAgrees: http?.httpKernel ? http.httpKernel === httpKernel : null,
       // Fetch : posé au container → une seule instance pour tout le kernel.

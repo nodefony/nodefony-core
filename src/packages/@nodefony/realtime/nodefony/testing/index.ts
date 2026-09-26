@@ -289,10 +289,11 @@ export function createRealtimeHarness<C extends RealtimeController>(
       hub.onPlatformNotice((message: string): void => {
         notices.push(message);
       });
-      const welcome = await waitFor(
+      await waitFor(
         () => received.some((f) => f.method === "realtime:welcome"),
         10,
       );
+      const welcome = received.find((f) => f.method === "realtime:welcome");
       if (!welcome) {
         const cause =
           closes.length > 0
@@ -303,7 +304,7 @@ export function createRealtimeHarness<C extends RealtimeController>(
             `Vérifier l'Origin (seam #4) et l'authenticator (seam #2).`,
         );
       }
-      return received.find((f) => f.method === "realtime:welcome")!;
+      return welcome;
     },
 
     async subscribe(channel: string): Promise<void> {

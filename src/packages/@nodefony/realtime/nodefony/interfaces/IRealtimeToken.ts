@@ -35,6 +35,10 @@ export interface IRealtimeToken {
   getScopes(): string[];
 
   /** Lecture d'un attribut arbitraire (claims JWT, `tenantId`, providerId…). */
+  // Contrat PUBLIC, jumeau de `IToken.getAttribute` (@nodefony/security) : les
+  // appelants écrivent `getAttribute<string>("jti")`. Retirer `T` casserait leur
+  // compilation — c'est une rupture d'API, réservée à une majeure.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute<T = unknown>(key: string): T | undefined;
 
   /**

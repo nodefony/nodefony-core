@@ -34,11 +34,7 @@ class RouteController extends Controller {
       "views",
       "index.eta",
     );
-    return this.renderView(view, { name, ...this.context?.metaData }).catch(
-      (e) => {
-        throw e;
-      },
-    );
+    return this.renderView(view, { name, ...this.context?.metaData });
   }
 
   @route("route-test-4", {

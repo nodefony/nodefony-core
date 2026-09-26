@@ -59,7 +59,7 @@ export function parseArgs(argv) {
   const opts = {
     terms: [],
     list: false,
-    open: null,
+    open: /** @type {string | null} */ (null),
     json: false,
     limit: DEFAULT_LIMIT,
     root: process.cwd(),

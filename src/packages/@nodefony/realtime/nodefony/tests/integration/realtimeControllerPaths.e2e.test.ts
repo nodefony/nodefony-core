@@ -363,6 +363,9 @@ const mkToken = (auth: boolean): IRealtimeToken => ({
   // `getAttribute` est GÉNÉRIQUE au contrat (`<T = unknown>(key) => T | undefined`) :
   // on porte la même signature que le vrai token (cf `ANONYMOUS_REALTIME_TOKEN`,
   // qui fait aussi `attributes[key] as T | undefined`).
+  // Le paramètre de type n'apparaît qu'en retour : c'est la forme du contrat
+  // public `IRealtimeToken.getAttribute`, qu'un double de test doit épouser.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute: <T = unknown>(k: string): T | undefined =>
     k === "user" ? ({ id: "u" } as T) : undefined,
 });

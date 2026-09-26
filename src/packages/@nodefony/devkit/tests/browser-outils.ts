@@ -36,6 +36,9 @@ export async function chargerModule(
  * @throws si l'export n'existe pas ou n'est pas une fonction — le contrat des
  *   sondes a changé, et le test doit le dire plutôt que de mesurer du vide.
  */
+// `T` n'apparaît qu'en retour, et c'est voulu : la fonction vient d'un `.mjs`
+// chargé dynamiquement, sans type ; l'appelant déclare la forme qu'il éprouve.
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters
 export function fonctionDe<T>(mod: Record<string, unknown>, nom: string): T {
   const f = mod[nom];
   if (typeof f !== "function") {

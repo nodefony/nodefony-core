@@ -64,7 +64,7 @@ function _typeOnly(): void {
         this.requestClient("client:confirm", { id: "42" }),
       );
       // @ts-expect-error params mal formés
-      this.requestClient("client:confirm", { wrong: true });
+      void this.requestClient("client:confirm", { wrong: true });
     }
   }
   void AppRt;

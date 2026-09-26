@@ -11,7 +11,7 @@ class OpenApiController extends Controller {
 
   @route("index-openapi", { path: "" })
   index() {
-    this.render({});
+    return this.render({});
   }
 }
 
