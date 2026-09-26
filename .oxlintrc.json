@@ -353,7 +353,8 @@
         "src/packages/@nodefony/drizzle/**",
         "src/packages/@nodefony/mongoose/**",
         "src/packages/@nodefony/security/**",
-        "src/packages/@nodefony/framework/**"
+        "src/packages/@nodefony/framework/**",
+        "src/packages/@nodefony/http/**"
       ],
       "rules": {
         "typescript/no-unnecessary-condition": "error"

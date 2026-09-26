@@ -75,7 +75,7 @@ class WebsocketResponse {
 
   log(pci: Pci, severity?: Severity, msgid?: Msgid, msg?: Message) {
     const syslog: Syslog | null | undefined =
-      this.context?.container?.get<Syslog>("syslog");
+      this.context.container?.get<Syslog>("syslog");
     if (!msgid) {
       msgid = "WEBSOCKET RESPONSE";
     }
@@ -103,7 +103,7 @@ class WebsocketResponse {
       // Backpressure SORTANTE (G1) : si le client est lent à recevoir, on ne gonfle
       // pas la RAM d'envoi sans borne. Sous le seuil = chemin nominal (0 alloc).
       const { max, policy, closeAfterDrops } = readBackpressureOptions(
-        this.context?.server as WebSocketServer | null,
+        this.context.server as WebSocketServer | null,
       );
       const decision = decideSend(
         this.connection,
@@ -148,7 +148,7 @@ class WebsocketResponse {
     const payload = data ?? this.body;
     if (!payload) return;
 
-    const wss = this.context?.server as WebSocketServer | null;
+    const wss = this.context.server as WebSocketServer | null;
     if (!wss) return;
 
     // R4 — parité avec send() : en binaire le Buffer part TEL QUEL (un
@@ -215,7 +215,7 @@ class WebsocketResponse {
     return this.body;
   }
 
-  drop(reasonCode: number, description: string) {
+  drop(reasonCode?: number, description?: string) {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
       this.connection.close(reasonCode ?? this.statusCode, description);
       return;
@@ -223,7 +223,7 @@ class WebsocketResponse {
     throw new Error("Connection already closed");
   }
 
-  close(reasonCode: number, description: string) {
+  close(reasonCode?: number, description?: string) {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
       this.connection.close(
         reasonCode ?? this.statusCode,
@@ -257,9 +257,10 @@ class WebsocketResponse {
     if (!status) status = 500;
     this.statusCode = status;
     if (!message) {
-      message =
-        WS_CLOSE_DESCRIPTIONS[this.statusCode] ??
-        http.STATUS_CODES[this.statusCode];
+      // Table indexée par un code reçu : l'absence est possible.
+      const described = WS_CLOSE_DESCRIPTIONS[this.statusCode] as
+        string | undefined;
+      message = described ?? http.STATUS_CODES[this.statusCode];
     }
     this.statusMessage = message ?? "";
     return { code: this.statusCode, message: this.statusMessage };

@@ -38,7 +38,7 @@ class Certificates extends Command {
     force?: boolean;
     json?: boolean;
   }): Promise<this> {
-    const module = this.kernel?.getModules()?.["http"];
+    const module = this.kernel?.getModules()["http"];
     const service = module?.get<Certificate>("certificates") ?? null;
     if (!service) {
       this.log(

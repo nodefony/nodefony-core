@@ -22,6 +22,7 @@ import {
 import type { IPage } from "nodefony";
 import type {
   ISessionStorage,
+  ISerializedSession,
   ISessionSummary,
   ISessionRecord,
   ISessionListFilter,
@@ -120,7 +121,8 @@ export function toSessionSummary(
   ref: string,
   currentRef: string | null = null,
 ): ISessionSummary {
-  const data = rec.data;
+  // Relu d'un store (disque, réseau) : chaque champ peut manquer.
+  const data = rec.data as Partial<ISerializedSession>;
   const user = typeof data.user === "string" ? data.user : "";
   const meta = data.metaBag ?? {};
   return {
@@ -203,7 +205,9 @@ class SessionsService extends Service {
 
   /** Storage enregistré pour un store, ou `undefined`. */
   static getStorage(name: string): SessionStorageCtor | undefined {
-    return SessionsService.storages.get((name ?? "").toLowerCase());
+    // Nom lu dans la config de l'application : peut manquer.
+    const key = name as string | undefined;
+    return SessionsService.storages.get((key ?? "").toLowerCase());
   }
 
   /** Noms des handlers de session enregistrés. */
@@ -335,11 +339,12 @@ class SessionsService extends Service {
       // Maintenance déterministe HORS hot-path (GcScheduler unifié du core) :
       // armée une fois le store ouvert, désarmée au onTerminate. Le scan ne
       // tourne plus PENDANT une requête.
+      // `?? 600` / `!== false` : config lue sur disque et éditable à chaud,
+      // le type peut mentir — gardes d'exécution conservées.
+      const gcIntervalS = this.options.gcIntervalS as number | undefined;
       this.gcScheduler = new GcScheduler({
-        // `?? 600` / `!== false` : config lue sur disque et éditable à chaud,
-        // le type peut mentir — gardes d'exécution conservées.
         // oxlint-disable-next-line typescript/no-unnecessary-type-conversion
-        intervalS: Number(this.options.gcIntervalS ?? 600),
+        intervalS: Number(gcIntervalS ?? 600),
         // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
         jitter: this.options.gcJitter !== false,
         run: () => this.runGc(),
@@ -374,13 +379,17 @@ class SessionsService extends Service {
           resolve(context.session);
           return;
         }
-        context.once("onSessionStart", (session: Session, error: Error) => {
-          if (session) {
-            resolve(session);
-            return;
-          }
-          reject(error || new Error("Bad Session"));
-        });
+        // Émis avec `null` et l'erreur quand l'ouverture échoue.
+        context.once(
+          "onSessionStart",
+          (session: Session | null, error?: Error) => {
+            if (session) {
+              resolve(session);
+              return;
+            }
+            reject(error ?? new Error("Bad Session"));
+          },
+        );
         return;
       }
       if (context.session) {
@@ -414,7 +423,8 @@ class SessionsService extends Service {
           try {
             context.session = session;
             const method = context.method as HTTPMethod;
-            const request = context.request as HttpRequest | Http2Request;
+            const request = context.request as
+              HttpRequest | Http2Request | null;
             if (method !== "WEBSOCKET" && request?.request) {
               request.request.session = session;
             }

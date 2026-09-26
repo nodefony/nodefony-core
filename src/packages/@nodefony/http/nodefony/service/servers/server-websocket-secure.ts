@@ -65,9 +65,9 @@ class WebsocketSecure extends Service {
   async createServer(serverHttps: httpsServers): Promise<WebSocketServer> {
     return new Promise((resolve, reject) => {
       try {
-        this.infos = (
-          serverHttps.server as https.Server
-        ).address() as AddressInfo;
+        // `address()` rend `null` hors écoute, une chaîne sur un tube.
+        const address = (serverHttps.server as https.Server).address();
+        this.infos = typeof address === "object" ? address : null;
         if (this.infos) {
           this.port = this.infos.port;
           this.address = this.infos.address;
@@ -81,7 +81,7 @@ class WebsocketSecure extends Service {
         // `clientTracking` (requis par broadcast() et le heartbeat).
         // RFC 6455 §7.4.1 : `maxPayload` → close 1009 « Message Too Big ».
         this.server = new WebSocketServer({
-          ...((this.options ?? {}) as ServerOptions),
+          ...(this.options as ServerOptions),
           server: serverHttps.server as https.Server,
           clientTracking: true,
         });
@@ -92,9 +92,7 @@ class WebsocketSecure extends Service {
           "onTerminate",
           this.terminate.bind(this),
         );
-        if (this.server) {
-          this.ready = true;
-        }
+        this.ready = true;
         this.module.fire("onServersReady", this.type, this);
         return resolve(this.server);
       } catch (e) {

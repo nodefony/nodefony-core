@@ -104,10 +104,9 @@ class Http extends Module<IHttpConfig> {
     // kernel, qui distingue les deux, retombait alors en fail-soft : le refus
     // disparaissait précisément en développement, là où la faute vient d'être
     // écrite. Attraper pour ré-emballer, c'est perdre l'information.
-    this.options = defineHttpConfig(
-      (this.options as IHttpConfigInput) ?? {},
-      this.kernel,
-    );
+    // Sans config déclarée, le module peut n'avoir reçu aucune section.
+    const input = this.options as IHttpConfigInput | undefined;
+    this.options = defineHttpConfig(input ?? {}, this.kernel);
     return this;
   }
 

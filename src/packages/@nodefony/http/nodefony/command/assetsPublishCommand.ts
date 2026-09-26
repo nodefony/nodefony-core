@@ -141,7 +141,7 @@ class AssetsPublish extends Command {
 
   /** Sources = mounts natifs (`server-static`) + bundles `@nodefony/frontend`. */
   private collectSources(): AssetSource[] {
-    const modules = this.kernel?.getModules?.() ?? {};
+    const modules = this.kernel?.getModules() ?? {};
     const sources: AssetSource[] = [];
 
     const staticSvc = modules["http"]?.get<StaticServiceShape>("server-static");

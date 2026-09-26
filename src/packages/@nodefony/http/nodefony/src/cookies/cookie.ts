@@ -91,7 +91,7 @@ function cookiesParser(context: ContextType) {
     case "http":
     case "https":
     case "http2":
-      if ((context as HttpContext).request.request?.headers.cookie) {
+      if ((context as HttpContext).request.request.headers.cookie) {
         cookies = (context as HttpContext).request.request.headers.cookie;
       }
       if (cookies) {
@@ -109,7 +109,7 @@ function cookiesParser(context: ContextType) {
     case "websocket":
     case "websocket-secure": {
       const wsReq = (context as WebsocketContext).request;
-      const cookieHeader = wsReq?.headers?.cookie;
+      const cookieHeader = wsReq?.headers.cookie;
       if (cookieHeader) {
         const parsed = parser(cookieHeader);
         for (const name in parsed) {

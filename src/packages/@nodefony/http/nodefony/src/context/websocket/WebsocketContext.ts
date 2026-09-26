@@ -10,10 +10,7 @@ import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
-import type {
-  IResolvedRoute,
-  IRouteResolver,
-} from "../../../interfaces/IRouting";
+import type { IResolvedRoute } from "../../../interfaces/IRouting";
 import HttpError from "../../errors/httpError.js";
 import { sanitizeRequestId } from "../requestId.js";
 import { FrameProfile } from "../../profiler/FrameProfile.js";
@@ -118,12 +115,12 @@ export default class WebsocketContext
     this.connection = ws;
     this.response = new WebsocketResponse(ws, this);
     this.method = this.getMethod();
-    this.origin = (req.headers.origin as string) ?? "";
+    this.origin = req.headers.origin ?? "";
     // Résolution forwarded UNIFIÉE (RFC 7239 prioritaire, repli X-Forwarded-*),
     // une seule passe, gated proxy de confiance + en-tête présent → connexion
     // directe = hot path, 0 allocation. Lue ensuite par getRemoteAddress + proxy.
     const checker = this.httpKernel?.getTrustProxyChecker();
-    const socketAddress = req.socket?.remoteAddress;
+    const socketAddress = req.socket.remoteAddress;
     if (
       checker &&
       checker.isTrusted(socketAddress) &&
@@ -182,7 +179,9 @@ export default class WebsocketContext
     const fwd = this.forwarded;
     if (fwd) {
       this.proxy = {
-        proxyServer: (req.headers["x-forwarded-server"] as string) ?? "unknown",
+        proxyServer:
+          (req.headers["x-forwarded-server"] as string | undefined) ??
+          "unknown",
         proxyProto: fwd.proto ?? (req.headers["x-forwarded-proto"] as string),
         proxyPort: req.headers["x-forwarded-port"] as string,
         proxyFor:
@@ -191,7 +190,7 @@ export default class WebsocketContext
         proxyVia: req.headers.via as string,
       };
       this.log(
-        `PROXY WEBSOCKET REQUEST ${fwd.fromStandard ? "Forwarded (RFC 7239)" : "x-forwarded"} VIA : ${this.proxy?.proxyVia}`,
+        `PROXY WEBSOCKET REQUEST ${fwd.fromStandard ? "Forwarded (RFC 7239)" : "x-forwarded"} VIA : ${this.proxy.proxyVia}`,
         "DEBUG",
       );
     }
@@ -223,7 +222,7 @@ export default class WebsocketContext
       // Idem HTTP (cf Context.logRequest) : log de fin émis hors bulle ALS →
       // on attache le requestId du contexte WS (stable handshake→messages→close)
       // pour corréler la ligne récapitulative avec les logs de la connexion.
-      if (pdu && pdu.requestId === undefined) pdu.requestId = this.requestId;
+      pdu.requestId ??= this.requestId;
       return pdu;
     } catch {}
   }
@@ -274,12 +273,12 @@ export default class WebsocketContext
       throw new Error("Nodefony Websocket rejected");
     }
     if (!this.resolver) {
-      this.resolver = this.router?.resolve(this) as IRouteResolver;
+      this.resolver = this.router?.resolve(this) ?? null;
     } else {
       try {
         this.resolver.match(this.resolver.route as IResolvedRoute, this);
       } catch (e) {
-        if (!this.rejected) {
+        if (!this.isRejected()) {
           this.reject(
             (e as HttpError).code ?? undefined,
             (e as HttpError).message,
@@ -334,7 +333,7 @@ export default class WebsocketContext
             throw error;
           }
         });
-    } else if (!this.rejected) {
+    } else if (!this.isRejected()) {
       this.reject(4004, "Not Found");
       this.rejected = true;
       this.webSocketState = "error";
@@ -485,12 +484,12 @@ export default class WebsocketContext
     }
     try {
       if (!this.resolver) {
-        this.resolver = this.router?.resolve(this) as IRouteResolver;
+        this.resolver = this.router?.resolve(this) ?? null;
       } else {
         this.resolver.match(this.resolver.route as IResolvedRoute, this);
       }
       await this.fireAsync("onMessage", message, this, "RECEIVE");
-      if (this.resolver.resolve) {
+      if (this.resolver?.resolve) {
         this.setMetaData({
           nodefony: {
             websocket: {
@@ -552,7 +551,7 @@ export default class WebsocketContext
   onConnectionError(error: Error): void {
     this.webSocketState = "error";
     this.log(
-      `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("error")} : ${error?.message}`,
+      `${logColor.cyan("URL")} : ${this.url}  ${logColor.cyan("FROM")} : ${this.remoteAddress} ${logColor.cyan("ID")} : ${this.requestId} ${logColor.cyan("error")} : ${error.message}`,
       "ERROR",
       `${this.type} ${logColor.red("SOCKET ERROR")} ${this.method}`,
     );
@@ -570,7 +569,7 @@ export default class WebsocketContext
     if (this.forwarded) {
       return this.forwarded.clientIp;
     }
-    return this.request?.socket?.remoteAddress ?? null;
+    return this.request?.socket.remoteAddress ?? null;
   }
 
   getHost(): string | undefined {
@@ -616,6 +615,18 @@ export default class WebsocketContext
     if (this.response) {
       this.response.drop(reasonCode, description);
     }
+  }
+
+  /**
+   * Relit `rejected` sans le rétrécissement de TypeScript : après la garde
+   * d'entrée de {@link handle}, le compilateur le croit `false` pour toute la
+   * méthode, alors qu'un écouteur `onRequest` (pare-feu) ou le `match` du
+   * resolver peut avoir rejeté entre-temps.
+   *
+   * @returns `true` si la connexion a été rejetée.
+   */
+  private isRejected(): boolean {
+    return this.rejected;
   }
 
   reject(code: number | string | undefined, message?: string) {

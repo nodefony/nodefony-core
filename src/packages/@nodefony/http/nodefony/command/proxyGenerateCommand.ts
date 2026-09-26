@@ -129,7 +129,7 @@ class ProxyGenerate extends Command {
     tlsKey?: string;
     tlsListen?: string;
   }): ProxyIntrospection {
-    const module = this.kernel?.getModules()?.["http"];
+    const module = this.kernel?.getModules()["http"];
     // Deux réglages du SERVEUR que le proxy doit refléter, sans quoi il impose
     // les siens en silence : la taille de corps acceptée (nginx coupe à 1 Mo par
     // défaut) et le battement du heartbeat WebSocket (d'où se dérive le délai
@@ -144,9 +144,12 @@ class ProxyGenerate extends Command {
       websocket?: { keepaliveInterval?: number };
     };
     const servers = (
-      this.kernel?.options as {
-        servers?: Record<string, { port?: string | number }>;
-      }
+      this.kernel?.options as
+        | {
+            // Indexé par nom de serveur : une entrée peut manquer.
+            servers?: Partial<Record<string, { port?: string | number }>>;
+          }
+        | undefined
     )?.servers;
     const staticSvc = module?.get<StaticServiceShape>("server-static");
     // Garantit la carte des montages natifs `/<module>/` indépendamment de

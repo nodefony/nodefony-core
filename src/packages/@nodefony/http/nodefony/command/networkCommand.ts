@@ -37,7 +37,7 @@ class Network extends Command {
 
     if (arg) {
       if (network?.interfaces[arg]) {
-        result = network?.interfaces[arg];
+        result = network.interfaces[arg];
       }
     } else {
       result = network?.interfaces as NetworkInterface;

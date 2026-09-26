@@ -431,7 +431,7 @@ class Certificate extends Service {
       // Config lue sur disque : `undefined` doit rester « mkcert autorisé » —
       // la comparaison stricte à `false` est voulue.
       // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
-      if (this.isDev() && this.certOptions.dev?.useMkcert !== false) {
+      if (this.isDev() && this.certOptions.dev.useMkcert !== false) {
         const caRoot = await this.detectMkcert();
         if (caRoot) {
           this.mkcertCaRoot = caRoot;

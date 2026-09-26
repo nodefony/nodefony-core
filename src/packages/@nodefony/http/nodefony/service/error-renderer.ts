@@ -288,7 +288,7 @@ export function malformedIdentifierOf(error: unknown): string | null {
       return String(candidate.value);
     }
     if (String(candidate.code) === "22P02") {
-      const match = PG_INVALID_INPUT.exec(candidate.message ?? "");
+      const match = PG_INVALID_INPUT.exec(candidate.message);
       if (match && IDENTIFIER_COLUMN_TYPES.has(match[1])) return match[2];
     }
     current = candidate.cause;
@@ -422,7 +422,7 @@ export function schemaMismatchOf(
     }
     if (
       String(candidate.code) === "SQLITE_ERROR" &&
-      SQLITE_SCHEMA_PREFIXES.some((p) => candidate.message?.startsWith(p))
+      SQLITE_SCHEMA_PREFIXES.some((p) => candidate.message.startsWith(p))
     ) {
       return "probable";
     }
@@ -527,10 +527,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
     const rawCode = (httpError as { code?: unknown }).code;
     let code =
       typeof rawCode === "number" && Number.isInteger(rawCode) ? rawCode : 500;
-    if (
-      context &&
-      (context as unknown as { rejected?: boolean }).rejected === false
-    ) {
+    if ((context as unknown as { rejected?: boolean }).rejected === false) {
       // Déjà connecté → DOIT être un code de fermeture WS valide. `toWsCloseCode`
       // (RFC 6455 §7.4, source unique) mappe correctement les codes HTTP : 401/403
       // → 1008 (Policy Violation, le client NE reconnecte PAS), 5xx → 1011, 404/

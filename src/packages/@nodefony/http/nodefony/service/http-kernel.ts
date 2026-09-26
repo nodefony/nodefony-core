@@ -404,8 +404,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       IWsOriginPolicy
     >;
     // trustedHosts + alias (compilés à onReady) → recompilés.
-    this.trustedHosts = (this.options as { trustedHosts?: ITrustedHostsConfig })
-      ?.trustedHosts;
+    this.trustedHosts = (
+      this.options as { trustedHosts?: ITrustedHostsConfig }
+    ).trustedHosts;
     this.regAlias = this.compileAlias();
     // Rate-limit : enabled / windowS / max sont `runtimeMutable` → reconstruit le
     // compteur et réarme (ou désarme) le GC depuis la nouvelle config.
@@ -512,7 +513,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       this.domain = this.kernel?.domain as string;
       this.trustedHosts = (
         this.options as { trustedHosts?: ITrustedHostsConfig }
-      )?.trustedHosts;
+      ).trustedHosts;
       this.regAlias = this.compileAlias();
       this.sessionService = this.get<SessionsService>("sessions");
       // Profiler dev-only — null si non enregistré (prod). Container.get
@@ -561,7 +562,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    */
   getTrustProxyChecker(): TrustProxyChecker {
     this._trustProxyChecker ??= buildTrustProxy(
-      (this.options as { trustProxy?: TrustProxyConfig })?.trustProxy,
+      (this.options as { trustProxy?: TrustProxyConfig }).trustProxy,
     );
     return this._trustProxyChecker;
   }
@@ -580,11 +581,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     disabled: boolean;
     extra: RegExp[];
   } {
-    let policy = this._wsOriginPolicy[cfgKey];
+    let policy = this._wsOriginPolicy[cfgKey] as IWsOriginPolicy | undefined;
     if (!policy) {
       const raw = (
         this.options[cfgKey] as { allowedOrigins?: ITrustedHostsConfig }
-      )?.allowedOrigins;
+      ).allowedOrigins;
       if (raw === true) {
         policy = { disabled: true, extra: [] };
       } else {
@@ -678,7 +679,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * gagne toujours sur la config (idempotent — last setter wins).
    */
   private applyRequestLoggerFromConfig(): void {
-    const kernelLog = (this.kernel?.options?.log ?? {}) as {
+    const kernelLog = (this.kernel?.options.log ?? {}) as {
       driver?: string;
       requestFormat?: "auto" | "default" | "pretty" | "json";
       requestLogger?: {
@@ -1019,7 +1020,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.rateLimiter !== null) {
       const ip = resolveForwarded(
         request.headers,
-        request.socket?.remoteAddress,
+        request.socket.remoteAddress,
         this.getTrustProxyChecker(),
       ).clientIp;
       // ip null = aucun socket réel fiable → on ne compte pas (ne JAMAIS agréger
@@ -1147,7 +1148,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     }
     if (ports.length === 0) return;
     writeRuntimeState(process.cwd(), {
-      pid: cluster.isWorker ? (process.ppid ?? process.pid) : process.pid,
+      pid: cluster.isWorker ? process.ppid : process.pid,
       ports,
       desiredPorts: desired.length > 0 ? desired : undefined,
       urls,
@@ -1340,7 +1341,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       // it propagates with `requestId` to every downstream hop.
       context.traceparent = resolveTraceparent(
         (request.headers as Record<string, string | string[] | undefined>)
-          ?.traceparent as string | undefined,
+          .traceparent as string | undefined,
       );
       // Dev-only — allocate the ORM query buffer when the profiler is active
       // (null in prod → 0 alloc). Threaded into the ALS payload so ORM
@@ -1482,9 +1483,6 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     error?: Error | null,
   ): Promise<HttpContext | number> {
     // EVENT
-    if (!context) {
-      throw new nodefonyError("Bad context", 500);
-    }
     if (error) {
       throw error;
     }
@@ -1626,7 +1624,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.rateLimiter !== null || wsConnCounter !== null) {
       const ip = resolveForwarded(
         req.headers,
-        req.socket?.remoteAddress,
+        req.socket.remoteAddress,
         this.getTrustProxyChecker(),
       ).clientIp;
       if (ip !== null) {
@@ -1677,7 +1675,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (context) {
         context.traceparent = resolveTraceparent(
           (req.headers as Record<string, string | string[] | undefined>)
-            ?.traceparent as string | undefined,
+            .traceparent as string | undefined,
         );
         // Radiographie du HANDSHAKE (le contexte WS vit pour toute la connexion :
         // la décision du firewall y est per-connexion, pas per-frame). Pas de
@@ -1701,7 +1699,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
           scope,
         },
         async () => {
-          await this.onConnect(context as WebsocketContext, error);
+          await this.onConnect(context, error);
           // FIREWALL
           if (
             this.firewall &&
@@ -1769,7 +1767,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   }
 
   async onConnect(
-    context: WebsocketContext,
+    context: WebsocketContext | null,
     error: unknown = null,
   ): Promise<Ws | number> {
     if (error) {

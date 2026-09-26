@@ -652,14 +652,18 @@ class Context extends Service implements IContextInterface {
 
   getRequestCookies(name?: string): Cookies | Cookie | null {
     if (name) {
-      return this.cookies[name] || null;
+      // `hasOwn` : `cookies` est un littéral — `cookies["constructor"]` rendrait
+      // la fonction héritée d'`Object.prototype`.
+      return Object.hasOwn(this.cookies, name) ? this.cookies[name] : null;
     }
     return this.cookies;
   }
 
   setCookie(cookie: Cookie) {
-    if (cookie) {
-      return this.response?.addCookie(cookie);
+    // Appelable depuis JavaScript sans cookie : la garde reste.
+    const received = cookie as Cookie | undefined;
+    if (received) {
+      return this.response?.addCookie(received);
     }
   }
 
@@ -689,10 +693,7 @@ class Context extends Service implements IContextInterface {
   }
 
   getCookieSession(name: string): Cookie | null {
-    if (this.cookies[name]) {
-      return this.cookies[name];
-    }
-    return null;
+    return Object.hasOwn(this.cookies, name) ? this.cookies[name] : null;
   }
 
   /**
@@ -711,7 +712,7 @@ class Context extends Service implements IContextInterface {
     // (proxy terminant le TLS) de forcer `__Host-` même si le transport local est http.
     const mode =
       (
-        this.sessionService?.options?.cookie as
+        this.sessionService?.options.cookie as
           { hostPrefix?: boolean | "auto" } | undefined
       )?.hostPrefix ?? "auto";
     const tls = this.scheme === "https" || this.scheme === "wss";

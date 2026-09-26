@@ -116,8 +116,10 @@ class Session implements ISession {
       options,
     ) as OptionsSessionType;
     this.manager = manager;
-    this.storage = this.manager.storage as ISessionStorage;
-    if (!this.storage) {
+    // Aucun storage configuré : la session existe, désactivée.
+    const storage = this.manager.storage;
+    this.storage = storage as ISessionStorage;
+    if (!storage) {
       this.status = "disabled";
     }
     this.setName(name);
@@ -175,7 +177,10 @@ class Session implements ISession {
    * introuvable en strict mode, ou expirée/illégitime.
    */
   private async resume(): Promise<this> {
-    const data = await this.storage.start(this.id);
+    // Un storage rend `{}` (voire rien) pour un identifiant inconnu : le
+    // contrat `ISerializedSession` ne le dit pas, la garde reste.
+    const data = (await this.storage.start(this.id)) as
+      ISerializedSession | null | undefined;
     if (data && Object.keys(data).length) {
       this.deSerialize(data);
       if (!this.isValidSession(data, this.context as ContextType)) {
@@ -571,8 +576,10 @@ class Session implements ISession {
     };
   }
 
-  deSerialize(data: ISerializedSession): void {
+  deSerialize(serialized: ISerializedSession): void {
     // Restauration depuis le storage — écriture DIRECTE (ne lève PAS `dirty`).
+    // Donnée relue d'un disque ou d'un réseau : chaque sac peut manquer.
+    const data = serialized as Partial<ISerializedSession>;
     if (data.Attributes) {
       for (const k in data.Attributes) {
         this.attributesBag[k] = data.Attributes[k];

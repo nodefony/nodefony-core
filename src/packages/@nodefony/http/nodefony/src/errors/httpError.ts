@@ -51,24 +51,25 @@ class HttpError extends NodefonyError {
   ) {
     super(message as string | Error, code);
     this.context = context;
-    this.response = context?.response as HttpRsponseType;
-    this.request = context?.request as HttpRequestType;
+    // `context.response` est nul après `clean()`, et le contexte est optionnel :
+    // la réponse se lit une fois, avec son absence.
+    const res = context?.response as HttpRsponseType | null | undefined;
+    this.response = res ?? undefined;
+    this.request =
+      (context?.request as HttpRequestType | null | undefined) ?? undefined;
     this.url = this.context?.url;
-    if (this.response && code) {
-      this.response.statusCode = code;
+    if (res && code) {
+      res.statusCode = code;
     }
-    if (!this.message) {
+    if (!this.message && res) {
       this.message =
-        (context?.response as HttpRsponseType)?.body?.toString() ||
-        (context?.response as HttpRsponseType)?.statusMessage ||
-        (context?.response as HttpRsponseType)?.getStatusMessage();
+        res.body?.toString() || res.statusMessage || res.getStatusMessage();
     }
     const resolver = context?.resolver;
     this.controller = resolver?.controller?.name ?? undefined;
     this.action = resolver?.actionName ?? undefined;
-    const res = context?.response as HttpRsponseType | undefined;
     if (res) {
-      this.jsonResponse = `${res.statusCode} ${res.statusMessage ?? ""}`.trim();
+      this.jsonResponse = `${res.statusCode} ${res.statusMessage}`.trim();
     }
   }
 

@@ -247,8 +247,10 @@ export function createHttpAdminApi(module: Module): IAdminApi {
         offset: number;
       }> => {
         const { limit, offset, q } = pageParams(request.query);
-        const store = (module.get(HTTP_KERNEL_SERVICE) as HttpKernelLike)
-          ?.rateLimitStore;
+        // Service absent d'un décor partiel : la lecture reste défensive.
+        const kernelService = module.get(HTTP_KERNEL_SERVICE) as
+          HttpKernelLike | undefined;
+        const store = kernelService?.rateLimitStore;
         // Lecture DÉFENSIVE : rate-limit désactivé (défaut) → état honnête,
         // jamais un 503 (la console doit pouvoir afficher « désarmé »).
         if (!store) {

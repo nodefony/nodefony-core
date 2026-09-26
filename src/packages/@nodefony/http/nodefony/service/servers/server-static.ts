@@ -145,11 +145,11 @@ class Statics extends Service {
       : null;
     for (const name in modules) {
       const mod = modules[name];
-      if (!mod || mod.isApp) continue;
+      if (mod.isApp) continue;
       // Config par module (cf {@link PublicMountOption}) : option top-level
       // du module, lue dans `mod.options`.
       const cfg = (mod.options as { publicMount?: PublicMountOption })
-        ?.publicMount;
+        .publicMount;
       if (cfg === false) continue; // opt-out explicite
       // Auto (cfg absent) → skip les modules frontend-managed (servis sous
       // /_assets/<name>/). Un override explicite `{…}` prime sur ce skip.
@@ -259,18 +259,12 @@ class Statics extends Service {
     let scheme: SchemeType, host;
     if (request instanceof http.IncomingMessage) {
       // Pour http.IncomingMessage
-      scheme =
-        request.socket instanceof tls.TLSSocket && request.socket.encrypted
-          ? "https"
-          : "http";
+      scheme = request.socket instanceof tls.TLSSocket ? "https" : "http";
       host = request.headers.host;
       return scheme + "://" + host;
     } else if (request instanceof http2.Http2ServerRequest) {
       // Pour http2.Http2ServerRequest
-      scheme =
-        request.socket instanceof tls.TLSSocket && request.socket.encrypted
-          ? "https"
-          : "http";
+      scheme = request.socket instanceof tls.TLSSocket ? "https" : "http";
       host = request.headers[":authority"];
       return scheme + "://" + host;
     }

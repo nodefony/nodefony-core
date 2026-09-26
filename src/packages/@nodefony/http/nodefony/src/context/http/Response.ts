@@ -52,7 +52,7 @@ class HttpResponse {
     this.context = context;
     this.response = response;
     this.timeout =
-      this.context?.httpKernel?.responseTimeout[
+      this.context.httpKernel?.responseTimeout[
         this.context.type as responseTimeoutType
       ];
     // Pas de `setHeader("Content-Type", "application/octet-stream")` ici : le
@@ -107,7 +107,7 @@ class HttpResponse {
 
   deleteCookie(cookie: Cookie) {
     if (cookie instanceof Cookie) {
-      if (this.cookies[cookie.name]) {
+      if (Object.hasOwn(this.cookies, cookie.name)) {
         delete this.cookies[cookie.name];
         return true;
       }
@@ -117,7 +117,7 @@ class HttpResponse {
   }
 
   deleteCookieByName(name: string) {
-    if (this.cookies[name]) {
+    if (Object.hasOwn(this.cookies, name)) {
       delete this.cookies[name];
       return true;
     }
@@ -191,7 +191,7 @@ class HttpResponse {
       .split(",")
       .map((t) => t.trim())
       .filter(Boolean);
-    const current = this.response?.getHeader?.("vary");
+    const current = this.response?.getHeader("vary");
     const existing = (
       Array.isArray(current) ? current.join(",") : String(current ?? "")
     )
@@ -391,7 +391,7 @@ class HttpResponse {
     // Ne pas définir Content-Length si Transfer-Encoding est chunked
     const isChunked = this.getHeader("Transfer-Encoding") === "chunked";
     if (
-      !NO_CONTENT_LENGTH_METHODS.has(this.context?.method as string) &&
+      !NO_CONTENT_LENGTH_METHODS.has(this.context.method as string) &&
       !NO_CONTENT_LENGTH_STATUS.has(this.statusCode) &&
       !isChunked
     ) {
@@ -430,12 +430,12 @@ class HttpResponse {
         }
       }
       this.statusMessage = this.getStatusMessage();
-      if (this.context.requestId && !this.response.headersSent) {
+      if (this.context.requestId) {
         this.response.setHeader("x-request-id", this.context.requestId);
       }
       // P2.7 — echo W3C traceparent so downstream services and clients can
       // continue the trace. Header name is lower-case per the spec.
-      if (this.context.traceparent && !this.response.headersSent) {
+      if (this.context.traceparent) {
         this.response.setHeader("traceparent", this.context.traceparent);
       }
       this.setLength();

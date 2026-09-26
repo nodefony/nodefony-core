@@ -96,26 +96,20 @@ class ServerHttp extends Service {
           this.options.shutdownTimeout,
         );
         if (this.options.maxHeadersCount) {
-          if (this.server) {
-            this.server.maxHeadersCount = this.options.maxHeadersCount;
-          }
+          this.server.maxHeadersCount = this.options.maxHeadersCount;
         }
         if (this.options.timeout) {
-          if (this.server) {
-            this.server.setTimeout(this.options.timeout, () => {
-              this.fire("onTimeout", this);
-            });
-            this.server.timeout = this.options.timeout;
-          }
+          this.server.setTimeout(this.options.timeout, () => {
+            this.fire("onTimeout", this);
+          });
+          this.server.timeout = this.options.timeout;
         }
         if (this.options.keepAliveTimeout) {
-          if (this.server) {
-            this.server.keepAliveTimeout = this.options.keepAliveTimeout;
-          }
+          this.server.keepAliveTimeout = this.options.keepAliveTimeout;
         }
         this.server.on("request", (request, response) => {
           void this.httpKernel
-            ?.onHttpRequest(request, response, this.type)
+            .onHttpRequest(request, response, this.type)
             .catch(() => {
               return;
             });

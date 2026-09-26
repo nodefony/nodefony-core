@@ -103,6 +103,6 @@ export const startHeartbeat = (
       }
     }
   }, tick);
-  timer.unref?.();
+  timer.unref();
   return timer;
 };

@@ -16,11 +16,9 @@ class Http2Response extends HttpResponse {
   streamId?: number | undefined;
   constructor(response: http2.Http2ServerResponse, context: HttpContext) {
     super(response, context);
-    if (response) {
-      this.stream = response.stream;
-      this.streamId = this.stream.id;
-    }
-    if (this.stream?.pushAllowed) {
+    this.stream = response.stream;
+    this.streamId = this.stream.id;
+    if (this.stream.pushAllowed) {
       this.context.pushAllowed = true;
     }
   }

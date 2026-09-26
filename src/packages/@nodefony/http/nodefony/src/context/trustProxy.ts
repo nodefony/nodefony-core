@@ -63,7 +63,10 @@ function addEntry(list: BlockList, raw: string): void {
   if (!entry) {
     return;
   }
-  const preset = PRESETS[entry.toLowerCase()];
+  const key = entry.toLowerCase();
+  // `hasOwn` : l'entrée vient de la config — `constructor` ne doit pas
+  // résoudre la fonction héritée.
+  const preset = Object.hasOwn(PRESETS, key) ? PRESETS[key] : undefined;
   if (preset) {
     for (const [net, prefix, family] of preset) {
       list.addSubnet(net, prefix, family);

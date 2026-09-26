@@ -180,7 +180,7 @@ export class PrebuiltUi {
     kernel?.once("onReady", () => {
       const late = container?.get?.("server-static") as
         IStaticMountService | undefined;
-      late?.addMount?.(this.publicPath, this.distDir);
+      late?.addMount(this.publicPath, this.distDir);
     });
     return false;
   }

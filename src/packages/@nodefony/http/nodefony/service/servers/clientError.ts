@@ -17,12 +17,12 @@ export function handleClientError(
   socket: Duplex,
 ): void {
   // Socket déjà mort ou réinitialisé par le pair : rien à envoyer.
-  if (error?.code === "ECONNRESET" || !socket.writable) {
+  if (error.code === "ECONNRESET" || !socket.writable) {
     return;
   }
   // En-têtes trop volumineux → 431 (RFC 6585 §5) ; sinon 400 Bad Request.
   const statusLine =
-    error?.code === "HPE_HEADER_OVERFLOW"
+    error.code === "HPE_HEADER_OVERFLOW"
       ? "431 Request Header Fields Too Large"
       : "400 Bad Request";
   socket.end(`HTTP/1.1 ${statusLine}\r\nConnection: close\r\n\r\n`);

@@ -237,7 +237,7 @@ class HttpRequest {
   #acceptHtml: boolean | null = null;
   /** Media-ranges de l'en-tête `Accept`, parsés au premier accès (mémoïsé). */
   get accept(): ReturnType<typeof acceptParser> {
-    this.#accept ??= acceptParser(this.headers?.accept);
+    this.#accept ??= acceptParser(this.headers.accept);
     return this.#accept;
   }
   /** `true` si le client accepte `text/html` — résolu au premier accès (mémoïsé). */
@@ -268,8 +268,8 @@ class HttpRequest {
     this.origin = this.headers.origin;
     // Calculé AVANT getFullUrl/getRemoteAddress (qui lisent le forwarded) :
     // n'honorer ces en-têtes que si le socket vient d'un proxy de confiance.
-    const checker = this.context?.httpKernel?.getTrustProxyChecker();
-    const socketAddress = this.request.socket?.remoteAddress;
+    const checker = this.context.httpKernel?.getTrustProxyChecker();
+    const socketAddress = this.request.socket.remoteAddress;
     this.trustedProxy = !!checker?.isTrusted(socketAddress);
     // Résolution forwarded UNIFIÉE (RFC 7239 `Forwarded` prioritaire, repli
     // `X-Forwarded-*`), une seule passe. Seulement derrière un proxy de confiance
@@ -301,7 +301,7 @@ class HttpRequest {
     }
     if (PERF_PROBE_SUB) perfMark("reqUrlNs");
     // Section `queryString` de la config du module (sac non typé côté `Module`).
-    this.queryStringOptions = (this.context?.httpKernel?.module.options
+    this.queryStringOptions = (this.context.httpKernel?.module.options
       .queryString || {}) as HttpRequest["queryStringOptions"];
     let query: QS.ParsedQs;
     if (this.search) {
@@ -379,10 +379,7 @@ class HttpRequest {
           await parser.parse();
           requestEnd = this.fireRequestEnd();
         } catch (error) {
-          return this.context?.httpKernel?.onError(
-            error as Error,
-            this.context,
-          );
+          return this.context.httpKernel?.onError(error as Error, this.context);
         }
         return requestEnd;
       }
@@ -422,7 +419,7 @@ class HttpRequest {
     const options =
       RequestContext.getScope() !== undefined
         ? (useConfig("@nodefony/http") as IHttpBodyLimits)
-        : (this.context?.httpKernel?.module.options as
+        : (this.context.httpKernel?.module.options as
             IHttpBodyLimits | undefined);
     this.uploadOption = options?.upload ?? {};
     this.maxBodySize = options?.maxBodySize ?? 0;
@@ -750,18 +747,16 @@ class HttpRequest {
     if (Type) {
       parts = Type.split("/");
     }
-    if (parts) {
-      switch (parts.length) {
-        case 1:
-          subtype = parts.shift() as string;
-          break;
-        case 2:
-          type = parts.shift() as string;
-          subtype = parts.shift() as string;
-          break;
-        default:
-          throw new Error("request accepts method bad type format");
-      }
+    switch (parts.length) {
+      case 1:
+        subtype = parts.shift() as string;
+        break;
+      case 2:
+        type = parts.shift() as string;
+        subtype = parts.shift() as string;
+        break;
+      default:
+        throw new Error("request accepts method bad type format");
     }
     for (let i = 0; i < this.accept.length; i++) {
       const line = this.accept[i];
@@ -872,7 +867,7 @@ class HttpRequest {
     if (this.forwarded) {
       return this.forwarded.clientIp;
     }
-    return this.request.socket?.remoteAddress ?? null;
+    return this.request.socket.remoteAddress ?? null;
   }
 
   /**
@@ -895,7 +890,10 @@ class HttpRequest {
     if (this.forwarded?.proto) {
       return this.forwarded.proto;
     }
-    if ("encrypted" in request.socket && request.socket.encrypted) {
+    // Lire la VALEUR : un socket qui porte `encrypted: false` (proxy de
+    // socket, double de test) n'est pas chiffré — la présence ne suffit pas.
+    const encrypted = (request.socket as { encrypted?: boolean }).encrypted;
+    if (encrypted) {
       return "https";
     }
     return "http";

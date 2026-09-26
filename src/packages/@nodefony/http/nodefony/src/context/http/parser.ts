@@ -35,7 +35,7 @@ class Parser {
       // Déjà au-dessus du seuil : on jette (RAM bornée) en attendant la coupure.
       return buffer;
     }
-    const max = this.request.maxBodySize ?? 0;
+    const max = this.request.maxBodySize;
     this.received += buffer.length;
     if (max > 0 && this.received > max) {
       this.aborted = true;

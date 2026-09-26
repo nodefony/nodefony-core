@@ -36,7 +36,7 @@ export class upload extends Service {
   ) {
     super(
       "upload",
-      httpKernel?.container as Container,
+      httpKernel.container as Container,
       httpKernel.notificationsCenter,
     );
     this.module = module;
@@ -151,10 +151,7 @@ class UploadedFile extends FileClass {
   }
 
   override getMimeType() {
-    if (this.parsedFile) {
-      return this.parsedFile.mimetype || super.getMimeType(this.filename);
-    }
-    return super.getMimeType();
+    return this.parsedFile.mimetype || super.getMimeType(this.filename);
   }
 
   /**

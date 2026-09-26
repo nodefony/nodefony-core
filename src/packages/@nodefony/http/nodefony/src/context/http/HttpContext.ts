@@ -287,7 +287,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       // la bonne granularité (un timeout socket couvrirait N requêtes
       // concurrentes). Comportement historique conservé.
       res.setTimeout(this.response.timeout as number, () => {
-        if (!this.response?.response?.writableEnded) {
+        if (!this.response.response?.writableEnded) {
           this._onTimeout();
         }
       });
@@ -316,7 +316,7 @@ class HttpContext extends Context implements IHttpContextInterface {
       // vers le context ACTIF du socket.
       socket.on("timeout", () => {
         const ctx = socketActiveContext.get(socket);
-        if (ctx && !ctx.response?.response?.writableEnded) {
+        if (ctx && !ctx.response.response?.writableEnded) {
           ctx._onTimeout();
         }
         // Socket idle SANS requête active : no-op (comportement historique du
@@ -445,7 +445,7 @@ class HttpContext extends Context implements IHttpContextInterface {
         }
       }
       if (body) {
-        this.response?.setBody(body);
+        this.response.setBody(body);
       }
       // Hook utilisateur — aucun listener dans le cas nominal : le check évite
       // l'appel async lui-même (fireAsync + emitAsync = 2 Promises), pas
@@ -473,25 +473,23 @@ class HttpContext extends Context implements IHttpContextInterface {
     headers?: http.OutgoingHttpHeaders | http.OutgoingHttpHeader[],
   ) {
     // cookies
-    if (this.response) {
-      // Synchronizer CSRF (`@CsrfProtect`) : le firewall a posé `csrfToken` sur une
-      // requête sûre vers une route protégée → on pose le cookie LISIBLE `csrf-token`
-      // (SameSite=Strict, non HttpOnly : le SPA le lit + le rejoue dans `x-csrf-token`).
-      // Secure sur HTTPS. La pose vit ici (http possède `Cookie`) ; security ne fait
-      // que minter le token. Flush groupé avec le cookie de session (setCookies array).
-      if (this.csrfToken) {
-        this.setCookie(
-          new Cookie("csrf-token", this.csrfToken, {
-            httpOnly: false,
-            sameSite: "Strict",
-            secure: this.scheme === "https",
-            path: "/",
-          }),
-        );
-      }
-      this.response.setCookies();
-      this.response.writeHead(statusCode, headers);
+    // Synchronizer CSRF (`@CsrfProtect`) : le firewall a posé `csrfToken` sur une
+    // requête sûre vers une route protégée → on pose le cookie LISIBLE `csrf-token`
+    // (SameSite=Strict, non HttpOnly : le SPA le lit + le rejoue dans `x-csrf-token`).
+    // Secure sur HTTPS. La pose vit ici (http possède `Cookie`) ; security ne fait
+    // que minter le token. Flush groupé avec le cookie de session (setCookies array).
+    if (this.csrfToken) {
+      this.setCookie(
+        new Cookie("csrf-token", this.csrfToken, {
+          httpOnly: false,
+          sameSite: "Strict",
+          secure: this.scheme === "https",
+          path: "/",
+        }),
+      );
     }
+    this.response.setCookies();
+    this.response.writeHead(statusCode, headers);
   }
 
   async write(
@@ -529,7 +527,7 @@ class HttpContext extends Context implements IHttpContextInterface {
     // déjà terminé. Node l'ignore, mais il coûte le tick que le correctif vient
     // d'économiser. Le chemin chunké (`flush()`), lui, n'a pas terminé : il
     // passe toujours par ici.
-    if (this.response?.response?.writableEnded) return this.response;
+    if (this.response.response?.writableEnded) return this.response;
     return this.response.end().then(() => this.response);
   }
 
@@ -599,23 +597,23 @@ class HttpContext extends Context implements IHttpContextInterface {
   }
 
   getHostName(): string {
-    return this.request?.getHostName();
+    return this.request.getHostName();
   }
 
   getRemoteAddress(): string | null {
-    return this.request?.getRemoteAddress();
+    return this.request.getRemoteAddress();
   }
 
   getHost(): string | undefined {
-    return this.request?.getHost();
+    return this.request.getHost();
   }
 
   getUserAgent(): string | undefined {
-    return this.request?.getUserAgent();
+    return this.request.getUserAgent();
   }
 
   getMethod(): HTTPMethod {
-    return this.request?.getMethod();
+    return this.request.getMethod();
   }
 
   setContentType(type?: string, encoding?: BufferEncoding) {
@@ -625,7 +623,7 @@ class HttpContext extends Context implements IHttpContextInterface {
   // F-C : `isHtml` se résout contre l'en-tête Accept au PREMIER accès (getter
   // lazy de Context) — le chemin JSON nominal ne parse jamais Accept.
   protected override resolveIsHtml(): boolean {
-    return this.request?.acceptHtml ?? false;
+    return this.request.acceptHtml;
   }
 
   setDefaultContentType() {

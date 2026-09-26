@@ -105,32 +105,27 @@ class ServerHttps extends Service {
         const opt = extend({
           requestTimeout: this.options.requestTimeout,
           rejectUnauthorized: this.options.rejectUnauthorized,
-          key: this.httpKernel?.serviceCerticats?.key,
-          cert: this.httpKernel?.serviceCerticats?.cert,
-          ca: this.httpKernel?.serviceCerticats?.ca
-            ? this.httpKernel?.serviceCerticats?.ca
+          key: this.httpKernel.serviceCerticats?.key,
+          cert: this.httpKernel.serviceCerticats?.cert,
+          ca: this.httpKernel.serviceCerticats?.ca
+            ? this.httpKernel.serviceCerticats.ca
             : undefined,
         }) as https.ServerOptions;
 
-        this.server = https.createServer(opt);
+        const server = https.createServer(opt);
+        this.server = server;
         this.httpTerminator = this.terminator();
         if (this.options.timeout) {
-          if (this.server) {
-            this.server.setTimeout(this.options.timeout, () => {
-              this.fire("onTimeout", this);
-            });
-            this.server.timeout = this.options.timeout;
-          }
+          server.setTimeout(this.options.timeout, () => {
+            this.fire("onTimeout", this);
+          });
+          server.timeout = this.options.timeout;
         }
         if (this.options.maxHeadersCount) {
-          if (this.server) {
-            this.server.maxHeadersCount = this.options.maxHeadersCount;
-          }
+          server.maxHeadersCount = this.options.maxHeadersCount;
         }
         if (this.options.keepAliveTimeout) {
-          if (this.server) {
-            this.server.keepAliveTimeout = this.options.keepAliveTimeout;
-          }
+          server.keepAliveTimeout = this.options.keepAliveTimeout;
         }
         this.module.fire("onCreateServer", this.type, this);
 
@@ -151,7 +146,7 @@ class ServerHttps extends Service {
           "request",
           (request: http.IncomingMessage, response: http.ServerResponse) => {
             this.httpKernel
-              ?.onHttpRequest(request, response, this.type)
+              .onHttpRequest(request, response, this.type)
               .catch(() => {
                 return;
               });
@@ -194,20 +189,20 @@ class ServerHttps extends Service {
       try {
         const h2Cfg =
           (
-            this.module?.options as {
+            this.module.options as {
               http2?: {
                 maxConcurrentStreams?: number;
                 maxSessionMemory?: number;
               };
             }
-          )?.http2 ?? {};
+          ).http2 ?? {};
         const opt = extend({
           allowHTTP1: true,
           rejectUnauthorized: this.options.rejectUnauthorized,
-          key: this.httpKernel?.serviceCerticats?.key,
-          cert: this.httpKernel?.serviceCerticats?.cert,
-          ca: this.httpKernel?.serviceCerticats?.ca
-            ? this.httpKernel?.serviceCerticats?.ca
+          key: this.httpKernel.serviceCerticats?.key,
+          cert: this.httpKernel.serviceCerticats?.cert,
+          ca: this.httpKernel.serviceCerticats?.ca
+            ? this.httpKernel.serviceCerticats.ca
             : undefined,
         }) as http2.SecureServerOptions;
         // Limites anti-DoS HTTP/2 (cf config http2). Appliquées seulement si
@@ -239,23 +234,23 @@ class ServerHttps extends Service {
         // );
         this.server.on("request", (request, response) => {
           let alpnProtocol: string | false | null = false;
-          if (request?.stream?.session?.socket) {
-            if (request.stream.session.socket instanceof TLSSocket) {
-              alpnProtocol = request.stream.session.socket.alpnProtocol;
-            }
+          // `allowHTTP1` : une requête HTTP/1.1 arrive ici SANS `stream` — le
+          // type `Http2ServerRequest` ne le dit pas, la garde reste.
+          const stream = request.stream as http2.ServerHttp2Stream | undefined;
+          const sessionSocket = stream?.session?.socket;
+          if (sessionSocket instanceof TLSSocket) {
+            alpnProtocol = sessionSocket.alpnProtocol;
           }
-          if (request.socket) {
-            if (request.socket instanceof TLSSocket) {
-              alpnProtocol = request.socket.alpnProtocol;
-            }
+          if (request.socket instanceof TLSSocket) {
+            alpnProtocol = request.socket.alpnProtocol;
           }
           if (alpnProtocol === "h2") {
             void this.httpKernel
-              ?.onHttpRequest(request, response, "http2")
+              .onHttpRequest(request, response, "http2")
               .catch(() => {});
           } else {
             void this.httpKernel
-              ?.onHttpRequest(request, response, "https")
+              .onHttpRequest(request, response, "https")
               .catch(() => {});
           }
         });
