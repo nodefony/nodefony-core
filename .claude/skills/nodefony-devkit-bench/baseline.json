@@ -2,380 +2,380 @@
   "model": "claude-haiku-4-5-20251001",
   "decor": "isolé (tarballs, hors dépôt) · MCP eteint",
   "agent": "claude",
-  "date": "2026-09-19T00:11:00.603Z",
-  "commit": "3163ea97",
+  "date": "2026-09-26T08:30:06.740Z",
+  "commit": "6db58892f",
   "verdicts": {
     "0": {
       "verdict": "FAIL",
-      "runs": 2,
+      "runs": 3,
       "passes": 0,
-      "tours": null,
-      "empreinte": "265ccad17143",
-      "date": "2026-09-19T00:11:00.603Z",
+      "tours": 33,
+      "empreinte": "8f9fd2e43361",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "1": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 2,
-      "tours": 26,
+      "passes": 3,
+      "tours": 30,
       "empreinte": "aa55a55ac981",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "2": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 32,
+      "tours": 45,
       "empreinte": "f6de42c5830d",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "3": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 28,
+      "tours": 29,
       "empreinte": "f7595d43049f",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "4": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 23,
+      "tours": 28,
       "empreinte": "a8195f3924ac",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "5": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 10,
+      "tours": 9,
       "empreinte": "e9d6b4ad0412",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "6": {
       "verdict": "FAIL",
       "runs": 3,
       "passes": 0,
-      "tours": 38,
+      "tours": 41,
       "empreinte": "b97367414304",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "7": {
       "verdict": "FAIL",
       "runs": 3,
       "passes": 2,
-      "tours": 22,
+      "tours": 27,
       "empreinte": "fde0054fdb05",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "8": {
-      "verdict": "PASS",
+      "verdict": "FAIL",
       "runs": 3,
-      "passes": 3,
-      "tours": 21,
+      "passes": 0,
+      "tours": 15,
       "empreinte": "fbd92d9ac31b",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "9": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 17,
+      "tours": 11,
       "empreinte": "29d20c23f190",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "10": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 77,
+      "tours": 61,
       "empreinte": "c1c08ba49684",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "11": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 2,
-      "tours": 71,
+      "passes": 3,
+      "tours": 74,
       "empreinte": "e3d7bb6a7036",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "12": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 49,
+      "tours": 48,
       "empreinte": "89238b4fc6c8",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "13": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 57,
+      "tours": 80,
       "empreinte": "49a74fc56b10",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "14": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 62,
+      "tours": 48,
       "empreinte": "cdd28ae08592",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "15": {
       "verdict": "PASS",
-      "runs": 2,
-      "passes": 2,
-      "tours": 39,
+      "runs": 3,
+      "passes": 3,
+      "tours": 40,
       "empreinte": "8b13b2de0da5",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "16": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 1,
-      "tours": 46,
+      "passes": 3,
+      "tours": 66,
       "empreinte": "0c3c2b871c5a",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "17": {
       "verdict": "FAIL",
       "runs": 3,
       "passes": 0,
-      "tours": 48,
+      "tours": 54,
       "empreinte": "e41f6e034013",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "18": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 45,
+      "tours": 37,
       "empreinte": "027bad501bd3",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "19": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 32,
+      "tours": 36,
       "empreinte": "0eea053859be",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "20": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 24,
+      "tours": 27,
       "empreinte": "e120455fb639",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "22": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 36,
+      "tours": 60,
       "empreinte": "f22d9140194f",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "24": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 2,
-      "tours": 49,
+      "passes": 3,
+      "tours": 45,
       "empreinte": "40617613f014",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "25": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 24,
+      "tours": 31,
       "empreinte": "3a1de081c502",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "26": {
-      "verdict": "FAIL",
+      "verdict": "PASS",
       "runs": 3,
-      "passes": 2,
-      "tours": 46,
+      "passes": 3,
+      "tours": 52,
       "empreinte": "3fb216a1e914",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "27": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 26,
+      "tours": 28,
       "empreinte": "bd51523e608a",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "28": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 28,
+      "tours": 45,
       "empreinte": "3df544409fb7",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "29": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 46,
+      "tours": 49,
       "empreinte": "f99b8adec49c",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "30": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 12,
+      "tours": 14,
       "empreinte": "52dda4dbfd35",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "31": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 17,
+      "tours": 9,
       "empreinte": "baf9867f811b",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "32": {
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 16,
+      "tours": 23,
       "empreinte": "ce8f00303a0e",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     },
     "33": {
       "verdict": "FAIL",
@@ -405,13 +405,13 @@
       "verdict": "PASS",
       "runs": 3,
       "passes": 3,
-      "tours": 41,
+      "tours": 54,
       "empreinte": "143d532fdc27",
-      "date": "2026-09-19T00:11:00.603Z",
+      "date": "2026-09-26T08:30:06.740Z",
       "sources": [
-        "2026-09-18T16-29-10"
+        "2026-09-26T00-57-28"
       ],
-      "commit": "3163ea97"
+      "commit": "6db58892f"
     }
   }
 }
