@@ -357,7 +357,7 @@ l'axe de filtrage principal de la console. L'**action** est une chaîne **ouvert
 <!-- prettier-ignore -->
 | Catégorie | Ce qu'elle trace | Actions réellement émises par le framework |
 | --- | --- | --- |
-| `auth` | authentification, chaîne du firewall | `auth.failure` · `auth.unverifiable` · `auth.throttled` · `auth.denied` · `login.success` · `login.failure` · `login.throttled` · `login.mfa_required` · `user.totp_disabled` |
+| `auth` | authentification, chaîne du firewall | `auth.failure` · `auth.unverifiable` · `auth.throttled` · `auth.denied` · `login.success` · `login.failure` · `login.throttled` · `login.mfa_required` · `user.totp_disabled` · `user.password_change_self` (par `@nodefony/user`) |
 | `authz` | autorisation (voters, `@IsGranted`), administration des comptes | `access.denied` · `user.created` · `user.updated` · `user.password_changed` · `user.deleted` (ces quatre-là par `@nodefony/user`) |
 | `token` | jetons longue durée et clés d'API | `token.issued` · `token.reuse_detected` · `apikey.created` · `apikey.revoked` |
 | `session` | cycle de vie de session | `logout` · `session.revoked` (révocation depuis l'administration, par `@nodefony/http`) |
@@ -367,12 +367,12 @@ l'axe de filtrage principal de la console. L'**action** est une chaîne **ouvert
 | `oauth` | login social OAuth2 | _catégorie déclarée, aucune action émise aujourd'hui_ |
 | `csrf` | défense CSRF | _catégorie déclarée, aucune action émise aujourd'hui_ |
 | `cors` | politique CORS | _catégorie déclarée, aucune action émise aujourd'hui_ |
-| `config` | mutation de config runtime depuis Studio | `config.update` (par `@nodefony/framework`) |
+| `config` | mutation de config runtime depuis Studio | `config.update` · `log.debug.set` · `log.debug.clear` (par `@nodefony/framework`) |
 
-Deux familles d'événements sont émises sous une catégorie **absente** du type `AuditCategory` :
-`user.password_change_self` (catégorie `authn`, par `@nodefony/user`) et `log.debug.set` /
-`log.debug.clear` (catégorie `log`, changement de verbosité depuis Studio). Un filtre écrit sur les
-seules catégories déclarées ne les voit pas.
+Toute catégorie émise appartient au type `AuditCategory`, y compris depuis un paquet qui ne peut pas
+l'importer (`@nodefony/user`, `@nodefony/framework`) : `tests/unit/auditCategoryEmitters.test.ts`
+relit les sources de tous les paquets et refuse un littéral hors contrat. Un filtre sur les
+catégories déclarées voit donc tout le journal.
 
 Les trois issues possibles (`IAuditEvent.ts:43`) ne sont pas interchangeables : `failure` = **l'acteur
 a échoué une preuve** (mauvais mot de passe, signature invalide) ; `denied` = **une politique a

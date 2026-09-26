@@ -482,7 +482,8 @@ function auditConfigChange(
 }
 
 /**
- * Journalise un changement de debug runtime (catégorie `log`). Même découplage
+ * Journalise un changement de debug runtime (catégorie `config` : une verbosité
+ * est une configuration runtime). Même découplage
  * que {@link auditConfigChange} (résolution par nom, no-op si pas d'audit).
  */
 function auditLogLevelChange(
@@ -499,7 +500,7 @@ function auditLogLevelChange(
   const sink = container?.get("auditService") as
     { record?: (e: unknown) => void } | undefined;
   sink?.record?.({
-    category: "log",
+    category: "config",
     action: `log.debug.${action}`,
     outcome: "success",
     actor: actorLabel(request.user),

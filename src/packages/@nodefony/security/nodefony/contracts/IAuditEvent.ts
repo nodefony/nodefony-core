@@ -19,7 +19,11 @@
  * filtre qui ne rend jamais rien induit en erreur — cf `studio/.../auditModel.ts`).
  * En câbler une = ajouter son émetteur ICI (l'émetteur), puis la métadonnée
  * d'affichage dans `AUDIT_CATEGORIES`. Émettent réellement : auth, authz, token,
- * session, webauthn, ws, webhook, config (`config.update`).
+ * session, webauthn, ws, webhook, config (`config.update`, `log.debug.*`).
+ *
+ * Un émetteur hors de `@nodefony/security` ne peut pas importer ce type et passe
+ * la catégorie en `string` : `tests/unit/auditCategoryEmitters.test.ts` relit
+ * les sources de tous les paquets pour refuser une catégorie hors contrat.
  */
 export type AuditCategory =
   | "auth" // authentification (login/logout, chaîne du firewall)
@@ -32,7 +36,7 @@ export type AuditCategory =
   | "cors" // RÉSERVÉ (pas d'émetteur) — politique CORS (preflight rejeté)
   | "ws" // verrou de frame WebSocket (api.request / subscribe refusé)
   | "webhook" // webhook sortant (auto-désactivation après échecs répétés)
-  | "config"; // RÉSERVÉ (pas d'émetteur) — mutation de config runtime depuis Studio
+  | "config"; // mutation de config runtime depuis Studio (config.update, log.debug.*)
 
 /**
  * Issue d'une action de sécurité. La distinction `failure`/`denied` est utile à

@@ -706,6 +706,7 @@ describe("UserAdminApi — me/password (self-service, anti-IDOR)", () => {
     // l'échec EST audité (signal de sécurité) — outcome failure
     assert.equal(events.length, 1);
     assert.equal(events[0].action, "user.password_change_self");
+    assert.equal(events[0].category, "auth");
     assert.equal(events[0].outcome, "failure");
   });
 

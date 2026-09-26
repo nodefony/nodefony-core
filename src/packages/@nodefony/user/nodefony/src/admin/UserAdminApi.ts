@@ -208,7 +208,7 @@ function auditSelf(
   reason?: string,
 ): void {
   (container.get("auditService") as IAuditSinkLike | undefined)?.record({
-    category: "authn",
+    category: "auth",
     action,
     outcome,
     actor,
