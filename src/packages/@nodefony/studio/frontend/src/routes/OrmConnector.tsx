@@ -485,13 +485,29 @@ export const OrmConnector = observer(() => {
       [store],
     ),
   );
+  // Ouverte sans connecteur (lien direct, F5 sur `/orm-connector`) : la page
+  // prend le connecteur PAR DÉFAUT et l'écrit dans l'URL, plutôt que d'afficher
+  // un connecteur sans nom dont les migrations répondent 404.
+  useEffect(() => {
+    if (name || !orms.data?.length) return;
+    const fallback = orms.data.find((o) => o.default) ?? orms.data[0];
+    setParams(
+      (p) => {
+        p.set("name", fallback.name);
+        return p;
+      },
+      { replace: true },
+    );
+  }, [name, orms.data, setParams]);
   const migrations = useResource(
     useCallback(
       () =>
-        store.api.getAbsolute<MigrationReply>(
-          `/nodefony/orm/api/migrations?${q}`,
-        ),
-      [store, q],
+        name
+          ? store.api.getAbsolute<MigrationReply>(
+              `/nodefony/orm/api/migrations?${q}`,
+            )
+          : Promise.resolve(null),
+      [store, q, name],
     ),
   );
 

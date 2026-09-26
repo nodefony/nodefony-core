@@ -55,11 +55,15 @@ export const OrmEntity = observer(() => {
   const name = params.get("name") ?? "";
   const connector = params.get("connector") ?? "";
 
+  // Sans nom (lien direct sur `/orm-entity`), rien à demander : la requête
+  // partait sur `/entity/` et rendait un 404 à la place d'une consigne.
   const fetcher = useCallback(
     () =>
-      store.api.getAbsolute<EntityNode>(
-        `/nodefony/orm/api/entity/${encodeURIComponent(name)}${connector ? `?connector=${encodeURIComponent(connector)}` : ""}`,
-      ),
+      name
+        ? store.api.getAbsolute<EntityNode>(
+            `/nodefony/orm/api/entity/${encodeURIComponent(name)}${connector ? `?connector=${encodeURIComponent(connector)}` : ""}`,
+          )
+        : Promise.resolve(null),
     [store, name, connector],
   );
   const { data, loading, error, reload } = useResource(fetcher);
@@ -101,7 +105,11 @@ export const OrmEntity = observer(() => {
         error={error}
         empty={!data}
         onRetry={reload}
-        emptyMessage={`Entité « ${name} » introuvable.`}
+        emptyMessage={
+          name
+            ? `Entité « ${name} » introuvable.`
+            : "Aucune entité choisie — ouvre-en une depuis l'ERD (bouton « Retour à l'ERD »)."
+        }
       >
         {data && (
           <Stack gap="lg">

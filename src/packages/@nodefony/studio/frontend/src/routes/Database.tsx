@@ -302,6 +302,7 @@ function layoutGraph(
   // dédup par clé FK pour ne tracer qu'une arête par FK.
   const edges: Edge[] = [];
   const seen = new Set<string>();
+  const linked = new Set<string>();
   for (const e of entities) {
     for (const r of e.relations) {
       if (!names.has(r.target)) continue; // relation hors du périmètre filtré
@@ -310,6 +311,7 @@ function layoutGraph(
         if (seen.has(key)) continue;
         seen.add(key);
         g.setEdge(e.name, r.target);
+        linked.add(e.name).add(r.target);
         const incident = rootName === e.name || rootName === r.target;
         edges.push({
           id: `m2m-${key}`,
@@ -338,6 +340,7 @@ function layoutGraph(
       if (seen.has(key)) continue;
       seen.add(key);
       g.setEdge(fkTable, pkTable);
+      linked.add(fkTable).add(pkTable);
       const incident = rootName === fkTable || rootName === pkTable;
       edges.push({
         id: key,
@@ -359,13 +362,36 @@ function layoutGraph(
       });
     }
   }
+  // dagre range une table sans relation au rang 0, comme toutes ses pareilles :
+  // dix tables isolées faisaient UNE colonne, et l'ajustement du zoom rendait
+  // l'écran illisible. Seules les tables reliées passent par dagre ; les autres
+  // sont rangées en grille sous le graphe.
+  const isolated = entities.filter((e) => !linked.has(e.name));
+  for (const e of isolated) g.removeNode(e.name);
   dagre.layout(g);
+  const position = new Map<string, { x: number; y: number }>();
+  let bottom = 0;
+  for (const name of g.nodes()) {
+    const p = g.node(name);
+    position.set(name, { x: p.x - p.width / 2, y: p.y - p.height / 2 });
+    bottom = Math.max(bottom, p.y + p.height / 2);
+  }
+  if (isolated.length > 0) {
+    const cols = Math.max(1, Math.ceil(Math.sqrt(isolated.length * 3)));
+    let y = position.size > 0 ? bottom + 90 : 0;
+    for (let i = 0; i < isolated.length; i += cols) {
+      const row = isolated.slice(i, i + cols);
+      row.forEach((e, c) => {
+        position.set(e.name, { x: c * (NODE_W + 45), y });
+      });
+      y += Math.max(...row.map(nodeHeight)) + 45;
+    }
+  }
   const nodes: Node[] = entities.map((e) => {
-    const p = g.node(e.name);
     return {
       id: e.name,
       type: "table",
-      position: { x: p.x - NODE_W / 2, y: p.y - nodeHeight(e) / 2 },
+      position: position.get(e.name) ?? { x: 0, y: 0 },
       data: { entity: e },
       style:
         e.name === rootName
