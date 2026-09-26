@@ -177,7 +177,7 @@ garantit que la dépendance va bien du concret vers l'abstrait, et jamais l'inve
 > [!NOTE]
 > `orm-core` n'est **pas un module bootable** : pas de classe `Module`, rien à mettre dans
 > `modules: [...]`. C'est une bibliothèque pure. Les modules, ce sont les **drivers** — ce sont eux
-> qui s'enregistrent dans `ormRegistry` (`OrmRegistry.ts:88`) à leur démarrage.
+> qui s'enregistrent dans `ormRegistry` (`OrmRegistry.ts:86`) à leur démarrage.
 
 ## La vision Nodefony
 
@@ -377,13 +377,13 @@ sequenceDiagram
   Note over K: onServersReady → récap de boot
 ```
 
-**`entityRegistry`** (`EntityRegistry.ts:147`) indexe les entités à **deux** niveaux — nom puis
+**`entityRegistry`** (`EntityRegistry.ts:145`) indexe les entités à **deux** niveaux — nom puis
 connecteur — parce qu'une même entité logique (`User`) peut vivre sur plusieurs connexions. Demander
 `get("User")` sans préciser le connecteur alors que deux le portent **lève** plutôt que de deviner
 (`EntityRegistry.get()`, `EntityRegistry.ts:54`). Le stockage est un `Object.create(null)` alloué
 **au premier enregistrement** : une application sans base ne paie rien.
 
-**`ormRegistry`** (`OrmRegistry.ts:88`) associe un nom de connexion à son instance `IOrm`. Un doublon
+**`ormRegistry`** (`OrmRegistry.ts:86`) associe un nom de connexion à son instance `IOrm`. Un doublon
 de nom **lève** (`OrmRegistry.register()`, `OrmRegistry.ts:26`) : deux connexions homonymes seraient
 un bug silencieux, jamais une intention.
 
@@ -679,7 +679,7 @@ première connexion, reconnexions, erreurs récentes, et une fenêtre de latence
 (`ConnectionMonitor.recordPing()`, `ConnectionMonitor.ts:136`). Il est alimenté par `Orm.connect()`
 sans que l'adapter ait à y penser.
 
-**`queryFlowMonitor`** (`QueryFlowMonitor.ts:146`) suit le **débit** : total de requêtes, latence
+**`queryFlowMonitor`** (`QueryFlowMonitor.ts:144`) suit le **débit** : total de requêtes, latence
 moyenne et EWMA, pire latence, et un anneau borné à vingt requêtes lentes. Trois propriétés le
 rendent sûr en production :
 
