@@ -316,6 +316,10 @@ const ACCEPT_ANY: AcceptEntry[] = [{ type: /.*/, subtype: /.*/ }];
 const acceptMatcher = (token: string | undefined): RegExp =>
   !token || token === "*" ? /.*/ : new RegExp(`^${escapeRegExp(token)}$`);
 
+/** Qualité `q` d'une entrée `Accept` : sa valeur si c'est un nombre fini, 1 sinon. */
+const qualityOf = (entry: AcceptEntry): number =>
+  typeof entry.q === "number" && Number.isFinite(entry.q) ? entry.q : 1;
+
 const acceptParser = function (acc?: string): AcceptEntry[] {
   if (!acc) {
     // Singleton (lecture seule chez tous les consommateurs) — pas d'array +
@@ -350,12 +354,11 @@ const acceptParser = function (acc?: string): AcceptEntry[] {
     if (arr.length === 0) {
       return ACCEPT_ANY;
     }
-    // sort
-    return arr.sort((a, b) => {
-      const qA = a.q || 1;
-      const qB = b.q || 1;
-      return qB - qA;
-    });
+    // Tri par qualité décroissante. `q=0` veut dire « non acceptable »
+    // (RFC 9110 §12.4.2) : il reste 0 et passe en dernier — `q || 1` le
+    // relevait au rang maximal. Un `q` absent ou illisible (NaN) vaut 1 : un
+    // NaN dans le comparateur rendrait un ordre indéfini.
+    return arr.sort((a, b) => qualityOf(b) - qualityOf(a));
   } catch {
     // Un `Accept` malformé ne doit JAMAIS faire échouer une requête (Zero Trust
     // sur l'entrée client) → repli « accepte tout » plutôt que de propager.

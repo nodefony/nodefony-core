@@ -88,6 +88,24 @@ describe("acceptParser — négociation de contenu (Accept header)", () => {
     expect(r[0].subtype.test("html")).to.equal(true);
   });
 
+  // RFC 9110 §12.4.2 : `q=0` signifie « non acceptable ». Le tri faisait
+  // `a.q || 1`, qui relevait ce 0 au rang de la qualité MAXIMALE : le type
+  // refusé passait en tête, devant ce que le client préférait.
+  it("q=0 (non acceptable) trie EN DERNIER, jamais relevé à 1", () => {
+    const r = acceptParser("text/html;q=0,application/json");
+    expect(r[0].subtype.test("json")).to.equal(true);
+    expect(r[1].subtype.test("html")).to.equal(true);
+    expect(r[1].q).to.equal(0);
+  });
+
+  // Un `q` illisible (`parseFloat` → NaN) vaut 1, comme un `q` absent : un NaN
+  // dans le comparateur rendrait un ordre indéfini.
+  it("q malformé (`q=abc`) → traité comme absent (1), ordre stable", () => {
+    const r = acceptParser("application/json;q=0.5,text/html;q=abc");
+    expect(r[0].subtype.test("html")).to.equal(true);
+    expect(r[1].subtype.test("json")).to.equal(true);
+  });
+
   it("parse les paramètres additionnels (charset)", () => {
     const r = acceptParser("text/html;charset=utf-8");
     expect(r[0].charset).to.equal("utf-8");
