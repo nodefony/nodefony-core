@@ -148,6 +148,20 @@
     // `a && a.b` → `a?.b`. Le correctif automatique n'est pas sûr hors
     // condition : `a && a.b` rend `a` (`""`, `0`, `null`), `a?.b` rend `undefined`.
     "typescript/prefer-optional-chain": "error",
+    // `??` sur un objet ou un tableau. Primitifs exclus : sur une chaîne, un
+    // nombre ou un booléen, `||` est souvent voulu (une variable
+    // d'environnement vide vaut « absente », `a || b` entre booléens est un OU).
+    "typescript/prefer-nullish-coalescing": [
+      "error",
+      {
+        "ignorePrimitives": {
+          "string": true,
+          "number": true,
+          "boolean": true,
+          "bigint": true
+        }
+      }
+    ],
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le runner
     // suit lui-même : déclarés sûrs ici, une fois.
     "typescript/no-floating-promises": [

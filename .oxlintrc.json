@@ -215,6 +215,27 @@
     // `=== undefined`. Hors condition, `a && a.b` rend `a` (`""`, `0`, `null`)
     // là où `a?.b` rend `undefined` : relire chaque site, jamais `--fix` en masse.
     "typescript/prefer-optional-chain": "error",
+    // `??` là où l'on voulait « absent » et où `||` avalait aussi `""`/`0`.
+    // PRIMITIFS EXCLUS, et c'est une décision, pas une facilité : sur une
+    // chaîne, un nombre ou un booléen, `||` est ICI l'idiome voulu — une
+    // variable d'environnement posée vide vaut « absente », un id de session
+    // `""` doit en générer un (`??` l'accepterait), `cmp() || suivant` chaîne
+    // les critères d'un tri, `a || b` entre booléens est un OU logique. Les
+    // 324 sites ont été relus : quatre défauts réels corrigés à la main
+    // (`q=0` d'`Accept` relevé à 1, sévérité syslog 0 = EMERGENCY avalée,
+    // `F_OK` = 0 écrasé, compte ORM 0 affiché « — »), aucun autre.
+    // Sur un objet, un tableau ou une fonction, la règle mord pleinement.
+    "typescript/prefer-nullish-coalescing": [
+      "error",
+      {
+        "ignorePrimitives": {
+          "string": true,
+          "number": true,
+          "boolean": true,
+          "bigint": true
+        }
+      }
+    ],
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le RUNNER
     // suit lui-même (la doc Node dit de l'ignorer) : déclaré sûr ICI, une fois,
     // plutôt que par une dérogation dans chaque fichier de test.
