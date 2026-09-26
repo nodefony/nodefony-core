@@ -38,9 +38,10 @@ l'app. Config invalide → boot FATAL, champ nommé.
   NOM → il doit rester résolvable (symlink npm workspaces).
 - **Le container DI est PROTOTYPAL** : un service posé ici est visible du
   kernel ENTIER et de chaque scope de requête (chaîne de prototypes, zéro
-  copie par requête) ; ce qu'un scope `set()` meurt avec sa requête. Ni cache
-  de services maison, ni singleton maison — `container.get("<nom>")` EST le
-  mécanisme. Réf : `node_modules/nodefony/docs/service.md`.
+  copie par requête) ; ce qu'un scope `set()` meurt avec sa requête. Le scope
+  courant : `RequestContext.getScope()` ; un service par requête :
+  `@injectable({ name, scope: "request" })`. Ni cache de services maison, ni
+  singleton maison. Réf : `node_modules/nodefony/docs/service.md`.
 - **Isomorphisme** : pour tout code NAVIGATEUR de ce module, le client temps
   réel et les types du protocole s'importent du cœur (`nodefony`,
   `nodefony/client`<% const port = it.front ? it.front.client : it.appClient; if (port) { %>, et la liaison de ton moteur front :

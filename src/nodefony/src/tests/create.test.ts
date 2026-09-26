@@ -3787,6 +3787,10 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // règle retirée (le piège déjà rencontré plus bas avec `@IsGranted`).
       assert.include(agents, "ISOMORPHE");
       assert.include(agents, "PROTOTYPAL");
+      // Le calque de la requête et son API : sans elles, l'agent sait que le
+      // scope existe mais ne sait ni l'atteindre ni y ranger un service (#486).
+      assert.include(agents, "RequestContext.getScope()");
+      assert.include(agents, 'scope: "request"');
       assert.include(agents, "Un service n'est pas une classe utilitaire");
       assert.include(agents, "`@injectable()` qui `extends Service`");
       assert.include(agents, "nodefony create service");
@@ -5656,6 +5660,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       // controller/front/command, jamais le service, alors qu'il s'y ajoute
       // exactement pareil (et se câble dans le `@services([…])`).
       assert.include(agents, "PROTOTYPAL");
+      assert.include(agents, "RequestContext.getScope()");
+      assert.include(agents, 'scope: "request"');
       assert.include(agents, "nodefony/docs/service.md");
       assert.include(agents, "nodefony/docs/client.md");
       assert.include(agents, "nodefony create service");

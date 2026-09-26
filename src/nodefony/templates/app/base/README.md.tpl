@@ -471,6 +471,12 @@ framework, tu rebuilds le checkout, ton app le voit. Ne publie pas ce
 ## 9. Aller plus loin
 
 - **Ajouter une route** : une méthode décorée `@route` dans un controller — c'est tout.
+- **Un état propre à chaque requête** : chaque requête a son propre conteneur de services
+  (un scope, posé comme un calque sur celui de l'application et jeté à la fin — en WebSocket,
+  à la fin de la connexion). `RequestContext.getScope()` le rend depuis n'importe quel code de
+  la requête ; `@injectable({ name: "tenant", scope: "request" })` y crée un service par
+  requête, nettoyé (`clean()`) à sa fermeture — son constructeur reçoit le scope :
+  `super("tenant", scope, false)`. Détail : `node_modules/nodefony/docs/service.md`.
 - **Régler un module sans deviner** : `npx nodefony inspect schema <module>` liste les clés
   configurables avec leur description ; `npx nodefony inspect config` montre ce qui est
   posé aujourd'hui et d'où ça vient. Une clé inconnue est REFUSÉE au démarrage, en la nommant.

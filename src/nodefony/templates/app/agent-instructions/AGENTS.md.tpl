@@ -175,15 +175,18 @@ s'enrichit, ta mémoire non.
   `npx nodefony create service <Nom> --inject <AutreService>` écrit le
   `@inject("AutreService")` et l'appel qui va avec. La dépendance est alors
   ordonnée par le conteneur et visible dans la signature — là où
-  `container.get("…")` cherche à l'exécution et rend `undefined` en silence si
+  `container.get("…")` cherche à l'exécution et rend `null` en silence si
   le service n'est pas enregistré.
 
-- **Le container DI est PROTOTYPAL** : les services vivent sur une chaîne de
-  prototypes — un scope de requête VOIT tous les services du kernel sans
-  aucune copie (coût d'un scope ≈ un `Object.create`), et ce qu'on `set()`
-  dans un scope MEURT avec la requête. Ne fabrique donc ni cache de services
-  par requête, ni singleton maison : `container.get("<nom>")` remonte la
-  chaîne, c'est le mécanisme.
+- **Le container DI est PROTOTYPAL — chaque requête a le sien** (un scope,
+  calque posé par chaîne de prototypes sur celui du kernel) : il VOIT tous les
+  services sans copie, et ce qu'on y `set()` MEURT avec la requête — en
+  WebSocket, avec la connexion.
+  Depuis n'importe quel code : `RequestContext.getScope()` (ou `undefined` hors
+  requête). Un objet par requête, nettoyé à la fin :
+  `@injectable({ name, scope: "request" })`, même nom dans
+  `super(name, scope, false)` ; un singleton qui en dépend est refusé au
+  démarrage. Ni cache de services, ni singleton maison.
 
 ## Modules du projet
 
