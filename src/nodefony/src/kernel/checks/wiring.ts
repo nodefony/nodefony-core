@@ -169,8 +169,8 @@ export function requiredColumns(source: string): string[] {
   for (const m of source.matchAll(
     /(\w+)\s*:\s*(\w+)\s*\((?:[^()]|\([^()]*\))*\)((?:\s*\.[\w$]+\s*\((?:[^()]|\([^()]*\))*\))*)/gu,
   )) {
-    const field = m[1];
-    const suffixes = m[3] ?? "";
+    const field = m.at(1);
+    const suffixes = m.at(3) ?? "";
     if (field === undefined) continue;
     if (!/\.notNull\s*\(/u.test(suffixes)) continue;
     // Un défaut, une clé primaire : l'absence est alors légitime à l'entrée.
@@ -202,8 +202,8 @@ export function optionalInputFields(source: string): string[] {
   if (creation === undefined) return [];
   const out: string[] = [];
   for (const m of creation.matchAll(/(\w+)\s*:\s*([^\n]*)/gu)) {
-    const field = m[1];
-    const right = m[2] ?? "";
+    const field = m.at(1);
+    const right = m.at(2) ?? "";
     if (field === undefined) continue;
     if (/\.(?:optional|nullish)\s*\(/u.test(right))
       out.push(field.toLowerCase());
@@ -807,7 +807,7 @@ export function checkWiring(options: IWiringCheckOptions): IWiringCheckResult {
       // rangé hors de `nodefony/controllers` reste un controller, et c'est
       // justement le fichier écrit à la main qui porte la faute.
       for (const m of content.matchAll(ROUTE_PATH_RE)) {
-        const routePath = m[1] ?? m[2] ?? "";
+        const routePath = m.at(1) ?? m.at(2) ?? "";
         const colon = COLON_SEGMENT_RE.exec(routePath);
         if (!colon) continue;
         const corrected = routePath.replace(/\/:(\w+)/gu, "/{$1}");

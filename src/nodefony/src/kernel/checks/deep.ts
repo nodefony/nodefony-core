@@ -384,10 +384,10 @@ function runNpmScript(projectRoot: string, step: string): Promise<IStepRun> {
     });
     let stdout = "";
     let stderr = "";
-    child.stdout?.setEncoding("utf8");
-    child.stderr?.setEncoding("utf8");
-    child.stdout?.on("data", (c: string) => (stdout += c));
-    child.stderr?.on("data", (c: string) => (stderr += c));
+    child.stdout.setEncoding("utf8");
+    child.stderr.setEncoding("utf8");
+    child.stdout.on("data", (c: string) => (stdout += c));
+    child.stderr.on("data", (c: string) => (stderr += c));
     const done = (status: number | null): void =>
       resolve({ status, stderr, stdout, ms: Date.now() - startedAt });
     // `npm` introuvable, droits refusés : un échec de LANCEMENT n'est pas un
@@ -486,8 +486,8 @@ function runNpmOutdated(projectRoot: string): Promise<IOutdatedRun> {
       shell: process.platform === "win32",
     });
     let stdout = "";
-    child.stdout?.setEncoding("utf8");
-    child.stdout?.on("data", (c: string) => (stdout += c));
+    child.stdout.setEncoding("utf8");
+    child.stdout.on("data", (c: string) => (stdout += c));
     child.on("error", () => resolve({ stdout: "", failed: true }));
     child.on("close", (_code, signal) =>
       resolve({ stdout, failed: Boolean(signal) }),

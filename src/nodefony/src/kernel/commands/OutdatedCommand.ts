@@ -92,7 +92,7 @@ class Outdated extends Command {
   override async generate(
     opts: { json?: boolean; all?: boolean } = {},
   ): Promise<this> {
-    const root = (this.kernel as Kernel)?.path ?? process.cwd();
+    const root = (this.kernel as Kernel | null)?.path ?? process.cwd();
 
     if (!(await this.isNpmProject(root))) {
       // Fail-loud plutôt que fausse réponse : `pnpm outdated --json` et
@@ -191,7 +191,7 @@ class Outdated extends Command {
     say(formatHeadline(summary));
 
     if (summary.packages.length) {
-      this.cli?.displayTable(
+      this.cli.displayTable(
         toTableRows(summary, all),
         {
           head: [
@@ -219,7 +219,7 @@ class Outdated extends Command {
       // La colonne des dépendants est ici pour la même raison que dans l'autre
       // tableau, et elle y est plus utile encore : c'est le paquet local qui
       // concentre le gros des lignes brutes de npm (un rappel par dépendant).
-      this.cli?.displayTable(
+      this.cli.displayTable(
         summary.ahead.map((p) => [
           p.name,
           p.current ?? "—",

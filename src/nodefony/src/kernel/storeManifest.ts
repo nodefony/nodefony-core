@@ -224,7 +224,7 @@ export function extractManifestModuleOrder(source: string): string[] {
   const POSITIONS =
     /use\s*\(\s*["'`]([^"'`]+)["'`]|\bname\s*:\s*["'`]([^"'`]+)["'`]|[[,]\s*["'`]([^"'`]+)["'`]\s*(?=[,\]])/gu;
   for (const m of block.matchAll(POSITIONS)) {
-    const quoted = m[1] ?? m[2] ?? m[3];
+    const quoted = m.at(1) ?? m.at(2) ?? m.at(3);
     if (!quoted) continue;
     if (!/^(?:@[a-z0-9-~][\w.-]*\/)?[a-z0-9-~][\w.-]*$/u.test(quoted)) continue;
     if (seen.has(quoted)) continue;

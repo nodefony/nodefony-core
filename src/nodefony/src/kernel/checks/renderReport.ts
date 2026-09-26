@@ -517,13 +517,13 @@ function uncheckedBlocks(
     // Quatre titres joints font vite soixante colonnes : cette ligne se replie
     // comme n'importe quelle autre, sinon elle déborde exactement dans le cas
     // où elle a le plus à dire.
-    const [firstTitle, ...otherTitles] = wrap(
+    const [firstTitle = "", ...otherTitles] = wrap(
       group.titles.join(", "),
       width - 8,
       "",
     );
     lines.push(
-      `${ITEM}${p.warning(stateSymbol("non-controle"))}  ${p.strong(firstTitle ?? "")}`,
+      `${ITEM}${p.warning(stateSymbol("non-controle"))}  ${p.strong(firstTitle)}`,
     );
     for (const l of otherTitles) lines.push(`${BODY}${p.strong(l)}`);
     const gutter = `${BODY}${p.dim("│")} `;
@@ -679,8 +679,12 @@ function actionList(
     // Terminal étroit : la commande se replie sous elle-même plutôt que de
     // déborder. Elle reste donnée en ENTIER dans le bloc du problème — cette
     // liste est un rappel, pas la source.
-    const [premiere, ...suite] = wrap(g.command, width - indent.length, "");
-    lines.push(`${ITEM}${p.dim(rang)}  ${p.action(premiere ?? "")}`);
+    const [premiere = "", ...suite] = wrap(
+      g.command,
+      width - indent.length,
+      "",
+    );
+    lines.push(`${ITEM}${p.dim(rang)}  ${p.action(premiere)}`);
     for (const l of suite) lines.push(indent + p.action(l));
     // Même règle qu'au-dessus : ce que ce geste répare se lit sous lui.
     lines.push(...underAction(g.why, indent, width, p));
@@ -732,7 +736,10 @@ function renderSummary(
   p: IPalette,
   width: number,
 ): string[] {
-  const { freshness, readiness, wiring, findings, scanned, execution } = report;
+  const { freshness, readiness, wiring, findings, scanned } = report;
+  // Élargi à la LECTURE : un rapport relu d'une autre version (`--json`) peut
+  // ne pas porter l'état d'une famille qu'il ne connaissait pas.
+  const execution: Partial<IDoctorReport["execution"]> = report.execution;
   const state = (n: number): SectionState => (n > 0 ? "echec" : "ok");
   /**
    * Les familles qui REPORTING_ONLY au lieu d'accuser.
@@ -1231,9 +1238,9 @@ function lastStartup(
     if (deborde) {
       return [`${BODY}${p.dim(name)}`, ...wrap(value, width, `${BODY}  `)];
     }
-    const [premiere, ...suite] = valueLines;
+    const [premiere = "", ...suite] = valueLines;
     return [
-      `${BODY}${p.dim(name.padEnd(column, " "))}${(premiere ?? "").trimStart()}`,
+      `${BODY}${p.dim(name.padEnd(column, " "))}${premiere.trimStart()}`,
       ...suite,
     ];
   };
@@ -1242,7 +1249,7 @@ function lastStartup(
   const title = (text: string, teinte: (t: string) => string): string[] => {
     const [premiere, ...suite] = wrap(text, width, BODY);
     return [
-      teinte(`${ITEM}${stateSymbol(state)}  ${(premiere ?? "").trimStart()}`),
+      teinte(`${ITEM}${stateSymbol(state)}  ${premiere.trimStart()}`),
       ...suite.map(teinte),
     ];
   };
@@ -1370,8 +1377,8 @@ function lastStartup(
     for (const message of shown) {
       // La suite s'aligne SOUS le texte, pas sous la puce : une deuxième ligne
       // rendue à la même colonne que le `·` se lit comme un deuxième message.
-      const [premiere, ...suite] = wrap(message, width, `${BODY}    `);
-      lines.push(p.failure(`${BODY}  · ${(premiere ?? "").trimStart()}`));
+      const [premiere = "", ...suite] = wrap(message, width, `${BODY}    `);
+      lines.push(p.failure(`${BODY}  · ${premiere.trimStart()}`));
       for (const l of suite) lines.push(p.failure(l));
     }
     const remainder = entry.criticals.length - shown.length;

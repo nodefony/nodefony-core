@@ -290,7 +290,7 @@ export function readTargetProvision(
         child.kill("SIGKILL");
       }, input.timeoutMs ?? TARGET_BOOT_TIMEOUT_MS);
       // `unref` : ce délai ne doit jamais retenir le processus à lui seul.
-      timer.unref?.();
+      timer.unref();
       child.on("error", (e) => {
         clearTimeout(timer);
         resolve({

@@ -129,7 +129,7 @@ const DIALECT_VALUE_RE =
   /\b(?:const|let|var)\s+\w+\s*:\s*SqlDialect\s*=\s*["'`](sqlite|postgres|mysql)["'`]/gu;
 
 /** Le dialecte de Nodefony pour un segment d'import Drizzle. */
-const DIALECT_OF_IMPORT: Record<string, SqlDialectName> = {
+const DIALECT_OF_IMPORT: Partial<Record<string, SqlDialectName>> = {
   sqlite: "sqlite",
   pg: "postgres",
   mysql: "mysql",
@@ -511,7 +511,7 @@ export function checkSurface(options: ISurfaceCheckOptions): ISurfaceResult {
       const imported = new Set<SqlDialectName>();
       let m: RegExpExecArray | null;
       while ((m = DRIZZLE_CORE_RE.exec(clean)) !== null) {
-        const found = DIALECT_OF_IMPORT[m[1] ?? ""];
+        const found = DIALECT_OF_IMPORT[m.at(1) ?? ""];
         if (found) imported.add(found);
       }
       DIALECT_VALUE_RE.lastIndex = 0;

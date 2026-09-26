@@ -26,7 +26,7 @@ const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
 import { createRequire } from "node:module";
 // oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
 export type TypeController<T> = new (...args: any[]) => T;
-const controllers: Record<string, TypeController<object>> = {};
+const controllers: Partial<Record<string, TypeController<object>>> = {};
 
 /**
  * Unité fonctionnelle de Nodefony — successeur direct du concept "Bundle" (Symfony / Nodefony JS).
@@ -521,7 +521,7 @@ class Module<TConfig = Record<string, unknown>>
     service: string | ServiceConstructor,
   ): void {
     const serviceName =
-      typeof service === "string" ? service : (service?.name ?? "(anonyme)");
+      typeof service === "string" ? service : service.name || "(anonyme)";
     const kernel = this.kernel as Kernel | null;
     if (!kernel) {
       // Module orphelin (test isolé) : aucune politique de boot à appliquer.
@@ -622,7 +622,7 @@ class Module<TConfig = Record<string, unknown>>
    *   si un même package est listé dans `dependencies` ET `peerDependencies`.
    */
   getDependencies(): string[] {
-    return Module.getPackageDependencies(this.package as PackageJson);
+    return Module.getPackageDependencies(this.package);
   }
 
   /**
@@ -631,7 +631,9 @@ class Module<TConfig = Record<string, unknown>>
    * @param mypackage - objet `package.json` parsé.
    * @returns array de noms de packages npm (deps + peerDeps, devDeps exclus).
    */
-  static getPackageDependencies(mypackage: PackageJson): string[] {
+  static getPackageDependencies(
+    mypackage: PackageJson | null | undefined,
+  ): string[] {
     if (mypackage) {
       const dependencies = Object.keys(mypackage.dependencies ?? {});
       const peerDependencies = Object.keys(mypackage.peerDependencies ?? {});
@@ -686,15 +688,10 @@ class Module<TConfig = Record<string, unknown>>
    * @throws Si `packageManager` n'est pas attaché au CliKernel.
    */
   async install(force: boolean = false): Promise<number | Error> {
-    if ((this.kernel?.cli as CliKernel)?.packageManager) {
-      if (force) {
-        return (this.kernel?.cli as CliKernel)?.packageManager(
-          ["install", "--force"],
-          this.path,
-        );
-      }
-      return (this.kernel?.cli as CliKernel)?.packageManager(
-        ["install"],
+    const cli = this.kernel?.cli as CliKernel | null | undefined;
+    if (cli) {
+      return cli.packageManager(
+        force ? ["install", "--force"] : ["install"],
         this.path,
       );
     }
@@ -708,11 +705,9 @@ class Module<TConfig = Record<string, unknown>>
    * @throws Si `packageManager` n'est pas attaché au CliKernel.
    */
   async outdated(): Promise<number | Error> {
-    if ((this.kernel?.cli as CliKernel)?.packageManager) {
-      return (this.kernel?.cli as CliKernel)?.packageManager(
-        ["outdated"],
-        this.path,
-      );
+    const cli = this.kernel?.cli as CliKernel | null | undefined;
+    if (cli) {
+      return cli.packageManager(["outdated"], this.path);
     }
     throw new Error(`Package Manager not found`);
   }

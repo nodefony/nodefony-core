@@ -125,12 +125,12 @@ class Menu extends Command {
 
   /** Ctrl+C pendant un prompt = un choix, pas une panne : sortie 0, sobre. */
   async #quit(e: unknown): Promise<never> {
-    if ((e as Error)?.name === "ExitPromptError") {
+    if ((e as Error | null | undefined)?.name === "ExitPromptError") {
       process.stdout.write(`\n${this.#dim("À bientôt.")}\n`);
       // Sortie par le shutdown NORMAL du kernel (drain compris), en `quiet` :
       // après « À bientôt. », la moindre ligne de log — même INFO — redonne
       // l'air d'une erreur (vécu, deux fois : le throw, puis le log kernel).
-      await this.cli?.terminate(0, true);
+      await this.cli.terminate(0, true);
     }
     this.log((e as Error).message, "ERROR");
     // Sortie voulue sans attente (cf commentaire ci-dessous) : son propre rejet
@@ -187,7 +187,7 @@ class Menu extends Command {
     group?: string;
     requiredArgs?: number;
   }[] {
-    return (this.cli?.commander?.commands ?? [])
+    return (this.cli.commander?.commands ?? [])
       .filter((c) => !c.name().startsWith("__") && c.name() !== "help")
       .map((c) => {
         const group = (c as { helpGroup?: () => unknown }).helpGroup?.();
@@ -199,7 +199,7 @@ class Menu extends Command {
         } = {
           name: c.name(),
           description: c.description() || "",
-          requiredArgs: (c.registeredArguments ?? []).filter(
+          requiredArgs: c.registeredArguments.filter(
             (a) => (a as { required?: boolean }).required,
           ).length,
         };
@@ -233,7 +233,7 @@ class Menu extends Command {
       inProject: Boolean(this.kernel?.trunk),
       projectName: this.kernel?.projectName,
       describe: (name) => {
-        const command = this.cli?.getCommand(name);
+        const command = this.cli.getCommand(name);
         return command ? command.description() : null;
       },
       moduleCommands: this.moduleCommandsFromManifest(),
@@ -302,9 +302,6 @@ class Menu extends Command {
   }
 
   override async generate(response: string): Promise<this> {
-    if (!this.cli) {
-      throw new Error(`cli not found`);
-    }
     // Écran REMIS À ZÉRO avant d'exécuter : la commande démarre sur une page
     // propre, avec une ligne qui rappelle ce qui se lance — le menu a rempli
     // l'écran, le laisser derrière rend toute sortie illisible.
@@ -316,7 +313,7 @@ class Menu extends Command {
     // commander — on l'exécute tel que l'utilisateur l'aurait tapé, sortie
     // héritée, et le code de sortie du script devient le nôtre.
     const plan = planMenuAction(response, (name) =>
-      Boolean(this.cli?.getCommand(name)),
+      Boolean(this.cli.getCommand(name)),
     );
     if (plan.kind === "npm") {
       const cmd = portableSpawn("npm", ["run", plan.script]);

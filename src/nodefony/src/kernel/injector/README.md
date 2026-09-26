@@ -324,7 +324,7 @@ Injector.getScope("MyService"); // "singleton" | "transient" | "request"
 Injector.scopeOf(MyService); // idem, depuis la classe
 Injector.instantiate(MyService, ...args); // instancie avec injection
 Injector.inject(MyService, ...args); // alias de instantiate
-Injector.injectables; // Record<string, ServiceConstructor>
+Injector.injectables; // Partial<Record<string, ServiceConstructor>> — une clé absente vaut undefined
 ```
 
 ---

@@ -33,7 +33,9 @@ class Build extends Command {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   override async generate(...args: any[]): Promise<this> {
     // commander passe l'objet d'options en 1er arg de l'action.
-    const force = Boolean((args[0] as { force?: boolean })?.force);
+    const force = Boolean(
+      (args.at(0) as { force?: boolean } | undefined)?.force,
+    );
     const turboArgs = ["turbo", "run", "build"];
     if (force) turboArgs.push("--force");
     this.log(`build : npx ${turboArgs.join(" ")}`, "INFO");

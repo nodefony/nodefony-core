@@ -145,7 +145,7 @@ class Dev extends Command {
 
   override async generate(/*options: any*/): Promise<Kernel> {
     try {
-      return this.cli?.kernel as Kernel;
+      return this.cli.kernel as Kernel;
     } catch (e) {
       this.log(e, "ERROR");
       throw e;

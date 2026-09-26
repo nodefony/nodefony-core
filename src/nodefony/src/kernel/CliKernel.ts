@@ -150,7 +150,7 @@ class CliKernel extends Cli {
    * @returns la méthode package manager retenue — à appeler sur ce CLI (non liée).
    */
   setPackageManager(
-    manager: PackageManagerName | undefined = this.options?.packageManager,
+    manager: PackageManagerName | undefined = this.options.packageManager,
   ): PackageManager {
     switch (manager) {
       // Références de MÉTHODE (cf le champ `packageManager`) : appelées comme
@@ -393,7 +393,7 @@ class CliKernel extends Cli {
     this.kernel = new Kernel(this.environment, this, options);
     // Posé quand le `.catch` du parse a DÉJÀ journalisé l'erreur : le `catch`
     // englobant, qui la voit (`return await`), ne la répète pas.
-    let logged = false;
+    let logged = false as boolean;
     try {
       if (this.commander) {
         this.registerBuiltinCommands();
@@ -427,7 +427,7 @@ class CliKernel extends Cli {
           // avant lui) : un alias qui n'apparaît nulle part n'existe pas pour
           // celui qui lit l'aide — c'est le seul endroit où il se découvre.
           subcommandTerm: (cmd) => {
-            const aliases = cmd.aliases?.() ?? [];
+            const aliases = cmd.aliases();
             return aliases.length
               ? `${cmd.name()}|${aliases.join("|")}`
               : cmd.name();
@@ -452,7 +452,7 @@ class CliKernel extends Cli {
         // servi hors TTY (CI, scripts — prompter y est absurde) et sur demande
         // explicite (`-h` / `--help`). Le TTY se lit sur `kernel.isTTY`
         // (source unique, `NF_NO_TTY` respecté — les tests forcent ainsi le help).
-        if (process.argv.slice(2).length === 0 && this.kernel?.isTTY) {
+        if (process.argv.slice(2).length === 0 && this.kernel.isTTY) {
           process.argv.push("menu");
         }
         if (this.isGlobalHelpRequested()) {
@@ -482,7 +482,7 @@ class CliKernel extends Cli {
         let booting = false;
         this.armSubcommandExitOverride();
         return await this.commander
-          ?.parseAsync()
+          .parseAsync()
           .then(async () => {
             if (!this.kernel) throw new Error(`Kernel not found`);
             booting = true;
@@ -492,7 +492,7 @@ class CliKernel extends Cli {
             // Sorties normales Commander (help affiché, --help, --version) → terminer
             // proprement (exit 0). `commander.help` = invocation nue `nodefony` (aucune
             // commande → commander affiche le help) ; `commander.helpDisplayed` = `--help`.
-            const code = (e as { code?: string })?.code;
+            const code = (e as { code?: string } | null | undefined)?.code;
             if (
               code === "commander.help" ||
               code === "commander.helpDisplayed" ||
@@ -566,7 +566,7 @@ class CliKernel extends Cli {
    * Partagé entre `start()` et le fallback de complétion (built-ins sans boot).
    */
   registerBuiltinCommands(): void {
-    if (this.commands["development"]) {
+    if (Object.hasOwn(this.commands, "development")) {
       return;
     }
     this.addCommand(Dev);
@@ -691,7 +691,7 @@ class CliKernel extends Cli {
     const names = new Set<string>();
     for (const cmd of this.commander?.commands ?? []) {
       names.add(cmd.name());
-      for (const alias of cmd.aliases?.() ?? []) {
+      for (const alias of cmd.aliases()) {
         names.add(alias);
       }
     }
@@ -723,7 +723,11 @@ class CliKernel extends Cli {
    * @param requested - nom de la commande tapée, ou `null`.
    */
   private writeUnknownOptionHint(e: unknown, requested: string | null): void {
-    if ((e as { code?: string })?.code !== "commander.unknownOption") return;
+    if (
+      (e as { code?: string } | null | undefined)?.code !==
+      "commander.unknownOption"
+    )
+      return;
     const target =
       requested === null
         ? undefined
@@ -769,7 +773,7 @@ class CliKernel extends Cli {
           this.armSubcommandExitOverride();
           await this.commander?.parseAsync();
         } catch (e) {
-          const code = (e as { code?: string })?.code;
+          const code = (e as { code?: string } | null | undefined)?.code;
           if (
             code === "commander.helpDisplayed" ||
             code === "commander.version"
@@ -934,7 +938,7 @@ class CliKernel extends Cli {
     // ne déclarent aucun groupe d'intention — un module tiers, dont personne
     // ici ne peut deviner l'intention.
     const owner: Record<string, string> = {};
-    const modules = this.kernel?.getModules?.() ?? {};
+    const modules = this.kernel?.getModules() ?? {};
     for (const name in modules) {
       const cmds = (modules[name] as { commands?: Record<string, unknown> })
         .commands;
@@ -952,12 +956,12 @@ class CliKernel extends Cli {
         // Ce que la commande ACCEPTE : dérivé des `choices()` de son premier
         // argument, jamais recopié — une liste réécrite ici divergerait au
         // premier sujet ajouté.
-        const arg = cmd.registeredArguments?.[0] as
+        const arg = cmd.registeredArguments.at(0) as
           { name(): string; argChoices?: string[] } | undefined;
         const values = arg?.argChoices ?? [];
         const entry: IHelpCommand = {
           name: cmd.name(),
-          aliases: cmd.aliases?.() ?? [],
+          aliases: cmd.aliases(),
           description: cmd.description() || "",
         };
         if (typeof group === "string" && group) entry.group = group;
@@ -1159,7 +1163,7 @@ class CliKernel extends Cli {
       data.push(7);
     }
     if (
-      this.kernel.runProfile?.servers &&
+      this.kernel.runProfile.servers &&
       this.kernel.environment === "development"
     ) {
       // EMERGENCY ALERT CRITIC ERROR INFO WARNING

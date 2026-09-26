@@ -208,7 +208,7 @@ function declaredFrontendEntries(projectRoot: string): IFrontendEntry[] {
       REGISTER_ENTRY_RE.lastIndex = 0;
       let m: RegExpExecArray | null;
       while ((m = REGISTER_ENTRY_RE.exec(code)) !== null) {
-        const options = m[1] ?? "";
+        const options = m.at(1) ?? "";
         const root = ENTRY_ROOT_RE.exec(options)?.[1];
         const outDir = ENTRY_OUT_DIR_RE.exec(options)?.[1];
         if (!root || !outDir) continue;

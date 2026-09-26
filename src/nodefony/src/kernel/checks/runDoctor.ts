@@ -66,6 +66,7 @@ import {
 } from "./report";
 import { renderReport } from "./renderReport";
 import { stripGlobalCliFlags } from "../../cli/globalFlags";
+import { isTerminal } from "../../runtime/isTerminal";
 
 /** Dispositions explorées : une application (`modules/`) et ce dépôt. */
 const CANDIDATE_ROOTS = [
@@ -369,9 +370,9 @@ export function usage(p: IPalette, width: number = usableWidth(80)): string {
   const column = 20;
   const indent = " ".repeat(column + 3);
   const opt = (flag: string, quoi: string): string => {
-    const [premiere, ...suite] = wrap(quoi, width - indent.length, "");
+    const [premiere = "", ...suite] = wrap(quoi, width - indent.length, "");
     return (
-      `  ${p.action(flag.padEnd(column, " "))} ${premiere ?? ""}\n` +
+      `  ${p.action(flag.padEnd(column, " "))} ${premiere}\n` +
       suite.map((l) => `${indent}${l}\n`).join("")
     );
   };
@@ -671,7 +672,7 @@ export function parseDoctorArgv(
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
     } else if (word === "--env") {
-      const value = rest[++i];
+      const value = rest.at(++i);
       // Un `--env` sans valeur avalerait l'option suivante et diagnostiquerait
       // un environnement nommé « --json ». Le refus nomme la forme attendue :
       // une option mal comprise doit apprendre à s'en servir, pas seulement
@@ -1284,7 +1285,7 @@ export function reporterProgression(
 ): DeepReporter | undefined {
   if (json) return undefined;
   const p = createPalette(
-    shouldColorize(process.env, process.stderr.isTTY ?? false),
+    shouldColorize(process.env, isTerminal(process.stderr)),
   );
   // Sur un terminal, l'attente est ANIMÉE. Sans cela, `--deep` écrivait
   // « … npm run typecheck » puis se taisait trente-huit secondes : un point
@@ -1292,7 +1293,7 @@ export function reporterProgression(
   // « ça travaille » de « c'est planté » — il interrompt, puis cesse de s'en
   // servir. Hors terminal (forge, redirection), le comportement ne bouge pas
   // d'un octet : une ligne par évènement, écrite par `ecrire`.
-  const animated = stream.isTTY ?? false;
+  const animated = isTerminal(stream);
   const spinner = animated
     ? new Spinner({
         stream,
@@ -1320,7 +1321,7 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     // part sur la sortie d'erreur, avec l'usage, et un code distinct de celui
     // d'un manquement.
     const p = createPalette(
-      shouldColorize(process.env, process.stderr.isTTY ?? false),
+      shouldColorize(process.env, isTerminal(process.stderr)),
     );
     // Replié comme le reste : un refus qui déborde du terminal est le premier
     // texte que le lecteur voit casser, et il le voit au pire moment.
@@ -1334,9 +1335,7 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
   if (parsed.help) {
     process.stdout.write(
       usage(
-        createPalette(
-          shouldColorize(process.env, process.stdout.isTTY ?? false),
-        ),
+        createPalette(shouldColorize(process.env, isTerminal(process.stdout))),
         usableWidth(process.stdout.columns),
       ),
     );
@@ -1425,7 +1424,7 @@ export function renderDoctorReport(
   const out = process.stdout;
   const lines = renderReport(report, {
     width: usableWidth(out.columns),
-    color: shouldColorize(process.env, out.isTTY ?? false),
+    color: shouldColorize(process.env, isTerminal(out)),
     now: Date.now(),
     launchedFrom: start,
     strict,

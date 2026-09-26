@@ -135,7 +135,7 @@ export function configInconsistencies(options: {
     cwd,
     ...(projectRoot ? { projectRoot } : {}),
     env: appEnvironment(cwd),
-    ...(dialectExceptions ? { dialectExceptions } : {}),
+    dialectExceptions,
   });
   // `dialectFrom` NOMME la variable réellement lue — annoncer `NF_DATABASE_URL`
   // quand la valeur vient de l'alias de plateforme enverrait corriger une

@@ -49,7 +49,9 @@ export interface PropertyInjectMeta {
 // dont les membres (`toString`, `constructor`, `valueOf`…) répondraient alors à
 // `isRegistered()` comme autant de services fantômes que personne n'a enregistrés —
 // et `register("__proto__", …)` déracinerait le registre au lieu d'y poser une clé.
-const injectables = Object.create(null) as Record<string, ServiceConstructor>;
+const injectables = Object.create(null) as Partial<
+  Record<string, ServiceConstructor>
+>;
 
 // ─── Classe → clé container (le « token ») ───────────────────────────────────
 //
@@ -68,7 +70,7 @@ const injectables = Object.create(null) as Record<string, ServiceConstructor>;
 const containerKeys = new Map<ServiceConstructor, string>();
 
 class Injector extends Service {
-  static injectables: Record<string, ServiceConstructor> = injectables;
+  static injectables: Partial<Record<string, ServiceConstructor>> = injectables;
 
   constructor(kernel: Kernel) {
     super(
@@ -89,6 +91,8 @@ class Injector extends Service {
     serviceName: string,
     service: ServiceConstructor,
   ): ServiceConstructor {
+    // Garde d'entrée publique : un appelant JavaScript peut l'omettre.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (!serviceName || !service) {
       throw new Error(`Injector register  bad argument`);
     }
@@ -116,6 +120,8 @@ class Injector extends Service {
     service: ServiceConstructor,
     containerKey: string,
   ): void {
+    // Garde d'entrée publique : un appelant JavaScript peut l'omettre.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (!service || !containerKey) return;
     containerKeys.set(service, containerKey);
   }

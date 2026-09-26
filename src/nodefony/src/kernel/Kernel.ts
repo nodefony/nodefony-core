@@ -80,6 +80,7 @@ import { findSetReservedKeys } from "../config/configProvenance";
 import nodefonyError from "../Error";
 import { SysExit } from "../cli/sysexits";
 import type { IGuardedEmitResult, IGuardedListenerInfo } from "../Event";
+import { isTerminal } from "../runtime/isTerminal";
 import { withTimeout, TimeoutError } from "../runtime/withTimeout";
 import { isCommandAction, readListenerTags } from "./lifecycleTags";
 import { BootConfigurationError } from "./BootConfigurationError";
@@ -585,9 +586,7 @@ class Kernel extends Service implements IKernel {
    * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NF_NO_TTY` (test/CI).
    */
   // `isTTY` vaut `undefined` hors terminal (malgré son type `boolean`).
-  isTTY: boolean = process.env.NF_NO_TTY
-    ? false
-    : (process.stdout?.isTTY ?? false);
+  isTTY: boolean = process.env.NF_NO_TTY ? false : isTerminal(process.stdout);
   /**
    * Timer no-op ref'd gardant l'event loop vivant pendant un {@link park} `keepAlive`
    * (daemon CONSOLE sans socket). `null` tant qu'aucun park alive — lazy. Nettoyé par
@@ -831,7 +830,7 @@ class Kernel extends Service implements IKernel {
       timestamp: new Date().toISOString(),
       profile: this.lastBootProfile(),
       command: this.command?.name,
-      environment: this.environment ?? "unknown",
+      environment: this.environment,
       pid: process.pid,
       node: process.version,
       phase: this.lastReachedPhase(),
@@ -856,7 +855,7 @@ class Kernel extends Service implements IKernel {
    * @returns le profil de ce démarrage.
    */
   private lastBootProfile(): LastBootProfile {
-    if (!this.runProfile?.servers) return "console";
+    if (!this.runProfile.servers) return "console";
     if (this.command?.name === "cluster" && cluster.isPrimary) return "cluster";
     return "server";
   }
@@ -997,7 +996,7 @@ class Kernel extends Service implements IKernel {
         .runCommandAsync("menu", ["-i"])
         .then(() => {
           if (this.command) {
-            return this.command?.action(...this.commandArgs).then(() => {
+            return this.command.action(...this.commandArgs).then(() => {
               return this;
             });
           }
@@ -1144,7 +1143,7 @@ class Kernel extends Service implements IKernel {
     // ce qui préserve le motif d'origine (FS possiblement read-only, aucune
     // complétion dans un container).
     const env = this.resolveRuntimeEnv(this.cli?.environment);
-    if (env === "development" || !this.runProfile?.servers) {
+    if (env === "development" || !this.runProfile.servers) {
       void this.cli?.writeCompletionManifest().catch(() => {});
     }
 
@@ -1156,7 +1155,7 @@ class Kernel extends Service implements IKernel {
       // showAsciify + showBanner sont désormais émis en TÊTE de `start()`.
       // On garde ici seulement la résolution debug/env/processTitle qui
       // dépend de l'instance CLI rattachée au kernel.
-      this.debug = Boolean(this.cli?.commander?.opts().debug) || false;
+      this.debug = Boolean(this.cli.commander?.opts().debug) || false;
       this.setEnv(this.cli.environment);
       this.cli.setProcessTitle(this.projectName.toLowerCase());
     }
@@ -1191,7 +1190,7 @@ class Kernel extends Service implements IKernel {
     if (this.cli?.commander?.options.length) {
       // fix workaround commander twice call options
       if (version) {
-        const optionVersionExists = this.cli?.commander?.options.some(
+        const optionVersionExists = this.cli.commander.options.some(
           (opt) => opt.short === "-v" || opt.long === "--version",
         );
         if (optionVersionExists) {
@@ -1212,7 +1211,7 @@ class Kernel extends Service implements IKernel {
         }
       }
       if (debug) {
-        const optionDebugExists = this.cli?.commander?.options.some(
+        const optionDebugExists = this.cli.commander.options.some(
           (opt) => opt.short === "-d" || opt.long === "--debug",
         );
         if (optionDebugExists) {
@@ -1313,10 +1312,10 @@ class Kernel extends Service implements IKernel {
           // Le fichier le rend lisible ensuite — par un agent, une tâche
           // d'intégration continue, ou quiconque arrive après coup.
           this.writeBootSummary(report);
-          if (global?.gc) {
+          if (global.gc) {
             this.memoryUsage("MEMORY POST READY ");
             setTimeout(() => {
-              if (global?.gc) global.gc();
+              if (global.gc) global.gc();
               this.memoryUsage("EXPOSE GARBADGE COLLECTOR ON START");
             }, 20000);
           } else {
@@ -1394,10 +1393,10 @@ class Kernel extends Service implements IKernel {
    * @returns array d'instances de serveurs démarrés (ou `[]`).
    */
   async initServers(): Promise<IStartedServer[]> {
-    // `runProfile` est INDÉFINI avant `onStart` (champ `!`) : `?.servers` peut
-    // valoir `undefined`, qui ne doit PAS couper les serveurs.
+    // Seul un `false` EXPLICITE coupe les serveurs : un profil qui n'en dit
+    // rien (`servers` absent d'un profil écrit en JavaScript) les garde.
     // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
-    if (this.runProfile?.servers === false) return [];
+    if (this.runProfile.servers === false) return [];
     const httpKernel = this.get<IServerKernel>("HttpKernel");
     if (httpKernel)
       return httpKernel
@@ -2414,7 +2413,9 @@ class Kernel extends Service implements IKernel {
     // `this.runProfile` rendrait `servers: false` pour TOUT run, `production`
     // compris, et désarmerait la garde partout sans un mot.
     // `?? false` et non une lecture nue : le profil peut être encore INDÉFINI.
-    const serves = (this.cli?.runProfile ?? this.runProfile)?.servers ?? false;
+    const profile = (this.cli?.runProfile ?? this.runProfile) as
+      IRunProfile | undefined;
+    const serves = profile?.servers ?? false;
     setRunServesTraffic(serves);
     try {
       this.app = await this.loadModule(appEntry);
@@ -2530,7 +2531,7 @@ class Kernel extends Service implements IKernel {
     this.core = await this.isCore();
 
     this.app.package = await this.app.getPackageJson();
-    this.version = this.app?.getModuleVersion() as string;
+    this.version = this.app.getModuleVersion() as string;
     this.fixCommanderCli();
     this.cli?.setCommandVersion(this.version);
     await this.fireAsync("onAppLoad", this.app).catch((e: unknown) => {
@@ -2834,7 +2835,7 @@ class Kernel extends Service implements IKernel {
     registerBuiltinLogDrivers();
     const driverCtx: ILogDriverContext = {
       logCfg,
-      environment: this.environment ?? DEFAULT_ENGINE_ENVIRONMENT,
+      environment: this.environment,
       logDir: logDirAbs,
       pid: process.pid,
       getRingStack: () => this.syslog?.ringStack ?? [],
@@ -2923,7 +2924,7 @@ class Kernel extends Service implements IKernel {
   setCli(cli?: CliKernel | null): CliKernel | null {
     if (cli) {
       this.runProfile = cli.runProfile;
-      this.debug = Boolean(cli?.commander?.opts().debug) || false;
+      this.debug = Boolean(cli.commander?.opts().debug) || false;
       if (this.typeCluster === "worker") {
         cli.setPid();
       }
@@ -2936,10 +2937,13 @@ class Kernel extends Service implements IKernel {
   isConsole(): boolean {
     // Défensif : `runProfile` peut être indéfini au moment de l'init du field `console`
     // (avant le constructor) → `false`, préservant la valeur figée historique.
-    return this.runProfile ? !this.runProfile.servers : false;
+    const profile = this.runProfile as IRunProfile | undefined;
+    return profile ? !profile.servers : false;
   }
 
   setNodeEnv(environment: EnvironmentType): void {
+    // Garde d'entrée publique : un appelant JavaScript peut l'omettre.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (environment) {
       switch (environment) {
         case "dev":
@@ -3030,7 +3034,7 @@ class Kernel extends Service implements IKernel {
       /* commander sans version définie — ignore */
     }
     const meta = [
-      this.typeCluster ?? "",
+      this.typeCluster,
       process.platform,
       `node ${process.version}`,
       `pid ${process.pid}`,
@@ -3040,9 +3044,7 @@ class Kernel extends Service implements IKernel {
       .filter(Boolean)
       .join(" · ");
     const tag = version ? ` ${logColor.blackBright(`v${version}`)}` : "";
-    const env = this.environment
-      ? `   ${logColor.green(this.environment)}`
-      : "";
+    const env = `   ${logColor.green(this.environment)}`;
     // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
     // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
     // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
@@ -3065,11 +3067,9 @@ class Kernel extends Service implements IKernel {
     let txt = `      \x1b ${logColor.blue(profileLabel)} `;
     txt += ` ${logColor.magenta("Cluster")} : ${this.typeCluster} `;
     txt += ` ${logColor.magenta("Nodefony Environment")} : ${this.environment}  `;
-    if (this.appEnvironment) {
-      txt += ` ${logColor.magenta("App Environment")} : ${
-        this.appEnvironment.environment
-      }  `;
-    }
+    txt += ` ${logColor.magenta("App Environment")} : ${
+      this.appEnvironment.environment
+    }  `;
     txt += ` ${logColor.magenta("Debug")} : ${String(this.debug)}\n`;
     return txt;
   }
@@ -3405,7 +3405,7 @@ class Kernel extends Service implements IKernel {
     const measured = this.bootServers !== null;
     const serversListening = this.bootServers ?? [];
     // `?? false` : le profil peut être encore INDÉFINI (champ `!`).
-    const serversExpected = this.runProfile?.servers ?? false;
+    const serversExpected = this.runProfile.servers;
     const modulesSkipped = this.bootFailures ?? [];
     // Journal de boot : compte figé à `postReady` (après, le ring mélange boot et
     // runtime) ; à la volée tant que le boot est en cours.
@@ -3889,7 +3889,7 @@ class Kernel extends Service implements IKernel {
     this.log(`${colorLogEvent()} ${event} [guarded]`, "DEBUG");
     const warnMs = this.bootWarnMs();
     let fatalError: unknown = null;
-    let hasFatal = false;
+    let hasFatal = false as boolean;
     const bootTimeout = this.bootTimeoutMs();
     const result = await super.emitAsyncGuarded(
       event,
@@ -4288,7 +4288,7 @@ class Kernel extends Service implements IKernel {
       this.options.shutdownDeadline ?? DEFAULT_SHUTDOWN_DEADLINE;
     let raced: unknown;
     if (deadlineMs > 0) {
-      let deadlineTimer: NodeJS.Timeout | null = null;
+      let deadlineTimer = null as NodeJS.Timeout | null;
       raced = await Promise.race([
         drain,
         new Promise((resolve) => {

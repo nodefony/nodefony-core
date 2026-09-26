@@ -93,7 +93,9 @@ interface ReadinessEntry {
  * parcours, puisque c'est la lecture qui doit rester gratuite.
  */
 export class ReadinessRegistry {
-  private entries = Object.create(null) as Record<string, ReadinessEntry>;
+  private entries = Object.create(null) as Partial<
+    Record<string, ReadinessEntry>
+  >;
   private notReady: number = 0;
   private tracked: number = 0;
 
@@ -193,6 +195,7 @@ export class ReadinessRegistry {
     const out: IReadinessContributor[] = [];
     for (const name of Object.keys(this.entries).sort()) {
       const entry = this.entries[name];
+      if (entry === undefined) continue;
       // `blocking` n'apparaît que lorsqu'il vaut `false` — même parti-pris que
       // `reason` : la forme de sortie ne change que dans le cas qui l'exige, et
       // un consommateur écrit avant cette distinction lit exactement ce qu'il

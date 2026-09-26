@@ -189,7 +189,7 @@ class Check extends Command {
       const kernel = this.kernel as Kernel | null;
       return await collectLiveReport(broker, localOperatorCaller(), {
         targetEnv,
-        manifest: kernel?.options?.modules,
+        manifest: kernel?.options.modules,
         config: kernel?.options as GateConfig,
         // 🔴 Le boot cible part dans un PROCESSUS À PART, et jamais ici :
         // poser `NODE_ENV=production` dans celui-ci ferait basculer tout le

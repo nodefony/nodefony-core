@@ -61,7 +61,7 @@ export function orderServicesByDependencies(
 
   // dependsOn[i] = indices dont i dépend (doivent être instanciés AVANT i).
   const dependsOn: Set<number>[] = entries.map(() => new Set<number>());
-  let hasEdge = false;
+  let hasEdge = false as boolean;
   entries.forEach((entry, i) => {
     if (typeof entry === "string") return;
     for (const depName of Injector.dependencyNamesOf(entry)) {

@@ -308,7 +308,10 @@ describe("CliKernel — initSyslog()", () => {
     const cli = makeCliKernel("development");
     cli.syslog?.removeAllListeners();
     // Mock minimal : seuls .type et .environment sont lus dans initSyslog
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     cli.initSyslog("development", false);
 
@@ -330,7 +333,10 @@ describe("CliKernel — initSyslog()", () => {
   it("avec kernel + debug=true → severity [0..7], DEBUG passe", () => {
     const cli = makeCliKernel("development");
     cli.syslog?.removeAllListeners();
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     cli.initSyslog("development", true);
 
@@ -350,7 +356,10 @@ describe("CliKernel — initSyslog()", () => {
     const cli = makeCliKernel("development");
     cli.syslog?.removeAllListeners();
     cli.debug = true;
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     cli.initSyslog("development"); // pas de debug arg, utilise this.debug
 
@@ -367,7 +376,10 @@ describe("CliKernel — initSyslog()", () => {
   it("avec kernel + debug=['ROUTER'] → msgid condition, seul ROUTER passe", () => {
     const cli = makeCliKernel("development");
     cli.syslog?.removeAllListeners();
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     cli.initSyslog("development", ["ROUTER"]);
 
@@ -389,7 +401,10 @@ describe("CliKernel — initSyslog()", () => {
   it("avec kernel + debug='*' → pas de filtre msgid, tout passe", () => {
     const cli = makeCliKernel("development");
     cli.syslog?.removeAllListeners();
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     cli.initSyslog("development", "*");
 
@@ -415,7 +430,10 @@ describe("CliKernel — initSyslog()", () => {
   it("--json dans argv → seules les erreurs passent, le bruit de cycle de vie s'efface", () => {
     const cli = makeCliKernel();
     cli.syslog?.removeAllListeners();
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     const argv = process.argv;
     process.argv = [argv[0], argv[1], "inspect", "routes", "--json"];
@@ -455,7 +473,10 @@ describe("CliKernel — initSyslog()", () => {
     // `Syslog.init()` prenait déjà cette précaution ; ici elle manquait.
     const cli = makeCliKernel();
     cli.syslog?.removeAllListeners();
-    cli.kernel = { type: "CONSOLE", environment: "development" } as any;
+    cli.kernel = {
+      runProfile: { servers: false },
+      environment: "development",
+    } as any;
 
     cli.initSyslog("development", false);
     const after1 = cli.syslog?.listenerCount("onLog") ?? 0;

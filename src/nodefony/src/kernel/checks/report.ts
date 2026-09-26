@@ -274,7 +274,7 @@ export function preventedChecks(
  * @returns un élément par contrôle sauté, vide si tout a été regardé.
  */
 export function skippedChecks(
-  execution: Record<DoctorFamily, IExecution>,
+  execution: Partial<Record<DoctorFamily, IExecution>>,
 ): ISkippedCheck[] {
   const skipped: ISkippedCheck[] = [];
   for (const family of FAMILIES) {

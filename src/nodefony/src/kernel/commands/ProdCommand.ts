@@ -83,7 +83,7 @@ class Prod extends Command {
     process.title = cluster.isWorker
       ? `nodefony worker ${cluster.worker?.id ?? "?"} [cluster]`
       : "nodefony server";
-    return this.cli?.kernel as Kernel;
+    return this.cli.kernel as Kernel;
   }
 }
 
