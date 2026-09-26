@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T10:33:05.512Z",
+  "generatedAt": "2026-09-26T13:27:28.891Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 39,
+      "closed": 41,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 43,
+      "open": 45,
       "title": "10.0.0-beta"
     },
     {
@@ -278,6 +278,62 @@
       "labels": [
         "beta-1"
       ]
+    },
+    {
+      "number": 495,
+      "title": "refactor(types): finir le typage strict de tout le dépôt",
+      "url": "https://github.com/nodefony/nodefony-core/issues/495",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": null,
+      "ordre": 1.01,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 496,
+      "title": "refactor(types): sortir chaque paquet de la surcharge qui éteint le typage strict",
+      "url": "https://github.com/nodefony/nodefony-core/issues/496",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 3,
+      "ordre": 1.011,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 497,
+      "title": "refactor(types): casser le dernier cycle de types, entre http et security",
+      "url": "https://github.com/nodefony/nodefony-core/issues/497",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 1,
+      "ordre": 1.012,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 498,
+      "title": "build(lint): durcir le typage au-delà du préréglage strict-type-checked",
+      "url": "https://github.com/nodefony/nodefony-core/issues/498",
+      "state": "OPEN",
+      "status": "In Progress",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 1.013,
+      "debut": null,
+      "cible": null,
+      "labels": []
     },
     {
       "number": 275,
