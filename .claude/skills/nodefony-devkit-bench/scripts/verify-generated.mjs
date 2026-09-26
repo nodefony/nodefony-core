@@ -1096,11 +1096,21 @@ step(
       ".bin",
       process.platform === "win32" ? "oxlint.cmd" : "oxlint",
     );
+    // La grille du dépôt est TYPÉE (`typeAware`) : oxlint délègue ces règles à
+    // l'exécutable `tsgolint`, qu'il cherche depuis le dossier courant — l'app
+    // ne l'installe pas, et oxlint sortait en 1 sur « Failed to find tsgolint
+    // executable », que la garde ci-dessous lisait comme une exclusion. On lui
+    // donne le binaire NATIF du dépôt, résolu pour la plateforme qui tourne
+    // (le lanceur `.bin/tsgolint` est un script Node, pas un exécutable).
+    const tsgolint = createRequire(path.join(REPO, "package.json")).resolve(
+      `@oxlint-tsgolint/${process.platform}-${process.arch}/tsgolint${process.platform === "win32" ? ".exe" : ""}`,
+    );
     const lance = () =>
       spawnSync(bin, ["--config", rcPath, "--deny-warnings", "."], {
         cwd: APP,
         encoding: "utf8",
         timeout: 120_000,
+        env: { ...process.env, OXLINT_TSGOLINT_PATH: tsgolint },
         // `oxlint.cmd` est un script batch : son chemin a beau être ABSOLU,
         // Node ne peut pas l'exécuter sans shell. Le symptôme est `status null`
         // — pas un message d'erreur — et la garde ci-dessous le traduisait en

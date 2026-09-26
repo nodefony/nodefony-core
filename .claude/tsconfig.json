@@ -1,0 +1,16 @@
+{
+  // Tsconfig de LINT de l'outillage, jamais de build. Sans lui, les scripts
+  // `.mjs` n'appartiennent à aucun projet : le lint typé les rattache à un
+  // projet inféré qui dépend du chemin passé à oxlint, et rend des verdicts
+  // différents (faux constats fichier par fichier, constats réels tus depuis
+  // la racine). Avec lui, un seul verdict, le vrai. Étend la racine, qui
+  // n'est pas modifiée.
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "allowJs": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["**/*.mjs", "**/*.js", "**/*.ts"],
+  "exclude": ["**/node_modules/**", "**/references/**", "**/dist/**"]
+}
