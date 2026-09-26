@@ -112,6 +112,25 @@ export function liveRetexThemes(text) {
   return out;
 }
 
+/**
+ * Thèmes MÛRS annoncés par `retex-seuil.mjs` (`   55  🎯 Titre`), dans l'ordre rendu.
+ *
+ * 🔴 La clôture n'affichait que la PREMIÈRE ligne du script — les totaux — et
+ * avalait la liste : un thème à 55 frictions a traversé huit clôtures sans
+ * qu'aucune ne le nomme. Le contrôle existait ; son verdict n'arrivait pas.
+ *
+ * @param {string} out - sortie standard de `retex-seuil.mjs` (sans `--all`).
+ * @returns {{count: number, title: string}[]}
+ */
+export function matureThemes(out) {
+  const res = [];
+  for (const line of out.split("\n")) {
+    const m = /^\s+(\d+)\s{2}(\S.*)$/u.exec(line);
+    if (m) res.push({ count: Number(m[1]), title: m[2].trim() });
+  }
+  return res;
+}
+
 /** Liens `[[nom]]` d'une section `## <titre>` d'un fichier Markdown. */
 export function linksInSection(text, heading) {
   const start = text.indexOf(`\n## ${heading}`);

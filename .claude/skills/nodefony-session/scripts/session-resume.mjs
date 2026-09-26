@@ -16,7 +16,7 @@
  * @option  --offline   ne joint pas GitHub (empreinte du dernier END, datée)
  * @output  ~30 lignes ; code 0 toujours — c'est un état des lieux, pas un gate
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -59,6 +59,26 @@ const sh = (cmd, args, opts = {}) => {
     err: (r.stderr ?? "").trim(),
   };
 };
+/**
+ * `sh`, sans bloquer : les appels réseau (~10-13 s chacun) partent ENSEMBLE et
+ * chaque section n'attend que le sien — la reprise coûte le plus long, pas la
+ * somme (38 s → ~15 s mesurés).
+ */
+const shAsync = (cmd, args, opts = {}) =>
+  new Promise((resolve) => {
+    const child = spawn(cmd, args, { cwd: ROOT, ...opts });
+    let out = "";
+    let err = "";
+    child.stdout.setEncoding("utf8").on("data", (d) => (out += d));
+    child.stderr.setEncoding("utf8").on("data", (d) => (err += d));
+    const timer = setTimeout(() => child.kill(), opts.timeout ?? 60_000);
+    const done = (code) => {
+      clearTimeout(timer);
+      resolve({ ok: code === 0, out: out.trim(), err: err.trim() });
+    };
+    child.once("error", () => done(1));
+    child.once("close", done);
+  });
 const git = (...args) => sh("git", args);
 const out = [];
 const say = (line = "") => out.push(line);
@@ -73,6 +93,40 @@ const online =
 // ── 1. Git : branche, avance/retard, arbre.
 if (online) git("fetch", "-q");
 const branch = git("branch", "--show-current").out;
+
+// Les quatre lectures réseau, lancées ENSEMBLE. Indépendantes : chacune
+// interroge GitHub (ou le dépôt mémoire) de son côté, aucune ne lit ce qu'une
+// autre écrit — l'empreinte écrit `.ai/board.json`, que le lint ne lit pas.
+const script = (rel) => path.join(ROOT, ".claude/skills", rel);
+const pending = online
+  ? {
+      memPull: fs.existsSync(MEM)
+        ? shAsync("git", ["-C", MEM, "pull", "-q", "--ff-only"], {
+            timeout: 30_000,
+          })
+        : null,
+      runs: shAsync("gh", [
+        "run",
+        "list",
+        "--branch",
+        branch,
+        "--limit",
+        "40",
+        "--json",
+        "headSha,status,conclusion,workflowName",
+      ]),
+      snapshot: shAsync(
+        process.execPath,
+        [script("nodefony-session/scripts/board-snapshot.mjs")],
+        { timeout: 120_000 },
+      ),
+      lint: shAsync(
+        process.execPath,
+        [script("nodefony-ticket/scripts/board-lint.mjs"), "--json"],
+        { timeout: 120_000 },
+      ),
+    }
+  : null;
 const ahead = git("rev-list", "--count", "@{u}..HEAD").out || "?";
 const behind = git("rev-list", "--count", "HEAD..@{u}").out || "?";
 const dirty = git("status", "--porcelain").out.split("\n").filter(Boolean);
@@ -83,10 +137,8 @@ say(
 );
 
 // ── 2. Mémoire : synchronisée d'abord (une session faite ailleurs), puis le dernier `_state`.
-if (online && fs.existsSync(MEM)) {
-  const pull = sh("git", ["-C", MEM, "pull", "-q", "--ff-only"], {
-    timeout: 30_000,
-  });
+if (pending?.memPull) {
+  const pull = await pending.memPull;
   if (!pull.ok)
     say(
       `⚠️ mémoire IA : pull refusé — ${clip(pull.err.split("\n")[0] ?? "", 70)}`,
@@ -151,16 +203,7 @@ if (online) {
   const shas = git("log", "@{u}", "-5", "--format=%H")
     .out.split("\n")
     .filter(Boolean);
-  const runs = sh("gh", [
-    "run",
-    "list",
-    "--branch",
-    branch,
-    "--limit",
-    "40",
-    "--json",
-    "headSha,status,conclusion,workflowName",
-  ]);
+  const runs = await pending.runs;
   const all = runs.ok ? JSON.parse(runs.out || "[]") : [];
   // Le dernier commit poussé peut n'avoir aucun run (`paths-ignore` sur la prose) :
   // on remonte au premier qui en a.
@@ -188,17 +231,8 @@ if (online) {
 
 // ── 5. Empreinte du tableau : LA voie de lecture, rafraîchie si on peut.
 const BOARD = path.join(ROOT, ".ai", "board.json");
-if (online) {
-  const snap = sh(
-    process.execPath,
-    [
-      path.join(
-        ROOT,
-        ".claude/skills/nodefony-session/scripts/board-snapshot.mjs",
-      ),
-    ],
-    { timeout: 120_000 },
-  );
+if (pending) {
+  const snap = await pending.snapshot;
   if (!snap.ok)
     say(
       `⚠️ empreinte NON rafraîchie — ${clip((snap.err || snap.out).split("\n")[0], 80)}`,
@@ -239,15 +273,8 @@ if (committed.ok) {
 }
 
 // ── 7. Lint du tableau, UNE fois.
-if (online) {
-  const lint = sh(
-    process.execPath,
-    [
-      path.join(ROOT, ".claude/skills/nodefony-ticket/scripts/board-lint.mjs"),
-      "--json",
-    ],
-    { timeout: 120_000 },
-  );
+if (pending) {
+  const lint = await pending.lint;
   try {
     const { findings } = JSON.parse(lint.out);
     const errors = findings.filter((f) => f.severity === "erreur");

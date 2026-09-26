@@ -6022,6 +6022,10 @@
             "usage": [],
             "options": [
               {
+                "flag": "--all",
+                "help": ""
+              },
+              {
                 "flag": "--format",
                 "help": ""
               },

@@ -30,6 +30,7 @@ import {
   ciVerdict,
   clip,
   datesIn,
+  matureThemes,
   modifiedOf,
   sessionLogArgs,
   stateWrittenAt,
@@ -229,6 +230,14 @@ function prepare() {
   say(
     `Sas RETEX : ${lines} lignes${lines > 300 ? " (au-delà d'un écran → CONSOLIDATE à programmer)" : ""} · ${clip(seuil.out.split("\n")[0] ?? "", 70)}`,
   );
+  // Une ligne, et seulement si un thème a passé le seuil : aucun coût de plus
+  // à une clôture ordinaire.
+  const mature = matureThemes(seuil.out);
+  if (mature.length > 0) {
+    say(
+      `🎓 À graduer au prochain CONSOLIDATE : ${mature.map((t) => `${clip(t.title, 40)} (${t.count})`).join(" · ")}`,
+    );
+  }
   // Chemins à écrire.
   const transcripts = path.dirname(MEM);
   const latest = fs.existsSync(transcripts)
