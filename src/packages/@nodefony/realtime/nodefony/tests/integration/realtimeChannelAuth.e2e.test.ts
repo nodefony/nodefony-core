@@ -211,7 +211,9 @@ function makeServer(wire: LoopbackWire, environment?: string): AuthRt {
   // y vaut `undefined`, qui vaut production — leurs refus restent donc nus, et
   // c'est ce qu'ils vérifient déjà.
   if (environment !== undefined) {
-    rt.kernel = { environment } as unknown as typeof rt.kernel;
+    // `modules` vide comme un vrai Kernel (jamais absent) : ce décor n'a aucun
+    // module d'identité, c'est ce que le refus doit constater.
+    rt.kernel = { environment, modules: {} } as unknown as typeof rt.kernel;
   }
   wire.feedServer = (raw) => rt.feed(raw);
   return rt;
