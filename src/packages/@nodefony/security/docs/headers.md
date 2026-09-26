@@ -122,8 +122,8 @@ fait l'inverse : **tout ce qui est constant est calculé une fois au démarrage*
   statique) et la **gèle** avec `Object.freeze` (`securityHeaders.ts:77`). Par requête, le firewall
   se contente de la parcourir et de la poser : zéro concaténation, zéro objet créé.
 - Côté transport, même principe : `HttpKernel.computeSecurityHeaderCaches()`
-  (`http-kernel.ts:335`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
-  boot ; `onHttpRequest` (`http-kernel.ts:949`) ne fait plus que trois `setHeader`.
+  (`http-kernel.ts:348`) précalcule la chaîne HSTS (`max-age`, `includeSubDomains`, `preload`) au
+  boot ; `onHttpRequest` (`http-kernel.ts:965`) ne fait plus que trois `setHeader`.
 - Le seul coût variable est le **nonce CSP**, et il est **paresseux** : `Context.cspNonce`
   (`Context.ts:253`) ne génère ses 128 bits (`randomBytes(16)` en base64) qu'à la première lecture,
   puis mémoïse. Une réponse qui n'a aucun script inline à signer ne paie aucun appel crypto.
@@ -297,7 +297,7 @@ vient précisément des fichiers servis hors pipeline applicatif — un banc liv
 installer un intercepteur.
 
 La chaîne est assemblée au boot par `HttpKernel.computeSecurityHeaderCaches()`
-(`http-kernel.ts:335`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
+(`http-kernel.ts:348`) : `max-age`, puis `includeSubDomains` et `preload` selon la config.
 
 Elle n'est posée que **sur une réponse HTTPS ou HTTP/2** — le cache `secHsts` est conditionné au type
 de serveur (`http-kernel.ts:969`). C'est conforme à la RFC 6797, qui veut qu'un HSTS reçu en clair
@@ -397,7 +397,7 @@ Dérivé du schéma Zod `headersSchema` (`config.ts:206`).
 ### Socle transport — `use("@nodefony/http", { securityHeaders })`
 
 Dérivé de `securityHeadersSchema` (`http/nodefony/config/config.ts:123`). Ces trois réglages sont
-**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:385`)
+**éditables à chaud** (`runtimeMutable`) : `HttpKernel.onConfigChanged()` (`http-kernel.ts:398`)
 recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 | Option                                      | Type              | Défaut     | Effet                                                              |
@@ -411,7 +411,7 @@ recalcule les caches, donc la valeur suivante s'applique sans redémarrage.
 
 > [!WARNING]
 > Les clés `hsts`, `hstsMaxAgeS`, `frameguard` et `noSniff` **existent** dans la config security
-> (`config.ts:212`, `config.ts:223`, `config.ts:247`, `config.ts:257`) mais **ne pilotent rien** : la couche
+> (`config.ts:257`, `config.ts:257`, `config.ts:257`, `config.ts:257`) mais **ne pilotent rien** : la couche
 > applicative ne les lit pas (`securityHeaders.ts:6`), elles ne servent qu'à l'introspection
 > affichée dans Studio. Pour changer réellement `X-Frame-Options`, c'est `securityHeaders.frameOptions`
 > **du module http**. Même remarque pour `hidePoweredBy` (`config.ts:282`) : Nodefony n'émet aucun
@@ -524,7 +524,7 @@ en dev soit plus large qu'en production, où ce fragment n'existe pas.
 | Referrer-Policy                      | W3C Referrer Policy (enum fermé) | 8 valeurs validées au boot (`config.ts:267`)                 |
 | Isolation cross-origin               | WHATWG HTML (COOP/COEP/CORP)     | `securityHeaders.ts:71`                                      |
 | Anti-MIME-sniffing                   | WHATWG Fetch (`nosniff`)         | `secContentTypeOptions` (`http-kernel.ts:963`)               |
-| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:335`)       |
+| Durcissement en-têtes                | OWASP Secure Headers             | `computeSecurityHeaderCaches()` (`http-kernel.ts:348`)       |
 
 ## ⚡ Performance & mémoire
 

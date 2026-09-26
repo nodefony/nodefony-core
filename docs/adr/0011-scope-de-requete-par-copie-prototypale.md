@@ -53,7 +53,7 @@ Trois faits ont pesé, tous constatés dans le code :
 **1. Un conteneur par requête, par copie prototypale.** Le pipeline ouvre un `Scope` par requête
 HTTP et par connexion WebSocket (`Container.enterScope()`, `Container.ts:245`). Le scope **adopte
 le prototype** du conteneur parent : la lecture remonte la chaîne de prototypes, l'écriture reste
-sur le scope (`Scope.set()`, `Container.ts:389`). Fermé par `leaveScope()` à la fin, qui le retire
+sur le scope (`Scope.set()`, `Container.ts:155`). Fermé par `leaveScope()` à la fin, qui le retire
 du registre **avant** de le nettoyer.
 
 **2. Le scope est atteignable par l'ALS.** Le contexte asynchrone de la requête porte le scope

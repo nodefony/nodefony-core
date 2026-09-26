@@ -55,7 +55,7 @@ qui introspecte la config booste jusqu'à `onReady`. Une commande serveur (`deve
 va jusqu'à `onPostReady`, où les serveurs écoutent, puis **reste** en vie.
 
 **Deux familles de commandes.** Les **intégrées** (`development`, `build`, `create`…) sont posées par
-le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:542`). Les **commandes de
+le cœur au démarrage (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:568`). Les **commandes de
 module** (`http:network`, `security:user:add`…) sont ajoutées par chaque module dans son constructeur —
 elles suivent le namespace `<module>:<action>` et empruntent exactement le même chemin.
 
@@ -189,7 +189,7 @@ s'invoque `npx nodefony app:greet Ada`.
 
 ## 🗂️ Les commandes intégrées
 
-Vingt-trois commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:542`),
+Vingt-trois commandes posées par le cœur (`CliKernel.registerBuiltinCommands()`, `CliKernel.ts:568`),
 plus l'alias `start`. La colonne **arrêt** indique jusqu'où le boot va — `0 boot` = fast-path standalone.
 
 <!-- prettier-ignore -->
@@ -329,7 +329,7 @@ cycle de vie (`onKernelStart()`, `onKernelReady()`…) sont câblés à la deman
 
 **Enregistrer.** Un module appelle `this.addCommand(Ctor)` dans son constructeur (`Module.ts:656`) —
 il exige que `kernel.cli` existe, sinon il lève `Kernel not ready` (`Module.ts:560`). Hors module, un
-outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:756`). Dans les deux cas,
+outil autonome construit un `Cli` et appelle `cli.addCommand(Ctor)` (`Cli.ts:777`). Dans les deux cas,
 `addCommand` **instancie** la commande et l'enregistre sous le nom porté par son constructeur.
 
 ## ⚙️ La complétion shell
@@ -344,7 +344,7 @@ nodefony completion install zsh       # installation gérée (bloc idempotent da
 
 Au TAB, le script appelle `nodefony __complete` (fast-path 0 boot, sort toujours `OK`). Les
 suggestions viennent d'un **manifeste en cache** écrit au boot de dev (commandes de module comprises,
-`CliKernel.writeCompletionManifest()`, `CliKernel.ts:579`) ; hors projet, le repli est la liste des
+`CliKernel.writeCompletionManifest()`, `CliKernel.ts:605`) ; hors projet, le repli est la liste des
 intégrées en mémoire.
 
 ## 🩺 Codes de sortie

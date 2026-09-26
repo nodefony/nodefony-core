@@ -270,8 +270,8 @@ graphe TSDoc (`.ai/symbols.json`) ; ce qui suit est l'usage.
 | `getScope()`       | `RequestContext.ts:232` | le scope DI de la requête, s'il est encore ouvert    | `undefined` |
 | `requireScope()`   | `RequestContext.ts:246` | le même scope, ou une erreur qui nomme la cause      | **lève**    |
 | `set(clé, valeur)` | `RequestContext.ts:257` | mute le payload **en place**, sans rouvrir de bulle  | **no-op**   |
-| `isProfiling()`    | `RequestContext.ts:265` | `true` si un buffer de profilage est actif           | `false`     |
-| `pushQuery(query)` | `RequestContext.ts:275` | ajoute une requête mesurée au buffer                 | **no-op**   |
+| `isProfiling()`    | `RequestContext.ts:275` | `true` si un buffer de profilage est actif           | `false`     |
+| `pushQuery(query)` | `RequestContext.ts:285` | ajoute une requête mesurée au buffer                 | **no-op**   |
 
 > [!IMPORTANT]
 > `set()` hors bulle ne **lève pas** — il ne fait rien. C'est délibéré (le même code doit tourner en
@@ -302,8 +302,8 @@ Les couches supérieures exposent ces clés sous une forme **typée**, à préf�
 
 | Tu veux…                     | Écris plutôt                                              | Ancre                      |
 | ---------------------------- | --------------------------------------------------------- | -------------------------- |
-| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1259` |
-| le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:180`        |
+| l'utilisateur, en contrôleur | le paramètre décoré `@CurrentUser()`                      | `routerDecorators.ts:1279` |
+| le contexte, en contrôleur   | le getter `Controller.context`                            | `Controller.ts:190`        |
 | les droits (rôles, scopes)   | `@IsGranted` / `@RequireScope` — jamais une lecture brute | `Resolver.ts:349`          |
 
 ## 🔌 Où la bulle est ouverte
@@ -316,8 +316,8 @@ qui ouvre quoi.
 <!-- prettier-ignore -->
 | Transport | Ouverte par | Ce que la bulle couvre |
 | --- | --- | --- |
-| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1310`) | CORS, routage, firewall, ton action, rendu |
-| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1621`) | poignée de main, firewall, **et toutes les trames** |
+| HTTP / HTTP2 | `HttpKernel.handleHttp()` (`http-kernel.ts:1324`) | CORS, routage, firewall, ton action, rendu |
+| WebSocket — connexion | `HttpKernel.handleWebsocket()` (`http-kernel.ts:1661`) | poignée de main, firewall, **et toutes les trames** |
 | WebSocket — trame RPC | `RealtimeController.invokeApiRequest()`, à son `RequestContext.run()` (`RealtimeController.ts:1010`) | **une** invocation : corps, clé d'idempotence, profil |
 | Fin de réponse (journal) | `Context.log()` (`Context.ts:520`) | micro-bulle rouverte pour que les logs de fin soient corrélés |
 
@@ -342,7 +342,7 @@ problème par construction.
 C'est l'usage le plus subtil du payload, et le patron à copier pour tout observateur.
 
 Le serveur alloue `queries` (`RequestContext.ts:57`) **uniquement quand le profiler est actif**,
-c'est-à-dire en développement (`http-kernel.ts:1349`). En production, la clé est simplement absente.
+c'est-à-dire en développement (`http-kernel.ts:1366`). En production, la clé est simplement absente.
 Cette absence **est** le signal : les adapters ORM n'ont aucun réglage à lire.
 
 ```mermaid
@@ -356,8 +356,8 @@ flowchart LR
 
 Deux lectures possibles, et elles ne sont **pas** équivalentes :
 
-- `RequestContext.isProfiling()` (`RequestContext.ts:265`) + `RequestContext.pushQuery()`
-  (`RequestContext.ts:275`) — le chemin simple, quand tout se passe dans la bulle.
+- `RequestContext.isProfiling()` (`RequestContext.ts:275`) + `RequestContext.pushQuery()`
+  (`RequestContext.ts:285`) — le chemin simple, quand tout se passe dans la bulle.
 - **capturer la référence** du buffer une fois (`RequestContext.get()?.queries`) puis pousser
   dedans — le chemin **robuste**, celui des adapters livrés : `DrizzleRepository.#prof()`
   (`DrizzleRepository.ts:330`) et `MongooseRepository.#prof()` (`MongooseRepository.ts:118`).
@@ -462,7 +462,7 @@ ou une minuterie, la règle est à toi de l'appliquer.
 | Une mesure ORM disparaît sans erreur                               | ALS relue **après** un `await` traversant un pool → `isProfiling()` faux             | capturer `get()?.queries` **avant** l'`await`, puis pousser dans la référence        |
 | `set()` n'a aucun effet                                            | appelé hors bulle : c'est un no-op délibéré (`RequestContext.ts:257`)                | vérifier `get()` d'abord, ou ouvrir une bulle avec `run()`                           |
 | `getUser()` vide alors que l'utilisateur est connecté              | la route n'est dans aucune zone du firewall, ou lecture **avant** le firewall        | placer la route dans une zone ; lire dans l'action, pas dans un hook amont           |
-| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1259`)         |
+| `getUser()` refusé par TypeScript                                  | le cœur type `user` en `unknown` (pas de dépendance vers la sécurité)                | rétrécir soi-même, ou préférer `@CurrentUser()` (`routerDecorators.ts:1279`)         |
 | `isProfiling()` faux en développement                              | le profiler n'est pas actif → aucun buffer `queries` alloué (`RequestContext.ts:57`) | comportement normal : la mesure doit rester gratuite quand personne n'observe        |
 | Un log de fin de requête sans `requestId`                          | le teardown s'exécute après la fermeture de la bulle                                 | déjà traité pour les contextes (`Context.ts:244`) ; pour ton code, `run()` à nouveau |
 | Le travail continue après `run()`, logs décorrélés                 | `run()` renvoie la promesse sans l'attendre                                          | `await RequestContext.run(...)` — la bulle suit l'`await`, pas l'appel               |

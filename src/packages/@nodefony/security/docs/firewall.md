@@ -280,7 +280,7 @@ Sans lui, zone protégée + aucune preuve = 401.
 
 Il promeut en jeton realtime **toute** identité que le firewall a résolue — session BFF comme jeton
 porteur (JWT, clé d'API). **Enregistré automatiquement** par `Firewall.#wireRealtime()` au
-handshake des zones protégées `realtime` (`firewall.ts:300`).
+handshake des zones protégées `realtime` (`firewall.ts:279`).
 
 - **Perf : il ne relit pas la base.** Handshake et frames tournent dans la même bulle ALS —
   l'identité déjà posée est réutilisée, 2 lectures base économisées par connexion

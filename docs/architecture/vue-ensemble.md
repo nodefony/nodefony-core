@@ -104,8 +104,8 @@ Ce qu'il **n'est pas**, dit franchement :
   services, événements de cycle de vie, firewall par zones, contrôleurs à décorateurs), mais
   l'architecture, la terminologie et surtout le modèle de transport unifié lui sont propres.
 - **Ce n'est pas un runtime alternatif.** Les serveurs s'appuient sur Node.js natif :
-  `node:http` et `node:http2` (`ServerHttp.createServer()`, `server-http.ts:74`), `node:https`
-  (`ServerHttps.createServer()`, `server-https.ts:80`), et la bibliothèque `ws` pour le WebSocket
+  `node:http` et `node:http2` (`ServerHttp.createServer()`, `server-http.ts:83`), `node:https`
+  (`ServerHttps.createServer()`, `server-https.ts:92`), et la bibliothèque `ws` pour le WebSocket
   (`Websocket.createServer()`, `server-websocket.ts:62`). Pas de moteur maison, pas de `Bun.serve()`.
 - **Ce n'est pas une bibliothèque temps réel greffée à côté.** Le WebSocket n'est pas un module
   optionnel branché sur le serveur web : il traverse **le même pipeline**, avec la même session et le
@@ -132,7 +132,7 @@ du firewall :
 
 **2. Les deux traversent le même résolveur.** `HttpContext.handle()` appelle `router.resolve(this)`
 puis `resolver.callController()` (`HttpContext.ts:206`) ; `WebsocketContext.handle()` fait exactement
-la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:265`). Un seul
+la même chaîne, en passant en plus les données de la trame (`WebsocketContext.ts:271`). Un seul
 `Router` (`router.ts:164`), un seul `Resolver` (`Resolver.ts:86`).
 
 **3. Une route déclare ses transports, elle ne choisit pas son monde.** Le transport est une
@@ -240,8 +240,8 @@ C'est le différenciateur, en trente lignes.
 ## 🗂️ La carte des modules
 
 Un module Nodefony est une unité **déclarée**, jamais découverte par magie : le manifeste
-`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1582`) puis
-chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1693`). L'ordre du tableau **est** l'ordre
+`modules` de `nodefony.config.ts` est lu par `Kernel.resolveModuleEntries()` (`Kernel.ts:1603`) puis
+chargé par `Kernel.loadModulesFromManifest()` (`Kernel.ts:1714`). L'ordre du tableau **est** l'ordre
 de chargement ; la résolution ne fait que **filtrer** (une entrée `policy: "dev"` disparaît hors
 développement, une garde `when(config)` fausse écarte l'entrée).
 
@@ -299,15 +299,15 @@ Commence par sa page si tu veux comprendre « pourquoi tout hérite de la même 
 
 Serveurs HTTP/1.1, HTTP/2, HTTPS et WebSocket, contextes de requête, sessions, certificats TLS. C'est
 ici que naît le `Context` que ton contrôleur reçoit, et ici que vit le pipeline unique
-(`HttpKernel`, `http-kernel.ts:236`). À lire quand tu touches au transport, aux sessions ou aux
+(`HttpKernel`, `http-kernel.ts:246`). À lire quand tu touches au transport, aux sessions ou aux
 en-têtes.
 
 ### [`@nodefony/framework`](../../src/packages/@nodefony/framework/docs/index.md) — écrire des routes
 
 `Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:86`) et les
 décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:189`), `route()`
-(`routerDecorators.ts:271`), `Get` (`routerDecorators.ts:524`), `IsGranted()`
-(`routerDecorators.ts:878`), `CurrentUser` (`routerDecorators.ts:1259`). C'est la surface que tu
+(`routerDecorators.ts:291`), `Get` (`routerDecorators.ts:539`), `IsGranted()`
+(`routerDecorators.ts:903`), `CurrentUser` (`routerDecorators.ts:1279`). C'est la surface que tu
 manipules le plus.
 
 ### [`@nodefony/security`](../../src/packages/@nodefony/security/docs/index.md) — protéger l'application
@@ -323,19 +323,19 @@ Trois mouvements, résumés ici ; chacun a sa page dédiée, plus détaillée.
 ### Le boot — une chaîne de phases, jamais un big-bang
 
 Le démarrage est une suite d'**événements ordonnés**, déclarés en masque de bits
-(`Events`, `Kernel.ts:306`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
+(`Events`, `Kernel.ts:313`) : `onInit` → `onPreStart` → `onStart` → `onPreRegister` → `onRegister` →
 `onPreBoot` → `onBoot` → `onReady` → `onServersReady` → `onPostReady`. La chaîne est portée par
-`Kernel.start()` (`Kernel.ts:774`), `Kernel.boot()` (`Kernel.ts:1225`), `Kernel.onReady()`
-(`Kernel.ts:1255`) et `Kernel.initServers()` (`Kernel.ts:1382`).
+`Kernel.start()` (`Kernel.ts:774`), `Kernel.boot()` (`Kernel.ts:1244`), `Kernel.onReady()`
+(`Kernel.ts:1274`) et `Kernel.initServers()` (`Kernel.ts:1382`).
 
 Un module se greffe sur ces phases en définissant `onKernelRegister`, `onKernelBoot` ou
 `onKernelReady` : `Module.setEvents()` (`Module.ts:236`) les attache, et n'attache **que** ceux qui
 existent — pas de listener orphelin.
 
 > [!TIP]
-> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3864`), qui borne chaque hook
+> Les phases sensibles passent par `Kernel.fireLifecycle()` (`Kernel.ts:3896`), qui borne chaque hook
 > par un délai et par la criticité du module. Un module non critique qui échoue à son boot ne tue pas
-> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3339`) : c'est la résilience « fail-soft ».
+> le process (`Kernel.recordBootFailure()`, `Kernel.ts:3357`) : c'est la résilience « fail-soft ».
 > Le détail complet, y compris le verdict de boot et l'arrêt drainé →
 > [cycle de boot du Kernel](cycle-boot-kernel.md).
 
@@ -389,7 +389,7 @@ chaque connexion WebSocket), `Container.enterScope()` (`Container.ts:245`) pose 
 On lit toute la carte à travers : résoudre un service partagé depuis un scope ne coûte aucun saut
 logiciel, c'est le moteur JavaScript qui remonte la chaîne de prototypes.
 
-Ce que la requête pose, elle le pose sur son calque seulement (`Scope.set()`, `Container.ts:389`) :
+Ce que la requête pose, elle le pose sur son calque seulement (`Scope.set()`, `Container.ts:155`) :
 le pipeline y range le `context` et le `controller`, et un service déclaré
 `@injectable({ scope: "request" })` y vit le temps de la requête. Deux requêtes concurrentes ne se
 voient jamais, et `Container.leaveScope()` (`Container.ts:264`) jette le calque à la fin — en
@@ -457,7 +457,7 @@ alors plus une propriété fragile de ton fichier d'entrée.
 `@Body`, `@Query`), l'injection de dépendances, les gardes d'autorisation, l'idée de modules. Une
 garde `@IsGranted` s'applique **avant** l'instanciation du contrôleur, au niveau du résolveur — même
 contrat qu'un `CanActivate` : `Resolver.executeActionGuarded()` (`Resolver.ts:464`) enveloppe
-l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:672`) tranche, fail-closed en 403.
+l'action, et `Resolver._enforceSecurity()` (`Resolver.ts:683`) tranche, fail-closed en 403.
 
 **Ce qui change.** Deux choses. D'abord, **pas de gateway WebSocket séparée** : là où Nest te
 demande un `@WebSocketGateway()` distinct de tes contrôleurs, Nodefony te fait déclarer le transport
@@ -516,7 +516,7 @@ Un choix d'architecture qui ne coûte rien n'est pas un choix. Voici les nôtres
 | Anti-CSRF                    | Fetch Metadata + double-submit | `Firewall.enforceCsrf()` (`http-kernel.ts:1479`)          |
 | Anti-CSWSH (origine WS)      | OWASP WSTG-CLNT-10             | `HttpKernel.checkWebsocketOrigin()` (`:509`)              |
 | Journal structuré            | RFC 5424                       | `Pdu` (`Pdu.ts:172`) · `Service.log()` (`Service.ts:300`) |
-| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1310`)         |
+| Propagation de trace         | W3C Trace Context              | `HttpKernel.handleHttp()` (`http-kernel.ts:1324`)         |
 
 ## ⚡ Performance & mémoire
 
@@ -525,7 +525,7 @@ règle interne est donc l'allocation paresseuse, et elle se lit dans le code.
 
 - **Rien n'est alloué « au cas où ».** Les buckets de scopes du conteneur restent `null` tant
   qu'aucun scope n'est ouvert (`Container.scopes`, `Container.ts:62`) ; le tampon de requêtes ORM du
-  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1337`) ; le nonce CSP
+  profileur n'existe qu'en développement (`profilerQueries`, `http-kernel.ts:1351`) ; le nonce CSP
   n'est calculé que si une directive en a besoin (`Context.cspNonce`, `Context.ts:253`).
 - **Zéro microtask pour un seam inutilisé.** Les points d'accroche optionnels sont gardés par
   `listenerCount` avant tout `await` — sans module de sécurité, ils ne planifient rien.

@@ -137,7 +137,7 @@ connexion sans élargir le contrat.
 
 **L'endpoint s'annonce lui-même.** La liste des actions exposées voyage dans la frame d'accueil —
 `IRealtimeWelcome` (`RealtimeController.ts:8`) — et se lit côté client par
-`RealtimeClient.serverMethods` (`RealtimeClient.ts:591`). Une interface n'écrit donc jamais un nom d'action en dur : elle
+`RealtimeClient.serverMethods` (`RealtimeClient.ts:597`). Une interface n'écrit donc jamais un nom d'action en dur : elle
 n'active un bouton que si le serveur a déclaré savoir le servir.
 
 **Le compromis, dit franchement** : une action est **un aller-retour**, point. Elle ne diffuse pas,
@@ -445,7 +445,7 @@ fois ? »**.
 
 Pour les mutations passant par le pont API, la clé n'est pas une convention : elle est **exigée
 par la signature** de `mutate()` (`RealtimeClient.ts:797`), et c'est la garde `@Idempotent`
-(`routerDecorators.ts:1142`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
+(`routerDecorators.ts:1171`) qui, côté serveur, reconnaît le rejeu et rend la réponse déjà calculée
 au lieu de refaire l'effet.
 
 ```ts ignore

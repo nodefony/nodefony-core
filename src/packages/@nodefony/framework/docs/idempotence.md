@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1585`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1606`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -299,7 +299,7 @@ sequenceDiagram
 
 ### Le parcours d'une mutation, étape par étape
 
-1. **Court-circuit hot path.** `callController()` (`Resolver.ts:435`) lit `meta.idempotent` sur les
+1. **Court-circuit hot path.** `callController()` (`Resolver.ts:446`) lit `meta.idempotent` sur les
    métadonnées d'action **figées par route**. `null` sur la quasi-totalité des routes → une
    comparaison, flux normal, **zéro** lookup de store et zéro allocation.
 2. **No-op sur méthode sûre.** Une action `GET` sous une classe `@Idempotent` repart directement en
@@ -327,7 +327,7 @@ sequenceDiagram
 
 | Appelant                     | Point d'entrée                                                       | Traduction du verdict              |
 | ---------------------------- | -------------------------------------------------------------------- | ---------------------------------- |
-| Controller userland HTTP     | `callController()` (`Resolver.ts:435`)                               | `nodefonyError` + rendu normal     |
+| Controller userland HTTP     | `callController()` (`Resolver.ts:446`)                               | `nodefonyError` + rendu normal     |
 | Controller userland via WS   | `executeActionGuarded()` (`Resolver.ts:464`)                         | valeur nue, enveloppée par le peer |
 | Data plane admin `/nodefony` | `AdminApiController.idempotencyGate()` (`AdminApiController.ts:131`) | `{status, headers, body}`          |
 
@@ -538,8 +538,8 @@ Signatures complètes : `.ai/symbols.json`. Ce qui compte à l'usage :
 
 ### Le décorateur
 
-`@Idempotent(options?)` (`routerDecorators.ts:1142`) — dual **classe + méthode**. N'écrit que des
-métadonnées (`IdempotentMeta`, `routerDecorators.ts:466`), zéro import de `@nodefony/security`, zéro
+`@Idempotent(options?)` (`routerDecorators.ts:1171`) — dual **classe + méthode**. N'écrit que des
+métadonnées (`IdempotentMeta`, `routerDecorators.ts:481`), zéro import de `@nodefony/security`, zéro
 cycle. La porte est appliquée par le Resolver.
 
 ### Le contrat de store

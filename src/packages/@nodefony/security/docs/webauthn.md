@@ -340,7 +340,7 @@ controller ouvre alors la session BFF avec `authFlow.establishSessionFor()`
 Deux chemins, deux portées :
 
 - **Self-service** : `DELETE …/webauthn/credentials/{id}` → `WebAuthnService.removeUserCredential()`
-  (`webAuthn.ts:507`). La suppression n'aboutit que si le credential **appartient** au demandeur
+  (`webAuthn.ts:502`). La suppression n'aboutit que si le credential **appartient** au demandeur
   (`webAuthn.ts:513`) ; sinon **404 indiscernable** (`WebAuthnController.ts:207`) — on ne révèle
   jamais l'existence de la passkey d'autrui.
 - **Reset administrateur** : `DELETE /nodefony/security/api/users/{id}/passkeys/{credentialId}`
@@ -361,7 +361,7 @@ Table dérivée du schéma Zod `passkeysSchema` (`config.ts:461`), monté sous l
 | `enabled`                 | boolean                                    | `true`       | Active les cérémonies ; `false` → endpoints en 503 (`config.ts:463`)           |
 | `rpId`                    | string?                                    | domaine app  | Domaine de liaison des passkeys ; IP → `localhost` (`config.ts:469`)           |
 | `rpName`                  | string?                                    | `"Nodefony"` | Nom affiché dans l'invite OS/navigateur (`config.ts:473`)                      |
-| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts:479`)    |
+| `origins`                 | string[]                                   | `[]`         | Liste blanche d'origines ; vide = déduction depuis `rpId` (`config.ts:469`)    |
 | `userVerification`        | `required` \| `preferred` \| `discouraged` | `preferred`  | Exiger biométrie/PIN — `required` = AAL2 (`config.ts:483`)                     |
 | `residentKey`             | `required` \| `preferred` \| `discouraged` | `preferred`  | Passkey découvrable → login sans identifiant (`config.ts:489`)                 |
 | `authenticatorAttachment` | `platform` \| `cross-platform` \| `any`    | `platform`   | Biométrie intégrée / clé externe / les deux (`config.ts:495`)                  |
@@ -551,7 +551,7 @@ Studio (`webAuthn.ts:195`). Deux garde-fous de production :
 - `listPage` trie `createdAt` DESC avec `id` en départage → offset déterministe, parité SQL
   (`MemoryWebAuthnCredentialStore.ts:26`). C'est lui qui pilote le banc de contrat partagé.
 - `snapshot()` / `restore()` sérialisables (`MemoryWebAuthnCredentialStore.ts:181`) ; le service
-  déclenche un `flushNow()` à l'arrêt si le store sait le faire (`webAuthn.ts:257`).
+  déclenche un `flushNow()` à l'arrêt si le store sait le faire (`webAuthn.ts:47`).
 
 ### `drizzle` — SQL, le durable par défaut
 
@@ -611,8 +611,8 @@ symbolique (`.ai/symbols.json`).
 | `listUserCredentials()`           | « Mes appareils » — chemin chaud, non paginé (`webAuthn.ts:466`)         |
 | `listCredentialsPage()`           | Vue **transverse** admin, paginée, sans clé publique (`webAuthn.ts:479`) |
 | `countCredentials()`              | Total filtré, ou `-1` si le backend ne compte pas (`webAuthn.ts:490`)    |
-| `removeUserCredential()`          | Révocation self-service, owner-scopée (`webAuthn.ts:507`)                |
-| `removeCredential()`              | Révocation inconditionnelle, usage admin (`webAuthn.ts:496`)             |
+| `removeUserCredential()`          | Révocation self-service, owner-scopée (`webAuthn.ts:502`)                |
+| `removeCredential()`              | Révocation inconditionnelle, usage admin (`webAuthn.ts:492`)             |
 
 Types publics ré-exportés par `@nodefony/security` : `IWebAuthnCredential`,
 `IWebAuthnCredentialStore`, `IWebAuthnCredentialSummary`, `IWebAuthnListQuery`,
@@ -658,7 +658,7 @@ passkey (`AuthStore.loginWithPasskey()`, `AuthStore.ts:212`).
 | Clé publique COSE                   | RFC 8152 / RFC 9052                | `IWebAuthnCredential.publicKey` (`IWebAuthnCredential.ts:16`)      |
 | FIDO2 / CTAP2                       | plafond `maxCredentialCountInList` | `passkeys.maxPerUser` (`config.ts:515`)                            |
 | Assurance d'authentification        | NIST SP 800-63B (AAL2)             | `passkeys.userVerification` (`config.ts:483`)                      |
-| Contrôle d'accès (IDOR)             | OWASP A01                          | `WebAuthnService.removeUserCredential()` (`webAuthn.ts:507`)       |
+| Contrôle d'accès (IDOR)             | OWASP A01                          | `WebAuthnService.removeUserCredential()` (`webAuthn.ts:502`)       |
 
 La conformité cryptographique fine (parsing CBOR, formats d'attestation, vérification des signatures
 ES256/RS256/EdDSA) est portée par `@simplewebauthn/server` — Nodefony fournit et prouve les

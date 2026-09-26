@@ -196,7 +196,7 @@ export default ExportController;
 ```
 
 > [!IMPORTANT]
-> `category` est une **union fermée** de sous-systèmes de sécurité (`IAuditEvent.ts:24`) : il n'existe
+> `category` est une **union fermée** de sous-systèmes de sécurité (`IAuditEvent.ts:71`) : il n'existe
 > pas de catégorie « métier ». C'est volontaire — ce journal est celui de la sécurité. Range ton
 > événement dans la catégorie de sécurité qu'il concerne (ici `authz` : un accès privilégié à des
 > données) et laisse `action` porter le vocabulaire métier.
@@ -550,7 +550,7 @@ Quatre pièces, quatre responsabilités :
   **`append` est la seule écriture** : ni `update`, ni `delete` ciblé. L'immuabilité EST la garantie
   d'audit.
 - **`createAuditBridge()`** (`auditBridge.ts:53`) — le pont vers le canal WS `nodefony:audit`
-  (`auditBridge.ts:8`), enregistré comme canal **système** par le firewall (`firewall.ts:322`) et donc
+  (`auditBridge.ts:8`), enregistré comme canal **système** par le firewall (`firewall.ts:387`) et donc
   gardé par le plancher `security:` → `ROLE_NODEFONY_ADMIN` (`frameAuthorizer.ts:106`).
 
 ### La lecture paginée — pourquoi un curseur et pas un décalage
@@ -637,7 +637,7 @@ Ce que le code garantit, concrètement :
 - **Le typage rend le secret difficile à faire entrer.** `actor` est documenté comme un _libellé
   d'identité_ (`IAuditEvent.ts:82`) et `resource` comme un _descripteur léger_ — « jamais le corps ni
   les en-têtes de la requête » (`IAuditEvent.ts:87`).
-- **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts:49`) ne porte que deux
+- **La présence remplace la valeur.** `IAuditEventFlags` (`IAuditEvent.ts:53`) ne porte que deux
   booléens : un en-tête `Authorization` était-il là, un cookie était-il là. `readAuditContext()`
   les calcule par un simple `Boolean(headers[…])` (`readAuditContext.ts:40`) — la valeur n'est jamais
   copiée.

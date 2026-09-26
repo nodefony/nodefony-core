@@ -667,7 +667,7 @@ l'état. Une page dégradée reste une page.
 ### Les helpers de vue
 
 Si tu rends une vue Eta plutôt qu'une chaîne, trois helpers sont déjà dans tes variables locales
-(`Controller.withFrontendLocals()`, `Controller.ts:448`) — inspirés des helpers d'assets de Symfony :
+(`Controller.withFrontendLocals()`, `Controller.ts:465`) — inspirés des helpers d'assets de Symfony :
 
 ```html
 <%~ frontendDocument("shop") %>
@@ -829,7 +829,7 @@ Sur le chemin chaud du rendu, trois précautions :
 - le **manifeste** est lu une fois par dossier de sortie, jamais par requête ;
 - l'**`index.html`** est mis en cache en production (relu en développement, où la fraîcheur prime) ;
 - les **écouteurs** du processus enfant sont suivis et retirés à chaque mort
-  (`trackListener()`, `ViteProcessSupervisor.ts:961`) — sans quoi les relances les accumuleraient.
+  (`trackListener()`, `ViteProcessSupervisor.ts:967`) — sans quoi les relances les accumuleraient.
 
 La sonde de vie coûte une requête HTTP toutes les trente secondes par famille. Elle est désactivable
 (`healthCheckIntervalMs: 0`) si ce budget te gêne, au prix de la détection d'un Vite gelé.

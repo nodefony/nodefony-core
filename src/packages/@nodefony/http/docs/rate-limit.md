@@ -147,7 +147,7 @@ export default defineConfig(() => ({
 ```
 
 Les trois clés `enabled` / `windowS` / `max` sont **éditables à chaud** (`runtimeMutable`) : le kernel
-reconstruit le compteur sans redémarrage (`configureRateLimit()`, `http-kernel.ts:416`).
+reconstruit le compteur sans redémarrage (`configureRateLimit()`, `http-kernel.ts:433`).
 
 ### 2. Observer le 429 et les en-têtes
 
@@ -203,9 +203,9 @@ flowchart TD
 
 Autour de ce cœur, le kernel orchestre le cycle de vie :
 
-- **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:417`) instancie le store
-  depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:417`) et arme un `GcScheduler`
-  (`http-kernel.ts:422`) qui **purge les fenêtres expirées** hors du chemin chaud.
+- **Construction / reconfiguration** : `configureRateLimit()` (`http-kernel.ts:433`) instancie le store
+  depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:433`) et arme un `GcScheduler`
+  (`http-kernel.ts:443`) qui **purge les fenêtres expirées** hors du chemin chaud.
 - **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1000`) et
   la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1007`) puis `writeHead(429)`
   (`http-kernel.ts:1012`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).
@@ -242,7 +242,7 @@ Et un réglage **séparé**, propre au WebSocket, à la racine du module :
 Un WebSocket ne peut **pas** recevoir un `429` : au moment où le rate-limit décide, le `101 Switching
 Protocols` est déjà parti sur le fil (émis par la bibliothèque `ws`). Le refoulement se fait donc par
 une **fermeture RFC 6455 `1013 Try Again Later`**, décidée dans `onWebsocketRequest()`
-(`http-kernel.ts:1569`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
+(`http-kernel.ts:1613`) — **avant** `enterScope`, l'ALS et le pipeline, comme le `429` HTTP.
 
 Deux plafonds distincts, tous deux par IP forwarded-aware :
 

@@ -321,7 +321,7 @@ politique (1008, c'est-à-dire un 401/403 traduit) ne la relance **pas**. Sans c
 anonyme martèlerait indéfiniment un point d'entrée protégé.
 
 Le délai entre tentatives double à chaque échec — `scheduleReconnect()`
-(`client/realtime/RealtimeClient.ts:1276`) — plafonné à 30 secondes par défaut. La date de la
+(`client/realtime/RealtimeClient.ts:1280`) — plafonné à 30 secondes par défaut. La date de la
 prochaine tentative est exposée en lecture, ce qui permet d'afficher un compte à rebours exact plutôt
 qu'un sablier qui ment.
 
@@ -332,7 +332,7 @@ composants écoutent le même canal, l'un se démonte, et **coupe le flux de l'a
 
 `RealtimeClient.subscribe()` (`client/realtime/RealtimeClient.ts:530`) compte les consommateurs et
 n'envoie la demande au serveur qu'au **premier**. `RealtimeClient.unsubscribe()`
-(`client/realtime/RealtimeClient.ts:543`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
+(`client/realtime/RealtimeClient.ts:549`) ne coupe qu'au **dernier**. Entre les deux, le trafic réseau
 est nul.
 
 Second effet, tout aussi important : la liste des abonnements est **rejouée à chaque reconnexion**.
@@ -349,7 +349,7 @@ Le serveur repart d'un état vide après une coupure ; c'est le client qui se so
 
 | Appel                                 | Ancre                                   | Ce que ça fait                                                   |
 | ------------------------------------- | --------------------------------------- | ---------------------------------------------------------------- |
-| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:512` | Notification sans réponse — la forme du pub/sub                  |
+| `RealtimeClient.emit()` / `publish()` | `client/realtime/RealtimeClient.ts:518` | Notification sans réponse — la forme du pub/sub                  |
 | `RealtimeClient.request()`            | `client/realtime/RealtimeClient.ts:727` | Requête/réponse ; un argument commençant par `/` cible une route |
 | `RealtimeClient.mutate()`             | `client/realtime/RealtimeClient.ts:797` | Écriture par le pont d'API — **clé d'idempotence obligatoire**   |
 
@@ -565,7 +565,7 @@ Le détail du builder, du rechargement à chaud et du rendu de la page côté se
 | Après une reconnexion, plus rien n'arrive                       | Le serveur repart d'un état vide ; le client ré-émet ses abonnements                                         | Comportement natif ; vérifier que l'abonnement passe bien par `subscribe()`                  |
 | La reconnexion ne repart jamais                                 | Fermeture **définitive** (1008 = 401/403 traduit), reconnexion volontairement coupée                         | Corriger la cause (se connecter) puis `retryNow()` (`client/realtime/RealtimeClient.ts:370`) |
 | Deux connexions WebSocket pour la même page                     | Deux `new RealtimeClient(…)` au lieu de l'instance partagée                                                  | `RealtimeClient.shared()` (`client/realtime/RealtimeClient.ts:295`)                          |
-| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:675`) | Émettre après la résolution de `connect()`                                                   |
+| Les trames envoyées juste après la connexion sont perdues       | `send()` abandonne la trame tant que le transport n'est pas ouvert (`client/realtime/RealtimeClient.ts:679`) | Émettre après la résolution de `connect()`                                                   |
 | La cadence adaptative « perd » des messages                     | Employée sur un canal d'**événements**, où décimer supprime des éléments                                     | La réserver aux canaux d'état, ou passer `enabled: false`                                    |
 | `hasAnyRole(roles, [])` rend `false` et surprend                | Aucune exigence ne peut être satisfaite (`client/roles/roles.ts:34`)                                         | Convention assumée ; `hasAllRoles` avec une liste vide rend `true`                           |
 | `RoleRegistry` lève au 32ᵉ rôle                                 | Limite des entiers 32 bits signés (`client/roles/registry.ts:27`)                                            | Rester sur les chaînes / `RoleSet` au-delà de 31 rôles                                       |

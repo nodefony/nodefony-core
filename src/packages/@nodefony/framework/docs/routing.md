@@ -109,12 +109,12 @@ banc de non-régression : un refacto du routeur doit le repasser à l'identique.
 
 **Une seule table pour HTTP et WebSocket.** Il n'y a pas de « routeur WS » séparé : une action WS est
 une route dont les méthodes déclarées contiennent `WEBSOCKET` (`Route.matchRequirements()`,
-`Route.ts:700`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
+`Route.ts:708`). C'est le différenciateur du framework — le même contrôleur, le même contexte, les
 mêmes décorateurs.
 
 **Le routeur passe avant les fichiers statiques.** Une requête qui correspond à une route ne paie
 jamais le `stat` du serveur de fichiers : le repli statique n'est tenté que si la résolution a échoué
-(`serverStatic.handle()`, `http-kernel.ts:725`).
+(`serverStatic.handle()`, `http-kernel.ts:743`).
 
 > [!NOTE]
 > **Le routage n'a aucune option de configuration.** Le schéma Zod du module n'expose qu'un sac
@@ -263,9 +263,9 @@ que chaque forme **produit dans la table**.
 | `@route(nom, options)`                    | **le tien** (stable, réutilisable) | `requirements.methods` (libre)   | WebSocket, multi-méthodes, contraintes fines |
 
 - Les décorateurs de méthode HTTP délèguent tous à `@route` avec un nom auto `Classe::methode`, et
-  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:478`).
+  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:493`).
 - `@All` n'émet **aucun** requirement de méthode : la route sert alors GET, POST, DELETE… et ne peut
-  donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:537`).
+  donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:552`).
 - `@route` est la forme complète : elle seule permet `protocol` (sous-protocole WS), un nom lisible, et
   des requirements par variable.
 
@@ -281,7 +281,7 @@ qui les lit et appelle `Router.createRoute()` pour chacune (`controller()`, `rou
 ## Motifs de chemin et paramètres
 
 Le chemin déclaré est compilé **une fois**, à la création de la route, en une expression régulière
-ancrée et **insensible à la casse** (`Route.compile()`, `Route.ts:424`). La grammaire tient en cinq
+ancrée et **insensible à la casse** (`Route.compile()`, `Route.ts:432`). La grammaire tient en cinq
 briques (`REG_ROUTE`, `Route.ts:17`) :
 
 | Écriture           | Motif compilé | Capture           | Exemple                                               |
@@ -307,7 +307,7 @@ Et trois comportements qui surprennent la première fois :
 C'est le mécanisme le moins évident, et le plus utile. Déclarer un `defaults` pour une variable change
 le motif compilé : le segment devient facultatif (`[^/]*`) **et son slash aussi** (`/?`), puis la valeur
 par défaut est réinjectée quand la capture est vide (`checkDefaultParameters()`, `Route.ts:99` ·
-`Route.hydrateDefaultParameters()`, `Route.ts:513`).
+`Route.hydrateDefaultParameters()`, `Route.ts:521`).
 
 ```ts ignore
 @route("route-page", { path: "/page/{slug}", defaults: { slug: "home" } })
@@ -327,7 +327,7 @@ async page(slug: string) {
 Les captures sont passées **positionnellement**, dans l'ordre des variables du chemin — c'est pourquoi
 la signature `async method6(metier: string, format: string)` suit l'ordre de `/{metier}/{format}`. Un
 wildcard est exposé sous les clés `wildcard` et `*`. Le `Resolver` en fabrique aussi un instantané
-nom → valeur par requête (`Resolver.getMatchedParams()`, `Resolver.ts:188`), lu par le contexte pour
+nom → valeur par requête (`Resolver.getMatchedParams()`, `Resolver.ts:200`), lu par le contexte pour
 les métadonnées et par les décorateurs `@Param`.
 
 > [!IMPORTANT]
@@ -360,7 +360,7 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 > [!TIP]
 > Une exception utile : dans un contrôleur, une route dont le chemin vaut **exactement** `"*"` est
 > repoussée **en dernier** au moment du montage — la capture-tout d'un contrôleur ne masque donc jamais
-> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:246`). Ça ne
+> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:257`). Ça ne
 > vaut **que** pour `"*"` seul : `/files/*` reste ordonné comme les autres.
 
 ### Situation 2 — le même chemin, deux méthodes
@@ -389,7 +389,7 @@ accepte, pas seulement ce que la dernière route scannée acceptait.
 ### Situation 3 — une route réservée à un domaine
 
 Une route restreinte par `@Domain` est **invisible** aux requêtes des autres vhosts : elle lève un 403
-au lieu de participer au match (`Route.matchHostname()`, `Route.ts:641`). Le point de sécurité est
+au lieu de participer au match (`Route.matchHostname()`, `Route.ts:649`). Le point de sécurité est
 l'**ordre des vérifications** : le domaine est vérifié **avant** la méthode. Sans cela, une route d'un
 autre vhost pourrait répondre 405 en révélant SES méthodes — une fuite d'information cross-domaine
 (`Route.match()`, `Route.ts:327`). La passe 2 applique la même règle : les routes d'un autre vhost sont
@@ -423,7 +423,7 @@ Ce qui change par rapport au HTTP :
   l'exception d'origine est préservée (`Router.resolve()`, `router.ts:230`).
 - **Un `Resolver` par connexion, réutilisé à chaque frame.** Il est créé au handshake, puis chaque
   message rejoue `match()` sur la route déjà trouvée avant d'appeler l'action
-  (`WebsocketContext.handle()`, `WebsocketContext.ts:265` · boucle message,
+  (`WebsocketContext.handle()`, `WebsocketContext.ts:271` · boucle message,
   `callController`, `WebsocketContext.ts:508`).
   L'action est donc invoquée une fois au handshake (`message` vaut `null`), puis une fois par frame.
 
@@ -438,7 +438,7 @@ que fait le data plane d'administration pour toutes ses lectures (`AdminBroker.m
   (`routing-nonregression.test.ts:164`).
 - **Une invocation WS d'une mutation doit dire quelle méthode logique elle vise.** Sur une socket,
   `context.method` vaut toujours `WEBSOCKET` : insuffisant pour distinguer un GET d'un POST sur le même
-  chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:126`) que la
+  chemin. Le pont transporte donc une **méthode logique** (`methodOverride`, `Resolver.ts:138`) que la
   route doit déclarer **en plus** du transport — une route `POST` qui n'annonce pas `WEBSOCKET` reste
   **injoignable** par socket (zéro contournement, `Route.ts:722`).
 
@@ -451,7 +451,7 @@ jamais muté (`Router.resolve()`, `router.ts:230`). Détails côté socket :
 
 `@Domain` restreint une méthode (ou tout un contrôleur) à un ou plusieurs noms d'hôte. Les motifs
 acceptent l'exact (`"marseille.fr"`) et le joker d'un label (`"*.cdn.example.com"`), compilés une fois
-au boot en expressions ancrées (`Route.compileHost()`, `Route.ts:627`).
+au boot en expressions ancrées (`Route.compileHost()`, `Route.ts:635`).
 
 ```ts ignore
 @controller("/")
@@ -465,12 +465,12 @@ class MarseilleController extends Controller {
 Précédence, du plus fort au plus faible : `@route({ host })` › `@Domain` sur la méthode › `@Domain` sur
 la classe (`controller()`, `routerDecorators.ts:189`). Une route sans domaine est servie sur **tous** les
 vhosts, et ne coûte rien au matching (`hostRegexp` absent → aucun test, `Route.matchHostname()`,
-`Route.ts:641`).
+`Route.ts:649`).
 
 > [!WARNING]
 > `@Domain` déclare quels vhosts une route **sert** ; il ne remplace pas la barrière d'entrée. Un
 > `Host` inconnu du serveur est rejeté en amont (421 Misdirected Request, `checkValidDomain()`,
-> `http-kernel.ts:1771`) via la liste `trustedHosts` de `@nodefony/http`.
+> `http-kernel.ts:1815`) via la liste `trustedHosts` de `@nodefony/http`.
 
 ## Préfixes — contrôleur, module, data plane
 
@@ -478,7 +478,7 @@ Trois niveaux de préfixe coexistent, et un seul est à ta main.
 
 1. **Le préfixe de contrôleur** — `@controller("/api/catalog")` est concaténé devant le chemin de
    chaque route de la classe, puis le chemin est normalisé : les `//` sont réduits et le slash final
-   retiré (`Route.setPattern()`, `Route.ts:602`). Un chemin vide (`@Get("")`) désigne donc le préfixe
+   retiré (`Route.setPattern()`, `Route.ts:610`). Un chemin vide (`@Get("")`) désigne donc le préfixe
    lui-même.
 2. **Le module propriétaire** — il n'ajoute **aucun** préfixe d'URL. `@controllers([…])` enregistre la
    classe au boot et propage le nom du module sur les routes déjà créées, pour l'introspection et les
@@ -504,7 +504,7 @@ d'une route — il survit à un changement de chemin.
 | Retrouver une route par son nom          | `router.getRoutes("ma-route")` → l'objet `Route` (`router.ts:326`)        |
 | Lister toutes les routes                 | `router.getRoutes("")` → la table complète (`router.ts:391`)              |
 | Savoir quelles routes couvrent un chemin | `router.matchRoutes("/api/x")` → les résultats de regex (`router.ts:380`) |
-| Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:534`)          |
+| Appeler une autre action, en interne     | `this.forward("module:Controller:action")` (`Controller.ts:569`)          |
 | Retirer une route                        | `router.removeRoutes("ma-route")` (`router.ts:400`)                       |
 
 **Il n'existe pas de générateur d'URL inverse côté serveur** (pas de `path("ma-route", {id})` à la
@@ -515,7 +515,7 @@ chemin ; pour un appel interne, utilise `forward()`.
 
 **`forward()` n'est pas une redirection** : il résout `module:Controller:action` et exécute l'action
 dans le **même** contexte de requête, sans repasser par le réseau (`Resolver.parsePathernController()`,
-`Resolver.ts:203`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
+`Resolver.ts:215`). Une vraie redirection HTTP passe par `this.redirect(url, 302)` ou `@Redirect`.
 
 ## 🧰 API publique
 
@@ -531,7 +531,7 @@ modules qui montent des routes dynamiquement). Signatures complètes : `.ai/symb
 | `Route#path` · `#variables` · `#pattern`   | Ce que la route déclare, après compilation.                             |
 | `Route#toObject()` · `#toLogLine()`        | Sérialisation pour l'API admin · ligne de log lisible (`Route.ts:554`). |
 | `Resolver#route` · `#variables`            | Ce que la requête courante a matché.                                    |
-| `Resolver#getMatchedParams()`              | Les variables en `nom → valeur` (`Resolver.ts:170`).                    |
+| `Resolver#getMatchedParams()`              | Les variables en `nom → valeur` (`Resolver.ts:200`).                    |
 
 > [!CAUTION]
 > **La table de routes est un état de processus, pas d'instance** : `Router.routes` est une liste
@@ -556,7 +556,7 @@ alloué par requête.
   mutations directes de la liste (`routeIndex`, `router.ts:127`).
 - **Zéro journalisation en production** : le log « route trouvée » est promu au niveau NOTICE hors
   production seulement, et le test est résolu une fois puis mémoïsé — en production, aucune chaîne
-  n'est même construite (`routeNoticePromoted`, `router.ts:299`).
+  n'est même construite (`routeNoticePromoted`, `router.ts:306`).
 - **Métadonnées d'action mémoïsées par route** au premier passage (`@HttpCode`, `@Header`, `@Redirect`,
   paramètres, intention de session) : plus aucune lecture `Reflect` par requête
   (`resolveActionMeta`, `Resolver.ts:469`).
@@ -567,10 +567,10 @@ alloué par requête.
 | ---------------------------------------- | ----------------- | --------------------------------------------------------------- |
 | 405 + en-tête `Allow` agrégé             | RFC 9110 §15.5.6  | passe 2 (`collectSupportedMethods()`, `router.ts:31`)           |
 | Cible identifiée par l'URI, hôte compris | RFC 9110 §7.2     | hôte vérifié avant la méthode (`Route.match()`, `Route.ts:327`) |
-| 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:641`)                        |
+| 403 sur ressource d'un autre vhost       | RFC 9110 §15.5.4  | `Route.matchHostname()` (`Route.ts:649`)                        |
 | 404 quand rien ne correspond             | RFC 9110 §15.5.5  | après repli statique (`http-kernel.ts:688`)                     |
-| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1771`)                    |
-| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:700`)                    |
+| 421 sur `Host` non servi                 | RFC 9110 §15.5.20 | `checkValidDomain()` (`http-kernel.ts:1815`)                    |
+| Erreur de sous-protocole WS = 1002       | RFC 6455 §7.4     | `Route.matchRequirements()` (`Route.ts:708`)                    |
 | Décodage pourcent des segments           | RFC 3986 §2.1     | `decode()` (`Route.ts:79`)                                      |
 
 ## 📡 Observabilité — Studio

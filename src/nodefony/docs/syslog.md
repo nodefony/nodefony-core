@@ -112,7 +112,7 @@ collecteur, écran d'admin). Un mot de passe qui atterrit dans un `payload` a fr
 Nodefony répond à chacun de ces points par un mécanisme précis, pas par un réglage global.
 
 - **Le coût** : une gate de sévérité à l'ENTRÉE (`Syslog.setSeverityThreshold()`,
-  `Syslog.ts:937`) court-circuite le log **avant** toute allocation, et le coalescing regroupe les
+  `Syslog.ts:954`) court-circuite le log **avant** toute allocation, et le coalescing regroupe les
   écritures d'un tick en un seul `write()` (`writeOut`, `Syslog.ts:162`).
 - **La ligne perdue** : les sévérités graves (≤ 3) contournent le buffer et partent en écriture
   durable immédiate (`FileSink.writeErr()`, `FileSink.ts:115`) ; un filet de sortie vide ce qui reste
@@ -251,8 +251,8 @@ Points de vigilance, tous vérifiables au code :
   `pdu.severityName` la **chaîne** (affichage). La correspondance passe par une map inverse
   précalculée `severityNameMap` (`Pdu.ts:119`), O(1) par Pdu.
 - **La classe d'erreur est « ≤ 3 »** : c'est ce seuil qui décide stderr, écriture durable, et
-  incrémentation des compteurs de santé (`Syslog.pushStack()`, `Syslog.ts:1133`).
-- **Le seuil ne se devine pas côté entrée** : `Syslog.severityFromInput()` (`Syslog.ts:864`) valide
+  incrémentation des compteurs de santé (`Syslog.pushStack()`, `Syslog.ts:1152`).
+- **Le seuil ne se devine pas côté entrée** : `Syslog.severityFromInput()` (`Syslog.ts:881`) valide
   **strictement** un niveau fourni par un endpoint ou une variable d'environnement et **rejette**
   l'inconnu, là où le hot path reste tolérant.
 
@@ -263,7 +263,7 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
 1. **Point d'entrée applicatif** — `Service.log()` (`Service.ts:300`) remplit `msgid` avec le nom du
    service si tu ne le fournis pas, et garantit qu'un log ne lève **jamais** (un logger qui casse la
    requête serait pire que pas de log).
-2. **Gate de sévérité** — `Syslog.log()` (`Syslog.ts:1161`) compare la sévérité au seuil effectif
+2. **Gate de sévérité** — `Syslog.log()` (`Syslog.ts:1180`) compare la sévérité au seuil effectif
    (global, ou relevé pour ce module) **avant** de construire quoi que ce soit. Sous le seuil : un
    `Pdu` singleton réutilisé est renvoyé pour honorer le contrat de type, rien d'autre n'existe.
 3. **Garde de débit** — si `rateLimit` est activé, seuls les `burstLimit` premiers logs de la
@@ -272,13 +272,13 @@ Le parcours du schéma d'ouverture, étape par étape et ancré :
    incrémental, `pid` constant capturé une seule fois au chargement (`Pdu.ts:184`), type du payload
    déduit par un `fastTypeOf()` inline (`Pdu.ts:141`), et `requestId` lu via un fournisseur
    injectable (`Pdu.ts:197`).
-5. **Ring buffer** — `pushStack()` (`Syslog.ts:1133`) range le Pdu dans le `CircularBuffer`
+5. **Ring buffer** — `pushStack()` (`Syslog.ts:1152`) range le Pdu dans le `CircularBuffer`
    (`Syslog.ts:273`) et incrémente les compteurs de santé (`valid`, `errorTotal`, `criticTotal`).
 6. **Diffusion** — `fire("onLog")` alimente les listeners (dont l'impression console) ; le fan-out
-   transports n'est parcouru que s'il y en a au moins un (`_fireTransports`, `Syslog.ts:1532`), et
+   transports n'est parcouru que s'il y en a au moins un (`_fireTransports`, `Syslog.ts:1548`), et
    seulement pour les Pdu `ACCEPTED`.
-7. **Écriture** — `Syslog.rawLog()` (`Syslog.ts:1643`) formate la ligne via `Syslog.wrapper()`
-   (`Syslog.ts:1559`) puis la remet au coalescing, qui la donne au sink actif.
+7. **Écriture** — `Syslog.rawLog()` (`Syslog.ts:1659`) formate la ligne via `Syslog.wrapper()`
+   (`Syslog.ts:1575`) puis la remet au coalescing, qui la donne au sink actif.
 
 ### Le ring buffer — mémoire bornée, relecture O(1)
 
@@ -288,20 +288,20 @@ avance la tête (`Syslog.ts:284`), `toArray()` restitue l'ordre FIFO du plus anc
 
 - Capacité par défaut **100** (`defaultSettings`, `Syslog.ts:364`) ; le Kernel la porte à **2000 en
   développement** pour qu'une requête complète tienne dans la fenêtre malgré le bruit
-  (`maxStack` résolu au boot, `Kernel.ts:2803`).
-- Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:799`) reconstruit le buffer
+  (`maxStack` résolu au boot, `Kernel.ts:2815`).
+- Redimensionner = **au boot uniquement** : `setMaxStack()` (`Syslog.ts:814`) reconstruit le buffer
   en préservant les Pdu existants.
-- Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:764`) : les compteurs de
+- Le stockage lui-même se coupe à chaud (`setRingEnabled()`, `Syslog.ts:779`) : les compteurs de
   santé continuent d'être tenus, mais plus rien n'est retenu en RAM.
-- Lecture : le getter `ringStack` (`Syslog.ts:741`), et `getLogStack()` (`Syslog.ts:1290`) dont
+- Lecture : le getter `ringStack` (`Syslog.ts:752`), et `getLogStack()` (`Syslog.ts:1305`) dont
   l'appel **sans argument** renvoie le dernier Pdu en O(1) sans matérialiser le tableau.
 
 ### Le filtrage conditionnel des listeners
 
-Un listener peut n'écouter qu'une partie du flux, via `listenWithConditions()` (`Syslog.ts:1382`,
-alias de `filter()`, `Syslog.ts:1371`) : conditions sur `severity`, `msgid` ou `date`, combinées en
+Un listener peut n'écouter qu'une partie du flux, via `listenWithConditions()` (`Syslog.ts:1397`,
+alias de `filter()`, `Syslog.ts:1386`) : conditions sur `severity`, `msgid` ou `date`, combinées en
 `&&` (défaut) ou `||`. C'est ce mécanisme qui branche l'impression console au boot — `init()`
-(`Syslog.ts:821`) attache un unique listener « sévérité ≤ 6, ou ≤ 7 si debug », après avoir purgé
+(`Syslog.ts:836`) attache un unique listener « sévérité ≤ 6, ou ≤ 7 si debug », après avoir purgé
 les précédents (idempotence).
 
 > [!NOTE]
@@ -350,8 +350,8 @@ permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au 
 
 1. **Au lancement** — `NF__DEBUG` : `*` lève la gate globale, `FIREWALL` passe ce module en `DEBUG`,
    `SESSION:NOTICE` le passe à un niveau précis. Analysé par `Syslog.parseDebugSpec()`
-   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:2900`).
-2. **À chaud, par module** — `setDebugOverride()` (`Syslog.ts:974`) relève le seuil **d'un seul**
+   (`Syslog.ts:910`), appliqué au boot (`Kernel.ts:2900`).
+2. **À chaud, par module** — `setDebugOverride()` (`Syslog.ts:993`) relève le seuil **d'un seul**
    module (clé = son `msgid`). Le joker `*` vaut « tout ». Un `ttlMs` arme une **auto-extinction**
    (minuterie `unref`, ré-armable) : un debug oublié allumé n'existe pas.
 3. **Depuis l'admin** — `PATCH /nodefony/kernel/api/log/level` (`KernelAdminApi.ts:1044`), réservé
@@ -424,20 +424,20 @@ coûte réellement le reste du pipeline.
 
 ### Basculer et couper à chaud
 
-- **Changer de sink** : `Syslog.setLogSink()` (`Syslog.ts:1691`). La bascule vide d'abord les
+- **Changer de sink** : `Syslog.setLogSink()` (`Syslog.ts:1707`). La bascule vide d'abord les
   lignes en attente **puis** ferme l'ancien sink (`_setLogSink`, `Syslog.ts:154`) — jamais de ligne
   perdue, jamais de descripteur fuité.
-- **Couper sans changer de sink** : `Syslog.setSinkEnabled()` (`Syslog.ts:1714`) coupe l'écriture
+- **Couper sans changer de sink** : `Syslog.setSinkEnabled()` (`Syslog.ts:1730`) coupe l'écriture
   tout en **préservant le nom** du sink (l'interface d'admin sait quoi réafficher). Coût sur le hot
   path : un test booléen.
-- **Forcer la bufférisation** : `Syslog.setOutputBuffering()` (`Syslog.ts:1675`) accepte `true`,
+- **Forcer la bufférisation** : `Syslog.setOutputBuffering()` (`Syslog.ts:1691`) accepte `true`,
   `false` ou `"auto"`.
 
 ### Les transports — le fan-out structuré
 
 Un transport reçoit le `Pdu` entier et l'envoie où il veut. Contrat minimal : un `name` et un
 `send(pdu): Promise<void>`, plus un `close()` facultatif que le `Syslog` appelle quand il retire ou
-remplace le transport (un échec part sur `onTransportCloseError`). Ils sont ajoutés (`addTransport()`, `Syslog.ts:1419`, dédupliqué **par
+remplace le transport (un échec part sur `onTransportCloseError`). Ils sont ajoutés (`addTransport()`, `Syslog.ts:1434`, dédupliqué **par
 nom**), listés (`listTransports()`, `Syslog.ts:1492`) et activés/désactivés à chaud
 (`setTransportEnabled()`, `Syslog.ts:1516` — un transport désactivé est **retiré** de la boucle,
 donc sans surcoût). Une erreur d'envoi déclenche `onTransportError` : elle ne fait jamais tomber la
@@ -453,7 +453,7 @@ requête.
 | `opensearch` | OpenSearch (`_bulk`)      | Production : NDJSON groupé.                          |
 
 Les quatre premiers sont directs : `ConsoleTransport` (`ConsoleTransport.ts:5`) délègue l'impression
-à `Syslog.normalizeLog()` (`Syslog.ts:1625`) ; `FileTransport` écrit **un
+à `Syslog.normalizeLog()` (`Syslog.ts:1641`) ; `FileTransport` écrit **un
 objet JSON par ligne** par un seul flux d'ajout (ordre des lignes garanti), dans une file bornée
 (`maxPendingBytes`, 8 Mio) au-delà de laquelle les lignes sont perdues, comptées (`dropped`) et
 signalées une fois par épisode — exactement ce que relit le driver `file` — écriture et relecture sont
@@ -556,7 +556,7 @@ liste vide. Chacun expose une `probe()` : joignabilité, latence, informations d
 ### Le registre — comment un driver est monté
 
 Aucun `if (nom === …)` dans le Kernel. `registerBuiltinLogDrivers()` (`builtinLogDrivers.ts:86`)
-enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2750`) résout le driver
+enregistre les cinq fabriques natives ; `Kernel.initializeLog()` (`Kernel.ts:2762`) résout le driver
 demandé, monte `memory` en filet de sécurité, et — **en développement seulement** — tente de monter
 **tous** les drivers enregistrés pour permettre la bascule à chaud depuis Studio. Chaque fabrique
 s'auto-écarte si sa configuration manque (Loki sans URL, par exemple) : zéro I/O « au cas où ». En
@@ -597,7 +597,7 @@ syslog.logMultiple("ERROR", a, b); // idem, sévérité explicite
 // ❌ le `stringify` s'exécute même si le DEBUG est gaté
 this.log(JSON.stringify(hugePayload), "DEBUG");
 
-// ✅ on demande d'abord si ça passerait — `severityEnabled` (Syslog.ts:951)
+// ✅ on demande d'abord si ça passerait — `severityEnabled` (Syslog.ts:970)
 if (this.syslog?.severityEnabled("DEBUG")) {
   this.log(JSON.stringify(hugePayload), "DEBUG");
 }
@@ -631,7 +631,7 @@ permet à `Pdu` de rester utilisable dans la debug bar.
 
 ### Détourner `console.*` vers le journal
 
-`Syslog.overrideConsole()` (`Syslog.ts:1729`) redirige `log/info/warn/error/debug/table/dir` vers un
+`Syslog.overrideConsole()` (`Syslog.ts:1745`) redirige `log/info/warn/error/debug/table/dir` vers un
 `Syslog`. Effet **global au process** : un seul appel, et `restoreConsole()` pour revenir. Les
 méthodes natives ont été capturées au chargement du module, ce qui évite toute récursion infinie
 lors de l'impression.
@@ -766,7 +766,7 @@ Le flux temps réel passe par le canal `nodefony:syslog`, alimenté par un pont 
 (`createSyslogBridge()`, `providers.ts:146`) : au lieu d'une trame par Pdu, les logs s'accumulent
 dans un ring borné et partent en **une trame agrégée** toutes les 200 ms, avec un compteur de logs
 omis en cas de surcharge. L'interface reste lisible au lieu de se figer. La diffusion se coupe à
-chaud (`setStreamEnabled()`, `Syslog.ts:784`) sans toucher ni à l'écriture ni à la relecture.
+chaud (`setStreamEnabled()`, `Syslog.ts:799`) sans toucher ni à l'écriture ni à la relecture.
 
 Le plan de données est exposé sous `/nodefony/syslog/api/*` (`SyslogAdminApi.ts:94`) :
 
@@ -798,7 +798,7 @@ et le pilotage du debug ciblé.
 | `log.maxStack` refusé par TypeScript              | Absent du type public `LogConfig` (`types.ts:189`)            | Non réglable depuis l'app : 100 par défaut, 2000 en développement.            |
 | Codes de couleur dans un fichier de log           | Sortie non-TTY mal détectée                                   | La couleur est résolue au boot ; vérifier `NO_COLOR`/`FORCE_COLOR`.           |
 | Vue « incomplète » en cluster                     | Driver de relecture **local** — il ne lit que son process     | `queryDriver: "cluster-file"` (défaut d'un worker), ou Loki/OpenSearch.       |
-| Deux fois la même ligne dans le JSONL             | Deux transports de même nom empilés par deux boots successifs | Déjà traité : `addTransport` **remplace** par nom (`Syslog.ts:1419`).         |
+| Deux fois la même ligne dans le JSONL             | Deux transports de même nom empilés par deux boots successifs | Déjà traité : `addTransport` **remplace** par nom (`Syslog.ts:1434`).         |
 | Lignes perdues lors d'un `SIGKILL`                | Le buffer de tick n'est pas vidé (non interceptable)          | Perte bornée à un tick ; les sévérités ≤ 3 sont écrites en durable immédiat.  |
 | Boot en erreur : `queryDriver` ambigu             | Loki **et** OpenSearch déclarés sans choix explicite          | Préciser `queryDriver: "loki"` ou `"opensearch"` (`builtinLogDrivers.ts:54`). |
 | La sortie est noyée par une boucle qui journalise | Aucune garde de débit                                         | Activer `rateLimit` / `burstLimit` sur le `Syslog` concerné.                  |

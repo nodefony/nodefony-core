@@ -110,11 +110,11 @@ sait en plus se charger et s'accrocher au cycle de vie.
 
 **2. Le kernel s'enregistre lui-même, une fois.** Son constructeur (`Kernel.ts:489`) appelle
 `Nodefony.setKernel(this)` (`Kernel.ts:738`) et se pose au container sous la clé `kernel`
-(`Kernel.ts:405`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
+(`Kernel.ts:412`). Deux chemins d'accès, une seule instance — l'injection pour le code câblé, la
 façade pour le reste.
 
 **3. Le CLI n'est pas le noyau.** `CliKernel` (`CliKernel.ts:117`) étend `Cli`, **pas** `Kernel` : il
-analyse `argv`, choisit une commande, puis **construit** le kernel (`CliKernel.ts:238`). Séparation
+analyse `argv`, choisit une commande, puis **construit** le kernel (`CliKernel.ts:94`). Séparation
 utile — beaucoup d'invocations (`--version`, la complétion, `nodefony create`) n'ont aucun kernel à
 démarrer, et n'en démarrent effectivement aucun.
 
@@ -335,16 +335,16 @@ Deux chemins, un seul recommandé.
 | Geste                        | Ancre           | Quand                                                       |
 | ---------------------------- | --------------- | ----------------------------------------------------------- |
 | `@services([A, B])`          | —               | **Le cas normal.** Construits à `onPreBoot`, ordre calculé. |
-| `Module.addService(Ctor, …)` | `Module.ts:441` | Ajout conditionnel, décidé à l'exécution.                   |
-| `Module.loadService(chemin)` | `Module.ts:544` | Service optionnel chargé par `import()` dynamique.          |
-| `Module.getServiceNames()`   | `Module.ts:541` | Introspection — ce que **ce** module a posé au container.   |
+| `Module.addService(Ctor, …)` | `Module.ts:457` | Ajout conditionnel, décidé à l'exécution.                   |
+| `Module.loadService(chemin)` | `Module.ts:559` | Service optionnel chargé par `import()` dynamique.          |
+| `Module.getServiceNames()`   | `Module.ts:547` | Introspection — ce que **ce** module a posé au container.   |
 
 L'ordre écrit dans `@services([…])` n'a **pas** d'importance : il est recalculé depuis les
 dépendances déclarées. Détail du tri et des portées :
 [Injection & portées](../../../docs/architecture/injection-portees.md).
 
 `addService()` fait plus que construire : il initialise le service **sous garde** —
-`Kernel.guardServiceInitialize()` (`Module.ts:441`) —, apprend au registre DI le lien entre la classe
+`Kernel.guardServiceInitialize()` (`Module.ts:457`) —, apprend au registre DI le lien entre la classe
 et sa clé de container, puis range l'instance. C'est
 la raison pour laquelle on ne fait jamais un `new` manuel — un service construit à la main n'est
 connu de personne.
@@ -387,7 +387,7 @@ Le registre des controllers est global au process mais **indexé par module** �
 | Appel                | Ancre           | Rend                                                       |
 | -------------------- | --------------- | ---------------------------------------------------------- |
 | `getController("X")` | `Module.ts:584` | le constructeur, ou **lève** si absent de **ce** module    |
-| `getControllers()`   | `Module.ts:599` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
+| `getControllers()`   | `Module.ts:605` | vue filtrée `{ NomDeClasse: Ctor }`, préfixe module retiré |
 
 ### Surcharger la config d'un autre module
 
@@ -423,9 +423,9 @@ Le `Kernel` expose beaucoup. Voici ce qu'une application touche réellement.
 
 | Appel            | Ancre            | Rend                                                   |
 | ---------------- | ---------------- | ------------------------------------------------------ |
-| `getModule(nom)` | `Kernel.ts:1835` | le module, ou `undefined` s'il n'est pas chargé        |
-| `getModules()`   | `Kernel.ts:1838` | la table complète, **par référence** (ne pas la muter) |
-| `modules`        | `Kernel.ts:600`  | le même objet, en accès direct                         |
+| `getModule(nom)` | `Kernel.ts:1854` | le module, ou `undefined` s'il n'est pas chargé        |
+| `getModules()`   | `Kernel.ts:1857` | la table complète, **par référence** (ne pas la muter) |
+| `modules`        | `Kernel.ts:616`  | le même objet, en accès direct                         |
 
 `getModule()` est une lecture de table, sans garde : un module gaté par le manifeste rend
 `undefined`, pas une erreur. Le tester est donc à ta charge — c'est aussi le bon moyen de rendre une
@@ -438,7 +438,7 @@ un conteneur neuf ou un premier boot ne les ont pas.
 
 | Membre   | Ancre           | Ce qu'on y met                                                                   |
 | -------- | --------------- | -------------------------------------------------------------------------------- |
-| `path`   | `Kernel.ts:565` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
+| `path`   | `Kernel.ts:576` | La racine du projet (le répertoire de travail). Base de tout le reste.           |
 | `varDir` | `Kernel.ts:613` | Données runtime **persistées** : stores fichier, bases SQLite. Survit au reboot. |
 | `tmpDir` | `Kernel.ts:607` | Éphémère. Tout ce qui peut disparaître sans conséquence.                         |
 
@@ -454,10 +454,10 @@ const scratch = path.resolve(kernel.tmpDir!.path, "build"); // jetable
 | Membre                      | Ancre            | Note                                                                   |
 | --------------------------- | ---------------- | ---------------------------------------------------------------------- |
 | `options`                   | —                | La config de l'app, résolue et validée au chargement de celle-ci.      |
-| `environment`               | `Kernel.ts:411`  | Le mode **moteur** : `"development"` ou `"production"`.                |
-| `domain`                    | `Kernel.ts:615`  | Le nom d'hôte retenu, résolu au boot.                                  |
+| `environment`               | `Kernel.ts:420`  | Le mode **moteur** : `"development"` ou `"production"`.                |
+| `domain`                    | `Kernel.ts:630`  | Le nom d'hôte retenu, résolu au boot.                                  |
 | `get()` / `set()` / `has()` | —                | La façade container héritée de `Service` — voir [Service](service.md). |
-| `getBootReport()`           | `Kernel.ts:3385` | Le verdict du dernier boot : modules, serveurs, santé.                 |
+| `getBootReport()`           | `Kernel.ts:3408` | Le verdict du dernier boot : modules, serveurs, santé.                 |
 
 > [!WARNING]
 > Ne **jamais** déréférencer le kernel au premier niveau d'un fichier de configuration : il est
@@ -495,7 +495,7 @@ même chose.
 | ----------------------- | ---------------- | ---------------------------------------------------------------- | ---------------------- |
 | `fire(nom, …)`          | `Kernel.ts:746`  | Synchrone. Les écouteurs tournent tout de suite, **0 microtask** | le chemin chaud        |
 | `fireAsync(nom, …)`     | `Kernel.ts:1033` | Attend les écouteurs asynchrones, **en séquence**                | pipeline HTTP/WS, boot |
-| `fireLifecycle(nom, …)` | `Kernel.ts:3864` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
+| `fireLifecycle(nom, …)` | `Kernel.ts:3896` | Isole chaque écouteur : délai maximal + politique de criticité   | **le boot seulement**  |
 
 La règle de choix tient en une ligne : **si le résultat de l'écouteur t'importe, `fireAsync` ; sinon
 `fire`.** `fire()` ne t'apprend rien de ce qui s'est passé — il rend un booléen « quelqu'un
@@ -556,14 +556,14 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 ### Ce qu'il apporte
 
-| Membre                  | Ancre              | Rôle                                                                  |
-| ----------------------- | ------------------ | --------------------------------------------------------------------- |
-| `runProfile`            | `CliKernel.ts:118` | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
-| `setRunProfile(profil)` | `CliKernel.ts:999` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
-| `packageManager`        | `CliKernel.ts:120` | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
-| `addCommand(Ctor)`      | `CliKernel.ts:670` | Enregistre une commande intégrée (les modules passent par `Module`).  |
-| `quietBoot`             | `CliKernel.ts:128` | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
-| `parseCommand(argv?)`   | `CliKernel.ts:177` | Analyse Commander synchrone.                                          |
+| Membre                  | Ancre               | Rôle                                                                  |
+| ----------------------- | ------------------- | --------------------------------------------------------------------- |
+| `runProfile`            | `CliKernel.ts:118`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
+| `setRunProfile(profil)` | `CliKernel.ts:1025` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
+| `packageManager`        | `CliKernel.ts:120`  | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
+| `addCommand(Ctor)`      | `CliKernel.ts:670`  | Enregistre une commande intégrée (les modules passent par `Module`).  |
+| `quietBoot`             | `CliKernel.ts:128`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
+| `parseCommand(argv?)`   | `CliKernel.ts:190`  | Analyse Commander synchrone.                                          |
 
 Le défaut de `runProfile` est **console pur** : `{ servers: false, lifetime: "oneshot" }`. Une
 commande n'ouvre donc aucun port tant qu'elle ne le demande pas — un `nodefony build` ne démarre
@@ -615,7 +615,7 @@ Le cycle écourté d'une commande (phase cible, `park`, arrêt) appartient au r�
 | `import { Inject } from "nodefony"` échoue                | Le décorateur de propriété n'est pas ré-exporté par le paquet                    | Injection par constructeur : `@inject("nom")`                        |
 | `@injectable({ singleton: true })` sans effet             | La clé n'existe pas — elle est acceptée puis **ignorée**                         | `{ scope: "singleton" }` (défaut) ou `{ scope: "transient" }`        |
 | `@services()` refuse ma classe : « not assignable »       | Config déclarée en `interface` — pas d'index signature (`kernelDecorator.ts:21`) | Déclarer le type de config avec `type`, pas `interface`              |
-| `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1766`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
+| `getModule("x")` rend `undefined`                         | Lecture de table sans garde (`Kernel.ts:1854`)                                   | Tester ; un module gaté par le manifeste est légitimement absent     |
 | Config du module ignorée                                  | Défauts du constructeur écrasés par `use()` puis par l'environnement             | Comportement voulu — lire `this.config`, pas les défauts écrits      |
 | Override `Module-x` ignoré, `WARNING` au boot             | Le module cible n'est pas au manifeste (`Module.ts:401`)                         | Charger le module, ou retirer la clé                                 |
 | `Cannot read 'environment' of undefined` au démarrage CLI | `environment` non résolu au constructeur (`CliKernel.ts:134`)                    | Déplacer le réglage dans `onKernelStart()`                           |

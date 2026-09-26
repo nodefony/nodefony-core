@@ -514,7 +514,7 @@ modules de l'application.
 ## 🧩 Générer du code plutôt que le compiler — le `Builder`
 
 À côté des deux chaînes de build, un troisième producteur de fichiers : le scaffolding. `Builder`
-(`Builder.ts:52`) étend `Service` et n'a rien d'un bundler — il **matérialise des squelettes**.
+(`Builder.ts:48`) étend `Service` et n'a rien d'un bundler — il **matérialise des squelettes**.
 
 Il consomme des descriptions `BuilderObject` (`Builder.ts:27`) — un fichier, un dossier, une copie ou
 un lien symbolique — et les écrit via `build()` (`Builder.ts:162`), après rendu du squelette par le

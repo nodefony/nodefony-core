@@ -323,7 +323,7 @@ sequenceDiagram
 ```
 
 `Firewall.handleCors()` (`firewall.ts:1007`) est appelé **en tête de** `HttpKernel.handleHttp()`
-(`http-kernel.ts:1310`), à la ligne `http-kernel.ts:1310` — **avant le routing**. La raison est
+(`http-kernel.ts:1324`), à la ligne `http-kernel.ts:1324` — **avant le routing**. La raison est
 concrète : un preflight `OPTIONS /api/articles` n'a **pas de route déclarée** ; s'il traversait le
 router, il repartirait en 405. Et selon le Fetch Standard, un preflight ne transporte jamais de
 credentials — il ne doit donc ni s'authentifier, ni exécuter le moindre code applicatif.
@@ -387,7 +387,7 @@ victime** : c'est le CSWSH. C'est pourquoi `handleCors` s'arrête net sur un con
 (`firewall.ts:1007`) — il n'y aurait rien à protéger avec des en-têtes que personne ne lit.
 
 La garde équivalente vit dans le transport : `HttpKernel.checkWebsocketOrigin()`
-(`http-kernel.ts:604`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
+(`http-kernel.ts:621`) valide l'`Origin` **au handshake**, avant l'accept, et ferme en code WS `1008`
 si elle est refusée. Sa doctrine :
 
 - **same-origin par défaut** : l'`Origin` du handshake doit correspondre au `Host` servi ;
@@ -409,7 +409,7 @@ Deux réglages distincts, parce que deux mécanismes navigateur distincts.
 | `*` incompatible avec credentials | Fetch Standard · OWASP CORS | rejet au boot (`config.ts:156-159`) + reflet défensif (`cors.ts:58`)        |
 | Correction de cache               | RFC 9110 (`Vary`)           | `Vary: Origin` dès que l'origine est reflétée (`cors.ts:81`, `cors.ts:94`)  |
 | Comparaison d'origines            | RFC 6454 (Web Origin)       | match **exact** `scheme://host:port` — `Cors.#allowOrigin()` (`cors.ts:57`) |
-| Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:604`)                  |
+| Anti-CSWSH                        | OWASP WSTG-CLNT-10          | `HttpKernel.checkWebsocketOrigin()` (`http-kernel.ts:621`)                  |
 
 ## ⚡ Performance & mémoire
 
@@ -455,7 +455,7 @@ secondes les « pourtant j'ai bien mis l'origine ».
 | Le preflight échoue sur un en-tête custom                 | `allowedHeaders` est statique, il ne reflète pas la demande du client (`cors.ts:78`)   | Déclarer l'en-tête dans `cors.allowedHeaders`                                             |
 | Un cache sert la réponse d'une origine à une autre        | `Vary: Origin` écrasé en aval (la politique le pose, `cors.ts:81`)                     | Ne pas `setHeader("Vary", …)` dans un controller — utiliser `appendHeader`                |
 | `OPTIONS` renvoie 405 au lieu de 204                      | Requête `OPTIONS` **sans** `Access-Control-Request-Method` : ce n'est pas un preflight | Envoyer l'en-tête, ou déclarer une route `OPTIONS`                                        |
-| Page tierce qui ouvre un WebSocket authentifié            | CORS ne couvre pas le WS                                                               | C'est `checkWebsocketOrigin` qui garde (`http-kernel.ts:604`) — vérifier `allowedOrigins` |
+| Page tierce qui ouvre un WebSocket authentifié            | CORS ne couvre pas le WS                                                               | C'est `checkWebsocketOrigin` qui garde (`http-kernel.ts:621`) — vérifier `allowedOrigins` |
 | Ouverture CORS « temporaire » restée en production        | `origins:["*"]` posé en dev                                                            | Vérifier la valeur **résolue** dans Studio, pas le fichier source                         |
 
 ## 🧪 Tests & couverture

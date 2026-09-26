@@ -229,7 +229,7 @@ curl -si https://localhost:5152/api/v1/orders/list | head -1
 > [!WARNING]
 > Le champ `token` de la réponse 201 est la **seule** occasion de lire le secret : il n'est pas
 > stocké, donc pas re-dérivable (`IApiKeyCreated`, `IApiKey.ts:44`). Le listing ultérieur ne
-> renvoie que le `prefix` public (`#toView()`, `apiKeys.ts:393`). Perdue = ré-émise.
+> renvoie que le `prefix` public (`#toView()`, `apiKeys.ts:386`). Perdue = ré-émise.
 
 ## 🔐 Anatomie d'une clé — ce que chaque morceau paie
 
@@ -276,16 +276,16 @@ jamais par le préfixe.
 
 ### Émission — `ApiKeyService.createForSubject()`
 
-`ApiKeyService.createForSubject()` (`apiKeys.ts:128`) est le seul chemin d'émission. Dans l'ordre :
+`ApiKeyService.createForSubject()` (`apiKeys.ts:121`) est le seul chemin d'émission. Dans l'ordre :
 
 1. **Validation du nom** — non vide, ≤ 100 caractères ; sinon `ApiKeyError` 400 (`#normalizeName()`,
-   `apiKeys.ts:337`).
+   `apiKeys.ts:330`).
 2. **Validation des scopes** — tableau de chaînes non vides, dédupliquées, et **⊆ catalogue** si
-   `allowedScopes` est défini ; sinon 400 (`#normalizeScopes()`, `apiKeys.ts:348`).
+   `allowedScopes` est défini ; sinon 400 (`#normalizeScopes()`, `apiKeys.ts:341`).
 3. **Résolution de l'expiration** — `expiresInDays` explicite, sinon le défaut de config, `null` =
-   sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts:370`).
+   sans expiration ; une valeur non positive lève un 400 (`#resolveExpiry()`, `apiKeys.ts:363`).
 4. **Plafond anti-abus** — on ne compte que les clés **actives** (ni révoquées ni expirées) via
-   `#isActive()` (`apiKeys.ts:386`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts:55`).
+   `#isActive()` (`apiKeys.ts:379`) ; au-delà de `maxPerSubject` → 409 (`apiKeys.ts:48`).
 5. **Génération** — 32 octets aléatoires, `publicPrefix` et `secretHash` dérivés
    (`generateApiKey()`, `apiKeyFormat.ts:92`).
 6. **Écriture** — le `record` de `kind:"pat"` posé au store par `store.put()` (`apiKeys.ts:177`).
@@ -293,7 +293,7 @@ jamais par le préfixe.
    secret** (`apiKeys.ts:183-189`).
 
 Le service ne connaît pas le store à la construction : il le résout **paresseusement** du container
-au premier usage (`#resolveStore()`, `apiKeys.ts:324`) — indépendant de l'ordre de boot. Store
+au premier usage (`#resolveStore()`, `apiKeys.ts:317`) — indépendant de l'ordre de boot. Store
 absent = **503 explicite**, jamais une 500 opaque.
 
 ### Vérification — `ApiKeyAuthenticator.authenticate()`
@@ -353,7 +353,7 @@ apiKeys: {
 **Ce qu'on observe** : `npx nodefony security:user:add ci-bot` (rôle `ROLE_USER` par défaut), login
 en tant que `ci-bot`, puis émission avec `{"scopes":["orders:read"]}`. Demander
 `{"scopes":["orders:write"]}` renvoie **400 `scope not allowed: orders:write`** — refusé à
-l'émission, pas seulement à l'usage (`#normalizeScopes()`, `apiKeys.ts:348`).
+l'émission, pas seulement à l'usage (`#normalizeScopes()`, `apiKeys.ts:341`).
 
 > [!TIP]
 > Le catalogue `allowedScopes` de la config est un **complément**, pas la source : la console
@@ -368,7 +368,7 @@ doit y avoir **aucune** fenêtre pendant laquelle le job échoue.
 
 **Il n'y a pas de bouton « rotate »** — et c'est délibéré : une rotation atomique impliquerait
 soit deux secrets valides sous le même id (ambigu à auditer), soit une coupure. Le motif est le
-**recouvrement**, rendu possible par le plafond `maxPerSubject` (`apiKeys.ts:55`) :
+**recouvrement**, rendu possible par le plafond `maxPerSubject` (`apiKeys.ts:48`) :
 
 1. Émettre une **seconde** clé (même porteur, mêmes scopes, nom `CI deploy v2`).
 2. Déployer le nouveau secret dans le CI.
@@ -388,8 +388,8 @@ Deux chemins, selon qui agit :
 
 | Qui        | Endpoint                                          | Portée                 | Ancrage                                 |
 | ---------- | ------------------------------------------------- | ---------------------- | --------------------------------------- |
-| Le porteur | `DELETE /nodefony/security/api/keys/{id}`         | **ses** clés seulement | `revokeForSubject()` (`apiKeys.ts:303`) |
-| Un admin   | `POST /nodefony/security/api/apikeys/{id}/revoke` | n'importe quelle clé   | `revokeAnyPat()` (`apiKeys.ts:257`)     |
+| Le porteur | `DELETE /nodefony/security/api/keys/{id}`         | **ses** clés seulement | `revokeForSubject()` (`apiKeys.ts:296`) |
+| Un admin   | `POST /nodefony/security/api/apikeys/{id}/revoke` | n'importe quelle clé   | `revokeAnyPat()` (`apiKeys.ts:250`)     |
 
 **Ce qu'on observe** : la révocation est **idempotente** et prend effet à la requête suivante —
 l'authenticator lit `revokedAt` avant toute autre décision (`ApiKeyAuthenticator.ts:111-118`).
@@ -596,7 +596,7 @@ révocation ne traverse pas. Le détail de la résolution, des avertissements et
 | Message d'échec uniforme          | OWASP API2:2023 (Broken Auth)          | `INVALID_TOKEN` (`ApiKeyAuthenticator.ts:17`)          |
 | Révocation immédiate côté serveur | OWASP API2:2023                        | `revokedAt` vérifié (`ApiKeyAuthenticator.ts:111-118`) |
 | Entropie du secret (≥ 128 bits)   | NIST SP 800-63B                        | 32 octets aléatoires (`apiKeyFormat.ts:30`)            |
-| Plafond de ressources par acteur  | OWASP API4:2023 (Resource Consumption) | `maxPerSubject` (`apiKeys.ts:55`)                      |
+| Plafond de ressources par acteur  | OWASP API4:2023 (Resource Consumption) | `maxPerSubject` (`apiKeys.ts:48`)                      |
 
 ## ⚡ Performance & mémoire
 
@@ -614,7 +614,7 @@ Le coût par requête authentifiée par clé est **maîtrisé par construction**
   container au premier usage et mémoïsés (`ApiKeyAuthenticator.ts:173`, `apiKeys.ts:268`) — le boot
   ne paie rien si aucune clé n'est jamais présentée.
 - **Jamais N enregistrements en RAM** côté administration : le listing est paginé **au store**
-  (`listPagePat()`, `apiKeys.ts:216`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts:107`).
+  (`listPagePat()`, `apiKeys.ts:209`), fenêtre plafonnée à 200 (`SecurityAdminApi.ts:107`).
 
 Le point de vigilance restant : `createForSubject()` compte les clés actives via `findBySubject()`
 (`ITokenStore.ts:211`), qui charge **toutes** les clés du porteur. C'est borné par `maxPerSubject`
@@ -649,7 +649,7 @@ pas masqué à l'affichage. Voir aussi l'écran **Audit** pour les événements 
 | 401 à la création de clé                               | Ces routes exigent une **session** (pas de `bypassFirewall`)                                   | Se connecter d'abord (`/nodefony/security/api/auth/login`)             |
 | Le token clair est introuvable après coup              | Seul `sha256` est stocké — non re-dérivable (`apiKeyFormat.ts:70`)                             | Émettre une nouvelle clé, révoquer l'ancienne                          |
 | 409 « API key limit reached »                          | Plafond de clés **actives** atteint (`apiKeys.ts:144-147`)                                     | Révoquer les clés inutilisées ou relever `maxPerSubject`               |
-| 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:363`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
+| 400 « scope not allowed »                              | Scope hors du catalogue `allowedScopes` (`apiKeys.ts:284`)                                     | Ajouter le scope au catalogue, ou corriger la demande                  |
 | Toutes les clés rejetées après un changement de config | `prefix` modifié → les anciennes ne sont plus reconnues (`authenticatorRegistry.ts:142`)       | Garder le `prefix` STABLE après la première émission                   |
 | Clé valide mais 403 sur la route                       | Autorisation, pas authentification : scope manquant — `ScopeVoter.vote()` (`ScopeVoter.ts:50`) | Émettre une clé portant le scope exigé par `@RequireScope`             |
 | Clé rejetée alors qu'elle n'est ni expirée ni révoquée | Porteur désactivé/verrouillé, ou seuil `invalidBefore` (`ApiKeyAuthenticator.ts:121-124`)      | Réactiver le compte, ou réémettre après le bannissement                |

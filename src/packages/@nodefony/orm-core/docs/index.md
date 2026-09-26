@@ -610,7 +610,7 @@ d'administration : elle ne charge qu'une page, quelle que soit la taille de la t
 
 Deux drivers implémentent les contrats. Le contrat `IRepository` est tenu **en entier** par les
 deux : les quinze verbes existent des deux côtés — par exemple l'upsert, avec
-`DrizzleRepository.upsert()` (`DrizzleRepository.ts:879`) et `MongooseRepository.upsert()`
+`DrizzleRepository.upsert()` (`DrizzleRepository.ts:866`) et `MongooseRepository.upsert()`
 (`MongooseRepository.ts:405`).
 
 | Capacité                               | `@nodefony/drizzle`                 | `@nodefony/mongoose`                         |
@@ -622,7 +622,7 @@ deux : les quinze verbes existent des deux côtés — par exemple l'upsert, ave
 | Savepoints (rollback partiel)          | oui                                 | non — refusés (`SavepointNotSupportedError`) |
 | Colonnes pour l'ERD (`describeEntity`) | oui (`DrizzleOrm.ts:1933`)          | oui (`MongooseOrm.ts:649`)                   |
 | Sonde de flux (requêtes/s, lentes)     | oui — alimente `queryFlowMonitor`   | non câblée                                   |
-| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1835`)          | oui (`MongooseOrm.ts:617`)                   |
+| Sonde profonde (`probe`)               | oui (`DrizzleOrm.ts:1873`)          | oui (`MongooseOrm.ts:617`)                   |
 
 **Les « stores » du framework** : chaque adapter déclare ce qu'il porte dans son `package.json`, clé
 `nodefony.stores`. Les deux backends durables portent les huit :

@@ -44,9 +44,9 @@ Deux bénéfices, et c'est toute la raison d'être du mécanisme : **aucun cycle
 ajouter un pilote **ne touche pas** `@nodefony/http`. La résolution du nom est insensible à la casse.
 
 Le registre et sa résolution vivent dans `SessionsService.registerStorage()`
-(`sessions-service.ts:182`), `SessionsService.getStorage()` (`sessions-service.ts:191`) et
-`SessionsService.storageHandlers()` (`sessions-service.ts:198`) ; le stockage intégré s'enregistre
-en fin de fichier (`registerStorage("memory")`, `sessions-service.ts:890`).
+(`sessions-service.ts:196`), `SessionsService.getStorage()` (`sessions-service.ts:205`) et
+`SessionsService.storageHandlers()` (`sessions-service.ts:210`) ; le stockage intégré s'enregistre
+en fin de fichier (`registerStorage("memory")`, `sessions-service.ts:196`).
 
 ## Choisir le backend — un seul réglage
 
@@ -86,7 +86,7 @@ SESSION STORAGE active : redis
 ```
 
 La résolution est portée par `resolveAutoStore()` (`infra.ts:289`), appelée depuis
-`initializeStorage()` (`sessions-service.ts:239`) — la même fonction sert aux autres briques qui
+`initializeStorage()` (`sessions-service.ts:258`) — la même fonction sert aux autres briques qui
 déclarent un store, ce qui évite deux politiques divergentes.
 
 ### L'interface du registre

@@ -672,7 +672,7 @@ abandon. Chaque retry **repasse par la file bornée** (`#scheduleRetry()`,
 
 ### Auto-désactivation d'un endpoint mort
 
-Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:687`) : succès →
+Chaque issue finale passe par `WebhookService.markDelivery()` (`webhooks.ts:682`) : succès →
 `failureCount = 0` ; échec → incrément. Au-delà de `autoDisableThreshold` (défaut **20**), l'endpoint
 est **désactivé** et un unique événement d'audit `webhook.disabled` est émis — **un par endpoint qui
 meurt**, jamais un par échec (le volume resterait ingérable). Mettre le seuil à `0` désactive
@@ -725,7 +725,7 @@ Section `webhooks` du schéma Zod (`webhooksSchema`, `security/nodefony/config/c
 
 > [!NOTE]
 > `timestampToleranceS` est **transporté** dans la politique de livraison
-> (`getDeliveryPolicy()`, `webhooks.ts:667`) mais l'émetteur ne l'applique jamais : la fenêtre
+> (`getDeliveryPolicy()`, `webhooks.ts:663`) mais l'émetteur ne l'applique jamais : la fenêtre
 > anti-rejeu est par nature un contrôle du **récepteur**. Traite cette valeur comme la tolérance que
 > tu documentes à tes destinataires — c'est celle du récepteur qui protège.
 

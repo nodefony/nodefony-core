@@ -283,7 +283,7 @@ non-multipart n'écoute pas `upload.*`.
 | `maxBodySize` | octets | `1_048_576` (1 MiB) | Plafond d'un corps **JSON / urlencoded / XML / brut** → `413`. `0` = illimité. |
 
 Deux rideaux, tous deux `runtimeMutable` (éditable à chaud) : un **pré-check** sur `Content-Length`
-qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:439`), puis un **compteur
+qui rejette **avant** de lire (`enforceBodyLimit()`, `context/http/Request.ts:435`), puis un **compteur
 en streaming** qui coupe le socket si le corps déborde sans `Content-Length` honnête — chunked ou
 menteur (`Parser.write()`, `context/http/parser.ts:33`, dépassement `context/http/parser.ts:33`).
 Champ `maxBodySize` du schéma : `config/config.ts:1026`.
@@ -322,16 +322,16 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 
 | Accès                                              | Source lue                           | Ancrage                                                             |
 | -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1263`)            |
-| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1262`)             |
+| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1283`)            |
+| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1282`)             |
 | `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
 | `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1223`)                       |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1306`)               |
-| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:239`) |
-| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:248`) |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1326`)               |
+| `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:256`) |
+| `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:265`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
-(`routerDecorators.ts:1263`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
+(`routerDecorators.ts:1283`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
 `IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts:49`, `interfaces/IUpload.ts:7`).
 
 ### Un fichier uploadé — `UploadedFile`
@@ -357,7 +357,7 @@ destination est bâtie avec `filename` — d'où l'avertissement de sécurité c
 Pour piper directement un très gros corps (vidéo, backup) vers le disque ou S3 sans passer par busboy ni
 par la RAM, `@Body({ stream: true })` court-circuite le parse et injecte l'`IncomingMessage` brut (un
 `Readable`). Le pipeline sait le sauter en amont via `routeExpectsBodyStream()`
-(`routerDecorators.ts:1379`), mémoïsé sur la route.
+(`routerDecorators.ts:1408`), mémoïsé sur la route.
 
 ```ts
 // fragment — le contrôleur pipe le flux lui-même (0 parse, 0 pic RAM)
@@ -413,7 +413,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | Domaine                            | Norme                            | Ancrage                                                       |
 | ---------------------------------- | -------------------------------- | ------------------------------------------------------------- |
 | Formulaire avec fichiers           | RFC 7578 (`multipart/form-data`) | `parseMultipart()` via busboy (`context/http/Request.ts:532`) |
-| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:439`)          |
+| Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:435`)          |
 | 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts:33`)                |
 | Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts:481`)          |
 | Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:627`)                |

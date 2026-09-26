@@ -250,9 +250,9 @@ La réponse suit RFC 6749 §5.1 — `ITokenResponse` (`tokenService.ts:49-57`). 
 1. Lookup par hash — `findByHash`, refus uniforme si inconnu/mauvais type (`tokenService.ts:571`).
 2. **Détection de rejeu** : refresh **déjà révoqué** re-présenté → `revokeFamily` coupe toute la
    famille + audit `token.reuse_detected`, signal d'attaque fort (`tokenService.ts:577-591`).
-3. Expiration `expiresAt` vérifiée (`tokenService.ts:594`).
+3. Expiration `expiresAt` vérifiée (`tokenService.ts:705`).
 4. **Sujet revérifié** — compte disparu/inactif/verrouillé rejeté sans attendre l'exp,
-   `#resolveUserForRefresh()` (`tokenService.ts:752`).
+   `#resolveUserForRefresh()` (`tokenService.ts:764`).
 5. **Downscoping** : les `scopes` du nouveau couple sont ceux de l'ancien, jamais plus
    (`tokenService.ts:600`).
 6. **Rotation** : nouveau refresh (même famille), l'ancien chaîné `replacedBy` + révoqué
@@ -390,7 +390,7 @@ Les colonnes par dialecte vivent dans la doc de chaque adapter (règle anti-trip
 - `listAll()` reste réservé au **dump d'incident** cross-porteur, cold-path admin
   (`ITokenStore.ts:222`).
 - Consommateur type : le data plane des clés API — `ApiKeyService.listPagePat()`
-  (`apiKeys.ts:216`), jamais un listAll matérialisé.
+  (`apiKeys.ts:209`), jamais un listAll matérialisé.
 
 ### Révoquer — trois portées
 
@@ -429,7 +429,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:366-425`) et `token
 | `refreshTtlS` | number (s) | `604800` | TTL du refresh — 7 jours (`config.ts:375`) |
 | `rotateRefresh` | boolean | `true` | Rotation du refresh à chaque usage, OWASP (`config.ts:380`) |
 | `jwks` | boolean | `true` | Publie `/.well-known/jwks.json` + les métadonnées RFC 8414 — sans `issuer` en URL https, rien n'est publié |
-| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:390`) |
+| `audiences` | string[] | `[]` | `aud` acceptées (RFC 8707) ; vide = `[issuer]` (`config.ts:396`) |
 | `issuer` | string? | — | Claim `iss`, **STABLE** après émission ; omis → repli `"nodefony"`, qui n'est PAS publiable (RFC 8414 §2 exige une URL https) |
 | `keystore.keySetJson` | string? | — | JWK Set privé injecté depuis l'env — source prod, SECRET (`security/nodefony/config/config.ts:404`) |
 | `keystore.dir` | string? | — | Dossier `keyset.json` chmod 600 — source dev/VPS (`config.ts:410-418`) |
@@ -458,7 +458,7 @@ Tables dérivées du schéma Zod — `jwtSchema` (`config.ts:366-425`) et `token
 
 ## ⚡ Performance & mémoire
 
-- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:726`)
+- **`jose` importé lazy** (dep lourde) : `#ensureJose()` au premier usage (`tokenService.ts:738`)
   — le boot ne paie rien si le JWT n'est jamais sollicité ; keystore mémoïsé pareil.
 - **Rien sur le hot path requête** : émission et rotation sont des endpoints cold-path ; la
   vérification (hot path) vit chez le `JwtAuthenticator`.

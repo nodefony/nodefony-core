@@ -258,12 +258,12 @@ voulues :
 - **Lire, c'est remonter la chaîne** : `scope.get("syslog")` trouve le journal de l'application sans
   code intermédiaire (`Container.get()`, `Container.ts:168`). Un service ajouté à la carte **après**
   l'ouverture d'un scope y est aussitôt visible.
-- **Écrire, c'est rester sur le calque** : `Scope.set()` (`Container.ts:389`) n'écrit que sur
+- **Écrire, c'est rester sur le calque** : `Scope.set()` (`Container.ts:155`) n'écrit que sur
   l'objet du scope. Le `set()` du conteneur racine, lui, écrit sur le prototype partagé
   (`Container.set()`, `Container.ts:151`) — c'est pourquoi `Scope` le **redéfinit** : sans cette
   redéfinition, un service posé pour une requête deviendrait visible de toutes les requêtes
   concurrentes.
-- **Retirer ne touche que le calque** : `Scope.remove()` (`Container.ts:402`) ne retire qu'une clé
+- **Retirer ne touche que le calque** : `Scope.remove()` (`Container.ts:190`) ne retire qu'une clé
   posée sur le scope, jamais un service hérité.
 
 > [!IMPORTANT]
@@ -282,7 +282,7 @@ Ce qu'un scope sait encore faire :
 - **porter un calque sur le calque** : un scope ouvert depuis un scope chaîne sur les services de
   **son** parent (`Container.ts:365`), donc voit ce que la requête a posé ;
 - **refuser `reset()`** : sur un scope, il lèverait plutôt que de le détacher en silence de sa carte
-  (`Scope.reset()`, `Container.ts:375`) ;
+  (`Scope.reset()`, `Container.ts:336`) ;
 - **ne pas confondre un nom de JavaScript avec un service** : les prototypes n'héritent pas
   d'`Object.prototype` (`createProto()`, `Container.ts:32`), donc `has("toString")` rend `false`.
 
@@ -335,7 +335,7 @@ nettoyage.
 
 `@injectable({ scope: "request" })` donne **un exemplaire par requête** — par **connexion** en
 WebSocket. Le contrat, tel que l'injecteur l'applique (`Injector._resolveRequestScoped()`,
-`injector.ts:323`) :
+`injector.ts:333`) :
 
 - **créé à la première résolution** dans la requête, puis rendu à chaque résolution suivante de la
   même requête ; une requête qui ne le résout pas ne paie rien ;
@@ -606,7 +606,7 @@ recevoir son `context` en premier argument, et ses `@inject` ensuite.
 ### L'injection par propriété — présente dans le moteur, pas dans la surface publique
 
 Le moteur applique une injection après construction (`Injector._applyPropertyInjection()`,
-`injector.ts:514`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
+`injector.ts:525`), alimentée par le décorateur `Inject` majuscule. **Préférer l'injection par
 constructeur** : elle est explicite, couverte, et c'est elle que le tri des services sait ordonner.
 
 ### Garde-fous du moteur
@@ -617,7 +617,7 @@ constructeur** : elle est explicite, couverte, et c'est elle que le tri des serv
   argument et que son constructeur casse, l'erreur nomme le demandeur et **la cause probable** — un
   ordre de déclaration.
 - **Dépendance captive** : refusée au démarrage et à la résolution, avec le chemin complet et trois
-  remèdes (`Injector._captiveError()`, `injector.ts:418`).
+  remèdes (`Injector._captiveError()`, `injector.ts:428`).
 
 ### Le cycle de vie, selon la portée
 
@@ -643,13 +643,13 @@ sequenceDiagram
 | --------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `set(name, instance)` | poser un service — racine : sur le prototype partagé ; scope : sur le scope seul (`Container.ts:151`, `:389`)                                        |
 | `get<T>(name)`        | lire un service — `null` si absent ou si le conteneur est fermé (`Container.ts:168`)                                                                 |
-| `has(name)`           | le nom est-il lisible, hérité compris ? (`Container.ts:198`)                                                                                         |
+| `has(name)`           | le nom est-il lisible, hérité compris ? (`Container.ts:205`)                                                                                         |
 | `remove(name)`        | retirer — racine : les scopes cessent d'en hériter, leurs surcharges propres restent ; scope : sa clé propre seulement (`Container.ts:183`)          |
 | `addScope(name)`      | **déclarer** un type de scope, au démarrage (`Container.ts:224`)                                                                                     |
 | `enterScope(name)`    | **ouvrir** une instance de scope — lève si le type n'est pas déclaré (`Container.ts:245`)                                                            |
 | `leaveScope(scope)`   | fermer et nettoyer une instance ; un second appel ne fait rien (`Container.ts:264`)                                                                  |
 | `scopeCount(name)`    | nombre de scopes ouverts — sonde de fuite bon marché (`Container.ts:281`)                                                                            |
-| `clean()` / `reset()` | démontage / remise à zéro de la racine ; `reset()` lève sur un scope (`Container.clean()`, `Container.ts:319` ; `Scope.reset()`, `Container.ts:375`) |
+| `clean()` / `reset()` | démontage / remise à zéro de la racine ; `reset()` lève sur un scope (`Container.clean()`, `Container.ts:319` ; `Scope.reset()`, `Container.ts:336`) |
 | `scope.hasOwn(name)`  | le nom est-il posé **sur ce scope** ? (`Container.ts:421`)                                                                                           |
 | `scope.own(instance)` | rattacher un objet pour que son `clean()` soit appelé à la fermeture (`Scope.own()`, `Container.ts:438`)                                             |
 | `scope.closed`        | `true` une fois le scope refermé (`Container.ts:105`)                                                                                                |

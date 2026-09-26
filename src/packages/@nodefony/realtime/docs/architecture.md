@@ -419,15 +419,15 @@ sequenceDiagram
 
 Les étapes, dans l'ordre exact du code :
 
-1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:970`). Refus →
+1. **Contrôle de l'origine** — `RealtimeHub.checkOrigin()` (`RealtimeHub.ts:986`). Refus →
    fermeture `4003`. La politique vient de la configuration ; sans politique, tout passe.
 2. **Résolution de l'identité** — `RealtimeHub.resolveAuthenticator()`
-   (`RealtimeHub.ts:945`) parcourt les authentificateurs enregistrés : **le premier motif
+   (`RealtimeHub.ts:961`) parcourt les authentificateurs enregistrés : **le premier motif
    qui correspond capture**. Aucun ne correspond ? Le jeton anonyme gelé est posé
    (`ANONYMOUS_REALTIME_TOKEN`) — la lecture d'identité ne rend donc jamais `null`. Un
    échec d'authentification ferme en `4001`.
 3. **Création du peer et du transport**, puis association `peer → jeton`
-   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:1002`), stockée dans une `WeakMap` : le
+   (`RealtimeHub.setTokenForPeer()`, `RealtimeHub.ts:1018`), stockée dans une `WeakMap` : le
    jeton disparaît avec le peer, sans fuite.
 4. **Enregistrement des actions** — celles des décorateurs `@RealtimeAction`, puis celles
    de la surcharge `realtimeActions()`, qui gagne en cas de conflit. Le pont API
@@ -459,13 +459,13 @@ déconnexion.
 La seconde mérite une explication. Le verrou de frame est synchrone et lit une identité
 figée au handshake : il ne peut donc pas voir une session qui meurt en cours de route (une
 déconnexion HTTP, par exemple). Un minuteur — démarré au premier inscrit, arrêté dès que le
-registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:778`) — relit
+registre se vide (`RealtimeHub.registerRevocable()`, `RealtimeHub.ts:794`) — relit
 périodiquement ces identités et coupe les sockets orphelines. Seules les identités
 **révocables** y entrent : un visiteur anonyme ne coûte rien.
 
 ## Le hub — canaux partagés et fan-out
 
-Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1435`). Il ne
+Le hub est un singleton par process (`getRealtimeHub()`, `RealtimeHub.ts:1451`). Il ne
 dépend de rien : ce sont les fabriques fournies par les contrôleurs qui portent les
 dépendances.
 
@@ -478,7 +478,7 @@ dépendances.
    paquet du producteur atteigne bien ce premier abonné.
 3. La fabrique du contrôleur rend `null` (canal inconnu de lui) ? Dernier recours : le
    registre des **canaux système** (`RealtimeHub.registerSystemChannel()`,
-   `RealtimeHub.ts:1281`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
+   `RealtimeHub.ts:1297`), qu'un module bas niveau alimente au démarrage. Toujours `null` →
    l'abonnement est refusé et rien n'est alloué.
 
 Au dernier désabonnement, `RealtimeHub.unsubscribe()` (`RealtimeHub.ts:576`) appelle le
@@ -743,19 +743,19 @@ Deux propriétés architecturales méritent d'être notées ici, parce qu'elles 
 choix de conception visibles partout dans le module :
 
 **Coût nul quand la sécurité est absente.** Le verrou de frame n'est branché sur le peer que
-si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:1042`, testé une
+si une politique existe (`RealtimeHub.hasFrameAuthorizer()`, `RealtimeHub.ts:1058`, testé une
 fois au handshake). Sans module de sécurité, `beforeDispatch` reste indéfini et le chemin
 chaud ne paie **rien** du tout.
 
 **Échec bruyant plutôt que faux sentiment de sécurité.** Si des canaux déclarent une
 politique sans qu'aucun décideur ne soit câblé, `hasUnenforcedChannelPolicies()`
-(`RealtimeHub.ts:1101`) le détecte et un avertissement est émis une fois par process
+(`RealtimeHub.ts:1117`) le détecte et un avertissement est émis une fois par process
 (`RealtimeController.ts:487`). Un canal qui **se croit** gardé alors qu'il est ouvert est
 bien plus dangereux qu'un canal ouvertement public.
 
 ## 📡 Observabilité — la sonde et Studio
 
-`RealtimeHub.probe()` (`RealtimeHub.ts:849`) rend un instantané en **lecture pure** : aucune
+`RealtimeHub.probe()` (`RealtimeHub.ts:865`) rend un instantané en **lecture pure** : aucune
 allocation sur le chemin chaud, jamais d'exception. Les compteurs sont des primitives
 incrémentées en O(1) ; ils sont **monotones**, ce qui laisse au lecteur le soin de dériver
 un débit.
@@ -808,7 +808,7 @@ révocables, authentificateurs, politiques de canal, association peer→jeton : 
 `null`. Un process sans abonné n'alloue **rien** (`RealtimeHub.ts:141` et suivants).
 
 **Aucun minuteur au repos.** Le tick de révocation démarre au premier inscrit et s'arrête
-dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:793`).
+dès que le registre se vide — `RealtimeHub.unregisterRevocable()` (`RealtimeHub.ts:809`).
 Les minuteurs sont détachés de la boucle d'événements : ils ne retiennent jamais l'arrêt du
 process.
 

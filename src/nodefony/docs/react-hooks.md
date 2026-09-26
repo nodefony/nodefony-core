@@ -109,7 +109,7 @@ Le binding existe pour que ces trois cas soient traités **une fois**, au bon en
 Le parti pris est de mettre l'intelligence **sous** React, pas dedans. Le comptage de références et
 le ré-abonnement après coupure vivent dans `RealtimeClient.subscribe()`
 (`client/realtime/RealtimeClient.ts:530`) et `RealtimeClient.unsubscribe()`
-(`client/realtime/RealtimeClient.ts:543`), au-dessus d'une carte `_subscriptions`
+(`client/realtime/RealtimeClient.ts:549`), au-dessus d'une carte `_subscriptions`
 (`client/realtime/RealtimeClient.ts:229`).
 
 Conséquence directe : cette autorité est **partagée**. Les hooks et un store applicatif (MobX, Zustand,
@@ -286,7 +286,7 @@ décide du coût de ton écran.
 | `useNodefonySnapshot()`               | l'état de la socket, ou `null` | à chaque échantillon (canaux, trames, dernière) | `client/react/index.ts:350` |
 | `useNodefonySyslog()`                 | un tampon de lignes de log     | à chaque lot retenu par le filtre               | `client/react/index.ts:373` |
 | `useNodefonyNotifications()`          | rien                           | **jamais** — ton handler décide                 | `client/react/index.ts:398` |
-| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:424` |
+| `useNodefonyNoticeLog()`              | un tampon de notices           | à chaque notice retenue                         | `client/react/index.ts:420` |
 
 ### `NodefonyProvider` — publier le client dans l'arbre
 
@@ -314,7 +314,7 @@ Rend `"disconnected" | "connecting" | "connected" | "reconnecting" | "error"`. L
 `useSyncExternalStore`, donc **sans tearing** en rendu concurrent : le snapshot est une chaîne, la
 comparaison est exacte.
 
-Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1425`), qui
+Le re-rendu suit `RealtimeClient.setState()` (`client/realtime/RealtimeClient.ts:1429`), qui
 court-circuite si l'état est inchangé — un état stable ne coûte rien, même sous un flux dense.
 
 C'est le hook des badges de connexion et des écrans dégradés (« temps réel indisponible »).
@@ -419,9 +419,9 @@ const { data, intervalMs } = useNodefonyAdaptiveChannelData<Health>(
 ### `useNodefonyChannelStats()` — débit et série d'un canal
 
 Rend `{ msgCount, lastMessage, rate, series }` pour un canal, calculé par le client à partir des
-trames reçues (`getChannelStats()`, `client/realtime/RealtimeClient.ts:984`). La série glisse sur 32
+trames reçues (`getChannelStats()`, `client/realtime/RealtimeClient.ts:988`). La série glisse sur 32
 points — `STATS_SERIES_POINTS` (`client/realtime/RealtimeClient.ts:131`) —, échantillonnés une fois par seconde par
-`startStatsSampler()` (`client/realtime/RealtimeClient.ts:1164`).
+`startStatsSampler()` (`client/realtime/RealtimeClient.ts:1168`).
 
 > [!WARNING]
 > Ce hook ne se rafraîchit **pas** tout seul après sa première valeur. Le client réutilise le même
@@ -475,7 +475,7 @@ filtrable par source (`"realtime" | "api" | "server"`). Utile pour un panneau «
 des toasts, qui eux disparaissent.
 
 Comme pour le journal, la liste `sources` n'a pas besoin d'être mémoïsée (`srcKey`,
-`client/react/index.ts:429`).
+`client/react/index.ts:425`).
 
 ### Fabriquer un nom de canal cadencé
 

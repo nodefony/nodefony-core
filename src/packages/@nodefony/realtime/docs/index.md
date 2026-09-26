@@ -325,7 +325,7 @@ vue de tous les workers d'un pod.
 
 Le data plane admin expose `/nodefony/realtime/api/health` — canaux et abonnés, compteurs de
 diffusion, connexions, octets et frames, pression d'écriture. C'est la même donnée que celle rendue à
-l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:849`).
+l'écran, servie par la sonde du hub (`RealtimeHub.probe()`, `RealtimeHub.ts:865`).
 
 ## 🧪 Tests & couverture
 

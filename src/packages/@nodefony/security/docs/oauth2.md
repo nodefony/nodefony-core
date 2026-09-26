@@ -146,7 +146,7 @@ c'est l'authenticator `session` qui identifie chaque requête, comme après un m
 **Coût nul quand on ne s'en sert pas.** Aucune dépendance tierce : le client OAuth 2.0 est écrit
 dans le module (`oauth2Client.ts:321`), et `jose` — seul recours externe, pour lire les claims de
 l'ID token — est importé **paresseusement**. Les fournisseurs sont construits au premier login puis
-mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:290`) : c'est là, une seule fois par
+mémoïsés (`OAuth2Service.#resolveProvider()`, `oauth2.ts:296`) : c'est là, une seule fois par
 processus, que les points d'entrée d'un émetteur OIDC sont découverts. Les routes ne sont montées
 que si le service existe (`framework/index.ts:460`) : sans social login configuré, la surface HTTP
 est **404**, pas « désactivée ».

@@ -1607,13 +1607,13 @@ Pour qui veut lire l'implémentation derrière chaque étape :
 | Les politiques de canal | `IChannelPolicy` (`IChannelPolicy.ts:20`), `RealtimeHub.registerChannelPolicy()` (`RealtimeHub.ts:1127`), garde-fou `RealtimeHub.hasUnenforcedChannelPolicies()` (`RealtimeHub.ts:1127`) |
 | Le branchement automatique du firewall | `Firewall.#wireRealtime()` (`firewall.ts:279`) |
 | Les refus | `IRealtimeDenied` (`RealtimeEventMap.ts:269`), erreur `unauthorized` (`JsonRpcPeer.ts:400`), fermetures `origin not allowed` (`RealtimeController.ts:327`) et `unauthorized` (`RealtimeController.ts:349`) |
-| La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:810`) |
+| La révocation en cours de session | `RealtimeHub.revalidateRevocable()` (`RealtimeHub.ts:826`) |
 | Le consommateur lent | seuil `SLOW_CONSUMER_BYTES` (`RealtimeHub.ts:56`), fermeture `slow consumer` (`RealtimeHub.ts:63`) |
-| Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:984`) |
+| Le plafond de canaux | `RealtimeHub.maxChannelsPerConnection` (`RealtimeHub.ts:1000`) |
 | L'accueil et l'identité | `IRealtimeWelcome` (`RealtimeEventMap.ts:231`) |
-| La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:849`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |
+| La sonde | `RealtimeHub.probe()` (`RealtimeHub.ts:865`), `IRealtimeProbe` (`IRealtimeProbe.ts:61`), `IRealtimeChannelStat` (`IRealtimeProbe.ts:47`) |
 | Le point de mesure d'administration | `createRealtimeAdminApi()` (`RealtimeAdminApi.ts:98`), `buildRealtimeHealth()` (`RealtimeAdminApi.ts:74`), `buildOwnHealth()` (`RealtimeAdminApi.ts:52`) |
 | Le service injectable | `RealtimeService.publish()` (`RealtimeService.ts:161`), `RealtimeService.probe()` (`RealtimeService.ts:213`), `RealtimeService.markBroadcastChannel()` (`RealtimeService.ts:222`) |
 | Les hooks React | `useNodefony()` (`client/react/index.ts:145`), `useNodefonyState()` (`client/react/index.ts:163`), `useNodefonyIdentity()` (`client/react/index.ts:182`), `useNodefonyChannel()` (`client/react/index.ts:198`), `useNodefonyChannelData()` (`client/react/index.ts:221`), `useNodefonyAdaptiveChannel()` (`client/react/index.ts:182`) |
 | Le client navigateur | `RealtimeClient.connect()` (`RealtimeClient.ts:389`), `RealtimeClient.subscribe()` (`RealtimeClient.ts:530`), `RealtimeClient.request()` (`RealtimeClient.ts:729`), `RealtimeClient.onDenied()` (`RealtimeClient.ts:471`) |
-| L'upload | `UploadedFile` (`routerDecorators.ts:1262`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:200`) |
+| L'upload | `UploadedFile` (`routerDecorators.ts:1282`), `IUploadedFile` (`IUpload.ts:49`), `queryFile` (`Request.ts:200`) |
