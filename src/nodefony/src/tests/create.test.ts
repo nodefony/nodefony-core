@@ -8415,7 +8415,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       );
       assert.include(src, 'get("blog")');
       // La méthode est CHERCHÉE dans le service, pas supposée par son nom.
-      assert.include(src, "await svc.greet()");
+      assert.include(src, "await Promise.resolve(");
+      assert.include(src, "svc.greet()");
       // Eta AVALE le saut de ligne qui suit un tag placé en fin de ligne : la
       // ligne suivante se recolle à la précédente, et le fichier part avec un
       // TSDoc recousu ou un type coupé en deux. Vu sur pièce en écrivant ce
@@ -8472,7 +8473,8 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
         path.join(r.dest, "nodefony", "command", "PublishCommand.ts"),
         "utf8",
       );
-      assert.include(src, "await svc.publier()");
+      assert.include(src, "await Promise.resolve(");
+      assert.include(src, "svc.publier()");
     });
 
     it("--service : refuse une méthode qui exige un argument (l'appel ne compilerait pas)", () => {

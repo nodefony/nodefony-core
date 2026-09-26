@@ -252,7 +252,7 @@ class <%= it.pascal %>Controller extends ResourceController<<%= it.pascal %>Row>
     const created = await this.createResource(payload);
     this.context?.response?.setHeader(
       "Location",
-      `<%= it.route %>/${(created as { id: unknown }).id}`,
+      `<%= it.route %>/${encodeURIComponent(String((created as { id: unknown }).id))}`,
     );
     return created;
   }

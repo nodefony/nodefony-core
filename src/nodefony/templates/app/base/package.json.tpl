@@ -97,6 +97,7 @@
 <% } else { %>    "drizzle-kit": "<%= it.pkg["drizzle-kit"] %>",
 <% } %>    "@typescript/native-preview": "<%= it.pkg["@typescript/native-preview"] %>",
     "oxlint": "<%= it.pkg["oxlint"] %>",
+    "oxlint-tsgolint": "<%= it.pkg["oxlint-tsgolint"] %>",
     "prettier": "<%= it.pkg["prettier"] %>",
     "rolldown": "<%= it.pkg["rolldown"] %>",
 <% if (it.front) { for (const [n, v] of Object.entries(it.front.devDeps)) { %>    "<%= n %>": "<%= v %>",

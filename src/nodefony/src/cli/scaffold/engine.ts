@@ -3900,7 +3900,7 @@ export function sampleValue(
   }
   // Un identifiant bien formé — jamais `nom-1`. Deux raisons distinctes le
   // réclament, et la seconde ne se voit QUE sur un moteur qui distingue les
-  // types : le schéma Zod exige la forme (`z.string().uuid()`), et la COLONNE
+  // types : le schéma Zod exige la forme (`z.uuid()`), et la COLONNE
   // est de type `uuid` en PostgreSQL. En SQLite, un `uuid` et un texte sont la
   // même chose — d'où un échantillon textuel qui passait ici et faisait rendre
   // 500 à la ressource ailleurs (« invalid input syntax for type uuid »).

@@ -1,4 +1,4 @@
-import { Service, Module, Container, Event, injectable<% if (it.inject) { %>, inject<% } %> } from "nodefony";
+import { Service, Module, Container, injectable<% if (it.inject) { %>, inject<% } %> } from "nodefony";
 import type { I<%= it.pascal %>Service } from "../interfaces/I<%= it.pascal %>Service";
 <% if (it.inject) { %>import <%= it.inject.pascal %> from "./<%= it.inject.pascal %>";
 <% } %>
@@ -88,7 +88,7 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
     super(
       "<%= it.camel %>",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
     );
     this.module = module;
   }

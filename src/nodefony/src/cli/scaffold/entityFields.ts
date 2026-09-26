@@ -873,7 +873,7 @@ const ZOD_TYPE: Record<TEntityFieldType | "ref", string> = {
   bool: "z.boolean()",
   json: "z.unknown()",
   date: "z.coerce.date()",
-  uuid: "z.string().uuid()",
+  uuid: "z.uuid()",
   ref: "z.string()",
   enum: "z.string()",
   char: "z.string()",

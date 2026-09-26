@@ -1,4 +1,4 @@
-import { Service, Module, Container, Event, injectable } from "nodefony";
+import { Service, Module, Container, injectable } from "nodefony";
 
 /**
  * ⚡ **Tu veux un service ? Ne recopie pas ce fichier — génère-le :**
@@ -47,11 +47,7 @@ class AppInfoService extends Service {
   module: Module;
 
   constructor(module: Module) {
-    super(
-      "appInfo",
-      module.container as Container,
-      module.notificationsCenter as Event,
-    );
+    super("appInfo", module.container as Container, module.notificationsCenter);
     this.module = module;
   }
 
@@ -77,7 +73,7 @@ class AppInfoService extends Service {
   identity(): { app: string; env: string } {
     return {
       app: "<%= it.appName %>",
-      env: String(this.kernel?.environment ?? "development"),
+      env: this.kernel?.environment ?? "development",
     };
   }
 }

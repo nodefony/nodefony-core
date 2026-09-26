@@ -68,7 +68,7 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
   protected override beforeCreate(
     data: Partial<<%= it.pascal %>Row>,
   ): Partial<<%= it.pascal %>Row> {
-    return create<%= it.pascal %>Schema.parse(data) as Partial<<%= it.pascal %>Row>;
+    return create<%= it.pascal %>Schema.parse(data);
   }
 
   /**
@@ -81,7 +81,7 @@ export class <%= it.serviceClass %> extends AbstractCrudService<<%= it.pascal %>
     _criteria: Record<string, unknown>,
     data: Partial<<%= it.pascal %>Row>,
   ): Partial<<%= it.pascal %>Row> {
-    return update<%= it.pascal %>Schema.parse(data) as Partial<<%= it.pascal %>Row>;
+    return update<%= it.pascal %>Schema.parse(data);
   }
 
   /**

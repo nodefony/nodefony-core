@@ -85,7 +85,11 @@ class <%= it.nameClass %> extends Command {
     }
     // Remplace cet appel par le tien : ce que ces lignes MONTRENT, c'est comment
     // on obtient le service — le reste est de la mise en forme.
-    const result = await svc.<%= it.service.method %>();
+    // `Promise.resolve` : la méthode peut être synchrone ou asynchrone, le même
+    // appel convient aux deux.
+    const result: unknown = await Promise.resolve(
+      svc.<%= it.service.method %>(),
+    );
     const message =
       typeof result === "string" ? result : JSON.stringify(result, null, 2);
     if (who) {

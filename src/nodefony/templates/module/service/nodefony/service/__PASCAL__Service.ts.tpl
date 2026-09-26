@@ -2,7 +2,6 @@ import {
   Service,
   Module,
   Container,
-  Event,
   extend,
   injectable,
 } from "nodefony";
@@ -80,7 +79,7 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
     super(
       "<%= it.name %>",
       module.container as Container,
-      module.notificationsCenter as Event,
+      module.notificationsCenter,
       merged,
     );
     this.module = module;

@@ -962,7 +962,7 @@ describe("scaffold — l'échantillon respecte le schéma", () => {
     assert.match(
       String(fixed),
       /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/u,
-      "le schéma exige un identifiant valide (z.string().uuid())",
+      "le schéma exige un identifiant valide (z.uuid())",
     );
   });
 

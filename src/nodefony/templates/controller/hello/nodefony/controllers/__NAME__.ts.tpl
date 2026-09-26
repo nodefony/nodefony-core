@@ -69,11 +69,14 @@ import type { ContextType } from "@nodefony/http";
   // `identifier` = identifiant fonctionnel ; l'anonyme est un VRAI user
   // (AnonymousUser, identifier "anon."), jamais null en zone firewall.
   async index(@CurrentUser() user?: { identifier?: string }) {
-    const authenticated = !!user?.identifier && user.identifier !== "anon.";
+    const identifier = user?.identifier;
+    // Condition nommée : TypeScript en garde le rétrécissement, `identifier`
+    // est une chaîne dans la branche vraie — aucun `!` à affirmer.
+    const authenticated = !!identifier && identifier !== "anon.";
     return this.renderJson({
       hello: "<%= it.helloName %>",
       pid: process.pid,
-      who: authenticated ? user!.identifier! : "anonyme",
+      who: authenticated ? identifier : "anonyme",
     });
   }
 

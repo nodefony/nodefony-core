@@ -303,7 +303,7 @@ dbSuite("migrations — la base de cette application", () => {
  * décor de quelqu'un d'autre.
  */
 async function freePort(): Promise<number> {
-  return await new Promise((resolve, reject) => {
+  return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.once("error", reject);
     server.listen(0, "127.0.0.1", () => {
