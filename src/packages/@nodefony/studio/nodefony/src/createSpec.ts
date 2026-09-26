@@ -151,7 +151,11 @@ export function connectorsFromOrmSummaries(
     };
     const driver = connection?.driver;
     if (typeof name !== "string" || typeof driver !== "string") continue;
-    const dialect = DRIVER_DIALECT[driver.toLowerCase()];
+    // Pilote lu dans la config : `hasOwn` écarte `constructor` & co.
+    const key = driver.toLowerCase();
+    const dialect = Object.hasOwn(DRIVER_DIALECT, key)
+      ? DRIVER_DIALECT[key]
+      : undefined;
     if (!dialect) continue;
     connectors.push({ name, dialect });
     if (isDefault === true) preferred = name;

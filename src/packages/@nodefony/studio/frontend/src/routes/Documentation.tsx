@@ -169,7 +169,7 @@ export const Documentation = observer(() => {
   const homeSlug =
     allPages.find((p) => p.slug === "root~index")?.slug ??
     allPages.find((p) => p.isHub)?.slug ??
-    allPages[0]?.slug;
+    allPages.at(0)?.slug;
   const activeSlug = params.get("doc") ?? homeSlug ?? "root~index";
   const setActiveSlug = useCallback(
     (slug: string) => setParams({ doc: slug }, { replace: false }),
@@ -425,7 +425,7 @@ export const Documentation = observer(() => {
                     // Le hub du module = sa porte d'entrée. Ouvrir un module doit
                     // AMENER QUELQUE PART : déplier une liste de titres sans rien
                     // afficher laisse le lecteur choisir avant d'avoir compris.
-                    const hub = s.pages.find((p) => p.isHub) ?? s.pages[0];
+                    const hub = s.pages.find((p) => p.isHub) ?? s.pages.at(0);
                     const onHub = hub ? activeSlug === hub.slug : false;
                     return (
                       <NavLink

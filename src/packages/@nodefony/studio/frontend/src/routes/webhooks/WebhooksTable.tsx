@@ -228,7 +228,7 @@ export const WebhooksTable = observer(function WebhooksTable({
         // à une ressource.
         const res = await store.api.getAbsolute<
           Omit<IPage<WebhookEndpoint>, "items"> & {
-            endpoints: WebhookEndpoint[];
+            endpoints?: WebhookEndpoint[];
           }
         >(`${WEBHOOKS_ENDPOINT}?${params}`);
         return fromPage({ ...res, items: res.endpoints ?? [] });

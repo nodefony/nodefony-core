@@ -223,7 +223,7 @@ export function engineFor(
   const connectors = context?.connectors ?? [];
   return (
     connectors.find((c) => c.name === connector)?.dialect ??
-    connectors[0]?.dialect ??
+    connectors.at(0)?.dialect ??
     null
   );
 }

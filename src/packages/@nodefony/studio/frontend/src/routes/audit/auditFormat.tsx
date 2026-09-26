@@ -66,7 +66,9 @@ export function outcomeLabel(outcome: string): string {
 /** Badge de catégorie (icône + teinte + libellé FR). */
 export function CategoryBadge({ category }: { category: string }): ReactNode {
   const meta = CATEGORY_META.get(category as AuditCategory);
-  const Ico = CATEGORY_ICON[category as AuditCategory] ?? IconShieldCheck;
+  // Catégorie venue du serveur : peut être inconnue du registre.
+  const icons: Partial<Record<string, Icon>> = CATEGORY_ICON;
+  const Ico = icons[category] ?? IconShieldCheck;
   return (
     <Badge
       variant="light"
@@ -85,7 +87,9 @@ export function CategoryBadge({ category }: { category: string }): ReactNode {
  */
 export function OutcomeBadge({ outcome }: { outcome: string }): ReactNode {
   const meta = OUTCOME_META.get(outcome as AuditOutcome);
-  const Ico = OUTCOME_ICON[outcome as AuditOutcome] ?? IconCheck;
+  // Issue venue du serveur : peut être inconnue du registre.
+  const icons: Partial<Record<string, Icon>> = OUTCOME_ICON;
+  const Ico = icons[outcome] ?? IconCheck;
   const strong = outcome === "denied" || outcome === "failure";
   return (
     <Badge

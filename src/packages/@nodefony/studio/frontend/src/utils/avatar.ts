@@ -19,14 +19,12 @@ export interface AvatarProfile {
 export function initials(profile: AvatarProfile, identifier?: string): string {
   const g = (profile.givenName ?? "").trim();
   const f = (profile.familyName ?? "").trim();
-  if (g || f) return ((g[0] ?? "") + (f[0] ?? "")).toUpperCase();
+  if (g || f) return (g.charAt(0) + f.charAt(0)).toUpperCase();
   const d = (profile.displayName ?? identifier ?? "").trim();
   if (!d) return "?";
   const parts = d.split(/\s+/).filter(Boolean);
   const two =
-    parts.length > 1
-      ? (parts[0][0] ?? "") + (parts[1][0] ?? "")
-      : d.slice(0, 2);
+    parts.length > 1 ? parts[0].charAt(0) + parts[1].charAt(0) : d.slice(0, 2);
   return two.toUpperCase();
 }
 
@@ -44,12 +42,11 @@ export async function gravatarUrl(
   size = 200,
 ): Promise<string | null> {
   const norm = email.trim().toLowerCase();
-  if (!norm || !globalThis.crypto?.subtle) return null;
+  // `subtle` est absent hors contexte sécurisé (http) — le type DOM ne le dit pas.
+  const subtle = globalThis.crypto.subtle as SubtleCrypto | undefined;
+  if (!norm || !subtle) return null;
   try {
-    const buf = await crypto.subtle.digest(
-      "SHA-256",
-      new TextEncoder().encode(norm),
-    );
+    const buf = await subtle.digest("SHA-256", new TextEncoder().encode(norm));
     const hex = Array.from(new Uint8Array(buf))
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");

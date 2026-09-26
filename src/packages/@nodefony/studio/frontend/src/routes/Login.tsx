@@ -66,9 +66,9 @@ type SocialProvider = { name: string; label: string };
  * Le libellé n'est ici qu'un repli synchrone pour le « rebonjour », rendu avant
  * que la liste du serveur ne soit arrivée.
  */
-const BRAND_META: Record<
-  string,
-  { label: string; Icon: typeof IconBrandGoogle }
+// Indexé par le nom d'un fournisseur annoncé par le serveur : peut manquer.
+const BRAND_META: Partial<
+  Record<string, { label: string; Icon: typeof IconBrandGoogle }>
 > = {
   google: { label: "Google", Icon: IconBrandGoogle },
   github: { label: "GitHub", Icon: IconBrandGithub },
@@ -150,7 +150,7 @@ function loginMethodChip(
 
 /** Lit un délai de ré-essai (s) depuis le corps d'erreur d'un 429, si présent. */
 function retryAfterSeconds(e: unknown): number | null {
-  const body = (e as { body?: unknown })?.body;
+  const body = (e as { body?: unknown } | null)?.body;
   if (body && typeof body === "object") {
     const b = body as {
       retryAfter?: unknown;
@@ -176,7 +176,7 @@ interface ClassifiedError {
  * énumération), et inconnu.
  */
 function classifyError(e: unknown, phaseStep: ConnectionStep): ClassifiedError {
-  const status = (e as { status?: number })?.status;
+  const status = (e as { status?: number } | null)?.status;
   if (status === 429) {
     return {
       kind: "throttle",
@@ -370,7 +370,7 @@ export const Login = observer(() => {
   useEffect(() => {
     let alive = true;
     void store.api
-      .getAbsolute<{ providers?: SocialProvider[] }>(
+      .getAbsolute<{ providers?: (SocialProvider | null)[] } | null>(
         "/nodefony/security/api/oauth2/providers",
       )
       .then((r) => {
@@ -379,7 +379,10 @@ export const Login = observer(() => {
         // laisse tomber plutôt que de peindre un bouton qui ne peut pas cliquer.
         const received = Array.isArray(r?.providers) ? r.providers : [];
         setSocial(
-          received.filter((p) => typeof p?.name === "string" && p.name),
+          received.filter(
+            (p): p is SocialProvider =>
+              typeof p?.name === "string" && p.name !== "",
+          ),
         );
       })
       .catch(() => {
@@ -519,7 +522,7 @@ export const Login = observer(() => {
       await auth.completeMfa(value);
       await completeAndRedirect();
     } catch (e) {
-      if ((e as { status?: number })?.status === 429) {
+      if ((e as { status?: number } | null)?.status === 429) {
         applyError(e, "auth");
       } else {
         setErrKind("credentials");

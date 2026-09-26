@@ -81,9 +81,9 @@ class Studio extends Module<IStudioConfig> {
    * directement dans les options du module — pas sous une clé `.studio`.
    */
   override async onKernelRegister(): Promise<this> {
-    this.options = defineStudioConfig(
-      (this.options as IStudioConfigInput) ?? {},
-    );
+    // Sans config déclarée, le module peut n'avoir reçu aucune section.
+    const input = this.options as IStudioConfigInput | undefined;
+    this.options = defineStudioConfig(input ?? {});
     return this;
   }
 

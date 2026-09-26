@@ -82,7 +82,8 @@ interface ModuleDetailData {
   path: string | null;
   dependencies: string[];
   services: { name: string; class: string | null }[];
-  config: Record<string, unknown>;
+  /** Absent pour un module qui n'expose aucune configuration. */
+  config?: Record<string, unknown>;
   /** JSON Schema de la config (réglages documentés) si le module est migré Zod. */
   configSchema?: unknown;
   /** Origine de chaque valeur résolue (défaut/app/env/runtime) — badge provenance (ADR-0006). */
@@ -402,13 +403,13 @@ export const ModuleDetail = observer(() => {
         .getAbsolute<RouteRow[]>("/nodefony/framework/api/routes")
         .catch(() => [] as RouteRow[]),
       store.api
-        .getAbsolute<{ docs: DocSummary[] }>(
+        .getAbsolute<{ docs?: DocSummary[] }>(
           `/nodefony/kernel/api/module/${encodeURIComponent(name)}/docs`,
         )
         .then((r) => r.docs ?? [])
         .catch(() => [] as DocSummary[]),
       store.api
-        .getAbsolute<{ symbols: ModuleSymbol[] }>(
+        .getAbsolute<{ symbols?: ModuleSymbol[] }>(
           `/nodefony/kernel/api/module/${encodeURIComponent(name)}/symbols`,
         )
         .then((r) => r.symbols ?? [])
@@ -1256,7 +1257,7 @@ function DepsPanel({
     setLoading(true);
     setOutdated({});
     store.api
-      .getAbsolute<{ deps: DepInfo[] }>(base)
+      .getAbsolute<{ deps?: DepInfo[] }>(base)
       .then((r) => {
         if (!cancelled) setDeps(r.deps ?? []);
       })
@@ -1274,7 +1275,7 @@ function DepsPanel({
   const check = async () => {
     setChecking(true);
     try {
-      const r = await store.api.getAbsolute<{ outdated: OutdatedInfo[] }>(
+      const r = await store.api.getAbsolute<{ outdated?: OutdatedInfo[] }>(
         `${base}/outdated`,
       );
       const map: Record<string, OutdatedInfo> = {};
@@ -1409,8 +1410,9 @@ function TestsPanel({
 }) {
   const store = useStore();
   const ALL = "__all__";
+  // Indexé par fichier : absent tant que la suite n'a pas été lancée.
   const [results, setResults] = useState<
-    Record<string, TestRunResult | "running">
+    Partial<Record<string, TestRunResult | "running">>
   >({});
   // Catégories de suites (depuis groups ; repli sur les unit lançables). Une seule
   // catégorie visible à la fois (sélecteur) → pas de scroll, pas de Tabs imbriqués.
@@ -1421,7 +1423,7 @@ function TestsPanel({
         ? [{ category: "unit", files: tests.files, runnable: true }]
         : [];
   const [cat, setCat] = useState<string>("unit");
-  const current = groups.find((g) => g.category === cat) ?? groups[0];
+  const current = groups.find((g) => g.category === cat) ?? groups.at(0);
 
   const fail = (k: string, msg: string) =>
     setResults((r) => ({
@@ -1484,7 +1486,7 @@ function TestsPanel({
 
   const allRes = results[ALL];
   const failures = Object.entries(results).filter(
-    ([, r]) => r !== "running" && !r.ok,
+    ([, r]) => r !== undefined && r !== "running" && !r.ok,
   ) as [string, TestRunResult][];
 
   return (

@@ -137,9 +137,8 @@ export function DocToc({
       (entries) => {
         const top = entries
           .filter((e) => e.isIntersecting)
-          .sort(
-            (a, b) => a.boundingClientRect.top - b.boundingClientRect.top,
-          )[0];
+          .sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top)
+          .at(0);
         if (top) setActiveId(top.target.id);
       },
       {

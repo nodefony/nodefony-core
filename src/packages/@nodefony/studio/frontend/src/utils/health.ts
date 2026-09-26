@@ -23,6 +23,24 @@ export const DEFAULT_WEIGHTS: Record<string, number> = {
   "Temps réel": 0.5,
 };
 
+/**
+ * Poids d'une sonde : réglage de l'utilisateur, sinon défaut, sinon 1.
+ *
+ * Le libellé vient de l'écran et les poids du stockage local : une clé peut
+ * manquer des deux côtés — d'où la lecture en `Partial`.
+ *
+ * @param weights - poids réglés (éventuellement partiels)
+ * @param label - libellé de la sonde
+ * @returns le poids effectif
+ */
+export function weightOf(
+  weights: Partial<Record<string, number>>,
+  label: string,
+): number {
+  const defaults: Partial<Record<string, number>> = DEFAULT_WEIGHTS;
+  return weights[label] ?? defaults[label] ?? 1;
+}
+
 /** Une entrée de l'indice de santé : valeur courante + seuils bon/critique + poids. */
 export interface HealthInput {
   label: string;
@@ -80,9 +98,11 @@ export function healthDesirability(
 
 /**
  * **Indice de santé composite** (0-100) — agrège des sondes hétérogènes via la
- * méthode Derringer-Suich : chaque sonde normalisée en désirabilité [0,1], puis
- * combinées par **moyenne géométrique pondérée**. Si une sonde `critical` est à 0,
- * l'indice tombe à 0 (le maillon faible domine). Sondes `null` (ou poids 0) exclues.
+ * méthode **Derringer-Suich** (NIST Engineering Statistics Handbook §5.5.3.2.2) :
+ * chaque sonde est normalisée en désirabilité [0,1], puis combinées par **moyenne
+ * géométrique pondérée**. Propriété : si une sonde est critique (d=0), l'indice
+ * tombe à 0 (le maillon faible domine — pas de masquage par les bonnes valeurs).
+ * Les sondes `null` (indisponibles, ex. temps réel OFF) ou de poids 0 sont exclues.
  */
 export function buildHealth(inputs: HealthInput[]): HealthResult {
   const avail = inputs.filter((m) => m.value != null && m.weight > 0);

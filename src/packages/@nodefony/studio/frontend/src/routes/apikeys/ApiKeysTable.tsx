@@ -136,7 +136,7 @@ export const ApiKeysTable = observer(function ApiKeysTable({
         // `items` : on recompose la page avant de la traduire, plutôt que
         // d'apprendre au traducteur un nom propre à une ressource.
         const res = await store.api.getAbsolute<
-          Omit<IPage<ApiKey>, "items"> & { keys: ApiKey[] }
+          Omit<IPage<ApiKey>, "items"> & { keys?: ApiKey[] }
         >(`${ADMIN_KEYS_ENDPOINT}?${params}`);
         return fromPage({ ...res, items: res.keys ?? [] });
       } catch (e) {

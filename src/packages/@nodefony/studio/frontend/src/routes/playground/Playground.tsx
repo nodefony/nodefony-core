@@ -62,7 +62,9 @@ export const Playground = observer(() => {
   }, [controllers]);
 
   const selected =
-    controllers.find((c) => c.name === selectedName) ?? controllers[0] ?? null;
+    controllers.find((c) => c.name === selectedName) ??
+    controllers.at(0) ??
+    null;
 
   return (
     <PageLayout

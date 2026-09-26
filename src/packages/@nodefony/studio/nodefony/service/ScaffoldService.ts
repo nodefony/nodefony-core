@@ -207,7 +207,7 @@ class ScaffoldService extends Service {
       this.options as {
         scaffold?: { roots?: { label: string; path: string }[] };
       }
-    )?.scaffold?.roots;
+    ).scaffold?.roots;
     if (configured?.length) {
       return configured.map((r, i) => ({
         id: `root${i}`,
@@ -345,7 +345,7 @@ class ScaffoldService extends Service {
       dir: this.#destination(type, answers),
       force: false,
     };
-    const version = (this.module.kernel?.version as string) ?? "0.0.0";
+    const version = this.module.kernel?.version ?? "0.0.0";
     const result = runScaffold(request, version, { dryRun: true });
     return { dest: result.dest, changes: result.changes ?? [] };
   }
@@ -394,7 +394,7 @@ class ScaffoldService extends Service {
       // Un rejet ici (ex. racine de projet introuvable) laisserait le job « running »
       // pour toujours et le verrou du watcher posé : on le rabat sur un échec propre.
       this.#run(job, type, answers, steps).catch((e: unknown) => {
-        this.#emit(job, "fail", (e as Error)?.message ?? String(e));
+        this.#emit(job, "fail", e instanceof Error ? e.message : String(e));
         this.#finish(job, "failed");
       });
     });
@@ -547,7 +547,7 @@ class ScaffoldService extends Service {
       });
       job.child = child;
       let err = "";
-      child.stderr?.on("data", (c: Buffer) => {
+      child.stderr.on("data", (c: Buffer) => {
         err += c.toString("utf8");
       });
       child.once("error", (e) => {
@@ -622,7 +622,7 @@ class ScaffoldService extends Service {
         dir,
         force: false,
       };
-      const version = (this.module.kernel?.version as string) ?? "0.0.0";
+      const version = this.module.kernel?.version ?? "0.0.0";
       const result: IScaffoldResult = runScaffold(request, version);
 
       job.files = result.files;
@@ -806,7 +806,10 @@ class ScaffoldService extends Service {
 
   /** Lance UNE étape de l'allowlist et streame sa sortie ligne par ligne. */
   #spawnStep(job: IJob, step: ScaffoldStep, cwd: string): Promise<boolean> {
-    const args = SCAFFOLD_STEP_COMMANDS[step];
+    // Défense en profondeur : l'allowlist est filtrée par le contrôleur, mais
+    // `start()` est public — une étape inconnue ne doit jamais atteindre `spawn`.
+    const args = SCAFFOLD_STEP_COMMANDS[step] as
+      (typeof SCAFFOLD_STEP_COMMANDS)[ScaffoldStep] | undefined;
     if (!args) {
       this.#emit(job, "fail", `étape inconnue: ${step}`);
       return Promise.resolve(false);

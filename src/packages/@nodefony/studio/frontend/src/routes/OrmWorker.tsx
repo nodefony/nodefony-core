@@ -116,7 +116,7 @@ export const OrmWorker = observer(() => {
     return m;
   }, [healthList]);
   // pid du worker qui A RÉPONDU au diagnostic riche (honnêteté cluster).
-  const respondingPid = healthList[0]?.instanceId ?? null;
+  const respondingPid = healthList.at(0)?.instanceId ?? null;
 
   // Flux SQL par connecteur (débit/s + EWMA + sparkline), live-only.
   const { flowByName, onFlow, reset: resetFlow } = useOrmFlow();

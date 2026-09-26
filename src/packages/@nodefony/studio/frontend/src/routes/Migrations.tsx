@@ -371,7 +371,7 @@ export const Migrations = observer(() => {
       connectors.find((o) => o.default && migratable(o)) ??
       connectors.find(migratable) ??
       connectors.find((o) => o.default) ??
-      connectors[0];
+      connectors.at(0);
     return byDefault?.name ?? "default";
   }, [connector, connectors]);
 

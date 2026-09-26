@@ -38,7 +38,8 @@ interface LogFileMeta {
 interface FilesResponse {
   enabled: boolean;
   reason?: string;
-  files: LogFileMeta[];
+  /** Absent quand la journalisation fichier est désactivée. */
+  files?: LogFileMeta[];
 }
 
 /** Réponse d'un tail incrémental (`/nodefony/syslog/api/files/{name}`). */
@@ -168,9 +169,7 @@ export const LogFiles = observer(() => {
         setEnabled(res.enabled);
         setReason(res.reason);
         setFiles(res.files ?? []);
-        setSelected(
-          (prev) => prev ?? (res.files?.length ? res.files[0].name : null),
-        );
+        setSelected((prev) => prev ?? res.files?.at(0)?.name ?? null);
       })
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "files list failed"),

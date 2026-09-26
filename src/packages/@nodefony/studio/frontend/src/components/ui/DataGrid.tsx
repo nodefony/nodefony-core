@@ -779,11 +779,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
     setServerTotal(0);
   }, [props.resetPageSignal]);
 
-  const data = isServer
-    ? serverRows
-    : props.mode === "client"
-      ? props.data
-      : [];
+  const data = isServer ? serverRows : props.data;
 
   const tableColumns = useMemo<ColumnDef<GridFeatures, T>[]>(
     () =>

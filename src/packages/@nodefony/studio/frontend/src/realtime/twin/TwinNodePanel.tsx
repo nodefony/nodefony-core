@@ -379,7 +379,7 @@ function BpRealtimePanel({
   cluster: boolean;
 }) {
   const bp = norm?.instances[0]?.backplane;
-  const rejets = norm?.totals?.ingressRejectedTotal ?? 0;
+  const rejets = norm?.totals.ingressRejectedTotal ?? 0;
   const driver = bp?.driver ?? (cluster ? "ipc" : "loopback");
   const channel = bp?.channel;
   // Le scellement ne se pose que sur un transport PARTAGÉ : en mono-process ou

@@ -269,7 +269,8 @@ interface AdmonitionMeta {
   icon: ReactNode;
 }
 
-const ADMONITIONS: Record<string, AdmonitionMeta> = {
+// Indexé par le type écrit dans le markdown (`> [!NOTE]`) : peut être inconnu.
+const ADMONITIONS: Partial<Record<string, AdmonitionMeta>> = {
   note: { title: "Note", color: "blue", icon: <IconInfoCircle size={18} /> },
   tip: { title: "Astuce", color: "teal", icon: <IconBulb size={18} /> },
   important: {
@@ -331,8 +332,10 @@ function parseAdmonition(
   };
 
   const rest = strip(children);
-  if (!typeKey) return null;
-  const meta = ADMONITIONS[typeKey];
+  // Posé par `strip` (fermeture) : TypeScript ne voit pas l'affectation.
+  const found = typeKey as string | null;
+  if (!found) return null;
+  const meta = ADMONITIONS[found];
   return meta ? { meta, rest } : null;
 }
 
@@ -350,6 +353,8 @@ export function MermaidDiagram({ code }: { code: string }) {
   const [svgHtml, setSvgHtml] = useState("");
   useEffect(() => {
     let cancelled = false;
+    // Relu hors du rétrécissement : le démontage tombe PENDANT les `await`.
+    const isCancelled = (): boolean => cancelled;
     // L'IIFE capture ses propres erreurs (état `error`) : elle ne rejette jamais.
     void (async () => {
       try {
@@ -364,13 +369,14 @@ export function MermaidDiagram({ code }: { code: string }) {
           `mermaid-${baseId}-${Date.now()}`,
           code,
         );
-        if (!cancelled && containerRef.current) {
+        if (!isCancelled() && containerRef.current) {
           containerRef.current.innerHTML = svg;
           setSvgHtml(svg);
           setError(null);
         }
       } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+        if (!isCancelled())
+          setError(e instanceof Error ? e.message : String(e));
       }
     })();
     return () => {
@@ -440,8 +446,13 @@ export function MermaidDiagram({ code }: { code: string }) {
 function CodeBlock({ language, code }: { language: string; code: string }) {
   const [copied, setCopied] = useState(false);
   const copy = useCallback(() => {
-    if (typeof navigator === "undefined" || !navigator.clipboard) return;
-    navigator.clipboard
+    // Absent hors contexte sécurisé (http) — le type DOM ne le dit pas.
+    const clipboard =
+      typeof navigator === "undefined"
+        ? undefined
+        : (navigator.clipboard as Clipboard | undefined);
+    if (!clipboard) return;
+    clipboard
       .writeText(code)
       .then(() => {
         setCopied(true);
@@ -714,7 +725,7 @@ function codeOf(node: ReactNode): ReactNode | null {
     typeof el.type === "function" ||
     typeof el.type === "object"
   ) {
-    const inner = Children.toArray(el.props?.children ?? []);
+    const inner = Children.toArray(el.props.children ?? []);
     if (
       inner.length === 1 &&
       isValidElement(inner[0]) &&
@@ -764,8 +775,10 @@ function HeadingWithAnchor({
       e.preventDefault();
       if (typeof window === "undefined") return;
       const url = `${window.location.origin}${window.location.pathname}#${id}`;
-      if (navigator.clipboard) {
-        navigator.clipboard.writeText(url).catch(() => {});
+      // Absent hors contexte sécurisé (http) — le type DOM ne le dit pas.
+      const clipboard = navigator.clipboard as Clipboard | undefined;
+      if (clipboard) {
+        clipboard.writeText(url).catch(() => {});
       }
       const reduce = window.matchMedia(
         "(prefers-reduced-motion: reduce)",

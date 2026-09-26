@@ -113,7 +113,7 @@ class StudioCreateController extends Controller {
    */
   @IsGranted("ROLE_NODEFONY_ADMIN")
   @Get("/studio/api/create/browse")
-  async apiBrowse(@Query("root") root: string, @Query("sub") sub?: string) {
+  async apiBrowse(@Query("root") root?: string, @Query("sub") sub?: string) {
     const svc = this.scaffold;
     if (!svc?.enabled) return this.renderJson({ error: "forbidden" }, 403);
     try {

@@ -472,12 +472,15 @@ export function createBrokerTicker(
   intervalMs = 5000,
 ): () => void {
   let stopped = false;
+  // Relu hors du rétrécissement de TypeScript : l'arrêt peut tomber PENDANT
+  // l'`await fetch()`, après la garde d'entrée.
+  const isStopped = (): boolean => stopped;
   const tick = async (): Promise<void> => {
     if (stopped) return;
     try {
       const data = await fetch();
       // Publie sur le canal EXACT souscrit (granularité : `nodefony:orm:health:<ms>`).
-      if (!stopped && data) publish(channel, data);
+      if (!isStopped() && data) publish(channel, data);
     } catch {
       /* best-effort : un tick raté n'interrompt pas le flux */
     }

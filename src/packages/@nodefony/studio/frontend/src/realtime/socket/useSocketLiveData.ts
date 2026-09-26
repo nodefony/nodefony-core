@@ -84,7 +84,8 @@ export function useSocketLiveData(): SocketLiveSnapshot {
 /* ─── Aides de dérivation (pures, 0 allocation) ──────────────────────────── */
 
 /** Format compact pour les compteurs > 1k. */
-function fmt(n: number | undefined): string {
+// Compteur réseau : `null` quand la sonde n'a rien publié.
+function fmt(n: number | null | undefined): string {
   if (n === undefined || n === null || Number.isNaN(n)) return "—";
   if (n < 1000) return String(n);
   if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`;

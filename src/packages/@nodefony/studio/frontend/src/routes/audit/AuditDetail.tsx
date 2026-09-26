@@ -75,7 +75,7 @@ export function AuditDetail({ event, onClose }: AuditDetailProps) {
 
   return (
     <Modal
-      opened={event !== null}
+      opened
       onClose={onClose}
       title={
         <Group gap="xs">
@@ -122,7 +122,7 @@ export function AuditDetail({ event, onClose }: AuditDetailProps) {
         {(event.flags?.hasAuthorization || event.flags?.hasCookie) && (
           <Field label="Présence">
             <Group gap={6} justify="flex-end">
-              {event.flags?.hasAuthorization && (
+              {event.flags.hasAuthorization && (
                 <Badge
                   variant="light"
                   color="grape"
@@ -132,7 +132,7 @@ export function AuditDetail({ event, onClose }: AuditDetailProps) {
                   Authorization
                 </Badge>
               )}
-              {event.flags?.hasCookie && (
+              {event.flags.hasCookie && (
                 <Badge
                   variant="light"
                   color="cyan"

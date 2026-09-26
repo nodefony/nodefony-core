@@ -105,8 +105,11 @@ export interface StoreEngine {
 export interface StoresPayload {
   infra: Infra;
   stores: StoreResolution[];
-  /** Moteurs de persistance officiels détectés (installé × chargé). */
-  engines: StoreEngine[];
+  /**
+   * Moteurs de persistance officiels détectés (installé × chargé). Absent
+   * d'une réponse d'une version antérieure du serveur.
+   */
+  engines?: StoreEngine[];
 }
 
 /** Data plane. */

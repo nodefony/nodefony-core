@@ -62,7 +62,8 @@ function normInstance(i: WidgetInstance): WidgetInstance {
 
 /** Une fenêtre persistée est-elle au format v2 (fraction + z) ? */
 function isInstance(i: unknown): i is WidgetInstance {
-  const o = i as Record<string, unknown>;
+  // Relu du stockage local : peut être `null` ou un scalaire.
+  const o = i as Record<string, unknown> | null;
   return (
     !!o &&
     typeof o.widgetId === "string" &&
@@ -81,7 +82,8 @@ function isInstance(i: unknown): i is WidgetInstance {
  * l'emportent. Migrera vers le data plane par-utilisateur en P6 (symétrie `UiStore`).
  */
 export class WorkspaceStore {
-  layouts: Record<string, WorkspaceLayout> = {};
+  // Indexé par un identifiant venu du stockage ou de l'écran : peut manquer.
+  layouts: Partial<Record<string, WorkspaceLayout>> = {};
   activeId: string = DEFAULT_WORKSPACE_ID;
 
   constructor() {
@@ -99,7 +101,9 @@ export class WorkspaceStore {
 
   /** Liste ordonnée des bureaux (pour le sélecteur). */
   get layoutList(): WorkspaceLayout[] {
-    return Object.values(this.layouts);
+    return Object.values(this.layouts).filter(
+      (l): l is WorkspaceLayout => l !== undefined,
+    );
   }
 
   setActive(id: string): void {
@@ -127,7 +131,7 @@ export class WorkspaceStore {
     const layout = this.layouts[this.activeId];
     if (!def || !layout || layout.items.some((i) => i.widgetId === widgetId))
       return;
-    const w = clampW((def.defaultSpan ?? 4) / REF_COLS);
+    const w = clampW(def.defaultSpan / REF_COLS);
     const h = clampHpx((def.defaultH ?? 3) * ROW_PX);
     const bottom = layout.items.reduce((m, i) => Math.max(m, i.y + i.h), 0);
     layout.items.push({
@@ -230,7 +234,7 @@ export class WorkspaceStore {
 
   /** Nom unique : « Base », puis « Base 2 », « Base 3 »… */
   private uniqueLabel(base: string): string {
-    const used = new Set(Object.values(this.layouts).map((l) => l.label));
+    const used = new Set(this.layoutList.map((l) => l.label));
     if (!used.has(base)) return base;
     let n = 2;
     while (used.has(`${base} ${n}`)) n++;
@@ -288,7 +292,7 @@ export class WorkspaceStore {
     const at = beforeId ? ids.indexOf(beforeId) : -1;
     if (beforeId && at < 0) return; // cible inconnue → on ne devine pas
     ids.splice(at < 0 ? ids.length : at, 0, id);
-    const next: Record<string, WorkspaceLayout> = {};
+    const next: Partial<Record<string, WorkspaceLayout>> = {};
     for (const k of ids) next[k] = this.layouts[k];
     this.layouts = next;
     this.persist();
@@ -342,9 +346,10 @@ export class WorkspaceStore {
         if (raw) {
           const parsed: unknown = JSON.parse(raw);
           if (parsed && typeof parsed === "object") {
-            const out: Record<string, WorkspaceLayout> = {};
+            const out: Partial<Record<string, WorkspaceLayout>> = {};
             for (const [id, layout] of Object.entries(
-              parsed as Record<string, WorkspaceLayout>,
+              // Relu du stockage local : chaque bureau peut être tronqué.
+              parsed as Record<string, Partial<WorkspaceLayout> | null>,
             )) {
               if (!layout || !Array.isArray(layout.items)) continue;
               out[id] = {
@@ -366,7 +371,7 @@ export class WorkspaceStore {
       /* storage illisible — on repart sur les presets */
     }
     // Premier lancement : semer depuis les presets (migrés cols→px).
-    const seeded: Record<string, WorkspaceLayout> = {};
+    const seeded: Partial<Record<string, WorkspaceLayout>> = {};
     for (const p of WORKSPACE_PRESETS) seeded[p.id] = migratePreset(p);
     this.layouts = seeded;
     if (!seeded[this.activeId])

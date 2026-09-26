@@ -263,7 +263,8 @@ export const AdminLayout = observer(() => {
   // CustomEvent (la barre est vanilla/Shadow DOM, Studio est React).
   useEffect(() => {
     const onSelect = (ev: Event): void => {
-      const rid = (ev as CustomEvent<{ requestId?: string }>).detail?.requestId;
+      const rid = (ev as CustomEvent<{ requestId?: string } | null>).detail
+        ?.requestId;
       if (!rid) return;
       void navigate(`/nodefony/logs/trace/${encodeURIComponent(rid)}`);
     };

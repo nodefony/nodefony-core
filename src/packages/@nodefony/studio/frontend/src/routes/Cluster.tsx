@@ -310,7 +310,7 @@ function WorkerCard({
         mb="xs"
         styles={{ label: { fontSize: 11 } }}
       />
-      {hasGraphs && series ? (
+      {hasGraphs ? (
         <SimpleGrid cols={3} spacing="xs" mb="sm">
           <Sparkline
             label="CPU"
@@ -724,7 +724,7 @@ export const Cluster = observer(() => {
                   title="Workers"
                   version={CLUSTER_DOC}
                   summary={
-                    norm?.cluster
+                    norm.cluster
                       ? `${workers.length} worker(s) dans le pod (snapshot agrégé poussé par le master).`
                       : "Mono-process : 1 seul worker (pas de cluster)."
                   }

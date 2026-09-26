@@ -73,7 +73,10 @@ export function valueText(v: unknown): string {
     return v.map((item: unknown) => valueText(item)).join(",");
   if (v instanceof Date) return v.toString();
   try {
-    return JSON.stringify(v) ?? "";
+    // `JSON.stringify` rend `undefined` pour une fonction ou un symbole — le
+    // type de la bibliothèque standard ne le dit pas.
+    const text = JSON.stringify(v) as string | undefined;
+    return text ?? "";
   } catch {
     // Structure circulaire : on retombe sur l'étiquette de type.
     return Object.prototype.toString.call(v);
@@ -98,9 +101,10 @@ export function countLabel(v: unknown): string {
 export function jsonPreview(v: unknown, max = 80): string {
   const k = jsonKind(v);
   if (k !== "object" && k !== "array") return truncate(primitiveText(v), max);
-  let s: string;
+  let s: string | undefined;
   try {
-    s = JSON.stringify(v);
+    // `undefined` pour une fonction ou un symbole (cf `valueText`).
+    s = JSON.stringify(v) as string | undefined;
   } catch {
     s = String(v);
   }

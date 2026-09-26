@@ -73,8 +73,9 @@ type Health = ClusterH | (Inst & { cluster?: undefined });
 /** Ramène la réponse santé (pod OU per-instance) à une liste d'instances. */
 function instancesOf(h: Health | null): Inst[] {
   if (!h) return [];
-  if ((h as ClusterH).cluster) return (h as ClusterH).instances ?? [];
-  return [h as Inst];
+  // Réponse réseau : `instances` peut manquer d'une version antérieure.
+  if (h.cluster) return Array.isArray(h.instances) ? h.instances : [];
+  return [h];
 }
 
 /** Série bornée FIFO (cap `HISTORY`) — 0 mutation in-place. */
@@ -133,7 +134,7 @@ function memColor(pct: number): string {
 /** Santé d'UN worker via le moteur partagé, avec les poids persistés. */
 function workerHealth(
   p: ProcHealth,
-  weights: Record<string, number>,
+  weights: Partial<Record<string, number>>,
 ): HealthResult {
   // heapUsed/heapLimit (plafond V8) = % avant OOM, actionnable. PAS heapUsed/heapTotal
   // (V8 colle heapTotal à heapUsed → ~95 % au repos = faux « Critique »). Idem mono.
@@ -183,9 +184,9 @@ export interface ProcessGraphGridProps {
   /** Drill : clic d'une card → détail du worker `pid`. */
   onSelect: (pid: number) => void;
   /** Poids de l'indice (réglés par les sliders). Défaut = poids persistés. */
-  weights?: Record<string, number>;
+  weights?: Partial<Record<string, number>>;
   /** Réglage de la pondération SUR la card pod (sliders). Absent → bouton masqué. */
-  onWeightsChange?: (next: Record<string, number>) => void;
+  onWeightsChange?: (next: Partial<Record<string, number>>) => void;
 }
 
 /** Grille « accueil supervision » multi-process orientée graphs. */

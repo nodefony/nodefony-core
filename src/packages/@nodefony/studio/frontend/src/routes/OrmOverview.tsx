@@ -1158,9 +1158,7 @@ export const OrmOverview = observer(
         >
           <Tabs
             value={section}
-            onChange={(v) =>
-              setSection((v as "connecteurs" | "modele") ?? "connecteurs")
-            }
+            onChange={(v) => setSection(v as "connecteurs" | "modele")}
             keepMounted={false}
           >
             <StickyTabsList mb="md">

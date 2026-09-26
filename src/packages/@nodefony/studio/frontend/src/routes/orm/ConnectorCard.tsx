@@ -964,22 +964,25 @@ export function RealtimeHealthLive({
  * `{ flowByName, onFlow, reset }` — `onFlow` à passer à {@link OrmFlowLive}.
  */
 export function useOrmFlow(): {
-  flowByName: Record<string, ConnFlow>;
+  flowByName: Partial<Record<string, ConnFlow>>;
   onFlow: (payload: unknown) => void;
   reset: () => void;
 } {
-  const [flowByName, setFlowByName] = useState<Record<string, ConnFlow>>({});
+  const [flowByName, setFlowByName] = useState<
+    Partial<Record<string, ConnFlow>>
+  >({});
   const prevFlowRef = useRef<{
     ts: number;
     totals: Record<string, number>;
   } | null>(null);
   const onFlow = useCallback((payload: unknown) => {
-    const r = payload as FlowReport;
+    // Charge du socket : la forme n'est pas garantie.
+    const r = payload as FlowReport | null;
     if (!r || !Array.isArray(r.connectors)) return;
     const prev = prevFlowRef.current;
     const dt = prev ? (r.ts - prev.ts) / 1000 : 0;
     setFlowByName((cur) => {
-      const next: Record<string, ConnFlow> = { ...cur };
+      const next: Partial<Record<string, ConnFlow>> = { ...cur };
       for (const c of r.connectors) {
         const p = prev?.totals[c.connector];
         const rate =

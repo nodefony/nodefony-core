@@ -362,7 +362,7 @@ export function TwinMap({
 }: TwinMapProps) {
   useEffect(() => ensureTwinMapStyles(), []);
   const containerRef = useRef<HTMLDivElement | null>(null);
-  const [overrides, setOverrides] = useState<Record<string, Pt>>({});
+  const [overrides, setOverrides] = useState<Partial<Record<string, Pt>>>({});
   // Les déplacements (drag) sont propres à CHAQUE schéma → reset au changement.
   useEffect(() => setOverrides({}), [schema.id]);
   const posOf = (id: string): Pt =>

@@ -31,7 +31,8 @@ function outcomeColor(o: AuditOutcome): string {
 function AuditBody({ source }: WidgetRenderProps<AuditPage>) {
   const data = source.data;
   if (!data) return null;
-  const events = data.items ?? [];
+  // Page réseau : `items` peut manquer d'une réponse d'erreur.
+  const events = (data as Partial<AuditPage>).items ?? [];
   // Refus / échecs comptés sur la fenêtre chargée (les 100 derniers) — un refus
   // (`denied`) est le signal d'alerte auditeur, mis en rouge.
   const denied = events.filter((e) => e.outcome === "denied").length;

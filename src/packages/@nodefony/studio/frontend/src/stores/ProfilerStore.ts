@@ -119,8 +119,8 @@ export class ProfilerStore {
     this.unavailable = false;
     try {
       const res = await this.api.getAbsolute<{
-        count: number;
-        entries: ProfileSummary[];
+        count?: number;
+        entries?: ProfileSummary[];
       }>(`${BASE}/recent`);
       runInAction(() => {
         this.recent = res.entries ?? [];

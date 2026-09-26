@@ -175,7 +175,7 @@ export function CreateDestination({
             <SegmentedControl
               aria-label="Espace de travail"
               data={roots.map((r) => ({ value: r.id, label: r.label }))}
-              value={rootId ?? roots[0]?.id ?? ""}
+              value={rootId ?? roots.at(0)?.id ?? ""}
               onChange={onRootChange}
             />
           )}

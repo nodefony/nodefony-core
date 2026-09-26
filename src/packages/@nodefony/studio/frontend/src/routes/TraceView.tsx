@@ -736,9 +736,7 @@ export const TraceView = observer(() => {
                 {wsMessageCount}
               </Badge>
             ) : undefined,
-            panel: summary ? (
-              <WsTracePanel logs={logs} baseTs={summary.baseTs} />
-            ) : null,
+            panel: <WsTracePanel logs={logs} baseTs={summary.baseTs} />,
           },
         ]
       : []),

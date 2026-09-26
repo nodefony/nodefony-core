@@ -774,8 +774,8 @@ export const OrmConnector = observer(() => {
   const migrationRows = useMemo<MigrationRow[]>(() => {
     const m = migrations.data;
     if (!m || isMigrationFailure(m)) return [];
-    return m.sources.flatMap((s) =>
-      s.entries.map((e) => ({ ...e, source: s.name })),
+    return m.sources.flatMap(
+      (s) => s.entries?.map((e) => ({ ...e, source: s.name })) ?? [],
     );
   }, [migrations.data]);
   const migrationColumns = useMemo<DataGridColumn<MigrationRow>[]>(

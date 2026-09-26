@@ -63,7 +63,7 @@ export const RoutesView = observer(() => {
   useEffect(() => {
     let alive = true;
     store.api
-      .getAbsolute<{ methods: string[] }>("/nodefony/framework/api/info")
+      .getAbsolute<{ methods?: string[] }>("/nodefony/framework/api/info")
       .then((info) => {
         if (alive) setMethodOptions(info.methods ?? []);
       })

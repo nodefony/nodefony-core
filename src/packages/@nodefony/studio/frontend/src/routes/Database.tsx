@@ -660,7 +660,7 @@ export const Database = observer(() => {
         setOrms(list);
         setSelected(
           (s) =>
-            s ?? list.find((o) => o.default)?.name ?? list[0]?.name ?? null,
+            s ?? list.find((o) => o.default)?.name ?? list.at(0)?.name ?? null,
         );
         if (list.length === 0) setLoading(false);
       })

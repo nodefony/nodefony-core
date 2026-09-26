@@ -125,7 +125,7 @@ export class AdminStore {
     this.loading = true;
     this.error = null;
     try {
-      const cat = await this.api.getAbsolute<{ producers: AdminProducer[] }>(
+      const cat = await this.api.getAbsolute<{ producers?: AdminProducer[] }>(
         CATALOG_PATH,
       );
       runInAction(() => {

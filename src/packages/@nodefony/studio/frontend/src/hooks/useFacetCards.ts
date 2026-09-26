@@ -51,7 +51,8 @@ export function useFacetCards(
 
   return useCallback(
     (name: string, what: string): FacetCardProps => {
-      const criteria = facets[name];
+      // Catalogue réseau : la facette peut ne pas être publiée.
+      const criteria = facets[name] as (typeof facets)[string] | undefined;
       // Facette non publiée (ou catalogue pas encore chargé) → carte inerte.
       if (!criteria) return {};
       const active = isFacetActive(filters, criteria);

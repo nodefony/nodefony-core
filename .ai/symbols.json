@@ -37174,6 +37174,7 @@
         "src/packages/@nodefony/drizzle/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/mongoose/nodefony/src/SessionStorage.ts",
         "src/packages/@nodefony/redis/nodefony/src/SessionStorage.ts",
+        "src/packages/@nodefony/http/nodefony/service/sessions/sessions-service.ts",
         "src/packages/@nodefony/http/nodefony/src/session/session.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/MemorySessionStorage.ts",
         "src/packages/@nodefony/http/nodefony/src/session/storage/RevocationGuardStorage.ts"
@@ -37329,8 +37330,7 @@
       "IRouteResolver": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",

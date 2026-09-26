@@ -19,13 +19,13 @@ import {
   Text,
 } from "@mantine/core";
 import { IconAdjustmentsHorizontal } from "@tabler/icons-react";
-import { DEFAULT_WEIGHTS } from "../utils/health";
+import { DEFAULT_WEIGHTS, weightOf } from "../utils/health";
 
 interface HealthWeightsPopoverProps {
   /** Poids courants (réglés par l'utilisateur, persistés par l'appelant). */
-  weights: Record<string, number>;
+  weights: Partial<Record<string, number>>;
   /** Émis à chaque réglage (l'appelant met à jour son state + persiste). */
-  onChange: (next: Record<string, number>) => void;
+  onChange: (next: Partial<Record<string, number>>) => void;
   /** Sondes réglables dans ce contexte (pod = 4, mono = 8). */
   labels: string[];
   /** Ligne d'aide optionnelle dans le dropdown. */
@@ -38,8 +38,7 @@ export function HealthWeightsPopover({
   labels,
   summary,
 }: HealthWeightsPopoverProps) {
-  const wOf = (label: string): number =>
-    weights[label] ?? DEFAULT_WEIGHTS[label] ?? 1;
+  const wOf = (label: string): number => weightOf(weights, label);
   return (
     <Popover width={300} position="bottom-end" withArrow shadow="md">
       <Popover.Target>

@@ -56,10 +56,12 @@ interface LogFileMeta {
 interface FilesResponse {
   enabled: boolean;
   reason?: string;
-  files: LogFileMeta[];
+  /** Absent quand la journalisation fichier est désactivée. */
+  files?: LogFileMeta[];
 }
 interface TailResponse {
-  lines: string[];
+  /** Absent d'une réponse d'erreur. */
+  lines?: string[];
 }
 
 /** Une ligne parsée prête à rejouer. */
@@ -221,7 +223,7 @@ export const FileReplay = observer(() => {
         setEnabled(res.enabled);
         setReason(res.reason);
         setFiles(res.files ?? []);
-        setSelected((prev) => prev ?? res.files?.[0]?.name ?? null);
+        setSelected((prev) => prev ?? res.files?.at(0)?.name ?? null);
       })
       .catch((e: unknown) =>
         setError(e instanceof Error ? e.message : "liste fichiers échouée"),
@@ -299,7 +301,8 @@ export const FileReplay = observer(() => {
   // ── Moteur de rejeu : programme la révélation de la ligne suivante ───────
   useEffect(() => {
     if (!playing || revealed >= total) return;
-    const gap = deltas[revealed] !== undefined ? deltas[revealed] / speed : 0;
+    const delta = deltas.at(revealed);
+    const gap = delta !== undefined ? delta / speed : 0;
     const id = window.setTimeout(
       () => setRevealed((r) => Math.min(r + 1, total)),
       gap,

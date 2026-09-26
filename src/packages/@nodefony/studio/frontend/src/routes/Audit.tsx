@@ -217,9 +217,11 @@ export const Audit = observer(() => {
     let failure = 0;
     let denied = 0;
     for (const e of events) {
-      if (e.outcome === "success") success++;
-      else if (e.outcome === "failure") failure++;
-      else if (e.outcome === "denied") denied++;
+      // Valeur réseau : une issue inconnue n'est comptée nulle part.
+      const outcome = e.outcome as string;
+      if (outcome === "success") success++;
+      else if (outcome === "failure") failure++;
+      else if (outcome === "denied") denied++;
     }
     return { success, failure, denied };
   }, [events]);

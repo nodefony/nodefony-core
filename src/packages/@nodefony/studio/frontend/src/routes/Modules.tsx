@@ -133,13 +133,13 @@ export const Modules = observer(() => {
     setLoading(true);
     setError(null);
     try {
-      const list = await store.api.getAbsolute<ModuleRow[]>(
+      const list = await store.api.getAbsolute<ModuleRow[] | null>(
         "/nodefony/kernel/api/modules",
       );
       setRows(Array.isArray(list) ? list : []);
       // Compteurs de routes par module (1 seul fetch, groupé par route.module).
       store.api
-        .getAbsolute<{ module: string | null }[]>(
+        .getAbsolute<{ module: string | null }[] | null>(
           "/nodefony/framework/api/routes",
         )
         .then((routes) => {

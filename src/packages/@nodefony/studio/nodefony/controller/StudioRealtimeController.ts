@@ -189,7 +189,8 @@ class StudioRealtimeController extends RealtimeController {
   private actionScaffoldCancel(params: unknown): { cancelled: boolean } {
     const svc = this.get<ScaffoldService>("scaffold");
     if (!svc?.enabled) throw new Error("scaffold is development-only");
-    const id = (params as { id?: unknown })?.id;
+    // Charge RPC venue du client : peut manquer.
+    const id = (params as { id?: unknown } | null | undefined)?.id;
     if (typeof id !== "string") throw new Error("id manquant");
     return { cancelled: svc.cancel(id) };
   }

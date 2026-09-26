@@ -53,7 +53,7 @@ export interface SocketExplorerProps {
 export function SocketExplorer({ live }: SocketExplorerProps) {
   const [tab, setTab] = useState<string>(FACETS[0]?.name ?? "");
   return (
-    <Tabs value={tab} onChange={(v) => setTab(v ?? FACETS[0]?.name ?? "")}>
+    <Tabs value={tab} onChange={(v) => setTab(v ?? FACETS.at(0)?.name ?? "")}>
       <Tabs.List mb="md">
         {FACETS.map((g) => (
           <Tabs.Tab

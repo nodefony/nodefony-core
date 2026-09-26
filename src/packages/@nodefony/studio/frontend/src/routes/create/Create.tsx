@@ -265,7 +265,8 @@ export function Create() {
    * d'interroger le serveur en boucle quand une connexion temps réel est déjà ouverte.
    * Les lignes déjà vues (backlog rejoué à l'abonnement) sont ignorées par leur `seq`.
    */
-  const onEvent = useCallback((event: IScaffoldEvent): void => {
+  // Charge du socket : peut arriver vide.
+  const onEvent = useCallback((event: IScaffoldEvent | null): void => {
     if (event?.kind === "state") {
       const { lines: _ignored, ...meta } = event.state;
       setJob(meta);

@@ -111,7 +111,8 @@ export function CreateTerminal({
 
   const copy = (): void => {
     const text = lines.map((l) => l.text).join("\n");
-    void navigator.clipboard?.writeText(text).then(
+    // Absent hors contexte sécurisé (http) — le type DOM ne le dit pas.
+    void (navigator.clipboard as Clipboard | undefined)?.writeText(text).then(
       () => {
         setCopied(true);
         window.setTimeout(() => setCopied(false), 1500);

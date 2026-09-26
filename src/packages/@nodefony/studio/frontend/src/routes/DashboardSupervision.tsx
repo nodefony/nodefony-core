@@ -68,6 +68,15 @@ import {
   ensureLiveStyles,
 } from "../components/ui";
 import { PLATFORM_CHANNELS } from "nodefony";
+// Indice de santé : UNE implémentation, partagée avec l'accueil (santé pod) —
+// les poids réglés ici sont ceux que l'accueil applique.
+import {
+  DEFAULT_WEIGHTS,
+  buildHealth,
+  loadHealthWeights,
+  weightOf,
+  HEALTH_WEIGHTS_KEY,
+} from "../utils/health";
 
 /** Version de la doc des fiches d'aide (`DocHint`) du dashboard Supervision. */
 const SUP_DOC = "v1.0";
@@ -188,7 +197,8 @@ interface FlowConn {
   lastMs: number | null;
   maxMs: number;
   slowTotal: number;
-  slow: SlowQuery[];
+  /** Absent d'un rapport émis par une version antérieure du serveur. */
+  slow?: SlowQuery[];
 }
 /** Rapport de flux ORM complet (per-instance). */
 interface FlowReport {
@@ -274,122 +284,12 @@ const HANDLE_INFO: Record<string, { label: string; desc: string }> = {
     desc: "Flux de (dé)compression zlib / gzip / brotli.",
   },
 };
-/** Poids par défaut de chaque sonde dans l'indice (réglables par l'utilisateur). */
-const DEFAULT_WEIGHTS: Record<string, number> = {
-  CPU: 1,
-  "Saturation (ELU)": 1.5,
-  "Event-loop": 1.5,
-  "Mémoire (heap)": 1,
-  "GC overhead": 0.8,
-  Erreurs: 1.2,
-  Connecteurs: 1,
-  "Temps réel": 0.5,
-};
-
-/** Une entrée de l'indice de santé : valeur courante + seuils bon/critique + poids. */
-interface HealthInput {
-  label: string;
-  /** Valeur courante (« smaller is better ») ou `null` si indisponible (exclue). */
-  value: number | null;
-  /** Seuil « bon » (d=1 en dessous). */
-  good: number;
-  /** Seuil « critique » (d=0 au-dessus). */
-  crit: number;
-  /** Poids dans la moyenne géométrique. */
-  weight: number;
-  /**
-   * Plancher de désirabilité (défaut 0). Une métrique de **SATURATION** (CPU, ELU,
-   * event-loop, GC) dégrade le score sans le faire tomber à 0 — le framework saturé
-   * RALENTIT mais SERT toujours (≠ panne). Plancher ~0.2 → « Dégradé », pas « Critique ».
-   */
-  floor?: number;
-  /**
-   * Si `true`, cette métrique est une **PANNE réelle** (erreurs, connecteur coupé,
-   * heap proche OOM) : atteindre son seuil critique tire l'indice GLOBAL à 0
-   * (Critique). Les métriques de saturation sont `false` → jamais de Critique seules.
-   */
-  critical?: boolean;
-}
-
-/** Résultat de l'agrégation : indice 0-100 + libellé/couleur + facteur limitant. */
-interface HealthResult {
-  score: number | null;
-  label: string;
-  color: string;
-  worst: string | null;
-  /** Détail par sonde : sous-score, poids, et classe (saturation planchée vs panne). */
-  parts: {
-    label: string;
-    score: number;
-    weight: number;
-    kind: "sat" | "fail";
-  }[];
-}
 
 /**
- * Désirabilité d'une métrique « smaller is better » (Derringer-Suich) : 1 sous le
- * seuil bon, 0 au-dessus du critique, rampe linéaire entre les deux.
+ * Table numérique indexée par un libellé ou un nom de connecteur venu du
+ * réseau ou du stockage local : une clé peut manquer, le type le dit.
  */
-function healthDesirability(v: number, good: number, crit: number): number {
-  if (crit <= good) return v <= good ? 1 : 0;
-  if (v <= good) return 1;
-  if (v >= crit) return 0;
-  return (crit - v) / (crit - good);
-}
-
-/**
- * **Indice de santé composite** (0-100) — agrège des sondes hétérogènes via la
- * méthode **Derringer-Suich** (NIST Engineering Statistics Handbook §5.5.3.2.2) :
- * chaque sonde est normalisée en désirabilité [0,1], puis combinées par **moyenne
- * géométrique pondérée**. Propriété : si une sonde est critique (d=0), l'indice
- * tombe à 0 (le maillon faible domine — pas de masquage par les bonnes valeurs).
- * Les sondes `null` (indisponibles, ex. temps réel OFF) sont **exclues**.
- */
-function buildHealth(inputs: HealthInput[]): HealthResult {
-  const avail = inputs.filter((m) => m.value != null && m.weight > 0);
-  if (!avail.length) {
-    return { score: null, label: "—", color: "gray", worst: null, parts: [] };
-  }
-  let anyZero = false;
-  let sumW = 0;
-  let sumWln = 0;
-  let worst: HealthInput | null = null;
-  let worstD = 2;
-  const parts: HealthResult["parts"] = [];
-  for (const m of avail) {
-    // Désirabilité brute, puis PLANCHER : une saturation (floor>0) contribue mais
-    // ne tombe jamais à 0 → « Dégradé », pas « Critique ».
-    const raw = healthDesirability(m.value as number, m.good, m.crit);
-    const d = Math.max(raw, m.floor ?? 0);
-    parts.push({
-      label: m.label,
-      score: Math.round(d * 100),
-      weight: m.weight,
-      kind: m.critical ? "fail" : "sat",
-    });
-    if (d < worstD) {
-      worstD = d;
-      worst = m;
-    }
-    // Seule une PANNE réelle (critical) à son seuil critique force l'indice à 0.
-    if (m.critical && raw <= 0) anyZero = true;
-    sumW += m.weight;
-    sumWln += m.weight * Math.log(Math.max(d, 1e-9));
-  }
-  const D = anyZero ? 0 : Math.exp(sumWln / sumW);
-  const score = Math.round(D * 100);
-  const [label, color] =
-    score >= 90
-      ? ["Excellent", "teal"]
-      : score >= 75
-        ? ["Bon", "green"]
-        : score >= 50
-          ? ["À surveiller", "yellow"]
-          : score >= 25
-            ? ["Dégradé", "orange"]
-            : ["Critique", "red"];
-  return { score, label, color, worst: worst?.label ?? null, parts };
-}
+type NumberByKey = Partial<Record<string, number>>;
 
 /** Icône de provenance d'un connecteur ORM : vrai logo (Drizzle/SQLite…) si connu,
  *  sinon icône base générique. `name` = vendor (drizzle…) ou driver (sqlite…). */
@@ -591,16 +491,14 @@ export const DashboardSupervision = observer(() => {
   // Le débit/s se DÉRIVE du delta de `total` entre 2 rapports (comme le CPU%) →
   // on garde le rapport précédent (ts + totals) pour le calcul, live-only.
   const [ormFlow, setOrmFlow] = useState<FlowReport | null>(null);
-  const [flowRates, setFlowRates] = useState<Record<string, number>>({});
+  const [flowRates, setFlowRates] = useState<NumberByKey>({});
   const prevFlowRef = useRef<{
     ts: number;
-    totals: Record<string, number>;
+    totals: NumberByKey;
   } | null>(null);
   // Historique du débit PAR CONNECTEUR (1 point = un instantané {connecteur→req/s})
   // → courbe multi-séries (1 ligne/connecteur) + légendes au débit temps réel.
-  const [flowHist, setFlowHist] = useState<{ rates: Record<string, number> }[]>(
-    [],
-  );
+  const [flowHist, setFlowHist] = useState<{ rates: NumberByKey }[]>([]);
   // Cadence RÉELLE du temps réel (client-observée). Sous saturation event-loop
   // côté serveur, les ticks arrivent en retard → le « temps réel » ne tient plus
   // sa cadence (symptôme #1 vu sous charge : refresh « par paliers de N s »). On
@@ -668,24 +566,12 @@ export const DashboardSupervision = observer(() => {
   // Cadence RÉELLE appliquée par l'AIMD sur le canal principal (lecture seule, badge).
   const [effectiveMs, setEffectiveMs] = useState<number>(liveMs);
   // Poids de l'indice de santé — réglables par l'utilisateur, persistés.
-  const [weights, setWeights] = useState<Record<string, number>>(() => {
-    try {
-      const raw = lsGet("nf.supervision.weights");
-      if (!raw) return DEFAULT_WEIGHTS;
-      const parsed: unknown = JSON.parse(raw);
-      return parsed !== null && typeof parsed === "object"
-        ? { ...DEFAULT_WEIGHTS, ...(parsed as Record<string, number>) }
-        : DEFAULT_WEIGHTS;
-    } catch {
-      return DEFAULT_WEIGHTS;
-    }
-  });
+  const [weights, setWeights] = useState<NumberByKey>(loadHealthWeights);
   useEffect(
-    () => lsSet("nf.supervision.weights", JSON.stringify(weights)),
+    () => lsSet(HEALTH_WEIGHTS_KEY, JSON.stringify(weights)),
     [weights],
   );
-  const wOf = (label: string): number =>
-    weights[label] ?? DEFAULT_WEIGHTS[label] ?? 1;
+  const wOf = (label: string): number => weightOf(weights, label);
   useEffect(ensureLiveStyles, []);
   // Heartbeat client (1/s, live-only) : détecte un tick EN RETARD même quand
   // AUCUNE frame n'arrive (serveur affamé) — sinon « en retard » ne se verrait
@@ -732,7 +618,7 @@ export const DashboardSupervision = observer(() => {
   useEffect(() => {
     let cancelled = false;
     store.api
-      .getAbsolute<{ instances?: { instanceId: string }[] }>(
+      .getAbsolute<{ instances?: { instanceId: string }[] } | null>(
         "/nodefony/realtime/api/health",
       )
       .then((h) => {
@@ -751,7 +637,7 @@ export const DashboardSupervision = observer(() => {
   // Snapshot one-shot des sondes process (sans flux WS) — pour le mode OFF.
   const fetchSnapshot = useCallback(() => {
     store.api
-      .getAbsolute<StatsPayload>("/nodefony/studio/api/stats")
+      .getAbsolute<StatsPayload | null>("/nodefony/studio/api/stats")
       .then((s) => {
         if (s?.memory) setStats(s);
       })
@@ -772,7 +658,7 @@ export const DashboardSupervision = observer(() => {
   // exige des deltas live). Peuple la carte Flux en mode OFF.
   const fetchFlow = useCallback(() => {
     store.api
-      .getAbsolute<FlowReport>("/nodefony/orm/api/flow")
+      .getAbsolute<FlowReport | null>("/nodefony/orm/api/flow")
       .then((d) => {
         if (d && Array.isArray(d.connectors)) setOrmFlow(d);
       })
@@ -806,8 +692,9 @@ export const DashboardSupervision = observer(() => {
 
   // Handler tick stats (live) → jauges + séries + bascule du compteur d'erreurs.
   const onStats = (payload: unknown) => {
-    const s = payload as StatsPayload;
-    if (!s || typeof s !== "object" || !s.memory) return;
+    // Charge du socket : la forme n'est pas garantie.
+    const s = payload as StatsPayload | null;
+    if (!s || !(s as Partial<StatsPayload>).memory) return;
     // Cadence réelle : écart depuis le tick précédent ; retard remis à zéro.
     const now = Date.now();
     if (lastTickRef.current) setTickGapMs(now - lastTickRef.current);
@@ -850,12 +737,13 @@ export const DashboardSupervision = observer(() => {
   // rapports (Δtotal / Δts) — robuste même si l'event-loop dérape (le delta
   // couvre alors une fenêtre plus large). Garde le dernier rapport pour le delta.
   const onFlow = (payload: unknown) => {
-    const r = payload as FlowReport;
+    // Charge du socket : la forme n'est pas garantie.
+    const r = payload as FlowReport | null;
     if (!r || !Array.isArray(r.connectors)) return;
     const prev = prevFlowRef.current;
     if (prev && r.ts > prev.ts) {
       const dt = (r.ts - prev.ts) / 1000;
-      const rates: Record<string, number> = {};
+      const rates: NumberByKey = {};
       for (const c of r.connectors) {
         const p = prev.totals[c.connector];
         if (p != null && dt > 0) {
@@ -868,7 +756,7 @@ export const DashboardSupervision = observer(() => {
         return n.length > HISTORY ? n.slice(-HISTORY) : n;
       });
     }
-    const totals: Record<string, number> = {};
+    const totals: NumberByKey = {};
     for (const c of r.connectors) totals[c.connector] = c.total;
     prevFlowRef.current = { ts: r.ts, totals };
     setOrmFlow(r);
@@ -972,7 +860,10 @@ export const DashboardSupervision = observer(() => {
     .filter((c) => c.total > 0)
     .map((c) => c.connector);
   // Débit total temps réel = somme des débits par connecteur (badge).
-  const flowRateNow = Object.values(flowRates).reduce((a, v) => a + v, 0);
+  const flowRateNow = Object.values(flowRates).reduce<number>(
+    (a, v) => a + (v ?? 0),
+    0,
+  );
   // Vendor dominant du flux (pour le logo de la carte — Drizzle ici).
   const flowMainVendor =
     flowConns.find((c) => c.total > 0)?.vendor ?? flowConns[0]?.vendor;
@@ -2110,7 +2001,7 @@ export const DashboardSupervision = observer(() => {
                 height={fullscreen ? 600 : 190}
                 format={(v) => `${Math.round(v)}/s`}
                 series={flowSeriesConns.map((conn, i) => ({
-                  data: flowHist.map((p) => p?.rates?.[conn] ?? 0),
+                  data: flowHist.map((p) => p.rates[conn] ?? 0),
                   color: FLOW_PALETTE[i % FLOW_PALETTE.length],
                   label: conn,
                 }))}
@@ -2853,7 +2744,7 @@ export const DashboardSupervision = observer(() => {
                               series={[
                                 {
                                   data: flowHist.map(
-                                    (p) => p?.rates?.[c.connector] ?? 0,
+                                    (p) => p.rates[c.connector] ?? 0,
                                   ),
                                   color: flowColorOf(c.connector),
                                   label: `${c.connector} req/s`,
@@ -3000,8 +2891,8 @@ export const DashboardSupervision = observer(() => {
               icon={SRC_NODEFONY}
               title="Erreurs / s"
               badge={
-                <Badge variant="light" color={live ? errH.color : "gray"}>
-                  {live ? `${errPerMin}/min` : "temps réel requis"}
+                <Badge variant="light" color={errH.color}>
+                  {`${errPerMin}/min`}
                 </Badge>
               }
               caption="Nombre d'ERROR+CRITIC par seconde (canal nodefony:syslog). Toute barre rouge = incident à investiguer. Mesuré en temps réel uniquement."

@@ -230,10 +230,13 @@ function JsonNode({
 function useCopy(text: string): { copied: boolean; copy: () => void } {
   const [copied, setCopied] = useState(false);
   const copy = (): void => {
-    void navigator.clipboard?.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1200);
-    });
+    // Absent hors contexte sécurisé (http) — le type DOM ne le dit pas.
+    void (navigator.clipboard as Clipboard | undefined)
+      ?.writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1200);
+      });
   };
   return { copied, copy };
 }

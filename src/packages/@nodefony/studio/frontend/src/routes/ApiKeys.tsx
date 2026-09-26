@@ -104,7 +104,7 @@ export const ApiKeys = observer(() => {
   const fetcher = useCallback(async (): Promise<ApiKey[]> => {
     if (mode === "admin") return [];
     try {
-      const res = await store.api.getAbsolute<{ keys: ApiKey[] }>(
+      const res = await store.api.getAbsolute<{ keys?: ApiKey[] }>(
         KEYS_ENDPOINT,
       );
       return res.keys ?? [];

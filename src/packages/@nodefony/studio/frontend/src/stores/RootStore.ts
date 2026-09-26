@@ -131,7 +131,7 @@ export class RootStore {
         // potentiellement encore VALIDE (401 transitoire au reload) et effacerait
         // le cookie → déconnexion permanente sur un simple hoquet. Le logout serveur
         // reste réservé au clic explicite de l'utilisateur.
-        this.auth?.clearLocalSession();
+        this.auth.clearLocalSession();
       },
       onError: ({ method, status, message }) => {
         // 401 = déjà géré (logout). GET = chargement de page, l'erreur est rendue

@@ -44,6 +44,7 @@ import {
   HEALTH_WEIGHTS_KEY,
   buildHealth,
   loadHealthWeights,
+  weightOf,
   type HealthResult,
 } from "../../utils/health";
 import { Legend, MiniChart } from "../../components/ui";
@@ -95,14 +96,14 @@ function heapPctOf(s: StatsPayload | null): number | null {
 
 /** État des poids synchronisé avec la clé localStorage PARTAGÉE avec la page Supervision. */
 function useHealthWeights(): {
-  weights: Record<string, number>;
+  weights: Partial<Record<string, number>>;
   setWeight: (label: string, v: number) => void;
   reset: () => void;
 } {
-  const [weights, setW] = useState<Record<string, number>>(() =>
+  const [weights, setW] = useState<Partial<Record<string, number>>>(() =>
     loadHealthWeights(),
   );
-  const persist = (next: Record<string, number>) => {
+  const persist = (next: Partial<Record<string, number>>) => {
     try {
       localStorage.setItem(HEALTH_WEIGHTS_KEY, JSON.stringify(next));
     } catch {
@@ -121,9 +122,7 @@ function useHealthWeights(): {
   };
   return { weights, setWeight, reset };
 }
-function wOf(weights: Record<string, number>, label: string): number {
-  return weights[label] ?? DEFAULT_WEIGHTS[label] ?? 1;
-}
+const wOf = weightOf;
 
 /* ───────────────────────── Dérivations live (intervalle, erreurs, conn) ───────── */
 
@@ -638,14 +637,15 @@ function useFlowSeries(
   report: FlowReport | null,
   max = 60,
 ): { rates: Record<string, number>; hist: Record<string, number>[] } {
-  const prev = useRef<{ ts: number; totals: Record<string, number> } | null>(
-    null,
-  );
+  const prev = useRef<{
+    ts: number;
+    totals: Partial<Record<string, number>>;
+  } | null>(null);
   const [rates, setRates] = useState<Record<string, number>>({});
   const [hist, setHist] = useState<Record<string, number>[]>([]);
   useEffect(() => {
     if (!report || !Array.isArray(report.connectors)) return;
-    const totals: Record<string, number> = {};
+    const totals: Partial<Record<string, number>> = {};
     for (const cc of report.connectors) totals[cc.connector] = cc.total;
     const p = prev.current;
     if (p && report.ts > p.ts) {

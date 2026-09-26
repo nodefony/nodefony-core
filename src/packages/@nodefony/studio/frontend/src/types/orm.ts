@@ -46,7 +46,8 @@ export interface OrmGraph {
 }
 
 /** Libellé long d'un vendor ORM. */
-export const VENDOR_LABEL: Record<string, string> = {
+// Indexé par un nom de pilote venu du serveur : peut être inconnu.
+export const VENDOR_LABEL: Partial<Record<string, string>> = {
   drizzle: "Drizzle",
   mongoose: "Mongoose",
 };
@@ -212,7 +213,8 @@ export interface MigrationSource {
   pendingTags?: string[];
   drifted?: { tag: string; expected: string; actual: string }[];
   missing?: string[];
-  entries: MigrationEntry[];
+  /** Absent quand la source ne peut pas être lue (dossier manquant). */
+  entries?: MigrationEntry[];
 }
 
 /** Ce qui diverge entre la base et le schéma déclaré, nommé. */

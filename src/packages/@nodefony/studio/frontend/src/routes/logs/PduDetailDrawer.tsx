@@ -138,7 +138,7 @@ export const PduDetailDrawer = observer(
       // Cas Live/Explorer : on interroge le backplane mémoire.
       setTlLoading(true);
       store.api
-        .getAbsolute<LogQueryResult>(
+        .getAbsolute<Partial<LogQueryResult>>(
           // Lecture CHRONOLOGIQUE d'une trace (du plus ancien au plus récent) —
           // exprimée dans la grammaire du contrat, `champ:SENS`.
           `/nodefony/syslog/api/logs/search?requestId=${encodeURIComponent(

@@ -591,9 +591,7 @@ function FieldEditor({
           size="xs"
           w={170}
           value={draft}
-          placeholder={
-            ctrl.kind === "text" && ctrl.nullable ? "(vide = null)" : undefined
-          }
+          placeholder={ctrl.nullable ? "(vide = null)" : undefined}
           disabled={pending}
           onChange={(e) => {
             onDirty();

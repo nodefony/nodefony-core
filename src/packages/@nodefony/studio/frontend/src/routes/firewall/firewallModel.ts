@@ -122,7 +122,8 @@ export interface AuthenticatorMeta {
   color: string;
 }
 
-export const AUTHENTICATOR_META: Record<string, AuthenticatorMeta> = {
+// Indexé par le nom d'un authenticator déclaré côté serveur : peut être inconnu.
+export const AUTHENTICATOR_META: Partial<Record<string, AuthenticatorMeta>> = {
   anonymous: {
     label: "Anonyme",
     blurb: "Accès non authentifié explicite (Zero Trust assoupli sur la zone).",

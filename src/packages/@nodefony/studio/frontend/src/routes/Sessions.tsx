@@ -201,12 +201,12 @@ export const Sessions = observer(() => {
     const identifier = confirmRevokeUser;
     setRevokingUser(true);
     try {
-      const res = await store.api.postAbsolute<{ ok: true; count: number }>(
+      const res = await store.api.postAbsolute<{ ok: true; count?: number }>(
         revokeUserSessionsEndpoint(identifier),
       );
       notifications.notify(
         "success",
-        `${res?.count ?? 0} session(s) de « ${identifier} » révoquée(s).`,
+        `${res.count ?? 0} session(s) de « ${identifier} » révoquée(s).`,
         { source: "api" },
       );
       setConfirmRevokeUser(null);

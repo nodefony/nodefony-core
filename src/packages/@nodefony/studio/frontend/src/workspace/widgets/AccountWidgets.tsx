@@ -18,7 +18,8 @@ import { BigMetric } from "./_kit";
 
 /** Projection légère de l'identité (miroir de la réponse `/auth/me`). */
 interface MeResponse {
-  user: { id: number | string; username: string; roles: string[] };
+  /** `roles` peut manquer d'une réponse d'une version antérieure du serveur. */
+  user: { id: number | string; username: string; roles?: string[] };
 }
 
 // ───────────────────────────── account.profile ─────────────────────────

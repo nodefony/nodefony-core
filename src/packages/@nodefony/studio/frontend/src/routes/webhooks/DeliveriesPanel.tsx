@@ -65,7 +65,7 @@ export function DeliveriesPanel({ id }: { id: string }) {
   const fetcher = useCallback(async (): Promise<WebhookDelivery[]> => {
     try {
       const res = await store.api.getAbsolute<{
-        deliveries: WebhookDelivery[];
+        deliveries?: WebhookDelivery[];
       }>(webhookDeliveriesEndpoint(id));
       return res.deliveries ?? [];
     } catch (e) {

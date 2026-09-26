@@ -478,7 +478,7 @@ export const TransportTab = observer(
           <Group gap="xs" align="baseline">
             <Text size="sm" fw={600}>
               {checkKnown
-                ? bp?.sealed
+                ? bp.sealed
                   ? "expéditeur vérifié"
                   : "expéditeur NON vérifié"
                 : "aucun message extérieur"}
@@ -487,7 +487,7 @@ export const TransportTab = observer(
               title="Vérifier l'expéditeur"
               summary={
                 checkKnown
-                  ? bp?.sealed
+                  ? bp.sealed
                     ? "Chaque message reçu porte une signature ; ceux qui n'en ont pas sont refusés."
                     : "Les messages reçus ne sont pas signés : leur expéditeur n'est pas vérifié."
                   : "La question ne se pose pas ici : rien n'arrive de l'extérieur."
@@ -504,7 +504,7 @@ export const TransportTab = observer(
                 {
                   label: "Ici",
                   body: checkKnown
-                    ? bp?.sealed
+                    ? bp.sealed
                       ? "Signature active : les messages non authentifiés sont refusés à l'entrée."
                       : "Aucune signature : à corriger avant d'exposer ce fond de panier au-delà de la machine."
                     : "Aucun message ne vient de l'extérieur (un seul processus, ou passage interne entre processus d'une même machine) : il n'y a pas d'expéditeur inconnu possible.",
