@@ -386,7 +386,7 @@ export default defineConfig((ctx) => ({
 | `production`     | `production`     | `0.0.0.0`       | aucun      |
 | (absent)         | `production`     | `0.0.0.0`       | aucun      |
 
-Deux détails qui comptent : `dev` est normalisé en `development` (`Kernel.ts:1990`), et **l'absence**
+Deux détails qui comptent : `dev` est normalisé en `development` (`Kernel.ts:2059`), et **l'absence**
 de `NODE_ENV` est traitée comme `production` — le défaut est le régime le plus prudent, jamais le plus
 bavard.
 

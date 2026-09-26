@@ -238,7 +238,7 @@ une route que d'anciens clients appellent déjà sans clé, le temps de la migra
 async subscribe(@Body() body: SubscribeInput) { /* … */ }
 ```
 
-Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1576`), comme
+Précédence **méthode > classe** (`computeIdempotent()`, `routerDecorators.ts:1585`), comme
 `@UseSession`. Poser `@Idempotent()` sur la **classe** couvre toutes les mutations du controller ;
 une méthode peut resserrer ou relâcher le mode. Les méthodes sûres (GET…) restent des no-op même
 sous une classe décorée.
@@ -539,7 +539,7 @@ Signatures complètes : `.ai/symbols.json`. Ce qui compte à l'usage :
 ### Le décorateur
 
 `@Idempotent(options?)` (`routerDecorators.ts:1142`) — dual **classe + méthode**. N'écrit que des
-métadonnées (`IdempotentMeta`, `routerDecorators.ts:457`), zéro import de `@nodefony/security`, zéro
+métadonnées (`IdempotentMeta`, `routerDecorators.ts:466`), zéro import de `@nodefony/security`, zéro
 cycle. La porte est appliquée par le Resolver.
 
 ### Le contrat de store
@@ -647,7 +647,7 @@ pour l'affichage Studio, `idempotencyStoreRegistry.ts:81`).
 ## ⚡ Performance et mémoire
 
 Le coût est **nul hors mutations décorées**. Sans `@Idempotent`, `RouteActionMeta.idempotent` vaut
-`null` (`routerDecorators.ts:1103`) : `callController()` fait **une comparaison** et repart en flux
+`null` (`routerDecorators.ts:1151`) : `callController()` fait **une comparaison** et repart en flux
 normal — zéro lookup de container, zéro `await` supplémentaire, zéro allocation (`Resolver.ts:435`).
 La métadonnée est **figée par route** et mémoïsée : aucune lecture `Reflect` par requête.
 

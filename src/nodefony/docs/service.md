@@ -531,7 +531,7 @@ Les services d'un module sont introspectables sans lire le code :
 
 - **API** — `GET /nodefony/kernel/api/module/{name}` (`KernelAdminApi.ts:1109`) renvoie un tableau
   `services: [{ name, class }]`, construit depuis `Module.getServiceNames()` (`Module.ts:541`) croisé
-  avec le container (`KernelAdminApi.ts:1346`).
+  avec le container (`KernelAdminApi.ts:978`).
 - **Écran** — la page de détail d'un module (`studio/frontend/src/routes/ModuleDetail.tsx`) affiche
   cette liste à côté de la config, des docs et des symboles du module.
 - **Sonde de fuite** — `Container.scopeCount(name)` (`Container.ts:281`) donne le nombre de scopes

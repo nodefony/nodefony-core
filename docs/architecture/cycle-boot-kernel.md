@@ -267,7 +267,7 @@ récupérer et ouvrir ce qui doit l'être : connexion base, abonnement à un bus
 
 ### `onKernelReady()` — « tout le monde est là »
 
-Phase `onReady` (`Module.ts:247`). C'est la phase du **câblage inter-modules** : un module qui doit
+Phase `onReady` (`Module.ts:265`). C'est la phase du **câblage inter-modules** : un module qui doit
 enrichir un autre (enregistrer un fournisseur, poser un intercepteur) le fait ici, parce que la
 présence des autres est enfin garantie.
 
@@ -532,11 +532,11 @@ Un boot naïf attend chaque hook indéfiniment. Il suffit d'un `init` qui **pend
 hors ligne qui ne rejette jamais, un store bloqué — pour que le process reste figé jusqu'au `SIGKILL`
 de l'orchestrateur. Nodefony borne ça sur trois axes.
 
-- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:3091`), sinon **20 s en
+- **Timeout par écouteur** — `NF_BOOT_TIMEOUT_MS` (`Kernel.ts:3160`), sinon **20 s en
   développement, 60 s en production**. Large à dessein : il borne la pendaison infinie, pas la
   lenteur normale.
-- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3103`), un
-  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:3099`).
+- **Alerte de lenteur** — au-delà de `NF_BOOT_WARN_MS` (défaut **5 s**, `Kernel.ts:3172`), un
+  `NOTICE` **nomme le hook lent** sans le tuer (`Kernel.ts:3934`).
 - **Fatal ou fail-soft** — arbitré par `Kernel.isBootErrorFatal()` (`Kernel.ts:3199`) : fatal si le
   module est critique **et** (on est en production **ou** c'est une erreur de configuration) ; sinon
   `WARNING` et le boot continue.
@@ -579,7 +579,7 @@ probable ⇒ `npm run clean && npm run build` ». Et un **journal de boot** —
 figés à `onPostReady` : après cet instant, le tampon mélange boot et exécution normale.
 
 Le garde-fou zéro-serveur va jusqu'au code de sortie : un profil serveur qui finit sans écoute sort en
-`EX_UNAVAILABLE`, pas en `0` trompeur (`Kernel.ts:1300`). L'orchestrateur voit un pod en échec, le
+`EX_UNAVAILABLE`, pas en `0` trompeur (`Kernel.ts:1331`). L'orchestrateur voit un pod en échec, le
 superviseur de développement un message honnête.
 
 ## Arrêt propre — le drain borné
@@ -623,7 +623,7 @@ Deux mécanismes, à ne pas confondre.
 
 **Le profil d'exécution** — `IRunProfile` (`Kernel.ts:344`) — décrit ce dont le run a besoin :
 `{ servers, lifetime, interactive }`. Le défaut est console pur : `CONSOLE_RUN_PROFILE`
-(`Kernel.ts:370`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:938`).
+(`Kernel.ts:370`). Une commande le déclare via `CliKernel.setRunProfile()` (`CliKernel.ts:999`).
 
 **La phase cible** — chaque commande déclare la phase qui lui suffit. Dès qu'elle est atteinte,
 `Kernel.setCommandComplete()` (`Kernel.ts:2729`) coupe la chaîne et `Kernel.finishOrPark()`
@@ -643,11 +643,11 @@ Deux mécanismes, à ne pas confondre.
 
 Certaines invocations **ne bootent rien du tout** : `--version`, la complétion shell,
 `nodefony create`, `nodefony status`/`stop` sont traitées avant toute construction de `Kernel`
-(`CliKernel.ts:176`). Une tabulation de complétion ne démarre pas un noyau.
+(`CliKernel.ts:207`). Une tabulation de complétion ne démarre pas un noyau.
 
 Enfin, les commandes **de module** (`frontend:build`, `network`…) posent un problème d'ordre : elles
 n'existent dans l'analyseur d'arguments qu'après `onPreRegister`. Leur exécution est donc **différée**
-par `CliKernel.dispatchModuleCommand()` (`CliKernel.ts:682`) jusqu'à ce que les modules les aient
+par `CliKernel.dispatchModuleCommand()` (`CliKernel.ts:736`) jusqu'à ce que les modules les aient
 enregistrées. Le noyau reste en mode console — une commande inconnue termine en erreur, elle ne
 démarre jamais un serveur par accident.
 

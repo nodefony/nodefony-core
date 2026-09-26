@@ -644,7 +644,7 @@ doit afficher « passkeys désactivées », pas un 503 (`SecurityAdminApi.ts:532
 backend sans comptage (Redis).
 
 Côté UI, l'écran **Profil** (`/nodefony/profile`) de Studio porte l'enrôlement self-service et l'écran de login le bouton
-passkey (`AuthStore.ts:209`).
+passkey (`AuthStore.loginWithPasskey()`, `AuthStore.ts:212`).
 
 ## 📜 Normes appliquées
 

@@ -84,7 +84,7 @@ server-http.ts (IncomingMessage) → http-kernel.ts.handle()
 ```
 
 ⚠️ **`Firewall.check()` n'existe pas** — le point d'entrée du firewall est
-`handleSecurity()` (`firewall.ts:587`), et il est précédé de trois autres appels
+`handleSecurity()` (`firewall.ts:754`), et il est précédé de trois autres appels
 (`handleCors`, `applySecurityHeaders`, `enforceCsrf`) qui, eux, tournent sur
 **toutes** les requêtes, zone ou pas.
 

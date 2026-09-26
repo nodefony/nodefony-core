@@ -345,12 +345,12 @@ n'intervient **que** sur le défaut — une valeur explicite est toujours respec
 
 ### Le debug ciblé — relever la verbosité sans redéployer
 
-En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:2822`). Trois leviers
+En production, le seuil global est posé à `INFO` par le Kernel (`Kernel.ts:2891`). Trois leviers
 permettent de rouvrir le robinet **sans redémarrer**, du plus opérationnel au plus fin :
 
 1. **Au lancement** — `NF__DEBUG` : `*` lève la gate globale, `FIREWALL` passe ce module en `DEBUG`,
    `SESSION:NOTICE` le passe à un niveau précis. Analysé par `Syslog.parseDebugSpec()`
-   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:2831`).
+   (`Syslog.ts:893`), appliqué au boot (`Kernel.ts:2900`).
 2. **À chaud, par module** — `setDebugOverride()` (`Syslog.ts:974`) relève le seuil **d'un seul**
    module (clé = son `msgid`). Le joker `*` vaut « tout ». Un `ttlMs` arme une **auto-extinction**
    (minuterie `unref`, ré-armable) : un debug oublié allumé n'existe pas.
@@ -752,7 +752,7 @@ comme les autres**, avec les mêmes critères et le même ordre.
 | Champ `PROCID`             | RFC 5424         | `pid` capté une fois (`Pdu.ts:184`)                    |
 | Champ `MSGID`              | RFC 5424         | `msgid` = nom du service par défaut (`Service.ts:303`) |
 | Flux stdout/stderr séparés | 12-factor (logs) | Route par sévérité ≤ 3 (`Syslog.ts:1628`)              |
-| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2826`)           |
+| Configuration par l'env    | 12-factor        | `NF__DEBUG`, URLs d'infra (`Kernel.ts:2898`)           |
 | Couleur désactivable       | NO_COLOR         | Résolue au boot (`setLogColor()`, `logColor.ts:86`)    |
 | JSON Lines                 | JSONL            | `FileTransport` format `json`                          |
 | API de requête Loki        | LogQL            | `createLokiLogDriver()` (`LokiLogDriver.ts:86`)        |

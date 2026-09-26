@@ -263,9 +263,9 @@ que chaque forme **produit dans la table**.
 | `@route(nom, options)`                    | **le tien** (stable, réutilisable) | `requirements.methods` (libre)   | WebSocket, multi-méthodes, contraintes fines |
 
 - Les décorateurs de méthode HTTP délèguent tous à `@route` avec un nom auto `Classe::methode`, et
-  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:469`).
+  posent `requirements: { methods }` (`httpMethodDecorator()`, `routerDecorators.ts:478`).
 - `@All` n'émet **aucun** requirement de méthode : la route sert alors GET, POST, DELETE… et ne peut
-  donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:528`).
+  donc jamais produire un 405 sur la méthode (`All()`, `routerDecorators.ts:537`).
 - `@route` est la forme complète : elle seule permet `protocol` (sous-protocole WS), un nom lisible, et
   des requirements par variable.
 
@@ -360,7 +360,7 @@ le suit — un `@All("*")` déclaré tôt masque le reste du contrôleur.
 > [!TIP]
 > Une exception utile : dans un contrôleur, une route dont le chemin vaut **exactement** `"*"` est
 > repoussée **en dernier** au moment du montage — la capture-tout d'un contrôleur ne masque donc jamais
-> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:237`). Ça ne
+> ses propres routes, quel que soit l'ordre d'écriture (`hasMagic`, `routerDecorators.ts:246`). Ça ne
 > vaut **que** pour `"*"` seul : `/files/*` reste ordonné comme les autres.
 
 ### Situation 2 — le même chemin, deux méthodes

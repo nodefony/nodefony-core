@@ -33,7 +33,7 @@ export class ReportService {
 }
 ```
 
-🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts:155`) mais **absent du
+🚫 **Indisponible hors du core.** `Inject` est défini (`kernelDecorator.ts:215`) mais **absent du
 barrel** : `src/nodefony/src/index.ts` n'exporte que `injectable`, `inject`, `services`. Une app qui
 l'importe reçoit `undefined`. Utiliser l'injection **par constructeur** (`@inject`).
 

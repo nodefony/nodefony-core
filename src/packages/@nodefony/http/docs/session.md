@@ -506,7 +506,7 @@ C'est le différenciateur du framework appliqué à l'état de session : un seul
 | Ouverture | à chaque requête — `startSession()` dans `onRequestEnd()` (`http-kernel.ts:1463`) | **une fois** au handshake — `startSession()` dans `onConnect()` (`http-kernel.ts:1733`) |
 | Lecture du cookie | constructeur du contexte | constructeur, même nom effectif (`WebsocketContext.ts:172`) |
 | Sauvegarde | fin de requête | après **chaque frame** traitée (`WebsocketContext.ts:302`) |
-| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1518`) |
+| Filet de fermeture | — | `once("onFinish")` sauve si non déjà fait (`http-kernel.ts:1538`) |
 | Portée ALS | une requête | **handshake + toutes les frames** (`http-kernel.ts:1495`) |
 
 La conséquence pratique la plus utile : côté WebSocket, la bulle `AsyncLocalStorage` ouverte au

@@ -121,7 +121,7 @@ le flux et écrit chaque fichier au fil de l'eau dans le dossier temporaire (`st
 champs texte restent en mémoire. C'est ce qui rend un endpoint d'upload public tenable.
 
 **Le nom du fichier temporaire n'est jamais celui du client.** Chaque fichier reçu est écrit sous un nom
-`randomUUID()` + extension d'origine (`context/http/Request.ts:594`) : un nom malveillant
+`randomUUID()` + extension d'origine (`context/http/Request.ts:627`) : un nom malveillant
 (`../../etc/passwd`) ne peut pas influencer le **chemin** d'écriture. Le nom d'origine est conservé en
 **métadonnée** (`filename`), pas dans le chemin.
 
@@ -261,10 +261,10 @@ Les points d'implémentation qui expliquent des comportements surprenants :
    des méthodes parsées (`context/http/Request.ts:94`) — l'oubli laissait tout `PATCH` avec un corps vide.
 2. **Le multipart draine sur un `finish`, après flush de tous les writes** — `streamMultipart()`
    (`context/http/Request.ts:570`) accumule les `Promise` d'écriture disque et ne résout `{ fields, files }`
-   qu'une fois tous les fichiers fermés (`context/http/Request.ts:538`).
+   qu'une fois tous les fichiers fermés (`bb.on("finish")`, `context/http/Request.ts:707`).
 3. **Une limite dépassée nettoie les temporaires déjà posés** — `abort()`
    (`context/http/Request.ts:590`) délie le flux, détruit les write-streams ouverts et `unlink` les temp
-   déjà écrits (`context/http/Request.ts:568`) avant de rejeter en `413` : pas d'orphelins sur le disque.
+   déjà écrits (`context/http/Request.ts:601`) avant de rejeter en `413` : pas d'orphelins sur le disque.
 4. **Les autres formats drainent AVANT de concaténer** — la base `Parser.parse()` attend `end`
    (`context/http/parser.ts:111`) avant `Buffer.concat` : sans ce drain, `ParserQs`/`ParserXml`
    lisaient un corps partiel → `queryPost` vide (bug de régression, cf tests).
@@ -322,16 +322,16 @@ recommandé) et les **getters** de `Controller` (impératif). Les signatures exa
 
 | Accès                                              | Source lue                           | Ancrage                                                             |
 | -------------------------------------------------- | ------------------------------------ | ------------------------------------------------------------------- |
-| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1240`)            |
-| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1239`)             |
-| `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1178`)             |
+| `@UploadedFiles() f: IUploadedFile[]`              | tous les fichiers (`queryFile`)      | `resolveParamArg` `"files"` (`routerDecorators.ts:1263`)            |
+| `@UploadedFile() f: IUploadedFile`                 | le **premier** fichier               | `resolveParamArg` `"file"` (`routerDecorators.ts:1262`)             |
+| `@Body() body`                                     | tous les champs parsés (`queryPost`) | `resolveParamArg` `"body"` (`routerDecorators.ts:1232`)             |
 | `@Body("label") v`                                 | un seul champ du body                | même source, clé (`routerDecorators.ts:1223`)                       |
-| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1297`)               |
+| `@Body({ stream: true }) s: NodeJS.ReadableStream` | le **flux brut**, parse **sauté**    | `resolveParamArg` stream (`routerDecorators.ts:1306`)               |
 | `this.queryFile`                                   | équivalent getter des fichiers       | `Controller.queryFile` (`framework/nodefony/src/Controller.ts:239`) |
 | `this.queryPost`                                   | équivalent getter des champs         | `Controller.queryPost` (`framework/nodefony/src/Controller.ts:248`) |
 
 Les décorateurs `@UploadedFile` / `@UploadedFiles` sont des fabriques de paramètre
-(`routerDecorators.ts:1254`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
+(`routerDecorators.ts:1263`), exportées par `@nodefony/framework` ; leurs interfaces `IUploadedFile` /
 `IParsedUploadFile` viennent de `@nodefony/http` (`interfaces/IUpload.ts:49`, `interfaces/IUpload.ts:7`).
 
 ### Un fichier uploadé — `UploadedFile`
@@ -376,7 +376,7 @@ piégé. Les défenses en place, et **ce qui reste à ta charge**.
 <!-- prettier-ignore -->
 | Menace | Défense côté framework | À ta charge |
 | --- | --- | --- |
-| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:594`). | La **destination** de `move()` (voir avertissement). |
+| **Path traversal** (chemin d'écriture) | Le temp est nommé `randomUUID()` + extension — jamais le nom client (`context/http/Request.ts:627`). | La **destination** de `move()` (voir avertissement). |
 | **Saturation RAM** | Multipart streamé (jamais bufferisé) ; corps non-multipart borné (`maxBodySize`). | Resserrer `maxBodySize` selon l'endpoint. |
 | **Saturation disque** | `maxFileSize` + `maxTotalFileSize` + `maxFiles` ; `abort()` nettoie les temp à l'abandon (`context/http/Request.ts:590`). | Purger les temp non déplacés (TTL / cron). |
 | **DoS par quantité** | `maxFields` / `maxFiles` / `parts` → `413` (`context/http/Request.ts:754`). | — |
@@ -416,7 +416,7 @@ pipeline : `npm run test:memory` (skill `nodefony-check-memory-health`).
 | Corps trop gros → 413              | RFC 9110 §15.5.14                | `enforceBodyLimit()` (`context/http/Request.ts:439`)          |
 | 413 en streaming (chunked/menteur) | RFC 9110 §15.5.14                | `Parser.write()` (`context/http/parser.ts:33`)                |
 | Bornes multipart → 413             | RFC 9110 §15.5.14                | `stream.on("limit")` (`context/http/Request.ts:481`)          |
-| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:594`)                |
+| Défense path traversal (nom temp)  | OWASP — File Upload              | `randomUUID()` (`context/http/Request.ts:627`)                |
 | Charset du corps honoré            | RFC 9110 (Content-Type)          | `getCharset()` (`context/http/Request.ts:832`)                |
 
 ## ⚠️ Pièges

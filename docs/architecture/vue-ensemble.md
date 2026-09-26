@@ -306,8 +306,8 @@ en-têtes.
 
 `Router` (`router.ts:164`), `Controller` (`Controller.ts:112`), `Resolver` (`Resolver.ts:86`) et les
 décorateurs que tu utilises tous les jours : `controller()` (`routerDecorators.ts:189`), `route()`
-(`routerDecorators.ts:271`), `Get` (`routerDecorators.ts:515`), `IsGranted()`
-(`routerDecorators.ts:878`), `CurrentUser` (`routerDecorators.ts:1250`). C'est la surface que tu
+(`routerDecorators.ts:271`), `Get` (`routerDecorators.ts:524`), `IsGranted()`
+(`routerDecorators.ts:878`), `CurrentUser` (`routerDecorators.ts:1259`). C'est la surface que tu
 manipules le plus.
 
 ### [`@nodefony/security`](../../src/packages/@nodefony/security/docs/index.md) — protéger l'application

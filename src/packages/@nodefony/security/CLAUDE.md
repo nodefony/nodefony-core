@@ -92,7 +92,7 @@ security 303, banc live `http/security-headers.test.ts` 7/7, mémoire 9/9.
 
 ✅ **CSP nonce par requête** : `SecurityHeaders.cspFor(nonce)` (`securityHeaders.ts:100`) recompose
 le CSP à partir de segments pré-split au boot ; le nonce est **paresseux** côté contexte
-(`Context.cspNonce`, `http/…/Context.ts:192` — `randomBytes(16)` alloués seulement si une vue le lit).
+(`Context.cspNonce`, `http/…/Context.ts:253` — `randomBytes(16)` alloués seulement si une vue le lit).
 Une route peut ajouter ses directives via `@Csp` (merge par `cspForExtra`).
 
 ## Interdits

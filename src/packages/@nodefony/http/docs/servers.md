@@ -507,10 +507,10 @@ détails d'implémentation valent d'être connus, parce qu'ils expliquent des co
 1. **On retente au `listen()`, jamais après une sonde.** Demander « le port est-il libre ? » puis
    binder est une course : entre la réponse et le bind, un autre processus peut prendre le port. Le
    `listen()` est atomique — on retente donc sur l'échec réel (`bindWithFallback()`,
-   `portBinder.ts:281`).
+   `portBinder.ts:263`).
 2. **Le port de l'autre serveur est réservé.** Si HTTP est chassé de 5151, incrémenter naïvement le
    ferait voler 5152 à HTTPS, qui se décalerait à son tour. Les ports convoités par les autres serveurs
-   sont sautés d'emblée (`buildBindPlan()`, `portBinder.ts:123`, réservation `portBinder.ts:123`).
+   sont sautés d'emblée (`buildBindPlan()`, `portBinder.ts:105`, réservation `portBinder.ts:105`).
 3. **Le gestionnaire d'erreur durable est posé APRÈS le bind.** Attaché avant, il verrait passer les
    `EADDRINUSE` de repli et terminerait le kernel en croyant à une panne
    (`ServerHttp.attachErrorHandler()`, `server-http.ts:186`).

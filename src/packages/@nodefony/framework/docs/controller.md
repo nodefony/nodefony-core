@@ -541,7 +541,7 @@ class DemoController extends Controller {
 ```
 
 L'injecteur lit les noms déclarés par `@inject` et résout chaque dépendance dans le container avant
-de construire (`Injector._instantiateWithStack()`, `injector.ts:254`). Le **contexte n'est pas une
+de construire (`Injector._instantiateWithStack()`, `injector.ts:549`). Le **contexte n'est pas une
 dépendance** : il est passé en argument par le Resolver, et les paramètres non annotés le reçoivent
 dans l'ordre (`injector.ts:309`). Les **dépendances circulaires sont détectées** et signalées avec le
 chemin complet (`injector.ts:262-266`), jamais silencieusement.

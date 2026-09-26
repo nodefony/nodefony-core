@@ -92,7 +92,7 @@ export class MyModule extends Module {
 hook que s'il EXISTE sur la classe (`if (this.onKernelRegister)`), plus le
 `prependOnceListener("onPreBoot")` qui charge le `package.json` et les overrides de config.
 **Aucun listener de build** : le build passe par la toolchain CLI (turbo + rolldown), le
-rechargement dev par le `DevSupervisor` (`Module.ts:115` le dit au source).
+rechargement dev par le `DevSupervisor` (`Module.ts:151` le dit au source).
 
 > Le watch Rollup runtime write-only (listener `onPostReady` + `Module.watch()` + service `watcherService`) a été RETIRÉ : il ne rechargeait rien. Le dev = **`DevSupervisor` auto-restart** (`src/service/dev/DevSupervisor.ts`, activé par `DevCommand` en mode `development`) : un process parent (type CONSOLE, ne boote pas de serveur) `spawn` le serveur enfant (`NF_DEV_CHILD=1`) en **leader de groupe** (`detached:true`), watch les sources backend (frontend exclu → HMR Vite préservé), rebuild **ciblé** (`turbo --filter` + `rollup -c` racine) puis **group-kill** l'enfant (tue les instances Vite filles → 0 orphelin) et relance après **attente des ports libres** (anti-`EADDRINUSE`) avec retry crash borné. Validé runtime (boot/restart 1.2s/anti-orphelin/multi-Vite/Ctrl+C propre). Le `stop.sh`/`start.sh` du skill `nodefony-start-server` reste l'option « boot direct » pour les suites de tests (serveur stable sans superviseur).
 
@@ -223,7 +223,7 @@ Cf [`injector/CLAUDE.md`](injector/CLAUDE.md) pour le détail.
 | `@entities([...])` | `onRegister` | Entités ORM à enregistrer — **fourni par `@nodefony/orm-core`**, pas par le core (`import { entities } from "@nodefony/orm-core"`). `onRegister` et non `onBoot` : les connecteurs créent les tables à `onBoot`. |
 | `@injectable()` | runtime | Marque classe injectable |
 | `@inject("name")` | runtime | Injection paramètre constructeur |
-| `@Inject("name")` | runtime | Injection propriété — **interne** : défini (`kernelDecorator.ts:155`) mais PAS exporté par le barrel (`src/nodefony/src/index.ts` n'expose que `injectable`, `inject`, `services`) → indisponible pour une app. Utiliser l'injection par constructeur. |
+| `@Inject("name")` | runtime | Injection propriété — **interne** : défini (`kernelDecorator.ts:215`) mais PAS exporté par le barrel (`src/nodefony/src/index.ts` n'expose que `injectable`, `inject`, `services`) → indisponible pour une app. Utiliser l'injection par constructeur. |
 
 ## Gotchas critiques
 

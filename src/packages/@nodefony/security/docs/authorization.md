@@ -362,12 +362,12 @@ moteur `authorization` est résolu **par nom** au runtime (`Resolver.ts:673-674`
 | ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- |
 | `@IsGranted("ROLE_ADMIN")`                  | un attribut — rôle, scope ou verbe métier (`IsGranted()`, `routerDecorators.ts:878`)                                             |
 | `@IsGranted(["A", "B"])`                    | **OR interne** — un attribut accordé suffit (`SecurityClause.anyOf`, `routerDecorators.ts:407-412`)                              |
-| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:426`)                           |
+| empiler `@IsGranted` / `@RequireScope`      | **AND** — toutes les clauses doivent passer (`SecurityRequirement.clauses`, `routerDecorators.ts:1551`)                          |
 | décorateur de classe + de méthode           | fusion en **AND**, figée UNE fois par route (`computeSecurityRequirement()`, `routerDecorators.ts:1514`)                         |
 | `@IsGranted("doc.edit", { subject: "id" })` | le param de route `id` est passé au voter (`Resolver._resolveSubject()`, `Resolver.ts:743-747`)                                  |
 | `@RequireScope("orders:read")`              | axe scope — metadata dédiée, fusionnée dans le même `SecurityRequirement` (`RequireScope()`, `routerDecorators.ts:975`)          |
 | `@Anonymous()`                              | action **publique** — override les gardes de classe (`security: null`) + skip l'authn (`Anonymous()`, `routerDecorators.ts:926`) |
-| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1250`)                                |
+| `@CurrentUser()`                            | injecte l'utilisateur de l'ALS — jamais le credential (`CurrentUser`, `routerDecorators.ts:1259`)                                |
 
 La garde s'évalue dans `Resolver.executeAction()` **AVANT** l'instanciation DI du controller — un
 403 court-circuite tout, y compris `initialize()` (`_enforceSecurity`, `Resolver.ts:672-677`). Le
@@ -544,7 +544,7 @@ compilation** — rien à scanner au runtime ; le registre **est** le marqueur e
   alloc (`Resolver.ts:358`) ; l'exigence est **figée une fois** par route et partagée entre
   requêtes (`SecurityRequirement`, `routerDecorators.ts:424`).
 - **`decide()` sans allocation** : itération en place des voters (`authorization.ts:70-72`),
-  instanciés **une seule fois** au boot (`authorization.ts:51`).
+  instanciés **une seule fois** au boot (`authorization.ts:70`).
 - **`hasRole()` O(1)** : hiérarchie aplatie au boot, rien de récursif par requête
   (`RoleHierarchyWalker.ts:23-30`).
 - **Audit = cold path** : uniquement sur refus, avec un descripteur léger du sujet — jamais de

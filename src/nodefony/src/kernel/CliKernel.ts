@@ -728,7 +728,7 @@ class CliKernel extends Cli {
    * AVANT les phases qu'elles ciblent (`onRegister`/`onReady`/…) → leur
    * `kernel.once(kernelEvent)` fire normalement. Le kernel reste en mode CONSOLE
    * (aucune commande serveur ne fixe `type=SERVER`) → 0 serveur démarré. Commande
-   * réellement introuvable (typo) → `terminate(1)`, jamais de fallback serveur.
+   * réellement introuvable (typo) → `terminate(SysExit.USAGE)` (64), jamais de fallback serveur.
    *
    * @param requested - nom de commande demandé (pour le message d'erreur).
    * @returns le Kernel booté (terminé après exécution de la commande).
