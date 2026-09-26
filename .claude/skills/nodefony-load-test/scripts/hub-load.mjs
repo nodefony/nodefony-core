@@ -97,7 +97,8 @@ async function poll() {
   }
 }
 
-(async () => {
+// Un rejet reste non géré (sortie en erreur de Node), comme avant : rien à rattraper ici.
+void (async () => {
   console.log(
     `MODE=${MODE} N=${N} CH=${CH} HTTP_RPS=${HTTP_RPS} HOLD=${HOLD}ms`,
   );
@@ -111,7 +112,8 @@ async function poll() {
     await new Promise((r) => setTimeout(r, 150));
   }
   console.log(`${ok} abonnés sur ${CH}${MODE === "slow" ? " (LENTS)" : ""}`);
-  httpBlaster();
+  // Lâché exprès : tourne jusqu'à `httpOn = false`, chaque `fetch` a son `.catch`.
+  void httpBlaster();
   const pid = setInterval(poll, 2000);
   await new Promise((r) => setTimeout(r, HOLD));
   clearInterval(pid);

@@ -52,7 +52,7 @@ beforeAll(async () => {
   BASE = `http://127.0.0.1:${port}`;
   WS_BASE = `ws://127.0.0.1:${port}`;
 
-  routes = inspect<RouteInspectee[]>("routes");
+  routes = inspect("routes") as RouteInspectee[];
   const parChemin = routesParChemin(routes.filter((r) => r.module === "app"));
   for (const [chemin, liste] of parChemin) {
     if (chemin.includes("{")) continue;

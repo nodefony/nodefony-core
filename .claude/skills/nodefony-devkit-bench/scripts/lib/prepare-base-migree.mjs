@@ -72,7 +72,7 @@ const REGLAGE =
  * @param {(f: string) => string} [lire] - lecteur de fichier (injecté pour l'autotest).
  * @returns {boolean} vrai si la racine peut recevoir un décor de banc.
  */
-export function estApplicationTemoin(racine, lire = undefined) {
+export function estApplicationTemoin(racine, lire) {
   const lecteur = lire ?? ((f) => readFileSync(f, "utf8"));
   let manifeste;
   try {

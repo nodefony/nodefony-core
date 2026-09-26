@@ -68,7 +68,7 @@ const FORMES = [
  * @returns {string[]} les lignes.
  */
 export function couper(texte, largeur = 22, maxLignes = 3) {
-  const mots = String(texte).split(/\s+/).filter(Boolean);
+  const mots = texte.split(/\s+/).filter(Boolean);
   const lignes = [];
   let cur = "";
   for (const mot of mots) {

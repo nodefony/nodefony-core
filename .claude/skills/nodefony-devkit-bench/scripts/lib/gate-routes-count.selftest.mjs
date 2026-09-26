@@ -123,7 +123,7 @@ function jouer({ rapport, port, bin, runtime = true }) {
     mkdirSync(cache, { recursive: true });
     writeFileSync(
       path.join(cache, "runtime.json"),
-      JSON.stringify({ pid: process.pid, ports: [Number(port)] }),
+      JSON.stringify({ pid: process.pid, ports: [port] }),
       "utf8",
     );
   }

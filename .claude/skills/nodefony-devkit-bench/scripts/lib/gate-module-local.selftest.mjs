@@ -144,6 +144,7 @@ for (const c of cas) {
 
 // La règle d'appartenance, éprouvée pour elle-même : c'est elle qui décide de
 // tout, et une erreur ici se lirait comme un verdict sur l'agent.
+/** @type {Array<[{name: string, path: string, isApp: boolean}, boolean]>} */
 const appartenance = [
   [{ name: "@bench-app/audit", path: "modules/audit", isApp: false }, true],
   [{ name: "bench-app", path: ".", isApp: true }, false],

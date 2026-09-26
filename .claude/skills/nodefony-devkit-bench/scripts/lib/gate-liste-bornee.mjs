@@ -183,5 +183,7 @@ async function main() {
 }
 
 if (process.argv[1] && import.meta.filename === process.argv[1]) {
-  main();
+  // Un rejet n'est pas perdu : `http-probe.mjs` arme, pour tout juge `lib/gate-*.mjs`,
+  // un filet `unhandledRejection` qui sort en `juge-en-erreur` (décor, pas l'agent).
+  void main();
 }

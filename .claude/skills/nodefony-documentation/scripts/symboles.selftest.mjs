@@ -9,6 +9,7 @@ import { symbolesFantomes, EXCEPTIONS } from "./symboles.mjs";
 const index = new Set(["UserService", "onBoot", "createdAt", "FileClass"]);
 let echecs = 0;
 
+/** @type {Array<[string, string[], string]>} */
 const cas = [
   // [ce qu'on écrit, ce qui doit être signalé, pourquoi ce cas existe]
   [
@@ -66,7 +67,9 @@ for (const [markdown, attendu, pourquoi] of cas) {
   if (!ok) {
     echecs++;
     console.error(`❌ ${pourquoi}`);
-    console.error(`   attendu [${attendu}] · obtenu [${obtenu}]`);
+    console.error(
+      `   attendu [${attendu.join(",")}] · obtenu [${obtenu.join(",")}]`,
+    );
   } else console.log(`✅ ${pourquoi}`);
 }
 

@@ -51,7 +51,8 @@ ws.on("open", () => {
 });
 
 ws.on("message", (raw) => {
-  const msg = JSON.parse(raw.toString());
+  // `binaryType` par défaut de `ws` = "nodebuffer" : `raw` est toujours un `Buffer` ici.
+  const msg = JSON.parse(/** @type {Buffer} */ (raw).toString());
 
   // Réponse à l'action : on récupère le job, PUIS on s'abonne (en retard, exprès).
   if (msg.id === 1) {

@@ -72,12 +72,12 @@ const PILE = /^\s*at\s/u;
  * conserve donc les dizaines d'états intermédiaires d'une même ligne — et c'est
  * précisément ce qui remplit la fenêtre d'extrait avec du vide.
  *
- * @param {string} brut - la sortie telle que l'enfant l'a écrite.
+ * @param {string | null | undefined} brut - la sortie telle que l'enfant l'a écrite.
  * @returns {string[]} une ligne par ligne réellement affichée, sans code ANSI.
  */
 export function lignesLisibles(brut) {
   const lignes = [];
-  for (const bloc of String(brut ?? "").split("\n")) {
+  for (const bloc of (brut ?? "").split("\n")) {
     // Le dernier segment d'une ligne réécrite est celui qui restait à l'écran.
     const segments = bloc.split("\r");
     const visible = segments[segments.length - 1] ?? "";

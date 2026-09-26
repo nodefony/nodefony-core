@@ -79,7 +79,8 @@ const RACINE_DEPOT = path.dirname(
  * des mesures payées. Tout le reste — un token, un opérateur, un seuil —
  * continue de compter.
  *
- * @param {unknown} texte
+ * @param {string | Function | null | undefined} texte - un texte, ou une fonction
+ *   `observe` dont on prend le SOURCE (`Function.prototype.toString`).
  * @returns {string}
  */
 const stable = (texte) =>
@@ -115,7 +116,7 @@ const stable = (texte) =>
  * @returns {string[]} les noms de fichiers, triés.
  */
 export function fichiersDuVerdict(task) {
-  const textes = [String(task.prepare ?? "")];
+  const textes = [task.prepare ?? ""];
   for (const p of task.probes ?? [])
     if (Array.isArray(p.cmd)) textes.push(p.cmd.join(" "));
   const noms = new Set();
@@ -345,7 +346,9 @@ export function verdictAgrege(verdicts) {
 /**
  * Le run et la référence parlent-ils du même décor ?
  *
- * @returns {{compatible: boolean, ecarts: Array<{champ: string, reference: unknown, run: unknown}>}}
+ * Les champs comparés (`model`, `decor`, `agent`) sont des chaînes.
+ *
+ * @returns {{compatible: boolean, ecarts: Array<{champ: string, reference: string, run: string}>}}
  */
 export function comparerDecor(ref, run) {
   const ecarts = [];

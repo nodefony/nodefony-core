@@ -193,6 +193,7 @@ for (const rel of manifests) {
     if (!estGabarit(rel)) illisibles.push(rel);
     continue;
   }
+  /** @type {Array<[string, Array<[string, unknown]>]>} */
   const champs = DEP_FIELDS.map((f) => [f, Object.entries(json[f] ?? {})]);
   if (rel === "package.json") {
     champs.push(["overrides", overridesDeLaRacine(json)]);

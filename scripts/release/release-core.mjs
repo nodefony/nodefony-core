@@ -651,7 +651,7 @@ export function analyserCommits(commits, { publie } = {}) {
   for (const entree of commits) {
     const brut = typeof entree === "string" ? entree : entree?.message;
     const sha = typeof entree === "string" ? "" : (entree?.sha ?? "");
-    const texteBrut = String(brut ?? "").trim();
+    const texteBrut = (brut ?? "").trim();
     if (!texteBrut) continue;
     const [sujet, ...reste] = texteBrut.split("\n");
     const corps = reste.join("\n");
@@ -1163,11 +1163,12 @@ export function refusDePublicationHorsBranche({
  * Pure, donc éprouvable sans fabriquer un dépôt : l'appartenance est INJECTÉE,
  * comme pour {@link refusDePublicationHorsBranche}.
  *
- * @param branche - la branche courante, ou `null` sur un HEAD détaché
- * @param branchePublication - celle qui porte les publications (`main`)
- * @param brancheTrouvee - la référence existe-t-elle dans ce checkout ?
- * @param contenue - HEAD appartient-il déjà à la branche de publication ?
- * @param avance - combien de commits HEAD a d'avance sur elle (ou `null`)
+ * @param {object} etat
+ * @param {string | null} etat.branche - la branche courante, ou `null` sur un HEAD détaché
+ * @param {string} etat.branchePublication - celle qui porte les publications (`main`)
+ * @param {boolean} etat.brancheTrouvee - la référence existe-t-elle dans ce checkout ?
+ * @param {boolean} etat.contenue - HEAD appartient-il déjà à la branche de publication ?
+ * @param {number | null} [etat.avance] - combien de commits HEAD a d'avance sur elle (ou `null`)
  * @returns le texte de l'avis, ou `null` s'il n'y a rien à dire
  */
 export function avisDeBranche({
@@ -1462,12 +1463,12 @@ export function lireVueNpm(brut) {
  * le lot ; en le reconnaissant, on redemande un code frais et l'on reprend là
  * où l'on en était.
  *
- * @param {string} sortie - ce que npm a écrit (sortie standard et d'erreur).
+ * @param {string | null | undefined} sortie - ce que npm a écrit (sortie standard et d'erreur).
  * @returns {boolean} vrai si le motif du refus est le second facteur.
  */
 export function estRefusOtp(sortie) {
   return /\bEOTP\b|one[- ]time pass|otp required|invalid one[- ]time/iu.test(
-    String(sortie ?? ""),
+    sortie ?? "",
   );
 }
 
@@ -1481,11 +1482,11 @@ export function estRefusOtp(sortie) {
  * l'erreur qui suit ne parle ni de clé ni d'application. On tranche donc AVANT
  * d'envoyer quoi que ce soit, en nommant les deux cas.
  *
- * @param {string} saisie - ce que l'opérateur a tapé.
+ * @param {string | null | undefined} saisie - ce que l'opérateur a tapé.
  * @returns {{ok: true, code: string, alerte?: string} | {ok: false, raison: string}}
  */
 export function validerOtp(saisie) {
-  const code = String(saisie ?? "").trim();
+  const code = (saisie ?? "").trim();
   if (code === "") {
     return { ok: false, raison: "aucun code saisi." };
   }

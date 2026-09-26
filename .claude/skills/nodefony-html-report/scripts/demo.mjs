@@ -38,6 +38,7 @@ import {
 
 const OUT = process.argv[2] ?? "tmp/demo.html";
 
+/** @type {Array<[string, number, number, number, number[]]>} */
 const routes = [
   ["/api/users", 1240, 0.42, 0.91, [3, 5, 4, 8, 6, 9, 7]],
   ["/api/orders", 860, 1.15, 3.2, [8, 7, 9, 6, 7, 5, 6]],

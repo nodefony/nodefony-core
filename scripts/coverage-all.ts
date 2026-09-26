@@ -256,7 +256,9 @@ for (const [i, w] of cibles.entries()) {
   // outil lisait le texte et rendait 6 taux sur 16, la deuxième lisait le JSON
   // et en perdait d'autres. Les modules muets n'avaient rien de commun — sauf
   // de ne pas correspondre à la source unique que je regardais.
-  let m: [unknown, number, number, number, number] | null = null;
+  // `unknown` et non `number` : istanbul écrit `"Unknown"` quand un total est nul,
+  // d'où la conversion `Number(...)` plus bas, qui doit rester.
+  let m: [unknown, unknown, unknown, unknown, unknown] | null = null;
   const resume = ["coverage", ".coverage"]
     .map((d) => path.join(ROOT, w.location, d, "coverage-summary.json"))
     .find((f) => existsSync(f));

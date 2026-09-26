@@ -88,7 +88,7 @@ const binding = bindAdaptiveChannel(sock, "orm:health", () => {}, {
   scheduler: noop,
   onRate: (ms, reason) =>
     console.log(
-      `  [t=${String((t / 1000).toFixed(0)).padStart(3)}s]  CADENCE → ${String(ms).padStart(5)} ms   (${reason})`,
+      `  [t=${(t / 1000).toFixed(0).padStart(3)}s]  CADENCE → ${String(ms).padStart(5)} ms   (${reason})`,
     ),
 });
 

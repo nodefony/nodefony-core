@@ -155,7 +155,7 @@ export const exit = (code, message) => {
   // travail d'analyse du juge est perdu — vécu : `donnee-perdue`, parfaitement
   // établie, n'apparaissait nulle part, et le rapport ne disait qu'« exit 2 ».
   // On ne fabrique aucune cause à sa place : on dit qu'elle manque.
-  if (code !== 0 && !String(message ?? "").includes("CAUSE=")) {
+  if (code !== 0 && !(message ?? "").includes("CAUSE=")) {
     console.error(
       "⚠️  ce juge sort en erreur SANS nommer sa cause (`CAUSE=<nom>` absent) — " +
         "le banc ne pourra pas l'imputer.",

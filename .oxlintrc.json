@@ -192,6 +192,21 @@
     // Les paquets pas encore conformes sont listés dans l'override « cliquet »
     // plus bas : on y RETIRE une ligne quand un paquet est propre, on n'y en
     // ajoute jamais.
+    // `describe`/`it`/`test` de `node:test` rendent une promesse que le RUNNER
+    // suit lui-même (la doc Node dit de l'ignorer) : déclaré sûr ICI, une fois,
+    // plutôt que par une dérogation dans chaque fichier de test.
+    "typescript/no-floating-promises": [
+      "error",
+      {
+        "allowForKnownSafeCalls": [
+          {
+            "from": "package",
+            "package": "node:test",
+            "name": ["describe", "it", "test", "suite"]
+          }
+        ]
+      }
+    ],
     "typescript/no-unsafe-assignment": "warn",
     "typescript/no-unsafe-member-access": "warn",
     "typescript/no-unsafe-argument": "warn",
@@ -346,11 +361,7 @@
         "src/packages/@nodefony/redis/**",
         "src/packages/@nodefony/devkit/**",
         "src/modules/test/**",
-        "src/modules/test-frontend-react/**",
-        "scripts/**",
-        "vitest.gates.ts",
-        ".claude/**",
-        "nodefony/**"
+        "src/modules/test-frontend-react/**"
       ],
       "rules": {
         "typescript/no-unsafe-assignment": "off",

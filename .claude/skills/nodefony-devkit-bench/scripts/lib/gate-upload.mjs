@@ -337,8 +337,8 @@ function valeursTerminales(noeud, out = []) {
  * nulles sont écartées : un `0` se trouve par hasard dans n'importe quel
  * document, et l'accepter rendrait la sonde borgne.
  *
- * @param {string} corpsBrut - le corps de la réponse, tel que reçu.
- * @param {{nomsRanges: string[], tailles: number[]}} attendu - ce qui a réellement été rangé.
+ * @param {string | undefined} corpsBrut - le corps de la réponse, tel que reçu.
+ * @param {{nomsRanges?: string[], tailles?: number[]} | undefined} attendu - ce qui a réellement été rangé.
  * @returns {{estJson: boolean, nomTrouve: boolean, tailleTrouvee: boolean}}
  */
 export function lireFaitDeLaReponse(corpsBrut, attendu) {
@@ -348,7 +348,7 @@ export function lireFaitDeLaReponse(corpsBrut, attendu) {
   );
   let doc;
   try {
-    doc = JSON.parse(String(corpsBrut ?? ""));
+    doc = JSON.parse(corpsBrut ?? "");
   } catch {
     return { estJson: false, nomTrouve: false, tailleTrouvee: false };
   }
@@ -449,7 +449,7 @@ async function principal() {
     );
   }
 
-  const corpsReponse = String(depot.body ?? "");
+  const corpsReponse = depot.body ?? "";
   // Ce qui a RÉELLEMENT atterri : c'est contre ce fait que la réponse est lue,
   // jamais contre un vocabulaire.
   const deposes = fichiersDeposes(racine, avantEnvoi);

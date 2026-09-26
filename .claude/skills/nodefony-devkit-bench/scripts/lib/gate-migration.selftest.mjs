@@ -278,7 +278,7 @@ for (const c of cas) {
     etat = { lignes: avecTemoin, formeInconnue: false };
     const { request: requestBrute } = await import("./http-probe.mjs");
     const unePage = await requestBrute("GET", "/api/articles", new CookieJar());
-    const ancienTemoin = String(unePage.body ?? "").includes(TITRE_SEME);
+    const ancienTemoin = (unePage.body ?? "").includes(TITRE_SEME);
     const ancienVerdict = judge({ ...PARFAIT, temoinPresent: ancienTemoin });
     if (ancienVerdict.cause !== "donnee-perdue") {
       rouges += 1;

@@ -87,7 +87,8 @@ async function main() {
     const pump = () => {
       while (sent < N && sent - done < C) {
         sent++;
-        once().then((r) => {
+        // `once()` ne rejette jamais : une erreur réseau se RÉSOUT en `{ error }`.
+        void once().then((r) => {
           // ⚠️ Une requête ÉCHOUÉE n'est pas une requête servie : ni dans le RPS,
           // ni dans les percentiles. Un ECONNREFUSED revient en ~0 ms — le compter
           // AMÉLIORERAIT le p50 tout en gonflant le débit. C'est ainsi qu'on publie

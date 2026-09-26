@@ -242,7 +242,9 @@ const fusionnee = fusionnerReference(ref, {
   results: [{ id: 12, verdict: "PASS", passes: 3, total: 3 }],
 });
 if (Object.keys(fusionnee.verdicts).length !== 4) {
-  echec(`fusion : ${Object.keys(fusionnee.verdicts)} — 4 tâches attendues`);
+  echec(
+    `fusion : ${Object.keys(fusionnee.verdicts).join(",")} — 4 tâches attendues`,
+  );
 }
 if (
   fusionnee.verdicts["12"].verdict !== "PASS" ||

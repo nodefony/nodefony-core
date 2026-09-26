@@ -44,6 +44,11 @@ for (const p of after) app.get(p, async (req) => ({ id: req.params.id }));
 const port = Number(process.env.PORT ?? 5163);
 app
   .listen({ port, host: "127.0.0.1" })
-  .then(() => console.log(`fastify :${port}`));
+  .then(() => console.log(`fastify :${port}`))
+  .catch((e) => {
+    // Port pris, adresse refusée : le dire et sortir en erreur, sans pile muette.
+    console.error(e);
+    process.exit(1);
+  });
 // Sortie propre sur SIGINT (flush du log V8 --prof).
 process.on("SIGINT", () => process.exit(0));

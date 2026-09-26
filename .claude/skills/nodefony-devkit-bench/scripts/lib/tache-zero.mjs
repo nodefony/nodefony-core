@@ -348,7 +348,7 @@ export function motifPorteClient(subpath) {
 export function entreesQuiFournissentNodefony(chemin, io, grammaire) {
   const g = grammaire ?? { delimiter: ":", join: (a, b) => `${a}/${b}` };
   const trouvees = [];
-  for (const dir of String(chemin ?? "")
+  for (const dir of (chemin ?? "")
     .split(g.delimiter)
     .filter((e) => e.length > 0)) {
     // Les deux noms qu'npm pose pour un binaire : l'un sous Unix, l'autre le

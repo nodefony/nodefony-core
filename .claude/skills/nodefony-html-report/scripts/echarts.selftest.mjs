@@ -421,6 +421,7 @@ cas(
 );
 
 console.log("━━ témoins fautifs — les contrôles doivent les REFUSER");
+/** @type {Array<[string, string, (svg: string) => boolean]>} */
 const temoins = [
   ["un SVG qui anime", "<svg><style>@keyframes a{}</style></svg>", statique],
   ["un SVG qui script", "<svg><script>x()</script></svg>", statique],

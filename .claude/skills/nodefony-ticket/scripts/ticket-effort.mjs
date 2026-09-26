@@ -151,13 +151,7 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-effort.mjs")) {
   const tickets = wanted.length
     ? wanted.map((n) =>
         JSON.parse(
-          gh([
-            "issue",
-            "view",
-            String(n),
-            "--json",
-            "number,title,createdAt,closedAt",
-          ]),
+          gh(["issue", "view", n, "--json", "number,title,createdAt,closedAt"]),
         ),
       )
     : JSON.parse(
@@ -224,7 +218,7 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-effort.mjs")) {
   );
   for (const [n, j, m, r, d] of lignes.sort((a, b) => b[0] - a[0])) {
     console.log(
-      `#${String(n).padEnd(6)} ${String(j + " j").padEnd(11)} ${m.padEnd(29)} ${String(r).padEnd(19)} ${d}`,
+      `#${String(n).padEnd(6)} ${(j + " j").padEnd(11)} ${m.padEnd(29)} ${String(r).padEnd(19)} ${d}`,
     );
   }
 
@@ -247,7 +241,7 @@ if (process.argv[1] && process.argv[1].endsWith("ticket-effort.mjs")) {
       for (const t of tranches) {
         const garde = t.n < 3 ? "   (effectif trop faible pour conclure)" : "";
         console.log(
-          `  estimé ${String(t.jours + " j").padEnd(7)} ${String(t.n + " ticket" + (t.n > 1 ? "s" : "")).padEnd(12)} → ${t.seances} séance${t.seances > 1 ? "s" : ""} médiane${garde}`,
+          `  estimé ${(t.jours + " j").padEnd(7)} ${(t.n + " ticket" + (t.n > 1 ? "s" : "")).padEnd(12)} → ${t.seances} séance${t.seances > 1 ? "s" : ""} médiane${garde}`,
         );
       }
     }

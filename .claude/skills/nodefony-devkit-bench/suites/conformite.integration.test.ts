@@ -48,9 +48,9 @@ let services: ServiceInspecte[];
 let modules: ModuleInspecte[];
 
 beforeAll(() => {
-  routes = inspect<RouteInspectee[]>("routes");
-  services = inspect<ServiceInspecte[]>("services");
-  modules = inspect<ModuleInspecte[]>("modules");
+  routes = inspect("routes") as RouteInspectee[];
+  services = inspect("services") as ServiceInspecte[];
+  modules = inspect("modules") as ModuleInspecte[];
 }, 240_000);
 
 describe("intégration — l'application boote et se laisse lire", () => {
@@ -330,7 +330,8 @@ describe("intégration — la couche donnée, sur une vraie base", () => {
       chargees.push({ nom, entity });
     }
     if (chargees.length === 0) return;
-    nomEntite = String(chargees[0].entity.name ?? chargees[0].nom);
+    const nomDeclare = chargees[0].entity.name;
+    nomEntite = typeof nomDeclare === "string" ? nomDeclare : chargees[0].nom;
     orm = new DrizzleOrm(ORM, { filename: ":memory:" });
     await orm.connect();
   }, 120_000);

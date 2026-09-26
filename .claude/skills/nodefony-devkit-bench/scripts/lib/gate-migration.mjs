@@ -263,11 +263,11 @@ export async function chercherTemoin(jar, opts = {}) {
         pages: page,
         premierCorps,
         statut,
-        erreur: String(r.error),
+        erreur: r.error,
       };
     }
     statut = r.status;
-    const corps = String(r.body ?? "");
+    const corps = r.body ?? "";
     if (page === 0) premierCorps = corps;
     if (typeof statut !== "number" || statut < 200 || statut >= 300) {
       return {
@@ -385,7 +385,7 @@ async function principal() {
         `Le plus souvent la migration est écrite et NON appliquée — la requête ` +
         `cherche alors une colonne que la base n'a pas. Rien ne dit ici que des ` +
         `données ont disparu : ` +
-        String(liste.body ?? "").slice(0, 160),
+        (liste.body ?? "").slice(0, 160),
     );
   }
 
@@ -401,7 +401,7 @@ async function principal() {
   //    ⚠️ Le témoin se cherche sur TOUTES les pages : la ressource est paginée,
   //    et sa première page dépend de l'ordre que la base choisit seule.
   const recherche = await chercherTemoin(jar);
-  const corpsListe = recherche.premierCorps || String(liste.body ?? "");
+  const corpsListe = recherche.premierCorps || (liste.body ?? "");
   const temoinPresent = recherche.trouve;
   const colonnePubliee = /"slug"\s*:/u.test(corpsListe);
 

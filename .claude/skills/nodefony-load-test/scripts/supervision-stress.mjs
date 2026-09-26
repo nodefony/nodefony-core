@@ -177,9 +177,10 @@ async function main() {
   let ruptured = false;
   // oxlint-disable-next-line no-unmodified-loop-condition -- `running` est basculé en fin de campagne, depuis un autre contexte asynchrone : la règle ne suit pas cette écriture
   for (let stage = 1; stage <= STAGES && running; stage++) {
-    // Ajoute la charge du palier.
-    for (let i = 0; i < HTTP_STEP; i++) httpWorker(HTTP_PATH, C.http);
-    for (let i = 0; i < ORM_STEP; i++) httpWorker(ORM_PATH, C.orm);
+    // Ajoute la charge du palier. Workers lâchés exprès (ils tournent jusqu'à
+    // `running = false`) ; `httpOnce` résout aussi sur erreur, ils ne rejettent pas.
+    for (let i = 0; i < HTTP_STEP; i++) void httpWorker(HTTP_PATH, C.http);
+    for (let i = 0; i < ORM_STEP; i++) void httpWorker(ORM_PATH, C.orm);
     httpWk += HTTP_STEP;
     ormWk += ORM_STEP;
     await openWs(WS_STEP);

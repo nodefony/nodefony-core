@@ -235,6 +235,7 @@ function main() {
   // Quels gates sont à NOUS — seuls ceux-là peuvent être « un juge cassé ».
   // Le chemin arrive en `\` sous Windows : un motif écrit en `/` n'y mordrait
   // pas, et une garde qui ne mord pas ne dit jamais qu'elle n'a pas mordu.
+  /** @type {Array<[string[], boolean]>} */
   const VISEES = [
     [["sh", "-c", "node /a/b/lib/gate-media-range.mjs; exit $?"], true],
     [["node", String.raw`C:\dev\lib\gate-upload.mjs`], true],

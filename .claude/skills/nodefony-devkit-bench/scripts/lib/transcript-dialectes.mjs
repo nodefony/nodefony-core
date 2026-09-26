@@ -98,7 +98,7 @@ export const MCP_SERVEUR_DEFAUT = "nodefony";
  */
 export function objetsJsonl(texte) {
   const out = [];
-  const lignes = String(texte ?? "").split("\n");
+  const lignes = (texte ?? "").split("\n");
   for (let i = 0; i < lignes.length; i += 1) {
     const ligne = lignes[i];
     if (!ligne || ligne.charCodeAt(0) !== 123 /* { */) continue;
@@ -167,7 +167,7 @@ export function argSaillant(args) {
 export function exitDansTexte(sortie) {
   const m =
     /(?:completed with exit code|exit_code:|exit code:|Return code:|returncode:)\s*(-?\d{1,3})/iu.exec(
-      String(sortie ?? ""),
+      sortie ?? "",
     );
   return m ? Number(m[1]) : null;
 }

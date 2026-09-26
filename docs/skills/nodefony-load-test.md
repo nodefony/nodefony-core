@@ -92,7 +92,7 @@ script, donc toujours à jour après régénération.
 | Script | Rôle | Options | Variables d'environnement |
 | --- | --- | --- | --- |
 | `scripts/aimd-demo.mjs` | aimd-demo — démonstration LISIBLE et déterministe de la cadence adaptative (AIMD). | — | `DIST` |
-| `scripts/app-download-probe.mjs` | — | — | — |
+| `scripts/app-download-probe.mjs` | `binaryType` par défaut de `ws` = "nodebuffer" : `raw` est toujours un `Buffer` ici. | — | — |
 | `scripts/bench-ab-mono.sh` | Banc perf A/B — mono process PRODUCTION. Mesure le COÛT DU PIPELINE PAR REQUÊTE. | `--latency` `--show-toplevel` | `BENCH_CONN` `BENCH_DUR` `BENCH_HEADER` `BENCH_INDEX_TARGET` `BENCH_THERM_TARGET` `BENCH_THREADS` `BENCH_URL` `BENCH_WARMUP` |
 | `scripts/bench-report.mjs` | Rapport HTML d'un (ou plusieurs) résultats de banc — pour un HUMAIN qui décide. | — | `OUT` |
 | `scripts/boot-bench.mjs` | boot-bench.mjs — mesure le temps de boot d'un mode Nodefony (du spawn jusqu'à ce que | `--workers` | — |

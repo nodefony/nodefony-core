@@ -152,13 +152,20 @@ const AGY = [
   },
 ];
 
-// ─── Le compteur d'appels MCP voit-il les trois ? ─────────────────────────────
-
-for (const [nom, lignes] of [
+/**
+ * Les trois formes de transcript, nommées. Typé en tuple : un tableau littéral
+ * s'inférerait en `(string | object[])[][]`, et `nom` perdrait son type chaîne.
+ * @type {Array<[string, unknown[]]>}
+ */
+const FORMATS = [
   ["claude", CLAUDE],
   ["codex", CODEX],
   ["gemini", GEMINI],
-]) {
+];
+
+// ─── Le compteur d'appels MCP voit-il les trois ? ─────────────────────────────
+
+for (const [nom, lignes] of FORMATS) {
   const e = effortDe(lignes);
   verifier(
     `${nom} : l'appel MCP est COMPTÉ (1)`,
@@ -241,11 +248,7 @@ for (const [nom, lignes] of [
     "nodefony\\s+(?:inspect\\b|(?:devkit:)?card\\b)",
     "inspect|card",
   );
-  for (const [nom, lignes] of [
-    ["claude", CLAUDE],
-    ["codex", CODEX],
-    ["gemini", GEMINI],
-  ]) {
+  for (const [nom, lignes] of FORMATS) {
     const texte = lignes.map((l) => JSON.stringify(l)).join("\n");
     verifier(
       `${nom} : le GESTE « interroger l'app » est reconnu`,
@@ -274,11 +277,7 @@ for (const [nom, lignes] of [
   const aParle = (t) =>
     /["'](?:type|role)["']\s*:\s*["']assistant["']/u.test(t) ||
     /["']agent_message["']/u.test(t);
-  for (const [nom, lignes] of [
-    ["claude", CLAUDE],
-    ["codex", CODEX],
-    ["gemini", GEMINI],
-  ]) {
+  for (const [nom, lignes] of FORMATS) {
     verifier(
       `${nom} : le tour d'agent est reconnu`,
       aParle(lignes.map((l) => JSON.stringify(l)).join("\n")),
@@ -292,11 +291,7 @@ for (const [nom, lignes] of [
 
 // ─── Et le transcript reste exploitable dans les trois formes ────────────────
 
-for (const [nom, lignes] of [
-  ["claude", CLAUDE],
-  ["codex", CODEX],
-  ["gemini", GEMINI],
-]) {
+for (const [nom, lignes] of FORMATS) {
   verifier(
     `${nom} : transcript exploitable`,
     transcriptExploitable(lignes.map((l) => JSON.stringify(l)).join("\n")),

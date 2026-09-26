@@ -771,16 +771,28 @@ function findDatabase(app) {
 function readSqlite(dbPath) {
   const db = new DatabaseSync(dbPath, { readOnly: true });
   const out = new Map();
-  const tables = db
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
-    )
-    .all();
+  // `node:sqlite` type ses lignes en `Record<string, SQLOutputValue>` : on pose ici
+  // la forme que ces requêtes de catalogue rendent réellement.
+  const tables = /** @type {Array<{name: string}>} */ (
+    db
+      .prepare(
+        "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'",
+      )
+      .all()
+  );
   for (const { name } of tables) {
-    const cols = db.prepare(`PRAGMA table_info("${name}")`).all();
+    const cols =
+      /** @type {Array<{name: string, type: string, notnull: number, pk: number}>} */ (
+        db.prepare(`PRAGMA table_info("${name}")`).all()
+      );
     const indexes = [];
-    for (const idx of db.prepare(`PRAGMA index_list("${name}")`).all()) {
-      const info = db.prepare(`PRAGMA index_info("${idx.name}")`).all();
+    const indexList = /** @type {Array<{name: string, unique: number}>} */ (
+      db.prepare(`PRAGMA index_list("${name}")`).all()
+    );
+    for (const idx of indexList) {
+      const info = /** @type {Array<{name: string}>} */ (
+        db.prepare(`PRAGMA index_info("${idx.name}")`).all()
+      );
       indexes.push({
         name: idx.name,
         unique: idx.unique === 1,

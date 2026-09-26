@@ -514,7 +514,7 @@ if (drapeau("dist-tags")) {
           "  Rien n'a été touché : les quatorze dist-tags sont intacts.",
       );
     }
-    dire(`\n  session npm : ${String(qui.stdout ?? "").trim()}`);
+    dire(`\n  session npm : ${(qui.stdout ?? "").trim()}`);
   }
 
   /**

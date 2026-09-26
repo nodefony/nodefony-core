@@ -184,7 +184,7 @@ export function zoneDeLecture(json, texte, cle) {
  *   `juste` est LE résultat : aucun motif faux.
  */
 export function juger(reponse) {
-  const texte = String(reponse ?? "");
+  const texte = reponse ?? "";
   const json = extraireJson(texte);
 
   const manques = [];

@@ -709,11 +709,11 @@ if (R.ws.length) {
   );
   for (const w of R.ws)
     say(
-      `   ${w.label.padEnd(30)} ${(n0(w.observed) + " msg/s").padEnd(14)} ${(spread(w) + "").padEnd(8)} ${f2(w.elu).padEnd(6)} ${(n0(w.ceiling) + " msg/s").padEnd(14)} ${n0(w.ceiling * 0.7)}`,
+      `   ${w.label.padEnd(30)} ${(n0(w.observed) + " msg/s").padEnd(14)} ${spread(w).padEnd(8)} ${f2(w.elu).padEnd(6)} ${(n0(w.ceiling) + " msg/s").padEnd(14)} ${n0(w.ceiling * 0.7)}`,
     );
   if (R.fanout)
     say(
-      `   ${`fan-out 1 → ${R.fanout.n} sockets`.padEnd(30)} ${(n0(R.fanout.observed) + " liv/s").padEnd(14)} ${(spread(R.fanout) + "").padEnd(8)} ${f2(R.fanout.elu).padEnd(6)} ${(n0(R.fanout.ceiling) + " liv/s").padEnd(14)} ${n0(R.fanout.ceiling * 0.7)}`,
+      `   ${`fan-out 1 → ${R.fanout.n} sockets`.padEnd(30)} ${(n0(R.fanout.observed) + " liv/s").padEnd(14)} ${spread(R.fanout).padEnd(8)} ${f2(R.fanout.elu).padEnd(6)} ${(n0(R.fanout.ceiling) + " liv/s").padEnd(14)} ${n0(R.fanout.ceiling * 0.7)}`,
     );
   say("");
 }
@@ -725,7 +725,7 @@ if (R.http.length) {
   );
   for (const h of R.http)
     say(
-      `   ${h.label.padEnd(30)} ${(n0(h.observed) + " rps").padEnd(12)} ${(spread(h) + "").padEnd(7)} ${`${f2(h.p50)}/${f2(h.p95)}/${f2(h.p99)}`.padEnd(20)} ${f2(h.elu).padEnd(6)} ${n0(h.ceiling)} rps`,
+      `   ${h.label.padEnd(30)} ${(n0(h.observed) + " rps").padEnd(12)} ${spread(h).padEnd(7)} ${`${f2(h.p50)}/${f2(h.p95)}/${f2(h.p99)}`.padEnd(20)} ${f2(h.elu).padEnd(6)} ${n0(h.ceiling)} rps`,
     );
   say("");
 }

@@ -3426,7 +3426,7 @@
           },
           {
             "path": "scripts/app-download-probe.mjs",
-            "purpose": "",
+            "purpose": "`binaryType` par défaut de `ws` = \"nodebuffer\" : `raw` est toujours un `Buffer` ici.",
             "usage": [],
             "options": [],
             "env": [],

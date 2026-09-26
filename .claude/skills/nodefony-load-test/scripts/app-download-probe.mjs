@@ -24,7 +24,8 @@ ws.on("open", () =>
   }),
 );
 ws.on("message", (raw) => {
-  const m = JSON.parse(raw.toString());
+  // `binaryType` par défaut de `ws` = "nodebuffer" : `raw` est toujours un `Buffer` ici.
+  const m = JSON.parse(/** @type {Buffer} */ (raw).toString());
   if (m.id === 1) {
     if (m.error) {
       console.error("ERREUR:", m.error.message);

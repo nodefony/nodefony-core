@@ -41,11 +41,13 @@ const BIN = path.resolve("node_modules/nodefony/bin/nodefony");
  * la sortie était juste. Piège vécu en écrivant ces suites.
  *
  * @param sujet - `routes`, `services`, `modules`, `config`…
- * @returns Le flux JSON désérialisé.
+ * @returns Le flux JSON désérialisé, NON typé : l'appelant pose la forme
+ *          attendue (`as`), à la vue de tous — un paramètre de type qui ne
+ *          servirait qu'au retour serait une assertion déguisée.
  * @throws Si la commande échoue ou si sa sortie n'est pas du JSON — dans les
  *         deux cas c'est le DÉCOR qui est en cause, et le message le dit.
  */
-export function inspect<T>(sujet: string): T {
+export function inspect(sujet: string): unknown {
   let brut: string;
   try {
     brut = execFileSync(process.execPath, [BIN, "inspect", sujet, "--json"], {
@@ -63,7 +65,7 @@ export function inspect<T>(sujet: string): T {
     );
   }
   try {
-    return JSON.parse(brut) as T;
+    return JSON.parse(brut) as unknown;
   } catch {
     throw new Error(
       `\`nodefony inspect ${sujet}\` n'a pas rendu du JSON pur (${brut.length} octets) — ` +

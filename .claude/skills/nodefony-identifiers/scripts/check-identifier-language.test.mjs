@@ -46,6 +46,7 @@ const faulty = (src, file = "x.ts") =>
 // ═══════════════════════════════════════════════════════════════════════════
 describe("splitIdentifier — toutes les conventions", () => {
   // (pas d'`it.each` en node:test — une boucle fait le même travail)
+  /** @type {Array<[string, string[]]>} */
   const cases = [
     ["renderReport", ["render", "Report"]],
     ["RenderReport", ["Render", "Report"]],
