@@ -39,7 +39,7 @@ services** : un scope ouvert à l'entrée (`enterScope`), dont le prototype est 
 refermé après les hooks `onAfterResponse`/`onFinish` (`leaveScope`), y compris quand un hook lève.
 Le serveur le pose dans le contexte asynchrone de la requête : `RequestContext.getScope()` le rend
 depuis n'importe quel code, et les services `@injectable({ scope: "request" })` y vivent. Détail :
-[Injection & portées](../../../../docs/architecture/injection-portees.md).
+[Injection & portées](https://github.com/nodefony/nodefony-core/blob/main/docs/architecture/injection-portees.md).
 
 ## Rate-limit général par IP
 
