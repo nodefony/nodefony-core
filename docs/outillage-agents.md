@@ -3,7 +3,7 @@ title: "Outillage agents — les skills du dépôt, leur usage réel et leur con
 navTitle: Outillage agents
 lang: fr
 topic: outillage-agents
-audience: humain
+audience: [developer]
 date: 2026-07-23
 status: stable
 updated: 2026-07-23

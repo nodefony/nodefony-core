@@ -3,7 +3,7 @@ title: Publier une release — la chaîne, ce qu'elle refuse, et pourquoi
 lang: fr
 module: global
 topic: release
-audience: [human]
+audience: [devops]
 tags: [release, npm, publication, changelog, oidc, smoke]
 version: "doc"
 status: stable

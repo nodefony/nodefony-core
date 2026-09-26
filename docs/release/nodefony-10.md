@@ -3,7 +3,7 @@ title: Release Nodefony 10 — plan & décisions
 lang: fr
 status: ACTIF — plan d'exécution de la 10.0.0 (interne ; le reste-à-faire vit dans le jalon 10.0.0)
 date: 2026-05-24
-audience: Lead Architect / mainteneur
+audience: [developer, devops]
 ---
 
 # Release Nodefony 10 — plan & décisions

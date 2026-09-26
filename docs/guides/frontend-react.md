@@ -4,7 +4,7 @@ navTitle: Frontend React
 lang: fr
 module: "@nodefony/frontend"
 topic: frontend-react-guide
-audience: [human]
+audience: [developer]
 tags: [frontend, react, vite, guide, tutorial, getting-started]
 version: "doc"
 status: stable

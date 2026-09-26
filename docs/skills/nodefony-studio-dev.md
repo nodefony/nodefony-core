@@ -2,10 +2,10 @@
 title: "nodefony-studio-dev — fiche de skill"
 navTitle: nodefony-studio-dev
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-24
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-studio-dev/SKILL.md"
 ---

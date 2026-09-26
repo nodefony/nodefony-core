@@ -4,7 +4,7 @@ navTitle: devkit
 lang: fr
 module: "@nodefony/devkit"
 topic: overview
-audience: [human, ai]
+audience: [developer]
 tags: [module, developpement, agent]
 status: stable
 updated: 2026-09-01

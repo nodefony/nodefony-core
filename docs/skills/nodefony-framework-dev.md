@@ -2,7 +2,7 @@
 title: "nodefony-framework-dev — fiche de skill"
 navTitle: nodefony-framework-dev
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
 updated: 2026-09-26

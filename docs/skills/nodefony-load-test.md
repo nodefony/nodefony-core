@@ -2,10 +2,10 @@
 title: "nodefony-load-test — fiche de skill"
 navTitle: nodefony-load-test
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-25
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-load-test/SKILL.md"
 ---

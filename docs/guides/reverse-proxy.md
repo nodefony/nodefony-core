@@ -4,7 +4,7 @@ navTitle: Reverse-proxy
 lang: fr
 module: global
 topic: reverse-proxy-guide
-audience: humain
+audience: [devops]
 tags:
   [
     reverse-proxy,

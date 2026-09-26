@@ -4,7 +4,7 @@ navTitle: Docker & cloud-native
 lang: fr
 module: global
 topic: cloud-native-guide
-audience: humain
+audience: [devops]
 tags: [docker, kubernetes, cloud-native, production, signaux, probes, cluster]
 version: "doc"
 status: stable

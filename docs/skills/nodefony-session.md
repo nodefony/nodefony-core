@@ -2,10 +2,10 @@
 title: "nodefony-session — fiche de skill"
 navTitle: nodefony-session
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-24
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-session/SKILL.md"
 ---

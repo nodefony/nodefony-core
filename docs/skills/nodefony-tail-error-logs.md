@@ -2,10 +2,10 @@
 title: "nodefony-tail-error-logs — fiche de skill"
 navTitle: nodefony-tail-error-logs
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-tail-error-logs/SKILL.md"
 ---

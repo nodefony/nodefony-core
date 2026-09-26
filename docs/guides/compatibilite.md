@@ -3,7 +3,7 @@ title: Compatibilité et dépréciation — ce que vous risquez en montant de ve
 lang: fr
 module: global
 topic: release
-audience: [human]
+audience: [developer, devops]
 tags: [semver, compatibilité, dépréciation, versions, support, lockstep]
 version: "doc"
 status: stable

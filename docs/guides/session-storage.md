@@ -4,7 +4,7 @@ navTitle: Stockage de session
 lang: fr
 module: "@nodefony/http"
 topic: session-storage-guide
-audience: [human, ai]
+audience: [developer, devops]
 tags: [session, storage, ioc, registry, drizzle, mongoose, redis, http, guide]
 version: "doc"
 status: stable

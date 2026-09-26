@@ -4,10 +4,10 @@ navTitle: Toute l'architecture
 lang: fr
 module: global
 topic: architecture-index
-audience: [human, ai]
+audience: [developer, devops]
 tags: [architecture, index]
 status: stable
-last-updated: 2026-07-22
+updated: 2026-07-22
 ---
 
 # Architecture

@@ -4,11 +4,10 @@ navTitle: Générer du code
 lang: fr
 module: global
 topic: scaffold
-audience: [human, ai]
+audience: [developer]
 tags: [scaffold, cli, generateur, agent, dry-run, studio, guide]
 status: stable
 updated: 2026-07-24
-last-updated: 2026-07-24
 source: src/nodefony/src/cli/scaffold/engine.ts
 related: project_cli_scaffold_design, project_devkit_ai_kit
 ---

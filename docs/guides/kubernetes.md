@@ -4,7 +4,7 @@ navTitle: Kubernetes
 lang: fr
 module: global
 topic: kubernetes-guide
-audience: humain
+audience: [devops]
 tags:
   [
     kubernetes,

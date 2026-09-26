@@ -2,7 +2,7 @@
 lang: fr
 module: global
 topic: ia-delegation
-audience: [ai]
+audience: [developer]
 tags: [ia, agents, delegation, cout, surete]
 status: stable
 ---

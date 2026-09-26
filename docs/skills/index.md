@@ -2,7 +2,7 @@
 title: "Fiches des skills — index généré"
 navTitle: Fiches des skills
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 tests: none
 status: stable

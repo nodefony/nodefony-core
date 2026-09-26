@@ -2,10 +2,10 @@
 title: "nodefony-start-server — fiche de skill"
 navTitle: nodefony-start-server
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-start-server/SKILL.md"
 ---

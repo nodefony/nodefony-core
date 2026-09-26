@@ -2,10 +2,10 @@
 lang: fr
 module: global
 topic: ia-index
-audience: [human, ai]
+audience: [developer]
 tags: [ia, agentic, llm, mcp, rag, vision, index]
 status: stable
-last-updated: 2026-05-29
+updated: 2026-05-29
 ---
 
 # Documentation IA — Nodefony

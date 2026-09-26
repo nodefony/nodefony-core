@@ -2,10 +2,10 @@
 title: "nodefony-create-module — fiche de skill"
 navTitle: nodefony-create-module
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-24
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-create-module/SKILL.md"
 ---

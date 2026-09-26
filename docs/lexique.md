@@ -139,11 +139,11 @@ Tout nouveau module naît avec un `docs/lexique.md` (scaffold `create-module`).
 | -------------------------- | ------------------------- | ---------------------------------------------------------------------------------------------------------------------------- |
 | **ESM**                    | ECMAScript Modules        | Le système de modules moderne (`import`/`export`). Nodefony = ESM only, jamais `require()`.                                  |
 | **CommonJS**               | —                         | L'ancien système (`require`/`module.exports`). Banni du projet.                                                              |
-| **bundler**                | « empaqueteur »           | L'outil qui compile/assemble le code (ici Rollup). Produit le `dist/`.                                                       |
+| **bundler**                | « empaqueteur »           | L'outil qui compile/assemble le code (ici rolldown). Produit le `dist/`.                                                     |
 | **tree-shaking**           | « secouer l'arbre »       | Le bundler élimine le code mort (non importé). ⚠️ N'existe PAS au runtime ESM : un import d'un barrel charge tout le barrel. |
 | **dist**                   | distribution              | Le dossier compilé (`dist/`) chargé au runtime — jamais le `.ts` source. Un `dist` périmé = cause #1 d'échec de session.     |
-| **transpile**              | translate + compile       | Convertir le TS en JS (et/ou une version moderne en plus ancienne). esbuild/Rollup le font.                                  |
-| **`.d.ts`**                | declaration types         | Fichier qui décrit les types sans code. Généré par Rollup chez nous — jamais écrit à la main (il dérive sinon).              |
+| **transpile**              | translate + compile       | Convertir le TS en JS (et/ou une version moderne en plus ancienne). esbuild/rolldown le font.                                |
+| **`.d.ts`**                | declaration types         | Fichier qui décrit les types sans code. Généré par tsgo chez nous — jamais écrit à la main (il dérive sinon).                |
 | **peerDep / devDep**       | peer / dev dependency     | peerDep = dép. attendue mais fournie par l'app (pas embarquée) ; devDep = utile au dev/build seulement, pas au runtime.      |
 | **duck-typing**            | « si ça fait coin-coin… » | Juger un objet sur ce qu'il SAIT FAIRE, pas son type déclaré (framework appelle `authFlow.login` sans importer security).    |
 | **structural typing**      | —                         | TS compare les FORMES, pas les noms : un objet qui a les bons champs « est » compatible (`IRealtimeToken` ⊂ `IToken`).       |

@@ -317,40 +317,56 @@ cassent, dans cet ordre :
 `Reflect`), donc l'élaguer produit un `Reflect.defineMetadata is not a function` au premier
 décorateur. Une seule ligne dans le socle, et le piège ne se rejoue plus jamais.
 
-## 🧩 Les deux patterns d'`exports.types` — le piège n°1
+## 🧩 Lire un voisin en source ou en `.d.ts` — le piège n°1
 
 C'est le point qui fait perdre le plus de temps dans ce dépôt. Il tient à une question simple :
 **quand un paquet est typechecké, où TypeScript va-t-il chercher les types de ses voisins ?**
 
-### Les deux réponses possibles
+### Deux conditions dans le même `exports`
 
-| Pattern                     | `exports["."].types` vaut…  | Ce que TypeScript lit     | Dépend d'un build préalable ? |
-| --------------------------- | --------------------------- | ------------------------- | :---------------------------: |
-| **Source TS** (anti-course) | `"./index.ts"`              | les **sources** du voisin |            **non**            |
-| **Généré** (standard)       | `"./dist/types/index.d.ts"` | les `.d.ts` émis par tsgo |            **oui**            |
+Tous les paquets publiés font pointer `exports["."].types` vers du **généré**
+(`./dist/types/index.d.ts`) — c'est ce que lit l'installeur d'une application, sans exception.
+Les paquets **consommés en source par un autre paquet du dépôt** ajoutent, à côté, une condition
+propre au dépôt :
 
-Le premier pattern est réservé aux paquets **consommés en source par un autre paquet** du dépôt : le
-typecheck du consommateur n'a alors besoin d'aucun artefact construit, donc il ne peut ni voir un type
-périmé, ni échouer parce qu'un `dist` manque. Le second est le standard npm, pour tout le reste.
+```json
+"exports": {
+  ".": {
+    "nodefony-source": "./index.ts",
+    "types": "./dist/types/index.d.ts",
+    "import": "./dist/index.js"
+  }
+}
+```
+
+| Qui lit le paquet                                              | Condition retenue                    | Ce que TypeScript lit     | Dépend d'un build préalable ? |
+| -------------------------------------------------------------- | ------------------------------------ | ------------------------- | :---------------------------: |
+| un tsconfig du dépôt (`customConditions: ["nodefony-source"]`) | `nodefony-source`                    | les **sources** du voisin |            **non**            |
+| une application qui l'installe (npm, tout outil standard)      | `types` (condition inconnue ignorée) | les `.d.ts` émis par tsgo |            **oui**            |
+
+Le premier cas supprime la course au build : le typecheck du consommateur n'a besoin d'aucun
+artefact construit, donc il ne peut ni voir un type périmé, ni échouer parce qu'un `dist` manque.
+Le second est le standard npm : une condition qu'un outil ne connaît pas est sautée.
 
 ### Qui utilise quoi, réellement
 
 <!-- prettier-ignore -->
-| Pattern | Paquets |
+| Forme | Paquets |
 | --- | --- |
-| **Source TS** (`./index.ts`) | `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` · `@nodefony/frontend` · `@nodefony/realtime` |
-| **Généré** (`./dist/types/…`) | `@nodefony/drizzle` · `@nodefony/mongoose` · `@nodefony/redis` · `@nodefony/llm` · `@nodefony/documentation` |
+| **`types` + `nodefony-source`** (lus en source dans le dépôt) | `@nodefony/http` · `@nodefony/framework` · `@nodefony/security` · `@nodefony/user` · `@nodefony/orm-core` |
+| **`types` seul** (`./dist/types/…`) | `@nodefony/devkit` · `@nodefony/documentation` · `@nodefony/drizzle` · `@nodefony/frontend` · `@nodefony/llm` · `@nodefony/mongoose` · `@nodefony/realtime` · `@nodefony/redis` · `@nodefony/studio` |
 | **Cas à part** | `nodefony` (cœur) — deux conditions, `browser` et `import`, chacune avec ses types |
-| **Aucun type public** | `@nodefony/studio` — une application d'administration, pas une bibliothèque |
 
-Les paquets en source forment une **chaîne** qui doit rester continue et se terminer sur le cœur :
-`security → user → orm-core → nodefony`. Le cœur est le seul maillon en `dist/types`, et turbo le
-construit en premier.
+Les deux côtés doivent rester d'accord : retirer la condition du `package.json` d'un paquet, ou
+`customConditions` du tsconfig d'un consommateur, et ce consommateur retombe sur `dist/types` —
+TS2307 sans `dist`, ou vert contre un `.d.ts` périmé. Les paquets en source forment une **chaîne**
+qui se termine sur le cœur (`security → user → orm-core → nodefony`) ; le cœur est lu en
+`dist/types`, et turbo le construit en premier.
 
 ### Ce qui se passe quand on casse un maillon
 
-**Le besoin vécu.** Tu ajoutes un type à `@nodefony/user`, tu bascules son `exports.types` vers
-`./dist/types/index.d.ts` « pour faire comme drizzle », et tu relances un typecheck.
+**Le besoin vécu.** Tu ajoutes un type à `@nodefony/user`, tu retires sa condition
+`nodefony-source` « pour faire comme drizzle », et tu relances un typecheck.
 
 | Ce que tu fais                                        | Ce que tu observes                                                            |
 | ----------------------------------------------------- | ----------------------------------------------------------------------------- |
@@ -530,22 +546,22 @@ mesurables **au runtime** :
 
 ## ⚠️ Pièges (symptôme → cause → correction)
 
-| Symptôme                                                  | Cause                                                              | Correction                                                                           |
-| --------------------------------------------------------- | ------------------------------------------------------------------ | ------------------------------------------------------------------------------------ |
-| Le bundle explose après un `npm install`                  | Une nouvelle dépendance n'est pas dans `external`                  | L'ajouter à la liste ; auditer avec le skill `nodefony-check-externals`              |
-| Build KO : `"hash" is not exported` (ou binaire natif)    | Une peerDependency est bundlée, le bundler a suivi jusqu'au natif  | Externaliser la peerDependency                                                       |
-| `Reflect.defineMetadata is not a function`                | Le side-effect de `reflect-metadata` a été élagué                  | Déjà couvert par `nodefonyTreeshake` (`bundler/index.ts:91`) — ne pas le contourner  |
-| `EntityRegistry: entity "…" already registered`           | Deux copies du même paquet dans le processus                       | Vérifier qu'il est bien `external` partout                                           |
-| Chunks cassés / `dist` incohérent avec `preserveModules`  | `nodefony` externalisé par préfixe au lieu d'exact-match           | Passer par `nodefonyExternalMatcher()` (`bundler/index.ts:77`)                       |
-| Le paquet publié contient ses tests                       | Le glob d'entrées ne les exclut pas                                | Utiliser la fabrique : `IGNORED` les écarte (`bundler/index.ts:65`)                  |
-| **TS2307** sur un paquet du dépôt qu'on vient de modifier | Son `exports.types` pointe un `dist/types` absent ou périmé        | Le remettre en source (`./index.ts`) s'il est consommé en source                     |
-| Typecheck vert alors que le type a changé                 | Le consommateur lit un `.d.ts` périmé                              | Même correction — ou rebuilder la dépendance avant                                   |
-| `does not provide an export named 'X'` au démarrage       | `dist` périmé après un pull / merge                                | `npm run clean && npm run build`                                                     |
-| Une modification du `rolldown.config.ts` reste sans effet | Il n'est pas dans les `inputs` de turbo → cache non invalidé       | `npm run build:force` (ou `npx nodefony build --force`)                              |
-| Les `.d.ts` atterrissent au milieu du JavaScript          | `declarationDir` absent du `tsconfig.declarations.json`            | Le déclarer explicitement (`./dist/types`)                                           |
-| `frontend:build` ne reconstruit rien                      | Comportement normal : le manifeste est plus récent que les sources | `--force` (`frontend-build.ts:103` casse l'exit code en cas d'échec réel)            |
-| La documentation d'un module installé n'apparaît pas      | `docs` absent du champ `files` du paquet                           | L'ajouter — `listModuleDocs()` lit `docs/` dans `node_modules` (`docsReader.ts:178`) |
-| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:90`)                            |
+| Symptôme                                                  | Cause                                                              | Correction                                                                                                 |
+| --------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------- |
+| Le bundle explose après un `npm install`                  | Une nouvelle dépendance n'est pas dans `external`                  | L'ajouter à la liste ; auditer avec le skill `nodefony-check-externals`                                    |
+| Build KO : `"hash" is not exported` (ou binaire natif)    | Une peerDependency est bundlée, le bundler a suivi jusqu'au natif  | Externaliser la peerDependency                                                                             |
+| `Reflect.defineMetadata is not a function`                | Le side-effect de `reflect-metadata` a été élagué                  | Déjà couvert par `nodefonyTreeshake` (`bundler/index.ts:91`) — ne pas le contourner                        |
+| `EntityRegistry: entity "…" already registered`           | Deux copies du même paquet dans le processus                       | Vérifier qu'il est bien `external` partout                                                                 |
+| Chunks cassés / `dist` incohérent avec `preserveModules`  | `nodefony` externalisé par préfixe au lieu d'exact-match           | Passer par `nodefonyExternalMatcher()` (`bundler/index.ts:77`)                                             |
+| Le paquet publié contient ses tests                       | Le glob d'entrées ne les exclut pas                                | Utiliser la fabrique : `IGNORED` les écarte (`bundler/index.ts:65`)                                        |
+| **TS2307** sur un paquet du dépôt qu'on vient de modifier | Il est lu par `dist/types` (absent ou périmé) au lieu de sa source | Déclarer `"nodefony-source": "./index.ts"` dans ses `exports` (et `customConditions` chez le consommateur) |
+| Typecheck vert alors que le type a changé                 | Le consommateur lit un `.d.ts` périmé                              | Même correction — ou rebuilder la dépendance avant                                                         |
+| `does not provide an export named 'X'` au démarrage       | `dist` périmé après un pull / merge                                | `npm run clean && npm run build`                                                                           |
+| Une modification du `rolldown.config.ts` reste sans effet | Il n'est pas dans les `inputs` de turbo → cache non invalidé       | `npm run build:force` (ou `npx nodefony build --force`)                                                    |
+| Les `.d.ts` atterrissent au milieu du JavaScript          | `declarationDir` absent du `tsconfig.declarations.json`            | Le déclarer explicitement (`./dist/types`)                                                                 |
+| `frontend:build` ne reconstruit rien                      | Comportement normal : le manifeste est plus récent que les sources | `--force` (`frontend-build.ts:103` casse l'exit code en cas d'échec réel)                                  |
+| La documentation d'un module installé n'apparaît pas      | `docs` absent du champ `files` du paquet                           | L'ajouter — `listModuleDocs()` lit `docs/` dans `node_modules` (`docsReader.ts:178`)                       |
+| Modification front qui redémarre le serveur               | Le fichier vit hors du dossier surveillé comme frontend            | Le placer sous `frontend/` (exclu, `DevSupervisor.ts:90`)                                                  |
 
 ## 🧪 Tests & couverture
 

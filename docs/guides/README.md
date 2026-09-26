@@ -4,10 +4,10 @@ navTitle: Tous les guides
 lang: fr
 module: global
 topic: guides-index
-audience: [human]
+audience: [developer, devops]
 tags: [guides, index, howto]
 status: stable
-last-updated: 2026-05-21
+updated: 2026-05-21
 ---
 
 # Guides

@@ -3,7 +3,7 @@ title: "Deux paquets nodefony dans un process : reconnaître et corriger"
 lang: fr
 module: global
 topic: duplication-paquet
-audience: [human]
+audience: [developer]
 tags: [diagnostic, npm, peerDependencies, cli, boot, dualité]
 version: "doc"
 status: stable

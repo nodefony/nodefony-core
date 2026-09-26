@@ -4,7 +4,7 @@ navTitle: Parité des adaptateurs
 lang: fr
 module: global
 topic: orm-parity-guide
-audience: [human, ai]
+audience: [developer]
 tags: [persistence, orm, parity, drizzle, mongoose, contract, tests, guide]
 version: "doc"
 status: stable

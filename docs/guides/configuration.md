@@ -3,7 +3,7 @@ title: "Configurer une application Nodefony (defineConfig)"
 navTitle: Configuration
 lang: fr
 topic: configuration
-audience: humain
+audience: [developer, devops]
 version: "doc"
 status: stable
 updated: 2026-09-26

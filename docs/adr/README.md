@@ -2,7 +2,7 @@
 lang: fr
 module: global
 topic: adr-index
-audience: [human, ai]
+audience: [developer]
 tags: [adr, decisions, index]
 status: stable
 ---

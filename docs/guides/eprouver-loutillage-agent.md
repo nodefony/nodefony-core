@@ -4,7 +4,7 @@ navTitle: Éprouver avec un agent
 lang: fr
 module: global
 topic: scaffold
-audience: humain
+audience: [developer]
 tags: [agent, banc, mesure, generateur, methode, decor]
 version: "doc"
 status: stable

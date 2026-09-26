@@ -4,7 +4,7 @@ navTitle: Intégration continue
 lang: fr
 module: global
 topic: ci-guide
-audience: humain
+audience: [developer, devops]
 tags: [ci, forge, tests, gates, decor, docker, couverture]
 version: "doc"
 status: stable

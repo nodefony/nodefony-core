@@ -678,7 +678,7 @@ function renderSkill(s) {
   // déjà le libellé que le lecteur cherche : il fait le navTitle sans rien perdre.
   L.push(`navTitle: ${s.name}`);
   L.push("lang: fr");
-  L.push("audience: humain");
+  L.push("audience: [developer]");
   L.push("topic: skills");
   L.push("status: stable");
   L.push("updated: " + STAMP);
@@ -1012,7 +1012,7 @@ function renderIndex(list) {
   L.push('title: "Fiches des skills — index généré"');
   L.push("navTitle: Fiches des skills");
   L.push("lang: fr");
-  L.push("audience: humain");
+  L.push("audience: [developer]");
   L.push("topic: skills");
   L.push("tests: none");
   L.push("status: stable");

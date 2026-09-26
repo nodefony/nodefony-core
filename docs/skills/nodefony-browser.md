@@ -2,10 +2,10 @@
 title: "nodefony-browser — fiche de skill"
 navTitle: nodefony-browser
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-20
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-browser/SKILL.md"
 ---

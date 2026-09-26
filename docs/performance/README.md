@@ -8,7 +8,7 @@ section: "Performance"
 audience: [developer]
 tags: [performance, benchmark, mesure, methode]
 status: stable
-last-updated: 2026-08-07
+updated: 2026-08-07
 ---
 
 # Performance — mesures et rapports

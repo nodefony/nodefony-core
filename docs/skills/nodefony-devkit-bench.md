@@ -2,10 +2,10 @@
 title: "nodefony-devkit-bench — fiche de skill"
 navTitle: nodefony-devkit-bench
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-25
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: ".claude/skills/nodefony-devkit-bench/SKILL.md"
 ---

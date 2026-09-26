@@ -4,7 +4,7 @@ navTitle: Étendre le framework
 lang: fr
 module: global
 topic: extension-guide
-audience: humain
+audience: [developer]
 tags: [extension, registre, driver, contrat, interface, pluggable]
 version: "doc"
 status: stable

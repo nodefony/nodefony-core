@@ -4,7 +4,7 @@ navTitle: Persistance
 lang: fr
 module: global
 topic: persistence-guide
-audience: [human, ai]
+audience: [developer]
 tags:
   [
     persistence,

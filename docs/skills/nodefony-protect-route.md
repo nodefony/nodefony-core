@@ -2,10 +2,10 @@
 title: "nodefony-protect-route — fiche de skill"
 navTitle: nodefony-protect-route
 lang: fr
-audience: humain
+audience: [developer]
 topic: skills
 status: stable
-updated: 2026-09-20
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-protect-route/SKILL.md"
 ---
