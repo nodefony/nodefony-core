@@ -130,7 +130,9 @@ async function assertRefuses(
     await action();
   } catch (error) {
     message = [error, (error as { cause?: unknown })?.cause]
-      .map((err) => String((err as Error)?.message ?? err ?? ""))
+      .map((err) =>
+        err instanceof Error ? err.message : typeof err === "string" ? err : "",
+      )
       .join(" ");
   }
   assert.notEqual(message, "", `${quoi} : le serveur a ACCEPTÉ`);

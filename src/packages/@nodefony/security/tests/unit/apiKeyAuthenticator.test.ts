@@ -47,7 +47,7 @@ const provider = {
 
 const fakeContainer = (s: Record<string, unknown>): Container =>
   ({
-    get: <T>(n: string): T | undefined => s[n] as T | undefined,
+    get: (n: string): unknown => s[n],
   }) as unknown as Container;
 
 function patRecord(

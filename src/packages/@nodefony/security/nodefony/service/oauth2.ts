@@ -202,12 +202,16 @@ class OAuth2Service extends Service {
       return [];
     }
     const configured = this.#config.oauth2.providers;
-    return this.listProviders()
-      .filter((name) => configured[name]?.hidden !== true)
-      .map((name) => ({
-        name,
-        label: configured[name]?.label ?? oauthDisplayLabel(name),
-      }));
+    return (
+      this.listProviders()
+        // `hidden` est un booléen validé par Zod (défaut `false`) : la négation
+        // suffit, et un fournisseur absent (`undefined`) reste montré, comme avant.
+        .filter((name) => !configured[name]?.hidden)
+        .map((name) => ({
+          name,
+          label: configured[name]?.label ?? oauthDisplayLabel(name),
+        }))
+    );
   }
 
   /**
@@ -273,7 +277,9 @@ class OAuth2Service extends Service {
     }
     const tokens = await p.validateAuthorizationCode({ code, codeVerifier });
     const profile = await p.fetchProfile(tokens);
-    const cfg = this.#config!.oauth2;
+    // `#resolveProvider` a déjà vérifié l'initialisation : ce rappel ne lève
+    // donc jamais ici, il rend la config typée non nulle.
+    const cfg = this.#ensureReady().oauth2;
     // Rôles par défaut : surcharge PAR FOURNISSEUR sinon valeur globale (posés à
     // la CRÉATION seulement — OAuth = authentification, pas autorisation).
     const defaultRoles =
@@ -301,7 +307,7 @@ class OAuth2Service extends Service {
   }
 
   async #buildProvider(name: string): Promise<IResolvedProvider> {
-    const cfg = this.#config!.oauth2.providers[name];
+    const cfg = this.#ensureReady().oauth2.providers[name];
     if (!cfg) {
       throw new AuthenticationError(`OAuth provider "${name}" non configuré`);
     }
@@ -334,12 +340,13 @@ class OAuth2Service extends Service {
     return users as IOAuthUserProvisioner;
   }
 
-  #ensureReady(): void {
+  #ensureReady(): ISecurityConfig {
     if (!this.#ready || this.#config === null) {
       throw new Error(
         "OAuth2Service: non initialisé (social login désactivé ou boot échoué)",
       );
     }
+    return this.#config;
   }
 }
 

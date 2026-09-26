@@ -38,6 +38,9 @@ export class AnonymousToken implements IToken {
     return [];
   }
 
+  // Accesseur typé par l'appelant, par construction : retirer `T` casserait
+  // `getAttribute<…>()` chez chaque consommateur (rupture d'API publique).
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute<T = unknown>(key: string): T | undefined {
     return this.#attributes?.get(key) as T | undefined;
   }

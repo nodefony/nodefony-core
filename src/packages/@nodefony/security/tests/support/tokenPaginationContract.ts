@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { fieldText } from "./fieldText";
 import type { IAccessTokenRecord, ITokenStore } from "../../index";
 
 /**
@@ -327,7 +328,7 @@ export function runTokenPaginationContract(
         );
         for (const field of declared) {
           const read = (r: IAccessTokenRecord): string =>
-            String(r[field as keyof IAccessTokenRecord]);
+            fieldText(r[field as keyof IAccessTokenRecord]);
           const asc = (
             await store().listPage({ limit: 12, order: [[field, "ASC"]] })
           ).items.map(read);

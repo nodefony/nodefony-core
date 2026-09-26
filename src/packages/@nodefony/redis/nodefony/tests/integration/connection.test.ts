@@ -88,7 +88,9 @@ describe.skipIf(!REDIS_UP)("@nodefony/redis — intégration (Redis réel)", () 
       const client = service.getClient("main");
       assert.ok(client);
       const key = `nodefony:test:${Date.now()}`;
-      await client.set(key, "ok", { EX: 30 });
+      await client.set(key, "ok", {
+        expiration: { type: "EX", value: 30 },
+      });
       assert.equal(await client.get(key), "ok");
       await client.del(key);
     } finally {

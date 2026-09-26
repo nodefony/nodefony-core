@@ -153,6 +153,9 @@ export class DrizzleTransaction implements ITransaction {
   }
 
   /** Expose le handle Drizzle lié à la connexion encadrée par la transaction. */
+  // Trappe typée par l'appelant, par construction (contrat `ITransaction`) :
+  // retirer `C` casserait `getNative<…>()` chez chaque consommateur.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNative<C = unknown>(): C {
     return this.#db as C;
   }

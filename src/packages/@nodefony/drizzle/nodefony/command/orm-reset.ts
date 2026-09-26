@@ -170,7 +170,8 @@ class OrmReset extends OrmMigrateCommand {
     let driver: IMigrationDriver | null = null;
     try {
       driver = await openMigrationDriver(resolution.target);
-      const rows = await driver.query<{ name: string }>(
+      // Nom rendu par le catalogue : converti par `String()` ci-dessous.
+      const rows = await driver.query<{ name: unknown }>(
         LIST_TABLES[resolution.dialect],
       );
       const tables = rows

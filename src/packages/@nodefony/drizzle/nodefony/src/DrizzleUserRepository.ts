@@ -225,10 +225,13 @@ export class DrizzleUserRepository implements IUserRepository {
   }
 
   countDistinct(
-    field: keyof IPasswordAuthenticatedUser & string,
+    field: Extract<keyof IPasswordAuthenticatedUser, string>,
     criteria?: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<number> {
-    return this.#base.countDistinct(field as keyof UserRow & string, criteria);
+    return this.#base.countDistinct(
+      field as Extract<keyof UserRow, string>,
+      criteria,
+    );
   }
 
   withTransaction(tx: ITransaction): IUserRepository {

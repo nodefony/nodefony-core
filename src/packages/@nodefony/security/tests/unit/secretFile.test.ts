@@ -114,9 +114,10 @@ describe("ecrireSecret — 0600, atomique, et sur une cible existante", () => {
 
     expect(() => writeSecretSync(cible, "s3cr3t")).toThrow();
     const restes = readdirSync(dir).filter((n) => n.includes(".tmp"));
-    expect(restes, `temporaire ORPHELIN portant le secret : ${restes}`).toEqual(
-      [],
-    );
+    expect(
+      restes,
+      `temporaire ORPHELIN portant le secret : ${restes.join(", ")}`,
+    ).toEqual([]);
   });
 
   it("🔴 forme asynchrone : même nettoyage à l'échec", async () => {

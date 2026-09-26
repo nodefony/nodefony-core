@@ -102,6 +102,9 @@ export class UserRealtimeToken implements IRealtimeToken {
     return [...this.#scopes];
   }
 
+  // Accesseur typé par l'appelant, par construction : retirer `T` casserait
+  // `getAttribute<…>()` chez chaque consommateur (rupture d'API publique).
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute<T = unknown>(key: string): T | undefined {
     // Seam neutre (`IRealtimeToken`) : expose l'`IUser` réel sous la clé `"user"`
     // — lu par le pont api.request (J8) qui le pose dans l'ALS pour `@CurrentUser`

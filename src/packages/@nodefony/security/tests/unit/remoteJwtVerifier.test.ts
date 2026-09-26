@@ -72,7 +72,9 @@ async function fakeIssuer(kid = "k1", alg = "ES256"): Promise<IFakeIssuer> {
   };
 }
 
-type FakeRoute = unknown | Error | { status: number };
+// Une route rend un corps JSON (valeur quelconque), une `Error` (réseau en
+// panne) ou `{ status }` (réponse HTTP d'échec) : `unknown` les couvre tous.
+type FakeRoute = unknown;
 
 interface IFakeNet {
   fetch: typeof globalThis.fetch;
@@ -83,7 +85,12 @@ interface IFakeNet {
 function fakeNet(routes: Record<string, FakeRoute>): IFakeNet {
   const urls: string[] = [];
   const impl = async (input: RequestInfo | URL): Promise<Response> => {
-    const url = String(input);
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
     urls.push(url);
     const route = routes[url];
     if (route === undefined) {

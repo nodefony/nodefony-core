@@ -403,7 +403,9 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       .offset(offset)) as Array<{
       key: string;
       state: string;
-      expiresAt: number;
+      // Colonne entière : `unknown` jusqu'au `Number()` — un BIGINT peut
+      // revenir en chaîne selon le driver.
+      expiresAt: unknown;
     }>;
     const hasNext = rows.length > limit;
     const page = hasNext ? rows.slice(0, limit) : rows;
@@ -412,7 +414,7 @@ export class DrizzleIdempotencyStore implements IIdempotencyStore {
       const counted = (await db
         .select({ cnt: count() })
         .from(table)
-        .where(where)) as Array<{ cnt: number }>;
+        .where(where)) as Array<{ cnt: unknown }>; // COUNT : cf `expiresAt`
       total = Number(counted[0]?.cnt ?? 0);
     }
     return {

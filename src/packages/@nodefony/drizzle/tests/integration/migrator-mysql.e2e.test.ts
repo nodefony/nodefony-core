@@ -113,7 +113,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
       url: MYSQL_URL,
     });
     try {
-      const rows = await admin.query<{ n: number }>(
+      const rows = await admin.query<{ n: unknown }>(
         `SELECT COUNT(*) AS n FROM ${HISTORY_TABLE}`,
       );
       assert.equal(Number(rows[0]?.n), 1, "une seule ligne d'historique");
@@ -129,7 +129,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     });
     await holder.lock(5_000);
     const id = Number(
-      (await holder.query<{ id: number }>(`SELECT CONNECTION_ID() AS id`))[0]
+      (await holder.query<{ id: unknown }>(`SELECT CONNECTION_ID() AS id`))[0]
         ?.id,
     );
 
@@ -138,7 +138,10 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     await assert.rejects(
       async () => migrator(1_000).migrate(),
       (e: unknown) => {
-        assert.match(String((e as Error).message), /Verrou de migration/);
+        assert.match(
+          e instanceof Error ? e.message : String(e),
+          /Verrou de migration/,
+        );
         return true;
       },
     );
@@ -174,7 +177,7 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
     });
     try {
       // 1. Le serveur compose bien le nom avec la base COURANTE.
-      const rows = await a.query<{ name: string; db: string }>(
+      const rows = await a.query<{ name: unknown; db: unknown }>(
         `SELECT ${MYSQL_LOCK_NAME_SQL} AS name, DATABASE() AS db`,
       );
       const name = String(rows[0]?.name);
@@ -187,18 +190,18 @@ describe.skipIf(!MYSQL_URL)("Applicateur de migrations (mysql)", () => {
       // empêche deux applications sans rapport de se sérialiser en silence.
       // Ce qui n'est PAS prouvé ici : le cas sur deux bases réelles, que
       // l'utilisateur applicatif n'a pas le droit de créer (`ERROR 1044`).
-      const mine = await a.query<{ got: number }>(
+      const mine = await a.query<{ got: unknown }>(
         `SELECT GET_LOCK(?, 1) AS got`,
         [name],
       );
       assert.equal(Number(mine[0]?.got), 1);
-      const other = await b.query<{ got: number }>(
+      const other = await b.query<{ got: unknown }>(
         `SELECT GET_LOCK(?, 1) AS got`,
         [`nodefony:migrations:une_autre_base`],
       );
       assert.equal(Number(other[0]?.got), 1, "un autre nom n'est pas bloqué");
       // …et le MÊME nom, lui, l'est bien.
-      const same = await b.query<{ got: number }>(
+      const same = await b.query<{ got: unknown }>(
         `SELECT GET_LOCK(?, 1) AS got`,
         [name],
       );

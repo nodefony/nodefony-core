@@ -579,6 +579,10 @@ export async function buildMigrator(
 ): Promise<DrizzleMigrator> {
   const appDir = appMigrationsDir(kernel, config.migrations.dir);
   const sources = await defaultMigrationSources(appDir, {
+    // `IDrizzleConfig` vient d'appelants qui transtypent `module.config` :
+    // une config construite à la main (tests, module factice) peut omettre la
+    // clé, et son absence doit valoir `true` comme le défaut Zod.
+    // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
     framework: config.frameworkEntities !== false,
     connector: resolution.connector,
   });

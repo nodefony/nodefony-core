@@ -229,7 +229,7 @@ async function refus(corps: () => Promise<unknown>): Promise<{
   );
   assert.ok(
     leve instanceof MigrationVerdictError,
-    `refus non structuré : ${String(leve)}`,
+    `refus non structuré : ${leve instanceof Error ? leve.message : JSON.stringify(leve)}`,
   );
   const verdict = leve.verdict;
   return {

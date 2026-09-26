@@ -68,12 +68,15 @@ export function createAuditBridge(
 
   const flush = (): void => {
     timer = null;
-    if (count === 0 && dropped === 0) return;
+    // `ring` n'est nul que tant qu'aucun événement n'est arrivé — `count` et
+    // `dropped` valent alors 0 : ce retour ne change rien au comportement.
+    const buf = ring;
+    if (buf === null || (count === 0 && dropped === 0)) return;
     const events = new Array<IAuditEvent>(count);
-    for (let i = 0; i < count; i++) events[i] = ring![(head + i) % maxBatch]!;
+    for (let i = 0; i < count; i++) events[i] = buf[(head + i) % maxBatch];
     const d = dropped;
     // reset + libère les refs (évite de retenir des événements).
-    for (let i = 0; i < maxBatch; i++) ring![i] = undefined as never;
+    for (let i = 0; i < maxBatch; i++) buf[i] = undefined as never;
     head = 0;
     count = 0;
     dropped = 0;

@@ -583,6 +583,9 @@ export class MongooseOrm extends Orm {
     }
   }
 
+  // Trappe typée par l'appelant, par construction (contrat `IOrm`) : retirer
+  // `C` casserait `getNativeConnection<…>()` — rupture d'API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNativeConnection<C = unknown>(): C {
     if (!this.#connection) {
       throw new Error(`MongooseOrm "${this.name}": not connected.`);

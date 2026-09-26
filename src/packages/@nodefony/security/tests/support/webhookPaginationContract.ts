@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { fieldText } from "./fieldText";
 import type { IWebhookEndpoint, IWebhookStore } from "../../index";
 
 /**
@@ -143,7 +144,8 @@ export function runWebhookPaginationContract(
       );
       const off = await store().listPage({ limit: 100, enabled: false });
       assert.equal(off.total, 4);
-      assert.ok(off.items.every((e) => e.enabled === false));
+      // Strict : la valeur rendue par le backend doit être EXACTEMENT `false`.
+      for (const e of off.items) assert.equal(e.enabled, false);
     });
 
     it("filtre event : appartenance au tableau `events`", async () => {
@@ -262,7 +264,7 @@ export function runWebhookPaginationContract(
       );
       for (const field of declared) {
         const read = (e: IWebhookEndpoint): string =>
-          String(e[field as keyof IWebhookEndpoint]);
+          fieldText(e[field as keyof IWebhookEndpoint]);
         const asc = (
           await store().listPage({ limit: 12, order: [[field, "ASC"]] })
         ).items.map(read);

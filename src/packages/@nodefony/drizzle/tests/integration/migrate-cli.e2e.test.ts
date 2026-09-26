@@ -389,7 +389,7 @@ suite("orm:migrate* — contrats de commande (sqlite)", () => {
         `la provenance n'est pas publiée : ${JSON.stringify(driver)}`,
       );
       assert.match(
-        String(driver.target ?? ""),
+        typeof driver.target === "string" ? driver.target : "",
         /essai\.sqlite$/u,
         `la cible n'est pas publiée : ${JSON.stringify(driver)}`,
       );

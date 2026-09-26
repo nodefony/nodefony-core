@@ -91,6 +91,7 @@ function tokenStoreDriver(
       return "orm";
     case "RedisTokenStore":
       return "redis";
+    case undefined: // classe inconnue : même issue que `default`
     default:
       return null;
   }

@@ -159,7 +159,9 @@ export function schemaReader(
           return rows.length > 0;
         }
         case "mysql": {
-          const rows = await query<{ n: number }>(
+          // `COUNT(*)` : mysql2 rend un nombre ou une chaîne (BIGINT) selon
+          // la configuration — le type n'est connu qu'après `Number()`.
+          const rows = await query<{ n: unknown }>(
             `SELECT COUNT(*) AS n FROM information_schema.tables ` +
               `WHERE table_schema = DATABASE() AND table_name = ?`,
             [table],
@@ -194,7 +196,8 @@ export function schemaReader(
         case "mysql": {
           // `AS name` : MySQL rend `COLUMN_NAME` et MariaDB `column_name` selon
           // la version — un alias explicite évite de dépendre de la casse rendue.
-          const rows = await query<{ name: string }>(
+          // Colonne du catalogue : le driver ne garantit pas le type rendu.
+          const rows = await query<{ name: unknown }>(
             `SELECT column_name AS name FROM information_schema.columns ` +
               `WHERE table_schema = DATABASE() AND table_name = ?`,
             [table],

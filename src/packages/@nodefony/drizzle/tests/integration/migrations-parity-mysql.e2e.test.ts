@@ -97,7 +97,7 @@ describe.skipIf(!MYSQL_URL)("Migrations ↔ DDL dérivé — parité (mysql)", (
         `AND TABLE_NAME IN (${inList}) ` +
         `ORDER BY TABLE_NAME, INDEX_NAME, SEQ_IN_INDEX`,
     )) {
-      const key = `${row.TABLE_NAME} ${row.INDEX_NAME}`;
+      const key = `${String(row.TABLE_NAME)} ${String(row.INDEX_NAME)}`;
       const entry = byIndex.get(key) ?? {
         table: String(row.TABLE_NAME),
         unique: Number(row.NON_UNIQUE) === 0,
@@ -215,7 +215,8 @@ describe.skipIf(!MYSQL_URL)("Migrations ↔ DDL dérivé — parité (mysql)", (
     // sont pas le même produit. Sans cette trace, un run vert ne dit pas LEQUEL
     // a été exercé, et « mysql testé » recouvrirait un seul des deux.
     const [row] = await rows("SELECT VERSION() AS v");
-    const version = String(row?.v ?? "");
+    // `VERSION()` rend une chaîne ; toute autre forme échoue l'assertion qui suit.
+    const version = typeof row?.v === "string" ? row.v : "";
     assert.ok(version.length > 0, "le serveur doit annoncer sa version");
     process.stdout.write(`\n    ↳ parité mysql vérifiée sur : ${version}\n`);
 

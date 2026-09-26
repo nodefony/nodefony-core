@@ -204,7 +204,7 @@ class WebhookService extends Service {
       return;
     }
     this.#audit = audit;
-    this.#dispatcher = new WebhookDispatcher({
+    const dispatcher = new WebhookDispatcher({
       endpointCount: () => this.endpointCount(),
       getSnapshot: () => this.getSnapshot(),
       secretOf: (ep) => this.decryptEndpointSecret(ep).toString("utf8"),
@@ -223,9 +223,10 @@ class WebhookService extends Service {
       },
       log: (m) => this.log(m, "ERROR"),
     });
-    this.#unsubscribe = audit.subscribe((e) =>
-      this.#dispatcher!.onAuditEvent(e),
-    );
+    this.#dispatcher = dispatcher;
+    // Capture locale : `#shutdown` désabonne AVANT de lâcher la référence, donc
+    // l'abonné ne voit jamais un dispatcher retiré.
+    this.#unsubscribe = audit.subscribe((e) => dispatcher.onAuditEvent(e));
     this.log("webhooks dispatcher abonné à l'audit", "DEBUG");
   }
 
@@ -438,14 +439,14 @@ class WebhookService extends Service {
    * @throws SsrfError si l'URL est invalide / cible non publique.
    */
   async register(input: IWebhookRegisterInput): Promise<IWebhookSecretReveal> {
-    this.#assertReady();
-    await this.#assertSafeUrl(input.url);
+    const { store, key, config } = this.#assertReady();
+    await this.#assertSafeUrl(config, input.url);
     const secret = generateSecret();
     const now = Date.now();
     const endpoint: IWebhookEndpoint = {
       id: generateId(),
       url: input.url,
-      secretEnc: encryptSecret(Buffer.from(secret, "utf8"), this.#key!),
+      secretEnc: encryptSecret(Buffer.from(secret, "utf8"), key),
       events: [...input.events],
       enabled: input.enabled ?? true,
       description: input.description ?? null,
@@ -459,7 +460,7 @@ class WebhookService extends Service {
       failureCount: 0,
       metadata: input.metadata ?? {},
     };
-    await this.#store!.save(endpoint);
+    await store.save(endpoint);
     this.#endpoints?.set(endpoint.id, endpoint);
     return { endpoint: toSummary(endpoint), secret };
   }
@@ -474,8 +475,7 @@ class WebhookService extends Service {
   async listPage(
     query: IWebhookListQuery,
   ): Promise<IPage<WebhookEndpointSummary>> {
-    this.#assertReady();
-    const page = await this.#store!.listPage(query);
+    const page = await this.#assertReady().store.listPage(query);
     return { ...page, items: page.items.map(toSummary) };
   }
 
@@ -486,8 +486,7 @@ class WebhookService extends Service {
    * @returns le compte exact, ou `-1` si le backend ne sait pas compter.
    */
   async countEndpoints(query: IWebhookListQuery): Promise<number> {
-    this.#assertReady();
-    return this.#store!.countEndpoints(query);
+    return this.#assertReady().store.countEndpoints(query);
   }
 
   /**
@@ -503,9 +502,9 @@ class WebhookService extends Service {
   async countWebhookFacets(
     query?: Partial<IWebhookListQuery>,
   ): Promise<IWebhookCounts> {
-    this.#assertReady();
+    const { store } = this.#assertReady();
     return countFacets(WEBHOOK_FACETS, (facet) =>
-      this.#store!.countEndpoints({
+      store.countEndpoints({
         ...query,
         ...facet,
       } as IWebhookListQuery),
@@ -514,8 +513,7 @@ class WebhookService extends Service {
 
   /** Un endpoint par id (vue publique), ou `null`. */
   async getEndpoint(id: string): Promise<WebhookEndpointSummary | null> {
-    this.#assertReady();
-    const found = await this.#store!.findById(id);
+    const found = await this.#assertReady().store.findById(id);
     return found ? toSummary(found) : null;
   }
 
@@ -531,14 +529,14 @@ class WebhookService extends Service {
       "url" | "events" | "enabled" | "description" | "metadata"
     >,
   ): Promise<WebhookEndpointSummary | null> {
-    this.#assertReady();
-    const current = await this.#store!.findById(id);
+    const { store, config } = this.#assertReady();
+    const current = await store.findById(id);
     if (!current) return null;
     if (patch.url !== undefined && patch.url !== current.url) {
-      await this.#assertSafeUrl(patch.url);
+      await this.#assertSafeUrl(config, patch.url);
     }
     const applied: WebhookEndpointUpdate = { ...patch, updatedAt: Date.now() };
-    await this.#store!.update(id, applied);
+    await store.update(id, applied);
     const next = { ...current, ...applied };
     this.#endpoints?.set(id, next);
     return toSummary(next);
@@ -557,15 +555,15 @@ class WebhookService extends Service {
    * L'ancien cesse immédiatement d'être valide. `null` si l'endpoint est absent.
    */
   async rotateSecret(id: string): Promise<IWebhookSecretReveal | null> {
-    this.#assertReady();
-    const current = await this.#store!.findById(id);
+    const { store, key } = this.#assertReady();
+    const current = await store.findById(id);
     if (!current) return null;
     const secret = generateSecret();
     const patch: WebhookEndpointUpdate = {
-      secretEnc: encryptSecret(Buffer.from(secret, "utf8"), this.#key!),
+      secretEnc: encryptSecret(Buffer.from(secret, "utf8"), key),
       updatedAt: Date.now(),
     };
-    await this.#store!.update(id, patch);
+    await store.update(id, patch);
     const next = { ...current, ...patch };
     this.#endpoints?.set(id, next);
     return { endpoint: toSummary(next), secret };
@@ -576,18 +574,18 @@ class WebhookService extends Service {
    * par l'appelant). `null` si absent.
    */
   async revealSecret(id: string): Promise<string | null> {
-    this.#assertReady();
-    const current = await this.#store!.findById(id);
+    const { store, key } = this.#assertReady();
+    const current = await store.findById(id);
     if (!current) return null;
-    return decryptSecret(current.secretEnc, this.#key!).toString("utf8");
+    return decryptSecret(current.secretEnc, key).toString("utf8");
   }
 
   /** Supprime un endpoint. Retourne `false` si absent. */
   async delete(id: string): Promise<boolean> {
-    this.#assertReady();
-    const current = await this.#store!.findById(id);
+    const { store } = this.#assertReady();
+    const current = await store.findById(id);
     if (!current) return false;
-    await this.#store!.delete(id);
+    await store.delete(id);
     this.#endpoints?.delete(id);
     this.#deliveries?.delete(id); // purge l'historique en RAM de l'endpoint
     return true;
@@ -658,14 +656,12 @@ class WebhookService extends Service {
 
   /** Déchiffre le secret de signature d'un endpoint (pour signer une livraison). */
   decryptEndpointSecret(endpoint: IWebhookEndpoint): Buffer {
-    this.#assertReady();
-    return decryptSecret(endpoint.secretEnc, this.#key!);
+    return decryptSecret(endpoint.secretEnc, this.#assertReady().key);
   }
 
   /** Politique de livraison (tolérance/retries/timeout…) issue de la config. */
   getDeliveryPolicy(): IWebhookDeliveryPolicy {
-    this.#assertReady();
-    const w = this.#config!.webhooks;
+    const w = this.#assertReady().config.webhooks;
     return {
       timestampToleranceS: w.timestampToleranceS,
       maxRetries: w.maxRetries,
@@ -684,12 +680,16 @@ class WebhookService extends Service {
    * l'endpoint au-delà du seuil (façon GitHub). Le succès remet le compteur à 0.
    */
   async markDelivery(id: string, result: IDeliveryResult): Promise<void> {
-    if (!this.#ready || !this.#store) return;
-    const current = await this.#store.findById(id);
+    // `#config` est posé en même temps que `#store` : le tester ici ne change
+    // rien au verdict, il rend seulement la lecture du seuil typée.
+    const config = this.#config;
+    const store = this.#store;
+    if (!this.#ready || !store || !config) return;
+    const current = await store.findById(id);
     if (!current) return;
     const failureCount = result.ok ? 0 : current.failureCount + 1;
     const now = Date.now();
-    const threshold = this.#config!.webhooks.autoDisableThreshold;
+    const threshold = config.webhooks.autoDisableThreshold;
     const disable = !result.ok && threshold > 0 && failureCount >= threshold;
     const patch: WebhookEndpointUpdate = {
       lastDeliveryAt: now,
@@ -714,20 +714,31 @@ class WebhookService extends Service {
         reason: "max_failures",
       });
     }
-    await this.#store.update(id, patch);
+    await store.update(id, patch);
     this.#endpoints?.set(id, { ...current, ...patch });
   }
 
   // ── Interne ──────────────────────────────────────────────────────────────────
 
-  #assertReady(): void {
-    if (!this.#ready || !this.#store || !this.#key) {
+  /**
+   * Garde d'initialisation : lève si le service n'est pas prêt, sinon rend le
+   * store, la clé de chiffrement et la config typés non nuls. Les quatre champs
+   * sont posés ensemble au boot et jamais réassignés — tester aussi `#config`
+   * ne change donc rien au verdict.
+   */
+  #assertReady(): {
+    store: IWebhookStore;
+    key: Buffer;
+    config: ISecurityConfig;
+  } {
+    if (!this.#ready || !this.#store || !this.#key || !this.#config) {
       throw new Error("webhooks indisponibles (désactivés ou mal configurés)");
     }
+    return { store: this.#store, key: this.#key, config: this.#config };
   }
 
-  async #assertSafeUrl(url: string): Promise<void> {
-    const w = this.#config!.webhooks;
+  async #assertSafeUrl(config: ISecurityConfig, url: string): Promise<void> {
+    const w = config.webhooks;
     await assertPublicUrl(url, {
       allowPrivate: !w.denyPrivateIps,
       allowHttp: w.allowHttp,
@@ -736,7 +747,7 @@ class WebhookService extends Service {
 
   /** Re-contrôle SSRF avant livraison → IP validées à pinner (anti-rebinding). */
   async #resolveTarget(url: string): Promise<string[]> {
-    const w = this.#config!.webhooks;
+    const w = this.#assertReady().config.webhooks;
     const { addresses } = await assertPublicUrl(url, {
       allowPrivate: !w.denyPrivateIps,
       allowHttp: w.allowHttp,

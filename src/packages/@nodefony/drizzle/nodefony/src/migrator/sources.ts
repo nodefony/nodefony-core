@@ -33,6 +33,16 @@ interface IJournal {
 }
 
 /**
+ * Forme BRUTE d'un `_journal.json` tel que `JSON.parse` le rend : un fichier
+ * du dépôt, édité à la main ou mal fusionné, ne garantit aucun type avant
+ * validation.
+ */
+interface IRawJournal {
+  version?: unknown;
+  entries?: unknown;
+}
+
+/**
  * Résultat du chargement d'un registre de sources.
  *
  * Les sources **absentes** ne sont pas une erreur : désinstaller un module ne
@@ -127,9 +137,12 @@ async function readJournal(
   // un geste qui interroge une base qui n'y est pour rien. La cause la plus
   // fréquente est banale : un conflit de fusion non résolu, deux branches ayant
   // chacune généré une migration.
-  let journal: IJournal;
+  let journal: IRawJournal;
   try {
-    journal = JSON.parse(raw) as IJournal;
+    const parsed: unknown = JSON.parse(raw);
+    // Un JSON qui n'est pas un objet (`null`, un nombre…) n'a pas d'`entries` :
+    // il tombe sur le refus « pas de liste entries » ci-dessous.
+    journal = typeof parsed === "object" && parsed !== null ? parsed : {};
   } catch (e) {
     throw new MigrationVerdictError(
       {
@@ -163,7 +176,8 @@ async function readJournal(
         `« entries » : ce n'est pas un journal que ce format sait lire.`,
     );
   }
-  if (!SUPPORTED_JOURNAL_VERSIONS.includes(String(journal.version))) {
+  const version = String(journal.version);
+  if (!SUPPORTED_JOURNAL_VERSIONS.includes(version)) {
     throw new MigrationVerdictError(
       {
         code: "NF_MIGRATE_UNKNOWN_FORMAT",
@@ -171,7 +185,7 @@ async function readJournal(
         source,
         facts: {
           file,
-          journalVersion: String(journal.version),
+          journalVersion: version,
           supported: SUPPORTED_JOURNAL_VERSIONS,
         },
         nextActions: [
@@ -182,11 +196,13 @@ async function readJournal(
         ],
       },
       `Le journal de migrations de la source « ${source} » est en version ` +
-        `${String(journal.version)}, que cette version du framework ne sait pas lire ` +
+        `${version}, que cette version du framework ne sait pas lire ` +
         `(reconnue : ${SUPPORTED_JOURNAL_VERSIONS.join(", ")}).`,
     );
   }
-  return journal;
+  // Les entrées gardent la forme drizzle-kit : `idx`/`tag` sont lus plus loin
+  // tels que le journal les porte, comme avant cette validation.
+  return { version, entries: journal.entries as IJournalEntry[] };
 }
 
 /**

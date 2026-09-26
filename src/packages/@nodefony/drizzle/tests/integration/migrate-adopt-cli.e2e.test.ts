@@ -326,7 +326,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
             );
             assert.equal(refus.code, docRefus.exitCode);
             assert.match(
-              String(erreur?.summary),
+              erreur?.summary,
               new RegExp(TABLE),
               "le refus doit NOMMER la table qui bloque",
             );
@@ -994,7 +994,7 @@ suite("orm:migrate:baseline --from-database — boot réel", () => {
               `un seul geste attendu, reçu : ${JSON.stringify(erreur.nextActions)}`,
             );
             assert.match(
-              String(erreur.nextActions?.[0]?.command),
+              erreur.nextActions?.[0]?.command,
               /orm:migrate:baseline/u,
               "le geste nommé doit être l'adoption",
             );

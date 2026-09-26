@@ -402,8 +402,8 @@ class TokenService extends Service {
    * @throws InvalidTargetError (400) si la ressource est multiple, malformée ou
    *         non déclarée
    */
-  #resolveAudience(requested?: unknown): string {
-    const fallback = this.#runtime!.audiences[0];
+  #resolveAudience(runtime: IJwtRuntime, requested?: unknown): string {
+    const fallback = runtime.audiences[0];
     if (requested === undefined || requested === null) return fallback;
     if (Array.isArray(requested)) {
       // Refus AVANT de regarder les valeurs : le motif du refus est le nombre.
@@ -436,7 +436,7 @@ class TokenService extends Service {
     // Comparaison sur la valeur EXACTE déclarée : c'est elle qui sera inscrite
     // dans `aud`, et c'est elle que la ressource comparera à son propre URI
     // canonique. Normaliser ici ferait diverger les deux extrémités.
-    if (!this.#runtime!.audiences.includes(requested)) {
+    if (!runtime.audiences.includes(requested)) {
       // Le message ne nomme aucune audience acceptée : les énumérer donnerait la
       // carte des ressources protégées à qui possède un simple identifiant.
       throw new InvalidTargetError(
@@ -499,12 +499,12 @@ class TokenService extends Service {
     resource?: unknown,
     accessTtlS?: number,
   ): Promise<ITokenResponse> {
-    this.#ensureReady();
+    const { store, runtime } = this.#ensureReady();
     const scopes = this.#grantableScopes(
       user,
       requestedScopes && requestedScopes.length > 0 ? [...requestedScopes] : [],
     );
-    const audience = this.#resolveAudience(resource);
+    const audience = this.#resolveAudience(runtime, resource);
     // ⭐ Un TTL par appel, quand l'appelant SAIT ce qu'il fait. Le défaut de
     // configuration (15 min) convient à un jeton d'API que le client
     // rafraîchit ; il est impraticable pour un en-tête STATIQUE, celui qu'un
@@ -523,7 +523,7 @@ class TokenService extends Service {
       this.#randomId(),
       audience,
     );
-    await this.#store!.put(record);
+    await store.put(record);
     // Audit (P6.14 lot 2b) : un jeton longue durée vient d'être émis (surface
     // d'attaque créée). `tokenId` corrèle une future révocation/rejeu.
     recordAudit(this.container, {
@@ -537,7 +537,7 @@ class TokenService extends Service {
       access_token: access,
       refresh_token: raw,
       token_type: "Bearer",
-      expires_in: accessTtlS ?? this.#runtime!.accessTtlS,
+      expires_in: accessTtlS ?? runtime.accessTtlS,
       scope: scopes.join(" "),
     };
   }
@@ -562,11 +562,10 @@ class TokenService extends Service {
     rawRefresh: unknown,
     resource?: unknown,
   ): Promise<ITokenResponse> {
-    this.#ensureReady();
+    const { store, runtime } = this.#ensureReady();
     if (typeof rawRefresh !== "string" || rawRefresh.length === 0) {
       throw new AuthenticationError("Invalid token");
     }
-    const store = this.#store!;
     const record = await store.findByHash(this.#hash(rawRefresh));
     if (!record || record.kind !== "refresh") {
       throw new AuthenticationError("Invalid token");
@@ -602,7 +601,7 @@ class TokenService extends Service {
     // portée du jeton sans que personne ne l'ait demandé — une restriction qui
     // s'annule au bout de quelques minutes n'est pas une restriction. Un record
     // antérieur à ce champ (ou d'une autre origine) retombe sur le défaut.
-    const audience = record.audience?.[0] ?? this.#runtime!.audiences[0];
+    const audience = record.audience?.[0] ?? runtime.audiences[0];
     if (resource !== undefined && resource !== null && resource !== audience) {
       // Le contrôle porte sur ce qui a été ACCORDÉ, pas sur la liste blanche : une
       // audience parfaitement déclarée reste refusée ici si ce n'est pas celle de
@@ -616,13 +615,13 @@ class TokenService extends Service {
     }
     const access = await this.#signAccess(user.identifier, scopes, audience);
 
-    if (!this.#runtime!.rotateRefresh) {
+    if (!runtime.rotateRefresh) {
       // Rotation désactivée : on réémet l'access, le refresh courant reste valide.
       return {
         access_token: access,
         refresh_token: rawRefresh,
         token_type: "Bearer",
-        expires_in: this.#runtime!.accessTtlS,
+        expires_in: runtime.accessTtlS,
         scope: scopes.join(" "),
       };
     }
@@ -638,7 +637,7 @@ class TokenService extends Service {
       access_token: access,
       refresh_token: next.raw,
       token_type: "Bearer",
-      expires_in: this.#runtime!.accessTtlS,
+      expires_in: runtime.accessTtlS,
       scope: scopes.join(" "),
     };
   }
@@ -651,9 +650,9 @@ class TokenService extends Service {
     audience: string,
     ttlS?: number,
   ): Promise<string> {
+    const { keystore, runtime: rt } = this.#ensureReady();
     const jose = await this.#ensureJose();
-    const { key, kid } = await this.#keystore!.getSigningKey();
-    const rt = this.#runtime!;
+    const { key, kid } = await keystore.getSigningKey();
     return (
       new jose.SignJWT({ scope: scopes.join(" ") })
         .setProtectedHeader({ alg: "EdDSA", kid, typ: "at+jwt" })
@@ -703,7 +702,7 @@ class TokenService extends Service {
       family,
       replacedBy: null,
       createdAt: now,
-      expiresAt: now + this.#runtime!.refreshTtlS * 1000,
+      expiresAt: now + this.#ensureReady().runtime.refreshTtlS * 1000,
       lastUsedAt: null,
       lastUsedIp: null,
       lastUsedUserAgent: null,
@@ -714,12 +713,26 @@ class TokenService extends Service {
     return { record, raw };
   }
 
-  #ensureReady(): void {
+  /**
+   * Garde d'initialisation : lève si le service n'est pas prêt, sinon rend le
+   * store, le keystore et le runtime typés non nuls. Aucun des trois n'est
+   * réassigné après le boot — les capturer équivaut à les relire plus tard.
+   */
+  #ensureReady(): {
+    store: ITokenStore;
+    keystore: IJwtKeystore;
+    runtime: IJwtRuntime;
+  } {
     if (!this.#store || !this.#keystore || !this.#runtime) {
       throw new Error(
         "TokenService: non initialisé (JWT désactivé ou store indisponible)",
       );
     }
+    return {
+      store: this.#store,
+      keystore: this.#keystore,
+      runtime: this.#runtime,
+    };
   }
 
   async #ensureJose(): Promise<typeof Jose> {

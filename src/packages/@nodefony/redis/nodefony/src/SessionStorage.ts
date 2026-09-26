@@ -118,7 +118,7 @@ class RedisSessionStorage implements ISessionStorage {
       // SET … EX : TTL natif = idle timeout. Session glissante — le TTL est
       // rafraîchi à chaque write (mutation) ET à chaque `touch` (activité pure).
       await client.set(this.#key(id), JSON.stringify(payload), {
-        EX: this.idleTimeoutS,
+        expiration: { type: "EX", value: this.idleTimeoutS },
       });
     }
     return payload;

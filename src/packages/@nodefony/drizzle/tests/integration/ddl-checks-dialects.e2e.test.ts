@@ -61,7 +61,9 @@ interface Executor {
  */
 const violatesProbeCheck = (error: unknown): true => {
   const text = [error, (error as { cause?: unknown })?.cause]
-    .map((err) => String((err as Error)?.message ?? err ?? ""))
+    .map((err) =>
+      err instanceof Error ? err.message : typeof err === "string" ? err : "",
+    )
     .join(" ");
   assert.match(text, new RegExp(`${PROBE_TABLE}_phase_check`));
   return true;

@@ -157,7 +157,7 @@ describe("Verdict divergent — l'historique est complet, la base est fausse", (
     );
     // …et la phrase envoie chercher au bon endroit : la migration, pas un
     // collègue qui aurait touché à la base.
-    assert.match(String(observation.summary), /jamais été générée/u);
+    assert.match(observation.summary, /jamais été générée/u);
 
     // …et le GESTE proposé est celui qui marche. Le générateur sait produire
     // une table que le code déclare ; envoyer écrire le SQL à la main

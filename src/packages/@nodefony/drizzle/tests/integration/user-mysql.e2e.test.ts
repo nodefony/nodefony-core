@@ -98,7 +98,7 @@ describe.skipIf(!MYSQL_URL)(
           // drizzle/mysql2 wrappe l'erreur (« Failed query: … ») ; la violation
           // ER_DUP_ENTRY vit dans la chaîne des causes.
           const chain = [
-            String((err as Error)?.message),
+            err instanceof Error ? err.message : String(err),
             String((err as { cause?: Error })?.cause?.message),
           ].join(" | ");
           return /duplicate entry|unique/i.test(chain);

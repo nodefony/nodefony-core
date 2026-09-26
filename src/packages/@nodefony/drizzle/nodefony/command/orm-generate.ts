@@ -582,7 +582,7 @@ class OrmGenerate extends OrmMigrateCommand {
         );
         return this;
       }
-      return await this.#emit(
+      return this.#emit(
         {
           formatVersion: MIGRATION_FORMAT_VERSION,
           connector,
@@ -662,7 +662,7 @@ class OrmGenerate extends OrmMigrateCommand {
       );
       return this;
     }
-    return await this.#emit(
+    return this.#emit(
       {
         formatVersion: MIGRATION_FORMAT_VERSION,
         connector,

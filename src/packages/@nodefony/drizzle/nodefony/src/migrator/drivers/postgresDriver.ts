@@ -185,7 +185,8 @@ export class PostgresMigrationDriver implements IMigrationDriver {
     await this.exec(`SET lock_timeout = '${Math.max(1, timeoutMs)}ms'`);
     const deadline = Date.now() + timeoutMs;
     for (;;) {
-      const rows = await this.query<{ locked: boolean }>(
+      // Valeur rendue par la base : typée `unknown`, comparée strictement.
+      const rows = await this.query<{ locked: unknown }>(
         `SELECT pg_try_advisory_lock(?::bigint) AS locked`,
         [PG_LOCK_KEY.toString()],
       );

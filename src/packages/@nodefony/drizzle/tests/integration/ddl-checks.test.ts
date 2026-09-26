@@ -50,7 +50,7 @@ const isCheckViolation = (error: unknown): true => {
   }
   assert.fail(
     `attendu une violation de CHECK, obtenu : ${chain
-      .map((err) => String((err as Error)?.message ?? err))
+      .map((err) => (err instanceof Error ? err.message : String(err)))
       .join(" ← ")}`,
   );
 };
@@ -85,7 +85,8 @@ describe("DDL de développement — les valeurs énumérées sont bornées en ba
     const rows = await nativeDb(orm).all(
       sql`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'idempotency_key'`,
     );
-    const ddl = String(rows[0]?.sql ?? "");
+    const cell = rows[0]?.sql;
+    const ddl = typeof cell === "string" ? cell : "";
     assert.match(
       ddl,
       /CONSTRAINT "idempotency_key_state_check" CHECK \("state" IN \('if', 'done'\)\)/,

@@ -31,7 +31,7 @@ function describeOf(path: readonly string[]): string {
     assert.ok(props?.[key], `chemin de config introuvable : ${path.join(".")}`);
     node = props[key];
   }
-  return String(node.description ?? "");
+  return typeof node.description === "string" ? node.description : "";
 }
 
 describe("promesses de config — format des clés d'API", () => {

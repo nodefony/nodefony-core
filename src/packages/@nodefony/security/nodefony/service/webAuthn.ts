@@ -281,10 +281,10 @@ class WebAuthnService extends Service {
   async generateRegistrationOptions(
     user: IWebAuthnUser,
   ): Promise<PublicKeyCredentialCreationOptionsJSON> {
-    this.#ensureReady();
+    const { store, config } = this.#ensureReady();
     const lib = await this.#ensureLib();
-    const pk = this.#config!.passkeys;
-    const existing = await this.#store!.findByUser(user.id);
+    const pk = config.passkeys;
+    const existing = await store.findByUser(user.id);
     return lib.generateRegistrationOptions({
       rpName: this.#rpName,
       rpID: this.#rpID,
@@ -325,9 +325,9 @@ class WebAuthnService extends Service {
     userId: string,
     requestOrigin?: string,
   ): Promise<IWebAuthnCredential> {
-    this.#ensureReady();
+    const { store, config } = this.#ensureReady();
     const lib = await this.#ensureLib();
-    const pk = this.#config!.passkeys;
+    const pk = config.passkeys;
     let verification: Awaited<
       ReturnType<typeof lib.verifyRegistrationResponse>
     >;
@@ -335,7 +335,7 @@ class WebAuthnService extends Service {
       verification = await lib.verifyRegistrationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: this.#expectedOrigin(requestOrigin),
+        expectedOrigin: this.#expectedOrigin(pk.origins, requestOrigin),
         expectedRPID: this.#rpID,
         requireUserVerification: pk.userVerification === "required",
       });
@@ -349,7 +349,7 @@ class WebAuthnService extends Service {
     // Plafond APRÈS vérification cryptographique, AVANT le `save` : c'est le
     // `save` qu'il faut garder, pas la génération d'options (un client peut
     // poster directement `register/verify` sans passer par `register/options`).
-    const enrolled = await this.#store!.countByUser(userId);
+    const enrolled = await store.countByUser(userId);
     if (enrolled >= pk.maxPerUser) {
       throw new WebAuthnError(`passkey limit reached (${pk.maxPerUser})`, 409);
     }
@@ -367,7 +367,7 @@ class WebAuthnService extends Service {
       createdAt: Date.now(),
       lastUsedAt: null,
     };
-    await this.#store!.save(credential);
+    await store.save(credential);
     return credential;
   }
 
@@ -389,12 +389,12 @@ class WebAuthnService extends Service {
   async generateAuthenticationOptions(
     userId?: string,
   ): Promise<PublicKeyCredentialRequestOptionsJSON> {
-    this.#ensureReady();
+    const { store, config } = this.#ensureReady();
     const lib = await this.#ensureLib();
-    const pk = this.#config!.passkeys;
+    const pk = config.passkeys;
     let allowCredentials: { id: string; transports?: string[] }[] | undefined;
     if (userId) {
-      const creds = await this.#store!.findByUser(userId);
+      const creds = await store.findByUser(userId);
       allowCredentials = creds.map((c) => ({
         id: c.id,
         transports: [...c.transports],
@@ -421,10 +421,10 @@ class WebAuthnService extends Service {
     expectedChallenge: string,
     requestOrigin?: string,
   ): Promise<IWebAuthnAssertionResult> {
-    this.#ensureReady();
+    const { store, config } = this.#ensureReady();
     const lib = await this.#ensureLib();
-    const pk = this.#config!.passkeys;
-    const stored = await this.#store!.findById(response.id);
+    const pk = config.passkeys;
+    const stored = await store.findById(response.id);
     if (!stored) {
       throw new AuthenticationError("WebAuthn authentication failed");
     }
@@ -435,7 +435,7 @@ class WebAuthnService extends Service {
       verification = await lib.verifyAuthenticationResponse({
         response,
         expectedChallenge,
-        expectedOrigin: this.#expectedOrigin(requestOrigin),
+        expectedOrigin: this.#expectedOrigin(pk.origins, requestOrigin),
         expectedRPID: this.#rpID,
         credential: {
           id: stored.id,
@@ -452,7 +452,7 @@ class WebAuthnService extends Service {
       throw new AuthenticationError("WebAuthn authentication failed");
     }
     const info = verification.authenticationInfo;
-    await this.#store!.update(stored.id, {
+    await store.update(stored.id, {
       signCount: info.newCounter,
       backupState: info.credentialBackedUp,
       uvInitialized: stored.uvInitialized || info.userVerified,
@@ -463,8 +463,7 @@ class WebAuthnService extends Service {
 
   /** Liste les credentials d'un utilisateur (UX « mes appareils »). */
   listUserCredentials(userId: string): Promise<IWebAuthnCredential[]> {
-    this.#ensureReady();
-    return this.#store!.findByUser(userId);
+    return this.#ensureReady().store.findByUser(userId);
   }
 
   /**
@@ -478,8 +477,7 @@ class WebAuthnService extends Service {
   listCredentialsPage(
     query: IWebAuthnListQuery,
   ): Promise<IPage<IWebAuthnCredentialSummary>> {
-    this.#ensureReady();
-    return this.#store!.listPage(query);
+    return this.#ensureReady().store.listPage(query);
   }
 
   /**
@@ -487,14 +485,12 @@ class WebAuthnService extends Service {
    * pas compter à coût raisonnable (Redis).
    */
   countCredentials(query: IWebAuthnListQuery): Promise<number> {
-    this.#ensureReady();
-    return this.#store!.countCredentials(query);
+    return this.#ensureReady().store.countCredentials(query);
   }
 
   /** Révoque un credential (retrait d'un appareil). */
   removeCredential(credentialId: string): Promise<void> {
-    this.#ensureReady();
-    return this.#store!.delete(credentialId);
+    return this.#ensureReady().store.delete(credentialId);
   }
 
   /**
@@ -507,12 +503,12 @@ class WebAuthnService extends Service {
     userId: string,
     credentialId: string,
   ): Promise<boolean> {
-    this.#ensureReady();
-    const cred = await this.#store!.findById(credentialId);
+    const { store } = this.#ensureReady();
+    const cred = await store.findById(credentialId);
     if (!cred || cred.userId !== userId) {
       return false;
     }
-    await this.#store!.delete(credentialId);
+    await store.delete(credentialId);
     return true;
   }
 
@@ -523,9 +519,14 @@ class WebAuthnService extends Service {
    * priorité (prod). À défaut : l'origine de la requête est acceptée **seulement
    * si son hostname == rpID** (dev : `localhost:port` quel que soit le port, sans
    * jamais ouvrir à un domaine tiers). Dernier recours : `https://{rpID}`.
+   *
+   * @param origins - liste blanche `passkeys.origins` de la config prête.
+   * @param requestOrigin - origine HTTP de la requête, si connue.
    */
-  #expectedOrigin(requestOrigin?: string): string | string[] {
-    const origins = this.#config!.passkeys.origins;
+  #expectedOrigin(
+    origins: readonly string[],
+    requestOrigin?: string,
+  ): string | string[] {
     if (origins.length > 0) {
       return [...origins];
     }
@@ -545,12 +546,18 @@ class WebAuthnService extends Service {
     return (this.#lib ??= await import("@simplewebauthn/server"));
   }
 
-  #ensureReady(): void {
+  /**
+   * Garde d'initialisation : lève si le service n'est pas prêt, sinon rend le
+   * store et la config typés non nuls (ni l'un ni l'autre ne sont réassignés
+   * après le boot — les capturer ici équivaut à les relire plus tard).
+   */
+  #ensureReady(): { store: IWebAuthnCredentialStore; config: ISecurityConfig } {
     if (!this.#ready || !this.#store || !this.#config) {
       throw new Error(
         "WebAuthnService: non initialisé (passkeys désactivés ou boot échoué)",
       );
     }
+    return { store: this.#store, config: this.#config };
   }
 }
 

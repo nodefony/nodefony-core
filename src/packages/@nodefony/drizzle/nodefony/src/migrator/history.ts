@@ -202,8 +202,8 @@ export async function readHistory(
     finishedAt: row.finished_at === null ? null : Number(row.finished_at),
     executionMs: row.execution_ms === null ? null : Number(row.execution_ms),
     success: toBoolean(row.success),
-    error: row.error === null ? null : String(row.error),
-    appliedBy: row.applied_by === null ? null : String(row.applied_by),
+    error: toNullableText(row.error),
+    appliedBy: toNullableText(row.applied_by),
   }));
 }
 
@@ -331,6 +331,38 @@ export async function forgetEntries(
     removed.push({ source: target.source, tag: target.tag });
   }
   return removed;
+}
+
+/**
+ * Décode une colonne texte NULLABLE de l'historique.
+ *
+ * Une colonne texte rend une chaîne ; un `Buffer` (collation binaire MySQL) est
+ * lu en UTF-8, comme le faisait `String()`. Un objet inattendu est sérialisé en
+ * JSON plutôt que réduit à `[object Object]`, qui effacerait la cause.
+ *
+ * @param value - valeur brute rendue par le driver.
+ * @returns le texte, ou `null` si la colonne est nulle.
+ */
+function toNullableText(value: unknown): string | null {
+  if (value === null) return null;
+  switch (typeof value) {
+    case "string":
+      return value;
+    case "number":
+    case "bigint":
+    case "boolean":
+    case "undefined":
+      return String(value);
+    case "symbol":
+      return value.toString();
+    case "function":
+      return "function";
+    case "object":
+    default: // inatteignable : `typeof` n'a pas d'autre valeur
+      return Buffer.isBuffer(value)
+        ? value.toString("utf8")
+        : JSON.stringify(value);
+  }
 }
 
 /**

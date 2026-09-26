@@ -55,7 +55,12 @@ async function decor(options: { jwksDown?: boolean } = {}): Promise<IDecor> {
     [JWKS_URL]: { keys: [jwk] },
   };
   const fetchImpl = async (input: RequestInfo | URL): Promise<Response> => {
-    const url = String(input);
+    const url =
+      typeof input === "string"
+        ? input
+        : input instanceof URL
+          ? input.href
+          : input.url;
     if (url === JWKS_URL && options.jwksDown) {
       return new Response("nope", { status: 503 });
     }

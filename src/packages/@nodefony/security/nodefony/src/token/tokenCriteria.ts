@@ -32,6 +32,7 @@ export function tokenStatusCriteria(
         revokedAt: { $null: true },
         $or: [{ expiresAt: { $null: true } }, { expiresAt: { $gt: now } }],
       };
+    case undefined: // aucun filtre demandé : même issue que `default`
     default:
       return {};
   }

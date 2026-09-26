@@ -807,8 +807,10 @@ async function lostColumnUniques(
       // `PRAGMA` n'accepte pas de paramètre lié : le nom vient du CATALOGUE,
       // jamais d'une saisie, et il est cité comme un identifiant.
       const index = await driver.query<{
-        name: string;
-        unique: number;
+        // Valeurs rendues par le PRAGMA : typées `unknown` jusqu'à leur
+        // conversion explicite ci-dessous.
+        name: unknown;
+        unique: unknown;
         origin: string;
       }>(`PRAGMA index_list(${ident})`);
       for (const idx of index) {

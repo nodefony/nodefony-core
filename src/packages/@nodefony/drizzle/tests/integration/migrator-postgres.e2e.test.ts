@@ -167,8 +167,9 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
     });
     await holder.lock(5_000);
     const pid = Number(
-      (await holder.query<{ pid: number }>(`SELECT pg_backend_pid() AS pid`))[0]
-        ?.pid,
+      (
+        await holder.query<{ pid: unknown }>(`SELECT pg_backend_pid() AS pid`)
+      )[0]?.pid,
     );
 
     // Le job est tué en plein vol — OOM, éviction, machine coupée. Aucune
@@ -181,7 +182,10 @@ describe.skipIf(!PG_URL)("Applicateur de migrations (postgres)", () => {
     await assert.rejects(
       async () => migrator(1_000).migrate(),
       (e: unknown) => {
-        assert.match(String((e as Error).message), /Verrou de migration/);
+        assert.match(
+          e instanceof Error ? e.message : String(e),
+          /Verrou de migration/,
+        );
         return true;
       },
     );

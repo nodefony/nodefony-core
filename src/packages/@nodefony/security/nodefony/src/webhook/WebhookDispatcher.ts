@@ -173,8 +173,9 @@ export class WebhookDispatcher {
   #pump(): void {
     if (this.#queue === null || this.#stopped) return;
     const max = this.#deps.policy.maxConcurrent;
-    while (this.#inFlight < max && this.#queue.length > 0) {
-      const job = this.#queue.shift()!;
+    while (this.#inFlight < max) {
+      const job = this.#queue.shift();
+      if (job === undefined) break; // file vide
       this.#inFlight++;
       void this.#process(job).finally(() => {
         this.#inFlight--;

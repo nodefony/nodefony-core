@@ -117,6 +117,7 @@ function webhookStoreDriver(className: string | undefined): WebhookDriver {
     case "DrizzleWebhookStore":
     case "MongooseWebhookStore":
       return "orm";
+    case undefined: // classe inconnue : même issue que `default`
     default:
       return null;
   }

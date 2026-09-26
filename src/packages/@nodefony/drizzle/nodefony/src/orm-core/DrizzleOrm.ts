@@ -797,7 +797,8 @@ export class DrizzleOrm extends Orm {
     // fuités — et ses écoutes continuaient de parler au nom d'un ORM dont la
     // connexion courante est ailleurs.
     await this.#releasePrevious();
-    this.#tables = Object.create(null) as Record<string, DrizzleTable>;
+    const tables = Object.create(null) as Record<string, DrizzleTable>;
+    this.#tables = tables;
     this.#relations = Object.create(null) as Record<
       string,
       Record<string, DrizzleResolvedRelation>
@@ -807,13 +808,13 @@ export class DrizzleOrm extends Orm {
     // 1) Connexion + DDL dérivé (schema-as-code) selon le dialecte.
     switch (this.#dialect) {
       case "sqlite":
-        await this.#connectSqlite(entities);
+        await this.#connectSqlite(entities, tables);
         break;
       case "postgres":
-        await this.#connectPostgres(entities);
+        await this.#connectPostgres(entities, tables);
         break;
       case "mysql":
-        await this.#connectMysql(entities);
+        await this.#connectMysql(entities, tables);
         break;
     }
 
@@ -846,7 +847,10 @@ export class DrizzleOrm extends Orm {
    * La méthode devient asynchrone pour cette seule raison ; le pilote, lui,
    * reste synchrone une fois chargé (`client.exec`, `client.pragma`).
    */
-  async #connectSqlite(entities: IEntity[]): Promise<void> {
+  async #connectSqlite(
+    entities: IEntity[],
+    tables: Record<string, DrizzleTable>,
+  ): Promise<void> {
     let Sqlite: new (filename: string) => BetterSqlite3.Database;
     let sqliteDrizzle: (client: BetterSqlite3.Database) => DrizzleDb;
     try {
@@ -933,7 +937,7 @@ export class DrizzleOrm extends Orm {
     for (const entity of entities) {
       this.#assertDialectTable(entity, SQLiteTable, "sqlite");
       const table = entity.schema as SQLiteTable;
-      this.#tables![entity.name] = table;
+      tables[entity.name] = table;
       entity.model = table;
     }
     if (!this.#deriveSchema) {
@@ -975,20 +979,23 @@ export class DrizzleOrm extends Orm {
   ): Promise<T[]> => {
     switch (this.#dialect) {
       case "sqlite": {
-        const statement = this.#client!.prepare(sql);
+        const statement = this.#sqliteClient().prepare(sql);
         return statement.reader
           ? (statement.all(...(params as unknown[])) as T[])
           : [];
       }
       case "postgres": {
-        const result = await this.#pgPool!.query(
+        const result = await this.#pgClient().query(
           toDollarParams(sql),
           params as unknown[],
         );
         return result.rows as T[];
       }
       case "mysql": {
-        const [rows] = await this.#mysqlPool!.query(sql, params as unknown[]);
+        const [rows] = await this.#mysqlClient().query(
+          sql,
+          params as unknown[],
+        );
         return Array.isArray(rows) ? (rows as T[]) : [];
       }
     }
@@ -1002,13 +1009,13 @@ export class DrizzleOrm extends Orm {
   async #rawExec(sql: string): Promise<void> {
     switch (this.#dialect) {
       case "sqlite":
-        this.#client!.exec(sql);
+        this.#sqliteClient().exec(sql);
         return;
       case "postgres":
-        await this.#pgPool!.query(sql);
+        await this.#pgClient().query(sql);
         return;
       case "mysql":
-        await this.#mysqlPool!.query(sql);
+        await this.#mysqlClient().query(sql);
         return;
     }
   }
@@ -1124,7 +1131,7 @@ export class DrizzleOrm extends Orm {
             continue;
           }
           for (const statement of this.#createIndexesSQL(t)) {
-            this.#client!.exec(statement);
+            this.#sqliteClient().exec(statement);
           }
           break;
         }
@@ -1134,7 +1141,7 @@ export class DrizzleOrm extends Orm {
             continue;
           }
           for (const statement of this.#createIndexesPgSQL(t)) {
-            await this.#pgPool!.query(statement);
+            await this.#pgClient().query(statement);
           }
           break;
         }
@@ -1145,7 +1152,7 @@ export class DrizzleOrm extends Orm {
           }
           for (const statement of this.#createIndexesMysqlSQL(t)) {
             try {
-              await this.#mysqlPool!.query(statement);
+              await this.#mysqlClient().query(statement);
             } catch (error) {
               // MySQL n'a pas de `CREATE INDEX IF NOT EXISTS` : rejouer le DDL
               // de développement sur une base existante lève `ER_DUP_KEYNAME`.
@@ -1189,7 +1196,10 @@ export class DrizzleOrm extends Orm {
    * déploiement SQLite ne les tire jamais. Pool partagé ; DDL dérivé pour dev/test
    * (prod = drizzle-kit). Échec d'import → message actionnable (`npm i pg`).
    */
-  async #connectPostgres(entities: IEntity[]): Promise<void> {
+  async #connectPostgres(
+    entities: IEntity[],
+    tables: Record<string, DrizzleTable>,
+  ): Promise<void> {
     if (!this.#url) {
       throw new Error(
         `DrizzleOrm "${this.name}": dialect "postgres" requires a connection \`url\`.`,
@@ -1274,7 +1284,7 @@ export class DrizzleOrm extends Orm {
     // doit être ATOMIQUE : un échec tardif laissait jusqu'ici un pool ouvert
     // et des écoutes câblées sur un ORM que l'appelant croit mort.
     try {
-      await this.#finishPostgres(entities, pool, pgDrizzle);
+      await this.#finishPostgres(entities, tables, pool, pgDrizzle);
     } catch (e) {
       this.#unwireAll();
       await pool.end().catch(() => undefined);
@@ -1288,6 +1298,7 @@ export class DrizzleOrm extends Orm {
   /** Suite de la connexion postgres — isolée pour rendre `connect()` atomique. */
   async #finishPostgres(
     entities: IEntity[],
+    tables: Record<string, DrizzleTable>,
     pool: Pool,
     pgDrizzle: (client: Pool | PoolClient) => unknown,
   ): Promise<void> {
@@ -1341,7 +1352,7 @@ export class DrizzleOrm extends Orm {
     for (const entity of entities) {
       this.#assertDialectTable(entity, PgTable, "postgres");
       const table = entity.schema as PgTable;
-      this.#tables![entity.name] = table;
+      tables[entity.name] = table;
       entity.model = table;
     }
     if (!this.#deriveSchema) {
@@ -1496,7 +1507,10 @@ export class DrizzleOrm extends Orm {
    * `datetime(3)` (kind `dateMs` du colKit) sont écrites/relues en UTC — mêmes
    * instants que `timestamptz` PG, sans dépendre de la timezone du serveur.
    */
-  async #connectMysql(entities: IEntity[]): Promise<void> {
+  async #connectMysql(
+    entities: IEntity[],
+    tables: Record<string, DrizzleTable>,
+  ): Promise<void> {
     if (!this.#url) {
       throw new Error(
         `DrizzleOrm "${this.name}": dialect "mysql" requires a connection \`url\`.`,
@@ -1558,7 +1572,7 @@ export class DrizzleOrm extends Orm {
     // Atomicité — même raison quen postgres : un DDL qui lève ne doit pas
     // laisser un pool ouvert derrière un connect() qui a rejeté.
     try {
-      await this.#finishMysql(entities, pool, mysqlDrizzle);
+      await this.#finishMysql(entities, tables, pool, mysqlDrizzle);
     } catch (e) {
       this.#unwireAll();
       await pool.end().catch(() => undefined);
@@ -1572,6 +1586,7 @@ export class DrizzleOrm extends Orm {
   /** Suite de la connexion mysql — isolée pour rendre `connect()` atomique. */
   async #finishMysql(
     entities: IEntity[],
+    tables: Record<string, DrizzleTable>,
     pool: MysqlPool,
     mysqlDrizzle: (client: MysqlPool | MysqlPoolConnection) => unknown,
   ): Promise<void> {
@@ -1605,7 +1620,7 @@ export class DrizzleOrm extends Orm {
     for (const entity of entities) {
       this.#assertDialectTable(entity, MySqlTable, "mysql");
       const table = entity.schema as MySqlTable;
-      this.#tables![entity.name] = table;
+      tables[entity.name] = table;
       entity.model = table;
     }
     if (!this.#deriveSchema) {
@@ -1734,6 +1749,37 @@ export class DrizzleOrm extends Orm {
     }
   }
 
+  /**
+   * Connexion SQLite courante — lève si le connecteur n'est pas ouvert. Les
+   * appelants ne passent ici qu'une fois `onConnect` engagé : la levée ne sert
+   * qu'à typer, et à dire la cause si l'ordre était un jour rompu.
+   */
+  #sqliteClient(): BetterSqlite3.Database {
+    if (this.#client === null) {
+      throw new Error(`DrizzleOrm "${this.name}": not connected.`);
+    }
+    return this.#client;
+  }
+
+  /** Pool PostgreSQL courant — même contrat que {@link #sqliteClient}. */
+  #pgClient(): Pool {
+    if (this.#pgPool === null) {
+      throw new Error(`DrizzleOrm "${this.name}": not connected.`);
+    }
+    return this.#pgPool;
+  }
+
+  /** Pool MySQL courant — même contrat que {@link #sqliteClient}. */
+  #mysqlClient(): MysqlPool {
+    if (this.#mysqlPool === null) {
+      throw new Error(`DrizzleOrm "${this.name}": not connected.`);
+    }
+    return this.#mysqlPool;
+  }
+
+  // Trappe typée par l'appelant, par construction (contrat `IOrm`) : retirer
+  // `C` casserait `getNativeConnection<DrizzleDb>()` — rupture d'API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNativeConnection<C = unknown>(): C {
     if (!this.#db) {
       throw new Error(`DrizzleOrm "${this.name}": not connected.`);

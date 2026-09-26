@@ -43,6 +43,9 @@ export interface IToken {
   getScopes(): string[];
 
   /** Lecture d'un attribut arbitraire posé par l'authenticator (claims JWT, scopes…). */
+  // Accesseur typé par l'appelant, par construction : retirer `T` casserait
+  // `getAttribute<…>()` chez chaque consommateur (rupture d'API publique).
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getAttribute<T = unknown>(key: string): T | undefined;
 
   /** Pose un attribut arbitraire (claims, scopes, providerId…). */

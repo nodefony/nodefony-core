@@ -187,7 +187,8 @@ export class DrizzleAuditStore implements IAuditStore {
       const totalRows = (await db
         .select({ n: count() })
         .from(table)
-        .where(filterWhere)) as Array<{ n: number }>;
+        .where(filterWhere)) as Array<{ n: unknown }>;
+      // `unknown` : un `COUNT` peut revenir en chaîne (BIGINT) selon le driver.
       total = Number(totalRows[0]?.n ?? 0);
     }
 

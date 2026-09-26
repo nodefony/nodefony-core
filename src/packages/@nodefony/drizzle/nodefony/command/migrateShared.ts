@@ -121,6 +121,9 @@ export abstract class OrmMigrateCommand extends Command {
    * divergeraient — le journal obéirait à `NO_COLOR`, la commande non.
    */
   protected get tty(): boolean {
+    // `@types/node` déclare `isTTY: boolean`, mais Node le laisse `undefined`
+    // hors terminal : la comparaison stricte est le seul garde de ce mensonge.
+    // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
     return resolveColorEnabled(process.stdout.isTTY === true);
   }
 

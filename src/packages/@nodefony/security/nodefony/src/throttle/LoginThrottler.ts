@@ -88,7 +88,7 @@ export class LoginThrottler {
    * @param identifier - identifiant tel que saisi.
    */
   recordFailure(identifier: string): void {
-    const entries = (this.#entries ??= new Map());
+    const entries = (this.#entries ??= new Map<string, IThrottleEntry>());
     let entry = entries.get(identifier);
     if (entry === undefined) {
       if (entries.size >= this.maxTracked) this.#evict(entries);

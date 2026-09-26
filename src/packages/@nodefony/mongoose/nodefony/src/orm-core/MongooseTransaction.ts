@@ -71,6 +71,9 @@ export class MongooseTransaction implements ITransaction {
   }
 
   /** Expose la `ClientSession` native (trappe bas niveau). */
+  // Trappe typée par l'appelant, par construction (contrat `ITransaction`) :
+  // retirer `C` casserait `getNative<…>()` chez chaque consommateur.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNative<C = unknown>(): C {
     return this.#session as C;
   }

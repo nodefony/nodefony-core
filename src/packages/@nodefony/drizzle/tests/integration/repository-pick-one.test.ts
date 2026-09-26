@@ -64,7 +64,7 @@ const compositeTable = sqliteTable(
     slot: integer("slot").notNull(),
     payload: text("payload"),
   },
-  (t) => ({ pk: primaryKey({ columns: [t.tenant, t.slot] }) }),
+  (t) => [primaryKey({ columns: [t.tenant, t.slot] })],
 );
 interface CompositeRow {
   tenant: string;

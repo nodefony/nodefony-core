@@ -187,7 +187,9 @@ export function runWebAuthnPaginationContract(
       it("filtre backedUp : les passkeys qui MEURENT avec leur appareil", async () => {
         const fragile = await store().listPage({ limit: 100, backedUp: false });
         assert.equal(fragile.total, 4);
-        assert.ok(fragile.items.every((c) => c.backupState === false));
+        // `assert.equal` (strict) : une valeur rendue par le backend doit être
+        // EXACTEMENT `false` — une négation laisserait passer `0` ou `null`.
+        for (const c of fragile.items) assert.equal(c.backupState, false);
         assert.equal(
           (await store().listPage({ limit: 100, backedUp: true })).total,
           8,
@@ -242,7 +244,7 @@ export function runWebAuthnPaginationContract(
       it("curseur : filtre backedUp", async () => {
         const fragile = await collectByCursor(store(), { backedUp: false });
         assert.equal(fragile.length, 4);
-        assert.ok(fragile.every((c) => c.backupState === false));
+        for (const c of fragile) assert.equal(c.backupState, false);
       });
 
       it("countCredentials = -1 (capacité réduite Redis assumée)", async () => {

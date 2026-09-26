@@ -195,7 +195,9 @@ class AuditService extends Service implements IAuditSink {
     };
     // Persistance best-effort : l'audit ne bloque ni ne fait échouer le flux
     // métier (store en panne → log ERROR, pas un login KO).
-    this.#store.append(event).catch((error) => this.log(error, "ERROR"));
+    this.#store
+      .append(event)
+      .catch((error: unknown) => this.log(error, "ERROR"));
     // Notifie le live (bridge WS) seulement s'il y a des abonnés.
     if (this.#listeners !== null) {
       for (let i = 0; i < this.#listeners.length; i++) {

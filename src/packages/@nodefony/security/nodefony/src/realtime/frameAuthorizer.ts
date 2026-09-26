@@ -414,10 +414,10 @@ export function buildFrameAuthorizer(
     const f = frame as { method?: unknown; params?: unknown } | undefined;
     const method = f?.method;
     if (method === "api.request") {
-      return authorizeApiRequest(firewall, f!.params, token, onDeny);
+      return authorizeApiRequest(firewall, f?.params, token, onDeny);
     }
     if (method === "subscribe") {
-      const channel = (f!.params as { channel?: unknown } | undefined)?.channel;
+      const channel = (f?.params as { channel?: unknown } | undefined)?.channel;
       // params invalides → laisser passer : `startChannel` ignore un canal absent.
       if (typeof channel !== "string") return true;
       return authorizeChannel(

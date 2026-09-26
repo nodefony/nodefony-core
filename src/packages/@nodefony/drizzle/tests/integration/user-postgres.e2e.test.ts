@@ -97,7 +97,7 @@ describe.skipIf(!PG_URL)(
           // drizzle/node-postgres wrappe l'erreur PG (« Failed query: … ») ;
           // la violation 23505 vit dans la chaîne des causes.
           const chain = [
-            String((err as Error)?.message),
+            err instanceof Error ? err.message : String(err),
             String((err as { cause?: Error })?.cause?.message),
           ].join(" | ");
           return /duplicate key|unique/i.test(chain);

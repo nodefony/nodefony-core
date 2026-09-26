@@ -96,14 +96,14 @@ class Drizzle extends Module<IDrizzleConfig> {
     // schéma framework n'a pas où vivre : le déclarer quand même publierait des
     // fabriques de stores vers un ORM que personne n'ouvre.
     const frameworkHost = validated.connectors.default;
-    if (validated.frameworkEntities !== false && frameworkHost === undefined) {
+    if (validated.frameworkEntities && frameworkHost === undefined) {
       this.log(
         `pas de connecteur "${FRAMEWORK_CONNECTOR}" (infrastructure déclarée non SQL) : ` +
           `schéma framework non déclaré sur drizzle — les stores durables vont au backend de cette infrastructure`,
         "INFO",
       );
     }
-    if (validated.frameworkEntities !== false && frameworkHost !== undefined) {
+    if (validated.frameworkEntities && frameworkHost !== undefined) {
       const dialect = frameworkHost.dialect;
       const report = registerDrizzleFrameworkStores(dialect);
       if (report.unported.length) {

@@ -18,7 +18,10 @@ let seedCounter = 0;
  * trois dialectes), et non `columnType`, qui nomme l'implémentation (`SQLiteText`,
  * `PgVarchar`) et obligerait à connaître chaque moteur.
  */
-function sampleForColumn(column: Column, n: number): unknown {
+function sampleForColumn(
+  column: Pick<Column, "enumValues" | "dataType">,
+  n: number,
+): unknown {
   if (column.enumValues?.length) return column.enumValues[0];
   switch (column.dataType) {
     case "number":
@@ -33,6 +36,17 @@ function sampleForColumn(column: Column, n: number): unknown {
       return {};
     case "buffer":
       return Buffer.from(`seed-${n}`);
+    // Tout le reste reçoit une chaîne — nommés un à un pour qu'un type ajouté
+    // par Drizzle soit signalé ici plutôt qu'absorbé en silence.
+    case "string":
+    case "array":
+    case "custom":
+    case "duration":
+    case "dateDuration":
+    case "relDuration":
+    case "localDate":
+    case "localDateTime":
+    case "localTime":
     default:
       return `seed-${n}`;
   }

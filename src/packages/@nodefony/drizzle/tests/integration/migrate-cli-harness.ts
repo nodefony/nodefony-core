@@ -388,7 +388,10 @@ export async function tablesEnBase(
       // MySQL rend « TABLE_NAME » sur certaines collations de catalogue : lire
       // la première valeur de la ligne évite de parier sur la casse d'une clé.
       return lignes
-        .map((l) => String(Object.values(l)[0] ?? ""))
+        .map((l) => {
+          const name = Object.values(l)[0];
+          return typeof name === "string" ? name : "";
+        })
         .filter((n) => n.length > 0);
     } finally {
       await pilote.close();

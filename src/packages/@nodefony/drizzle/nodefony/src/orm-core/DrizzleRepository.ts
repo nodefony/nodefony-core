@@ -683,7 +683,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     if (options?.offset !== undefined) {
       query = query.offset(options.offset);
     }
-    return await this.#prof(query);
+    return this.#prof(query);
   }
 
   /** Eager-load manuel des relations déclarées (1 requête `IN (...)` par relation). */
@@ -712,7 +712,9 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         );
         const byParent = new Map<unknown, Record<string, unknown>[]>();
         for (const child of children) {
-          const key = child[rel.foreignKey];
+          // Ligne d'une table résolue au runtime : la valeur n'a pas de type
+          // statique, elle ne sert que de clé de regroupement.
+          const key: unknown = child[rel.foreignKey];
           const bucket = byParent.get(key);
           if (bucket) {
             bucket.push(child);
@@ -996,7 +998,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
     criteria: Criteria<T>,
   ): Promise<Record<string, unknown>[]> {
     const pick = this.#pickOne(this.#where(criteria));
-    return await this.#prof(
+    return this.#prof(
       this.#db.delete(execTable(this.#table)).where(pick).returning(),
     );
   }
@@ -1151,7 +1153,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       .$dynamic();
     const rows = (await this.#prof(
       where ? builder.where(where) : builder,
-    )) as Array<{ value: number }>;
+    )) as Array<{ value: unknown }>; // COUNT : chaîne possible (BIGINT)
     return Number(rows[0]?.value ?? 0);
   }
 
@@ -1171,7 +1173,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       .$dynamic();
     const rows = (await this.#prof(
       where ? builder.where(where) : builder,
-    )) as Array<{ value: number }>;
+    )) as Array<{ value: unknown }>; // COUNT : chaîne possible (BIGINT)
     return Number(rows[0]?.value ?? 0);
   }
 
