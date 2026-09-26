@@ -60,13 +60,13 @@ export class UserPasswordAuthenticator implements IAuthenticator {
 
   /** La requête porte-t-elle un en-tête `Authorization: Basic ...` ? */
   supports(context: ContextType): boolean {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     return typeof auth === "string" && BASIC_SCHEME.test(auth);
   }
 
   /** Décode l'enveloppe Basic — un contenu malformé donne un credential vide (échec uniforme). */
   createToken(context: ContextType): Promise<IToken> {
-    const auth = context.request?.headers?.authorization as string;
+    const auth = context.request?.headers.authorization as string;
     const decoded = Buffer.from(
       auth.replace(BASIC_SCHEME, ""),
       "base64",

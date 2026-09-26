@@ -250,7 +250,7 @@ export class JwtKeystore implements IJwtKeystore {
     } catch {
       throw new Error("JwtKeystore: keyset JSON invalide");
     }
-    const keyset = parsed as StoredKeyset;
+    const keyset = parsed as StoredKeyset | null; // `JSON.parse("null")`
     if (
       !keyset ||
       !Array.isArray(keyset.keys) ||

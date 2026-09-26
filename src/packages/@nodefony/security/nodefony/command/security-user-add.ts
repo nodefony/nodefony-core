@@ -98,7 +98,8 @@ class SecurityUserAdd extends Command {
    */
   #knownRoles(): string[] {
     const modules = this.kernel?.modules as
-      Record<string, { options?: Record<string, unknown> }> | undefined;
+      | Record<string, { options?: Record<string, unknown> } | undefined>
+      | undefined;
     const hierarchy = (
       modules?.security?.options as
         { roleHierarchy?: Record<string, string[]> } | undefined

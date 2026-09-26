@@ -99,7 +99,8 @@ export function createGithubProvider(
         const list = (await ghGet(`${API}/user/emails`, accessToken)) as Array<
           Record<string, unknown>
         >;
-        const primary = list.find((e) => e.primary === true) ?? list[0] ?? null;
+        const primary =
+          list.find((e) => e.primary === true) ?? list.at(0) ?? null;
         if (primary && typeof primary.email === "string") {
           email = primary.email;
           emailVerified = primary.verified === true;

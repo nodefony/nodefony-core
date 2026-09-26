@@ -313,7 +313,8 @@ class SecurityToken extends Command {
     // écrite — et elle doit l'être : dérivée d'un en-tête `Host`, un `Host`
     // forgé obtiendrait un jeton d'audience arbitraire.
     const modules = this.kernel?.modules as
-      Record<string, { options?: Record<string, unknown> }> | undefined;
+      | Record<string, { options?: Record<string, unknown> } | undefined>
+      | undefined;
     const devkit = modules?.devkit?.options as
       { mcp?: { authorization?: { resource?: string } } } | undefined;
     const declaree = devkit?.mcp?.authorization?.resource;
@@ -335,7 +336,8 @@ class SecurityToken extends Command {
    */
   #ephemeralKey(): boolean {
     const modules = this.kernel?.modules as
-      Record<string, { options?: Record<string, unknown> }> | undefined;
+      | Record<string, { options?: Record<string, unknown> } | undefined>
+      | undefined;
     const jwt = (
       modules?.security?.options as
         | { jwt?: { keystore?: { keySetJson?: string; dir?: string } } }
@@ -381,7 +383,7 @@ class SecurityToken extends Command {
         identifier = await this.prompts.select({
           message: "Compte porteur du jeton :",
           choices: page.items.map((u) => ({
-            name: `${u.identifier}${(u.roles ?? []).length ? ` ${DIM}(${(u.roles ?? []).join(", ")})${RESET}` : ""}`,
+            name: `${u.identifier}${u.roles.length ? ` ${DIM}(${u.roles.join(", ")})${RESET}` : ""}`,
             value: u.identifier,
           })),
         });
@@ -494,7 +496,7 @@ class SecurityToken extends Command {
     // l'émetteur retire ceux que ce porteur ne peut pas obtenir (RFC 6749 §3.3
     // l'y autorise à condition de le dire). Afficher la demande ferait croire à
     // un pouvoir que le jeton n'a pas, et le refus arriverait plus tard, ailleurs.
-    const accordes = (issued.scope ?? "").split(/\s+/u).filter(Boolean);
+    const accordes = issued.scope.split(/\s+/u).filter(Boolean);
     const nonAccordes = scopes.filter((s) => !accordes.includes(s));
 
     if (opts.json) {
@@ -510,7 +512,7 @@ class SecurityToken extends Command {
     // Sans `--write` mais en terminal : proposer de poser la valeur plutôt que
     // de laisser copier un jeton de 400 caractères à la main.
     let write = opts.write === true;
-    if (!write && process.stdin.isTTY && !opts.json) {
+    if (!write && process.stdin.isTTY) {
       await this.loadPrompts();
       write = await this.prompts.confirm({
         message: `Poser ${MCP_TOKEN_ENV} dans la configuration des agents présents ?`,
@@ -530,7 +532,7 @@ class SecurityToken extends Command {
           `    ou, en production, keySetJson depuis l'environnement.${RESET}\n`,
       );
     }
-    const minutes = Math.round((issued.expires_in ?? 0) / 60);
+    const minutes = Math.round(issued.expires_in / 60);
     w(
       `\n${BOLD}🔑 Jeton d'accès${RESET} ${DIM}— compte ${identifier}, audience ${resource}${RESET}\n` +
         `${DIM}   valable ${minutes} min${accordes.length ? `, scopes : ${accordes.join(" ")}` : ", aucun scope"}${RESET}\n\n`,

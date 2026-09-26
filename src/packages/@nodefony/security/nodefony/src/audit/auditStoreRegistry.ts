@@ -62,7 +62,10 @@ const MS_PER_DAY = 86_400_000;
 // Défensif : la rétention vient de la config si fournie, sinon le défaut du store
 // (365 j) — le builtin ne doit jamais crasher s'il est fabriqué sans config.
 registerAuditStore("memory", (ctx) => {
-  const days = ctx?.config?.audit?.retentionDays;
+  // Fabrique publique : un appelant JavaScript peut la lancer sans contexte.
+  const loose = ctx as
+    { config?: { audit?: { retentionDays?: unknown } } } | undefined;
+  const days = loose?.config?.audit?.retentionDays;
   return typeof days === "number"
     ? new MemoryAuditStore(Date.now, days * MS_PER_DAY)
     : new MemoryAuditStore();

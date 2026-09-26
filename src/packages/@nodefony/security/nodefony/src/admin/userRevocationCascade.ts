@@ -41,7 +41,7 @@ export async function cascadeUserRevocation(
   // Tokens / PAT (security) — invalidation en masse par seuil `invalidBefore`.
   try {
     const tokenStore = container.get("tokenStore") as ITokenStore | undefined;
-    await tokenStore?.revokeAllForSubject?.(identifier, now);
+    await tokenStore?.revokeAllForSubject(identifier, now);
   } catch {
     /* best-effort */
   }

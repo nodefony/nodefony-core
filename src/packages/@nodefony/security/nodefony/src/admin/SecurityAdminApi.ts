@@ -154,9 +154,9 @@ function one(
   query: Readonly<Record<string, string | string[]>>,
   key: string,
 ): string | undefined {
-  const value = query[key];
+  const value = query[key] as string | string[] | undefined;
   if (value === undefined) return undefined;
-  return Array.isArray(value) ? value[0] : value;
+  return Array.isArray(value) ? value.at(0) : value;
 }
 
 /** Taille de page du journal d'audit quand l'appelant n'en demande pas. */

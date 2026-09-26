@@ -343,7 +343,7 @@ class WebAuthnService extends Service {
       // Challenge/origine/rpId/signature/flags invalides → message uniforme.
       throw new AuthenticationError("WebAuthn registration failed");
     }
-    if (!verification.verified || !verification.registrationInfo) {
+    if (!verification.verified) {
       throw new AuthenticationError("WebAuthn registration failed");
     }
     // Plafond APRÈS vérification cryptographique, AVANT le `save` : c'est le

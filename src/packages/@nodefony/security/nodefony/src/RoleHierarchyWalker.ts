@@ -49,7 +49,7 @@ export class RoleHierarchyWalker {
 
   #flatten(
     role: string,
-    hierarchy: Record<string, readonly string[]>,
+    hierarchy: Readonly<Partial<Record<string, readonly string[]>>>,
   ): Set<string> {
     const out = new Set<string>();
     const stack: string[] = [...(hierarchy[role] ?? [])];
@@ -66,7 +66,9 @@ export class RoleHierarchyWalker {
   }
 
   // DFS coloré — GRAY = en cours de visite → un arc vers un GRAY = cycle.
-  #detectCycles(hierarchy: Record<string, readonly string[]>): void {
+  #detectCycles(
+    hierarchy: Readonly<Partial<Record<string, readonly string[]>>>,
+  ): void {
     const WHITE = 0;
     const GRAY = 1;
     const BLACK = 2;

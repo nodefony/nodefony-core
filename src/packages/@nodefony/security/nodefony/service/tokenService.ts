@@ -601,7 +601,8 @@ class TokenService extends Service {
     // portée du jeton sans que personne ne l'ait demandé — une restriction qui
     // s'annule au bout de quelques minutes n'est pas une restriction. Un record
     // antérieur à ce champ (ou d'une autre origine) retombe sur le défaut.
-    const audience = record.audience?.[0] ?? runtime.audiences[0];
+    const audience =
+      (record.audience as string[] | undefined)?.at(0) ?? runtime.audiences[0];
     if (resource !== undefined && resource !== null && resource !== audience) {
       // Le contrôle porte sur ce qui a été ACCORDÉ, pas sur la liste blanche : une
       // audience parfaitement déclarée reste refusée ici si ce n'est pas celle de

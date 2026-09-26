@@ -9,7 +9,6 @@ export interface AuditStoreSnapshot {
 }
 
 const DEFAULT_MAX_ENTRIES = 10_000;
-const DEFAULT_LIMIT = 100;
 const MAX_LIMIT = 500;
 
 /**
@@ -65,10 +64,7 @@ export class MemoryAuditStore implements IAuditStore {
 
   listPage(query: IAuditListQuery): Promise<IPage<IAuditEvent>> {
     assertPageQuery(query, "cursor");
-    const limit = Math.min(
-      Math.max(1, query.limit ?? DEFAULT_LIMIT),
-      MAX_LIMIT,
-    );
+    const limit = Math.min(Math.max(1, query.limit), MAX_LIMIT);
     // Collecte filtrée (ordre d'insertion : ancien → récent).
     const matched: IAuditEvent[] = [];
     for (let i = 0; i < this.#events.length; i++) {
@@ -106,7 +102,7 @@ export class MemoryAuditStore implements IAuditStore {
     }
     const hasNext = page.length > limit;
     const items = hasNext ? page.slice(0, limit) : page;
-    const last = items[items.length - 1];
+    const last = items.at(-1);
     return Promise.resolve({
       items,
       limit,

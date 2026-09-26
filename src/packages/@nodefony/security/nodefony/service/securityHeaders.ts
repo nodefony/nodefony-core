@@ -76,7 +76,7 @@ export class SecurityHeaders {
     if (o.permissionsPolicy) h["Permissions-Policy"] = o.permissionsPolicy;
     this.#headers = Object.freeze(h);
     this.#cspParts = cspParts ? Object.freeze(cspParts) : null;
-    this.#cspRaw = o.csp ?? "";
+    this.#cspRaw = o.csp;
   }
 
   /** Table d'en-têtes applicatifs CONSTANTS (figée), posée telle quelle par le firewall. */

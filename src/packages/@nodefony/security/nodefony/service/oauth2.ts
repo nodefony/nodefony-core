@@ -57,7 +57,7 @@ const CANONICAL_LABELS: Record<string, string> = {
  * @returns le libellé à afficher sur le bouton
  */
 export function oauthDisplayLabel(name: string): string {
-  const canonical = CANONICAL_LABELS[name.toLowerCase()];
+  const canonical = CANONICAL_LABELS[name.toLowerCase()] as string | undefined;
   if (canonical !== undefined) return canonical;
   return name
     .split(/[-_.\s]+/)
@@ -307,7 +307,10 @@ class OAuth2Service extends Service {
   }
 
   async #buildProvider(name: string): Promise<IResolvedProvider> {
-    const cfg = this.#ensureReady().oauth2.providers[name];
+    const providers = this.#ensureReady().oauth2.providers;
+    // `hasOwn` : un nom venu de l'URL (`constructor`, `toString`) ne doit pas
+    // lire le prototype d'une config qui est un objet ordinaire.
+    const cfg = Object.hasOwn(providers, name) ? providers[name] : undefined;
     if (!cfg) {
       throw new AuthenticationError(`OAuth provider "${name}" non configuré`);
     }

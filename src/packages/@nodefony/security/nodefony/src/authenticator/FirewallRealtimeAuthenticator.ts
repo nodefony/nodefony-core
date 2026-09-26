@@ -154,7 +154,7 @@ export class FirewallRealtimeAuthenticator implements IRealtimeAuthenticator {
       expMs === null &&
       (resolveStore === null || (jti === null && iatMs === null));
     if (nothingCanInvalidate) {
-      Nodefony.getKernel()?.log?.(
+      Nodefony.getKernel()?.log(
         `Realtime ${type} token "${identifier}" carries neither an expiry nor any ` +
           `revocation handle ("jti"/"iat") — connection will be revoked (fail-closed). ` +
           `Ensure the authenticator forwards the token claims.`,
@@ -260,7 +260,7 @@ function buildSessionRevalidator(identifier: string): () => Promise<boolean> {
     // revalidable = zone realtime hors du pipeline `startSession`, ou état
     // incohérent). ⚠️ Ce refus ne vaut QUE pour le mode session : un jeton
     // porteur n'a pas de session à relire, et n'a pas à en avoir une.
-    Nodefony.getKernel()?.log?.(
+    Nodefony.getKernel()?.log(
       `Realtime session token "${identifier}" has no revalidatable session at handshake — connection will be revoked (fail-closed). Ensure the realtime zone runs after startSession.`,
       "WARNING",
     );

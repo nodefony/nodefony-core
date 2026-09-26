@@ -125,9 +125,13 @@ describe("security:user:list — lister ne doit RIEN publier de secret", () => {
 
 describe("security:token — un jeton mort-né doit s'ANNONCER", () => {
   const emetteur = {
+    // Réponse COMPLÈTE : `ITokenResponse` porte toujours `scope` (vide = aucun).
     issueTokens: async () => ({
       access_token: "eyJ.FAUX.JETON",
+      refresh_token: "",
+      token_type: "Bearer",
       expires_in: 900,
+      scope: "",
     }),
   };
   const annuaire = {

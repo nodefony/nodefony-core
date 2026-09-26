@@ -81,7 +81,7 @@ export class JwtAuthenticator implements IAuthenticator {
    * qu'un credential qui disparaîtrait sans laisser de trace.
    */
   supports(context: ContextType): boolean {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     if (typeof auth !== "string") return false;
     const token = bearerToken(auth);
     if (token === null || !COMPACT_JWS.test(token)) return false;
@@ -91,7 +91,7 @@ export class JwtAuthenticator implements IAuthenticator {
 
   /** Extrait le token brut (non vérifié) → porté par un `UserToken` type `"jwt"`. */
   createToken(context: ContextType): Promise<IToken> {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     return Promise.resolve(new UserToken("jwt", bearerToken(auth) ?? ""));
   }
 

@@ -157,8 +157,8 @@ class Authorization extends Service implements IAuthorizationService {
 /** Descripteur léger d'un sujet pour l'audit (jamais de JSON.stringify aveugle). */
 function describeSubject(subject: unknown): string {
   if (typeof subject === "string") return subject;
-  if (subject === null) return "null";
-  const ctor = (subject as { constructor?: { name?: string } })?.constructor
+  if (subject === null || subject === undefined) return String(subject);
+  const ctor = (subject as { constructor?: { name?: string } }).constructor
     ?.name;
   return ctor ?? typeof subject;
 }

@@ -137,7 +137,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
    * un jeton d'un émetteur inconnu n'a pas à provoquer le moindre travail.
    */
   supports(context: ContextType): boolean {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     if (typeof auth !== "string") return false;
     const raw = bearerToken(auth);
     if (raw === null) return false;
@@ -166,7 +166,7 @@ export class ExternalJwtAuthenticator implements IAuthenticator {
    * visée.
    */
   createToken(context: ContextType): Promise<IToken> {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     const token = new UserToken("external-jwt", bearerToken(auth) ?? "");
     const area = context.security as ISecuredArea | null | undefined;
     if (area?.resource) token.setAttribute(AUDIENCE, area.resource);

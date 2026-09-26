@@ -91,7 +91,7 @@ class SecurityUserList extends Command {
     // journal de CI ou un copier-coller.
     const rows = page.items.map((u) => ({
       identifiant: u.identifier,
-      rôles: (u.roles ?? []).join(", ") || "—",
+      rôles: u.roles.join(", ") || "—",
       // `isActive()`/`isLocked()` sont des MÉTHODES du contrat `IUser` — pas
       // des colonnes. Lire `u.enabled` compilait chez d'autres ORM et rendait
       // `undefined` ici : un compte désactivé se serait affiché « actif ».

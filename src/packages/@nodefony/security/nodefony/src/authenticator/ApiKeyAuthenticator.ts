@@ -73,7 +73,7 @@ export class ApiKeyAuthenticator implements IAuthenticator {
 
   /** La requête porte-t-elle un `Authorization: Bearer <prefix>_…` ? (test bon marché) */
   supports(context: ContextType): boolean {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     if (typeof auth !== "string") return false;
     const token = bearerToken(auth);
     return token !== null && looksLikeApiKey(token, this.#prefix);
@@ -81,7 +81,7 @@ export class ApiKeyAuthenticator implements IAuthenticator {
 
   /** Extrait la valeur brute (non vérifiée) → portée par un `UserToken` type `"apikey"`. */
   createToken(context: ContextType): Promise<IToken> {
-    const auth = context.request?.headers?.authorization;
+    const auth = context.request?.headers.authorization;
     return Promise.resolve(new UserToken("apikey", bearerToken(auth) ?? ""));
   }
 

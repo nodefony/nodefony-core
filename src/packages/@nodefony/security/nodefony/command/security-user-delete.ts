@@ -101,7 +101,7 @@ class SecurityUserDelete extends Command {
     // 🔴 Le dernier administrateur ACTIF ne se supprime pas : sans lui,
     // l'administration de l'application devient inaccessible et le seul recours
     // est une écriture directe en base.
-    if ((user.roles ?? []).includes(ADMIN_ROLE)) {
+    if (user.roles.includes(ADMIN_ROLE)) {
       const remaining = await users.countActiveAdmins(ADMIN_ROLE);
       if (remaining <= 1) {
         this.log(
@@ -121,7 +121,7 @@ class SecurityUserDelete extends Command {
     w(
       `\n${BOLD}Compte à supprimer${RESET}\n` +
         `  identifiant : ${BOLD}${user.identifier}${RESET}\n` +
-        `  rôles       : ${(user.roles ?? []).join(", ") || "—"}\n` +
+        `  rôles       : ${user.roles.join(", ") || "—"}\n` +
         `  id interne  : ${DIM}${user.id}${RESET}\n\n`,
     );
 
