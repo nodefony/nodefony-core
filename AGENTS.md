@@ -15,6 +15,15 @@ l'authentification. Autour de cet axe : injection de dépendances, modules, pare
 applicatif, ORM multi-dialecte, constructeur de frontends (Vite), console
 d'administration, et une ligne de commande qui génère le code conventionnel.
 
+**Chaque requête a son propre conteneur** — un scope, calque posé sur le conteneur
+de l'application par chaîne de prototypes : on y lit tous les services, on n'écrit
+que sur le sien, il est jeté en fin de requête (en WebSocket : en fin de
+connexion). Depuis n'importe quel code de la requête, `RequestContext.getScope()`
+le rend, sans recevoir le contexte ; `@injectable({ scope: "request" })` y range un
+service créé à la demande et nettoyé (`clean()`) à la fermeture. Un singleton qui
+en dépend est refusé au démarrage. Référence :
+[`docs/architecture/injection-portees.md`](docs/architecture/injection-portees.md).
+
 Il vise l'application métier dont le temps réel est un citoyen de premier rang —
 API, WebSocket, écran et commandes dans un seul processus, un seul routeur, une
 seule session.

@@ -35,12 +35,55 @@ l'infrastructure répond (`npm run test:all`).
 
 Nodefony est un framework serveur fullstack pour Node.js, écrit en TypeScript strict et bâti
 directement sur les modules natifs de la plateforme — `node:http`, `node:http2`, WebSocket. Il
-apporte un noyau à injection de dépendances, un système de modules, un pare-feu applicatif, une
+apporte un noyau à injection de dépendances qui donne à chaque requête son propre conteneur, un
+système de modules, un pare-feu applicatif, une
 persistance portable, une console d'administration et la construction des frontends.
 
 Sa particularité tient en une propriété : **le WebSocket n'y est pas un ajout.** C'est un transport
 de première classe, servi par le même pipeline, la même table de routes et la même sécurité que le
 HTTP. Une application temps réel s'y écrit comme une application web ordinaire.
+
+### Chaque requête a son propre conteneur
+
+Un processus Node sert des centaines de requêtes **entrelacées** : pendant que l'une attend sa base
+de données, une autre s'exécute. Nodefony donne donc à chaque requête **son propre conteneur de
+services**, posé comme un **calque** sur celui de l'application.
+
+- **Le mécanisme.** Le conteneur du kernel est la carte ; à l'entrée d'une requête, le pipeline pose
+  un calque (`enterScope`) — un objet dont le prototype est la carte. À la fin, `leaveScope` le jette.
+- **Ce qu'on y fait.** On lit toute la carte à travers le calque (les services de l'application
+  s'héritent) ; on n'écrit que sur son calque. Deux requêtes concurrentes ont deux calques et ne se
+  voient jamais ; rien de ce qui est posé sur un calque ne survit à la requête.
+- **Comment on l'atteint.** Depuis n'importe quel code de la requête, sans passer le contexte :
+  `RequestContext.getScope()` rend le calque courant (ou `undefined`), `requireScope()` lève en
+  nommant la cause. Le contexte asynchrone de la requête dit **lequel** est le tien. Un hook
+  `onAfterResponse` le voit encore ouvert ; une promesse non attendue qui continue après la réponse,
+  non.
+- **HTTP et WebSocket.** Une requête HTTP = un calque. Une connexion WebSocket = un calque, partagé
+  par tous ses messages, concurrents compris.
+- **Des services par requête.** `@injectable({ scope: "request" })` donne un exemplaire par requête,
+  créé seulement si la requête le demande, et nettoyé (`clean()`, dans l'ordre inverse des
+  créations) à sa fermeture. Un singleton qui en dépendrait est refusé dès le démarrage.
+- **Le coût, avec son décor.** Poser puis jeter un calque ≈ 1,43 µs (sonde dans le serveur, un
+  processus en production, paires alternées) ; une requête qui ne résout aucun service par requête
+  ne paie rien de plus.
+
+```ts
+import { Service, injectable, RequestContext } from "nodefony";
+import type { Scope } from "nodefony";
+
+@injectable({ name: "requestStamp", scope: "request" })
+export class RequestStamp extends Service {
+  readonly requestId: string;
+  constructor(scope: Scope) {
+    super("requestStamp", scope, false); // un exemplaire pour CETTE requête
+    this.requestId = RequestContext.getRequestId() ?? "?";
+  }
+}
+```
+
+Le détail — les trois durées de vie, l'accès par `RequestContext`, les pièges :
+[Injection & portées](docs/architecture/injection-portees.md).
 
 Les frontends ne sont pas laissés dehors. Nodefony pilote **Vite** : en développement il démarre
 les serveurs de développement — React, Vue, Angular —, les surveille, relaie leur rechargement à
