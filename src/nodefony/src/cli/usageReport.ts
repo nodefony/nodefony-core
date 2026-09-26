@@ -30,6 +30,7 @@ import {
   sectionTitle,
   type IPalette,
 } from "../kernel/checks/report";
+import { isTerminal } from "../runtime/isTerminal";
 
 /** Une ligne à deux colonnes : un terme, ce qu'il fait. */
 export interface IUsageEntry {
@@ -129,8 +130,8 @@ export function renderUsage(
       }
       return;
     }
-    const [first, ...rest] = wrap(text, width - margin.length, "");
-    out.push(`  ${p.action(term.padEnd(column, " "))}  ${first ?? ""}`);
+    const [first = "", ...rest] = wrap(text, width - margin.length, "");
+    out.push(`  ${p.action(term.padEnd(column, " "))}  ${first}`);
     for (const line of rest) out.push(`${margin}${line}`);
   };
 
@@ -166,8 +167,8 @@ export function renderUsage(
   }
 
   const bullet = (text: string): void => {
-    const [first, ...rest] = wrap(text, width - 6, "");
-    out.push(`  · ${first ?? ""}`);
+    const [first = "", ...rest] = wrap(text, width - 6, "");
+    out.push(`  · ${first}`);
     for (const l of rest) out.push(`    ${l}`);
   };
 
@@ -206,10 +207,8 @@ export function renderUsage(
         continue;
       }
       const indent = " ".repeat(widest + 4);
-      const [first, ...rest] = wrap(e.text, width - indent.length, "");
-      out.push(
-        `  ${p.action(e.term.padEnd(widest, " "))}  ${p.dim(first ?? "")}`,
-      );
+      const [first = "", ...rest] = wrap(e.text, width - indent.length, "");
+      out.push(`  ${p.action(e.term.padEnd(widest, " "))}  ${p.dim(first)}`);
       for (const l of rest) out.push(`${indent}${p.dim(l)}`);
     }
   }
@@ -250,7 +249,7 @@ export function printUsage(page: IUsagePage): number {
   process.stdout.write(
     renderUsage(
       page,
-      createPalette(shouldColorize(process.env, process.stdout.isTTY ?? false)),
+      createPalette(shouldColorize(process.env, isTerminal(process.stdout))),
       usableWidth(process.stdout.columns),
     ),
   );
@@ -270,7 +269,7 @@ export function printUsage(page: IUsagePage): number {
  */
 export function printUsageError(page: IUsagePage, message: string): number {
   const p = createPalette(
-    shouldColorize(process.env, process.stderr.isTTY ?? false),
+    shouldColorize(process.env, isTerminal(process.stderr)),
   );
   const width = usableWidth(process.stderr.columns);
   const name = page.command.replace(/^nodefony\s+/u, "");

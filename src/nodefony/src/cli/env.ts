@@ -80,7 +80,7 @@ export function parseEnvArgv(argv: string[]): IEnvRequest | { error: string } {
     } else if (word === "--cwd") {
       cwd = path.resolve(rest[++i] ?? "");
     } else if (word === "--env") {
-      const value = rest[++i];
+      const value = rest.at(++i);
       // Un `--env` sans valeur avalerait l'option suivante et évaluerait sous
       // un environnement nommé « --json » : autant le refuser tout de suite.
       if (value === undefined || value.startsWith("-")) {

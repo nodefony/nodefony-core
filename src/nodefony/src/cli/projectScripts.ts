@@ -21,7 +21,8 @@ export interface IProjectScript {
  * comme `scriptsInfo` est revendiqué par d'autres outils.
  */
 interface IPackageManifest {
-  scripts?: Record<string, string>;
+  // Manifeste lu du disque : `null` y est une valeur JSON légitime.
+  scripts?: Record<string, string> | null;
   nodefony?: { scripts?: Record<string, string> };
 }
 

@@ -71,7 +71,7 @@ export const MENU_GROUP_LABELS: Record<string, string> = {
  * détail. Une commande absente de cette table passe après, par ordre
  * alphabétique — un module tiers ne peut pas être classé par nous.
  */
-const ORDER_IN_GROUP: Record<string, readonly string[]> = {
+const ORDER_IN_GROUP: Partial<Record<string, readonly string[]>> = {
   LANCER: ["development", "production", "cluster", "status", "stop"],
   COMPRENDRE: ["card", "doctor", "inspect", "env", "symbols"],
   "GÉNÉRER ET CONSTRUIRE": ["create", "build", "install", "outdated"],
@@ -312,8 +312,8 @@ function input(
     }
   } else {
     const pad = " ".repeat(column - terme.length);
-    const [premiere, ...suite] = wrap(text, width - indent.length, "");
-    lines.push(`${ITEM}${teinte(terme)}${pad}  ${p.dim(premiere ?? "")}`);
+    const [premiere = "", ...suite] = wrap(text, width - indent.length, "");
+    lines.push(`${ITEM}${teinte(terme)}${pad}  ${p.dim(premiere)}`);
     for (const l of suite) lines.push(indent + p.dim(l));
   }
   if (accepts?.values.length) {

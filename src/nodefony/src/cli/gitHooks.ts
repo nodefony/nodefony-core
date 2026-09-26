@@ -103,7 +103,7 @@ export function parseGitHooksArgv(
     else if (a === "--json") json = true;
     else if (a === "--dry-run") dryRun = true;
     else if (a === "--cwd") {
-      const v = args[i + 1];
+      const v = args.at(i + 1);
       if (v === undefined) return { error: "--cwd attend un chemin" };
       cwd = path.resolve(v);
       i += 1;

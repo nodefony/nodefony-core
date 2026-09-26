@@ -39,7 +39,8 @@ export function declaredRoutePaths(source: string): string[] {
   const out: string[] = [];
   ROUTE_PATH_RE.lastIndex = 0;
   for (const m of source.matchAll(ROUTE_PATH_RE)) {
-    const found = m[1] ?? m[2] ?? "";
+    // Deux alternatives : un seul des deux groupes participe.
+    const found = m.at(1) ?? m.at(2) ?? "";
     if (found !== "") out.push(found);
   }
   return out;

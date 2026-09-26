@@ -50,6 +50,7 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { portableSpawn } from "./execPortable";
+import { spawnedOutput } from "../runtime/spawnedOutput";
 
 /**
  * Licences acceptées dans l'arbre de production, par famille.
@@ -373,7 +374,7 @@ export function templateRuntimeDeps(file: string): string[] {
   if (start === -1) return [];
   const block = source.slice(start, source.indexOf("\n  },", start));
   const names = [...block.matchAll(/"([a-z@][a-zA-Z0-9@/_.-]*)"\s*:/g)].map(
-    (m) => m[1] ?? "",
+    (m) => m[1],
   );
   return [...new Set(names)]
     .filter(
@@ -532,7 +533,7 @@ export function collect(root: string): ILicensedPackage[] {
     // Un inventaire partiel se lirait comme un verdict. Le dire en clair, avec
     // le remède — une trace d'exception ferait chercher le défaut dans ce code,
     // où il n'est pas.
-    const detail = (run.stderr ?? run.error?.message ?? "")
+    const detail = (spawnedOutput(run).stderr || run.error?.message || "")
       .split("\n")
       .filter((line) => line.trim() !== "")
       .slice(0, 8)

@@ -118,8 +118,12 @@ import { nodefonyImports } from "../../kernel/checks/packageDeps";
  * Le tableau de chaînes sert les questions de type `"list"` — plusieurs valeurs
  * qui doivent rester DISTINCTES. Les fondre dans le type texte reviendrait à les
  * concaténer, et deux index de deux colonnes deviendraient un index de quatre.
+ *
+ * `Partial` : une question non posée n'a pas de clé — la lecture doit le voir.
  */
-export type TScaffoldAnswers = Record<string, string | boolean | string[]>;
+export type TScaffoldAnswers = Partial<
+  Record<string, string | boolean | string[]>
+>;
 
 export type { IScaffoldCaps } from "./spec";
 
@@ -197,7 +201,7 @@ const RENAMES: Record<string, string> = {
  * les DOSSIERS pointés publiés : un `templates/…/.github/` n'arriverait jamais
  * chez l'installeur). Seul le PREMIER segment du chemin relatif est mappé.
  */
-const DIR_RENAMES: Record<string, string> = {
+const DIR_RENAMES: Partial<Record<string, string>> = {
   github: ".github",
 };
 
@@ -546,14 +550,14 @@ export function assertNoSqlOnlyOptions(
   // La LISTE vient de la spec (`askIf: "hasSqlOrm"`) : la même source décide
   // de ce que le dialogue tait, de ce que l'aide annote et de ce qui est
   // refusé ici. Seule la RAISON, propre à chaque option, s'écrit à part.
-  const [spec] = getScaffoldSpec("entity");
+  const spec = getScaffoldSpec("entity").at(0);
   for (const question of spec?.questions ?? []) {
     if (question.askIf !== "hasSqlOrm") continue;
     const value = answers[question.key];
     const given = Array.isArray(value)
       ? value.length > 0
       : value !== undefined &&
-        String(value).trim() !== String(question.default ?? "").trim();
+        String(value).trim() !== String(question.default).trim();
     if (!given) continue;
     const option = flagFor(question);
     throw new Error(
@@ -642,9 +646,8 @@ export function linkLocalDeps(
   writer: ScaffoldWriter,
 ): string[] {
   const manifestPath = path.join(destDir, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as Record<
-    string,
-    Record<string, string>
+  const manifest = JSON.parse(writer.read(manifestPath)) as Partial<
+    Record<string, Record<string, string>>
   >;
   const linked: string[] = [];
   for (const block of ["dependencies", "devDependencies"]) {
@@ -802,7 +805,8 @@ function renderLayer(
     const abs = path.join(entry.parentPath, entry.name);
     let relDir = path.relative(srcDir, entry.parentPath);
     const segments = relDir.split(path.sep);
-    const mapped = segments[0] !== undefined && DIR_RENAMES[segments[0]];
+    // `split` rend toujours au moins un segment (« » pour la racine).
+    const mapped = DIR_RENAMES[segments[0]];
     if (mapped) {
       relDir = path.join(mapped, ...segments.slice(1));
     }
@@ -1591,7 +1595,7 @@ function importStatements(
   const out: Array<{ start: number; end: number; text: string }> = [];
   // `import(` (dynamique) et `import.meta` ne sont pas des déclarations.
   for (const m of source.matchAll(/^import(?!\s*[(.])\b/gmu)) {
-    const start = m.index ?? 0;
+    const start = m.index;
     // La déclaration finit à sa clause `from "…"`, ou à la chaîne d'un import
     // à effet de bord (`import "x";`) — la première des deux qui vient.
     const tail = /(?:\bfrom\s*|^import\s+)(["'])[^"'\n]+\1;?/mu.exec(
@@ -1776,7 +1780,7 @@ function dispatchScaffold(
   version: string,
   writer: ScaffoldWriter,
 ): IScaffoldResult {
-  const [spec] = getScaffoldSpec(request.type);
+  const spec = getScaffoldSpec(request.type).at(0);
   if (!spec) {
     throw new Error(`type de scaffold inconnu : ${request.type}`);
   }
@@ -2403,7 +2407,7 @@ export function wireRoleHierarchy(
   // plusieurs lignes — et une application qui déclare cinq rôles y arrive vite.
   // Sans ce trim, on écrirait `[…"ROLE_USER",, "ROLE_X"]` : un manifeste qui ne
   // compile plus, produit par la commande censée le câbler.
-  const inner = (admin[2] ?? "").replace(/,\s*$/u, "");
+  const inner = admin[2].replace(/,\s*$/u, "");
   const separator = inner.trim().length > 0 ? ", " : "";
   const replacement = `${admin[1]}${inner}${separator}"${role}"${admin[3]}`;
   const patchedBody =
@@ -2838,7 +2842,6 @@ function otherControllerSources(
     if (!entry.name.endsWith(".ts")) continue;
     if (entry.name === `${selfClass}.ts`) continue;
     const content = writer.read(path.join(controllersDir, entry.name));
-    if (content === null) continue;
     out.push({ file: entry.name, text: content });
   }
   return out;
@@ -4060,7 +4063,7 @@ function declaresDialect(
   let match: RegExpExecArray | null;
   while ((match = entry.exec(block)) !== null) {
     if (match[1] !== connector) continue;
-    return /dialect\s*:\s*["'](\w+)["']/u.test(match[2] ?? "");
+    return /dialect\s*:\s*["'](\w+)["']/u.test(match[2]);
   }
   return false;
 }
@@ -4218,12 +4221,10 @@ function readConnectors(
     while ((match = entry.exec(block)) !== null) {
       const [, name, body] = match;
       if (!name) continue;
-      const ddl = /ddl\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1];
+      const ddl = /ddl\s*:\s*["'](\w+)["']/u.exec(body)?.[1];
       connectors.push({
         name,
-        dialect: asDialect(
-          /dialect\s*:\s*["'](\w+)["']/u.exec(body ?? "")?.[1],
-        ),
+        dialect: asDialect(/dialect\s*:\s*["'](\w+)["']/u.exec(body)?.[1]),
         ...(ddl !== undefined ? { ddl } : {}),
       });
     }
@@ -4346,7 +4347,9 @@ function runEntityScaffold(
   const depsAdded: string[] = [];
   {
     const rootManifestPath = path.join(projectRoot, "package.json");
-    let rootManifest: Record<string, Record<string, string>> | null = null;
+    // Élargi à la déclaration : `ensure` l'assigne dans une fermeture, que le
+    // rétrécissement de TypeScript ne suit pas.
+    let rootManifest = null as Record<string, Record<string, string>> | null;
     const ensure = (
       section: "dependencies" | "devDependencies",
       dep: "drizzle-orm" | "drizzle-kit",
@@ -4536,15 +4539,17 @@ function runEntityScaffold(
     mongo && connectorAnswer === "default"
       ? MONGOOSE_CONNECTOR
       : connectorAnswer;
-  const dialect = mongo
+  // Réponse NON validée : chaîne tant que `ENTITY_DIALECTS` ne l'a pas admise.
+  const requestedDialect = mongo
     ? "sqlite"
-    : (String(answers.dialect || "") as TEntityDialect) ||
+    : String(answers.dialect || "") ||
       detectDialect(projectRoot, writer, connector);
-  if (!(ENTITY_DIALECTS as readonly string[]).includes(dialect)) {
+  if (!(ENTITY_DIALECTS as readonly string[]).includes(requestedDialect)) {
     throw new Error(
-      `dialecte invalide « ${dialect} » — attendus : ${ENTITY_DIALECTS.join(" | ")}`,
+      `dialecte invalide « ${requestedDialect} » — attendus : ${ENTITY_DIALECTS.join(" | ")}`,
     );
   }
+  const dialect = requestedDialect as TEntityDialect;
   const id = String(answers.id) as TEntityIdKind;
   if (!(ENTITY_ID_KINDS as readonly string[]).includes(id)) {
     throw new Error(
@@ -5456,9 +5461,8 @@ function runFrontScaffold(
     );
   }
   const manifestPath = path.join(target.dir, "package.json");
-  const manifest = JSON.parse(writer.read(manifestPath)) as Record<
-    string,
-    Record<string, string>
+  const manifest = JSON.parse(writer.read(manifestPath)) as Partial<
+    Record<string, Record<string, string>>
   >;
   const targetDeps = new Set(
     ["dependencies", "devDependencies", "peerDependencies"].flatMap((b) =>
@@ -5670,9 +5674,11 @@ function runFrontScaffold(
   // rattraper. Le script n'est touché que s'il lui manque l'étape, et la
   // commande y est ajoutée à la FIN : ce que l'utilisateur a écrit avant reste.
   const scripts = manifest["scripts"];
-  const buildScript = scripts?.["build"];
+  // Annoté : un manifeste écrit à la main peut ne pas porter de `build`.
+  const buildScript: string | undefined = scripts?.["build"];
   let buildWired = false;
   if (
+    scripts !== undefined &&
     typeof buildScript === "string" &&
     !buildScript.includes("frontend:build")
   ) {

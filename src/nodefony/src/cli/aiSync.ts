@@ -174,7 +174,7 @@ export function readSkillHeader(
 ): { name: string; summary: string } | null {
   const block = /^---\r?\n([\s\S]*?)\r?\n---/u.exec(src);
   if (block === null) return null;
-  const fm = block[1] ?? "";
+  const fm = block[1];
   const name = /^name:[ \t]*(\S.*)$/mu.exec(fm)?.[1]?.trim();
   if (name === undefined || name === "") return null;
 
@@ -283,7 +283,7 @@ export function parseAiSyncArgv(
     else if (a === "--json") json = true;
     else if (a === "--dry-run") dryRun = true;
     else if (a === "--cwd") {
-      const v = args[i + 1];
+      const v = args.at(i + 1);
       if (v === undefined) return { error: "--cwd attend un chemin" };
       cwd = path.resolve(v);
       i += 1;

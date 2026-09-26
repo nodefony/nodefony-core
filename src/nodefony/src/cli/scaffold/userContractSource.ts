@@ -115,7 +115,7 @@ export function userTableName(appRoot: string): string {
  * Traduction d'un type LOGIQUE du contrat vers le vocabulaire de champ du
  * générateur — le seul endroit qui connaisse les deux.
  */
-const FIELD_TYPE_BY_CONTRACT: Record<string, TEntityFieldType> = {
+const FIELD_TYPE_BY_CONTRACT: Partial<Record<string, TEntityFieldType>> = {
   uuid: "uuid",
   string: "string",
   "string[]": "json",

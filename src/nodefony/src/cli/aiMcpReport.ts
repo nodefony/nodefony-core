@@ -42,8 +42,14 @@ export interface IMcpServerEntry {
    * la spécification MCP impose l'en-tête `Authorization` sur CHAQUE requête,
    * pas seulement à la première.
    */
-  headers?: Record<string, string>;
+  headers?: Partial<Record<string, string>>;
 }
+
+/**
+ * Entrée relue d'un fichier existant : l'utilisateur ou un autre outil a pu
+ * déclarer sous notre clé un autre transport que `http`.
+ */
+type TStoredMcpServerEntry = Omit<IMcpServerEntry, "type"> & { type: string };
 
 /**
  * Un fichier de configuration MCP dans son entier — `.mcp.json` ou celui d'un
@@ -181,7 +187,12 @@ export function planMcpConfig(
     ? { ...existing, [root]: servers }
     : { [root]: servers };
 
-  const previous = servers[MCP_SERVER_KEY];
+  const previous: TStoredMcpServerEntry | undefined = Object.hasOwn(
+    servers,
+    MCP_SERVER_KEY,
+  )
+    ? servers[MCP_SERVER_KEY]
+    : undefined;
   // 🔴 Le mode d'autorisation se CONSERVE par défaut.
   //
   // Il était réinitialisé : relancer `ai:mcp` pour rafraîchir une URL retirait

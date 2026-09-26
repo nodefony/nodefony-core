@@ -150,7 +150,9 @@ export async function tarPathsFromStream(
   let toSkip = 0;
   let capture: ILongNameCapture | null = null;
   // Nom imposé à l'entrée SUIVANTE par un en-tête de nom long.
-  let forcedName: string | null = null;
+  // Élargi à la déclaration : posé dans une fermeture, que le rétrécissement
+  // de TypeScript ne suit pas.
+  let forcedName = null as string | null;
 
   const finishCapture = (): void => {
     if (!capture) return;
@@ -307,7 +309,8 @@ function declaredLayers(archive: string, entries: ITarEntry[]): ITarEntry[] {
   // couches, et il faut TOUTES les regarder — c'est l'image entière qui est
   // publiée sous un tag, pas la seule variante de la machine qui construit.
   for (const image of Array.isArray(declared) ? declared : []) {
-    const names = (image as { Layers?: unknown })?.Layers;
+    // Un JSON peut porter `null` dans la liste.
+    const names = (image as { Layers?: unknown } | null)?.Layers;
     for (const name of Array.isArray(names) ? (names as string[]) : []) {
       if (seen.has(name)) continue;
       const entry = byName.get(name);

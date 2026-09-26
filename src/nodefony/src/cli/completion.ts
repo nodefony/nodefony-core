@@ -101,7 +101,7 @@ export function extractFlags(flags: string): string[] {
  */
 function optionValuesOf(cmd: CommanderCommand): Record<string, string[]> {
   const out: Record<string, string[]> = {};
-  for (const o of cmd.options ?? []) {
+  for (const o of cmd.options) {
     // Un drapeau ne prend pas de valeur : le proposer en attendrait une, et le
     // TAB deviendrait muet là où il devait proposer les autres options.
     if (!o.required && !o.optional) continue;
@@ -131,12 +131,12 @@ export function buildCliManifest(
     if (name.startsWith("__")) continue;
     commands.push({
       name,
-      aliases: cmd.aliases?.() ?? [],
+      aliases: cmd.aliases(),
       description: cmd.description(),
-      options: (cmd.options ?? []).flatMap((o) => extractFlags(o.flags)),
+      options: cmd.options.flatMap((o) => extractFlags(o.flags)),
       // `.choices()` d'un argument positionnel → candidats au TAB (vécu :
       // `nodefony create <TAB>` ne proposait jamais `app`).
-      args: (cmd.registeredArguments ?? []).map((a) => a.argChoices ?? []),
+      args: cmd.registeredArguments.map((a) => a.argChoices ?? []),
       optionValues: optionValuesOf(cmd),
       ...(typeof (cmd as { helpGroup?: () => unknown }).helpGroup?.() ===
       "string"
@@ -148,9 +148,7 @@ export function buildCliManifest(
   }
   return {
     version,
-    globalOptions: (commander.options ?? []).flatMap((o) =>
-      extractFlags(o.flags),
-    ),
+    globalOptions: commander.options.flatMap((o) => extractFlags(o.flags)),
     commands,
   };
 }

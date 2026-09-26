@@ -176,7 +176,7 @@ version du framework installée dans ce projet.
  */
 export function planSync(
   decouverts: IDiscoveredSkill[],
-  existing: Record<string, string>,
+  existing: Partial<Record<string, string>>,
 ): IAiSyncPlan {
   const skills: IPlannedSkill[] = [];
   const delivered = new Set<string>();

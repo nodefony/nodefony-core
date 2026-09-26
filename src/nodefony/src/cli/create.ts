@@ -38,6 +38,8 @@ import {
   collectDoctorReport,
   renderDoctorReport,
 } from "../kernel/checks/runDoctor";
+import { isTerminal } from "../runtime/isTerminal";
+import { spawnedOutput } from "../runtime/spawnedOutput";
 
 /**
  * Adaptateur CLI du scaffold `nodefony create <type> [name]` — front n°1 et n°2
@@ -175,7 +177,7 @@ export function parseCreateArgv(
       // le service de la cible »), `--service <Nom>` désigne LEQUEL. Le mot
       // suivant n'est consommé que s'il n'est pas une autre option — sans quoi
       // `--service --module blog` avalerait `--module`.
-      const next = rest[i + 1];
+      const next = rest.at(i + 1);
       answers.service = true;
       if (next !== undefined && !next.startsWith("-")) {
         answers.serviceName = rest[++i];
@@ -237,7 +239,7 @@ export function parseCreateArgv(
       // et qu'ils ne se cumulent pas en une seule liste — `--index "a,b" --index
       // "c,d"` déclare deux index de deux colonnes, jamais un de quatre.
     } else if (word === "--index" || word === "--unique") {
-      const value = rest[++i];
+      const value = rest.at(++i);
       if (value !== undefined) {
         const key = word === "--index" ? "index" : "uniqueIndex";
         const current = answers[key];
@@ -258,14 +260,14 @@ export function parseCreateArgv(
       // mesuré au banc de découvrabilité, c'est le tout premier échec d'un run
       // (`npm create nodefony@alpha -- --name chat-app`). Le refus tient, la
       // suggestion l'accompagne.
-      const NAMED_AS_OPTION: Record<string, string> = {
+      const NAMED_AS_OPTION: Partial<Record<string, string>> = {
         "--name": "le NOM se donne en argument, juste après le type",
         "--app-name": "le NOM se donne en argument, juste après le type",
         "--project": "le NOM se donne en argument, juste après le type",
       };
       const hint = NAMED_AS_OPTION[word];
       if (hint !== undefined) {
-        const given = rest[i + 1];
+        const given = rest.at(i + 1);
         const example =
           given !== undefined && !given.startsWith("-")
             ? `nodefony create ${positionals[0] ?? "app"} ${given}`
@@ -279,7 +281,9 @@ export function parseCreateArgv(
       positionals.push(word);
     }
   }
-  const [type, name, ...extra] = positionals;
+  const type = positionals.at(0);
+  const name = positionals.at(1);
+  const extra = positionals.slice(2);
   // `--help` court-circuite TOUTE validation : « nodefony create --help » doit
   // rendre la page, pas « type requis ». On demande l'aide précisément parce
   // qu'on ne sait pas encore quel type existe.
@@ -831,7 +835,7 @@ function runInitialMigration(
     };
   }
   const cause = migrationFailureCause(
-    `${r.stdout ?? ""}${r.stderr ?? ""}`,
+    `${spawnedOutput(r).stdout}${spawnedOutput(r).stderr}`,
     r.status,
   );
   return {
@@ -964,8 +968,7 @@ export function shouldAskForType(
  * seconde version : deux listes de types divergeraient au premier ajout.
  */
 function descriptionType(type: string): string {
-  const [spec] = getScaffoldSpec(type);
-  return spec?.description ?? type;
+  return getScaffoldSpec(type).at(0)?.description ?? type;
 }
 
 /**
@@ -1154,7 +1157,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (
     "error" in parsed &&
     shouldAskForType(parsed.error, {
-      isTTY: process.stdin.isTTY ?? false,
+      isTTY: isTerminal(process.stdin),
       yes: argv.includes("--yes"),
     })
   ) {
@@ -1200,7 +1203,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.USAGE;
     }
   }
-  const interactive = (process.stdin.isTTY ?? false) && !parsed.yes;
+  const interactive = isTerminal(process.stdin) && !parsed.yes;
   if (interactive) {
     const [spec] = getScaffoldSpec(type);
     // Le contexte du projet transforme les questions dont les réponses valides
@@ -1253,7 +1256,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
             ? value === true
               ? "oui"
               : "non"
-            : String(value ?? "") || "(auto)";
+            : String(value) || "(auto)";
         return `  ${q.key.padEnd(10)} : ${shown}`;
       })
       .join("\n");
@@ -1331,7 +1334,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.OK;
     }
     const installed = projectRoot !== null && runInstall(projectRoot);
-    if (!installed || projectRoot === null) {
+    if (!installed) {
       process.stdout.write(
         `⚠ npm install a échoué — relance-le à la racine de l'app (le module ne sera pas chargeable avant)\n`,
       );

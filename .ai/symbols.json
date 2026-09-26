@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 873,
-    "symbols": 4346,
+    "files": 874,
+    "symbols": 4348,
     "classes": 404,
     "interfaces": 1145,
-    "types": 463,
+    "types": 464,
     "enums": 4,
-    "functions": 1895,
+    "functions": 1896,
     "constants": 435
   },
   "symbols": {
@@ -5869,6 +5869,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Per-request state propagated transparently across the async pipeline. Set by HttpKernel at request entry (`handleHttp` / `handleWebsocket`) and accessible from any downstream service (logs, ORM, se…"
+    },
+    "spawnedOutput": {
+      "name": "spawnedOutput",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/spawnedOutput.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Rend les sorties texte d'un `spawnSync`, vides quand le processus n'a pas pu être lancé. `@types/node` déclare `stdout`/`stderr: string` sur le résultat d'un `spawnSync(…, { encoding })`, mais les …"
     },
     "unrefTimer": {
       "name": "unrefTimer",
@@ -32593,6 +32601,18 @@
         "src/nodefony/src/cli/create.ts",
         "src/packages/@nodefony/security/nodefony/command/security-token.ts"
       ],
+      "spawnedOutput": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/licenses.ts"
+      ],
+      "isTerminal": [
+        "src/nodefony/src/cli/aiMcp.ts",
+        "src/nodefony/src/cli/create.ts",
+        "src/nodefony/src/cli/usageReport.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
+      ],
       "stripTrailingSlashes": [
         "src/nodefony/src/cli/aiMcpReport.ts",
         "src/nodefony/src/syslog/drivers/LokiLogDriver.ts",
@@ -33576,10 +33596,6 @@
       ],
       "IGuardedListenerInfo": [
         "src/nodefony/src/kernel/Kernel.ts"
-      ],
-      "isTerminal": [
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "TimeoutError": [
         "src/nodefony/src/kernel/Kernel.ts"

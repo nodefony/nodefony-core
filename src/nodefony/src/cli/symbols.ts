@@ -83,8 +83,12 @@ export function readSymbolsGraph(from: string): ISymbolsGraph | null {
   const file = resolveSymbolsFile(from);
   if (file === null) return null;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as ISymbolsGraph;
-    return parsed.symbols ? parsed : null;
+    // Fichier généré par un autre outil, peut-être d'une autre version.
+    const parsed = JSON.parse(
+      readFileSync(file, "utf8"),
+    ) as Partial<ISymbolsGraph>;
+    const { symbols } = parsed;
+    return symbols ? { ...parsed, symbols } : null;
   } catch {
     return null;
   }

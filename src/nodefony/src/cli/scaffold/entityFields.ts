@@ -362,7 +362,7 @@ export function parseEntityFields(input: string): IEntityField[] {
     // Énumération : `status:enum(draft,published)`.
     const enumMatch = /^enum\((.*)\)$/u.exec(parts[1] ?? "");
     if (enumMatch) {
-      const values = (enumMatch[1] ?? "")
+      const values = enumMatch[1]
         .split(",")
         .map((value) => value.trim())
         .filter(Boolean);

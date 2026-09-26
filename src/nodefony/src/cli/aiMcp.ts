@@ -31,6 +31,8 @@ import {
   type IAgentMcpFile,
   type IAgentTarget,
 } from "./agentTargets";
+import { spawnedOutput } from "../runtime/spawnedOutput";
+import { isTerminal } from "../runtime/isTerminal";
 
 /**
  * `nodefony ai:mcp` — déclare le serveur MCP de cette application à ton agent.
@@ -790,7 +792,8 @@ export async function declareToAgents(
         cwd: ctx.projectRoot,
         env: envAgent,
       });
-      const vu = `${before.stdout ?? ""}${before.stderr ?? ""}`;
+      const seen = spawnedOutput(before);
+      const vu = `${seen.stdout}${seen.stderr}`;
       replacesOtherUrl =
         !before.error &&
         before.status === 0 &&
@@ -824,7 +827,7 @@ export async function declareToAgents(
         command: command,
         // Borné : l'une de ces CLI crache une vingtaine de lignes de bruit
         // avant son vrai message.
-        detail: `${r.stderr ?? ""}${r.stdout ?? ""}`
+        detail: `${spawnedOutput(r).stderr}${spawnedOutput(r).stdout}`
           .trim()
           .split("\n")
           .slice(-6)
@@ -846,7 +849,8 @@ export async function declareToAgents(
         cwd: ctx.projectRoot,
         env: envAgent,
       });
-      const output = `${vue.stdout ?? ""}${vue.stderr ?? ""}`;
+      const listed = spawnedOutput(vue);
+      const output = `${listed.stdout}${listed.stderr}`;
       // La lecture n'a pas pu se faire : on ne conclut RIEN de son silence —
       // une absence de trace n'est pas une preuve.
       const lisible = !vue.error && vue.status === 0;
@@ -962,7 +966,7 @@ export function renderDeclarations(
           ? "dans ce projet"
           : "GLOBALE — elle vaut pour tous tes projets";
       out += `  ✓ ${r.target.name} — porte déclarée, ${scope}. RELANCE-le.\n`;
-      if (r.state === "declare" && r.replacesOtherUrl) {
+      if (r.replacesOtherUrl) {
         out +=
           `    ⚠ elle a REMPLACÉ une déclaration « ${MCP_SERVER_KEY} » qui ` +
           `visait ailleurs — une autre application ?\n`;
@@ -1002,8 +1006,10 @@ export function renderDeclarations(
 export function readMcpConfig(file: string): IMcpConfigDocument | null {
   if (!existsSync(file)) return null;
   try {
-    const parsed = JSON.parse(readFileSync(file, "utf8")) as IMcpConfigDocument;
-    return typeof parsed === "object" && parsed !== null ? parsed : null;
+    const parsed: unknown = JSON.parse(readFileSync(file, "utf8"));
+    return typeof parsed === "object" && parsed !== null
+      ? (parsed as IMcpConfigDocument)
+      : null;
   } catch {
     // Un fichier corrompu ne se réécrit pas en silence : on le DIT à
     // l'appelant, qui décidera. (Ici : on repart d'un document vide, et le
@@ -1251,7 +1257,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   // lui, l'émission échoue sur une audience que l'application ne sert pas.
   const chainage = planTokenChaining(parsed, {
     projectRoot,
-    isTTY: process.stdin.isTTY ?? false,
+    isTTY: isTerminal(process.stdin),
   });
   if (chainage) {
     const { confirm, select } = await chargePrompts();

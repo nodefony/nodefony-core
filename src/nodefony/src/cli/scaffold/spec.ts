@@ -1124,7 +1124,8 @@ const ENTITY_SPEC: IScaffoldTypeSpec = {
   ],
 };
 
-const SPECS: Record<string, IScaffoldTypeSpec> = {
+// `Partial` : le type demandé vient de la ligne de commande ou de Studio.
+const SPECS: Partial<Record<string, IScaffoldTypeSpec>> = {
   app: APP_SPEC,
   module: MODULE_SPEC,
   controller: CONTROLLER_SPEC,
@@ -1143,5 +1144,7 @@ export function getScaffoldSpec(type?: string): IScaffoldTypeSpec[] {
     const spec = SPECS[type];
     return spec ? [spec] : [];
   }
-  return Object.values(SPECS);
+  return Object.values(SPECS).filter(
+    (spec): spec is IScaffoldTypeSpec => spec !== undefined,
+  );
 }

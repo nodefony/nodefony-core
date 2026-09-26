@@ -547,7 +547,7 @@ export class Spinner extends LiveLine {
       this.#draw();
     }, this.#intervalMs);
     // Une animation ne doit JAMAIS retenir le processus en vie.
-    this.#timer.unref?.();
+    this.#timer.unref();
   }
 
   /**
@@ -714,7 +714,7 @@ export class ProgressBar extends LiveLine {
       this.#frame = (this.#frame + 1) % this.#frames.length;
       this.#draw();
     }, this.#intervalMs);
-    this.#timer.unref?.();
+    this.#timer.unref();
   }
 
   /**

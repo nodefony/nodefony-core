@@ -39,7 +39,7 @@ export function unknownOptionHint(
 ): string | null {
   const match = /unknown option '([^']+)'/u.exec(message);
   if (!match || !command) return null;
-  const option = match[1] ?? "";
+  const option = match[1];
   const lines: string[] = [];
   if (CONFIRM_FLAGS.has(option)) {
     lines.push(

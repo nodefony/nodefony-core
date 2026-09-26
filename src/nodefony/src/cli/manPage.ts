@@ -185,7 +185,7 @@ export function renderManPage(manifest: ICliManifest, version: string): string {
   for (const group of groupCommands(
     manifest.commands.map((c) => ({
       name: c.name,
-      aliases: c.aliases ?? [],
+      aliases: c.aliases,
       description: c.description,
       ...(c.group === undefined ? {} : { group: c.group }),
     })),
