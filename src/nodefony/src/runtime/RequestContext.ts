@@ -188,7 +188,7 @@ class RequestContext {
   }
 
   /** Shortcut — returns the current authenticated user (P6) or `undefined`. */
-  static getUser(): unknown | undefined {
+  static getUser(): unknown {
     return this.get()?.user;
   }
 
@@ -197,6 +197,9 @@ class RequestContext {
    * Générique car le core ne connaît pas les types de `@nodefony/http` :
    * `RequestContext.getContext<ContextType>()` côté framework.
    */
+  // Générique de RETOUR voulu : le core ne connaît pas le type du contexte,
+  // l'appelant le nomme (`getContext<ContextType>()`) — API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   static getContext<T = unknown>(): T | undefined {
     return this.get()?.context as T | undefined;
   }

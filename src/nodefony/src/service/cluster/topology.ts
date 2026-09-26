@@ -54,7 +54,7 @@ export interface ResolveTopologyOptions {
  * `requested` (honoré tel quel). Tout le reste (vide, `0`, non-numérique) → `undefined`.
  */
 function coerce(
-  value: string | WorkersSetting | undefined,
+  value: string | Exclude<WorkersSetting, string> | undefined,
 ): number | undefined {
   if (value === undefined || value === null || value === "") {
     return undefined;

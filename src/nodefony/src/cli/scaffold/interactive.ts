@@ -174,6 +174,7 @@ async function ask(
     return t === "o" || t === "y" || t === "oui" || t === "yes";
   }
   if (spec.type === "list" && spec.choices) {
+    const { choices } = spec;
     // Multi-choix : plusieurs numéros séparés par une virgule, et surtout le
     // VIDE comme réponse pleine — « aucun » est un choix, pas une hésitation.
     // C'est ce qui permet à une question d'écriture chez un tiers d'exister
@@ -194,13 +195,13 @@ async function ask(
         .filter(Boolean)
         .map((n) => Number.parseInt(n, 10));
       const valid = nums.every(
-        (n) => Number.isInteger(n) && n >= 1 && n <= spec.choices!.length,
+        (n) => Number.isInteger(n) && n >= 1 && n <= choices.length,
       );
       if (valid) {
         // Un TABLEAU, jamais une chaîne à virgules : le moteur garde chaque
         // valeur d'une question `list` ENTIÈRE et ne re-découpe rien — « a,b »
         // y deviendrait UNE valeur nommée « a,b », que personne ne verrait.
-        return [...new Set(nums)].map((n) => spec.choices![n - 1].value);
+        return [...new Set(nums)].map((n) => choices[n - 1].value);
       }
       out.write(
         `  → numéros entre 1 et ${spec.choices.length}, ou ENTRÉE pour aucun\n`,
@@ -303,8 +304,13 @@ export async function askMissing(
       if (q.advanced) {
         continue;
       }
-      const askOne: TAskQuestion = (question) =>
-        rich ? askRich(rich, question) : ask(rl!, output, question);
+      const askOne: TAskQuestion = (question) => {
+        if (rich) return askRich(rich, question);
+        // Inatteignable : `rl` est ouvert dès que `rich` manque (ci-dessus).
+        if (!rl)
+          throw new Error("scaffold : aucune interface de saisie ouverte");
+        return ask(rl, output, question);
+      };
       if (q.compose === "entityFields") {
         // La cible d'une relation : les entités du projet, plus celle qu'on
         // est en train de créer (une relation vers soi est légitime).

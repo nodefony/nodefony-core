@@ -37,7 +37,10 @@ export interface IContainer {
   readonly id: string;
 
   // ─── Services ──────────────────────────────────────────────────────────────
-  set<T>(name: string, object: T): void;
+  set(name: string, object: unknown): void;
+  // Générique de RETOUR voulu : l'appelant nomme le type du service qu'il
+  // résout (`get<HttpKernel>("HttpKernel")`) — API publique du conteneur.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   get<T = unknown>(name: string): T | null;
   remove(name: string): boolean;
   has(name: string): boolean;

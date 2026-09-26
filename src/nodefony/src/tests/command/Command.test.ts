@@ -266,12 +266,8 @@ describe("Command — askArgument()", () => {
       erreur = e as Error;
     }
     assert.ok(erreur, "aucune erreur levée hors TTY");
-    assert.match(String(erreur?.message), /identifier/u);
-    assert.match(
-      String(erreur?.message),
-      /ask-2/u,
-      "la commande à taper manque",
-    );
+    assert.match(erreur?.message, /identifier/u);
+    assert.match(erreur?.message, /ask-2/u, "la commande à taper manque");
   });
 
   it("en TTY, elle demande — saisie libre", async () => {

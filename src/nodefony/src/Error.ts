@@ -34,7 +34,7 @@ declare global {
 type JsonDescriptor = {
   configurable?: boolean;
   enumerable?: boolean;
-  value?: () => any;
+  value?: () => Record<string, unknown>;
   writable?: boolean;
 };
 
@@ -42,8 +42,8 @@ const json: JsonDescriptor = {
   configurable: true,
   writable: true,
   value() {
-    const alt: Record<string, any> = {};
-    const storeKey = function (this: Record<string, any>, key: string) {
+    const alt: Record<string, unknown> = {};
+    const storeKey = function (this: Record<string, unknown>, key: string) {
       alt[key] = this[key];
     };
     Object.getOwnPropertyNames(this).forEach(storeKey, this);
@@ -64,8 +64,8 @@ const jsonNodefony: JsonDescriptor = {
   configurable: true,
   writable: true,
   value() {
-    const alt: Record<string, any> = {};
-    const storeKey = function (this: Record<string, any>, key: string) {
+    const alt: Record<string, unknown> = {};
+    const storeKey = function (this: Record<string, unknown>, key: string) {
       if (key in exclude) {
         return;
       }
@@ -277,20 +277,20 @@ class nodefonyError extends Error {
         case "SyntaxError":
           return errorType;
         case "AssertionError":
-          this.actual = error.actual;
-          this.expected = error.expected;
-          this.operator = error.operator;
+          this.actual = error.actual as unknown;
+          this.expected = error.expected as unknown;
+          this.operator = error.operator as unknown;
           return errorType;
         case "SystemError":
           this.errno = error.errno;
-          this.syscall = error.syscall;
-          this.address = error.address;
-          this.port = error.port;
+          this.syscall = error.syscall as unknown;
+          this.address = error.address as unknown;
+          this.port = error.port as unknown;
           this.stack = error.stack;
           return errorType;
         case "ClientError":
           this.bytesParsed = error.bytesParsed;
-          this.rawPacket = error.rawPacket;
+          this.rawPacket = error.rawPacket as unknown;
           return errorType;
         case "OrmError":
           // Mémorise l'adapter résolu (sur l'erreur native originale) pour que
@@ -401,36 +401,47 @@ class nodefonyError extends Error {
    *
    * @param message - string, `Error`, ou objet quelconque à interpréter.
    */
-  parseMessage(message: any) {
-    this.errorType = this.getType(message);
+  parseMessage(message: unknown) {
+    // `getType` ne lit que des champs optionnels : toute valeur y est admise.
+    this.errorType = this.getType(message as Error);
+    // `code` reste typé `number | null` (contrat historique) mais reçoit tel
+    // quel le code de la source, qui peut être une chaîne (`"ENOENT"`).
     switch (typeOf(message)) {
-      case "Error":
-        this.message = message.message;
-        if (message.code) {
-          this.code = message.code;
+      case "Error": {
+        const err = message as Error;
+        this.message = err.message;
+        if (err.code) {
+          this.code = err.code as number;
         }
-        this.stack = message.stack;
+        this.stack = err.stack;
         break;
-      case "object":
+      }
+      case "object": {
+        const obj = message as {
+          status?: unknown;
+          code?: unknown;
+          message?: unknown;
+        };
         // Capturing stack trace, excluding constructor call from it.
-        Error.captureStackTrace(message, this.constructor);
-        if (message.status) {
-          this.code = message.status;
+        Error.captureStackTrace(obj, this.constructor);
+        if (obj.status) {
+          this.code = obj.status as number;
         }
-        if (message.code) {
-          this.code = message.code;
+        if (obj.code) {
+          this.code = obj.code as number;
         }
         try {
-          if (message.message) {
-            this.message = message.message;
+          if (obj.message) {
+            this.message = obj.message as string;
           } else {
             // this.message = JSON.stringify(message);
-            this.message = inspect(message, { depth: 0 });
+            this.message = inspect(obj, { depth: 0 });
           }
-        } catch (e: any) {
-          this.error = e;
+        } catch (e) {
+          this.error = e as Error;
         }
         break;
+      }
       default:
         this.getDefaultMessage();
     }

@@ -76,7 +76,7 @@ export function filterPdus(
     if (severities && !severities.includes(pdu.severityName.toUpperCase()))
       continue;
     if (moduleLc && !pdu.moduleName.toLowerCase().includes(moduleLc)) continue;
-    if (msgidLc && !String(pdu.msgid).toLowerCase().includes(msgidLc)) continue;
+    if (msgidLc && !pdu.msgid.toLowerCase().includes(msgidLc)) continue;
     if (from !== undefined && pdu.timeStamp < from) continue;
     if (to !== undefined && pdu.timeStamp > to) continue;
     if (flowSet) {

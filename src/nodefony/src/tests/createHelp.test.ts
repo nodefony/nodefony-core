@@ -108,7 +108,9 @@ describe("create --help — une page par type, dérivée de la spec", () => {
         if (q.type !== "boolean") continue;
         const nie = flagFor(q).startsWith("--no-");
         if ((q.default === true) !== nie) {
-          fautifs.push(`${type}.${q.key} (${flagFor(q)}, défaut ${q.default})`);
+          fautifs.push(
+            `${type}.${q.key} (${flagFor(q)}, défaut ${String(q.default)})`,
+          );
         }
       }
     }

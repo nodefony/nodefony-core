@@ -58,6 +58,9 @@ function services(
   return function <T extends Constructor>(constructor: T): T {
     class NewConstructorService extends constructor {
       constructor(...args: any[]) {
+        // Classe mixin : TypeScript IMPOSE `...args: any[]` (TS2545), l'étalement
+        // vers le constructeur décoré est donc typé `any` par construction.
+        // oxlint-disable-next-line typescript/no-unsafe-argument
         super(...args);
         // Tagué au nom du module (`hookKernel`) : un module optionnel dont un
         // service échoue à l'instanciation doit rester fail-soft, y compris en
@@ -195,7 +198,8 @@ function inject(serviceName: string): ParameterDecorator {
     // Stockage au niveau de la classe (pas de propertyKey) — cohérent avec
     // Injector.instantiate qui lit Reflect.getMetadata("inject:services", constructor).
     const existing: (string | undefined)[] =
-      Reflect.getMetadata("inject:services", target) || [];
+      (Reflect.getMetadata("inject:services", target) as
+        (string | undefined)[] | undefined) || [];
     existing[parameterIndex] = serviceName;
     Reflect.defineMetadata("inject:services", existing, target);
   };
@@ -226,7 +230,8 @@ function Inject(name?: string): PropertyDecorator {
       );
     }
     const existing: PropertyInjectMeta[] =
-      Reflect.getMetadata("inject:properties", target) || [];
+      (Reflect.getMetadata("inject:properties", target) as
+        PropertyInjectMeta[] | undefined) || [];
     existing.push({ key: propertyKey, name: resolvedName });
     Reflect.defineMetadata("inject:properties", existing, target);
   };

@@ -1,4 +1,5 @@
 import path from "node:path";
+import { inspect } from "node:util";
 
 import Syslog, { conditionsInterface } from "../syslog/Syslog";
 import Pdu from "../syslog/Pdu";
@@ -118,6 +119,9 @@ export type PackageManager = (
 class CliKernel extends Cli {
   public runProfile: IRunProfile = { ...CONSOLE_RUN_PROFILE };
   public app: Module | null = null;
+  // Référence de MÉTHODE gardée telle quelle (identité éprouvée par les tests) :
+  // toujours appelée comme `cli.packageManager(…)`, donc avec le bon `this`.
+  // oxlint-disable-next-line typescript/unbound-method
   public packageManager: PackageManager = this.pnpm;
   /**
    * Boot SILENCIEUX : pour les commandes CLI utilitaires (help global, commandes
@@ -143,19 +147,24 @@ class CliKernel extends Cli {
    * Sélectionne le package manager pour les commandes `install`/`outdated`.
    *
    * @param manager - `"npm"` / `"yarn"` / `"pnpm"`. Défaut = `this.options.packageManager` (pnpm).
-   * @returns la fonction package manager liée à `this`.
+   * @returns la méthode package manager retenue — à appeler sur ce CLI (non liée).
    */
   setPackageManager(
-    manager: PackageManagerName = this.options?.packageManager,
+    manager: PackageManagerName | undefined = this.options?.packageManager,
   ): PackageManager {
     switch (manager) {
+      // Références de MÉTHODE (cf le champ `packageManager`) : appelées comme
+      // `cli.packageManager(…)`, jamais détachées.
       case "yarn":
+        // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.yarn;
         break;
       case "pnpm":
+        // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.pnpm;
         break;
       default:
+        // oxlint-disable-next-line typescript/unbound-method
         this.packageManager = this.npm;
     }
     return this.packageManager;
@@ -506,7 +515,13 @@ class CliKernel extends Cli {
             // d'exécution lisible plutôt qu'une absence.
             if (booting && wantsLiveDoctor(requested, process.argv)) {
               const cause =
-                e instanceof Error ? e.message : String(e ?? "cause inconnue");
+                e instanceof Error
+                  ? e.message
+                  : typeof e === "string"
+                    ? e
+                    : e === undefined || e === null
+                      ? "cause inconnue"
+                      : inspect(e);
               const reportCode = await runDoctorWithoutLive(
                 process.argv,
                 `l'application n'a pas démarré — ${cause}`,
@@ -1066,8 +1081,10 @@ class CliKernel extends Cli {
       const detectpath = path.isAbsolute(moduleName)
         ? moduleName
         : path.resolve(cwd, moduleName);
-      const module = await import(toImportSpecifier(detectpath));
-      return module.default as ModuleWithDefault<T>;
+      const module = (await import(toImportSpecifier(detectpath))) as {
+        default: ModuleWithDefault<T>;
+      };
+      return module.default;
     } catch (error) {
       this.log(error, "ERROR");
       throw error;

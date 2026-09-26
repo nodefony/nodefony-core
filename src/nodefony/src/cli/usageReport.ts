@@ -250,7 +250,7 @@ export function printUsage(page: IUsagePage): number {
   process.stdout.write(
     renderUsage(
       page,
-      createPalette(shouldColorize(process.env, Boolean(process.stdout.isTTY))),
+      createPalette(shouldColorize(process.env, process.stdout.isTTY ?? false)),
       usableWidth(process.stdout.columns),
     ),
   );
@@ -270,7 +270,7 @@ export function printUsage(page: IUsagePage): number {
  */
 export function printUsageError(page: IUsagePage, message: string): number {
   const p = createPalette(
-    shouldColorize(process.env, Boolean(process.stderr.isTTY)),
+    shouldColorize(process.env, process.stderr.isTTY ?? false),
   );
   const width = usableWidth(process.stderr.columns);
   const name = page.command.replace(/^nodefony\s+/u, "");

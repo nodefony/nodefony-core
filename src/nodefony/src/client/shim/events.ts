@@ -28,7 +28,7 @@ export class EventEmitter {
   }
 
   once(event: string | symbol, fn: Listener): this {
-    const wrapper = (...args: any[]) => {
+    const wrapper = (...args: unknown[]) => {
       this.off(event, wrapper);
       fn(...args);
     };
@@ -54,7 +54,7 @@ export class EventEmitter {
     return this;
   }
 
-  emit(event: string | symbol, ...args: any[]): boolean {
+  emit(event: string | symbol, ...args: unknown[]): boolean {
     const arr = this._listeners.get(event);
     if (!arr || arr.length === 0) return false;
     for (const fn of arr.slice()) {
@@ -108,7 +108,7 @@ export class EventEmitter {
 
   /** Comme {@link once} mais inséré en TÊTE de la liste des listeners. */
   prependOnceListener(event: string | symbol, fn: Listener): this {
-    const wrapper = (...args: any[]) => {
+    const wrapper = (...args: unknown[]) => {
       this.off(event, wrapper);
       fn(...args);
     };

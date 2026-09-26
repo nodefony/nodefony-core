@@ -25,6 +25,8 @@
  */
 import { describe, it, expect, beforeEach, vi } from "vitest";
 import { mount, unmount, flushSync } from "svelte";
+// `unmount` rend la promesse de fin des transitions de sortie ; ces tests
+// lisent l'état SYNCHRONE après `flushSync`, ils ne l'attendent donc pas.
 import { RealtimeClient } from "../client/realtime/RealtimeClient";
 import {
   TransportState,
@@ -149,7 +151,7 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     expect(abonnements(t)).toEqual(["subscribe live:events"]);
     expect(client.subscribedChannels).toEqual(["live:events"]);
 
-    unmount(app);
+    void unmount(app);
     flushSync();
 
     expect(abonnements(t)).toEqual([
@@ -176,7 +178,7 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     flushSync();
     expect(abonnements(t)).toEqual([]);
     expect(client.subscribedChannels).toEqual([]);
-    unmount(app);
+    void unmount(app);
   });
 
   it("deux composants, un seul abonnement réseau — et il n'est rendu qu'au dernier", async () => {
@@ -195,10 +197,10 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     flushSync();
     expect(abonnements(t)).toEqual(["subscribe live:events"]);
 
-    unmount(a);
+    void unmount(a);
     flushSync();
     expect(abonnements(t)).toEqual(["subscribe live:events"]);
-    unmount(b);
+    void unmount(b);
     flushSync();
     expect(abonnements(t)).toEqual([
       "subscribe live:events",
@@ -232,7 +234,7 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     ]);
     expect(client.subscribedChannels).toEqual(["live:b"]);
 
-    unmount(app);
+    void unmount(app);
     flushSync();
     expect(client.subscribedChannels).toEqual([]);
   });
@@ -254,7 +256,7 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     t.push("live:events", { n: 2 });
     flushSync();
     expect(el.textContent).toContain('"n":2');
-    unmount(app);
+    void unmount(app);
   });
 
   it("l'état de connexion suit la socket", async () => {
@@ -272,7 +274,7 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     await connected(client);
     flushSync();
     expect(el.textContent).toContain("connected");
-    unmount(app);
+    void unmount(app);
   });
 
   it("l'instantané de la socket est rendu, et cite les canaux tenus", async () => {
@@ -297,8 +299,8 @@ describe("valeurs réactives — l'abonnement suit la LECTURE", () => {
     flushSync();
     expect(el.textContent).toContain('"state":"connected"');
     expect(el.textContent).toContain("live:events");
-    unmount(app);
-    unmount(abonne);
+    void unmount(app);
+    void unmount(abonne);
   });
 });
 
@@ -324,7 +326,7 @@ describe("nodefonyChannel — la forme NON paresseuse", () => {
     t.push("live:salon", { texte: "bonjour" });
     expect(recus).toEqual([{ texte: "bonjour" }]);
 
-    unmount(app);
+    void unmount(app);
     flushSync();
     expect(abonnements(t)).toEqual([
       "subscribe live:salon",

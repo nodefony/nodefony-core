@@ -933,9 +933,7 @@ function renderSummary(
     // jouer : le sommaire dirait deux fois la même chose. Elle n'apparaît que
     // pour ÉNONCER son angle mort — et seulement si la famille, elle, a bien
     // regardé (sinon le même trou serait compté deux fois).
-    (f) =>
-      !isSubrule(f) ||
-      (!execution[f]?.ran && execution.readiness?.ran === true),
+    (f) => !isSubrule(f) || (!execution[f]?.ran && execution.readiness?.ran),
   ).map((f) => line(f, detail[f].n, detail[f].text));
 
   const titleWidth = Math.max(...lines.map((l) => l.title.length));

@@ -21,8 +21,8 @@ export type Scopes = Map<string, Set<IScope>>;
 // n'en a plus besoin, et une requête ordinaire ne le lit jamais.
 let containerSeq = 0;
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-export type ProtoService = { (): void; [key: string]: any };
+/** Porteur du prototype partagé des services (cf {@link createProto}). */
+export type ProtoService = { (): void; prototype: DynamicService };
 
 /**
  * Build a prototype holder whose `prototype` has NO prototype of its own, so
@@ -31,7 +31,7 @@ export type ProtoService = { (): void; [key: string]: any };
  */
 function createProto(): ProtoService {
   const proto = function () {} as ProtoService;
-  proto.prototype = Object.create(null);
+  proto.prototype = Object.create(null) as DynamicService;
   return proto;
 }
 
@@ -74,10 +74,14 @@ class Container implements IContainer {
   constructor(input?: Container, adoptedProtoService?: ProtoService) {
     this.protoService = adoptedProtoService ?? createProto();
     if (input && input instanceof Container) {
-      this.services = Object.create(input.protoService.prototype);
+      this.services = Object.create(
+        input.protoService.prototype,
+      ) as DynamicService;
       this.setServices(input.services ?? {});
     } else {
-      this.services = Object.create(this.protoService.prototype);
+      this.services = Object.create(
+        this.protoService.prototype,
+      ) as DynamicService;
     }
   }
 
@@ -148,7 +152,7 @@ class Container implements IContainer {
    * are not required to extend any base class)
    * @throws Error if `name` is empty or the container has been cleaned
    */
-  public set<T>(name: string, object: T): void {
+  public set(name: string, object: unknown): void {
     if (this.services && name) {
       this.protoService.prototype[name] = object;
       this.services[name] = object;
@@ -165,6 +169,9 @@ class Container implements IContainer {
    * @param name - service identifier
    * @returns the service instance typed as `T`, or `null`
    */
+  // Générique de RETOUR voulu : l'appelant nomme le type du service qu'il
+  // résout (`get<HttpKernel>("HttpKernel")`) — API publique du conteneur.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   public get<T = unknown>(name: string): T | null {
     if (this.services && name in this.services) {
       return this.services[name] as T;
@@ -329,7 +336,9 @@ class Container implements IContainer {
   public reset(): void {
     this.clean();
     this.protoService = createProto();
-    this.services = Object.create(this.protoService.prototype);
+    this.services = Object.create(
+      this.protoService.prototype,
+    ) as DynamicService;
   }
 }
 
@@ -362,7 +371,7 @@ class Scope extends Container implements IScope {
     // eux-mêmes sur le proto racine), sinon l'enfant ne voit pas ce que son
     // parent a posé pour la requête (controller, context…). Chemin froid.
     if (parent instanceof Scope && parent.services !== null) {
-      this.services = Object.create(parent.services);
+      this.services = Object.create(parent.services) as DynamicService;
     }
   }
 
@@ -386,7 +395,7 @@ class Scope extends Container implements IScope {
    * requêtes concurrentes. (L'ancien chemin écrivait sur un proto local mort
    * — travail perdu à chaque set.)
    */
-  public override set<T>(name: string, object: T): void {
+  public override set(name: string, object: unknown): void {
     if (this.services && name) {
       this.services[name] = object;
     } else {

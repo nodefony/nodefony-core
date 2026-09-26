@@ -58,7 +58,8 @@ export function readUserContract(
         "générer.\n  → l'ajouter : npm install @nodefony/user",
     );
   }
-  const columns = module.USER_COLUMNS;
+  // Lu comme `unknown` : c'est le module INSTALLÉ qui parle, vérifié ci-dessous.
+  const columns: unknown = module.USER_COLUMNS;
   if (!Array.isArray(columns) || columns.length === 0) {
     throw new Error(
       "create entity User : « @nodefony/user » n'expose pas son contrat de " +
@@ -66,7 +67,7 @@ export function readUserContract(
         "puisse être écrite sans deviner.\n  → mettre le module à jour",
     );
   }
-  return columns;
+  return columns as readonly IUserContractColumn[];
 }
 
 /**

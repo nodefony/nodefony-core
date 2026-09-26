@@ -5,8 +5,8 @@
  *
  * Tout accès `.yellow.bold("foo")` retourne `"foo"` sans modification.
  */
-const identity = (s: any): any => s;
+const identity = (s: unknown): unknown => s;
 const proxy: any = new Proxy(identity, {
-  get: () => proxy,
+  get: (): unknown => proxy,
 });
 export default proxy;

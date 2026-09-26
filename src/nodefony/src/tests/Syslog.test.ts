@@ -214,7 +214,7 @@ describe("NODEFONY SYSLOG", () => {
   describe("getLogs conditions ", () => {
     it("getLogs 1000  entries ", () =>
       new Promise<void>((done) => {
-        const res: conditionsInterface = global.syslog.getLogs({
+        const res = global.syslog.getLogs({
           severity: {
             data: "INFO",
           },

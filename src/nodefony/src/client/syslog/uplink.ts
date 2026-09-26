@@ -113,8 +113,12 @@ function normalizePayload(payload: unknown, maxLen: number): unknown {
   const t = typeof payload;
   if (t === "string") return clamp(payload as string, maxLen);
   if (t === "number" || t === "boolean") return payload;
-  if (t === "function" || t === "symbol" || t === "bigint") {
-    return clamp(String(payload), maxLen);
+  if (
+    typeof payload === "function" ||
+    typeof payload === "symbol" ||
+    typeof payload === "bigint"
+  ) {
+    return clamp(payload.toString(), maxLen);
   }
   try {
     // Un cycle, un getter qui jette, un DOM node : on ne laisse pas l'échec de
@@ -123,6 +127,9 @@ function normalizePayload(payload: unknown, maxLen: number): unknown {
       clamp(JSON.stringify(payload) ?? "null", maxLen),
     ) as unknown;
   } catch {
+    // Repli VOULU sur l'étiquette par défaut (`[object Object]`, `[object
+    // HTMLDivElement]`…) : l'objet vient de refuser la sérialisation.
+    // oxlint-disable-next-line typescript/no-base-to-string
     return clamp(String(payload), maxLen);
   }
 }

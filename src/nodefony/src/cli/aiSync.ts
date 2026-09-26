@@ -244,7 +244,7 @@ export function readExistingPointers(
   projectRoot: string,
 ): Record<string, string> {
   const dir = path.join(projectRoot, ...SKILLS_DIR.split("/"));
-  const out: Record<string, string> = Object.create(null);
+  const out = Object.create(null) as Record<string, string>;
   for (const entry of listDir(dir)) {
     const md = path.join(dir, entry, "SKILL.md");
     try {

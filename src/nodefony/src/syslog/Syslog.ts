@@ -204,8 +204,8 @@ type Condition = "&&" | "||";
 
 // Data est intentionnellement hétérogène : severity (number|string|array),
 // msgid (string|RegExp|array), date (Date|string|number).
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Data = any;
+// Lue par narrowing (ou cast documenté) dans les conditions ci-dessous.
+type Data = unknown;
 
 interface LogicCondition {
   "&&": (myConditions: ConditionSetting, pdu: Pdu) => boolean;
@@ -388,10 +388,12 @@ const operators: Operators = {
 
 const conditionsObj: Conditions = {
   severity: (pdu: Pdu, condition: ConditionSetting) => {
-    for (const sev in condition.data) {
+    // Forme posée par `sanitizeConditions` : nom → valeur de sévérité.
+    const data = condition.data as Record<string, number | string>;
+    for (const sev in data) {
       if (
         condition.operator &&
-        operators[condition.operator](pdu.severity, condition.data[sev])
+        operators[condition.operator](pdu.severity, data[sev])
       ) {
         return true;
       }
@@ -402,7 +404,7 @@ const conditionsObj: Conditions = {
     if (condition.data instanceof RegExp) {
       return condition.data.test(pdu.msgid);
     }
-    for (const sev in condition.data) {
+    for (const sev in condition.data as object) {
       if (condition.operator && operators[condition.operator](pdu.msgid, sev)) {
         return true;
       }
@@ -411,7 +413,7 @@ const conditionsObj: Conditions = {
   },
   date: (pdu: Pdu, condition: ConditionSetting) =>
     condition.operator
-      ? operators[condition.operator](pdu.timeStamp, condition.data)
+      ? operators[condition.operator](pdu.timeStamp, condition.data as number)
       : false,
 };
 
@@ -419,7 +421,7 @@ const logicCondition: LogicCondition = {
   "&&": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
     let res = false;
     for (const ele in myConditions) {
-      res = conditionsObj[ele](pdu, myConditions[ele]);
+      res = conditionsObj[ele](pdu, myConditions[ele] as ConditionSetting);
       if (!res) break;
     }
     return res;
@@ -427,7 +429,7 @@ const logicCondition: LogicCondition = {
   "||": (myConditions: ConditionSetting, pdu: Pdu): boolean => {
     let res = false;
     for (const ele in myConditions) {
-      res = conditionsObj[ele](pdu, myConditions[ele]);
+      res = conditionsObj[ele](pdu, myConditions[ele] as ConditionSetting);
       if (res) break;
     }
     return res;
@@ -466,7 +468,7 @@ const checkFormatMsgId = function (ele: unknown): RegExp | Array<unknown> {
   if (typeof ele === "string") return ele.split(/,| /);
   if (typeof ele === "number") return [ele];
   if (ele instanceof RegExp) return ele;
-  if (Array.isArray(ele)) return ele;
+  if (Array.isArray(ele)) return ele as unknown[];
   throw new Error(`checkFormatMsgId bad format ${typeof ele} : ${String(ele)}`);
 };
 
@@ -527,7 +529,7 @@ const sanitizeConditions = function (
     if (!(ele in conditionsObj)) {
       return false;
     }
-    const condi: ConditionSetting = settingsCondition[ele];
+    const condi = settingsCondition[ele] as ConditionSetting;
 
     if (condi.operator && !(condi.operator in operators)) {
       throw new Error(`Contitions bad operator : ${condi.operator}`);
@@ -539,12 +541,12 @@ const sanitizeConditions = function (
             condi.operator = "==";
           }
           const res = checkFormatSeverity(condi.data);
-          condi.data = {};
+          const bySeverity: Record<string, unknown> = {};
+          condi.data = bySeverity;
           for (let i = 0; i < res.length; i++) {
             const mySeverity = Pdu.severityToString(res[i]);
             if (mySeverity) {
-              condi.data[mySeverity as Severity] =
-                sysLogSeverity[mySeverity as Severity];
+              bySeverity[mySeverity] = sysLogSeverity[mySeverity as Severity];
             } else {
               return false;
             }
@@ -557,9 +559,10 @@ const sanitizeConditions = function (
           }
           const res = checkFormatMsgId(condi.data);
           if (Array.isArray(res)) {
-            condi.data = {};
+            const byMsgid: Record<string, string> = {};
+            condi.data = byMsgid;
             for (let i = 0; i < res.length; i++) {
-              condi.data[String(res[i])] = "||";
+              byMsgid[String(res[i])] = "||";
             }
           } else {
             condi.data = res;
@@ -721,7 +724,11 @@ class Syslog extends Event implements ISyslog {
    */
   constructor(settings?: SyslogDefaultSettings) {
     super(settings);
-    this.settings = extend({}, defaultSettings, settings || {});
+    this.settings = extend(
+      {},
+      defaultSettings,
+      settings || {},
+    ) as SyslogDefaultSettings;
     this._ring = new CircularBuffer<Pdu>(this.settings.maxStack ?? 100);
     this.burstPrinted = 0;
     this.missed = 0;
@@ -847,7 +854,9 @@ class Syslog extends Event implements ISyslog {
    * `sysLogSeverity` est un enum numérique TS → la reverse-map mêle string et
    * number, d'où le narrowing explicite.
    */
-  private static toSeverityNumber(severity: Severity | number): number {
+  private static toSeverityNumber(
+    severity: number | Exclude<Severity, number>,
+  ): number {
     if (typeof severity === "number") {
       return severity;
     }
@@ -937,7 +946,9 @@ class Syslog extends Event implements ISyslog {
    *
    * @param threshold - sévérité max acceptée (nom ou numérique RFC 5424), ou `null`.
    */
-  setSeverityThreshold(threshold: Severity | number | null): void {
+  setSeverityThreshold(
+    threshold: number | Exclude<Severity, number> | null,
+  ): void {
     this._severityThreshold =
       threshold === null ? null : Syslog.toSeverityNumber(threshold);
   }
@@ -951,7 +962,7 @@ class Syslog extends Event implements ISyslog {
    * @param severity - sévérité à tester (nom ou numérique).
    * @returns `true` si un log de cette sévérité serait accepté.
    */
-  severityEnabled(severity: Severity | number): boolean {
+  severityEnabled(severity: number | Exclude<Severity, number>): boolean {
     if (this._severityThreshold === null) {
       return true;
     }
@@ -976,7 +987,7 @@ class Syslog extends Event implements ISyslog {
    */
   setDebugOverride(
     module: string,
-    level: Severity | number,
+    level: number | Exclude<Severity, number>,
     ttlMs?: number,
   ): void {
     if (this._debugOverrides === null) {
@@ -1514,10 +1525,11 @@ class Syslog extends Event implements ISyslog {
    */
   setTransportEnabled(name: string, enabled: boolean): boolean {
     if (enabled) {
-      const t = this._disabledTransports?.get(name);
-      if (!t) return false;
-      this._disabledTransports!.delete(name);
-      if (this._disabledTransports!.size === 0) this._disabledTransports = null;
+      const disabled = this._disabledTransports;
+      const t = disabled?.get(name);
+      if (!disabled || !t) return false;
+      disabled.delete(name);
+      if (disabled.size === 0) this._disabledTransports = null;
       this.addTransport(t);
       return true;
     }

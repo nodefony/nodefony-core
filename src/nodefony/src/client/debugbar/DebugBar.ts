@@ -570,7 +570,7 @@ export class DebugBar {
   private readonly hmrSeries: number[] = [];
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly disposers: Array<() => void> = [];
-  private readonly el: Record<string, Element> = Object.create(null);
+  private readonly el = Object.create(null) as Record<string, Element>;
   // Network — modèle + corrélation profiler serveur.
   private readonly networkEnabled: boolean;
   private readonly profilerBase: string;
@@ -829,7 +829,8 @@ export class DebugBar {
     // propagation pour y survivre — un `stopPropagation` par contrôle ajouté est
     // le signe qu'on lutte contre son propre écouteur. Le bandeau ne bascule
     // plus rien ; ce qu'il porte est cliquable pour ce que ça fait.
-    const strip = bar.querySelector(".strip")!;
+    const strip = bar.querySelector(".strip");
+    if (!strip) throw new Error("DebugBar : gabarit sans bandeau `.strip`");
     this.wireBtn("btnToggle", () =>
       this.setOpen(!bar.classList.contains("open")),
     );

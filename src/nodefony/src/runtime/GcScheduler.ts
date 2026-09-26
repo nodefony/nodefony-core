@@ -40,7 +40,7 @@ export interface IGcSchedulerOptions {
    * La passe de maintenance (typiquement `() => store.gc()`). Peut être sync ou
    * async ; ses rejets sont capturés (jamais d'`unhandledRejection`).
    */
-  run: () => Promise<unknown> | unknown;
+  run: () => unknown;
 
   /**
    * Étale le **départ** d'un délai aléatoire borné (anti *thundering herd* en

@@ -18,7 +18,12 @@ import {
   SpawnOptions,
 } from "node:child_process";
 import semver from "semver";
-import Table, { TableConstructorOptions } from "cli-table3";
+import Table, {
+  TableConstructorOptions,
+  HorizontalTableRow,
+  VerticalTableRow,
+  CrossTableRow,
+} from "cli-table3";
 import clc, { type ColorFn, type Clc } from "./colors";
 import Service, { DefaultOptionsService } from "./Service";
 import {
@@ -49,6 +54,8 @@ const loadFiglet = async (): Promise<FigletModule> => {
 };
 
 interface CliDefaultOptions extends DefaultOptionsService {
+  /** Gestionnaire de paquets des commandes d'installation. */
+  packageManager?: PackageManagerName;
   processName?: string;
   autostart?: boolean;
   asciify?: boolean;
@@ -202,7 +209,10 @@ function exitWhenFlushed(code: number): void {
 }
 
 class Cli extends Service {
-  public override options: CliDefaultOptions = extend({}, defaultOptions);
+  public override options: CliDefaultOptions = extend(
+    {},
+    defaultOptions,
+  ) as CliDefaultOptions;
   public debug: DebugType = false;
   public environment: EnvironmentType = DEFAULT_ENGINE_ENVIRONMENT;
   public commander: typeof program | null = null;
@@ -259,7 +269,7 @@ class Cli extends Service {
     notificationsCenter: Event | false | undefined,
     options: CliDefaultOptions,
   );
-  constructor(name?: string, ...args: any[]) {
+  constructor(name?: string, ...args: unknown[]) {
     const container: Container | undefined | null =
       args[0] instanceof Container ? args[0] : undefined;
     const notificationsCenter: Event | undefined | false =
@@ -269,11 +279,11 @@ class Cli extends Service {
           ? false
           : undefined;
     const last = args[args.length - 1];
-    let options = null;
+    let options: CliDefaultOptions;
     if (last instanceof Container || last instanceof Event || last === false) {
-      options = extend({}, defaultOptions);
+      options = extend({}, defaultOptions) as CliDefaultOptions;
     } else {
-      options = extend({}, defaultOptions, last || {});
+      options = extend({}, defaultOptions, last || {}) as CliDefaultOptions;
     }
     super(
       name || <string>options.processName,
@@ -281,7 +291,7 @@ class Cli extends Service {
       notificationsCenter,
       options,
     );
-    this.options = <CliDefaultOptions>options;
+    this.options = options;
     this.environment =
       toEngineEnvironment(process.env.NODE_ENV) ??
       this.options.environment ??
@@ -333,7 +343,9 @@ class Cli extends Service {
         const func = async function (this: Cli) {
           await this.fireAsync("onStart", this);
         };
-        func.call(this);
+        // Le `try` ne voit pas le rejet d'une fonction ASYNCHRONE : il passait en
+        // « unhandled rejection ». Journalisé comme l'erreur synchrone.
+        func.call(this).catch((e: unknown) => this.log(e, "ERROR"));
       } catch (e) {
         this.log(e, "ERROR");
       }
@@ -359,7 +371,8 @@ class Cli extends Service {
       this.log(signal, "CRITIC");
       this.fire("onSignal", signal, this);
       process.nextTick(() => {
-        this.terminate();
+        // Sortie voulue, sans appelant pour attendre : le rejet est journalisé.
+        this.terminate().catch((e: unknown) => this.log(e, "ERROR"));
       });
     };
     for (const signal of ["SIGINT", "SIGTERM", "SIGHUP", "SIGQUIT"] as const) {
@@ -508,7 +521,9 @@ class Cli extends Service {
     if (res) {
       return res;
     }
-    throw new Error(`Not valid version : ${version} check  http://semver.org `);
+    throw new Error(
+      `Not valid version : ${String(version)} check  http://semver.org `,
+    );
   }
 
   async showAsciify(name: string | null = null): Promise<this> {
@@ -638,11 +653,16 @@ class Cli extends Service {
 
   async getFonts(): Promise<void> {
     const figlet = await loadFiglet();
-    figlet.fonts((_err, fonts) => {
-      fonts?.forEach((ele) => {
-        this.log(ele);
-      });
-    });
+    // `fonts` rend AUSSI une promesse, rejetée sur l'erreur que le callback
+    // ignore : sans `.catch`, un dossier de polices illisible devenait une
+    // « unhandled rejection ».
+    figlet
+      .fonts((_err, fonts) => {
+        fonts?.forEach((ele) => {
+          this.log(ele);
+        });
+      })
+      .catch((e: unknown) => this.log(e, "ERROR"));
   }
 
   async asciify(
@@ -652,6 +672,8 @@ class Cli extends Service {
   ): Promise<string> {
     const figlet = await loadFiglet();
     return new Promise((resolve, reject) => {
+      // Le callback reçoit déjà l'erreur (figlet ne rejette alors que si le
+      // callback lui-même lève) : le `.catch` ne sert qu'à ce dernier cas.
       figlet(
         txt,
         extend(
@@ -659,7 +681,7 @@ class Cli extends Service {
             font: "Standard",
           },
           options,
-        ),
+        ) as import("figlet").FigletOptions,
         (error, data) => {
           if (callback && typeof callback === "function") {
             return callback(error as Error, data ?? "");
@@ -669,7 +691,7 @@ class Cli extends Service {
           }
           return resolve(data ?? "");
         },
-      );
+      ).catch(reject);
     });
   }
 
@@ -782,14 +804,18 @@ class Cli extends Service {
   }
 
   displayTable(
-    datas: any[],
+    datas: (HorizontalTableRow | VerticalTableRow | CrossTableRow)[],
     options: TableConstructorOptions,
     syslog: Syslog | null = null,
   ) {
     if (!datas || !datas.length) {
-      return new Table(extend({}, defaultTableCli, options));
+      return new Table(
+        extend({}, defaultTableCli, options) as TableConstructorOptions,
+      );
     }
-    const table = new Table(extend({}, defaultTableCli, options));
+    const table = new Table(
+      extend({}, defaultTableCli, options) as TableConstructorOptions,
+    );
     if (datas) {
       for (let i = 0; i < datas.length; i++) {
         table.push(datas[i]);
@@ -911,8 +937,8 @@ class Cli extends Service {
     try {
       await fs.promises.mkdir(myPath, mode);
       return new FileClass(myPath);
-    } catch (e: any) {
-      switch (e.code) {
+    } catch (e) {
+      switch ((e as NodeJS.ErrnoException).code) {
         case "EEXIST":
           if (force) {
             return new FileClass(myPath);
@@ -943,7 +969,7 @@ class Cli extends Service {
     return fs.existsSync(myPath);
   }
 
-  async terminate(code: number = 0, quiet?: boolean): Promise<void | never> {
+  async terminate(code: number = 0, quiet?: boolean): Promise<void> {
     // Avant toute sortie, y compris la sortie « silencieuse » : une instance qui
     // se termine ne doit rien laisser sur `process`.
     this.releaseProcessListeners();
@@ -1064,7 +1090,8 @@ class Cli extends Service {
     }
     return new Promise((resolve, reject) => {
       try {
-        this.debug = Boolean(this.commander?.opts().debug) || false;
+        this.debug =
+          Boolean(this.commander?.opts<{ debug?: unknown }>().debug) || false;
         // this.debug = this.commander
         //   ? this.commander.opts().debug || false
         //   : false;
@@ -1091,7 +1118,13 @@ class Cli extends Service {
               ),
             );
           },
-        );
+        ).catch((e: unknown) => {
+          // Échec du lancement (`error` du process fils, ex. ENOENT) : sans ce
+          // relais, le rejet partait en « unhandled rejection » et la promesse
+          // rendue ne se réglait JAMAIS. Déjà journalisé par `spawn`.
+          process.env.NODE_ENV = currentenv;
+          reject(e);
+        });
       } catch (e) {
         process.env.NODE_ENV = currentenv;
         this.log(e, "ERROR");
@@ -1139,7 +1172,7 @@ class Cli extends Service {
         this.log(`Spawn : ${command} ${args.join(" ")}`, "INFO");
         cmd = spawn(command, args, options || {});
         if (cmd.stdout) {
-          cmd.stdout.on("data", (data) => {
+          cmd.stdout.on("data", (data: Buffer) => {
             const str = data.toString();
             if (str) {
               if (this.debug) {
@@ -1150,7 +1183,7 @@ class Cli extends Service {
           });
         }
         if (cmd.stderr) {
-          cmd.stderr.on("data", (data) => {
+          cmd.stderr.on("data", (data: Buffer) => {
             const str = data.toString();
             if (str) {
               if (this.debug) {
@@ -1204,10 +1237,10 @@ class Cli extends Service {
         throw cmd.error;
       }
       if (cmd.stderr) {
-        this.log(cmd.stderr.toString(), "ERROR");
+        this.log(cmd.stderr, "ERROR");
       }
       if (cmd.stdout) {
-        this.log(cmd.stdout.toString(), "INFO");
+        this.log(cmd.stdout, "INFO");
       }
     } catch (e) {
       this.log(e, "ERROR");

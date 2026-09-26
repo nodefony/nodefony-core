@@ -336,8 +336,8 @@ export function buildEnvReport(input: {
     module: o.moduleSeg,
     path: o.path,
     value: pathLooksSecret(o.path)
-      ? mask(String(processEnv[o.envKey] ?? ""))
-      : String(processEnv[o.envKey] ?? ""),
+      ? mask(processEnv[o.envKey] ?? "")
+      : (processEnv[o.envKey] ?? ""),
     origin: originOf(o.envKey),
   }));
 

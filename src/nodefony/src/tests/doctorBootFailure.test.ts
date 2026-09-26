@@ -95,7 +95,7 @@ describe("runDoctorWithoutLive — le rapport reste dû quand le boot est mort",
     writeFileSync(path.join(dir, "package.json"), '{"name":"app-morte"}');
     sortie = "";
     write = process.stdout.write.bind(process.stdout);
-    process.stdout.write = (chunk: string) => {
+    process.stdout.write = (chunk: string | Uint8Array) => {
       sortie += String(chunk);
       return true;
     };

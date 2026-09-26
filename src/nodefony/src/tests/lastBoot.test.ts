@@ -69,7 +69,7 @@ async function capture(
   const write = process.stdout.write.bind(process.stdout);
   const colonnes = process.stdout.columns;
   process.stdout.columns = LARGEUR_DE_TEST;
-  process.stdout.write = (s: string) => {
+  process.stdout.write = (s: string | Uint8Array) => {
     chunks.push(String(s));
     return true;
   };
@@ -454,7 +454,7 @@ describe("last-boot — le bilan du dernier démarrage", () => {
     it("une option inconnue se DIT, elle ne s'ignore pas (EX_USAGE)", async () => {
       const err: string[] = [];
       const write = process.stderr.write.bind(process.stderr);
-      process.stderr.write = (s: string) => {
+      process.stderr.write = (s: string | Uint8Array) => {
         err.push(String(s));
         return true;
       };

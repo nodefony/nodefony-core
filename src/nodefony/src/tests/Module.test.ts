@@ -430,7 +430,7 @@ describe("Module — addService()", () => {
   it("service avec init() → init() appelé", async () => {
     const { mod } = makeModuleWithKernel("init-svc-mod");
     const svc = await mod.addService(InitService);
-    assert.ok((svc as InitService).initialized === true);
+    assert.strictEqual((svc as InitService).initialized, true);
   });
 
   it("addService() deux fois → WARNING log, override", async () => {
@@ -755,8 +755,8 @@ describe("Module — log()", () => {
     const mod = new Module("log-module", makeKernelStub(), process.cwd(), {});
     const pdu = mod.log("test message", "INFO");
     assert(pdu);
-    assert(String(pdu.msgid).includes("MODULE"));
-    assert(String(pdu.msgid).includes("log-module"));
+    assert(pdu.msgid.includes("MODULE"));
+    assert(pdu.msgid.includes("log-module"));
   });
 
   it("conserve un msgid fourni explicitement", () => {

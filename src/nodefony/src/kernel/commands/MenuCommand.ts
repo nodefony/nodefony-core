@@ -133,7 +133,9 @@ class Menu extends Command {
       await this.cli?.terminate(0, true);
     }
     this.log((e as Error).message, "ERROR");
-    this.terminate(1);
+    // Sortie voulue sans attente (cf commentaire ci-dessous) : son propre rejet
+    // est journalisé, jamais laissé en « unhandled rejection ».
+    this.terminate(1).catch((err: unknown) => this.log(err, "ERROR"));
     // `terminate` est ASYNCHRONE : relancer ici ferait remonter l'erreur au
     // kernel AVANT l'exit — CRITIC + sortie 1 (vécu). Promesse en attente :
     // le process sort par terminate, jamais par ce fil.
@@ -322,7 +324,9 @@ class Menu extends Command {
         stdio: "inherit",
         windowsVerbatimArguments: cmd.windowsVerbatimArguments,
       });
-      this.terminate(r.status ?? 1);
+      this.terminate(r.status ?? 1).catch((err: unknown) =>
+        this.log(err, "ERROR"),
+      );
       return this;
     }
     // Commande de MODULE : commander ne la connaît PAS à `onStart` (elles sont
@@ -345,7 +349,9 @@ class Menu extends Command {
             stdio: "inherit",
           })
         : { status: 1 };
-      this.terminate(r.status ?? 1);
+      this.terminate(r.status ?? 1).catch((err: unknown) =>
+        this.log(err, "ERROR"),
+      );
       return this;
     }
     // Choix à ARGUMENT (« inspect routes ») : le chemin rapide `action()`

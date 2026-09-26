@@ -520,6 +520,9 @@ class Service implements IService {
   // quand le container a déjà été détaché par `clean()`.
 
   /** Récupère un service du DI container par nom. Retourne `null` si absent ou clean(). */
+  // Générique de RETOUR voulu : l'appelant nomme le type du service qu'il
+  // résout (`get<HttpKernel>("HttpKernel")`) — API publique du conteneur.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   get<T>(name: string): T | null {
     return this.container?.get<T>(name) ?? null;
   }
@@ -528,7 +531,7 @@ class Service implements IService {
    * Enregistre un objet dans le DI container.
    * @throws Error si `clean()` a déjà détaché le container.
    */
-  set<T>(name: string, obj: T): void {
+  set(name: string, obj: unknown): void {
     if (!this.container) {
       throw new Error(`${this.name}: container not initialized`);
     }

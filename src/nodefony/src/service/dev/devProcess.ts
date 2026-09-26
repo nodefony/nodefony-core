@@ -753,7 +753,7 @@ export function defaultDevPorts(cwd: string = process.cwd()): number[] {
   // Ce que l'application DÉCLARE. On ne sonde QUE ce qui est déclaré : compléter
   // avec un port par défaut reviendrait à surveiller celui d'un voisin.
   const declares = [process.env.NF_PORT, process.env.NF_PORT_HTTPS]
-    .map((v) => Number.parseInt(String(v ?? ""), 10))
+    .map((v) => Number.parseInt(v ?? "", 10))
     .filter((n) => Number.isInteger(n) && n > 0);
   if (declares.length > 0) return declares;
   return [...FALLBACK_DEV_PORTS];
@@ -1261,10 +1261,9 @@ export function formatForeignRuntimes(
 ): string[] {
   const roots = foreignProjectRoots(foreign);
   const projectOf = (p: DevProcessWithCwd): string => {
-    if (!p.cwd) return "(dossier inconnu)";
-    return (
-      roots.find((r) => p.cwd === r || p.cwd!.startsWith(r + path.sep)) ?? p.cwd
-    );
+    const { cwd } = p;
+    if (!cwd) return "(dossier inconnu)";
+    return roots.find((r) => cwd === r || cwd.startsWith(r + path.sep)) ?? cwd;
   };
   const byProject = new Map<string, DevProcessWithCwd[]>();
   for (const p of foreign) {

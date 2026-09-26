@@ -326,18 +326,20 @@ export interface IFindingDetail {
  * que le TSDoc de ce module promettait déjà sans que le code le tienne.
  */
 export interface IPalette {
+  // Rôles en PROPRIÉTÉS fonctionnelles (pas en méthodes) : aucun n'utilise
+  // `this`, ils se passent donc détachés (`items.map(p.dim)`) sans risque.
   /** Ce qu'on lit en premier : le nom de la commande, un titre de section. */
-  strong(t: string): string;
+  strong: (t: string) => string;
   /** Ce qui accompagne sans réclamer l'attention : chemins, notes. */
-  dim(t: string): string;
+  dim: (t: string) => string;
   /** Un contrôle passé. */
-  ok(t: string): string;
+  ok: (t: string) => string;
   /** Un contrôle qui n'a pas eu lieu — ni bon ni mauvais, incomplet. */
-  warning(t: string): string;
+  warning: (t: string) => string;
   /** Un manquement. */
-  failure(t: string): string;
+  failure: (t: string) => string;
   /** Le geste à faire — la seule chose que cherche un lecteur pressé. */
-  action(t: string): string;
+  action: (t: string) => string;
 }
 
 /** Sans couleur, chaque rôle rend le texte tel quel. */

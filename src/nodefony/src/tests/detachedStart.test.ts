@@ -335,7 +335,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         // Le journal du child, sinon « process mort avant la readiness (exit 1) »
         // ne dit RIEN de la cause — et c'est précisément le message qu'on a
         // récolté en intégration continue, sans pouvoir conclure.
-        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+        `attendu ok — reason: ${String(r.reason)}\njournal du child :\n${r.logTail?.join(",") ?? "(vide)"}`,
       );
       assert.strictEqual(r.exitCode, 0);
       assert.ok(typeof r.pid === "number" && r.pid > 0);
@@ -376,7 +376,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         // Le journal du child, sinon « process mort avant la readiness (exit 1) »
         // ne dit RIEN de la cause — et c'est précisément le message qu'on a
         // récolté en intégration continue, sans pouvoir conclure.
-        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+        `attendu ok — reason: ${String(r.reason)}\njournal du child :\n${r.logTail?.join(",") ?? "(vide)"}`,
       );
       // Fail-loud : le port jamais ouvert reste VISIBLE comme fermé dans l'état.
       assert.strictEqual(r.ports.find((p) => p.port === p1)?.listening, true);
@@ -442,7 +442,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         // Le journal du child, sinon « process mort avant la readiness (exit 1) »
         // ne dit RIEN de la cause — et c'est précisément le message qu'on a
         // récolté en intégration continue, sans pouvoir conclure.
-        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+        `attendu ok — reason: ${String(r.reason)}\njournal du child :\n${r.logTail?.join(",") ?? "(vide)"}`,
       );
       assert.strictEqual(r.exitCode, 0);
       // La readiness a suivi le state file : elle rapporte le port RÉEL, pas la
@@ -641,7 +641,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         // Le journal du child, sinon « process mort avant la readiness (exit 1) »
         // ne dit RIEN de la cause — et c'est précisément le message qu'on a
         // récolté en intégration continue, sans pouvoir conclure.
-        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+        `attendu ok — reason: ${String(r.reason)}\njournal du child :\n${r.logTail?.join(",") ?? "(vide)"}`,
       );
       assert.deepStrictEqual(
         r.desiredPorts,
@@ -705,7 +705,7 @@ describe("launchDetached — readiness / crash / timeout (child factices)", () =
         // Le journal du child, sinon « process mort avant la readiness (exit 1) »
         // ne dit RIEN de la cause — et c'est précisément le message qu'on a
         // récolté en intégration continue, sans pouvoir conclure.
-        `attendu ok — reason: ${r.reason}\njournal du child :\n${r.logTail ?? "(vide)"}`,
+        `attendu ok — reason: ${String(r.reason)}\njournal du child :\n${r.logTail?.join(",") ?? "(vide)"}`,
       );
       assert.strictEqual(r.desiredPorts, undefined);
     } finally {

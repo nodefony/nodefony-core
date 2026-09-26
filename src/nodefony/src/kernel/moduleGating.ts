@@ -14,10 +14,7 @@
  * éprouvable pour un environnement dans lequel on ne tourne PAS — et c'est tout
  * l'objet de son second lecteur.
  */
-import type {
-  IModuleManifest,
-  IModuleManifestEntry,
-} from "../types/IModuleManifest";
+import type { IModuleManifestEntry } from "../types/IModuleManifest";
 
 /** Ce que la garde `when()` d'un manifeste reçoit — la config fusionnée du kernel. */
 export type GateConfig = Parameters<
@@ -110,7 +107,7 @@ export const GATED_BY_CONDITION = "condition when(config) non remplie";
  * @returns les entrées retenues, celles écartées, et les dérogations.
  */
 export function gateModuleManifest(
-  manifest: IModuleManifest | unknown,
+  manifest: unknown,
   input: IGatingInput,
 ): IGatingOutcome {
   const entries: IModuleEntry[] = [];
@@ -118,9 +115,13 @@ export function gateModuleManifest(
   const derogated: string[] = [];
   if (!Array.isArray(manifest)) return { entries, gated, derogated };
 
-  for (const item of manifest) {
-    const entry: IModuleManifestEntry =
-      typeof item === "string" ? { name: item } : item;
+  for (const item of manifest as unknown[]) {
+    // Manifeste écrit à la main : la forme d'une entrée objet est SUPPOSÉE,
+    // seul `name` est vérifié (ligne suivante).
+    const entry =
+      typeof item === "string"
+        ? { name: item }
+        : (item as IModuleManifestEntry | null | undefined);
     if (!entry?.name) continue;
 
     if (entry.policy === "dev" && input.isProduction) {
@@ -137,7 +138,7 @@ export function gateModuleManifest(
     let allowed = true;
     if (typeof entry.when === "function") {
       try {
-        allowed = Boolean(entry.when(input.config));
+        allowed = entry.when(input.config);
       } catch (e) {
         gated.push({
           module: entry.name,

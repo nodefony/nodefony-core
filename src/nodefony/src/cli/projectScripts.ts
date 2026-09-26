@@ -42,7 +42,7 @@ export function readProjectScripts(manifest: unknown): IProjectScript[] {
   const described = nodefony?.scripts ?? {};
   return Object.entries(scripts).map(([name, command]) => ({
     name,
-    command: String(command),
+    command,
     description:
       typeof described[name] === "string" && described[name].trim()
         ? described[name].trim()

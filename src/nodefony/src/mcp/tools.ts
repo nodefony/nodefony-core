@@ -881,7 +881,7 @@ export function builtinMcpTools(
         }
         // Résumé : combien, et dans quels paquets — la question qu'on se pose en
         // premier quand un symbole manque à l'appel.
-        const perPackage: Record<string, number> = Object.create(null);
+        const perPackage = Object.create(null) as Record<string, number>;
         for (const sym of entries) {
           perPackage[sym.module] = (perPackage[sym.module] ?? 0) + 1;
         }

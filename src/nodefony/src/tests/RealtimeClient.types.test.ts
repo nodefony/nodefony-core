@@ -130,7 +130,7 @@ function _typeOnly(): void {
   // ⚠️ Si le `@ts-expect-error` ci-dessous devient « unused », le garde-fou est
   // de nouveau INOPÉRANT — ce test est la sentinelle du trou.
   // @ts-expect-error — params hors contrat (`in: void`) : DOIT être refusé.
-  client.request("chat:ping", { wrong: true });
+  void client.request("chat:ping", { wrong: true });
 
   // ── RÉTRO-COMPAT — client sans paramétrage (défauts permissifs) ────────
   rawClient.on("any-event", (...args) => {

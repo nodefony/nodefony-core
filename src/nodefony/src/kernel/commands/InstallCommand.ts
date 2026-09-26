@@ -17,8 +17,7 @@ class Install extends Command {
     );
     this.addOption("-f, --force", "Force Install");
   }
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override async generate(options: any): Promise<this> {
+  override async generate(options?: { force?: boolean }): Promise<this> {
     const modules = this.kernel?.getModules();
     if (modules) {
       for (const moduleName in modules) {

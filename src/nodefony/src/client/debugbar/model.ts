@@ -158,6 +158,9 @@ function logText(pci: unknown): string {
   try {
     return stripAnsi(JSON.stringify(pci));
   } catch {
+    // Repli VOULU sur l'étiquette par défaut : l'objet vient de refuser la
+    // sérialisation (cycle, getter qui lève).
+    // oxlint-disable-next-line typescript/no-base-to-string
     return String(pci);
   }
 }

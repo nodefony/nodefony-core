@@ -1976,7 +1976,7 @@ function dispatchScaffold(
         pascal: EXAMPLE_SERVICE,
         camel: EXAMPLE_SERVICE[0].toLowerCase() + EXAMPLE_SERVICE.slice(1),
         inject: null,
-        description: `Service ${EXAMPLE_SERVICE} de ${answers.name}`,
+        description: `Service ${EXAMPLE_SERVICE} de ${String(answers.name)}`,
       },
       written,
       writer,
@@ -2907,7 +2907,7 @@ function runControllerScaffold(
   );
   if (!CONTROLLER_KIND_CHOICES.includes(kind)) {
     throw new Error(
-      `saveur « ${String(kind)} » inconnue — choix : ${CONTROLLER_KIND_CHOICES.join(" | ")}`,
+      `saveur « ${kind} » inconnue — choix : ${CONTROLLER_KIND_CHOICES.join(" | ")}`,
     );
   }
   if (
@@ -4911,7 +4911,7 @@ function runEntityScaffold(
     // autre nom. Ici les deux coïncident — c'est le service de l'entité.
     serviceClass: `${pascal}Service`,
     serviceKey: `${camel}Service`,
-    moduleName: target.kind === "app" ? "app" : String(target.name),
+    moduleName: target.kind === "app" ? "app" : target.name,
     curlBody: JSON.stringify(sample),
     sampleFactory: `{ ${factory.join(", ")} }`,
     // La fabrique déclare `refs` dès qu'elle le LIT — toute référence, y compris
@@ -4984,6 +4984,9 @@ function runEntityScaffold(
           })
           .map((f) => ({
             field: f.name,
+            // Champ issu de la saisie parsée : `=== true` normalise une
+            // absence en `false` dans le code généré.
+            // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
             nullable: f.nullable === true,
             parent: f.target as string,
             parentCamel:

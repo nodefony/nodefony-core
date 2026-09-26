@@ -165,7 +165,7 @@ class Module<TConfig = Record<string, unknown>>
    *
    * @returns le JSON Schema de la config du module, ou `null`.
    */
-  configSchema(): unknown | null {
+  configSchema(): unknown {
     return null;
   }
 
@@ -298,10 +298,7 @@ class Module<TConfig = Record<string, unknown>>
    * @param listener - le hook ; il hérite du nom et de la criticité du module.
    * @returns le module (chaînable).
    */
-  hookKernel(
-    event: string,
-    listener: (...args: never[]) => unknown | Promise<unknown>,
-  ): this {
+  hookKernel(event: string, listener: (...args: never[]) => unknown): this {
     const critical = (this.constructor as typeof Module).critical;
     this.kernel?.once(
       event,
@@ -349,7 +346,12 @@ class Module<TConfig = Record<string, unknown>>
    */
   applyAppConfig(config: DefaultOptionsService): DefaultOptionsService {
     this.appOptions = config;
-    this.options = extend(true, {}, this.options, config);
+    this.options = extend(
+      true,
+      {},
+      this.options,
+      config,
+    ) as DefaultOptionsService;
     return this.options;
   }
 
@@ -387,7 +389,7 @@ class Module<TConfig = Record<string, unknown>>
     const consumed: string[] = [];
     for (const ele in this.options) {
       let index: RegExpExecArray | null = null;
-      const override: DefaultOptionsService = this.options[ele];
+      const override = this.options[ele] as DefaultOptionsService;
       index = regModuleName.exec(ele);
       if (index && index[1]) {
         consumed.push(ele);
@@ -413,9 +415,18 @@ class Module<TConfig = Record<string, unknown>>
         this.log(`Override Configuration Module: ${mod.name}`, "INFO");
         this.#warnOverwrittenAppConfig(mod, override);
         if (deep) {
-          mod.options = extend(true, {}, mod.options, override);
+          mod.options = extend(
+            true,
+            {},
+            mod.options,
+            override,
+          ) as DefaultOptionsService;
         } else {
-          mod.options = extend({}, mod.options, override);
+          mod.options = extend(
+            {},
+            mod.options,
+            override,
+          ) as DefaultOptionsService;
         }
       }
     }
@@ -445,8 +456,7 @@ class Module<TConfig = Record<string, unknown>>
    */
   async addService(
     service: ServiceConstructor,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<Service> {
     if (Injector.scopeOf(service) === "request") {
       // Un service `request` n'a pas d'exemplaire au démarrage : chaque requête
@@ -546,15 +556,15 @@ class Module<TConfig = Record<string, unknown>>
    * @param args - arguments additionnels passés au constructeur.
    * @returns instance du service après instanciation + `init()`.
    */
-  async loadService(
-    service: string,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...args: any[]
-  ): Promise<Service> {
+  async loadService(service: string, ...args: unknown[]): Promise<Service> {
     // if (!module) {
     //   throw new Error(`Applcation not ready`);
     // }
-    const res = await import(toImportSpecifier(service));
+    // Forme SUPPOSÉE (export par défaut = le service) : `addService` échoue
+    // franchement sinon.
+    const res = (await import(toImportSpecifier(service))) as {
+      default: ServiceConstructor;
+    };
     return this.addService(res.default, ...args);
   }
 
@@ -714,8 +724,8 @@ class Module<TConfig = Record<string, unknown>>
     try {
       const detectpath = isAbsolute(url) ? url : resolve(cwd, url);
       const fileContent = await fs.readFile(detectpath, "utf-8");
-      const parsedJson = JSON.parse(fileContent);
-      return parsedJson;
+      // Contenu NON validé : la forme JSON est supposée.
+      return JSON.parse(fileContent) as JSONObject;
     } catch (error) {
       this.log(error, "ERROR");
       throw error;

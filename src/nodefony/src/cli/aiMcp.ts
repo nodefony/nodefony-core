@@ -1251,7 +1251,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
   // lui, l'émission échoue sur une audience que l'application ne sert pas.
   const chainage = planTokenChaining(parsed, {
     projectRoot,
-    isTTY: Boolean(process.stdin.isTTY),
+    isTTY: process.stdin.isTTY ?? false,
   });
   if (chainage) {
     const { confirm, select } = await chargePrompts();

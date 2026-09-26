@@ -220,7 +220,7 @@ describe("completion — scripts shell", () => {
       );
       assert.ok(
         r.stdout.toString().includes("REGISTERED"),
-        `compdef doit être posé\nstdout: ${r.stdout}\nstderr: ${r.stderr}`,
+        `compdef doit être posé\nstdout: ${String(r.stdout)}\nstderr: ${String(r.stderr)}`,
       );
     } finally {
       fsMod.rmSync(dir, { recursive: true, force: true });

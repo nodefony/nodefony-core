@@ -287,9 +287,9 @@ class FileClass {
   }
 
   content(encoding?: string): string | Buffer {
-    const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
+    const encode = extend({}, defaultEncoding, {
       encoding,
-    });
+    }) as fs.ObjectEncodingOptions;
     return fs.readFileSync(this.path, encode);
   }
 
@@ -300,9 +300,9 @@ class FileClass {
    * @returns contenu sous forme de string OR Buffer.
    */
   read(encoding?: string): string | Buffer {
-    const encode: fs.ObjectEncodingOptions = extend({}, defaultEncoding, {
+    const encode = extend({}, defaultEncoding, {
       encoding,
-    });
+    }) as fs.ObjectEncodingOptions;
     if (this.type === "symbolicLink") {
       const linked = fs.readlinkSync(<fs.PathLike>this.path, encode);
       return fs.readFileSync(linked, encode);
@@ -341,7 +341,11 @@ class FileClass {
     data: string | NodeJS.ArrayBufferView,
     options: fs.WriteFileOptions,
   ): void {
-    fs.writeFileSync(this.path, data, extend({}, defaultWriteOption, options));
+    fs.writeFileSync(
+      this.path,
+      data,
+      extend({}, defaultWriteOption, options) as fs.WriteFileOptions,
+    );
   }
 
   /**

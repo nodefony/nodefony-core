@@ -7,11 +7,19 @@
  * contrat ; `IHttpKernel` l'étend, et le typecheck de `http` garantit
  * l'alignement.
  */
+/**
+ * Ce que le Kernel utilise d'un serveur démarré : afficher son adresse d'écoute.
+ */
+export interface IStartedServer {
+  /** Affiche la bannière « Server Listen on… » du serveur. */
+  showBanner(): void;
+}
+
 export interface IServerKernel {
   /**
    * Démarre les serveurs HTTP/HTTPS/WS/WSS activés par la configuration.
    *
    * @returns les serveurs démarrés
    */
-  initServers(): Promise<unknown[]>;
+  initServers(): Promise<IStartedServer[]>;
 }

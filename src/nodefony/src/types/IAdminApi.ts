@@ -44,7 +44,7 @@ export interface IAdminRequest {
    * l'auth est mock ou la route anonyme. Typé `unknown` : le core ne connaît
    * pas `IUser` (vit dans `@nodefony/user`).
    */
-  user: unknown | null;
+  user: unknown;
   /** Rôles résolus de l'utilisateur courant — base du contrôle d'accès. */
   roles: readonly string[];
   /** Corrélation de logs (ALS `RequestContext.getRequestId()`). */

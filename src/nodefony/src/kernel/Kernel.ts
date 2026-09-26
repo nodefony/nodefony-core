@@ -3,6 +3,8 @@ import cluster from "node:cluster";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { inspect } from "node:util";
+import type { SendHandle } from "node:child_process";
 import Container, { Scope } from "../Container";
 import FileClass from "../FileClass";
 import { Nodefony } from "../Nodefony";
@@ -36,6 +38,7 @@ import {
 import type { ITransport } from "../types/ITransport";
 import { DebugType, EnvironmentType } from "../types/globals";
 import CliKernel from "./CliKernel";
+import type { PackageManagerName } from "../Cli";
 import Module from "./Module";
 import { resolveModuleEntry, toImportSpecifier } from "./resolveModuleEntry";
 import { devModulesLoaded, gateModuleManifest } from "./moduleGating";
@@ -47,7 +50,7 @@ import {
 //import Fetch from "../service/fetchService";
 // Contrat défini PAR le cœur (lecteur) et étendu par `IHttpKernel` : le cœur ne
 // nomme aucun type de `@nodefony/http`, qui dépend de lui.
-import type { IServerKernel } from "../types/IServerKernel";
+import type { IServerKernel, IStartedServer } from "../types/IServerKernel";
 import Injector from "./injector/injector";
 import {
   isClusterMessage,
@@ -123,6 +126,10 @@ const SERVER_SCHEME: Readonly<Record<string, string>> = {
 
 export interface TypeKernelOptions extends DefaultOptionsService {
   node_start?: NodefonyStartType;
+  /** Domaine public du kernel ; `"selectAuto"` = première interface externe. */
+  domain?: string;
+  /** Gestionnaire de paquets des commandes d'installation. */
+  packageManager?: PackageManagerName;
   /**
    * Manifeste déclaratif des modules de l'app (liste ordonnée, gatable par
    * `policy`/`when`/environnement). Lu et orchestré par le Kernel à
@@ -408,7 +415,9 @@ export function runNeedsExternalServices(
 }
 
 interface AppEnvironmentType {
-  environment: EnvironmentType | string;
+  // `string & {}` : garde la complétion des modes moteur sans refuser un
+  // environnement libre (le `| string` nu les absorbait).
+  environment: EnvironmentType | (string & {});
 }
 
 export interface NetworkInterface {
@@ -498,6 +507,8 @@ const MAX_BOOT_CRITICAL_LENGTH = 200;
  * ```
  */
 class Kernel extends Service implements IKernel {
+  /** Options du kernel — le type précis du champ hérité de `Service`. */
+  declare public options: TypeKernelOptions;
   Events: Readonly<EventsType> = Events;
   // Assigné dans le constructor (pas d'initializer) pour préserver la valeur figée de
   // `console` (ci-dessous) : `isConsole()` retourne `false` tant que `runProfile` est
@@ -573,9 +584,10 @@ class Kernel extends Service implements IKernel {
    * Vrai terminal disponible ? Résolu UNE fois dans le constructor (volet
    * « environnement », cf {@link IKernel.isTTY}). Surchargeable via `NF_NO_TTY` (test/CI).
    */
+  // `isTTY` vaut `undefined` hors terminal (malgré son type `boolean`).
   isTTY: boolean = process.env.NF_NO_TTY
     ? false
-    : process.stdout?.isTTY === true;
+    : (process.stdout?.isTTY ?? false);
   /**
    * Timer no-op ref'd gardant l'event loop vivant pendant un {@link park} `keepAlive`
    * (daemon CONSOLE sans socket). `null` tant qu'aucun park alive — lazy. Nettoyé par
@@ -591,8 +603,12 @@ class Kernel extends Service implements IKernel {
   private terminating: Promise<this> | null = null;
   /** Minuterie d'auto-arrêt d'un runtime en dérogation de modules dev (`null` = aucune). */
   private devModulesStopTimer: NodeJS.Timeout | null = null;
-  node_start: NodefonyStartType =
-    process.env.NF_START || this.options.node_start;
+  // Valeur d'environnement NON validée : elle est reprise telle quelle.
+  node_start: NodefonyStartType | undefined =
+    (process.env.NF_START as NodefonyStartType | undefined) ||
+    // Posé par le constructeur de `Service` (le champ n'est que re-typé ici) :
+    // le détour par le cast évite le faux TS2729 du champ `declare`.
+    (this as { options: TypeKernelOptions }).options.node_start;
   platform: NodeJS.Platform = process.platform;
   projectName: string = "NODEFONY";
   uptime: number = new Date().getTime();
@@ -1078,13 +1094,11 @@ class Kernel extends Service implements IKernel {
           }
           return this.preRegister();
         })
-        .catch((e) => {
+        .catch((e: unknown) => {
           // Déjà PRÉSENTÉE — erreur de configuration journalisée par le cycle
           // de vie, ou par `bootConfigError` : pas de stack par-dessus.
-          if (
-            e.message !== "(outputHelp)" &&
-            !(e as { presented?: boolean }).presented
-          ) {
+          const err = e as { message?: unknown; presented?: boolean };
+          if (err.message !== "(outputHelp)" && !err.presented) {
             this.log(e, "CRITIC");
           }
           throw e;
@@ -1268,8 +1282,10 @@ class Kernel extends Service implements IKernel {
         // Une commande console s'arrêtant ici est couverte aussi.
         // Et l'indexer par nom de paquet : `useConfig` la lit en O(1) sur le
         // chemin de requête, sans parcourir les modules.
-        const registry: Record<string, IModuleConfigEntry> =
-          Object.create(null);
+        const registry = Object.create(null) as Record<
+          string,
+          IModuleConfigEntry
+        >;
         for (const name in this.modules) {
           const mod = this.modules[name];
           freezeConfigTree(mod.options);
@@ -1377,15 +1393,16 @@ class Kernel extends Service implements IKernel {
    *
    * @returns array d'instances de serveurs démarrés (ou `[]`).
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  async initServers(): Promise<any[]> {
+  async initServers(): Promise<IStartedServer[]> {
+    // `runProfile` est INDÉFINI avant `onStart` (champ `!`) : `?.servers` peut
+    // valoir `undefined`, qui ne doit PAS couper les serveurs.
+    // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
     if (this.runProfile?.servers === false) return [];
     const httpKernel = this.get<IServerKernel>("HttpKernel");
     if (httpKernel)
       return await httpKernel
         .initServers()
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        .then(async (servers: any[]) => {
+        .then(async (servers) => {
           // ATTENDRE la diffusion `onServersReady` (vs fire-and-forget) garantit
           // que ses listeners (report ORM du BootReporter, sondes cluster…) ont
           // FINI avant d'enchaîner sur `onPostReady`/le récap. Boot-only : le
@@ -1485,14 +1502,13 @@ class Kernel extends Service implements IKernel {
     if (!config) {
       return this.options;
     }
-    return extend(this.options, config);
+    return extend(this.options, config) as TypeKernelOptions;
   }
 
   async addService(
     service: ServiceConstructor,
     module: Module,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<Service> {
     return module.addService(service, module, ...args);
   }
@@ -1509,8 +1525,7 @@ class Kernel extends Service implements IKernel {
    */
   async addKernelService(
     service: ServiceConstructor,
-    // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques transmis tels quels au constructeur appelé
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<Service | null> {
     if (Injector.scopeOf(service) === "request") {
       // Même refus que `Module.addService` : un service `request` n'a pas
@@ -1536,20 +1551,23 @@ class Kernel extends Service implements IKernel {
     await this.guardServiceInitialize(serviceInit, this, true);
     // Apprend le couple (classe, clé container) — cf. `Module.addService`.
     Injector.rememberContainerKey(service, inst.name);
-    this.set<Service>(inst.name, inst);
+    this.set(inst.name, inst);
     return this.get<Service>(inst.name);
   }
 
   async loadService(
     service: string,
     module: Module | null = this.app,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<Service> {
     if (!module) {
       throw new Error(`Applcation not ready`);
     }
-    const res = await import(toImportSpecifier(service));
+    // Forme du module chargé SUPPOSÉE (export par défaut = le service) :
+    // `addService` échoue franchement sinon.
+    const res = (await import(toImportSpecifier(service))) as {
+      default: ServiceConstructor;
+    };
     return this.addService(res.default, module, ...args);
   }
 
@@ -1560,7 +1578,11 @@ class Kernel extends Service implements IKernel {
    * vit hors de l'arbre `node_modules` de l'app (`--link`, monorepo, pnpm).
    */
   async loadModule(moduleName: string): Promise<Module> {
-    const moduleClass = await import(resolveModuleEntry(this.path, moduleName));
+    // Forme SUPPOSÉE (export par défaut = la classe du module) : `addModule`
+    // échoue franchement sinon.
+    const moduleClass = (await import(
+      resolveModuleEntry(this.path, moduleName)
+    )) as { default: ModuleConstructor };
     return await this.addModule(moduleClass.default);
   }
 
@@ -1806,8 +1828,7 @@ class Kernel extends Service implements IKernel {
    * @param args - arguments additionnels (après `kernel, path, options` par défaut).
    * @returns instance du module enregistrée.
    */
-  // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques transmis tels quels au constructeur appelé
-  async addModule(Mod: ModuleConstructor, ...args: any[]): Promise<Module> {
+  async addModule(Mod: ModuleConstructor, ...args: unknown[]): Promise<Module> {
     const mod = new Mod(this, ...args);
     this.modules[mod.name] = mod;
     if (this.pendingModuleAddLogs) {
@@ -2396,7 +2417,8 @@ class Kernel extends Service implements IKernel {
     // `cli.runProfile` qu'à `onStart`, APRÈS ce chargement — s'en remettre à
     // `this.runProfile` rendrait `servers: false` pour TOUT run, `production`
     // compris, et désarmerait la garde partout sans un mot.
-    const serves = (this.cli?.runProfile ?? this.runProfile)?.servers === true;
+    // `?? false` et non une lecture nue : le profil peut être encore INDÉFINI.
+    const serves = (this.cli?.runProfile ?? this.runProfile)?.servers ?? false;
     setRunServesTraffic(serves);
     try {
       this.app = await this.loadModule(appEntry);
@@ -2475,7 +2497,9 @@ class Kernel extends Service implements IKernel {
     if (this.appConfigOrigin === "foreign-descriptor") {
       this.packageDualityVerdict(foreignPackageWarning());
     }
-    this.options = this.readConfig(extend(this.app.options, config));
+    this.options = this.readConfig(
+      extend(this.app.options, config) as TypeKernelOptions,
+    );
     // Validation fail-fast AVANT initializeLog. Inutile pour une app moderne (le
     // descripteur valide déjà au resolve) → seulement pour le fallback legacy.
     // Convention `validateConfig` retirée au Lot 5 (migration app self-hosted).
@@ -2551,7 +2575,7 @@ class Kernel extends Service implements IKernel {
     try {
       pkg = JSON.parse(
         fs.readFileSync(path.resolve(this.path, "package.json"), "utf8"),
-      );
+      ) as typeof pkg;
     } catch {
       // Pas de package.json lisible = pas un projet Node.
       this._appEntry = null;
@@ -2653,7 +2677,7 @@ class Kernel extends Service implements IKernel {
     try {
       pkg = JSON.parse(
         fs.readFileSync(path.resolve(this.path, "package.json"), "utf8"),
-      );
+      ) as typeof pkg;
     } catch {
       return null;
     }
@@ -2754,7 +2778,7 @@ class Kernel extends Service implements IKernel {
     // d'un même tick en 1 syscall sous forte concurrence. "auto" (défaut) =
     // bufférise hors TTY (pipe/fichier = prod/collecteur), immédiat sur TTY
     // (dev). Cf Syslog.setOutputBuffering + config.log.buffered.
-    const logCfg = this.options.log as TypeKernelOptions["log"];
+    const logCfg = this.options.log;
     Syslog.setOutputBuffering(logCfg?.buffered ?? "auto");
     // Couleur ANSI des logs — résolue UNE fois ici (boot) à partir de `this.isTTY`
     // (déjà résolu, NF_NO_TTY-aware — PAS de re-lecture de process.stdout), augmenté
@@ -3008,7 +3032,7 @@ class Kernel extends Service implements IKernel {
       /* commander sans version définie — ignore */
     }
     const meta = [
-      String(this.typeCluster ?? ""),
+      this.typeCluster ?? "",
       process.platform,
       `node ${process.version}`,
       `pid ${process.pid}`,
@@ -3019,14 +3043,14 @@ class Kernel extends Service implements IKernel {
       .join(" · ");
     const tag = version ? ` ${logColor.blackBright(`v${version}`)}` : "";
     const env = this.environment
-      ? `   ${logColor.green(String(this.environment))}`
+      ? `   ${logColor.green(this.environment)}`
       : "";
     // Axe DÉPLOIEMENT (APP_ENV / NF_ENV) affiché seulement s'il DIFFÈRE du
     // mode runtime — sinon redondant. Lu DIRECTEMENT depuis l'env (ambient) car le
     // header s'imprime avant que `setEnv` n'ait résolu `appEnvironment`. Cf deux axes.
     const appEnv = process.env.APP_ENV || process.env.NF_ENV;
     const deploy =
-      appEnv && appEnv !== String(this.environment)
+      appEnv && appEnv !== this.environment
         ? ` ${logColor.blackBright("·")} ${logColor.magenta(appEnv)}`
         : "";
     console.log(
@@ -3048,7 +3072,7 @@ class Kernel extends Service implements IKernel {
         this.appEnvironment.environment
       }  `;
     }
-    txt += ` ${logColor.magenta("Debug")} : ${this.debug}\n`;
+    txt += ` ${logColor.magenta("Debug")} : ${String(this.debug)}\n`;
     return txt;
   }
 
@@ -3114,26 +3138,30 @@ class Kernel extends Service implements IKernel {
     // }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override fire(event: KernelEventsType, ...args: any[]): boolean {
+  override fire(event: KernelEventsType, ...args: unknown[]): boolean {
     this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.fire(event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override emit(event: KernelEventsType, ...args: any[]): boolean {
+  override emit(event: KernelEventsType, ...args: unknown[]): boolean {
     this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.emit(event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override emitAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
+  override emitAsync(
+    event: KernelEventsType,
+    ...args: unknown[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<any> {
     this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  override fireAsync(event: KernelEventsType, ...args: any[]): Promise<any> {
+  override fireAsync(
+    event: KernelEventsType,
+    ...args: unknown[]
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ): Promise<any> {
     this.log(`${colorLogEvent()} ${event}`, "DEBUG");
     return super.emitAsync(event, ...args);
   }
@@ -3335,13 +3363,18 @@ class Kernel extends Service implements IKernel {
    *
    * @param servers - instances de serveurs retournées par `initServers()`.
    */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private captureBootServers(servers: any[]): void {
+  private captureBootServers(servers: readonly unknown[]): void {
     if (!servers.length) {
       this.bootServers = [];
       return;
     }
-    this.bootServers = servers.map((s) => {
+    this.bootServers = servers.map((server) => {
+      // Lecture défensive : le serveur est un objet du transport, dont seuls
+      // `type`/`port`/`address` sont lus.
+      const s = server as
+        | { type?: unknown; port?: unknown; address?: unknown }
+        | null
+        | undefined;
       const type = typeof s?.type === "string" ? s.type : "server";
       const port = Number(s?.port ?? 0);
       const address = typeof s?.address === "string" ? s.address : undefined;
@@ -3378,7 +3411,8 @@ class Kernel extends Service implements IKernel {
     // serveurs et `livez.degraded` criait « dégradé » à tort (race vécue sonde DevSupervisor).
     const measured = this.bootServers !== null;
     const serversListening = this.bootServers ?? [];
-    const serversExpected = Boolean(this.runProfile?.servers);
+    // `?? false` : le profil peut être encore INDÉFINI (champ `!`).
+    const serversExpected = this.runProfile?.servers ?? false;
     const modulesSkipped = this.bootFailures ?? [];
     // Journal de boot : compte figé à `postReady` (après, le ring mélange boot et
     // runtime) ; à la volée tant que le boot est en cours.
@@ -3460,7 +3494,7 @@ class Kernel extends Service implements IKernel {
    * @returns `true` si le processus peut servir du trafic.
    */
   get servable(): boolean {
-    return this.postReady === true && this.readinessBlocked === 0;
+    return this.postReady && this.readinessBlocked === 0;
   }
 
   /**
@@ -3657,13 +3691,21 @@ class Kernel extends Service implements IKernel {
    * @returns une ligne, bornée.
    */
   private condenseBootMessage(pdu: Pdu): string {
-    const brut = String(pdu.payload ?? "");
+    const raw = pdu.payload;
+    // Formatage EXPLICITE : un objet rendait « [object Object] ». Une erreur
+    // garde sa première ligne (`Nom: message`, en tête de sa pile).
+    const brut =
+      typeof raw === "string"
+        ? raw
+        : raw === undefined || raw === null
+          ? ""
+          : inspect(raw, { breakLength: Infinity });
     const premiere = (brut.split("\n")[0] ?? "").trim();
     const message =
       premiere.length > MAX_BOOT_CRITICAL_LENGTH
         ? `${premiere.slice(0, MAX_BOOT_CRITICAL_LENGTH - 1)}…`
         : premiere;
-    const qui = pdu.moduleName ? `${String(pdu.moduleName)} : ` : "";
+    const qui = pdu.moduleName ? `${pdu.moduleName} : ` : "";
     return `${qui}${message}`;
   }
 
@@ -3677,7 +3719,7 @@ class Kernel extends Service implements IKernel {
    * @param line - ligne lisible (ex. « drizzle → sqlite (./var/app.db) »).
    */
   reportBootLine(phase: string, line: string): void {
-    const map = (this.bootLines ??= new Map());
+    const map = (this.bootLines ??= new Map<string, string[]>());
     const lines = map.get(phase);
     if (lines) {
       lines.push(line);
@@ -3851,8 +3893,7 @@ class Kernel extends Service implements IKernel {
    */
   async fireLifecycle(
     event: KernelEventsType,
-    // oxlint-disable-next-line typescript/no-explicit-any -- arguments variadiques d'un événement de cycle de vie — leur forme dépend de l'événement
-    ...args: any[]
+    ...args: unknown[]
   ): Promise<IGuardedEmitResult> {
     this.log(`${colorLogEvent()} ${event} [guarded]`, "DEBUG");
     const warnMs = this.bootWarnMs();
@@ -4028,10 +4069,8 @@ class Kernel extends Service implements IKernel {
   }
 
   sendMessage(
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    message: any,
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    handle?: any,
+    message: unknown,
+    handle?: SendHandle,
     options?: { swallowErrors?: boolean; keepOpen?: boolean | undefined },
     callback?: (error: Error | null) => void,
   ): boolean {
@@ -4257,8 +4296,7 @@ class Kernel extends Service implements IKernel {
       },
     );
     const deadlineMs =
-      (this.options as TypeKernelOptions).shutdownDeadline ??
-      DEFAULT_SHUTDOWN_DEADLINE;
+      this.options.shutdownDeadline ?? DEFAULT_SHUTDOWN_DEADLINE;
     let raced: unknown;
     if (deadlineMs > 0) {
       let deadlineTimer: NodeJS.Timeout | null = null;

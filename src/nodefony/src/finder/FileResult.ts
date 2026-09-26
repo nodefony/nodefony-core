@@ -1,5 +1,6 @@
 import Result from "./Result";
 import File from "./File";
+import type FileClass from "../FileClass";
 
 class FileResult extends Result {
   // oxlint-disable-next-line no-useless-constructor -- pas redondant : il RESSERRE le type accepté (`File[]` au lieu du `any[]` du parent) ; le retirer rendrait la signature permissive
@@ -9,7 +10,7 @@ class FileResult extends Result {
 
   override toString(): string {
     let txt = "";
-    for (const info of this) {
+    for (const info of this as FileClass[]) {
       txt += `${info.name}\n`;
     }
     return txt;
@@ -92,9 +93,10 @@ class FileResult extends Result {
   }
 
   sortByName(result: FileResult = new FileResult()): FileResult {
-    const res = this.sort((a, b) => {
-      if (a.name.toString() > b.name.toString()) return 1;
-      if (a.name.toString() < b.name.toString()) return -1;
+    // Entrées de type fichier (le `Builder` y range aussi des `FileClass`).
+    const res = this.sort((a: FileClass, b: FileClass) => {
+      if (a.name > b.name) return 1;
+      if (a.name < b.name) return -1;
       return 0;
     });
     if (res) {
@@ -104,9 +106,10 @@ class FileResult extends Result {
   }
 
   sortByType(result = new FileResult()): FileResult {
-    const res = this.sort((a, b) => {
-      if (a.type.toString() > b.type.toString()) return 1;
-      if (a.type.toString() < b.type.toString()) return -1;
+    // `type` est posé à la lecture du fichier ; comparé tel quel.
+    const res = this.sort((a: FileClass, b: FileClass) => {
+      if ((a.type as string) > (b.type as string)) return 1;
+      if ((a.type as string) < (b.type as string)) return -1;
       return 0;
     });
     if (res) {

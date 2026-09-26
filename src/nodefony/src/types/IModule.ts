@@ -56,8 +56,7 @@ export interface IModule extends IService {
 
   // ─── Services ──────────────────────────────────────────────────────────────
   // ServiceConstructor non importable ici → unknown + cast côté appelant
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  addService(service: unknown, ...args: any[]): Promise<IService>;
+  addService(service: unknown, ...args: unknown[]): Promise<IService>;
   loadService(service: string, ...args: unknown[]): Promise<IService>;
 
   getDependencies(): string[];
@@ -91,7 +90,7 @@ export interface IModule extends IService {
   // ─── Config — JSON Schema (introspection admin / Studio) ─────────────────
   // JSON Schema (`z.toJSONSchema`) de la config du module, ou null si non migré
   // Zod. Override par le module ; défaut null sur la classe de base.
-  configSchema(): unknown | null;
+  configSchema(): unknown;
 
   // ─── Metadata ──────────────────────────────────────────────────────────────
   getPackageJson(cwd?: string): Promise<PackageJson>;

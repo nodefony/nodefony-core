@@ -187,7 +187,8 @@ describe("RealtimeClient — extraction transport (IRealtimeTransport)", () => {
 
   it("send dropé tant que le transport n'est pas OPEN", () => {
     const { client, transports } = setup();
-    client.connect(); // CONNECTING, pas encore OPEN
+    // Non attendue : la connexion reste CONNECTING, c'est l'état éprouvé.
+    void client.connect(); // CONNECTING, pas encore OPEN
     client.emit("evt", { x: 1 });
     expect(transports[0].sent).to.have.length(0);
     client.disconnect();

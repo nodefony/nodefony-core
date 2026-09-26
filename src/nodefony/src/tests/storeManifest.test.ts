@@ -214,13 +214,17 @@ describe("extractManifestModuleOrder — lire l'ordre SANS booter", () => {
     assert.isAbove(
       rang("@nodefony/security"),
       -1,
-      `security absent de ${ordre}`,
+      `security absent de ${String(ordre)}`,
     );
-    assert.isAbove(rang("@nodefony/drizzle"), -1, `drizzle absent de ${ordre}`);
+    assert.isAbove(
+      rang("@nodefony/drizzle"),
+      -1,
+      `drizzle absent de ${String(ordre)}`,
+    );
     assert.isAbove(
       rang("@nodefony/mongoose"),
       -1,
-      `mongoose absent de ${ordre}`,
+      `mongoose absent de ${String(ordre)}`,
     );
     assert.isBelow(rang("@nodefony/drizzle"), rang("@nodefony/security"));
     assert.isBelow(rang("@nodefony/mongoose"), rang("@nodefony/security"));

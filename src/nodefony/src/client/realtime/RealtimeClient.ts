@@ -424,8 +424,12 @@ export class RealtimeClient<
       ? (payload: EventPayload<Listen, K>) => void
       : RealtimeHandler,
   ): () => void {
-    if (!this.handlers.has(event)) this.handlers.set(event, new Set());
-    this.handlers.get(event)!.add(handler as EventHandler);
+    let set = this.handlers.get(event);
+    if (!set) {
+      set = new Set();
+      this.handlers.set(event, set);
+    }
+    set.add(handler as EventHandler);
     return () => this.off(event, handler);
   }
 
@@ -921,7 +925,7 @@ export class RealtimeClient<
   }
 
   /** Retire une action exposée. */
-  unregister<K extends ActionNames<Actions>>(method: K): void {
+  unregister(method: ActionNames<Actions>): void {
     this.peer.unregister(method);
   }
 

@@ -131,12 +131,9 @@ function ruleKey(name: string): string {
  * @param name - la règle cherchée.
  * @returns la valeur déclarée, ou `undefined` si la règle n'est pas nommée.
  */
-function declaredRule(
-  rules: Record<string, unknown>,
-  name: string,
-): unknown | undefined {
+function declaredRule(rules: Record<string, unknown>, name: string): unknown {
   const wanted = ruleKey(name);
-  let found: unknown | undefined;
+  let found: unknown;
   // La DERNIÈRE déclaration gagne, comme dans l'objet JSON lui-même.
   for (const key of Object.keys(rules)) {
     if (ruleKey(key) === wanted) found = rules[key];
@@ -287,7 +284,9 @@ export function checkGuards(options: IGuardCheckOptions): IGuardResult {
 
   if (linter) {
     const rules = (linter.rules ?? {}) as Record<string, unknown>;
-    const overrides = Array.isArray(linter.overrides) ? linter.overrides : [];
+    const overrides: unknown[] = Array.isArray(linter.overrides)
+      ? linter.overrides
+      : [];
     for (const { name, why, category } of REQUIRED_RULES) {
       if (isOff(declaredRule(rules, name))) {
         findings.push({

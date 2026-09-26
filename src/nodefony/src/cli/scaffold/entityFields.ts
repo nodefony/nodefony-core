@@ -769,7 +769,7 @@ export function describeColumnTypes(): Array<{
   return types.map((type) => ({
     type,
     byDialect: Object.fromEntries([
-      ...ENTITY_DIALECTS.map((dialect) => [
+      ...ENTITY_DIALECTS.map((dialect): [string, string] => [
         dialect,
         // Colonne d'exemple : le nom importe peu, la FORME est ce qu'on montre.
         // Les tailles sont fournies pour que `char` et `decimal` se montrent tels
@@ -781,7 +781,7 @@ export function describeColumnTypes(): Array<{
       ]),
       // MongoDB : la définition que {@link buildMongooseEntityCodegen} écrit
       // réellement, relue sur sa sortie — pas une seconde table à tenir.
-      ["mongodb", mongooseDefinitionOf(type)],
+      ["mongodb", mongooseDefinitionOf(type)] as [string, string],
     ]),
   }));
 }

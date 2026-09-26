@@ -67,9 +67,16 @@ class Builder extends Service {
 
   private getCliOptions(): void {
     this.cli = this.command?.cli;
-    this.debug = this.cli?.commander?.opts().debug;
-    this.interactive = this.cli?.commander?.opts().interactive;
-    this.response = extend(true, {}, this.cli?.response || {});
+    const opts = this.cli?.commander?.opts<{
+      debug?: boolean;
+      interactive?: boolean;
+    }>();
+    this.debug = opts?.debug ?? false;
+    this.interactive = opts?.interactive ?? false;
+    this.response = extend(true, {}, this.cli?.response || {}) as Record<
+      string,
+      any
+    >;
   }
 
   async run(...args: any[]): Promise<any> {
@@ -114,10 +121,10 @@ class Builder extends Service {
   ): Promise<string | NodeJS.ArrayBufferView> {
     const skelete =
       skeleton instanceof FileClass ? skeleton : new FileClass(skeleton);
-    if (skelete.type !== "File") {
-      throw new Error(` skeleton must be file !!! : ${skelete.path}`);
-    }
     const skelPath = skelete.path as string;
+    if (skelete.type !== "File") {
+      throw new Error(` skeleton must be file !!! : ${skelPath}`);
+    }
     if (parse) {
       const src = await fsp.readFile(skelPath, { encoding: "utf8" });
       return this.eta.renderStringAsync(src, data);
@@ -131,7 +138,7 @@ class Builder extends Service {
     parse: boolean = true,
     params: Record<string, any> = {},
   ): Promise<File> {
-    const mode = params.mode || "644";
+    const mode = (params.mode as fs.Mode | undefined) || "644";
     const data = skeleton
       ? await this.buildSkeleton(skeleton, parse, params)
       : "";
@@ -147,8 +154,8 @@ class Builder extends Service {
     try {
       await fsp.mkdir(myPath, mode);
       return new File(myPath);
-    } catch (e: any) {
-      if (e.code === "EEXIST" && force) {
+    } catch (e) {
+      if ((e as NodeJS.ErrnoException).code === "EEXIST" && force) {
         return new File(myPath);
       }
       throw e;

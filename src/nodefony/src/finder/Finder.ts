@@ -237,7 +237,11 @@ class Finder extends Event {
 
   constructor(settings: DefaultSettingsInterface = {}) {
     super(settings);
-    this.settings = extend({}, defaultSettings, settings);
+    this.settings = extend(
+      {},
+      defaultSettings,
+      settings,
+    ) as DefaultSettingsInterface;
     this.totals = {
       Directory: 0,
       File: 0,
@@ -322,7 +326,11 @@ class Finder extends Event {
     try {
       result = await this.checkPathAsync(Path);
       this.settingsToListen(settings);
-      const options = extend({}, this.settings, settings);
+      const options = extend(
+        {},
+        this.settings,
+        settings,
+      ) as DefaultSettingsInterface;
       for (const res of result) {
         await parser.call(this, res, undefined, options, options.depth, res);
       }

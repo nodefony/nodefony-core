@@ -850,7 +850,7 @@ describe("Service — héritage", () => {
         msgid?: Msgid,
         msg?: Message,
       ): Pdu {
-        return super.log(`[VERBOSE] ${pci}`, severity, msgid, msg);
+        return super.log(`[VERBOSE] ${String(pci)}`, severity, msgid, msg);
       }
     }
     const s = new VerboseService("verbose");

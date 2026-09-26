@@ -73,7 +73,7 @@ interface OptionsCommandInterface extends DefaultOptionsService {
   helpGroup?: string;
 }
 
-export type CommandArgs = any[];
+export type CommandArgs = unknown[];
 
 const defaultCommandOptions: OptionsCommandInterface = {
   showBanner: true,
@@ -113,6 +113,8 @@ class Command extends Service {
    * avant tout usage (action() le charge si interactif ; Builder le charge défensivement).
    */
   public prompts!: typeof import("@inquirer/prompts");
+  /** Options de la commande — le type précis du champ hérité de `Service`. */
+  declare public options: OptionsCommandInterface;
   public response: Record<string, any> = {};
   public kernelEvent: KernelEventKey = "onRegister";
   /** Durée de vie déclarée (cf {@link OptionsCommandInterface.lifetime}). */
@@ -126,17 +128,17 @@ class Command extends Service {
   // le hook → 0 listener / 0 coût pour les commandes qui ne l'utilisent pas (règle perf).
   // Disponibles pour TOUS les modes (serveur / batch one-shot / daemon CONSOLE). `onInit`
   // n'est pas exposé : il fire dans le constructeur du Kernel, avant que la commande y soit liée.
-  public onKernelPreStart?(...args: any[]): Promise<void>;
-  public onKernelStart?(...args: any[]): Promise<void>;
-  public onKernelPreRegister?(...args: any[]): Promise<void>;
-  public onKernelRegister?(...args: any[]): Promise<void>;
-  public onKernelPreBoot?(...args: any[]): Promise<void>;
-  public onKernelBoot?(...args: any[]): Promise<void>;
-  public onKernelReady?(...args: any[]): Promise<void>;
-  public onKernelServersReady?(...args: any[]): Promise<void>;
-  public onKernelPostReady?(...args: any[]): Promise<void>;
+  public onKernelPreStart?(...args: unknown[]): Promise<void>;
+  public onKernelStart?(...args: unknown[]): Promise<void>;
+  public onKernelPreRegister?(...args: unknown[]): Promise<void>;
+  public onKernelRegister?(...args: unknown[]): Promise<void>;
+  public onKernelPreBoot?(...args: unknown[]): Promise<void>;
+  public onKernelBoot?(...args: unknown[]): Promise<void>;
+  public onKernelReady?(...args: unknown[]): Promise<void>;
+  public onKernelServersReady?(...args: unknown[]): Promise<void>;
+  public onKernelPostReady?(...args: unknown[]): Promise<void>;
   /** Cleanup / graceful shutdown — fire à `terminate()` (reçoit le code en dernier arg). */
-  public onKernelTerminate?(...args: any[]): Promise<void>;
+  public onKernelTerminate?(...args: unknown[]): Promise<void>;
   public currentCommand?: Cmd;
   private eventsRegistered: boolean = false;
   /**
@@ -156,11 +158,11 @@ class Command extends Service {
   ) {
     const container: Scope | Container | null | undefined = cli.container;
     //const notificationsCenter = cli?.notificationsCenter;
-    const myoptions: OptionsCommandInterface = extend(
+    const myoptions = extend(
       {},
       defaultCommandOptions,
       options,
-    );
+    ) as OptionsCommandInterface;
     super(
       name,
       <Container>container,
@@ -169,26 +171,26 @@ class Command extends Service {
     );
     this.cli = cli;
     this.program = this.cli.commander as Cmd;
-    this.kernelEvent = this.options.kernelEvent;
+    this.kernelEvent = this.options.kernelEvent ?? this.kernelEvent;
     this.lifetime = this.options.lifetime ?? "oneshot";
     this.runProfile = this.options.runProfile ?? null;
     this.quietBoot = this.options.quietBoot === true;
     this.command = this.createCommand(name, description);
-    this.command?.action((...args: any[]) => {
+    this.command?.action(async (...args: unknown[]) => {
       if (this.kernel) {
         // Parse PUR : le match commander ne fait que SIGNALER la commande résolue.
         // Tout le câblage lifecycle (mutation kernel, runProfile déclaré, hooks) est
         // centralisé dans CliKernel.resolveCommand — point unique de résolution.
         (this.cli as CliKernel).resolveCommand(this, args);
-        return undefined;
+        return;
       }
-      // RETOURNER la promesse de l'action : sans ça, un `generate()` qui rejette
-      // produit une « unhandled rejection » flottante (commander ne peut pas
-      // l'attendre via `parseAsync`). La propager rend l'erreur capturable.
-      return this.action(...args);
+      // ATTENDRE l'action : sans ça, un `generate()` qui rejette produit une
+      // « unhandled rejection » flottante (commander ne peut pas l'attendre via
+      // `parseAsync`). La propager rend l'erreur capturable.
+      await this.action(...args);
     });
   }
-  setEvents(...args: any[]): void {
+  setEvents(...args: unknown[]): void {
     if (this.kernel && !this.eventsRegistered) {
       this.eventsRegistered = true;
       // Câblage LAZY phase par phase (ordre chronologique du boot) : un listener
@@ -321,7 +323,9 @@ class Command extends Service {
     const trimmed = typeof value === "string" ? value.trim() : "";
     if (trimmed.length > 0) return trimmed;
 
-    const canPrompt = spec.isTTY ?? Boolean(process.stdin.isTTY);
+    // `isTTY` vaut `undefined` hors terminal (malgré son type `boolean`) : seule
+    // sa véracité compte ici.
+    const canPrompt = spec.isTTY ?? process.stdin.isTTY;
     if (!canPrompt) {
       const example = spec.choices?.length
         ? `<${spec.choices.join("|")}>`
@@ -343,7 +347,7 @@ class Command extends Service {
           validate: (v: string) =>
             v.trim().length > 0 || `${spec.name} est requis`,
         });
-    return String(answer).trim();
+    return answer.trim();
   }
 
   /**
@@ -353,8 +357,8 @@ class Command extends Service {
    * @param {...any} args - Arguments passés à la commande.
    * @returns {Promise<any>} Promise résolue avec le résultat de l'action.
    */
-  public async action(...args: any[]): Promise<any> {
-    const current = args[args.length - 1];
+  public async action(...args: unknown[]): Promise<unknown> {
+    const current = args[args.length - 1] as Cmd | undefined;
     this.getCliOptions();
     // Charge les prompts AVANT builder + interaction (qui les consomment), seulement
     // si interactif → 0 import @inquirer pour les commandes non-interactives.
@@ -378,7 +382,7 @@ class Command extends Service {
    * @param {...any} args - Arguments passés à la commande.
    * @returns {Promise<any>} Promise résolue avec le résultat de l'exécution.
    */
-  public async run(...args: any[]): Promise<this> {
+  public async run(...args: unknown[]): Promise<unknown> {
     if (this.kernel) this.kernel.command = this;
     if (this.interactive || this.forceInteractive) {
       // 🔴 `.then((...response) => …)` ne recevait qu'UNE valeur — le callback
@@ -391,9 +395,11 @@ class Command extends Service {
       const response = await this.interaction(...args);
       // Un tableau = plusieurs arguments (le cas par défaut) ; une valeur seule
       // = un argument, et surtout pas ses éléments étalés.
-      return Array.isArray(response)
-        ? this.generate(...response)
-        : this.generate(response);
+      if (Array.isArray(response)) {
+        const list: unknown[] = response;
+        return this.generate(...list);
+      }
+      return this.generate(response);
     }
     return this.generate(...args);
   }
@@ -408,7 +414,7 @@ class Command extends Service {
    * @returns {Promise<any>} Promise résolue avec le résultat de l'interaction.
    */
 
-  public async interaction(...args: any[]): Promise<any> {
+  public async interaction(...args: unknown[]): Promise<unknown> {
     return Promise.resolve(args);
   }
   /**
@@ -418,12 +424,16 @@ class Command extends Service {
    * @param {...any} args - Arguments passés à la commande.
    * @returns {Promise<any>} Promise résolue avec le résultat généré.
    */
-  async generate(...args: any[]): Promise<any> {
+  async generate(...args: unknown[]): Promise<unknown> {
     return Promise.resolve(args);
   }
   private getCliOptions(): void {
-    this.debug = this.cli?.commander?.opts().debug || false;
-    this.interactive = this.cli?.commander?.opts().interactive || false;
+    const opts = this.cli?.commander?.opts<{
+      debug?: boolean;
+      interactive?: boolean;
+    }>();
+    this.debug = opts?.debug || false;
+    this.interactive = opts?.interactive || false;
   }
   private createCommand(name: string, description?: string): Cmd {
     const cmd = new Cmd(name);
@@ -550,13 +560,15 @@ class Command extends Service {
    * Méthode pour afficher une bannière liée à la commande.
    *
    * @public
-   * @returns {Promise<string>} Promise résolue avec la bannière générée.
+   * @returns {Promise<string | Error>} Promise résolue avec la bannière générée
+   *   — ou avec l'erreur du rendu, RENDUE et non levée (une bannière ne doit pas
+   *   faire échouer la commande).
    */
-  async showBanner(): Promise<string> {
+  async showBanner(): Promise<string | Error> {
     if (this.cli) {
       return this.cli
         .asciify(`      ${this.name}`)
-        .then((data: any) => {
+        .then((data: string) => {
           if (this.json) {
             return data;
           }

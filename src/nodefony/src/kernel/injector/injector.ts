@@ -49,7 +49,7 @@ export interface PropertyInjectMeta {
 // dont les membres (`toString`, `constructor`, `valueOf`…) répondraient alors à
 // `isRegistered()` comme autant de services fantômes que personne n'a enregistrés —
 // et `register("__proto__", …)` déracinerait le registre au lieu d'y poser une clé.
-const injectables: Record<string, ServiceConstructor> = Object.create(null);
+const injectables = Object.create(null) as Record<string, ServiceConstructor>;
 
 // ─── Classe → clé container (le « token ») ───────────────────────────────────
 //
@@ -153,9 +153,11 @@ class Injector extends Service {
    */
   static dependencyNamesOf(service: ServiceConstructor): string[] {
     const explicit: (string | undefined)[] =
-      Reflect.getMetadata("inject:services", service) || [];
+      (Reflect.getMetadata("inject:services", service) as
+        (string | undefined)[] | undefined) || [];
     const paramTypes: unknown[] =
-      Reflect.getMetadata("design:paramtypes", service) || [];
+      (Reflect.getMetadata("design:paramtypes", service) as
+        unknown[] | undefined) || [];
 
     const names: string[] = [];
     for (const name of explicit) if (name) names.push(name);
@@ -201,6 +203,9 @@ class Injector extends Service {
     return service;
   }
 
+  // Générique de RETOUR voulu : l'appelant nomme le type de l'instance qu'il
+  // obtient (`Injector.instantiate<TenantReader>(…)`) — API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   static inject<T extends Service = Service>(
     service: ServiceConstructor,
     ...args: unknown[]
@@ -208,6 +213,9 @@ class Injector extends Service {
     return Injector.instantiate<T>(service, ...args);
   }
 
+  // Générique de RETOUR voulu : l'appelant nomme le type de l'instance qu'il
+  // obtient (`Injector.instantiate<TenantReader>(…)`) — API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   instantiate<T extends Service = Service>(
     constructor: ServiceConstructor,
     ...args: unknown[]
@@ -216,6 +224,9 @@ class Injector extends Service {
   }
 
   // ─── API publique ─────────────────────────────────────────────────────────────
+  // Générique de RETOUR voulu : l'appelant nomme le type de l'instance qu'il
+  // obtient (`Injector.instantiate<TenantReader>(…)`) — API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   static instantiate<T extends Service = Service>(
     constructor: ServiceConstructor,
     ...argsClass: unknown[]
@@ -504,7 +515,8 @@ class Injector extends Service {
   private static _declaredDependencies(ctor: ServiceConstructor): string[] {
     const names = Injector.dependencyNamesOf(ctor);
     const props: PropertyInjectMeta[] =
-      Reflect.getMetadata("inject:properties", ctor.prototype) || [];
+      (Reflect.getMetadata("inject:properties", ctor.prototype as object) as
+        PropertyInjectMeta[] | undefined) || [];
     for (const { name } of props) names.push(name);
     return names;
   }
@@ -516,7 +528,10 @@ class Injector extends Service {
     stack: ServiceConstructor[],
   ): unknown {
     const propMetas: PropertyInjectMeta[] =
-      Reflect.getMetadata("inject:properties", constructor.prototype) || [];
+      (Reflect.getMetadata(
+        "inject:properties",
+        constructor.prototype as object,
+      ) as PropertyInjectMeta[] | undefined) || [];
     for (const { key, name } of propMetas) {
       (instance as Record<string, unknown>)[key as string] =
         Injector._resolveWithStack(name, stack);
@@ -560,9 +575,11 @@ class Injector extends Service {
 
     // ── Métadonnées DI ──────────────────────────────────────────────────────────
     const injectExplicit: (string | undefined)[] =
-      Reflect.getMetadata("inject:services", constructor) || [];
+      (Reflect.getMetadata("inject:services", constructor) as
+        (string | undefined)[] | undefined) || [];
     const paramTypes: unknown[] =
-      Reflect.getMetadata("design:paramtypes", constructor) || [];
+      (Reflect.getMetadata("design:paramtypes", constructor) as
+        unknown[] | undefined) || [];
 
     const hasInjectInfo = injectExplicit.some(Boolean) || paramTypes.length > 0;
 
@@ -613,6 +630,9 @@ class Injector extends Service {
     ) as Service;
   }
 
+  // Générique de RETOUR voulu : l'appelant nomme le type de l'instance qu'il
+  // obtient (`Injector.instantiate<TenantReader>(…)`) — API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   reflect<T extends Service = Service>(
     constructor: ServiceConstructor,
     ...args: unknown[]

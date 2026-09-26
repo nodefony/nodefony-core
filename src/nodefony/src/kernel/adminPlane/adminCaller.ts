@@ -13,7 +13,7 @@ import { ADMIN_DEFAULT_ROLE } from "./adminRbac";
  */
 export interface IAdminCaller {
   /** L'utilisateur, quand la porte en connaît un. */
-  user: unknown | null;
+  user: unknown;
   /** Ses rôles RÉELS — c'est sur eux que le contrôle d'accès tranche. */
   roles: readonly string[];
   /**

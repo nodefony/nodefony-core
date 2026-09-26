@@ -62,7 +62,17 @@ export function formatCell(value: unknown): string {
     const clés = Object.keys(value);
     return clés.length ? `{${clés.join(", ")}}` : "{}";
   }
-  return String(value);
+  if (typeof value === "string") return value;
+  if (
+    typeof value === "number" ||
+    typeof value === "bigint" ||
+    typeof value === "symbol" ||
+    typeof value === "function"
+  ) {
+    return value.toString();
+  }
+  // Inatteignable : toutes les valeurs de `typeof` sont traitées ci-dessus.
+  return "";
 }
 
 /** Tronque en gardant une marque de troncature — jamais en silence. */

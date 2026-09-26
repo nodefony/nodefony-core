@@ -116,7 +116,7 @@ export interface RpcTracedResult<T = unknown> {
 }
 
 /** Handler d'une action (requête→réponse). Sync ou async ; throw → `-32603`. */
-export type RpcActionHandler = (params: unknown) => unknown | Promise<unknown>;
+export type RpcActionHandler = (params: unknown) => unknown;
 
 /**
  * Handler des notifications entrantes (pas de réponse). Paramétrable par `Listen`
@@ -251,7 +251,7 @@ export interface IRealtimePeer<
     handler: TypedRpcActionHandler<Actions, K>,
   ): void;
   /** Retire une action. */
-  unregister<K extends ActionNames<Actions>>(method: K): void;
+  unregister(method: ActionNames<Actions>): void;
   /** Ingestion d'une frame ENTRANTE (déjà parsée) → classe + route. */
   receive(frame: unknown): JsonRpcFrameKind;
   /** Actions exposées (découverte). */
@@ -306,7 +306,7 @@ export class JsonRpcPeer<
   }
 
   /** Retire une action. */
-  unregister<K extends ActionNames<Actions>>(method: K): void {
+  unregister(method: ActionNames<Actions>): void {
     this.actions?.delete(method);
   }
 
@@ -520,7 +520,8 @@ export class JsonRpcPeer<
             this.opts.send({
               jsonrpc: "2.0",
               id,
-              result: result.result,
+              // `instanceof` sur une classe générique rend `RpcEnvelope<any>`.
+              result: result.result as unknown,
               meta: result.meta,
             });
             return;

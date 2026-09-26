@@ -127,7 +127,7 @@ function make(styles: readonly string[]): ColorFn {
       if (typeof prop === "string" && VALID.has(prop)) {
         return make([...styles, prop]);
       }
-      return Reflect.get(target, prop, receiver);
+      return Reflect.get(target, prop, receiver) as unknown;
     },
   }) as ColorFn;
 }

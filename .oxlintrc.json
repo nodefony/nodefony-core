@@ -349,7 +349,6 @@
       // soumis à la norme entière. La config est finale quand cet override
       // n'existe plus.
       "files": [
-        "src/nodefony/**",
         "src/packages/@nodefony/http/**",
         "src/packages/@nodefony/framework/**",
         "src/packages/@nodefony/studio/**",

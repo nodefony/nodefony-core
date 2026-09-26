@@ -100,9 +100,11 @@ export function installNetworkInterceptor(
           try {
             url = fetchUrl(args[0]);
             const init = args[1];
-            method = (init?.method ?? (args[0] as Request)?.method ?? "GET")
-              .toString()
-              .toUpperCase();
+            method = (
+              init?.method ??
+              (args[0] as Request)?.method ??
+              "GET"
+            ).toUpperCase();
           } catch {
             /* lecture défensive */
           }
@@ -160,7 +162,11 @@ export function installNetworkInterceptor(
 
   // ── XMLHttpRequest ───────────────────────────────────────────────────
   const XHR = window.XMLHttpRequest;
+  // Références NATIVES gardées telles quelles : rappelées par `.apply(this…)`
+  // et remises en place à la désinstallation (identité exigée).
+  // oxlint-disable-next-line typescript/unbound-method
   const origOpen = XHR?.prototype.open;
+  // oxlint-disable-next-line typescript/unbound-method
   const origSend = XHR?.prototype.send;
   // État par instance (sans polluer le prototype public) via WeakMap.
   const state = new WeakMap<XMLHttpRequest, NetEntry>();

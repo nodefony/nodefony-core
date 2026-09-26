@@ -4,10 +4,12 @@ import Container from "./Container";
 // ─── Cached references (évite les lookups prototypiques répétés) ─────────────
 
 const ObjProto = Object.prototype;
-const _toString = ObjProto.toString; // explicite — ne dépend plus du global toString
-const hasOwn = ObjProto.hasOwnProperty;
-const fnToString = hasOwn.toString;
-const ObjectFunctionString = fnToString.call(Object);
+const FnProto = Function.prototype;
+// Appels par `.call` sur les références natives : aucune méthode n'est détachée
+// de son objet (explicite — ne dépend plus du global toString).
+const _toString = (value: unknown): string => ObjProto.toString.call(value);
+const fnToString = (fn: unknown): string => FnProto.toString.call(fn);
+const ObjectFunctionString = fnToString(Object);
 const getProto = Object.getPrototypeOf;
 
 // ─── Natif — suppression des dépendances lodash-es ───────────────────────────
@@ -42,14 +44,14 @@ const isRegExp = (value: unknown): value is RegExp => value instanceof RegExp;
  * @returns `true` si l'objet vient directement de `Object` ou n'a pas de prototype.
  */
 const isPlainObject = (obj: unknown): boolean => {
-  if (!obj || _toString.call(obj) !== "[object Object]") return false;
-  const proto = getProto(obj);
+  if (!obj || _toString(obj) !== "[object Object]") return false;
+  const proto = getProto(obj) as object | null;
   if (!proto) return true; // Object.create(null)
   const Ctor =
-    hasOwn.call(proto, "constructor") &&
+    Object.hasOwn(proto, "constructor") &&
     (proto as { constructor?: unknown }).constructor;
   return (
-    typeof Ctor === "function" && fnToString.call(Ctor) === ObjectFunctionString
+    typeof Ctor === "function" && fnToString(Ctor) === ObjectFunctionString
   );
 };
 
@@ -76,7 +78,7 @@ const isEmptyObject = (obj: object | null | undefined): boolean =>
 // API jQuery-compatible : extend(target, ...sources) ou extend(true, target, ...sources)
 //
 // Améliorations vs version précédente :
-//   • hasOwn.call() — only own enumerable props, évite la pollution héritée
+//   • Object.hasOwn() — only own enumerable props, évite la pollution héritée
 //   • Guard étendu : __proto__ + constructor + prototype
 //   • isPlainObject/isArray inline sans lodash
 //   • _toString explicitement référencé (plus de dépendance au global toString)
@@ -97,14 +99,8 @@ const isEmptyObject = (obj: object | null | undefined): boolean =>
  * extend(true, { a: { x: 1 } }, { a: { y: 2 } }); // { a: { x: 1, y: 2 } }
  * ```
  */
-const extend = (...args: any[]): any => {
-  let options: any,
-    name: string,
-    src: any,
-    copy: any,
-    copyIsArray = false,
-    clone: any,
-    target: any = args[0] || {},
+const extend = (...args: unknown[]): any => {
+  let target: unknown = args[0] || {},
     i = 1,
     deep = false;
   const { length } = args;
@@ -125,30 +121,36 @@ const extend = (...args: any[]): any => {
     i--;
   }
 
-  for (; i < length; i++) {
-    if ((options = args[i]) != null) {
-      for (name in options) {
-        // Propriétés propres uniquement — évite l'héritage énumérable parasite
-        if (!hasOwn.call(options, name)) continue;
+  // Objet ou fonction à ce stade (cf gardes ci-dessus) : indexable par clé.
+  const out = target as Record<string, unknown>;
 
-        copy = options[name];
+  for (; i < length; i++) {
+    const options = args[i];
+    if (options != null) {
+      const source = options as Record<string, unknown>;
+      for (const name in source) {
+        // Propriétés propres uniquement — évite l'héritage énumérable parasite
+        if (!Object.hasOwn(source, name)) continue;
+
+        const copy = source[name];
 
         // Prototype pollution guard + référence circulaire
         if (
           name === "__proto__" ||
           name === "constructor" ||
           name === "prototype" ||
-          target === copy
+          out === copy
         )
           continue;
 
+        let copyIsArray = false;
         if (
           deep &&
           copy &&
           (isPlainObject(copy) || (copyIsArray = isArray(copy)))
         ) {
-          src = target[name];
-
+          const src = out[name];
+          let clone: unknown;
           if (copyIsArray && !isArray(src)) {
             clone = [];
           } else if (!copyIsArray && !isPlainObject(src)) {
@@ -156,17 +158,16 @@ const extend = (...args: any[]): any => {
           } else {
             clone = src;
           }
-          copyIsArray = false;
 
-          target[name] = extend(deep, clone, copy);
+          out[name] = extend(deep, clone, copy);
         } else if (copy !== undefined) {
-          target[name] = copy;
+          out[name] = copy;
         }
       }
     }
   }
 
-  return target;
+  return out;
 };
 
 // ─── typeOf ───────────────────────────────────────────────────────────────────
@@ -193,7 +194,7 @@ const extend = (...args: any[]): any => {
 const _gBuffer = (globalThis as { Buffer?: { isBuffer(v: unknown): boolean } })
   .Buffer;
 
-const typeOf = (value: any): string | null => {
+const typeOf = (value: unknown): string | null => {
   const t = typeof value;
   if (t === "object") {
     if (value === null) return null;
@@ -208,7 +209,10 @@ const typeOf = (value: any): string | null => {
       return "arguments";
     if (value instanceof SyntaxError) return "SyntaxError";
     if (isError(value)) return "Error";
-  } else if (t === "function" && typeof value.call === "undefined") {
+  } else if (
+    t === "function" &&
+    typeof (value as { call?: unknown }).call === "undefined"
+  ) {
     return "object";
   }
   return t;
@@ -240,13 +244,12 @@ const isError = (it: unknown): it is Error => it instanceof Error;
  * @param obj - valeur à tester.
  * @returns `true` si `obj instanceof Promise` ou `typeof obj.then === "function"`.
  */
-const isPromise = (obj: any): boolean => {
+const isPromise = (obj: unknown): boolean => {
   if (obj instanceof Promise) return true;
-  return (
-    Boolean(obj) &&
-    (typeof obj === "object" || typeof obj === "function") &&
-    typeof obj.then === "function"
-  );
+  if (!obj || (typeof obj !== "object" && typeof obj !== "function")) {
+    return false;
+  }
+  return "then" in obj && typeof obj.then === "function";
 };
 
 /**
@@ -256,8 +259,10 @@ const isPromise = (obj: any): boolean => {
  * @param superclass - classe parent attendue.
  * @returns `true` si `subclass.prototype instanceof superclass`.
  */
-const isSubclassOf = (subclass: any, superclass: any): boolean =>
-  subclass.prototype instanceof superclass;
+const isSubclassOf = (subclass: unknown, superclass: any): boolean =>
+  // Lecture volontairement NON gardée : `null`/`undefined` lève un TypeError,
+  // comme avant (contrat couvert par Tools.test.ts).
+  (subclass as { prototype: unknown }).prototype instanceof superclass;
 
 /** Code de caractère de `/`. */
 const SLASH = 47;

@@ -62,9 +62,9 @@ describe.skipIf(!LOKI_URL)("Log Backplane E2E — Loki réel", () => {
   beforeAll(async () => {
     const transport = new LokiTransport({ url: LOKI_URL! });
     // 3 Pdu, deux sévérités — timestamps « maintenant », espacés pour l'ordre.
-    transport.send(mk("loki-alpha", "INFO", reqId, t0));
-    transport.send(mk("loki-bravo", "ERROR", reqId, t0 + 1));
-    transport.send(mk("loki-charlie", "INFO", reqId, t0 + 2));
+    await transport.send(mk("loki-alpha", "INFO", reqId, t0));
+    await transport.send(mk("loki-bravo", "ERROR", reqId, t0 + 1));
+    await transport.send(mk("loki-charlie", "INFO", reqId, t0 + 2));
     await transport.close(); // flush → push HTTP réel
   });
 
@@ -104,9 +104,9 @@ describe.skipIf(!OS_URL)("Log Backplane E2E — OpenSearch réel", () => {
 
   beforeAll(async () => {
     const transport = new OpenSearchTransport({ url: OS_URL! });
-    transport.send(mk("os-alpha", "INFO", reqId, t0));
-    transport.send(mk("os-bravo", "ERROR", reqId, t0 + 1));
-    transport.send(mk("os-charlie", "INFO", reqId, t0 + 2));
+    await transport.send(mk("os-alpha", "INFO", reqId, t0));
+    await transport.send(mk("os-bravo", "ERROR", reqId, t0 + 1));
+    await transport.send(mk("os-charlie", "INFO", reqId, t0 + 2));
     await transport.close(); // flush → bulk HTTP réel
   });
 

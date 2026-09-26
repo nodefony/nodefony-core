@@ -338,7 +338,7 @@ class Event extends EventEmitter {
             });
           }
         }
-      } catch (caught) {
+      } catch (caught: unknown) {
         const durationMs = measure ? Date.now() - startedAt : 0;
         // En cas de timeout, expose une Error explicite (jamais la sentinelle).
         const error = timedOut

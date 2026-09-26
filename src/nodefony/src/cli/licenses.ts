@@ -532,7 +532,7 @@ export function collect(root: string): ILicensedPackage[] {
     // Un inventaire partiel se lirait comme un verdict. Le dire en clair, avec
     // le remède — une trace d'exception ferait chercher le défaut dans ce code,
     // où il n'est pas.
-    const detail = String(run.stderr ?? run.error?.message ?? "")
+    const detail = (run.stderr ?? run.error?.message ?? "")
       .split("\n")
       .filter((line) => line.trim() !== "")
       .slice(0, 8)

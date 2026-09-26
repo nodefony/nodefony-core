@@ -1282,7 +1282,7 @@ export function reporterProgression(
 ): DeepReporter | undefined {
   if (json) return undefined;
   const p = createPalette(
-    shouldColorize(process.env, Boolean(process.stderr.isTTY)),
+    shouldColorize(process.env, process.stderr.isTTY ?? false),
   );
   // Sur un terminal, l'attente est ANIMÉE. Sans cela, `--deep` écrivait
   // « … npm run typecheck » puis se taisait trente-huit secondes : un point
@@ -1290,7 +1290,7 @@ export function reporterProgression(
   // « ça travaille » de « c'est planté » — il interrompt, puis cesse de s'en
   // servir. Hors terminal (forge, redirection), le comportement ne bouge pas
   // d'un octet : une ligne par évènement, écrite par `ecrire`.
-  const animated = Boolean(stream.isTTY);
+  const animated = stream.isTTY ?? false;
   const spinner = animated
     ? new Spinner({
         stream,
@@ -1318,7 +1318,7 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     // part sur la sortie d'erreur, avec l'usage, et un code distinct de celui
     // d'un manquement.
     const p = createPalette(
-      shouldColorize(process.env, Boolean(process.stderr.isTTY)),
+      shouldColorize(process.env, process.stderr.isTTY ?? false),
     );
     // Replié comme le reste : un refus qui déborde du terminal est le premier
     // texte que le lecteur voit casser, et il le voit au pire moment.
@@ -1333,7 +1333,7 @@ export async function runDoctorCommand(argv: string[]): Promise<number> {
     process.stdout.write(
       usage(
         createPalette(
-          shouldColorize(process.env, Boolean(process.stdout.isTTY)),
+          shouldColorize(process.env, process.stdout.isTTY ?? false),
         ),
         usableWidth(process.stdout.columns),
       ),
@@ -1423,7 +1423,7 @@ export function renderDoctorReport(
   const out = process.stdout;
   const lines = renderReport(report, {
     width: usableWidth(out.columns),
-    color: shouldColorize(process.env, Boolean(out.isTTY)),
+    color: shouldColorize(process.env, out.isTTY ?? false),
     now: Date.now(),
     launchedFrom: start,
     strict,

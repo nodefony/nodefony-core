@@ -93,7 +93,7 @@ interface ReadinessEntry {
  * parcours, puisque c'est la lecture qui doit rester gratuite.
  */
 export class ReadinessRegistry {
-  private entries: Record<string, ReadinessEntry> = Object.create(null);
+  private entries = Object.create(null) as Record<string, ReadinessEntry>;
   private notReady: number = 0;
   private tracked: number = 0;
 

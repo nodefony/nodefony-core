@@ -343,7 +343,7 @@ export async function startSpareApp(
     if (exitCode !== null) {
       restoreStateFiles(state);
       throw new Error(
-        `l'exemplaire jetable est mort avant de répondre (code ${exitCode}) :\n${output.slice(-2000)}`,
+        `l'exemplaire jetable est mort avant de répondre (code ${String(exitCode)}) :\n${output.slice(-2000)}`,
       );
     }
     // `/livez` et non `/readyz` : on attend qu'il SERVE, pas qu'il soit prêt —

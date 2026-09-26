@@ -115,7 +115,7 @@ function _typeOnly(): void {
   // ── Garde-fous NÉGATIFS qui FONCTIONNENT ───────────────────────────────
   // (clé DÉCLARÉE : le membre l'emporte sur l'index signature → payload typé)
   // @ts-expect-error : payload mal typé sur chat:fetch
-  clientPeer.request("chat:fetch", { wrong: true });
+  void clientPeer.request("chat:fetch", { wrong: true });
   // @ts-expect-error : payload mal formé sur canal connu
   clientPeer.notify("chat:send", { room: 42 });
 
@@ -123,7 +123,7 @@ function _typeOnly(): void {
   // Les maps ne fuient plus leur index signature : ces 3 lignes sont de nouveau
   // des erreurs de compilation, comme le contrat l'exige.
   // @ts-expect-error : RPC inconnue du contrat AppActions
-  clientPeer.request("chat:unknown");
+  void clientPeer.request("chat:unknown");
   // @ts-expect-error : canal inconnu du contrat
   clientPeer.notify("chat:nope", { foo: 1 });
   // @ts-expect-error : "chat:send" est un canal CLIENT->serveur, le serveur ne l'émet pas

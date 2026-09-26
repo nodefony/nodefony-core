@@ -5924,19 +5924,19 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       });
       const avant = readJson(path.join(dest, "package.json"));
       assert.notInclude(
-        String(avant["scripts"]["build"]),
+        avant["scripts"]["build"] ?? "",
         "frontend:build",
         "décor : l'app témoin doit naître SANS l'étape front",
       );
       front(dest, { name: "board", frontend: "react" });
       const apres = readJson(path.join(dest, "package.json"));
       assert.include(
-        String(apres["scripts"]["build"]),
+        apres["scripts"]["build"] ?? "",
         "&& nodefony frontend:build",
         "le bundle de production du front n'entre pas dans `npm run build`",
       );
       // Ce que l'utilisateur avait déjà dans son script reste devant.
-      assert.include(String(apres["scripts"]["build"]), "rolldown");
+      assert.include(apres["scripts"]["build"] ?? "", "rolldown");
     });
 
     it("la capacité se CONSTATE dans le manifeste — sans realtime, pas de promesse", () => {
@@ -8533,7 +8533,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
     const capture = async (...words: string[]): Promise<[number, string]> => {
       const chunks: string[] = [];
       const stdout = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (chunk: string) => {
+      process.stdout.write = (chunk: string | Uint8Array) => {
         chunks.push(String(chunk));
         return true;
       };
@@ -9232,7 +9232,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
       const dest = path.join(tmp, "sim-app");
       const written: string[] = [];
       const stdout = process.stdout.write.bind(process.stdout);
-      process.stdout.write = (chunk: string) => {
+      process.stdout.write = (chunk: string | Uint8Array) => {
         written.push(String(chunk));
         return true;
       };
@@ -9536,7 +9536,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
     const plan = mcpWiringPlan({ chosen: 0, installed: true, built: true });
     assert.isFalse(plan.propose);
     assert.include(
-      plan.propose === false ? plan.pattern : "",
+      !plan.propose ? plan.pattern : "",
       "aucun agent",
       "le motif doit NOMMER la raison — un refus muet se lit comme une panne",
     );
@@ -9552,7 +9552,7 @@ describe("create app — l'AGENT se choisit, la porte MCP vient avec (lot 2)", (
         plan.propose,
         `attendu refusé pour ${JSON.stringify(etat)}`,
       );
-      assert.include(plan.propose === false ? plan.pattern : "", "kernel");
+      assert.include(!plan.propose ? plan.pattern : "", "kernel");
     }
   });
 });

@@ -307,7 +307,7 @@ class Pdu {
    * @returns ligne formatée `TimeStamp:... Log:... ModuleName:... SeverityName:... MessageID:... UID:... Message:...`.
    */
   toString(): string {
-    return `TimeStamp:${this.getDate()}  Log:${this.payload}  ModuleName:${
+    return `TimeStamp:${this.getDate()}  Log:${String(this.payload)}  ModuleName:${
       this.moduleName
     }  SeverityName:${this.severityName}  MessageID:${this.msgid}  UID:${
       this.uid

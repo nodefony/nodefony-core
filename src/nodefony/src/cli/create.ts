@@ -1154,7 +1154,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
   if (
     "error" in parsed &&
     shouldAskForType(parsed.error, {
-      isTTY: process.stdin.isTTY === true,
+      isTTY: process.stdin.isTTY ?? false,
       yes: argv.includes("--yes"),
     })
   ) {
@@ -1200,7 +1200,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       return SysExit.USAGE;
     }
   }
-  const interactive = process.stdin.isTTY === true && !parsed.yes;
+  const interactive = (process.stdin.isTTY ?? false) && !parsed.yes;
   if (interactive) {
     const [spec] = getScaffoldSpec(type);
     // Le contexte du projet transforme les questions dont les réponses valides
@@ -1479,7 +1479,7 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       const code = await runAiMcpCommand(mcpCall);
       if (!wiring.token) {
         tokenNote = wiring.pattern ?? "";
-      } else if (code !== SysExit.OK) {
+      } else if (code !== (SysExit.OK as number)) {
         // `ai:mcp` a déjà dit pourquoi ; ici on retient que le geste reste à faire.
         tokenNote =
           "jeton MCP NON posé — relance : npx nodefony security:token --write";

@@ -53,8 +53,11 @@ export interface IService {
   trace(pci: Pci, ...args: unknown[]): void;
 
   // ─── Container delegation ──────────────────────────────────────────────────
+  // Générique de RETOUR voulu : l'appelant nomme le type du service qu'il
+  // résout (`get<HttpKernel>("HttpKernel")`) — API publique du conteneur.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   get<T>(name: string): T | null;
-  set<T>(name: string, obj: T): void;
+  set(name: string, obj: unknown): void;
   remove(name: string): boolean;
   has(name: string): boolean;
 

@@ -115,7 +115,7 @@ export class RichProcessProbe {
     }));
 
     const resources = process.getActiveResourcesInfo();
-    const byType: Record<string, number> = Object.create(null);
+    const byType = Object.create(null) as Record<string, number>;
     for (const r of resources) byType[r] = (byType[r] ?? 0) + 1;
 
     const curElu = performance.eventLoopUtilization();

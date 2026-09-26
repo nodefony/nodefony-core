@@ -194,6 +194,9 @@ export type TypedRpcActionHandler<
  * expectType<Promise<string>>(x);            // ❌ TS error
  * ```
  */
+// Le paramètre de type EST l'assertion (nommé par l'appelant) : sa présence
+// unique dans la signature est le but de l'outil.
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters
 export function expectType<T>(_value: T): void {
   /* no-op — assertion à la compile uniquement */
 }
