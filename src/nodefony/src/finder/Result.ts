@@ -1,5 +1,20 @@
 import { Severity } from "../syslog/Pdu";
 
+/**
+ * Élément capable de se filtrer. `query`/`queryGrep` ne délèguent qu'aux
+ * éléments qui les implémentent : le verdict rendu est celui de l'élément,
+ * vrai ou faux, et non un `Result` toujours présent.
+ */
+interface IQueryable {
+  query(
+    query: string,
+    logger: boolean,
+    options: object,
+    severity: Severity,
+  ): unknown;
+  queryGrep(query: string, grep: string): unknown;
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 class Result extends Array {
   constructor(res?: any[]) {
@@ -52,7 +67,7 @@ class Result extends Array {
     clean: boolean = false,
   ): Result {
     const res = new Result(
-      this.filter((data: Result) => {
+      this.filter((data: IQueryable) => {
         const found = data.query(query, logger, options, sevrity);
         if (found) {
           return data;
@@ -68,7 +83,7 @@ class Result extends Array {
 
   queryGrep(query: string, grep: string, clean: boolean = false): Result {
     const res = new Result(
-      this.filter((data: Result) => {
+      this.filter((data: IQueryable) => {
         const found = data.queryGrep(query, grep);
         if (found) {
           return data;

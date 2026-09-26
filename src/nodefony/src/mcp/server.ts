@@ -286,7 +286,8 @@ function checkProtocolVersion(
  * @returns statut HTTP et corps à écrire (corps `null` = `202` sans contenu)
  */
 export async function handleMcpMessage(
-  message: IJsonRpcMessage,
+  // Corps reçu du réseau : `null` est un JSON valide.
+  message: IJsonRpcMessage | null,
   context: IMcpServerContext,
   headers: IMcpHeaders = {},
 ): Promise<IMcpHttpReply> {

@@ -527,7 +527,7 @@ const wrapperCondition = function (
 const sanitizeConditions = function (
   settingsCondition: conditionsInterface,
 ): boolean | ConditionSetting {
-  if (typeof settingsCondition !== "object" || settingsCondition === null) {
+  if (typeof settingsCondition !== "object") {
     return false;
   }
   for (const ele in settingsCondition) {
@@ -1320,7 +1320,10 @@ class Syslog extends Event implements ISyslog {
     return stack.slice(start, end);
   }
 
-  getLogs(conditions: conditionsInterface, stack: Pdu[] | null = null): Pdu[] {
+  getLogs(
+    conditions?: conditionsInterface | null,
+    stack: Pdu[] | null = null,
+  ): Pdu[] {
     if (conditions) {
       return wrapperCondition.call(
         this,
@@ -1332,7 +1335,7 @@ class Syslog extends Event implements ISyslog {
   }
 
   logToJson(
-    conditions: conditionsInterface,
+    conditions?: conditionsInterface | null,
     stack: Pdu[] | null = null,
   ): string {
     const res = conditions ? this.getLogs(conditions, stack) : this.ringStack;
@@ -1378,14 +1381,14 @@ class Syslog extends Event implements ISyslog {
   }
 
   filter(conditions: conditionsInterface, callback: CallbackFunction): void {
+    // Garde d'entrée publique : un appelant JavaScript peut l'omettre.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (!conditions) {
       throw new Error("filter conditions not found ");
     }
     conditions = extend(true, {}, conditions) as conditionsInterface;
     const wrapper = wrapperCondition.call(this, conditions, callback);
-    if (wrapper) {
-      super.on("onLog", wrapper as CallbackFunction);
-    }
+    super.on("onLog", wrapper as CallbackFunction);
   }
 
   listenWithConditions(
@@ -1567,6 +1570,8 @@ class Syslog extends Event implements ISyslog {
   private static readonly MSGID_WIDTH = 18;
 
   static wrapper(pdu: Pdu): WrapperResult {
+    // Garde d'entrée publique : un appelant JavaScript peut l'omettre.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (!pdu) {
       throw new Error("Syslog pdu not defined");
     }

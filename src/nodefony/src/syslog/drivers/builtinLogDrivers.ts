@@ -57,7 +57,7 @@ export function resolveQueryDriver(
   urls?: { loki?: string; opensearch?: string },
 ): string {
   if (requested !== undefined && requested !== "auto") return requested;
-  if (urls?.loki && urls?.opensearch) {
+  if (urls?.loki && urls.opensearch) {
     throw new Error(
       "log.queryDriver ambigu : NF_LOKI_URL ET NF_OPENSEARCH_URL déclarées — " +
         'préciser log.queryDriver ("loki" | "opensearch")',

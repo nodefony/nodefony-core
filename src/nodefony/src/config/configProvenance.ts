@@ -263,8 +263,7 @@ export function aggregateProvenance(
   key: string,
 ): string {
   if (!provenance) return "default";
-  const exact = provenance[key];
-  if (exact !== undefined) return exact;
+  if (Object.hasOwn(provenance, key)) return provenance[key];
   const prefix = `${key}.`;
   let best = "default";
   for (const path of Object.keys(provenance)) {

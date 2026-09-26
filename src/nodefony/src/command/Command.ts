@@ -170,13 +170,18 @@ class Command extends Service {
       myoptions,
     );
     this.cli = cli;
-    this.program = this.cli.commander as Cmd;
+    // Une Cli construite avec `commander: false` n'en a pas : l'annoncer ici,
+    // plutôt qu'une TypeError sur `addCommand` quelques lignes plus bas.
+    if (!cli.commander) {
+      throw new Error(`Command ${name} : la Cli n'a pas de commander`);
+    }
+    this.program = cli.commander;
     this.kernelEvent = this.options.kernelEvent ?? this.kernelEvent;
     this.lifetime = this.options.lifetime ?? "oneshot";
     this.runProfile = this.options.runProfile ?? null;
     this.quietBoot = this.options.quietBoot === true;
     this.command = this.createCommand(name, description);
-    this.command?.action(async (...args: unknown[]) => {
+    this.command.action(async (...args: unknown[]) => {
       if (this.kernel) {
         // Parse PUR : le match commander ne fait que SIGNALER la commande résolue.
         // Tout le câblage lifecycle (mutation kernel, runProfile déclaré, hooks) est
@@ -277,6 +282,10 @@ class Command extends Service {
    * (~39 ms / ~7 MB) HORS du boot des commandes non-interactives.
    */
   public async loadPrompts(): Promise<void> {
+    // Champ `!` : `undefined` jusqu'au premier appel, et c'est un comportement
+    // observable (un appelant peut tester `cmd.prompts`). Le type le dit
+    // toujours présent ; ce test est ce qui le rend vrai.
+    // oxlint-disable-next-line typescript/no-unnecessary-condition
     if (!this.prompts) {
       // ⭐ Par la porte UNIQUE, jamais par un import direct : les questions en
       // sortent ANCRÉES sur l'event loop. Attendre une frappe est une promesse
@@ -428,7 +437,7 @@ class Command extends Service {
     return Promise.resolve(args);
   }
   private getCliOptions(): void {
-    const opts = this.cli?.commander?.opts<{
+    const opts = this.cli.commander?.opts<{
       debug?: boolean;
       interactive?: boolean;
     }>();
@@ -443,14 +452,14 @@ class Command extends Service {
     // Le groupe voyage avec la commande, DANS commander : c'est le seul endroit
     // que le rendu de l'aide sait interroger pour les intégrées comme pour
     // celles des modules — ces dernières ne sont pas dans `cli.commands`.
-    if (this.options?.helpGroup) {
+    if (this.options.helpGroup) {
       cmd.helpGroup(this.options.helpGroup);
     }
     this.program.addCommand(cmd);
     return cmd;
   }
   public alias(name: string): Cmd | undefined {
-    return this.command?.alias(name);
+    return this.command.alias(name);
   }
   public addBuilder(builder: typeof Builder): Builder {
     return (this.builder = new builder(this));
@@ -462,19 +471,12 @@ class Command extends Service {
    * @param {string[]} [argv] - Tableau d'arguments à analyser.
    * @param {commander.ParseOptions|undefined} [options] - Options de l'analyseur.
    * @returns {Cmd} Instance de la classe Commander.
-   * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
   public parse(argv?: string[], options?: ParseOptions): Cmd {
-    if (this.program) {
-      return this.program?.parse(argv, options);
-    }
-    throw new Error(`program not found`);
+    return this.program.parse(argv, options);
   }
   public parseAsync(argv?: string[], options?: ParseOptions): Promise<Cmd> {
-    if (this.program) {
-      return this.program?.parseAsync(argv, options);
-    }
-    throw new Error(`program not found`);
+    return this.program.parseAsync(argv, options);
   }
 
   /**
@@ -483,13 +485,7 @@ class Command extends Service {
    * @private
    */
   private clearCommand(): void {
-    if (this.cli) {
-      this.cli.clearCommand();
-    } else {
-      while (process.argv.length > 2) {
-        process.argv.pop();
-      }
-    }
+    this.cli.clearCommand();
   }
   /**
    * Méthode pour exécuter une commande avec des arguments spécifiques.
@@ -520,24 +516,20 @@ class Command extends Service {
    * @param {string} flags - Drapeaux de l'option.
    * @param {string|undefined} [description] - Description de l'option.
    * @returns {Option} Instance de la classe Option.
-   * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
   addOption(
     flags: string,
     description?: string,
     suggestions?: readonly string[],
   ): Option {
-    if (this.command) {
-      const opt = new Option(flags, description);
-      // 🔴 Des SUGGESTIONS, pas des `choices()` : `Option.choices()` VALIDE, et
-      // une option dont les valeurs sont ouvertes par nature (un environnement
-      // de déploiement est une chaîne libre) deviendrait inutilisable là où
-      // elle sert. Ce registre n'est consulté que par la complétion.
-      if (suggestions?.length) OPTION_SUGGESTIONS.set(opt, suggestions);
-      this.command.addOption(opt);
-      return opt;
-    }
-    throw new Error(`Commander not ready`);
+    const opt = new Option(flags, description);
+    // 🔴 Des SUGGESTIONS, pas des `choices()` : `Option.choices()` VALIDE, et
+    // une option dont les valeurs sont ouvertes par nature (un environnement
+    // de déploiement est une chaîne libre) deviendrait inutilisable là où
+    // elle sert. Ce registre n'est consulté que par la complétion.
+    if (suggestions?.length) OPTION_SUGGESTIONS.set(opt, suggestions);
+    this.command.addOption(opt);
+    return opt;
   }
   /**
    * Méthode pour ajouter un argument à la commande.
@@ -546,15 +538,11 @@ class Command extends Service {
    * @param {string} arg - Argument de la commande.
    * @param {string|undefined} [description] - Description de l'argument.
    * @returns {Argument} Instance de la classe Argument.
-   * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
   addArgument(arg: string, description?: string): Argument {
-    if (this.command) {
-      const Arg = new Argument(arg, description);
-      this.command.addArgument(Arg);
-      return Arg;
-    }
-    throw new Error(`Command not ready`);
+    const Arg = new Argument(arg, description);
+    this.command.addArgument(Arg);
+    return Arg;
   }
   /**
    * Méthode pour afficher une bannière liée à la commande.
@@ -565,31 +553,26 @@ class Command extends Service {
    *   faire échouer la commande).
    */
   async showBanner(): Promise<string | Error> {
-    if (this.cli) {
-      return (
-        this.cli
-          .asciify(`      ${this.name}`)
-          .then((data: string) => {
-            if (this.json) {
-              return data;
-            }
-            if (this.cli) {
-              if (this.cli.options.clear) {
-                this.cli.clear();
-              }
-              const color = this.cli.clc.blueBright.bold;
-              console.log(color(data));
-              this.cli.blankLine();
-            }
+    return (
+      this.cli
+        .asciify(`      ${this.name}`)
+        .then((data: string) => {
+          if (this.json) {
             return data;
-          })
-          // Le contrat rend une `Error` : un rejet d'une autre nature y est ramené.
-          .catch((e: unknown) =>
-            e instanceof Error ? e : new Error(String(e), { cause: e }),
-          )
-      );
-    }
-    return Promise.resolve("");
+          }
+          if (this.cli.options.clear) {
+            this.cli.clear();
+          }
+          const color = this.cli.clc.blueBright.bold;
+          console.log(color(data));
+          this.cli.blankLine();
+          return data;
+        })
+        // Le contrat rend une `Error` : un rejet d'une autre nature y est ramené.
+        .catch((e: unknown) =>
+          e instanceof Error ? e : new Error(String(e), { cause: e }),
+        )
+    );
   }
   /**
    * Méthode pour gérer la journalisation de la commande.
@@ -623,7 +606,7 @@ class Command extends Service {
     //
     // ⚠️ `|| 0` était doublement faux : il transformait aussi un `terminate(0)`
     // explicite en… 0, par chance — mais tout code falsy y passait.
-    return this.cli?.terminate(code);
+    return this.cli.terminate(code);
   }
 }
 

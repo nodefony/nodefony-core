@@ -19,7 +19,7 @@
  * 5. **`intervalS ≤ 0` ⇒ désarmé** : délègue la purge à un worker cron / k8s
  *    CronJob, ou au TTL natif du store (Redis) — sans brancher de code.
  *
- * Isomorphe : n'utilise que `setTimeout`/`setInterval` (globaux) et `unref?.()`
+ * Isomorphe : n'utilise que `setTimeout`/`setInterval` (globaux) et `unrefTimer`
  * (gardé — absent côté navigateur, où ce composant n'est de toute façon jamais
  * instancié). Aucune dépendance au kernel → testable et réutilisable partout.
  *
@@ -27,6 +27,7 @@
  *
  * @module
  */
+import { unrefTimer } from "./unrefTimer";
 
 /** Options de construction d'un {@link GcScheduler}. */
 export interface IGcSchedulerOptions {
@@ -120,10 +121,10 @@ export class GcScheduler {
       this.#start = null;
       void this.runNow(); // rattrape l'accumulation du downtime
       const timer = setInterval(() => void this.runNow(), base);
-      timer.unref?.();
+      unrefTimer(timer);
       this.#timer = timer;
     }, initial + phase);
-    start.unref?.();
+    unrefTimer(start);
     this.#start = start;
     return true;
   }

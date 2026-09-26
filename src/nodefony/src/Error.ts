@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
+import { constructorName } from "./runtime/constructorName";
 import assert from "node:assert";
 import { Nodefony } from "./Nodefony";
 import { typeOf } from "./Tools";
@@ -294,10 +295,8 @@ class nodefonyError extends Error {
           return error.constructor.name;
       }
     }
-    if (error?.constructor) {
-      return error.constructor.name;
-    }
-    return "Error";
+    // `parseMessage` y passe n'importe quelle valeur, `null` compris.
+    return constructorName(error) ?? "Error";
   }
 
   /**

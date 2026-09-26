@@ -107,7 +107,7 @@ const portsLine = (
   states: readonly PortState[],
   freeLabel: string,
   occupiedLabel: string,
-  owners: Record<number, string> = {},
+  owners: Partial<Record<number, string>> = {},
 ): string =>
   states
     .map((p) => {

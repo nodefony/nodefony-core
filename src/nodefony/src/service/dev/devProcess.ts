@@ -237,8 +237,11 @@ export function readReadinessState(
       return null;
     }
     const out: ReadinessContributorState[] = [];
-    for (const c of raw.contributors) {
-      if (typeof c?.name !== "string" || typeof c?.ready !== "boolean") {
+    // Fichier lu sur disque : un élément peut être n'importe quoi, `null` compris.
+    const contributors =
+      raw.contributors as ReadonlyArray<Partial<ReadinessContributorState> | null>;
+    for (const c of contributors) {
+      if (typeof c?.name !== "string" || typeof c.ready !== "boolean") {
         continue;
       }
       out.push(
@@ -698,9 +701,10 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
   } catch {
     return null; // pas de verrou = cas nominal
   }
-  let lock: SupervisorLock;
+  // Fichier lu sur disque : rien n'y est garanti tant que ce n'est pas vérifié.
+  let lock: Partial<SupervisorLock> | null;
   try {
-    lock = JSON.parse(raw) as SupervisorLock;
+    lock = JSON.parse(raw) as Partial<SupervisorLock> | null;
   } catch {
     resumeSupervisor(cwd); // illisible → on ne muselle rien sur la foi d'un déchet
     return null;
@@ -715,7 +719,8 @@ export function readSupervisorSuspension(cwd: string): SupervisorLock | null {
     resumeSupervisor(cwd); // le poseur est mort → verrou orphelin
     return null;
   }
-  return lock;
+  // `pid` et `ts` vérifiés ; le reste n'est écrit que par `suspendSupervisor`.
+  return lock as SupervisorLock;
 }
 
 /**
@@ -1208,8 +1213,8 @@ export function foreignPortOwners(
   foreign: readonly DevProcessWithCwd[],
   readState: (cwd: string) => RuntimeState | null = (cwd) =>
     readRuntimeState(cwd, { purgeStale: false }),
-): Record<number, string> {
-  const owners: Record<number, string> = {};
+): Partial<Record<number, string>> {
+  const owners: Partial<Record<number, string>> = {};
   for (const root of foreignProjectRoots(foreign)) {
     const state = readState(root);
     if (!state) continue;
@@ -1238,7 +1243,7 @@ export type PortOwnership =
  */
 export function portOwnership(
   state: PortState,
-  owners: Record<number, string> = {},
+  owners: Partial<Record<number, string>> = {},
 ): PortOwnership {
   if (!state.listening) return "free";
   return owners[state.port] === undefined ? "occupied" : "foreign";

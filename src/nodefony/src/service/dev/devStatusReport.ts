@@ -280,7 +280,7 @@ export interface DevStatusReport {
    * Sépare « pas à moi » de « pas mort » : sans cette table, un port du voisin se
    * lit comme un serveur à nous, ou comme un arrêt qui a échoué.
    */
-  readonly portOwners: Readonly<Record<number, string>>;
+  readonly portOwners: Readonly<Partial<Record<number, string>>>;
   /**
    * Le runtime sert-il ailleurs que là où sa configuration le demandait ?
    * `null` quand il sert bien ses ports, ou qu'il n'a rien publié.
@@ -672,7 +672,7 @@ function renderProjectBlock(
   project: IProjectRuntime,
   /** États sondés — fournis pour NOTRE projet seulement. */
   probes: readonly PortState[] = [],
-  owners: Readonly<Record<number, string>> = {},
+  owners: Readonly<Partial<Record<number, string>>> = {},
 ): void {
   const label = project.current
     ? `${ANSI.cyan}▸ ${ANSI.bold}${project.name}${ANSI.reset} ${ANSI.dim}— ce projet${ANSI.reset}`
@@ -776,7 +776,7 @@ function renderSummary(
  */
 function portsLine(
   ports: readonly PortState[],
-  owners: Readonly<Record<number, string>>,
+  owners: Readonly<Partial<Record<number, string>>>,
   upLabel: string,
   freeLabel: string,
 ): string {

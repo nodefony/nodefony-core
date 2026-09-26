@@ -25,9 +25,7 @@ class FileResult extends Result {
         case "symbolicLink":
         case "Directory": {
           const dir = info.toJson() as unknown as Record<string, unknown>;
-          if (info.childrens) {
-            dir.childrens = info.childrens.toJson();
-          }
+          dir.childrens = info.childrens.toJson();
           json.push(dir);
           break;
         }
@@ -107,10 +105,7 @@ class FileResult extends Result {
       if (a.name < b.name) return -1;
       return 0;
     });
-    if (res) {
-      return result.concat(res) as unknown as FileResult;
-    }
-    return this;
+    return result.concat(res) as unknown as FileResult;
   }
 
   sortByType(result = new FileResult()): FileResult {
@@ -120,10 +115,7 @@ class FileResult extends Result {
       if ((a.type as string) < (b.type as string)) return -1;
       return 0;
     });
-    if (res) {
-      return result.concat(res) as unknown as FileResult;
-    }
-    return this;
+    return result.concat(res) as unknown as FileResult;
   }
 }
 

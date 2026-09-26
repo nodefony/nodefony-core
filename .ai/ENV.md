@@ -145,14 +145,14 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 
 | Variable | Premier site |
 | --- | --- |
-| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2910` |
+| `NF__DEBUG` | `src/nodefony/src/kernel/Kernel.ts:2906` |
 | `NF_ACCUEIL_PAQUET` | `scripts/release/accueil-gate.mjs:87` |
 | `NF_ACCUEIL_REGISTRY` | `scripts/release/accueil-gate.mjs:83` |
 | `NF_ACCUEIL_ROOT` | `scripts/release/accueil-gate.mjs:80` |
-| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:711` |
-| `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:467` |
-| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3176` |
-| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3188` |
+| `NF_BENCH_AUDIT_NOMINAL` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:730` |
+| `NF_BENCH_ROUTE` | `src/packages/@nodefony/framework/index.ts:468` |
+| `NF_BOOT_TIMEOUT_MS` | `src/nodefony/src/kernel/Kernel.ts:3169` |
+| `NF_BOOT_WARN_MS` | `src/nodefony/src/kernel/Kernel.ts:3181` |
 | `NF_BROWSER_ACTION` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:58` |
 | `NF_BROWSER_ACTION_PARAMS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:44` |
 | `NF_BROWSER_ACTIONS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:89` |
@@ -166,7 +166,7 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_EXPECT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:54` |
 | `NF_BROWSER_FAMILIES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:91` |
 | `NF_BROWSER_FORMFACTOR` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:39` |
-| `NF_BROWSER_FULLPAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:844` |
+| `NF_BROWSER_FULLPAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:846` |
 | `NF_BROWSER_LOGIN` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:96` |
 | `NF_BROWSER_MAXFRAMES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:25` |
 | `NF_BROWSER_OUT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:67` |
@@ -175,21 +175,21 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_BROWSER_PINGS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:62` |
 | `NF_BROWSER_PROBES` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:116` |
 | `NF_BROWSER_SEUIL_AUDIT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/audit.mjs:38` |
-| `NF_BROWSER_SEUIL_LENT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:756` |
-| `NF_BROWSER_SEUIL_LOURD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:755` |
+| `NF_BROWSER_SEUIL_LENT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:758` |
+| `NF_BROWSER_SEUIL_LOURD` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:757` |
 | `NF_BROWSER_SOCKET` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:32` |
 | `NF_BROWSER_SOCKET_WAIT` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/socket.mjs:61` |
 | `NF_BROWSER_STORAGE` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:152` |
 | `NF_BROWSER_UNTIL` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/watch.mjs:24` |
 | `NF_BROWSER_USER` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/lib/browser.mjs:85` |
-| `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:849` |
+| `NF_BROWSER_WIDTHS` | `src/packages/@nodefony/devkit/skills/nodefony-browser/scripts/inspect.mjs:851` |
 | `NF_CLUSTER` | `src/nodefony/src/service/cluster/clusterMaster.ts:51` |
 | `NF_CLUSTER_PROBE` | `src/nodefony/src/service/cluster/clusterMaster.ts:56` |
-| `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:53` |
+| `NF_DATABASE_URL` | `src/modules/test/nodefony/entity/benchOrm.ts:59` |
 | `NF_DEPS_REGISTRY` | `scripts/check-deps-latest.mjs:77` |
 | `NF_DEPS_ROOT` | `scripts/check-deps-latest.mjs:74` |
 | `NF_DEV_CHILD` | `src/nodefony/src/kernel/Kernel.ts:1023` |
-| `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:743` |
+| `NF_DEV_PORTS` | `src/nodefony/src/service/dev/devProcess.ts:748` |
 | `NF_DOCKERHUB_TOKEN` | `scripts/release/hub-description.mjs:209` |
 | `NF_DOCKERHUB_USER` | `scripts/release/hub-description.mjs:208` |
 | `NF_ENV` | `src/nodefony/src/bin/nodefony.ts:92` |
@@ -204,10 +204,10 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_NO_TTY` | `src/nodefony/src/cli/scaffold/interactive.ts:84` |
 | `NF_ORM_FLOW` | `src/packages/@nodefony/orm-core/nodefony/src/ormWiring.ts:98` |
 | `NF_ORM_HEARTBEAT_MS` | `src/packages/@nodefony/orm-core/nodefony/src/Orm.ts:23` |
-| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:137` |
+| `NF_PERF_PROBE` | `src/packages/@nodefony/http/nodefony/service/http-kernel.ts:143` |
 | `NF_POD_NAME` | `src/packages/@nodefony/realtime/nodefony/src/backplane/originId.ts:25` |
-| `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:755` |
-| `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:755` |
+| `NF_PORT` | `src/nodefony/src/service/dev/devProcess.ts:760` |
+| `NF_PORT_HTTPS` | `src/nodefony/src/service/dev/devProcess.ts:760` |
 | `NF_README_ROOT` | `scripts/release/readme-gate.mjs:97` |
 | `NF_REALTIME_BACKPLANE_NAMESPACE` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:56` |
 | `NF_REALTIME_BACKPLANE_SECRET` | `src/packages/@nodefony/realtime/nodefony/config/defineModuleConfig.ts:50` |
@@ -218,6 +218,6 @@ Ce relevé donne le premier site de lecture, pour y aller directement.
 | `NF_RELEASE_REPO` | `scripts/release/pack-all.mjs:80` |
 | `NF_START` | `src/nodefony/src/kernel/Kernel.ts:608` |
 | `NF_TEST_ENV` | `src/packages/@nodefony/http/nodefony/tests/helpers/targetEnv.ts:16` |
-| `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:88` |
+| `NF_WORKERS` | `src/nodefony/src/service/cluster/topology.ts:89` |
 | `NF_X` | `scripts/env-snapshot.ts:123` |
 

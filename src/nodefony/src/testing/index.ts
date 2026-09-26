@@ -110,7 +110,7 @@ export async function adminLogin(
       `connexion admin impossible (${res.status}) — le décor de test, pas la route mesurée`,
     );
   }
-  const cookies = res.headers.getSetCookie?.() ?? [];
+  const cookies = res.headers.getSetCookie();
   return cookies.map((c) => c.split(";")[0]).join("; ");
 }
 
@@ -146,7 +146,7 @@ export async function adminLogin(
  */
 export function runningAppPort(root: string = process.cwd()): number {
   const state = readRuntimeState(root);
-  const port = state?.ports?.[0];
+  const port = state?.ports.at(0);
   if (typeof port !== "number") {
     throw new Error(
       `aucune application Nodefony démarrée sous « ${root} » : ` +
@@ -325,9 +325,10 @@ export async function startSpareApp(
   });
 
   let output = "";
-  child.stdout?.on("data", (c: Buffer) => (output += c.toString()));
-  child.stderr?.on("data", (c: Buffer) => (output += c.toString()));
-  let exitCode: number | null = null;
+  child.stdout.on("data", (c: Buffer) => (output += c.toString()));
+  child.stderr.on("data", (c: Buffer) => (output += c.toString()));
+  // Posé par le callback `exit` : `as` empêche le compilateur de le figer à `null`.
+  let exitCode = null as number | null;
   child.on("exit", (code: number | null) => (exitCode = code ?? -1));
 
   const stop = async (): Promise<void> => {

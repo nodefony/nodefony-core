@@ -1,3 +1,4 @@
+import { constructorName } from "./runtime/constructorName";
 import { DebugType, EnvironmentType } from "./types/globals";
 import type {
   IService,
@@ -29,7 +30,9 @@ const defaultOptions: DefaultOptionsService = {
 // `process` n'existe pas dans un navigateur, et une lecture nue ici tue le
 // bundle entier au chargement (ReferenceError avant le premier import applicatif).
 const PERF_PROBE_SUB =
-  typeof process !== "undefined" && process.env?.NF_PERF_PROBE === "1";
+  typeof process !== "undefined" &&
+  // Une réplique de `process` posée par un bundler navigateur peut n'avoir pas d'`env`.
+  (process.env as NodeJS.ProcessEnv | undefined)?.NF_PERF_PROBE === "1";
 type PerfSvcMarks = { t0: bigint } & Record<string, number | bigint>;
 function perfMark(field: string): void {
   const p = (globalThis as unknown as Record<string, unknown>).__nfPerfProbe as
@@ -67,8 +70,7 @@ const defaultSyslogSettings: SyslogDefaultSettings = {
  * @returns le nom du constructeur, ou le type primitif.
  */
 function describeReceived(value: unknown): string {
-  const ctor = (value as { constructor?: { name?: string } } | null)
-    ?.constructor?.name;
+  const ctor = constructorName(value);
   if (ctor && ctor !== "Object") return `une instance de ${ctor}`;
   return `un ${typeof value} littéral`;
 }
@@ -135,7 +137,8 @@ class Service implements IService {
     if (container instanceof Container) {
       this.container = container;
     } else {
-      if (container != null) {
+      // Le type exclut ce cas (cf ci-dessus) : c'est justement lui qu'on refuse.
+      if ((container as unknown) != null) {
         // Le refus couvre DEUX situations que `instanceof` ne distingue pas, et
         // qui n'appellent pas le même geste : un Container venu d'une autre
         // copie du paquet (le cas qui a motivé ce garde), et un objet qui n'est

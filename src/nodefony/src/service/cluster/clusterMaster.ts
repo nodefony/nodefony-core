@@ -61,7 +61,7 @@ export function startClusterMaster(opts: {
     const handle = {
       id: w.id,
       // PID OS du worker — clé de ciblage du drill-down (Phase 2, route enrich vers ce worker).
-      pid: w.process?.pid ?? -1,
+      pid: w.process.pid ?? -1,
       send: (m: unknown) => {
         try {
           // Les messages IPC sont des clusterMessage sérialisables (cf clusterMessage.ts).

@@ -66,6 +66,7 @@ import type {
   ContractParams,
   ContractResult,
 } from "../../realtime/RealtimeEventMap";
+import { unrefTimer } from "../../runtime/unrefTimer";
 import { BrowserWsTransport } from "./BrowserWsTransport";
 import {
   announceRealtime,
@@ -1176,7 +1177,7 @@ export class RealtimeClient<
       }
       this.fireLocal(LOCAL_EVENTS.stats);
     }, 1000);
-    (this.statsTimer as { unref?: () => void }).unref?.();
+    unrefTimer(this.statsTimer);
   }
 
   /** Émet une notice normalisée aux abonnés `onNotice` (event local, pas réseau). */

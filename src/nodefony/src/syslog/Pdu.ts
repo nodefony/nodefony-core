@@ -90,19 +90,17 @@ export type SeverityName = (typeof SEVERITY_NAMES)[number];
 export const BROWSER_ORIGIN = "browser";
 
 const translateSeverity = function (severity: Severity = "INFO"): number {
-  if (typeof severity === "number") {
-    if (sysLogSeverity[severity] !== undefined) {
-      return sysLogSeverity[severity];
-    } else {
-      throw new Error(`Not a valid nodefony syslog severity: ${severity}`);
-    }
-  } else {
-    if (SysLogSeverity[severity] !== undefined) {
-      return SysLogSeverity[severity];
-    } else {
-      throw new Error(`Not a valid nodefony syslog severity: ${severity}`);
-    }
+  // `unknown` : un rang hors échelle manque au tableau, et un appelant
+  // JavaScript peut passer n'importe quel nom — `toString` compris, qu'un objet
+  // hérite et que seul le test `typeof` écarte.
+  const value: unknown =
+    typeof severity === "number"
+      ? sysLogSeverity[severity]
+      : SysLogSeverity[severity];
+  if (typeof value === "number") {
+    return value;
   }
+  throw new Error(`Not a valid nodefony syslog severity: ${severity}`);
 };
 
 const sysLogSeverityObj: Record<Severity, Severity> = Object.entries(

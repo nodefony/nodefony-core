@@ -364,9 +364,7 @@ class Cli extends Service {
         process.exit(128 + (Cli.SIGNUM[signal] ?? 0));
       }
       this.shuttingDown = true;
-      if (this.blankLine) {
-        this.blankLine();
-      }
+      this.blankLine();
       this.log(signal, "CRITIC");
       this.fire("onSignal", signal, this);
       process.nextTick(() => {
@@ -556,9 +554,7 @@ class Cli extends Service {
       banner = `          Version : ${blue(version)}   Platform : ${green(
         process.platform,
       )}   Process : ${green(process.title)}   Pid : ${process.pid}`;
-      if (this.blankLine) {
-        this.blankLine();
-      }
+      this.blankLine();
       console.log(banner);
     }
     return banner;
@@ -696,7 +692,7 @@ class Cli extends Service {
 
   public parse(argv?: string[], options?: ParseOptions): CommanderCommand {
     if (this.commander) {
-      return this.commander?.parse(argv, options);
+      return this.commander.parse(argv, options);
     }
     throw new Error(`Commander not found`);
   }
@@ -706,7 +702,7 @@ class Cli extends Service {
     options?: ParseOptions,
   ): Promise<CommanderCommand> {
     if (this.commander) {
-      return this.commander?.parseAsync(argv, options).catch((e: unknown) => {
+      return this.commander.parseAsync(argv, options).catch((e: unknown) => {
         throw e;
       });
     }
@@ -779,17 +775,12 @@ class Cli extends Service {
   }
 
   public hasCommand(name: string): boolean {
-    if (this.commands[name]) {
-      return true;
-    }
-    return false;
+    return this.getCommand(name) !== null;
   }
 
   public getCommand(name: string): Command | null {
-    if (this.commands[name]) {
-      return this.commands[name];
-    }
-    return null;
+    // Dictionnaire creux : le type prétend chaque clé présente.
+    return Object.hasOwn(this.commands, name) ? this.commands[name] : null;
   }
 
   showHelp(quit: boolean, context: HelpContext | undefined): void | never {
@@ -803,7 +794,11 @@ class Cli extends Service {
   }
 
   displayTable(
-    datas: (HorizontalTableRow | VerticalTableRow | CrossTableRow)[],
+    // `null` accepté : le tableau est alors rendu vide, sans rien afficher.
+    datas:
+      | (HorizontalTableRow | VerticalTableRow | CrossTableRow)[]
+      | null
+      | undefined,
     options: TableConstructorOptions,
     syslog: Syslog | null = null,
   ) {
@@ -815,15 +810,13 @@ class Cli extends Service {
     const table = new Table(
       extend({}, defaultTableCli, options) as TableConstructorOptions,
     );
-    if (datas) {
-      for (let i = 0; i < datas.length; i++) {
-        table.push(datas[i]);
-      }
-      if (syslog) {
-        syslog.log(`\n${table.toString()}`);
-      } else {
-        console.log(table.toString());
-      }
+    for (let i = 0; i < datas.length; i++) {
+      table.push(datas[i]);
+    }
+    if (syslog) {
+      syslog.log(`\n${table.toString()}`);
+    } else {
+      console.log(table.toString());
     }
     return table;
   }

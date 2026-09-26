@@ -227,7 +227,7 @@ export function parseDetachArgs(args: string[]): ParsedDetachArgs {
   // valeur de `--wait` — le contrôle de santé disparaissait sans un mot, et
   // `/readyz` partait au runtime comme un argument.
   const valueAt = (i: number): string | undefined => {
-    const next = args[i + 1];
+    const next = args.at(i + 1);
     return next !== undefined && !next.startsWith("-") ? next : undefined;
   };
   for (let i = 0; i < args.length; i++) {
@@ -451,8 +451,12 @@ export async function launchDetached(
   child.once("error", closeFd);
   child.unref();
 
-  let exited = false;
-  let exitCode: number | null = null;
+  // Posés par le callback `exit` : `as` empêche le compilateur de les figer
+  // à leur valeur initiale.
+  let exited = false as boolean;
+  let exitCode = null as number | null;
+  // Relecture APRÈS un `await` : le rétrécissement du test précédent ne vaut plus.
+  const hasExited = (): boolean => exited;
   child.once("exit", (code) => {
     exited = true;
     exitCode = code;
@@ -538,7 +542,7 @@ export async function launchDetached(
     const trustworthy = published || !foreignBusy;
     // `!exited` re-vérifié APRÈS la sonde : des ports up + un child mort entre
     // les deux checks = jamais un READY (ceinture du pre-flight ci-dessus).
-    if (up > 0 && trustworthy && !exited) {
+    if (up > 0 && trustworthy && !hasExited()) {
       const health = opts.healthPath
         ? await probeHealth(watched, opts.healthPath)
         : undefined;

@@ -56,11 +56,7 @@ class Builder extends Service {
   private eta: Eta = new Eta(etaOptions);
 
   constructor(command: Command) {
-    super(
-      "Builder",
-      <Container>command?.container,
-      command?.notificationsCenter,
-    );
+    super("Builder", <Container>command.container, command.notificationsCenter);
     this.command = command;
     this.getCliOptions();
   }
@@ -194,12 +190,14 @@ class Builder extends Service {
           const dirPath = path.resolve(parentPath, name);
           child = await this.createDirectory(
             dirPath,
-            (myobj.params as fs.MakeDirectoryOptions) || { mode: 0o755 },
+            (myobj.params as fs.MakeDirectoryOptions | undefined) ?? {
+              mode: 0o755,
+            },
             force,
           );
           (parent as File).childrens.push(child);
           this.log(
-            `${force ? "Force Create" : "Create"} Directory: ${child?.name}`,
+            `${force ? "Force Create" : "Create"} Directory: ${child.name}`,
           );
           break;
         }
@@ -233,7 +231,7 @@ class Builder extends Service {
           break;
         }
         case "copy": {
-          const copyParams = myobj.params as CopyParams;
+          const copyParams = myobj.params as CopyParams | undefined;
           const destPath = path.resolve(parentPath, name);
           await fsp.cp(myobj.path as string, destPath, {
             recursive: copyParams?.recurse ?? false,

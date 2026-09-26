@@ -153,7 +153,8 @@ export function attachWatcherErrorGuard(
   log: (message: string) => void,
 ): void {
   watcher.on("error", (error: unknown) => {
-    const err = error as NodeJS.ErrnoException;
+    // Un émetteur peut rejeter n'importe quoi, `undefined` compris.
+    const err = error as Partial<NodeJS.ErrnoException> | null | undefined;
     const code = err?.code ? `${err.code} ` : "";
     const where = err?.path ? ` sur ${err.path}` : "";
     log(
@@ -304,6 +305,14 @@ export class DevSupervisor {
   #spinLabel = "";
   #stopping = false;
   /**
+   * Relit `#stopping` APRÈS un `await` ou dans un callback : un arrêt a pu être
+   * demandé entre-temps. Le compilateur, lui, garde le rétrécissement du test
+   * précédent — un appel de méthode ne se rétrécit pas.
+   */
+  #isStopping(): boolean {
+    return this.#stopping;
+  }
+  /**
    * `true` une fois annoncé qu'un arrêt n'a pu emporter que l'enfant direct. Dit une
    * seule fois : le mode dev rejoue ce chemin à CHAQUE sauvegarde, et un avertissement
    * répété à l'infini cesse d'être lu.
@@ -388,7 +397,7 @@ export class DevSupervisor {
     }
     this.#renderSpin();
     this.#spinTimer = setInterval(() => this.#renderSpin(), 80);
-    this.#spinTimer.unref?.();
+    this.#spinTimer.unref();
   }
 
   /** Réécrit la ligne du spinner avec la frame suivante (TTY animé). */
@@ -433,8 +442,8 @@ export class DevSupervisor {
         stdio: ["ignore", "pipe", "pipe"],
         shell: process.platform === "win32",
       });
-      p.stdout?.on("data", (d: Buffer) => (output += d.toString()));
-      p.stderr?.on("data", (d: Buffer) => (output += d.toString()));
+      p.stdout.on("data", (d: Buffer) => (output += d.toString()));
+      p.stderr.on("data", (d: Buffer) => (output += d.toString()));
       p.once("exit", (code) => resolve({ ok: code === 0, output }));
       p.once("error", () => resolve({ ok: false, output }));
     });
@@ -990,7 +999,7 @@ export class DevSupervisor {
         return;
       }
       if (Date.now() >= deadline) {
-        if (this.#child === child && !this.#stopping) {
+        if (this.#child === child && !this.#isStopping()) {
           this.#log(
             `⚠ serveur toujours pas à l'écoute après ${Math.round(READY_TIMEOUT_MS / 1000)}s ` +
               `(ports ${this.#ports.join(", ")}) — boot bloqué ? voir les logs ci-dessus`,
@@ -1120,7 +1129,7 @@ export class DevSupervisor {
     await delay(RETRY_DELAY_MS);
     if (this.#stopping) return;
     await this.#waitPortsFree();
-    if (this.#stopping) return;
+    if (this.#isStopping()) return;
     this.#spawnChild();
   }
 

@@ -1,5 +1,6 @@
 import { EventEmitter } from "node:events";
 import type { EventListener } from "./types/IService";
+import { unrefTimer } from "./runtime/unrefTimer";
 
 /**
  * Listener générique — args et retour non contraints. Volontairement basé sur
@@ -319,7 +320,7 @@ class Event extends EventEmitter {
         ? timeoutOption(handler, index)
         : timeoutOption;
       const startedAt = measure ? Date.now() : 0;
-      let timedOut = false;
+      let timedOut = false as boolean;
       try {
         const call = Promise.resolve(Reflect.apply(handler, this, args));
         let value: unknown;
@@ -337,7 +338,7 @@ class Event extends EventEmitter {
                   // toute façon par son message final, via `timedOut`).
                   reject(new Error(`listener timeout après ${timeoutMs}ms`));
                 }, timeoutMs);
-                timer.unref?.();
+                unrefTimer(timer);
               }),
             ]);
           } finally {

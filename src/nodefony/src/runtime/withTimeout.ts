@@ -75,7 +75,7 @@ export async function withTimeout<T>(
           () => reject(new TimeoutError(timeoutMs, label)),
           timeoutMs,
         );
-        timer.unref?.();
+        timer.unref();
       }),
     ]);
   } finally {

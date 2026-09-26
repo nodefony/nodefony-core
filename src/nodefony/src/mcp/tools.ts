@@ -1202,7 +1202,8 @@ export function declareMcpTools(options: IMcpDeclareOptions): IMcpTool[] {
   const declared: IMcpTool[] = [];
   const seen = new Set<string>();
 
-  const add = (tool: IMcpTool, origin: string): void => {
+  // Un module peut être écrit en JavaScript : rien ne garantit la forme reçue.
+  const add = (tool: IMcpTool | null | undefined, origin: string): void => {
     if (typeof tool?.name !== "string" || !NAME_PATTERN.test(tool.name)) {
       options.onSkip?.(
         `outil écarté (${origin}) : nom absent ou hors forme — attendu ${NAME_PATTERN.source}`,
@@ -1407,10 +1408,14 @@ function unknownArguments(
   tool: IMcpTool,
   args: Record<string, unknown>,
 ): string | null {
-  const schema = tool.inputSchema as {
-    properties?: Record<string, unknown>;
-    additionalProperties?: unknown;
-  };
+  // `declareMcpTools` ne vérifie pas le schéma d'un outil de module, qui peut
+  // venir de JavaScript : il peut manquer.
+  const schema = tool.inputSchema as
+    | {
+        properties?: Record<string, unknown>;
+        additionalProperties?: unknown;
+      }
+    | undefined;
   if (schema?.additionalProperties === true) return null;
   const declared = schema?.properties;
   // Pas de `properties` du tout = schéma non descriptif : on ne peut rien

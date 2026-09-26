@@ -54,7 +54,8 @@ export interface ResolveTopologyOptions {
  * `requested` (honoré tel quel). Tout le reste (vide, `0`, non-numérique) → `undefined`.
  */
 function coerce(
-  value: string | Exclude<WorkersSetting, string> | undefined,
+  // `null` possible : la section `cluster` n'est pas validée (`z.unknown()`).
+  value: string | Exclude<WorkersSetting, string> | null | undefined,
 ): number | undefined {
   if (value === undefined || value === null || value === "") {
     return undefined;

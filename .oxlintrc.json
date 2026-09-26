@@ -336,6 +336,23 @@
       "rules": { "no-restricted-imports": "off" }
     },
     {
+      // CLIQUET de `no-unnecessary-condition` (#498) : la règle mord sur ce qui
+      // a été relu, et la liste ne fait que grandir jusqu'à couvrir le dépôt —
+      // la règle passe alors dans `rules`, et au gabarit d'application.
+      // Chaque site se JUGE, il ne se corrige pas en masse : une garde sur une
+      // donnée venue du réseau, du disque, d'une config non validée ou d'un
+      // appelant JavaScript est légitime — c'est alors le TYPE qu'on rend
+      // honnête (`| undefined`, `Partial`, `unknown`), pas la garde qu'on retire.
+      // Placée AVANT la surcharge des tests, qui la coupe pour eux.
+      "files": [
+        "src/nodefony/src/*.ts",
+        "src/nodefony/src/{command,config,finder,mcp,runtime,service,syslog,testing}/**"
+      ],
+      "rules": {
+        "typescript/no-unnecessary-condition": "error"
+      }
+    },
+    {
       "files": [
         "**/*.test.ts",
         "**/*.spec.ts",

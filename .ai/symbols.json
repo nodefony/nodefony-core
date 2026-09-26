@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 871,
-    "symbols": 4344,
+    "files": 872,
+    "symbols": 4345,
     "classes": 404,
     "interfaces": 1145,
     "types": 463,
     "enums": 4,
-    "functions": 1893,
+    "functions": 1894,
     "constants": 435
   },
   "symbols": {
@@ -5447,6 +5447,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Rend le jeton porté par un en-tête `Authorization`, ou `null`. Projection de {@link readBearerHeader} pour les appelants que la NUANCE ne regarde pas — un authentificateur qui cherche un porteur et…"
+    },
+    "constructorName": {
+      "name": "constructorName",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/constructorName.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Nom du constructeur d'une valeur quelconque, ou `undefined` s'il n'y en a pas. Le compilateur tient tout objet pour doté d'un `constructor` : ce n'est vrai ni de `null`/`undefined`, ni d'un objet c…"
     },
     "defaultEngineEnvironment": {
       "name": "defaultEngineEnvironment",
@@ -30606,6 +30614,11 @@
       ],
       "styleText": [
         "src/nodefony/src/colors.ts"
+      ],
+      "constructorName": [
+        "src/nodefony/src/Container.ts",
+        "src/nodefony/src/Error.ts",
+        "src/nodefony/src/Service.ts"
       ],
       "Message": [
         "src/nodefony/src/Container.ts",

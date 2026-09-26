@@ -241,7 +241,7 @@ class BootReporter {
    * pour rappeler un échec dans le bloc « Bilan » (la ligne `✗` de la checklist
    * défile et se perd). `null` = pas de frontend ou pas encore fini.
    */
-  #frontendResult: IFrontendReadyPayload | null = null;
+  #frontendResult: Partial<IFrontendReadyPayload> | null = null;
 
   constructor(kernel: Kernel, opts: { debug: boolean; tty: boolean }) {
     this.#kernel = kernel;
@@ -264,7 +264,7 @@ class BootReporter {
       this.#kernel.suppressBootBanners = true;
       this.#render();
       this.#timer = setInterval(() => this.#render(), 80);
-      this.#timer.unref?.();
+      this.#timer.unref();
     }
     for (const phase of PHASES) {
       this.#kernel.once(phase.event, () => this.#phaseDone(phase.label));
@@ -295,7 +295,8 @@ class BootReporter {
     };
     this.#kernel.on("onFrontendProgress", this.#onFrontendProgress);
     this.#kernel.once("onFrontendReady", (payload?: unknown) =>
-      this.#frontendEnd(payload as IFrontendReadyPayload),
+      // Émis par `@nodefony/frontend` sans contrat typé : rien n'est garanti.
+      this.#frontendEnd(payload as Partial<IFrontendReadyPayload> | undefined),
     );
   }
 
@@ -467,7 +468,7 @@ class BootReporter {
     this.#renderSection("Frontend (Vite)", "Frontend (Vite)");
     // Studio (admin web) — si le module est chargé : son URL directe (souvent
     // oubliée), dérivée de l'URL HTTPS (repli HTTP) du serveur.
-    if (this.#kernel.modules["studio"]) {
+    if ("studio" in this.#kernel.modules) {
       const adminUrl =
         report.serversListening.find((s) => s.scheme === "https")?.url ??
         report.serversListening.find((s) => s.scheme === "http")?.url;
@@ -613,7 +614,7 @@ class BootReporter {
    * ligne (une app sans firewall est un choix assumé).
    */
   #renderFirewallRow(): void {
-    const fw = this.#kernel.container?.get?.("firewall") as
+    const fw = this.#kernel.container?.get("firewall") as
       | { describe?: () => { zones?: ReadonlyArray<FirewallZoneView> } }
       | null
       | undefined;
@@ -708,7 +709,7 @@ class BootReporter {
    * Vite a fini ou échoué (`onFrontendReady`) : fige la ligne Vite (`✓`/`✗` + durée
    * + bundles servis), puis débloque le « ✓ Prêt » si `onPostReady` l'attendait.
    */
-  #frontendEnd(payload: IFrontendReadyPayload): void {
+  #frontendEnd(payload: Partial<IFrontendReadyPayload> | undefined): void {
     if (this.#done || !this.#frontendPending) return;
     this.#frontendPending = false;
     this.#frontendResult = payload ?? null;

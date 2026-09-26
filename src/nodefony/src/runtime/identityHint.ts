@@ -34,7 +34,7 @@ export function identityHint(
 ): string | null {
   const env = kernel?.environment;
   if (!env || env !== "development") return null;
-  if (!(SECURITY_MODULE in (kernel?.modules ?? {}))) {
+  if (!(SECURITY_MODULE in kernel.modules)) {
     return (
       `cette application n'a AUCUN module d'identité : rien ne peut donc ` +
       `s'authentifier, et toute route gardée refusera. Ajoute @nodefony/security ` +

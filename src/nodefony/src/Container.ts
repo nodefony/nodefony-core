@@ -1,3 +1,4 @@
+import { constructorName } from "./runtime/constructorName";
 import type { Message, Msgid, Pci, Severity } from "./syslog/Pdu";
 import Syslog from "./syslog/Syslog";
 import type { IContainer, IScope } from "./types/IContainer";
@@ -508,7 +509,7 @@ class Scope extends Container implements IScope {
     const who =
       typeof instance.name === "string"
         ? instance.name
-        : instance.constructor?.name;
+        : constructorName(instance);
     return (
       `clean() de « ${who} », rattaché au scope « ${scopeName} », a levé : ` +
       (error instanceof Error ? error.message : String(error))

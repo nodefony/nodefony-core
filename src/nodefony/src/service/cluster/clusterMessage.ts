@@ -103,7 +103,9 @@ function isValidFacet(f: unknown): f is ClusterProbeFacet | undefined {
 /** Type-guard d'un {@link IClusterProbeCtl} — narrowing sûr du canal IPC partagé. */
 export function isClusterProbeCtl(m: unknown): m is IClusterProbeCtl {
   if (!isClusterMessage(m) || m.kind !== CLUSTER_PROBE_CTL_KIND) return false;
-  const c = m as IClusterProbeCtl;
+  // Champs encore NON vérifiés : le canal IPC est partagé, le type de `c`
+  // décrit ce qu'on cherche à prouver, pas ce qu'on a reçu.
+  const c = m as Partial<Record<keyof IClusterProbeCtl, unknown>>;
   return (
     (c.op === "enrich" || c.op === "stop") &&
     typeof c.pid === "number" &&
