@@ -338,6 +338,10 @@ export type {
   IRequestRouter,
 } from "./nodefony/interfaces/IRouting";
 export type {
+  ISecurityZone,
+  IFirewallGate,
+} from "./nodefony/interfaces/ISecurity";
+export type {
   IUploadedFile,
   IUploadService,
   IParsedUploadFile,

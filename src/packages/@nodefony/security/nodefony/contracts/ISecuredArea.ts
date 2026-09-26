@@ -1,4 +1,4 @@
-import type { ContextType } from "@nodefony/http";
+import type { ContextType, ISecurityZone } from "@nodefony/http";
 
 /**
  * Zone sécurisée — un pattern d'URL + la liste des authenticators à exécuter.
@@ -8,7 +8,7 @@ import type { ContextType } from "@nodefony/http";
  * `defineSecurityConfig({ areas })` — patterns compilés et triés au boot, conflits
  * détectés au boot (pas au premier match runtime).
  */
-export interface ISecuredArea {
+export interface ISecuredArea extends ISecurityZone {
   /** Nom de la zone (`"main_api"`, `"admin"`…). */
   readonly name: string;
 

@@ -15,18 +15,15 @@
  *
  * `typeCycles` — un cycle de types est effacé à la compilation, donc légal ;
  * mais il interdit de déclarer la réciproque, que npm et turbo refuseraient.
- *  - `nodefony` → `http`, `framework` : le cœur ne peut déclarer aucun de ses
- *    consommateurs, ils déclarent tous `nodefony`. `HttpKernel` (Kernel.ts) et
- *    `Controller` (Module.ts) ne servent qu'au typage — vérifié, le JS émis du
- *    cœur ne les importe pas.
- *  - `http` → `framework` : `Resolver`/`Router`/`Controller` ; http passe par
- *    `(context as any).resolver` au runtime justement pour ne pas en dépendre.
- *  - `http` → `security` : `Firewall`/`SecuredArea`/`Csrf` ; security déclare
- *    http, la réciproque boucle.
+ * La liste est VIDE : le cœur, http, framework et security ne se connaissent
+ * plus qu'à sens unique — c'est le LECTEUR qui définit le contrat qu'il lit
+ * (`IServerKernel` au cœur, `IRouteResolver`/`ISecurityZone`/`IFirewallGate`
+ * dans http), et le paquet qui l'implémente l'étend. Une entrée qui y
+ * reviendrait est une régression d'architecture, pas une dette.
  *
  * `typesUnreachable` — paquets dont `exports["."].types` pointe `./index.ts`,
  * que `files` n'embarque pas : après `npm i`, le consommateur n'a aucun type.
- * La liste est VIDE : le cycle ci-dessus se lit en source par la condition
+ * La liste est VIDE : un paquet consommé en source se lit par la condition
  * d'export `nodefony-source` (déclarée dans les tsconfigs du dépôt), et
  * `types` pointe le `.d.ts` publié. Une entrée qui y reviendrait est une
  * régression, pas une dette.

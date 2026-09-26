@@ -1,4 +1,4 @@
-import type { ContextType } from "@nodefony/http";
+import type { ContextType, IFirewallGate } from "@nodefony/http";
 import type { IAuthenticator } from "./IAuthenticator";
 import type { ISecuredArea } from "./ISecuredArea";
 import type { CspFragment } from "../src/csp";
@@ -15,7 +15,7 @@ import type { IProtectedResourceInput } from "nodefony";
  * `context.security`. `handleSecurity()` (lazy, seulement si la requête est dans
  * une zone) exécute CORS → headers → authenticators → Zero Trust → CSRF.
  */
-export interface IFirewall {
+export interface IFirewall extends IFirewallGate {
   /** Match rapide de zone (pose `context.security`). `true` si zone capturée. */
   isSecure(context: ContextType): boolean;
 

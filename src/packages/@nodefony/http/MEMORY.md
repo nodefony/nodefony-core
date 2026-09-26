@@ -98,7 +98,7 @@ La reconnaissance « table absente » couvre les trois dialectes (aucun code d'e
 | `WebsocketContext` | `src/context/websocket/WebsocketContext.ts` | Extends Context. Honor `X-Request-Id` header entrant. Props extra: `acceptedProtocol`, `connection` (Ws), `wsUrl`, `rejected`. Override `request` → `WsIncomingMessage` |
 | `HttpResponse` | `src/context/http/Response.ts` | `writeHead()` : sanitize statusMessage ASCII + injecte `X-Request-Id`. `setBody()`, `setLength()`, `redirect()`. |
 | `WebsocketResponse` | `src/context/websocket/Response.ts` | `connection` assigné dans constructeur. API: `send()`, `broadcast()` (wss.clients forEach), `close(code, msg)` |
-| `HttpError` | `src/errors/httpError.ts` | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `(context as any)?.resolver` (évite import circulaire avec `@nodefony/framework`) |
+| `HttpError` | `src/errors/httpError.ts` | Extends `nodefonyError`. Props: `controller`, `action`, `jsonResponse` — extraits de `context.resolver`, typé `IRouteResolver` (contrat de http, évite l'import circulaire avec `@nodefony/framework`) |
 
 ## Certificates TLS — service + CLI
 
@@ -527,7 +527,7 @@ sans session démarrée. `acceptParser` sans en-tête → singleton `ACCEPT_ANY`
 
 **ERR_INVALID_CHAR** : Node.js set `ServerResponse.statusMessage` natif AVANT validation → char invalide persiste même si `writeHead()` throw. Tous les writes suivants échouent en cascade (y compris timeout 30s). Fix : `safeMsg = statusMessage.replace(/[^\x20-\x7E]/g, "")` juste avant `ServerResponse.writeHead()` dans `Response.ts`.
 
-**HttpError champs undefined** : `httpError.ts` est dans `@nodefony/http` qui est une dépendance de `@nodefony/framework` — import circulaire impossible. Accès au resolver via `(context as any)?.resolver`. Props : `this.controller = resolver?.controller?.name`, `this.action = resolver?.actionName`, `this.jsonResponse = \`${res.statusCode} ${res.statusMessage}\`.trim()`.
+**HttpError champs undefined** : `httpError.ts` est dans `@nodefony/http` qui est une dépendance de `@nodefony/framework` — import circulaire impossible. Le resolver se lit par `context.resolver`, typé `IRouteResolver` (contrat de http). Props : `this.controller = resolver?.controller?.name`, `this.action = resolver?.actionName`, `this.jsonResponse = \`${res.statusCode} ${res.statusMessage}\`.trim()`.
 
 **Protocol WS** : `requirements.protocol: "echo-protocol"` → exact string match. Array `['a','b']` → header `"a, b"` → ne matche pas `"a"` → 1002. `requirements.protocol: ""` → accepte tout.
 

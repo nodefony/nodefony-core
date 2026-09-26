@@ -447,17 +447,23 @@ export function checkPackageDeps(
       });
       continue;
     }
-    const src = shippedSources(pkg.dir)
-      .map((f) => {
-        try {
-          return readFileSync(f, "utf8");
-        } catch {
-          return "";
-        }
-      })
-      .join("\n");
+    // Les imports RÉELS, lus par la même règle que le verdict « non déclaré »
+    // (`nodefonyImports`) — jamais le nom du paquet cherché comme sous-chaîne :
+    // un `//import … from "@nodefony/x"` laissé en commentaire, ou une mention
+    // dans un texte, faisait passer un cycle mort pour vivant (#487 en avait
+    // cassé trois, la garde n'en a signalé aucun).
+    const imported = new Set<string>();
+    for (const f of shippedSources(pkg.dir)) {
+      let text = "";
+      try {
+        text = readFileSync(f, "utf8");
+      } catch {
+        continue;
+      }
+      for (const { dep } of nodefonyImports(text)) imported.add(dep);
+    }
     for (const dep of deps) {
-      if (!src.includes(`"${dep}"`) && !src.includes(`'${dep}'`)) {
+      if (!imported.has(dep)) {
         findings.push({
           package: pkgName,
           kind: "stale-exception",

@@ -8,7 +8,7 @@
 - [`../../../../CLAUDE.md`](../../../../CLAUDE.md) — règles globales projet
 - Core : [`../../../nodefony/MEMORY.md`](../../../nodefony/MEMORY.md) — Service, Container | [`../../../nodefony/src/kernel/MEMORY.md`](../../../nodefony/src/kernel/MEMORY.md) — Kernel/Module lifecycle
 
-> **Règle dure** : `@nodefony/http` ne peut PAS importer `@nodefony/framework` (cycle). Accès au resolver via `(context as any)?.resolver`.
+> **Règle dure** : `@nodefony/http` n'importe NI `@nodefony/framework` NI `@nodefony/security` (cycle). C'est le LECTEUR qui définit le contrat : le resolver se lit par `context.resolver`, typé `IRouteResolver` — contrat défini par http, implémenté par framework ; la zone et le pare-feu se lisent par `ISecurityZone` / `IFirewallGate`, contrats de http que security étend.
 
 ## Rôle du module
 
@@ -217,7 +217,7 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
 | --- | --- | --- |
 | `ERR_INVALID_CHAR` sur statusMessage | `Response.ts:writeHead()` | `safeMsg.replace(/[^\x20-\x7E]/g,"")` avant `ServerResponse.writeHead()` — Node.js poison le natif avant de throw |
 | `url.parse()` deprecation | `sessions-service.ts` | Remplacé par `new URL(context.url, "http://localhost")` |
-| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts` | Extraits de `(context as any)?.resolver` dans le constructeur |
+| `HttpError.controller/action/jsonResponse` undefined | `httpError.ts` | Extraits de `context.resolver` (`IRouteResolver`) dans le constructeur |
 | Cookie `Expires` overflow | `cookie.ts` | `maxAge * 1000` → `maxAge` déjà en ms |
 | `maxAge=0` session cookie | `cookie.ts` | Cas 0 traité séparément |
 | Pagination sessions bouclait sur la page 1 (Redis) | `HttpAdminApi.ts` | `sessions/list` ET `sessions/mine` ne transmettaient pas le `cursor` entrant → backend SCAN rejouait la même page avec le même `nextCursor` ; fix = spread `cursor` (pattern SecurityAdminApi), gardé par 2 tests « le curseur AVANCE » |
@@ -237,7 +237,7 @@ Cartographie **par sujet** (pour trouver où poser un test, ou où un comporteme
   L'appeler à la main dans un controller rétablit l'ancien « démarre sur toutes les routes » — donc
   une session persistée par connexion WS, y compris sur `echo`/`broadcast` qui n'en ont aucun besoin
   (le module `test` documente la tempête d'INSERT que ça avait causée, `WebSocketController.ts:19-26`).
-- `httpError.ts` ne peut pas importer `@nodefony/framework` (dépendance circulaire) → accès au resolver via `(context as any)?.resolver`
+- `httpError.ts` ne peut pas importer `@nodefony/framework` (dépendance circulaire) → il lit `context.resolver`, typé par le contrat `IRouteResolver` de http
 - Tout nouveau fichier test `.ts` doit avoir `/// <reference types="node" />` en première ligne
 
 ---

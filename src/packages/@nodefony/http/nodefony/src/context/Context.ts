@@ -15,6 +15,7 @@ import {
 } from "nodefony";
 import type { IProfilerQuery } from "nodefony";
 import type { IRouteResolver, IRequestRouter } from "../../interfaces/IRouting";
+import type { ISecurityZone } from "../../interfaces/ISecurity";
 import { buildMetaData } from "./metaData.js";
 import type { IMetaDataSource } from "./metaData.js";
 import { WebSocketServer } from "ws";
@@ -43,7 +44,6 @@ import { URL } from "node:url";
 import Session from "../session/session";
 import Cookie, { cookiesParser } from "../cookies/cookie";
 import HttpError from "../errors/httpError";
-import { SecuredArea } from "@nodefony/security";
 import ServerHttp from "../../service/servers/server-http";
 import ServerHttps from "../../service/servers/server-https";
 import Websocket from "../../service/servers/server-websocket";
@@ -157,7 +157,7 @@ export function nextCspNonce(): string {
 
 class Context extends Service implements IContextInterface {
   secure: boolean = false;
-  security?: SecuredArea | null = null;
+  security?: ISecurityZone | null = null;
   cleaned: boolean = false;
   isControlledAccess: boolean = false;
   validDomain: boolean = false;

@@ -2,10 +2,10 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 867,
-    "symbols": 4322,
+    "files": 868,
+    "symbols": 4325,
     "classes": 404,
-    "interfaces": 1137,
+    "interfaces": 1140,
     "types": 459,
     "enums": 4,
     "functions": 1883,
@@ -100,7 +100,8 @@
       "kind": "type",
       "file": "src/nodefony/src/Container.ts",
       "exported": true,
-      "module": "@nodefony/core"
+      "module": "@nodefony/core",
+      "description": "Porteur du prototype partagé des services (cf {@link createProto})."
     },
     "nodefonyError": {
       "name": "nodefonyError",
@@ -6551,14 +6552,22 @@
       "extends": null,
       "description": "Une **page** de résultats — la sortie unique de toute pagination Nodefony. `total` présent = mode **Page** (on a compté) ; absent = mode **Slice**. `hasNext` est fiable dans les deux cas. `nextCurs…"
     },
-    "IServerKernel": {
-      "name": "IServerKernel",
+    "IStartedServer": {
+      "name": "IStartedServer",
       "kind": "interface",
       "file": "src/nodefony/src/types/IServerKernel.ts",
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
       "description": "Ce que le Kernel attend du service `HttpKernel` pour ouvrir les serveurs — et rien de plus. Le service est fourni par `@nodefony/http`, qui dépend du cœur : le cœur ne peut donc pas nommer sa class…"
+    },
+    "IServerKernel": {
+      "name": "IServerKernel",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IServerKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null
     },
     "DefaultOptionsService": {
       "name": "DefaultOptionsService",
@@ -18561,6 +18570,24 @@
       "extends": null,
       "description": "Ce que le pipeline HTTP/WS attend du service `router` — implémenté par `Router` (`@nodefony/framework`)."
     },
+    "ISecurityZone": {
+      "name": "ISecurityZone",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISecurity.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le pipeline HTTP/WS — et le résolveur de framework — lit de la zone de sécurité posée sur `context.security` — et rien de plus. Le pare-feu vit dans `@nodefony/security`, qui dépend de `@nod…"
+    },
+    "IFirewallGate": {
+      "name": "IFirewallGate",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/ISecurity.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le noyau HTTP appelle du pare-feu, service `firewall` du conteneur. Implémenté par `Firewall` (`@nodefony/security`), dont `IFirewall` étend ce contrat de ses propres membres (CSP, authentic…"
+    },
     "SessionIntent": {
       "name": "SessionIntent",
       "kind": "interface",
@@ -21639,7 +21666,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
+      "extends": "IFirewallGate",
       "description": "Orchestrateur de sécurité — branché dans le pipeline HTTP/WS de `@nodefony/http`. `isSecure()` (rapide, hot-path) ne fait QUE matcher la zone et poser `context.security`. `handleSecurity()` (lazy, …"
     },
     "IFirewallZoneDescription": {
@@ -21738,7 +21765,7 @@
       "file": "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
       "exported": true,
       "module": "@nodefony/security",
-      "extends": null,
+      "extends": "ISecurityZone",
       "description": "Zone sécurisée — un pattern d'URL + la liste des authenticators à exécuter. Le firewall teste chaque zone par ordre de spécificité ; la première dont le pattern matche capture la requête (`context.…"
     },
     "IToken": {
@@ -29754,6 +29781,12 @@
       "IApiKeyView": [
         "IApiKeyCreated"
       ],
+      "IFirewallGate": [
+        "IFirewall"
+      ],
+      "ISecurityZone": [
+        "ISecuredArea"
+      ],
       "IUser": [
         "IPasswordAuthenticatedUser"
       ],
@@ -30407,6 +30440,7 @@
         "src/nodefony/src/Cli.ts",
         "src/nodefony/src/command/Builder.ts",
         "src/nodefony/src/finder/File.ts",
+        "src/nodefony/src/finder/FileResult.ts",
         "src/nodefony/src/finder/Finder.ts",
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/types/IKernel.ts",
@@ -30645,6 +30679,8 @@
       ],
       "inspect": [
         "src/nodefony/src/Error.ts",
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/syslog/Syslog.ts",
         "src/packages/@nodefony/http/nodefony/command/certificatesCommand.ts",
         "src/packages/@nodefony/http/nodefony/command/networkCommand.ts"
@@ -32162,8 +32198,7 @@
         "src/packages/@nodefony/redis/nodefony/config/defineModuleConfig.ts"
       ],
       "Firewall": [
-        "src/packages/@nodefony/security/index.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+        "src/packages/@nodefony/security/index.ts"
       ],
       "AuthFlow": [
         "src/packages/@nodefony/security/index.ts"
@@ -33093,7 +33128,8 @@
         "src/nodefony/src/kernel/CliKernel.ts"
       ],
       "PackageManagerName": [
-        "src/nodefony/src/kernel/CliKernel.ts"
+        "src/nodefony/src/kernel/CliKernel.ts",
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "CONSOLE_RUN_PROFILE": [
         "src/nodefony/src/kernel/CliKernel.ts"
@@ -33360,6 +33396,9 @@
         "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts"
       ],
+      "IStartedServer": [
+        "src/nodefony/src/kernel/Kernel.ts"
+      ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
@@ -33388,8 +33427,7 @@
         "src/packages/@nodefony/realtime/nodefony/src/cluster/ClusterProbeClient.ts"
       ],
       "IModuleManifest": [
-        "src/nodefony/src/kernel/Kernel.ts",
-        "src/nodefony/src/kernel/moduleGating.ts"
+        "src/nodefony/src/kernel/Kernel.ts"
       ],
       "isConfigDescriptor": [
         "src/nodefony/src/kernel/Kernel.ts"
@@ -35664,6 +35702,7 @@
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/ISecurity.ts",
         "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -37671,6 +37710,10 @@
       "WebSocketState": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
+      "IFirewallGate": [
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts"
+      ],
       "resolveTraceparent": [
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
       ],
@@ -38204,6 +38247,10 @@
         "src/packages/@nodefony/security/nodefony/contracts/IOAuthProvider.ts",
         "src/packages/@nodefony/security/nodefony/src/oauth/providers/oidc.ts"
       ],
+      "ISecurityZone": [
+        "src/packages/@nodefony/security/nodefony/contracts/ISecuredArea.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+      ],
       "TotpAlgorithm": [
         "src/packages/@nodefony/security/nodefony/contracts/ITotpSecret.ts",
         "src/packages/@nodefony/security/nodefony/src/totp/totpOperations.ts"
@@ -38370,8 +38417,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "SecuredArea": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "RoleHierarchyWalker": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts",
@@ -38385,8 +38431,7 @@
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "Csrf": [
-        "src/packages/@nodefony/security/nodefony/service/firewall.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts"
+        "src/packages/@nodefony/security/nodefony/service/firewall.ts"
       ],
       "Cors": [
         "src/packages/@nodefony/security/nodefony/service/firewall.ts"

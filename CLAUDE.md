@@ -860,7 +860,7 @@ Deux niveaux de docs IA — **lire AVANT de toucher au code du module** :
 src/modules/test      ← routes de test (utilise framework + http)
 ```
 
-`@nodefony/http` ne peut **JAMAIS** importer `@nodefony/framework` (dépendance circulaire). Accès au resolver via `(context as any)?.resolver`.
+`@nodefony/http` ne peut **JAMAIS** importer `@nodefony/framework` ni `@nodefony/security` (dépendance circulaire). C'est le LECTEUR qui définit le contrat : le resolver se lit par `context.resolver`, typé `IRouteResolver` — contrat défini par http, implémenté par framework ; la zone et le pare-feu se lisent par `ISecurityZone` / `IFirewallGate`, contrats de http que security étend. La garde `scripts/check-package-deps.mjs` refuse tout cycle non déclaré, et la liste des cycles déclarés est vide.
 
 **Structure attendue d'un MEMORY.md** : Purpose | Core Components | Config | Behaviors | Gotchas
 

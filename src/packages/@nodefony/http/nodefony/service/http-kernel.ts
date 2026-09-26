@@ -50,7 +50,7 @@ import { logColor } from "nodefony";
 import Certicates from "./certificates";
 import SessionsService from "./sessions/sessions-service";
 import Session from "../src/session/session";
-import { Firewall } from "@nodefony/security";
+import type { IFirewallGate } from "../interfaces/ISecurity";
 import DefaultErrorRenderer from "./error-renderer";
 import type { IErrorRenderer } from "../interfaces/IErrorRenderer";
 import DefaultRequestLogger from "./request-logger";
@@ -266,7 +266,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private secHsts: string | null = null;
   sessionService?: SessionsService | null;
   router?: IRequestRouter | null;
-  firewall?: Firewall | null;
+  firewall?: IFirewallGate | null;
   // Singleton — zero per-request alloc. Swap via setErrorRenderer().
   private errorRenderer: IErrorRenderer = new DefaultErrorRenderer();
   // Singleton — zero per-request alloc. Swap via setRequestLogger().
@@ -525,7 +525,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     });
     this.kernel?.prependOnceListener("onBoot", () => {
       this.router = this.get<IRequestRouter>("router");
-      this.firewall = this.get<Firewall>("firewall");
+      this.firewall = this.get<IFirewallGate>("firewall");
     });
     return this;
   }

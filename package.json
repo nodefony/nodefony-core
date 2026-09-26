@@ -135,16 +135,6 @@
   "readmeFilename": "README.md",
   "nodefony": {
     "doctor": {
-      "typeCycles": {
-        "nodefony": [
-          "@nodefony/http",
-          "@nodefony/framework"
-        ],
-        "@nodefony/http": [
-          "@nodefony/framework",
-          "@nodefony/security"
-        ]
-      },
       "entityDialect": [
         "entity/dolibarr/bench-pg.ts"
       ]

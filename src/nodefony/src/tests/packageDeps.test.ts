@@ -113,6 +113,33 @@ describe("checkPackageDeps — un frère du dépôt doit être ORDONNÉ", () => 
   });
 
   /**
+   * 🔴 Un cycle déclaré dont l'import ne subsiste qu'en COMMENTAIRE est périmé.
+   *
+   * Vécu : #487 avait cassé trois cycles, et la garde n'en a signalé aucun —
+   * elle cherchait le NOM du paquet comme sous-chaîne, et un
+   * `//import { Resolver } from "@nodefony/framework";` laissé en commentaire
+   * suffisait à le faire passer pour importé. La liste gardait trois
+   * exceptions mortes, que personne ne relisait.
+   */
+  it("signale un cycle déclaré que seul un commentaire cite encore", () => {
+    paquet("@nodefony/fixture-core", {});
+    paquet(
+      "@nodefony/fixture-outil",
+      {},
+      '//import { socle } from "@nodefony/fixture-core";\n// voir "@nodefony/fixture-core"\nexport const x = 1;\n',
+    );
+    const { findings } = checkPackageDeps({
+      roots: [path.join(root, "packages")],
+      cwd: root,
+      typeCycles: { "@nodefony/fixture-outil": ["@nodefony/fixture-core"] },
+    });
+    assert.lengthOf(
+      findings.filter((x) => x.kind === "stale-exception"),
+      1,
+    );
+  });
+
+  /**
    * Hors du dépôt, la règle ne doit pas mordre : un paquet venu de
    * `node_modules` arrive déjà construit. C'est ce qui la rend utilisable dans
    * une application, où `nodefony` n'est jamais un frère.

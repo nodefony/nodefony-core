@@ -50,3 +50,4 @@ export type {
   IRouteResolver,
   IRequestRouter,
 } from "./IRouting";
+export type { ISecurityZone, IFirewallGate } from "./ISecurity";

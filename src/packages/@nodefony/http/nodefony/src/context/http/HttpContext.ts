@@ -23,7 +23,6 @@ import {
   //Pdu,
   //KernelEventsType,
 } from "nodefony";
-import { Csrf } from "@nodefony/security";
 import HttpRequest from "./Request";
 import HttpResponse from "./Response";
 import Http2Request from "../http2/Request";
@@ -34,7 +33,6 @@ import url, { URL } from "node:url";
 import Session from "../../../src/session/session";
 import Cookie from "../../cookies/cookie";
 
-//import { Resolver } from "@nodefony/framework";
 import uploadService from "../../../service/upload/upload-service";
 
 /**
@@ -90,7 +88,6 @@ class HttpContext extends Context implements IHttpContextInterface {
   override response: HttpRsponseType;
   uploadService: uploadService | null;
   //resolver: Resolver | null = null;
-  csrf?: Csrf;
   constructor(
     container: Container | Scope,
     request: http.IncomingMessage | http2.Http2ServerRequest,
