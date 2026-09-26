@@ -103,7 +103,7 @@ class BackpressureRealtimeController extends RealtimeController {
       countPushed(frames);
       for (let i = 0; i < frames; i++) publish("bench:stream", payload);
     }, 50);
-    timer.unref?.();
+    timer.unref();
     return () => clearTimeout(timer);
   }
 }

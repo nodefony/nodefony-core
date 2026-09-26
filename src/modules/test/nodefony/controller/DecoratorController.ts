@@ -46,17 +46,18 @@ class DecoratorController extends Controller {
   }
 
   @Get("/query")
-  getQuery(@Query("q") q: string, @Query("page") page: string) {
+  // Paramètres absents de la requête : `undefined`, ce que la route éprouve.
+  getQuery(@Query("q") q?: string, @Query("page") page?: string) {
     return this.renderJson({ q: q ?? null, page: page ?? null });
   }
 
   @Post("/body")
-  postBody(@Body() body: Record<string, unknown>) {
+  postBody(@Body() body?: Record<string, unknown>) {
     return this.renderJson(body ?? {});
   }
 
   @Post("/body-field")
-  postBodyField(@Body("name") name: string) {
+  postBodyField(@Body("name") name?: string) {
     return this.renderJson({ name: name ?? null });
   }
 
@@ -71,11 +72,14 @@ class DecoratorController extends Controller {
       queryPost?: Record<string, unknown>;
       query?: Record<string, unknown>;
       request?: { body?: unknown };
-    };
+    } | null;
+    // Getter typé `Record` : `undefined` sans corps parsé.
+    const fromController = this.body as Record<string, unknown> | undefined;
     return this.renderJson({
-      fromController: this.body ?? null,
+      fromController: fromController ?? null,
       fromRequest: req?.body ?? null,
-      fromNodeRequest: (req?.request?.body as Record<string, unknown>) ?? null,
+      fromNodeRequest:
+        (req?.request?.body as Record<string, unknown> | undefined) ?? null,
       queryPost: req?.queryPost ?? null,
       query: req?.query ?? null,
     });
@@ -85,7 +89,9 @@ class DecoratorController extends Controller {
   // injecte le flux brut (Readable). On le consomme en comptant les octets, et on
   // prouve que le body n'a PAS été parsé (`queryPost` vide).
   @Post("/body-stream")
-  async postBodyStream(@Body({ stream: true }) body: NodeJS.ReadableStream) {
+  async postBodyStream(
+    @Body({ stream: true }) body?: NodeJS.ReadableStream | null,
+  ) {
     const isReadable =
       body != null && typeof (body as { pipe?: unknown }).pipe === "function";
     let bytes = 0;
@@ -107,8 +113,8 @@ class DecoratorController extends Controller {
   @Post("/mix/{id}")
   mix(
     @Param("id") id: string,
-    @Body("name") name: string,
-    @Query("v") v: string,
+    @Body("name") name?: string,
+    @Query("v") v?: string,
   ) {
     return this.renderJson({ id, name: name ?? null, v: v ?? null });
   }
@@ -124,8 +130,8 @@ class DecoratorController extends Controller {
   @Header("x-source", "decorator")
   combined(
     @Param("id") id: string,
-    @Body("name") name: string,
-    @Query("v") v: string,
+    @Body("name") name?: string,
+    @Query("v") v?: string,
   ) {
     return this.renderJson({ id, name: name ?? null, v: v ?? null });
   }
@@ -144,10 +150,7 @@ class DecoratorController extends Controller {
 
   // @Headers(name) → valeur d'un header ; @Headers() → objet complet.
   @Get("/headers")
-  getHeaders(
-    @Headers("user-agent") ua: string,
-    @Headers() all: Record<string, unknown>,
-  ) {
+  getHeaders(@Headers("user-agent") ua?: string, @Headers() all?: unknown) {
     // `host` n'existe pas en HTTP/2 (pseudo-header `:authority`) → on teste
     // `user-agent`, présent quel que soit le transport.
     return this.renderJson({
@@ -167,7 +170,7 @@ class DecoratorController extends Controller {
 
   // @Req() → la requête injectée (preuve : on lit method/pathname depuis l'objet).
   @Get("/req")
-  getReq(@Req() req: IHttpRequest) {
+  getReq(@Req() req?: IHttpRequest | null) {
     return this.renderJson({
       method: req?.method ?? null,
       hasUrl: req?.url != null,
@@ -176,7 +179,7 @@ class DecoratorController extends Controller {
 
   // @Res() → la réponse injectée (preuve : on la mute, le header doit sortir).
   @Get("/res")
-  getRes(@Res() res: HttpResponse) {
+  getRes(@Res() res?: HttpResponse | null) {
     res?.setHeader("x-from-res", "ok");
     return this.renderJson({ injected: res != null });
   }

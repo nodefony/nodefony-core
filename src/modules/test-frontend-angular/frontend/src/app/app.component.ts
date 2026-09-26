@@ -61,8 +61,9 @@ const debugbar = (): Debugbar =>
   (globalThis as { __NODEFONY_DEBUGBAR__?: Debugbar }).__NODEFONY_DEBUGBAR__;
 
 const hot = (import.meta as { hot?: { data: Record<string, unknown> } }).hot;
-if (hot) hot.data.majs = ((hot.data.majs as number) ?? 0) + 1;
-const MAJS_A_CHAUD = hot ? ((hot.data.majs as number) ?? 1) - 1 : 0;
+// Compteur conservé entre deux rechargements : absent au premier.
+if (hot) hot.data.majs = ((hot.data.majs as number | undefined) ?? 0) + 1;
+const MAJS_A_CHAUD = hot ? ((hot.data.majs as number | undefined) ?? 1) - 1 : 0;
 
 /** Les quatre vitrines, pour les comparer d'un clic. */
 const FRONTS = [

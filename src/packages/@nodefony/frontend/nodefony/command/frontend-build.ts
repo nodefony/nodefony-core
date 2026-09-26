@@ -41,7 +41,8 @@ class FrontendBuild extends Command {
     // le nombre de positionnels.
     const opts =
       (
-        this.command as unknown as { opts?: () => { force?: boolean } }
+        this.command as unknown as
+          { opts?: () => { force?: boolean } } | null | undefined
       )?.opts?.() ?? {};
     const svc = this.kernel?.container?.get("frontend") as
       FrontendService | undefined;

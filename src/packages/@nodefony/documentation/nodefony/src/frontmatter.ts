@@ -95,7 +95,8 @@ export function metaString(meta: Frontmatter, key: string): string | undefined {
 
 /** Lit une clé de frontmatter en string[] (wrappe un scalaire), ou `[]`. */
 export function metaList(meta: Frontmatter, key: string): string[] {
-  const v = meta[key];
+  // Clé lue d'un fichier markdown : peut manquer.
+  const v = meta[key] as Frontmatter[string] | undefined;
   if (v === undefined) return [];
   return Array.isArray(v) ? v : [v];
 }

@@ -78,7 +78,9 @@ class PocController extends Controller {
    */
   @Get("/api/burn/{ms}")
   apiBurn() {
-    const raw = this.queryGet?.ms;
+    // Getter typé `Record` : `undefined` hors requête HTTP.
+    const queryGet = this.queryGet as Record<string, unknown> | undefined;
+    const raw = queryGet?.ms;
     const ms = parseInt(
       typeof raw === "string" || typeof raw === "number" ? String(raw) : "100",
       10,

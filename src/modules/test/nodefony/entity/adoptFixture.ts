@@ -118,7 +118,7 @@ export const adoptFixtureTable: unknown = orphan
  * génération doit reconnaître, avant même de regarder ses colonnes.
  */
 export const usurpedFixtureTable: unknown =
-  !impersonates || dialect === undefined
+  !impersonates || !dialect
     ? undefined
     : dialect === "sqlite"
       ? sqliteTable(USURPED_FRAMEWORK_TABLE, {

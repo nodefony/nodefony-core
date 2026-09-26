@@ -71,7 +71,8 @@ class Redis extends Module<IRedisConfig> {
     // en développement (fail-soft) — le refus disparaissait précisément là où la
     // faute vient d'être écrite.
     const validated: IRedisConfig = defineRedisConfig(
-      (this.options as IRedisConfigInput) ?? {},
+      // Sans config déclarée, le module peut n'avoir reçu aucune section.
+      (this.options as IRedisConfigInput | undefined) ?? {},
     );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RedisService la lit sur son module (`this.module.config`).

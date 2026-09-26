@@ -268,7 +268,8 @@ export class InMemoryUserRepository implements IUserRepository {
   ): Promise<number> {
     const seen = new Set<unknown>();
     for (const user of await this.find(criteria)) {
-      const value = user[field];
+      // Champ de la fiche : la valeur absente varie selon le champ.
+      const value: unknown = user[field];
       if (value !== null && value !== undefined) seen.add(value);
     }
     return seen.size;

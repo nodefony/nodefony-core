@@ -147,7 +147,9 @@ export function originWithHostname(
   // URL d'asset arbitraire — même si la barrière `trustedHosts` l'a laissé
   // passer (`trustedHosts: true` délègue au reverse-proxy).
   if (!/^(\[[^\]/]+\]|[A-Za-z0-9._-]+)$/.test(hostname)) return null;
-  return `${m[1]}${hostname}${m[3] ?? ""}`;
+  // Groupe optionnel de la regex : `undefined` quand il ne capture rien.
+  const port = m[3] as string | undefined;
+  return `${m[1]}${hostname}${port ?? ""}`;
 }
 
 /**

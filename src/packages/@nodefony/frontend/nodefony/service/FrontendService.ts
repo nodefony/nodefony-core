@@ -121,11 +121,13 @@ class FrontendService extends Service implements IFrontendService {
   private plannedPortBlocks: Map<string, number[]> | null = null;
 
   constructor(module: Module) {
+    // Sans config déclarée, le module peut n'avoir reçu aucune section.
+    const options = module.options as object | undefined;
     const merged = extend(
       true,
       {},
       defaultConfig,
-      module.options ?? {},
+      options ?? {},
     ) as IFrontendConfig;
     super(
       "frontend",
@@ -139,7 +141,7 @@ class FrontendService extends Service implements IFrontendService {
 
   /** Base CDN normalisée (sans slash final). `""` = origine Nodefony. */
   private get assetBase(): string {
-    return stripTrailingSlashes(this.cfg.assetBaseUrl ?? "");
+    return stripTrailingSlashes(this.cfg.assetBaseUrl);
   }
 
   /**
@@ -299,7 +301,8 @@ class FrontendService extends Service implements IFrontendService {
 
   status(): IViteSupervisorStatus {
     const primary =
-      this.supervisors.get(PRIMARY_FAMILY) ?? [...this.supervisors.values()][0];
+      this.supervisors.get(PRIMARY_FAMILY) ??
+      [...this.supervisors.values()].at(0);
     if (!primary) {
       return {
         state: "idle",
@@ -377,14 +380,14 @@ class FrontendService extends Service implements IFrontendService {
     //  - NODE_ENV = kernel.environment (lu par les plugins Vite via process.env)
     //  - extraEnv = config.viteEnv → variables VITE_* exposées au browser
     const nodeEnv = this.kernel?.environment;
-    const extraEnv = this.cfg.viteEnv ?? {};
+    const extraEnv = this.cfg.viteEnv;
 
     const groups = this.groupEntriesByFamily();
     // Plan de ports : un bloc disjoint par famille (`default` reste sur 5173).
     const portPlan = familyPortPlan(
       this.cfg.devPort,
       [...groups.keys()],
-      this.cfg.resilience?.portRetryAttempts ?? 3,
+      this.cfg.resilience.portRetryAttempts,
     );
     const families = [...portPlan.keys()];
     // Origine FIGÉE (sans `{port}`) × plusieurs familles (ex. React + Angular,
@@ -416,7 +419,7 @@ class FrontendService extends Service implements IFrontendService {
     // du module, il ne l'empile pas).
     this.plannedPortBlocks = familyPortBlocks(
       portPlan,
-      this.cfg.resilience?.portRetryAttempts ?? 3,
+      this.cfg.resilience.portRetryAttempts,
     );
     this.#registerCsp();
 
@@ -490,7 +493,7 @@ class FrontendService extends Service implements IFrontendService {
    * ne dépend pas de `@nodefony/http` (cycle via la config d'app).
    */
   private resolveBackendPort(): number {
-    const server = this.container?.get?.("server-http") as
+    const server = this.container?.get("server-http") as
       { port?: number; active?: boolean } | undefined;
     const real = server?.active && server.port ? server.port : 0;
     if (real > 0 && real !== this.cfg.backendPort) {
@@ -510,9 +513,9 @@ class FrontendService extends Service implements IFrontendService {
    */
   private resolveHttps(): { keyPath: string; certPath: string } | undefined {
     if (!this.cfg.https) return undefined;
-    const certs = this.container?.get?.("certificates") as
+    const certs = this.container?.get("certificates") as
       { privateKeyPath?: string; certPath?: string } | undefined;
-    if (!certs?.privateKeyPath || !certs?.certPath) {
+    if (!certs?.privateKeyPath || !certs.certPath) {
       this.log(
         "https: true requested but `certificates` service unavailable — falling back to HTTP",
         "WARNING",
@@ -581,7 +584,7 @@ class FrontendService extends Service implements IFrontendService {
     publicOriginTemplate: string | undefined,
   ): true | string[] | undefined {
     const th = (
-      this.container?.get?.("HttpKernel") as
+      this.container?.get("HttpKernel") as
         | { trustedHosts?: boolean | string | RegExp | (string | RegExp)[] }
         | undefined
     )?.trustedHosts;
@@ -642,7 +645,7 @@ class FrontendService extends Service implements IFrontendService {
       allowedHosts: true | string[] | undefined;
     },
   ): Promise<void> {
-    const r = this.cfg.resilience ?? {};
+    const r = this.cfg.resilience;
     const supervisor = new ViteProcessSupervisor({
       devHost: this.cfg.devHost,
       devPort: port,
@@ -743,7 +746,7 @@ class FrontendService extends Service implements IFrontendService {
         );
       }
     }
-    const stat = this.container?.get?.("server-static") as
+    const stat = this.container?.get("server-static") as
       IStaticMountService | undefined;
     if (stat?.addMount) {
       for (const e of this.entries) {
@@ -780,7 +783,7 @@ class FrontendService extends Service implements IFrontendService {
     this.plannedPortBlocks = null;
     // CSP : retirer les origines Vite du firewall (le CSP repasse au strict de base).
     (
-      this.container?.get?.("firewall") as
+      this.container?.get("firewall") as
         { unregisterCspOrigins?: (m: string) => void } | undefined
     )?.unregisterCspOrigins?.("frontend");
     this.fire("frontend:stopped");
@@ -990,7 +993,7 @@ class FrontendService extends Service implements IFrontendService {
     ) {
       return undefined;
     }
-    const httpKernel = this.container?.get?.("HttpKernel") as
+    const httpKernel = this.container?.get("HttpKernel") as
       | {
           trustedHosts?: unknown;
           isTrustedHostname?: (hostname: string) => boolean;
@@ -1009,7 +1012,7 @@ class FrontendService extends Service implements IFrontendService {
    * No-op si security absent (app sans firewall).
    */
   #registerCsp(): void {
-    const firewall = this.container?.get?.("firewall") as
+    const firewall = this.container?.get("firewall") as
       | {
           registerCspOrigins?: (m: string, f: Record<string, string[]>) => void;
         }
@@ -1039,7 +1042,7 @@ class FrontendService extends Service implements IFrontendService {
     const hosts = new Set<string>(["127.0.0.1", "localhost"]);
     if (this.kernel?.domain) hosts.add(this.kernel.domain);
     const th = (
-      this.container?.get?.("HttpKernel") as
+      this.container?.get("HttpKernel") as
         { trustedHosts?: boolean | string | string[] } | undefined
     )?.trustedHosts;
     if (typeof th === "string") hosts.add(th);
@@ -1114,7 +1117,7 @@ class FrontendService extends Service implements IFrontendService {
       // rétrécir le bloc CSP dessus rouvrirait le trou au premier glissement
       // de port.
       const serving = st?.state === "ready" || st?.state === "compiling";
-      if (serving && st?.port) ports.add(String(st.port));
+      if (serving && st.port) ports.add(String(st.port));
       else for (const p of block) ports.add(String(p));
     }
     // Une instance hors plan (famille apparue après le démarrage) : son port

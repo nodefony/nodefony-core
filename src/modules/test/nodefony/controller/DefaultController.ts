@@ -211,9 +211,11 @@ class DefaultController extends Controller {
   headerEcho() {
     // Sonde de décor : `qs` peut rendre un objet (`?x-val[a]=b`), converti en
     // `[object Object]` comme depuis toujours — la réponse ne doit pas bouger.
+    // Getter typé `Record` : `undefined` hors requête HTTP.
+    const queryGet = this.queryGet as Record<string, unknown> | undefined;
     // oxlint-disable-next-line typescript/no-base-to-string
-    const val = String(this.queryGet?.["x-val"] ?? "none");
-    (this.context as HttpContext).response?.setHeader("x-echoed", val);
+    const val = String(queryGet?.["x-val"] ?? "none");
+    (this.context as HttpContext).response.setHeader("x-echoed", val);
     return this.renderJson({ echoed: val });
   }
 
@@ -395,8 +397,9 @@ class DefaultController extends Controller {
           clearTimeout(timer);
           abortState.abortedCount++;
           abortState.lastAbortReason =
-            (signal.reason as Error)?.message ??
-            String(signal.reason ?? "aborted");
+            signal.reason instanceof Error
+              ? signal.reason.message
+              : String(signal.reason ?? "aborted");
           reject(new Error("aborted"));
         };
         if (signal.aborted) {
@@ -462,8 +465,9 @@ class DefaultController extends Controller {
         () => {
           timeoutState.signalAbortedCount++;
           timeoutState.lastReason =
-            (signal.reason as Error)?.message ??
-            String(signal.reason ?? "aborted");
+            signal.reason instanceof Error
+              ? signal.reason.message
+              : String(signal.reason ?? "aborted");
           resolve();
         },
         { once: true },

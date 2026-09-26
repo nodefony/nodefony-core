@@ -19,7 +19,8 @@ interface ViteManifestChunk {
   css?: string[];
   imports?: string[];
 }
-type ViteManifest = Record<string, ViteManifestChunk>;
+// Indexé par un chemin de source : une entrée peut manquer du manifeste.
+type ViteManifest = Partial<Record<string, ViteManifestChunk>>;
 
 /** Marqueur optionnel dans l'`index.html` du module où injecter les tags. */
 const FRONTEND_MARKER = "<!--nodefony:frontend-->";
@@ -338,7 +339,7 @@ mountDebugBar(${opts});
     const chunk =
       manifest[key] ??
       // Fallback : retrouver le chunk marqué `isEntry` si la clé ne matche pas.
-      Object.values(manifest).find((c) => c.isEntry);
+      Object.values(manifest).find((c) => c?.isEntry);
     if (!chunk) {
       return `<!-- @nodefony/frontend: entry chunk "${key}" not in manifest -->`;
     }

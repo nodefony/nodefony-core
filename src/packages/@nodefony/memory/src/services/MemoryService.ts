@@ -92,8 +92,9 @@ export class MemoryService implements IMemoryService {
     return results.map((r) => ({
       id: r.entry.id,
       agentId,
-      sessionId: (r.entry.metadata.sessionId as string) ?? "",
-      role: (r.entry.metadata.role as IMemoryEntry["role"]) ?? "user",
+      sessionId: (r.entry.metadata.sessionId as string | undefined) ?? "",
+      role:
+        (r.entry.metadata.role as IMemoryEntry["role"] | undefined) ?? "user",
       content: r.entry.text,
       timestamp: r.entry.metadata.timestamp
         ? new Date(r.entry.metadata.timestamp as string)

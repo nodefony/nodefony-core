@@ -616,7 +616,8 @@ export abstract class RealtimeController<
     const clientLogs = hub.clientLogsLimits;
     if (
       clientLogs !== null &&
-      inboundMap[PLATFORM_INBOUND.syslogUplink] === undefined
+      // Un nom déclaré par l'application gagne : l'entrée peut manquer.
+      !Object.hasOwn(inboundMap, PLATFORM_INBOUND.syslogUplink)
     ) {
       // Le journal du CONTRÔLEUR (résolu du conteneur par `Service`), pas le
       // singleton du kernel : c'est le même objet dans une application réelle, mais
@@ -641,7 +642,7 @@ export abstract class RealtimeController<
     };
     holder.__nfRealtime = state;
 
-    ctx.once?.("onFinish", () => {
+    ctx.once("onFinish", () => {
       // Désabonne CETTE connexion de tous ses canaux : le hub dispose le provider
       // partagé au dernier abonné (aucun timer/listener orphelin).
       // `liveHub` : résolu À LA FERMETURE, donc distinct du `hub` capturé plus
@@ -796,6 +797,8 @@ export abstract class RealtimeController<
     // déclarée (registre indexé par nom exact) → on le DIT plutôt que de
     // laisser croire à une garde qui n'existe pas.
     let servedByPattern = false;
+    // Posé par la fermeture ci-dessous : TypeScript ne voit pas l'affectation.
+    const isServedByPattern = (): boolean => servedByPattern;
     const ok = getRealtimeHub().subscribeClient(
       channel,
       sink,
@@ -813,7 +816,7 @@ export abstract class RealtimeController<
     );
     if (ok) {
       state.channels.set(channel, sink);
-      if (servedByPattern)
+      if (isServedByPattern())
         getRealtimeHub().noticeUnguardedDynamicChannel(channel);
       this.log(`WS subscribe → ${channel}`, "DEBUG");
       return;
@@ -1125,7 +1128,7 @@ function buildHandshakeFromContext(ctx: WebsocketContext): IRealtimeHandshake {
 
   // Cookies → Map<string, string> (le Context expose un Record<name, Cookie>).
   const cookies = new Map<string, string>();
-  const rawCookies = (ctx.cookies ?? {}) as Record<
+  const rawCookies = ctx.cookies as Record<
     string,
     { value?: unknown } | undefined
   >;

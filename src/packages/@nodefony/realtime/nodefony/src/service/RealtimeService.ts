@@ -77,12 +77,14 @@ class RealtimeService extends Service {
    * par la Module class). Aucun warn — c'est le cas commun.
    */
   async init(_module: Module): Promise<this> {
-    this.#config = this.module.config as IRealtimeConfig;
-    if (!this.#config) {
+    // Posée par la classe `Module` à `onKernelRegister` : absente avant.
+    const config = this.module.config as IRealtimeConfig | undefined;
+    if (!config) {
       throw new Error(
         `${serviceName}: realtimeConfig absente (this.module.config vide) — la Module class doit la valider à onKernelRegister`,
       );
     }
+    this.#config = config;
     // `enabled: false` → module chargé mais inerte : on NE câble RIEN sur le hub
     // (backplane / origin guard / limites / slow-consumer restent aux défauts, 0
     // listener actif). Cf `realtimeConfigSchema.enabled`.
@@ -311,11 +313,11 @@ class RealtimeService extends Service {
  *                                       `allowList` (pas de wildcard).
  */
 function buildOriginGuard(config: IRealtimeConfig): OriginGuard | null {
-  const c = config.csrf?.checkOrigin;
+  const c = config.csrf.checkOrigin;
   // Booléens garantis par le schéma Zod (`checkOriginSchema`, validé au register).
-  if (!c?.enabled) return null;
+  if (!c.enabled) return null;
   // Capture les valeurs à la résolution → pas de relecture config par upgrade.
-  const allowSet = new Set<string>(c.allowList ?? []);
+  const allowSet = new Set<string>(c.allowList);
   const allowMissing = c.allowMissingOrigin;
   return (origin: string | undefined): boolean => {
     if (origin === undefined || origin === "") return allowMissing;

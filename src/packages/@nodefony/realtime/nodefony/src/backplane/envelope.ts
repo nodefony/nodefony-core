@@ -82,7 +82,9 @@ export function sealBackplaneEnvelope(
   const originIdJson = JSON.stringify(msg.originId);
   // `undefined` n'est pas du JSON — une charge absente devient `null`, la même
   // valeur que produirait `JSON.stringify` sur l'objet complet.
-  const payloadJson = JSON.stringify(msg.payload) ?? "null";
+  // `undefined` pour une charge `undefined` — le type standard ne le dit pas.
+  const payloadText = JSON.stringify(msg.payload) as string | undefined;
+  const payloadJson = payloadText ?? "null";
   const sig = seal(originIdJson, channelJson, payloadJson, secret);
   return `{"channel":${channelJson},"payload":${payloadJson},"originId":${originIdJson},"${SEAL_FIELD}":"${sig}"}`;
 }
@@ -129,10 +131,12 @@ export function openBackplaneEnvelope(
   // Re-sérialisation des fragments pour recalculer le sceau : `JSON.stringify`
   // est stable sur la sortie de `JSON.parse` (ordre des clés préservé, forme
   // numérique canonique), donc l'émetteur et le receveur signent la même chaîne.
+  // `undefined` pour une charge `undefined` — le type standard ne le dit pas.
+  const payloadText = JSON.stringify(msg.payload) as string | undefined;
   const expected = seal(
     JSON.stringify(msg.originId),
     JSON.stringify(msg.channel),
-    JSON.stringify(msg.payload) ?? "null",
+    payloadText ?? "null",
     secret,
   );
   const a = Buffer.from(provided, "base64url");

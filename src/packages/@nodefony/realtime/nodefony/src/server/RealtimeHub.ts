@@ -798,7 +798,7 @@ export class RealtimeHub {
       this.#revalidateTimer = setInterval(() => {
         void this.revalidateRevocable();
       }, REVOCATION_REVALIDATE_MS);
-      this.#revalidateTimer.unref?.();
+      this.#revalidateTimer.unref();
     }
   }
 

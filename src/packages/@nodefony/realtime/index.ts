@@ -217,7 +217,8 @@ class Realtime extends Module<IRealtimeConfig> {
     // en développement (fail-soft) — le refus disparaissait précisément là où la
     // faute vient d'être écrite.
     const validated: IRealtimeConfig = defineRealtimeConfig(
-      (this.options ?? {}) as IRealtimeConfigInput,
+      // Sans config déclarée, le module peut n'avoir reçu aucune section.
+      (this.options as IRealtimeConfigInput | undefined) ?? {},
     );
     // Config validée exposée via this.options → `this.config` (accès uniforme
     // typé). Le RealtimeService la lit sur son module (`this.module.config`).

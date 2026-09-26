@@ -155,13 +155,15 @@ export async function provisionUsers(module: Module): Promise<void> {
     // Import dynamique : ne tire @nodefony/mongoose que si le dépôt mongo est
     // réellement choisi (le module reste opt-in dans le manifeste).
     const { MongooseUserRepository } = await import("@nodefony/mongoose");
-    const orm = ormRegistry.get("nodefony");
-    if (!orm) {
+    // `get()` LÈVE sans ORM : `has()` d'abord, pour garder le message qui
+    // nomme le manifeste.
+    if (!ormRegistry.has("nodefony")) {
       throw new Error(
         `provisionUsers: NF_USER_STORE=mongoose mais l'ORM "nodefony" est absent ` +
           `du registre — le module @nodefony/mongoose est-il chargé dans le manifeste ?`,
       );
     }
+    const orm = ormRegistry.get("nodefony");
     const users = new UserService(
       MongooseUserRepository.from(
         orm as Parameters<typeof MongooseUserRepository.from>[0],

@@ -73,11 +73,13 @@ class DevkitService extends Service implements IDevkitService {
   private readonly cfg: IDevkitConfig;
 
   constructor(module: Module) {
+    // Sans config déclarée, le module peut n'avoir reçu aucune section.
+    const options = module.options as object | undefined;
     const merged = extend(
       true,
       {},
       defaultConfig,
-      module.options ?? {},
+      options ?? {},
     ) as IDevkitConfig;
     super(
       "devkit",

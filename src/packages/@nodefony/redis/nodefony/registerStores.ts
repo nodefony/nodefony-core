@@ -33,7 +33,7 @@ function resolveRedisService(
   store: string,
   container?: Container,
 ): RedisService {
-  const service = container?.get?.<RedisService>("redis") ?? null;
+  const service = container?.get<RedisService>("redis") ?? null;
   if (!service) {
     throw new Error(
       `${store} : service "redis" introuvable — le module @nodefony/redis est-il ` +
@@ -52,7 +52,7 @@ function resolveRedisService(
   // [[feedback_prod_brick_not_in_dev_module]]
   // `service.module.kernel` : `Service.kernel` vaut `null` sur ce service (3ᵉ
   // argument du constructeur) — la garde s'écrirait sur un champ toujours vide.
-  const kernel = service.module?.kernel ?? null;
+  const kernel = service.module.kernel ?? null;
   if (kernel && !runNeedsExternalServices(kernel)) {
     throw new Error(
       `${store} : demandé EXPLICITEMENT dans un run qui n'ouvre aucune connexion. ` +
@@ -73,8 +73,8 @@ export function registerRedisFrameworkStores(): void {
   // ── Tokens (PAT + denylist JWT) — TTL natif, gc() no-op ─────────────────────
   if (!getTokenStoreFactory("redis")) {
     registerTokenStore("redis", (ctx) => {
-      const service = resolveRedisService(`tokenStore "redis"`, ctx?.container);
-      const days = ctx?.config?.tokenStore?.retentionRevokedDays;
+      const service = resolveRedisService(`tokenStore "redis"`, ctx.container);
+      const days = ctx.config.tokenStore.retentionRevokedDays;
       return RedisTokenStore.from(
         service,
         undefined,
@@ -87,7 +87,7 @@ export function registerRedisFrameworkStores(): void {
   if (!getWebAuthnStoreFactory("redis")) {
     registerWebAuthnStore("redis", (ctx) =>
       RedisWebAuthnCredentialStore.from(
-        resolveRedisService(`passkeys.store "redis"`, ctx?.container),
+        resolveRedisService(`passkeys.store "redis"`, ctx.container),
       ),
     );
   }

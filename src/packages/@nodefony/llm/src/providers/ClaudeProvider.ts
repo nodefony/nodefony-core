@@ -103,7 +103,7 @@ export class ClaudeProvider implements ILLMProvider {
       const decoder = new TextDecoder();
       let buffer = "";
 
-      while (true) {
+      for (;;) {
         const { done, value } = await reader.read();
         if (done) break;
 
@@ -236,7 +236,8 @@ export class ClaudeProvider implements ILLMProvider {
       model: data.model,
       usage: this.calcUsage(data.usage.input_tokens, data.usage.output_tokens),
       stopReason:
-        (data.stop_reason as ILLMResponse["stopReason"]) ?? "end_turn",
+        (data.stop_reason as ILLMResponse["stopReason"] | undefined) ??
+        "end_turn",
     };
   }
 
@@ -290,7 +291,7 @@ export class ClaudeProvider implements ILLMProvider {
           if (!response.ok) {
             const errBody = (await response.json().catch(() => ({}))) as {
               error?: { message?: string };
-            };
+            } | null;
             throw new LLMError(
               errBody?.error?.message ?? `Claude API error ${response.status}`,
               "API_ERROR",

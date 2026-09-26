@@ -45,7 +45,7 @@ class IdempotentDemoController extends Controller {
    */
   @Post("/bump")
   @Idempotent()
-  bump(@Body() body: { label?: string }) {
+  bump(@Body() body?: { label?: string }) {
     executions += 1;
     return {
       count: executions,

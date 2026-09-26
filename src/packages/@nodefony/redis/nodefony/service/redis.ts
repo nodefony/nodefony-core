@@ -176,7 +176,9 @@ class RedisService extends Service {
     if (this.#connections?.[name]) {
       throw new Error(`${this.name} client "${name}" already exists`);
     }
-    const definition = config.connections[name];
+    // Nom d'appelant : la connexion peut ne pas être déclarée.
+    const definition = config.connections[name] as
+      (typeof config.connections)[string] | undefined;
     if (!definition) {
       throw new Error(`${this.name} connection "${name}" undefined in config`);
     }

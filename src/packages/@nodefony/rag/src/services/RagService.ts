@@ -43,7 +43,8 @@ export class RagService implements IRagService {
     this.validateInput(text, source);
 
     const strategy = options.strategy ?? "sentence";
-    const chunker = this.chunkers[strategy];
+    // Stratégie venue de l'appelant (JavaScript compris) : peut être inconnue.
+    const chunker = this.chunkers[strategy] as IChunker | undefined;
     if (!chunker) {
       throw new RagInvalidInputError(`Unknown strategy: ${strategy}`);
     }

@@ -189,7 +189,7 @@ export class RedisTokenStore implements ITokenStore {
   #encode(record: IAccessTokenRecord): Record<string, string> {
     const h: Record<string, string> = {};
     const put = (k: string, v: string | number | null): void => {
-      if (v !== null && v !== undefined) {
+      if (v !== null) {
         h[k] = String(v);
       }
     };

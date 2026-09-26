@@ -290,7 +290,8 @@ class Test extends Module {
       });
       httpKernel.on("onAuthFailure", (_ctx: unknown, err: Error) => {
         securityHooksState.onAuthFailureCount++;
-        securityHooksState.lastAuthFailureReason = err?.message ?? String(err);
+        securityHooksState.lastAuthFailureReason =
+          err instanceof Error ? err.message : String(err);
         securityHooksState.lastHook = "onAuthFailure";
       });
     }

@@ -140,12 +140,9 @@ class DocumentationService extends Service {
   #vars: Map<string, DocVarProvider> | null = null;
 
   constructor(module: Module) {
-    super(
-      serviceName,
-      module.container as Container,
-      null,
-      module.options ?? {},
-    );
+    // Sans config déclarée, le module peut n'avoir reçu aucune section.
+    const options = module.options as object | undefined;
+    super(serviceName, module.container as Container, null, options ?? {});
     this.module = module;
   }
 
@@ -335,11 +332,11 @@ class DocumentationService extends Service {
     );
 
     if (cfg.scan.includeModules) {
-      const modules = this.kernel?.getModules?.() ?? {};
+      const modules = this.kernel?.getModules() ?? {};
       const scans = Object.values(modules)
         // L'app = la racine du projet → son docs/ EST le docs/ transverse déjà
         // scanné ci-dessus. On l'exclut pour ne pas dupliquer.
-        .filter((m) => m && !m.isApp && m.path)
+        .filter((m) => !m.isApp && m.path)
         .map((m) =>
           scanDocsDir(
             join(m.path, "docs"),

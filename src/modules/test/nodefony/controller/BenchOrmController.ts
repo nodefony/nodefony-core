@@ -9,13 +9,10 @@ let writeSeq = 0;
 
 /** Repository du banc (connector `default`) — throw si le décor n'est pas monté. */
 function repo(name: string): IRepository<Record<string, unknown>> {
-  const r = ormRegistry
+  // `get()` lève lui-même, en nommant le connecteur absent.
+  return ormRegistry
     .get(BENCH_ORM_CONNECTOR)
-    ?.getRepository<Record<string, unknown>>(name);
-  if (!r) {
-    throw new Error(`bench-orm : repository ${name} indisponible`);
-  }
-  return r;
+    .getRepository<Record<string, unknown>>(name);
 }
 
 /**

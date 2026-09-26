@@ -35,23 +35,15 @@ class DbController extends Controller {
     // ── Drizzle (connecteur "default") : entité User ───────────────────────
     let users: number | null = null;
     try {
-      const orm = ormRegistry.get("default");
-      const repo = orm?.getRepository("User");
-      if (repo) {
-        this.log(
-          "SELECT count(*) FROM User (drizzle/default)",
-          "DEBUG",
-          "DB-DEMO",
-        );
-        users = await repo.count();
-        this.log(`User : ${users} ligne(s)`, "INFO", "DB-DEMO");
-      } else {
-        this.log(
-          "Repository User indisponible (orm default ?)",
-          "WARNING",
-          "DB-DEMO",
-        );
-      }
+      // `get()` LÈVE sans ORM : le `catch` ci-dessous rend `users: null`.
+      const repo = ormRegistry.get("default").getRepository("User");
+      this.log(
+        "SELECT count(*) FROM User (drizzle/default)",
+        "DEBUG",
+        "DB-DEMO",
+      );
+      users = await repo.count();
+      this.log(`User : ${users} ligne(s)`, "INFO", "DB-DEMO");
     } catch (e) {
       this.log(e, "ERROR", "DB-DEMO", "comptage User échoué");
     }
@@ -90,15 +82,16 @@ class DbController extends Controller {
    */
   @Post("/persist/{key}")
   async persistWrite(@Param("key") key: string) {
-    const repo = ormRegistry
-      .get("default")
-      ?.getRepository<{ id: string }>("User");
-    if (!repo) {
+    // `get()` LÈVE sans ORM : `has()` d'abord, pour rendre le 503 annoncé.
+    if (!ormRegistry.has("default")) {
       return this.renderJson(
         { written: false, reason: "orm-indisponible" },
         503,
       );
     }
+    const repo = ormRegistry
+      .get("default")
+      .getRepository<{ id: string }>("User");
     const id = randomUUID();
     await repo.create({
       id,
@@ -121,12 +114,13 @@ class DbController extends Controller {
    */
   @Get("/persist/{key}")
   async persistRead(@Param("key") key: string) {
-    const repo = ormRegistry
-      .get("default")
-      ?.getRepository<{ id: string }>("User");
-    if (!repo) {
+    // `get()` LÈVE sans ORM : `has()` d'abord, pour rendre le 503 annoncé.
+    if (!ormRegistry.has("default")) {
       return this.renderJson({ found: false, reason: "orm-indisponible" }, 503);
     }
+    const repo = ormRegistry
+      .get("default")
+      .getRepository<{ id: string }>("User");
     const rows = await repo.find({
       identifier: `${DbController.PROBE_PREFIX}${key}`,
     });
@@ -147,13 +141,14 @@ class DbController extends Controller {
    */
   @Post("/persist/{key}/rollback")
   async persistRollback(@Param("key") key: string) {
-    const orm = ormRegistry.get("default");
-    if (!orm) {
+    // `get()` LÈVE sans ORM : `has()` d'abord, pour rendre le 503 annoncé.
+    if (!ormRegistry.has("default")) {
       return this.renderJson(
         { rolledBack: false, reason: "orm-indisponible" },
         503,
       );
     }
+    const orm = ormRegistry.get("default");
     try {
       await orm.transaction(async (tx) => {
         const repo = orm

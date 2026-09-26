@@ -119,9 +119,11 @@ class FrameworkController extends Controller {
   // ── queryGet echo ───────────────────────────────────────────────────────────
   @Get("/echo")
   echo() {
+    // Getter typé `Record` : `undefined` hors requête HTTP.
+    const queryGet = this.queryGet as Record<string, unknown> | undefined;
     return this.renderJson({
-      name: this.queryGet?.["name"] ?? null,
-      page: this.queryGet?.["page"] ?? null,
+      name: queryGet?.["name"] ?? null,
+      page: queryGet?.["page"] ?? null,
     });
   }
 
@@ -213,13 +215,14 @@ class FrameworkController extends Controller {
 
   // ── @Query ────────────────────────────────────────────────────────────────
   @Get("/search")
-  search(@Query("q") q: string, @Query("page") page: string) {
+  // Paramètres absents de la requête : `undefined`, ce que la route éprouve.
+  search(@Query("q") q?: string, @Query("page") page?: string) {
     return this.renderJson({ q: q ?? null, page: page ?? null });
   }
 
   // ── @Body ─────────────────────────────────────────────────────────────────
   @Post("/submit")
-  submit(@Body() payload: Record<string, unknown>) {
+  submit(@Body() payload?: Record<string, unknown>) {
     return this.renderJson(payload ?? {});
   }
 
@@ -231,9 +234,11 @@ class FrameworkController extends Controller {
   // ── queryGet (first param, bug fixé slice(1)) ─────────────────────────────
   @Get("/qs")
   queryStringTest() {
+    // Getter typé `Record` : `undefined` hors requête HTTP.
+    const queryGet = this.queryGet as Record<string, unknown> | undefined;
     return this.renderJson({
-      first: this.queryGet?.["first"] ?? null,
-      second: this.queryGet?.["second"] ?? null,
+      first: queryGet?.["first"] ?? null,
+      second: queryGet?.["second"] ?? null,
     });
   }
 
@@ -245,7 +250,7 @@ class FrameworkController extends Controller {
 
   // ── body form-urlencoded ──────────────────────────────────────────────────
   @Post("/form")
-  form(@Body() body: Record<string, unknown>) {
+  form(@Body() body?: Record<string, unknown>) {
     return this.renderJson(body ?? {});
   }
 }

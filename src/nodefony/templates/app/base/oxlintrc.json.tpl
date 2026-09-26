@@ -184,6 +184,14 @@
         ]
       }
     ],
+    // Une garde que le type déclare inutile (#498). Chaque site se JUGE : une
+    // donnée venue du réseau, du disque, d'une config non validée ou d'un
+    // appelant JavaScript justifie sa garde — c'est alors le TYPE qu'on rend
+    // honnête (`| undefined`, `Partial`, `unknown`), pas la garde qu'on retire.
+    // Élargir par `as T | undefined` sur une `const` sans annotation (une
+    // annotation se fait rétrécir au type affecté) ; un indexé s'écrit
+    // `arr.at(0)`, qui dit le vrai.
+    "typescript/no-unnecessary-condition": "error",
     // Allumées par les catégories mais hors du préréglage : `no-unsafe-type-
     // assertion` interdirait tout `as` qui rétrécit, y compris après une
     // validation ; `require-array-sort-compare` refuse un `sort()` de chaînes,
@@ -209,6 +217,9 @@
       "files": ["**/*.test.ts", "**/*.spec.ts", "tests/**/*.ts"],
       "rules": {
         "typescript/no-explicit-any": "off",
+        // Un test garde ce que le type promet pour le PROUVER : la garde y est
+        // l'assertion.
+        "typescript/no-unnecessary-condition": "off",
         // Un double de test manipule des formes partielles : les propagations
         // d'`any` et les `x!` sur un décor connu y sont admis. Et
         // `expect(mock.fn).toHaveBeenCalled()` référence une méthode sans la
@@ -239,7 +250,10 @@
         "typescript/no-unsafe-argument": "off",
         "typescript/no-unsafe-return": "off",
         "typescript/no-unsafe-call": "off",
-        "typescript/no-unnecessary-type-assertion": "off"
+        "typescript/no-unnecessary-type-assertion": "off",
+        // Types INFÉRÉS, jamais déclarés : `process.argv[2]` y est `string`,
+        // et la garde qui protège d'un argument absent passerait pour inutile.
+        "typescript/no-unnecessary-condition": "off"
       }
     }
   ]

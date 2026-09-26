@@ -148,11 +148,9 @@ export async function registerBenchOrmEntities(): Promise<void> {
  */
 export async function seedBenchOrm(log: (msg: string) => void): Promise<void> {
   const tables = await loadCorpus();
+  // `get()` lève lui-même, en nommant le connecteur absent.
   const orm = ormRegistry.get(BENCH_ORM_CONNECTOR);
-  const factures = orm?.getRepository<Record<string, unknown>>("llx_facture");
-  if (!orm || !factures) {
-    throw new Error("bench-orm : ORM default ou repository llx_facture absent");
-  }
+  const factures = orm.getRepository<Record<string, unknown>>("llx_facture");
   const present = await factures.count();
   if (present >= BENCH_ORM_FACTURES) {
     log(`bench-orm : seed déjà en place (${present} factures)`);

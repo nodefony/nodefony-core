@@ -54,9 +54,9 @@ class DevkitModule extends Module {
    * fautif nommé, plutôt qu'en `undefined.x` au premier appel en production.
    */
   override async onKernelRegister(): Promise<this> {
-    this.options = defineDevkitConfig(
-      (this.options as IDevkitConfigInput) ?? {},
-    );
+    // Sans config déclarée, le module peut n'avoir reçu aucune section.
+    const input = this.options as IDevkitConfigInput | undefined;
+    this.options = defineDevkitConfig(input ?? {});
     return this;
   }
 }

@@ -302,7 +302,7 @@ class AlsController extends Controller {
       alsRequestId: RequestContext.getRequestId() ?? null,
       alsUser:
         (RequestContext.getUser() as { id?: string } | undefined)?.id ?? null,
-      alsTraceparent: (RequestContext.get()?.traceparent as string) ?? null,
+      alsTraceparent: RequestContext.get()?.traceparent ?? null,
       contextRequestId: this.context?.requestId ?? null,
     });
   }

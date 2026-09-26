@@ -33,9 +33,8 @@ export class InMemoryStore {
     this.cleanupHandle = setInterval(() => this.cleanupExpired(), 60_000);
     // Permettre au process de finir si seul ce timer tourne
     if (
-      this.cleanupHandle &&
       typeof (this.cleanupHandle as unknown as { unref?: () => void }).unref ===
-        "function"
+      "function"
     ) {
       (this.cleanupHandle as unknown as { unref: () => void }).unref();
     }

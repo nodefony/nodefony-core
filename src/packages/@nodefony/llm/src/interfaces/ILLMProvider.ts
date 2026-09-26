@@ -67,7 +67,8 @@ export type LLMMode = "cloud" | "sovereign";
 
 export interface ILLMConfig {
   provider: LLMProviderName;
-  model: string;
+  /** Absent : le défaut du fournisseur. */
+  model?: string;
   apiKey?: string;
   endpoint?: string;
   maxTokens?: number;
