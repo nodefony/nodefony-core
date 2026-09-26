@@ -8,8 +8,8 @@
 | classe | leçons |
 | --- | ---: |
 | PRODUIT — du code livré la porte | 8 |
-| DÉPÔT — un gate ou un script la porte | 37 |
-| CONTEXTE — relue seulement | 80 |
+| DÉPÔT — un gate ou un script la porte | 39 |
+| CONTEXTE — relue seulement | 82 |
 | INERTE — rien ne la cite | 0 |
 
 ## PRODUIT
@@ -51,6 +51,7 @@
 - **feedback_root_dist_stale_modules** — src/modules/test
 - **feedback_server_kill_oneshot** — .claude/settings.local.json
 - **feedback_server_startup** — src/modules/test
+- **feedback_session_phases_bounded** — npm run session:resume · npm run session:end
 - **feedback_session_pitfalls** — npm run build · npm run clean · npm run test:integration
 - **feedback_shell_false_diagnostics** — npm run build
 - **feedback_stale_decor_poisons_verdicts** — src/modules/test
@@ -60,6 +61,7 @@
 - **feedback_test_module_controllers** — src/modules/test
 - **feedback_test_strategy** — src/modules/test
 - **feedback_turbo_cache_stale_logs** — src/modules/test
+- **feedback_twin_alignment_unproven** — .claude/skills
 - **feedback_typed_events_conditional_pattern** — docs/session-retros/archive/2026-05-28-bf1f5dab.md
 - **feedback_written_rule_needs_reread** — npm run check:lang
 
@@ -81,7 +83,7 @@
 - **feedback_css_perf** — cité dans 1 artefact(s)
 - **feedback_debug_instrument_choke_point** — cité dans 1 artefact(s)
 - **feedback_delegation_balance** — cité dans 1 artefact(s)
-- **feedback_dependency_encoded_elsewhere** — cité dans 1 artefact(s)
+- **feedback_dependency_encoded_elsewhere** — cité dans 2 artefact(s)
 - **feedback_design_dialogue_prose** — cité dans 1 artefact(s)
 - **feedback_design_doc_is_not_a_verified_scope** — cité dans 2 artefact(s)
 - **feedback_destructive_needs_identity_scope** — cité dans 2 artefact(s)
@@ -95,6 +97,7 @@
 - **feedback_fix_the_family_not_the_instance** — cité dans 2 artefact(s)
 - **feedback_gitignored_breaks_clone** — cité dans 1 artefact(s)
 - **feedback_green_covers_only_its_diff** — cité dans 2 artefact(s)
+- **feedback_green_holds_for_its_decor** — cité dans 1 artefact(s)
 - **feedback_inventory_needs_crosscheck** — cité dans 1 artefact(s)
 - **feedback_legacy_no_backcompat** — cité dans 1 artefact(s)
 - **feedback_live_cluster_debug_workflow** — cité dans 1 artefact(s)
@@ -104,6 +107,7 @@
 - **feedback_module_docs** — cité dans 2 artefact(s)
 - **feedback_named_process_titles** — cité dans 1 artefact(s)
 - **feedback_no_commit_docs_without_validation** — cité dans 2 artefact(s)
+- **feedback_no_followup_ticket_spree** — cité dans 1 artefact(s)
 - **feedback_no_headless_chrome** — cité dans 1 artefact(s)
 - **feedback_no_pull_request** — cité dans 1 artefact(s)
 - **feedback_nodefony_not_symfony_clone** — cité dans 1 artefact(s)
@@ -136,11 +140,11 @@
 - **feedback_subagent_model_in_label** — cité dans 3 artefact(s)
 - **feedback_suspect_instrument_and_own_diff** — cité dans 2 artefact(s)
 - **feedback_terminology_forage** — cité dans 1 artefact(s)
-- **feedback_test_carries_a_measure** — cité dans 1 artefact(s)
+- **feedback_test_carries_a_measure** — cité dans 2 artefact(s)
 - **feedback_test_no_fixed_delay** — cité dans 2 artefact(s)
 - **feedback_tests** — cité dans 2 artefact(s)
 - **feedback_token_economy** — cité dans 3 artefact(s)
-- **feedback_twin_alignment_unproven** — cité dans 3 artefact(s)
+- **feedback_untracked_priority_lost_at_resume** — cité dans 1 artefact(s)
 - **feedback_user_repeats_question** — cité dans 2 artefact(s)
 - **feedback_user_visibility** — cité dans 2 artefact(s)
 - **feedback_verdict_discards_its_evidence** — cité dans 2 artefact(s)
