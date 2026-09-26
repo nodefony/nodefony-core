@@ -16,29 +16,29 @@ npm install @nodefony/drizzle@alpha drizzle-orm better-sqlite3
 
 ## Utilisation comme module Nodefony (bootable)
 
-Ajouter `@nodefony/drizzle` à `@modules()` de l'app : le `DrizzleService` connecte
-au boot un ORM par connecteur configuré (c'est l'ORM SQL par défaut recommandé).
+Ajouter `@nodefony/drizzle` au manifeste `modules` de `nodefony.config.ts` : le `DrizzleService`
+connecte au boot un ORM par connecteur configuré (c'est l'ORM SQL par défaut recommandé).
 
 ```typescript
-@modules([
-  "@nodefony/drizzle", // connecte au boot, ferme au shutdown
-  "@nodefony/http",
-  // ...
-])
-class App extends Module {}
+// nodefony.config.ts
+import { defineConfig, use } from "nodefony";
+
+export default defineConfig({
+  modules: [
+    "@nodefony/http",
+    // connecte au boot, ferme au shutdown ; sans `filename`, la base vit sous var/databases/
+    use("@nodefony/drizzle", {
+      connectors: { default: { dialect: "sqlite" } },
+    }),
+  ],
+});
 ```
 
-Config par défaut (`nodefony/config/config.ts`) — surchargeable côté app via
-`nodefony/config/modules/drizzle-config.ts` :
-
-```typescript
-export default {
-  connectors: {
-    default: { filename: "<root>/var/databases/nodefony-drizzle.db" },
-    // ":memory:" ou absent → base éphémère
-  },
-};
-```
+Le schéma (`nodefony/config/config.ts`) porte les défauts ; l'application les surcharge par
+`use("@nodefony/drizzle", { … })`, par `NF_DATABASE_URL` (dialecte déduit du schéma d'URL) ou par
+l'override générique `NF__DRIZZLE__<CHEMIN>`. Sans `filename`, un connecteur SQLite écrit dans
+`<app>/var/databases/nodefony-drizzle.db` (`nodefony-<connecteur>.db` pour les autres) ;
+`filename: ":memory:"` donne une base éphémère, pour les tests.
 
 Au runtime, l'ORM est récupérable via le registre :
 

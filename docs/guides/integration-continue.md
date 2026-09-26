@@ -86,7 +86,8 @@ dans un job vert.
 
 ## 2. Ce que la forge lance
 
-Dix fichiers de workflow. Ceux qui éprouvent le code se déclenchent sur
+Onze fichiers de workflow (la publication, `release.yml`, a sa page :
+[publier une release](publier-une-release.md)). Ceux qui éprouvent le code se déclenchent sur
 **chaque poussée**, filtrés par des **chemins** — jamais par une branche :
 réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autres
 (publication, site) partent d'un événement qui leur est propre.
@@ -105,7 +106,7 @@ réserver l'infra à `main`, c'est découvrir la casse après le merge. Les autr
 | `e2e-autonomes.yml` | Cluster · configuration · arrêt gracieux | fan-out entre process, sonde de pod, point de santé, surcharge par l'environnement | aucun (les scripts se montent) |
 | `scaffold.yml` | Code généré | ce que `create` PRODUIT compile, se lint, se bâtit, se teste, répond en HTTP et démarre en production — **3 systèmes**, décor isolé (tarballs, hors dépôt) ; puis le même banc sur les **autres moteurs** (une application par moteur, ubuntu) — MongoDB compris, où les étapes propres aux entités SQL sont annoncées sautées | PostgreSQL, MySQL, MongoDB en jeu de réplicas (job `dialectes`) |
 | `codeql.yml` | Analyze | analyse statique de sécurité | — |
-
+| `soak.yml` | Charge continue et RSS | la mémoire RÉSIDENTE sous trente minutes de charge — ce que le gate mémoire, qui mesure le tas sur mille requêtes, ne voit pas ; publie le coût par million de requêtes servies, pas encore un gate (aucun seuil étalonné par plateforme) — hebdomadaire + manuel | serveur `--expose-gc` + `wrk`, ubuntu |
 | `secrets.yml` | Aucun secret dans l'arbre | `gitleaks` sur l'arbre ET l'historique — le scanner se prouve d'abord sur un témoin planté | — |
 | `release-smoke.yml` | Installation vierge | les tarballs s'installent et tiennent debout chez celui qui installe (`base`/`front`/`studio`) — manuel + hebdomadaire | conteneurs docker |
 | `release-preflight.yml` | OIDC · outils · jeton · docker | les ACCÈS de publication existent avant d'en avoir besoin (identité, versions minimales, quota) | — |
@@ -361,7 +362,7 @@ elle-même en fin de passe plutôt que de les laisser à ce guide.
 
 ### Le taux est SURESTIMÉ par les suites qui n'éprouvent pas une fonction
 
-Sur 573 fichiers de test, **24 sont des suites d'attaque** et 7 des bancs de
+Parmi les fichiers de test, **24 sont des suites d'attaque** et 7 des bancs de
 charge. Une suite d'attaque prouve qu'une intrusion **échoue** : elle traverse le
 code — donc elle fait monter le taux — sans rien dire du chemin nominal, qui peut
 rester entièrement non éprouvé derrière des lignes comptées « couvertes ». Un

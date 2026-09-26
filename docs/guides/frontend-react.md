@@ -37,13 +37,14 @@ Un module déclare son frontend une seule fois, par `FrontendService.registerEnt
 ## Approche express — la commande le fait
 
 ```bash
-nodefony create module shop --frontend react   # ou : vue | angular | svelte
+nodefony create module shop --frontend react   # ou : vue | angular
 ```
 
 La commande produit le squelette du module **et** son frontend : controller HTML avec sa politique
-de sécurité, dossier `frontend/`, dépendances déclarées, point d'entrée enregistré. Les quatre
-choix sont **React 19, Vue 3, Angular 21 et Svelte 5** (`spec.ts:194`) — elle vous fait gagner les
-neuf étapes manuelles ci-dessous.
+de sécurité, dossier `frontend/`, dépendances déclarées, point d'entrée enregistré. Les trois
+choix sont **React 19, Vue 3 et Angular** (standalone, zoneless) — elle vous fait gagner les neuf
+étapes manuelles ci-dessous. Svelte 5 existe aussi, mais par `nodefony create front`, qui pose une
+page dans une application ou un module déjà créé.
 
 Le reste de ce guide explique la **version manuelle**, utile pour comprendre ce que la commande
 fait, et indispensable pour greffer un frontend sur un module qui existe déjà.
@@ -61,16 +62,20 @@ fait, et indispensable pour greffer un frontend sur un module qui existe déjà.
 
 ## Étape 1 — Activer `@nodefony/frontend` dans l'app
 
-Dans le `index.ts` racine de ton app (ou du repo `nodefony-core` en dev) :
+Dans le manifeste `modules` de `nodefony.config.ts` — son ordre est l'ordre de chargement :
 
 ```typescript
-@modules([
-  "@nodefony/http",
-  "@nodefony/framework",
-  "@nodefony/frontend",        // ← AVANT ton module consumer (ordre boot critique)
-  "@nodefony/shop-front",       // ← ton module à venir
-])
-class App extends Module { ... }
+// nodefony.config.ts
+import { defineConfig } from "nodefony";
+
+export default defineConfig({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
+    "@nodefony/frontend", // ← AVANT ton module consumer (ordre de chargement)
+    "shop-front", // ← ton module à venir
+  ],
+});
 ```
 
 > ⚠️ **Ordre important** : `@nodefony/frontend` doit être déclaré AVANT les modules qui appellent `registerEntry()`. Sinon le service `frontend` n'est pas dans le DI Container au `onKernelBoot` du consumer → `ERROR @nodefony/frontend service unavailable`.
@@ -84,7 +89,7 @@ mkdir -p src/modules/shop-front/frontend/src
 
 **`src/modules/shop-front/package.json`** : copier depuis `src/modules/test-frontend-react/package.json`, remplacer `test-frontend-react` par `shop-front`.
 
-**`src/modules/shop-front/tsconfig.json`** et **`rollup.config.ts`** : copier à l'identique depuis `test-frontend-react/`.
+**`src/modules/shop-front/tsconfig.json`** et **`rolldown.config.ts`** : copier à l'identique depuis `test-frontend-react/`.
 
 ## Étape 3 — `index.ts` du module
 
@@ -106,7 +111,7 @@ class ShopFront extends Module {
       FrontendService | undefined;
     if (!svc) {
       this.log(
-        "@nodefony/frontend service unavailable — wrong @modules order?",
+        "@nodefony/frontend service unavailable — wrong modules order?",
         "ERROR",
       );
       return this;
@@ -322,7 +327,7 @@ Génère `src/modules/shop-front/public/dist/manifest.json` + assets fingerprint
 
 | Symptôme                                               | Cause                           | Fix                                                            |
 | ------------------------------------------------------ | ------------------------------- | -------------------------------------------------------------- |
-| `ERROR @nodefony/frontend service unavailable`         | Ordre `@modules` racine         | Déclarer `@nodefony/frontend` AVANT le module consumer         |
+| `ERROR @nodefony/frontend service unavailable`         | Ordre du manifeste `modules`    | Déclarer `@nodefony/frontend` AVANT le module consumer         |
 | Page blanche, `Refused to load script ... blocked:csp` | Un controller réécrit le CSP    | Le laisser au firewall : il déclare déjà les origines Vite     |
 | Assets sur `127.0.0.1` depuis une AUTRE machine        | Hôte hors `trustedHosts`        | L'y ajouter en dev : la même liste ouvre 421, Vite, CSP, rendu |
 | `Unexpected token '<'` sur `fetch("/api/...")`         | Vite sert SPA-fallback HTML     | Déclarer `apiProxyPaths` dans `registerEntry`                  |

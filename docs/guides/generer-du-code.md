@@ -123,9 +123,12 @@ class BlogController extends Controller {
 
   @route("blog-index", { path: "", method: "GET" })
   async index(@CurrentUser() user?: { identifier?: string }) {
+    // L'anonyme est un VRAI utilisateur (identifiant "anon."), jamais null.
+    const authenticated = !!user?.identifier && user.identifier !== "anon.";
     return this.renderJson({
       hello: "blog",
-      who: user?.identifier ?? "anonyme",
+      pid: process.pid,
+      who: authenticated ? user!.identifier! : "anonyme",
     });
   }
 
@@ -349,15 +352,15 @@ formulaire à partir de la spec (`/nodefony/studio/api/create/spec`), montre la
 
 ## Tests
 
-Le générateur est couvert par **126 cas** répartis sur quatre suites unitaires —
-aucune n'a besoin d'un serveur.
+Le générateur est couvert par quatre suites unitaires — aucune n'a besoin d'un serveur. Les
+compteurs exacts vivent dans la carte de l'aperçu, régénérée depuis vitest, jamais figés ici.
 
-| Suite                                                          | Cas | Ce qu'elle verrouille                                                                                                                                                                                       |
-| -------------------------------------------------------------- | --: | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `src/nodefony/src/tests/create.test.ts`                        |  90 | Analyse des drapeaux, spec déclarative, moteur sur les cinq types (2 presets × 4 frontends), front interactif sur flux factices, mode machine, simulation, **intégrité après refus**, catalogue de versions |
-| `src/nodefony/src/tests/entityFields.test.ts`                  |  18 | Grammaire des champs d'entité et sa traduction dans les trois dialectes — module pur, testable sans disque                                                                                                  |
-| `src/nodefony/src/tests/scaffoldDestination.test.ts`           |  12 | Où une application a le droit de naître : recomposition sous une racine autorisée, refus de toute traversée                                                                                                 |
-| `@nodefony/studio/nodefony/tests/unit/scaffoldService.test.ts` |   6 | Refus hors développement, préview qui ne touche pas au disque, distinction créé/réécrit, refus du moteur répercuté                                                                                          |
+| Suite                                                          | Ce qu'elle verrouille                                                                                                                                                                                       |
+| -------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `src/nodefony/src/tests/create.test.ts`                        | Analyse des drapeaux, spec déclarative, moteur sur les cinq types (2 presets × 4 frontends), front interactif sur flux factices, mode machine, simulation, **intégrité après refus**, catalogue de versions |
+| `src/nodefony/src/tests/entityFields.test.ts`                  | Grammaire des champs d'entité et sa traduction dans les trois dialectes — module pur, testable sans disque                                                                                                  |
+| `src/nodefony/src/tests/scaffoldDestination.test.ts`           | Où une application a le droit de naître : recomposition sous une racine autorisée, refus de toute traversée                                                                                                 |
+| `@nodefony/studio/nodefony/tests/unit/scaffoldService.test.ts` | Refus hors développement, préview qui ne touche pas au disque, distinction créé/réécrit, refus du moteur répercuté                                                                                          |
 
 Le contrôle qui compte le plus est celui de l'**intégrité** : il prend une
 empreinte complète du projet, provoque un refus, et exige que rien n'ait bougé —

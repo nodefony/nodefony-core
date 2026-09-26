@@ -66,7 +66,7 @@ autorité :
 | `npm run release -- --version <v> --from <ref>` | `scripts/release/release.mjs`                              | prépare et **refuse**                                    |
 | `npm run release:pack`                          | `scripts/release/pack-all.mjs`                             | fabrique les tarballs                                    |
 | `npm run release:smoke`                         | `scripts/release/smoke-docker.sh`                          | prouve l'installation **vierge**                         |
-| `npm run test:release`                          | `scripts/release/release-core.test.mjs`                    | 197 tests sur le raisonnement pur                        |
+| `npm run test:release`                          | `scripts/release/release-core.test.mjs`                    | les tests du raisonnement pur (sans réseau ni registre)  |
 | `npm run release:image-gate -- <image>`         | `scripts/release/image-gate.mjs` (+ `image-gate.test.mjs`) | refuse une image porteuse d'un secret, couche par couche |
 
 Trois autres endroits, qu'il ne faut pas confondre :

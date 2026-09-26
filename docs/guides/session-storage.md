@@ -45,8 +45,8 @@ ajouter un pilote **ne touche pas** `@nodefony/http`. La résolution du nom est 
 
 Le registre et sa résolution vivent dans `SessionsService.registerStorage()`
 (`sessions-service.ts:182`), `SessionsService.getStorage()` (`sessions-service.ts:191`) et
-`SessionsService.storageHandlers()` (`sessions-service.ts:196`) ; le stockage intégré s'enregistre
-en fin de fichier (`sessions-service.ts:198`).
+`SessionsService.storageHandlers()` (`sessions-service.ts:198`) ; le stockage intégré s'enregistre
+en fin de fichier (`registerStorage("memory")`, `sessions-service.ts:890`).
 
 ## Choisir le backend — un seul réglage
 
@@ -70,8 +70,8 @@ export default {
 | `mongoose` | `@nodefony/mongoose` | Collection MongoDB                                        |
 | `redis`    | `@nodefony/redis`    | Clés Redis, avec expiration native                        |
 
-> Un backend n'est disponible que si **le module qui le fournit est chargé** (`@modules()`).
-> `store: "drizzle"` exige donc `@nodefony/drizzle` dans `@modules()`.
+> Un backend n'est disponible que si **le module qui le fournit est chargé** (manifeste `modules`
+> de `nodefony.config.ts`). `store: "drizzle"` exige donc `@nodefony/drizzle` dans ce manifeste.
 
 ### Ce que fait `auto`, précisément
 
@@ -155,7 +155,7 @@ SessionsService.registerStorage("s3", S3SessionStorage);
 export default S3SessionStorage;
 ```
 
-3. Activer : `session: { store: "s3" }`. Le module fournisseur doit être dans `@modules()`.
+3. Activer : `session: { store: "s3" }`. Le module fournisseur doit être dans le manifeste `modules`.
 
 > **Piège de bundle** : appeler `SessionsService.registerStorage(...)` rend l'import de
 > `@nodefony/http` **une valeur** et non plus un import de type — il faut donc ajouter
@@ -194,7 +194,7 @@ stockage adossé au repository, purge par un opérateur portable
 - **`memory` n'est pas un backend de production.** Il ne survit pas au redémarrage du process, et
   deux exemplaires de l'application ne partagent rien : chaque requête peut tomber sur un pod qui
   ne connaît pas la session. C'est le repli, pas un choix.
-- **Le module fournisseur doit être dans `@modules()`.** `store: "redis"` sans `@nodefony/redis`
+- **Le module fournisseur doit être dans le manifeste `modules`.** `store: "redis"` sans `@nodefony/redis`
   chargé ne donne pas une erreur de configuration : le registre ne contient tout simplement pas
   le nom, et on retombe sur la doctrine d'échec ci-dessus.
 - **Enregistrer depuis un constructeur de service arrive trop tard.** L'inscription doit se faire

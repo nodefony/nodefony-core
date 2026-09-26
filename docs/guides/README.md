@@ -12,7 +12,7 @@ updated: 2026-05-21
 
 # Guides
 
-> Onze recettes, une tâche chacune. On suit, on obtient un résultat. Ce n'est ni un tutoriel
+> Quinze recettes, une tâche chacune. On suit, on obtient un résultat. Ce n'est ni un tutoriel
 > (qui vous prend par la main du début à la fin) ni de l'architecture (qui explique ce qui se
 > passe dessous) : un guide répond à **une** question précise, celle que vous vous posez
 > maintenant.

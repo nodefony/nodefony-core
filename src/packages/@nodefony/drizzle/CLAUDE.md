@@ -13,7 +13,7 @@ Deux usages :
 
 1. **Module bootable** : `index.ts` exporte par défaut une
    classe `Drizzle extends Module` (`@services([DrizzleService])`). Ajouté à
-   `@modules()` de l'app → `DrizzleService` connecte au boot (`onBoot`) un
+   manifeste `modules` de l'app → `DrizzleService` connecte au boot (`onBoot`) un
    `DrizzleOrm` **par connecteur** de la config (`nodefony/config/config.ts`,
    défaut : connecteur `default` sur `<root>/var/databases/nodefony-drizzle.db`,
    sous `kernel.varDir` = base commune des données runtime persistées).

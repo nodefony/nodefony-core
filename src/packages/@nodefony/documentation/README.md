@@ -19,32 +19,30 @@ hybride), la doc vit à deux endroits, et les deux sont scannés :
 
 ## Installation / activation
 
-Le module est déclaré dans les `@modules()` de l'application, **après** `@nodefony/framework`
-(dépendance des décorateurs `@controller`) et **avant** `@nodefony/studio` (dont le front consomme ce
-data plane) :
+Le module est déclaré dans le manifeste `modules` de `nodefony.config.ts`, **après**
+`@nodefony/framework` (dépendance des décorateurs `@controller`) et **avant** `@nodefony/studio`
+(dont le front consomme ce data plane) :
 
 ```ts
-// index.ts (racine app)
-@modules([
+// nodefony.config.ts
+modules: [
   // …
   "@nodefony/documentation",
   "@nodefony/studio",
-])
+],
 ```
 
 ## Configuration
 
-Surcharge depuis la config applicative sous la clé `module-documentation` (fusion récursive) :
+Surcharge depuis `nodefony.config.ts`, par `use()` (fusion récursive avec les défauts) :
 
 ```ts
-// src/modules/app/nodefony/config/config.ts
-export default {
-  "module-documentation": {
-    scan: { includeModules: false }, // racine seule
-    repo: { url: "https://github.com/acme/app", editPathPrefix: "blob" },
-    cache: { ttlMs: 0 }, // rescan à chaque requête (dev)
-  },
-};
+// nodefony.config.ts
+use("@nodefony/documentation", {
+  scan: { includeModules: false }, // racine seule
+  repo: { url: "https://github.com/acme/app", editPathPrefix: "blob" },
+  cache: { ttlMs: 0 }, // rescan à chaque requête (dev)
+}),
 ```
 
 <!-- prettier-ignore -->

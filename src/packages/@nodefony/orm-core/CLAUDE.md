@@ -7,7 +7,7 @@ Consommé par les **deux** drivers existants (`@nodefony/drizzle` — défaut �
 
 ## Nature : LIB PURE (pas un Module runtime)
 
-- **PAS** de classe `Module`, **PAS** d'enregistrement dans `@modules()` racine.
+- **PAS** de classe `Module`, **PAS** d'entrée dans le manifeste `modules` de l'app.
 - C'est une dépendance lib : les **drivers** sont les Modules ; ils s'enregistrent eux-mêmes dans le `OrmRegistry` (singleton process-wide) à leur boot.
 - Pourquoi : le registre est un singleton ; faire d'orm-core un Module runtime ajouterait de l'ordering pour zéro bénéfice.
 
