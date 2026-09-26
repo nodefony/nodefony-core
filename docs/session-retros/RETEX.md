@@ -296,16 +296,28 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
-- [1× — 09-26e] **Un `--fix` sûr pour le type n'est pas sûr pour le SENS** :
+- [2× — 09-26e, 09-26g] **Un `--fix` sûr pour le type n'est pas sûr pour le SENS** :
   `no-unnecessary-boolean-literal-compare --fix` a réécrit `useMkcert !== false` en `useMkcert`,
   qui s'inverse sur `undefined` (mkcert éteint par défaut) ; même famille, `as Row` retiré qui
   pilotait l'inférence d'un `get<T>()`. Lot automatique jeté entier ; preuve retenue : comparer le
   JS ÉMIS avant/après (`transpileModule`) — identique = pur typage, sinon relecture mot à mot.
-- [1× — 09-26e] **Le verdict du lint TYPÉ dépend du décor, pas du code** : un `.mjs` hors de tout
+  2ᵉ fois (09-26g, `prefer-optional-chain`, correctif classé SÛR, pas une suggestion) : il a
+  retiré une garde `typeof window` (le type DOM déclare `window` toujours là) et fondu
+  `=== null || === undefined` en `=== undefined` dans un `.mjs` SANS types. Le type ment là où le
+  runtime diverge (hors navigateur, JS non typé) : `--fix` s'applique, le diff se relit en entier.
+- [2× — 09-26e, 09-26g] **Le verdict du lint TYPÉ dépend du décor, pas du code** : un `.mjs` hors de tout
   tsconfig est typé différemment selon le chemin passé (faux `Number(bigint)` fichier par fichier,
   vrais constats tus depuis la racine), plusieurs chemins d'un coup rendent des comptes faux, et un
   `dist/types` en cours de build fait voir des types `error` partout. Remède : un tsconfig qui
   couvre chaque fichier (`.claude/`, `scripts/`), mesurer à la racine, après un build complet.
+  2ᵉ fois (09-26g) : le superviseur de dev REBÂTIT `dist` à chaque édition sous `src/` — un lint
+  lancé juste après une édition voit des `error` sur des fichiers non touchés ; relancé, vert.
+- [1× — 09-26g] **Le gate mémoire rouge à cause d'un client qu'on ne voit pas** : le client MCP de
+  la session sonde `GET /nodefony/mcp` CHAQUE SECONDE ; le traceur de contextes compte TOUT ce qui
+  naît depuis sa marque → 1 à 4 contextes « vivants », variables d'un run à l'autre, rétention et
+  scopes propres. Le message n'énonçait qu'une cause (« une référence les retient ») et m'a envoyé
+  soupçonner mon diff ; j'ai aussi accusé à tort un Brave dont le socket était muet. Remède posé :
+  le message nomme le client externe ; signature à reconnaître = compte VARIABLE + pente plate.
 - [1× — 09-26e] **Une garde écrite pour REFUSER l'inutile qui ne refuse rien** : `typeCycles`
   gardait quatre cycles morts parce que la garde cherchait le nom du paquet en SOUS-CHAÎNE — un
   `//import` commenté suffisait. La même expression d'import était quadratique (22,6 s sur une
