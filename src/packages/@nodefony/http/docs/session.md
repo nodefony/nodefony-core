@@ -459,7 +459,7 @@ qui prolonge l'idle **sans réécrire le blob**, et seulement au-delà d'une dem
 pour que la sauvegarde de fin de requête ne réécrive pas ce qu'on vient de supprimer. Surtout, **tout**
 store est décoré par `RevocationGuardStorage` (`sessions-service.ts:309`) : `destroy()` pose une
 **pierre tombale** de 5 minutes (`RevocationGuardStorage.ts:156`) qui refuse ensuite tout `write`
-(`RevocationGuardStorage.ts:163`) **et tout `touch`** (`RevocationGuardStorage.ts:163`) du même
+(`RevocationGuardStorage.ts:163`) **et tout `touch`** (`RevocationGuardStorage.ts:130`) du même
 identifiant — ce qui couvre la requête « en vol » d'un autre client.
 
 **Purge hors requête.** Un `GcScheduler` est armé au `onReady`, désarmé au `onTerminate`

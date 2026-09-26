@@ -671,7 +671,7 @@ Mieux vaut le savoir en concevant l'infrastructure qu'en la déployant.
 Deux échecs très différents partagent le même symptôme apparent — « Redis ne marche pas » — et se
 règlent à des endroits opposés.
 
-**La configuration est invalide.** `Redis.onKernelRegister()` (`index.ts:54`) valide avant tout le
+**La configuration est invalide.** `Redis.onKernelRegister()` (`index.ts:64`) valide avant tout le
 reste et refuse de démarrer sur une valeur hors bornes. Le message nomme le champ fautif
 (`index.ts:68`) :
 
@@ -682,7 +682,7 @@ reste et refuse de démarrer sur une valeur hors bornes. Le message nomme le cha
 C'est un défaut de configuration : rien à chercher côté réseau.
 
 **Le serveur ne répond pas.** La configuration est bonne, l'ouverture échoue. Le module est déclaré
-**non critique** — `Redis.critical` (`index.ts:36`) vaut `false` — donc l'application démarre quand
+**non critique** — `Redis.critical` (`index.ts:46`) vaut `false` — donc l'application démarre quand
 même, en état dégradé annoncé. Chaque connexion est tentée indépendamment et journalisée en `ERROR`
 par `RedisService.init()` (`redis.ts:123`) : une connexion en échec n'empêche pas les suivantes.
 
@@ -712,7 +712,7 @@ faire avant une mise en production.
 ## 📡 Observabilité — Studio
 
 - **Carte du module** (`/nodefony/modules/redis`) : la configuration validée, rendue par un formulaire
-  **dérivé** du JSON Schema que publie `Redis.configSchema()` (`index.ts:43`). Les champs marqués
+  **dérivé** du JSON Schema que publie `Redis.configSchema()` (`index.ts:53`). Les champs marqués
   secrets — `url`, `password` — y sont masqués par construction, pas par une liste d'exclusion tenue
   à la main.
 - **Écran Stores** (`/nodefony/stores`) : pour chaque brique, le store réellement retenu au démarrage

@@ -417,7 +417,7 @@ Trois sources, et il faut connaître les limites de chacune :
 
 1. **L'état** — le listing d'administration paginé, tous porteurs confondus : `GET
 /nodefony/security/api/apikeys` (`SecurityAdminApi.ts:394`), servi par `listPagePat()`
-   (`apiKeys.ts:216`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
+   (`apiKeys.ts:209`). Filtres `subjectId`, `revoked`, fenêtre `limit`/`offset`/`cursor` et tri
    `order=champ:ASC` (`parseTokenListQuery()`, `SecurityAdminApi.ts:126`), plafonnée à 200 entrées
    (`KEYS_MAX_LIMIT`, `SecurityAdminApi.ts:114`).
 

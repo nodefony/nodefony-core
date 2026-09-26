@@ -140,7 +140,7 @@ lien inerte qu'un identifiant inventé.
 > et le même data plane alimentera un générateur de site statique ou une indexation documentaire
 > sans qu'une ligne du module change. Le rendu appartient au lecteur, jamais au serveur.
 
-Le module se déclare par ailleurs **non critique** (`Documentation.critical`, `index.ts:33`) : un
+Le module se déclare par ailleurs **non critique** (`Documentation.critical`, `index.ts:46`) : un
 échec de son démarrage n'emporte jamais le processus. On perd le catalogue, jamais l'application.
 
 ## 🚀 Démarrage rapide

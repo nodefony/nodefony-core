@@ -283,7 +283,7 @@ valeurs sont des constantes du code, pas des clés.
 
 Poser `false` charge le module sans rien activer. Concrètement : pas d'API d'administration
 enregistrée, pas de backplane câblé, pas de sonde de pod
-(`Realtime.onKernelBoot()`, `src/packages/@nodefony/realtime/index.ts:213`), et le service devient
+(`Realtime.onKernelBoot()`, `src/packages/@nodefony/realtime/index.ts:239`), et le service devient
 inerte (`RealtimeService.init()`, `RealtimeService.ts:77`).
 
 > [!WARNING]
@@ -705,7 +705,7 @@ Deux fonctions publiques, utiles surtout aux tests et aux outils.
 
 `defineRealtimeConfig(config?, options?)` (`defineModuleConfig.ts:35`) analyse, applique la variable
 de driver et **gèle**. Le module l'appelle lui-même à l'enregistrement
-(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:219`) : tu n'as pas à
+(`Realtime.onKernelRegister()`, `src/packages/@nodefony/realtime/index.ts:213`) : tu n'as pas à
 l'invoquer dans une application. En revanche, c'est l'outil qui permet de vérifier une configuration
 sans démarrer un serveur.
 

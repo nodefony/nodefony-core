@@ -336,7 +336,7 @@ montée avec `[method, "WEBSOCKET"]`. Elle devient donc invocable par le pont WS
 Les **mutations** sont pontables par socket. La sécurité d'écriture repose alors sur l'**idempotence**
 (`idempotencyGate()`, `AdminApiController.ts:131`) : la clé `Idempotency-Key` est **obligatoire en
 WS** (une socket reconnecte et rejoue), **optionnelle en HTTP** (`required: false`,
-`AdminApiController.ts:184`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:149`) ; la
+`AdminApiController.ts:149`). Un `GET` n'est jamais idempotenté (`AdminApiController.ts:135`) ; la
 porte est évaluée **après** le RBAC (un 403 ne consomme aucune entrée). Le helper est le **même** que
 le seam `@Idempotent` des controllers userland — voir [Idempotence](idempotence.md).
 

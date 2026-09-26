@@ -637,7 +637,7 @@ Deux mécanismes, à ne pas confondre.
 
 > [!CAUTION]
 > `CliKernel` **n'étend pas** `Kernel` — il étend `Cli`, et le `Kernel` lui est rattaché
-> (`CliKernel.start()`, `CliKernel.ts:191`). Corollaire : dans le constructeur de `CliKernel`,
+> (`CliKernel.start()`, `CliKernel.ts:219`). Corollaire : dans le constructeur de `CliKernel`,
 > `environment` peut être indéfini. Tout réglage conditionnel à l'environnement va dans le hook
 > `onKernelStart()` de la commande, jamais dans le constructeur.
 

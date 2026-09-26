@@ -64,7 +64,7 @@ function definitionLines(lines, sym) {
     new RegExp(`^\\s*(export\\s+)?enum\\s+${esc}\\b`),
     // méthode / accesseur / champ privé d'une classe
     new RegExp(
-      `^\\s{2,}(public |private |protected |static |readonly )*(async )?(get |set )?#?${esc}\\s*[(<]`,
+      `^\\s{2,}(public |private |protected |static |readonly |abstract |override )*(async )?(get |set )?#?${esc}\\s*[(<]`,
     ),
   ];
   const weak = [new RegExp(`^\\s{2,}#?${esc}\\s*[:=]`)];

@@ -346,8 +346,8 @@ sur disque. Ses membres utiles :
 | `prettySize`             | Taille lisible (`« 1.2 MB »`).                                          | `getPrettySize()` (`service/upload/upload-service.ts:143`) |
 | `mimeType`               | Type MIME déclaré (`image/png`…), sinon deviné de l'extension.          | `getMimeType()` (`service/upload/upload-service.ts:153`)   |
 | `hash` / `hashAlgorithm` | Empreinte d'intégrité si `upload.hashAlgorithm` est réglé.              | `interfaces/IUpload.ts:55`                                 |
-| `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline.        | `moveAsync()` (`service/upload/upload-service.ts:193`)     |
-| `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                  | `move()` (`service/upload/upload-service.ts:160`)          |
+| `moveAsync(target)`      | Déplace le temp — **non bloquant, recommandé** dans le pipeline.        | `moveAsync()` (`service/upload/upload-service.ts:218`)     |
+| `move(target)`           | Variante **synchrone** (compat) — bloque l'event-loop.                  | `move()` (`service/upload/upload-service.ts:186`)          |
 
 `move`/`moveAsync` acceptent un **fichier cible** ou un **dossier existant** : sur un dossier, la
 destination est bâtie avec `filename` — d'où l'avertissement de sécurité ci-dessous.

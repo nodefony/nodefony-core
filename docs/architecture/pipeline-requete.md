@@ -496,7 +496,7 @@ d'une seule**. La clé est le `requestId`, et tu n'as rien à câbler.
 À la construction du contexte, `requestId` reçoit un UUID (`Context.ts:244`). Il est ensuite :
 
 1. **propagé** à tout l'asynchrone via la bulle ALS (`http-kernel.ts:1151`) ;
-2. **posé sur chaque ligne de log** émise pendant la requête (`Context.log()`, `Context.ts:442`) ;
+2. **posé sur chaque ligne de log** émise pendant la requête (`Context.log()`, `Context.ts:520`) ;
 3. **réfléchi au client** dans l'en-tête `x-request-id` de la réponse (`Response.ts:433`) ;
 4. **stable pour toute une connexion** WebSocket, handshake et trames compris.
 

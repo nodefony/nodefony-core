@@ -328,7 +328,7 @@ Choisir en cinq secondes :
 | `server-static`           | (aucun port propre) | toujours enregistré       | Fichiers statiques, en **repli** après le routing. |
 
 L'assemblage est fait par `HttpKernel.initServers()` (`http-kernel.ts:1056`) : chaque serveur est
-consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:235`).
+consulté sur son drapeau `active`, un serveur désactivé est **sauté**, pas créé (`http-kernel.ts:1062`).
 Les serveurs WebSocket ne sont montés que si leur porteur l'a été.
 
 ### `server-http` — HTTP/1.1 en clair

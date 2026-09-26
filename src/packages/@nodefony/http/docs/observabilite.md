@@ -235,7 +235,7 @@ GET  200 /trace/whoami 3.1ms 127.0.0.1                   [demo-abc]
 
 > [!IMPORTANT]
 > Les logs de **fin** de requête (bilan `req`, `onClose`) sont émis **hors** de la bulle ALS (déjà
-> refermée). L'override `Context.log()` (`Context.ts:459`) rouvre alors une micro-bulle depuis
+> refermée). L'override `Context.log()` (`Context.ts:520`) rouvre alors une micro-bulle depuis
 > `this.requestId` pour que le `Pdu` capture quand même la corrélation — sinon la ligne d'entrée d'une
 > trace serait la seule à ne PAS porter son `requestId`.
 
@@ -418,7 +418,7 @@ instancié **qu'en dev** (fuite d'info + coût en prod).
 | Symptôme                                            | Cause                                                               | Correction                                                                         |
 | --------------------------------------------------- | ------------------------------------------------------------------- | ---------------------------------------------------------------------------------- |
 | Le `X-Request-Id` que j'envoie n'est pas réfléchi   | Valeur non conforme (espace, CR/LF, non-ASCII, > 128) → **rejetée** | Utiliser `[A-Za-z0-9._-]{1,128}` (UUID/nanoid/traceparent OK) — sinon UUID serveur |
-| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:459`)           |
+| Les logs de fin de requête n'ont pas de `requestId` | Ils sont émis hors bulle ALS                                        | Déjà géré : l'override `log()` rouvre une micro-bulle (`Context.ts:520`)           |
 | Réponse HTTP/2 sans `x-request-id`                  | Chemin de réponse h2 distinct du 1.1                                | Déjà géré (`http2/Response.ts:71`) — le port 5152 réfléchit aussi                  |
 | Pas de `traceparent` renvoyé sur un WebSocket       | `ws` n'expose pas l'écriture d'en-tête au handshake                 | Attendu — la trace WS reste propagée en ALS (`http-kernel.ts:1698`)                |
 | Frame WS binaire loggée en `{"0":..,"1":..}`        | Sérialisation naïve d'un Buffer                                     | Déjà géré : résumé `[binary N B]` (`wsLogContent.ts:63`)                           |

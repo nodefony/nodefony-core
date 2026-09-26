@@ -344,7 +344,7 @@ Source unique = schéma Zod `idempotencySchema`
 
 ### Comment `store: "auto"` se résout VRAIMENT
 
-`Framework.onKernelBoot()` (`src/packages/@nodefony/framework/index.ts:189`) délègue à
+`Framework.onKernelBoot()` (`src/packages/@nodefony/framework/index.ts:230`) délègue à
 `resolveAutoStore("ephemeral", …)` (`src/nodefony/src/config/infra.ts:289`), borné aux backends
 **réellement enregistrés** (`listIdempotencyBackends()`, `idempotencyStoreRegistry.ts:81`). L'ordre
 réel est le suivant :

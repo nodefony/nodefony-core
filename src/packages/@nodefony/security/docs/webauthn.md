@@ -170,7 +170,7 @@ Dès que `@nodefony/security` est chargé, le framework monte six routes
 > Les quatre routes de cérémonie sont `bypassFirewall: true` (`WebAuthnController.ts:365`) : elles
 > **sont** le mécanisme d'authentification — les protéger exigerait d'être déjà connecté pour se
 > connecter. Le contrôle d'accès de `register/*` est fait **dans le controller**
-> (`flow.me()` → 401, `WebAuthnController.ts:106`). Les deux routes self-service, elles, restent dans
+> (`flow.me()` → 401, `WebAuthnController.ts:119`). Les deux routes self-service, elles, restent dans
 > la zone protégée (`security.webauthn.credentials.list`, `WebAuthnController.ts:314`).
 
 ### 3. Ce que TU écris : l'appel navigateur

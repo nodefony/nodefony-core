@@ -250,7 +250,7 @@ MODULE billing   100 HT → 105.5 EUR       # msgid = « MODULE <nom> », automa
 ```
 
 Le `msgid` de la dernière ligne est `MODULE billing` sans qu'on l'ait écrit : `Module.log()`
-(`Module.ts:727`) le remplit par défaut, là où un `Service` nu emploie son seul nom. Le taux appliqué
+(`Module.ts:745`) le remplit par défaut, là où un `Service` nu emploie son seul nom. Le taux appliqué
 est **0.055** et non 0.2 — la config du manifeste a écrasé le défaut du constructeur.
 
 Et la commande est là :
@@ -552,7 +552,7 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 
 `CliKernel` (`CliKernel.ts:117`) est ce que `npx nodefony <commande>` instancie. Il n'étend **pas**
 `Kernel` : il étend `Cli`, analyse `argv` via Commander, et fabrique le kernel dans `start()`
-(`CliKernel.ts:172`).
+(`CliKernel.ts:219`).
 
 ### Ce qu'il apporte
 
@@ -561,7 +561,7 @@ développement, et se déclenche au premier déploiement. Le journal, lui, ne pe
 | `runProfile`            | `CliKernel.ts:118`  | `{ servers, lifetime, interactive }` — ce dont le run a besoin.       |
 | `setRunProfile(profil)` | `CliKernel.ts:1025` | Déclaré par une commande ; recopié dans le kernel à `onStart`.        |
 | `packageManager`        | `CliKernel.ts:125`  | `pnpm` par défaut ; commutable en `npm` / `yarn`.                     |
-| `addCommand(Ctor)`      | `CliKernel.ts:670`  | Enregistre une commande intégrée (les modules passent par `Module`).  |
+| `addCommand(Ctor)`      | `CliKernel.ts:1068` | Enregistre une commande intégrée (les modules passent par `Module`).  |
 | `quietBoot`             | `CliKernel.ts:128`  | Boot silencieux : seules les erreurs sortent. Pour une sortie propre. |
 | `parseCommand(argv?)`   | `CliKernel.ts:190`  | Analyse Commander synchrone.                                          |
 

@@ -127,7 +127,7 @@ service par la chaîne `"redis"` dans le conteneur, jamais par un `import`. `Red
 `import type`, effacé à la compilation. Résultat, aucune dépendance runtime ne circule entre l'infra
 et la sécurité, dans aucun sens — et le graphe de modules reste acyclique.
 
-**Charger le module suffit.** `Redis.onKernelRegister()` (`index.ts:54`) valide la configuration puis
+**Charger le module suffit.** `Redis.onKernelRegister()` (`index.ts:64`) valide la configuration puis
 appelle `registerRedisFrameworkStores()` (`registerStores.ts:72`), qui inscrit les fabriques `redis`
 dans les registres de jetons et de passkeys. Le store de session, lui, s'auto-déclare à l'import du
 fichier (`SessionStorage.ts:323`). Aucune application n'a de câblage à écrire : il ne reste qu'à
@@ -643,7 +643,7 @@ c'est la contrepartie assumée de la séparation imposée par le protocole.
   haut, rendue visible.
 - **Carte du module** (`/nodefony/modules/redis`) : documentation, symboles, tests, couverture, et la
   configuration validée. Le formulaire est dérivé du JSON Schema publié par `Redis.configSchema()`
-  (`index.ts:43`), jamais écrit à la main.
+  (`index.ts:53`), jamais écrit à la main.
 
 Le module **n'expose pas** de plan de données propre (`/nodefony/redis/api/*`) : il n'a ni état
 métier ni introspection spécifique. Ce qui compte de lui — quelles connexions, quel store gagne — est

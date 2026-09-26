@@ -207,7 +207,7 @@ Autour de ce cœur, le kernel orchestre le cycle de vie :
   depuis la config (`windowMs = windowS × 1000`, `http-kernel.ts:433`) et arme un `GcScheduler`
   (`http-kernel.ts:443`) qui **purge les fenêtres expirées** hors du chemin chaud.
 - **Émission HTTP** : sous le quota, les en-têtes `X-RateLimit-*` sont posés (`http-kernel.ts:1029`) et
-  la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1007`) puis `writeHead(429)`
+  la requête continue ; au-delà, `Retry-After` (`http-kernel.ts:1036`) puis `writeHead(429)`
   (`http-kernel.ts:1041`) — corps vide, on ne journalise pas chaque rejet (amplificateur sous flood).
 - **Borne mémoire** : au cap `maxTracked`, le store purge les expirées puis évince en **FIFO**
   (`#evict`, `MemoryRateLimitStore.ts:169`) — la mémoire ne dérive jamais.
