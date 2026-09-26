@@ -8,7 +8,7 @@ audience: [developer, devops, supervisor, admin]
 tags: [demarrage, parcours, onboarding]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-09-26
 source: "docs/demarrer.md"
 tests: none
 hub: true
@@ -51,10 +51,10 @@ Comprendre l'ossature avant d'écrire du code — dans cet ordre, chaque page su
 [
   { "icon": "1️⃣", "title": "Vue d'ensemble", "href": "architecture/vue-ensemble.md",
     "desc": "Ce qu'est le framework, ce qu'il n'est pas, et ce que ses partis pris coûtent." },
-  { "icon": "2️⃣", "title": "Cycle de boot du Kernel", "href": "architecture/cycle-boot-kernel.md",
+  { "icon": "2️⃣", "title": "Injection & portées", "href": "architecture/injection-portees.md",
+    "desc": "Chaque requête pose un calque sur le conteneur de l'application : elle lit tout, n'écrit que sur le sien, et le calque part avec elle. Le mécanisme qui isole deux requêtes concurrentes." },
+  { "icon": "3️⃣", "title": "Cycle de boot du Kernel", "href": "architecture/cycle-boot-kernel.md",
     "desc": "Ce qui se passe entre `npm run dev` et le premier octet servi." },
-  { "icon": "3️⃣", "title": "Injection & portées", "href": "architecture/injection-portees.md",
-    "desc": "Comment les services se trouvent sans se connaître." },
   { "icon": "4️⃣", "title": "Pipeline de requête", "href": "architecture/pipeline-requete.md",
     "desc": "Le trajet exact d'une requête — HTTP comme WebSocket." }
 ]

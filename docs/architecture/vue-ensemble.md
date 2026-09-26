@@ -20,7 +20,7 @@ tags:
   ]
 version: "doc"
 status: stable
-updated: 2026-07-19
+updated: 2026-09-26
 source: "docs/architecture/vue-ensemble.md"
 ---
 
@@ -381,17 +381,20 @@ code de fermeture conforme RFC 6455 §7.4 — un 401 devient un `1008`.
 Le pas-à-pas exhaustif, avec le détail de chaque garde →
 [pipeline de requête](pipeline-requete.md).
 
-### L'injection — deux annuaires, un héritage natif
+### L'injection — la carte et les calques
 
-Le `Container` racine (`Container.ts:93`) tient les services partagés. À chaque requête,
-`Container.enterScope()` (`Container.ts:245`) ouvre un **scope** : un sous-container qui hérite du
-parent par **chaîne de prototypes JavaScript** (`Object.create(parent.protoService.prototype)`,
-`Container.ts:77`). Résoudre un service du parent depuis un scope ne coûte donc aucun saut logiciel
-— c'est le moteur JS qui remonte la chaîne.
+Le conteneur racine tient les services partagés : c'est la **carte**. À chaque requête HTTP (et à
+chaque connexion WebSocket), `Container.enterScope()` (`Container.ts:245`) pose dessus un
+**calque** — un scope qui **adopte le prototype** du conteneur racine (`Scope`, `Container.ts:344`).
+On lit toute la carte à travers : résoudre un service partagé depuis un scope ne coûte aucun saut
+logiciel, c'est le moteur JavaScript qui remonte la chaîne de prototypes.
 
-Les services courts (résolveur, session, contexte) sont posés sur le scope en propriété propre
-(`Scope.set()`, `Container.ts:151`) : ils **masquent** le parent sans le polluer, et
-`Container.leaveScope()` (`Container.ts:264`) nettoie tout à la fin de la requête.
+Ce que la requête pose, elle le pose sur son calque seulement (`Scope.set()`, `Container.ts:389`) :
+le pipeline y range le `context` et le `controller`, et un service déclaré
+`@injectable({ scope: "request" })` y vit le temps de la requête. Deux requêtes concurrentes ne se
+voient jamais, et `Container.leaveScope()` (`Container.ts:264`) jette le calque à la fin — en
+appelant le `clean()` des services créés pour elle. Depuis n'importe quel code de la requête,
+`RequestContext.getScope()` rend le calque courant, sans recevoir le contexte.
 
 Les décorateurs, l'ordre d'instanciation et les pièges de portée →
 [injection & portées](injection-portees.md). Comment la configuration alimente tout ça →
@@ -480,8 +483,12 @@ compilation du conteneur : les services sont instanciés au boot, dans l'ordre d
 
 **Ce qu'il faut désapprendre.** Chercher un équivalent ligne à ligne. Nodefony **n'est pas** un
 portage de Symfony en TypeScript : les invariants de sécurité sont proches parce qu'ils sont bons,
-mais le modèle de transport unifié, le scope par chaîne de prototypes et l'orientation temps réel
-n'ont pas d'équivalent côté PHP.
+mais le modèle de transport unifié et l'orientation temps réel n'ont pas d'équivalent côté PHP. Et
+la **portée de requête** ne vient pas de Symfony : ses scopes de conteneur ont été
+[dépréciés en 2.8 et retirés en 3.0](https://symfony.com/doc/2.8/service_container/scopes.html),
+parce qu'un processus PHP classique sert une requête à la fois. Un processus Node en sert des
+centaines entrelacées : chaque requête y reçoit son propre conteneur, par chaîne de prototypes
+([ADR-0011](../adr/0011-scope-de-requete-par-copie-prototypale.md)).
 
 ## Les partis pris — et ce qu'ils coûtent
 

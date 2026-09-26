@@ -9,7 +9,7 @@ tags:
   [tutoriel, demarrage, create-app, controller, entite, temps-reel, onboarding]
 version: "doc"
 status: stable
-updated: 2026-07-21
+updated: 2026-09-26
 source: "docs/tutoriels/premiere-application.md"
 tests: none
 ---
@@ -30,7 +30,8 @@ Une petite application `mon-app`, du néant jusqu'à :
 1. une **page** qui répond `GET /api/hello` en JSON ;
 2. le **différenciateur Nodefony** : la même classe controller sert HTTP **et** WebSocket ;
 3. ta **propre route** ajoutée à la main ;
-4. une **entité** `Article` persistée, avec son CRUD REST généré.
+4. un **service par requête** — et la preuve que deux requêtes simultanées ne se mélangent jamais ;
+5. une **entité** `Article` persistée, avec son CRUD REST généré.
 
 **Prérequis** : Node.js 24+ et `npm`. Rien d'autre — la base de données du tutoriel est un fichier
 SQLite créé pour toi. Compte 15 minutes.
@@ -43,6 +44,8 @@ Les mots qui reviennent (le vocabulaire complet est dans le [lexique général](
 | ------------------- | ----------------------------------------------------------------------------------------------- |
 | **scaffold**        | Génération de code à partir de gabarits (`nodefony create …`). Tu lances, le code apparaît.     |
 | **controller**      | La classe qui répond à une route. Chez Nodefony, une seule classe peut répondre HTTP **et** WS. |
+| **service**         | Une classe de logique réutilisable, que le framework construit et te donne (`@inject`).         |
+| **scope**           | Le conteneur propre à UNE requête : un calque posé sur celui de l'application, jeté à la fin.   |
 | **entité**          | Une table de base de données décrite en TypeScript, avec son service et son CRUD.               |
 | **HMR**             | Hot Module Replacement : le serveur de dev recharge ton code à chaud, sans redémarrage manuel.  |
 | **zone / firewall** | Un préfixe d'URL et sa politique de sécurité (ici `^/api`, visiteur « anonyme » autorisé).      |
@@ -64,11 +67,17 @@ mon-app/
 ├── nodefony.config.ts        # l'orchestrateur : quels modules, quelle config
 ├── env.ts                    # le seul lecteur des variables d'environnement
 ├── index.ts                  # le point d'entrée (passe la config au kernel)
+├── tests/
+│   └── GreetingService.test.ts
 └── nodefony/
-    └── controllers/
-        ├── HomeController.ts  # répond à `GET /` — sans frontend, la racine
-        │                      #   renverrait 404 sans lui
-        └── HelloController.ts # une route HTTP + un echo WebSocket, déjà écrits
+    ├── controllers/
+    │   ├── HomeController.ts  # répond à `GET /` — sans frontend, la racine
+    │   │                      #   renverrait 404 sans lui
+    │   └── HelloController.ts # une route HTTP + un echo WebSocket, déjà écrits
+    ├── service/
+    │   └── GreetingService.ts # un service d'exemple : le patron à imiter
+    └── interfaces/
+        └── IGreetingService.ts
 ```
 
 Le fichier central est `nodefony.config.ts` : son tableau `modules` est **ordonné** et décide de ce
@@ -136,7 +145,81 @@ curl http://127.0.0.1:5151/api/ping
 La route est préfixée par `/api` parce que la classe est déclarée `@controller("/api")` : le chemin de
 la classe et celui de la méthode se composent.
 
-## 5. Persister des données — une entité
+## 5. Un service, et ce que voit ta requête
+
+Ton serveur est **un seul processus** qui sert toutes les requêtes en même temps : pendant qu'une
+requête attend (une base de données, un appel réseau), il en traite une autre. Une variable globale
+serait donc écrasée par la requête voisine. Nodefony règle ce problème une fois pour toutes :
+**chaque requête reçoit son propre conteneur de services** — un calque transparent posé sur celui de
+l'application. Elle lit tout à travers, n'écrit que sur le sien, et le calque part à la poubelle
+quand la réponse est envoyée.
+
+Crée un service qui vit le temps d'**une** requête — la portée `request` :
+
+```ts
+// nodefony/service/RequestStamp.ts
+import { Service, injectable, RequestContext } from "nodefony";
+import type { Scope } from "nodefony";
+
+// Un exemplaire PAR REQUÊTE : créé quand la requête le demande, jeté avec elle.
+@injectable({ name: "requestStamp", scope: "request" })
+export class RequestStamp extends Service {
+  readonly requestId: string;
+
+  constructor(scope: Scope) {
+    super("requestStamp", scope, false);
+    this.requestId = RequestContext.getRequestId() ?? "?";
+  }
+}
+```
+
+Puis demande-le dans le constructeur de `HelloController`, et ajoute une route qui attend un peu —
+comme le ferait une vraie requête SQL :
+
+```ts
+// dans nodefony/controllers/HelloController.ts
+import { inject, RequestContext } from "nodefony";
+import { RequestStamp } from "../service/RequestStamp";
+
+// … le constructeur de la classe reçoit le service en plus du contexte :
+constructor(
+  context: ContextType,
+  @inject("requestStamp") private stamp: RequestStamp,
+) {
+  super("hello", context);
+}
+
+// … et une nouvelle méthode, à l'intérieur de la classe :
+@route("route-stamp", { path: "/stamp", method: "GET" })
+async stampRoute() {
+  await new Promise((resolve) => setTimeout(resolve, 300)); // une attente
+  return this.renderJson({
+    requestId: this.stamp.requestId,
+    // le scope de CETTE requête, retrouvé sans rien recevoir en argument
+    onMyLayer: RequestContext.getScope()?.get("requestStamp") === this.stamp,
+  });
+}
+```
+
+Lance deux requêtes **en même temps** — elles attendent toutes les deux pendant que l'autre tourne :
+
+```bash
+curl -s http://127.0.0.1:5151/api/stamp & curl -s http://127.0.0.1:5151/api/stamp & wait
+# {"requestId":"…a1","onMyLayer":true}
+# {"requestId":"…b2","onMyLayer":true}
+```
+
+Deux identifiants différents : chaque requête a eu **son** exemplaire, même en se chevauchant. Et
+`RequestContext.getScope()` a retrouvé le bon calque sans qu'on lui passe quoi que ce soit — c'est ce
+qui permet à n'importe quel code (un utilitaire, un service partagé) de savoir « quelle requête suis-je
+en train de servir ».
+
+> Un service **sans** `scope` est partagé par toute l'application (une seule instance) : c'est ce que
+> tu veux pour un cache ou un client de base de données. La portée `request` sert à ce qui doit
+> **naître et mourir avec** la requête. Les trois durées de vie, et comment choisir :
+> [Injection & portées](../architecture/injection-portees.md).
+
+## 6. Persister des données — une entité
 
 Pour stocker des données, il faut un module de base de données. Ajoute l'ORM par défaut (Drizzle,
 adossé à SQLite en développement) au tableau `modules` de `nodefony.config.ts` :
