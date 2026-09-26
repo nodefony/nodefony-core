@@ -296,6 +296,16 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-26c] **La garde git « arbre sale » lit l'arbre PRINCIPAL depuis un worktree** : un
+  `rebase` dans `../nodefony-core-docs` (propre) refusé à cause de deux fichiers `.ai/` de l'autre
+  dossier ; et le pre-commit du worktree exige un `dist` du cœur qu'un worktree neuf n'a pas. Deux
+  gardes justes, éprouvées sur un seul dossier de travail. Solde : committer l'empreinte, copier les
+  `dist`/`bin` sans rebâtir. À écrire dans le skill de session si les worktrees deviennent courants.
+- [1× — 09-26c] **Un outil de RÉPARATION validé sur ses propres cas casse les cas qu'il ne connaît
+  pas** : `anchor-fix` a « corrigé » 12 ancres JUSTES dont le symbole voisin est une clé ou un
+  littéral (hsts/frameguard/noSniff rabattues sur une ligne, `update()` → un champ `metadata`, le
+  gating `Kernel.ts:1600` → `NODE_ENV`). Vu parce que CHAQUE recalage a été relu contre la ligne
+  visée — la simulation seule l'aurait fait passer. Relire un diff automatique ligne à ligne.
 - [1× — 09-26] **Un gel livré sans voir l'écrivain GÉNÉRIQUE** : l'inventaire de #491 cherchait
   les écritures de config par motif (`options.x =`) ; `applyResolvedPath` (écriture par chemin,
   édition à chaud Studio) y échappait, et son test unitaire utilisait un module JAMAIS gelé → tout
