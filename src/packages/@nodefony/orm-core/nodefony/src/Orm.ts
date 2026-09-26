@@ -240,7 +240,7 @@ export abstract class Orm extends Service implements IOrm {
     const timer = setInterval(() => {
       void this.#beat();
     }, this.heartbeatMs);
-    timer.unref?.();
+    timer.unref();
     this.#heartbeat = timer;
   }
 
@@ -315,7 +315,8 @@ export abstract class Orm extends Service implements IOrm {
       return;
     }
     this.#beating = true;
-    let watchdog: ReturnType<typeof setTimeout> | null = null;
+    // Affecté dans l'exécuteur de la promesse : TS n'y voit pas l'affectation.
+    let watchdog = null as ReturnType<typeof setTimeout> | null;
     try {
       await Promise.race([
         (this as IOrm).ping?.() ?? Promise.resolve(),
@@ -325,7 +326,7 @@ export abstract class Orm extends Service implements IOrm {
               new Error(`aucune réponse en ${this.heartbeatTimeoutMs} ms`),
             );
           }, this.heartbeatTimeoutMs);
-          watchdog.unref?.();
+          watchdog.unref();
         }),
       ]);
       this.connectionRestored();

@@ -71,7 +71,7 @@ export async function withConnectDeadline<T>(
             ),
           );
         }, ms);
-        timer.unref?.();
+        timer.unref();
       }),
     ]);
   } finally {

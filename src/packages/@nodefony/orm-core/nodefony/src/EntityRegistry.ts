@@ -13,7 +13,8 @@ import type { IEntity } from "../interfaces/index";
  */
 export class EntityRegistry {
   /** `entities[name][connector] = entity` — allouée au premier enregistrement. */
-  #entities: Record<string, Record<string, IEntity>> | null = null;
+  #entities: Partial<Record<string, Partial<Record<string, IEntity>>>> | null =
+    null;
 
   /**
    * Enregistre une entité pour son connecteur cible.
@@ -22,14 +23,13 @@ export class EntityRegistry {
    * @throws si cette entité est déjà enregistrée sur le même connecteur.
    */
   register(entity: IEntity): void {
-    this.#entities ??= Object.create(null) as Record<
-      string,
-      Record<string, IEntity>
+    this.#entities ??= Object.create(null) as Partial<
+      Record<string, Partial<Record<string, IEntity>>>
     >;
     const store = this.#entities;
     let bucket = store[entity.name];
     if (bucket === undefined) {
-      bucket = Object.create(null) as Record<string, IEntity>;
+      bucket = Object.create(null) as Partial<Record<string, IEntity>>;
       store[entity.name] = bucket;
     }
     if (bucket[entity.connector] !== undefined) {
@@ -69,7 +69,12 @@ export class EntityRegistry {
         `EntityRegistry: entity "${name}" exists on multiple connectors (${connectors.join(", ")}); specify one.`,
       );
     }
-    return bucket[connectors[0]];
+    // Un seau vide est retiré par `unregister` : l'unique connecteur existe.
+    const entity = bucket[connectors[0]];
+    if (entity === undefined) {
+      throw new Error(`EntityRegistry: no entity registered under "${name}".`);
+    }
+    return entity;
   }
 
   /**
@@ -99,7 +104,8 @@ export class EntityRegistry {
     for (const name in this.#entities) {
       const bucket = this.#entities[name];
       for (const connector in bucket) {
-        out.push(bucket[connector]);
+        const entity = bucket[connector];
+        if (entity !== undefined) out.push(entity);
       }
     }
     return out;

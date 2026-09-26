@@ -42,7 +42,11 @@ export function wireOrmAdminPlane(kernel: IKernel | null | undefined): void {
   // Les ORM se créent/connectent aux hooks `onReady` des SERVICES, donc APRÈS ce
   // `onKernelBoot` : le registre est encore vide ici. On diffère le report à
   // `onServersReady` (registre peuplé, avant `onPostReady`) → lu par le récap.
-  kernel?.once?.("onServersReady", () => reportOrmBootLines(kernel));
+  // Kernel partiel toléré (cf bug-orm-001) : `once` peut manquer à un double.
+  (kernel as Partial<IKernel> | null | undefined)?.once?.(
+    "onServersReady",
+    () => reportOrmBootLines(kernel),
+  );
 }
 
 /**

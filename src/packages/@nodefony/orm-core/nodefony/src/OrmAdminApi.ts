@@ -59,7 +59,8 @@ function oneParam(req: IAdminRequest, key: string): string | undefined {
  * `IOrm.vendor` déclaré par chaque adapter (P7.1). `""` si indéterminé.
  */
 function vendorOf(orm: unknown): string {
-  const cls = (orm as { constructor?: { name?: string } })?.constructor?.name;
+  const cls = (orm as { constructor?: { name?: string } } | null | undefined)
+    ?.constructor?.name;
   if (!cls) return "";
   return cls.replace(/Orm$/, "").toLowerCase();
 }
@@ -558,7 +559,7 @@ export function createOrmAdminApi(): IAdminApi {
       handler: (
         request,
       ): IEntityGraphNode | IAdminResponse<{ error: string }> => {
-        const name = request.params.name ?? "";
+        const name = request.params.name;
         const connector = oneParam(request, "connector");
         try {
           // Sans ?connector, on prend le 1ᵉʳ connecteur qui porte cette entité.
@@ -684,7 +685,7 @@ export function createOrmAdminApi(): IAdminApi {
       ):
         | { format: string; content: string }
         | IAdminResponse<{ error: string }> => {
-        const format = (request.params.format ?? "").toLowerCase();
+        const format = request.params.format.toLowerCase();
         const graph = buildOrmGraph(oneParam(request, "connector"));
         if (format === "dbml") {
           return { format: "dbml", content: toDbml(graph) };

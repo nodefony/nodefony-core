@@ -344,7 +344,7 @@
       // appelant JavaScript est légitime — c'est alors le TYPE qu'on rend
       // honnête (`| undefined`, `Partial`, `unknown`), pas la garde qu'on retire.
       // Placée AVANT la surcharge des tests, qui la coupe pour eux.
-      "files": ["src/nodefony/src/**"],
+      "files": ["src/nodefony/src/**", "src/packages/@nodefony/orm-core/**"],
       "rules": {
         "typescript/no-unnecessary-condition": "error"
       }
