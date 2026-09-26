@@ -443,9 +443,7 @@ export class UserService
   // Vérifie le clair contre un hash leurre (calculé une seule fois) pour égaliser
   // le temps de réponse des échecs sans credential réel. Erreurs ignorées.
   private async consumeDummy(plain: string): Promise<void> {
-    if (this.#dummyHash === null) {
-      this.#dummyHash = await this.encoder.hash(DUMMY_PLAINTEXT);
-    }
+    this.#dummyHash ??= await this.encoder.hash(DUMMY_PLAINTEXT);
     try {
       await this.encoder.verify(plain, this.#dummyHash);
     } catch {

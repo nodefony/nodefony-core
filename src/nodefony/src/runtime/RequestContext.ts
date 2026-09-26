@@ -165,9 +165,7 @@ class RequestContext {
   private static _als: AsyncLocalStorage<RequestContextPayload> | null = null;
 
   private static get als(): AsyncLocalStorage<RequestContextPayload> {
-    if (this._als === null) {
-      this._als = new AsyncLocalStorage<RequestContextPayload>();
-    }
+    this._als ??= new AsyncLocalStorage<RequestContextPayload>();
     return this._als;
   }
 

@@ -560,11 +560,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
    * @returns le {@link TrustProxyChecker} partagé.
    */
   getTrustProxyChecker(): TrustProxyChecker {
-    if (this._trustProxyChecker === null) {
-      this._trustProxyChecker = buildTrustProxy(
-        (this.options as { trustProxy?: TrustProxyConfig })?.trustProxy,
-      );
-    }
+    this._trustProxyChecker ??= buildTrustProxy(
+      (this.options as { trustProxy?: TrustProxyConfig })?.trustProxy,
+    );
     return this._trustProxyChecker;
   }
 
@@ -1187,9 +1185,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (context.security?.stateless === true) {
       if (intent) {
         const name = context.security.name;
-        if (this.#statelessIntentVues === null) {
-          this.#statelessIntentVues = new Set();
-        }
+        this.#statelessIntentVues ??= new Set();
         if (!this.#statelessIntentVues.has(name)) {
           this.#statelessIntentVues.add(name);
           this.log(

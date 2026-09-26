@@ -242,7 +242,7 @@ const pad = (s: string, n: number): string =>
 
 /** Rend une variable : valeur, provenance, et ce qui la rend suspecte. */
 function renderVar(v: IEnvVarReport): string {
-  const value = v.value === null ? "(absente)" : v.value;
+  const value = v.value ?? "(absente)";
   const origin = v.origin === null ? "" : `← ${v.origin}`;
   const flags: string[] = [];
   if (v.missing) flags.push("REQUISE ET ABSENTE");

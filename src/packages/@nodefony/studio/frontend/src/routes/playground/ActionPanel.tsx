@@ -556,7 +556,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
       </Group>
 
       {/* Réponses côte à côte — le moment « une action, deux transports ». */}
-      {(httpResult || socketResult) && (
+      {(httpResult ?? socketResult) && (
         <Grid gap="sm">
           {httpResult && (
             <Grid.Col span={{ base: 12, md: socketResult ? 6 : 12 }}>

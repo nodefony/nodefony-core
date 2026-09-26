@@ -131,7 +131,7 @@ class ParserQs extends Parser {
   charset: BufferEncoding = "utf8";
   constructor(request: HttpRequest | Http2Request) {
     super(request);
-    this.parserOptions = this.request.queryStringOptions || {};
+    this.parserOptions = this.request.queryStringOptions ?? {};
     // Honore le charset détecté sur la requête (Content-Type charset=…) au lieu
     // d'un "utf8" hardcodé — sinon le corps latin1/etc. était mal décodé.
     this.charset = this.request.charset;

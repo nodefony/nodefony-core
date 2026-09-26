@@ -182,9 +182,7 @@ class RedisService extends Service {
     }
     const options = buildClientOptions(config, definition);
     const conn = new Connection(name, options, this);
-    if (this.#connections === null) {
-      this.#connections = Object.create(null) as Record<string, Connection>;
-    }
+    this.#connections ??= Object.create(null) as Record<string, Connection>;
     this.#connections[name] = conn;
     await conn.create();
     this.fire("connection", conn.client, conn);
@@ -227,9 +225,7 @@ class RedisService extends Service {
       }
       return client;
     }
-    if (!this.#unavailable) {
-      this.#unavailable = new Set();
-    }
+    this.#unavailable ??= new Set();
     if (!this.#unavailable.has(name)) {
       this.#unavailable.add(name);
       this.log(

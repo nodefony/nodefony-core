@@ -519,9 +519,7 @@ export class MongooseOrm extends Orm {
         ) {
           return;
         }
-        if (index === null) {
-          index = Object.create(null) as Record<string, IMongooseReferrer[]>;
-        }
+        index ??= Object.create(null) as Record<string, IMongooseReferrer[]>;
         (index[ref] ??= []).push({
           model,
           path: fieldPath,
@@ -550,9 +548,7 @@ export class MongooseOrm extends Orm {
         `MongooseOrm "${this.name}": no entity model registered under "${name}".`,
       );
     }
-    if (this.#repositories === null) {
-      this.#repositories = Object.create(null) as Record<string, IRepository>;
-    }
+    this.#repositories ??= Object.create(null) as Record<string, IRepository>;
     let repository = this.#repositories[name];
     if (repository === undefined) {
       repository = new MongooseRepository(

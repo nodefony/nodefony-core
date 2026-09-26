@@ -70,9 +70,7 @@ class QueryFlowMonitor {
 
   /** Crée/retourne les stats mutables d'un connecteur (alloue à la demande). */
   #ensure(connector: string): MutableFlow {
-    if (this.#stats === null) {
-      this.#stats = new Map();
-    }
+    this.#stats ??= new Map();
     let s = this.#stats.get(connector);
     if (s === undefined) {
       s = {
@@ -110,7 +108,7 @@ class QueryFlowMonitor {
         : EWMA_ALPHA * durationMs + (1 - EWMA_ALPHA) * s.ewmaMs;
     if (durationMs >= this.slowMs) {
       s.slowTotal += 1;
-      if (s.slow === null) s.slow = [];
+      s.slow ??= [];
       s.slow.unshift({ ts: Date.now(), durationMs, connector, sql });
       if (s.slow.length > MAX_SLOW) s.slow.length = MAX_SLOW;
     }

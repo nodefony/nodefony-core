@@ -199,7 +199,7 @@ function inject(serviceName: string): ParameterDecorator {
     // Injector.instantiate qui lit Reflect.getMetadata("inject:services", constructor).
     const existing: (string | undefined)[] =
       (Reflect.getMetadata("inject:services", target) as
-        (string | undefined)[] | undefined) || [];
+        (string | undefined)[] | undefined) ?? [];
     existing[parameterIndex] = serviceName;
     Reflect.defineMetadata("inject:services", existing, target);
   };
@@ -231,7 +231,7 @@ function Inject(name?: string): PropertyDecorator {
     }
     const existing: PropertyInjectMeta[] =
       (Reflect.getMetadata("inject:properties", target) as
-        PropertyInjectMeta[] | undefined) || [];
+        PropertyInjectMeta[] | undefined) ?? [];
     existing.push({ key: propertyKey, name: resolvedName });
     Reflect.defineMetadata("inject:properties", existing, target);
   };

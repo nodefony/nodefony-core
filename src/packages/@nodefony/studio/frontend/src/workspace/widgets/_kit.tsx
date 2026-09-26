@@ -77,7 +77,7 @@ export function BigMetric({
   sub?: string;
 }) {
   useEffect(ensureLiveStyles, []);
-  const display = value == null ? "—" : value;
+  const display = value ?? "—";
   return (
     <div>
       {label ? (

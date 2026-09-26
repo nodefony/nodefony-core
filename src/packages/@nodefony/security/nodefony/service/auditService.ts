@@ -211,9 +211,7 @@ class AuditService extends Service implements IAuditSink {
   }
 
   subscribe(listener: (event: IAuditEvent) => void): () => void {
-    if (this.#listeners === null) {
-      this.#listeners = [];
-    }
+    this.#listeners ??= [];
     this.#listeners.push(listener);
     let active = true;
     return () => {

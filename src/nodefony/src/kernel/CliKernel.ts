@@ -188,7 +188,7 @@ class CliKernel extends Cli {
    * @returns instance Commander après parse.
    */
   parseCommand(argv?: string[]): commanderCommand {
-    return this.parse(argv || process.argv);
+    return this.parse(argv ?? process.argv);
   }
 
   /**
@@ -198,7 +198,7 @@ class CliKernel extends Cli {
    * @returns Promise résolue avec l'instance Commander après exécution.
    */
   parseCommandAsync(argv?: string[]): Promise<commanderCommand> {
-    return this.parseAsync(argv || process.argv);
+    return this.parseAsync(argv ?? process.argv);
   }
 
   /**

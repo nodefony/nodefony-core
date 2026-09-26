@@ -2098,9 +2098,7 @@ class Kernel extends Service implements IKernel {
    *   supporté (fail-loud : jamais de repli sqlite silencieux).
    */
   get infra(): IInfra {
-    if (this._infra === null) {
-      this._infra = resolveInfra(process.env);
-    }
+    this._infra ??= resolveInfra(process.env);
     return this._infra;
   }
 
@@ -2133,9 +2131,7 @@ class Kernel extends Service implements IKernel {
   registerStoreResolution(
     resolution: Omit<IStoreResolution, "provenance">,
   ): void {
-    if (this._storeResolutions === null) {
-      this._storeResolutions = new Map<string, IStoreResolution>();
-    }
+    this._storeResolutions ??= new Map<string, IStoreResolution>();
     this._storeResolutions.set(resolution.brick, {
       ...resolution,
       provenance: resolution.configured === AUTO_STORE ? "infra" : "explicit",
@@ -3533,12 +3529,10 @@ class Kernel extends Service implements IKernel {
     blocking: boolean = true,
     action?: string,
   ): void {
-    if (this.readiness === null) {
-      // Personne ne s'était inscrit : le registre naît ICI, jamais au boot — y
-      // compris quand le premier verdict est « prêt », car c'est ce même
-      // contributeur qui dira plus tard « plus prêt ».
-      this.readiness = new ReadinessRegistry();
-    }
+    // Personne ne s'était inscrit : le registre naît ICI, jamais au boot — y
+    // compris quand le premier verdict est « prêt », car c'est ce même
+    // contributeur qui dira plus tard « plus prêt ».
+    this.readiness ??= new ReadinessRegistry();
     const flipped = this.readiness.set(name, ready, reason, blocking, action);
     if (flipped) {
       this.logReadinessFlip();
@@ -3666,7 +3660,7 @@ class Kernel extends Service implements IKernel {
           // Un COMPTE ne diagnostique rien. On garde les premiers messages —
           // les suivants sont presque toujours la conséquence du premier, et
           // un bilan illisible ne se lit pas plus qu'un bilan muet.
-          if (criticals === null) criticals = [];
+          criticals ??= [];
           if (criticals.length < MAX_BOOT_CRITICALS) {
             criticals.push(this.condenseBootMessage(pdu));
           }
@@ -4246,15 +4240,13 @@ class Kernel extends Service implements IKernel {
    * @returns Promise résolue avec `this` (ou rejected si `quit()` throw).
    */
   async terminate(code?: number, quiet?: boolean): Promise<this> {
-    if (code === undefined) {
-      // Aucun code demandé : on prend celui que le process porte DÉJÀ.
-      // `process.exitCode` est la façon normale, en Node, de signaler un échec
-      // sans sortir tout de suite — et c'est ce que font les commandes qui
-      // écrivent une erreur puis rendent la main. Forcer 0 ici affichait
-      // « terminate : 0 » sur un échec et faisait sortir le process en 0 : un
-      // script, un `&&`, une CI ne voyaient rien.
-      code = typeof process.exitCode === "number" ? process.exitCode : 0;
-    }
+    // Aucun code demandé : on prend celui que le process porte DÉJÀ.
+    // `process.exitCode` est la façon normale, en Node, de signaler un échec
+    // sans sortir tout de suite — et c'est ce que font les commandes qui
+    // écrivent une erreur puis rendent la main. Forcer 0 ici affichait
+    // « terminate : 0 » sur un échec et faisait sortir le process en 0 : un
+    // script, un `&&`, une CI ne voyaient rien.
+    code ??= typeof process.exitCode === "number" ? process.exitCode : 0;
     // 🔴 **Un shutdown ne se rejoue pas.** Sans cette garde, deux appels
     // rejouaient TOUT : le log « terminate : N » (symptôme visible — deux
     // lignes, même PID, même milliseconde) mais surtout `fireAsync

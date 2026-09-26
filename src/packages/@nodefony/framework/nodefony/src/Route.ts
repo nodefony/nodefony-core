@@ -284,7 +284,7 @@ class Route implements IRoute {
       this.method = obj.method as HTTPMethod;
       this.setHostname(obj.host);
       this.setDefaults(obj.defaults);
-      this.requirements = obj.requirements || {};
+      this.requirements = obj.requirements ?? {};
       this.bypassFirewall = obj.bypassFirewall ?? false;
       this.areaRoleExempt = obj.areaRoleExempt ?? false;
       this.compile();
@@ -334,8 +334,7 @@ class Route implements IRoute {
     if (context.request && this.pattern) {
       // L5a perf : réutilise le pathname normalisé UNE fois par requête
       // (Router.resolve) au lieu de le recalculer pour CHAQUE route scannée.
-      const url =
-        cleanPath !== undefined ? cleanPath : Route.cleanPathname(context);
+      const url = cleanPath ?? Route.cleanPathname(context);
       if (url !== undefined) {
         res = url.match(this.pattern);
       }

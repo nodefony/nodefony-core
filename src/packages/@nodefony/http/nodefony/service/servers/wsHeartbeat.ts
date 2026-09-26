@@ -86,10 +86,8 @@ export const startHeartbeat = (
         continue;
       }
       const sock = client as IHeartbeatSocket;
-      if (sock._nfLastPong === undefined) {
-        // Connexion non passée par trackPong (sécurité) → on l'amorce.
-        sock._nfLastPong = now;
-      }
+      // Connexion non passée par trackPong (sécurité) → on l'amorce.
+      sock._nfLastPong ??= now;
       // Un ping est « en attente » si on a pingé APRÈS le dernier pong reçu.
       const pingPending = (sock._nfPingedAt ?? 0) > sock._nfLastPong;
       if (pingPending) {

@@ -236,10 +236,8 @@ class Certificate extends Service {
    * ne l'appelle jamais.
    */
   async loadForge(): Promise<ForgeModule> {
-    if (!this.forge) {
-      // node-forge = module `export =` → la valeur est sous `.default`.
-      this.forge = (await import("node-forge")).default;
-    }
+    // node-forge = module `export =` → la valeur est sous `.default`.
+    this.forge ??= (await import("node-forge")).default;
     return this.forge;
   }
 

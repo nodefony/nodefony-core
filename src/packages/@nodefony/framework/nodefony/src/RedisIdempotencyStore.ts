@@ -235,7 +235,7 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
 
   /** Préfixe effectif des clés, cloisonné par application (mémoïsé). */
   #prefix(): string {
-    if (this.#prefixCache === null) this.#prefixCache = this.#resolvePrefix();
+    this.#prefixCache ??= this.#resolvePrefix();
     return this.#prefixCache;
   }
 

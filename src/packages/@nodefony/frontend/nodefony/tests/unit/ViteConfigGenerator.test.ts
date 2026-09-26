@@ -160,7 +160,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
       "development",
       { backendOrigin: "http://127.0.0.1:5151" },
     );
-    const apiOccurrences = (out.match(/"\/api":/g) || []).length;
+    const apiOccurrences = (out.match(/"\/api":/g) ?? []).length;
     expect(apiOccurrences).to.equal(1);
   });
 
@@ -194,7 +194,7 @@ describe("ViteConfigGenerator — toMjs()", () => {
       ],
       "development",
     );
-    const rootOccurrences = (out.match(/"\/abs\/path\/to\/frontend"/g) || [])
+    const rootOccurrences = (out.match(/"\/abs\/path\/to\/frontend"/g) ?? [])
       .length;
     // 1× pour `root:`, 1× dans `fs.allow` → 2 max
     expect(rootOccurrences).to.equal(2);

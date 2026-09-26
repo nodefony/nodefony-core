@@ -498,7 +498,7 @@ function CorrelationBody({ source }: WidgetRenderProps<StatsPayload>) {
           value={cpu != null ? Math.round(cpu) : "—"}
           unit="%"
         />
-        <Metric label="Mémoire" value={heap != null ? heap : "—"} unit="%" />
+        <Metric label="Mémoire" value={heap ?? "—"} unit="%" />
       </Group>
       {series.length >= 2 ? (
         <>

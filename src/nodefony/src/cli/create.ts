@@ -1262,10 +1262,10 @@ export async function runCreateCommand(argv: string[]): Promise<number> {
       process.stdout.write("create: annulé\n");
       return SysExit.OK;
     }
-  } else if (answers.link === undefined) {
+  } else {
     // Non-interactif : le câblage checkout ne s'active JAMAIS implicitement —
     // un script qui veut le mode dev framework le dit (`--link`).
-    answers.link = false;
+    answers.link ??= false;
   }
   if (answers.name === undefined || answers.name === "") {
     return printUsageError(pageFor(type), "nom requis");

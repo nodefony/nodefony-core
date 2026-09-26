@@ -151,7 +151,7 @@ class Cookie implements ICookieInterface {
     this.options = extend(
       {},
       cookieDefaultSettings,
-      options || {},
+      options ?? {},
     ) as CookieOptionsType;
     if (!cookiesOrName) {
       throw new Error("cookie must have name");

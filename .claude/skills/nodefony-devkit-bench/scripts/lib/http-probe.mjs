@@ -255,12 +255,7 @@ export class CookieJar {
  */
 export const request = (method, path, jar, opts = {}) =>
   new Promise((resolve) => {
-    const payload =
-      opts.raw !== undefined
-        ? opts.raw
-        : opts.body
-          ? JSON.stringify(opts.body)
-          : null;
+    const payload = opts.raw ?? (opts.body ? JSON.stringify(opts.body) : null);
     const headers = {};
     const cookies = jar.header();
     if (cookies) headers.cookie = cookies;

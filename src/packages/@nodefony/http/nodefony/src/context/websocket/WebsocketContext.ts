@@ -397,11 +397,9 @@ export default class WebsocketContext
     dir: "RECEIVE" | "SEND" | "BROADCAST",
     data: unknown,
   ): void {
-    if (wsContentLogging === null) {
-      // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
-      // le check "prod" était mort.
-      wsContentLogging = this.kernel?.environment !== "production";
-    }
+    // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+    // le check "prod" était mort.
+    wsContentLogging ??= this.kernel?.environment !== "production";
     if (!wsContentLogging) return;
     this.log(formatWsLogContent(data), "DEBUG", `WS ${dir}`);
   }

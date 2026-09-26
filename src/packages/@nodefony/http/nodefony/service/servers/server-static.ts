@@ -69,7 +69,7 @@ class Statics extends Service {
     module: Module,
     //@inject("HttpKernel") private httpKernel: HttpKernel
   ) {
-    const container = module.container || undefined;
+    const container = module.container ?? undefined;
     const options = (module.options.statics ||
       {}) as serveStatic.ServeStaticOptions;
     let event: Event | null | false | undefined;
@@ -169,7 +169,7 @@ class Statics extends Service {
       const root = this.options[staticRoot] as IStaticRootConfig;
       const Path = this.kernel?.checkPath(root.path);
       let setHeaders = null;
-      const opt: serveStatic.ServeStaticOptions = root.options || {};
+      const opt: serveStatic.ServeStaticOptions = root.options ?? {};
       if (opt.setHeaders) {
         if (typeof opt.setHeaders === "function") {
           setHeaders = opt.setHeaders;

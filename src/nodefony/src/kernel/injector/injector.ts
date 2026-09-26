@@ -154,10 +154,10 @@ class Injector extends Service {
   static dependencyNamesOf(service: ServiceConstructor): string[] {
     const explicit: (string | undefined)[] =
       (Reflect.getMetadata("inject:services", service) as
-        (string | undefined)[] | undefined) || [];
+        (string | undefined)[] | undefined) ?? [];
     const paramTypes: unknown[] =
       (Reflect.getMetadata("design:paramtypes", service) as
-        unknown[] | undefined) || [];
+        unknown[] | undefined) ?? [];
 
     const names: string[] = [];
     for (const name of explicit) if (name) names.push(name);
@@ -516,7 +516,7 @@ class Injector extends Service {
     const names = Injector.dependencyNamesOf(ctor);
     const props: PropertyInjectMeta[] =
       (Reflect.getMetadata("inject:properties", ctor.prototype as object) as
-        PropertyInjectMeta[] | undefined) || [];
+        PropertyInjectMeta[] | undefined) ?? [];
     for (const { name } of props) names.push(name);
     return names;
   }
@@ -531,7 +531,7 @@ class Injector extends Service {
       (Reflect.getMetadata(
         "inject:properties",
         constructor.prototype as object,
-      ) as PropertyInjectMeta[] | undefined) || [];
+      ) as PropertyInjectMeta[] | undefined) ?? [];
     for (const { key, name } of propMetas) {
       (instance as Record<string, unknown>)[key as string] =
         Injector._resolveWithStack(name, stack);
@@ -576,10 +576,10 @@ class Injector extends Service {
     // ── Métadonnées DI ──────────────────────────────────────────────────────────
     const injectExplicit: (string | undefined)[] =
       (Reflect.getMetadata("inject:services", constructor) as
-        (string | undefined)[] | undefined) || [];
+        (string | undefined)[] | undefined) ?? [];
     const paramTypes: unknown[] =
       (Reflect.getMetadata("design:paramtypes", constructor) as
-        unknown[] | undefined) || [];
+        unknown[] | undefined) ?? [];
 
     const hasInjectInfo = injectExplicit.some(Boolean) || paramTypes.length > 0;
 

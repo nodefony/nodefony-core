@@ -48,7 +48,7 @@ export function getPageId(): string {
   // `crypto.randomUUID()` en direct, et non le `generateId` du barrel client : ce
   // module est importé PAR le barrel, l'en faire dépendre fermerait un cycle. Un
   // appel de plateforme d'une ligne n'est pas une règle dupliquée.
-  if (_pageId === null) _pageId = globalThis.crypto.randomUUID();
+  _pageId ??= globalThis.crypto.randomUUID();
   return _pageId;
 }
 

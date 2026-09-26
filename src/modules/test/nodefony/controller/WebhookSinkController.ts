@@ -136,7 +136,7 @@ class WebhookSinkController extends Controller {
       respondedStatus: status,
     };
     // Lazy alloc + ring borné (perf : pas d'array « au cas où », pas de fuite).
-    if (webhookSinkState.entries === null) webhookSinkState.entries = [];
+    webhookSinkState.entries ??= [];
     webhookSinkState.entries.unshift(entry);
     if (webhookSinkState.entries.length > MAX_ENTRIES) {
       webhookSinkState.entries.length = MAX_ENTRIES;

@@ -633,8 +633,8 @@ class Module<TConfig = Record<string, unknown>>
    */
   static getPackageDependencies(mypackage: PackageJson): string[] {
     if (mypackage) {
-      const dependencies = Object.keys(mypackage.dependencies || {});
-      const peerDependencies = Object.keys(mypackage.peerDependencies || {});
+      const dependencies = Object.keys(mypackage.dependencies ?? {});
+      const peerDependencies = Object.keys(mypackage.peerDependencies ?? {});
       return [...dependencies, ...peerDependencies];
     }
     return [];

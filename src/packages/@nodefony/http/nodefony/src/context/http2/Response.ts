@@ -116,9 +116,7 @@ class Http2Response extends HttpResponse {
     }
     // Corps VIDE légal (cf chemin HTTP/1) : `stream.write(null)` jetterait
     // ERR_STREAM_NULL_VALUES → 500 pour un `return ""` / 416 / 204 valide.
-    if (this.body === null) {
-      this.body = Buffer.alloc(0);
-    }
+    this.body ??= Buffer.alloc(0);
     return new Promise((resolve, reject) => {
       stream.write(this.body, encoding || this.encoding, (error) => {
         if (error) {

@@ -607,7 +607,7 @@ class WebhookService extends Service {
    * sur l'issue FINALE d'une livraison.
    */
   #recordDelivery(id: string, rec: IWebhookDeliveryRecord): void {
-    if (this.#deliveries === null) this.#deliveries = new Map();
+    this.#deliveries ??= new Map();
     let ring = this.#deliveries.get(id);
     if (ring === undefined) {
       ring = [];

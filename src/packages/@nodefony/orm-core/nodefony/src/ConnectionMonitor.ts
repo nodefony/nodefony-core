@@ -103,9 +103,7 @@ class ConnectionMonitor {
 
   /** Crée/retourne les stats mutables d'un connecteur (alloue à la demande). */
   #ensure(name: string): MutableStats {
-    if (this.#stats === null) {
-      this.#stats = new Map();
-    }
+    this.#stats ??= new Map();
     let s = this.#stats.get(name);
     if (s === undefined) {
       s = {
@@ -135,9 +133,7 @@ class ConnectionMonitor {
    */
   recordPing(name: string, ms: number): void {
     const s = this.#ensure(name);
-    if (s.latencies === null) {
-      s.latencies = [];
-    }
+    s.latencies ??= [];
     s.latencies.push(ms);
     if (s.latencies.length > MAX_LATENCY_SAMPLES) {
       s.latencies.shift();
@@ -195,9 +191,7 @@ class ConnectionMonitor {
 
   /** Ajoute un événement en tête de la chronologie (allouée au 1ᵉʳ, bornée). */
   #pushEvent(s: MutableStats, e: IConnectionEvent): void {
-    if (s.events === null) {
-      s.events = [];
-    }
+    s.events ??= [];
     s.events.unshift(e);
     if (s.events.length > MAX_EVENTS) {
       s.events.length = MAX_EVENTS;
@@ -215,9 +209,7 @@ class ConnectionMonitor {
     s.errorCount += 1;
     const err: IConnectionError = { message, ts: Date.now() };
     s.lastError = err;
-    if (s.recentErrors === null) {
-      s.recentErrors = [];
-    }
+    s.recentErrors ??= [];
     s.recentErrors.unshift(err);
     if (s.recentErrors.length > MAX_RECENT_ERRORS) {
       s.recentErrors.length = MAX_RECENT_ERRORS;

@@ -84,7 +84,7 @@ export function createAuditBridge(
   };
 
   const onEvent = (event: IAuditEvent): void => {
-    if (ring === null) ring = new Array<IAuditEvent>(maxBatch);
+    ring ??= new Array<IAuditEvent>(maxBatch);
     if (count === maxBatch) {
       ring[head] = event; // ring plein → écrase le plus ancien
       head = (head + 1) % maxBatch;

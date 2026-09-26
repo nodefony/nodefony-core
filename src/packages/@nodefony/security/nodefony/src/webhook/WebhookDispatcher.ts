@@ -145,7 +145,7 @@ export class WebhookDispatcher {
   /** Empile une livraison ; **abandonne** (best-effort) si la file est pleine. */
   #enqueue(job: Job): void {
     if (this.#stopped) return;
-    if (this.#queue === null) this.#queue = [];
+    this.#queue ??= [];
     if (this.#queue.length >= this.#deps.policy.maxQueue) {
       this.#dropped++;
       if (this.#dropped === 1 || this.#dropped % 100 === 0) {
@@ -264,7 +264,7 @@ export class WebhookDispatcher {
   /** Replanifie la livraison après backoff (repasse par la file bornée). */
   #scheduleRetry(job: Job): void {
     if (this.#stopped) return;
-    if (this.#timers === null) this.#timers = new Set();
+    this.#timers ??= new Set();
     const cancel = this.#deps.schedule(() => {
       this.#timers?.delete(cancel);
       this.#enqueue({ ep: job.ep, event: job.event, attempt: job.attempt + 1 });

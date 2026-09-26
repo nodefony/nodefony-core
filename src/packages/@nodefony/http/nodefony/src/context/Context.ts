@@ -426,7 +426,7 @@ class Context extends Service implements IContextInterface {
 
   phaseStart(name: PhaseName): void {
     if (!this._timingEnabled) return;
-    if (this._phaseIndex === null) this._phaseIndex = new Map();
+    this._phaseIndex ??= new Map();
     const idx = this.phases.length;
     this.phases.push({ name, startMs: performance.now() });
     this._phaseIndex.set(name, idx);
@@ -456,9 +456,7 @@ class Context extends Service implements IContextInterface {
         .catch((e: unknown) => this.log(e, "ERROR", "onAfterResponse(late)"));
       return;
     }
-    if (this._afterResponseFns === null) {
-      this._afterResponseFns = [];
-    }
+    this._afterResponseFns ??= [];
     this._afterResponseFns.push(boundFn);
   }
 
@@ -557,11 +555,9 @@ class Context extends Service implements IContextInterface {
    * notable → INFO (EVENT_SEVERITY), event technique → DEBUG.
    */
   private logEvent(event: KernelEventsType): void {
-    if (lifecycleEventLogging === null) {
-      // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
-      // le check "prod" était mort.
-      lifecycleEventLogging = this.kernel?.environment !== "production";
-    }
+    // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+    // le check "prod" était mort.
+    lifecycleEventLogging ??= this.kernel?.environment !== "production";
     if (!lifecycleEventLogging) return;
     this.log(`${colorLogEvent()} ${event}`, EVENT_SEVERITY[event] || "DEBUG");
   }

@@ -731,9 +731,7 @@ class Controller extends Service implements IController {
       const contentLength =
         headers && (headers["Content-Length"] || headers["content-length"]);
       if (!contentLength) {
-        if (!headers) {
-          headers = {};
-        }
+        headers ??= {};
         (this.response as HttpResponse | Http2Response).response?.removeHeader(
           "Content-Length",
         );

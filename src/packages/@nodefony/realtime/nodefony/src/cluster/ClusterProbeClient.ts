@@ -187,7 +187,7 @@ export class ClusterProbeClient {
     // Drill-down actif sur CE worker → joindre la sonde riche au report. Lazy : la sonde
     // (+ son observer GC) n'existe que pendant le drill, libérée dès `stop`/désactivation.
     if (this.#richEnabled) {
-      if (this.#richProbe === null) this.#richProbe = new RichProcessProbe();
+      this.#richProbe ??= new RichProcessProbe();
       payload.rich = this.#richProbe.read();
     }
     // Drill ORM actif sur CE worker → joindre le dernier blob ORM riche en cache (produit

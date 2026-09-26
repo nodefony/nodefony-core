@@ -1369,7 +1369,7 @@ function renderPage(d, published, index, publishedPaths) {
   return {
     bytes: page.length,
     dead: ext.dead,
-    diagrams: (body.match(/```mermaid/g) || []).length,
+    diagrams: (body.match(/```mermaid/g) ?? []).length,
   };
 }
 

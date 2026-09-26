@@ -385,7 +385,7 @@ class ScaffoldService extends Service {
       archivePath: null,
       tempDir: null,
     };
-    if (this.#jobs === null) this.#jobs = new Map();
+    this.#jobs ??= new Map();
     this.#jobs.set(job.id, job);
 
     // Lancement différé d'un tick : le front reçoit son jobId (et s'abonne) pendant que
@@ -429,7 +429,7 @@ class ScaffoldService extends Service {
     if (!job) return () => {};
     for (const line of job.lines) onEvent({ kind: "line", line });
     onEvent({ kind: "state", state: this.#snapshot(job) });
-    if (job.listeners === null) job.listeners = new Set();
+    job.listeners ??= new Set();
     job.listeners.add(onEvent);
     return () => {
       job.listeners?.delete(onEvent);

@@ -169,7 +169,7 @@ class DocumentationService extends Service {
   // ───────────────────────── API publique ─────────────────────────
 
   registerVar(name: string, provider: DocVarProvider): void {
-    if (this.#vars === null) this.#vars = new Map();
+    this.#vars ??= new Map();
     this.#vars.set(name, provider);
   }
 

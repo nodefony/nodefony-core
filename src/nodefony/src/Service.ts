@@ -336,9 +336,7 @@ class Service implements IService {
     eventName: string | symbol,
     listener: EventListener,
   ): void {
-    if (this.#trackedListeners === null) {
-      this.#trackedListeners = new Map();
-    }
+    this.#trackedListeners ??= new Map();
     const list = this.#trackedListeners.get(eventName) ?? [];
     list.push(listener);
     this.#trackedListeners.set(eventName, list);

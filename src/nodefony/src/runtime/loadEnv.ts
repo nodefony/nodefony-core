@@ -122,7 +122,7 @@ export function resolveEnvCascade(
       continue; // fichier absent / illisible → niveau sauté
     }
     for (const key in parsed) {
-      if (merged[key] === undefined) merged[key] = parsed[key];
+      merged[key] ??= parsed[key];
     }
   }
   return merged;

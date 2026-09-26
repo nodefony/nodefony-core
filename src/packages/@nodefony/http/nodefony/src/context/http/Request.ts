@@ -237,16 +237,12 @@ class HttpRequest {
   #acceptHtml: boolean | null = null;
   /** Media-ranges de l'en-tête `Accept`, parsés au premier accès (mémoïsé). */
   get accept(): ReturnType<typeof acceptParser> {
-    if (this.#accept === null) {
-      this.#accept = acceptParser(this.headers?.accept);
-    }
+    this.#accept ??= acceptParser(this.headers?.accept);
     return this.#accept;
   }
   /** `true` si le client accepte `text/html` — résolu au premier accès (mémoïsé). */
   get acceptHtml(): boolean {
-    if (this.#acceptHtml === null) {
-      this.#acceptHtml = this.accepts("html");
-    }
+    this.#acceptHtml ??= this.accepts("html");
     return this.#acceptHtml;
   }
   origin: string | undefined;
@@ -309,7 +305,7 @@ class HttpRequest {
       .queryString || {}) as HttpRequest["queryStringOptions"];
     let query: QS.ParsedQs;
     if (this.search) {
-      query = QS.parse(this.search.slice(1), this.queryStringOptions || {});
+      query = QS.parse(this.search.slice(1), this.queryStringOptions ?? {});
     } else {
       query = {};
     }

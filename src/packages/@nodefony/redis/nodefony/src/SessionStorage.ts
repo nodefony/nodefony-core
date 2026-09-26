@@ -57,9 +57,7 @@ class RedisSessionStorage implements ISessionStorage {
    * à la construction du storage).
    */
   #client() {
-    if (!this.#service) {
-      this.#service = this.manager.get<RedisService>("redis") ?? null;
-    }
+    this.#service ??= this.manager.get<RedisService>("redis") ?? null;
     return this.#service?.getClient("main") ?? null;
   }
 

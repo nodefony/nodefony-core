@@ -289,7 +289,7 @@ class Pdu {
     const severityKey = Pdu.severityToString(
       SysLogSeverity[severity as number],
     );
-    return severityKey !== undefined ? severityKey : undefined;
+    return severityKey;
   }
 
   /**

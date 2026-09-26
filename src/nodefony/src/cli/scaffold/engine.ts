@@ -699,9 +699,7 @@ export function resolveAnswers(
     if (q.askWhen && String(answers[q.askWhen.key]) !== q.askWhen.equals) {
       value = undefined;
     }
-    if (value === undefined) {
-      value = q.default;
-    }
+    value ??= q.default;
     if (q.type === "boolean") {
       answers[q.key] = value === true || value === "true";
       continue;
@@ -4098,9 +4096,7 @@ function declaredDatabase(
         if (!m?.[1]) continue;
         // La cascade est ordonnée du plus fort au plus faible : le premier
         // fichier qui pose une clé la garde.
-        if (env[m[1]] === undefined) {
-          env[m[1]] = m[2]?.trim().replace(/^["']|["']$/gu, "");
-        }
+        env[m[1]] ??= m[2]?.trim().replace(/^["']|["']$/gu, "");
       }
     }
   } catch {

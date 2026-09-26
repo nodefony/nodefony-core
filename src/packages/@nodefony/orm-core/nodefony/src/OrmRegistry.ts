@@ -24,9 +24,7 @@ export class OrmRegistry {
    * @throws si un ORM du même nom est déjà enregistré (erreur de configuration).
    */
   register(name: string, orm: IOrm): void {
-    if (this.#orms === null) {
-      this.#orms = new Map();
-    }
+    this.#orms ??= new Map();
     if (this.#orms.has(name)) {
       throw new Error(
         `OrmRegistry: an ORM named "${name}" is already registered.`,

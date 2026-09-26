@@ -2182,7 +2182,7 @@ export const DashboardSupervision = observer(() => {
                           <Table.Td
                             style={{ fontVariantNumeric: "tabular-nums" }}
                           >
-                            {c.avgMs != null ? c.avgMs : "—"} / {c.maxMs} ms
+                            {c.avgMs ?? "—"} / {c.maxMs} ms
                           </Table.Td>
                           <Table.Td
                             style={{ fontVariantNumeric: "tabular-nums" }}

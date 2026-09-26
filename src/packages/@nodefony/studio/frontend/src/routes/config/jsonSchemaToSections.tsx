@@ -67,7 +67,7 @@ function objectBranch(node: JsonSchemaNode): JsonSchemaNode | null {
   if (node.properties || isObj(node.additionalProperties)) return node;
   if (Array.isArray(node.anyOf)) {
     const obj = node.anyOf.find(
-      (b) => b.properties || isObj(b.additionalProperties),
+      (b) => b.properties ?? isObj(b.additionalProperties),
     );
     if (obj) return obj;
   }

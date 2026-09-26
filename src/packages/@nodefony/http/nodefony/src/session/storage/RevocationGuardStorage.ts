@@ -174,7 +174,7 @@ class RevocationGuardStorage implements ISessionStorage {
   #revoke(id: string): void {
     const now = Date.now();
     this.#purgeExpired(now); // peut relâcher la Map à null
-    if (this.#tombstones === null) this.#tombstones = new Map();
+    this.#tombstones ??= new Map();
     this.#tombstones.set(id, now + TOMBSTONE_TTL_MS);
   }
 

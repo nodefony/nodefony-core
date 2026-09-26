@@ -203,9 +203,7 @@ class Router extends Service implements IRequestRouter {
     ctor: new (...args: never[]) => T,
     create: () => Promise<T>,
   ): Promise<T> {
-    if (this.singletonControllers == null) {
-      this.singletonControllers = new Map();
-    }
+    this.singletonControllers ??= new Map();
     let instance = this.singletonControllers.get(ctor);
     if (!instance) {
       instance = create();
@@ -300,11 +298,9 @@ class Router extends Service implements IRequestRouter {
           // AUCUN appel — le Pdu DEBUG était gaté par le seuil Syslog (T2) mais
           // la template string était quand même construite par requête (L1 :
           // ne jamais formater au-dessus du niveau actif).
-          if (routeNoticePromoted === null) {
-            // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
-            // le check "prod" était mort.
-            routeNoticePromoted = this.kernel?.environment !== "production";
-          }
+          // P8 : runtime ∈ {development, production} (resolveRuntimeEnv) —
+          // le check "prod" était mort.
+          routeNoticePromoted ??= this.kernel?.environment !== "production";
           if (routeNoticePromoted) {
             this.log(`Match route : ${route.name}`, "NOTICE");
           }

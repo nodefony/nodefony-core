@@ -1216,7 +1216,7 @@ export function foreignPortOwners(
     for (const port of state.ports) {
       // Premier propriétaire déclaré gagne : deux projets ne peuvent pas écouter
       // le même port, et un état périmé ne doit pas déloger un état vivant.
-      if (owners[port] === undefined) owners[port] = root;
+      owners[port] ??= root;
     }
   }
   return owners;

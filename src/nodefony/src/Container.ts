@@ -91,9 +91,7 @@ class Container implements IContainer {
    * chaîne ni tour de compteur tant que personne ne le lit.
    */
   public get id(): string {
-    if (this.#id === null) {
-      this.#id = (++containerSeq).toString(36);
-    }
+    this.#id ??= (++containerSeq).toString(36);
     return this.#id;
   }
 
@@ -229,9 +227,7 @@ class Container implements IContainer {
    * callers — {@link scopeCount} answers the usual question)
    */
   public addScope(name: string): ReadonlySet<IScope> {
-    if (this.scopes === null) {
-      this.scopes = new Map();
-    }
+    this.scopes ??= new Map();
     let bucket = this.scopes.get(name);
     if (!bucket) {
       bucket = new Set();

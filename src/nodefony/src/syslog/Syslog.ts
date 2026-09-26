@@ -165,7 +165,7 @@ const writeOut = (s: string): void => {
     _writeStdoutNow(s);
     return;
   }
-  if (_outChunks === null) _outChunks = [];
+  _outChunks ??= [];
   _outChunks.push(s);
   _outBytes += s.length;
   if (_outBytes >= FLUSH_BYTES) {
@@ -732,7 +732,7 @@ class Syslog extends Event implements ISyslog {
     this.settings = extend(
       {},
       defaultSettings,
-      settings || {},
+      settings ?? {},
     ) as SyslogDefaultSettings;
     this._ring = new CircularBuffer<Pdu>(this.settings.maxStack ?? 100);
     this.burstPrinted = 0;
@@ -842,7 +842,7 @@ class Syslog extends Event implements ISyslog {
     // Évite l'accumulation quand init() est appelé plusieurs fois (Cli + CliKernel ctors).
     this.removeAllListeners("onLog");
     this.listenWithConditions(
-      options || conditionOptions(environment, debug),
+      options ?? conditionOptions(environment, debug),
       (pdu: Pdu) => Syslog.normalizeLog(pdu),
     );
     // T2 — le gate d'entrée n'est PAS posé ici : `init()` est appelé tôt avec
@@ -995,23 +995,17 @@ class Syslog extends Event implements ISyslog {
     level: number | Exclude<Severity, number>,
     ttlMs?: number,
   ): void {
-    if (this._debugOverrides === null) {
-      this._debugOverrides = new Map();
-    }
+    this._debugOverrides ??= new Map();
     this._debugOverrides.set(module, Syslog.toSeverityNumber(level));
     this.clearOverrideTimer(module);
     if (ttlMs !== undefined && ttlMs > 0) {
-      if (this._debugOverrideTimers === null) {
-        this._debugOverrideTimers = new Map();
-      }
+      this._debugOverrideTimers ??= new Map();
       const timer = setTimeout(() => {
         this.clearDebugOverride(module);
       }, ttlMs);
       timer.unref();
       this._debugOverrideTimers.set(module, timer);
-      if (this._debugOverrideExpiry === null) {
-        this._debugOverrideExpiry = new Map();
-      }
+      this._debugOverrideExpiry ??= new Map();
       this._debugOverrideExpiry.set(module, Date.now() + ttlMs);
     } else if (this._debugOverrideExpiry !== null) {
       // (re)pose PERMANENTE → retire une échéance antérieure éventuelle.
@@ -1331,7 +1325,7 @@ class Syslog extends Event implements ISyslog {
       return wrapperCondition.call(
         this,
         conditions,
-        stack || this.ringStack,
+        stack ?? this.ringStack,
       ) as Pdu[];
     }
     return this.ringStack;

@@ -617,9 +617,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
       return null;
     }
     let cache = this.#preparedSelects;
-    if (cache === null) {
-      cache = this.#preparedSelects = new Map();
-    }
+    cache ??= this.#preparedSelects = new Map();
     let entry = cache.get(shape.key);
     if (entry === undefined) {
       if (cache.size >= PREPARED_CACHE_MAX) {

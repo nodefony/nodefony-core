@@ -296,7 +296,7 @@ for (const f of files) {
 
   // 5) Ancres fichier:ligne présentes (une doc « code = vérité » sans ancre = suspecte).
   // Un hub oriente et ne cite pas le code : lui réclamer des ancres fabriquerait du faux.
-  const anchors = src.match(/[\w./@-]+\.ts:\d+/g) || [];
+  const anchors = src.match(/[\w./@-]+\.ts:\d+/g) ?? [];
   if (!isHub && !testsOptOut && anchors.length < 3)
     errs.push(
       `trop peu d'ancres fichier:ligne (${anchors.length}) — doc probablement superficielle`,

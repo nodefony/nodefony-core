@@ -73,7 +73,7 @@ class Builder extends Service {
     }>();
     this.debug = opts?.debug ?? false;
     this.interactive = opts?.interactive ?? false;
-    this.response = extend(true, {}, this.cli?.response || {}) as Record<
+    this.response = extend(true, {}, this.cli?.response ?? {}) as Record<
       string,
       any
     >;

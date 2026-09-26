@@ -55,7 +55,7 @@ function DeliveryStatusBadge({ d }: { d: WebhookDelivery }) {
       }
       style={{ textTransform: "none", fontVariantNumeric: "tabular-nums" }}
     >
-      {d.status !== null ? d.status : d.error ? "réseau" : "—"}
+      {d.status ?? (d.error ? "réseau" : "—")}
     </Badge>
   );
 }

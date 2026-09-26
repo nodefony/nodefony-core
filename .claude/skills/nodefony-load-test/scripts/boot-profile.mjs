@@ -63,7 +63,7 @@ function record(chunk) {
     const clean = raw.replace(/\x1b\[[0-9;]*m/g, "");
     const ts = parseTs(clean);
     if (ts == null) continue;
-    if (t0 == null) t0 = ts;
+    t0 ??= ts;
     let rel = ts - t0;
     if (rel < 0) rel += 86400000;
     lines.push({ rel, text: clean.trim() });

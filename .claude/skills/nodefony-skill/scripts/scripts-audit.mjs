@@ -136,7 +136,7 @@ function protocolSignals(path) {
     vocabulaire.push("parle de runs répétés");
   if (
     /process\.env\.[A-Z]/.test(src) &&
-    (src.match(/process\.env\.[A-Z]/g) || []).length > 3
+    (src.match(/process\.env\.[A-Z]/g) ?? []).length > 3
   )
     vocabulaire.push("piloté par plusieurs variables d'environnement");
   return { tous: executes.concat(vocabulaire), executes };

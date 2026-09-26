@@ -47,9 +47,7 @@ let figletModule: FigletModule | null = null;
  * cosmétique : les commandes qui ne l'affichent pas ne paient pas son chargement au boot.
  */
 const loadFiglet = async (): Promise<FigletModule> => {
-  if (!figletModule) {
-    figletModule = (await import("figlet")).default;
-  }
+  figletModule ??= (await import("figlet")).default;
   return figletModule;
 };
 
@@ -539,7 +537,7 @@ class Cli extends Service {
         if (this.options.clear) {
           this.clear();
         }
-        const color = this.options.color || blue;
+        const color = this.options.color ?? blue;
         console.log(color(data));
         return this;
       })
@@ -1165,11 +1163,9 @@ class Cli extends Service {
     return new Promise((resolve, reject) => {
       let cmd = null;
       try {
-        if (!args) {
-          args = [];
-        }
+        args ??= [];
         this.log(`Spawn : ${command} ${args.join(" ")}`, "INFO");
-        cmd = spawn(command, args, options || {});
+        cmd = spawn(command, args, options ?? {});
         if (cmd.stdout) {
           cmd.stdout.on("data", (data: Buffer) => {
             const str = data.toString();
@@ -1200,9 +1196,7 @@ class Cli extends Service {
             close(code);
           }
           if (code !== 0) {
-            if (!args) {
-              args = [];
-            }
+            args ??= [];
             this.log(
               `Spawn : ${command} ${args.join(" ")} Error Code : ${code}`,
               "ERROR",

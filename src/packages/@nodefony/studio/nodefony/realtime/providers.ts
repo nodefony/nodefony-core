@@ -175,7 +175,7 @@ export function createSyslogBridge(
   const onLog = (pdu: unknown): void => {
     // Diffusion coupée à chaud (tuile « Temps réel ») → on n'accumule rien.
     if (syslog.streamEnabled === false) return;
-    if (ring === null) ring = new Array(maxBatch);
+    ring ??= new Array(maxBatch);
     if (count === maxBatch) {
       ring[head] = pdu; // ring plein → écrase le plus ancien
       head = (head + 1) % maxBatch;

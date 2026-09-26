@@ -113,9 +113,7 @@ export function registerErrorAdapter(
     _errorAdapters?.delete(name);
     return;
   }
-  if (_errorAdapters === null) {
-    _errorAdapters = new Map();
-  }
+  _errorAdapters ??= new Map();
   _errorAdapters.set(name, adapter);
 }
 

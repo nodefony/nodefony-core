@@ -309,7 +309,7 @@ class Resolver implements IResolver {
     // qui n'était imputé à personne : il disparaissait dans le bloc opaque
     // `action`. Un singleton ne la paie qu'à sa première requête — la phase
     // n'apparaîtra donc que là, ce qui est la vérité.
-    const ctx = context || this.context;
+    const ctx = context ?? this.context;
     ctx.phaseStart("initialize");
     try {
       const controller = this.injector?.instantiate<Controller>(

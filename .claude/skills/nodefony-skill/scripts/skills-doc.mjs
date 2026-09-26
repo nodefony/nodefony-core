@@ -614,7 +614,7 @@ for (const { name, dir, livre } of skillsAControler()) {
   const prose = description.split(/D[ée]clencheurs?\s*(?:étroits[^:]*)?:/i)[0];
   const keywords = [
     ...new Set(
-      (prose.match(/`[^`]+`/g) || [])
+      (prose.match(/`[^`]+`/g) ?? [])
         .map((k) => k.replace(/`/g, "").trim())
         .filter((k) => k.length > 1 && k.length < 40 && !k.includes(" ")),
     ),

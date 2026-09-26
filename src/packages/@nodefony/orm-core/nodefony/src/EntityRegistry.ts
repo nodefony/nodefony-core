@@ -22,12 +22,10 @@ export class EntityRegistry {
    * @throws si cette entité est déjà enregistrée sur le même connecteur.
    */
   register(entity: IEntity): void {
-    if (this.#entities === null) {
-      this.#entities = Object.create(null) as Record<
-        string,
-        Record<string, IEntity>
-      >;
-    }
+    this.#entities ??= Object.create(null) as Record<
+      string,
+      Record<string, IEntity>
+    >;
     const store = this.#entities;
     let bucket = store[entity.name];
     if (bucket === undefined) {

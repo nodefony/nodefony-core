@@ -506,9 +506,7 @@ class HttpResponse {
     }
     // Corps VIDE légal (action qui `return ""`, 416/204…) : `res.write(null)`
     // jetterait ERR_STREAM_NULL_VALUES → 500 pour un cas parfaitement valide.
-    if (this.body === null) {
-      this.body = Buffer.alloc(0);
-    }
+    this.body ??= Buffer.alloc(0);
     // P2.8 — Backpressure (Node `stream.Writable.write()` : retourne `false`
     // quand le buffer interne dépasse `highWaterMark` → le producteur DOIT
     // attendre l'event `'drain'` avant de réécrire). En streaming chunké

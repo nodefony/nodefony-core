@@ -648,9 +648,7 @@ class DrizzleService extends Service {
     if (check === "off") {
       return;
     }
-    if (this.#watchers === null) {
-      this.#watchers = new Map();
-    }
+    this.#watchers ??= new Map();
     const timer = setInterval(() => {
       void this.#publishReadiness(name, migrator, ddl, check).catch(
         () => undefined,

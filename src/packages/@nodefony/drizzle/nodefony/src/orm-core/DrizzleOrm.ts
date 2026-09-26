@@ -1701,9 +1701,7 @@ export class DrizzleOrm extends Orm {
         `DrizzleOrm "${this.name}": no entity table registered under "${name}".`,
       );
     }
-    if (this.#repositories === null) {
-      this.#repositories = Object.create(null) as Record<string, IRepository>;
-    }
+    this.#repositories ??= Object.create(null) as Record<string, IRepository>;
     let repository = this.#repositories[name];
     if (repository === undefined) {
       repository = new DrizzleRepository(

@@ -474,7 +474,7 @@ export function timeOutages(events: readonly ConnEvent[]): TimedConnEvent[] {
   for (let i = events.length - 1; i >= 0; i--) {
     const e = events[i];
     if (e.kind === "lost") {
-      if (lostAt === null) lostAt = e.ts;
+      lostAt ??= e.ts;
       out.push({ ...e });
     } else {
       out.push(lostAt === null ? { ...e } : { ...e, outageMs: e.ts - lostAt });

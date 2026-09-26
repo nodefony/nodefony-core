@@ -184,7 +184,7 @@ export function installSyslogUplink(opts: SyslogUplinkOptions): () => void {
     // Anti-boucle : ce que le transport dit de lui-même ne repart pas par le transport.
     if (pdu.msgid === UPLINK_MSGID) return;
 
-    if (queue === null) queue = [];
+    queue ??= [];
     if (queue.length >= maxQueue) {
       queue.shift();
       dropped += 1;
@@ -206,7 +206,7 @@ export function installSyslogUplink(opts: SyslogUplinkOptions): () => void {
       return;
     }
     // UN seul minuteur en vol, quel que soit le débit d'entrées.
-    if (timer === null) timer = setTimeout(flush, batchMs);
+    timer ??= setTimeout(flush, batchMs);
   };
 
   syslog.on("onLog", onLog);

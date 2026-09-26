@@ -31,7 +31,7 @@ let active: ILogDriver | null = null;
  */
 export function registerLogDriver(driver: ILogDriver): void {
   drivers.set(driver.name, driver);
-  if (active === null) active = driver;
+  active ??= driver;
 }
 
 /**

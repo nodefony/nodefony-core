@@ -207,7 +207,7 @@ function controller(prefix: string) {
     // ci-dessous, seul écrivain de `metadataKey`.
     const metadata =
       (Reflect.getMetadata(metadataKey, mycontroller) as
-        Record<string, RouteOptions> | undefined) || {};
+        Record<string, RouteOptions> | undefined) ?? {};
     if (Object.keys(metadata).length !== 0) {
       let hasMagic: false | { name: string; options: RouteOptions } = false;
       for (const name in metadata) {
@@ -321,7 +321,7 @@ function route(name: string, options: RouteOptions) {
     // `null` — la lecture typée est faite par `controller()`.
     const metadata =
       (Reflect.getMetadata(metadataKey, target.constructor) as
-        Record<string, unknown> | undefined) || {};
+        Record<string, unknown> | undefined) ?? {};
     metadata[name] = {
       path,
       filePath,
@@ -623,7 +623,7 @@ function Header(key: string, value: string) {
   ): PropertyDescriptor {
     const existing =
       (Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) as
-        Record<string, string> | undefined) || {};
+        Record<string, string> | undefined) ?? {};
     existing[key] = value;
     Reflect.defineMetadata(HEADERS_METADATA, existing, target, propertyKey);
     return descriptor;
@@ -922,7 +922,7 @@ function IsGranted(
       // Classe → clauses sur le constructeur (défaut de toutes les actions).
       const existing =
         (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target) as
-          SecurityClause[] | undefined) || [];
+          SecurityClause[] | undefined) ?? [];
       existing.push(clause);
       Reflect.defineMetadata(SECURITY_CLAUSES_METADATA, existing, target);
       return target;
@@ -930,7 +930,7 @@ function IsGranted(
     // Méthode → clauses sur le prototype, keyées par nom (comme PARAM_ARGS).
     const existing =
       (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target, propertyKey) as
-        SecurityClause[] | undefined) || [];
+        SecurityClause[] | undefined) ?? [];
     existing.push(clause);
     Reflect.defineMetadata(
       SECURITY_CLAUSES_METADATA,
@@ -1015,7 +1015,7 @@ function RequireScope(scope: string | readonly string[]) {
       // Classe → scopes sur le constructeur (s'appliquent à toutes les actions).
       const existing =
         (Reflect.getMetadata(SECURITY_SCOPES_METADATA, target) as
-          SecurityClause[] | undefined) || [];
+          SecurityClause[] | undefined) ?? [];
       existing.push(clause);
       Reflect.defineMetadata(SECURITY_SCOPES_METADATA, existing, target);
       return target;
@@ -1023,7 +1023,7 @@ function RequireScope(scope: string | readonly string[]) {
     // Méthode → scopes sur le prototype, keyés par nom (comme SECURITY_CLAUSES).
     const existing =
       (Reflect.getMetadata(SECURITY_SCOPES_METADATA, target, propertyKey) as
-        SecurityClause[] | undefined) || [];
+        SecurityClause[] | undefined) ?? [];
     existing.push(clause);
     Reflect.defineMetadata(
       SECURITY_SCOPES_METADATA,
@@ -1197,7 +1197,7 @@ function paramDecoratorFactory(source: ParamSource) {
     ): void {
       const existing =
         (Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
-          ParamMeta[] | undefined) || [];
+          ParamMeta[] | undefined) ?? [];
       existing.push({ source, key, index: parameterIndex });
       Reflect.defineMetadata(
         PARAM_ARGS_METADATA,
@@ -1261,7 +1261,7 @@ function Body(keyOrOptions?: string | { stream?: boolean }) {
   ): void {
     const existing =
       (Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
-        ParamMeta[] | undefined) || [];
+        ParamMeta[] | undefined) ?? [];
     // `stream` n'est posé QUE s'il vaut true → `@Body()`/`@Body("k")` gardent
     // exactement la forme historique `{source,key,index}` (rétro-compat tests).
     const meta: ParamMeta = { source: "body", key, index: parameterIndex };
@@ -1417,7 +1417,7 @@ function routeExpectsBodyStream(routeDef: {
     if (ctor && method) {
       const metas =
         (Reflect.getMetadata(PARAM_ARGS_METADATA, ctor.prototype, method) as
-          ParamMeta[] | undefined) || [];
+          ParamMeta[] | undefined) ?? [];
       flag = metas.some((m) => m.source === "body" && m.stream === true);
     }
     routeDef.bodyStream = flag;
@@ -1671,12 +1671,10 @@ function resolveActionMeta(routeDef: {
   classMethod?: string;
   actionMeta?: RouteActionMeta;
 }): RouteActionMeta {
-  if (routeDef.actionMeta === undefined) {
-    routeDef.actionMeta = computeActionMeta(
-      routeDef.controller,
-      routeDef.classMethod,
-    );
-  }
+  routeDef.actionMeta ??= computeActionMeta(
+    routeDef.controller,
+    routeDef.classMethod,
+  );
   return routeDef.actionMeta;
 }
 

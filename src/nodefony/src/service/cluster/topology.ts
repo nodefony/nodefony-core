@@ -126,7 +126,7 @@ export async function loadClusterConfig(
       default?: IClusterConfig;
     };
     const workers = mod.default?.workers;
-    return workers === undefined ? null : workers;
+    return workers ?? null;
   } catch {
     return null;
   }

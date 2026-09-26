@@ -495,7 +495,7 @@ async function principal() {
     `collecte : ${items.length} compte(s) · ancien ${ancienPresent} · ` +
       `externes ${comptesExternes} · POST ${creation.status ?? creation.error} · ` +
       `status ${status.code} (verdict ${statusVerdict ?? "ILLISIBLE"}) · ` +
-      `base vierge → ${vierge.deployee === null ? "MIGRATION EN ÉCHEC" : vierge.deployee} ` +
+      `base vierge → ${vierge.deployee ?? "MIGRATION EN ÉCHEC"} ` +
       `[${vierge.detail.slice(0, 200)}] · appliquées ${applique}`,
   );
   exit(verdict.code, `CAUSE=${verdict.cause} — ${verdict.detail}`);
