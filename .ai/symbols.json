@@ -2,10 +2,10 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 865,
-    "symbols": 4319,
+    "files": 867,
+    "symbols": 4323,
     "classes": 404,
-    "interfaces": 1133,
+    "interfaces": 1137,
     "types": 461,
     "enums": 4,
     "functions": 1882,
@@ -6550,6 +6550,15 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Une **page** de résultats — la sortie unique de toute pagination Nodefony. `total` présent = mode **Page** (on a compté) ; absent = mode **Slice**. `hasNext` est fiable dans les deux cas. `nextCurs…"
+    },
+    "IServerKernel": {
+      "name": "IServerKernel",
+      "kind": "interface",
+      "file": "src/nodefony/src/types/IServerKernel.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "extends": null,
+      "description": "Ce que le Kernel attend du service `HttpKernel` pour ouvrir les serveurs — et rien de plus. Le service est fourni par `@nodefony/http`, qui dépend du cœur : le cœur ne peut donc pas nommer sa class…"
     },
     "DefaultOptionsService": {
       "name": "DefaultOptionsService",
@@ -16874,7 +16883,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "extends": null
+      "extends": "IRouteResolver"
     },
     "IRoute": {
       "name": "IRoute",
@@ -16882,7 +16891,7 @@
       "file": "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
       "exported": true,
       "module": "@nodefony/framework",
-      "extends": null
+      "extends": "IResolvedRoute"
     },
     "AdminBroker": {
       "name": "AdminBroker",
@@ -16931,7 +16940,9 @@
       "exported": true,
       "module": "@nodefony/framework",
       "extends": "Service",
-      "implements": [],
+      "implements": [
+        "IRequestRouter"
+      ],
       "decorators": [
         "injectable"
       ]
@@ -18440,7 +18451,7 @@
       "file": "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts",
       "exported": true,
       "module": "@nodefony/http",
-      "extends": null
+      "extends": "IServerKernel"
     },
     "IRequest": {
       "name": "IRequest",
@@ -18522,6 +18533,33 @@
       "exported": true,
       "module": "@nodefony/http",
       "extends": "IResponse"
+    },
+    "IResolvedRoute": {
+      "name": "IResolvedRoute",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le pipeline HTTP/WS lit d'une route résolue — et rien de plus. Le routage vit dans `@nodefony/framework`, qui dépend de `@nodefony/http` : `http` ne peut donc pas nommer ses classes sans rec…"
+    },
+    "IRouteResolver": {
+      "name": "IRouteResolver",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le pipeline HTTP/WS attend du résolveur d'une requête, posé sur `context.resolver` par le routeur. Implémenté par `Resolver` (`@nodefony/framework`), qui l'étend de ses propres membres — un …"
+    },
+    "IRequestRouter": {
+      "name": "IRequestRouter",
+      "kind": "interface",
+      "file": "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
+      "exported": true,
+      "module": "@nodefony/http",
+      "extends": null,
+      "description": "Ce que le pipeline HTTP/WS attend du service `router` — implémenté par `Router` (`@nodefony/framework`)."
     },
     "SessionIntent": {
       "name": "SessionIntent",
@@ -29657,12 +29695,21 @@
       "IAdminRegistry": [
         "IAdminBroker"
       ],
+      "IRouteResolver": [
+        "IResolver"
+      ],
+      "IResolvedRoute": [
+        "IRoute"
+      ],
       "Template": [
         "Eta"
       ],
       "IContext": [
         "IHttpContext",
         "IWebsocketContext"
+      ],
+      "IServerKernel": [
+        "IHttpKernel"
       ],
       "IRequest": [
         "IHttpRequest",
@@ -29866,6 +29913,9 @@
       ],
       "IAdminBroker": [
         "AdminBroker"
+      ],
+      "IRequestRouter": [
+        "Router"
       ],
       "IController": [
         "Controller"
@@ -30890,7 +30940,6 @@
       "HttpKernel": [
         "src/modules/test/index.ts",
         "src/packages/@nodefony/http/index.ts",
-        "src/nodefony/src/kernel/Kernel.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-http.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-https.ts",
         "src/packages/@nodefony/http/nodefony/service/servers/server-websocket-secure.ts",
@@ -31270,6 +31319,7 @@
       ],
       "Router": [
         "src/packages/@nodefony/framework/index.ts",
+        "src/modules/test/nodefony/poc/PocInvokeController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/ApiKeyController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/BenchController.ts",
         "src/packages/@nodefony/framework/nodefony/controller/IssuerMetadataController.ts",
@@ -31285,8 +31335,7 @@
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/scopeCatalog.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
+        "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
       ],
       "Route": [
         "src/packages/@nodefony/framework/index.ts",
@@ -31294,12 +31343,10 @@
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts",
         "src/packages/@nodefony/framework/nodefony/src/FrameworkAdminApi.ts",
         "src/packages/@nodefony/framework/nodefony/src/PlaygroundAdminApi.ts",
-        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+        "src/packages/@nodefony/framework/nodefony/src/Resolver.ts"
       ],
       "Controller": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/nodefony/src/kernel/Module.ts",
         "src/modules/mediasoup/nodefony/controller/MediasoupController.ts",
         "src/modules/test/nodefony/controller/AlsController.ts",
         "src/modules/test/nodefony/controller/BenchOrmController.ts",
@@ -31353,7 +31400,6 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioController.ts",
         "src/packages/@nodefony/studio/nodefony/controller/StudioCreateController.ts",
         "src/packages/@nodefony/realtime/nodefony/src/server/RealtimeController.ts"
@@ -31364,10 +31410,7 @@
       ],
       "Resolver": [
         "src/packages/@nodefony/framework/index.ts",
-        "src/packages/@nodefony/framework/nodefony/service/router.ts",
-        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
-        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+        "src/packages/@nodefony/framework/nodefony/service/router.ts"
       ],
       "AdminBroker": [
         "src/packages/@nodefony/framework/index.ts"
@@ -33349,11 +33392,16 @@
       "LastBootProfile": [
         "src/nodefony/src/kernel/Kernel.ts"
       ],
+      "IServerKernel": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IHttpKernel.ts"
+      ],
       "Injector": [
         "src/nodefony/src/kernel/Kernel.ts",
         "src/nodefony/src/kernel/Module.ts",
         "src/nodefony/src/kernel/decorators/kernelDecorator.ts",
         "src/nodefony/src/kernel/injector/serviceOrder.ts",
+        "src/modules/test/nodefony/controller/DiController.ts",
         "src/modules/test/nodefony/controller/RequestScopeController.ts",
         "src/packages/@nodefony/framework/nodefony/decorators/routerDecorators.ts",
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
@@ -35684,6 +35732,7 @@
         "src/packages/@nodefony/framework/nodefony/src/Resolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/ResourceController.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
+        "src/packages/@nodefony/http/nodefony/interfaces/IRouting.ts",
         "src/packages/@nodefony/realtime/nodefony/testing/index.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IAuthenticator.ts",
         "src/packages/@nodefony/security/nodefony/contracts/IFirewall.ts",
@@ -37174,6 +37223,12 @@
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts"
       ],
+      "IRouteResolver": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
       "IController": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IResolver.ts",
         "src/packages/@nodefony/framework/nodefony/src/Controller.ts"
@@ -37190,6 +37245,10 @@
         "src/packages/@nodefony/http/nodefony/src/context/http/HttpContext.ts",
         "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
       ],
+      "IResolvedRoute": [
+        "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/websocket/WebsocketContext.ts"
+      ],
       "RouteRequirements": [
         "src/packages/@nodefony/framework/nodefony/interfaces/IRoute.ts"
       ],
@@ -37200,6 +37259,11 @@
         "src/packages/@nodefony/framework/nodefony/service/router.ts",
         "src/packages/@nodefony/framework/nodefony/src/Route.ts",
         "src/packages/@nodefony/http/nodefony/service/http-kernel.ts"
+      ],
+      "IRequestRouter": [
+        "src/packages/@nodefony/framework/nodefony/service/router.ts",
+        "src/packages/@nodefony/http/nodefony/service/http-kernel.ts",
+        "src/packages/@nodefony/http/nodefony/src/context/Context.ts"
       ],
       "resolveSymbolsFile": [
         "src/packages/@nodefony/framework/nodefony/src/docsReader.ts"

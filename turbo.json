@@ -75,15 +75,15 @@
       "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"]
     },
 
-    // Le CŒUR compile les SOURCES de cinq modules qu'il ne peut pas déclarer en
-    // dépendance : ils dépendent de lui (cycle inversé), et leur `exports["."].types`
-    // pointe `./index.ts` — l'anti-race de build qui évite un TS2307 chez les
-    // consommateurs. Sans les lignes ci-dessous, ces sources sont HORS des `inputs`
-    // du cœur : turbo sert alors `nodefony#build` DEPUIS LE CACHE quand seul un de
-    // ces modules a changé, et rend un VERT sur du code qu'il n'a jamais recompilé.
-    // Vécu : une erreur TS4114 dans `@nodefony/security` a passé le `pre-push`
-    // (21/21 « cached ») et emporté CINQ workflows en CI, où le cache est froid.
-    // Toute nouvelle entrée `exports["."].types` en `.ts` s'ajoute ICI.
+    // Le CŒUR ne lit AUCUNE source de module : il ne nomme aucun type de
+    // `@nodefony/http` ni de `@nodefony/framework` — ce qu'il en attend est un
+    // contrat qu'il définit lui-même (`IServerKernel`), que les modules étendent.
+    // Ses `inputs` se bornent donc à son propre dossier. Réintroduire un
+    // `import type` d'un module dans le cœur lui ferait recompiler ces sources
+    // SANS que turbo le sache : cache servi sur du code jamais recompilé, le faux
+    // vert qui avait passé le `pre-push` (erreur TS4114 dans `@nodefony/security`).
+    // Contrôle : `npx tsgo -p src/nodefony --noEmit --listFiles` ne doit lister
+    // aucun `src/packages/@nodefony/*` hors `dist`.
     "nodefony#build": {
       "dependsOn": ["^build"],
       "outputs": ["dist/**", "bin/nodefony"],
@@ -94,21 +94,12 @@
         "rolldown.config.ts",
         "vite.config.*",
         "tsconfig*.json",
-        "package.json",
-        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/index.ts",
-        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/nodefony/**/*.ts"
+        "package.json"
       ]
     },
     "nodefony#typecheck": {
       "dependsOn": ["^build"],
-      "inputs": [
-        "index.ts",
-        "src/**",
-        "nodefony/**",
-        "tsconfig*.json",
-        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/index.ts",
-        "$TURBO_ROOT$/src/packages/@nodefony/{framework,http,orm-core,security,user}/nodefony/**/*.ts"
-      ]
+      "inputs": ["index.ts", "src/**", "nodefony/**", "tsconfig*.json"]
     }
   }
 }

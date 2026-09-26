@@ -333,6 +333,11 @@ export type {
 } from "./nodefony/interfaces/IResponse";
 export type { IHttpKernel } from "./nodefony/interfaces/IHttpKernel";
 export type {
+  IResolvedRoute,
+  IRouteResolver,
+  IRequestRouter,
+} from "./nodefony/interfaces/IRouting";
+export type {
   IUploadedFile,
   IUploadService,
   IParsedUploadFile,

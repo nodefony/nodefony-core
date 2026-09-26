@@ -1,10 +1,10 @@
-import type { ContextType, HttpError } from "@nodefony/http";
+import type { ContextType, HttpError, IRouteResolver } from "@nodefony/http";
 import type { Injector } from "nodefony";
 import type { ControllerConstructor } from "../src/Route.js";
 import type { IRoute } from "./IRoute.js";
 import type { IController } from "./IController.js";
 
-export interface IResolver {
+export interface IResolver extends IRouteResolver {
   injector?: Injector | null;
   controller: ControllerConstructor | null;
   actionName?: string;

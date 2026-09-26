@@ -14,7 +14,7 @@ import {
   Scope,
 } from "nodefony";
 import type { IProfilerQuery } from "nodefony";
-import type { Resolver, Router } from "@nodefony/framework";
+import type { IRouteResolver, IRequestRouter } from "../../interfaces/IRouting";
 import { buildMetaData } from "./metaData.js";
 import type { IMetaDataSource } from "./metaData.js";
 import { WebSocketServer } from "ws";
@@ -216,8 +216,8 @@ class Context extends Service implements IContextInterface {
     return false;
   }
   crossDomain: boolean = false;
-  router: Router | null = this.get("router");
-  resolver: Resolver | null = null;
+  router: IRequestRouter | null = this.get("router");
+  resolver: IRouteResolver | null = null;
   /**
    * Intent de session de la route courante (posé par le Resolver depuis
    * `@UseSession` / paramètre `@Session`). Pilote le point d'activation unique

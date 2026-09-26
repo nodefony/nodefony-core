@@ -1,4 +1,5 @@
 import { Controller, route, controller } from "@nodefony/framework";
+import type { Router } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 
 /**
@@ -44,7 +45,8 @@ class PocInvokeController extends Controller {
       return this.renderJson({ error: "invalid json" });
     }
     const ctx = this.context;
-    const router = ctx?.router;
+    // Contrat de `@nodefony/http` → Router de `@nodefony/framework` (executeAction).
+    const router = ctx?.router as Router | null | undefined;
     if (!ctx || !router) {
       return this.renderJson({ id, error: "router unavailable" });
     }

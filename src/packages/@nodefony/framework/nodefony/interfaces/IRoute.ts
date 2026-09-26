@@ -1,7 +1,12 @@
-import type { HTTPMethod, SchemeType, ContextType } from "@nodefony/http";
+import type {
+  HTTPMethod,
+  SchemeType,
+  ContextType,
+  IResolvedRoute,
+} from "@nodefony/http";
 import type { ControllerConstructor, RouteRequirements } from "../src/Route.js";
 
-export interface IRoute {
+export interface IRoute extends IResolvedRoute {
   name: string;
   path?: string;
   controller?: ControllerConstructor;

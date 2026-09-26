@@ -1,7 +1,7 @@
 import { Controller, route, controller } from "@nodefony/framework";
 import { Context } from "@nodefony/http";
 import { Nodefony } from "nodefony";
-import type { Kernel } from "nodefony";
+import type { Kernel, Injector } from "nodefony";
 
 /**
  * Sonde d'intégration du conteneur d'injection — expose l'IDENTITÉ réelle des
@@ -78,8 +78,11 @@ class DiController extends Controller {
   @route("di-tokens", { path: "/tokens", requirements: { methods: ["GET"] } })
   tokens() {
     const kernel = Nodefony.getKernel() as Kernel;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const injector = kernel.injector as any;
+    // Constructeur de l'injecteur EN MARCHE (pas un import statique) : c'est
+    // son registre qu'on interroge.
+    const injector = kernel.injector as unknown as {
+      constructor: Pick<typeof Injector, "injectables" | "containerKeyOf">;
+    };
 
     // (nom de classe tel qu'enregistré par @injectable, clé container réelle)
     const cases: Array<[string, string]> = [

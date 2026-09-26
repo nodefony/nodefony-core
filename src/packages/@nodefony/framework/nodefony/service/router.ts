@@ -8,6 +8,7 @@ import {
 } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
 import { ContextType, HttpError, isDomainAllowed } from "@nodefony/http";
+import type { IRequestRouter } from "@nodefony/http";
 import Resolver from "../src/Resolver";
 import Controller from "../src/Controller";
 import { routeExpectsBodyStream } from "../decorators/routerDecorators";
@@ -161,7 +162,7 @@ function buildRouteIndex(): RouteIndex {
 }
 
 @injectable()
-class Router extends Service {
+class Router extends Service implements IRequestRouter {
   //static controllers = controllers;
   static routes = routes;
   routes: Route[] = Router.routes;
@@ -172,8 +173,8 @@ class Router extends Service {
   // passe pas par le ctor — un champ `#` y jetterait TypeError ; le guard
   // `== null` couvre `null` ET `undefined` (proxy sans champ).
   private singletonControllers: Map<
-    TypeController<Controller>,
-    Promise<Controller>
+    new (...args: never[]) => object,
+    Promise<object>
   > | null = null;
   constructor(
     module: Module,
@@ -198,10 +199,10 @@ class Router extends Service {
    * @param create - fabrique exécutée une seule fois (instantiate + initialize).
    * @returns la promesse de l'instance partagée.
    */
-  getSingletonController(
-    ctor: TypeController<Controller>,
-    create: () => Promise<Controller>,
-  ): Promise<Controller> {
+  getSingletonController<T extends object>(
+    ctor: new (...args: never[]) => T,
+    create: () => Promise<T>,
+  ): Promise<T> {
     if (this.singletonControllers == null) {
       this.singletonControllers = new Map();
     }
@@ -210,7 +211,9 @@ class Router extends Service {
       instance = create();
       this.singletonControllers.set(ctor, instance);
     }
-    return instance;
+    // La clé EST la classe de l'instance : le lien ctor → T tient par
+    // construction, mais une Map ne sait pas l'exprimer par entrée.
+    return instance as Promise<T>;
   }
 
   /**

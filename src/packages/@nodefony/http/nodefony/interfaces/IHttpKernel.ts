@@ -1,6 +1,7 @@
+import type { IServerKernel } from "nodefony";
 import type { ServerType } from "./IContext";
 
-export interface IHttpKernel {
+export interface IHttpKernel extends IServerKernel {
   domain: string;
   httpPort?: number;
   httpsPort?: number;

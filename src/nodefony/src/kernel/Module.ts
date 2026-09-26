@@ -24,12 +24,9 @@ import Pdu, { Severity, Msgid, Message } from "../syslog/Pdu";
 //import vm from "node:vm";
 const regModuleName: RegExp = /^[Mm]odule-([\w-]+)/u;
 import { createRequire } from "node:module";
-// Type SEUL (paramètre de `TypeController<…>`) : le cœur ne dépend pas de
-// `@nodefony/framework` à l'exécution — l'inverse serait un cycle.
-import type { Controller } from "@nodefony/framework";
 // oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
 export type TypeController<T> = new (...args: any[]) => T;
-const controllers: Record<string, TypeController<Controller>> = {};
+const controllers: Record<string, TypeController<object>> = {};
 
 /**
  * Unité fonctionnelle de Nodefony — successeur direct du concept "Bundle" (Symfony / Nodefony JS).
@@ -581,7 +578,7 @@ class Module<TConfig = Record<string, unknown>>
    * @returns constructeur typé du controller.
    * @throws Si `name` est falsy ou si le controller n'est pas enregistré pour ce module.
    */
-  getController<T = Controller>(name: string): TypeController<T> {
+  getController<T = object>(name: string): TypeController<T> {
     if (!name) {
       throw new Error(`Module getController argument name is mandatory`);
     }
@@ -596,7 +593,7 @@ class Module<TConfig = Record<string, unknown>>
    * Retourne les controllers enregistrés **pour ce module** (clés = nom de classe
    * nu, préfixe module retiré). Vue jetable filtrée depuis le registre global.
    */
-  getControllers<T = Controller>(): Record<string, TypeController<T>> {
+  getControllers<T = object>(): Record<string, TypeController<T>> {
     const prefix = `${this.name}:`;
     const out: Record<string, TypeController<T>> = {};
     for (const key in Module.controllers) {

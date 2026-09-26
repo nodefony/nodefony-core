@@ -190,7 +190,14 @@ class Controller extends Service implements IController {
    * (`context.resolver`), donc toujours la route de CETTE requête.
    */
   get route(): Route | null {
-    return this.#route ?? this.context?.resolver?.route ?? null;
+    // `context.resolver` est typé par le contrat de `@nodefony/http`, qui ne
+    // connaît pas `Route` ; seul le Router de ce paquet le pose, donc la route
+    // est bien une `Route`.
+    return (
+      this.#route ??
+      (this.context?.resolver?.route as Route | undefined) ??
+      null
+    );
   }
 
   get request(): contextRequest {

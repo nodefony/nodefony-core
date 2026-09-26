@@ -8,9 +8,12 @@ import { RequestContext } from "nodefony";
 import Ws from "ws";
 import type { IncomingMessage } from "node:http";
 import WebsocketResponse from "./Response.js";
-import type { Resolver, Route } from "@nodefony/framework";
 import { URL } from "node:url";
 import { HTTPMethod } from "../Context.js";
+import type {
+  IResolvedRoute,
+  IRouteResolver,
+} from "../../../interfaces/IRouting";
 import HttpError from "../../errors/httpError.js";
 import { sanitizeRequestId } from "../requestId.js";
 import { FrameProfile } from "../../profiler/FrameProfile.js";
@@ -268,10 +271,10 @@ export default class WebsocketContext
       throw new Error("Nodefony Websocket rejected");
     }
     if (!this.resolver) {
-      this.resolver = this.router?.resolve(this) as Resolver;
+      this.resolver = this.router?.resolve(this) as IRouteResolver;
     } else {
       try {
-        this.resolver.match(this.resolver.route as Route, this);
+        this.resolver.match(this.resolver.route as IResolvedRoute, this);
       } catch (e) {
         if (!this.rejected) {
           this.reject(
@@ -485,9 +488,9 @@ export default class WebsocketContext
     }
     try {
       if (!this.resolver) {
-        this.resolver = this.router?.resolve(this) as Resolver;
+        this.resolver = this.router?.resolve(this) as IRouteResolver;
       } else {
-        this.resolver.match(this.resolver?.route as Route, this);
+        this.resolver.match(this.resolver.route as IResolvedRoute, this);
       }
       await this.fireAsync("onMessage", message, this, "RECEIVE");
       if (this.resolver.resolve) {

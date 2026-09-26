@@ -45,3 +45,8 @@ export type {
 } from "./IContext";
 
 export type { IHttpKernel } from "./IHttpKernel";
+export type {
+  IResolvedRoute,
+  IRouteResolver,
+  IRequestRouter,
+} from "./IRouting";

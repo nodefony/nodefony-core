@@ -15,8 +15,7 @@ import {
   writeRuntimeState,
   servedUrl,
 } from "nodefony";
-import type { Resolver, Router } from "@nodefony/framework";
-import type { Controller } from "@nodefony/framework";
+import type { IRouteResolver, IRequestRouter } from "../interfaces/IRouting";
 import HttpError from "../src/errors/httpError";
 import {
   buildTrustProxy,
@@ -267,7 +266,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   private secFrameOptions: string | null = null;
   private secHsts: string | null = null;
   sessionService?: SessionsService | null;
-  router?: Router | null;
+  router?: IRequestRouter | null;
   firewall?: Firewall | null;
   // Singleton — zero per-request alloc. Swap via setErrorRenderer().
   private errorRenderer: IErrorRenderer = new DefaultErrorRenderer();
@@ -526,7 +525,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       });
     });
     this.kernel?.prependOnceListener("onBoot", () => {
-      this.router = this.get<Router>("router");
+      this.router = this.get<IRequestRouter>("router");
       this.firewall = this.get<Firewall>("firewall");
     });
     return this;
@@ -772,7 +771,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   async prepareFrontController(
     context: ContextType,
     checkFirewall: boolean = true,
-  ): Promise<Resolver> {
+  ): Promise<IRouteResolver> {
     if (!this.router) {
       throw new Error("kernel HTTP not ready");
     }
@@ -782,9 +781,9 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // FRONT ROUTER — P2.9 : réutilise le résolveur si déjà matché EN AMONT
     // (handleHttp hisse le match avant le parse pour décider du skip). Sinon
     // (WebSocket, ou pas de pré-match), match ici comme avant. Pas de double match.
-    let resolver: Resolver;
+    let resolver: IRouteResolver;
     if (context.resolver) {
-      resolver = context.resolver as Resolver;
+      resolver = context.resolver as IRouteResolver;
     } else {
       context.phaseStart("resolve");
       try {
@@ -816,7 +815,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
   async handleFrontController(
     context: ContextType,
     checkFirewall: boolean = true,
-  ): Promise<Controller> {
+  ): Promise<object> {
     const resolver = await this.prepareFrontController(context, checkFirewall);
     return await resolver.newController(context);
   }

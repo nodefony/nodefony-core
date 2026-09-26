@@ -45,7 +45,9 @@ const isPlainObject = (obj: unknown): boolean => {
   if (!obj || _toString.call(obj) !== "[object Object]") return false;
   const proto = getProto(obj);
   if (!proto) return true; // Object.create(null)
-  const Ctor = hasOwn.call(proto, "constructor") && (proto as any).constructor;
+  const Ctor =
+    hasOwn.call(proto, "constructor") &&
+    (proto as { constructor?: unknown }).constructor;
   return (
     typeof Ctor === "function" && fnToString.call(Ctor) === ObjectFunctionString
   );

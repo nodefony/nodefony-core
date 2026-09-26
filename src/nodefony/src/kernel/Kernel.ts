@@ -46,9 +46,9 @@ import {
   type LastBootProfile,
 } from "./checks/lastBoot";
 //import Fetch from "../service/fetchService";
-// Type SEUL (`this.get<HttpKernel>(…)`) : le cœur ne dépend pas de `@nodefony/http`
-// à l'exécution — l'inverse serait un cycle, http déclarant `nodefony`.
-import type { HttpKernel } from "@nodefony/http";
+// Contrat défini PAR le cœur (lecteur) et étendu par `IHttpKernel` : le cœur ne
+// nomme aucun type de `@nodefony/http`, qui dépend de lui.
+import type { IServerKernel } from "../types/IServerKernel";
 import Injector from "./injector/injector";
 import {
   isClusterMessage,
@@ -1381,7 +1381,7 @@ class Kernel extends Service implements IKernel {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   async initServers(): Promise<any[]> {
     if (this.runProfile?.servers === false) return [];
-    const httpKernel = this.get<HttpKernel>("HttpKernel");
+    const httpKernel = this.get<IServerKernel>("HttpKernel");
     if (httpKernel)
       return await httpKernel
         .initServers()

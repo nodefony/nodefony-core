@@ -23,6 +23,7 @@ import {
 import type { WebsocketContext, ProfiledResolver } from "@nodefony/http";
 import { readBackpressureOptions } from "@nodefony/http";
 import { Controller } from "@nodefony/framework";
+import type { Router } from "@nodefony/framework";
 import { createSyslogUplinkHandler } from "./syslogUplink";
 import {
   WsConnectionTransport,
@@ -913,7 +914,9 @@ export abstract class RealtimeController<
         -32602,
       );
     }
-    const router = ctx.router;
+    // `ctx.router` est typé par le contrat de `@nodefony/http` ; le service est
+    // le Router de `@nodefony/framework`, dont on lit ici des membres propres.
+    const router = ctx.router as Router | null;
     if (!router) {
       throw new RpcError("api.request: router indisponible", -32000, {
         status: 500,

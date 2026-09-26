@@ -428,6 +428,7 @@ export type {
 
 // ─── Types & Interfaces ───────────────────────────────────────────────────────
 export type { IKernel, KernelNetworkResult } from "./types/IKernel";
+export type { IServerKernel } from "./types/IServerKernel";
 export type {
   IModuleManifest,
   IModuleManifestEntry,

@@ -1741,8 +1741,7 @@ class Syslog extends Event implements ISyslog {
       table: console.table.bind(console),
       dir: console.dir.bind(console),
     };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any -- Console interface requires dynamic assignment
-    const con = console as any;
+    const con: Console = console;
     con.log = (...data: unknown[]) => instance.print(...(data as Pci[]));
     con.info = (...data: unknown[]) =>
       instance.logMultiple("INFO", ...(data as Pci[]));
