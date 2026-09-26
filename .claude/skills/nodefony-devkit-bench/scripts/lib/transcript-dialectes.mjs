@@ -383,7 +383,7 @@ export const DIALECTES = [
         acc.tours = (acc.tours ?? 0) + 1;
         acc.vu = true;
         for (const c of o.tool_calls ?? []) {
-          if (String(c?.function?.name ?? "").startsWith(`${mcp}`))
+          if (String(c?.function?.name ?? "").startsWith(mcp))
             acc.mcpCalls += 1;
         }
       }

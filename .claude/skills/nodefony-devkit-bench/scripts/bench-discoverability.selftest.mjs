@@ -3047,7 +3047,10 @@ function main() {
     `\n━━ ${covered}/${probes.length} sonde(s) couverte(s), ${checked} cas joué(s)` +
       (prove ? ` — amputation vérifiée sur ${covered}` : "") +
       `, gardes du juge : ${gardeRatee.length === 0 ? "30 cas ✅" : `${gardeRatee.length} RATÉ(S)`}` +
-      `${wrong.length + toothless.length + jugeantes.length + gardeRatee.length > 0 ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)` : ""}`,
+      (wrong.length + toothless.length + jugeantes.length + gardeRatee.length >
+      0
+        ? `, ${wrong.length + toothless.length + jugeantes.length + gardeRatee.length} DÉFAUT(S)`
+        : ""),
   );
 
   if (

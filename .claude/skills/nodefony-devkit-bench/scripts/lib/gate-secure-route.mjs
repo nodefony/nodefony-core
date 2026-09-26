@@ -93,7 +93,7 @@ if (estSucces(anonyme.status)) {
     `CAUSE=route-ouverte-a-l-anonyme — GET ${CIBLE} rend ${anonyme.status} SANS aucune ` +
       `identité. Rien ne protège la route : le décorateur est absent, posé sur une autre ` +
       `action, ou le motif de la zone ne couvre pas ce chemin. Corps : ` +
-      `${anonyme.body.slice(0, 160)}`,
+      anonyme.body.slice(0, 160),
   );
 }
 if (!estRefus(anonyme.status)) {

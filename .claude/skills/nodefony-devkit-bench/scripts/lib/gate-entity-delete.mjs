@@ -217,7 +217,7 @@ if (!estSucces(parAdmin.status)) {
       `${parAdmin.status} en supprimant une facture qu'il vient de créer. Plus personne ne peut ` +
       `détruire : la protection a été posée sur une action ou un rôle qui exclut son ` +
       `destinataire — ou la route de suppression n'existe pas. Corps : ` +
-      `${parAdmin.body.slice(0, 160)}`,
+      parAdmin.body.slice(0, 160),
   );
 }
 

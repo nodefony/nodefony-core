@@ -301,8 +301,8 @@ export class ApiClient {
       try {
         const payload =
           method === "GET"
-            ? await this.socket!.request<unknown>(url as `/${string}`)
-            : await this.socket!.mutate<unknown>(url as `/${string}`, {
+            ? await this.socket!.request(url as `/${string}`)
+            : await this.socket!.mutate(url as `/${string}`, {
                 method: method as "POST" | "PUT" | "PATCH" | "DELETE",
                 body,
                 idempotencyKey: idemKey!,

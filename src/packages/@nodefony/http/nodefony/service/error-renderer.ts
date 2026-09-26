@@ -494,7 +494,7 @@ class DefaultErrorRenderer implements IErrorRenderer {
       for (const key of INTERNAL_ERROR_KEYS) delete serialized[key];
       serialized.message = message;
     }
-    obj.error = serialized as unknown;
+    obj.error = serialized;
     obj.code = status;
     obj.message = message;
     // L'aide au développeur, et JAMAIS en production : `isProduction()` passe

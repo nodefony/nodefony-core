@@ -5238,7 +5238,7 @@ function finaliserDecor(app, runDir) {
   if (ecartees.length > 0) {
     console.log(
       `  ✅ ${ecartees.length} variable(s) NF_* du poste écartée(s) du décor : ` +
-        `${ecartees.join(", ")}`,
+        ecartees.join(", "),
     );
   }
   if (!LINKED && !isolation.ok) {
@@ -6590,7 +6590,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       .slice(idx + 1)
       .find((l) => /tâche \d+$|état initial$/u.test(l))
       ?.split(" ")[0];
-  const files = git(app, "diff", "--name-only", `${base ?? `${hash}~1`}`, hash)
+  const files = git(app, "diff", "--name-only", base ?? `${hash}~1`, hash)
     .split("\n")
     .filter(Boolean);
   // Un run vide retire le droit de conclure — il ne condamne pas. On emprunte le
@@ -6644,7 +6644,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // 6/6 côté fond, recalé parce qu'il avait touché l'e2e généré qui porte le
   // `new WebSocket` du test echo). On ne juge un interdit que sur ce que
   // l'agent a ÉCRIT.
-  const added = lignesAjoutees(app, `${base ?? `${hash}~1`}`, hash);
+  const added = lignesAjoutees(app, base ?? `${hash}~1`, hash);
   // Lignes ajoutées dans le CODE seul. Une valeur peut être légitime dans un
   // `.env` (c'est même là qu'on la veut) et fautive dans un `.ts` : sans cette
   // restriction, une sonde « pas de valeur en dur » rougirait sur la bonne
@@ -6660,7 +6660,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       app,
       "diff",
       "--unified=0",
-      `${base ?? `${hash}~1`}`,
+      base ?? `${hash}~1`,
       hash,
       "--",
       "*.ts",
@@ -6676,7 +6676,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       app,
       "diff",
       "--unified=0",
-      `${base ?? `${hash}~1`}`,
+      base ?? `${hash}~1`,
       hash,
       "--",
       "*.ts",
@@ -6706,7 +6706,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
       app,
       "diff",
       "--unified=0",
-      `${base ?? `${hash}~1`}`,
+      base ?? `${hash}~1`,
       hash,
       "--",
       "tests/**",
@@ -6719,7 +6719,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
   // vert » s'obtient en effaçant le test qui échoue, et rien ne le montre —
   // une absence ne laisse pas de trace dans les lignes ajoutées.
   const deleted = lignesDuDiff(
-    git(app, "diff", "--unified=0", `${base ?? `${hash}~1`}`, hash),
+    git(app, "diff", "--unified=0", base ?? `${hash}~1`, hash),
     "-",
   );
   const deletedFiles = git(
@@ -6727,7 +6727,7 @@ function judgeTask(app, runDir, task, occurrence = null) {
     "diff",
     "--diff-filter=D",
     "--name-only",
-    `${base ?? `${hash}~1`}`,
+    base ?? `${hash}~1`,
     hash,
   )
     .split("\n")
@@ -7032,7 +7032,7 @@ function restituerDepistage(bilan, invocation, decors) {
     .map((r) => r.id);
   if (aEnregistrer.length) {
     console.log(
-      `\n  Mesurées ${3} fois mais SANS référence : T${aEnregistrer.join(", T")}.\n` +
+      `\n  Mesurées 3 fois mais SANS référence : T${aEnregistrer.join(", T")}.\n` +
         `  Rien à rejouer pour elles — il reste à les figer :\n\n` +
         `    ${invocation} --analyze-only <run> --task ${aEnregistrer.join(",")} --enregistrer-reference\n`,
     );
@@ -7176,7 +7176,7 @@ function purgerDecors(confirmer) {
   }
   console.log(
     `\n${purges} décor(s) ${confirmer ? "supprimés" : "à supprimer"} · ${mo(libere)}` +
-      `${gardes ? ` · ${gardes} préservé(s) (référence)` : ""}`,
+      (gardes ? ` · ${gardes} préservé(s) (référence)` : ""),
   );
   if (!confirmer && purges > 0) {
     console.log(

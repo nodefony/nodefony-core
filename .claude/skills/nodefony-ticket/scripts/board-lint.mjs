@@ -372,7 +372,9 @@ export function lintBoard({
       "FRISE-TROP-COURTE",
       item.n,
       `${item.jours} j estimés pour une fenêtre de ${fenetre} j (${item.debut} → ${item.cible})` +
-        `${trop.length > 1 ? ` — et ${trop.length - 1} autre(s) ticket(s) dans le même cas` : ""}` +
+        (trop.length > 1
+          ? ` — et ${trop.length - 1} autre(s) ticket(s) dans le même cas`
+          : "") +
         " : l'un des deux chiffres est faux",
       "élargir la Cible, ou corriger l'estimation",
     );

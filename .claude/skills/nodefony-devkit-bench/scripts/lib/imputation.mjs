@@ -493,7 +493,7 @@ export const causeDuJugeCasse = (texte) => {
   return {
     ligne:
       `CAUSE=juge-en-erreur — le juge s'est cassé AVANT de rendre un verdict : ` +
-      `${detail.slice(0, 160)}`,
+      detail.slice(0, 160),
     nom: "juge-en-erreur",
     imputation: IMPUTATIONS["juge-en-erreur"],
   };

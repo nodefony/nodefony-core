@@ -570,7 +570,7 @@ function run(cmd, args, cwd = APP, env = {}) {
         ` (sortie entière : ${journal})\n${extraitEchec(out)}`,
     );
   }
-  return `${res.stdout ?? ""}`;
+  return res.stdout ?? "";
 }
 
 process.stdout.write(
@@ -1701,8 +1701,10 @@ function exigerBriquesMongoose() {
   if (resolues.length < 7 || ailleurs.length > 0 || /EN MÉMOIRE/u.test(journal))
     throw new Error(
       `briques durables hors de mongoose — ${resolues.length} résolues, ` +
-        `${ailleurs.map(([, brique, backend]) => `${brique} → ${backend}`).join(", ") || "aucune ailleurs"}` +
-        `${/EN MÉMOIRE/u.test(journal) ? ", annuaire EN MÉMOIRE" : ""}`,
+        (ailleurs
+          .map(([, brique, backend]) => `${brique} → ${backend}`)
+          .join(", ") || "aucune ailleurs") +
+        (/EN MÉMOIRE/u.test(journal) ? ", annuaire EN MÉMOIRE" : ""),
     );
 }
 

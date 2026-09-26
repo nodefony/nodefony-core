@@ -1119,7 +1119,7 @@ export async function runAiMcpCommand(argv: string[]): Promise<number> {
     if (detected.length > 0 && process.stdin.isTTY) {
       const { checkbox } = await chargePrompts();
       const chosen = (await checkbox({
-        message: `Déclarer la porte chez quels agents ? ${"(espace pour cocher — ENTRÉE sans rien cocher : aucun, je code seul)"}`,
+        message: `Déclarer la porte chez quels agents ? (espace pour cocher — ENTRÉE sans rien cocher : aucun, je code seul)`,
         choices: [
           // ⚠️ Les agents servis par le FICHIER de projet figurent dans la
           // liste, cochés et non décochables. Les taire était un contresens

@@ -162,7 +162,7 @@ function prepare() {
     for (const n of cited) {
       const t = states.find((i) => i.number === n);
       say(
-        `  #${n} ${t ? `${t.state === "OPEN" ? "ouvert → à fermer (compte rendu) ou à commenter ?" : "fermé"}` : "?"} ${clip(t?.title ?? "", 60)}`,
+        `  #${n} ${t ? (t.state === "OPEN" ? "ouvert → à fermer (compte rendu) ou à commenter ?" : "fermé") : "?"} ${clip(t?.title ?? "", 60)}`,
       );
     }
   }

@@ -264,7 +264,7 @@ function llmsPlan(pages, base) {
     for (const page of members) lines.push(entryLine(page, base));
     lines.push("");
   }
-  return `${lines.join("\n")}`;
+  return lines.join("\n");
 }
 
 /**

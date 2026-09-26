@@ -4033,7 +4033,7 @@ class Kernel extends Service implements IKernel {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     handle?: any,
     options?: { swallowErrors?: boolean; keepOpen?: boolean | undefined },
-    callback?: ((error: Error | null) => void) | undefined,
+    callback?: (error: Error | null) => void,
   ): boolean {
     if (process.send) {
       return process.send(

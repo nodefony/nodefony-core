@@ -14,7 +14,7 @@ import type { SqlDialect } from "@nodefony/drizzle";
 function appDialect(): SqlDialect {
   const database = resolveInfra(process.env).database;
   return database?.family === "sql" && database.dialect
-    ? (database.dialect as SqlDialect)
+    ? database.dialect
     : "sqlite";
 }
 

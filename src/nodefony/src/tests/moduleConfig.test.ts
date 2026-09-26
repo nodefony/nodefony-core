@@ -125,7 +125,7 @@ describe("parseModuleConfig — la porte de validation des configs de module", (
       parse() {
         throw new Error("boum");
       },
-    } as unknown as z.ZodType<unknown>;
+    } as unknown as z.ZodType;
     assert.throws(
       () => parseModuleConfig(exploding, {}, "@nodefony/x"),
       /boum/,

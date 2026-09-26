@@ -32,7 +32,7 @@ export function BlockLiveFeed({
   channel: string;
   onData: (d: unknown) => void;
 }): ReactNode {
-  const d = useNodefonyChannelData<unknown>(channel);
+  const d = useNodefonyChannelData(channel);
   useEffect(() => {
     if (d != null) onData(d);
   }, [d, onData]);
@@ -58,7 +58,7 @@ export function useBlockSource(
   const fetcher = useCallback(
     () =>
       endpoint
-        ? store.api.getAbsolute<unknown>(endpoint)
+        ? store.api.getAbsolute(endpoint)
         : Promise.resolve<unknown>(null),
     [store, endpoint],
   );

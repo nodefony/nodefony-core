@@ -36,7 +36,7 @@ class DbController extends Controller {
     let users: number | null = null;
     try {
       const orm = ormRegistry.get("default");
-      const repo = orm?.getRepository<unknown>("User");
+      const repo = orm?.getRepository("User");
       if (repo) {
         this.log(
           "SELECT count(*) FROM User (drizzle/default)",

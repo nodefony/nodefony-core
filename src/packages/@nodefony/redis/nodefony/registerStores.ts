@@ -33,7 +33,7 @@ function resolveRedisService(
   store: string,
   container?: Container,
 ): RedisService {
-  const service = (container?.get?.("redis") ?? null) as RedisService | null;
+  const service = container?.get?.<RedisService>("redis") ?? null;
   if (!service) {
     throw new Error(
       `${store} : service "redis" introuvable — le module @nodefony/redis est-il ` +

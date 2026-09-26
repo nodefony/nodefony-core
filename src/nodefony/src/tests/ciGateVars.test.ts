@@ -294,7 +294,7 @@ describe("scaffold.yml — les images des dialectes viennent du catalogue", () =
         images,
         DATABASE_PARAMS[moteur].image,
         `le job des dialectes n'exerce pas ${moteur} sur ` +
-          `${DATABASE_PARAMS[moteur].image}`,
+          DATABASE_PARAMS[moteur].image,
       );
     });
 

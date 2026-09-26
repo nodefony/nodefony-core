@@ -487,7 +487,7 @@ function FilterCell<T extends RowData>({
   column,
   isServer,
 }: {
-  column: Column<GridFeatures, T, unknown>;
+  column: Column<GridFeatures, T>;
   isServer: boolean;
 }) {
   const meta = column.columnDef.meta;
@@ -784,7 +784,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
       ? props.data
       : [];
 
-  const tableColumns = useMemo<ColumnDef<GridFeatures, T, unknown>[]>(
+  const tableColumns = useMemo<ColumnDef<GridFeatures, T>[]>(
     () =>
       columns.map((col) => ({
         id: col.key,

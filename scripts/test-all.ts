@@ -472,7 +472,7 @@ function report(
     );
     for (const b of benches) {
       console.log(
-        `  ${C.yellow("○")} ${`${b.count} bancs`.padEnd(16)} ${C.dim(`${b.dir}`)}`,
+        `  ${C.yellow("○")} ${`${b.count} bancs`.padEnd(16)} ${C.dim(b.dir)}`,
       );
       console.log(`    ${C.dim(b.what)}`);
     }

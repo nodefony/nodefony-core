@@ -331,7 +331,9 @@ if (process.argv.includes("--ceiling")) {
       );
       console.log(
         `  → facteur ${(interne / der.rps).toFixed(1)} entre l'intérieur et l'hôte : ` +
-          `${interne / der.rps > 1.5 ? "le chemin VIRTUALISÉ borne, PAS la base" : "la base est bien au bout"}`,
+          (interne / der.rps > 1.5
+            ? "le chemin VIRTUALISÉ borne, PAS la base"
+            : "la base est bien au bout"),
       );
     }
   } catch {

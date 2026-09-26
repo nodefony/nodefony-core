@@ -128,7 +128,7 @@ if (nue.status !== 403) {
     8,
     `CAUSE=mutation-refusee-autrement — POST ${MUTATION} rend ${nue.status}, ni 403 ni succès : ` +
       `route absente ou body refusé. La défense CSRF n'est PAS en cause. Corps : ` +
-      `${nue.body.slice(0, 160)}`,
+      nue.body.slice(0, 160),
   );
 }
 

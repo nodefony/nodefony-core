@@ -72,8 +72,8 @@ describe("contrat utilisateur — l'entité de l'application est contrôlée au 
   };
 
   /** Une entité `User` d'application amputée, dans la grammaire d'un dialecte. */
-  const amputeeEntity = (dialect: SqlDialect): Entity<unknown> => {
-    class AmputeeUserEntity extends Entity<unknown> {
+  const amputeeEntity = (dialect: SqlDialect): Entity => {
+    class AmputeeUserEntity extends Entity {
       readonly name = "User";
       readonly connector = FRAMEWORK_CONNECTOR;
       override getSchema(): unknown {

@@ -385,7 +385,7 @@ async function principal() {
         `Le plus souvent la migration est écrite et NON appliquée — la requête ` +
         `cherche alors une colonne que la base n'a pas. Rien ne dit ici que des ` +
         `données ont disparu : ` +
-        `${String(liste.body ?? "").slice(0, 160)}`,
+        String(liste.body ?? "").slice(0, 160),
     );
   }
 

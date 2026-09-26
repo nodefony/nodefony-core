@@ -56,7 +56,7 @@ import type {
  * La surface d'exécution native qui DIVERGE (`db.all` vs `db.execute().rows`)
  * est routée par le `queryKit` — jamais ici.
  */
-export type DrizzleDb = BetterSQLite3Database<Record<string, never>>;
+export type DrizzleDb = BetterSQLite3Database;
 
 /** Table Drizzle multi-dialecte (l'union honnête des variantes colKit). */
 export type DrizzleTable = SQLiteTable | PgTable | MySqlTable;
@@ -908,9 +908,7 @@ export class DrizzleRepository<T = unknown> implements IRepository<T> {
         this.#db
           .select()
           .from(execTable(this.#table))
-          .where(
-            conds.length === 1 ? (conds[0] as SQL) : (and(...conds) as SQL),
-          )
+          .where(conds.length === 1 ? conds[0] : (and(...conds) as SQL))
           .limit(1),
       );
       return rows[0] as T;

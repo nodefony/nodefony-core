@@ -259,7 +259,7 @@ function removeWorkDir(dir: string): void {
     // sans transformer un ménage imparfait en échec de mesure.
     console.warn(
       `[detachedStart] répertoire de travail non supprimé : ${dir} — ` +
-        `${e instanceof Error ? e.message : String(e)}`,
+        (e instanceof Error ? e.message : String(e)),
     );
   }
 }

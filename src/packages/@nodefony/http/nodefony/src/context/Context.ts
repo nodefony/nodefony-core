@@ -296,7 +296,7 @@ class Context extends Service implements IContextInterface {
   scheme: SchemeType;
   webSocketState: WebSocketState = null;
   constructor(container: Container | Scope, type: ServerType) {
-    super(`${type}`, container);
+    super(type, container);
     // Sous-marque de la sonde perf in-situ (NF_PERF_PROBE=1) : t0 → fin du
     // ctor Service. Guard t0 ≠ 0n : seul le chemin HTTP instrumenté compte.
     if (PERF_PROBE_SUB) {

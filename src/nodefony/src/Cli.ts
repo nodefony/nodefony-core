@@ -721,7 +721,7 @@ class Cli extends Service {
   setCommandOption(
     flags: string,
     description?: string,
-    defaultValue?: string | boolean | string[] | undefined,
+    defaultValue?: string | boolean | string[],
   ): CommanderCommand {
     if (this.commander) {
       return this.commander.option(flags, description, defaultValue);
@@ -743,7 +743,7 @@ class Cli extends Service {
   setCommand(
     nameAndArgs: string,
     description: string,
-    options?: ExecutableCommandOptions | undefined,
+    options?: ExecutableCommandOptions,
   ): CommanderCommand {
     if (this.commander) {
       return this.commander.command(nameAndArgs, description, options);
@@ -831,10 +831,7 @@ class Cli extends Service {
    * @param date - instant de référence (Date, timestamp ms, ou string parsable).
    * @param suffix - `true` = sans suffixe "ago"/"in" (parité `moment.fromNow(true)`).
    */
-  static niceUptime(
-    date: Date | number | string,
-    suffix?: boolean | undefined,
-  ): string {
+  static niceUptime(date: Date | number | string, suffix?: boolean): string {
     const ts = date instanceof Date ? date.getTime() : new Date(date).getTime();
     const deltaSec = (ts - Date.now()) / 1000; // < 0 = passé
     const abs = Math.abs(deltaSec);
@@ -872,10 +869,7 @@ class Cli extends Service {
    * @param date - Date, timestamp ms, ou string parsable.
    * @param format - patron (défaut `"YYYY-MM-DD HH:mm:ss"`).
    */
-  static niceDate(
-    date: Date | number | string,
-    format?: string | undefined,
-  ): string {
+  static niceDate(date: Date | number | string, format?: string): string {
     const d = date instanceof Date ? date : new Date(date);
     const pad = (n: number, len = 2) => String(n).padStart(len, "0");
     const map: Record<string, string> = {
@@ -936,11 +930,7 @@ class Cli extends Service {
     return fs.existsSync(myPath);
   }
 
-  exists(
-    myPath: fs.PathLike,
-    mode?: number | undefined,
-    callback?: fs.NoParamCallback,
-  ) {
+  exists(myPath: fs.PathLike, mode?: number, callback?: fs.NoParamCallback) {
     if (!myPath) {
       throw new Error("exists no path found");
     }

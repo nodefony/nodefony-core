@@ -359,7 +359,7 @@ class HttpResponse {
     return this.statusMessage || (http.STATUS_CODES[this.statusCode] as string);
   }
 
-  setBody(ele: unknown, encoding?: BufferEncoding | undefined): Buffer {
+  setBody(ele: unknown, encoding?: BufferEncoding): Buffer {
     if (typeof ele === "string") {
       this.body = Buffer.from(ele, encoding || this.encoding);
     } else if (ele instanceof ArrayBuffer || ele instanceof SharedArrayBuffer) {

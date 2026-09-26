@@ -499,7 +499,7 @@ export async function surBaseNeuve(
     const etat =
       `\n\n── état AU MOMENT DE L'ÉCHEC (${cible.dialect}) ──\n` +
       `  tables en base : ${tables.join(", ") || "(aucune)"}\n` +
-      `${dossier}`;
+      dossier;
     if (cause instanceof Error) {
       cause.message += etat;
       throw cause;

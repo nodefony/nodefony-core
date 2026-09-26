@@ -429,7 +429,7 @@ async function principal() {
     exit(
       CAUSES["aucune-reponse"],
       `CAUSE=aucune-reponse — réponse illisible de ${ROUTE_USERS} : ` +
-        `${String(liste.body).slice(0, 160)}`,
+        String(liste.body).slice(0, 160),
     );
   }
   const ancienPresent = items.some(

@@ -514,7 +514,7 @@ class Command extends Service {
    */
   addOption(
     flags: string,
-    description?: string | undefined,
+    description?: string,
     suggestions?: readonly string[],
   ): Option {
     if (this.command) {
@@ -538,7 +538,7 @@ class Command extends Service {
    * @returns {Argument} Instance de la classe Argument.
    * @throws {Error} Lance une erreur si Commander n'est pas prêt.
    */
-  addArgument(arg: string, description?: string | undefined): Argument {
+  addArgument(arg: string, description?: string): Argument {
     if (this.command) {
       const Arg = new Argument(arg, description);
       this.command.addArgument(Arg);

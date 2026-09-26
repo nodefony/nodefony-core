@@ -126,7 +126,7 @@ async function runSocket(
 ): Promise<ExecResult> {
   const t0 = performance.now();
   try {
-    const { result, requestId } = await client.call<unknown>(
+    const { result, requestId } = await client.call(
       url as `/${string}`,
       method === "GET"
         ? undefined

@@ -459,9 +459,7 @@ export const TraceView = observer(() => {
           v={summary ? String(summary.pid) : "—"}
           mono
         />
-        {summary && (
-          <KeyValue k="Début" v={`${fmtDateTime(summary.baseTs)}`} mono />
-        )}
+        {summary && <KeyValue k="Début" v={fmtDateTime(summary.baseTs)} mono />}
         {profile?.route && <KeyValue k="Route" v={profile.route} mono />}
         {profile?.controller && (
           <KeyValue

@@ -215,9 +215,9 @@ describe("doctor — le rapport ne ment jamais par sa mise en page", () => {
         {
           envCatalog: {
             ran: false,
-            reason: `${"le catalogue des variables se lit dans le dist ".repeat(3)}`,
+            reason: "le catalogue des variables se lit dans le dist ".repeat(3),
             short: "illisible",
-            unlock: `${"un geste assez long pour devoir se replier ".repeat(2)}`,
+            unlock: "un geste assez long pour devoir se replier ".repeat(2),
           },
         },
       ),

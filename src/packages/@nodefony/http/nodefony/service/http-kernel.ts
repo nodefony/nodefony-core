@@ -738,7 +738,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     // string + 2 templates — tous jetés si DEBUG n'est pas affiché. Guard sur
     // `kernel.debug` (même flag que http-kernel.ts:456) → 0 alloc en prod.
     if (this.kernel?.debug) {
-      this.log(logColor.cyanBgBlue(`${request.url}`), "DEBUG", `${type}`);
+      this.log(logColor.cyanBgBlue(`${request.url}`), "DEBUG", type);
     }
     return this.handleHttp(
       scope as Scope,
@@ -1456,7 +1456,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
 
   async onRequestEnd(
     context: HttpContext,
-    error?: Error | null | undefined,
+    error?: Error | null,
   ): Promise<HttpContext | number> {
     // EVENT
     if (!context) {

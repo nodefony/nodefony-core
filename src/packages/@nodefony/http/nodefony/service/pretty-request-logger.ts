@@ -52,7 +52,7 @@ class PrettyRequestLogger implements IRequestLogger {
       `${ctx.url} ` +
       `${logColor.blackBright(formatDuration(duration))} ` +
       `${logColor.blackBright(ctx.remoteAddress ?? "-")} ` +
-      `${logColor.magenta(`[${shortId(ctx.requestId)}]`)}` +
+      logColor.magenta(`[${shortId(ctx.requestId)}]`) +
       (err ? ` ${logColor.red(err.message)}` : "");
 
     return {
@@ -85,7 +85,7 @@ class PrettyRequestLogger implements IRequestLogger {
       `${ctx.url} ${logColor.blackBright(proto)} ` +
       `${logColor.blackBright(formatDuration(duration))} ` +
       `${logColor.blackBright(ctx.remoteAddress ?? "-")} ` +
-      `${logColor.magenta(`[${shortId(ctx.requestId)}]`)}` +
+      logColor.magenta(`[${shortId(ctx.requestId)}]`) +
       (error ? ` ${logColor.red(error.message)}` : "");
 
     return {

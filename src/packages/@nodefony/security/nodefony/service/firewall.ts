@@ -1179,7 +1179,7 @@ class Firewall extends Service implements IFirewall {
           // est rendu au client : elle doit être journalisée explicitement.
           this.log(
             `token unverifiable (area "${area.name}", authenticator "${name}") — ` +
-              `${error.detail ?? "cause non renseignée"}`,
+              (error.detail ?? "cause non renseignée"),
             "ERROR",
           );
           this.log(error, "ERROR");

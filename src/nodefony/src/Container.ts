@@ -506,7 +506,7 @@ class Scope extends Container implements IScope {
         : instance.constructor?.name;
     return (
       `clean() de « ${who} », rattaché au scope « ${scopeName} », a levé : ` +
-      `${error instanceof Error ? error.message : String(error)}`
+      (error instanceof Error ? error.message : String(error))
     );
   }
 }

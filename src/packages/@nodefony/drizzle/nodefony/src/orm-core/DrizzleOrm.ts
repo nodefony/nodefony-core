@@ -866,7 +866,7 @@ export class DrizzleOrm extends Orm {
       throw new Error(
         `DrizzleOrm "${this.name}": the sqlite dialect needs the optional ` +
           `driver \`better-sqlite3\` (run \`npm i better-sqlite3\`). ` +
-          `${(e as Error).message}`,
+          (e as Error).message,
         { cause: e },
       );
     }
