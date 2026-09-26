@@ -448,3 +448,15 @@ repo_command, npm_tree, agent_example, written_rule.
   ligne d'état par session, et personne ne regarde son poids. Ramené à 23,2 Ko en groupant cinq
   états anciens. **Le CONSOLIDATE doit contrôler la TAILLE de l'index, pas seulement celle du
   sas** : un index tronqué fait perdre exactement ce qu'il existe pour rendre atteignable.
+
+## 🧷 Une commande REFUSÉE emporte TOUT ce qu'elle portait, y compris ce qui n'était pas visé
+
+- [1× — 09-26j] **Un `git stash` refusé par la garde du dépôt a emporté l'écriture d'un test
+  placée dans la MÊME commande.** Le refus ne porte que sur le geste git, mais le hook bloque
+  l'appel entier : le test n'a jamais été écrit, et la passe suivante a « vu vert » 4/4 sans lui.
+  Rattrapé au compte (4 au lieu de 5). Le geste : une écriture et un geste risqué ne partagent
+  JAMAIS un appel ; après un refus, recompter ce qui devait exister avant de conclure.
+- [2× — 09-26i/j] **Faux kernel casté (`as unknown as`) + garde retirée parce que le type la dit
+  morte = rouge chez un CONSOMMATEUR que le typecheck ne voit pas** (realtime e2e en CI, puis
+  `CliKernel.test` au cliquet kernel). Déjà gradué → [[feedback_green_covers_only_its_diff]]
+  (corollaire « durcir un helper du cœur = lancer les suites de ses appelants »).
