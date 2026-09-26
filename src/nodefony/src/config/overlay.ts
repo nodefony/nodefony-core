@@ -14,7 +14,7 @@
  * @example
  * ```ts
  * // au début de la requête (pare-feu, résolveur d'organisation…)
- * overlayConfig("@nodefony/http", { upload: { maxSize: 50_000_000 } });
+ * overlayConfig("@nodefony/http", { upload: { maxFileSize: 50_000_000 } });
  * // plus loin, dans le code qui applique la limite
  * const { upload } = useConfig("@nodefony/http");
  * ```

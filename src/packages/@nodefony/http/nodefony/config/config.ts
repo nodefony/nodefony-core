@@ -1098,7 +1098,7 @@ export type IHttpConfigInput = z.input<typeof httpConfigSchema>;
  * LISTE BLANCHE des clés qu'une requête peut surcharger pour elle seule
  * (`overlayConfig("@nodefony/http", …)`, #494) : les quotas de corps et
  * d'envoi, lus au MOMENT de lire le corps (`Request.readBodyLimits`) — un
- * calque posé avant la lecture du corps (écouteur `onRequest`, organisation
+ * calque posé avant la lecture du corps (écouteur `onRequestScope`, organisation
  * reconnue à son nom d'hôte) les voit. Tout le reste est refusé : en-têtes de
  * sécurité, pare-feu, `trustProxy`, sessions, limites de débit, certificats —
  * et `queryString`, lu au constructeur de la requête, avant tout calque.
