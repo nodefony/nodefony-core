@@ -126,7 +126,9 @@ flowchart LR
 ```
 
 Le module consomme `@nodefony/user` (jamais l'inverse) et n'importe `@nodefony/http` / `framework`
-qu'en **type-only** — le couplage runtime resterait une dette.
+qu'en **type-only**, à une exception près : `schemaMismatchOf` (`webhooks.ts:49`), importé de
+`@nodefony/http` pour reconnaître une base au schéma en retard avec la même règle que le cœur HTTP,
+plutôt qu'avec une copie.
 
 ## 🧰 Surface publique
 

@@ -66,11 +66,11 @@ Le détail de chaque étape est plus bas, dans **Architecture interne**.
 
 Trois usages courants, tous branchés sur des événements que Nodefony émet déjà :
 
-| Ce que tu veux                                                             | Tu abonnes                           | Le tiers qui reçoit                |
-| -------------------------------------------------------------------------- | ------------------------------------ | ---------------------------------- |
-| Être prévenu quand quelqu'un s'acharne sur un compte                       | `login.failure`                      | un canal Slack, un SMS d'astreinte |
-| Garder une trace inviolable des accès, hors de l'application               | `*`                                  | un SIEM, un bucket d'archives      |
-| Couper l'accès d'un salarié partout ailleurs quand sa session est révoquée | `token.revoked`, `session.destroyed` | ton annuaire, ton outil de tickets |
+| Ce que tu veux                                                             | Tu abonnes                                | Le tiers qui reçoit                |
+| -------------------------------------------------------------------------- | ----------------------------------------- | ---------------------------------- |
+| Être prévenu quand quelqu'un s'acharne sur un compte                       | `login.failure`                           | un canal Slack, un SMS d'astreinte |
+| Garder une trace inviolable des accès, hors de l'application               | `*`                                       | un SIEM, un bucket d'archives      |
+| Couper l'accès d'un salarié partout ailleurs quand sa session est révoquée | `session.revoked`, `token.reuse_detected` | ton annuaire, ton outil de tickets |
 
 Le premier, en entier — un serveur qui prévient une équipe quand un compte est attaqué :
 
@@ -418,8 +418,8 @@ Les catégories d'audit disponibles (`AuditCategory`, `IAuditEvent.ts:24`) donne
 | ---------- | -------------------------------------------------------------------------- |
 | `auth`     | Login/logout, chaîne d'authentification (`login.success`, `login.failure`) |
 | `authz`    | Accès accordé/refusé, voters, `@IsGranted` (`access.denied`)               |
-| `token`    | Jetons longue durée émis/révoqués — JWT refresh, PAT (`token.revoked`)     |
-| `session`  | Cycle de vie de session (`session.opened`)                                 |
+| `token`    | Jetons longue durée et clés d'API (`token.issued`, `apikey.revoked`)       |
+| `session`  | Cycle de vie de session (`logout`, `session.revoked`)                      |
 | `oauth`    | Login social : authorize, callback, provisioning JIT                       |
 | `webauthn` | Passkeys : enregistrement, assertion                                       |
 | `csrf`     | Défense CSRF déclenchée                                                    |

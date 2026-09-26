@@ -44,16 +44,24 @@ d'accès » :
 
 ```ts
 // nodefony.config.ts
-security: {
-  resourceServer: {
-    issuers: [
-      {
-        issuer: "https://auth.example.com/realms/mon-royaume",
-        algorithms: ["RS256"],
+import { defineConfig, use } from "nodefony";
+
+export default defineConfig({
+  modules: [
+    "@nodefony/http",
+    "@nodefony/framework",
+    use("@nodefony/security", {
+      resourceServer: {
+        issuers: [
+          {
+            issuer: "https://auth.example.com/realms/mon-royaume",
+            algorithms: ["RS256"],
+          },
+        ],
       },
-    ],
-  },
-}
+    }),
+  ],
+});
 ```
 
 Cela suffit : les clés publiques de l'émetteur sont découvertes par ses points de métadonnées
