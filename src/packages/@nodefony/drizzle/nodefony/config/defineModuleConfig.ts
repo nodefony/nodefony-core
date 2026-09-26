@@ -38,7 +38,7 @@ function applyEnvOverrides(
     delete config.connectors.default;
     return config;
   }
-  if (database && database.family === "sql" && database.dialect) {
+  if (database?.family === "sql" && database.dialect) {
     const target = config.connectors.default
       ? "default"
       : Object.keys(config.connectors)[0];

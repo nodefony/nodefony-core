@@ -24,7 +24,7 @@ function clampHpx(h: number): number {
 function migratePreset(p: WorkspacePreset): WorkspaceLayout {
   // Layout EXACT fourni (modèle exporté d'un bureau) → positions telles quelles,
   // aucun pavage auto (reproduit l'agencement à l'identique).
-  if (p.layout && p.layout.length) {
+  if (p.layout?.length) {
     return { id: p.id, label: p.label, items: p.layout.map(normInstance) };
   }
   const tiles = autoTile(
@@ -188,7 +188,7 @@ export class WorkspaceStore {
    */
   tidy(): void {
     const layout = this.layouts[this.activeId];
-    if (!layout || !layout.items.length) return;
+    if (!layout?.items.length) return;
     const order = [...layout.items].sort((a, b) => a.y - b.y || a.x - b.x);
     const tiles: TileInput[] = order.map((i) => ({
       id: i.widgetId,

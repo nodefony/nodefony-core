@@ -146,7 +146,7 @@ export function parTranche(mesures) {
 // Le corps ne s'exécute QUE si le script est LANCÉ. Sans cette garde, importer une
 // de ses fonctions pures pour l'éprouver relance tout : les appels réseau, la
 // lecture de git, l'affichage. Réutiliser du code d'un script, c'est le relancer.
-if (process.argv[1] && process.argv[1].endsWith("ticket-effort.mjs")) {
+if (process.argv[1]?.endsWith("ticket-effort.mjs")) {
   const estim = estimations();
   const tickets = wanted.length
     ? wanted.map((n) =>

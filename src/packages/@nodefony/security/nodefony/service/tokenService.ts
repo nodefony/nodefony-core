@@ -567,7 +567,7 @@ class TokenService extends Service {
       throw new AuthenticationError("Invalid token");
     }
     const record = await store.findByHash(this.#hash(rawRefresh));
-    if (!record || record.kind !== "refresh") {
+    if (record?.kind !== "refresh") {
       throw new AuthenticationError("Invalid token");
     }
     // Détection de rejeu : un refresh révoqué qui resurgit → un voleur l'utilise.

@@ -239,7 +239,7 @@ class ServerHttps extends Service {
         // );
         this.server.on("request", (request, response) => {
           let alpnProtocol: string | false | null = false;
-          if (request && request.stream && request.stream.session?.socket) {
+          if (request?.stream?.session?.socket) {
             if (request.stream.session.socket instanceof TLSSocket) {
               alpnProtocol = request.stream.session.socket.alpnProtocol;
             }

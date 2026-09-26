@@ -47,7 +47,7 @@ class DiController extends Controller {
       { name: "upload", holder: upload },
     ].filter(
       (c): c is { name: string; holder: { httpKernel?: unknown } } =>
-        c.holder != null && c.holder.httpKernel !== undefined,
+        c.holder?.httpKernel !== undefined,
     );
 
     return this.renderJson({

@@ -159,7 +159,7 @@ async function parser(
     } else if (options.followSymLink) {
       res = await fsp.readlink(file.path as fs.PathLike);
     }
-    if (res && res.length) {
+    if (res?.length) {
       // Stat de TOUTES les entrées du dossier EN PARALLÈLE (async, non bloquant) —
       // remplace les N `new File()` synchrones (lstatSync) d'affilée qui gelaient
       // l'event-loop sur les gros dossiers et la récursion profonde.

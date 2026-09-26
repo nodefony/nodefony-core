@@ -313,7 +313,7 @@ class AlsController extends Controller {
     requirements: { methods: ["WEBSOCKET"] },
   })
   async wsAlsUser(message: string | Buffer | null | undefined) {
-    if (message != null && message.toString() === "login") {
+    if (message?.toString() === "login") {
       RequestContext.set("user", { id: "ws-user-42" });
     }
     return this.renderJson({

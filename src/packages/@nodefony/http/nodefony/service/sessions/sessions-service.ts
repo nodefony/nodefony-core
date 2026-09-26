@@ -414,7 +414,7 @@ class SessionsService extends Service {
             context.session = session;
             const method = context.method as HTTPMethod;
             const request = context.request as HttpRequest | Http2Request;
-            if (method !== "WEBSOCKET" && request && request.request) {
+            if (method !== "WEBSOCKET" && request?.request) {
               request.request.session = session;
             }
             context.sessionStarting = false;

@@ -122,7 +122,7 @@ export class ClientKernel implements IClientKernel {
 
   /** Teste la présence d'un service — nom libre, y compris hors contrat. */
   has(name: string): boolean {
-    return this.#services !== null && this.#services[name] !== undefined;
+    return this.#services?.[name] !== undefined;
   }
 
   // ── Lifecycle (D5) ─────────────────────────────────────────────────────────

@@ -397,7 +397,7 @@ function probeA11y() {
   // simplifié suffit à attraper un bouton-icône muet — le cas réel.
   const accessibleName = (el) => {
     const aria = el.getAttribute("aria-label");
-    if (aria && aria.trim()) return aria.trim();
+    if (aria?.trim()) return aria.trim();
     const refs = el.getAttribute("aria-labelledby");
     if (refs) {
       const t = refs

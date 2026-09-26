@@ -101,7 +101,7 @@ export function objetsJsonl(texte) {
   const lignes = (texte ?? "").split("\n");
   for (let i = 0; i < lignes.length; i += 1) {
     const ligne = lignes[i];
-    if (!ligne || ligne.charCodeAt(0) !== 123 /* { */) continue;
+    if (ligne?.charCodeAt(0) !== 123 /* { */) continue;
     try {
       const o = JSON.parse(ligne);
       if (o && typeof o === "object") out.push({ i, o, ligne });

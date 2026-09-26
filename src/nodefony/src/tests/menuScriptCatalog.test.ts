@@ -92,7 +92,7 @@ describe("menu d'une application générée — ni entrée ni section fantôme",
       if (item.kind !== "separator") return;
       const suivant = menu.items[i + 1];
       expect(
-        suivant !== undefined && suivant.kind === "choice",
+        suivant?.kind === "choice",
         `section « ${item.label} » sans aucune entrée`,
       ).toBe(true);
     });

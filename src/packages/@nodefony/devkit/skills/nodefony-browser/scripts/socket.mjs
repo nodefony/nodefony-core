@@ -320,7 +320,7 @@ async function scenarioSocket(conf) {
   } catch (e) {
     result.reconnection = {
       closedAt,
-      verdict: `ÉCHEC — ${String(e && e.message ? e.message : e).slice(0, 140)}`,
+      verdict: `ÉCHEC — ${String(e?.message ? e.message : e).slice(0, 140)}`,
     };
   }
   result.closes = closes;
@@ -337,7 +337,7 @@ try {
   // L'accueil qui ne vient jamais est LE symptôme à diagnostiquer en premier :
   // endpoint faux, page non authentifiée, ou Origin refusé par le serveur.
   console.error(
-    `Scénario interrompu : ${String(e && e.message ? e.message : e).slice(0, 300)}\n` +
+    `Scénario interrompu : ${String(e?.message ? e.message : e).slice(0, 300)}\n` +
       `→ vérifier le chemin du endpoint, l'authentification (NF_BROWSER_USER + NF_BROWSER_LOGIN), et que la page ${process.env.NF_BROWSER_PAGE ?? "/"} appartient bien à la même origine.`,
   );
   await browser.close();

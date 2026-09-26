@@ -401,7 +401,7 @@ class Route implements IRoute {
       }
       throw e;
     }
-    if (map && map.wildcard) {
+    if (map?.wildcard) {
       map["*"] = map.wildcard;
     }
     return map;

@@ -144,7 +144,7 @@ class MemoryIdempotencyStore extends Service implements IIdempotencyStore {
     const existing = entries.get(key);
     // N'écrit QUE si la clé est encore NOTRE in-flight (ni `abort`, ni évincée
     // entre-temps) → on ne ressuscite jamais une clé libérée.
-    if (existing === undefined || existing.kind !== "in-flight") return;
+    if (existing?.kind !== "in-flight") return;
     entries.set(key, {
       kind: "done",
       fingerprint: existing.fingerprint, // préserve l'empreinte du payload
@@ -158,7 +158,7 @@ class MemoryIdempotencyStore extends Service implements IIdempotencyStore {
     const entries = this.entries;
     if (entries === null) return;
     const existing = entries.get(key);
-    if (existing !== undefined && existing.kind === "in-flight") {
+    if (existing?.kind === "in-flight") {
       entries.delete(key);
     }
   }

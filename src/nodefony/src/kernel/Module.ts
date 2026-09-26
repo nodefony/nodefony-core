@@ -391,7 +391,7 @@ class Module<TConfig = Record<string, unknown>>
       let index: RegExpExecArray | null = null;
       const override = this.options[ele] as DefaultOptionsService;
       index = regModuleName.exec(ele);
-      if (index && index[1]) {
+      if (index?.[1]) {
         consumed.push(ele);
         const mod = this.kernel?.getModule(index[1]) as Module | undefined;
         if (!mod) {
@@ -662,7 +662,7 @@ class Module<TConfig = Record<string, unknown>>
   public addCommand(
     cliCommand: new (cli: CliKernel) => Command,
   ): Command | void {
-    if (this.kernel && this.kernel.cli) {
+    if (this.kernel?.cli) {
       try {
         const command = new cliCommand(this.kernel.cli as CliKernel);
         this.commands[command.name] = command;

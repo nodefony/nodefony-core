@@ -60,7 +60,7 @@ class FakeRedis implements RedisClientLike {
 
   sRem(key: string, member: string): Promise<number> {
     const s = this.#sets.get(key);
-    return Promise.resolve(s && s.delete(member) ? 1 : 0);
+    return Promise.resolve(s?.delete(member) ? 1 : 0);
   }
 
   sMembers(key: string): Promise<string[]> {

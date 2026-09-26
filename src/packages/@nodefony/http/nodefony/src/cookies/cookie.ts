@@ -91,10 +91,7 @@ function cookiesParser(context: ContextType) {
     case "http":
     case "https":
     case "http2":
-      if (
-        (context as HttpContext).request.request &&
-        (context as HttpContext).request.request.headers.cookie
-      ) {
+      if ((context as HttpContext).request.request?.headers.cookie) {
         cookies = (context as HttpContext).request.request.headers.cookie;
       }
       if (cookies) {

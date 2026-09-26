@@ -236,7 +236,7 @@ export async function judge(bin) {
 }
 
 // Exécution directe : le banc appelle `node gate-routes-count.mjs <bin>`.
-if (process.argv[1] && process.argv[1].endsWith("gate-routes-count.mjs")) {
+if (process.argv[1]?.endsWith("gate-routes-count.mjs")) {
   const bin = process.argv[2];
   if (!bin) {
     exit(

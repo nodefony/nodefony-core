@@ -347,7 +347,7 @@ function extractControllerFilePath(stackTrace: string[]): string | undefined {
   // Recherchez les lignes de la stack trace qui correspondent au chemin du fichier de contrôleur
   for (const line of stackTrace) {
     const match = line.match(/\s+at file:\/\/(.*\/controllers?\/.*\.js)/);
-    if (match && match[1]) {
+    if (match?.[1]) {
       return match[1];
     }
   }

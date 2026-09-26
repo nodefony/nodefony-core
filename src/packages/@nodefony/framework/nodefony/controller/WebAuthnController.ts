@@ -254,7 +254,7 @@ class WebAuthnController extends Controller {
 
   #service(): IWebAuthnService | null {
     const svc = this.get<IWebAuthnService>("webauthn");
-    return svc && svc.isEnabled() ? svc : null;
+    return svc?.isEnabled() ? svc : null;
   }
 
   #flow(): IWebAuthnBffFlow | null {

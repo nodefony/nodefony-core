@@ -182,7 +182,7 @@ describe("Firewall.describe — config invalide (fail-closed)", () => {
     });
     const d = firewall.describe();
     assert.equal(d.configValid, false);
-    assert.ok(d.configError && d.configError.includes("does-not-exist"));
+    assert.ok(d.configError?.includes("does-not-exist"));
   });
 });
 

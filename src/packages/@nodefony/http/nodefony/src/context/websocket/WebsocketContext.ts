@@ -292,7 +292,7 @@ export default class WebsocketContext
     // `request.queryGet/query` directement (cf HttpContext) — scope DI jamais lu.
     await this.fireAsync("onRequest", this, this.resolver);
     await this.kernel?.fireAsync("onRequest", this, this.resolver);
-    if (this.resolver && this.resolver.resolve) {
+    if (this.resolver?.resolve) {
       this.setMetaData({
         nodefony: {
           websocket: {

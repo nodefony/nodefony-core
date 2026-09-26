@@ -145,6 +145,9 @@
     "typescript/consistent-type-exports": "error",
     "typescript/restrict-plus-operands": "error",
     "typescript/switch-exhaustiveness-check": "error",
+    // `a && a.b` → `a?.b`. Le correctif automatique n'est pas sûr hors
+    // condition : `a && a.b` rend `a` (`""`, `0`, `null`), `a?.b` rend `undefined`.
+    "typescript/prefer-optional-chain": "error",
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le runner
     // suit lui-même : déclarés sûrs ici, une fois.
     "typescript/no-floating-promises": [

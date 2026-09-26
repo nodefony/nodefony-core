@@ -1599,7 +1599,7 @@ function importStatements(
     const tail = /(?:\bfrom\s*|^import\s+)(["'])[^"'\n]+\1;?/mu.exec(
       source.slice(start),
     );
-    if (!tail || tail.index === undefined) continue;
+    if (tail?.index === undefined) continue;
     const end = start + tail.index + tail[0].length;
     out.push({ start, end, text: source.slice(start, end) });
   }
@@ -1692,7 +1692,7 @@ export function wireDecoratorList(
     source.slice(importAt);
   const decoRe = decoratorListRe(decorator);
   const match = decoRe.exec(withImport);
-  if (match && match.index !== undefined) {
+  if (match?.index !== undefined) {
     const list = match[2].trim();
     const wired = withImport.replace(
       decoRe,
@@ -1715,7 +1715,7 @@ export function wireDecoratorList(
   const classRe =
     /^(?:export\s+(?:default\s+)?)?class\s+\w+\s+extends\s+Module\b/mu;
   const classMatch = classRe.exec(withImport);
-  if (!classMatch || classMatch.index === undefined) {
+  if (classMatch?.index === undefined) {
     throw new Error(
       `« class … extends Module » introuvable dans ${indexPath} — ajoute à la main :\n` +
         `  ${importLine}\n  @${decorator}([${className}]) juste au-dessus de la classe`,
@@ -2236,7 +2236,7 @@ export function wireModuleManifest(
     return null; // déjà câblé (rejeu de la commande) — rien à faire.
   }
   const anchor = /modules\s*:\s*\[/u.exec(source);
-  if (!anchor || anchor.index === undefined) {
+  if (anchor?.index === undefined) {
     return manual;
   }
   // Crochet fermant APPARIÉ du tableau (les configs colocalisées imbriquent des
@@ -2319,7 +2319,7 @@ function wireModuleConfigType(
   ];
   const anchor =
     exportAnchors.at(-1) ?? [...source.matchAll(/^import .*;$/gmu)].at(-1);
-  if (!anchor || anchor.index === undefined) {
+  if (anchor?.index === undefined) {
     return source;
   }
   const end = anchor.index + anchor[0].length;
@@ -2368,7 +2368,7 @@ export function wireRoleHierarchy(
   // doit rien ajouter — et un rôle couvert par une AUTRE branche que
   // `ROLE_ADMIN` est un choix de l'utilisateur, qu'on ne corrige pas.
   const block = /roleHierarchy\s*:\s*\{/u.exec(source);
-  if (!block || block.index === undefined) {
+  if (block?.index === undefined) {
     return manual;
   }
   // Accolade fermante APPARIÉE du bloc — un `indexOf("}")` couperait à la
@@ -2397,7 +2397,7 @@ export function wireRoleHierarchy(
   // La ligne `ROLE_ADMIN: [...]`, DANS ce bloc seulement — le fichier peut
   // porter ce nom ailleurs (le semis de comptes le cite en commentaire).
   const admin = /(ROLE_ADMIN\s*:\s*\[)([^\]]*)(\])/u.exec(body);
-  if (!admin || admin.index === undefined) {
+  if (admin?.index === undefined) {
     return manual;
   }
   // 🔴 La virgule FINALE se retire avant d'en écrire une autre. Le gabarit
@@ -3613,7 +3613,7 @@ export function wireCommandCall(
   // si la forme est autre, on REFUSE plutôt que de deviner où finit l'appel.
   const superRe = /super\([^()]*\);/u;
   const match = superRe.exec(withImport);
-  if (!match || match.index === undefined) {
+  if (match?.index === undefined) {
     throw new Error(
       `super(…) du constructeur introuvable dans ${indexPath} — ajoute à la main :\n` +
         `  ${importLine}\n  ${callLine} après le super(…) du constructeur`,
@@ -5271,7 +5271,7 @@ export function findModuleClassAnchor(source: string): number | undefined {
     /^(?:export\s+(?:default\s+)?)?class\s+\w+\s+extends\s+Module\b/mu.exec(
       source,
     );
-  if (!match || match.index === undefined) {
+  if (match?.index === undefined) {
     return undefined;
   }
   let at = match.index;
@@ -5773,7 +5773,7 @@ export function wireKernelBootCall(
   // générés par create app/module). Introuvable → geste manuel, jamais un
   // fichier corrompu.
   const closer = /\n\}\s*\n+export default /u.exec(withImport);
-  if (!closer || closer.index === undefined) {
+  if (closer?.index === undefined) {
     writer.write(indexPath, withImport);
     return (
       `fin de classe introuvable dans index.ts — ajoute à la main le hook :\n` +

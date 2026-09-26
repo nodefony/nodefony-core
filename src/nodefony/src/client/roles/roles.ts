@@ -20,7 +20,7 @@ export function hasRole(
   userRoles: readonly Role[] | null | undefined,
   role: Role,
 ): boolean {
-  return userRoles != null && userRoles.includes(role);
+  return userRoles?.includes(role) ?? false;
 }
 
 /**

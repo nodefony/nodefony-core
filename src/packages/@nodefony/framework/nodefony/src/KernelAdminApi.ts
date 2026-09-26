@@ -414,7 +414,7 @@ function computeConfigEntry(
   // Un champ édité À CHAUD diffère du défaut → la provenance le classerait « app »
   // (trompeur : il ne vient pas de la config app). On force `runtime` pour dire la
   // vérité : « modifié à l'exécution » (éphémère, perdu au restart).
-  if (provenance && runtimePaths && runtimePaths.size) {
+  if (provenance && runtimePaths?.size) {
     for (const k of Object.keys(provenance)) {
       if (runtimePaths.has(k.toLowerCase())) provenance[k] = "runtime";
     }
@@ -680,7 +680,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
   // On renvoie les `path` relatifs à la racine projet (`process.cwd()`).
   const repoRoot = process.cwd();
   const relPath = (p: string | null | undefined): string | null =>
-    p && p.startsWith(repoRoot)
+    p?.startsWith(repoRoot)
       ? p.slice(repoRoot.length).replace(/^[/\\]+/, "") || "."
       : (p ?? null);
 
@@ -1035,7 +1035,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
           // pas distinguer « absent » de « chargé, schéma non publié ». On
           // regarde les modules du Kernel, pas seulement les entrées porteuses
           // de config — et on nomme le geste qui manque.
-          if (!entry || entry.configSchema == null) {
+          if (entry?.configSchema == null) {
             const modules = kernel.getModules();
             const nameOf = (k: string): string =>
               (modules[k] as unknown as ConfigModuleLike).getModuleName?.() ??

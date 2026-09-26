@@ -83,7 +83,7 @@ const magenta = clc.magenta.bold;
 const { reset } = clc; // '\x1b[0m';
 
 let processName: string | null = null;
-if (process.argv && process.argv[1]) {
+if (process.argv[1]) {
   processName = path.basename(process.argv[1]);
 } else {
   processName = process.title || "nodefony";
@@ -809,7 +809,7 @@ class Cli extends Service {
     options: TableConstructorOptions,
     syslog: Syslog | null = null,
   ) {
-    if (!datas || !datas.length) {
+    if (!datas?.length) {
       return new Table(
         extend({}, defaultTableCli, options) as TableConstructorOptions,
       );

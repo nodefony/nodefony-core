@@ -425,7 +425,7 @@ export function summarizeLighthouse(lhr, threshold = 0.9) {
   for (const c of categories) {
     for (const ref of c.auditRefs ?? []) {
       const a = audits[ref.id];
-      if (!a || a.score === null || a.score === undefined) continue;
+      if (a?.score == null) continue;
       if (a.score >= threshold) continue;
       failed.push({
         category: c.id,

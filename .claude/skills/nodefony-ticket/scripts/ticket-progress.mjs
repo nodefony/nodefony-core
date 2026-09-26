@@ -101,7 +101,7 @@ async function main() {
         fieldValueByName(name:"Status"){... on ProjectV2ItemFieldSingleSelectValue{name}}}}}}}`;
       const issue = JSON.parse(sh("gh", ["api", "graphql", "-f", `query=${q}`]))
         .data.repository.issue;
-      if (!issue || issue.state !== "OPEN") continue;
+      if (issue?.state !== "OPEN") continue;
       const item = issue.projectItems.nodes.find(
         (i) => i.project.number === PROJECT,
       );
@@ -131,7 +131,7 @@ async function main() {
   }
 }
 
-if (process.argv[1] && process.argv[1].endsWith("ticket-progress.mjs")) {
+if (process.argv[1]?.endsWith("ticket-progress.mjs")) {
   try {
     await main();
   } catch {

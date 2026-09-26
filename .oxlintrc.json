@@ -208,6 +208,13 @@
     "typescript/consistent-type-exports": "error",
     "typescript/restrict-plus-operands": "error",
     "typescript/switch-exhaustiveness-check": "error",
+    // `a && a.b` → `a?.b` : plus court, et une seule lecture de `a`. Le
+    // correctif automatique N'EST PAS sûr : il a retiré une garde
+    // `typeof window` (le type DOM déclare `window` toujours présent) et, dans
+    // un `.mjs` sans types, fondu `x === null || x === undefined` en
+    // `=== undefined`. Hors condition, `a && a.b` rend `a` (`""`, `0`, `null`)
+    // là où `a?.b` rend `undefined` : relire chaque site, jamais `--fix` en masse.
+    "typescript/prefer-optional-chain": "error",
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le RUNNER
     // suit lui-même (la doc Node dit de l'ignorer) : déclaré sûr ICI, une fois,
     // plutôt que par une dérogation dans chaque fichier de test.

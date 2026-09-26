@@ -436,7 +436,7 @@ console.log(
 
 // ── 3. la cible répond-elle VRAIMENT ? (une erreur répond plus vite) ───────
 const head = await fetch(URL).catch(() => null);
-if (!head || head.status !== 200) {
+if (head?.status !== 200) {
   console.error(
     `❌ cible ${URL} → ${head ? head.status : "injoignable"} (attendu 200) — aucune mesure ne serait valide.`,
   );

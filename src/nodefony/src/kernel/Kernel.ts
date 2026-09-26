@@ -1188,7 +1188,7 @@ class Kernel extends Service implements IKernel {
 
   // fix workaround commander twice call options
   private fixCommanderCli(version = true, debug = false): void {
-    if (this.cli && this.cli.commander && this.cli.commander?.options.length) {
+    if (this.cli?.commander?.options.length) {
       // fix workaround commander twice call options
       if (version) {
         const optionVersionExists = this.cli?.commander?.options.some(
@@ -1313,10 +1313,10 @@ class Kernel extends Service implements IKernel {
           // Le fichier le rend lisible ensuite — par un agent, une tâche
           // d'intégration continue, ou quiconque arrive après coup.
           this.writeBootSummary(report);
-          if (global && global.gc) {
+          if (global?.gc) {
             this.memoryUsage("MEMORY POST READY ");
             setTimeout(() => {
-              if (global && global.gc) global.gc();
+              if (global?.gc) global.gc();
               this.memoryUsage("EXPOSE GARBADGE COLLECTOR ON START");
             }, 20000);
           } else {
@@ -3099,12 +3099,7 @@ class Kernel extends Service implements IKernel {
   initCluster(): void {
     this.pid = process.pid;
     //this.process = process;
-    if (
-      this.console &&
-      this.cli &&
-      this.cli.commander &&
-      this.cli.commander.opts().json
-    ) {
+    if (this.console && this.cli?.commander?.opts().json) {
       return;
     }
     if (cluster.isPrimary) {

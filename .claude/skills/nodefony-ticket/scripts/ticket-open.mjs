@@ -196,7 +196,7 @@ export function nombreDeSousTickets(numero) {
   return JSON.parse(out)?.data?.repository?.issue?.subIssues?.totalCount ?? 0;
 }
 
-if (process.argv[1] && process.argv[1].endsWith("ticket-open.mjs")) {
+if (process.argv[1]?.endsWith("ticket-open.mjs")) {
   const args = parseArgs(process.argv.slice(2));
   if (!args.title || !args.bodyFile) {
     console.error("usage : --title <titre> --body-file <fichier> [options]");

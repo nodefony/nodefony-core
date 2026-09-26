@@ -72,7 +72,7 @@ export class FakeRedis implements RedisClientLike {
   hDel(key: string, field: string): Promise<number> {
     this.#expired(key);
     const m = this.#hashes.get(key);
-    return Promise.resolve(m && m.delete(field) ? 1 : 0);
+    return Promise.resolve(m?.delete(field) ? 1 : 0);
   }
 
   get(key: string): Promise<string | null> {
@@ -127,7 +127,7 @@ export class FakeRedis implements RedisClientLike {
   sRem(key: string, member: string): Promise<number> {
     this.#expired(key);
     const s = this.#sets.get(key);
-    return Promise.resolve(s && s.delete(member) ? 1 : 0);
+    return Promise.resolve(s?.delete(member) ? 1 : 0);
   }
 
   sMembers(key: string): Promise<string[]> {

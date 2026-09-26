@@ -296,7 +296,7 @@ class nodefonyError extends Error {
           return error.constructor.name;
       }
     }
-    if (error && error.constructor) {
+    if (error?.constructor) {
       return error.constructor.name;
     }
     return "Error";

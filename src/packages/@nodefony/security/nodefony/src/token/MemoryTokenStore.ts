@@ -359,7 +359,7 @@ export class MemoryTokenStore implements ITokenStore {
     record: IAccessTokenRecord | undefined,
     reason: TokenRevokeReason,
   ): void {
-    if (record && record.revokedAt === null) {
+    if (record?.revokedAt === null) {
       record.revokedAt = this.#now();
       record.revokedReason = reason;
     }

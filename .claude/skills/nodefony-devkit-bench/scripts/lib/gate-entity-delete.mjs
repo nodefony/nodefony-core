@@ -133,7 +133,7 @@ if (!estSucces(cree.status)) {
 const identifiant = (() => {
   try {
     const objet = JSON.parse(cree.body);
-    if (objet && objet.id !== undefined && objet.id !== null) {
+    if (objet?.id !== undefined && objet.id !== null) {
       return String(objet.id);
     }
   } catch {

@@ -270,7 +270,7 @@ class Injector extends Service {
       // reconstruit, cache vide, en silence.
       const kernel = Nodefony.getKernel();
       const key = Injector.containerKeyOf(Ctor) ?? serviceName;
-      if (kernel && kernel.get(key)) {
+      if (kernel?.get(key)) {
         return kernel.get(key);
       }
       // Absent du container : on instancie, puis on MÉMOÏSE — sans quoi le scope

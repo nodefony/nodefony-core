@@ -162,7 +162,7 @@ function main() {
   // « fait mais pas chargé » à « rien fait », et l'instruction partait du
   // mauvais côté.
   let dossierModulesSurDisque = false;
-  if (modules !== null && modules.filter(estComposantLocal).length === 0) {
+  if (modules?.filter(estComposantLocal).length === 0) {
     try {
       dossierModulesSurDisque = readdirSync("modules", {
         withFileTypes: true,

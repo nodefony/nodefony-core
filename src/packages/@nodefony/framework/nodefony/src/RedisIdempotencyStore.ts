@@ -308,7 +308,7 @@ export class RedisIdempotencyStore implements IIdempotencyStore {
     // (2) reporter le fingerprint dans l'entrée done (préservé pour le 422 d'un
     // rejeu avec un autre payload après complétion).
     const existing = this.#parse(await client.get(k));
-    if (existing === null || existing.s !== "if") {
+    if (existing?.s !== "if") {
       this.#dec();
       return;
     }

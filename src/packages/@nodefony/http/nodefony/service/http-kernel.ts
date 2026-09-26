@@ -939,7 +939,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (context instanceof WebsocketContext) {
       try {
         const wsResult = this.errorRenderer.renderWebsocket(error, context);
-        if (context.response && context.response.connection) {
+        if (context.response?.connection) {
           context.close(wsResult.code, wsResult.reason);
           return context;
         }
@@ -1634,7 +1634,7 @@ class HttpKernel extends Service implements IHttpKernelInterface {
       if (ip !== null) {
         // F5 — rate-limit du DÉBIT de handshakes (même compteur que les requêtes
         // HTTP : un upgrade WS EST une requête HTTP GET+Upgrade).
-        if (this.rateLimiter !== null && this.rateLimiter.hit(ip).limited) {
+        if (this.rateLimiter?.hit(ip).limited) {
           if (ws.readyState === Ws.OPEN) ws.close(1013, "rate limit");
           return;
         }

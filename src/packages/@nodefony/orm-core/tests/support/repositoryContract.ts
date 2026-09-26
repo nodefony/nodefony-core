@@ -257,7 +257,7 @@ export function runRepositoryContract(
 
     await seed();
     const one = await repo.updateOne({ note: null }, { note: "one" });
-    assert.ok(one && one.note === "one", "updateOne borné aux NULL");
+    assert.ok(one?.note === "one", "updateOne borné aux NULL");
     assert.equal((await repo.find({ note: null })).length, 1);
 
     await seed();

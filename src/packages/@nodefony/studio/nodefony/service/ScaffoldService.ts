@@ -440,7 +440,7 @@ class ScaffoldService extends Service {
   /** Tue le process en cours d'un job (bouton « arrêter »). */
   cancel(id: string): boolean {
     const job = this.#jobs?.get(id);
-    if (!job || job.status !== "running") return false;
+    if (job?.status !== "running") return false;
     job.child?.kill("SIGTERM");
     this.#emit(job, "fail", "— interrompu —");
     this.#finish(job, "failed");

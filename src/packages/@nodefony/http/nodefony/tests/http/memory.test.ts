@@ -167,7 +167,12 @@ const contextsReleased = async (quoi: string): Promise<void> => {
   expect(
     delta,
     `${quoi} : ${delta} contexte(s) HTTP de la boucle jamais réclamé(s) par ` +
-      "le ramasse-miettes — une référence les retient après la réponse.",
+      "le ramasse-miettes — soit une référence les retient après la réponse, " +
+      "soit un client EXTERNE a requêté pendant le run (le traceur compte " +
+      "TOUS les contextes nés depuis la marque : un client MCP qui sonde " +
+      "`/nodefony/mcp` chaque seconde suffit, avec un compte qui varie d'un " +
+      "run à l'autre). `lsof -nP -iTCP:5151 -sTCP:ESTABLISHED` et " +
+      "`lsof -nP -iTCP:5152 -sTCP:ESTABLISHED` les nomment.",
   ).to.be.at.most(0);
 };
 

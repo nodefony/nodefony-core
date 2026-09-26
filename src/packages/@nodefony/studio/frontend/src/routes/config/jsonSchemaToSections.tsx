@@ -140,7 +140,7 @@ function scalarTypes(node: JsonSchemaNode): string[] {
 function deriveEditControl(
   node: JsonSchemaNode | null,
 ): ConfigEditControl | undefined {
-  if (!node || node.runtimeMutable !== true || node.secret === true) {
+  if (node?.runtimeMutable !== true || node.secret === true) {
     return undefined;
   }
   if (Array.isArray(node.enum)) {

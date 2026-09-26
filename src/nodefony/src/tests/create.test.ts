@@ -650,7 +650,7 @@ describe("nodefony create — scaffold 3 fronts (spec + moteur + CLI)", () => {
             return Boolean(cible) && scripts.includes(cible);
           });
         const muets = scripts.filter(
-          (nom) => !crochet(nom) && !(decrits ?? {})[nom]?.trim(),
+          (nom) => !crochet(nom) && !decrits?.[nom]?.trim(),
         );
         assert.deepEqual(
           muets,

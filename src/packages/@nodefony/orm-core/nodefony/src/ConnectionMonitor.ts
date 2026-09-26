@@ -237,7 +237,7 @@ class ConnectionMonitor {
     }
     const lat = s.latencies;
     let latency: ILatencyWindow = EMPTY_LATENCY;
-    if (lat && lat.length) {
+    if (lat?.length) {
       let min = lat[0];
       let max = lat[0];
       let sum = 0;

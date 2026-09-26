@@ -542,7 +542,7 @@ function GcBody({ source }: WidgetRenderProps<StatsPayload>) {
   const gc = stats?.gc ?? null;
   const series = useLiveSeries(gc ? gc.pauseMs : null, 60);
   const overhead = gc && dt ? (gc.pauseMs / dt) * 100 : null;
-  const avg = gc && gc.count ? gc.pauseMs / gc.count : null;
+  const avg = gc?.count ? gc.pauseMs / gc.count : null;
   const overColor =
     overhead == null
       ? "gray"
@@ -671,10 +671,7 @@ function useFlowSeries(
 function OrmFlowBody({ source }: WidgetRenderProps<FlowReport>) {
   const report = source.data;
   const { rates, hist } = useFlowSeries(report);
-  // Valeur venue du réseau : `=== false` n'accepte que le booléen, pas un
-  // `undefined`/`0` d'un serveur mal aligné, là où le type promet un booléen.
-  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
-  if (report && report.enabled === false)
+  if (report?.enabled === false)
     return (
       <Text size="sm" c="dimmed">
         Flux ORM désactivé (sonde OFF). Activer avec NF_ORM_FLOW=1.

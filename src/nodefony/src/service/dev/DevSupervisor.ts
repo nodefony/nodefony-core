@@ -1332,7 +1332,7 @@ export class DevSupervisor {
     return new Promise((resolve) => {
       const c = this.#child;
       this.#child = null; // marque le restart sollicité avant l'exit
-      if (!c || c.exitCode !== null || c.signalCode !== null) return resolve();
+      if (c?.exitCode !== null || c.signalCode !== null) return resolve();
       const kill9 = setTimeout(() => this.#signalGroup(c, "SIGKILL"), 4000);
       c.once("exit", () => {
         clearTimeout(kill9);

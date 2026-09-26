@@ -61,8 +61,7 @@ beforeAll(async () => {
     if (
       methodes.has("POST") &&
       methodes.has("GET") &&
-      item !== undefined &&
-      item.some((r) => r.methods.includes("DELETE"))
+      item?.some((r) => r.methods.includes("DELETE"))
     ) {
       collection = chemin;
       break;

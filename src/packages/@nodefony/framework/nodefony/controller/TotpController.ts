@@ -84,7 +84,7 @@ class TotpController extends Controller {
     if (subject === null) {
       return this.renderJson({ error: "Unauthorized" }, 401);
     }
-    const code = (this.queryPost ?? {}).code;
+    const code = this.queryPost?.code;
     if (typeof code !== "string" || code.length === 0) {
       return this.renderJson({ error: "Invalid code" }, 400);
     }
@@ -130,7 +130,7 @@ class TotpController extends Controller {
 
   #service(): ITotpManager | null {
     const svc = this.get<ITotpManager>("totp");
-    return svc && svc.isEnabled() ? svc : null;
+    return svc?.isEnabled() ? svc : null;
   }
 
   #flow(): ISessionAuthFlow | null {

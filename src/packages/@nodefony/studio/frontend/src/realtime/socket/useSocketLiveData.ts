@@ -174,6 +174,9 @@ function backplaneNode(bp: InstanceHealth["backplane"] | null): LiveNodeData {
  * à l'autre.
  */
 const CLIENT_TRANSPORT =
+  // La garde `typeof` n'est pas redondante : le type DOM déclare `window`
+  // toujours présent, mais ce module s'évalue aussi hors navigateur (tests).
+  // oxlint-disable-next-line typescript/prefer-optional-chain
   typeof window !== "undefined" && window.location.protocol === "https:"
     ? "WSS"
     : "WS";

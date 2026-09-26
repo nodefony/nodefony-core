@@ -224,7 +224,7 @@ function rpc(ws, method, params) {
 
 /** Socket de service (GC + sondes) — ouverte une seule fois. */
 async function gcPeer() {
-  if (GC_PEER && GC_PEER.readyState === 1) return GC_PEER;
+  if (GC_PEER?.readyState === 1) return GC_PEER;
   GC_PEER = await openOne(HUB);
   return GC_PEER;
 }

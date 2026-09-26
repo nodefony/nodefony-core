@@ -72,8 +72,7 @@ if (cluster.isPrimary) {
     const A = pods.get("A");
     const B = pods.get("B");
     const shapeOk = (h) =>
-      h &&
-      h.cluster === true &&
+      h?.cluster === true &&
       h.instanceCount === 2 &&
       Array.isArray(h.instances) &&
       h.instances.length === 2 &&

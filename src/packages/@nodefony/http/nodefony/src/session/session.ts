@@ -319,7 +319,7 @@ class Session implements ISession {
     leftTime: number,
     options: CookieOptionsType = {},
   ): Cookie | null {
-    if (this.context && this.context.response) {
+    if (this.context?.response) {
       const settings = extend(
         {},
         this.options.cookie,
@@ -344,7 +344,7 @@ class Session implements ISession {
   }
 
   deleteCookieSession(): Cookie | null {
-    if (this.context && this.context.response) {
+    if (this.context?.response) {
       let cookie = this.cookieSession;
       if (cookie) {
         cookie.expires = new Date(0);

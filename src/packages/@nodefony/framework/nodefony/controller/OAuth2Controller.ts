@@ -213,7 +213,7 @@ class OAuth2Controller extends Controller {
 
   #service(): IOAuth2Service | null {
     const svc = this.get<IOAuth2Service>("oauth2");
-    return svc && svc.isEnabled() ? svc : null;
+    return svc?.isEnabled() ? svc : null;
   }
 
   #flow(): IOAuth2BffFlow | null {
@@ -222,7 +222,7 @@ class OAuth2Controller extends Controller {
 
   /** Lit un paramètre de query string (GET), ou `null`. */
   #queryString(key: string): string | null {
-    const v = (this.queryGet ?? {})[key];
+    const v = this.queryGet?.[key];
     return typeof v === "string" && v.length > 0 ? v : null;
   }
 }

@@ -63,7 +63,7 @@ class FakePaginatingRedis {
   }
   sRem(key: string, member: string): Promise<number> {
     const set = this.#sets.get(key);
-    return Promise.resolve(set && set.delete(member) ? 1 : 0);
+    return Promise.resolve(set?.delete(member) ? 1 : 0);
   }
   sMembers(key: string): Promise<string[]> {
     const set = this.#sets.get(key);

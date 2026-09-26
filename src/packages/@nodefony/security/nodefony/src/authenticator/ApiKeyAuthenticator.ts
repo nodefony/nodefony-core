@@ -109,8 +109,7 @@ export class ApiKeyAuthenticator implements IAuthenticator {
     const record = await store.findByHash(parsed.secretHash);
     const now = Date.now();
     if (
-      !record ||
-      record.kind !== "pat" ||
+      record?.kind !== "pat" ||
       record.revokedAt !== null ||
       (record.expiresAt !== null && record.expiresAt <= now)
     ) {

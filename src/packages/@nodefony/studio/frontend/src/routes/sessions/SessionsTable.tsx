@@ -282,7 +282,7 @@ export const SessionsTable = observer(function SessionsTable({
   // sessions », c'est-à-dire pour aucune en particulier.
   // `isMyAccount` : cette ligne appartient-elle à mon compte ? C'est la bonne
   // question pour « déconnecter partout », qui vise un COMPTE, pas un appareil.
-  const isCurrent = selected !== null && selected.current;
+  const isCurrent = selected?.current;
   const isMyAccount =
     selected !== null &&
     selected.authenticated &&

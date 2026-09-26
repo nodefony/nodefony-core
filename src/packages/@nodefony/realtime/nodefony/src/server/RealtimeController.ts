@@ -345,7 +345,7 @@ export abstract class RealtimeController<
     // Seam #2 — Authenticator réseau. Fallback ANONYMOUS si aucun matcher.
     const authenticator = hub.resolveAuthenticator(handshake);
     let token: IRealtimeToken;
-    if (authenticator !== null && authenticator.supports(handshake)) {
+    if (authenticator?.supports(handshake)) {
       try {
         token = await authenticator.authenticate(handshake);
         authenticator.onSuccess?.(handshake, token);

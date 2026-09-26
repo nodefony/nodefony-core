@@ -220,7 +220,7 @@ const ecouterCanal = (ws, framesDejaRecues, canal, fenetreMs) =>
       // Filtre STRICT sur la méthode : un anonyme reçoit légitimement
       // `live:ticker` sur une connexion voisine — seule une trame dont la
       // méthode vaut EXACTEMENT le canal mesuré compte comme preuve.
-      resolve(frames.some((f) => f && f.method === canal));
+      resolve(frames.some((f) => f?.method === canal));
     }, fenetreMs);
   });
 
@@ -272,11 +272,7 @@ const guetterRefus = (ws, framesDejaRecues, canal, fenetreMs) =>
         /* déjà fermée */
       }
       const refus = frames.find(
-        (f) =>
-          f &&
-          f.method === "realtime:denied" &&
-          f.params &&
-          f.params.channel === canal,
+        (f) => f?.method === "realtime:denied" && f.params?.channel === canal,
       );
       resolve(refus ? (refus.params.reason ?? "sans motif") : null);
     }, fenetreMs);

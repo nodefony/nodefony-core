@@ -74,14 +74,13 @@ export function buildMetaData(
   nf.scheme = src.scheme;
   nf.requestId = src.requestId;
   const r = src.resolver;
-  nf.route =
-    r && r.route
-      ? {
-          name: r.route.name,
-          path: r.route.path,
-          variablesMap: r.getMatchedParams(),
-        }
-      : undefined;
+  nf.route = r?.route
+    ? {
+        name: r.route.name,
+        path: r.route.path,
+        variablesMap: r.getMatchedParams(),
+      }
+    : undefined;
   if (override) {
     const ovr = override.nodefony as Partial<MetaData> | undefined;
     if (ovr) {

@@ -330,7 +330,7 @@ class AuthFlow extends Service {
    */
   async logout(context: ContextType): Promise<boolean> {
     const session = context.session;
-    if (!session || session.status !== "active") {
+    if (session?.status !== "active") {
       return false;
     }
     // Acteur capturé AVANT destroy (la session porte encore l'identifiant).
@@ -458,7 +458,7 @@ class AuthFlow extends Service {
   #resolveTotp(): ITotpLoginVerifier | null {
     if (!this.#totpResolved) {
       const svc = this.get<ITotpLoginVerifier>("totp") ?? null;
-      this.#totp = svc && svc.isEnabled() ? svc : null;
+      this.#totp = svc?.isEnabled() ? svc : null;
       this.#totpResolved = true;
     }
     return this.#totp;

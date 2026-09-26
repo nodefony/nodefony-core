@@ -24,7 +24,7 @@ function applyEnvOverrides(config: IMongooseConfig): IMongooseConfig {
   const database = resolveInfra(env).database;
   const uri =
     env.MONGODB_URI ??
-    (database && database.family === "mongo" ? database.url : undefined);
+    (database?.family === "mongo" ? database.url : undefined);
   if (uri) {
     const target = config.connectors.nodefony
       ? "nodefony"

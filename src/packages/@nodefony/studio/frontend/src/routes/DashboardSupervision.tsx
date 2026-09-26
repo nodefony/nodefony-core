@@ -753,7 +753,7 @@ export const DashboardSupervision = observer(() => {
     store.api
       .getAbsolute<StatsPayload>("/nodefony/studio/api/stats")
       .then((s) => {
-        if (s && s.memory) setStats(s);
+        if (s?.memory) setStats(s);
       })
       .catch(() => {});
   }, [store]);
@@ -913,7 +913,7 @@ export const DashboardSupervision = observer(() => {
   // Overhead GC = part de l'intervalle passée en pause (stop-the-world) → la
   // métrique actionnable : combien de temps CPU le GC a volé. Pause moyenne/cycle.
   const gcOverhead = gc && liveMs ? (gc.pauseMs / liveMs) * 100 : 0;
-  const gcAvgPerCycle = gc && gc.count ? gc.pauseMs / gc.count : 0;
+  const gcAvgPerCycle = gc?.count ? gc.pauseMs / gc.count : 0;
   const gcOverheadColor =
     gcOverhead > 5 ? "red" : gcOverhead > 1 ? "orange" : "teal";
   const heapSpaces = stats?.heapSpaces ?? [];
@@ -925,7 +925,7 @@ export const DashboardSupervision = observer(() => {
 
   // Connecteurs ORM unifiés : santé LIVE (nodefony:orm:health) prioritaire, sinon SNAPSHOT.
   const connectors: OrmConn[] =
-    live && ormHealth && ormHealth.length
+    live && ormHealth?.length
       ? ormHealth.map((h) => ({
           name: h.name,
           vendor: h.vendor,
@@ -953,10 +953,7 @@ export const DashboardSupervision = observer(() => {
   // tête, tous connecteurs confondus, bornées). `flowOff` = sonde désactivée
   // (prod) → on l'explique au lieu d'afficher des zéros muets.
   const flowConns = ormFlow?.connectors ?? [];
-  // Valeur venue du réseau : `=== false` n'accepte que le booléen, pas un
-  // `undefined`/`0` d'un serveur mal aligné, là où le type promet un booléen.
-  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
-  const flowOff = ormFlow != null && ormFlow.enabled === false;
+  const flowOff = ormFlow?.enabled === false;
   const slowQueries = flowConns
     .flatMap((c) => c.slow ?? [])
     .sort((a, b) => b.ts - a.ts)

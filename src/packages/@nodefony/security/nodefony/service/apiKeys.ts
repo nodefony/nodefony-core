@@ -250,7 +250,7 @@ class ApiKeyService extends Service {
   async revokeAnyPat(id: string, actorId: string): Promise<IApiKeyView | null> {
     const store = this.#resolveStore();
     const record = await store.findById(id);
-    if (!record || record.kind !== "pat") {
+    if (record?.kind !== "pat") {
       return null;
     }
     await store.revoke(id, "manual");
@@ -296,7 +296,7 @@ class ApiKeyService extends Service {
   async revokeForSubject(subjectId: string, id: string): Promise<boolean> {
     const store = this.#resolveStore();
     const record = await store.findById(id);
-    if (!record || record.kind !== "pat" || record.subjectId !== subjectId) {
+    if (record?.kind !== "pat" || record.subjectId !== subjectId) {
       return false;
     }
     await store.revoke(id, "manual");

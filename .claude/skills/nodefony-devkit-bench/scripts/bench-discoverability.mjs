@@ -4568,7 +4568,7 @@ export function evaluateProbe(probe, matter) {
   // la réponse n'est pas une façon de la donner.
   const ciblé =
     probe.kind !== "transcript" && probe.file
-      ? ((contentByFile ?? {})[probe.file] ?? "")
+      ? (contentByFile?.[probe.file] ?? "")
       : null;
   if (probe.kind === "transcript") {
     // La MATIÈRE dépend de ce qu'on juge : un interdit se lit dans la parole de

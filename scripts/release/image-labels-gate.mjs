@@ -94,7 +94,7 @@ const LICENCE_ATTENDUE = "Apache-2.0";
  */
 function controlerEtiquettes(labels, attendu = {}) {
   const ecarts = [];
-  const lu = (cle) => (labels ?? {})[`${OCI}.${cle}`];
+  const lu = (cle) => labels?.[`${OCI}.${cle}`];
 
   for (const cle of ATTENDUS_REQUIS) {
     const valeur = lu(cle);

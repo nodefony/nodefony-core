@@ -912,7 +912,7 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         // `killed` ne dit que « un signal a été envoyé PAR cet objet » — il resterait
         // faux ici puisqu'on passe par l'arbre. La question est « ce process vit-il
         // encore ? », et ce sont les codes de sortie qui y répondent.
-        if (c && c.exitCode === null && c.signalCode === null) {
+        if (c?.exitCode === null && c.signalCode === null) {
           this.signalTree(c, "SIGKILL");
         }
       }, 3_000);

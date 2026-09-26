@@ -259,7 +259,7 @@ export function buildEnvReport(input: {
     const effective = processEnv[name];
     if (effective === undefined) return null;
     for (const level of files) {
-      if (level.vars && level.vars[name] === effective) return level.source;
+      if (level.vars?.[name] === effective) return level.source;
     }
     return "process.env";
   };
@@ -272,7 +272,7 @@ export function buildEnvReport(input: {
     const out: { source: string; value: string }[] = [];
     let passedWinner = winner === "process.env";
     for (const level of files) {
-      if (!level.vars || level.vars[name] === undefined) continue;
+      if (level.vars?.[name] === undefined) continue;
       if (!passedWinner && level.source === winner) {
         passedWinner = true;
         continue;

@@ -120,7 +120,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
   try {
     main();
   } catch (error) {
-    process.stderr.write(`\n❌ ${(error && error.message) || error}\n`);
+    process.stderr.write(`\n❌ ${error?.message || error}\n`);
     process.exitCode = 1;
   }
 }

@@ -20,7 +20,7 @@ class Http2Response extends HttpResponse {
       this.stream = response.stream;
       this.streamId = this.stream.id;
     }
-    if (this.stream && this.stream.pushAllowed) {
+    if (this.stream?.pushAllowed) {
       this.context.pushAllowed = true;
     }
   }
