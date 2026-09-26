@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T21:01:57.346Z",
+  "generatedAt": "2026-09-26T21:30:23.622Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -7014,6 +7014,22 @@
       "priorite": "P2 — décision",
       "jours": 1,
       "ordre": 909,
+      "debut": null,
+      "cible": null,
+      "labels": [
+        "backlog"
+      ]
+    },
+    {
+      "number": 504,
+      "title": "feat(runtime): porter l'identité d'une requête dans un traitement différé",
+      "url": "https://github.com/nodefony/nodefony-core/issues/504",
+      "state": "OPEN",
+      "status": "Todo",
+      "milestone": null,
+      "priorite": "P2 — décision",
+      "jours": 1,
+      "ordre": 910,
       "debut": null,
       "cible": null,
       "labels": [
