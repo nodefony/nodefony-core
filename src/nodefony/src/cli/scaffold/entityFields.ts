@@ -943,6 +943,17 @@ function tsTypeOf(field: IEntityField): string {
 }
 
 /**
+ * Type TS d'une propriété de `XRow`, nullabilité comprise.
+ *
+ * `unknown` absorbe déjà `null` : écrire `unknown | null` fait rougir le lint
+ * de l'application générée (`no-redundant-type-constituents`), qui suit la même
+ * grille que le dépôt.
+ */
+function rowTypeOf(tsType: string, nullable: boolean | undefined): string {
+  return nullable && tsType !== "unknown" ? `${tsType} | null` : tsType;
+}
+
+/**
  * Schéma Zod d'un champ — `z.enum` pour une énumération, borné pour une taille.
  *
  * C'est ici que les tailles deviennent une garantie RÉELLE. La colonne, elle, ne
@@ -1279,9 +1290,8 @@ export function buildEntityCodegen(
     }
     columns.push(`${field.name}: ${col},`);
 
-    const optional = field.nullable ? " | null" : "";
     rowProps.push(
-      `${field.name}: ${fk?.tsType ?? tsTypeOf(field)}${optional};`,
+      `${field.name}: ${rowTypeOf(fk?.tsType ?? tsTypeOf(field), field.nullable)};`,
     );
 
     // Le schéma suit le même type : une clé auto-incrémentée est un NOMBRE, et
@@ -1537,8 +1547,9 @@ export function buildMongooseEntityCodegen(
       schemaFields[schemaFields.length - 1] += ` // → ${field.target}.id`;
     }
 
-    const optional = field.nullable ? " | null" : "";
-    rowProps.push(`${field.name}: ${tsTypeOf(field)}${optional};`);
+    rowProps.push(
+      `${field.name}: ${rowTypeOf(tsTypeOf(field), field.nullable)};`,
+    );
 
     let zod =
       field.type === "ref"

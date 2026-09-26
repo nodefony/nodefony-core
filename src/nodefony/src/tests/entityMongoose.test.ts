@@ -22,6 +22,7 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import {
+  buildEntityCodegen,
   buildMongooseEntityCodegen,
   describeColumnTypes,
   ENTITY_FIELD_TYPES,
@@ -118,6 +119,27 @@ describe("create entity — traduction Mongoose, type par type", () => {
     assert.deepStrictEqual(lines("parent:ref:Category?"), [
       'parent: { type: "ObjectId", ref: "Category", default: null, index: true }, // → Category.id',
     ]);
+  });
+
+  it("json facultatif : `unknown` seul dans la ligne, sans `| null` redondant (les DEUX ORM)", () => {
+    // `unknown | null` compile, mais rougit le lint de l'app générée
+    // (`no-redundant-type-constituents`) — vu en CI sur le moteur mongodb.
+    const fields = parseEntityFields("tags:json? label:string?");
+    const mongo = buildMongooseEntityCodegen(fields, {
+      timestamps: false,
+      softDelete: false,
+    });
+    const sql = buildEntityCodegen(fields, {
+      dialect: "sqlite",
+      id: "uuid7",
+      timestamps: false,
+      softDelete: false,
+      table: "items",
+    });
+    for (const rows of [mongo.rowProps, sql.rowProps]) {
+      assert.match(rows, /tags: unknown;/u);
+      assert.match(rows, /label: string \| null;/u);
+    }
   });
 
   it("horodatages : dans la LIGNE, pas dans le schéma (option du descripteur)", () => {
