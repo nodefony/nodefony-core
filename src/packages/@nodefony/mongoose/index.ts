@@ -86,7 +86,7 @@ class Mongoose extends Module<IMongooseConfig> {
     // câblage app ; guards = l'app garde la main ; `frameworkEntities: false` =
     // module data-only. Couverture COMPLÈTE des briques durables : une app doit
     // pouvoir tourner sans aucun backend SQL.
-    if (validated.frameworkEntities !== false) {
+    if (validated.frameworkEntities) {
       const report = registerMongooseFrameworkStores();
       if (report.appOwned.length) {
         this.log(
@@ -120,7 +120,8 @@ class Mongoose extends Module<IMongooseConfig> {
     // s'enregistre sous la clé "mongoose" dans le registre générique d'adapters.
     registerErrorAdapter("mongoose", {
       isError: (e: Error): boolean => e instanceof mongoose.Error,
-      errorToString: (e: unknown): string => String((e as Error)?.message ?? e),
+      errorToString: (e: unknown): string =>
+        e instanceof Error ? e.message : String(e),
     });
     return this;
   }

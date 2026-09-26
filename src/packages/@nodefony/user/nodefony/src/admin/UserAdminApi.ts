@@ -615,7 +615,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
         }
 
         if (typeof body.enabled === "boolean") {
-          if (body.enabled === false) {
+          if (!body.enabled) {
             if (isSelf) {
               return {
                 status: 409,
@@ -634,7 +634,7 @@ export function createUserAdminApi(container: Container): IAdminApi {
           patch.enabled = body.enabled;
         }
         if (typeof body.locked === "boolean") {
-          if (body.locked === true && isSelf) {
+          if (body.locked && isSelf) {
             return {
               status: 409,
               body: { error: "cannot lock your own account" },

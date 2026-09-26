@@ -251,7 +251,7 @@ class RedisSessionStorage implements ISessionStorage {
       MATCH: `${this.#prefix()}:*`,
       COUNT: limit,
     });
-    const next = String(res.cursor);
+    const next = res.cursor;
     const prefixLen = this.#prefix().length + 1;
     const items: ISessionRecord[] = [];
     // `consumed` compte les CLÉS du batch parcourues (pas les items rendus) :

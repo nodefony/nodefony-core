@@ -226,7 +226,7 @@ describe.skipIf(!URI)(
       }
       const inserted = (
         await users.find({}, { order: [["email", "ASC"]] })
-      ).map((u) => String(u.id));
+      ).map((u) => u.id);
       const desc = await users.find(
         {},
         {
@@ -237,7 +237,7 @@ describe.skipIf(!URI)(
         },
       );
       assert.deepEqual(
-        desc.map((u) => String(u.id)),
+        desc.map((u) => u.id),
         [...inserted].reverse(),
       );
       const first = await users.findOne({}, { order: [["id", "ASC"]] });

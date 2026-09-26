@@ -79,7 +79,7 @@ export function buildClientOptions(
     port: socket.port,
     family: socket.family,
     connectTimeout: socket.connectTimeout,
-    tls: socket.tls === true ? true : undefined,
+    tls: socket.tls ? true : undefined,
     reconnectStrategy,
   };
   return options;

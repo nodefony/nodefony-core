@@ -368,7 +368,7 @@ export class MongooseIdempotencyStore implements IIdempotencyStore {
       items: page.map((doc) => ({
         key: doc._id,
         state: doc.state === "if" ? ("in-flight" as const) : ("done" as const),
-        expiresAtMs: Number(doc.expiresAt),
+        expiresAtMs: doc.expiresAt,
         // `state === "done"` ⇒ une réponse est mémorisée. On ne la lit pas.
         hasResponse: doc.state !== "if",
       })),

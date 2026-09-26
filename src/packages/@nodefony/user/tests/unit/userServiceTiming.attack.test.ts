@@ -178,7 +178,11 @@ describe("RED-TEAM Password — UserService.authenticate (anti-énumération par
         costs.push(encoder.verifies - before);
       }
       // Un seul coût distinct (1) → aucun chemin n'est distinguable par le temps.
-      assert.deepEqual([...new Set(costs)], [1], `coûts hétérogènes: ${costs}`);
+      assert.deepEqual(
+        [...new Set(costs)],
+        [1],
+        `coûts hétérogènes: ${costs.join(", ")}`,
+      );
     });
   });
 

@@ -95,7 +95,7 @@ class MemoryUserRepo implements IUserRepository {
   }
 
   countDistinct(
-    field: keyof IPasswordAuthenticatedUser & string,
+    field: keyof IPasswordAuthenticatedUser,
     criteria?: Criteria<IPasswordAuthenticatedUser>,
   ) {
     return this.find(criteria).then(

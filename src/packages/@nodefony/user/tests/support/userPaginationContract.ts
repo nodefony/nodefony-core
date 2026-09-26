@@ -88,7 +88,7 @@ export function runUserPaginationContract(
     it("filtre enabled = false (isActive dérivé)", async () => {
       const page = await repo().listPage({ limit: 100, enabled: false });
       assert.equal(page.total, 4);
-      assert.ok(page.items.every((u) => u.isActive() === false));
+      assert.ok(page.items.every((u) => !u.isActive()));
     });
 
     it("filtre q = sous-chaîne insensible à la casse sur identifier", async () => {

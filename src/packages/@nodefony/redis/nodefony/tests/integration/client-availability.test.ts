@@ -75,7 +75,7 @@ function deadService(): RedisService {
 function captureLog(service: RedisService): Array<[string, string]> {
   const lines: Array<[string, string]> = [];
   service.log = ((pci: unknown, severity?: string) => {
-    lines.push([String(pci), String(severity ?? "INFO")]);
+    lines.push([String(pci), severity ?? "INFO"]);
     return true;
   }) as unknown as RedisService["log"];
   return lines;

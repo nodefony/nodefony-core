@@ -572,16 +572,15 @@ export class MongooseOrm extends Orm {
       throw new Error(`MongooseOrm "${this.name}": not connected.`);
     }
     const session = await connection.startSession();
-    let result: R;
     try {
       // Managée : commit si la closure résout, abort si elle rejette (+ retries).
-      await session.withTransaction(async () => {
-        result = await work(new MongooseTransaction(session));
-      });
+      // `withTransaction` rend la valeur du DERNIER passage réussi de la closure.
+      return await session.withTransaction(() =>
+        work(new MongooseTransaction(session)),
+      );
     } finally {
       await session.endSession();
     }
-    return result!;
   }
 
   getNativeConnection<C = unknown>(): C {

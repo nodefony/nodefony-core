@@ -263,7 +263,7 @@ export class InMemoryUserRepository implements IUserRepository {
    * pour tenir la même sémantique que `COUNT(DISTINCT col)`.
    */
   async countDistinct(
-    field: keyof IPasswordAuthenticatedUser & string,
+    field: keyof IPasswordAuthenticatedUser,
     criteria?: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<number> {
     const seen = new Set<unknown>();

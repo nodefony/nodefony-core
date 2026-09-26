@@ -208,10 +208,10 @@ export class MongooseUserRepository implements IUserRepository {
   }
 
   countDistinct(
-    field: keyof IPasswordAuthenticatedUser & string,
+    field: keyof IPasswordAuthenticatedUser,
     criteria?: Criteria<IPasswordAuthenticatedUser>,
   ): Promise<number> {
-    return this.#base.countDistinct(field as keyof UserRow & string, criteria);
+    return this.#base.countDistinct(field as keyof UserRow, criteria);
   }
 
   withTransaction(tx: ITransaction): IUserRepository {

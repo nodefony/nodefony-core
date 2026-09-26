@@ -281,7 +281,7 @@ export class RedisWebAuthnCredentialStore implements IWebAuthnCredentialStore {
       MATCH: `${this.#prefix()}:cred:*`,
       COUNT: limit,
     });
-    const next = String(res.cursor);
+    const next = res.cursor;
     const items: IWebAuthnCredentialSummary[] = [];
     // `consumed` compte les CLÉS parcourues (pas les items rendus) : c'est la
     // position de reprise, et le filtre en écarte une partie.

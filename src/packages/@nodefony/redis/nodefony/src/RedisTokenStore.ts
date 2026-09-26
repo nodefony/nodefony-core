@@ -388,7 +388,7 @@ export class RedisTokenStore implements ITokenStore {
     let scanned = 0;
     do {
       const res = await client.scan(cursor, { MATCH: match, COUNT: 200 });
-      cursor = String(res.cursor);
+      cursor = res.cursor;
       for (const key of res.keys) {
         const h = await client.hGetAll(key);
         if (Object.keys(h).length > 0) {
@@ -430,7 +430,7 @@ export class RedisTokenStore implements ITokenStore {
       MATCH: `${this.#prefix()}:rec:*`,
       COUNT: limit,
     });
-    const next = String(res.cursor);
+    const next = res.cursor;
     // Une SEULE lecture d'horloge pour tout le batch : deux jetons de la même
     // page ne peuvent pas être jugés à des instants différents.
     const now = this.#now();

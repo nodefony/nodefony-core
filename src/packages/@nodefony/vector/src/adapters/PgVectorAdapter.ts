@@ -22,6 +22,8 @@ export interface IPgVectorConfig extends IVectorStoreConfig {
 
 // Interface minimale pour pg.Pool (pour ne pas dépendre de pg dans les types)
 export interface IPgPool {
+  // Miroir de `pg.Pool.query<T>` : la ligne est typée par l'appelant, comme chez pg.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   query<T = unknown>(text: string, params?: unknown[]): Promise<{ rows: T[] }>;
   end(): Promise<void>;
 }
@@ -79,7 +81,7 @@ export class PgVectorAdapter implements IVectorStore {
   }
 
   async insert(entries: IVectorEntry[]): Promise<string[]> {
-    this.assertReady();
+    const pool = this.assertReady();
     if (entries.length === 0) return [];
 
     for (const entry of entries) {
@@ -106,7 +108,7 @@ export class PgVectorAdapter implements IVectorStore {
       paramIdx += 4;
     }
 
-    await this.pool!.query(
+    await pool.query(
       `
       INSERT INTO ${this.collection} (id, vector, text, metadata)
       VALUES ${values.join(", ")}
@@ -125,7 +127,7 @@ export class PgVectorAdapter implements IVectorStore {
     queryVector: number[],
     options: IVectorSearchOptions = {},
   ): Promise<IVectorSearchResult[]> {
-    this.assertReady();
+    const pool = this.assertReady();
     if (queryVector.length !== this.dimensions) {
       throw new VectorDimensionError(this.dimensions, queryVector.length);
     }
@@ -148,7 +150,7 @@ export class PgVectorAdapter implements IVectorStore {
       if (conditions.length) where = `WHERE ${conditions.join(" AND ")}`;
     }
 
-    const result = await this.pool!.query<{
+    const result = await pool.query<{
       id: string;
       vector_str: string;
       text: string;
@@ -184,9 +186,9 @@ export class PgVectorAdapter implements IVectorStore {
     ids?: string[];
     filter?: Record<string, unknown>;
   }): Promise<number> {
-    this.assertReady();
+    const pool = this.assertReady();
     if (criteria.ids?.length) {
-      const result = await this.pool!.query(
+      const result = await pool.query(
         `DELETE FROM ${this.collection} WHERE id = ANY($1::text[])`,
         [criteria.ids],
       );
@@ -201,7 +203,7 @@ export class PgVectorAdapter implements IVectorStore {
           `metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`,
         );
       }
-      const result = await this.pool!.query(
+      const result = await pool.query(
         `DELETE FROM ${this.collection} WHERE ${conditions.join(" AND ")}`,
         params,
       );
@@ -211,9 +213,9 @@ export class PgVectorAdapter implements IVectorStore {
   }
 
   async count(filter?: Record<string, unknown>): Promise<number> {
-    this.assertReady();
+    const pool = this.assertReady();
     if (!filter) {
-      const result = await this.pool!.query<{ count: string }>(
+      const result = await pool.query<{ count: string }>(
         `SELECT COUNT(*)::text AS count FROM ${this.collection}`,
       );
       return parseInt(result.rows[0]?.count ?? "0", 10);
@@ -226,7 +228,7 @@ export class PgVectorAdapter implements IVectorStore {
         `metadata->>'${this.sanitizeName(key)}' = $${params.length}::text`,
       );
     }
-    const result = await this.pool!.query<{ count: string }>(
+    const result = await pool.query<{ count: string }>(
       `SELECT COUNT(*)::text AS count FROM ${this.collection} WHERE ${conditions.join(" AND ")}`,
       params,
     );
@@ -259,10 +261,12 @@ export class PgVectorAdapter implements IVectorStore {
     }
   }
 
-  private assertReady(): void {
+  /** Vérifie que l'adapter est prêt et rend le pool, désormais non nul. */
+  private assertReady(): IPgPool {
     if (this.isShutdown || !this.pool)
       throw new VectorNotInitializedError(this.name);
     if (!this.initialized) throw new VectorNotInitializedError(this.name);
+    return this.pool;
   }
 
   /** Sécurise les noms d'identifiants SQL (collection, clé metadata). */
