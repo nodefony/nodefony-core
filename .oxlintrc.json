@@ -267,6 +267,16 @@
     "typescript/no-unsafe-type-assertion": "off",
     "consistent-return": "off",
     "typescript/require-array-sort-compare": "off",
+    // `async` sans `await` : 557 sites mesurés (#498), tous des IMPLÉMENTATIONS
+    // d'un contrat qui rend une `Promise` — hooks de module, `init()`,
+    // `generate()`, stores mémoire, transports, callbacks de test. Là, `async`
+    // est le geste JUSTE : il convertit toute exception du corps en REJET.
+    // Le retirer change le contrat (`assertPageQuery` de
+    // `MemoryWebhookStore.listPage` lèverait en SYNCHRONE, hors du `.catch()` de
+    // l'appelant) ; le remplacer par `Promise.resolve(x)` ajoute du bruit sans
+    // rien protéger. Le défaut qu'elle visait — une promesse oubliée — est déjà
+    // attrapé par `no-floating-promises` et `no-misused-promises`.
+    "typescript/require-await": "off",
     "no-console": "off",
     "no-eval": "error",
     "no-new-func": "error",
