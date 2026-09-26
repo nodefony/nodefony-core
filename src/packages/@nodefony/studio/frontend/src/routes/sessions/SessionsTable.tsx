@@ -64,6 +64,12 @@ const SESSION_FILTER_LABELS: PageFilterLabels = {
     hint: "Identifiant EXACT du porteur de la session (pas une recherche : le store compare à l'identique, sur une colonne indexée).",
     placeholder: "identifiant exact",
   },
+  // Sans cette entrée, le filtre s'affichait sous sa clé brute (`authenticated`).
+  authenticated: {
+    label: "Connexion",
+    hint: "Authentifiées = la session porte un utilisateur connecté ; anonymes = aucune identité (visiteur, parcours de connexion en cours).",
+    values: { true: "Authentifiées", false: "Anonymes" },
+  },
 };
 
 /** Une ligne label → valeur (la valeur peut être un nœud riche : badge…). */
