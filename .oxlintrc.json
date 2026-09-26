@@ -192,6 +192,22 @@
     // Les paquets pas encore conformes sont listés dans l'override « cliquet »
     // plus bas : on y RETIRE une ligne quand un paquet est propre, on n'y en
     // ajoute jamais.
+    // Règles TYPÉES du préréglage `strict-type-checked` qui n'étaient pas
+    // allumées (les catégories d'oxlint ne les couvrent pas), plus
+    // `switch-exhaustiveness-check` : celles qui attrapent des DÉFAUTS —
+    // callback async passé là où l'on attend du synchrone, `return` sans
+    // `await` dans un `try` qui saute le `catch`, rejet ou throw d'autre chose
+    // qu'une `Error`, `case` oublié quand une union grandit. Mesure et suite
+    // du durcissement : #498.
+    "typescript/no-misused-promises": "error",
+    "typescript/return-await": "error",
+    "typescript/prefer-promise-reject-errors": "error",
+    "typescript/only-throw-error": "error",
+    "typescript/use-unknown-in-catch-callback-variable": "error",
+    "typescript/no-deprecated": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/restrict-plus-operands": "error",
+    "typescript/switch-exhaustiveness-check": "error",
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le RUNNER
     // suit lui-même (la doc Node dit de l'ignorer) : déclaré sûr ICI, une fois,
     // plutôt que par une dérogation dans chaque fichier de test.
@@ -340,52 +356,6 @@
         "typescript/no-unsafe-return": "off",
         "typescript/no-unsafe-call": "off",
         "typescript/no-unnecessary-type-assertion": "off"
-      }
-    },
-    {
-      // CLIQUET — dette de typage au regard de `strict-type-checked`, par
-      // PAQUET. Une session nettoie un paquet de TOUTES ces règles puis le
-      // RETIRE d'ici ; on n'y ajoute jamais. Les paquets absents sont déjà
-      // soumis à la norme entière. La config est finale quand cet override
-      // n'existe plus.
-      "files": [
-        "src/packages/@nodefony/http/**",
-        "src/packages/@nodefony/framework/**",
-        "src/packages/@nodefony/studio/**",
-        "src/packages/@nodefony/security/**",
-        "src/packages/@nodefony/drizzle/**",
-        "src/packages/@nodefony/frontend/**",
-        "src/packages/@nodefony/realtime/**",
-        "src/packages/@nodefony/mongoose/**",
-        "src/packages/@nodefony/redis/**",
-        "src/packages/@nodefony/devkit/**",
-        "src/modules/test/**",
-        "src/modules/test-frontend-react/**"
-      ],
-      "rules": {
-        "typescript/no-unsafe-assignment": "off",
-        "typescript/no-unsafe-member-access": "off",
-        "typescript/no-unsafe-argument": "off",
-        "typescript/no-unsafe-return": "off",
-        "typescript/no-unsafe-call": "off",
-        "typescript/no-non-null-assertion": "off",
-        "typescript/no-unnecessary-type-assertion": "off",
-        "typescript/no-floating-promises": "off",
-        "typescript/no-unnecessary-type-conversion": "off",
-        "typescript/no-redundant-type-constituents": "off",
-        "typescript/restrict-template-expressions": "off",
-        "typescript/unbound-method": "off",
-        "typescript/no-base-to-string": "off",
-        "typescript/no-unnecessary-type-parameters": "off",
-        "typescript/no-unnecessary-template-expression": "off",
-        "typescript/no-unnecessary-boolean-literal-compare": "off",
-        "typescript/no-duplicate-type-constituents": "off",
-        "typescript/no-unnecessary-type-arguments": "off",
-        "typescript/await-thenable": "off",
-        "typescript/no-misused-spread": "off",
-        "typescript/no-useless-default-assignment": "off",
-        "typescript/no-implied-eval": "off",
-        "typescript/no-unsafe-enum-comparison": "off"
       }
     }
   ]
