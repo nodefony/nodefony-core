@@ -988,6 +988,18 @@ describe("NODEFONY SYSLOG", () => {
         assert.throws(() => new Pdu("test", 99 as never), /Not a valid/);
         done();
       }));
+
+    it("severityToString : nom ou rang inconnu → undefined, jamais un dépassement de pile", () => {
+      // Valeur venue d'un filtre de journal (`{ severity: { data: "WARN" } }`) :
+      // la recherche inverse dans l'enum rendait `undefined`, sur lequel la
+      // fonction se rappelait sans fin.
+      expect(Pdu.severityToString("WARN")).toBeUndefined();
+      expect(Pdu.severityToString(99)).toBeUndefined();
+      expect(Pdu.severityToString("toString")).toBeUndefined();
+      expect(Pdu.severityToString("INFO")).toBe("INFO");
+      expect(Pdu.severityToString("3")).toBe("ERROR");
+      expect(Pdu.severityToString(0)).toBe("EMERGENCY");
+    });
   });
 
   // ─── Transport Layer ────────────────────────────────────────────────────────

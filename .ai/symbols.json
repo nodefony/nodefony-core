@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 870,
-    "symbols": 4342,
+    "files": 871,
+    "symbols": 4344,
     "classes": 404,
-    "interfaces": 1144,
+    "interfaces": 1145,
     "types": 463,
     "enums": 4,
-    "functions": 1892,
+    "functions": 1893,
     "constants": 435
   },
   "symbols": {
@@ -5498,7 +5498,7 @@
       "exported": true,
       "module": "@nodefony/core",
       "extends": null,
-      "description": "Ordonnanceur de **maintenance périodique** (« garbage collection ») exécutée HORS du chemin d'une requête — pattern unifié du framework pour purger des entrées expirées d'un store (sessions, jetons…"
+      "description": "Options de construction d'un {@link GcScheduler}."
     },
     "identityHint": {
       "name": "identityHint",
@@ -5853,6 +5853,14 @@
       "module": "@nodefony/core",
       "extends": null,
       "description": "Per-request state propagated transparently across the async pipeline. Set by HttpKernel at request entry (`handleHttp` / `handleWebsocket`) and accessible from any downstream service (logs, ORM, se…"
+    },
+    "unrefTimer": {
+      "name": "unrefTimer",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/unrefTimer.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Détache un timer de la boucle d'événements quand la plateforme le permet. Isomorphe : sous Node, `setTimeout`/`setInterval` rendent un `Timeout` doté de `unref()` — le timer n'empêche plus le proce…"
     },
     "composeUuidV7": {
       "name": "composeUuidV7",
@@ -30738,6 +30746,11 @@
       "EventListener": [
         "src/nodefony/src/Event.ts",
         "src/nodefony/src/Service.ts"
+      ],
+      "unrefTimer": [
+        "src/nodefony/src/Event.ts",
+        "src/nodefony/src/runtime/GcScheduler.ts",
+        "src/nodefony/src/client/realtime/RealtimeClient.ts"
       ],
       "randomUuidV7": [
         "src/nodefony/src/Nodefony.ts"

@@ -280,16 +280,16 @@ class Pdu {
   static severityToString(severity: number | string): string | undefined {
     const numericSeverity =
       typeof severity === "string" ? parseInt(severity, 10) : severity;
-    if (
-      !isNaN(numericSeverity) &&
-      SysLogSeverity[numericSeverity] !== undefined
-    ) {
+    if (!isNaN(numericSeverity)) {
+      // Recherche inverse de l'enum : un rang hors échelle n'y est pas.
       return SysLogSeverity[numericSeverity];
     }
-    const severityKey = Pdu.severityToString(
-      SysLogSeverity[severity as number],
-    );
-    return severityKey;
+    // Un NOM : canonique s'il est une clé de l'enum. `typeof … === "number"`
+    // écarte ce qu'un objet hérite (`toString`) — et aucune récursion : sur une
+    // valeur inconnue, elle repartait sur `undefined` jusqu'au dépassement de pile.
+    return typeof SysLogSeverity[severity as SeverityKeys] === "number"
+      ? (severity as SeverityKeys)
+      : undefined;
   }
 
   /**
