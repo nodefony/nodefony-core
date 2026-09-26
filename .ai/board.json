@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-26T09:12:10.962Z",
+  "generatedAt": "2026-09-26T10:33:05.512Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 36,
+      "closed": 39,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 46,
+      "open": 43,
       "title": "10.0.0-beta"
     },
     {
@@ -95,8 +95,8 @@
       "number": 481,
       "title": "feat(core): rendre atteignable le scope de requête par copie prototypale",
       "url": "https://github.com/nodefony/nodefony-core/issues/481",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -405,8 +405,8 @@
       "number": 486,
       "title": "docs: expliquer le scope de requête en premier, aux humains et aux agents",
       "url": "https://github.com/nodefony/nodefony-core/issues/486",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -447,8 +447,8 @@
       "number": 487,
       "title": "refactor(core): casser le cycle de types entre le cœur, http et framework",
       "url": "https://github.com/nodefony/nodefony-core/issues/487",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,

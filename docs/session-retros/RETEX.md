@@ -296,6 +296,23 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-26d] **Un correcteur automatique juge chaque site ISOLÉMENT** :
+  `no-unnecessary-type-assertion --fix` a retiré ~600 assertions justes une à une, mais dans
+  `certificates.ts` le retrait de `as ForgeModule` rendait nécessaires les assertions suivantes —
+  deux retraits sûrs isolément, un typage cassé ensemble. Vu au typecheck complet (6 fichiers
+  restaurés). Un `--fix` massif se juge au typecheck de TOUT le dépôt, jamais à son propre verdict.
+- [1× — 09-26d] **`oxlint --fix` sans règle ni chemin applique TOUTES les règles, partout** :
+  lancé pour retirer des directives mortes, il a corrigé 27 fichiers hors sujet, dont hors `src` et
+  une copie FIGÉE de la spec MCP. Rattrapé en rejouant les seules passes voulues depuis HEAD. Un
+  automate d'édition se borne TOUJOURS par règle (`-A all -D <r>`) ET par liste de fichiers.
+- [1× — 09-26d] **Mon typecheck n'était pas celui du dépôt** : `tsc -p tsconfig.json` excluait les
+  tests, le script `typecheck` y ajoute `tsconfig.tests.json` → push refusé sur une assertion de
+  test. Déjà gradué ([[feedback_repo_command_is_authority]]) — la leçon ne mord qu'au geste.
+- [1× — 09-26d] **Un cycle de types MASQUAIT une dépendance absente** : `orm-core` et `user`
+  recevaient les types Node par transitivité ; couper le cycle les a rendus incompilables
+  (`types: []` par défaut depuis TypeScript 6). Couper un lien structurel, c'est relancer le
+  typecheck de TOUS les paquets, sans cache.
+
 - [1× — 09-26c] **La garde git « arbre sale » lit l'arbre PRINCIPAL depuis un worktree** : un
   `rebase` dans `../nodefony-core-docs` (propre) refusé à cause de deux fichiers `.ai/` de l'autre
   dossier ; et le pre-commit du worktree exige un `dist` du cœur qu'un worktree neuf n'a pas. Deux
