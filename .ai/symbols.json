@@ -2,13 +2,13 @@
   "version": "2.0.0",
   "repoRoot": ".",
   "stats": {
-    "files": 872,
-    "symbols": 4345,
+    "files": 873,
+    "symbols": 4346,
     "classes": 404,
     "interfaces": 1145,
     "types": 463,
     "enums": 4,
-    "functions": 1894,
+    "functions": 1895,
     "constants": 435
   },
   "symbols": {
@@ -5515,6 +5515,14 @@
       "exported": true,
       "module": "@nodefony/core",
       "description": "Le geste qui donne une IDENTITÉ dans cette application — ou `null`. Protéger une route est immédiat : un décorateur, et le générateur le pose. L'APPELER ensuite ne l'est pas, et c'est le trou qu'on…"
+    },
+    "isTerminal": {
+      "name": "isTerminal",
+      "kind": "function",
+      "file": "src/nodefony/src/runtime/isTerminal.ts",
+      "exported": true,
+      "module": "@nodefony/core",
+      "description": "Dit si un flux de sortie est relié à un terminal. `@types/node` déclare `isTTY: boolean` sur `process.stdout`/`stderr`, mais la propriété vaut `undefined` dès que la sortie est redirigée (tube, fic…"
     },
     "ILoadEnvOptions": {
       "name": "ILoadEnvOptions",
@@ -33568,6 +33576,10 @@
       ],
       "IGuardedListenerInfo": [
         "src/nodefony/src/kernel/Kernel.ts"
+      ],
+      "isTerminal": [
+        "src/nodefony/src/kernel/Kernel.ts",
+        "src/nodefony/src/kernel/checks/runDoctor.ts"
       ],
       "TimeoutError": [
         "src/nodefony/src/kernel/Kernel.ts"

@@ -66,4 +66,16 @@ describe("inspect — la cible d'un sujet est consommée ou refusée", () => {
     if (read.ok) throw new Error("inatteignable");
     expect(read.reason).to.equal("missing-target");
   });
+
+  it("refuse un nom hérité d'Object.prototype comme sujet inconnu", async () => {
+    // Le catalogue est un littéral : `toString`, `constructor` y RÉPONDENT par
+    // héritage. Sans la garde d'appartenance propre, `inspect toString` prenait
+    // une fonction pour un sujet et allait la lire comme un producteur.
+    for (const subject of ["toString", "constructor", "__proto__"]) {
+      const read = await readAdminSubject(undefined, subject, ADMIN);
+      expect(read.ok).to.be.false;
+      if (read.ok) throw new Error("inatteignable");
+      expect(read.reason, subject).to.equal("unknown-subject");
+    }
+  });
 });

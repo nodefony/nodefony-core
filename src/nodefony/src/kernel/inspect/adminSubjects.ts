@@ -304,7 +304,7 @@ export async function callAdminEndpoint(
     roles: caller.roles,
   };
 
-  let thrown: Error | null = null;
+  let thrown = null as Error | null;
   const execution = await executeAdminEndpoint({
     endpoint,
     request,
@@ -329,7 +329,7 @@ export async function callAdminEndpoint(
       // Générique, comme le transport HTTP : la cause part dans un champ que
       // seul un appelant local publie.
       message: `« ${label} » n'a pas pu être lu — le producteur a échoué`,
-      cause: (thrown as Error).message,
+      cause: thrown.message,
     };
   }
 
@@ -379,7 +379,9 @@ export async function readAdminSubject(
   caller: IAdminCaller,
   target?: string,
 ): Promise<InspectResult> {
-  const spec = INSPECT_SUBJECTS[subject];
+  const spec = Object.hasOwn(INSPECT_SUBJECTS, subject)
+    ? INSPECT_SUBJECTS[subject]
+    : undefined;
   if (!spec) {
     return {
       ok: false,
