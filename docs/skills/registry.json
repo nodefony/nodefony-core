@@ -2,7 +2,7 @@
   "schema": "nodefony.skills-registry/1",
   "standard": "agent-skills",
   "generatedBy": ".claude/skills/nodefony-skill/scripts/skills-doc.mjs",
-  "generatedAt": "2026-09-25",
+  "generatedAt": "2026-09-26",
   "count": 36,
   "conformant": 36,
   "skills": [
@@ -7725,12 +7725,15 @@
         "@services",
         "appeler un service depuis un autre",
         "mon service est undefined",
-        "le conteneur ne trouve pas mon service"
+        "le conteneur ne trouve pas mon service",
+        "un service par requête",
+        "un état propre à chaque requête",
+        "scope request"
       ],
-      "description": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au constructeur ou `container.get` à l'usage), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre. Déclencheurs : \"crée un service\", \"un service métier\", \"logique métier partagée\", \"injecter une dépendance\", \"container.get\", \"@injectable\", \"@services\", \"appeler un service depuis un autre\", \"mon service est undefined\", \"le conteneur ne trouve pas mon service\".",
+      "description": "Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre. Déclencheurs : \"crée un service\", \"un service métier\", \"logique métier partagée\", \"injecter une dépendance\", \"container.get\", \"@injectable\", \"@services\", \"appeler un service depuis un autre\", \"mon service est undefined\", \"le conteneur ne trouve pas mon service\", \"un service par requête\", \"un état propre à chaque requête\", \"scope request\".",
       "cost": {
-        "bodyLines": 87,
-        "approxTokens": 1120
+        "bodyLines": 104,
+        "approxTokens": 1517
       },
       "requires": [],
       "resources": {
@@ -7757,7 +7760,7 @@
           {
             "key": "description de 1 à 1024 caractères",
             "ok": true,
-            "detail": "819",
+            "detail": "980",
             "advisory": false
           },
           {
@@ -7799,7 +7802,7 @@
           {
             "key": "corps < 500 lignes",
             "ok": true,
-            "detail": "87",
+            "detail": "104",
             "advisory": true
           }
         ]

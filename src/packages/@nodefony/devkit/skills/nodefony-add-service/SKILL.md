@@ -4,12 +4,14 @@ description: >
   Crée un service injectable dans une application Nodefony par `nodefony create service`, et le
   fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la
   CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre
-  (`@inject` au constructeur ou `container.get` à l'usage), et le défaut mesuré qu'un service
+  (`@inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie
+  (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service
   écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur
   ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre.
   Déclencheurs : "crée un service", "un service métier", "logique métier partagée", "injecter une
   dépendance", "container.get", "@injectable", "@services", "appeler un service depuis un autre",
-  "mon service est undefined", "le conteneur ne trouve pas mon service".
+  "mon service est undefined", "le conteneur ne trouve pas mon service", "un service par
+  requête", "un état propre à chaque requête", "scope request".
 ---
 
 # add-service — un service que le conteneur connaît
@@ -58,7 +60,7 @@ et à l'introspection, et n'est construit qu'à la première requête qui le ré
 
 ## Deux noms, et ils ne servent pas à la même chose
 
-C'est le piège n°1, et il ne produit aucune erreur — juste un `undefined` :
+C'est le piège n°1, et il ne produit aucune erreur — juste un `null` :
 
 ```ts
 @injectable()                            // ← nomme la CLASSE : @inject("BillingService")
@@ -68,6 +70,23 @@ export class BillingService extends Service {
   }
 }
 ```
+
+## Choisir sa durée de vie — un seul exemplaire, ou un par requête
+
+Chaque requête a son propre conteneur (un scope, calque posé sur celui de l'application et jeté à
+la fin ; en WebSocket, à la fin de la connexion). La portée décide où vit l'exemplaire :
+
+| `@injectable(…)`                         | Exemplaires                             | Pour                                                      |
+| ---------------------------------------- | --------------------------------------- | --------------------------------------------------------- |
+| `()` ou `("nom")` — défaut `singleton`   | un pour toute l'application             | cache, pool, client : ce qui doit être unique             |
+| `({ scope: "transient" })`               | un par résolution                       | un objet jetable sans état partagé                        |
+| `({ name: "tenant", scope: "request" })` | un par requête, créé si elle le demande | ce qui naît et meurt avec la requête (`clean()` à la fin) |
+
+Un service `request` reçoit le scope au constructeur (`super("tenant", scope, false)`, même nom
+qu'au décorateur) ; `create service` n'en génère pas, il s'écrit à la main. Un singleton qui en
+dépend est refusé au démarrage. Pour **lire** une donnée de la requête depuis un singleton, pas
+besoin de portée : `RequestContext.getScope()` ou `RequestContext.get()` au moment de l'appel.
+Détail : `node_modules/nodefony/docs/service.md`.
 
 ## Obtenir un service depuis un autre — deux voies, un choix
 

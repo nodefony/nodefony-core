@@ -5,7 +5,7 @@ lang: fr
 audience: humain
 topic: skills
 status: stable
-updated: 2026-09-19
+updated: 2026-09-26
 generated: .claude/skills/nodefony-skill/scripts/skills-doc.mjs
 source: "src/packages/@nodefony/devkit/skills/nodefony-add-service/SKILL.md"
 ---
@@ -28,29 +28,30 @@ source: "src/packages/@nodefony/devkit/skills/nodefony-add-service/SKILL.md"
 | --- | --- |
 | Version | — (non versionné) |
 | Famille | Autres |
-| Corps | 87 lignes |
-| Coût d'activation | ~1 120 tokens (le corps est chargé à l'invocation) |
-| Description | 819 / 1024 caractères |
-| Déclencheurs | 10 |
+| Corps | 104 lignes |
+| Coût d'activation | ~1 517 tokens (le corps est chargé à l'invocation) |
+| Description | 980 / 1024 caractères |
+| Déclencheurs | 13 |
 | Ressources `references/` | 0 page(s) |
 | Scripts | 0 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
 
-Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au constructeur ou `container.get` à l'usage), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre.
+Crée un service injectable dans une application Nodefony par `nodefony create service`, et le fait entrer dans le conteneur — la moitié qu'on oublie. Porte la distinction entre le nom de la CLASSE et le nom de l'INSTANCE, les deux façons d'obtenir un service depuis un autre (`@inject` au constructeur ou `container.get` à l'usage), le choix de sa durée de vie (un exemplaire pour l'application, ou un par requête), et le défaut mesuré qu'un service écrit à la main produit : une classe qui compile, dont les tests passent, et que le conteneur ignore. À charger AVANT d'écrire une classe de service ou d'appeler un service depuis un autre.
 
 ## Quand il se déclenche
 
 Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers) :
 
-`crée un service` · `un service métier` · `logique métier partagée` · `injecter une dépendance` · `container.get` · `@injectable` · `@services` · `appeler un service depuis un autre` · `mon service est undefined` · `le conteneur ne trouve pas mon service`
+`crée un service` · `un service métier` · `logique métier partagée` · `injecter une dépendance` · `container.get` · `@injectable` · `@services` · `appeler un service depuis un autre` · `mon service est undefined` · `le conteneur ne trouve pas mon service` · `un service par requête` · `un état propre à chaque requête` · `scope request`
 
 ## Ce que contient le corps
 
 - Le geste
 - Pourquoi ne pas l'écrire à la main — c'est mesuré
 - Deux noms, et ils ne servent pas à la même chose
+- Choisir sa durée de vie — un seul exemplaire, ou un par requête
 - Obtenir un service depuis un autre — deux voies, un choix
 - Prouver
 - Voisins
@@ -67,14 +68,14 @@ Formulations qui doivent conduire à l'**invoquer** (et non à lire ses fichiers
 | --- | :---: | :---: | --- | --- |
 | name conforme et égal au dossier | ℹ️ normatif | ✅ |  | spec § name : 1-64 car., minuscules alphanumériques + `-`, ni au bord ni consécutifs, = nom du dossier |
 | en-tête analysable par un vrai parseur YAML | ℹ️ normatif | ✅ |  | spec § frontmatter : « YAML frontmatter » — un en-tête que YAML refuse n'est pas rendu par GitHub, alors que le parseur de l'agent, tolérant, l'accepte sans un mot |
-| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 819 | spec § description : 1-1024 car., non vide (quoi + quand) |
+| description de 1 à 1024 caractères | ℹ️ normatif | ✅ | 980 | spec § description : 1-1024 car., non vide (quoi + quand) |
 | aucun champ hors standard | ℹ️ normatif | ✅ |  | spec § frontmatter : seuls `name`, `description`, `license`, `compatibility`, `metadata`, `allowed-tools` (version → `metadata.version`) |
 | compatibility ≤ 500 caractères (si présent) | ℹ️ normatif | ✅ | absent | spec § compatibility : 1-500 car. si fourni |
 | dossier de ressources nommé `references/` | ℹ️ normatif | ✅ |  | spec § resources : le dossier de détail se nomme `references/` (pluriel) |
 | aucun renvoi vers un skill inexistant | projet | ✅ |  | Nodefony : un renvoi vers un skill fusionné/retiré envoie dans le vide |
 | aucun renvoi vers une ressource inexistante | projet | ✅ |  | Nodefony : un renvoi `references/x.md` vers un fichier absent envoie l'agent dans le vide |
 | aucun numéro de ticket dans la prose | projet | ✅ |  | Nodefony : un numéro d'issue est un pointeur MORT dans un skill — la règle s'y écrit intemporelle (anti-journal) |
-| corps < 500 lignes | recommandé | ✅ | 87 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
+| corps < 500 lignes | recommandé | ✅ | 104 | best-practices : corps court (index) + détail en `references/` (divulgation progressive) |
 
 _Le validateur officiel `skills-ref validate` couvre les règles normatives ; ce gate y ajoute les contrôles projet et un rappel des recommandations._
 
