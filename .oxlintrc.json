@@ -344,10 +344,7 @@
       // appelant JavaScript est légitime — c'est alors le TYPE qu'on rend
       // honnête (`| undefined`, `Partial`, `unknown`), pas la garde qu'on retire.
       // Placée AVANT la surcharge des tests, qui la coupe pour eux.
-      "files": [
-        "src/nodefony/src/*.ts",
-        "src/nodefony/src/{cli,client,command,config,finder,kernel,mcp,runtime,service,syslog,testing}/**"
-      ],
+      "files": ["src/nodefony/src/**"],
       "rules": {
         "typescript/no-unnecessary-condition": "error"
       }
@@ -363,6 +360,9 @@
       ],
       "rules": {
         "typescript/no-explicit-any": "off",
+        // Un test garde ce que le type promet pour le PROUVER : la garde y est
+        // l'assertion. Le cliquet #498 ne porte que sur la production.
+        "typescript/no-unnecessary-condition": "off",
         "no-unused-expressions": "off",
         "no-unused-vars": "off",
         "no-console": "off",
