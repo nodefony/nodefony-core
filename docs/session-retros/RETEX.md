@@ -310,6 +310,18 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
   gardait quatre cycles morts parce que la garde cherchait le nom du paquet en SOUS-CHAÎNE — un
   `//import` commenté suffisait. La même expression d'import était quadratique (22,6 s sur une
   ligne d'espaces, CodeQL #209). Une garde se prouve sur l'ancienne liste qu'elle devait refuser.
+- [1× — 09-26f] **« Banc local vert de bout en bout » était vert sur SQLite seul** : la grille de
+  lint posée au gabarit rougissait le code généré sur MongoDB (`unknown | null`), et l'émetteur
+  Drizzle portait la même concaténation sans que son banc la déclenche. Un vert se dit AVEC son
+  moteur ; un gabarit qui rend N moteurs se prouve sur les N (`verify-generated --database <m>`).
+- [1× — 09-26f] **Une règle recopiée entre deux outils se corrige deux fois — ou une** :
+  `anchor-fix` tenait sa propre liste des modificateurs de déclaration ; corriger `abstract`/
+  `override` dans `anchor-check` laissait 18 recalages sur 32 impossibles, sans message. Même
+  famille : l'ERD ne lit QUE les relations déclarées, et aucune table du framework n'en déclare
+  (#499) — ce qu'un écran affiche dépend d'une déclaration qu'aucun gate ne réclame.
+- [1× — 09-26f] **Un fait écrit dans le `_state` se RE-mesure avant d'être cru** : « CI Statique
+  ROUGE sur 8 ancres SUSPECT » était faux — le gate ne mord que sur fichier/ligne introuvables, la
+  CI était verte. Le constat venait de la sortie locale de l'outil, pas du verdict de la forge.
 - [1× — 09-26d] **Un correcteur automatique juge chaque site ISOLÉMENT** :
   `no-unnecessary-type-assertion --fix` a retiré ~600 assertions justes une à une, mais dans
   `certificates.ts` le retrait de `as ForgeModule` rendait nécessaires les assertions suivantes —

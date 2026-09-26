@@ -6,7 +6,7 @@
 
 # État du pilotage — empreinte des tickets
 
-> Empreinte prise le **2026-09-26 13:32** (UTC).
+> Empreinte prise le **2026-09-26 14:26** (UTC).
 > La **source** est le tableau de bord GitHub ; relire ici ne dispense pas de
 > vérifier en ligne quand le réseau répond — une empreinte vieille de trois
 > jours a manqué trois jours de travail.
@@ -195,7 +195,7 @@ Ordre 1.01 · P1 — figé à la création · — j · jalon 10.0.0-beta · fris
 | 172 | P1 — figé à la création | 1 | — | #252 | feat(agent-guard): borner ce qu'un agent a le droit de faire |
 | 173 | P1 — figé à la création | 11 | — | #492 | feat(tenant): isoler les organisations qui partagent une même application |
 
-## Backlog — aucune date promise · 6 ouverts
+## Backlog — aucune date promise · 7 ouverts
 
 | Ordre | Prio | Jours | Frise | Ticket | Titre |
 | --- | --- | ---: | --- | --- | --- |
@@ -205,4 +205,5 @@ Ordre 1.01 · P1 — figé à la création · — j · jalon 10.0.0-beta · fris
 | 904 | P3 — fin de cycle | 1 | — | #436 | docs(corpus): mettre au standard les neuf pages internes non publiées |
 | 905 | P2 — décision | 22.5 | — | #460 | feat(broadcast): boîtier d'apport et hub, une app à rôles |
 | 906 | P3 — fin de cycle | 3 | — | #488 | refactor(core): découper le noyau, un fichier de 4 255 lignes |
+| 907 | P2 — décision | 1 | — | #499 | feat(orm): dessiner les liens logiques des tables du framework vers l'utilisateur |
 
