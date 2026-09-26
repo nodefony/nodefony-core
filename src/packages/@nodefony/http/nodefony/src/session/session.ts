@@ -364,10 +364,16 @@ class Session implements ISession {
   // ── Validation ────────────────────────────────────────────────────
 
   isValidSession(_data: ISerializedSession, context: ContextType): boolean {
+    // Chaque contrôle peut REFUSER, aucun ne peut valider seul : un referer
+    // correct ne dispense pas des expirations ci-dessous.
     if (this.options.refererCheck) {
+      let sameHost = false;
       try {
-        return this.checkSecureReferer(context);
+        sameHost = this.checkSecureReferer(context);
       } catch {
+        sameHost = false;
+      }
+      if (!sameHost) {
         this.log(
           `SESSION REFERER MISMATCH ==> ${this.name} : ${this.id}`,
           "WARNING",

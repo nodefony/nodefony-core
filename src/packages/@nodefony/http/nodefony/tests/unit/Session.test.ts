@@ -424,6 +424,29 @@ describe("Session — unit tests", () => {
       ).to.equal(false);
     });
 
+    // refererCheck est un contrôle de PLUS, jamais un substitut : un referer
+    // correct ne doit pas dispenser des expirations (sinon un cookie volé,
+    // rejoué avec le bon Host, reste exploitable indéfiniment).
+    it("refererCheck on + host correct : l'absoluteTimeoutS s'applique quand même", () => {
+      const s = makeSession({ refererCheck: true, absoluteTimeoutS: 1 });
+      s.setMetaBag("host", "good.example");
+      s.created = new Date(Date.now() - 10_000);
+      const ctx = { getHost: () => "good.example" } as never;
+      expect(
+        s.isValidSession({} as unknown as ISerializedSession, ctx),
+      ).to.equal(false);
+    });
+
+    it("refererCheck on + host correct : l'idleTimeoutS s'applique quand même", () => {
+      const s = makeSession({ refererCheck: true, idleTimeoutS: 1 });
+      s.setMetaBag("host", "good.example");
+      s.updated = new Date(Date.now() - 10_000);
+      const ctx = { getHost: () => "good.example" } as never;
+      expect(
+        s.isValidSession({} as unknown as ISerializedSession, ctx),
+      ).to.equal(false);
+    });
+
     it("absoluteTimeoutS : false si l'âge depuis création dépasse (même sans idle)", () => {
       const s = makeSession({ absoluteTimeoutS: 1 }); // 1 s ; idle absent
       s.created = new Date(Date.now() - 10_000); // créée il y a 10 s
