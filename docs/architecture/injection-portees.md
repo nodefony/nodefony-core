@@ -66,10 +66,10 @@ flowchart TB
   B["Calque de la requête B<br/>context · controller · tenantContext"]
   ALS["RequestContext.getScope()<br/>« lequel est le mien ? »"]
   X["Poubelle en fin de requête<br/>clean() des services créés pour elle"]
-  A -. "lit à travers" .-> K
-  B -. "lit à travers" .-> K
-  ALS -- "dans le code de A" --> A
-  A -- "leaveScope" --> X
+  A -.->|lit à travers| K
+  B -.-> K
+  ALS -->|dans le code de A| A
+  A -->|leaveScope| X
 ```
 
 Ce modèle n'est pas une image : c'est exactement la mécanique du code. Un scope est un objet dont

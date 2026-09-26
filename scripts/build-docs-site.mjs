@@ -1181,16 +1181,19 @@ a.nf-card:hover .card-t { color:var(--accent); }
    tombe à 33 %, où les libellés ne se lisent plus — le lecteur doit alors cliquer
    pour agrandir, ce qui n'est pas lire.
 
-   Plancher de LISIBILITÉ : jamais sous 60 % de la taille naturelle. En deçà, la
+   Plancher de LISIBILITÉ : jamais sous 90 % de la taille naturelle. En deçà, la
    figure DÉFILE — sa zone est focusable, le défilement est donc atteignable au
-   clavier. Défiler pour lire vaut mieux que regarder sans lire.
+   clavier. Défiler pour lire vaut mieux que regarder sans lire. Le plancher se
+   déduit des polices du moteur (« schemas.mjs ») : 12,5 px pour un nœud, 10,5 px
+   pour une étiquette de flèche. À 60 %, ancien plancher, elles tombaient à 7,5 et
+   6,3 px — mesuré à l'écran, illisible ; à 90 %, 11,3 et 9,5 px.
 
    ⚠️ Ne PAS déborder sur les gouttières : la colonne de droite porte le sommaire
    sur toute la hauteur de la page. Une marge négative faisait passer le ruban
    PAR-DESSUS ses entrees — mesure a l'ecran, deux textes superposes. La place
    semblait libre ; elle ne l'etait pas. */
 .schema-zone.large svg { width:100%;
-  min-width:calc(var(--schema-w) * 0.6);
+  min-width:calc(var(--schema-w) * 0.9);
   max-width:var(--schema-w); }
 pre.raw { white-space:pre-wrap; }
 .livegraph { border:1px dashed var(--line); border-left:3px solid var(--accent);

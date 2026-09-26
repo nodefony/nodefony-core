@@ -33,7 +33,7 @@ source: ".claude/skills/nodefony-html-report/SKILL.md"
 | Description | 1000 / 1024 caractères |
 | Déclencheurs | 13 |
 | Ressources `references/` | 3 page(s), 13 fichiers au total |
-| Scripts | 8 |
+| Scripts | 9 |
 | Conformité | ✅ conforme au standard |
 
 ## Ce qu'il fait
@@ -93,6 +93,7 @@ script, donc toujours à jour après régénération.
 | `scripts/demo.mjs` | demo.mjs — vitrine ET test de non-régression de `lib/report.mjs`. | `--accent` | `OUT` |
 | `scripts/echarts.selftest.mjs` | Auto-contrôle du moteur de graphes ECharts — les CONTRATS, pas l'esthétique. | `--prove` | — |
 | `scripts/formats.selftest.mjs` | Auto-contrôle des FORMATS d'un rapport et du tri de ses tableaux. | — | — |
+| `scripts/schemas.selftest.mjs` | Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS | — | — |
 | `lib/brand.mjs` | brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs). | — | — |
 | `lib/echarts.mjs` | Moteur de graphes **Apache ECharts** rendu CÔTÉ SERVEUR, en SVG statique. | `--muted` | — |
 | `lib/report-echarts.mjs` | **Adaptateurs** — les fonctions de `report.mjs`, rendues par ECharts. | — | — |
@@ -105,6 +106,7 @@ script, donc toujours à jour après régénération.
 node .claude/skills/nodefony-html-report/scripts/demo.mjs tmp/demo.html
 node .claude/skills/nodefony-html-report/scripts/echarts.selftest.mjs
 node .claude/skills/nodefony-html-report/scripts/formats.selftest.mjs
+node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
 ```
 
 **Toutes les variables lues par ce skill** : `CSS` · `HAUT` · `MARGE` · `OUT` · `POLICE` · `PRINT_JS` · `SORT_JS` · `THEME_JS`

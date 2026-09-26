@@ -222,6 +222,33 @@ function lireEtats(lignes) {
   return { noeuds: [...noeuds.values()], aretes, groupes: [] };
 }
 
+/**
+ * Réécrit une étiquette de flèche EN LIGNE (`A -- texte --> B`,
+ * `A -. texte .-> B`, guillemets facultatifs) dans la forme `A -->|texte| B`,
+ * la seule que le lecteur analyse. Sans elle, ces flèches — valides en mermaid —
+ * étaient jetées en silence, ou produisaient un nœud fantôme nommé d'après
+ * l'étiquette. Une ligne sans étiquette en ligne est rendue telle quelle :
+ * `A --> B` ne correspond pas (le `--` y est collé à `>`).
+ */
+export function enLigneVersBarres(ligne) {
+  const m =
+    /^(.+?)\s*(--|-\.)\s+(?![->.])(.+?)\s+(-->|---|\.->|\.-)\s*(.+)$/s.exec(
+      ligne,
+    );
+  if (!m) return ligne;
+  const [, g, ouvre, brut, ferme, d] = m;
+  const etiquette = brut.trim().replace(/^"(.*)"$/s, "$1");
+  const fleche =
+    ouvre === "-."
+      ? ferme === ".->"
+        ? "-.->"
+        : "-.-"
+      : ferme === "---"
+        ? "---"
+        : "-->";
+  return `${g} ${fleche}|${etiquette}| ${d}`;
+}
+
 function lireFlux(lignes) {
   const noeuds = new Map();
   const aretes = [];
@@ -266,7 +293,7 @@ function lireFlux(lignes) {
     if (/^direction\s/.test(l)) continue;
     const m =
       /^(.+?)\s*(-->|-\.->|-\.-|==>|---|--)\s*(?:\|([^|]*)\|\s*)?(.+)$/s.exec(
-        l,
+        enLigneVersBarres(l),
       );
     if (m) {
       const [, g, fleche, etiquette, d] = m;

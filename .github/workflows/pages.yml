@@ -110,6 +110,12 @@ jobs:
       - name: Construire la page d'accueil
         run: node scripts/readme-html.mjs dist-site/index.html
 
+      # Le lecteur mermaid du moteur jette en silence une flèche qu'il ne
+      # reconnaît pas : le schéma se rend quand même, amputé. Ses formes de
+      # flèche sont éprouvées AVANT de publier cent schémas avec lui.
+      - name: Éprouver le lecteur de schémas
+        run: node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs
+
       - name: Construire le site de documentation
         run: node scripts/build-docs-site.mjs --out dist-site --mount /docs
 

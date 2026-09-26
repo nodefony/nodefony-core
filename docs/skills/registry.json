@@ -2763,6 +2763,17 @@
             "selfDocumented": false
           },
           {
+            "path": "scripts/schemas.selftest.mjs",
+            "purpose": "Auto-contrôle du lecteur mermaid de `schemas.mjs` — ce qu'il ne doit JAMAIS",
+            "usage": [
+              "node .claude/skills/nodefony-html-report/scripts/schemas.selftest.mjs"
+            ],
+            "options": [],
+            "env": [],
+            "output": "",
+            "selfDocumented": false
+          },
+          {
             "path": "lib/brand.mjs",
             "purpose": "brand.mjs — identité visuelle d'un rapport (logo, nom, couleurs).",
             "usage": [],
