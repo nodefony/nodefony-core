@@ -380,6 +380,8 @@ export abstract class Orm extends Service implements IOrm {
   abstract transaction<R>(work: (tx: ITransaction) => Promise<R>): Promise<R>;
 
   /** Expose la connexion native du driver (trappe SQL/commandes brutes). */
+  // Signature de `IOrm.getNativeConnection` : `C` est le contrat, pas un oubli.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   abstract getNativeConnection<C = unknown>(): C;
 
   /**

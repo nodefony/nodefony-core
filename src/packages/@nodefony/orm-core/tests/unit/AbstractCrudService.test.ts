@@ -80,7 +80,7 @@ class MemoryRepo implements IRepository<Widget> {
     return this.find(criteria).then((r) => r.length);
   }
 
-  countDistinct(field: keyof Widget & string, criteria?: Criteria<Widget>) {
+  countDistinct(field: keyof Widget, criteria?: Criteria<Widget>) {
     return this.find(criteria).then(
       (r) =>
         new Set(

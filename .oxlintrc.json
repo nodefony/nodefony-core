@@ -345,7 +345,6 @@
         "src/packages/@nodefony/mongoose/**",
         "src/packages/@nodefony/vector/**",
         "src/packages/@nodefony/redis/**",
-        "src/packages/@nodefony/orm-core/**",
         "src/packages/@nodefony/user/**",
         "src/packages/@nodefony/devkit/**",
         "src/modules/test/**",

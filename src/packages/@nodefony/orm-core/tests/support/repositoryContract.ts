@@ -193,7 +193,7 @@ export function runRepositoryContract(
     );
 
     const pourcent = await repo.find({
-      name: { $like: `${escapeLikeTerm("solde 50%")}` },
+      name: { $like: escapeLikeTerm("solde 50%") },
     });
     assert.deepEqual(
       pourcent.map((r) => r.name),

@@ -61,6 +61,9 @@ export function entities(
     class NewConstructorEntities extends constructor {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       constructor(...args: any[]) {
+        // Un mixin exige un constructeur `...args: any[]` (TS2545) : l'étaler
+        // au parent est la seule issue, et ce parent est la classe décorée.
+        // oxlint-disable-next-line typescript/no-unsafe-argument
         super(...args);
         this.kernel?.once("onRegister", () => {
           this.initDecoratorEntities();

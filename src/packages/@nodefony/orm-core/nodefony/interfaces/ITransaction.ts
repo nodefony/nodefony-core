@@ -33,5 +33,8 @@ export interface ITransaction {
    *
    * @typeParam C - type natif attendu (ex. `Transaction` de l'ORM).
    */
+  // Trappe typée par l'appelant, par construction : retirer `C` casserait
+  // `getNative<Transaction>()` chez chaque consommateur (rupture d'API publique).
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNative<C = unknown>(): C;
 }

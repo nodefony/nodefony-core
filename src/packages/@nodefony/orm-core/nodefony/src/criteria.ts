@@ -212,6 +212,9 @@ function escapeRegExpChar(c: string): string {
  * @returns le critère à fusionner, ou `null` si le terme est vide ou qu'aucun
  *   champ n'est déclaré — l'appelant décide alors quoi faire de `q`.
  */
+// `T` ne sert qu'à vérifier `fields` contre l'entité (`searchCriteria<Row>(q,
+// ["userId"])`) : sans lui, un champ mal orthographié compilerait.
+// oxlint-disable-next-line typescript/no-unnecessary-type-parameters
 export function searchCriteria<T>(
   q: string | undefined,
   fields: ReadonlyArray<keyof T & string>,

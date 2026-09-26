@@ -43,8 +43,8 @@ class FakeOrm extends Orm {
   async transaction<R>(work: (tx: ITransaction) => Promise<R>): Promise<R> {
     return work({} as ITransaction);
   }
-  getNativeConnection<C = unknown>(): C {
-    return null as C;
+  getNativeConnection(): never {
+    throw new Error("connexion native non simulée");
   }
 }
 

@@ -65,6 +65,9 @@ export interface IOrm {
    *
    * @typeParam C - type natif attendu, exporté par l'adapter employé.
    */
+  // Trappe typée par l'appelant, par construction (cf ci-dessus) : retirer `C`
+  // casserait `getNativeConnection<DrizzleDb>()` — rupture d'API publique.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-parameters
   getNativeConnection<C = unknown>(): C;
 
   /**
