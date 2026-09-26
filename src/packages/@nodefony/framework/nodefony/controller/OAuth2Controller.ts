@@ -143,7 +143,7 @@ class OAuth2Controller extends Controller {
     session.set(VERIFIER_KEY, auth.codeVerifier);
     session.set(PROVIDER_KEY, provider);
     await session.save(); // PERSISTE l'état (storage), pas juste en mémoire
-    return this.redirect(auth.url, 302);
+    this.redirect(auth.url, 302);
   }
 
   /** Valide `state`, échange le `code`, ouvre la session BFF (302). */
@@ -178,7 +178,8 @@ class OAuth2Controller extends Controller {
       returnedState !== expectedState ||
       expectedProvider !== provider
     ) {
-      return this.redirect(failure, 302);
+      this.redirect(failure, 302);
+      return;
     }
 
     try {
@@ -194,7 +195,8 @@ class OAuth2Controller extends Controller {
         identifier,
         "oauth",
       );
-      return this.redirect(success, 302);
+      this.redirect(success, 302);
+      return;
     } catch (error) {
       // Le client reçoit un échec UNIFORME (aucune information sur la cause), mais
       // l'exploitant doit pouvoir distinguer un `invalid_grant` d'un émetteur
@@ -205,7 +207,7 @@ class OAuth2Controller extends Controller {
         `oauth2 callback "${provider}" : ${(error as Error).message.slice(0, 200)}`,
         "WARNING",
       );
-      return this.redirect(failure, 302);
+      this.redirect(failure, 302);
     }
   }
 

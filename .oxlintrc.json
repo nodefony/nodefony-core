@@ -236,6 +236,17 @@
         }
       }
     ],
+    // Une expression `void` là où l'on attend une valeur. Mesurée : 1 343 sites,
+    // dont 1 158 flèches courtes `() => fnVoid()` et une majorité de
+    // `return resolve(x)` dans des fonctions `void` — deux idiomes lisibles
+    // qui ne cachent rien, d'où les deux exemptions. Ce qui RESTE mord sur le
+    // vrai défaut : une fonction au type de retour INFÉRÉ qui mêle une valeur
+    // et un `return fnVoid()` — l'appelant, et le `.d.ts` publié, voient
+    // `X | void`. Coupée dans les tests et les scripts (cf overrides).
+    "typescript/no-confusing-void-expression": [
+      "error",
+      { "ignoreArrowShorthand": true, "ignoreVoidReturningFunctions": true }
+    ],
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le RUNNER
     // suit lui-même (la doc Node dit de l'ignorer) : déclaré sûr ICI, une fois,
     // plutôt que par une dérogation dans chaque fichier de test.
@@ -380,7 +391,11 @@
         // renvoie les tests à la variante du runner). Et un test de parité
         // construit exprès une fonction depuis une source (`new Function`).
         "typescript/unbound-method": "off",
-        "typescript/no-implied-eval": "off"
+        "typescript/no-implied-eval": "off",
+        // `return repondre(res, 404, …)` : sortie anticipée d'un faux serveur
+        // de banc, sans type de retour déclaré. Aucun appelant n'en lit la
+        // valeur, et l'`.mjs` n'a pas de `.d.ts` à protéger.
+        "typescript/no-confusing-void-expression": "off"
       }
     },
     {

@@ -462,7 +462,7 @@ class nodefonyError extends Error {
    * @returns `undefined` — `console.log` ne retourne rien.
    */
   logger() {
-    return console.log(this.toString());
+    console.log(this.toString());
   }
 }
 

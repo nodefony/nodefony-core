@@ -67,12 +67,12 @@ class FrameworkController extends Controller {
   // ── redirect via Controller.redirect() ─────────────────────────────────────
   @Get("/redirect-302")
   redirectTo302() {
-    return this.redirect("/nodefony/test/fw/json", 302);
+    this.redirect("/nodefony/test/fw/json", 302);
   }
 
   @Get("/redirect-301")
   redirectTo301() {
-    return this.redirect("/nodefony/test/fw/json", 301);
+    this.redirect("/nodefony/test/fw/json", 301);
   }
 
   // ── @Redirect decorator ─────────────────────────────────────────────────────

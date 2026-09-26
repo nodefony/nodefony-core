@@ -39,7 +39,7 @@ class HtmlController extends Controller {
 
   @route("index-html-redirect", { path: "/redirect" })
   index2() {
-    return this.redirect("https://google.fr");
+    this.redirect("https://google.fr");
   }
 
   @route("index-file-stream", { path: "/stream" })

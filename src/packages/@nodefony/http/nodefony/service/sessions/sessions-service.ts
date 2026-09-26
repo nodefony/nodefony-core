@@ -376,9 +376,10 @@ class SessionsService extends Service {
         }
         context.once("onSessionStart", (session: Session, error: Error) => {
           if (session) {
-            return resolve(session);
+            resolve(session);
+            return;
           }
-          return reject(error || new Error("Bad Session"));
+          reject(error || new Error("Bad Session"));
         });
         return;
       }

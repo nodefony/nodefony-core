@@ -1449,7 +1449,10 @@ function TestsPanel({
         file ? { file } : {},
       );
       const jobId = start.jobId;
-      if (!jobId) return fail(k, "pas de jobId renvoyé");
+      if (!jobId) {
+        fail(k, "pas de jobId renvoyé");
+        return;
+      }
       for (let i = 0; i < 120; i++) {
         await new Promise((res) => setTimeout(res, 1500));
         const st = await store.api.getAbsolute<

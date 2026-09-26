@@ -4324,10 +4324,10 @@ class Kernel extends Service implements IKernel {
         );
         try {
           CliKernel.quit(code);
-          return resolve(this);
+          resolve(this);
         } catch (e) {
           this.log(e, "ERROR");
-          return reject(e as Error);
+          reject(e as Error);
         }
       });
     });

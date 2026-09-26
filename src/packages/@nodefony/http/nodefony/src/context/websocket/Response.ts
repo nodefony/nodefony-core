@@ -217,17 +217,19 @@ class WebsocketResponse {
 
   drop(reasonCode: number, description: string) {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
-      return this.connection.close(reasonCode ?? this.statusCode, description);
+      this.connection.close(reasonCode ?? this.statusCode, description);
+      return;
     }
     throw new Error("Connection already closed");
   }
 
   close(reasonCode: number, description: string) {
     if (this.connection && this.connection.readyState === Ws.OPEN) {
-      return this.connection.close(
+      this.connection.close(
         reasonCode ?? this.statusCode,
         description ?? "closed",
       );
+      return;
     }
     throw new Error("Connection already closed");
   }

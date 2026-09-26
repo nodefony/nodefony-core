@@ -958,7 +958,8 @@ class Cli extends Service {
     // `??=`, pas `!mode` : 0 est `F_OK` (existence seule), un mode légitime.
     mode ??= fs.constants.R_OK | fs.constants.W_OK;
     if (callback) {
-      return fs.access(myPath, mode, callback);
+      fs.access(myPath, mode, callback);
+      return;
     }
     return fs.existsSync(myPath);
   }
@@ -990,7 +991,7 @@ class Cli extends Service {
     try {
       this.log(`BEGIN TIMER : ${name}`, "INFO");
       this.timers[name] = name;
-      return console.time(name);
+      console.time(name);
     } catch (e) {
       if (name in this.timers) {
         delete this.timers[name];
@@ -1009,7 +1010,8 @@ class Cli extends Service {
       if (name in this.timers) {
         this.log(`END TIMER : ${name}`, "INFO");
         delete this.timers[name];
-        return console.timeEnd(name);
+        console.timeEnd(name);
+        return;
       }
       throw new Error(`Timer : ${name} not exist !! startTimer before`);
     } catch (e) {

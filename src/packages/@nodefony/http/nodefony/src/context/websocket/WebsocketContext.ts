@@ -378,7 +378,8 @@ export default class WebsocketContext
         this.logMessageContent("BROADCAST", payload);
         this.fire("onMessage", payload, this, "BROADCAST");
         this.fire("onBroadcast", payload, this);
-        return this.response.broadcast(payload, encoding);
+        this.response.broadcast(payload, encoding);
+        return;
       }
     }
     return null;
@@ -607,13 +608,13 @@ export default class WebsocketContext
     if (this.response) {
       // Coercition RFC 6455 §7.4 — protège contre un code invalide (0-999) ou
       // réservé non émissible. Un code déjà valide (1002, 4004…) est conservé.
-      return this.response.close(toWsCloseCode(reasonCode), description);
+      this.response.close(toWsCloseCode(reasonCode), description);
     }
   }
 
   drop(reasonCode: number, description: string) {
     if (this.response) {
-      return this.response.drop(reasonCode, description);
+      this.response.drop(reasonCode, description);
     }
   }
 

@@ -605,7 +605,7 @@ class Command extends Service {
       if (!msgid) {
         msgid = `COMMAND ${this.name}`;
       }
-      return super.logger(pci, severity, msgid, msg);
+      super.logger(pci, severity, msgid, msg);
     } catch (e) {
       console.log(e, "\n", pci);
     }

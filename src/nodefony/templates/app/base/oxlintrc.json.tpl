@@ -162,6 +162,14 @@
         }
       }
     ],
+    // Une expression `void` là où l'on attend une valeur : une fonction au type
+    // de retour inféré qui mêle une valeur et un `return fnVoid()` fait voir
+    // `X | void` à l'appelant. Les flèches courtes `() => fnVoid()` et les
+    // `return resolve(x)` d'une fonction `void` sont lisibles, donc exemptés.
+    "typescript/no-confusing-void-expression": [
+      "error",
+      { "ignoreArrowShorthand": true, "ignoreVoidReturningFunctions": true }
+    ],
     // `describe`/`it`/`test` de `node:test` rendent une promesse que le runner
     // suit lui-même : déclarés sûrs ici, une fois.
     "typescript/no-floating-promises": [
@@ -182,6 +190,10 @@
     // correct par défaut.
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/require-array-sort-compare": "off",
+    // `async` sans `await` est juste quand la signature promet une `Promise` :
+    // une exception du corps devient un rejet. Une promesse oubliée reste
+    // signalée par `no-floating-promises`.
+    "typescript/require-await": "off",
     "typescript/no-empty-object-type": "off",
     "typescript/no-this-alias": "off",
     "no-eval": "error",
@@ -210,6 +222,7 @@
         "typescript/no-non-null-assertion": "off",
         "typescript/unbound-method": "off",
         "typescript/no-implied-eval": "off",
+        "typescript/no-confusing-void-expression": "off",
         "no-unused-vars": "off",
         "no-unused-expressions": "off",
         "no-restricted-imports": "off",

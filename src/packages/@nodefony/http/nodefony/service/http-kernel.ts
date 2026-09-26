@@ -992,7 +992,8 @@ class HttpKernel extends Service implements IHttpKernelInterface {
     if (this.#healthPaths !== null) {
       const url = request.url;
       if (url === this.#healthPaths.liveness) {
-        return this.#respondHealth(response, true);
+        this.#respondHealth(response, true);
+        return;
       }
       if (url === this.#healthPaths.readiness) {
         // Le droit de servir est porté par le Kernel (`servable`) : cycle de
@@ -1003,10 +1004,11 @@ class HttpKernel extends Service implements IHttpKernelInterface {
         // Ce qui reste local : l'ARRÊT. C'est le transport qui draine, et il
         // bascule sa sonde AVANT de commencer — le load-balancer retire le pod
         // pendant que les requêtes en vol se terminent.
-        return this.#respondHealth(
+        this.#respondHealth(
           response,
           !this.#terminating && this.kernel?.servable === true,
         );
+        return;
       }
     }
     // Rate-limit général par IP (P0.3) — AVANT le pipeline : un flood est rejeté

@@ -74,16 +74,24 @@ function makeContext(
   } as unknown as ContextType;
 }
 
-/** Neutralise les sorties HTTP : on observe l'argument, pas la réponse écrite. */
-function captureOutput(ctrl: object): void {
+/**
+ * Neutralise les sorties HTTP : on observe l'argument, pas la réponse écrite.
+ * `redirect` rend `void` — l'URL se lit dans `redirects`, jamais dans la
+ * valeur rendue par l'action.
+ */
+function captureOutput(ctrl: object): { redirects: string[] } {
+  const seen = { redirects: [] as string[] };
   Object.defineProperty(ctrl, "renderJson", {
     value: (body: unknown) => body,
     configurable: true,
   });
   Object.defineProperty(ctrl, "redirect", {
-    value: (url: string) => url,
+    value: (url: string) => {
+      seen.redirects.push(url);
+    },
     configurable: true,
   });
+  return seen;
 }
 
 describe("Facteur d'authentification externe → audit", () => {
@@ -136,17 +144,17 @@ describe("Facteur d'authentification externe → audit", () => {
       { get: { code: "c-1", state: "st-1" } },
     );
     const ctrl = new OAuth2Controller(context);
-    captureOutput(ctrl);
+    const output = captureOutput(ctrl);
     Object.defineProperty(ctrl, "queryGet", {
       value: { code: "c-1", state: "st-1" },
       configurable: true,
     });
 
-    const out = await ctrl.callback("google");
+    await ctrl.callback("google");
 
     // Un `state` mal lu redirigerait vers `/ko` SANS appeler le flow : on vérifie
     // d'abord qu'on est sur le chemin nominal.
-    expect(out, "le callback doit réussir").to.equal("/ok");
+    expect(output.redirects, "le callback doit réussir").to.deep.equal(["/ok"]);
     expect(calls).to.have.lengthOf(1);
     expect(calls[0].identifier).to.equal("alice");
     expect(calls[0].reason).to.equal("oauth");

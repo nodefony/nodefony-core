@@ -155,7 +155,8 @@ class HttpResponse {
       if (this.flushing) {
         const obj: OutgoingHttpHeaders = {};
         obj[name] = value as OutgoingHttpHeader;
-        return this.addTrailers(obj);
+        this.addTrailers(obj);
+        return;
       }
       if (!this.response.headersSent) {
         // P8 : toLowerCase (header ASCII) — pas de détour locale ICU.
