@@ -156,5 +156,5 @@ export const <%= it.pascal %>Entity = defineEntity({
 <% } %><% } %> */
 export const <%= it.camel %>Sample = (
   n: number,<% if (it.sampleReadsRefs) { %>
-  refs: Record<string, string | number> = {},<% } %>
+  refs: Partial<Record<string, string | number>> = {},<% } %>
 ): Partial<<%= it.pascal %>Row> => (<%= it.sampleFactory %>);

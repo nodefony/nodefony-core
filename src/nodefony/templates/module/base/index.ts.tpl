@@ -41,7 +41,7 @@ declare module "nodefony" {
    */
   override async onKernelRegister(): Promise<this> {
     this.options = define<%= it.pascal %>Config(
-      (this.options as I<%= it.pascal %>ConfigInput) ?? {},
+      this.options as I<%= it.pascal %>ConfigInput,
     );
     return this;
   }

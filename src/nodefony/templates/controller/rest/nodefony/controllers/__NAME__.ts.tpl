@@ -96,7 +96,7 @@ interface IItem {
   @HttpCode(201)
   @Idempotent()
   create(
-    @Body() payload: { name?: string },
+    @Body() payload?: { name?: string },
     @CurrentUser() user?: { identifier?: string },
   ) {
     const item: IItem = {
@@ -111,7 +111,7 @@ interface IItem {
 
   /** `PUT <%= it.route %>/{id}` — remplacement COMPLET de la ressource. */
   @Put("/{id}")
-  replace(@Param("id") id: string, @Body() payload: { name?: string }) {
+  replace(@Param("id") id: string, @Body() payload?: { name?: string }) {
     const current = <%= it.nameClass %>.items.get(id);
     if (!current) {
       throw new HttpError(`item ${id} introuvable`, 404);
@@ -123,7 +123,7 @@ interface IItem {
 
   /** `PATCH <%= it.route %>/{id}` — mise à jour PARTIELLE (merge). */
   @Patch("/{id}")
-  update(@Param("id") id: string, @Body() payload: Partial<IItem>) {
+  update(@Param("id") id: string, @Body() payload?: Partial<IItem>) {
     const current = <%= it.nameClass %>.items.get(id);
     if (!current) {
       throw new HttpError(`item ${id} introuvable`, 404);

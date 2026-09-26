@@ -74,7 +74,7 @@ class <%= it.pascal %>Service extends Service implements I<%= it.pascal %>Servic
       true,
       {},
       defaultConfig,
-      module.options ?? {},
+      module.options,
     ) as I<%= it.pascal %>Config;
     super(
       "<%= it.name %>",
