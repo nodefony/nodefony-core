@@ -81,8 +81,12 @@ projet + issue épinglée, dans le même run), le seuil du sas, et les deux chem
 
    ## Reste
 
-   1. **Priorité 1** : <LA chose suivante> — [[kit]]
+   1. **Priorité 1** : <LA chose suivante> — #<ticket> [[kit]]
    ```
+
+   🔴 **La Priorité 1 cite son ticket (`#N`).** Sans ticket, le tableau ne voit pas ce travail, et la
+   reprise n'a que la ligne `🧷` pour le rattraper. Un chantier structurel (types, lint, cycles) qui
+   n'a pas de ticket en reçoit un AVANT la clôture, sur accord.
 
    Puis la ligne pointeur dans `MEMORY.md` :
    `- [⭐ État <date>](project_session_<date>_state.md) — <hook + prochaine étape>`.

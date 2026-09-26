@@ -7,6 +7,7 @@ import {
   ciVerdict,
   citedHashes,
   datesIn,
+  firstPriority,
   linksInSection,
   liveRetexThemes,
   modifiedOf,
@@ -177,5 +178,29 @@ describe("sessionLogArgs — une révision se résout, elle ne se devine pas", (
       args: ["-20"],
       anchored: false,
     });
+  });
+});
+
+describe("firstPriority — une priorité du `_state` SANS ticket ne s'enterre pas", () => {
+  // Vécu : la Priorité 1 du `_state` 09-26d (vider le cliquet de typage)
+  // n'avait aucun ticket ; la reprise n'a proposé que la ligne ➡️ du tableau,
+  // et le chantier structurel a été relégué derrière un ticket de release.
+  const state =
+    "## Fait\n- #487 fermé\n\n## Reste\n\n1. **Priorité 1 — vider le cliquet**, une session = un paquet,\n   chacun retiré de l'override.\n2. Reporté — #312 plus tard.\n";
+  it("rend le PREMIER item du Reste, lignes de suite comprises", () => {
+    expect(firstPriority(state)?.text).toBe(
+      "**Priorité 1 — vider le cliquet**, une session = un paquet, chacun retiré de l'override.",
+    );
+  });
+  it("sans `#N` dans l'item, aucun ticket — même si le suivant en cite un", () => {
+    expect(firstPriority(state)?.tickets).toEqual([]);
+  });
+  it("relève les tickets cités par l'item", () => {
+    const t = "## Reste\n- Priorité 1 — #496 puis #497 (voir #496)\n";
+    expect(firstPriority(t)?.tickets).toEqual([496, 497]);
+  });
+  it("pas de section Reste, ou vide → null", () => {
+    expect(firstPriority("## Fait\n- x\n")).toBeNull();
+    expect(firstPriority("## Reste\n\n## Autre\n- y\n")).toBeNull();
   });
 });

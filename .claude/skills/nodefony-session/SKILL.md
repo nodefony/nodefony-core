@@ -50,6 +50,7 @@ contrôles que personne ne faisait. Ses règles vivent dans
 | ------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `Git … non poussés N ⚠️`              | un commit non poussé n'a PAS de CI — la ligne CI porte alors sur un commit plus ancien                                                                                                                |
 | `🚨 _state PÉRIMÉ`                    | le garde-fou `_state` ↔ commits, **calculé** : des `feat`/`fix` postérieurs au `_state` qu'il ne cite pas. La suite se lit sur EUX, pas sur sa « Priorité 1 » — et on propose de réécrire le `_state` |
+| `🧷 Priorité 1 … SANS ticket`         | la Priorité 1 du `_state` n'a aucun ticket, donc le tableau ne la voit pas et `➡️` ne la proposera jamais. On la présente EN PREMIER, avec un ticket à ouvrir. `📌` = elle a un ticket                |
 | `CI <sha> ✅/⏳/❌`                   | le dernier commit poussé qui a des runs. `⏳` = en cours : `conclusion` y vaut `""`, seul `status` fait foi                                                                                           |
 | `Jalon courant …` + `➡️ #N`           | le prochain dans l'ordre, choisi par [`board-next.mjs`](scripts/board-next.mjs) dans le **jalon COURANT** — jamais un ticket d'une version ultérieure, même mieux classé                              |
 | `Fermés depuis la dernière empreinte` | diff de l'empreinte commitée contre la fraîche — lisible hors ligne                                                                                                                                   |
@@ -65,7 +66,10 @@ contrôles que personne ne faisait. Ses règles vivent dans
   sur 261, et un ticket `beta` annoncé avec neuf `alpha` ouverts), et son champ `.title` reste sur
   l'ancien libellé — la voie GraphQL lit `.content.title`. Hors ligne, le script DIT la date de
   l'empreinte : trois jours d'écart, c'est trois jours de travail qu'elle ignore.
-- **Le ticket gagne sur le `_state`** : ce qui est écrit à la main se périme, un état de ticket non.
+- **Le ticket gagne sur le `_state`… quand le `_state` est PÉRIMÉ**, pas quand le tableau
+  IGNORE le travail. Un chantier sans ticket est invisible pour `➡️` : c'est la ligne `🧷` qui le
+  rattrape, et elle passe avant. Vécu : le vidage du cliquet de typage, Priorité 1 sans ticket,
+  relégué derrière un ticket de release.
 - **L'empreinte régénérée laisse `.ai/` modifié** — compté à part dans « non commités » ; il part
   avec le prochain commit.
 
@@ -73,8 +77,9 @@ contrôles que personne ne faisait. Ses règles vivent dans
 
 1. **Dernière session** : date + focus
 2. **Décisions prises** (extraites du `_state.md`)
-3. **➡️ Prochaine étape** : la ligne `➡️` du script, jamais une déduction personnelle sur une
-   liste de tickets. `_state` PÉRIMÉ ou contredit → le DIRE, le ticket gagne. ⚠️ L'ordre encode les
+3. **➡️ Prochaine étape** : la ligne `🧷` si elle est là (priorité sans ticket, à présenter en
+   premier), sinon la ligne `➡️` du script, jamais une déduction personnelle sur une liste de
+   tickets. `_state` PÉRIMÉ ou contredit → le DIRE, le ticket gagne. ⚠️ L'ordre encode les
    **dépendances**, pas le moment : un petit ticket dont le contexte vient d'être chargé se prend
    **maintenant** — skill `nodefony-ticket`.
 4. **Avancement du jalon COURANT** (ligne `Jalon courant`), les 2 suivants ; les jalons ultérieurs

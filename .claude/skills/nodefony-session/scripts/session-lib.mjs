@@ -125,6 +125,46 @@ export function linksInSection(text, heading) {
 }
 
 /**
+ * Le premier item de la section `## Reste` d'un `_state`, et les tickets qu'il cite.
+ *
+ * La ligne ➡️ de la reprise ne voit que le TABLEAU : un travail sans ticket y est
+ * invisible. Vécu : la Priorité 1 d'un `_state` (vider le cliquet de typage)
+ * n'avait aucun ticket, et la reprise l'a reléguée derrière un ticket de release.
+ * `tickets` vide ⇒ la priorité se présente AVANT ➡️, et appelle un ticket.
+ *
+ * @param {string} text - contenu du `_state`.
+ * @returns {{text: string, tickets: number[]} | null} null sans Reste ou Reste vide.
+ */
+export function firstPriority(text) {
+  text = `\n${text}`;
+  const start = text.indexOf("\n## Reste");
+  if (start === -1) return null;
+  const rest = text.slice(start + "\n## Reste".length);
+  const end = rest.search(/\n## /u);
+  const lines = (end === -1 ? rest : rest.slice(0, end)).split("\n").slice(1);
+  const item = [];
+  for (const line of lines) {
+    const head = /^(?:\d+\.|[-*])\s+(.*)$/u.exec(line);
+    if (head) {
+      if (item.length) break;
+      item.push(head[1].trim());
+    } else if (item.length && /^\s+\S/u.test(line)) {
+      item.push(line.trim());
+    } else if (item.length && line.trim() === "") {
+      break;
+    }
+  }
+  if (!item.length) return null;
+  const joined = item.join(" ");
+  const tickets = [
+    ...new Set(
+      [...joined.matchAll(/(?<![\w/])#(\d+)\b/gu)].map((m) => Number(m[1])),
+    ),
+  ];
+  return { text: joined, tickets };
+}
+
+/**
  * Instant d'écriture d'un `_state` — l'ancre du début de la session suivante.
  *
  * Le champ `modified:` du frontmatter ne suffit PAS : rien ne le pose de façon

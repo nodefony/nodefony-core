@@ -24,6 +24,7 @@ import { chooseNextTicket, openItemsOf } from "./board-next.mjs";
 import {
   ciVerdict,
   clip,
+  firstPriority,
   linksInSection,
   liveRetexThemes,
   modifiedOf,
@@ -130,6 +131,16 @@ if (!stateFile) {
       for (const c of missing.slice(0, 3))
         say(`   ${c.hash} ${clip(c.subject, 80)}`);
     }
+  }
+  // ── 3 bis. La Priorité 1 du `_state` : sans ticket, le tableau l'ignore.
+  const priority = firstPriority(text);
+  if (priority) {
+    say(
+      priority.tickets.length
+        ? `📌 Priorité 1 du _state (${priority.tickets.map((n) => `#${n}`).join(" ")}) : ${clip(priority.text, 90)}`
+        : `🧷 Priorité 1 du _state SANS ticket — le tableau l'ignore : la présenter AVANT ➡️, et lui ouvrir un ticket`,
+    );
+    if (!priority.tickets.length) say(`   ${clip(priority.text, 110)}`);
   }
   const kits = linksInSection(text, "Reste");
   if (kits.length) say(`Kits cités au Reste : ${kits.slice(0, 5).join(", ")}`);
