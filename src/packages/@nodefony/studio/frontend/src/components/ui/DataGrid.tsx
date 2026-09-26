@@ -64,6 +64,7 @@ import {
 } from "@tanstack/react-table";
 import { DataState } from "./DataState";
 import { InfoHint } from "./StatCard";
+import { valueText } from "./json/jsonFormat";
 
 /**
  * Noms accessibles des quatre contrôles de BORD de la pagination.
@@ -402,7 +403,7 @@ const NUM_OPS: ReadonlySet<DataGridFilterOp> = new Set([
 ]);
 
 function matchFilter(raw: unknown, f: FilterValue): boolean {
-  const s = String(raw ?? "");
+  const s = valueText(raw);
   const v = f.value;
   // Saisie partielle / non comparable → ne filtre PAS (évite de tout vider en tapant).
   if (!VALUELESS.has(f.op) && v === "") return true;
@@ -795,9 +796,7 @@ export function DataGrid<T extends RowData>(props: DataGridProps<T>) {
         size: col.size,
         filterFn: operatorFilter as FilterFn<GridFeatures, T>,
         cell: (ctx) =>
-          col.render
-            ? col.render(ctx.row.original)
-            : String(ctx.getValue() ?? ""),
+          col.render ? col.render(ctx.row.original) : valueText(ctx.getValue()),
         meta: {
           align: col.align,
           filterType: col.filterType,

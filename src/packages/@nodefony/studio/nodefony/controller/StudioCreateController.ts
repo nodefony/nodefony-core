@@ -117,7 +117,7 @@ class StudioCreateController extends Controller {
     const svc = this.scaffold;
     if (!svc?.enabled) return this.renderJson({ error: "forbidden" }, 403);
     try {
-      return this.renderJson(svc.browse(root ?? "", sub ?? ""));
+      return await this.renderJson(svc.browse(root ?? "", sub ?? ""));
     } catch (e) {
       // Message d'erreur volontairement sobre : il ne révèle aucun chemin serveur.
       return this.renderJson({ error: (e as Error).message }, 400);

@@ -68,7 +68,9 @@ export function AuditDetail({ event, onClose }: AuditDetailProps) {
   const goToTrace = () => {
     if (!event.requestId) return;
     onClose();
-    navigate(`/nodefony/logs/trace/${encodeURIComponent(event.requestId)}`);
+    void navigate(
+      `/nodefony/logs/trace/${encodeURIComponent(event.requestId)}`,
+    );
   };
 
   return (

@@ -384,7 +384,7 @@ export const Profile = observer(() => {
                           leftSection={<IconLock size={16} />}
                           loading={submitting}
                           disabled={!current || !next || !confirm}
-                          onClick={changePassword}
+                          onClick={() => void changePassword()}
                         >
                           Changer le mot de passe
                         </Button>

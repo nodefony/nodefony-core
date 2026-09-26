@@ -28,6 +28,7 @@ import type {
   ConfigSection,
   ConfigEditControl,
 } from "../../components/ui";
+import { valueText } from "../../components/ui/json/jsonFormat";
 
 /** Nœud JSON Schema (forme partielle, tolérante aux variations). */
 interface JsonSchemaNode {
@@ -167,7 +168,9 @@ function deriveEditControl(
 /** Contrainte lisible : valeurs d'enum ou bornes min/max. */
 function readConstraint(node: JsonSchemaNode): string | undefined {
   if (Array.isArray(node.enum)) {
-    return node.enum.map((e) => (e === null ? "null" : String(e))).join(" · ");
+    return node.enum
+      .map((e: unknown) => (e === null ? "null" : valueText(e)))
+      .join(" · ");
   }
   const bounds: string[] = [];
   if (typeof node.minimum === "number") bounds.push(`≥ ${node.minimum}`);
@@ -204,7 +207,7 @@ function renderValue(
       </Code>
     );
   }
-  return <Code style={{ fontSize: 12 }}>{String(v)}</Code>;
+  return <Code style={{ fontSize: 12 }}>{valueText(v)}</Code>;
 }
 
 /** Construit un `ConfigField` (schéma optionnel) + sa valeur effective. */

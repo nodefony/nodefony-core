@@ -1397,7 +1397,7 @@ export const OrmOverview = observer(
                     podOrm={podOrm}
                     verdict={verdict}
                     live={live}
-                    onSelect={(pid) => navigate(`/nodefony/orm/${pid}`)}
+                    onSelect={(pid) => void navigate(`/nodefony/orm/${pid}`)}
                   />
                 ) : realtime.loading ? (
                   <Group justify="center" p="xl">

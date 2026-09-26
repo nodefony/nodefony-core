@@ -75,7 +75,7 @@ export function TwoFactorModal({
     store.api
       .postAbsolute<TotpEnrollment>(TOTP_ENROLL_ENDPOINT)
       .then((e) => alive && setEnrollment(e))
-      .catch((e) => alive && setError(describeTotpError(e)))
+      .catch((e: unknown) => alive && setError(describeTotpError(e)))
       .finally(() => alive && setLoading(false));
     return () => {
       alive = false;

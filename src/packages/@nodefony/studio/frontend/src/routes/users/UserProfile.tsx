@@ -246,7 +246,7 @@ function PasswordResetCard({ userId }: { userId: string }) {
         <Button
           loading={saving}
           disabled={pwd.length < MIN_PASSWORD_LENGTH}
-          onClick={reset}
+          onClick={() => void reset()}
         >
           Réinitialiser
         </Button>
@@ -419,20 +419,23 @@ export const UserProfile = observer(() => {
       ),
       labels: { confirm: "Supprimer", cancel: "Annuler" },
       confirmProps: { color: "red" },
-      onConfirm: async () => {
-        setBusy(true);
-        try {
-          await store.api.deleteAbsolute<{ ok: true }>(userEndpoint(id));
-          notifications.notify("success", "Compte supprimé.", {
-            source: "api",
-          });
-          navigate("/nodefony/users");
-        } catch (e) {
-          notifications.notify("error", describeUserAdminError(e), {
-            source: "api",
-          });
-          setBusy(false);
-        }
+      // Mantine n'attend pas `onConfirm` : l'IIFE gère ses propres erreurs.
+      onConfirm: () => {
+        void (async () => {
+          setBusy(true);
+          try {
+            await store.api.deleteAbsolute<{ ok: true }>(userEndpoint(id));
+            notifications.notify("success", "Compte supprimé.", {
+              source: "api",
+            });
+            void navigate("/nodefony/users");
+          } catch (e) {
+            notifications.notify("error", describeUserAdminError(e), {
+              source: "api",
+            });
+            setBusy(false);
+          }
+        })();
       },
     });
   };
@@ -461,7 +464,7 @@ export const UserProfile = observer(() => {
           <Button
             variant="default"
             leftSection={<IconArrowLeft size={16} />}
-            onClick={() => navigate("/nodefony/users")}
+            onClick={() => void navigate("/nodefony/users")}
           >
             Utilisateurs
           </Button>
@@ -515,7 +518,7 @@ export const UserProfile = observer(() => {
                       initial={data.roles}
                       isSelf={isSelf}
                       saving={savingRoles}
-                      onSave={saveRoles}
+                      onSave={(roles) => void saveRoles(roles)}
                     />
                   </Grid.Col>
                 </Grid>
@@ -537,7 +540,7 @@ export const UserProfile = observer(() => {
                 isSelf={isSelf}
                 busy={busy}
                 onPatch={(patch) =>
-                  patchUser(
+                  void patchUser(
                     patch,
                     patch.enabled === false
                       ? "Compte désactivé."

@@ -78,7 +78,11 @@ class PocController extends Controller {
    */
   @Get("/api/burn/{ms}")
   apiBurn() {
-    const ms = parseInt(String(this.queryGet?.ms ?? "100"), 10);
+    const raw = this.queryGet?.ms;
+    const ms = parseInt(
+      typeof raw === "string" || typeof raw === "number" ? String(raw) : "100",
+      10,
+    );
     const start = Date.now();
     // Spin lock — bloque l'event-loop. Pour calibration uniquement.
     while (Date.now() - start < ms) {

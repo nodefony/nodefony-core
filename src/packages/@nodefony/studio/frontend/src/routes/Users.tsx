@@ -393,7 +393,7 @@ export const Users = observer(() => {
           <UsersTable
             filters={filters}
             onFiltersChange={setFilters}
-            onEdit={(u) => navigate(`/nodefony/users/${u.id}`)}
+            onEdit={(u) => void navigate(`/nodefony/users/${u.id}`)}
             onBulkDelete={(u, clear) => setConfirmBulk({ users: u, clear })}
             reloadKey={reloadKey}
             onLoaded={setPageUsers}
@@ -457,7 +457,7 @@ export const Users = observer(() => {
                 color="red"
                 leftSection={<IconTrash size={16} />}
                 loading={bulkDeleting}
-                onClick={doBulkDelete}
+                onClick={() => void doBulkDelete()}
               >
                 Supprimer {confirmBulk.users.length}
               </Button>

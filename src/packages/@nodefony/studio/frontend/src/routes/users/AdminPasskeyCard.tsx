@@ -143,7 +143,9 @@ export function AdminPasskeyCard({ userId }: { userId: string }) {
             <Button
               color="red"
               loading={removing}
-              onClick={() => confirmId && revoke(confirmId)}
+              onClick={() => {
+                if (confirmId) void revoke(confirmId);
+              }}
             >
               Révoquer
             </Button>

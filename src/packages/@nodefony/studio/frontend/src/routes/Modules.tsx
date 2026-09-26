@@ -263,7 +263,7 @@ export const Modules = observer(() => {
                         detail={details[m.key]}
                         routeCount={routeCounts[m.key] ?? 0}
                         onOpen={() =>
-                          navigate(
+                          void navigate(
                             `/nodefony/modules/${encodeURIComponent(m.key)}`,
                           )
                         }
@@ -291,7 +291,7 @@ export const Modules = observer(() => {
                         detail={details[m.key]}
                         routeCount={routeCounts[m.key] ?? 0}
                         onOpen={() =>
-                          navigate(
+                          void navigate(
                             `/nodefony/modules/${encodeURIComponent(m.key)}`,
                           )
                         }

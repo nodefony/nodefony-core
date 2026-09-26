@@ -452,6 +452,9 @@ export const Database = observer(() => {
   const [orms, setOrms] = useState<OrmSummary[]>([]);
   const [selected, setSelected] = useState<string | null>(null);
   const [nodes, setNodes, onNodesChange] = useNodesState<Node>([]);
+  // `<Edge>` égale le défaut du paramètre, mais l'inférence depuis `[]` le
+  // remplace par `never` : sans lui, `setEdges` refuse toute arête.
+  // oxlint-disable-next-line typescript/no-unnecessary-type-arguments
   const [edges, setEdges, onEdgesChange] = useEdgesState<Edge>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -466,7 +469,7 @@ export const Database = observer(() => {
   // Au-delà de LARGE_GRAPH tables sans focus, on attend un choix (perf) sauf override.
   const [showAll, setShowAll] = useState(false);
   // Instance React Flow (capturée au montage) pour cadrer le sous-graphe (fitView).
-  const rfRef = useRef<ReactFlowInstance<Node, Edge> | null>(null);
+  const rfRef = useRef<ReactFlowInstance | null>(null);
   const navigate = useNavigate();
   // Vue : diagramme (relations / focus) ou liste triable (inventaire + stats).
   const [view, setView] = useState<"graph" | "list">("graph");
@@ -538,10 +541,11 @@ export const Database = observer(() => {
 
   // Navigation vers la page détail d'une entité (clic nœud graphe OU ligne liste).
   const goEntity = useCallback(
-    (name: string) =>
-      navigate(
+    (name: string): void => {
+      void navigate(
         `/nodefony/orm-entity?name=${encodeURIComponent(name)}&connector=${encodeURIComponent(selected ?? "")}`,
-      ),
+      );
+    },
     [navigate, selected],
   );
 
@@ -680,9 +684,13 @@ export const Database = observer(() => {
   // En mode focus, cadrer (zoom) le sous-graphe une fois les nœuds committés.
   useEffect(() => {
     if (!focus || nodes.length === 0) return;
-    const id = requestAnimationFrame(() =>
-      rfRef.current?.fitView({ padding: 0.25, duration: 400, maxZoom: 1.3 }),
-    );
+    const id = requestAnimationFrame(() => {
+      void rfRef.current?.fitView({
+        padding: 0.25,
+        duration: 400,
+        maxZoom: 1.3,
+      });
+    });
     return () => cancelAnimationFrame(id);
   }, [focus, nodes]);
 

@@ -105,8 +105,14 @@ export class ViteConfigGenerator {
           break;
         case "angular": {
           imports.push(`import angular from "@analogjs/vite-plugin-angular";`);
+          // `usedTypes` dérive de `entries` : une entrée angular existe forcément ici.
+          if (!angularEntry) {
+            throw new Error(
+              "vite config: aucune entrée angular pour le type « angular »",
+            );
+          }
           const tsconfigPath = toGeneratedPath(
-            path.resolve(angularEntry!.root, "tsconfig.app.json"),
+            path.resolve(angularEntry.root, "tsconfig.app.json"),
           );
           // analogjs coupe le typecheck des templates par défaut
           // (`disableTypeChecking ?? true`) : sans ce drapeau, `strictTemplates`

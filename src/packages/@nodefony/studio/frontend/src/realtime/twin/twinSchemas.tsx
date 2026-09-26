@@ -528,6 +528,13 @@ function driverLive(
   return out;
 }
 
+/** Brique STATIQUE de la racine (ids figés dans `rootSchema`) — absente = défaut de code. */
+function rootBrick(id: string): SchemaBrick {
+  const brick = rootSchema([]).bricks.find((b) => b.id === id);
+  if (!brick) throw new Error(`twin : brique racine « ${id} » introuvable`);
+  return brick;
+}
+
 /**
  * Construit le schéma courant + sa couche live depuis l'id et le contexte.
  * Inconnu → racine (robuste au deep-link).
@@ -537,7 +544,7 @@ export function buildSchema(
   ctx: SchemaCtx,
 ): { schema: TwinSchema; live: Record<string, LiveNodeData> } {
   if (schemaId === "bp-realtime-detail") {
-    const hub = rootSchema([]).bricks.find((b) => b.id === "bp-realtime")!;
+    const hub = rootBrick("bp-realtime");
     const active = ctx.normalized?.instances[0]?.backplane?.driver;
     const schema = driverDetailSchema(
       "bp-realtime-detail",
@@ -558,7 +565,7 @@ export function buildSchema(
     return { schema, live };
   }
   if (schemaId === "bp-logs-detail") {
-    const hub = rootSchema([]).bricks.find((b) => b.id === "bp-logs")!;
+    const hub = rootBrick("bp-logs");
     const active = ctx.info?.backplanes?.log?.driver;
     const schema = driverDetailSchema(
       "bp-logs-detail",

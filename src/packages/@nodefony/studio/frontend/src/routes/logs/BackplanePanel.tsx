@@ -530,7 +530,7 @@ export function BackplanePanel({
                     value={activeName}
                     options={driverOptions}
                     disabled={switching}
-                    onSwitch={switchDriver}
+                    onSwitch={(name) => void switchDriver(name)}
                     label="Changer"
                     width={170}
                   />
@@ -612,7 +612,9 @@ export function BackplanePanel({
                       size="sm"
                       checked={streamEnabled}
                       disabled={togglingStream}
-                      onChange={(e) => toggleStream(e.currentTarget.checked)}
+                      onChange={(e) =>
+                        void toggleStream(e.currentTarget.checked)
+                      }
                       aria-label={
                         streamEnabled
                           ? "Couper la diffusion temps réel"
@@ -711,7 +713,7 @@ export function BackplanePanel({
                           value={activeName}
                           options={driverOptions}
                           disabled={switching}
-                          onSwitch={switchDriver}
+                          onSwitch={(name) => void switchDriver(name)}
                           label="Changer la source consultée"
                           width={220}
                         />

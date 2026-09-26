@@ -182,7 +182,7 @@ export function CreateUserModal({
           <Button
             leftSection={<IconUserPlus size={16} />}
             loading={submitting}
-            onClick={submit}
+            onClick={() => void submit()}
           >
             Créer le compte
           </Button>

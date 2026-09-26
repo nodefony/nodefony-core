@@ -441,7 +441,8 @@ export class ViteProcessSupervisor implements IViteSupervisor {
     // figée ne suit pas — le mapping externe peut être périmé. On l'énonce.
     if (
       resolved &&
-      !tpl!.includes(PORT_PLACEHOLDER) &&
+      tpl &&
+      !tpl.includes(PORT_PLACEHOLDER) &&
       port !== this.opts.devPort
     ) {
       this.opts.logger.error(
@@ -655,8 +656,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
         reject(new FrontendSupervisorStartError(err.message, err));
       };
 
-      this.trackListener(child.stdout!, "data", onStdout);
-      this.trackListener(child.stderr!, "data", onStderr);
+      // `stdio: pipe` : les deux flux existent toujours — la garde ne sert
+      // qu'au typage (`Readable | null` dans `ChildProcess`).
+      if (child.stdout) this.trackListener(child.stdout, "data", onStdout);
+      if (child.stderr) this.trackListener(child.stderr, "data", onStderr);
       this.trackListener(child, "exit", onExit);
       this.trackListener(child, "error", onError);
     });
@@ -742,9 +745,9 @@ export class ViteProcessSupervisor implements IViteSupervisor {
           this.opts.logger.info(`vite restart #${this.restartCount} succeeded`);
           this.startHealthCheck();
         })
-        .catch((e) => {
+        .catch((e: unknown) => {
           this.opts.logger.error(
-            `vite restart #${this.restartCount} failed: ${e?.message ?? e}`,
+            `vite restart #${this.restartCount} failed: ${e instanceof Error ? e.message : String(e)}`,
           );
           // Tentative suivante (récursif, jusqu'à maxRestarts).
           this.state = "crashed";
@@ -782,10 +785,10 @@ export class ViteProcessSupervisor implements IViteSupervisor {
             this.restartCount = 0;
           }
         })
-        .catch((e) => {
+        .catch((e: unknown) => {
           this.healthFailures++;
           this.opts.logger.error(
-            `vite healthcheck failed (${this.healthFailures}/${this.cfg.healthCheckFailureThreshold}): ${e?.message ?? e}`,
+            `vite healthcheck failed (${this.healthFailures}/${this.cfg.healthCheckFailureThreshold}): ${e instanceof Error ? e.message : String(e)}`,
           );
           if (
             this.healthFailures >= this.cfg.healthCheckFailureThreshold &&

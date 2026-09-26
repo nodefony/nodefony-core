@@ -307,7 +307,7 @@ class FrontendService extends Service implements IFrontendService {
         origin: null,
         port: null,
         pid: null,
-        https: !!this.cfg.https,
+        https: this.cfg.https,
         restartCount: 0,
         healthFailures: 0,
         portRetries: 0,
@@ -428,22 +428,20 @@ class FrontendService extends Service implements IFrontendService {
     // `famSize` à sa résolution (ready OU échec), `onFrontendProgress` met `done/total`.
     const total = this.entries.length;
     let done = 0;
+    // `portPlan` est bâti sur les clés de `groups` : chaque famille y a son
+    // groupe — le repli `[]` n'existe que pour le typage, jamais à l'exécution.
     const results = await Promise.allSettled(
-      families.map((family) => {
-        const famSize = groups.get(family)!.length;
-        return this.startFamily(
-          family,
-          groups.get(family)!,
-          portPlan.get(family)!,
-          {
-            backendOrigin,
-            https,
-            nodeEnv,
-            extraEnv,
-            publicOriginTemplate,
-            allowedHosts,
-          },
-        ).finally(() => {
+      [...portPlan].map(([family, port]) => {
+        const familyEntries = groups.get(family) ?? [];
+        const famSize = familyEntries.length;
+        return this.startFamily(family, familyEntries, port, {
+          backendOrigin,
+          https,
+          nodeEnv,
+          extraEnv,
+          publicOriginTemplate,
+          allowedHosts,
+        }).finally(() => {
           done += famSize;
           this.kernel?.fire("onFrontendProgress", { ready: done, total });
         });
@@ -452,9 +450,11 @@ class FrontendService extends Service implements IFrontendService {
 
     results.forEach((res, i) => {
       if (res.status === "rejected") {
-        const reason = res.reason as { message?: string } | undefined;
+        const reason: unknown = res.reason;
+        const detail =
+          reason instanceof Error ? reason.message : String(reason);
         this.log(
-          `frontend family "${families[i]}" failed to start (isolated): ${reason?.message ?? reason}`,
+          `frontend family "${families[i]}" failed to start (isolated): ${detail}`,
           "ERROR",
         );
       }

@@ -158,12 +158,14 @@ export function createSyslogBridge(
 
   const flush = (): void => {
     timer = null;
-    if (count === 0 && dropped === 0) return;
-    const logs = new Array(count);
-    for (let i = 0; i < count; i++) logs[i] = ring![(head + i) % maxBatch];
+    // `ring` n'est nul qu'après le dispose, qui remet aussi `count` à 0.
+    const buf = ring;
+    if (buf === null || (count === 0 && dropped === 0)) return;
+    const logs = new Array<unknown>(count);
+    for (let i = 0; i < count; i++) logs[i] = buf[(head + i) % maxBatch];
     const d = dropped;
     // reset + libère les refs (évite de retenir des Pdu/stack traces).
-    for (let i = 0; i < maxBatch; i++) ring![i] = undefined;
+    for (let i = 0; i < maxBatch; i++) buf[i] = undefined;
     head = 0;
     count = 0;
     dropped = 0;
@@ -196,7 +198,8 @@ export function createSyslogBridge(
     }
     ring = null;
     head = count = dropped = 0;
-    (syslog.off ?? syslog.removeListener)?.call(syslog, "onLog", onLog);
+    if (syslog.off) syslog.off("onLog", onLog);
+    else syslog.removeListener?.("onLog", onLog);
   };
 }
 
@@ -308,7 +311,7 @@ export function createStatsTicker(
 
     // Sonde ressources actives : ce qui tient la boucle vivante, agrégé par type.
     const resources = process.getActiveResourcesInfo();
-    const byType: Record<string, number> = Object.create(null);
+    const byType = Object.create(null) as Record<string, number>;
     for (const r of resources) byType[r] = (byType[r] ?? 0) + 1;
 
     // Sonde SATURATION boucle (ELU) sur l'intervalle : delta entre 2 mesures.
@@ -363,8 +366,8 @@ export function createStatsTicker(
     clearInterval(timer);
     eld.disable();
     gcObs.disconnect();
-    if (syslog)
-      (syslog.off ?? syslog.removeListener)?.call(syslog, "onLog", onErr);
+    if (syslog?.off) syslog.off("onLog", onErr);
+    else syslog?.removeListener?.("onLog", onErr);
   };
 }
 
@@ -411,7 +414,7 @@ export async function readStatsSnapshot(
     size: s.space_size,
   }));
   const resources = process.getActiveResourcesInfo();
-  const byType: Record<string, number> = Object.create(null);
+  const byType = Object.create(null) as Record<string, number>;
   for (const r of resources) byType[r] = (byType[r] ?? 0) + 1;
   return {
     ts: Date.now(),

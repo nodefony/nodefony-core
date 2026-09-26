@@ -43,6 +43,7 @@ import {
   LIVE_GRAPH_NAMES,
   resolveLiveGraph,
 } from "../../realtime/socket/liveGraphs";
+import { valueText } from "./json/jsonFormat";
 
 /** Texte plat d'un nœud React (pour calculer l'ancre `id` d'un titre). */
 function nodeText(node: ReactNode): string {
@@ -349,7 +350,8 @@ export function MermaidDiagram({ code }: { code: string }) {
   const [svgHtml, setSvgHtml] = useState("");
   useEffect(() => {
     let cancelled = false;
-    (async () => {
+    // L'IIFE capture ses propres erreurs (état `error`) : elle ne rejette jamais.
+    void (async () => {
       try {
         const mermaid = (await import("mermaid")).default;
         mermaid.initialize({
@@ -874,14 +876,14 @@ export function MarkdownDoc({
     },
     pre: ({ children }) => {
       // children attendu : <code className="language-X">…</code>
-      const child = Array.isArray(children) ? children[0] : children;
-      if (isValidElement(child)) {
+      const child: unknown = Array.isArray(children) ? children[0] : children;
+      if (child !== null && child !== undefined && isValidElement(child)) {
         const props = child.props as {
           className?: string;
           children?: ReactNode;
         };
         const cls = props.className ?? "";
-        const raw = String(props.children ?? "").replace(/\n$/, "");
+        const raw = valueText(props.children).replace(/\n$/, "");
         if (/\blanguage-mermaid\b/.test(cls)) {
           return <MermaidDiagram code={raw} />;
         }
@@ -906,7 +908,7 @@ export function MarkdownDoc({
       return <code className={className}>{children}</code>;
     },
     a({ href, children }) {
-      const h = String(href ?? "");
+      const h = href ?? "";
       const ext = /^https?:\/\//i.test(h);
       // Le serveur a déjà traduit les liens internes en SLUGS (`mod~security~cors.md`) :
       // le `~` fait partie du charset, et un chemin relatif ne devrait plus arriver ici.

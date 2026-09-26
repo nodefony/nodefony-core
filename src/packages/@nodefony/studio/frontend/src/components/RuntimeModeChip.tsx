@@ -135,7 +135,7 @@ export function RuntimeModeChip() {
       <HoverCard.Target>
         <UnstyledButton
           onMouseEnter={refresh}
-          onClick={() => navigate("/nodefony/runtime")}
+          onClick={() => void navigate("/nodefony/runtime")}
           aria-label={`Mode runtime : ${env.label}${isCluster ? ", cluster" : ", mono-process"} — ouvrir Runtime`}
         >
           <Badge
@@ -229,7 +229,7 @@ export function RuntimeModeChip() {
             component="button"
             type="button"
             size="xs"
-            onClick={() => navigate("/nodefony/runtime")}
+            onClick={() => void navigate("/nodefony/runtime")}
           >
             <Group gap={4} wrap="nowrap">
               <IconArrowRight size={13} />

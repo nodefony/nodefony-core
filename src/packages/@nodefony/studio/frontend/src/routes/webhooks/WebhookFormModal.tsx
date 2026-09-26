@@ -277,7 +277,7 @@ export function WebhookFormModal({
             <Button
               leftSection={<IconWebhook size={16} />}
               loading={submitting}
-              onClick={submit}
+              onClick={() => void submit()}
             >
               {isEdit ? "Enregistrer" : "Créer le webhook"}
             </Button>

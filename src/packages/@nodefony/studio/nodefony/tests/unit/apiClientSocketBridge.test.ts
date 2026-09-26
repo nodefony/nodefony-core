@@ -62,7 +62,7 @@ interface MutateCall {
 function fakeSocket(opts: {
   state?: string;
   result?: unknown;
-  reject?: unknown;
+  reject?: Error;
 }): ApiSocketLike & { calls: string[]; mutateCalls: MutateCall[] } {
   const calls: string[] = [];
   const mutateCalls: MutateCall[] = [];

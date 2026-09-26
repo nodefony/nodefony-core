@@ -53,6 +53,33 @@ export function primitiveText(v: unknown): string {
   return String(v);
 }
 
+/**
+ * Texte d'affichage d'une valeur quelconque : `String()` pour un scalaire, un
+ * tableau ou une date (rendu inchangé), JSON pour un objet ordinaire — là où
+ * `String()` rendait « [object Object] ». `null`/`undefined` → `""`.
+ */
+export function valueText(v: unknown): string {
+  if (v === null || v === undefined) return "";
+  if (typeof v === "string") return v;
+  if (
+    typeof v === "number" ||
+    typeof v === "boolean" ||
+    typeof v === "bigint"
+  ) {
+    return String(v);
+  }
+  if (typeof v === "symbol") return v.toString();
+  if (Array.isArray(v))
+    return v.map((item: unknown) => valueText(item)).join(",");
+  if (v instanceof Date) return v.toString();
+  try {
+    return JSON.stringify(v) ?? "";
+  } catch {
+    // Structure circulaire : on retombe sur l'étiquette de type.
+    return Object.prototype.toString.call(v);
+  }
+}
+
 /** Nombre d'enfants + libellé FR (« 3 clés » / « 5 éléments »). */
 export function countLabel(v: unknown): string {
   if (Array.isArray(v)) return `${v.length} élément${v.length > 1 ? "s" : ""}`;

@@ -163,6 +163,9 @@ function IncidentsSection() {
       try {
         // Une faute ordinaire : on lit un champ d'un objet qui n'existe pas.
         const absent = (json.result as { absent?: { value: string } }).absent;
+        // Faute VOULUE : la vitrine montre une TypeError remontée au journal ;
+        // un `?.` la ferait disparaître.
+        // oxlint-disable-next-line typescript/no-non-null-assertion
         setSaid(absent!.value);
       } catch (e) {
         journal.log(
@@ -337,7 +340,16 @@ function LiveSection() {
             puis par la socket. Même route, même session, même sécurité — une
             seule action de contrôleur derrière les deux portes.
           </p>
-          <button className="counter" onClick={comparer}>
+          <button
+            className="counter"
+            onClick={() => {
+              comparer().catch((e: unknown) => {
+                setParHttp(
+                  `Erreur : ${e instanceof Error ? e.message : String(e)}`,
+                );
+              });
+            }}
+          >
             Appeler par les deux
           </button>
           <div className="deux" style={{ marginTop: "14px" }}>
@@ -507,8 +519,9 @@ export function App() {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       }
     };
-    poll();
-    const id = setInterval(poll, 1000);
+    // `poll` capture ses propres erreurs (état `error`) : aucune promesse ne rejette.
+    void poll();
+    const id = setInterval(() => void poll(), 1000);
     return () => {
       cancelled = true;
       clearInterval(id);

@@ -64,10 +64,11 @@ export const OrmEntity = observer(() => {
   );
   const { data, loading, error, reload } = useResource(fetcher);
 
-  const goEntity = (target: string) =>
-    navigate(
+  const goEntity = (target: string): void => {
+    void navigate(
       `/nodefony/orm-entity?name=${encodeURIComponent(target)}&connector=${encodeURIComponent(data?.connector ?? connector)}`,
     );
+  };
 
   // FK portées côté entité courante (pour marquer les colonnes).
   const fkCols = new Set(
@@ -89,7 +90,7 @@ export const OrmEntity = observer(() => {
         <Button
           variant="light"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate("/nodefony/databases")}
+          onClick={() => void navigate("/nodefony/databases")}
         >
           Retour à l'ERD
         </Button>

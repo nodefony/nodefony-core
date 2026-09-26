@@ -498,6 +498,9 @@ export function defaultAnswers(
     // dans le moteur.
     if (!isQuestionVisible(q, caps, answers)) continue;
     answers[q.key] =
+      // Valeur venue du réseau : `=== true` refuse un `"true"` ou un `1` qu'un
+      // serveur mal aligné renverrait, là où le type promet un booléen.
+      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
       q.key === LINK_KEY && spec.type === APP_TYPE && caps.hasCheckout === true
         ? true
         : q.default;
@@ -576,6 +579,9 @@ export function describeInstallRisk(
   if (!isAppType(type)) return null;
   if (!steps.includes(INSTALL_STEP)) return null;
   if (answers[LINK_KEY] === true) return null;
+  // Valeur venue du réseau : `=== true` refuse un `"true"` ou un `1` qu'un
+  // serveur mal aligné renverrait, là où le type promet un booléen.
+  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
   return caps.hasCheckout === true
     ? "Sans le câblage sur le checkout local, npm install ira chercher les paquets @nodefony/* sur le registre npm, où ils ne sont pas encore publiés : l'installation échouera (404). Cochez le câblage dans les réglages, ou décochez npm install et installez l'app plus tard."
     : "Aucun checkout du framework n'est résolvable depuis ce serveur, et les paquets @nodefony/* ne sont pas encore publiés sur npm : npm install échouera (404). Décochez l'étape — l'application sera écrite, à installer à la main.";

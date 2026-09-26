@@ -82,7 +82,7 @@ export function TwoFactorCard() {
             variant="light"
             leftSection={<IconShieldOff size={16} />}
             loading={disabling}
-            onClick={disable}
+            onClick={() => void disable()}
           >
             Désactiver la 2FA
           </Button>

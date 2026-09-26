@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Badge, Code, Group, Stack, Text } from "@mantine/core";
+import { valueText } from "./json/jsonFormat";
 
 export interface ConfigViewProps {
   /** Objet de configuration (sérialisé côté serveur, secrets déjà retirés). */
@@ -37,7 +38,7 @@ function formatScalar(v: unknown): ReactNode {
         {v}
       </Text>
     );
-  return <Code>{String(v)}</Code>;
+  return <Code>{valueText(v)}</Code>;
 }
 
 /**

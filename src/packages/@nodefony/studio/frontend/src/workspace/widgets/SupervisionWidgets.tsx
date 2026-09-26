@@ -671,6 +671,9 @@ function useFlowSeries(
 function OrmFlowBody({ source }: WidgetRenderProps<FlowReport>) {
   const report = source.data;
   const { rates, hist } = useFlowSeries(report);
+  // Valeur venue du réseau : `=== false` n'accepte que le booléen, pas un
+  // `undefined`/`0` d'un serveur mal aligné, là où le type promet un booléen.
+  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
   if (report && report.enabled === false)
     return (
       <Text size="sm" c="dimmed">

@@ -482,7 +482,7 @@ export const Sessions = observer(() => {
                 color="red"
                 leftSection={<IconBan size={16} />}
                 loading={revokingRef === confirmRevoke.ref}
-                onClick={doRevoke}
+                onClick={() => void doRevoke()}
               >
                 Révoquer
               </Button>
@@ -532,7 +532,7 @@ export const Sessions = observer(() => {
                 color="red"
                 leftSection={<IconLogout size={16} />}
                 loading={revokingUser}
-                onClick={doRevokeUser}
+                onClick={() => void doRevokeUser()}
               >
                 Déconnecter tout
               </Button>
@@ -581,7 +581,7 @@ export const Sessions = observer(() => {
                 color="red"
                 leftSection={<IconBan size={16} />}
                 loading={bulkRevoking}
-                onClick={doBulkRevoke}
+                onClick={() => void doBulkRevoke()}
               >
                 Révoquer {confirmBulk.sessions.length}
               </Button>

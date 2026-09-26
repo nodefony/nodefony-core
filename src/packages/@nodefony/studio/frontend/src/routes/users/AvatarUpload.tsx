@@ -81,6 +81,7 @@ function AvatarCropper({
   onCancel: () => void;
   onDone: (dataUrl: string) => void;
 }) {
+  const notifications = useNotifications();
   const [nat, setNat] = useState<{ w: number; h: number } | null>(null);
   const [zoom, setZoom] = useState(1);
   const [off, setOff] = useState({ x: 0, y: 0 });
@@ -241,7 +242,20 @@ function AvatarCropper({
         <Button variant="default" onClick={onCancel} disabled={busy}>
           Annuler
         </Button>
-        <Button onClick={confirm} loading={busy} disabled={!nat}>
+        <Button
+          onClick={() => {
+            // Image illisible ou canvas indisponible : dit à l'écran, pas avalé.
+            confirm().catch((e: unknown) => {
+              notifications.notify(
+                "error",
+                `Recadrage impossible : ${e instanceof Error ? e.message : String(e)}`,
+                { source: "api" },
+              );
+            });
+          }}
+          loading={busy}
+          disabled={!nat}
+        >
           Valider
         </Button>
       </Group>

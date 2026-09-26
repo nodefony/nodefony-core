@@ -514,7 +514,7 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
           <Button
             color="red"
             leftSection={<IconBug size={16} />}
-            onClick={activate}
+            onClick={() => void activate()}
             loading={busy}
             disabled={!targetModule}
           >
@@ -571,7 +571,7 @@ export function DebugTab({ onGoLive }: { onGoLive?: () => void }) {
               level={overrides[m]}
               expireAt={expiresAt[m]}
               entries={entries}
-              onTurnOff={turnOff}
+              onTurnOff={(target) => void turnOff(target)}
               busy={busy}
             />
           ))}

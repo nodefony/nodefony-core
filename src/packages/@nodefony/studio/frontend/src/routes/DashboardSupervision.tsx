@@ -671,7 +671,11 @@ export const DashboardSupervision = observer(() => {
   const [weights, setWeights] = useState<Record<string, number>>(() => {
     try {
       const raw = lsGet("nf.supervision.weights");
-      return raw ? { ...DEFAULT_WEIGHTS, ...JSON.parse(raw) } : DEFAULT_WEIGHTS;
+      if (!raw) return DEFAULT_WEIGHTS;
+      const parsed: unknown = JSON.parse(raw);
+      return parsed !== null && typeof parsed === "object"
+        ? { ...DEFAULT_WEIGHTS, ...(parsed as Record<string, number>) }
+        : DEFAULT_WEIGHTS;
     } catch {
       return DEFAULT_WEIGHTS;
     }
@@ -812,7 +816,8 @@ export const DashboardSupervision = observer(() => {
     setStats(s);
     setCpuHist((prev) => cap(prev, s.cpuPercent));
     setLoopHist((prev) => cap(prev, s.eventLoopMs));
-    if (s.gc) setGcHist((prev) => cap(prev, s.gc!.pauseMs));
+    const gc = s.gc;
+    if (gc) setGcHist((prev) => cap(prev, gc.pauseMs));
     const ceil =
       s.memory.heapLimit && s.memory.heapLimit > 0
         ? s.memory.heapLimit
@@ -948,6 +953,9 @@ export const DashboardSupervision = observer(() => {
   // tête, tous connecteurs confondus, bornées). `flowOff` = sonde désactivée
   // (prod) → on l'explique au lieu d'afficher des zéros muets.
   const flowConns = ormFlow?.connectors ?? [];
+  // Valeur venue du réseau : `=== false` n'accepte que le booléen, pas un
+  // `undefined`/`0` d'un serveur mal aligné, là où le type promet un booléen.
+  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
   const flowOff = ormFlow != null && ormFlow.enabled === false;
   const slowQueries = flowConns
     .flatMap((c) => c.slow ?? [])

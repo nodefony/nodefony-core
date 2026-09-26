@@ -1394,12 +1394,13 @@ export const OrmConnector = observer(() => {
               data={list.map((o) => o.name)}
               value={name}
               allowDeselect={false}
-              onChange={(v) =>
-                v &&
-                navigate(
-                  `/nodefony/orm-connector?name=${encodeURIComponent(v)}&tab=${tab}`,
-                )
-              }
+              onChange={(v) => {
+                if (v) {
+                  void navigate(
+                    `/nodefony/orm-connector?name=${encodeURIComponent(v)}&tab=${tab}`,
+                  );
+                }
+              }}
             />
             <OrmRealtimeControls
               live={live}

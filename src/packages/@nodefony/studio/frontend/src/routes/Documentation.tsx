@@ -118,7 +118,7 @@ function resolveVars(
   vars?: Record<string, string | number>,
 ): string {
   if (!vars) return md;
-  return md.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (m, k) =>
+  return md.replace(/\{\{\s*([a-zA-Z0-9_]+)\s*\}\}/g, (m: string, k: string) =>
     k in vars ? String(vars[k]) : m,
   );
 }
@@ -314,6 +314,9 @@ export const Documentation = observer(() => {
   useEffect(() => {
     if (!activeSection) return;
     setCollapsed((c) =>
+      // Clé absente = `undefined` (section jamais repliée) : `=== false` la distingue
+      // d'un `false` explicite, ce que `!c[id]` confondrait.
+      // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
       c[activeSection.id] === false ? c : { ...c, [activeSection.id]: false },
     );
   }, [activeSection]);

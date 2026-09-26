@@ -125,7 +125,8 @@ export const LiveLogs = observer(({ onSelect, cluster }: LiveLogsProps) => {
       if (!data || typeof data !== "object") return;
       const rec = data as { logs?: unknown[]; dropped?: number };
       const items = Array.isArray(rec.logs) ? rec.logs : [data];
-      if (rec.dropped) setDropped((n) => n + rec.dropped!);
+      const lost = rec.dropped;
+      if (lost) setDropped((n) => n + lost);
       const views: Entry[] = [];
       for (const d of items) {
         const r = toRecord(d);

@@ -95,7 +95,7 @@ export class TemplateHelper {
       this.entries.find((e) => e.entryName === entryName) ??
       this.supervisor?.status().entries.find((e) => e.entryName === entryName);
     const html = entry ? this.loadIndexHtml(entry.root) : null;
-    if (!html) {
+    if (!entry || !html) {
       return `<!DOCTYPE html>
 <html lang="en">
   <head>
@@ -108,7 +108,7 @@ ${tags}
   </body>
 </html>`;
     }
-    return this.injectIntoHtml(html, tags, entry!.entryFile);
+    return this.injectIntoHtml(html, tags, entry.entryFile);
   }
 
   /** Injecte `tags` dans `html` (marqueur > `</head>` > `</body>` > append). */

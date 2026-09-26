@@ -185,7 +185,7 @@ export const RoutesView = observer(() => {
               title={`Ouvrir le module ${m}`}
               onClick={(e) => {
                 e.stopPropagation();
-                navigate(`/nodefony/modules/${encodeURIComponent(m)}`);
+                void navigate(`/nodefony/modules/${encodeURIComponent(m)}`);
               }}
             >
               {m}

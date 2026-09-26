@@ -26,6 +26,7 @@ import {
 import { useStore } from "../stores";
 import { ansiToReact } from "../utils/ansiToReact";
 import { SeverityBadge } from "./logs/LogVisuals";
+import { valueText } from "../components/ui/json/jsonFormat";
 
 /** Métadonnée d'un fichier de log (réponse `/nodefony/syslog/api/files`). */
 interface LogFileMeta {
@@ -93,13 +94,13 @@ function LogLine({ line }: { line: string }) {
       </Text>
     );
   }
-  const sev = String(pdu.severityName ?? "");
+  const sev = valueText(pdu.severityName);
   const ts = pdu.timeStamp;
   const time =
     typeof ts === "number" || typeof ts === "string" ? new Date(ts) : null;
   const hhmmss = time ? time.toTimeString().slice(0, 8) : "";
   const ms = time ? String(time.getMilliseconds()).padStart(3, "0") : "";
-  const moduleName = String(pdu.moduleName ?? "");
+  const moduleName = valueText(pdu.moduleName);
   const payload = pdu.payload;
   const msg =
     typeof payload === "string"

@@ -361,7 +361,7 @@ export const ConfigPage = observer(() => {
                 <ConfigModuleCard
                   m={m}
                   onOpen={() =>
-                    navigate(`/nodefony/modules/${m.entry.key}?tab=config`)
+                    void navigate(`/nodefony/modules/${m.entry.key}?tab=config`)
                   }
                 />
               </Grid.Col>

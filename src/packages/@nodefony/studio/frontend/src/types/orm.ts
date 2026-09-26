@@ -193,7 +193,9 @@ export interface MigrationAction {
 /** Une migration, telle que l'historique et les fichiers la décrivent. */
 export interface MigrationEntry {
   tag: string;
-  status: "applied" | "pending" | "failed" | "drifted" | "missing" | string;
+  /** Statut connu ou futur : `string & {}` garde l'autocomplétion des cinq connus sans les absorber. */
+  status:
+    "applied" | "pending" | "failed" | "drifted" | "missing" | (string & {});
   appliedAt?: number;
   durationMs?: number;
   appliedBy?: string;

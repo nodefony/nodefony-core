@@ -122,6 +122,8 @@ export function describeUserAdminError(e: unknown): string {
       return "Action bloquée (garde-fou anti-verrouillage du dernier administrateur).";
     case 503:
       return "Service indisponible sur ce serveur.";
+    // Erreur sans statut HTTP (réseau, exception locale) : même repli que le défaut.
+    case undefined:
     default:
       return e instanceof Error ? e.message : "Erreur inattendue.";
   }

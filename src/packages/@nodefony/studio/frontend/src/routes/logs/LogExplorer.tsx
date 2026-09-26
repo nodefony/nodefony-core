@@ -356,7 +356,7 @@ export const LogExplorer = observer(
                   style={{ cursor: "pointer", fontFamily: "monospace" }}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setRequestId(r.requestId!);
+                    setRequestId(r.requestId ?? "");
                     setOrder("asc"); // suivre la requête = lecture chronologique
                   }}
                 >

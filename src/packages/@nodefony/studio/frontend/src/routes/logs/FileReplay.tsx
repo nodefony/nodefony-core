@@ -633,7 +633,7 @@ export const FileReplay = observer(() => {
                           }}
                           onClick={(e) => {
                             e.stopPropagation();
-                            setFocusRid(isFocus ? "" : rec.requestId!);
+                            setFocusRid(isFocus ? "" : (rec.requestId ?? ""));
                           }}
                         >
                           {rec.requestId.slice(0, 8)}

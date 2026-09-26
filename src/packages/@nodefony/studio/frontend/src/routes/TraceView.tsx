@@ -506,7 +506,10 @@ export const TraceView = observer(() => {
             lineWidth={2}
           >
             {summary.milestones.map((m) => {
-              const flow = describeFlow(m)!;
+              // Les jalons sont déjà filtrés sur `describeFlow` : la garde ne sert
+              // qu'au typage.
+              const flow = describeFlow(m);
+              if (!flow) return null;
               return (
                 <Timeline.Item
                   key={`${m.uid}-${m.timeStamp}`}

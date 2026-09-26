@@ -265,7 +265,7 @@ export const AdminLayout = observer(() => {
     const onSelect = (ev: Event): void => {
       const rid = (ev as CustomEvent<{ requestId?: string }>).detail?.requestId;
       if (!rid) return;
-      navigate(`/nodefony/logs/trace/${encodeURIComponent(rid)}`);
+      void navigate(`/nodefony/logs/trace/${encodeURIComponent(rid)}`);
     };
     window.addEventListener(PLATFORM_EVENTS.debugbarSelect, onSelect);
     return () =>
@@ -394,7 +394,7 @@ export const AdminLayout = observer(() => {
             >
               <HoverCard.Target>
                 <UnstyledButton
-                  onClick={() => navigate("/nodefony/hub")}
+                  onClick={() => void navigate("/nodefony/hub")}
                   // WCAG 2.5.3 (Label in Name) — le nom accessible doit CONTENIR
                   // le texte visible, sinon une commande vocale « clique sur
                   // CONNECTED » ne trouve pas la cible. Le libellé visible est
@@ -451,7 +451,7 @@ export const AdminLayout = observer(() => {
               </HoverCard.Target>
               <HoverCard.Dropdown p="sm">
                 <RealtimeHubContent
-                  onOpenConsole={() => navigate("/nodefony/hub")}
+                  onOpenConsole={() => void navigate("/nodefony/hub")}
                 />
               </HoverCard.Dropdown>
             </HoverCard>
@@ -596,7 +596,7 @@ export const AdminLayout = observer(() => {
                   <NavLink
                     label="Ajouter une passkey"
                     leftSection={<IconFingerprint size={16} />}
-                    onClick={handleRegisterPasskey}
+                    onClick={() => void handleRegisterPasskey()}
                   />
                   {isAdmin && (
                     <NavLink
@@ -618,7 +618,7 @@ export const AdminLayout = observer(() => {
                     variant="light"
                     color="red"
                     leftSection={<IconLogout size={14} />}
-                    onClick={() => auth.logout()}
+                    onClick={() => void auth.logout()}
                   >
                     Déconnexion
                   </Button>

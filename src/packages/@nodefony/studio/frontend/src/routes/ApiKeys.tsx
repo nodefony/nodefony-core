@@ -481,7 +481,7 @@ export const ApiKeys = observer(() => {
                 color="red"
                 leftSection={<IconBan size={16} />}
                 loading={revokingId === confirmRevoke.id}
-                onClick={doRevoke}
+                onClick={() => void doRevoke()}
               >
                 Révoquer
               </Button>
@@ -531,7 +531,7 @@ export const ApiKeys = observer(() => {
                 color="red"
                 leftSection={<IconBan size={16} />}
                 loading={bulkRevoking}
-                onClick={doBulkRevoke}
+                onClick={() => void doBulkRevoke()}
               >
                 Révoquer {confirmBulk.keys.length}
               </Button>

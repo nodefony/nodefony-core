@@ -87,11 +87,11 @@ function extractMessage(payload: unknown, fallback: string): string {
  * Unwrap commun aux 2 transports : HttpKernel wrappe certaines réponses JSON en
  * `{ result: ... }` — et le pont renvoie le body REST tel quel (snapshot ≡).
  */
-function unwrapResult<T>(payload: unknown): T {
+function unwrapResult(payload: unknown): unknown {
   if (payload && typeof payload === "object" && "result" in payload) {
-    return (payload as { result: T }).result;
+    return payload.result;
   }
-  return payload as T;
+  return payload;
 }
 
 /** Forme structurelle d'un `RpcError` (core isomorphe) — duck-typing, pas d'import runtime. */
@@ -297,17 +297,22 @@ export class ApiClient {
     // GET = lecture ; mutation = `mutate` + clé. Succès → servi tel quel ; TOUT
     // échec → on apprend (-32601/405) puis on retombe sur le fetch ci-dessous
     // (réponse de référence ; la clé garantit l'absence de double-effet).
-    if (this.canUseSocket(method, url, init)) {
+    // `canUseSocket` garantit la socket ; parmi ses méthodes, seul GET n'a pas
+    // de clé d'idempotence — la clé absente désigne donc la lecture.
+    const socket = this.canUseSocket(method, url, init)
+      ? this.socket
+      : undefined;
+    if (socket) {
       try {
         const payload =
-          method === "GET"
-            ? await this.socket!.request(url as `/${string}`)
-            : await this.socket!.mutate(url as `/${string}`, {
+          idemKey === undefined
+            ? await socket.request(url as `/${string}`)
+            : await socket.mutate(url as `/${string}`, {
                 method: method as "POST" | "PUT" | "PATCH" | "DELETE",
                 body,
-                idempotencyKey: idemKey!,
+                idempotencyKey: idemKey,
               });
-        return unwrapResult<T>(payload);
+        return unwrapResult(payload) as T;
       } catch (e) {
         this.learnFromSocketError(method, url, e);
       }
@@ -344,7 +349,7 @@ export class ApiClient {
 
     const contentType = res.headers.get("Content-Type") ?? "";
     const isJson = contentType.includes("application/json");
-    const payload = isJson ? await res.json() : await res.text();
+    const payload: unknown = isJson ? await res.json() : await res.text();
 
     if (!res.ok) {
       const message = extractMessage(payload, `HTTP ${res.status}`);
@@ -356,7 +361,7 @@ export class ApiClient {
       );
     }
     // Nodefony wraps JSON responses: `{ result: ... }` selon HttpKernel.
-    if (isJson) return unwrapResult<T>(payload);
+    if (isJson) return unwrapResult(payload) as T;
     return payload as T;
   }
 }

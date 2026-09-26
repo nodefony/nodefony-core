@@ -99,7 +99,7 @@ function GoTo({
       rightSection={icon ? undefined : <IconArrowRight size={14} />}
       onClick={() => {
         onClose();
-        navigate(href);
+        void navigate(href);
       }}
     >
       {label}
@@ -157,7 +157,7 @@ function HttpPanel({ onClose }: { onClose: () => void }) {
                     style={{ cursor: "pointer", flexShrink: 0 }}
                     onClick={() => {
                       onClose();
-                      navigate(
+                      void navigate(
                         `/nodefony/logs/trace/${encodeURIComponent(l.requestId as string)}`,
                       );
                     }}

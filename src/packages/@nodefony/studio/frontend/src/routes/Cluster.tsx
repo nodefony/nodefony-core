@@ -861,7 +861,7 @@ export const Cluster = observer(() => {
               index={i}
               series={series.get(inst.instanceId)}
               onSelect={() =>
-                navigate(`/nodefony/supervision?pid=${inst.instanceId}`)
+                void navigate(`/nodefony/supervision?pid=${inst.instanceId}`)
               }
             />
           ))}

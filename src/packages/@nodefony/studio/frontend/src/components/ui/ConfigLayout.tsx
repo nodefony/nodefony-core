@@ -52,6 +52,7 @@ import {
   IconDeviceFloppy,
 } from "@tabler/icons-react";
 import { DocHint, TipHint, WarnHint } from "./DocHint";
+import { valueText } from "./json/jsonFormat";
 
 /** D'où vient la valeur effective gagnante dans la cascade de surcharge. */
 export type ConfigSource = "default" | "module" | "app" | "env" | "runtime";
@@ -472,9 +473,7 @@ function FieldEditor({
 }) {
   const ctrl = field.editControl as ConfigEditControl;
   const [val, setVal] = useState<unknown>(field.editValue);
-  const [draft, setDraft] = useState<string>(
-    field.editValue == null ? "" : String(field.editValue),
-  );
+  const [draft, setDraft] = useState<string>(valueText(field.editValue));
   const [pending, setPending] = useState(false);
   const [err, setErr] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -484,15 +483,22 @@ function FieldEditor({
     setPending(true);
     setErr(null);
     setSaved(false);
-    const res = await onEdit(field, next);
+    // Un rejet (réseau, 5xx) est traité comme un refus : sans ce `catch`, le
+    // contrôle restait `pending` — désactivé pour de bon, sans message.
+    let res: EditResult;
+    try {
+      res = await onEdit(field, next);
+    } catch (e: unknown) {
+      res = { ok: false, error: e instanceof Error ? e.message : String(e) };
+    }
     setPending(false);
     if (res.ok) {
       setVal(next);
-      setDraft(next == null ? "" : String(next));
+      setDraft(valueText(next));
       setSaved(true);
     } else {
       setErr(res.error ?? "refusé");
-      setDraft(val == null ? "" : String(val)); // rollback du champ libre
+      setDraft(valueText(val)); // rollback du champ libre
     }
   };
 
@@ -503,7 +509,7 @@ function FieldEditor({
 
   const submitNumber = () => {
     if (draft === "") {
-      if (ctrl.kind === "number" && ctrl.nullable) commit(null);
+      if (ctrl.kind === "number" && ctrl.nullable) void commit(null);
       return;
     }
     const n = Number(draft);
@@ -512,14 +518,14 @@ function FieldEditor({
       return;
     }
     if (val === n) return;
-    commit(n);
+    void commit(n);
   };
 
   const submitText = () => {
     const nullable = ctrl.kind === "text" && ctrl.nullable;
     const next = nullable && draft.trim() === "" ? null : draft;
     if ((val ?? null) === (next ?? null)) return;
-    commit(next);
+    void commit(next);
   };
 
   let control: ReactNode = null;
@@ -529,7 +535,7 @@ function FieldEditor({
         size="sm"
         checked={val === true}
         disabled={pending}
-        onChange={(e) => commit(e.currentTarget.checked)}
+        onChange={(e) => void commit(e.currentTarget.checked)}
         aria-label={`Modifier ${field.key}`}
       />
     );
@@ -541,11 +547,13 @@ function FieldEditor({
         size="xs"
         w={170}
         data={data}
-        value={val == null ? (ctrl.nullable ? NULL : null) : String(val)}
+        value={val == null ? (ctrl.nullable ? NULL : null) : valueText(val)}
         disabled={pending}
         allowDeselect={false}
         comboboxProps={{ withinPortal: true }}
-        onChange={(v) => v != null && commit(v === NULL ? null : v)}
+        onChange={(v) => {
+          if (v != null) void commit(v === NULL ? null : v);
+        }}
         aria-label={`Modifier ${field.key}`}
       />
     );
@@ -572,7 +580,7 @@ function FieldEditor({
         <SaveBtn
           onClick={submitNumber}
           pending={pending}
-          dirty={String(val ?? "") !== draft}
+          dirty={valueText(val) !== draft}
         />
       </Group>
     );
@@ -599,7 +607,7 @@ function FieldEditor({
         <SaveBtn
           onClick={submitText}
           pending={pending}
-          dirty={(val == null ? "" : String(val)) !== draft}
+          dirty={valueText(val) !== draft}
         />
       </Group>
     );

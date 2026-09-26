@@ -456,7 +456,7 @@ export const Login = observer(() => {
     setStep("done");
     const from = (loc.state as { from?: string } | null)?.from;
     const deepLink = from && from !== "/nodefony" && from !== "/nodefony/login";
-    navigate(deepLink ? from : auth.homePath, { replace: true });
+    void navigate(deepLink ? from : auth.homePath, { replace: true });
   };
 
   // Route une erreur classée vers la zone réservée (throttle → countdown).
@@ -548,7 +548,7 @@ export const Login = observer(() => {
       const from = (loc.state as { from?: string } | null)?.from;
       const deepLink =
         from && from !== "/nodefony" && from !== "/nodefony/login";
-      navigate(deepLink ? from : auth.homePath, { replace: true });
+      void navigate(deepLink ? from : auth.homePath, { replace: true });
     } catch (e) {
       if (
         e instanceof Error &&
@@ -870,7 +870,7 @@ export const Login = observer(() => {
                 <AltLoginMethods
                   social={social}
                   onSocial={startSocialLogin}
-                  onPasskey={runPasskeyFlow}
+                  onPasskey={() => void runPasskeyFlow()}
                   busy={busy}
                   disabled={throttled}
                 />
@@ -936,7 +936,13 @@ export const Login = observer(() => {
                       autoComplete="current-password"
                       disabled={busy}
                       onChange={(ev) => {
-                        pwProps.onChange(ev);
+                        // Même geste que `pwProps.onChange` (typé `any` par Mantine) :
+                        // `getInputProps` appelle `setFieldValue(…, { forceUpdate: false })`.
+                        passwordForm.setFieldValue(
+                          "password",
+                          ev.currentTarget.value,
+                          { forceUpdate: false },
+                        );
                         clearError();
                       }}
                     />
@@ -968,7 +974,7 @@ export const Login = observer(() => {
                     loading={busy}
                     disabled={throttled}
                     leftSection={<IconFingerprint size={18} />}
-                    onClick={runPasskeyFlow}
+                    onClick={() => void runPasskeyFlow()}
                   >
                     Continuer avec une passkey
                   </Button>
@@ -1000,7 +1006,7 @@ export const Login = observer(() => {
               <AltLoginMethods
                 social={social}
                 onSocial={startSocialLogin}
-                onPasskey={runPasskeyFlow}
+                onPasskey={() => void runPasskeyFlow()}
                 busy={busy}
                 disabled={throttled}
                 exclude={showPasswordField ? undefined : returningMethod}

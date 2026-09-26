@@ -48,6 +48,7 @@ import {
 } from "./PlaygroundModel";
 import { GuardBadges, MethodBadge, StatusBadge } from "./PlaygroundFormat";
 import { Radiography } from "./Radiography";
+import { valueText } from "../../components/ui/json/jsonFormat";
 
 /**
  * Exécution HTTP — fetch same-origin, latence mesurée, réponse jamais levée.
@@ -74,7 +75,7 @@ async function runHttp(
     const isJson = (res.headers.get("Content-Type") ?? "").includes(
       "application/json",
     );
-    const payload = isJson ? await res.json() : await res.text();
+    const payload: unknown = isJson ? await res.json() : await res.text();
     return {
       transport: "http",
       status: res.status,
@@ -210,7 +211,7 @@ export function ActionPanel({ action }: ActionPanelProps) {
     const init: Record<string, string> = {};
     for (const v of action.variables) {
       const d = action.defaults[v];
-      init[v] = d === undefined || d === null ? "" : String(d);
+      init[v] = valueText(d);
     }
     return init;
   });

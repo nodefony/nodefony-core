@@ -161,7 +161,7 @@ export function PasskeyCard() {
                 size="xs"
                 leftSection={<IconTrash size={14} />}
                 loading={removing === c.id}
-                onClick={() => removePasskey(c.id)}
+                onClick={() => void removePasskey(c.id)}
               >
                 Supprimer
               </Button>
@@ -175,7 +175,7 @@ export function PasskeyCard() {
           color="brand"
           leftSection={<IconFingerprint size={16} />}
           loading={adding}
-          onClick={addPasskey}
+          onClick={() => void addPasskey()}
         >
           Ajouter une empreinte
         </Button>

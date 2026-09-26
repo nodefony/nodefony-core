@@ -149,6 +149,9 @@ export interface NormalizedHealth {
 
 /** Discriminant cluster (vs per-instance). */
 export function isCluster(h: HealthPayload): h is ClusterHealth {
+  // Valeur venue du réseau : `=== true` refuse un `"true"` ou un `1` qu'un
+  // serveur mal aligné renverrait, là où le type promet un booléen.
+  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
   return (h as ClusterHealth).cluster === true;
 }
 

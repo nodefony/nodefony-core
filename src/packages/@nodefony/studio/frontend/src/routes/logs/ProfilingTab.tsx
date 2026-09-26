@@ -287,7 +287,9 @@ export const ProfilingTab = observer(
           columns={columns}
           getRowId={(r) => r.requestId}
           onRowClick={(r) =>
-            navigate(`/nodefony/logs/trace/${encodeURIComponent(r.requestId)}`)
+            void navigate(
+              `/nodefony/logs/trace/${encodeURIComponent(r.requestId)}`,
+            )
           }
           initialSort={{ key: "age", dir: "desc" }}
           pageSize={25}

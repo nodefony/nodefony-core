@@ -75,8 +75,15 @@ const isClose = (r: LogRecord): boolean => /\bCLOSE\b/.test(r.msgid);
  * aperçu une ligne) toujours visible, contenu (JSON déplié ou texte) en `Collapse`
  * ouvert au clic. Évite un mur de payloads sur une connexion bavarde.
  */
-function WsMessageRow({ rec, baseTs }: { rec: LogRecord; baseTs: number }) {
-  const dir = wsDirection(rec)!;
+function WsMessageRow({
+  rec,
+  dir,
+  baseTs,
+}: {
+  rec: LogRecord;
+  dir: WsDir;
+  baseTs: number;
+}) {
   const meta = DIR_META[dir];
   const Icon = meta.icon;
   const text = stripAnsi(recordMessage(rec));
@@ -221,11 +228,15 @@ export function WsTracePanel({
   logs: LogRecord[];
   baseTs: number;
 }) {
-  const messages = logs.filter((l) => wsDirection(l) !== null);
+  // Direction calculée UNE fois par log et portée avec lui (plus de `!` en aval).
+  const messages = logs.flatMap((rec) => {
+    const dir = wsDirection(rec);
+    return dir ? [{ rec, dir }] : [];
+  });
   const handshake = logs.find(isHandshake);
   const close = logs.find(isClose);
   const counts = { RECEIVE: 0, SEND: 0, BROADCAST: 0 };
-  for (const m of messages) counts[wsDirection(m)!] += 1;
+  for (const m of messages) counts[m.dir] += 1;
 
   return (
     <Stack gap="sm">
@@ -245,8 +256,9 @@ export function WsTracePanel({
         <Stack gap={6}>
           {messages.map((m) => (
             <WsMessageRow
-              key={`${m.uid}-${m.timeStamp}`}
-              rec={m}
+              key={`${m.rec.uid}-${m.rec.timeStamp}`}
+              rec={m.rec}
+              dir={m.dir}
               baseTs={baseTs}
             />
           ))}

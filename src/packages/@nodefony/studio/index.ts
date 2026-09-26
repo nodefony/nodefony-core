@@ -98,7 +98,7 @@ class Studio extends Module<IStudioConfig> {
    */
   override async onKernelBoot(): Promise<this> {
     const resolution = resolveUiDelivery({
-      requested: this.options.ui,
+      requested: this.config.ui,
       environment: this.kernel?.environment,
       hasFrontendService: !!this.kernel?.container?.get("frontend"),
       sourcesDir: path.join(this.path, "frontend", "src"),

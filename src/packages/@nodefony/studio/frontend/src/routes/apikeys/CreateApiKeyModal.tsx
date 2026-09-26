@@ -280,7 +280,7 @@ export function CreateApiKeyModal({
             <Button
               leftSection={<IconKey size={16} />}
               loading={submitting}
-              onClick={submit}
+              onClick={() => void submit()}
             >
               Créer la clé
             </Button>

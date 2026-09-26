@@ -28,6 +28,7 @@ export function ProfileFields({
 }: {
   profile: UserProfileData;
   identifier: string;
+  /** Envoie le profil ; une promesse rendue doit gérer SES erreurs (le bouton ne l'attend pas). */
   onSubmit: (next: UserProfileData) => void | Promise<void>;
   saving?: boolean;
   disabled?: boolean;
@@ -80,7 +81,7 @@ export function ProfileFields({
             leftSection={<IconDeviceFloppy size={16} />}
             loading={saving}
             disabled={disabled || !dirty}
-            onClick={() => onSubmit(draft)}
+            onClick={() => void onSubmit(draft)}
           >
             Enregistrer le profil
           </Button>

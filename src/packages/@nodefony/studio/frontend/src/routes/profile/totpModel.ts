@@ -69,6 +69,8 @@ export function describeTotpError(e: unknown): string {
       return "2FA indisponible sur ce serveur.";
     case 404:
       return "Service 2FA introuvable.";
+    // Erreur sans statut HTTP (réseau, exception locale) : même repli que le défaut.
+    case undefined:
     default:
       return e instanceof Error ? e.message : "Erreur inattendue.";
   }

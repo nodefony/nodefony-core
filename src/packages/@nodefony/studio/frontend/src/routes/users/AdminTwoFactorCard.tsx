@@ -104,7 +104,11 @@ export function AdminTwoFactorCard({ userId }: { userId: string }) {
             <Button variant="default" onClick={() => setConfirm(false)}>
               Annuler
             </Button>
-            <Button color="red" loading={disabling} onClick={disable}>
+            <Button
+              color="red"
+              loading={disabling}
+              onClick={() => void disable()}
+            >
               Désactiver
             </Button>
           </Group>

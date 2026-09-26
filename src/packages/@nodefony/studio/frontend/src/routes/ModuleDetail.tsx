@@ -433,7 +433,7 @@ export const ModuleDetail = observer(() => {
         setCoverage(cov);
         setTests(testsInfo);
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         if (!cancelled) setError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
@@ -493,7 +493,7 @@ export const ModuleDetail = observer(() => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate("/nodefony/modules")}
+          onClick={() => void navigate("/nodefony/modules")}
           w="fit-content"
         >
           Modules
@@ -511,6 +511,9 @@ export const ModuleDetail = observer(() => {
 
   const hasDocs = docs.length > 0;
   const hasApi = symbols.length > 0;
+  // `coverage` vient du réseau : le `=== true` refuse un `"true"` ou un `1`
+  // qu'un serveur mal aligné renverrait, là où le type promet un booléen.
+  // oxlint-disable-next-line typescript/no-unnecessary-boolean-literal-compare
   const hasCoverage = coverage.available === true;
   const hasTests = tests.files.length > 0;
   const hasDeps = data.dependencies.length > 0;
@@ -577,7 +580,7 @@ export const ModuleDetail = observer(() => {
         <Button
           variant="subtle"
           leftSection={<IconArrowLeft size={16} />}
-          onClick={() => navigate("/nodefony/modules")}
+          onClick={() => void navigate("/nodefony/modules")}
         >
           Modules
         </Button>
@@ -820,7 +823,9 @@ export const ModuleDetail = observer(() => {
             <Tabs.Panel value="deps">
               <DepsPanel
                 moduleKey={name}
-                onNavigate={(short) => navigate(`/nodefony/modules/${short}`)}
+                onNavigate={(short) =>
+                  void navigate(`/nodefony/modules/${short}`)
+                }
               />
             </Tabs.Panel>
           )}
@@ -970,7 +975,7 @@ function DocsPanel({
       .then((c) => {
         if (!cancelled) setContent(c);
       })
-      .catch((e) => {
+      .catch((e: unknown) => {
         if (!cancelled) setDocError(e instanceof Error ? e.message : String(e));
       })
       .finally(() => {
@@ -1311,7 +1316,7 @@ function DepsPanel({
           color={nbOutdated > 0 ? "orange" : undefined}
           leftSection={<IconRefresh size={14} />}
           loading={checking}
-          onClick={check}
+          onClick={() => void check()}
         >
           {checked
             ? nbOutdated > 0
@@ -1501,7 +1506,7 @@ function TestsPanel({
             <Button
               leftSection={<IconPlayerPlay size={16} />}
               loading={allRes === "running"}
-              onClick={() => run()}
+              onClick={() => void run()}
             >
               Lancer tous (+ coverage)
             </Button>
@@ -1535,7 +1540,7 @@ function TestsPanel({
                           variant="light"
                           leftSection={<IconPlayerPlay size={14} />}
                           loading={res === "running"}
-                          onClick={() => run(f)}
+                          onClick={() => void run(f)}
                         >
                           Run
                         </Button>

@@ -613,7 +613,7 @@ class ScaffoldService extends Service {
       }
       const label =
         type === "app"
-          ? `$ nodefony create app ${answers.name}${delivery === "download" ? " (archive)" : ` (${dir})`}`
+          ? `$ nodefony create app ${String(answers.name)}${delivery === "download" ? " (archive)" : ` (${dir})`}`
           : `$ nodefony create ${type}`;
       this.#emit(job, "info", label);
       const request: IScaffoldRequest = {

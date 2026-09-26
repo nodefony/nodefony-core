@@ -125,7 +125,7 @@ export function DebugRuntimeChip() {
         <HoverCard.Target>
           <UnstyledButton
             aria-label={label}
-            onClick={() => navigate("/nodefony/logs?tab=debug")}
+            onClick={() => void navigate("/nodefony/logs?tab=debug")}
             style={{ lineHeight: 0 }}
           >
             <Badge

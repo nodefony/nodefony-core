@@ -241,9 +241,10 @@ export const Webhooks = observer(() => {
   const actions = useMemo<WebhookActions>(
     () => ({
       onEdit: (ep) => setFormTarget(ep),
-      onToggle: toggle,
-      onRotate: rotate,
-      onReveal: revealSecret,
+      // Chaque action capture ses erreurs (notification) : on lance sans attendre.
+      onToggle: (ep) => void toggle(ep),
+      onRotate: (ep) => void rotate(ep),
+      onReveal: (ep) => void revealSecret(ep),
       onDelete: (ep) => setConfirmDelete(ep),
     }),
     [toggle, rotate, revealSecret],
@@ -466,7 +467,7 @@ export const Webhooks = observer(() => {
                 color="red"
                 leftSection={<IconTrash size={16} />}
                 loading={deleting}
-                onClick={doDelete}
+                onClick={() => void doDelete()}
               >
                 Supprimer
               </Button>
