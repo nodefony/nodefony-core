@@ -296,6 +296,15 @@ surfaces périphériques gardent l'ancien chiffre après un recalage.
 
 ## 🎯 Une règle vérifiée sur UN décor n'est pas une règle — elle casse sur l'autre
 
+- [1× — 09-26] **Un gel livré sans voir l'écrivain GÉNÉRIQUE** : l'inventaire de #491 cherchait
+  les écritures de config par motif (`options.x =`) ; `applyResolvedPath` (écriture par chemin,
+  édition à chaud Studio) y échappait, et son test unitaire utilisait un module JAMAIS gelé → tout
+  vert, 500 en réel, trouvé une session plus tard par un drapeau `runtimeMutable`. Avant de figer
+  un état partagé : chercher les écrivains par CAPACITÉ (qui reçoit l'objet et un chemin), et
+  rejouer le geste réel sur le serveur, pas le test sur un décor non gelé.
+- [1× — 09-26] **`rg` ne voit pas `dist/`** (`.gitignore`) : le marqueur « quel code tourne » d'un
+  A/B rendait 0 des DEUX côtés — le contrôle ne discriminait rien. Un marqueur se prouve d'abord
+  PRÉSENT sur un côté connu (cf `feedback_suspect_instrument_and_own_diff`).
 - [1× — 09-25j] **A/B « aucune régression » publié sur des séries à thermal de départ DIFFÉRENT**
   (old 42/37, new 22/18) : chaque série était valide (dispersion ≤ 3 %), la PAIRE ne l'était pas —
   l'audit l'a vu, pas moi. Relever le thermal de départ des deux camps AVANT de comparer, ou

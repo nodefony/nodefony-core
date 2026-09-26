@@ -1,5 +1,5 @@
 {
-  "generatedAt": "2026-09-25T20:29:46.964Z",
+  "generatedAt": "2026-09-26T00:46:43.356Z",
   "source": "github:nodefony/nodefony-core",
   "project": "nodefony/2",
   "milestones": [
@@ -18,7 +18,7 @@
       "title": "11.0.0"
     },
     {
-      "closed": 0,
+      "closed": 1,
       "dueOn": null,
       "number": 5,
       "open": 9,
@@ -39,10 +39,10 @@
       "title": "10.0.0-alpha"
     },
     {
-      "closed": 33,
+      "closed": 36,
       "dueOn": "2026-10-10T00:00:00Z",
       "number": 7,
-      "open": 48,
+      "open": 46,
       "title": "10.0.0-beta"
     },
     {
@@ -99,7 +99,7 @@
       "status": "In Progress",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
-      "jours": 3.5,
+      "jours": 1,
       "ordre": 0.5,
       "debut": null,
       "cible": null,
@@ -253,8 +253,8 @@
       "number": 485,
       "title": "feat(core): ajouter une portée « par requête » aux services injectables",
       "url": "https://github.com/nodefony/nodefony-core/issues/485",
-      "state": "OPEN",
-      "status": "In Progress",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P0 — bloque le reste",
       "jours": 1,
@@ -349,11 +349,25 @@
       "number": 491,
       "title": "fix(core): empêcher une requête de modifier la configuration partagée",
       "url": "https://github.com/nodefony/nodefony-core/issues/491",
-      "state": "OPEN",
-      "status": "Todo",
+      "state": "CLOSED",
+      "status": "Done",
       "milestone": "10.0.0-beta",
       "priorite": "P1 — figé à la création",
       "jours": 1,
+      "ordre": 1.07,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 493,
+      "title": "refactor(core)!: retirer les paramètres à chemin pointé du conteneur",
+      "url": "https://github.com/nodefony/nodefony-core/issues/493",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "10.0.0-beta",
+      "priorite": "P1 — figé à la création",
+      "jours": 0.5,
       "ordre": 1.07,
       "debut": null,
       "cible": null,
@@ -6732,6 +6746,20 @@
       "priorite": "P1 — figé à la création",
       "jours": 11,
       "ordre": 173,
+      "debut": null,
+      "cible": null,
+      "labels": []
+    },
+    {
+      "number": 494,
+      "title": "feat(core): superposer une configuration propre à chaque requête",
+      "url": "https://github.com/nodefony/nodefony-core/issues/494",
+      "state": "CLOSED",
+      "status": "Done",
+      "milestone": "12.0.0",
+      "priorite": "P1 — figé à la création",
+      "jours": 2,
+      "ordre": 173.1,
       "debut": null,
       "cible": null,
       "labels": []
