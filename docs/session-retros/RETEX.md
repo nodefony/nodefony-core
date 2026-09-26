@@ -148,6 +148,14 @@ et la frontière d'un format structuré se compose avec sa grammaire.
   ce qu'il vaudra APRÈS le durcissement prévu, pas sur ce qu'il vaut pendant qu'il est inerte —
   le plus étroit se durcit tout seul dans le bon sens. [1× — 08-22e]
 
+- [1× — 09-26i] **Un `undefined` OBSERVABLE est devenu un contrat, même si le type le nie.**
+  `Command.prompts!` vaut `undefined` avant `loadPrompts()` ; pour rendre le type vrai je l'ai
+  changé en accesseur qui LÈVE avant chargement — typecheck vert, lint vert. Seul un test existant
+  (« prompts est LAZY : undefined avant loadPrompts ») a montré qu'un appelant peut tester
+  `cmd.prompts` : rupture pure, à types identiques pour qui l'écrivait. Rendre un type honnête en
+  changeant ce que le code FAIT n'est pas un nettoyage de lint. Contrôle : avant de durcir un champ
+  public, `rg` sur ses LECTURES (tests compris) — une lecture qui tolère l'absence fige l'absence.
+
 ## 🔑 Un secret écrit là où personne ne le lit — et la question « qui le lit ? » qu'on ne pose pas
 
 - [1× — 09-11] **Une clé privée ne restait hors de l'image que par COÏNCIDENCE de chemins.** Le
