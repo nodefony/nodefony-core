@@ -368,14 +368,13 @@ sharedNC.emit("broadcast"); // les deux services reçoivent
 | `get<T>(name)` | `T \| null` | Récupère du container |
 | `set<T>(name, obj)` | `void` | Stocke dans le container |
 | `has(name)` | `boolean` | Vérifie dans le container |
-| `remove(name)` | `boolean` | Supprime du container (toujours `false`) |
+| `remove(name)` | `boolean` | Supprime du container (appelle `clean()` si Service) — `true` si le service existait |
 | `on/off/once/emit/fire/...` | `this \| boolean` | Events (délégation EventEmitter) |
 
 ### Comportements à connaître (gotchas)
 
 | Comportement                         | Détail                                                         |
 | ------------------------------------ | -------------------------------------------------------------- |
-| `remove()` retourne `false`          | Toujours, même si suppression réussie                          |
 | `events.nbListeners` ignoré          | Seulement appliqué si Event partagé passé au constructeur      |
 | `pdu.severity` vs `pdu.severityName` | Numérique vs string — utiliser `severityName` pour comparer    |
 | `"CRITIC"` pas `"CRITICAL"`          | Nom exact dans l'enum SysLogSeverity                           |

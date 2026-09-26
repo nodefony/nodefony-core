@@ -449,8 +449,10 @@ et expose un sous-ensemble (RealtimeClient, Pdu, Syslog, Tools…) ⇒ le même 
 Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
 
 - **DI délégué au container** : `get<T>(name): T|null` `:427` (null si pas de container, no-throw) · `set<T>(name,obj): void`
-  `:435` (**throw** si pas de container) · `has(name): boolean` `:477` · `getParameters` `:461` / `setParameters` `:469`
-  · `remove(name): boolean` `:447` (⚠️ **retourne toujours `false`** — bug de délégation, voir gotchas).
+  `:435` (**throw** si pas de container) · `has(name): boolean` `:477`
+  · `remove(name): boolean` `:447` (appelle `clean()` si c'est un `Service`, rend `true` s'il existait).
+  Aucune API de paramètres : `getParameters`/`setParameters` sont retirés (ADR-0012) — un module
+  lit sa config dans `this.options`, figée à la fin de `onReady` ; par requête → `useConfig()`.
 - **Events délégués à `#nc` (un `Event`)** : `fire` `:272` (=`emit`), `fireAsync`/`emitAsync` `:277`/`:287`,
   `emitAsyncGuarded` `:296` (délègue à `this.nc.emitAsyncGuarded`), `on`/`once`/`off` `:328`/`:335`/`:343`,
   `listen` `:317` (non traçé → pas retiré au `clean`), `settingsToListen` `:353` (auto-wire des clés `onFoo`).
@@ -477,9 +479,12 @@ Constructeur `(name, container?, notificationsCenter?, options?)` `:79`.
   `:212` · `has(name)` `:247` / `remove(name)` `:225` (via `name in services`, pas `!!value` → falsy OK) · `keys`/`entries` `:252`/`:257`.
 - Scopes (LAZY — `scopes:null` tant que 0 `addScope`) : `addScope` `:272` · `enterScope` `:293` → `Scope` · `leaveScope` `:312`
   · `scopeCount(name): number` `:330` (sonde fuite/Studio) · `removeScope` `:341`.
-- `clean()` `:412` / `reset()` `:423` (clean + recrée les protos → réutilisable).
+- `clean()` `:412` / `reset()` `:423` (racine seulement : clean + recrée les protos → réutilisable).
 - **`Scope extends Container implements IScope`** `:440` : `set`/`remove` overridés **own-property only** (`:466`/`:479`)
-  — écrire sur le proto partagé polluerait le parent (data race per-requête).
+  — écrire sur le proto partagé polluerait le parent (data race per-requête). `reset()` **lève** sur un scope.
+  `hasOwn(name)` (posé SUR ce scope, jamais hérité) · `own(obj)` (rattache : `clean()` LIFO à la fermeture ;
+  lève si scope fermé) · `closed` (getter, `services === null`). Scope imbriqué → chaîne sur les services
+  du scope PARENT. Registre des scopes ouverts = `Set` par nom ; `leaveScope` retire AVANT `clean()`.
 
 ### `Event` (+ `emitAsyncGuarded`)
 
@@ -717,8 +722,6 @@ chaque `Pdu` via `Pdu.requestIdProvider` (branché Node-only dans `index.ts:381-
   `import { Error }` ❌ → `import { nodefonyError }` · `import { kernel }` ❌ (singleton supprimé) → `Nodefony.getKernel()`.
 - **`@Inject` (propriété) et `entities` ABSENTS du barrel** : un consumer npm ne peut faire que `@inject` (paramètre ctor).
   L'injection de propriété (`@Inject`) existe dans le code mais n'est pas exportée par `nodefony` → utiliser l'injection ctor.
-- **`Service.remove(name)` retourne TOUJOURS `false`** (`Service.ts:447`, bug de délégation connu) alors que `Container.remove`
-  retourne `true`/`false` correctement → ne pas se fier au retour de `Service.remove`, interroger `Container` directement.
 - **`Service` n'étend PAS EventEmitter** (composition `#nc`) : `new Service(name, ct, false)` → tout `on/emit/fire` throw
   `notificationsCenter not initialized`. `notificationsCenter` partagé (Event passé) ≠ auto-créé (cleanup par-service traçé).
 - **`new Kernel()` pollue le singleton global** (`Nodefony.setKernel(this)` dans le ctor) → isoler les tests Kernel (mock minimal).

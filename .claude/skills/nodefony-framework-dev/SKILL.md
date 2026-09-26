@@ -237,6 +237,11 @@ Pour un type tordu ou une signature `@types/node` exacte, `curl` la source brute
   fire plus tard (`message`/`close`/`finish`, timer, hook post-réponse) et qui lit l'ALS →
   **`AsyncResource.bind(fn)` au bind** (sinon `RequestContext.get()` = `undefined`). Le teardown HTTP
   est **hors** bulle ALS → y lire la réf sur le `context`, pas via `RequestContext.get()`.
+- **Scope de requête = calque prototypal** : chaque requête (WS : chaque connexion) a son `Scope`,
+  dont le prototype est le conteneur du kernel — lecture héritée, écriture locale, jeté à
+  `leaveScope`. Atteint par `RequestContext.getScope()`/`requireScope()` ; service par requête =
+  `@injectable({ scope: "request" })` (ctor reçoit le scope, `clean()` LIFO, captive refusée au
+  boot). Jamais `container.set()` pour un état de requête. Détail : `references/core.md` § Container.
 - **Module hooks = méthodes prototype**, jamais arrow ni property initializer (`super()` tourne avant
   les initializers → un hook en property n'est pas encore défini quand `setEvents()` le wire).
 - **`@nodefony/http` ne peut PAS importer `@nodefony/framework`** (cycle) → resolver via `(context as any)?.resolver`.

@@ -34,6 +34,13 @@ serveur → http-kernel.handle() → rate-limit IP → createContext()
 Chaque contexte (HTTP + WS) porte un `requestId` (UUID v4, ou `X-Request-Id` client),
 réinjecté dans la réponse et corrélé dans les logs via AsyncLocalStorage.
 
+Chaque requête HTTP — et chaque connexion WebSocket — reçoit aussi **son propre conteneur de
+services** : un scope ouvert à l'entrée (`enterScope`), dont le prototype est le conteneur du kernel,
+refermé après les hooks `onAfterResponse`/`onFinish` (`leaveScope`), y compris quand un hook lève.
+Le serveur le pose dans le contexte asynchrone de la requête : `RequestContext.getScope()` le rend
+depuis n'importe quel code, et les services `@injectable({ scope: "request" })` y vivent. Détail :
+[Injection & portées](../../../../docs/architecture/injection-portees.md).
+
 ## Rate-limit général par IP
 
 Plafond de trafic **par IP cliente** sur toutes les routes HTTP — protège la capacité du serveur

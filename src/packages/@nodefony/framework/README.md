@@ -12,7 +12,10 @@ sert **HTTP et WebSocket dans le même contexte**, nativement.
 
 - **Router** : matching de routes (path + méthode + domaine), `Route.match()`.
 - **Resolver** : résout route → controller → action, injecte les paramètres décorés.
-- **Controller** : classe de base ; cycle `initialize()` → action ; HTTP + WS.
+- **Controller** : classe de base ; cycle `initialize()` → action ; HTTP + WS. Neuf à chaque requête
+  par défaut (il peut alors injecter des services `@injectable({ scope: "request" })`) ;
+  `@Scope("singleton")` le partage, et un contrôleur singleton qui dépendrait d'un service par requête
+  est refusé au démarrage.
 - **Décorateurs** : `@controller`, `@route`, `@Get/@Post/...`, `@Param/@Body/@Query/@Headers`,
   `@Domain`, etc.
 - **Data plane admin** : `AdminApiController` + `IAdminBroker` (surface `/nodefony/<module>/api/*`).
