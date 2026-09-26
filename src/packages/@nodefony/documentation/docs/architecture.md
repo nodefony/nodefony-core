@@ -452,10 +452,10 @@ unique des défauts.
 Deux variables d'environnement écrasent la config, appliquées **après** le parse pour que le
 schéma reste pur et sérialisable (`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) :
 
-| Variable           | Écrase        | Quand c'est utile                                        |
-| ------------------ | ------------- | -------------------------------------------------------- |
-| `DOCS_REPO_URL`    | `repo.url`    | image de conteneur partagée entre plusieurs dépôts       |
-| `DOCS_REPO_BRANCH` | `repo.branch` | CI ou production détachée de git (pas de `.git` lisible) |
+| Variable              | Écrase        | Quand c'est utile                                        |
+| --------------------- | ------------- | -------------------------------------------------------- |
+| `NF_DOCS_REPO_URL`    | `repo.url`    | image de conteneur partagée entre plusieurs dépôts       |
+| `NF_DOCS_REPO_BRANCH` | `repo.branch` | CI ou production détachée de git (pas de `.git` lisible) |
 
 La validation a lieu au `onKernelRegister` (`index.ts:63`), **avant** l'instanciation du
 service : une config invalide arrête le démarrage avec un message qui nomme le champ fautif,
@@ -593,7 +593,7 @@ ligne change côté serveur.
 | Un lien de card ne mène nulle part                            | `href` d'une fence typée mal compté (le JSON est traduit comme le markdown, mais pas deviné)   | vérifier le chemin relatif ; le banc de corpus l'attrape                |
 | Une ancre `#section` marche sur GitHub, morte dans le portail | divergence entre `slugifyHeading()` (`DocToc.tsx:54`) et le gate `anchor-inpage`               | garder les deux implémentations identiques — accents conservés          |
 | Le bouton « voir la source » pointe vers un mauvais fichier   | le frontmatter `source:` **écrase** le chemin réel dans `#buildSourceUrl()`                    | tenir `source:` à jour, ou l'omettre pour laisser le chemin réel gagner |
-| Le lien source pointe vers une branche absente en production  | pas de `.git` lisible dans le conteneur → repli sur `main`                                     | poser `DOCS_REPO_BRANCH` (ou `repo.branch`)                             |
+| Le lien source pointe vers une branche absente en production  | pas de `.git` lisible dans le conteneur → repli sur `main`                                     | poser `NF_DOCS_REPO_BRANCH` (ou `repo.branch`)                          |
 | Une clé de frontmatter n'a aucun effet                        | seules `title` · `audience` · `version` · `status` · `updated` · `source` sont consommées      | comportement voulu : les autres clés servent au RAG                     |
 | Un frontmatter multi-lignes (`                                | `) casse le titre                                                                              | non supporté par le parseur plat (`frontmatter.ts:51`)                  | rester en YAML plat : scalaire ou liste |
 

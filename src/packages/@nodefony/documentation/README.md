@@ -58,7 +58,7 @@ use("@nodefony/documentation", {
 | `cache.ttlMs` | `30000` | TTL (ms) du cache de l'**index** ; `0` = pas de cache |
 
 **Variables d'environnement** (précédence maximale, utiles en CI/conteneur sans `.git`) :
-`DOCS_REPO_URL`, `DOCS_REPO_BRANCH`.
+`NF_DOCS_REPO_URL`, `NF_DOCS_REPO_BRANCH`.
 
 ## API HTTP
 

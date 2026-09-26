@@ -301,7 +301,7 @@ au démarrage contre le schéma du module (`documentationConfigSchema`,
 | `cache`   | la durée de vie du catalogue ; `0` = rescan à chaque appel                            | `30000` ms                      |
 
 Deux réglages se surchargent par l'environnement, appliqués **après** la validation
-(`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) : `DOCS_REPO_URL` et `DOCS_REPO_BRANCH`.
+(`defineDocumentationConfig()`, `defineModuleConfig.ts:33`) : `NF_DOCS_REPO_URL` et `NF_DOCS_REPO_BRANCH`.
 Le second sert en conteneur, où le dépôt git n'est pas embarqué — sans lui, la branche est lue au
 runtime dans le dépôt réel, et retombe sur `main` s'il n'y en a pas.
 

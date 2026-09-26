@@ -22,7 +22,7 @@ Data plane de documentation transverse **HEADLESS**. Indexe `docs/` racine + `<m
 
 ## Config (clé `module-documentation` + ENV)
 
-`scan.rootDir="docs"` · `scan.includeModules=true` · `scan.exclude=["session-retros","node_modules","dist"]` · `repo.url`=github nodefony-core · `repo.branch`=**auto** (`GitService.branch`) si omis · `repo.editPathPrefix="edit"|"blob"|"tree"` · `cache.ttlMs=30000` (0 = rescan/req, dev) · `enabled=true`. ENV (précédence max) : `DOCS_REPO_URL`, `DOCS_REPO_BRANCH`.
+`scan.rootDir="docs"` · `scan.includeModules=true` · `scan.exclude=["session-retros","node_modules","dist"]` · `repo.url`=github nodefony-core · `repo.branch`=**auto** (`GitService.branch`) si omis · `repo.editPathPrefix="edit"|"blob"|"tree"` · `cache.ttlMs=30000` (0 = rescan/req, dev) · `enabled=true`. ENV (précédence max) : `NF_DOCS_REPO_URL`, `NF_DOCS_REPO_BRANCH`.
 
 ## Behaviors
 

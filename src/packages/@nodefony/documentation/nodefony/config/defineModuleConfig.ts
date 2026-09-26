@@ -41,10 +41,10 @@ export function defineDocumentationConfig(
 
   // Surcharge ENV (précédence max) — appliquée APRÈS le parse pour garder le
   // schéma pur et déterministe. Utile en CI/prod détaché de git.
-  const repoUrlEnv = env("DOCS_REPO_URL");
+  const repoUrlEnv = env("NF_DOCS_REPO_URL");
   if (repoUrlEnv) parsed.repo.url = repoUrlEnv;
 
-  const branchEnv = env("DOCS_REPO_BRANCH");
+  const branchEnv = env("NF_DOCS_REPO_BRANCH");
   if (branchEnv) parsed.repo.branch = branchEnv;
 
   return parsed;

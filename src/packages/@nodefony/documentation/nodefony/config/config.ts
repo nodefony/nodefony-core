@@ -19,8 +19,8 @@ import { z } from "zod";
  *
  * ⚠️ ENV : ce schéma reste PUR (pas de lecture `process.env` ici, sinon il
  * deviendrait non déterministe et non sérialisable en JSON Schema pour Studio).
- * La surcharge par variables d'environnement (`DOCS_REPO_URL`,
- * `DOCS_REPO_BRANCH`) est appliquée dans {@link defineDocumentationConfig},
+ * La surcharge par variables d'environnement (`NF_DOCS_REPO_URL`,
+ * `NF_DOCS_REPO_BRANCH`) est appliquée dans {@link defineDocumentationConfig},
  * APRÈS le parse.
  *
  * SURCHARGE PAR L'APPLICATION (fusion récursive) :
@@ -92,7 +92,7 @@ const repoSchema = z
       .describe(
         "URL de base du dépôt (sans slash final), pour construire le lien " +
           "« Modifier sur GitHub » d'une page. Surchargeable par l'env " +
-          "`DOCS_REPO_URL`. Aucun secret — URL publique uniquement.",
+          "`NF_DOCS_REPO_URL`. Aucun secret — URL publique uniquement.",
       ),
     branch: z
       .string()
@@ -102,7 +102,7 @@ const repoSchema = z
         "Branche utilisée dans le lien d'édition. Si OMISE (défaut), la " +
           "branche RÉELLE est résolue au runtime via `GitService.branch()` du " +
           "core (lecture `.git/HEAD`, 0 spawn) → le lien suit toujours la " +
-          "branche courante. Surchargeable par l'env `DOCS_REPO_BRANCH` " +
+          "branche courante. Surchargeable par l'env `NF_DOCS_REPO_BRANCH` " +
           "(utile en CI/prod détaché de git, ex. conteneur sans `.git`).",
       ),
     editPathPrefix: z
