@@ -590,7 +590,7 @@ export async function listModuleSymbols(
   if (file === null) return [];
   let parsed: { symbols?: Record<string, RawSymbol> };
   try {
-    parsed = JSON.parse(await readFile(file, "utf8"));
+    parsed = JSON.parse(await readFile(file, "utf8")) as typeof parsed;
   } catch {
     return [];
   }
@@ -793,7 +793,9 @@ export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
     peerDependencies?: Record<string, string>;
   } = {};
   try {
-    pkg = JSON.parse(await readFile(join(modulePath, "package.json"), "utf8"));
+    pkg = JSON.parse(
+      await readFile(join(modulePath, "package.json"), "utf8"),
+    ) as typeof pkg;
   } catch {
     /* pas de package.json */
   }
@@ -816,7 +818,7 @@ export async function readDependencies(modulePath: string): Promise<DepInfo[]> {
             join(base, "node_modules", name, "package.json"),
             "utf8",
           ),
-        );
+        ) as { version?: unknown };
         if (typeof dp.version === "string") {
           installed = dp.version;
           break;
@@ -1314,7 +1316,10 @@ export async function readCoverage(
   const summaryPath = join(dir, "coverage-summary.json");
   try {
     report = parseSummary(
-      JSON.parse(await readFile(summaryPath, "utf8")),
+      JSON.parse(await readFile(summaryPath, "utf8")) as Record<
+        string,
+        unknown
+      >,
       modulePath,
     );
     if (report) usedFile = summaryPath;
@@ -1331,7 +1336,7 @@ export async function readCoverage(
     }
   }
   if (!report) return { available: false };
-  report.files!.sort((a, b) => a.file.localeCompare(b.file));
+  report.files?.sort((a, b) => a.file.localeCompare(b.file));
   try {
     report.generated = usedFile
       ? (await stat(usedFile)).mtime.toISOString()
@@ -1362,7 +1367,13 @@ export async function readCoreInfo(): Promise<CoreInfo> {
   let version: string | null = null;
   let dependencies: string[] = [];
   try {
-    const pkg = JSON.parse(await readFile(join(path, "package.json"), "utf8"));
+    const pkg = JSON.parse(
+      await readFile(join(path, "package.json"), "utf8"),
+    ) as {
+      version?: unknown;
+      dependencies?: Record<string, unknown>;
+      peerDependencies?: Record<string, unknown>;
+    };
     version = typeof pkg.version === "string" ? pkg.version : null;
     dependencies = [
       ...Object.keys(pkg.dependencies ?? {}),

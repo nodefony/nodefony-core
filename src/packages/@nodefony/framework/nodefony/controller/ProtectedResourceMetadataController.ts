@@ -181,7 +181,7 @@ class ProtectedResourceMetadataController extends Controller {
  */
 export interface IServiceScan {
   keys(): string[];
-  get<T = unknown>(name: string): T | null;
+  get(name: string): unknown;
 }
 
 /**
@@ -214,7 +214,9 @@ export function collectProtectedResources(
 ): readonly IProtectedResourceInput[] {
   const collected: IProtectedResourceInput[] = [];
   for (const name of container.keys()) {
-    const service = container.get<Partial<IProtectedResourcePublisher>>(name);
+    // Forme SUPPOSÉE, vérifiée juste en dessous (`typeof … === "function"`).
+    const service = container.get(name) as
+      Partial<IProtectedResourcePublisher> | null | undefined;
     if (typeof service?.publishedProtectedResources !== "function") continue;
     let declared: readonly IProtectedResourceInput[];
     try {

@@ -88,14 +88,17 @@ class TotpController extends Controller {
     if (typeof code !== "string" || code.length === 0) {
       return this.renderJson({ error: "Invalid code" }, 400);
     }
+    // Le rendu reste HORS du `try` : le `catch` muet ne doit attraper que le
+    // refus métier, jamais un échec d'envoi maquillé en « code invalide ».
+    let activation: { recoveryCodes: string[] };
     try {
-      const activation = await svc.confirmEnrollment(subject, code);
-      return this.renderJson(activation);
+      activation = await svc.confirmEnrollment(subject, code);
     } catch {
       // Code faux, enrôlement absent ou déjà confirmé — message uniforme (le
       // détail métier ne franchit pas la frontière HTTP).
       return this.renderJson({ error: "Invalid or expired code" }, 400);
     }
+    return this.renderJson(activation);
   }
 
   /** Désactive le 2FA du porteur courant (retire secret + codes). */

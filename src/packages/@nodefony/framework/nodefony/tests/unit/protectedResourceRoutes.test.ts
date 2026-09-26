@@ -136,7 +136,7 @@ describe("askedAuthority — la même valeur quel que soit le transport", () => 
 function scan(services: Record<string, unknown>): IServiceScan {
   return {
     keys: () => Object.keys(services),
-    get: <T>(name: string) => (services[name] ?? null) as T | null,
+    get: (name: string) => services[name] ?? null,
   };
 }
 

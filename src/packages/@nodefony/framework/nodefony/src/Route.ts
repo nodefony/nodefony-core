@@ -89,6 +89,8 @@ export interface ControllerConstructor {
   // requis ; `unknown[]` casse l'instanciation via `Injector`. Pas de la dette.
   // oxlint-disable-next-line typescript/no-explicit-any -- signature de constructeur générique — `unknown[]` casse l'assignabilité des classes concrètes
   new (...args: any[]): Controller;
+  /** Prototype de la classe — porte les métadonnées des actions (`@Param`…). */
+  readonly prototype: Controller;
 }
 
 /**
@@ -372,6 +374,10 @@ class Route implements IRoute {
             } else if (typeof req === "string") {
               compiled = new RegExp(req);
             } else {
+              // Sentinelle de contrôle, interceptée par le `catch` ci-dessous :
+              // une `Error` capturerait une pile à chaque candidate écartée, sur
+              // le chemin chaud du routage.
+              // oxlint-disable-next-line typescript/only-throw-error
               throw {
                 BreakException: `Requirement Routing config Exception variable : ${k} must be RegExp or string : ${typeOf(req)}`,
               };
@@ -379,8 +385,10 @@ class Route implements IRoute {
           }
           result = compiled.test(param ?? "");
           if (!result) {
+            // Même sentinelle que ci-dessus (cf. le `catch`).
+            // oxlint-disable-next-line typescript/only-throw-error
             throw {
-              BreakException: `Requirement Exception variable : ${k} ==> ${param} doesn't match with ${String(req)}`,
+              BreakException: `Requirement Exception variable : ${k} ==> ${param} doesn't match with ${typeof req === "string" ? req : String(compiled)}`,
             };
           }
         }
@@ -483,7 +491,7 @@ class Route implements IRoute {
       this.methodsSet = new Set(list);
       this.methodsAllow = list.join(",");
     } else if (Array.isArray(methods)) {
-      const list = methods.map((m) => String(m).toUpperCase());
+      const list = methods.map((m) => m.toUpperCase());
       this.methodsSet = new Set(list);
       this.methodsAllow = list.join(",");
     }
@@ -555,7 +563,7 @@ class Route implements IRoute {
     const m = Array.isArray(this.requirements?.methods)
       ? this.requirements.methods.join("|")
       : this.requirements?.methods || this.method || "ANY";
-    const method = `[${String(m)}]`.padEnd(10);
+    const method = `[${m}]`.padEnd(10);
     const ctrl = this.controller?.name || "?";
     const action = this.classMethod || this.name;
     const mod = this.module?.name ? `@${this.module.name}/` : "";
@@ -707,7 +715,7 @@ class Route implements IRoute {
             // absent = type de config invalide → même throw qu'avant.
             if (!this.methodsSet) {
               throw new Error(
-                `Bad config route method : ${this.requirements[i]}`,
+                `Bad config route method : ${String(this.requirements.methods)}`,
               );
             }
             // Pont WS-RPC `api.request` d'une MUTATION : `context.method` vaut
@@ -747,25 +755,17 @@ class Route implements IRoute {
             // requirements.domain via le matcher partagé). No-op ici.
             break;
           case "protocol":
-            switch (context.method) {
-              case "WEBSOCKET":
-                let requirement = this.requirements[i];
-                if (!requirement) {
-                  return true;
-                }
-                if (typeof requirement === "string") {
-                  if (
-                    (context as WebsocketContext).acceptedProtocol !==
-                    requirement
-                  ) {
-                    const error = new HttpError(
-                      `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
-                    );
-                    error.code = 1002;
-                    error.type = "protocol";
-                    throw error;
-                  }
-                } else {
+            // Seul le transport WebSocket négocie un sous-protocole ; les
+            // méthodes HTTP n'ont rien à vérifier ici.
+            if (context.method === "WEBSOCKET") {
+              const requirement = this.requirements[i];
+              if (!requirement) {
+                return true;
+              }
+              if (typeof requirement === "string") {
+                if (
+                  (context as WebsocketContext).acceptedProtocol !== requirement
+                ) {
                   const error = new HttpError(
                     `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
                   );
@@ -773,7 +773,14 @@ class Route implements IRoute {
                   error.type = "protocol";
                   throw error;
                 }
-                break;
+              } else {
+                const error = new HttpError(
+                  `Protocol ${(context as WebsocketContext).acceptedProtocol} Unauthorized`,
+                );
+                error.code = 1002;
+                error.type = "protocol";
+                throw error;
+              }
             }
             break;
         }

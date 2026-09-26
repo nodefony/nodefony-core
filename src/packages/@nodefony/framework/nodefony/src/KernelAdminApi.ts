@@ -439,7 +439,9 @@ function actorLabel(user: unknown): string | null {
     getUserIdentifier?: () => string;
     username?: string;
     email?: string;
-    id?: unknown;
+    // Identifiant quelconque (nombre, chaîne, ObjectId Mongo…) : seul son
+    // `toString()` compte ici.
+    id?: { toString(): string } | null;
   };
   if (typeof u.getUserIdentifier === "function") {
     try {
@@ -981,10 +983,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
               name: service,
               module: name,
               class:
-                (
-                  mod.get(service) as
-                    { constructor?: { name?: string } } | null | undefined
-                )?.constructor?.name ?? null,
+                mod.get<{ constructor?: { name?: string } }>(service)
+                  ?.constructor?.name ?? null,
             });
           }
         }
@@ -1519,8 +1519,8 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
         const services = mod.getServiceNames().map((sname) => ({
           name: sname,
           class:
-            (mod.get(sname) as { constructor?: { name?: string } } | null)
-              ?.constructor?.name ?? null,
+            mod.get<{ constructor?: { name?: string } }>(sname)?.constructor
+              ?.name ?? null,
         }));
         // Succès = donnée brute (le broker assume 200). NE PAS wrapper dans
         // `{ body }` sans `status`/`headers` → normalize ne le reconnaît pas
@@ -1886,7 +1886,7 @@ export function createKernelAdminApi(kernel: IKernel): IAdminApi {
               startedAt: Date.now(),
               result,
             }),
-          (e) =>
+          (e: unknown) =>
             testJobs.set(jobId, {
               status: "done",
               startedAt: Date.now(),

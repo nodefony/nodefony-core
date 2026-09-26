@@ -85,7 +85,7 @@ class TokenAuthController extends Controller {
         // de l'autorité qui émet.
         body.resource,
       );
-      return this.renderJson(tokens);
+      return await this.renderJson(tokens);
     } catch (e) {
       return this.#renderAuthError(e);
     }
@@ -107,7 +107,7 @@ class TokenAuthController extends Controller {
       // qu'il a reçu l'ancienne — un paramètre accepté puis jeté est pire qu'un
       // refus : la faute ne se manifeste que chez la ressource.
       const tokens = await svc.refresh(body.refresh_token, body.resource);
-      return this.renderJson(tokens);
+      return await this.renderJson(tokens);
     } catch (e) {
       return this.#renderAuthError(e);
     }

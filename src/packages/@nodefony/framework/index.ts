@@ -388,7 +388,8 @@ class Framework extends Module<IFrameworkConfig> {
         // vrais logs). Source unique = `config.log.dir` (défaut "logs"), sous cwd.
         const logDir = path.resolve(
           process.cwd(),
-          this.kernel.options?.log?.dir ?? "logs",
+          (this.kernel.options?.log as { dir?: string } | undefined)?.dir ??
+            "logs",
         );
         broker.register(
           createSyslogAdminApi(this.kernel.syslog, {

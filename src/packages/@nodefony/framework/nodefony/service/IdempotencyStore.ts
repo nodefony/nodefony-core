@@ -112,7 +112,7 @@ class MemoryIdempotencyStore extends Service implements IIdempotencyStore {
   }
 
   begin(key: string, fingerprint: string): IdempotencyOutcome {
-    const entries = this.entries ?? (this.entries = new Map());
+    const entries = this.entries ?? (this.entries = new Map<string, Entry>());
     const now = Date.now();
     const existing = entries.get(key);
     if (existing !== undefined && now <= existing.expiresAt) {

@@ -143,7 +143,10 @@ class WebAuthnController extends Controller {
         me.username,
         this.#origin(),
       );
-      return this.renderJson({ verified: true, credentialId: credential.id });
+      return await this.renderJson({
+        verified: true,
+        credentialId: credential.id,
+      });
     } catch (e) {
       return this.#renderAuthError(e);
     }
@@ -201,7 +204,7 @@ class WebAuthnController extends Controller {
         userId,
         "webauthn",
       );
-      return this.renderJson({ verified: true, user });
+      return await this.renderJson({ verified: true, user });
     } catch (e) {
       return this.#renderAuthError(e);
     }

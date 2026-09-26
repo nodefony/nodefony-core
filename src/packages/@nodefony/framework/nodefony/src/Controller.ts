@@ -142,6 +142,17 @@ export function parseByteRange(
  */
 export type ControllerScope = "request" | "singleton";
 
+/**
+ * Garantit une `Error` comme motif de rejet : une valeur levée par un tiers
+ * (`fs`, flux) peut être n'importe quoi.
+ *
+ * @param e - valeur interceptée.
+ * @returns `e` si c'est déjà une `Error`, sinon une `Error` qui en porte le texte.
+ */
+function asError(e: unknown): Error {
+  return e instanceof Error ? e : new Error(String(e));
+}
+
 class Controller extends Service implements IController {
   static prefix: string = "/";
   /**
@@ -438,7 +449,7 @@ class Controller extends Service implements IController {
       }
       this.setContextHtml();
       this.#warnScriptWithoutNonce(data);
-      return this.renderResponse(data, "utf8", status, headers);
+      return await this.renderResponse(data, "utf8", status, headers);
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
@@ -474,10 +485,17 @@ class Controller extends Service implements IController {
     // est arrivé ; le nonce satisfait `script-src 'nonce-…'`.
     const nonce = this.context?.cspNonce;
     const host = this.context?.domain;
+    const renderTags = fe.renderTags;
+    const renderDocument = fe.renderDocument;
     return {
-      frontendTags: (entry: string) => fe.renderTags!(entry, nonce, host),
-      frontendDocument: (entry: string) =>
-        fe.renderDocument!(entry, nonce, host),
+      frontendTags: (entry: string) => renderTags(entry, nonce, host),
+      frontendDocument: (entry: string) => {
+        // Seul `renderTags` est garanti par la garde ci-dessus.
+        if (!renderDocument) {
+          throw new Error("frontend service does not expose renderDocument");
+        }
+        return renderDocument(entry, nonce, host);
+      },
       // `asset('/x')` → URL CDN (assetBaseUrl) en prod, sinon chemin relatif.
       asset: (p: string) => (fe.assetUrl ? fe.assetUrl(p) : p),
       ...param,
@@ -494,7 +512,18 @@ class Controller extends Service implements IController {
     return this.renderResponse(data, "utf8", status, headers);
   }
 
-  setRoute(route: Route): Route {
+  /**
+   * Pose la route de la requête courante sur l'instance (per-request).
+   *
+   * `null` est accepté : un re-routage sans route matchée (forward interne)
+   * efface la précédente au lieu de la laisser traîner.
+   *
+   * @param route - route matchée, ou `null`.
+   * @returns la route posée.
+   */
+  setRoute(route: Route): Route;
+  setRoute(route: Route | null): Route | null;
+  setRoute(route: Route | null): Route | null {
     this.#route = route;
     return route;
   }
@@ -559,7 +588,7 @@ class Controller extends Service implements IController {
       throw new Error(`File argument bad type for getFile :${typeof file}`);
     }
     if (File.type !== "File") {
-      throw new Error(`getFile bad type for  :${file}`);
+      throw new Error(`getFile bad type for  :${String(file)}`);
     }
     return File;
   }
@@ -610,7 +639,7 @@ class Controller extends Service implements IController {
       );
     }
     if (File.type !== "File") {
-      this.log(`ce chemin n'est pas un fichier : ${file}`, "DEBUG");
+      this.log(`ce chemin n'est pas un fichier : ${String(file)}`, "DEBUG");
       throw new HttpError("Not Found", 404, this.context);
     }
     return File;
@@ -643,12 +672,8 @@ class Controller extends Service implements IController {
       "Content-Type": File.mimeType || "application/octet-stream",
       ...headers,
     };
-    try {
-      return this.streamFile(File, head, options);
-    } catch (e) {
-      this.log(e, "ERROR");
-      throw e;
-    }
+    // `streamFile` journalise déjà ses propres échecs.
+    return this.streamFile(File, head, options);
   }
 
   /**
@@ -686,6 +711,7 @@ class Controller extends Service implements IController {
       throw new Error(`response not found`);
     }
     options.autoClose = false;
+    let streamFile: ReadStreamWithFD;
     try {
       const fileDetails = await this.getFileAsync(file);
 
@@ -716,71 +742,83 @@ class Controller extends Service implements IController {
         );
         headers["Content-Length"] = fileDetails.stats.size;
       }
-      const streamFile = createReadStream(
+      streamFile = createReadStream(
         fileDetails.path as fs.PathLike,
         options,
       ) as ReadStreamWithFD;
-
-      return new Promise((resolve, reject) => {
-        let handled = false;
-        // R5 — client parti pendant le stream : la destination morte unpipe le
-        // ReadStream qui reste alors PAUSÉ, fd ouvert (`autoClose:false`), sans
-        // émettre `end`/`close` → fd fuit + promesse pendue. `destroy()` émet
-        // `close` → `handleStreamEnd` ferme le fd et résout.
-        const onResponseClose = () => {
-          if (!handled) {
-            streamFile.destroy();
-          }
-        };
-        response.once("close", onResponseClose);
-        streamFile.on("open", () => {
-          try {
-            (this.context as HttpContext)?.writeHead(
-              contextResponse?.statusCode,
-              headers,
-            );
-            streamFile.pipe(response, { end: false });
-          } catch (e) {
-            this.log(e, "ERROR");
-            return reject(e);
-          }
-        });
-        const handleStreamEnd = async () => {
-          try {
-            if (handled) return; // Prevent handling multiple times
-            handled = true;
-            response.removeListener("close", onResponseClose);
-            if (streamFile) {
-              streamFile.unpipe(response);
-              if (streamFile.fd) {
-                await fsClose(streamFile.fd).catch((e) => {
-                  return reject(e);
-                });
-              }
-              if (!this.context?.finished) {
-                (this.context as HttpContext)?.end();
-              }
-              return resolve(streamFile);
-            }
-          } catch (e) {
-            this.log(e, "ERROR");
-            return reject(e);
-          }
-        };
-        streamFile.on("end", handleStreamEnd);
-        streamFile.on("close", handleStreamEnd);
-        streamFile.on("error", (error) => {
-          this.log(error, "ERROR");
-          if (!this.context?.finished) {
-            (this.context as HttpContext)?.end();
-          }
-          return reject(error);
-        });
-      });
     } catch (e) {
       this.log(e, "ERROR");
       throw e;
     }
+    // Hors du `try` : le flux journalise lui-même ses échecs (handlers
+    // ci-dessous) — l'`await` qu'exigerait un `return` dans le `try` les
+    // aurait journalisés deux fois.
+    return new Promise((resolve, reject) => {
+      let handled = false;
+      // R5 — client parti pendant le stream : la destination morte unpipe le
+      // ReadStream qui reste alors PAUSÉ, fd ouvert (`autoClose:false`), sans
+      // émettre `end`/`close` → fd fuit + promesse pendue. `destroy()` émet
+      // `close` → `handleStreamEnd` ferme le fd et résout.
+      const onResponseClose = () => {
+        if (!handled) {
+          streamFile.destroy();
+        }
+      };
+      response.once("close", onResponseClose);
+      streamFile.on("open", () => {
+        try {
+          (this.context as HttpContext)?.writeHead(
+            contextResponse?.statusCode,
+            headers,
+          );
+          streamFile.pipe(response, { end: false });
+        } catch (e) {
+          this.log(e, "ERROR");
+          reject(asError(e));
+        }
+      });
+      // Fin de réponse : `end()` est asynchrone, et son rejet n'avait
+      // jusqu'ici personne pour l'entendre (rejet non géré → process).
+      // `Promise.resolve` : un contexte dont `end()` est synchrone (doublure,
+      // transport tiers) reste accepté ; une promesse native passe telle quelle.
+      const endContext = (): void => {
+        const ctx = this.context as HttpContext | undefined;
+        if (ctx && !ctx.finished) {
+          Promise.resolve(ctx.end()).catch((e: unknown) => {
+            this.log(e, "ERROR");
+          });
+        }
+      };
+      const handleStreamEnd = async () => {
+        try {
+          if (handled) return; // Prevent handling multiple times
+          handled = true;
+          response.removeListener("close", onResponseClose);
+          streamFile.unpipe(response);
+          if (streamFile.fd) {
+            await fsClose(streamFile.fd).catch((e: unknown) => {
+              reject(asError(e));
+            });
+          }
+          endContext();
+          resolve(streamFile);
+        } catch (e) {
+          this.log(e, "ERROR");
+          reject(asError(e));
+        }
+      };
+      // `handleStreamEnd` intercepte tout : sa promesse ne rejette jamais.
+      const onStreamEnd = (): void => {
+        void handleStreamEnd();
+      };
+      streamFile.on("end", onStreamEnd);
+      streamFile.on("close", onStreamEnd);
+      streamFile.on("error", (error) => {
+        this.log(error, "ERROR");
+        endContext();
+        reject(error);
+      });
+    });
   }
 
   async renderMediaStream(

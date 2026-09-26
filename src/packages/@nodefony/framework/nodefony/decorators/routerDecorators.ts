@@ -2,9 +2,10 @@
    la signature IMPOSÉE par TypeScript, jamais de la dette. Deux formes, toutes deux
    justifiées au cas par cas dans les commentaires ci-dessous : le type de constructeur
    d'un mixin (`new (...args: any[]) => T` — un `unknown[]` casse l'`extends
-   constructor`), et le décorateur DUAL classe+méthode (`target` est le constructeur
-   OU le prototype ; un type concret casse l'assignabilité à `ClassDecorator` /
-   `MethodDecorator`). Un `any` AUTRE que ces deux formes n'a rien à faire ici. */
+   constructor`), et le RETOUR du décorateur DUAL classe+méthode (la classe OU le
+   descriptor ; un type concret casse l'assignabilité à `ClassDecorator` /
+   `MethodDecorator`) — son `target`, lui, est un `object`. Un `any` AUTRE que ces
+   deux formes n'a rien à faire ici. */
 import "reflect-metadata";
 //import { fileURLToPath } from "url";
 import Router, { TypeController } from "../service/router";
@@ -115,7 +116,10 @@ function controllers(
 ): <T extends Constructor<Module>>(constructor: T) => T {
   return function <T extends Constructor<Module>>(constructor: T): T {
     class NewConstructorControllers extends constructor {
+      // TS2545 impose `any[]` au constructeur d'un mixin, et le relais à
+      // `super` en hérite : rien à typer plus finement ici.
       constructor(...args: any[]) {
+        // oxlint-disable-next-line typescript/no-unsafe-argument
         super(...args);
         // Tagué au nom du module (`hookKernel`) : l'enregistrement des
         // controllers suit la criticité de son module, et un échec nomme
@@ -199,23 +203,30 @@ function controller(prefix: string) {
     //const constructor = mycontroller.constructor;
     //const className = mycontroller.name;
     mycontroller.prefix = prefix;
-    const metadata = Reflect.getMetadata(metadataKey, mycontroller) || {};
-    if (metadata && Object.keys(metadata).length !== 0) {
+    // reflect-metadata ne type rien : la forme est celle que pose `route()`
+    // ci-dessous, seul écrivain de `metadataKey`.
+    const metadata =
+      (Reflect.getMetadata(metadataKey, mycontroller) as
+        Record<string, RouteOptions> | undefined) || {};
+    if (Object.keys(metadata).length !== 0) {
       let hasMagic: false | { name: string; options: RouteOptions } = false;
       for (const name in metadata) {
         const options = metadata[name];
         options.prefix = prefix;
         // @Domain : précédence @route({host}) > @Domain méthode > @Domain classe.
         if (options.host === undefined) {
-          const methodDomain = Reflect.getMetadata(
-            DOMAIN_METHOD_METADATA,
-            mycontroller,
-            options.classMethod,
-          );
+          const methodDomain =
+            options.classMethod === undefined
+              ? undefined
+              : (Reflect.getMetadata(
+                  DOMAIN_METHOD_METADATA,
+                  mycontroller,
+                  options.classMethod,
+                ) as string[] | undefined);
           const classDomain = Reflect.getMetadata(
             DOMAIN_CLASS_METADATA,
             mycontroller,
-          );
+          ) as string[] | undefined;
           const domain = methodDomain ?? classDomain;
           if (domain) {
             options.host = domain;
@@ -226,15 +237,18 @@ function controller(prefix: string) {
         // Lecture au montage → ordre des décorateurs indifférent (fail-closed : un
         // oubli laisse la route gatée).
         if (options.bypassFirewall !== true) {
-          const methodBypass = Reflect.getMetadata(
-            BYPASS_FIREWALL_METHOD_METADATA,
-            mycontroller,
-            options.classMethod,
-          );
+          const methodBypass =
+            options.classMethod === undefined
+              ? undefined
+              : (Reflect.getMetadata(
+                  BYPASS_FIREWALL_METHOD_METADATA,
+                  mycontroller,
+                  options.classMethod,
+                ) as boolean | undefined);
           const classBypass = Reflect.getMetadata(
             BYPASS_FIREWALL_CLASS_METADATA,
             mycontroller,
-          );
+          ) as boolean | undefined;
           if (methodBypass === true || classBypass === true) {
             options.bypassFirewall = true;
           }
@@ -303,7 +317,11 @@ function route(name: string, options: RouteOptions) {
     } catch (error) {
       filePath = error;
     }
-    const metadata = Reflect.getMetadata(metadataKey, target.constructor) || {};
+    // Forme ouverte : `filePath` peut porter l'erreur de pile, `prefix` un
+    // `null` — la lecture typée est faite par `controller()`.
+    const metadata =
+      (Reflect.getMetadata(metadataKey, target.constructor) as
+        Record<string, unknown> | undefined) || {};
     metadata[name] = {
       path,
       filePath,
@@ -603,8 +621,9 @@ function Header(key: string, value: string) {
     propertyKey: string,
     descriptor: PropertyDescriptor,
   ): PropertyDescriptor {
-    const existing: Record<string, string> =
-      Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) || {};
+    const existing =
+      (Reflect.getMetadata(HEADERS_METADATA, target, propertyKey) as
+        Record<string, string> | undefined) || {};
     existing[key] = value;
     Reflect.defineMetadata(HEADERS_METADATA, existing, target, propertyKey);
     return descriptor;
@@ -671,10 +690,10 @@ function Domain(patterns: string | string[]) {
   const list = Array.isArray(patterns) ? patterns : [patterns];
   // Décorateur DUAL classe+méthode : `target` est soit le constructeur (classe),
   // soit le prototype (méthode), et le retour soit la classe soit le descriptor.
-  // `any` est l'idiome TS sanctionné pour un décorateur polymorphe (un type
+  // Retour `any` : idiome TS sanctionné pour un décorateur polymorphe (un type
   // concret casse l'assignabilité au générique `ClassDecorator`). Pas de la dette.
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
@@ -729,7 +748,7 @@ function Domain(patterns: string | string[]) {
 // constructeur (classe) ou prototype (méthode). `any` = idiome TS sanctionné
 // pour un décorateur polymorphe (cf @Domain).
 function BypassFirewall(
-  target: any,
+  target: object,
   propertyKey?: string,
   descriptor?: PropertyDescriptor,
 ): any {
@@ -772,7 +791,7 @@ function BypassFirewall(
  * class BookController extends ResourceController { ... }
  */
 function Scope(scope: ControllerScope) {
-  return function <T extends { scope?: ControllerScope }>(target: T): void {
+  return function (target: { scope?: ControllerScope }): void {
     target.scope = scope;
   };
 }
@@ -808,7 +827,7 @@ function UseSession(options: UseSessionOptions = {}) {
   // décorateur polymorphe (cf @Domain) — un type concret casse l'assignabilité
   // au générique `ClassDecorator`/`MethodDecorator`. Pas de la dette.
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
@@ -895,21 +914,23 @@ function IsGranted(
   };
   // Dual classe+méthode (idiome `any` du module, cf @Domain/@BypassFirewall).
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
     if (propertyKey === undefined) {
       // Classe → clauses sur le constructeur (défaut de toutes les actions).
-      const existing: SecurityClause[] =
-        Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target) || [];
+      const existing =
+        (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target) as
+          SecurityClause[] | undefined) || [];
       existing.push(clause);
       Reflect.defineMetadata(SECURITY_CLAUSES_METADATA, existing, target);
       return target;
     }
     // Méthode → clauses sur le prototype, keyées par nom (comme PARAM_ARGS).
-    const existing: SecurityClause[] =
-      Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target, propertyKey) || [];
+    const existing =
+      (Reflect.getMetadata(SECURITY_CLAUSES_METADATA, target, propertyKey) as
+        SecurityClause[] | undefined) || [];
     existing.push(clause);
     Reflect.defineMetadata(
       SECURITY_CLAUSES_METADATA,
@@ -932,7 +953,7 @@ function IsGranted(
 function Anonymous() {
   // Dual classe+méthode (idiome `any` du module).
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
@@ -986,21 +1007,23 @@ function RequireScope(scope: string | readonly string[]) {
   };
   // Dual classe+méthode (idiome `any` du module, cf @IsGranted/@Domain).
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
     if (propertyKey === undefined) {
       // Classe → scopes sur le constructeur (s'appliquent à toutes les actions).
-      const existing: SecurityClause[] =
-        Reflect.getMetadata(SECURITY_SCOPES_METADATA, target) || [];
+      const existing =
+        (Reflect.getMetadata(SECURITY_SCOPES_METADATA, target) as
+          SecurityClause[] | undefined) || [];
       existing.push(clause);
       Reflect.defineMetadata(SECURITY_SCOPES_METADATA, existing, target);
       return target;
     }
     // Méthode → scopes sur le prototype, keyés par nom (comme SECURITY_CLAUSES).
-    const existing: SecurityClause[] =
-      Reflect.getMetadata(SECURITY_SCOPES_METADATA, target, propertyKey) || [];
+    const existing =
+      (Reflect.getMetadata(SECURITY_SCOPES_METADATA, target, propertyKey) as
+        SecurityClause[] | undefined) || [];
     existing.push(clause);
     Reflect.defineMetadata(
       SECURITY_SCOPES_METADATA,
@@ -1046,7 +1069,7 @@ function mergeCspDirectives(
 function Csp(directives: CspDirectives) {
   // Dual classe+méthode (idiome `any` du module, cf @IsGranted/@Domain).
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
@@ -1085,7 +1108,7 @@ function Csp(directives: CspDirectives) {
 function booleanMarkerDecorator(markerKey: string) {
   return function () {
     return function (
-      target: any,
+      target: object,
       propertyKey?: string,
       descriptor?: PropertyDescriptor,
     ): any {
@@ -1149,7 +1172,7 @@ function Idempotent(options?: { required?: boolean }) {
   const meta: IdempotentMeta = { required: options?.required ?? true };
   // Dual classe+méthode (idiome `any` du module, cf @IsGranted/@Domain).
   return function (
-    target: any,
+    target: object,
     propertyKey?: string,
     descriptor?: PropertyDescriptor,
   ): any {
@@ -1172,8 +1195,9 @@ function paramDecoratorFactory(source: ParamSource) {
       propertyKey: string,
       parameterIndex: number,
     ): void {
-      const existing: ParamMeta[] =
-        Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) || [];
+      const existing =
+        (Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
+          ParamMeta[] | undefined) || [];
       existing.push({ source, key, index: parameterIndex });
       Reflect.defineMetadata(
         PARAM_ARGS_METADATA,
@@ -1235,8 +1259,9 @@ function Body(keyOrOptions?: string | { stream?: boolean }) {
     propertyKey: string,
     parameterIndex: number,
   ): void {
-    const existing: ParamMeta[] =
-      Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) || [];
+    const existing =
+      (Reflect.getMetadata(PARAM_ARGS_METADATA, target, propertyKey) as
+        ParamMeta[] | undefined) || [];
     // `stream` n'est posé QUE s'il vaut true → `@Body()`/`@Body("k")` gardent
     // exactement la forme historique `{source,key,index}` (rétro-compat tests).
     const meta: ParamMeta = { source: "body", key, index: parameterIndex };
@@ -1390,8 +1415,9 @@ function routeExpectsBodyStream(routeDef: {
     const ctor = routeDef.controller;
     const method = routeDef.classMethod;
     if (ctor && method) {
-      const metas: ParamMeta[] =
-        Reflect.getMetadata(PARAM_ARGS_METADATA, ctor.prototype, method) || [];
+      const metas =
+        (Reflect.getMetadata(PARAM_ARGS_METADATA, ctor.prototype, method) as
+          ParamMeta[] | undefined) || [];
       flag = metas.some((m) => m.source === "body" && m.stream === true);
     }
     routeDef.bodyStream = flag;

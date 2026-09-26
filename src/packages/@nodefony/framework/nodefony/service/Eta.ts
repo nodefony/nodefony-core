@@ -35,8 +35,16 @@ class Eta extends Template {
   declare engine: EtaEngine;
 
   constructor(module: Module) {
-    const engine = new EtaEngine(extend(true, {}, defaultOption));
-    super("template", engine, module, extend(true, {}, defaultOption));
+    // `extend` (cœur) rend `any` : copie profonde de `defaultOption`, même forme.
+    const engine = new EtaEngine(
+      extend(true, {}, defaultOption) as typeof defaultOption,
+    );
+    super(
+      "template",
+      engine,
+      module,
+      extend(true, {}, defaultOption) as typeof defaultOption,
+    );
     // `Template` calcule `this.cache` selon l'environnement (prod = true).
     this.engine.configure({ cache: this.cache });
   }

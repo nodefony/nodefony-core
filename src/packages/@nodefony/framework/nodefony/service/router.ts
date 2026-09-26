@@ -5,6 +5,7 @@ import {
   //inject,
   injectable,
 } from "nodefony";
+import type { DefaultOptionsService } from "nodefony";
 import Route, { RouteOptions } from "../src/Route";
 import { ContextType, HttpError, isDomainAllowed } from "@nodefony/http";
 import type { IRequestRouter } from "@nodefony/http";
@@ -37,7 +38,7 @@ function collectSupportedMethods(route: Route): Set<string> {
       .filter(Boolean)
       .forEach((x) => set.add(x));
   } else if (Array.isArray(m)) {
-    m.map((s) => String(s).toUpperCase()).forEach((x) => set.add(x));
+    m.map((s) => s.toUpperCase()).forEach((x) => set.add(x));
   }
   return set;
 }
@@ -183,7 +184,7 @@ class Router extends Service implements IRequestRouter {
       serviceName,
       module.container as Container,
       module.notificationsCenter,
-      module.options.router,
+      module.options.router as DefaultOptionsService | undefined,
     );
   }
 
@@ -315,7 +316,7 @@ class Router extends Service implements IRequestRouter {
           return resolver;
         }
       } catch (e) {
-        this.log(`Match route exception : ${route.name} ${e}`, "DEBUG");
+        this.log(`Match route exception : ${route.name} ${String(e)}`, "DEBUG");
         resolver.exception = e as Error;
         continue;
       }

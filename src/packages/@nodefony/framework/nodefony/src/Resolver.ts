@@ -93,6 +93,18 @@ export interface ControllerWithInitialize {
  */
 const areaRequirements = new WeakMap<object, SecurityRequirement>();
 
+/**
+ * Le controller expose-t-il un hook `initialize()` (appelé une fois à sa création) ?
+ *
+ * @param controller - instance fraîchement créée par l'injecteur.
+ * @returns `true` si `initialize` est une méthode.
+ */
+function hasInitialize(
+  controller: Controller,
+): controller is Controller & { initialize(): unknown } {
+  return typeof Reflect.get(controller, "initialize") === "function";
+}
+
 class Resolver implements IResolver {
   injector?: Injector | null;
   controller: ControllerConstructor | null = null;
@@ -239,16 +251,18 @@ class Resolver implements IResolver {
     if (!this.controller) {
       throw new Error(`Controller not set`);
     }
-    const methodNames = Object.getOwnPropertyNames(this.controller.prototype);
-    for (const methodName of methodNames) {
-      if (
-        typeof this.controller.prototype[methodName] === "function" &&
-        methodName === name
-      ) {
-        return this.controller.prototype[methodName];
-      }
+    // Lecture DIRECTE du membre propre demandé : l'ancien balayage de
+    // `getOwnPropertyNames` allouait un tableau par appel et évaluait au
+    // passage CHAQUE membre du prototype — accesseurs compris, déclenchés sur
+    // le prototype nu.
+    const proto: object = this.controller.prototype;
+    if (!Object.hasOwn(proto, name)) {
+      return null;
     }
-    return null;
+    const member: unknown = Reflect.get(proto, name);
+    return typeof member === "function"
+      ? (member as (...args: unknown[]) => unknown)
+      : null;
   }
 
   async newController(context?: ContextType): Promise<Controller> {
@@ -308,10 +322,7 @@ class Resolver implements IResolver {
       if (this.controller?.prototype.module) {
         controller.module = this.controller.prototype.module;
       }
-      if (
-        "initialize" in controller &&
-        typeof controller.initialize === "function"
-      ) {
+      if (hasInitialize(controller)) {
         await controller.initialize();
       }
       return controller;
@@ -395,7 +406,7 @@ class Resolver implements IResolver {
       (this.controller as unknown as typeof Controller | null)?.scope !==
       "singleton"
     ) {
-      controller.setRoute(this.route!);
+      controller.setRoute(this.route);
       // Pont WS-RPC : la query du path invoqué remplace celle du handshake
       // pour les getters d'instance (`this.query`/`this.queryGet` — ex.
       // `AdminApiController.buildRequest`). Per-instance → zéro bleed. Les
@@ -826,6 +837,10 @@ class Resolver implements IResolver {
 
   async returnController(result: unknown): Promise<unknown> {
     const type = typeOf(result);
+    // `switch (true)` : chaque `case` est une expression booléenne, jamais le
+    // littéral `true` — la règle réclame un `case true` qui n'a pas de sens ici,
+    // et le `default` final couvre déjà tout le reste.
+    // oxlint-disable-next-line typescript/switch-exhaustiveness-check
     switch (true) {
       case result instanceof Promise:
       case isPromise(result):
@@ -905,6 +920,10 @@ class Resolver implements IResolver {
           case "https":
             this.context.waitAsync = true;
             break;
+          case "websocket":
+          case "websocket-secure":
+            // WS : pas de teardown qui surveille un hang → rien à poser.
+            break;
         }
         return;
       }
@@ -930,6 +949,10 @@ class Resolver implements IResolver {
               return (this.context as HttpContext).send();
             }
             this.context.waitAsync = true;
+            break;
+          case "websocket":
+          case "websocket-secure":
+            // WS : l'action répond par message, ou ne répond pas — pas de hang.
             break;
         }
     }

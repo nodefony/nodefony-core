@@ -90,7 +90,7 @@ export function createFrameworkAdminApi(
   /** Normalise `requirements.methods` (string | string[]) → tableau majuscule. */
   const methodsOf = (route: Route): string[] => {
     const m = route.requirements?.methods ?? route.method;
-    if (Array.isArray(m)) return m.map((x) => String(x).toUpperCase());
+    if (Array.isArray(m)) return m.map((x) => x.toUpperCase());
     if (typeof m === "string") {
       return m
         .split(",")
@@ -204,9 +204,30 @@ export function createFrameworkAdminApi(
    * adossé à une ressource persistée déclare un `IFilterSpec` et laisse le cœur
    * valider — il ne recopie pas ce `matchOp`.
    */
-  const matchOp = (raw: string, op: string, value: string): boolean => {
-    const s = String(raw ?? "");
-    const v = String(value ?? "");
+  // `value` vient d'un `JSON.parse` de la query : n'importe quel type.
+  // Primitifs → leur texte ; tableau → `a,b` (forme attendue par `in`) ;
+  // tout autre objet → vide (filtre ignoré, au lieu de comparer à
+  // « [object Object] », qui ne matchait rien).
+  const filterValueText = (value: unknown): string => {
+    switch (typeof value) {
+      case "string":
+        return value;
+      case "number":
+      case "boolean":
+      case "bigint":
+        return String(value);
+      case "object":
+        return Array.isArray(value) ? value.map(filterValueText).join(",") : "";
+      // Absent, ou impossible à produire par `JSON.parse`.
+      case "undefined":
+      case "symbol":
+      case "function":
+        return "";
+    }
+  };
+  const matchOp = (raw: string, op: string, value: unknown): boolean => {
+    const s = raw;
+    const v = filterValueText(value);
     if (op !== "isEmpty" && op !== "notEmpty" && v === "") return true;
     switch (op) {
       case "contains":
@@ -296,7 +317,7 @@ export function createFrameworkAdminApi(
         // que l'administrateur lit comme « aucune route ne contourne le firewall ».
         parseFilters(request.query, {}, { accepts: ["filters"] });
         const search = query.q?.toLowerCase() ?? "";
-        let filters: { key: string; op: string; value: string }[] = [];
+        let filters: { key: string; op: string; value: unknown }[] = [];
         try {
           const raw = one(request.query.filters);
           if (raw) filters = JSON.parse(raw) as typeof filters;
@@ -411,7 +432,7 @@ export function createFrameworkAdminApi(
               icon: d?.icon ?? null,
               order: d?.order ?? 99,
               role: d?.role ?? null,
-              endpoints: byNs.get(ns)!,
+              endpoints: byNs.get(ns) ?? [],
             };
           })
           .sort((a, b) => a.order - b.order);

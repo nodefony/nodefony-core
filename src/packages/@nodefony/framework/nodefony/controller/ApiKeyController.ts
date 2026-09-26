@@ -83,7 +83,7 @@ class ApiKeyController extends Controller {
         scopes: body.scopes,
         expiresInDays: body.expiresInDays,
       });
-      return this.renderJson(created, 201);
+      return await this.renderJson(created, 201);
     } catch (e) {
       return this.#renderApiKeyError(e);
     }

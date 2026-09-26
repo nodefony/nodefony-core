@@ -280,7 +280,8 @@ describe("Routing index — le pré-filtre OPÈRE (pas seulement : ne casse rien
     const router = makeRouter();
     const ctx = makeCtx("/agg/7", "DELETE");
     expect(() => router.resolve(ctx)).to.throw();
-    const allow = String(ctx.response.headers.Allow ?? "");
+    const rawAllow: unknown = ctx.response.headers.Allow;
+    const allow = typeof rawAllow === "string" ? rawAllow : "";
     expect(allow).to.contain("GET");
     expect(allow).to.contain("PUT");
   });

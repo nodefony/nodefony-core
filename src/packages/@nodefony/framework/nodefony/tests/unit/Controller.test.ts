@@ -476,14 +476,18 @@ describe("Controller — forward()", () => {
 
 // ─── getFile / getFileAsync ─────────────────────────────────────────────────────
 
+// `getFile` est déprécié mais conservé pour compat : ces tests gardent
+// précisément ce contrat tant qu'il existe.
 describe("Controller — getFile()", () => {
   it("returns a FileClass for a real file", () => {
     const { c } = makeController();
+    // oxlint-disable-next-line typescript/no-deprecated
     expect(c.getFile(HERE).type).to.equal("File");
   });
 
   it("throws for a directory (type !== File)", () => {
     const { c } = makeController();
+    // oxlint-disable-next-line typescript/no-deprecated
     expect(() => c.getFile(DIR)).to.throw();
   });
 });

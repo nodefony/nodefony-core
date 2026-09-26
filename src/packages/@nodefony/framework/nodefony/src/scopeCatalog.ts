@@ -45,7 +45,7 @@ export function collectDeclaredApiScopes(): IApiScopeGroup[] {
   }
   return [...byApi.keys()]
     .sort()
-    .map((api) => ({ api, scopes: [...byApi.get(api)!].sort() }));
+    .map((api) => ({ api, scopes: [...(byApi.get(api) ?? [])].sort() }));
 }
 
 export default collectDeclaredApiScopes;

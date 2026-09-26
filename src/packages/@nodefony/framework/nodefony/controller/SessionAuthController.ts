@@ -23,7 +23,8 @@ export interface ISessionAuthFlow {
   ): Promise<ILoginOutcome>;
   completeMfaLogin(context: ContextType, code: unknown): Promise<unknown>;
   logout(context: ContextType): Promise<boolean>;
-  me(context: ContextType): Promise<unknown | null>;
+  /** Identité courante, ou `null` sans session authentifiée. */
+  me(context: ContextType): Promise<unknown>;
 }
 
 // Montage one-shot par process (même sémantique que `Router.setController`,
@@ -78,12 +79,12 @@ class SessionAuthController extends Controller {
       if (outcome.status === "mfa_required") {
         // 1ᵉʳ facteur OK, 2ᵉ requis : 202 Accepted — PAS encore authentifié (la
         // session ne porte qu'un défi PENDING). Le client enchaîne sur login/totp.
-        return this.renderJson(
+        return await this.renderJson(
           { mfaRequired: true, methods: outcome.methods },
           202,
         );
       }
-      return this.renderJson({ user: outcome.user });
+      return await this.renderJson({ user: outcome.user });
     } catch (e) {
       return this.#renderAuthError(e);
     }
@@ -105,7 +106,7 @@ class SessionAuthController extends Controller {
         this.context as ContextType,
         body.code,
       );
-      return this.renderJson({ user });
+      return await this.renderJson({ user });
     } catch (e) {
       return this.#renderAuthError(e);
     }

@@ -277,9 +277,8 @@ export function createSyslogAdminApi(
       },
       handler: async (
         request,
-      ): Promise<
-        unknown | IAdminResponse<{ queryable: false; driver: string | null }>
-      > => {
+        // `unknown` : la page du driver, ou un 409 `{ queryable: false, driver }`.
+      ): Promise<unknown> => {
         // `?driver=<name>` cible un driver enregistré précis (switch Studio) ;
         // `?scope=trace` demande la rétention LONGUE (cf resolveTraceDriver, pour
         // la vue Suivi de requête) ; sinon = driver actif (Explorer temps réel).
@@ -297,7 +296,7 @@ export function createSyslogAdminApi(
         }
         // `driver` et `scope` sont lus JUSTE AU-DESSUS : les déclarer ici est la
         // contrepartie du refus de l'inconnu, et l'engagement de les traiter.
-        return await driver.query(buildCriteria(request, ["driver", "scope"]));
+        return driver.query(buildCriteria(request, ["driver", "scope"]));
       },
     },
     {
@@ -385,7 +384,7 @@ export function createSyslogAdminApi(
             },
           };
         }
-        return await driver.probe();
+        return driver.probe();
       },
     },
     {
@@ -393,7 +392,8 @@ export function createSyslogAdminApi(
       method: "POST",
       summary:
         "Switch du driver de relecture (DEV-only) — body { name }. Action de contrôle runtime.",
-      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+      // `unknown` : la donnée, ou un `IAdminResponse<{ error }>` de refus.
+      handler: (request): unknown => {
         // 🔒 Action de contrôle runtime → DEV-only STRICT. En prod, le driver est
         // figé par config/env (12-factor). Le RBAC (ROLE_NODEFONY_ADMIN) est
         // appliqué en plus par le broker via `role`.
@@ -424,7 +424,8 @@ export function createSyslogAdminApi(
       method: "POST",
       summary:
         "Active/désactive un transport d'écriture à chaud (DEV-only) — body { name, enabled }. Axe WRITE (fan-out).",
-      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+      // `unknown` : la donnée, ou un `IAdminResponse<{ error }>` de refus.
+      handler: (request): unknown => {
         // 🔒 Action de contrôle runtime → DEV-only STRICT (comme le switch de
         // driver). En prod, le fan-out d'écriture est figé par config/env
         // (12-factor). RBAC (ROLE_NODEFONY_ADMIN) appliqué en plus par le broker.
@@ -465,7 +466,8 @@ export function createSyslogAdminApi(
       method: "POST",
       summary:
         "Mute/démute le sink texte (console/fichier) à chaud (DEV-only) — body { enabled }.",
-      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+      // `unknown` : la donnée, ou un `IAdminResponse<{ error }>` de refus.
+      handler: (request): unknown => {
         if (options.environment !== "development") {
           return {
             status: 403,
@@ -477,7 +479,7 @@ export function createSyslogAdminApi(
           return { status: 400, body: { error: "missing enabled (boolean)" } };
         }
         // Tracer AVANT de couper (sinon le « désactivé » ne sortirait pas en console).
-        if (body.enabled === false) {
+        if (!body.enabled) {
           syslog.log(
             `sink texte « ${Syslog.logSinkName} » coupé (console/fichier)`,
             "NOTICE",
@@ -496,7 +498,8 @@ export function createSyslogAdminApi(
       method: "POST",
       summary:
         "Active/désactive le stockage mémoire (ring) à chaud (DEV-only) — body { enabled }.",
-      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+      // `unknown` : la donnée, ou un `IAdminResponse<{ error }>` de refus.
+      handler: (request): unknown => {
         if (options.environment !== "development") {
           return {
             status: 403,
@@ -523,7 +526,8 @@ export function createSyslogAdminApi(
       method: "POST",
       summary:
         "Active/désactive la diffusion temps réel (nodefony:syslog / Live) à chaud (DEV-only) — body { enabled }.",
-      handler: (request): IAdminResponse<{ error: string }> | unknown => {
+      // `unknown` : la donnée, ou un `IAdminResponse<{ error }>` de refus.
+      handler: (request): unknown => {
         if (options.environment !== "development") {
           return {
             status: 403,

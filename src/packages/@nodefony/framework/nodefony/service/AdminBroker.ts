@@ -6,7 +6,7 @@ import {
   resolveAdminRole,
   ADMIN_DEFAULT_ROLE,
 } from "nodefony";
-import type { IAdminApi } from "nodefony";
+import type { IAdminApi, DefaultOptionsService } from "nodefony";
 import type { HTTPMethod } from "@nodefony/http";
 import type { IAdminBroker, IAdminRoute } from "../interfaces/IAdminBroker";
 import Router from "./router";
@@ -43,7 +43,7 @@ class AdminBroker extends Service implements IAdminBroker {
       serviceName,
       module.container as Container,
       module.notificationsCenter,
-      module.options.adminBroker,
+      module.options.adminBroker as DefaultOptionsService | undefined,
     );
     this.frameworkModule = module;
   }
